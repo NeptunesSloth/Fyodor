@@ -418,14 +418,34 @@ def _single(ability: Any, ch: Any, text: str) -> dict[str, Any] | None:
 #   special action (ruling 2024-02-02) nor an effect turns one up (casting.turn_face_up, facedown._turn_up).
 # * "All damage is dealt as though its source had wither." (Everlasting Torment): 702.80a, 120.3d — damage to a creature is -1/-1 counters
 #   (replace.py, wherever the source is: ruling 2008-05-01).
-FIRST_TURNS, NO_FACE_UP, ALL_WITHER = "first_turns100d", "no_face_up100d", "all_wither100d"
-_FLAGS = {"You can't cast ~ during your first, second, or third turns of the game.": FIRST_TURNS,
+# * "You may look at an additional two cards each time you surveil." (Enhanced Surveillance): 701.25a, part of what you surveil, two more for
+#   each one you control (rulings 2018-10-05) — effects._look.
+# * "Foretelling cards from your hand costs {1} less and can be done on any player's turn." (Cosmos Charger): 702.143a, the special action's {2}
+#   less {1} for each one you control, any time you have priority (rulings 2021-02-05) — casting.foretell.
+# * "Planeswalkers' loyalty abilities you activate cost an additional [+1] to activate." (Carth the Lion): 606.4, 118.8 — one total loyalty cost
+#   ([-3] removes two counters at once; [0] becomes [+1]), +1 for each one you control (rulings 2021-06-18) — casting.ability_problem / pay.
+FIRST_TURNS, NO_FACE_UP, ALL_WITHER, MORE_SURVEIL, FORETELL = "first_turns100d", "no_face_up100d", "all_wither100d", "more_surveil100d", "foretell100d"
+LOYALTY_PLUS = "loyalty_plus100d"
+_FLAGS = {"Planeswalkers' loyalty abilities you activate cost an additional [+1] to activate.": LOYALTY_PLUS,
+"You may look at an additional two cards each time you surveil.": MORE_SURVEIL,
+          "Foretelling cards from your hand costs {1} less and can be done on any player's turn.": FORETELL,
+          "You can't cast ~ during your first, second, or third turns of the game.": FIRST_TURNS,
           "Permanents your opponents control can't be turned face up during your turn.": NO_FACE_UP,
           "All damage is dealt as though its source had wither.": ALL_WITHER}
 
 
 def _sources(plan: Plan, kind: str) -> list[CardInstance]:
     return [c for c in plan.state.cards.values() if c.zone.endswith(":battlefield") and not c.face_down and plan.in_game(c) and _statics(plan, c, kind)]
+
+
+def yours(plan: Plan, kind: str, player: str) -> int:
+    return sum(1 for c in _sources(plan, kind) if c.controller == player)
+
+
+def loyalty_plus(state: Any, info: Any, player: str) -> int:
+    from app.rules.plan import Plan
+
+    return yours(Plan.view(state, player, info), LOYALTY_PLUS, player) if info is not None else 0
 
 
 def any_static(plan: Plan, kind: str) -> bool:

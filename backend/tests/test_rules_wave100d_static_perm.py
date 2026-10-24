@@ -116,7 +116,16 @@ EXTRA += [
              {"object": "card_face", "name": "Invent", "mana_cost": "{4}{U}{R}", "type_line": "Instant",
               "oracle_text": "Search your library for an instant card and/or a sorcery card, reveal them, put them into your hand, then shuffle."}]),
 ]
-SINGLES = ["Archon of the Wild Rose", "Urza, Planeswalker", "Invert // Invent", "Serra Avenger", "Karlov Watchdog", "Everlasting Torment", "Ajani Goldmane", "Elsewhere Flask", "Dragon Turtle", "Blue Dragon", "Legate Lanius, Caesar's Ace", "Pardic Firecat", "Diligent Farmhand", "Garza's Assassin", "Robe of the Archmagi", "My Precious // Allure of Power"]
+EXTRA += [
+    real('Enhanced Surveillance', '{1}{U}', 2, 'Enchantment', 'You may look at an additional two cards each time you surveil.\nExile this enchantment: Shuffle your graveyard into your library.', None, 'U'),
+    real('Cosmos Charger', '{3}{U}', 4, 'Creature — Horse Spirit', "Flash\nFlying\nForetelling cards from your hand costs {1} less and can be done on any player's turn.\nForetell {2}{U} (During your turn, you may pay {2} and exile this card from your hand face down. Cast it on a later turn for its foretell cost.)", ('3', '3'), 'U'),
+    real('Doomskar Oracle', '{2}{W}', 3, 'Creature — Human Cleric', 'Whenever you cast your second spell each turn, you gain 2 life.\nForetell {W} (During your turn, you may pay {2} and exile this card from your hand face down. Cast it on a later turn for its foretell cost.)', ('3', '2'), 'W'),
+    real('Consider', '{U}', 1, 'Instant', 'Surveil 1. (Look at the top card of your library. You may put it into your graveyard.)\nDraw a card.', None, 'U'),
+]
+EXTRA += [
+    real('Carth the Lion', '{2}{B}{G}', 4, 'Legendary Creature — Human Warrior', "Whenever Carth enters or a planeswalker you control dies, look at the top seven cards of your library. You may reveal a planeswalker card from among them and put it into your hand. Put the rest on the bottom of your library in a random order.\nPlaneswalkers' loyalty abilities you activate cost an additional [+1] to activate.", ('3', '5'), 'BG'),
+]
+SINGLES = ["Carth the Lion", "Enhanced Surveillance", "Cosmos Charger", "Archon of the Wild Rose", "Urza, Planeswalker", "Invert // Invent", "Serra Avenger", "Karlov Watchdog", "Everlasting Torment", "Ajani Goldmane", "Elsewhere Flask", "Dragon Turtle", "Blue Dragon", "Legate Lanius, Caesar's Ace", "Pardic Firecat", "Diligent Farmhand", "Garza's Assassin", "Robe of the Archmagi", "My Precious // Allure of Power"]
 RULES = ["Gruul Spellbreaker", "Experimental Frenzy", "City of Solitude", "Melting", "Dream Leash", "Enthralling Hold"]
 FULL = [*SINGLES, *RULES, "Mistform Sliver", "Mesmeric Sliver", "Enduring Sliver", "Case of the Stashed Skeleton", "Case of the Gateway Express", "Case of the Gorgon's Kiss", "Case of the Burning Masks", "Scourge of the Skyclaves", "Roiling Horror", "Angry Mob", "Alrund, God of the Cosmos // Hakka, Whispering Raven", "Heightened Awareness", "Overlaid Terrain", "Full Moon's Rise", "O-Naginata", "Gate Smasher", "Goblin Brawler", "Domineer", "Awaken the Ancient", "Gideon, the Oathsworn", "Dovin, Architect of Law",
         "Ajani Unrelenting", "Nicol Bolas, Planeswalker", "Liliana, the Necromancer"]
@@ -1002,3 +1011,54 @@ def test_invert_switches_each_of_two_targets(cards):
     settle(s)
     assert pt(s, "Ogre", "p2") == (4, 1) and pt(s, "Elk") == (2, 3)  # 613.4d, each its own (ruling 2018-10-05)
     check(s)
+
+
+def test_enhanced_surveillance_looks_at_two_more(cards):
+    from tests.test_rules_conditionals import until
+
+    s = build(cards, ["Enhanced Surveillance", "Consider"])
+    put(s, "Enhanced Surveillance")
+    spell = to_hand(s, "Consider")
+    top = list(s.state.zones["p1:library"][:3])
+    mana(s, U=1)
+    act(s, "p1", type="cast_spell", card_id=spell.id)
+    until(s, lambda s: s.state.rules.decision is not None)
+    d = s.state.rules.decision
+    assert d.player == "p1" and [o.id for o in d.options] == top  # surveil 1 plus two (701.25a)
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=top[:2])
+    settle(s)
+    assert all(zone(s, s.state.cards[c]) == "p1:graveyard" for c in top[:2])
+    check(s)
+
+
+def test_cosmos_charger_foretells_for_one_on_another_turn(cards):
+    from tests.test_rules_conditionals import until
+
+    s = build(cards, ["Cosmos Charger", "Doomskar Oracle"])
+    put(s, "Cosmos Charger")
+    oracle = to_hand(s, "Doomskar Oracle")
+    until(s, lambda s: s.state.turn.active_player == "p2" and s.state.turn.phase == "main1")
+    act(s, "p1", type="set_prefs", full_control=True)
+    act(s, "p2", type="pass_priority")
+    assert s.state.rules.priority == "p1"
+    mana(s, C=1)
+    act(s, "p1", type="activate_ability", card_id=oracle.id, ability=1)  # 702.143a: {2} less {1}, on Bob's turn
+    settle(s)
+    assert zone(s, oracle) == "p1:foretell"  # (one mana was enough)
+    check(s)
+
+
+def test_carth_adds_one_to_each_loyalty_cost(cards):
+    s = build(cards, ["Carth the Lion", "Ajani Goldmane", "Ajani Unrelenting"])
+    put(s, "Carth the Lion")
+    for _ in range(5):  # (its enters trigger: take nothing)
+        settle(s)
+        if (d := s.state.rules.decision) is None:
+            break
+        act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: d.min_choices])
+    goldmane, unrelenting = walker(s, "Ajani Goldmane", 4), walker(s, "Ajani Unrelenting", 5)
+    loyal(s, goldmane, 1)  # [-1] becomes [0] (ruling 2021-06-18)
+    loyal(s, unrelenting, 1)  # [+1] becomes [+2]
+    assert s.state.cards[goldmane.id].counters.get("loyalty") == 4 and s.state.cards[unrelenting.id].counters.get("loyalty") == 7
+    check(s)
+

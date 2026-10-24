@@ -1145,6 +1145,10 @@ def _look(plan: Plan, ctx: Context, e: dict[str, Any], where: str) -> bool:
     if e.get("who") == "target" and (named := _players(plan, ctx, "target")):  # -- most-played modal spells (wave 50I) -- "Target player scries 3": that player looks
         pid = named[0]
     n = _amount(plan, ctx, e["n"])
+    if where == "graveyard" and n > 0:  # -- static permanents (wave 100D) -- Enhanced Surveillance
+        from app.rules import static_perm100d
+
+        n += 2 * static_perm100d.yours(plan, static_perm100d.MORE_SURVEIL, pid)
     if where == "bottom" and n > 0 and (replaced := replace.keyword_replace(plan, ctx, e, "scry", pid, n=n)) is not None:
         return replaced  # -- keyword actions (wave 35C) -- "If you would scry a number of cards, draw that many cards instead." (Eligeth)
     top = plan.state.zones.get(zone_key(pid, "library"), [])[:n]
