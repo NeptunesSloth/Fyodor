@@ -1124,6 +1124,7 @@ class PaymentRecord(BaseModel):
     exiled_facts: list[PaidCardFact] | None = None
     milled_facts: list[PaidCardFact] | None = None
     cast_controlled_subtypes: list[str] = Field(default_factory=list)  # Permanent subtype snapshot as casting finishes.
+    cast_controlled_modified: bool = False  # -- xdamage (wave 100E) -- a modified creature (700.9) controlled as casting finished (Flame Discharge)
     cast_revealed_subtypes: list[str] = Field(default_factory=list)  # Subtypes of cards revealed for this spell's cost.
     revealed: list[str] = Field(default_factory=list)  # -- static_other sweep (wave 17C) -- cards revealed from the hand to pay ("the revealed card's …")
     exiled: list[str] = Field(default_factory=list)  # cards exiled to pay (from a graveyard, or the source)

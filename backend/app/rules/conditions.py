@@ -2180,6 +2180,8 @@ def _cast_holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
         return False
     if (subtype := how.get("controlled_subtype100e")) is not None and subtype not in record.cast_controlled_subtypes:
         return False  # -- xdamage (wave 100E) -- "if you controlled a Faerie as you cast this spell" (Faerie Fencing): the snapshot as casting finished (601.2i)
+    if how.get("controlled_modified100e") and not record.cast_controlled_modified:
+        return False  # -- xdamage (wave 100E) -- "if you controlled a modified creature as you cast this spell" (Flame Discharge)
     if how.get("by_you") and record.controller != ctx["controller"]:
         return False
     if how.get("own_graveyard"):  # 400.3: a card goes to its owner's graveyard, so "your graveyard" is the controller's when the controller owns it and cast it

@@ -316,3 +316,47 @@ def test_multiple_choice_x_four_does_every_line_x_three_only_the_token(cards, x)
     assert len(tokens(s, "Elemental", "p1")) == 1
     assert (zone_of(s, bears), hand(s)) == (("p2:hand", before) if x == 4 else ("p2:battlefield", before - 1))
     check(s)
+
+
+# -- Change of Plans ------------------------------------------------------------------------------------------------------------------------------
+def test_change_of_plans_two_connive_then_one_phases_out(cards):
+    """X 2: both connive (draw, discard: Opt is a nonland card, a +1/+1 counter each), then Alice phases out only the Bears."""
+    s = build(cards, ["Change of Plans", "Grizzly Bears", "Llanowar Elves", *["Opt"] * 4])
+    bears, elves = put(s, "Grizzly Bears"), put(s, "Llanowar Elves")
+    spell = to_hand(s, "Change of Plans")
+    set_hand(s, "p1", 3)
+    mana(s, U=1, C=3)
+    act(s, "p1", type="cast_spell", card_id=spell.id, targets=[bears.id, elves.id], target_counts=[2], x_value=2)
+    for _ in range(20):
+        d = s.state.rules.decision
+        if d is not None and "any number of them" in d.prompt:
+            act(s, "p1", type="choose", decision_id=d.id, option_ids=[bears.id])
+            break
+        if d is not None:
+            opts = [o.id for o in d.options]
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[o for o in opts if s.state.cards.get(o) and s.state.cards[o].name == "Opt"][:1] or opts[: max(1, d.min_choices)])
+        else:
+            act(s, s.state.rules.priority, type="pass_priority")
+    answer(s)
+    assert zone_of(s, bears) == "p1:phased" and zone_of(s, elves) == "p1:battlefield"
+    assert s.state.cards[bears.id].counters.get("+1/+1") == 1 and s.state.cards[elves.id].counters.get("+1/+1") == 1
+    check(s)
+
+
+# -- Flame Discharge ------------------------------------------------------------------------------------------------------------------------------
+@pytest.mark.parametrize(("modified", "dealt"), [(False, 2), (True, 4)])
+def test_flame_discharge_x_plus_two_with_a_modified_creature_as_it_was_cast(cards, modified, dealt):
+    """X 2 to the Wall; the Bears with a +1/+1 counter as casting finished (601.2i): 4 — even with the counter gone by resolution."""
+    s = build(cards, ["Flame Discharge", "Grizzly Bears"], ["Probe Wall"])
+    wall, bears = put(s, "Probe Wall", "p2"), put(s, "Grizzly Bears")
+    if modified:
+        act(s, "p1", type="counter", card_ids=[bears.id], kind="+1/+1", delta=1)
+    spell = to_hand(s, "Flame Discharge")
+    mana(s, R=1, C=2)
+    kit.full_control(s)
+    act(s, "p1", type="cast_spell", card_id=spell.id, targets=[wall.id], x_value=2)
+    if modified:
+        act(s, "p1", type="counter", card_ids=[bears.id], kind="+1/+1", delta=-1)
+    answer(s)
+    assert s.state.cards[wall.id].damage == dealt
+    check(s)

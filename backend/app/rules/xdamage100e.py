@@ -728,6 +728,28 @@ def _multiple_choice_4() -> Parsed:
     return [], None, False  # (each line above reads X 4 or more itself)
 
 
+@_text("Each of X target creatures you control connive. You may have any number of them phase out.")
+def _change_of_plans() -> Parsed:
+    """Change of Plans: they connive one at a time (701.50c, the controller's order), then you choose any number of them to phase out (the
+    2022-04-29 rulings: after all have connived)."""
+    exile, target, optional = _p("Exile X target creatures you control.")
+    phase = _p("Target creatures you control phase out.")[0]
+    assert exile == [{"do": "exile", "who": "target:0"}] and phase == [{"do": "phase_out", "who": "target"}]
+    return [{"do": "connive", "who": "target:0", "n": 1}, {"do": "pick_any100e", "from": "target:0", "as": "plans100e"},
+            {"do": "phase_out", "who": "ref:plans100e"}], target, optional
+
+
+@_text("~ deals X damage to target creature or planeswalker. If you controlled a modified creature as you cast this spell, it deals X plus 2 damage instead.")
+def _flame_discharge() -> Parsed:
+    """Flame Discharge: one damage instruction, X or X plus 2 — the creatures you controlled as casting finished (601.2i), modified per 700.9
+    (counters, Equipment, your own Auras on it: the 2022-02-18 rulings); a copy isn't cast: X."""
+    effects, target, optional = _p("~ deals X damage to target creature or planeswalker.")
+    assert effects == [{"do": "damage", "who": "target", "n": {"x": 1}}]
+    modified = {"object": "self", "cast": {"controlled_modified100e": True}}
+    return [{"do": "only_if", "cond": {"not": modified}, "skip": 1}, effects[0], {"do": "only_if", "cond": modified, "skip": 1},
+            {**effects[0], "n": {"plus": [{"x": 1}, 2]}}], target, optional
+
+
 # -- whole abilities (definitions) -----------------------------------------------------------------------------------------------------------
 _DEFS: dict[str, Callable[[Any, Any], dict[str, Any]]] = {}
 
@@ -1017,8 +1039,32 @@ def count_dealt(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return True
 
 
-RESUME = {"bane100e": resume_bane}
-PRIMITIVES = {"as_their100e": as_their, "count_dealt100e": count_dealt, "with_you100e": with_you, "shortfall_damage100e": shortfall_damage, "land_gap_damage100e": land_gap_damage, "foe_hand_damage100e": foe_hand_damage, "bane100e": bane,
+def pick_any(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """"You may have any number of them …": the controller picks any number of the objects ``from`` names still on the battlefield (bound as)."""
+    from app.game.rules_state import DecisionOption
+    from app.rules import context, effects
+    from app.rules.plan import decide
+
+    cards = [c for c in effects._cards(plan, ctx, e["from"]) if plan.state.cards[c].zone.endswith(":battlefield")]
+    if not cards:
+        context.bind_objects(plan, ctx, e["as"], [])
+        return True
+    decide(plan, player=ctx["controller"], kind="choose_cards", prompt=f"{ctx.get('name') or 'It'}: choose any number of them",
+           options=[DecisionOption(id=c, label=plan.state.cards[c].name or "Creature", card_id=c) for c in cards], min_choices=0,
+           max_choices=len(cards), resume={"step": "pick_any100e", "ctx": ctx, "e": e})
+    return False
+
+
+def resume_pick_any(plan: Any, d: Any, chosen: list[str]) -> None:
+    from app.rules import context, effects
+
+    ctx = d.resume["ctx"]
+    context.bind_objects(plan, ctx, d.resume["e"]["as"], [c for c in chosen if c in {o.id for o in d.options}])
+    effects.continue_effects(plan, ctx)
+
+
+RESUME = {"bane100e": resume_bane, "pick_any100e": resume_pick_any}
+PRIMITIVES = {"as_their100e": as_their, "pick_any100e": pick_any, "count_dealt100e": count_dealt, "with_you100e": with_you, "shortfall_damage100e": shortfall_damage, "land_gap_damage100e": land_gap_damage, "foe_hand_damage100e": foe_hand_damage, "bane100e": bane,
               "bind_controlled100e": bind_controlled, "host_bite100e": host_bite, "beneath_top100e": beneath_top, "double_times100e": double_times, "keep_keyword100e": keep_keyword, "keep_dealt100e": keep_dealt}
 
 

@@ -1911,6 +1911,11 @@ def _note_cast(plan: Plan, record: PaymentRecord, zone: str, *, zone_player: str
     record.cast_controlled_subtypes = sorted({subtype for c in plan.state.cards.values()
         if c.controller == record.controller and c.zone.endswith(":battlefield") and plan.in_game(c)
         for subtype in plan.ch(c).subtypes})
+    from app.rules import (
+        selectors,  # -- xdamage (wave 100E) -- "if you controlled a modified creature as you cast this spell" (601.2i)
+    )
+
+    record.cast_controlled_modified = bool(selectors.candidates(plan, selectors.Selector(controller="you", types=("Creature",), extras=("modified",)), record.controller, None))
     record.cast_revealed_subtypes = sorted({subtype for cid in record.revealed
         if (revealed_card := plan.state.cards.get(cid)) is not None
         for subtype in plan.ch(revealed_card).subtypes})
