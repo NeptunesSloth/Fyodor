@@ -67,7 +67,7 @@ GY_EMPTY = "gy_empty100b"
 def parse(body: str, it: str | None, event_player: bool) -> Found | None:
     text = body.strip()
     for form in (_put_discarded, _hit_discard, _draw_if, _dealt_cant_block, _give_source, _exiled_mv, _connives, _empty_gy, _truce, _each_who_lost,
-                 _either, _plot_paid, _hand_exile, _dont_sacrifice, _put_mv_x, _fold, _swift, _untap_then, _may_attach, _vanish, _dakra, _durin, _latnam, _surge, _locke, _gy_exile, _manabond, _have_deal, _own_bounce, _clash, _reveal_win, _fishing, _runes, _rally, _long_rest, _bringer):
+                 _either, _plot_paid, _hand_exile, _dont_sacrifice, _put_mv_x, _fold, _swift, _untap_then, _may_attach, _vanish, _dakra, _durin, _latnam, _surge, _locke, _gy_exile, _manabond, _have_deal, _own_bounce, _clash, _reveal_win, _fishing, _runes, _rally, _long_rest, _bringer, _vault101, _becomes20, _foxglove, _spirit_dragons, _holistic):
         if (found := form(text, it, event_player)) is not None:
             return found
     for pattern, repl in _REWRITES:
@@ -870,6 +870,142 @@ def _bringer(text: str, it: str | None, event_player: bool) -> Found | None:
                                                   "not": "bringer100b"}], None, False
 
 
+# -- Vault 101: Birthday Party: "You may put an Aura or Equipment card from your hand or graveyard onto the battlefield. If an Equipment is put onto the
+# battlefield this way, you may attach it to a creature you control." Not targeted: the creature (if any) is chosen as it resolves (701.3a).
+_VAULT101 = re.compile(r"^(?P<a>You may put an Aura or Equipment card from your hand or graveyard onto the battlefield)\. If an Equipment is put onto the battlefield "
+                       r"this way, you may attach it to a creature you control\.$")
+
+
+def _vault101(text: str, it: str | None, event_player: bool) -> Found | None:
+    from app.rules import selectors
+
+    m = _VAULT101.match(text)
+    found = _effects(f"{m['a']}.", it, event_player) if m is not None else None
+    equipment, mine = selectors.parse("Equipment"), selectors.parse("creature you control")
+    if found is None or equipment is None or mine is None or len(found[0]) != 1 or found[0][0].get("do") != "return_choice":
+        return None
+    return [{**found[0][0], "as": "v101"}, {"do": "only_if", "cond": {"object": "ref:v101", "is": equipment.key()}, "skip": 2},
+            {"do": "return_choice", "to": "choose", "sel": mine.key(), "n": 1, "upto": True, "random": False, "label": "creature to attach it to", "as": "v101c"},
+            {"do": "attach_to", "src": "ref:v101", "who": "ref:v101c"}], found[1], found[2]
+
+
+# -- Inferno of the Star Mounts: "~ gets +1/+0 until end of turn. When its power becomes 20 this way, it deals 20 damage to any target." 603.12: a
+# reflexive ability, its target chosen only if it triggers - only when this +1/+0 made the power exactly 20 (the 2021-07-23 rulings): the creature
+# still there with power 20 after it (a +1/+0, 613.4c, was the change).
+_BECOMES = re.compile(r"^(?P<a>~ gets \+1/\+0 until end of turn)\. When its power becomes (?P<n>\d+) this way, (?P<b>it deals \d+ damage to any target)\.$")
+BECAME = "became100b"
+
+
+def _becomes20(text: str, it: str | None, event_player: bool) -> Found | None:
+    from app.rules import scripts
+
+    m = _BECOMES.match(text)
+    pump = _effects(f"{m['a']}.", it, event_player) if m is not None else None
+    hit = _effects(m["b"].replace("it deals", "~ deals", 1) + ".", None, False) if pump is not None and m is not None else None
+    if m is None or pump is None or hit is None or pump[1] is not None or hit[1] != "any":
+        return None
+    reflex = {"do": "reflexive", "cond": {"all": []}, "ability": {"kind": "triggered", "trigger": "reflexive", "effects": hit[0], "optional": False,
+                                                                **scripts.target_fields(hit[1])}}
+    return [*pump[0], {"do": BECAME, "n": int(m["n"]), "reflex": reflex}], None, False
+
+
+def became(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    from app.rules import effects, values
+
+    src = effects._cards(plan, ctx, "self")
+    if src and values._stat_of(plan.ch(plan.state.cards[src[0]]), "power") == e["n"]:
+        return effects.reflexive(plan, ctx, e["reflex"])
+    return True
+
+
+# -- Mr. Foxglove: "draw cards equal to the number of cards in defending player's hand minus the number of cards in your hand. If you didn't draw cards
+# this way, you may put a creature card from your hand onto the battlefield." 107.1b: 0 or less draws none (the 2024-07-26 ruling); the hand counts
+# are read once, as it resolves (608.2h); a replaced or impossible draw is no card drawn (121.2).
+_FOXGLOVE = ("draw cards equal to the number of cards in defending player's hand minus the number of cards in your hand. If you didn't draw cards this way, you "
+             "may put a creature card from your hand onto the battlefield.")
+
+
+def _foxglove(text: str, it: str | None, event_player: bool) -> Found | None:
+    put = _effects("you may put a creature card from your hand onto the battlefield.", it, event_player) if text == _FOXGLOVE else None
+    if put is None or len(put[0]) != 1 or put[0][0].get("do") != "put_from_hand":
+        return None
+    none = {"do": "only_if", "cond": {"value": {"this_way": "drawn", "of": None, "players": "you", "ref_count": "fox100b"}, "op": "==", "n": 0}, "skip": 1}
+    return [{"do": "draw", "who": "you", "n": {"minus": [{"hand": "defending_player"}, {"hand": "you"}]}, "as": "fox100b"}, none,
+            {**put[0][0], "optional": True}], None, False
+
+
+# -- Call the Spirit Dragons: "for each color, put a +1/+1 counter on a Dragon you control of that color. If you put +1/+1 counters on five Dragons this
+# way, you win the game." One Dragon chosen for each of the five colors (105.1), a multicolored one may be chosen more than once; the win needs five
+# different Dragons that got their counters (the 2025-04-04 rulings).
+_SPIRIT = ("for each color, put a +1/+1 counter on a Dragon you control of that color. If you put +1/+1 counters on five Dragons this way, you win the "
+           "game.")
+SPIRIT, SPIRIT_WIN = "spirit100b", "spirit_win100b"
+
+
+def _spirit_dragons(text: str, it: str | None, event_player: bool) -> Found | None:
+    return ([{"do": SPIRIT, "left": ["W", "U", "B", "R", "G"], "picks": []}], None, False) if text == _SPIRIT else None
+
+
+def spirit(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    from app.game.rules_state import DecisionOption
+    from app.rules.plan import decide
+
+    me, left, picks = ctx["controller"], list(e["left"]), list(e["picks"])
+    while left:
+        color = left.pop(0)
+        dragons = [c for c in plan.state.zones.get(f"{me}:battlefield", []) if plan.in_game(plan.state.cards[c])
+                   and "Dragon" in plan.ch(plan.state.cards[c]).subtypes and color in plan.ch(plan.state.cards[c]).colors]
+        if len(dragons) > 1:
+            decide(plan, player=me, kind="choose_cards", prompt=f"{ctx.get('name') or 'It'}: put a +1/+1 counter on a {color} Dragon you control",
+                   options=[DecisionOption(id=c, label=plan.state.cards[c].name or "Dragon", card_id=c) for c in dragons], min_choices=1, max_choices=1,
+                   resume={"step": SPIRIT, "ctx": ctx, "e": {**e, "left": left, "picks": picks}})
+            return False
+        picks += dragons
+    oids = [plan.oid(c) for c in picks]
+    ctx["effects"][ctx["next"]:ctx["next"]] = [*({"do": "add_counters", "who": f"object:{o}", "kind": "+1/+1", "n": 1} for o in oids),
+                                               {"do": SPIRIT_WIN, "before": {o: plan.state.cards[o.rsplit(".", 1)[0]].counters.get("+1/+1", 0) for o in oids}}]
+    return True
+
+
+def resume_spirit(plan: Any, d: Any, chosen: list[str]) -> None:
+    from app.rules.effects import continue_effects
+
+    ctx, e = d.resume["ctx"], d.resume["e"]
+    ctx["effects"][ctx["next"]:ctx["next"]] = [{**e, "picks": [*e["picks"], *chosen[:1]]}]
+    continue_effects(plan, ctx)
+
+
+def spirit_win(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    from app.rules import win_game
+
+    got = [o for o, n in e["before"].items() if (c := plan.state.cards.get(o.rsplit(".", 1)[0])) is not None and plan.oid(c) == o
+           and c.counters.get("+1/+1", 0) > n]
+    return win_game.win_game(plan, ctx, {"who": "you"}) if len(got) >= 5 else True
+
+
+# -- Holistic Wisdom: "{2}, Exile a card from your hand: Return target card from your graveyard to your hand if it shares a card type with the card exiled
+# this way." (the one card so worded: "this way" is the cost's exile, 601.2h; the card types of 300.1, read as the ability resolves, 608.2c)
+_HOLISTIC = "Return target card from your graveyard to your hand if it shares a card type with the card exiled this way."
+SHARES = "shares_type100b"
+_CARD_TYPES = {"Artifact", "Battle", "Creature", "Enchantment", "Instant", "Kindred", "Land", "Planeswalker", "Sorcery"}
+
+
+def _holistic(text: str, it: str | None, event_player: bool) -> Found | None:
+    base = _effects("Return target card from your graveyard to your hand.", it, event_player) if text == _HOLISTIC else None
+    return ([{"do": SHARES, "skip": len(base[0])}, *base[0]], base[1], base[2]) if base is not None and base[0] else None
+
+
+def shares_type(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """The gate: the target shares a card type with the card the cost exiled."""
+    from app.rules.effects import _cards
+
+    def types(who: str) -> set[str]:
+        return {t for c in _cards(plan, ctx, who) for t in plan.ch(plan.state.cards[c]).types} & _CARD_TYPES
+    if not types("target") & types("cost:exiled"):
+        ctx["next"] = min(len(ctx["effects"]), ctx["next"] + int(e["skip"]))
+    return True
+
+
 # -- Reign of Terror: "Destroy all green creatures or all white creatures. They can't be regenerated. You lose 2 life for each creature that died
 # this way." 608.2d: the controller picks one as it resolves (and announces it, 101.4b); the rest of the text reads the one done.
 _EITHER = re.compile(r"^Destroy all (?P<a>[a-z]+ creatures) or all (?P<b>[a-z]+ creatures)\. (?P<rest>[^.]+\.(?: [^.]+\.)*)$")
@@ -916,5 +1052,5 @@ def resume_either(plan: Any, d: Any, chosen: list[str]) -> None:
 PRIMITIVES = {GY_EMPTY: gy_empty, TRUCE: truce, TRUCE_ASK: truce_ask, TRUCE_DRAW: truce_draw, TRUCE_LIFE: truce_life, EITHER: either, COUNTERED: countered,
               SWIFT: swift, BACK: back_creature, TO_GRAVEYARDS: to_graveyards, HAND_GATE: hand_gate,
               SURGE: surge, PUT_EXILED: put_exiled, PUT_CHECK: put_check, OWN_EVERYWHERE: own_everywhere, HAND_VALUES: hand_values,
-              OTHERS: others_back, RALLY: rally}
-RESUME = {TRUCE_ASK: resume_truce_ask, EITHER: resume_either, PUT_EXILED: resume_put_exiled}
+              OTHERS: others_back, RALLY: rally, BECAME: became, SPIRIT: spirit, SPIRIT_WIN: spirit_win, SHARES: shares_type}
+RESUME = {TRUCE_ASK: resume_truce_ask, EITHER: resume_either, PUT_EXILED: resume_put_exiled, SPIRIT: resume_spirit}
