@@ -4508,6 +4508,10 @@ def _choice_options(plan: Plan, ctx: Context, what: str) -> list[DecisionOption]
 
     if card_names.is_choice(what):  # -- card names (wave 22B) -- typed, not listed (201.4)
         return [card_names.option(what)]
+    from app.rules import static_perm100d  # -- static permanents (wave 100D) -- life paid
+
+    if what == static_perm100d.LIFE_KEY:
+        return [DecisionOption(id=str(n), label=str(n)) for n in range(static_perm100d.life_cap(plan, ctx) + 1)]
     if what.endswith(copying.TO_COPY):  # -- copy system (wave 2F): "enter as a copy of …" (707.5, 614.12a) --
         return copying.entry_options(plan, ctx["controller"], what, ctx.get("source_card"))  # (wave 5F: the entering card)
     if what == "creature type":
@@ -6727,6 +6731,7 @@ RESUME.update(_prepared_mill61.RESUME)
 
 CHOICE_OPTIONS['color word'] = list(_text_change_instructions71.COLORS)
 CHOICE_LABELS['color word'] = 'Chosen color word'
+CHOICE_LABELS["amount of life to pay"] = "Life paid"  # -- static permanents (wave 100D) -- static_perm100d.LIFE_KEY
 
 from app.rules import text_global_word71 as _global_word71  # noqa: E402
 

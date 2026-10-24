@@ -138,7 +138,7 @@ def find(plan: Plan) -> Found:
             elif card.id in r.deathtouched and (card.damage > 0 or card.counters.get("-1/-1", 0) > 0) \
                     and "indestructible" not in ch.keywords:
                 out.dying.append((card, "damage from a deathtouch source"))  # 704.5h
-        if "Planeswalker" in ch.types and card.counters.get("loyalty", 0) <= 0:
+        if "Planeswalker" in ch.types and card.counters.get("loyalty", 0) <= 0 and not _kept_at_zero(plan, card):
             out.dying.append((card, "no loyalty"))  # 704.5i
         if battles.no_defense(plan, card, ch):
             out.dying.append((card, "no defense"))  # 704.5v (a Siege once its defeat trigger left the stack), 704.5w
@@ -467,3 +467,9 @@ def resume_commander_zone(plan: Plan, d: Decision, chosen: list[str]) -> None:
     card = plan.state.cards.get(d.resume["card"])
     if card is not None:
         _commander_zone(plan, card, chosen[0] == "yes")
+
+
+def _kept_at_zero(plan: Plan, card: CardInstance) -> bool:
+    from app.rules import static_perm100d  # -- static permanents (wave 100D) -- Sanctum Lurker
+
+    return static_perm100d.yours(plan, static_perm100d.ZERO_LOYALTY, card.controller) > 0
