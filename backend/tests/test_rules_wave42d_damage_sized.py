@@ -57,8 +57,7 @@ EXTRA = [card(c["name"], set_code="w42d", number=f"D{i:02d}", **{k: v for k, v i
          for i, c in enumerate(DATA) if c["name"] not in KNOWN]
 FULL = ["Bolg of the North", "Vincent, Vengeful Atoner", "Daredevil, Fearless Fighter", "Dong Zhou, the Tyrant", "Polukranos, World Eater",
         "Ayara, Widow of the Realm // Ayara, Furnace Queen", "Onakke Javelineer", "Living Inferno"]
-MANUAL = ["Imodane, the Pyrohammer",
-          "Breeches, the Blastmaker"]  # (Vial Smasher is FULL since wave 47B: a recorded random opponent; Ian the Reckless since wave 50F: "if it's modified"; Iron Fist since wave 100E: the granter is Iron Fist itself)
+MANUAL = ["Imodane, the Pyrohammer"]  # (Vial Smasher is FULL since wave 47B: a recorded random opponent; Ian the Reckless since wave 50F: "if it's modified"; Iron Fist since wave 100E: the granter is Iron Fist itself; Breeches since the exile-authority continuations: test_rules_exile_authority_continuations_*.py)
 
 
 @pytest.fixture()
