@@ -227,7 +227,8 @@ def amount(plan: Plan, ctx: dict[str, Any], v: dict[str, Any]) -> int:
 # Overlaid Terrain 2004-10-04 "right before this enchantment enters"; Wood Elemental 2004-10-04 "no matter how this card enters").
 # The permanent being put onto the battlefield is no card of that player's hand or lands any more (it is the object entering).
 AS_ENTERS = "as_enters100d"
-_AS_ENTERS = {"As ~ enters, discard your hand.": "discard_hand", "As ~ enters, sacrifice all lands you control.": "sacrifice_lands"}
+_AS_ENTERS = {"As ~ enters, discard your hand.": "discard_hand", "As ~ enters, sacrifice all lands you control.": "sacrifice_lands",
+              "As ~ enters, mill three cards for each time it was kicked.": "mill_per_kick"}  # (Urborg Lhurgoyf: 702.33d, rulings 2022-09-09)
 
 
 def plan_entry(plan: Plan, card: CardInstance, controller: str, out: dict[str, Any]) -> None:
@@ -247,7 +248,7 @@ def plan_entry(plan: Plan, card: CardInstance, controller: str, out: dict[str, A
 def as_enters(plan: Plan, card_id: str, ep: dict[str, Any], controller: str) -> None:
     """Carry out what ``plan_entry`` found, in printed order (608.2c), before the permanent is moved."""
     from app.game.state import zone_key
-    from app.rules import effects
+    from app.rules import effects, values
 
     for what in ep.get(AS_ENTERS) or ():
         name = plan.state.cards[card_id].name if card_id in plan.state.cards else "It"
@@ -261,6 +262,9 @@ def as_enters(plan: Plan, card_id: str, ep: dict[str, Any], controller: str) -> 
                      if c != card_id and plan.in_game(plan.state.cards[c]) and plan.ch(plan.state.cards[c]).is_land]
             plan.note(f"As {name} enters, {plan.name(controller)} sacrifices all lands they control", [card_id])
             effects._sacrifice_cards(plan, lands, controller, ctx)
+        elif what == "mill_per_kick" and (n := 3 * values.kicked_count(plan, ctx)):  # 701.17a (not cast: never kicked)
+            plan.note(f"As {name} enters, {plan.name(controller)} mills {n} cards", [card_id])
+            effects.PRIMITIVES["mill"](plan, ctx, {"do": "mill", "who": "you", "n": n})
 
 
 def _statics(plan: Plan, card: CardInstance, kind: str) -> list[dict[str, Any]]:

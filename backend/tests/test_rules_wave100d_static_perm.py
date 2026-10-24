@@ -125,7 +125,11 @@ EXTRA += [
 EXTRA += [
     real('Carth the Lion', '{2}{B}{G}', 4, 'Legendary Creature — Human Warrior', "Whenever Carth enters or a planeswalker you control dies, look at the top seven cards of your library. You may reveal a planeswalker card from among them and put it into your hand. Put the rest on the bottom of your library in a random order.\nPlaneswalkers' loyalty abilities you activate cost an additional [+1] to activate.", ('3', '5'), 'BG'),
 ]
-SINGLES = ["Carth the Lion", "Enhanced Surveillance", "Cosmos Charger", "Archon of the Wild Rose", "Urza, Planeswalker", "Invert // Invent", "Serra Avenger", "Karlov Watchdog", "Everlasting Torment", "Ajani Goldmane", "Elsewhere Flask", "Dragon Turtle", "Blue Dragon", "Legate Lanius, Caesar's Ace", "Pardic Firecat", "Diligent Farmhand", "Garza's Assassin", "Robe of the Archmagi", "My Precious // Allure of Power"]
+EXTRA += [
+    real('Dusk Mangler', '{5}{B}{B}', 7, 'Creature — Horror', 'As an additional cost to cast this spell, sacrifice a creature, discard a card, or pay 4 life.\nWhen this creature enters, each opponent sacrifices a creature of their choice, discards a card, and loses 4 life.', ('5', '4'), 'B'),
+    real('Urborg Lhurgoyf', '{1}{G}', 2, 'Creature — Lhurgoyf', "Kicker {U} and/or {B} (You may pay an additional {U} and/or {B} as you cast this spell.)\nAs this creature enters, mill three cards for each time it was kicked.\nUrborg Lhurgoyf's power is equal to the number of creature cards in your graveyard and its toughness is equal to that number plus 1.", ('*', '1+*'), 'G'),
+]
+SINGLES = ["Dusk Mangler", "Urborg Lhurgoyf", "Carth the Lion", "Enhanced Surveillance", "Cosmos Charger", "Archon of the Wild Rose", "Urza, Planeswalker", "Invert // Invent", "Serra Avenger", "Karlov Watchdog", "Everlasting Torment", "Ajani Goldmane", "Elsewhere Flask", "Dragon Turtle", "Blue Dragon", "Legate Lanius, Caesar's Ace", "Pardic Firecat", "Diligent Farmhand", "Garza's Assassin", "Robe of the Archmagi", "My Precious // Allure of Power"]
 RULES = ["Gruul Spellbreaker", "Experimental Frenzy", "City of Solitude", "Melting", "Dream Leash", "Enthralling Hold"]
 FULL = [*SINGLES, *RULES, "Mistform Sliver", "Mesmeric Sliver", "Enduring Sliver", "Case of the Stashed Skeleton", "Case of the Gateway Express", "Case of the Gorgon's Kiss", "Case of the Burning Masks", "Scourge of the Skyclaves", "Roiling Horror", "Angry Mob", "Alrund, God of the Cosmos // Hakka, Whispering Raven", "Heightened Awareness", "Overlaid Terrain", "Full Moon's Rise", "O-Naginata", "Gate Smasher", "Goblin Brawler", "Domineer", "Awaken the Ancient", "Gideon, the Oathsworn", "Dovin, Architect of Law",
         "Ajani Unrelenting", "Nicol Bolas, Planeswalker", "Liliana, the Necromancer"]
@@ -1060,5 +1064,40 @@ def test_carth_adds_one_to_each_loyalty_cost(cards):
     loyal(s, goldmane, 1)  # [-1] becomes [0] (ruling 2021-06-18)
     loyal(s, unrelenting, 1)  # [+1] becomes [+2]
     assert s.state.cards[goldmane.id].counters.get("loyalty") == 4 and s.state.cards[unrelenting.id].counters.get("loyalty") == 7
+    check(s)
+
+
+def test_dusk_mangler_one_of_three_additional_costs(cards):
+    from tests.test_rules_conditionals import until
+
+    s = build(cards, ["Dusk Mangler"], ["Grizzly Bears"])
+    put(s, "Grizzly Bears", "p2")
+    token_of(s, "p1", "Bear", "Token Creature — Bear", "2/2")
+    to_hand(s, "Forest")  # (each way payable)
+    mangler = to_hand(s, "Dusk Mangler")
+    mana(s, B=2, C=5)
+    life = s.state.players["p1"].life
+    act(s, "p1", type="cast_spell", card_id=mangler.id)
+    until(s, lambda s: s.state.rules.decision is not None)
+    d = s.state.rules.decision
+    assert d.player == "p1" and len(d.options) == 3  # 601.2b: the three ways, one chosen (118.8)
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[next(o.id for o in d.options if "life" in o.label.lower())])
+    for _ in range(10):
+        settle(s)
+        if (d := s.state.rules.decision) is None:
+            break
+        act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: d.min_choices or 1])
+    assert s.state.players["p1"].life == life - 4 and zone(s, mangler) == "p1:battlefield"
+    check(s)
+
+
+def test_urborg_lhurgoyf_mills_three_for_each_kick_as_it_enters(cards):
+    s = build(cards, ["Urborg Lhurgoyf"])
+    goyf = to_hand(s, "Urborg Lhurgoyf")
+    before = len(s.state.zones["p1:library"])
+    mana(s, G=1, C=1, U=1, B=1)
+    act(s, "p1", type="cast_spell", card_id=goyf.id, kicker=3)  # 702.33b: both kicker costs
+    settle(s)
+    assert zone(s, goyf) == "p1:battlefield" and len(s.state.zones["p1:library"]) == before - 6  # 614.12, 701.17a
     check(s)
 
