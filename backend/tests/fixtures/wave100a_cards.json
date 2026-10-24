@@ -365,5 +365,430 @@
    "W"
   ],
   "keywords": []
+ },
+ {
+  "name": "Kav Landseeker",
+  "layout": "normal",
+  "mana_cost": "{3}{R}",
+  "cmc": 4.0,
+  "type_line": "Creature — Kavu Soldier",
+  "oracle_text": "Menace (This creature can't be blocked except by two or more creatures.)\nWhen this creature enters, create a Lander token. At the beginning of the end step on your next turn, sacrifice that token. (It's an artifact with \"{2}, {T}, Sacrifice this token: Search your library for a basic land card, put it onto the battlefield tapped, then shuffle.\")",
+  "power": "4",
+  "toughness": "3",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Menace"
+  ]
+ },
+ {
+  "name": "Mutable Explorer",
+  "layout": "normal",
+  "mana_cost": "{2}{G}",
+  "cmc": 3.0,
+  "type_line": "Creature — Shapeshifter",
+  "oracle_text": "Changeling (This card is every creature type.)\nWhen this creature enters, create a tapped Mutavault token. (It's a land with \"{T}: Add {C}\" and \"{1}: This token becomes a 2/2 creature with all creature types until end of turn. It's still a land.\")",
+  "power": "1",
+  "toughness": "1",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [
+   "Changeling"
+  ]
+ },
+ {
+  "name": "Patient Naturalist",
+  "layout": "normal",
+  "mana_cost": "{2}{G}",
+  "cmc": 3.0,
+  "type_line": "Creature — Human Scout",
+  "oracle_text": "When this creature enters, mill three cards. Put a land card from among the milled cards into your hand. If you can't, create a Treasure token. (To mill three cards, put the top three cards of your library into your graveyard.)",
+  "power": "2",
+  "toughness": "3",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [
+   "Treasure",
+   "Mill"
+  ]
+ },
+ {
+  "name": "Soul of Emancipation",
+  "layout": "normal",
+  "mana_cost": "{4}{G}{W}{U}",
+  "cmc": 7.0,
+  "type_line": "Creature — Avatar",
+  "oracle_text": "When this creature enters, destroy up to three other target nonland permanents. For each of those permanents, its controller creates a 3/3 white Angel creature token with flying.",
+  "power": "5",
+  "toughness": "7",
+  "colors": [
+   "G",
+   "U",
+   "W"
+  ],
+  "color_identity": [
+   "G",
+   "U",
+   "W"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Dream Eater",
+  "layout": "normal",
+  "mana_cost": "{4}{U}{U}",
+  "cmc": 6.0,
+  "type_line": "Creature — Nightmare Sphinx",
+  "oracle_text": "Flash\nFlying\nWhen this creature enters, surveil 4. When you do, you may return target nonland permanent an opponent controls to its owner's hand. (To surveil 4, look at the top four cards of your library, then put any number of them into your graveyard and the rest on top of your library in any order.)",
+  "power": "4",
+  "toughness": "3",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "Flying",
+   "Surveil",
+   "Flash"
+  ]
+ },
+ {
+  "name": "Graceful Antelope",
+  "layout": "normal",
+  "mana_cost": "{2}{W}{W}",
+  "cmc": 4.0,
+  "type_line": "Creature — Antelope",
+  "oracle_text": "Plainswalk (This creature can't be blocked as long as defending player controls a Plains.)\nWhenever this creature deals combat damage to a player, you may have target land become a Plains until this creature leaves the battlefield.",
+  "power": "1",
+  "toughness": "4",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "Landwalk",
+   "Plainswalk"
+  ]
+ },
+ {
+  "name": "Crashing Boars",
+  "layout": "normal",
+  "mana_cost": "{3}{G}{G}",
+  "cmc": 5.0,
+  "type_line": "Creature — Boar",
+  "oracle_text": "Whenever this creature attacks, defending player chooses an untapped creature they control. That creature blocks this creature this turn if able.",
+  "power": "4",
+  "toughness": "4",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Gravestorm",
+  "layout": "normal",
+  "mana_cost": "{B}{B}{B}",
+  "cmc": 3.0,
+  "type_line": "Enchantment",
+  "oracle_text": "At the beginning of your upkeep, target opponent may exile a card from their graveyard. If that player doesn't, you may draw a card.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Egon, God of Death // Throne of Death",
+  "layout": "modal_dfc",
+  "mana_cost": "{2}{B} // {B}",
+  "cmc": 3.0,
+  "type_line": "Legendary Creature — God // Legendary Artifact",
+  "oracle_text": "Deathtouch\nAt the beginning of your upkeep, exile two cards from your graveyard. If you can't, sacrifice Egon and draw a card.\n//\nAt the beginning of your upkeep, mill a card.\n{2}{B}, {T}, Exile a creature card from your graveyard: Draw a card.",
+  "power": "6",
+  "toughness": "6",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Mill",
+   "Deathtouch"
+  ],
+  "card_faces": [
+   {
+    "name": "Egon, God of Death",
+    "mana_cost": "{2}{B}",
+    "type_line": "Legendary Creature — God",
+    "oracle_text": "Deathtouch\nAt the beginning of your upkeep, exile two cards from your graveyard. If you can't, sacrifice Egon and draw a card.",
+    "power": "6",
+    "toughness": "6",
+    "colors": [
+     "B"
+    ]
+   },
+   {
+    "name": "Throne of Death",
+    "mana_cost": "{B}",
+    "type_line": "Legendary Artifact",
+    "oracle_text": "At the beginning of your upkeep, mill a card.\n{2}{B}, {T}, Exile a creature card from your graveyard: Draw a card.",
+    "colors": [
+     "B"
+    ]
+   }
+  ]
+ },
+ {
+  "name": "Anurid Scavenger",
+  "layout": "normal",
+  "mana_cost": "{2}{G}",
+  "cmc": 3.0,
+  "type_line": "Creature — Frog Beast",
+  "oracle_text": "Protection from black\nAt the beginning of your upkeep, sacrifice this creature unless you put a card from your graveyard on the bottom of your library.",
+  "power": "3",
+  "toughness": "3",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [
+   "Protection"
+  ]
+ },
+ {
+  "name": "Chisei, Heart of Oceans",
+  "layout": "normal",
+  "mana_cost": "{2}{U}{U}",
+  "cmc": 4.0,
+  "type_line": "Legendary Creature — Spirit",
+  "oracle_text": "Flying\nAt the beginning of your upkeep, sacrifice Chisei unless you remove a counter from a permanent you control.",
+  "power": "4",
+  "toughness": "4",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "Flying"
+  ]
+ },
+ {
+  "name": "Gabriel Angelfire",
+  "layout": "normal",
+  "mana_cost": "{3}{G}{G}{W}{W}",
+  "cmc": 7.0,
+  "type_line": "Legendary Creature — Angel",
+  "oracle_text": "At the beginning of your upkeep, choose flying, first strike, trample, or rampage 3. Gabriel Angelfire gains that ability until your next upkeep. (Whenever a creature with rampage 3 becomes blocked, it gets +3/+3 until end of turn for each creature blocking it beyond the first.)",
+  "power": "4",
+  "toughness": "4",
+  "colors": [
+   "G",
+   "W"
+  ],
+  "color_identity": [
+   "G",
+   "W"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Erhnam Djinn",
+  "layout": "normal",
+  "mana_cost": "{3}{G}",
+  "cmc": 4.0,
+  "type_line": "Creature — Djinn",
+  "oracle_text": "At the beginning of your upkeep, target non-Wall creature an opponent controls gains forestwalk until your next upkeep. (It can't be blocked as long as defending player controls a Forest.)",
+  "power": "4",
+  "toughness": "5",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Contested War Zone",
+  "layout": "normal",
+  "mana_cost": "",
+  "cmc": 0.0,
+  "type_line": "Land",
+  "oracle_text": "Whenever a creature deals combat damage to you, that creature's controller gains control of this land.\n{T}: Add {C}.\n{1}, {T}: Attacking creatures get +1/+0 until end of turn.",
+  "colors": [],
+  "color_identity": [],
+  "keywords": []
+ },
+ {
+  "name": "Contested Game Ball",
+  "layout": "normal",
+  "mana_cost": "{2}",
+  "cmc": 2.0,
+  "type_line": "Artifact",
+  "oracle_text": "Whenever you're dealt combat damage, the attacking player gains control of this artifact and untaps it.\n{2}, {T}: Draw a card and put a point counter on this artifact. Then if it has five or more point counters on it, sacrifice it and create a Treasure token.",
+  "colors": [],
+  "color_identity": [],
+  "keywords": [
+   "Treasure"
+  ]
+ },
+ {
+  "name": "Indentured Djinn",
+  "layout": "normal",
+  "mana_cost": "{1}{U}{U}",
+  "cmc": 3.0,
+  "type_line": "Creature — Djinn",
+  "oracle_text": "Flying\nWhen this creature enters, each other player may draw up to three cards.",
+  "power": "4",
+  "toughness": "4",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "Flying"
+  ]
+ },
+ {
+  "name": "Jurin, Leading the Charge",
+  "layout": "normal",
+  "mana_cost": "{4}{R}{R}",
+  "cmc": 6.0,
+  "type_line": "Legendary Creature — Human Barbarian",
+  "oracle_text": "Haste\nJurin must be blocked if able.\nWhenever Jurin attacks, each creature you control attacking a player gets +1/+0 until end of turn for each creature that player controls.",
+  "power": "4",
+  "toughness": "6",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Haste"
+  ]
+ },
+ {
+  "name": "Namor, Atlantean King",
+  "layout": "normal",
+  "mana_cost": "{1}{W}{U}",
+  "cmc": 3.0,
+  "type_line": "Legendary Creature — Mutant Merfolk Noble",
+  "oracle_text": "Flying\nWhenever you cast a noncreature spell, create a 1/1 blue Merfolk creature token.\nWhenever Namor attacks a player who has more life than you, other creatures you control attacking that player get +2/+0 until end of turn.",
+  "power": "2",
+  "toughness": "2",
+  "colors": [
+   "U",
+   "W"
+  ],
+  "color_identity": [
+   "U",
+   "W"
+  ],
+  "keywords": [
+   "Flying"
+  ]
+ },
+ {
+  "name": "Mirkwood Trapper",
+  "layout": "normal",
+  "mana_cost": "{1}{G}{U}",
+  "cmc": 3.0,
+  "type_line": "Creature — Elf Scout",
+  "oracle_text": "Whenever a player attacks you, target attacking creature gets -2/-0 until end of turn.\nWhenever a player attacks, if they aren't attacking you, that player chooses an attacking creature. It gets +2/+0 until end of turn.",
+  "power": "1",
+  "toughness": "4",
+  "colors": [
+   "G",
+   "U"
+  ],
+  "color_identity": [
+   "G",
+   "U"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Soul Scourge",
+  "layout": "normal",
+  "mana_cost": "{4}{B}",
+  "cmc": 5.0,
+  "type_line": "Creature — Nightmare Horror",
+  "oracle_text": "Flying\nWhen this creature enters, target player loses 3 life.\nWhen this creature leaves the battlefield, that player gains 3 life.",
+  "power": "3",
+  "toughness": "2",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Flying"
+  ]
+ },
+ {
+  "name": "Laquatus's Champion",
+  "layout": "normal",
+  "mana_cost": "{4}{B}{B}",
+  "cmc": 6.0,
+  "type_line": "Creature — Nightmare Horror",
+  "oracle_text": "When this creature enters, target player loses 6 life.\nWhen this creature leaves the battlefield, that player gains 6 life.\n{B}: Regenerate this creature.",
+  "power": "6",
+  "toughness": "3",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Regenerate"
+  ]
+ },
+ {
+  "name": "Xenic Poltergeist",
+  "layout": "normal",
+  "mana_cost": "{1}{B}{B}",
+  "cmc": 3.0,
+  "type_line": "Creature — Spirit",
+  "oracle_text": "{T}: Until your next upkeep, target noncreature artifact becomes an artifact creature with power and toughness each equal to its mana value.",
+  "power": "1",
+  "toughness": "1",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": []
  }
 ]
