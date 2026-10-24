@@ -220,3 +220,99 @@ def test_breakthrough_draws_four_and_keeps_x(cards, x, kept):
     answer(s)
     assert hand(s) == kept
     check(s)
+
+
+# -- Shellshock -----------------------------------------------------------------------------------------------------------------------------------
+def test_shellshock_x_to_one_creature_per_opponent_and_a_mutagen_per_creature_dealt_damage(cards):
+    s = build(cards, ["Shellshock"], ["Probe Wall"])
+    wall = put(s, "Probe Wall", "p2")
+    spell = to_hand(s, "Shellshock")
+    mana(s, R=1, C=2)
+    act(s, "p1", type="cast_spell", card_id=spell.id, targets=[wall.id], target_counts=[1], x_value=2)
+    answer(s)
+    assert s.state.cards[wall.id].damage == 2 and len(tokens(s, "Mutagen", "p1")) == 1
+    check(s)
+
+
+# -- Ravenous Gigantotherium ----------------------------------------------------------------------------------------------------------------------
+def test_ravenous_gigantotherium_divides_its_power_and_each_target_bites_back(cards):
+    """Power 3 divided 2 / 1 between Bob's Bears (they die) and Wall; the Bears still deal their 2 back, the 0-power Wall nothing."""
+    s = build(cards, ["Ravenous Gigantotherium"], ["Grizzly Bears", "Probe Wall"])
+    bears, wall = put(s, "Grizzly Bears", "p2"), put(s, "Probe Wall", "p2")
+    beast = to_hand(s, "Ravenous Gigantotherium")
+    mana(s, G=2, C=5)
+    act(s, "p1", type="cast_spell", card_id=beast.id)
+    d = pick(s, "choose_cards", bears.id, wall.id)
+    assert d.max_choices == 3
+    d = s.state.rules.decision
+    assert d is not None and d.kind == "divide"
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[], amounts=[2, 1])
+    answer(s)
+    assert zone_of(s, bears) == "p2:graveyard" and s.state.cards[wall.id].damage == 1 and s.state.cards[beast.id].damage == 2
+    check(s)
+
+
+# -- Archery Training -----------------------------------------------------------------------------------------------------------------------------
+def test_archery_training_the_creature_shoots_x_where_x_counts_the_auras_arrows(cards):
+    """The Wall has the Aura's ability; X is the arrow counters on the Aura (607.1a), not on the Wall: 2 to the attacking 5/3."""
+    s = build(cards, ["Archery Training", "Twisted Abomination", "Probe Wall"])
+    bears, wall = put(s, "Twisted Abomination"), put(s, "Probe Wall")
+    aura = to_hand(s, "Archery Training")
+    mana(s, W=1)
+    act(s, "p1", type="cast_spell", card_id=aura.id, targets=[wall.id])
+    answer(s)
+    act(s, "p1", type="counter", card_ids=[aura.id], kind="arrow", delta=2)
+    act(s, "p1", type="counter", card_ids=[wall.id], kind="arrow", delta=5)  # (counters on the creature itself don't count)
+    ready(s, bears, wall)
+    kit.full_control(s)
+    while not (s.state.rules.decision and s.state.rules.decision.kind == "declare_attackers"):
+        act(s, s.state.rules.priority, type="pass_priority")
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": bears.id, "target": "p2"}])
+    act(s, "p1", type="activate_ability", card_id=wall.id, ability=ability_index(s, wall, "arrow counters"), targets=[bears.id])
+    answer(s)
+    assert s.state.cards[bears.id].damage == 2 and s.state.cards[wall.id].tapped
+    check(s)
+
+
+# -- Reinforce X (Wren's Run Hydra; Swell of Courage reads the same) ----------------------------------------------------------------------------
+def test_wrens_run_hydra_reinforce_x_puts_the_x_paid(cards):
+    """702.77a: "{X}{G}{G}, Discard this card: Put X +1/+1 counters on target creature." from the hand, X 2."""
+    s = build(cards, ["Wren's Run Hydra", "Grizzly Bears"])
+    bears = put(s, "Grizzly Bears")
+    hydra = to_hand(s, "Wren's Run Hydra")
+    mana(s, G=2, C=2)
+    act(s, "p1", type="activate_ability", card_id=hydra.id, ability=ability_index(s, hydra, "Discard this card"), targets=[bears.id], x_value=2)
+    answer(s)
+    assert zone_of(s, hydra) == "p1:graveyard" and s.state.cards[bears.id].counters.get("+1/+1") == 2
+    check(s)
+
+
+# -- Tester of the Tangential ---------------------------------------------------------------------------------------------------------------------
+def test_tester_of_the_tangential_pays_x_and_moves_x_counters(cards):
+    """Three +1/+1 counters on it; at the beginning of combat Alice pays {2}: two move onto the Bears (the reflexive target, 603.12)."""
+    s = build(cards, ["Tester of the Tangential", "Grizzly Bears"])
+    tester, bears = put(s, "Tester of the Tangential"), put(s, "Grizzly Bears")
+    act(s, "p1", type="counter", card_ids=[tester.id], kind="+1/+1", delta=3)
+    for forest in [c for c in s.state.cards.values() if c.name == "Forest" and c.owner == "p1"][:2]:  # (mana empties between steps: lands pay)
+        to_zone(s, forest, "battlefield")
+    while s.state.rules.decision is None:
+        act(s, s.state.rules.priority, type="pass_priority")
+    answer(s, "yes", "x:2", bears.id)
+    assert s.state.cards[bears.id].counters.get("+1/+1") == 2 and s.state.cards[tester.id].counters.get("+1/+1") == 1
+    check(s)
+
+
+# -- Multiple Choice ------------------------------------------------------------------------------------------------------------------------------
+@pytest.mark.parametrize("x", [4, 3])
+def test_multiple_choice_x_four_does_every_line_x_three_only_the_token(cards, x):
+    """X 4: scry 1 and draw, Bob (chosen) returns his Bears, a 4/4 Elemental. X 3: only the Elemental — nothing is asked."""
+    s = build(cards, ["Multiple Choice"], ["Grizzly Bears"])
+    bears = put(s, "Grizzly Bears", "p2")
+    spell = to_hand(s, "Multiple Choice")
+    before = hand(s)
+    mana(s, U=1, C=x)
+    act(s, "p1", type="cast_spell", card_id=spell.id, x_value=x)
+    answer(s, "yes", "p2", bears.id)
+    assert len(tokens(s, "Elemental", "p1")) == 1
+    assert (zone_of(s, bears), hand(s)) == (("p2:hand", before) if x == 4 else ("p2:battlefield", before - 1))
+    check(s)

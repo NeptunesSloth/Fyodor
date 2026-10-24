@@ -1303,6 +1303,8 @@ def _object(plan: Plan, ctx: dict[str, Any], who: str) -> tuple[Any, Any] | None
         from app.rules.effects import _cards  # (effects imports this module)
 
         refs = [(c, plan.oid(c)) for c in _cards(plan, ctx, "host")]
+    if who.startswith("granter:"):  # -- xdamage (wave 100E) -- the granting object (layers.py binds its object id), as it is or as it last existed
+        refs = [(next((c.id for c in plan.state.cards.values() if plan.oid(c) == who[8:]), ""), who[8:])]
     if who == "each":  # -- sized amounts (wave 3D) -- "each creature you control deals damage equal to its power": the one being read
         card = plan.state.cards.get(ctx.get("each_source") or "")
         return (card, plan.ch(card)) if card is not None else None

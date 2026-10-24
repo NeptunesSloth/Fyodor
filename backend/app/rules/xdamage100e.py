@@ -7,6 +7,7 @@ Any other wording stays unsupported (refuse rather than guess)."""
 from __future__ import annotations
 
 import copy
+import re
 from collections.abc import Callable
 from typing import Any
 
@@ -660,6 +661,73 @@ def _breakthrough() -> Parsed:
     return effects, target, optional
 
 
+@_text("For each opponent, choose up to one target creature that player controls. ~ deals X damage to each of those creatures. You create a Mutagen "
+       "token for each creature dealt damage this way.")
+def _shellshock() -> Parsed:
+    """Shellshock: one Mutagen token for each creature actually dealt damage (after prevention, 615; one dealt lethal damage counts too)."""
+    effects, target, optional = _p("For each opponent, choose up to one target creature that player controls. ~ deals 3 damage to each of those creatures.")
+    mutagen = _p("Create a Mutagen token.")[0]
+    assert effects[1] == {"do": "damage", "who": "target:0", "n": 3} and len(mutagen) == 1
+    return [effects[0], {**effects[1], "n": {"x": 1}, "dealt_as": "ref:d0"}, {"do": "count_dealt100e", "dealt": "ref:d0", "as": "shell100e"},
+            {**mutagen[0], "n": {"ref_amount": "shell100e"}}], target, optional
+
+
+@_text("it deals X damage divided as you choose among up to X target creatures, where X is its power. Each of those creatures deals damage equal to its "
+       "power to ~.")
+def _ravenous_gigantotherium() -> Parsed:
+    """Ravenous Gigantotherium (the 2020-04-17 rulings): X its power as the ability is put on the stack, divided then (601.2d, 603.3d: each
+    target at least 1, so at most X targets; none is allowed); then each target still legal deals damage equal to its power to it, all at
+    once (120.3) — before state-based actions, so a creature dealt lethal damage still deals it."""
+    effects, target, optional = _p("~ deals X damage divided as you choose among any number of target creatures, where X is the number of lands you control.")
+    assert effects == [{"do": "damage", "who": "target:0", "n": {"divided": 0}}] and target[0]["divide"]["value"]
+    target[0] = {**target[0], "min": 0, "divide": {**target[0]["divide"], "value": {"power": "self"}}}
+    return [*effects, {"do": "damage", "who": "self", "n": {"power": "each"}, "src": "target:0", "src_many": True}], target, optional
+
+
+@_text("you may pay {X}. When you do, move X +1/+1 counters from ~ onto another target creature.")
+def _tester_of_the_tangential() -> Parsed:
+    """Tester of the Tangential: the reflexive ability (603.12; the 2026-03-20 ruling: its target chosen as it is put on the stack) moves as
+    many as X of its +1/+1 counters (122.5: fewer there, those)."""
+    effects, target, optional = _p("you may pay {X}. When you do, put X +1/+1 counters on target creature.")
+    move, onto, _ = _p("Move a +1/+1 counter from ~ onto another target creature.")
+    ability = _reflexive(effects)["ability"]
+    assert ability["effects"] == [{"do": "add_counters", "who": "target", "kind": "+1/+1", "n": {"event_amount": 1}}] and move[0]["n"] == 1
+    ability["effects"], ability["target"] = [{**move[0], "n": {"event_amount": 1}}], {"what": onto}
+    return effects, target, optional
+
+
+def _or_four(text: str, rest: list[dict[str, Any]] | None = None) -> Parsed:
+    """Multiple Choice: "If X is N" holds for X 4 or more too ("do all of the above": each line in its printed order); X 0 does nothing (the
+    2021-04-16 rulings)."""
+    m = re.fullmatch(r"If X is (\d), (.+)", text)
+    assert m is not None
+    body = rest if rest is not None else _p(m[2][0].upper() + m[2][1:])[0]
+    cond = {"any": [{"value": {"x": 1}, "op": "==", "n": int(m[1])}, {"value": {"x": 1}, "op": ">=", "n": 4}]}
+    return [{"do": "only_if", "cond": cond, "skip": len(body)}, *body], None, False
+
+
+@_text("If X is 1, scry 1, then draw a card.")
+def _multiple_choice_1() -> Parsed:
+    return _or_four("If X is 1, scry 1, then draw a card.")
+
+
+@_text("If X is 2, you may choose a player. They return a creature they control to its owner's hand.")
+def _multiple_choice_2() -> Parsed:
+    """The player chosen (or not: "you may", asked only when the line applies) returns a creature they control (their choice, 608.2d)."""
+    bounce = _p("Choose a player. That player returns a creature they control to its owner's hand.")[0]
+    return _or_four("If X is 2, …", [{"do": "may_rest", "skip": len(bounce)}, *bounce])
+
+
+@_text("If X is 3, create a 4/4 blue and red Elemental creature token.")
+def _multiple_choice_3() -> Parsed:
+    return _or_four("If X is 3, create a 4/4 blue and red Elemental creature token.")
+
+
+@_text("If X is 4 or more, do all of the above.")
+def _multiple_choice_4() -> Parsed:
+    return [], None, False  # (each line above reads X 4 or more itself)
+
+
 # -- whole abilities (definitions) -----------------------------------------------------------------------------------------------------------
 _DEFS: dict[str, Callable[[Any, Any], dict[str, Any]]] = {}
 
@@ -715,10 +783,19 @@ def _rage_extractor(ability: Any, ch: Any) -> dict[str, Any]:
     return d
 
 
+_ARCHERY = re.compile(r"\{T\}: (?:~|This creature) deals X damage to target attacking or blocking creature, where X is the number of arrow counters on "
+                      r"‹granter(?:#(?P<oid>[^›]+))?›\.")
+
+
 def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
     from app.rules import scripts
 
-    build = _DEFS.get(scripts.self_text(ability.text, ch.name).casefold())
+    text = scripts.self_text(ability.text, ch.name)
+    if ability.kind == "activated" and (m := _ARCHERY.fullmatch(text)) is not None:  # the ability Archery Training grants (607.1a): X counts the
+        d = _define(ability, ch, "{T}: ~ deals X damage to target attacking or blocking creature, where X is the number of arrow counters on ~.")
+        assert d["effects"] == [{"do": "damage", "who": "target", "n": {"counters": "arrow", "on": "self"}}]  # Aura's arrow counters (its object id,
+        return {**d, "effects": [{**d["effects"][0], "n": {"counters": "arrow", "on": "granter:" + (m["oid"] or "")}}]}  # bound by layers.py)
+    build = _DEFS.get(text.casefold())
     return build(ability, ch) if build is not None else None
 
 
@@ -932,8 +1009,16 @@ def shortfall_damage(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return effects._deal(plan, ctx, hits, e) if hits else True
 
 
+def count_dealt(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Bind how many objects an earlier damage instruction actually dealt damage to (effects.DEALT_KEY), wherever they are now."""
+    from app.rules import context, effects
+
+    context.bind_amount(ctx, e["as"], len(set((ctx.get(effects.DEALT_KEY) or {}).get(e["dealt"]) or [])))
+    return True
+
+
 RESUME = {"bane100e": resume_bane}
-PRIMITIVES = {"as_their100e": as_their, "with_you100e": with_you, "shortfall_damage100e": shortfall_damage, "land_gap_damage100e": land_gap_damage, "foe_hand_damage100e": foe_hand_damage, "bane100e": bane,
+PRIMITIVES = {"as_their100e": as_their, "count_dealt100e": count_dealt, "with_you100e": with_you, "shortfall_damage100e": shortfall_damage, "land_gap_damage100e": land_gap_damage, "foe_hand_damage100e": foe_hand_damage, "bane100e": bane,
               "bind_controlled100e": bind_controlled, "host_bite100e": host_bite, "beneath_top100e": beneath_top, "double_times100e": double_times, "keep_keyword100e": keep_keyword, "keep_dealt100e": keep_dealt}
 
 
