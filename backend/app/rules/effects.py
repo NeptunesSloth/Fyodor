@@ -6882,3 +6882,11 @@ PRIMITIVES.update(_upkeep91.PRIMITIVES)
 from app.rules import zone_exchanges94 as _zone_exchanges94  # noqa: E402
 
 PRIMITIVES.update(_zone_exchanges94.PRIMITIVES)
+
+from app.rules import instead100k as _instead100k  # noqa: E402, I001  -- instead (wave 100K) --
+
+PRIMITIVES.update(_instead100k.PRIMITIVES)
+RESUME.update(_instead100k.RESUME)
+from app.rules import aslongas100k as _aslongas100k  # noqa: E402, I001  -- as long as (wave 100K) --
+
+PRIMITIVES.update(_aslongas100k.PRIMITIVES)
