@@ -2301,6 +2301,10 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
             from app.rules import static_spell100c
 
             n = static_spell100c.your_life(plan, you)
+        elif n == "attacked100g":  # -- zones (wave 100G) -- "the number of players you attacked this combat" (Custodi Soulcaller)
+            from app.rules import zones100g
+
+            n = zones100g.attacked(plan, you)
         elif n == OWN_GRAVEYARD:  # (wave 50I) its controller's graveyard, as it is when checked (608.2b: again as the spell resolves)
             n = len(plan.state.zones.get(f"{card.controller}:graveyard", []))
         elif isinstance(n, str) and n.startswith(COUNT_STAT):  # -- control change (wave 20E) --

@@ -28,6 +28,7 @@ EXTRA = [
     real("Probe Companion", "{1}{W}", 2, "Creature — Human", "Doctor's companion", ("1", "1"), "W"),
     real("Probe Wall", "{1}{W}", 2, "Creature — Wall", "Defender", ("0", "4"), "W"),
     real("Probe Tall", "{1}{W}", 2, "Creature — Elf", "", ("1", "3"), "W"),
+    real("Probe Lord", "{2}{U}", 3, "Creature — Time Lord", "", ("2", "2"), "U"),
     real("Probe WU", "{W}{U}", 2, "Creature — Human", "", ("2", "2"), "WU"),
     real("Probe Twin", "{4}{G}", 5, "Creature — Beast", "", ("5", "5"), "G"),
     real("Probe Huge", "{6}{G}", 7, "Creature — Beast", "", ("7", "7"), "G"),
@@ -105,7 +106,9 @@ PROMOTED = ["Genju of the Realm", "Return of the Nightstalkers", "Vengeful Regro
             "Guardian Scalelord", "Olivia, Crimson Bride", "Reef Worm", "Rekindling Phoenix", "Ozox, the Clattering King",
             "Vault 12: The Necropolis", "Fall of the Impostor", "Braids's Frightful Return",
             "Zurgo and Ojutai", "Imperial Mask", "All Suns' Dawn", "Rogues' Gallery",
-            "Woodcaller Automaton"]
+            "Woodcaller Automaton", "Time Lord Regeneration", "Waking the Trolls", "Moorland Rescuer", "Custodi Soulcaller",
+            "Revealing Wind", "Trial of a Time Lord", "Vault 13: Dweller's Journey",
+            "Summoner's Egg", "Esper Origins // Summon: Esper Maduin"]
 
 
 @pytest.mark.parametrize("name", PROMOTED)
@@ -687,4 +690,198 @@ def test_woodcaller_automaton_prototyped_makes_a_3_3_treefolk_land(cards):
     c = s.state.cards[land.id]
     ch = Plan(s.state, "p1", s.cards, None).ch(c)
     assert not c.tapped and ch.is_creature and ch.is_land and "Treefolk" in ch.subtypes and ch.pt == (3, 3) and "haste" in ch.keywords
+    check(s)
+
+
+def test_time_lord_regeneration_dies_into_the_next_time_lord(cards):
+    s = build(cards, ["Time Lord Regeneration", "Murder", "Probe Doctor", "Probe Lord", "Grizzly Bears"])
+    doctor, lord, bears = card_named(s, "Probe Doctor"), card_named(s, "Probe Lord"), card_named(s, "Grizzly Bears")
+    put(s, "Probe Doctor")
+    on_top(s, lord)
+    on_top(s, bears)  # top: Grizzly Bears, then the Time Lord
+    cast_it(s, "Time Lord Regeneration", targets=[doctor.id], U=1)
+    murder(s, doctor)
+    assert where(s, lord) == "p1:battlefield" and lib(s)[-1] == bears.id
+    check(s)
+
+
+@pytest.mark.parametrize("theirs", [1, 4])
+def test_waking_the_trolls_three_makes_the_land_difference_in_trolls(cards, theirs):
+    s = build(cards, ["Waking the Trolls"])
+    for f in forests(s, 3):
+        act(s, "p1", type="move", card_ids=[f.id], to={"player": "p1", "zone": "battlefield"})
+    islands = [c for c in s.state.cards.values() if c.name == "Island" and c.owner == "p2" and c.zone == "p2:library"][:theirs]
+    act(s, "p2", type="move", card_ids=[c.id for c in islands], to={"player": "p2", "zone": "battlefield"})
+    saga = put(s, "Waking the Trolls")
+    act(s, "p1", type="set_counter", card_id=saga.id, kind="lore", value=2)
+    to_step(s, "main1", 3)  # chapter III: Alice 3 lands
+    assert len(tokens(s, "Troll Warrior")) == (2 if theirs == 1 else 0)
+    check(s)
+
+
+def test_moorland_rescuer_returns_power_up_to_its_last_power_then_exiles_itself(cards):
+    s = build(cards, ["Moorland Rescuer", "Murder", "Probe Big", "Llanowar Elves"])
+    rescuer = put(s, "Moorland Rescuer")
+    act(s, "p1", type="counter", card_ids=[rescuer.id], kind="+1/+1", delta=1)  # 5/5 as it last existed (4/4 printed)
+    big, elves = gy(s, card_named(s, "Probe Big")), gy(s, card_named(s, "Llanowar Elves"))
+    to_hand(s, "Murder")
+    mana(s, B=2, C=1)
+    act(s, "p1", type="cast_spell", card_id=card_named(s, "Murder").id, targets=[rescuer.id])
+    for _ in range(20):
+        d = s.state.rules.decision
+        if d is not None and big.id in [o.id for o in d.options]:
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+    with pytest.raises(ActionError):  # 5 + 1 is more than 5
+        act(s, "p1", type="choose", decision_id=d.id, option_ids=[big.id, elves.id])
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[big.id])
+    run(s)
+    assert where(s, big) == "p1:battlefield" and where(s, elves) == "p1:graveyard" and where(s, rescuer) == "p1:exile"
+    check(s)
+
+
+def test_custodi_soulcaller_x_is_the_players_attacked(cards):
+    s = build(cards, ["Custodi Soulcaller", "Llanowar Elves", "Grizzly Bears"])
+    soul = put(s, "Custodi Soulcaller")
+    elves, bears = gy(s, card_named(s, "Llanowar Elves")), gy(s, card_named(s, "Grizzly Bears"))
+    to_step(s, "main1", 3)
+    offered = []
+
+    def pick(d):
+        ids = [o.id for o in d.options]
+        if elves.id in ids:
+            offered.extend(ids)
+            return [elves.id]
+        return None
+
+    attack(s, 3, [soul], pick=pick)
+    assert elves.id in offered and bears.id not in offered  # one player attacked: mana value 1 or less
+    assert where(s, elves) == "p1:battlefield"
+    check(s)
+
+
+def test_revealing_wind_prevents_combat_damage_and_shows_the_face_down_blocker(cards):
+    s = build(cards, ["Revealing Wind", "Grizzly Bears"], ["Llanowar Elves"])
+    bears = put(s, "Grizzly Bears")
+    act(s, "p2", type="move", card_ids=[card_named(s, "Llanowar Elves", "p2").id], to={"player": "p2", "zone": "battlefield"}, face_down=True,
+        face_down_kind="morph")
+    (down,) = [c for c in s.state.cards.values() if c.zone == "p2:battlefield" and c.face_down]
+    to_step(s, "main1", 3)
+    attack(s, 3, [bears])
+    act(s, "p1", type="set_stops", own=["declare_blockers"], smart_pass=False)  # (Alice acts in the declare blockers step)
+    act(s, "p2", type="declare_blockers", blocks=[{"blocker_id": down.id, "attacker_id": bears.id}])
+    assert "Llanowar Elves" not in json.dumps(s.view("p1"))
+    mana(s, G=1, C=2)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Revealing Wind").id)
+    seen = []
+
+    def pick(d):
+        seen.append((d.player, "Llanowar Elves" in json.dumps(s.view("p1")), "Llanowar Elves" in json.dumps(s.view("p2"))))
+        return None
+
+    run(s, pick)
+    assert seen and seen[0][0] == "p1" and seen[0][1]  # Alice looks at it (Bob, its controller, always may: 708.5)
+    to_step(s, "main2", 3)
+    assert where(s, bears) == "p1:battlefield" and s.state.cards[down.id].zone == "p2:battlefield" and not s.state.cards[down.id].damage
+    assert s.state.cards[down.id].face_down and not s.state.cards[down.id].revealed_to  # hidden again after the look
+    check(s)
+
+
+@pytest.mark.parametrize("bob", ["innocent", "guilty"])
+def test_trial_of_a_time_lord_four_guilty_puts_the_exiled_on_the_bottom(cards, bob):
+    s = build(cards, ["Trial of a Time Lord"], ["Grizzly Bears"])
+    bears = put(s, "Grizzly Bears", "p2")
+    cast_it(s, "Trial of a Time Lord", W=2, C=1)  # chapter I: the Bears exiled until the Saga leaves
+    assert where(s, bears) == "p2:exile"
+    saga = card_named(s, "Trial of a Time Lord")
+    act(s, "p1", type="set_counter", card_id=saga.id, kind="lore", value=3)  # (by hand: no chapters)
+
+    def pick(d):
+        ids = [o.id for o in d.options]
+        if "guilty" in ids:
+            return ["guilty" if d.player == "p1" else bob]
+        return None
+
+    to_step(s, "main1", 3, pick=pick)  # chapter IV, then the Saga is sacrificed
+    if bob == "guilty":  # two votes to none
+        assert s.state.cards[lib(s, "p2")[-1]].name == "Grizzly Bears"  # (a card in a library: a fresh id, 401.? hidden)
+    else:  # a tie: the Bears come back as the Saga leaves (the official ruling)
+        assert where(s, card_named(s, "Grizzly Bears", "p2")) == "p2:battlefield"
+    check(s)
+
+
+def test_vault_13_three_returns_the_exiled_cards(cards):
+    s = build(cards, ["Vault 13: Dweller's Journey", "Grizzly Bears"], ["Llanowar Elves"])
+    mine, theirs = put(s, "Grizzly Bears"), put(s, "Llanowar Elves", "p2")
+    mana(s, W=1, C=3)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Vault 13: Dweller's Journey").id)
+    run(s, lambda d: [o.id for o in d.options if o.id in (mine.id, theirs.id)] or None)  # chapter I: one of each player's
+    assert where(s, mine) == "p1:exile" and where(s, theirs) == "p2:exile"
+    saga = card_named(s, "Vault 13: Dweller's Journey")
+    act(s, "p1", type="set_counter", card_id=saga.id, kind="lore", value=2)
+    to_step(s, "main1", 3)  # chapter III: the two return under their owners' control
+    assert where(s, card_named(s, "Grizzly Bears")) == "p1:battlefield" and where(s, card_named(s, "Llanowar Elves", "p2")) == "p2:battlefield"
+    check(s)
+
+
+def test_trial_of_a_time_lord_owner_orders_two_cards_on_the_bottom(cards):
+    s = build(cards, ["Trial of a Time Lord"], ["Grizzly Bears", "Llanowar Elves"])
+    bears, elves = put(s, "Grizzly Bears", "p2"), put(s, "Llanowar Elves", "p2")
+    cast_it(s, "Trial of a Time Lord", pick=lambda d: [bears.id] if bears.id in [o.id for o in d.options] else None, W=2, C=1)
+    to_step(s, "main1", 3)  # chapter II: the Elves
+    assert where(s, bears) == where(s, elves) == "p2:exile"
+    act(s, "p1", type="set_counter", card_id=card_named(s, "Trial of a Time Lord").id, kind="lore", value=3)
+    asked = []
+
+    def pick(d):
+        ids = [o.id for o in d.options]
+        if "guilty" in ids:
+            return ["guilty"]
+        if d.kind == "order":
+            asked.append(d.player)
+            return [elves.id, bears.id] if elves.id in ids else None
+        return None
+
+    to_step(s, "main1", 5, pick=pick)
+    assert asked == ["p2"]  # Bob orders his own cards (the official ruling)
+    assert sorted(s.state.cards[c].name for c in lib(s, "p2")[-2:]) == ["Grizzly Bears", "Llanowar Elves"]
+    check(s)
+
+
+@pytest.mark.parametrize("hidden", ["Grizzly Bears", "Swamp"])
+def test_summoners_egg_turns_its_card_up_and_puts_a_creature_onto_the_battlefield(cards, hidden):
+    s = build(cards, ["Summoner's Egg", "Murder", hidden])
+    card = to_hand(s, hidden)
+    cast_it(s, "Summoner's Egg", pick=lambda d: [card.id] if card.id in [o.id for o in d.options] else (["yes"] if "yes" in [o.id for o in d.options] else None), C=4)
+    egg = card_named(s, "Summoner's Egg")
+    (down,) = [c for c in s.state.cards.values() if c.zone == "p1:exile"]
+    assert down.face_down and hidden not in json.dumps(s.view("p2"))  # imprinted face down: nobody else knows it
+    murder(s, egg)
+    now = s.state.cards[down.id]
+    if hidden == "Grizzly Bears":
+        assert now.zone == "p1:battlefield" and not now.face_down
+    else:  # a noncreature card stays exiled, face up (the official ruling)
+        assert now.zone == "p1:exile" and not now.face_down
+    check(s)
+
+
+@pytest.mark.parametrize("flashback", [False, True])
+def test_esper_origins_from_a_graveyard_returns_transformed_with_finality(cards, flashback):
+    s = build(cards, ["Esper Origins // Summon: Esper Maduin"])
+    origins = card_named(s, "Esper Origins // Summon: Esper Maduin")
+    if flashback:
+        gy(s, origins)
+        mana(s, G=1, C=3)
+        act(s, "p1", type="cast_spell", card_id=origins.id)  # (flashback {3}{G}: the card in the graveyard)
+    else:
+        mana(s, G=1, C=1)
+        act(s, "p1", type="cast_spell", card_id=to_hand(s, "Esper Origins // Summon: Esper Maduin").id)
+    life = s.state.players["p1"].life
+    run(s)
+    c = s.state.cards[origins.id]
+    assert s.state.players["p1"].life == life + 2
+    if flashback:  # 712.14a: the Saga face up, with a finality counter (and its first chapter)
+        assert c.zone == "p1:battlefield" and c.face == 1 and c.counters.get("finality") == 1
+    else:
+        assert c.zone == "p1:graveyard"
     check(s)

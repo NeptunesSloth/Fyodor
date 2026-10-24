@@ -288,8 +288,84 @@ def resume_choose_event(plan: Any, d: Any, chosen: list[str]) -> None:
     effects.continue_effects(plan, d.resume["ctx"])
 
 
-PRIMITIVES = {"named100g": named, "choose_greatest100g": choose_greatest, "choose_event100g": choose_event, "loyalty_twice100g": loyalty_twice, "face_down_looked100g": face_down_looked, "top_or_bottom100g": top_or_bottom}
-RESUME = {"choose_greatest100g": resume_choose_greatest, "choose_event100g": resume_choose_event, "face_down_looked100g": resume_face_down_looked, "top_or_bottom100g": resume_top_or_bottom}
+def return_total_power(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Moorland Rescuer: any number of other creature cards from your graveyard whose powers add up to X or less — X its power as it last existed
+    on the battlefield (the official ruling; 608.2h) — chosen as it resolves (608.2d), then returned together (the ruling: even if it left)."""
+    from app.game.rules_state import DecisionOption
+    from app.rules import selectors, values
+    from app.rules.plan import decide
+
+    cap = values.evaluate(plan, ctx, {"power": "self"})
+    pool = sorted(c for c in selectors.candidates(plan, selectors.from_key(e["sel"]), ctx["controller"], ctx.get("source_card"))
+                  if c != ctx.get("source_card"))
+    if not pool:
+        return True
+    decide(plan, player=ctx["controller"], kind="choose_cards", prompt=f"{ctx.get('name') or 'It'}: choose creature cards with total power {cap} or less to return",
+           options=[DecisionOption(id=c, label=plan.state.cards[c].name or "Card", card_id=c) for c in pool], min_choices=0, max_choices=len(pool),
+           resume={"step": "return_total_power100g", "ctx": ctx, "e": e, "cap": cap, "pool": pool})
+    return False
+
+
+def _power(plan: Any, cid: str) -> int:
+    from app.rules import sba
+
+    card = plan.state.cards[cid]
+    return max(0, sba.power(card, plan.ch(card)) or 0)
+
+
+def resume_return_total_power(plan: Any, d: Any, chosen: list[str]) -> None:
+    from app.game.errors import ActionError
+    from app.rules import effects
+
+    r = d.resume
+    cards = [c for c in dict.fromkeys(chosen) if c in r["pool"] and plan.state.cards[c].zone == f"{r['ctx']['controller']}:graveyard"]
+    if len(cards) != len(set(chosen)) or sum(_power(plan, c) for c in cards) > r["cap"]:
+        raise ActionError(f"Those cards must have total power {r['cap']} or less")
+    if effects._return_cards(plan, r["ctx"], {"do": "return_card", "to": "battlefield", "tapped": False, "under": "you"}, cards):
+        effects.continue_effects(plan, r["ctx"])
+
+
+def bottom_linked(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Trial of a Time Lord IV, Vault 13 III: the cards exiled with the Saga still in exile go to the bottom of their owners' libraries, each
+    owner in turn order (101.4) ordering their own (401.4); one owner per instance — the next one is queued before the order is asked."""
+    from app.rules import effects
+
+    cards = [c for c in effects._cards(plan, ctx, e["who"]) if plan.state.cards[c].zone.endswith(":exile")]
+    for owner in plan.apnap():
+        mine = [c for c in cards if plan.state.cards[c].owner == owner]
+        if len(mine) == 1:
+            plan.do({"type": "move", "card_ids": mine, "to": {"player": owner, "zone": "library"}, "position": "bottom"}, actor=owner)
+        elif mine:
+            ctx["effects"] = [*ctx["effects"][:ctx["next"]], dict(e), *ctx["effects"][ctx["next"]:]]
+            effects._ask_order(plan, ctx, owner, owner, mine, "bottom")
+            return False
+    return True
+
+
+def turn_up_linked(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Summoner's Egg: the card exiled with it (607.2a) turned face up in exile — public from then on (406.3) — and the creature cards among them
+    bound as ``as`` (a noncreature card stays exiled face up: the official ruling; nothing "turned face up" triggers, it isn't a permanent)."""
+    from app.rules import context, effects
+
+    cards = [c for c in effects._cards(plan, ctx, e["who"]) if plan.state.cards[c].zone.endswith(":exile")]
+    down = [c for c in cards if plan.state.cards[c].face_down]
+    if down:
+        plan.do({"type": "face_down", "card_ids": down, "face_down": False}, actor=ctx["controller"])
+    context.bind_objects(plan, ctx, e["as"], [c for c in cards if plan.ch(plan.state.cards[c]).is_creature])
+    return True
+
+
+def self_exiled(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Esper Origins: the resolving spell's card, just exiled by spell_self_move (608.2n), bound as ``as`` — its new object in exile (400.7j)."""
+    from app.rules import context
+
+    card = plan.state.cards.get(ctx.get("stack_id") or "")
+    context.bind_objects(plan, ctx, e["as"], [card.id] if card is not None and card.zone.endswith(":exile") else [])
+    return True
+
+
+PRIMITIVES = {"named100g": named, "self_exiled100g": self_exiled, "turn_up_linked100g": turn_up_linked, "return_total_power100g": return_total_power, "bottom_linked100g": bottom_linked, "choose_greatest100g": choose_greatest, "choose_event100g": choose_event, "loyalty_twice100g": loyalty_twice, "face_down_looked100g": face_down_looked, "top_or_bottom100g": top_or_bottom}
+RESUME = {"return_total_power100g": resume_return_total_power, "choose_greatest100g": resume_choose_greatest, "choose_event100g": resume_choose_event, "face_down_looked100g": resume_face_down_looked, "top_or_bottom100g": resume_top_or_bottom}
 
 _BUILT = {
     "For each color, return up to one target card of that color from your graveyard to your hand. Exile ~.": _each_color("card", "Exile ~."),
@@ -310,6 +386,37 @@ _BUILT = {
 
 
 def parse(body: str) -> Parsed | None:
+    if body == "Prevent all combat damage that would be dealt this turn. You may look at each face-down creature that's attacking or blocking.":
+        p = _plain("Prevent all combat damage that would be dealt this turn.")  # (Revealing Wind: then a private look, 701.20e; "may": nothing else happens)
+        if p is None or [x["do"] for x in p[0]] != ["prevent_all"]:
+            return None
+        return [*p[0], {"do": "look_face_down", "who": _sel("face-down creature that's attacking or blocking")}], None, False
+    if body == ("Starting with you, each player votes for innocent or guilty. If guilty gets more votes, the owner of each card exiled with ~ puts "
+                "that card on the bottom of their library."):  # (Trial of a Time Lord IV: 701.38 vote, then the linked cards, 607.2a)
+        p = _plain("Starting with you, each player votes for innocent or guilty. If guilty gets more votes, draw a card.")
+        if p is None or [x["do"] for x in p[0]] != ["vote", "only_if", "draw"]:
+            return None
+        return [p[0][0], {**p[0][1], "skip": 2}, {"do": "linked_cards", "as": "trial100g"}, {"do": "bottom_linked100g", "who": "ref:trial100g"}], None, False
+    if body == "Return two cards exiled with ~ to the battlefield under their owners' control and put the rest on the bottom of their owners' libraries.":
+        # (Vault 13 III: two of the linked cards, the controller's choice as it resolves (608.2d), then the rest)
+        return [{"do": "linked_cards", "as": "vault13"}, {"do": "return_choice", "who": "ref:vault13", "to": "battlefield", "tapped": False, "under": "owner",
+                                                         "n": 2, "upto": False, "label": "card exiled with it"},
+                {"do": "bottom_linked100g", "who": "ref:vault13"}], None, False
+    if body == ("Surveil 2. You gain 2 life. If this spell was cast from a graveyard, exile it, then put it onto the battlefield transformed under its "
+                "owner's control with a finality counter on it."):  # (Esper Origins: 608.2n the spell card moves itself; 712.14a back face up; 122.6)
+        p = _plain("Surveil 2. You gain 2 life. If this spell was cast from a graveyard, draw a card.")
+        if p is None or [x["do"] for x in p[0]] != ["surveil", "gain_life", "only_if", "draw"]:
+            return None
+        return [*p[0][:2], {**p[0][2], "skip": 3}, {"do": "spell_self_move", "to": "exile"}, {"do": "self_exiled100g", "as": "esper100g"},
+                {"do": "return_card", "who": "ref:esper100g", "to": "battlefield", "tapped": False, "under": "owner", "transformed": True,
+                 "counter": "finality"}], None, False
+    if body == ("Choose target opponent. If they control fewer lands than you, create a number of 4/4 green Troll Warrior creature tokens with trample "
+                "equal to the difference."):  # (Waking the Trolls III: none when they control as many or more, 107.1b)
+        p = _plain("Create a number of 4/4 green Troll Warrior creature tokens with trample equal to the number of lands target opponent controls.")
+        if p is None or [x["do"] for x in p[0]] != ["create_token"] or p[1] != "opponent":
+            return None
+        theirs = p[0][0]["n"]
+        return [{**p[0][0], "n": {"minus": [theirs["of"], theirs]}}], p[1], False
     if body == "Exile a creature with the greatest power among creatures target opponent controls.":
         return [{"do": "choose_greatest100g", "who": "target", "as": "impostor100g"}, {"do": "exile", "who": "ref:impostor100g"}], "opponent", False
     if body == "Target opponent may sacrifice a nonland, nontoken permanent of their choice. If they don't, they lose 2 life and you draw a card.":
@@ -346,6 +453,24 @@ def extra_ok(plan: Any, extra: str, card: Any, ch: Any) -> bool:
         return card.zone.endswith(":battlefield") and card.face == 1 and not card.face_down and not card.melded and not card.merged \
             and chars.transformable(card, plan.info)
     return False
+
+
+def attacked(plan: Any, you: str) -> int:
+    """The players ``you`` attacked in this combat's declaration (508.1), whether or not they or the attackers are still there (the official
+    ruling, as melee counts them; a creature put onto the battlefield attacking was never declared)."""
+    return len([p for p in plan.rules.attacked_players.get(you, []) if p != you])
+
+
+def _custodi(d: dict[str, Any]) -> dict[str, Any] | None:
+    from dataclasses import replace
+
+    from app.rules import selectors
+
+    t = d.get("target") or {}
+    s = selectors.from_key(t["what"]) if str(t.get("what", "")).startswith(selectors.PREFIX) else None
+    if s is None or s.compare != (("mv", "<=", 3),):
+        return None
+    return {**d, "target": {**t, "what": replace(s, compare=(("mv", "<=", "attacked100g"),)).key()}}
 
 
 def _with_extra(key: str, extra: str) -> str:
@@ -392,6 +517,31 @@ def _harvest_wurm(d: dict[str, Any]) -> dict[str, Any] | None:
             "label": "basic land card", "as": "wurm100g"}
     none = {"do": "only_if", "cond": {"value": {"this_way": "returned", "of": None, "ref_count": "wurm100g"}, "op": "<=", "n": 0}, "skip": 1}
     return {**d, "effects": [back, none, d["effects"][2]]}
+
+
+_TIME_LORD_DIES = ("When this creature dies, reveal cards from the top of your library until you reveal a Time Lord creature card. Put that card onto the "
+                   "battlefield and the rest on the bottom of your library in a random order.")
+
+
+def _time_lord(key: str) -> str:
+    """The same selector with the creature type Time Lord for Doctor (205.3m)."""
+    from dataclasses import replace
+
+    from app.rules import selectors
+
+    s = selectors.from_key(key)
+    return replace(s, subtypes=tuple("Time Lord" if t == "Doctor" else t for t in s.subtypes)).key()
+
+
+def _time_lord_regeneration() -> Parsed | None:
+    """Time Lord Regeneration: until end of turn (611.2a) the target Time Lord has the dies trigger (its definition: _AS)."""
+    p = _plain(f'Until end of turn, target Doctor you control gains "{_TIME_LORD_DIES}"')
+    if p is None or [e["do"] for e in p[0]] != ["grant"] or not isinstance(p[1], str):
+        return None
+    return p[0], _time_lord(p[1]), False
+
+
+_BUILT[f'Until end of turn, target Time Lord you control gains "{_TIME_LORD_DIES.replace("this creature", "~")}"'] = _time_lord_regeneration  # (the body as self_text gives it)
 
 
 def _token_text(text: str, *, name: str | None = None, add: bool = False) -> Any:
@@ -456,6 +606,26 @@ _AS: dict[str, tuple[str, Any]] = {
         "When this creature enters, if you cast it, untap target land you control. It becomes a 3/3 Treefolk creature with haste. It's still a land.",
         lambda d: {**d, "effects": [{**e, "p": {"power": "self"}, "t": {"toughness": "self"}} if e.get("do") == "become" and (e.get("p"), e.get("t")) == (3, 3)
                                     else e for e in d["effects"]]}),
+    # Time Lord Regeneration's granted ability: "Time Lord" is one creature type of two words (205.3m), which the phrase grammar doesn't split
+    _TIME_LORD_DIES: ("When this creature dies, reveal cards from the top of your library until you reveal a Doctor creature card. Put that card onto "
+                      "the battlefield and the rest on the bottom of your library in a random order.",
+                      lambda d: {**d, "effects": [{**e, "until": _time_lord(e["until"])} if e.get("do") == "look_top" and e.get("until") else e
+                                                  for e in d["effects"]]}),
+    # Moorland Rescuer: the return (return_total_power100g), then "Exile this card": the card it became in the graveyard (400.7, event.new)
+    "When this creature dies, return any number of other creature cards with total power X or less from your graveyard to the battlefield, where X is "
+    "this creature's power. Exile this card.": (
+        "When this creature dies, exile it.",
+        lambda d: {**d, "effects": [{"do": "return_total_power100g", "sel": _sel("creature card from your graveyard")}, *d["effects"]]}
+        if [e.get("do") for e in d["effects"]] == ["exile"] else None),
+    # Custodi Soulcaller: X as the target is chosen and again as it resolves (608.2b) — the same number, the declaration's (zones100g.attacked)
+    "Whenever this creature attacks, return target creature card with mana value X or less from your graveyard to the battlefield, where X is the "
+    "number of players you attacked this combat.": ("Whenever this creature attacks, return target creature card with mana value 3 or less from your "
+                                                    "graveyard to the battlefield.", _custodi),
+    # Summoner's Egg: the linked card (607.2a) turned face up, then onto the battlefield if it's a creature card (zones100g.turn_up_linked)
+    "When this creature dies, turn the exiled card face up. If it's a creature card, put it onto the battlefield under your control.": (
+        "When this creature dies, draw a card.",
+        lambda d: {**d, "effects": [{"do": "linked_cards", "as": "egg100g"}, {"do": "turn_up_linked100g", "who": "ref:egg100g", "as": "egg_creature100g"},
+                                    {"do": "return_card", "who": "ref:egg_creature100g", "to": "battlefield", "tapped": False, "under": "you"}]}),
     # Imperial Mask: 102.3: teammates are the other players of a team; the engine's Commander game is Free-for-All (903.2, 806: no teams), so
     # nobody creates a token — the ability still triggers (603.4, not a token) and does nothing
     "When this enchantment enters, if it's not a token, each of your teammates creates a token that's a copy of this enchantment.": (
@@ -471,6 +641,9 @@ _AS: dict[str, tuple[str, Any]] = {
     "When this creature enters, sacrifice it unless you return a basic land card from your graveyard to your hand.":
         ("When this creature enters, sacrifice it unless you discard a card.", _harvest_wurm),
 }
+
+
+_AS[_TIME_LORD_DIES.replace("this creature", "~")] = _AS[_TIME_LORD_DIES]  # (the grant's own check reads it with ~ for "this creature")
 
 
 def native(text: str) -> str:
