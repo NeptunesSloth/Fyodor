@@ -3797,8 +3797,8 @@ def _parse_effects_plain(body: str, it: str | None = None, *, event_player: bool
     found = _parse_effects_checked(body, it, event_player)
     if found is not None and '"target_sel"' in json.dumps(found[0], default=str):
         return None  # (-- static_other sweep (wave 16B) -- a "target …" an amount names that no instruction declared as its target)
-    if found is not None and '{"x": 1}' not in json.dumps(found[0]):
-        return found
+    if found is not None and '{"x": 1}' not in json.dumps(found[0]) and not ('"x_count"' in json.dumps(found[1]) and _WHERE_X.search(body)):
+        return found  # (-- xdamage (wave 100E) -- "up to X target creatures … get +X/+X …, where X is …" (Prismabasher): the count is the text's X too)
     return _where_x(body, it, event_player) or found  # (X left as a cast X by the sentence grammar: read as the text defines it, if it can be)
 
 
@@ -4019,7 +4019,7 @@ def _bind_x_conditions(effects: list[dict[str, Any]], value: Any) -> list[dict[s
             for e in effects]
 
 
-_X_TARGET_VALUES = where_bound.ALLOWED | {"this_way", "opponents"}  # (wave 28D: known as a trigger is put on the stack, 603.3d)
+_X_TARGET_VALUES = where_bound.ALLOWED | {"this_way", "opponents", "distinct", "among"}  # (wave 28D: known as a trigger is put on the stack, 603.3d; -- xdamage (wave 100E) -- "the number of colors among permanents you control", Prismabasher)
 
 
 def _x_target_counts(found: tuple[list[dict[str, Any]], Any, bool], value: Any) -> tuple[list[dict[str, Any]], Any, bool] | None:

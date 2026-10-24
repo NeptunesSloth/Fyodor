@@ -445,6 +445,221 @@ def _sycorax_commander() -> Parsed:
                         "~ deals damage to that player equal to the number of cards in their hand"]}], None, False
 
 
+@_text("you may discard your hand. Draw X cards, where X is the number of cards discarded this way. If you have an enduring story, ~ deals X damage to "
+       "each opponent.")
+def _balin() -> Parsed:
+    """Balin, Loremaster: both X are the number of cards discarded this way (an empty hand may be discarded: X 0 — the 2026-06-29 rulings)."""
+    effects, target, optional = _p("you may discard your hand. Draw X cards, where X is the number of cards discarded this way. If you have an enduring "
+                                   "story, ~ deals 1 damage to each opponent.")
+    assert [e["do"] for e in effects] == ["discard", "draw", "only_if", "damage"] and effects[3]["n"] == 1
+    effects[3]["n"] = effects[1]["n"]
+    return effects, target, optional
+
+
+@_text("Up to X target creatures you control each gain haste until end of turn and can't be blocked this turn except by creatures with haste, where X "
+       "is the number of Bobbleheads you control as you activate this ability.")
+def _agility_bobblehead() -> Parsed:
+    """Agility Bobblehead: the number of targets is fixed as it is activated (601.2c; the 2024-03-08 rulings), and a creature already blocked
+    stays blocked (509.1h)."""
+    grant, target, optional = _p("Up to X target creatures you control each gain haste until end of turn, where X is the number of Bobbleheads you "
+                                 "control as you activate this ability.")
+    unblockable = _p("Target creature can't be blocked this turn except by creatures with haste.")[0]
+    assert grant[0]["do"] == "grant" and unblockable[0]["do"] == "restrict"
+    return [*grant, {**unblockable[0], "who": "target:0"}], target, optional
+
+
+@_text("Target opponent loses 2 life for each Swamp you control. ~ deals damage to target creature equal to the number of Mountains you control. "
+       "Create a 1/1 green Saproling creature token for each Forest you control. You gain 2 life for each Plains you control. Draw a card for each "
+       "Island you control, then discard that many cards.")
+def _last_stand() -> Parsed:
+    """Last Stand: each count as it resolves (608.2h); "that many" is the number of cards the draw instruction named (608.2c)."""
+    effects, target, optional = _p("Target opponent loses 2 life for each Swamp you control. ~ deals damage to target creature equal to the number of "
+                                   "Mountains you control. Create a 1/1 green Saproling creature token for each Forest you control. You gain 2 life for "
+                                   "each Plains you control. Draw a card for each Island you control, then discard a card.")
+    assert effects[-2]["do"] == "draw" and effects[-1] == {"do": "discard", "who": "you", "n": 1}
+    effects[-1]["n"] = effects[-2]["n"]
+    return effects, target, optional
+
+
+@_text("target creature you control gets +X/+0 until end of turn and up to one target creature an opponent controls gets -0/-X until end of turn, "
+       "where X is the number of Elves you control plus the number of Elf cards in your graveyard.")
+def _gloom_ripper() -> Parsed:
+    """Gloom Ripper: X once, as the ability resolves (the 2025-11-17 ruling); either target illegal, the other is still affected (608.2b)."""
+    effects, target, optional = _p("target creature you control gets +1/+0 until end of turn. Up to one target creature an opponent controls gets -0/-1 "
+                                   "until end of turn.")
+    x = _p("target creature you control gets +X/+0 until end of turn, where X is the number of Elves you control plus the number of Elf cards in your "
+           "graveyard.")[0][0]["p"]
+    assert [(e["p"], e["t"]) for e in effects] == [(1, 0), (0, -1)]
+    effects[0]["p"], effects[1]["t"] = x, {"neg": x}
+    return effects, target, optional
+
+
+@_text("Exile target nonland permanent. Its controller incubates X, where X is its mana value.")
+def _excise_the_imperfect() -> Parsed:
+    """Excise the Imperfect: the permanent's controller as it last existed incubates (701.53a), X its mana value then (608.2h); an illegal
+    target: nothing happens (the 2023-04-14 ruling, 608.2b)."""
+    effects, target, optional = _p("Exile target nonland permanent. Its controller creates a Treasure token.")
+    assert effects[0] == {"do": "exile", "who": "target", "as": "e0"} and effects[1]["who"] == "ref:e0.controller"
+    return [effects[0], {"do": "as_their100e", "who": "ref:e0.controller", "span": 1}, {"do": "incubate", "n": {"mana_value": "ref:e0"}},
+            {"do": "as_player_end"}], target, optional
+
+
+@_text("incubate 3 X times.")
+def _progenitor_exarch() -> Parsed:
+    """Progenitor Exarch: X Incubator tokens one after the other (701.53a), X the X it was cast with (0 when it wasn't cast: 107.3m)."""
+    effects = _p("incubate 3 twice.")
+    assert effects[0][0] == {"do": "repeat", "n": 2, "span": 1}
+    effects[0][0]["n"] = {"x": 1}
+    return effects
+
+
+@_text("destroy up to one other target creature. Its controller amasses Goblins X, where X is that creature's power. If you controlled that creature, "
+       "draw a card.")
+def _azog() -> Parsed:
+    """Azog, Moria's Ruin (the 2026-06-29 rulings): that creature's controller as it last existed amasses Goblins X (701.47a: their Army),
+    X its power as it last existed; with no target, nobody amasses. Destroyed or not (indestructible), it is "that creature" (608.2c)."""
+    effects, target, optional = _p("destroy up to one other target creature. Its controller creates X 1/1 green Elf Warrior creature tokens, where X is "
+                                   "that creature's power.")
+    draw = _p("destroy target creature. If you controlled that creature, draw a card.")[0][1:]
+    assert effects[1]["who"] == "ref:e0.controller" and effects[1]["n"] == {"power": "ref:e0"} and draw[0]["cond"]["object"] == "ref:e0"
+    return [effects[0], {"do": "as_their100e", "who": "ref:e0.controller", "span": 1}, {"do": "amass", "sub": "Goblin", "n": {"power": "ref:e0"}},
+            {"do": "as_player_end"}, *draw], target, optional
+
+
+@_text("create a 0/0 green and blue Fractal creature token. Put X +1/+1 counters on it and attach ~ to it.")
+def _fractal_harness() -> Parsed:
+    """Fractal Harness: the token, X counters (the X it was cast with; 0 when it wasn't cast: the 2021-04-16 ruling), then the Equipment
+    attached to it — all as one resolution, before state-based actions see a 0/0 (704.3)."""
+    effects, target, optional = _p("create a 0/0 green and blue Fractal creature token. Put X +1/+1 counters on it.")
+    attach = _p("create a 1/1 colorless Germ creature token, then attach ~ to it.")[0][1]
+    assert effects[0]["as"] == "e0" and effects[1]["who"] == "ref:e0" and attach == {"do": "attach_to", "src": "self", "who": "ref:e0"}
+    return [*effects, attach], target, optional
+
+
+@_text('Create X 1/1 green Minion creature tokens named Moloid, where X is the number of permanent cards in your graveyard. The tokens have "Whenever '
+       'this token attacks, you may mill a card."')
+def _return_of_the_mole_man() -> Parsed:
+    """Return of the Mole Man: X counted as it resolves (608.2h) — the enchantment, sacrificed to activate it, is one of those cards."""
+    effects, target, optional = _p("Create X 1/1 green Minion creature tokens named Moloid, where X is the number of permanent cards in your graveyard.")
+    text = _p('Create a 1/1 green Minion creature token with "Whenever this token attacks, you may mill a card."')[0][0]["token"]["text"]
+    assert effects[0]["token"]["name"] == "Moloid" and not effects[0]["token"]["text"]
+    effects[0]["token"]["text"] = text
+    return effects, target, optional
+
+
+@_text("Until end of turn, target creature becomes a green and blue Fractal with base power and toughness each equal to X plus 1.")
+def _fractalize() -> Parsed:
+    """Fractalize: until end of turn green and blue (layer 5), a Fractal and no other creature type (layer 4: 205.1b, the reminder text),
+    base power and toughness X plus 1 (layer 7b)."""
+    effects, target, optional = _p("Until end of turn, target creature becomes a green and blue Fractal with base power and toughness 1/1.")
+    assert effects[0]["do"] == "become" and (effects[0]["p"], effects[0]["t"]) == (1, 1) and effects[0]["creature_types"] == ["Fractal"]
+    effects[0]["p"] = effects[0]["t"] = {"plus": [{"x": 1}, 1]}
+    return effects, target, optional
+
+
+@_text("Until end of turn, creatures you control have base power and toughness X/X, where X is the number of cards you own in exile and in your graveyard "
+       "that are instant cards, are sorcery cards, and/or have an Adventure.")
+def _candlekeep_inspiration() -> Parsed:
+    """Candlekeep Inspiration (the 2022-06-10 rulings): X and the creatures affected are fixed as it resolves (608.2h, 611.2c); an adventurer
+    card is a permanent card (715.2), so the two counts never overlap."""
+    from app.rules import selectors
+
+    effects, target, optional = _p("Until end of turn, creatures you control have base power and toughness X/X, where X is the number of instant and "
+                                   "sorcery cards in your graveyard.")
+    assert effects[0]["do"] == "become" and effects[0]["p"] == effects[0]["t"]
+    mine = selectors.Selector(card=True, zones=("exile", "graveyard"), zone_owner="you")
+    x = {"plus": [{"count": selectors.replace(mine, types=("Instant", "Sorcery")).key()},
+                  {"count": selectors.replace(mine, extras=("has_adventure",)).key()}]}
+    effects[0]["p"] = effects[0]["t"] = x
+    return effects, target, optional
+
+
+@_text("exile the top card of your library. If it's a creature card, ~ gets +X/+Y until end of turn, where X is the exiled creature card's power and Y "
+       "is its toughness.")
+def _bioplasm() -> Parsed:
+    """Bioplasm: the exiled card's power and toughness in exile (a characteristic-defining ability counts there too: the 2014-02-01 ruling)."""
+    effects, target, optional = _p("exile the top card of your library. If it's a creature card, ~ gets +X/+X until end of turn, where X is that card's power.")
+    assert effects[2] == {"do": "pump", "who": "self", "p": {"power": "ref:e0"}, "t": {"power": "ref:e0"}}
+    effects[2]["t"] = {"toughness": "ref:e0"}
+    return effects, target, optional
+
+
+@_text("target player reveals X cards from their hand, where X is the number of Faeries you control. You choose one of those cards. That player discards "
+       "that card.")
+def _thieving_sprite() -> Parsed:
+    """Thieving Sprite: X is the Faeries you control as it resolves (the 2013-06-07 ruling); that player picks the cards revealed (701.20a)."""
+    return _p("target player reveals a number of cards from their hand equal to the number of Faeries you control. You choose one of them. That player "
+              "discards that card.")
+
+
+@_text("Target player reveals X cards from their hand and you choose one of them. That player discards that card.")
+def _cabal_interrogator() -> Parsed:
+    effects, target, optional = _p("Target player reveals three cards from their hand and you choose one of them. That player discards that card.")
+    assert effects[0] == {"do": "reveal_some", "who": "target", "n": 3}
+    effects[0]["n"] = {"x": 1}
+    return effects, target, optional
+
+
+@_text("If target creature has toughness 5 or greater, it gets +4/-4 until end of turn. Otherwise, it gets +4/-X until end of turn, where X is its "
+       "toughness minus 1.")
+def _blood_lust() -> Parsed:
+    """Blood Lust: its toughness as it resolves picks the branch; X is fixed then (the 2005-11-01 ruling), never below 0 (107.1b). The other
+    branch is checked first: after it the creature's toughness is at most 1, so the first can't apply too."""
+    effects, target, optional = _p("Target creature gets +4/-4 until end of turn.")
+    assert effects == [{"do": "pump", "who": "target", "p": 4, "t": -4}]
+    big = {"object": "target", "is": 'sel:{"compare":[["toughness",">=",5]],"types":["Creature"]}'}
+    return [{"do": "only_if", "cond": {"not": big}, "skip": 1}, {**effects[0], "t": {"neg": {"minus": [{"toughness": "target"}, 1]}}},
+            {"do": "only_if", "cond": big, "skip": 1}, effects[0]], target, optional
+
+
+@_text("The owner of target artifact or creature with mana value 1 or greater shuffles it into their library. Then that player discovers X, where X is its "
+       "mana value.")
+def _zoyowas_justice() -> Parsed:
+    """Zoyowa's Justice: its owner shuffles it in, then that player discovers X (701.57a), X its mana value as it last existed on the battlefield
+    (608.2h: an X in its cost is 0, the 2023-11-10 rulings); an illegal target: nothing happens (608.2b)."""
+    effects, target, optional = _p("The owner of target artifact or creature with mana value 1 or greater shuffles it into their library.")
+    assert effects == [{"do": "to_library", "who": "target", "place": "shuffle"}]
+    return [{**effects[0], "as": "e0"}, {"do": "as_their100e", "who": "ref:e0.owner", "span": 1},  # (continue_resolution: back to its controller
+            {"do": "discover", "n": {"mana_value": "ref:e0"}, "continue_resolution": True}, {"do": "as_player_end"}], target, optional  # after a cast)
+
+
+def _offering(token_text: str) -> Parsed:
+    """Sylvan Offering: an opponent chosen as it resolves, for each line on its own (the 2014-11-07 rulings: not a target; the same one or
+    another), then one instruction for you and that player (one event, as Benevolent Offering)."""
+    made = _p(token_text)[0]
+    assert len(made) == 1 and made[0]["do"] == "create_token"
+    return [{"do": "choose_value", "who": "you", "what": "opponent", "as": "offer100e"},
+            {"do": "with_you100e", "of": "ref:offer100e", "as": "offered100e"}, {**made[0], "who": "ref:offered100e"}], None, False
+
+
+@_text("Choose an opponent. You and that player each create an X/X green Treefolk creature token.")
+def _sylvan_offering_treefolk() -> Parsed:
+    return _offering("Create an X/X green Treefolk creature token.")
+
+
+@_text("Choose an opponent. You and that player each create X 1/1 green Elf Warrior creature tokens.")
+def _sylvan_offering_elves() -> Parsed:
+    return _offering("Create X 1/1 green Elf Warrior creature tokens.")
+
+
+@_text("Each player may discard up to three cards. ~ deals damage to each player equal to 3 minus the number of cards they discarded this way.")
+def _mind_bomb() -> Parsed:
+    """Mind Bomb: each player in APNAP order chooses up to three cards, all discarded at once (101.4, 701.9a); then each player is dealt 3
+    minus the cards they discarded, all at once (120.3)."""
+    discard = _p("Each player discards up to three cards.")[0]
+    assert discard == [{"do": "discard", "who": "each_player", "n": 3, "upto": True}]
+    return [{**discard[0], "as": "bomb100e"}, {"do": "shortfall_damage100e", "of": "ref:bomb100e", "n": 3}], None, False
+
+
+@_text("Draw four cards, then choose X cards in your hand and discard the rest.")
+def _breakthrough() -> Parsed:
+    """Breakthrough: keeping X cards is discarding all the others (701.9a: the player chooses); X at least the hand, nothing is discarded."""
+    effects, target, optional = _p("Draw four cards, then discard a card.")
+    assert effects[1] == {"do": "discard", "who": "you", "n": 1}
+    effects[1]["n"] = {"minus": [{"hand": "you"}, {"x": 1}]}
+    return effects, target, optional
+
+
 # -- whole abilities (definitions) -----------------------------------------------------------------------------------------------------------
 _DEFS: dict[str, Callable[[Any, Any], dict[str, Any]]] = {}
 
@@ -687,8 +902,38 @@ def resume_bane(plan: Any, d: Any, chosen: list[str]) -> None:
         effects.continue_effects(plan, ctx)
 
 
+def as_their(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """The next ``span`` instructions are done by the player ``who`` names ("Its controller incubates X"), until ``as_player_end``; nobody
+    named (no target was chosen), they and the end are skipped."""
+    from app.rules import effects, tempting
+
+    players = effects._players(plan, ctx, e["who"])
+    if not players:
+        ctx["next"] += e["span"] + 1
+        return True
+    return tempting.as_player(plan, ctx, {"player": players[0]})
+
+
+def with_you(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Bind you and the players ``of`` names ("You and that player each …")."""
+    from app.rules import context, effects
+
+    context.bind_players(ctx, e["as"], list(dict.fromkeys([ctx["controller"], *effects._players(plan, ctx, e["of"])])))
+    return True
+
+
+def shortfall_damage(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Each player is dealt ``n`` minus the number of cards they discarded this way (the binding ``of``), all at once (120.3, 608.2h)."""
+    from app.rules import context, effects
+
+    gone = [plan.state.cards[c].owner for c in context.objects(plan, ctx, e["of"].removeprefix("ref:"))]  # (the discarded cards, in the graveyards: 400.7j)
+    src = effects._ability_source(plan, ctx)
+    hits = [(src, p, e["n"] - gone.count(p)) for p in plan.live() if e["n"] - gone.count(p) > 0]
+    return effects._deal(plan, ctx, hits, e) if hits else True
+
+
 RESUME = {"bane100e": resume_bane}
-PRIMITIVES = {"land_gap_damage100e": land_gap_damage, "foe_hand_damage100e": foe_hand_damage, "bane100e": bane,
+PRIMITIVES = {"as_their100e": as_their, "with_you100e": with_you, "shortfall_damage100e": shortfall_damage, "land_gap_damage100e": land_gap_damage, "foe_hand_damage100e": foe_hand_damage, "bane100e": bane,
               "bind_controlled100e": bind_controlled, "host_bite100e": host_bite, "beneath_top100e": beneath_top, "double_times100e": double_times, "keep_keyword100e": keep_keyword, "keep_dealt100e": keep_dealt}
 
 

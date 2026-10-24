@@ -947,5 +947,463 @@
   ],
   "power": "0",
   "toughness": "1"
+ },
+ {
+  "name": "Balin, Loremaster",
+  "layout": "normal",
+  "mana_cost": "{3}{R}{R}",
+  "cmc": 5.0,
+  "type_line": "Legendary Creature — Dwarf Bard",
+  "oracle_text": "Storied (If you control three or more artifacts, legendaries, and/or Sagas, you have an enduring story for the rest of the game.)\nWhenever Balin or another Dwarf you control enters, you may discard your hand. Draw X cards, where X is the number of cards discarded this way. If you have an enduring story, Balin deals X damage to each opponent.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Storied"
+  ],
+  "power": "4",
+  "toughness": "4"
+ },
+ {
+  "name": "Agility Bobblehead",
+  "layout": "normal",
+  "mana_cost": "{3}",
+  "cmc": 3.0,
+  "type_line": "Artifact — Bobblehead",
+  "oracle_text": "{T}: Add one mana of any color.\n{3}, {T}: Up to X target creatures you control each gain haste until end of turn and can't be blocked this turn except by creatures with haste, where X is the number of Bobbleheads you control as you activate this ability.",
+  "colors": [],
+  "color_identity": [],
+  "keywords": []
+ },
+ {
+  "name": "Last Stand",
+  "layout": "normal",
+  "mana_cost": "{W}{U}{B}{R}{G}",
+  "cmc": 5.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Target opponent loses 2 life for each Swamp you control. Last Stand deals damage to target creature equal to the number of Mountains you control. Create a 1/1 green Saproling creature token for each Forest you control. You gain 2 life for each Plains you control. Draw a card for each Island you control, then discard that many cards.",
+  "colors": [
+   "B",
+   "G",
+   "R",
+   "U",
+   "W"
+  ],
+  "color_identity": [
+   "B",
+   "G",
+   "R",
+   "U",
+   "W"
+  ],
+  "keywords": [],
+  "all_parts": [
+   {
+    "id": "7c8d6000-0c8a-4672-b834-314c3baf974a",
+    "component": "token",
+    "name": "Saproling",
+    "type_line": "Token Creature — Saproling"
+   },
+   {
+    "id": "d7f3c92b-5a31-450e-8cff-9289d266050a",
+    "component": "combo_piece",
+    "name": "Last Stand",
+    "type_line": "Sorcery"
+   }
+  ]
+ },
+ {
+  "name": "Gloom Ripper",
+  "layout": "normal",
+  "mana_cost": "{3}{B}{B}",
+  "cmc": 5.0,
+  "type_line": "Creature — Elf Assassin",
+  "oracle_text": "When this creature enters, target creature you control gets +X/+0 until end of turn and up to one target creature an opponent controls gets -0/-X until end of turn, where X is the number of Elves you control plus the number of Elf cards in your graveyard.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [],
+  "power": "4",
+  "toughness": "4"
+ },
+ {
+  "name": "Excise the Imperfect",
+  "layout": "normal",
+  "mana_cost": "{1}{W}{W}",
+  "cmc": 3.0,
+  "type_line": "Instant",
+  "oracle_text": "Exile target nonland permanent. Its controller incubates X, where X is its mana value. (They create an Incubator token with X +1/+1 counters on it and \"{2}: Transform this token.\" It transforms into a 0/0 Phyrexian artifact creature.)",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "Incubate",
+   "Transform"
+  ],
+  "all_parts": [
+   {
+    "id": "425f4659-5c39-4e2d-9a6a-7bb38d32fda7",
+    "component": "combo_piece",
+    "name": "Excise the Imperfect",
+    "type_line": "Instant"
+   },
+   {
+    "id": "2c5ed737-657b-43bf-b222-941da7579a4a",
+    "component": "token",
+    "name": "Incubator // Phyrexian",
+    "type_line": "Token Artifact — Incubator // Token Artifact Creature — Phyrexian"
+   }
+  ]
+ },
+ {
+  "name": "Progenitor Exarch",
+  "layout": "normal",
+  "mana_cost": "{X}{X}{W}",
+  "cmc": 1.0,
+  "type_line": "Creature — Phyrexian Cat Cleric",
+  "oracle_text": "When this creature enters, incubate 3 X times. (To incubate 3, create an Incubator token with three +1/+1 counters on it and \"{2}: Transform this token.\" It transforms into a 0/0 Phyrexian artifact creature.)\n{T}: Transform target Incubator token you control.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "Incubate",
+   "Transform"
+  ],
+  "power": "1",
+  "toughness": "2",
+  "all_parts": [
+   {
+    "id": "28ecf78c-1a96-465e-a877-8a3051b8a9af",
+    "component": "combo_piece",
+    "name": "Progenitor Exarch",
+    "type_line": "Creature — Phyrexian Cat Cleric"
+   },
+   {
+    "id": "2c5ed737-657b-43bf-b222-941da7579a4a",
+    "component": "token",
+    "name": "Incubator // Phyrexian",
+    "type_line": "Token Artifact — Incubator // Token Artifact Creature — Phyrexian"
+   }
+  ]
+ },
+ {
+  "name": "Azog, Moria's Ruin",
+  "layout": "normal",
+  "mana_cost": "{2}{B}",
+  "cmc": 3.0,
+  "type_line": "Legendary Creature — Goblin Soldier",
+  "oracle_text": "When Azog enters, destroy up to one other target creature. Its controller amasses Goblins X, where X is that creature's power. If you controlled that creature, draw a card. (To amass Goblins X, that player puts X +1/+1 counters on an Army they control. It's also a Goblin. If they don't control an Army, they create a 0/0 black Goblin Army creature token first.)",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Amass"
+  ],
+  "power": "1",
+  "toughness": "3",
+  "all_parts": [
+   {
+    "id": "0045408d-4ab9-48bf-84aa-c6d827682090",
+    "component": "token",
+    "name": "Goblin Army",
+    "type_line": "Token Creature — Goblin Army"
+   },
+   {
+    "id": "2e359014-f003-4dd6-bc97-ef2a5c515a23",
+    "component": "combo_piece",
+    "name": "Azog, Moria's Ruin",
+    "type_line": "Legendary Creature — Goblin Soldier"
+   }
+  ]
+ },
+ {
+  "name": "Fractal Harness",
+  "layout": "normal",
+  "mana_cost": "{X}{2}{G}",
+  "cmc": 3.0,
+  "type_line": "Artifact — Equipment",
+  "oracle_text": "When this Equipment enters, create a 0/0 green and blue Fractal creature token. Put X +1/+1 counters on it and attach this Equipment to it.\nWhenever equipped creature attacks, double the number of +1/+1 counters on it.\nEquip {2}",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [
+   "Equip",
+   "Double"
+  ],
+  "all_parts": [
+   {
+    "id": "8d196dcf-80bc-4a0a-83c9-ae87da5e74bf",
+    "component": "combo_piece",
+    "name": "Fractal Harness",
+    "type_line": "Artifact — Equipment"
+   },
+   {
+    "id": "8b5f1fdb-04df-4224-acb4-7819c37565f5",
+    "component": "token",
+    "name": "Fractal",
+    "type_line": "Token Creature — Fractal"
+   }
+  ]
+ },
+ {
+  "name": "Prismabasher",
+  "layout": "normal",
+  "mana_cost": "{4}{G}{G}",
+  "cmc": 6.0,
+  "type_line": "Creature — Elemental",
+  "oracle_text": "Trample\nVivid — When this creature enters, up to X target creatures you control get +X/+X until end of turn, where X is the number of colors among permanents you control.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [
+   "Trample",
+   "Vivid"
+  ],
+  "power": "6",
+  "toughness": "6"
+ },
+ {
+  "name": "Endurance Bobblehead",
+  "layout": "normal",
+  "mana_cost": "{3}",
+  "cmc": 3.0,
+  "type_line": "Artifact — Bobblehead",
+  "oracle_text": "{T}: Add one mana of any color.\n{3}, {T}: Up to X target creatures you control get +1/+0 and gain indestructible until end of turn, where X is the number of Bobbleheads you control as you activate this ability. Activate only as a sorcery.",
+  "colors": [],
+  "color_identity": [],
+  "keywords": []
+ },
+ {
+  "name": "Return of the Mole Man",
+  "layout": "normal",
+  "mana_cost": "{1}{G}",
+  "cmc": 2.0,
+  "type_line": "Enchantment",
+  "oracle_text": "Landfall — Whenever a land you control enters, you may mill two cards.\n{5}{G}, Sacrifice this enchantment: Create X 1/1 green Minion creature tokens named Moloid, where X is the number of permanent cards in your graveyard. The tokens have \"Whenever this token attacks, you may mill a card.\" Activate only as a sorcery.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [
+   "Mill",
+   "Landfall"
+  ],
+  "all_parts": [
+   {
+    "id": "57bcf5f4-da1e-4b6a-85ef-aad91d2276cf",
+    "component": "token",
+    "name": "Moloid",
+    "type_line": "Token Creature — Minion"
+   },
+   {
+    "id": "fe75cfa6-614a-43f7-9088-ec8ab00a8738",
+    "component": "combo_piece",
+    "name": "Return of the Mole Man",
+    "type_line": "Enchantment"
+   }
+  ]
+ },
+ {
+  "name": "Fractalize",
+  "layout": "normal",
+  "mana_cost": "{X}{U}",
+  "cmc": 1.0,
+  "type_line": "Instant",
+  "oracle_text": "Until end of turn, target creature becomes a green and blue Fractal with base power and toughness each equal to X plus 1. (It loses all other colors and creature types.)",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Candlekeep Inspiration",
+  "layout": "normal",
+  "mana_cost": "{4}{U}",
+  "cmc": 5.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Until end of turn, creatures you control have base power and toughness X/X, where X is the number of cards you own in exile and in your graveyard that are instant cards, are sorcery cards, and/or have an Adventure.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Bioplasm",
+  "layout": "normal",
+  "mana_cost": "{3}{G}{G}",
+  "cmc": 5.0,
+  "type_line": "Creature — Ooze",
+  "oracle_text": "Whenever this creature attacks, exile the top card of your library. If it's a creature card, this creature gets +X/+Y until end of turn, where X is the exiled creature card's power and Y is its toughness.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [],
+  "power": "4",
+  "toughness": "4"
+ },
+ {
+  "name": "Thieving Sprite",
+  "layout": "normal",
+  "mana_cost": "{2}{B}",
+  "cmc": 3.0,
+  "type_line": "Creature — Faerie Rogue",
+  "oracle_text": "Flying\nWhen this creature enters, target player reveals X cards from their hand, where X is the number of Faeries you control. You choose one of those cards. That player discards that card.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Flying"
+  ],
+  "power": "1",
+  "toughness": "1"
+ },
+ {
+  "name": "Cabal Interrogator",
+  "layout": "normal",
+  "mana_cost": "{1}{B}",
+  "cmc": 2.0,
+  "type_line": "Creature — Zombie Wizard",
+  "oracle_text": "{X}{B}, {T}: Target player reveals X cards from their hand and you choose one of them. That player discards that card. Activate only as a sorcery.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [],
+  "power": "1",
+  "toughness": "1"
+ },
+ {
+  "name": "Blood Lust",
+  "layout": "normal",
+  "mana_cost": "{1}{R}",
+  "cmc": 2.0,
+  "type_line": "Instant",
+  "oracle_text": "If target creature has toughness 5 or greater, it gets +4/-4 until end of turn. Otherwise, it gets +4/-X until end of turn, where X is its toughness minus 1.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Zoyowa's Justice",
+  "layout": "normal",
+  "mana_cost": "{1}{R}",
+  "cmc": 2.0,
+  "type_line": "Instant",
+  "oracle_text": "The owner of target artifact or creature with mana value 1 or greater shuffles it into their library. Then that player discovers X, where X is its mana value. (They exile cards from the top of their library until they exile a nonland card with that mana value or less. They cast it without paying its mana cost or put it into their hand. They put the rest on the bottom in a random order.)",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Discover"
+  ]
+ },
+ {
+  "name": "Sylvan Offering",
+  "layout": "normal",
+  "mana_cost": "{X}{G}",
+  "cmc": 1.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Choose an opponent. You and that player each create an X/X green Treefolk creature token.\nChoose an opponent. You and that player each create X 1/1 green Elf Warrior creature tokens.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [],
+  "all_parts": [
+   {
+    "id": "8f171772-eb52-4cc2-b3cd-8ceb0f15732f",
+    "component": "combo_piece",
+    "name": "Sylvan Offering",
+    "type_line": "Sorcery"
+   },
+   {
+    "id": "bf661b43-53eb-4e51-8152-420f6d8c925f",
+    "component": "token",
+    "name": "Treefolk",
+    "type_line": "Token Creature — Treefolk"
+   },
+   {
+    "id": "ecbfc4bf-56be-4275-b36b-c2c57f93ad15",
+    "component": "token",
+    "name": "Elf Warrior",
+    "type_line": "Token Creature — Elf Warrior"
+   }
+  ]
+ },
+ {
+  "name": "Mind Bomb",
+  "layout": "normal",
+  "mana_cost": "{U}",
+  "cmc": 1.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Each player may discard up to three cards. Mind Bomb deals damage to each player equal to 3 minus the number of cards they discarded this way.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Breakthrough",
+  "layout": "normal",
+  "mana_cost": "{X}{U}",
+  "cmc": 1.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Draw four cards, then choose X cards in your hand and discard the rest.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": []
  }
 ]
