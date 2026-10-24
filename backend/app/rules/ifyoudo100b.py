@@ -51,6 +51,8 @@ _REWRITES = [
     # Invasion of Kaldheim: "that many" is how many cards were exiled (the cards actually in exile, 400.7j), not the trigger event's amount
     (re.compile(r"^exile all cards from your hand, then draw that many cards\. (?=Until the end of your next turn, you may play cards exiled this way\.$)"),
      "Exile all cards from your hand, then draw a card for each card exiled this way. "),
+    # Veteran's Voice ("Tap enchanted creature: …", the one card so worded): the creature the cost taps is the enchanted creature (601.2c-h)
+    (re.compile(r"^Target creature other than the creature tapped this way (gets \+2/\+1 until end of turn\.)$"), r"Target creature other than enchanted creature \1"),
     # Azra Bladeseeker: 102.4, outside a game between teams "your team" is "you"; the one who discarded draws (118.12: a discard can't be begun and not made)
     (re.compile(r"^each player on your team may discard a card, then each player who discarded a card this way draws a card\.$"),
      "you may discard a card. If you do, draw a card."),

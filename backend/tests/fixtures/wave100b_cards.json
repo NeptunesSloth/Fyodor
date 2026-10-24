@@ -1300,5 +1300,41 @@
   ],
   "power": "4",
   "toughness": "5"
+ },
+ {
+  "name": "Rescuer Sphinx",
+  "layout": "normal",
+  "mana_cost": "{2}{U}{U}",
+  "cmc": 4.0,
+  "type_line": "Creature — Sphinx",
+  "oracle_text": "Flying\nAs this creature enters, you may return a nonland permanent you control to its owner's hand. If you do, this creature enters with a +1/+1 counter on it.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "Flying"
+  ],
+  "power": "3",
+  "toughness": "2"
+ },
+ {
+  "name": "Veteran's Voice",
+  "layout": "normal",
+  "mana_cost": "{R}",
+  "cmc": 1.0,
+  "type_line": "Enchantment — Aura",
+  "oracle_text": "Enchant creature you control\nTap enchanted creature: Target creature other than the creature tapped this way gets +2/+1 until end of turn. Activate only if enchanted creature is untapped.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Enchant"
+  ]
  }
 ]

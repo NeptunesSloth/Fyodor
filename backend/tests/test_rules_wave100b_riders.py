@@ -50,6 +50,9 @@ Every scenario checks the replay and a save and a load.
   or a Jace you control).
 * Hedron Alignment - "If you do, you win the game if you own a card named Hedron Alignment in exile, in your hand, in your graveyard, and on the
   battlefield." / Atemsis - "If cards with at least six different mana values are revealed this way, that player loses the game." (rulings).
+* Rescuer Sphinx - "As this creature enters, you may return a nonland permanent you control to its owner's hand. If you do, this creature
+  enters with a +1/+1 counter on it." (614.12a; one already on the battlefield - 2019-05-03).
+* Veteran's Voice - "Tap enchanted creature: Target creature other than the creature tapped this way gets +2/+1 until end of turn."
 * Hellfire - "deals X plus 3 damage to you, where X is the number of creatures that died this way." (a destroyed token counts, a creature a
   replacement effect exiled instead doesn't: the 2009-10-01 rulings).
 """
@@ -63,7 +66,7 @@ from app.rules import coverage
 from app.rules.plan import Plan
 from tests.game_helpers import act
 from tests.test_rules_wave34b_activated import activate, stops, to_phase
-from tests.wave9c_kit import check, life, mana, put, to_hand
+from tests.wave9c_kit import check, life, mana, pt, put, to_hand
 from tests.wave52a_kit import build_n
 from tests.wave100b_kit import hand_size, open_repo, run, zone
 
@@ -77,7 +80,7 @@ DAKRA, DURIN, LATNAM, SURGE = "Dakra Mystic", "Doors of Durin", "Lat-Nam's Legac
 LOCKE, HELLION, HULK = "Locke, Treasure Hunter", "Devouring Hellion", "Deathbonnet Sprout // Deathbonnet Hulk"
 KALDHEIM, MANABOND, GUARDIAN = "Invasion of Kaldheim // Pyre of the World Tree", "Manabond", "Wicked Guardian"
 INVESTIGATORS, CLASH, SANCTUM = "Phenomenon Investigators", "Clash of Elements", "Theorist's Sanctum"
-HEDRON, ATEMSIS = "Hedron Alignment", "Atemsis, All-Seeing"
+HEDRON, ATEMSIS, SPHINX, VOICE = "Hedron Alignment", "Atemsis, All-Seeing", "Rescuer Sphinx", "Veteran's Voice"
 BEARS, GIANT, RIP, ELVES = "Grizzly Bears", "Hill Giant", "Rest in Peace", "Llanowar Elves"
 
 
@@ -86,7 +89,7 @@ def cards(settings):
     yield from open_repo(settings)
 
 
-@pytest.mark.parametrize("name", [ROWEN, ETCHINGS, KERANOS, SUGARMAW, HELLFIRE, TERROR, KELLAN, EGO, SHRIEK, GORILLA, DESERTER, AEROSTAT, FOLD, SWIFT, RESEARCHER, KOYA, SURVIVORS, VANISH, DAKRA, DURIN, LATNAM, SURGE, LOCKE, HELLION, HULK, KALDHEIM, MANABOND, GUARDIAN, INVESTIGATORS, CLASH, SANCTUM, HEDRON, ATEMSIS])
+@pytest.mark.parametrize("name", [ROWEN, ETCHINGS, KERANOS, SUGARMAW, HELLFIRE, TERROR, KELLAN, EGO, SHRIEK, GORILLA, DESERTER, AEROSTAT, FOLD, SWIFT, RESEARCHER, KOYA, SURVIVORS, VANISH, DAKRA, DURIN, LATNAM, SURGE, LOCKE, HELLION, HULK, KALDHEIM, MANABOND, GUARDIAN, INVESTIGATORS, CLASH, SANCTUM, HEDRON, ATEMSIS, SPHINX, VOICE])
 def test_the_cards_are_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL", name
 
@@ -819,4 +822,38 @@ def test_atemsis_makes_the_player_lose_for_six_mana_values(cards, six):
         d = s.state.rules.decision
         act(s, d.player, type="choose", decision_id=d.id, option_ids=["yes"]) if d is not None else act(s, s.state.rules.priority, type="pass_priority")
     assert (s.state.rules.winner == "p1") == six
+    check(s)
+
+
+# -- Rescuer Sphinx -------------------------------------------------------------------------------------------------------------------
+@pytest.mark.parametrize("bounce", [True, False])
+def test_rescuer_sphinx_returns_a_nonland_permanent_for_a_counter(cards, bounce):
+    s = build_n(cards, [SPHINX, "Sol Ring", BEARS])
+    ring, bears, sphinx = put(s, "Sol Ring"), put(s, BEARS), to_hand(s, SPHINX)
+    forest = put(s, "Forest")
+    mana(s, U=2, C=2)
+    act(s, "p1", type="cast_spell", card_id=sphinx.id)
+    offered: list[str] = []
+
+    def answer(d):
+        offered.extend(getattr(o, "card_id", None) or o.id for o in d.options)
+        return [ring.id] if bounce and ring.id in [o.id for o in d.options] else ["done"]
+    run(s, answer)
+    assert forest.id not in offered and bears.id in offered
+    assert zone(s, ring) == ("p1:hand" if bounce else "p1:battlefield")
+    assert s.state.cards[sphinx.id].counters.get("+1/+1", 0) == (1 if bounce else 0)
+    check(s)
+
+
+# -- Veteran's Voice ------------------------------------------------------------------------------------------------------------------
+def test_veterans_voice_pumps_another_creature_than_the_one_it_taps(cards):
+    s = build_n(cards, [VOICE, BEARS, ELVES])
+    bears, elves, voice = put(s, BEARS), put(s, ELVES), put(s, VOICE)
+    act(s, "p1", type="attach", card_ids=[voice.id], to=bears.id)
+    to_phase(s, "main1", turn=3)
+    with pytest.raises(ActionError):
+        activate(s, "p1", voice, "Tap enchanted", targets=[bears.id])
+    activate(s, "p1", voice, "Tap enchanted", targets=[elves.id])
+    run(s)
+    assert s.state.cards[bears.id].tapped and pt(s, ELVES) == (3, 2)
     check(s)
