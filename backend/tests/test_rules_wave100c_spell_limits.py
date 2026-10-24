@@ -32,7 +32,8 @@ from tests.wave100c_kit import (
 )
 
 PROMOTED = ["Verdant Command", "Everything Comes to Dust", "Irencrag Feat", "Waterbending Lesson", "Mercurial Transformation", "Burning of Xinye",
-            "Split the Party", "Dreams of Steel and Oil", "Treacherous Urge"]
+            "Split the Party", "Dreams of Steel and Oil", "Treacherous Urge", "Pox",
+            "Omen of Fire", "Sway of the Stars"]
 
 
 @pytest.fixture()
@@ -156,3 +157,57 @@ def test_treacherous_urge_steals_a_creature_from_the_hand_with_haste_until_the_e
     assert zone(s, bear) == "p2:graveyard"
     check(s)
 
+
+
+def hand_of(s, pid, names=(), basics=0):
+    """Empty ``pid``'s hand into the library, then put those cards (and some basic lands) in it."""
+    for c in list(s.state.zones[f"{pid}:hand"]):
+        move(s, s.state.cards[c], "library")
+    basic = "Forest" if pid == "p1" else "Island"
+    for c in [one(s, n, pid) for n in names] + [c for c in named(s, basic, pid) if c.zone.endswith(":library")][:basics]:
+        move(s, c, "hand")
+
+
+def test_pox_each_player_loses_a_third_of_everything_rounded_up(cards):
+    """Alice: 40 life, four cards, two creatures, four lands. Bob: 10 life, two cards, no creature, three lands. Thirds rounded up: Alice loses 14,
+    discards 2, sacrifices 1 creature and 2 lands; Bob loses 4, discards 1, sacrifices 1 land."""
+    s = build(cards, ["Pox", "Grizzly Bears", "Llanowar Elves"], [])
+    bear, elves = put_on(s, "Grizzly Bears"), put_on(s, "Llanowar Elves")
+    forests = [move(s, c, "battlefield") for c in named(s, "Forest")[:4]]
+    islands = [move(s, c, "battlefield") for c in named(s, "Island", "p2")[:3]]
+    act(s, "p2", type="set_life", player="p2", value=10)
+    hand_of(s, "p1", ["Pox"], 4)
+    hand_of(s, "p2", (), 2)
+    cast(s, "Pox", B=3)
+    assert life(s) == 26 and life(s, "p2") == 6
+    assert len(s.state.zones["p1:hand"]) == 2 and len(s.state.zones["p2:hand"]) == 1
+    assert sorted(zone(s, c) for c in (bear, elves)) == ["p1:battlefield", "p1:graveyard"]
+    assert [zone(s, c) for c in forests].count("p1:graveyard") == 2 and [zone(s, c) for c in islands].count("p2:graveyard") == 1
+    check(s)
+
+
+def test_omen_of_fire_bounces_islands_then_each_player_sacrifices_per_white_permanent(cards):
+    """Alice controls one white permanent (Holy Strength on her creature) and a Plains: she sacrifices the Plains (her choice); Bob's only
+    white permanent is Benalish Hero, which he sacrifices. Bob's Island returns to his hand."""
+    s = build(cards, ["Omen of Fire", "Plains", "Holy Strength", "Grizzly Bears"], ["Benalish Hero"])
+    bear, strength, plains = put_on(s, "Grizzly Bears"), put_on(s, "Holy Strength"), put_on(s, "Plains")
+    act(s, "p1", type="attach", card_ids=[strength.id], to=bear.id)
+    island, hero = move(s, named(s, "Island", "p2")[0], "battlefield"), put_on(s, "Benalish Hero", "p2")
+    cast(s, "Omen of Fire", prefer=[plains.id], R=2, C=3)
+    assert zone(s, island) == "p2:hand" and zone(s, plains) == "p1:graveyard" and zone(s, strength) == "p1:battlefield"
+    assert zone(s, hero) == "p2:graveyard"
+    check(s)
+
+
+def test_sway_of_the_stars_resets_both_players(cards):
+    """Everything each player owns on the battlefield (Bob's Sol Ring under Alice's control goes to Bob's library), their hands and graveyards
+    are shuffled in; each draws seven; both life totals become 7."""
+    s = build(cards, ["Sway of the Stars", "Grizzly Bears", "Opt"], ["Sol Ring"])
+    bear, opt = put_on(s, "Grizzly Bears"), move(s, one(s, "Opt"), "graveyard")
+    ring = one(s, "Sol Ring", "p2")
+    act(s, "p2", type="move", card_ids=[ring.id], to={"player": "p1", "zone": "battlefield"})
+    cast(s, "Sway of the Stars", U=2, C=8)
+    assert not s.state.zones.get("p1:battlefield") and not s.state.zones.get("p2:battlefield")
+    assert zone(s, bear) in ("p1:library", "p1:hand") and zone(s, opt) in ("p1:library", "p1:hand") and zone(s, ring) in ("p2:library", "p2:hand")
+    assert len(s.state.zones["p1:hand"]) == 7 and len(s.state.zones["p2:hand"]) == 7 and life(s) == 7 and life(s, "p2") == 7
+    check(s)

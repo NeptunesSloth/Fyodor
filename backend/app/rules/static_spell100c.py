@@ -718,7 +718,39 @@ def _dreams_of_steel_and_oil() -> Parsed | None:
     return [reveal, pick, yard, {"do": "exile", "who": f"ref:{pick['as']}"}], hand[1], False
 
 
+def _pox() -> Parsed:
+    # each step for every player, then the next (608.2c); each count read as its step is reached, a third rounded up (107.1a)
+    creature, land = _sel("creature"), _sel("land")
+    return ([{"do": "thirds100c", "what": "life"}, {"do": "thirds100c", "what": "hand"},
+             {"do": "edict_each100c", "sel": creature, "label": "creature", "count": creature, "div": 3},
+             {"do": "edict_each100c", "sel": land, "label": "land", "count": land, "div": 3}], None, False)
+
+
+def _omen_of_fire() -> Parsed | None:
+    bounce = _plain("Return all Islands to their owners' hands.")
+    if bounce is None:
+        return None
+    # each player's own count of white permanents (after the bounce, 608.2c); their choices in turn order, then one sacrifice (101.4)
+    return [*bounce[0], {"do": "edict_each100c", "sel": _key(either=(_sel("Plains"), _sel("white permanent"))), "label": "Plains or white permanent",
+                         "count": _sel("white permanent"), "div": 1}], None, False
+
+
+def _sway_of_the_stars() -> Parsed | None:
+    perms, rest, life = (_plain("Put all permanents on top of their owners' libraries."),
+                         _plain("Each player shuffles their hand and graveyard into their library, then draws seven cards."), _plain("Your life total becomes 7."))
+    if perms is None or rest is None or life is None:
+        return None
+    # every permanent is owned by a player (108.3): all of them go in with the hands and graveyards, then each library is shuffled (701.24a)
+    return [*perms[0], *rest[0], {**life[0][0], "who": "each_player"}], None, False
+
+
 BUILDERS: dict[str, Callable[[], Parsed | None]] = {
+    "Each player shuffles their hand, graveyard, and all permanents they own into their library, then draws seven cards. Each player's life total "
+    "becomes 7.": _sway_of_the_stars,
+    "Each player loses a third of their life, then discards a third of the cards in their hand, then sacrifices a third of the creatures they control of "
+    "their choice, then sacrifices a third of the lands they control of their choice. Round up each time.": _pox,
+    "Return all Islands to their owners' hands. Each player sacrifices a Plains or a white permanent of their choice for each white permanent they control.":
+        _omen_of_fire,
     "Choose target player. Return half the creatures they control to their owner's hand, rounded up.": _split_the_party,
     "Target opponent reveals their hand. You choose an artifact or creature card from it, then choose an artifact or creature card from their graveyard. "
     "Exile the chosen cards.": _dreams_of_steel_and_oil,
@@ -1041,5 +1073,29 @@ def one_more_spell(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
     return True
 
 
-PRIMITIVES = {"one_more_spell100c": one_more_spell, "power_cap100c": power_cap, "if_coalition100c": if_coalition, "if_mv_upto_graveyard100c": if_mv_upto_graveyard, "roles_each100c": roles_each, "if_more_life100c": if_more_life, "hand_excess100c": hand_excess, "lose_all_counters100c": lose_all_counters, "edict_kinds100c": edict_kinds, "draw_for_revealed100c": draw_for_revealed,
+def _third_up(n: int, div: int) -> int:
+    return -(-max(0, n) // div)
+
+
+def thirds(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
+    """"Each player loses a third of their life" / "discards a third of the cards in their hand", rounded up: each player's own number, all
+    read now (608.2h), one loss / one discard (lose_life, discard ``counts``)."""
+    who = [p for p in plan.apnap() if p in plan.live()]
+    have = {p: plan.state.players[p].life if e["what"] == "life" else len(plan.state.zones.get(f"{p}:hand", [])) for p in who}
+    counts = {p: _third_up(n, 3) for p, n in have.items()}
+    ctx["effects"][ctx["next"]:ctx["next"]] = [{"do": "lose_life" if e["what"] == "life" else "discard", "who": "each_player", "n": 0, "counts": counts}]
+    return True
+
+
+def edict_each(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
+    """Each player sacrifices their own number of permanents (those matching ``count`` they control, divided by ``div``, rounded up): one choice at
+    a time in turn order, never the same permanent twice (101.4), then all sacrificed at once (701.21a; effects._choose_next resumes as an edict)."""
+    from app.rules import effects
+
+    turns = [(p, e["sel"]) for p in plan.apnap() if p in plan.live()
+             for _ in range(_third_up(len(effects._controlled(plan, e["count"], p, ctx.get("source_card"))), int(e["div"])))]
+    return effects._choose_next(plan, ctx, {**e, "n": 1, "distinct": True}, turns, [], "edict")
+
+
+PRIMITIVES = {"thirds100c": thirds, "edict_each100c": edict_each, "one_more_spell100c": one_more_spell, "power_cap100c": power_cap, "if_coalition100c": if_coalition, "if_mv_upto_graveyard100c": if_mv_upto_graveyard, "roles_each100c": roles_each, "if_more_life100c": if_more_life, "hand_excess100c": hand_excess, "lose_all_counters100c": lose_all_counters, "edict_kinds100c": edict_kinds, "draw_for_revealed100c": draw_for_revealed,
               "draw_for_controllers100c": draw_for_controllers}

@@ -1977,5 +1977,50 @@
    "B"
   ],
   "keywords": []
+ },
+ {
+  "name": "Pox",
+  "layout": "normal",
+  "mana_cost": "{B}{B}{B}",
+  "cmc": 3.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Each player loses a third of their life, then discards a third of the cards in their hand, then sacrifices a third of the creatures they control of their choice, then sacrifices a third of the lands they control of their choice. Round up each time.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Omen of Fire",
+  "layout": "normal",
+  "mana_cost": "{3}{R}{R}",
+  "cmc": 5.0,
+  "type_line": "Instant",
+  "oracle_text": "Return all Islands to their owners' hands. Each player sacrifices a Plains or a white permanent of their choice for each white permanent they control.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Sway of the Stars",
+  "layout": "normal",
+  "mana_cost": "{8}{U}{U}",
+  "cmc": 10.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Each player shuffles their hand, graveyard, and all permanents they own into their library, then draws seven cards. Each player's life total becomes 7.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": []
  }
 ]
