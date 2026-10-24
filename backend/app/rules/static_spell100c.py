@@ -760,7 +760,28 @@ def _aura_barbs() -> Parsed | None:
     return [*own[0], {**own[0][0], "src": "each:" + _sel("Aura attached to a creature"), "to": "attached100c"}], None, False
 
 
+def _pollen_lullaby() -> Parsed | None:
+    fog, clash = _plain("Prevent all combat damage that would be dealt this turn."), _plain("Clash with an opponent. If you win, draw a card.")
+    if fog is None or clash is None or [e["do"] for e in clash[0]] != ["clash", "only_if", "draw"]:
+        return None
+    # 502.3, 611.2c: the creatures that player controls when their next untap step comes (next_untap's mass record)
+    return [*fog[0], *clash[0][:2], {"do": "clash_freeze100c", "sel": [_sel("creature")]}], None, False
+
+
+def _metamorphose() -> Parsed | None:
+    tuck = _plain("Put target permanent an opponent controls on top of its owner's library.")
+    put = _plain("That player may put an artifact, creature, enchantment, or land card from their hand onto the battlefield.")
+    if tuck is None or put is None or len(tuck[0]) != 1 or len(put[0]) != 1:
+        return None
+    # "That opponent": the permanent's controller as it last existed (608.2h); their own choice from their hand (hidden until put)
+    return [{**tuck[0][0], "as": "meta100c"}, {**put[0][0], "who": "ref:meta100c.controller"}], tuck[1], False
+
+
 BUILDERS: dict[str, Callable[[], Parsed | None]] = {
+    "Prevent all combat damage that would be dealt this turn. Clash with an opponent. If you win, creatures that player controls don't untap during the "
+    "player's next untap step.": _pollen_lullaby,
+    "Put target permanent an opponent controls on top of its owner's library. That opponent may put an artifact, creature, enchantment, or land card from "
+    "their hand onto the battlefield.": _metamorphose,
     "Each enchantment deals 2 damage to its controller, then each Aura attached to a creature deals 2 damage to the creature it's attached to.": _aura_barbs,
     # one damage event (120.3), each creature's own amount counted as it resolves (608.2h)
     "~ deals 2 damage to each creature for each Aura attached to that creature.": lambda: ([{"do": "aura_damage100c", "n": 2}], None, False),
@@ -1164,5 +1185,12 @@ def aura_damage(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
     return True
 
 
-PRIMITIVES = {"aura_damage100c": aura_damage, "unsuspect100c": unsuspect, "type_pump100c": type_pump, "thirds100c": thirds, "edict_each100c": edict_each, "one_more_spell100c": one_more_spell, "power_cap100c": power_cap, "if_coalition100c": if_coalition, "if_mv_upto_graveyard100c": if_mv_upto_graveyard, "roles_each100c": roles_each, "if_more_life100c": if_more_life, "hand_excess100c": hand_excess, "lose_all_counters100c": lose_all_counters, "edict_kinds100c": edict_kinds, "draw_for_revealed100c": draw_for_revealed,
+def clash_freeze(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
+    """"creatures that player controls don't untap during the player's next untap step": the opponent clashed with (clash.py)."""
+    if (pid := ctx.get("clash_opponent")) in plan.live():
+        ctx["effects"][ctx["next"]:ctx["next"]] = [{"do": "stay_tapped", "sel": e["sel"], "who": f"player:{pid}"}]
+    return True
+
+
+PRIMITIVES = {"clash_freeze100c": clash_freeze, "aura_damage100c": aura_damage, "unsuspect100c": unsuspect, "type_pump100c": type_pump, "thirds100c": thirds, "edict_each100c": edict_each, "one_more_spell100c": one_more_spell, "power_cap100c": power_cap, "if_coalition100c": if_coalition, "if_mv_upto_graveyard100c": if_mv_upto_graveyard, "roles_each100c": roles_each, "if_more_life100c": if_more_life, "hand_excess100c": hand_excess, "lose_all_counters100c": lose_all_counters, "edict_kinds100c": edict_kinds, "draw_for_revealed100c": draw_for_revealed,
               "draw_for_controllers100c": draw_for_controllers}

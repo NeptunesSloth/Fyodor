@@ -34,7 +34,8 @@ from tests.wave100c_kit import (
 PROMOTED = ["Verdant Command", "Everything Comes to Dust", "Irencrag Feat", "Waterbending Lesson", "Mercurial Transformation", "Burning of Xinye",
             "Split the Party", "Dreams of Steel and Oil", "Treacherous Urge", "Pox",
             "Omen of Fire", "Sway of the Stars", "Energybending", "Embiggen",
-            "Eliminate the Impossible", "Aura Barbs", "Baki's Curse"]
+            "Eliminate the Impossible", "Aura Barbs", "Baki's Curse", "Pollen Lullaby",
+            "Metamorphose"]
 
 
 @pytest.fixture()
@@ -272,4 +273,26 @@ def test_bakis_curse_two_damage_per_aura_on_each_creature(cards):
         act(s, "p1", type="attach", card_ids=[put_on(s, name).id], to=bear.id)
     cast(s, "Baki's Curse", U=2, C=2)
     assert zone(s, bear) == "p1:graveyard" and zone(s, elves) == "p1:battlefield" and s.state.cards[elves.id].damage == 0
+    check(s)
+
+
+def test_pollen_lullaby_a_won_clash_keeps_that_players_creatures_tapped(cards):
+    """Alice's top card is Sliver Queen (5), Bob's an Island (0): Alice wins the clash; Bob's tapped Grizzly Bears stays tapped in his next untap step."""
+    s = build(cards, ["Pollen Lullaby", "Sliver Queen"], ["Grizzly Bears"])
+    bear = put_on(s, "Grizzly Bears", "p2")
+    act(s, "p2", type="tap", card_ids=[bear.id], tapped=True)
+    move(s, one(s, "Sliver Queen"), "library", position="top")
+    move(s, one(s, "Pollen Lullaby"), "hand")
+    cast(s, "Pollen Lullaby", prefer=["top"], W=1, C=1)
+    act(s, "p1", type="set_stops", own=[], others=["main1"], smart_pass=False)
+    to_phase(s, "main1", turn=2)
+    assert s.state.cards[bear.id].tapped
+    check(s)
+
+
+def test_metamorphose_tucks_the_permanent_and_its_controller_may_put_a_card_in(cards):
+    s = build(cards, ["Metamorphose"], ["Sol Ring", "Grizzly Bears"])
+    ring, bear = put_on(s, "Sol Ring", "p2"), move(s, one(s, "Grizzly Bears", "p2"), "hand")
+    cast(s, "Metamorphose", targets=[ring.id], prefer=[bear.id], U=1, C=1)
+    assert s.state.zones["p2:library"][0] == ring.id and zone(s, bear) == "p2:battlefield"
     check(s)
