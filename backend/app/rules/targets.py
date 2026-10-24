@@ -70,6 +70,7 @@ SELECTORS: dict[str, tuple[bool, Check | None]] = {
     "permanent_or_opponent": (True, lambda plan, who, card, ch: True),
     "artifact_creature_planeswalker_or_opponent": (True, _types("Artifact", "Creature", "Planeswalker")),
     "permanent_or_player": (True, lambda plan, who, card, ch: True),  # -- counter kinds (wave 24C) -- "target permanent or player"
+    "creature_token_player_or_planeswalker": (True, lambda plan, who, card, ch: "Planeswalker" in ch.types or ch.is_creature and card.is_token),  # (wave 100I: Coalborn Entity)
 }
 OPPONENTS_ONLY = ("permanent_or_opponent", "artifact_creature_planeswalker_or_opponent", "opponent_or_creature_or_planeswalker_opp", "opponent", "opponent_or_planeswalker", "opponent_or_battle")
 

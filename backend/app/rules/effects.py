@@ -6952,3 +6952,7 @@ from app.rules import zones100g as _zones100g  # noqa: E402  -- zones (wave 100G
 PRIMITIVES.update(_zones100g.PRIMITIVES)
 RESUME.update(_zones100g.RESUME)
 RESUME.update(_triggers100a.RESUME)
+# -- activated (wave 100I) -- (app/rules/activated100i.py)
+from app.rules import activated100i as _activated100i  # noqa: E402, I001
+
+PRIMITIVES.update(_activated100i.PRIMITIVES)

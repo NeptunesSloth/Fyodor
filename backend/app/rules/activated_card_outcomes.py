@@ -26,8 +26,8 @@ def parse(body: str) -> tuple[list[dict[str, Any]], Any, bool] | None:
                 {'do': 'activated_color_finish', 'who': 'ref:activated_color'}], None, False
     if text == '~ endures X':
         return [{'do': 'endure', 'who': 'self', 'n': {'x': 1}}], None, False
-    if text == 'Draw three cards, then discard one of them':
-        return [{'do': 'activated_draw_subset'}], None, False
+    if text in ('Draw three cards, then discard one of them', 'Draw two cards, then discard one of them'):  # (two: wave 100I, Krovikan Sorcerer)
+        return [{'do': 'activated_draw_subset', **({'n': 2} if text.startswith('Draw two') else {})}], None, False
     if text == 'You may put a creature card with mana value X from your hand onto the battlefield':
         return [{'do': 'activated_hand_exact_x'}], None, False
     if text == 'X target lands become Forests until end of turn':
@@ -112,7 +112,7 @@ def draw_subset(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     from app.rules import history
 
     before = list(history.log_for(plan).drawn.get(ctx['controller'], []))
-    return insert(ctx, [{'do': 'draw', 'who': 'you', 'n': 3}, {'do': 'activated_draw_subset_finish', 'before': before}])
+    return insert(ctx, [{'do': 'draw', 'who': 'you', 'n': e.get('n', 3)}, {'do': 'activated_draw_subset_finish', 'before': before}])
 
 
 def draw_finish(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:

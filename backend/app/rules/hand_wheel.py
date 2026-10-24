@@ -54,7 +54,7 @@ def resume_pick(plan: Plan, d: Any, chosen: list[str]) -> None:
     context.bind_amount(ctx, d.resume["e"]["bind_amount"], len(chosen) + int(d.resume["e"].get("plus", 0)))  # ("that many cards plus one": the draw's amount)
     if chosen:
         plan.note(f"{plan.name(pid)} puts {len(chosen)} card{'s' if len(chosen) != 1 else ''} from their hand on the bottom of their library", actor=pid)
-    if len(chosen) > 1:  # 401.4: they order them
+    if len(chosen) > 1 and not d.resume["e"].get("shuffled100i"):  # 401.4: they order them (-- activated (wave 100I) -- not when the library is shuffled next: Credit Voucher)
         _ask_order(plan, ctx, pid, pid, chosen, "bottom")
         return
     if chosen:
