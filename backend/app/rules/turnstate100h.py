@@ -217,6 +217,44 @@ def _nesting(d: Def) -> Def | None:
     return {**d, "effects": [{**d["effects"][0], "token": {**d["effects"][0]["token"], "text": _EGG}}]}
 
 
+_GRAVEYARD_PLAY = {"any": [{"history": "cast", "who": "you", "sel": 'sel:{"zones":["stack"]}', "n": 1, "op": ">=", "from": "graveyard"},
+                           {"history": "facts", "kind": "gy_ability", "who": "you", "n": 1}]}
+
+
+def _drudge(d: Def) -> Def | None:
+    """Laboratory Drudge: "draw a card if …" is checked only as it resolves (no intervening "if", 603.4): a spell you cast from any graveyard (601.2i)
+    or an ability you activated of a card in a graveyard this turn (602.2; casting.py records the source's zone before its cost moved it)."""
+    return {**d, "effects": [{"do": "only_if", "cond": _GRAVEYARD_PLAY, "skip": 1}, *d["effects"]]} if _dos(d) == ["draw"] else None
+
+
+def _goliath(d: Def) -> Def | None:
+    """Goliath Hatchery (corrupted): the cards drawn are the chosen creature's total toxic value as it resolves (702.164b)."""
+    if _dos(d) != ["only_if", "player_chooses", "draw"]:
+        return None
+    return {**d, "effects": [*d["effects"][:2], {"do": "toxic_draw100h", "who": "ref:" + d["effects"][1]["as"]}]}
+
+
+def _resolve(d: Def) -> Def | None:
+    """Warrior's Resolve: a creature you control with a +1/+1 counter on it now that was declared as an attacker this turn (508.1, 400.7)."""
+    from app.rules import selectors
+
+    if _dos(d) != ["only_if", "draw"] or not d.get("if"):
+        return None
+    sel = selectors.from_key(d["if"]["value"]["count"])
+    cond = {**d["if"], "value": {"count": replace(sel, extras=(*sel.extras, "attacked_this_turn")).key()}}
+    return {**d, "if": cond, "effects": [{**d["effects"][0], "cond": cond}, d["effects"][1]]}
+
+
+_MODIFIED_DIED = {"history": "departed", "sel": 'sel:{"types":["Creature"]}', "n": 1, "op": ">=", "died": True, "who": "you", "modified100h": True}
+
+
+def _chirography(d: Def) -> Def | None:
+    """Intermediate Chirography: the creature that died under your control this turn was modified as it last existed (700.9, 603.10a)."""
+    if _dos(d) != ["only_if", "create_token"] or not d.get("if"):
+        return None
+    return {**d, "if": _MODIFIED_DIED, "effects": [{**d["effects"][0], "cond": _MODIFIED_DIED}, d["effects"][1]]}
+
+
 _HACK = "Whenever ~ deals combat damage to a player, you may draw a card. If you do, discard a card"
 _PONY = "Whenever ~ attacks, attacking creatures get +1/+1 until end of turn."
 _WED = "At the beginning of your end step, put an invitation counter on ~."
@@ -286,6 +324,18 @@ _BUILD: dict[str, tuple[tuple[str, ...], Callable[..., Def | None]]] = {
     "creature token with flying and '{R}: This token gets +1/+0 until end of turn.'\"":
         (("Whenever a land you control enters, create a 0/2 red Dragon Egg creature token with defender and \"When this token dies, create a 2/2 red "
           "Dragon creature token with flying.\"",), _nesting),
+    "At the beginning of your upkeep, if an opponent has three or more poison counters, choose a creature you control, then draw cards equal to its "
+    "total toxic value.":
+        (("At the beginning of your upkeep, if an opponent has three or more poison counters, choose a creature you control, then draw cards equal to "
+          "its power.",), _goliath),
+    "At the beginning of your end step, if you control a creature with a +1/+1 counter on it that attacked this turn, draw a card.":
+        (("At the beginning of your end step, if you control a creature with a +1/+1 counter on it, draw a card.",), _resolve),
+    "At the beginning of each end step, draw a card if you've cast a spell from a graveyard or activated an ability of a card in a graveyard this turn.":
+        (("At the beginning of each end step, draw a card.",), _drudge),
+    "At the beginning of each end step, if a modified creature died under your control this turn, create a 2/1 white and black Inkling creature "
+    "token with flying.":
+        (("At the beginning of each end step, if a creature died under your control this turn, create a 2/1 white and black Inkling creature token "
+          "with flying.",), _chirography),
     "When ~ dies, exile it. When you do, return up to X target cards from your graveyard to your hand, where X is the number of opponents who have "
     "three or more poison counters.":
         (("When ~ dies, exile it. When you do, return up to two target cards from your graveyard to your hand.",), _retriever),
@@ -354,6 +404,9 @@ def definition(ability: Any, ch: Any) -> Def | None:
     from app.rules import scripts
 
     text = scripts.self_text(ability.text, ch.name)
+    if ability.kind == "static" and text == "As long as ~ entered this turn, you may activate her loyalty abilities any time you could cast an instant.":
+        # The Wandering Emperor: 606.3's sorcery timing lifted (still once each turn) while the object entered this turn (cast_limits.loyalty_rule)
+        return {"kind": "static", "static": "loyalty_rule", "who": "self", "instant": True, "entered100h": True, "effects": []}
     if ability.kind == "spell" and text == _HELLBENT:  # (its "can't be countered" part: a static of the spell, judged when something would counter it)
         return {"kind": "static", "static": "self_uncounterable", "cond": _EMPTY_HAND, "effects": []}
     others = tuple(a for a in ch.abilities if scripts.self_text(a.text, ch.name) != _HELLBENT)
@@ -400,4 +453,11 @@ def destiny(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return True
 
 
-PRIMITIVES = {"council100h": council, "destiny100h": destiny}
+def toxic_draw(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    from app.rules import combat, effects
+
+    n = sum(combat._toxic(plan.ch(plan.state.cards[c])) for c in effects._cards(plan, ctx, e["who"]))
+    return effects.draw(plan, ctx, {"do": "draw", "who": "you", "n": n}) if n else True
+
+
+PRIMITIVES = {"council100h": council, "destiny100h": destiny, "toxic_draw100h": toxic_draw}

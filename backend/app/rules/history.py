@@ -765,6 +765,11 @@ def _departed(plan: Plan, ctx: dict[str, Any], cond: dict[str, Any], log: TurnLo
         snap = plan.rules.lki.get(d.object_id)
         if snap is None or (cond.get("owner") == "you" and snap.owner != me):
             continue
+        if cond.get("modified100h"):  # -- turn state (wave 100H) -- "a modified creature died": 700.9 as it last existed (603.10a)
+            from app.rules.triggers import _was_modified
+
+            if not _was_modified(plan, snap):
+                continue
         _, ch = _snapshot_card(plan, snap)
         types = d.types if d.types is not None else ch.types
         if cond.get('not_name'):

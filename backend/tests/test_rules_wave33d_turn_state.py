@@ -99,7 +99,6 @@ def test_the_this_turn_state_cards_are_full(name):
 
 @pytest.mark.parametrize("text", [
     "At the beginning of your end step, if you didn't play a card from exile this turn, create a tapped Powerstone token.",  # (a land played from exile isn't recorded)
-    "At the beginning of your end step, if you attacked with a Hero this turn or a Hero entered the battlefield under your control this turn, draw a card.",
     "At the beginning of your end step, if a creature or planeswalker an opponent controlled was dealt excess damage by a Zombie this turn, draw a card.",  # (excess damage by a kind of source isn't recorded; the plain wording is, wave 39B)
     "At the beginning of your end step, if a modified creature died under your control this turn, draw a card.",
 ])

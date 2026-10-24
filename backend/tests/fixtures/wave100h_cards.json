@@ -940,5 +940,106 @@
   "keywords": [
    "Hellbent"
   ]
+ },
+ {
+  "name": "The Wandering Emperor",
+  "layout": "normal",
+  "mana_cost": "{2}{W}{W}",
+  "cmc": 4.0,
+  "type_line": "Legendary Planeswalker",
+  "oracle_text": "Flash\nAs long as The Wandering Emperor entered this turn, you may activate her loyalty abilities any time you could cast an instant.\n+1: Put a +1/+1 counter on up to one target creature. It gains first strike until end of turn.\n−1: Create a 2/2 white Samurai creature token with vigilance.\n−2: Exile target tapped creature. You gain 2 life.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "Flash"
+  ],
+  "loyalty": "3"
+ },
+ {
+  "name": "Intermediate Chirography",
+  "layout": "class",
+  "mana_cost": "{1}{B}",
+  "cmc": 2.0,
+  "type_line": "Enchantment — Class",
+  "oracle_text": "(Gain the next level as a sorcery to add its ability.)\nWhen this Class enters, create a 2/1 white and black Inkling creature token with flying.\n{1}{B}: Level 2\nWhenever you lose life for the first time each turn, put a +1/+1 counter on target creature you control.\n{2}{B}: Level 3\nAt the beginning of each end step, if a modified creature died under your control this turn, create a 2/1 white and black Inkling creature token with flying. (Equipment, Auras you control, and counters are modifications.)",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Kiora of Salt and Sand",
+  "layout": "normal",
+  "mana_cost": "{1}{G}{U}",
+  "cmc": 3.0,
+  "type_line": "Legendary Creature — Merfolk Noble",
+  "oracle_text": "Whenever you attack, if you've activated a loyalty ability this turn, untap target attacking creature. It can't be blocked this turn.\nPlaneswalkers you control have \"[−8]: Create an 8/8 blue Leviathan creature token with hexproof.\"",
+  "colors": [
+   "G",
+   "U"
+  ],
+  "color_identity": [
+   "G",
+   "U"
+  ],
+  "keywords": [],
+  "power": "2",
+  "toughness": "4"
+ },
+ {
+  "name": "Laboratory Drudge",
+  "layout": "normal",
+  "mana_cost": "{3}{U}",
+  "cmc": 4.0,
+  "type_line": "Creature — Zombie Horror",
+  "oracle_text": "At the beginning of each end step, draw a card if you've cast a spell from a graveyard or activated an ability of a card in a graveyard this turn.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [],
+  "power": "3",
+  "toughness": "4"
+ },
+ {
+  "name": "Goliath Hatchery",
+  "layout": "normal",
+  "mana_cost": "{4}{G}{G}",
+  "cmc": 6.0,
+  "type_line": "Enchantment",
+  "oracle_text": "When this enchantment enters, create two 3/3 green Phyrexian Beast creature tokens with toxic 1. (Players dealt combat damage by them also get a poison counter.)\nCorrupted — At the beginning of your upkeep, if an opponent has three or more poison counters, choose a creature you control, then draw cards equal to its total toxic value.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [
+   "Corrupted"
+  ]
+ },
+ {
+  "name": "Warrior's Resolve",
+  "layout": "normal",
+  "mana_cost": "{2}{W}",
+  "cmc": 3.0,
+  "type_line": "Enchantment",
+  "oracle_text": "Creatures you control have training. (Whenever a creature you control attacks with another creature with greater power, put a +1/+1 counter on the creature with lesser power.)\nAt the beginning of your end step, if you control a creature with a +1/+1 counter on it that attacked this turn, draw a card.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": []
  }
 ]

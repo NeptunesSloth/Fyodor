@@ -445,9 +445,8 @@ def test_undercity_upheaval_divides_the_creature_cards_counted_as_it_is_cast(car
 def test_avengers_assemble_draws_after_a_hero_entered_or_attacked(cards):
     s = build(cards, ["Avengers Assemble!", "Amateur Hero"])
     put(s, "Avengers Assemble!")
-    to_phase(s, "end", turn=1)
     before = hand(s)
-    answer(s)
+    to_phase(s, "cleanup", turn=1)
     assert hand(s) == before  # (no Hero yet)
     to_phase(s, "main1", turn=3)
     hero = put(s, "Amateur Hero")
@@ -840,4 +839,112 @@ def test_demonfire_hellbent_cant_be_countered_or_prevented(cards, hellbent):
     act(s, "p2", type="cast_spell", card_id=counter.id, targets=[fire.id])
     answer(s)
     assert zone(s, fire) == "p1:graveyard" and life(s, "p2") == (37 if hellbent else 40)  # (countered, or dealt its unpreventable 3)
+    check(s)
+
+
+# -- The Wandering Emperor ---------------------------------------------------------------------------------------------------------------------------
+def test_the_wandering_emperor_activates_at_instant_speed_the_turn_she_entered(cards):
+    from app.game.errors import ActionError
+
+    s = build(cards, ["The Wandering Emperor", "Opt"])
+    emperor = cast(s, "The Wandering Emperor")
+
+    def respond():  # (a loyalty ability with a spell on the stack: instant timing, 606.3)
+        act(s, "p1", type="set_prefs", hold_priority=True)
+        mana(s, U=1)
+        act(s, "p1", type="cast_spell", card_id=to_hand(s, "Opt").id)
+        act(s, "p1", type="activate_ability", card_id=emperor.id, ability=3)
+
+    respond()
+    act(s, "p1", type="set_prefs", hold_priority=False)
+    answer(s)
+    assert names(s).count("Samurai") == 1
+    to_phase(s, "main1", turn=3)
+    with pytest.raises(ActionError):
+        respond()
+    check(s)
+
+
+# -- Intermediate Chirography -------------------------------------------------------------------------------------------------------------------------
+@pytest.mark.parametrize("modified", [True, False])
+def test_intermediate_chirography_makes_an_inkling_after_a_modified_creature_died(cards, modified):
+    s = build(cards, ["Intermediate Chirography", "Grizzly Bears", "Lightning Bolt"])
+    chiro = put(s, "Intermediate Chirography")
+    for ability, cost in ((1, {"B": 1, "C": 1}), (3, {"B": 1, "C": 2})):  # (the Class to level 2, then 3: 716.2)
+        mana(s, **cost)
+        act(s, "p1", type="activate_ability", card_id=chiro.id, ability=ability)
+        answer(s)
+    bear = put(s, "Grizzly Bears")
+    if modified:
+        act(s, "p1", type="counter", card_ids=[bear.id], kind="+1/+1", delta=1)
+    bolt(s, bear.id)
+    assert zone(s, bear) == "p1:graveyard"
+    to_phase(s, "cleanup", turn=1)
+    assert names(s).count("Inkling") == (1 if modified else 0)
+    check(s)
+
+
+# -- Kiora of Salt and Sand ---------------------------------------------------------------------------------------------------------------------------
+@pytest.mark.parametrize("activated", [True, False])
+def test_kiora_untaps_an_attacker_after_a_loyalty_activation(cards, activated):
+    s = build(cards, ["Kiora of Salt and Sand", "Gideon Jura", "Grizzly Bears"])
+    put(s, "Kiora of Salt and Sand")
+    bear = put(s, "Grizzly Bears")
+    to_phase(s, "main1", turn=3)
+    gideon = cast(s, "Gideon Jura")
+    if activated:
+        act(s, "p1", type="activate_ability", card_id=gideon.id, ability=next(a.index for a in ch(s, gideon).abilities if a.text.startswith("0:")))
+        answer(s)
+    attack(s, [bear], pick=[bear.id])
+    assert s.state.cards[bear.id].tapped != activated and life(s, "p2") == 38
+    check(s)
+
+
+# -- Laboratory Drudge --------------------------------------------------------------------------------------------------------------------------------
+@pytest.mark.parametrize("how", ["flashback", "unearth", "none"])
+def test_laboratory_drudge_draws_after_graveyard_play(cards, how):
+    s = build(cards, ["Laboratory Drudge", "Firebolt", "Dregscape Zombie"])
+    put(s, "Laboratory Drudge")
+    bury(s, "Firebolt", "Dregscape Zombie")
+    if how == "flashback":
+        mana(s, R=1, C=4)
+        act(s, "p1", type="cast_spell", card_id=next(c for c in s.state.cards.values() if c.name == "Firebolt").id, targets=["p2"])
+    elif how == "unearth":
+        zombie = next(c for c in s.state.cards.values() if c.name == "Dregscape Zombie")
+        mana(s, B=1)
+        act(s, "p1", type="activate_ability", card_id=zombie.id, ability=next(a.index for a in ch(s, zombie).abilities if a.text.startswith("Unearth")))
+    answer(s)
+    before = hand(s)
+    to_phase(s, "cleanup", turn=1)
+    assert hand(s) == before + (how != "none")
+    check(s)
+
+
+
+# -- Goliath Hatchery ---------------------------------------------------------------------------------------------------------------------------------
+@pytest.mark.parametrize("poison,drawn", [(3, 3), (2, 0)])
+def test_goliath_hatchery_draws_the_chosen_creatures_total_toxic_value(cards, poison, drawn):
+    s = build(cards, ["Goliath Hatchery", "Glissa's Retriever"])
+    put(s, "Goliath Hatchery")
+    put(s, "Glissa's Retriever")  # (toxic 3)
+    act(s, "p2", type="set_resource", player="p2", key="poison", value=poison)
+    before = hand(s)
+    to_phase(s, "main1", turn=3)
+    assert hand(s) == before + 1 + drawn  # (the draw step's card, and the upkeep's)
+    check(s)
+
+
+# -- Warrior's Resolve -------------------------------------------------------------------------------------------------------------------------------
+@pytest.mark.parametrize("counter", [True, False])
+def test_warriors_resolve_draws_for_an_attacker_with_a_counter(cards, counter):
+    s = build(cards, ["Warrior's Resolve", "Grizzly Bears", "Coral Merfolk"])
+    put(s, "Warrior's Resolve")
+    bear, merfolk = put(s, "Grizzly Bears"), put(s, "Coral Merfolk")
+    act(s, "p1", type="counter", card_ids=[merfolk.id], kind="+1/+1", delta=1)  # (the Merfolk, with a counter, does not attack)
+    if counter:
+        act(s, "p1", type="counter", card_ids=[bear.id], kind="+1/+1", delta=1)
+    attack(s, [bear])
+    before = hand(s)
+    to_phase(s, "cleanup", turn=3)
+    assert hand(s) == before + counter
     check(s)

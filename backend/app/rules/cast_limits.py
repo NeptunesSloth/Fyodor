@@ -977,6 +977,12 @@ def loyalty_rule(state: GameState, card: CardInstance, info: CardInfo | None, ke
             continue
         if d.get('planeswalker_only') and 'Planeswalker' not in Plan.view(state, card.controller, info).ch(card).types:
             continue
+        if d.get('entered100h'):  # -- turn state (wave 100H) -- "as long as ~ entered this turn" (The Wandering Emperor)
+            from app.rules import history
+
+            view = Plan.view(state, card.controller, info)
+            if not any(e.object_id == view.oid(card) for e in history.log_for(view).entered):
+                continue
         return True
     return False
 

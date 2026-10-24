@@ -980,6 +980,11 @@ def _attackers(m: re.Match[str]) -> Condition | None:
     return None if n is None else {"history": "attackers", "n": n}  # 508.1: creatures declared as attackers, any combat
 
 
+@_history_pattern(r"you(?:'ve| have)? activated a loyalty ability this turn")
+def _loyalty(m: re.Match[str]) -> Condition:
+    return {"history": "facts", "kind": "loyalty", "who": "you", "n": 1}  # -- turn state (wave 100H) -- 606.3: an activation you made (casting.py)
+
+
 @_history_pattern(r"you(?:'ve| have)? cycled (?P<n>\w+) or more cards this turn")
 def _cycled(m: re.Match[str]) -> Condition | None:
     n = _num(m["n"])  # -- turn state (wave 100H) -- 702.29a: each cycling this turn, a card cycled twice counting twice (Spellpyre Phoenix ruling)
