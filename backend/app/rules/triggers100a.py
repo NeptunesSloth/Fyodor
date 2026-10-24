@@ -49,6 +49,9 @@ _AS: dict[str, tuple[str, list[dict[str, Any]], bool]] = {
     **{f"Whenever ~ attacks, it deals {n} damage to each of up to one target creature, up to one target player, and/or up to one target planeswalker.":
        (f"Whenever ~ attacks, ~ deals {n} damage to each of up to one target creature, up to one target player, and up to one target planeswalker.", [], False)
        for n in (1, 2)},
+    # Keldon Firebombers: each player keeps three lands of their choice (701.21a: the sacrificing player chooses; 101.4: APNAP), the rest at once
+    "When ~ enters, each player sacrifices all lands they control except for three.":
+        ("When ~ enters, each player chooses three lands they control, then sacrifices the rest.", [], False),
     # Cloaked Cadet: one trigger per Human (603.2c), but only the first each turn (the limit), draws: the ruling's one card for any number
     "Whenever one or more +1/+1 counters are put on one or more Humans you control, draw a card. This ability triggers only once each turn.":
         ("Whenever one or more +1/+1 counters are put on a Human you control, draw a card. This ability triggers only once each turn.", [], False),
@@ -402,6 +405,12 @@ _BUILD: dict[str, tuple[str, Any]] = {
     "Whenever you clash and win, you may draw a card.": ("Whenever you clash, you may draw a card.", lambda d: {**d, "if": {"clash_won100a": True}}),
     "Whenever you clash, tap target creature an opponent controls. If you won, that creature doesn't untap during its controller's next untap step.":
         ("Whenever you clash, tap target creature an opponent controls. That creature doesn't untap during its controller's next untap step.", _trap),
+    "When ~ enters, sacrifice it unless you sacrifice any number of creatures with total power 12 or greater.":
+        ("When ~ enters, sacrifice ~.", _upkeep_cost("dreadnought100a")),
+    # O-Kagachi: an intervening "if" (603.4) on that player's most recent turn (previous_own_turns: the players its declared attackers attacked,
+    # not a planeswalker of yours — the ruling); unknown in an older save: it doesn't trigger
+    "Whenever ~ deals combat damage to a player, if that player attacked you during their last turn, exile target nonland permanent that player controls.":
+        ("Whenever ~ deals combat damage to a player, exile target nonland permanent that player controls.", lambda d: {**d, "if": {"attacked_you_last100a": True}}),
     "When you cast this spell, counter it unless you sacrifice a land.": ("When you cast this spell, draw a card.", _vortex),
     "At the beginning of each player's end step, ~ deals 2 damage to that player unless one of their opponents was dealt damage this turn.":
         ("At the beginning of each player's end step, ~ deals 2 damage to that player.", _antagonism),
@@ -559,6 +568,32 @@ def scales(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return True
 
 
+def _sacrificeable(plan: Any, pid: str) -> list[str]:
+    from app.rules import prohibitions
+
+    return [c.id for c in plan.state.cards.values() if c.controller == pid and c.zone.endswith(":battlefield") and plan.in_game(c)
+            and plan.ch(c).is_creature and not prohibitions.sacrifice_forbidden(plan, c)]
+
+
+def _power(plan: Any, cards: list[str]) -> int:
+    from app.rules import selectors
+
+    return sum(selectors._stat(plan.ch(plan.state.cards[c]), "power") or 0 for c in cards)
+
+
+def dreadnought(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Phyrexian Dreadnought: "unless you sacrifice any number of creatures with total power 12 or greater" — chosen as it resolves, even with
+    the Dreadnought gone (the rulings); not offered when the creatures can't reach 12 (118.3); they're sacrificed at once (701.21a)."""
+    from app.rules import context
+
+    mine = _sacrificeable(plan, ctx["controller"])
+    if _power(plan, mine) < 12:
+        context.bind_flag(ctx, "dreadnought100a", False)
+        return True
+    return _ask(plan, ctx, "dreadnought100a", "sacrifice creatures with total power 12 or greater (none: sacrifice it)", _card_options(plan, mine),
+                0, len(mine))
+
+
 def _done(plan: Any, d: Any, chosen: list[str]) -> None:
     from app.rules import effects
 
@@ -584,6 +619,10 @@ def holds(plan: Any, ctx: dict[str, Any], cond: dict[str, Any]) -> bool:
         subs = {t for o in (ctx.get("event") or {}).get("objects") or [] if (got := triggers._object_then(plan, o.get("card"), o.get("object_id")))
                 for t in got[1].subtypes}
         return {"Pirate", "Vehicle"} <= subs
+    if cond.get("attacked_you_last100a"):
+        from app.rules import previous_own_turns
+
+        return any(previous_own_turns.attacked_player(plan.state, p, me) is True for p in (ctx.get("event") or {}).get("players") or [])
     if cond.get("clash_won100a"):  # Sylvan Echoes / Entangling Trap: you won the clash the trigger is about (701.30d)
         return int((ctx.get("event") or {}).get("amount") or 0) == 1
     if cond.get("warrior_damage100a"):  # Mindblade Render: this batch's combat damage to an opponent, a Warrior's (as it dealt it, 608.2i)
@@ -684,6 +723,11 @@ def resume(plan: Any, d: Any, chosen: list[str]) -> None:
     pid = ctx["controller"]
     if step in ("egon100a", "ghoul100a"):
         _exile_now(plan, ctx, [c for c in chosen if c in _graveyard(plan, pid)], step)
+    elif step == "dreadnought100a":
+        if chosen and _power(plan, chosen) < 12:
+            raise ActionError("Choose creatures with total power 12 or greater, or none")
+        effects._sacrifice_cards(plan, chosen, pid, ctx)
+        context.bind_flag(ctx, "dreadnought100a", bool(chosen))
     elif step == "scavenger100a":
         cards = [c for c in chosen if c in _graveyard(plan, pid)]
         for cid in cards:
@@ -703,6 +747,7 @@ from app.rules import trigger_attacking_player65 as _ball65  # noqa: E402
 from app.rules import trigger_leaf51_staged as _leaf51  # noqa: E402
 
 PRIMITIVES = {"plague100a": plague, "emancipate100a": emancipate, "egon100a": egon, "scavenger100a": scavenger, "chisei100a": chisei,
-              "jurin100a": jurin, "namor100a": namor, "hornbeetle100a": hornbeetle, "ghoul100a": ghoul, "scales100a": scales, "linked_gain100a": linked_gain, "trigger_leaf51_djinn_draws": _leaf51.djinn_draws,
+              "jurin100a": jurin, "namor100a": namor, "hornbeetle100a": hornbeetle, "ghoul100a": ghoul, "scales100a": scales,
+              "dreadnought100a": dreadnought, "linked_gain100a": linked_gain, "trigger_leaf51_djinn_draws": _leaf51.djinn_draws,
               **_ball65.PRIMITIVES}
-RESUME = {"egon100a": resume, "scavenger100a": resume, "chisei100a": resume, "ghoul100a": resume, "linked_gain100a": _done, "trigger_leaf51_djinn_count": _leaf51.resume_djinn}
+RESUME = {"egon100a": resume, "scavenger100a": resume, "chisei100a": resume, "ghoul100a": resume, "dreadnought100a": resume, "linked_gain100a": _done, "trigger_leaf51_djinn_count": _leaf51.resume_djinn}

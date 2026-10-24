@@ -1256,5 +1256,65 @@
   "keywords": [
    "Clash"
   ]
+ },
+ {
+  "name": "Phyrexian Dreadnought",
+  "layout": "normal",
+  "mana_cost": "{1}",
+  "cmc": 1.0,
+  "type_line": "Artifact Creature — Phyrexian Dreadnought",
+  "oracle_text": "Trample\nWhen this creature enters, sacrifice it unless you sacrifice any number of creatures with total power 12 or greater.",
+  "power": "12",
+  "toughness": "12",
+  "colors": [],
+  "color_identity": [],
+  "keywords": [
+   "Trample"
+  ]
+ },
+ {
+  "name": "Keldon Firebombers",
+  "layout": "normal",
+  "mana_cost": "{3}{R}{R}",
+  "cmc": 5.0,
+  "type_line": "Creature — Human Soldier",
+  "oracle_text": "When this creature enters, each player sacrifices all lands they control except for three.",
+  "power": "3",
+  "toughness": "3",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "O-Kagachi, Vengeful Kami",
+  "layout": "normal",
+  "mana_cost": "{1}{W}{U}{B}{R}{G}",
+  "cmc": 6.0,
+  "type_line": "Legendary Creature — Dragon Spirit",
+  "oracle_text": "Flying, trample\nWhenever O-Kagachi deals combat damage to a player, if that player attacked you during their last turn, exile target nonland permanent that player controls.",
+  "power": "6",
+  "toughness": "6",
+  "colors": [
+   "B",
+   "G",
+   "R",
+   "U",
+   "W"
+  ],
+  "color_identity": [
+   "B",
+   "G",
+   "R",
+   "U",
+   "W"
+  ],
+  "keywords": [
+   "Flying",
+   "Trample"
+  ]
  }
 ]

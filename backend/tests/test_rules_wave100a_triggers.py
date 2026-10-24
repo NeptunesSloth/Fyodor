@@ -1487,3 +1487,68 @@ def test_clash_triggers_after_the_clash_and_read_whether_you_won(cards, win):
     to_phase(s, "main1", 2)
     assert s.state.cards[elves.id].tapped == win  # it didn't untap during Bob's untap step only when Alice won
     check(s)
+
+
+PROMOTED += ["Phyrexian Dreadnought"]
+EXTRA += [real("Probe Giant", "{5}{G}", 6, "Creature — Giant", "", ("6", "6"), "G")]
+
+
+@pytest.mark.parametrize("pay", [True, False])
+def test_phyrexian_dreadnought_needs_twelve_power_of_sacrifices(cards, pay):
+    from app.game.errors import ActionError
+
+    assert coverage.of_card_data(cards.resolve("Phyrexian Dreadnought")).level == "FULL"
+    s = build(cards, ["Phyrexian Dreadnought", "Probe Giant", "Probe Giant", "Grizzly Bears"])
+    giants, bears = [c for c in s.state.cards.values() if c.name == "Probe Giant"], put(s, "Grizzly Bears")
+    act(s, "p1", type="move", card_ids=[g.id for g in giants], to={"zone": "battlefield"})
+
+    def pick(d):
+        if d.min_choices or bears.id not in [o.id for o in d.options]:
+            return None
+        if pay:
+            with pytest.raises(ActionError, match="12 or greater"):  # 8 power isn't enough (118.3)
+                act(s, "p1", type="choose", decision_id=d.id, option_ids=[giants[0].id, bears.id])
+        return [g.id for g in giants] if pay else []
+
+    cast_it(s, "Phyrexian Dreadnought", pick=pick, C=1)
+    assert card_named(s, "Phyrexian Dreadnought").zone == ("p1:battlefield" if pay else "p1:graveyard")
+    assert all(s.state.cards[g.id].zone == ("p1:graveyard" if pay else "p1:battlefield") for g in giants)
+    check(s)
+
+
+PROMOTED += ["Keldon Firebombers"]
+
+
+def test_keldon_firebombers_each_player_keeps_three_lands(cards):
+    assert coverage.of_card_data(cards.resolve("Keldon Firebombers")).level == "FULL"
+    s = build(cards, ["Keldon Firebombers"])
+    forests = [c for c in s.state.cards.values() if c.name == "Forest" and c.owner == "p1"][:5]
+    islands = [c for c in s.state.cards.values() if c.name == "Island" and c.owner == "p2"][:2]
+    act(s, "p1", type="move", card_ids=[c.id for c in forests], to={"zone": "battlefield"})
+    act(s, "p2", type="move", card_ids=[c.id for c in islands], to={"zone": "battlefield"})
+    cast_it(s, "Keldon Firebombers", R=2, C=3)
+    assert sum(s.state.cards[c.id].zone == "p1:battlefield" for c in forests) == 3
+    assert all(s.state.cards[c.id].zone == "p2:battlefield" for c in islands)  # (two: nothing to sacrifice)
+    check(s)
+
+
+PROMOTED += ["O-Kagachi, Vengeful Kami"]
+
+
+@pytest.mark.parametrize("at", ["p1", "walker", None])
+def test_o_kagachi_exiles_only_from_a_player_who_attacked_you_last_turn(cards, at):
+    assert coverage.of_card_data(cards.resolve("O-Kagachi, Vengeful Kami")).level == "FULL"
+    s = build(cards, ["O-Kagachi, Vengeful Kami", "Probe Walker"], ["Grizzly Bears", "Sol Ring"])
+    kami, walker = put(s, "O-Kagachi, Vengeful Kami"), put(s, "Probe Walker")
+    act(s, "p1", type="set_counter", card_id=walker.id, kind="loyalty", value=5)
+    bears, ring = put(s, "Grizzly Bears", "p2"), put(s, "Sol Ring", "p2")
+    if at:
+        declare(s, 2, [(bears, walker.id if at == "walker" else at)])  # (only attacking Alice's planeswalker isn't attacking her: the ruling)
+    run(s)
+    declare(s, 3, [(kami, "p2")])
+    run(s, lambda d: [ring.id] if ring.id in [o.id for o in d.options] else None)
+    from tests.test_rules_wave30m_durations import to_phase
+
+    to_phase(s, "main2", 3)
+    assert (s.state.cards[ring.id].zone == "p2:exile") == (at == "p1")
+    check(s)
