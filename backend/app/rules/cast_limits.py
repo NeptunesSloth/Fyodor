@@ -105,7 +105,10 @@ SELF_FLASH_IF = re.compile(r"^you may cast (?:this spell|~) as though it had fla
 # Effects: "Your opponents can't cast spells this turn." / "Target player can't cast spells this turn." / "Players can't cast
 # noncreature spells this turn." / "Until your next turn, your opponents can't cast spells from anywhere other than their hands."
 EFFECT_CAST = re.compile(rf"^(?:(?P<lead>until your next turn|until the end of your next turn|this turn), )?(?P<who>your opponents|opponents|players|each player|each opponent|"
-                         rf"target player|target opponent|its controller) can't cast {_SPELLS}{_FROM}{_ACT}(?: (?P<when>this turn|until your next turn|until the end of your next turn))?$")  # (wave 32C: Single Combat)
+                         rf"target player|target opponent|its controller) can't cast {_SPELLS}{_FROM}{_ACT}(?: (?P<when>this turn|until your next turn|until the end of your next turn|during that player's next turn))?$")  # (wave 32C: Single Combat)
+# -- trigger lines (wave 100A) -- "Each opponent can't cast instant or sorcery spells during that player's next turn." (Azor, the Lawbringer; Sphinx's
+# Decree): each player's own next turn — the next one that player actually takes (723.1's reading of "that player's next turn"), never the current
+# one; the official rulings: several such effects all apply to that same turn. ``until`` "their_next100a"; ``during`` is set as that turn begins.
 # Flash permissions (601.3b): "You may cast Spirit spells as though they had flash." / "You may cast Dragon spells and artifact
 # spells as though they had flash." / "Any player may cast spells as though they had flash." / "During each opponent's end
 # step, you may cast spells as though they had flash." — and the effect "You may cast spells this turn as though they had flash."
@@ -470,6 +473,10 @@ def _effect_cast(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
            "target player": "target", "target opponent": "target", "its controller": "it.controller"}[m["who"]]  # (wave 51C: Render Silent)
     sel = {"target player": "player", "target opponent": "opponent"}.get(m["who"])
     until = "end_of_next_turn" if "end of your next turn" in (lead or when or "") else "next_turn" if "next turn" in (lead or when or "") else "turn"
+    if when == "during that player's next turn":  # -- trigger lines (wave 100A) -- (each player named: "that player" is each of them)
+        if who not in ("each_opponent", "each_player", "target"):
+            raise ValueError("whose next turn")
+        until = "their_next100a"
     return [{"do": "cast_limit", "who": who, "until": until, "filter": key, "from": list(_FROMS[m["frm"]]) if m["frm"] else None,
              "act": act}], sel
 
@@ -619,8 +626,9 @@ def cast_limit(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         what = _spells_words(e.get("filter"), e.get("from"))
         if e.get("act") == "loyalty":
             what += " or activate loyalty abilities"
-        plan.note(f"{plan.name(pid)} can't cast {what} {'this turn' if e['until'] == 'turn' else ('until the end of ' if e['until'] == 'end_of_next_turn' else 'until ') + plan.name(ctx['controller']) + '’s next turn'} ({label})",
-                  actor=ctx["controller"])
+        when = "during their next turn" if e["until"] == "their_next100a" else "this turn" if e["until"] == "turn" else \
+            ("until the end of " if e["until"] == "end_of_next_turn" else "until ") + plan.name(ctx["controller"]) + "’s next turn"
+        plan.note(f"{plan.name(pid)} can't cast {what} {when} ({label})", actor=ctx["controller"])
     return True
 
 
@@ -674,6 +682,10 @@ def turn_began(plan: Plan, skipped: list[tuple[str, int]] | None = None) -> None
     r = plan.rules
     turn, active = plan.state.turn.number, plan.active
     ended = {(active, turn), *(skipped or ())}
+    for x in r.cast_limits:  # -- trigger lines (wave 100A) -- "during that player's next turn": this is it (the first turn they take after the effect)
+        if x.get("until") == "their_next100a" and x.get("during") is None and x.get("player") == active and turn > int(x.get("turn") or 0):
+            x["during"] = turn
+    r.cast_limits = [x for x in r.cast_limits if not (x.get("until") == "their_next100a" and x.get("during") is not None and x["during"] != turn)]
     r.cast_limits = [x for x in r.cast_limits if not (x.get("until") == "next_turn" and any(
         x.get("controller") == p and n > int(x.get("turn") or 0) for p, n in ended))
         and not (x.get("until") == "end_of_next_turn" and any(x.get("controller") == p and n > int(x.get("turn") or 0) for p, n in skipped or ()))  # (wave 32C)
@@ -788,6 +800,8 @@ def _when_ok(state: GameState, when: str | None, controller: str, player: str | 
 
 
 def _record_live(state: GameState, x: dict[str, Any]) -> bool:
+    if x.get("until") == "their_next100a":  # -- trigger lines (wave 100A) -- only during that player's next turn
+        return x.get("during") == state.turn.number
     return x.get("until") != "turn" or x.get("turn") == state.turn.number
 
 

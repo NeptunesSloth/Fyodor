@@ -99,7 +99,7 @@ TRIGGERED_GRANTS: frozenset[str] = frozenset({"prowess", "exalted", "persist", "
 # -- static grants (wave 15A) -- keywords whose whole meaning is one triggered ability (keyword_triggers.MEANINGS): granted as the
 # line itself (613.1f). Not modular / graft / living weapon / for mirrodin! / ravenous: those have a half that works as the
 # permanent enters (a granted one would miss it).
-MEANING_GRANTS = r"provoke|absorb \d+|extort|ingest|melee|myriad|exploit|(?:poisonous|frenzy|afterlife|annihilator|afflict|fabricate) \d+"  # (wave 42A: fabricate N, 702.123a: one enters trigger)
+MEANING_GRANTS = r"provoke|absorb \d+|extort|ingest|melee|myriad|exploit|(?:poisonous|frenzy|afterlife|annihilator|afflict|fabricate|rampage) \d+"  # (wave 42A: fabricate N, 702.123a: one enters trigger; -- trigger lines (wave 100A) -- rampage N, 702.23a: one "becomes blocked" trigger)
 
 ATTACHED_SUBJECTS = {"enchanted creature": "creature", "equipped creature": "creature", "enchanted land": "land",
                      "enchanted permanent": "permanent", "enchanted artifact": "artifact", "enchanted planeswalker": "planeswalker",

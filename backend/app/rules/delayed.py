@@ -104,6 +104,9 @@ DURATIONS: dict[str, str] = {
     "until this card is cast from exile": "until_cast",  # -- as long as (wave 37A) -- 611.2a: ends as that card (the object its cost exiled) is cast
     # -- untap choice (wave 7F) -- Rubinia Soulsinger: both must stay true (611.2b: it ends the moment either stops)
     "for as long as you control ~ and ~ remains tapped": "source_controlled_tapped",
+    # -- trigger lines (wave 100A) -- 611.2a: "until your next upkeep" (Erhnam Djinn, Gabriel Angelfire) ends as that player's next upkeep step begins
+    # (Gabriel's ruling: it still has the ability through the untap step, not in the upkeep); ``at_step``, and 800.4m for a player who left
+    "until your next upkeep": "next_upkeep",
 }
 # -- quoted grants (wave 2D) -- "for as long as that creature has a bounty counter on it" (Mathas): the
 # duration names a kind of counter ("while_counter:<kind>"): the effect lasts while the object it affects
@@ -114,7 +117,7 @@ LABELS = {"next_turn": "until your next turn", "end_of_next_turn": "until the en
           "source_controlled": "for as long as you control ~", "source_tapped": "for as long as ~ remains tapped",
           "until_cast": "until this card is cast from exile",
           "source_controlled_tapped": "for as long as you control ~ and ~ remains tapped",
-          "while_counter": "for as long as it has a counter on it"}
+          "while_counter": "for as long as it has a counter on it", "next_upkeep": "until your next upkeep"}
 MARKER = "until end of turn"  # the table marker text app/rules/effects._mark writes
 
 
@@ -395,6 +398,12 @@ def at_step(plan: Plan, phase: str) -> None:
     if phase == "upkeep":
         r.permissions = [p for p in r.permissions if not (p.until == "next_upkeep" and (p.until_player or p.player) == plan.active
                           and (p.granted_step is None or r.step_serial > p.granted_step))]
+        upkept = [e for e in r.effects if e.duration == "next_upkeep" and e.until_player == plan.active and plan.state.turn.number > e.turn]
+        if upkept:  # -- trigger lines (wave 100A) -- "until your next upkeep" ends as it begins
+            _end(plan, upkept)
+            from app.rules import layers
+
+            layers.control_sync(plan)
     due = [t for t in r.delayed if _step_due(plan, t, phase)]
     due_ids = {t.id for t in due}
     live_ids = {t.id for t in r.delayed}
@@ -612,7 +621,7 @@ def turn_began(plan: Plan, skipped: list[tuple[str, int]] | None = None) -> None
     r.delayed = [t for t in r.delayed if not any(
         t.until_end_next_player == player and skipped_turn > t.turn for player, skipped_turn in skipped or ())]
     ended = [e for e in r.effects if (e.duration == "next_turn" and e.until_player == active and turn > e.turn)
-             or (e.duration in ("next_turn", "end_of_next_turn")  # (-- end of next turn (wave 32C) -- a departed player's turn never gets a cleanup, 800.4m)
+             or (e.duration in ("next_turn", "end_of_next_turn", "next_upkeep")  # (-- end of next turn (wave 32C) -- a departed player's turn never gets a cleanup, 800.4m; wave 100A: nor an upkeep)
                  and any(e.until_player == p and n > e.turn for p, n in skipped or ()))]
     if ended:
         _end(plan, ended)

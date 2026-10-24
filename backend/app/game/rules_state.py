@@ -735,7 +735,8 @@ class ContinuousEffect(BaseModel):
     # ``until_player``'s next turn (a later turn than ``turn``, even when it began in one of their own turns: delayed.end_of_next_turn)
     counter_since_batch: int = 0  # while-counter durations ignore earlier zero-counter events
     duration: Literal["end_of_turn", "permanent", "next_turn", "end_of_next_turn", "source_on_battlefield", "source_controlled",
-                      "source_tapped", "source_controlled_tapped", "while_counter", "end_of_combat", "until_cast"] = "end_of_turn"
+                      "source_tapped", "source_controlled_tapped", "while_counter", "end_of_combat", "until_cast",
+                      "next_upkeep"] = "end_of_turn"  # (next_upkeep: wave 100A, "until your next upkeep" — delayed.at_step)
     until_object: str | None = None  # -- as long as (wave 37A) -- until_cast: the object (in exile) whose being cast ends the effect (delayed.spell_cast)
     counter: str | None = None  # while_counter: the kind of counter
     until_player: str | None = None  # next_turn: whose next turn; source_controlled: who must control the source

@@ -1547,6 +1547,10 @@ def holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
         from app.rules import fight_receipts90
 
         return fight_receipts90.fought_creature(plan, ctx['controller'])
+    if cond.get("always100a"):  # -- trigger lines (wave 100A) --
+        from app.rules import triggers100a
+
+        return triggers100a.holds(plan, ctx, cond)
     if cond.get('attack_pair_players86') or cond.get('attack_other_exact86'):
         from app.rules import attack_subjects86
 
