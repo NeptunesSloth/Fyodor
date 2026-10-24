@@ -1390,5 +1390,39 @@
    "U"
   ],
   "keywords": []
+ },
+ {
+  "name": "Long Rest",
+  "layout": "normal",
+  "mana_cost": "{X}{G}{G}{G}",
+  "cmc": 3.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Return X target cards with different mana values from your graveyard to your hand. If eight or more cards were returned to your hand this way, your life total becomes equal to your starting life total. Exile Long Rest.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Bringer of the Last Gift",
+  "layout": "normal",
+  "mana_cost": "{6}{B}{B}",
+  "cmc": 8.0,
+  "type_line": "Creature — Vampire Demon",
+  "oracle_text": "Flying\nWhen this creature enters, if you cast it, each player sacrifices all other creatures they control. Then each player returns all creature cards from their graveyard that weren't put there this way to the battlefield.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Flying"
+  ],
+  "power": "6",
+  "toughness": "6"
  }
 ]

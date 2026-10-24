@@ -67,7 +67,7 @@ GY_EMPTY = "gy_empty100b"
 def parse(body: str, it: str | None, event_player: bool) -> Found | None:
     text = body.strip()
     for form in (_put_discarded, _hit_discard, _draw_if, _dealt_cant_block, _give_source, _exiled_mv, _connives, _empty_gy, _truce, _each_who_lost,
-                 _either, _plot_paid, _hand_exile, _dont_sacrifice, _put_mv_x, _fold, _swift, _untap_then, _may_attach, _vanish, _dakra, _durin, _latnam, _surge, _locke, _gy_exile, _manabond, _have_deal, _own_bounce, _clash, _reveal_win, _fishing, _runes, _rally):
+                 _either, _plot_paid, _hand_exile, _dont_sacrifice, _put_mv_x, _fold, _swift, _untap_then, _may_attach, _vanish, _dakra, _durin, _latnam, _surge, _locke, _gy_exile, _manabond, _have_deal, _own_bounce, _clash, _reveal_win, _fishing, _runes, _rally, _long_rest, _bringer):
         if (found := form(text, it, event_player)) is not None:
             return found
     for pattern, repl in _REWRITES:
@@ -834,6 +834,40 @@ def rally(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
         break  # (the library ran out)
     ctx["effects"][ctx["next"]:ctx["next"]] = [{**e["token"], "n": nonland}] if nonland else []
     return True
+
+
+# -- Long Rest: "If eight or more cards were returned to your hand this way, your life total becomes equal to your starting life total. Exile Long
+# Rest." (the cards now in your hand, 400.7j; 119.5: the life is gained or lost, the 2021-07-23 ruling; 103.4: the starting life total)
+_LONG_REST = re.compile(r"^(?P<a>Return X target cards with different mana values from your graveyard to your hand)\. If eight or more cards were returned to your "
+                        r"hand this way, your life total becomes equal to your starting life total\. (?P<b>Exile ~\.)$")
+
+
+def _long_rest(text: str, it: str | None, event_player: bool) -> Found | None:
+    m = _LONG_REST.match(text)
+    found = _effects(f"{m['a']}. {m['b']}", it, event_player) if m is not None else None
+    if found is None or len(found[0]) != 2 or found[0][0].get("do") != "return_card" or found[0][0].get("to") != "hand":
+        return None
+    eight = {"do": "only_if", "cond": {"value": {"this_way": "your_hand", "of": None, "ref_count": "rest100b"}, "op": ">=", "n": 8}, "skip": 1}
+    return [{**found[0][0], "as": "rest100b"}, eight, {"do": "set_life", "who": "you", "n": "start"}, found[0][1]], found[1], found[2]
+
+
+# -- Bringer of the Last Gift: "each player sacrifices all other creatures they control. Then each player returns all creature cards from their graveyard
+# that weren't put there this way to the battlefield." Each card under its owner's control (the graveyard is its owner's, 404.2), all at once; not the
+# cards just sacrificed (the new objects in the graveyards, 400.7).
+_BRINGER = ("each player sacrifices all other creatures they control. Then each player returns all creature cards from their graveyard that weren't put there "
+            "this way to the battlefield.")
+
+
+def _bringer(text: str, it: str | None, event_player: bool) -> Found | None:
+    from app.rules import selectors
+
+    if text[:1].lower() + text[1:] != _BRINGER or (dead := selectors.parse("creature card in a graveyard")) is None:
+        return None
+    sac = _effects("each player sacrifices all other creatures they control.", it, event_player)
+    if sac is None or len(sac[0]) != 1 or sac[0][0].get("do") != "sacrifice_choice":
+        return None
+    return [{**sac[0][0], "as": "bringer100b"}, {"do": OTHERS, "who": dead.key(), "to": "battlefield", "tapped": False, "under": "owner",
+                                                  "not": "bringer100b"}], None, False
 
 
 # -- Reign of Terror: "Destroy all green creatures or all white creatures. They can't be regenerated. You lose 2 life for each creature that died

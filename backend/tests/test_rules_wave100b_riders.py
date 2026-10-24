@@ -60,6 +60,9 @@ Every scenario checks the replay and a save and a load.
 * Read the Runes - "For each card drawn this way, discard a card unless you sacrifice a permanent." (sacrifice any, then discard the rest at
   once - 2004-10-04). Rally the Horde - "If the last card exiled isn't a land card, repeat this process. Create a 1/1 red Warrior creature
   token for each nonland card exiled this way."
+* Long Rest - "If eight or more cards were returned to your hand this way, your life total becomes equal to your starting life total." (103.4)
+* Bringer of the Last Gift - "Then each player returns all creature cards from their graveyard that weren't put there this way to the
+  battlefield." (owners' control; not the cards just sacrificed).
 * Hellfire - "deals X plus 3 damage to you, where X is the number of creatures that died this way." (a destroyed token counts, a creature a
   replacement effect exiled instead doesn't: the 2009-10-01 rulings).
 """
@@ -89,6 +92,7 @@ KALDHEIM, MANABOND, GUARDIAN = "Invasion of Kaldheim // Pyre of the World Tree",
 INVESTIGATORS, CLASH, SANCTUM = "Phenomenon Investigators", "Clash of Elements", "Theorist's Sanctum"
 HEDRON, ATEMSIS, SPHINX, VOICE = "Hedron Alignment", "Atemsis, All-Seeing", "Rescuer Sphinx", "Veteran's Voice"
 GEAR, MIRROR, RUNES, RALLY = "Fishing Gear", "Moonring Mirror", "Read the Runes", "Rally the Horde"
+REST, BRINGER = "Long Rest", "Bringer of the Last Gift"
 BEARS, GIANT, RIP, ELVES = "Grizzly Bears", "Hill Giant", "Rest in Peace", "Llanowar Elves"
 
 
@@ -97,7 +101,7 @@ def cards(settings):
     yield from open_repo(settings)
 
 
-@pytest.mark.parametrize("name", [ROWEN, ETCHINGS, KERANOS, SUGARMAW, HELLFIRE, TERROR, KELLAN, EGO, SHRIEK, GORILLA, DESERTER, AEROSTAT, FOLD, SWIFT, RESEARCHER, KOYA, SURVIVORS, VANISH, DAKRA, DURIN, LATNAM, SURGE, LOCKE, HELLION, HULK, KALDHEIM, MANABOND, GUARDIAN, INVESTIGATORS, CLASH, SANCTUM, HEDRON, ATEMSIS, SPHINX, VOICE, GEAR, MIRROR, RUNES, RALLY])
+@pytest.mark.parametrize("name", [ROWEN, ETCHINGS, KERANOS, SUGARMAW, HELLFIRE, TERROR, KELLAN, EGO, SHRIEK, GORILLA, DESERTER, AEROSTAT, FOLD, SWIFT, RESEARCHER, KOYA, SURVIVORS, VANISH, DAKRA, DURIN, LATNAM, SURGE, LOCKE, HELLION, HULK, KALDHEIM, MANABOND, GUARDIAN, INVESTIGATORS, CLASH, SANCTUM, HEDRON, ATEMSIS, SPHINX, VOICE, GEAR, MIRROR, RUNES, RALLY, REST, BRINGER])
 def test_the_cards_are_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL", name
 
@@ -935,4 +939,39 @@ def test_rally_the_horde_repeats_until_the_last_card_is_a_land(cards):
     run(s)
     assert all(zone(s, c) == "p1:exile" for c in order)  # (three nonland: again; Bolt, Forest, Forest: the last is a land, it stops)
     assert len([c for c in s.state.cards.values() if c.zone == "p1:battlefield" and c.name == "Warrior"]) == 4
+    check(s)
+
+
+# -- Long Rest ------------------------------------------------------------------------------------------------------------------------
+@pytest.mark.parametrize("eight", [True, False])
+def test_long_rest_resets_life_for_eight_cards_returned(cards, eight):
+    names = ["Forest", ELVES, BEARS, FAERIE, GIANT, "Gideon Jura", RALLY, GORILLA]  # (mana values 0 to 7)
+    s = build_n(cards, [REST, *names[1:]])
+    picked = [named(s, n) for n in names[: 8 if eight else 7]]
+    for c in picked:
+        act(s, "p1", type="move", card_ids=[c.id], to={"player": "p1", "zone": "graveyard"})
+    act(s, "p1", type="set_life", player="p1", value=12)
+    spell = to_hand(s, REST)
+    x = len(picked)
+    mana(s, G=3, C=x)
+    act(s, "p1", type="cast_spell", card_id=spell.id, x_value=x, targets=[c.id for c in picked], target_counts=[x])
+    run(s)
+    assert all(zone(s, c) == "p1:hand" for c in picked) and zone(s, spell) == "p1:exile"
+    assert life(s) == (40 if eight else 12)
+    check(s)
+
+
+# -- Bringer of the Last Gift ---------------------------------------------------------------------------------------------------------
+def test_bringer_of_the_last_gift_swaps_the_board_for_the_graveyards(cards):
+    s = build_n(cards, [BRINGER, BEARS, ELVES], [GIANT, ELVES])
+    bears, giant = put(s, BEARS), put(s, GIANT, "p2")
+    mine, theirs = named(s, ELVES), named(s, ELVES, "p2")
+    for c, pid in ((mine, "p1"), (theirs, "p2")):
+        act(s, pid, type="move", card_ids=[c.id], to={"player": pid, "zone": "graveyard"})
+    bringer = to_hand(s, BRINGER)
+    mana(s, B=2, C=6)
+    act(s, "p1", type="cast_spell", card_id=bringer.id)
+    run(s)
+    assert zone(s, bears) == "p1:graveyard" and zone(s, giant) == "p2:graveyard"  # (put there this way: they stay)
+    assert zone(s, mine) == "p1:battlefield" and zone(s, theirs) == "p2:battlefield" and zone(s, bringer) == "p1:battlefield"
     check(s)
