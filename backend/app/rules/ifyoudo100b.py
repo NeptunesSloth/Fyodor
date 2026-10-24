@@ -51,6 +51,8 @@ _REWRITES = [
     # Invasion of Kaldheim: "that many" is how many cards were exiled (the cards actually in exile, 400.7j), not the trigger event's amount
     (re.compile(r"^exile all cards from your hand, then draw that many cards\. (?=Until the end of your next turn, you may play cards exiled this way\.$)"),
      "Exile all cards from your hand, then draw a card for each card exiled this way. "),
+    # Veteran's Voice ("Tap enchanted creature: …", the one card so worded): the creature the cost taps is the enchanted creature (601.2c-h)
+    (re.compile(r"^Target creature other than the creature tapped this way (gets \+2/\+1 until end of turn\.)$"), r"Target creature other than enchanted creature \1"),
     # Azra Bladeseeker: 102.4, outside a game between teams "your team" is "you"; the one who discarded draws (118.12: a discard can't be begun and not made)
     (re.compile(r"^each player on your team may discard a card, then each player who discarded a card this way draws a card\.$"),
      "you may discard a card. If you do, draw a card."),
@@ -65,7 +67,7 @@ GY_EMPTY = "gy_empty100b"
 def parse(body: str, it: str | None, event_player: bool) -> Found | None:
     text = body.strip()
     for form in (_put_discarded, _hit_discard, _draw_if, _dealt_cant_block, _give_source, _exiled_mv, _connives, _empty_gy, _truce, _each_who_lost,
-                 _either, _plot_paid, _hand_exile, _dont_sacrifice, _put_mv_x, _fold, _swift, _untap_then, _may_attach, _vanish, _dakra, _durin, _latnam, _surge, _locke, _gy_exile, _manabond, _have_deal, _own_bounce):
+                 _either, _plot_paid, _hand_exile, _dont_sacrifice, _put_mv_x, _fold, _swift, _untap_then, _may_attach, _vanish, _dakra, _durin, _latnam, _surge, _locke, _gy_exile, _manabond, _have_deal, _own_bounce, _clash, _reveal_win, _fishing):
         if (found := form(text, it, event_player)) is not None:
             return found
     for pattern, repl in _REWRITES:
@@ -551,7 +553,7 @@ def hand_gate(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
 # -- Primal Surge: "Exile the top card of your library. If it's a permanent card, you may put it onto the battlefield. If you do, repeat this process."
 # The 2012-05-01 rulings: the repeat includes the repeat; it ends at a card that isn't a permanent card (110.4), one you don't put, or one that
 # can't be put there (an Aura with nothing to enchant, 303.4g); what the cards' entering triggers waits until it has resolved (603.3).
-SURGE, SURGE_AGAIN = "surge100b", "surge_again100b"
+SURGE = "surge100b"
 _PERMANENT = {"Artifact", "Battle", "Creature", "Enchantment", "Land", "Planeswalker"}
 
 
@@ -561,38 +563,61 @@ def _surge(text: str, it: str | None, event_player: bool) -> Found | None:
 
 
 def surge(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
-    from app.game.rules_state import DecisionOption
     from app.rules.effects import exile_cards
-    from app.rules.plan import decide
 
     library = plan.state.zones.get(f"{ctx['controller']}:library") or []
-    if not library:
+    if library:
+        exile_cards(plan, ctx, {"as": SURGE}, [library[0]])
+        ctx["effects"][ctx["next"]:ctx["next"]] = [{"do": PUT_EXILED, "of": f"ref:{SURGE}", "then": [{"do": SURGE}], "else": []}]
+    return True
+
+
+# -- Fishing Gear: "exile the top card of that player's library. If it's a permanent card, you may put it onto the battlefield under your control. If you
+# don't, create a 1/1 blue Fish creature token." "If you don't": not a permanent card, declined, or one that couldn't be put there (the 2025-10-02
+# rulings). The shared step (Primal Surge too): ``then`` once the exiled card entered, ``else`` otherwise.
+_FISHING = re.compile(r"^(?P<a>exile the top card of that player's library)\. If it's a permanent card, you may put it onto the battlefield under your control\. "
+                      r"If you don't, (?P<b>create [^.]+ token)\.$")
+PUT_EXILED, PUT_CHECK = "put_exiled100b", "put_check100b"
+
+
+def _fishing(text: str, it: str | None, event_player: bool) -> Found | None:
+    m = _FISHING.match(text)
+    found = _effects(f"{m['a']}. Draw a card for each card exiled this way.", it, event_player) if m is not None else None
+    token = _effects(f"{m['b'][0].upper()}{m['b'][1:]}.", it, event_player) if found is not None and m is not None else None
+    if found is None or token is None or len(found[0]) != 2 or found[0][0].get("do") != "exile_top" or not found[0][0].get("as"):
+        return None
+    return [found[0][0], {"do": PUT_EXILED, "of": f"ref:{found[0][0]['as']}", "then": [], "else": token[0]}], None, False
+
+
+def put_exiled(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    from app.game.rules_state import DecisionOption
+    from app.rules import context
+    from app.rules.plan import decide
+
+    cards = [plan.state.cards[c] for c in context.objects(plan, ctx, e["of"].removeprefix("ref:")) if plan.state.cards[c].zone.endswith(":exile")]
+    if not cards or not _PERMANENT & set(plan.ch(cards[0]).types):
+        ctx["effects"][ctx["next"]:ctx["next"]] = e["else"]
         return True
-    top = library[0]
-    exile_cards(plan, ctx, {"as": SURGE}, [top])
-    card = plan.state.cards[top]
-    if not card.zone.endswith(":exile") or not _PERMANENT & set(plan.ch(card).types):
-        return True
-    decide(plan, player=ctx["controller"], kind="confirm", prompt=f"{ctx.get('name') or 'It'}: put {card.name} onto the battlefield?",
-           options=[DecisionOption(id="yes", label="Put it onto the battlefield"), DecisionOption(id="no", label="Don't")], resume={"step": SURGE, "ctx": ctx})
+    decide(plan, player=ctx["controller"], kind="confirm", prompt=f"{ctx.get('name') or 'It'}: put {cards[0].name} onto the battlefield?",
+           options=[DecisionOption(id="yes", label="Put it onto the battlefield"), DecisionOption(id="no", label="Don't")],
+           resume={"step": PUT_EXILED, "ctx": ctx, "e": e})
     return False
 
 
-def resume_surge(plan: Any, d: Any, chosen: list[str]) -> None:
+def resume_put_exiled(plan: Any, d: Any, chosen: list[str]) -> None:
     from app.rules.effects import continue_effects
 
-    ctx = d.resume["ctx"]
-    if chosen == ["yes"]:
-        ctx["effects"][ctx["next"]:ctx["next"]] = [{"do": "return_card", "who": f"ref:{SURGE}", "to": "battlefield", "tapped": False, "under": "you", "as": SURGE_AGAIN},
-                                                   {"do": SURGE_AGAIN}]
+    ctx, e = d.resume["ctx"], d.resume["e"]
+    ctx["effects"][ctx["next"]:ctx["next"]] = ([{"do": "return_card", "who": e["of"], "to": "battlefield", "tapped": False, "under": "you", "as": PUT_CHECK},
+                                                {"do": PUT_CHECK, "then": e["then"], "else": e["else"]}] if chosen == ["yes"] else e["else"])
     continue_effects(plan, ctx)
 
 
-def surge_again(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+def put_check(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     from app.rules import context
 
-    if any(plan.state.cards[c].zone.endswith(":battlefield") for c in context.objects(plan, ctx, SURGE_AGAIN)):  # (it entered: repeat)
-        ctx["effects"][ctx["next"]:ctx["next"]] = [{"do": SURGE}]
+    entered = any(plan.state.cards[c].zone.endswith(":battlefield") for c in context.objects(plan, ctx, PUT_CHECK))
+    ctx["effects"][ctx["next"]:ctx["next"]] = e["then"] if entered else e["else"]
     return True
 
 
@@ -677,6 +702,89 @@ def _own_bounce(text: str, it: str | None, event_player: bool) -> Found | None:
              "did": "own100b_did"}, {"do": "only_if", "cond": {"succeeded": "own100b_did"}, "skip": 1}, {"do": "draw", "who": "you", "n": 1}], None, False
 
 
+# -- Clash of Elements: "Choose target nonland permanent. Its owner may put it on top of their library. If they do, Clash of Elements deals 2 damage
+# to them. If they didn't put the card on top of their library, they put it on the bottom." The owner's choice as it resolves (608.2d, 101.4b).
+_CLASH = ("Choose target nonland permanent. Its owner may put it on top of their library. If they do, ~ deals 2 damage to them. If they didn't put the card on "
+          "top of their library, they put it on the bottom.")
+
+
+def _clash(text: str, it: str | None, event_player: bool) -> Found | None:
+    if text != _CLASH:
+        return None
+    top = _effects("Put target nonland permanent on top of its owner's library. ~ deals 2 damage to its owner.", it, event_player)
+    bottom = _effects("Put target nonland permanent on the bottom of its owner's library.", it, event_player)
+    if top is None or bottom is None or top[1] != bottom[1] or len(top[0]) != 2:
+        return None
+    return [{"do": EITHER, "who": "target_owner", "a": top[0], "b": bottom[0],
+             "labels": ["Put it on top of your library (it deals 2 damage to you)", "Put it on the bottom of your library"]}], top[1], False
+
+
+# -- Hedron Alignment: "you may reveal your hand. If you do, you win the game if you own a card named Hedron Alignment in exile, in your hand, in your
+# graveyard, and on the battlefield." (a face-down card has no name: one exiled face down doesn't count, the 2016-01-22 ruling; 406.3a, 708.2)
+# Atemsis, All-Seeing: "you may reveal your hand. If cards with at least six different mana values are revealed this way, that player loses the game."
+# (202.3: one mana value each, X is 0, a split card's halves combined - the 2019-07-12 rulings). 603.5: declining reveals nothing.
+_HEDRON = re.compile(r"^you may reveal your hand\. If you do, you win the game if you own a card named (?P<name>[^,]+) in exile, in your hand, in your graveyard, "
+                     r"and on the battlefield\.$")
+_ATEMSIS = "you may reveal your hand. If cards with at least six different mana values are revealed this way, that player loses the game."
+OWN_EVERYWHERE, HAND_VALUES = "own_everywhere100b", "hand_values100b"
+
+
+def _reveal_win(text: str, it: str | None, event_player: bool) -> Found | None:
+    if (m := _HEDRON.match(text)) is not None:
+        return [{"do": "reveal_hand", "who": "you"}, {"do": OWN_EVERYWHERE, "name": m["name"], "skip": 1}, {"do": "win_game", "who": "you"}], None, True
+    if text == _ATEMSIS and event_player:
+        return [{"do": "reveal_hand", "who": "you"}, {"do": HAND_VALUES, "n": 6, "skip": 1}, {"do": "lose_game", "who": "event_player"}], None, True
+    return None
+
+
+def own_everywhere(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """The gate: you own a card with that name in exile, in your hand, in your graveyard and on the battlefield (each face up)."""
+    me = ctx["controller"]
+    zones = {c.zone.rsplit(":", 1)[-1] for c in plan.state.cards.values() if c.owner == me and not c.face_down and plan.ch(c).name == e["name"]}
+    if not {"exile", "hand", "graveyard", "battlefield"} <= zones:
+        ctx["next"] = min(len(ctx["effects"]), ctx["next"] + int(e["skip"]))
+    return True
+
+
+def hand_values(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """The gate: the cards in your hand (all revealed) have at least ``n`` different mana values."""
+    hand = plan.state.zones.get(f"{ctx['controller']}:hand") or []
+    if len({int(plan.ch(plan.state.cards[c]).mana_value) for c in hand}) < int(e["n"]):
+        ctx["next"] = min(len(ctx["effects"]), ctx["next"] + int(e["skip"]))
+    return True
+
+
+# -- Moonring Mirror: "you may exile all cards from your hand face down. If you do, put all other cards you own exiled with this artifact into your hand."
+# Both abilities' cards are exiled with it (607.2a); "other": not the ones just exiled (the 2004-12-01 ruling). 603.5: declining does neither.
+_MOONRING = "you may exile all cards from your hand face down. If you do, put all other cards you own exiled with ~ into your hand."
+OTHERS = "others_back100b"
+
+
+def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
+    """The whole ability (its link accumulates both abilities' cards, exiled_with.accumulating_link), or None."""
+    from dataclasses import replace
+
+    from app.rules import scripts
+
+    if ability.kind != "triggered" or scripts.self_text(ability.text, ch.name) != f"At the beginning of your upkeep, {_MOONRING}":
+        return None
+    base = scripts.define(replace(ability, text="At the beginning of your upkeep, draw a card."), ch)
+    down, back = _effects("you may exile all cards from your hand face down.", None, False), _effects("Put all cards you own exiled with ~ into your hand.", None, False)
+    if base is None or down is None or back is None or len(down[0]) != 1 or len(back[0]) != 1 or back[0][0].get("do") != "return_card":
+        return None
+    return {**base, "optional": True, "accumulating_link": True,
+            "effects": [{**down[0][0], "link": True, "as": "moon100b"}, {**back[0][0], "do": OTHERS, "not": "moon100b"}]}
+
+
+def others_back(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """``return_card`` of the cards ``who`` names but those the binding ``not`` names (the ones exiled a moment ago)."""
+    from app.rules import context
+    from app.rules.effects import _cards, _return_cards
+
+    fresh = set(context.objects(plan, ctx, e["not"]))
+    return _return_cards(plan, ctx, {**e, "do": "return_card"}, [c for c in _cards(plan, ctx, e["who"]) if c not in fresh])
+
+
 # -- Reign of Terror: "Destroy all green creatures or all white creatures. They can't be regenerated. You lose 2 life for each creature that died
 # this way." 608.2d: the controller picks one as it resolves (and announces it, 101.4b); the rest of the text reads the one done.
 _EITHER = re.compile(r"^Destroy all (?P<a>[a-z]+ creatures) or all (?P<b>[a-z]+ creatures)\. (?P<rest>[^.]+\.(?: [^.]+\.)*)$")
@@ -699,9 +807,13 @@ def _either(text: str, it: str | None, event_player: bool) -> Found | None:
 
 def either(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     from app.game.rules_state import DecisionOption
+    from app.rules.effects import _players
     from app.rules.plan import decide
 
-    decide(plan, player=ctx["controller"], kind="choose_one", prompt=f"{ctx.get('name') or 'It'}: choose one",
+    who = _players(plan, ctx, e["who"]) if e.get("who") else [ctx["controller"]]  # (Clash of Elements: the target's owner chooses)
+    if not who:
+        return True
+    decide(plan, player=who[0], kind="choose_one", prompt=f"{ctx.get('name') or 'It'}: choose one",
            options=[DecisionOption(id="a", label=e["labels"][0]), DecisionOption(id="b", label=e["labels"][1])], resume={"step": EITHER, "ctx": ctx, "e": e})
     return False
 
@@ -718,5 +830,6 @@ def resume_either(plan: Any, d: Any, chosen: list[str]) -> None:
 
 PRIMITIVES = {GY_EMPTY: gy_empty, TRUCE: truce, TRUCE_ASK: truce_ask, TRUCE_DRAW: truce_draw, TRUCE_LIFE: truce_life, EITHER: either, COUNTERED: countered,
               SWIFT: swift, BACK: back_creature, TO_GRAVEYARDS: to_graveyards, HAND_GATE: hand_gate,
-              SURGE: surge, SURGE_AGAIN: surge_again}
-RESUME = {TRUCE_ASK: resume_truce_ask, EITHER: resume_either, SURGE: resume_surge}
+              SURGE: surge, PUT_EXILED: put_exiled, PUT_CHECK: put_check, OWN_EVERYWHERE: own_everywhere, HAND_VALUES: hand_values,
+              OTHERS: others_back}
+RESUME = {TRUCE_ASK: resume_truce_ask, EITHER: resume_either, PUT_EXILED: resume_put_exiled}
