@@ -307,6 +307,11 @@ def _rule_static(text: str, ch: Any) -> dict[str, Any] | None:
         from app.rules import type_statics
 
         return type_statics._definition("lands", {"remove_supertypes": ["Snow"]})
+    m = re.fullmatch(r"If (?:this card|~) is in a graveyard, effects from spells named (?P<n>[^.]+) count it as a card named (?P=n)\.", text)
+    if m is not None:
+        return {"kind": "static", "static": COUNTS_AS, "name": m["n"], "effects": []}
+    if text == "Recover—Pay half your life, rounded up.":
+        return _recover_half()
     m = re.fullmatch(r"You can't choose an untapped (?P<n>permanent|creature) as this spell's target as you cast it\.", text)
     if m is not None and "Aura" in ch.subtypes:
         return {"kind": "static", "static": TAPPED_TARGET, "noun": m["n"], "effects": []}
@@ -321,3 +326,33 @@ def cast_aura(ch: Any, aura: str | None) -> str | None:
         return aura
     sel = selectors.parse(f"tapped {aura}")
     return aura if sel is None else sel.key()
+
+
+# -- "effects from spells named N count it as a card named N" (Pardic Firecat, Diligent Farmhand) --------------------------------
+# 201.2, 404.1: while the card is in a graveyard, a count by a spell named N of "cards named N" (Flame Burst, Muscle Burst: the selector
+# extra ``named_self``, selectors.matches) includes it; for any other source it keeps its own name.
+COUNTS_AS = "counts_as100d"
+
+
+def counted_as(plan: Plan, source: str | None, card: CardInstance, ch: Any) -> bool:
+    from app.rules import scripts
+
+    src = plan.state.cards.get(source or "")
+    if src is None or src.zone != "stack" or src.ability is not None or not card.zone.endswith(":graveyard"):
+        return False
+    name = plan.ch(src).name
+    return any(d.get("static") == COUNTS_AS and d["name"] == name for d in scripts.definitions(ch).values())
+
+
+def _recover_half() -> dict[str, Any] | None:
+    """702.59a: "Recover—Pay half your life, rounded up." (Garza's Assassin) is recover's trigger with that cost (119.4: half a life total,
+    rounded up, can always be paid; 0 at 0 life)."""
+    import json
+
+    from app.rules import keyword_triggers
+
+    found = keyword_triggers._definition("recover {2}")
+    d = json.loads(found)[0] if found else None
+    if d is None or d["effects"][0].get("cost") != "{2}":
+        return None
+    return {**d, "effects": [{**d["effects"][0], "cost": "Pay half your life, rounded up"}, *d["effects"][1:]]}

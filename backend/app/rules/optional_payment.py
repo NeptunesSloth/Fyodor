@@ -166,7 +166,7 @@ def parse(text: str) -> AbilityCost | None:
     cost = C.parse_ability_cost(text, anyn=False)
     if cost.unsupported or not cost.components or "{X}" in cost.mana.upper() or cost.energy_x:
         return None
-    if any(c.activation_only and not _blight_like(c) for c in cost.components) and not optional_counter55.allowed(cost):  # (wave 4H; wave 6F: blight)
+    if any(c.activation_only and not _blight_like(c) and c.life_rule != "half" for c in cost.components) and not optional_counter55.allowed(cost):  # (wave 4H; wave 6F: blight; wave 100D: half your life, 119.4)
         return None
     if any(c.kind not in SUPPORTED for c in cost.components):
         return None

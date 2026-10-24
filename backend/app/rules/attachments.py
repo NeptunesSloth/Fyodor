@@ -63,7 +63,7 @@ _ENCHANT = re.compile(r"^enchant (?P<what>.+?)\.?$", re.IGNORECASE)
 # -- equip (wave 15E) -- 702.6a "Equip [cost]", "Equip [quality] [cost]" (702.6b: only a creature with that quality) and
 # "Equip—[non-mana cost]": the cost, the target selector and the ability's own trailing sentences ("Activate only once each
 # turn.", "This ability costs {3} less to activate if …")
-EQUIP = re.compile(r"^equip(?: (?P<q>[A-Za-z][A-Za-z' -]*?))? (?P<cost>(?:\{[^}]+\})+(?: or (?:\{[^}]+\})+)?)(?P<tail>(?:\. .+|\.)?)$|"
+EQUIP = re.compile(r"^equip(?: (?P<q>[A-Za-z][A-Za-z' ,-]*?))? (?P<cost>(?:\{[^}]+\})+(?: or (?:\{[^}]+\})+)?)(?P<tail>(?:\. .+|\.)?)$|"
                    r"^equip—(?P<cost2>[^.]+)(?P<tail2>\..*)?$", re.IGNORECASE)
 
 
