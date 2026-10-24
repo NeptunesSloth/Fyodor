@@ -34,8 +34,16 @@ _TEXT = re.compile(r"^As ~ enters, you may reveal an? (?P<what>.+?) card from yo
                    r"(?:~|This land) enters tapped unless you revealed an? (?P<w2>.+?) card this way or you control an? (?P<w3>.+?)\.)$")
 
 
+# -- if you do (wave 100B) -- "As this land enters, you may behold a Jace. If you don't, this land enters tapped." (Theorist's Sanctum): 701.4a, reveal a
+# Jace card from your hand or choose a Jace permanent you control (``behold``: those are options too; a chosen permanent isn't revealed)
+_BEHOLD = re.compile(r"^As ~ enters, you may behold an? (?P<what>[A-Z][a-z]+)\. If you don't, (?:~|it) enters tapped\.$")
+
+
 def definition(text: str) -> dict[str, Any] | None:
     """The replacement for the wording above (``what``: "Island or Swamp", "Elf", "Treefolk"), or None."""
+    if (b := _BEHOLD.match(text)) is not None:
+        card, mine = selectors.parse(f"{b['what']} card"), selectors.parse(f"{b['what']} you control")
+        return None if card is None or mine is None else {"kind": "replacement", "replacement": KIND, "sel": card.key(), "behold": mine.key(), "effects": []}
     m = _TEXT.match(text)
     if m is None:
         return None
@@ -51,10 +59,12 @@ def definition(text: str) -> dict[str, Any] | None:
 
 
 def _matching(plan: Plan, card: CardInstance, controller: str, key: str) -> list[str]:
+    key, _, beheld = key.partition("|")  # (behold: "<card key>|<permanent key>")
     sel = selectors.from_key(key)
-    return [c for c in plan.state.zones.get(zone_key(controller, "hand"), [])
-            if c != card.id and c in plan.state.cards
-            and selectors.matches(plan, sel, plan.state.cards[c], plan.ch(plan.state.cards[c]), controller)]
+    out = [c for c in plan.state.zones.get(zone_key(controller, "hand"), [])
+           if c != card.id and c in plan.state.cards
+           and selectors.matches(plan, sel, plan.state.cards[c], plan.ch(plan.state.cards[c]), controller)]
+    return out + ([c for c in selectors.candidates(plan, selectors.from_key(beheld), controller) if c != card.id] if beheld else [])
 
 
 def plan_entry(plan: Plan, card: CardInstance, controller: str, defs: list[dict[str, Any]], answers: dict[str, str],
@@ -66,12 +76,12 @@ def plan_entry(plan: Plan, card: CardInstance, controller: str, defs: list[dict[
             continue
         if d.get("ctl") and selectors.candidates(plan, selectors.from_key(d["ctl"]), controller):
             continue  # (you control one: it enters untapped without revealing anything; public, so no question to leak)
-        what = PREFIX + d["sel"]
-        cards = _matching(plan, card, controller, d["sel"])
+        what = PREFIX + d["sel"] + ("|" + d["behold"] if d.get("behold") else "")
+        cards = _matching(plan, card, controller, what[len(PREFIX):])
         given = answers.get(what)
         # -- review (wave 4R) -- asked whenever their hand holds another card (its size is public): skipping the
         # question only when no card matches would tell the table they hold none (hidden information)
-        others = any(c != card.id for c in plan.state.zones.get(zone_key(controller, "hand"), []))
+        others = any(c != card.id for c in plan.state.zones.get(zone_key(controller, "hand"), [])) or (bool(d.get("behold")) and bool(cards))
         if not others or given == NONE:
             out["tapped"] = True
         elif given is None:
@@ -90,8 +100,11 @@ def is_choice(what: str) -> bool:
 def prompt(plan: Plan, card: CardInstance, controller: str, what: str) -> tuple[str, list[DecisionOption]]:
     """The private question: which matching card to reveal, or none (it enters tapped)."""
     cards = _matching(plan, card, controller, what[len(PREFIX):])
-    options = [DecisionOption(id=c, label=f"Reveal {plan.state.cards[c].name or 'card'}", card_id=c) for c in cards]
+    options = [DecisionOption(id=c, label=f"{'Choose' if plan.state.cards[c].zone.endswith(':battlefield') else 'Reveal'} {plan.state.cards[c].name or 'card'}",
+                              card_id=c) for c in cards]
     options.append(DecisionOption(id=NONE, label="Don't reveal (it enters tapped)"))
+    if "|" in what:  # (behold, 701.4a)
+        return f"{card.name}: as it enters, behold (reveal a card from your hand or choose a permanent you control), or it enters tapped?", options
     return f"{card.name}: as it enters, reveal a card from your hand, or it enters tapped?", options
 
 

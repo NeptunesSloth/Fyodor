@@ -45,6 +45,11 @@ Every scenario checks the replay and a save and a load.
 * Wicked Guardian - "you may have it deal 2 damage to another creature you control. If you do, draw a card." (chosen as it resolves;
   the 2019-10-04 rulings).
 * Phenomenon Investigators - "you may return a nonland permanent you own to your hand. If you do, draw a card." (108.3: owned, whoever controls).
+* Clash of Elements - "Its owner may put it on top of their library. If they do, Clash of Elements deals 2 damage to them. …" (the owner's choice).
+* Theorist's Sanctum - "As this land enters, you may behold a Jace. If you don't, this land enters tapped." (701.4a: a Jace card in your hand
+  or a Jace you control).
+* Hedron Alignment - "If you do, you win the game if you own a card named Hedron Alignment in exile, in your hand, in your graveyard, and on the
+  battlefield." / Atemsis - "If cards with at least six different mana values are revealed this way, that player loses the game." (rulings).
 * Hellfire - "deals X plus 3 damage to you, where X is the number of creatures that died this way." (a destroyed token counts, a creature a
   replacement effect exiled instead doesn't: the 2009-10-01 rulings).
 """
@@ -71,7 +76,8 @@ RESEARCHER, KOYA, SURVIVORS, VANISH = "Innocuous Researcher", "Koya, Death from 
 DAKRA, DURIN, LATNAM, SURGE = "Dakra Mystic", "Doors of Durin", "Lat-Nam's Legacy", "Primal Surge"
 LOCKE, HELLION, HULK = "Locke, Treasure Hunter", "Devouring Hellion", "Deathbonnet Sprout // Deathbonnet Hulk"
 KALDHEIM, MANABOND, GUARDIAN = "Invasion of Kaldheim // Pyre of the World Tree", "Manabond", "Wicked Guardian"
-INVESTIGATORS = "Phenomenon Investigators"
+INVESTIGATORS, CLASH, SANCTUM = "Phenomenon Investigators", "Clash of Elements", "Theorist's Sanctum"
+HEDRON, ATEMSIS = "Hedron Alignment", "Atemsis, All-Seeing"
 BEARS, GIANT, RIP, ELVES = "Grizzly Bears", "Hill Giant", "Rest in Peace", "Llanowar Elves"
 
 
@@ -80,7 +86,7 @@ def cards(settings):
     yield from open_repo(settings)
 
 
-@pytest.mark.parametrize("name", [ROWEN, ETCHINGS, KERANOS, SUGARMAW, HELLFIRE, TERROR, KELLAN, EGO, SHRIEK, GORILLA, DESERTER, AEROSTAT, FOLD, SWIFT, RESEARCHER, KOYA, SURVIVORS, VANISH, DAKRA, DURIN, LATNAM, SURGE, LOCKE, HELLION, HULK, KALDHEIM, MANABOND, GUARDIAN, INVESTIGATORS])
+@pytest.mark.parametrize("name", [ROWEN, ETCHINGS, KERANOS, SUGARMAW, HELLFIRE, TERROR, KELLAN, EGO, SHRIEK, GORILLA, DESERTER, AEROSTAT, FOLD, SWIFT, RESEARCHER, KOYA, SURVIVORS, VANISH, DAKRA, DURIN, LATNAM, SURGE, LOCKE, HELLION, HULK, KALDHEIM, MANABOND, GUARDIAN, INVESTIGATORS, CLASH, SANCTUM, HEDRON, ATEMSIS])
 def test_the_cards_are_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL", name
 
@@ -745,4 +751,72 @@ def test_phenomenon_investigators_doubt_returns_a_permanent_you_own_to_draw(card
         return [mine.id] if mine.id in offered else None
     run(s, answer)
     assert theirs.id not in offered and zone(s, mine) == "p1:hand" and hand_size(s, "p1") == before + 2
+    check(s)
+
+
+# -- Clash of Elements ----------------------------------------------------------------------------------------------------------------
+@pytest.mark.parametrize("top", [True, False])
+def test_clash_of_elements_lets_the_owner_choose_top_and_damage_or_bottom(cards, top):
+    s = build_n(cards, [CLASH], [GIANT])
+    giant = put(s, GIANT, "p2")
+    spell = to_hand(s, CLASH)
+    mana(s, U=1, R=1, C=1)
+    act(s, "p1", type="cast_spell", card_id=spell.id, targets=[giant.id])
+    bob = life(s, "p2")
+    asked: list[str] = []
+    run(s, lambda d: asked.append(d.player) or [o.id for o in d.options if ("top" in (o.label or "")) == top][:1] or None)
+    library = s.state.zones["p2:library"]
+    assert asked == ["p2"] and library[0 if top else -1] == giant.id
+    assert life(s, "p2") == bob - (2 if top else 0)
+    check(s)
+
+
+# -- Theorist's Sanctum ---------------------------------------------------------------------------------------------------------------
+@pytest.mark.parametrize("how", ["permanent", "card", "none"])
+def test_theorists_sanctum_enters_untapped_only_if_you_behold_a_jace(cards, how):
+    s = build_n(cards, [SANCTUM, "Jace Beleren"])
+    jace = to_hand(s, "Jace Beleren")
+    if how == "permanent":
+        mana(s, U=2, C=1)
+        act(s, "p1", type="cast_spell", card_id=jace.id)
+        run(s)
+    sanctum = to_hand(s, SANCTUM)
+    act(s, "p1", type="play_land", card_id=sanctum.id)
+    run(s, lambda d: [jace.id] if how != "none" and any(getattr(o, "card_id", None) == jace.id for o in d.options) else ["none"])
+    assert zone(s, sanctum) == "p1:battlefield" and s.state.cards[sanctum.id].tapped == (how == "none")
+    assert "*" not in s.state.cards[jace.id].revealed_to  # (shown, then hidden again; a chosen permanent is just chosen)
+    check(s)
+
+
+# -- Hedron Alignment / Atemsis -------------------------------------------------------------------------------------------------------
+@pytest.mark.parametrize("exiled", [True, False])
+def test_hedron_alignment_wins_with_a_copy_in_each_zone(cards, exiled):
+    s = build_n(cards, [(4, HEDRON)])
+    copies = [named(s, HEDRON, n=i) for i in range(4)]
+    put(s, HEDRON)
+    act(s, "p1", type="move", card_ids=[copies[1].id], to={"zone": "hand"})
+    act(s, "p1", type="move", card_ids=[copies[2].id], to={"player": "p1", "zone": "graveyard"})
+    if exiled:
+        act(s, "p1", type="move", card_ids=[copies[3].id], to={"player": "p1", "zone": "exile"})
+    to_phase(s, "upkeep", turn=3)
+    run(s)
+    assert (s.state.rules.winner == "p1") == exiled
+    check(s)
+
+
+@pytest.mark.parametrize("six", [True, False])
+def test_atemsis_makes_the_player_lose_for_six_mana_values(cards, six):
+    s = build_n(cards, [ATEMSIS, ELVES, BEARS, FAERIE, GIANT, "Gideon Jura"])
+    atemsis = put(s, ATEMSIS)
+    to_phase(s, "main1", turn=3)
+    for name in ("Forest", ELVES, BEARS, FAERIE, GIANT, "Gideon Jura" if six else "Llanowar Elves"):  # (mana values 0 to 5, or 0 to 4)
+        to_hand(s, name)
+    to_phase(s, "declare_attackers")
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": atemsis.id, "target": "p2"}])
+    for _ in range(20):  # (through the combat damage step: the trigger, then its "may")
+        if s.state.rules.winner is not None or s.state.turn.phase == "main2":
+            break
+        d = s.state.rules.decision
+        act(s, d.player, type="choose", decision_id=d.id, option_ids=["yes"]) if d is not None else act(s, s.state.rules.priority, type="pass_priority")
+    assert (s.state.rules.winner == "p1") == six
     check(s)

@@ -65,7 +65,7 @@ GY_EMPTY = "gy_empty100b"
 def parse(body: str, it: str | None, event_player: bool) -> Found | None:
     text = body.strip()
     for form in (_put_discarded, _hit_discard, _draw_if, _dealt_cant_block, _give_source, _exiled_mv, _connives, _empty_gy, _truce, _each_who_lost,
-                 _either, _plot_paid, _hand_exile, _dont_sacrifice, _put_mv_x, _fold, _swift, _untap_then, _may_attach, _vanish, _dakra, _durin, _latnam, _surge, _locke, _gy_exile, _manabond, _have_deal, _own_bounce):
+                 _either, _plot_paid, _hand_exile, _dont_sacrifice, _put_mv_x, _fold, _swift, _untap_then, _may_attach, _vanish, _dakra, _durin, _latnam, _surge, _locke, _gy_exile, _manabond, _have_deal, _own_bounce, _clash, _reveal_win):
         if (found := form(text, it, event_player)) is not None:
             return found
     for pattern, repl in _REWRITES:
@@ -677,6 +677,58 @@ def _own_bounce(text: str, it: str | None, event_player: bool) -> Found | None:
              "did": "own100b_did"}, {"do": "only_if", "cond": {"succeeded": "own100b_did"}, "skip": 1}, {"do": "draw", "who": "you", "n": 1}], None, False
 
 
+# -- Clash of Elements: "Choose target nonland permanent. Its owner may put it on top of their library. If they do, Clash of Elements deals 2 damage
+# to them. If they didn't put the card on top of their library, they put it on the bottom." The owner's choice as it resolves (608.2d, 101.4b).
+_CLASH = ("Choose target nonland permanent. Its owner may put it on top of their library. If they do, ~ deals 2 damage to them. If they didn't put the card on "
+          "top of their library, they put it on the bottom.")
+
+
+def _clash(text: str, it: str | None, event_player: bool) -> Found | None:
+    if text != _CLASH:
+        return None
+    top = _effects("Put target nonland permanent on top of its owner's library. ~ deals 2 damage to its owner.", it, event_player)
+    bottom = _effects("Put target nonland permanent on the bottom of its owner's library.", it, event_player)
+    if top is None or bottom is None or top[1] != bottom[1] or len(top[0]) != 2:
+        return None
+    return [{"do": EITHER, "who": "target_owner", "a": top[0], "b": bottom[0],
+             "labels": ["Put it on top of your library (it deals 2 damage to you)", "Put it on the bottom of your library"]}], top[1], False
+
+
+# -- Hedron Alignment: "you may reveal your hand. If you do, you win the game if you own a card named Hedron Alignment in exile, in your hand, in your
+# graveyard, and on the battlefield." (a face-down card has no name: one exiled face down doesn't count, the 2016-01-22 ruling; 406.3a, 708.2)
+# Atemsis, All-Seeing: "you may reveal your hand. If cards with at least six different mana values are revealed this way, that player loses the game."
+# (202.3: one mana value each, X is 0, a split card's halves combined - the 2019-07-12 rulings). 603.5: declining reveals nothing.
+_HEDRON = re.compile(r"^you may reveal your hand\. If you do, you win the game if you own a card named (?P<name>[^,]+) in exile, in your hand, in your graveyard, "
+                     r"and on the battlefield\.$")
+_ATEMSIS = "you may reveal your hand. If cards with at least six different mana values are revealed this way, that player loses the game."
+OWN_EVERYWHERE, HAND_VALUES = "own_everywhere100b", "hand_values100b"
+
+
+def _reveal_win(text: str, it: str | None, event_player: bool) -> Found | None:
+    if (m := _HEDRON.match(text)) is not None:
+        return [{"do": "reveal_hand", "who": "you"}, {"do": OWN_EVERYWHERE, "name": m["name"], "skip": 1}, {"do": "win_game", "who": "you"}], None, True
+    if text == _ATEMSIS and event_player:
+        return [{"do": "reveal_hand", "who": "you"}, {"do": HAND_VALUES, "n": 6, "skip": 1}, {"do": "lose_game", "who": "event_player"}], None, True
+    return None
+
+
+def own_everywhere(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """The gate: you own a card with that name in exile, in your hand, in your graveyard and on the battlefield (each face up)."""
+    me = ctx["controller"]
+    zones = {c.zone.rsplit(":", 1)[-1] for c in plan.state.cards.values() if c.owner == me and not c.face_down and plan.ch(c).name == e["name"]}
+    if not {"exile", "hand", "graveyard", "battlefield"} <= zones:
+        ctx["next"] = min(len(ctx["effects"]), ctx["next"] + int(e["skip"]))
+    return True
+
+
+def hand_values(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """The gate: the cards in your hand (all revealed) have at least ``n`` different mana values."""
+    hand = plan.state.zones.get(f"{ctx['controller']}:hand") or []
+    if len({int(plan.ch(plan.state.cards[c]).mana_value) for c in hand}) < int(e["n"]):
+        ctx["next"] = min(len(ctx["effects"]), ctx["next"] + int(e["skip"]))
+    return True
+
+
 # -- Reign of Terror: "Destroy all green creatures or all white creatures. They can't be regenerated. You lose 2 life for each creature that died
 # this way." 608.2d: the controller picks one as it resolves (and announces it, 101.4b); the rest of the text reads the one done.
 _EITHER = re.compile(r"^Destroy all (?P<a>[a-z]+ creatures) or all (?P<b>[a-z]+ creatures)\. (?P<rest>[^.]+\.(?: [^.]+\.)*)$")
@@ -699,9 +751,13 @@ def _either(text: str, it: str | None, event_player: bool) -> Found | None:
 
 def either(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     from app.game.rules_state import DecisionOption
+    from app.rules.effects import _players
     from app.rules.plan import decide
 
-    decide(plan, player=ctx["controller"], kind="choose_one", prompt=f"{ctx.get('name') or 'It'}: choose one",
+    who = _players(plan, ctx, e["who"]) if e.get("who") else [ctx["controller"]]  # (Clash of Elements: the target's owner chooses)
+    if not who:
+        return True
+    decide(plan, player=who[0], kind="choose_one", prompt=f"{ctx.get('name') or 'It'}: choose one",
            options=[DecisionOption(id="a", label=e["labels"][0]), DecisionOption(id="b", label=e["labels"][1])], resume={"step": EITHER, "ctx": ctx, "e": e})
     return False
 
@@ -718,5 +774,5 @@ def resume_either(plan: Any, d: Any, chosen: list[str]) -> None:
 
 PRIMITIVES = {GY_EMPTY: gy_empty, TRUCE: truce, TRUCE_ASK: truce_ask, TRUCE_DRAW: truce_draw, TRUCE_LIFE: truce_life, EITHER: either, COUNTERED: countered,
               SWIFT: swift, BACK: back_creature, TO_GRAVEYARDS: to_graveyards, HAND_GATE: hand_gate,
-              SURGE: surge, SURGE_AGAIN: surge_again}
+              SURGE: surge, SURGE_AGAIN: surge_again, OWN_EVERYWHERE: own_everywhere, HAND_VALUES: hand_values}
 RESUME = {TRUCE_ASK: resume_truce_ask, EITHER: resume_either, SURGE: resume_surge}
