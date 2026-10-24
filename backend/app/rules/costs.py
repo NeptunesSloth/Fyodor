@@ -55,6 +55,7 @@ _EXILE_SELF_HAND = re.compile(r"^Exile (?:this card|~) from your hand$")  # -- a
 _EXILE_SELF = re.compile(rf"^Exile {_SELF}$")
 _EXILE_GY = re.compile(rf"^Exile {_N} (?P<what>{_COST_CARD} from your graveyard)$")
 _RETURN_SELF = re.compile(rf"^Return {_SELF} to its owner's hand$")
+_BOTTOM_SELF = re.compile(rf"^Put {_SELF} on the bottom of its owner's library$")  # -- activated (wave 100I) -- (Timestream Navigator)
 _RETURN = re.compile(rf"^Return {_N} (?P<what>.+? you control) to (?:its|their) owner's hands?$")
 # -- X sized by a count (wave 25D) -- a spell's additional cost sized by the X announced as it's cast (107.3a, 601.2b): "discard X cards",
 # "return X Swamps you control to their owner's hand" (the sacrifice / exile ones are ``_SAC_X`` / ``_EXILE_GY_X``)
@@ -94,7 +95,9 @@ CRAFT = "CRAFT"
 UNATTACH = "UNATTACH"
 HAND_TO_TOP = 'HAND_TO_TOP'
 EXILE_TOP_OWN_GY = 'EXILE_TOP_OWN_GY'
-WAVE_4H_KINDS = frozenset({EXILE_TOP_OWN_GY, HAND_TO_TOP, PUT_COUNTER, DISCARD_HAND, MILL, EXILE_LIBRARY, EXERT, COLLECT_EVIDENCE, FORAGE, WATERBEND, CRAFT, UNATTACH, REVEAL_SECRET, REVEAL_HAND})
+LIBRARY_BOTTOM_SELF = "LIBRARY_BOTTOM_SELF"  # -- activated (wave 100I) -- the source onto the bottom of its owner's library
+WAVE_4H_KINDS = frozenset({EXILE_TOP_OWN_GY, HAND_TO_TOP, PUT_COUNTER, DISCARD_HAND, MILL, EXILE_LIBRARY, EXERT, COLLECT_EVIDENCE, FORAGE, WATERBEND, CRAFT, UNATTACH, REVEAL_SECRET, REVEAL_HAND,
+                           LIBRARY_BOTTOM_SELF})
 ANY_COUNTER = "*"
 OPPONENT_GAIN_LIFE = "OPPONENT_GAIN_LIFE"
 
@@ -348,6 +351,8 @@ def _component(part: str, card_name: str) -> CostComponent | None:
         return CostComponent(EXILE, text=part)
     if _RETURN_SELF.match(part):
         return CostComponent(RETURN_PERMANENT, text=part)
+    if _BOTTOM_SELF.match(part):
+        return CostComponent(LIBRARY_BOTTOM_SELF, text=part)
     if m := _SAC_CHOSEN.match(part):
         key = _selector(m["what"], zone="battlefield", other=m["n"] == "another")
         if key is None and m["n"] in ("a", "an", "another") and " or " in m["what"]:  # -- keywords (wave 43C) -- "Sacrifice a legendary artifact or legendary creature"

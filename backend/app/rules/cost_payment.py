@@ -48,7 +48,7 @@ def _reserved(cost: AbilityCost, comp: CostComponent, source: CardInstance) -> s
     """Objects a part can't use because another part of the same cost already does: the source
     when it's tapped ({T}) or leaves (sacrificed / exiled / returned) as part of the cost.
     CR 601.2h: counters may be removed from that source before paying its leave cost."""
-    leaves = cost.sacrifice_self or any((c.selector is None or c.source_with_choices) and c.kind in (C.EXILE, C.RETURN_PERMANENT, C.EXILE_FROM_GRAVEYARD)
+    leaves = cost.sacrifice_self or any((c.selector is None or c.source_with_choices) and c.kind in (C.EXILE, C.RETURN_PERMANENT, C.EXILE_FROM_GRAVEYARD, C.LIBRARY_BOTTOM_SELF)
                                         for c in cost.components)
     if (leaves and comp.kind != C.REMOVE_COUNTER) or (comp.kind in (C.TAP_OTHER, C.UNTAP_OTHER, C.WATERBEND) and (cost.tap or cost.untap)):
         return {source.id}
@@ -289,7 +289,7 @@ def _new_part_problem(plan: Plan, comp: CostComponent, card: CardInstance, playe
             return f"{name} doesn't have {need} {what}"
     elif comp.kind == C.REVEAL_SECRET and (plan.rules.secret_choices.get(plan.oid(card)) or [""])[0] != player:  # -- group choices (wave 53D) -- the choice its controller made as it entered
         return f"You didn't choose anything as {name} entered"
-    elif comp.kind in (C.PUT_COUNTER, C.EXERT) and comp.selector is None and not card.zone.endswith(":battlefield"):
+    elif comp.kind in (C.PUT_COUNTER, C.EXERT, C.LIBRARY_BOTTOM_SELF) and comp.selector is None and not card.zone.endswith(":battlefield"):
         return f"{name} isn't on the battlefield"  # (122.6; 701.43c)
     elif comp.kind in (C.MILL, C.EXILE_LIBRARY) and len(plan.state.zones.get(zone_key(player, "library"), [])) < comp.amount:
         return f"You don't have {comp.amount} card{'s' if comp.amount != 1 else ''} in your library"  # 701.17b, 118.3
@@ -1047,6 +1047,9 @@ def _pay_new_part(plan: Plan, comp: CostComponent, card: CardInstance, ids: list
             from app.rules import counter_removal_results
 
             counter_removal_results.remove(plan, card.id, comp.counter or "", x, by=player)
+        return True
+    if comp.kind == C.LIBRARY_BOTTOM_SELF:  # -- activated (wave 100I) -- 601.2h: the source, to the bottom of its owner's library (401.1)
+        plan.do({"type": "move", "card_ids": [card.id], "to": {"player": card.owner, "zone": "library"}, "position": "bottom"})
         return True
     if comp.kind == C.PUT_COUNTER:  # 122.6; a cost isn't an effect (614.16: Doubling Season doesn't apply)
         from app.rules import replace

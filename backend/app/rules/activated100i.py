@@ -31,7 +31,10 @@
   Kentaro and Conspiracy Unraveler (alt_costs.py), Krovikan Sorcerer (activated_card_outcomes.py), Mana Maze (cast_limits.py ``share_last100i``).
 * Per player or per object in turn (101.4, 118.12a): Sivriss (mill, then that opponent may pay 3 life), Stench of Evil (each destroyed Plains'
   controller may pay {2}), Outpace Oblivion ("each player who doesn't have max speed"). Zareth San (from the hand, tapped and attacking, 508.4);
-  Gerrard's Hourglass Pendant and Myojin of Grim Betrayal (cards put into graveyards this turn); Excavator (the sacrificed land's landwalks).
+  Gerrard's Hourglass Pendant and Myojin of Grim Betrayal (cards put into graveyards this turn); Excavator (the sacrificed land's landwalks);
+  Giant Albatross (the creatures that dealt it damage this turn, each unless its controller pays 2 life, no regeneration).
+* Timestream Navigator's "Put ~ on the bottom of its owner's library" cost (costs.py ``LIBRARY_BOTTOM_SELF``); Arcum's Weathervane's snow supertype
+  (layers ``remove_supertypes`` on a resolved effect, 205.4); tokens with their own rules text (Dragonbroods' Relic, Sengir Nosferatu's Bat).
 """
 
 from __future__ import annotations
@@ -195,6 +198,25 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
         if d is None or pred is None or [e.get("who") for e in d["effects"]] != ["each_player"]:
             return None
         return {**d, "effects": [{"do": "players_where", "as": "slow100i", "base": "player", "pred": pred}, {**d["effects"][0], "who": "ref:slow100i"}]}
+    if body == ('Create a 4/4 Dragon creature token named Reliquary Dragon that\'s all colors. It has flying, lifelink, and "When this token enters, '
+                'it deals 3 damage to any target." Activate only as a sorcery.'):
+        # (Dragonbroods' Relic: the token's own rules text, 111.4; its enters ability is the token's, 603.6a)
+        d = _native(ability, ch, cost, "Draw a card. Activate only as a sorcery.")
+        tok: dict[str, Any] = {"name": "Reliquary Dragon", "power": "4", "toughness": "4", "colors": ["W", "U", "B", "R", "G"], "type_line": "Token Creature — Dragon",
+                 "text": "Flying\nLifelink\nWhen this creature enters, it deals 3 damage to any target."}
+        return None if d is None else {**d, "effects": [{"do": "create_token", "who": "you", "n": 1, "token": tok}]}
+    if body == ('Create a 1/2 black Bat creature token with flying. It has "{1}{B}, Sacrifice this token: Return an exiled card named Sengir Nosferatu to '
+                'the battlefield under its owner\'s control."'):
+        d = _native(ability, ch, cost, "Draw a card.")  # (Sengir Nosferatu: the token's own rules text, 111.4)
+        tok = {"name": "Bat", "power": "1", "toughness": "2", "colors": ["B"], "type_line": "Token Creature — Bat",
+                 "text": "Flying\n{1}{B}, Sacrifice this creature: Return an exiled card named Sengir Nosferatu to the battlefield under its owner's control."}
+        return None if d is None else {**d, "effects": [{"do": "create_token", "who": "you", "n": 1, "token": tok}]}
+    if body == "Return an exiled card named Sengir Nosferatu to the battlefield under its owner's control.":
+        # (the Bat's: any face-up exiled card with that name, whoever owns it, rulings 2006-09-25 / 2007-05-01; 201.2, 406.3)
+        d = _native(ability, ch, cost, "Draw a card.")
+        sel = selectors.Selector(card=True, zones=("exile",), extras=("name:Sengir Nosferatu",)).key()
+        return None if d is None else {**d, "effects": [{"do": "return_choice", "to": "battlefield", "tapped": False, "under": "owner", "sel": sel, "n": 1,
+                                                          "upto": False, "random": False, "label": "card named Sengir Nosferatu"}]}
     if body == "~'s controller sacrifices it, then draws two cards. Only your opponents may activate this ability.":
         d = _native(ability, ch, cost, "Destroy ~. Only your opponents may activate this ability.")  # (the Aura's controller draws even if it can't sacrifice it,
         return None if d is None else {**d, "effects": [{"do": "sacrifice", "who": "self", "by": "controller"},  # ruling 2017-03-14: as it last existed, 608.2h)
@@ -237,6 +259,10 @@ _BUILT: dict[str, Callable[[], tuple[list[dict[str, Any]], str | None]]] = {
         lambda: ([{"do": "only_if", "cond": {"object": "cost:exiled", "is": selectors.Selector(types=("Land",), supertypes=("Snow",), card=True).key()}, "skip": 1},
                   {"do": "pump", "who": "self", "p": 1, "t": 1}], None),
     "Put the top card of your graveyard on the bottom of your library.": lambda: ([{"do": "graveyard_bottom100i"}], None),
+    # 205.4: a supertype added or taken away for good (611.2a; any land may lose snow, adding it doesn't touch the others: rulings 2006-10-15)
+    "Target snow land is no longer snow.": lambda: ([{"do": "supertype100i", "who": "target", "remove": ["Snow"]}], selectors.Selector(types=("Land",), supertypes=("Snow",)).key()),
+    "Target nonsnow basic land becomes snow.":
+        lambda: ([{"do": "supertype100i", "who": "target", "add": ["Snow"]}], selectors.Selector(types=("Land",), supertypes=("Basic",), not_supertypes=("Snow",)).key()),
     # 305.7: the chosen basic land type replaces the others and their mana abilities (Terraformer rulings 2005-10-01); the lands are fixed as it resolves (611.2c)
     "Choose a basic land type. Each land you control becomes that type until end of turn.":
         lambda: ([{"do": "become", "who": selectors.Selector(types=("Land",), controller="you").key(), "types": [], "duration": "end_of_turn", "land_pick": _BASICS}], None),
@@ -329,6 +355,19 @@ def albatross(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return True
 
 
+def supertype(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Layer 4 (613.1d): the target gains or loses a supertype, for as long as it is that object (611.2a, 400.7)."""
+    from app.rules import effects, layers
+
+    cards = [c for c in effects._cards(plan, ctx, e["who"]) if plan.state.cards[c].zone.endswith(":battlefield")]
+    words = [*(s.lower() for s in e.get("add") or ()), *(f"not {s.lower()}" for s in e.get("remove") or ())]
+    if cards:
+        layers.add_effect(plan, affected=[plan.oid(c) for c in cards], layer="4", source=ctx.get("source_object"), controller=ctx["controller"],
+                          duration="permanent", label=f"{', '.join(words)} ({ctx.get('name', '')})", add_supertypes=list(e.get("add") or ()),
+                          remove_supertypes=list(e.get("remove") or ()))
+    return True
+
+
 def landwalk_of(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     """702.14a: "[type]walk" for each land type the sacrificed land had as it last existed (608.2h; several on a basic land: ruling 2005-11-01)."""
     from app.rules import effects, values
@@ -341,4 +380,4 @@ def landwalk_of(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
 
 
 PRIMITIVES = {"graveyard_bottom100i": graveyard_bottom, "mill_unless100i": mill_unless, "landwalk_of100i": landwalk_of, "stench100i": stench,
-              "albatross100i": albatross}
+              "albatross100i": albatross, "supertype100i": supertype}

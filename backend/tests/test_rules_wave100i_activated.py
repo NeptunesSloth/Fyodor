@@ -35,7 +35,8 @@ CARDS = ["Rise of the Hobgoblins", "Stronghold Overseer", "Scourglass", "Riptide
          "Tornado", "Void Stalker", "Cybernetica Datasmith", "Cavernous Maw", "Grizzled Wolverine",
          "Carrionette", "Soul of Shandalar", "Kentaro, the Smiling Cat", "Conspiracy Unraveler",
          "Sivriss, Nightmare Speaker", "Zareth San, the Trickster", "Myojin of Grim Betrayal", "Gerrard's Hourglass Pendant",
-         "Excavator", "Outpace Oblivion", "Mana Maze", "Stench of Evil", "Giant Albatross"]
+         "Excavator", "Outpace Oblivion", "Mana Maze", "Stench of Evil", "Giant Albatross",
+         "Timestream Navigator", "Arcum's Weathervane", "Dragonbroods' Relic", "Sengir Nosferatu"]
 
 
 @pytest.fixture()
@@ -913,4 +914,70 @@ def test_giant_albatross_takes_the_creature_that_killed_it_unless_its_controller
     settle(s)
     assert zone(s, bird) == "p1:graveyard" and asked == ["p1", "p2"]  # (Alice pays {1}{U}; then Bob decides for his Soul)
     assert zone(s, soul) == ("p2:battlefield" if pays else "p2:graveyard") and s.state.players["p2"].life == (38 if pays else 40)
+    check(s)
+
+
+def test_timestream_navigator_goes_to_the_library_bottom_for_an_extra_turn_with_the_citys_blessing(cards):
+    s = build(cards, ["Timestream Navigator"])
+    nav = put(s, "Timestream Navigator")
+    aged(s)
+    mana(s, U=2, C=2)
+    with pytest.raises(ActionError):
+        activate(s, nav, 1)  # (no city's blessing yet: 702.131)
+    for i in range(9):
+        token_of(s, "p1", f"Thing {i}", "Token Artifact — Thing", "0/0")
+    settle(s)
+    turn = s.state.turn.number
+    activate(s, nav, 1)
+    settle(s)
+    assert s.state.zones["p1:library"][-1] == nav.id  # (the cost: its owner's library, on the bottom)
+    next_turn(s)
+    assert s.state.turn.number == turn + 1 and s.state.turn.active_player == "p1"  # (the extra turn, 500.7)
+    check(s)
+
+
+def test_arcums_weathervane_takes_or_gives_the_snow_supertype_for_good(cards):
+    s = build(cards, ["Arcum's Weathervane", "Snow-Covered Swamp"])
+    vane = put(s, "Arcum's Weathervane")
+    swamp, forest = put(s, "Snow-Covered Swamp"), put(s, "Forest")
+    with pytest.raises(ActionError):
+        activate(s, vane, 1, swamp, C=2)  # (already snow)
+    activate(s, vane, 0, swamp)
+    settle(s)
+    assert ch(s, swamp).supertypes == {"Basic"}  # (205.4: only snow goes)
+    aged(s)
+    activate(s, vane, 1, forest, C=2)
+    settle(s)
+    assert ch(s, forest).supertypes == {"Basic", "Snow"} and ch(s, swamp).supertypes == {"Basic"}
+    check(s)
+
+
+def test_dragonbroods_relic_makes_the_reliquary_dragon_whose_enters_ability_deals_three(cards):
+    s = build(cards, ["Dragonbroods' Relic"])
+    relic = put(s, "Dragonbroods' Relic")
+    activate(s, relic, 1, W=1, U=1, B=1, R=1, G=1, C=3)
+    pass_until_stack_empty(s)
+    while (d := s.state.rules.decision) is not None:  # (the token's own enters trigger: its target)
+        answer(s, ["p2"] if any(o.id == "p2" for o in d.options) else [d.options[0].id])
+        pass_until_stack_empty(s)
+    settle(s)
+    dragon = next(c for c in s.state.cards.values() if c.name == "Reliquary Dragon")
+    assert kws(s, dragon) >= {"flying", "lifelink"} and ch(s, dragon).colors == {"W", "U", "B", "R", "G"} and ch(s, dragon).pt == (4, 4)
+    assert s.state.players["p2"].life == 37 and zone(s, relic) == "p1:graveyard"
+    check(s)
+
+
+def test_sengir_nosferatu_becomes_a_bat_that_brings_it_back(cards):
+    s = build(cards, ["Sengir Nosferatu"])
+    vamp = put(s, "Sengir Nosferatu")
+    activate(s, vamp, 1, B=1, C=1)
+    settle(s)
+    bat = next(c for c in s.state.cards.values() if c.name == "Bat")
+    assert zone(s, vamp) == "p1:exile" and "flying" in kws(s, bat) and ch(s, bat).pt == (1, 2)
+    activate(s, bat, 1, B=1, C=1)
+    pass_until_stack_empty(s)
+    if s.state.rules.decision is not None:
+        answer(s, [vamp.id])
+    settle(s)
+    assert zone(s, vamp) == "p1:battlefield" and bat.id not in s.state.cards
     check(s)
