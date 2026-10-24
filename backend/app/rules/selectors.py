@@ -504,6 +504,47 @@ def _exactly_two_colors(s: Selector, m: re.Match[str]) -> Selector:  # (wave 44C
     return replace(s, extras=(*s.extras, "two_colors"))
 
 
+# -- trigger lines (wave 100A) -- Invasion of Ravnica "that isn't exactly two colors" (105.2: colorless, one, three or more colors); Gilt-Leaf
+# Winnower "whose power and toughness aren't equal" (208.1: its current values); Witchbane Orb "Curses attached to you" (303.4, 702.5d: an Aura enchanting the player)
+@_suffix(r"that (?:isn['’]t|is not) exactly two colors")
+def _not_two_colors(s: Selector, m: re.Match[str]) -> Selector:
+    return replace(s, extras=(*s.extras, "not_two_colors"))
+
+
+@_suffix(r"whose power and toughness aren['’]t equal")
+def _pt_unequal(s: Selector, m: re.Match[str]) -> Selector:
+    return replace(s, extras=(*s.extras, "power_ne_toughness"))
+
+
+@_suffix(r"attached to you")
+def _attached_to_you(s: Selector, m: re.Match[str]) -> Selector:
+    return replace(s, extras=(*s.extras, "attached_you"))
+
+
+# (Kitesail Skirmisher) "another target creature attacking the same player or planeswalker": 508.1b, 506.3 — the one the source attacks, as it is now
+# or as the source last existed (608.2h); a battle is neither, so beside a source attacking a battle nothing matches
+@_suffix(r"attacking the same player or planeswalker")
+def _attacking_same(s: Selector, m: re.Match[str]) -> Selector:
+    return replace(s, attacking=True, extras=(*s.extras, "attacking_same100a"))
+
+
+def _attacking_same100a(plan: Plan, card: CardInstance, source: str | None) -> bool:
+    src = plan.state.cards.get(source or "")
+    if src is None or card.attacking is None or card.id == src.id:
+        return False
+    if src.zone.endswith(":battlefield"):
+        on = f"{src.attacking.kind}:{src.attacking.id}" if src.attacking is not None else None
+    else:
+        last = plan.rules.last_known(src.id)
+        on = last.attack_on if last is not None else None
+    if on is None or on != f"{card.attacking.kind}:{card.attacking.id}":
+        return False
+    if card.attacking.kind == "player":
+        return True
+    walker = plan.state.cards.get(card.attacking.id)
+    return walker is not None and "Planeswalker" in plan.ch(walker).types
+
+
 @_suffix(r"that(?:['’]s| is| are) (?P<list>(?:" + "|".join(COLORS) + r")(?:, (?:" + "|".join(COLORS) + r"))*(?:,? or (?:" + "|".join(COLORS) + r"))?)")
 def _thats_colored(s: Selector, m: re.Match[str]) -> Selector:  # (wave 19D: "that's white, blue, black, or red")
     found = tuple(COLORS[c] for c in re.findall("|".join(COLORS), m["list"]))
@@ -2288,6 +2329,14 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
         if extra == "nameless" and ch.name:  # (wave 53C)
             return False
         if extra == "two_colors" and len(ch.colors) != 2:  # (wave 44C)
+            return False
+        if extra == "not_two_colors" and len(ch.colors) == 2:  # -- trigger lines (wave 100A) --
+            return False
+        if extra == "attached_you" and card.attached_player != you:  # -- trigger lines (wave 100A) -- 702.5d
+            return False
+        if extra == "power_ne_toughness" and (_stat(ch, "power") is None or _stat(ch, "toughness") is None or _stat(ch, "power") == _stat(ch, "toughness")):
+            return False  # -- trigger lines (wave 100A) -- 208.1: current values
+        if extra == "attacking_same100a" and not _attacking_same100a(plan, card, source):
             return False
         if extra == "enchanted" and not _has_attached(plan, card, "Aura"):
             return False

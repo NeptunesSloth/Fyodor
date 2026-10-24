@@ -1,0 +1,369 @@
+[
+ {
+  "name": "Invasion of Ravnica // Guildpact Paragon",
+  "layout": "transform",
+  "mana_cost": "{5} // ",
+  "cmc": 5.0,
+  "type_line": "Battle — Siege // Artifact Creature — Construct",
+  "oracle_text": "(As a Siege enters, choose an opponent to protect it. You and others can attack it. When it's defeated, exile it, then cast it transformed.)\nWhen this Siege enters, exile target nonland permanent an opponent controls that isn't exactly two colors.\n//\nWhenever you cast a spell that's exactly two colors, look at the top six cards of your library. You may reveal a card that's exactly two colors from among them and put it into your hand. Put the rest on the bottom of your library in a random order.",
+  "defense": "4",
+  "colors": [],
+  "color_identity": [],
+  "keywords": [
+   "Transform"
+  ],
+  "card_faces": [
+   {
+    "name": "Invasion of Ravnica",
+    "mana_cost": "{5}",
+    "type_line": "Battle — Siege",
+    "oracle_text": "(As a Siege enters, choose an opponent to protect it. You and others can attack it. When it's defeated, exile it, then cast it transformed.)\nWhen this Siege enters, exile target nonland permanent an opponent controls that isn't exactly two colors.",
+    "defense": "4",
+    "colors": []
+   },
+   {
+    "name": "Guildpact Paragon",
+    "mana_cost": "",
+    "type_line": "Artifact Creature — Construct",
+    "oracle_text": "Whenever you cast a spell that's exactly two colors, look at the top six cards of your library. You may reveal a card that's exactly two colors from among them and put it into your hand. Put the rest on the bottom of your library in a random order.",
+    "power": "5",
+    "toughness": "5",
+    "colors": []
+   }
+  ]
+ },
+ {
+  "name": "Invasion of Ulgrotha // Grandmother Ravi Sengir",
+  "layout": "transform",
+  "mana_cost": "{4}{B} // ",
+  "cmc": 5.0,
+  "type_line": "Battle — Siege // Legendary Creature — Human Wizard",
+  "oracle_text": "(As a Siege enters, choose an opponent to protect it. You and others can attack it. When it's defeated, exile it, then cast it transformed.)\nWhen this Siege enters, it deals 3 damage to any other target and you gain 3 life.\n//\nFlying\nWhenever a creature an opponent controls dies, put a +1/+1 counter on Grandmother Ravi Sengir and you gain 1 life.",
+  "defense": "5",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Flying",
+   "Transform"
+  ],
+  "card_faces": [
+   {
+    "name": "Invasion of Ulgrotha",
+    "mana_cost": "{4}{B}",
+    "type_line": "Battle — Siege",
+    "oracle_text": "(As a Siege enters, choose an opponent to protect it. You and others can attack it. When it's defeated, exile it, then cast it transformed.)\nWhen this Siege enters, it deals 3 damage to any other target and you gain 3 life.",
+    "defense": "5",
+    "colors": [
+     "B"
+    ]
+   },
+   {
+    "name": "Grandmother Ravi Sengir",
+    "mana_cost": "",
+    "type_line": "Legendary Creature — Human Wizard",
+    "oracle_text": "Flying\nWhenever a creature an opponent controls dies, put a +1/+1 counter on Grandmother Ravi Sengir and you gain 1 life.",
+    "power": "3",
+    "toughness": "3",
+    "colors": [
+     "B"
+    ]
+   }
+  ]
+ },
+ {
+  "name": "Invasion of Muraganda // Primordial Plasm",
+  "layout": "transform",
+  "mana_cost": "{4}{G} // ",
+  "cmc": 5.0,
+  "type_line": "Battle — Siege // Creature — Ooze",
+  "oracle_text": "(As a Siege enters, choose an opponent to protect it. You and others can attack it. When it's defeated, exile it, then cast it transformed.)\nWhen this Siege enters, put a +1/+1 counter on target creature you control. Then that creature fights up to one target creature you don't control.\n//\nAt the beginning of combat on your turn, another target creature gets +2/+2 and loses all abilities until end of turn.",
+  "defense": "6",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [
+   "Transform",
+   "Fight"
+  ],
+  "card_faces": [
+   {
+    "name": "Invasion of Muraganda",
+    "mana_cost": "{4}{G}",
+    "type_line": "Battle — Siege",
+    "oracle_text": "(As a Siege enters, choose an opponent to protect it. You and others can attack it. When it's defeated, exile it, then cast it transformed.)\nWhen this Siege enters, put a +1/+1 counter on target creature you control. Then that creature fights up to one target creature you don't control.",
+    "defense": "6",
+    "colors": [
+     "G"
+    ]
+   },
+   {
+    "name": "Primordial Plasm",
+    "mana_cost": "",
+    "type_line": "Creature — Ooze",
+    "oracle_text": "At the beginning of combat on your turn, another target creature gets +2/+2 and loses all abilities until end of turn.",
+    "power": "4",
+    "toughness": "4",
+    "colors": [
+     "G"
+    ]
+   }
+  ]
+ },
+ {
+  "name": "Calculating Lich",
+  "layout": "normal",
+  "mana_cost": "{4}{B}{B}",
+  "cmc": 6.0,
+  "type_line": "Creature — Zombie Wizard",
+  "oracle_text": "Menace\nWhenever a creature attacks one of your opponents, that player loses 1 life.",
+  "power": "5",
+  "toughness": "5",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Menace"
+  ]
+ },
+ {
+  "name": "Gilt-Leaf Winnower",
+  "layout": "normal",
+  "mana_cost": "{3}{B}{B}",
+  "cmc": 5.0,
+  "type_line": "Creature — Elf Warrior",
+  "oracle_text": "Menace (This creature can't be blocked except by two or more creatures.)\nWhen this creature enters, you may destroy target non-Elf creature whose power and toughness aren't equal.",
+  "power": "4",
+  "toughness": "3",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Menace"
+  ]
+ },
+ {
+  "name": "Witchbane Orb",
+  "layout": "normal",
+  "mana_cost": "{4}",
+  "cmc": 4.0,
+  "type_line": "Artifact",
+  "oracle_text": "When this artifact enters, destroy all Curses attached to you.\nYou have hexproof. (You can't be the target of spells or abilities your opponents control, including Aura spells.)",
+  "colors": [],
+  "color_identity": [],
+  "keywords": []
+ },
+ {
+  "name": "Azorius Guildmage",
+  "layout": "normal",
+  "mana_cost": "{W/U}{W/U}",
+  "cmc": 2.0,
+  "type_line": "Creature — Vedalken Wizard",
+  "oracle_text": "{2}{W}: Tap target creature.\n{2}{U}: Counter target activated ability. (Mana abilities can't be targeted.)",
+  "power": "2",
+  "toughness": "2",
+  "colors": [
+   "U",
+   "W"
+  ],
+  "color_identity": [
+   "U",
+   "W"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Lairwatch Giant",
+  "layout": "normal",
+  "mana_cost": "{5}{W}",
+  "cmc": 6.0,
+  "type_line": "Creature — Giant Warrior",
+  "oracle_text": "This creature can block an additional creature each combat.\nWhenever this creature blocks two or more creatures, it gains first strike until end of turn.",
+  "power": "5",
+  "toughness": "3",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Kitesail Skirmisher",
+  "layout": "normal",
+  "mana_cost": "{3}{U}",
+  "cmc": 4.0,
+  "type_line": "Creature — Human Pirate",
+  "oracle_text": "Flying\nWhenever this creature attacks, another target creature attacking the same player or planeswalker gains flying until end of turn.\nEncore {4}{U} ({4}{U}, Exile this card from your graveyard: For each opponent, create a token copy that attacks that opponent this turn if able. They gain haste. Sacrifice them at the beginning of the next end step. Activate only as a sorcery.)",
+  "power": "3",
+  "toughness": "1",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "Flying",
+   "Encore"
+  ]
+ },
+ {
+  "name": "Dinrova Horror",
+  "layout": "normal",
+  "mana_cost": "{4}{U}{B}",
+  "cmc": 6.0,
+  "type_line": "Creature — Horror",
+  "oracle_text": "When this creature enters, return target permanent to its owner's hand, then that player discards a card.",
+  "power": "4",
+  "toughness": "4",
+  "colors": [
+   "B",
+   "U"
+  ],
+  "color_identity": [
+   "B",
+   "U"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Carrion Locust",
+  "layout": "normal",
+  "mana_cost": "{2}{B}",
+  "cmc": 3.0,
+  "type_line": "Creature — Insect Horror",
+  "oracle_text": "Flying\nWhen this creature enters, exile target card from an opponent's graveyard. If it was a creature card, that player loses 1 life.",
+  "power": "2",
+  "toughness": "1",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Flying"
+  ]
+ },
+ {
+  "name": "Spreading Plague",
+  "layout": "normal",
+  "mana_cost": "{4}{B}",
+  "cmc": 5.0,
+  "type_line": "Enchantment",
+  "oracle_text": "Whenever a creature enters, destroy all other creatures that share a color with it. They can't be regenerated.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Saltskitter",
+  "layout": "normal",
+  "mana_cost": "{3}{W}",
+  "cmc": 4.0,
+  "type_line": "Creature — Wurm",
+  "oracle_text": "Whenever another creature enters, exile this creature. Return this creature to the battlefield under its owner's control at the beginning of the next end step.",
+  "power": "3",
+  "toughness": "4",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Ghastlord of Fugue",
+  "layout": "normal",
+  "mana_cost": "{U/B}{U/B}{U/B}{U/B}{U/B}",
+  "cmc": 5.0,
+  "type_line": "Creature — Spirit Avatar",
+  "oracle_text": "This creature can't be blocked.\nWhenever this creature deals combat damage to a player, that player reveals their hand. You choose a card from it. That player exiles that card.",
+  "power": "4",
+  "toughness": "4",
+  "colors": [
+   "B",
+   "U"
+  ],
+  "color_identity": [
+   "B",
+   "U"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Nettling Nuisance",
+  "layout": "normal",
+  "mana_cost": "{2}{B}",
+  "cmc": 3.0,
+  "type_line": "Creature — Faerie Rogue",
+  "oracle_text": "Flying\nWhenever one or more Faeries you control deal combat damage to a player, that player creates a 4/2 red Pirate creature token with \"This token can't block.\" The token is goaded for the rest of the game. (It attacks each combat if able and attacks a player other than you if able.)",
+  "power": "3",
+  "toughness": "1",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Flying",
+   "Goad"
+  ]
+ },
+ {
+  "name": "Azor, the Lawbringer",
+  "layout": "normal",
+  "mana_cost": "{2}{W}{W}{U}{U}",
+  "cmc": 6.0,
+  "type_line": "Legendary Creature — Sphinx",
+  "oracle_text": "Flying\nWhen Azor enters, each opponent can't cast instant or sorcery spells during that player's next turn.\nWhenever Azor attacks, you may pay {X}{W}{U}{U}. If you do, you gain X life and draw X cards.",
+  "power": "6",
+  "toughness": "6",
+  "colors": [
+   "U",
+   "W"
+  ],
+  "color_identity": [
+   "U",
+   "W"
+  ],
+  "keywords": [
+   "Flying"
+  ]
+ },
+ {
+  "name": "Sphinx's Decree",
+  "layout": "normal",
+  "mana_cost": "{1}{W}",
+  "cmc": 2.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Each opponent can't cast instant or sorcery spells during that player's next turn.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": []
+ }
+]

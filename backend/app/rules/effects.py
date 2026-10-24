@@ -6882,3 +6882,8 @@ PRIMITIVES.update(_upkeep91.PRIMITIVES)
 from app.rules import zone_exchanges94 as _zone_exchanges94  # noqa: E402
 
 PRIMITIVES.update(_zone_exchanges94.PRIMITIVES)
+
+# -- trigger lines (wave 100A) --
+from app.rules import triggers100a as _triggers100a  # noqa: E402
+
+PRIMITIVES.update(_triggers100a.PRIMITIVES)

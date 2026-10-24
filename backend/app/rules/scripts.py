@@ -5817,6 +5817,10 @@ def _first_time_gate(text: str) -> str:
 
 def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     """The engine definition of one ability, or None (manual)."""
+    from app.rules import triggers100a  # -- trigger lines (wave 100A) --
+
+    if (lines100a := triggers100a.definition(ability, ch)) is not None:
+        return lines100a
     from app.rules import zone_exchanges94
 
     if (zone94 := zone_exchanges94.definition(ability, ch)) is not None:
