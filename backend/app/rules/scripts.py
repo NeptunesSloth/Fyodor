@@ -1197,6 +1197,8 @@ def resolve_it(effects: list[dict[str, Any]], antecedent: str | None, groups: li
                     return None
             if e.get("src") == "it" and e.get("do") == "attach_to" and (made := objects(index, 1, None)) is not None and made.do == "create_token":
                 e["src"] = "ref:" + bound(made)  # -- attached events (wave 25D) -- "Create a … Equipment token … Attach it to ~.": the token just made (400.7j)
+            elif e.get("src") == "it" and e.get("do") == "attach_to" and made is not None and made.do == "gain_control" and (g := _group_of(out[made.index])) is not None:
+                e["src"] = "target" if groups is None else f"target:{g}"  # -- attached (wave 100F) -- "gain control of target Equipment …. Attach it to this creature." (Ogre Geargrabber): the target
             elif e.get("src") == "it" and e.get("do") == "explore" and (found := objects(index, 1, None)) is not None:
                 # -- trigger other (wave 52B) -- "Target attacking Rogue gains protection from creatures until end of turn. It explores." (Seasoned Dungeoneer): the object an
                 # earlier instruction chose or moved explores (701.44a: its controller reveals), as "It connives" does
@@ -10369,6 +10371,8 @@ def _trailing_conditional(text: str) -> tuple[list[dict[str, Any]], Any] | None:
         cond = _bind_cond(cond, "target")  # (the lead's one target: numbered with its group by _add_groups)
     elif _cond_has_it(cond) and found[0] and all(e.get("who") == "host" for e in found[0]):
         cond = _bind_cond(cond, "host")  # -- attached events (wave 8D) -- "… on equipped creature if it's red": "it" is the host
+    elif _cond_has_it(cond) and found[0] and all(e.get("who") == "self" for e in found[0]) and m["lead"] == "sacrifice ~":
+        cond = _bind_cond(cond, "self")  # -- attached (wave 100F) -- "sacrifice this creature unless it attacked this turn" (Instill Furor's grant): "it" is ~
     if m["kw"] == "unless":
         cond = {"not": cond}
     return [{"do": "only_if", "cond": cond, "skip": 1}, *found[0]], found[1]
@@ -12012,3 +12016,9 @@ EFFECTS[:0] = [*_artifact_transformation.TEMPLATES, *_player_counter_top_up.TEMP
 from app.rules import harness as _harness  # noqa: E402, I001
 
 EFFECTS[:0] = _harness.TEMPLATES
+
+
+# -- attached (wave 100F) -- "When you lose control of the creature, tap it." and other attached-object / control wordings (app/rules/attached100f.py)
+from app.rules import attached100f as _attached100f  # noqa: E402, I001
+
+EFFECTS[:0] = _attached100f.TEMPLATES

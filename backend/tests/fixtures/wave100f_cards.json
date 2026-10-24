@@ -1,0 +1,799 @@
+[
+ {
+  "name": "Ray of Command",
+  "layout": "normal",
+  "mana_cost": "{3}{U}",
+  "cmc": 4.0,
+  "type_line": "Instant",
+  "oracle_text": "Untap target creature an opponent controls and gain control of it until end of turn. That creature gains haste until end of turn. When you lose control of the creature, tap it.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Magus of the Unseen",
+  "layout": "normal",
+  "mana_cost": "{1}{U}",
+  "cmc": 2.0,
+  "type_line": "Creature — Human Wizard",
+  "oracle_text": "{1}{U}, {T}: Untap target artifact an opponent controls and gain control of it until end of turn. It gains haste until end of turn. When you lose control of the artifact, tap it.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [],
+  "power": "1",
+  "toughness": "1"
+ },
+ {
+  "name": "Ogre Geargrabber",
+  "layout": "normal",
+  "mana_cost": "{4}{R}{R}",
+  "cmc": 6.0,
+  "type_line": "Creature — Ogre Warrior",
+  "oracle_text": "Whenever this creature attacks, gain control of target Equipment an opponent controls until end of turn. Attach it to this creature. When you lose control of that Equipment, unattach it.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [],
+  "power": "4",
+  "toughness": "4"
+ },
+ {
+  "name": "Act of Treason",
+  "layout": "normal",
+  "mana_cost": "{2}{R}",
+  "cmc": 3.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Gain control of target creature until end of turn. Untap that creature. It gains haste until end of turn. (It can attack and {T} this turn.)",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Wrong Turn",
+  "layout": "normal",
+  "mana_cost": "{2}{U}",
+  "cmc": 3.0,
+  "type_line": "Instant",
+  "oracle_text": "Target opponent gains control of target creature. (If an attacking or blocking creature changes controllers, it's removed from combat.)",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Instill Energy",
+  "layout": "normal",
+  "mana_cost": "{G}",
+  "cmc": 1.0,
+  "type_line": "Enchantment — Aura",
+  "oracle_text": "Enchant creature\nEnchanted creature can attack as though it had haste.\n{0}: Untap enchanted creature. Activate only during your turn and only once each turn.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [
+   "Enchant"
+  ]
+ },
+ {
+  "name": "Errantry",
+  "layout": "normal",
+  "mana_cost": "{1}{R}",
+  "cmc": 2.0,
+  "type_line": "Enchantment — Aura",
+  "oracle_text": "Enchant creature\nEnchanted creature gets +3/+0 and can only attack alone.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Enchant"
+  ]
+ },
+ {
+  "name": "Aggression",
+  "layout": "normal",
+  "mana_cost": "{2}{R}",
+  "cmc": 3.0,
+  "type_line": "Enchantment — Aura",
+  "oracle_text": "Enchant non-Wall creature\nEnchanted creature has first strike and trample.\nAt the beginning of the end step of enchanted creature's controller, destroy that creature if it didn't attack this turn.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Enchant"
+  ]
+ },
+ {
+  "name": "Insubordination",
+  "layout": "normal",
+  "mana_cost": "{B}{B}",
+  "cmc": 2.0,
+  "type_line": "Enchantment — Aura",
+  "oracle_text": "Enchant creature\nAt the beginning of the end step of enchanted creature's controller, this Aura deals 2 damage to that player unless that creature attacked this turn.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Enchant"
+  ]
+ },
+ {
+  "name": "Instill Furor",
+  "layout": "normal",
+  "mana_cost": "{1}{R}",
+  "cmc": 2.0,
+  "type_line": "Enchantment — Aura",
+  "oracle_text": "Enchant creature\nEnchanted creature has \"At the beginning of your end step, sacrifice this creature unless it attacked this turn.\"",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Enchant"
+  ]
+ },
+ {
+  "name": "Feast of Dreams",
+  "layout": "normal",
+  "mana_cost": "{1}{B}",
+  "cmc": 2.0,
+  "type_line": "Instant",
+  "oracle_text": "Destroy target enchanted creature or enchantment creature.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Nyx Herald",
+  "layout": "normal",
+  "mana_cost": "{2}{G}",
+  "cmc": 3.0,
+  "type_line": "Enchantment Creature — Centaur Shaman",
+  "oracle_text": "At the beginning of combat on your turn, target enchanted creature or enchantment creature you control gets +1/+1 and gains trample until end of turn.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [],
+  "power": "2",
+  "toughness": "3"
+ },
+ {
+  "name": "Karametra's Blessing",
+  "layout": "normal",
+  "mana_cost": "{W}",
+  "cmc": 1.0,
+  "type_line": "Instant",
+  "oracle_text": "Target creature gets +2/+2 until end of turn. If it's an enchanted creature or enchantment creature, it also gains hexproof and indestructible until end of turn. (It can't be the target of spells or abilities your opponents control. Damage and effects that say \"destroy\" don't destroy it.)",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Wand of Orcus",
+  "layout": "normal",
+  "mana_cost": "{2}{B}",
+  "cmc": 3.0,
+  "type_line": "Legendary Artifact — Equipment",
+  "oracle_text": "Whenever equipped creature attacks or blocks, it and Zombies you control gain deathtouch until end of turn.\nWhenever equipped creature deals combat damage to a player, create that many 2/2 black Zombie creature tokens.\nEquip {3}",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Equip"
+  ]
+ },
+ {
+  "name": "Hemlock Vial",
+  "layout": "normal",
+  "mana_cost": "{1}{B}",
+  "cmc": 2.0,
+  "type_line": "Artifact",
+  "oracle_text": "When this artifact enters, you draw a card and you lose 1 life.\n{B}, {T}, Sacrifice this artifact: Each equipped creature and Equipment you control gains deathtouch until end of turn.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Enslave",
+  "layout": "normal",
+  "mana_cost": "{4}{B}{B}",
+  "cmc": 6.0,
+  "type_line": "Enchantment — Aura",
+  "oracle_text": "Enchant creature\nYou control enchanted creature.\nAt the beginning of your upkeep, enchanted creature deals 1 damage to its owner.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Enchant"
+  ]
+ },
+ {
+  "name": "Dizzying Gaze",
+  "layout": "normal",
+  "mana_cost": "{R}",
+  "cmc": 1.0,
+  "type_line": "Enchantment — Aura",
+  "oracle_text": "Enchant creature you control\n{R}: Enchanted creature deals 1 damage to target creature with flying.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Enchant"
+  ]
+ },
+ {
+  "name": "Cunning",
+  "layout": "normal",
+  "mana_cost": "{1}{U}",
+  "cmc": 2.0,
+  "type_line": "Enchantment — Aura",
+  "oracle_text": "Enchant creature\nEnchanted creature gets +3/+3.\nWhen enchanted creature attacks or blocks, sacrifice this Aura at the beginning of the next cleanup step.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "Enchant"
+  ]
+ },
+ {
+  "name": "Contempt",
+  "layout": "normal",
+  "mana_cost": "{1}{U}",
+  "cmc": 2.0,
+  "type_line": "Enchantment — Aura",
+  "oracle_text": "Enchant creature\nWhen enchanted creature attacks, return it and this Aura to their owners' hands at end of combat.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "Enchant"
+  ]
+ },
+ {
+  "name": "Disappear",
+  "layout": "normal",
+  "mana_cost": "{2}{U}{U}",
+  "cmc": 4.0,
+  "type_line": "Enchantment — Aura",
+  "oracle_text": "Enchant creature\n{U}: Return enchanted creature and this Aura to their owners' hands.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "Enchant"
+  ]
+ },
+ {
+  "name": "Mark of Eviction",
+  "layout": "normal",
+  "mana_cost": "{U}",
+  "cmc": 1.0,
+  "type_line": "Enchantment — Aura",
+  "oracle_text": "Enchant creature\nAt the beginning of your upkeep, return enchanted creature and all Auras attached to that creature to their owners' hands.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "Enchant"
+  ]
+ },
+ {
+  "name": "Curator's Ward",
+  "layout": "normal",
+  "mana_cost": "{2}{U}",
+  "cmc": 3.0,
+  "type_line": "Enchantment — Aura",
+  "oracle_text": "Enchant permanent\nEnchanted permanent has hexproof.\nWhen enchanted permanent leaves the battlefield, if it was historic, draw two cards. (Artifacts, legendaries, and Sagas are historic.)",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "Enchant"
+  ]
+ },
+ {
+  "name": "Tamiyo's Compleation",
+  "layout": "normal",
+  "mana_cost": "{3}{U}",
+  "cmc": 4.0,
+  "type_line": "Enchantment — Aura",
+  "oracle_text": "Flash\nEnchant artifact, creature, or planeswalker\nWhen this Aura enters, tap enchanted permanent. If it's an Equipment, unattach it.\nEnchanted permanent loses all abilities and doesn't untap during its controller's untap step.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "Enchant",
+   "Flash"
+  ]
+ },
+ {
+  "name": "Sporogenic Infection",
+  "layout": "normal",
+  "mana_cost": "{1}{B}",
+  "cmc": 2.0,
+  "type_line": "Enchantment — Aura",
+  "oracle_text": "Enchant creature\nWhen this Aura enters, target player sacrifices a creature of their choice other than enchanted creature.\nWhen enchanted creature is dealt damage, destroy it.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Enchant"
+  ]
+ },
+ {
+  "name": "Cartouche of Strength",
+  "layout": "normal",
+  "mana_cost": "{2}{G}",
+  "cmc": 3.0,
+  "type_line": "Enchantment — Aura Cartouche",
+  "oracle_text": "Enchant creature you control\nWhen this Aura enters, you may have enchanted creature fight target creature an opponent controls. (Each deals damage equal to its power to the other.)\nEnchanted creature gets +1/+1 and has trample.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [
+   "Fight",
+   "Enchant"
+  ]
+ },
+ {
+  "name": "Walking Corpse",
+  "layout": "normal",
+  "mana_cost": "{1}{B}",
+  "cmc": 2.0,
+  "type_line": "Creature — Zombie",
+  "oracle_text": "",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [],
+  "power": "2",
+  "toughness": "2"
+ },
+ {
+  "name": "Wind Drake",
+  "layout": "normal",
+  "mana_cost": "{2}{U}",
+  "cmc": 3.0,
+  "type_line": "Creature — Drake",
+  "oracle_text": "Flying",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "Flying"
+  ],
+  "power": "2",
+  "toughness": "2"
+ },
+ {
+  "name": "Ornithopter",
+  "layout": "normal",
+  "mana_cost": "{0}",
+  "cmc": 0.0,
+  "type_line": "Artifact Creature — Thopter",
+  "oracle_text": "Flying",
+  "colors": [],
+  "color_identity": [],
+  "keywords": [
+   "Flying"
+  ],
+  "power": "0",
+  "toughness": "2"
+ },
+ {
+  "name": "Waylay",
+  "layout": "normal",
+  "mana_cost": "{2}{W}",
+  "cmc": 3.0,
+  "type_line": "Instant",
+  "oracle_text": "Create three 2/2 white Knight creature tokens. Exile them at the beginning of the next cleanup step.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Temporary Insanity",
+  "layout": "normal",
+  "mana_cost": "{3}{R}",
+  "cmc": 4.0,
+  "type_line": "Instant",
+  "oracle_text": "Untap target creature with power less than the number of cards in your graveyard and gain control of it until end of turn. That creature gains haste until end of turn.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Hill Giant",
+  "layout": "normal",
+  "mana_cost": "{3}{R}",
+  "cmc": 4.0,
+  "type_line": "Creature — Giant",
+  "oracle_text": "",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [],
+  "power": "3",
+  "toughness": "3"
+ },
+ {
+  "name": "Angrath, the Flame-Chained",
+  "layout": "normal",
+  "mana_cost": "{3}{B}{R}",
+  "cmc": 5.0,
+  "type_line": "Legendary Planeswalker — Angrath",
+  "oracle_text": "+1: Each opponent discards a card and loses 2 life.\n−3: Gain control of target creature until end of turn. Untap it. It gains haste until end of turn. Sacrifice it at the beginning of the next end step if it has mana value 3 or less.\n−8: Each opponent loses life equal to the number of cards in their graveyard.",
+  "colors": [
+   "B",
+   "R"
+  ],
+  "color_identity": [
+   "B",
+   "R"
+  ],
+  "keywords": [],
+  "loyalty": "4"
+ },
+ {
+  "name": "Might Makes Right",
+  "layout": "normal",
+  "mana_cost": "{5}{R}",
+  "cmc": 6.0,
+  "type_line": "Enchantment",
+  "oracle_text": "At the beginning of combat on your turn, if you control each creature on the battlefield with the greatest power, gain control of target creature an opponent controls until end of turn. Untap that creature. It gains haste until end of turn. (It can attack and {T} this turn.)",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Twist Allegiance",
+  "layout": "normal",
+  "mana_cost": "{6}{R}",
+  "cmc": 7.0,
+  "type_line": "Sorcery",
+  "oracle_text": "You and target opponent each gain control of all creatures the other controls until end of turn. Untap those creatures. Those creatures gain haste until end of turn.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Reins of Power",
+  "layout": "normal",
+  "mana_cost": "{2}{U}{U}",
+  "cmc": 4.0,
+  "type_line": "Instant",
+  "oracle_text": "Untap all creatures you control and all creatures target opponent controls. You and that opponent each gain control of all creatures the other controls until end of turn. Those creatures gain haste until end of turn.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Grip of Phyresis",
+  "layout": "normal",
+  "mana_cost": "{2}{U}",
+  "cmc": 3.0,
+  "type_line": "Instant",
+  "oracle_text": "Gain control of target Equipment, then create a 0/0 black Phyrexian Germ creature token and attach that Equipment to it.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Reptilian Recruiter",
+  "layout": "normal",
+  "mana_cost": "{3}{R}{R}",
+  "cmc": 5.0,
+  "type_line": "Creature — Lizard Warrior",
+  "oracle_text": "Trample\nWhen this creature enters, choose target creature. If that creature's power is 2 or less or if you control another Lizard, gain control of that creature until end of turn, untap it, and it gains haste until end of turn.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Trample"
+  ],
+  "power": "4",
+  "toughness": "2"
+ },
+ {
+  "name": "Swooping Pteranodon",
+  "layout": "normal",
+  "mana_cost": "{3}{R}{W}",
+  "cmc": 5.0,
+  "type_line": "Creature — Dinosaur",
+  "oracle_text": "Flying, haste\nWhenever this creature or another Dinosaur you control with flying enters, gain control of target creature an opponent controls until end of turn. Untap that creature. It gains flying and haste until end of turn. At the beginning of the next end step, target land deals 3 damage to that creature.",
+  "colors": [
+   "R",
+   "W"
+  ],
+  "color_identity": [
+   "R",
+   "W"
+  ],
+  "keywords": [
+   "Flying",
+   "Haste"
+  ],
+  "power": "3",
+  "toughness": "3"
+ },
+ {
+  "name": "Glimmer Lens",
+  "layout": "normal",
+  "mana_cost": "{1}{W}",
+  "cmc": 2.0,
+  "type_line": "Artifact — Equipment",
+  "oracle_text": "For Mirrodin! (When this Equipment enters, create a 2/2 red Rebel creature token, then attach this to it.)\nWhenever equipped creature and at least one other creature attack, draw a card.\nEquip {1}{W}",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "For Mirrodin!",
+   "Equip"
+  ]
+ },
+ {
+  "name": "Cruel Reality",
+  "layout": "normal",
+  "mana_cost": "{5}{B}{B}",
+  "cmc": 7.0,
+  "type_line": "Enchantment — Aura Curse",
+  "oracle_text": "Enchant player\nAt the beginning of enchanted player's upkeep, that player sacrifices a creature or planeswalker of their choice. If the player can't, they lose 5 life.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Enchant"
+  ]
+ },
+ {
+  "name": "Curse of the Pierced Heart",
+  "layout": "normal",
+  "mana_cost": "{1}{R}",
+  "cmc": 2.0,
+  "type_line": "Enchantment — Aura Curse",
+  "oracle_text": "Enchant player\nAt the beginning of enchanted player's upkeep, this Aura deals 1 damage to that player or a planeswalker that player controls.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Enchant"
+  ]
+ },
+ {
+  "name": "Hateful Eidolon",
+  "layout": "normal",
+  "mana_cost": "{B}",
+  "cmc": 1.0,
+  "type_line": "Enchantment Creature — Spirit",
+  "oracle_text": "Lifelink\nWhenever an enchanted creature dies, draw a card for each Aura you controlled that was attached to it.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Lifelink"
+  ],
+  "power": "1",
+  "toughness": "2"
+ },
+ {
+  "name": "Lizard Warrior",
+  "layout": "normal",
+  "mana_cost": "{3}{R}",
+  "cmc": 4.0,
+  "type_line": "Creature — Lizard Warrior",
+  "oracle_text": "",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [],
+  "power": "4",
+  "toughness": "2"
+ },
+ {
+  "name": "Sky Terror",
+  "layout": "normal",
+  "mana_cost": "{R}{W}",
+  "cmc": 2.0,
+  "type_line": "Creature — Dinosaur",
+  "oracle_text": "Flying, menace",
+  "colors": [
+   "R",
+   "W"
+  ],
+  "color_identity": [
+   "R",
+   "W"
+  ],
+  "keywords": [
+   "Flying",
+   "Menace"
+  ],
+  "power": "2",
+  "toughness": "2"
+ },
+ {
+  "name": "Airtight Alibi",
+  "layout": "normal",
+  "mana_cost": "{2}{G}",
+  "cmc": 3.0,
+  "type_line": "Enchantment — Aura",
+  "oracle_text": "Flash\nEnchant creature\nWhen this Aura enters, untap enchanted creature. It gains hexproof until end of turn. If it's suspected, it's no longer suspected.\nEnchanted creature gets +2/+2 and can't become suspected.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [
+   "Enchant",
+   "Flash"
+  ]
+ },
+ {
+  "name": "Infinite Coursework",
+  "layout": "normal",
+  "mana_cost": "{2}{U}",
+  "cmc": 3.0,
+  "type_line": "Enchantment — Aura",
+  "oracle_text": "Enchant creature\nWhen this Aura enters, tap enchanted creature. It becomes unprepared.\nEnchanted creature loses all abilities and doesn't untap during its controller's untap step.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "Enchant",
+   "Prepared"
+  ]
+ },
+ {
+  "name": "Repeat Offender",
+  "layout": "normal",
+  "mana_cost": "{1}{B}",
+  "cmc": 2.0,
+  "type_line": "Creature — Human Assassin",
+  "oracle_text": "{2}{B}: If this creature is suspected, put a +1/+1 counter on it. Otherwise, suspect it. (A suspected creature has menace and can't block.)",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Suspect"
+  ],
+  "power": "2",
+  "toughness": "1"
+ }
+]

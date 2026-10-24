@@ -662,6 +662,8 @@ def _object_history(plan: Plan, ctx: dict[str, Any], cond: dict[str, Any], log: 
                 log.declared.get(i) == plan.rules.combats or log.declared_blockers.get(i) == plan.rules.combats for i in ids)
         else:
             got = bool(ids & set(log.blockers)) or any(a in ids for attacking in log.attackers.values() for a in attacking)
+    elif what == "attacked":  # -- attached (wave 100F) -- 508.1: declared as an attacker this turn (TurnLog.attackers)
+        got = any(a in ids for attacking in log.attackers.values() for a in attacking)
     elif what == "damaged":
         got = total("damaged", lambda f: f.object_id in ids) >= n
     elif what == "damaged_by":  # -- trigger damage (wave 39B) -- a Giant, Wizard or spell you controlled dealt it damage (the source as it was, 608.2i)

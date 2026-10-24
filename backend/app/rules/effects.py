@@ -6903,3 +6903,8 @@ from app.rules import ifyoudo100b as _ifyoudo100b  # noqa: E402, I001  -- if you
 
 PRIMITIVES.update(_ifyoudo100b.PRIMITIVES)
 RESUME.update(_ifyoudo100b.RESUME)
+# -- attached (wave 100F) -- (app/rules/attached100f.py)
+from app.rules import attached100f as _attached100f  # noqa: E402, I001
+
+PRIMITIVES.update(_attached100f.PRIMITIVES)
+RESUME.update(_attached100f.RESUME)

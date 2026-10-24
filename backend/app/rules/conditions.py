@@ -1271,6 +1271,13 @@ def _object_attacked_or_blocked(m: re.Match[str]) -> Condition:
     return _obj(m, "attacked_or_blocked", **({"this_combat": True} if m["when"] == "combat" else {}))  # 508.1 / 509.1g
 
 
+# -- attached (wave 100F) -- 508.1: "destroy that creature if it didn't attack this turn" (Aggression), "unless that creature attacked this turn"
+# (Insubordination): that object was declared as an attacker this turn (history "attacked", by object; "~" stays _self_attacked)
+@_history_pattern(r"(?P<o>it|that creature) (?P<neg>didn't |did not )?attack(?:ed)? this turn")
+def _object_attacked(m: re.Match[str]) -> Condition:
+    return _obj(m, "attacked", **({"negate": True} if m["neg"] else {}))
+
+
 @_history_pattern(r"(?P<o>it|that (?:creature|permanent|token)) entered this turn")  # (~: entered_self)
 def _object_entered(m: re.Match[str]) -> Condition:
     return _obj(m, "entered")
@@ -1465,6 +1472,8 @@ def _object(t: str) -> Condition | None:
             det = re.match(r"(?P<rest>another .+)", what)
         if det is None and re.fullmatch(r"(?:white|blue|black|red|green)(?: or (?:white|blue|black|red|green))*", what):
             det = re.match(r"(?P<rest>.+)", what + " permanent")  # "it's blue": a color test, on whatever it is
+        if det is None and what == "historic":  # -- attached (wave 100F) -- 700.6: "if it was historic" (Curator's Ward): legendary, an artifact or a Saga
+            det = re.match(r"(?P<rest>.+)", "historic permanent")
         if det is None and what == "modified":  # -- trigger other (wave 50F) -- 700.9: "if it's modified" (Ian the Reckless): a counter on it, equipped, or enchanted by its controller's Aura
             det = re.match(r"(?P<rest>.+)", "modified creature")
         if det is None and re.fullmatch(r"(?:non)?(?:basic|legendary|snow)", what):  # -- damage wordings (wave 6B) --
