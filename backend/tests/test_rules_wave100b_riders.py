@@ -57,6 +57,9 @@ Every scenario checks the replay and a save and a load.
   creature token." (a nonpermanent or a declined card: the Fish - 2025-10-02).
 * Moonring Mirror - "you may exile all cards from your hand face down. If you do, put all other cards you own exiled with this artifact into
   your hand." (both abilities' cards; not the ones just exiled - 2004-12-01).
+* Read the Runes - "For each card drawn this way, discard a card unless you sacrifice a permanent." (sacrifice any, then discard the rest at
+  once - 2004-10-04). Rally the Horde - "If the last card exiled isn't a land card, repeat this process. Create a 1/1 red Warrior creature
+  token for each nonland card exiled this way."
 * Hellfire - "deals X plus 3 damage to you, where X is the number of creatures that died this way." (a destroyed token counts, a creature a
   replacement effect exiled instead doesn't: the 2009-10-01 rulings).
 """
@@ -85,7 +88,7 @@ LOCKE, HELLION, HULK = "Locke, Treasure Hunter", "Devouring Hellion", "Deathbonn
 KALDHEIM, MANABOND, GUARDIAN = "Invasion of Kaldheim // Pyre of the World Tree", "Manabond", "Wicked Guardian"
 INVESTIGATORS, CLASH, SANCTUM = "Phenomenon Investigators", "Clash of Elements", "Theorist's Sanctum"
 HEDRON, ATEMSIS, SPHINX, VOICE = "Hedron Alignment", "Atemsis, All-Seeing", "Rescuer Sphinx", "Veteran's Voice"
-GEAR, MIRROR = "Fishing Gear", "Moonring Mirror"
+GEAR, MIRROR, RUNES, RALLY = "Fishing Gear", "Moonring Mirror", "Read the Runes", "Rally the Horde"
 BEARS, GIANT, RIP, ELVES = "Grizzly Bears", "Hill Giant", "Rest in Peace", "Llanowar Elves"
 
 
@@ -94,7 +97,7 @@ def cards(settings):
     yield from open_repo(settings)
 
 
-@pytest.mark.parametrize("name", [ROWEN, ETCHINGS, KERANOS, SUGARMAW, HELLFIRE, TERROR, KELLAN, EGO, SHRIEK, GORILLA, DESERTER, AEROSTAT, FOLD, SWIFT, RESEARCHER, KOYA, SURVIVORS, VANISH, DAKRA, DURIN, LATNAM, SURGE, LOCKE, HELLION, HULK, KALDHEIM, MANABOND, GUARDIAN, INVESTIGATORS, CLASH, SANCTUM, HEDRON, ATEMSIS, SPHINX, VOICE, GEAR, MIRROR])
+@pytest.mark.parametrize("name", [ROWEN, ETCHINGS, KERANOS, SUGARMAW, HELLFIRE, TERROR, KELLAN, EGO, SHRIEK, GORILLA, DESERTER, AEROSTAT, FOLD, SWIFT, RESEARCHER, KOYA, SURVIVORS, VANISH, DAKRA, DURIN, LATNAM, SURGE, LOCKE, HELLION, HULK, KALDHEIM, MANABOND, GUARDIAN, INVESTIGATORS, CLASH, SANCTUM, HEDRON, ATEMSIS, SPHINX, VOICE, GEAR, MIRROR, RUNES, RALLY])
 def test_the_cards_are_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL", name
 
@@ -906,4 +909,30 @@ def test_moonring_mirror_swaps_your_hand_for_the_cards_it_exiled(cards):
     run(s)
     assert s.state.zones["p1:hand"] == stashed
     assert len([c for c in s.state.zones["p1:exile"] if s.state.cards[c].face_down]) == len(hand)  # (face down: new hidden identities, 406.3)
+    check(s)
+
+
+# -- Read the Runes / Rally the Horde -------------------------------------------------------------------------------------------------
+def test_read_the_runes_sacrifices_what_you_choose_then_discards_the_rest(cards):
+    s = build_n(cards, [RUNES, "Sol Ring"])
+    ring, runes = put(s, "Sol Ring"), to_hand(s, RUNES)
+    mana(s, U=1, C=3)
+    act(s, "p1", type="cast_spell", card_id=runes.id, x_value=3)
+    run(s, lambda d: [ring.id] if any(o.id == ring.id or getattr(o, "card_id", None) == ring.id for o in d.options) else None)
+    assert zone(s, ring) == "p1:graveyard"
+    assert hand_size(s, "p1") == 1 and len(s.state.zones["p1:graveyard"]) == 1 + 1 + 2  # (three drawn, one permanent sacrificed, two discarded)
+    check(s)
+
+
+def test_rally_the_horde_repeats_until_the_last_card_is_a_land(cards):
+    s = build_n(cards, [RALLY, BEARS, GIANT, ELVES, "Lightning Bolt"])
+    order = [named(s, BEARS), named(s, GIANT), named(s, ELVES), named(s, "Lightning Bolt"), named(s, "Forest"), named(s, "Forest", n=1)]
+    for c in reversed(order):
+        on_top(s, c)
+    spell = to_hand(s, RALLY)
+    mana(s, R=1, C=5)
+    act(s, "p1", type="cast_spell", card_id=spell.id)
+    run(s)
+    assert all(zone(s, c) == "p1:exile" for c in order)  # (three nonland: again; Bolt, Forest, Forest: the last is a land, it stops)
+    assert len([c for c in s.state.cards.values() if c.zone == "p1:battlefield" and c.name == "Warrior"]) == 4
     check(s)

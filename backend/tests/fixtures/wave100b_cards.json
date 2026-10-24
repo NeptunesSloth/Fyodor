@@ -1360,5 +1360,35 @@
   "colors": [],
   "color_identity": [],
   "keywords": []
+ },
+ {
+  "name": "Rally the Horde",
+  "layout": "normal",
+  "mana_cost": "{5}{R}",
+  "cmc": 6.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Exile the top card of your library. Exile the top card of your library. Exile the top card of your library. If the last card exiled isn't a land card, repeat this process. Create a 1/1 red Warrior creature token for each nonland card exiled this way.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Read the Runes",
+  "layout": "normal",
+  "mana_cost": "{X}{U}",
+  "cmc": 1.0,
+  "type_line": "Instant",
+  "oracle_text": "Draw X cards. For each card drawn this way, discard a card unless you sacrifice a permanent.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": []
  }
 ]

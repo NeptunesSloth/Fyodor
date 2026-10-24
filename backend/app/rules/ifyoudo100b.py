@@ -67,7 +67,7 @@ GY_EMPTY = "gy_empty100b"
 def parse(body: str, it: str | None, event_player: bool) -> Found | None:
     text = body.strip()
     for form in (_put_discarded, _hit_discard, _draw_if, _dealt_cant_block, _give_source, _exiled_mv, _connives, _empty_gy, _truce, _each_who_lost,
-                 _either, _plot_paid, _hand_exile, _dont_sacrifice, _put_mv_x, _fold, _swift, _untap_then, _may_attach, _vanish, _dakra, _durin, _latnam, _surge, _locke, _gy_exile, _manabond, _have_deal, _own_bounce, _clash, _reveal_win, _fishing):
+                 _either, _plot_paid, _hand_exile, _dont_sacrifice, _put_mv_x, _fold, _swift, _untap_then, _may_attach, _vanish, _dakra, _durin, _latnam, _surge, _locke, _gy_exile, _manabond, _have_deal, _own_bounce, _clash, _reveal_win, _fishing, _runes, _rally):
         if (found := form(text, it, event_player)) is not None:
             return found
     for pattern, repl in _REWRITES:
@@ -785,6 +785,57 @@ def others_back(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return _return_cards(plan, ctx, {**e, "do": "return_card"}, [c for c in _cards(plan, ctx, e["who"]) if c not in fresh])
 
 
+# -- Read the Runes: "Draw X cards. For each card drawn this way, discard a card unless you sacrifice a permanent." The 2004-10-04 rulings: draw, then
+# sacrifice any permanents you want (up to that many, all at once), then discard the rest of the number at once; never forced to sacrifice.
+_RUNES = "Draw X cards. For each card drawn this way, discard a card unless you sacrifice a permanent."
+
+
+def _runes(text: str, it: str | None, event_player: bool) -> Found | None:
+    from app.rules import selectors
+
+    if text != _RUNES:
+        return None
+    base, mine = _effects("Draw X cards. Draw a card for each card drawn this way.", it, event_player), selectors.parse("permanent you control")
+    if base is None or mine is None or len(base[0]) != 2:
+        return None
+    drawn = base[0][1]["n"]
+    gone = {"this_way": "sacrificed", "of": None, "ref_count": "runes100b"}
+    return [base[0][0], {"do": "sacrifice_choice", "who": "you", "sel": mine.key(), "n": drawn, "upto": True, "as": "runes100b"},
+            {"do": "discard", "who": "you", "n": {"minus": [drawn, gone]}}], None, False
+
+
+# -- Rally the Horde: "Exile the top card of your library. (three times) If the last card exiled isn't a land card, repeat this process. Create a 1/1
+# red Warrior creature token for each nonland card exiled this way." Each card one at a time; the process stops at a land, or when the library is empty.
+_RALLY = ("Exile the top card of your library. Exile the top card of your library. Exile the top card of your library. If the last card exiled isn't a land "
+          "card, repeat this process. Create a 1/1 red Warrior creature token for each nonland card exiled this way.")
+RALLY = "rally100b"
+
+
+def _rally(text: str, it: str | None, event_player: bool) -> Found | None:
+    token = _effects("Create a 1/1 red Warrior creature token.", it, event_player) if text == _RALLY else None
+    return ([{"do": RALLY, "token": token[0][0]}], None, False) if token is not None and len(token[0]) == 1 else None
+
+
+def rally(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    from app.rules.effects import exile_cards
+
+    me, nonland, last = ctx["controller"], 0, None
+    while last is None or not plan.ch(last).is_land:
+        for _ in range(3):
+            library = plan.state.zones.get(f"{me}:library") or []
+            if not library:
+                break
+            top = library[0]
+            exile_cards(plan, ctx, {}, [top])
+            last = plan.state.cards[top]
+            nonland += not plan.ch(last).is_land
+        else:
+            continue
+        break  # (the library ran out)
+    ctx["effects"][ctx["next"]:ctx["next"]] = [{**e["token"], "n": nonland}] if nonland else []
+    return True
+
+
 # -- Reign of Terror: "Destroy all green creatures or all white creatures. They can't be regenerated. You lose 2 life for each creature that died
 # this way." 608.2d: the controller picks one as it resolves (and announces it, 101.4b); the rest of the text reads the one done.
 _EITHER = re.compile(r"^Destroy all (?P<a>[a-z]+ creatures) or all (?P<b>[a-z]+ creatures)\. (?P<rest>[^.]+\.(?: [^.]+\.)*)$")
@@ -831,5 +882,5 @@ def resume_either(plan: Any, d: Any, chosen: list[str]) -> None:
 PRIMITIVES = {GY_EMPTY: gy_empty, TRUCE: truce, TRUCE_ASK: truce_ask, TRUCE_DRAW: truce_draw, TRUCE_LIFE: truce_life, EITHER: either, COUNTERED: countered,
               SWIFT: swift, BACK: back_creature, TO_GRAVEYARDS: to_graveyards, HAND_GATE: hand_gate,
               SURGE: surge, PUT_EXILED: put_exiled, PUT_CHECK: put_check, OWN_EVERYWHERE: own_everywhere, HAND_VALUES: hand_values,
-              OTHERS: others_back}
+              OTHERS: others_back, RALLY: rally}
 RESUME = {TRUCE_ASK: resume_truce_ask, EITHER: resume_either, PUT_EXILED: resume_put_exiled}
