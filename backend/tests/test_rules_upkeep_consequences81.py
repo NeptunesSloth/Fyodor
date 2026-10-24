@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 
 import pytest
+
 from app.cards.images import ImageStore
 from app.cards.importer import build_database
 from app.cards.repository import CardRepository
@@ -195,5 +196,5 @@ else:
 assert GameState.model_validate_json(s.state.model_dump_json()).model_dump(mode='json')==s.state.model_dump(mode='json')
 r.close()
 '''
-    result=subprocess.run([sys.executable,'-c',code,str(saved),str(cards.db_path),name,source.id,lands[0].id,lands[1].id],cwd='/workspace/Fyodor/backend',capture_output=True,text=True,timeout=60)
+    result=subprocess.run([sys.executable,'-c',code,str(saved),str(cards.db_path),name,source.id,lands[0].id,lands[1].id],cwd=Path(__file__).resolve().parents[1],capture_output=True,text=True,timeout=60)
     assert result.returncode==0,result.stdout+result.stderr
