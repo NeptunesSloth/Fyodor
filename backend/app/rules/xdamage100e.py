@@ -270,6 +270,243 @@ def _impact_resonance() -> Parsed:
     return effects, target, optional
 
 
+@_text("Target creature an opponent controls deals damage equal to its power to each other creature that player controls, then each of those creatures deals damage equal to its power to that creature.")
+def _alpha_brawl() -> Parsed:
+    """Alpha Brawl (the 2011-01-22 rulings): first the target deals damage equal to its power to each other creature its controller controls,
+    then each of those creatures (state-based actions aren't checked in between: the ones dealt lethal damage still deal theirs) deals damage
+    equal to its own power to it, all at once (120.3; lifelink and deathtouch count, it isn't combat damage)."""
+    first, target, optional = _p("Target creature an opponent controls deals damage equal to its power to each other creature that player controls.")
+    assert first[0]["src"] == "target" and first[0]["n"] == {"power": "target"}
+    return [{"do": "bind_controlled100e", "of": "target", "sel": 'sel:{"types":["Creature"]}', "as": "brawl100e"},
+            {"do": "damage", "who": "ref:brawl100e", "n": {"power": "target"}, "src": "target"},
+            {"do": "damage", "who": "target", "n": {"power": "each"}, "src": "ref:brawl100e", "src_many": True}], target, optional
+
+
+@_text("Iron Fist deals damage equal to his power to any other target.")
+def _iron_fist_granted() -> Parsed:
+    """The ability Iron Fist, Living Weapon gains: its name is ~ (its own ability), "any other target" any target but it (115.4)."""
+    return _p("~ deals damage equal to its power to any other target.")
+
+
+@_text('~ gains "{T}: Iron Fist deals damage equal to his power to any other target" until end of turn.')
+def _iron_fist() -> Parsed:
+    return _p('~ gains "{T}: ~ deals damage equal to its power to any other target" until end of turn.')
+
+
+@_text("you may sacrifice another creature. When you do, ~ deals damage equal to the sacrificed creature's power to any target. If the sacrificed "
+       "creature was a Giant, ~ deals twice that much damage instead.")
+def _surtland_flinger() -> Parsed:
+    """Surtland Flinger: the reflexive ability (603.12) reads the sacrificed creature as it was sacrificed (608.2h; the 2021-02-05 rulings): its
+    power, or twice it for a Giant (one damage instruction either way: the "instead" replaces the amount)."""
+    effects, target, optional = _p("you may sacrifice another creature. When you do, ~ deals damage equal to the sacrificed creature's power to any target.")
+    ability = _reflexive(effects)["ability"]
+    assert ability["effects"] == [{"do": "damage", "who": "target", "n": {"power": "event"}}]
+    giant = {"object": "event", "is": 'sel:{"subtypes":["Giant"]}'}
+    ability["effects"] = [{"do": "only_if", "cond": {"not": giant}, "skip": 1}, {"do": "damage", "who": "target", "n": {"power": "event"}},
+                          {"do": "only_if", "cond": giant, "skip": 1}, {"do": "damage", "who": "target", "n": {"times": [2, {"power": "event"}]}}]
+    return effects, target, optional
+
+
+@_text("Target creature you control deals damage equal to its power to each other creature. Until end of turn, whenever a creature you control "
+       "dies, exile the top card of your library. You may play it until the end of your next turn.")
+def _waltz_of_rage() -> Parsed:
+    """Waltz of Rage: the bite (the target is the source, its power as the spell resolves: the 2024-09-20 rulings), then a delayed trigger for
+    the rest of the turn (603.7c) whose own resolution exiles your top card and lets you play it until the end of your next turn (with all
+    costs and timing rules, the ruling). An illegal target: nothing happens, the delayed trigger isn't created (608.2b)."""
+    from app.rules import delayed
+
+    bite, target, optional = _p("Target creature you control deals damage equal to its power to each other creature.")
+    watch = _p("Until end of turn, whenever a creature you control dies, draw a card.")[0]
+    impulse = _p("Exile the top card of your library. You may play it until the end of your next turn.")[0]
+    assert watch[0]["do"] == "delayed" and watch[0]["this_turn"] and not watch[0]["once"] and len(impulse) == 2
+    head, *deferred = delayed.wrap_when(impulse, watch[0]["when"], this_turn=True)
+    return [*bite, {**head, "once": False}, *deferred], target, optional
+
+
+@_text("~ deals X plus 2 damage to each creature that didn't enter this turn.")
+def _let_the_galaxy_burn() -> Parsed:
+    """Let the Galaxy Burn: each creature that didn't enter the battlefield this turn (selectors "not_entered_this_turn"), X plus 2 damage."""
+    from app.rules import selectors
+
+    effects, target, optional = _p("~ deals X damage to each creature that entered this turn.")
+    assert effects == [{"do": "damage", "who": 'sel:{"extras":["entered_this_turn"],"types":["Creature"]}', "n": {"x": 1}}]
+    who = selectors.Selector(types=("Creature",), extras=("not_entered_this_turn",)).key()
+    return [{"do": "damage", "who": who, "n": {"plus": [{"x": 1}, 2]}}], target, optional
+
+
+@_text("~ deals half X rounded down damage to any target, and half X rounded up damage to you.")
+def _banshee() -> Parsed:
+    """Banshee: one damage instruction to the target and to you at once (120.3): half X rounded down, half X rounded up (107.1a); with its
+    target illegal the ability doesn't resolve and you aren't dealt damage (the 2009-10-01 ruling, 608.2b)."""
+    effects, target, optional = _p("~ deals X damage to any target and X damage to you.")
+    assert [e["who"] for e in effects] == ["target", "you"]
+    effects[0]["n"], effects[1]["n"] = {"half": {"x": 1}, "round": "down"}, {"half": {"x": 1}, "round": "up"}
+    return effects, target, optional
+
+
+@_text("Tap any number of untapped artifacts you control. When you do, ~ deals that much damage to target creature or planeswalker.")
+def _yotia() -> Parsed:
+    """Yotia Declares War II: the reflexive ability (603.12) triggers even when no artifact was tapped (the 2022-09-09 ruling: it then deals no
+    damage); "that much" is how many were tapped this way (608.2c), its target chosen as it is put on the stack."""
+    from app.rules.scripts import target_fields
+
+    tap = _p("Tap any number of untapped artifacts you control.")[0]
+    hit, target, optional = _p("~ deals 2 damage to target creature or planeswalker.")
+    assert tap[0]["do"] == "tap_choice" and hit == [{"do": "damage", "who": "target", "n": 2}]
+    return [{**tap[0], "as": "yotia100e"},
+            {"do": "reflexive", "cond": {"value": {"this_way": "tapped", "of": None, "ref_count": "yotia100e"}, "op": ">=", "n": 0}, "lki": "cond_ref",
+             "ability": {"kind": "triggered", "trigger": "reflexive", "effects": [{**hit[0], "n": {"event_amount": 1}}], "optional": optional,
+                         **target_fields(target)}}], None, False
+
+
+@_text("~ deals damage to each of those creatures equal to the number of attacking creatures.")
+def _lightmine_field() -> Parsed:
+    """Lightmine Field (the 2010-06-15 rulings): the creatures declared as attackers (the trigger's event objects, while each is still that
+    object on the battlefield, even if removed from combat) are dealt damage equal to the number of attacking creatures as it resolves."""
+    from app.rules import values
+
+    n = values.parse_count("the number of attacking creatures")
+    assert n is not None
+    return [{"do": "damage", "who": "event", "n": n}], None, False
+
+
+@_text("~ deals damage to each opponent who controls more lands than you equal to the difference. Then create a number of Treasure tokens equal to the damage dealt this way.")
+def _spiteful_repossession() -> Parsed:
+    """Spiteful Repossession: each opponent with more lands than you is dealt the difference, all at once (608.2h: each amount determined
+    first); then as many Treasures as the damage actually dealt this way (after prevention: 120.3, 615)."""
+    treasure = _p("Create a Treasure token.")[0]
+    assert len(treasure) == 1 and treasure[0]["do"] == "create_token"
+    return [{"do": "land_gap_damage100e", "bind_dealt": "spite100e"}, {**treasure[0], "n": {"ref_amount": "spite100e"}}], None, False
+
+
+@_text("For each player, choose friend or foe. Each friend discards all cards from their hand, then draws that many cards plus one. ~ deals damage to each foe equal to the number of cards in their hand.")
+def _khorvaths_fury() -> Parsed:
+    """Khorvath's Fury (friend or foe, app/rules/friend_foe.py): each friend in turn order discards their hand, then draws that many plus one
+    (zero cards: draws one — the 2018-06-08 rulings); then the spell deals each foe damage equal to the cards in their hand, all at once
+    (friends act before foes, the ruling)."""
+    friend = _p("Discard your hand, then draw that many cards plus one.")[0]
+    assert [e["do"] for e in friend] == ["discard", "draw"]
+    return [{"do": "friend_foe"}, {"do": "side_does", "side": "friend", "n": len(friend)}, *friend, {"do": "foe_hand_damage100e"}], None, False
+
+
+@_text("target enchantment deals damage equal to its mana value to its controller unless that player sacrifices it.")
+def _enchanters_bane() -> Parsed:
+    """Enchanter's Bane: as it resolves, the target enchantment's controller chooses: sacrifice it (701.21a), or it deals damage equal to its
+    mana value to them (120.3: the enchantment is the source). It must target an enchantment, Enchanter's Bane itself if no other (the
+    2018-07-13 ruling)."""
+    target = _p("Destroy target enchantment.")[1]
+    return [{"do": "bane100e"}], target, False
+
+
+@_text("Destroy all creatures target opponent controls. ~ deals damage to that player equal to their total power.")
+def _angrath() -> Parsed:
+    """Angrath, Minotaur Pirate −11 (the 2018-01-19 rulings): the creatures that player controls as it resolves are destroyed at once; their
+    total power is each one's power as it last existed on the battlefield — or as it is, for one that wasn't destroyed (indestructible) — a
+    negative power subtracting (107.1b: a total of 0 or less deals no damage); the player is dealt it before any dies trigger is put on the
+    stack."""
+    destroy, target, optional = _p("Destroy all creatures target opponent controls.")
+    assert destroy == [{"do": "destroy", "who": 'controlled:target|sel:{"types":["Creature"]}'}] and target == "opponent"
+    return [{"do": "bind_controlled100e", "player": "target", "sel": 'sel:{"types":["Creature"]}', "as": "angrath100e"},
+            {"do": "destroy", "who": "ref:angrath100e"},
+            {"do": "damage", "who": "target", "n": {"total_power100e": "angrath100e"}}], target, optional
+
+
+@_text("put a +1/+0 counter on enchanted creature. If that creature has three or more +1/+0 counters on it, it deals damage equal to its power to "
+       "its controller, then destroy that creature and it can't be regenerated.")
+def _consuming_ferocity() -> Parsed:
+    """Consuming Ferocity: the counter, then — only with three or more +1/+0 counters on it as that is checked (608.2c) — the creature deals
+    damage equal to its power to its controller (120.3: it is the source), then it is destroyed and can't be regenerated (701.19c)."""
+    counter = _p("put a +1/+0 counter on enchanted creature.")[0]
+    doom = _p("Destroy enchanted creature. It can't be regenerated.")[0]
+    assert counter == [{"do": "add_counters", "who": "host", "kind": "+1/+0", "n": 1}] and doom == [{"do": "destroy", "who": "host"}, {"do": "no_regen"}]
+    bite = {"do": "damage", "who": "host_controller", "n": {"power": "host"}, "src": "host"}
+    return [*counter, {"do": "only_if", "cond": {"object": "host", "counters": "+1/+0", "op": ">=", "n": 3}, "skip": 1 + len(doom)}, bite, *doom], None, False
+
+
+@_text("it deals X damage to target creature, where X is 3 plus the amount of damage dealt to ~ this turn by other sources named Blazing Effigy.")
+def _blazing_effigy() -> Parsed:
+    """Blazing Effigy: X is 3 plus the damage this object was dealt this turn (before it died) by sources other than it named Blazing Effigy
+    (the turn's damage log: 120.3, prevented damage isn't dealt; each source as it is, or as it last existed)."""
+    effects, target, optional = _p("~ deals 3 damage to target creature.")
+    assert effects == [{"do": "damage", "who": "target", "n": 3}]
+    return [{**effects[0], "n": {"plus": [3, {"effigy_damage100e": "Blazing Effigy"}]}}], target, optional
+
+
+@_text("each opponent faces a villainous choice — That opponent discards all the cards in their hand, then draws that many cards minus one, or ~ "
+       "deals damage to that player equal to the number of cards in their hand.")
+def _sycorax_commander() -> Parsed:
+    """Sycorax Commander (701.55; the 2023-10-13 rulings): each opponent in turn order chooses, and that option is carried out before the next
+    one chooses: discard their whole hand and draw one fewer, or be dealt damage equal to their hand's size."""
+    a = _p("That player discards their hand, then draws that many cards minus one.")[0]
+    assert [e["do"] for e in a] == ["discard", "draw"]
+    b = [{"do": "damage", "who": "event_player", "n": {"hand": "event_player"}}]
+    return [{"do": "villain", "who": "each_opponent", "a": a, "b": b,
+             "labels": ["That player discards all the cards in their hand, then draws that many cards minus one",
+                        "~ deals damage to that player equal to the number of cards in their hand"]}], None, False
+
+
+# -- whole abilities (definitions) -----------------------------------------------------------------------------------------------------------
+_DEFS: dict[str, Callable[[Any, Any], dict[str, Any]]] = {}
+
+
+def _ability(text: str) -> Callable[[Callable[[Any, Any], dict[str, Any]]], Callable[[Any, Any], dict[str, Any]]]:
+    def register(build: Callable[[Any, Any], dict[str, Any]]) -> Callable[[Any, Any], dict[str, Any]]:
+        _DEFS[text.casefold()] = build
+        return build
+    return register
+
+
+def _define(ability: Any, ch: Any, text: str) -> dict[str, Any]:
+    from dataclasses import replace
+
+    from app.rules import scripts
+
+    got = scripts.define(replace(ability, text=text), ch)
+    if got is None:
+        raise AssertionError(f"xdamage100e: the grammar no longer reads {text!r}")
+    return copy.deepcopy(got)
+
+
+@_ability("When ~ enters, enchanted creature deals damage equal to its power to any other target.")
+def _pain_for_all(ability: Any, ch: Any) -> dict[str, Any]:
+    """Pain for All: "any other target" — any target but the enchanted creature, the one dealing the damage (115.4); its power as the ability
+    resolves, or as it last existed if it left (the 2025-07-25 ruling: the creature the Aura enchanted as it last existed, 608.2h)."""
+    d = _define(ability, ch, "When this Aura enters, enchanted creature deals damage equal to its power to any target.")
+    assert d["effects"] == [{"do": "damage", "who": "target", "n": {"power": "host"}, "src": "host"}] and d["target"] == {"what": "any"}
+    return {**d, "effects": [{"do": "host_bite100e"}], "target": {"what": "any_not_host100e"}}
+
+
+@_ability("Whenever you cast a spell with mana value equal to the number of doom counters on ~, ~ deals that much damage to any target. Then put a "
+          "doom counter on ~.")
+def _imminent_doom(ability: Any, ch: Any) -> dict[str, Any]:
+    """Imminent Doom: "that much" is the number of doom counters as it triggered (the 2017-07-14 ruling): the cast spell's mana value then (equal
+    by the trigger condition; X counts on the stack, 202.3e), as the event recorded it — not the counters as it resolves."""
+    d = _define(ability, ch, "Whenever you cast a spell with mana value equal to the number of doom counters on this enchantment, this enchantment "
+                             "deals 1 damage to any target. Then put a doom counter on this enchantment.")
+    assert d["effects"][0] == {"do": "damage", "who": "target", "n": 1} and d["effects"][1]["kind"] == "doom"
+    d["effects"][0]["n"] = {"mana_value": "event"}
+    return d
+
+
+@_ability("Whenever you cast a spell with {H} in its mana cost, ~ deals damage equal to that spell's mana value to any target.")
+def _rage_extractor(ability: Any, ch: Any) -> dict[str, Any]:
+    """Rage Extractor: any spell whose mana cost has a Phyrexian mana symbol of any color, however it was paid (the 2011-06-01 rulings; 107.4f);
+    its mana value counts each Phyrexian symbol as 1 (202.3)."""
+    from app.rules import selectors
+
+    d = _define(ability, ch, "Whenever you cast a spell, ~ deals damage equal to that spell's mana value to any target.")
+    assert d["cond"]["event"] == "cast" and d["cond"]["spell"] == 'sel:{"zones":["stack"]}' and d["effects"][0]["n"] == {"mana_value": "event"}
+    d["cond"]["spell"] = selectors.Selector(zones=("stack",), extras=("phyrexian_cost100e",)).key()
+    return d
+
+
+def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
+    from app.rules import scripts
+
+    build = _DEFS.get(scripts.self_text(ability.text, ch.name).casefold())
+    return build(ability, ch) if build is not None else None
+
+
 # -- primitives ------------------------------------------------------------------------------------------------------------------------------
 def beneath_top(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     """"just beneath the top X cards of that library": its owner's library, X cards above it (401.4); X 0 is the top, and a library of fewer
@@ -312,6 +549,31 @@ def keep_dealt(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return True
 
 
+def total_power(plan: Any, ctx: dict[str, Any], v: dict[str, Any]) -> int:
+    """The total power of the objects a binding names, each as it is while it's still that object, else as it last existed (608.2h); a
+    negative power subtracts, and the total is never below 0 (107.1b)."""
+    from app.rules import context
+
+    return max(0, sum(ch.pt[0] for _, ch in context.infos(plan, ctx, v["total_power100e"]) if ch.pt is not None))
+
+
+def effigy_damage(plan: Any, ctx: dict[str, Any], v: dict[str, Any]) -> int:
+    """The damage dealt this turn to the source object (as it was on the battlefield: ctx source_object) by other sources with this name."""
+    from app.rules.history import log_for
+
+    me, name = ctx.get("source_object"), v["effigy_damage100e"]
+
+    def named(oid: str | None) -> bool:
+        if not oid or oid == me:
+            return False
+        card = next((c for c in plan.state.cards.values() if plan.oid(c) == oid), None)
+        if card is not None:
+            return plan.ch(card).name == name
+        snap = plan.rules.lki.get(oid)
+        return snap is not None and snap.name == name
+    return sum(int(f.amount) for f in log_for(plan).facts if f.kind == "damaged" and f.object_id == me and f.amount > 0 and named(f.source))
+
+
 def greatest_damage(plan: Any, ctx: dict[str, Any], v: dict[str, Any]) -> int:
     """"the greatest amount of damage dealt by a source to a permanent or player this turn": this turn's damage (the log records only damage
     dealt, 120.3, 615), added up for each source and each player or permanent dealt it (each object once: 400.7)."""
@@ -325,7 +587,109 @@ def greatest_damage(plan: Any, ctx: dict[str, Any], v: dict[str, Any]) -> int:
     return max(totals.values(), default=0)
 
 
-PRIMITIVES = {"beneath_top100e": beneath_top, "double_times100e": double_times, "keep_keyword100e": keep_keyword, "keep_dealt100e": keep_dealt}
+def bind_controlled(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Bind the permanents of ``sel`` the controller of the object ``of`` names controls now, other than it ("each other creature that player
+    controls", Alpha Brawl): fixed as the instruction is reached (608.2c)."""
+    from app.rules import context, effects, selectors
+
+    of = effects._cards(plan, ctx, e["of"]) if e.get("of") else []
+    owner = plan.state.cards[of[0]].controller if of else next(iter(effects._players(plan, ctx, e["player"])), None) if e.get("player") else None
+    found = [c for c in selectors.candidates(plan, selectors.from_key(e["sel"]), ctx["controller"], ctx.get("source_card"))
+             if owner is not None and plan.state.cards[c].controller == owner and c not in of]
+    context.bind_objects(plan, ctx, e["as"], found)
+    return True
+
+
+def host_bite(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """"Enchanted creature deals damage equal to its power to [the target]": the creature the Aura is attached to — or, the Aura gone, the one it
+    was attached to as it last existed — as it is, or as it last existed (608.2h), is the source (120.3)."""
+    from app.rules import effects
+
+    src = effects._named_source(plan, ctx, "host")
+    if src is None:
+        aura = plan.state.cards.get(ctx.get("source_card") or "")
+        live = aura is not None and aura.zone.endswith(":battlefield") and plan.oid(aura) == ctx.get("source_object")
+        snap = None if live else plan.rules.lki.get(ctx.get("source_object") or "")
+        host_oid = (plan.oid(aura.attached_to) if live and aura is not None and aura.attached_to else None) or (snap.attached_object if snap is not None else None)
+        if host_oid is None and aura is not None:  # (the creature left first: the Aura was unattached then, 704.5m — the creature as it last
+            host_oid = next((x.object_id for x in reversed(plan.rules.lki.values())  # existed, with this Aura attached)
+                             if aura.id in x.attached and x.zone.endswith(":battlefield")), None)
+        src = effects._named_source(plan, ctx, f"obj:{host_oid}") if host_oid else None
+    if src is None:
+        plan.note(f"{ctx.get('name') or 'It'}: the creature that would deal the damage is gone", actor=ctx["controller"])
+        return True
+    n = max(0, src.ch.pt[0]) if src.ch is not None and src.ch.pt is not None else 0
+    keys = [*effects._cards(plan, ctx, "target"), *effects._players(plan, ctx, "target")]
+    return effects._deal(plan, ctx, [(src, key, n) for key in keys], e) if n > 0 and keys else True
+
+
+def land_gap_damage(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Each opponent who controls more lands than you is dealt the difference by the source, all at once (608.2h, 120.3)."""
+    from app.rules import effects, selectors
+
+    lands = selectors.from_key('sel:{"types":["Land"]}')
+    held: dict[str, int] = {}
+    for c in selectors.candidates(plan, lands, ctx["controller"], ctx.get("source_card")):
+        held[plan.state.cards[c].controller] = held.get(plan.state.cards[c].controller, 0) + 1
+    mine = held.get(ctx["controller"], 0)
+    src = effects._ability_source(plan, ctx)
+    hits = [(src, p, held.get(p, 0) - mine) for p in plan.live() if p != ctx["controller"] and held.get(p, 0) > mine]
+    if not hits:
+        from app.rules import context
+
+        context.bind_amount(ctx, e["bind_dealt"], 0)
+        return True
+    return effects._deal(plan, ctx, hits, e)
+
+
+def foe_hand_damage(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Friend or foe: the source deals each foe damage equal to the number of cards in their hand, each amount determined at once (608.2h)."""
+    from app.rules import effects
+
+    sides = ctx.get("sides") or {}
+    foes = [p for p in sides.get("order", []) if sides.get("chosen", {}).get(p) == "foe" and p in plan.live()]
+    src = effects._ability_source(plan, ctx)
+    hits = [(src, p, len(plan.state.zones.get(f"{p}:hand", []))) for p in foes]
+    return effects._deal(plan, ctx, hits, e) if any(n > 0 for _, _, n in hits) else True
+
+
+def bane(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """"[Target permanent] deals damage equal to its mana value to its controller unless that player sacrifices it": its controller as it
+    resolves chooses (a public choice); not sacrificed, the permanent is the source of the damage (120.3)."""
+    from app.game.rules_state import DecisionOption
+    from app.rules import effects
+    from app.rules.plan import decide
+
+    cards = effects._cards(plan, ctx, "target")
+    if not cards:
+        return True
+    card = plan.state.cards[cards[0]]
+    n = max(0, plan.ch(card).mana_value)
+    answer = ctx.get("bane100e")
+    if answer is None:
+        decide(plan, player=card.controller, kind="confirm", prompt=f"{ctx.get('name') or 'It'}: sacrifice {card.name}? If you don't, it deals {n} damage to you.",
+               options=[DecisionOption(id="yes", label=f"Sacrifice {card.name}"), DecisionOption(id="no", label=f"Take {n} damage")],
+               resume={"step": "bane100e", "ctx": ctx, "e": e}, source=card)
+        return False
+    if answer == "yes":
+        effects._sacrifice_cards(plan, [card.id], card.controller, ctx)
+        return True
+    hit = [(effects._card_source(plan, card.id), card.controller, n)] if n > 0 and card.controller in plan.live() else []
+    return effects._deal(plan, ctx, hit, e) if hit else True
+
+
+def resume_bane(plan: Any, d: Any, chosen: list[str]) -> None:
+    from app.rules import effects
+
+    ctx = d.resume["ctx"]
+    ctx["bane100e"] = chosen[0] if chosen else "no"
+    if bane(plan, ctx, d.resume["e"]):
+        effects.continue_effects(plan, ctx)
+
+
+RESUME = {"bane100e": resume_bane}
+PRIMITIVES = {"land_gap_damage100e": land_gap_damage, "foe_hand_damage100e": foe_hand_damage, "bane100e": bane,
+              "bind_controlled100e": bind_controlled, "host_bite100e": host_bite, "beneath_top100e": beneath_top, "double_times100e": double_times, "keep_keyword100e": keep_keyword, "keep_dealt100e": keep_dealt}
 
 
 def parse(body: str) -> Parsed | None:

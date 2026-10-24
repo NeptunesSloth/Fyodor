@@ -2206,6 +2206,8 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
         return False
     if "mana_ability" in sel.extras and not any(a.kind == "mana" for a in ch.abilities):  # (wave 45D)
         return False
+    if "phyrexian_cost100e" in sel.extras and "/P}" not in (ch.mana_cost or ""):  # -- xdamage (wave 100E) -- "a spell with {H} in its mana cost" (Rage Extractor): a Phyrexian mana symbol of any color (107.4f)
+        return False
     if "tap_ability" in sel.extras and not any(a.kind in ("activated", "mana") and "{T}" in (a.cost or "") for a in ch.abilities):  # (wave 52D)
         return False
     if set(sel.without_keywords) & ch.keywords:

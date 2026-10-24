@@ -5821,6 +5821,12 @@ def _first_time_gate(text: str) -> str:
 
 def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     """The engine definition of one ability, or None (manual)."""
+    from app.rules import (
+        xdamage100e,  # -- xdamage (wave 100E) -- exact whole-ability wordings (app/rules/xdamage100e.py)
+    )
+
+    if (xdamage := xdamage100e.definition(ability, ch)) is not None:
+        return xdamage
     from app.rules import zone_exchanges94
 
     if (zone94 := zone_exchanges94.definition(ability, ch)) is not None:

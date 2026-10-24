@@ -165,6 +165,9 @@ def legal_targets(plan: Plan, selector: str, chooser: str, source: Characteristi
         margin = 2 if cond == "hand2" else 1
         return [p for p in legal_targets(plan, "opponent", chooser, source, source_card, attacker)
                 if _more(plan, cond, p) >= _more(plan, cond, chooser) + margin]
+    if selector == "any_not_host100e":  # -- xdamage (wave 100E) -- "enchanted creature deals … to any other target" (Pain for All): any target but
+        host = plan.state.cards[source_card].attached_to if source_card in plan.state.cards else None  # the creature the source is attached to (115.4)
+        return [t for t in legal_targets(plan, "any", chooser, source, source_card, attacker, source_object=source_object) if t != host]
     if selector == "any_other":  # -- damage sized by a count (wave 34D) -- 115.4: "deals that much damage to any other target" (Black Panther): any target
         excluded = source_card if source_object is None or source_card in plan.state.cards and plan.oid(source_card) == source_object else None
         return [t for t in legal_targets(plan, "any", chooser, source, source_card, attacker, source_object=source_object) if t != excluded]
