@@ -754,6 +754,37 @@ def hand_values(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return True
 
 
+# -- Moonring Mirror: "you may exile all cards from your hand face down. If you do, put all other cards you own exiled with this artifact into your hand."
+# Both abilities' cards are exiled with it (607.2a); "other": not the ones just exiled (the 2004-12-01 ruling). 603.5: declining does neither.
+_MOONRING = "you may exile all cards from your hand face down. If you do, put all other cards you own exiled with ~ into your hand."
+OTHERS = "others_back100b"
+
+
+def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
+    """The whole ability (its link accumulates both abilities' cards, exiled_with.accumulating_link), or None."""
+    from dataclasses import replace
+
+    from app.rules import scripts
+
+    if ability.kind != "triggered" or scripts.self_text(ability.text, ch.name) != f"At the beginning of your upkeep, {_MOONRING}":
+        return None
+    base = scripts.define(replace(ability, text="At the beginning of your upkeep, draw a card."), ch)
+    down, back = _effects("you may exile all cards from your hand face down.", None, False), _effects("Put all cards you own exiled with ~ into your hand.", None, False)
+    if base is None or down is None or back is None or len(down[0]) != 1 or len(back[0]) != 1 or back[0][0].get("do") != "return_card":
+        return None
+    return {**base, "optional": True, "accumulating_link": True,
+            "effects": [{**down[0][0], "link": True, "as": "moon100b"}, {**back[0][0], "do": OTHERS, "not": "moon100b"}]}
+
+
+def others_back(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """``return_card`` of the cards ``who`` names but those the binding ``not`` names (the ones exiled a moment ago)."""
+    from app.rules import context
+    from app.rules.effects import _cards, _return_cards
+
+    fresh = set(context.objects(plan, ctx, e["not"]))
+    return _return_cards(plan, ctx, {**e, "do": "return_card"}, [c for c in _cards(plan, ctx, e["who"]) if c not in fresh])
+
+
 # -- Reign of Terror: "Destroy all green creatures or all white creatures. They can't be regenerated. You lose 2 life for each creature that died
 # this way." 608.2d: the controller picks one as it resolves (and announces it, 101.4b); the rest of the text reads the one done.
 _EITHER = re.compile(r"^Destroy all (?P<a>[a-z]+ creatures) or all (?P<b>[a-z]+ creatures)\. (?P<rest>[^.]+\.(?: [^.]+\.)*)$")
@@ -799,5 +830,6 @@ def resume_either(plan: Any, d: Any, chosen: list[str]) -> None:
 
 PRIMITIVES = {GY_EMPTY: gy_empty, TRUCE: truce, TRUCE_ASK: truce_ask, TRUCE_DRAW: truce_draw, TRUCE_LIFE: truce_life, EITHER: either, COUNTERED: countered,
               SWIFT: swift, BACK: back_creature, TO_GRAVEYARDS: to_graveyards, HAND_GATE: hand_gate,
-              SURGE: surge, PUT_EXILED: put_exiled, PUT_CHECK: put_check, OWN_EVERYWHERE: own_everywhere, HAND_VALUES: hand_values}
+              SURGE: surge, PUT_EXILED: put_exiled, PUT_CHECK: put_check, OWN_EVERYWHERE: own_everywhere, HAND_VALUES: hand_values,
+              OTHERS: others_back}
 RESUME = {TRUCE_ASK: resume_truce_ask, EITHER: resume_either, PUT_EXILED: resume_put_exiled}

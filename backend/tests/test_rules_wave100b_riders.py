@@ -55,6 +55,8 @@ Every scenario checks the replay and a save and a load.
 * Veteran's Voice - "Tap enchanted creature: Target creature other than the creature tapped this way gets +2/+1 until end of turn."
 * Fishing Gear - "If it's a permanent card, you may put it onto the battlefield under your control. If you don't, create a 1/1 blue Fish
   creature token." (a nonpermanent or a declined card: the Fish - 2025-10-02).
+* Moonring Mirror - "you may exile all cards from your hand face down. If you do, put all other cards you own exiled with this artifact into
+  your hand." (both abilities' cards; not the ones just exiled - 2004-12-01).
 * Hellfire - "deals X plus 3 damage to you, where X is the number of creatures that died this way." (a destroyed token counts, a creature a
   replacement effect exiled instead doesn't: the 2009-10-01 rulings).
 """
@@ -83,7 +85,7 @@ LOCKE, HELLION, HULK = "Locke, Treasure Hunter", "Devouring Hellion", "Deathbonn
 KALDHEIM, MANABOND, GUARDIAN = "Invasion of Kaldheim // Pyre of the World Tree", "Manabond", "Wicked Guardian"
 INVESTIGATORS, CLASH, SANCTUM = "Phenomenon Investigators", "Clash of Elements", "Theorist's Sanctum"
 HEDRON, ATEMSIS, SPHINX, VOICE = "Hedron Alignment", "Atemsis, All-Seeing", "Rescuer Sphinx", "Veteran's Voice"
-GEAR = "Fishing Gear"
+GEAR, MIRROR = "Fishing Gear", "Moonring Mirror"
 BEARS, GIANT, RIP, ELVES = "Grizzly Bears", "Hill Giant", "Rest in Peace", "Llanowar Elves"
 
 
@@ -92,7 +94,7 @@ def cards(settings):
     yield from open_repo(settings)
 
 
-@pytest.mark.parametrize("name", [ROWEN, ETCHINGS, KERANOS, SUGARMAW, HELLFIRE, TERROR, KELLAN, EGO, SHRIEK, GORILLA, DESERTER, AEROSTAT, FOLD, SWIFT, RESEARCHER, KOYA, SURVIVORS, VANISH, DAKRA, DURIN, LATNAM, SURGE, LOCKE, HELLION, HULK, KALDHEIM, MANABOND, GUARDIAN, INVESTIGATORS, CLASH, SANCTUM, HEDRON, ATEMSIS, SPHINX, VOICE, GEAR])
+@pytest.mark.parametrize("name", [ROWEN, ETCHINGS, KERANOS, SUGARMAW, HELLFIRE, TERROR, KELLAN, EGO, SHRIEK, GORILLA, DESERTER, AEROSTAT, FOLD, SWIFT, RESEARCHER, KOYA, SURVIVORS, VANISH, DAKRA, DURIN, LATNAM, SURGE, LOCKE, HELLION, HULK, KALDHEIM, MANABOND, GUARDIAN, INVESTIGATORS, CLASH, SANCTUM, HEDRON, ATEMSIS, SPHINX, VOICE, GEAR, MIRROR])
 def test_the_cards_are_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL", name
 
@@ -883,4 +885,25 @@ def test_fishing_gear_takes_a_permanent_or_makes_a_fish(cards, what):
     fish = [c for c in s.state.cards.values() if c.zone == "p1:battlefield" and c.name == "Fish"]
     assert zone(s, top) == ("p1:battlefield" if what == "put" else "p2:exile")
     assert len(fish) == (0 if what == "put" else 1)
+    check(s)
+
+
+# -- Moonring Mirror ------------------------------------------------------------------------------------------------------------------
+def test_moonring_mirror_swaps_your_hand_for_the_cards_it_exiled(cards):
+    s = build_n(cards, [MIRROR, BEARS, "Opt", GIANT])
+    put(s, MIRROR)
+    opt, giant = to_hand(s, "Opt"), to_hand(s, GIANT)
+    bears = named(s, BEARS)
+    on_top(s, bears)
+    mana(s, U=1)
+    act(s, "p1", type="cast_spell", card_id=opt.id)
+    run(s, pick())  # (Opt draws the Bears; the Mirror exiles the next card face down)
+    stashed = [c for c in s.state.zones["p1:exile"] if s.state.cards[c].face_down]
+    hand = list(s.state.zones["p1:hand"])
+    assert len(stashed) == 1 and bears.id in hand and giant.id in hand
+    stops(s)
+    to_phase(s, "upkeep", turn=3)
+    run(s)
+    assert s.state.zones["p1:hand"] == stashed
+    assert len([c for c in s.state.zones["p1:exile"] if s.state.cards[c].face_down]) == len(hand)  # (face down: new hidden identities, 406.3)
     check(s)

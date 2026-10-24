@@ -1349,5 +1349,16 @@
   "keywords": [
    "Equip"
   ]
+ },
+ {
+  "name": "Moonring Mirror",
+  "layout": "normal",
+  "mana_cost": "{5}",
+  "cmc": 5.0,
+  "type_line": "Artifact",
+  "oracle_text": "Whenever you draw a card, exile the top card of your library face down.\nAt the beginning of your upkeep, you may exile all cards from your hand face down. If you do, put all other cards you own exiled with this artifact into your hand.",
+  "colors": [],
+  "color_identity": [],
+  "keywords": []
  }
 ]
