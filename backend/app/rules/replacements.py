@@ -108,7 +108,7 @@ def entry_plan(plan: Plan, card: CardInstance, controller: str, **kw: Any) -> di
     # -- static permanents (wave 100D) -- "As ~ enters, discard your hand." (614.1c, 614.12)
     from app.rules import static_perm100d
 
-    static_perm100d.plan_entry(plan, card, controller, out)
+    static_perm100d.plan_entry(plan, card, controller, out, kw.get("answers"))
     from app.rules import numeric_entry_roll42
 
     if (receipt := numeric_entry_roll42.current_receipt(plan, card, kw.get("answers"))) is not None:

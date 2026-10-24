@@ -129,7 +129,23 @@ EXTRA += [
     real('Dusk Mangler', '{5}{B}{B}', 7, 'Creature — Horror', 'As an additional cost to cast this spell, sacrifice a creature, discard a card, or pay 4 life.\nWhen this creature enters, each opponent sacrifices a creature of their choice, discards a card, and loses 4 life.', ('5', '4'), 'B'),
     real('Urborg Lhurgoyf', '{1}{G}', 2, 'Creature — Lhurgoyf', "Kicker {U} and/or {B} (You may pay an additional {U} and/or {B} as you cast this spell.)\nAs this creature enters, mill three cards for each time it was kicked.\nUrborg Lhurgoyf's power is equal to the number of creature cards in your graveyard and its toughness is equal to that number plus 1.", ('*', '1+*'), 'G'),
 ]
-SINGLES = ["Dusk Mangler", "Urborg Lhurgoyf", "Carth the Lion", "Enhanced Surveillance", "Cosmos Charger", "Archon of the Wild Rose", "Urza, Planeswalker", "Invert // Invent", "Serra Avenger", "Karlov Watchdog", "Everlasting Torment", "Ajani Goldmane", "Elsewhere Flask", "Dragon Turtle", "Blue Dragon", "Legate Lanius, Caesar's Ace", "Pardic Firecat", "Diligent Farmhand", "Garza's Assassin", "Robe of the Archmagi", "My Precious // Allure of Power"]
+EXTRA += [
+    real('Hogaak, Arisen Necropolis', '{5}{B/G}{B/G}', 7, 'Legendary Creature — Avatar', "You can't spend mana to cast this spell.\nConvoke, delve (Each creature you tap while casting this spell pays for {1} or one mana of that creature's color. Each card you exile from your graveyard pays for {1}.)\nYou may cast this card from your graveyard.\nTrample", ('8', '8'), 'BG'),
+]
+EXTRA += [
+    real('Sanctum Lurker', '{2}{B}', 3, 'Creature — Horror', 'When this creature enters, empower Jace 1.\nPlaneswalkers you control aren\'t put into their owners\' graveyards for having 0 loyalty.\nPlaneswalkers you control have "[+2]: This planeswalker deals 1 damage to each opponent and you gain 1 life."', ('3', '2'), 'B'),
+]
+EXTRA += [
+    real('Minion of the Wastes', '{3}{B}{B}{B}', 6, 'Creature — Minion', "Trample\nAs this creature enters, pay any amount of life.\nMinion of the Wastes's power and toughness are each equal to the life paid as it entered.", ('*', '*'), 'B'),
+    real('Nameless Race', '{3}{B}', 4, 'Creature', "Trample\nAs this creature enters, pay any amount of life. The amount you pay can't be more than the total number of white nontoken permanents your opponents control plus the total number of white cards in their graveyards.\nNameless Race's power and toughness are each equal to the life paid as it entered.", ('*', '*'), 'B'),
+]
+EXTRA += [
+    real('Cast Through Time', '{4}{U}{U}{U}', 7, 'Enchantment', 'Instant and sorcery spells you control have rebound. (Exile the spell as it resolves if you cast it from your hand. At the beginning of your next upkeep, you may cast that card from exile without paying its mana cost.)', None, 'U'),
+]
+EXTRA += [
+    real('Dismiss into Dream', '{6}{U}', 7, 'Enchantment', 'Each creature your opponents control is an Illusion in addition to its other types and has "When this creature becomes the target of a spell or ability, sacrifice it."', None, 'U'),
+]
+SINGLES = ["Dismiss into Dream", "Cast Through Time", "Minion of the Wastes", "Nameless Race", "Sanctum Lurker", "Hogaak, Arisen Necropolis", "Dusk Mangler", "Urborg Lhurgoyf", "Carth the Lion", "Enhanced Surveillance", "Cosmos Charger", "Archon of the Wild Rose", "Urza, Planeswalker", "Invert // Invent", "Serra Avenger", "Karlov Watchdog", "Everlasting Torment", "Ajani Goldmane", "Elsewhere Flask", "Dragon Turtle", "Blue Dragon", "Legate Lanius, Caesar's Ace", "Pardic Firecat", "Diligent Farmhand", "Garza's Assassin", "Robe of the Archmagi", "My Precious // Allure of Power"]
 RULES = ["Gruul Spellbreaker", "Experimental Frenzy", "City of Solitude", "Melting", "Dream Leash", "Enthralling Hold"]
 FULL = [*SINGLES, *RULES, "Mistform Sliver", "Mesmeric Sliver", "Enduring Sliver", "Case of the Stashed Skeleton", "Case of the Gateway Express", "Case of the Gorgon's Kiss", "Case of the Burning Masks", "Scourge of the Skyclaves", "Roiling Horror", "Angry Mob", "Alrund, God of the Cosmos // Hakka, Whispering Raven", "Heightened Awareness", "Overlaid Terrain", "Full Moon's Rise", "O-Naginata", "Gate Smasher", "Goblin Brawler", "Domineer", "Awaken the Ancient", "Gideon, the Oathsworn", "Dovin, Architect of Law",
         "Ajani Unrelenting", "Nicol Bolas, Planeswalker", "Liliana, the Necromancer"]
@@ -1101,3 +1117,95 @@ def test_urborg_lhurgoyf_mills_three_for_each_kick_as_it_enters(cards):
     assert zone(s, goyf) == "p1:battlefield" and len(s.state.zones["p1:library"]) == before - 6  # 614.12, 701.17a
     check(s)
 
+
+def test_hogaak_is_paid_only_by_convoke_and_delve(cards):
+    s = build(cards, ["Hogaak, Arisen Necropolis"])
+    hogaak = to_hand(s, "Hogaak, Arisen Necropolis")
+    elves = [token_of(s, "p1", f"Elf {i}", "Token Creature — Elf", "1/1", colors=["G"]) for i in range(5)]
+    mana(s, G=2)
+    with pytest.raises(ActionError, match="spend mana"):
+        act(s, "p1", type="cast_spell", card_id=hogaak.id, contributions=[{"kind": "convoke", "card": e.id} for e in elves[:5]])  # (two mana left to pay)
+    forests = [c for c in s.state.cards.values() if c.name == "Forest" and c.owner == "p1"][:2]
+    act(s, "p1", type="move", card_ids=[f.id for f in forests], to={"zone": "graveyard"})
+    paid = [{"kind": "convoke", "card": e.id} for e in elves[:5]] + [{"kind": "delve", "card": f.id} for f in forests]
+    act(s, "p1", type="cast_spell", card_id=hogaak.id, contributions=paid)
+    settle(s)
+    assert zone(s, hogaak) == "p1:battlefield"
+    check(s)
+
+
+def test_sanctum_lurker_keeps_planeswalkers_with_no_loyalty(cards):
+    s = build(cards, ["Sanctum Lurker", "Ajani Goldmane"], ["Ajani Goldmane"])
+    lurker = put(s, "Sanctum Lurker")
+    settle(s)
+    mine = walker(s, "Ajani Goldmane", 0)
+    theirs = put(s, "Ajani Goldmane", "p2")
+    act(s, "p2", type="set_counter", card_id=theirs.id, kind="loyalty", value=0)
+    sba_check(s)
+    assert zone(s, mine) == "p1:battlefield" and zone(s, theirs) == "p2:graveyard"  # 704.5i (only yours)
+    act(s, "p1", type="move", card_ids=[lurker.id], to={"zone": "graveyard"})
+    sba_check(s)
+    assert zone(s, mine) == "p1:graveyard"
+    check(s)
+
+
+@pytest.mark.parametrize("name,most,pay", [("Minion of the Wastes", 40, 7), ("Nameless Race", 2, 2)])
+def test_life_paid_as_it_enters_sets_power_and_toughness(cards, name, most, pay):
+    from tests.test_rules_conditionals import until
+
+    s = build(cards, [name], ["Pacifism", "Archon of the Wild Rose"])
+    put(s, "Archon of the Wild Rose", "p2")
+    token_of(s, "p2", "Knight", "Token Creature — Knight", "2/2", colors=["W"])  # (a token isn't counted)
+    act(s, "p2", type="move", card_ids=[card_named(s, "Pacifism", "p2").id], to={"zone": "graveyard"})  # (a white card in their graveyard)
+    creature = to_hand(s, name)
+    mana(s, B=3, C=3)
+    act(s, "p1", type="cast_spell", card_id=creature.id)
+    until(s, lambda s: s.state.rules.decision is not None)
+    d = s.state.rules.decision
+    assert d.player == "p1" and [o.id for o in d.options] == [str(n) for n in range(most + 1)]  # 119.4 (Nameless Race: the Archon and the Pacifism)
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[str(pay)])
+    settle(s)
+    assert s.state.players["p1"].life == 40 - pay and pt(s, name) == (pay, pay)  # 604.3
+    check(s)
+
+
+def drain(s):
+    """Resolve the stack, answering each question with the least it allows."""
+    for _ in range(10):
+        settle(s)
+        if (d := s.state.rules.decision) is None:
+            return
+        act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: d.min_choices])
+
+
+def test_cast_through_time_rebounds_spells_cast_from_your_hand(cards):
+    s = build(cards, ["Cast Through Time", "Consider", "Opt"])
+    put(s, "Cast Through Time")
+    consider = to_hand(s, "Consider")
+    mana(s, U=1)
+    act(s, "p1", type="cast_spell", card_id=consider.id)
+    drain(s)
+    assert zone(s, consider) == "p1:exile" and consider.id in s.state.rules.rebounding  # 702.88a
+    opt = card_named(s, "Opt")
+    act(s, "p1", type="move", card_ids=[opt.id], to={"zone": "graveyard"})
+    act(s, "p1", type="move", card_ids=[card_named(s, "Cast Through Time").id], to={"zone": "graveyard"})
+    act(s, "p1", type="move", card_ids=[opt.id], to={"zone": "hand"})
+    mana(s, U=1)
+    act(s, "p1", type="cast_spell", card_id=opt.id)
+    drain(s)
+    assert zone(s, opt) == "p1:graveyard"  # (gone as it finished resolving: ruling 2010-06-15)
+    check(s)
+
+
+def test_dismiss_into_dream_makes_their_creatures_fragile_illusions(cards):
+    s = build(cards, ["Dismiss into Dream", "Giant Growth"])
+    put(s, "Dismiss into Dream")
+    ogre = token_of(s, "p2", "Ogre", "Token Creature — Ogre", "5/5")
+    mine = token_of(s, "p1", "Elk", "Token Creature — Elk", "2/2")
+    assert "Illusion" in derived(s, ogre).subtypes and "Illusion" not in derived(s, mine).subtypes  # 205.1b, 613.1d
+    growth = to_hand(s, "Giant Growth")
+    mana(s, G=1)
+    act(s, "p1", type="cast_spell", card_id=growth.id, targets=[ogre.id])
+    drain(s)
+    assert ogre.id not in s.state.cards or zone(s, ogre) != "p2:battlefield"  # its granted trigger: sacrificed (603.2)
+    check(s)

@@ -1716,10 +1716,15 @@ def _pay_spell(plan: Plan, a: A.CastSpell, card: CardInstance, ch: Characteristi
     if any(h.card in not_mana for h in helpers):  # (wave 3$) an object an additional cost uses can't also help pay
         raise ActionError("A permanent that pays the additional cost can't also convoke / improvise")
     exclude = tuple(h.card for h in helpers) + not_mana
+    from app.rules import static_perm100d  # -- static permanents (wave 100D) -- Hogaak: no mana at all
+
+    manaless = static_perm100d.no_mana(ch)
 
     def covers(rest: M.ManaCost) -> bool:
         if rest.is_free:
             return True
+        if manaless:
+            return False
         try:
             find_payment(plan.state, player, rest, plan.info, sources=a.sources, exclude=exclude, purpose=purpose,
                          reserve=plan.reserved_life)
@@ -1728,6 +1733,8 @@ def _pay_spell(plan: Plan, a: A.CastSpell, card: CardInstance, ch: Characteristi
         return True
 
     assignment = P.assign(cost, helpers, covers) if helpers else []
+    if manaless and (assignment is None or not P.remaining(cost, assignment).is_free):
+        raise ActionError(f"You can't spend mana to cast {ch.name or 'this spell'}: pay it all with convoke and delve")
     if assignment is None:
         raise ActionError(f"Those can't pay {cost.text()}: convoke pays {{1}} or one mana of the creature's color; "
                           "improvise and delve pay only {1}")

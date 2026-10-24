@@ -136,6 +136,8 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
         if pump is None or not pump.get("each"):
             return None
         return {**pump, "each": {**pump["each"], "value": {"perm100d": "hand_and_foretold"}}}
+    if text in _LIFE_LINES:
+        return {"kind": "static", "static": LIFE_ENTRY, "cap": _LIFE_LINES[text], "effects": []}
     if text in _AS_ENTERS:
         return {"kind": "static", "static": AS_ENTERS, "do": _AS_ENTERS[text], "effects": []}
     if (m := _ATTACH_ONLY.fullmatch(text)) is not None and "Equipment" in ch.subtypes:
@@ -160,6 +162,7 @@ _CDAS = {
     "~'s power and toughness are each equal to your life total minus the life total of an opponent with the most life.": "life_minus_top_opponent",
     "During your turn, ~'s power and toughness are each equal to 2 plus the number of Swamps your opponents control. During turns other "
     "than yours, ~'s power and toughness are each 2.": "angry_mob",
+    "~'s power and toughness are each equal to the life paid as it entered.": "life_paid",
 }
 
 
@@ -202,6 +205,9 @@ def amount(plan: Plan, ctx: dict[str, Any], v: dict[str, Any]) -> int:
             return 2
         swamps = values.parse_count("the number of Swamps your opponents control")
         return 2 + (values.evaluate(plan, ctx, swamps) if swamps is not None else 0)
+    if kind == "life_paid":  # (the amount recorded as it entered; none outside the battlefield)
+        card = plan.state.cards.get(ctx.get("source_card") or "")
+        return int((card.choices.get("Life paid") or 0) if card is not None and card.zone.endswith(":battlefield") else 0)
     if kind == "hand_and_foretold":  # 702.143a: a foretold card is exiled face down, in its owner's foretell area of exile
         return len(plan.state.zones.get(zone_key(you, "hand"), [])) + sum(
             1 for c in plan.state.zones.get(zone_key(you, "foretell"), []) if plan.state.cards[c].owner == you)
@@ -227,20 +233,53 @@ def amount(plan: Plan, ctx: dict[str, Any], v: dict[str, Any]) -> int:
 # Overlaid Terrain 2004-10-04 "right before this enchantment enters"; Wood Elemental 2004-10-04 "no matter how this card enters").
 # The permanent being put onto the battlefield is no card of that player's hand or lands any more (it is the object entering).
 AS_ENTERS = "as_enters100d"
+# "As ~ enters, pay any amount of life." (Minion of the Wastes; Nameless Race: no more than the white nontoken permanents your opponents control
+# plus the white cards in their graveyards): 119.4, 614.12a — the amount is chosen before it enters (0 up to your life total; 0 if you can't
+# lose life, 119.8), paid as it enters (rulings 2011-01-25, 2004-10-04), and kept on the permanent as "Life paid" for its CDA (604.3).
+LIFE_ENTRY, LIFE_KEY = "life_entry100d", "amount of life to pay"
+_LIFE_LINES = {"As ~ enters, pay any amount of life.": None,
+               "As ~ enters, pay any amount of life. The amount you pay can't be more than the total number of white nontoken permanents your opponents "
+               "control plus the total number of white cards in their graveyards.": "white"}
+
+
+def life_cap(plan: Plan, ctx: dict[str, Any]) -> int:
+    from app.rules import life_lock, scripts, values
+
+    you, card = ctx["controller"], plan.state.cards.get(ctx.get("source_card") or "")
+    cap = plan.state.players[you].life if you in plan.state.players else 0
+    if cap <= 0 or life_lock.pay_problem(plan.state, plan.info, you, 1) is not None:
+        return 0
+    defs = scripts.definitions(plan.ch(card)).values() if card is not None else ()
+    if any(d.get("static") == LIFE_ENTRY and d.get("cap") == "white" for d in defs):
+        counts = [values.parse_count(t) for t in ("the number of white nontoken permanents your opponents control",
+                                                  "the number of white cards in your opponents' graveyards")]
+        cap = min(cap, sum(values.evaluate(plan, ctx, c) for c in counts if c is not None))
+    return cap
+
+
 _AS_ENTERS = {"As ~ enters, discard your hand.": "discard_hand", "As ~ enters, sacrifice all lands you control.": "sacrifice_lands",
               "As ~ enters, mill three cards for each time it was kicked.": "mill_per_kick"}  # (Urborg Lhurgoyf: 702.33d, rulings 2022-09-09)
 
 
-def plan_entry(plan: Plan, card: CardInstance, controller: str, out: dict[str, Any]) -> None:
+def plan_entry(plan: Plan, card: CardInstance, controller: str, out: dict[str, Any], answers: dict[str, str] | None = None) -> None:
     """replacements.entry_plan's part: the instructions to carry out as ``card`` enters under ``controller`` (read from the permanent as it
-    would exist on the battlefield, 614.12)."""
+    would exist on the battlefield, 614.12); "pay any amount of life" asks the amount first (614.12a, an entering choice)."""
     from app.game.state import zone_key
     from app.rules import scripts
 
     if out.get("divert") or out.get("divert_zone") or plan.manual(card):
         return
     probe = card.model_copy(update={"zone": zone_key(controller, "battlefield"), "controller": controller})
-    found = [d["do"] for d in scripts.definitions(plan.ch(probe)).values() if d.get("kind") == "static" and d.get("static") == AS_ENTERS]
+    defs = [d for d in scripts.definitions(plan.ch(probe)).values() if d.get("kind") == "static" and d.get("static") in (AS_ENTERS, LIFE_ENTRY)]
+    found = [d["do"] for d in defs if d["static"] == AS_ENTERS]
+    if any(d["static"] == LIFE_ENTRY for d in defs):
+        value = (answers or {}).get(LIFE_KEY)
+        if value is None:
+            out.setdefault("choice", {"what": LIFE_KEY})
+        else:
+            out.setdefault("choices", {})[LIFE_KEY] = value
+            out[LIFE_ENTRY] = int(value or 0)
+            found.append("pay_life")
     if found:
         out[AS_ENTERS] = found
 
@@ -262,6 +301,11 @@ def as_enters(plan: Plan, card_id: str, ep: dict[str, Any], controller: str) -> 
                      if c != card_id and plan.in_game(plan.state.cards[c]) and plan.ch(plan.state.cards[c]).is_land]
             plan.note(f"As {name} enters, {plan.name(controller)} sacrifices all lands they control", [card_id])
             effects._sacrifice_cards(plan, lands, controller, ctx)
+        elif what == "pay_life" and (n := min(int(ep.get(LIFE_ENTRY) or 0), plan.state.players[controller].life)) > 0:  # 119.4
+            from app.rules import replace
+
+            plan.note(f"As {name} enters, {plan.name(controller)} pays {n} life", [card_id])
+            replace.lose_life(plan, [(controller, n)])
         elif what == "mill_per_kick" and (n := 3 * values.kicked_count(plan, ctx)):  # 701.17a (not cast: never kicked)
             plan.note(f"As {name} enters, {plan.name(controller)} mills {n} cards", [card_id])
             effects.PRIMITIVES["mill"](plan, ctx, {"do": "mill", "who": "you", "n": n})
@@ -328,6 +372,15 @@ def _rule_static(text: str, ch: Any) -> dict[str, Any] | None:
         return statics.parse("Other creatures you control that are enchanted by an Aura you control have base power and toughness 4/4 and have flying.")
     if text == "You may activate the loyalty abilities of ~ twice each turn rather than only once.":  # (Urza, Planeswalker: 606.3, its own)
         return {"kind": "static", "static": "loyalty_rule", "who": "self", "twice": True, "effects": []}
+    if text == ('Each creature your opponents control is an Illusion in addition to its other types and has "When ~ becomes the target '
+                'of a spell or ability, sacrifice it."'):  # (Dismiss into Dream: one group, layers 4 and 6, as type_statics' _GRANT_AND_TYPE reads)
+        from app.rules import type_statics
+
+        grant = statics.parse('Creatures your opponents control have "When this creature becomes the target of a spell or ability, sacrifice it."')
+        typed = type_statics.parse("Creatures your opponents control are Illusions in addition to their other types.")
+        if grant is None or typed is None or grant["who"] != typed["who"] or not typed.get("layer4"):
+            return None
+        return {**grant, "layered": True, "layer4": typed["layer4"]}
     if text in _FLAGS:
         return {"kind": "static", "static": _FLAGS[text], "effects": []}
     if text == "Recover—Pay half your life, rounded up.":
@@ -429,8 +482,16 @@ def _single(ability: Any, ch: Any, text: str) -> dict[str, Any] | None:
 # * "Planeswalkers' loyalty abilities you activate cost an additional [+1] to activate." (Carth the Lion): 606.4, 118.8 — one total loyalty cost
 #   ([-3] removes two counters at once; [0] becomes [+1]), +1 for each one you control (rulings 2021-06-18) — casting.ability_problem / pay.
 FIRST_TURNS, NO_FACE_UP, ALL_WITHER, MORE_SURVEIL, FORETELL = "first_turns100d", "no_face_up100d", "all_wither100d", "more_surveil100d", "foretell100d"
-LOYALTY_PLUS = "loyalty_plus100d"
-_FLAGS = {"Planeswalkers' loyalty abilities you activate cost an additional [+1] to activate.": LOYALTY_PLUS,
+# * "Planeswalkers you control aren't put into their owners' graveyards for having 0 loyalty." (Sanctum Lurker): the 704.5i exception (ruling
+#   2026-08-21) — sba.py.
+# * "You can't spend mana to cast this spell." (Hogaak): 601.2h, the total cost is paid by convoke and delve only — casting.pay_spell.
+# * "Instant and sorcery spells you control have rebound." (Cast Through Time): 702.88a, read as the spell finishes resolving (on the battlefield
+#   then, ruling 2010-06-15) — engine's rebound check; cast from your hand only, copies never (rulings 2010-06-15).
+LOYALTY_PLUS, ZERO_LOYALTY, NO_MANA, REBOUND = "loyalty_plus100d", "zero_loyalty100d", "no_mana100d", "rebound100d"
+_FLAGS = {"Instant and sorcery spells you control have rebound.": REBOUND,
+"Planeswalkers you control aren't put into their owners' graveyards for having 0 loyalty.": ZERO_LOYALTY,
+          "You can't spend mana to cast this spell.": NO_MANA,
+"Planeswalkers' loyalty abilities you activate cost an additional [+1] to activate.": LOYALTY_PLUS,
 "You may look at an additional two cards each time you surveil.": MORE_SURVEIL,
           "Foretelling cards from your hand costs {1} less and can be done on any player's turn.": FORETELL,
           "You can't cast ~ during your first, second, or third turns of the game.": FIRST_TURNS,
@@ -480,3 +541,9 @@ def parse(body: str) -> Any:
 
     creature = selectors.parse("creature")
     return None if creature is None else ([{"do": "switch_pt", "who": "target:0"}], [{"what": creature.key(), "min": 0, "max": 2}], False)
+
+
+def no_mana(ch: Any) -> bool:
+    from app.rules import scripts
+
+    return any(d.get("static") == NO_MANA for d in scripts.definitions(ch).values())
