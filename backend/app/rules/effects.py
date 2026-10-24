@@ -4876,6 +4876,8 @@ def resume_become_pick(plan: Plan, d: Any, chosen: list[str]) -> None:
         raise ValueError("not an offered choice")
     plan.note(f"{plan.name(d.player)} chooses {chosen[0]} ({e['pick']})", actor=d.player)
     more = {"creature_types": [chosen[0]]} if e["pick"] == "creature type" else {"colors": [_COLOR_LETTER[chosen[0]]]}
+    if e.get("pick_added") and e["pick"] == "creature type":  # -- static permanents (wave 100D) -- "… in addition to its other types" (205.1b)
+        more = {"add_creature_types": [chosen[0]]}
     if become(plan, ctx, {**e, "pick": None, **more}):
         continue_effects(plan, ctx)
 

@@ -272,7 +272,12 @@ def host_problem(plan: Plan, source: CardInstance, host: str, controller: str | 
             return "an Equipment that's also a creature can't equip"
         from app.rules import equipment_animation
 
-        return None if hch.is_creature or equipment_animation.makes_host_creature(plan, source, card) else "Equipment can only equip a creature"
+        if not (hch.is_creature or equipment_animation.makes_host_creature(plan, source, card)):
+            return "Equipment can only equip a creature"
+        # -- static permanents (wave 100D) -- "can be attached only to …", "can't be equipped" (701.3b, 704.5n)
+        from app.rules import static_perm100d
+
+        return static_perm100d.equip_problem(plan, source, card)
     if sch.is_creature:
         return "a Fortification that's also a creature can't fortify"  # 301.6
     return None if hch.is_land else "a Fortification can only fortify a land"
