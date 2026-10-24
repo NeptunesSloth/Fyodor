@@ -63,6 +63,7 @@ def _reveal(plan: Plan, ctx: Context, opponent: str) -> bool:
     winners = [p for p in mv if all(mv[p] > v for q, v in mv.items() if q != p)]
     ctx["clash"] = ctx["controller"] in winners
     ctx["clashed100a"] = {p: p in winners for p in players}
+    ctx["clash_opponent"] = opponent  # -- static spells (wave 100C) -- "creatures that player controls" (Pollen Lullaby): the opponent clashed with
     plan.note(f"Clash: {plan.name(winners[0])} wins" if winners else "Clash: no player wins", actor=ctx["controller"])
     return _ask(plan, ctx, players, cards, [])
 

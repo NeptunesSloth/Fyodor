@@ -28,7 +28,7 @@ from tests.wave100c_kit import (
 )
 
 PROMOTED = ["Wild Ricochet", "Bonus Round", "Rhystic Scrying", "Become Brutes", "Fateful Handoff", "Joint Assault", "Quag Feast",
-            "Grave Consequences", "Turn the Earth", "Mists of Lórien", "Brood Birthing", "Elephant Resurgence"]
+            "Grave Consequences", "Turn the Earth", "Mists of Lórien", "Brood Birthing", "Elephant Resurgence", "Goldwardens' Gambit"]
 
 
 @pytest.fixture()
@@ -213,4 +213,24 @@ def test_elephant_resurgence_each_token_counts_its_controllers_creature_cards(ca
         move(s, c, "graveyard")
     cast(s, "Elephant Resurgence", G=1, C=1)
     assert {t.controller: pt_of(s, t) for t in tokens(s, "Elephant")} == {"p1": (2, 2), "p2": (1, 1)}
+    check(s)
+
+
+def test_goldwardens_gambit_five_hasty_rebels_and_an_equipment_for_one_of_them(cards):
+    """Alice attaches her Bonesplitter to the first Rebel and declines for the other four."""
+    s = build(cards, ["Goldwardens' Gambit", "Bonesplitter"], [])
+    sword = put_on(s, "Bonesplitter")
+    start_cast(s, "Goldwardens' Gambit", R=2, C=5)
+    picks = [sword.id]
+    for _ in range(30):
+        d = s.state.rules.decision
+        if d is not None:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[picks.pop()] if picks else [])
+        elif s.state.zones.get("stack"):
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            break
+    rebels = tokens(s, "Rebel")
+    assert len(rebels) == 5 and all("haste" in chars(s, r).keywords for r in rebels)
+    assert s.state.cards[sword.id].attached_to in {r.id for r in rebels}
     check(s)

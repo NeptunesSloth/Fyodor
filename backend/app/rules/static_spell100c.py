@@ -567,7 +567,7 @@ def _become_brutes() -> Parsed | None:
     haste = _plain("Up to two target creatures each gain haste until end of turn.")
     if haste is None or not isinstance(haste[1], list):
         return None
-    return [*haste[0], {"do": "roles_each100c", "who": "target:0", "role": "Monster"}], [{**haste[1][0], "min": 1}], False
+    return [*haste[0], {"do": "each100c", "who": "target:0", "then": {"do": "create_role", "role": "Monster"}}], [{**haste[1][0], "min": 1}], False
 
 
 def _fateful_handoff() -> Parsed | None:
@@ -744,7 +744,105 @@ def _sway_of_the_stars() -> Parsed | None:
     return [*perms[0], *rest[0], {**life[0][0], "who": "each_player"}], None, False
 
 
+def _eliminate_the_impossible() -> Parsed | None:
+    clue, pump = _plain("Investigate."), _plain("Creatures your opponents control get -2/-0 until end of turn.")
+    if clue is None or pump is None:
+        return None
+    # "any of them": the creatures your opponents control as this is reached (608.2c); 701.60: the designation ends
+    return [*clue[0], *pump[0], {"do": "unsuspect100c", "who": pump[0][0]["who"]}], None, False
+
+
+def _aura_barbs() -> Parsed | None:
+    own = _plain("Each enchantment deals 2 damage to its controller.")
+    if own is None or len(own[0]) != 1:
+        return None
+    # two damage events in order (608.2c), each enchantment / Aura its own source (120.3)
+    return [*own[0], {**own[0][0], "src": "each:" + _sel("Aura attached to a creature"), "to": "attached100c"}], None, False
+
+
+def _pollen_lullaby() -> Parsed | None:
+    fog, clash = _plain("Prevent all combat damage that would be dealt this turn."), _plain("Clash with an opponent. If you win, draw a card.")
+    if fog is None or clash is None or [e["do"] for e in clash[0]] != ["clash", "only_if", "draw"]:
+        return None
+    # 502.3, 611.2c: the creatures that player controls when their next untap step comes (next_untap's mass record)
+    return [*fog[0], *clash[0][:2], {"do": "clash_freeze100c", "sel": [_sel("creature")]}], None, False
+
+
+def _metamorphose() -> Parsed | None:
+    tuck = _plain("Put target permanent an opponent controls on top of its owner's library.")
+    put = _plain("That player may put an artifact, creature, enchantment, or land card from their hand onto the battlefield.")
+    if tuck is None or put is None or len(tuck[0]) != 1 or len(put[0]) != 1:
+        return None
+    # "That opponent": the permanent's controller as it last existed (608.2h); their own choice from their hand (hidden until put)
+    return [{**tuck[0][0], "as": "meta100c"}, {**put[0][0], "who": "ref:meta100c.controller"}], tuck[1], False
+
+
+def _battlefield_improvisation() -> Parsed | None:
+    pump, attach = _plain("Target creature gets +2/+2 until end of turn."), _plain("Attach any number of Equipment you control to target creature.")
+    if pump is None or attach is None:
+        return None
+    # checked as the second sentence is reached (608.2c); "any number" (701.3a): none is a choice too
+    return [*pump[0], {"do": "only_if", "cond": {"object": "target", "is": _sel("attacking creature")}, "skip": 1}, *attach[0]], pump[1], False
+
+
+def _rite_of_ruin() -> Parsed | None:
+    from itertools import permutations
+
+    kinds = {"artifact": ("an artifact", "two artifacts", "three artifacts"), "creature": ("a creature", "two creatures", "three creatures"),
+             "land": ("a land", "two lands", "three lands")}
+    options = []
+    for order in permutations(kinds):  # 608.2d: the order chosen as it resolves; then one, two, three of each kind in that order (608.2c)
+        steps = [_plain(f"Each player sacrifices {kinds[k][i]} of their choice.") for i, k in enumerate(order)]
+        if any(p is None for p in steps):
+            return None
+        options.append({"label": ", ".join(k + "s" for k in order).capitalize(), "effects": [e for p in steps if p is not None for e in p[0]]})
+    return [{"do": "choose_effect", "who": _sel("permanent"), "options": options}], None, False
+
+
+def _goldwardens_gambit() -> Parsed | None:
+    made = _plain("Create five 2/2 red Rebel creature tokens. They gain haste until end of turn.")
+    if made is None or [e["do"] for e in made[0]] != ["create_token", "grant"]:
+        return None
+    # 701.3a: one optional attachment for each token, in turn (an Equipment may move on to a later one)
+    return [*made[0], {"do": "each100c", "who": made[0][1]["who"], "then": {"do": "attach_choose", "n": 1, "kinds": ["Equipment"], "optional": True}}], None, False
+
+
+def _memory_theft() -> Parsed | None:
+    theft = _plain("Target opponent reveals their hand. You choose a nonland card from it. That player discards that card.")
+    if theft is None:
+        return None
+    # your choice of one or none (608.2d) among the exiled cards with an Adventure that player owns (108.3), to that player's graveyard (400.3)
+    yard = {"do": "return_choice", "who": f"{OWNED}target|{_key(card=True, extras=('has_adventure',), zones=('exile',))}", "to": "graveyard", "n": 1,
+            "upto": True, "random": False, "label": "card that has an Adventure"}
+    return [*theft[0], yard], theft[1], False
+
+
 BUILDERS: dict[str, Callable[[], Parsed | None]] = {
+    "Target opponent reveals their hand. You choose a nonland card from it. That player discards that card. You may put a card that has an Adventure "
+    "that player owns from exile into that player's graveyard.": _memory_theft,
+    "Create five 2/2 red Rebel creature tokens. They gain haste until end of turn. For each of those tokens, you may attach an Equipment you control to it.":
+        _goldwardens_gambit,
+    "Choose an order for artifacts, creatures, and lands. Each player sacrifices one permanent of their choice of the first type, sacrifices two of their "
+    "choice of the second type, then sacrifices three of their choice of the third type.": _rite_of_ruin,
+    "Target creature gets +2/+2 until end of turn. If that creature is attacking, you may attach any number of Equipment you control to it.":
+        _battlefield_improvisation,
+    "Prevent all combat damage that would be dealt this turn. Clash with an opponent. If you win, creatures that player controls don't untap during the "
+    "player's next untap step.": _pollen_lullaby,
+    "Put target permanent an opponent controls on top of its owner's library. That opponent may put an artifact, creature, enchantment, or land card from "
+    "their hand onto the battlefield.": _metamorphose,
+    "Each enchantment deals 2 damage to its controller, then each Aura attached to a creature deals 2 damage to the creature it's attached to.": _aura_barbs,
+    # one damage event (120.3), each creature's own amount counted as it resolves (608.2h)
+    "~ deals 2 damage to each creature for each Aura attached to that creature.": lambda: ([{"do": "aura_damage100c", "n": 2}], None, False),
+    "Investigate. Creatures your opponents control get -2/-0 until end of turn. If any of them are suspected, they're no longer suspected.":
+        _eliminate_the_impossible,
+    "Until end of turn, target non-Brushwagg creature gets +1/+1 for each supertype, card type, and subtype it has.":
+        lambda: ([{"do": "type_pump100c", "who": "target"}], _sel("non-Brushwagg creature"), False),
+    # 305.7, 205.1b: the five basic land types added (each one's mana ability with it, 305.6); the lands you control as it resolves (611.2c)
+    "Lands you control gain all basic land types until end of turn.": lambda: ([{"do": "become", "who": _sel("lands you control"), "types": [],
+                                                                               "duration": "end_of_turn", "retain": True,
+                                                                               "land_types": ["Plains", "Island", "Swamp", "Mountain", "Forest"]}], None, False),
+    # 509.1h: each attacking creature becomes blocked (one already blocked stays so)
+    "Attacking creatures become blocked.": lambda: ([{"do": "become_blocked", "who": _sel("attacking creature")}], None, False),
     "Each player shuffles their hand, graveyard, and all permanents they own into their library, then draws seven cards. Each player's life total "
     "becomes 7.": _sway_of_the_stars,
     "Each player loses a third of their life, then discards a third of the cards in their hand, then sacrifices a third of the creatures they control of "
@@ -1025,14 +1123,14 @@ def if_mv_upto_graveyard(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
     return True
 
 
-def roles_each(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
-    """"For each of those creatures, create a [Role] token attached to it": one Role for each, in order (roles.create_role)."""
+def each(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
+    """"For each of those creatures, [instruction] … it": the instruction ``then`` once for each object, in order, each about its own object."""
     from app.rules import context, effects
 
     at = ctx["next"]
     for i, cid in enumerate(effects._cards(plan, ctx, e["who"])):
-        context.bind_objects(plan, ctx, f"role100c_{at}_{i}", [cid])
-        ctx["effects"][at + i:at + i] = [{"do": "create_role", "role": e["role"], "who": f"ref:role100c_{at}_{i}"}]
+        context.bind_objects(plan, ctx, f"each100c_{at}_{i}", [cid])
+        ctx["effects"][at + i:at + i] = [{**e["then"], "who": f"ref:each100c_{at}_{i}"}]
     return True
 
 
@@ -1097,5 +1195,50 @@ def edict_each(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
     return effects._choose_next(plan, ctx, {**e, "n": 1, "distinct": True}, turns, [], "edict")
 
 
-PRIMITIVES = {"thirds100c": thirds, "edict_each100c": edict_each, "one_more_spell100c": one_more_spell, "power_cap100c": power_cap, "if_coalition100c": if_coalition, "if_mv_upto_graveyard100c": if_mv_upto_graveyard, "roles_each100c": roles_each, "if_more_life100c": if_more_life, "hand_excess100c": hand_excess, "lose_all_counters100c": lose_all_counters, "edict_kinds100c": edict_kinds, "draw_for_revealed100c": draw_for_revealed,
+def type_pump(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
+    """"+1/+1 for each supertype, card type, and subtype it has": counted once as it resolves (608.2h; 205.2-205.4), then the pump."""
+    from app.rules import effects
+
+    for cid in effects._cards(plan, ctx, e["who"])[:1]:
+        ch = plan.ch(plan.state.cards[cid])
+        n = len(ch.supertypes) + len(ch.types) + len(ch.subtypes)
+        ctx["effects"][ctx["next"]:ctx["next"]] = [{"do": "pump", "who": e["who"], "p": n, "t": n}]
+    return True
+
+
+def unsuspect(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
+    """701.60: the named creatures stop being suspected (the "Suspected" marker goes with it)."""
+    from app.rules import effects
+
+    for cid in effects._cards(plan, ctx, e["who"]):
+        card = plan.state.cards[cid]
+        if (oid := plan.oid(card)) in plan.rules.suspected:
+            plan.rules.suspected.remove(oid)
+            for marker in [m for m in card.effects if m.name == "Suspected"]:
+                plan.do({"type": "remove_effect", "card_ids": [cid], "effect_id": marker.id}, actor=ctx["controller"])
+    return True
+
+
+def aura_damage(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
+    """"~ deals N damage to each creature for each Aura attached to that creature": one damage instruction per creature, joined (with_next)."""
+    from app.rules import context, selectors
+
+    you, src = ctx["controller"], ctx.get("source_card")
+    auras = [plan.state.cards[c].attached_to for c in selectors.candidates(plan, selectors.from_key(_sel("Aura")), you, src)]
+    hits = [(c, auras.count(c)) for c in selectors.candidates(plan, selectors.from_key(_sel("creature")), you, src) if c in auras]
+    at = ctx["next"]
+    for i, (cid, k) in enumerate(hits):
+        context.bind_objects(plan, ctx, f"baki100c_{at}_{i}", [cid])
+        ctx["effects"][at + i:at + i] = [{"do": "damage", "who": f"ref:baki100c_{at}_{i}", "n": int(e["n"]) * k, "with_next": i < len(hits) - 1}]
+    return True
+
+
+def clash_freeze(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
+    """"creatures that player controls don't untap during the player's next untap step": the opponent clashed with (clash.py)."""
+    if (pid := ctx.get("clash_opponent")) in plan.live():
+        ctx["effects"][ctx["next"]:ctx["next"]] = [{"do": "stay_tapped", "sel": e["sel"], "who": f"player:{pid}"}]
+    return True
+
+
+PRIMITIVES = {"clash_freeze100c": clash_freeze, "aura_damage100c": aura_damage, "unsuspect100c": unsuspect, "type_pump100c": type_pump, "thirds100c": thirds, "edict_each100c": edict_each, "one_more_spell100c": one_more_spell, "power_cap100c": power_cap, "if_coalition100c": if_coalition, "if_mv_upto_graveyard100c": if_mv_upto_graveyard, "each100c": each, "if_more_life100c": if_more_life, "hand_excess100c": hand_excess, "lose_all_counters100c": lose_all_counters, "edict_kinds100c": edict_kinds, "draw_for_revealed100c": draw_for_revealed,
               "draw_for_controllers100c": draw_for_controllers}

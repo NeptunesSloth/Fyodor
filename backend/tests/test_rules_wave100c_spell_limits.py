@@ -33,7 +33,9 @@ from tests.wave100c_kit import (
 
 PROMOTED = ["Verdant Command", "Everything Comes to Dust", "Irencrag Feat", "Waterbending Lesson", "Mercurial Transformation", "Burning of Xinye",
             "Split the Party", "Dreams of Steel and Oil", "Treacherous Urge", "Pox",
-            "Omen of Fire", "Sway of the Stars"]
+            "Omen of Fire", "Sway of the Stars", "Energybending", "Embiggen",
+            "Eliminate the Impossible", "Aura Barbs", "Baki's Curse", "Pollen Lullaby",
+            "Metamorphose", "Rite of Ruin", "Memory Theft"]
 
 
 @pytest.fixture()
@@ -210,4 +212,109 @@ def test_sway_of_the_stars_resets_both_players(cards):
     assert not s.state.zones.get("p1:battlefield") and not s.state.zones.get("p2:battlefield")
     assert zone(s, bear) in ("p1:library", "p1:hand") and zone(s, opt) in ("p1:library", "p1:hand") and zone(s, ring) in ("p2:library", "p2:hand")
     assert len(s.state.zones["p1:hand"]) == 7 and len(s.state.zones["p2:hand"]) == 7 and life(s) == 7 and life(s, "p2") == 7
+    check(s)
+
+
+def test_energybending_gives_your_lands_every_basic_land_type_this_turn(cards):
+    """Alice's Forest is also a Plains, Island, Swamp and Mountain (with their mana abilities, 305.6) this turn; Bob's Island is not; then a draw."""
+    s = build(cards, ["Energybending"], [])
+    forest, island = move(s, named(s, "Forest")[0], "battlefield"), move(s, named(s, "Island", "p2")[0], "battlefield")
+    library = len(s.state.zones["p1:library"])
+    cast(s, "Energybending", G=1, C=1)
+    basics = {"Plains", "Island", "Swamp", "Mountain", "Forest"}
+    assert basics <= chars(s, forest).subtypes and chars(s, island).subtypes == {"Island"}
+    assert len([a for a in chars(s, forest).abilities if a.kind == "mana"]) == 5 and len(s.state.zones["p1:library"]) == library - 2
+    act(s, "p1", type="set_stops", own=[], others=["main1"], smart_pass=False)
+    to_phase(s, "main1", turn=2)
+    assert chars(s, forest).subtypes == {"Forest"}
+    check(s)
+
+
+def test_embiggen_counts_supertypes_card_types_and_subtypes(cards):
+    """Sliver Queen (Legendary Creature — Sliver: three) becomes 10/10 this turn."""
+    s = build(cards, ["Embiggen", "Sliver Queen"], [])
+    queen = put_on(s, "Sliver Queen")
+    cast(s, "Embiggen", targets=[queen.id], G=1)
+    assert pt_of(s, queen) == (10, 10)
+    check(s)
+
+
+def test_eliminate_the_impossible_investigates_shrinks_and_unsuspects_opponents_creatures(cards):
+    """Bob's Grizzly Bears is suspected first (Reasonable Doubt on Alice's own Opt): Eliminate the Impossible gives Alice a Clue, the bear
+    -2/-0 and it is no longer suspected (it may block again, 701.60c)."""
+    s = build(cards, ["Eliminate the Impossible", "Reasonable Doubt", "Opt"], ["Grizzly Bears"])
+    bear = put_on(s, "Grizzly Bears", "p2")
+    act(s, "p1", type="set_prefs", hold_priority=True)
+    opt = start_cast(s, "Opt", U=1)
+    cast(s, "Reasonable Doubt", targets=[opt.id, bear.id], target_counts=[1, 1], prefer=["decline"], U=1, C=1)
+    assert "menace" in chars(s, bear).keywords
+    cast(s, "Eliminate the Impossible", U=1, C=1)
+    assert pt_of(s, bear) == (0, 2) and "menace" not in chars(s, bear).keywords
+    assert [c.controller for c in s.state.cards.values() if c.name == "Clue" and c.zone.endswith(":battlefield")] == ["p1"]
+    check(s)
+
+
+def test_aura_barbs_enchantments_hit_their_controllers_then_auras_their_creatures(cards):
+    """Holy Strength (on Alice's Grizzly Bears, now 3/4) and Bob's Propaganda each deal 2 to their controller; then Holy Strength deals 2 to the bear."""
+    s = build(cards, ["Aura Barbs", "Holy Strength", "Grizzly Bears"], ["Propaganda"])
+    bear, strength = put_on(s, "Grizzly Bears"), put_on(s, "Holy Strength")
+    act(s, "p1", type="attach", card_ids=[strength.id], to=bear.id)
+    put_on(s, "Propaganda", "p2")
+    cast(s, "Aura Barbs", R=1, C=2)
+    assert life(s) == 38 and life(s, "p2") == 38 and s.state.cards[bear.id].damage == 2
+    check(s)
+
+
+def test_bakis_curse_two_damage_per_aura_on_each_creature(cards):
+    """Grizzly Bears with Holy Strength and Pacifism (3/4): 4 damage, it dies; Llanowar Elves, no Aura: none."""
+    s = build(cards, ["Baki's Curse", "Holy Strength", "Pacifism", "Grizzly Bears", "Llanowar Elves"], [])
+    bear, elves = put_on(s, "Grizzly Bears"), put_on(s, "Llanowar Elves")
+    for name in ("Holy Strength", "Pacifism"):
+        act(s, "p1", type="attach", card_ids=[put_on(s, name).id], to=bear.id)
+    cast(s, "Baki's Curse", U=2, C=2)
+    assert zone(s, bear) == "p1:graveyard" and zone(s, elves) == "p1:battlefield" and s.state.cards[elves.id].damage == 0
+    check(s)
+
+
+def test_pollen_lullaby_a_won_clash_keeps_that_players_creatures_tapped(cards):
+    """Alice's top card is Sliver Queen (5), Bob's an Island (0): Alice wins the clash; Bob's tapped Grizzly Bears stays tapped in his next untap step."""
+    s = build(cards, ["Pollen Lullaby", "Sliver Queen"], ["Grizzly Bears"])
+    bear = put_on(s, "Grizzly Bears", "p2")
+    act(s, "p2", type="tap", card_ids=[bear.id], tapped=True)
+    move(s, one(s, "Sliver Queen"), "library", position="top")
+    move(s, one(s, "Pollen Lullaby"), "hand")
+    cast(s, "Pollen Lullaby", prefer=["top"], W=1, C=1)
+    act(s, "p1", type="set_stops", own=[], others=["main1"], smart_pass=False)
+    to_phase(s, "main1", turn=2)
+    assert s.state.cards[bear.id].tapped
+    check(s)
+
+
+def test_metamorphose_tucks_the_permanent_and_its_controller_may_put_a_card_in(cards):
+    s = build(cards, ["Metamorphose"], ["Sol Ring", "Grizzly Bears"])
+    ring, bear = put_on(s, "Sol Ring", "p2"), move(s, one(s, "Grizzly Bears", "p2"), "hand")
+    cast(s, "Metamorphose", targets=[ring.id], prefer=[bear.id], U=1, C=1)
+    assert s.state.zones["p2:library"][0] == ring.id and zone(s, bear) == "p2:battlefield"
+    check(s)
+
+
+def test_rite_of_ruin_one_two_three_in_the_chosen_order(cards):
+    """Order lands, creatures, artifacts: Bob (three Islands, two creatures, two artifacts) sacrifices one land, both creatures and both artifacts."""
+    s = build(cards, ["Rite of Ruin"], ["Grizzly Bears", "Llanowar Elves", "Sol Ring", "Arcane Signet"])
+    islands = [move(s, c, "battlefield") for c in named(s, "Island", "p2")[:3]]
+    rest = [put_on(s, n, "p2") for n in ("Grizzly Bears", "Llanowar Elves", "Sol Ring", "Arcane Signet")]
+    cast(s, "Rite of Ruin", prefer=["Lands, creatures, artifacts"], R=2, C=5)
+    assert [zone(s, c) for c in islands].count("p2:graveyard") == 1 and all(zone(s, c) == "p2:graveyard" for c in rest)
+    check(s)
+
+
+def test_memory_theft_discards_your_pick_and_may_bin_their_exiled_adventure_card(cards):
+    """Bob reveals Opt and Grizzly Bears: Alice picks the bear; then she puts Bob's exiled Bonecrusher Giant into his graveyard (her own stays)."""
+    s = build(cards, ["Memory Theft", "Bonecrusher Giant // Stomp"], ["Opt", "Grizzly Bears", "Bonecrusher Giant // Stomp"])
+    hand_of(s, "p2", ["Opt", "Grizzly Bears"])
+    theirs, mine = move(s, one(s, "Bonecrusher Giant // Stomp", "p2"), "exile"), move(s, one(s, "Bonecrusher Giant // Stomp"), "exile")
+    bear, opt = one(s, "Grizzly Bears", "p2"), one(s, "Opt", "p2")
+    cast(s, "Memory Theft", targets=["p2"], prefer=[bear.id, theirs.id], B=1, C=2)
+    assert zone(s, bear) == "p2:graveyard" and zone(s, opt) == "p2:hand"
+    assert zone(s, theirs) == "p2:graveyard" and zone(s, mine) == "p1:exile"
     check(s)
