@@ -2673,6 +2673,10 @@ def turn_face_up(plan: Plan, a: A.TurnFaceUp) -> None:
     card = plan.state.cards.get(a.card_id)
     if card is None or card.controller != plan.actor or not card.zone.endswith(":battlefield") or not card.face_down:
         raise ActionError("Turn face up a face-down permanent you control")
+    from app.rules import static_perm100d  # -- static permanents (wave 100D) -- Karlov Watchdog
+
+    if (barred := static_perm100d.face_up_barred(plan, card)) is not None:
+        raise ActionError(barred)
     printed = chars.of(card.model_copy(update={"face_down": False}), plan.info)
     ways = face_up_ways(card, printed, state=plan.state, info=plan.info)
     method = a.method or next((w for w in ("morph", "disguise", "mana_cost") if w in ways), None)
@@ -4402,15 +4406,18 @@ def foretell(plan: Plan, card: CardInstance, ch: Characteristics, a: A.ActivateA
     """-- hidden exile (wave 18A) -- 702.143a/b foretell: a special action (116.2h), any time you have priority during your turn:
     pay {2} and exile this card from your hand face down. Its owner alone may look at it (the foretell zone); it may be cast
     after this turn has ended for its foretell cost (alt_costs.offers, casting.cast_grant)."""
-    if plan.state.turn.active_player != plan.actor:
+    from app.rules import static_perm100d  # -- static permanents (wave 100D) -- Cosmos Charger
+
+    chargers = static_perm100d.yours(plan, static_perm100d.FORETELL, plan.actor)
+    if plan.state.turn.active_player != plan.actor and not chargers:
         raise ActionError("You can foretell a card only during your turn (702.143a)")
-    cost = M.parse_cost("{2}")
+    cost = M.parse_cost(f"{{{max(0, 2 - chargers)}}}")
     if payment_step(plan, a, cost, f"foretelling {ch.name}", purpose=Purpose(special="foretell")):  # (review 19: 116.2h, not a cast)
         return
     from app.rules import special_payment_tails
 
     selected = next((ability for ability in ch.abilities if ability.index == a.ability), None)
-    special_payment_tails.pay(plan, "foretell", card, ch, cost, "paid {2} to foretell a card",
+    special_payment_tails.pay(plan, "foretell", card, ch, cost, f"paid {cost.text()} to foretell a card",
                               sources=a.sources, purpose=Purpose(special="foretell"),
                               granted_mana_cost=selected.granted_mana_cost if selected is not None else None)
 
@@ -5820,7 +5827,10 @@ def ability_problem(state: GameState, player: str, card: CardInstance, ch: Chara
         if r.loyalty_used.get(oid) == state.turn.number and (r.loyalty_second.get(oid) == state.turn.number
                                                              or not cast_limits.loyalty_rule(state, card, rule_info, "twice")):  # (Oath of Teferi)
             return f"{ch.name} has already used a loyalty ability this turn"
-        if cost.loyalty is not None and cost.loyalty < 0 and card.counters.get("loyalty", 0) < -cost.loyalty:
+        from app.rules import static_perm100d  # -- static permanents (wave 100D) -- Carth the Lion
+
+        loyal = None if cost.loyalty is None else cost.loyalty + static_perm100d.loyalty_plus(state, rule_info, player)
+        if loyal is not None and loyal < 0 and card.counters.get("loyalty", 0) < -loyal:
             return f"{ch.name} doesn't have enough loyalty"
     # -- activation restrictions (602.5; app/rules/restrictions.py): "Activate only as a sorcery",
     # "… only once each turn" (per object, 602.5b / 400.7), "… only during your turn", "… only if …"
@@ -6006,7 +6016,10 @@ def activate_to_stack(plan: Plan, card: CardInstance, ch: Characteristics, abili
         raise ActionError("Choose a value for X")
     if (every := next((c for c in cost.components if c.every), None)) is not None:
         a.x_value = cost_payment.counters_on(card, every.counter)  # -- activated sweep (wave 26C) -- "Remove all oil counters": all there are now (602.2b)
-    if cost.loyalty_x and card.counters.get("loyalty", 0) < (a.x_value or 0):
+    from app.rules import static_perm100d  # -- static permanents (wave 100D) -- Carth the Lion: [+1] more
+
+    plus = static_perm100d.loyalty_plus(plan.state, plan.info, plan.actor) if cost.loyalty is not None or cost.loyalty_x else 0
+    if cost.loyalty_x and card.counters.get("loyalty", 0) < (a.x_value or 0) - plus:
         raise ActionError(f"{ch.name} doesn't have {a.x_value} loyalty")  # 606.6
     if definition is None:
         definition = None if plan.manual(card) else scripts.definitions(ch).get(ability.index)
@@ -6160,8 +6173,10 @@ def _activation_announced(plan: Plan, data: _PostActivation, paid: M.Payment | N
     # Pay the costs (602.2): tap first so the source can't also pay for its own mana cost.
     if cost.tap:
         plan.do({"type": "tap", "card_ids": [card.id], "tapped": True})
-    if cost.loyalty or (cost.loyalty_x and a.x_value):
-        delta = (cost.loyalty or 0) if not cost.loyalty_x else -(a.x_value or 0)
+    from app.rules import static_perm100d  # -- static permanents (wave 100D) -- Carth the Lion
+
+    plus = static_perm100d.loyalty_plus(plan.state, plan.info, plan.actor) if cost.loyalty is not None or cost.loyalty_x else 0
+    if (delta := ((cost.loyalty or 0) if not cost.loyalty_x else -(a.x_value or 0)) + plus):
         if delta > 0:  # -- loyalty costs (review 31) -- 606.4: put as a cost through the counter choke point like any cost's counters (122.6):
             from app.rules import replace
 

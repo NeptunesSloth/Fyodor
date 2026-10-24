@@ -69,6 +69,13 @@ def loyalty(ability: Any, ch: Any, text: str) -> dict[str, Any] | None:
         if base is None or theirs is None or [e.get("do") for e in base["effects"]] != ["damage"]:
             return None
         return {**base, "effects": [{**base["effects"][0], "who": f"union:{base['effects'][0]['who']}+{theirs.key()}"}]}
+    if body == 'Create a white Avatar creature token. It has "This token\'s power and toughness are each equal to your life total."':
+        # (Ajani Goldmane: the token's own characteristic-defining ability, 604.3; "this token" is "this creature", the same object)
+        from app.rules import scripts
+
+        base = _native(ability, ch, f"{cost}: You gain 2 life.")  # (the quoted text read as written: no "~" for Ajani in it)
+        made = scripts.parse_effects('Create a white Avatar creature token with "This creature\'s power and toughness are each equal to your life total."')
+        return None if base is None or made is None or made[1] is not None else {**base, "effects": made[0]}
     tail = "That player or that planeswalker's controller discards seven cards, then sacrifices seven permanents of their choice."
     if body == f"~ deals 7 damage to target player or planeswalker. {tail}":
         return _native(ability, ch, f"{cost}: ~ deals 7 damage to target player or planeswalker. That player or that planeswalker's controller "
@@ -107,6 +114,8 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
 
         base, wolves = _native(ability, ch, "Sacrifice ~: Regenerate each creature you control."), selectors.parse("Werewolf creatures you control")
         return {**base, "effects": [{"do": "regenerate", "who": wolves.key()}]} if base is not None and wolves is not None else None
+    if (single := _single(ability, ch, text)) is not None:
+        return single
     if ability.kind != "static":
         return None
     if (solve := re.fullmatch(r"To solve — (?P<c>.+?)\.(?: \(If unsolved, solve at the beginning of your end step\.\))?", text)) is not None \
@@ -218,7 +227,8 @@ def amount(plan: Plan, ctx: dict[str, Any], v: dict[str, Any]) -> int:
 # Overlaid Terrain 2004-10-04 "right before this enchantment enters"; Wood Elemental 2004-10-04 "no matter how this card enters").
 # The permanent being put onto the battlefield is no card of that player's hand or lands any more (it is the object entering).
 AS_ENTERS = "as_enters100d"
-_AS_ENTERS = {"As ~ enters, discard your hand.": "discard_hand", "As ~ enters, sacrifice all lands you control.": "sacrifice_lands"}
+_AS_ENTERS = {"As ~ enters, discard your hand.": "discard_hand", "As ~ enters, sacrifice all lands you control.": "sacrifice_lands",
+              "As ~ enters, mill three cards for each time it was kicked.": "mill_per_kick"}  # (Urborg Lhurgoyf: 702.33d, rulings 2022-09-09)
 
 
 def plan_entry(plan: Plan, card: CardInstance, controller: str, out: dict[str, Any]) -> None:
@@ -238,7 +248,7 @@ def plan_entry(plan: Plan, card: CardInstance, controller: str, out: dict[str, A
 def as_enters(plan: Plan, card_id: str, ep: dict[str, Any], controller: str) -> None:
     """Carry out what ``plan_entry`` found, in printed order (608.2c), before the permanent is moved."""
     from app.game.state import zone_key
-    from app.rules import effects
+    from app.rules import effects, values
 
     for what in ep.get(AS_ENTERS) or ():
         name = plan.state.cards[card_id].name if card_id in plan.state.cards else "It"
@@ -252,6 +262,9 @@ def as_enters(plan: Plan, card_id: str, ep: dict[str, Any], controller: str) -> 
                      if c != card_id and plan.in_game(plan.state.cards[c]) and plan.ch(plan.state.cards[c]).is_land]
             plan.note(f"As {name} enters, {plan.name(controller)} sacrifices all lands they control", [card_id])
             effects._sacrifice_cards(plan, lands, controller, ctx)
+        elif what == "mill_per_kick" and (n := 3 * values.kicked_count(plan, ctx)):  # 701.17a (not cast: never kicked)
+            plan.note(f"As {name} enters, {plan.name(controller)} mills {n} cards", [card_id])
+            effects.PRIMITIVES["mill"](plan, ctx, {"do": "mill", "who": "you", "n": n})
 
 
 def _statics(plan: Plan, card: CardInstance, kind: str) -> list[dict[str, Any]]:
@@ -310,6 +323,13 @@ def _rule_static(text: str, ch: Any) -> dict[str, Any] | None:
     m = re.fullmatch(r"If (?:this card|~) is in a graveyard, effects from spells named (?P<n>[^.]+) count it as a card named (?P=n)\.", text)
     if m is not None:
         return {"kind": "static", "static": COUNTS_AS, "name": m["n"], "effects": []}
+    if text == "Other creatures you control that are enchanted by Auras you control have base power and toughness 4/4 and have flying.":
+        # (Archon of the Wild Rose: enchanted by at least one Aura you control; 613.4b in timestamp order, rulings 2023-09-01)
+        return statics.parse("Other creatures you control that are enchanted by an Aura you control have base power and toughness 4/4 and have flying.")
+    if text == "You may activate the loyalty abilities of ~ twice each turn rather than only once.":  # (Urza, Planeswalker: 606.3, its own)
+        return {"kind": "static", "static": "loyalty_rule", "who": "self", "twice": True, "effects": []}
+    if text in _FLAGS:
+        return {"kind": "static", "static": _FLAGS[text], "effects": []}
     if text == "Recover—Pay half your life, rounded up.":
         return _recover_half()
     m = re.fullmatch(r"You can't choose an untapped (?P<n>permanent|creature) as this spell's target as you cast it\.", text)
@@ -356,3 +376,107 @@ def _recover_half() -> dict[str, Any] | None:
     if d is None or d["effects"][0].get("cost") != "{2}":
         return None
     return {**d, "effects": [{**d["effects"][0], "cost": "Pay half your life, rounded up"}, *d["effects"][1:]]}
+
+
+def _single(ability: Any, ch: Any, text: str) -> dict[str, Any] | None:
+    """Single triggered and activated wordings read onto a native neighbour:
+    * Dragon Turtle: "tap it and up to one target creature …. They don't untap during their controllers' next untap steps." — each stays tapped
+      through its own controller's next untap step (502.3); an illegal target: the whole ability does nothing (608.2b, rulings 2021-07-23).
+    * Blue Dragon: a third target group, "other" than both earlier ones (115.3; ruling 2021-07-23), with the same "until your next turn".
+    * Legate Lanius: "a tenth of the creatures they control …, rounded up" — each opponent's own count (ruling 2024-03-08).
+    * Elsewhere Flask: "Choose a basic land type. Each land you control becomes that type until end of turn." — chosen as it resolves, the lands
+      you control then (611.2c) have only that land type (305.7; rulings 2008-05-01)."""
+    from app.rules import selectors
+
+    if text == "When ~ enters, tap it and up to one target creature an opponent controls. They don't untap during their controllers' next untap steps.":
+        base = _native(ability, ch, "When ~ enters, tap ~ and up to one target creature an opponent controls.")
+        if base is None or [e.get("do") for e in base["effects"]] != ["tap", "tap"]:
+            return None
+        return {**base, "effects": [*base["effects"], *({"do": "stay_tapped", "who": w, "during": "controller"} for w in ("self", "target:0"))]}
+    if text == ("When ~ enters, until your next turn, target creature an opponent controls gets -3/-0, up to one other target creature gets -2/-0, "
+                "and up to one other target creature gets -1/-0."):
+        base = _native(ability, ch, "When ~ enters, until your next turn, target creature an opponent controls gets -3/-0 and up to one other target creature gets -2/-0.")
+        groups = (base or {}).get("targets")
+        if base is None or not isinstance(groups, list) or len(groups) != 2 or base["effects"][0] != {"do": "until", "duration": "next_turn", "n": 2}:
+            return None
+        return {**base, "targets": [*groups, {**groups[1], "distinct_from": [0, 1]}],
+                "effects": [{**base["effects"][0], "n": 3}, *base["effects"][1:], {"do": "pump", "who": "target:2", "p": -1, "t": 0}]}
+    if text == "When ~ enters, each opponent sacrifices a tenth of the creatures they control of their choice, rounded up.":
+        base = _native(ability, ch, "When ~ enters, each opponent sacrifices half the creatures they control of their choice, rounded up.")
+        if base is None or [e.get("n") for e in base["effects"]] != [{"half_own": "up"}]:
+            return None
+        return {**base, "effects": [{**base["effects"][0], "n": {"half_own": "up", "div": 10}}]}
+    if text == "Sacrifice ~: Choose a basic land type. Each land you control becomes that type until end of turn.":
+        base = _native(ability, ch, "Sacrifice ~: Target land becomes the basic land type of your choice until end of turn.")
+        lands = selectors.parse("lands you control")
+        if base is None or lands is None or [e.get("do") for e in base["effects"]] != ["become"]:
+            return None
+        return {**base, "target": None, "effects": [{**base["effects"][0], "who": lands.key()}]}
+    return None
+
+
+# -- flags read where the rule acts ---------------------------------------------------------------------------------------------
+# * "You can't cast ~ during your first, second, or third turns of the game." (Serra Avenger): 601.3, on the caster's own turns only, counted
+#   as the turns they have taken (extra turns too: ruling 2012-07-01; another player's turn: ruling 2006-09-25) — cast_limits.cast_problem.
+# * "Permanents your opponents control can't be turned face up during your turn." (Karlov Watchdog): 702.37e, 701.40b, 701.58b — neither the
+#   special action (ruling 2024-02-02) nor an effect turns one up (casting.turn_face_up, facedown._turn_up).
+# * "All damage is dealt as though its source had wither." (Everlasting Torment): 702.80a, 120.3d — damage to a creature is -1/-1 counters
+#   (replace.py, wherever the source is: ruling 2008-05-01).
+# * "You may look at an additional two cards each time you surveil." (Enhanced Surveillance): 701.25a, part of what you surveil, two more for
+#   each one you control (rulings 2018-10-05) — effects._look.
+# * "Foretelling cards from your hand costs {1} less and can be done on any player's turn." (Cosmos Charger): 702.143a, the special action's {2}
+#   less {1} for each one you control, any time you have priority (rulings 2021-02-05) — casting.foretell.
+# * "Planeswalkers' loyalty abilities you activate cost an additional [+1] to activate." (Carth the Lion): 606.4, 118.8 — one total loyalty cost
+#   ([-3] removes two counters at once; [0] becomes [+1]), +1 for each one you control (rulings 2021-06-18) — casting.ability_problem / pay.
+FIRST_TURNS, NO_FACE_UP, ALL_WITHER, MORE_SURVEIL, FORETELL = "first_turns100d", "no_face_up100d", "all_wither100d", "more_surveil100d", "foretell100d"
+LOYALTY_PLUS = "loyalty_plus100d"
+_FLAGS = {"Planeswalkers' loyalty abilities you activate cost an additional [+1] to activate.": LOYALTY_PLUS,
+"You may look at an additional two cards each time you surveil.": MORE_SURVEIL,
+          "Foretelling cards from your hand costs {1} less and can be done on any player's turn.": FORETELL,
+          "You can't cast ~ during your first, second, or third turns of the game.": FIRST_TURNS,
+          "Permanents your opponents control can't be turned face up during your turn.": NO_FACE_UP,
+          "All damage is dealt as though its source had wither.": ALL_WITHER}
+
+
+def _sources(plan: Plan, kind: str) -> list[CardInstance]:
+    return [c for c in plan.state.cards.values() if c.zone.endswith(":battlefield") and not c.face_down and plan.in_game(c) and _statics(plan, c, kind)]
+
+
+def yours(plan: Plan, kind: str, player: str) -> int:
+    return sum(1 for c in _sources(plan, kind) if c.controller == player)
+
+
+def loyalty_plus(state: Any, info: Any, player: str) -> int:
+    from app.rules.plan import Plan
+
+    return yours(Plan.view(state, player, info), LOYALTY_PLUS, player) if info is not None else 0
+
+
+def any_static(plan: Plan, kind: str) -> bool:
+    return bool(_sources(plan, kind))
+
+
+def face_up_barred(plan: Plan, card: CardInstance) -> str | None:
+    you = plan.state.turn.active_player
+    src = next((c for c in _sources(plan, NO_FACE_UP) if c.controller == you != card.controller), None)
+    return None if src is None else f"{src.name or 'A permanent'}: permanents its controller's opponents control can't be turned face up during their turn"
+
+
+def cast_problem(state: Any, player: str, ch: Any) -> str | None:
+    from app.rules import scripts
+
+    if state.turn.active_player != player or not any(d.get("static") == FIRST_TURNS for d in scripts.definitions(ch).values()):
+        return None
+    tt = state.rules.turns_taken
+    return None if (tt.get(player, 0) if tt else 1) > 3 else f"{ch.name or 'It'} can't be cast during your first, second, or third turns of the game"
+
+
+def parse(body: str) -> Any:
+    """scripts.parse_effects' part: "Switch the power and toughness of each of up to two target creatures until end of turn." (Invert: each
+    target's own power and toughness switched, 613.4d, ruling 2018-10-05)."""
+    if body.strip() != "Switch the power and toughness of each of up to two target creatures until end of turn.":
+        return None
+    from app.rules import selectors
+
+    creature = selectors.parse("creature")
+    return None if creature is None else ([{"do": "switch_pt", "who": "target:0"}], [{"what": creature.key(), "min": 0, "max": 2}], False)

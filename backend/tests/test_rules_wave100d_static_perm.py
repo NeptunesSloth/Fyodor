@@ -93,7 +93,43 @@ EXTRA += [
               "oracle_text": "As an additional cost to cast this spell, sacrifice a creature.\nDraw two cards."},
          ]),
 ]
-SINGLES = ["Pardic Firecat", "Diligent Farmhand", "Garza's Assassin", "Robe of the Archmagi", "My Precious // Allure of Power"]
+EXTRA += [
+    pw('Ajani Goldmane', '{2}{W}{W}', 4, 'Legendary Planeswalker — Ajani', '+1: You gain 2 life.\n−1: Put a +1/+1 counter on each creature you control. Those creatures gain vigilance until end of turn.\n−6: Create a white Avatar creature token. It has "This token\'s power and toughness are each equal to your life total."', 'W', '4'),
+    real('Elsewhere Flask', '{2}', 2, 'Artifact', 'When this artifact enters, draw a card.\nSacrifice this artifact: Choose a basic land type. Each land you control becomes that type until end of turn.', None, ''),
+    real('Dragon Turtle', '{1}{U}{U}', 3, 'Creature — Dragon Turtle', "Flash\nDrag Below — When this creature enters, tap it and up to one target creature an opponent controls. They don't untap during their controllers' next untap steps.", ('3', '5'), 'U'),
+    real('Blue Dragon', '{5}{U}{U}', 7, 'Creature — Dragon', 'Flying\nLightning Breath — When this creature enters, until your next turn, target creature an opponent controls gets -3/-0, up to one other target creature gets -2/-0, and up to one other target creature gets -1/-0.', ('5', '5'), 'U'),
+    real("Legate Lanius, Caesar's Ace", '{2}{B}{R}', 4, 'Legendary Creature — Human Soldier', 'Decimate — When Legate Lanius enters, each opponent sacrifices a tenth of the creatures they control of their choice, rounded up.\nWhenever an opponent sacrifices a creature, put a +1/+1 counter on Legate Lanius.', ('2', '2'), 'BR'),
+]
+EXTRA += [
+    real('Serra Avenger', '{W}{W}', 2, 'Creature — Angel', "You can't cast Serra Avenger during your first, second, or third turns of the game.\nFlying, vigilance", ('3', '3'), 'W'),
+    real('Karlov Watchdog', '{3}{W}', 4, 'Creature — Dog', "Vigilance\nPermanents your opponents control can't be turned face up during your turn.\nWhenever you attack with three or more creatures, creatures you control get +1/+1 until end of turn.", ('3', '2'), 'W'),
+    real('Everlasting Torment', '{2}{B/R}', 3, 'Enchantment', "Players can't gain life.\nDamage can't be prevented.\nAll damage is dealt as though its source had wither. (A source with wither deals damage to creatures in the form of -1/-1 counters.)", None, 'BR'),
+    real('Exalted Angel', '{4}{W}{W}', 6, 'Creature — Angel', 'Flying\nWhenever this creature deals damage, you gain that much life.\nMorph {2}{W}{W} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)', ('4', '5'), 'W'),
+]
+EXTRA += [
+    real('Archon of the Wild Rose', '{2}{W}{W}', 4, 'Creature — Archon', 'Flying\nOther creatures you control that are enchanted by Auras you control have base power and toughness 4/4 and have flying.', ('4', '4'), 'W'),
+    pw('Urza, Planeswalker', '', 8, 'Legendary Planeswalker — Urza', 'You may activate the loyalty abilities of Urza twice each turn rather than only once.\n+2: Artifact, instant, and sorcery spells you cast this turn cost {2} less to cast. You gain 2 life.\n+1: Draw two cards, then discard a card.\n0: Create two 1/1 colorless Soldier artifact creature tokens.\n−3: Exile target nonland permanent.\n−10: Artifacts and planeswalkers you control gain indestructible until end of turn. Destroy all nonland permanents.', 'UW', '7'),
+    card("Invert // Invent", set_code="tst", number="100D-invert", layout="split", mana_cost="{U/R} // {4}{U}{R}", cmc=7.0, type_line="Instant // Instant",
+         colors=["R", "U"], color_identity=["R", "U"], image_uris=None, card_faces=[
+             {"object": "card_face", "name": "Invert", "mana_cost": "{U/R}", "type_line": "Instant",
+              "oracle_text": "Switch the power and toughness of each of up to two target creatures until end of turn."},
+             {"object": "card_face", "name": "Invent", "mana_cost": "{4}{U}{R}", "type_line": "Instant",
+              "oracle_text": "Search your library for an instant card and/or a sorcery card, reveal them, put them into your hand, then shuffle."}]),
+]
+EXTRA += [
+    real('Enhanced Surveillance', '{1}{U}', 2, 'Enchantment', 'You may look at an additional two cards each time you surveil.\nExile this enchantment: Shuffle your graveyard into your library.', None, 'U'),
+    real('Cosmos Charger', '{3}{U}', 4, 'Creature — Horse Spirit', "Flash\nFlying\nForetelling cards from your hand costs {1} less and can be done on any player's turn.\nForetell {2}{U} (During your turn, you may pay {2} and exile this card from your hand face down. Cast it on a later turn for its foretell cost.)", ('3', '3'), 'U'),
+    real('Doomskar Oracle', '{2}{W}', 3, 'Creature — Human Cleric', 'Whenever you cast your second spell each turn, you gain 2 life.\nForetell {W} (During your turn, you may pay {2} and exile this card from your hand face down. Cast it on a later turn for its foretell cost.)', ('3', '2'), 'W'),
+    real('Consider', '{U}', 1, 'Instant', 'Surveil 1. (Look at the top card of your library. You may put it into your graveyard.)\nDraw a card.', None, 'U'),
+]
+EXTRA += [
+    real('Carth the Lion', '{2}{B}{G}', 4, 'Legendary Creature — Human Warrior', "Whenever Carth enters or a planeswalker you control dies, look at the top seven cards of your library. You may reveal a planeswalker card from among them and put it into your hand. Put the rest on the bottom of your library in a random order.\nPlaneswalkers' loyalty abilities you activate cost an additional [+1] to activate.", ('3', '5'), 'BG'),
+]
+EXTRA += [
+    real('Dusk Mangler', '{5}{B}{B}', 7, 'Creature — Horror', 'As an additional cost to cast this spell, sacrifice a creature, discard a card, or pay 4 life.\nWhen this creature enters, each opponent sacrifices a creature of their choice, discards a card, and loses 4 life.', ('5', '4'), 'B'),
+    real('Urborg Lhurgoyf', '{1}{G}', 2, 'Creature — Lhurgoyf', "Kicker {U} and/or {B} (You may pay an additional {U} and/or {B} as you cast this spell.)\nAs this creature enters, mill three cards for each time it was kicked.\nUrborg Lhurgoyf's power is equal to the number of creature cards in your graveyard and its toughness is equal to that number plus 1.", ('*', '1+*'), 'G'),
+]
+SINGLES = ["Dusk Mangler", "Urborg Lhurgoyf", "Carth the Lion", "Enhanced Surveillance", "Cosmos Charger", "Archon of the Wild Rose", "Urza, Planeswalker", "Invert // Invent", "Serra Avenger", "Karlov Watchdog", "Everlasting Torment", "Ajani Goldmane", "Elsewhere Flask", "Dragon Turtle", "Blue Dragon", "Legate Lanius, Caesar's Ace", "Pardic Firecat", "Diligent Farmhand", "Garza's Assassin", "Robe of the Archmagi", "My Precious // Allure of Power"]
 RULES = ["Gruul Spellbreaker", "Experimental Frenzy", "City of Solitude", "Melting", "Dream Leash", "Enthralling Hold"]
 FULL = [*SINGLES, *RULES, "Mistform Sliver", "Mesmeric Sliver", "Enduring Sliver", "Case of the Stashed Skeleton", "Case of the Gateway Express", "Case of the Gorgon's Kiss", "Case of the Burning Masks", "Scourge of the Skyclaves", "Roiling Horror", "Angry Mob", "Alrund, God of the Cosmos // Hakka, Whispering Raven", "Heightened Awareness", "Overlaid Terrain", "Full Moon's Rise", "O-Naginata", "Gate Smasher", "Goblin Brawler", "Domineer", "Awaken the Ancient", "Gideon, the Oathsworn", "Dovin, Architect of Law",
         "Ajani Unrelenting", "Nicol Bolas, Planeswalker", "Liliana, the Necromancer"]
@@ -795,5 +831,273 @@ def test_my_precious_equip_costs_two_and_two_life(cards):
     assert attached(s, precious) == bear.id and s.state.players["p1"].life == life - 2  # 702.6a: both parts paid
     ch = derived(s, bear)
     assert "hexproof" in ch.keywords
+    check(s)
+
+
+def test_ajani_goldmane_avatar_is_your_life_total(cards):
+    s = build(cards, ["Ajani Goldmane"])
+    ajani = walker(s, "Ajani Goldmane", 6)
+    set_life(s, "p1", 23)
+    loyal(s, ajani, 2)
+    assert pt(s, "Avatar") == (23, 23)  # 604.3: its own characteristic-defining ability
+    set_life(s, "p1", 9)
+    assert pt(s, "Avatar") == (9, 9)  # (ruling 2007-10-01: it changes as your life total does)
+    check(s)
+
+
+def test_elsewhere_flask_sets_the_type_of_each_land_you_control(cards):
+    s = build(cards, ["Elsewhere Flask"])
+    flask = put(s, "Elsewhere Flask")
+    forests = [c for c in s.state.cards.values() if c.name == "Forest" and c.owner == "p1"][:2]
+    act(s, "p1", type="move", card_ids=[f.id for f in forests], to={"player": "p1", "zone": "battlefield"})
+    island = card_named(s, "Island", "p2")
+    act(s, "p2", type="move", card_ids=[island.id], to={"player": "p2", "zone": "battlefield"})
+    act(s, "p1", type="activate_ability", card_id=flask.id, ability=1)
+    from tests.test_rules_conditionals import until
+
+    until(s, lambda s: s.state.rules.decision is not None)
+    act(s, "p1", type="choose", decision_id=s.state.rules.decision.id, option_ids=["Swamp"])
+    settle(s)
+    for f in forests:  # 305.7: the land type set (rulings 2008-05-01: still basic, still named Forest)
+        ch = derived(s, f)
+        assert set(ch.subtypes) == {"Swamp"} and "Basic" in ch.supertypes and ch.name == "Forest"
+    assert set(derived(s, island).subtypes) == {"Island"}  # (only yours)
+    check(s)
+
+
+def test_dragon_turtle_keeps_both_tapped_through_their_controllers_next_untap_steps(cards):
+    from tests.test_rules_conditionals import until
+
+    s = build(cards, ["Dragon Turtle"], ["Grizzly Bears"])
+    bears = put(s, "Grizzly Bears", "p2")
+    turtle = to_hand(s, "Dragon Turtle")
+    mana(s, U=2, C=1)
+    act(s, "p1", type="cast_spell", card_id=turtle.id)
+    settle(s)
+    assert s.state.cards[turtle.id].tapped and s.state.cards[bears.id].tapped
+    until(s, lambda s: s.state.turn.active_player == "p2" and s.state.turn.phase == "main1")
+    assert s.state.cards[bears.id].tapped  # 502.3: Bob's next untap step skipped for it
+    until(s, lambda s: s.state.turn.active_player == "p1" and s.state.turn.phase == "main1")
+    assert s.state.cards[turtle.id].tapped  # Alice's own next untap step
+    until(s, lambda s: s.state.turn.active_player == "p2" and s.state.turn.phase == "main1")
+    assert not s.state.cards[bears.id].tapped
+    check(s)
+
+
+def test_blue_dragon_three_different_targets_until_your_next_turn(cards):
+    from tests.test_rules_conditionals import until
+
+    s = build(cards, ["Blue Dragon"], ["Grizzly Bears"])
+    bears = put(s, "Grizzly Bears", "p2")
+    ogre = token_of(s, "p2", "Ogre", "Token Creature — Ogre", "5/5")
+    mine = token_of(s, "p1", "Elk", "Token Creature — Elk", "3/3")
+    dragon = to_hand(s, "Blue Dragon")
+    mana(s, U=2, C=5)
+    act(s, "p1", type="cast_spell", card_id=dragon.id)
+    for pick in (bears, ogre, mine):
+        until(s, lambda s: s.state.rules.decision is not None)
+        d = s.state.rules.decision
+        if pick is not bears:
+            assert bears.id not in {o.id for o in d.options}  # "other": not the same creature again (ruling 2021-07-23)
+        act(s, "p1", type="choose", decision_id=d.id, option_ids=[pick.id])
+    settle(s)
+    assert (pt(s, "Grizzly Bears", "p2"), pt(s, "Ogre", "p2"), pt(s, "Elk")) == ((-1, 2), (3, 5), (2, 3))
+    until(s, lambda s: s.state.turn.active_player == "p2" and s.state.turn.phase == "main1")
+    assert pt(s, "Ogre", "p2") == (3, 5)  # (through Bob's turn)
+    until(s, lambda s: s.state.turn.active_player == "p1" and s.state.turn.phase == "main1")
+    assert pt(s, "Ogre", "p2") == (5, 5)
+    check(s)
+
+
+@pytest.mark.parametrize("n", [10, 11])
+def test_legate_lanius_decimates_rounded_up(cards, n):
+    s = build(cards, ["Legate Lanius, Caesar's Ace"])
+    for i in range(n):
+        token_of(s, "p2", f"Soldier {i}", "Token Creature — Soldier", "1/1")
+    lanius = to_hand(s, "Legate Lanius, Caesar's Ace")
+    mana(s, B=1, R=1, C=2)
+    act(s, "p1", type="cast_spell", card_id=lanius.id)
+    for _ in range(10):
+        settle(s)
+        d = s.state.rules.decision
+        if d is None:
+            break
+        act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: d.min_choices or 1])
+    left = sum(1 for c in s.state.cards.values() if c.zone == "p2:battlefield" and c.name.startswith("Soldier"))
+    assert left == n - (1 if n == 10 else 2)  # one to ten: 1; eleven to twenty: 2 (ruling 2024-03-08)
+    assert s.state.cards[lanius.id].counters.get("+1/+1") == (1 if n == 10 else 2)
+    check(s)
+
+
+def test_serra_avenger_waits_for_your_fourth_turn(cards):
+    from tests.test_rules_conditionals import until
+
+    s = build(cards, ["Serra Avenger"])
+    angel = to_hand(s, "Serra Avenger")
+    mana(s, W=2)
+    with pytest.raises(ActionError, match="first, second, or third"):
+        act(s, "p1", type="cast_spell", card_id=angel.id)  # 601.3: Alice's first turn
+    until(s, lambda s: s.state.turn.active_player == "p1" and s.state.turn.phase == "main1" and s.state.turn.number == 7)
+    mana(s, W=2)
+    act(s, "p1", type="cast_spell", card_id=angel.id)  # her fourth turn
+    settle(s)
+    assert zone(s, angel) == "p1:battlefield"
+    check(s)
+
+
+def test_karlov_watchdog_keeps_their_morphs_down_during_your_turn(cards):
+    from tests.test_rules_conditionals import until
+
+    s = build(cards, ["Karlov Watchdog"], ["Exalted Angel"])
+    put(s, "Karlov Watchdog")
+    angel = card_named(s, "Exalted Angel", "p2")
+    act(s, "p2", type="move", card_ids=[angel.id], to={"player": "p2", "zone": "battlefield"}, face_down=True, face_down_kind="morph")
+    mana(s, "p2", W=2, C=2)
+    p2_priority(s)
+    with pytest.raises(ActionError, match="Karlov Watchdog"):
+        act(s, "p2", type="turn_face_up", card_id=angel.id)  # 702.37e (ruling 2024-02-02)
+    until(s, lambda s: s.state.turn.active_player == "p2" and s.state.turn.phase == "main1")
+    mana(s, "p2", W=2, C=2)
+    act(s, "p2", type="turn_face_up", card_id=angel.id)  # (Bob's own turn)
+    assert not s.state.cards[angel.id].face_down
+    check(s)
+
+
+def test_everlasting_torment_turns_damage_into_minus_counters(cards):
+    s = build(cards, ["Everlasting Torment", "Lightning Bolt"])
+    put(s, "Everlasting Torment")
+    ogre = token_of(s, "p2", "Ogre", "Token Creature — Ogre", "5/5")
+    bolt = to_hand(s, "Lightning Bolt")
+    mana(s, R=1)
+    act(s, "p1", type="cast_spell", card_id=bolt.id, targets=[ogre.id])
+    settle(s)
+    o = s.state.cards[ogre.id]
+    assert o.damage == 0 and o.counters.get("-1/-1") == 3 and pt(s, "Ogre", "p2") == (2, 2)  # 702.80a, 120.3d
+    check(s)
+
+
+def test_archon_of_the_wild_rose_sets_your_enchanted_creatures(cards):
+    s = build(cards, ["Archon of the Wild Rose", "Pacifism"], ["Pacifism"])
+    put(s, "Archon of the Wild Rose")
+    mine = token_of(s, "p1", "Bear", "Token Creature — Bear", "2/2")
+    theirs = token_of(s, "p1", "Elk", "Token Creature — Elk", "1/1")
+    token_of(s, "p1", "Ox", "Token Creature — Ox", "3/3")
+    for aura, host, pid in ((card_named(s, "Pacifism"), mine, "p1"), (card_named(s, "Pacifism", "p2"), theirs, "p2")):
+        act(s, pid, type="move", card_ids=[aura.id], to={"player": pid, "zone": "battlefield"})
+        act(s, pid, type="attach", card_ids=[aura.id], to=host.id)
+    assert pt(s, "Bear") == (4, 4) and "flying" in derived(s, mine).keywords  # 613.4b, 613.1f
+    assert pt(s, "Elk") == (1, 1) and pt(s, "Ox") == (3, 3)  # (an opponent's Aura, no Aura: unchanged)
+    check(s)
+
+
+def test_urza_activates_loyalty_abilities_twice_each_turn(cards):
+    s = build(cards, ["Urza, Planeswalker"])
+    urza = walker(s, "Urza, Planeswalker", 7)
+    loyal(s, urza, 3)  # 0: two Soldiers
+    loyal(s, urza, 2)  # +1 (606.3, changed)
+    d = s.state.rules.decision
+    if d is not None:  # (the discard)
+        act(s, "p1", type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: d.min_choices or 1])
+        settle(s)
+    with pytest.raises(ActionError):
+        act(s, "p1", type="activate_ability", card_id=urza.id, ability=3)  # (only twice)
+    assert sum(1 for c in s.state.cards.values() if c.name == "Soldier") == 2 and s.state.cards[urza.id].counters.get("loyalty") == 8
+    check(s)
+
+
+def test_invert_switches_each_of_two_targets(cards):
+    s = build(cards, ["Invert // Invent"])
+    ogre = token_of(s, "p2", "Ogre", "Token Creature — Ogre", "1/4")
+    elk = token_of(s, "p1", "Elk", "Token Creature — Elk", "3/2")
+    invert = to_hand(s, "Invert // Invent")
+    mana(s, U=1)
+    act(s, "p1", type="cast_spell", card_id=invert.id, face=0, targets=[ogre.id, elk.id], target_counts=[2])
+    settle(s)
+    assert pt(s, "Ogre", "p2") == (4, 1) and pt(s, "Elk") == (2, 3)  # 613.4d, each its own (ruling 2018-10-05)
+    check(s)
+
+
+def test_enhanced_surveillance_looks_at_two_more(cards):
+    from tests.test_rules_conditionals import until
+
+    s = build(cards, ["Enhanced Surveillance", "Consider"])
+    put(s, "Enhanced Surveillance")
+    spell = to_hand(s, "Consider")
+    top = list(s.state.zones["p1:library"][:3])
+    mana(s, U=1)
+    act(s, "p1", type="cast_spell", card_id=spell.id)
+    until(s, lambda s: s.state.rules.decision is not None)
+    d = s.state.rules.decision
+    assert d.player == "p1" and [o.id for o in d.options] == top  # surveil 1 plus two (701.25a)
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=top[:2])
+    settle(s)
+    assert all(zone(s, s.state.cards[c]) == "p1:graveyard" for c in top[:2])
+    check(s)
+
+
+def test_cosmos_charger_foretells_for_one_on_another_turn(cards):
+    from tests.test_rules_conditionals import until
+
+    s = build(cards, ["Cosmos Charger", "Doomskar Oracle"])
+    put(s, "Cosmos Charger")
+    oracle = to_hand(s, "Doomskar Oracle")
+    until(s, lambda s: s.state.turn.active_player == "p2" and s.state.turn.phase == "main1")
+    act(s, "p1", type="set_prefs", full_control=True)
+    act(s, "p2", type="pass_priority")
+    assert s.state.rules.priority == "p1"
+    mana(s, C=1)
+    act(s, "p1", type="activate_ability", card_id=oracle.id, ability=1)  # 702.143a: {2} less {1}, on Bob's turn
+    settle(s)
+    assert zone(s, oracle) == "p1:foretell"  # (one mana was enough)
+    check(s)
+
+
+def test_carth_adds_one_to_each_loyalty_cost(cards):
+    s = build(cards, ["Carth the Lion", "Ajani Goldmane", "Ajani Unrelenting"])
+    put(s, "Carth the Lion")
+    for _ in range(5):  # (its enters trigger: take nothing)
+        settle(s)
+        if (d := s.state.rules.decision) is None:
+            break
+        act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: d.min_choices])
+    goldmane, unrelenting = walker(s, "Ajani Goldmane", 4), walker(s, "Ajani Unrelenting", 5)
+    loyal(s, goldmane, 1)  # [-1] becomes [0] (ruling 2021-06-18)
+    loyal(s, unrelenting, 1)  # [+1] becomes [+2]
+    assert s.state.cards[goldmane.id].counters.get("loyalty") == 4 and s.state.cards[unrelenting.id].counters.get("loyalty") == 7
+    check(s)
+
+
+def test_dusk_mangler_one_of_three_additional_costs(cards):
+    from tests.test_rules_conditionals import until
+
+    s = build(cards, ["Dusk Mangler"], ["Grizzly Bears"])
+    put(s, "Grizzly Bears", "p2")
+    token_of(s, "p1", "Bear", "Token Creature — Bear", "2/2")
+    to_hand(s, "Forest")  # (each way payable)
+    mangler = to_hand(s, "Dusk Mangler")
+    mana(s, B=2, C=5)
+    life = s.state.players["p1"].life
+    act(s, "p1", type="cast_spell", card_id=mangler.id)
+    until(s, lambda s: s.state.rules.decision is not None)
+    d = s.state.rules.decision
+    assert d.player == "p1" and len(d.options) == 3  # 601.2b: the three ways, one chosen (118.8)
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[next(o.id for o in d.options if "life" in o.label.lower())])
+    for _ in range(10):
+        settle(s)
+        if (d := s.state.rules.decision) is None:
+            break
+        act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: d.min_choices or 1])
+    assert s.state.players["p1"].life == life - 4 and zone(s, mangler) == "p1:battlefield"
+    check(s)
+
+
+def test_urborg_lhurgoyf_mills_three_for_each_kick_as_it_enters(cards):
+    s = build(cards, ["Urborg Lhurgoyf"])
+    goyf = to_hand(s, "Urborg Lhurgoyf")
+    before = len(s.state.zones["p1:library"])
+    mana(s, G=1, C=1, U=1, B=1)
+    act(s, "p1", type="cast_spell", card_id=goyf.id, kicker=3)  # 702.33b: both kicker costs
+    settle(s)
+    assert zone(s, goyf) == "p1:battlefield" and len(s.state.zones["p1:library"]) == before - 6  # 614.12, 701.17a
     check(s)
 

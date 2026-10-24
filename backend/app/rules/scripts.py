@@ -2669,9 +2669,9 @@ def parse_effects(body: str, it: str | None = None, *, event_player: bool = Fals
 
     if (spell100c := static_spell100c.parse(body)) is not None:  # -- static spells (wave 100C) -- exact instant and sorcery wordings
         return spell100c
-    from app.rules import vault_loop71
+    from app.rules import static_perm100d, vault_loop71  # (static_perm100d: wave 100D, Invert)
 
-    if (vault71 := vault_loop71.parse(body)) is not None:
+    if (vault71 := vault_loop71.parse(body) or static_perm100d.parse(body)) is not None:
         return vault71
     from app.rules import attached100f
 

@@ -991,13 +991,14 @@ def parse_additional_cost(text: str) -> AbilityCost | None:
 # "sacrifice a creature or pay {3}{B}" (a mana branch is paid with the mana cost). Each side must be a cost the grammar
 # pays by itself; "reveal …", "behold …", "blight …", "forage" sides stay manual.
 _EITHER_SPLIT = re.compile(r" or (?=(?:sacrifice|discard|pay|exile|return|tap) )")
+_EITHER_LIST = re.compile(r",(?: or)? (?=(?:sacrifice|discard|pay|exile|return|tap) )")
 _PAY_MANA = re.compile(r"^pay (?P<mana>(?:\{(?:\d+|[WUBRGC]|[WUBRG2]/[WUBRGP])\})+)$")
 EITHER_SLOT = 20  # (the cost choice that names the chosen side: "either:<i>", A.CostChoice.component's last index)
 
 
 def _either(text: str) -> AbilityCost | None:
     """None: not a choice; AbilityCost(either=()) a choice the grammar can't pay; else the sides."""
-    sides = _EITHER_SPLIT.split(text)
+    sides = (_EITHER_LIST if ", or " in text else _EITHER_SPLIT).split(text)  # (wave 100D: "sacrifice a creature, discard a card, or pay 4 life", Dusk Mangler)
     if len(sides) < 2:
         return None
     out: list[AbilityCost] = []

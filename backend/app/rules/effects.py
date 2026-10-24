@@ -1163,6 +1163,10 @@ def _look(plan: Plan, ctx: Context, e: dict[str, Any], where: str) -> bool:
     if e.get("who") == "target" and (named := _players(plan, ctx, "target")):  # -- most-played modal spells (wave 50I) -- "Target player scries 3": that player looks
         pid = named[0]
     n = _amount(plan, ctx, e["n"])
+    if where == "graveyard" and n > 0:  # -- static permanents (wave 100D) -- Enhanced Surveillance
+        from app.rules import static_perm100d
+
+        n += 2 * static_perm100d.yours(plan, static_perm100d.MORE_SURVEIL, pid)
     if where == "bottom" and n > 0 and (replaced := replace.keyword_replace(plan, ctx, e, "scry", pid, n=n)) is not None:
         return replaced  # -- keyword actions (wave 35C) -- "If you would scry a number of cards, draw that many cards instead." (Eligeth)
     top = plan.state.zones.get(zone_key(pid, "library"), [])[:n]
@@ -4184,6 +4188,7 @@ def _choose_next(plan: Plan, ctx: Context, e: dict[str, Any], players: list[Any]
     from app.rules import conditions
 
     half = e["n"].get("half_own") if isinstance(e["n"], dict) else None  # -- trigger other (wave 39A) -- "sacrifices half the creatures they control, rounded down": each player's own count
+    div = int(e["n"].get("div", 2)) if half else 2  # -- static permanents (wave 100D) -- "a tenth of the creatures they control" (Legate Lanius)
     fewest = e["n"].get("fewest") if isinstance(e["n"], dict) else None  # -- group choices (wave 53D) -- "a number of lands they control equal to the number of lands controlled by the player who controls the fewest"
     want = min((len(_controlled(plan, fewest, p, ctx.get("source_card"))) for p in plan.live()), default=0) if fewest else 0 if half else _amount(plan, ctx, e["n"])
     exiling = e.get("action") == "exile"  # -- modal spells (wave 24D) -- "Target opponent exiles a creature they control."
@@ -4228,7 +4233,7 @@ def _choose_next(plan: Plan, ctx: Context, e: dict[str, Any], players: list[Any]
         if step == "edict" and not exiling and mine and _sacrifice_barred(plan, ctx, pid):
             mine = []  # -- prohibitions (wave 22B) -- nothing for them to sacrifice
         cap = e.get("power_cap")  # "any number of creatures they control with total power 4 or less" (Slaughter the Strong): always a choice
-        n = len(mine) if cap is not None else (len(mine) + (half == "up")) // 2 if half else min(len(e["party"]), len(mine)) if e.get("party") else min(want, len(mine))  # (107.1a: half rounded as written)
+        n = len(mine) if cap is not None else (len(mine) + (div - 1) * (half == "up")) // div if half else min(len(e["party"]), len(mine)) if e.get("party") else min(want, len(mine))  # (107.1a: half rounded as written)
         if n == 0:
             continue
         by = ctx["controller"] if e.get("by") == "you" or (e.get("by_if") and conditions.holds(plan, ctx, e["by_if"])) else pid
