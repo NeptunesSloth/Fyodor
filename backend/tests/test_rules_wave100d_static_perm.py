@@ -139,7 +139,10 @@ EXTRA += [
     real('Minion of the Wastes', '{3}{B}{B}{B}', 6, 'Creature — Minion', "Trample\nAs this creature enters, pay any amount of life.\nMinion of the Wastes's power and toughness are each equal to the life paid as it entered.", ('*', '*'), 'B'),
     real('Nameless Race', '{3}{B}', 4, 'Creature', "Trample\nAs this creature enters, pay any amount of life. The amount you pay can't be more than the total number of white nontoken permanents your opponents control plus the total number of white cards in their graveyards.\nNameless Race's power and toughness are each equal to the life paid as it entered.", ('*', '*'), 'B'),
 ]
-SINGLES = ["Minion of the Wastes", "Nameless Race", "Sanctum Lurker", "Hogaak, Arisen Necropolis", "Dusk Mangler", "Urborg Lhurgoyf", "Carth the Lion", "Enhanced Surveillance", "Cosmos Charger", "Archon of the Wild Rose", "Urza, Planeswalker", "Invert // Invent", "Serra Avenger", "Karlov Watchdog", "Everlasting Torment", "Ajani Goldmane", "Elsewhere Flask", "Dragon Turtle", "Blue Dragon", "Legate Lanius, Caesar's Ace", "Pardic Firecat", "Diligent Farmhand", "Garza's Assassin", "Robe of the Archmagi", "My Precious // Allure of Power"]
+EXTRA += [
+    real('Cast Through Time', '{4}{U}{U}{U}', 7, 'Enchantment', 'Instant and sorcery spells you control have rebound. (Exile the spell as it resolves if you cast it from your hand. At the beginning of your next upkeep, you may cast that card from exile without paying its mana cost.)', None, 'U'),
+]
+SINGLES = ["Cast Through Time", "Minion of the Wastes", "Nameless Race", "Sanctum Lurker", "Hogaak, Arisen Necropolis", "Dusk Mangler", "Urborg Lhurgoyf", "Carth the Lion", "Enhanced Surveillance", "Cosmos Charger", "Archon of the Wild Rose", "Urza, Planeswalker", "Invert // Invent", "Serra Avenger", "Karlov Watchdog", "Everlasting Torment", "Ajani Goldmane", "Elsewhere Flask", "Dragon Turtle", "Blue Dragon", "Legate Lanius, Caesar's Ace", "Pardic Firecat", "Diligent Farmhand", "Garza's Assassin", "Robe of the Archmagi", "My Precious // Allure of Power"]
 RULES = ["Gruul Spellbreaker", "Experimental Frenzy", "City of Solitude", "Melting", "Dream Leash", "Enthralling Hold"]
 FULL = [*SINGLES, *RULES, "Mistform Sliver", "Mesmeric Sliver", "Enduring Sliver", "Case of the Stashed Skeleton", "Case of the Gateway Express", "Case of the Gorgon's Kiss", "Case of the Burning Masks", "Scourge of the Skyclaves", "Roiling Horror", "Angry Mob", "Alrund, God of the Cosmos // Hakka, Whispering Raven", "Heightened Awareness", "Overlaid Terrain", "Full Moon's Rise", "O-Naginata", "Gate Smasher", "Goblin Brawler", "Domineer", "Awaken the Ancient", "Gideon, the Oathsworn", "Dovin, Architect of Law",
         "Ajani Unrelenting", "Nicol Bolas, Planeswalker", "Liliana, the Necromancer"]
@@ -1160,5 +1163,33 @@ def test_life_paid_as_it_enters_sets_power_and_toughness(cards, name, most, pay)
     act(s, "p1", type="choose", decision_id=d.id, option_ids=[str(pay)])
     settle(s)
     assert s.state.players["p1"].life == 40 - pay and pt(s, name) == (pay, pay)  # 604.3
+    check(s)
+
+
+def drain(s):
+    """Resolve the stack, answering each question with the least it allows."""
+    for _ in range(10):
+        settle(s)
+        if (d := s.state.rules.decision) is None:
+            return
+        act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: d.min_choices])
+
+
+def test_cast_through_time_rebounds_spells_cast_from_your_hand(cards):
+    s = build(cards, ["Cast Through Time", "Consider", "Opt"])
+    put(s, "Cast Through Time")
+    consider = to_hand(s, "Consider")
+    mana(s, U=1)
+    act(s, "p1", type="cast_spell", card_id=consider.id)
+    drain(s)
+    assert zone(s, consider) == "p1:exile" and consider.id in s.state.rules.rebounding  # 702.88a
+    opt = card_named(s, "Opt")
+    act(s, "p1", type="move", card_ids=[opt.id], to={"zone": "graveyard"})
+    act(s, "p1", type="move", card_ids=[card_named(s, "Cast Through Time").id], to={"zone": "graveyard"})
+    act(s, "p1", type="move", card_ids=[opt.id], to={"zone": "hand"})
+    mana(s, U=1)
+    act(s, "p1", type="cast_spell", card_id=opt.id)
+    drain(s)
+    assert zone(s, opt) == "p1:graveyard"  # (gone as it finished resolving: ruling 2010-06-15)
     check(s)
 

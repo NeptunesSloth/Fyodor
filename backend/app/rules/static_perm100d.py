@@ -476,8 +476,11 @@ FIRST_TURNS, NO_FACE_UP, ALL_WITHER, MORE_SURVEIL, FORETELL = "first_turns100d",
 # * "Planeswalkers you control aren't put into their owners' graveyards for having 0 loyalty." (Sanctum Lurker): the 704.5i exception (ruling
 #   2026-08-21) — sba.py.
 # * "You can't spend mana to cast this spell." (Hogaak): 601.2h, the total cost is paid by convoke and delve only — casting.pay_spell.
-LOYALTY_PLUS, ZERO_LOYALTY, NO_MANA = "loyalty_plus100d", "zero_loyalty100d", "no_mana100d"
-_FLAGS = {"Planeswalkers you control aren't put into their owners' graveyards for having 0 loyalty.": ZERO_LOYALTY,
+# * "Instant and sorcery spells you control have rebound." (Cast Through Time): 702.88a, read as the spell finishes resolving (on the battlefield
+#   then, ruling 2010-06-15) — engine's rebound check; cast from your hand only, copies never (rulings 2010-06-15).
+LOYALTY_PLUS, ZERO_LOYALTY, NO_MANA, REBOUND = "loyalty_plus100d", "zero_loyalty100d", "no_mana100d", "rebound100d"
+_FLAGS = {"Instant and sorcery spells you control have rebound.": REBOUND,
+"Planeswalkers you control aren't put into their owners' graveyards for having 0 loyalty.": ZERO_LOYALTY,
           "You can't spend mana to cast this spell.": NO_MANA,
 "Planeswalkers' loyalty abilities you activate cost an additional [+1] to activate.": LOYALTY_PLUS,
 "You may look at an additional two cards each time you surveil.": MORE_SURVEIL,
