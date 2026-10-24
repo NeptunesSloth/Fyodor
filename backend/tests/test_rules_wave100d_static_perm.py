@@ -142,7 +142,10 @@ EXTRA += [
 EXTRA += [
     real('Cast Through Time', '{4}{U}{U}{U}', 7, 'Enchantment', 'Instant and sorcery spells you control have rebound. (Exile the spell as it resolves if you cast it from your hand. At the beginning of your next upkeep, you may cast that card from exile without paying its mana cost.)', None, 'U'),
 ]
-SINGLES = ["Cast Through Time", "Minion of the Wastes", "Nameless Race", "Sanctum Lurker", "Hogaak, Arisen Necropolis", "Dusk Mangler", "Urborg Lhurgoyf", "Carth the Lion", "Enhanced Surveillance", "Cosmos Charger", "Archon of the Wild Rose", "Urza, Planeswalker", "Invert // Invent", "Serra Avenger", "Karlov Watchdog", "Everlasting Torment", "Ajani Goldmane", "Elsewhere Flask", "Dragon Turtle", "Blue Dragon", "Legate Lanius, Caesar's Ace", "Pardic Firecat", "Diligent Farmhand", "Garza's Assassin", "Robe of the Archmagi", "My Precious // Allure of Power"]
+EXTRA += [
+    real('Dismiss into Dream', '{6}{U}', 7, 'Enchantment', 'Each creature your opponents control is an Illusion in addition to its other types and has "When this creature becomes the target of a spell or ability, sacrifice it."', None, 'U'),
+]
+SINGLES = ["Dismiss into Dream", "Cast Through Time", "Minion of the Wastes", "Nameless Race", "Sanctum Lurker", "Hogaak, Arisen Necropolis", "Dusk Mangler", "Urborg Lhurgoyf", "Carth the Lion", "Enhanced Surveillance", "Cosmos Charger", "Archon of the Wild Rose", "Urza, Planeswalker", "Invert // Invent", "Serra Avenger", "Karlov Watchdog", "Everlasting Torment", "Ajani Goldmane", "Elsewhere Flask", "Dragon Turtle", "Blue Dragon", "Legate Lanius, Caesar's Ace", "Pardic Firecat", "Diligent Farmhand", "Garza's Assassin", "Robe of the Archmagi", "My Precious // Allure of Power"]
 RULES = ["Gruul Spellbreaker", "Experimental Frenzy", "City of Solitude", "Melting", "Dream Leash", "Enthralling Hold"]
 FULL = [*SINGLES, *RULES, "Mistform Sliver", "Mesmeric Sliver", "Enduring Sliver", "Case of the Stashed Skeleton", "Case of the Gateway Express", "Case of the Gorgon's Kiss", "Case of the Burning Masks", "Scourge of the Skyclaves", "Roiling Horror", "Angry Mob", "Alrund, God of the Cosmos // Hakka, Whispering Raven", "Heightened Awareness", "Overlaid Terrain", "Full Moon's Rise", "O-Naginata", "Gate Smasher", "Goblin Brawler", "Domineer", "Awaken the Ancient", "Gideon, the Oathsworn", "Dovin, Architect of Law",
         "Ajani Unrelenting", "Nicol Bolas, Planeswalker", "Liliana, the Necromancer"]
@@ -1193,3 +1196,16 @@ def test_cast_through_time_rebounds_spells_cast_from_your_hand(cards):
     assert zone(s, opt) == "p1:graveyard"  # (gone as it finished resolving: ruling 2010-06-15)
     check(s)
 
+
+def test_dismiss_into_dream_makes_their_creatures_fragile_illusions(cards):
+    s = build(cards, ["Dismiss into Dream", "Giant Growth"])
+    put(s, "Dismiss into Dream")
+    ogre = token_of(s, "p2", "Ogre", "Token Creature — Ogre", "5/5")
+    mine = token_of(s, "p1", "Elk", "Token Creature — Elk", "2/2")
+    assert "Illusion" in derived(s, ogre).subtypes and "Illusion" not in derived(s, mine).subtypes  # 205.1b, 613.1d
+    growth = to_hand(s, "Giant Growth")
+    mana(s, G=1)
+    act(s, "p1", type="cast_spell", card_id=growth.id, targets=[ogre.id])
+    drain(s)
+    assert ogre.id not in s.state.cards or zone(s, ogre) != "p2:battlefield"  # its granted trigger: sacrificed (603.2)
+    check(s)

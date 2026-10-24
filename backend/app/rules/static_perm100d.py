@@ -372,6 +372,15 @@ def _rule_static(text: str, ch: Any) -> dict[str, Any] | None:
         return statics.parse("Other creatures you control that are enchanted by an Aura you control have base power and toughness 4/4 and have flying.")
     if text == "You may activate the loyalty abilities of ~ twice each turn rather than only once.":  # (Urza, Planeswalker: 606.3, its own)
         return {"kind": "static", "static": "loyalty_rule", "who": "self", "twice": True, "effects": []}
+    if text == ('Each creature your opponents control is an Illusion in addition to its other types and has "When ~ becomes the target '
+                'of a spell or ability, sacrifice it."'):  # (Dismiss into Dream: one group, layers 4 and 6, as type_statics' _GRANT_AND_TYPE reads)
+        from app.rules import type_statics
+
+        grant = statics.parse('Creatures your opponents control have "When this creature becomes the target of a spell or ability, sacrifice it."')
+        typed = type_statics.parse("Creatures your opponents control are Illusions in addition to their other types.")
+        if grant is None or typed is None or grant["who"] != typed["who"] or not typed.get("layer4"):
+            return None
+        return {**grant, "layered": True, "layer4": typed["layer4"]}
     if text in _FLAGS:
         return {"kind": "static", "static": _FLAGS[text], "effects": []}
     if text == "Recover—Pay half your life, rounded up.":
