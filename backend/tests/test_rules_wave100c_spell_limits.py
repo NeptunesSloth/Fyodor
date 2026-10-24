@@ -33,7 +33,8 @@ from tests.wave100c_kit import (
 
 PROMOTED = ["Verdant Command", "Everything Comes to Dust", "Irencrag Feat", "Waterbending Lesson", "Mercurial Transformation", "Burning of Xinye",
             "Split the Party", "Dreams of Steel and Oil", "Treacherous Urge", "Pox",
-            "Omen of Fire", "Sway of the Stars"]
+            "Omen of Fire", "Sway of the Stars", "Energybending", "Embiggen",
+            "Eliminate the Impossible"]
 
 
 @pytest.fixture()
@@ -210,4 +211,43 @@ def test_sway_of_the_stars_resets_both_players(cards):
     assert not s.state.zones.get("p1:battlefield") and not s.state.zones.get("p2:battlefield")
     assert zone(s, bear) in ("p1:library", "p1:hand") and zone(s, opt) in ("p1:library", "p1:hand") and zone(s, ring) in ("p2:library", "p2:hand")
     assert len(s.state.zones["p1:hand"]) == 7 and len(s.state.zones["p2:hand"]) == 7 and life(s) == 7 and life(s, "p2") == 7
+    check(s)
+
+
+def test_energybending_gives_your_lands_every_basic_land_type_this_turn(cards):
+    """Alice's Forest is also a Plains, Island, Swamp and Mountain (with their mana abilities, 305.6) this turn; Bob's Island is not; then a draw."""
+    s = build(cards, ["Energybending"], [])
+    forest, island = move(s, named(s, "Forest")[0], "battlefield"), move(s, named(s, "Island", "p2")[0], "battlefield")
+    library = len(s.state.zones["p1:library"])
+    cast(s, "Energybending", G=1, C=1)
+    basics = {"Plains", "Island", "Swamp", "Mountain", "Forest"}
+    assert basics <= chars(s, forest).subtypes and chars(s, island).subtypes == {"Island"}
+    assert len([a for a in chars(s, forest).abilities if a.kind == "mana"]) == 5 and len(s.state.zones["p1:library"]) == library - 2
+    act(s, "p1", type="set_stops", own=[], others=["main1"], smart_pass=False)
+    to_phase(s, "main1", turn=2)
+    assert chars(s, forest).subtypes == {"Forest"}
+    check(s)
+
+
+def test_embiggen_counts_supertypes_card_types_and_subtypes(cards):
+    """Sliver Queen (Legendary Creature — Sliver: three) becomes 10/10 this turn."""
+    s = build(cards, ["Embiggen", "Sliver Queen"], [])
+    queen = put_on(s, "Sliver Queen")
+    cast(s, "Embiggen", targets=[queen.id], G=1)
+    assert pt_of(s, queen) == (10, 10)
+    check(s)
+
+
+def test_eliminate_the_impossible_investigates_shrinks_and_unsuspects_opponents_creatures(cards):
+    """Bob's Grizzly Bears is suspected first (Reasonable Doubt on Alice's own Opt): Eliminate the Impossible gives Alice a Clue, the bear
+    -2/-0 and it is no longer suspected (it may block again, 701.60c)."""
+    s = build(cards, ["Eliminate the Impossible", "Reasonable Doubt", "Opt"], ["Grizzly Bears"])
+    bear = put_on(s, "Grizzly Bears", "p2")
+    act(s, "p1", type="set_prefs", hold_priority=True)
+    opt = start_cast(s, "Opt", U=1)
+    cast(s, "Reasonable Doubt", targets=[opt.id, bear.id], target_counts=[1, 1], prefer=["decline"], U=1, C=1)
+    assert "menace" in chars(s, bear).keywords
+    cast(s, "Eliminate the Impossible", U=1, C=1)
+    assert pt_of(s, bear) == (0, 2) and "menace" not in chars(s, bear).keywords
+    assert [c.controller for c in s.state.cards.values() if c.name == "Clue" and c.zone.endswith(":battlefield")] == ["p1"]
     check(s)

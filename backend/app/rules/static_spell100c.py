@@ -744,7 +744,25 @@ def _sway_of_the_stars() -> Parsed | None:
     return [*perms[0], *rest[0], {**life[0][0], "who": "each_player"}], None, False
 
 
+def _eliminate_the_impossible() -> Parsed | None:
+    clue, pump = _plain("Investigate."), _plain("Creatures your opponents control get -2/-0 until end of turn.")
+    if clue is None or pump is None:
+        return None
+    # "any of them": the creatures your opponents control as this is reached (608.2c); 701.60: the designation ends
+    return [*clue[0], *pump[0], {"do": "unsuspect100c", "who": pump[0][0]["who"]}], None, False
+
+
 BUILDERS: dict[str, Callable[[], Parsed | None]] = {
+    "Investigate. Creatures your opponents control get -2/-0 until end of turn. If any of them are suspected, they're no longer suspected.":
+        _eliminate_the_impossible,
+    "Until end of turn, target non-Brushwagg creature gets +1/+1 for each supertype, card type, and subtype it has.":
+        lambda: ([{"do": "type_pump100c", "who": "target"}], _sel("non-Brushwagg creature"), False),
+    # 305.7, 205.1b: the five basic land types added (each one's mana ability with it, 305.6); the lands you control as it resolves (611.2c)
+    "Lands you control gain all basic land types until end of turn.": lambda: ([{"do": "become", "who": _sel("lands you control"), "types": [],
+                                                                               "duration": "end_of_turn", "retain": True,
+                                                                               "land_types": ["Plains", "Island", "Swamp", "Mountain", "Forest"]}], None, False),
+    # 509.1h: each attacking creature becomes blocked (one already blocked stays so)
+    "Attacking creatures become blocked.": lambda: ([{"do": "become_blocked", "who": _sel("attacking creature")}], None, False),
     "Each player shuffles their hand, graveyard, and all permanents they own into their library, then draws seven cards. Each player's life total "
     "becomes 7.": _sway_of_the_stars,
     "Each player loses a third of their life, then discards a third of the cards in their hand, then sacrifices a third of the creatures they control of "
@@ -1097,5 +1115,29 @@ def edict_each(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
     return effects._choose_next(plan, ctx, {**e, "n": 1, "distinct": True}, turns, [], "edict")
 
 
-PRIMITIVES = {"thirds100c": thirds, "edict_each100c": edict_each, "one_more_spell100c": one_more_spell, "power_cap100c": power_cap, "if_coalition100c": if_coalition, "if_mv_upto_graveyard100c": if_mv_upto_graveyard, "roles_each100c": roles_each, "if_more_life100c": if_more_life, "hand_excess100c": hand_excess, "lose_all_counters100c": lose_all_counters, "edict_kinds100c": edict_kinds, "draw_for_revealed100c": draw_for_revealed,
+def type_pump(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
+    """"+1/+1 for each supertype, card type, and subtype it has": counted once as it resolves (608.2h; 205.2-205.4), then the pump."""
+    from app.rules import effects
+
+    for cid in effects._cards(plan, ctx, e["who"])[:1]:
+        ch = plan.ch(plan.state.cards[cid])
+        n = len(ch.supertypes) + len(ch.types) + len(ch.subtypes)
+        ctx["effects"][ctx["next"]:ctx["next"]] = [{"do": "pump", "who": e["who"], "p": n, "t": n}]
+    return True
+
+
+def unsuspect(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
+    """701.60: the named creatures stop being suspected (the "Suspected" marker goes with it)."""
+    from app.rules import effects
+
+    for cid in effects._cards(plan, ctx, e["who"]):
+        card = plan.state.cards[cid]
+        if (oid := plan.oid(card)) in plan.rules.suspected:
+            plan.rules.suspected.remove(oid)
+            for marker in [m for m in card.effects if m.name == "Suspected"]:
+                plan.do({"type": "remove_effect", "card_ids": [cid], "effect_id": marker.id}, actor=ctx["controller"])
+    return True
+
+
+PRIMITIVES = {"unsuspect100c": unsuspect, "type_pump100c": type_pump, "thirds100c": thirds, "edict_each100c": edict_each, "one_more_spell100c": one_more_spell, "power_cap100c": power_cap, "if_coalition100c": if_coalition, "if_mv_upto_graveyard100c": if_mv_upto_graveyard, "roles_each100c": roles_each, "if_more_life100c": if_more_life, "hand_excess100c": hand_excess, "lose_all_counters100c": lose_all_counters, "edict_kinds100c": edict_kinds, "draw_for_revealed100c": draw_for_revealed,
               "draw_for_controllers100c": draw_for_controllers}
