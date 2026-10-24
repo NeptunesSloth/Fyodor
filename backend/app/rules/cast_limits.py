@@ -105,7 +105,7 @@ SELF_FLASH_IF = re.compile(r"^you may cast (?:this spell|~) as though it had fla
 # Effects: "Your opponents can't cast spells this turn." / "Target player can't cast spells this turn." / "Players can't cast
 # noncreature spells this turn." / "Until your next turn, your opponents can't cast spells from anywhere other than their hands."
 EFFECT_CAST = re.compile(rf"^(?:(?P<lead>until your next turn|until the end of your next turn|this turn), )?(?P<who>your opponents|opponents|players|each player|each opponent|"
-                         rf"target player|target opponent|its controller) can't cast {_SPELLS}{_FROM}{_ACT}(?: (?P<when>this turn|until your next turn|until the end of your next turn))?$")  # (wave 32C: Single Combat)
+                         rf"target player|target opponent|its controller|you) can't cast {_SPELLS}{_FROM}{_ACT}(?: (?P<when>this turn|until your next turn|until the end of your next turn))?$")  # (wave 32C: Single Combat)
 # Flash permissions (601.3b): "You may cast Spirit spells as though they had flash." / "You may cast Dragon spells and artifact
 # spells as though they had flash." / "Any player may cast spells as though they had flash." / "During each opponent's end
 # step, you may cast spells as though they had flash." — and the effect "You may cast spells this turn as though they had flash."
@@ -467,7 +467,7 @@ def _effect_cast(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     if act not in (None, "loyalty"):
         raise ValueError("only loyalty abilities")  # (an effect's other activation limits aren't read)
     who = {"your opponents": "each_opponent", "opponents": "each_opponent", "each opponent": "each_opponent", "players": "each_player", "each player": "each_player",
-           "target player": "target", "target opponent": "target", "its controller": "it.controller"}[m["who"]]  # (wave 51C: Render Silent)
+           "target player": "target", "target opponent": "target", "its controller": "it.controller", "you": "you"}[m["who"]]  # (wave 51C: Render Silent; wave 100B: "you", Innocuous Researcher)
     sel = {"target player": "player", "target opponent": "opponent"}.get(m["who"])
     until = "end_of_next_turn" if "end of your next turn" in (lead or when or "") else "next_turn" if "next turn" in (lead or when or "") else "turn"
     return [{"do": "cast_limit", "who": who, "until": until, "filter": key, "from": list(_FROMS[m["frm"]]) if m["frm"] else None,

@@ -717,6 +717,8 @@ def _apply(n: Any, rider: Any) -> Any:
         return n
     kind, v = rider
     if kind == "x":
+        if isinstance(n, dict) and len(n) == 1 and (op := next(iter(n))) in ("plus", "minus") and n[op][0] == {"x": 1} and isinstance(n[op][1], int):
+            return {op: [v, n[op][1]]}  # -- if you do (wave 100B) -- "deals X plus 3 damage to you, where X is …" (Hellfire): 107.1b, never below 0
         if n != {"x": 1}:
             raise _Fail  # "where X is" with no X in the sentence
         return v

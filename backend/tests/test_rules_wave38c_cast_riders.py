@@ -49,10 +49,10 @@ def test_these_cards_are_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL", name
 
 
-def test_kellan_joins_up_stays_manual_since_its_it_is_a_card_paid_for_a_cost(cards):
-    """"… you may exile a nonland card … from your hand. If you do, it becomes plotted.": the exiled card is the cost's object, which the grammar doesn't bind
-    (it would read "it" as Kellan itself): not automated."""
-    assert coverage.of_card_data(cards.resolve("Kellan Joins Up")).level != "FULL"
+def test_kellan_joins_up_binds_it_to_the_card_paid_for_the_cost(cards):
+    """"… you may exile a nonland card … from your hand. If you do, it becomes plotted.": the exiled card is the cost's object — bound since wave 100B
+    (ifyoudo100b._plot_paid; the scenario: tests/test_rules_wave100b_riders.py)."""
+    assert coverage.of_card_data(cards.resolve("Kellan Joins Up")).level == "FULL"
 
 
 def grave(s, name, pid="p1"):

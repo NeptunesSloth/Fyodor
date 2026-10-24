@@ -43,6 +43,11 @@ _REWRITES = [
     # Check for Traps: "they" is the target opponent whose hand was revealed
     (re.compile(r"^(Target opponent reveals their hand\. You choose a nonland card from it\. Exile that card\. If [^.]+ this way), they lose (\d+) life\. "
                 r"Otherwise, you lose (\d+) life\.$"), r"\1, that player loses \2 life. Otherwise, you lose \3 life."),
+    # Werewolf Ransacker: the one target ("that artifact" is the artifact destroyed; a token counts, one exiled instead doesn't: the 2011-01-22 and 2013-07-01 rulings)
+    (re.compile(r"^(you may destroy target artifact)\. If that artifact is put into a graveyard this way, "), r"\1. If an artifact is put into a graveyard this way, "),
+    # Koya, Death from Above: 118.12a, "you may pay [cost]. If you don't, [do it]" is "[do it] unless you pay [cost]"
+    (re.compile(r"^(.+?)\. At the beginning of the next end step, you may pay ((?:\{[^}]+\})+)\. If you don't, (return that card to the battlefield under its owner's "
+                r"control)\.$"), r"\1. At the beginning of the next end step, \3 unless you pay \2."),
     # Azra Bladeseeker: 102.4, outside a game between teams "your team" is "you"; the one who discarded draws (118.12: a discard can't be begun and not made)
     (re.compile(r"^each player on your team may discard a card, then each player who discarded a card this way draws a card\.$"),
      "you may discard a card. If you do, draw a card."),
@@ -56,7 +61,8 @@ GY_EMPTY = "gy_empty100b"
 
 def parse(body: str, it: str | None, event_player: bool) -> Found | None:
     text = body.strip()
-    for form in (_put_discarded, _hit_discard, _draw_if, _dealt_cant_block, _give_source, _exiled_mv, _connives, _empty_gy, _truce, _each_who_lost):
+    for form in (_put_discarded, _hit_discard, _draw_if, _dealt_cant_block, _give_source, _exiled_mv, _connives, _empty_gy, _truce, _each_who_lost,
+                 _either, _plot_paid, _hand_exile, _dont_sacrifice, _put_mv_x, _fold, _swift, _untap_then, _may_attach, _vanish, _dakra, _durin, _latnam, _surge, _locke):
         if (found := form(text, it, event_player)) is not None:
             return found
     for pattern, repl in _REWRITES:
@@ -300,5 +306,349 @@ def truce_life(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return gain_life(plan, ctx, {"do": "gain_life", "who": "each_player", "n": 0, "counts": counts})
 
 
-PRIMITIVES = {GY_EMPTY: gy_empty, TRUCE: truce, TRUCE_ASK: truce_ask, TRUCE_DRAW: truce_draw, TRUCE_LIFE: truce_life}
-RESUME = {TRUCE_ASK: resume_truce_ask}
+# -- Kellan Joins Up: "you may exile a nonland card with mana value 3 or less from your hand. If you do, it becomes plotted." 118.12: the exile is
+# the payment; "it" is the card it exiled, the new object in exile (400.7j: the payment's moved objects), 702.170c.
+_PLOT_PAID = re.compile(r"^(?P<a>you may exile an? [^.]+ from your hand)\. If you do, (?:it|that card) becomes plotted\.$")
+
+
+def _plot_paid(text: str, it: str | None, event_player: bool) -> Found | None:
+    m = _PLOT_PAID.match(text)
+    found = _effects(f"{m['a']}. If you do, draw a card.", it, event_player) if m is not None else None
+    if found is None or len(found[0]) != 3 or found[0][0].get("do") != "optional_payment" or not str(found[0][0].get("cost")).startswith("Exile ") \
+            or found[0][2] != {"do": "draw", "who": "you", "n": 1}:
+        return None
+    return [*found[0][:2], {"do": "plotted", "who": f"ref:{found[0][0]['bind']}"}], found[1], found[2]
+
+
+# -- Ego Drain, Specter's Shriek: "… If you don't control a Faerie, exile a card from your hand." / "If you do, that player exiles that card. If a
+# nonblack card is exiled this way, exile a card from your hand." — the controller's own choice as it resolves (608.2d, not a target), private
+# (their hand, 400.2); with no card in hand nothing is exiled (the Specter's Shriek 2019-10-04 ruling). The opponent's card goes to its owner's
+# exile whoever moves it (406.1).
+_HAND_EXILE = re.compile(r"^(?P<a>Target opponent reveals their hand\. You (?:may )?choose a nonland card from it\. .+ If [^.,]+), exile a card from your hand\.$")
+
+
+def _hand_exile(text: str, it: str | None, event_player: bool) -> Found | None:
+    from app.rules import selectors
+
+    m = _HAND_EXILE.match(text)
+    body = m["a"].replace(" If you do, that player exiles that card.", " If you do, exile that card.") if m is not None else ""
+    found = _effects(f"{body}, draw a card.", it, event_player) if m is not None else None
+    hand = selectors.parse("card in your hand")
+    if found is None or not found[0] or found[0][-1] != {"do": "draw", "who": "you", "n": 1} or found[0][-2].get("do") != "only_if" or hand is None:
+        return None
+    exile = {"do": "return_choice", "to": "exile", "sel": hand.key(), "n": 1, "upto": False, "random": False, "label": "card"}
+    return [*found[0][:-1], exile], found[1], found[2]
+
+
+# -- Gargantuan Gorilla: "you may sacrifice a Forest. If you sacrifice a snow Forest this way, … If you don't sacrifice a Forest, sacrifice this
+# creature and it deals 7 damage to you." 701.21a: zero or one Forest, the player's choice; the last sentence follows when none was sacrificed.
+_DONT_SAC = re.compile(r"^(?P<a>you may sacrifice an? (?P<w>[A-Z][a-z]+)\. If you sacrifice [^.]+ this way, [^.]+\.) If you don't sacrifice an? (?P=w), (?P<b>[^.]+\.)$")
+
+
+def _dont_sacrifice(text: str, it: str | None, event_player: bool) -> Found | None:
+    m = _DONT_SAC.match(text)
+    first = _effects(m["a"], it, event_player) if m is not None else None
+    rest = _effects(m["b"][0].upper() + m["b"][1:], it, event_player) if m is not None and first is not None else None
+    if first is None or rest is None or not first[2] or first[1] is not None or rest[1] is not None or rest[2]:
+        return None
+    sac = first[0][0]
+    if sac.get("do") != "sacrifice_choice" or sac.get("n") != 1 or sac.get("who") != "you" or "as" not in sac:
+        return None
+    none = {"do": "only_if", "cond": {"value": {"this_way": "sacrificed", "of": None, "ref_count": sac["as"]}, "op": "==", "n": 0}, "skip": len(rest[0])}
+    tail = json.loads(json.dumps(rest[0]).replace(f'"{sac["as"]}"', '"dont100b"').replace(f'"ref:{sac["as"]}"', '"ref:dont100b"'))  # (its own binding)
+    return [{**sac, "upto": True}, *first[0][1:], none, *tail], None, False
+
+
+# -- Metathran Aerostat: "{X}{U}: You may put a creature card with mana value X from your hand onto the battlefield. If you do, return this creature
+# to its owner's hand." (put_from_hand's mana value test, X as announced: 107.3a; 118.12: "If you do" is a card put onto the battlefield)
+_PUT_MV_X = re.compile(r"^(?P<a>You may put a creature card) with mana value X (?P<b>from your hand onto the battlefield\. If you do, [^.]+\.)$")
+
+
+def _put_mv_x(text: str, it: str | None, event_player: bool) -> Found | None:
+    m = _PUT_MV_X.match(text)
+    found = _effects(f"{m['a']} {m['b']}", it, event_player) if m is not None else None
+    if found is None or not found[0] or found[0][0].get("do") != "put_from_hand" or "mv" in found[0][0] or not found[0][0].get("did"):
+        return None
+    return [{**found[0][0], "mv": ["==", {"x": 1}]}, *found[0][1:]], found[1], found[2]
+
+
+# -- Fold into Aether: "Counter target spell. If that spell is countered this way, its controller may put a creature card from their hand onto the
+# battlefield." 701.6a; a spell that can't be countered isn't, and nothing happens (2004-12-01); "its controller": as it last existed (608.2h), who
+# chooses in private (400.2) and is asked whenever their hand holds a card (put_from_hand.each_put).
+_FOLD = "Counter target spell. If that spell is countered this way, its controller may put a creature card from their hand onto the battlefield."
+COUNTERED = "countered100b"
+
+
+def _fold(text: str, it: str | None, event_player: bool) -> Found | None:
+    if text != _FOLD:
+        return None
+    first, put = _effects("Counter target spell.", it, event_player), _effects("Each player may put a creature card from their hand onto the battlefield.", it, event_player)
+    if first is None or put is None or len(first[0]) != 1 or first[0][0].get("do") != "counter" or put[0][0].get("do") != "each_put":
+        return None
+    return [{**first[0][0], "as": "fold100b"}, {"do": COUNTERED, "of": "ref:fold100b", "skip": 1}, {**put[0][0], "who": "ref:fold100b.controller"}], first[1], first[2]
+
+
+def countered(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """The gate: the next ``skip`` instructions happen only if the spell it names left the stack (it was countered)."""
+    from app.rules import context
+
+    b = context.refs(ctx).get(e["of"].removeprefix("ref:")) or {}  # (a "ref:" value: a spell's lines rename it, scripts.rename_bindings)
+    was = b.get("was") or b.get("objects") or []
+    if not any((c := plan.state.cards.get(str(o["card"]))) is None or c.zone != "stack" or plan.oid(c) != o.get("object_id") for o in was):
+        ctx["next"] = min(len(ctx["effects"]), ctx["next"] + int(e["skip"]))
+    return True
+
+
+# -- Swift Silence: "Counter all other spells. Draw a card for each spell countered this way." 701.6a: every spell on the stack but this one (copies
+# too, 707.10); one that can't be countered stays, and isn't counted.
+SWIFT = "swift100b"
+
+
+def _swift(text: str, it: str | None, event_player: bool) -> Found | None:
+    return ([{"do": SWIFT}], None, False) if text == "Counter all other spells. Draw a card for each spell countered this way." else None
+
+
+def swift(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    from app.rules.effects import counter_object
+
+    me = ctx.get("stack_id")
+    spells = [sid for sid in list(plan.state.zones.get("stack", [])) if sid != me and plan.state.cards[sid].ability is None]
+    for sid in spells:
+        counter_object(plan, sid, ctx["controller"], by=ctx["controller"])
+    n = sum(1 for sid in spells if sid not in plan.state.zones.get("stack", []))
+    ctx["effects"][ctx["next"]:ctx["next"]] = [{"do": "draw", "who": "you", "n": n}] if n else []
+    return True
+
+
+# -- Innocuous Researcher: "you may untap all lands you control. If you do, you can't cast spells until your next turn." The untap can always be done
+# (608.2c), so "If you do" is the "you may" (603.5): declining does neither; no window between the two (the 2024-02-02 ruling).
+_UNTAP_THEN = re.compile(r"^you may (?P<a>untap all lands you control)\. If you do, (?P<b>you can't cast spells until your next turn)\.$")
+
+
+def _untap_then(text: str, it: str | None, event_player: bool) -> Found | None:
+    m = _UNTAP_THEN.match(text)
+    a = _effects(f"{m['a'][0].upper()}{m['a'][1:]}.", it, event_player) if m is not None else None
+    b = _effects(f"{m['b'][0].upper()}{m['b'][1:]}.", it, event_player) if a is not None and m is not None else None
+    if a is None or b is None or a[1] is not None or b[1] is not None or a[2] or b[2]:
+        return None
+    return [*a[0], *b[0]], None, True
+
+
+# -- Auriok Survivors: "you may return target Equipment card from your graveyard to the battlefield. If you do, you may attach it to this creature."
+# 603.5 then a second choice; 701.3a-b: "it" is the permanent the card became (400.7j); with this creature gone, it stays unattached (2011-06-01).
+_MAY_ATTACH = re.compile(r"^(?P<a>you may return target Equipment card from your graveyard to the battlefield)\. If you do, you may attach it to ~\.$")
+
+
+def _may_attach(text: str, it: str | None, event_player: bool) -> Found | None:
+    m = _MAY_ATTACH.match(text)
+    found = _effects(f"{m['a']}.", it, event_player) if m is not None else None
+    if found is None or not found[2] or len(found[0]) != 1 or found[0][0].get("do") != "return_card" or found[0][0].get("to") != "battlefield":
+        return None
+    return [{**found[0][0], "as": "e0"}, {"do": "may_rest", "skip": 1, "label": "attach it to this creature"},
+            {"do": "attach_to", "src": "ref:e0", "who": "self"}], found[1], True
+
+
+# -- Vanish into Memory: "… At the beginning of your next upkeep, return that card to the battlefield under its owner's control. If you do, discard
+# cards equal to that creature's toughness." The returned permanent's toughness (the 2017-03-14 rulings: a token never returns, nothing is
+# discarded; a card that returns as a noncreature has no toughness, 208.3).
+_VANISH = re.compile(r"^(?P<a>Exile target creature\. You draw cards equal to that creature's power\. At the beginning of your next upkeep, return that card to "
+                     r"the battlefield under its owner's control)\. If you do, discard cards equal to that creature's toughness\.$")
+
+
+def _vanish(text: str, it: str | None, event_player: bool) -> Found | None:
+    m = _VANISH.match(text)
+    found = _effects(f"{m['a']}.", it, event_player) if m is not None else None
+    if found is None or [e.get("do") for e in found[0]] != ["exile", "draw", "delayed", "deferred:return_card"] or found[0][2].get("n") != 1:
+        return None
+    return [*found[0][:2], {**found[0][2], "n": 3}, {**found[0][3], "as": "vanish100b"}, {"do": f"deferred:{BACK}", "of": "ref:vanish100b", "skip": 1},
+            {"do": "deferred:discard", "who": "you", "n": {"toughness": "ref:vanish100b"}}], found[1], found[2]
+
+
+BACK = "back_creature100b"
+
+
+def back_creature(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """The gate: the next ``skip`` instructions happen only if the card it names is now a creature on the battlefield (it returned)."""
+    from app.rules import context
+
+    if not any(plan.state.cards[c].zone.endswith(":battlefield") and plan.ch(plan.state.cards[c]).is_creature
+               for c in context.objects(plan, ctx, e["of"].removeprefix("ref:")) if c in plan.state.cards):
+        ctx["next"] = min(len(ctx["effects"]), ctx["next"] + int(e["skip"]))
+    return True
+
+
+# -- Dakra Mystic: "Each player reveals the top card of their library. You may put the revealed cards into their owners' graveyards. If you don't, each
+# player draws a card." Decided after all are revealed (the 2014-04-26 ruling), all or none: either the revealed cards go to their owners'
+# graveyards (not a mill, 701.17a: no "mill" instruction), or each player draws (then the revealed card).
+_DAKRA = "Each player reveals the top card of their library. You may put the revealed cards into their owners' graveyards. If you don't, each player draws a card."
+TO_GRAVEYARDS = "to_graveyards100b"
+
+
+def _dakra(text: str, it: str | None, event_player: bool) -> Found | None:
+    if text != _DAKRA:
+        return None
+    look, draw = _effects("Each player reveals the top card of their library.", it, event_player), _effects("Each player draws a card.", it, event_player)
+    if look is None or draw is None or len(look[0]) != 1 or look[0][0].get("do") != "look_top":
+        return None
+    return [{**look[0][0], "as": "dakra100b"}, {"do": EITHER, "a": [{"do": TO_GRAVEYARDS, "of": "ref:dakra100b"}], "b": draw[0],
+                                                "labels": ["Put the revealed cards into their owners' graveyards", "Each player draws a card"]}], None, False
+
+
+def to_graveyards(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    from app.rules import context
+
+    cards = [c for c in context.objects(plan, ctx, e["of"].removeprefix("ref:")) if plan.state.cards[c].zone.endswith(":library")]
+    if cards:
+        plan.do({"type": "move", "card_ids": cards, "to": {"zone": "graveyard"}}, actor=ctx["controller"])
+    return True
+
+
+# -- Doors of Durin: "… put it onto the battlefield tapped and attacking. Until your next turn, it gains trample if you control a Dwarf and hexproof if you
+# control an Elf." Each "if" read as the ability resolves (608.2c); both grants are to the creature put onto the battlefield.
+_DURIN = re.compile(r"^(?P<a>.+ put it onto the battlefield tapped and attacking)\. Until your next turn, it gains (?P<k1>[a-z]+) if you control (?P<w1>an? [A-Z][a-z]+) "
+                    r"and (?P<k2>[a-z]+) if you control (?P<w2>an? [A-Z][a-z]+)\.$")
+
+
+def _durin(text: str, it: str | None, event_player: bool) -> Found | None:
+    m = _DURIN.match(text)
+    found = _effects(f"{m['a']}. If you control {m['w1']}, it gains {m['k1']} until your next turn. If you control {m['w2']}, it gains {m['k2']} until your "
+                     "next turn.", it, event_player) if m is not None else None
+    grants = [i for i, e in enumerate(found[0]) if e.get("do") == "grant"] if found is not None else []
+    if found is None or len(grants) != 2:
+        return None
+    first = found[0][grants[0]]
+    effects = [{k: v for k, v in e.items() if k != "as"} if i == grants[0] else {**e, "who": first["who"]} if i == grants[1] else e for i, e in enumerate(found[0])]
+    return effects, found[1], found[2]
+
+
+# -- Lat-Nam's Legacy: "Shuffle a card from your hand into your library. If you do, draw two cards at the beginning of the next turn's upkeep." The
+# shuffle is mandatory; "If you do" fails only with an empty hand (the 2008-10-01 ruling). To shuffle it in: put it into the library, then shuffle.
+_LATNAM = "Shuffle a card from your hand into your library. If you do, draw two cards at the beginning of the next turn's upkeep."
+HAND_GATE = "hand_gate100b"
+
+
+def _latnam(text: str, it: str | None, event_player: bool) -> Found | None:
+    if text != _LATNAM:
+        return None
+    put, shuffle = _effects("Put a card from your hand on the bottom of your library.", it, event_player), _effects("Shuffle your library.", it, event_player)
+    later = _effects("Draw two cards at the beginning of the next turn's upkeep.", it, event_player)
+    if put is None or shuffle is None or later is None or put[0] != [{"do": "put_back", "n": 1, "place": "bottom"}]:
+        return None
+    rest = [*put[0], *shuffle[0], *later[0]]
+    return [{"do": HAND_GATE, "skip": len(rest)}, *rest], None, False
+
+
+def hand_gate(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """The gate: the next ``skip`` instructions happen only if the controller's hand holds a card."""
+    if not plan.state.zones.get(f"{ctx['controller']}:hand"):
+        ctx["next"] = min(len(ctx["effects"]), ctx["next"] + int(e["skip"]))
+    return True
+
+
+# -- Primal Surge: "Exile the top card of your library. If it's a permanent card, you may put it onto the battlefield. If you do, repeat this process."
+# The 2012-05-01 rulings: the repeat includes the repeat; it ends at a card that isn't a permanent card (110.4), one you don't put, or one that
+# can't be put there (an Aura with nothing to enchant, 303.4g); what the cards' entering triggers waits until it has resolved (603.3).
+SURGE, SURGE_AGAIN = "surge100b", "surge_again100b"
+_PERMANENT = {"Artifact", "Battle", "Creature", "Enchantment", "Land", "Planeswalker"}
+
+
+def _surge(text: str, it: str | None, event_player: bool) -> Found | None:
+    ok = text == "Exile the top card of your library. If it's a permanent card, you may put it onto the battlefield. If you do, repeat this process."
+    return ([{"do": SURGE}], None, False) if ok else None
+
+
+def surge(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    from app.game.rules_state import DecisionOption
+    from app.rules.effects import exile_cards
+    from app.rules.plan import decide
+
+    library = plan.state.zones.get(f"{ctx['controller']}:library") or []
+    if not library:
+        return True
+    top = library[0]
+    exile_cards(plan, ctx, {"as": SURGE}, [top])
+    card = plan.state.cards[top]
+    if not card.zone.endswith(":exile") or not _PERMANENT & set(plan.ch(card).types):
+        return True
+    decide(plan, player=ctx["controller"], kind="confirm", prompt=f"{ctx.get('name') or 'It'}: put {card.name} onto the battlefield?",
+           options=[DecisionOption(id="yes", label="Put it onto the battlefield"), DecisionOption(id="no", label="Don't")], resume={"step": SURGE, "ctx": ctx})
+    return False
+
+
+def resume_surge(plan: Any, d: Any, chosen: list[str]) -> None:
+    from app.rules.effects import continue_effects
+
+    ctx = d.resume["ctx"]
+    if chosen == ["yes"]:
+        ctx["effects"][ctx["next"]:ctx["next"]] = [{"do": "return_card", "who": f"ref:{SURGE}", "to": "battlefield", "tapped": False, "under": "you", "as": SURGE_AGAIN},
+                                                   {"do": SURGE_AGAIN}]
+    continue_effects(plan, ctx)
+
+
+def surge_again(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    from app.rules import context
+
+    if any(plan.state.cards[c].zone.endswith(":battlefield") for c in context.objects(plan, ctx, SURGE_AGAIN)):  # (it entered: repeat)
+        ctx["effects"][ctx["next"]:ctx["next"]] = [{"do": SURGE}]
+    return True
+
+
+# -- Locke, Treasure Hunter: "each player mills a card. If a land card was milled this way, create a Treasure token. Until end of turn, you may cast a
+# spell from among those cards." "Those cards": every card milled (the new objects in the graveyards, 400.7j); one spell, its timing and costs as
+# usual (the 2025-06-06 rulings).
+_LOCKE = re.compile(r"^(?P<a>each player mills a card\. If a land card was milled this way, create a Treasure token)\. Until end of turn, you may cast a spell from among "
+                    r"those cards\.$")
+
+
+def _locke(text: str, it: str | None, event_player: bool) -> Found | None:
+    m = _LOCKE.match(text)
+    found = _effects(f"{m['a']}.", it, event_player) if m is not None else None
+    if found is None or found[1] is not None or found[2] or found[0][0].get("do") != "mill" or not found[0][0].get("as"):
+        return None
+    grant = {"do": "grant_play", "who": f"ref:{found[0][0]['as']}", "play": False, "cast": True, "until": "end_of_turn", "optional": True, "limit": 1}
+    return [*found[0], grant], None, False
+
+
+# -- Reign of Terror: "Destroy all green creatures or all white creatures. They can't be regenerated. You lose 2 life for each creature that died
+# this way." 608.2d: the controller picks one as it resolves (and announces it, 101.4b); the rest of the text reads the one done.
+_EITHER = re.compile(r"^Destroy all (?P<a>[a-z]+ creatures) or all (?P<b>[a-z]+ creatures)\. (?P<rest>[^.]+\.(?: [^.]+\.)*)$")
+EITHER = "either100b"
+
+
+def _either(text: str, it: str | None, event_player: bool) -> Found | None:
+    m = _EITHER.match(text)
+    if m is None:
+        return None
+    first, other = _effects(f"Destroy all {m['a']}. {m['rest']}", it, event_player), _effects(f"Destroy all {m['b']}.", it, event_player)
+    if first is None or other is None or first[1] is not None or other[1] is not None or first[2] or len(other[0]) != 1:
+        return None
+    a, b = first[0][0], other[0][0]
+    if a.get("do") != "destroy" or b.get("do") != "destroy" or set(a) - {"do", "who", "as"} or set(b) - {"do", "who"}:
+        return None
+    b = {**b, **({"as": a["as"]} if "as" in a else {})}
+    return [{"do": EITHER, "a": [a], "b": [b], "labels": [f"Destroy all {m['a']}", f"Destroy all {m['b']}"]}, *first[0][1:]], None, False
+
+
+def either(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    from app.game.rules_state import DecisionOption
+    from app.rules.plan import decide
+
+    decide(plan, player=ctx["controller"], kind="choose_one", prompt=f"{ctx.get('name') or 'It'}: choose one",
+           options=[DecisionOption(id="a", label=e["labels"][0]), DecisionOption(id="b", label=e["labels"][1])], resume={"step": EITHER, "ctx": ctx, "e": e})
+    return False
+
+
+def resume_either(plan: Any, d: Any, chosen: list[str]) -> None:
+    from app.rules.effects import continue_effects
+
+    ctx, e = d.resume["ctx"], d.resume["e"]
+    pick = 0 if chosen == ["a"] else 1
+    plan.note(f"{plan.name(d.player)} chooses: {e['labels'][pick]}", actor=d.player)
+    ctx["effects"][ctx["next"]:ctx["next"]] = e["a" if pick == 0 else "b"]
+    continue_effects(plan, ctx)
+
+
+PRIMITIVES = {GY_EMPTY: gy_empty, TRUCE: truce, TRUCE_ASK: truce_ask, TRUCE_DRAW: truce_draw, TRUCE_LIFE: truce_life, EITHER: either, COUNTERED: countered,
+              SWIFT: swift, BACK: back_creature, TO_GRAVEYARDS: to_graveyards, HAND_GATE: hand_gate,
+              SURGE: surge, SURGE_AGAIN: surge_again}
+RESUME = {TRUCE_ASK: resume_truce_ask, EITHER: resume_either, SURGE: resume_surge}

@@ -1522,6 +1522,9 @@ def do_draws(plan: Plan, actions: list[tuple[Event, list[Event]]], after: dict[s
             )
 
             miracle.on_draw(plan, pid, top)
+            from app.rules import first_reveal100b
+
+            first_reveal100b.on_draw(plan, pid, top)  # -- if you do (wave 100B) -- "Reveal the first card you draw each turn" (Rowen)
             key = _draw_step_key(plan)
             if r.replace_step_key != key:
                 r.replace_step_key, r.replace_step_draws = key, {}
