@@ -15,6 +15,11 @@ ATTACHED = "attached100c:"  # "all Auras attached to it": <object reference>|<se
 NOT_SEL = "not_sel100c:"  # a selector extra: the object doesn't match the selector key after it ("except for …", "that isn't …")
 CONTROLS = "controls100c:"  # a player selector extra: the player controls a permanent matching the selector key after it
 YOUR_LIFE = "your_life100c"  # a selector comparison value: the life total of the player the selector is read for
+PARTNER = "partner100c:"  # "that creature" a creature is paired with (702.95): <object reference>
+SAME_MV = "samemv100c:"  # the named objects and each other object of the selector with the same mana value: <object reference>|<selector key>
+DUST = "dust100c"  # the creatures that share no creature type with a creature that convoked this spell (702.51a)
+LOYALTY = "loyalty100c"  # a selector extra: a loyalty ability (606.3) of a planeswalker on the stack
+ATTACKED = "attacked100c"  # a player selector extra: the player declared one or more attackers this turn (508.1)
 
 
 def _sel(phrase: str) -> str:
@@ -70,6 +75,22 @@ REWRITES = {
     # (", then" and ", and" are the same series of instructions in order: 608.2c)
     "Target player loses 1 life, discards a card, then sacrifices a permanent of their choice.":
         "Target player loses 1 life, discards a card, and sacrifices a permanent of their choice.",
+    # (a card in exile is an exiled card: 406.1)
+    "Return target exiled card with flashback you own to your hand.": "Return target card with flashback you own from exile to your hand.",
+    # ("They have": the tokens are created with it; "one of those tokens": one such token)
+    "If you control an Eldrazi Spawn, create three 0/1 colorless Eldrazi Spawn creature tokens. They have \"Sacrifice this token: Add {C}.\" Otherwise, "
+    "create one of those tokens.": "If you control an Eldrazi Spawn, create three 0/1 colorless Eldrazi Spawn creature tokens with \"Sacrifice this token: "
+                                   "Add {C}.\" Otherwise, create a 0/1 colorless Eldrazi Spawn creature token with \"Sacrifice this token: Add {C}.\"",
+    # ("its controller's graveyard" is the token's own controller's: "your" in its own ability)
+    "Each player creates a green Elephant creature token. Those creatures have \"This token's power and toughness are each equal to the number of creature "
+    "cards in its controller's graveyard.\"": "Each player creates a green Elephant creature token with \"This creature's power and toughness are each "
+                                                "equal to the number of creature cards in your graveyard.\"",
+    # ("You may put a creature card from it": a choice of one, or none, then the move; "that creature": the permanent it became, 400.7)
+    "Target opponent reveals their hand. You may put a creature card from it onto the battlefield under your control. That creature gains haste. Sacrifice "
+    "it at the beginning of the next end step.": "Target opponent reveals their hand. You may choose a creature card from it. Put that card onto the "
+                                                 "battlefield under your control. It gains haste. Sacrifice it at the beginning of the next end step.",
+    # (701.24a: put into the library, then shuffled — the same as a card put on top, then a shuffle)
+    "Draw two cards, then shuffle a card from your hand into your library.": "Draw two cards. Put a card from your hand on top of your library. Then shuffle.",
 }
 
 
@@ -432,7 +453,320 @@ def _lose_all_counters() -> Parsed:
     return [{"do": "lose_all_counters100c", "who": "each_opponent"}], None, False
 
 
+def _choice(who: str, *options: tuple[str, str]) -> Parsed | None:
+    """"A or B": the controller chooses one as it resolves (608.2d); nothing to choose when ``who`` names nothing (both do nothing)."""
+    picked = [(label, _plain(text)) for label, text in options]
+    if any(p is None or p[1] is not None for _, p in picked):
+        return None
+    return [{"do": "choose_effect", "who": who, "options": [{"label": label, "effects": p[0]} for label, p in picked if p is not None]}], None, False
+
+
+def _essence_filter() -> Parsed | None:
+    return _choice(_sel("enchantment"), ("All enchantments", "Destroy all enchantments."), ("All nonwhite enchantments", "Destroy all nonwhite enchantments."))
+
+
+def _lava_storm() -> Parsed | None:
+    return _choice(_union(_sel("attacking creature"), _sel("blocking creature")), ("Each attacking creature", "~ deals 2 damage to each attacking creature."),
+                   ("Each blocking creature", "~ deals 2 damage to each blocking creature."))
+
+
+def _tombfire() -> Parsed:
+    # 702.34: a card with flashback; "their graveyard": the target player's (the Mudhole form, player_zones)
+    return [{"do": "exile", "who": "zones_of:graveyard:target|" + _key(card=True, zones=(), extras=("has_flashback",))}], "player", False
+
+
+def _telekinesis() -> Parsed | None:
+    tap = _plain("Tap target creature. It doesn't untap during its controller's next untap step.")
+    prevent = _plain("Prevent all combat damage that would be dealt by target creature this turn.")
+    if tap is None or prevent is None or len(tap[0]) != 2 or len(prevent[0]) != 1:
+        return None
+    # 502.3: two of its controller's untap steps (next_untap: "more", the untap steps after the first)
+    return [tap[0][0], prevent[0][0], {**tap[0][1], "more": 1}], "creature", False
+
+
+def _fire_and_brimstone() -> Parsed:
+    # 508.1: a player who declared one or more attackers this turn (the turn log); one damage event to both players (120.3)
+    return ([{"do": "damage", "who": "target", "n": 4, "with_next": True}, {"do": "damage", "who": "you", "n": 4}],
+            _key(player="any", extras=(ATTACKED,)), False)
+
+
+def _structural_collapse() -> Parsed:
+    # 701.21a, 101.4: one artifact, then one land, of their choice; a permanent both (an artifact land) is chosen once only
+    kinds = [_sel("artifact"), _sel("land")]
+    return ([{"do": "edict_kinds100c", "who": "target", "sels": kinds, "labels": ["artifact", "land"], "n": 1, "sel": kinds[0], "label": "artifact",
+              "distinct": True}, {"do": "damage", "who": "target", "n": 2}], "player", False)
+
+
+def _pulse_of_the_forge() -> Parsed:
+    # the life totals compared after the damage (608.2c); a planeswalker's controller as it last existed (608.2h); "return ~": the spell to its owner's hand
+    return ([{"do": "damage", "who": "target", "n": 4}, {"do": "if_more_life100c", "who": "target_player_or_controller", "skip": 1}, {"do": "bounce", "who": "self"}],
+            "player_or_planeswalker", False)
+
+
+def _feast_of_worms() -> Parsed | None:
+    parsed = _plain("Destroy target land. If that land was legendary, its controller sacrifices a land of their choice.")
+    if parsed is None or len(parsed[0]) != 3 or parsed[0][2]["do"] != "edict" or parsed[0][0].get("as") != "e0":
+        return None
+    # "another land": not the destroyed land if it's still there (indestructible, regenerated)
+    return [*parsed[0][:2], {**parsed[0][2], "exclude": "e0"}], parsed[1], False
+
+
+def _isildurs_fateful_strike() -> Parsed | None:
+    parsed = _plain("Destroy target creature. Its controller exiles a card from their hand.")
+    if parsed is None or len(parsed[0]) != 2 or parsed[0][1]["do"] != "discard":
+        return None
+    # its controller as it last existed (608.2h); "the difference": the cards in hand beyond four, counted as this is reached (608.2c); their choice (701.9a)
+    return [parsed[0][0], {"do": "hand_excess100c", "who": parsed[0][1]["who"], "over": 4}], parsed[1], False
+
+
+def _no_witnesses() -> Parsed | None:
+    most, clue, wipe = (_plain("Each player who controls the most creatures creates a Clue token."), _plain("Investigate."),
+                        _plain("Destroy all creatures."))
+    if most is None or clue is None or wipe is None or [e["do"] for e in most[0]] != ["players_where", "create_token"] or len(clue[0]) != 1:
+        return None
+    # 701.16a: each of those players investigates (ties: all of them); then the creatures, the new Clues not among them
+    return [most[0][0], {**clue[0][0], "who": most[0][1]["who"]}, *wipe[0]], None, False
+
+
+def _false_memories() -> Parsed | None:
+    parsed = _plain("Mill seven cards. At the beginning of the next end step, exile a card from your graveyard.")
+    if parsed is None or [e["do"] for e in parsed[0]] != ["mill", "delayed", "deferred:return_choice"]:
+        return None
+    # your choice of seven as the delayed trigger resolves (all of them with fewer)
+    return [*parsed[0][:2], {**parsed[0][2], "n": 7}], None, False
+
+
+def _wild_ricochet() -> Parsed | None:
+    copy = _plain("Copy target instant or sorcery spell. You may choose new targets for the copy.")
+    if copy is None or copy[0][0]["do"] != "copy_spell":
+        return None
+    # 115.7d: each of its targets kept or changed first; then the copy, of the spell as it now is (707.10, 707.10c)
+    return [{"do": "choose_new_targets", "who": "target"}, *copy[0]], copy[1], False
+
+
+def _bonus_round() -> Parsed | None:
+    parsed = _plain("Until end of turn, whenever you cast an instant or sorcery spell, copy that spell. You may choose new targets for the copy.")
+    if parsed is None or [e["do"] for e in parsed[0]] != ["delayed", "deferred:copy_spell", "deferred:copy_new_targets"]:
+        return None
+    head, copy, new = parsed[0]
+    when = {**head["when"], "cond": {**head["when"]["cond"], "player": "any"}, "text": "a player casts an instant or sorcery spell"}
+    # 707.10: "that player copies it": the caster controls the copy and chooses its new targets
+    return [{**head, "when": when}, {**copy, "by": "event_player"}, new], None, False
+
+
+def _rhystic_scrying() -> Parsed | None:
+    unless, draw, discard = _plain("Draw three cards unless any player pays {2}."), _plain("Draw three cards."), _plain("Discard three cards.")
+    if unless is None or draw is None or discard is None or [e["do"] for e in unless[0]] != ["each_may", "only_if", "draw"]:
+        return None
+    pay, gate, _ = unless[0]
+    # the offer after the draw (608.2c), each player in turn order (101.4); one payment is enough
+    return [*draw[0], pay, {**gate, "cond": {**gate["cond"], "negate": False}}, *discard[0]], None, False
+
+
+def _become_brutes() -> Parsed | None:
+    haste = _plain("Up to two target creatures each gain haste until end of turn.")
+    if haste is None or not isinstance(haste[1], list):
+        return None
+    return [*haste[0], {"do": "roles_each100c", "who": "target:0", "role": "Monster"}], [{**haste[1][0], "min": 1}], False
+
+
+def _fateful_handoff() -> Parsed | None:
+    draw = _plain("Draw cards equal to the mana value of target artifact or creature you control.")
+    if draw is None:
+        return None
+    # "An opponent": chosen as it resolves, not targeted (608.2d); no duration (611.2a)
+    return [*draw[0], {"do": "gain_control", "who": "target", "to": "choose_opponent"}], draw[1], False
+
+
+def _joint_assault() -> Parsed | None:
+    pump = _plain("Target creature gets +2/+2 until end of turn.")
+    if pump is None or len(pump[0]) != 1:
+        return None
+    return [pump[0][0], {**pump[0][0], "who": PARTNER + "target"}], pump[1], False
+
+
+def _quag_feast() -> Parsed | None:
+    choose = _plain("Choose target creature, planeswalker, or Vehicle.")
+    if choose is None or len(choose[0]) != 1:
+        return None
+    # the mana value and the graveyard compared after the mill (608.2c)
+    return [*choose[0], {"do": "mill", "who": "you", "n": 2}, {"do": "if_mv_upto_graveyard100c", "who": "target", "skip": 1},
+            {"do": "destroy", "who": "target"}], choose[1], False
+
+
+def _grave_consequences() -> Parsed | None:
+    lose = _plain("Each player loses 1 life for each card in their graveyard.")
+    if lose is None:
+        return None
+    # 101.4: each player chooses in turn order, then the chosen cards are exiled together; then the counts (608.2c)
+    return [{"do": "player_chooses", "who": "each_player", "sel": _key(card=True, zones=("graveyard",)), "n": 250, "upto": True, "optional": True,
+             "label": "card", "as": "grave100c"}, {"do": "exile", "who": "ref:grave100c"}, *lose[0]], None, False
+
+
+def _turn_the_earth() -> Parsed:
+    # 701.24a: each owner puts their targeted cards into their library and shuffles it (a library with none of them isn't shuffled)
+    return ([{"do": "shuffle_library", "who": "owners100c:target:0", "zones": [], "cards": "target:0"}, {"do": "gain_life", "who": "you", "n": 2}],
+            [{"what": _key(card=True, zones=("graveyard",)), "min": 0, "max": 3}], False)
+
+
+def _mists_of_lorien() -> Parsed:
+    # one move (610.3): the target and the others with its mana value as the spell resolves
+    return [{"do": "bounce", "who": f"{SAME_MV}target|{_sel('nonland permanent')}"}], "nonland_permanent", False
+
+
+def _earth_rumble() -> Parsed | None:
+    bend = _plain("Earthbend 2.")
+    fight = _plain("You may sacrifice an artifact. When you do, up to one target creature you control fights target creature an opponent controls.")
+    if bend is None or fight is None or [e["do"] for e in fight[0]] != ["optional_payment", "reflexive"]:
+        return None
+    # 603.12: "When you do": the land was earthbent (it is the spell's one target: a legal one was); the fight's targets chosen as it triggers
+    return [{**bend[0][0], "as": "earth100c"}, {**fight[0][1], "cond": {"object": "ref:earth100c", "is": _sel("land")}}], bend[1], False
+
+
+def _earthshape() -> Parsed | None:
+    bend, grant, me = (_plain("Earthbend 3."), _plain("Each creature you control with power 3 or less gains hexproof and indestructible until end of turn."),
+                       _plain("You gain hexproof until end of turn."))
+    if bend is None or grant is None or me is None:
+        return None
+    # "that land's power": the earthbent land's, read as the next sentence is reached (608.2c), after its counters
+    return [{**bend[0][0], "as": "earth100c"}, {"do": "power_cap100c", "of": "ref:earth100c", "then": grant[0][0]}, *me[0]], bend[1], False
+
+
+def _invoke_despair() -> Parsed | None:
+    from app.rules import this_way
+
+    made = this_way.parse("permanents sacrificed this way")
+    if made is None:
+        return None
+    out: list[dict[str, Any]] = []
+    for kind in ("creature", "enchantment", "planeswalker"):
+        edict = _plain(f"Target opponent sacrifices a {kind} of their choice.")
+        if edict is None or len(edict[0]) != 1 or edict[0][0]["do"] != "edict":
+            return None
+        # "If they can't": nothing was sacrificed (none to sacrifice, 701.21a); the process three times, in order (608.2c)
+        out += [{**edict[0][0], "as": f"despair100c_{kind}"}, {"do": "only_if", "cond": {"value": {**made, "ref_count": f"despair100c_{kind}"}, "op": "<=", "n": 0},
+                                                                "skip": 2}, {"do": "lose_life", "who": "target", "n": 2}, {"do": "draw", "who": "you", "n": 1}]
+    return out, "opponent", False
+
+
+def _coalition_victory() -> Parsed:
+    return [{"do": "if_coalition100c", "skip": 1}, {"do": "win_game", "who": "you"}], None, False
+
+
+def _ultimate_magic_meteor() -> Parsed | None:
+    exiled = _plain("If this spell was cast from exile, draw a card.")
+    if exiled is None or exiled[0][0]["do"] != "only_if":
+        return None
+    # "for each opponent, choose …": the caster chooses one of that player's artifacts or lands (none: nothing), then one destroy (701.8a)
+    return [{"do": "damage", "who": "each_creature", "n": 7}, {**exiled[0][0], "skip": 2},
+            {"do": "player_chooses", "who": "each_opponent", "by": "you", "sel": _sel("artifact or land"), "n": 1, "label": "artifact or land",
+             "as": "meteor100c"}, {"do": "destroy", "who": "ref:meteor100c"}], None, False
+
+
+def _imposing_grandeur() -> Parsed:
+    # each player answers in turn order (101.4), then each who said yes discards their hand and draws; "a commander they own": theirs (903.3)
+    mv = {"max": "mana_value", "of": _key(commander=True, owner="you", card=True, zones=("battlefield", "command"))}
+    return [{"do": "each_may", "who": "each_player", "act": [{"do": "discard", "who": "you", "n": 0, "all": True}, {"do": "draw", "who": "you", "n": mv}],
+             "text": "discard your hand and draw cards"}], None, False
+
+
+def _everything_comes_to_dust() -> Parsed:
+    # one exile instruction (610.3); an artifact or enchantment creature goes as an artifact / enchantment even if it shares a type
+    return [{"do": "exile", "who": _union(DUST, _sel("artifact"), _sel("enchantment"))}], None, False
+
+
+def _waterbending_lesson() -> Parsed | None:
+    parsed = _plain("Draw three cards. Then discard a card unless you pay {2}.")
+    if parsed is None or [e["do"] for e in parsed[0]] != ["draw", "optional_payment", "only_if", "discard"]:
+        return None
+    # 701.67a: the same offer, paid by waterbending (each artifact or creature tapped pays {1}: optional_payment, waterbend_payments)
+    return [parsed[0][0], {**parsed[0][1], "cost": "Waterbend {2}"}, *parsed[0][2:]], None, False
+
+
+def _mercurial_transformation() -> Parsed | None:
+    forms = [(label, _plain(f"Until end of turn, target nonland permanent loses all abilities and becomes a blue {kind} creature with base power and toughness "
+                            f"{pt}.")) for label, kind, pt in (("Frog 1/1", "Frog", "1/1"), ("Octopus 4/4", "Octopus", "4/4"))]
+    if any(p is None or len(p[0]) != 1 for _, p in forms):
+        return None
+    # 608.2d: "your choice of": chosen as it resolves; one layer set either way (613.1d-f, 613.4b)
+    return [{"do": "choose_effect", "who": "target", "options": [{"label": label, "effects": p[0]} for label, p in forms if p is not None]}], \
+        forms[0][1][1] if forms[0][1] is not None else None, False
+
+
+def _burning_of_xinye() -> Parsed:
+    land = _sel("land")
+    # each player chooses four of their own lands (all, with fewer) and destroys them (701.8a), you first, then the target opponent (608.2c)
+    steps = [step for who, tag in (("you", "xinye100c_a"), ("target", "xinye100c_b"))
+             for step in ({"do": "player_chooses", "who": who, "sel": land, "n": 4, "label": "land", "as": tag}, {"do": "destroy", "who": f"ref:{tag}"})]
+    return [*steps, {"do": "damage", "who": "each_creature", "n": 4}], "opponent", False
+
+
+def _split_the_party() -> Parsed:
+    # the caster chooses (608.2d), half rounded up (107.1a); one move to their owners' hands
+    return ([{"do": "player_chooses", "who": "target", "by": "you", "sel": _sel("creature"), "n": {"half_own": "up"}, "label": "creature", "as": "split100c"},
+             {"do": "bounce", "who": "ref:split100c"}], "player", False)
+
+
+def _dreams_of_steel_and_oil() -> Parsed | None:
+    hand = _plain("Target opponent reveals their hand. You choose an artifact or creature card from it. Exile that card.")
+    if hand is None or [e["do"] for e in hand[0]] != ["reveal_hand", "choose_from_hand", "exile"]:
+        return None
+    reveal, pick, _ = hand[0]
+    yard = {"do": "player_chooses", "who": "target", "by": "you", "sel": _key(card=True, types=("Artifact", "Creature"), zones=("graveyard",)), "n": 1,
+            "label": "artifact or creature card", "as": pick["as"], "add": True}
+    # both choices first (the second joins the first's binding), then one exile of the chosen cards (608.2c)
+    return [reveal, pick, yard, {"do": "exile", "who": f"ref:{pick['as']}"}], hand[1], False
+
+
 BUILDERS: dict[str, Callable[[], Parsed | None]] = {
+    "Choose target player. Return half the creatures they control to their owner's hand, rounded up.": _split_the_party,
+    "Target opponent reveals their hand. You choose an artifact or creature card from it, then choose an artifact or creature card from their graveyard. "
+    "Exile the chosen cards.": _dreams_of_steel_and_oil,
+    "You destroy four lands you control, then target opponent destroys four lands they control. Then ~ deals 4 damage to each creature.": _burning_of_xinye,
+    "Draw three cards. Then discard a card unless you waterbend {2}.": _waterbending_lesson,
+    "Until end of turn, target nonland permanent loses all abilities and becomes your choice of a blue Frog creature with base power and toughness 1/1 or "
+    "a blue Octopus creature with base power and toughness 4/4.": _mercurial_transformation,
+    "Counter target loyalty ability of a planeswalker.": lambda: ([{"do": "counter", "who": "target"}],
+                                                                 _key(ability="activated", zones=("stack",), extras=(LOYALTY,)), False),
+    "Exile all creatures except those that share a creature type with a creature that convoked this spell, all artifacts, and all enchantments.":
+        _everything_comes_to_dust,
+    # 101.2: from now this turn, one more cast (this spell counts among the casts so far)
+    "Add seven {R}. You can cast only one more spell this turn.": lambda: ([{"do": "add_mana", "sym": "R", "n": 7}, {"do": "one_more_spell100c"}], None, False),
+    "Earthbend 2. When you do, up to one target creature you control fights target creature an opponent controls.": _earth_rumble,
+    "Earthbend 3. Then each creature you control with power less than or equal to that land's power gains hexproof and indestructible until end of turn. "
+    "You gain hexproof until end of turn.": _earthshape,
+    "Target opponent sacrifices a creature of their choice. If they can't, they lose 2 life and you draw a card. Then repeat this process for an "
+    "enchantment and a planeswalker.": _invoke_despair,
+    "You win the game if you control a land of each basic land type and a creature of each color.": _coalition_victory,
+    "~ deals 7 damage to each creature. If this spell was cast from exile, for each opponent, choose an artifact or land that player controls. Destroy "
+    "the chosen permanents.": _ultimate_magic_meteor,
+    "Each player may discard their hand and draw cards equal to the greatest mana value of a commander they own on the battlefield or in the command "
+    "zone.": _imposing_grandeur,
+    "You may choose new targets for target instant or sorcery spell. Then copy that spell. You may choose new targets for the copy.": _wild_ricochet,
+    "Until end of turn, whenever a player casts an instant or sorcery spell, that player copies it and may choose new targets for the copy.": _bonus_round,
+    "Draw three cards. Then if any player pays {2}, discard three cards.": _rhystic_scrying,
+    "One or two target creatures each gain haste until end of turn. For each of those creatures, create a Monster Role token attached to it.": _become_brutes,
+    "Draw cards equal to the mana value of target artifact or creature you control. An opponent gains control of that permanent.": _fateful_handoff,
+    "Target creature gets +2/+2 until end of turn. If it's paired with a creature, that creature also gets +2/+2 until end of turn.": _joint_assault,
+    "Choose target creature, planeswalker, or Vehicle. Mill two cards, then destroy the chosen permanent if its mana value is less than or equal to the "
+    "number of cards in your graveyard.": _quag_feast,
+    "Each player may exile any number of cards from their graveyard. Then each player loses 1 life for each card in their graveyard.": _grave_consequences,
+    "Choose up to three target cards in graveyards. The owners of those cards shuffle them into their libraries. You gain 2 life.": _turn_the_earth,
+    "Return target nonland permanent and each other nonland permanent with the same mana value as that permanent to their owners' hands.": _mists_of_lorien,
+    "Destroy all enchantments or all nonwhite enchantments.": _essence_filter,
+    "~ deals 2 damage to each attacking creature or ~ deals 2 damage to each blocking creature.": _lava_storm,
+    "Target player exiles all cards with flashback from their graveyard.": _tombfire,
+    "Tap target creature. Prevent all combat damage that would be dealt by that creature this turn. It doesn't untap during its controller's next two untap "
+    "steps.": _telekinesis,
+    "~ deals 4 damage to target player who attacked this turn and 4 damage to you.": _fire_and_brimstone,
+    "Target player sacrifices an artifact and a land of their choice. ~ deals 2 damage to that player.": _structural_collapse,
+    "~ deals 4 damage to target player or planeswalker. Then if that player or that planeswalker's controller has more life than you, return ~ to its "
+    "owner's hand.": _pulse_of_the_forge,
+    "Destroy target land. If that land was legendary, its controller sacrifices another land of their choice.": _feast_of_worms,
+    "Destroy target creature. If its controller has more than four cards in hand, they exile cards from their hand equal to the difference.":
+        _isildurs_fateful_strike,
+    "Each player who controls the most creatures investigates. Then destroy all creatures.": _no_witnesses,
+    "Mill seven cards. At the beginning of the next end step, exile seven cards from your graveyard.": _false_memories,
     "Target player draws a card, then up to one target creature you control connives.": _unstable_experiment,
     "The owner of target creature an opponent controls puts it into their library second from the top or on the bottom. Then up to one target "
     "creature you control connives.": _tricksters_stratagem,
@@ -523,6 +857,30 @@ def cards(plan: Any, ctx: Any, who: str) -> list[str]:
         owners = set(effects._players(plan, ctx, ref))
         return [c for c in selectors.candidates(plan, selectors.from_key(key), ctx["controller"], ctx.get("source_card"))
                 if plan.state.cards[c].owner in owners]
+    if who == DUST:
+        from app.rules import convoke_connive
+        from app.rules.creature_types import CREATURE_TYPES
+        from app.rules.triggers import _snapshot_card
+
+        kin: set[str] = set()
+        for cid, oid, _ in convoke_connive.contributors(plan, ctx):  # (each as it is now, or as it last existed: 608.2h)
+            card = plan.state.cards.get(cid)
+            snap = plan.rules.lki.get(oid)
+            ch = plan.ch(card) if card is not None and plan.oid(card) == oid else _snapshot_card(plan, snap)[1] if snap is not None else None
+            kin |= {t for t in ch.subtypes if t in CREATURE_TYPES} if ch is not None else set()
+        return [c for c in selectors.candidates(plan, selectors.from_key(_sel("creature")), ctx["controller"], ctx.get("source_card"))
+                if not kin & plan.ch(plan.state.cards[c]).subtypes]
+    if who.startswith(PARTNER):
+        from app.rules import pairing
+
+        oids = {pairing.partner_oid(plan, plan.state.cards[c]) for c in effects._cards(plan, ctx, who[len(PARTNER):])}
+        return [c.id for c in plan.state.cards.values() if c.zone.endswith(":battlefield") and plan.oid(c) in oids]
+    if who.startswith(SAME_MV):
+        ref, _, key = who[len(SAME_MV):].partition("|")
+        named = effects._cards(plan, ctx, ref)
+        mvs = {plan.ch(plan.state.cards[c]).mana_value for c in named}
+        return [*named, *(c for c in selectors.candidates(plan, selectors.from_key(key), ctx["controller"], ctx.get("source_card"))
+                          if c not in named and plan.ch(plan.state.cards[c]).mana_value in mvs)]
     ref, _, key = who[len(ATTACHED):].partition("|")
     hosts = set(effects._cards(plan, ctx, ref))
     return [c for c in selectors.candidates(plan, selectors.from_key(key), ctx["controller"], ctx.get("source_card"))
@@ -532,12 +890,22 @@ def cards(plan: Any, ctx: Any, who: str) -> list[str]:
 def extra_ok(plan: Any, extra: str, card: Any, ch: Any, you: str, source: str | None, attacker: str | None) -> bool:
     from app.rules import selectors
 
+    if extra == LOYALTY:  # (the stack object carries the text after the cost: 602.2a; ponytail: matched by that text against the source's loyalty abilities)
+        src = plan.state.cards.get(card.ability.source_id or "") if card.ability is not None else None
+        sch = plan.ch(src) if src is not None else None
+        return sch is not None and "Planeswalker" in sch.types and any(
+            a.kind == "loyalty" and a.text.split(":", 1)[-1].strip()[:500] == card.ability.text for a in sch.abilities)
+
     return not selectors.matches(plan, selectors.from_key(extra[len(NOT_SEL):]), card, ch, you, source, attacker)
 
 
 def player_extra_ok(plan: Any, extra: str, pid: str, you: str) -> bool:
     from app.rules import selectors
 
+    if extra == ATTACKED:
+        from app.rules.history import log_for
+
+        return pid in log_for(plan).attacked
     sel = selectors.from_key(extra[len(CONTROLS):])
     return any(plan.state.cards[c].controller == pid for c in selectors.candidates(plan, sel, you))
 
@@ -593,5 +961,85 @@ def draw_for_controllers(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
     return True
 
 
-PRIMITIVES = {"lose_all_counters100c": lose_all_counters, "edict_kinds100c": edict_kinds, "draw_for_revealed100c": draw_for_revealed,
+def if_more_life(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
+    """"Then if that player … has more life than you, [the next ``skip`` instructions]" (608.2c: judged as it is reached)."""
+    from app.rules import effects
+
+    mine = plan.state.players[ctx["controller"]].life
+    if not any(plan.state.players[p].life > mine for p in effects._players(plan, ctx, e["who"])):
+        ctx["next"] = min(len(ctx["effects"]), ctx["next"] + int(e["skip"]))
+    return True
+
+
+def hand_excess(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
+    """"They exile cards from their hand equal to the difference": each named player with more than ``over`` cards in hand exiles the excess, their choice."""
+    from app.rules import effects
+
+    at = ctx["next"]
+    for pid in effects._players(plan, ctx, e["who"]):
+        if (extra := len(plan.state.zones.get(f"{pid}:hand", [])) - int(e["over"])) > 0:
+            ctx["effects"][at:at] = [{"do": "discard", "who": f"player:{pid}", "n": extra, "to": "exile"}]
+            at += 1
+    return True
+
+
+def if_mv_upto_graveyard(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
+    """"if its mana value is less than or equal to the number of cards in your graveyard": else the next ``skip`` instructions don't happen."""
+    from app.rules import effects
+
+    n = len(plan.state.zones.get(f"{ctx['controller']}:graveyard", []))
+    if not any(plan.ch(plan.state.cards[c]).mana_value <= n for c in effects._cards(plan, ctx, e["who"])):
+        ctx["next"] = min(len(ctx["effects"]), ctx["next"] + int(e["skip"]))
+    return True
+
+
+def roles_each(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
+    """"For each of those creatures, create a [Role] token attached to it": one Role for each, in order (roles.create_role)."""
+    from app.rules import context, effects
+
+    at = ctx["next"]
+    for i, cid in enumerate(effects._cards(plan, ctx, e["who"])):
+        context.bind_objects(plan, ctx, f"role100c_{at}_{i}", [cid])
+        ctx["effects"][at + i:at + i] = [{"do": "create_role", "role": e["role"], "who": f"ref:role100c_{at}_{i}"}]
+    return True
+
+
+def power_cap(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
+    """"each creature you control with power less than or equal to that land's power …": the bound land's power now (as it last existed if gone, 608.2h)."""
+    from dataclasses import replace
+
+    from app.rules import context, sba, selectors
+
+    seen = context.infos(plan, ctx, e["of"].removeprefix("ref:"))
+    if seen:
+        then = e["then"]
+        cap = (("power", "<=", sba.power(*seen[0]) or 0),)
+        ctx["effects"][ctx["next"]:ctx["next"]] = [{**then, "who": replace(selectors.from_key(then["who"]), compare=cap).key()}]
+    return True
+
+
+def if_coalition(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
+    """"if you control a land of each basic land type and a creature of each color" (305.6, 105.1): one permanent may count for several."""
+    mine = [plan.ch(c) for c in plan.state.cards.values() if c.zone == f"{ctx['controller']}:battlefield" and c.controller == ctx["controller"]]
+    ok = all(any(ch.is_land and t in ch.subtypes for ch in mine) for t in ("Plains", "Island", "Swamp", "Mountain", "Forest")) \
+        and all(any(ch.is_creature and c in ch.colors for ch in mine) for c in "WUBRG")
+    if not ok:
+        ctx["next"] = min(len(ctx["effects"]), ctx["next"] + int(e["skip"]))
+    return True
+
+
+def one_more_spell(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
+    """"You can cast only one more spell this turn": a cast limit of this turn's casts so far plus one (cast_limits ``max``)."""
+    import secrets
+
+    from app.rules.cast_limits import _cast_this_turn
+
+    pid, label = ctx["controller"], ctx.get("name") or "An effect"
+    plan.rules.cast_limits.append({"id": secrets.token_hex(4), "player": pid, "controller": pid, "until": "turn", "turn": plan.state.turn.number,
+                                   "filter": None, "from": None, "act": None, "label": label, "max": _cast_this_turn(plan.state, pid, None) + 1})
+    plan.note(f"{plan.name(pid)} can cast only one more spell this turn ({label})", actor=pid)
+    return True
+
+
+PRIMITIVES = {"one_more_spell100c": one_more_spell, "power_cap100c": power_cap, "if_coalition100c": if_coalition, "if_mv_upto_graveyard100c": if_mv_upto_graveyard, "roles_each100c": roles_each, "if_more_life100c": if_more_life, "hand_excess100c": hand_excess, "lose_all_counters100c": lose_all_counters, "edict_kinds100c": edict_kinds, "draw_for_revealed100c": draw_for_revealed,
               "draw_for_controllers100c": draw_for_controllers}

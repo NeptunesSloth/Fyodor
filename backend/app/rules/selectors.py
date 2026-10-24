@@ -2028,8 +2028,8 @@ def matches_player(plan: Plan, sel: Selector, pid: str, you: str, *, source_obje
         return False
     if sel.player_exclude is not None and (not sel.player_exclude.startswith("player:") or pid == sel.player_exclude[7:]):
         return False
-    for extra100c in sel.extras:  # -- static spells (wave 100C) -- "each player who controls a white creature" (Disorder)
-        if extra100c.startswith("controls100c:"):
+    for extra100c in sel.extras:  # -- static spells (wave 100C) -- "each player who controls a white creature" (Disorder), "target player who attacked this turn"
+        if extra100c.startswith(("controls100c:", "attacked100c")):
             from app.rules import static_spell100c
 
             if not static_spell100c.player_extra_ok(plan, extra100c, pid, you):
@@ -2397,7 +2397,7 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
                 return False
         if extra.startswith("all_colors:") and not set(extra[11:]) <= set(ch.colors):  # -- both colors (wave 6D) --
             return False
-        if extra.startswith("not_sel100c:"):  # -- static spells (wave 100C) -- "each creature that isn't all colors", "except for creatures you control with flying"
+        if extra.startswith(("not_sel100c:", "loyalty100c")):  # -- static spells (wave 100C) -- "each creature that isn't all colors", "… loyalty ability of a planeswalker"
             from app.rules import static_spell100c
 
             if not static_spell100c.extra_ok(plan, extra, card, ch, you, source, attacker):

@@ -88,6 +88,8 @@ def _players(plan: Plan, ctx: Context, who: str) -> list[str]:
     if who.startswith("others100c:"):  # -- static spells (wave 100C) -- "each player other than target player"
         named = set(_players(plan, ctx, who[len("others100c:"):]))
         return [p for p in plan.live() if p not in named]
+    if who.startswith("owners100c:"):  # -- static spells (wave 100C) -- "the owners of those cards"
+        return [p for p in dict.fromkeys(plan.state.cards[c].owner for c in _cards(plan, ctx, who[len("owners100c:"):])) if p in plan.live()]
     if who.startswith(selectors.PREFIX):  # "each opponent", "each player" … as a selector
         sel = selectors.from_key(who)
         return [p for p in plan.live() if selectors.matches_player(plan, sel, p, me)] if sel.player else []
@@ -185,7 +187,7 @@ def _players(plan: Plan, ctx: Context, who: str) -> list[str]:
 
 
 def _cards(plan: Plan, ctx: Context, who: str) -> list[str]:
-    if who.startswith(("owned100c:", "attached100c:")):  # -- static spells (wave 100C) -- "all artifacts target player owns", "all Auras attached to it"
+    if who.startswith(("owned100c:", "attached100c:", "partner100c:", "samemv100c:", "dust100c")):  # -- static spells (wave 100C) -- "all artifacts target player owns", "all Auras attached to it", ...
         from app.rules import static_spell100c
 
         return static_spell100c.cards(plan, ctx, who)
@@ -3535,7 +3537,7 @@ def shuffle_library(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     before = _remember(plan, ctx, e, [c for pid in players for zone in e.get("zones") or [] for c in plan.state.zones.get(zone_key(pid, zone), [])] + chosen)
     moved_count = 0
     for pid in players:
-        if mine := [c for c in chosen if plan.state.cards[c].zone == zone_key(pid, "graveyard")]:  # (their graveyard: 701.24a puts them in before the shuffle)
+        if mine := [c for c in chosen if c in plan.state.cards and plan.state.cards[c].zone == zone_key(pid, "graveyard")]:  # (their graveyard: 701.24a puts them in before the shuffle; wave 100C: an earlier owner's shuffle re-keyed theirs)
             originals = {cid: plan.oid(cid) for cid in mine}
             plan.do({"type": "move", "card_ids": mine, "to": {"player": pid, "zone": "library"}}, actor=pid)
             moved_count += sum(cid in plan.state.cards and plan.state.cards[cid].zone == zone_key(pid, "library")
