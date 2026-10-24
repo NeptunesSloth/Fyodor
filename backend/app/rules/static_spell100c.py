@@ -807,7 +807,19 @@ def _goldwardens_gambit() -> Parsed | None:
     return [*made[0], {"do": "each100c", "who": made[0][1]["who"], "then": {"do": "attach_choose", "n": 1, "kinds": ["Equipment"], "optional": True}}], None, False
 
 
+def _memory_theft() -> Parsed | None:
+    theft = _plain("Target opponent reveals their hand. You choose a nonland card from it. That player discards that card.")
+    if theft is None:
+        return None
+    # your choice of one or none (608.2d) among the exiled cards with an Adventure that player owns (108.3), to that player's graveyard (400.3)
+    yard = {"do": "return_choice", "who": f"{OWNED}target|{_key(card=True, extras=('has_adventure',), zones=('exile',))}", "to": "graveyard", "n": 1,
+            "upto": True, "random": False, "label": "card that has an Adventure"}
+    return [*theft[0], yard], theft[1], False
+
+
 BUILDERS: dict[str, Callable[[], Parsed | None]] = {
+    "Target opponent reveals their hand. You choose a nonland card from it. That player discards that card. You may put a card that has an Adventure "
+    "that player owns from exile into that player's graveyard.": _memory_theft,
     "Create five 2/2 red Rebel creature tokens. They gain haste until end of turn. For each of those tokens, you may attach an Equipment you control to it.":
         _goldwardens_gambit,
     "Choose an order for artifacts, creatures, and lands. Each player sacrifices one permanent of their choice of the first type, sacrifices two of their "

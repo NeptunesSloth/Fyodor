@@ -35,7 +35,7 @@ PROMOTED = ["Verdant Command", "Everything Comes to Dust", "Irencrag Feat", "Wat
             "Split the Party", "Dreams of Steel and Oil", "Treacherous Urge", "Pox",
             "Omen of Fire", "Sway of the Stars", "Energybending", "Embiggen",
             "Eliminate the Impossible", "Aura Barbs", "Baki's Curse", "Pollen Lullaby",
-            "Metamorphose", "Rite of Ruin"]
+            "Metamorphose", "Rite of Ruin", "Memory Theft"]
 
 
 @pytest.fixture()
@@ -305,4 +305,16 @@ def test_rite_of_ruin_one_two_three_in_the_chosen_order(cards):
     rest = [put_on(s, n, "p2") for n in ("Grizzly Bears", "Llanowar Elves", "Sol Ring", "Arcane Signet")]
     cast(s, "Rite of Ruin", prefer=["Lands, creatures, artifacts"], R=2, C=5)
     assert [zone(s, c) for c in islands].count("p2:graveyard") == 1 and all(zone(s, c) == "p2:graveyard" for c in rest)
+    check(s)
+
+
+def test_memory_theft_discards_your_pick_and_may_bin_their_exiled_adventure_card(cards):
+    """Bob reveals Opt and Grizzly Bears: Alice picks the bear; then she puts Bob's exiled Bonecrusher Giant into his graveyard (her own stays)."""
+    s = build(cards, ["Memory Theft", "Bonecrusher Giant // Stomp"], ["Opt", "Grizzly Bears", "Bonecrusher Giant // Stomp"])
+    hand_of(s, "p2", ["Opt", "Grizzly Bears"])
+    theirs, mine = move(s, one(s, "Bonecrusher Giant // Stomp", "p2"), "exile"), move(s, one(s, "Bonecrusher Giant // Stomp"), "exile")
+    bear, opt = one(s, "Grizzly Bears", "p2"), one(s, "Opt", "p2")
+    cast(s, "Memory Theft", targets=["p2"], prefer=[bear.id, theirs.id], B=1, C=2)
+    assert zone(s, bear) == "p2:graveyard" and zone(s, opt) == "p2:hand"
+    assert zone(s, theirs) == "p2:graveyard" and zone(s, mine) == "p1:exile"
     check(s)
