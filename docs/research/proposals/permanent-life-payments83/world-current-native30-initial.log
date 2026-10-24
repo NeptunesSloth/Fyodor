@@ -1,0 +1,163 @@
+.........................F...F                                           [100%]
+=================================== FAILURES ===================================
+_ test_native_phased_entering_copy_cold_restore_retains_interval_and_loses_to_newer _
+
+cards = <app.cards.repository.CardRepository object at 0x7f06063a2e40>
+tmp_path = PosixPath('/tmp/pytest-of-agent/pytest-6663/test_native_phased_entering_co0')
+
+    def test_native_phased_entering_copy_cold_restore_retains_interval_and_loses_to_newer(cards,tmp_path):
+        from tests.test_rules_text_changes71 import cold_run
+        s=game(cards)
+        source=cast(s,'Concordant Crossroads')
+        copied=cast(s,'Copy Enchantment')
+        choose(s,source.id)
+        oid=s.state.rules.object_id(copied.id)
+        first=s.state.rules.world_intervals80[oid].since
+        cast(s,"Teferi's Protection")
+        assert s.state.cards[copied.id].zone=='p1:phased'
+        assert s.state.rules.world_intervals80[oid].since==first
+>       cold_run(s,cards,tmp_path,r'''
+    from tests.test_rules_world_rule80 import cast
+    from tests.test_rules_wave30m_durations import to_phase
+    from tests.test_rules_library_look import settle
+    copied=s.state.cards[sys.argv[3]]
+    oid=s.state.rules.object_id(copied.id)
+    first=s.state.rules.world_intervals80[oid].since
+    assert copied.zone=='p1:phased'
+    to_phase(s,'main1',2)
+    new=cast(s,'In the Eye of Chaos',pid='p2')
+    assert new.zone=='p2:battlefield' and copied.zone=='p1:phased'
+    assert s.state.rules.world_intervals80[oid].since==first
+    to_phase(s,'main1',4)
+    settle(s)
+    assert copied.zone=='p1:graveyard' and new.zone=='p2:battlefield'
+    ''',copied.id)
+
+/workspace/Fyodor/backend/tests/test_rules_world_rule80.py:210:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+s = <app.game.session.GameSession object at 0x7f06063a4590>
+cards = <app.cards.repository.CardRepository object at 0x7f06063a2e40>
+tmp_path = PosixPath('/tmp/pytest-of-agent/pytest-6663/test_native_phased_entering_co0')
+code = "\nfrom tests.test_rules_world_rule80 import cast\nfrom tests.test_rules_wave30m_durations import to_phase\nfrom tests...d].since==first\nto_phase(s,'main1',4)\nsettle(s)\nassert copied.zone=='p1:graveyard' and new.zone=='p2:battlefield'\n"
+args = ('1e7cdb19b3b4',)
+
+    def cold_run(s, cards, tmp_path, code, *args):
+        import os
+        import subprocess
+        import sys
+
+        import app
+
+        saved = tmp_path / 'text71.json'
+        saved.write_text(s.state.model_dump_json())
+        backend = Path(app.__file__).resolve().parents[1]
+        prefix = r"""
+    import sys
+    from pathlib import Path
+    from app.cards.images import ImageStore
+    from app.cards.repository import CardRepository
+    from app.game.session import GameSession
+    from app.game.state import GameState
+    from app.rules.plan import Plan
+    from tests.test_rules_text_changes71 import choose, cast
+    from tests.test_rules_designations import roundtrip
+    repo=CardRepository(Path(sys.argv[2]),ImageStore(Path(sys.argv[2]).parent/'images'))
+    s=GameSession(GameState.model_validate_json(Path(sys.argv[1]).read_text()),cards=repo)
+    """
+        result = subprocess.run([sys.executable, '-c', prefix + code, str(saved), str(cards.db_path), *args],
+                                cwd=backend, env={**os.environ, 'PYTHONPATH': str(backend)},
+                                capture_output=True, text=True, timeout=180, check=False)
+>       assert result.returncode == 0, result.stdout + result.stderr
+E       AssertionError: Traceback (most recent call last):
+E           File "<string>", line 9, in <module>
+E         ModuleNotFoundError: No module named 'tests'
+E
+E       assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['/workspace/Fyodor/backend/.venv/bin/python3', '-c', "\nimport sys\nfrom pathlib import Path\nf...ck (most recent call last):\n  File "<string>", line 9, in <module>\nModuleNotFoundError: No module named \'tests\'\n').returncode
+
+/workspace/Fyodor/backend/tests/test_rules_text_changes71.py:387: AssertionError
+_ test_native_copy_expires_while_phased_and_regained_world_interval_survives_cold _
+
+cards = <app.cards.repository.CardRepository object at 0x7f0606259a90>
+tmp_path = PosixPath('/tmp/pytest-of-agent/pytest-6663/test_native_copy_expires_while0')
+
+    def test_native_copy_expires_while_phased_and_regained_world_interval_survives_cold(cards,tmp_path):
+        from tests.test_rules_text_changes71 import cold_run
+        s=game(cards)
+        cast(s,'Opalescence')
+        world=cast(s,'Concordant Crossroads')
+        oid=s.state.rules.object_id(world.id)
+        first=s.state.rules.world_intervals80[oid].since
+        bear=put(s,'Grizzly Bears','battlefield')
+        cast(s,'Cytoshape',targets=[world.id])
+        choose(s,bear.id)
+        assert oid not in s.state.rules.world_intervals80
+        cast(s,"Teferi's Protection")
+        assert s.state.cards[world.id].zone=='p1:phased'
+        to_phase(s,'main1',2)
+        assert s.state.cards[world.id].zone=='p1:phased'
+        receipt=s.state.rules.world_intervals80[oid]
+        assert receipt.since>first
+>       cold_run(s,cards,tmp_path,r'''
+    from tests.test_rules_world_rule80 import cast
+    from tests.test_rules_wave30m_durations import to_phase
+    from tests.test_rules_library_look import settle
+    world=s.state.cards[sys.argv[3]]
+    oid=s.state.rules.object_id(world.id)
+    regained=s.state.rules.world_intervals80[oid].since
+    new=cast(s,'In the Eye of Chaos',pid='p2')
+    assert s.state.rules.world_intervals80[s.state.rules.object_id(new.id)].since>regained
+    to_phase(s,'main1',4)
+    settle(s)
+    assert world.zone=='p1:graveyard' and new.zone=='p2:battlefield'
+    ''',world.id)
+
+/workspace/Fyodor/backend/tests/test_rules_world_rule80.py:278:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+s = <app.game.session.GameSession object at 0x7f0606258980>
+cards = <app.cards.repository.CardRepository object at 0x7f0606259a90>
+tmp_path = PosixPath('/tmp/pytest-of-agent/pytest-6663/test_native_copy_expires_while0')
+code = "\nfrom tests.test_rules_world_rule80 import cast\nfrom tests.test_rules_wave30m_durations import to_phase\nfrom tests...].since>regained\nto_phase(s,'main1',4)\nsettle(s)\nassert world.zone=='p1:graveyard' and new.zone=='p2:battlefield'\n"
+args = ('2cb351b13298',)
+
+    def cold_run(s, cards, tmp_path, code, *args):
+        import os
+        import subprocess
+        import sys
+
+        import app
+
+        saved = tmp_path / 'text71.json'
+        saved.write_text(s.state.model_dump_json())
+        backend = Path(app.__file__).resolve().parents[1]
+        prefix = r"""
+    import sys
+    from pathlib import Path
+    from app.cards.images import ImageStore
+    from app.cards.repository import CardRepository
+    from app.game.session import GameSession
+    from app.game.state import GameState
+    from app.rules.plan import Plan
+    from tests.test_rules_text_changes71 import choose, cast
+    from tests.test_rules_designations import roundtrip
+    repo=CardRepository(Path(sys.argv[2]),ImageStore(Path(sys.argv[2]).parent/'images'))
+    s=GameSession(GameState.model_validate_json(Path(sys.argv[1]).read_text()),cards=repo)
+    """
+        result = subprocess.run([sys.executable, '-c', prefix + code, str(saved), str(cards.db_path), *args],
+                                cwd=backend, env={**os.environ, 'PYTHONPATH': str(backend)},
+                                capture_output=True, text=True, timeout=180, check=False)
+>       assert result.returncode == 0, result.stdout + result.stderr
+E       AssertionError: Traceback (most recent call last):
+E           File "<string>", line 9, in <module>
+E         ModuleNotFoundError: No module named 'tests'
+E
+E       assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['/workspace/Fyodor/backend/.venv/bin/python3', '-c', "\nimport sys\nfrom pathlib import Path\nf...ck (most recent call last):\n  File "<string>", line 9, in <module>\nModuleNotFoundError: No module named \'tests\'\n').returncode
+
+/workspace/Fyodor/backend/tests/test_rules_text_changes71.py:387: AssertionError
+=========================== short test summary info ============================
+FAILED ../../workspace/Fyodor/backend/tests/test_rules_world_rule80.py::test_native_phased_entering_copy_cold_restore_retains_interval_and_loses_to_newer
+FAILED ../../workspace/Fyodor/backend/tests/test_rules_world_rule80.py::test_native_copy_expires_while_phased_and_regained_world_interval_survives_cold
+2 failed, 28 passed in 140.83s (0:02:20)

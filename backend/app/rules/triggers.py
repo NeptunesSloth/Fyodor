@@ -405,8 +405,10 @@ def _event_watchers(plan: Plan) -> list[tuple[CardInstance, Characteristics, int
 
 
 def _snapshot_card(plan: Plan, snap: ObjectSnapshot) -> tuple[CardInstance, Characteristics]:
-    """The object as it last existed on the battlefield (603.10a: leaves-the-battlefield triggers
-    look back in time)."""
+    """The public original object from its recorded departure or fight snapshot.
+
+    CR 603.10a includes battlefield and graveyard departure look-back events.
+    """
     ch = _lki_characteristics(plan, snap)
     # (-- counters (wave 41A) -- 603.10a, 608.2h: "an attacking creature you control dies" (Death Tyrant, Kardur): it was attacking (and whom) / blocking / tapped as it
     # last existed — a selector that asks reads these of the dead object too)
@@ -454,6 +456,9 @@ def _live(plan: Plan, obj: CardInstance) -> bool:
 
 def _facts(plan: Plan, e: Event, window: dict[str, Any]) -> list[Fact]:
     r = plan.rules
+    if e.kind == "fought":
+        return [("fight", card, ch, snap.controller, {"oid": snap.object_id, "snap": snap})
+                for snap in e.fighters90 for card, ch in [_snapshot_card(plan, snap)]]
     if e.kind == "damage_prevented" and e.amount > 0:
         return [("damage_prevented", None, None, e.player, {"amount": e.amount, "recipient": e.player})]
     if e.kind == "library_shuffled":
@@ -568,7 +573,7 @@ def _facts(plan: Plan, e: Event, window: dict[str, Any]) -> list[Fact]:
                  {"oid": e.object_id, "actor": e.player, "other": e.by_card, "other_oid": e.source})]
     if e.kind in ("crewed", "saddled", "evolved"):  # 702.122e: its crew ability resolved; 702.171b: it became saddled
         got = _object_then(plan, e.card, e.object_id)
-        return [(e.kind, got[0], got[1], e.player, {"oid": e.object_id, "actor": e.player})] if got is not None else []
+        return [(e.kind, got[0], got[1], e.player, {"oid": e.object_id, "actor": e.player, "crew_count80": e.crew_count80})] if got is not None else []
     if e.kind in ("attached", "unattached"):  # -- attachment events (wave 30S) -- 603.2e, 701.3d, 603.10c: the Aura / Equipment (as it last existed
         got = _object_then(plan, e.card, e.object_id)  # if it left), and the permanent on the other side (``other``) while it still is that object
         host = plan.state.cards.get(e.by_card or "")
@@ -608,6 +613,11 @@ def _facts(plan: Plan, e: Event, window: dict[str, Any]) -> list[Fact]:
         return _damage_facts(plan, e)
     if e.kind == "player_counters" and e.amount > 0 and e.player:  # -- counters & designations (wave 3E): 122.6 a player got counters --
         return [("player_counters", None, None, e.player, {"counter": e.counter, "amount": e.amount, "actor": e.actor, "group": e.group})]
+    if e.kind == 'designation' and e.counter == 'echo_paid76':
+        card = plan.state.cards.get(e.card or '')
+        if card is None or plan.oid(card) != e.object_id:
+            return []
+        return [('echo_paid76', card, plan.ch(card), e.player, {'oid': e.object_id})]
     if e.kind == "designation":  # -- counters & designations (wave 3E) --
         from app.rules import designations
 
@@ -616,6 +626,8 @@ def _facts(plan: Plan, e: Event, window: dict[str, Any]) -> list[Fact]:
 
 
 def _discard_facts(plan: Plan, e: Event) -> list[Fact]:
+    if e.non_discard:
+        return []
     # 701.9a: "To discard a card, move it from its owner's hand to that player's graveyard" — the rules engine moves a card that
     # way only by discarding it (an effect, a cost, cycling); -- review (wave 23D) -- or a replacement put the discard elsewhere
     if _zone(e.from_zone) != "hand" or not e.card or not (_zone(e.to_zone) == "graveyard" or _discarded_instead(plan, e)):
@@ -635,7 +647,14 @@ def _zone_facts(plan: Plan, e: Event) -> list[Fact]:
     if frm == "graveyard" and to != "graveyard" and e.card:
         # 603.10a: leaving the graveyard also happens when a card enters the
         # battlefield; collect it before the battlefield-entry branch returns.
-        got = _card_in(plan, e.card, e.from_zone)
+        # A subsequent hidden shuffle may already have retired e.card. Use
+        # the public graveyard departure snapshot, never its shuffled successor.
+        snap = r.lki.get(e.object_id or "")
+        got = _snapshot_card(plan, snap) if snap is not None else _card_in(plan, e.card, e.from_zone)
+        if got is not None and snap is not None:
+            from app.rules import outside_battlefield_self
+
+            got = got[0], outside_battlefield_self.apply(got[1])
         if got is not None:
             out.append(("leave_graveyard", got[0], got[1], got[0].owner,
                         {"oid": e.object_id, "new_oid": e.new_object_id, "to": e.to_zone, "amount": 1}))
@@ -737,6 +756,10 @@ _PAIRED = {"block": "block_pair", "blocked": "blocked_pair"}
 
 
 def _cond_matches(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: Fact, *, source_oid: str | None = None) -> bool:
+    if cond.get('first_source80'):
+        from app.rules import first_crew_saddle80
+
+        return first_crew_saddle80.matches(plan, cond, watcher, fact, source_oid)
     if cond.get('first_event78'):
         from app.rules import first_event_receipts78
 
@@ -1648,6 +1671,9 @@ def _generic_events(plan: Plan, events: list[Event]) -> None:
             continue
         facts = _facts(plan, e, window)
         first_event_receipts78.annotate(plan, facts, e.batch, first_batches78)
+        from app.rules import first_crew_saddle80
+
+        first_crew_saddle80.annotate(plan, facts)
         for fact in facts:
             if fact[0] == 'dealt_damage' and fact[4].get('oid'):
                 fact[4]['simultaneous_amount'] = simultaneous_damage.get((e.batch, fact[4]['oid']), 0)
@@ -2209,9 +2235,12 @@ def _echo(plan: Plan) -> None:
         r.echo_done[:] = [k for k in r.echo_done if not k.startswith(f"{plan.oid(card)}:")]
         r.echo_done.append(key)
         kind, cost = found
-        effects = [{"do": "pay_or_sacrifice", "cost": cost}] if kind == "mana" else [
+        effects = [{"do": "pay_or_sacrifice", "cost": cost, "echo_paid76": True}] if kind == "mana" else [
             {"do": "optional_payment", "who": "you", "cost": cost, "bind": "pay0"},
             {"do": "only_if", "cond": {"succeeded": "pay0", "negate": True}, "skip": 1}, {"do": "sacrifice", "who": "self"}]
+        if kind != 'mana':
+            effects += [{'do': 'only_if', 'cond': {'succeeded': 'pay0'}, 'skip': 1}, {'do': 'note_echo_paid76'}]
+        effects = [{'do': 'echo_payment76', 'original': effects}]
         _add(plan, controller=card.controller, source_card=card.id, source_object=plan.oid(card), name=ch.name,
              index=3000, definition={"kind": "triggered", "trigger": "upkeep_you", "optional": False, "target": None, "effects": effects})
 
@@ -2633,8 +2662,13 @@ def bind_that_player(t: PendingTrigger) -> None:
 def bind_event_stat(plan: Plan, t: PendingTrigger) -> None:
     """-- reanimation (wave 16F) -- "return target creature card with lesser mana value": the selectors' ``evt:<stat>`` becomes the
     number the one object the trigger is about had (as it last existed, 608.2h), as the ability is put on the stack."""
+    from app.rules import fight_receipts90
     from app.rules.selectors import EVENT_STAT, _stat
 
+    fight_receipts90.bind(plan, t)
+    from app.rules import exchange_choices92
+
+    exchange_choices92.bind(plan, t)
     raw = json.dumps(t.ability)
     other_is_type = bool(t.ability.get('target_other_is_type'))
     if (f'\\"{EVENT_STAT}' not in raw and not other_is_type) or t.event is None or len(t.event.objects) != 1:
@@ -2670,7 +2704,7 @@ def bind_event_stat(plan: Plan, t: PendingTrigger) -> None:
 def put(plan: Plan, t: PendingTrigger, target: str | None = None, picks: dict[str, Any] | None = None) -> bool:
     """Put one trigger on the stack. False if it waits for its controller's target choice.
     ``picks``: the choices so far for an ability with target groups (603.3d → 601.2c-d)."""
-    x = event_x(plan, t)  # -- X from the triggering object (wave 34C) -- its targets are chosen knowing that X: "with mana value X" (601.2c)
+    x = cast_x(plan, t)  # Own entry triggers also use their exact original payment X (107.3m); cast/cycle events delegate unchanged.
     if x is None:
         return _put(plan, t, target, picks)
     before, plan.x_choice = plan.x_choice, x

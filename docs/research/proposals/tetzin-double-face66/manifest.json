@@ -1,0 +1,23 @@
+{
+  "candidate": "Tetzin, Gnome Champion // The Golden-Gear Colossus",
+  "promotions": 1,
+  "dependency": "public-mill-picks65",
+  "patch_lines": 98,
+  "owned_sources": [
+    "tetzin_double_face66.py",
+    "public_mill_picks65.py",
+    "selectors.py",
+    "scripts.py"
+  ],
+  "native": "24 + 2 focused = 26 unique cases; four genuine cold cases within 24; unchanged production source",
+  "related_command": ".venv/bin/pytest -q tests/test_rules_public_mill_picks65.py tests/test_rules_wave11a_transform.py tests/test_rules_wave18e_casting.py tests/test_rules_wave18d_merged.py -k 'not coverage_full and not every_card'",
+  "related_result": "74 passed",
+  "mypy": "4 source files passed",
+  "ruff": "4 source files plus test file passed",
+  "reversible_source": {
+    "url": "https://magic.wizards.com/en/news/feature/collecting-tarkir-dragonstorm",
+    "quote": "These cards are mechanically identical to their counterparts in the default Magic frame.",
+    "implication": "Artwork-only reversible_card printing is not a mechanically double-faced permanent."
+  },
+  "patch_sha256": "427316d981aa7aaee4659a26be65b7a63b5962ecd00b24dc01b43abbe6d13c0c"
+}

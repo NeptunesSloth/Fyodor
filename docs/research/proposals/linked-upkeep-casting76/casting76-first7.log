@@ -1,0 +1,52 @@
+..FFFF.                                                                  [100%]
+=================================== FAILURES ===================================
+__ test_ian_real_second_draw_links_foreign_spells_one_per_active_players_turn __
+tests/test_rules_linked_upkeep_casting76.py:85: in test_ian_real_second_draw_links_foreign_spells_one_per_active_players_turn
+    bear = exile_draw(s, 'p2', 'Grizzly Bears')
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_rules_linked_upkeep_casting76.py:56: in exile_draw
+    top = stack_library(s, ['Forest', 'Sol Ring', name], pid=pid)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_rules_refused_look.py:198: in stack_library
+    ids.insert(0, put(s, n, "library", pid, nth=sum(1 for m in names[:i] if m == n)).id)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_rules_refused_look.py:189: in put
+    c = find(s, name, pid, nth)
+        ^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_rules_refused_look.py:185: in find
+    return [c for c in s.state.cards.values() if c.name == name and c.owner == pid][nth]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   IndexError: list index out of range
+_ test_actual_kaya_minus_seven_creates_native_upkeep_emblem_pool_in_each_zone[hand] _
+tests/test_rules_linked_upkeep_casting76.py:122: in test_actual_kaya_minus_seven_creates_native_upkeep_emblem_pool_in_each_zone
+    emblem(s)
+tests/test_rules_linked_upkeep_casting76.py:71: in emblem
+    assert any(KAYA in e.name for e in s.state.rules.emblems)
+                                       ^^^^^^^^^^^^^^^^^^^^^
+/workspace/Fyodor/backend/.venv/lib/python3.12/site-packages/pydantic/main.py:1105: in __getattr__
+    raise AttributeError(f'{type(self).__name__!r} object has no attribute {item!r}')
+E   AttributeError: 'RulesState' object has no attribute 'emblems'
+_ test_actual_kaya_minus_seven_creates_native_upkeep_emblem_pool_in_each_zone[graveyard] _
+tests/test_rules_linked_upkeep_casting76.py:122: in test_actual_kaya_minus_seven_creates_native_upkeep_emblem_pool_in_each_zone
+    emblem(s)
+tests/test_rules_linked_upkeep_casting76.py:71: in emblem
+    assert any(KAYA in e.name for e in s.state.rules.emblems)
+                                       ^^^^^^^^^^^^^^^^^^^^^
+/workspace/Fyodor/backend/.venv/lib/python3.12/site-packages/pydantic/main.py:1105: in __getattr__
+    raise AttributeError(f'{type(self).__name__!r} object has no attribute {item!r}')
+E   AttributeError: 'RulesState' object has no attribute 'emblems'
+_ test_actual_kaya_minus_seven_creates_native_upkeep_emblem_pool_in_each_zone[exile] _
+tests/test_rules_linked_upkeep_casting76.py:122: in test_actual_kaya_minus_seven_creates_native_upkeep_emblem_pool_in_each_zone
+    emblem(s)
+tests/test_rules_linked_upkeep_casting76.py:71: in emblem
+    assert any(KAYA in e.name for e in s.state.rules.emblems)
+                                       ^^^^^^^^^^^^^^^^^^^^^
+/workspace/Fyodor/backend/.venv/lib/python3.12/site-packages/pydantic/main.py:1105: in __getattr__
+    raise AttributeError(f'{type(self).__name__!r} object has no attribute {item!r}')
+E   AttributeError: 'RulesState' object has no attribute 'emblems'
+=========================== short test summary info ============================
+FAILED tests/test_rules_linked_upkeep_casting76.py::test_ian_real_second_draw_links_foreign_spells_one_per_active_players_turn
+FAILED tests/test_rules_linked_upkeep_casting76.py::test_actual_kaya_minus_seven_creates_native_upkeep_emblem_pool_in_each_zone[hand]
+FAILED tests/test_rules_linked_upkeep_casting76.py::test_actual_kaya_minus_seven_creates_native_upkeep_emblem_pool_in_each_zone[graveyard]
+FAILED tests/test_rules_linked_upkeep_casting76.py::test_actual_kaya_minus_seven_creates_native_upkeep_emblem_pool_in_each_zone[exile]
+4 failed, 3 passed in 16.19s

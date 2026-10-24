@@ -1,0 +1,41 @@
+{
+  "status": "CLOSED exact4; native20/types6/Ruff7 PASS; related127 PASS +1 confirmed pre84 failure",
+  "names": [
+    "Lux Artillery",
+    "Bloodlord of Vaasgoth",
+    "Tyvar Kell",
+    "Galea, Kindler of Hope"
+  ],
+  "source_patch": "review.patch",
+  "patch_lines": 173,
+  "stage": "/workspace/scratch/casting84-stage",
+  "source_hashes": "source-hashes.json",
+  "native": {
+    "count": 20,
+    "log": "native-final20.log",
+    "cold_count": 2
+  },
+  "authority": "Canonical4 + complete official rulings12. Native layer6 actual stack abilities survive CR400.7a stack-to-battlefield transfer; actual selected permission-use receipt, current object OID and original source snapshot; normal native expiry and wipe rules. No card-specific state flags.",
+  "integration_note": "Patch is stage vs saved baseline, no stale root diffs. Root must merge Layer6 prune OR with combat93 Layer2 retention and preserve later registrations. scripts.py review copy rebased hook-only on current root, retaining all newer definitions; rebased-scripts84.py retained.",
+  "related": {
+    "total": 128,
+    "passed": 127,
+    "failed": 1,
+    "log": "related.log",
+    "baseline_failure": {
+      "node": "tests/test_rules_wave22d_linked_permissions.py::test_unlicensed_hearse_is_as_big_as_the_number_of_cards_it_exiled",
+      "log": "pre84-hearse1.log",
+      "result": "Same initial uncrewed Vehicle P/T None,None vs stale0,0 assertion fails without84; all five shared files restored from saved baseline."
+    }
+  },
+  "types": {
+    "count": 6,
+    "status": "PASS",
+    "log": "types6.log"
+  },
+  "ruff": {
+    "count": 7,
+    "status": "PASS",
+    "log": "ruff-final7.log"
+  }
+}

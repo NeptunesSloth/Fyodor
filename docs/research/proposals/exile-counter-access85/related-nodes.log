@@ -1,0 +1,4 @@
+tests/test_player_collections.py: 7
+tests/test_rules_permissions.py: 35
+tests/test_rules_wave30q_cast_permissions.py: 31
+

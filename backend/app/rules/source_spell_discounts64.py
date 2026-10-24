@@ -1,0 +1,82 @@
+"""Bounded spell discounts bind current source types, typed color choices and creature targets."""
+from __future__ import annotations
+
+from typing import Any
+
+
+def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
+    from app.rules import permissions, scripts, selectors
+    from app.rules.oracle import parse_abilities
+
+    text = scripts.self_text(ability.text, ch.name)
+    common: dict[str, Any] = {'kind': 'static', 'static': 'cost_modifier', 'caster': 'you', 'effects': []}
+    if text == 'Creature spells you cast that share a creature type with ~ cost {1} less to cast.':
+        selector = selectors.parse('creature spell that shares a creature type with this creature')
+        if selector is None:
+            return None
+        return {**common, 'filter': permissions.spell_filter('creature'), 'delta': -1,
+                'spell': selector.key(), 'change': {'dir': -1, 'n': 1}}
+    if text == 'Each spell you cast costs {1} less to cast for each of the chosen colors it is.':
+        own = not ability.borrowed_origin and any(a.index == ability.index and a.text == ability.text
+                    for a in parse_abilities(ch.oracle_text, spell=ch.is_instant_or_sorcery))
+        return {**common, 'filter': None, 'delta': 0, 'source_color_pair64': True, 'color_pair_own64': own}
+    if text == 'Each instant and sorcery spell you cast costs {1} less to cast for each creature it targets.':
+        return {**common, 'filter': permissions.spell_filter('instant or sorcery'), 'delta': 0, 'creature_targets64': True}
+    return None
+
+
+def chosen_overlap(state: Any, info: Any, source: Any, ch: Any, own: bool) -> int:
+    from app.rules import chosen_color_pairs45
+    from app.rules.plan import Plan
+
+    view = Plan.view(state, source.controller, info)
+    receipt = chosen_color_pairs45._capture(view, view.oid(source), own)
+    if receipt['status'] != 'known':
+        return 0  # The shared cast-problem gate blocks automatic use without a trusted receipt.
+    return len(set(receipt['colors']) & set(ch.colors))
+
+
+def creature_targets(state: Any, info: Any, player: str, card: Any, ch: Any, targets: tuple[str, ...], *, preview: bool) -> int:
+    from app.rules import scripts
+    from app.rules.plan import Plan
+    from app.rules.targets import legal_targets
+
+    view = Plan.view(state, player, info)
+    def creature(cid: str) -> bool:
+        return cid in state.cards and state.cards[cid].zone.endswith(':battlefield') and 'Creature' in view.ch(state.cards[cid]).types
+    if not preview:
+        return sum(creature(cid) for cid in set(targets))
+    # Native typed groups preserve 'up to four target creatures' as four slots rather than one word.
+    # This is an optimistic affordability hint only; actual announcements always recompute above.
+    definition = scripts.spell_definition(ch)
+    if definition is None:
+        return 0
+    definitions = [definition, *(mode for mode in definition.get('modes', []) if isinstance(mode, dict))]
+    possible: set[str] = set()
+    slots = 0
+    for part in definitions:
+        for group in scripts.target_groups(part):
+            what = group.get('what')
+            if not isinstance(what, str):
+                continue
+            choices = {cid for cid in legal_targets(view, what, player, ch, card.id) if creature(cid)}
+            bound = group.get('max')
+            slots += min(bound, len(choices)) if isinstance(bound, int) else len(choices)
+            possible.update(choices)
+    return min(slots, len(possible))
+
+
+def cast_problem(state: Any, player: str, ch: Any, info: Any) -> str | None:
+    from app.rules import chosen_color_pairs45, permissions
+    from app.rules.plan import Plan
+
+    if info is None or state.rules is None or not ch.colors:
+        return None
+    view = Plan.view(state, player, info)
+    for source, _, definition in permissions._table_statics(state, info, {'cost_modifier'}):
+        if source.controller != player or not definition.get('source_color_pair64') or not definition.get('color_pair_own64'):
+            continue
+        receipt = chosen_color_pairs45._capture(view, view.oid(source), True)
+        if receipt['status'] != 'known':
+            return f"{source.name}: this saved chosen-color pair is unknown; set this source to manual and handle its discount by hand"
+    return None

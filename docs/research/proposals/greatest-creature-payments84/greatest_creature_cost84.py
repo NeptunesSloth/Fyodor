@@ -1,0 +1,97 @@
+"""Tariff retains APNAP creature/cost choices and one final sacrifice packet."""
+from __future__ import annotations
+
+from typing import Any
+
+from app.game.errors import ActionError
+from app.game.rules_state import DecisionOption, ObjectRef
+from app.rules.permanent_payments83 import Offer83, Packet83
+from app.rules.plan import Plan, decide
+
+TEXT = "Each player sacrifices the creature they control with the greatest mana value unless they pay that creature's mana cost. If two or more creatures a player controls are tied for greatest, that player chooses one."
+
+
+def parse(body: str) -> tuple[list[dict[str, Any]], Any, bool] | None:
+    return ([{'do': 'greatest_creature84'}], None, False) if body.strip() == TEXT else None
+
+
+def begin(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    return ask(plan, ctx, Packet83(rows=[], remaining=plan.apnap(), life=0))
+
+
+def ask(plan: Plan, ctx: dict[str, Any], packet: Packet83) -> bool:
+    from app.rules import context, permanent_payments83
+
+    packet.remaining = [p for p in packet.remaining if p in plan.live()]
+    while packet.remaining:
+        player = packet.remaining[0]
+        creatures = [c for c in plan.state.cards.values() if c.zone.endswith(':battlefield')
+                     and c.controller == player and plan.in_game(c) and plan.ch(c).is_creature]
+        if not creatures:
+            packet.remaining.pop(0)
+            continue
+        maximum = max(plan.ch(c).mana_value for c in creatures)
+        best = [c for c in creatures if plan.ch(c).mana_value == maximum]
+        if len(best) == 1:
+            return offer(plan, ctx, packet, best[0].id)
+        decide(plan, player=player, kind='choose_one',
+               prompt=f"{ctx.get('name') or 'The spell'}: choose your creature with greatest mana value",
+               options=[DecisionOption(id=c.id, label=plan.ch(c).name or 'Creature', card_id=c.id) for c in best],
+               resume={'step': 'greatest_creature84', 'ctx': ctx, 'packet': packet.model_dump(mode='json'),
+                       'originals': [r.model_dump(mode='json') for c in best if (r := context.ref_of(plan, c.id)) is not None]})
+        return False
+    # Mana abilities can legitimately sacrifice a previously chosen creature.
+    # Only the exact surviving original receives the spell's sacrifice instruction.
+    packet.rows = [r for r in packet.rows if context._same(plan, r.object) is not None]
+    return permanent_payments83.prepare(plan, ctx, packet)
+
+
+def offer(plan: Plan, ctx: dict[str, Any], packet: Packet83, cid: str) -> bool:
+    from app.rules import context
+
+    card = plan.state.cards[cid]
+    ch = plan.ch(card)
+    ref = context.ref_of(plan, cid)
+    assert ref is not None
+    packet.rows.append(Offer83(object=ref, payer=packet.remaining[0], name=ch.name or 'Creature'))
+    player = packet.remaining.pop(0)
+    # 118.6: no mana cost is unpayable, not a fabricated {0}. X in that
+    # battlefield object's printed cost is0 when this resolution asks for it.
+    cost = ch.mana_cost.replace('{X}', '{0}')
+    if not cost:
+        plan.note(f'{ch.name} has no payable mana cost')
+        return ask(plan, ctx, packet)
+    binding = f'tariff84:{player}:{ctx["next"]}'
+    at = ctx['next']
+    ctx['effects'][at:at] = [
+        {'do': 'optional_payment', 'who': 'player:' + player, 'cost': cost, 'bind': binding},
+        {'do': 'greatest_next84', 'packet': packet.model_dump(mode='json'), 'payer': player, 'binding': binding}]
+    return True
+
+
+def next_player(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    from app.rules import context
+
+    packet = Packet83.model_validate(e['packet'])
+    row = next(r for r in packet.rows if r.payer == e['payer'])
+    row.paid = context.succeeded(ctx, e['binding'])
+    return ask(plan, ctx, packet)
+
+
+def resume(plan: Plan, d: Any, chosen: list[str]) -> None:
+    from app.rules import context, effects
+
+    refs = [ObjectRef.model_validate(r) for r in d.resume['originals']]
+    if len(chosen) != 1 or chosen[0] not in {r.card for r in refs}:
+        raise ActionError('Choose one of your original greatest creatures')
+    ref = next(r for r in refs if r.card == chosen[0])
+    card = context._same(plan, ref)
+    if card is None or card.controller != d.player:
+        raise ActionError('That original greatest creature is no longer controlled by you')
+    packet = Packet83.model_validate(d.resume['packet'])
+    if offer(plan, d.resume['ctx'], packet, card.id):
+        effects.continue_effects(plan, d.resume['ctx'])
+
+
+PRIMITIVES = {'greatest_creature84': begin, 'greatest_next84': next_player}
+RESUME = {'greatest_creature84': resume}

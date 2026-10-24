@@ -40,6 +40,8 @@ class CardRepository:
         self._lock = threading.RLock()
         self._names: dict[str, str] | None = None
         self._names_for: sqlite3.Connection | None = None
+        self._word_names: frozenset[str] = frozenset()
+        self._word_names_for: sqlite3.Connection | None = None
 
     # -- connection management -------------------------------------------------------
     def _connection(self) -> sqlite3.Connection:
@@ -262,6 +264,24 @@ class CardRepository:
         if card is None:
             return None, "unresolved"
         return card, ("fallback" if printing_requested else "name")
+
+    def name_at(self, text: str, start: int) -> str | None:
+        """The longest exact local catalog name beginning at a text position."""
+        with self._lock:
+            conn = self._connection()
+            if self._word_names_for is not conn:
+                rows = conn.execute('SELECT DISTINCT name_norm FROM card_names').fetchall()
+                self._word_names = frozenset(str(row['name_norm']) for row in rows)
+                self._word_names_for = conn
+            names = self._word_names
+        tail = text[start:]
+        for end in range(min(200, len(tail)), 0, -1):
+            part = tail[:end]
+            if part[-1].isspace() or (end < len(tail) and tail[end].isalnum()):
+                continue
+            if normalize_name(part) in names:
+                return part
+        return None
 
     def suggest(self, name: str, limit: int = 5) -> list[str]:
         """Closest known card names for an unresolved deck line (typo tolerant)."""

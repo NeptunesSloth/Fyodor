@@ -1,0 +1,170 @@
+[
+  {
+    "id": "dfd977dc-a7c3-4d0a-aca7-b25bd154e963",
+    "oracle_id": "06ccec61-27d2-4079-80b5-29ebd3a980ee",
+    "name": "Cache Grab",
+    "layout": "normal",
+    "set_code": "blb",
+    "set_name": "Bloomburrow",
+    "collector_number": "167",
+    "rarity": "common",
+    "mana_cost": "{1}{G}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "Mill four cards. You may put a permanent card from among the cards milled this way into your hand. If you control a Squirrel or returned a Squirrel card to your hand this way, create a Food token. (To mill four cards, put the top four cards of your library into your graveyard. A Food token is an artifact with \"{2}, {T}, Sacrifice this token: You gain 3 life.\")",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [
+      "Food",
+      "Mill"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2024-08-02",
+    "artist": "Lo\u00efc Canavaggia",
+    "commander_legal": "legal",
+    "related_tokens": [
+      {
+        "id": "0dce2241-e58b-41d4-b57c-9794fc8ee004",
+        "name": "Food",
+        "type_line": "Token Artifact \u2014 Food"
+      }
+    ],
+    "related_cards": []
+  },
+  {
+    "id": "c5112bbf-752c-41e7-9c61-4c81e6a77463",
+    "oracle_id": "79bc2c6d-b03d-4ceb-b468-293378ec73ae",
+    "name": "Midnight Tilling",
+    "layout": "normal",
+    "set_code": "ecl",
+    "set_name": "Lorwyn Eclipsed",
+    "collector_number": "182",
+    "rarity": "common",
+    "mana_cost": "{1}{G}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "Mill four cards, then you may return a permanent card from among them to your hand. (To mill four cards, put the top four cards of your library into your graveyard.)",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [
+      "Mill"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2026-01-23",
+    "artist": "Slawomir Maniak",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "520f5a03-ff5a-43ed-8f15-cf24596d60cd",
+    "oracle_id": "036b7b89-e49a-4560-9de9-1d4d71f3f666",
+    "name": "Sparring Dummy",
+    "layout": "normal",
+    "set_code": "tla",
+    "set_name": "Avatar: The Last Airbender",
+    "collector_number": "197",
+    "rarity": "uncommon",
+    "mana_cost": "{1}{G}",
+    "cmc": 2.0,
+    "type_line": "Artifact Creature \u2014 Scarecrow",
+    "oracle_text": "Defender\n{T}: Mill a card. You may put a land card milled this way into your hand. You gain 2 life if a Lesson card is milled this way. (To mill a card, put the top card of your library into your graveyard.)",
+    "power": "1",
+    "toughness": "3",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [
+      "Mill",
+      "Defender"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2025-11-21",
+    "artist": "Gemi",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "90e9b488-37fd-42db-b0f2-b6c5a15a6e36",
+    "oracle_id": "393b9d9e-9d71-43e7-aede-eac7f85d2365",
+    "name": "Demonic Covenant",
+    "layout": "normal",
+    "set_code": "dsc",
+    "set_name": "Duskmourn: House of Horror Commander",
+    "collector_number": "19",
+    "rarity": "rare",
+    "mana_cost": "{4}{B}{B}",
+    "cmc": 6.0,
+    "type_line": "Kindred Enchantment \u2014 Demon",
+    "oracle_text": "Whenever one or more Demons you control attack a player, you draw a card and lose 1 life.\nAt the beginning of your end step, create a 5/5 black Demon creature token with flying, then mill two cards. If two cards that share all their card types were milled this way, sacrifice this enchantment.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [
+      "Mill"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2024-09-27",
+    "artist": "L.A. Draws",
+    "commander_legal": "legal",
+    "related_tokens": [
+      {
+        "id": "66f75b9d-b1e2-42e3-8a74-f596ae16996c",
+        "name": "Demon",
+        "type_line": "Token Creature \u2014 Demon"
+      }
+    ],
+    "related_cards": [
+      {
+        "id": "dd12c395-4d18-472b-9e91-337b86007fcd",
+        "name": "Demonic Covenant",
+        "component": "combo_piece"
+      }
+    ]
+  }
+]

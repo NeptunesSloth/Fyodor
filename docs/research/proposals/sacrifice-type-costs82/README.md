@@ -1,0 +1,9 @@
+# Sacrifice card-type self-cost82
+
+Closed exact Commander-legal Korvold, Gleeful Glutton; root admission pending. Source patch: 18 lines in values.py/history.py. Native own-sacrifice facts already freeze player/types as the event occurs. No new receipt models, graveyard reconstruction, invented history, or current-type scans. The cost counts card types including Kindred (historical Tribal is normalized to the same type), while its unchanged combat trigger counts permanent types and excludes Kindred.
+
+Final unified native14 including genuine cold1 PASS; existing related sacrifice regressions5 PASS; stage-local mypy2 and Ruff4 PASS. Current-root apply-check PASS. Production source remained unchanged from the initial prototype through all gates.
+
+Actual native proofs cover current controller vs owner, opponent exclusion, artifact-creature and Kindred-enchantment types, duplicate types, Myr artifact-creature token creation/sacrifice/cessation, Liquimetal type changes frozen at sacrifice, previous-turn expiry, the BRG floor across five types, and an actual Altar mana sacrifice after cost lock retaining the earlier total. The fresh-process save resumes a locked price based on actual sacrifice receipts. Official canonical text and all three rulings are archived. Old histories use the existing authoritative native TurnLog.facts foundation, as other established sacrifice-history cards already do; no new historical facts are inferred.
+
+Early failures remain in logs: the fixture used sacrifice component0 instead of Claws of Gix's component1, and assumed a sacrificed token remained in state after proper cessation. Both fixture issues were repaired before the clean final14 gate; production source never changed. Gingerbehemoth is excluded research because it is not Commander-legal. Durable stage/base/helper: /workspace/scratch/cost82. No live source writes by this worker.

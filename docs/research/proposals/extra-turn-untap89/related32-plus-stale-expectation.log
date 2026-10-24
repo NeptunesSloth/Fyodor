@@ -1,0 +1,21 @@
+............F....................                                        [100%]
+=================================== FAILURES ===================================
+______________________________ test_the_wordings _______________________________
+
+    def test_the_wordings():
+        assert scripts.parse_effects("Take an extra turn after this one.") == ([{"do": "extra_turn", "who": "you", "n": 1}], None, False)
+        assert scripts.parse_effects("Target player takes two extra turns after this one.") == (
+            [{"do": "extra_turn", "who": "target", "n": 2}], "player", False)
+        assert scripts.parse_effects("Take an extra turn after this one. Skip the untap step of that turn.") == (
+            [{"do": "extra_turn", "who": "you", "n": 1, "skip_untap89": True}], None, False)
+        for text in ("Target opponent takes an extra turn after this one.",
+>                    "Take four extra turns after this one."):
+E                    AssertionError: Take an extra turn after this one. Skip the untap step of that turn.
+E                    assert ([{'do': 'extra_turn', 'who': 'you', 'n': 1, 'skip_untap89': True}], None, False) is None
+E                     +  where ([{'do': 'extra_turn', 'who': 'you', 'n': 1, 'skip_untap89': True}], None, False) = <function parse_effects at 0x7f21a7b7d9e0>('Take an extra turn after this one. Skip the untap step of that turn.')
+E                     +    where <function parse_effects at 0x7f21a7b7d9e0> = scripts.parse_effects
+
+tests/test_rules_wave8a_extra_turns.py:76: AssertionError
+=========================== short test summary info ============================
+FAILED ../../workspace/Fyodor/backend::test_the_wordings - AssertionError: Ta...
+1 failed, 32 passed, 49 deselected in 41.85s

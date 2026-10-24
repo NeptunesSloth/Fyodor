@@ -1,0 +1,27 @@
+........F                                                                [100%]
+=================================== FAILURES ===================================
+_ test_pillar_original_controller_cannot_sacrifice_world_after_control_changed _
+
+cards = <app.cards.repository.CardRepository object at 0x7fc021eb9280>
+
+    def test_pillar_original_controller_cannot_sacrifice_world_after_control_changed(cards):
+        s=game(cards)
+        source=cast(s,PILLAR)
+        put(s,'Grizzly Bears','battlefield','p2')
+        to_phase(s,'upkeep',2)
+        settle(s)
+        assert s.state.rules.decision.player=='p2'
+        act(s,'p1',type='set_controller',card_ids=[source.id],player='p3')
+        choose(s,'decline')
+>       assert s.state.cards[source.id].zone=='p1:battlefield' and s.state.cards[source.id].controller=='p3'
+E       AssertionError: assert ('p3:battlefield' == 'p1:battlefield'
+E
+E         - p1:battlefield
+E         ?  ^
+E         + p3:battlefield
+E         ?  ^)
+
+tests/test_rules_world_upkeep83.py:132: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_rules_world_upkeep83.py::test_pillar_original_controller_cannot_sacrifice_world_after_control_changed
+1 failed, 8 passed in 13.26s

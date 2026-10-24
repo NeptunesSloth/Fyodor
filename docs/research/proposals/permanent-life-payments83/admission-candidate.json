@@ -1,0 +1,29 @@
+{
+  "status": "READY exact1 \u2014 root native receipt/World atomic review",
+  "names": [
+    "Killing Wave"
+  ],
+  "native": {
+    "distinct": 15,
+    "genuine_cold": 2,
+    "note": "Final current-source World atomic stage: Killing15 +foundation1 +existingWorld14 distinct all pass (initial28 plus helper-corrected2); previous109 native+related pass pre-World wrapper retained",
+    "world_foundation": 1
+  },
+  "related": 88,
+  "mypy": 2,
+  "ruff": 4,
+  "source_stage": "/tmp/payment83-world-stage",
+  "patch": "UNINSTALLED.patch",
+  "source_hashes": {
+    "permanent_payments83.py": "1a1f270cd3ce8280529a46e593107ba287fbc844d9271d8bffd36802d190013b",
+    "scripts.py": "f6f3e1f44022dc242c629c9391bd3963a52eb465ca41c15757cdf793b6e8fac0",
+    "effects.py": "e7875ed3b815e1e060441a6fa7bf3e47559e75adceebaedab783e8f690f1ee17"
+  },
+  "patch_sha256": "bce0efa93b445e759fe64355c5981e5d2bd504af321a4f204a6b3269f97051ca",
+  "install_test": "backend/tests/test_rules_permanent_life_payments83.py",
+  "install_fixture": "backend/tests/fixtures/permanent83_cards.json",
+  "patch_rebase": "Owned import/registry insertion contexts refreshed on current root only; immutable native source leaf unchanged. Do not overwrite current shared files.",
+  "review": "lki-review.md",
+  "world_related": "All14 distinct World tests pass:initial12 plus disjoint corrected-cold2 PASS76.70s; no fresh all14 consolidated claimed",
+  "install_world_test": "backend/tests/test_rules_permanent_packet_world83.py"
+}

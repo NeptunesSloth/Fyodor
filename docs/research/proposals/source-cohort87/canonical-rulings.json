@@ -1,0 +1,136 @@
+{
+  "Razorgrass Invoker": {
+    "canonical": {
+      "id": "41a76981-b792-49da-8c1c-34991adf3ff4",
+      "oracle_id": "ea2a6bee-8634-429d-a5ca-e5f9f7eb9350",
+      "name": "Razorgrass Invoker",
+      "layout": "normal",
+      "set_code": "j25",
+      "set_name": "Foundations Jumpstart",
+      "collector_number": "22",
+      "rarity": "common",
+      "mana_cost": "{3}{G}",
+      "cmc": 4.0,
+      "type_line": "Creature \u2014 Elf Scout",
+      "oracle_text": "Vigilance (Attacking doesn't cause this creature to tap.)\n{8}: This creature and up to one other target creature each get +3/+3 until end of turn.",
+      "power": "4",
+      "toughness": "3",
+      "loyalty": null,
+      "defense": null,
+      "colors": [
+        "G"
+      ],
+      "color_identity": [
+        "G"
+      ],
+      "keywords": [
+        "Vigilance"
+      ],
+      "is_token": false,
+      "faces": [],
+      "double_faced": false,
+      "image_faces": 1,
+      "has_image": false,
+      "released_at": "2024-11-15",
+      "artist": "Jason Rainville",
+      "commander_legal": "legal",
+      "related_tokens": [],
+      "related_cards": []
+    },
+    "rulings": {
+      "object": "list",
+      "has_more": false,
+      "data": [
+        {
+          "object": "ruling",
+          "oracle_id": "ea2a6bee-8634-429d-a5ca-e5f9f7eb9350",
+          "source": "wotc",
+          "published_at": "2024-11-08",
+          "comment": "You don't have to choose a target for Razorgrass Invoker's last ability. However, if you do and the target creature is an illegal target as the ability tries to resolve, it won't resolve and none of its effects will happen. Razorgrass Invoker won't get +3/+3. (Razorgrass cuts both ways, apparently.)"
+        }
+      ]
+    }
+  },
+  "Alluring Suitor // Deadly Dancer": {
+    "canonical": {
+      "id": "6adf21b9-b6d5-4c27-b3f2-60ec0ff17416",
+      "oracle_id": "e98e8129-3e0e-45cc-b00c-1387cc592023",
+      "name": "Alluring Suitor // Deadly Dancer",
+      "layout": "transform",
+      "set_code": "dbl",
+      "set_name": "Innistrad: Double Feature",
+      "collector_number": "408",
+      "rarity": "uncommon",
+      "mana_cost": "{2}{R} // ",
+      "cmc": 3.0,
+      "type_line": "Creature \u2014 Vampire // Creature \u2014 Vampire",
+      "oracle_text": "When you attack with exactly two creatures, transform this creature.\n//\nTrample\nWhen this creature transforms into Deadly Dancer, add {R}{R}. Until end of turn, you don't lose this mana as steps and phases end.\n{R}{R}: This creature and another target creature each get +1/+0 until end of turn.",
+      "power": "2",
+      "toughness": "3",
+      "loyalty": null,
+      "defense": null,
+      "colors": [
+        "R"
+      ],
+      "color_identity": [
+        "R"
+      ],
+      "keywords": [
+        "Transform",
+        "Trample"
+      ],
+      "is_token": false,
+      "faces": [
+        {
+          "name": "Alluring Suitor",
+          "mana_cost": "{2}{R}",
+          "type_line": "Creature \u2014 Vampire",
+          "oracle_text": "When you attack with exactly two creatures, transform this creature.",
+          "power": "2",
+          "toughness": "3",
+          "loyalty": null,
+          "defense": null,
+          "colors": [
+            "R"
+          ],
+          "image_face": 0
+        },
+        {
+          "name": "Deadly Dancer",
+          "mana_cost": "",
+          "type_line": "Creature \u2014 Vampire",
+          "oracle_text": "Trample\nWhen this creature transforms into Deadly Dancer, add {R}{R}. Until end of turn, you don't lose this mana as steps and phases end.\n{R}{R}: This creature and another target creature each get +1/+0 until end of turn.",
+          "power": "3",
+          "toughness": "3",
+          "loyalty": null,
+          "defense": null,
+          "colors": [
+            "R"
+          ],
+          "image_face": 1
+        }
+      ],
+      "double_faced": true,
+      "image_faces": 2,
+      "has_image": false,
+      "released_at": "2022-01-28",
+      "artist": "Justine Cruz",
+      "commander_legal": "legal",
+      "related_tokens": [],
+      "related_cards": []
+    },
+    "rulings": {
+      "object": "list",
+      "has_more": false,
+      "data": [
+        {
+          "object": "ruling",
+          "oracle_id": "e98e8129-3e0e-45cc-b00c-1387cc592023",
+          "source": "wotc",
+          "published_at": "2021-11-19",
+          "comment": "A creature put onto the battlefield attacking didn't \"attack\" and won't be counted to determine whether Alluring Suitor's ability should trigger."
+        }
+      ]
+    }
+  }
+}

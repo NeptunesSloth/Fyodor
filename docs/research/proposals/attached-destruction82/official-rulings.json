@@ -1,0 +1,52 @@
+{
+  "Soul Nova": {
+    "object": "list",
+    "has_more": false,
+    "data": []
+  },
+  "Eaten by Spiders": {
+    "object": "list",
+    "has_more": false,
+    "data": []
+  },
+  "Light of Judgment": {
+    "object": "list",
+    "has_more": false,
+    "data": [
+      {
+        "object": "ruling",
+        "oracle_id": "932177b8-70f8-4908-a48f-fe03204daddc",
+        "source": "wotc",
+        "published_at": "2025-06-06",
+        "comment": "You don't choose the Equipment to destroy until Light of Judgment is resolving."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "932177b8-70f8-4908-a48f-fe03204daddc",
+        "source": "wotc",
+        "published_at": "2025-06-06",
+        "comment": "Light of Judgment can target a creature that has no Equipment attached to it."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "932177b8-70f8-4908-a48f-fe03204daddc",
+        "source": "wotc",
+        "published_at": "2025-06-06",
+        "comment": "If the target creature is an illegal target when Light of Judgment tries to resolve, it won't resolve and none of its effects will happen. You won't destroy any Equipment."
+      }
+    ]
+  },
+  "Unforge": {
+    "object": "list",
+    "has_more": false,
+    "data": [
+      {
+        "object": "ruling",
+        "oracle_id": "fa360a9d-3cff-4833-9ce2-b2f53d26127f",
+        "source": "wotc",
+        "published_at": "2004-12-01",
+        "comment": "Unforge deals damage only to the creature that the Equipment was attached to when the Equipment was destroyed. It doesn\u2019t deal damage to creatures that the Equipment had previously equipped."
+      }
+    ]
+  }
+}

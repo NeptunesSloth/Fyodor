@@ -1,0 +1,198 @@
+--- a/backend/app/game/rules_state.py
++++ b/backend/app/game/rules_state.py
+@@ -433,6 +433,7 @@
+     """Something that happened. Events of one table step share a ``batch``: they happened
+     simultaneously (destroy all creatures is one batch of zone changes, not N)."""
+
++    crew_count80: int | None = None  # Native crew activation payment cardinality; unknown in old saves.
+     loss_watchers: list[ObjectSnapshot] = Field(default_factory=list)
+     attacking_player: str | None = None  # Combat damage-time attacking player; unknown in old saves.
+     turn_start_life: int | None = None  # Losing player's actual life at this turn's native start.
+@@ -1386,6 +1387,7 @@
+     graveyard_history_from_turn: int | None = None  # Complete physical-card arrival history; None is legacy unknown.
+     turn_seen: int = 0  # last turn number the bookkeeping saw
+     target_activation_history_turn: int | None = None  # Unknown on legacy midturn saves; complete after a native turn boundary.
++    crew_saddle_history_turn80: int | None = None  # Independent versioned history for resolved crew/saddle events.
+     first_event_history_turn78: int | None = None
+     first_event_notices78: list[FirstEventHistoryNotice78] = Field(default_factory=list)
+     turn_started: dict[str, int] = Field(default_factory=dict)  # player -> number of their latest turn
+@@ -1728,6 +1730,7 @@
+         step=f"{state.turn.number}:{state.turn.phase}",
+         priority=state.turn.active_player,
+         turn_seen=state.turn.number,
++        crew_saddle_history_turn80=(state.turn.number if state.rules is None and state.seq <= 1 and state.turn.number == 1 else None),
+         first_event_history_turn78=(state.turn.number if state.rules is None and state.seq <= 1 and state.turn.number == 1 else None),
+         cast_history_complete=True if state.rules is None and state.seq <= 1 and state.turn.number == 1 else None,
+         target_activation_history_turn=state.turn.number if state.rules is None and state.seq <= 1 and state.turn.number == 1 else None,
+@@ -1974,6 +1977,7 @@
+     if rules.turn_seen != state.turn.number:
+         rules.turn_seen = state.turn.number
+         rules.target_activation_history_turn = state.turn.number
++        rules.crew_saddle_history_turn80 = state.turn.number
+         rules.first_event_history_turn78 = state.turn.number
+         rules.turn_started[state.turn.active_player] = state.turn.number
+     turn_log_now(state)  # Initialize even empty turns; completed-own-turn summaries must not skip them.
+--- a/backend/app/rules/casting.py
++++ b/backend/app/rules/casting.py
+@@ -4496,7 +4496,7 @@
+     if restrictions.limited(limits):
+         restrictions.record_use(plan.rules, oid, a.ability, plan.state.turn.number)
+     _stacked(plan, card, oid, ch, ability_id, [{"do": "saddled"}] if saddle else
+-             [{"do": "animate", "who": "self", "types": ["Artifact", "Creature"], "crewed": True}], cost_has_tap=False)
++             [{"do": "animate", "who": "self", "types": ["Artifact", "Creature"], "crewed": True, "crew_count80": len(chosen)}], cost_has_tap=False)
+
+
+ # -- static statics (wave 10B) -- cascade a permanent gives the spell as it's cast (cast_limits.granted_cascade)
+--- a/backend/app/rules/effects.py
++++ b/backend/app/rules/effects.py
+@@ -1409,7 +1409,7 @@
+             from app.game.rules_state import emit
+
+             for c in cards:
+-                emit(plan.state, "crewed", object_id=plan.oid(c), card=c, player=plan.state.cards[c].controller)
++                emit(plan.state, "crewed", object_id=plan.oid(c), card=c, player=plan.state.cards[c].controller, crew_count80=e.get("crew_count80"))
+     return True
+
+
+@@ -6723,6 +6723,10 @@
+
+ PRIMITIVES.update({'bone_entry79': _unblocked79.bone_entry, 'bone_finish79': _unblocked79.bone_finish, 'spy_reveal79': _unblocked79.spy_reveal})
+
++from app.rules import first_crew_saddle80 as _first_crew80  # noqa: E402
++
++PRIMITIVES['mindlink_copy80'] = _first_crew80.mindlink_copy
++
+ from app.rules import public_mill_attachment59 as _public_mill_attachment59  # noqa: E402
+
+ PRIMITIVES.update(_public_mill_attachment59.PRIMITIVES)
+--- a/backend/app/rules/triggers.py
++++ b/backend/app/rules/triggers.py
+@@ -568,7 +568,7 @@
+                  {"oid": e.object_id, "actor": e.player, "other": e.by_card, "other_oid": e.source})]
+     if e.kind in ("crewed", "saddled", "evolved"):  # 702.122e: its crew ability resolved; 702.171b: it became saddled
+         got = _object_then(plan, e.card, e.object_id)
+-        return [(e.kind, got[0], got[1], e.player, {"oid": e.object_id, "actor": e.player})] if got is not None else []
++        return [(e.kind, got[0], got[1], e.player, {"oid": e.object_id, "actor": e.player, "crew_count80": e.crew_count80})] if got is not None else []
+     if e.kind in ("attached", "unattached"):  # -- attachment events (wave 30S) -- 603.2e, 701.3d, 603.10c: the Aura / Equipment (as it last existed
+         got = _object_then(plan, e.card, e.object_id)  # if it left), and the permanent on the other side (``other``) while it still is that object
+         host = plan.state.cards.get(e.by_card or "")
+@@ -737,6 +737,10 @@
+
+
+ def _cond_matches(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: Fact, *, source_oid: str | None = None) -> bool:
++    if cond.get('first_source80'):
++        from app.rules import first_crew_saddle80
++
++        return first_crew_saddle80.matches(plan, cond, watcher, fact, source_oid)
+     if cond.get('first_event78'):
+         from app.rules import first_event_receipts78
+
+@@ -1648,6 +1652,9 @@
+             continue
+         facts = _facts(plan, e, window)
+         first_event_receipts78.annotate(plan, facts, e.batch, first_batches78)
++        from app.rules import first_crew_saddle80
++
++        first_crew_saddle80.annotate(plan, facts)
+         for fact in facts:
+             if fact[0] == 'dealt_damage' and fact[4].get('oid'):
+                 fact[4]['simultaneous_amount'] = simultaneous_damage.get((e.batch, fact[4]['oid']), 0)
+--- a/backend/app/rules/scripts.py
++++ b/backend/app/rules/scripts.py
+@@ -5721,6 +5721,10 @@
+
+ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
+     """The engine definition of one ability, or None (manual)."""
++    from app.rules import first_crew_saddle80
++
++    if (first80 := first_crew_saddle80.definition(ability, ch)) is not None:
++        return first80
+     from app.rules import unblocked_choices79
+
+     if (unblocked79 := unblocked_choices79.definition(ability, ch)) is not None:
+--- /dev/null
++++ b/backend/app/rules/first_crew_saddle80.py
+@@ -0,0 +1,83 @@
++"""First resolved crew/saddle events and crew-cost cardinality use native receipts."""
++from __future__ import annotations
++
++from dataclasses import replace
++from typing import Any
++
++MIGHTY = ('Whenever this Vehicle becomes crewed for the first time each turn, if it was crewed by exactly two creatures, '
++          'it gains "Whenever this creature deals combat damage to a player, draw two cards" until end of turn.')
++MINDLINK = ("Whenever this Vehicle becomes crewed for the first time each turn, until end of turn, this Vehicle becomes a copy of "
++            "target nonlegendary creature that crewed it this turn, except it's 4/3, it's a Vehicle artifact in addition to its other types, and it has flying.")
++
++
++def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
++    from app.rules import scripts
++
++    if ability.kind != 'triggered' or ability.text not in {MIGHTY, MINDLINK}:
++        return None
++    text = ability.text.replace(' for the first time each turn', '')
++    if ability.text == MIGHTY:
++        text = 'Whenever this Vehicle becomes crewed, draw a card.'
++    native = scripts.define(replace(ability, text=text), ch)
++    if native is None:
++        return None
++    condition = {**native['cond'], 'first_source80': True, 'first_source_index80': ability.index}
++    if ability.text == MIGHTY:
++        parsed = scripts.parse_effects('This creature gains "Whenever this creature deals combat damage to a player, draw two cards" until end of turn.')
++        if parsed is None:
++            return None
++        return {**native, 'cond': {**condition, 'crew_exact80': 2}, 'effects': parsed[0]}
++    return {**native, 'cond': condition, 'effects': [
++        {**effect, 'do': 'mindlink_copy80'} if effect.get('do') == 'become_copy' else effect
++        for effect in native['effects']]}
++
++
++def mindlink_copy(plan: Any, ctx: dict[str, Any], effect: dict[str, Any]) -> bool:
++    from app.rules import copying, effects
++
++    targets = effects._cards(plan, ctx, effect['with'])
++    if len(targets) == 1:
++        base = copying.characteristics(copying.recipe_of(plan, plan.state.cards[targets[0]]), plan.info)
++        # Mindlink's official ruling: an animated noncreature without copiable
++        # P/T (unlike a printed Vehicle) cannot receive the 4/3 copy exception.
++        # Its existing crew animation then makes the copy a 0/0 creature.
++        if not base.is_creature and base.power is None and base.toughness is None:
++            effect = {**effect, 'excepts': [{k: v for k, v in ex.items() if k not in {'power', 'toughness'}}
++                                           for ex in effect.get('excepts') or []]}
++    return copying.become_copy(plan, ctx, effect)
++
++
++def annotate(plan: Any, facts: list[Any]) -> None:
++    turn = plan.state.turn.number
++    for kind, _card, _ch, _player, info in facts:
++        oid = info.get('oid')
++        if kind not in {'crewed', 'saddled'} or not oid:
++            continue
++        key = 'first80:' + kind + ':' + oid
++        info['first_source80'] = False if plan.rules.once_per_turn.get(key) == turn else (
++            True if plan.rules.crew_saddle_history_turn80 == turn else None)
++        plan.rules.once_per_turn[key] = turn
++
++
++def matches(plan: Any, condition: dict[str, Any], watcher: Any, fact: Any, source_oid: str | None = None) -> bool:
++    from app.game.rules_state import FirstEventHistoryNotice78
++    from app.rules import triggers
++
++    native = {k: v for k, v in condition.items() if k not in {'first_source80', 'first_source_index80', 'crew_exact80'}}
++    if not triggers._cond_matches(plan, native, watcher, fact, source_oid=source_oid):
++        return False
++    first = fact[4].get('first_source80')
++    if first is False:
++        return False
++    count = fact[4].get('crew_count80')
++    if 'crew_exact80' in condition and count is not None and count != condition['crew_exact80']:
++        return False
++    if first is True and ('crew_exact80' not in condition or count is not None):
++        return True
++    # Unknown saved history/payment metadata cannot establish a first qualifying event.
++    oid, index, turn = source_oid or plan.oid(watcher), condition['first_source_index80'], plan.state.turn.number
++    if not any(n.source_object == oid and n.ability == index and n.controller == watcher.controller and n.turn == turn
++               for n in plan.rules.first_event_notices78):
++        plan.rules.first_event_notices78.append(FirstEventHistoryNotice78(source_object=oid, ability=index,
++            controller=watcher.controller, turn=turn, name=watcher.name[:500]))
++    return False

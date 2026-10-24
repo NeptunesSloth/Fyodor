@@ -1,0 +1,317 @@
+...FFF                                                                   [100%]
+=================================== FAILURES ===================================
+_____________ test_tamiyo_plus_one_native_tap_and_skip_next_untap ______________
+
+cards = <app.cards.repository.CardRepository object at 0x7fca99f59d60>
+
+    def test_tamiyo_plus_one_native_tap_and_skip_next_untap(cards):
+        s = table(cards,['Tamiyo, Compleated Sage'],['Grizzly Bears'])
+        source = put(s,'Tamiyo, Compleated Sage','battlefield')
+        target = put(s,'Grizzly Bears','battlefield',pid='p2')
+        ready(s)
+>       act(s,'p1',type='activate_ability',card_id=source.id,ability=1,targets=[target.id],target_counts=[1],sources=[])
+
+tests/test_rules_equipment_notebook_costs67.py:89:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests/game_helpers.py:42: in act
+    return session.perform(actor, payload)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/game/session.py:61: in perform
+    resolved = resolve(self.state, action, actor=actor, cards=self.cards, trusted=trusted)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/game/resolve.py:76: in resolve
+    a.r = compile_intent(state, a, actor=actor, info=info, rng=rng)  # type: ignore[union-attr]
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/engine.py:162: in compile_intent
+    handler(plan, intent)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+plan = <app.rules.plan.Plan object at 0x7fca990ecfe0>
+a = ActivateAbility(actor='p1', ts=1792716822.3602026, r=None, type='activate_ability', card_id='71b1de093f29', ability=1,...na_choice=None, sources=[], convoke=False, improvise=False, delve=False, crew=None, cost_choices=[], life_symbols=None)
+
+    def activate_ability(plan: Plan, a: A.ActivateAbility) -> None:
+        if paying_now(plan):  # tapping mana while paying: only mana abilities
+            _mana_while_paying(plan, a)
+            return
+        if a.convoke or a.improvise or a.delve:  # only while paying for a spell with that keyword
+            kind = "convoke" if a.convoke else "improvise" if a.improvise else "delve"
+            raise ActionError(f"{kind.capitalize()} can only pay for the spell you're casting, while you pay for it")
+        require_no_decision(plan)
+        require_priority(plan)
+        card = plan.state.cards.get(a.card_id)
+        if card is None:
+            raise ActionError("That card isn't here any more")
+        if card.zone == zone_key(plan.actor, "hand"):
+            ch = plan.ch(card)
+            ability = next((ab for ab in ch.abilities if ab.index == a.ability), None)
+            if suspend_info(ch, a.ability) is None:  # -- cast limits (wave 5E) -- (suspend is a special action, 116.2f)
+                _activation_limit(plan, card, ch)
+            if ability is not None and ability.kind == "activated" and ability_cost(ch, ability).from_hand:
+                activate_to_stack(plan, card, ch, ability, a)  # -- ability words (wave 4F) -- channel (113.6m)
+                return
+            if ability is not None and ability.kind == "mana":  # -- mana riders (wave 5A) -- Simian Spirit Guide (605.3a)
+                from app.rules import mana_riders
+
+                mana_riders.activate_from_hand(plan, card, ch, ability)
+                plan.rules.passed = []
+                return
+            found = suspend_info(ch, a.ability)
+            if found is not None:
+                suspend(plan, card, ch, a, *found)
+            elif (plot_cost := keyword_cost(ch, "plot", PLOT, a.ability)) is not None and not plan.manual(card):
+                plot(plan, card, ch, a, plot_cost)
+            elif (keyword_cost(ch, "foretell", FORETELL, a.ability) is not None or (ability is not None and ability.granted_mana_cost is not None and ability.granted_mana_cost.keyword == "foretell")) and not plan.manual(card):
+                foretell(plan, card, ch, a)
+            elif (ninja := ninjutsu.cost_of(ch, a.ability)) is not None and not plan.manual(card):
+                on_stack = len(plan.state.zones.get(STACK, []))
+                activate_to_stack(plan, card, ch, ninjutsu.ability(ch, a.ability, ninja), a, definition=ninjutsu.DEFINITION, keep_revealed=True)
+                if len(plan.state.zones.get(STACK, [])) > on_stack and card.zone == zone_key(plan.actor, "hand") \
+                        and ALL not in card.revealed_to:  # -- keywords
+                    # (wave 15E) -- 702.49b: revealed until the ability leaves the stack (ninjutsu.enter hides it again)
+                    plan.do({"type": "reveal", "card_ids": [card.id]}, actor=plan.actor)
+            else:
+                cycle(plan, card, ch, a)
+            return
+        if card.zone == zone_key(plan.actor, "graveyard") and card.owner == plan.actor:
+            ch = plan.ch(card)
+            from app.rules import unearth_costs
+
+            unearth_cost = unearth_costs.of(ch, a.ability)
+            ability = next((ab for ab in ch.abilities if ab.index == a.ability), None)
+            if unearth_cost is None and ability is not None and ability.kind == 'mana':
+                parsed_gy = M.parse_mana_ability(ability.text, commander_identity(plan.state, plan.actor, plan.info), card_name=ch.name)
+                if parsed_gy is not None and parsed_gy.from_graveyard:
+                    _activation_limit(plan, card, ch, mana=True)
+                    problem = ability_problem(plan.state, plan.actor, card, ch, ability,
+                                              parse_ability_cost(parsed_gy.extra_cost, card_name=ch.name), plan=plan)
+                    if problem:
+                        raise ActionError(problem)
+                    _activate_choosing(plan, card, ch, parsed_gy, a)
+                    return
+            if unearth_cost is None and ability is not None and ability.kind == "activated" and \
+                    ability_cost(ch, ability).from_graveyard:  # 113.6m: "Exile this card from your graveyard: …"
+                _activation_limit(plan, card, ch)  # -- cast limits (wave 5E) --
+                activate_to_stack(plan, card, ch, ability, a)
+                return
+            if unearth_cost is None and (gk := graveyard_keywords.ability(ch, a.ability)) is not None and not plan.manual(card):
+                _activation_limit(plan, card, ch)  # -- keywords (wave 15E) -- embalm / eternalize: activated from the graveyard
+                activate_to_stack(plan, card, ch, gk, a, definition=scripts.define(gk, ch))
+                return
+            if unearth_cost is None:
+>               raise ActionError("That card has no ability to use from your graveyard")
+E               app.game.errors.ActionError: That card has no ability to use from your graveyard
+
+app/rules/casting.py:5322: ActionError
+_______ test_tamiyo_minus_x_exiles_actual_matching_grave_card_and_copies _______
+
+cards = <app.cards.repository.CardRepository object at 0x7fca99f5b410>
+
+    def test_tamiyo_minus_x_exiles_actual_matching_grave_card_and_copies(cards):
+        s = table(cards,['Tamiyo, Compleated Sage','Grizzly Bears'])
+        source = put(s,'Tamiyo, Compleated Sage','battlefield')
+        target = put(s,'Grizzly Bears','graveyard')
+        ready(s)
+        before = s.state.model_dump_json()
+        with pytest.raises(ActionError):
+            act(s,'p1',type='activate_ability',card_id=source.id,ability=2,x_value=1,targets=[target.id],sources=[])
+        assert s.state.model_dump_json() == before
+>       act(s,'p1',type='activate_ability',card_id=source.id,ability=2,x_value=2,targets=[target.id],sources=[])
+
+tests/test_rules_equipment_notebook_costs67.py:108:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests/game_helpers.py:42: in act
+    return session.perform(actor, payload)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/game/session.py:61: in perform
+    resolved = resolve(self.state, action, actor=actor, cards=self.cards, trusted=trusted)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/game/resolve.py:76: in resolve
+    a.r = compile_intent(state, a, actor=actor, info=info, rng=rng)  # type: ignore[union-attr]
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/engine.py:162: in compile_intent
+    handler(plan, intent)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+plan = <app.rules.plan.Plan object at 0x7fca988a42f0>
+a = ActivateAbility(actor='p1', ts=1792716824.414322, r=None, type='activate_ability', card_id='576efcbaff89', ability=2, ...na_choice=None, sources=[], convoke=False, improvise=False, delve=False, crew=None, cost_choices=[], life_symbols=None)
+
+    def activate_ability(plan: Plan, a: A.ActivateAbility) -> None:
+        if paying_now(plan):  # tapping mana while paying: only mana abilities
+            _mana_while_paying(plan, a)
+            return
+        if a.convoke or a.improvise or a.delve:  # only while paying for a spell with that keyword
+            kind = "convoke" if a.convoke else "improvise" if a.improvise else "delve"
+            raise ActionError(f"{kind.capitalize()} can only pay for the spell you're casting, while you pay for it")
+        require_no_decision(plan)
+        require_priority(plan)
+        card = plan.state.cards.get(a.card_id)
+        if card is None:
+            raise ActionError("That card isn't here any more")
+        if card.zone == zone_key(plan.actor, "hand"):
+            ch = plan.ch(card)
+            ability = next((ab for ab in ch.abilities if ab.index == a.ability), None)
+            if suspend_info(ch, a.ability) is None:  # -- cast limits (wave 5E) -- (suspend is a special action, 116.2f)
+                _activation_limit(plan, card, ch)
+            if ability is not None and ability.kind == "activated" and ability_cost(ch, ability).from_hand:
+                activate_to_stack(plan, card, ch, ability, a)  # -- ability words (wave 4F) -- channel (113.6m)
+                return
+            if ability is not None and ability.kind == "mana":  # -- mana riders (wave 5A) -- Simian Spirit Guide (605.3a)
+                from app.rules import mana_riders
+
+                mana_riders.activate_from_hand(plan, card, ch, ability)
+                plan.rules.passed = []
+                return
+            found = suspend_info(ch, a.ability)
+            if found is not None:
+                suspend(plan, card, ch, a, *found)
+            elif (plot_cost := keyword_cost(ch, "plot", PLOT, a.ability)) is not None and not plan.manual(card):
+                plot(plan, card, ch, a, plot_cost)
+            elif (keyword_cost(ch, "foretell", FORETELL, a.ability) is not None or (ability is not None and ability.granted_mana_cost is not None and ability.granted_mana_cost.keyword == "foretell")) and not plan.manual(card):
+                foretell(plan, card, ch, a)
+            elif (ninja := ninjutsu.cost_of(ch, a.ability)) is not None and not plan.manual(card):
+                on_stack = len(plan.state.zones.get(STACK, []))
+                activate_to_stack(plan, card, ch, ninjutsu.ability(ch, a.ability, ninja), a, definition=ninjutsu.DEFINITION, keep_revealed=True)
+                if len(plan.state.zones.get(STACK, [])) > on_stack and card.zone == zone_key(plan.actor, "hand") \
+                        and ALL not in card.revealed_to:  # -- keywords
+                    # (wave 15E) -- 702.49b: revealed until the ability leaves the stack (ninjutsu.enter hides it again)
+                    plan.do({"type": "reveal", "card_ids": [card.id]}, actor=plan.actor)
+            else:
+                cycle(plan, card, ch, a)
+            return
+        if card.zone == zone_key(plan.actor, "graveyard") and card.owner == plan.actor:
+            ch = plan.ch(card)
+            from app.rules import unearth_costs
+
+            unearth_cost = unearth_costs.of(ch, a.ability)
+            ability = next((ab for ab in ch.abilities if ab.index == a.ability), None)
+            if unearth_cost is None and ability is not None and ability.kind == 'mana':
+                parsed_gy = M.parse_mana_ability(ability.text, commander_identity(plan.state, plan.actor, plan.info), card_name=ch.name)
+                if parsed_gy is not None and parsed_gy.from_graveyard:
+                    _activation_limit(plan, card, ch, mana=True)
+                    problem = ability_problem(plan.state, plan.actor, card, ch, ability,
+                                              parse_ability_cost(parsed_gy.extra_cost, card_name=ch.name), plan=plan)
+                    if problem:
+                        raise ActionError(problem)
+                    _activate_choosing(plan, card, ch, parsed_gy, a)
+                    return
+            if unearth_cost is None and ability is not None and ability.kind == "activated" and \
+                    ability_cost(ch, ability).from_graveyard:  # 113.6m: "Exile this card from your graveyard: …"
+                _activation_limit(plan, card, ch)  # -- cast limits (wave 5E) --
+                activate_to_stack(plan, card, ch, ability, a)
+                return
+            if unearth_cost is None and (gk := graveyard_keywords.ability(ch, a.ability)) is not None and not plan.manual(card):
+                _activation_limit(plan, card, ch)  # -- keywords (wave 15E) -- embalm / eternalize: activated from the graveyard
+                activate_to_stack(plan, card, ch, gk, a, definition=scripts.define(gk, ch))
+                return
+            if unearth_cost is None:
+>               raise ActionError("That card has no ability to use from your graveyard")
+E               app.game.errors.ActionError: That card has no ability to use from your graveyard
+
+app/rules/casting.py:5322: ActionError
+_ test_tamiyo_minus_seven_produces_correct_named_native_token_with_both_abilities _
+
+cards = <app.cards.repository.CardRepository object at 0x7fca99f97f20>
+
+    def test_tamiyo_minus_seven_produces_correct_named_native_token_with_both_abilities(cards):
+        s = table(cards,['Tamiyo, Compleated Sage','Divination'],['Divination'])
+        source = put(s,'Tamiyo, Compleated Sage','battlefield')
+        spell = put(s,'Divination','hand')
+        ready(s)
+        act(s,'p1',type='counter',card_ids=[source.id],kind='loyalty',delta=2)
+>       act(s,'p1',type='activate_ability',card_id=source.id,ability=3,sources=[])
+
+tests/test_rules_equipment_notebook_costs67.py:122:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests/game_helpers.py:42: in act
+    return session.perform(actor, payload)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/game/session.py:61: in perform
+    resolved = resolve(self.state, action, actor=actor, cards=self.cards, trusted=trusted)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/game/resolve.py:76: in resolve
+    a.r = compile_intent(state, a, actor=actor, info=info, rng=rng)  # type: ignore[union-attr]
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/engine.py:162: in compile_intent
+    handler(plan, intent)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+plan = <app.rules.plan.Plan object at 0x7fca99c521e0>
+a = ActivateAbility(actor='p1', ts=1792716826.3663614, r=None, type='activate_ability', card_id='044ce4a14d3f', ability=3,...na_choice=None, sources=[], convoke=False, improvise=False, delve=False, crew=None, cost_choices=[], life_symbols=None)
+
+    def activate_ability(plan: Plan, a: A.ActivateAbility) -> None:
+        if paying_now(plan):  # tapping mana while paying: only mana abilities
+            _mana_while_paying(plan, a)
+            return
+        if a.convoke or a.improvise or a.delve:  # only while paying for a spell with that keyword
+            kind = "convoke" if a.convoke else "improvise" if a.improvise else "delve"
+            raise ActionError(f"{kind.capitalize()} can only pay for the spell you're casting, while you pay for it")
+        require_no_decision(plan)
+        require_priority(plan)
+        card = plan.state.cards.get(a.card_id)
+        if card is None:
+            raise ActionError("That card isn't here any more")
+        if card.zone == zone_key(plan.actor, "hand"):
+            ch = plan.ch(card)
+            ability = next((ab for ab in ch.abilities if ab.index == a.ability), None)
+            if suspend_info(ch, a.ability) is None:  # -- cast limits (wave 5E) -- (suspend is a special action, 116.2f)
+                _activation_limit(plan, card, ch)
+            if ability is not None and ability.kind == "activated" and ability_cost(ch, ability).from_hand:
+                activate_to_stack(plan, card, ch, ability, a)  # -- ability words (wave 4F) -- channel (113.6m)
+                return
+            if ability is not None and ability.kind == "mana":  # -- mana riders (wave 5A) -- Simian Spirit Guide (605.3a)
+                from app.rules import mana_riders
+
+                mana_riders.activate_from_hand(plan, card, ch, ability)
+                plan.rules.passed = []
+                return
+            found = suspend_info(ch, a.ability)
+            if found is not None:
+                suspend(plan, card, ch, a, *found)
+            elif (plot_cost := keyword_cost(ch, "plot", PLOT, a.ability)) is not None and not plan.manual(card):
+                plot(plan, card, ch, a, plot_cost)
+            elif (keyword_cost(ch, "foretell", FORETELL, a.ability) is not None or (ability is not None and ability.granted_mana_cost is not None and ability.granted_mana_cost.keyword == "foretell")) and not plan.manual(card):
+                foretell(plan, card, ch, a)
+            elif (ninja := ninjutsu.cost_of(ch, a.ability)) is not None and not plan.manual(card):
+                on_stack = len(plan.state.zones.get(STACK, []))
+                activate_to_stack(plan, card, ch, ninjutsu.ability(ch, a.ability, ninja), a, definition=ninjutsu.DEFINITION, keep_revealed=True)
+                if len(plan.state.zones.get(STACK, [])) > on_stack and card.zone == zone_key(plan.actor, "hand") \
+                        and ALL not in card.revealed_to:  # -- keywords
+                    # (wave 15E) -- 702.49b: revealed until the ability leaves the stack (ninjutsu.enter hides it again)
+                    plan.do({"type": "reveal", "card_ids": [card.id]}, actor=plan.actor)
+            else:
+                cycle(plan, card, ch, a)
+            return
+        if card.zone == zone_key(plan.actor, "graveyard") and card.owner == plan.actor:
+            ch = plan.ch(card)
+            from app.rules import unearth_costs
+
+            unearth_cost = unearth_costs.of(ch, a.ability)
+            ability = next((ab for ab in ch.abilities if ab.index == a.ability), None)
+            if unearth_cost is None and ability is not None and ability.kind == 'mana':
+                parsed_gy = M.parse_mana_ability(ability.text, commander_identity(plan.state, plan.actor, plan.info), card_name=ch.name)
+                if parsed_gy is not None and parsed_gy.from_graveyard:
+                    _activation_limit(plan, card, ch, mana=True)
+                    problem = ability_problem(plan.state, plan.actor, card, ch, ability,
+                                              parse_ability_cost(parsed_gy.extra_cost, card_name=ch.name), plan=plan)
+                    if problem:
+                        raise ActionError(problem)
+                    _activate_choosing(plan, card, ch, parsed_gy, a)
+                    return
+            if unearth_cost is None and ability is not None and ability.kind == "activated" and \
+                    ability_cost(ch, ability).from_graveyard:  # 113.6m: "Exile this card from your graveyard: …"
+                _activation_limit(plan, card, ch)  # -- cast limits (wave 5E) --
+                activate_to_stack(plan, card, ch, ability, a)
+                return
+            if unearth_cost is None and (gk := graveyard_keywords.ability(ch, a.ability)) is not None and not plan.manual(card):
+                _activation_limit(plan, card, ch)  # -- keywords (wave 15E) -- embalm / eternalize: activated from the graveyard
+                activate_to_stack(plan, card, ch, gk, a, definition=scripts.define(gk, ch))
+                return
+            if unearth_cost is None:
+>               raise ActionError("That card has no ability to use from your graveyard")
+E               app.game.errors.ActionError: That card has no ability to use from your graveyard
+
+app/rules/casting.py:5322: ActionError
+=========================== short test summary info ============================
+FAILED tests/test_rules_equipment_notebook_costs67.py::test_tamiyo_plus_one_native_tap_and_skip_next_untap
+FAILED tests/test_rules_equipment_notebook_costs67.py::test_tamiyo_minus_x_exiles_actual_matching_grave_card_and_copies
+FAILED tests/test_rules_equipment_notebook_costs67.py::test_tamiyo_minus_seven_produces_correct_named_native_token_with_both_abilities

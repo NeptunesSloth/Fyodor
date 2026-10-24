@@ -13,13 +13,15 @@ if TYPE_CHECKING:
 # The profile records only facts required by this grammar, never an unbounded subset.
 # count<=3, highest power, greatest power needing a stronger companion,
 # minimum group size, black/green count<=2, required black/green companions.
-Profile = tuple[int, int | None, int | None, int, int, int]
-EMPTY: Profile = (0, None, None, 0, 0, 0)
+Profile = tuple[int, int | None, int | None, int, int, int, bool]
+EMPTY: Profile = (0, None, None, 0, 0, 0, False)
 
 
 def parse(text: str) -> dict[str, Any] | None:
     from app.rules import statics
 
+    if text in ('This creature can only attack alone.', '~ can only attack alone.'):
+        return statics._definition('self', None, [], rules=['declaration_group:attack:alone'])
     m = re.fullmatch(r"(?:~|[Tt]his creature) can't (?P<mode>attack|block) unless (?P<condition>a creature with greater power also (?:attacks|blocks)|at least two other creatures (?:attack|block)|a black or green creature also attacks)\.", text)
     if m:
         condition = m['condition']
@@ -43,7 +45,7 @@ def relevant(plan: Plan, ids: set[str], mode: str) -> bool:
 def add(plan: Plan, profile: Profile, cid: str, mode: str) -> Profile:
     from app.rules.combat import _power
 
-    count, highest, needed_power, minimum, colored, need_color = profile
+    count, highest, needed_power, minimum, colored, need_color, must_solo = profile
     ch = plan.ch(plan.state.cards[cid])
     own = rules(plan, cid)
     p = _power(ch)
@@ -56,12 +58,12 @@ def add(plan: Plan, profile: Profile, cid: str, mode: str) -> Profile:
         minimum = max(minimum, 2)
     if f'declaration_group:{mode}:black_green' in own:
         need_color = max(need_color, 1 + int(qualifies))
-    return min(3, count + 1), p if highest is None else max(highest, p), needed_power, minimum, min(2, colored + qualifies), need_color
+    return min(3, count + 1), p if highest is None else max(highest, p), needed_power, minimum, min(2, colored + qualifies), need_color, must_solo or f'declaration_group:{mode}:alone' in own
 
 
 def valid(profile: Profile) -> bool:
-    count, highest, needed_power, minimum, colored, need_color = profile
-    return count >= minimum and colored >= need_color and (needed_power is None or (highest is not None and highest > needed_power))
+    count, highest, needed_power, minimum, colored, need_color, must_solo = profile
+    return (not must_solo or count <= 1) and count >= minimum and colored >= need_color and (needed_power is None or (highest is not None and highest > needed_power))
 
 
 def legal(plan: Plan, ids: set[str], mode: str) -> bool:

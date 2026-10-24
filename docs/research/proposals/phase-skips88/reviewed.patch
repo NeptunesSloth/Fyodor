@@ -1,0 +1,197 @@
+--- /dev/null
++++ b/backend/app/rules/phase_skips88.py
+@@ -0,0 +1,92 @@
++"""Exact turn-scoped phase skips, with native targeting and upkeep trigger packets."""
++
++from __future__ import annotations
++
++from dataclasses import replace
++from typing import Any
++
++FATES = "At the beginning of each opponent's upkeep, that player chooses draw step, main phase, or combat phase. The player skips each instance of the chosen step or phase this turn."
++
++
++def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
++    from app.rules import scripts
++
++    text = scripts.self_text(ability.text, ch.name)
++    if text in (
++        "Target opponent skips all combat phases of their next turn.",
++        "Target player skips all combat phases of their next turn.",
++    ):
++        native = scripts.define(
++            replace(
++                ability, text=text.replace("all combat phases of their next turn", "their next combat phase")
++            ),
++            ch,
++        )
++        return (
++            {
++                **native,
++                "effects": [
++                    {
++                        "do": "skip_next",
++                        "who": "target",
++                        "what": "combat",
++                        "next_turn88": True,
++                        "repeat88": True,
++                    }
++                ],
++            }
++            if native
++            else None
++        )
++    if text == "Target player skips their next combat phase this turn.":
++        native = scripts.define(replace(ability, text="Target player skips their next combat phase."), ch)
++        return (
++            {**native, "effects": [{"do": "skip_next", "who": "target", "what": "combat", "this_turn": True}]}
++            if native
++            else None
++        )
++    if text == FATES:
++        native = scripts.define(
++            replace(ability, text="At the beginning of each opponent's upkeep, that player draws a card."), ch
++        )
++        return {**native, "effects": [{"do": "phase_choice88"}]} if native else None
++    return None
++
++
++def choose(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
++    from app.game.rules_state import DecisionOption
++    from app.rules import effects
++    from app.rules.plan import decide
++
++    players = effects._players(plan, ctx, "event_player")
++    if not players:
++        return True
++    decide(
++        plan,
++        player=players[0],
++        kind="choose_one",
++        prompt=f"{ctx.get('name') or 'Effect'}: choose a step or phase to skip",
++        options=[
++            DecisionOption(id=key, label=label)
++            for key, label in [("draw", "Draw step"), ("main", "Main phase"), ("combat", "Combat phase")]
++        ],
++        resume={"step": "phase_choice88", "ctx": ctx},
++    )
++    return False
++
++
++def resume(plan: Any, d: Any, chosen: list[str]) -> None:
++    from app.game.errors import ActionError
++    from app.rules import effects, skips
++
++    if len(chosen) != 1 or chosen[0] not in ("draw", "main", "combat"):
++        raise ActionError("Choose one of the offered steps or phases")
++    ctx = d.resume["ctx"]
++    skips.skip_next(
++        plan, ctx, {"who": "event_player", "what": chosen[0], "this_turn": True, "repeat88": True}
++    )
++    effects.continue_effects(plan, ctx)
++
++
++PRIMITIVES = {"phase_choice88": choose}
++RESUME = {"phase_choice88": resume}
+--- a/backend/app/rules/scripts.py
++++ b/backend/app/rules/scripts.py
+@@ -5761,6 +5761,11 @@
+
+ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
+     """The engine definition of one ability, or None (manual)."""
++    from app.rules import phase_skips88
++
++    if (skip88 := phase_skips88.definition(ability, ch)) is not None:
++        return skip88
++
+     from app.rules import upkeep_consequences81
+
+     if (admitted := upkeep_consequences81.definition(ability, ch)) is not None:
+--- a/backend/app/rules/effects.py
++++ b/backend/app/rules/effects.py
+@@ -6729,3 +6729,8 @@
+ from app.rules import demonic_covenant62 as _demonic_covenant62  # noqa: E402, I001
+
+ PRIMITIVES.update(_demonic_covenant62.PRIMITIVES)
++
++from app.rules import phase_skips88 as _phase_skips88  # noqa: E402, I001
++
++PRIMITIVES.update(_phase_skips88.PRIMITIVES)
++RESUME.update(_phase_skips88.RESUME)
+--- a/backend/app/rules/skips.py
++++ b/backend/app/rules/skips.py
+@@ -23,9 +23,8 @@
+   phase | turn(s)]" (Stonehorn Dignitary, Fatigue, Eater of Days, Chronatog, Blinding Angel), and
+   the imperative "Skip your next turn." (Magosi, the Waterveil).
+
+-Refused: conditional statics ("Skip your upkeep step if you have no cards in hand."), "this turn"
+-skips ("you skip your draw step this turn", "skips their next combat phase this turn"), the
+-player choosing what to skip (Fatespinner), skipping X turns.
++Exact turn-scoped spell and upkeep-choice wordings are admitted by phase_skips88.
++Other unsupported wordings, including conditional statics and skipping X turns, stay manual.
+ """
+
+ from __future__ import annotations
+@@ -42,7 +41,7 @@
+
+ _WHAT = {"untap step": "untap", "upkeep step": "upkeep", "upkeep": "upkeep", "draw step": "draw", "combat phase": "combat",
+          "turn": "turn", "turns": "turn"}
+-_LABEL = {"untap": "untap step", "upkeep": "upkeep step", "draw": "draw step", "combat": "combat phase", "turn": "turn"}
++_LABEL = {"untap": "untap step", "upkeep": "upkeep step", "draw": "draw step", "combat": "combat phase", "turn": "turn", "main": "main phase"}
+
+ # -- statics ---------------------------------------------------------------------------------------------
+ _STATIC_YOU = re.compile(r"Skip your (?P<what>untap step|upkeep step|draw step)\.")
+@@ -106,7 +105,7 @@
+     name = ctx.get("name") or "An effect"
+     for pid in _players(plan, ctx, e["who"]):
+         for _ in range(int(e.get("n") or 1)):
+-            plan.rules.skips.append({"id": secrets.token_hex(4), "player": pid, "what": e["what"], "label": name, **({"turn": plan.state.turn.number} if e.get("this_turn") else {})})
++            plan.rules.skips.append({"id": secrets.token_hex(4), "player": pid, "what": e["what"], "label": name, **({"turn": plan.state.turn.number} if e.get("this_turn") else {}), **({"next_turn88": plan.state.turn.number} if e.get("next_turn88") else {}), **({"repeat88": True} if e.get("repeat88") else {})})
+         n = int(e.get("n") or 1)
+         what = _LABEL[e["what"]] + ("s" if n > 1 else "")
+         timing = f"their {what} this turn" if e.get("this_turn") else f"their next {f'{n} ' if n > 1 else ''}{what}"
+@@ -144,9 +143,11 @@
+     if found is not None:
+         return found
+     r = plan.rules
+-    for i, rec in enumerate(r.skips):
+-        if rec.get("player") == player and rec.get("what") == what:
+-            if "turn" not in rec:
++    # An all-instance turn restriction skips the occurrence before a waiting
++    # one-shot next-occurrence effect can be satisfied (614.10a).
++    for i, rec in sorted(enumerate(r.skips), key=lambda pair: not pair[1].get("repeat88")):
++        if rec.get("player") == player and rec.get("what") == what and "next_turn88" not in rec:
++            if not rec.get("repeat88"):
+                 del r.skips[i]
+             return str(rec.get("label") or "an effect")
+     return None
+@@ -181,8 +182,15 @@
+     """The step (or the combat phase) the turn just moved into is skipped: on to the next one, with
+     nothing of it happening (614.10a)."""
+     for _ in range(4 + len(plan.rules.extra_steps) + len(plan.rules.extra_phases)):
++        # Every actual turn advances through this boundary, including turns whose
++        # relevant phase is absent/skipped. Bind waiting effects to that first
++        # actual next turn, so a turn with no combat never leaks to a later turn.
++        for rec in plan.rules.skips:
++            if rec.get('player') == plan.active and 'next_turn88' in rec and plan.state.turn.number > rec['next_turn88']:
++                rec['turn'] = plan.state.turn.number
++                del rec['next_turn88']
+         phase = plan.state.turn.phase
+-        what = {"upkeep": "upkeep", "draw": "draw", "begin_combat": "combat"}.get(phase)
++        what = {"upkeep": "upkeep", "draw": "draw", "begin_combat": "combat", "main1": "main", "main2": "main"}.get(phase)
+         if what is None:
+             return
+         label = take(plan, plan.active, what)
+@@ -194,10 +202,10 @@
+         inserted = r.extra_steps.pop(0) if r.extra_steps else None
+         if inserted is not None and inserted != "phase":
+             to = inserted
+-        elif inserted == "phase" or what == "combat" or (what == "upkeep" and r.upkeep_only) or (what == "draw" and r.extra_beginning):
++        elif inserted == "phase" or what in ("combat", "main") or (what == "upkeep" and r.upkeep_only) or (what == "draw" and r.extra_beginning):
+             from app.rules import combat_rules
+
+-            fallback = "main2" if what == "combat" or r.upkeep_only else "end" if r.extra_beginning else "main1"
++            fallback = "begin_combat" if what == "main" and phase == "main1" else "end" if what == "main" else "main2" if what == "combat" or r.upkeep_only else "end" if r.extra_beginning else "main1"
+             to = combat_rules.next_phase(plan) or fallback
+             r.extra_beginning = to == "untap"
+             r.upkeep_only = to == "upkeep" and r.combat_tag == "upkeep_only"

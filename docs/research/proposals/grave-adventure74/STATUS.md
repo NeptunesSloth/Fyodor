@@ -1,0 +1,11 @@
+# Death-trigger Adventure permissions74 — CLOSED FOR ROOT PRODUCTION REVIEW
+
+Exact two candidates: Mosswood Dreadknight // Dread Whispers and Hildibrand Manderville // Gentleman's Rise. No live source or classifier hooks installed by this worker. Three-file81-line patch preserves native dies triggers, original public graveyard successors and stored permission duration; no Permission schema or general alternative-cost changes.
+
+Each exact trigger uses native dies_self production. The instruction binds only current original EVENT_NEW objects still in the triggering controller’s graveyard (400.7e/603.6c); another owner’s graveyard and departed/reincarnated cards do not acquire authority. Native grant_play stores an Adventure-subtype spell filter and until-end-of-next-turn duration. Adventure resolution, exile and subsequent permanent casting remain native. Legacy events missing the new object require explicit manual resolution, never a physical-ID guess. Actual ceased token history is recognized separately.
+
+Native17 distinct PASS, including three genuine cold processes. Initial7 pass. Boundary8 had6 pass and2 test-only failures because StackEntry.kind is trigger, not triggered; corrected cold2 pass on unchanged app source. Counter/cost2 pass separately. No fresh consolidated17 run is claimed; root production17 can consolidate. Related74 pass (duration30M, Adventure discounts48 and25B triggers); mypy3 and configured Ruff4 pass.
+
+Native checks cast both actual cards, kill them with Lightning Bolt, reject their creature face from graveyard, cast the correct Adventure with actual costs, resolve its draw/life or Zombie effect, then cast the permanent from native Adventure exile. Hildibrand’s actual returned anthem changes the token from2/2 to3/3. Opponent-turn instant versus sorcery timing, no-death cards, actual cleanup expiry, source controller/owner distinction, reincarnation, Rest in Peace replacement, actual Counterspell and insufficient mana negatives pass. Cold gates restore a pending death trigger, an existing opponent-turn instant permission and unknown legacy original-object handling.
+
+Canonical records and complete official ruling lists are preserved. Brokkos is deliberately separate: its required mutate alternative cannot safely be represented as an unrestricted graveyard permission.

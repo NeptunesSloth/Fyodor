@@ -1,0 +1,7 @@
+# HELD — Stubborn Burrowfiend
+
+The three-card prototype parses this card, but it is omitted from ready-two production definition and count. Native RIP/Darksteel Colossus competing replacement proofs reproduce a real shared generic mill producer defect: downstream +0/+0 pump is already committed while the616 choice remains pending. Both parameterized branches fail the no-premature-effect assertion after confirming both genuine native replacement options. The first attempted proof only guessed an incorrect internal decision step; the preserved log is the corrected setup reaching the actual semantic counterexample.
+
+Root assigned generic prepared mill repair to library58. This stream must not edit effects.mill independently. After that producer closes, rerun these actual whole-card timing cases, including cold continuation, then restore bounded Burrow recipe and its whole-card tests. Until then, the held card remains PARTIAL in the two-card production proposal.
+
+After the library owner’s prepared producer was copied narrowly into the isolated full stage, all4 replacement cases PASS including2 genuine cold. Then focused third-card9 PASS: five Burrow whole/native cases (including its original cold) plus4 replacement cases. The only source change needed to restore this card after production mill integration is restore-only-after-prepared-mill.patch. No independent generic producer edits were made here. Root still owns producer admission, production closure and catalog audit.

@@ -1,0 +1,62 @@
+--- /dev/null
++++ b/backend/app/rules/conditional_untap87.py
+@@ -0,0 +1,26 @@
++"""Counter conditions for native other-player untaps and attached untap restrictions."""
++from __future__ import annotations
++
++from dataclasses import replace
++from typing import Any
++
++QUEST = ("As long as there are four or more quest counters on this enchantment, untap all creatures you control "
++         "during each other player's untap step.")
++GOLD = "Enchanted creature doesn't untap during its controller's untap step if it has a sleep counter on it."
++
++
++def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
++    from app.rules import scripts, selectors
++
++    if ability.kind != 'static':
++        return None
++    if ability.text == QUEST:
++        base = scripts.define(replace(ability, text="Untap all creatures you control during each other player's untap step."), ch)
++        cond = {'static': 'self_counter', 'counter': 'quest', 'n': 4}
++    elif ability.text == GOLD:
++        base = scripts.define(replace(ability, text="Enchanted creature doesn't untap during its controller's untap step."), ch)
++        cond = {'static': 'attached_is', 'sel': selectors.Selector(types=('Creature',), extras=('counter:sleep',)).key(),
++                'noun': 'creature', 'who': 'enchanted'}
++    else:
++        return None
++    return {**base, 'conditions': [*base.get('conditions', []), cond]} if base is not None else None
+--- a/backend/app/rules/scripts.py
++++ b/backend/app/rules/scripts.py
+@@ -6153,6 +6153,10 @@
+
+     if (counter_comparison := counter_event_comparisons50.definition(ability, ch)) is not None:
+         return counter_comparison
++    from app.rules import conditional_untap87
++
++    if (conditional_untap := conditional_untap87.definition(ability, ch)) is not None:
++        return conditional_untap
+     from app.rules import world_upkeep83
+
+     if (world_upkeep := world_upkeep83.definition(ability, ch)) is not None:
+--- a/backend/app/rules/untap_riders.py
++++ b/backend/app/rules/untap_riders.py
+@@ -134,7 +134,7 @@
+
+ def other_untap_step(plan: Plan) -> None:
+     """502.3: in the active player's untap step, each other player's permanents these statics name untap too."""
+-    from app.rules import keyword_actions, scripts, selectors
++    from app.rules import keyword_actions, scripts, selectors, statics
+
+     active = plan.active
+     live = plan.live()
+@@ -150,6 +150,8 @@
+             for d in scripts.definitions(ch).values():
+                 if d.get("static") != STATIC:
+                     continue
++                if not statics.conditions_hold(plan, d, source=src, controller=src.controller):
++                    continue
+                 if d["sel"] == "self":
+                     found.append(src.id)
+                     continue

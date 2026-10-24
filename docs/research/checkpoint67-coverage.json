@@ -1,0 +1,26 @@
+{
+  "baseline": "checkpoint66",
+  "checkpoint": "checkpoint67",
+  "database_metadata_equal": true,
+  "card_name_set_equal": true,
+  "summary": {
+    "FULL": 29945,
+    "PARTIAL": 2123
+  },
+  "promotions": [
+    "Bark of Doran",
+    "Essence Leak",
+    "Flying Drone",
+    "Harness Infinity",
+    "Kami of Jealous Thirst",
+    "Lara Croft, Tomb Raider",
+    "Lim-D\u00fbl's Vault",
+    "Morality Shift",
+    "Musician",
+    "Solid Footing",
+    "The Kingpin of Crime"
+  ],
+  "regressions": [],
+  "unexpected": [],
+  "missing": []
+}

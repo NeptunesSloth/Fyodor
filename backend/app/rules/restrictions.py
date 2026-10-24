@@ -309,6 +309,11 @@ def problem(state: GameState, player: str, card: CardInstance, index: int, restr
             if uses(r, r.object_id(card.id), index, None) >= n:
                 return "That can only be activated once" if n == 1 else f"That can be activated only {_times(n)}"
         elif kind == "if":
+            if x.get('cond', {}).get('fought_creature90') and plan is not None:
+                from app.rules import fight_receipts90
+
+                if (unknown90 := fight_receipts90.restriction_problem(plan, player)) is not None:
+                    return unknown90
             if plan is None:
                 return f"That can only be activated if {x['text']}"
             from app.rules import conditions

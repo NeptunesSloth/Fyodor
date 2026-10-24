@@ -1,0 +1,93 @@
+{
+  "Ian Malcolm, Chaotician": {
+    "id": "311b5a21-544c-4096-87cd-17e5a8c4b0fc",
+    "oracle_id": "57ff1665-0a7b-4d98-bd8f-cc07cf04f701",
+    "name": "Ian Malcolm, Chaotician",
+    "layout": "normal",
+    "set_code": "rex",
+    "set_name": "Jurassic World Collection",
+    "collector_number": "38",
+    "rarity": "rare",
+    "mana_cost": "{1}{U}{R}",
+    "cmc": 3.0,
+    "type_line": "Legendary Creature \u2014 Human Scientist",
+    "oracle_text": "Whenever a player draws their second card each turn, that player exiles the top card of their library.\nDuring each player's turn, that player may cast a spell from among the cards they don't own exiled with Ian Malcolm, and mana of any type can be spent to cast it.",
+    "power": "2",
+    "toughness": "2",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R",
+      "U"
+    ],
+    "color_identity": [
+      "R",
+      "U"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2023-11-17",
+    "artist": "Caio Monteiro",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  "Kaya the Inexorable": {
+    "id": "166c0bd1-b59d-4644-832f-888a4ca3a0aa",
+    "oracle_id": "13a4f88b-6832-43a1-b4fa-c1ee60560bad",
+    "name": "Kaya the Inexorable",
+    "layout": "normal",
+    "set_code": "khm",
+    "set_name": "Kaldheim",
+    "collector_number": "218",
+    "rarity": "mythic",
+    "mana_cost": "{3}{W}{B}",
+    "cmc": 5.0,
+    "type_line": "Legendary Planeswalker \u2014 Kaya",
+    "oracle_text": "+1: Put a ghostform counter on up to one target nontoken creature. It gains \"When this creature dies or is put into exile, return it to its owner's hand and create a 1/1 white Spirit creature token with flying.\"\n\u22123: Exile target nonland permanent.\n\u22127: You get an emblem with \"At the beginning of your upkeep, you may cast a legendary spell from your hand, from your graveyard, or from among cards you own in exile without paying its mana cost.\"",
+    "power": null,
+    "toughness": null,
+    "loyalty": "5",
+    "defense": null,
+    "colors": [
+      "B",
+      "W"
+    ],
+    "color_identity": [
+      "B",
+      "W"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2021-02-05",
+    "artist": "Tyler Jacobson",
+    "commander_legal": "legal",
+    "related_tokens": [
+      {
+        "id": "95694c03-2b3b-455c-8361-0799c078bf04",
+        "name": "Spirit",
+        "type_line": "Token Creature \u2014 Spirit"
+      }
+    ],
+    "related_cards": [
+      {
+        "id": "35e3a516-2989-4cac-892f-deb3d754ba7d",
+        "name": "Kaya the Inexorable",
+        "component": "combo_piece"
+      },
+      {
+        "id": "2b149bbf-5d2a-4f7e-aa87-23edd5848cde",
+        "name": "Kaya the Inexorable Emblem",
+        "component": "combo_piece"
+      }
+    ]
+  }
+}

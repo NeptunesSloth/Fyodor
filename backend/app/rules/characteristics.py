@@ -296,9 +296,10 @@ def _as_entry_base(ch: Characteristics) -> Characteristics:
     This is not a characteristic-defining ability or a battlefield-only pump.
     """
     if ch.power == "*" and ch.toughness == "*":
+        from app.rules.chosen_forms95 import form
         from app.rules.copiable_coin_entry import definition
 
-        if any(definition(a.text.replace("this creature", "~")) for a in ch.abilities):
+        if any(definition(a.text.replace("this creature", "~")) or form(a.text.replace("this creature", "~")) for a in ch.abilities):
             return replace(ch, power="0", toughness="0")
     return ch
 

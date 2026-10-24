@@ -1,0 +1,103 @@
+--- a/backend/app/rules/counter_cost_order70.py
++++ b/backend/app/rules/counter_cost_order70.py
+@@ -11,6 +11,11 @@
+ from app.rules.plan import Plan
+
+ TEXT = "Remove a counter from a creature you control"
++AMONG73 = "Remove three counters from among creatures you control"
++
++
++def selected(extra: str | None) -> bool:
++    return extra in (TEXT, AMONG73)
+
+
+ def index(cost: C.AbilityCost) -> int | None:
+@@ -19,7 +24,10 @@
+         (i, part)
+         for i, part in counters
+         if (
+-            (part.text == TEXT and part.amount == 1 and not part.among)
++            (
++                (part.text == TEXT and part.amount == 1 and not part.among)
++                or (part.text == AMONG73 and part.amount == 3 and part.among)
++            )
+             and part.selector is not None
+             and part.counter == C.ANY_COUNTER
+             and not part.x
+--- a/backend/app/rules/casting.py
++++ b/backend/app/rules/casting.py
+@@ -3688,7 +3688,7 @@
+     if add_cost is not None:
+         from app.rules import counter_cost_order70
+
+-        counter_first70 = bool(grant is not None and grant.extra == counter_cost_order70.TEXT
++        counter_first70 = bool(grant is not None and counter_cost_order70.selected(grant.extra)
+                                and counter_cost_order70.index(add_cost) is not None)
+         problem_cost70 = counter_cost_order70.preflight(add_cost) if counter_first70 else add_cost
+         problem = additional_problem(plan, problem_cost70, card, plan.actor) or life_x_problem(plan, add_cost, a, plan.actor)  # (4K)
+@@ -3780,7 +3780,7 @@
+     from app.rules import as_cast_values42
+
+     cast_greatest_power = as_cast_values42.capture(plan, definition)
+-    origins70 = counter_cost_order70.capture(plan, add_cost, add_objects) if add_cost is not None and grant is not None and grant.extra == counter_cost_order70.TEXT else None
++    origins70 = counter_cost_order70.capture(plan, add_cost, add_objects) if add_cost is not None and grant is not None and counter_cost_order70.selected(grant.extra) else None
+     if payment_step(plan, a, cost, ch.name or "it", exclude=not_mana, purpose=purpose,
+                     cast_greatest_power=cast_greatest_power, counter_cost_origins70=origins70):
+         return
+@@ -3812,7 +3812,7 @@
+     if commander_cast and not plan.state.settings.auto_commander_tax and card.commander_key:
+         plan.do({"type": "commander_tax", "commander": card.commander_key, "delta": 2})
+     data = _PostCast(a, add_cost, add_objects, alt_offer, aura, bargained, bestowed_cast, card, card_was_in_hand, cast_zone, ch, chosen, commander_cast, definition, entwined, escaping, flashback, foretold, free, from_oid, from_where, gift_to, grant, harmonized, jumped, kicked, mutating_cast, optional, picked, picked_targets, sac_at_cleanup, slot_specs, slots)
+-    if add_cost is not None and grant is not None and grant.extra == counter_cost_order70.TEXT:
++    if add_cost is not None and grant is not None and counter_cost_order70.selected(grant.extra):
+         data.counter_cost_origins70 = origins70
+     data.cast_greatest_power = cast_greatest_power
+     from app.rules import card_names
+@@ -3963,7 +3963,7 @@
+             record.life += a.x_value
+         from app.rules import counter_cost_order70
+
+-        if grant is not None and grant.extra == counter_cost_order70.TEXT:
++        if grant is not None and counter_cost_order70.selected(grant.extra):
+             counter_cost_order70.guard(plan, add_cost, card, add_objects, data.counter_cost_origins70)
+         cost_payment.pay(plan, add_cost, card, add_objects, record)  # sacrifice, discard, exile, return, tap …
+         plan.reserved_life = 0  # (wave 29C: paid now; later payments of this intent are their own)
+--- a/backend/app/rules/permissions.py
++++ b/backend/app/rules/permissions.py
+@@ -1492,7 +1492,7 @@
+             if d["once"] and r.once_per_turn.get(key) == turn:
+                 continue
+             out.append(Grant("permission", src.name, zone_ok=True, free=bool(d.get("free")), life_mv=bool(d.get("life_mv")),
+-                             once_key=key if d["once"] else None, choice_key=key, enters=d.get("enters"), spend=d.get("spend", ""),
++                             once_key=key if d["once"] else None, choice_key=key, enters=d.get("enters"), spend=d.get("spend", ""), extra=d.get("extra", ""),
+                              use_trigger=permission_use_triggers43.static_receipt(state, src, index, d.get("use_trigger"))))
+             continue
+         if not conditional_free_casts68.eligible(state, info, player, card, ch, d):
+--- a/backend/app/rules/pooled_casting_authorities71.py
++++ b/backend/app/rules/pooled_casting_authorities71.py
+@@ -112,6 +112,25 @@
+             if native
+             else None
+         )
++    if (
++        text
++        == "During your turn, you may cast creature spells from among cards you own exiled with ~ by removing three counters from among creatures you control in addition to paying their other costs."
++    ):
++        native = permissions.define_static(
++            "You may cast spells from among cards exiled with ~.", "static", lines
++        )
++        creatures = selectors.Selector(zones=("stack",), types=("Creature",)).key()
++        return (
++            {
++                **native,
++                "during": "your_turn",
++                "own": True,
++                "filter": creatures,
++                "extra": "Remove three counters from among creatures you control",
++            }
++            if native
++            else None
++        )
+     return None
+
+

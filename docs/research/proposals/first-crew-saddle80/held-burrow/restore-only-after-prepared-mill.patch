@@ -1,0 +1,36 @@
+--- a/backend/app/rules/first_crew_saddle80.py
++++ b/backend/app/rules/first_crew_saddle80.py
+@@ -8,16 +8,20 @@
+           'it gains "Whenever this creature deals combat damage to a player, draw two cards" until end of turn.')
+ MINDLINK = ("Whenever this Vehicle becomes crewed for the first time each turn, until end of turn, this Vehicle becomes a copy of "
+             "target nonlegendary creature that crewed it this turn, except it's 4/3, it's a Vehicle artifact in addition to its other types, and it has flying.")
++BURROW = ('Whenever this creature becomes saddled for the first time each turn, mill two cards, then this creature gets +X/+X '
++          'until end of turn, where X is the number of creature cards in your graveyard.')
+
+
+ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
+     from app.rules import scripts
+
+-    if ability.kind != 'triggered' or ability.text not in {MIGHTY, MINDLINK}:
++    if ability.kind != 'triggered' or ability.text not in {MIGHTY, MINDLINK, BURROW}:
+         return None
+     text = ability.text.replace(' for the first time each turn', '')
+     if ability.text == MIGHTY:
+         text = 'Whenever this Vehicle becomes crewed, draw a card.'
++    elif ability.text == BURROW:
++        text = 'Whenever this creature becomes crewed, mill two cards.'
+     native = scripts.define(replace(ability, text=text), ch)
+     if native is None:
+         return None
+@@ -27,6 +31,11 @@
+         if parsed is None:
+             return None
+         return {**native, 'cond': {**condition, 'crew_exact80': 2}, 'effects': parsed[0]}
++    if ability.text == BURROW:
++        parsed = scripts.parse_effects('~ gets +X/+X until end of turn, where X is the number of creature cards in your graveyard.')
++        if parsed is None:
++            return None
++        return {**native, 'cond': {**condition, 'event': 'saddled'}, 'effects': [*native['effects'], *parsed[0]]}
+     return {**native, 'cond': condition, 'effects': [
+         {**effect, 'do': 'mindlink_copy80'} if effect.get('do') == 'become_copy' else effect
+         for effect in native['effects']]}

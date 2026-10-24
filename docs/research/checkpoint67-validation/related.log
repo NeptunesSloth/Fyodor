@@ -1,0 +1,195 @@
+============================= test session starts ==============================
+platform linux -- Python 3.12.14, pytest-9.1.1, pluggy-1.7.0 -- /workspace/Fyodor/backend/.venv/bin/python3
+cachedir: .pytest_cache
+rootdir: /workspace/scratch/root/checkpoint67/backend
+configfile: pyproject.toml
+plugins: anyio-4.15.1, xdist-3.8.0
+created: 4/4 workers
+4 workers [91 items]
+
+scheduling tests via LoadScheduling
+
+tests/test_rules_wave40c_graveyard_order.py::test_a_mill_is_arranged_too
+tests/test_rules_wave40c_graveyard_order.py::test_a_reader_that_dies_with_them_still_counts
+tests/test_rules_wave40c_graveyard_order.py::test_a_reader_on_the_battlefield_asks_the_owner_and_the_order_holds
+tests/test_rules_upkeep_costs.py::test_cumulative_upkeep_grows
+[gw2] [  1%] PASSED tests/test_rules_wave40c_graveyard_order.py::test_a_mill_is_arranged_too
+tests/test_rules_wave40c_graveyard_order.py::test_blockers_that_die_in_combat_are_arranged_by_their_owner
+[gw1] [  2%] PASSED tests/test_rules_wave40c_graveyard_order.py::test_a_reader_that_dies_with_them_still_counts
+tests/test_rules_wave40c_graveyard_order.py::test_a_reader_in_hand_asks_only_if_the_owner_said_so
+[gw0] [  3%] PASSED tests/test_rules_wave40c_graveyard_order.py::test_a_reader_on_the_battlefield_asks_the_owner_and_the_order_holds
+tests/test_rules_wave40c_graveyard_order.py::test_the_other_order_holds_too
+[gw0] [  4%] PASSED tests/test_rules_wave40c_graveyard_order.py::test_the_other_order_holds_too
+tests/test_rules_wave40c_graveyard_order.py::test_a_save_while_the_question_is_open
+[gw1] [  5%] PASSED tests/test_rules_wave40c_graveyard_order.py::test_a_reader_in_hand_asks_only_if_the_owner_said_so
+tests/test_rules_wave40c_graveyard_order.py::test_others_see_a_question_but_never_its_options
+[gw2] [  6%] PASSED tests/test_rules_wave40c_graveyard_order.py::test_blockers_that_die_in_combat_are_arranged_by_their_owner
+tests/test_rules_upkeep_costs.py::test_echo_pay_keeps_it_and_is_asked_only_once
+[gw2] [  7%] PASSED tests/test_rules_upkeep_costs.py::test_echo_pay_keeps_it_and_is_asked_only_once
+tests/test_rules_upkeep_costs.py::test_echo_paid
+[gw0] [  8%] PASSED tests/test_rules_wave40c_graveyard_order.py::test_a_save_while_the_question_is_open
+tests/test_rules_wave40c_graveyard_order.py::test_without_a_reader_nothing_is_asked
+[gw1] [  9%] PASSED tests/test_rules_wave40c_graveyard_order.py::test_others_see_a_question_but_never_its_options
+tests/test_rules_wave40c_graveyard_order.py::test_each_owner_arranges_their_own_cards_active_player_first
+[gw2] [ 10%] PASSED tests/test_rules_upkeep_costs.py::test_echo_paid
+tests/test_rules_upkeep_costs.py::test_sacrifice_unless_you_pay_template
+[gw2] [ 12%] PASSED tests/test_rules_upkeep_costs.py::test_sacrifice_unless_you_pay_template
+tests/test_rules_counter_upkeep_payments.py::test_full[Delaying Shield]
+[gw0] [ 13%] PASSED tests/test_rules_wave40c_graveyard_order.py::test_without_a_reader_nothing_is_asked
+tests/test_rules_wave40c_graveyard_order.py::test_one_card_has_no_order_to_arrange
+[gw2] [ 14%] PASSED tests/test_rules_counter_upkeep_payments.py::test_full[Delaying Shield]
+tests/test_rules_counter_upkeep_payments.py::test_ooze_actual_counter_total_cost_pay_or_decline_damage_and_tap[True]
+[gw3] [ 15%] PASSED tests/test_rules_upkeep_costs.py::test_cumulative_upkeep_grows
+tests/test_rules_counter_upkeep_payments.py::test_full[Primordial Ooze]
+[gw3] [ 16%] PASSED tests/test_rules_counter_upkeep_payments.py::test_full[Primordial Ooze]
+tests/test_rules_counter_upkeep_payments.py::test_full[Rogue Skycaptain]
+[gw3] [ 17%] PASSED tests/test_rules_counter_upkeep_payments.py::test_full[Rogue Skycaptain]
+tests/test_rules_counter_upkeep_payments.py::test_full[Phantasmal Sphere]
+[gw3] [ 18%] PASSED tests/test_rules_counter_upkeep_payments.py::test_full[Phantasmal Sphere]
+tests/test_rules_counter_upkeep_payments.py::test_full[Cyclone]
+[gw1] [ 19%] PASSED tests/test_rules_wave40c_graveyard_order.py::test_each_owner_arranges_their_own_cards_active_player_first
+tests/test_rules_wave40c_graveyard_order.py::test_arranging_a_graveyard_is_no_zone_change
+[gw0] [ 20%] PASSED tests/test_rules_wave40c_graveyard_order.py::test_one_card_has_no_order_to_arrange
+tests/test_rules_counter_upkeep_payments.py::test_rogue_pay_wages_or_remove_all_and_choose_actual_opponent[True]
+[gw3] [ 21%] PASSED tests/test_rules_counter_upkeep_payments.py::test_full[Cyclone]
+tests/test_rules_counter_upkeep_payments.py::test_delaying_real_damage_replacement_then_independent_payments
+[gw1] [ 23%] PASSED tests/test_rules_wave40c_graveyard_order.py::test_arranging_a_graveyard_is_no_zone_change
+tests/test_rules_counter_upkeep_payments.py::test_cyclone_scaled_payment_allows_real_manual_mana_window
+[gw0] [ 24%] PASSED tests/test_rules_counter_upkeep_payments.py::test_rogue_pay_wages_or_remove_all_and_choose_actual_opponent[True]
+tests/test_rules_counter_upkeep_payments.py::test_rogue_pay_wages_or_remove_all_and_choose_actual_opponent[False]
+[gw2] [ 25%] PASSED tests/test_rules_counter_upkeep_payments.py::test_ooze_actual_counter_total_cost_pay_or_decline_damage_and_tap[True]
+tests/test_rules_counter_upkeep_payments.py::test_ooze_actual_counter_total_cost_pay_or_decline_damage_and_tap[False]
+[gw3] [ 26%] PASSED tests/test_rules_counter_upkeep_payments.py::test_delaying_real_damage_replacement_then_independent_payments
+tests/test_rules_counter_upkeep_payments.py::test_delaying_unpayable_iterations_are_individual_losses_without_expansion[0]
+[gw1] [ 27%] PASSED tests/test_rules_counter_upkeep_payments.py::test_cyclone_scaled_payment_allows_real_manual_mana_window
+tests/test_rules_counter_upkeep_payments.py::test_delaying_each_unpaid_counter_emits_real_separate_vilis_trigger
+[gw0] [ 28%] PASSED tests/test_rules_counter_upkeep_payments.py::test_rogue_pay_wages_or_remove_all_and_choose_actual_opponent[False]
+tests/test_rules_counter_upkeep_payments.py::test_sphere_full_scaled_payment_or_sacrifice_and_real_lki_token[True]
+[gw2] [ 29%] PASSED tests/test_rules_counter_upkeep_payments.py::test_ooze_actual_counter_total_cost_pay_or_decline_damage_and_tap[False]
+tests/test_rules_counter_upkeep_payments.py::test_ooze_zero_counter_payment_is_real_optional_choice[True]
+[gw3] [ 30%] PASSED tests/test_rules_counter_upkeep_payments.py::test_delaying_unpayable_iterations_are_individual_losses_without_expansion[0]
+tests/test_rules_counter_upkeep_payments.py::test_delaying_unpayable_iterations_are_individual_losses_without_expansion[43]
+[gw1] [ 31%] PASSED tests/test_rules_counter_upkeep_payments.py::test_delaying_each_unpaid_counter_emits_real_separate_vilis_trigger
+tests/test_rules_counter_upkeep_payments.py::test_large_mandatory_checkpoint_cold_load_preserves_exact_remaining_count
+[gw0] [ 32%] PASSED tests/test_rules_counter_upkeep_payments.py::test_sphere_full_scaled_payment_or_sacrifice_and_real_lki_token[True]
+tests/test_rules_counter_upkeep_payments.py::test_sphere_full_scaled_payment_or_sacrifice_and_real_lki_token[False]
+[gw3] [ 34%] PASSED tests/test_rules_counter_upkeep_payments.py::test_delaying_unpayable_iterations_are_individual_losses_without_expansion[43]
+tests/test_rules_counter_upkeep_payments.py::test_delaying_unpayable_iterations_are_individual_losses_without_expansion[1005]
+[gw2] [ 35%] PASSED tests/test_rules_counter_upkeep_payments.py::test_ooze_zero_counter_payment_is_real_optional_choice[True]
+tests/test_rules_counter_upkeep_payments.py::test_ooze_zero_counter_payment_is_real_optional_choice[False]
+[gw0] [ 36%] PASSED tests/test_rules_counter_upkeep_payments.py::test_sphere_full_scaled_payment_or_sacrifice_and_real_lki_token[False]
+tests/test_rules_counter_upkeep_payments.py::test_cyclone_each_green_required_and_damage_only_when_paid[True]
+[gw2] [ 37%] PASSED tests/test_rules_counter_upkeep_payments.py::test_ooze_zero_counter_payment_is_real_optional_choice[False]
+tests/test_rules_counter_upkeep_payments.py::test_ooze_counter_replacement_sizes_full_cost
+[gw0] [ 38%] PASSED tests/test_rules_counter_upkeep_payments.py::test_cyclone_each_green_required_and_damage_only_when_paid[True]
+tests/test_rules_counter_upkeep_payments.py::test_cyclone_each_green_required_and_damage_only_when_paid[False]
+[gw2] [ 39%] PASSED tests/test_rules_counter_upkeep_payments.py::test_ooze_counter_replacement_sizes_full_cost
+tests/test_rules_counter_upkeep_payments.py::test_ooze_departed_source_uses_exact_lki_quantity_without_tapping_new_object
+[gw1] [ 40%] PASSED tests/test_rules_counter_upkeep_payments.py::test_large_mandatory_checkpoint_cold_load_preserves_exact_remaining_count
+tests/test_rules_counter_upkeep_payments.py::test_delaying_departed_source_removes_nothing_from_new_incarnation
+[gw3] [ 41%] PASSED tests/test_rules_counter_upkeep_payments.py::test_delaying_unpayable_iterations_are_individual_losses_without_expansion[1005]
+tests/test_rules_counter_upkeep_payments.py::test_delaying_separate_partial_choices_resume_in_fresh_process
+[gw0] [ 42%] PASSED tests/test_rules_counter_upkeep_payments.py::test_cyclone_each_green_required_and_damage_only_when_paid[False]
+tests/test_rules_counter_upkeep_payments.py::test_cyclone_generic_mana_does_not_pay_green_scaled_cost
+[gw2] [ 43%] PASSED tests/test_rules_counter_upkeep_payments.py::test_ooze_departed_source_uses_exact_lki_quantity_without_tapping_new_object
+tests/test_rules_counter_upkeep_payments.py::test_large_payment_splits_plain_spending_but_taps_actual_source_once
+[gw1] [ 45%] PASSED tests/test_rules_counter_upkeep_payments.py::test_delaying_departed_source_removes_nothing_from_new_incarnation
+tests/test_rules_counter_upkeep_payments.py::test_ooze_large_computed_payment_is_not_a_player_x_input_limit
+[gw0] [ 46%] PASSED tests/test_rules_counter_upkeep_payments.py::test_cyclone_generic_mana_does_not_pay_green_scaled_cost
+tests/test_rules_gwenom_top70.py::test_modal_back_is_land_front_uses_spell_mv70
+[gw3] [ 47%] PASSED tests/test_rules_counter_upkeep_payments.py::test_delaying_separate_partial_choices_resume_in_fresh_process
+tests/test_rules_gwenom_top70.py::test_life_payment_restrictions70[Platinum Emperion]
+[gw2] [ 48%] PASSED tests/test_rules_counter_upkeep_payments.py::test_large_payment_splits_plain_spending_but_taps_actual_source_once
+tests/test_rules_gwenom_top70.py::test_whole70
+[gw2] [ 49%] PASSED tests/test_rules_gwenom_top70.py::test_whole70
+tests/test_rules_gwenom_top70.py::test_actual_attack_life_cast_and_private_top70
+[gw1] [ 50%] PASSED tests/test_rules_counter_upkeep_payments.py::test_ooze_large_computed_payment_is_not_a_player_x_input_limit
+tests/test_rules_gwenom_top70.py::test_zonal_legacy_free_boolean70
+[gw1] [ 51%] PASSED tests/test_rules_gwenom_top70.py::test_zonal_legacy_free_boolean70
+tests/test_rules_gwenom_top70.py::test_mandatory_additional_discard_paid_separately70
+[gw0] [ 52%] PASSED tests/test_rules_gwenom_top70.py::test_modal_back_is_land_front_uses_spell_mv70
+tests/test_rules_gwenom_top70.py::test_true_cold_attack_grant_survives_source_and_casts_dynamic_top70
+[gw3] [ 53%] PASSED tests/test_rules_gwenom_top70.py::test_life_payment_restrictions70[Platinum Emperion]
+tests/test_rules_gwenom_top70.py::test_life_payment_restrictions70[Angel of Jubilation]
+[gw2] [ 54%] PASSED tests/test_rules_gwenom_top70.py::test_actual_attack_life_cast_and_private_top70
+tests/test_rules_gwenom_top70.py::test_land_limit_current_top_and_source_departure70
+[gw1] [ 56%] PASSED tests/test_rules_gwenom_top70.py::test_mandatory_additional_discard_paid_separately70
+tests/test_rules_gwenom_top70.py::test_no_authority_before_attack_and_normal_timing70
+[gw3] [ 57%] PASSED tests/test_rules_gwenom_top70.py::test_life_payment_restrictions70[Angel of Jubilation]
+tests/test_rules_gwenom_top70.py::test_life_payment_restrictions70[insufficient]
+[gw2] [ 58%] PASSED tests/test_rules_gwenom_top70.py::test_land_limit_current_top_and_source_departure70
+tests/test_rules_collateral69.py::test_collateral_whole_classification69
+[gw2] [ 59%] PASSED tests/test_rules_collateral69.py::test_collateral_whole_classification69
+tests/test_rules_collateral69.py::test_actual_normal_cast_is_only_spell_body69[Geistblast]
+[gw1] [ 60%] PASSED tests/test_rules_gwenom_top70.py::test_no_authority_before_attack_and_normal_timing70
+tests/test_rules_collateral69.py::test_actual_normal_cast_is_only_spell_body69[Wither and Bloom]
+[gw0] [ 61%] PASSED tests/test_rules_gwenom_top70.py::test_true_cold_attack_grant_survives_source_and_casts_dynamic_top70
+tests/test_rules_gwenom_top70.py::test_trigger_original_controller_survives_actual_response_theft70
+[gw2] [ 62%] PASSED tests/test_rules_collateral69.py::test_actual_normal_cast_is_only_spell_body69[Geistblast]
+tests/test_rules_collateral69.py::test_actual_normal_cast_is_only_spell_body69[Gollum's Bite]
+[gw1] [ 63%] PASSED tests/test_rules_collateral69.py::test_actual_normal_cast_is_only_spell_body69[Wither and Bloom]
+tests/test_rules_collateral69.py::test_actual_graveyard_activation_sorcery_timing_and_cost69[Gollum's Bite-3]
+[gw2] [ 64%] PASSED tests/test_rules_collateral69.py::test_actual_normal_cast_is_only_spell_body69[Gollum's Bite]
+tests/test_rules_collateral69.py::test_true_cold_geistblast_paid_copy_target_question69
+[gw1] [ 65%] PASSED tests/test_rules_collateral69.py::test_actual_graveyard_activation_sorcery_timing_and_cost69[Gollum's Bite-3]
+tests/test_rules_wave16f_smaller.py::test_idolized_is_full
+[gw1] [ 67%] PASSED tests/test_rules_wave16f_smaller.py::test_idolized_is_full
+tests/test_rules_wave16f_smaller.py::test_a_curse_triggers_on_creatures_the_enchanted_player_controls
+[gw1] [ 68%] PASSED tests/test_rules_wave16f_smaller.py::test_a_curse_triggers_on_creatures_the_enchanted_player_controls
+tests/test_rules_wave16f_smaller.py::test_a_curse_triggers_on_the_enchanted_players_draws
+[gw1] [ 69%] PASSED tests/test_rules_wave16f_smaller.py::test_a_curse_triggers_on_the_enchanted_players_draws
+tests/test_rules_wave16f_smaller.py::test_a_quoted_ability_that_ends_its_clause_without_a_period_is_granted
+[gw2] [ 70%] PASSED tests/test_rules_collateral69.py::test_true_cold_geistblast_paid_copy_target_question69
+tests/test_rules_wave16f_smaller.py::test_a_where_x_inside_a_granted_ability_is_that_abilitys
+[gw1] [ 71%] PASSED tests/test_rules_wave16f_smaller.py::test_a_quoted_ability_that_ends_its_clause_without_a_period_is_granted
+tests/test_rules_wave16f_smaller.py::test_an_aura_stops_activated_abilities_but_not_mana_abilities
+[gw1] [ 72%] PASSED tests/test_rules_wave16f_smaller.py::test_an_aura_stops_activated_abilities_but_not_mana_abilities
+tests/test_rules_wave16f_smaller.py::test_zendikon_makes_the_land_a_creature_that_is_still_a_land
+[gw2] [ 73%] PASSED tests/test_rules_wave16f_smaller.py::test_a_where_x_inside_a_granted_ability_is_that_abilitys
+tests/test_rules_wave16f_smaller.py::test_plus_one_for_each_of_its_colors_counts_the_modified_creatures_colors
+[gw1] [ 74%] PASSED tests/test_rules_wave16f_smaller.py::test_zendikon_makes_the_land_a_creature_that_is_still_a_land
+tests/test_rules_wave16f_smaller.py::test_a_static_condition_about_the_enchanted_creature_and_its_controller
+[gw2] [ 75%] PASSED tests/test_rules_wave16f_smaller.py::test_plus_one_for_each_of_its_colors_counts_the_modified_creatures_colors
+tests/test_rules_wave16f_smaller.py::test_a_self_static_with_no_opponent_creature_and_graveyard_conditions
+[gw1] [ 76%] PASSED tests/test_rules_wave16f_smaller.py::test_a_static_condition_about_the_enchanted_creature_and_its_controller
+tests/test_rules_wave16f_smaller.py::test_a_host_condition_is_refused_for_a_subject_that_is_not_attached
+[gw1] [ 78%] PASSED tests/test_rules_wave16f_smaller.py::test_a_host_condition_is_refused_for_a_subject_that_is_not_attached
+tests/test_rules_wave16f_smaller.py::test_lesser_mana_value_is_than_the_creature_that_died
+[gw2] [ 79%] PASSED tests/test_rules_wave16f_smaller.py::test_a_self_static_with_no_opponent_creature_and_graveyard_conditions
+tests/test_rules_wave16f_smaller.py::test_sentences_inside_a_granted_quote_are_the_quotes_own
+[gw2] [ 80%] PASSED tests/test_rules_wave16f_smaller.py::test_sentences_inside_a_granted_quote_are_the_quotes_own
+tests/test_rules_wave16f_smaller.py::test_cast_from_the_graveyard_by_discarding_two_cards
+[gw3] [ 81%] PASSED tests/test_rules_gwenom_top70.py::test_life_payment_restrictions70[insufficient]
+tests/test_rules_gwenom_top70.py::test_x_life_alternative_zero70
+[gw2] [ 82%] PASSED tests/test_rules_wave16f_smaller.py::test_cast_from_the_graveyard_by_discarding_two_cards
+tests/test_rules_wave16f_smaller.py::test_a_static_grants_every_creature_an_upkeep_payment
+[gw1] [ 83%] PASSED tests/test_rules_wave16f_smaller.py::test_lesser_mana_value_is_than_the_creature_that_died
+tests/test_rules_wave16f_smaller.py::test_legate_is_cast_for_free_only_while_the_condition_holds
+[gw1] [ 84%] PASSED tests/test_rules_wave16f_smaller.py::test_legate_is_cast_for_free_only_while_the_condition_holds
+tests/test_rules_wave16f_smaller.py::test_cant_be_the_target_of_black_spells_or_abilities_from_black_sources
+[gw1] [ 85%] PASSED tests/test_rules_wave16f_smaller.py::test_cant_be_the_target_of_black_spells_or_abilities_from_black_sources
+tests/test_rules_wave16f_smaller.py::test_cost_reduction_counts_the_creatures_you_attacked_with
+[gw2] [ 86%] PASSED tests/test_rules_wave16f_smaller.py::test_a_static_grants_every_creature_an_upkeep_payment
+tests/test_rules_wave16f_smaller.py::test_sacrifice_unless_you_pay_its_mana_cost[False]
+[gw1] [ 87%] PASSED tests/test_rules_wave16f_smaller.py::test_cost_reduction_counts_the_creatures_you_attacked_with
+tests/test_rules_wave16f_smaller.py::test_an_opponent_with_no_cards_in_hand_reduces_the_cost
+[gw1] [ 89%] PASSED tests/test_rules_wave16f_smaller.py::test_an_opponent_with_no_cards_in_hand_reduces_the_cost
+tests/test_rules_wave16f_smaller.py::test_reveal_one_of_several_kinds_from_the_top_cards
+[gw1] [ 90%] PASSED tests/test_rules_wave16f_smaller.py::test_reveal_one_of_several_kinds_from_the_top_cards
+tests/test_rules_wave16f_smaller.py::test_power_and_toughness_count_what_the_chosen_player_has
+[gw0] [ 91%] PASSED tests/test_rules_gwenom_top70.py::test_trigger_original_controller_survives_actual_response_theft70
+tests/test_rules_collateral69.py::test_actual_graveyard_activation_sorcery_timing_and_cost69[Wither and Bloom-1]
+[gw1] [ 92%] PASSED tests/test_rules_wave16f_smaller.py::test_power_and_toughness_count_what_the_chosen_player_has
+tests/test_rules_wave16f_smaller.py::test_transforms_into_triggers_when_the_object_turns_over
+[gw2] [ 93%] PASSED tests/test_rules_wave16f_smaller.py::test_sacrifice_unless_you_pay_its_mana_cost[False]
+tests/test_rules_wave16f_smaller.py::test_cost_reduction_by_a_creature_margin
+[gw1] [ 94%] PASSED tests/test_rules_wave16f_smaller.py::test_transforms_into_triggers_when_the_object_turns_over
+[gw2] [ 95%] PASSED tests/test_rules_wave16f_smaller.py::test_cost_reduction_by_a_creature_margin
+[gw0] [ 96%] PASSED tests/test_rules_collateral69.py::test_actual_graveyard_activation_sorcery_timing_and_cost69[Wither and Bloom-1]
+tests/test_rules_collateral69.py::test_geistblast_actual_exile_paid_copy_retargets_only_copy69
+[gw0] [ 97%] PASSED tests/test_rules_collateral69.py::test_geistblast_actual_exile_paid_copy_retargets_only_copy69
+[gw3] [ 98%] PASSED tests/test_rules_gwenom_top70.py::test_x_life_alternative_zero70
+tests/test_rules_wave16f_smaller.py::test_sacrifice_unless_you_pay_its_mana_cost[True]
+[gw3] [100%] PASSED tests/test_rules_wave16f_smaller.py::test_sacrifice_unless_you_pay_its_mana_cost[True]
+
+============================= 91 passed in 54.77s ==============================

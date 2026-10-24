@@ -1,0 +1,24 @@
+{
+  "status": "UNINSTALLED / NOT ADMITTED / INCOMPLETE",
+  "names": [
+    "Master of Cruelties",
+    "Bone Dancer",
+    "Stromgald Spy"
+  ],
+  "promotions": 0,
+  "production_tests": 0,
+  "canonical_rulings_read": 13,
+  "proofs": {
+    "initial_native9": "8 PASS, Bone yes failed receipt finish; subsequently fixed",
+    "bone_fixed3": "3 PASS",
+    "boundaries5": "5 PASS",
+    "cold3": "Master/Bone PASS; Spy failed due transient variable rename bug now corrected in proposal, NOT rerun",
+    "scoped_types5": "PASS after corrected variable rename"
+  },
+  "limitations": [
+    "Missing blocked/PW/Battle, attack-requirements optimizer, source provenance/ability loss, graveyard simultaneous order, replacement/life-change and additional-combat complete boundaries.",
+    "No production hook installation, no FULL admission or count.",
+    "Review patch is stage-versus-live snapshot and may contain stale concurrent differences; reconstruct source-preserving changes, never apply wholesale.",
+    "All uninstalled tests are docs artifacts outside backend test auto-collection."
+  ]
+}

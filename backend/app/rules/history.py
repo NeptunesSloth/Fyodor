@@ -98,6 +98,8 @@ def holds(plan: Plan, ctx: dict[str, Any], cond: dict[str, Any]) -> bool:
     me: str = ctx["controller"]
     n = int(cond.get("n", 1))
     log = log_for(plan, bool(cond.get("last")))
+    if kind == "searched_own_library75":
+        return any(p != me for p in log.searched_own_library75)
     if kind == "played_from_exile":
         return (any(c.player == me and c.cast_from == "exile" for c in log.casts)
                 or any(f.kind == "land_play" and f.player == me and (f.from_zone or '').endswith(':exile')
@@ -240,7 +242,8 @@ def note_cast(plan: Plan, card: Any) -> None:
         key = normalize_name(name)
         totals[key] = totals.get(key, 0) + 1
     record = plan.rules.payments.get(plan.oid(card))
-    log.casts.append(CastNote(player=card.controller, object_id=plan.oid(card), names=card_names.names_of(ch), types=sorted(ch.types),
+    log.casts.append(CastNote(kicked77=("kicker" in record.additional and record.kicked > 0) if record is not None else None,
+                              player=card.controller, object_id=plan.oid(card), names=card_names.names_of(ch), types=sorted(ch.types),
                               subtypes=sorted(ch.subtypes), supertypes=sorted(ch.supertypes), colors=sorted(ch.colors),
                               mv=float(_stack_mv(card, ch)), cast_from=record.cast_from if record is not None else None,
                               mana_tags=[list(tags) for tags in record.mana_tags] if record is not None and record.mana_known else [],
@@ -882,6 +885,12 @@ def amount(plan: Plan, ctx: dict[str, Any], v: dict[str, Any]) -> int:
         return entered(plan, ctx, {"sel": v["sel"]}, log)
     if kind == "attackers":  # -- cost self reduction (wave 16F) -- each creature declared as an attacker this turn, once (508.1)
         return len({a for p, ids in log.attackers.items() if v.get("who") != "you" or p == me for a in ids})
+    if kind == 'sacrificed_card_types82':
+        # Korvold's cast reduction counts card types; Kindred counts here, whereas
+        # its separate combat trigger counts only permanent types (700.7).
+        card_types82 = {'Artifact', 'Battle', 'Creature', 'Enchantment', 'Instant', 'Kindred', 'Land', 'Planeswalker', 'Sorcery'}
+        return len({('Kindred' if t == 'Tribal' else t) for f in log.facts
+                    if f.kind == 'sacrifice' and f.player == me for t in f.types} & card_types82)
     if kind in ("tokens", "sacrificed", "discarded"):  # -- X sized by a count (wave 19F) -- one fact per token / permanent (111.2, 701.21a)
         return sum(1 for f in log.facts if f.kind == {"tokens": "token", "sacrificed": "sacrifice", "discarded": "discard"}[kind]
                    and (f.player == me or v.get("who") == "any")  # (wave 21F: "who": "any" — each permanent sacrificed, whoever did it)

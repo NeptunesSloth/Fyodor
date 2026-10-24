@@ -1,0 +1,166 @@
+--- /dev/null
++++ b/backend/app/rules/repeated_graveyard_offer89.py
+@@ -0,0 +1,126 @@
++"""Each Lore spell remembers only its own original graveyard selections."""
++from __future__ import annotations
++
++import re
++from typing import Any
++
++from pydantic import BaseModel, Field
++
++from app.game.errors import ActionError
++from app.game.rules_state import DecisionOption, ObjectRef
++from app.rules.plan import Plan, decide
++
++_PATTERN = re.compile(r"Target opponent chooses a card in your graveyard\. You may pay \{(?P<color>[BG])\}\. If you do, repeat this process except that opponent can't choose a card already chosen for (?P<name>Forgotten Lore|Shrouded Lore|~)\. Then put the last chosen card into your hand\.")
++
++
++class Lore89(BaseModel):
++    opponent: str
++    cost: str
++    chosen: list[ObjectRef] = Field(default_factory=list)
++
++
++def parse(body: str) -> tuple[list[dict[str, Any]], Any, bool] | None:
++    from app.rules import scripts
++
++    match = _PATTERN.fullmatch(body.strip())
++    if match is None or (match['name'] != '~' and (match['color'], match['name']) not in {('G', 'Forgotten Lore'), ('B', 'Shrouded Lore')}):
++        return None
++    base = scripts.parse_effects('Target opponent draws a card.')
++    return ([{'do': 'lore_begin89', 'cost': '{' + match['color'] + '}'}], base[1], False) if base is not None else None
++
++
++def begin(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
++    from app.rules import effects
++
++    opponents = effects._players(plan, ctx, 'target')
++    if not opponents:
++        return True
++    packet = Lore89(opponent=opponents[0], cost=e['cost'])
++    ctx['lore89'] = packet.model_dump(mode='json')
++    return select(plan, ctx, packet)
++
++
++def select(plan: Plan, ctx: dict[str, Any], packet: Lore89, chooser: str | None = None) -> bool:
++    from app.rules import context
++
++    old = {r.object_id for r in packet.chosen}
++    refs = [r for c in plan.state.cards.values() if c.zone == ctx['controller'] + ':graveyard'
++            and (r := context.ref_of(plan, c.id)) is not None and r.object_id not in old]
++    if not refs:
++        offer(ctx, packet)
++        return True
++    if chooser is None:
++        if packet.opponent in plan.live():
++            chooser = packet.opponent
++        else:
++            players = [p for p in plan.apnap() if p != ctx['controller']] or plan.live()
++            if len(players) == 1:
++                chooser = players[0]
++            else:
++                decide(plan, player=ctx['controller'], kind='choose_one', prompt=f"{ctx['name']}: choose another opponent to make this choice (800.4g)",
++                       options=[DecisionOption(id=p, label=plan.name(p)) for p in players],
++                       resume={'step': 'lore_player89', 'ctx': ctx})
++                return False
++    decide(plan, player=chooser, kind='choose_one', prompt=f"{ctx['name']}: choose a card not already chosen for this spell",
++           options=[DecisionOption(id=r.card, label=plan.ch(plan.state.cards[r.card]).name or 'Card', card_id=r.card) for r in refs],
++           resume={'step': 'lore_choose89', 'ctx': ctx, 'refs': [r.model_dump(mode='json') for r in refs]})
++    return False
++
++
++def offer(ctx: dict[str, Any], packet: Lore89) -> None:
++    ctx['lore89'] = packet.model_dump(mode='json')
++    ctx['effects'][ctx['next']:ctx['next']] = [
++        {'do': 'optional_payment', 'who': 'you', 'cost': packet.cost, 'bind': 'lore89_payment'},
++        {'do': 'lore_continue89'}]
++
++
++def resume_choice(plan: Plan, d: Any, chosen: list[str]) -> None:
++    from app.rules import context, effects
++
++    refs = [ObjectRef.model_validate(r) for r in d.resume['refs']]
++    selected = next((r for r in refs if len(chosen) == 1 and r.card == chosen[0]), None)
++    if selected is None or context._same(plan, selected) is None:
++        raise ActionError('Choose one original graveyard card offered by this spell')
++    ctx = d.resume['ctx']
++    packet = Lore89.model_validate(ctx['lore89'])
++    packet.chosen.append(selected)
++    offer(ctx, packet)
++    effects.continue_effects(plan, ctx)
++
++
++def again(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
++    from app.rules import context
++
++    packet = Lore89.model_validate(ctx['lore89'])
++    if context.succeeded(ctx, 'lore89_payment'):
++        return select(plan, ctx, packet)
++    if packet.chosen and (last := context._same(plan, packet.chosen[-1])) is not None:
++        context.bind_objects(plan, ctx, 'lore89_last', [last.id])
++        ctx['effects'][ctx['next']:ctx['next']] = [{'do': 'return_card', 'who': 'ref:lore89_last', 'to': 'hand'}]
++    return True
++
++
++PRIMITIVES = {'lore_begin89': begin, 'lore_continue89': again}
++def resume_player(plan: Plan, d: Any, chosen: list[str]) -> None:
++    from app.rules import effects
++
++    ctx = d.resume['ctx']
++    allowed = [p for p in plan.apnap() if p != ctx['controller']] or plan.live()
++    if len(chosen) != 1 or chosen[0] not in allowed:
++        raise ActionError('Choose another surviving opponent if possible (800.4g)')
++    if select(plan, ctx, Lore89.model_validate(ctx['lore89']), chosen[0]):
++        effects.continue_effects(plan, ctx)
++
++
++def replaced_choice(plan: Plan, d: Any) -> bool:
++    from app.rules import effects
++
++    if d.resume.get('step') not in {'lore_choose89', 'lore_player89'}:
++        return False
++    ctx = d.resume['ctx']
++    if select(plan, ctx, Lore89.model_validate(ctx['lore89'])):
++        effects.continue_effects(plan, ctx)
++    return True
++
++
++RESUME = {'lore_choose89': resume_choice, 'lore_player89': resume_player}
+--- a/backend/app/rules/scripts.py
++++ b/backend/app/rules/scripts.py
+@@ -2657,6 +2657,10 @@
+
+     if (admitted63 := public_mill_costs64.parse(body)) is not None:
+         return admitted63
++    from app.rules import repeated_graveyard_offer89
++
++    if (answer89 := repeated_graveyard_offer89.parse(body)) is not None:
++        return answer89
+     from app.rules import nonbattlefield_life_offers86
+
+     if (answer86 := nonbattlefield_life_offers86.parse(body)) is not None:
+--- a/backend/app/rules/effects.py
++++ b/backend/app/rules/effects.py
+@@ -6828,3 +6828,8 @@
+ PRIMITIVES['note_echo_paid76'] = _echo76.note_paid
+
+ PRIMITIVES['echo_draws76'] = _echo76.draws
++
++from app.rules import repeated_graveyard_offer89 as _lore89  # noqa: E402, I001
++
++PRIMITIVES.update(_lore89.PRIMITIVES)
++RESUME.update(_lore89.RESUME)
+--- a/backend/app/rules/engine.py
++++ b/backend/app/rules/engine.py
+@@ -1551,6 +1551,10 @@
+         return
+     r.decision = None  # (leave_game dropped it already)
+     if resolving:
++        from app.rules import repeated_graveyard_offer89
++
++        if repeated_graveyard_offer89.replaced_choice(plan, d):
++            return
+         # 800.4f-g: the choice isn't made; the resolution goes on — with the other players still to
+         # choose in APNAP order ("each opponent discards a card"), then its next instruction
+         plan.note(f"{plan.name(leaver)} left the game: their choice isn't made")

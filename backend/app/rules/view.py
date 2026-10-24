@@ -167,7 +167,11 @@ def stats(state: GameState, viewer: str, info: CardInfo) -> dict[str, dict[str, 
                 printed_face = chars.of(card.model_copy(update={"face_down": False}), info)
                 ways = face_up_ways(card, printed_face, state=state, info=info)
                 if ways:
-                    out[cid] = {"turn_up": [{"method": method, "cost": cost} for method, (cost, _) in ways.items()]}
+                    from app.rules import morph_costs78
+
+                    tax78 = morph_costs78.tax(state, info)
+                    out[cid] = {"turn_up": [{"method": method, "cost": ('{' + str(tax78) + '}, ' + cost
+                        if method == 'morph' and tax78 and not cost.startswith('{') else cost)} for method, (cost, _) in ways.items()]}
             continue
         printed = chars.of(card, info)
         now = derive(state, card, printed, info)
@@ -222,6 +226,11 @@ def _hints(state: GameState, viewer: str, info: CardInfo) -> dict[str, Any]:
         mine = [c for c in state.rules.miracle if c in state.cards and state.cards[c].owner == viewer]
         if mine:
             out["miracle"] = mine
+    from app.rules import deferred_payment82
+
+    windows = deferred_payment82.active(state, viewer)
+    if windows:
+        out["deferred_payments"] = [{"id": w.id, "cost": w.cost, "name": w.name} for w in windows]
     if not out["has_priority"]:
         return out
     # Your hand, your commander, your graveyard and exile (flashback, "you may play that card this
@@ -242,6 +251,9 @@ def _hints(state: GameState, viewer: str, info: CardInfo) -> dict[str, Any]:
     library = state.zones.get(zone_key(viewer, "library"), [])
     if library and can_see(state, state.cards[library[0]], viewer):
         candidates.append(library[0])
+    from app.rules.pooled_casting_authorities71 import external_candidates
+
+    candidates = list(dict.fromkeys([*candidates, *external_candidates(state, viewer, info)]))
     playable = []
     for cid in candidates:
         card = state.cards[cid]

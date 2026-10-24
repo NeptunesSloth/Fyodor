@@ -1,0 +1,30 @@
+{
+  "status": "CLOSED_EXACT4",
+  "names": [
+    "Soul Nova",
+    "Eaten by Spiders",
+    "Light of Judgment",
+    "Unforge"
+  ],
+  "stage": "/workspace/scratch/casting82-stage",
+  "patch": "review.patch",
+  "patch_sha256": "c7752bf2febb1bbd811a7436bd5fba7125246dc8152db5b48a288d5823764f90",
+  "native": {
+    "consolidated_passed": 15,
+    "genuine_cold": 2,
+    "log": "native-final15.log"
+  },
+  "mypy": "PASS3 unique persistent cache",
+  "ruff": "PASS4",
+  "related": {
+    "passed": 78,
+    "scope": "full wave30s_attach_effects, dependent_object_targets65, regeneration_riders, wave45c_destroyed",
+    "log": "quality-related.log"
+  },
+  "test": "native_tests.py -> backend/tests/test_rules_attached_destruction82.py",
+  "fixture": "cards.json -> backend/tests/fixtures/attached_destruction82_cards.json",
+  "native_semantics": "one current-object union for simultaneous host+Equipment destroy/exile; declared lexical as binding for Unforge current host; native choose_effect non-targeting during-resolution optional Light Equipment choice",
+  "rulings": "Complete official4; Light3 and Unforge1 rulings. All satisfied by actual native tests; Soul Nova/Eaten no current rulings.",
+  "source_files": 3,
+  "source_hashes": "source-hashes.json"
+}

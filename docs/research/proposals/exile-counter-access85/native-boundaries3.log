@@ -1,0 +1,69 @@
+.FF                                                                      [100%]
+=================================== FAILURES ===================================
+___ test_lara_zero_target_creates_access_to_old_counter_objects_and_expiry85 ___
+
+cards = <app.cards.repository.CardRepository object at 0x7f79dec920c0>
+
+
+    def test_lara_zero_target_creates_access_to_old_counter_objects_and_expiry85(cards):
+        s=setup(cards)
+        source=cast(s,LARA)
+        old=put(s,'Mox Amber','graveyard',pid='p2')
+        attack85(s,source,4,[old.id])
+        to_phase(s,'upkeep',turn=5)
+        settle(s)
+>       assert not grants85(s,cards,old.id)
+        ^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_rules_exile_counter_access85.py:117:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+s = <app.game.session.GameSession object at 0x7f79dec92330>
+source = CardInstance(borrow_identity=None, id='8426c5c53aaf', card_id='e437bb2e-7c54-5335-a6ee-cfaef76da3b3', name='Lara Croft...ts=[], damage=0, choices={}, stack_info=None, exile_group=None, token_source=None, origin='library', test_object=False)
+turn = 7, targets = []
+
+
+    def attack85(s, source, turn, targets):
+        from tests.test_rules_controller_tutors import answer
+
+        to_phase(s, 'declare_attackers', turn=turn)
+        act(s, 'p1', type='declare_attackers', attackers=[{'card_id':source.id,'target':'p2'}])
+>       settle(s)
+E       AssertionError: assert None
+E        +  where None = RulesState(world_epoch80=0, world_intervals80={}, combat_memory=CombatMemory(version=1, known_empty=[], previous={'p1'...ree_cast_faces={}, exile_if_graveyard=[], bottom_if_graveyard=[], cast_enters={}, exile_resolves={}, counter_stamps={}).decision
+E        +    where RulesState(world_epoch80=0, world_intervals80={}, combat_memory=CombatMemory(version=1, known_empty=[], previous={'p1'...ree_cast_faces={}, exile_if_graveyard=[], bottom_if_graveyard=[], cast_enters={}, exile_resolves={}, counter_stamps={}) = GameState(format_version=1, id='80c26197d319090c', name='Game', format='commander', created_at=1792728873.5366192, seq...ee_cast_faces={}, exile_if_graveyard=[], bottom_if_graveyard=[], cast_enters={}, exile_resolves={}, counter_stamps={})).rules
+E        +      where GameState(format_version=1, id='80c26197d319090c', name='Game', format='commander', created_at=1792728873.5366192, seq...ee_cast_faces={}, exile_if_graveyard=[], bottom_if_graveyard=[], cast_enters={}, exile_resolves={}, counter_stamps={})) = <app.game.session.GameSession object at 0x7f79dec92330>.state
+
+tests/test_rules_exile_counter_access85.py:76: AssertionError
+_______ test_lara_requires_discovery_counters_for_both_spell_and_land85 ________
+
+cards = <app.cards.repository.CardRepository object at 0x7f79dec91e50>
+
+
+    def test_lara_requires_discovery_counters_for_both_spell_and_land85(cards):
+        s=setup(cards)
+>       source=cast(s,LARA)
+
+tests/test_rules_exile_counter_access85.py:129:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+s = <app.game.session.GameSession object at 0x7f79dfc89e20>
+source = CardInstance(borrow_identity=None, id='daae32d0db9d', card_id='e437bb2e-7c54-5335-a6ee-cfaef76da3b3', name='Lara Croft...ts=[], damage=0, choices={}, stack_info=None, exile_group=None, token_source=None, origin='library', test_object=False)
+turn = 4, targets = []
+
+
+    def attack85(s, source, turn, targets):
+        from tests.test_rules_controller_tutors import answer
+
+        to_phase(s, 'declare_attackers', turn=turn)
+        act(s, 'p1', type='declare_attackers', attackers=[{'card_id':source.id,'target':'p2'}])
+>       settle(s)
+E       AssertionError: assert None
+E        +  where None = RulesState(world_epoch80=0, world_intervals80={}, combat_memory=CombatMemory(version=1, known_empty=[], previous={'p1'...ree_cast_faces={}, exile_if_graveyard=[], bottom_if_graveyard=[], cast_enters={}, exile_resolves={}, counter_stamps={}).decision
+E        +    where RulesState(world_epoch80=0, world_intervals80={}, combat_memory=CombatMemory(version=1, known_empty=[], previous={'p1'...ree_cast_faces={}, exile_if_graveyard=[], bottom_if_graveyard=[], cast_enters={}, exile_resolves={}, counter_stamps={}) = GameState(format_version=1, id='8d9754f5534b9d93', name='Game', format='commander', created_at=1792728900.6281781, seq...ee_cast_faces={}, exile_if_graveyard=[], bottom_if_graveyard=[], cast_enters={}, exile_resolves={}, counter_stamps={})).rules
+E        +      where GameState(format_version=1, id='8d9754f5534b9d93', name='Game', format='commander', created_at=1792728900.6281781, seq...ee_cast_faces={}, exile_if_graveyard=[], bottom_if_graveyard=[], cast_enters={}, exile_resolves={}, counter_stamps={})) = <app.game.session.GameSession object at 0x7f79dfc89e20>.state
+
+tests/test_rules_exile_counter_access85.py:76: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_rules_exile_counter_access85.py::test_lara_zero_target_creates_access_to_old_counter_objects_and_expiry85
+FAILED tests/test_rules_exile_counter_access85.py::test_lara_requires_discovery_counters_for_both_spell_and_land85

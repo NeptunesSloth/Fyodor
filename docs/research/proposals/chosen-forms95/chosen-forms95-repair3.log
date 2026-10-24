@@ -1,0 +1,25 @@
+TOKEN DECISION id='4f11059e10c0' player='p1' kind='manual_resolution' prompt='Cackling Counterpart: do this by hand — the copiable chosen form: As ~ enters, it becomes your choice of a 3/3 creature, a 2/2 creature with flying, or a 1/6 creature with defender. chosen for the token copy of Primal Plasma (707.6) — then press Done' options=[DecisionOption(id='done', label='Done', card_id=None, group=None)] min_choices=1 max_choices=1 source_id=None memory_key=None memory_context='' resume={'step': 'copy_manual', 'job': {'ctx': {'controller': 'p1', 'source_card': '64577544a031', 'source_object': '64577544a031.6', 'name': 'Cackling Counterpart', 'targets': [{'id': '262a760f78fc', 'object_id': '262a760f78fc.4'}], 'stack_id': '64577544a031', 'kind': 'spell', 'effects': [{'do': 'token_copy', 'n': 1, 'who': 'target'}], 'next': 1, 'x': None, 'event': None}, 'controller': 'p1', 'retarget': False, 'label': 'Cackling Counterpart', 'mode': None, 'excepts': [], 'queue': []}} display=None decider=None
+F..
+=================================== FAILURES ===================================
+________ test_actual_token_copy_chooses_own_form_and_inherits_keywords _________
+tests/test_rules_chosen_forms95.py:179: in test_actual_token_copy_chooses_own_form_and_inherits_keywords
+    choose(s,'1/6 defender')
+tests/test_rules_chosen_forms95.py:87: in choose
+    act(s,d.player,type='choose',decision_id=d.id,option_ids=[answer]);settle(s)
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/game_helpers.py:42: in act
+    return session.perform(actor, payload)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/game/session.py:61: in perform
+    resolved = resolve(self.state, action, actor=actor, cards=self.cards, trusted=trusted)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/game/resolve.py:76: in resolve
+    a.r = compile_intent(state, a, actor=actor, info=info, rng=rng)  # type: ignore[union-attr]
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/engine.py:164: in compile_intent
+    handler(plan, intent)
+app/rules/engine.py:1447: in choose
+    raise ActionError("Choose from the options offered")
+E   app.game.errors.ActionError: Choose from the options offered
+=========================== short test summary info ============================
+FAILED tests/test_rules_chosen_forms95.py::test_actual_token_copy_chooses_own_form_and_inherits_keywords

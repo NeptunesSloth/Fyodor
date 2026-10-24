@@ -1,0 +1,43 @@
+{
+  "status": "UNINSTALLED / root accepted exact six pending final gate (now closed)",
+  "names": [
+    "Lim-Dûl’s Hex",
+    "Thrull Wizard",
+    "Erosion",
+    "Slow Motion",
+    "Soul Tithe",
+    "Draco"
+  ],
+  "whole": {
+    "passed": 43,
+    "cold": 6,
+    "log": "docs/research/proposals/upkeep-tax79/whole43.log"
+  },
+  "types": {
+    "files": 3,
+    "result": "PASS",
+    "log": "docs/research/proposals/upkeep-tax79/types3.log"
+  },
+  "ruff": {
+    "files": 4,
+    "result": "PASS",
+    "log": "docs/research/proposals/upkeep-tax79/ruff4.log"
+  },
+  "related": {
+    "passed": 37,
+    "result": "PASS",
+    "log": "docs/research/proposals/upkeep-tax79/related37.log",
+    "deselected": 183
+  },
+  "patch": "docs/research/proposals/upkeep-tax79/UNINSTALLED.patch",
+  "patch_sha256": "f67691f1bca5147de5a58a9a67eec2d6e78e1b42a992e107b678711b79f51ad7",
+  "leaf_sha256": "827d4e51e6ef1b0e6ec6ab2eaa396167cdda01210c895289f61a8f6e7614914a",
+  "stage": "/tmp/counter79-stage",
+  "source_base": "frozen checkpoint58",
+  "test_source": "/tmp/counter79-tests/test_counter79.py",
+  "fixture": "/tmp/counter79-tests/fixtures/upkeep_tax79_cards.json",
+  "held": [
+    "In the Eye of Chaos"
+  ],
+  "integration_tidy": "Preserve scripts.define docstring before definition hook."
+}

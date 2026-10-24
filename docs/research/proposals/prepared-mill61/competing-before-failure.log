@@ -1,0 +1,24 @@
+F
+=================================== FAILURES ===================================
+_____ test_airlift_competing_zone_replacement_finishes_before_public_pick ______
+
+cards = <app.cards.repository.CardRepository object at 0x7fb3862baf60>
+
+    def test_airlift_competing_zone_replacement_finishes_before_public_pick(cards):
+        s=setup(cards)
+        cast(s,'Rest in Peace')
+        milled=top(s,['Darksteel Colossus','Plains','Grizzly Bears'])
+        source=cast(s,AIR)
+        d=s.state.rules.decision
+>       assert d and d.resume.get('step')=='zone_replace', (d.resume if d else None,s.state.rules.pending_616)
+E       AssertionError: ({'step': 'pick_looked', 'ctx': {'controller': 'p1', 'source_card': '9a00a3e8620c', 'source_object': '9a00a3e8620c.13'...rider': None, ...}, 'exile': {'label': 'Rest in Peace', 'outcome': 'exile', 'used': False, 'rider': None, ...}}, ...}})
+E       assert (Decision(id='68e9ec3ebb79', player='p1', kind='choose_cards', prompt='Choose from among them', options=[DecisionOption...e","battlefield","command","stack"]}', 'to': 'hand', 'optional': True, 'did': 'picked59'}}, display=None, decider=None) and 'pick_looked' == 'zone_replace'
+E
+E         - zone_replace
+E         + pick_looked)
+
+tests/test_optional59.py:273: AssertionError
+=========================== short test summary info ============================
+FAILED ../../../workspace/Fyodor/backend::test_airlift_competing_zone_replacement_finishes_before_public_pick
+!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!
+1 failed, 17 deselected in 2.85s

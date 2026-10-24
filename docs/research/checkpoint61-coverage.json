@@ -1,0 +1,27 @@
+{
+  "baseline": "checkpoint60",
+  "checkpoint": "checkpoint61",
+  "database_metadata_equal": true,
+  "card_name_set_equal": true,
+  "summary": {
+    "FULL": 29820,
+    "PARTIAL": 2248
+  },
+  "promotions": [
+    "Alluring Suitor // Deadly Dancer",
+    "Ballroom Brawlers",
+    "Canal Courier",
+    "Creepy Puppeteer",
+    "Killing Wave",
+    "Land Grant",
+    "Razorgrass Invoker",
+    "Reverent Silence",
+    "Skyshroud Cutter",
+    "Teferi's Realm",
+    "The Cyber-Controller",
+    "Winter's Night"
+  ],
+  "regressions": [],
+  "unexpected": [],
+  "missing": []
+}

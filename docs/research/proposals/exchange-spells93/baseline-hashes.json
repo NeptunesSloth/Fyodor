@@ -1,0 +1,8 @@
+{
+  "app/rules/scripts.py": "be0e0eb42b138a284f4ab3c78fbc9b8dddd7e669d2c2539c084ea9c57ff95523",
+  "app/rules/effects.py": "db307b8690b568a8cbb3bfbc2d26b49d4400306ac1a87c737d390040e0ae7647",
+  "app/rules/stack_interaction.py": "c1ae9bce5c7b6e960f7899511d5af3dcc30abe807a9d354916f512b4bfa586d2",
+  "app/rules/spell_control.py": "1b1d70696a20f5143155c6b6630be2674a5b1e880b1d34bbafd7fcce2a0e7c2f",
+  "app/rules/layers.py": "f0a0a6d0a16b4faa044eeda23a5041976b8ae8a38d17efeb2f12f322c67d2143",
+  "app/rules/leave.py": "a0a2a636892aa10acac0f6bf155d4496778076e24473c8c6c8a0650fe31596fd"
+}

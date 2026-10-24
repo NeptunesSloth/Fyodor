@@ -1,0 +1,62 @@
+{
+  "object": "list",
+  "has_more": false,
+  "data": [
+    {
+      "object": "ruling",
+      "oracle_id": "b9c1ca24-5696-4777-8465-13a8f78e4fb5",
+      "source": "wotc",
+      "published_at": "2022-04-29",
+      "comment": "Removing a counter from a creature is an additional cost of casting the spell and may be combined with other additional costs or alternative costs that spell may have, such as casualty."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "b9c1ca24-5696-4777-8465-13a8f78e4fb5",
+      "source": "wotc",
+      "published_at": "2022-04-29",
+      "comment": "If you cast a spell with casualty this way, you can pay the costs in any order, which means that you may remove a counter from a creature then sacrifice it to pay the casualty cost. Bear in mind that removing a +1/+1 counter this way will reduce a creature's power, which might prevent you from paying the casualty cost with that creature."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "b9c1ca24-5696-4777-8465-13a8f78e4fb5",
+      "source": "wotc",
+      "published_at": "2022-04-29",
+      "comment": "Shield counters don't prevent players from sacrificing creatures."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "b9c1ca24-5696-4777-8465-13a8f78e4fb5",
+      "source": "wotc",
+      "published_at": "2022-04-29",
+      "comment": "Removing a shield counter in this way isn't the same as regenerating a creature."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "b9c1ca24-5696-4777-8465-13a8f78e4fb5",
+      "source": "wotc",
+      "published_at": "2022-04-29",
+      "comment": "If a permanent that would be dealt damage has more than one shield counter on it, that damage is prevented and only one shield counter is removed."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "b9c1ca24-5696-4777-8465-13a8f78e4fb5",
+      "source": "wotc",
+      "published_at": "2022-04-29",
+      "comment": "If a permanent with a shield counter is dealt unpreventable damage, that damage will be dealt and a shield counter will still be removed."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "b9c1ca24-5696-4777-8465-13a8f78e4fb5",
+      "source": "wotc",
+      "published_at": "2022-04-29",
+      "comment": "A creature with a shield counter on it may still be destroyed by state-based actions if it has damage marked on it equal to its toughness or has been dealt unpreventable damage by a source with deathtouch."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "b9c1ca24-5696-4777-8465-13a8f78e4fb5",
+      "source": "wotc",
+      "published_at": "2022-04-29",
+      "comment": "\"Shield\" is not an ability that creatures have and shield counters are not keyword counters. If a creature with a shield counter loses its abilities, the shield counter will still protect it as normal."
+    }
+  ]
+}

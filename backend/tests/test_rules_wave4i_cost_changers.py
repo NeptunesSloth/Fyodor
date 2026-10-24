@@ -13,7 +13,7 @@ import pytest
 
 from app.game.errors import ActionError
 from app.game.state import GameState
-from app.rules import coverage, permissions
+from app.rules import alt_costs, coverage, permissions
 from app.rules.casting import activatable
 from app.rules.characteristics import Characteristics, parse_type_line
 from app.rules.oracle import parse_abilities
@@ -161,9 +161,6 @@ def test_the_cards_are_full(name):
 
 @pytest.mark.parametrize("text", [
     # a cost the alternative-cost grammar can't pay, or a condition it doesn't read: refused, never guessed
-    "You may exile a blue card with mana value X from your hand rather than pay this spell's mana cost.",
-    "You may discard an Island card and another card rather than pay this spell's mana cost.",
-    "If you control a Forest, rather than pay this spell's mana cost, you may have each other player gain 5 life.",
     "You may collect evidence 10 rather than pay the mana cost for spells you cast.",
     # ("For each {B} in a cost, you may pay 2 life …" is read now, wave 18B: K'rrik)
     "You may pay {X} rather than pay the mana cost for Samurai spells you cast, where X is that spell's mana value.",
@@ -177,6 +174,17 @@ def test_wordings_still_refused(text):
     assert permissions.define_static(text[0].lower() + text[1:], "spell") is None
 
 
+@pytest.mark.parametrize("text", [
+    "You may exile a blue card with mana value X from your hand rather than pay this spell's mana cost.",
+    "You may discard an Island card and another card rather than pay this spell's mana cost.",
+    "If you control a Forest, rather than pay this spell's mana cost, you may have each other player gain 5 life.",
+])
+def test_alternative_cost_wordings_now_have_native_definitions(text):
+    definition = permissions.define_static(text[0].lower() + text[1:], "spell")
+    assert definition is not None and definition["static"] == "alt_cost"
+    assert alt_costs.parse_cost(definition["cost"]) is not None
+
+
 def test_chosen_type_needs_the_enters_choice_line():
     line = "creature spells of the chosen type cost {2} less to cast"
     assert permissions.define_static(line, "static", ("As ~ enters, choose a creature type.",)) is not None
@@ -184,9 +192,9 @@ def test_chosen_type_needs_the_enters_choice_line():
     assert permissions.define_static(line, "static", ("As ~ enters, choose a card type.",)) is None
 
 
-def test_an_activated_ability_with_an_unread_cost_sentence_stays_manual():
+def test_target_qualified_activation_discount_is_supported():
     text = "{2}, {T}: Tap target creature. This ability costs {1} less to activate if it targets a creature with power 3 or less."
-    assert not ok(text, "Raft Security Officer", "Artifact Creature — Robot")
+    assert ok(text, "Raft Security Officer", "Artifact Creature — Robot")
 
 
 # -- alternative costs (118.9) ----------------------------------------------------------------------------------------

@@ -1,0 +1,99 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+____________________ test_baseline251_actual_order_answer94 ____________________
+
+cards = <app.cards.repository.CardRepository object at 0x7f8a1ffa3fb0>
+
+    def test_baseline251_actual_order_answer94(cards):
+        from tests.test_rules_designations import pick
+        s,source,original=ordering251_fixture94(cards)
+        assert s.state.rules.decision.kind=='order'
+>       pick(s,original)
+
+scratch/zone_order251baseline/tests/test_zone_exchanges94.py:402:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+Fyodor/backend/tests/test_rules_designations.py:156: in pick
+    act(s, d.player, type="choose", decision_id=d.id, option_ids=ids)
+Fyodor/backend/tests/game_helpers.py:42: in act
+    return session.perform(actor, payload)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+scratch/zone_order251baseline/app/game/session.py:57: in perform
+    action = parse_action(payload) if isinstance(payload, dict) else payload
+             ^^^^^^^^^^^^^^^^^^^^^
+scratch/zone_order251baseline/app/game/actions.py:1492: in parse_action
+    return ACTION_ADAPTER.validate_python(data)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = TypeAdapter(Annotated[Union[Draw, Move, SetPosition, Shuffle, Mill, Mulligan, PutTopFaceDown, MulliganTake, MulliganKe...lesDamage, RulesLifeChanges, Renumber, RulesLog], FieldInfo(annotation=NoneType, required=True, discriminator='type')])
+object = {'type': 'choose', 'decision_id': '199389f35729', 'option_ids': ['aca5632ce0d7', '26551ab6f6b2', '7e036c8f0b16', 'c3cedabfe0e5', '510ddb6cd5d3', 'd948cc1b6c30', ...]}
+strict = None, extra = None, from_attributes = None, context = None
+experimental_allow_partial = False, by_alias = None, by_name = None
+
+    def validate_python(
+        self,
+        object: Any,
+        /,
+        *,
+        strict: bool | None = None,
+        extra: ExtraValues | None = None,
+        from_attributes: bool | None = None,
+        context: Any | None = None,
+        experimental_allow_partial: bool | Literal['off', 'on', 'trailing-strings'] = False,
+        by_alias: bool | None = None,
+        by_name: bool | None = None,
+    ) -> T:
+        """Validate a Python object against the model.
+
+        A [`ValidationError`][pydantic_core.ValidationError] reports the rejected locations and values.
+        If you record validations with [Logfire](../integrations/logfire.md), the complete object and trace
+        context are retained alongside the error — `TypeAdapter` validations are captured the same way as
+        model validations (see [Troubleshooting validation errors](../errors/troubleshooting.md)).
+
+        Args:
+            object: The Python object to validate against the model.
+            strict: Whether to strictly check types.
+            extra: Whether to ignore, allow, or forbid extra data during model validation.
+                See the [`extra` configuration value][pydantic.ConfigDict.extra] for details.
+            from_attributes: Whether to extract data from object attributes.
+            context: Additional context to pass to the validator.
+            experimental_allow_partial: **Experimental** whether to enable
+                [partial validation](../concepts/experimental.md#partial-validation), e.g. to process streams.
+                * False / 'off': Default behavior, no partial validation.
+                * True / 'on': Enable partial validation.
+                * 'trailing-strings': Enable partial validation and allow trailing strings in the input.
+            by_alias: Whether to use the field's alias when validating against the provided input data.
+            by_name: Whether to use the field's name when validating against the provided input data.
+
+        !!! note
+            When using `TypeAdapter` with a Pydantic `dataclass`, the use of the `from_attributes`
+            argument is not supported.
+
+        Returns:
+            The validated object.
+        """
+        if by_alias is False and by_name is not True:
+            raise PydanticUserError(
+                'At least one of `by_alias` or `by_name` must be set to True.',
+                code='validate-by-alias-and-name-false',
+            )
+
+>       return self.validator.validate_python(
+            object,
+            strict=strict,
+            extra=extra,
+            from_attributes=from_attributes,
+            context=context,
+            allow_partial=experimental_allow_partial,
+            by_alias=by_alias,
+            by_name=by_name,
+        )
+E       pydantic_core._pydantic_core.ValidationError: 1 validation error for tagged-union[Draw,Move,SetPosition,Shuffle,Mill,Mulligan,PutTopFaceDown,MulliganTake,MulliganKeep,MulliganBottom,MulliganPowder,MulliganFinish,Reveal,Hide,LookTop,RevealTop,SearchStart,SearchEnd,EndView,Tap,UntapAll,PhaseShift,Counter,SetCounter,CreateToken,CopyCard,DeleteCard,Merge,Meld,SetFace,Flip,FaceDown,Note,SetController,ReturnToOwner,RestoreState,SpawnCard,ResetDeck,RestartGame,RunMacro,SetAppearance,SetTablePlaymat,function-after[_clean_strings(), AddEffect],RemoveEffect,SetDamage,function-after[_clean_strings(), SetChoice],function-after[_clean_strings(), SetStackInfo],function-after[_clean_strings(), SetExileGroup],function-after[_clean_strings(), CreateArrow],RemoveArrow,SetCopySource,Cleanup,RemovePlayer,SetCommander,Life,SetLife,Resource,SetResource,CommanderDamage,CommanderTax,SetMonarch,SetInitiative,SetDayNight,CityBlessing,RenamePlayer,Roll,Coin,Chat,Phase,NextTurn,Attack,Block,ClearCombat,CreateAbility,ResolveTop,ResponseOpen,ResponsePass,ResponseRespond,ResponseAutoPass,ResponseClose,Rotate,SetLock,SetProtect,Attach,Detach,Group,Ungroup,StackAdjust,SplitStack,ExpandStack,MergeTokens,AddMana,ClearMana,Configure,PlayLand,CastSpell,TurnFaceUp,UnlockDoor,EndEffect,PayDeferred,MiracleReveal,ActivateAbility,DeclareAttackers,DeclareBlockers,PassPriority,Choose,Concede,SetStops,SetPrefs,SetCardAutomation,RepeatSequence,RulesSync,RulesMana,RulesDamage,RulesLifeChanges,Renumber,RulesLog]
+E       choose.option_ids
+E         List should have at most 250 items after validation, not 251 [type=too_long, input_value=['aca5632ce0d7', '26551ab...3dacd7', '180ca54e3bfa'], input_type=list]
+E           For further information visit https://errors.pydantic.dev/2.14/v/too_long
+
+Fyodor/backend/.venv/lib/python3.12/site-packages/pydantic/type_adapter.py:410: ValidationError
+=========================== short test summary info ============================
+FAILED Fyodor/backend::test_baseline251_actual_order_answer94 - pydantic_core...
+1 failed, 23 deselected in 2.72s

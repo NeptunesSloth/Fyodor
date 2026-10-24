@@ -1,0 +1,26 @@
+..F                                                                      [100%]
+=================================== FAILURES ===================================
+_____ test_dash_cannot_replace_escape_cost_required_by_selected_permission _____
+
+cards = <app.cards.repository.CardRepository object at 0x7f5a2b83faa0>
+
+    def test_dash_cannot_replace_escape_cost_required_by_selected_permission(cards):
+        s = table(cards,['Warbringer','Underworld Breach','Mardu Strike Leader'])
+        put(s,'Warbringer','battlefield')
+        put(s,'Underworld Breach','battlefield')
+        spell = put(s,'Mardu Strike Leader','graveyard')
+        forest_ids = [c.id for c in s.state.cards.values() if c.name == 'Forest'][:3]
+        act(s,'p1',type='move',card_ids=forest_ids,to={'zone':'graveyard','player':'p1'})
+        ready(s)
+        act(s,'p1',type='add_mana',player='p1',mana={'C':1,'B':1})
+        before = s.state.model_dump_json()
+>       with pytest.raises(ActionError,match='alternative'):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AssertionError: Regex pattern did not match.
+E         Expected regex: 'alternative'
+E         Actual message: 'You can cast spells from your hand, and your commander from the command zone'
+
+tests/test_rules_selected_keyword_costs65.py:233: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_rules_selected_keyword_costs65.py::test_dash_cannot_replace_escape_cost_required_by_selected_permission
+1 failed, 2 passed, 11 deselected in 9.82s

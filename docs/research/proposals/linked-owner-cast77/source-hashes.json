@@ -1,0 +1,7 @@
+{
+  "app/rules/linked_owner_cast77.py": "368445ad2b0dd6d6385728f873707da4eebbfd0ba988865ec601cf85da315336",
+  "app/rules/scripts.py": "c06cb1b708dd0c97c9005d75b22d498268992fcc113e8a3d3ec2f0ae4db98071",
+  "app/rules/effects.py": "d9fd871a004d47871582c3cdc14d4f19eca7667061930b22b7b7a6dc99cbd988",
+  "tests/test_rules_linked_owner_cast77.py": "c4994ec5535fb24bee84662fd9817ca6dbbf7f46c760deafde2745a126fd8b17",
+  "tests/fixtures/linked_owner_cast77_cards.json": "f51aea242481bc628e9383181f5871c003a137dddbf90b40f0c9b0e0d47cbb93"
+}

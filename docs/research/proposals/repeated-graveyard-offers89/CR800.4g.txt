@@ -1,0 +1,5 @@
+CR 2026-09-25, rule 800.4g (read from pinned rules text before environment recovery):
+
+800.4g If an object requires a player who has left the game to make a choice other than whether to pay a cost, the controller of the object chooses another player to make that choice. If the original choice was to be made by an opponent of the controller of the object, that player chooses another opponent if possible.
+
+Lore's non-cost graveyard-card choice follows this rule. The original targeted opponent stays in the typed per-resolution packet; each later required card choice independently asks a replacement opponent when needed. The native cost-payer concession path remains unchanged.

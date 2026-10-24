@@ -1,0 +1,7 @@
+{
+  "app/rules/graveyard_windows80.py": "620e963b991bd369e3e42edeef5b5d183a4465540d879182d8ba9b0334e0ffeb",
+  "app/rules/scripts.py": "132a5a53438911953bda52836bd7b0c727c861c420a5be46d20c3617c6cf683c",
+  "app/rules/effects.py": "2245df2a9668c574050a4201f6e1dec935211caaa878381a29bb46f6949d8e3a",
+  "tests/test_rules_graveyard_windows80.py": "54cf43de59c29e6e8461b2dfe325cfe669f22c3b3dd62d7cf336982f9a4321ea",
+  "tests/fixtures/graveyard_windows80_cards.json": "7be3f3a2301ca952d9b5f03f230ae222c87abb03ce17f0a0fed9b2031456e0c1"
+}

@@ -1,0 +1,38 @@
+{
+  "status": "UNINSTALLED / root review pending",
+  "names": [
+    "We Say Thee Nay!",
+    "Dispelling Exhale",
+    "Swallowed by Leviathan"
+  ],
+  "whole": {
+    "passed": 21,
+    "cold": 3,
+    "log": "docs/research/proposals/conditional-tax80/whole21.log"
+  },
+  "types": {
+    "files": 2,
+    "result": "PASS",
+    "log": "docs/research/proposals/conditional-tax80/types2.log"
+  },
+  "ruff": {
+    "files": 3,
+    "result": "PASS",
+    "log": "docs/research/proposals/conditional-tax80/ruff3.log"
+  },
+  "related": {
+    "passed": 44,
+    "deselected": 126,
+    "result": "PASS",
+    "log": "docs/research/proposals/conditional-tax80/related.log"
+  },
+  "patch": "docs/research/proposals/conditional-tax80/UNINSTALLED.patch",
+  "patch_sha256": "e03251883e679bd4838470485a620887377cedb9623d8a782e7bbf1d0ddd7923",
+  "leaf_sha256": "8c42f416ab9f0dae1c92125cc111fc1a71ca82c3899d9b69683f5eb89dff1400",
+  "stage": "/tmp/conditional80-stage",
+  "source_base": "current root shared source before upkeep79 integration",
+  "held_separately": [
+    "Cosmic Horror",
+    "Demonic Hordes"
+  ]
+}

@@ -1,0 +1,24 @@
+{
+  "cards": [
+    "Vine Gecko"
+  ],
+  "native": 21,
+  "cold": 2,
+  "related": 27,
+  "mypy": 5,
+  "ruff": 6,
+  "files": [
+    "app/rules/first_kicked_costs77.py",
+    "app/rules/scripts.py",
+    "app/rules/history.py",
+    "app/rules/casting.py",
+    "app/game/rules_state.py"
+  ],
+  "source_sha256": {
+    "app/rules/first_kicked_costs77.py": "5e7d266aaafc22add2c3aea945eebf256ff75161d3c4e2e3b75ced2b32955ca1",
+    "app/rules/scripts.py": "faab8eae0b3fa9f17309f65ad51403faafcdc3d843a855656961447db96c4365",
+    "app/rules/history.py": "817dbee562e08ac234190fe195e0a99e8a0fbd6a21018dec2ca3f7dbef0fa8f8",
+    "app/rules/casting.py": "816790aee8eaea2e3ab96df829a4df7fb091dede583ee1a0295ddbf9bb85fb6b",
+    "app/game/rules_state.py": "4239f60e61d36608c35055e8a11d7c13a96caade2faa00507ea9a39665dc5279"
+  }
+}

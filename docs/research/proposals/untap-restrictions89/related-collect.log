@@ -1,0 +1,4 @@
+tests/test_rules_untap_attempts45.py: 16
+tests/test_rules_wave13e_untap_limit.py: 6
+tests/test_rules_wave7f_untap_choice.py: 13
+

@@ -855,6 +855,9 @@ def fight(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
             return True
         pair.append((cid, max(0, ch.pt[0]) if ch.pt is not None else 0))
     (ca, pa), (cb, pb) = pair
+    from app.rules import fight_receipts90
+
+    fight_receipts90.record(plan, [ca, cb])
     fights = (f"{plan.ch(plan.state.cards[ca]).name} fights {plan.ch(plan.state.cards[cb]).name}", [ca, cb])
     if e.get("dealt_as"):  # -- replacement effects stage 2 (wave 2E): "dealt damage this way" --
         ctx.setdefault(DEALT_KEY, {})[e["dealt_as"]] = []
@@ -909,10 +912,12 @@ def grant(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
     abilities = source_quality_grants.abilities(plan, ctx, player_protection_grants.abilities(plan, ctx, list(e.get("abilities") or [])))
     if abilities:
-        permanents = [c for c in cards if plan.state.cards[c].zone.endswith(":battlefield")]
-        if len(permanents) < len(cards):
-            plan.note(f"{ctx.get('name') or 'The effect'}: only a permanent on the battlefield gains an ability", actor=ctx["controller"])
-        cards = permanents
+        receivers = [c for c in cards if plan.state.cards[c].zone.endswith(":battlefield") or (
+            plan.state.cards[c].zone == "stack" and plan.state.cards[c].ability is None
+            and ((entry := plan.rules.stack.get(c)) is None or entry.kind == "spell"))]
+        if len(receivers) < len(cards):
+            plan.note(f"{ctx.get('name') or 'The effect'}: only a permanent or a spell gains an ability", actor=ctx["controller"])
+        cards = receivers
     if cards and (keywords or removed or abilities):
         words = [*keywords, *(f"loses {k}" for k in removed), *(f'"{a}"' for a in abilities)]
         duration = e.get("duration", "end_of_turn")
@@ -930,7 +935,8 @@ def grant(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
 
 # (the table marker's value is at most 20 characters: app/game/actions.py AddEffect.value)
-RESTRICTION_LABELS = {"cant_block": "Can't block", "cant_attack": "Can't attack", "cant_attack_or_block": "Can't attack/block",
+RESTRICTION_LABELS = {"assign_toughness_if_tougher": "Assigns combat damage using toughness when toughness exceeds power",
+                      "cant_block": "Can't block", "cant_attack": "Can't attack", "cant_attack_or_block": "Can't attack/block",
                       "cant_be_blocked": "Can't be blocked", "must_attack": "Attacks if able",
                       "assign_none": "Assigns no combat damage"}
 
@@ -1409,7 +1415,7 @@ def animate(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
             from app.game.rules_state import emit
 
             for c in cards:
-                emit(plan.state, "crewed", object_id=plan.oid(c), card=c, player=plan.state.cards[c].controller)
+                emit(plan.state, "crewed", object_id=plan.oid(c), card=c, player=plan.state.cards[c].controller, crew_count80=e.get("crew_count80"))
     return True
 
 
@@ -2041,52 +2047,9 @@ def prevent(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
 
 def mill(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
-    # -- activated other (wave 52D) -- "Each opponent mills cards equal to the number of cards in their hand.": each one's own amount, worked out before any mills (608.2h)
-    each = {p: _amount(plan, {**ctx, "recipient": p}, e["n"]) for p in _players(plan, ctx, e["who"])} if sized_damage.has_per_player(e["n"]) else None
-    want = 0 if each is not None else _amount(plan, ctx, e["n"])
-    before: list[ObjectRef] = []
-    wants: list[tuple[str, int]] = []
-    for pid in _players(plan, ctx, e["who"]):
-        if each is not None:
-            want = each[pid]
-        if e.get("half"):  # -- if you do (wave 15C) -- 107.1a: half the library as it is now, rounded as the text says
-            size = len(plan.state.zones.get(zone_key(pid, "library"), []))
-            want = (size + 1) // 2 if e["half"] == "up" else size // 2
-        wants.append((pid, want))
-    # -- mill counts (wave 28B) -- "would mill" replacements change the number the instruction says (the library may hold fewer)
-    counts = replace.mill_counts(plan, wants, then=replace.rerun_then(ctx, e), ctx=ctx)  # (run again with the answers, not continued)
-    if counts is None:
-        return False
-    complete = bool(counts) and all(count > 0 and len(plan.state.zones.get(zone_key(pid, "library"), [])) >= count for pid, count in counts)
-    start = plan.rules.batch
-    for pid, count in counts:
-        library = plan.state.zones.get(zone_key(pid, "library"), [])
-        n = min(count, len(library))
-        from app.game.rules_state import snapshot
+    from app.rules import prepared_mill61
 
-        # A self-shuffle replacement can erase hidden IDs without a zone change.
-        # Preserve the selected cards' information for subsequent instructions.
-        before += [r.model_copy(update={"snapshot": snapshot(plan.state, r.card)})
-                   for r in (context.ref_of(plan, c) for c in library[:n]) if r is not None]
-        if n:
-            plan.do({"type": "mill", "player": pid, "count": n}, actor=pid)
-    # -- review 28D -- "each player mills …" is one event: a "whenever one or more cards are milled" ability triggers once for all
-    # of them (603.2c; The Wise Mothman ruling 2024-03-08)
-    from app.rules.replace import _one_batch
-
-    _one_batch(plan, start)
-    _moved(plan, ctx, e, before)  # "cards milled this way": the new objects in the graveyards (400.7j)
-    if e.get("did"):
-        context.bind_payment(ctx, e["did"], complete)
-    if e.get("look"):  # -- if you do (wave 10C) -- "Mill three cards. You may put a land card from among them into your hand."
-        # (701.17a: the cards are put into the graveyard; "them" are the ones this mill put there — a card a replacement sent
-        # elsewhere isn't "milled" — and they are public, so the pick that follows works on them like a look's)
-        pid = _players(plan, ctx, e["who"])[0]
-        gone = {r.card for r in before}
-        grave = plan.state.zones.get(zone_key(pid, "graveyard"), [])
-        ctx["looked"] = [c for c in grave if c in gone]
-        ctx["looked_zone"], ctx["looked_owner"], ctx["found"] = "graveyard", pid, None
-    return True
+    return prepared_mill61.run(plan, ctx, e)
 
 
 def return_with_counter(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
@@ -2833,14 +2796,15 @@ def _return_cards(plan: Plan, ctx: Context, e: dict[str, Any], cards: list[str])
             plan.do({"type": "move", "card_ids": [cid], "to": {"player": card.owner, "zone": "hand"}}, actor=ctx["controller"])
         _moved(plan, ctx, e, before)
         return True
-    if e.get("face_down"):  # -- hidden exile (wave 18A) -- 708.4: enters face down (a 2/2 creature; turned up with its morph cost)
-        from app.rules import facedown
+    if e.get("face_down"):
+        from app.rules import face_down_entries64
 
-        for cid in cards:
-            facedown.put_face_down(plan, cid, ctx["controller"] if e.get("under") == "you" else plan.state.cards[cid].owner,
-                                   "generic", actor=ctx["controller"], spec=e.get("spec"))
-        _moved(plan, ctx, e, before)
-        return True
+        entries = face_down_entries64.prepare(plan, cards, ctx["controller"], under_you=e.get("under") == "you",
+                                              spec=e.get("spec"), tapped=bool(e.get("tapped")))
+        done = attachments.enter(plan, entries, ctx)
+        if done:
+            _moved(plan, ctx, e, before)
+        return done
     from app.rules import conditions as entry_conditions
 
     entry_counter_applies = not e.get('counter_condition') or entry_conditions.holds(plan, ctx, e['counter_condition'])
@@ -2913,15 +2877,13 @@ def _attached_entries(plan: Plan, ctx: Context, host_ref: str, entries: list[dic
 
 
 def pay_or_sacrifice(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
-    """"Sacrifice ~ unless you pay {cost}" (and echo, 702.30): its controller chooses; paying is
-    offered only when they can."""
+    """"Sacrifice ~ unless you pay {cost}" (and echo, 702.30): the original ability controller chooses."""
     from app.rules import mana  # casting imports this module
 
     pid = ctx["controller"]
-    src = [c for c in _cards(plan, ctx, "self") if plan.state.cards[c].controller == pid]
-    if not src:
-        # it already left — or 701.21a: another player controls it now (echo, "sacrifice ~ unless
-        # you pay" after a control change): it can't be sacrificed, so there's nothing to choose
+    src = _cards(plan, ctx, "self")
+    if not src and not e.get('echo_paid76'):
+        # Non-echo source-presence checks still apply; a control change does not change the original payer.
         return True
     if e["cost"] == "mana_cost":  # -- cost alt (wave 16F) -- "unless you pay its mana cost": what is printed on it (X is 0 off the stack,
         # 202.3e); an object with no mana cost has nothing to pay: it is sacrificed
@@ -2938,10 +2900,12 @@ def pay_or_sacrifice(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         cost = mana.parse_cost(e["cost"] * n) if n else mana.parse_cost("{0}")
     e = {**e, "cost": cost.text() if not cost.is_free else "{0}"}
     options = [DecisionOption(id="pay", label=f"Pay {cost.text()}"),  # (tap your mana first, then Pay)
-               DecisionOption(id="sacrifice", label=f"Sacrifice {plan.state.cards[src[0]].name}")]
-    decide(plan, player=pid, kind="choose_one", prompt=f"{ctx.get('name', '')}: pay {cost.text()} or sacrifice it?",
+               DecisionOption(id="sacrifice", label=f"Sacrifice {plan.state.cards[src[0]].name}" if src and plan.state.cards[src[0]].controller == pid else "Don't pay")]
+    question = " or sacrifice it" if src and plan.state.cards[src[0]].controller == pid else ""
+    decide(plan, player=pid, kind="choose_one", prompt=f"{ctx.get('name', '')}: pay {cost.text()}{question}?",
            options=options, resume={"step": "pay_or_sacrifice", "ctx": ctx, "cost": e["cost"],
-                   **({"purpose_special": "cumulative_upkeep"} if e.get("per") == "age" else {})}, source=plan.state.cards[src[0]])
+                   **({'echo_paid76': True} if e.get('echo_paid76') else {}),
+                   **({"purpose_special": "cumulative_upkeep"} if e.get("per") == "age" else {})}, source=plan.state.cards[src[0]] if src else None)
     return False
 
 
@@ -2960,15 +2924,19 @@ def resume_pay_or_sacrifice(plan: Plan, d: Any, chosen: list[str]) -> None:
             counter_object(plan, sid, d.player, by=ctx["controller"])
         continue_effects(plan, ctx)
         return
-    src = [c for c in _cards(plan, ctx, "self") if plan.state.cards[c].controller == d.player]  # (701.21a)
-    if chosen[0] == "pay" and src:
+    src = _cards(plan, ctx, "self")
+    if chosen[0] == "pay":  # The original offer survives a mana ability sacrificing its source.
+        if d.resume.get('echo_paid76'):
+            from app.rules import echo_alternatives76
+
+            echo_alternatives76.insert(ctx, [{'do': 'note_echo_paid76'}])
         cost = mana.parse_cost(d.resume["cost"])
         casting.pay_from_pool_then(plan, d.player, cost, f"paid {cost.text()} for {ctx.get('name', '')}",
                                    then={"do": "continue", "ctx": ctx},
                                    purpose=casting.Purpose(special=d.resume.get("purpose_special")))
         return
     elif src:
-        _sacrifice_cards(plan, src, d.player, ctx)
+        _sacrifice_cards(plan, [c for c in src if plan.state.cards[c].controller == d.player], d.player, ctx)
     continue_effects(plan, ctx)
 
 
@@ -3224,6 +3192,10 @@ def resume_look_may(plan: Plan, d: Any, chosen: list[str]) -> None:
 def _looked(plan: Plan, ctx: Context) -> tuple[str, list[str]]:
     """(the library's owner, the set-aside cards still in that library)."""
     pid = ctx.get("looked_owner") or ctx["controller"]
+    if ctx.get("looked_zone") == "public_milled59":
+        from app.rules import public_mill_attachment59
+
+        return public_mill_attachment59.looked(plan, ctx)
     library = plan.state.zones.get(zone_key(pid, ctx.get("looked_zone") or "library"), [])  # (wave 10C: milled cards, in the graveyard)
     return pid, [c for c in ctx.get("looked") or [] if c in library and (not ctx.get("looked_objects")
                  or ctx["looked_objects"].get(c) == plan.oid(plan.state.cards[c]))]
@@ -3236,6 +3208,10 @@ def pick_looked(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     looked at), "put those cards into your hand" (``which``: "all"), "put all land cards revealed
     this way into your hand" (a selector with no choice: every match)."""
     pid = ctx["controller"]
+    if e.get("public_mill59"):
+        from app.rules import public_mill_attachment59
+
+        public_mill_attachment59.prepare_public_mill(plan, ctx, e)
     owner, looked = _looked(plan, ctx)
     if e.get("by_owner"):  # -- most-played cards (wave 43B) -- "they put it onto the battlefield" / "that player puts it into their hand": the library's owner is the one who puts it
         pid = owner
@@ -3304,7 +3280,10 @@ def _picked(plan: Plan, ctx: Context, e: dict[str, Any], chosen: list[str]) -> b
     if e.get("did"):
         zone = {"battlefield_tapped": "battlefield", "battlefield_attacking": "battlefield", "top": "library",
                 "bottom": "library"}.get(e["to"], e["to"])
-        context.refs(ctx)[e["did"]] = {"kind": "probe", "to": zone, "cards": {c: plan.oid(plan.state.cards[c]) for c in chosen}}
+        if e.get("choice_payment59"):
+            context.bind_payment(ctx, e["did"], bool(chosen))
+        else:
+            context.refs(ctx)[e["did"]] = {"kind": "probe", "to": zone, "cards": {c: plan.oid(plan.state.cards[c]) for c in chosen}}
     if e["to"] in ("top_any", "bottom_any"):
         if len(chosen) > 1:
             _ask_order(plan, ctx, pid, _looked(plan, ctx)[0], chosen, "top" if e["to"] == "top_any" else "bottom")
@@ -3445,7 +3424,8 @@ def to_library(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     (401.4)."""
     cards = ([t["id"] for group in ctx.get("groups", []) for t in group if t] if e["who"] == "all_targets" else _cards(plan, ctx, e["who"]))
     before = _remember(plan, ctx, e, cards)
-    if len(cards) > 1 and (e["place"] == "choice" or (e["place"] in ("top", "bottom") and not e.get("chooser"))):
+    compound81 = e.get('owner_root_choice81') and any(plan.state.cards[cid].merged for cid in cards)
+    if (len(cards) > 1 or compound81) and (e["place"] == "choice" or (e["place"] in ("top", "bottom") and not e.get("chooser"))):
         from app.rules import library_placements
 
         return library_placements.start(plan, ctx, e, cards, before)
@@ -3782,7 +3762,7 @@ def reflexive(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     (603.7) it is put on the stack the next time a player would receive priority (603.3), its controller choosing
     its modes and targets then (603.3c-d) — not while the ability that created it was announced. Its source is that
     ability's source; it has no trigger event of its own."""
-    from app.rules import conditions
+    from app.rules import conditions, optional_continuations58
     from app.rules.triggers import _add  # (triggers imports this module)
 
     if e.get("entry_receipt56"):
@@ -3823,7 +3803,7 @@ def reflexive(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
                     if any(new["card"] == o.card for new, _ in _this_way._matched(plan, ctx, e["cond"]["value"]))]
                    if e.get("each") and event is not None else [event] * _reflex_times(plan, ctx, e["cond"])):
             _add(plan, controller=ctx["controller"], source_card=ctx.get("source_card") or "", source_object=ctx.get("source_object") or "",
-                 name=str(ctx.get("name") or ""), index=7300, definition=e["ability"], event=ev)
+                 name=str(ctx.get("name") or ""), index=7300, definition=optional_continuations58.reflexive_ability(plan, ctx, e), event=ev)
     return True
 
 
@@ -3901,6 +3881,12 @@ def reading_x(plan: Plan, x: int | None) -> Iterator[None]:
 
 
 def begin_resolution(plan: Plan, stack_id: str, entry: StackEntry) -> None:
+    from app.rules import text_spell_refresh71
+
+    refreshed71 = text_spell_refresh71.refresh(plan, stack_id, entry)
+    if refreshed71 is None:
+        return
+    entry = refreshed71
     if entry.x_from_event_spell:
         from app.rules.triggers import event_spell_x
 
@@ -3946,7 +3932,9 @@ def _begin_resolution(plan: Plan, stack_id: str, entry: StackEntry) -> None:
             groups.append([t.model_dump() if together and still_legal(plan, what, entry.controller, t, src, entry.source_card, attacker, source_object=entry.source_object)
                            else None for t in refs])
         chosen = sum(len(refs) for refs in entry.groups)
-        if chosen and not any(t for g in groups for t in g):
+        from app.rules import exchange_conditions91
+
+        if chosen and not any(t for g in groups for t in g) and not exchange_conditions91.resolves_illegal(entry):
             # 608.2b: every target, for every word "target", is illegal: it doesn't resolve.
             # (With zero targets chosen — "up to …" — it resolves normally: 115.6.)
             plan.note(f"{entry.name or 'It'} does nothing: its targets are no longer legal")
@@ -6682,3 +6670,215 @@ PRIMITIVES["next_free_cast68"] = _conditional_free_casts68.next_free
 from app.rules import first_event_receipts78 as _first_event78  # noqa: E402
 
 PRIMITIVES['investigate_complete78'] = _first_event78.complete
+
+
+from app.rules import text_change_instructions71 as _text_change_instructions71  # noqa: E402
+
+PRIMITIVES.update(_text_change_instructions71.PRIMITIVES)
+CHOICE_OPTIONS['word to replace'] = [*_text_change_instructions71.COLORS, *_text_change_instructions71.LANDS,
+                               *sorted(_text_change_instructions71.CREATURE_TYPES)]
+
+RESUME['text71_legacy_done'] = _text_change_instructions71.legacy_done
+
+CHOICE_OPTIONS['replacement word'] = CHOICE_OPTIONS['word to replace']
+
+from app.rules import top_library_authorities69  # noqa: E402
+
+PRIMITIVES.update(top_library_authorities69.PRIMITIVES)
+
+from app.rules import conditional_counter_riders77  # noqa: E402
+
+PRIMITIVES.update(conditional_counter_riders77.PRIMITIVES)
+
+from app.rules import unblocked_choices79 as _unblocked79  # noqa: E402
+
+PRIMITIVES.update({'bone_entry79': _unblocked79.bone_entry, 'bone_finish79': _unblocked79.bone_finish, 'spy_reveal79': _unblocked79.spy_reveal})
+
+from app.rules import first_crew_saddle80 as _first_crew80  # noqa: E402
+
+PRIMITIVES['mindlink_copy80'] = _first_crew80.mindlink_copy
+
+from app.rules import public_mill_attachment59 as _public_mill_attachment59  # noqa: E402
+
+PRIMITIVES.update(_public_mill_attachment59.PRIMITIVES)
+RESUME.update(_public_mill_attachment59.RESUME)
+
+from app.rules import object_mana_offers78  # noqa: E402
+
+PRIMITIVES.update(object_mana_offers78.PRIMITIVES)
+RESUME.update(object_mana_offers78.RESUME)
+
+from app.rules import upkeep_tax79  # noqa: E402
+
+PRIMITIVES.update(upkeep_tax79.PRIMITIVES)
+RESUME.update(upkeep_tax79.RESUME)
+
+from app.rules import prepared_mill61 as _prepared_mill61  # noqa: E402, I001
+
+RESUME.update(_prepared_mill61.RESUME)
+
+
+CHOICE_OPTIONS['color word'] = list(_text_change_instructions71.COLORS)
+CHOICE_LABELS['color word'] = 'Chosen color word'
+
+from app.rules import text_global_word71 as _global_word71  # noqa: E402
+
+RESUME['restore_global_word71'] = _global_word71.resume_restore
+
+RESUME['restore_global_continue71'] = _global_word71.resume_continue
+
+from app.rules import post_mill_continuations60 as _post_mill_continuations60  # noqa: E402, I001
+
+PRIMITIVES.update(_post_mill_continuations60.PRIMITIVES)
+RESUME.update(_post_mill_continuations60.RESUME)
+
+from app.rules import crew_saddle_readers81 as _crew_saddle_readers81  # noqa: E402, I001
+
+PRIMITIVES.update(_crew_saddle_readers81.PRIMITIVES)
+
+from app.rules import pooled_casting_authorities71 as _pooled_casting_authorities71  # noqa: E402, I001
+
+PRIMITIVES.update(_pooled_casting_authorities71.PRIMITIVES)
+
+from app.rules import demonic_covenant62 as _demonic_covenant62  # noqa: E402, I001
+
+PRIMITIVES.update(_demonic_covenant62.PRIMITIVES)
+
+from app.rules import deferred_payment82 as _deferred82  # noqa: E402
+
+PRIMITIVES.update(_deferred82.PRIMITIVES)
+RESUME.update(_deferred82.RESUME)
+
+from app.rules import fortune83 as _fortune83  # noqa: E402, I001
+
+PRIMITIVES.update(_fortune83.PRIMITIVES)
+
+from app.rules import grave_adventure74 as _grave_adventure74  # noqa: E402, I001
+
+PRIMITIVES.update(_grave_adventure74.PRIMITIVES)
+RESUME.update(_grave_adventure74.RESUME)
+
+from app.rules import target_duration_costs69 as _target_duration69  # noqa: E402
+
+PRIMITIVES.update(_target_duration69.PRIMITIVES)
+
+from app.rules import attack_subjects86 as _attack_subjects86  # noqa: E402, I001
+
+PRIMITIVES.update(_attack_subjects86.PRIMITIVES)
+
+from app.rules import teferi_realm84 as _teferi_realm84  # noqa: E402, I001
+
+PRIMITIVES.update(_teferi_realm84.PRIMITIVES)
+
+from app.rules import source_cohort87 as _source_cohort87  # noqa: E402, I001
+
+PRIMITIVES.update(_source_cohort87.PRIMITIVES)
+
+from app.rules import cyber_controller63 as _cyber_controller63  # noqa: E402, I001
+
+PRIMITIVES.update(_cyber_controller63.PRIMITIVES)
+CHOICE_OPTIONS[_teferi_realm84.WHAT] = list(_teferi_realm84.CHOICES)
+
+from app.rules import permanent_payments83 as _permanent83  # noqa: E402, I001
+
+PRIMITIVES.update(_permanent83.PRIMITIVES)
+RESUME.update(_permanent83.RESUME)
+
+from app.rules import greatest_creature_cost84 as _greatest_creature_cost84  # noqa: E402, I001
+
+PRIMITIVES.update(_greatest_creature_cost84.PRIMITIVES)
+RESUME.update(_greatest_creature_cost84.RESUME)
+
+from app.rules import creature_obligations85 as _creature_obligations85  # noqa: E402, I001
+
+PRIMITIVES.update(_creature_obligations85.PRIMITIVES)
+RESUME.update(_creature_obligations85.RESUME)
+
+from app.rules import public_mill_picks65 as _public_mill_picks65  # noqa: E402, I001
+
+PRIMITIVES.update(_public_mill_picks65.PRIMITIVES)
+RESUME.update(_public_mill_picks65.RESUME)
+
+from app.rules import hall_gemstone86 as _hall_gemstone86  # noqa: E402, I001
+
+PRIMITIVES.update(_hall_gemstone86.PRIMITIVES)
+
+from app.rules import phase_skips88 as _phase_skips88  # noqa: E402, I001
+
+PRIMITIVES.update(_phase_skips88.PRIMITIVES)
+RESUME.update(_phase_skips88.RESUME)
+
+from app.rules import linked_owner_cast77 as _linked_owner_cast77  # noqa: E402, I001
+
+PRIMITIVES.update(_linked_owner_cast77.PRIMITIVES)
+
+from app.rules import nonbattlefield_life_offers86 as _life86  # noqa: E402, I001
+
+PRIMITIVES.update(_life86.PRIMITIVES)
+RESUME.update(_life86.RESUME)
+
+from app.rules import public_mill_costs64 as _public_mill_costs64  # noqa: E402, I001
+
+PRIMITIVES.update(_public_mill_costs64.PRIMITIVES)
+RESUME.update(_public_mill_costs64.RESUME)
+
+from app.rules import knowledge_pool78 as _knowledge_pool78  # noqa: E402, I001
+
+PRIMITIVES.update(_knowledge_pool78.PRIMITIVES)
+
+
+from app.rules import echo_alternatives76 as _echo76  # noqa: E402
+
+PRIMITIVES['echo_payment76'] = _echo76.payment
+
+PRIMITIVES['note_echo_paid76'] = _echo76.note_paid
+
+PRIMITIVES['echo_draws76'] = _echo76.draws
+
+
+from app.rules import nightshade_reveal88 as _nightshade88  # noqa: E402, I001
+
+PRIMITIVES.update(_nightshade88.PRIMITIVES)
+RESUME.update(_nightshade88.RESUME)
+
+from app.rules import repeated_graveyard_offer89 as _lore89  # noqa: E402, I001
+
+PRIMITIVES.update(_lore89.PRIMITIVES)
+RESUME.update(_lore89.RESUME)
+
+
+from app.rules import exchange_conditions91 as _exchange91  # noqa: E402
+
+PRIMITIVES.update({"exchange_drake91": _exchange91.drake, "exchange_neither91": _exchange91.neither, "exchange_auras91": _exchange91.auras})
+
+from app.rules import graveyard_windows80 as _graveyard_windows80  # noqa: E402
+
+PRIMITIVES.update(_graveyard_windows80.PRIMITIVES)
+
+from app.rules import post_mill_graveyard68  # noqa: E402
+
+PRIMITIVES.update(post_mill_graveyard68.PRIMITIVES)
+
+from app.rules import attached_destruction82 as _attached_destruction82  # noqa: E402
+
+PRIMITIVES.update(_attached_destruction82.PRIMITIVES)
+
+from app.rules import exchange_choices92 as _exchange92  # noqa: E402
+
+PRIMITIVES.update(_exchange92.PRIMITIVES)
+
+from app.rules import exchange_spells93 as _exchange93  # noqa: E402
+
+PRIMITIVES.update(_exchange93.PRIMITIVES)
+
+from app.rules import vault_loop71 as _vault71  # noqa: E402, I001
+
+PRIMITIVES.update(_vault71.PRIMITIVES)
+
+from app.rules import conditional_upkeep_grants91 as _upkeep91  # noqa: E402, I001
+
+PRIMITIVES.update(_upkeep91.PRIMITIVES)
+
+from app.rules import zone_exchanges94 as _zone_exchanges94  # noqa: E402
+
+PRIMITIVES.update(_zone_exchanges94.PRIMITIVES)

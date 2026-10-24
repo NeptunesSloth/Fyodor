@@ -1,0 +1,756 @@
+[
+  {
+    "id": "ed4951ef-2519-4511-b952-c835cd81def7",
+    "oracle_id": "0636090b-49e0-45b4-a68d-48b1cdc0c54d",
+    "name": "Warbringer",
+    "layout": "normal",
+    "set_code": "dtk",
+    "set_name": "Dragons of Tarkir",
+    "collector_number": "168",
+    "rarity": "uncommon",
+    "mana_cost": "{3}{R}",
+    "cmc": 4.0,
+    "type_line": "Creature \u2014 Orc Berserker",
+    "oracle_text": "Dash costs you pay cost {2} less (as long as this creature is on the battlefield).\nDash {2}{R} (You may cast this spell for its dash cost. If you do, it gains haste, and it's returned from the battlefield to its owner's hand at the beginning of the next end step.)",
+    "power": "3",
+    "toughness": "3",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [
+      "Dash"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2015-03-27",
+    "artist": "Raymond Swanland",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "8806605c-0cb7-4360-96e4-afb424ccad90",
+    "oracle_id": "6332d6d3-1d77-486c-b040-02fc7225f245",
+    "name": "Nahiri, Storm of Stone",
+    "layout": "normal",
+    "set_code": "war",
+    "set_name": "War of the Spark",
+    "collector_number": "233",
+    "rarity": "uncommon",
+    "mana_cost": "{2}{R/W}{R/W}",
+    "cmc": 4.0,
+    "type_line": "Legendary Planeswalker \u2014 Nahiri",
+    "oracle_text": "During your turn, creatures you control have first strike and equip abilities you activate cost {1} less to activate.\n\u2212X: Nahiri deals X damage to target tapped creature.",
+    "power": null,
+    "toughness": null,
+    "loyalty": "6",
+    "defense": null,
+    "colors": [
+      "R",
+      "W"
+    ],
+    "color_identity": [
+      "R",
+      "W"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2019-05-03",
+    "artist": "Aleksi Briclot",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "0e7891b8-ba69-4c5b-a29f-ee7bcf2374f0",
+    "oracle_id": "c18ab011-c5e0-4174-b623-d89e4d745ce6",
+    "name": "Mardu Scout",
+    "layout": "normal",
+    "set_code": "frf",
+    "set_name": "Fate Reforged",
+    "collector_number": "108",
+    "rarity": "common",
+    "mana_cost": "{R}{R}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Goblin Scout",
+    "oracle_text": "Dash {1}{R} (You may cast this spell for its dash cost. If you do, it gains haste, and it's returned from the battlefield to its owner's hand at the beginning of the next end step.)",
+    "power": "3",
+    "toughness": "1",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [
+      "Dash"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2015-01-23",
+    "artist": "Zoltan Boros",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "3285cb6f-a9c0-4195-b6b2-3f33a16eaa01",
+    "oracle_id": "1e474772-3fe4-46be-8c5f-6e477b9fd74e",
+    "name": "Lightning Berserker",
+    "layout": "normal",
+    "set_code": "dtk",
+    "set_name": "Dragons of Tarkir",
+    "collector_number": "146",
+    "rarity": "uncommon",
+    "mana_cost": "{R}",
+    "cmc": 1.0,
+    "type_line": "Creature \u2014 Human Berserker",
+    "oracle_text": "{R}: This creature gets +1/+0 until end of turn.\nDash {R} (You may cast this spell for its dash cost. If you do, it gains haste, and it's returned from the battlefield to its owner's hand at the beginning of the next end step.)",
+    "power": "1",
+    "toughness": "1",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [
+      "Dash"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2015-03-27",
+    "artist": "Joseph Meehan",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "f8b8162a-68f0-45df-bb25-8fd4487257a4",
+    "oracle_id": "93e9b0d6-97a8-4357-bcd4-f82d81bad232",
+    "name": "Silver-Inlaid Dagger",
+    "layout": "normal",
+    "set_code": "isd",
+    "set_name": "Innistrad",
+    "collector_number": "233",
+    "rarity": "uncommon",
+    "mana_cost": "{1}",
+    "cmc": 1.0,
+    "type_line": "Artifact \u2014 Equipment",
+    "oracle_text": "Equipped creature gets +2/+0.\nAs long as equipped creature is a Human, it gets an additional +1/+0.\nEquip {2}",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": [
+      "Equip"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2011-09-30",
+    "artist": "Austin Hsu",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "a360fe4e-c9a6-42fa-a97a-8b5a0c19ef93",
+    "oracle_id": "218d9277-c179-4de3-9c7f-79b5a6d4fa38",
+    "name": "Merfolk of the Pearl Trident",
+    "layout": "normal",
+    "set_code": "m13",
+    "set_name": "Magic 2013",
+    "collector_number": "60",
+    "rarity": "common",
+    "mana_cost": "{U}",
+    "cmc": 1.0,
+    "type_line": "Creature \u2014 Merfolk",
+    "oracle_text": "",
+    "power": "1",
+    "toughness": "1",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2012-07-13",
+    "artist": "Ray Lago",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "c8e5546c-7f46-4eb5-a330-384d68ee75b0",
+    "oracle_id": "09c96077-3804-4f12-a613-5bebc5e0413f",
+    "name": "Sphere of Resistance",
+    "layout": "normal",
+    "set_code": "mps",
+    "set_name": "Kaladesh Inventions",
+    "collector_number": "47",
+    "rarity": "special",
+    "mana_cost": "{2}",
+    "cmc": 2.0,
+    "type_line": "Artifact",
+    "oracle_text": "Spells cost {1} more to cast.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2016-09-30",
+    "artist": "Richard Wright",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "cf16600a-c2a5-49e4-89e2-260cfaf58b52",
+    "oracle_id": "29b3cb3e-aeb1-43eb-8095-9f7881aa34bd",
+    "name": "Prodigal Pyromancer",
+    "layout": "normal",
+    "set_code": "tsr",
+    "set_name": "Time Spiral Remastered",
+    "collector_number": "180",
+    "rarity": "uncommon",
+    "mana_cost": "{2}{R}",
+    "cmc": 3.0,
+    "type_line": "Creature \u2014 Human Wizard",
+    "oracle_text": "{T}: This creature deals 1 damage to any target.",
+    "power": "1",
+    "toughness": "1",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2021-03-19",
+    "artist": "Jeremy Jarvis",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "083f3b83-b7d3-472f-87b2-ed247c9c937e",
+    "oracle_id": "cf01312d-305a-4587-8f54-03ee471bdf8c",
+    "name": "Vulshok Battlemaster",
+    "layout": "normal",
+    "set_code": "mrd",
+    "set_name": "Mirrodin",
+    "collector_number": "110",
+    "rarity": "rare",
+    "mana_cost": "{4}{R}",
+    "cmc": 5.0,
+    "type_line": "Creature \u2014 Human Warrior",
+    "oracle_text": "Haste\nWhen this creature enters, attach all Equipment on the battlefield to it. (Control of the Equipment doesn't change.)",
+    "power": "2",
+    "toughness": "2",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [
+      "Haste"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2003-10-02",
+    "artist": "Kev Walker",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "626ed059-9bd1-4a18-ac85-7b00b8057426",
+    "oracle_id": "9be8e04f-f87f-4477-93f3-c546e9b346f0",
+    "name": "Mardu Strike Leader",
+    "layout": "normal",
+    "set_code": "clb",
+    "set_name": "Commander Legends: Battle for Baldur's Gate",
+    "collector_number": "761",
+    "rarity": "rare",
+    "mana_cost": "{2}{B}",
+    "cmc": 3.0,
+    "type_line": "Creature \u2014 Human Warrior",
+    "oracle_text": "Whenever this creature attacks, create a 2/1 black Warrior creature token.\nDash {3}{B} (You may cast this spell for its dash cost. If you do, it gains haste, and it's returned from the battlefield to its owner's hand at the beginning of the next end step.)",
+    "power": "3",
+    "toughness": "2",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [
+      "Dash"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2022-06-10",
+    "artist": "Jason Rainville",
+    "commander_legal": "legal",
+    "related_tokens": [
+      {
+        "id": "883ac854-ee35-418a-9d4e-c30ba2a5ade8",
+        "name": "Warrior",
+        "type_line": "Token Creature \u2014 Warrior"
+      }
+    ],
+    "related_cards": []
+  },
+  {
+    "id": "a865fdc5-955a-4c4a-90c0-342c15fd7bbc",
+    "oracle_id": "9e2adca5-f39c-4a09-bcce-8238ebac2c4a",
+    "name": "Cackling Counterpart",
+    "layout": "normal",
+    "set_code": "inr",
+    "set_name": "Innistrad Remastered",
+    "collector_number": "55",
+    "rarity": "uncommon",
+    "mana_cost": "{1}{U}{U}",
+    "cmc": 3.0,
+    "type_line": "Instant",
+    "oracle_text": "Create a token that's a copy of target creature you control.\nFlashback {5}{U}{U} (You may cast this card from your graveyard for its flashback cost. Then exile it.)",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Flashback"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2025-01-24",
+    "artist": "David Rapoza",
+    "commander_legal": "legal",
+    "related_tokens": [
+      {
+        "id": "4b976756-e988-4211-95c2-0e3587118488",
+        "name": "Copy",
+        "type_line": "Token"
+      }
+    ],
+    "related_cards": [
+      {
+        "id": "29306076-b48b-4dd5-959f-12e7a38b3800",
+        "name": "Cackling Counterpart",
+        "component": "combo_piece"
+      }
+    ]
+  },
+  {
+    "id": "47db94ce-e9f3-4bc3-b05f-17fde1d91329",
+    "oracle_id": "857d94f7-113c-45a4-a88a-5d087347d57f",
+    "name": "Leonin Shikari",
+    "layout": "normal",
+    "set_code": "c17",
+    "set_name": "Commander 2017",
+    "collector_number": "66",
+    "rarity": "rare",
+    "mana_cost": "{1}{W}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Cat Soldier",
+    "oracle_text": "You may activate equip abilities any time you could cast an instant.",
+    "power": "2",
+    "toughness": "2",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2017-08-25",
+    "artist": "Wayne England",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "5368ce20-0970-4630-8c46-439db2231a39",
+    "oracle_id": "68954295-54e3-4303-a6bc-fc4547a4e3a3",
+    "name": "Llanowar Elves",
+    "layout": "normal",
+    "set_code": "fdc",
+    "set_name": "Foundations Commander",
+    "collector_number": "213",
+    "rarity": "common",
+    "mana_cost": "{G}",
+    "cmc": 1.0,
+    "type_line": "Creature \u2014 Elf Druid",
+    "oracle_text": "{T}: Add {G}.",
+    "power": "1",
+    "toughness": "1",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2026-10-02",
+    "artist": "Eric Wilkerson",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [
+      {
+        "id": "8ef95e7a-9f07-41f8-908b-2df93e03d391",
+        "name": "Marwyn's Kindred",
+        "component": "combo_piece"
+      }
+    ]
+  },
+  {
+    "id": "bbac6d75-59ab-4d7d-87ae-46875abf8cc7",
+    "oracle_id": "46808926-d95b-4313-89d1-6bdfe13fcb77",
+    "name": "Zurgo Bellstriker",
+    "layout": "normal",
+    "set_code": "dtk",
+    "set_name": "Dragons of Tarkir",
+    "collector_number": "169",
+    "rarity": "rare",
+    "mana_cost": "{R}",
+    "cmc": 1.0,
+    "type_line": "Legendary Creature \u2014 Orc Warrior",
+    "oracle_text": "Zurgo can't block creatures with power 2 or greater.\nDash {1}{R} (You may cast this spell for its dash cost. If you do, it gains haste, and it's returned from the battlefield to its owner's hand at the beginning of the next end step.)",
+    "power": "2",
+    "toughness": "2",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [
+      "Dash"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2015-03-27",
+    "artist": "Jason Rainville",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "0852f9f3-d7ef-4d31-93e3-93bc7c5a4ec9",
+    "oracle_id": "4457ed35-7c10-48c8-9776-456485fdf070",
+    "name": "Lightning Bolt",
+    "layout": "normal",
+    "set_code": "fdc",
+    "set_name": "Foundations Commander",
+    "collector_number": "163",
+    "rarity": "uncommon",
+    "mana_cost": "{R}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Lightning Bolt deals 3 damage to any target.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2026-10-02",
+    "artist": "Christopher Moeller",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [
+      {
+        "id": "4f095067-cf24-4061-8626-dc68a66a0b36",
+        "name": "Toralf's Disciple",
+        "component": "combo_piece"
+      },
+      {
+        "id": "69b51576-532b-450e-a8bf-0482cac04618",
+        "name": "Thayan Evokers",
+        "component": "combo_piece"
+      },
+      {
+        "id": "618806ea-7ea8-4cfb-a8c1-c3defa34e7dd",
+        "name": "Indris, the Hydrostatic Surge",
+        "component": "combo_piece"
+      }
+    ]
+  },
+  {
+    "id": "7f4893ef-f983-418b-b7a4-5f073c844545",
+    "oracle_id": "33c722cf-b4bf-431f-aefd-ee96241a7fbf",
+    "name": "Crucible of Worlds",
+    "layout": "normal",
+    "set_code": "2x2",
+    "set_name": "Double Masters 2022",
+    "collector_number": "303",
+    "rarity": "mythic",
+    "mana_cost": "{3}",
+    "cmc": 3.0,
+    "type_line": "Artifact",
+    "oracle_text": "You may play lands from your graveyard.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2022-07-08",
+    "artist": "Ron Spencer",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "705b4d97-2f50-47f7-9053-d748f4337553",
+    "oracle_id": "e4625704-1d52-44e4-804f-2f45644d76ac",
+    "name": "Muldrotha, the Gravetide",
+    "layout": "normal",
+    "set_code": "ecc",
+    "set_name": "Lorwyn Eclipsed Commander",
+    "collector_number": "128",
+    "rarity": "mythic",
+    "mana_cost": "{3}{B}{G}{U}",
+    "cmc": 6.0,
+    "type_line": "Legendary Creature \u2014 Elemental Avatar",
+    "oracle_text": "During each of your turns, you may play a land and cast a permanent spell of each permanent type from your graveyard. (If a card has multiple permanent types, choose one as you play it.)",
+    "power": "6",
+    "toughness": "6",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "B",
+      "G",
+      "U"
+    ],
+    "color_identity": [
+      "B",
+      "G",
+      "U"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2026-01-23",
+    "artist": "Jason Rainville",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "0e51d796-7279-4c06-87f0-37adbdaa41df",
+    "oracle_id": "27e0948b-9916-473b-8d8c-a51bdfbc7457",
+    "name": "Underworld Breach",
+    "layout": "normal",
+    "set_code": "thb",
+    "set_name": "Theros Beyond Death",
+    "collector_number": "161",
+    "rarity": "rare",
+    "mana_cost": "{1}{R}",
+    "cmc": 2.0,
+    "type_line": "Enchantment",
+    "oracle_text": "Each nonland card in your graveyard has escape. The escape cost is equal to the card's mana cost plus exile three other cards from your graveyard. (You may cast cards from your graveyard for their escape cost.)\nAt the beginning of the end step, sacrifice this enchantment.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2020-01-24",
+    "artist": "Lie Setiawan",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "9fca4c4f-a77b-483e-9da4-574ba2e3d179",
+    "oracle_id": "7d540860-ae94-4773-a526-aaffca3eb057",
+    "name": "Academy Loremaster",
+    "layout": "normal",
+    "set_code": "dmu",
+    "set_name": "Dominaria United",
+    "collector_number": "40",
+    "rarity": "rare",
+    "mana_cost": "{U}{U}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Human Wizard",
+    "oracle_text": "At the beginning of each player's draw step, that player may draw an additional card. If they do, spells they cast this turn cost {2} more to cast.",
+    "power": "2",
+    "toughness": "3",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2022-09-09",
+    "artist": "Marcela Medeiros",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "a300b5af-9223-4e97-9d33-a9226bd900f3",
+    "oracle_id": "66837faa-fbde-456d-b00f-eb17fbdd04aa",
+    "name": "Tax Collector",
+    "layout": "normal",
+    "set_code": "acr",
+    "set_name": "Assassin's Creed",
+    "collector_number": "9",
+    "rarity": "uncommon",
+    "mana_cost": "{1}{W}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Human Advisor",
+    "oracle_text": "When this creature enters, choose one \u2014\n\u2022 Tax \u2014 Until your next turn, spells your opponents cast cost {1} more to cast.\n\u2022 Arrest \u2014 Detain target creature an opponent controls. (Until your next turn, that creature can't attack or block and its activated abilities can't be activated.)",
+    "power": "2",
+    "toughness": "2",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [
+      "Detain",
+      "Tax",
+      "Arrest"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2024-07-05",
+    "artist": "Mikl\u00f3s Ligeti",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  }
+]

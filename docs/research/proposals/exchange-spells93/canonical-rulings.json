@@ -1,0 +1,246 @@
+[
+  {
+    "id": "81cea94d-e8a2-4c88-b121-9806eb7cc210",
+    "oracle_id": "7d075b8a-a606-4590-b52b-b4ef3a9e342f",
+    "name": "Perplexing Chimera",
+    "lang": "en",
+    "layout": "normal",
+    "set_code": "sld",
+    "set_name": "Secret Lair Drop",
+    "set_type": "box",
+    "collector_number": "7039",
+    "released_at": "2026-09-28",
+    "rarity": "rare",
+    "mana_cost": "{4}{U}",
+    "cmc": 5.0,
+    "type_line": "Enchantment Creature \u2014 Chimera",
+    "oracle_text": "Whenever an opponent casts a spell, you may exchange control of this creature and that spell. If you do, you may choose new targets for the spell. (If the spell becomes a permanent, you control that permanent.)",
+    "power": "3",
+    "toughness": "3",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [],
+    "produced_mana": null,
+    "card_faces": null,
+    "all_parts": null,
+    "image_uris": "{\"small\": \"https://cards.scryfall.io/small/front/8/1/81cea94d-e8a2-4c88-b121-9806eb7cc210.jpg?1791120518\", \"normal\": \"https://cards.scryfall.io/normal/front/8/1/81cea94d-e8a2-4c88-b121-9806eb7cc210.jpg?1791120518\", \"large\": \"https://cards.scryfall.io/large/front/8/1/81cea94d-e8a2-4c88-b121-9806eb7cc210.jpg?1791120518\", \"art_crop\": \"https://cards.scryfall.io/art_crop/front/8/1/81cea94d-e8a2-4c88-b121-9806eb7cc210.jpg?1791120518\"}",
+    "legalities": "{\"standard\": \"not_legal\", \"future\": \"not_legal\", \"historic\": \"not_legal\", \"timeless\": \"not_legal\", \"gladiator\": \"not_legal\", \"pioneer\": \"legal\", \"modern\": \"legal\", \"legacy\": \"legal\", \"pauper\": \"not_legal\", \"vintage\": \"legal\", \"penny\": \"legal\", \"commander\": \"legal\", \"oathbreaker\": \"legal\", \"standardbrawl\": \"not_legal\", \"brawl\": \"not_legal\", \"competitivebrawl\": \"not_legal\", \"alchemy\": \"not_legal\", \"paupercommander\": \"not_legal\", \"duel\": \"legal\", \"oldschool\": \"not_legal\", \"premodern\": \"not_legal\", \"predh\": \"not_legal\", \"tlr\": \"not_legal\"}",
+    "is_token": 0,
+    "digital": 0,
+    "promo": 0,
+    "artist": "Ricardo Cavolo",
+    "edhrec_rank": 5524,
+    "official_rulings": {
+      "object": "list",
+      "has_more": false,
+      "data": [
+        {
+          "object": "ruling",
+          "oracle_id": "7d075b8a-a606-4590-b52b-b4ef3a9e342f",
+          "source": "wotc",
+          "published_at": "2014-02-01",
+          "comment": "You may exchange control of Perplexing Chimera and any spell cast by an opponent, not just one with targets."
+        },
+        {
+          "object": "ruling",
+          "oracle_id": "7d075b8a-a606-4590-b52b-b4ef3a9e342f",
+          "source": "wotc",
+          "published_at": "2014-02-01",
+          "comment": "You make the decision whether to exchange control of Perplexing Chimera and the spell as the triggered ability resolves."
+        },
+        {
+          "object": "ruling",
+          "oracle_id": "7d075b8a-a606-4590-b52b-b4ef3a9e342f",
+          "source": "wotc",
+          "published_at": "2014-02-01",
+          "comment": "If Perplexing Chimera leaves the battlefield or the spell leaves the stack before the triggered ability resolves, you can\u2019t make the exchange."
+        },
+        {
+          "object": "ruling",
+          "oracle_id": "7d075b8a-a606-4590-b52b-b4ef3a9e342f",
+          "source": "wotc",
+          "published_at": "2014-02-01",
+          "comment": "Neither Perplexing Chimera nor the spell changes zones. Only control of them is exchanged."
+        },
+        {
+          "object": "ruling",
+          "oracle_id": "7d075b8a-a606-4590-b52b-b4ef3a9e342f",
+          "source": "wotc",
+          "published_at": "2014-02-01",
+          "comment": "After the ability resolves, you control the spell. Any instance of \u201cyou\u201d in that spell\u2019s text now refers to you, \u201can opponent\u201d refers to one of your opponents, and so on. The change of control happens before new targets are chosen, so any targeting restrictions such as \u201ctarget opponent\u201d or \u201ctarget creature you control\u201d are now made in reference to you, not the spell\u2019s original controller. You may change those targets to be legal in reference to you, or, if those are the spell\u2019s only targets, the spell will doesn\u2019t resolve for having illegal targets. When the spell resolves, any illegal targets are unaffected by it and you make all decisions the spell\u2019s effect calls for."
+        },
+        {
+          "object": "ruling",
+          "oracle_id": "7d075b8a-a606-4590-b52b-b4ef3a9e342f",
+          "source": "wotc",
+          "published_at": "2014-02-01",
+          "comment": "You may change any of the spell\u2019s targets. If you change a target, you must choose a legal target for the spell. If you can\u2019t, you must leave the target the same (even if that target is now illegal)."
+        },
+        {
+          "object": "ruling",
+          "oracle_id": "7d075b8a-a606-4590-b52b-b4ef3a9e342f",
+          "source": "wotc",
+          "published_at": "2014-02-01",
+          "comment": "Gaining control of a spell and changing its targets won\u2019t cause any heroic abilities of the new targets to trigger."
+        },
+        {
+          "object": "ruling",
+          "oracle_id": "7d075b8a-a606-4590-b52b-b4ef3a9e342f",
+          "source": "wotc",
+          "published_at": "2014-02-01",
+          "comment": "If you gain control of an instant or sorcery spell, it will be put into its owner\u2019s graveyard as it resolves, fails to resolve, or is countered."
+        },
+        {
+          "object": "ruling",
+          "oracle_id": "7d075b8a-a606-4590-b52b-b4ef3a9e342f",
+          "source": "wotc",
+          "published_at": "2014-02-01",
+          "comment": "In some unusual cases, you may not control Perplexing Chimera when its triggered ability resolves (perhaps because the triggered ability triggered again and resolved while the original ability was on the stack). In these cases, you can exchange control of Perplexing Chimera and the spell that causes the ability to trigger, even if you control neither of them. If you do, you\u2019ll be able to change targets of the spell, not the spell\u2019s new controller."
+        }
+      ]
+    }
+  },
+  {
+    "id": "9f7983bf-2a3b-4428-8c01-35285f589da8",
+    "oracle_id": "e5ddacfb-e5a8-4885-a4c9-fa117f321293",
+    "name": "Sudden Substitution",
+    "lang": "en",
+    "layout": "normal",
+    "set_code": "c19",
+    "set_name": "Commander 2019",
+    "set_type": "commander",
+    "collector_number": "11",
+    "released_at": "2019-08-23",
+    "rarity": "rare",
+    "mana_cost": "{2}{U}{U}",
+    "cmc": 4.0,
+    "type_line": "Instant",
+    "oracle_text": "Split second (As long as this spell is on the stack, players can't cast spells or activate abilities that aren't mana abilities.)\nExchange control of target noncreature spell and target creature. Then the spell's controller may choose new targets for it.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Split second"
+    ],
+    "produced_mana": null,
+    "card_faces": null,
+    "all_parts": null,
+    "image_uris": "{\"small\": \"https://cards.scryfall.io/small/front/9/f/9f7983bf-2a3b-4428-8c01-35285f589da8.jpg?1783932812\", \"normal\": \"https://cards.scryfall.io/normal/front/9/f/9f7983bf-2a3b-4428-8c01-35285f589da8.jpg?1783932812\", \"large\": \"https://cards.scryfall.io/large/front/9/f/9f7983bf-2a3b-4428-8c01-35285f589da8.jpg?1783932812\", \"art_crop\": \"https://cards.scryfall.io/art_crop/front/9/f/9f7983bf-2a3b-4428-8c01-35285f589da8.jpg?1783932812\"}",
+    "legalities": "{\"standard\": \"not_legal\", \"future\": \"not_legal\", \"historic\": \"not_legal\", \"timeless\": \"not_legal\", \"gladiator\": \"not_legal\", \"pioneer\": \"not_legal\", \"modern\": \"not_legal\", \"legacy\": \"legal\", \"pauper\": \"not_legal\", \"vintage\": \"legal\", \"penny\": \"not_legal\", \"commander\": \"legal\", \"oathbreaker\": \"legal\", \"standardbrawl\": \"not_legal\", \"brawl\": \"not_legal\", \"competitivebrawl\": \"not_legal\", \"alchemy\": \"not_legal\", \"paupercommander\": \"not_legal\", \"duel\": \"legal\", \"oldschool\": \"not_legal\", \"premodern\": \"not_legal\", \"predh\": \"not_legal\", \"tlr\": \"not_legal\"}",
+    "is_token": 0,
+    "digital": 0,
+    "promo": 0,
+    "artist": "Noah Bradley",
+    "edhrec_rank": 6840,
+    "official_rulings": {
+      "object": "list",
+      "has_more": false,
+      "data": [
+        {
+          "object": "ruling",
+          "oracle_id": "e5ddacfb-e5a8-4885-a4c9-fa117f321293",
+          "source": "wotc",
+          "published_at": "2021-03-19",
+          "comment": "Players still get priority while a card with split second is on the stack; their options are just limited to mana abilities and certain special actions."
+        },
+        {
+          "object": "ruling",
+          "oracle_id": "e5ddacfb-e5a8-4885-a4c9-fa117f321293",
+          "source": "wotc",
+          "published_at": "2021-03-19",
+          "comment": "Players may turn face-down creatures face up while a spell with split second is on the stack."
+        },
+        {
+          "object": "ruling",
+          "oracle_id": "e5ddacfb-e5a8-4885-a4c9-fa117f321293",
+          "source": "wotc",
+          "published_at": "2021-03-19",
+          "comment": "Split second doesn't stop triggered abilities from triggering, such as that of Chalice of the Void. If one does, its controller puts it on the stack and chooses targets for it, if any. Those abilities will resolve as normal."
+        },
+        {
+          "object": "ruling",
+          "oracle_id": "e5ddacfb-e5a8-4885-a4c9-fa117f321293",
+          "source": "wotc",
+          "published_at": "2021-03-19",
+          "comment": "Casting a spell with split second won't affect spells and abilities that are already on the stack."
+        },
+        {
+          "object": "ruling",
+          "oracle_id": "e5ddacfb-e5a8-4885-a4c9-fa117f321293",
+          "source": "wotc",
+          "published_at": "2021-03-19",
+          "comment": "If the resolution of a triggered ability involves casting a spell, that spell can't be cast if a spell with split second is on the stack."
+        },
+        {
+          "object": "ruling",
+          "oracle_id": "e5ddacfb-e5a8-4885-a4c9-fa117f321293",
+          "source": "wotc",
+          "published_at": "2021-03-19",
+          "comment": "After a spell with split second resolves (or otherwise leaves the stack), players may again cast spells and activate abilities before the next object on the stack resolves."
+        },
+        {
+          "object": "ruling",
+          "oracle_id": "e5ddacfb-e5a8-4885-a4c9-fa117f321293",
+          "source": "wotc",
+          "published_at": "2019-08-23",
+          "comment": "A mana ability is an ability that produces mana, not an ability that costs mana."
+        },
+        {
+          "object": "ruling",
+          "oracle_id": "e5ddacfb-e5a8-4885-a4c9-fa117f321293",
+          "source": "wotc",
+          "published_at": "2019-08-23",
+          "comment": "In a multiplayer game, if the controller of one of the objects leaves the game after Sudden Substitution resolves, the effect that gave them control of the spell or permanent expires. If the spell is still on the stack, the player who gains control of it this way can't choose new targets for it."
+        },
+        {
+          "object": "ruling",
+          "oracle_id": "e5ddacfb-e5a8-4885-a4c9-fa117f321293",
+          "source": "wotc",
+          "published_at": "2019-08-23",
+          "comment": "If the target spell or the target creature is an illegal target as Sudden Substitution resolves, the exchange won't happen. If both targets are legal but are both controlled by the same player, the exchange won't happen."
+        },
+        {
+          "object": "ruling",
+          "oracle_id": "e5ddacfb-e5a8-4885-a4c9-fa117f321293",
+          "source": "wotc",
+          "published_at": "2019-08-23",
+          "comment": "If the exchange doesn't happen but the spell is still a legal target, its controller may choose new targets for it."
+        },
+        {
+          "object": "ruling",
+          "oracle_id": "e5ddacfb-e5a8-4885-a4c9-fa117f321293",
+          "source": "wotc",
+          "published_at": "2019-08-23",
+          "comment": "The noncreature spell is still on the stack after exchanging control, and the creature is still on the battlefield."
+        },
+        {
+          "object": "ruling",
+          "oracle_id": "e5ddacfb-e5a8-4885-a4c9-fa117f321293",
+          "source": "wotc",
+          "published_at": "2019-08-23",
+          "comment": "If a permanent spell is exchanged this way, its new controller will control the permanent it becomes."
+        },
+        {
+          "object": "ruling",
+          "oracle_id": "e5ddacfb-e5a8-4885-a4c9-fa117f321293",
+          "source": "wotc",
+          "published_at": "2019-08-23",
+          "comment": "The exchange lasts indefinitely. It doesn't expire for the spell if the creature changes zones or leaves the game, or vice versa."
+        }
+      ]
+    }
+  }
+]

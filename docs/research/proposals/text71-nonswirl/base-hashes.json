@@ -1,0 +1,12 @@
+{
+  "app/game/rules_state.py": "af31effa3aa5d2236a9736cf09cbc1e1154fc4bad2d17983352d4a06ee4c6844",
+  "app/cards/repository.py": "3ec1b364fca1de786f6c0956aa011dc6e52f45662f777823b85e54ece557c13f",
+  "app/rules/scripts.py": "6c865d1af31ffeb6fa7c38da36a6945b3125b70397484395c6609d7c399702ed",
+  "app/rules/effects.py": "d0cdad2b2a38552f743271f3043be38294a91db369248fba5fbbc7c0a81bafaa",
+  "app/rules/layers.py": "f21df09b7caf2d46eb50ec5cb11bf7f8945fb42c4c2f9e03c03e3ad7fd536586",
+  "app/rules/layer_dependency_graph.py": "6db60ee1815d72e33924b384e958ed65b0ebade0e3d8328fee2ac353553d8e9d",
+  "app/rules/casting.py": "124f6786d91b702e63d98066f382f10a1cae0f6a3aa6da488842f95a870a9f0b",
+  "app/rules/text_word_changes71.py": null,
+  "app/rules/text_change_instructions71.py": null,
+  "app/rules/text_spell_refresh71.py": null
+}

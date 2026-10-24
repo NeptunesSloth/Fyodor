@@ -1,0 +1,8 @@
+tests/test_player_collections.py: 7
+tests/test_rules_keywords3f.py: 29
+tests/test_rules_outside_game50.py: 17
+tests/test_rules_permissions.py: 35
+tests/test_rules_top_library_authorities69.py: 28
+tests/test_rules_wave22d_linked_permissions.py: 3
+tests/test_rules_wave32d_use_permission.py: 9
+

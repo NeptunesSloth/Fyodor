@@ -1,0 +1,12 @@
+....F.                                                                   [100%]
+=================================== FAILURES ===================================
+_ test_actual_flash_permission_prevents_autopass_over_the_only_legal_graveyard_mutate _
+tests/test_rules_required_mutate75.py:209: in test_actual_flash_permission_prevents_autopass_over_the_only_legal_graveyard_mutate
+    assert casting.has_responses(s.state, 'p1', cards)
+E   AssertionError: assert False
+E    +  where False = <function has_responses at 0x7f39ca5e2e80>(GameState(format_version=1, id='a711ca4e4e8084df', name='Game', format='commander', created_at=1792718346.36112, seq=4...ee_cast_faces={}, exile_if_graveyard=[], bottom_if_graveyard=[], cast_enters={}, exile_resolves={}, counter_stamps={})), 'p1', <app.cards.repository.CardRepository object at 0x7f39cad9d7f0>)
+E    +    where <function has_responses at 0x7f39ca5e2e80> = casting.has_responses
+E    +    and   GameState(format_version=1, id='a711ca4e4e8084df', name='Game', format='commander', created_at=1792718346.36112, seq=4...ee_cast_faces={}, exile_if_graveyard=[], bottom_if_graveyard=[], cast_enters={}, exile_resolves={}, counter_stamps={})) = <app.game.session.GameSession object at 0x7f39c9c30110>.state
+=========================== short test summary info ============================
+FAILED tests/test_rules_required_mutate75.py::test_actual_flash_permission_prevents_autopass_over_the_only_legal_graveyard_mutate
+1 failed, 5 passed, 6 deselected in 4.79s

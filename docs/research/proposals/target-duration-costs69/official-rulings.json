@@ -1,0 +1,167 @@
+{
+  "object": "list",
+  "has_more": false,
+  "data": [
+    {
+      "object": "ruling",
+      "oracle_id": "20dbfc9a-172e-4065-bfde-d40de3131787",
+      "source": "wotc",
+      "published_at": "2018-06-08",
+      "comment": "Will's first ability overwrites all previous effects that set a creature's base power and toughness to specific values. Any power- or toughness-setting effects that start to apply after that ability resolves will overwrite this effect."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "20dbfc9a-172e-4065-bfde-d40de3131787",
+      "source": "wotc",
+      "published_at": "2018-06-08",
+      "comment": "If an affected creature gains an ability after Will's first ability resolves, it will keep that ability."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "20dbfc9a-172e-4065-bfde-d40de3131787",
+      "source": "wotc",
+      "published_at": "2018-06-08",
+      "comment": "Effects that raise or lower a creature's power and/or toughness, such as the effect of Titanic Growth, will apply to the creature no matter when they started to take effect. The same is true for any counters that change its power and/or toughness and effects that switch its power and toughness."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "20dbfc9a-172e-4065-bfde-d40de3131787",
+      "source": "wotc",
+      "published_at": "2018-06-08",
+      "comment": "If a creature affected by Rowan's first ability can't attack for any reason (such as being tapped or having come under that player's control that turn), then it doesn't attack. If there's a cost associated with having it attack, the player isn't forced to pay that cost, so it doesn't have to attack in that case either."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "20dbfc9a-172e-4065-bfde-d40de3131787",
+      "source": "wotc",
+      "published_at": "2018-06-08",
+      "comment": "The copy of the spell created by Will's emblem resolves before the original spell. The same is true of the copy of the activated ability created by Rowan's emblem."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "20dbfc9a-172e-4065-bfde-d40de3131787",
+      "source": "wotc",
+      "published_at": "2018-06-08",
+      "comment": "If you have two of Will's emblems, perhaps because Rowan's emblem copied Will's last ability, each one will copy a spell you cast. The same is true of Rowan's emblem in regard to abilities you activate."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "20dbfc9a-172e-4065-bfde-d40de3131787",
+      "source": "wotc",
+      "published_at": "2018-06-08",
+      "comment": "The ability of either Kenrith's emblem can copy the spell or ability even if that spell or ability is countered before the emblem's triggered ability resolves."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "20dbfc9a-172e-4065-bfde-d40de3131787",
+      "source": "wotc",
+      "published_at": "2018-06-08",
+      "comment": "The copy is created on the stack, so it's not \"cast\" or \"activated.\" Abilities that trigger when a player casts a spell or activates an ability (such as either emblem's own ability) won't trigger."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "20dbfc9a-172e-4065-bfde-d40de3131787",
+      "source": "wotc",
+      "published_at": "2018-06-08",
+      "comment": "The copy will have the same targets as the spell or ability it's copying unless you choose new ones. You may change any number of the targets, including all of them or none of them. If, for one of the targets, you can't choose a new legal target, then it remains unchanged (even if the current target is illegal)."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "20dbfc9a-172e-4065-bfde-d40de3131787",
+      "source": "wotc",
+      "published_at": "2018-06-08",
+      "comment": "If the spell or ability that's copied is modal (that is, it says \"Choose one \u2014\" or the like), the copy will have the same mode. A different mode can't be chosen."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "20dbfc9a-172e-4065-bfde-d40de3131787",
+      "source": "wotc",
+      "published_at": "2018-06-08",
+      "comment": "If the spell or ability that's copied has an X whose value was determined as it was cast or activated (like Blaze does), the copy will have the same value of X."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "20dbfc9a-172e-4065-bfde-d40de3131787",
+      "source": "wotc",
+      "published_at": "2018-06-08",
+      "comment": "If the spell or ability has damage divided as it was cast or activated (like Chandra's Pyrohelix), the division can't be changed (although the targets receiving that damage still can)."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "20dbfc9a-172e-4065-bfde-d40de3131787",
+      "source": "wotc",
+      "published_at": "2018-06-08",
+      "comment": "The controller of a copied spell can't choose to pay any alternative or additional costs for the copy. However, effects based on any alternative or additional costs that were paid for the original spell are copied as though those same costs were paid for the copy. Similarly, for Rowan's emblem, effects based on non-mana costs that were paid for the original ability are copied as though those same costs were paid for the copy."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "20dbfc9a-172e-4065-bfde-d40de3131787",
+      "source": "wotc",
+      "published_at": "2018-06-08",
+      "comment": "The last abilities of Will and Rowan apply to Commander games only. They have no effect in other games."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "20dbfc9a-172e-4065-bfde-d40de3131787",
+      "source": "wotc",
+      "published_at": "2018-06-08",
+      "comment": "\"Partner with [name]\" represents two abilities. The first is a triggered ability: \"When this permanent enters the battlefield, target player may search their library for a card named [name], reveal it, put it into their hand, then shuffle their library.\""
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "20dbfc9a-172e-4065-bfde-d40de3131787",
+      "source": "wotc",
+      "published_at": "2018-06-08",
+      "comment": "Note that the target player searches their library (which may be affected by effects such as that of Stranglehold) and that the card they find is revealed, even though these words aren't included in the ability's reminder text."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "20dbfc9a-172e-4065-bfde-d40de3131787",
+      "source": "wotc",
+      "published_at": "2018-06-08",
+      "comment": "The second ability represented by the \"partner with [name]\" keyword modifies the rules for deck construction in the Commander variant and has no function outside of that variant. If a legendary creature card with \"partner with [name]\" is designated as your commander, the named legendary creature card can also be designated as your commander. For more information on the Commander variant, please visit Wizards.com/Commander."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "20dbfc9a-172e-4065-bfde-d40de3131787",
+      "source": "wotc",
+      "published_at": "2018-06-08",
+      "comment": "If your Commander deck has two commanders, you can only include cards whose own color identities are also found in your commanders' combined color identities. If Khorvath and Sylvia are your commanders, your deck may contain cards with red and/or white in their color identity, but not blue, black, or green."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "20dbfc9a-172e-4065-bfde-d40de3131787",
+      "source": "wotc",
+      "published_at": "2018-06-08",
+      "comment": "Both commanders start in the command zone, and the remaining 98 cards of your deck are shuffled to become your library."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "20dbfc9a-172e-4065-bfde-d40de3131787",
+      "source": "wotc",
+      "published_at": "2018-06-08",
+      "comment": "To have two commanders, both must have the partner ability (featured in the Magic: The Gathering\u2014Commander\u2122 (2016 Edition) set) or corresponding \"partner with\" abilities as the game begins. A creature with a \"partner with\" ability can't partner with any creature other than its designated partner. Losing a partner ability during the game doesn't cause either to cease to be your commander."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "20dbfc9a-172e-4065-bfde-d40de3131787",
+      "source": "wotc",
+      "published_at": "2018-06-08",
+      "comment": "Once the game begins, your two commanders are tracked separately. If you cast one, you won't have to pay an additional {2} the first time you cast the other. A player loses the game after having been dealt 21 damage from one of them, not from both of them combined. Command Beacon's effect puts one into your hand from the command zone, not both."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "20dbfc9a-172e-4065-bfde-d40de3131787",
+      "source": "wotc",
+      "published_at": "2018-06-08",
+      "comment": "An effect that checks whether you control your commander is satisfied if you control one or both of your two commanders."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "20dbfc9a-172e-4065-bfde-d40de3131787",
+      "source": "wotc",
+      "published_at": "2018-06-08",
+      "comment": "The triggered ability of the \"partner with\" keyword still triggers in a Commander game. If your other commander has somehow ended up in your library, you can find it. You can also target another player who might have that card in their library."
+    }
+  ]
+}

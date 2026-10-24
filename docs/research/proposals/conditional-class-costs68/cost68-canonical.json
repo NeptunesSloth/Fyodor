@@ -1,0 +1,35 @@
+{
+  "id": "5bf81fb1-7992-4ae9-b1a8-80c31579a2bf",
+  "oracle_id": "ac9d52b2-78a5-4b17-8aaf-1c1cb936a508",
+  "name": "Paladin Class",
+  "layout": "class",
+  "set_code": "afr",
+  "set_name": "Adventures in the Forgotten Realms",
+  "collector_number": "29",
+  "rarity": "rare",
+  "mana_cost": "{W}",
+  "cmc": 1.0,
+  "type_line": "Enchantment \u2014 Class",
+  "oracle_text": "(Gain the next level as a sorcery to add its ability.)\nSpells your opponents cast during your turn cost {1} more to cast.\n{2}{W}: Level 2\nCreatures you control get +1/+1.\n{4}{W}: Level 3\nWhenever you attack, until end of turn, target attacking creature gets +1/+1 for each other attacking creature and gains double strike.",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "defense": null,
+  "colors": [
+    "W"
+  ],
+  "color_identity": [
+    "W"
+  ],
+  "keywords": [],
+  "is_token": false,
+  "faces": [],
+  "double_faced": false,
+  "image_faces": 1,
+  "has_image": false,
+  "released_at": "2021-07-23",
+  "artist": "Campbell White",
+  "commander_legal": "legal",
+  "related_tokens": [],
+  "related_cards": []
+}

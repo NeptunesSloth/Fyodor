@@ -1,0 +1,343 @@
+============================= test session starts ==============================
+platform linux -- Python 3.12.14, pytest-9.1.1, pluggy-1.7.0 -- /workspace/Fyodor/backend/.venv/bin/python
+cachedir: .pytest_cache
+rootdir: /workspace/scratch/root/checkpoint64/backend
+configfile: pyproject.toml
+plugins: anyio-4.15.1, xdist-3.8.0
+created: 4/4 workers
+4 workers [165 items]
+
+scheduling tests via LoadScheduling
+
+tests/test_rules_nightshade_resolution_reveal88.py::test_original_trigger_survives_source_bounce_new_hand_card_counts
+tests/test_rules_first_kicked_costs77.py::test_awakens_synthetic_kicked_receipt_does_not_consume_true_first_kicker
+tests/test_rules_first_kicked_costs77.py::test_actual_omnisicience_free_base_still_pays_kicker_and_records_real_first_payment
+tests/test_rules_first_kicked_costs77.py::test_canonical
+[gw0] [  0%] PASSED tests/test_rules_first_kicked_costs77.py::test_canonical
+tests/test_rules_first_kicked_costs77.py::test_first_actual_kicked_spell_costs_one_less_and_native_trigger_grows_gecko
+[gw3] [  1%] PASSED tests/test_rules_nightshade_resolution_reveal88.py::test_original_trigger_survives_source_bounce_new_hand_card_counts
+tests/test_rules_nightshade_resolution_reveal88.py::test_true_cold_private_resolution_choice[0]
+[gw3] [  1%] PASSED tests/test_rules_nightshade_resolution_reveal88.py::test_true_cold_private_resolution_choice[0]
+tests/test_rules_nightshade_resolution_reveal88.py::test_true_cold_private_resolution_choice[2]
+[gw2] [  2%] PASSED tests/test_rules_first_kicked_costs77.py::test_actual_omnisicience_free_base_still_pays_kicker_and_records_real_first_payment
+tests/test_rules_nightshade_resolution_reveal88.py::test_whole
+[gw2] [  3%] PASSED tests/test_rules_nightshade_resolution_reveal88.py::test_whole
+tests/test_rules_nightshade_resolution_reveal88.py::test_actual_count_two
+[gw2] [  3%] PASSED tests/test_rules_nightshade_resolution_reveal88.py::test_actual_count_two
+tests/test_rules_nightshade_resolution_reveal88.py::test_zero_or_one_resolution_count[0]
+[gw0] [  4%] PASSED tests/test_rules_first_kicked_costs77.py::test_first_actual_kicked_spell_costs_one_less_and_native_trigger_grows_gecko
+tests/test_rules_first_kicked_costs77.py::test_multikicker_two_is_one_spell_one_discount_one_gecko_trigger
+[gw2] [  4%] PASSED tests/test_rules_nightshade_resolution_reveal88.py::test_zero_or_one_resolution_count[0]
+tests/test_rules_nightshade_resolution_reveal88.py::test_zero_or_one_resolution_count[1]
+[gw3] [  5%] PASSED tests/test_rules_nightshade_resolution_reveal88.py::test_true_cold_private_resolution_choice[2]
+tests/test_rules_conditional_statics91.py::test_native_canonical_full_whole_cast[Short Circuit]
+[gw1] [  6%] PASSED tests/test_rules_first_kicked_costs77.py::test_awakens_synthetic_kicked_receipt_does_not_consume_true_first_kicker
+tests/test_rules_first_kicked_costs77.py::test_entwine_does_not_consume_true_first_kicker
+[gw2] [  6%] PASSED tests/test_rules_nightshade_resolution_reveal88.py::test_zero_or_one_resolution_count[1]
+tests/test_rules_nightshade_resolution_reveal88.py::test_reveal_pure_cost_has_no_mana_ability_window
+[gw3] [  7%] PASSED tests/test_rules_conditional_statics91.py::test_native_canonical_full_whole_cast[Short Circuit]
+tests/test_rules_conditional_statics91.py::test_native_canonical_full_whole_cast[Grond, the Gatebreaker]
+[gw2] [  7%] PASSED tests/test_rules_nightshade_resolution_reveal88.py::test_reveal_pure_cost_has_no_mana_ability_window
+tests/test_rules_nightshade_resolution_reveal88.py::test_native_madness_cast_and_resolution_reveal
+[gw3] [  8%] PASSED tests/test_rules_conditional_statics91.py::test_native_canonical_full_whole_cast[Grond, the Gatebreaker]
+tests/test_rules_conditional_statics91.py::test_native_short_circuit_tracks_actual_crew_and_cleanup
+[gw2] [  9%] PASSED tests/test_rules_nightshade_resolution_reveal88.py::test_native_madness_cast_and_resolution_reveal
+tests/test_rules_nightshade_resolution_reveal88.py::test_actual_first_strike_combat
+[gw2] [  9%] PASSED tests/test_rules_nightshade_resolution_reveal88.py::test_actual_first_strike_combat
+tests/test_rules_nightshade_resolution_reveal88.py::test_illegal_target_no_reveal_choice
+[gw0] [ 10%] PASSED tests/test_rules_first_kicked_costs77.py::test_multikicker_two_is_one_spell_one_discount_one_gecko_trigger
+tests/test_rules_first_kicked_costs77.py::test_no_actual_kicker_has_no_discount_or_gecko_trigger
+[gw2] [ 10%] PASSED tests/test_rules_nightshade_resolution_reveal88.py::test_illegal_target_no_reveal_choice
+tests/test_rules_nightshade_resolution_reveal88.py::test_existing_sasaya_hand_reveal_survives_nightshade_resolution
+[gw3] [ 11%] PASSED tests/test_rules_conditional_statics91.py::test_native_short_circuit_tracks_actual_crew_and_cleanup
+tests/test_rules_conditional_statics91.py::test_native_grond_own_turn_army_and_independent_crew
+[gw1] [ 12%] PASSED tests/test_rules_first_kicked_costs77.py::test_entwine_does_not_consume_true_first_kicker
+tests/test_rules_first_kicked_costs77.py::test_first_kicked_zero_generic_requirement_stays_colored_and_still_consumes_first_spell
+[gw2] [ 12%] PASSED tests/test_rules_nightshade_resolution_reveal88.py::test_existing_sasaya_hand_reveal_survives_nightshade_resolution
+tests/test_rules_morph_costs78.py::test_real_morph_megamorph_increase[Gravel Slinger-mana0-0]
+[gw0] [ 13%] PASSED tests/test_rules_first_kicked_costs77.py::test_no_actual_kicker_has_no_discount_or_gecko_trigger
+tests/test_rules_first_kicked_costs77.py::test_actual_bargain_is_not_a_kicked_spell_and_does_not_consume_first_kicker_discount
+[gw2] [ 13%] PASSED tests/test_rules_morph_costs78.py::test_real_morph_megamorph_increase[Gravel Slinger-mana0-0]
+tests/test_rules_morph_costs78.py::test_real_morph_megamorph_increase[Aerie Bowmasters-mana1-1]
+[gw1] [ 14%] PASSED tests/test_rules_first_kicked_costs77.py::test_first_kicked_zero_generic_requirement_stays_colored_and_still_consumes_first_spell
+tests/test_rules_first_kicked_costs77.py::test_native_minimum_mana_floor_applies_after_first_kicker_reduction
+[gw0] [ 15%] PASSED tests/test_rules_first_kicked_costs77.py::test_actual_bargain_is_not_a_kicked_spell_and_does_not_consume_first_kicker_discount
+tests/test_rules_first_kicked_costs77.py::test_ordinary_first_spell_does_not_consume_first_kicked_price
+[gw2] [ 15%] PASSED tests/test_rules_morph_costs78.py::test_real_morph_megamorph_increase[Aerie Bowmasters-mana1-1]
+tests/test_rules_morph_costs78.py::test_opposing_doomsayer_also_taxes
+[gw3] [ 16%] PASSED tests/test_rules_conditional_statics91.py::test_native_grond_own_turn_army_and_independent_crew
+tests/test_rules_conditional_statics91.py::test_true_cold_conditional_static_expiry[active]
+[gw1] [ 16%] PASSED tests/test_rules_first_kicked_costs77.py::test_native_minimum_mana_floor_applies_after_first_kicker_reduction
+tests/test_rules_first_kicked_costs77.py::test_other_players_first_kicked_spell_is_not_discounted_and_does_not_consume_yours
+[gw0] [ 17%] PASSED tests/test_rules_first_kicked_costs77.py::test_ordinary_first_spell_does_not_consume_first_kicked_price
+tests/test_rules_first_kicked_costs77.py::test_second_kicked_spell_has_full_price_even_if_first_still_on_stack
+[gw2] [ 18%] PASSED tests/test_rules_morph_costs78.py::test_opposing_doomsayer_also_taxes
+tests/test_rules_morph_costs78.py::test_two_sources_stack
+[gw1] [ 18%] PASSED tests/test_rules_first_kicked_costs77.py::test_other_players_first_kicked_spell_is_not_discounted_and_does_not_consume_yours
+tests/test_rules_first_kicked_costs77.py::test_legacy_missing_paid_kicker_receipt_guards_only_actual_kicked_cost_and_keeps_views_safe
+[gw0] [ 19%] PASSED tests/test_rules_first_kicked_costs77.py::test_second_kicked_spell_has_full_price_even_if_first_still_on_stack
+tests/test_rules_first_kicked_costs77.py::test_failed_first_kicked_cast_does_not_consume_price_or_create_counter
+[gw2] [ 20%] PASSED tests/test_rules_morph_costs78.py::test_two_sources_stack
+tests/test_rules_morph_costs78.py::test_nonmana_life_increase_preserves_original_payment
+[gw3] [ 20%] PASSED tests/test_rules_conditional_statics91.py::test_true_cold_conditional_static_expiry[active]
+tests/test_rules_conditional_statics91.py::test_true_cold_conditional_static_expiry[expired]
+[gw1] [ 21%] PASSED tests/test_rules_first_kicked_costs77.py::test_legacy_missing_paid_kicker_receipt_guards_only_actual_kicked_cost_and_keeps_views_safe
+tests/test_rules_first_kicked_costs77.py::test_true_cold_countered_first_kicked_receipt_still_consumes_current_turn_discount
+[gw0] [ 21%] PASSED tests/test_rules_first_kicked_costs77.py::test_failed_first_kicked_cast_does_not_consume_price_or_create_counter
+tests/test_rules_first_kicked_costs77.py::test_real_tax_is_added_before_first_kicked_generic_reduction
+[gw2] [ 22%] PASSED tests/test_rules_morph_costs78.py::test_nonmana_life_increase_preserves_original_payment
+tests/test_rules_morph_costs78.py::test_nonmana_discard_adds_mana_and_pays_exact_chosen_cost
+[gw2] [ 23%] PASSED tests/test_rules_morph_costs78.py::test_nonmana_discard_adds_mana_and_pays_exact_chosen_cost
+tests/test_rules_morph_costs78.py::test_cast_face_down_still_only_three
+[gw0] [ 23%] PASSED tests/test_rules_first_kicked_costs77.py::test_real_tax_is_added_before_first_kicked_generic_reduction
+tests/test_rules_first_kicked_costs77.py::test_late_entering_gecko_does_not_forget_an_earlier_kicked_spell
+[gw1] [ 24%] PASSED tests/test_rules_first_kicked_costs77.py::test_true_cold_countered_first_kicked_receipt_still_consumes_current_turn_discount
+tests/test_rules_first_kicked_costs77.py::test_promised_gift_is_not_actual_kicker_or_first_kicked_price_consumption
+[gw2] [ 24%] PASSED tests/test_rules_morph_costs78.py::test_cast_face_down_still_only_three
+tests/test_rules_morph_costs78.py::test_manifest_original_mana_cost_does_not_get_morph_increase
+[gw3] [ 25%] PASSED tests/test_rules_conditional_statics91.py::test_true_cold_conditional_static_expiry[expired]
+tests/test_rules_morph_costs78.py::test_canonical
+[gw3] [ 26%] PASSED tests/test_rules_morph_costs78.py::test_canonical
+tests/test_rules_native_count_discounts79.py::test_departed_opponents_actual_prior_cast_is_retained_by_history
+[gw0] [ 26%] PASSED tests/test_rules_first_kicked_costs77.py::test_late_entering_gecko_does_not_forget_an_earlier_kicked_spell
+tests/test_rules_native_count_discounts79.py::test_changeling_and_elf_share_type
+[gw2] [ 27%] PASSED tests/test_rules_morph_costs78.py::test_manifest_original_mana_cost_does_not_get_morph_increase
+tests/test_rules_morph_costs78.py::test_disguise_cost_is_not_morph
+[gw0] [ 27%] PASSED tests/test_rules_native_count_discounts79.py::test_changeling_and_elf_share_type
+tests/test_rules_native_count_discounts79.py::test_disjoint_creatures_do_not_discount_atomic_failure
+[gw1] [ 28%] PASSED tests/test_rules_first_kicked_costs77.py::test_promised_gift_is_not_actual_kicker_or_first_kicked_price_consumption
+tests/test_rules_first_kicked_costs77.py::test_actual_nonmana_kicker_is_still_kicked_and_discount_applies_to_total_mana
+[gw2] [ 29%] PASSED tests/test_rules_morph_costs78.py::test_disguise_cost_is_not_morph
+tests/test_rules_morph_costs78.py::test_source_departure_removes_increase
+[gw3] [ 29%] PASSED tests/test_rules_native_count_discounts79.py::test_departed_opponents_actual_prior_cast_is_retained_by_history
+tests/test_rules_conditional_animation92.py::test_native_full_whole_cast[Rusted Relic]
+[gw0] [ 30%] PASSED tests/test_rules_native_count_discounts79.py::test_disjoint_creatures_do_not_discount_atomic_failure
+tests/test_rules_native_count_discounts79.py::test_opposing_shared_creatures_do_not_qualify
+[gw3] [ 30%] PASSED tests/test_rules_conditional_animation92.py::test_native_full_whole_cast[Rusted Relic]
+tests/test_rules_conditional_animation92.py::test_native_full_whole_cast[Futurist Operative]
+[gw3] [ 31%] PASSED tests/test_rules_conditional_animation92.py::test_native_full_whole_cast[Futurist Operative]
+tests/test_rules_conditional_animation92.py::test_native_full_whole_cast[Grand Master of Flowers]
+[gw3] [ 32%] PASSED tests/test_rules_conditional_animation92.py::test_native_full_whole_cast[Grand Master of Flowers]
+tests/test_rules_conditional_animation92.py::test_native_relic_threshold_current_control_and_actual_disruption
+[gw2] [ 32%] PASSED tests/test_rules_morph_costs78.py::test_source_departure_removes_increase
+tests/test_rules_morph_costs78.py::test_reveal_nonmana_cost_increase_preserves_public_reveal
+[gw0] [ 33%] PASSED tests/test_rules_native_count_discounts79.py::test_opposing_shared_creatures_do_not_qualify
+tests/test_rules_native_count_discounts79.py::test_two_opponents_native_casts_discount_and_scry_draw_resolves
+[gw3] [ 33%] PASSED tests/test_rules_conditional_animation92.py::test_native_relic_threshold_current_control_and_actual_disruption
+tests/test_rules_conditional_animation92.py::test_native_operative_types_counter_and_actual_untap
+[gw3] [ 34%] PASSED tests/test_rules_conditional_animation92.py::test_native_operative_types_counter_and_actual_untap
+tests/test_rules_conditional_animation92.py::test_native_master_seven_type_keywords_damage_and_reversion
+[gw2] [ 35%] PASSED tests/test_rules_morph_costs78.py::test_reveal_nonmana_cost_increase_preserves_public_reveal
+tests/test_rules_morph_costs78.py::test_true_cold_pending_discard_keeps_increase_and_nonmana_selection
+[gw3] [ 35%] PASSED tests/test_rules_conditional_animation92.py::test_native_master_seven_type_keywords_damage_and_reversion
+tests/test_rules_conditional_animation92.py::test_native_operative_timestamp_is_entry_not_tapping
+[gw0] [ 36%] PASSED tests/test_rules_native_count_discounts79.py::test_two_opponents_native_casts_discount_and_scry_draw_resolves
+tests/test_rules_native_count_discounts79.py::test_own_native_cast_does_not_discount
+[gw3] [ 36%] PASSED tests/test_rules_conditional_animation92.py::test_native_operative_timestamp_is_entry_not_tapping
+tests/test_rules_conditional_animation92.py::test_native_operative_forbidden_block_then_untap_still_attacking
+[gw1] [ 37%] PASSED tests/test_rules_first_kicked_costs77.py::test_actual_nonmana_kicker_is_still_kicked_and_discount_applies_to_total_mana
+tests/test_rules_first_kicked_costs77.py::test_true_cold_legacy_unknown_kicker_guards_explicit_payment_then_next_turn_recovers
+[gw2] [ 38%] PASSED tests/test_rules_morph_costs78.py::test_true_cold_pending_discard_keeps_increase_and_nonmana_selection
+tests/test_rules_native_count_discounts79.py::test_canonical_exact_two
+[gw2] [ 38%] PASSED tests/test_rules_native_count_discounts79.py::test_canonical_exact_two
+tests/test_rules_native_count_discounts79.py::test_two_shared_bears_and_native_second_from_top
+[gw0] [ 39%] PASSED tests/test_rules_native_count_discounts79.py::test_own_native_cast_does_not_discount
+tests/test_rules_native_count_discounts79.py::test_tax_added_before_reduction[Synchronized Eviction]
+[gw3] [ 40%] PASSED tests/test_rules_conditional_animation92.py::test_native_operative_forbidden_block_then_untap_still_attacking
+tests/test_rules_conditional_animation92.py::test_native_relic_loss_of_animation_removes_combat
+[gw2] [ 40%] PASSED tests/test_rules_native_count_discounts79.py::test_two_shared_bears_and_native_second_from_top
+tests/test_rules_repeated_graveyard_offers89.py::test_whole[Forgotten Lore]
+[gw2] [ 41%] PASSED tests/test_rules_repeated_graveyard_offers89.py::test_whole[Forgotten Lore]
+tests/test_rules_repeated_graveyard_offers89.py::test_whole[Shrouded Lore]
+[gw2] [ 41%] PASSED tests/test_rules_repeated_graveyard_offers89.py::test_whole[Shrouded Lore]
+tests/test_rules_repeated_graveyard_offers89.py::test_choice_decline_native_return
+[gw2] [ 42%] PASSED tests/test_rules_repeated_graveyard_offers89.py::test_choice_decline_native_return
+tests/test_rules_repeated_graveyard_offers89.py::test_actual_repeat_excludes_previous_and_returns_only_last[Forgotten Lore]
+[gw2] [ 43%] PASSED tests/test_rules_repeated_graveyard_offers89.py::test_actual_repeat_excludes_previous_and_returns_only_last[Forgotten Lore]
+tests/test_rules_repeated_graveyard_offers89.py::test_actual_repeat_excludes_previous_and_returns_only_last[Shrouded Lore]
+[gw2] [ 43%] PASSED tests/test_rules_repeated_graveyard_offers89.py::test_actual_repeat_excludes_previous_and_returns_only_last[Shrouded Lore]
+tests/test_rules_repeated_graveyard_offers89.py::test_exhausted_choices_still_offer_each_payment_keep_last
+[gw0] [ 44%] PASSED tests/test_rules_native_count_discounts79.py::test_tax_added_before_reduction[Synchronized Eviction]
+tests/test_rules_native_count_discounts79.py::test_tax_added_before_reduction[Delightful Discovery]
+[gw2] [ 44%] PASSED tests/test_rules_repeated_graveyard_offers89.py::test_exhausted_choices_still_offer_each_payment_keep_last
+tests/test_rules_repeated_graveyard_offers89.py::test_empty_graveyard_payment_then_decline_is_legal
+[gw2] [ 45%] PASSED tests/test_rules_repeated_graveyard_offers89.py::test_empty_graveyard_payment_then_decline_is_legal
+tests/test_rules_repeated_graveyard_offers89.py::test_real_manual_mana_sacrifice_adds_current_graveyard_candidate
+[gw2] [ 46%] PASSED tests/test_rules_repeated_graveyard_offers89.py::test_real_manual_mana_sacrifice_adds_current_graveyard_candidate
+tests/test_rules_repeated_graveyard_offers89.py::test_no_legal_mana_sacrifice_does_not_offer_impossible_payment
+[gw2] [ 46%] PASSED tests/test_rules_repeated_graveyard_offers89.py::test_no_legal_mana_sacrifice_does_not_offer_impossible_payment
+tests/test_rules_repeated_graveyard_offers89.py::test_separate_lore_spell_does_not_remember_prior_choices
+[gw2] [ 47%] PASSED tests/test_rules_repeated_graveyard_offers89.py::test_separate_lore_spell_does_not_remember_prior_choices
+tests/test_rules_repeated_graveyard_offers89.py::test_native_commander_hand_replacement_after_final_choice[False]
+[gw2] [ 47%] PASSED tests/test_rules_repeated_graveyard_offers89.py::test_native_commander_hand_replacement_after_final_choice[False]
+tests/test_rules_repeated_graveyard_offers89.py::test_native_commander_hand_replacement_after_final_choice[True]
+[gw2] [ 48%] PASSED tests/test_rules_repeated_graveyard_offers89.py::test_native_commander_hand_replacement_after_final_choice[True]
+tests/test_rules_repeated_graveyard_offers89.py::test_true_cold_native_repeat_packet[opponent_choice]
+[gw3] [ 49%] PASSED tests/test_rules_conditional_animation92.py::test_native_relic_loss_of_animation_removes_combat
+tests/test_rules_conditional_animation92.py::test_native_master_excluded_keywords_rejected_atomically[Youthful Knight]
+[gw3] [ 49%] PASSED tests/test_rules_conditional_animation92.py::test_native_master_excluded_keywords_rejected_atomically[Youthful Knight]
+tests/test_rules_repeated_graveyard_offers89.py::test_departed_opponent_during_payment_redirects_repeat_choice
+[gw0] [ 50%] PASSED tests/test_rules_native_count_discounts79.py::test_tax_added_before_reduction[Delightful Discovery]
+tests/test_rules_native_count_discounts79.py::test_prior_turn_opponent_cast_does_not_discount
+[gw3] [ 50%] PASSED tests/test_rules_repeated_graveyard_offers89.py::test_departed_opponent_during_payment_redirects_repeat_choice
+tests/test_rules_repeated_graveyard_offers89.py::test_departed_original_chooser_during_open_card_choice_reroutes
+[gw2] [ 51%] PASSED tests/test_rules_repeated_graveyard_offers89.py::test_true_cold_native_repeat_packet[opponent_choice]
+tests/test_rules_repeated_graveyard_offers89.py::test_true_cold_native_repeat_packet[payment]
+[gw3] [ 52%] PASSED tests/test_rules_repeated_graveyard_offers89.py::test_departed_original_chooser_during_open_card_choice_reroutes
+tests/test_rules_repeated_graveyard_offers89.py::test_controller_chooses_another_opponent_for_departed_opponent[False]
+[gw3] [ 52%] PASSED tests/test_rules_repeated_graveyard_offers89.py::test_controller_chooses_another_opponent_for_departed_opponent[False]
+tests/test_rules_repeated_graveyard_offers89.py::test_controller_chooses_another_opponent_for_departed_opponent[True]
+[gw3] [ 53%] PASSED tests/test_rules_repeated_graveyard_offers89.py::test_controller_chooses_another_opponent_for_departed_opponent[True]
+tests/test_rules_exchange_conditions91.py::test_whole91[Modify Memory]
+[gw3] [ 53%] PASSED tests/test_rules_exchange_conditions91.py::test_whole91[Modify Memory]
+tests/test_rules_exchange_conditions91.py::test_whole91[Gauntlets of Chaos]
+[gw3] [ 54%] PASSED tests/test_rules_exchange_conditions91.py::test_whole91[Gauntlets of Chaos]
+tests/test_rules_exchange_conditions91.py::test_whole91[Gilded Drake]
+[gw3] [ 55%] PASSED tests/test_rules_exchange_conditions91.py::test_whole91[Gilded Drake]
+tests/test_rules_exchange_conditions91.py::test_modify_actual_printed_cast_control_after_exchange91[False]
+[gw2] [ 55%] PASSED tests/test_rules_repeated_graveyard_offers89.py::test_true_cold_native_repeat_packet[payment]
+tests/test_rules_repeated_graveyard_offers89.py::test_true_cold_native_repeat_packet[replacement_player]
+[gw2] [ 56%] PASSED tests/test_rules_repeated_graveyard_offers89.py::test_true_cold_native_repeat_packet[replacement_player]
+tests/test_rules_exchange_conditions91.py::test_drake_actual_printed_cast_exchange_or_sacrifice91[removed]
+[gw3] [ 56%] PASSED tests/test_rules_exchange_conditions91.py::test_modify_actual_printed_cast_control_after_exchange91[False]
+tests/test_rules_exchange_conditions91.py::test_modify_actual_printed_cast_control_after_exchange91[True]
+[gw2] [ 57%] PASSED tests/test_rules_exchange_conditions91.py::test_drake_actual_printed_cast_exchange_or_sacrifice91[removed]
+tests/test_rules_exchange_conditions91.py::test_gauntlets_actual_cast_auras_only_after_complete_exchange91[False]
+[gw3] [ 58%] PASSED tests/test_rules_exchange_conditions91.py::test_modify_actual_printed_cast_control_after_exchange91[True]
+tests/test_rules_exchange_conditions91.py::test_gauntlets_actual_artifact_exchange_cost91
+[gw2] [ 58%] PASSED tests/test_rules_exchange_conditions91.py::test_gauntlets_actual_cast_auras_only_after_complete_exchange91[False]
+tests/test_rules_exchange_conditions91.py::test_gauntlets_actual_cast_auras_only_after_complete_exchange91[True]
+[gw1] [ 59%] PASSED tests/test_rules_first_kicked_costs77.py::test_true_cold_legacy_unknown_kicker_guards_explicit_payment_then_next_turn_recovers
+tests/test_rules_conditional_animation92.py::test_native_master_excluded_keywords_rejected_atomically[Fencing Ace]
+[gw1] [ 60%] PASSED tests/test_rules_conditional_animation92.py::test_native_master_excluded_keywords_rejected_atomically[Fencing Ace]
+tests/test_rules_conditional_animation92.py::test_native_master_excluded_keywords_rejected_atomically[Steadfast Guard]
+[gw3] [ 60%] PASSED tests/test_rules_exchange_conditions91.py::test_gauntlets_actual_artifact_exchange_cost91
+tests/test_rules_exchange_conditions91.py::test_drake_actual_printed_cast_exchange_or_sacrifice91[none]
+[gw0] [ 61%] PASSED tests/test_rules_native_count_discounts79.py::test_prior_turn_opponent_cast_does_not_discount
+tests/test_rules_native_count_discounts79.py::test_four_actual_opponent_casts_cannot_reduce_blue_component
+[gw1] [ 61%] PASSED tests/test_rules_conditional_animation92.py::test_native_master_excluded_keywords_rejected_atomically[Steadfast Guard]
+tests/test_rules_conditional_animation92.py::test_native_master_plus_one_seven_before_response_and_duration
+[gw2] [ 62%] PASSED tests/test_rules_exchange_conditions91.py::test_gauntlets_actual_cast_auras_only_after_complete_exchange91[True]
+tests/test_rules_exchange_conditions91.py::test_modify_one_target_gone_rechecks_control_and_draw91[False]
+[gw3] [ 63%] PASSED tests/test_rules_exchange_conditions91.py::test_drake_actual_printed_cast_exchange_or_sacrifice91[none]
+tests/test_rules_exchange_conditions91.py::test_drake_actual_printed_cast_exchange_or_sacrifice91[legal]
+[gw3] [ 63%] PASSED tests/test_rules_exchange_conditions91.py::test_drake_actual_printed_cast_exchange_or_sacrifice91[legal]
+tests/test_rules_exchange_conditions91.py::test_gauntlets_target_its_sacrificed_source_cannot_exchange91
+[gw0] [ 64%] PASSED tests/test_rules_native_count_discounts79.py::test_four_actual_opponent_casts_cannot_reduce_blue_component
+tests/test_rules_native_count_discounts79.py::test_countered_opponent_spell_counts_own_counterspell_does_not
+[gw2] [ 64%] PASSED tests/test_rules_exchange_conditions91.py::test_modify_one_target_gone_rechecks_control_and_draw91[False]
+tests/test_rules_exchange_conditions91.py::test_modify_one_target_gone_rechecks_control_and_draw91[True]
+[gw1] [ 65%] PASSED tests/test_rules_conditional_animation92.py::test_native_master_plus_one_seven_before_response_and_duration
+tests/test_rules_conditional_animation92.py::test_true_cold_animation_predicates[relic]
+[gw3] [ 66%] PASSED tests/test_rules_exchange_conditions91.py::test_gauntlets_target_its_sacrificed_source_cannot_exchange91
+tests/test_rules_exchange_conditions91.py::test_gauntlets_native_land_exchange91
+[gw3] [ 66%] PASSED tests/test_rules_exchange_conditions91.py::test_gauntlets_native_land_exchange91
+tests/test_rules_exchange_conditions91.py::test_genuine_cold_exchange91[modify]
+[gw0] [ 67%] PASSED tests/test_rules_native_count_discounts79.py::test_countered_opponent_spell_counts_own_counterspell_does_not
+tests/test_rules_native_count_discounts79.py::test_true_cold_native_board_or_opponent_cast_authority[Synchronized Eviction]
+[gw1] [ 67%] PASSED tests/test_rules_conditional_animation92.py::test_true_cold_animation_predicates[relic]
+tests/test_rules_conditional_animation92.py::test_true_cold_animation_predicates[operative]
+[gw2] [ 68%] PASSED tests/test_rules_exchange_conditions91.py::test_modify_one_target_gone_rechecks_control_and_draw91[True]
+tests/test_rules_exchange_conditions91.py::test_drake_no_legal_targets_still_resolves_and_sacrifices91
+[gw2] [ 69%] PASSED tests/test_rules_exchange_conditions91.py::test_drake_no_legal_targets_still_resolves_and_sacrifices91
+tests/test_rules_exchange_conditions91.py::test_modify_illegal_blue_protected_target_cannot_supply_condition_information91[False]
+[gw3] [ 69%] PASSED tests/test_rules_exchange_conditions91.py::test_genuine_cold_exchange91[modify]
+tests/test_rules_exchange_conditions91.py::test_genuine_cold_exchange91[drake]
+[gw0] [ 70%] PASSED tests/test_rules_native_count_discounts79.py::test_true_cold_native_board_or_opponent_cast_authority[Synchronized Eviction]
+tests/test_rules_native_count_discounts79.py::test_true_cold_native_board_or_opponent_cast_authority[Delightful Discovery]
+[gw1] [ 70%] PASSED tests/test_rules_conditional_animation92.py::test_true_cold_animation_predicates[operative]
+tests/test_rules_conditional_animation92.py::test_true_cold_animation_predicates[master]
+[gw2] [ 71%] PASSED tests/test_rules_exchange_conditions91.py::test_modify_illegal_blue_protected_target_cannot_supply_condition_information91[False]
+tests/test_rules_exchange_conditions91.py::test_modify_illegal_blue_protected_target_cannot_supply_condition_information91[True]
+[gw1] [ 72%] PASSED tests/test_rules_conditional_animation92.py::test_true_cold_animation_predicates[master]
+tests/test_rules_conditional_animation92.py::test_native_relic_actual_spell_type_loss_removes_combat
+[gw3] [ 72%] PASSED tests/test_rules_exchange_conditions91.py::test_genuine_cold_exchange91[drake]
+tests/test_rules_graveyard_windows80.py::test_whole_canonical80[Advanced Reconstruction]
+[gw3] [ 73%] PASSED tests/test_rules_graveyard_windows80.py::test_whole_canonical80[Advanced Reconstruction]
+tests/test_rules_graveyard_windows80.py::test_whole_canonical80[Case of the Uneaten Feast]
+[gw3] [ 73%] PASSED tests/test_rules_graveyard_windows80.py::test_whole_canonical80[Case of the Uneaten Feast]
+tests/test_rules_graveyard_windows80.py::test_case_is_solved_by_actual_life_gain_and_sacrifice_grants_only_current_creature_objects80
+[gw0] [ 74%] PASSED tests/test_rules_native_count_discounts79.py::test_true_cold_native_board_or_opponent_cast_authority[Delightful Discovery]
+tests/test_rules_graveyard_windows80.py::test_case_current_front_creature_can_cast_its_noncreature_reverse_spell80
+[gw2] [ 75%] PASSED tests/test_rules_exchange_conditions91.py::test_modify_illegal_blue_protected_target_cannot_supply_condition_information91[True]
+tests/test_rules_exchange_conditions91.py::test_modify_real_blink_new_incarnation_is_not_original_target_information91
+[gw1] [ 75%] PASSED tests/test_rules_conditional_animation92.py::test_native_relic_actual_spell_type_loss_removes_combat
+tests/test_rules_conditional_animation92.py::test_native_master_proliferate_while_attacked_removes_target_before_blocks
+[gw2] [ 76%] PASSED tests/test_rules_exchange_conditions91.py::test_modify_real_blink_new_incarnation_is_not_original_target_information91
+tests/test_rules_graveyard_windows80.py::test_advanced_mill_replaced_with_exile_does_not_invent_a_graveyard_exile_receipt80
+[gw1] [ 76%] PASSED tests/test_rules_conditional_animation92.py::test_native_master_proliferate_while_attacked_removes_target_before_blocks
+tests/test_rules_conditional_animation92.py::test_native_master_search_graveyard_present_or_absent[False]
+[gw1] [ 77%] PASSED tests/test_rules_conditional_animation92.py::test_native_master_search_graveyard_present_or_absent[False]
+tests/test_rules_conditional_animation92.py::test_native_master_search_graveyard_present_or_absent[True]
+[gw2] [ 78%] PASSED tests/test_rules_graveyard_windows80.py::test_advanced_mill_replaced_with_exile_does_not_invent_a_graveyard_exile_receipt80
+tests/test_rules_graveyard_windows80.py::test_advanced_level_two_observes_actual_multi_card_evidence_cost_as_one_exit_batch80
+[gw1] [ 78%] PASSED tests/test_rules_conditional_animation92.py::test_native_master_search_graveyard_present_or_absent[True]
+tests/test_rules_graveyard_windows80.py::test_advanced_random_choice_uses_only_own_current_graveyard_and_expires80
+[gw3] [ 79%] PASSED tests/test_rules_graveyard_windows80.py::test_case_is_solved_by_actual_life_gain_and_sacrifice_grants_only_current_creature_objects80
+tests/test_rules_graveyard_windows80.py::test_case_window_expires_and_does_not_recover_a_countered_new_graveyard_object80
+[gw0] [ 80%] PASSED tests/test_rules_graveyard_windows80.py::test_case_current_front_creature_can_cast_its_noncreature_reverse_spell80
+tests/test_rules_graveyard_windows80.py::test_advanced_actual_first_main_mills_then_random_exile_allows_ordinary_spell80
+[gw2] [ 80%] PASSED tests/test_rules_graveyard_windows80.py::test_advanced_level_two_observes_actual_multi_card_evidence_cost_as_one_exit_batch80
+tests/test_rules_graveyard_windows80.py::test_genuine_fresh_process_restores_exact_finite_graveyard_window80[class_exile]
+[gw1] [ 81%] PASSED tests/test_rules_graveyard_windows80.py::test_advanced_random_choice_uses_only_own_current_graveyard_and_expires80
+tests/test_rules_graveyard_windows80.py::test_genuine_fresh_process_restores_exact_finite_graveyard_window80[case_mdfc]
+[gw2] [ 81%] PASSED tests/test_rules_graveyard_windows80.py::test_genuine_fresh_process_restores_exact_finite_graveyard_window80[class_exile]
+tests/test_rules_graveyard_windows80.py::test_case_grants_actual_current_graveyard_ability_and_native_expiry80
+[gw0] [ 82%] PASSED tests/test_rules_graveyard_windows80.py::test_advanced_actual_first_main_mills_then_random_exile_allows_ordinary_spell80
+tests/test_rules_graveyard_windows80.py::test_unsolved_case_cannot_activate_and_its_sacrifice_cost_is_atomic80
+[gw0] [ 83%] PASSED tests/test_rules_graveyard_windows80.py::test_unsolved_case_cannot_activate_and_its_sacrifice_cost_is_atomic80
+tests/test_rules_linked_spell_windows81.py::test_actual_azula_paid_any_type_unlimited81
+[gw0] [ 83%] PASSED tests/test_rules_linked_spell_windows81.py::test_actual_azula_paid_any_type_unlimited81
+tests/test_rules_linked_spell_windows81.py::test_actual_rioter_paid_choice81
+[gw3] [ 84%] PASSED tests/test_rules_graveyard_windows80.py::test_case_window_expires_and_does_not_recover_a_countered_new_graveyard_object80
+tests/test_rules_graveyard_windows80.py::test_advanced_actual_land_play_obeys_normal_one_land_per_turn80
+[gw0] [ 84%] PASSED tests/test_rules_linked_spell_windows81.py::test_actual_rioter_paid_choice81
+tests/test_rules_linked_spell_windows81.py::test_rioter_does_not_waive_cost81
+[gw3] [ 85%] PASSED tests/test_rules_graveyard_windows80.py::test_advanced_actual_land_play_obeys_normal_one_land_per_turn80
+tests/test_rules_graveyard_windows80.py::test_advanced_real_class_levels_damage_on_graveyard_exit_and_reduce_nonhand_spell80
+[gw1] [ 86%] PASSED tests/test_rules_graveyard_windows80.py::test_genuine_fresh_process_restores_exact_finite_graveyard_window80[case_mdfc]
+tests/test_rules_linked_spell_windows81.py::test_whole_canonical81[Boiling Rock Rioter]
+[gw1] [ 86%] PASSED tests/test_rules_linked_spell_windows81.py::test_whole_canonical81[Boiling Rock Rioter]
+tests/test_rules_linked_spell_windows81.py::test_azula_source_departure81
+[gw3] [ 87%] PASSED tests/test_rules_graveyard_windows80.py::test_advanced_real_class_levels_damage_on_graveyard_exit_and_reduce_nonhand_spell80
+tests/test_rules_linked_spell_windows81.py::test_azula_current_controller81
+[gw1] [ 87%] PASSED tests/test_rules_linked_spell_windows81.py::test_azula_source_departure81
+tests/test_rules_linked_spell_windows81.py::test_genuine_fresh_process_linked_authorities81[azula]
+[gw3] [ 88%] PASSED tests/test_rules_linked_spell_windows81.py::test_azula_current_controller81
+tests/test_rules_linked_spell_windows81.py::test_genuine_fresh_process_linked_authorities81[rioter]
+[gw0] [ 89%] PASSED tests/test_rules_linked_spell_windows81.py::test_rioter_does_not_waive_cost81
+tests/test_rules_linked_spell_windows81.py::test_azula_own_turn_only_and_native_flash81
+[gw2] [ 89%] PASSED tests/test_rules_graveyard_windows80.py::test_case_grants_actual_current_graveyard_ability_and_native_expiry80
+tests/test_rules_linked_spell_windows81.py::test_whole_canonical81[Azula, Cunning Usurper]
+[gw2] [ 90%] PASSED tests/test_rules_linked_spell_windows81.py::test_whole_canonical81[Azula, Cunning Usurper]
+tests/test_rules_post_mill_graveyard68.py::test_roots_forced_non_target_choice_includes_old_and_new_land_elf
+[gw2] [ 90%] PASSED tests/test_rules_post_mill_graveyard68.py::test_roots_forced_non_target_choice_includes_old_and_new_land_elf
+tests/test_rules_post_mill_graveyard68.py::test_roots_draws_only_when_no_qualifying_card_after_mill
+[gw2] [ 91%] PASSED tests/test_rules_post_mill_graveyard68.py::test_roots_draws_only_when_no_qualifying_card_after_mill
+tests/test_rules_post_mill_graveyard68.py::test_stillness_nonempty_after_mill_does_not_exile_or_return
+[gw1] [ 92%] PASSED tests/test_rules_linked_spell_windows81.py::test_genuine_fresh_process_linked_authorities81[azula]
+tests/test_rules_linked_spell_windows81.py::test_rioter_attack_filters_owner_type_and_original_link81
+[gw3] [ 92%] PASSED tests/test_rules_linked_spell_windows81.py::test_genuine_fresh_process_linked_authorities81[rioter]
+tests/test_rules_post_mill_graveyard68.py::test_whole_pair
+[gw3] [ 93%] PASSED tests/test_rules_post_mill_graveyard68.py::test_whole_pair
+tests/test_rules_post_mill_graveyard68.py::test_true_cold_stillness_guard_uses_actual_library_after_native616[exile]
+[gw2] [ 93%] PASSED tests/test_rules_post_mill_graveyard68.py::test_stillness_nonempty_after_mill_does_not_exile_or_return
+tests/test_rules_post_mill_graveyard68.py::test_true_cold_stillness_empty_library_forces_five_chosen_then_native_private_order
+[gw0] [ 94%] PASSED tests/test_rules_linked_spell_windows81.py::test_azula_own_turn_only_and_native_flash81
+tests/test_rules_post_mill_graveyard68.py::test_roots_forces_return_existing_kindred_elf_not_just_milled
+[gw0] [ 95%] PASSED tests/test_rules_post_mill_graveyard68.py::test_roots_forces_return_existing_kindred_elf_not_just_milled
+tests/test_rules_post_mill_graveyard68.py::test_true_cold_roots_original_elf_commander_diversion_does_not_draw_fallback[True]
+[gw0] [ 95%] PASSED tests/test_rules_post_mill_graveyard68.py::test_true_cold_roots_original_elf_commander_diversion_does_not_draw_fallback[True]
+tests/test_rules_post_mill_graveyard68.py::test_stillness_destroyed_in_response_still_returns_five_and_can_return_its_new_card
+[gw2] [ 96%] PASSED tests/test_rules_post_mill_graveyard68.py::test_true_cold_stillness_empty_library_forces_five_chosen_then_native_private_order
+tests/test_rules_post_mill_graveyard68.py::test_true_cold_roots_original_elf_commander_diversion_does_not_draw_fallback[False]
+[gw1] [ 96%] PASSED tests/test_rules_linked_spell_windows81.py::test_rioter_attack_filters_owner_type_and_original_link81
+tests/test_rules_post_mill_graveyard68.py::test_stillness_short_library_mills_as_many_as_possible_and_returns_available_cards
+[gw3] [ 97%] PASSED tests/test_rules_post_mill_graveyard68.py::test_true_cold_stillness_guard_uses_actual_library_after_native616[exile]
+tests/test_rules_post_mill_graveyard68.py::test_true_cold_stillness_guard_uses_actual_library_after_native616[library:shuffle]
+[gw2] [ 98%] PASSED tests/test_rules_post_mill_graveyard68.py::test_true_cold_roots_original_elf_commander_diversion_does_not_draw_fallback[False]
+[gw0] [ 98%] PASSED tests/test_rules_post_mill_graveyard68.py::test_stillness_destroyed_in_response_still_returns_five_and_can_return_its_new_card
+[gw1] [ 99%] PASSED tests/test_rules_post_mill_graveyard68.py::test_stillness_short_library_mills_as_many_as_possible_and_returns_available_cards
+[gw3] [100%] PASSED tests/test_rules_post_mill_graveyard68.py::test_true_cold_stillness_guard_uses_actual_library_after_native616[library:shuffle]
+
+======================= 165 passed in 307.35s (0:05:07) ========================

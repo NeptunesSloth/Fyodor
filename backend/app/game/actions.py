@@ -80,6 +80,7 @@ class Draw(Base):
 
 class Move(Base):
     type: Literal["move"] = "move"
+    non_discard: bool = False  # Explicit non-discard hand moves (zone exchanges), retained by replay.
     card_ids: IdList
     to: ZoneRef
     position: Literal["top", "bottom"] | None = None  # for ordered zones; default: top (library: top)
@@ -1053,6 +1054,14 @@ class TurnFaceUp(_Intent):
     cost_choices: list[CostChoice] = Field(default_factory=list)  # -- hidden exile (wave 18A) -- what pays a non-mana morph cost (602.2b)
 
 
+class PayDeferred(_Intent):
+    """Pay a once-only prevention window before its delayed trigger's step begins."""
+
+    type: Literal["pay_deferred"] = "pay_deferred"
+    window_id: Id
+    sources: list[Id] | None = Field(default=None, max_length=60)
+
+
 class EndEffect(_Intent):
     """-- licids (wave 50A) -- 116.2c: "You may pay {W} to end this effect", a special action on the permanent the effect is on (app/rules/licids.py)."""
 
@@ -1349,7 +1358,7 @@ class RulesLog(Base):
 INTENT_TYPES = frozenset(
     {"play_land", "cast_spell", "activate_ability", "declare_attackers", "declare_blockers", "pass_priority",
      "choose", "concede", "set_stops", "set_prefs", "set_card_automation", "repeat_sequence", "turn_face_up", "unlock_door",
-     "miracle_reveal", "end_effect"}
+     "miracle_reveal", "end_effect", "pay_deferred"}
 )
 SERVER_ONLY_TYPES = frozenset({"rules_sync", "rules_log", "rules_mana", "rules_damage", "rules_life_changes", "renumber"})
 
@@ -1454,6 +1463,7 @@ Action = Annotated[
     | TurnFaceUp
     | UnlockDoor
     | EndEffect
+    | PayDeferred
     | MiracleReveal
     | ActivateAbility
     | DeclareAttackers

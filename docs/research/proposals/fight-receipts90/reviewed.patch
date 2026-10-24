@@ -1,0 +1,382 @@
+--- /dev/null
++++ b/backend/app/rules/fight_receipts90.py
+@@ -0,0 +1,231 @@
++"""Native actual-fight receipts: zero or prevented damage is still a fight (701.14)."""
++
++from __future__ import annotations
++
++from dataclasses import replace
++from typing import Any
++
++NEYITH = (
++    "Whenever one or more creatures you control fight or become blocked, draw a card."
++)
++REGENT = "Whenever a creature you control fights, put two +1/+1 counters on it at the beginning of the next end step."
++RING = "{T}: Create a Treasure token. Activate only if you control a creature that fought this turn."
++
++
++def record(plan: Any, ids: list[str]) -> None:
++    from app.game.rules_state import copy_recipe_of, emit, snapshot
++
++    ids = list(dict.fromkeys(ids))
++    layered = plan._battlefield_lki({"card_ids": ids})
++    fighters = []
++    for cid in ids:
++        snap = snapshot(plan.state, cid)
++        snap.copy_recipe = copy_recipe_of(plan.rules, snap.object_id)
++        if (facts := layered.get(snap.object_id)) is not None:
++            pt, abilities, keywords, traits, base, goaded = facts
++            if pt is not None:
++                snap.power, snap.toughness = pt
++            if base is not None:
++                snap.base_power, snap.base_toughness = base
++            snap.abilities, snap.keywords, snap.traits = abilities, keywords, traits
++            snap.goaded = sorted(goaded)
++        fighters.append(snap)
++    emit(plan.state, "fought", fighters90=fighters)
++
++
++def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
++    from app.rules import delayed, scripts
++
++    text = scripts.self_text(ability.text, ch.name)
++    if text == NEYITH:
++        native = scripts.define(
++            replace(
++                ability,
++                text="Whenever one or more creatures you control die, draw a card.",
++            ),
++            ch,
++        )
++        if native:
++            base = native["cond"]
++            return {
++                **native,
++                "cond": {
++                    "event": "either",
++                    "conds": [{**base, "event": "fight"}, {**base, "event": "blocked"}],
++                    "aggregate": True,
++                },
++            }
++    if text == REGENT:
++        native = scripts.define(
++            replace(ability, text="Whenever a creature you control dies, draw a card."),
++            ch,
++        )
++        if native:
++            return {
++                **native,
++                "cond": {**native["cond"], "event": "fight"},
++                "effects": delayed.wrap_when(
++                    [{"do": "add_counters", "who": "event", "kind": "+1/+1", "n": 2}],
++                    {"kind": "step", "step": "end", "whose": "next"},
++                ),
++            }
++    if (
++        text
++        == "Whenever a creature you control enters, it fights up to one target creature you don't control with the same mana value."
++    ):
++        from app.rules import selectors
++
++        native = scripts.define(
++            replace(ability, text=text.replace(" with the same mana value", "")), ch
++        )
++        if native:
++
++            def group(g: dict[str, Any]) -> dict[str, Any]:
++                sel = selectors.from_key(g["what"])
++                return {
++                    **g,
++                    "what": replace(
++                        sel, compare=(*sel.compare, ("mv", "==", "fight90:unbound"))
++                    ).key(),
++                }
++
++            return {
++                **native,
++                "fight_same_mv90": True,
++                **(
++                    {"targets": [group(g) for g in native["targets"]]}
++                    if native.get("targets")
++                    else {"target": group(native["target"])}
++                ),
++            }
++    if text == RING:
++        native = scripts.define(
++            replace(
++                ability,
++                text="{T}: Create a Treasure token. Activate only if you attacked this turn.",
++            ),
++            ch,
++        )
++        if native:
++            return {
++                **native,
++                "restriction": [
++                    {
++                        "kind": "if",
++                        "cond": {"fought_creature90": True},
++                        "text": "you control a creature that fought this turn",
++                    }
++                ],
++            }
++    if (
++        text
++        == "At the beginning of combat on your turn, you may pay {2}{R/G}. If you do, double target creature's power until end of turn. That creature must be blocked this combat if able."
++    ):
++        native = scripts.define(
++            replace(
++                ability, text=text.replace("blocked this combat", "blocked this turn")
++            ),
++            ch,
++        )
++        if native:
++            return {
++                **native,
++                "effects": [
++                    {**e, "duration": "end_of_combat"}
++                    if e.get("do") == "restrict"
++                    else e
++                    for e in native["effects"]
++                ],
++            }
++    return None
++
++
++def fought_creature(plan: Any, player: str) -> bool:
++    if plan.rules.turn_log.turn != plan.state.turn.number:
++        return False
++    fought = set(plan.rules.turn_log.fought90)
++    return any(
++        c.controller == player
++        and plan.in_game(c)
++        and c.zone.endswith(":battlefield")
++        and plan.oid(c) in fought
++        and plan.ch(c).is_creature
++        for c in plan.state.cards.values()
++    )
++
++
++def bind(plan: Any, pending: Any) -> None:
++    import base64
++    import json
++
++    from app.rules import selectors
++
++    if (
++        not pending.ability.get("fight_same_mv90")
++        or pending.event is None
++        or len(pending.event.objects) != 1
++    ):
++        return
++    ref = pending.event.objects[0]
++    marker = (
++        "fight90:"
++        + base64.urlsafe_b64encode(
++            json.dumps({"card": ref.card, "object_id": ref.object_id}).encode()
++        ).decode()
++    )
++
++    def group(g: dict[str, Any]) -> dict[str, Any]:
++        sel = selectors.from_key(g["what"])
++        return {
++            **g,
++            "what": replace(
++                sel,
++                compare=tuple(
++                    (w, op, marker if n == "fight90:unbound" else n)
++                    for w, op, n in sel.compare
++                ),
++            ).key(),
++        }
++
++    pending.ability = {
++        **pending.ability,
++        **(
++            {"targets": [group(g) for g in pending.ability["targets"]]}
++            if pending.ability.get("targets")
++            else {"target": group(pending.ability["target"])}
++        ),
++    }
++
++
++def same_mv(plan: Any, marker: str) -> int | None:
++    import base64
++    import json
++
++    from app.rules import selectors
++    from app.rules.triggers import _lki_characteristics
++
++    if marker == "fight90:unbound":
++        return None
++    ref = json.loads(base64.urlsafe_b64decode(marker.partition(":")[2]))
++    card = plan.state.cards.get(ref["card"])
++    if (
++        card is not None
++        and plan.oid(card) == ref["object_id"]
++        and card.zone.endswith(":battlefield")
++    ):
++        return selectors._stat(plan.ch(card), "mv")
++    snap = plan.rules.lki.get(ref["object_id"])
++    return (
++        selectors._stat(_lki_characteristics(plan, snap), "mv")
++        if snap is not None
++        else None
++    )
++
++
++def restriction_problem(plan: Any, player: str) -> str | None:
++    if fought_creature(plan, player):
++        return None
++    log = plan.rules.turn_log
++    if log.turn != plan.state.turn.number or log.fight_history90_known is not True:
++        return "Fight history for this turn is unavailable in this save. Resolve this activation manually with the table tools."
++    return None
+--- a/backend/app/game/rules_state.py
++++ b/backend/app/game/rules_state.py
+@@ -385,6 +385,7 @@
+
+
+ EventKind = Literal[
++    "fought",  # CR 701.14: actual fight participants, independent of damage.
+     "player_lost_game",  # 603.10f: pre-loss battlefield watchers are captured on this event.
+     "case_solved",  # The resolving controller reached a native To solve instruction (719.3).
+     "library_shuffled",
+@@ -433,6 +434,7 @@
+     """Something that happened. Events of one table step share a ``batch``: they happened
+     simultaneously (destroy all creatures is one batch of zone changes, not N)."""
+
++    fighters90: list[ObjectSnapshot] = Field(default_factory=list)  # Exact native fight cohort before damage.
+     crew_count80: int | None = None  # Native crew activation payment cardinality; unknown in old saves.
+     loss_watchers: list[ObjectSnapshot] = Field(default_factory=list)
+     attacking_player: str | None = None  # Combat damage-time attacking player; unknown in old saves.
+@@ -608,6 +610,8 @@
+     saves and undo reproduce it exactly. Only this turn's and the previous turn's logs are kept."""
+
+     turn: int = 0
++    fight_history90_known: bool | None = None  # Legacy missing current-turn fight history is unknown.
++    fought90: list[str] = Field(default_factory=list)  # Original objects that actually fought this turn.
+     starting_life: dict[str, int] | None = None
+     active_player: str | None = None  # Named turn, never inferred from seat order.
+     attacked: list[str] = Field(default_factory=list)  # players who declared one or more attackers
+@@ -1906,6 +1910,8 @@
+     if rules is None:
+         return
+     rules.events.append(Event(batch=rules.batch + 1, kind=kind, turn=state.turn.number, **fields))
++    if kind == "fought" and (fight_log90 := turn_log_now(state)) is not None:
++        fight_log90.fought90 = list(dict.fromkeys([*fight_log90.fought90, *(snap.object_id for snap in fields.get("fighters90", []))]))
+     # CR 107.14, 608.2i: count removals during this turn, including costs; gains never offset them.
+     if kind == "player_counters" and fields.get("counter") == "energy" and int(fields.get("amount") or 0) < 0 \
+             and (log := turn_log_now(state)) is not None and (player := fields.get("player")):
+@@ -1956,7 +1962,7 @@
+             rules.completed_own_turns.clear()
+             rules.own_turn_history_known.clear()
+         rules.last_turn_log = log if log.turn == n - 1 else None
+-        log = rules.turn_log = TurnLog(turn=n, active_player=state.turn.active_player,
++        log = rules.turn_log = TurnLog(turn=n, active_player=state.turn.active_player, fight_history90_known=True,
+                                       starting_life=dict(state.turn.starting_life) if state.turn.starting_life is not None else None)
+     elif log.active_player is None:
+         log.active_player = state.turn.active_player
+--- a/backend/app/rules/effects.py
++++ b/backend/app/rules/effects.py
+@@ -855,6 +855,9 @@
+             return True
+         pair.append((cid, max(0, ch.pt[0]) if ch.pt is not None else 0))
+     (ca, pa), (cb, pb) = pair
++    from app.rules import fight_receipts90
++
++    fight_receipts90.record(plan, [ca, cb])
+     fights = (f"{plan.ch(plan.state.cards[ca]).name} fights {plan.ch(plan.state.cards[cb]).name}", [ca, cb])
+     if e.get("dealt_as"):  # -- replacement effects stage 2 (wave 2E): "dealt damage this way" --
+         ctx.setdefault(DEALT_KEY, {})[e["dealt_as"]] = []
+--- a/backend/app/rules/scripts.py
++++ b/backend/app/rules/scripts.py
+@@ -5769,6 +5769,11 @@
+
+ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
+     """The engine definition of one ability, or None (manual)."""
++    from app.rules import fight_receipts90
++
++    if (fight90 := fight_receipts90.definition(ability, ch)) is not None:
++        return fight90
++
+     from app.rules import source_cohort87
+
+     if (admitted61 := source_cohort87.definition(ability, ch)) is not None:
+--- a/backend/app/rules/triggers.py
++++ b/backend/app/rules/triggers.py
+@@ -454,6 +454,9 @@
+
+ def _facts(plan: Plan, e: Event, window: dict[str, Any]) -> list[Fact]:
+     r = plan.rules
++    if e.kind == "fought":
++        return [("fight", card, ch, snap.controller, {"oid": snap.object_id, "snap": snap})
++                for snap in e.fighters90 for card, ch in [_snapshot_card(plan, snap)]]
+     if e.kind == "damage_prevented" and e.amount > 0:
+         return [("damage_prevented", None, None, e.player, {"amount": e.amount, "recipient": e.player})]
+     if e.kind == "library_shuffled":
+@@ -2640,8 +2643,10 @@
+ def bind_event_stat(plan: Plan, t: PendingTrigger) -> None:
+     """-- reanimation (wave 16F) -- "return target creature card with lesser mana value": the selectors' ``evt:<stat>`` becomes the
+     number the one object the trigger is about had (as it last existed, 608.2h), as the ability is put on the stack."""
++    from app.rules import fight_receipts90
+     from app.rules.selectors import EVENT_STAT, _stat
+
++    fight_receipts90.bind(plan, t)
+     raw = json.dumps(t.ability)
+     other_is_type = bool(t.ability.get('target_other_is_type'))
+     if (f'\\"{EVENT_STAT}' not in raw and not other_is_type) or t.event is None or len(t.event.objects) != 1:
+--- a/backend/app/rules/conditions.py
++++ b/backend/app/rules/conditions.py
+@@ -64,6 +64,8 @@
+     refers to ("it's a land card", "~ is tapped") — only for wording inside an ability's effects or
+     trigger, which has those objects (statics and restrictions don't)."""
+     t = text.strip().rstrip(",").replace("’", "'")
++    if t.lower() == 'you control a creature that fought this turn':
++        return {'fought_creature90': True}
+     from app.rules import graveyard_return57
+
+     if (returned57 := graveyard_return57.condition(t)) is not None and (objects or "history" in returned57):
+@@ -1524,6 +1526,10 @@
+
+
+ def holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
++    if cond.get('fought_creature90'):
++        from app.rules import fight_receipts90
++
++        return fight_receipts90.fought_creature(plan, ctx['controller'])
+     if cond.get('attack_pair_players86') or cond.get('attack_other_exact86'):
+         from app.rules import attack_subjects86
+
+--- a/backend/app/rules/selectors.py
++++ b/backend/app/rules/selectors.py
+@@ -2211,7 +2211,14 @@
+     if set(sel.without_keywords) & ch.keywords:
+         return False
+     for what, op, n in sel.compare:
+-        if isinstance(n, str) and n.startswith(REVEALED_STAT):  # -- static_other sweep (wave 17C) --
++        if isinstance(n, str) and n.startswith('fight90:'):
++            from app.rules import fight_receipts90
++
++            now90 = fight_receipts90.same_mv(plan, n)
++            if now90 is None:
++                return False
++            n = now90
++        elif isinstance(n, str) and n.startswith(REVEALED_STAT):
+             revealed = revealed_stat(plan, source, n[len(REVEALED_STAT):])
+             if revealed is None:
+                 return False
+--- a/backend/app/rules/restrictions.py
++++ b/backend/app/rules/restrictions.py
+@@ -309,6 +309,11 @@
+             if uses(r, r.object_id(card.id), index, None) >= n:
+                 return "That can only be activated once" if n == 1 else f"That can be activated only {_times(n)}"
+         elif kind == "if":
++            if x.get('cond', {}).get('fought_creature90') and plan is not None:
++                from app.rules import fight_receipts90
++
++                if (unknown90 := fight_receipts90.restriction_problem(plan, player)) is not None:
++                    return unknown90
+             if plan is None:
+                 return f"That can only be activated if {x['text']}"
+             from app.rules import conditions

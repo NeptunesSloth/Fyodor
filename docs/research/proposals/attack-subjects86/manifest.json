@@ -1,0 +1,45 @@
+{
+  "status": "CLOSED_FOR_ROOT_REVIEW_ONLY",
+  "cards": [
+    "Canal Courier",
+    "Creepy Puppeteer",
+    "Ballroom Brawlers"
+  ],
+  "native": {
+    "passed": 24,
+    "genuine_cold": 4,
+    "log": "native24.log"
+  },
+  "related": {
+    "passed": 56,
+    "files": [
+      "test_rules_trigger_events2.py",
+      "test_rules_host_choice_grants.py"
+    ],
+    "log": "related56.log"
+  },
+  "mypy": {
+    "files": 4,
+    "result": "PASS"
+  },
+  "ruff": {
+    "files": 5,
+    "result": "PASS"
+  },
+  "patch": "reviewed.patch",
+  "stage": "/tmp/combat86",
+  "root_test": "backend/tests/test_rules_attack_subjects86.py",
+  "root_fixture": "backend/tests/fixtures/attack_subjects86_cards.json",
+  "hashes": {
+    "reviewed.patch": "8889953ba415b56065d455d4cc39315331e46b394ab4479c5b4e18757b660f73",
+    "attack_subjects86.py": "af4e0fde47891bb344ebbe61d1ea9812104811eee7b096bb28313ca423d3ab85",
+    "native_tests.py": "7a69b3697cf88801b0538efdb28d8d04582bf7909226561bdbea86998c3806ad",
+    "cards.json": "ac123e3873d71b9680d4b6191dfcce32652d8a83009ddf9fecabca6fc51f7a51"
+  },
+  "base_hashes": {
+    "scripts.py": "fc2285c45799bb6e67e16e5698fce2c28e682cce7926c866e2a3dc1cd45879d7",
+    "conditions.py": "12b4c8302aa42f76a344cd190a9df661dccb7b85847bd499343a8eb9ab28fbef",
+    "effects.py": "da6e64b03ff9cfd2c948449ed6ec47c19fd3ffe3640f60675d0f127cc30a31e4"
+  },
+  "patch_note": "Diff generated against saved original stage files, not moving live; owned87 insertions and0 deletions only."
+}

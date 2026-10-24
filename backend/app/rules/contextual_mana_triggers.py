@@ -28,6 +28,12 @@ def definition(text: str) -> dict[str, Any] | None:
                 'extra': [['U']], 'staged': True, 'snow_extra': True,
                 'only': M.spend_kind('Spend this mana only to pay cumulative upkeep costs'),
                 'effects': [], 'optional': False, 'target': None}
+    if text == ("Whenever a player taps a snow land for mana, that player adds one mana of any type that land produced. "
+                "That land doesn't untap during its controller's next untap step."):
+        return {'kind': 'triggered', 'trigger': 'tap_for_mana', 'who': 'any',
+                'sel': selectors.Selector(types=('Land',), supertypes=('Snow',)).key(),
+                'extra': 'produced', 'staged': True, 'body': 'winter_stay85',
+                'effects': [], 'optional': False, 'target': None}
     if text == 'Whenever a player taps a Mountain, Forest, or Plains for mana, that player adds one mana of any type that land produced.':
         sel = selectors.Selector(types=('Land',), subtypes=('Mountain', 'Forest', 'Plains'))
         return {'kind': 'triggered', 'trigger': 'tap_for_mana', 'who': 'any', 'sel': sel.key(),
@@ -49,18 +55,23 @@ def definition(text: str) -> dict[str, Any] | None:
 def prepare(state: GameState, card: CardInstance, info: CardInfo,
             found: list[tuple[int, ManaAbility]]) -> list[tuple[int, ManaAbility]]:
     """Unpredictable native bodies never promise aggregate mana to AUTO."""
-    from app.rules import attached_mana, tap_mana
+    from app.rules import attached_mana, mana_replace, tap_mana
 
     triggers = [d for owner, d, source in tap_mana._triggers(state, info)
                 if tap_mana._applies(state, info, card, owner, d, source)]
     attached = bool(attached_mana._extras(state, card, info))
-    if not triggers and not attached:
+    hall86 = state.rules is not None and any(
+        x.get('turn') == state.turn.number and x['def'].get('op', {}).get('do') == 'colored_recolor86'
+        for x in state.rules.tap_mana) and any(
+            d['op']['do'] == 'colored_recolor86' and mana_replace._applies(state, info, card, owner, d)
+            for owner, d in mana_replace._statics(state, info))
+    if not triggers and not attached and not hall86:
         return found
     return [(i, replace(ab, native_body=True, chooses=True,
                         immediate_effects=({'do': 'staged_base_mana', 'options': [list(o) for o in ab.options]},
                                            *ab.immediate_effects)))
             if ab.tap and not ab.native_body and ab.reveal_hand is None and
-               (not ab.generic_allowed or any(d.get('staged') for d in triggers)
+               (hall86 or not ab.generic_allowed or any(d.get('staged') for d in triggers)
                 or bool(ab.extra_cost) or ab.sacrifice_self or ab.self_counter is not None
                 or bool(ab.immediate_effects)) else (i, ab) for i, ab in found]
 
@@ -206,6 +217,15 @@ def add_extra(plan: Plan, data: dict[str, Any], extra: dict[str, Any], option: l
         reveal_mana._add(plan, data['controller'], option, ctx)
         emit(plan.state, 'mana_added', object_id=ctx['source_object'], card=ctx['source_card'],
              player=data['controller'], amount=len(option))
+    if extra.get('body') == 'winter_stay85':
+        ctx = {'kind': 'mana', 'controller': extra['owner'], 'source_card': extra.get('source'),
+               'source_object': extra.get('oid'), 'name': extra['name'], 'next': 0, 'targets': [],
+               'refs': {'winter_land85': {'kind': 'objects', 'objects': [
+                   {'card': extra['land']['id'], 'object_id': extra['land_oid'], 'zone': 'battlefield'}]}},
+               'effects': [{'do': 'stay_tapped', 'who': 'ref:winter_land85', 'during': 'controller'}],
+               'body_done': {'do': 'staged_mana_extras', 'data': data}}
+        effects.continue_effects(plan, ctx)
+        return
     if extra.get('body'):
         source_card, source_oid = extra.get('source'), extra.get('oid')
         if extra['body'] == 'land_damage':

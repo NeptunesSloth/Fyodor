@@ -1,0 +1,32 @@
+{
+  "status": "CLOSED_FOR_ROOT_REVIEW_WITH_CONFIRMED_BASELINE_TEST_FAILURES; uninstalled/unadmitted",
+  "names": [
+    "Sabin, Master Monk",
+    "Tenacious Underdog",
+    "Timeline Culler",
+    "Detective's Phoenix"
+  ],
+  "patch": "review.patch",
+  "patch_sha256": "3ddf64900aff2475d04f57c3bfe934ce75f2d8d187002f24935aa986410ef37f",
+  "stage": "/tmp/required79-stage",
+  "test": "native_tests.py -> backend/tests/test_rules_required_keyword79.py",
+  "fixture": "cards.json -> backend/tests/fixtures/required_keyword79_cards.json",
+  "native": {
+    "consolidated_passed": 31,
+    "genuine_cold": 3,
+    "log": "required79-final31.log"
+  },
+  "related": {
+    "passed": 251,
+    "known_baseline_failures": 4,
+    "total": 255,
+    "scope": "full required_mutate75, wave4i_cost_changers, wave15e_keywords, wave30q_cast_permissions, wave4h_activation_costs",
+    "log": "required79-related.log",
+    "baseline_proof": "required79-baseline-stale-negative.log"
+  },
+  "mypy": "PASS6 final source",
+  "ruff": "PASS7 final source/native test",
+  "authority": "Complete official rulings for all4; exact composite keyword costs/native self-graveyard selected-alternative authority; native costs/payment/layers own execution. No Brokkos helper edits, no model or cost_payment edits.",
+  "source_hashes": "source-hashes.json",
+  "separate_test_repair": "../legacy-wave4i-support79; never bundled into source patch"
+}

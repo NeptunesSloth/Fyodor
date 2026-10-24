@@ -1,0 +1,37 @@
+...........F......                                                       [100%]
+=================================== FAILURES ===================================
+______ test_native_removal_overrides_changeling_then_later_grant_restores ______
+
+cards = <app.cards.repository.CardRepository object at 0x7fc30512aba0>
+
+    def test_native_removal_overrides_changeling_then_later_grant_restores(cards):
+        from app.rules.creature_types import CREATURE_TYPES
+
+        s=game(cards)
+        source=put(s,'Universal Automaton','battlefield')
+        helper=put(s,'Amoeboid Changeling','battlefield')
+        assert ch(s,source).subtypes>=CREATURE_TYPES
+        cast(s,'Ego Erasure',targets=['p1'])
+        assert not ch(s,source).subtypes and 'changeling' in ch(s,source).keywords
+        # A second physical Ego copy belongs to p2: cast it on its own turn below.
+        to_phase(s,'main1',5)
+        cast(s,'Ego Erasure','p2',targets=['p1'])
+        assert not ch(s,source).subtypes
+        wait_priority(s,'p1')
+        act(s,'p1',type='activate_ability',card_id=helper.id,ability=1,targets=[source.id],sources=[])
+        settle(s)
+>       assert ch(s,source).subtypes>=CREATURE_TYPES
+E       AssertionError: assert frozenset() >= frozenset({'A...telope', ...})
+E
+E         Extra items in the right set:
+E         'Villain'
+E         'Dinosaur'
+E         'Siren'
+E         'Lhurgoyf'
+E         'Llama'...
+E
+E         ...Full output truncated (319 lines hidden), use '-vv' to show
+
+tests/test_rules_temporary_creature_types93.py:153: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_rules_temporary_creature_types93.py::test_native_removal_overrides_changeling_then_later_grant_restores

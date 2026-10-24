@@ -1,0 +1,984 @@
+Binary files backend/app/__pycache__/__init__.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/__pycache__/__init__.cpython-312.pyc differ
+Binary files backend/app/__pycache__/buildinfo.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/__pycache__/buildinfo.cpython-312.pyc differ
+Binary files backend/app/__pycache__/config.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/__pycache__/config.cpython-312.pyc differ
+Binary files backend/app/__pycache__/jobs.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/__pycache__/jobs.cpython-312.pyc differ
+Binary files backend/app/__pycache__/launcher.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/__pycache__/launcher.cpython-312.pyc differ
+Binary files backend/app/__pycache__/logging_setup.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/__pycache__/logging_setup.cpython-312.pyc differ
+Binary files backend/app/__pycache__/main.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/__pycache__/main.cpython-312.pyc differ
+Binary files backend/app/__pycache__/services.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/__pycache__/services.cpython-312.pyc differ
+Binary files backend/app/__pycache__/textutil.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/__pycache__/textutil.cpython-312.pyc differ
+Binary files backend/app/api/__pycache__/__init__.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/api/__pycache__/__init__.cpython-312.pyc differ
+Binary files backend/app/api/__pycache__/assets.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/api/__pycache__/assets.cpython-312.pyc differ
+Binary files backend/app/api/__pycache__/backups.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/api/__pycache__/backups.cpython-312.pyc differ
+Binary files backend/app/api/__pycache__/cards.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/api/__pycache__/cards.cpython-312.pyc differ
+Binary files backend/app/api/__pycache__/decks.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/api/__pycache__/decks.cpython-312.pyc differ
+Binary files backend/app/api/__pycache__/deps.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/api/__pycache__/deps.cpython-312.pyc differ
+Binary files backend/app/api/__pycache__/games.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/api/__pycache__/games.cpython-312.pyc differ
+Binary files backend/app/api/__pycache__/health.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/api/__pycache__/health.cpython-312.pyc differ
+Binary files backend/app/api/__pycache__/macros.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/api/__pycache__/macros.cpython-312.pyc differ
+Binary files backend/app/api/__pycache__/pod.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/api/__pycache__/pod.cpython-312.pyc differ
+Binary files backend/app/api/__pycache__/rules.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/api/__pycache__/rules.cpython-312.pyc differ
+Binary files backend/app/api/__pycache__/tools.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/api/__pycache__/tools.cpython-312.pyc differ
+Binary files backend/app/assets/__pycache__/__init__.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/assets/__pycache__/__init__.cpython-312.pyc differ
+Binary files backend/app/assets/__pycache__/store.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/assets/__pycache__/store.cpython-312.pyc differ
+Binary files backend/app/assets/__pycache__/validate.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/assets/__pycache__/validate.cpython-312.pyc differ
+Binary files backend/app/assistant/__pycache__/__init__.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/assistant/__pycache__/__init__.cpython-312.pyc differ
+Binary files backend/app/assistant/__pycache__/context.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/assistant/__pycache__/context.cpython-312.pyc differ
+Binary files backend/app/assistant/__pycache__/service.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/assistant/__pycache__/service.cpython-312.pyc differ
+Binary files backend/app/cards/__pycache__/__init__.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/cards/__pycache__/__init__.cpython-312.pyc differ
+Binary files backend/app/cards/__pycache__/downloader.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/cards/__pycache__/downloader.cpython-312.pyc differ
+Binary files backend/app/cards/__pycache__/images.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/cards/__pycache__/images.cpython-312.pyc differ
+Binary files backend/app/cards/__pycache__/importer.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/cards/__pycache__/importer.cpython-312.pyc differ
+Binary files backend/app/cards/__pycache__/names.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/cards/__pycache__/names.cpython-312.pyc differ
+Binary files backend/app/cards/__pycache__/repository.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/cards/__pycache__/repository.cpython-312.pyc differ
+Binary files backend/app/cards/__pycache__/schema.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/cards/__pycache__/schema.cpython-312.pyc differ
+Binary files backend/app/cards/__pycache__/search.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/cards/__pycache__/search.cpython-312.pyc differ
+Binary files backend/app/decks/__pycache__/__init__.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/decks/__pycache__/__init__.cpython-312.pyc differ
+Binary files backend/app/decks/__pycache__/archidekt.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/decks/__pycache__/archidekt.cpython-312.pyc differ
+Binary files backend/app/decks/__pycache__/models.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/decks/__pycache__/models.cpython-312.pyc differ
+Binary files backend/app/decks/__pycache__/parser.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/decks/__pycache__/parser.cpython-312.pyc differ
+Binary files backend/app/decks/__pycache__/repository.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/decks/__pycache__/repository.cpython-312.pyc differ
+Binary files backend/app/decks/__pycache__/service.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/decks/__pycache__/service.cpython-312.pyc differ
+Binary files backend/app/game/__pycache__/__init__.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/game/__pycache__/__init__.cpython-312.pyc differ
+Binary files backend/app/game/__pycache__/actions.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/game/__pycache__/actions.cpython-312.pyc differ
+Binary files backend/app/game/__pycache__/control.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/game/__pycache__/control.cpython-312.pyc differ
+Binary files backend/app/game/__pycache__/engine.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/game/__pycache__/engine.cpython-312.pyc differ
+Binary files backend/app/game/__pycache__/errors.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/game/__pycache__/errors.cpython-312.pyc differ
+Binary files backend/app/game/__pycache__/factory.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/game/__pycache__/factory.cpython-312.pyc differ
+Binary files backend/app/game/__pycache__/history.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/game/__pycache__/history.cpython-312.pyc differ
+Binary files backend/app/game/__pycache__/macros.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/game/__pycache__/macros.cpython-312.pyc differ
+Binary files backend/app/game/__pycache__/mana_cost_templates.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/game/__pycache__/mana_cost_templates.cpython-312.pyc differ
+Binary files backend/app/game/__pycache__/merging.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/game/__pycache__/merging.cpython-312.pyc differ
+Binary files backend/app/game/__pycache__/mulligan.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/game/__pycache__/mulligan.cpython-312.pyc differ
+Binary files backend/app/game/__pycache__/ops.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/game/__pycache__/ops.cpython-312.pyc differ
+Binary files backend/app/game/__pycache__/placement.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/game/__pycache__/placement.cpython-312.pyc differ
+Binary files backend/app/game/__pycache__/resolve.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/game/__pycache__/resolve.cpython-312.pyc differ
+Binary files backend/app/game/__pycache__/rules_state.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/game/__pycache__/rules_state.cpython-312.pyc differ
+Binary files backend/app/game/__pycache__/session.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/game/__pycache__/session.cpython-312.pyc differ
+Binary files backend/app/game/__pycache__/state.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/game/__pycache__/state.cpython-312.pyc differ
+Binary files backend/app/game/__pycache__/views.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/game/__pycache__/views.cpython-312.pyc differ
+Binary files backend/app/game/__pycache__/visibility.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/game/__pycache__/visibility.cpython-312.pyc differ
+Binary files backend/app/game/handlers/__pycache__/__init__.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/game/handlers/__pycache__/__init__.cpython-312.pyc differ
+Binary files backend/app/game/handlers/__pycache__/cards.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/game/handlers/__pycache__/cards.cpython-312.pyc differ
+Binary files backend/app/game/handlers/__pycache__/marks.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/game/handlers/__pycache__/marks.cpython-312.pyc differ
+Binary files backend/app/game/handlers/__pycache__/mulligan.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/game/handlers/__pycache__/mulligan.cpython-312.pyc differ
+Binary files backend/app/game/handlers/__pycache__/objects.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/game/handlers/__pycache__/objects.cpython-312.pyc differ
+Binary files backend/app/game/handlers/__pycache__/players.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/game/handlers/__pycache__/players.cpython-312.pyc differ
+Binary files backend/app/game/handlers/__pycache__/response.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/game/handlers/__pycache__/response.cpython-312.pyc differ
+Binary files backend/app/game/handlers/__pycache__/rules.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/game/handlers/__pycache__/rules.cpython-312.pyc differ
+Binary files backend/app/game/handlers/__pycache__/solo.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/game/handlers/__pycache__/solo.cpython-312.pyc differ
+Binary files backend/app/game/handlers/__pycache__/turn.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/game/handlers/__pycache__/turn.cpython-312.pyc differ
+Binary files backend/app/game/handlers/__pycache__/zones.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/game/handlers/__pycache__/zones.cpython-312.pyc differ
+Binary files backend/app/multiplayer/__pycache__/__init__.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/multiplayer/__pycache__/__init__.cpython-312.pyc differ
+Binary files backend/app/multiplayer/__pycache__/hub.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/multiplayer/__pycache__/hub.cpython-312.pyc differ
+Binary files backend/app/multiplayer/__pycache__/lobby.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/multiplayer/__pycache__/lobby.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/__init__.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/__init__.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/abilities_of.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/abilities_of.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/ability_mana_history.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/ability_mana_history.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/absorb.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/absorb.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/activated52d.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/activated52d.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/activated_card_outcomes.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/activated_card_outcomes.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/activated_copy_effects.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/activated_copy_effects.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/activation_alternatives.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/activation_alternatives.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/activation_payment_conditions.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/activation_payment_conditions.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/activation_words.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/activation_words.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/adamant_effects.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/adamant_effects.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/adventure_card_discounts48.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/adventure_card_discounts48.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/airbend.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/airbend.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/alt_costs.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/alt_costs.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/amplify.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/amplify.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/analysis.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/analysis.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/armored_skyhunter.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/armored_skyhunter.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/artifact_transformation.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/artifact_transformation.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/as_cast_values42.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/as_cast_values42.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/assist.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/assist.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/attach_abilities.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/attach_abilities.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/attach_entry.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/attach_entry.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/attached_copy_fallback.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/attached_copy_fallback.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/attached_kindred_look.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/attached_kindred_look.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/attached_mana.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/attached_mana.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/attached_players.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/attached_players.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/attached_types.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/attached_types.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/attachments.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/attachments.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/attack_destinations.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/attack_destinations.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/attack_requirements.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/attack_requirements.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/attack_reveal_fight.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/attack_reveal_fight.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/attacker_reselection73.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/attacker_reselection73.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/attacking_life.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/attacking_life.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/awakened_land_refs.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/awakened_land_refs.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/banding.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/banding.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/base.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/base.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/battles.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/battles.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/bestow.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/bestow.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/blink_search_together.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/blink_search_together.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/bloatfly_outcomes44.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/bloatfly_outcomes44.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/block_effects.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/block_effects.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/block_events.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/block_events.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/bounce_forms.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/bounce_forms.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/bound_delayed_effects.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/bound_delayed_effects.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/bound_subset_choices.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/bound_subset_choices.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/buyback_costs.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/buyback_costs.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/cant_gain.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/cant_gain.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/capped_counters.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/capped_counters.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/capped_damage_life.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/capped_damage_life.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/card_copy_casting_family.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/card_copy_casting_family.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/card_copy_sequences.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/card_copy_sequences.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/card_copy_sources.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/card_copy_sources.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/card_names.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/card_names.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/case_solve_watchers.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/case_solve_watchers.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/cast_limits.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/cast_limits.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/cast_mana_totals.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/cast_mana_totals.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/cast_riders.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/cast_riders.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/cast_timing.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/cast_timing.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/casting.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/casting.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/casting_timing_permissions.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/casting_timing_permissions.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/casualty_x.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/casualty_x.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/chain_spells.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/chain_spells.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/characteristic_recipes.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/characteristic_recipes.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/characteristics.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/characteristics.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/choice_grants.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/choice_grants.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/chosen.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/chosen.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/chosen_color_pairs45.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/chosen_color_pairs45.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/chosen_library_kind.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/chosen_library_kind.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/clash.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/clash.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/cleave.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/cleave.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/clusters.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/clusters.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/coin_flips.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/coin_flips.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/coin_outcomes.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/coin_outcomes.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/coin_recipes.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/coin_recipes.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/color_comparisons.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/color_comparisons.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/colored_amount_payments.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/colored_amount_payments.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/combat.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/combat.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/combat_at_least_one68.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/combat_at_least_one68.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/combat_conditional_requirements67.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/combat_conditional_requirements67.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/combat_damage_life_receipts.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/combat_damage_life_receipts.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/combat_defender_aliases66.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/combat_defender_aliases66.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/combat_equipment_blocks70.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/combat_equipment_blocks70.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/combat_named_exception69.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/combat_named_exception69.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/combat_player_scope43.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/combat_player_scope43.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/combat_prevention_variants47.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/combat_prevention_variants47.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/combat_rules.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/combat_rules.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/combat_soulbond_partner70.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/combat_soulbond_partner70.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/combat_teyo66.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/combat_teyo66.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/commander.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/commander.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/conditional_cast_permissions.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/conditional_cast_permissions.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/conditional_copy_sources.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/conditional_copy_sources.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/conditional_counters.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/conditional_counters.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/conditional_free_casts68.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/conditional_free_casts68.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/conditional_instead59.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/conditional_instead59.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/conditional_look.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/conditional_look.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/conditional_optional_target.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/conditional_optional_target.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/conditional_own_discounts.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/conditional_own_discounts.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/conditional_prevention_effects.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/conditional_prevention_effects.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/conditional_prevention_grants45.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/conditional_prevention_grants45.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/conditional_repeat_search.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/conditional_repeat_search.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/conditional_return_destination.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/conditional_return_destination.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/conditional_search_cast.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/conditional_search_cast.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/conditional_search_destination.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/conditional_search_destination.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/conditional_tap_counter73.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/conditional_tap_counter73.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/conditional_target_cast.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/conditional_target_cast.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/conditional_tutor_outcomes.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/conditional_tutor_outcomes.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/conditions.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/conditions.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/context.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/context.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/contextual_mana_outcomes.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/contextual_mana_outcomes.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/contextual_mana_triggers.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/contextual_mana_triggers.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/controller_each.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/controller_each.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/controller_turn_history69.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/controller_turn_history69.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/controller_tutors.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/controller_tutors.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/convoke_connive.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/convoke_connive.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/copiable_coin_entry.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/copiable_coin_entry.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/copied_exile_packets66.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/copied_exile_packets66.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/copying.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/copying.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/cost_changes.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/cost_changes.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/cost_moves.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/cost_moves.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/cost_payment.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/cost_payment.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/costs.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/costs.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/counter_alternatives50.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/counter_alternatives50.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/counter_arithmetic.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/counter_arithmetic.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/counter_choice.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/counter_choice.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/counter_choice_effects.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/counter_choice_effects.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/counter_consumers45.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/counter_consumers45.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/counter_destinations.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/counter_destinations.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/counter_distribution.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/counter_distribution.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/counter_event_comparisons50.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/counter_event_comparisons50.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/counter_event_packets50.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/counter_event_packets50.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/counter_followthrough.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/counter_followthrough.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/counter_group_choices.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/counter_group_choices.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/counter_kinds.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/counter_kinds.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/counter_lki_tokens50.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/counter_lki_tokens50.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/counter_move_distribution.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/counter_move_distribution.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/counter_moves.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/counter_moves.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/counter_offers.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/counter_offers.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/counter_outcomes42.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/counter_outcomes42.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/counter_ownership50.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/counter_ownership50.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/counter_payments42.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/counter_payments42.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/counter_pick.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/counter_pick.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/counter_random_recast.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/counter_random_recast.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/counter_receipts.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/counter_receipts.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/counter_removal_results.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/counter_removal_results.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/counter_restrictions43.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/counter_restrictions43.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/counter_riders.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/counter_riders.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/counter_state_thresholds50.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/counter_state_thresholds50.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/counter_upkeep_payments.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/counter_upkeep_payments.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/counter_x_costs43.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/counter_x_costs43.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/counters52d.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/counters52d.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/counters_removed.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/counters_removed.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/coverage.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/coverage.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/creature_combat_costs.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/creature_combat_costs.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/creature_damage_followups.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/creature_damage_followups.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/creature_entry_redirect.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/creature_entry_redirect.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/creature_types.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/creature_types.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/crew_saddle.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/crew_saddle.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/cycling_costs.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/cycling_costs.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/damage_controller_destruction.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/damage_controller_destruction.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/damage_exile_statics65.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/damage_exile_statics65.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/damage_history.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/damage_history.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/damage_history_outcomes.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/damage_history_outcomes.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/damage_life_results42.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/damage_life_results42.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/damage_protection.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/damage_protection.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/damage_redirection_effects.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/damage_redirection_effects.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/damage_rider_continuations.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/damage_rider_continuations.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/damage_snapshot_outcomes.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/damage_snapshot_outcomes.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/damage_target_counts65.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/damage_target_counts65.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/death_outcomes46.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/death_outcomes46.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/decayed.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/decayed.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/declaration_groups.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/declaration_groups.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/declaration_requirements.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/declaration_requirements.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/defender_effects.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/defender_effects.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/defending.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/defending.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/defined_activation_x.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/defined_activation_x.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/delayed.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/delayed.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/delayed_blinks50.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/delayed_blinks50.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/delayed_combat_blinks50.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/delayed_combat_blinks50.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/delayed_cycle_blinks50.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/delayed_cycle_blinks50.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/delayed_entry_blinks50.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/delayed_entry_blinks50.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/delayed_fewer_counters.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/delayed_fewer_counters.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/delayed_loyalty_blinks50.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/delayed_loyalty_blinks50.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/delayed_self_blinks50.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/delayed_self_blinks50.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/delayed_spell_blinks50.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/delayed_spell_blinks50.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/delegated_target_announcements.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/delegated_target_announcements.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/dependent_object_targets65.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/dependent_object_targets65.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/derived_protection.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/derived_protection.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/descendants_path.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/descendants_path.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/designations.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/designations.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/destroy_type_reveal.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/destroy_type_reveal.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/devour.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/devour.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/dice.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/dice.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/discard_counter_union66.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/discard_counter_union66.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/discard_outcomes.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/discard_outcomes.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/discarded_references.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/discarded_references.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/discover.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/discover.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/discover_followup.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/discover_followup.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/disguise_costs.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/disguise_costs.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/disturb.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/disturb.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/draft_only.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/draft_only.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/draw_bodies.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/draw_bodies.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/draw_or_mill_damage.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/draw_or_mill_damage.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/draw_replacement_sequences.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/draw_replacement_sequences.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/drawn_toll.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/drawn_toll.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/dynamic_keyword_costs55.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/dynamic_keyword_costs55.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/dynamic_zone_keyword_costs56.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/dynamic_zone_keyword_costs56.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/each_may.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/each_may.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/effect_cast_costs.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/effect_cast_costs.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/effects.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/effects.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/either_costs.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/either_costs.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/end_turn.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/end_turn.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/endure.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/endure.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/engine.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/engine.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/enlist.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/enlist.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/enter_cost.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/enter_cost.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/entry_characteristic_effects.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/entry_characteristic_effects.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/entry_characteristics.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/entry_characteristics.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/entry_counter_kind_choices68.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/entry_counter_kind_choices68.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/entry_counter_source72.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/entry_counter_source72.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/entry_forms.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/entry_forms.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/entry_harvest45.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/entry_harvest45.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/entry_payment_counters.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/entry_payment_counters.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/entry_payment_diversion.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/entry_payment_diversion.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/entry_receipt56.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/entry_receipt56.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/entry_value_counters.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/entry_value_counters.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/equipment_animation.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/equipment_animation.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/equipment_unattach_choice.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/equipment_unattach_choice.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/escape.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/escape.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/event_batch.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/event_batch.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/event_excluded_player.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/event_excluded_player.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/events.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/events.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/exchange_energy.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/exchange_energy.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/exert.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/exert.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/exert_equipment.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/exert_equipment.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/exile_authority_continuations.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/exile_authority_continuations.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/exile_cast_outcomes45.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/exile_cast_outcomes45.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/exile_damage_choices49.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/exile_damage_choices49.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/exile_delayed_damage.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/exile_delayed_damage.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/exile_land_compensation.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/exile_land_compensation.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/exile_mv_threshold.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/exile_mv_threshold.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/exile_opponent_play.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/exile_opponent_play.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/exile_outcomes42.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/exile_outcomes42.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/exile_packet_continuations.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/exile_packet_continuations.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/exile_permission_sequences.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/exile_permission_sequences.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/exile_power_counters.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/exile_power_counters.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/exile_spawn_cleanup.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/exile_spawn_cleanup.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/exile_spell_choices49.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/exile_spell_choices49.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/exile_sphinx49.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/exile_sphinx49.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/exiled_counter_payments43.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/exiled_counter_payments43.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/exiled_return_payments43.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/exiled_return_payments43.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/exiled_with.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/exiled_with.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/extra_tokens.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/extra_tokens.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/extra_turns.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/extra_turns.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/extremes.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/extremes.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/facedown.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/facedown.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/fight_excess_mana.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/fight_excess_mana.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/fight_exile_receipts65.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/fight_exile_receipts65.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/fight_pair.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/fight_pair.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/final_roll_permissions42.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/final_roll_permissions42.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/first_event_receipts78.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/first_event_receipts78.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/first_mana_source_spell.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/first_mana_source_spell.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/first_target_activation_cost58.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/first_target_activation_cost58.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/fixed_top_graveyard_cost46.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/fixed_top_graveyard_cost46.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/flashback_choices.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/flashback_choices.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/flashback_costs.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/flashback_costs.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/foreign_zone_sequences.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/foreign_zone_sequences.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/friend_foe.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/friend_foe.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/game_result.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/game_result.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/gift.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/gift.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/goldberry_outcomes44.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/goldberry_outcomes44.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/granted.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/granted.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/granted_casts.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/granted_casts.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/graveyard_bottom.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/graveyard_bottom.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/graveyard_cost_grants57.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/graveyard_cost_grants57.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/graveyard_exile.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/graveyard_exile.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/graveyard_grants.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/graveyard_grants.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/graveyard_keywords.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/graveyard_keywords.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/graveyard_order.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/graveyard_order.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/graveyard_payments45.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/graveyard_payments45.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/graveyard_return57.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/graveyard_return57.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/group_choice.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/group_choice.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/group_counter_values.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/group_counter_values.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/group_layers.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/group_layers.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/group_unblocked.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/group_unblocked.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/grouped_discard.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/grouped_discard.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/hand_library_choices52.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/hand_library_choices52.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/hand_library_exchange.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/hand_library_exchange.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/hand_shortfall.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/hand_shortfall.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/hand_size.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/hand_size.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/hand_wheel.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/hand_wheel.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/harmonize.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/harmonize.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/harness.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/harness.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/haunt.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/haunt.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/hexproof_targeting.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/hexproof_targeting.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/hidden_card_facts.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/hidden_card_facts.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/hideaway.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/hideaway.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/history.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/history.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/hybrid_power_up71.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/hybrid_power_up71.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/immediate_cast_pools67.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/immediate_cast_pools67.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/immediate_mana_resolutions.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/immediate_mana_resolutions.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/immortal_coil_outcomes.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/immortal_coil_outcomes.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/inventory.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/inventory.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/join_forces.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/join_forces.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/joint_attached_pumps.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/joint_attached_pumps.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/kept_mana.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/kept_mana.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/keyed_player_bindings.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/keyed_player_bindings.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/keyword_actions.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/keyword_actions.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/keyword_denials.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/keyword_denials.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/keyword_soup.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/keyword_soup.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/keyword_triggers.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/keyword_triggers.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/kicked_entries.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/kicked_entries.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/kicked_instead.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/kicked_instead.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/kicked_spell_outcomes59.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/kicked_spell_outcomes59.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/kicked_spell_riders.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/kicked_spell_riders.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/kicked_target_outcomes60.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/kicked_target_outcomes60.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/kicked_x_lki_outcomes61.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/kicked_x_lki_outcomes61.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/kinship.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/kinship.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/land_or_cast.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/land_or_cast.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/land_plays.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/land_plays.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/language.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/language.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/last_combat_receipts44.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/last_combat_receipts44.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/layer_dependency_graph.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/layer_dependency_graph.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/layers.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/layers.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/leave.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/leave.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/leave_exile.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/leave_exile.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/legend_rule.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/legend_rule.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/levelers.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/levelers.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/library_look.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/library_look.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/library_placements.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/library_placements.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/licids.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/licids.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/life_card_outcomes41.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/life_card_outcomes41.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/life_changes44.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/life_changes44.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/life_dynamic45.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/life_dynamic45.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/life_game_history.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/life_game_history.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/life_history_outcomes.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/life_history_outcomes.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/life_lock.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/life_lock.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/life_prevention_outcomes42.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/life_prevention_outcomes42.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/life_receipt_sequences42.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/life_receipt_sequences42.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/life_sequences43.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/life_sequences43.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/life_sequences44.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/life_sequences44.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/life_sequences45.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/life_sequences45.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/life_sets44.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/life_sets44.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/life_start_discounts44.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/life_start_discounts44.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/life_total_damage_results43.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/life_total_damage_results43.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/linked_aggregates.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/linked_aggregates.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/linked_attachment_return.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/linked_attachment_return.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/linked_exile_life42.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/linked_exile_life42.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/linked_exile_look.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/linked_exile_look.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/linked_graveyard_damage.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/linked_graveyard_damage.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/linked_play_grants.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/linked_play_grants.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/linked_returns.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/linked_returns.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/look_optional_placement.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/look_optional_placement.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/looking.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/looking.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/loops.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/loops.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/loyalty_survivors.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/loyalty_survivors.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/madness_costs.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/madness_costs.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/mana.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/mana.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/mana_activation_cost_watchers51.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/mana_activation_cost_watchers51.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/mana_activation_watchers50.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/mana_activation_watchers50.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/mana_allocation_masks.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/mana_allocation_masks.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/mana_allocation_profiles.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/mana_allocation_profiles.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/mana_class_profiles.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/mana_class_profiles.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/mana_codie_profiles.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/mana_codie_profiles.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/mana_combat_packet_profiles.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/mana_combat_packet_profiles.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/mana_crafted_profiles.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/mana_crafted_profiles.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/mana_deity_profiles.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/mana_deity_profiles.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/mana_delayed_effects.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/mana_delayed_effects.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/mana_esper_profiles.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/mana_esper_profiles.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/mana_followthrough_profiles.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/mana_followthrough_profiles.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/mana_foundry_profiles.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/mana_foundry_profiles.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/mana_linked_profiles.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/mana_linked_profiles.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/mana_named_land_profiles.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/mana_named_land_profiles.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/mana_note_inspector.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/mana_note_inspector.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/mana_noted_profiles.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/mana_noted_profiles.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/mana_persistent_replacements48.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/mana_persistent_replacements48.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/mana_producer_profiles45.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/mana_producer_profiles45.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/mana_producer_restrictions_staged.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/mana_producer_restrictions_staged.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/mana_replace.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/mana_replace.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/mana_requirement_rows.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/mana_requirement_rows.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/mana_resolution_profiles.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/mana_resolution_profiles.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/mana_riders.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/mana_riders.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/mana_saga_profiles.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/mana_saga_profiles.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/mana_security_rhox47.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/mana_security_rhox47.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/mana_source_cast.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/mana_source_cast.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/mana_sunglasses49.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/mana_sunglasses49.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/mana_symbol_production.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/mana_symbol_production.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/mana_temporary_profiles.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/mana_temporary_profiles.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/mana_units.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/mana_units.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/mana_x_profiles.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/mana_x_profiles.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/mandatory_return_payments43.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/mandatory_return_payments43.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/manifest_aura74.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/manifest_aura74.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/mayhem.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/mayhem.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/merged.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/merged.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/mill_pair_repeat.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/mill_pair_repeat.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/miracle.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/miracle.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/mixed_mana_restrictions.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/mixed_mana_restrictions.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/modal_abilities.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/modal_abilities.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/multi_target_search.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/multi_target_search.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/multikicker_targets.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/multikicker_targets.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/multiplayer_look.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/multiplayer_look.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/multiplayer_roll_consumers.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/multiplayer_roll_consumers.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/name_equivalence_sequences.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/name_equivalence_sequences.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/name_event_receipts.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/name_event_receipts.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/name_exile_loop.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/name_exile_loop.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/name_relation_continuations.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/name_relation_continuations.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/name_search.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/name_search.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/named_recast.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/named_recast.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/next_untap.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/next_untap.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/ninjutsu.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/ninjutsu.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/nonhand_copy_riders.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/nonhand_copy_riders.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/nonmana_combat_costs.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/nonmana_combat_costs.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/nontarget_creature_choices.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/nontarget_creature_choices.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/numeric_entry_roll42.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/numeric_entry_roll42.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/numeric_roll_finalization42.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/numeric_roll_finalization42.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/numeric_table_creatures42.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/numeric_table_creatures42.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/offering.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/offering.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/opening_hand.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/opening_hand.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/opponent_gain_costs44.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/opponent_gain_costs44.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/opponent_looked_choice.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/opponent_looked_choice.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/optional_attacker_damage74.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/optional_attacker_damage74.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/optional_counter55.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/optional_counter55.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/optional_event_tap.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/optional_event_tap.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/optional_library_look.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/optional_library_look.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/optional_payment.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/optional_payment.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/optional_repeat_roll.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/optional_repeat_roll.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/oracle.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/oracle.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/ordered_graveyard53.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/ordered_graveyard53.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/ordered_tutor_continuations.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/ordered_tutor_continuations.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/ordered_zone_costs46.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/ordered_zone_costs46.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/other_side.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/other_side.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/outside_battlefield_self.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/outside_battlefield_self.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/outside_game.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/outside_game.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/outside_research50.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/outside_research50.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/overload.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/overload.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/owner_library_choices.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/owner_library_choices.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/paid_effect_costs.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/paid_effect_costs.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/paid_sacrifice_effects.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/paid_sacrifice_effects.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/paid_x.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/paid_x.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/pairing.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/pairing.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/paradigm.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/paradigm.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/parley.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/parley.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/pay_objects.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/pay_objects.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/pay_untap.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/pay_untap.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/payment.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/payment.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/payment_card_facts.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/payment_card_facts.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/payment_continuations.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/payment_continuations.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/per_opponent.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/per_opponent.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/permanent_exchanges.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/permanent_exchanges.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/permission_spell_keywords.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/permission_spell_keywords.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/permission_use_triggers43.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/permission_use_triggers43.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/permissions.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/permissions.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/phase_lifetimes43.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/phase_lifetimes43.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/phasing.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/phasing.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/pile_groups.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/pile_groups.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/piles_legacy.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/piles_legacy.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/plan.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/plan.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/plargg_nassari.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/plargg_nassari.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/player_choices.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/player_choices.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/player_control.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/player_control.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/player_controls_event.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/player_controls_event.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/player_counter_doubling.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/player_counter_doubling.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/player_counter_instructions75.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/player_counter_instructions75.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/player_counter_top_up.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/player_counter_top_up.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/player_filter.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/player_filter.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/player_max_counts.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/player_max_counts.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/player_protection_grants.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/player_protection_grants.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/player_relative.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/player_relative.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/player_shields.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/player_shields.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/player_zones.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/player_zones.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/pool.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/pool.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/populate.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/populate.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/power_up.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/power_up.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/predicates.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/predicates.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/prevention_frontier_bridge.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/prevention_frontier_bridge.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/prevention_frontier_cards.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/prevention_frontier_cards.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/prevention_frontier_constraints.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/prevention_frontier_constraints.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/prevention_frontier_discovery.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/prevention_frontier_discovery.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/prevention_frontier_eligibility.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/prevention_frontier_eligibility.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/prevention_frontier_grounding.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/prevention_frontier_grounding.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/prevention_frontier_joint_draft.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/prevention_frontier_joint_draft.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/prevention_frontier_journal.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/prevention_frontier_journal.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/prevention_frontier_planner_adapter.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/prevention_frontier_planner_adapter.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/prevention_frontier_prototype.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/prevention_frontier_prototype.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/prevention_frontier_symbolic.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/prevention_frontier_symbolic.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/prevention_outcomes.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/prevention_outcomes.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/prevention_receipts.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/prevention_receipts.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/prevention_unpreventable_outcomes44.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/prevention_unpreventable_outcomes44.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/previous_own_turns.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/previous_own_turns.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/private_top_card_outcomes.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/private_top_card_outcomes.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/prohibitions.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/prohibitions.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/proliferate_followup.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/proliferate_followup.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/protection.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/protection.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/protection_grants.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/protection_grants.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/prototype.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/prototype.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/pump_each.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/pump_each.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/put_back.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/put_back.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/put_from_hand.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/put_from_hand.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/qualified_attached_tutors.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/qualified_attached_tutors.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/qualified_look_outcomes.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/qualified_look_outcomes.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/qualified_search_packets.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/qualified_search_packets.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/qualified_selection_packets.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/qualified_selection_packets.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/quoted_prevention_loss47.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/quoted_prevention_loss47.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/radiance.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/radiance.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/random_artifact_tables42.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/random_artifact_tables42.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/random_chapter_modes42.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/random_chapter_modes42.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/random_characteristic_choices.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/random_characteristic_choices.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/random_choice.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/random_choice.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/random_choice_receipts.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/random_choice_receipts.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/random_consequences.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/random_consequences.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/random_cost_roll44.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/random_cost_roll44.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/random_draw_reflexives43.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/random_draw_reflexives43.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/random_entry_choice.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/random_entry_choice.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/random_native_outcomes42.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/random_native_outcomes42.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/random_previous_combat44.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/random_previous_combat44.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/random_receipt_consumers.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/random_receipt_consumers.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/random_target_relations.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/random_target_relations.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/random_transform_outcomes43.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/random_transform_outcomes43.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/random_vehicle_crash45.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/random_vehicle_crash45.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/random_walker_faces44.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/random_walker_faces44.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/read_pass.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/read_pass.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/reanimate_auras.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/reanimate_auras.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/received_counter_doubling.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/received_counter_doubling.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/recipient_stat_counters.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/recipient_stat_counters.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/reconcile.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/reconcile.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/recursion.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/recursion.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/reflexive_mill54.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/reflexive_mill54.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/reflexive_roll.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/reflexive_roll.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/reflexive_token_return54.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/reflexive_token_return54.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/refused_zones.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/refused_zones.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/regeneration.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/regeneration.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/regeneration_choices.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/regeneration_choices.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/regeneration_riders.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/regeneration_riders.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/relative_damage_receipts65.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/relative_damage_receipts65.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/removed_all.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/removed_all.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/removed_mana.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/removed_mana.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/replace.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/replace.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/replace_grammar.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/replace_grammar.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/replacements.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/replacements.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/reprieve_payment45.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/reprieve_payment45.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/research.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/research.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/resolution_choice.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/resolution_choice.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/resolve_exile.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/resolve_exile.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/resolved_library_choices.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/resolved_library_choices.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/resolved_library_guesses.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/resolved_library_guesses.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/restrictions.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/restrictions.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/returned_counter_choices42.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/returned_counter_choices42.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/reveal_cast_packets.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/reveal_cast_packets.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/reveal_consequences.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/reveal_consequences.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/reveal_count_return.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/reveal_count_return.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/reveal_equal_spell.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/reveal_equal_spell.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/reveal_hand.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/reveal_hand.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/reveal_hand_or_top.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/reveal_hand_or_top.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/reveal_lands.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/reveal_lands.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/reveal_mana.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/reveal_mana.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/reveal_outcomes.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/reveal_outcomes.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/reveal_snapshots.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/reveal_snapshots.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/reveal_target_sequences.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/reveal_target_sequences.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/reveal_until_gy.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/reveal_until_gy.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/revealed_two_stage_picks.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/revealed_two_stage_picks.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/rewrites52d.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/rewrites52d.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/ring_counter_packets67.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/ring_counter_packets67.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/riot.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/riot.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/roles.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/roles.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/roll_result_history42.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/roll_result_history42.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/rooms.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/rooms.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/sacrifice_entry_outcomes43.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/sacrifice_entry_outcomes43.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/sacrifice_return.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/sacrifice_return.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/sacrificed_equipment42.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/sacrificed_equipment42.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/saddled_receipts76.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/saddled_receipts76.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/sagas.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/sagas.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/same_name.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/same_name.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/sba.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/sba.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/scenario.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/scenario.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/scoped_prevention_effects.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/scoped_prevention_effects.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/scripts.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/scripts.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/search_packets.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/search_packets.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/search_partition.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/search_partition.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/selectors.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/selectors.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/shared_damage.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/shared_damage.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/shared_permanent_return.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/shared_permanent_return.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/shield_counters.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/shield_counters.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/shoal_nonmana_x.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/shoal_nonmana_x.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/simultaneous_moves.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/simultaneous_moves.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/single_recipient_redirection.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/single_recipient_redirection.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/sized_damage.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/sized_damage.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/skips.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/skips.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/source_batch_prevention.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/source_batch_prevention.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/source_damage_counters50.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/source_damage_counters50.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/source_duration_prevention45.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/source_duration_prevention45.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/source_qualities.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/source_qualities.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/source_quality_grants.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/source_quality_grants.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/source_shields.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/source_shields.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/special_payment_tails.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/special_payment_tails.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/speed.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/speed.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/spell_ability_riders42.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/spell_ability_riders42.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/spell_control.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/spell_control.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/spell_copy_replacements.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/spell_copy_replacements.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/spell_cost_stages.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/spell_cost_stages.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/spell_grants.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/spell_grants.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/spell_mana_floor.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/spell_mana_floor.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/spell_payment_facts.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/spell_payment_facts.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/spell_symbol_choices.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/spell_symbol_choices.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/spent_mana_effects.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/spent_mana_effects.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/spent_mana_outcomes.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/spent_mana_outcomes.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/splice.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/splice.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/split_second.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/split_second.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/stack_faces.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/stack_faces.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/stack_interaction.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/stack_interaction.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/state_triggers.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/state_triggers.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/static_conditions.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/static_conditions.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/static_grant_capture45.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/static_grant_capture45.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/static_pairs.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/static_pairs.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/static_type_forms.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/static_type_forms.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/statics.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/statics.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/surveil_outcomes45.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/surveil_outcomes45.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/suspend_grant_followthrough.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/suspend_grant_followthrough.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/suspend_grants.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/suspend_grants.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/suspended_counter_choices.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/suspended_counter_choices.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/sweep.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/sweep.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/table_activation_modifiers52.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/table_activation_modifiers52.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/tap_energy_outcomes43.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/tap_energy_outcomes43.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/tap_mana.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/tap_mana.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/tap_or_untap.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/tap_or_untap.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/tap_x_payments.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/tap_x_payments.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/target_group_watches.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/target_group_watches.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/target_player_counts.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/target_player_counts.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/targeted_damage_watch.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/targeted_damage_watch.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/targeted_dice_rows.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/targeted_dice_rows.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/targeting_sources77.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/targeting_sources77.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/targets.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/targets.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/temporary_commander_entry.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/temporary_commander_entry.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/temporary_hand_exile.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/temporary_hand_exile.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/tempting.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/tempting.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/this_way.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/this_way.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/this_way_words.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/this_way_words.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/threshold_division.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/threshold_division.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/time_travel.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/time_travel.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/timed_damage_replacements.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/timed_damage_replacements.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/token_attack_continuations.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/token_attack_continuations.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/token_copy_continuations.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/token_copy_continuations.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/token_copy_entry.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/token_copy_entry.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/token_copy_outcomes.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/token_copy_outcomes.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/token_copy_sources.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/token_copy_sources.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/token_creation_replacements.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/token_creation_replacements.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/token_creator.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/token_creator.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/token_fight_pairs.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/token_fight_pairs.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/token_grammar.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/token_grammar.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/token_source_groups.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/token_source_groups.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/top_library.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/top_library.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/top_trade.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/top_trade.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/torch_exile_receipts65.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/torch_exile_receipts65.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/total_mv_casts.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/total_mv_casts.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/transform_emblems.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/transform_emblems.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/tribute.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/tribute.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/trigger_aggregate_counters50.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/trigger_aggregate_counters50.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/trigger_attached_artifact67.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/trigger_attached_artifact67.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/trigger_attack_population63.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/trigger_attack_population63.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/trigger_cast_counters50.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/trigger_cast_counters50.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/trigger_combat_counts50.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/trigger_combat_counts50.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/trigger_damage_threshold70.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/trigger_damage_threshold70.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/trigger_damage_values51.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/trigger_damage_values51.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/trigger_defender_release53.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/trigger_defender_release53.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/trigger_draw_token_counter51.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/trigger_draw_token_counter51.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/trigger_empty_board50.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/trigger_empty_board50.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/trigger_extreme_choices57.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/trigger_extreme_choices57.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/trigger_faceup_union50.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/trigger_faceup_union50.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/trigger_grave_bottom51.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/trigger_grave_bottom51.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/trigger_grave_counter_top65.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/trigger_grave_counter_top65.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/trigger_grave_extreme64.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/trigger_grave_extreme64.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/trigger_grave_upkeep59.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/trigger_grave_upkeep59.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/trigger_graveyard_owners50.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/trigger_graveyard_owners50.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/trigger_hand_owner50.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/trigger_hand_owner50.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/trigger_handcast_sweep66.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/trigger_handcast_sweep66.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/trigger_leaf51_staged.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/trigger_leaf51_staged.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/trigger_leaf52_staged.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/trigger_leaf52_staged.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/trigger_leaf53_staged.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/trigger_leaf53_staged.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/trigger_leaf54_staged.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/trigger_leaf54_staged.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/trigger_leaf56_staged.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/trigger_leaf56_staged.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/trigger_leaf57_staged.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/trigger_leaf57_staged.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/trigger_leaf58_staged.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/trigger_leaf58_staged.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/trigger_leaf59_staged.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/trigger_leaf59_staged.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/trigger_library_win53.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/trigger_library_win53.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/trigger_main_cast60.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/trigger_main_cast60.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/trigger_multipliers.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/trigger_multipliers.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/trigger_owned_return51.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/trigger_owned_return51.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/trigger_permanent_steps54.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/trigger_permanent_steps54.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/trigger_pt_choices56.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/trigger_pt_choices56.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/trigger_return_choices50.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/trigger_return_choices50.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/trigger_return_references60.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/trigger_return_references60.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/trigger_sacrifice_entered58.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/trigger_sacrifice_entered58.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/trigger_shared_colors61.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/trigger_shared_colors61.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/trigger_source_graveyard50.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/trigger_source_graveyard50.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/trigger_status_instead60.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/trigger_status_instead60.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/trigger_step_counts50.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/trigger_step_counts50.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/trigger_step_damage50.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/trigger_step_damage50.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/trigger_tap_actors62.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/trigger_tap_actors62.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/trigger_tap_union52.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/trigger_tap_union52.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/trigger_target_control50.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/trigger_target_control50.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/trigger_upkeep_comparison75.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/trigger_upkeep_comparison75.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/trigger_upkeep_compounds53.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/trigger_upkeep_compounds53.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/trigger_upkeep_pay_return71.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/trigger_upkeep_pay_return71.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/trigger_words.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/trigger_words.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/triggers.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/triggers.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/turn_grants.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/turn_grants.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/type_statics.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/type_statics.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/unblocked_riders.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/unblocked_riders.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/unearth_costs.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/unearth_costs.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/unless_pays.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/unless_pays.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/untap_attempts45.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/untap_attempts45.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/untap_choice.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/untap_choice.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/untap_riders.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/untap_riders.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/upkeep_control_sequence.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/upkeep_control_sequence.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/upkeep_reveal_consequences.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/upkeep_reveal_consequences.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/upkeep_target_choice65.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/upkeep_target_choice65.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/urge_payment45.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/urge_payment45.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/values.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/values.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/view.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/view.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/villainous.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/villainous.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/voting.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/voting.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/watches.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/watches.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/waterbend_payments.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/waterbend_payments.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/where_bound.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/where_bound.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/win_game.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/win_game.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/x_actions.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/x_actions.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/x_mana_restrictions.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/x_mana_restrictions.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/x_spells.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/x_spells.cpython-312.pyc differ
+Binary files backend/app/rules/__pycache__/zone_grants.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/__pycache__/zone_grants.cpython-312.pyc differ
+Binary files backend/app/rules/cards/__pycache__/__init__.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/cards/__pycache__/__init__.cpython-312.pyc differ
+diff -ruN backend/app/rules/casting.py /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/casting.py
+--- backend/app/rules/casting.py	2026-10-21 23:34:44.619874444 +0000
++++ /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/casting.py	2026-10-21 23:44:46.829526191 +0000
+@@ -3449,9 +3449,11 @@
+             if d.get("static") == "x_cap" and a.x_value > (cap := _cap_values.evaluate(plan, {"controller": plan.actor}, d["n"])):
+                 raise ActionError(f"{ch.name}: X can't be greater than {cap}")
+     kick_x = a.kicker and not a.face_down and (kc := kicker_cost(ch.abilities)) is not None and kc.x  # -- cast keywords (wave 43D) -- 107.3a: "Kicker {X}"
+-    if kick_x and (base.x or a.x_value is None or free):  # ponytail: a spell with another X, or cast free this way, pays a kicker X by hand
+-        raise ActionError(f"Choose a value for X to pay the kicker cost of {ch.name}" if a.x_value is None and not (base.x or free)
++    if kick_x and (base.x or a.x_value is None):  # The additional kicker X is announced even when the mana cost is waived (118.9d).
++        raise ActionError(f"Choose a value for X to pay the kicker cost of {ch.name}" if a.x_value is None and not base.x
+                           else f"{ch.name}: pay its kicker X by hand")
++    if kick_x and kc is not None and (a.x_value or 0) < kc.minimum_x:
++        raise ActionError(f"{ch.name}: kicker X must be at least {kc.minimum_x}")
+     from app.rules import flashback_choices
+
+     if not free and a.alt_cost is None and not a.face_down and not plan.manual(card) and grant is not None and grant.how == "flashback" \
+@@ -4669,7 +4671,7 @@
+             try:
+                 selected_costs: list[bool | None] = []
+                 ways = spell_cost_ways(plan.state, card, ch, info=plan.info, player=plan.actor, free=alt is None,
+-                                       alternative=M.parse_cost(alt) if alt is not None else None, kicker=n, selected_costs=selected_costs)
++                                       alternative=M.parse_cost(alt) if alt is not None else None, kicker=n, x=kick.minimum_x, selected_costs=selected_costs)
+             except ActionError:
+                 break  # (a kicker cost Fyodor can't pay)
+             if not any(can_pay(plan.state, plan.actor, total, plan.info,
+@@ -4733,7 +4735,7 @@
+     if a.x_value is not None or not ((kick is not None and kick.x) or (alt is not None and M.parse_cost(alt).x)):
+         return False
+     options: list[DecisionOption] = []
+-    for n in range(1001):  # every X supported by the cast-intent quantity field
++    for n in range(kick.minimum_x if kick is not None and kick.x else 0, 1001):  # actual selected kicker lower bound
+         x_payments: list[dict[str, Any] | None] = []
+         selected_costs: list[bool | None] = []
+         ways = spell_cost_ways(plan.state, card, ch, x=n, info=plan.info, player=plan.actor, free=alt is None,
+@@ -4745,6 +4747,8 @@
+                            reserve=life_due + (alternative_parts.life if alternative_parts is not None else 0)) for i, (total, life_due) in enumerate(ways)):
+             break
+         options.append(DecisionOption(id=f"x:{n}", label=str(n)))
++    if not options and kick is not None and kick.minimum_x:
++        raise ActionError(f"{ch.name}: you cannot pay its minimum kicker X")
+     if paid:
+         options.append(DecisionOption(id="x:other", label="Another value for X (0–1000)"))
+     decide(plan, player=plan.actor, kind="choose_one", prompt=f"{ch.name or 'This spell'}: choose a value for X (107.3a)",
+@@ -4898,6 +4902,8 @@
+         return
+     if announce_free_x(plan, a, card, ch):  # -- cast keywords (wave 43D) -- 107.3a: "Kicker {X}" kicked on a free cast, a miracle cost with {X}: X is announced with it
+         return
++    if a.kicker and (minimum_kick := kicker_cost(ch.abilities)) is not None and (a.x_value or 0) < minimum_kick.minimum_x:
++        raise ActionError(f"{ch.name}: kicker X must be at least {minimum_kick.minimum_x}")
+     if M.parse_cost(ch.mana_cost).x and (limited := cast_limits.cast_problem(plan.state, plan.actor, card, ch, plan.info, resolving=True, announced=a.x_value or 0)):
+         raise ActionError(limited)  # -- review 38 -- 601.2e, 107.3b: X is 0 unless a miracle cost with {X} announced it
+     definition = None if plan.manual(card) else scripts.spell_definition(ch)
+diff -ruN backend/app/rules/costs.py /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/costs.py
+--- backend/app/rules/costs.py	2026-10-21 22:56:29.211100868 +0000
++++ /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/costs.py	2026-10-21 23:40:00.160670782 +0000
+@@ -747,8 +747,21 @@
+     return (m["mana"], rest) if found is not None and found.mana == m["mana"] and found.cost.components else None
+
+
++def positive_kicker_x(line: str) -> str | None:
++    """An actual keyword's explicit lower bound on its single announced kicker X."""
++    suffix = ". X can't be 0"
++    text = line.strip().rstrip(".")
++    if not text.endswith(suffix):
++        return None
++    match = _KICKER.fullmatch(text[:-len(suffix)])
++    return match["cost"] if match is not None and match["cost"].upper().count("{X}") == 1 and not any(
++        match[k] for k in ("multi", "many", "once", "entwine")) and _MANA_ONLY.match(match["cost"]) else None
++
++
+ def kicker_line(line: str) -> bool:
+     """Is this keyword line a kicker the engine pays ("Kicker {2}{R}", "Multikicker {1}")?"""
++    if positive_kicker_x(line) is not None:
++        return True
+     if _entwine_extra(line) is not None or kicker_extra_parts(line) is not None or kicker_mixed_parts(line) is not None:
+         return True
+     if (two := _KICKER2.fullmatch(line.strip().rstrip("."))) is not None:  # (-- keywords (wave 50H) -- both mana only, no {X})
+@@ -767,6 +780,7 @@
+     extra: str = ""  # (an entwine cost that isn't mana: "sacrifice two lands", paid with the additional costs)
+     text: str = ""  # -- free-cast optional costs (wave 41D) -- the keyword line ("Kicker {R}", "Squad {2}"): the label of the question
+     second: str = ""  # -- keywords (wave 50H) -- 702.33b: "Kicker {A} and/or {B}": B, the second kicker cost. Then the cast's ``kicker`` is a mask (1: A, 2: B, 3: both)
++    minimum_x: int = 0  # Only the actual selected keyword may constrain its announced X.
+
+     def paid(self, times: int) -> int:
+         """-- keywords (wave 50H) -- how many kicker costs the cast's ``kicker`` pays (702.33d): the bits of the mask of two costs, else the count."""
+@@ -786,6 +800,9 @@
+     for ab in abilities:
+         if ab.kind != "keywords" or not ({"kicker", "multikicker", "squad", "replicate", "offspring", "entwine"} & set(ab.keywords)):
+             continue
++        if (positive := positive_kicker_x(ab.text)) is not None:
++            found.append(Kicker(positive, text=ab.text.strip().rstrip("."), minimum_x=1))
++            continue
+         if (extra := _entwine_extra(ab.text)) is not None:
+             found.append(Kicker("", entwine=True, extra=extra))
+             continue
+diff -ruN backend/app/rules/kicked_x_lki_outcomes61.py /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/kicked_x_lki_outcomes61.py
+--- backend/app/rules/kicked_x_lki_outcomes61.py	1970-01-01 00:00:00.000000000 +0000
++++ /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/kicked_x_lki_outcomes61.py	2026-10-21 23:40:00.163585875 +0000
+@@ -0,0 +1,32 @@
++"""Native selected kicker-X targeting and kicked damage read actual object/payment history."""
++from __future__ import annotations
++
++from dataclasses import replace
++from typing import Any
++
++
++def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
++    from app.rules import scripts, selectors
++
++    text = scripts.self_text(ability.text, ch.name)
++    if text != "When ~ enters, if it was kicked, gain control of target artifact with mana value X or less. If that artifact is an Equipment, attach it to ~.":
++        return None
++    native = scripts.define(replace(ability, text="When ~ enters, if it was kicked, gain control of target artifact with mana value X or less."), ch)
++    attach = scripts.parse_effects("Attach target Equipment to ~.")
++    equipment = selectors.parse("Equipment")
++    if native is None or attach is None or equipment is None:
++        return None
++    return {**native, "effects": [{**native["effects"][0], "as": "skydiver61_target"},
++            {"do": "only_if", "cond": {"object": "ref:skydiver61_target", "is": equipment.key()}, "n": 1},
++            {**attach[0][0], "src": "ref:skydiver61_target"}]}
++
++
++def parse(body: str) -> tuple[list[dict[str, Any]], Any, bool] | None:
++    from app.rules import scripts
++
++    if body != "Destroy target nonblack creature. It can't be regenerated. If this spell was kicked, ~ deals damage equal to that creature's power to the creature's controller.":
++        return None
++    native = scripts.parse_effects("Destroy target nonblack creature. It can't be regenerated. ~ deals damage equal to that creature's power to that creature's controller.")
++    if native is None or len(native[0]) != 3:
++        return None
++    return [*native[0][:2], {"do": "kicked_gate", "kicked": True, "n": 1}, native[0][2]], native[1], False
+diff -ruN backend/app/rules/scripts.py /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/scripts.py
+--- backend/app/rules/scripts.py	2026-10-21 23:34:53.763981407 +0000
++++ /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/scripts.py	2026-10-21 23:40:00.166744724 +0000
+@@ -2783,6 +2783,11 @@
+     if (creature_damage := creature_damage_followups.parse(body)) is not None:
+         return creature_damage
+
++    from app.rules import kicked_x_lki_outcomes61
++
++    if (kicked_x_lki := kicked_x_lki_outcomes61.parse(body)) is not None:
++        return kicked_x_lki
++
+     from app.rules import kicked_target_outcomes60
+
+     if (kicked_targets := kicked_target_outcomes60.parse(body)) is not None:
+@@ -6040,6 +6045,11 @@
+     if (kicked_keyword := kicked_spell_outcomes59.definition(ability, ch)) is not None:
+         return kicked_keyword
+
++    from app.rules import kicked_x_lki_outcomes61
++
++    if (kicked_x_entry := kicked_x_lki_outcomes61.definition(ability, ch)) is not None:
++        return kicked_x_entry
++
+     from app.rules import first_target_activation_cost58
+
+     if (first_target_cost := first_target_activation_cost58.definition(ability, ch)) is not None:
+diff -ruN backend/app/rules/triggers.py /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/triggers.py
+--- backend/app/rules/triggers.py	2026-10-21 23:34:53.765316374 +0000
++++ /tmp/fyodor-mana61-kicker-x-lki-stage/app/rules/triggers.py	2026-10-21 23:43:46.039431303 +0000
+@@ -2670,7 +2670,7 @@
+ def put(plan: Plan, t: PendingTrigger, target: str | None = None, picks: dict[str, Any] | None = None) -> bool:
+     """Put one trigger on the stack. False if it waits for its controller's target choice.
+     ``picks``: the choices so far for an ability with target groups (603.3d → 601.2c-d)."""
+-    x = event_x(plan, t)  # -- X from the triggering object (wave 34C) -- its targets are chosen knowing that X: "with mana value X" (601.2c)
++    x = cast_x(plan, t)  # Own entry triggers also use their exact original payment X (107.3m); cast/cycle events delegate unchanged.
+     if x is None:
+         return _put(plan, t, target, picks)
+     before, plan.x_choice = plan.x_choice, x
+Binary files backend/app/stats/__pycache__/__init__.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/stats/__pycache__/__init__.cpython-312.pyc differ
+Binary files backend/app/stats/__pycache__/repository.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/stats/__pycache__/repository.cpython-312.pyc differ
+Binary files backend/app/storage/__pycache__/__init__.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/storage/__pycache__/__init__.cpython-312.pyc differ
+Binary files backend/app/storage/__pycache__/app_db.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/storage/__pycache__/app_db.cpython-312.pyc differ
+Binary files backend/app/storage/__pycache__/backup.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/storage/__pycache__/backup.cpython-312.pyc differ
+Binary files backend/app/storage/__pycache__/db.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/storage/__pycache__/db.cpython-312.pyc differ
+Binary files backend/app/storage/__pycache__/journal.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/storage/__pycache__/journal.cpython-312.pyc differ
+Binary files backend/app/storage/__pycache__/macros.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/storage/__pycache__/macros.cpython-312.pyc differ
+Binary files backend/app/storage/__pycache__/package.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/storage/__pycache__/package.cpython-312.pyc differ
+Binary files backend/app/storage/__pycache__/save_format.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/storage/__pycache__/save_format.cpython-312.pyc differ
+Binary files backend/app/storage/__pycache__/saves.cpython-312.pyc and /tmp/fyodor-mana61-kicker-x-lki-stage/app/storage/__pycache__/saves.cpython-312.pyc differ

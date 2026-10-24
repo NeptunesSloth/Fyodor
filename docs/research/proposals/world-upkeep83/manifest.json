@@ -1,0 +1,37 @@
+{
+  "status": "CLOSED_FOR_ROOT_REVIEW; not live; World foundation prerequisite",
+  "names": [
+    "The Abyss",
+    "Pillar Tombs of Aku"
+  ],
+  "expected_promotions": 2,
+  "native": {
+    "own_cases": 13,
+    "shared_abyss_magus_cases": 25,
+    "genuine_cold": 4,
+    "notes": "Own13 includes2 Pillar fresh processes; shared25 includes2 Magus/Abyss fresh processes, one is prior Magus regression; no overlapping native functions.",
+    "new_card_genuine_cold": 3
+  },
+  "types": "3 source files PASS",
+  "ruff": "3 source/test files PASS after import-only formatting",
+  "stage": "/tmp/world-upkeep83-stage/backend",
+  "owned_patch": "review.patch",
+  "patch_sha256": "a453b6baa5170acc9061c1a0069fd11b0aab9f0b73454e93725b85d56b293810",
+  "base_hashes": "base-hashes.json",
+  "source_hashes": "source-hashes.json",
+  "tests": {
+    "own": "backend/tests/test_rules_world_upkeep83.py",
+    "existing_modified": "backend/tests/test_rules_upkeep_target_choice65.py",
+    "fixture": "backend/tests/fixtures/world_upkeep83_cards.json"
+  },
+  "prerequisite": "World duration/SBA foundation: ../world-rule80/owned-world-only.patch",
+  "boundaries": [
+    "The Abyss uses existing exact native upkeep target-choice adapter; removes deliberate World guard only after real World rule exists.",
+    "Target chooser remains affected player; ability controller owns targeting legality (opponent hexproof/protection excluded); nonartifact filter, indestructible and no-regeneration semantics pass.",
+    "Native source departure, new target incarnation, original bound upkeep player and native current source control are covered in shared25.",
+    "The Abyss actual black-mana cast then actual newer World replacement.",
+    "Pillar actual cast, sacrifice payment/decline/no-creature, native indestructible sacrifice and Rest in Peace public exile paid, actual Sigarda cost prohibition.",
+    "Pillar original controller cannot sacrifice changed-control source; actual Opalescence+Cloudshift new source incarnation survives old unpaid trigger.",
+    "Pillar true cold payer/material choice and decline; current life/source consequences persist."
+  ]
+}

@@ -258,6 +258,11 @@ def note_search(plan: Plan, searcher: str, owner: str) -> None:
     from app.game.rules_state import emit
 
     if searcher == owner:
+        from app.game.rules_state import turn_log_now
+
+        log = turn_log_now(plan.state)
+        if log is not None and searcher not in log.searched_own_library75:
+            log.searched_own_library75.append(searcher)
         emit(plan.state, "designation", counter="search_library", player=searcher)
 
 

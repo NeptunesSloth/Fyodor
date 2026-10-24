@@ -1,0 +1,37 @@
+{
+  "id": "cec89c38-0b72-44b0-ac6c-7eb9503e1256",
+  "oracle_id": "3f8e7a45-4c6e-4ee6-93d0-b7de9715ec97",
+  "name": "Lim-D\u00fbl's Vault",
+  "layout": "normal",
+  "set_code": "c13",
+  "set_name": "Commander 2013",
+  "collector_number": "197",
+  "rarity": "uncommon",
+  "mana_cost": "{U}{B}",
+  "cmc": 2.0,
+  "type_line": "Instant",
+  "oracle_text": "Look at the top five cards of your library. As many times as you choose, you may pay 1 life, put those cards on the bottom of your library in any order, then look at the top five cards of your library. Then shuffle and put the last cards you looked at this way on top in any order.",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "defense": null,
+  "colors": [
+    "B",
+    "U"
+  ],
+  "color_identity": [
+    "B",
+    "U"
+  ],
+  "keywords": [],
+  "is_token": false,
+  "faces": [],
+  "double_faced": false,
+  "image_faces": 1,
+  "has_image": false,
+  "released_at": "2013-11-01",
+  "artist": "Wayne England",
+  "commander_legal": "legal",
+  "related_tokens": [],
+  "related_cards": []
+}

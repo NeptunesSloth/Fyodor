@@ -100,6 +100,9 @@ def entry_plan(plan: Plan, card: CardInstance, controller: str, **kw: Any) -> di
 
     if (answer := (kw.get("answers") or {}).get(copiable_coin_entry.WHAT)) is not None:
         copiable_coin_entry.ensure_form(plan, card, controller, answer)
+    from app.rules import chosen_forms95
+
+    chosen_forms95.ensure(plan, card, controller, kw.get("answers") or {})
     card = entry_characteristics.probe(card, kw.pop("entry_characteristics", None))
     out = _entry_plan(plan, card, controller, **kw)
     from app.rules import numeric_entry_roll42
@@ -483,6 +486,9 @@ def choice_needed(plan: Plan, card: CardInstance, entry: Entry) -> dict[str, Any
     """The choice a permanent's own "As ~ enters, you may …" asks for before it enters (614.12a)."""
     if not plan.state.players.get(entry["player"]):
         return None
+    from app.rules import face_down_entries64
+
+    card = face_down_entries64.probe(plan, card, entry)
     if entry.get("modal_back"):  # -- play now (wave 28A) -- 712.12: the land face chosen enters face up, so its replacements apply
         card = card.model_copy(update={"face": 1})
     return entry_plan(plan, card, entry["player"], pay_life=entry.get("pay_life"), tapped=bool(entry.get("tapped")),
@@ -532,6 +538,10 @@ def choice_prompt(plan: Plan, card: CardInstance, controller: str, choice: dict[
     from app.rules.effects import _choice_options
 
     what = choice["what"]
+    from app.rules import chosen_forms95
+
+    if what.startswith(chosen_forms95.PREFIX):
+        return f"{card.name}: choose its form", [DecisionOption(id=o, label=o) for o in choice["options"]]
     if (named := card_names.prompt(plan, card, controller, choice)) is not None:  # -- card names (wave 22B) -- look at a hand, then name
         return named
     from app.rules import battles, reveal_lands
@@ -748,6 +758,9 @@ def move_together(plan: Plan, entries: list[Entry], *, simultaneous: dict[str, A
         card = plan.state.cards.get(entry["card"])
         if card is None or any(card.id == c.id for _, c, _ in planned):
             continue
+        from app.rules import face_down_entries64
+
+        card = face_down_entries64.probe(plan, card, entry)
         # (-- transform, wave 11A -- 712.14a: it enters with its back face up, so that face's replacement effects apply)
         planned.append((entry, card, entry_plan(plan, card.model_copy(update={"face": 1}) if entry.get("transformed") or entry.get("modal_back") else card,
                                                  entry["player"], pay_life=entry.get("pay_life"),
@@ -812,6 +825,9 @@ def move_together(plan: Plan, entries: list[Entry], *, simultaneous: dict[str, A
     first = planned[0][0]
     payload: dict[str, Any] = {"type": "move", "card_ids": [c.id for _, c, _ in planned],
                                "to": {"player": first["player"], "zone": "battlefield"}}
+    from app.rules import face_down_entries64
+
+    face_down_entries64.payload([entry for entry, _, _ in planned], payload)
     forms = {c.id: e["entry_characteristics"] for e, c, _ in planned if e.get("entry_characteristics")}
     if forms:
         payload["entry_characteristics"] = forms
@@ -951,6 +967,11 @@ def after_entry(plan: Plan, card_id: str, controller: str, *, x: int | None = No
         from app.rules.effects import CHOICE_LABELS
 
         for what, value in choices.items():
+            from app.rules import chosen_forms95
+
+            if value and what.startswith(chosen_forms95.PREFIX):
+                plan.do({"type": "set_choice", "card_id": card_id, "key": "Chosen form", "value": value}, actor=controller)
+                continue
             if value and value in (_chosen.words(what) or ()):  # -- linked words (wave 33B) -- 607.2f: the word, public, kept for this object (400.7)
                 plan.do({"type": "set_choice", "card_id": card_id, "key": _chosen.WORD_LABEL, "value": value}, actor=controller)
                 _chosen.record_word(plan, card_id, value)
@@ -972,6 +993,9 @@ def after_entry(plan: Plan, card_id: str, controller: str, *, x: int | None = No
         from app.rules import chosen_color_pairs45
 
         chosen_color_pairs45.record_entry(plan, card_id, choices)
+        from app.rules import text_global_word71
+
+        text_global_word71.record_entry(plan, card_id, controller, choices)
     # -- replacement effects stage 2 (wave 2E): the counters it enters with, through the counter
     # choke point (122.6, 614.16), in the order its controller chose before it entered (614.12a) --
     from app.rules import (
@@ -1056,7 +1080,9 @@ def token_entering(plan: Plan, controller: str, spec: dict[str, Any]) -> tuple[C
         ch = copying.characteristics(CopyRecipe.model_validate(spec["_copy"]), plan.info)
         t = {"name": ch.name, "power": ch.power, "toughness": ch.toughness, "colors": sorted(ch.colors), "type_line": copying.type_line(ch),
              "text": ch.oracle_text}
-    if "choose" not in (t.get("text") or "").lower():
+    from app.rules import chosen_forms95
+
+    if "choose" not in (t.get("text") or "").lower() and not any(chosen_forms95.form(line.replace("this creature", "~")) for line in (t.get("text") or "").splitlines()):
         from app.rules import copiable_coin_entry, token_copy_entry
 
         if not any(copiable_coin_entry.definition(line.replace("this creature", "~"))
@@ -1110,6 +1136,13 @@ def token_choices(plan: Plan, evs: list[dict[str, Any]], answers: dict[str, str]
                         continue
                     return rows, {"key": key, "player": pid, "prompt": prompt, "options": options, "source": ev.get("source")}
                 row[k] = {**row[k], **(out.get("choices") or {})}
+                from app.rules import chosen_forms95
+
+                for what95, answer95 in row[k].copy().items():
+                    if what95.startswith(chosen_forms95.PREFIX):
+                        spec95 = token_copy_entry.effective(ev, row[k])
+                        recipe95 = CopyRecipe.model_validate(spec95["_copy"])
+                        row[k][token_copy_entry.COPY] = chosen_forms95.recipe(plan, recipe95, what95, answer95).model_dump_json()
                 from app.rules import copiable_coin_entry
 
                 if (answer := row[k].get(copiable_coin_entry.WHAT)) in ("heads", "tails"):

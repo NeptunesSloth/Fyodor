@@ -1,0 +1,62 @@
+{
+  "cards": [
+    "Nashi, Searcher in the Dark",
+    "Greenhouse // Rickety Gazebo"
+  ],
+  "status": "CLOSED_ISOLATED_ROOT_REVIEW",
+  "production_promotions": 0,
+  "stage": "/tmp/public-mill-picks65/backend",
+  "native_closed": [
+    {
+      "passed": 11,
+      "log": "native11.log"
+    },
+    {
+      "passed": 4,
+      "genuine_cold": 2,
+      "log": "commander4.log"
+    },
+    {
+      "passed": 1,
+      "log": "batch1.log"
+    }
+  ],
+  "related": {
+    "passed": 41,
+    "skipped": 8,
+    "files": [
+      "tests/test_rules_wave18g_rooms.py",
+      "tests/test_rules_review18g_rooms.py",
+      "tests/test_rules_post_mill_continuations60.py"
+    ],
+    "command": ".venv/bin/pytest -q tests/test_rules_wave18g_rooms.py tests/test_rules_review18g_rooms.py tests/test_rules_post_mill_continuations60.py -k 'not every_card and not coverage'",
+    "log": "related41.log"
+  },
+  "mypy": {
+    "files": 3,
+    "result": "PASS",
+    "log": "types3.log"
+  },
+  "ruff": {
+    "files": 4,
+    "result": "PASS",
+    "log": "ruff4.log"
+  },
+  "patch": {
+    "path": "review.patch",
+    "lines": 121,
+    "source_files": 3,
+    "sha256": "1d1b007618ddf6e9a2135a2913fdca008f6bdd54d57a393f29b067f1b7b9ba94"
+  },
+  "notes": [
+    "Only two exact Oracle bodies implemented; Barrowgoyf/Tetzin canonical and rulings retained as reserved research, no support claimed.",
+    "Current-root script/effects hook preservation in durable patch; root owns integrated gates after final18 closes.",
+    "Initial obsolete plain-mana harness assertion corrected to provenance-aware mana_pool; final matching18 all PASS on unchanged production source."
+  ],
+  "native": {
+    "passed": 18,
+    "genuine_cold": 2,
+    "log": "native18.log",
+    "scope": "Whole two definitions; Room unlock/RIP0/1/2; Nashi native combat0/1/2; actual commander903 hand vscommand warm/cold; actual two-creature Desecrated Tomb single batch; casts both Room doors and front Forest blue mana; repeated unlock rejection"
+  }
+}

@@ -48,7 +48,7 @@ def _reserved(cost: AbilityCost, comp: CostComponent, source: CardInstance) -> s
     """Objects a part can't use because another part of the same cost already does: the source
     when it's tapped ({T}) or leaves (sacrificed / exiled / returned) as part of the cost.
     CR 601.2h: counters may be removed from that source before paying its leave cost."""
-    leaves = cost.sacrifice_self or any(c.selector is None and c.kind in (C.EXILE, C.RETURN_PERMANENT, C.EXILE_FROM_GRAVEYARD)
+    leaves = cost.sacrifice_self or any((c.selector is None or c.source_with_choices) and c.kind in (C.EXILE, C.RETURN_PERMANENT, C.EXILE_FROM_GRAVEYARD)
                                         for c in cost.components)
     if (leaves and comp.kind != C.REMOVE_COUNTER) or (comp.kind in (C.TAP_OTHER, C.UNTAP_OTHER, C.WATERBEND) and (cost.tap or cost.untap)):
         return {source.id}
@@ -275,6 +275,8 @@ def _attached_host(plan: Plan, card: CardInstance) -> bool:
 def _new_part_problem(plan: Plan, comp: CostComponent, card: CardInstance, player: str, x: int | None) -> str | None:
     """118.3 for the parts this wave reads that name no chosen objects (None: payable, or not one of them)."""
     name = card.name or "It"
+    if comp.source_with_choices and (comp.kind != C.EXILE_FROM_GRAVEYARD or card.zone != f'{player}:graveyard'):
+        return 'The required source is not in your graveyard'
     if comp.kind == C.UNATTACH and comp.selector is None and not _attached_host(plan, card):
         return f"{name} isn't attached to a legal host"
     if comp.kind == C.REMOVE_COUNTER and comp.selector is None and (comp.x or comp.counter == C.ANY_COUNTER):
@@ -444,7 +446,7 @@ def required_all(plan: Plan, comp: CostComponent, player: str, source: CardInsta
             and plan.in_game(plan.state.cards[cid])]
 
 
-def choose(plan: Plan, a: A.ActivateAbility | A.CastSpell | A.TurnFaceUp | A.DeclareAttackers | A.DeclareBlockers, cost: AbilityCost, card: CardInstance, what: str, *, compatible_tap: bool = False, component_excluded: dict[int, set[str]] | None = None) -> dict[int, list[str]] | None:
+def choose(plan: Plan, a: A.ActivateAbility | A.CastSpell | A.TurnFaceUp | A.DeclareAttackers | A.DeclareBlockers, cost: AbilityCost, card: CardInstance, what: str, *, compatible_tap: bool = False, counter_first: bool = False, component_excluded: dict[int, set[str]] | None = None) -> dict[int, list[str]] | None:
     """The validated objects for every part of ``cost`` that needs a choice, by component index;
     None while waiting for the payer's (private) choice. Each object pays for one part only."""
     given: dict[int, list[str]] = {}
@@ -454,13 +456,20 @@ def choose(plan: Plan, a: A.ActivateAbility | A.CastSpell | A.TurnFaceUp | A.Dec
         if c.component in given:
             raise ActionError("Choose the objects for each part of the cost once")
         given[c.component] = list(c.cards)
+    from app.rules import counter_cost_order70
+
+    counter_index = counter_cost_order70.index(cost) if counter_first else None
     parts = dict(cost.choices)
     if set(given) - set(parts):
         raise ActionError("That ability's cost has no such part to choose for")
     out: dict[int, list[str]] = {}
     used: set[str] = set()
     x = getattr(a, "x_value", None)  # (wave 4H: "Sacrifice X Treasures" — X announced as it's activated, 107.3a)
-    for i, comp in cost.choices:
+    ordered = sorted(cost.choices, key=lambda item: item[0] != counter_index) if counter_index is not None else cost.choices
+    for i, comp in ordered:
+        part_used = used
+        if counter_index is not None and comp.kind == C.REMOVE_COUNTER:
+            part_used = {resource for j, resources in out.items() for resource in resources}
         if comp.kind == C.OPPONENT_GAIN_LIFE:
             from app.rules import opponent_gain_costs44
 
@@ -468,6 +477,8 @@ def choose(plan: Plan, a: A.ActivateAbility | A.CastSpell | A.TurnFaceUp | A.Dec
                 raise ActionError('That opponent-gain cost is not supported for this action')
             gained = opponent_gain_costs44.choose(plan, a, i, comp, card, given.get(i), what)
             if gained is None:
+                if counter_index is not None:
+                    counter_cost_order70.retain_choice72(plan, cost, out)
                 return None
             out[i] = gained
             continue
@@ -478,18 +489,26 @@ def choose(plan: Plan, a: A.ActivateAbility | A.CastSpell | A.TurnFaceUp | A.Dec
         elif comp.kind == C.CRAFT:  # -- casting extras (wave 18E) -- the materials: one choice of at least ``amount`` objects
             found = _choose_craft(plan, a, i, comp, cost, card, what, given.get(i), used)
         elif comp.anyn:  # -- cost reductions paid with objects (wave 47C) -- any number, none too
-            found = _choose_any(plan, a, i, comp, cost, card, what, given.get(i), used)
+            found = _choose_any(plan, a, i, comp, cost, card, what, given.get(i), part_used)
         if comp.kind in (C.WATERBEND, "TAP_POWER", C.CRAFT) or comp.anyn:
             if found is None:
+                if counter_index is not None:
+                    counter_cost_order70.retain_choice72(plan, cost, out)
                 return None
             out[i] = found
+            if counter_index is not None and comp.kind == C.REMOVE_COUNTER:
+                used |= set(found) | {token.rsplit(":", 2)[0] for token in found}
             continue
         if comp.counter == C.ANY_COUNTER or comp.among or comp.kind in (C.COLLECT_EVIDENCE, C.FORAGE):  # -- activation costs (wave 4H) --
             chooser = _choose_counters if comp.counter == C.ANY_COUNTER or comp.among else _choose_flexible
-            found = chooser(plan, a, i, comp, cost, card, what, given.get(i), used)
+            found = chooser(plan, a, i, comp, cost, card, what, given.get(i), part_used)
             if found is None:
+                if counter_index is not None:
+                    counter_cost_order70.retain_choice72(plan, cost, out)
                 return None
             out[i] = found
+            if counter_index is not None and comp.kind == C.REMOVE_COUNTER:
+                used |= set(found) | {token.rsplit(":", 2)[0] for token in found}
             continue
         need = objects_needed(comp, x)
         blocked = used
@@ -497,10 +516,18 @@ def choose(plan: Plan, a: A.ActivateAbility | A.CastSpell | A.TurnFaceUp | A.Dec
             blocked = {cid for j, ids in out.items() for cid in ids
                        if not ({comp.kind, parts[j].kind} & {C.TAP_OTHER} and
                                {comp.kind, parts[j].kind} & {C.SACRIFICE, C.RETURN_PERMANENT})}
-        usable = [c for c in candidates(plan, comp, plan.actor, card) if c not in _reserved(cost, comp, card)
+        candidate_plan = plan
+        if counter_index is not None and counter_cost_order70.fixed_sacrifice(comp):
+            # Counter tokens and a sacrifice consume different resources. Other objects
+            # remain reserved; a holder cannot satisfy two sacrifice components.
+            candidate_plan = counter_cost_order70.preview(plan, cost, out)
+            removed_holders = {token.rsplit(':', 2)[0] for token in out[counter_index]}
+            other_claims = {cid for j, ids in out.items() if j != counter_index for cid in ids}
+            blocked = (used - removed_holders) | other_claims
+        usable = [c for c in candidates(candidate_plan, comp, plan.actor, card) if c not in _reserved(cost, comp, card)
                   and c not in blocked and c not in (component_excluded or {}).get(i, set())]
         if comp.all_objects:
-            required = required_all(plan, comp, plan.actor, card)
+            required = required_all(candidate_plan, comp, plan.actor, card)
             if set(required) - set(usable):
                 raise ActionError(f"You can't pay “{comp.text}”")
             need = len(required)
@@ -517,6 +544,8 @@ def choose(plan: Plan, a: A.ActivateAbility | A.CastSpell | A.TurnFaceUp | A.Dec
         elif len(usable) == need and not comp.up_to and not withheld(plan, comp, plan.actor, card):  # (review 28D: something left out: asked, with the note)
             chosen = usable  # (no choice to make)
         else:
+            from app.rules import source_named_cost69
+
             verb = _VERBS.get(comp.kind, "use")
             decide(plan, player=plan.actor, kind="choose_cards",
                    prompt=f"{what}: choose {'up to ' if comp.up_to else ''}{need} to {verb} (“{comp.text}”), or "
@@ -524,10 +553,13 @@ def choose(plan: Plan, a: A.ActivateAbility | A.CastSpell | A.TurnFaceUp | A.Dec
                    options=[DecisionOption(id=c, label=plan.state.cards[c].name or "Card", card_id=c) for c in usable],
                    min_choices=0, max_choices=need,
                    resume={"step": "ability_cost", "component": i, "amount": None if comp.up_to else need, "empty_ok": comp.up_to,
-                           "intent": a.model_dump(mode="json", exclude={"r", "actor", "ts"})},
+                           "intent": a.model_dump(mode="json", exclude={"r", "actor", "ts"}),
+                           **(source_named_cost69.retain(plan, card, usable) if comp.source_with_choices else {})},
                    source=card)
+            if counter_index is not None:
+                counter_cost_order70.retain_choice72(plan, cost, out)
             return None
-        if not _names_fit(plan, comp, list(chosen)):
+        if not _names_fit(candidate_plan, comp, list(chosen)):
             raise ActionError(f"Choose objects satisfying “{comp.text}”")  # 601.2h: no partial payments
         out[i] = list(chosen)
         used |= set(chosen)
@@ -567,7 +599,7 @@ def _choose_any(plan: Plan, a: A.ActivateAbility | A.CastSpell | A.TurnFaceUp | 
     shown = {c: (c, plan.state.cards[c].name or "Card") for c in usable}
     if comp.among:  # (counters: each one is a pick, 122.1 — "Remove any number of +1/+1 counters from among creatures you control")
         shown = {t: (cid, f"{kind} counter on {plan.state.cards[cid].name or 'it'}") for t, (cid, kind) in counter_tokens(plan, usable).items()
-                 if comp.counter in (C.ANY_COUNTER, kind)}
+                 if comp.counter in (C.ANY_COUNTER, kind) and t not in used}
         usable = list(shown)
     if given is not None:
         if len(set(given)) != len(given) or any(c not in usable for c in given) or (comp.more and len(given) < comp.amount):
@@ -656,7 +688,7 @@ def _choose_counters(plan: Plan, a: A.ActivateAbility | A.CastSpell | A.TurnFace
     the payer's own decision. Nothing moves until the whole cost is paid (601.2h)."""
     holders = [card.id] if comp.selector is None else [
         c for c in candidates(plan, comp, plan.actor, card) if c not in _reserved(cost, comp, card) and c not in used]
-    tokens = counter_tokens(plan, holders)
+    tokens = {token: pair for token, pair in counter_tokens(plan, holders).items() if token not in used}
     need = max(0, getattr(a, "x_value", None) or 0) if comp.x else comp.amount
     if comp.among:  # -- activated sweep (wave 26C) -- "from among creatures you control": each counter of that kind on any of them (122.1)
         need = max(0, getattr(a, "x_value", None) or 0) if comp.x else comp.amount
@@ -717,8 +749,19 @@ def resume_choice(plan: Plan, d: Any, chosen: list[str]) -> None:
             current = plan.state.cards.get(cid)
             if ref is None or current is None or plan.oid(current) != ref.object_id or current.zone != ref.zone:
                 raise ActionError('The selected counter holder is no longer the original object')
+    from app.rules import source_named_cost69
+
+    if source_named_cost69.requires_receipt(plan, d.resume):
+        source_named_cost69.guard(plan, d.resume, chosen)
+    saved_counter72 = d.resume.get("counter_choice72")
+    if saved_counter72 is not None:
+        from app.rules import counter_cost_order70
+
+        counter_cost_order70.guard_original(plan, [ObjectRef.model_validate(ref) for ref in saved_counter72["originals"]] if saved_counter72.get("originals") is not None else None)
     intent = A.parse_action(d.resume["intent"])
     assert isinstance(intent, A.ActivateAbility | A.CastSpell | A.TurnFaceUp | A.DeclareAttackers | A.DeclareBlockers)
+    if saved_counter72 is not None and not any(c.component == saved_counter72["component"] for c in intent.cost_choices):
+        intent.cost_choices.append(A.CostChoice(component=saved_counter72["component"], cards=saved_counter72["tokens"]))
     intent.cost_choices = [*intent.cost_choices, A.CostChoice(component=d.resume["component"], cards=chosen)]
     plan.rules.passed = []
     if isinstance(intent, A.DeclareAttackers | A.DeclareBlockers):
@@ -742,6 +785,14 @@ def pay(plan: Plan, cost: AbilityCost, card: CardInstance, chosen: dict[int, lis
     """Carry out the non-mana parts other than {T}, loyalty, life and the source's own counters
     (the caller pays those as before), recording what was used (the payment record)."""
     player = plan.actor
+    # Individual counters are named before any component removes them. Later
+    # components must use that original mapping rather than renumbered tokens.
+    picked_tokens72 = [token for i, part in enumerate(cost.components)
+                       if part.kind == C.REMOVE_COUNTER and (part.counter == C.ANY_COUNTER or part.among)
+                       for token in chosen.get(i, [])]
+    counter_map72 = counter_tokens(plan, list(dict.fromkeys(token.rsplit(":", 2)[0] for token in picked_tokens72)))
+    if len(set(picked_tokens72)) != len(picked_tokens72) or any(token not in counter_map72 for token in picked_tokens72):
+        raise ActionError("Each selected original counter can pay only once")
     sacrifice: list[str] = [card.id] if cost.sacrifice_self else []
     library_parts: list[CostComponent] = []  # (wave 4H) 601.2h: moving cards out of the library is paid last
     for i, comp in enumerate(cost.components):
@@ -750,7 +801,7 @@ def pay(plan: Plan, cost: AbilityCost, card: CardInstance, chosen: dict[int, lis
             library_parts.append(comp)
         elif comp.kind == C.FORAGE and ids and plan.state.cards[ids[0]].zone.endswith(":battlefield"):
             sacrifice += ids  # (wave 4H) 701.61a: the Food, sacrificed with the cost's other sacrifices
-        elif _pay_new_part(plan, comp, card, ids, record):  # -- activation costs (wave 4H) --
+        elif _pay_new_part(plan, comp, card, ids, record, counter_map72):  # -- activation costs (wave 4H) --
             continue
         elif comp.kind == 'REVEAL_HAND':
             shown = list(plan.state.zones.get(zone_key(player, 'hand'), []))
@@ -773,6 +824,10 @@ def pay(plan: Plan, cost: AbilityCost, card: CardInstance, chosen: dict[int, lis
         elif comp.kind in ("REVEAL_FROM_HAND", C.BEHOLD):  # -- static_other sweep (wave 17C) -- revealed to everyone (701.20a); a beheld permanent just is
             shown = [c for c in ids if plan.state.cards[c].zone.endswith(":hand")]
             if shown:
+                if comp.kind == 'REVEAL_FROM_HAND' and comp.x:
+                    from app.rules import mana_named_land_profiles
+
+                    mana_named_land_profiles.register_reveal(plan, record.card, shown)
                 plan.do({"type": "reveal", "card_ids": shown}, actor=player)
                 record.revealed += shown
                 from app.rules import payment_card_facts
@@ -838,6 +893,10 @@ def pay(plan: Plan, cost: AbilityCost, card: CardInstance, chosen: dict[int, lis
                     plan.do({'type': 'reveal', 'card_ids': shown}, actor=player)
                     record.revealed += shown
             ids = ids if comp.selector is not None or comp.kind == C.CRAFT else [card.id]
+            if comp.source_with_choices:
+                from app.rules import source_named_cost69
+
+                ids = source_named_cost69.payment(plan, comp, card, ids)
             from app.rules import payment_card_facts
 
             stack_exile = comp.kind == C.EXILE and comp.selector is not None and "stack" in selectors.from_key(comp.selector).zones
@@ -959,16 +1018,18 @@ def _choose_flexible(plan: Plan, a: A.ActivateAbility | A.CastSpell | A.TurnFace
     return chosen
 
 
-def _pay_new_part(plan: Plan, comp: CostComponent, card: CardInstance, ids: list[str], record: PaymentRecord) -> bool:
+def _pay_new_part(plan: Plan, comp: CostComponent, card: CardInstance, ids: list[str], record: PaymentRecord, counter_map72: dict[str, tuple[str, str]] | None = None) -> bool:
     """-- activation costs (wave 4H) -- pay one of this wave's parts (True), or leave it to :func:`pay` (False)."""
     player = plan.actor
     x = record.x or 0
     if comp.kind == C.OPPONENT_GAIN_LIFE:
-        if len(ids) != 1 or not any(r.recipient == ids[0] and r.nominal_amount == comp.amount for r in record.opponent_gain_costs):
+        if ((comp.gain_scope != 'each_other_player' and len(ids) != 1)
+                or len(ids) != len(set(ids))
+                or any(not any(r.recipient == pid and r.nominal_amount == comp.amount for r in record.opponent_gain_costs) for pid in ids)):
             raise ActionError('The opponent-gain cost has not been paid')
         return True
     if comp.kind == C.REMOVE_COUNTER and (comp.counter == C.ANY_COUNTER or comp.among):  # (among: wave 26C)
-        tokens = counter_tokens(plan, list(dict.fromkeys(t.rsplit(":", 2)[0] for t in ids)))
+        tokens = counter_map72 if counter_map72 is not None else counter_tokens(plan, list(dict.fromkeys(t.rsplit(":", 2)[0] for t in ids)))
         removed: dict[tuple[str, str], int] = {}
         for t in ids:
             removed[tokens[t]] = removed.get(tokens[t], 0) + 1

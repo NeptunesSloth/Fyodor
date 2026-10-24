@@ -1,0 +1,38 @@
+{
+  "status": "CLOSED_EXACT2_NATIVE_LITERAL_ABILITY",
+  "names": [
+    "Advanced Reconstruction",
+    "Case of the Uneaten Feast"
+  ],
+  "patch": "review.patch",
+  "patch_sha256": "3d4e1a36c8ccde033252a6866a325cd940119ed2d858e3e96a8ab402c4232123",
+  "stage": "/workspace/scratch/casting80-recovery",
+  "test": "native_tests.py -> backend/tests/test_rules_graveyard_windows80.py",
+  "fixture": "cards.json -> backend/tests/fixtures/graveyard_windows80_cards.json",
+  "native": {
+    "consolidated_passed": 15,
+    "genuine_cold": 2,
+    "log": "native-final15.log"
+  },
+  "related": {
+    "passed": 28,
+    "scope": "full graveyard_cost_grants57 + required_mutate75",
+    "log": "quality-related-recovered.log",
+    "broad_original149": {
+      "passed": 149,
+      "scope": "full case_solve_watchers, wave16a_class, wave30m_durations, random_choice_receipts41",
+      "log": "quality-related149.log"
+    },
+    "total_final_distinct_passed": 177
+  },
+  "mypy": "PASS4 quality-types4.log",
+  "ruff": "PASS5 quality-ruff5.log",
+  "authority": "Complete official rulings2. Advanced retains native mill/random/exile/ObjectRef play grant. Case grants actual quoted ability to finite current graveyard creature objects through native layer6/end_of_turn, read as derived graveyard self-permissions; supports current MDFC back cast. Jailer remains unrelated PARTIAL, no automation claim.",
+  "source_hashes": "quality-source-hashes.json",
+  "quality": {
+    "before": "gravewindows80-native-ability-before1.log",
+    "finding": "Old external Permission adapter lacked the literal quoted ability. Native outside-zone layer6 replacement is now verified; Jailer remains unrelated PARTIAL."
+  },
+  "source_files": 4,
+  "rejected_adapter": "rejected-permission-adapter.patch retained separately, never install"
+}

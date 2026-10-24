@@ -1,0 +1,10 @@
+{
+  "backend/app/game/engine.py": "852f4e48cd854d942fa32cd78f501de5ac6a0d48bc4a00f9bc84fe99522b07e3",
+  "backend/app/game/rules_state.py": "8ead991e62e1f2be1949b0c1a81ac176a77cf8322108405a5719da0ab87acd3e",
+  "backend/app/rules/combat.py": "d242129766375c28940783bf14bf5bad383004429e33e6a2c3e56851a83fe536",
+  "backend/app/rules/delayed.py": "180780166b86925a79777e356916ddd0bcc645988ee26022da099b78e68da2d4",
+  "backend/app/rules/layers.py": "f0a0a6d0a16b4faa044eeda23a5041976b8ae8a38d17efeb2f12f322c67d2143",
+  "backend/app/rules/plan.py": "10f9ce751000de4ba54f4b5f9b22db46601b901f32653f4d4a3ff13a21c86bfa",
+  "backend/app/rules/sba.py": "0184b017f2d130be2f3a18ede51a1155cb6644931ae62b62660dac11608938b2",
+  "backend/app/rules/world_durations80.py": "57f27fd047834de605da4884cefe19ccd90272cdbdf55d1b4cc75ca44d6a6264"
+}

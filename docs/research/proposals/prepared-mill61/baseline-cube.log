@@ -1,0 +1,25 @@
+F
+=================================== FAILURES ===================================
+____ test_doubling_cube_doubles_each_type_of_unspent_mana_left_after_paying ____
+
+cards = <app.cards.repository.CardRepository object at 0x7f81fd073fe0>
+
+    def test_doubling_cube_doubles_each_type_of_unspent_mana_left_after_paying(cards):
+        s = build(cards, ["Doubling Cube"])
+        cube = put(s, "Doubling Cube")
+        mana(s, "p1", R=4, G=2)  # {3} of it pays for the ability: R=3 and G=0 are left... the payer takes what it likes, so only the total is checked
+        activate(s, "p1", cube)
+        settle(s)
+        pool = s.state.players["p1"].mana
+>       assert sum(pool.values()) == 6  # 6 - 3 paid = 3 left, doubled
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AssertionError: assert 3 == 6
+E        +  where 3 = sum(dict_values([1, 2]))
+E        +    where dict_values([1, 2]) = <built-in method values of dict object at 0x7f81fedc0500>()
+E        +      where <built-in method values of dict object at 0x7f81fedc0500> = {'R': 1, 'G': 2}.values
+
+backend/tests/test_rules_wave52d_activated.py:296: AssertionError
+=========================== short test summary info ============================
+FAILED backend/tests/test_rules_wave52d_activated.py::test_doubling_cube_doubles_each_type_of_unspent_mana_left_after_paying
+!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!
+1 failed in 1.43s

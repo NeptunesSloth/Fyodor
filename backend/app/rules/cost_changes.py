@@ -47,6 +47,8 @@ _REST = re.compile(r"^(?:(?P<each> for each (?P<what>.+))|(?P<if> if (?P<cond>.+
 
 def _value(phrase: str) -> values.Value | None:
     """A quantity a cost change reads: "the total power of creatures you control", "~'s power"."""
+    if phrase.strip() == "equipped creature's power":
+        return {"power": "host"}
     m = _SELF_STAT.fullmatch(phrase.strip())
     if m:
         return {m["stat"]: "self"}
@@ -181,9 +183,21 @@ def ability_change(text: str) -> Change | None:
     _, sentence = split_ability(body)
     if sentence is None:
         return {}
+    from app.rules import target_cost_conditions62
+
+    if (target_change := target_cost_conditions62.own_change(sentence)) is not None:
+        return target_change
+    from app.rules import colored_activation_costs83
+
+    if sentence.strip() in (colored_activation_costs83.KAMI, colored_activation_costs83.DRONE):
+        return {"dir": -1, "n": 0}  # Native permissions.ability_mana applies both generic and colored reductions.
     m = ABILITY_SENTENCE.fullmatch(sentence.strip())
     if m is None or m["n"] in "WUBRG":
         return None  # (a colored change to an activation cost isn't printed on any card the grammar was checked with)
+    if sentence.strip() == 'This ability costs {X} less to activate, where X is the power of the creature it targets.':
+        if 'Attach ~ to target creature you control.' not in body:
+            return None
+        return {'dir': -1, 'n': 1, 'target_power74': True}
     counter_target = re.fullmatch(r" for each (?P<kind>[+-]\d+/[+-]\d+|[a-z]+) counter on the creature it targets", m["rest"].rstrip("."))
     if counter_target is not None and m["n"].isdigit():
         if "Attach ~ to target creature you control." not in body:
@@ -198,21 +212,28 @@ def ability_change(text: str) -> Change | None:
 
 
 def ability_delta(state: GameState, player: str, card: CardInstance, ch: Characteristics, text: str, info: CardInfo,
-                  target: str | None = None) -> int:
+                  target: str | None = None, targets: tuple[str, ...] | None = None) -> int:
     """The signed generic change the ability's own sentence makes now (−N: costs {N} less)."""
     from app.rules.scripts import self_text
 
     change = ability_change(self_text(text, ch.name or ""))
     if not change:
         return 0
-    if change.get("target_counters") or change.get('target_colors'):
+    if change.get('own_target_rule62'):
+        from app.rules import target_cost_conditions62
+
+        chosen = targets if targets is not None else ((target,) if target and target != '?' else ())
+        if not target_cost_conditions62.available(state, player, card, change['own_target_rule62'], chosen, info, preview=target == '?'):
+            return 0
+    if change.get("target_counters") or change.get('target_colors') or change.get('target_power74'):
         from app.rules.targets import legal_targets
 
         # Equip's initial affordability check uses the best legal target. Once the
         # target is chosen, 601.2f locks the actual counter-based cost.
         choices = legal_targets(view_of(state, player, info), "creature_you_control", player, ch, card.id) if target == "?" else [target] if target is not None else []
         plan = view_of(state, player, info)
-        n = max((len(plan.ch(state.cards[cid]).colors) if change.get('target_colors')
+        n = max((max(0, (plan.ch(state.cards[cid]).pt or (0, 0))[0]) if change.get('target_power74')
+                 else len(plan.ch(state.cards[cid]).colors) if change.get('target_colors')
                  else state.cards[cid].counters.get(change['target_counters'], 0)
                  for cid in choices if cid in state.cards), default=0)
         return int(change["dir"]) * int(change["n"]) * n
@@ -241,7 +262,10 @@ def self_change(t: str) -> Change | None:
     """"This spell costs {X} less to cast, where X is the total power of creatures you control." (Ghalta) → change.
     "If an opponent controls seven or more lands, this spell costs {6} less to cast." (Avatar of Fury) reads as the
     same sentence with its condition last."""
-    from app.rules import conditional_own_discounts, life_start_discounts44
+    from app.rules import conditional_own_discounts, life_start_discounts44, native_count_discounts79
+
+    if (count79 := native_count_discounts79.self_change(t)) is not None:
+        return count79
 
     if (life_start := life_start_discounts44.self_change(t)) is not None:
         return life_start
@@ -308,6 +332,13 @@ def own_changes(state: GameState, player: str, card: CardInstance, ch: Character
         if change.get("targets") and ((targets == ANY_TARGET and change["dir"] > 0) or (
                 targets != ANY_TARGET and not targets_fit(view, card, player, change["targets"], targets))):
             continue  # "… if it targets …": the chosen targets (601.2c comes before 601.2f)
+        # Actual native chosen targets were validated before cost locking; the prepared
+        # numeric total then survives all subsequent mana-ability state changes.
+        if change.get('target_controller_graveyard_min81') is not None and targets != ANY_TARGET and not any(
+                (target81 := view.state.cards.get(tid)) is not None and view.ch(target81).is_creature
+                and len(view.state.zones.get(f'{target81.controller}:graveyard', [])) >= change['target_controller_graveyard_min81']
+                for tid in targets):
+            continue
         n = amount(view, context(state, player, card), change)
         n = min(n, change["cap"]) if "cap" in change else n
         if n:
@@ -650,6 +681,27 @@ ANY_TARGET: tuple[str, ...] = ("*any target*",)
 def static_delta(state: GameState, info: CardInfo, src: CardInstance, d: dict[str, Any], player: str,
                  card: CardInstance, ch: Characteristics, targets: tuple[str, ...] = ()) -> int | None:
     """The signed change a table cost changer makes to this spell now, or None when it doesn't apply to it."""
+    if d.get('source_color_pair64'):
+        if player != src.controller:
+            return None
+        from app.rules import source_spell_discounts64
+
+        return -source_spell_discounts64.chosen_overlap(state, info, src, ch, bool(d.get('color_pair_own64')))
+    if d.get('creature_targets64'):
+        if player != src.controller or not ({'Instant', 'Sorcery'} & ch.types):
+            return None
+        from app.rules import source_spell_discounts64
+
+        return -source_spell_discounts64.creature_targets(state, info, player, card, ch, targets, preview=targets == ANY_TARGET)
+    if d.get('caster_artifacts63'):
+        from app.rules import caster_turn_costs63
+
+        return caster_turn_costs63.artifact_count(state, info, player)
+    if d.get('target_rule62'):
+        from app.rules import target_cost_conditions62
+
+        if not target_cost_conditions62.available(state, player, src, d['target_rule62'], targets, info, preview=targets == ANY_TARGET):
+            return None
     if d.get('same_name_graveyard'):
         view = view_of(state, player, info)
         return -sum(_card_names.share(ch, view.ch(state.cards[c]))

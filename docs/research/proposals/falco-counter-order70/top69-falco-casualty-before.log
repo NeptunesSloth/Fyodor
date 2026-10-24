@@ -1,0 +1,110 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+_____ test_falco_remove_counter_then_sacrifice_same_creature_for_casualty ______
+
+cards = <app.cards.repository.CardRepository object at 0x7fcdce2c7d70>
+
+    def test_falco_remove_counter_then_sacrifice_same_creature_for_casualty(cards):
+        s=setup(cards);cast(s,'Falco Spara, Pactweaver')
+        bear=put(s,'Grizzly Bears','battlefield')
+        act(s,'p1',type='set_counter',card_id=bear.id,kind='+1/+1',value=1)
+        target=put(s,'Grizzly Bears','battlefield',pid='p2')
+        top=stack_library(s,["Light 'Em Up",'Forest'])
+        token=next(iter(counter_tokens(Plan(s.state,'p1',cards,None),[bear.id])))
+>       act(s,'p1',type='cast_spell',card_id=top[0],targets=[target.id],optional_costs=[top[0]+':casualty'],
+            cost_choices=[{'component':0,'cards':[token]},{'component':1,'cards':[bear.id]}])
+
+/tmp/toplibrary69-resume/tests/test_top69_falco_casualty_probe.py:13:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+/tmp/toplibrary69-resume/tests/game_helpers.py:42: in act
+    return session.perform(actor, payload)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/tmp/toplibrary69-resume/app/game/session.py:61: in perform
+    resolved = resolve(self.state, action, actor=actor, cards=self.cards, trusted=trusted)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/tmp/toplibrary69-resume/app/game/resolve.py:76: in resolve
+    a.r = compile_intent(state, a, actor=actor, info=info, rng=rng)  # type: ignore[union-attr]
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/tmp/toplibrary69-resume/app/rules/engine.py:154: in compile_intent
+    handler(plan, intent)
+/tmp/toplibrary69-resume/app/rules/casting.py:3655: in cast_spell
+    found_objects = cost_payment.choose(plan, a, add_cost, card, ch.name or "it")
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+plan = <app.rules.plan.Plan object at 0x7fcdcd81c320>
+a = CastSpell(actor='p1', ts=1792713033.393265, r=None, mana_symbols=None, flashback_choice=None, type='cast_spell', card_... alt_cost=None, optional_costs=['b55e1a363c18:casualty'], slot=None, via=None, optional_asked=False, life_symbols=None)
+cost = AbilityCost(numeric_roll_sides=None, mana='', mana_allocation=None, tap=False, untap=False, sacrifice_self=False, life...mount_rule=None)), graveyard_only=False, exile_too=False, hand_only=False, command_only=False, life_x=False, either=())
+card = CardInstance(borrow_identity=None, id='b55e1a363c18', card_id='0ae78a90-70a6-5dab-92dd-0651dbc2251f', name="Light 'Em ...ts=[], damage=0, choices={}, stack_info=None, exile_group=None, token_source=None, origin='library', test_object=False)
+what = "Light 'Em Up", compatible_tap = False, component_excluded = None
+
+    def choose(plan: Plan, a: A.ActivateAbility | A.CastSpell | A.TurnFaceUp | A.DeclareAttackers | A.DeclareBlockers, cost: AbilityCost, card: CardInstance, what: str, *, compatible_tap: bool = False, component_excluded: dict[int, set[str]] | None = None) -> dict[int, list[str]] | None:
+        """The validated objects for every part of ``cost`` that needs a choice, by component index;
+        None while waiting for the payer's (private) choice. Each object pays for one part only."""
+        given: dict[int, list[str]] = {}
+        for c in a.cost_choices:
+            if c.component == C.EITHER_SLOT and isinstance(a, A.CastSpell | A.ActivateAbility):  # -- static wordings (wave 6E) -- (either_costs; wave 43D: equip)
+                continue
+            if c.component in given:
+                raise ActionError("Choose the objects for each part of the cost once")
+            given[c.component] = list(c.cards)
+        parts = dict(cost.choices)
+        if set(given) - set(parts):
+            raise ActionError("That ability's cost has no such part to choose for")
+        out: dict[int, list[str]] = {}
+        used: set[str] = set()
+        x = getattr(a, "x_value", None)  # (wave 4H: "Sacrifice X Treasures" — X announced as it's activated, 107.3a)
+        for i, comp in cost.choices:
+            if comp.kind == C.OPPONENT_GAIN_LIFE:
+                from app.rules import opponent_gain_costs44
+
+                if not isinstance(a, A.CastSpell):
+                    raise ActionError('That opponent-gain cost is not supported for this action')
+                gained = opponent_gain_costs44.choose(plan, a, i, comp, card, given.get(i), what)
+                if gained is None:
+                    return None
+                out[i] = gained
+                continue
+            if comp.kind == C.WATERBEND:  # -- activated sweep (wave 17B) -- up to N artifacts / creatures, each paying {1} (701.67a)
+                found = _choose_waterbend(plan, a, i, comp, cost, card, what, given.get(i), used)
+            elif comp.kind == "TAP_POWER":  # -- static_other sweep (wave 17C) -- one choice of creatures, validated as a whole
+                found = _choose_power(plan, a, i, comp, cost, card, what, given.get(i), used)
+            elif comp.kind == C.CRAFT:  # -- casting extras (wave 18E) -- the materials: one choice of at least ``amount`` objects
+                found = _choose_craft(plan, a, i, comp, cost, card, what, given.get(i), used)
+            elif comp.anyn:  # -- cost reductions paid with objects (wave 47C) -- any number, none too
+                found = _choose_any(plan, a, i, comp, cost, card, what, given.get(i), used)
+            if comp.kind in (C.WATERBEND, "TAP_POWER", C.CRAFT) or comp.anyn:
+                if found is None:
+                    return None
+                out[i] = found
+                continue
+            if comp.counter == C.ANY_COUNTER or comp.among or comp.kind in (C.COLLECT_EVIDENCE, C.FORAGE):  # -- activation costs (wave 4H) --
+                chooser = _choose_counters if comp.counter == C.ANY_COUNTER or comp.among else _choose_flexible
+                found = chooser(plan, a, i, comp, cost, card, what, given.get(i), used)
+                if found is None:
+                    return None
+                out[i] = found
+                continue
+            need = objects_needed(comp, x)
+            blocked = used
+            if compatible_tap:
+                blocked = {cid for j, ids in out.items() for cid in ids
+                           if not ({comp.kind, parts[j].kind} & {C.TAP_OTHER} and
+                                   {comp.kind, parts[j].kind} & {C.SACRIFICE, C.RETURN_PERMANENT})}
+            usable = [c for c in candidates(plan, comp, plan.actor, card) if c not in _reserved(cost, comp, card)
+                      and c not in blocked and c not in (component_excluded or {}).get(i, set())]
+            if comp.all_objects:
+                required = required_all(plan, comp, plan.actor, card)
+                if set(required) - set(usable):
+                    raise ActionError(f"You can't pay “{comp.text}”")
+                need = len(required)
+            if i in given:
+                chosen = given[i]
+                if (len(chosen) > need if comp.up_to else len(chosen) != need) or len(set(chosen)) != len(chosen) \
+                        or any(c not in usable for c in chosen):
+>                   raise ActionError(f"Choose {'up to ' if comp.up_to else ''}{need} to pay “{comp.text}”"
+E                   app.game.errors.ActionError: Choose 1 to pay “Sacrifice a creature with power 2 or greater” (each object pays one part of the cost)
+
+/tmp/toplibrary69-resume/app/rules/cost_payment.py:511: ActionError
+=========================== short test summary info ============================
+FAILED backend::test_falco_remove_counter_then_sacrifice_same_creature_for_casualty

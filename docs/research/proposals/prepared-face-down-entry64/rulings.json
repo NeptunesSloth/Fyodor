@@ -1,0 +1,45 @@
+{
+  "name": "The Cyber-Controller",
+  "url": "https://api.scryfall.com/cards/3cab0df1-d53f-4208-9ff9-d015aac20141/rulings",
+  "rulings": {
+    "object": "list",
+    "has_more": false,
+    "data": [
+      {
+        "object": "ruling",
+        "oracle_id": "06c25d71-f3f4-4089-b9bc-de96fbad73a5",
+        "source": "wotc",
+        "published_at": "2023-10-13",
+        "comment": "Each creature turned face down this way or put onto the battlefield this way is a 2/2 Cyberman artifact creature with no name and no color."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "06c25d71-f3f4-4089-b9bc-de96fbad73a5",
+        "source": "wotc",
+        "published_at": "2023-10-13",
+        "comment": "If, for any reason, the face-down creature is turned face up, the effect making it a Cyberman ends. It will be whatever is printed on the card."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "06c25d71-f3f4-4089-b9bc-de96fbad73a5",
+        "source": "wotc",
+        "published_at": "2023-10-13",
+        "comment": "The player who controls a face-down permanent may look at it at any time. Notably, if the cards were put on the battlefield face down from another player's library, the player that owns them does not get to look at those cards."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "06c25d71-f3f4-4089-b9bc-de96fbad73a5",
+        "source": "wotc",
+        "published_at": "2023-10-13",
+        "comment": "Double-faced permanents that are already on the battlefield can't be turned face down this way. However, a double-faced card can be put onto the battlefield face down from another zone this way."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "06c25d71-f3f4-4089-b9bc-de96fbad73a5",
+        "source": "wotc",
+        "published_at": "2023-10-13",
+        "comment": "If the face-down card has a morph ability, its controller may turn it face up by paying the associated morph cost."
+      }
+    ]
+  }
+}

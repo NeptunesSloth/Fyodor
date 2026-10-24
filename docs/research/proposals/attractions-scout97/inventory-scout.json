@@ -1,0 +1,828 @@
+{
+  "baseline": "checkpoint65",
+  "total": 45,
+  "commander_counts": {
+    "legal": 45
+  },
+  "cards": [
+    {
+      "name": "\"Lifetime\" Pass Holder",
+      "commander": "legal",
+      "missing": [
+        {
+          "id": "text:1",
+          "face": 0,
+          "text": "When this creature dies, open an Attraction.",
+          "family": "death_trigger",
+          "parsed": false,
+          "collateral": false,
+          "refusal": null
+        },
+        {
+          "id": "text:2",
+          "face": 0,
+          "text": "Whenever you roll to visit your Attractions, if you roll a 6, you may return this card from your graveyard to the battlefield.",
+          "family": "reanimation",
+          "parsed": false,
+          "collateral": false,
+          "refusal": null
+        }
+      ]
+    },
+    {
+      "name": "Deadbeat Attendant",
+      "commander": "legal",
+      "missing": [
+        {
+          "id": "text:0",
+          "face": 0,
+          "text": "When this creature enters, open an Attraction.",
+          "family": "trigger_other",
+          "parsed": false,
+          "collateral": false,
+          "refusal": null
+        }
+      ]
+    },
+    {
+      "name": "Discourtesy Clerk",
+      "commander": "legal",
+      "missing": [
+        {
+          "id": "text:0",
+          "face": 0,
+          "text": "When this creature enters, open an Attraction.",
+          "family": "trigger_other",
+          "parsed": false,
+          "collateral": false,
+          "refusal": null
+        }
+      ]
+    },
+    {
+      "name": "Step Right Up",
+      "commander": "legal",
+      "missing": [
+        {
+          "id": "text:0",
+          "face": 0,
+          "text": "Open two Attractions.",
+          "family": "static_other",
+          "parsed": false,
+          "collateral": false,
+          "refusal": null
+        }
+      ]
+    },
+    {
+      "name": "Command Performance",
+      "commander": "legal",
+      "missing": [
+        {
+          "id": "text:0",
+          "face": 0,
+          "text": "Choose two \u2014",
+          "family": "static_other",
+          "parsed": false,
+          "collateral": false,
+          "refusal": null
+        },
+        {
+          "id": "text:1",
+          "face": 0,
+          "text": "\u2022 Open an Attraction.",
+          "family": "static_other",
+          "parsed": false,
+          "collateral": false,
+          "refusal": null
+        },
+        {
+          "id": "text:2",
+          "face": 0,
+          "text": "\u2022 Roll to visit your Attractions.",
+          "family": "static_other",
+          "parsed": false,
+          "collateral": false,
+          "refusal": null
+        },
+        {
+          "id": "text:3",
+          "face": 0,
+          "text": "\u2022 You get {TK}{TK}.",
+          "family": "static_other",
+          "parsed": false,
+          "collateral": false,
+          "refusal": null
+        },
+        {
+          "id": "text:4",
+          "face": 0,
+          "text": "\u2022 You may put a sticker on a nonland permanent you own.",
+          "family": "static_other",
+          "parsed": false,
+          "collateral": false,
+          "refusal": null
+        }
+      ]
+    },
+    {
+      "name": "Quick Fixer",
+      "commander": "legal",
+      "missing": [
+        {
+          "id": "text:1",
+          "face": 0,
+          "text": "Whenever this creature deals combat damage to a player, open an Attraction.",
+          "family": "trigger_other",
+          "parsed": false,
+          "collateral": false,
+          "refusal": null
+        }
+      ]
+    },
+    {
+      "name": "Monitor Monitor",
+      "commander": "legal",
+      "missing": [
+        {
+          "id": "text:0",
+          "face": 0,
+          "text": "When this creature enters, open an Attraction.",
+          "family": "trigger_other",
+          "parsed": false,
+          "collateral": false,
+          "refusal": null
+        },
+        {
+          "id": "text:1",
+          "face": 0,
+          "text": "Once each turn, you may pay {1} to reroll one or more dice you rolled.",
+          "family": "static_other",
+          "parsed": false,
+          "collateral": false,
+          "refusal": null
+        }
+      ]
+    },
+    {
+      "name": "Myra the Magnificent",
+      "commander": "legal",
+      "missing": [
+        {
+          "id": "text:0",
+          "face": 0,
+          "text": "Whenever you cast an instant or sorcery spell from your hand, open an Attraction.",
+          "family": "trigger_other",
+          "parsed": false,
+          "collateral": false,
+          "refusal": null
+        },
+        {
+          "id": "text:1",
+          "face": 0,
+          "text": "{X}, {T}: Exile target instant or sorcery card with mana value X from your graveyard and choose an Attraction you control that doesn't have a midway counter on it. Put a midway counter on it. For as long as that Attraction is on the battlefield, whenever you visit it, copy the exiled card. You may cast the copy without paying its mana cost.",
+          "family": "as_long_as_static",
+          "parsed": false,
+          "collateral": false,
+          "refusal": "casting a copy of a card (707.12): belongs to the copy system"
+        }
+      ]
+    },
+    {
+      "name": "Draconian Gate-Bot",
+      "commander": "legal",
+      "missing": [
+        {
+          "id": "text:0",
+          "face": 0,
+          "text": "When this creature enters, choose one \u2014",
+          "family": "trigger_other",
+          "parsed": false,
+          "collateral": false,
+          "refusal": null
+        },
+        {
+          "id": "text:1",
+          "face": 0,
+          "text": "\u2022 Open an Attraction.",
+          "family": "static_other",
+          "parsed": false,
+          "collateral": false,
+          "refusal": null
+        },
+        {
+          "id": "text:2",
+          "face": 0,
+          "text": "\u2022 Destroy target Attraction.",
+          "family": "static_other",
+          "parsed": false,
+          "collateral": false,
+          "refusal": null
+        }
+      ]
+    },
+    {
+      "name": "Soul Swindler",
+      "commander": "legal",
+      "missing": [
+        {
+          "id": "text:0",
+          "face": 0,
+          "text": "As long as you've visited an Attraction this turn, this creature has indestructible.",
+          "family": "this_turn_state",
+          "parsed": false,
+          "collateral": false,
+          "refusal": null
+        },
+        {
+          "id": "text:1",
+          "face": 0,
+          "text": "When this creature enters, open an Attraction.",
+          "family": "trigger_other",
+          "parsed": false,
+          "collateral": false,
+          "refusal": null
+        }
+      ]
+    },
+    {
+      "name": "Line Cutter",
+      "commander": "legal",
+      "missing": [
+        {
+          "id": "text:0",
+          "face": 0,
+          "text": "When this creature enters, roll to visit your Attractions.",
+          "family": "trigger_other",
+          "parsed": false,
+          "collateral": false,
+          "refusal": null
+        }
+      ]
+    },
+    {
+      "name": "Coming Attraction",
+      "commander": "legal",
+      "missing": [
+        {
+          "id": "text:0",
+          "face": 0,
+          "text": "Search your library for a basic land card, put it onto the battlefield tapped, then shuffle. Open an Attraction.",
+          "family": "tutor",
+          "parsed": false,
+          "collateral": false,
+          "refusal": null
+        }
+      ]
+    },
+    {
+      "name": "Black Hole",
+      "commander": "legal",
+      "missing": [
+        {
+          "id": "text:0",
+          "face": 0,
+          "text": "Destroy target creature and up to X other target creatures, where X is the number of Attractions you've visited this turn.",
+          "family": "x_value",
+          "parsed": false,
+          "collateral": false,
+          "refusal": null
+        }
+      ]
+    },
+    {
+      "name": "Squirrel Squatters",
+      "commander": "legal",
+      "missing": [
+        {
+          "id": "text:0",
+          "face": 0,
+          "text": "When this creature enters, open an Attraction.",
+          "family": "trigger_other",
+          "parsed": false,
+          "collateral": false,
+          "refusal": null
+        },
+        {
+          "id": "text:1",
+          "face": 0,
+          "text": "Whenever this creature attacks, create a 1/1 green Squirrel creature token that's tapped and attacking for each Attraction you've visited this turn.",
+          "family": "trigger_other",
+          "parsed": false,
+          "collateral": false,
+          "refusal": null
+        }
+      ]
+    },
+    {
+      "name": "The Most Dangerous Gamer",
+      "commander": "legal",
+      "missing": [
+        {
+          "id": "text:1",
+          "face": 0,
+          "text": "Whenever The Most Dangerous Gamer enters or attacks, open an Attraction.",
+          "family": "trigger_other",
+          "parsed": false,
+          "collateral": false,
+          "refusal": null
+        },
+        {
+          "id": "text:2",
+          "face": 0,
+          "text": "Whenever you open an Attraction, put a +1/+1 counter on The Most Dangerous Gamer.",
+          "family": "counters",
+          "parsed": false,
+          "collateral": false,
+          "refusal": null
+        },
+        {
+          "id": "text:3",
+          "face": 0,
+          "text": "Whenever you claim the prize of an Attraction, destroy target permanent.",
+          "family": "trigger_other",
+          "parsed": false,
+          "collateral": false,
+          "refusal": null
+        }
+      ]
+    },
+    {
+      "name": "Petting Zookeeper",
+      "commander": "legal",
+      "missing": [
+        {
+          "id": "text:1",
+          "face": 0,
+          "text": "When this creature enters, open an Attraction.",
+          "family": "trigger_other",
+          "parsed": false,
+          "collateral": false,
+          "refusal": null
+        }
+      ]
+    },
+    {
+      "name": "Complaints Clerk",
+      "commander": "legal",
+      "missing": [
+        {
+          "id": "text:0",
+          "face": 0,
+          "text": "When this creature enters, open an Attraction.",
+          "family": "trigger_other",
+          "parsed": false,
+          "collateral": false,
+          "refusal": null
+        }
+      ]
+    },
+    {
+      "name": "Rad Rascal",
+      "commander": "legal",
+      "missing": [
+        {
+          "id": "text:0",
+          "face": 0,
+          "text": "When this creature enters, open an Attraction.",
+          "family": "trigger_other",
+          "parsed": false,
+          "collateral": false,
+          "refusal": null
+        }
+      ]
+    },
+    {
+      "name": "Spinnerette, Arachnobat",
+      "commander": "legal",
+      "missing": [
+        {
+          "id": "text:1",
+          "face": 0,
+          "text": "When Spinnerette enters, open an Attraction.",
+          "family": "trigger_other",
+          "parsed": false,
+          "collateral": false,
+          "refusal": null
+        }
+      ]
+    },
+    {
+      "name": "Seasoned Buttoneer",
+      "commander": "legal",
+      "missing": [
+        {
+          "id": "text:0",
+          "face": 0,
+          "text": "When this creature enters, open an Attraction.",
+          "family": "trigger_other",
+          "parsed": false,
+          "collateral": false,
+          "refusal": null
+        }
+      ]
+    },
+    {
+      "name": "Dee Kay, Finder of the Lost",
+      "commander": "legal",
+      "missing": [
+        {
+          "id": "text:0",
+          "face": 0,
+          "text": "When Dee Kay enters, open an Attraction.",
+          "family": "trigger_other",
+          "parsed": false,
+          "collateral": false,
+          "refusal": null
+        }
+      ]
+    },
+    {
+      "name": "Motion Sickness",
+      "commander": "legal",
+      "missing": [
+        {
+          "id": "text:3",
+          "face": 0,
+          "text": "Whenever you visit an Attraction, you may attach this Aura to target tapped creature.",
+          "family": "trigger_other",
+          "parsed": false,
+          "collateral": false,
+          "refusal": null
+        }
+      ]
+    },
+    {
+      "name": "Ride Guide",
+      "commander": "legal",
+      "missing": [
+        {
+          "id": "text:0",
+          "face": 0,
+          "text": "When this creature enters, open an Attraction.",
+          "family": "trigger_other",
+          "parsed": false,
+          "collateral": false,
+          "refusal": null
+        }
+      ]
+    },
+    {
+      "name": "Hall of Mirrors",
+      "commander": "legal",
+      "missing": [
+        {
+          "id": "text:0",
+          "face": 0,
+          "text": "Visit \u2014 Choose target creature you control. Each other creature you control becomes a copy of that creature until end of turn, except it isn't legendary.",
+          "family": "enter_as_copy_other",
+          "parsed": false,
+          "collateral": false,
+          "refusal": null
+        }
+      ]
+    },
+    {
+      "name": "Information Booth",
+      "commander": "legal",
+      "missing": [
+        {
+          "id": "text:0",
+          "face": 0,
+          "text": "Visit \u2014 Draw a card.",
+          "family": "static_other",
+          "parsed": false,
+          "collateral": false,
+          "refusal": null
+        }
+      ]
+    },
+    {
+      "name": "Swinging Ship",
+      "commander": "legal",
+      "missing": [
+        {
+          "id": "text:0",
+          "face": 0,
+          "text": "Visit \u2014 After the first combat phase this turn, there's an additional combat phase. At the beginning of that combat, untap all creatures that attacked this turn.",
+          "family": "this_turn_state",
+          "parsed": false,
+          "collateral": false,
+          "refusal": null
+        }
+      ]
+    },
+    {
+      "name": "Concession Stand",
+      "commander": "legal",
+      "missing": [
+        {
+          "id": "text:0",
+          "face": 0,
+          "text": "Visit \u2014 Create a Food token.",
+          "family": "static_other",
+          "parsed": false,
+          "collateral": false,
+          "refusal": null
+        }
+      ]
+    },
+    {
+      "name": "Haunted House",
+      "commander": "legal",
+      "missing": [
+        {
+          "id": "text:0",
+          "face": 0,
+          "text": "Visit \u2014 Return target creature card from your graveyard to the battlefield. It gains haste. Exile it at the beginning of your next end step.",
+          "family": "reanimation",
+          "parsed": false,
+          "collateral": false,
+          "refusal": null
+        }
+      ]
+    },
+    {
+      "name": "Foam Weapons Kiosk",
+      "commander": "legal",
+      "missing": [
+        {
+          "id": "text:0",
+          "face": 0,
+          "text": "Visit \u2014 Put a +1/+1 counter on target creature you control. That creature gains vigilance until end of turn.",
+          "family": "counters",
+          "parsed": false,
+          "collateral": false,
+          "refusal": null
+        }
+      ]
+    },
+    {
+      "name": "Pick-a-Beeble",
+      "commander": "legal",
+      "missing": [
+        {
+          "id": "text:0",
+          "face": 0,
+          "text": "Visit \u2014 Roll a six-sided die. Put a number of luck counters on Pick-a-Beeble equal to the result and create a Treasure token. Then if there are six or more luck counters on Pick-a-Beeble, claim the prize!",
+          "family": "counters",
+          "parsed": false,
+          "collateral": false,
+          "refusal": null
+        },
+        {
+          "id": "text:1",
+          "face": 0,
+          "text": "Prize \u2014 Create two Treasure tokens, then sacrifice Pick-a-Beeble and open an Attraction.",
+          "family": "static_other",
+          "parsed": false,
+          "collateral": false,
+          "refusal": null
+        }
+      ]
+    },
+    {
+      "name": "Balloon Stand",
+      "commander": "legal",
+      "missing": [
+        {
+          "id": "text:0",
+          "face": 0,
+          "text": "Visit \u2014 Choose one.",
+          "family": "static_other",
+          "parsed": false,
+          "collateral": false,
+          "refusal": null
+        },
+        {
+          "id": "text:1",
+          "face": 0,
+          "text": "\u2022 Create a 1/1 red Balloon creature token with flying.",
+          "family": "static_other",
+          "parsed": false,
+          "collateral": false,
+          "refusal": null
+        },
+        {
+          "id": "text:2",
+          "face": 0,
+          "text": "\u2022 Sacrifice a Balloon. If you do, target creature gains flying until end of turn.",
+          "family": "if_you_do",
+          "parsed": false,
+          "collateral": false,
+          "refusal": null
+        }
+      ]
+    },
+    {
+      "name": "Trash Bin",
+      "commander": "legal",
+      "missing": [
+        {
+          "id": "text:0",
+          "face": 0,
+          "text": "Visit \u2014 Mill two cards, then return a card at random from your graveyard to your hand.",
+          "family": "reanimation",
+          "parsed": false,
+          "collateral": false,
+          "refusal": null
+        }
+      ]
+    },
+    {
+      "name": "Tunnel of Love",
+      "commander": "legal",
+      "missing": [
+        {
+          "id": "text:0",
+          "face": 0,
+          "text": "Visit \u2014 Choose an opponent. They choose a creature they control, then you choose a creature you control. You may exile the chosen creatures. If you do, return them to the battlefield under their owners' control at the beginning of the next end step. Otherwise, the chosen creatures fight each other.",
+          "family": "if_you_do",
+          "parsed": false,
+          "collateral": false,
+          "refusal": null
+        }
+      ]
+    },
+    {
+      "name": "Clown Extruder",
+      "commander": "legal",
+      "missing": [
+        {
+          "id": "text:0",
+          "face": 0,
+          "text": "Visit \u2014 Create a 1/1 white Clown Robot artifact creature token.",
+          "family": "static_other",
+          "parsed": false,
+          "collateral": false,
+          "refusal": null
+        }
+      ]
+    },
+    {
+      "name": "Bumper Cars",
+      "commander": "legal",
+      "missing": [
+        {
+          "id": "text:0",
+          "face": 0,
+          "text": "Visit \u2014 Target creature must be blocked this turn if able.",
+          "family": "static_other",
+          "parsed": false,
+          "collateral": false,
+          "refusal": null
+        }
+      ]
+    },
+    {
+      "name": "Ferris Wheel",
+      "commander": "legal",
+      "missing": [
+        {
+          "id": "text:0",
+          "face": 0,
+          "text": "Visit \u2014 Choose target creature that hasn't been phased out with this Attraction. That creature phases out until you roll a 3 or less while rolling to visit your Attractions.",
+          "family": "static_other",
+          "parsed": false,
+          "collateral": false,
+          "refusal": null
+        }
+      ]
+    },
+    {
+      "name": "Storybook Ride",
+      "commander": "legal",
+      "missing": [
+        {
+          "id": "text:0",
+          "face": 0,
+          "text": "Visit \u2014 Exile the top X cards of your library, where X is the number of Attractions you've visited this turn. You may play those cards this turn. At the beginning of the next end step, if any of those cards remain exiled, put them on the bottom of your library in any order.",
+          "family": "x_value",
+          "parsed": false,
+          "collateral": false,
+          "refusal": null
+        }
+      ]
+    },
+    {
+      "name": "Merry-Go-Round",
+      "commander": "legal",
+      "missing": [
+        {
+          "id": "text:0",
+          "face": 0,
+          "text": "Visit \u2014 Creatures you control with power 2 or less gain horsemanship until end of turn.",
+          "family": "static_other",
+          "parsed": false,
+          "collateral": false,
+          "refusal": null
+        }
+      ]
+    },
+    {
+      "name": "Roller Coaster",
+      "commander": "legal",
+      "missing": [
+        {
+          "id": "text:0",
+          "face": 0,
+          "text": "Visit \u2014 Creatures you control get +2/+0 until end of turn.",
+          "family": "static_other",
+          "parsed": false,
+          "collateral": false,
+          "refusal": null
+        }
+      ]
+    },
+    {
+      "name": "Costume Shop",
+      "commander": "legal",
+      "missing": [
+        {
+          "id": "text:0",
+          "face": 0,
+          "text": "Visit \u2014 You may put a sticker on a nonland permanent you own.",
+          "family": "static_other",
+          "parsed": false,
+          "collateral": false,
+          "refusal": null
+        }
+      ]
+    },
+    {
+      "name": "Drop Tower",
+      "commander": "legal",
+      "missing": [
+        {
+          "id": "text:0",
+          "face": 0,
+          "text": "Visit \u2014 Target creature gains flying until end of turn, or until any player rolls a 1, whichever comes first.",
+          "family": "static_other",
+          "parsed": false,
+          "collateral": false,
+          "refusal": null
+        }
+      ]
+    },
+    {
+      "name": "Fortune Teller",
+      "commander": "legal",
+      "missing": [
+        {
+          "id": "text:0",
+          "face": 0,
+          "text": "Visit \u2014 Scry 1.",
+          "family": "static_other",
+          "parsed": false,
+          "collateral": false,
+          "refusal": null
+        }
+      ]
+    },
+    {
+      "name": "Bounce Chamber",
+      "commander": "legal",
+      "missing": [
+        {
+          "id": "text:0",
+          "face": 0,
+          "text": "Visit \u2014 Return a creature you don't control with the lowest toughness among creatures you don't control to its owner's hand.",
+          "family": "static_other",
+          "parsed": false,
+          "collateral": false,
+          "refusal": null
+        }
+      ]
+    },
+    {
+      "name": "Kiddie Coaster",
+      "commander": "legal",
+      "missing": [
+        {
+          "id": "text:0",
+          "face": 0,
+          "text": "Visit \u2014 Creatures you control get +1/+0 until end of turn.",
+          "family": "static_other",
+          "parsed": false,
+          "collateral": false,
+          "refusal": null
+        }
+      ]
+    },
+    {
+      "name": "Spinny Ride",
+      "commander": "legal",
+      "missing": [
+        {
+          "id": "text:0",
+          "face": 0,
+          "text": "Visit \u2014 Tap target creature an opponent controls.",
+          "family": "static_other",
+          "parsed": false,
+          "collateral": false,
+          "refusal": null
+        }
+      ]
+    }
+  ]
+}

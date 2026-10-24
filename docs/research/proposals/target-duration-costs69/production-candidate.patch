@@ -1,0 +1,139 @@
+--- a/backend/app/game/rules_state.py
++++ b/backend/app/game/rules_state.py
+@@ -1240,6 +1240,7 @@
+     # "permanent" (a static, read from the table), "end_of_turn" ("… you cast this turn cost …": ends in
+     # cleanup, 514.2) or "next_turn" ("Until your next turn, …": ends as its controller's next turn begins)
+     until: Literal["end_of_turn", "permanent", "next_turn"] = "end_of_turn"
++    until_player: str | None = None  # Captured duration owner when different from the beneficiary.
+     turn: int = 0  # the turn it was created
+     source: str | None = None
+     label: str = Field(default="", max_length=120)
+--- a/backend/app/rules/permissions.py
++++ b/backend/app/rules/permissions.py
+@@ -1712,7 +1712,7 @@
+                                   filter=d["filter"], until="permanent", source=r.object_id(src.id), label=src.name,
+                                   mana=cost_changes.stored_mana(d)))
+     found += [m for m in r.cost_modifiers  # ("until your next turn": over once its controller's next turn began)
+-              if not (m.until == "next_turn" and r.turn_started.get(m.controller, 0) > m.turn)]
++              if not (m.until == "next_turn" and r.turn_started.get(m.until_player or m.controller, 0) > m.turn)]
+     out = []
+     for m in found:
+         if m.from_zones:
+@@ -2013,7 +2013,7 @@
+         keep.append(p)
+     r.permissions = keep
+     r.cost_modifiers = [m for m in r.cost_modifiers if m.until != "end_of_turn"
+-                        and not (m.until == "next_turn" and r.turn_started.get(m.controller, 0) > m.turn)]
++                        and not (m.until == "next_turn" and r.turn_started.get(m.until_player or m.controller, 0) > m.turn)]
+
+
+ SOURCE_UNTIL = ("source_controlled", "source_on_battlefield")  # (-- durations (wave 30M) -- Permission.until: "for as long as you control ~")
+@@ -2070,11 +2070,12 @@
+     delta = e["dir"] * values.evaluate(plan, ctx, e["delta"]) if isinstance(e["delta"], dict) else int(e["delta"])  # (wave 44D: an amount read now, 611.2a)
+     plan.rules.cost_modifiers.append(CostModifier(
+         id=secrets.token_hex(4), controller=pid, delta=delta, caster=e.get("caster") or ("any" if e.get("any") else "you"), filter=e.get("filter"),  # (wave 53B: Cheering Fanatic, everybody's spells)
+-        until=e["until"], turn=plan.state.turn.number, source=ctx.get("source_object"),
++        until=e["until"], until_player=e.get("until_player69"), turn=plan.state.turn.number, source=ctx.get("source_object"),
+         from_zones=list(e.get("from_zones") or []), label=(ctx.get("name") or "An effect")[:120]))
+     amount = f"{{{abs(delta)}}} {'less' if delta < 0 else 'more'}"
+-    plan.note(f"{plan.name(pid)}'s spells cost {amount} to cast "
+-              + ("until their next turn" if e["until"] == "next_turn" else "this turn") + f" ({ctx.get('name') or 'an effect'})")
++    duration_owner = e.get('until_player69') or pid
++    duration = (f"until {plan.name(duration_owner)}’s next turn" if duration_owner != pid else "until their next turn") if e["until"] == "next_turn" else "this turn"
++    plan.note(f"{plan.name(pid)}'s spells cost {amount} to cast {duration} ({ctx.get('name') or 'an effect'})")
+     return True
+
+
+--- a/backend/app/rules/delayed.py
++++ b/backend/app/rules/delayed.py
+@@ -588,8 +588,8 @@
+     # CR 800.4m: an "until your next turn" cost effect also ends when a
+     # departed player's next turn would have begun.
+     r.cost_modifiers = [m for m in r.cost_modifiers if not (m.until == "next_turn" and (
+-        (m.controller == active and turn > m.turn)
+-        or any(m.controller == p and n > m.turn for p, n in skipped or ())))]
++        ((m.until_player or m.controller) == active and turn > m.turn)
++        or any((m.until_player or m.controller) == p and n > m.turn for p, n in skipped or ())))]
+     from app.rules import timed_damage_replacements
+
+     timed_damage_replacements.turn_began(plan, skipped)
+--- a/backend/app/rules/scripts.py
++++ b/backend/app/rules/scripts.py
+@@ -5761,6 +5761,9 @@
+
+ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
+     """The engine definition of one ability, or None (manual)."""
++    from app.rules import target_duration_costs69
++    if (duration69 := target_duration_costs69.definition(ability, ch)) is not None:
++        return duration69
+     from app.rules import equipment_notebook_costs67
+
+     if (admitted := equipment_notebook_costs67.definition(ability, ch)) is not None:
+--- a/backend/app/rules/effects.py
++++ b/backend/app/rules/effects.py
+@@ -6743,3 +6743,7 @@
+
+ PRIMITIVES.update(_grave_adventure74.PRIMITIVES)
+ RESUME.update(_grave_adventure74.RESUME)
++
++from app.rules import target_duration_costs69 as _target_duration69  # noqa: E402
++
++PRIMITIVES.update(_target_duration69.PRIMITIVES)
+--- /dev/null
++++ b/backend/app/rules/target_duration_costs69.py
+@@ -0,0 +1,55 @@
++"""Will's target beneficiary and original duration controller are independent."""
++
++from __future__ import annotations
++
++from dataclasses import replace
++from typing import Any
++
++FIRST = "Until your next turn, up to two target creatures each have base power and toughness 0/3 and lose all abilities."
++SECOND = "Target player draws two cards. Until your next turn, instant, sorcery, and planeswalker spells that player casts cost {2} less to cast."
++
++
++def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
++    from app.rules import scripts
++
++    if ability.kind != "loyalty":
++        return None
++    body = ability.text.partition(":")[2].strip()
++    if body == FIRST:
++        return scripts.define(
++            replace(
++                ability,
++                text=f"{ability.cost}: Up to two target creatures lose all abilities and have base power and toughness 0/3 until your next turn.",
++            ),
++            ch,
++        )
++    if body == SECOND:
++        native = scripts.define(replace(ability, text=f"{ability.cost}: Target player draws two cards."), ch)
++        return (
++            {**native, "effects": [*native["effects"], {"do": "will_discount69"}]}
++            if native is not None
++            else None
++        )
++    return None
++
++
++def discount(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
++    from app.rules import permissions
++
++    key = permissions.spell_filter("instant, sorcery, or planeswalker")
++    assert key is not None
++    return permissions.cost_modifier(
++        plan,
++        ctx,
++        {
++            "do": "cost_modifier",
++            "delta": -2,
++            "filter": key,
++            "until": "next_turn",
++            "until_player69": ctx["controller"],
++            "recipient66": "target",
++        },
++    )
++
++
++PRIMITIVES = {"will_discount69": discount}

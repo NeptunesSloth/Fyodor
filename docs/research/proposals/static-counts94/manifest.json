@@ -1,0 +1,29 @@
+{
+  "candidate_names": [
+    "Light from Within",
+    "Umbra Stalker",
+    "Diligent Zookeeper",
+    "Dark Matter Manipulator",
+    "Enemy of Enlightenment"
+  ],
+  "expected_promotions": 5,
+  "source_files": [
+    "backend/app/rules/static_count_values94.py",
+    "backend/app/rules/scripts.py",
+    "backend/app/rules/values.py"
+  ],
+  "patch": "UNINSTALLED.patch",
+  "test_destination": "backend/tests/test_rules_static_counts94.py",
+  "fixture_destination": "backend/tests/fixtures/static_counts94_cards.json",
+  "native_pass": 18,
+  "native_gates": {
+    "final17.log": 17,
+    "recipient1.log": 1
+  },
+  "cold_roundtrips": 4,
+  "related_native_pass": 17,
+  "mypy_files": 3,
+  "mypy_cache": "/tmp/static-counts94-mypy-cache",
+  "ruff_files": 4,
+  "admission": "root audit required; no live source edits"
+}

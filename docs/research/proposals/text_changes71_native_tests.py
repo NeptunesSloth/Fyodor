@@ -481,6 +481,8 @@ def test_cipher_native_combat_trigger_casts_free_text_change_copy(cards):
                 value = 'yes'
             elif knight.id in ids:
                 value = knight.id
+            elif len(ids) == 1 and ids[0] in s.state.cards and s.state.cards[ids[0]].name == 'Trait Doctoring' and s.state.cards[ids[0]].zone.endswith(':exile'):
+                value = ids[0]
             elif 'white' in ids:
                 value = 'white'
                 seen_words.append(value)

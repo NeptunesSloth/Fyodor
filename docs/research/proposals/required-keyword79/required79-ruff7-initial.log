@@ -1,0 +1,70 @@
+F401 [*] `tests.test_rules_bandmate_references.wait_priority` imported but unused
+  --> tests/test_rules_required_keyword79.py:18:56
+   |
+16 | from tests.fixtures.cards import card, fixture_cards
+17 | from tests.game_helpers import act
+18 | from tests.test_rules_bandmate_references import mana, wait_priority
+   |                                                        ^^^^^^^^^^^^^
+19 | from tests.test_rules_controller_tutors import answer
+20 | from tests.test_rules_designations import put, roundtrip
+   |
+help: Remove unused import: `tests.test_rules_bandmate_references.wait_priority`
+   |
+17 | from tests.game_helpers import act
+   - from tests.test_rules_bandmate_references import mana, wait_priority
+18 + from tests.test_rules_bandmate_references import mana
+19 | from tests.test_rules_controller_tutors import answer
+   |
+
+F401 [*] `tests.test_rules_controller_tutors.answer` imported but unused
+  --> tests/test_rules_required_keyword79.py:19:48
+   |
+17 | from tests.game_helpers import act
+18 | from tests.test_rules_bandmate_references import mana, wait_priority
+19 | from tests.test_rules_controller_tutors import answer
+   |                                                ^^^^^^
+20 | from tests.test_rules_designations import put, roundtrip
+21 | from tests.test_rules_library_look import settle
+   |
+help: Remove unused import: `tests.test_rules_controller_tutors.answer`
+   |
+18 | from tests.test_rules_bandmate_references import mana, wait_priority
+   - from tests.test_rules_controller_tutors import answer
+19 | from tests.test_rules_designations import put, roundtrip
+   |
+
+F401 [*] `tests.test_rules_refused_look.stack_library` imported but unused
+  --> tests/test_rules_required_keyword79.py:23:43
+   |
+21 | from tests.test_rules_library_look import settle
+22 | from tests.test_rules_ordered_tutor_continuations import cast
+23 | from tests.test_rules_refused_look import stack_library
+   |                                           ^^^^^^^^^^^^^
+24 | from tests.test_rules_wave4h_activation_costs import ability
+25 | from tests.test_rules_wave30m_durations import to_phase
+   |
+help: Remove unused import: `tests.test_rules_refused_look.stack_library`
+   |
+22 | from tests.test_rules_ordered_tutor_continuations import cast
+   - from tests.test_rules_refused_look import stack_library
+23 | from tests.test_rules_wave4h_activation_costs import ability
+   |
+
+F401 [*] `tests.test_rules_wave4h_activation_costs.ability` imported but unused
+  --> tests/test_rules_required_keyword79.py:24:54
+   |
+22 | from tests.test_rules_ordered_tutor_continuations import cast
+23 | from tests.test_rules_refused_look import stack_library
+24 | from tests.test_rules_wave4h_activation_costs import ability
+   |                                                      ^^^^^^^
+25 | from tests.test_rules_wave30m_durations import to_phase
+   |
+help: Remove unused import: `tests.test_rules_wave4h_activation_costs.ability`
+   |
+23 | from tests.test_rules_refused_look import stack_library
+   - from tests.test_rules_wave4h_activation_costs import ability
+24 | from tests.test_rules_wave30m_durations import to_phase
+   |
+
+Found 4 errors.
+[*] 4 fixable with `--fix`.

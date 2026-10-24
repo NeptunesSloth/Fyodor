@@ -1,0 +1,10 @@
+{
+  "before": {
+    "app/rules/values.py": "0d5f13c7dd60428c10e1dad1ffd1859799afdb89dc3f06023c873154f8871865",
+    "app/rules/history.py": "205f07d0d9202820914224b52432fdf3e59337e39be8f21c98454f551c9bb0d3"
+  },
+  "after": {
+    "app/rules/values.py": "6a52696274c25829200706acbe271f3f2571f01d6bb2a69ebe7d4f2b2457105e",
+    "app/rules/history.py": "36ca029aee0c6e70f81f8e4e16c3ac3a4977a77c85222a030db6696cfe1c1756"
+  }
+}

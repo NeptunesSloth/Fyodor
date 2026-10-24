@@ -1,0 +1,52 @@
+{
+  "status": "CLOSED_FOR_ROOT_REVIEW; no live source writes or admission",
+  "names": [
+    "Thick-Skinned Goblin",
+    "Shah of Naar Isle"
+  ],
+  "native": {
+    "passed": 25,
+    "genuine_cold": 3,
+    "logs": [
+      "native18-cold2.log",
+      "native-leave1.log",
+      "native-replacement1.log",
+      "native-control5-cold1.log"
+    ],
+    "repeated_strengthening_not_additional_case": "strengthened-nonmana-receipt1.log"
+  },
+  "related": {
+    "passed": 6,
+    "modules": [
+      "tests/test_rules_wave43c_keywords.py -k echo",
+      "tests/test_rules_wave51b_popular.py -k arcane"
+    ],
+    "logs": [
+      "related-echo4.log",
+      "related-draw2.log"
+    ]
+  },
+  "mypy": {
+    "passed": 5,
+    "log": "types5.log"
+  },
+  "ruff": {
+    "passed": 6,
+    "log": "ruff6.log"
+  },
+  "official_rulings_read": {
+    "Thick-Skinned Goblin": 1,
+    "Shah of Naar Isle": 3
+  },
+  "patch": "production-candidate.patch",
+  "stage": "/tmp/cost76-stage/backend",
+  "test_module": "tests/test_rules_echo_alternatives76.py",
+  "fixture": "tests/fixtures/echo_alternatives76_cards.json",
+  "source_hashes": {
+    "app/rules/scripts.py": "d09b06e8a7bf4c2c2045d9b56649756cdce5fc024c6f8f5973ebb0e4bd69ba15",
+    "app/rules/triggers.py": "a53aa5adbf9bf987343b5959f7917d7f339387883c96851095cc910763246d07",
+    "app/rules/effects.py": "3104c7326b16b97608101da124a6a57f944e9677f6c7cf3b940bf9330f5f83c0",
+    "app/rules/engine.py": "4d30bdbcee251eafd16ffaaa431d95140adb49c637cc482f12ee6e647a35cdb7",
+    "app/rules/echo_alternatives76.py": "5bd1dde2623f555e550fa39d20d5a75e12868ddd6a95b740e7b9958021ed567c"
+  }
+}

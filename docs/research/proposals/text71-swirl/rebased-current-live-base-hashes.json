@@ -1,0 +1,15 @@
+{
+  "backend/app/game/rules_state.py": "3a49128f12a1251e7dd9d9405329edaee385dcb65f0d3ca65738af5ae108ebd0",
+  "backend/app/rules/cast_limits.py": "b92b5898cc4a9ac44927048e48b42c606160dd5f90c4ad0bd3c964e5e8948f5a",
+  "backend/app/rules/casting.py": "362545c6ff9350858df126bbb61d52a072a36343f325e2878eb6c8f9bd4f82ea",
+  "backend/app/rules/copying.py": "4b9cea1bf3108cbcc3e33102c9f951441f4b3d53dc835ee1969d705963a0e97f",
+  "backend/app/rules/effects.py": "72ecefae63b1435c80a1f243c0150a71313528149d1e140a6d51b3de5f86ec69",
+  "backend/app/rules/engine.py": "ad8fcc89f784c815a94445e6d11e76e9e2e2f1eba103852de57d68df407d04b7",
+  "backend/app/rules/layer_dependency_graph.py": "5051dd04f21d03ebbc091fce2831c192db0d946ada813293003ab1b3b4a44ed3",
+  "backend/app/rules/layers.py": "a320bb51bc277bd9892ada001db5a5ef0eaa32bf3b118fa6b8da5d6876a06f98",
+  "backend/app/rules/permissions.py": "829c84d0fef6f664a86a58f630e45efe5042a3063d61d03b84fbc768bfb3df43",
+  "backend/app/rules/replacements.py": "28d1df0852bca6ccbbb54a7215896f428a9e700590a8381d2ccaf1e4600b02fa",
+  "backend/app/rules/scripts.py": "a8b25b55a6ed983297a0172ac5aaf60b436f376538079fc7d26fcfab1c1479e6",
+  "backend/app/rules/text_global_word71.py": null,
+  "backend/app/rules/text_spell_refresh71.py": "b64f9fcf9d38ef5d1cfe3d721b6eaf47ab50bdaaa226f75d7ef95a1e0c161958"
+}

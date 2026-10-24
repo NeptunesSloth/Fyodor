@@ -1,0 +1,23 @@
+..F.                                                                     [100%]
+=================================== FAILURES ===================================
+_ test_sirocco_real_tamiyo_discard_ban_leaves_unpaid_blue_card_and_does_not_create_madness_trigger _
+
+cards = <app.cards.repository.CardRepository object at 0x7fe11a7312b0>
+
+    def test_sirocco_real_tamiyo_discard_ban_leaves_unpaid_blue_card_and_does_not_create_madness_trigger(cards):
+        s = game(cards)
+        put(s, 'Tamiyo, Collector of Tales', 'battlefield', 'p2')
+        blue = put(s, 'Obsessive Search', 'hand', 'p2')
+        cast(s, 'Sirocco', ['p2'])
+        choose(s, [])
+>       assert s.state.players['p2'].life == 40 and s.state.cards[blue.id].zone == 'p2:hand'
+E       AssertionError: assert (40 == 40 and 'p2:exile' == 'p2:hand'
+E        +  where 40 = PlayerState(id='p2', name='Bob', color='#5fa8d3', life=40, life_history=[], resources={'poison': 0, 'energy': 0, 'expe...id=None, deck_name=None, token_shortcuts=[], mana={}, mana_units=[], mana_seq=0, left=False, sleeve=None, playmat=None).life
+E
+E         - p2:hand
+E         + p2:exile)
+
+../permanent83-tests/test_life_cards86.py:285: AssertionError
+=========================== short test summary info ============================
+FAILED ../../workspace/Fyodor/backend::test_sirocco_real_tamiyo_discard_ban_leaves_unpaid_blue_card_and_does_not_create_madness_trigger
+1 failed, 3 passed, 12 deselected in 16.84s

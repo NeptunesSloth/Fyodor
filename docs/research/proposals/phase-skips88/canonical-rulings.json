@@ -1,0 +1,330 @@
+{
+  "Empty City Ruse": {
+    "canonical": {
+      "id": "3a2f358d-93a9-4cd7-a846-3cc55042e4fe",
+      "oracle_id": "b0391ea4-e37d-48c9-91df-79aefe376bcc",
+      "name": "Empty City Ruse",
+      "lang": "en",
+      "layout": "normal",
+      "set_code": "tle",
+      "set_name": "Avatar: The Last Airbender Eternal",
+      "set_type": "eternal",
+      "collector_number": "3",
+      "released_at": "2025-11-21",
+      "rarity": "mythic",
+      "mana_cost": "{W}",
+      "cmc": 1.0,
+      "type_line": "Sorcery",
+      "oracle_text": "Target opponent skips all combat phases of their next turn.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null,
+      "defense": null,
+      "colors": [
+        "W"
+      ],
+      "color_identity": [
+        "W"
+      ],
+      "keywords": [],
+      "produced_mana": null,
+      "card_faces": null,
+      "all_parts": null,
+      "image_uris": {
+        "small": "https://cards.scryfall.io/small/front/3/a/3a2f358d-93a9-4cd7-a846-3cc55042e4fe.jpg?1783904863",
+        "normal": "https://cards.scryfall.io/normal/front/3/a/3a2f358d-93a9-4cd7-a846-3cc55042e4fe.jpg?1783904863",
+        "large": "https://cards.scryfall.io/large/front/3/a/3a2f358d-93a9-4cd7-a846-3cc55042e4fe.jpg?1783904863",
+        "art_crop": "https://cards.scryfall.io/art_crop/front/3/a/3a2f358d-93a9-4cd7-a846-3cc55042e4fe.jpg?1783904863"
+      },
+      "legalities": {
+        "standard": "not_legal",
+        "future": "not_legal",
+        "historic": "legal",
+        "timeless": "legal",
+        "gladiator": "legal",
+        "pioneer": "not_legal",
+        "modern": "not_legal",
+        "legacy": "legal",
+        "pauper": "not_legal",
+        "vintage": "legal",
+        "penny": "not_legal",
+        "commander": "legal",
+        "oathbreaker": "legal",
+        "standardbrawl": "not_legal",
+        "brawl": "legal",
+        "competitivebrawl": "legal",
+        "alchemy": "not_legal",
+        "paupercommander": "not_legal",
+        "duel": "legal",
+        "oldschool": "not_legal",
+        "premodern": "not_legal",
+        "predh": "legal",
+        "tlr": "legal"
+      },
+      "is_token": 0,
+      "digital": 0,
+      "promo": 0,
+      "artist": "Viacom",
+      "edhrec_rank": 17210
+    },
+    "rulings": [],
+    "url": "https://api.scryfall.com/cards/3a2f358d-93a9-4cd7-a846-3cc55042e4fe/rulings"
+  },
+  "False Peace": {
+    "canonical": {
+      "id": "1a07b620-6702-4c24-a6bb-03167c64be30",
+      "oracle_id": "7962db58-dbd9-4b94-8a21-a1625da4c384",
+      "name": "False Peace",
+      "lang": "en",
+      "layout": "normal",
+      "set_code": "s99",
+      "set_name": "Starter 1999",
+      "set_type": "starter",
+      "collector_number": "16",
+      "released_at": "1999-07-01",
+      "rarity": "uncommon",
+      "mana_cost": "{W}",
+      "cmc": 1.0,
+      "type_line": "Sorcery",
+      "oracle_text": "Target player skips all combat phases of their next turn.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null,
+      "defense": null,
+      "colors": [
+        "W"
+      ],
+      "color_identity": [
+        "W"
+      ],
+      "keywords": [],
+      "produced_mana": null,
+      "card_faces": null,
+      "all_parts": null,
+      "image_uris": {
+        "small": "https://cards.scryfall.io/small/front/1/a/1a07b620-6702-4c24-a6bb-03167c64be30.jpg?1783946049",
+        "normal": "https://cards.scryfall.io/normal/front/1/a/1a07b620-6702-4c24-a6bb-03167c64be30.jpg?1783946049",
+        "large": "https://cards.scryfall.io/large/front/1/a/1a07b620-6702-4c24-a6bb-03167c64be30.jpg?1783946049",
+        "art_crop": "https://cards.scryfall.io/art_crop/front/1/a/1a07b620-6702-4c24-a6bb-03167c64be30.jpg?1783946049"
+      },
+      "legalities": {
+        "standard": "not_legal",
+        "future": "not_legal",
+        "historic": "not_legal",
+        "timeless": "not_legal",
+        "gladiator": "not_legal",
+        "pioneer": "not_legal",
+        "modern": "not_legal",
+        "legacy": "legal",
+        "pauper": "legal",
+        "vintage": "legal",
+        "penny": "not_legal",
+        "commander": "legal",
+        "oathbreaker": "legal",
+        "standardbrawl": "not_legal",
+        "brawl": "not_legal",
+        "competitivebrawl": "not_legal",
+        "alchemy": "not_legal",
+        "paupercommander": "legal",
+        "duel": "legal",
+        "oldschool": "not_legal",
+        "premodern": "not_legal",
+        "predh": "legal",
+        "tlr": "legal"
+      },
+      "is_token": 0,
+      "digital": 0,
+      "promo": 0,
+      "artist": "Zina Saunders",
+      "edhrec_rank": 21817
+    },
+    "rulings": [],
+    "url": "https://api.scryfall.com/cards/1a07b620-6702-4c24-a6bb-03167c64be30/rulings"
+  },
+  "Moment of Silence": {
+    "canonical": {
+      "id": "3f50b5f5-8dac-4785-b1af-a0bd64ce7a92",
+      "oracle_id": "43af5041-a4bd-4b61-b1a1-bdea916afc59",
+      "name": "Moment of Silence",
+      "lang": "en",
+      "layout": "normal",
+      "set_code": "mmq",
+      "set_name": "Mercadian Masques",
+      "set_type": "expansion",
+      "collector_number": "28",
+      "released_at": "1999-10-04",
+      "rarity": "common",
+      "mana_cost": "{W}",
+      "cmc": 1.0,
+      "type_line": "Instant",
+      "oracle_text": "Target player skips their next combat phase this turn.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null,
+      "defense": null,
+      "colors": [
+        "W"
+      ],
+      "color_identity": [
+        "W"
+      ],
+      "keywords": [],
+      "produced_mana": null,
+      "card_faces": null,
+      "all_parts": null,
+      "image_uris": {
+        "small": "https://cards.scryfall.io/small/front/3/f/3f50b5f5-8dac-4785-b1af-a0bd64ce7a92.jpg?1783945978",
+        "normal": "https://cards.scryfall.io/normal/front/3/f/3f50b5f5-8dac-4785-b1af-a0bd64ce7a92.jpg?1783945978",
+        "large": "https://cards.scryfall.io/large/front/3/f/3f50b5f5-8dac-4785-b1af-a0bd64ce7a92.jpg?1783945978",
+        "art_crop": "https://cards.scryfall.io/art_crop/front/3/f/3f50b5f5-8dac-4785-b1af-a0bd64ce7a92.jpg?1783945978"
+      },
+      "legalities": {
+        "standard": "not_legal",
+        "future": "not_legal",
+        "historic": "not_legal",
+        "timeless": "not_legal",
+        "gladiator": "not_legal",
+        "pioneer": "not_legal",
+        "modern": "not_legal",
+        "legacy": "legal",
+        "pauper": "legal",
+        "vintage": "legal",
+        "penny": "not_legal",
+        "commander": "legal",
+        "oathbreaker": "legal",
+        "standardbrawl": "not_legal",
+        "brawl": "not_legal",
+        "competitivebrawl": "not_legal",
+        "alchemy": "not_legal",
+        "paupercommander": "legal",
+        "duel": "legal",
+        "oldschool": "not_legal",
+        "premodern": "legal",
+        "predh": "legal",
+        "tlr": "legal"
+      },
+      "is_token": 0,
+      "digital": 0,
+      "promo": 0,
+      "artist": "Christopher Moeller",
+      "edhrec_rank": 17532
+    },
+    "rulings": [
+      {
+        "object": "ruling",
+        "oracle_id": "43af5041-a4bd-4b61-b1a1-bdea916afc59",
+        "source": "wotc",
+        "published_at": "2004-10-04",
+        "comment": "The player skips their next combat phase this turn (if any). If they manage to have two combat phases, then only their next one combat phase is skipped."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "43af5041-a4bd-4b61-b1a1-bdea916afc59",
+        "source": "wotc",
+        "published_at": "2004-10-04",
+        "comment": "It must be used before the combat phase starts or it has no effect."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "43af5041-a4bd-4b61-b1a1-bdea916afc59",
+        "source": "wotc",
+        "published_at": "2004-10-04",
+        "comment": "If cast on a player when it is not their turn, it has no effect."
+      }
+    ],
+    "url": "https://api.scryfall.com/cards/3f50b5f5-8dac-4785-b1af-a0bd64ce7a92/rulings"
+  },
+  "Fatespinner": {
+    "canonical": {
+      "id": "33bd5541-0ffb-4e82-ab17-f64ad555ddb6",
+      "oracle_id": "676935c8-22e0-427f-9566-16778cea0873",
+      "name": "Fatespinner",
+      "lang": "en",
+      "layout": "normal",
+      "set_code": "plst",
+      "set_name": "The List",
+      "set_type": "masters",
+      "collector_number": "MRD-36",
+      "released_at": "2020-03-13",
+      "rarity": "rare",
+      "mana_cost": "{1}{U}{U}",
+      "cmc": 3.0,
+      "type_line": "Creature \u2014 Human Wizard",
+      "oracle_text": "At the beginning of each opponent's upkeep, that player chooses draw step, main phase, or combat phase. The player skips each instance of the chosen step or phase this turn.",
+      "power": "1",
+      "toughness": "2",
+      "loyalty": null,
+      "defense": null,
+      "colors": [
+        "U"
+      ],
+      "color_identity": [
+        "U"
+      ],
+      "keywords": [],
+      "produced_mana": null,
+      "card_faces": null,
+      "all_parts": null,
+      "image_uris": {
+        "small": "https://cards.scryfall.io/small/front/3/3/33bd5541-0ffb-4e82-ab17-f64ad555ddb6.jpg?1792070310",
+        "normal": "https://cards.scryfall.io/normal/front/3/3/33bd5541-0ffb-4e82-ab17-f64ad555ddb6.jpg?1792070310",
+        "large": "https://cards.scryfall.io/large/front/3/3/33bd5541-0ffb-4e82-ab17-f64ad555ddb6.jpg?1792070310",
+        "art_crop": "https://cards.scryfall.io/art_crop/front/3/3/33bd5541-0ffb-4e82-ab17-f64ad555ddb6.jpg?1792070310"
+      },
+      "legalities": {
+        "standard": "not_legal",
+        "future": "not_legal",
+        "historic": "not_legal",
+        "timeless": "not_legal",
+        "gladiator": "not_legal",
+        "pioneer": "not_legal",
+        "modern": "legal",
+        "legacy": "legal",
+        "pauper": "not_legal",
+        "vintage": "legal",
+        "penny": "legal",
+        "commander": "legal",
+        "oathbreaker": "legal",
+        "standardbrawl": "not_legal",
+        "brawl": "not_legal",
+        "competitivebrawl": "not_legal",
+        "alchemy": "not_legal",
+        "paupercommander": "not_legal",
+        "duel": "legal",
+        "oldschool": "not_legal",
+        "premodern": "not_legal",
+        "predh": "legal",
+        "tlr": "legal"
+      },
+      "is_token": 0,
+      "digital": 0,
+      "promo": 0,
+      "artist": "rk post",
+      "edhrec_rank": 6877
+    },
+    "rulings": [
+      {
+        "object": "ruling",
+        "oracle_id": "676935c8-22e0-427f-9566-16778cea0873",
+        "source": "wotc",
+        "published_at": "2004-12-01",
+        "comment": "That opponent skips only the phases or steps that are chosen."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "676935c8-22e0-427f-9566-16778cea0873",
+        "source": "wotc",
+        "published_at": "2004-12-01",
+        "comment": "If there are multiple phases with the same name in the turn, your opponent skips them all. This is true even if a new step or phase is added to the turn after the ability resolves."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "676935c8-22e0-427f-9566-16778cea0873",
+        "source": "wotc",
+        "published_at": "2004-12-01",
+        "comment": "If more than one Fatespinner affects you at the start of your upkeep, you can choose the same step or phase for each one."
+      }
+    ],
+    "url": "https://api.scryfall.com/cards/33bd5541-0ffb-4e82-ab17-f64ad555ddb6/rulings"
+  }
+}

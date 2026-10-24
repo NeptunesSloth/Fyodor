@@ -1,0 +1,26 @@
+{
+  "status": "CLOSED_FOR_ROOT_PRODUCTION_REVIEW; uninstalled/unadmitted",
+  "names": [
+    "Mosswood Dreadknight // Dread Whispers",
+    "Hildibrand Manderville // Gentleman's Rise"
+  ],
+  "patch": "review.patch",
+  "patch_sha256": "1087b4986be241e980ae4c1e2daef1d0653c64a303087eb36378f8b34b8df294",
+  "stage": "/tmp/grave-adventure74-stage",
+  "native": {
+    "distinct_passed": 17,
+    "genuine_cold": 3,
+    "proof": "Initial7 PASS + boundaries8 had6 PASS/2 test-kind fixture failures + corrected cold2 PASS + counter/cost2 PASS; app source unchanged. No fresh consolidated17 claimed."
+  },
+  "related": {
+    "passed": 74,
+    "scope": "full native duration30M, Adventure discounts48 and25B trigger files"
+  },
+  "mypy": "PASS3 affected app files",
+  "ruff": "PASS3 affected app files and native test",
+  "source_hashes": "source-hashes.json",
+  "native_test": "native_tests.py -> backend/tests/test_rules_grave_adventure74.py",
+  "fixture": "cards.json -> backend/tests/fixtures/grave_adventure74_cards.json",
+  "authority": "Pinned CR400.7e,603.6c,715.3/715.3a-d; both complete official ruling lists read and retained",
+  "held": "Brokkos requires selected mutate-only authority and is NOT implemented by this plain Adventure subtype permission."
+}

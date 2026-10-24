@@ -1,0 +1,174 @@
+--- a/backend/app/rules/object_mana_offers78.py
++++ b/backend/app/rules/object_mana_offers78.py
+@@ -0,0 +1,147 @@
++"""APNAP object-specific mana offers precede one final unpaid-object action."""
++from __future__ import annotations
++
++from typing import Any
++
++from pydantic import BaseModel
++
++from app.game.errors import ActionError
++from app.game.rules_state import DecisionOption, ObjectRef
++from app.rules.plan import Plan, decide
++
++
++class Offer(BaseModel):
++    object: ObjectRef
++    payer: str
++    name: str
++    paid: str = ''
++
++
++MODES = {
++    "For each Spirit, return it to its owner's hand unless that player pays {3}.": 'spirits',
++    'For each attacking red creature, prevent all combat damage that would be dealt by that creature this turn unless its controller pays {2}{R}.': 'attackers',
++    'For each spell and ability your opponents control, counter it unless its controller pays {4}.': 'stack',
++}
++
++
++def parse(body: str) -> tuple[list[dict[str, Any]], Any, bool] | None:
++    mode = MODES.get(body.strip())
++    return ([{'do': 'object_mana_offers78', 'mode': mode}], None, False) if mode else None
++
++
++def begin(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
++    from app.rules import combat, context
++
++    rows = []
++    attackers = {c.id for c in combat.attackers_on(plan.state)}
++    for card in plan.state.cards.values():
++        ch = plan.ch(card)
++        if e['mode'] == 'stack':
++            selected = card.zone == 'stack' and card.controller != ctx['controller'] and card.id != ctx.get('stack_id')
++        else:
++            selected = card.zone.endswith(':battlefield') and plan.in_game(card)
++            selected = selected and ('Spirit' in ch.subtypes if e['mode'] == 'spirits'
++                                     else card.id in attackers and ch.is_creature and 'R' in ch.colors)
++        if selected and (ref := context.ref_of(plan, card.id)) is not None:
++            rows.append(Offer(object=ref, payer=card.owner if e['mode'] == 'spirits' else card.controller,
++                              name=ch.name or 'Object'))
++    return _ask(plan, ctx, e['mode'], rows, plan.apnap())
++
++
++def _ask(plan: Plan, ctx: dict[str, Any], mode: str, rows: list[Offer], remaining: list[str]) -> bool:
++    from app.rules import context, effects
++
++    rows = [r for r in rows if context._same(plan, r.object) is not None]
++    remaining = [p for p in remaining if p in plan.live()]
++    while remaining and not any(r.payer == remaining[0] for r in rows):
++        remaining = remaining[1:]
++    if not remaining:
++        unpaid = [r.object for r in rows if not r.paid or not context.succeeded(ctx, r.paid)]
++        context.refs(ctx)['unpaid_objects78'] = {'kind': 'objects', 'objects': [r.model_dump(mode='json') for r in unpaid]}
++        if mode == 'spirits':
++            return effects.bounce(plan, ctx, {'do': 'bounce', 'who': 'ref:unpaid_objects78'})
++        if mode == 'attackers':
++            return effects.replacements.prevent_all(plan, ctx, {'do': 'prevent_all', 'who': 'ref:unpaid_objects78',
++                                                               'role': 'by', 'scope': {'combat': True, 'any_target': True}})
++        _counter_batch(plan, ctx, unpaid)
++        return True
++    player = remaining[0]
++    cost = {'spirits': '{3}', 'attackers': '{2}{R}', 'stack': '{4}'}[mode]
++    decide(plan, player=player, kind='choose_cards', prompt=f"{ctx.get('name') or 'The ability'}: choose objects to pay {cost} for each",
++           options=[DecisionOption(id=r.object.card, label=r.name, card_id=r.object.card) for r in rows if r.payer == player],
++           min_choices=0, max_choices=sum(r.payer == player for r in rows),
++           resume={'step': 'object_mana_offers78', 'ctx': ctx, 'mode': mode,
++                   'rows': [r.model_dump(mode='json') for r in rows], 'remaining': remaining})
++    return False
++
++
++def resume(plan: Plan, d: Any, chosen: list[str]) -> None:
++    from app.rules import effects, optional_payment
++
++    saved = d.resume
++    rows = [Offer.model_validate(r) for r in saved['rows']]
++    eligible = {r.object.card for r in rows if r.payer == d.player}
++    if len(chosen) != len(set(chosen)) or not set(chosen) <= eligible:
++        raise ActionError('Choose distinct objects offered for your payment')
++    ctx, mode = saved['ctx'], saved['mode']
++    remaining = saved['remaining'][1:]
++    if not chosen:
++        plan.note(f"{plan.name(d.player)} chooses not to pay for any objects for {ctx.get('name') or 'the ability'}")
++        if _ask(plan, ctx, mode, rows, remaining):
++            effects.continue_effects(plan, ctx)
++        return
++    cost = {'spirits': '{' + str(3 * len(chosen)) + '}',
++            'attackers': '{' + str(2 * len(chosen)) + '}' + '{R}' * len(chosen),
++            'stack': '{' + str(4 * len(chosen)) + '}'}[mode]
++    parsed = optional_payment.parse(cost)
++    assert parsed is not None
++    if (why := optional_payment.problem(plan, ctx, parsed, d.player)) is not None:
++        raise ActionError('Those objects require ' + cost + ': ' + why)
++    plan.note(f"{plan.name(d.player)} chooses to pay {cost} for these objects for {ctx.get('name') or 'the ability'}", chosen)
++    binding = f'objects78:{d.player}:{ctx["next"]}'
++    for r in rows:
++        if r.object.card in chosen:
++            r.paid = binding
++    at = ctx['next']
++    ctx['effects'][at:at] = [
++        {'do': 'optional_payment', 'who': 'player:' + d.player, 'cost': cost, 'bind': binding},
++        {'do': 'object_mana_next78', 'mode': mode, 'remaining': remaining,
++         'rows': [r.model_dump(mode='json') for r in rows]}]
++    effects.continue_effects(plan, ctx)
++
++
++def next_player(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
++    return _ask(plan, ctx, e['mode'], [Offer.model_validate(r) for r in e['rows']], e['remaining'])
++
++
++def _counter_batch(plan: Plan, ctx: dict[str, Any], objects: list[ObjectRef]) -> None:
++    from app.game.rules_state import emit, remember_stack
++    from app.rules import context, effects
++
++    cards = [card for ref in objects if (card := context._same(plan, ref)) is not None and card.zone == 'stack']
++    countered = [card for card in cards if effects.counterable(plan, card.id)]
++    for card in cards:
++        if card not in countered:
++            plan.note(f"{card.name} can't be countered", [card.id])
++    for card in countered:
++        remember_stack(plan.state, card.id)
++    routes = {}
++    for card in countered:
++        oid = plan.oid(card)
++        plan.rules.stack.pop(card.id, None)
++        plan.rules.buyback = [o for o in plan.rules.buyback if o != oid]
++        plan.rules.rebound_cast = [o for o in plan.rules.rebound_cast if o != oid]
++        plan.rules.exile_resolves.pop(oid, None)
++        routes[card.id] = {'player': card.owner, 'zone': 'exile' if oid in plan.rules.flashback else 'graveyard'}
++        plan.rules.flashback = [o for o in plan.rules.flashback if o != oid]
++        plan.note(f'{card.name or "It"} is countered', [card.id])
++    for card in countered:
++        if card.ability is None:
++            emit(plan.state, 'designation', counter='counters_spell', player=ctx['controller'])
++    if countered:
++        plan.do({'type': 'move', 'card_ids': [c.id for c in countered], 'to': {'zone': 'graveyard'}, 'routes': routes},
++                actor=ctx['controller'])
++
++
++PRIMITIVES = {'object_mana_offers78': begin, 'object_mana_next78': next_player}
++RESUME = {'object_mana_offers78': resume}
+--- a/backend/app/rules/scripts.py
++++ b/backend/app/rules/scripts.py
+@@ -2653,6 +2653,10 @@
+
+
+ def parse_effects(body: str, it: str | None = None, *, event_player: bool = False) -> tuple[list[dict[str, Any]], Any, bool] | None:
++    from app.rules import object_mana_offers78
++
++    if (offered78 := object_mana_offers78.parse(body)) is not None:
++        return offered78
+     from app.rules import public_mill_attachment59
+
+     if (continued59 := public_mill_attachment59.parse(body, it, event_player)) is not None:
+--- a/backend/app/rules/effects.py
++++ b/backend/app/rules/effects.py
+@@ -6727,3 +6727,8 @@
+
+ PRIMITIVES.update(_public_mill_attachment59.PRIMITIVES)
+ RESUME.update(_public_mill_attachment59.RESUME)
++
++from app.rules import object_mana_offers78  # noqa: E402
++
++PRIMITIVES.update(object_mana_offers78.PRIMITIVES)
++RESUME.update(object_mana_offers78.RESUME)

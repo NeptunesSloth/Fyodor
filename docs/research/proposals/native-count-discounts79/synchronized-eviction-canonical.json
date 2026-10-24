@@ -1,0 +1,35 @@
+{
+  "id": "68f10249-8cd0-4366-bd9a-755f8e1c3592",
+  "oracle_id": "ad64b05a-4702-47ef-a81e-1b481e57ab55",
+  "name": "Synchronized Eviction",
+  "layout": "normal",
+  "set_code": "j22",
+  "set_name": "Jumpstart 2022",
+  "collector_number": "18",
+  "rarity": "uncommon",
+  "mana_cost": "{4}{U}",
+  "cmc": 5.0,
+  "type_line": "Instant",
+  "oracle_text": "This spell costs {2} less to cast if you control at least two creatures that share a creature type.\nPut target nonland permanent into its owner's library second from the top.",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "defense": null,
+  "colors": [
+    "U"
+  ],
+  "color_identity": [
+    "U"
+  ],
+  "keywords": [],
+  "is_token": false,
+  "faces": [],
+  "double_faced": false,
+  "image_faces": 1,
+  "has_image": false,
+  "released_at": "2022-12-02",
+  "artist": "Nicholas Gregory",
+  "commander_legal": "legal",
+  "related_tokens": [],
+  "related_cards": []
+}

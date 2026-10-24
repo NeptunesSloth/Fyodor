@@ -1,0 +1,23 @@
+{
+  "status": "READY exact2 \u2014 root review/integration",
+  "names": [
+    "Moonlight Bargain",
+    "Sirocco"
+  ],
+  "native": {
+    "distinct": 19,
+    "genuine_cold": 2,
+    "evidence": "Fresh consolidated16+related70=86 PASS291.71s; disjoint new actual Waste Not3 PASS22.43s on unchanged source; not a fresh all19 consolidated run"
+  },
+  "mypy": 1,
+  "ruff": 2,
+  "install_test": "backend/tests/test_rules_nonbattlefield_life86.py",
+  "install_fixture": "backend/tests/fixtures/nonbattlefield_life86_cards.json",
+  "source_stage": "/tmp/payment83-world-stage",
+  "patch_sha256": "06132130cb5507f006e17eccb20794ad0ff2e8171432b5a330d48a09338e3db1",
+  "leaf_sha256": "551b360392a3832a416b137a802f0265e113bb38af46d185a7d7ebe09c12b34b",
+  "shared_helpers_modified": [],
+  "related": 70,
+  "test_sha256": "bbf66ae7929ca14bed95a293d13f3c3c4ea913062a46a8267f2a457617075dc4",
+  "fixture_sha256": "2c3f16b5d60f4ac0bb7a3906601f8890f475e1a199d4f504124e9e4a8756b47e"
+}

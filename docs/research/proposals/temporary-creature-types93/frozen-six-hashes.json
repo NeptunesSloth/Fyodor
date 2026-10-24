@@ -1,0 +1,5 @@
+{
+  "app/rules/temporary_creature_types93.py": "b2df03d05ebb548225e05e6d151fcd6155abbe5dea62902de14919c22939f28e",
+  "tests/test_rules_temporary_creature_types93.py": "b93315eeabcf7cc5e5f0f2e27f55c06ba49c481a37364aadb6ff06ad5f5f623e",
+  "tests/fixtures/temporary_creature_types93_cards.json": "51ca96325acdc152299c7a120263351fb8386c54ab6dc4c95bf6fc04fd44dcb8"
+}

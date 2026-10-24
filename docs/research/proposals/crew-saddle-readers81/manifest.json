@@ -1,0 +1,37 @@
+{
+  "status": "CLOSED_FOR_ROOT_PRODUCTION_REVIEW",
+  "cards": [
+    "Subterranean Schooner",
+    "Ghost Ark",
+    "Archmage's Newt"
+  ],
+  "native": {
+    "unified": 14,
+    "genuine_cold": 3,
+    "no_mana_cost": 2,
+    "graveyard_incarnation_and_expiry": 1,
+    "selected_flashback_X": 2,
+    "distinct_total": 22,
+    "printed_card_casts": 3,
+    "selected_flashback_X_final": 2
+  },
+  "regressions": {
+    "flashback_and_unearth": 23,
+    "selected_X_related141": {
+      "initial_pass": 135,
+      "repaired_nonmana_X": 3,
+      "stale_stage_only": 3,
+      "root_note": "Root verified58 already repaired impending cache and2 kicker-other expected options; no leaf patch touches these."
+    }
+  },
+  "typing": "mypy5 PASS; final casting-only after x_chosen refinement1 PASS",
+  "ruff": "6files PASS",
+  "stage": "/tmp/crewreaders81/backend",
+  "patch": "reviewed.patch",
+  "notes": [
+    "No live installation by child.",
+    "Original173-line source diff uses exact combat80-two baseline.",
+    "Volcanic Geyser confirms real zero-cost X=3 damage3 before, atomic rejection and implicitX0 after.",
+    "Cloudspire/Fortune/Balthier not admitted."
+  ]
+}

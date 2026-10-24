@@ -1,0 +1,28 @@
+{
+  "status": "closed; root admission pending",
+  "cards": [
+    "Dire Downdraft",
+    "Lullmage's Domination"
+  ],
+  "files": [
+    "app/rules/target_conditional_costs81.py",
+    "app/rules/scripts.py",
+    "app/rules/cost_changes.py",
+    "app/rules/language.py",
+    "app/rules/effects.py"
+  ],
+  "source_sha256": {
+    "app/rules/target_conditional_costs81.py": "9fecec84950ca103f520443eb7643fcb652bc66e2a195cf460a5a071bd8e2d7e",
+    "app/rules/scripts.py": "c7191c17a484f77f7673d098936d85bf132a59ed2d319db61189baa14ca26230",
+    "app/rules/cost_changes.py": "b8e60a291c77abe3b0deebfa28bb59b212c7bc6bd66a04fdf1fbcd70d9f67580",
+    "app/rules/language.py": "0eaf988e8537629ae8cf35e821b9b89c157ea1a891b21a96a55005ce1dcb070a",
+    "app/rules/effects.py": "e98d3d066504b023770e25977a3fd448bd72231d28736d7ec458aecca591a379"
+  },
+  "native": 19,
+  "cold": 2,
+  "related": 10,
+  "related_cold": 3,
+  "mypy": 5,
+  "ruff": 6,
+  "patch_lines": 57
+}

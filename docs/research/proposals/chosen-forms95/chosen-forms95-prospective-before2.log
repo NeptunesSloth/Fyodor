@@ -1,0 +1,19 @@
+FF                                                                       [100%]
+=================================== FAILURES ===================================
+_________ test_actual_ixidron_then_break_open_copied_entity_rechooses __________
+tests/test_rules_chosen_forms95.py:295: in test_actual_ixidron_then_break_open_copied_entity_rechooses
+    assert s.state.rules.decision is not None and s.state.cards[clone.id].face_down
+E   AssertionError: assert (None is not None)
+E    +  where None = RulesState(world_epoch80=0, world_intervals80={}, combat_memory=CombatMemory(version=1, known_empty=['p1', 'p2', 'p3']...ree_cast_faces={}, exile_if_graveyard=[], bottom_if_graveyard=[], cast_enters={}, exile_resolves={}, counter_stamps={}).decision
+E    +    where RulesState(world_epoch80=0, world_intervals80={}, combat_memory=CombatMemory(version=1, known_empty=['p1', 'p2', 'p3']...ree_cast_faces={}, exile_if_graveyard=[], bottom_if_graveyard=[], cast_enters={}, exile_resolves={}, counter_stamps={}) = GameState(format_version=1, id='5baed2785c3b9683', name='Game', format='commander', created_at=1792728272.9794948, seq...ee_cast_faces={}, exile_if_graveyard=[], bottom_if_graveyard=[], cast_enters={}, exile_resolves={}, counter_stamps={})).rules
+E    +      where GameState(format_version=1, id='5baed2785c3b9683', name='Game', format='commander', created_at=1792728272.9794948, seq...ee_cast_faces={}, exile_if_graveyard=[], bottom_if_graveyard=[], cast_enters={}, exile_resolves={}, counter_stamps={})) = <app.game.session.GameSession object at 0x7fc0da28ed80>.state
+____________ test_copied_away_entity_has_no_turnup_form_replacement ____________
+tests/test_rules_chosen_forms95.py:309: in test_copied_away_entity_has_no_turnup_form_replacement
+    assert s.state.rules.decision is None
+E   AssertionError: assert Decision(id='a264e61b1a8b', player='p2', kind='choose_one', prompt='Aquamorph Entity: choose its form', options=[Decis...ne}, 'e': {'do': 'turn_face_up', 'who': 'target'}, 'cards': [], 'done': ['584a90252cc4']}}, display=None, decider=None) is None
+E    +  where Decision(id='a264e61b1a8b', player='p2', kind='choose_one', prompt='Aquamorph Entity: choose its form', options=[Decis...ne}, 'e': {'do': 'turn_face_up', 'who': 'target'}, 'cards': [], 'done': ['584a90252cc4']}}, display=None, decider=None) = RulesState(world_epoch80=0, world_intervals80={}, combat_memory=CombatMemory(version=1, known_empty=['p1', 'p2', 'p3']...ree_cast_faces={}, exile_if_graveyard=[], bottom_if_graveyard=[], cast_enters={}, exile_resolves={}, counter_stamps={}).decision
+E    +    where RulesState(world_epoch80=0, world_intervals80={}, combat_memory=CombatMemory(version=1, known_empty=['p1', 'p2', 'p3']...ree_cast_faces={}, exile_if_graveyard=[], bottom_if_graveyard=[], cast_enters={}, exile_resolves={}, counter_stamps={}) = GameState(format_version=1, id='7e9ddcf60a9c2a2a', name='Game', format='commander', created_at=1792728275.1262789, seq...ee_cast_faces={}, exile_if_graveyard=[], bottom_if_graveyard=[], cast_enters={}, exile_resolves={}, counter_stamps={})).rules
+E    +      where GameState(format_version=1, id='7e9ddcf60a9c2a2a', name='Game', format='commander', created_at=1792728275.1262789, seq...ee_cast_faces={}, exile_if_graveyard=[], bottom_if_graveyard=[], cast_enters={}, exile_resolves={}, counter_stamps={})) = <app.game.session.GameSession object at 0x7fc0d8f5a1b0>.state
+=========================== short test summary info ============================
+FAILED tests/test_rules_chosen_forms95.py::test_actual_ixidron_then_break_open_copied_entity_rechooses
+FAILED tests/test_rules_chosen_forms95.py::test_copied_away_entity_has_no_turnup_form_replacement

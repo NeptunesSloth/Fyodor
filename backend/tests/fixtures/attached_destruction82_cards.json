@@ -1,0 +1,151 @@
+[
+  {
+    "name": "Soul Nova",
+    "mana_cost": "{3}{W}{W}",
+    "type_line": "Instant",
+    "oracle_text": "Exile target attacking creature and all Equipment attached to it.",
+    "power": null,
+    "toughness": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "layout": "normal"
+  },
+  {
+    "name": "Eaten by Spiders",
+    "mana_cost": "{2}{G}",
+    "type_line": "Instant",
+    "oracle_text": "Destroy target creature with flying and all Equipment attached to that creature.",
+    "power": null,
+    "toughness": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "layout": "normal"
+  },
+  {
+    "name": "Light of Judgment",
+    "mana_cost": "{4}{R}",
+    "type_line": "Instant",
+    "oracle_text": "Light of Judgment deals 6 damage to target creature. Destroy up to one Equipment attached to that creature.",
+    "power": null,
+    "toughness": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "layout": "normal"
+  },
+  {
+    "name": "Unforge",
+    "mana_cost": "{2}{R}",
+    "type_line": "Instant",
+    "oracle_text": "Destroy target Equipment. If that Equipment was attached to a creature, Unforge deals 2 damage to that creature.",
+    "power": null,
+    "toughness": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "layout": "normal"
+  },
+  {
+    "name": "Bonesplitter",
+    "mana_cost": "{1}",
+    "type_line": "Artifact \u2014 Equipment",
+    "oracle_text": "Equipped creature gets +2/+0.\nEquip {1}",
+    "power": null,
+    "toughness": null,
+    "colors": [],
+    "color_identity": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Short Sword",
+    "mana_cost": "{1}",
+    "type_line": "Artifact \u2014 Equipment",
+    "oracle_text": "Equipped creature gets +1/+1.\nEquip {1} ({1}: Attach to target creature you control. Equip only as a sorcery.)",
+    "power": null,
+    "toughness": null,
+    "colors": [],
+    "color_identity": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Wind Drake",
+    "mana_cost": "{2}{U}",
+    "type_line": "Creature \u2014 Drake",
+    "oracle_text": "Flying",
+    "power": "2",
+    "toughness": "2",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "layout": "normal"
+  },
+  {
+    "name": "Darksteel Plate",
+    "mana_cost": "{3}",
+    "type_line": "Artifact \u2014 Equipment",
+    "oracle_text": "Indestructible\nEquipped creature has indestructible.\nEquip {2}",
+    "power": null,
+    "toughness": null,
+    "colors": [],
+    "color_identity": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Darksteel Myr",
+    "mana_cost": "{3}",
+    "type_line": "Artifact Creature \u2014 Myr",
+    "oracle_text": "Indestructible (Damage and effects that say \"destroy\" don't destroy this creature. If its toughness is 0 or less, it still dies.)",
+    "power": "0",
+    "toughness": "1",
+    "colors": [],
+    "color_identity": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Giant Growth",
+    "mana_cost": "{G}",
+    "type_line": "Instant",
+    "oracle_text": "Target creature gets +3/+3 until end of turn.",
+    "power": null,
+    "toughness": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "layout": "normal"
+  },
+  {
+    "name": "Disperse",
+    "mana_cost": "{1}{U}",
+    "type_line": "Instant",
+    "oracle_text": "Return target nonland permanent to its owner's hand.",
+    "power": null,
+    "toughness": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "layout": "normal"
+  }
+]

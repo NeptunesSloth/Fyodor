@@ -1,0 +1,317 @@
+============================= test session starts ==============================
+platform linux -- Python 3.12.14, pytest-9.1.1, pluggy-1.7.0 -- /workspace/Fyodor/backend/.venv/bin/python3
+cachedir: .pytest_cache
+rootdir: /workspace/scratch/root/checkpoint66/backend
+configfile: pyproject.toml
+plugins: anyio-4.15.1, xdist-3.8.0
+created: 4/4 workers
+4 workers [152 items]
+
+scheduling tests via LoadScheduling
+
+tests/test_rules_spell_control.py::test_spell_control_does_not_target_activated_abilities[Commandeer]
+tests/test_rules_wave45c_control.py::test_an_opponent_taking_zidane_itself_gives_its_old_controller_a_treasure
+tests/test_rules_spell_control.py::test_spell_control_cards_are_full[Commandeer]
+tests/test_rules_spell_control.py::test_invert_polarity_uses_recorded_coin_branch[False]
+[gw0] [  0%] PASSED tests/test_rules_spell_control.py::test_spell_control_cards_are_full[Commandeer]
+tests/test_rules_spell_control.py::test_spell_control_cards_are_full[Aethersnatch]
+[gw0] [  1%] PASSED tests/test_rules_spell_control.py::test_spell_control_cards_are_full[Aethersnatch]
+tests/test_rules_spell_control.py::test_spell_control_cards_are_full[Invert Polarity]
+[gw0] [  1%] PASSED tests/test_rules_spell_control.py::test_spell_control_cards_are_full[Invert Polarity]
+tests/test_rules_spell_control.py::test_instant_changes_controller_but_not_owner_or_cast_history[False-Commandeer]
+[gw0] [  2%] PASSED tests/test_rules_spell_control.py::test_instant_changes_controller_but_not_owner_or_cast_history[False-Commandeer]
+tests/test_rules_spell_control.py::test_instant_changes_controller_but_not_owner_or_cast_history[False-Aethersnatch]
+[gw1] [  3%] PASSED tests/test_rules_spell_control.py::test_invert_polarity_uses_recorded_coin_branch[False]
+tests/test_rules_spell_control.py::test_invert_polarity_uses_recorded_coin_branch[True]
+[gw0] [  3%] PASSED tests/test_rules_spell_control.py::test_instant_changes_controller_but_not_owner_or_cast_history[False-Aethersnatch]
+tests/test_rules_spell_control.py::test_instant_changes_controller_but_not_owner_or_cast_history[True-Commandeer]
+[gw2] [  4%] PASSED tests/test_rules_spell_control.py::test_spell_control_does_not_target_activated_abilities[Commandeer]
+tests/test_rules_spell_control.py::test_spell_control_does_not_target_activated_abilities[Aethersnatch]
+[gw0] [  5%] PASSED tests/test_rules_spell_control.py::test_instant_changes_controller_but_not_owner_or_cast_history[True-Commandeer]
+tests/test_rules_spell_control.py::test_instant_changes_controller_but_not_owner_or_cast_history[True-Aethersnatch]
+[gw3] [  5%] PASSED tests/test_rules_wave45c_control.py::test_an_opponent_taking_zidane_itself_gives_its_old_controller_a_treasure
+tests/test_rules_wave45c_control.py::test_an_opponent_taking_another_permanent_of_yours_gives_a_treasure_each
+[gw0] [  6%] PASSED tests/test_rules_spell_control.py::test_instant_changes_controller_but_not_owner_or_cast_history[True-Aethersnatch]
+tests/test_rules_spell_control.py::test_targetless_permanent_enters_under_new_controller
+[gw1] [  7%] PASSED tests/test_rules_spell_control.py::test_invert_polarity_uses_recorded_coin_branch[True]
+tests/test_rules_spell_control.py::test_commandeer_alternative_cost_privately_exiles_exactly_two_other_blue_cards
+[gw2] [  7%] PASSED tests/test_rules_spell_control.py::test_spell_control_does_not_target_activated_abilities[Aethersnatch]
+tests/test_rules_spell_control.py::test_commandeer_cannot_target_a_creature_spell
+[gw1] [  8%] PASSED tests/test_rules_spell_control.py::test_commandeer_alternative_cost_privately_exiles_exactly_two_other_blue_cards
+tests/test_rules_spell_control.py::test_retarget_uses_new_spell_controller_for_player_hexproof
+[gw2] [  9%] PASSED tests/test_rules_spell_control.py::test_commandeer_cannot_target_a_creature_spell
+tests/test_rules_spell_control.py::test_untargeted_spell_instructions_use_new_controller
+[gw3] [  9%] PASSED tests/test_rules_wave45c_control.py::test_an_opponent_taking_another_permanent_of_yours_gives_a_treasure_each
+tests/test_rules_wave45c_control.py::test_the_creature_zidane_stole_goes_back_and_that_is_an_opponent_gaining_control_from_you
+[gw2] [ 10%] PASSED tests/test_rules_spell_control.py::test_untargeted_spell_instructions_use_new_controller
+tests/test_rules_spell_control.py::test_controlled_aura_enchant_restriction_uses_new_controller[False]
+[gw1] [ 11%] PASSED tests/test_rules_spell_control.py::test_retarget_uses_new_spell_controller_for_player_hexproof
+tests/test_rules_spell_control.py::test_stolen_mutate_retargets_by_owner_and_merged_host_keeps_its_controller
+[gw0] [ 11%] PASSED tests/test_rules_spell_control.py::test_targetless_permanent_enters_under_new_controller
+tests/test_rules_spell_control.py::test_aura_target_can_change_without_creating_effect_spell_entry
+[gw3] [ 12%] PASSED tests/test_rules_wave45c_control.py::test_the_creature_zidane_stole_goes_back_and_that_is_an_opponent_gaining_control_from_you
+tests/test_rules_wave45c_control.py::test_a_permanent_that_was_never_yours_is_no_trigger
+[gw2] [ 13%] PASSED tests/test_rules_spell_control.py::test_controlled_aura_enchant_restriction_uses_new_controller[False]
+tests/test_rules_spell_control.py::test_controlled_aura_enchant_restriction_uses_new_controller[True]
+[gw1] [ 13%] PASSED tests/test_rules_spell_control.py::test_stolen_mutate_retargets_by_owner_and_merged_host_keeps_its_controller
+tests/test_rules_spell_control.py::test_stolen_mutate_with_illegal_target_enters_normally_under_new_controller[zone]
+[gw2] [ 14%] PASSED tests/test_rules_spell_control.py::test_controlled_aura_enchant_restriction_uses_new_controller[True]
+tests/test_rules_spell_control.py::test_temporary_control_returns_to_stolen_spells_entry_controller
+[gw0] [ 15%] PASSED tests/test_rules_spell_control.py::test_aura_target_can_change_without_creating_effect_spell_entry
+tests/test_rules_wave30q_cast_permissions.py::test_every_card_is_full[Edgar, Master Machinist]
+[gw0] [ 15%] PASSED tests/test_rules_wave30q_cast_permissions.py::test_every_card_is_full[Edgar, Master Machinist]
+tests/test_rules_wave30q_cast_permissions.py::test_every_card_is_full[Noctis, Prince of Lucis]
+[gw0] [ 16%] PASSED tests/test_rules_wave30q_cast_permissions.py::test_every_card_is_full[Noctis, Prince of Lucis]
+tests/test_rules_wave30q_cast_permissions.py::test_every_card_is_full[Leonardo, Sewer Samurai]
+[gw0] [ 17%] PASSED tests/test_rules_wave30q_cast_permissions.py::test_every_card_is_full[Leonardo, Sewer Samurai]
+tests/test_rules_wave30q_cast_permissions.py::test_every_card_is_full[Serra Paragon]
+[gw0] [ 17%] PASSED tests/test_rules_wave30q_cast_permissions.py::test_every_card_is_full[Serra Paragon]
+tests/test_rules_wave30q_cast_permissions.py::test_every_card_is_full[The Eighth Doctor]
+[gw0] [ 18%] PASSED tests/test_rules_wave30q_cast_permissions.py::test_every_card_is_full[The Eighth Doctor]
+tests/test_rules_wave30q_cast_permissions.py::test_every_card_is_full[Festival of Embers]
+[gw0] [ 19%] PASSED tests/test_rules_wave30q_cast_permissions.py::test_every_card_is_full[Festival of Embers]
+tests/test_rules_wave30q_cast_permissions.py::test_every_card_is_full[Maestros Ascendancy]
+[gw0] [ 19%] PASSED tests/test_rules_wave30q_cast_permissions.py::test_every_card_is_full[Maestros Ascendancy]
+tests/test_rules_wave30q_cast_permissions.py::test_every_card_is_full[Arcade Gannon]
+[gw0] [ 20%] PASSED tests/test_rules_wave30q_cast_permissions.py::test_every_card_is_full[Arcade Gannon]
+tests/test_rules_wave30q_cast_permissions.py::test_every_card_is_full[Liliana, Untouched by Death]
+[gw0] [ 21%] PASSED tests/test_rules_wave30q_cast_permissions.py::test_every_card_is_full[Liliana, Untouched by Death]
+tests/test_rules_wave30q_cast_permissions.py::test_muldrotha_one_land_and_one_permanent_spell_of_each_type_a_turn
+[gw1] [ 21%] PASSED tests/test_rules_spell_control.py::test_stolen_mutate_with_illegal_target_enters_normally_under_new_controller[zone]
+tests/test_rules_spell_control.py::test_stolen_mutate_with_illegal_target_enters_normally_under_new_controller[hexproof]
+[gw3] [ 22%] PASSED tests/test_rules_wave45c_control.py::test_a_permanent_that_was_never_yours_is_no_trigger
+tests/test_rules_wave30q_cast_permissions.py::test_every_card_is_full[Muldrotha, the Gravetide]
+[gw3] [ 23%] PASSED tests/test_rules_wave30q_cast_permissions.py::test_every_card_is_full[Muldrotha, the Gravetide]
+tests/test_rules_wave30q_cast_permissions.py::test_every_card_is_full[Titania, Nature's Force]
+[gw3] [ 23%] PASSED tests/test_rules_wave30q_cast_permissions.py::test_every_card_is_full[Titania, Nature's Force]
+tests/test_rules_wave30q_cast_permissions.py::test_every_card_is_full[Zask, Skittering Swarmlord]
+[gw3] [ 24%] PASSED tests/test_rules_wave30q_cast_permissions.py::test_every_card_is_full[Zask, Skittering Swarmlord]
+tests/test_rules_wave30q_cast_permissions.py::test_every_card_is_full[Hazezon, Shaper of Sand]
+[gw3] [ 25%] PASSED tests/test_rules_wave30q_cast_permissions.py::test_every_card_is_full[Hazezon, Shaper of Sand]
+tests/test_rules_wave30q_cast_permissions.py::test_every_card_is_full[Chainer, Nightmare Adept]
+[gw1] [ 25%] PASSED tests/test_rules_spell_control.py::test_stolen_mutate_with_illegal_target_enters_normally_under_new_controller[hexproof]
+tests/test_rules_spell_control.py::test_control_preserves_announced_x_and_paid_kicker[x]
+[gw3] [ 26%] PASSED tests/test_rules_wave30q_cast_permissions.py::test_every_card_is_full[Chainer, Nightmare Adept]
+tests/test_rules_wave30q_cast_permissions.py::test_leonardo_casts_small_creatures_on_his_controllers_turn_and_they_enter_with_a_finality_counter
+[gw3] [ 26%] PASSED tests/test_rules_wave30q_cast_permissions.py::test_leonardo_casts_small_creatures_on_his_controllers_turn_and_they_enter_with_a_finality_counter
+tests/test_rules_wave30q_cast_permissions.py::test_noctis_casts_artifacts_for_three_life_and_they_enter_with_a_finality_counter
+[gw3] [ 27%] PASSED tests/test_rules_wave30q_cast_permissions.py::test_noctis_casts_artifacts_for_three_life_and_they_enter_with_a_finality_counter
+tests/test_rules_wave30q_cast_permissions.py::test_noctis_cannot_pay_life_it_does_not_have
+[gw3] [ 28%] PASSED tests/test_rules_wave30q_cast_permissions.py::test_noctis_cannot_pay_life_it_does_not_have
+tests/test_rules_wave30q_cast_permissions.py::test_festival_of_embers_casts_instants_and_sorceries_from_the_graveyard_on_your_turn_for_one_life_each
+[gw2] [ 28%] PASSED tests/test_rules_spell_control.py::test_temporary_control_returns_to_stolen_spells_entry_controller
+tests/test_rules_spell_control.py::test_temporary_permanent_control_returns_stolen_aura_to_entry_controller
+[gw1] [ 29%] PASSED tests/test_rules_spell_control.py::test_control_preserves_announced_x_and_paid_kicker[x]
+tests/test_rules_spell_control.py::test_control_preserves_announced_x_and_paid_kicker[kicker]
+[gw3] [ 30%] PASSED tests/test_rules_wave30q_cast_permissions.py::test_festival_of_embers_casts_instants_and_sorceries_from_the_graveyard_on_your_turn_for_one_life_each
+tests/test_rules_wave30q_cast_permissions.py::test_maestros_ascendancy_sacrifices_a_creature_to_cast_an_instant_once_a_turn_and_exiles_it
+[gw3] [ 30%] PASSED tests/test_rules_wave30q_cast_permissions.py::test_maestros_ascendancy_sacrifices_a_creature_to_cast_an_instant_once_a_turn_and_exiles_it
+tests/test_rules_wave30q_cast_permissions.py::test_edgar_casts_an_artifact_from_the_graveyard_and_it_enters_tapped
+[gw3] [ 31%] PASSED tests/test_rules_wave30q_cast_permissions.py::test_edgar_casts_an_artifact_from_the_graveyard_and_it_enters_tapped
+tests/test_rules_wave30q_cast_permissions.py::test_serra_paragon_plays_a_land_or_casts_a_permanent_spell_once_and_it_is_exiled_when_it_dies
+[gw1] [ 32%] PASSED tests/test_rules_spell_control.py::test_control_preserves_announced_x_and_paid_kicker[kicker]
+tests/test_rules_wave30q_cast_permissions.py::test_chainer_discards_for_one_creature_spell_from_the_graveyard_this_turn
+[gw3] [ 32%] PASSED tests/test_rules_wave30q_cast_permissions.py::test_serra_paragon_plays_a_land_or_casts_a_permanent_spell_once_and_it_is_exiled_when_it_dies
+tests/test_rules_wave30q_cast_permissions.py::test_the_eighth_doctor_plays_a_historic_land_or_casts_a_historic_permanent_and_it_is_exiled_instead_of_leaving
+[gw0] [ 33%] PASSED tests/test_rules_wave30q_cast_permissions.py::test_muldrotha_one_land_and_one_permanent_spell_of_each_type_a_turn
+tests/test_rules_wave30q_cast_permissions.py::test_muldrotha_a_countered_spell_still_used_up_its_type
+[gw3] [ 34%] PASSED tests/test_rules_wave30q_cast_permissions.py::test_the_eighth_doctor_plays_a_historic_land_or_casts_a_historic_permanent_and_it_is_exiled_instead_of_leaving
+tests/test_rules_morph_costs78.py::test_nonmana_life_increase_preserves_original_payment
+[gw0] [ 34%] PASSED tests/test_rules_wave30q_cast_permissions.py::test_muldrotha_a_countered_spell_still_used_up_its_type
+tests/test_rules_wave30q_cast_permissions.py::test_titania_plays_forests_from_the_graveyard_using_the_land_drop
+[gw1] [ 35%] PASSED tests/test_rules_wave30q_cast_permissions.py::test_chainer_discards_for_one_creature_spell_from_the_graveyard_this_turn
+tests/test_rules_wave30q_cast_permissions.py::test_liliana_untouched_by_death_lets_you_cast_any_number_of_zombie_spells_this_turn
+[gw0] [ 36%] PASSED tests/test_rules_wave30q_cast_permissions.py::test_titania_plays_forests_from_the_graveyard_using_the_land_drop
+tests/test_rules_wave30q_cast_permissions.py::test_hazezon_plays_desert_lands_but_no_other_land_from_the_graveyard
+[gw0] [ 36%] PASSED tests/test_rules_wave30q_cast_permissions.py::test_hazezon_plays_desert_lands_but_no_other_land_from_the_graveyard
+tests/test_rules_wave30q_cast_permissions.py::test_zask_plays_lands_and_casts_insect_spells_from_the_graveyard
+[gw1] [ 37%] PASSED tests/test_rules_wave30q_cast_permissions.py::test_liliana_untouched_by_death_lets_you_cast_any_number_of_zombie_spells_this_turn
+tests/test_rules_morph.py::test_cast_face_down_hides_it_then_turn_face_up
+[gw1] [ 38%] PASSED tests/test_rules_morph.py::test_cast_face_down_hides_it_then_turn_face_up
+tests/test_rules_morph.py::test_megamorph_adds_a_counter
+[gw0] [ 38%] PASSED tests/test_rules_wave30q_cast_permissions.py::test_zask_plays_lands_and_casts_insect_spells_from_the_graveyard
+tests/test_rules_wave30q_cast_permissions.py::test_lurrus_casts_one_permanent_spell_with_mana_value_two_or_less_a_turn
+[gw1] [ 39%] PASSED tests/test_rules_morph.py::test_megamorph_adds_a_counter
+tests/test_rules_morph.py::test_no_morph_no_face_down_cast
+[gw1] [ 40%] PASSED tests/test_rules_morph.py::test_no_morph_no_face_down_cast
+tests/test_rules_morph_costs78.py::test_canonical
+[gw1] [ 40%] PASSED tests/test_rules_morph_costs78.py::test_canonical
+tests/test_rules_morph_costs78.py::test_real_morph_megamorph_increase[Gravel Slinger-mana0-0]
+[gw0] [ 41%] PASSED tests/test_rules_wave30q_cast_permissions.py::test_lurrus_casts_one_permanent_spell_with_mana_value_two_or_less_a_turn
+tests/test_rules_wave30q_cast_permissions.py::test_arcade_gannon_casts_an_artifact_or_human_spell_up_to_the_quest_counters
+[gw0] [ 42%] PASSED tests/test_rules_wave30q_cast_permissions.py::test_arcade_gannon_casts_an_artifact_or_human_spell_up_to_the_quest_counters
+tests/test_rules_wave18a_down.py::test_coverage_full[Shorecrasher Elemental]
+[gw0] [ 42%] PASSED tests/test_rules_wave18a_down.py::test_coverage_full[Shorecrasher Elemental]
+tests/test_rules_wave18a_down.py::test_coverage_full[Ixidron]
+[gw0] [ 43%] PASSED tests/test_rules_wave18a_down.py::test_coverage_full[Ixidron]
+tests/test_rules_wave18a_down.py::test_coverage_full[Scroll Rack]
+[gw0] [ 44%] PASSED tests/test_rules_wave18a_down.py::test_coverage_full[Scroll Rack]
+tests/test_rules_wave18a_down.py::test_coverage_full[Ignorant Bliss]
+[gw0] [ 44%] PASSED tests/test_rules_wave18a_down.py::test_coverage_full[Ignorant Bliss]
+tests/test_rules_wave18a_down.py::test_coverage_full[Inverter of Truth]
+[gw0] [ 45%] PASSED tests/test_rules_wave18a_down.py::test_coverage_full[Inverter of Truth]
+tests/test_rules_wave18a_down.py::test_coverage_full[Doomsday Excruciator]
+[gw0] [ 46%] PASSED tests/test_rules_wave18a_down.py::test_coverage_full[Doomsday Excruciator]
+tests/test_rules_wave18a_down.py::test_coverage_full[Ugin, the Ineffable]
+[gw0] [ 46%] PASSED tests/test_rules_wave18a_down.py::test_coverage_full[Ugin, the Ineffable]
+tests/test_rules_wave18a_down.py::test_coverage_full[Glitch Interpreter]
+[gw0] [ 47%] PASSED tests/test_rules_wave18a_down.py::test_coverage_full[Glitch Interpreter]
+tests/test_rules_wave18a_down.py::test_coverage_full[Cyber Conversion]
+[gw0] [ 48%] PASSED tests/test_rules_wave18a_down.py::test_coverage_full[Cyber Conversion]
+tests/test_rules_wave18a_down.py::test_coverage_full[Yedora, Grave Gardener]
+[gw0] [ 48%] PASSED tests/test_rules_wave18a_down.py::test_coverage_full[Yedora, Grave Gardener]
+tests/test_rules_wave18a_down.py::test_coverage_full[Tezzeret, Cruel Machinist]
+[gw0] [ 49%] PASSED tests/test_rules_wave18a_down.py::test_coverage_full[Tezzeret, Cruel Machinist]
+tests/test_rules_wave18a_down.py::test_coverage_full[Cybership]
+[gw0] [ 50%] PASSED tests/test_rules_wave18a_down.py::test_coverage_full[Cybership]
+tests/test_rules_wave18a_down.py::test_coverage_full[Ethereal Valkyrie]
+[gw0] [ 50%] PASSED tests/test_rules_wave18a_down.py::test_coverage_full[Ethereal Valkyrie]
+tests/test_rules_wave18a_down.py::test_coverage_full[The Foretold Soldier]
+[gw0] [ 51%] PASSED tests/test_rules_wave18a_down.py::test_coverage_full[The Foretold Soldier]
+tests/test_rules_wave18a_down.py::test_coverage_full[Ghastly Conscription]
+[gw0] [ 51%] PASSED tests/test_rules_wave18a_down.py::test_coverage_full[Ghastly Conscription]
+tests/test_rules_wave18a_down.py::test_coverage_full[Jeskai Infiltrator]
+[gw0] [ 52%] PASSED tests/test_rules_wave18a_down.py::test_coverage_full[Jeskai Infiltrator]
+tests/test_rules_wave18a_down.py::test_coverage_full[Become Anonymous]
+[gw0] [ 53%] PASSED tests/test_rules_wave18a_down.py::test_coverage_full[Become Anonymous]
+tests/test_rules_wave18a_down.py::test_coverage_full[Hauntwoods Shrieker]
+[gw0] [ 53%] PASSED tests/test_rules_wave18a_down.py::test_coverage_full[Hauntwoods Shrieker]
+tests/test_rules_wave18a_down.py::test_coverage_full[Spy Network]
+[gw0] [ 54%] PASSED tests/test_rules_wave18a_down.py::test_coverage_full[Spy Network]
+tests/test_rules_wave18a_down.py::test_coverage_full[Illithid Harvester // Plant Tadpoles]
+[gw0] [ 55%] PASSED tests/test_rules_wave18a_down.py::test_coverage_full[Illithid Harvester // Plant Tadpoles]
+tests/test_rules_wave18a_down.py::test_coverage_full[Poison the Cup]
+[gw0] [ 55%] PASSED tests/test_rules_wave18a_down.py::test_coverage_full[Poison the Cup]
+tests/test_rules_wave18a_down.py::test_coverage_full[Scroll of Fate]
+[gw0] [ 56%] PASSED tests/test_rules_wave18a_down.py::test_coverage_full[Scroll of Fate]
+tests/test_rules_wave18a_down.py::test_the_spec_of_a_face_down_permanent
+[gw0] [ 57%] PASSED tests/test_rules_wave18a_down.py::test_the_spec_of_a_face_down_permanent
+tests/test_rules_wave18a_down.py::test_ashcloud_phoenix_returns_face_down_and_turns_up_with_its_morph_cost
+[gw0] [ 57%] PASSED tests/test_rules_wave18a_down.py::test_ashcloud_phoenix_returns_face_down_and_turns_up_with_its_morph_cost
+tests/test_rules_wave18a_down.py::test_shorecrasher_elemental_flickers_itself_face_down
+[gw0] [ 58%] PASSED tests/test_rules_wave18a_down.py::test_shorecrasher_elemental_flickers_itself_face_down
+tests/test_rules_wave18a_down.py::test_ixidron_turns_the_other_nontoken_creatures_face_down_as_it_enters
+[gw0] [ 59%] PASSED tests/test_rules_wave18a_down.py::test_ixidron_turns_the_other_nontoken_creatures_face_down_as_it_enters
+tests/test_rules_wave18a_down.py::test_scroll_rack_exiles_your_cards_face_down_then_puts_them_back_on_top
+[gw3] [ 59%] PASSED tests/test_rules_morph_costs78.py::test_nonmana_life_increase_preserves_original_payment
+tests/test_rules_morph_costs78.py::test_nonmana_discard_adds_mana_and_pays_exact_chosen_cost
+[gw0] [ 60%] PASSED tests/test_rules_wave18a_down.py::test_scroll_rack_exiles_your_cards_face_down_then_puts_them_back_on_top
+tests/test_rules_wave18a_down.py::test_ignorant_bliss_exiles_your_hand_face_down_and_returns_it_at_the_end_step
+[gw0] [ 61%] PASSED tests/test_rules_wave18a_down.py::test_ignorant_bliss_exiles_your_hand_face_down_and_returns_it_at_the_end_step
+tests/test_rules_wave18a_down.py::test_inverter_of_truth_exiles_the_whole_library_face_down
+[gw0] [ 61%] PASSED tests/test_rules_wave18a_down.py::test_inverter_of_truth_exiles_the_whole_library_face_down
+tests/test_rules_wave18a_down.py::test_doomsday_excruciator_only_when_cast
+[gw0] [ 62%] PASSED tests/test_rules_wave18a_down.py::test_doomsday_excruciator_only_when_cast
+tests/test_rules_wave18a_down.py::test_ugin_the_ineffable_exiles_face_down_you_look_and_the_token_leaving_gives_it_to_you
+[gw0] [ 63%] PASSED tests/test_rules_wave18a_down.py::test_ugin_the_ineffable_exiles_face_down_you_look_and_the_token_leaving_gives_it_to_you
+tests/test_rules_wave18a_down.py::test_glitch_interpreter_manifests_dread_when_you_control_no_face_down_permanent
+[gw0] [ 63%] PASSED tests/test_rules_wave18a_down.py::test_glitch_interpreter_manifests_dread_when_you_control_no_face_down_permanent
+tests/test_rules_wave18a_down.py::test_cyber_conversion_turns_a_creature_face_down_as_a_cyberman_artifact_creature
+[gw0] [ 64%] PASSED tests/test_rules_wave18a_down.py::test_cyber_conversion_turns_a_creature_face_down_as_a_cyberman_artifact_creature
+tests/test_rules_wave18a_down.py::test_yedora_returns_a_dying_creature_face_down_as_a_forest_land
+[gw0] [ 65%] PASSED tests/test_rules_wave18a_down.py::test_yedora_returns_a_dying_creature_face_down_as_a_forest_land
+tests/test_rules_wave18a_down.py::test_tezzeret_puts_cards_from_your_hand_onto_the_battlefield_face_down_as_5_5_artifact_creatures
+[gw0] [ 65%] PASSED tests/test_rules_wave18a_down.py::test_tezzeret_puts_cards_from_your_hand_onto_the_battlefield_face_down_as_5_5_artifact_creatures
+tests/test_rules_wave18a_down.py::test_a_card_that_leaves_the_battlefield_face_down_is_revealed
+[gw0] [ 66%] PASSED tests/test_rules_wave18a_down.py::test_a_card_that_leaves_the_battlefield_face_down_is_revealed
+tests/test_rules_wave18a_down.py::test_ethereal_valkyrie_foretells_a_card_from_your_hand_for_its_mana_cost_less_two
+[gw0] [ 67%] PASSED tests/test_rules_wave18a_down.py::test_ethereal_valkyrie_foretells_a_card_from_your_hand_for_its_mana_cost_less_two
+tests/test_rules_wave18a_down.py::test_the_foretold_soldier_exiles_itself_face_down_and_becomes_foretold
+[gw2] [ 67%] PASSED tests/test_rules_spell_control.py::test_temporary_permanent_control_returns_stolen_aura_to_entry_controller
+tests/test_rules_wave45c_control.py::test_zidane_is_full
+[gw2] [ 68%] PASSED tests/test_rules_wave45c_control.py::test_zidane_is_full
+tests/test_rules_wave18a_down.py::test_become_anonymous_cloaks_your_creature_and_the_top_two_cards_tapped
+[gw2] [ 69%] PASSED tests/test_rules_wave18a_down.py::test_become_anonymous_cloaks_your_creature_and_the_top_two_cards_tapped
+tests/test_rules_wave18a_down.py::test_jeskai_infiltrator_manifests_itself_and_the_top_card
+[gw0] [ 69%] PASSED tests/test_rules_wave18a_down.py::test_the_foretold_soldier_exiles_itself_face_down_and_becomes_foretold
+tests/test_rules_wave18a_down.py::test_cybership_puts_the_top_cards_of_their_library_onto_the_battlefield_face_down
+[gw2] [ 70%] PASSED tests/test_rules_wave18a_down.py::test_jeskai_infiltrator_manifests_itself_and_the_top_card
+tests/test_rules_wave18a_down.py::test_hauntwoods_shrieker_reveals_a_face_down_permanent_and_may_turn_a_creature_card_up
+[gw3] [ 71%] PASSED tests/test_rules_morph_costs78.py::test_nonmana_discard_adds_mana_and_pays_exact_chosen_cost
+tests/test_rules_morph_costs78.py::test_cast_face_down_still_only_three
+[gw2] [ 71%] PASSED tests/test_rules_wave18a_down.py::test_hauntwoods_shrieker_reveals_a_face_down_permanent_and_may_turn_a_creature_card_up
+tests/test_rules_wave18a_down.py::test_spy_network_looks_at_the_hand_the_top_card_and_the_face_down_creatures
+[gw2] [ 72%] PASSED tests/test_rules_wave18a_down.py::test_spy_network_looks_at_the_hand_the_top_card_and_the_face_down_creatures
+tests/test_rules_wave18a_down.py::test_illithid_harvester_turns_any_number_of_tapped_nontoken_creatures_face_down_as_horrors
+[gw2] [ 73%] PASSED tests/test_rules_wave18a_down.py::test_illithid_harvester_turns_any_number_of_tapped_nontoken_creatures_face_down_as_horrors
+tests/test_rules_wave18a_down.py::test_poison_the_cup_scries_only_when_foretold
+[gw0] [ 73%] PASSED tests/test_rules_wave18a_down.py::test_cybership_puts_the_top_cards_of_their_library_onto_the_battlefield_face_down
+tests/test_rules_wave18a_down.py::test_ghastly_conscription_manifests_the_creature_cards_of_a_graveyard
+[gw2] [ 74%] PASSED tests/test_rules_wave18a_down.py::test_poison_the_cup_scries_only_when_foretold
+tests/test_rules_wave18a_down.py::test_scroll_of_fate_manifests_a_card_from_your_hand_privately
+[gw0] [ 75%] PASSED tests/test_rules_wave18a_down.py::test_ghastly_conscription_manifests_the_creature_cards_of_a_graveyard
+tests/test_rules_copiable_coin_entry41.py::test_actual_cast_uses_copiable_permanent_form_and_no_win_loss_event[True]
+[gw2] [ 75%] PASSED tests/test_rules_wave18a_down.py::test_scroll_of_fate_manifests_a_card_from_your_hand_privately
+tests/test_rules_copiable_coin_entry41.py::test_actual_blink_replaces_old_form_and_new_incarnation_flips_once
+[gw1] [ 76%] PASSED tests/test_rules_morph_costs78.py::test_real_morph_megamorph_increase[Gravel Slinger-mana0-0]
+tests/test_rules_morph_costs78.py::test_real_morph_megamorph_increase[Aerie Bowmasters-mana1-1]
+[gw2] [ 76%] PASSED tests/test_rules_copiable_coin_entry41.py::test_actual_blink_replaces_old_form_and_new_incarnation_flips_once
+tests/test_rules_copiable_coin_entry41.py::test_already_battlefield_copy_takes_form_without_flipping
+[gw3] [ 77%] PASSED tests/test_rules_morph_costs78.py::test_cast_face_down_still_only_three
+tests/test_rules_morph_costs78.py::test_manifest_original_mana_cost_does_not_get_morph_increase
+[gw0] [ 78%] PASSED tests/test_rules_copiable_coin_entry41.py::test_actual_cast_uses_copiable_permanent_form_and_no_win_loss_event[True]
+tests/test_rules_copiable_coin_entry41.py::test_actual_cast_uses_copiable_permanent_form_and_no_win_loss_event[False]
+[gw2] [ 78%] PASSED tests/test_rules_copiable_coin_entry41.py::test_already_battlefield_copy_takes_form_without_flipping
+tests/test_rules_copiable_coin_entry41.py::test_actual_entering_clone_flips_its_own_coin_and_keeps_copiable_abilities
+[gw3] [ 79%] PASSED tests/test_rules_morph_costs78.py::test_manifest_original_mana_cost_does_not_get_morph_increase
+tests/test_rules_morph_costs78.py::test_disguise_cost_is_not_morph
+[gw0] [ 80%] PASSED tests/test_rules_copiable_coin_entry41.py::test_actual_cast_uses_copiable_permanent_form_and_no_win_loss_event[False]
+tests/test_rules_copiable_coin_entry41.py::test_actual_token_copy_performs_its_own_entry_flip
+[gw2] [ 80%] PASSED tests/test_rules_copiable_coin_entry41.py::test_actual_entering_clone_flips_its_own_coin_and_keeps_copiable_abilities
+tests/test_rules_copiable_coin_entry41.py::test_native_token_replacement_each_copy_gets_separate_saved_form
+[gw1] [ 81%] PASSED tests/test_rules_morph_costs78.py::test_real_morph_megamorph_increase[Aerie Bowmasters-mana1-1]
+tests/test_rules_morph_costs78.py::test_opposing_doomsayer_also_taxes
+[gw3] [ 82%] PASSED tests/test_rules_morph_costs78.py::test_disguise_cost_is_not_morph
+tests/test_rules_morph_costs78.py::test_source_departure_removes_increase
+[gw0] [ 82%] PASSED tests/test_rules_copiable_coin_entry41.py::test_actual_token_copy_performs_its_own_entry_flip
+tests/test_rules_copiable_coin_entry41.py::test_native_ability_removal_prevents_entry_flip_and_never_backfills_form
+[gw2] [ 83%] PASSED tests/test_rules_copiable_coin_entry41.py::test_native_token_replacement_each_copy_gets_separate_saved_form
+tests/test_rules_copiable_coin_entry41.py::test_native_thumb_keeps_actual_face_before_entry
+[gw1] [ 84%] PASSED tests/test_rules_morph_costs78.py::test_opposing_doomsayer_also_taxes
+tests/test_rules_morph_costs78.py::test_two_sources_stack
+[gw0] [ 84%] PASSED tests/test_rules_copiable_coin_entry41.py::test_native_ability_removal_prevents_entry_flip_and_never_backfills_form
+tests/test_rules_copiable_coin_entry41.py::test_saved_copiable_entry_form_or_token_coin_packet_resumes_fresh[counter_order]
+[gw2] [ 85%] PASSED tests/test_rules_copiable_coin_entry41.py::test_native_thumb_keeps_actual_face_before_entry
+tests/test_rules_copiable_coin_entry41.py::test_saved_copiable_entry_form_or_token_coin_packet_resumes_fresh[token_coin]
+[gw3] [ 86%] PASSED tests/test_rules_morph_costs78.py::test_source_departure_removes_increase
+tests/test_rules_morph_costs78.py::test_reveal_nonmana_cost_increase_preserves_public_reveal
+[gw1] [ 86%] PASSED tests/test_rules_morph_costs78.py::test_two_sources_stack
+tests/test_rules_copiable_coin_entry41.py::test_unchosen_printed_coin_form_has_zero_base_in_all_nonbattlefield_zones
+[gw0] [ 87%] PASSED tests/test_rules_copiable_coin_entry41.py::test_saved_copiable_entry_form_or_token_coin_packet_resumes_fresh[counter_order]
+tests/test_rules_copiable_coin_entry41.py::test_chosen_copiable_form_survives_later_ability_suppression
+[gw1] [ 88%] PASSED tests/test_rules_copiable_coin_entry41.py::test_unchosen_printed_coin_form_has_zero_base_in_all_nonbattlefield_zones
+tests/test_rules_graveyard_cost_grants57.py::test_complete_canonical[Cursecloth Wrappings]
+[gw1] [ 88%] PASSED tests/test_rules_graveyard_cost_grants57.py::test_complete_canonical[Cursecloth Wrappings]
+tests/test_rules_graveyard_cost_grants57.py::test_native_granted_graveyard_ability[Cursecloth Wrappings-embalm]
+[gw0] [ 89%] PASSED tests/test_rules_copiable_coin_entry41.py::test_chosen_copiable_form_survives_later_ability_suppression
+tests/test_rules_graveyard_cost_grants57.py::test_native_granted_graveyard_ability[Araumi of the Dead Tide-encore]
+[gw2] [ 90%] PASSED tests/test_rules_copiable_coin_entry41.py::test_saved_copiable_entry_form_or_token_coin_packet_resumes_fresh[token_coin]
+tests/test_rules_graveyard_cost_grants57.py::test_complete_canonical[Araumi of the Dead Tide]
+[gw2] [ 90%] PASSED tests/test_rules_graveyard_cost_grants57.py::test_complete_canonical[Araumi of the Dead Tide]
+tests/test_rules_graveyard_cost_grants57.py::test_true_cold_graveyard_grant[Araumi of the Dead Tide-encore]
+[gw3] [ 91%] PASSED tests/test_rules_morph_costs78.py::test_reveal_nonmana_cost_increase_preserves_public_reveal
+tests/test_rules_morph_costs78.py::test_true_cold_pending_discard_keeps_increase_and_nonmana_selection
+[gw0] [ 92%] PASSED tests/test_rules_graveyard_cost_grants57.py::test_native_granted_graveyard_ability[Araumi of the Dead Tide-encore]
+tests/test_rules_graveyard_cost_grants57.py::test_araumi_insufficient_payment_is_atomic
+[gw1] [ 92%] PASSED tests/test_rules_graveyard_cost_grants57.py::test_native_granted_graveyard_ability[Cursecloth Wrappings-embalm]
+tests/test_rules_graveyard_cost_grants57.py::test_araumi_can_exile_its_target_as_cost_then_fizzles
+[gw0] [ 93%] PASSED tests/test_rules_graveyard_cost_grants57.py::test_araumi_insufficient_payment_is_atomic
+tests/test_rules_graveyard_cost_grants57.py::test_granted_embalm_x_is_paid_but_not_copied_to_token
+[gw1] [ 94%] PASSED tests/test_rules_graveyard_cost_grants57.py::test_araumi_can_exile_its_target_as_cost_then_fizzles
+tests/test_rules_graveyard_cost_grants57.py::test_graveyard_grant_cannot_follow_a_new_object
+[gw2] [ 94%] PASSED tests/test_rules_graveyard_cost_grants57.py::test_true_cold_graveyard_grant[Araumi of the Dead Tide-encore]
+tests/test_rules_graveyard_cost_grants57.py::test_true_cold_graveyard_grant[Cursecloth Wrappings-embalm]
+[gw0] [ 95%] PASSED tests/test_rules_graveyard_cost_grants57.py::test_granted_embalm_x_is_paid_but_not_copied_to_token
+tests/test_rules_graveyard_cost_grants57.py::test_graveyard_grant_expires_at_end_of_turn
+[gw1] [ 96%] PASSED tests/test_rules_graveyard_cost_grants57.py::test_graveyard_grant_cannot_follow_a_new_object
+tests/test_rules_graveyard_cost_grants57.py::test_encore_x_payment_does_not_change_token_x
+[gw2] [ 96%] PASSED tests/test_rules_graveyard_cost_grants57.py::test_true_cold_graveyard_grant[Cursecloth Wrappings-embalm]
+[gw3] [ 97%] PASSED tests/test_rules_morph_costs78.py::test_true_cold_pending_discard_keeps_increase_and_nonmana_selection
+tests/test_rules_wave18a_down.py::test_coverage_full[Ashcloud Phoenix]
+tests/test_rules_graveyard_cost_grants57.py::test_no_mana_cost_card_has_no_payable_granted_keyword
+[gw3] [ 98%] PASSED tests/test_rules_wave18a_down.py::test_coverage_full[Ashcloud Phoenix]
+[gw0] [ 98%] PASSED tests/test_rules_graveyard_cost_grants57.py::test_graveyard_grant_expires_at_end_of_turn
+[gw1] [ 99%] PASSED tests/test_rules_graveyard_cost_grants57.py::test_encore_x_payment_does_not_change_token_x
+[gw2] [100%] PASSED tests/test_rules_graveyard_cost_grants57.py::test_no_mana_cost_card_has_no_payable_granted_keyword
+
+======================= 152 passed in 103.17s (0:01:43) ========================

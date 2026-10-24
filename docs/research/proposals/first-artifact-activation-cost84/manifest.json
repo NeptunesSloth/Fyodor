@@ -1,0 +1,20 @@
+{
+  "status": "prototype; native gates in progress",
+  "cards": [
+    "Tezzeret, Betrayer of Flesh"
+  ],
+  "files": [
+    "app/rules/first_artifact_activation_cost84.py",
+    "app/rules/scripts.py",
+    "app/rules/permissions.py",
+    "app/game/rules_state.py",
+    "app/rules/casting.py"
+  ],
+  "source_sha256": {
+    "app/rules/first_artifact_activation_cost84.py": "639d40e922f4bd0f19225ef5336d55d1404cd045eaf8abff9fdb1daaac748c2c",
+    "app/rules/scripts.py": "534dcb900a515b08d2f6301b2ada80dbcad025aef656d83df1c1414ebd00d4c4",
+    "app/rules/permissions.py": "2b2bb5f5c7e8f93933818b337e5b9f39fda19df0c0330014ef0e33d891115459",
+    "app/game/rules_state.py": "5639a58db91bf6b44294d8d0b4461ba942e6149305290feffa9626e994f3a7e3",
+    "app/rules/casting.py": "1be099afd08b01db7302b671dec9a015073916c40dc12d821ec7160bfd05278e"
+  }
+}

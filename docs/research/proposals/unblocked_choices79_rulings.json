@@ -1,0 +1,111 @@
+{
+  "Master of Cruelties": {
+    "object": "list",
+    "has_more": false,
+    "data": [
+      {
+        "object": "ruling",
+        "oracle_id": "d135c457-9be5-4a6e-a6fb-5b35cfb70cb0",
+        "source": "wotc",
+        "published_at": "2024-01-12",
+        "comment": "Master of Cruelties's last ability won't trigger if it attacks a planeswalker or a battle."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "d135c457-9be5-4a6e-a6fb-5b35cfb70cb0",
+        "source": "wotc",
+        "published_at": "2013-04-15",
+        "comment": "An ability that triggers when something \"attacks and isn't blocked\" triggers in the declare blockers step after blockers are declared if (1) that creature is attacking and (2) no creatures are declared to block it. It will trigger even if that creature was put onto the battlefield attacking rather than having been declared as an attacker in the declare attackers step."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "d135c457-9be5-4a6e-a6fb-5b35cfb70cb0",
+        "source": "wotc",
+        "published_at": "2013-04-15",
+        "comment": "Master of Cruelties isn't forced to attack, but if it does, it must do so alone. If you control another creature with an ability that says it must attack if able, that creature must attack and Master of Cruelties won't be able to."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "d135c457-9be5-4a6e-a6fb-5b35cfb70cb0",
+        "source": "wotc",
+        "published_at": "2013-04-15",
+        "comment": "If Master of Cruelties attacks alone, another creature entering the battlefield attacking will have no effect on it. Master of Cruelties continues to be an attacking creature. The other attacking creature will assign combat damage normally, regardless of whether Master of Cruelties's last ability triggers."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "d135c457-9be5-4a6e-a6fb-5b35cfb70cb0",
+        "source": "wotc",
+        "published_at": "2013-04-15",
+        "comment": "For a player's life total to become 1, what actually happens is that the player loses (or in some rare cases, gains) the appropriate amount of life. For example, if the player's life total is 4 when the last ability resolves, it will cause that player to lose 3 life. Other effects that interact with life loss (or gain) will interact with this effect accordingly."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "d135c457-9be5-4a6e-a6fb-5b35cfb70cb0",
+        "source": "wotc",
+        "published_at": "2013-04-15",
+        "comment": "Assigning no combat damage isn't the same as preventing that damage. Effects that make damage unpreventable will have no effect if no combat damage can be assigned."
+      }
+    ]
+  },
+  "Bone Dancer": {
+    "object": "list",
+    "has_more": false,
+    "data": [
+      {
+        "object": "ruling",
+        "oracle_id": "13b5c9ef-d0e3-453d-ae5e-8de4f310cc38",
+        "source": "wotc",
+        "published_at": "2013-04-15",
+        "comment": "An ability that triggers when something \u201cattacks and isn\u2019t blocked\u201d triggers in the declare blockers step after blockers are declared if (1) that creature is attacking and (2) no creatures are declared to block it. It will trigger even if that creature was put onto the battlefield attacking rather than having been declared as an attacker in the declare attackers step."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "13b5c9ef-d0e3-453d-ae5e-8de4f310cc38",
+        "source": "wotc",
+        "published_at": "2008-04-01",
+        "comment": "The \u201ctop\u201d card of your graveyard is the card that was put there most recently."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "13b5c9ef-d0e3-453d-ae5e-8de4f310cc38",
+        "source": "wotc",
+        "published_at": "2008-04-01",
+        "comment": "Players may not rearrange the cards in their graveyards. This is a little-known rule because new cards that care about graveyard order haven\u2019t been printed in years."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "13b5c9ef-d0e3-453d-ae5e-8de4f310cc38",
+        "source": "wotc",
+        "published_at": "2008-04-01",
+        "comment": "If an effect or rule puts two or more cards into the same graveyard at the same time, the owner of those cards may arrange them in any order."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "13b5c9ef-d0e3-453d-ae5e-8de4f310cc38",
+        "source": "wotc",
+        "published_at": "2008-04-01",
+        "comment": "The last thing that happens to a resolving instant or sorcery spell is that it\u2019s put into its owner\u2019s graveyard. \u2014Example: You cast Wrath of God. All creatures on the battlefield are destroyed. You arrange all the cards put into your graveyard this way in any order you want. The other players in the game do the same to the cards that are put into their graveyards. Then you put Wrath of God into your graveyard, on top of the other cards."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "13b5c9ef-d0e3-453d-ae5e-8de4f310cc38",
+        "source": "wotc",
+        "published_at": "2008-04-01",
+        "comment": "Say you\u2019re the owner of both a permanent and an Aura that\u2019s attached to it. If both the permanent and the Aura are destroyed at the same time (by Akroma\u2019s Vengeance, for example), you decide the order they\u2019re put into your graveyard. If just the enchanted permanent is destroyed, it\u2019s put into your graveyard first. Then, after state-based actions are checked, the Aura (which is no longer attached to anything) is put into your graveyard on top of it."
+      }
+    ]
+  },
+  "Stromgald Spy": {
+    "object": "list",
+    "has_more": false,
+    "data": [
+      {
+        "object": "ruling",
+        "oracle_id": "b7aa0625-c691-4219-b099-3798b349d09c",
+        "source": "wotc",
+        "published_at": "2013-04-15",
+        "comment": "An ability that triggers when something \u201cattacks and isn\u2019t blocked\u201d triggers in the declare blockers step after blockers are declared if (1) that creature is attacking and (2) no creatures are declared to block it. It will trigger even if that creature was put onto the battlefield attacking rather than having been declared as an attacker in the declare attackers step."
+      }
+    ]
+  }
+}

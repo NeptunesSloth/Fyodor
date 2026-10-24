@@ -1,0 +1,1646 @@
+[
+  {
+    "id": "e28eac1e-adc7-4f8d-b206-bef09ba07d38",
+    "oracle_id": "84856b92-5ce8-47f3-9a1c-78d6a3e26aca",
+    "name": "Eden, Seat of the Sanctum",
+    "layout": "normal",
+    "set_code": "fin",
+    "set_name": "Final Fantasy",
+    "collector_number": "277",
+    "rarity": "uncommon",
+    "mana_cost": "",
+    "cmc": 0.0,
+    "type_line": "Land \u2014 Town",
+    "oracle_text": "{T}: Add {C}.\n{5}, {T}: Mill two cards. Then you may sacrifice this land. When you do, return another target permanent card from your graveyard to your hand.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": [
+      "Mill"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2025-06-13",
+    "artist": "Leon Tukker",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "2b80feb8-5cc8-4e91-ac22-a733305a67de",
+    "oracle_id": "aa929252-5dcc-4c9b-9e7c-61d0bef98d6d",
+    "name": "Blood Spatter Analysis",
+    "layout": "normal",
+    "set_code": "mkm",
+    "set_name": "Murders at Karlov Manor",
+    "collector_number": "189",
+    "rarity": "rare",
+    "mana_cost": "{B}{R}",
+    "cmc": 2.0,
+    "type_line": "Enchantment",
+    "oracle_text": "When this enchantment enters, it deals 3 damage to target creature an opponent controls.\nWhenever one or more creatures die, mill a card and put a bloodstain counter on this enchantment. Then sacrifice it if it has five or more bloodstain counters on it. When you do, return target creature card from your graveyard to your hand.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "B",
+      "R"
+    ],
+    "color_identity": [
+      "B",
+      "R"
+    ],
+    "keywords": [
+      "Mill"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2024-02-09",
+    "artist": "Jokubas Uogintas",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "31147651-9a5e-4329-923b-e464f67135e9",
+    "oracle_id": "ed54a59b-b24c-4681-b862-fa634fe759fd",
+    "name": "Serum-Core Chimera",
+    "layout": "normal",
+    "set_code": "one",
+    "set_name": "Phyrexia: All Will Be One",
+    "collector_number": "215",
+    "rarity": "uncommon",
+    "mana_cost": "{2}{U}{R}",
+    "cmc": 4.0,
+    "type_line": "Creature \u2014 Phyrexian Chimera",
+    "oracle_text": "Flying\nWhenever you cast a noncreature spell, put an oil counter on this creature.\nRemove three oil counters from this creature: Draw a card. Then you may discard a nonland card. When you discard a card this way, this creature deals 3 damage to target creature or planeswalker. Activate only as a sorcery.",
+    "power": "2",
+    "toughness": "4",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R",
+      "U"
+    ],
+    "color_identity": [
+      "R",
+      "U"
+    ],
+    "keywords": [
+      "Flying"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2023-02-10",
+    "artist": "Johan Grenier",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "8cabb6ed-5c80-4dab-b96c-9d4d9fe72db7",
+    "oracle_id": "ad6442c2-7aa2-4c24-8133-f679a3499bde",
+    "name": "Vengeful Villagers",
+    "layout": "normal",
+    "set_code": "tla",
+    "set_name": "Avatar: The Last Airbender",
+    "collector_number": "40",
+    "rarity": "uncommon",
+    "mana_cost": "{3}{W}",
+    "cmc": 4.0,
+    "type_line": "Creature \u2014 Human Citizen",
+    "oracle_text": "Whenever this creature attacks, choose target creature an opponent controls. Tap it, then you may sacrifice an artifact or creature. If you do, put a stun counter on the chosen creature. (If a permanent with a stun counter would become untapped, remove one from it instead.)",
+    "power": "3",
+    "toughness": "3",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2025-11-21",
+    "artist": "Ittoku",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "7ad55575-6053-43b1-9496-bcb1ea25e2a1",
+    "oracle_id": "719aeb50-c8cf-4cd8-b74c-d2cef408b52e",
+    "name": "Airlift Chaplain",
+    "layout": "normal",
+    "set_code": "bro",
+    "set_name": "The Brothers' War",
+    "collector_number": "2",
+    "rarity": "common",
+    "mana_cost": "{2}{W}",
+    "cmc": 3.0,
+    "type_line": "Creature \u2014 Human Cleric",
+    "oracle_text": "Flying\nWhen this creature enters, mill three cards. You may put a Plains card or a creature card with mana value 3 or less from among the cards milled this way into your hand. If you don't, put a +1/+1 counter on this creature. (To mill a card, put the top card of your library into your graveyard.)",
+    "power": "1",
+    "toughness": "1",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [
+      "Flying",
+      "Mill"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2022-11-18",
+    "artist": "Caroline Gariba",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "ebf71ffc-6e3e-4ca0-a84a-3c1ebd2b64b1",
+    "oracle_id": "6f4c94b6-f829-4646-a574-083997b78dfb",
+    "name": "Winter Soldier, Icy Assassin",
+    "layout": "normal",
+    "set_code": "msh",
+    "set_name": "Marvel Super Heroes",
+    "collector_number": "239",
+    "rarity": "rare",
+    "mana_cost": "{W}{B}",
+    "cmc": 2.0,
+    "type_line": "Legendary Creature \u2014 Human Assassin Villain",
+    "oracle_text": "Vigilance, menace\nWinter Soldier gets +2/+0 for each Equipment attached to him.\n{3}{W}{B}: Return this card from your graveyard to the battlefield with a finality counter on him. Then you may attach an Equipment you control to him. (If a creature with a finality counter on it would die, exile it instead.)",
+    "power": "2",
+    "toughness": "2",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "B",
+      "W"
+    ],
+    "color_identity": [
+      "B",
+      "W"
+    ],
+    "keywords": [
+      "Vigilance",
+      "Menace"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2026-06-26",
+    "artist": "Riccardo Federici",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "0265fd20-a85d-49ce-b338-4c40843a5b18",
+    "oracle_id": "f4497af5-8b81-46b3-bb52-eaed1999809b",
+    "name": "Unexpected Request",
+    "layout": "normal",
+    "set_code": "fin",
+    "set_name": "Final Fantasy",
+    "collector_number": "167",
+    "rarity": "uncommon",
+    "mana_cost": "{2}{R}",
+    "cmc": 3.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Gain control of target creature until end of turn. Untap that creature. It gains haste until end of turn. You may attach an Equipment you control to that creature. If you do, unattach it at the beginning of the next end step.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2025-06-13",
+    "artist": "Ignatius Budi",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "name": "Rest in Peace",
+    "layout": "normal",
+    "mana_cost": "{1}{W}",
+    "cmc": 2.0,
+    "type_line": "Enchantment",
+    "oracle_text": "When this enchantment enters, exile all graveyards.\nIf a card or token would be put into a graveyard from anywhere, exile it instead.",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "object": "card",
+    "id": "885ed96a-8a33-5882-ac88-b6b209022a6c",
+    "oracle_id": "66720ab2-72cd-507a-b505-150c8c39d8fc",
+    "name": "Plains",
+    "lang": "en",
+    "layout": "normal",
+    "set": "tst",
+    "set_name": "TST Set",
+    "set_type": "expansion",
+    "collector_number": "59p",
+    "released_at": "2020-01-01",
+    "rarity": "common",
+    "mana_cost": "",
+    "cmc": 0.0,
+    "type_line": "Basic Land \u2014 Plains",
+    "oracle_text": "",
+    "colors": [],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [],
+    "legalities": {
+      "commander": "legal"
+    },
+    "digital": false,
+    "promo": false,
+    "border_color": "black",
+    "image_uris": {
+      "normal": "https://img.example/Plains|tst|59p.jpg",
+      "small": "https://img.example/s/Plains|tst|59p.jpg"
+    }
+  },
+  {
+    "object": "card",
+    "id": "9d7b6c08-2f76-58f3-9124-9f46c0211b8f",
+    "oracle_id": "ef428a6e-85b4-5dbd-8238-a0ac2b19cec4",
+    "name": "Hill Giant",
+    "lang": "en",
+    "layout": "normal",
+    "set": "tst",
+    "set_name": "TST Set",
+    "set_type": "expansion",
+    "collector_number": "59h",
+    "released_at": "2020-01-01",
+    "rarity": "common",
+    "mana_cost": "{3}{R}",
+    "cmc": 4.0,
+    "type_line": "Creature \u2014 Giant",
+    "oracle_text": "",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [],
+    "legalities": {
+      "commander": "legal"
+    },
+    "digital": false,
+    "promo": false,
+    "border_color": "black",
+    "image_uris": {
+      "normal": "https://img.example/Hill Giant|tst|59h.jpg",
+      "small": "https://img.example/s/Hill Giant|tst|59h.jpg"
+    },
+    "power": "3",
+    "toughness": "3"
+  },
+  {
+    "name": "Darksteel Colossus",
+    "layout": "normal",
+    "mana_cost": "{11}",
+    "cmc": 11.0,
+    "type_line": "Artifact Creature \u2014 Golem",
+    "oracle_text": "Trample (This creature can deal excess combat damage to the player or planeswalker it's attacking.)\nIndestructible (Damage and effects that say \"destroy\" don't destroy this creature.)\nIf Darksteel Colossus would be put into a graveyard from anywhere, reveal Darksteel Colossus and shuffle it into its owner's library instead.",
+    "power": "11",
+    "toughness": "11",
+    "loyalty": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": [
+      "Indestructible",
+      "Trample"
+    ]
+  },
+  {
+    "id": "2ff7c89c-41dc-4ac3-bbce-38ab86f435ea",
+    "oracle_id": "9d8fe3f8-5027-4f9e-999e-e277caa96478",
+    "name": "Disperse",
+    "lang": "en",
+    "layout": "normal",
+    "set_code": "m19",
+    "set_name": "Core Set 2019",
+    "set_type": "core",
+    "collector_number": "50",
+    "released_at": "2018-07-13",
+    "rarity": "common",
+    "mana_cost": "{1}{U}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "Return target nonland permanent to its owner's hand.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [],
+    "produced_mana": null,
+    "card_faces": null,
+    "all_parts": null,
+    "image_uris": {
+      "small": "https://cards.scryfall.io/small/front/2/f/2ff7c89c-41dc-4ac3-bbce-38ab86f435ea.jpg?1783934590",
+      "normal": "https://cards.scryfall.io/normal/front/2/f/2ff7c89c-41dc-4ac3-bbce-38ab86f435ea.jpg?1783934590",
+      "large": "https://cards.scryfall.io/large/front/2/f/2ff7c89c-41dc-4ac3-bbce-38ab86f435ea.jpg?1783934590",
+      "art_crop": "https://cards.scryfall.io/art_crop/front/2/f/2ff7c89c-41dc-4ac3-bbce-38ab86f435ea.jpg?1783934590"
+    },
+    "legalities": {
+      "standard": "not_legal",
+      "future": "not_legal",
+      "historic": "legal",
+      "timeless": "legal",
+      "gladiator": "legal",
+      "pioneer": "legal",
+      "modern": "legal",
+      "legacy": "legal",
+      "pauper": "legal",
+      "vintage": "legal",
+      "penny": "legal",
+      "commander": "legal",
+      "oathbreaker": "legal",
+      "standardbrawl": "not_legal",
+      "brawl": "legal",
+      "competitivebrawl": "legal",
+      "alchemy": "not_legal",
+      "paupercommander": "legal",
+      "duel": "legal",
+      "oldschool": "not_legal",
+      "premodern": "not_legal",
+      "predh": "legal",
+      "tlr": "legal"
+    },
+    "is_token": 0,
+    "digital": 0,
+    "promo": 0,
+    "artist": "Ryan Yee",
+    "edhrec_rank": 12725
+  },
+  {
+    "id": "dfd977dc-a7c3-4d0a-aca7-b25bd154e963",
+    "oracle_id": "06ccec61-27d2-4079-80b5-29ebd3a980ee",
+    "name": "Cache Grab",
+    "layout": "normal",
+    "set_code": "blb",
+    "set_name": "Bloomburrow",
+    "collector_number": "167",
+    "rarity": "common",
+    "mana_cost": "{1}{G}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "Mill four cards. You may put a permanent card from among the cards milled this way into your hand. If you control a Squirrel or returned a Squirrel card to your hand this way, create a Food token. (To mill four cards, put the top four cards of your library into your graveyard. A Food token is an artifact with \"{2}, {T}, Sacrifice this token: You gain 3 life.\")",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [
+      "Food",
+      "Mill"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2024-08-02",
+    "artist": "Lo\u00efc Canavaggia",
+    "commander_legal": "legal",
+    "related_tokens": [
+      {
+        "id": "0dce2241-e58b-41d4-b57c-9794fc8ee004",
+        "name": "Food",
+        "type_line": "Token Artifact \u2014 Food"
+      }
+    ],
+    "related_cards": []
+  },
+  {
+    "id": "c5112bbf-752c-41e7-9c61-4c81e6a77463",
+    "oracle_id": "79bc2c6d-b03d-4ceb-b468-293378ec73ae",
+    "name": "Midnight Tilling",
+    "layout": "normal",
+    "set_code": "ecl",
+    "set_name": "Lorwyn Eclipsed",
+    "collector_number": "182",
+    "rarity": "common",
+    "mana_cost": "{1}{G}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "Mill four cards, then you may return a permanent card from among them to your hand. (To mill four cards, put the top four cards of your library into your graveyard.)",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [
+      "Mill"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2026-01-23",
+    "artist": "Slawomir Maniak",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "520f5a03-ff5a-43ed-8f15-cf24596d60cd",
+    "oracle_id": "036b7b89-e49a-4560-9de9-1d4d71f3f666",
+    "name": "Sparring Dummy",
+    "layout": "normal",
+    "set_code": "tla",
+    "set_name": "Avatar: The Last Airbender",
+    "collector_number": "197",
+    "rarity": "uncommon",
+    "mana_cost": "{1}{G}",
+    "cmc": 2.0,
+    "type_line": "Artifact Creature \u2014 Scarecrow",
+    "oracle_text": "Defender\n{T}: Mill a card. You may put a land card milled this way into your hand. You gain 2 life if a Lesson card is milled this way. (To mill a card, put the top card of your library into your graveyard.)",
+    "power": "1",
+    "toughness": "3",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [
+      "Mill",
+      "Defender"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2025-11-21",
+    "artist": "Gemi",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "90e9b488-37fd-42db-b0f2-b6c5a15a6e36",
+    "oracle_id": "393b9d9e-9d71-43e7-aede-eac7f85d2365",
+    "name": "Demonic Covenant",
+    "layout": "normal",
+    "set_code": "dsc",
+    "set_name": "Duskmourn: House of Horror Commander",
+    "collector_number": "19",
+    "rarity": "rare",
+    "mana_cost": "{4}{B}{B}",
+    "cmc": 6.0,
+    "type_line": "Kindred Enchantment \u2014 Demon",
+    "oracle_text": "Whenever one or more Demons you control attack a player, you draw a card and lose 1 life.\nAt the beginning of your end step, create a 5/5 black Demon creature token with flying, then mill two cards. If two cards that share all their card types were milled this way, sacrifice this enchantment.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [
+      "Mill"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2024-09-27",
+    "artist": "L.A. Draws",
+    "commander_legal": "legal",
+    "related_tokens": [
+      {
+        "id": "66f75b9d-b1e2-42e3-8a74-f596ae16996c",
+        "name": "Demon",
+        "type_line": "Token Creature \u2014 Demon"
+      }
+    ],
+    "related_cards": [
+      {
+        "id": "dd12c395-4d18-472b-9e91-337b86007fcd",
+        "name": "Demonic Covenant",
+        "component": "combo_piece"
+      }
+    ]
+  },
+  {
+    "id": "b4356e13-655b-40b8-ad08-4e28b7464a3c",
+    "oracle_id": "f43d1ea5-8127-4b64-a87b-ee5cc9b9e9fa",
+    "name": "Squirrel Sovereign",
+    "layout": "normal",
+    "set_code": "blc",
+    "set_name": "Bloomburrow Commander",
+    "collector_number": "240",
+    "rarity": "uncommon",
+    "mana_cost": "{1}{G}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Squirrel Noble",
+    "oracle_text": "Other Squirrels you control get +1/+1.",
+    "power": "2",
+    "toughness": "2",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2024-08-02",
+    "artist": "Ilse Gort",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "72ab0422-eba0-4e1e-9626-ef31b836dcd2",
+    "oracle_id": "f15b3b76-d38a-48db-bb44-3296183c8641",
+    "name": "Chatterfang, Squirrel General",
+    "layout": "normal",
+    "set_code": "blc",
+    "set_name": "Bloomburrow Commander",
+    "collector_number": "209",
+    "rarity": "mythic",
+    "mana_cost": "{2}{G}",
+    "cmc": 3.0,
+    "type_line": "Legendary Creature \u2014 Squirrel Warrior",
+    "oracle_text": "Forestwalk (This creature can't be blocked as long as defending player controls a Forest.)\nIf one or more tokens would be created under your control, those tokens plus that many 1/1 green Squirrel creature tokens are created instead.\n{B}, Sacrifice X Squirrels: Target creature gets +X/-X until end of turn.",
+    "power": "3",
+    "toughness": "3",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "B",
+      "G"
+    ],
+    "keywords": [
+      "Landwalk",
+      "Forestwalk"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2024-08-02",
+    "artist": "Jason A. Engle",
+    "commander_legal": "legal",
+    "related_tokens": [
+      {
+        "id": "5a6ec62e-0e9b-4312-bfe8-cc85d76fd9e0",
+        "name": "Squirrel",
+        "type_line": "Token Creature \u2014 Squirrel"
+      }
+    ],
+    "related_cards": []
+  },
+  {
+    "id": "46b394fc-a99c-44e7-9226-da0699167541",
+    "oracle_id": "2f889671-a1d6-4034-881b-58c93897d707",
+    "name": "Environmental Sciences",
+    "layout": "normal",
+    "set_code": "stx",
+    "set_name": "Strixhaven: School of Mages",
+    "collector_number": "1",
+    "rarity": "common",
+    "mana_cost": "{2}",
+    "cmc": 2.0,
+    "type_line": "Sorcery \u2014 Lesson",
+    "oracle_text": "Search your library for a basic land card, reveal it, put it into your hand, then shuffle. You gain 2 life.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2021-04-23",
+    "artist": "Jokubas Uogintas",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "d59df09f-d8b9-4398-a705-329b768d5004",
+    "oracle_id": "6437867b-a658-4a71-a8a5-0c5a782d1f84",
+    "name": "Ashes of the Fallen",
+    "layout": "normal",
+    "set_code": "sok",
+    "set_name": "Saviors of Kamigawa",
+    "collector_number": "152",
+    "rarity": "rare",
+    "mana_cost": "{2}",
+    "cmc": 2.0,
+    "type_line": "Artifact",
+    "oracle_text": "As this artifact enters, choose a creature type.\nEach creature card in your graveyard has the chosen creature type in addition to its other types.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2005-06-03",
+    "artist": "Dan Frazier",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "55976e4b-718f-44b2-b93d-de5f75dc3bbe",
+    "oracle_id": "6b6e4ee2-52e6-452b-af15-c90eab5fc746",
+    "name": "Wheel of Sun and Moon",
+    "layout": "normal",
+    "set_code": "shm",
+    "set_name": "Shadowmoor",
+    "collector_number": "243",
+    "rarity": "rare",
+    "mana_cost": "{G/W}{G/W}",
+    "cmc": 2.0,
+    "type_line": "Enchantment \u2014 Aura",
+    "oracle_text": "Enchant player\nIf a card would be put into enchanted player's graveyard from anywhere, instead that card is revealed and put on the bottom of that player's library.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G",
+      "W"
+    ],
+    "color_identity": [
+      "G",
+      "W"
+    ],
+    "keywords": [
+      "Enchant"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2008-05-02",
+    "artist": "Zoltan Boros & Gabor Szikszai",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "2ce2d73f-3f64-44db-a2bc-a8f4a37dc487",
+    "oracle_id": "274b999f-f193-48fd-9a4a-0fdaf535e6c3",
+    "name": "Bruvac the Grandiloquent",
+    "layout": "normal",
+    "set_code": "rvr",
+    "set_name": "Ravnica Remastered",
+    "collector_number": "35",
+    "rarity": "mythic",
+    "mana_cost": "{2}{U}",
+    "cmc": 3.0,
+    "type_line": "Legendary Creature \u2014 Human Advisor",
+    "oracle_text": "If an opponent would mill one or more cards, they mill twice that many cards instead. (To mill a card, a player puts the top card of their library into their graveyard.)",
+    "power": "1",
+    "toughness": "4",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Mill"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2024-01-12",
+    "artist": "Ekaterina Burmak",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "3cab0df1-d53f-4208-9ff9-d015aac20141",
+    "oracle_id": "06c25d71-f3f4-4089-b9bc-de96fbad73a5",
+    "name": "The Cyber-Controller",
+    "layout": "normal",
+    "set_code": "who",
+    "set_name": "Doctor Who",
+    "collector_number": "119",
+    "rarity": "rare",
+    "mana_cost": "{X}{U}{U}{B}",
+    "cmc": 3.0,
+    "type_line": "Legendary Artifact Creature \u2014 Cyberman",
+    "oracle_text": "When The Cyber-Controller enters, each opponent mills X cards. Put all creature cards milled this way onto the battlefield face down under your control. They're 2/2 Cyberman artifact creatures.\nOther artifact creatures you control get +1/+1.",
+    "power": "3",
+    "toughness": "3",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "B",
+      "U"
+    ],
+    "color_identity": [
+      "B",
+      "U"
+    ],
+    "keywords": [
+      "Mill"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2023-10-13",
+    "artist": "Pavel Kolomeyets",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [
+      {
+        "id": "fa858045-c3cf-457b-b7f9-a0b4fa70f2df",
+        "name": "The Cyber-Controller",
+        "component": "combo_piece"
+      },
+      {
+        "id": "392db1d2-9d75-4d19-88e0-9b0ffdc88541",
+        "name": "Cyberman",
+        "component": "combo_piece"
+      }
+    ]
+  },
+  {
+    "id": "0a135e09-b534-4836-9a10-3a9a4a9f8c53",
+    "oracle_id": "753cb2b2-24ce-484f-a2d0-be6fd2c67ebd",
+    "name": "Grafdigger's Cage",
+    "layout": "normal",
+    "set_code": "m20",
+    "set_name": "Core Set 2020",
+    "collector_number": "227",
+    "rarity": "rare",
+    "mana_cost": "{1}",
+    "cmc": 1.0,
+    "type_line": "Artifact",
+    "oracle_text": "Creature cards in graveyards and libraries can't enter the battlefield.\nPlayers can't cast spells from graveyards or libraries.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2019-07-12",
+    "artist": "Daniel Ljunggren",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "324b2f55-1e09-490e-8f7e-bfde85a91ac4",
+    "oracle_id": "55f3c721-e13a-406e-bc8e-d6cdc91ac477",
+    "name": "Authority of the Consuls",
+    "layout": "normal",
+    "set_code": "kld",
+    "set_name": "Kaladesh",
+    "collector_number": "5",
+    "rarity": "rare",
+    "mana_cost": "{W}",
+    "cmc": 1.0,
+    "type_line": "Enchantment",
+    "oracle_text": "Creatures your opponents control enter tapped.\nWhenever a creature an opponent controls enters, you gain 1 life.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2016-09-30",
+    "artist": "Lake Hurwitz",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "dfd2628f-63c4-4e19-83ea-26041650faab",
+    "oracle_id": "867aa0b7-b814-4d33-a677-f6368c8e93c0",
+    "name": "Aphetto Alchemist",
+    "layout": "normal",
+    "set_code": "ons",
+    "set_name": "Onslaught",
+    "collector_number": "64",
+    "rarity": "uncommon",
+    "mana_cost": "{1}{U}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Human Wizard",
+    "oracle_text": "{T}: Untap target artifact or creature.\nMorph {U} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)",
+    "power": "1",
+    "toughness": "2",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Morph"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2002-10-07",
+    "artist": "Ron Spears",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [
+      {
+        "id": "5430da88-b72e-4d64-bd3c-b21062cac1c2",
+        "name": "Morph",
+        "component": "combo_piece"
+      }
+    ]
+  },
+  {
+    "id": "6904ea20-e504-47da-95a0-08739fdde260",
+    "oracle_id": "edd531b9-f615-4399-8c8c-1c5e18c4acbf",
+    "name": "Delver of Secrets // Insectile Aberration",
+    "layout": "transform",
+    "set_code": "inr",
+    "set_name": "Innistrad Remastered",
+    "collector_number": "60",
+    "rarity": "common",
+    "mana_cost": "{U} // ",
+    "cmc": 1.0,
+    "type_line": "Creature \u2014 Human Wizard // Creature \u2014 Human Insect",
+    "oracle_text": "At the beginning of your upkeep, look at the top card of your library. You may reveal that card. If an instant or sorcery card is revealed this way, transform this creature.\n//\nFlying",
+    "power": "1",
+    "toughness": "1",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Flying",
+      "Transform"
+    ],
+    "is_token": false,
+    "faces": [
+      {
+        "name": "Delver of Secrets",
+        "mana_cost": "{U}",
+        "type_line": "Creature \u2014 Human Wizard",
+        "oracle_text": "At the beginning of your upkeep, look at the top card of your library. You may reveal that card. If an instant or sorcery card is revealed this way, transform this creature.",
+        "power": "1",
+        "toughness": "1",
+        "loyalty": null,
+        "defense": null,
+        "colors": [
+          "U"
+        ],
+        "image_face": 0
+      },
+      {
+        "name": "Insectile Aberration",
+        "mana_cost": "",
+        "type_line": "Creature \u2014 Human Insect",
+        "oracle_text": "Flying",
+        "power": "3",
+        "toughness": "2",
+        "loyalty": null,
+        "defense": null,
+        "colors": [
+          "U"
+        ],
+        "image_face": 1
+      }
+    ],
+    "double_faced": true,
+    "image_faces": 2,
+    "has_image": false,
+    "released_at": "2025-01-24",
+    "artist": "Nils Hamm",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [
+      {
+        "id": "99ce1bee-8f95-4284-8e06-9de9bfcb53b5",
+        "name": "Innistrad Checklist",
+        "component": "combo_piece"
+      },
+      {
+        "id": "871c4ccc-5a14-4583-b4c7-6f2d2aeb8253",
+        "name": "Delver of Secrets // Insectile Aberration",
+        "component": "combo_piece"
+      }
+    ]
+  },
+  {
+    "id": "1d8dd6c3-3699-4dd1-a019-fdb569eaf722",
+    "oracle_id": "752c7723-90f8-4e3a-8266-f251ee0dadd8",
+    "name": "Ingenious Artillerist",
+    "layout": "normal",
+    "set_code": "clb",
+    "set_name": "Commander Legends: Battle for Baldur's Gate",
+    "collector_number": "182",
+    "rarity": "common",
+    "mana_cost": "{2}{R}",
+    "cmc": 3.0,
+    "type_line": "Creature \u2014 Human Artificer",
+    "oracle_text": "Whenever one or more artifacts you control enter, this creature deals that much damage to each opponent.",
+    "power": "3",
+    "toughness": "1",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2022-06-10",
+    "artist": "Gaboleps",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "6f4436d1-7c6a-4ad2-8eba-d5949f960650",
+    "oracle_id": "afeba4d7-b659-4fb1-84dd-27704fbb2621",
+    "name": "Master Biomancer",
+    "layout": "normal",
+    "set_code": "clu",
+    "set_name": "Ravnica: Clue Edition",
+    "collector_number": "200",
+    "rarity": "mythic",
+    "mana_cost": "{2}{G}{U}",
+    "cmc": 4.0,
+    "type_line": "Creature \u2014 Elf Wizard",
+    "oracle_text": "Each other creature you control enters with a number of additional +1/+1 counters on it equal to this creature's power and as a Mutant in addition to its other types.",
+    "power": "2",
+    "toughness": "4",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G",
+      "U"
+    ],
+    "color_identity": [
+      "G",
+      "U"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2024-02-23",
+    "artist": "Willian Murai",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "fc69ad56-9ae2-4eb5-b7e2-558524f6cbcc",
+    "oracle_id": "a1f3da21-af6d-450e-bf0b-985d158418e6",
+    "name": "Hardened Scales",
+    "layout": "normal",
+    "set_code": "lcc",
+    "set_name": "The Lost Caverns of Ixalan Commander",
+    "collector_number": "243",
+    "rarity": "rare",
+    "mana_cost": "{G}",
+    "cmc": 1.0,
+    "type_line": "Enchantment",
+    "oracle_text": "If one or more +1/+1 counters would be put on a creature you control, that many plus one +1/+1 counters are put on it instead.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2023-11-17",
+    "artist": "Mark Winters",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "1cdd8e69-5a71-4933-914e-dfede7b1ac93",
+    "oracle_id": "01546b7d-a233-4176-8843-d732074dc5b6",
+    "name": "Doubling Season",
+    "layout": "normal",
+    "set_code": "cmm",
+    "set_name": "Commander Masters",
+    "collector_number": "283",
+    "rarity": "mythic",
+    "mana_cost": "{4}{G}",
+    "cmc": 5.0,
+    "type_line": "Enchantment",
+    "oracle_text": "If an effect would create one or more tokens under your control, it creates twice that many of those tokens instead.\nIf an effect would put one or more counters on a permanent you control, it puts twice that many of those counters on that permanent instead.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2023-08-04",
+    "artist": "Chuck Lukacs",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "d8d7ac51-450e-473e-93e1-3fa9b3b6e2d4",
+    "oracle_id": "fa4afcf7-9cf7-4f67-95b9-1f7fe66bf332",
+    "name": "Grumgully, the Generous",
+    "layout": "normal",
+    "set_code": "blc",
+    "set_name": "Bloomburrow Commander",
+    "collector_number": "253",
+    "rarity": "uncommon",
+    "mana_cost": "{1}{R}{G}",
+    "cmc": 3.0,
+    "type_line": "Legendary Creature \u2014 Goblin Shaman",
+    "oracle_text": "Each other non-Human creature you control enters with an additional +1/+1 counter on it.",
+    "power": "3",
+    "toughness": "3",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G",
+      "R"
+    ],
+    "color_identity": [
+      "G",
+      "R"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2024-08-02",
+    "artist": "Milivoj \u0106eran",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "1998356b-4eb3-43a7-8534-10eb212c7f2a",
+    "oracle_id": "6761b077-7a89-42c9-93ab-675fe4231564",
+    "name": "Renata, Called to the Hunt",
+    "layout": "normal",
+    "set_code": "mul",
+    "set_name": "Multiverse Legends",
+    "collector_number": "28",
+    "rarity": "uncommon",
+    "mana_cost": "{2}{G}{G}",
+    "cmc": 4.0,
+    "type_line": "Legendary Enchantment Creature \u2014 Demigod",
+    "oracle_text": "Renata's power is equal to your devotion to green. (Each {G} in the mana costs of permanents you control counts toward your devotion to green.)\nEach other creature you control enters with an additional +1/+1 counter on it.",
+    "power": "*",
+    "toughness": "3",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2023-04-21",
+    "artist": "Jason A. Engle",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "97021da6-7008-4271-a83b-459e5c9691fa",
+    "oracle_id": "1f91297a-ec2b-4ea8-9198-aa1daac20ff8",
+    "name": "Metallic Mimic",
+    "layout": "normal",
+    "set_code": "fdc",
+    "set_name": "Foundations Commander",
+    "collector_number": "269",
+    "rarity": "rare",
+    "mana_cost": "{2}",
+    "cmc": 2.0,
+    "type_line": "Artifact Creature \u2014 Shapeshifter",
+    "oracle_text": "As this creature enters, choose a creature type.\nThis creature is the chosen type in addition to its other types.\nEach other creature you control of the chosen type enters with an additional +1/+1 counter on it.",
+    "power": "2",
+    "toughness": "1",
+    "loyalty": null,
+    "defense": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2026-10-02",
+    "artist": "Zack Stella",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "b0b9d006-7179-4d59-88ef-34b4d4b2e2fc",
+    "oracle_id": "9c6ac895-0644-47ea-8a40-8f35cbbeba42",
+    "name": "Cybership",
+    "layout": "normal",
+    "set_code": "who",
+    "set_name": "Doctor Who",
+    "collector_number": "177",
+    "rarity": "rare",
+    "mana_cost": "{6}",
+    "cmc": 6.0,
+    "type_line": "Artifact \u2014 Vehicle",
+    "oracle_text": "Flying\nWhenever this Vehicle deals combat damage to a player, put the top two cards of that player's library onto the battlefield face down under your control. They're 2/2 Cyberman artifact creatures.\nCrew 4",
+    "power": "8",
+    "toughness": "8",
+    "loyalty": null,
+    "defense": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": [
+      "Flying",
+      "Crew"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2023-10-13",
+    "artist": "JB Casacop",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [
+      {
+        "id": "392db1d2-9d75-4d19-88e0-9b0ffdc88541",
+        "name": "Cyberman",
+        "component": "combo_piece"
+      },
+      {
+        "id": "cc96b99e-07e1-41b6-b9ce-dca3f75ecfa1",
+        "name": "Cybership",
+        "component": "combo_piece"
+      }
+    ]
+  },
+  {
+    "id": "cea3b218-0e6e-443a-84f7-380f1021e8e1",
+    "oracle_id": "74c0164c-130f-4572-9066-626c77f6e2ff",
+    "name": "Barrowgoyf",
+    "layout": "normal",
+    "set_code": "m3c",
+    "set_name": "Modern Horizons 3 Commander",
+    "collector_number": "102",
+    "rarity": "rare",
+    "mana_cost": "{2}{B}",
+    "cmc": 3.0,
+    "type_line": "Creature \u2014 Lhurgoyf",
+    "oracle_text": "Deathtouch, lifelink\nBarrowgoyf's power is equal to the number of card types among cards in all graveyards and its toughness is equal to that number plus 1.\nWhenever this creature deals combat damage to a player, you may mill that many cards. If you do, you may put a creature card from among them into your hand.",
+    "power": "*",
+    "toughness": "1+*",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [
+      "Lifelink",
+      "Mill",
+      "Deathtouch"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2024-06-14",
+    "artist": "Igor Kieryluk",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "0fbf9e1e-43f2-499e-844d-22fc10dbad06",
+    "oracle_id": "ade8fc6f-efaa-4a24-96d8-99ef5026cd74",
+    "name": "Nashi, Searcher in the Dark",
+    "layout": "normal",
+    "set_code": "dsk",
+    "set_name": "Duskmourn: House of Horror",
+    "collector_number": "223",
+    "rarity": "rare",
+    "mana_cost": "{U}{B}",
+    "cmc": 2.0,
+    "type_line": "Legendary Creature \u2014 Rat Ninja Wizard",
+    "oracle_text": "Menace\nWhenever Nashi deals combat damage to a player, you mill that many cards. You may put any number of legendary and/or enchantment cards from among them into your hand. If you put no cards into your hand this way, put a +1/+1 counter on Nashi.",
+    "power": "2",
+    "toughness": "2",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "B",
+      "U"
+    ],
+    "color_identity": [
+      "B",
+      "U"
+    ],
+    "keywords": [
+      "Menace",
+      "Mill"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2024-09-27",
+    "artist": "Johan Grenier",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "a22e8038-0706-47ec-bfda-f421a4912774",
+    "oracle_id": "a341eb75-e6a0-468b-8c83-61102249c648",
+    "name": "Greenhouse // Rickety Gazebo",
+    "layout": "split",
+    "set_code": "dsk",
+    "set_name": "Duskmourn: House of Horror",
+    "collector_number": "181",
+    "rarity": "uncommon",
+    "mana_cost": "{2}{G} // {3}{G}",
+    "cmc": 7.0,
+    "type_line": "Enchantment \u2014 Room // Enchantment \u2014 Room",
+    "oracle_text": "Lands you control have \"{T}: Add one mana of any color.\"\n(You may cast either half. That door unlocks on the battlefield. As a sorcery, you may pay the mana cost of a locked door to unlock it.)\n//\nWhen you unlock this door, mill four cards, then return up to two permanent cards from among them to your hand.\n(You may cast either half. That door unlocks on the battlefield. As a sorcery, you may pay the mana cost of a locked door to unlock it.)",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [
+      "Mill"
+    ],
+    "is_token": false,
+    "faces": [
+      {
+        "name": "Greenhouse",
+        "mana_cost": "{2}{G}",
+        "type_line": "Enchantment \u2014 Room",
+        "oracle_text": "Lands you control have \"{T}: Add one mana of any color.\"\n(You may cast either half. That door unlocks on the battlefield. As a sorcery, you may pay the mana cost of a locked door to unlock it.)",
+        "power": null,
+        "toughness": null,
+        "loyalty": null,
+        "defense": null,
+        "colors": null,
+        "image_face": 0
+      },
+      {
+        "name": "Rickety Gazebo",
+        "mana_cost": "{3}{G}",
+        "type_line": "Enchantment \u2014 Room",
+        "oracle_text": "When you unlock this door, mill four cards, then return up to two permanent cards from among them to your hand.\n(You may cast either half. That door unlocks on the battlefield. As a sorcery, you may pay the mana cost of a locked door to unlock it.)",
+        "power": null,
+        "toughness": null,
+        "loyalty": null,
+        "defense": null,
+        "colors": null,
+        "image_face": 0
+      }
+    ],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2024-09-27",
+    "artist": "John Di Giovanni",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "0502deea-95ad-4b6d-a3ac-d3adcd607624",
+    "oracle_id": "e12b38e5-621b-4b2c-8c04-c15c41d4fc70",
+    "name": "Tetzin, Gnome Champion // The Golden-Gear Colossus",
+    "layout": "transform",
+    "set_code": "lcc",
+    "set_name": "The Lost Caverns of Ixalan Commander",
+    "collector_number": "13",
+    "rarity": "rare",
+    "mana_cost": "{U}{R}{W} // ",
+    "cmc": 3.0,
+    "type_line": "Legendary Artifact Creature \u2014 Gnome // Legendary Artifact Creature \u2014 Gnome",
+    "oracle_text": "Whenever Tetzin or another double-faced artifact you control enters, mill three cards. You may put an artifact card from among them into your hand.\nCraft with six artifacts {4} ({4}, Exile this artifact, Exile the six from among other permanents you control and/or cards from your graveyard: Return this card transformed under its owner's control. Craft only as a sorcery.)\n//\nVigilance, trample\nWhenever The Golden-Gear Colossus enters or attacks, transform up to one other target double-faced artifact you control. Create two 1/1 colorless Gnome artifact creature tokens.",
+    "power": "2",
+    "toughness": "2",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R",
+      "U",
+      "W"
+    ],
+    "color_identity": [
+      "R",
+      "U",
+      "W"
+    ],
+    "keywords": [
+      "Craft",
+      "Vigilance",
+      "Transform",
+      "Trample",
+      "Mill"
+    ],
+    "is_token": false,
+    "faces": [
+      {
+        "name": "Tetzin, Gnome Champion",
+        "mana_cost": "{U}{R}{W}",
+        "type_line": "Legendary Artifact Creature \u2014 Gnome",
+        "oracle_text": "Whenever Tetzin or another double-faced artifact you control enters, mill three cards. You may put an artifact card from among them into your hand.\nCraft with six artifacts {4} ({4}, Exile this artifact, Exile the six from among other permanents you control and/or cards from your graveyard: Return this card transformed under its owner's control. Craft only as a sorcery.)",
+        "power": "2",
+        "toughness": "2",
+        "loyalty": null,
+        "defense": null,
+        "colors": [
+          "R",
+          "U",
+          "W"
+        ],
+        "image_face": 0
+      },
+      {
+        "name": "The Golden-Gear Colossus",
+        "mana_cost": "",
+        "type_line": "Legendary Artifact Creature \u2014 Gnome",
+        "oracle_text": "Vigilance, trample\nWhenever The Golden-Gear Colossus enters or attacks, transform up to one other target double-faced artifact you control. Create two 1/1 colorless Gnome artifact creature tokens.",
+        "power": "6",
+        "toughness": "6",
+        "loyalty": null,
+        "defense": null,
+        "colors": [
+          "R",
+          "U",
+          "W"
+        ],
+        "image_face": 1
+      }
+    ],
+    "double_faced": true,
+    "image_faces": 2,
+    "has_image": false,
+    "released_at": "2023-11-17",
+    "artist": "Kekai Kotaki",
+    "commander_legal": "legal",
+    "related_tokens": [
+      {
+        "id": "6def709a-53b3-4520-9544-74ab6472d256",
+        "name": "Gnome",
+        "type_line": "Token Artifact Creature \u2014 Gnome"
+      }
+    ],
+    "related_cards": [
+      {
+        "id": "53b2e955-0106-4c28-8897-bcdafd96195f",
+        "name": "Tetzin, Gnome Champion // The Golden-Gear Colossus",
+        "component": "combo_piece"
+      }
+    ]
+  },
+  {
+    "id": "458ce930-c100-4ef5-b75a-a18051282f8c",
+    "oracle_id": "07ff619a-21ee-44b6-b666-ceab4a78096a",
+    "name": "Desecrated Tomb",
+    "layout": "normal",
+    "set_code": "m19",
+    "set_name": "Core Set 2019",
+    "collector_number": "230",
+    "rarity": "rare",
+    "mana_cost": "{3}",
+    "cmc": 3.0,
+    "type_line": "Artifact",
+    "oracle_text": "Whenever one or more creature cards leave your graveyard, create a 1/1 black Bat creature token with flying.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2018-07-13",
+    "artist": "Dimitar Marinski",
+    "commander_legal": "legal",
+    "related_tokens": [
+      {
+        "id": "f1349fcb-db31-4b1d-8063-e5c28b4472cc",
+        "name": "Bat",
+        "type_line": "Token Creature \u2014 Bat"
+      }
+    ],
+    "related_cards": []
+  },
+  {
+    "id": "aeaa3aff-608d-4723-bb7c-8daedebe9f36",
+    "oracle_id": "f4e32fc1-1b8d-441e-8e76-71f19f98e925",
+    "name": "Leyline of the Void",
+    "layout": "normal",
+    "set_code": "dsk",
+    "set_name": "Duskmourn: House of Horror",
+    "collector_number": "106",
+    "rarity": "rare",
+    "mana_cost": "{2}{B}{B}",
+    "cmc": 4.0,
+    "type_line": "Enchantment",
+    "oracle_text": "If this card is in your opening hand, you may begin the game with it on the battlefield.\nIf a card would be put into an opponent's graveyard from anywhere, exile it instead.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2024-09-27",
+    "artist": "Sergey Glushakov",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  }
+]

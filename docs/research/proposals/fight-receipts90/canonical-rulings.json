@@ -1,0 +1,331 @@
+{
+  "Neyith of the Dire Hunt": {
+    "canonical": {
+      "id": "0c1eed0f-9692-44c0-b1ad-afa691165d52",
+      "oracle_id": "aba04455-c13f-48f7-9674-56803b39a42b",
+      "name": "Neyith of the Dire Hunt",
+      "lang": "en",
+      "layout": "normal",
+      "set_code": "jmp",
+      "set_name": "Jumpstart",
+      "set_type": "draft_innovation",
+      "collector_number": "30",
+      "released_at": "2020-07-17",
+      "rarity": "rare",
+      "mana_cost": "{2}{G}{G}",
+      "cmc": 4.0,
+      "type_line": "Legendary Creature \u2014 Human Warrior",
+      "oracle_text": "Whenever one or more creatures you control fight or become blocked, draw a card.\nAt the beginning of combat on your turn, you may pay {2}{R/G}. If you do, double target creature's power until end of turn. That creature must be blocked this combat if able. ({R/G} can be paid with either {R} or {G}.)",
+      "power": "3",
+      "toughness": "3",
+      "loyalty": null,
+      "defense": null,
+      "colors": [
+        "G"
+      ],
+      "color_identity": [
+        "G",
+        "R"
+      ],
+      "keywords": [
+        "Double"
+      ],
+      "produced_mana": null,
+      "card_faces": null,
+      "all_parts": null,
+      "image_uris": {
+        "small": "https://cards.scryfall.io/small/front/0/c/0c1eed0f-9692-44c0-b1ad-afa691165d52.jpg?1783930499",
+        "normal": "https://cards.scryfall.io/normal/front/0/c/0c1eed0f-9692-44c0-b1ad-afa691165d52.jpg?1783930499",
+        "large": "https://cards.scryfall.io/large/front/0/c/0c1eed0f-9692-44c0-b1ad-afa691165d52.jpg?1783930499",
+        "art_crop": "https://cards.scryfall.io/art_crop/front/0/c/0c1eed0f-9692-44c0-b1ad-afa691165d52.jpg?1783930499"
+      },
+      "legalities": {
+        "standard": "not_legal",
+        "future": "not_legal",
+        "historic": "legal",
+        "timeless": "legal",
+        "gladiator": "legal",
+        "pioneer": "not_legal",
+        "modern": "not_legal",
+        "legacy": "legal",
+        "pauper": "not_legal",
+        "vintage": "legal",
+        "penny": "not_legal",
+        "commander": "legal",
+        "oathbreaker": "legal",
+        "standardbrawl": "not_legal",
+        "brawl": "legal",
+        "competitivebrawl": "legal",
+        "alchemy": "not_legal",
+        "paupercommander": "not_legal",
+        "duel": "legal",
+        "oldschool": "not_legal",
+        "premodern": "not_legal",
+        "predh": "not_legal",
+        "tlr": "not_legal"
+      },
+      "is_token": 0,
+      "digital": 0,
+      "promo": 0,
+      "artist": "Magali Villeneuve",
+      "edhrec_rank": 4256
+    },
+    "rulings": [
+      {
+        "object": "ruling",
+        "oracle_id": "aba04455-c13f-48f7-9674-56803b39a42b",
+        "source": "wotc",
+        "published_at": "2020-06-23",
+        "comment": "A creature \u201cfights\u201d when an effect instructs it to fight. Dealing combat damage isn\u2019t fighting."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "aba04455-c13f-48f7-9674-56803b39a42b",
+        "source": "wotc",
+        "published_at": "2020-06-23",
+        "comment": "You draw just one card as Neyith\u2019s first ability resolves, no matter how many creatures you control fought or became blocked."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "aba04455-c13f-48f7-9674-56803b39a42b",
+        "source": "wotc",
+        "published_at": "2020-06-23",
+        "comment": "While resolving Neyith\u2019s last ability, you can\u2019t pay multiple times to double a creature\u2019s power more than once or to double more than one creature\u2019s power."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "aba04455-c13f-48f7-9674-56803b39a42b",
+        "source": "wotc",
+        "published_at": "2020-06-23",
+        "comment": "If an effect instructs you to \u201cdouble\u201d a creature\u2019s power, that creature gets +X/+0, where X is its power as that effect begins to apply. If its power is negative, instead it gets -X/-0 where X is how far below 0 its power is. The value of X won\u2019t change if another effect alters the creature\u2019s power later in the turn."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "aba04455-c13f-48f7-9674-56803b39a42b",
+        "source": "wotc",
+        "published_at": "2020-06-23",
+        "comment": "Only one creature is required to block the target creature. Other creatures may also block it and are free to block other creatures or not block at all."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "aba04455-c13f-48f7-9674-56803b39a42b",
+        "source": "wotc",
+        "published_at": "2020-06-23",
+        "comment": "If the target creature has menace, two creatures must block it if able."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "aba04455-c13f-48f7-9674-56803b39a42b",
+        "source": "wotc",
+        "published_at": "2020-06-23",
+        "comment": "The defending player, not you, chooses which creature blocks the target creature."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "aba04455-c13f-48f7-9674-56803b39a42b",
+        "source": "wotc",
+        "published_at": "2020-06-23",
+        "comment": "If each creature the defending player controls can\u2019t block for any reason (such as being tapped), then the target creature isn\u2019t blocked. If there\u2019s a cost associated with blocking the target creature, the defending player isn\u2019t forced to pay that cost, so it doesn\u2019t have to be blocked in that case either."
+      }
+    ],
+    "url": "https://api.scryfall.com/cards/0c1eed0f-9692-44c0-b1ad-afa691165d52/rulings"
+  },
+  "Foe-Razer Regent": {
+    "canonical": {
+      "id": "fde4a5a2-adcc-4011-b866-3bb2161ce966",
+      "oracle_id": "e7dd3e2c-34a5-4097-b6d1-2ccd097fe57f",
+      "name": "Foe-Razer Regent",
+      "lang": "en",
+      "layout": "normal",
+      "set_code": "scd",
+      "set_name": "Starter Commander Decks",
+      "set_type": "commander",
+      "collector_number": "183",
+      "released_at": "2022-12-02",
+      "rarity": "rare",
+      "mana_cost": "{5}{G}{G}",
+      "cmc": 7.0,
+      "type_line": "Creature \u2014 Dragon",
+      "oracle_text": "Flying\nWhen this creature enters, you may have it fight target creature you don't control.\nWhenever a creature you control fights, put two +1/+1 counters on it at the beginning of the next end step.",
+      "power": "4",
+      "toughness": "5",
+      "loyalty": null,
+      "defense": null,
+      "colors": [
+        "G"
+      ],
+      "color_identity": [
+        "G"
+      ],
+      "keywords": [
+        "Flying",
+        "Fight"
+      ],
+      "produced_mana": null,
+      "card_faces": null,
+      "all_parts": null,
+      "image_uris": {
+        "small": "https://cards.scryfall.io/small/front/f/d/fde4a5a2-adcc-4011-b866-3bb2161ce966.jpg?1783918659",
+        "normal": "https://cards.scryfall.io/normal/front/f/d/fde4a5a2-adcc-4011-b866-3bb2161ce966.jpg?1783918659",
+        "large": "https://cards.scryfall.io/large/front/f/d/fde4a5a2-adcc-4011-b866-3bb2161ce966.jpg?1783918659",
+        "art_crop": "https://cards.scryfall.io/art_crop/front/f/d/fde4a5a2-adcc-4011-b866-3bb2161ce966.jpg?1783918659"
+      },
+      "legalities": {
+        "standard": "not_legal",
+        "future": "not_legal",
+        "historic": "not_legal",
+        "timeless": "not_legal",
+        "gladiator": "not_legal",
+        "pioneer": "legal",
+        "modern": "legal",
+        "legacy": "legal",
+        "pauper": "not_legal",
+        "vintage": "legal",
+        "penny": "legal",
+        "commander": "legal",
+        "oathbreaker": "legal",
+        "standardbrawl": "not_legal",
+        "brawl": "not_legal",
+        "competitivebrawl": "not_legal",
+        "alchemy": "not_legal",
+        "paupercommander": "not_legal",
+        "duel": "legal",
+        "oldschool": "not_legal",
+        "premodern": "not_legal",
+        "predh": "not_legal",
+        "tlr": "not_legal"
+      },
+      "is_token": 0,
+      "digital": 0,
+      "promo": 0,
+      "artist": "Lucas Graciano",
+      "edhrec_rank": 10169
+    },
+    "rulings": [
+      {
+        "object": "ruling",
+        "oracle_id": "e7dd3e2c-34a5-4097-b6d1-2ccd097fe57f",
+        "source": "wotc",
+        "published_at": "2015-02-25",
+        "comment": "You choose the target of the first triggered ability as it goes on the stack, but you choose whether or not to fight as that ability resolves."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "e7dd3e2c-34a5-4097-b6d1-2ccd097fe57f",
+        "source": "wotc",
+        "published_at": "2015-02-25",
+        "comment": "If the target creature you don\u2019t control becomes an illegal target of the first triggered ability before it resolves, Foe-Razer Regent won\u2019t fight and its last ability won\u2019t trigger."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "e7dd3e2c-34a5-4097-b6d1-2ccd097fe57f",
+        "source": "wotc",
+        "published_at": "2015-02-25",
+        "comment": "If a creature you control fights during an end step, the delayed triggered ability that puts +1/+1 counters on that creature won\u2019t trigger until the beginning of the following turn\u2019s end step."
+      }
+    ],
+    "url": "https://api.scryfall.com/cards/fde4a5a2-adcc-4011-b866-3bb2161ce966/rulings"
+  },
+  "Boxing Ring": {
+    "canonical": {
+      "id": "0add67db-e26a-419a-aa1d-841460c5f69e",
+      "oracle_id": "0e676904-17c3-40f2-9b5b-eb29cacc336f",
+      "name": "Boxing Ring",
+      "lang": "en",
+      "layout": "normal",
+      "set_code": "ncc",
+      "set_name": "New Capenna Commander",
+      "set_type": "commander",
+      "collector_number": "99",
+      "released_at": "2022-04-29",
+      "rarity": "rare",
+      "mana_cost": "{1}{G}",
+      "cmc": 2.0,
+      "type_line": "Artifact",
+      "oracle_text": "Whenever a creature you control enters, it fights up to one target creature you don't control with the same mana value.\n{T}: Create a Treasure token. Activate only if you control a creature that fought this turn.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null,
+      "defense": null,
+      "colors": [
+        "G"
+      ],
+      "color_identity": [
+        "G"
+      ],
+      "keywords": [
+        "Treasure",
+        "Fight"
+      ],
+      "produced_mana": null,
+      "card_faces": null,
+      "all_parts": [
+        {
+          "id": "0add67db-e26a-419a-aa1d-841460c5f69e",
+          "component": "combo_piece",
+          "name": "Boxing Ring",
+          "type_line": "Artifact"
+        },
+        {
+          "id": "93116d98-2dad-4b80-a3af-9e36e34da6d4",
+          "component": "token",
+          "name": "Treasure",
+          "type_line": "Token Artifact \u2014 Treasure"
+        }
+      ],
+      "image_uris": {
+        "small": "https://cards.scryfall.io/small/front/0/a/0add67db-e26a-419a-aa1d-841460c5f69e.jpg?1783923339",
+        "normal": "https://cards.scryfall.io/normal/front/0/a/0add67db-e26a-419a-aa1d-841460c5f69e.jpg?1783923339",
+        "large": "https://cards.scryfall.io/large/front/0/a/0add67db-e26a-419a-aa1d-841460c5f69e.jpg?1783923339",
+        "art_crop": "https://cards.scryfall.io/art_crop/front/0/a/0add67db-e26a-419a-aa1d-841460c5f69e.jpg?1783923339"
+      },
+      "legalities": {
+        "standard": "not_legal",
+        "future": "not_legal",
+        "historic": "not_legal",
+        "timeless": "not_legal",
+        "gladiator": "not_legal",
+        "pioneer": "not_legal",
+        "modern": "not_legal",
+        "legacy": "legal",
+        "pauper": "not_legal",
+        "vintage": "legal",
+        "penny": "not_legal",
+        "commander": "legal",
+        "oathbreaker": "legal",
+        "standardbrawl": "not_legal",
+        "brawl": "not_legal",
+        "competitivebrawl": "not_legal",
+        "alchemy": "not_legal",
+        "paupercommander": "not_legal",
+        "duel": "legal",
+        "oldschool": "not_legal",
+        "premodern": "not_legal",
+        "predh": "not_legal",
+        "tlr": "legal"
+      },
+      "is_token": 0,
+      "digital": 0,
+      "promo": 0,
+      "artist": "James Paick",
+      "edhrec_rank": 9654
+    },
+    "rulings": [
+      {
+        "object": "ruling",
+        "oracle_id": "0e676904-17c3-40f2-9b5b-eb29cacc336f",
+        "source": "wotc",
+        "published_at": "2022-04-29",
+        "comment": "You may activate Boxing Ring's last ability if you control a creature that fought due to any effect, not just a creature that fought in the Boxing Ring."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "0e676904-17c3-40f2-9b5b-eb29cacc336f",
+        "source": "wotc",
+        "published_at": "2022-04-29",
+        "comment": "If the only creature you controlled that fought this turn died due to that fight, you can't activate Boxing Ring's last ability. Only winners get prizes!"
+      }
+    ],
+    "url": "https://api.scryfall.com/cards/0add67db-e26a-419a-aa1d-841460c5f69e/rulings"
+  }
+}

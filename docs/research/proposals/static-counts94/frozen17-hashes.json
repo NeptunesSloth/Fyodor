@@ -1,0 +1,5 @@
+{
+  "app/rules/static_count_values94.py": "3183d4d3c3a8d1ff92438b2116422aca8e070c290ff6d3c6b59d0a74226b386e",
+  "tests/test_rules_static_counts94.py": "72aebee1b029f487e263e27850b459f8e10276b6406abc1c0cd49403399dd131",
+  "tests/fixtures/static_counts94_cards.json": "31e4e8b8dab4788ca7871931d1bc726bb91540a620bbc8e02b85964d62e26098"
+}

@@ -1,0 +1,11 @@
+CURRENT HOLD: Airlift parser recipe withdrawn from production before catalog admission after a native competing616 replacement counterexample. Earlier17 tests do not close this new boundary. Unexpected Request remains installed with7 production checks passing. Ten Airlift checks are preserved in held-native-tests-before-replacement-fix.py. Shared prepared mill producer under review.
+
+# Public mill and optional delayed attachment59 — pending root review
+
+Exact candidates Airlift Chaplain and Unexpected Request. All17 isolated native cases pass, including two genuine subprocess cold continuations. Scoped mypy3 and configured Ruff3 pass. Related look/mill/attachment/delayed103 PASS; no live installation or catalog admission is claimed by this worker.
+
+The Airlift branch opts into exact public moved-card objects from the native mill receipt, including Rest in Peace exile; it excludes face-down objects and hidden-library self-shuffle replacements. No default mill-look behavior changes. A chosen eligible card records a payment before its hand movement (CR118.12), so a commander hand replacement cannot invent a decline/counter. Empty/failed selections retain the decline branch. Native cases cover Plains/low-MV creature, high-MV exclusion, decline, empty/no-eligible mill, RIP, Colossus, and commander replacement.
+
+Unexpected Request composes native gain-control/untap/haste with the existing optional Equipment choice, a bounded serialized continuation, and native delayed scheduling. The delayed ability retains the original spell source/controller and binds the original Equipment object. It detaches that object even if later equipped elsewhere; actual Disperse/recast/equip of a new object is unaffected. Original target departure gives no attachment or delayed trigger.
+
+Authority: full canonical card text and complete official rulings are retained in optional-continuations58/canonical.json and rulings.json; no official rulings were listed for these two. Pinned CR701.17c permits finding milled cards in their public destination; 118.12 reads choosing/starting payment despite movement replacements; 603.7c-e and 400.7 govern exact delayed objects and sources. The first draft's empty-zone recursive-either selector failed a native test and was corrected only in the bounded leaf by listing public zones, without changing selectors.py.

@@ -1,0 +1,478 @@
+--- a/backend/app/rules/counter_cost_order70.py
++++ b/backend/app/rules/counter_cost_order70.py
+@@ -15,22 +15,38 @@
+
+ def index(cost: C.AbilityCost) -> int | None:
+     counters = [(i, c) for i, c in enumerate(cost.components) if c.kind == C.REMOVE_COUNTER]
+-    if len(counters) != 1:
+-        return None
+-    i, part = counters[0]
+-    return (
+-        i
++    selected_parts = [
++        (i, part)
++        for i, part in counters
+         if (
+-            part.text == TEXT
++            (part.text == TEXT and part.amount == 1 and not part.among)
+             and part.selector is not None
+             and part.counter == C.ANY_COUNTER
+-            and part.amount == 1
+             and not part.x
+-            and not part.among
+             and not part.more
++            and not part.anyn
+         )
+-        else None
+-    )
++    ]
++    if len(selected_parts) != 1:
++        return None
++    i, _ = selected_parts[0]
++    others = [part for j, part in counters if j != i]
++    # Hierophant Bio-Titan's actual optional counter reduction uses a disjoint
++    # counter resource, including when its holder also pays the selected grant.
++    if others and (
++        len(others) != 1
++        or any(fixed_sacrifice(part) for part in cost.components)
++        or not all(
++            part.text == "Remove any number of +1/+1 counters from among creatures you control"
++            and part.anyn
++            and part.among
++            and part.counter == "+1/+1"
++            and not part.x
++            for part in others
++        )
++    ):
++        return None
++    return i
+
+
+ def preflight(cost: C.AbilityCost) -> C.AbilityCost:
+@@ -47,28 +63,41 @@
+     from app.rules import cost_payment, counter_removal_results
+
+     i = index(cost)
+-    if i is None or len(chosen.get(i, [])) != 1:
+-        raise ActionError("The counter-first cost has no selected counter")
+-    token = chosen[i][0]
+-    cid = token.rsplit(":", 2)[0]
+-    tokens = cost_payment.counter_tokens(plan, [cid])
+-    if token not in tokens:
++    if i is None or len(chosen.get(i, [])) != cost.components[i].amount:
++        raise ActionError("The counter-first cost has no exact selected counters")
++    selected_tokens = [
++        token
++        for j, part in enumerate(cost.components)
++        if part.kind == C.REMOVE_COUNTER
++        for token in chosen.get(j, [])
++    ]
++    if len(set(selected_tokens)) != len(selected_tokens):
++        raise ActionError("Each counter can pay only once")
++    holders = list(dict.fromkeys(token.rsplit(":", 2)[0] for token in selected_tokens))
++    tokens = cost_payment.counter_tokens(plan, holders)
++    if any(token not in tokens for token in selected_tokens):
+         raise ActionError("The selected counter can no longer pay the cost")
+-    holder, kind = tokens[token]
+     trial = Plan(plan.state, plan.actor, plan.info, None)
+     trial.excluded, trial.x_choice = plan.excluded, plan.x_choice
+-    if counter_removal_results.remove(trial, holder, kind, 1, by=plan.actor) != 1:
+-        raise ActionError("The selected counter can no longer pay the cost")
++    from collections import Counter
++
++    for (holder, kind), amount in Counter(tokens[token] for token in selected_tokens).items():
++        if counter_removal_results.remove(trial, holder, kind, amount, by=plan.actor) != amount:
++            raise ActionError("The selected counters can no longer pay the cost")
+     return trial
+
+
+ def capture(plan: Plan, cost: C.AbilityCost, chosen: dict[int, list[str]]) -> list[ObjectRef]:
+     i = index(cost)
+-    if i is None or len(chosen.get(i, [])) != 1:
+-        raise ActionError("The counter-first cost has no selected counter")
+-    cid = chosen[i][0].rsplit(":", 2)[0]
+-    card = plan.state.cards[cid]
+-    return [ObjectRef(card=cid, object_id=plan.oid(card), zone=card.zone)]
++    if i is None or len(chosen.get(i, [])) != cost.components[i].amount:
++        raise ActionError("The counter-first cost has no exact selected counters")
++    holders = dict.fromkeys(
++        token.rsplit(":", 2)[0]
++        for j, part in enumerate(cost.components)
++        if part.kind == C.REMOVE_COUNTER
++        for token in chosen.get(j, [])
++    )
++    return [ObjectRef(card=cid, object_id=plan.oid(cid), zone=plan.state.cards[cid].zone) for cid in holders]
+
+
+ def guard(
+@@ -85,9 +114,14 @@
+     if original != expected:
+         raise ActionError("The selected counter holder is no longer the original object")
+     assert original is not None
+-    holder = plan.state.cards[original[0].card]
+-    if holder.controller != plan.actor or not plan.in_game(holder) or "Creature" not in plan.ch(holder).types:
+-        raise ActionError("The selected counter holder is no longer a creature you control")
++    for ref in original:
++        holder = plan.state.cards[ref.card]
++        if (
++            holder.controller != plan.actor
++            or not plan.in_game(holder)
++            or "Creature" not in plan.ch(holder).types
++        ):
++            raise ActionError("The selected counter holder is no longer a creature you control")
+     trial = preview(plan, cost, chosen)
+     for i, part in enumerate(cost.components):
+         if fixed_sacrifice(part):
+@@ -101,9 +135,22 @@
+         raise ActionError(
+             "This older payment did not save the original counter holder; cancel and pay it manually"
+         )
+-    if len(original) != 1:
+-        raise ActionError("The counter-first payment needs its exact original counter holder")
+-    ref = original[0]
+-    current = plan.state.cards.get(ref.card)
+-    if current is None or plan.oid(current) != ref.object_id or current.zone != ref.zone:
+-        raise ActionError("The selected counter holder is no longer the original object")
++    if not original or len({ref.card for ref in original}) != len(original):
++        raise ActionError("The counter-first payment needs its exact original counter holders")
++    for ref in original:
++        current = plan.state.cards.get(ref.card)
++        if current is None or plan.oid(current) != ref.object_id or current.zone != ref.zone:
++            raise ActionError("The selected counter holder is no longer the original object")
++
++
++def retain_choice72(plan: Plan, cost: C.AbilityCost, chosen: dict[int, list[str]]) -> None:
++    """Keep an automatic counter choice across a later nonmana-cost question."""
++    i = index(cost)
++    decision = plan.rules.decision
++    if i is None or i not in chosen or decision is None or decision.resume is None:
++        return
++    decision.resume["counter_choice72"] = {
++        "component": i,
++        "tokens": list(chosen[i]),
++        "originals": [ref.model_dump(mode="json") for ref in capture(plan, cost, chosen)],
++    }
+--- a/backend/app/rules/cost_payment.py
++++ b/backend/app/rules/cost_payment.py
+@@ -465,6 +465,9 @@
+     x = getattr(a, "x_value", None)  # (wave 4H: "Sacrifice X Treasures" — X announced as it's activated, 107.3a)
+     ordered = sorted(cost.choices, key=lambda item: item[0] != counter_index) if counter_index is not None else cost.choices
+     for i, comp in ordered:
++        part_used = used
++        if counter_index is not None and comp.kind == C.REMOVE_COUNTER:
++            part_used = {resource for j, resources in out.items() for resource in resources}
+         if comp.kind == C.OPPONENT_GAIN_LIFE:
+             from app.rules import opponent_gain_costs44
+
+@@ -472,6 +475,8 @@
+                 raise ActionError('That opponent-gain cost is not supported for this action')
+             gained = opponent_gain_costs44.choose(plan, a, i, comp, card, given.get(i), what)
+             if gained is None:
++                if counter_index is not None:
++                    counter_cost_order70.retain_choice72(plan, cost, out)
+                 return None
+             out[i] = gained
+             continue
+@@ -482,18 +487,26 @@
+         elif comp.kind == C.CRAFT:  # -- casting extras (wave 18E) -- the materials: one choice of at least ``amount`` objects
+             found = _choose_craft(plan, a, i, comp, cost, card, what, given.get(i), used)
+         elif comp.anyn:  # -- cost reductions paid with objects (wave 47C) -- any number, none too
+-            found = _choose_any(plan, a, i, comp, cost, card, what, given.get(i), used)
++            found = _choose_any(plan, a, i, comp, cost, card, what, given.get(i), part_used)
+         if comp.kind in (C.WATERBEND, "TAP_POWER", C.CRAFT) or comp.anyn:
+             if found is None:
++                if counter_index is not None:
++                    counter_cost_order70.retain_choice72(plan, cost, out)
+                 return None
+             out[i] = found
++            if counter_index is not None and comp.kind == C.REMOVE_COUNTER:
++                used |= set(found) | {token.rsplit(":", 2)[0] for token in found}
+             continue
+         if comp.counter == C.ANY_COUNTER or comp.among or comp.kind in (C.COLLECT_EVIDENCE, C.FORAGE):  # -- activation costs (wave 4H) --
+             chooser = _choose_counters if comp.counter == C.ANY_COUNTER or comp.among else _choose_flexible
+-            found = chooser(plan, a, i, comp, cost, card, what, given.get(i), used)
++            found = chooser(plan, a, i, comp, cost, card, what, given.get(i), part_used)
+             if found is None:
++                if counter_index is not None:
++                    counter_cost_order70.retain_choice72(plan, cost, out)
+                 return None
+             out[i] = found
++            if counter_index is not None and comp.kind == C.REMOVE_COUNTER:
++                used |= set(found) | {token.rsplit(":", 2)[0] for token in found}
+             continue
+         need = objects_needed(comp, x)
+         blocked = used
+@@ -506,9 +519,9 @@
+             # Counter tokens and a sacrifice consume different resources. Other objects
+             # remain reserved; a holder cannot satisfy two sacrifice components.
+             candidate_plan = counter_cost_order70.preview(plan, cost, out)
+-            removed_holder = out[counter_index][0].rsplit(':', 2)[0]
++            removed_holders = {token.rsplit(':', 2)[0] for token in out[counter_index]}
+             other_claims = {cid for j, ids in out.items() if j != counter_index for cid in ids}
+-            blocked = (used - {removed_holder}) | other_claims
++            blocked = (used - removed_holders) | other_claims
+         usable = [c for c in candidates(candidate_plan, comp, plan.actor, card) if c not in _reserved(cost, comp, card)
+                   and c not in blocked and c not in (component_excluded or {}).get(i, set())]
+         if comp.all_objects:
+@@ -538,6 +551,8 @@
+                    resume={"step": "ability_cost", "component": i, "amount": None if comp.up_to else need, "empty_ok": comp.up_to,
+                            "intent": a.model_dump(mode="json", exclude={"r", "actor", "ts"})},
+                    source=card)
++            if counter_index is not None:
++                counter_cost_order70.retain_choice72(plan, cost, out)
+             return None
+         if not _names_fit(candidate_plan, comp, list(chosen)):
+             raise ActionError(f"Choose objects satisfying “{comp.text}”")  # 601.2h: no partial payments
+@@ -579,7 +594,7 @@
+     shown = {c: (c, plan.state.cards[c].name or "Card") for c in usable}
+     if comp.among:  # (counters: each one is a pick, 122.1 — "Remove any number of +1/+1 counters from among creatures you control")
+         shown = {t: (cid, f"{kind} counter on {plan.state.cards[cid].name or 'it'}") for t, (cid, kind) in counter_tokens(plan, usable).items()
+-                 if comp.counter in (C.ANY_COUNTER, kind)}
++                 if comp.counter in (C.ANY_COUNTER, kind) and t not in used}
+         usable = list(shown)
+     if given is not None:
+         if len(set(given)) != len(given) or any(c not in usable for c in given) or (comp.more and len(given) < comp.amount):
+@@ -668,7 +683,7 @@
+     the payer's own decision. Nothing moves until the whole cost is paid (601.2h)."""
+     holders = [card.id] if comp.selector is None else [
+         c for c in candidates(plan, comp, plan.actor, card) if c not in _reserved(cost, comp, card) and c not in used]
+-    tokens = counter_tokens(plan, holders)
++    tokens = {token: pair for token, pair in counter_tokens(plan, holders).items() if token not in used}
+     need = max(0, getattr(a, "x_value", None) or 0) if comp.x else comp.amount
+     if comp.among:  # -- activated sweep (wave 26C) -- "from among creatures you control": each counter of that kind on any of them (122.1)
+         need = max(0, getattr(a, "x_value", None) or 0) if comp.x else comp.amount
+@@ -729,8 +744,15 @@
+             current = plan.state.cards.get(cid)
+             if ref is None or current is None or plan.oid(current) != ref.object_id or current.zone != ref.zone:
+                 raise ActionError('The selected counter holder is no longer the original object')
++    saved_counter72 = d.resume.get("counter_choice72")
++    if saved_counter72 is not None:
++        from app.rules import counter_cost_order70
++
++        counter_cost_order70.guard_original(plan, [ObjectRef.model_validate(ref) for ref in saved_counter72["originals"]] if saved_counter72.get("originals") is not None else None)
+     intent = A.parse_action(d.resume["intent"])
+     assert isinstance(intent, A.ActivateAbility | A.CastSpell | A.TurnFaceUp | A.DeclareAttackers | A.DeclareBlockers)
++    if saved_counter72 is not None and not any(c.component == saved_counter72["component"] for c in intent.cost_choices):
++        intent.cost_choices.append(A.CostChoice(component=saved_counter72["component"], cards=saved_counter72["tokens"]))
+     intent.cost_choices = [*intent.cost_choices, A.CostChoice(component=d.resume["component"], cards=chosen)]
+     plan.rules.passed = []
+     if isinstance(intent, A.DeclareAttackers | A.DeclareBlockers):
+@@ -754,6 +776,14 @@
+     """Carry out the non-mana parts other than {T}, loyalty, life and the source's own counters
+     (the caller pays those as before), recording what was used (the payment record)."""
+     player = plan.actor
++    # Individual counters are named before any component removes them. Later
++    # components must use that original mapping rather than renumbered tokens.
++    picked_tokens72 = [token for i, part in enumerate(cost.components)
++                       if part.kind == C.REMOVE_COUNTER and (part.counter == C.ANY_COUNTER or part.among)
++                       for token in chosen.get(i, [])]
++    counter_map72 = counter_tokens(plan, list(dict.fromkeys(token.rsplit(":", 2)[0] for token in picked_tokens72)))
++    if len(set(picked_tokens72)) != len(picked_tokens72) or any(token not in counter_map72 for token in picked_tokens72):
++        raise ActionError("Each selected original counter can pay only once")
+     sacrifice: list[str] = [card.id] if cost.sacrifice_self else []
+     library_parts: list[CostComponent] = []  # (wave 4H) 601.2h: moving cards out of the library is paid last
+     for i, comp in enumerate(cost.components):
+@@ -762,7 +792,7 @@
+             library_parts.append(comp)
+         elif comp.kind == C.FORAGE and ids and plan.state.cards[ids[0]].zone.endswith(":battlefield"):
+             sacrifice += ids  # (wave 4H) 701.61a: the Food, sacrificed with the cost's other sacrifices
+-        elif _pay_new_part(plan, comp, card, ids, record):  # -- activation costs (wave 4H) --
++        elif _pay_new_part(plan, comp, card, ids, record, counter_map72):  # -- activation costs (wave 4H) --
+             continue
+         elif comp.kind == 'REVEAL_HAND':
+             shown = list(plan.state.zones.get(zone_key(player, 'hand'), []))
+@@ -971,7 +1001,7 @@
+     return chosen
+
+
+-def _pay_new_part(plan: Plan, comp: CostComponent, card: CardInstance, ids: list[str], record: PaymentRecord) -> bool:
++def _pay_new_part(plan: Plan, comp: CostComponent, card: CardInstance, ids: list[str], record: PaymentRecord, counter_map72: dict[str, tuple[str, str]] | None = None) -> bool:
+     """-- activation costs (wave 4H) -- pay one of this wave's parts (True), or leave it to :func:`pay` (False)."""
+     player = plan.actor
+     x = record.x or 0
+@@ -980,7 +1010,7 @@
+             raise ActionError('The opponent-gain cost has not been paid')
+         return True
+     if comp.kind == C.REMOVE_COUNTER and (comp.counter == C.ANY_COUNTER or comp.among):  # (among: wave 26C)
+-        tokens = counter_tokens(plan, list(dict.fromkeys(t.rsplit(":", 2)[0] for t in ids)))
++        tokens = counter_map72 if counter_map72 is not None else counter_tokens(plan, list(dict.fromkeys(t.rsplit(":", 2)[0] for t in ids)))
+         removed: dict[tuple[str, str], int] = {}
+         for t in ids:
+             removed[tokens[t]] = removed.get(tokens[t], 0) + 1
+--- /dev/null
++++ b/backend/tests/test_rules_falco_counter_composition72.py
+@@ -0,0 +1,174 @@
++"""Native chosen counter resources precede same-holder casualty sacrifices."""
++
++import json
++from pathlib import Path
++
++import pytest
++
++from app.cards.images import ImageStore
++from app.cards.importer import build_database
++from app.cards.repository import CardRepository
++from app.game.errors import ActionError
++from app.rules.cost_payment import counter_tokens
++from app.rules.plan import Plan
++from tests.test_rules_bandmate_references import mana
++from tests.test_rules_top_library_authorities69 import (
++    NAMES,
++    SUPPORT,
++    act,
++    cast,
++    gameplay,
++    put,
++    roundtrip,
++    settle,
++)
++
++
++@pytest.fixture()
++def cards(settings):
++    from tests.fixtures.cards import card, fixture_cards
++
++    base = {c["name"]: c for c in fixture_cards()}
++    for filename in [
++        "exile_outcomes42_cards.json",
++        "exile_cast_outcomes45_cards.json",
++        "fight_exile_receipts65_cards.json",
++        "top_library_authorities69_cards.json",
++        "falco_counter_cost_order70_cards.json",
++        "wave47c_cards.json",
++    ]:
++        for i, c in enumerate(json.loads((Path(__file__).parent / "fixtures" / filename).read_text())):
++            base[c["name"]] = card(
++                c["name"],
++                set_code="fc70",
++                number=str(i),
++                **{k: v for k, v in c.items() if k not in {"name", "set_code"}},
++            )
++    settings.ensure_dirs()
++    build_database(base.values(), settings.cards_db_path)
++    repo = CardRepository(settings.cards_db_path, ImageStore(settings.images_dir))
++    yield repo
++    repo.close()
++
++
++def setup(cards):
++    return gameplay.setup(cards, *NAMES, *SUPPORT, "Hierophant Bio-Titan")
++
++
++@pytest.mark.parametrize("n", [0, 3])
++def test_falco_actual_hierophant_also_shares_holder_but_never_counter_tokens(cards, n):
++    from tests.test_rules_refused_look import stack_library
++
++    s = setup(cards)
++    source = cast(s, "Falco Spara, Pactweaver")
++    target = stack_library(s, ["Hierophant Bio-Titan", "Forest"])[0]
++    act(s, "p1", type="set_counter", card_id=source.id, kind="shield", value=0)
++    act(s, "p1", type="set_counter", card_id=source.id, kind="+1/+1", value=4)
++    tokens = list(counter_tokens(Plan(s.state, "p1", cards, None), [source.id]))
++    act(s, "p1", type="clear_mana")
++    mana(s, C=10 - 2 * n, G=2)
++    act(
++        s,
++        "p1",
++        type="cast_spell",
++        card_id=target,
++        optional_costs=[target + ":reduce"],
++        cost_choices=[{"component": 0, "cards": tokens[:1]}, {"component": 1, "cards": tokens[1 : 1 + n]}],
++    )
++    settle(s)
++    assert s.state.cards[target].zone == "p1:battlefield"
++    assert s.state.cards[source.id].counters.get("+1/+1", 0) == 3 - n
++    roundtrip(s)
++
++
++def test_same_original_counter_cannot_pay_falco_and_hierophant_reduction(cards):
++    from tests.test_rules_refused_look import stack_library
++
++    s = setup(cards)
++    source = cast(s, "Falco Spara, Pactweaver")
++    target = stack_library(s, ["Hierophant Bio-Titan", "Forest"])[0]
++    act(s, "p1", type="set_counter", card_id=source.id, kind="shield", value=0)
++    act(s, "p1", type="set_counter", card_id=source.id, kind="+1/+1", value=4)
++    tokens = list(counter_tokens(Plan(s.state, "p1", cards, None), [source.id]))
++    act(s, "p1", type="clear_mana")
++    mana(s, C=4, G=2)
++    before = s.state.model_dump(mode="json")
++    with pytest.raises(ActionError):
++        act(
++            s,
++            "p1",
++            type="cast_spell",
++            card_id=target,
++            optional_costs=[target + ":reduce"],
++            cost_choices=[{"component": 0, "cards": tokens[:1]}, {"component": 1, "cards": tokens[:3]}],
++        )
++    assert s.state.model_dump(mode="json") == before
++    roundtrip(s)
++
++
++@pytest.mark.parametrize("mode", ["valid", "reincarnated", "missing_originals"])
++def test_actual_cold_falco_hierophant_choice_keeps_original_counter_holder(cards, tmp_path, mode):
++    import os
++    import subprocess
++    import sys
++
++    from tests.test_rules_refused_look import stack_library
++
++    s = setup(cards)
++    source = cast(s, "Falco Spara, Pactweaver")
++    holder = put(s, "Grizzly Bears", "battlefield")
++    target = stack_library(s, ["Hierophant Bio-Titan", "Forest"])[0]
++    act(s, "p1", type="set_counter", card_id=source.id, kind="shield", value=0)
++    act(s, "p1", type="set_counter", card_id=holder.id, kind="+1/+1", value=4)
++    act(s, "p1", type="clear_mana")
++    mana(s, C=4, G=2)
++    act(s, "p1", type="cast_spell", card_id=target, optional_costs=[target + ":reduce"])
++    decision = s.state.rules.decision
++    assert decision and decision.resume["step"] == "ability_cost" and decision.resume["component"] == 1
++    assert decision.resume["counter_choice72"]["originals"][0]["card"] == holder.id
++    saved = tmp_path / "saved.json"
++    saved.write_text(s.state.model_dump_json())
++    code = r"""
++import sys
++from pathlib import Path
++from app.cards.images import ImageStore
++from app.cards.repository import CardRepository
++from app.game.session import GameSession
++from app.game.state import GameState
++from app.game.errors import ActionError
++from tests.game_helpers import act
++from tests.test_rules_controller_tutors import answer
++from tests.test_rules_library_look import settle
++from tests.test_rules_designations import roundtrip
++p=Path(sys.argv[1]);repo=CardRepository(Path(sys.argv[2]),ImageStore(p.parent/'images'))
++s=GameSession(GameState.model_validate_json(p.read_text()),cards=repo)
++mode,source,holder,target=sys.argv[3:7]
++d=s.state.rules.decision
++options=[o.id for o in d.options]
++assert len(options)==3,options
++if mode=='reincarnated':
++ act(s,'p1',type='move',card_ids=[holder],to={'player':'p1','zone':'hand'})
++ act(s,'p1',type='move',card_ids=[holder],to={'player':'p1','zone':'battlefield'})
++ act(s,'p1',type='set_counter',card_id=holder,kind='+1/+1',value=4)
++elif mode=='missing_originals':
++ d.resume['counter_choice72'].pop('originals')
++before=s.state.model_dump(mode='json')
++if mode=='valid':
++ answer(s,options);settle(s)
++ assert s.state.cards[target].zone=='p1:battlefield'
++ assert not s.state.cards[holder].counters.get('+1/+1')
++ roundtrip(s)
++else:
++ try:act(s,'p1',type='choose',decision_id=d.id,option_ids=options)
++ except ActionError:pass
++ else:raise AssertionError('Unknown or reincarnated counter holder accepted')
++ assert s.state.model_dump(mode='json')==before
++"""
++    result = subprocess.run(
++        [sys.executable, "-c", code, str(saved), str(cards.db_path), mode, source.id, holder.id, target],
++        capture_output=True,
++        text=True,
++        timeout=120,
++        env=os.environ.copy(),
++    )
++    assert result.returncode == 0, result.stdout + result.stderr

@@ -1,0 +1,987 @@
+{
+  "docs/research/proposals/combat79-resumed/reviewed-shared.patch": {
+    "original_sha256": "fa285dded9a77774167c82287f5dcba5c394687b3e675be726810fe0e1332d96",
+    "archived_sha256": "17d77b5a683ee1b1a9611900272fdf620c3fb3a044ca8cdf9951c52a6b45bd39",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/combat79-resumed/ruxa-test-repair.patch": {
+    "original_sha256": "2645dc500527a8c8fa7e04815ea4519773e9d78f59bc41dfb192994fed061279",
+    "archived_sha256": "15e8031f4c64a0c23def99e545299a5fc744abc7bf957b2ad07f9d736ac00df5",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/conditional-counter-riders77/UNINSTALLED.patch": {
+    "original_sha256": "188434466d93fb1b3b5e23863cae556722df0c55baa240574b2de9a71805101b",
+    "archived_sha256": "aaeb6e8f7a035496588d19c1b7e8c53f963ac25888da237ba9ffa660b9033e9d",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/kicker-x-lki61/resumed-verified/production-candidate.patch": {
+    "original_sha256": "84b242f7b66158b2dd855e0a8ae53327784ed12abd3b5eaf1202ebbb74a4b80e",
+    "archived_sha256": "38e8d3c64719a253dcb2925d0e95345fb0d0e4fe4b55804f51c2886cb97bdd77",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/optional-continuations58/resumed/narrow-review.patch": {
+    "original_sha256": "78560322dfddf17be5a510a990e8c569dcdafcfd8689ebf2890bc6d059ee41c5",
+    "archived_sha256": "37381a1c36224ab7eb3f2cf45b0671c85d9d90ae520fb76209f122550a39a251",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/public-mill-attachment59/narrow-review.patch": {
+    "original_sha256": "7835cc0b6021489ef5fb8e2be3a61014eaea1070a9396151fda7508b8316ceb5",
+    "archived_sha256": "cb16d097a4c02f32cda86d1d63881a3ab060c30452e2608b52cf577f189a972e",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/target-cost-conditions62/production-candidate.patch": {
+    "original_sha256": "a16aab37d4671b5b9e529ca309bd18c719f81425f3c24bf283979e7207bf8b2a",
+    "archived_sha256": "73c7291b1848d58eaa15ad610f748c5dd9ce1d2b0e233133f61cf1498dce7636",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/text71-nonswirl/proposal.patch": {
+    "original_sha256": "d4dbb13028cc93e41e4a29f45f0d928659fd95461ec47f07b7106871af150fce",
+    "archived_sha256": "39cd553a2ded492448bfc50fc308ad8742d7fd7dd01e5f7bbfc767b2bd3c3e21",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/top-library69-reviewed/top69-four-card-review.patch": {
+    "original_sha256": "ea17e01f32cd98a6bd3f86c43668a1456acd16ad289a2b42a10f352a3b018d4b",
+    "archived_sha256": "812a7e1612422a503529a70c465455819ef35d1db6a59d75e0f68e8f34f00fe0",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/caster-turn-costs63/production-candidate.patch": {
+    "original_sha256": "e3bea6a512e30a595612a3899253b16fea08ab2197500e446d9a56cd92fe8cbf",
+    "archived_sha256": "39c4978f1ec30aa6eee8b0c71a487bc3fe91cbf75b02c4ccb64d41c2f84e26f1",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/conditional-tax80/UNINSTALLED.patch": {
+    "original_sha256": "e03251883e679bd4838470485a620887377cedb9623d8a782e7bbf1d0ddd7923",
+    "archive_sha256": "08bb732b448f8cadb86658633b40c516d9e8af57b4c3da716bdfd6fe889c58f5",
+    "numstat_unchanged": true
+  },
+  "docs/research/proposals/falco-counter-order70/falco70-final-review.patch": {
+    "original_sha256": "e1d932a544144be5f21a37798309353cfa8b1baa394a0b8a46477e0f58114d70",
+    "archive_sha256": "e24570ce02b8aadf8a0eae238f643b81318eb73630389da401e055ef9c116d12",
+    "numstat_unchanged": true
+  },
+  "docs/research/proposals/falco-counter-order70/top69-falco-casualty-before.log": {
+    "original_sha256": "a4c741185559c59fa2b6397f41a99ff5336a5247171f8f9e4613a22c689579b5",
+    "archive_sha256": "d00ccd24ed017988feb2b61b133c5c2985b661b7d1629e73678592a7a86de110",
+    "numstat_unchanged": true
+  },
+  "docs/research/proposals/first-crew-saddle80/copy-boundaries-before.log": {
+    "original_sha256": "4243865b17020f735506b496b6febbd4057a4f66639bb4cb90e58b1d66a25f5b",
+    "archive_sha256": "55f49b7a304146f7adf36f4ca73143bd717e498e0b2c52d4e914609f9bd4f1eb",
+    "numstat_unchanged": true
+  },
+  "docs/research/proposals/first-crew-saddle80/held-burrow/restore-only-after-prepared-mill.patch": {
+    "original_sha256": "81db07b2456da8622ac2a88ce900a9ff38f5ac3a4b937cb27291e6a3a0763855",
+    "archive_sha256": "1842ae46e01b9fb9532a0ff776bfaafe1c2e944cd615a867045c60bf0cd47e31",
+    "numstat_unchanged": true
+  },
+  "docs/research/proposals/first-crew-saddle80/ready-two/reviewed.patch": {
+    "original_sha256": "d3e8fb00aca44cc4f8fa1da9b430dcccec34312fec039b0561261784236f062f",
+    "archive_sha256": "7481c5bc7aa223152c97e7a9a6e8061215f4391ec813bd67dabeac5699b14a73",
+    "numstat_unchanged": true
+  },
+  "docs/research/proposals/first-crew-saddle80/reviewed-candidate.patch": {
+    "original_sha256": "8ca176c6156ba8d673dfdd2a85de787829450a16a69906f903cf8478423c1ede",
+    "archive_sha256": "2b536151e0d8d960326cbac36aff9930351327c6324d98f1a88e1407a05e4bc7",
+    "numstat_unchanged": true
+  },
+  "docs/research/proposals/object-mana-offers78/UNINSTALLED.patch": {
+    "original_sha256": "c20e80f8eab5f701783394ac9e802faef713a7ec9286f21151879f701ee816d0",
+    "archive_sha256": "10413d2f5df618ca664a6affeae10b861e3bd9cf4505634b851c7196481281a8",
+    "numstat_unchanged": true
+  },
+  "docs/research/proposals/prepared-mill61/airlift-restore.patch": {
+    "original_sha256": "0c5c215c4cdddad8c63b5319363e7f5aae8385839ea8ac44521b87cbfcbc514d",
+    "archive_sha256": "35063147169bcbe8edf375b79cb16776dcbf12d76edb254a965ccc33a3401bd8",
+    "numstat_unchanged": true
+  },
+  "docs/research/proposals/prepared-mill61/baseline-witch.log": {
+    "original_sha256": "1e7da1f7f5426e181a7b1d61995de23af393a201aadc3727b737dab0dc32bee4",
+    "archive_sha256": "d9ff5ec2156b27ff5cdbcae2a20dcb5e6d276bbbd0f06ad5f9c8337f7d75f9c0",
+    "numstat_unchanged": true
+  },
+  "docs/research/proposals/prepared-mill61/competing-before-failure.log": {
+    "original_sha256": "13a4013627f42e8fcff4f3429d8b26833fd52377d6a8357874c8bb9ceca63426",
+    "archive_sha256": "56a4b7ad3d3f65ccc0b4f488dd28798ec18d51ca18bca3439a50917ac1747ed4",
+    "numstat_unchanged": true
+  },
+  "docs/research/proposals/prepared-mill61/shared-review.patch": {
+    "original_sha256": "223c4c2fa93888dcd173c2e6a85cbf1d1eb17946e81af7000f3eec5481b43a61",
+    "archive_sha256": "85e84fc3048bb48279f160183ba87b9697cf2d22cc04eb1af5452fbfc2aaa591",
+    "numstat_unchanged": true
+  },
+  "docs/research/proposals/source-spell-discounts64/cost64-boundaries.log": {
+    "original_sha256": "acefbd75f9a8aeb9424622153da7663787eb2846a3f10113e870a050ca685242",
+    "archive_sha256": "d76fb84e59fb5dcd82f279c0ea3abab444fc91f92ad6cdbd48d857842e60e093",
+    "numstat_unchanged": true
+  },
+  "docs/research/proposals/source-spell-discounts64/cost64-initial.log": {
+    "original_sha256": "5adf7509be30163c8fa3339422b68995a2465443b83ba25db7f08da4a0c9f5a3",
+    "archive_sha256": "8c38b8b7a7175d78302948cd125d49f7bfdca6717b83c8d2c7c191b0d27eb713",
+    "numstat_unchanged": true
+  },
+  "docs/research/proposals/source-spell-discounts64/production-candidate.patch": {
+    "original_sha256": "4274e4dfd253d4cf94fa61bf4df028973beaa24cf21acaeb01298a372889cfc5",
+    "archive_sha256": "bb00cd03f22c9c89d2f0a9017b24b7897abbb17e61ea889f4512f3ce49810a65",
+    "numstat_unchanged": true
+  },
+  "docs/research/proposals/upkeep-tax79/UNINSTALLED.patch": {
+    "original_sha256": "f67691f1bca5147de5a58a9a67eec2d6e78e1b42a992e107b678711b79f51ad7",
+    "archive_sha256": "df251255bcea1257dd15c8abb49d2a054daaf7ae3d37e09558bfbec737205063",
+    "numstat_unchanged": true
+  },
+  "docs/research/proposals/upkeep-tax79/held-chaos/counter79-wizard-chaos10.log": {
+    "original_sha256": "c0e5877c0520f1ad778a8fc0c288ea2b89af7d703dbec76be57317d551569731",
+    "archive_sha256": "23e955f6529760317599908acc0c7e50b3689577a9ea30e5461ae514e2b42915",
+    "numstat_unchanged": true
+  },
+  "docs/research/proposals/text71-swirl/proposal.patch": {
+    "original_sha256": "0c8c890863995e1c4fbdfd8d2ae7ffc73ab20f9adfd9863eed665114f6a0987c",
+    "archive_sha256": "e610335b18dd1ca56b70a9e2f5d04587e860cdcd60731ed3ffe6f9f3e3369eaf",
+    "numstat_unchanged": true
+  },
+  "docs/research/proposals/text71-swirl/rebased-current-live.patch": {
+    "original_sha256": "c7188253914abd963e9fc7097b4795a8f782df672912a36deaea85c9140ba3d2",
+    "archive_sha256": "87bdc9d14a35fe3d3c8b249d3c346df177e3762d221428fbb579d57bbb2eb2e9",
+    "numstat_unchanged": true
+  },
+  "docs/research/proposals/cloudspire82/reviewed.patch": {
+    "original_sha256": "4dc2c7bc6847c54b450b62d712ded4fcc80513073842dfee928e5f57afccbdef",
+    "archive_sha256": "3392972eb65583c60f8c9bdda4a281761a8ffce67e57480a2d6706c8622e4b21",
+    "numstat_unchanged": true
+  },
+  "docs/research/proposals/crew-saddle-readers81/reviewed.patch": {
+    "original_sha256": "f45cd0f1ad8855a7c20fac4acc81bd655798a49e3462e99da98c29ce565dbce4",
+    "archive_sha256": "5940e64bc36eb5bc1d40b4d0aa64a54c6545066f4481a4dd8675d21ecdc5f94a",
+    "numstat_unchanged": true
+  },
+  "docs/research/proposals/crew-saddle-readers81/x-related.log": {
+    "original_sha256": "087063bcd3ea02bdb0c5b67761061054d9481ff84e777610159fe05a4ad69869",
+    "archive_sha256": "e9e52b7696e0c0c88ec4b710d3776f7f91bca26202c4c842f368dcfc8f089d55",
+    "numstat_unchanged": true
+  },
+  "docs/research/proposals/demonic-covenant62/baseline-contested-game-ball.log": {
+    "original_sha256": "07605d82ad02e2fc82e3616fa7de1412e5b45cfe9282868ded0ceec636091f3a",
+    "archive_sha256": "b3c9de14c175adae795dcbec081e6429e04cc249ba48aa677f1da4ab37e1959e",
+    "numstat_unchanged": true
+  },
+  "docs/research/proposals/demonic-covenant62/review.patch": {
+    "original_sha256": "bc36ef3006f0fd6b5e2d16fd13f7643e9f93a3c6d118a4d396a00d7489e1dc8c",
+    "archive_sha256": "a330570b92b14c3b741e653090b7e9674d8a6899b8d861d99cc908b5d0940074",
+    "numstat_unchanged": true
+  },
+  "docs/research/proposals/falco-counter-composition72-quality/final-review.patch": {
+    "original_sha256": "43ac06dd62b9a26d42572748c6332c5c2f5c7afaf1936eabdd7657cea1ffcecc",
+    "archive_sha256": "d85271703c341a1169b919cf7bc151ced77a5827cbab7616811561c2330818bb",
+    "numstat_unchanged": true
+  },
+  "docs/research/proposals/pooled-casting71-reviewed/final-review.patch": {
+    "original_sha256": "b1e9f3b88511d62e700a8eb6de7c86643765533c4bf6b1d375ae367e9544983c",
+    "archive_sha256": "4dce309cfb32a0e587d5376a2944f775e52f719535726b8cfea2e9b7967f29d6",
+    "numstat_unchanged": true
+  },
+  "docs/research/proposals/post-mill-continuations60/review.patch": {
+    "original_sha256": "ecb54836b85203464819dbba978a96864eb6fb244356413c13b638c6225fc5d4",
+    "archive_sha256": "8ab83d1454edf6722290acb3907784739c370fc89611c858844fedf9cc9c6744",
+    "numstat_unchanged": true
+  },
+  "docs/research/proposals/selected-keyword-costs65/cost65-cold-fixed.log": {
+    "original_sha256": "2a1e62e9ff8c2517f7a5b45ff7e050d73fb15dcb0844b7505dfff8983f73f959",
+    "archive_sha256": "f6744c6bfdf39d4fe59c9eea46f579d48a6c4c5db0bdce1a3b0b1062b5ed1435",
+    "numstat_unchanged": true
+  },
+  "docs/research/proposals/selected-keyword-costs65/cost65-command-after.log": {
+    "original_sha256": "4ea2490a29706d2cab9c0969529010807714edbb33bbfa2b370100fc7533ee7b",
+    "archive_sha256": "ce791aaeb7bc8c47fa0b53903b16ffc3980a79b0467784083ca81a04578e4a3a",
+    "numstat_unchanged": true
+  },
+  "docs/research/proposals/selected-keyword-costs65/cost65-command-before.log": {
+    "original_sha256": "5afcde40751ff97bf33eb0aae2d9135588b51e9bf8fb1fc71d1b1cf0523e9090",
+    "archive_sha256": "f6633738036889b69ad8f22d782946d8a510ab1e3b9dd1561168ca8570a97e3c",
+    "numstat_unchanged": true
+  },
+  "docs/research/proposals/selected-keyword-costs65/cost65-native-final2.log": {
+    "original_sha256": "3590fea1d38e65db9f5e402f420dbff80f3c5f137b91b1a6218d7ed82152eb74",
+    "archive_sha256": "8349edcd7f73e99daf1709bc08863defc14be74817e6fbd9a370782b5be42430",
+    "numstat_unchanged": true
+  },
+  "docs/research/proposals/selected-keyword-costs65/production-candidate.patch": {
+    "original_sha256": "376727696947bf22247df5f151955625cc885d9a74247c13c48a2da6a6f3a948",
+    "archive_sha256": "4a76eb42144045b70490394327f7ed5906e5f06ddbf02141239cfafc9d0cef14",
+    "numstat_unchanged": true
+  },
+  "docs/research/proposals/stored-player-costs66/production-candidate.patch": {
+    "original_sha256": "5814b964d28a6405e7ec32dfaafd3a8e43e425590df05c5688e7f3587bb54d19",
+    "archive_sha256": "1dcdcf7403a5df12d5d72daeae5806e77fb14f51e3261742c2aa459831134f25",
+    "numstat_unchanged": true
+  },
+  "docs/research/proposals/upkeep-consequences81/UNINSTALLED.patch": {
+    "original_sha256": "6dd9540ea9a0cd5e258af1db59f7fef00896f1d10cd6f3dc5db783b14238357f",
+    "archive_sha256": "e6402c0cf9814604db1f24a75ba4ac8f678fd1752b4ef7d1af864d8112d78aad",
+    "numstat_unchanged": true
+  },
+  "docs/research/proposals/conditional-class-costs68/production-candidate.patch": {
+    "original_sha256": "85ff1574281a09d34dd0074d24371b7199d527c7db49f33f1707488f52ab1489",
+    "archived_sha256": "88d091ba293cf7f38411ee64223aa3a94ed9b225f76389350a4b73c4d1d7a567",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/crewed-attacks84/reviewed.patch": {
+    "original_sha256": "86e5538f1e8f9a037956cf221871d67ef801866e8d14391588fcfbfd2f4302d1",
+    "archived_sha256": "efe376c523e014ed4993d37eb0c8163edfaf548e6a9636fbb81772c12f8cd0aa",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/dawnhand-counter-order73/review.patch": {
+    "original_sha256": "154ca603a7c8fcc45b919a39c6e4fc2ce4548c94367200f74bfe5f0ac3feae3f",
+    "archived_sha256": "17f0b65e7c29202f5a4dc58b63bbd1b5f905c9812320efcccd18ec319115931b",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/deferred-payment-window82/UNINSTALLED.patch": {
+    "original_sha256": "78fe55a48a686a60b53fbe6f053ec9dc1243e4b857c10401b922d2059d3b13c8",
+    "archived_sha256": "9c036a9ef32766b0e76059308674a7d856817145c06e7af40e1243228155dde3",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/equipment-notebook-costs67/production-candidate.patch": {
+    "original_sha256": "d8406edcbd98945711d4928728191ed68042903ad180bedca29fe7759befafbb",
+    "archived_sha256": "6bfba33a52af9bbd8a9b2849aaf948d9fc57296dd856e47e6feb8fef720b9838",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/eye-chaos82/review.patch": {
+    "original_sha256": "41c4d1e62612e26feaedaabe29c12f1d51a829efa44f0f95c3efb7e14f785275",
+    "archived_sha256": "83b8e3f5ca20fca2070365a0ffb18dadbdca4710f50f0b9284b057e70c77d8ee",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/fortune83/reviewed.patch": {
+    "original_sha256": "a2cb9381c1a1c4c652b3de6093f68b673d91cf50c0d097ff3edcff97829ef66d",
+    "archived_sha256": "602de2f58b4c00f9d8bc3788487abacc47a0474814fc51b3a543c25a39cb8e5d",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/grave-adventure74/review.patch": {
+    "original_sha256": "1087b4986be241e980ae4c1e2daef1d0653c64a303087eb36378f8b34b8df294",
+    "archived_sha256": "4e3758688ea10befca0d238fa990c2513160f55addf2d431d41280fa60bf3c52",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/required-mutate75/review.patch": {
+    "original_sha256": "6304e9ec7be32402b92b6fe9491667d20c960414ef5f418c6c61b4e02ba7702e",
+    "archived_sha256": "bfd5f0a5183ec357e1eff0c9b9cdff24380ce32f5f447fde517850916512faed",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/target-duration-costs69/production-candidate.patch": {
+    "original_sha256": "05b341fe98b0609cbacdc31496fc5e61635c0b7b67390e761badc5c9b0e5382c",
+    "archived_sha256": "0d868ab05e006f7382fd7d983707236355fc75c6013ae33eb170dd2e6f5f35fd",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/world-rule80/owned-world-only.patch": {
+    "original_sha256": "2e79c8cbbc56ae5d032b4c0bf39f2740ff87566615dae300b5606514203a79ab",
+    "archived_sha256": "68f38c01ab49adf36d950b89179a0571960750cf16862e736ff9ff9da6606c8a",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/world-rule80/draft-review.patch": {
+    "original_sha256": "cae65b83b37e322c54f9fb17116418fda947b8498d4c76235a6df01ca4a29314",
+    "archived_sha256": "575a1fe913e876b4604c4ea4c802fbb6ea9d06cd2e8b457561675d326ee4f5ef",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/world-rule80/superseded-unsafe-full-stage.patch": {
+    "original_sha256": "ec2f20b9d9f7937687036075b7efeab6a5742abcfae49d6768b2af24369b0ca5",
+    "archived_sha256": "6e22181e06ca7b8fc610a441577e848ccf8b2bbecd803c01cc13a583168f2de9",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/world-upkeep83/review.patch": {
+    "original_sha256": "a453b6baa5170acc9061c1a0069fd11b0aab9f0b73454e93725b85d56b293810",
+    "archived_sha256": "d2131f0e916959eeee03fb9a90ef34d8f5d47700309265b6f4d10438533506be",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/all-player-gain-costs70/production-candidate.patch": {
+    "original_sha256": "fb2c292b50dace18c18a89b79921099fd6ad04fcf75357a8cd587442f326081b",
+    "archived_sha256": "c4cbfd2ecb6ded7a9a784c4f5b97dca4af7eaca74396373cb04354d449b5041d",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/attack-subjects86/reviewed.patch": {
+    "original_sha256": "8889953ba415b56065d455d4cc39315331e46b394ab4479c5b4e18757b660f73",
+    "archived_sha256": "e146817ec4f943591ee824233b018b83bb124d76162e39a1321ca7b27b5f9a4f",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/teferi-realm84/review.patch": {
+    "original_sha256": "7e9ac2614ced592cba31bb7f48e51e397b9256f7548573eeebb198ab30fb88c8",
+    "archived_sha256": "7465b45afcc6c9f070a29afeac74b2b9f8b653f47fa862389f76dc715b721859",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/source-cohort87/reviewed.patch": {
+    "original_sha256": "79bfd8e851bd284a222d8fbd7a31f0dd648a714231287ec146cd7578bc1d6261",
+    "archived_sha256": "ab73dc37c0909230e83a5bd66d684e15c44b7ac372087811e6e1da92a682052b",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/prepared-face-down-entry64/review.patch": {
+    "original_sha256": "8b61933ef1e2bf9b91416a298f32dd829197cf7db34d7ba29313c9345f45906d",
+    "archived_sha256": "6c332894c1d53bed17c895c91af98fb52b57c368cdae5724db0eca1e6d370ecc",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/hand-reveal-costs71/production-candidate.patch": {
+    "original_sha256": "f5a783af899d9c322fef0e768d44ee0bf9d2d522c4cc70b4e57a912c0c8ba8c9",
+    "archived_sha256": "758b1f2f65d40c5ef33eb743241f7e1ecf7ccb058da0f9d76a64cb8f8a85f2de",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/permanent-life-payments83/UNINSTALLED.patch": {
+    "original_sha256": "bce0efa93b445e759fe64355c5981e5d2bd504af321a4f204a6b3269f97051ca",
+    "archived_sha256": "c4e37249bf7103abbabb30a1cd1b7e4f797a69dedc74e859cf01d797ce22f43c",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/permanent-life-payments83/native-departure-before.patch": {
+    "original_sha256": "c68e663f10015f10cd51bb2024446850bb22f1f618717c1f526695f35ef9c165",
+    "archived_sha256": "f24110ef68d231e439c26d50a92360fe950d1e0bd58da7c42e9a6e9a73b438f7",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/manual-choice-mana85/UNINSTALLED.patch": {
+    "original_sha256": "6b32e6c530b8eee89a3a4561dfab6096741195b17e7cfc9e0609832902926d0b",
+    "archived_sha256": "1010b4dea99c28eee77e29aa6164552398636c8e7c16f6e597f8002ea93f5b34",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/greatest-creature-payments84/UNINSTALLED.patch": {
+    "original_sha256": "da20e41f149717f60e56444c7b1f43ee1c8f99f1977175d691a323f00f8d6266",
+    "archived_sha256": "b3ec93224bbd27370fefd8c171a2800fd70b085d4fff0e7340d44feda6dbdf2c",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/creature-obligations85/UNINSTALLED.patch": {
+    "original_sha256": "89f236692ac705183a33be619bd6d9aa7d8a03fe3a7c55a5a90eb7950209958a",
+    "archived_sha256": "f03ba702c2b2a6ce0902654ec8bffb4ea9ab25e844f7fc8e1d18599ea8f0a60f",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/public-mill-picks65/review.patch": {
+    "original_sha256": "1d1b007618ddf6e9a2135a2913fdca008f6bdd54d57a393f29b067f1b7b9ba94",
+    "archived_sha256": "16cb9b4f9ee6890abb07fa22f6cfb933ce231e9ef574ac00afd424793f69f5b0",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/hall-gemstone86/UNINSTALLED.patch": {
+    "original_sha256": "f54fc07fcfd11430c51db8748caae12521a033a3390e6ad0d597aedbfd6e66e7",
+    "archived_sha256": "84eef7dbbae47a2e2259c45ac299570b64bdd4a1638017be1ad8f52a6fcac840",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/conditional-cycling-costs72/production-candidate.patch": {
+    "original_sha256": "1dbd86616978f6f3335f4247486f56d9913fc1a218ce0cfafd86c44ab0408108",
+    "archived_sha256": "0e11035d7830ac722c509c75e302c81b400616881184d4aa9b3d2b211db477d1",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/mutate-keyword-costs73/production-candidate.patch": {
+    "original_sha256": "21796eff5d909b2b749884dd18ba0aeb3c1ee458c98018ae0a15cda3723010cb",
+    "archived_sha256": "454f9ab35f7005dc4ef8580878c3b907e4f046e6c404b49e61ae2931178b0640",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/phase-skips88/reviewed.patch": {
+    "original_sha256": "85fc76935c32ad4916210476d17138430b2b647a247ddaa6f33509f196c3ab2f",
+    "archived_sha256": "756326021f8882300c89acaba87eec34b55a4c222584b0c7f545b48aca496808",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/extra-turn-untap89/reviewed.patch": {
+    "original_sha256": "29b94d5c6dc8267be98e1f8667673b9e5035c4a6b30080a8add21e970bcc6ca8",
+    "archived_sha256": "8db67e398cdd1184b678378c16f253842c74662526cf0ab1bf6fcc5266043644",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/linked-upkeep-casting76/review.patch": {
+    "original_sha256": "f18a53eb79cc909ef0f0bb931886982edd42658b262193b1548d428d4f6c5ab2",
+    "archived_sha256": "40e761993e2c4da389aa05fc2d79497445e5e4bbcca37825636b22c4a749bdef",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/conditional-untap87/UNINSTALLED.patch": {
+    "original_sha256": "f47a069490d1ce9318d52c02faeee82a954ee4079444a09b7c8fa6331fb6d875",
+    "archived_sha256": "c656557102dd80cb2844c740c2d7cc7f3c04139a084b08c2be3fd6b23fc35cb4",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/target-power-costs74/production-candidate.patch": {
+    "original_sha256": "30b076dcf436f95206e4b5c6122b7b5f73615acc0b7c6f9e881eac8aa22baf43",
+    "archived_sha256": "9bd06a873e11cecf724f84cba6cd385495236b464d8505bca9c3f57bd7315ed1",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/nonbattlefield-life-offers86/UNINSTALLED.patch": {
+    "original_sha256": "06132130cb5507f006e17eccb20794ad0ff2e8171432b5a330d48a09338e3db1",
+    "archived_sha256": "7bd875031134ea011c63d24464b418ba6067a6547a369fcda289245be198a584",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/linked-owner-cast77/review.patch": {
+    "original_sha256": "e2df4e7b50e0002f94ef8a7ac489e9b5454017608db98c29c2fee2420bb055e0",
+    "archived_sha256": "d9b6f4186f910af0fee07a28d64b6b93c9c2b3609e800e94f54d0c669ac226f9",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/public-mill-costs64/review.patch": {
+    "original_sha256": "1f54404a3cbcb3f77e282fa96f52541b85089170f46f8938da19f4f2818e4ded",
+    "archived_sha256": "3c688f7f3add3e95bb9630bc50c0ab48a0d3772482b8ffadba1cd0c0837f55de",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/own-library-search-costs75/production-candidate.patch": {
+    "original_sha256": "68b6964d5b5c40f90f04e8608b21305a974e69304d338701693e132c3b071e02",
+    "archived_sha256": "f7502cc66d331bdccc66135e8eefe4f776b8d14fa3dbccd223398e6416e5aaa8",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/colored-reveal-x87/UNINSTALLED.patch": {
+    "original_sha256": "7f89c6558cd0dd1323037af556c305cb0f80ba4912c1ff59d78dae605c917317",
+    "archived_sha256": "53bea4bbd7e4574dd93d4e43c82b87a00c949030829ad8aa77fbb8cb778f47ff",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/colored-reveal-x87/martyrs87-initial10.log": {
+    "original_sha256": "c95206744d7b13ab562fcedb0c61003ac82c347e20bda5a0a7393bab917aa75d",
+    "archived_sha256": "efbccf2a512371fe130a928f3a5194c5f6296e4ea5875c0cd8367658d28f9db8",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/colored-reveal-x87/martyrs87-lifetime3.log": {
+    "original_sha256": "ae28e8c262cf3431edeecd0430fbf26390ae35f877f6bac58532364ce112eca0",
+    "archived_sha256": "459b23a9d599ee6325b14b0058efd12a00ad0f9d477fdad92e80441827718958",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/compound-statics90/UNINSTALLED.patch": {
+    "original_sha256": "0f1fd2c6182f87a64208d70ff726027b577c7bb6365b8e69cd7af01e43dcb0cf",
+    "archived_sha256": "dcb0f4d902a05bf210a456a5152c27f27996496eaef493682ccaac37c919d508",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/fight-receipts90/native26-uncorrected-harness.log": {
+    "original_sha256": "80514d9414e046de854fe76315158a0c8f9cd25d322a2abd43277c086907cd6e",
+    "archived_sha256": "03edfa8963a11cc93af9b369c95ad5ddc20fac2cc7ba66e5ce2ef014a789671f",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/fight-receipts90/reviewed.patch": {
+    "original_sha256": "2799a47eec86d241dd9ccbd3e0bd3b105f4ffc3abcb5790465a74a9b94fc838e",
+    "archived_sha256": "c3438b6aa6fa3d1a14cf8daa78acef6f62acd48b244436e92d5e16466325ae25",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/knowledge-pool78/review.patch": {
+    "original_sha256": "86cd5deeb01d006f1f0314925f199978f3898f94b648fb38e39a4974bf004547",
+    "archived_sha256": "0fed0a6bdc4951aad26152da8186c89f36d31efbf58a89b33c41931dd2b05452",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/legacy-wave4i-support79/review.patch": {
+    "original_sha256": "c31d78edee532ce0c2c96f008ac59cd12209dfb8b0cba5403bc41f2bf6d22dda",
+    "archived_sha256": "9bb3e9adcaf9a2243da6bb0be7d88926152c2d9c749fdbf0c0ef5102b3a518b7",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/required-keyword79/required79-first10.log": {
+    "original_sha256": "a55a764e1721a4a48c30559db4b06c765740ed1e807741b567d1a5eec75ffb1e",
+    "archived_sha256": "bc70eadf9e3a2bc685d53ad05fab711c43efc5c5183aa67a7a5afb19a958e285",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/required-keyword79/required79-independent-negative9.log": {
+    "original_sha256": "9a8d7ec29b449a62af4d15c17af879872bbc0b030559205ff33beec8a55d5a68",
+    "archived_sha256": "d3633c65aca52d76a627a6e7aa38aad5645a2a9d859bc212e3bd63aebddd0426",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/required-keyword79/review.patch": {
+    "original_sha256": "3ddf64900aff2475d04f57c3bfe934ce75f2d8d187002f24935aa986410ef37f",
+    "archived_sha256": "131395bd2a5b2b978475107c908d73bf548d381c3e8f244176078f9a5ff46a36",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/tetzin-double-face66/review.patch": {
+    "original_sha256": "427316d981aa7aaee4659a26be65b7a63b5962ecd00b24dc01b43abbe6d13c0c",
+    "archived_sha256": "0218b789512dc5a65dabaf452a4ba0a11b05d86c7ce64add93c6552b29e51ab2",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/untap-restrictions89/UNINSTALLED.patch": {
+    "original_sha256": "f79b57684cbfae2146748cdfedad4f809ad2583143686d6363d62141a2750852",
+    "archived_sha256": "64ba9bbd9b61eb2303e2dccfd43ace8c98357e5fa88f90f61b9decad7c259e14",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/first-kicked-costs77/owned.patch": {
+    "original_sha256": "422bbfd076a5b2b5abd93d9953cac1e2abc4a13d9db0dabd68983b593a2c29f7",
+    "archived_sha256": "9324e6b3907d2b711601fd874a6b68fdd47fba7a963be07f8b9a36776f59478e",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/nightshade-resolution-reveal88/UNINSTALLED.patch": {
+    "original_sha256": "e52c66e4576f46eb478458b7aee63a1be3c6263e82f97daea1e01fcacaba08ce",
+    "archived_sha256": "4058e4db6db6299909983150a1002087b8fd5ad1c9e7c909ee2dc39b63099e6f",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/conditional-statics91/UNINSTALLED.patch": {
+    "original_sha256": "01a4ef0de4ae63b7f383322dd4a9d3236a1ab9e664b60af90d1ede4b853cd9fd",
+    "archived_sha256": "949ef4fc34b89290e8943dff5c669f9b3362a35d6e3fcc4ad15a4715d1365bb4",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/conditional-statics91/held-manor/dependency-failure.log": {
+    "original_sha256": "cb838d288438e0e1c774853a5e4b9aba404df98af698d6c52f6951007ceb43f9",
+    "archived_sha256": "74e5cf1dbf491ccf4a46d52ead576f24095a530e266db14297ec5f0e69c3c09b",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/morph-costs78/owned.patch": {
+    "original_sha256": "0a6e41a2aa55f83cb4d83cff360b76e41615e804b77d4e12274819845c84e62a",
+    "archived_sha256": "fe21914213c163c9b7c298fd06f0dc962f0c56a37c0f309eb03c94b784e21d13",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/native-count-discounts79/owned.patch": {
+    "original_sha256": "f888c132ebf7d1edbabd06047bd9ceb4a945a3ed4229c1420f84d78dcd263605",
+    "archived_sha256": "f9ea8c5e56aab4b2d601ba93e9ef06bc5f4149889f3ebcc93b439ea2a5353928",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/conditional-animation92/UNINSTALLED.patch": {
+    "original_sha256": "018013a6633bc4db871f7ba9d2dadd3cb33ea637b7d3428d285109e78eb3c223",
+    "archived_sha256": "05a07b8552159a7304805176ec49574e852e92b263c06604ffa03d1fdef23330",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/conditional-animation92/final18.log": {
+    "original_sha256": "096f9f44cee8e134f71e961d10ac420e541d893b6176a21e5be1f37b0d3a251a",
+    "archived_sha256": "7f73ff4fb33b3b6225654bbf9a925c49d638cf09ff3f2f0f6f132b15e22b2f19",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/repeated-graveyard-offers89/UNINSTALLED.patch": {
+    "original_sha256": "bf2d75922d02188e4ddd173e988a1d2cd0441760fab37db73ff4a6718c7f7d60",
+    "archived_sha256": "7dd2e23e4a1c55edb29bee3f02ded006c0c0057147d5a3172a61c3836ac30221",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/exchange-conditions91/reviewed.patch": {
+    "original_sha256": "5080e3368e00867bef4f805651c3e5ec2e7f5064ed34607034f3316fcc54efca",
+    "archived_sha256": "fa4c47fb7d82c075d7ea8bfb0a5148cebc1a63293f8f1fb63a7d14b7045ae5c3",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/exchange-conditions91/superseded-pre-6082b-review/reviewed.patch": {
+    "original_sha256": "0cbbe82fa90e3ea869af0d065d57e276af7df49c4222a406393106ecef0954ae",
+    "archived_sha256": "efe1686cfa2c0376b7e0934007a68d0a81779e4e9667f434c06a1d6a887eb3e3",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/graveyard-windows80/quality-review.patch": {
+    "original_sha256": "3d4e1a36c8ccde033252a6866a325cd940119ed2d858e3e96a8ab402c4232123",
+    "archived_sha256": "f2862bb0798ec36a2ed542849fc2e0789fb6bd25736389ef7b26e19a5584af7e",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/graveyard-windows80/rejected-permission-adapter.patch": {
+    "original_sha256": "2d0680815debaead1350902a7659eb1d21db919740e192859752f72400720ac6",
+    "archived_sha256": "16224611c07da9286c8647ec0319fae344078558eb2b4ae6576b2654abcbb7d0",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/graveyard-windows80/review.patch": {
+    "original_sha256": "3d4e1a36c8ccde033252a6866a325cd940119ed2d858e3e96a8ab402c4232123",
+    "archived_sha256": "f2862bb0798ec36a2ed542849fc2e0789fb6bd25736389ef7b26e19a5584af7e",
+    "numstat_preserved": true
+  },
+  "docs/research/checkpoint63-validation/martyrs23.log": {
+    "original_sha256": "e7267f502d29fa8d23c22503ee3dd16ca311e5369645afe3eb5371e7828e3ee8",
+    "archived_sha256": "668f99ebe86183aa1259b3d289a82185bf77d2a30c03d54dbc4b3004431d1d14",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/bounded-unless-pay90/UNINSTALLED.patch": {
+    "original_sha256": "6e6a372c5efe534a876fa247f0b7f3a2a024f35265a9d418cc106913cb4c4034",
+    "archived_sha256": "a2c6d1655f66bd8bb99b7336865b7179aa160244ac6fd0d806dccdb561c26a6a",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/linked-spell-windows81/review.patch": {
+    "original_sha256": "e724deacdb1da500be68f06c4e8ee8828340cfd41b217abb3dd2887089d5527f",
+    "archived_sha256": "4381a79f43ba43de5a68a7d7278c2d18235d4dae368f16d14bad460b91cca144",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/attached-destruction82/native-gameplay9.log": {
+    "original_sha256": "8247b2c41e3db5a1b614fed85039838c77b1e4e923fac46daeb390d23b9c2a41",
+    "archived_sha256": "5c77ad03cae60c102417a644713d26f9bfdaca513fb2a1d25e1153048befc45d",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/attached-destruction82/native-host-debug1.log": {
+    "original_sha256": "b209c558ae6a33602915d0fe66781d8b3ebf0db8ea344ba5a2daddf92068b472",
+    "archived_sha256": "232b3b5786ef949f22c4112e1402d20f2213e7abce490de98727bb162d12f035",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/attached-destruction82/review.patch": {
+    "original_sha256": "c7752bf2febb1bbd811a7436bd5fba7125246dc8152db5b48a288d5823764f90",
+    "archived_sha256": "fd1a5f1c47791a0591676e9913a392ba0f5662a9079a67dcebc30b03d9171071",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/attacked-player-costs80/native10.log": {
+    "original_sha256": "792b9a160b809d0ce91e8c64dd2939ce6db34dd8861bcf7b5a1d454d2715456d",
+    "archived_sha256": "c8e03df09290e6613ea61779f4e09657f7a38748fd9d838dfcce034249b5864e",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/post-mill-graveyard68/review.patch": {
+    "original_sha256": "9796f67c0618b21ad1901d4683f5501cd76c2ba585b6634a1bbbea971b6d6a4c",
+    "archived_sha256": "373c0c2a21ed153012aada4c65a6205db962fcbb9f3508123f18b84ebfe37d22",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/shuffle-mill67/review.patch": {
+    "original_sha256": "0ed9ea57b31a96b2c0498a95acd53c9f7d150ddcc3936a55993f27fc60887a2a",
+    "archived_sha256": "b84e06d519cc4990b25db5fb633c315c0c3be3dae6c6dc2763f293ccd4cfce95",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/temporary-creature-types93/UNINSTALLED.patch": {
+    "original_sha256": "99f0518356004712ff06dc98291d44c318ccdb7eb24809bb0ba461eab7388a6b",
+    "archived_sha256": "3c77f052c1ec717825dfc65bb37c0ab795aaef0850700cb76f055986c9813f3c",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/temporary-creature-types93/blades-diagnostic1.log": {
+    "original_sha256": "4d6b87023f4b1eb249b21671f5e85c27cef8c76ecf12d4c206b377ebc9b1fc2a",
+    "archived_sha256": "ffac6b2da79c16786723a087597620bf84b380399e4b71ae5e09eabcdf54c361",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/temporary-creature-types93/final18-frozen.log": {
+    "original_sha256": "58481ef5a5c108f1ee9d0f149c98f69db632b1a0e24e86c6f808e6cf8548f96d",
+    "archived_sha256": "7e16a0a0e349d6c645a67f0657b7e1c2e46969052485c2a436a3da81564e8886",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/temporary-creature-types93/final18.log": {
+    "original_sha256": "ea6c7c2f8b81cea4bf5b9a98f3efcfcee07e2fb3c0bad5e633ea0455d7c774d1",
+    "archived_sha256": "fa8452260803d02830d5ca6174ced66b90ecdea4eea2dfd4b8e276354186f040",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/temporary-creature-types93/first11.log": {
+    "original_sha256": "7b77cf4ec6fb4bbedb90f07312f2c6b01e4545397fd78f8710ddafda9f1cb1b9",
+    "archived_sha256": "13f10edf91f5c35ca19a1422dce6f502a1200cbce7720df7fac6016e79a68f8e",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/temporary-creature-types93/second15.log": {
+    "original_sha256": "e6f357caf23e08a075ed8d71bc8a9fdb4d8526e773bcda76a446858c9418c774",
+    "archived_sha256": "89797369f4335087a3d683fdf38a94cd86b220d209aa3654dd29925b91aef804",
+    "numstat_preserved": null
+  },
+  "docs/research/checkpoint64-validation/native.log": {
+    "original_sha256": "67134750f782e3a3235252cd389ab7df4b11885c00a3215d2f53cbe9aa96efd0",
+    "archived_sha256": "84b65f38415acce565cc72fb272c56d4696481f5a9370f86639a45f0abda9530",
+    "numstat_preserved": null
+  },
+  "docs/research/checkpoint64-validation/native165.log": {
+    "original_sha256": "67134750f782e3a3235252cd389ab7df4b11885c00a3215d2f53cbe9aa96efd0",
+    "archived_sha256": "84b65f38415acce565cc72fb272c56d4696481f5a9370f86639a45f0abda9530",
+    "numstat_preserved": null
+  },
+  "docs/research/checkpoint64-validation/related.log": {
+    "original_sha256": "c53572a91172f934ace170a16c25c1ddcebe9bec3950639369ae154e1ab80c41",
+    "archived_sha256": "29b90274da0cfb9b0f3cb1102925b77108b5d8ae3d32e2332ccd472b0f21cab3",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/damage-retention83/rejected-stale-stage-review.patch": {
+    "original_sha256": "a2cbf056033f8b8ba82c3d9b95d490b79b4dee0190489a5b67485e121876f701",
+    "archived_sha256": "27bc1105d007cc098c2880c25d50b401dd872596f336ed001477ad337ab91977",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/damage-retention83/review.patch": {
+    "original_sha256": "d9a40cef884c99973056eb43667a99746c1e5f38e6b28201a6bb657ddf35c05a",
+    "archived_sha256": "761a78b4e2a1f9a9ea6064cbee33f12fbb93fe1b2452408f1a9318dacc12c1e7",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/exchange-choices92/reviewed.patch": {
+    "original_sha256": "65ad12d47f4449bdfc3c08f472798db7e6c910754981df99ae4ff851323a9218",
+    "archived_sha256": "1b12e8b98b77617f27f82391b7a95166029fc7229bddfc30b243d234ad563a9f",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/exchange-spells93/baseline-native-failure.log": {
+    "original_sha256": "fb7d3941ca36f1926e84a97e6506a512abe09c8fe3ce5379cc72fe347fef3d90",
+    "archived_sha256": "1e2ceef1c4605167301da47835ee608372b8cd409b7c3c02d0773bbdc3b2c43a",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/exchange-spells93/native21-final.log": {
+    "original_sha256": "f6838dfa35b12080bcdac8d607a76557293c7658262246cb3a4035e1e8c2353f",
+    "archived_sha256": "7ae31bd5f6d6b9509fe6a30920c7223694d2e78c9cba05b49a4d1e3916b11a14",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/exchange-spells93/prototype-held.patch": {
+    "original_sha256": "0a716cbbbd58898b2b89e6bb59389d702b10607fc16456fbb33558366dc36fe5",
+    "archived_sha256": "fbfa8e6bc9a11afe3d4e02e94f0b3488f3d3eb6008a0c2d7575c36b05051a10c",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/exchange-spells93/prune-split2-final.log": {
+    "original_sha256": "e4f4c2fc0a92853d04867610eacfbcd3600a9a9ce7068240e18e5e50d8d886ac",
+    "archived_sha256": "6c35c957ae48dd83c27b033b4b631c241a40fca0db2c02a099af581573e06a6f",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/exchange-spells93/reviewed.patch": {
+    "original_sha256": "c513ce5e3b27c1672826e9219adbcac6b70a7b4b3479a0ae53acd0a49ceb6647",
+    "archived_sha256": "de92a2901ec835455e59a23650e854483bb393c1c01f8c86d65fea524552d68a",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/sacrifice-type-costs82/final12.log": {
+    "original_sha256": "de95ddb9c3034b1b030895ec796410c2d3e1406c021d10a70162882dc39093fe",
+    "archived_sha256": "18bf2c056cfd93a6c356bdcefb59ad53f040afd742d9744c2b0c8ec0350c4be4",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/sacrifice-type-costs82/native8.log": {
+    "original_sha256": "397760ea11c58366d2fc825da1c09d0675719244ae974e12c66dcb105015886e",
+    "archived_sha256": "e08d10567bc09669b55155952168d2a28570b23fa5b59c92cfd428b28d48513e",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/source-named-reflexive69/review.patch": {
+    "original_sha256": "aeb0208924200c0be8fea8a33b09072d80140bf79877ebdd3cb9f198bf6c2f79",
+    "archived_sha256": "94c674f9b87def1592014b5b56521744f73e882a576e8d43bb89cb5d2ad27f97",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/static-counts94/UNINSTALLED.patch": {
+    "original_sha256": "39561feaabb0506e7b643839e53a045e2a77199faf28f3520a0510f501e1a767",
+    "archived_sha256": "7db563b7aaa2dec8179f82ffd140737f204a4a23cca6ff41d5abb2baa5adeda3",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/target-conditional-costs81/altar-boundaries2-self-mode.log": {
+    "original_sha256": "ac79dd6b10ddb4b559e2ff87bf2413d247b5db94d3375ffb93878d608b0d47d0",
+    "archived_sha256": "a1ef76df3746f26022ba7edbd3c23bc5adf379e7661a48eb3ac5529b0e63c530",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/target-conditional-costs81/altar-boundaries2.log": {
+    "original_sha256": "4914a13efff43f77b55693765c6ff22afeb6968d5ae71503ccbff4521ba93a04",
+    "archived_sha256": "50e4f7e29ae77c730c4595991b1841f844696e1e531857c0578d41cb85e84676",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/target-conditional-costs81/extra7-cold2.log": {
+    "original_sha256": "d92639bead5b87540c1f96f26235ab5156f1c273eca5c16d0a57f3d8cf5ad2ef",
+    "archived_sha256": "f425b21b2ab5c9ac422d4a7dcd00ab03fe9df7f514eb9c1658274377be2ef57b",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/target-conditional-costs81/meld-casefold1.log": {
+    "original_sha256": "32b11d0270d7546d504c9977677e80dc181183a370b3c4966c4711eba3ab39ea",
+    "archived_sha256": "f0bf7f86b2c76064190835c01bb7c8a98a9bb03f7b824ac07678e9572199e6ca",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/target-conditional-costs81/meld-final1.log": {
+    "original_sha256": "ecdf465bfed7fc9001116f9620f881b93c5bb642b0a2198cd7062f3534f3bb30",
+    "archived_sha256": "63819cb689979fbc2d143a2185ea4a0d9d3d4a0bfee080c1324452316c59e492",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/target-conditional-costs81/meld-fixed1.log": {
+    "original_sha256": "4817bd20a67811adf69122f7cca4dcd071780f26ae7f061f174f7110b0e8a0e8",
+    "archived_sha256": "e30d1fa84f527972e472ab31588213c15c29bbe14ac12af4083fe308350ec14b",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/gwenom-top70/native-boundaries4.log": {
+    "original_sha256": "189097e86f4e2ba9a810711429683663cd734d3303328c03bd9658b22babe4d0",
+    "archived_sha256": "f7f055f95025332bc7aea65d70f0442a5a5621ca1edf27d7fbcc614bdbfe46a9",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/gwenom-top70/native-controller-legacy2.log": {
+    "original_sha256": "d23c7115533314965ad0dd46e0061fd3fd945eb5312fda472696d693d2d28c69",
+    "archived_sha256": "d0197d7cf605ac0c69509d4b7a9b809c2099d0cb2e22359735a7ee9a7788e6d4",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/gwenom-top70/native-controller1.log": {
+    "original_sha256": "998ae67f00c0b225ccd4b5cbcdf9cfe97026543ac96198bfefaf8cfcd1f47b11",
+    "archived_sha256": "4d22cafce08db3f9b6829ed4292e958943aac969ed3218d01da71c892b205918",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/gwenom-top70/native-modal-cold2.log": {
+    "original_sha256": "488d91ae5ef517ce39590f7448d2367b6fa0441f4ca18d091f1bcffba7e616dc",
+    "archived_sha256": "ac032ab22b1c1fe0405f04dedff9b298a780ae8e0994c280ba2955f751c4d10f",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/gwenom-top70/native-next3.log": {
+    "original_sha256": "5aa1614adac16f54c737fe3eab8f86c80c5ede50374aa284f6e4b208e0c1dfd7",
+    "archived_sha256": "6cac55ded73f5a8ba1bee81cb890a340dc5cdfccc316cabf5fe876a8259427da",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/gwenom-top70/review.patch": {
+    "original_sha256": "44769020701a761044492edbbdbb37947b10aa39f9f2cd2bddb1aac6f5c80a4b",
+    "archived_sha256": "94a21f55cb3de50feb579c6c2c57fe55ad0e74924c659c3b9552466e402c828a",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/chosen-forms95/UNINSTALLED.patch": {
+    "original_sha256": "eaa4bcdded5241cb70276df6c1bf2dc1c0ff711780933f8bc1d08e25440f13bd",
+    "archived_sha256": "ee0bdc556c0e99d5cf27566e5d77b1a98cede852d8ae81bce3a556ea2b3e1c9f",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/chosen-forms95/chosen-forms95-native26.log": {
+    "original_sha256": "7b53ad5ed718f670bc43c80523fb7d6327092d98902273b7bba0b7c7f6d4d686",
+    "archived_sha256": "543c66381ecc5545d0ce27bb419b110e53cc3ce7ca0859ce9cde4b503e7364ce",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/chosen-forms95/historical-before-prospective.patch": {
+    "original_sha256": "9f60acaa995256008a823d6090e11676489240e980f92460624422a5259dbb29",
+    "archived_sha256": "f450caa6d1bb8c28362ded2fc483cb7e647d30e69e2356b8277126219f83d4ad",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/stack-granted-abilities84/pre84-hearse1.log": {
+    "original_sha256": "847ea1069773a75c3e4e758964b7f91e486e4a0cbf047b0cbda19241355f01b8",
+    "archived_sha256": "f61e334dd5cd0ea60a1dbdbe4f08270c6221f4daebeac8f2edf78d5099c15630",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/stack-granted-abilities84/related.log": {
+    "original_sha256": "eeb97c9b3ca1837a42f315a854e38c85b13c79055d4e8014fc875d7c41a67924",
+    "archived_sha256": "24bd43b261778e21ccd5d26e2a7abc55c9f1aa1589161b19be323fb788654cfa",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/stack-granted-abilities84/review.patch": {
+    "original_sha256": "e85c046b191f2c588c3d1ef990d202c0daffc1c9d963cee426f8507496ad70d9",
+    "archived_sha256": "bdbaafcd29bda6b880dfa37ad760d9c091ad75d84f6f3fc9061cd5f85c5ca468",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/vault-loop71/native-boundaries5.log": {
+    "original_sha256": "f3ab27e31f8c4c6d709d8f74868cc98e9bef482ae378c4a95e7e3feec98d313c",
+    "archived_sha256": "443706c78d5d2b7301ef4d13e3fbf706dbcfb10026e2868d4f5311472015bd7e",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/vault-loop71/review.patch": {
+    "original_sha256": "8442c747476538c17528a5b71f38b1b34970dadfb629e0ef102574ea3b3ea71b",
+    "archived_sha256": "c5c902d41966ac8483028654c4804956d3edc53578b3f2f45f91c5845d5fe4a2",
+    "numstat_preserved": true
+  },
+  "docs/research/checkpoint65-validation/related.log": {
+    "original_sha256": "6b606f5faf33e318809e2c3585097c3f20bc65338a03d31603543859ae799b14",
+    "archived_sha256": "683ef44920258faea8d19c6dff02becbd4b9593569d46aa2538f9c7573fea9d5",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/colored-activation-costs83/affected3-cold1.log": {
+    "original_sha256": "b4a17a6b9c2577d22196b51fdaca3ee63c0d6a52d91b34da6a7582163d856dfe",
+    "archived_sha256": "dfcae1983f2af1d946f4eaac34cd1f9b3f37ccba1d38fa513d9bf984fa34baee",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/colored-activation-costs83/final15.log": {
+    "original_sha256": "4d2834a41ecd024de6263d9adc59a1ac4d4735daaebd5c55c777cb021d014956",
+    "archived_sha256": "d297d6c6a29b1caf232254393b6fd755353ca602d400918d16fd021f60dac424",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/colored-activation-costs83/native11.log": {
+    "original_sha256": "2321d9e42935428672f8d2ecf73da5a3044b6953908d36004b57a9ff1d6c503c",
+    "archived_sha256": "86717e53021e6653c17bba7a61ce075ab4e2dcd60c5a59e35eda66b370893284",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/colored-activation-costs83/owned.patch": {
+    "original_sha256": "9eae025c19d9ee6e29524bd4c0d9360a38e9ce94fbdb6a18987a1e0e5a85f00d",
+    "archived_sha256": "234ab0e87a97f1fe0d00e5053e292515dc39f4123a387fc3e0f2e4b9b18d2ebe",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/exile-counter-access85/native-boundaries3.log": {
+    "original_sha256": "b1375d11a3e047f8434b8cf024a7f82d605599da017aabe0bab68f8bf1b09432",
+    "archived_sha256": "89b497d870b7fe498c9a0243593b063cf576f454ba26312aae397f257e4b608a",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/exile-counter-access85/review.patch": {
+    "original_sha256": "e61046f8a9ae56c1e24f490a344df7ba3ed094de31d09505b37d962e2aa4ce1b",
+    "archived_sha256": "bb6e635e16c3320bbb73357e1982400a90dd1e6aa7d5c40ff7aab10e8ff9e8d3",
+    "numstat_preserved": true
+  },
+  "docs/research/checkpoint66-validation/native.log": {
+    "original_sha256": "84db42e82414ce4a1b602eb4300ff52158a77b671e8f2ecca0a82db5e1f27f9a",
+    "archived_sha256": "028b31f22b624c03090d491ed95093ed74e285b13b66db79d6ca9df9e2e550de",
+    "numstat_preserved": null
+  },
+  "docs/research/checkpoint66-validation/related.log": {
+    "original_sha256": "a999d2445e234e074d949bd794cd33e088fbc22bd96915b90f7cf77ddef967a9",
+    "archived_sha256": "4e3277b1f165fe49e7d42f9e45c2e772f64201906cdba06e16554b303813a207",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/conditional-upkeep-grants91/UNINSTALLED.patch": {
+    "original_sha256": "dbac6a62682a490fc94b641b155dd0975bc8e6f2acf84868d0ac08b21c3c9a2a",
+    "archived_sha256": "400d93943a658e3bc2ef60b2dbf4d6033ca59032141596f0ddae8cc4eb34f004",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/conditional-upkeep-grants91/conditional-zero-restriction9.log": {
+    "original_sha256": "f1bce4dd47f50cf374f9f2c72df49eb6f2896a35ca4a552a89596cebb1248feb",
+    "archived_sha256": "fb2d1ed8da54d359b1f47978e3b769a742d6babe80b20fe668acc897a1851471",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/conditional-upkeep-grants91/legacy-flux2-original.log": {
+    "original_sha256": "435bc7d3fb1328f053889b0f07a467a7f913f2a9beadfa6876a1510625ff2b9a",
+    "archived_sha256": "7d82a2606359e10bc12e97d001edb07e1016f23704168eb2f9e5fd22f3d94111",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/attached-upkeep92/basic15.log": {
+    "original_sha256": "e472645a2274783242604435e5ab3ebd53e0c4c4d3757cfe8ef47b0dc78040ab",
+    "archived_sha256": "db0e79a4c7fe6f86fdfbdc9334cc23c62537c7be31e0430170091c62a957bcdb",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/combat-damage95/UNINSTALLED.patch": {
+    "original_sha256": "23895bf863cc1a61d11eae1446b017955520773a33a5a6016e688f0f823d25f5",
+    "archived_sha256": "3c5dc68c3c41f339bffda02722493cf328f56ff41f13c1f5426fd5ce54103537",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/conditional-toughness96/UNINSTALLED.patch": {
+    "original_sha256": "e8fb634d844c45f406e8d137c2b5243db87b043cf4837324978825469059fc57",
+    "archived_sha256": "d6e1998bf3c887848785d1a6bde1aa2a7df040119fead7f03ee0259f7530d4f3",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/conditional-toughness96/native20.log": {
+    "original_sha256": "b41ddd391b921f08a18462c57f4bb90a528a6f97e432f21423bfeabc4fe2a51d",
+    "archived_sha256": "755c12a5d019021dc9af201d3e09753de9ab856c46b4a857e6c57d732d092b47",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/conditional-toughness96/native6.log": {
+    "original_sha256": "63185a981c8779e26b7623a83e0e9299dc9e49611e954fe9d33c5a44eaa1ba30",
+    "archived_sha256": "c5019ae7e4ec954ae2eaa0dc480d23731033190f57f1f29c7d6c6f42be447481",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/first-artifact-activation-cost84/native6-prototype.log": {
+    "original_sha256": "c254fee1a0b4d93b3498fe723dce942ee15db93192cbd0225fa5a105b2424777",
+    "archived_sha256": "240859ea9840991b70a9e4fac067ca3dc0e95f2acb3c2ee276aa98497aba1ec3",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/first-artifact-activation-cost84/owned.patch": {
+    "original_sha256": "52047ac5ff7d81f24a5960b58c79aec81a4798d4bca2bad8032c5a45cb5831f4",
+    "archived_sha256": "82580099358a97fd7b37c094f4885f0ad45aad324aaa9897bf9878d379653f17",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/first-artifact-activation-cost84/zero-mana-debug1.log": {
+    "original_sha256": "a73309bee9e27e3f28952b3cd64c8576159409aabbd21a6ac901acbc8501ac5a",
+    "archived_sha256": "1f08f8ef600605cb11588e2237ada98ee3e8b9c2555702a38ac39af7731c3807",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/flagbearer86/UNINSTALLED.patch": {
+    "original_sha256": "5b83f425acf4bece09ebe4bdef74bc586445f8ab2c9af6b9d432bf73258cbfe9",
+    "archived_sha256": "2bd9e54dd277dcf0c2ec4ad4516d1f020aadc87bad62fadfd107e7caf06ee384",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/library-leng72/after-native4.log": {
+    "original_sha256": "da3cf88693e06ca3176ca4205ea415b6b613e8e46a6168279c497644dd70ae4b",
+    "archived_sha256": "aa66749ce8f094cc73a5989c75bbd0370bed315bb7425ffae1994fd47f5e4f0e",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/library-leng72/effects.py.patch": {
+    "original_sha256": "fce072da48021ea35a5d333fe5093c59d6d5ad90c491bdfef6e5cf307bd6841a",
+    "archived_sha256": "e0be7ae99cba97b1727fb6c9ea148064cc7bef1b1da20a2c6b9f3ab046a0181c",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/library-leng72/grouped_discard.py.patch": {
+    "original_sha256": "4e71d991a7c74d4babb11578bd621f42be41c310748e9e1e74fbb5b48aecf5fe",
+    "archived_sha256": "4665ea209a214336b34d61153d0c0547c9d30dffdc29c059d2497a287e24bfca",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/library-leng72/history.py.patch": {
+    "original_sha256": "c575df8aca9d1b29e0795798ae0ef38f0e535abba497d7b66092e9be2374b409",
+    "archived_sha256": "e705e875f091b0ff0144e157cd26cd1123a0b11bc881370fb076b24d237f2f71",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/library-leng72/native-handlimit3.log": {
+    "original_sha256": "56e68597755fd7d2d4f04a5f765ee4851189394b9ba6f6cfa770566d54508411",
+    "archived_sha256": "93db2b09a60300d4906cfc15e65d5617bd16549011aeccb94282251a8ea86cb0",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/library-leng72/nonbattlefield_life_offers86.py.patch": {
+    "original_sha256": "5f66e76356f672e9b18c0d1ee2337dec411473792fe76afbb84b32d76fb95189",
+    "archived_sha256": "76c9fcc11b1436bc71ff560562c0a47a230e722e9b3bae11a32815a6d56400d8",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/library-leng72/rules_state.py.patch": {
+    "original_sha256": "0cb3cc63cf4ee4f3b71d016f81a5beb12cb82d3ee99fa1205822220ea5999a11",
+    "archived_sha256": "f4bfac4a95ac08bd88ae4d4bf5a53afbbe56d7c62748abe15d8df6841c4e238b",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/library-leng72/scripts.py.patch": {
+    "original_sha256": "ca82592a2d573c774b09ecec9e7b298a6a3b6c85462dbdb9bc71f1c9f724e10e",
+    "archived_sha256": "accdce5ec7470b90f2fd7fbc42eb8eeae80348f67a03adb298bf1cc42e8d65c4",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/library-leng72/triggers.py.patch": {
+    "original_sha256": "9b47d7fb8a5f288360144321ac5cb952c0e7b650c57fae744a71ab0a6b4f2b92",
+    "archived_sha256": "e624caad1e4fce599fd77a2b25a30e64011a1769420183a0a59874267aac5d4e",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/zone-exchanges94/baseline251-native.log": {
+    "original_sha256": "868d907011e8b4e79c0f3aa04a507579694418cbb83dee569914b422608bae11",
+    "archived_sha256": "4121137cbe11dac9f2b3408c54cab87082ce61d85fc398593167404de4dcd12c",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/zone-exchanges94/large-baseline1.log": {
+    "original_sha256": "8bb5bc5c97fe461c1f724de1b365e053fae24f2ecc2371efff48dd6bd78243db",
+    "archived_sha256": "2f19cf921b8b8b5bf0aa21274d4faa3ac0d7b3b5c133e8f852b833eeeb3829d8",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/zone-exchanges94/large-order-rip3.log": {
+    "original_sha256": "99c51e6c9584adbb5e937b4342673894bb60869f75db37187417e14334970ae7",
+    "archived_sha256": "dd0d95e474c1aa3b6b395fcf433c82884860311b8252b267d3e41f0284f83bde",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/zone-exchanges94/reviewed.patch": {
+    "original_sha256": "cb497ec56579f9aeef35fe644b6fdaa8992ec03fb4d9a83e3e64bbb6c8cc8410",
+    "archived_sha256": "e8ab0e06c111f1b3cb263b9d663ddd4f3a84adb2f359273a2f64d322457d3994",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/cyber-controller63/review.patch": {
+    "original_sha256": "459a90ba815714b79955a7c137c91afc3106b2f4ca5dcfbc160317d8d256d517",
+    "archived_sha256": "e50fb19e1b60b83ca0772df2b60ae90fdc0863feb85653bc141d347104729be2",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/cyber-controller63/ruling-fixture-before.log": {
+    "original_sha256": "2787da665fb2864713ee2fe90e1fa7c60e5de59a854eee6dcc3b1e8116f42c16",
+    "archived_sha256": "74b83bc7c515554c672d04908749ae46b72ae285b4987fb542dedb566d004548",
+    "numstat_preserved": null
+  },
+  "docs/research/checkpoint67-validation/native.log": {
+    "original_sha256": "3f5a6759c4dd0119e3b1df6fd58279173729fdea97416ee76534da5853e00b9b",
+    "archived_sha256": "1d7bfe1db920b45efbc7bf36ddf24541c97bc288f04afa96560468c5dce1e001",
+    "numstat_preserved": null
+  },
+  "docs/research/checkpoint67-validation/related.log": {
+    "original_sha256": "d9d0e7bf4ae6d4942d835ce8b7eb50675c2476e41b5b3f6b17b640710c8e9eb9",
+    "archived_sha256": "13550fb92e140908048da8967999d5921fe5e3f0a268b5aa2bd8c1e5cec9ee94",
+    "numstat_preserved": null
+  }
+}

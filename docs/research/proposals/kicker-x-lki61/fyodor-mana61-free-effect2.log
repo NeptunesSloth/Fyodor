@@ -1,0 +1,67 @@
+FF                                                                       [100%]
+=================================== FAILURES ===================================
+____ test_actual_effect_free_cast_offers_only_payable_positive_kicker_x[0] _____
+
+cards = <app.cards.repository.CardRepository object at 0x7f0529be82f0>
+additional = 0
+
+    @pytest.mark.parametrize('additional',[0,1])
+    def test_actual_effect_free_cast_offers_only_payable_positive_kicker_x(cards,additional):
+        s=game(cards,['Thieving Skydiver','Electrodominance'],opponents=['Silver-Inlaid Dagger'])
+        equipment=put(s,'Silver-Inlaid Dagger','battlefield',pid='p2')
+        skydiver=put(s,'Thieving Skydiver','hand')
+        spell=put(s,'Electrodominance','hand')
+        act(s,'p1',type='add_mana',player='p1',mana={'C':2+additional,'R':2})
+        act(s,'p1',type='cast_spell',card_id=spell.id,x_value=2,targets=['p2'],sources=[])
+        answer(s)
+        assert skydiver.zone=='p1:battlefield'
+        assert equipment.controller==('p1' if additional else 'p2')
+>       record=s.state.rules.payments[s.state.rules.object_id(skydiver)]
+                                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+/workspace/Fyodor/backend/tests/test_rules_kicked_x_lki61.py:135:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = RulesState(combat_memory=CombatMemory(version=1, known_empty=['p3'], previous={'p1': CombatReceipt(player='p1', turn=1...ree_cast_faces={}, exile_if_graveyard=[], bottom_if_graveyard=[], cast_enters={}, exile_resolves={}, counter_stamps={})
+card_id = CardInstance(borrow_identity=None, id='e04870c7d7b0', card_id='06996ff1-7f57-4e73-940a-a58c4482cadd', name='Thieving S...ts=[], damage=0, choices={}, stack_info=None, exile_group=None, token_source=None, origin='library', test_object=False)
+
+    def object_id(self, card_id: str) -> str:
+>       return f"{card_id}.{self.objects.get(card_id, 0)}"
+                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       TypeError: unhashable type: 'CardInstance'
+
+app/game/rules_state.py:1708: TypeError
+____ test_actual_effect_free_cast_offers_only_payable_positive_kicker_x[1] _____
+
+cards = <app.cards.repository.CardRepository object at 0x7f052937d1f0>
+additional = 1
+
+    @pytest.mark.parametrize('additional',[0,1])
+    def test_actual_effect_free_cast_offers_only_payable_positive_kicker_x(cards,additional):
+        s=game(cards,['Thieving Skydiver','Electrodominance'],opponents=['Silver-Inlaid Dagger'])
+        equipment=put(s,'Silver-Inlaid Dagger','battlefield',pid='p2')
+        skydiver=put(s,'Thieving Skydiver','hand')
+        spell=put(s,'Electrodominance','hand')
+        act(s,'p1',type='add_mana',player='p1',mana={'C':2+additional,'R':2})
+        act(s,'p1',type='cast_spell',card_id=spell.id,x_value=2,targets=['p2'],sources=[])
+        answer(s)
+        assert skydiver.zone=='p1:battlefield'
+        assert equipment.controller==('p1' if additional else 'p2')
+>       record=s.state.rules.payments[s.state.rules.object_id(skydiver)]
+                                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+/workspace/Fyodor/backend/tests/test_rules_kicked_x_lki61.py:135:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = RulesState(combat_memory=CombatMemory(version=1, known_empty=['p3'], previous={'p1': CombatReceipt(player='p1', turn=1...ree_cast_faces={}, exile_if_graveyard=[], bottom_if_graveyard=[], cast_enters={}, exile_resolves={}, counter_stamps={})
+card_id = CardInstance(borrow_identity=None, id='a5c3dfdf3279', card_id='06996ff1-7f57-4e73-940a-a58c4482cadd', name='Thieving S...ts=[], damage=0, choices={}, stack_info=None, exile_group=None, token_source=None, origin='library', test_object=False)
+
+    def object_id(self, card_id: str) -> str:
+>       return f"{card_id}.{self.objects.get(card_id, 0)}"
+                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       TypeError: unhashable type: 'CardInstance'
+
+app/game/rules_state.py:1708: TypeError
+=========================== short test summary info ============================
+FAILED ../../workspace/Fyodor/backend/tests/test_rules_kicked_x_lki61.py::test_actual_effect_free_cast_offers_only_payable_positive_kicker_x[0]
+FAILED ../../workspace/Fyodor/backend/tests/test_rules_kicked_x_lki61.py::test_actual_effect_free_cast_offers_only_payable_positive_kicker_x[1]

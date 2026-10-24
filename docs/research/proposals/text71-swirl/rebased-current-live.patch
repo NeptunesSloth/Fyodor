@@ -1,0 +1,595 @@
+--- a/backend/app/game/rules_state.py
++++ b/backend/app/game/rules_state.py
+@@ -659,8 +659,18 @@
+     value: int = 0
+
+
++class ColorWordEntry71(BaseModel):
++    card: str
++    acquisition: str | None = None
++    word: Literal['white', 'blue', 'black', 'red', 'green'] | None
++    provenance: Literal['native_entry', 'native_no_choice', 'manual_restore']
++    chosen_by: str | None = None
++    restored_by: str | None = None
++
++
+ class SpliceText71(BaseModel):
+     name: str
++    global_change: bool = False
+     abilities: list[dict[str, Any]] = Field(default_factory=list)
+
+
+@@ -1641,6 +1651,7 @@
+     # -- chosen player (wave 4J) -- "As ~ enters, choose an opponent / a player": object id -> the chosen player's id
+     # (the permanent's "Chosen opponent: <name>" entry is only the display; app/rules/chosen.py). Older saves have
+     # only the display name: chosen.player_of resolves it when exactly one player has that name.
++    color_words71: dict[str, list[ColorWordEntry71]] = Field(default_factory=dict)
+     chosen_color_pairs: dict[str, ChosenColorPairReceipt] = Field(default_factory=dict)
+     chosen_players: dict[str, str] = Field(default_factory=dict)
+     # -- linked words (wave 33B) -- 607.2f: "As this enchantment enters, choose Khans or Dragons.": object id -> the word it chose (app/rules/chosen.py)
+--- a/backend/app/rules/cast_limits.py
++++ b/backend/app/rules/cast_limits.py
+@@ -1143,7 +1143,9 @@
+     if card is None:
+         return None
+     faces = (face,) if face is not None else (0, 1) if chars.is_two_spell_card(card, plan.info) else (None,)
+-    found = [cast_problem(plan.state, player, card, chars.as_cast(card, plan.info, f), plan.info, resolving=True) for f in faces]
++    from app.rules import text_global_word71
++
++    found = [cast_problem(plan.state, player, card, text_global_word71.prospective(plan.state, card, chars.as_cast(card, plan.info, f), plan.info), plan.info, resolving=True) for f in faces]
+     return found[0] if all(found) else None
+
+
+--- a/backend/app/rules/casting.py
++++ b/backend/app/rules/casting.py
+@@ -3075,6 +3075,9 @@
+     faces = dynamic_zone_keyword_costs56.foretell_faces(state, player, card, info) or ((0, 1) if chars.is_two_spell_card(card, info) else (None,))
+     for face in faces:
+         ch = chars.as_cast(card, info, face)
++        from app.rules import text_global_word71
++
++        ch = text_global_word71.prospective(state, card, ch, info)
+         if cast_problem(state, player, card, ch, check_priority=check_priority, info=info) is not None:
+             continue
+         manual = state.rules is not None and state.rules.card_mode(card.id) == "manual"
+@@ -3163,6 +3166,9 @@
+     if chars.is_two_spell_card(card, info) or state.rules is None or state.rules.card_mode(card.id) == "manual":
+         return out  # (a split card / adventure: which half isn't part of the hint)
+     ch = chars.as_cast(card, info, face)
++    from app.rules import text_global_word71
++
++    ch = text_global_word71.prospective(state, card, ch, info)
+     blocked = cast_problem(state, player, card, ch, check_priority=check_priority, info=info) is not None
+     if blocked and cast_problem(state, player, card, ch, check_priority=check_priority, info=info, sneak=True) is not None:
+         return out
+@@ -3203,6 +3209,9 @@
+     if chars.is_two_spell_card(card, info) or state.rules is None or state.rules.card_mode(card.id) == "manual":
+         return out
+     ch = chars.as_cast(card, info, None)
++    from app.rules import text_global_word71
++
++    ch = text_global_word71.prospective(state, card, ch, info)
+     if ch.is_land or cast_problem(state, player, card, ch, info=info) is not None:
+         return out
+     grant = cast_grant(state, player, card, ch, info)
+@@ -3264,6 +3273,9 @@
+     faces = (0, 1) if chars.is_two_spell_card(card, info) else (None,)
+     for face in faces:
+         ch = chars.as_cast(card, info, face)
++        from app.rules import text_global_word71
++
++        ch = text_global_word71.prospective(state, card, ch, info)
+         if cast_problem(state, player, card, ch, info=info, free=True, check_priority=check_priority) is not None:
+             continue
+         manual = state.rules is not None and state.rules.card_mode(card.id) == "manual"
+@@ -3293,6 +3305,9 @@
+     mandatory additional cost, "sacrifice a creature", can't be paid). The same checks as ``cast_free``, in the same order; cast_limits'
+     prohibitions (601.3) are the caller's. Mana is not checked here: ``can_pay`` doesn't count the mana abilities activated by hand (a Spirit
+     Guide, Ashnod's Altar), so a cost increase that can't be paid is met in the payment, where the cast can be cancelled (``_announcing``)."""
++    from app.rules import text_global_word71
++
++    ch = text_global_word71.prospective(plan.state, card, ch, plan.info)
+     from app.rules import cast_timing
+
+     if (timed := cast_timing.problem(plan.state, player, card, ch, plan.info)) is not None:
+@@ -3362,6 +3377,10 @@
+         if any(o.key == a.alt_cost and o.tag == _converted.CONVERTED_TAG for o in _converted.converted_offers(plan.state, plan.actor, card, plan.info)):
+             a.face = 1
+     ch = chars.as_cast(card, plan.info, a.face, a.fuse)  # split cards / adventures: the half being cast
++    from app.rules import text_global_word71
++
++    global_text_prepared71 = bool(text_global_word71.global_changes(plan.state, card.model_copy(update={'zone': 'stack'}), plan.info))
++    ch = text_global_word71.prospective(plan.state, card, ch, plan.info)
+     from app.rules import paid_effect_costs
+
+     if paid_effect_costs.announce(plan, a, card, ch):
+@@ -3573,6 +3592,8 @@
+         if plan.manual(card) or a.face_down:
+             raise ActionError("That card is played by hand: splice by hand with the table tools")
+         spliced_ch, spliced_costs = splice.prepare(plan, a.splice, card, ch)
++        original_splice71 = spliced_ch
++        spliced_ch = text_global_word71.prospective(plan.state, card, spliced_ch, plan.info)
+         if (definition := per_opponent.for_cast(plan, card.id, scripts.spell_definition(spliced_ch))) is None:  # (review 23A: its groups too)
+             raise ActionError("That splice can't be carried out by the engine")
+         for sc in spliced_costs:
+@@ -3789,7 +3810,8 @@
+     data.spliced_names = sorted({name for cid in a.splice for name in card_names.names_of(plan.ch(plan.state.cards[cid]))})
+     from app.rules import text_spell_refresh71
+
+-    data.splice_text71 = text_spell_refresh71.extras(ch.name, ch, spliced_ch) if a.splice else SpliceText71(name=ch.name)
++    data.splice_text71 = text_spell_refresh71.extras(ch.name, ch, original_splice71) if a.splice else SpliceText71(name=ch.name)
++    data.splice_text71.global_change = global_text_prepared71
+     payment_data = _CastPayment(data, cost, not_mana, origin, x_payment, _purpose_context(purpose))
+     from app.rules import payment_continuations as pc
+
+@@ -4882,6 +4904,10 @@
+     from your hand without paying its mana cost". Only cards the engine listed in ``free_casts``.
+     X is 0 (107.3b); kicker and other additional costs may still be paid (118.9d); modes, an
+     Aura's target and "when you cast" triggers (storm, cascade) work as for any cast."""
++    from app.rules import text_global_word71
++
++    global_text_prepared71 = bool(text_global_word71.global_changes(plan.state, card.model_copy(update={'zone': 'stack'}), plan.info))
++    ch = text_global_word71.prospective(plan.state, card, ch, plan.info)
+     r = plan.rules
+     if card.id not in r.free_casts or card.zone == STACK or ch.is_land:
+         raise ActionError("You can't cast that without paying its mana cost now")
+@@ -5036,6 +5062,7 @@
+     from app.rules import as_cast_values42
+
+     data = _PostFreeCast(a, add_cost, add_objects, alt, aura, bargained, card, ch, chosen, definition, gift_to, optional, paid, picked, picked_targets, slot_specs, slots)
++    data.global_text_prepared71 = global_text_prepared71
+     data.cast_greatest_power = as_cast_values42.capture(plan, definition)
+     if alt is not None or not cost.is_free:
+         from app.rules import x_mana_restrictions
+@@ -5089,12 +5116,14 @@
+     kind: str = ""
+     record: PaymentRecord | None = None
+     cast_greatest_power: int | None = None
++    global_text_prepared71: bool = False
+
+
+ def _post_free_cast(plan: Plan, data: _PostFreeCast, payment: M.Payment | None) -> None:
+     record = data.record
+     assert record is not None
+     record.cast_greatest_power = data.cast_greatest_power
++    record.splice_text71 = SpliceText71(name=data.ch.name, global_change=data.global_text_prepared71)
+     r = plan.rules
+     a = data.a
+     add_cost = data.add_cost
+--- a/backend/app/rules/copying.py
++++ b/backend/app/rules/copying.py
+@@ -364,6 +364,9 @@
+
+     made = layers.add_effect(plan, affected=affected, layer="1", source=source, controller=controller, duration=duration,
+                              label=f"Copy of {recipe.source}" if recipe.source else "Copy", copy_recipe=recipe, copy_entry_source=entry_source)
++    from app.rules import text_global_word71
++
++    text_global_word71.record_acquisition(plan, affected, made.id)
+     if duration == "next_turn":  # -- becomes a copy (wave 31C) -- 500.4: "until your next turn" ends as the controller's next turn begins (delayed.turn_began)
+         made.until_player, made.turn = controller, plan.state.turn.number
+
+--- a/backend/app/rules/effects.py
++++ b/backend/app/rules/effects.py
+@@ -6702,3 +6702,13 @@
+ from app.rules import prepared_mill61 as _prepared_mill61  # noqa: E402, I001
+
+ RESUME.update(_prepared_mill61.RESUME)
++
++
++CHOICE_OPTIONS['color word'] = list(_text_change_instructions71.COLORS)
++CHOICE_LABELS['color word'] = 'Chosen color word'
++
++from app.rules import text_global_word71 as _global_word71  # noqa: E402
++
++RESUME['restore_global_word71'] = _global_word71.resume_restore
++
++RESUME['restore_global_continue71'] = _global_word71.resume_continue
+--- a/backend/app/rules/engine.py
++++ b/backend/app/rules/engine.py
+@@ -139,8 +139,16 @@
+         except ValueError as exc:
+             raise ActionError(str(exc)) from None
+     plan = Plan(state, actor, info, rng)
+-    begin(plan)
+-    sync_step(plan)
++    from app.rules import text_global_word71
++
++    if intent.type != 'concede' and text_global_word71.recover(plan, intent):
++        plan.do({'type': 'rules_sync', 'rules': plan.rules.model_dump(mode='json')})
++        return plan.steps
++    # Restore unknown layer-3 source choices before any derived control sync.
++    restoring_word71 = plan.rules.decision is not None and (plan.rules.decision.resume or {}).get('step') == 'restore_global_word71'
++    if not restoring_word71:
++        begin(plan)
++        sync_step(plan)
+     handler = INTENTS.get(intent.type)
+     if handler is None:
+         what = NOT_YET.get(intent.type, intent.type)
+@@ -152,6 +160,12 @@
+         plan.rules.actions += 1  # for "pass until next action"
+         plan.rules.last_actor = actor
+     handler(plan, intent)
++    if plan.rules.decision is not None and (plan.rules.decision.resume or {}).get('step') == 'restore_global_word71':
++        # Another unknown layer-3 source is still awaiting manual restoration.
++        # Do not derive controls, run SBAs, or refresh reveals against guessed text.
++        remember_intent(plan, intent)
++        plan.do({'type': 'rules_sync', 'rules': plan.rules.model_dump(mode='json')})
++        return plan.steps
+     settle(plan)
+     if intent.type != "repeat_sequence":
+         remember_intent(plan, intent)
+@@ -1453,7 +1467,7 @@
+         casting.resume_outer(plan)
+     permissions.free_cast_abandoned(plan)  # -- free-cast cleanup (wave 30A) -- a cancelled free cast ends before play goes on: advance would resolve the
+     # ability it belongs to (still on the stack, ripple) again from its start (-- review 30 -- after the payment a nested choice set aside is back)
+-    if step != "reconcile":  # after reconciling, play picks up where the table is (like without questions)
++    if step not in ("reconcile", "restore_global_word71"):  # Unknown layer-3 source restoration must complete before deriving reveals/SBAs.
+         advance(plan)
+
+
+--- a/backend/app/rules/layer_dependency_graph.py
++++ b/backend/app/rules/layer_dependency_graph.py
+@@ -168,7 +168,7 @@
+             if (real is None or not real.zone.endswith(':battlefield')) and not layers.spell_entry(self.original, incoming, info):
+                 self.effects[incoming.id] = [e for e in self.effects[incoming.id] if e.id.startswith('entry:')]
+         self.base = {cid: layers.name_changes(layers.subtype_cdas(c, layers.prepared(self.original, c, chars.of(c, info), info)),
+-                                            self.effects[cid], layers._attached45(state, c, info, self.raw), info)
++                                            self.effects[cid], layers._attached45(state, c, info, self.raw), info, state, c)
+                      for cid, c in self.cards.items()}
+         self.base = {cid: replace(chars.provenance(self.cards[cid], ch), on_battlefield=True,
+                                   object_counters=frozenset(k for k, n in self.cards[cid].counters.items() if n > 0),
+--- a/backend/app/rules/layers.py
++++ b/backend/app/rules/layers.py
+@@ -218,6 +218,7 @@
+                     (e.text_change71.category, e.text_change71.old, e.text_change71.new) if e.text_change71 is not None else None)
+                    for e in r.effects if e.layer == '3') if r else ()
+     key_all: tuple = (key, graveyards, gy_modes, hosts, emblems, tuple(sorted(live)), impending, text71,
++                      tuple((oid, tuple((v.card, v.acquisition, v.word) for v in entries)) for oid, entries in sorted(r.color_words71.items())) if r else (),
+                       # -- attached events (wave 4L) -- "loses all abilities" effects: their objects' statics are gone
+                       tuple(e.id for e in r.effects if e.remove_abilities or e.set_land_types is not None) if r else (),
+                       # -- layers (wave 22A) -- the resolved effects the group layers (4-6) are solved against (613.6, 613.8)
+@@ -920,23 +921,26 @@
+         return ch
+     oid = state.rules.object_id(card.id)
+     found = [e for e in state.rules.effects if e.layer == '3' and oid in e.affected]
+-    if not any(e.text_change71 is not None for e in found):
++    if not any(e.text_change71 is not None for e in found) and not state.rules.color_words71:
+         return ch
+-    return name_changes(ch, found, [], info)
++    return name_changes(ch, found, [], info, state, card)
+
+
+ def name_changes(ch: Characteristics, effects: list[ContinuousEffect],
+-                 attached45: list[tuple[float, dict[str, Any]]], info: CardInfo | None = None) -> Characteristics:
++                 attached45: list[tuple[float, dict[str, Any]]], info: CardInfo | None = None,
++                 state: GameState | None = None, card: CardInstance | None = None) -> Characteristics:
+     """Shared layer3 stage for final derivation and dependency positions (201.5)."""
+     names: list[tuple[tuple[float, int, int], str]] = [
+         ((stamp, 0, 0), definition["set_name"]) for stamp, definition in attached45
+         if definition.get("set_name") is not None]
+     names.extend(((effect.object_seq, 1, effect.timestamp), effect.set_name)
+                  for effect in effects if effect.layer == "3" and effect.set_name is not None)
+-    from app.rules import text_word_changes71
+-
+-    changes = [((e.object_seq, 1, e.timestamp), e.text_change71) for e in effects
++    from app.rules import text_global_word71, text_word_changes71
++
++    changes = [((float(e.object_seq), 1, e.timestamp), e.text_change71) for e in effects
+                if e.layer == '3' and e.text_change71 is not None]
++    if state is not None and card is not None:
++        changes += text_global_word71.global_changes(state, card, info)
+     ordered = [(stamp, name, None) for stamp, name in names] + [(stamp, None, change) for stamp, change in changes]
+     for _, name, change in sorted(ordered, key=lambda item: item[0]):
+         if change is not None:
+@@ -995,7 +999,7 @@
+     effects = affecting(state, card, info)
+     each_amounts: dict[int, int] = {}
+     attached45 = _attached45(state, card, info)  # -- attached events (wave 4L) -- "Enchanted creature is a … creature"
+-    ch = name_changes(ch, effects, attached45, info)
++    ch = name_changes(ch, effects, attached45, info, state, card)
+     start = ch  # Abilities after layers 1-3, before layers 4-6 take any away.
+     # -- layers (wave 22A) -- group statics of layers 4 and 5 ("Each land is a Swamp in addition …", "Nonbasic lands are Mountains.",
+     # "All permanents are colorless.": 613.1d-e, 305.7), the objects each began applying to found as the table was solved (613.6, 613.8)
+--- a/backend/app/rules/permissions.py
++++ b/backend/app/rules/permissions.py
+@@ -2167,19 +2167,23 @@
+
+             if cast_limits.free_cast_blocked(plan, pid, cid, face) is not None:  # (wave 29B: the half / face being offered)
+                 continue
+-            from app.rules import casting  # (review 29B: no choice may be a dead end, 601.2c / 601.5)
+-
+-            if casting.free_cast_problem(plan, pid, card, chars.as_cast(card, plan.info, face), paid=bool(e.get("paid")), x=0 if e.get("effect_mana_cost") is not None else None) is not None:  # (the half cast_spell casts)
++            from app.rules import (
++                casting,  # (review 29B: no choice may be a dead end, 601.2c / 601.5)
++                text_global_word71,
++            )
++
++            prospective71 = text_global_word71.prospective(plan.state, card, chars.as_cast(card, plan.info, face), plan.info)
++            if casting.free_cast_problem(plan, pid, card, prospective71, paid=bool(e.get("paid")), x=0 if e.get("effect_mana_cost") is not None else None) is not None:  # (the half cast_spell casts)
+                 continue
+             if e.get('effect_alternative'):
+                 from app.rules import effect_cast_costs
+
+-                if effect_cast_costs.problem(plan, pid, card, chars.as_cast(card, plan.info, face), e) is not None:
++                if effect_cast_costs.problem(plan, pid, card, prospective71, e) is not None:
+                     continue
+             if e.get('required'):
+                 from app.rules import costs
+
+-                extra = costs.spell_additional_cost(ch.abilities)
++                extra = costs.spell_additional_cost(prospective71.abilities)
+                 if extra is not None and casting.additional_problem(plan, extra, card, pid) is not None:
+                     continue
+                 # 118.8c: a mandatory cast may be declined rather than exposing
+--- a/backend/app/rules/replacements.py
++++ b/backend/app/rules/replacements.py
+@@ -972,6 +972,9 @@
+         from app.rules import chosen_color_pairs45
+
+         chosen_color_pairs45.record_entry(plan, card_id, choices)
++        from app.rules import text_global_word71
++
++        text_global_word71.record_entry(plan, card_id, controller, choices)
+     # -- replacement effects stage 2 (wave 2E): the counters it enters with, through the counter
+     # choke point (122.6, 614.16), in the order its controller chose before it entered (614.12a) --
+     from app.rules import (
+--- a/backend/app/rules/scripts.py
++++ b/backend/app/rules/scripts.py
+@@ -5746,6 +5746,10 @@
+
+ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
+     """The engine definition of one ability, or None (manual)."""
++    from app.rules import text_global_word71
++
++    if (global71 := text_global_word71.definition(ability, ch)) is not None:
++        return global71
+     from app.rules import conditional_tax80
+
+     if (tax80 := conditional_tax80.definition(ability, ch)) is not None:
+--- /dev/null
++++ b/backend/app/rules/text_global_word71.py
+@@ -0,0 +1,220 @@
++"""Staged linked entry color-word receipts and dynamic Swirl layer3 contributors."""
++from __future__ import annotations
++
++from dataclasses import replace
++from typing import TYPE_CHECKING, Any
++
++from app.game.rules_state import ColorWordEntry71, TextChange71
++from app.rules.text_change_instructions71 import COLORS
++
++if TYPE_CHECKING:
++    from app.game.rules_state import ContinuousEffect
++    from app.game.state import CardInstance, GameState
++    from app.rules.characteristics import AbilityText, CardInfo, Characteristics
++    from app.rules.plan import Plan
++
++ENTRY = 'As this enchantment enters, choose a color word.'
++GLOBAL = 'All instances of color words in the text of spells and permanents are changed to the chosen color word.'
++MARKER = 'text_global_word71'
++
++
++def definition(ability: AbilityText, ch: Characteristics) -> dict[str, Any] | None:
++    from app.rules import scripts, statics
++
++    if ability.text == ENTRY:
++        native = scripts.define(replace(ability, text='As this enchantment enters, choose a color.'), ch)
++        if native is not None:
++            return {**native, 'effects': [{'do': 'choose_value', 'who': 'you', 'what': 'color word', 'remember': True}]}
++    if ability.kind == 'static' and ability.text == GLOBAL:
++        return statics._definition('self', None, [], rules=[MARKER])
++    return None
++
++
++def acquisition(state: GameState, oid: str) -> ContinuousEffect | None:
++    if state.rules is None:
++        return None
++    return max((e for e in state.rules.effects if e.layer == '1' and e.copy_recipe is not None and oid in e.affected),
++               key=lambda e: e.timestamp, default=None)
++
++
++def record_entry(plan: Plan, card_id: str, controller: str, choices: dict[str, str] | None) -> None:
++    if choices is None or choices.get('color word') not in COLORS:
++        return
++    card = plan.state.cards.get(card_id)
++    if card is None or not card.zone.endswith(':battlefield'):
++        return
++    from app.rules import layers, scripts
++
++    base = layers.copiable(plan.state, card, plan.info)
++    definitions = scripts.definitions(base).values()
++    if not any(MARKER in d.get('rules', []) for d in definitions):
++        return
++    oid = plan.oid(card)
++    copy = acquisition(plan.state, oid)
++    scope = copy.id if copy is not None else None
++    alive = {plan.oid(c) for c in plan.state.cards.values() if c.zone.endswith((':battlefield', ':phased'))}
++    plan.rules.color_words71 = {key: entries for key, entries in plan.rules.color_words71.items() if key in alive}
++    receipt = ColorWordEntry71.model_validate({'card': card_id, 'acquisition': scope, 'word': choices['color word'], 'provenance': 'native_entry', 'chosen_by': controller})
++    previous = plan.rules.color_words71.get(oid, [])
++    plan.rules.color_words71[oid] = [r for r in previous if r.acquisition != scope] + [receipt]
++
++
++def global_changes(state: GameState, card: CardInstance, info: CardInfo | None) -> list[tuple[tuple[float, int, int], TextChange71]]:
++    if info is None or state.rules is None or not state.rules.color_words71 or not (card.zone.endswith(':battlefield') or card.zone == 'stack'):
++        return []
++    from app.rules import layers, scripts
++    from app.rules.plan import live_players
++
++    live = live_players(state)
++    result = []
++    for oid, receipts in state.rules.color_words71.items():
++        source = state.cards.get(receipts[0].card) if receipts else None
++        if source is None or not source.zone.endswith(':battlefield') or source.face_down or source.owner not in live \
++                or source.controller not in live or state.rules.object_id(source.id) != oid or state.rules.card_mode(source.id) == 'manual':
++            continue
++        copy = acquisition(state, oid)
++        scope = copy.id if copy is not None else None
++        receipt = next((r for r in receipts if r.card == source.id and r.acquisition == scope), None)
++        if receipt is None or receipt.word not in COLORS or source.choices.get('Chosen color word') != receipt.word:
++            continue
++        definitions = scripts.definitions(layers.copiable(state, source, info)).values()
++        if not any(MARKER in d.get('rules', []) for d in definitions):
++            continue
++        key = (float(layers.timestamp(state, source.id)), 0, 0)
++        if copy is not None:
++            key = max(key, (float(copy.object_seq), 1, copy.timestamp))
++        result.append((key, TextChange71(category='color', old=receipt.word, new=receipt.word, all_colors=True)))
++    return result
++
++
++def prospective(state: GameState, card: CardInstance, ch: Characteristics, info: CardInfo | None) -> Characteristics:
++    """601.2a/601.3: read the prospective spell's text before target/cost choices."""
++    if ch.is_land or state.rules is None or not state.rules.color_words71:
++        return ch
++    from app.rules import text_word_changes71
++
++    incoming = card.model_copy(update={'zone': 'stack'})
++    for _, change in sorted(global_changes(state, incoming, info), key=lambda item: item[0]):
++        ch = text_word_changes71.apply(ch, change, getattr(info, 'name_at', None))
++    return ch
++
++
++def record_acquisition(plan: Plan, affected: list[str], scope: str) -> None:
++    """Gaining an as-enters ability on the battlefield makes no choice (607.2d)."""
++    from app.game.rules_state import ColorWordEntry71
++    from app.rules import layers, scripts
++
++    for card in plan.state.cards.values():
++        oid = plan.oid(card)
++        if oid not in affected or not card.zone.endswith(':battlefield'):
++            continue
++        if not any(MARKER in d.get('rules', []) for d in scripts.definitions(layers.copiable(plan.state, card, plan.info)).values()):
++            continue
++        previous = plan.rules.color_words71.get(oid, [])
++        plan.rules.color_words71[oid] = [r for r in previous if r.acquisition != scope] + [ColorWordEntry71(card=card.id, acquisition=scope, word=None, provenance='native_no_choice')]
++
++
++def missing_sources(plan: Plan) -> list[CardInstance]:
++    """An old save's public choice string cannot prove an acquired ability's choice."""
++    from app.rules import layers, scripts
++
++    result = []
++    for card in plan.state.cards.values():
++        if not card.zone.endswith(':battlefield') or card.face_down or plan.manual(card):
++            continue
++        if not any(MARKER in d.get('rules', []) for d in scripts.definitions(layers.copiable(plan.state, card, plan.info)).values()):
++            continue
++        oid = plan.oid(card)
++        copy = acquisition(plan.state, oid)
++        scope = copy.id if copy is not None else None
++        receipt = next((r for r in plan.rules.color_words71.get(oid, []) if r.card == card.id and r.acquisition == scope), None)
++        if receipt is None or (receipt.word is not None and card.choices.get('Chosen color word') != receipt.word):
++            result.append(card)
++    return result
++
++
++def recover(plan: Plan, intent: Any) -> bool:
++    from app.game.errors import ActionError
++    from app.game.rules_state import DecisionOption
++    from app.rules.plan import decide
++
++    if plan.rules.decision is not None and (plan.rules.decision.resume or {}).get('step') == 'restore_global_word71':
++        return False
++    missing = missing_sources(plan)
++    if not missing:
++        return False
++    if plan.rules.decision is not None:
++        raise ActionError('A saved Swirl the Mists source lacks its original color-word receipt. Restore that source before continuing this saved decision, or set it to manual automation.')
++    source = missing[0]
++    decide(plan, player=source.controller, kind='choose_one',
++           prompt='Manual recovery: the original color word and chooser for this Swirl the Mists ability are not recorded. Confirm the original public word with the table, or choose No word if none was chosen. This does not make a new as-enters choice.',
++           options=[*[DecisionOption(id=w, label=f'Restore original {w} word') for w in COLORS], DecisionOption(id='none', label='No word was chosen')],
++           resume={'step': 'restore_global_word71', 'source': source.id, 'object': plan.oid(source),
++                   'actor': plan.actor, 'intent': intent.model_dump(mode='json'),
++                   'priority': plan.rules.priority}, source=source)
++    return True
++
++
++def resume_restore(plan: Plan, d: Any, chosen: list[str]) -> None:
++    from app.game import actions as A
++    from app.game.errors import ActionError
++    from app.game.rules_state import ColorWordEntry71
++
++    if len(chosen) != 1 or chosen[0] not in (*COLORS, 'none'):
++        raise ActionError('Restore one original color word, or No word')
++    source = plan.state.cards.get(d.resume['source'])
++    if source is None or not source.zone.endswith(':battlefield') or plan.oid(source) != d.resume['object']:
++        plan.note('The original text-changing source left; its old choice was not assigned to a new object')
++    else:
++        word = None if chosen[0] == 'none' else chosen[0]
++        copy = acquisition(plan.state, plan.oid(source))
++        scope = copy.id if copy is not None else None
++        previous = plan.rules.color_words71.get(plan.oid(source), [])
++        plan.rules.color_words71[plan.oid(source)] = [r for r in previous if r.acquisition != scope] + [ColorWordEntry71.model_validate({'card': source.id, 'acquisition': scope, 'word': word, 'provenance': 'manual_restore', 'restored_by': d.player})]
++        plan.do({'type': 'set_choice', 'card_id': source.id, 'key': 'Chosen color word', 'value': word or 'No word'}, actor=source.controller)
++    old_actor, plan.actor = plan.actor, d.resume['actor']
++    try:
++        intent = A.parse_action(d.resume['intent'])
++        plan.rules.priority = d.resume.get('priority')
++        if recover(plan, intent):
++            return
++        from app.game.rules_state import DecisionOption
++        from app.rules.plan import decide
++
++        if plan.actor not in plan.live():
++            plan.note('The earlier action was canceled because its player left the game')
++            return
++        decide(plan, player=plan.actor, kind='choose_one',
++               prompt='Continue your previously requested action, or cancel it and choose again?',
++               options=[DecisionOption(id='continue', label='Continue previous action'),
++                        DecisionOption(id='cancel', label='Cancel previous action')],
++               resume={'step': 'restore_global_continue71', 'actor': plan.actor,
++                       'intent': intent.model_dump(mode='json'), 'priority': plan.rules.priority}, source=source)
++    finally:
++        plan.actor = old_actor
++
++
++
++def resume_continue(plan: Plan, d: Any, chosen: list[str]) -> None:
++    from app.game import actions as A
++    from app.game.errors import ActionError
++    from app.rules import engine
++
++    plan.rules.priority = d.resume.get('priority')
++    if chosen == ['cancel']:
++        plan.note('Canceled the previous action after restoring the original color word')
++        return
++    if chosen != ['continue']:
++        raise ActionError('Continue or cancel the previous action')
++    old_actor, plan.actor = plan.actor, d.resume['actor']
++    try:
++        intent = A.parse_action(d.resume['intent'])
++        if intent.type in engine.ACTION_INTENTS or intent.type == 'pass_priority':
++            engine.miracle.clear(plan)
++        if intent.type in engine.ACTION_INTENTS:
++            plan.rules.actions += 1
++            plan.rules.last_actor = plan.actor
++        engine.INTENTS[intent.type](plan, intent)
++        engine.remember_intent(plan, intent)
++    finally:
++        plan.actor = old_actor
+--- a/backend/app/rules/text_spell_refresh71.py
++++ b/backend/app/rules/text_spell_refresh71.py
+@@ -49,7 +49,7 @@
+         base_name = layers.copiable(plan.state, card, plan.info).name
+         extra = tuple(replace(a, text=renamed(a.text, receipt.name, base_name)) for a in extra)
+         extra_ch = Characteristics(name=base_name, types=frozenset({'Instant'}), abilities=extra)
+-        extra_ch = layers.name_changes(extra_ch, layers.affecting(plan.state, card, plan.info), [], plan.info)
++        extra_ch = layers.name_changes(extra_ch, layers.affecting(plan.state, card, plan.info), [], plan.info, plan.state, card)
+         offset = max((a.index for a in ch.abilities), default=-1) + 1
+         ch = replace(ch, abilities=(*ch.abilities, *(replace(a, index=offset + i) for i, a in enumerate(extra_ch.abilities))))
+     result = scripts.spell_definition(ch)
+@@ -91,7 +91,11 @@
+     if entry.kind != 'spell':
+         return entry
+     card = plan.state.cards[card_id]
+-    if not any(e.layer == '3' and e.text_change71 is not None for e in layers.affecting(plan.state, card, plan.info)):
++    from app.rules import text_global_word71
++
++    receipt = snapshot(plan, card_id)
++    previously_global = receipt is not None and receipt.global_change
++    if not previously_global and not any(e.layer == '3' and e.text_change71 is not None for e in layers.affecting(plan.state, card, plan.info)) and not text_global_word71.global_changes(plan.state, card, plan.info):
+         return entry
+     try:
+         d = fixed_scopes(definition(plan, card_id, entry), entry)

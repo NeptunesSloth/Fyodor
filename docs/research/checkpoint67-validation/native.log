@@ -1,0 +1,233 @@
+============================= test session starts ==============================
+platform linux -- Python 3.12.14, pytest-9.1.1, pluggy-1.7.0 -- /workspace/Fyodor/backend/.venv/bin/python3
+cachedir: .pytest_cache
+rootdir: /workspace/scratch/root/checkpoint67/backend
+configfile: pyproject.toml
+plugins: anyio-4.15.1, xdist-3.8.0
+created: 4/4 workers
+4 workers [110 items]
+
+scheduling tests via LoadScheduling
+
+tests/test_rules_vault_loop71.py::test_short_or_empty_library_repeat_is_as_much_as_possible71[0]
+tests/test_rules_colored_activation_costs83.py::test_kami_two_draws_does_not_discount
+tests/test_rules_vault_loop71.py::test_whole71
+tests/test_rules_exile_counter_access85.py::test_lara_old_discovery_objects_and_actual_foreign_land_share_one_play85
+[gw3] [  0%] PASSED tests/test_rules_vault_loop71.py::test_whole71
+tests/test_rules_vault_loop71.py::test_native_decline_first_keeps_exact_private_five71
+[gw3] [  1%] PASSED tests/test_rules_vault_loop71.py::test_native_decline_first_keeps_exact_private_five71
+tests/test_rules_vault_loop71.py::test_native_paid_round_bottom_order_then_new_exact_five71
+[gw0] [  2%] PASSED tests/test_rules_vault_loop71.py::test_short_or_empty_library_repeat_is_as_much_as_possible71[0]
+tests/test_rules_vault_loop71.py::test_short_or_empty_library_repeat_is_as_much_as_possible71[2]
+[gw3] [  3%] PASSED tests/test_rules_vault_loop71.py::test_native_paid_round_bottom_order_then_new_exact_five71
+tests/test_rules_vault_loop71.py::test_true_cold_repeat_and_final_packet71[pay]
+[gw0] [  4%] PASSED tests/test_rules_vault_loop71.py::test_short_or_empty_library_repeat_is_as_much_as_possible71[2]
+tests/test_rules_vault_loop71.py::test_short_or_empty_library_repeat_is_as_much_as_possible71[5]
+[gw0] [  5%] PASSED tests/test_rules_vault_loop71.py::test_short_or_empty_library_repeat_is_as_much_as_possible71[5]
+tests/test_rules_vault_loop71.py::test_life_lock_cannot_repeat_and_still_finishes71[Platinum Emperion]
+[gw0] [  6%] PASSED tests/test_rules_vault_loop71.py::test_life_lock_cannot_repeat_and_still_finishes71[Platinum Emperion]
+tests/test_rules_vault_loop71.py::test_angel_allows_resolution_life_cost71
+[gw0] [  7%] PASSED tests/test_rules_vault_loop71.py::test_angel_allows_resolution_life_cost71
+tests/test_rules_exile_counter_access85.py::test_lara_actual_attack_exiles_foreign_legend_and_can_play_it85
+[gw3] [  8%] PASSED tests/test_rules_vault_loop71.py::test_true_cold_repeat_and_final_packet71[pay]
+tests/test_rules_vault_loop71.py::test_true_cold_repeat_and_final_packet71[bottom]
+[gw3] [  9%] PASSED tests/test_rules_vault_loop71.py::test_true_cold_repeat_and_final_packet71[bottom]
+tests/test_rules_vault_loop71.py::test_true_cold_repeat_and_final_packet71[final]
+[gw2] [ 10%] PASSED tests/test_rules_colored_activation_costs83.py::test_kami_two_draws_does_not_discount
+tests/test_rules_colored_activation_costs83.py::test_kami_three_actual_draws_free_and_once_each_turn
+[gw3] [ 10%] PASSED tests/test_rules_vault_loop71.py::test_true_cold_repeat_and_final_packet71[final]
+tests/test_rules_colored_activation_costs83_extra.py::test_actual_layered_entry_without_flying_is_not_retroactive_after_sphere_leaves
+[gw0] [ 11%] PASSED tests/test_rules_exile_counter_access85.py::test_lara_actual_attack_exiles_foreign_legend_and_can_play_it85
+tests/test_rules_colored_activation_costs83.py::test_drone_flying_lost_after_entry_still_qualifies
+[gw1] [ 12%] PASSED tests/test_rules_exile_counter_access85.py::test_lara_old_discovery_objects_and_actual_foreign_land_share_one_play85
+tests/test_rules_exile_counter_access85.py::test_lara_zero_target_creates_access_to_old_counter_objects_and_expiry85
+[gw2] [ 13%] PASSED tests/test_rules_colored_activation_costs83.py::test_kami_three_actual_draws_free_and_once_each_turn
+tests/test_rules_colored_activation_costs83.py::test_qualifying_reduction_keeps_actual_activation_tax[Flying Drone]
+[gw3] [ 14%] PASSED tests/test_rules_colored_activation_costs83_extra.py::test_actual_layered_entry_without_flying_is_not_retroactive_after_sphere_leaves
+tests/test_rules_conditional_upkeep_grants91.py::test_whole[Musician]
+[gw3] [ 15%] PASSED tests/test_rules_conditional_upkeep_grants91.py::test_whole[Musician]
+tests/test_rules_conditional_upkeep_grants91.py::test_whole[Essence Leak]
+[gw3] [ 16%] PASSED tests/test_rules_conditional_upkeep_grants91.py::test_whole[Essence Leak]
+tests/test_rules_conditional_upkeep_grants91.py::test_music_two_counters_one_persistent_grant_and_actual_upkeep_cost[False]
+[gw0] [ 17%] PASSED tests/test_rules_colored_activation_costs83.py::test_drone_flying_lost_after_entry_still_qualifies
+tests/test_rules_colored_activation_costs83.py::test_drone_flying_gained_after_entry_does_not_qualify
+[gw2] [ 18%] PASSED tests/test_rules_colored_activation_costs83.py::test_qualifying_reduction_keeps_actual_activation_tax[Flying Drone]
+tests/test_rules_colored_activation_costs83.py::test_qualifying_reduction_keeps_actual_activation_tax[Kami of Jealous Thirst]
+[gw3] [ 19%] PASSED tests/test_rules_conditional_upkeep_grants91.py::test_music_two_counters_one_persistent_grant_and_actual_upkeep_cost[False]
+tests/test_rules_conditional_upkeep_grants91.py::test_music_two_counters_one_persistent_grant_and_actual_upkeep_cost[True]
+[gw0] [ 20%] PASSED tests/test_rules_colored_activation_costs83.py::test_drone_flying_gained_after_entry_does_not_qualify
+tests/test_rules_colored_activation_costs83.py::test_drone_opponent_flyer_entry_does_not_qualify
+[gw1] [ 20%] PASSED tests/test_rules_exile_counter_access85.py::test_lara_zero_target_creates_access_to_old_counter_objects_and_expiry85
+tests/test_rules_exile_counter_access85.py::test_lara_requires_discovery_counters_for_both_spell_and_land85
+[gw2] [ 21%] PASSED tests/test_rules_colored_activation_costs83.py::test_qualifying_reduction_keeps_actual_activation_tax[Kami of Jealous Thirst]
+tests/test_rules_colored_activation_costs83.py::test_drone_own_entry_alone_does_not_qualify
+[gw1] [ 22%] PASSED tests/test_rules_exile_counter_access85.py::test_lara_requires_discovery_counters_for_both_spell_and_land85
+tests/test_rules_exile_counter_access85.py::test_genuine_cold_lara_dynamic_counter_permission85[spell]
+[gw0] [ 23%] PASSED tests/test_rules_colored_activation_costs83.py::test_drone_opponent_flyer_entry_does_not_qualify
+tests/test_rules_colored_activation_costs83.py::test_legacy_entry_keywords_unknown_preview_safe_explicit_action_guarded
+[gw3] [ 24%] PASSED tests/test_rules_conditional_upkeep_grants91.py::test_music_two_counters_one_persistent_grant_and_actual_upkeep_cost[True]
+tests/test_rules_conditional_upkeep_grants91.py::test_essence_actual_conditional_host_grant_and_native_printed_cost[False]
+[gw2] [ 25%] PASSED tests/test_rules_colored_activation_costs83.py::test_drone_own_entry_alone_does_not_qualify
+tests/test_rules_colored_activation_costs83.py::test_drone_actual_other_flyer_entry_and_draw_discard
+[gw3] [ 26%] PASSED tests/test_rules_conditional_upkeep_grants91.py::test_essence_actual_conditional_host_grant_and_native_printed_cost[False]
+tests/test_rules_conditional_upkeep_grants91.py::test_essence_actual_conditional_host_grant_and_native_printed_cost[True]
+[gw0] [ 27%] PASSED tests/test_rules_colored_activation_costs83.py::test_legacy_entry_keywords_unknown_preview_safe_explicit_action_guarded
+tests/test_rules_colored_activation_costs83_extra.py::test_true_cold_flyer_lost_flying_uses_entry_receipt
+[gw1] [ 28%] PASSED tests/test_rules_exile_counter_access85.py::test_genuine_cold_lara_dynamic_counter_permission85[spell]
+tests/test_rules_exile_counter_access85.py::test_genuine_cold_lara_dynamic_counter_permission85[land]
+[gw2] [ 29%] PASSED tests/test_rules_colored_activation_costs83.py::test_drone_actual_other_flyer_entry_and_draw_discard
+tests/test_rules_conditional_upkeep_grants91.py::test_actual_dominate_after_trigger_keeps_original_payer_and_correct_outcome[False-essence]
+[gw3] [ 30%] PASSED tests/test_rules_conditional_upkeep_grants91.py::test_essence_actual_conditional_host_grant_and_native_printed_cost[True]
+tests/test_rules_conditional_upkeep_grants91.py::test_actual_dominate_after_trigger_keeps_original_payer_and_correct_outcome[False-music]
+[gw1] [ 30%] PASSED tests/test_rules_exile_counter_access85.py::test_genuine_cold_lara_dynamic_counter_permission85[land]
+tests/test_rules_colored_activation_costs83.py::test_canonical_both
+[gw1] [ 31%] PASSED tests/test_rules_colored_activation_costs83.py::test_canonical_both
+tests/test_rules_conditional_upkeep_grants91.py::test_essence_natural_green_land_no_mana_cost_is_unpayable
+[gw0] [ 32%] PASSED tests/test_rules_colored_activation_costs83_extra.py::test_true_cold_flyer_lost_flying_uses_entry_receipt
+tests/test_rules_colored_activation_costs83_extra.py::test_true_cold_unknown_entries_guard_only_drone_positive_native_entry_restores_it
+[gw2] [ 33%] PASSED tests/test_rules_conditional_upkeep_grants91.py::test_actual_dominate_after_trigger_keeps_original_payer_and_correct_outcome[False-essence]
+tests/test_rules_conditional_upkeep_grants91.py::test_actual_dominate_after_trigger_keeps_original_payer_and_correct_outcome[True-music]
+[gw3] [ 34%] PASSED tests/test_rules_conditional_upkeep_grants91.py::test_actual_dominate_after_trigger_keeps_original_payer_and_correct_outcome[False-music]
+tests/test_rules_conditional_upkeep_grants91.py::test_musician_cumulative_offer_pay_survives_native_mana_sacrifice_of_source
+[gw1] [ 35%] PASSED tests/test_rules_conditional_upkeep_grants91.py::test_essence_natural_green_land_no_mana_cost_is_unpayable
+tests/test_rules_conditional_upkeep_grants91.py::test_essence_pure_printed_x_is_payable_zero_not_missing_mana_cost
+[gw0] [ 36%] PASSED tests/test_rules_colored_activation_costs83_extra.py::test_true_cold_unknown_entries_guard_only_drone_positive_native_entry_restores_it
+tests/test_rules_colored_activation_costs83_extra.py::test_actual_previous_turn_draws_do_not_discount_kami
+[gw3] [ 37%] PASSED tests/test_rules_conditional_upkeep_grants91.py::test_musician_cumulative_offer_pay_survives_native_mana_sacrifice_of_source
+tests/test_rules_conditional_upkeep_grants91.py::test_actual_fate_transfer_counters_alone_do_not_grant_and_original_zero_cost
+[gw2] [ 38%] PASSED tests/test_rules_conditional_upkeep_grants91.py::test_actual_dominate_after_trigger_keeps_original_payer_and_correct_outcome[True-music]
+tests/test_rules_conditional_upkeep_grants91.py::test_actual_dominate_after_trigger_keeps_original_payer_and_correct_outcome[True-essence]
+[gw1] [ 39%] PASSED tests/test_rules_conditional_upkeep_grants91.py::test_essence_pure_printed_x_is_payable_zero_not_missing_mana_cost
+tests/test_rules_conditional_upkeep_grants91.py::test_essence_preserves_real_original_cost_x_for_rosheen_restricted_mana[False]
+[gw2] [ 40%] PASSED tests/test_rules_conditional_upkeep_grants91.py::test_actual_dominate_after_trigger_keeps_original_payer_and_correct_outcome[True-essence]
+tests/test_rules_conditional_upkeep_grants91.py::test_music_departure_uses_original_music_counter_lki_and_no_new_hand_object_destroy
+[gw3] [ 40%] PASSED tests/test_rules_conditional_upkeep_grants91.py::test_actual_fate_transfer_counters_alone_do_not_grant_and_original_zero_cost
+tests/test_rules_conditional_upkeep_grants91.py::test_essence_native_color_layers_and_actual_sleight_text_change
+[gw3] [ 41%] PASSED tests/test_rules_conditional_upkeep_grants91.py::test_essence_native_color_layers_and_actual_sleight_text_change
+tests/test_rules_conditional_upkeep_grants91.py::test_essence_color_change_removes_grant_aura_departure_removes_restored_grant
+[gw0] [ 42%] PASSED tests/test_rules_colored_activation_costs83_extra.py::test_actual_previous_turn_draws_do_not_discount_kami
+tests/test_rules_colored_activation_costs83_extra.py::test_true_cold_actual_swamp_keeps_locked_kami_cost_and_sphere_cannot_draw_while_paying
+[gw3] [ 43%] PASSED tests/test_rules_conditional_upkeep_grants91.py::test_essence_color_change_removes_grant_aura_departure_removes_restored_grant
+tests/test_rules_conditional_upkeep_grants91.py::test_essence_lost_conditional_grant_does_not_remove_already_stacked_trigger
+[gw1] [ 44%] PASSED tests/test_rules_conditional_upkeep_grants91.py::test_essence_preserves_real_original_cost_x_for_rosheen_restricted_mana[False]
+tests/test_rules_conditional_upkeep_grants91.py::test_essence_preserves_real_original_cost_x_for_rosheen_restricted_mana[True]
+[gw2] [ 45%] PASSED tests/test_rules_conditional_upkeep_grants91.py::test_music_departure_uses_original_music_counter_lki_and_no_new_hand_object_destroy
+tests/test_rules_conditional_upkeep_grants91.py::test_essence_copied_host_departure_pays_original_lki_cost_not_new_clone_hand_cost
+[gw3] [ 46%] PASSED tests/test_rules_conditional_upkeep_grants91.py::test_essence_lost_conditional_grant_does_not_remove_already_stacked_trigger
+tests/test_rules_conditional_upkeep_grants91.py::test_music_destroys_indestructible_unsuccessfully_essence_sacrifices_it
+[gw0] [ 47%] PASSED tests/test_rules_colored_activation_costs83_extra.py::test_true_cold_actual_swamp_keeps_locked_kami_cost_and_sphere_cannot_draw_while_paying
+tests/test_rules_colored_activation_costs83_extra.py::test_departed_flyer_entry_still_qualifies
+[gw2] [ 48%] PASSED tests/test_rules_conditional_upkeep_grants91.py::test_essence_copied_host_departure_pays_original_lki_cost_not_new_clone_hand_cost
+tests/test_rules_conditional_upkeep_grants91.py::test_musician_own_cumulative_upkeep_actual_control_change_original_payment[False]
+[gw1] [ 49%] PASSED tests/test_rules_conditional_upkeep_grants91.py::test_essence_preserves_real_original_cost_x_for_rosheen_restricted_mana[True]
+tests/test_rules_conditional_upkeep_grants91.py::test_cumulative_source_departed_before_resolution_does_not_offer_payment
+[gw2] [ 50%] PASSED tests/test_rules_conditional_upkeep_grants91.py::test_musician_own_cumulative_upkeep_actual_control_change_original_payment[False]
+tests/test_rules_conditional_upkeep_grants91.py::test_musician_own_cumulative_upkeep_actual_control_change_original_payment[True]
+[gw1] [ 50%] PASSED tests/test_rules_conditional_upkeep_grants91.py::test_cumulative_source_departed_before_resolution_does_not_offer_payment
+tests/test_rules_conditional_upkeep_grants91.py::test_true_cold_native_upkeep_payment[music]
+[gw0] [ 51%] PASSED tests/test_rules_colored_activation_costs83_extra.py::test_departed_flyer_entry_still_qualifies
+tests/test_rules_conditional_toughness96.py::test_actual_bark_equip_and_combat_current_stats
+[gw2] [ 52%] PASSED tests/test_rules_conditional_upkeep_grants91.py::test_musician_own_cumulative_upkeep_actual_control_change_original_payment[True]
+tests/test_rules_conditional_toughness96.py::test_bark_actual_fight_uses_power_and_current_host_after_reequip
+[gw3] [ 53%] PASSED tests/test_rules_conditional_upkeep_grants91.py::test_music_destroys_indestructible_unsuccessfully_essence_sacrifices_it
+tests/test_rules_conditional_upkeep_grants91.py::test_true_cold_native_upkeep_payment[copied_lki]
+[gw2] [ 54%] PASSED tests/test_rules_conditional_toughness96.py::test_bark_actual_fight_uses_power_and_current_host_after_reequip
+tests/test_rules_conditional_toughness96.py::test_solid_current_granted_vigilance_removed_during_combat
+[gw0] [ 55%] PASSED tests/test_rules_conditional_toughness96.py::test_actual_bark_equip_and_combat_current_stats
+tests/test_rules_conditional_toughness96.py::test_actual_solid_vigilance_and_combat
+[gw1] [ 56%] PASSED tests/test_rules_conditional_upkeep_grants91.py::test_true_cold_native_upkeep_payment[music]
+tests/test_rules_conditional_toughness96.py::test_kingpin_decline_leaves_actual_power_damage
+[gw3] [ 57%] PASSED tests/test_rules_conditional_upkeep_grants91.py::test_true_cold_native_upkeep_payment[copied_lki]
+tests/test_rules_conditional_upkeep_grants91.py::test_true_cold_native_upkeep_payment[rosheen]
+[gw2] [ 58%] PASSED tests/test_rules_conditional_toughness96.py::test_solid_current_granted_vigilance_removed_during_combat
+tests/test_rules_conditional_toughness96.py::test_solid_printed_vigilance_removed_by_actual_spoiling
+[gw0] [ 59%] PASSED tests/test_rules_conditional_toughness96.py::test_actual_solid_vigilance_and_combat
+tests/test_rules_conditional_toughness96.py::test_actual_kingpin_pay_life_and_combat
+[gw1] [ 60%] PASSED tests/test_rules_conditional_toughness96.py::test_kingpin_decline_leaves_actual_power_damage
+tests/test_rules_conditional_toughness96.py::test_kingpin_cannot_pay_two_life
+[gw2] [ 60%] PASSED tests/test_rules_conditional_toughness96.py::test_solid_printed_vigilance_removed_by_actual_spoiling
+tests/test_rules_conditional_toughness96.py::test_solid_actual_fight_still_uses_power
+[gw1] [ 61%] PASSED tests/test_rules_conditional_toughness96.py::test_kingpin_cannot_pay_two_life
+tests/test_rules_conditional_toughness96.py::test_kingpin_current_stats_during_combat_and_real_expiry
+[gw0] [ 62%] PASSED tests/test_rules_conditional_toughness96.py::test_actual_kingpin_pay_life_and_combat
+tests/test_rules_conditional_toughness96.py::test_bark_current_power_crossing_during_actual_combat
+[gw2] [ 63%] PASSED tests/test_rules_conditional_toughness96.py::test_solid_actual_fight_still_uses_power
+tests/test_rules_conditional_toughness96.py::test_kingpin_late_flash_entrant_control_and_source_departure
+[gw3] [ 64%] PASSED tests/test_rules_conditional_upkeep_grants91.py::test_true_cold_native_upkeep_payment[rosheen]
+tests/test_rules_conditional_toughness96.py::test_canonical_whole_cast[Bark of Doran]
+[gw3] [ 65%] PASSED tests/test_rules_conditional_toughness96.py::test_canonical_whole_cast[Bark of Doran]
+tests/test_rules_conditional_toughness96.py::test_canonical_whole_cast[Solid Footing]
+[gw3] [ 66%] PASSED tests/test_rules_conditional_toughness96.py::test_canonical_whole_cast[Solid Footing]
+tests/test_rules_conditional_toughness96.py::test_canonical_whole_cast[The Kingpin of Crime]
+[gw3] [ 67%] PASSED tests/test_rules_conditional_toughness96.py::test_canonical_whole_cast[The Kingpin of Crime]
+tests/test_rules_conditional_toughness96.py::test_true_cold_current_recipient_and_payment_continuations[lose]
+[gw1] [ 68%] PASSED tests/test_rules_conditional_toughness96.py::test_kingpin_current_stats_during_combat_and_real_expiry
+tests/test_rules_conditional_toughness96.py::test_true_cold_current_recipient_and_payment_continuations[solid]
+[gw0] [ 69%] PASSED tests/test_rules_conditional_toughness96.py::test_bark_current_power_crossing_during_actual_combat
+tests/test_rules_conditional_toughness96.py::test_true_cold_current_recipient_and_payment_continuations[dynamic]
+[gw2] [ 70%] PASSED tests/test_rules_conditional_toughness96.py::test_kingpin_late_flash_entrant_control_and_source_departure
+tests/test_rules_conditional_toughness96.py::test_kingpin_canonical_extort_is_real_multiplayer_drain
+[gw2] [ 70%] PASSED tests/test_rules_conditional_toughness96.py::test_kingpin_canonical_extort_is_real_multiplayer_drain
+tests/test_rules_conditional_toughness96.py::test_true_cold_current_recipient_and_payment_continuations[bark]
+[gw3] [ 71%] PASSED tests/test_rules_conditional_toughness96.py::test_true_cold_current_recipient_and_payment_continuations[lose]
+tests/test_rules_conditional_toughness96.py::test_kingpin_gains_eligibility_after_rule_begins_actual_combat
+[gw0] [ 72%] PASSED tests/test_rules_conditional_toughness96.py::test_true_cold_current_recipient_and_payment_continuations[dynamic]
+tests/test_rules_conditional_toughness96.py::test_true_cold_current_recipient_and_payment_continuations[gain]
+[gw1] [ 73%] PASSED tests/test_rules_conditional_toughness96.py::test_true_cold_current_recipient_and_payment_continuations[solid]
+tests/test_rules_conditional_toughness96.py::test_true_cold_current_recipient_and_payment_continuations[pending]
+[gw2] [ 74%] PASSED tests/test_rules_conditional_toughness96.py::test_true_cold_current_recipient_and_payment_continuations[bark]
+tests/test_rules_zone_exchanges94.py::test_whole_exact_zone_exchange94[Harness Infinity]
+[gw2] [ 75%] PASSED tests/test_rules_zone_exchanges94.py::test_whole_exact_zone_exchange94[Harness Infinity]
+tests/test_rules_zone_exchanges94.py::test_whole_exact_zone_exchange94[Morality Shift]
+[gw2] [ 76%] PASSED tests/test_rules_zone_exchanges94.py::test_whole_exact_zone_exchange94[Morality Shift]
+tests/test_rules_zone_exchanges94.py::test_zone_exchange_empty_side_still_moves_other_original_cohort94[Harness Infinity-hand]
+[gw3] [ 77%] PASSED tests/test_rules_conditional_toughness96.py::test_kingpin_gains_eligibility_after_rule_begins_actual_combat
+tests/test_rules_zone_exchanges94.py::test_harness_actual_original_cohorts_and_self_exile94
+[gw2] [ 78%] PASSED tests/test_rules_zone_exchanges94.py::test_zone_exchange_empty_side_still_moves_other_original_cohort94[Harness Infinity-hand]
+tests/test_rules_zone_exchanges94.py::test_zone_exchange_empty_side_still_moves_other_original_cohort94[Harness Infinity-graveyard]
+[gw3] [ 79%] PASSED tests/test_rules_zone_exchanges94.py::test_harness_actual_original_cohorts_and_self_exile94
+tests/test_rules_zone_exchanges94.py::test_zone_exchange_empty_side_still_moves_other_original_cohort94[Morality Shift-library]
+[gw2] [ 80%] PASSED tests/test_rules_zone_exchanges94.py::test_zone_exchange_empty_side_still_moves_other_original_cohort94[Harness Infinity-graveyard]
+tests/test_rules_zone_exchanges94.py::test_zone_exchange_empty_side_still_moves_other_original_cohort94[Morality Shift-graveyard]
+[gw3] [ 80%] PASSED tests/test_rules_zone_exchanges94.py::test_zone_exchange_empty_side_still_moves_other_original_cohort94[Morality Shift-library]
+tests/test_rules_zone_exchanges94.py::test_harness_rest_in_peace_actual_routes_no_discard94
+[gw0] [ 81%] PASSED tests/test_rules_conditional_toughness96.py::test_true_cold_current_recipient_and_payment_continuations[gain]
+tests/test_rules_zone_exchanges94.py::test_harness_no_madness_or_waste_not_discard94
+[gw1] [ 82%] PASSED tests/test_rules_conditional_toughness96.py::test_true_cold_current_recipient_and_payment_continuations[pending]
+tests/test_rules_zone_exchanges94.py::test_morality_actual_original_library_graveyard_then_shuffle94
+[gw2] [ 83%] PASSED tests/test_rules_zone_exchanges94.py::test_zone_exchange_empty_side_still_moves_other_original_cohort94[Morality Shift-graveyard]
+tests/test_rules_zone_exchanges94.py::test_harness_original_graveyard_leaves_one_native_tormod_trigger94
+[gw3] [ 84%] PASSED tests/test_rules_zone_exchanges94.py::test_harness_rest_in_peace_actual_routes_no_discard94
+tests/test_rules_zone_exchanges94.py::test_harness_actual_native_replacement_choice_before_original_move94[Rest in Peace]
+[gw1] [ 85%] PASSED tests/test_rules_zone_exchanges94.py::test_morality_actual_original_library_graveyard_then_shuffle94
+tests/test_rules_zone_exchanges94.py::test_actual_previous_commander_graveyard_decline_then_hidden_replacement94[yes-Harness Infinity]
+[gw0] [ 86%] PASSED tests/test_rules_zone_exchanges94.py::test_harness_no_madness_or_waste_not_discard94
+tests/test_rules_zone_exchanges94.py::test_harness_actual_native_replacement_choice_before_original_move94[Progenitus]
+[gw2] [ 87%] PASSED tests/test_rules_zone_exchanges94.py::test_harness_original_graveyard_leaves_one_native_tormod_trigger94
+tests/test_rules_zone_exchanges94.py::test_actual_previous_commander_graveyard_decline_then_hidden_replacement94[yes-Morality Shift]
+[gw3] [ 88%] PASSED tests/test_rules_zone_exchanges94.py::test_harness_actual_native_replacement_choice_before_original_move94[Rest in Peace]
+tests/test_rules_zone_exchanges94.py::test_actual_previous_commander_graveyard_decline_then_hidden_replacement94[no-Harness Infinity]
+[gw1] [ 89%] PASSED tests/test_rules_zone_exchanges94.py::test_actual_previous_commander_graveyard_decline_then_hidden_replacement94[yes-Harness Infinity]
+tests/test_rules_zone_exchanges94.py::test_actual_previous_commander_graveyard_decline_then_hidden_replacement94[no-Morality Shift]
+[gw0] [ 90%] PASSED tests/test_rules_zone_exchanges94.py::test_harness_actual_native_replacement_choice_before_original_move94[Progenitus]
+tests/test_rules_zone_exchanges94.py::test_genuine_cold_prepared_zone_replacement94
+[gw2] [ 90%] PASSED tests/test_rules_zone_exchanges94.py::test_actual_previous_commander_graveyard_decline_then_hidden_replacement94[yes-Morality Shift]
+tests/test_rules_zone_exchanges94.py::test_genuine_cold_original_commander_zone_exchange94
+[gw3] [ 91%] PASSED tests/test_rules_zone_exchanges94.py::test_actual_previous_commander_graveyard_decline_then_hidden_replacement94[no-Harness Infinity]
+tests/test_rules_zone_exchanges94.py::test_ordinary_actual_discard_retains_native_madness_and_waste_not94
+[gw1] [ 92%] PASSED tests/test_rules_zone_exchanges94.py::test_actual_previous_commander_graveyard_decline_then_hidden_replacement94[no-Morality Shift]
+tests/test_rules_zone_exchanges94.py::test_morality_large_original_cohort_is_one_native_event94
+[gw0] [ 93%] PASSED tests/test_rules_zone_exchanges94.py::test_genuine_cold_prepared_zone_replacement94
+tests/test_rules_zone_exchanges94.py::test_morality_native_graveyard_order_covers_original_library94
+[gw2] [ 94%] PASSED tests/test_rules_zone_exchanges94.py::test_genuine_cold_original_commander_zone_exchange94
+tests/test_rules_zone_exchanges94.py::test_morality_rest_in_peace_replaces_original_library_but_not_original_graveyard94
+[gw3] [ 95%] PASSED tests/test_rules_zone_exchanges94.py::test_ordinary_actual_discard_retains_native_madness_and_waste_not94
+tests/test_rules_zone_exchanges94.py::test_paged251_interleaved_order_commits_full_native_cohort_and_replay94
+[gw0] [ 96%] PASSED tests/test_rules_zone_exchanges94.py::test_morality_native_graveyard_order_covers_original_library94
+[gw2] [ 97%] PASSED tests/test_rules_zone_exchanges94.py::test_morality_rest_in_peace_replaces_original_library_but_not_original_graveyard94
+[gw3] [ 98%] PASSED tests/test_rules_zone_exchanges94.py::test_paged251_interleaved_order_commits_full_native_cohort_and_replay94
+[gw1] [ 99%] PASSED tests/test_rules_zone_exchanges94.py::test_morality_large_original_cohort_is_one_native_event94
+tests/test_rules_zone_exchanges94.py::test_genuine_cold_paged251_partial_prefix_preserves_arbitrary_remaining_order94
+[gw1] [100%] PASSED tests/test_rules_zone_exchanges94.py::test_genuine_cold_paged251_partial_prefix_preserves_arbitrary_remaining_order94
+
+======================= 110 passed in 176.00s (0:02:56) ========================

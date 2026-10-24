@@ -1,0 +1,30 @@
+{
+  "status": "REVIEW CANDIDATE; NOT INSTALLED OR ADMITTED",
+  "names": [
+    "Mighty Servant of Leuk-o",
+    "Mindlink Mech",
+    "Stubborn Burrowfiend"
+  ],
+  "expected_promotions": 3,
+  "cold": 3,
+  "related": 58,
+  "related_result": "PASS before own-marker refinement",
+  "patch_sha256": "8ca176c6156ba8d673dfdd2a85de787829450a16a69906f903cf8478423c1ede",
+  "stage": "/tmp/combat80-resume/backend",
+  "native_unique": 25,
+  "native_result": "PASS with independent versioned history marker",
+  "types_files": 6,
+  "types_result": "PASS",
+  "ruff_files": 7,
+  "ruff_result": "PASS",
+  "source_hashes": {
+    "app/game/rules_state.py": "2c3dd58b6b3802f4813a2b9e9d3844c2bc3f65c20c88048485b75a898d4d6070",
+    "app/rules/casting.py": "fe506ea4460aa6bd943adbbe2384c681da294a42b364d198aff9e47f1aae1440",
+    "app/rules/effects.py": "cf883ffe1af6503f8bcb08e7b5d41743e18a55b7e1e3c8379740ed6d709acb67",
+    "app/rules/triggers.py": "3afa847a638c468483832f951cde5d5afdeadc2690a64c8f9dd74a6381bd6de7",
+    "app/rules/scripts.py": "ecefadc5856d2168d48374bd2ba4e7680b5b2a5088c1be41e4f028c5bbdd253f",
+    "app/rules/first_crew_saddle80.py": "ee17d1556b54feaa1794d65a0239743cdecead988c8d99275f472a58a559d491"
+  },
+  "final_marker_related": 3,
+  "final_marker_related_result": "PASS native standard crew, paid saddle designation and pre-existing investigate-first trigger"
+}

@@ -385,6 +385,7 @@ class ObjectSnapshot(BaseModel):
 
 
 EventKind = Literal[
+    "fought",  # CR 701.14: actual fight participants, independent of damage.
     "player_lost_game",  # 603.10f: pre-loss battlefield watchers are captured on this event.
     "case_solved",  # The resolving controller reached a native To solve instruction (719.3).
     "library_shuffled",
@@ -433,6 +434,9 @@ class Event(BaseModel):
     """Something that happened. Events of one table step share a ``batch``: they happened
     simultaneously (destroy all creatures is one batch of zone changes, not N)."""
 
+    non_discard: bool = False  # This native zone change was explicitly not a discard.
+    fighters90: list[ObjectSnapshot] = Field(default_factory=list)  # Exact native fight cohort before damage.
+    crew_count80: int | None = None  # Native crew activation payment cardinality; unknown in old saves.
     loss_watchers: list[ObjectSnapshot] = Field(default_factory=list)
     attacking_player: str | None = None  # Combat damage-time attacking player; unknown in old saves.
     turn_start_life: int | None = None  # Losing player's actual life at this turn's native start.
@@ -518,6 +522,7 @@ class Entry(BaseModel):
     controller: str = Field(max_length=64)  # who controlled it as it entered
     types: list[str] | None = None
     subtypes: list[str] | None = None
+    keywords83: list[str] | None = None  # As entered; absent old-save history is unknown, never current flying.
     colors: list[str] | None = None  # as entered; None is unknown in an older save, not its later color
     # -- entry forms (wave 5F) -- whether it entered tapped ("When this land enters untapped", "Whenever a permanent
     # you control enters tapped": part of the event, 603.2); None: not known (an older save)
@@ -537,6 +542,7 @@ class CastNote(BaseModel):
     reads the spell as it was then — whether it resolved, was countered or is still on the stack doesn't matter).
     Spells on the stack are public: a face-down spell is recorded with its face-down characteristics (708.2)."""
 
+    kicked77: bool | None = None  # Actual paid kicker; excludes synthetic awaken/gift/bargain own-effect aliases.
     names: list[str] | None = None  # Public as-cast names; None means an older receipt lacks this fact.
     player: str = Field(max_length=64)
     object_id: str = Field(max_length=80)
@@ -607,6 +613,10 @@ class TurnLog(BaseModel):
     saves and undo reproduce it exactly. Only this turn's and the previous turn's logs are kept."""
 
     turn: int = 0
+    fight_history90_known: bool | None = None  # Legacy missing current-turn fight history is unknown.
+    fought90: list[str] = Field(default_factory=list)  # Original objects that actually fought this turn.
+    search_history75_known: bool | None = None  # Legacy missing authority is unknown until the next native turn.
+    searched_own_library75: list[str] = Field(default_factory=list)  # Actual own-library searches begun this turn, even no card found.
     starting_life: dict[str, int] | None = None
     active_player: str | None = None  # Named turn, never inferred from seat order.
     attacked: list[str] = Field(default_factory=list)  # players who declared one or more attackers
@@ -658,6 +668,28 @@ class HandLimitModifier(BaseModel):
     value: int = 0
 
 
+class ColorWordEntry71(BaseModel):
+    card: str
+    acquisition: str | None = None
+    word: Literal['white', 'blue', 'black', 'red', 'green'] | None
+    provenance: Literal['native_entry', 'native_no_choice', 'manual_restore']
+    chosen_by: str | None = None
+    restored_by: str | None = None
+
+
+class SpliceText71(BaseModel):
+    name: str
+    global_change: bool = False
+    abilities: list[dict[str, Any]] = Field(default_factory=list)
+
+
+class TextChange71(BaseModel):
+    category: Literal['color', 'basic_land', 'creature']
+    old: str
+    new: str
+    all_colors: bool = False
+
+
 class ContinuousEffect(BaseModel):
     """A continuous effect from a resolved spell or ability (CR 611.2c): the objects it affects are
     fixed when it begins. See ``app.rules.layers``."""
@@ -673,6 +705,7 @@ class ContinuousEffect(BaseModel):
     source: str | None = None  # source object id
     controller: str
     set_name: str | None = None  # Noncopiable layer-3 name change (613.1c).
+    text_change71: TextChange71 | None = None
     power: int | None = None
     toughness: int | None = None
     add_keywords: list[str] = Field(default_factory=list)
@@ -884,6 +917,17 @@ class PendingTrigger(BaseModel):
     event: TriggerEvent | None = None  # what it triggered on
 
 
+class DeferredPaymentWindow(BaseModel):
+    """116.2c: one early-payment special action suppresses its exact delayed trigger."""
+
+    id: str
+    payer: str
+    cost: str
+    delayed: str
+    name: str
+    source_card: str | None = None
+
+
 class DelayedTrigger(BaseModel):
     """A delayed triggered ability (CR 603.7), created as a spell or ability resolved (603.7a) and
     waiting for its trigger event. Everything it will need is captured now: the objects it refers
@@ -1085,6 +1129,7 @@ class PaymentRecord(BaseModel):
     exiled: list[str] = Field(default_factory=list)  # cards exiled to pay (from a graveyard, or the source)
     exiled_objects: list[str] = Field(default_factory=list)  # -- as long as (wave 37A) -- the objects they became in exile (400.7j: "this card" finds that one)
     exiled_was: list[str] = Field(default_factory=list)  # (wave 48B: and the objects they were, "the number of cards exiled this way" of an activation cost)
+    splice_text71: SpliceText71 | None = None
     spliced_names: list[str] | None = None  # Public names spliced onto this spell; None is unknown in legacy saves.
     moved_exile_names: list[str] | None = None  # Public names of cards put from linked exile to a graveyard to pay.
     returned: list[str] = Field(default_factory=list)  # permanents returned to hand to pay
@@ -1116,7 +1161,8 @@ class PaymentRecord(BaseModel):
 class PermissionUseTrigger(BaseModel):
     """Original source of a trigger attached to one selected casting/play authority."""
 
-    kind: Literal["replenish_top", "owner_loses_mv"]
+    kind: Literal["replenish_top", "owner_loses_mv", "create_food69", "native"]
+    definition: dict[str, Any] | None = None
     source: ObjectRef
     controller: str
     name: str
@@ -1140,8 +1186,10 @@ class Permission(BaseModel):
     # not the card (400.7h/i): once it changes zones it is a new object and the permission is spent
     object_id: str | None = None
     card: str | None = None
+    look_top: bool = False  # Source-independent private top look for this stored library-top authority.
     stop_on_linked_exile: str | None = None  # Source-object/link scope: expires when this permission holder next exiles a card with it.
     filter: str | None = None  # a selector key the spell must match ("creature spells")
+    card_filter: str | None = None  # Current card eligibility, applied to both land plays and spell casts.
     free: bool = False  # "without paying its mana cost": an alternative cost of {0} (118.9)
     life_mv: bool = False  # Required alternative cost: pay life equal to the chosen spell's mana value.
     use_trigger: PermissionUseTrigger | None = None
@@ -1203,6 +1251,7 @@ class CostModifier(BaseModel):
     # "permanent" (a static, read from the table), "end_of_turn" ("… you cast this turn cost …": ends in
     # cleanup, 514.2) or "next_turn" ("Until your next turn, …": ends as its controller's next turn begins)
     until: Literal["end_of_turn", "permanent", "next_turn"] = "end_of_turn"
+    until_player: str | None = None  # Captured duration owner when different from the beneficiary.
     turn: int = 0  # the turn it was created
     source: str | None = None
     label: str = Field(default="", max_length=120)
@@ -1223,6 +1272,14 @@ class NextSpellGrant(BaseModel):
     source: str | None = None
     label: str = Field(default="", max_length=120)
     amount: int = 0  # -- cant restrictions (wave 46A) -- keyword "cost": the generic mana it takes off ("The next spell you cast this turn costs {1} less to cast.", 601.2f, 118.7a)
+
+
+class SourceHandReveal79(BaseModel):
+    """A resolved reveal fixes its player and original source object for its duration."""
+
+    player: str
+    source_card: str
+    source_object: str
 
 
 class TopReveal(BaseModel):
@@ -1327,7 +1384,18 @@ class ChosenColorPairReceipt(BaseModel):
         return self
 
 
+class WorldInterval80(BaseModel):
+    """An uninterrupted native World interval, or explicitly unknown legacy history."""
+
+    card: str
+    since: int | None = None
+    observed_before: int
+    event_batch: int | None = None
+
+
 class RulesState(BaseModel):
+    world_epoch80: int = 0
+    world_intervals80: dict[str, WorldInterval80] = Field(default_factory=dict)
     combat_memory: CombatMemory | None = None  # None: unknown legacy previous combat.
     untap_operations: list[UntapOperation] = Field(default_factory=list)
     paused: bool = False  # the host paused automation: intents are refused, the sandbox works
@@ -1378,6 +1446,7 @@ class RulesState(BaseModel):
     graveyard_history_from_turn: int | None = None  # Complete physical-card arrival history; None is legacy unknown.
     turn_seen: int = 0  # last turn number the bookkeeping saw
     target_activation_history_turn: int | None = None  # Unknown on legacy midturn saves; complete after a native turn boundary.
+    crew_saddle_history_turn80: int | None = None  # Independent versioned history for resolved crew/saddle events.
     first_event_history_turn78: int | None = None
     first_event_notices78: list[FirstEventHistoryNotice78] = Field(default_factory=list)
     turn_started: dict[str, int] = Field(default_factory=dict)  # player -> number of their latest turn
@@ -1417,6 +1486,8 @@ class RulesState(BaseModel):
     # -- exiled with (wave 6D) -- source object -> the objects its abilities exiled (607.2a: "the exiled card",
     # "cards exiled with ~"; app/rules/exiled_with.py)
     exiled_with: dict[str, list[str]] = Field(default_factory=dict)
+    linked_exile_turns71: dict[str, dict[str, int]] = Field(default_factory=dict)  # Native link scope -> exact exile OID -> actual exile turn.
+
     created_with: dict[str, list[str]] = Field(default_factory=dict)  # exact created-token incarnations per source/borrowed scope
     hideaway: dict[str, HideawayLook] = Field(default_factory=dict)  # -- hideaway (wave 29D) -- exiled object id -> who may look at it (702.75a)
     # -- can't lose life (wave 29D) -- 119.7-119.8: resolved "your life total can't change" effects (app/rules/life_lock.py): {id, player, controller,
@@ -1437,6 +1508,7 @@ class RulesState(BaseModel):
     # the turn binds (ruling 2008-08-01: with two, a creature must be in both chosen piles), and a creature that entered later is no object in any pile
     attack_piles: list[list[Any]] = Field(default_factory=list)
     opening_revealed: list[str] = Field(default_factory=list)  # -- opening hand (wave 18C) -- cards revealed until the first turn (103.6b)
+    deferred_payments: list[DeferredPaymentWindow] = Field(default_factory=list)
     delayed: list[DelayedTrigger] = Field(default_factory=list)  # delayed triggered abilities (603.7; app/rules/delayed.py)
     exile_if_leaves: list[str] = Field(default_factory=list)  # objects exiled instead of leaving (unearth)
     # Replacement / prevention records with a duration (app/rules/replacements.py): "Prevent all
@@ -1616,6 +1688,7 @@ class RulesState(BaseModel):
     # -- chosen player (wave 4J) -- "As ~ enters, choose an opponent / a player": object id -> the chosen player's id
     # (the permanent's "Chosen opponent: <name>" entry is only the display; app/rules/chosen.py). Older saves have
     # only the display name: chosen.player_of resolves it when exactly one player has that name.
+    color_words71: dict[str, list[ColorWordEntry71]] = Field(default_factory=dict)
     chosen_color_pairs: dict[str, ChosenColorPairReceipt] = Field(default_factory=dict)
     chosen_players: dict[str, str] = Field(default_factory=dict)
     # -- linked words (wave 33B) -- 607.2f: "As this enchantment enters, choose Khans or Dragons.": object id -> the word it chose (app/rules/chosen.py)
@@ -1630,6 +1703,7 @@ class RulesState(BaseModel):
     permissions: list[Permission] = Field(default_factory=list)
     cost_modifiers: list[CostModifier] = Field(default_factory=list)
     next_spell_grants: list[NextSpellGrant] = Field(default_factory=list)  # -- spell grants (wave 28C) --
+    source_hand_reveals79: list[SourceHandReveal79] = Field(default_factory=list)
     top_reveals: list[TopReveal] = Field(default_factory=list)
     # -- conditional / instead clauses (wave 1B) --  this turn's and last turn's history (TurnLog)
     turn_log: TurnLog = Field(default_factory=TurnLog)
@@ -1719,6 +1793,7 @@ def start_rules(state: GameState) -> RulesState:
         step=f"{state.turn.number}:{state.turn.phase}",
         priority=state.turn.active_player,
         turn_seen=state.turn.number,
+        crew_saddle_history_turn80=(state.turn.number if state.rules is None and state.seq <= 1 and state.turn.number == 1 else None),
         first_event_history_turn78=(state.turn.number if state.rules is None and state.seq <= 1 and state.turn.number == 1 else None),
         cast_history_complete=True if state.rules is None and state.seq <= 1 and state.turn.number == 1 else None,
         target_activation_history_turn=state.turn.number if state.rules is None and state.seq <= 1 and state.turn.number == 1 else None,
@@ -1812,9 +1887,11 @@ class Capture:
         self.zones = {cid: c.zone for cid, c in state.cards.items()}
         # CR 608.2h: a copy instruction may need a card exiled as a cost after
         # it leaves exile. Capture those public objects while they are there.
+        # CR 603.10a: graveyard-leave events retain their public old object even
+        # when a later library shuffle deliberately destroys its physical id.
         paid_exile = {oid for payment in state.rules.payments.values() for oid in payment.exiled_objects} if state.rules else set()
         self.snaps = {
-            cid: snapshot(state, cid) for cid, c in state.cards.items() if _zone_name(c.zone) in TRACKED_ZONES
+            cid: snapshot(state, cid) for cid, c in state.cards.items() if _zone_name(c.zone) in TRACKED_ZONES or _zone_name(c.zone) == "graveyard"
             or (_zone_name(c.zone) == "exile" and not c.face_down and state.rules is not None
                 and (state.rules.object_id(cid) in paid_exile or bool(c.counters) or cid in state.rules.suspended))
         }
@@ -1842,6 +1919,8 @@ def emit(state: GameState, kind: EventKind, **fields: Any) -> None:
     if rules is None:
         return
     rules.events.append(Event(batch=rules.batch + 1, kind=kind, turn=state.turn.number, **fields))
+    if kind == "fought" and (fight_log90 := turn_log_now(state)) is not None:
+        fight_log90.fought90 = list(dict.fromkeys([*fight_log90.fought90, *(snap.object_id for snap in fields.get("fighters90", []))]))
     # CR 107.14, 608.2i: count removals during this turn, including costs; gains never offset them.
     if kind == "player_counters" and fields.get("counter") == "energy" and int(fields.get("amount") or 0) < 0 \
             and (log := turn_log_now(state)) is not None and (player := fields.get("player")):
@@ -1892,7 +1971,7 @@ def turn_log_now(state: GameState) -> TurnLog | None:
             rules.completed_own_turns.clear()
             rules.own_turn_history_known.clear()
         rules.last_turn_log = log if log.turn == n - 1 else None
-        log = rules.turn_log = TurnLog(turn=n, active_player=state.turn.active_player,
+        log = rules.turn_log = TurnLog(turn=n, active_player=state.turn.active_player, search_history75_known=True, fight_history90_known=True,
                                       starting_life=dict(state.turn.starting_life) if state.turn.starting_life is not None else None)
     elif log.active_player is None:
         log.active_player = state.turn.active_player
@@ -1954,7 +2033,7 @@ def wither_put_by(action: Any) -> dict[tuple[str, str], dict[str, int]] | None:
 
 
 def track(state: GameState, before: Capture | None = None, *, manual: bool = False, actor: str | None = None,
-          group: int = 0, put_by: dict[tuple[str, str], dict[str, int]] | None = None, declared: bool = False) -> None:
+          group: int = 0, put_by: dict[tuple[str, str], dict[str, int]] | None = None, declared: bool = False, non_discard: bool = False) -> None:
     """Deterministic bookkeeping after every applied step (sandbox or rules): whose turn started
     when, when each permanent came under its controller's control, which physical card is which
     rules object, last known information, and the step's events as one simultaneous batch.
@@ -1965,6 +2044,7 @@ def track(state: GameState, before: Capture | None = None, *, manual: bool = Fal
     if rules.turn_seen != state.turn.number:
         rules.turn_seen = state.turn.number
         rules.target_activation_history_turn = state.turn.number
+        rules.crew_saddle_history_turn80 = state.turn.number
         rules.first_event_history_turn78 = state.turn.number
         rules.turn_started[state.turn.active_player] = state.turn.number
     turn_log_now(state)  # Initialize even empty turns; completed-own-turn summaries must not skip them.
@@ -1982,7 +2062,7 @@ def track(state: GameState, before: Capture | None = None, *, manual: bool = Fal
     for card_id in [c for c in rules.controlled_since if c not in on_battlefield]:
         del rules.controlled_since[card_id]
     if before is not None:
-        _diff(state, rules, before, manual, actor, group, put_by, declared)  # (actor: wave 5H, group: wave 7C)
+        _diff(state, rules, before, manual, actor, group, put_by, declared, non_discard)  # (actor: wave 5H, group: wave 7C)
     pending = [e for e in rules.events if e.batch > rules.batch]
     if pending:
         rules.batch += 1
@@ -2051,7 +2131,7 @@ def _combat_now(state: GameState, rules: RulesState) -> int:
 
 
 def _diff(state: GameState, rules: RulesState, before: Capture, manual: bool, actor: str | None = None,
-          group: int = 0, put_by: dict[tuple[str, str], dict[str, int]] | None = None, declared: bool = False) -> None:
+          group: int = 0, put_by: dict[tuple[str, str], dict[str, int]] | None = None, declared: bool = False, non_discard: bool = False) -> None:
     departures = state.departures()
     if state.renames():  # -- review (face-down ids) -- a card renumbered in this step is the same card: follow it
         names = state.renames()
@@ -2150,7 +2230,7 @@ def _diff(state: GameState, rules: RulesState, before: Capture, manual: bool, ac
             _attach_event(state, "unattached", card_id, old_oid, snap.attached_to, snap.attached_player, before.snaps)  # -- attachment events (wave 30S) -- 701.3d
         emit(state, "zone_change", object_id=old_oid, new_object_id=new_oid, card=card_id,
              player=(card.controller if card is not None else snap.controller if snap else None),
-             from_zone=old_zone, to_zone=new_zone, actor=actor)  # (wave 23D: who moved it: a discard an opponent's effect caused, 701.9)
+             from_zone=old_zone, to_zone=new_zone, actor=actor, non_discard=non_discard)  # (wave 23D: who moved it: a discard an opponent's effect caused, 701.9)
     # -- review (wave 18D) -- 730.3 / 712.21: the cards of a merged permanent that left (other than the one its instance became) were
     # never objects of their own: each is put into the zone from the battlefield, a new object there (not one more permanent leaving)
     pile = {p["id"]: snap for snap in before.snaps.values() for p in snap.merged}

@@ -1,0 +1,25 @@
+{
+  "status": "CLOSED_FOR_ROOT_PRODUCTION_REVIEW; uninstalled/unadmitted",
+  "names": [
+    "Knowledge Pool"
+  ],
+  "patch": "review.patch",
+  "patch_sha256": "86cd5deeb01d006f1f0314925f199978f3898f94b648fb38e39a4974bf004547",
+  "stage": "/tmp/knowledge78-stage",
+  "test": "native_tests.py -> backend/tests/test_rules_knowledge_pool78.py",
+  "fixture": "cards.json -> backend/tests/fixtures/knowledge_pool78_cards.json",
+  "mypy": "PASS3",
+  "ruff": "PASS4",
+  "authority": "Complete10 official rulings2011-06-01. Native actual hand-cast event original object only, actual event caster, original-source linked exile; successful native exile receipt required; exclude just-exiled spell; native immediate freecast. No cost/model/common pipeline edits.",
+  "source_hashes": "source-hashes.json",
+  "native": {
+    "consolidated_passed": 10,
+    "genuine_cold": 2,
+    "log": "knowledge78-final10.log"
+  },
+  "related": {
+    "passed": 107,
+    "scope": "full wave30h_linked_exile +immediate_cast_pools67 +wave5b_stack_interaction",
+    "log": "knowledge78-related.log"
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "status": "ISOLATED GATES CLOSED / PENDING ROOT INSTALLATION AND CATALOG AUDIT",
+  "names": [
+    "Airlift Chaplain",
+    "Unexpected Request"
+  ],
+  "native": 17,
+  "genuine_cold": 2,
+  "types": 3,
+  "ruff": 3,
+  "stage": "/tmp/library59-resumed/backend",
+  "patch": "/tmp/library59-review.patch",
+  "source_hashes": {
+    "public_mill_attachment59.py": "d4ca870094692e51dcc473d083dadb130c8ed5f97f2c1e81284086693238e622",
+    "effects.py": "c475eec248f615bc591a543878bf831913a0f7265779f393c621e63b6a9523b3",
+    "scripts.py": "2926c5b4620216cdabe19424ff2b0b3cd146375962f082af6ba8e1a9a3c81967"
+  },
+  "related": 103
+}

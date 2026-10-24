@@ -1,0 +1,130 @@
+[
+  {
+    "name": "Psychic Spiral",
+    "url": "https://api.scryfall.com/cards/59b09c16-f611-4c90-a990-e22bf46bd0e2/rulings",
+    "response": {
+      "object": "list",
+      "has_more": false,
+      "data": [
+        {
+          "object": "ruling",
+          "oracle_id": "5f928e54-3027-4f2f-9fef-d63b9ca416aa",
+          "source": "wotc",
+          "published_at": "2012-10-01",
+          "comment": "Psychic Spiral won\u2019t be shuffled into your library, and it won\u2019t be counted when determining how many cards the target player puts into their graveyard. It will be put into your graveyard after you follow its instructions."
+        },
+        {
+          "object": "ruling",
+          "oracle_id": "5f928e54-3027-4f2f-9fef-d63b9ca416aa",
+          "source": "wotc",
+          "published_at": "2012-10-01",
+          "comment": "If you cast Psychic Spiral when there are no cards in your graveyard, you\u2019ll still shuffle your library."
+        }
+      ]
+    }
+  },
+  {
+    "name": "Stream of Thought",
+    "url": "https://api.scryfall.com/cards/8b75bef5-a039-4edf-8e43-56b8d089605e/rulings",
+    "response": {
+      "object": "list",
+      "has_more": false,
+      "data": [
+        {
+          "object": "ruling",
+          "oracle_id": "e5b29094-0bb4-4c18-ad47-dce4d4379a4f",
+          "source": "wotc",
+          "published_at": "2019-06-14",
+          "comment": "Stream of Thought is still on the stack while you choose cards in your graveyard to shuffle into your library. It can\u2019t shuffle itself into your library."
+        },
+        {
+          "object": "ruling",
+          "oracle_id": "e5b29094-0bb4-4c18-ad47-dce4d4379a4f",
+          "source": "wotc",
+          "published_at": "2019-06-14",
+          "comment": "If you replicate Stream of Thought, the copies resolve before the original spell, so they can\u2019t shuffle Stream of Thought into your library."
+        },
+        {
+          "object": "ruling",
+          "oracle_id": "e5b29094-0bb4-4c18-ad47-dce4d4379a4f",
+          "source": "wotc",
+          "published_at": "2019-06-14",
+          "comment": "You choose which cards to shuffle into your library while Stream of Thought is resolving. If you target yourself with Stream of Thought, you may choose any of the four cards that you put into your graveyard or any cards that were there before."
+        },
+        {
+          "object": "ruling",
+          "oracle_id": "e5b29094-0bb4-4c18-ad47-dce4d4379a4f",
+          "source": "wotc",
+          "published_at": "2019-06-14",
+          "comment": "You\u2019ll copy Stream of Thought for each time you paid its replicate cost, even if it\u2019s countered."
+        },
+        {
+          "object": "ruling",
+          "oracle_id": "e5b29094-0bb4-4c18-ad47-dce4d4379a4f",
+          "source": "wotc",
+          "published_at": "2019-06-14",
+          "comment": "The copies that replicate creates are created on the stack, so they\u2019re not \u201ccast.\u201d Abilities that trigger when a player casts a spell won\u2019t trigger."
+        }
+      ]
+    }
+  },
+  {
+    "name": "Stillness in Motion",
+    "url": "https://api.scryfall.com/cards/a6289251-17e4-4987-96b9-2fb1a8f90e2a/rulings",
+    "response": {
+      "object": "list",
+      "has_more": false,
+      "data": []
+    }
+  },
+  {
+    "name": "Roots of Wisdom",
+    "url": "https://api.scryfall.com/cards/eacd6f7b-3bb7-4957-afb6-f59881b55bb1/rulings",
+    "response": {
+      "object": "list",
+      "has_more": false,
+      "data": [
+        {
+          "object": "ruling",
+          "oracle_id": "8f6af612-a4a1-4165-ae4d-ff6353cbaf8d",
+          "source": "wotc",
+          "published_at": "2021-02-05",
+          "comment": "Roots of Wisdom doesn\u2019t target any cards in graveyards. You may return a land card or an Elf card that was just milled or one that was already there."
+        },
+        {
+          "object": "ruling",
+          "oracle_id": "8f6af612-a4a1-4165-ae4d-ff6353cbaf8d",
+          "source": "wotc",
+          "published_at": "2021-02-05",
+          "comment": "If there\u2019s a land card or Elf card in your graveyard, you must return one. You can\u2019t choose not to in order to draw a card."
+        }
+      ]
+    }
+  },
+  {
+    "name": "Say Its Name",
+    "url": "https://api.scryfall.com/cards/94c58683-b5f2-4863-9562-6f6be1ec21fe/rulings",
+    "response": {
+      "object": "list",
+      "has_more": false,
+      "data": []
+    }
+  },
+  {
+    "name": "Flitting Guerrilla",
+    "url": "https://api.scryfall.com/cards/9184bc57-0a16-4abf-a13a-6a03a175c28a/rulings",
+    "response": {
+      "object": "list",
+      "has_more": false,
+      "data": [
+        {
+          "object": "ruling",
+          "oracle_id": "24dbddad-998b-4755-b356-4c8aca3592b1",
+          "source": "wotc",
+          "published_at": "2023-04-14",
+          "comment": "The triggered ability of Flitting Guerrilla triggers and goes on the stack without a target. If you exile Flitting Guerrilla, the second \"reflexive\" triggered ability will trigger. You'll choose the target creature or battle card for that second ability at that time. You may choose a card you just milled as the target or a card that was already in your graveyard."
+        }
+      ]
+    }
+  }
+]

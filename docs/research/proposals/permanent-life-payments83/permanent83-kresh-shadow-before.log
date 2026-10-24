@@ -1,0 +1,32 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+_ test_simultaneous_life_payment_and_sacrifice_use_true_before_event_power_for_kresh _
+
+cards = <app.cards.repository.CardRepository object at 0x7fa2d89a6840>
+
+    def test_simultaneous_life_payment_and_sacrifice_use_true_before_event_power_for_kresh(cards):
+        from app.rules.plan import Plan
+
+        assert coverage.of_card_data(cards.resolve('Kresh the Bloodbraided')).level == 'FULL'
+        assert coverage.of_card_data(cards.resolve("Death's Shadow")).level == 'FULL'
+        s = game(cards)
+        act(s, 'p1', type='set_life', player='p1', value=10)
+        kresh = put(s, 'Kresh the Bloodbraided', 'battlefield')
+        shadow = put(s, "Death's Shadow", 'battlefield')
+        assert Plan(s.state, 'p1', s.cards, None).ch(shadow).pt == (3, 3)
+        cast_wave(s, 3)
+        choose(s, [kresh.id])
+        assert s.state.players['p1'].life == 7 and s.state.cards[shadow.id].zone == 'p1:graveyard'
+        d = s.state.rules.decision
+        assert d and {o.id for o in d.options} == {'yes', 'no'}
+        choose(s, ['yes'])
+>       assert s.state.cards[kresh.id].counters.get('+1/+1', 0) == 3
+E       AssertionError: assert 6 == 3
+E        +  where 6 = <built-in method get of dict object at 0x7fa2d8354180>('+1/+1', 0)
+E        +    where <built-in method get of dict object at 0x7fa2d8354180> = {'+1/+1': 6}.get
+E        +      where {'+1/+1': 6} = CardInstance(borrow_identity=None, id='07a3a25f9ac6', card_id='8dc0ecea-9ffb-5ba7-ad8c-34c8e6185a17', name='Kresh the ...ts=[], damage=0, choices={}, stack_info=None, exile_group=None, token_source=None, origin='library', test_object=False).counters
+
+../permanent83-tests/test_permanent83.py:275: AssertionError
+=========================== short test summary info ============================
+FAILED ../../workspace/Fyodor/backend::test_simultaneous_life_payment_and_sacrifice_use_true_before_event_power_for_kresh
+1 failed, 14 deselected in 2.53s

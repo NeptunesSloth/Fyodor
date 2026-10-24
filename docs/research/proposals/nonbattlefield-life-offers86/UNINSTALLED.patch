@@ -1,0 +1,244 @@
+--- /dev/null
++++ b/backend/app/rules/nonbattlefield_life_offers86.py
+@@ -0,0 +1,217 @@
++"""Original looked/revealed cards retain their individual resolution-life offers."""
++from __future__ import annotations
++
++from typing import Any
++
++from pydantic import BaseModel, Field
++
++from app.game.errors import ActionError
++from app.game.rules_state import DecisionOption, ObjectRef
++from app.rules.plan import Plan, decide
++
++MOONLIGHT = 'Look at the top five cards of your library. For each card, put that card into your graveyard unless you pay 2 life. Then put the rest into your hand.'
++SIROCCO = 'Target player reveals their hand. For each blue instant card revealed this way, that player discards that card unless they pay 4 life.'
++
++
++class Card86(BaseModel):
++    object: ObjectRef
++    name: str
++    paid: bool = False
++    routes: list[dict[str, Any]] = Field(default_factory=list)
++    madness: list[bool] = Field(default_factory=list)
++    madness_cost: str | None = None
++    route: int = 0
++    prepared: bool = False
++    command: bool | None = None
++
++
++class Packet86(BaseModel):
++    player: str
++    mode: str
++    rows: list[Card86]
++
++
++def parse(body: str) -> tuple[list[dict[str, Any]], Any, bool] | None:
++    if body.strip() == MOONLIGHT:
++        return ([{'do': 'look_top', 'n': 5, 'exact_look': True}, {'do': 'life_cards86', 'mode': 'moonlight'}], None, False)
++    if body.strip() == SIROCCO:
++        from app.rules import scripts
++
++        head = scripts.parse_effects('Target player reveals their hand.')
++        if head is not None:
++            return ([*head[0], {'do': 'life_cards86', 'mode': 'sirocco'}], head[1], False)
++    return None
++
++
++def guard(plan: Plan, packet: Packet86) -> None:
++    from app.rules import context
++
++    if any(context._same(plan, r.object) is None for r in packet.rows):
++        raise ActionError('An original looked or revealed card changed before its choices finished')
++
++
++def begin(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
++    from app.rules import context, effects
++
++    mode = e['mode']
++    players = [ctx['controller']] if mode == 'moonlight' else effects._players(plan, ctx, 'target')
++    if not players:
++        return True
++    player = players[0]
++    ids = ctx.get('looked' if mode == 'moonlight' else 'revealed') or []
++    rows = []
++    for cid in ids:
++        card = plan.state.cards.get(cid)
++        if card is None or card.zone != f'{player}:{"library" if mode == "moonlight" else "hand"}':
++            continue
++        ch = plan.ch(card)
++        if mode == 'sirocco' and not ('U' in ch.colors and 'Instant' in ch.types):
++            continue
++        ref = context.ref_of(plan, cid)
++        if ref is not None:
++            rows.append(Card86(object=ref, name=ch.name or 'Card'))
++    packet = Packet86(player=player, mode=mode, rows=rows)
++    if not rows:
++        return True
++    amount = 2 if mode == 'moonlight' else 4
++    decide(plan, player=player, kind='choose_cards', prompt=f"{ctx.get('name') or 'The spell'}: choose cards to pay {amount} life for each",
++           options=[DecisionOption(id=r.object.card, label=r.name, card_id=r.object.card) for r in rows],
++           min_choices=0, max_choices=len(rows), resume={'step': 'life_cards86', 'ctx': ctx, 'packet': packet.model_dump(mode='json')})
++    return False
++
++
++def resume_payment(plan: Plan, d: Any, chosen: list[str]) -> None:
++    from app.rules import effects, optional_payment, prohibitions, replacements
++
++    packet = Packet86.model_validate(d.resume['packet'])
++    guard(plan, packet)
++    if len(set(chosen)) != len(chosen) or not set(chosen) <= {r.object.card for r in packet.rows}:
++        raise ActionError('Choose distinct original cards offered to your payment')
++    cost = optional_payment.parse(f'Pay {len(chosen) * (2 if packet.mode == "moonlight" else 4)} life')
++    assert cost is not None
++    if chosen and (why := optional_payment.problem(plan, d.resume['ctx'], cost, packet.player)) is not None:
++        raise ActionError(why)
++    for row in packet.rows:
++        row.paid = row.object.card in chosen
++        if row.paid:
++            continue
++        if packet.mode == 'sirocco' and prohibitions.cant_cause_discard(plan, packet.player, d.resume['ctx']['controller']):
++            row.prepared = True  # The unpaid card remains in hand; it is not a substitute payment.
++            row.route = -1
++            continue
++        card = plan.state.cards[row.object.card]
++        candidates = list({c.sig: c for c in replacements.zone_candidates(plan, card)}.values())
++        row.routes = [c._asdict() for c in candidates]
++        row.madness = [False] * len(candidates)
++        if packet.mode == 'sirocco' and (madness := replacements._madness_cost(plan, card)) is not None:
++            row.madness_cost = madness
++            row.routes.append(replacements.Cand('Madness', 'exile')._asdict())
++            row.madness.append(True)
++    if prepare(plan, d.resume['ctx'], packet):
++        effects.continue_effects(plan, d.resume['ctx'])
++
++
++def prepare(plan: Plan, ctx: dict[str, Any], packet: Packet86) -> bool:
++    from app.rules import replacements
++
++    guard(plan, packet)
++    for row in packet.rows:
++        if not row.paid and not row.prepared and len(row.routes) > 1:
++            decide(plan, player=packet.player, kind='choose_one', prompt=f'{row.name}: choose a graveyard replacement (616.1)',
++                   options=[DecisionOption(id=str(i), label=c['label'] + ': ' + c['outcome']) for i, c in enumerate(row.routes)],
++                   resume={'step': 'life_route86', 'ctx': ctx, 'packet': packet.model_dump(mode='json'), 'card': row.object.card})
++            return False
++        if row.paid and packet.mode == 'moonlight' and row.command is None:
++            card = plan.state.cards[row.object.card]
++            answer = replacements._commander_instead(plan, card, 'hand')
++            if answer is None:
++                decide(plan, player=card.owner, kind='confirm', prompt=f'{row.name}: put it into the command zone instead of your hand? (903.9b)',
++                       options=[DecisionOption(id='yes', label='Command zone'), DecisionOption(id='no', label='Hand')],
++                       resume={'step': 'life_command86', 'ctx': ctx, 'packet': packet.model_dump(mode='json'), 'card': row.object.card},
++                       memory_key=f'commander_zone:{card.commander_key}', memory_context='hand')
++                return False
++            row.command = answer
++    amount = (2 if packet.mode == 'moonlight' else 4) * sum(r.paid for r in packet.rows)
++    at = ctx['next']
++    ctx['effects'][at:at] = [
++        {'do': 'lose_life', 'who': 'player:' + packet.player, 'n': amount},
++        {'do': 'life_commit86', 'packet': packet.model_dump(mode='json'), 'batch_start': plan.rules.batch}]
++    return True
++
++
++def resume_route(plan: Plan, d: Any, chosen: list[str]) -> None:
++    from app.rules import effects
++
++    packet = Packet86.model_validate(d.resume['packet'])
++    row = next(r for r in packet.rows if r.object.card == d.resume['card'])
++    if len(chosen) != 1 or chosen[0] not in {str(i) for i in range(len(row.routes))}:
++        raise ActionError('Choose one prepared replacement')
++    row.route, row.prepared = int(chosen[0]), True
++    if prepare(plan, d.resume['ctx'], packet):
++        effects.continue_effects(plan, d.resume['ctx'])
++
++
++def resume_command(plan: Plan, d: Any, chosen: list[str]) -> None:
++    from app.rules import effects
++
++    packet = Packet86.model_validate(d.resume['packet'])
++    if chosen not in (['yes'], ['no']):
++        raise ActionError('Choose hand or command zone')
++    next(r for r in packet.rows if r.object.card == d.resume['card']).command = chosen == ['yes']
++    if prepare(plan, d.resume['ctx'], packet):
++        effects.continue_effects(plan, d.resume['ctx'])
++
++
++def commit(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
++    from app.rules import context, history, replace, replacements
++
++    packet = Packet86.model_validate(e['packet'])
++    guard(plan, packet)
++    rows = [r for r in packet.rows if not r.paid and r.route != -1]
++    chosen = [(r, replacements.Cand(**r.routes[r.route]) if r.routes else None) for r in rows]
++    groups: dict[str, dict[str, dict[str, str]]] = {}
++    shuffles: list[str] = []
++    for row, candidate in chosen:
++        card = plan.state.cards[row.object.card]
++        outcome = candidate.outcome if candidate is not None else 'graveyard'
++        if packet.mode == 'sirocco' and outcome != 'graveyard':
++            history.note_discards(plan, [card.id])
++        groups.setdefault('bottom' if outcome == 'library:bottom' else 'top', {})[card.id] = {'player': card.owner, 'zone': outcome.split(':')[0]}
++        if candidate is not None and candidate.used:
++            plan.rules.exile_if_graveyard = [o for o in plan.rules.exile_if_graveyard if o != row.object.object_id]
++            plan.rules.bottom_if_graveyard = [o for o in plan.rules.bottom_if_graveyard if o != row.object.object_id]
++        if outcome == 'library:shuffle':
++            plan.do({'type': 'reveal', 'card_ids': [card.id]}, actor=ctx['controller'])
++            shuffles.append(card.owner)
++    for position, destinations in groups.items():
++        plan.do({'type': 'move', 'card_ids': list(destinations), 'to': {'zone': 'graveyard'}, 'routes': destinations, 'position': position}, actor=ctx['controller'])
++    for row, candidate in chosen:
++        if candidate is not None:
++            if row.madness and row.madness[row.route]:
++                assert row.madness_cost is not None
++                replacements._discard_into_exile(plan, row.object.card, row.madness_cost, ctx['controller'], already_moved=True)
++            else:
++                replacements._record_link(plan, row.object.card, candidate)
++                if candidate.counter:
++                    replacements.mark_exiled_counters(plan, [row.object.card], candidate.counter, actor=ctx['controller'])
++                if candidate.rider is not None:
++                    replacements.run_rider(plan, candidate.rider)
++    replace._one_batch(plan, e['batch_start'])
++    retained = tuple(r.object for r in packet.rows if r.paid and packet.mode == 'moonlight')
++    saved = plan.shuffle_retained
++    try:
++        plan.shuffle_retained = retained
++        for player in dict.fromkeys(shuffles):
++            plan.do({'type': 'shuffle', 'player': player, 'zone': 'library'}, actor=player)
++    finally:
++        plan.shuffle_retained = saved
++    if packet.mode == 'moonlight':
++        destinations = {r.object.card: {'player': packet.player, 'zone': 'command' if r.command else 'hand'}
++                        for r in packet.rows if r.paid and context._same(plan, r.object) is not None}
++        if destinations:
++            plan.do({'type': 'move', 'card_ids': list(destinations), 'to': {'zone': 'hand'}, 'routes': destinations}, actor=packet.player)
++    return True
++
++
++PRIMITIVES = {'life_cards86': begin, 'life_commit86': commit}
++RESUME = {'life_cards86': resume_payment, 'life_route86': resume_route, 'life_command86': resume_command}
+--- a/backend/app/rules/scripts.py
++++ b/backend/app/rules/scripts.py
+@@ -2653,6 +2653,10 @@
+
+
+ def parse_effects(body: str, it: str | None = None, *, event_player: bool = False) -> tuple[list[dict[str, Any]], Any, bool] | None:
++    from app.rules import nonbattlefield_life_offers86
++
++    if (answer86 := nonbattlefield_life_offers86.parse(body)) is not None:
++        return answer86
+     from app.rules import permanent_payments83
+
+     if (permanent83 := permanent_payments83.parse(body)) is not None:
+--- a/backend/app/rules/effects.py
++++ b/backend/app/rules/effects.py
+@@ -6770,3 +6770,8 @@
+
+ PRIMITIVES.update(_permanent83.PRIMITIVES)
+ RESUME.update(_permanent83.RESUME)
++
++from app.rules import nonbattlefield_life_offers86 as _life86  # noqa: E402
++
++PRIMITIVES.update(_life86.PRIMITIVES)
++RESUME.update(_life86.RESUME)

@@ -1,0 +1,124 @@
+--- /dev/null
++++ b/backend/app/rules/creature_obligations85.py
+@@ -0,0 +1,97 @@
++"""Fade Away fixes resolution-start obligations before any mana ability changes them."""
++from __future__ import annotations
++
++from typing import Any
++
++from pydantic import BaseModel, Field
++
++from app.game.errors import ActionError
++from app.game.rules_state import DecisionOption, ObjectRef
++from app.rules.permanent_payments83 import Offer83, Packet83
++from app.rules.plan import Plan, decide
++
++TEXT = 'For each creature, its controller sacrifices a permanent of their choice unless they pay {1}.'
++
++
++class Fade85(BaseModel):
++    counts: dict[str, int]
++    remaining: list[str]
++    index: int = 0
++    owed: int = 0
++    rows: list[Offer83] = Field(default_factory=list)
++
++
++def parse(body: str) -> tuple[list[dict[str, Any]], Any, bool] | None:
++    return ([{'do': 'fade_begin85'}], None, False) if body.strip() == TEXT else None
++
++
++def begin(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
++    counts = {p: 0 for p in plan.live()}
++    for card in plan.state.cards.values():
++        if card.zone.endswith(':battlefield') and plan.in_game(card) and plan.ch(card).is_creature:
++            counts[card.controller] += 1
++    return ask(plan, ctx, Fade85(counts=counts, remaining=plan.apnap()))
++
++
++def ask(plan: Plan, ctx: dict[str, Any], packet: Fade85) -> bool:
++    from app.rules import context, permanent_payments83, prohibitions
++
++    packet.remaining = [p for p in packet.remaining if p in plan.live()]
++    while packet.remaining:
++        player = packet.remaining[0]
++        if packet.index < packet.counts.get(player, 0):
++            binding = f'fade85:{player}:{packet.index}:{ctx["next"]}'
++            ctx['effects'][ctx['next']:ctx['next']] = [
++                {'do': 'optional_payment', 'who': 'player:' + player, 'cost': '{1}', 'bind': binding},
++                {'do': 'fade_next85', 'packet': packet.model_dump(mode='json'), 'binding': binding}]
++            return True
++        candidates = [ref for card in plan.state.cards.values()
++                      if card.zone.endswith(':battlefield') and card.controller == player and plan.in_game(card)
++                      and not prohibitions.sacrifice_forbidden(plan, card)
++                      and not prohibitions.cant_cause_sacrifice(plan, player, ctx['controller'])
++                      and (ref := context.ref_of(plan, card.id)) is not None]
++        required = min(packet.owed, len(candidates))
++        if required:
++            decide(plan, player=player, kind='choose_cards',
++                   prompt=f"{ctx.get('name') or 'The spell'}: choose {required} permanents to sacrifice",
++                   options=[DecisionOption(id=r.card, card_id=r.card, label=plan.ch(plan.state.cards[r.card]).name or 'Permanent')
++                            for r in candidates], min_choices=required, max_choices=required,
++                   resume={'step': 'fade_sacrifice85', 'ctx': ctx, 'packet': packet.model_dump(mode='json'),
++                           'originals': [r.model_dump(mode='json') for r in candidates]})
++            return False
++        packet.remaining.pop(0)
++        packet.index = packet.owed = 0
++    packet.rows = [r for r in packet.rows if context._same(plan, r.object) is not None]
++    return permanent_payments83.prepare(plan, ctx, Packet83(rows=packet.rows, remaining=[], life=0))
++
++
++def next_offer(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
++    from app.rules import context
++
++    packet = Fade85.model_validate(e['packet'])
++    packet.index += 1
++    packet.owed += not context.succeeded(ctx, e['binding'])
++    return ask(plan, ctx, packet)
++
++
++def resume(plan: Plan, d: Any, chosen: list[str]) -> None:
++    from app.rules import context, effects
++
++    packet = Fade85.model_validate(d.resume['packet'])
++    refs = {r.card: r for raw in d.resume['originals'] if (r := ObjectRef.model_validate(raw))}
++    required = min(packet.owed, len(refs))
++    if len(chosen) != required or len(set(chosen)) != len(chosen) or not set(chosen) <= refs.keys():
++        raise ActionError('Choose the required distinct original permanents')
++    for cid in chosen:
++        card = context._same(plan, refs[cid])
++        if card is None or card.controller != d.player:
++            raise ActionError('A chosen original permanent is no longer controlled by you')
++        packet.rows.append(Offer83(object=refs[cid], payer=d.player, name=plan.ch(card).name or 'Permanent'))
++    packet.remaining.pop(0)
++    packet.index = packet.owed = 0
++    if ask(plan, d.resume['ctx'], packet):
++        effects.continue_effects(plan, d.resume['ctx'])
++
++
++PRIMITIVES = {'fade_begin85': begin, 'fade_next85': next_offer}
++RESUME = {'fade_sacrifice85': resume}
+--- a/backend/app/rules/scripts.py
++++ b/backend/app/rules/scripts.py
+@@ -2653,6 +2653,10 @@
+
+
+ def parse_effects(body: str, it: str | None = None, *, event_player: bool = False) -> tuple[list[dict[str, Any]], Any, bool] | None:
++    from app.rules import creature_obligations85
++
++    if (fade85 := creature_obligations85.parse(body)) is not None:
++        return fade85
+     from app.rules import post_mill_continuations60
+
+     if (admitted := post_mill_continuations60.parse(body)) is not None:
+--- a/backend/app/rules/effects.py
++++ b/backend/app/rules/effects.py
+@@ -6747,3 +6747,8 @@
+ from app.rules import target_duration_costs69 as _target_duration69  # noqa: E402
+
+ PRIMITIVES.update(_target_duration69.PRIMITIVES)
++
++from app.rules import creature_obligations85 as _fade85  # noqa: E402
++
++PRIMITIVES.update(_fade85.PRIMITIVES)
++RESUME.update(_fade85.RESUME)

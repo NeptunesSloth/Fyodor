@@ -1,0 +1,9 @@
+{
+  "app/rules/exchange_spells93.py": "34c7d4cb1e379f45d8e406b59706c58dff36b347d7112a3e996b46e9808d4754",
+  "app/rules/scripts.py": "bb330028d597ee945d192636a94dd375263af6adacf305e3308c1377ca57e11b",
+  "app/rules/effects.py": "3eaae2ec1f9519e024b66157be7e4162e3636a51680b96fb291ca3222418d3c4",
+  "app/rules/stack_interaction.py": "d5c016458a5946d80fd1b1eda2821db617697dfa051179fd0cbe7a83c8990bcc",
+  "app/rules/spell_control.py": "94ec763bfc40b544afd0003d0a6a020af814e4d5f3bfe94537ff49bee2d2474e",
+  "app/rules/layers.py": "c2c749d9e8ace4999fb2e7fd678d39f68273c8c6f016adb1c60d38538e46b4ae",
+  "app/rules/leave.py": "6bb82e562f6888bcf0ad60f5d5f1377f82d89d3d6c259419c0256ed39923699a"
+}

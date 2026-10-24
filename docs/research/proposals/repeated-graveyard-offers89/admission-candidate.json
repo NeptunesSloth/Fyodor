@@ -1,0 +1,23 @@
+{
+  "status": "READY exact2",
+  "names": [
+    "Forgotten Lore",
+    "Shrouded Lore"
+  ],
+  "mypy": 2,
+  "ruff": 3,
+  "genuine_cold": 3,
+  "install_test": "backend/tests/test_rules_repeated_graveyard_offers89.py",
+  "install_fixture": "backend/tests/fixtures/lore89_cards.json",
+  "stage": "/workspace/scratch/payment83/lore89/backend",
+  "native": 19,
+  "hashes": {
+    "UNINSTALLED.patch": "bf2d75922d02188e4ddd173e988a1d2cd0441760fab37db73ff4a6718c7f7d60",
+    "native_tests.py": "1240575690bd9bbd298e75be9eeefb582bc05b10f5de8e8a5147572bddee238f",
+    "cards.json": "f0d91025ad1b01f3afe6a0e6081b0f2483dd3f9f6fdab7f0ba04c380b8eb5cca",
+    "repeated_graveyard_offer89.py": "c8aba1f968ca59e5a33ad926543900adbdc88aa33689a7777db75e0215018391"
+  },
+  "related": 122,
+  "total_gate": 141,
+  "gate_elapsed_seconds": 718.38
+}

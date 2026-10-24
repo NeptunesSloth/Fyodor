@@ -1,0 +1,13 @@
+{
+  "object": "list",
+  "has_more": false,
+  "data": [
+    {
+      "object": "ruling",
+      "oracle_id": "e7436973-9ac8-45b2-9d79-769bfacef4b9",
+      "source": "wotc",
+      "published_at": "2021-03-19",
+      "comment": "When an echo ability of a permanent you control resolves, you may pay {0}, pay its echo cost, or choose not to pay (and then sacrifice that permanent). Any effects that check whether you paid the echo cost are satisfied if you paid {0} this way."
+    }
+  ]
+}

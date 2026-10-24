@@ -1,0 +1,39 @@
+{
+  "status": "CLOSED_FOR_ROOT_REVIEW_ONLY",
+  "cards": [
+    "Ironsoul Enforcer",
+    "Wargling"
+  ],
+  "native": {
+    "passed": 15,
+    "genuine_cold": 2,
+    "log": "native15.log"
+  },
+  "related": {
+    "passed": 69,
+    "files": [
+      "test_rules_trigger_events2.py",
+      "test_rules_wave4f_ability_words.py"
+    ],
+    "log": "related69.log"
+  },
+  "mypy": {
+    "files": 2,
+    "result": "PASS"
+  },
+  "ruff": {
+    "files": 3,
+    "result": "PASS"
+  },
+  "patch": "reviewed.patch",
+  "stage": "/tmp/attack85",
+  "root_test": "backend/tests/test_rules_conditional_attacks85.py",
+  "root_fixture": "backend/tests/fixtures/conditional_attacks85_cards.json",
+  "hashes": {
+    "conditional_attacks85.py": "1f74bfae2c4499628a61cec804fbfdcdfb39b7a8ca83061b5c4beda82cddb74a",
+    "native_tests.py": "e4db672d090bde3311e9e4263ec04e3ed169a368cfd2d25d98d1abaedd554dd4",
+    "cards.json": "1af8be128de6adde6498abe97e7e5fded4f623d37b0d27af5e343624a351172f",
+    "reviewed.patch": "ade195c0fe55aa87769e7f6e11ea966aa79d0f8db054f85ce17e49ac32543fde"
+  },
+  "patch_note": "Owned insertion-only scripts hook. Unsafe moving-baseline diff archived as rejected-unsafe-diff.json; root rejected before applying."
+}

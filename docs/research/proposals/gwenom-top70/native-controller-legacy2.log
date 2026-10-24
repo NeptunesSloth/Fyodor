@@ -1,0 +1,43 @@
+.F                                                                       [100%]
+=================================== FAILURES ===================================
+_______________________ test_zonal_legacy_free_boolean70 _______________________
+
+cards = <app.cards.repository.CardRepository object at 0x7fb804e8a6c0>
+
+    def test_zonal_legacy_free_boolean70(cards):
+        from app.rules.plan import Plan
+        from app.rules import permissions
+        s=setup(cards)
+        bears=top(s,['Grizzly Bears'])[0]
+        p=Plan(s.state,'p1',cards,None)
+        permissions.grant_play(p,{'controller':'p1','name':'Legacy free authority'},
+            {'play':False,'cast':True,'zone':'library_top','until':'end_of_turn','free':True})
+        s.state=p.state
+        before=s.state.players['p1'].life
+        act(s,'p1',type='cast_spell',card_id=bears.id,sources=[],free=True)
+        settle(s)
+        assert s.state.cards[bears.id].zone=='p1:battlefield' and s.state.players['p1'].life==before
+        assert any(g.free and not g.life_mv for g in s.state.rules.permissions)
+>       roundtrip(s)
+
+tests/test_rules_gwenom_top70.py:232:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+../../../Fyodor/backend/tests/test_rules_designations.py:216: in roundtrip
+    replay_matches(s)  # (reload: the history rebuilds the same table)
+    ^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+s = <app.game.session.GameSession object at 0x7fb804c2b620>
+
+    def replay_matches(s):
+>       assert s.history.rebuild().model_dump(mode="json") == s.state.model_dump(mode="json")
+E       AssertionError: assert {'format_vers...mmander', ...} == {'format_vers...mmander', ...}
+E
+E         Omitting 22 identical items, use -vv to show
+E         Differing items:
+E         {'log': [{'seq': 1, 'ts': 1792728430.8261006, 'turn': 1, 'phase': 'upkeep', ...}, {'seq': 1, 'ts': 1792728430.833182, ...62059, 'turn': 1, 'phase': 'main1', ...}, {'seq': 6, 'ts': 1792728430.9464946, 'turn': 1, 'phase': 'main1', ...}, ...]} != {'log': [{'seq': 1, 'ts': 1792728430.8261006, 'turn': 1, 'phase': 'upkeep', ...}, {'seq': 1, 'ts': 1792728430.833182, ...62059, 'turn': 1, 'phase': 'main1', ...}, {'seq': 6, 'ts': 1792728430.9464946, 'turn': 1, 'phase': 'main1', ...}, ...]}
+E         Use -v to get more diff
+
+../../../Fyodor/backend/tests/test_rules_effects.py:51: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_rules_gwenom_top70.py::test_zonal_legacy_free_boolean70 - A...

@@ -1,0 +1,56 @@
+{
+  "cards": [
+    "The Cyber-Controller"
+  ],
+  "status": "CLOSED_ISOLATED_SHARED_ROUTING_ROOT_REVIEW",
+  "native": {
+    "passed": 24,
+    "genuine_cold": 5,
+    "log": "native24.log",
+    "note": "23 Cyber cases plus actual canonical Cybership combat-damage proof. Two returned-card entry choices completed before any entrants; each gets four counters."
+  },
+  "related": {
+    "passed": 90,
+    "deselected": 23,
+    "scope": "Native normal-entry counters/replacements and existing18A+18R face-down/hidden-ID mechanics; coverage-only cases excluded",
+    "log": "related90.log",
+    "files": [
+      "tests/test_rules_etb_counters.py",
+      "tests/test_rules_replacements.py",
+      "tests/test_rules_wave18r_facedown_ids.py",
+      "tests/test_rules_wave18a_down.py"
+    ],
+    "command": ".venv/bin/pytest -q tests/test_rules_etb_counters.py tests/test_rules_replacements.py tests/test_rules_wave18r_facedown_ids.py tests/test_rules_wave18a_down.py -k 'not coverage_full'"
+  },
+  "mypy": {
+    "files": 7,
+    "result": "PASS",
+    "log": "types7.log"
+  },
+  "ruff": {
+    "files": 8,
+    "result": "PASS",
+    "log": "ruff8.log"
+  },
+  "patch": {
+    "path": "review.patch",
+    "lines": 232,
+    "source_files": 7,
+    "sha256": "8b61933ef1e2bf9b91416a298f32dd829197cf7db34d7ba29313c9345f45906d"
+  },
+  "stage": "/tmp/prepared-face-down-entry64-current/backend",
+  "production_promotions": 0,
+  "pending_expected_promotion": "The Cyber-Controller remains root-owned; native helper repair adds no separate card count",
+  "boundaries": [
+    "Actual Ingenious Artillerist sees source1 and returned pair count2, one trigger for both returns",
+    "All external counter-order choices occur before any returned Cyberman enters; same native prepared Entry pipeline",
+    "Actual original OID+zone retained in native serialized descriptors; missing/reincarnated originals reject atomically",
+    "Native owner concession skips inactive records while remaining player card still returns",
+    "Five genuine cold cases: two original competing mill routes; three pending entry-order valid/stale/missing receipt",
+    "No printed face leaks, actual morph U face-up and DFC face-down entry retained",
+    "One native Move commits all face-down entrants; no independent Plan.do/World observer mutation",
+    "Native return_card.face_down and generic facedown.put_down route through descriptor helper; manifest/cloak one-at-a-time paths unchanged.",
+    "Cybership is an existing card quality regression, not a new coverage count. Canonical current text triggers on actual combat damage.",
+    "Registry/parser files preserve newer current-root sibling hooks; owned functional source tested in isolated stage, root owns integrated gate."
+  ]
+}

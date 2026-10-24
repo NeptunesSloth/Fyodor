@@ -1,0 +1,106 @@
+FF                                                                       [100%]
+=================================== FAILURES ===================================
+_ test_real_altar_mana_sacrifices_original_target_but_cast_keeps_original_target_receipt _
+
+cards = <app.cards.repository.CardRepository object at 0x7f2ccc484470>
+
+    def test_real_altar_mana_sacrifices_original_target_but_cast_keeps_original_target_receipt(cards):
+        s, c, target = setup(cards, "Lullmage's Domination", target_pid="p1")
+        altar = put(s, "Phyrexian Altar", "battlefield")
+        gy(s, "p1", 8)
+        original = s.state.rules.object_id(target.id)
+        cast(s, c, target, {"U": 2}, x=2, window=True)
+        assert s.state.rules.decision.resume["step"] == "pay_mana"
+>       act(
+            s,
+            "p1",
+            type="activate_ability",
+            card_id=altar.id,
+            ability=0,
+            mana_choice="U",
+            sources=[],
+            cost_choices=[{"component": 0, "cards": [target.id]}],
+        )
+
+scratch/cost81/stage/backend/tests/test_rules_target_conditional_costs81.py:165:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+scratch/cost81/stage/backend/tests/game_helpers.py:42: in act
+    return session.perform(actor, payload)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+scratch/cost81/stage/backend/app/game/session.py:61: in perform
+    resolved = resolve(self.state, action, actor=actor, cards=self.cards, trusted=trusted)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+scratch/cost81/stage/backend/app/game/resolve.py:76: in resolve
+    a.r = compile_intent(state, a, actor=actor, info=info, rng=rng)  # type: ignore[union-attr]
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+scratch/cost81/stage/backend/app/rules/engine.py:163: in compile_intent
+    handler(plan, intent)
+scratch/cost81/stage/backend/app/rules/casting.py:5286: in activate_ability
+    _mana_while_paying(plan, a)
+scratch/cost81/stage/backend/app/rules/casting.py:5578: in _mana_while_paying
+    _activate_choosing_nested(plan, card, ch, ability, parsed, a)
+scratch/cost81/stage/backend/app/rules/casting.py:5501: in _activate_choosing_nested
+    _activate_choosing(plan, card, ch, parsed, a)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+plan = <app.rules.plan.Plan object at 0x7f2ccb638cb0>
+card = CardInstance(borrow_identity=None, id='d62b89b4d59e', card_id='95d9f93c-50a8-41a9-be98-d1900bf1c12f', name='Phyrexian ...ts=[], damage=0, choices={}, stack_info=None, exile_group=None, token_source=None, origin='library', test_object=False)
+ch = Characteristics(name='Phyrexian Altar', supertypes=frozenset(), types=frozenset({'Artifact'}), subtypes=frozenset(), m...=None, granted=frozenset(), lost=frozenset(), imposed=frozenset(), level=None, doors=None, word=None, flanking_count=0)
+parsed = ManaAbility(tap=False, sacrifice_self=False, options=(('W',), ('U',), ('B',), ('R',), ('G',)), reveal_hand=None, borro...ffects=(), from_graveyard=False, native_body=False, output_producers=(), generic_allowed=True, activation_keyword=None)
+a = ActivateAbility(actor='p1', ts=1792726749.1635602, r=None, type='activate_ability', card_id='d62b89b4d59e', ability=0,...ovise=False, delve=False, crew=None, cost_choices=[CostChoice(component=0, cards=['32676663f36c'])], life_symbols=None)
+
+    def _activate_choosing(plan: Plan, card: CardInstance, ch: Characteristics, parsed: M.ManaAbility,
+                           a: A.ActivateAbility) -> None:
+        from app.rules import costs as C
+        from app.rules import removed_mana
+
+        limits = restrictions.parse(_own_text(_find_ability(ch, a.ability).text, ch.name)) or []
+        if why := restrictions.problem(plan.state, plan.actor, card, a.ability, limits, plan, ch.name):
+            raise ActionError(why)
+        cost = parse_ability_cost(parsed.extra_cost, card_name=ch.name)
+        if ability_mana_cost(cost).x and a.x_value is None:
+            raise ActionError('Choose a value for X')
+        input_cost = mana_activation_cost(plan.state, card, ch, parsed, plan.info, x=a.x_value)
+        cost = replace(cost, mana=input_cost.text() if not input_cost.is_free else '', mana_allocation=input_cost.allocation)
+        xcost = (parsed.count or "").startswith("xcost:")
+        sacrificed_count = parsed.count == "paid_sacrifice_count"
+        if sacrificed_count and a.x_value is None:
+            raise ActionError("Choose a value for X")
+        if xcost and (a.x_value is None or a.x_value < 1):
+            raise ActionError(f"Say what X is to activate {ch.name} (it taps X permanents and adds X mana)")
+        problem = cost_payment.problem(plan, cost, card, plan.actor, a.x_value)
+        if problem is not None:
+>           raise ActionError(problem)
+E           app.game.errors.ActionError: You can't pay “Sacrifice a creature” — not offered: Grizzly Bears (what you're paying for already uses it; to use it, cancel and activate this before you start paying)
+
+scratch/cost81/stage/backend/app/rules/casting.py:6505: ActionError
+_ test_real_altar_mana_raises_graveyard_threshold_without_repricing_locked_spell _
+
+cards = <app.cards.repository.CardRepository object at 0x7f2ccb6eb710>
+
+    def test_real_altar_mana_raises_graveyard_threshold_without_repricing_locked_spell(cards):
+        s, c, target = setup(cards, "Lullmage's Domination", target_pid="p1")
+        altar = put(s, "Ashnod's Altar", "battlefield")
+        sacrifice = put(s, "Ornithopter", "battlefield")
+        gy(s, "p1", 7)
+        cast(s, c, target, {"U": 3}, x=2, window=True)
+        assert s.state.rules.decision.resume["step"] == "pay_mana"
+        act(
+            s,
+            "p1",
+            type="activate_ability",
+            card_id=altar.id,
+            ability=0,
+            sources=[],
+            cost_choices=[{"component": 0, "cards": [sacrifice.id]}],
+        )
+        assert len(s.state.zones["p1:graveyard"]) == 8
+        d = s.state.rules.decision
+>       act(s, "p1", type="choose", decision_id=d.id, option_ids=["pay"])
+                                                ^^^^
+E       AttributeError: 'NoneType' object has no attribute 'id'
+
+scratch/cost81/stage/backend/tests/test_rules_target_conditional_costs81.py:205: AttributeError
+=========================== short test summary info ============================
+FAILED scratch/cost81/stage/backend/tests/test_rules_target_conditional_costs81.py::test_real_altar_mana_sacrifices_original_target_but_cast_keeps_original_target_receipt
+FAILED scratch/cost81/stage/backend/tests/test_rules_target_conditional_costs81.py::test_real_altar_mana_raises_graveyard_threshold_without_repricing_locked_spell

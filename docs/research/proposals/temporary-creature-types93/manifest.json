@@ -1,0 +1,24 @@
+{
+  "candidate_names": [
+    "Blades of Velis Vel",
+    "Shields of Velis Vel",
+    "Volatile Claws",
+    "Ego Erasure",
+    "Nameless Inversion",
+    "Amoeboid Changeling"
+  ],
+  "expected_promotions": 6,
+  "source_files": [
+    "backend/app/rules/temporary_creature_types93.py",
+    "backend/app/rules/scripts.py"
+  ],
+  "patch": "UNINSTALLED.patch",
+  "test_destination": "backend/tests/test_rules_temporary_creature_types93.py",
+  "fixture_destination": "backend/tests/fixtures/temporary_creature_types93_cards.json",
+  "native_pass": 20,
+  "cold_roundtrips": 3,
+  "related_native_pass": 50,
+  "mypy_files": 2,
+  "ruff_files": 3,
+  "admission": "root audit required; no live source edits"
+}

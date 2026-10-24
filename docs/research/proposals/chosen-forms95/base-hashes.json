@@ -1,0 +1,12 @@
+{
+  "backend/app/rules/chosen_forms95.py": null,
+  "backend/app/rules/scripts.py": "f1bd1bdeb8e043382a2b74beb1ef204c609bc11a6519b14cbc195e4f7db33df9",
+  "backend/app/rules/replacements.py": "f2e9ec712f9e390ae2d92ddae0755d66f2f9aa203a0c1371fafb57cd8139a833",
+  "backend/app/rules/characteristics.py": "92eef05287bc10f6a97d64c77e2a830447c28b7d7297e4d44db4b6cbed2a0fe2",
+  "backend/app/rules/values.py": "0d5f13c7dd60428c10e1dad1ffd1859799afdb89dc3f06023c873154f8871865",
+  "backend/app/rules/casting.py": "5c2261362a3847dbcb69b1788bee192d12471492631a874a743ef1f045060148",
+  "backend/app/rules/morph_costs78.py": "91b59a6f06876da178360bbf20efa05a3f91704373416fe22225aefb5f78adb2",
+  "backend/app/rules/special_payment_tails.py": "589f6e5aa85a878b1b6d0ebcdde08fd9b9c4da8b457e6319ddeef5c6a64cce15",
+  "backend/app/rules/facedown.py": "cc75ac91a4ace92842b78310257ce376384fd3301883072a0136b02c9359a56a",
+  "backend/app/rules/engine.py": "f7118e27b83d311468ac579bfc80f77ac76add1cfdd0ffc68825d56e9407ad14"
+}

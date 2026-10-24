@@ -1,0 +1,98 @@
+--- /dev/null
++++ b/backend/app/rules/compound_static_grants90.py
+@@ -0,0 +1,82 @@
++"""Exact compound conditional statics, using independent native grant parts."""
++from __future__ import annotations
++
++from typing import Any
++
++TEK = ('This creature gets +0/+2 as long as you control a Plains, has flying as long as you control an Island, '
++       'gets +2/+0 as long as you control a Swamp, has first strike as long as you control a Mountain, '
++       'and has trample as long as you control a Forest.')
++TRIBAL = ('This creature has trample as long as you control a Beast, haste as long as you control a Goblin, '
++          'first strike as long as you control a Soldier, flying as long as you control a Wizard, '
++          'and "{B}: Regenerate this creature" as long as you control a Zombie.')
++TINY = ('Enchanted creature gets -2/-0. It gets -6/-0 instead as long as its controller '
++        'has seven or more cards in their graveyard.')
++BURDEN = ("Enchanted creature gets +2/+2 as long as it's a Detective you control. Otherwise, it has base power "
++          "and toughness 1/1 and can't block Detectives.")
++PHOENIX = ('As long as you control eight or more permanents named Phoenix Fleet Airship, '
++           'this Vehicle is an artifact creature.')
++SPOUSES = {
++    "Equipped creature gets +2/+0. It gets an additional +0/+2 and has first strike as long as an Equipment named Groom's Finery is attached to a creature you control.": ("Groom's Finery", 'first strike'),
++    "Equipped creature gets +2/+0. It gets an additional +0/+2 and has deathtouch as long as an Equipment named Bride's Gown is attached to a creature you control.": ("Bride's Gown", 'deathtouch'),
++}
++
++
++def _part(text: str, *conditions: dict[str, Any]) -> dict[str, Any]:
++    from app.rules import statics
++
++    definition = statics.parse(text)
++    assert definition is not None, text
++    return {**definition, 'conditions': [*definition.get('conditions', []), *conditions]}
++
++
++def _bundle(parts: list[dict[str, Any]]) -> dict[str, Any]:
++    from app.rules import static_pairs
++
++    flat = [{k: v for k, v in p.items() if k != 'also'} for d in parts for p in static_pairs.parts(d)]
++    return {**flat[0], 'also': flat[1:]}
++
++
++def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
++    from app.rules import conditions, selectors
++
++    if ability.kind != 'static':
++        return None
++    text = ability.text
++    cond: dict[str, Any]
++    if text == TEK:
++        parts = [_part(f'~ {body} as long as you control a {land}.') for body, land in (
++            ('gets +0/+2', 'Plains'), ('has flying', 'Island'), ('gets +2/+0', 'Swamp'),
++            ('has first strike', 'Mountain'), ('has trample', 'Forest'))]
++    elif text == TRIBAL:
++        parts = [_part(f'~ has {grant} as long as you control a {kind}.') for grant, kind in (
++            ('trample', 'Beast'), ('haste', 'Goblin'), ('first strike', 'Soldier'), ('flying', 'Wizard'),
++            ('"{B}: Regenerate this creature"', 'Zombie'))]
++    elif text in SPOUSES:
++        name, keyword = SPOUSES[text]
++        sel = selectors.Selector(subtypes=('Equipment',), extras=('name:' + name, 'attached_creature_you'))
++        cond = {'value': {'count': sel.key()}, 'op': '>=', 'n': 1}
++        parts = [_part('Equipped creature gets +2/+0.'),
++                 _part(f'Equipped creature gets +0/+2 and has {keyword}.', cond)]
++    elif text == TINY:
++        graveyard = conditions.parse('you have seven or more cards in your graveyard')
++        assert graveyard is not None
++        cond = {'static': 'attached_ctrl', 'cond': graveyard}
++        parts = [_part('Enchanted creature gets -2/-0.', {'static': 'not', 'cond': cond}),
++                 _part('Enchanted creature gets -6/-0.', cond)]
++    elif text == BURDEN:
++        detective = {'static': 'attached_is', 'sel': selectors.Selector(types=('Creature',), subtypes=('Detective',)).key(),
++                     'noun': 'creature', 'who': 'enchanted'}
++        ours = {'static': 'attached_ctrl_is', 'you': True, 'who': 'enchanted', 'noun': 'creature'}
++        cond = {'static': 'all', 'conds': [detective, ours]}
++        other = {'static': 'not', 'cond': cond}
++        parts = [_part('Enchanted creature gets +2/+2.', cond),
++                 _part('Enchanted creature has base power and toughness 1/1.', other),
++                 _part("Enchanted creature can't block Detectives.", other)]
++    elif text == PHOENIX:
++        sel = selectors.Selector(controller='you', extras=('name:Phoenix Fleet Airship',))
++        cond = {'value': {'count': sel.key()}, 'op': '>=', 'n': 8}
++        part = _part("As long as it's your turn, ~ is an artifact creature.")
++        parts = [{**part, 'conditions': [cond]}]
++    else:
++        return None
++    return _bundle(parts)
+--- a/backend/app/rules/scripts.py
++++ b/backend/app/rules/scripts.py
+@@ -6193,6 +6193,10 @@
+
+     if (counter_comparison := counter_event_comparisons50.definition(ability, ch)) is not None:
+         return counter_comparison
++    from app.rules import compound_static_grants90
++
++    if (compound90 := compound_static_grants90.definition(ability, ch)) is not None:
++        return compound90
+     from app.rules import world_upkeep83
+
+     if (world_upkeep := world_upkeep83.definition(ability, ch)) is not None:

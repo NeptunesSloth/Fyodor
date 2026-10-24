@@ -1,0 +1,478 @@
+..................FFFF........FF                                         [100%]
+=================================== FAILURES ===================================
+_______________ test_genuine_cold_native_fight_receipt90[neyith] _______________
+
+cards = <app.cards.repository.CardRepository object at 0x7f3c9a2c7b00>
+tmp_path = PosixPath('/tmp/pytest-of-agent/pytest-6891/test_genuine_cold_native_fight0')
+mode = 'neyith'
+
+    @pytest.mark.parametrize("mode", ["neyith", "regent", "ring", "regent_blink"])
+    def test_genuine_cold_native_fight_receipt90(cards, tmp_path, mode):
+        import subprocess
+        import sys
+
+        import app
+
+        observer = (
+            NAMES[0] if mode == "neyith" else NAMES[2] if mode == "ring" else NAMES[1]
+        )
+        s, source, bear, _, wall, _, _ = setup90(cards, observer)
+        if mode == "neyith":
+            act(s, "p1", type="set_prefs", hold_priority=True)
+            spell = put(s, "Pit Fight", "hand")
+            mana(s, C=1, G=1)
+            wait_priority(s, "p1")
+            act(
+                s,
+                "p1",
+                type="cast_spell",
+                card_id=spell.id,
+                targets=[bear.id, wall.id],
+                target_counts=[1, 1],
+            )
+        else:
+            fight90(s, bear, wall)
+        blink = put(s, "Cloudshift", "hand")
+        mana(s, W=1)
+        saved = tmp_path / "fight90.json"
+        saved.write_text(s.state.model_dump_json())
+        code = r"""
+    import sys
+    from pathlib import Path
+    from app.cards.images import ImageStore
+    from app.cards.repository import CardRepository
+    from app.game.session import GameSession
+    from app.game.state import GameState
+    from app.rules.plan import Plan
+    from tests.game_helpers import act
+    from tests.test_rules_bandmate_references import wait_priority
+    from tests.test_rules_library_look import settle
+    from tests.test_rules_wave30m_durations import to_phase
+    repo=CardRepository(Path(sys.argv[2]),ImageStore(Path(sys.argv[2]).parent/'images'))
+    s=GameSession(GameState.model_validate_json(Path(sys.argv[1]).read_text()),cards=repo)
+    mode,source,bear,blink=sys.argv[3:]
+    if mode=='neyith':
+     before=len(s.state.zones['p1:hand']);settle(s)
+     assert len(s.state.zones['p1:hand'])==before+1
+     assert len(s.state.rules.turn_log.fought90)==2
+    elif mode=='ring':
+     assert len(s.state.rules.turn_log.fought90)==2
+     index=next(a.index for a in Plan(s.state,'p1',s.cards,None).ch(s.state.cards[source]).abilities if a.kind=='activated')
+     wait_priority(s,'p1');act(s,'p1',type='activate_ability',card_id=source,ability=index);settle(s)
+     assert any(c.name=='Treasure' and c.zone=='p1:battlefield' for c in s.state.cards.values())
+    else:
+     if mode=='regent_blink':
+      wait_priority(s,'p1');act(s,'p1',type='cast_spell',card_id=blink,targets=[bear]);settle(s)
+     to_phase(s,'end',turn=4);settle(s)
+     assert s.state.cards[bear].counters.get('+1/+1',0)==(0 if mode=='regent_blink' else 2)
+    repo.close()
+    """
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-c",
+                code,
+                str(saved),
+                str(cards.db_path),
+                mode,
+                source.id,
+                bear.id,
+                blink.id,
+            ],
+            cwd=Path(app.__file__).resolve().parents[1],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=90,
+        )
+>       assert result.returncode == 0, result.stdout + result.stderr
+E       AssertionError: Traceback (most recent call last):
+E           File "<string>", line 9, in <module>
+E         ModuleNotFoundError: No module named 'tests.game_helpers'
+E
+E       assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['/workspace/Fyodor/backend/.venv/bin/python3', '-c', "\nimport sys\nfrom pathlib import Path\nf...nt call last):\n  File "<string>", line 9, in <module>\nModuleNotFoundError: No module named \'tests.game_helpers\'\n').returncode
+
+/tmp/fights90/tests/test_fights90.py:429: AssertionError
+_______________ test_genuine_cold_native_fight_receipt90[regent] _______________
+
+cards = <app.cards.repository.CardRepository object at 0x7f3c9a277410>
+tmp_path = PosixPath('/tmp/pytest-of-agent/pytest-6891/test_genuine_cold_native_fight1')
+mode = 'regent'
+
+    @pytest.mark.parametrize("mode", ["neyith", "regent", "ring", "regent_blink"])
+    def test_genuine_cold_native_fight_receipt90(cards, tmp_path, mode):
+        import subprocess
+        import sys
+
+        import app
+
+        observer = (
+            NAMES[0] if mode == "neyith" else NAMES[2] if mode == "ring" else NAMES[1]
+        )
+        s, source, bear, _, wall, _, _ = setup90(cards, observer)
+        if mode == "neyith":
+            act(s, "p1", type="set_prefs", hold_priority=True)
+            spell = put(s, "Pit Fight", "hand")
+            mana(s, C=1, G=1)
+            wait_priority(s, "p1")
+            act(
+                s,
+                "p1",
+                type="cast_spell",
+                card_id=spell.id,
+                targets=[bear.id, wall.id],
+                target_counts=[1, 1],
+            )
+        else:
+            fight90(s, bear, wall)
+        blink = put(s, "Cloudshift", "hand")
+        mana(s, W=1)
+        saved = tmp_path / "fight90.json"
+        saved.write_text(s.state.model_dump_json())
+        code = r"""
+    import sys
+    from pathlib import Path
+    from app.cards.images import ImageStore
+    from app.cards.repository import CardRepository
+    from app.game.session import GameSession
+    from app.game.state import GameState
+    from app.rules.plan import Plan
+    from tests.game_helpers import act
+    from tests.test_rules_bandmate_references import wait_priority
+    from tests.test_rules_library_look import settle
+    from tests.test_rules_wave30m_durations import to_phase
+    repo=CardRepository(Path(sys.argv[2]),ImageStore(Path(sys.argv[2]).parent/'images'))
+    s=GameSession(GameState.model_validate_json(Path(sys.argv[1]).read_text()),cards=repo)
+    mode,source,bear,blink=sys.argv[3:]
+    if mode=='neyith':
+     before=len(s.state.zones['p1:hand']);settle(s)
+     assert len(s.state.zones['p1:hand'])==before+1
+     assert len(s.state.rules.turn_log.fought90)==2
+    elif mode=='ring':
+     assert len(s.state.rules.turn_log.fought90)==2
+     index=next(a.index for a in Plan(s.state,'p1',s.cards,None).ch(s.state.cards[source]).abilities if a.kind=='activated')
+     wait_priority(s,'p1');act(s,'p1',type='activate_ability',card_id=source,ability=index);settle(s)
+     assert any(c.name=='Treasure' and c.zone=='p1:battlefield' for c in s.state.cards.values())
+    else:
+     if mode=='regent_blink':
+      wait_priority(s,'p1');act(s,'p1',type='cast_spell',card_id=blink,targets=[bear]);settle(s)
+     to_phase(s,'end',turn=4);settle(s)
+     assert s.state.cards[bear].counters.get('+1/+1',0)==(0 if mode=='regent_blink' else 2)
+    repo.close()
+    """
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-c",
+                code,
+                str(saved),
+                str(cards.db_path),
+                mode,
+                source.id,
+                bear.id,
+                blink.id,
+            ],
+            cwd=Path(app.__file__).resolve().parents[1],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=90,
+        )
+>       assert result.returncode == 0, result.stdout + result.stderr
+E       AssertionError: Traceback (most recent call last):
+E           File "<string>", line 9, in <module>
+E         ModuleNotFoundError: No module named 'tests.game_helpers'
+E
+E       assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['/workspace/Fyodor/backend/.venv/bin/python3', '-c', "\nimport sys\nfrom pathlib import Path\nf...nt call last):\n  File "<string>", line 9, in <module>\nModuleNotFoundError: No module named \'tests.game_helpers\'\n').returncode
+
+/tmp/fights90/tests/test_fights90.py:429: AssertionError
+________________ test_genuine_cold_native_fight_receipt90[ring] ________________
+
+cards = <app.cards.repository.CardRepository object at 0x7f3c99ee3890>
+tmp_path = PosixPath('/tmp/pytest-of-agent/pytest-6891/test_genuine_cold_native_fight2')
+mode = 'ring'
+
+    @pytest.mark.parametrize("mode", ["neyith", "regent", "ring", "regent_blink"])
+    def test_genuine_cold_native_fight_receipt90(cards, tmp_path, mode):
+        import subprocess
+        import sys
+
+        import app
+
+        observer = (
+            NAMES[0] if mode == "neyith" else NAMES[2] if mode == "ring" else NAMES[1]
+        )
+        s, source, bear, _, wall, _, _ = setup90(cards, observer)
+        if mode == "neyith":
+            act(s, "p1", type="set_prefs", hold_priority=True)
+            spell = put(s, "Pit Fight", "hand")
+            mana(s, C=1, G=1)
+            wait_priority(s, "p1")
+            act(
+                s,
+                "p1",
+                type="cast_spell",
+                card_id=spell.id,
+                targets=[bear.id, wall.id],
+                target_counts=[1, 1],
+            )
+        else:
+            fight90(s, bear, wall)
+        blink = put(s, "Cloudshift", "hand")
+        mana(s, W=1)
+        saved = tmp_path / "fight90.json"
+        saved.write_text(s.state.model_dump_json())
+        code = r"""
+    import sys
+    from pathlib import Path
+    from app.cards.images import ImageStore
+    from app.cards.repository import CardRepository
+    from app.game.session import GameSession
+    from app.game.state import GameState
+    from app.rules.plan import Plan
+    from tests.game_helpers import act
+    from tests.test_rules_bandmate_references import wait_priority
+    from tests.test_rules_library_look import settle
+    from tests.test_rules_wave30m_durations import to_phase
+    repo=CardRepository(Path(sys.argv[2]),ImageStore(Path(sys.argv[2]).parent/'images'))
+    s=GameSession(GameState.model_validate_json(Path(sys.argv[1]).read_text()),cards=repo)
+    mode,source,bear,blink=sys.argv[3:]
+    if mode=='neyith':
+     before=len(s.state.zones['p1:hand']);settle(s)
+     assert len(s.state.zones['p1:hand'])==before+1
+     assert len(s.state.rules.turn_log.fought90)==2
+    elif mode=='ring':
+     assert len(s.state.rules.turn_log.fought90)==2
+     index=next(a.index for a in Plan(s.state,'p1',s.cards,None).ch(s.state.cards[source]).abilities if a.kind=='activated')
+     wait_priority(s,'p1');act(s,'p1',type='activate_ability',card_id=source,ability=index);settle(s)
+     assert any(c.name=='Treasure' and c.zone=='p1:battlefield' for c in s.state.cards.values())
+    else:
+     if mode=='regent_blink':
+      wait_priority(s,'p1');act(s,'p1',type='cast_spell',card_id=blink,targets=[bear]);settle(s)
+     to_phase(s,'end',turn=4);settle(s)
+     assert s.state.cards[bear].counters.get('+1/+1',0)==(0 if mode=='regent_blink' else 2)
+    repo.close()
+    """
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-c",
+                code,
+                str(saved),
+                str(cards.db_path),
+                mode,
+                source.id,
+                bear.id,
+                blink.id,
+            ],
+            cwd=Path(app.__file__).resolve().parents[1],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=90,
+        )
+>       assert result.returncode == 0, result.stdout + result.stderr
+E       AssertionError: Traceback (most recent call last):
+E           File "<string>", line 9, in <module>
+E         ModuleNotFoundError: No module named 'tests.game_helpers'
+E
+E       assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['/workspace/Fyodor/backend/.venv/bin/python3', '-c', "\nimport sys\nfrom pathlib import Path\nf...nt call last):\n  File "<string>", line 9, in <module>\nModuleNotFoundError: No module named \'tests.game_helpers\'\n').returncode
+
+/tmp/fights90/tests/test_fights90.py:429: AssertionError
+____________ test_genuine_cold_native_fight_receipt90[regent_blink] ____________
+
+cards = <app.cards.repository.CardRepository object at 0x7f3c99c830e0>
+tmp_path = PosixPath('/tmp/pytest-of-agent/pytest-6891/test_genuine_cold_native_fight3')
+mode = 'regent_blink'
+
+    @pytest.mark.parametrize("mode", ["neyith", "regent", "ring", "regent_blink"])
+    def test_genuine_cold_native_fight_receipt90(cards, tmp_path, mode):
+        import subprocess
+        import sys
+
+        import app
+
+        observer = (
+            NAMES[0] if mode == "neyith" else NAMES[2] if mode == "ring" else NAMES[1]
+        )
+        s, source, bear, _, wall, _, _ = setup90(cards, observer)
+        if mode == "neyith":
+            act(s, "p1", type="set_prefs", hold_priority=True)
+            spell = put(s, "Pit Fight", "hand")
+            mana(s, C=1, G=1)
+            wait_priority(s, "p1")
+            act(
+                s,
+                "p1",
+                type="cast_spell",
+                card_id=spell.id,
+                targets=[bear.id, wall.id],
+                target_counts=[1, 1],
+            )
+        else:
+            fight90(s, bear, wall)
+        blink = put(s, "Cloudshift", "hand")
+        mana(s, W=1)
+        saved = tmp_path / "fight90.json"
+        saved.write_text(s.state.model_dump_json())
+        code = r"""
+    import sys
+    from pathlib import Path
+    from app.cards.images import ImageStore
+    from app.cards.repository import CardRepository
+    from app.game.session import GameSession
+    from app.game.state import GameState
+    from app.rules.plan import Plan
+    from tests.game_helpers import act
+    from tests.test_rules_bandmate_references import wait_priority
+    from tests.test_rules_library_look import settle
+    from tests.test_rules_wave30m_durations import to_phase
+    repo=CardRepository(Path(sys.argv[2]),ImageStore(Path(sys.argv[2]).parent/'images'))
+    s=GameSession(GameState.model_validate_json(Path(sys.argv[1]).read_text()),cards=repo)
+    mode,source,bear,blink=sys.argv[3:]
+    if mode=='neyith':
+     before=len(s.state.zones['p1:hand']);settle(s)
+     assert len(s.state.zones['p1:hand'])==before+1
+     assert len(s.state.rules.turn_log.fought90)==2
+    elif mode=='ring':
+     assert len(s.state.rules.turn_log.fought90)==2
+     index=next(a.index for a in Plan(s.state,'p1',s.cards,None).ch(s.state.cards[source]).abilities if a.kind=='activated')
+     wait_priority(s,'p1');act(s,'p1',type='activate_ability',card_id=source,ability=index);settle(s)
+     assert any(c.name=='Treasure' and c.zone=='p1:battlefield' for c in s.state.cards.values())
+    else:
+     if mode=='regent_blink':
+      wait_priority(s,'p1');act(s,'p1',type='cast_spell',card_id=blink,targets=[bear]);settle(s)
+     to_phase(s,'end',turn=4);settle(s)
+     assert s.state.cards[bear].counters.get('+1/+1',0)==(0 if mode=='regent_blink' else 2)
+    repo.close()
+    """
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-c",
+                code,
+                str(saved),
+                str(cards.db_path),
+                mode,
+                source.id,
+                bear.id,
+                blink.id,
+            ],
+            cwd=Path(app.__file__).resolve().parents[1],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=90,
+        )
+>       assert result.returncode == 0, result.stdout + result.stderr
+E       AssertionError: Traceback (most recent call last):
+E           File "<string>", line 9, in <module>
+E         ModuleNotFoundError: No module named 'tests.game_helpers'
+E
+E       assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['/workspace/Fyodor/backend/.venv/bin/python3', '-c', "\nimport sys\nfrom pathlib import Path\nf...nt call last):\n  File "<string>", line 9, in <module>\nModuleNotFoundError: No module named \'tests.game_helpers\'\n').returncode
+
+/tmp/fights90/tests/test_fights90.py:429: AssertionError
+_________ test_ring_actual_fighters_phase_out_are_nonexistent90[False] _________
+
+cards = <app.cards.repository.CardRepository object at 0x7f3c99cd7c50>
+both = False
+
+    @pytest.mark.parametrize("both", [False, True])
+    def test_ring_actual_fighters_phase_out_are_nonexistent90(cards, both):
+        from app.game.errors import ActionError
+
+        s, ring, bear, elf, _, _, _ = setup90(cards, NAMES[2])
+        safe = put(s, "Safe Passage", "hand")
+        mana(s, C=2, W=1)
+        wait_priority(s, "p1")
+        act(s, "p1", type="cast_spell", card_id=safe.id)
+        settle(s)
+        fight90(s, bear, elf)
+        original = {c.id: Plan(s.state, "p1", s.cards, None).oid(c) for c in (bear, elf)}
+        slips = [
+            c
+            for c in s.state.cards.values()
+            if c.owner == "p1" and c.name == "Slip Out the Back"
+        ]
+        assert len(slips) == 2
+        for spell, target in zip(slips, [bear, elf] if both else [bear], strict=False):
+            act(
+                s,
+                "p1",
+                type="move",
+                card_ids=[spell.id],
+                to={"player": "p1", "zone": "hand"},
+            )
+            mana(s, U=1)
+            wait_priority(s, "p1")
+            act(s, "p1", type="cast_spell", card_id=spell.id, targets=[target.id])
+            settle(s)
+            plan = Plan(s.state, "p1", s.cards, None)
+            assert target.zone == "p1:phased" and plan.oid(target) == original[target.id]
+>           assert plan.ch(target).is_creature and not plan.in_game(target)
+E           AssertionError: assert (True and not True)
+E            +  where True = Characteristics(name='Grizzly Bears', supertypes=frozenset(), types=frozenset({'Creature'}), subtypes=frozenset({'Bear...2), granted=frozenset(), lost=frozenset(), imposed=frozenset(), level=None, doors=None, word=None, flanking_count=None).is_creature
+E            +    where Characteristics(name='Grizzly Bears', supertypes=frozenset(), types=frozenset({'Creature'}), subtypes=frozenset({'Bear...2), granted=frozenset(), lost=frozenset(), imposed=frozenset(), level=None, doors=None, word=None, flanking_count=None) = ch(CardInstance(borrow_identity=None, id='c7339f92a660', card_id='3a18f2f2-161f-5b59-bd96-54b555605dba', name='Grizzly Be...ts=[], damage=0, choices={}, stack_info=None, exile_group=None, token_source=None, origin='library', test_object=False))
+E            +      where ch = <app.rules.plan.Plan object at 0x7f3c99c5cc20>.ch
+E            +  and   True = in_game(CardInstance(borrow_identity=None, id='c7339f92a660', card_id='3a18f2f2-161f-5b59-bd96-54b555605dba', name='Grizzly Be...ts=[], damage=0, choices={}, stack_info=None, exile_group=None, token_source=None, origin='library', test_object=False))
+E            +    where in_game = <app.rules.plan.Plan object at 0x7f3c99c5cc20>.in_game
+
+/tmp/fights90/tests/test_fights90.py:617: AssertionError
+_________ test_ring_actual_fighters_phase_out_are_nonexistent90[True] __________
+
+cards = <app.cards.repository.CardRepository object at 0x7f3c9a0cbe30>
+both = True
+
+    @pytest.mark.parametrize("both", [False, True])
+    def test_ring_actual_fighters_phase_out_are_nonexistent90(cards, both):
+        from app.game.errors import ActionError
+
+        s, ring, bear, elf, _, _, _ = setup90(cards, NAMES[2])
+        safe = put(s, "Safe Passage", "hand")
+        mana(s, C=2, W=1)
+        wait_priority(s, "p1")
+        act(s, "p1", type="cast_spell", card_id=safe.id)
+        settle(s)
+        fight90(s, bear, elf)
+        original = {c.id: Plan(s.state, "p1", s.cards, None).oid(c) for c in (bear, elf)}
+        slips = [
+            c
+            for c in s.state.cards.values()
+            if c.owner == "p1" and c.name == "Slip Out the Back"
+        ]
+        assert len(slips) == 2
+        for spell, target in zip(slips, [bear, elf] if both else [bear], strict=False):
+            act(
+                s,
+                "p1",
+                type="move",
+                card_ids=[spell.id],
+                to={"player": "p1", "zone": "hand"},
+            )
+            mana(s, U=1)
+            wait_priority(s, "p1")
+            act(s, "p1", type="cast_spell", card_id=spell.id, targets=[target.id])
+            settle(s)
+            plan = Plan(s.state, "p1", s.cards, None)
+            assert target.zone == "p1:phased" and plan.oid(target) == original[target.id]
+>           assert plan.ch(target).is_creature and not plan.in_game(target)
+E           AssertionError: assert (True and not True)
+E            +  where True = Characteristics(name='Grizzly Bears', supertypes=frozenset(), types=frozenset({'Creature'}), subtypes=frozenset({'Bear...2), granted=frozenset(), lost=frozenset(), imposed=frozenset(), level=None, doors=None, word=None, flanking_count=None).is_creature
+E            +    where Characteristics(name='Grizzly Bears', supertypes=frozenset(), types=frozenset({'Creature'}), subtypes=frozenset({'Bear...2), granted=frozenset(), lost=frozenset(), imposed=frozenset(), level=None, doors=None, word=None, flanking_count=None) = ch(CardInstance(borrow_identity=None, id='dd53efe88897', card_id='3a18f2f2-161f-5b59-bd96-54b555605dba', name='Grizzly Be...ts=[], damage=0, choices={}, stack_info=None, exile_group=None, token_source=None, origin='library', test_object=False))
+E            +      where ch = <app.rules.plan.Plan object at 0x7f3c99a0a4e0>.ch
+E            +  and   True = in_game(CardInstance(borrow_identity=None, id='dd53efe88897', card_id='3a18f2f2-161f-5b59-bd96-54b555605dba', name='Grizzly Be...ts=[], damage=0, choices={}, stack_info=None, exile_group=None, token_source=None, origin='library', test_object=False))
+E            +    where in_game = <app.rules.plan.Plan object at 0x7f3c99a0a4e0>.in_game
+
+/tmp/fights90/tests/test_fights90.py:617: AssertionError
+=========================== short test summary info ============================
+FAILED Fyodor/backend::test_genuine_cold_native_fight_receipt90[neyith] - Ass...
+FAILED Fyodor/backend::test_genuine_cold_native_fight_receipt90[regent] - Ass...
+FAILED Fyodor/backend::test_genuine_cold_native_fight_receipt90[ring] - Asser...
+FAILED Fyodor/backend::test_genuine_cold_native_fight_receipt90[regent_blink]
+FAILED Fyodor/backend::test_ring_actual_fighters_phase_out_are_nonexistent90[False]
+FAILED Fyodor/backend::test_ring_actual_fighters_phase_out_are_nonexistent90[True]
+6 failed, 26 passed in 219.19s (0:03:39)

@@ -1,0 +1,72 @@
+[
+  {
+    "id": "b82d3432-2167-4a65-8221-cb7b338e60d0",
+    "oracle_id": "e670d1c9-5e28-4df8-aad9-d08d19dc74e9",
+    "name": "Reverent Silence",
+    "layout": "normal",
+    "set_code": "nem",
+    "set_name": "Nemesis",
+    "collector_number": "111",
+    "rarity": "common",
+    "mana_cost": "{3}{G}",
+    "cmc": 4.0,
+    "type_line": "Sorcery",
+    "oracle_text": "If you control a Forest, rather than pay this spell's mana cost, you may have each other player gain 6 life.\nDestroy all enchantments.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2000-02-14",
+    "artist": "Don Hazeltine",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "a558c4f5-a716-4e46-9234-5f84f1bd57aa",
+    "oracle_id": "fbd71691-d0fd-4842-913b-fe6096d509a3",
+    "name": "Skyshroud Cutter",
+    "layout": "normal",
+    "set_code": "nem",
+    "set_name": "Nemesis",
+    "collector_number": "118",
+    "rarity": "common",
+    "mana_cost": "{3}{G}",
+    "cmc": 4.0,
+    "type_line": "Creature \u2014 Beast",
+    "oracle_text": "If you control a Forest, rather than pay this spell's mana cost, you may have each other player gain 5 life.",
+    "power": "2",
+    "toughness": "2",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2000-02-14",
+    "artist": "Tony Szczudlo",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  }
+]

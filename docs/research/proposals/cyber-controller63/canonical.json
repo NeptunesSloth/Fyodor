@@ -1,0 +1,90 @@
+[
+  {
+    "id": "3cab0df1-d53f-4208-9ff9-d015aac20141",
+    "oracle_id": "06c25d71-f3f4-4089-b9bc-de96fbad73a5",
+    "name": "The Cyber-Controller",
+    "layout": "normal",
+    "set_code": "who",
+    "set_name": "Doctor Who",
+    "collector_number": "119",
+    "rarity": "rare",
+    "mana_cost": "{X}{U}{U}{B}",
+    "cmc": 3.0,
+    "type_line": "Legendary Artifact Creature \u2014 Cyberman",
+    "oracle_text": "When The Cyber-Controller enters, each opponent mills X cards. Put all creature cards milled this way onto the battlefield face down under your control. They're 2/2 Cyberman artifact creatures.\nOther artifact creatures you control get +1/+1.",
+    "power": "3",
+    "toughness": "3",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "B",
+      "U"
+    ],
+    "color_identity": [
+      "B",
+      "U"
+    ],
+    "keywords": [
+      "Mill"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2023-10-13",
+    "artist": "Pavel Kolomeyets",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [
+      {
+        "id": "fa858045-c3cf-457b-b7f9-a0b4fa70f2df",
+        "name": "The Cyber-Controller",
+        "component": "combo_piece"
+      },
+      {
+        "id": "392db1d2-9d75-4d19-88e0-9b0ffdc88541",
+        "name": "Cyberman",
+        "component": "combo_piece"
+      }
+    ]
+  },
+  {
+    "id": "4d74da72-8443-4fce-9d64-d2041f6a3292",
+    "oracle_id": "ecb81888-589b-4486-a444-e0c26384854e",
+    "name": "Avatar Destiny",
+    "layout": "normal",
+    "set_code": "tla",
+    "set_name": "Avatar: The Last Airbender",
+    "collector_number": "165",
+    "rarity": "rare",
+    "mana_cost": "{2}{G}{G}",
+    "cmc": 4.0,
+    "type_line": "Enchantment \u2014 Aura",
+    "oracle_text": "Enchant creature you control\nEnchanted creature gets +1/+1 for each creature card in your graveyard and is an Avatar in addition to its other types.\nWhen enchanted creature dies, mill cards equal to its power. Return this card to its owner's hand and up to one creature card milled this way to the battlefield under your control.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [
+      "Enchant",
+      "Mill"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2025-11-21",
+    "artist": "Iwamoto05",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  }
+]

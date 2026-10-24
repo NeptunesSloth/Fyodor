@@ -1,0 +1,354 @@
+--- a/backend/app/rules/deferred_payment82.py
++++ b/backend/app/rules/deferred_payment82.py
+@@ -0,0 +1,133 @@
++"""Once-only early-payment special actions suppress their exact delayed triggers."""
++from __future__ import annotations
++
++from dataclasses import dataclass, replace
++from typing import TYPE_CHECKING, Any
++
++from app.game import actions as A
++from app.game.errors import ActionError
++from app.game.rules_state import DecisionOption, DeferredPaymentWindow
++from app.rules import mana as M
++from app.rules import payment_continuations as pc
++from app.rules.plan import Plan, require_no_decision, require_priority
++
++if TYPE_CHECKING:
++    from app.game.state import GameState
++    from app.rules.characteristics import Characteristics
++    from app.rules.oracle import AbilityText
++
++COBRA = 'Whenever ~ deals damage to a player, that player gets a poison counter. The player gets another poison counter at the beginning of their next upkeep unless they pay {2} before that step.'
++GLASS = 'Whenever ~ deals combat damage to a player, that player loses 2 life at the beginning of their next draw step unless they pay {2} before that step.'
++NAFS = 'Whenever ~ deals damage to a player, that player loses 1 life at the beginning of their next draw step unless they pay {1} before that draw step.'
++FIRE = '~ deals 3 damage to target player or planeswalker. It deals an additional 3 damage to that player or planeswalker at the beginning of your next upkeep step unless that player or that planeswalker\'s controller pays {U} before that step.'
++
++
++def definition(ability: AbilityText, ch: Characteristics) -> dict[str, Any] | None:
++    from app.rules import scripts
++
++    text = scripts.self_text(ability.text, ch.name)
++    if text in (COBRA, GLASS, NAFS):
++        header = text.split(', ', 1)[0]
++        native = scripts.define(replace(ability, text=header + ', that player loses 1 life.'), ch)
++        assert native is not None
++        effect = {'do': 'player_counter', 'who': 'event_player', 'counter': 'poison', 'n': 1} if text == COBRA else {'do': 'lose_life', 'who': 'event_player', 'n': 2 if text == GLASS else 1}
++        initial = [effect] if text == COBRA else []
++        return {**native, 'effects': [*initial, {'do': 'deferred_window82', 'who': 'event_player',
++            'cost': '{1}' if text == NAFS else '{2}', 'step': 'upkeep' if text == COBRA else 'draw', 'effects': [effect]}]}
++    if text == FIRE:
++        native = scripts.define(replace(ability, text='~ deals 3 damage to target player or planeswalker.'), ch)
++        assert native is not None
++        return {**native, 'effects': [{'do': 'deferred_prepare82', 'as': 'deferred_recipient82'}, *native['effects'],
++            {'do': 'deferred_window82', 'who': 'prepared', 'cost': '{U}', 'step': 'upkeep', 'your_step': True,
++             'effects': [{'do': 'damage', 'who': 'ref:deferred_recipient82', 'n': 3}]}]}
++    return None
++
++
++def active(state: GameState, player: str) -> list[DeferredPaymentWindow]:
++    r = state.rules
++    if r is None:
++        return []
++    ids = {t.id for t in r.delayed}
++    return [w for w in r.deferred_payments if w.payer == player and w.delayed in ids]
++
++
++def prepare(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
++    from app.rules import context, effects
++
++    ctx['deferred_payer82'] = effects._players(plan, ctx, 'target_player_or_controller')
++    objects = effects._cards(plan, ctx, 'target')
++    if objects:
++        context.bind_objects(plan, ctx, e['as'], objects)
++    else:
++        context.bind_players(ctx, e['as'], ctx['deferred_payer82'])
++    return True
++
++
++def create(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
++    from app.rules import delayed, effects
++
++    players = ctx.get('deferred_payer82', []) if e['who'] == 'prepared' else effects._players(plan, ctx, e['who'])
++    if len(players) != 1:
++        raw = (ctx.get('event') or {}).get('players') or []
++        if raw and all(p not in plan.live() for p in raw):
++            return True
++        from app.rules.plan import decide
++
++        decide(plan, player=ctx['controller'], kind='manual_resolution',
++               prompt=f"{ctx.get('name') or 'Delayed ability'}: this save lacks the original affected player. Record and resolve this delayed effect manually, then press Done.",
++               options=[DecisionOption(id='done', label='Done')], resume={'step': 'deferred_unknown82', 'ctx': ctx})
++        return False
++    if players[0] not in plan.live():
++        return True
++    payer = players[0]
++    when = {'kind': 'step', 'step': e['step'], 'whose': 'you' if e.get('your_step') else 'payer', 'player': payer}
++    local = {**ctx, 'effects': e['effects'], 'next': 0}
++    delayed.create(plan, local, {'n': len(e['effects']), 'when': when})
++    trigger = plan.rules.delayed[-1]
++    plan.rules.deferred_payments.append(DeferredPaymentWindow(id=trigger.id, payer=payer, cost=e['cost'],
++        delayed=trigger.id, name=ctx.get('name') or 'Delayed ability', source_card=ctx.get('source_card')))
++    return True
++
++
++def pay(plan: Plan, a: A.PayDeferred) -> None:
++    from app.rules.casting import Purpose, pay_then, payment_step
++
++    require_no_decision(plan)
++    require_priority(plan)
++    row = next((w for w in active(plan.state, plan.actor) if w.id == a.window_id), None)
++    if row is None:
++        raise ActionError('That early-payment window is not available to you')
++    cost = M.parse_cost(row.cost)
++    if payment_step(plan, a, cost, f'preventing {row.name}', purpose=Purpose()):
++        return
++    tail = pc.continuation(plan, 'deferred_paid82', Paid(row.id, row.payer))
++    pay_then(plan, plan.actor, cost, f'paid {row.cost} to prevent {row.name}', sources=a.sources, purpose=Purpose(), then=tail)
++
++
++@dataclass
++class Paid:
++    window: str
++    payer: str
++
++
++def paid(plan: Plan, frame: Paid, payment: M.Payment | None) -> None:
++    row = next((w for w in active(plan.state, frame.payer) if w.id == frame.window), None)
++    if row is None or frame.payer != plan.actor:
++        raise ActionError('That early-payment window expired')
++    plan.rules.delayed = [t for t in plan.rules.delayed if t.id != row.delayed]
++    plan.rules.deferred_payments = [w for w in plan.rules.deferred_payments if w.id != row.id]
++    plan.rules.passed = []
++    plan.note(f'{plan.name(frame.payer)} prevents the delayed ability of {row.name}')
++
++
++pc.register('deferred_paid82', Paid, paid)
++PRIMITIVES = {'deferred_prepare82': prepare, 'deferred_window82': create}
++
++
++def unknown_done(plan: Plan, d: Any, chosen: list[str]) -> None:
++    from app.rules import effects
++
++    effects.continue_effects(plan, d.resume['ctx'])
++
++
++RESUME = {'deferred_unknown82': unknown_done}
+--- a/backend/app/game/rules_state.py
++++ b/backend/app/game/rules_state.py
+@@ -908,6 +908,17 @@
+     event: TriggerEvent | None = None  # what it triggered on
+
+
++class DeferredPaymentWindow(BaseModel):
++    """116.2c: one early-payment special action suppresses its exact delayed trigger."""
++
++    id: str
++    payer: str
++    cost: str
++    delayed: str
++    name: str
++    source_card: str | None = None
++
++
+ class DelayedTrigger(BaseModel):
+     """A delayed triggered ability (CR 603.7), created as a spell or ability resolved (603.7a) and
+     waiting for its trigger event. Everything it will need is captured now: the objects it refers
+@@ -1474,6 +1485,7 @@
+     # the turn binds (ruling 2008-08-01: with two, a creature must be in both chosen piles), and a creature that entered later is no object in any pile
+     attack_piles: list[list[Any]] = Field(default_factory=list)
+     opening_revealed: list[str] = Field(default_factory=list)  # -- opening hand (wave 18C) -- cards revealed until the first turn (103.6b)
++    deferred_payments: list[DeferredPaymentWindow] = Field(default_factory=list)
+     delayed: list[DelayedTrigger] = Field(default_factory=list)  # delayed triggered abilities (603.7; app/rules/delayed.py)
+     exile_if_leaves: list[str] = Field(default_factory=list)  # objects exiled instead of leaving (unearth)
+     # Replacement / prevention records with a duration (app/rules/replacements.py): "Prevent all
+--- a/backend/app/game/actions.py
++++ b/backend/app/game/actions.py
+@@ -1053,6 +1053,14 @@
+     cost_choices: list[CostChoice] = Field(default_factory=list)  # -- hidden exile (wave 18A) -- what pays a non-mana morph cost (602.2b)
+
+
++class PayDeferred(_Intent):
++    """Pay a once-only prevention window before its delayed trigger's step begins."""
++
++    type: Literal["pay_deferred"] = "pay_deferred"
++    window_id: Id
++    sources: list[Id] | None = Field(default=None, max_length=60)
++
++
+ class EndEffect(_Intent):
+     """-- licids (wave 50A) -- 116.2c: "You may pay {W} to end this effect", a special action on the permanent the effect is on (app/rules/licids.py)."""
+
+@@ -1349,7 +1357,7 @@
+ INTENT_TYPES = frozenset(
+     {"play_land", "cast_spell", "activate_ability", "declare_attackers", "declare_blockers", "pass_priority",
+      "choose", "concede", "set_stops", "set_prefs", "set_card_automation", "repeat_sequence", "turn_face_up", "unlock_door",
+-     "miracle_reveal", "end_effect"}
++     "miracle_reveal", "end_effect", "pay_deferred"}
+ )
+ SERVER_ONLY_TYPES = frozenset({"rules_sync", "rules_log", "rules_mana", "rules_damage", "rules_life_changes", "renumber"})
+
+@@ -1454,6 +1462,7 @@
+     | TurnFaceUp
+     | UnlockDoor
+     | EndEffect
++    | PayDeferred
+     | MiracleReveal
+     | ActivateAbility
+     | DeclareAttackers
+--- a/backend/app/rules/scripts.py
++++ b/backend/app/rules/scripts.py
+@@ -5761,6 +5761,10 @@
+
+ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
+     """The engine definition of one ability, or None (manual)."""
++    from app.rules import deferred_payment82
++
++    if (window82 := deferred_payment82.definition(ability, ch)) is not None:
++        return window82
+     from app.rules import upkeep_consequences81
+
+     if (admitted := upkeep_consequences81.definition(ability, ch)) is not None:
+--- a/backend/app/rules/effects.py
++++ b/backend/app/rules/effects.py
+@@ -6729,3 +6729,8 @@
+ from app.rules import demonic_covenant62 as _demonic_covenant62  # noqa: E402, I001
+
+ PRIMITIVES.update(_demonic_covenant62.PRIMITIVES)
++
++from app.rules import deferred_payment82 as _deferred82  # noqa: E402
++
++PRIMITIVES.update(_deferred82.PRIMITIVES)
++RESUME.update(_deferred82.RESUME)
+--- a/backend/app/rules/engine.py
++++ b/backend/app/rules/engine.py
+@@ -50,6 +50,7 @@
+     cost_payment,
+     counter_destinations,
+     coverage,
++    deferred_payment82,
+     delayed,
+     effects,
+     enlist,  # -- casting extras (wave 18E) --
+@@ -102,7 +103,7 @@
+ RULES_ENGINE_VERSION = 2  # bump when the rules engine's behaviour changes (saved with scenarios/diagnostics)
+ PREF_INTENTS = frozenset({"set_stops", "set_prefs", "set_card_automation"})  # allowed any time
+ ACTION_INTENTS = frozenset({"play_land", "cast_spell", "activate_ability", "declare_attackers", "declare_blockers",
+-                            "repeat_sequence", "turn_face_up", "unlock_door", "end_effect"})
++                            "repeat_sequence", "turn_face_up", "unlock_door", "end_effect", "pay_deferred"})
+
+
+ def automation_on(state: GameState) -> bool:
+@@ -751,6 +752,8 @@
+     state = plan.state
+     phase = state.turn.phase
+     ap = plan.active
++    if phase == "draw":
++        delayed.at_step(plan, "draw")  # The early-payment deadline closes as the step begins, before any draw choice.
+     if not plan.has_active_player() and phase in ("draw", "declare_attackers", "cleanup"):
+         # 800.4j: the turn goes on without its active player — their turn-based actions (the draw,
+         # 504.1; declaring attackers, 508.1; discarding to hand size, 514.1) don't happen; the
+@@ -1660,6 +1663,7 @@
+     "cast_spell": casting.cast_spell,
+     "turn_face_up": casting.turn_face_up,
+     "unlock_door": rooms.unlock_action,
++    "pay_deferred": deferred_payment82.pay,
+     "end_effect": licids.end_effect,  # -- licids (wave 50A) -- 116.2c
+     "miracle_reveal": miracle.reveal,  # -- casting extras (wave 18E) --
+     "activate_ability": casting.activate_ability,
+--- a/backend/app/rules/delayed.py
++++ b/backend/app/rules/delayed.py
+@@ -305,8 +305,8 @@
+         return "at the beginning of that combat"
+     if when.get("whose") == "this_turn" and when.get("step") == "begin_combat":
+         return "at the beginning of each combat this turn"
+-    whose = {"next": "the next", "you": "your next", "next_turn": "the next turn's", "owner": "its owner's next"}[when["whose"]]
+-    step = {"end": "end step", "main": "main phase", "cleanup": "cleanup step"}.get(when["step"], "upkeep")  # (main: wave 5B)
++    whose = {"next": "the next", "you": "your next", "next_turn": "the next turn's", "owner": "its owner's next", "payer": "the affected player's next"}[when["whose"]]
++    step = {"end": "end step", "main": "main phase", "cleanup": "cleanup step", "draw": "draw step"}.get(when["step"], "upkeep")  # (main: wave 5B)
+     return f"at the beginning of {whose} {step}"
+
+
+@@ -376,7 +376,7 @@
+         return later_turn or same_turn_before
+     if whose == "you":
+         return plan.active == t.controller and (later_turn or same_turn_before)
+-    if whose == "owner":
++    if whose in ("owner", "payer"):
+         return plan.active == w.get("player") and (later_turn or same_turn_before)
+     return later_turn  # "the next turn's upkeep"
+
+@@ -389,6 +389,9 @@
+         r.permissions = [p for p in r.permissions if not (p.until == "next_upkeep" and (p.until_player or p.player) == plan.active
+                           and (p.granted_step is None or r.step_serial > p.granted_step))]
+     due = [t for t in r.delayed if _step_due(plan, t, phase)]
++    due_ids = {t.id for t in due}
++    live_ids = {t.id for t in r.delayed}
++    r.deferred_payments = [w for w in r.deferred_payments if w.delayed in live_ids and w.delayed not in due_ids]
+     if not due:
+         return
+     r.delayed = [t for t in r.delayed if t not in due or not t.once]
+--- a/backend/app/rules/casting.py
++++ b/backend/app/rules/casting.py
+@@ -1939,7 +1939,7 @@
+     r.payments[plan.oid(card_id)] = record
+
+
+-def payment_step(plan: Plan, a: A.CastSpell | A.ActivateAbility | A.EndEffect, cost: M.ManaCost, what: str, *,  # (-- licids (wave 50A) -- EndEffect)
++def payment_step(plan: Plan, a: A.CastSpell | A.ActivateAbility | A.EndEffect | A.PayDeferred, cost: M.ManaCost, what: str, *,  # (-- licids (wave 50A) -- EndEffect)
+                  exclude: tuple[str, ...] = (), purpose: Purpose | None = None, then: dict[str, Any] | None = None,
+                  cast_greatest_power: int | None = None, counter_cost_origins70: list[ObjectRef] | None = None) -> bool:
+     """Before a spell or ability is put on the stack: does the player want to see or choose the
+@@ -6682,9 +6682,11 @@
+     (116.2m) or pay {3} for the companion (116.2g): those two in their main phase with the stack empty (``instant``: only the first two, a response).
+     For the auto-pass (``can_act``, ``has_responses``): a player who can must not be passed over. A morph cost that isn't mana is counted without checking it can be paid (a stop too many,
+     never one too few; ponytail: the hint of suspend, foretell and plot, 116.2f, h, k, isn't read)."""
+-    from app.rules import licids
++    from app.rules import deferred_payment82, licids
+     from app.rules.copying import room_printing
+
++    if any(can_pay(state, player, M.parse_cost(w.cost), info, purpose=Purpose()) for w in deferred_payment82.active(state, player)):
++        return True
+     r = state.rules
+     main = not instant and state.turn.active_player == player and state.turn.phase in MAIN_PHASES and not state.zones.get(STACK)
+     ends = r is not None and any(x.end_cost for x in r.effects)
+--- a/backend/app/rules/view.py
++++ b/backend/app/rules/view.py
+@@ -222,6 +222,11 @@
+         mine = [c for c in state.rules.miracle if c in state.cards and state.cards[c].owner == viewer]
+         if mine:
+             out["miracle"] = mine
++    from app.rules import deferred_payment82
++
++    windows = deferred_payment82.active(state, viewer)
++    if windows:
++        out["deferred_payments"] = [{"id": w.id, "cost": w.cost, "name": w.name} for w in windows]
+     if not out["has_priority"]:
+         return out
+     # Your hand, your commander, your graveyard and exile (flashback, "you may play that card this
+--- a/frontend/src/types/game.ts
++++ b/frontend/src/types/game.ts
+@@ -361,6 +361,7 @@
+ }
+
+ export interface RulesHints {
++  deferred_payments?: { id: string; cost: string; name: string }[];
+   has_priority?: boolean;
+   playable_lands?: string[];
+   castable?: string[];
+--- a/frontend/src/game/rules/RulesHud.tsx
++++ b/frontend/src/game/rules/RulesHud.tsx
+@@ -45,6 +45,13 @@
+           </button>
+         </>
+       )}
++      {seated && rules?.hints.deferred_payments?.map((window) => (
++        <button key={window.id} className="auto-pill" data-testid="pay-deferred"
++          disabled={!rules.hints.has_priority || !!rules.decision || rules.paused}
++          onClick={() => void send({ type: "pay_deferred", window_id: window.id })}>
++          Pay <ManaText text={window.cost} /> to prevent {window.name}
++        </button>
++      ))}
+       {canConcede(view, me) && (conceding ? (
+         <span className="auto-pill" data-testid="concede-confirm">
+           Concede the game?{" "}

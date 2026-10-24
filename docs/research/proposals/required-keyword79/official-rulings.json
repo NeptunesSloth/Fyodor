@@ -1,0 +1,144 @@
+{
+  "Sabin, Master Monk": {
+    "object": "list",
+    "has_more": false,
+    "data": [
+      {
+        "object": "ruling",
+        "oracle_id": "7234bbf8-b962-4515-bedf-68d111c6137e",
+        "source": "wotc",
+        "published_at": "2025-06-06",
+        "comment": "If you choose to pay the blitz cost rather than the mana cost, you're still casting the spell. It goes on the stack and can be responded to and countered. You can cast a creature spell for its blitz cost only if you could cast that creature spell. Most of the time, this means during your main phase when the stack is empty."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "7234bbf8-b962-4515-bedf-68d111c6137e",
+        "source": "wotc",
+        "published_at": "2025-06-06",
+        "comment": "If you pay the blitz cost to cast a creature spell, that permanent will be sacrificed only if it's still on the battlefield when that triggered ability resolves. If it dies or goes to another zone before then, it will stay where it is."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "7234bbf8-b962-4515-bedf-68d111c6137e",
+        "source": "wotc",
+        "published_at": "2025-06-06",
+        "comment": "You don't have to attack with the creature with blitz unless another ability says you do."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "7234bbf8-b962-4515-bedf-68d111c6137e",
+        "source": "wotc",
+        "published_at": "2025-06-06",
+        "comment": "The triggered ability that lets its controller draw a card triggers when it dies for any reason, not just when you sacrifice it during the end step."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "7234bbf8-b962-4515-bedf-68d111c6137e",
+        "source": "wotc",
+        "published_at": "2025-06-06",
+        "comment": "If a creature enters the battlefield as a copy of or becomes a copy of a creature whose blitz cost was paid, the copy won't have haste, won't be sacrificed, and its controller won't draw a card when it dies."
+      }
+    ]
+  },
+  "Tenacious Underdog": {
+    "object": "list",
+    "has_more": false,
+    "data": [
+      {
+        "object": "ruling",
+        "oracle_id": "598e3ed2-659f-4400-b41d-3aee8068fba6",
+        "source": "wotc",
+        "published_at": "2022-04-29",
+        "comment": "If you choose to pay the blitz cost rather than the mana cost, you're still casting the spell. It goes on the stack and can be responded to and countered. You can cast a creature spell for its blitz cost only if you could cast that creature spell. Most of the time, this means during your main phase when the stack is empty."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "598e3ed2-659f-4400-b41d-3aee8068fba6",
+        "source": "wotc",
+        "published_at": "2022-04-29",
+        "comment": "If you pay the blitz cost to cast a creature spell, that permanent will be sacrificed only if it's still on the battlefield when that triggered ability resolves. If it dies or goes to another zone before then, it will stay where it is."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "598e3ed2-659f-4400-b41d-3aee8068fba6",
+        "source": "wotc",
+        "published_at": "2022-04-29",
+        "comment": "You don't have to attack with the creature with blitz unless another ability says you do."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "598e3ed2-659f-4400-b41d-3aee8068fba6",
+        "source": "wotc",
+        "published_at": "2022-04-29",
+        "comment": "If a creature enters the battlefield as a copy of or becomes a copy of a creature whose blitz cost was paid, the copy won't have haste, won't be sacrificed, and its controller won't draw a card when it dies."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "598e3ed2-659f-4400-b41d-3aee8068fba6",
+        "source": "wotc",
+        "published_at": "2022-04-29",
+        "comment": "The triggered ability that lets its controller draw a card triggers when it dies for any reason, not just when you sacrifice it during the end step."
+      }
+    ]
+  },
+  "Timeline Culler": {
+    "object": "list",
+    "has_more": false,
+    "data": []
+  },
+  "Detective's Phoenix": {
+    "object": "list",
+    "has_more": false,
+    "data": [
+      {
+        "object": "ruling",
+        "oracle_id": "52c3fe55-74ee-44cb-b62b-dc6c5dfdc33e",
+        "source": "wotc",
+        "published_at": "2024-06-07",
+        "comment": "If you can't exile enough cards to meet or exceed the required mana value, you can't choose to collect evidence at all."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "52c3fe55-74ee-44cb-b62b-dc6c5dfdc33e",
+        "source": "wotc",
+        "published_at": "2024-06-07",
+        "comment": "Once you've announced that you're casting a spell, players can't take actions until you've finished doing so. Notably, opponents can't try to remove cards from your graveyard to stop you from collecting evidence."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "52c3fe55-74ee-44cb-b62b-dc6c5dfdc33e",
+        "source": "wotc",
+        "published_at": "2024-06-07",
+        "comment": "On the stack, a spell with bestow is either a creature spell or an Aura spell. It's never both, although it's an enchantment spell in either case."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "52c3fe55-74ee-44cb-b62b-dc6c5dfdc33e",
+        "source": "wotc",
+        "published_at": "2024-06-07",
+        "comment": "Unlike other Aura spells, an Aura spell with bestow isn't countered if its target is illegal as it begins to resolve. Rather, the effect making it an Aura spell ends, it loses enchant creature, it returns to being an enchantment creature spell, and it resolves and enters the battlefield as an enchantment creature."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "52c3fe55-74ee-44cb-b62b-dc6c5dfdc33e",
+        "source": "wotc",
+        "published_at": "2024-06-07",
+        "comment": "Unlike other Auras, an Aura with bestow isn't put into its owner's graveyard if it becomes unattached. Rather, the effect making it an Aura ends, it loses enchant creature, and it remains on the battlefield as an enchantment creature. It can attack (and its\u00a0{T}\u00a0abilities can be activated, if it has any) on the turn it becomes unattached if it's been under your control continuously, even as an Aura, since your most recent turn began."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "52c3fe55-74ee-44cb-b62b-dc6c5dfdc33e",
+        "source": "wotc",
+        "published_at": "2024-06-07",
+        "comment": "If a permanent with bestow enters the battlefield by any method other than being cast, it will be an enchantment creature. You can't choose to pay the bestow cost and have it become an Aura."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "52c3fe55-74ee-44cb-b62b-dc6c5dfdc33e",
+        "source": "wotc",
+        "published_at": "2024-06-07",
+        "comment": "Auras attached to a creature don't become tapped when the creature becomes tapped. Except in some rare cases, an Aura with bestow remains untapped when it becomes unattached and becomes a creature."
+      }
+    ]
+  }
+}

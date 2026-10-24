@@ -1,0 +1,11 @@
+# Exchange conditions91
+
+Native18 distinct closed (consolidated17 incl2 genuine fresh-process cold, plus native no-legal-target Drake1). Scoped mypy3 and Ruff4 pass. Full related permanent-exchange qualities, multitarget and control files105 pass. Closed for root review only. Exact whole Modify Memory, Gauntlets of Chaos, Gilded Drake; canonical text and complete official rulings archived. No live source modifications.
+
+Modify Memory retains native two-creature different-controller target legality and atomic exchange. The independent draw condition reads the original announced object refs after the exchange, including a surviving original target that became illegal; source/target removal never substitutes a successor. Real casts prove opponent/opponent draw3, your/opponent draw0, and either controlled/uncontrolled surviving target after native Murder; cold continuation resolves exchange and draw.
+
+Gauntlets retains native sacrifice activation cost, live cross-target shared Artifact/Creature/Land types, and native atomic control exchange. A successful native exchange binds both original permanents; the followup destroys every Aura currently attached to those objects through native destruction, preserving regeneration/indestructible handling. No successful exchange means no Aura destruction. Actual printed cast, artifact/creature/land exchange, successful Aura destruction, real Murder preventing exchange with Aura survival, and sacrificing the targeted source as its own cost are covered.
+
+Gilded Drake uses a native optional zero-to-one target group and native control exchange. Only a trigger containing the sole exact exchange_drake91 opcode bypasses the all-targets-illegal resolution stop. It sacrifices the original source via native sacrifice only when no exchange happened. Actual printed casts prove choosing zero, no legal targets, successful exchange, and actual target removal; a genuine fresh-process cold run continues the removed-target case and sacrifices Drake. Ordinary grouped-target countering remains covered by related tests.
+
+Patch160 lines generated against saved original stage files, with no sibling-hook deletions. Definition hook is insertion-only. Root integrates the leaf and narrow scripts/effects hooks, preserving moving production hooks.

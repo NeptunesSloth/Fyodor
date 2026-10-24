@@ -1,0 +1,25 @@
+....F                                                                    [100%]
+=================================== FAILURES ===================================
+____ test_life_lock_cannot_repeat_and_still_finishes71[Angel of Jubilation] ____
+
+cards = <app.cards.repository.CardRepository object at 0x7fedb5dfc650>
+lock = 'Angel of Jubilation'
+
+    @pytest.mark.parametrize('lock',['Platinum Emperion','Angel of Jubilation'])
+    def test_life_lock_cannot_repeat_and_still_finishes71(cards,lock):
+        s=setup(cards)
+        packet=top(s,['Grizzly Bears','Mountain','Fireball','Lightning Bolt','Sol Ring'])
+        ids=[c.id for c in packet]
+        put(s,lock,'battlefield')
+        life=s.state.players['p1'].life
+        cast(s,NAME)
+        d=s.state.rules.decision
+>       assert d and d.kind=='order'
+E       assert (Decision(id='61beddf6ea44', player='p1', kind='choose_one', prompt="Lim-Dûl's Vault: pay 1 life?", options=[DecisionOp...'bind': 'l0_vault_pay71', 'payer': 'p1', 'chosen': {}, 'cost_has_x': None}, 'cost': '{0}'}, display=None, decider=None) and 'choose_one' == 'order'
+E
+E         - order
+E         + choose_one)
+
+tests/test_rules_vault_loop71.py:207: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_rules_vault_loop71.py::test_life_lock_cannot_repeat_and_still_finishes71[Angel of Jubilation]

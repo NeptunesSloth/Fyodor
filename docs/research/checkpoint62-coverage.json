@@ -1,0 +1,35 @@
+{
+  "baseline": "checkpoint61",
+  "checkpoint": "checkpoint62",
+  "database_metadata_equal": true,
+  "card_name_set_equal": true,
+  "summary": {
+    "FULL": 29840,
+    "PARTIAL": 2228
+  },
+  "promotions": [
+    "Belt of Giant Strength",
+    "Empty City Ruse",
+    "Fade Away",
+    "False Peace",
+    "Fatespinner",
+    "Greenhouse // Rickety Gazebo",
+    "Hall of Gemstone",
+    "Ian Malcolm, Chaotician",
+    "Kaya the Inexorable",
+    "Moment of Silence",
+    "Moonlight Bargain",
+    "Nashi, Searcher in the Dark",
+    "New Perspectives",
+    "Pollywog Symbiote",
+    "Quest for Renewal",
+    "Savor the Moment",
+    "Sirocco",
+    "Spell Queller",
+    "Tariff",
+    "Venarian Gold"
+  ],
+  "regressions": [],
+  "unexpected": [],
+  "missing": []
+}

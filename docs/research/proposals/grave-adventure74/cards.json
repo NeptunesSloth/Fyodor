@@ -1,0 +1,92 @@
+[
+  {
+    "name": "Mosswood Dreadknight // Dread Whispers",
+    "layout": "adventure",
+    "mana_cost": "{1}{G} // {1}{B}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Human Knight // Sorcery \u2014 Adventure",
+    "oracle_text": "Trample\nWhen this creature dies, you may cast it from your graveyard as an Adventure until the end of your next turn.\n//\nYou draw a card and you lose 1 life. (Then exile this card. You may cast the creature later from exile.)",
+    "power": "3",
+    "toughness": "2",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "B",
+      "G"
+    ],
+    "keywords": [
+      "Trample"
+    ],
+    "card_faces": [
+      {
+        "name": "Mosswood Dreadknight",
+        "mana_cost": "{1}{G}",
+        "type_line": "Creature \u2014 Human Knight",
+        "oracle_text": "Trample\nWhen this creature dies, you may cast it from your graveyard as an Adventure until the end of your next turn.",
+        "power": "3",
+        "toughness": "2",
+        "loyalty": null,
+        "defense": null,
+        "colors": null,
+        "image_face": 0
+      },
+      {
+        "name": "Dread Whispers",
+        "mana_cost": "{1}{B}",
+        "type_line": "Sorcery \u2014 Adventure",
+        "oracle_text": "You draw a card and you lose 1 life. (Then exile this card. You may cast the creature later from exile.)",
+        "power": null,
+        "toughness": null,
+        "loyalty": null,
+        "defense": null,
+        "colors": null,
+        "image_face": 0
+      }
+    ]
+  },
+  {
+    "name": "Hildibrand Manderville // Gentleman's Rise",
+    "layout": "adventure",
+    "mana_cost": "{1}{W} // {2}{B}",
+    "cmc": 2.0,
+    "type_line": "Legendary Creature \u2014 Human Detective // Instant \u2014 Adventure",
+    "oracle_text": "Creature tokens you control get +1/+1.\nWhen Hildibrand Manderville dies, you may cast it from your graveyard as an Adventure until the end of your next turn.\n//\nCreate a 2/2 black Zombie creature token. (Then exile this card. You may cast the creature later from exile.)",
+    "power": "2",
+    "toughness": "2",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "B",
+      "W"
+    ],
+    "keywords": [],
+    "card_faces": [
+      {
+        "name": "Hildibrand Manderville",
+        "mana_cost": "{1}{W}",
+        "type_line": "Legendary Creature \u2014 Human Detective",
+        "oracle_text": "Creature tokens you control get +1/+1.\nWhen Hildibrand Manderville dies, you may cast it from your graveyard as an Adventure until the end of your next turn.",
+        "power": "2",
+        "toughness": "2",
+        "loyalty": null,
+        "defense": null,
+        "colors": null,
+        "image_face": 0
+      },
+      {
+        "name": "Gentleman's Rise",
+        "mana_cost": "{2}{B}",
+        "type_line": "Instant \u2014 Adventure",
+        "oracle_text": "Create a 2/2 black Zombie creature token. (Then exile this card. You may cast the creature later from exile.)",
+        "power": null,
+        "toughness": null,
+        "loyalty": null,
+        "defense": null,
+        "colors": null,
+        "image_face": 0
+      }
+    ]
+  }
+]

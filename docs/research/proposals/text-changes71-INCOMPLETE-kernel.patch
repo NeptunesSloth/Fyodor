@@ -1,0 +1,278 @@
+--- a/backend/app/game/rules_state.py
++++ b/backend/app/game/rules_state.py
+@@ -657,6 +657,17 @@
+     value: int = 0
+
+
++class SpliceText71(BaseModel):
++    name: str
++    abilities: list[dict[str, Any]] = Field(default_factory=list)
++
++
++class TextChange71(BaseModel):
++    category: Literal['color', 'basic_land', 'creature']
++    old: str
++    new: str
++
++
+ class ContinuousEffect(BaseModel):
+     """A continuous effect from a resolved spell or ability (CR 611.2c): the objects it affects are
+     fixed when it begins. See ``app.rules.layers``."""
+@@ -672,6 +683,7 @@
+     source: str | None = None  # source object id
+     controller: str
+     set_name: str | None = None  # Noncopiable layer-3 name change (613.1c).
++    text_change71: TextChange71 | None = None
+     power: int | None = None
+     toughness: int | None = None
+     add_keywords: list[str] = Field(default_factory=list)
+@@ -1084,6 +1096,7 @@
+     exiled: list[str] = Field(default_factory=list)  # cards exiled to pay (from a graveyard, or the source)
+     exiled_objects: list[str] = Field(default_factory=list)  # -- as long as (wave 37A) -- the objects they became in exile (400.7j: "this card" finds that one)
+     exiled_was: list[str] = Field(default_factory=list)  # (wave 48B: and the objects they were, "the number of cards exiled this way" of an activation cost)
++    splice_text71: SpliceText71 | None = None
+     spliced_names: list[str] | None = None  # Public names spliced onto this spell; None is unknown in legacy saves.
+     moved_exile_names: list[str] | None = None  # Public names of cards put from linked exile to a graveyard to pay.
+     returned: list[str] = Field(default_factory=list)  # permanents returned to hand to pay
+--- a/backend/app/cards/repository.py
++++ b/backend/app/cards/repository.py
+@@ -40,6 +40,8 @@
+         self._lock = threading.RLock()
+         self._names: dict[str, str] | None = None
+         self._names_for: sqlite3.Connection | None = None
++        self._word_names: frozenset[str] = frozenset()
++        self._word_names_for: sqlite3.Connection | None = None
+
+     # -- connection management -------------------------------------------------------
+     def _connection(self) -> sqlite3.Connection:
+@@ -262,6 +264,24 @@
+         if card is None:
+             return None, "unresolved"
+         return card, ("fallback" if printing_requested else "name")
++
++    def name_at(self, text: str, start: int) -> str | None:
++        """The longest exact local catalog name beginning at a text position."""
++        with self._lock:
++            conn = self._connection()
++            if self._word_names_for is not conn:
++                rows = conn.execute('SELECT DISTINCT name_norm FROM card_names WHERE is_token = 0').fetchall()
++                self._word_names = frozenset(str(row['name_norm']) for row in rows)
++                self._word_names_for = conn
++            names = self._word_names
++        tail = text[start:]
++        for end in range(min(200, len(tail)), 0, -1):
++            part = tail[:end]
++            if part[-1].isspace() or (end < len(tail) and tail[end].isalnum()):
++                continue
++            if normalize_name(part) in names:
++                return part
++        return None
+
+     def suggest(self, name: str, limit: int = 5) -> list[str]:
+         """Closest known card names for an unresolved deck line (typo tolerant)."""
+--- a/backend/app/rules/scripts.py
++++ b/backend/app/rules/scripts.py
+@@ -2649,6 +2649,10 @@
+
+
+ def parse_effects(body: str, it: str | None = None, *, event_player: bool = False) -> tuple[list[dict[str, Any]], Any, bool] | None:
++    from app.rules import text_change_instructions71
++
++    if (text71 := text_change_instructions71.parse(body)) is not None:
++        return text71
+     from app.rules import graveyard_return57
+
+     if (returned57 := graveyard_return57.parse(body, it)) is not None:
+--- a/backend/app/rules/effects.py
++++ b/backend/app/rules/effects.py
+@@ -3894,6 +3894,12 @@
+
+
+ def begin_resolution(plan: Plan, stack_id: str, entry: StackEntry) -> None:
++    from app.rules import text_spell_refresh71
++
++    refreshed71 = text_spell_refresh71.refresh(plan, stack_id, entry)
++    if refreshed71 is None:
++        return
++    entry = refreshed71
+     if entry.x_from_event_spell:
+         from app.rules.triggers import event_spell_x
+
+@@ -6670,3 +6676,14 @@
+ from app.rules import conditional_free_casts68 as _conditional_free_casts68  # noqa: E402
+
+ PRIMITIVES["next_free_cast68"] = _conditional_free_casts68.next_free
++
++
++from app.rules import text_change_instructions71 as _text_change_instructions71  # noqa: E402
++
++PRIMITIVES.update(_text_change_instructions71.PRIMITIVES)
++CHOICE_OPTIONS['word to replace'] = [*_text_change_instructions71.COLORS, *_text_change_instructions71.LANDS,
++                               *sorted(_text_change_instructions71.CREATURE_TYPES)]
++
++RESUME['text71_legacy_done'] = _text_change_instructions71.legacy_done
++
++CHOICE_OPTIONS['replacement word'] = CHOICE_OPTIONS['word to replace']
+--- a/backend/app/rules/layers.py
++++ b/backend/app/rules/layers.py
+@@ -210,7 +210,10 @@
+     # -- emblems (wave 13A) -- 114: the emblems in the command zones (their text is part of the key)
+     emblems = tuple(sorted((cid, c.owner, c.token.text) for cid, c in state.cards.items()
+                            if c.token is not None and c.zone.endswith(":command") and c.token.type_line == "Emblem"))
+-    key_all: tuple = (key, graveyards, gy_modes, hosts, emblems, tuple(sorted(live)),
++    text71 = tuple((e.id, tuple(e.affected), e.set_name,
++                    (e.text_change71.category, e.text_change71.old, e.text_change71.new) if e.text_change71 is not None else None)
++                   for e in r.effects if e.layer == '3') if r else ()
++    key_all: tuple = (key, graveyards, gy_modes, hosts, emblems, tuple(sorted(live)), text71,
+                       # -- attached events (wave 4L) -- "loses all abilities" effects: their objects' statics are gone
+                       tuple(e.id for e in r.effects if e.remove_abilities or e.set_land_types is not None) if r else (),
+                       # -- layers (wave 22A) -- the resolved effects the group layers (4-6) are solved against (613.6, 613.8)
+@@ -237,7 +240,7 @@
+              and not (r is not None and r.card_mode(cid) == "manual")]
+     out = []
+     for cid, c in field:
+-        for ability_index, d in scripts.definitions(copiable(state, c, info)).items():
++        for ability_index, d in scripts.definitions(source_text71(state, c, copiable(state, c, info), info)).items():
+             if d["kind"] == "static" and d.get("static") in ("grant", "attached_rule") and not grammar.zone_static(d):
+                 if (d := _chosen.resolve_marks(d, c)) is None:  # type: ignore[assignment]  # (wave 53B: the type or color it chose; none recorded: nothing to apply)
+                     continue
+@@ -905,16 +908,35 @@
+     return type_statics.with_gained_mana(ch, changed, True)
+
+
++def source_text71(state: GameState, card: CardInstance, ch: Characteristics, info: CardInfo | None) -> Characteristics:
++    """A source's layer3 text generates later static effects; layer6 grants do not."""
++    if state.rules is None or not (card.zone.endswith(':battlefield') or card.zone == 'stack'):
++        return ch
++    oid = state.rules.object_id(card.id)
++    found = [e for e in state.rules.effects if e.layer == '3' and oid in e.affected]
++    if not any(e.text_change71 is not None for e in found):
++        return ch
++    return name_changes(ch, found, [], info)
++
++
+ def name_changes(ch: Characteristics, effects: list[ContinuousEffect],
+-                 attached45: list[tuple[float, dict[str, Any]]]) -> Characteristics:
++                 attached45: list[tuple[float, dict[str, Any]]], info: CardInfo | None = None) -> Characteristics:
+     """Shared layer3 stage for final derivation and dependency positions (201.5)."""
+     names: list[tuple[tuple[float, int, int], str]] = [
+         ((stamp, 0, 0), definition["set_name"]) for stamp, definition in attached45
+         if definition.get("set_name") is not None]
+     names.extend(((effect.object_seq, 1, effect.timestamp), effect.set_name)
+                  for effect in effects if effect.layer == "3" and effect.set_name is not None)
+-    for _, name in sorted(names, key=lambda item: item[0]):
+-        if name != ch.name:
++    from app.rules import text_word_changes71
++
++    changes = [((e.object_seq, 1, e.timestamp), e.text_change71) for e in effects
++               if e.layer == '3' and e.text_change71 is not None]
++    ordered = [(stamp, name, None) for stamp, name in names] + [(stamp, None, change) for stamp, change in changes]
++    for _, name, change in sorted(ordered, key=lambda item: item[0]):
++        if change is not None:
++            ch = text_word_changes71.apply(ch, change, getattr(info, 'name_at', None))
++            continue
++        if name is not None and name != ch.name:
+             from app.rules.copying import renamed
+
+             # 201.5: self references still name this object after its name changes.
+@@ -967,7 +989,7 @@
+     effects = affecting(state, card, info)
+     each_amounts: dict[int, int] = {}
+     attached45 = _attached45(state, card, info)  # -- attached events (wave 4L) -- "Enchanted creature is a … creature"
+-    ch = name_changes(ch, effects, attached45)
++    ch = name_changes(ch, effects, attached45, info)
+     start = ch  # Abilities after layers 1-3, before layers 4-6 take any away.
+     # -- layers (wave 22A) -- group statics of layers 4 and 5 ("Each land is a Swamp in addition …", "Nonbasic lands are Mountains.",
+     # "All permanents are colorless.": 613.1d-e, 305.7), the objects each began applying to found as the table was solved (613.6, 613.8)
+@@ -1268,7 +1290,7 @@
+         return d.get("who") == "self" and "layer4" in d and (not d.get("layered") or probing(state, card)) and all(grammar._layer4_safe(c) for c in d.get("conditions") or ())
+
+     if not any(d["kind"] == "static" and ("remove_types" in d or "add_subtypes" in d or "add_types" in d or safe_self_dictionary(d))
+-               for d in scripts.definitions(copiable(state, card, info)).values()):
++               for d in scripts.definitions(source_text71(state, card, copiable(state, card, info), info)).values()):
+         return []
+     table = [st for st in (statics(state, info) if table is None else table) if st.source == card.id and st.gate is None
+              and ("remove_types" in st.definition or "add_subtypes" in st.definition or "add_types" in st.definition or safe_self_dictionary(st.definition))]
+@@ -1277,7 +1299,7 @@
+         # 614.12: its own type-changing static applies as it would exist on
+         # the battlefield, even though it is absent from the battlefield table.
+         table = [Static(card.id, card.controller, d, timestamp(state, card.id))
+-                 for d in scripts.definitions(copiable(state, card, info)).values()
++                 for d in scripts.definitions(source_text71(state, card, copiable(state, card, info), info)).values()
+                  if d["kind"] == "static" and ("remove_types" in d or "add_subtypes" in d or "add_types" in d or safe_self_dictionary(d))]
+     if not table:
+         return []
+@@ -1311,7 +1333,7 @@
+     from app.rules import scripts
+
+     if not any(d["kind"] == "static" and d.get("who") == "self" and "set_colors" in d
+-               for d in scripts.definitions(copiable(state, card, info)).values()):
++               for d in scripts.definitions(source_text71(state, card, copiable(state, card, info), info)).values()):
+         return []
+     table = [st for st in (statics(state, info) if table is None else table) if st.source == card.id and st.gate is None
+              and st.definition.get("who") == "self" and "set_colors" in st.definition]
+--- a/backend/app/rules/layer_dependency_graph.py
++++ b/backend/app/rules/layer_dependency_graph.py
+@@ -151,7 +151,7 @@
+             real = state.cards.get(incoming.id)
+             stamp = (state.rules.next_object + 1 if state.rules is not None and
+                      (real is None or not real.zone.endswith(':battlefield')) else layers.timestamp(state, incoming.id))
+-            for d in scripts.definitions(layers.copiable(state, incoming, info)).values():
++            for d in scripts.definitions(layers.source_text71(state, incoming, layers.copiable(state, incoming, info), info)).values():
+                 if d['kind'] == 'static' and d.get('static') in ('grant', 'attached_rule'):
+                     self.raw.append(layers.Static(incoming.id, incoming.controller, d, stamp))
+                     self.raw.extend(layers.Static(incoming.id, incoming.controller, extra, stamp)
+@@ -168,7 +168,7 @@
+             if (real is None or not real.zone.endswith(':battlefield')) and not layers.spell_entry(self.original, incoming, info):
+                 self.effects[incoming.id] = [e for e in self.effects[incoming.id] if e.id.startswith('entry:')]
+         self.base = {cid: layers.name_changes(layers.subtype_cdas(c, layers.prepared(self.original, c, chars.of(c, info), info)),
+-                                            self.effects[cid], layers._attached45(state, c, info, self.raw))
++                                            self.effects[cid], layers._attached45(state, c, info, self.raw), info)
+                      for cid, c in self.cards.items()}
+         self.base = {cid: replace(chars.provenance(self.cards[cid], ch), on_battlefield=True,
+                                   object_counters=frozenset(k for k, n in self.cards[cid].counters.items() if n > 0),
+--- a/backend/app/rules/casting.py
++++ b/backend/app/rules/casting.py
+@@ -29,6 +29,7 @@
+     PaymentRecord,
+     Permission,
+     StackEntry,
++    SpliceText71,
+     TargetRef,
+     TurnCount,
+     cancelable,
+@@ -3765,6 +3766,9 @@
+     from app.rules import card_names
+
+     data.spliced_names = sorted({name for cid in a.splice for name in card_names.names_of(plan.ch(plan.state.cards[cid]))})
++    from app.rules import text_spell_refresh71
++
++    data.splice_text71 = text_spell_refresh71.extras(ch.name, ch, spliced_ch) if a.splice else SpliceText71(name=ch.name)
+     payment_data = _CastPayment(data, cost, not_mana, origin, x_payment, _purpose_context(purpose))
+     from app.rules import payment_continuations as pc
+
+@@ -3815,6 +3819,7 @@
+     record: PaymentRecord | None = None
+     opponent_gain_receipts: list[OpponentGainCostReceipt] | None = None
+     spliced_names: list[str] | None = None  # Announcement snapshot; None only in legacy saved continuations.
++    splice_text71: SpliceText71 | None = None
+     cast_greatest_power: int | None = None
+
+
+@@ -3925,6 +3930,7 @@
+     record.gift_to = gift_to  # "If this spell was kicked"; wave 23D: a promised gift, 702.174k, likewise)
+     _note_cast(plan, record, cast_zone, zone_player=from_where.split(":", 1)[0] if ":" in from_where else None)  # -- refused modal/conditional (wave 3R1) --
+     record.spliced_names = data.spliced_names
++    record.splice_text71 = data.splice_text71
+     record.flash_sac = sac_at_cleanup
+     record_payment(plan, card.id, record)
+     tags = ["Cast from the command zone"] if commander_cast else ["Harmonize"] if harmonized else ["Jump-start"] if jumped else \
+@@ -5027,7 +5033,7 @@
+         pay_spell_then(plan, a, card, ch, cost, f"paid {cost.text()} for {ch.name}" + (f" ({kind})" if alt and not paid else ""),
+                        not_mana=not_mana, then=after, x_payment=x_payment, payment_context=_purpose_context(purpose))
+         return
+-    data.record = PaymentRecord(card=card.id, controller=plan.actor, alternative="free", x_black_spent=0)
++    data.record = PaymentRecord(card=card.id, controller=plan.actor, alternative="free", x_black_spent=0, splice_text71=SpliceText71(name=ch.name))
+     _post_free_cast(plan, data, None)
+
+

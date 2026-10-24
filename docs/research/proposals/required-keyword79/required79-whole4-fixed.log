@@ -1,0 +1,46 @@
+...F                                                                     [100%]
+=================================== FAILURES ===================================
+_________________ test_whole_canonical79[Detective's Phoenix] __________________
+tests/test_rules_required_keyword79.py:63: in test_whole_canonical79
+    assert coverage.of_card_data(cards.resolve(name)).level == 'FULL'
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/coverage.py:794: in of_card_data
+    return of_characteristics(printed_from_data(data, 0))
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/coverage.py:765: in of_characteristics
+    feats = tuple(features_of(ch))
+                  ^^^^^^^^^^^^^^^
+app/rules/coverage.py:688: in features_of
+    templated = {i for i, d in templates.definitions(ch).items() if definition_supported(d) and x_selector_ok(ch, d)}
+                               ^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/scripts.py:8104: in definitions
+    return _cached(replace(ch, pt=None, granted=frozenset(), lost=frozenset(), imposed=frozenset()))
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/scripts.py:8024: in _cached
+    d = define(ab, ch)
+        ^^^^^^^^^^^^^^
+app/rules/scripts.py:6610: in define
+    d = _chosen.remember_name(_enters_self_check(_define(view[0] if view else ability, ch), ch), self_text(ability.text, ch.name))  # (-- any number as an additional cost (wave 48B) -- "creatures sacrificed this way" of a spell's own cost)  (wave 53B: a trigger's card name, kept)
+                                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/scripts.py:7168: in _define
+    return alt_costs.keyword_definition(ability.text)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/alt_costs.py:286: in keyword_definition
+    if (composite79 := required_keyword79.keyword_definition(line)) is not None:
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/required_keyword79.py:31: in keyword_definition
+    native = alt_costs.define(f"you may {cost} rather than pay ~'s mana cost")
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/alt_costs.py:176: in define
+    found = parse_cost(m["cost"], x_ok)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/alt_costs.py:130: in parse_cost
+    found = _part(piece.strip(), x_ok)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/alt_costs.py:84: in _part
+    found = parsed.components[0] if parsed.supported and len(parsed.components) == 1 else None
+                                    ^^^^^^^^^^^^^^^^
+E   AttributeError: 'AbilityCost' object has no attribute 'supported'. Did you mean: 'unsupported'?
+=========================== short test summary info ============================
+FAILED tests/test_rules_required_keyword79.py::test_whole_canonical79[Detective's Phoenix]
+1 failed, 3 passed, 6 deselected in 1.75s

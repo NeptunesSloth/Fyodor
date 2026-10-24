@@ -1,0 +1,357 @@
+..FFFFFF                                                                 [100%]
+=================================== FAILURES ===================================
+________ test_actual_sacrifice_native_frozen_card_types[Gingerbrute-2] _________
+
+cards = <app.cards.repository.CardRepository object at 0x7fe836d5d5e0>
+name = 'Gingerbrute', n = 2
+
+    @pytest.mark.parametrize("name,n", [("Gingerbrute", 2), ("Bitterblossom", 2), ("Forest", 1)])
+    def test_actual_sacrifice_native_frozen_card_types(cards, name, n):
+        s, c = setup(cards)
+        target = put(s, name, "battlefield")
+>       sac(s, target)
+
+scratch/cost82/stage/backend/tests/test_rules_sacrifice_type_costs82.py:77:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+scratch/cost82/stage/backend/tests/test_rules_sacrifice_type_costs82.py:49: in sac
+    act(s, pid, type="activate_ability", card_id=claws.id, ability=0, sources=[],
+scratch/cost82/stage/backend/tests/game_helpers.py:42: in act
+    return session.perform(actor, payload)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+scratch/cost82/stage/backend/app/game/session.py:61: in perform
+    resolved = resolve(self.state, action, actor=actor, cards=self.cards, trusted=trusted)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+scratch/cost82/stage/backend/app/game/resolve.py:76: in resolve
+    a.r = compile_intent(state, a, actor=actor, info=info, rng=rng)  # type: ignore[union-attr]
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+scratch/cost82/stage/backend/app/rules/engine.py:164: in compile_intent
+    handler(plan, intent)
+scratch/cost82/stage/backend/app/rules/casting.py:5426: in activate_ability
+    activate_to_stack(plan, card, ch, ability, a)
+scratch/cost82/stage/backend/app/rules/casting.py:6013: in activate_to_stack
+    cost_objects = cost_payment.choose(plan, a, cost, card, f"{ch.name}’s ability")  # (602.2b → 601.2h)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+plan = <app.rules.plan.Plan object at 0x7fe83653d190>
+a = ActivateAbility(actor='p1', ts=1792727974.049686, r=None, type='activate_ability', card_id='4bd70d05966d', ability=0, ...ovise=False, delve=False, crew=None, cost_choices=[CostChoice(component=0, cards=['fb12822ba9a9'])], life_symbols=None)
+cost = AbilityCost(numeric_roll_sides=None, mana='{1}', mana_allocation=None, tap=False, untap=False, sacrifice_self=False, l...gain_scope=None)), graveyard_only=False, exile_too=False, hand_only=False, command_only=False, life_x=False, either=())
+card = CardInstance(borrow_identity=None, id='4bd70d05966d', card_id='d02b645e-ba2c-44a0-889e-c1b46d2cd925', name='Claws of G...ts=[], damage=0, choices={}, stack_info=None, exile_group=None, token_source=None, origin='library', test_object=False)
+what = 'Claws of Gix’s ability', compatible_tap = False, counter_first = False
+component_excluded = None
+
+    def choose(plan: Plan, a: A.ActivateAbility | A.CastSpell | A.TurnFaceUp | A.DeclareAttackers | A.DeclareBlockers, cost: AbilityCost, card: CardInstance, what: str, *, compatible_tap: bool = False, counter_first: bool = False, component_excluded: dict[int, set[str]] | None = None) -> dict[int, list[str]] | None:
+        """The validated objects for every part of ``cost`` that needs a choice, by component index;
+        None while waiting for the payer's (private) choice. Each object pays for one part only."""
+        given: dict[int, list[str]] = {}
+        for c in a.cost_choices:
+            if c.component == C.EITHER_SLOT and isinstance(a, A.CastSpell | A.ActivateAbility):  # -- static wordings (wave 6E) -- (either_costs; wave 43D: equip)
+                continue
+            if c.component in given:
+                raise ActionError("Choose the objects for each part of the cost once")
+            given[c.component] = list(c.cards)
+        from app.rules import counter_cost_order70
+
+        counter_index = counter_cost_order70.index(cost) if counter_first else None
+        parts = dict(cost.choices)
+        if set(given) - set(parts):
+>           raise ActionError("That ability's cost has no such part to choose for")
+E           app.game.errors.ActionError: That ability's cost has no such part to choose for
+
+scratch/cost82/stage/backend/app/rules/cost_payment.py:462: ActionError
+_______ test_actual_sacrifice_native_frozen_card_types[Bitterblossom-2] ________
+
+cards = <app.cards.repository.CardRepository object at 0x7fe836d5dd30>
+name = 'Bitterblossom', n = 2
+
+    @pytest.mark.parametrize("name,n", [("Gingerbrute", 2), ("Bitterblossom", 2), ("Forest", 1)])
+    def test_actual_sacrifice_native_frozen_card_types(cards, name, n):
+        s, c = setup(cards)
+        target = put(s, name, "battlefield")
+>       sac(s, target)
+
+scratch/cost82/stage/backend/tests/test_rules_sacrifice_type_costs82.py:77:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+scratch/cost82/stage/backend/tests/test_rules_sacrifice_type_costs82.py:49: in sac
+    act(s, pid, type="activate_ability", card_id=claws.id, ability=0, sources=[],
+scratch/cost82/stage/backend/tests/game_helpers.py:42: in act
+    return session.perform(actor, payload)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+scratch/cost82/stage/backend/app/game/session.py:61: in perform
+    resolved = resolve(self.state, action, actor=actor, cards=self.cards, trusted=trusted)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+scratch/cost82/stage/backend/app/game/resolve.py:76: in resolve
+    a.r = compile_intent(state, a, actor=actor, info=info, rng=rng)  # type: ignore[union-attr]
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+scratch/cost82/stage/backend/app/rules/engine.py:164: in compile_intent
+    handler(plan, intent)
+scratch/cost82/stage/backend/app/rules/casting.py:5426: in activate_ability
+    activate_to_stack(plan, card, ch, ability, a)
+scratch/cost82/stage/backend/app/rules/casting.py:6013: in activate_to_stack
+    cost_objects = cost_payment.choose(plan, a, cost, card, f"{ch.name}’s ability")  # (602.2b → 601.2h)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+plan = <app.rules.plan.Plan object at 0x7fe83655e810>
+a = ActivateAbility(actor='p1', ts=1792727978.5957847, r=None, type='activate_ability', card_id='0a31fa302116', ability=0,...ovise=False, delve=False, crew=None, cost_choices=[CostChoice(component=0, cards=['92ee927c5013'])], life_symbols=None)
+cost = AbilityCost(numeric_roll_sides=None, mana='{1}', mana_allocation=None, tap=False, untap=False, sacrifice_self=False, l...gain_scope=None)), graveyard_only=False, exile_too=False, hand_only=False, command_only=False, life_x=False, either=())
+card = CardInstance(borrow_identity=None, id='0a31fa302116', card_id='d02b645e-ba2c-44a0-889e-c1b46d2cd925', name='Claws of G...ts=[], damage=0, choices={}, stack_info=None, exile_group=None, token_source=None, origin='library', test_object=False)
+what = 'Claws of Gix’s ability', compatible_tap = False, counter_first = False
+component_excluded = None
+
+    def choose(plan: Plan, a: A.ActivateAbility | A.CastSpell | A.TurnFaceUp | A.DeclareAttackers | A.DeclareBlockers, cost: AbilityCost, card: CardInstance, what: str, *, compatible_tap: bool = False, counter_first: bool = False, component_excluded: dict[int, set[str]] | None = None) -> dict[int, list[str]] | None:
+        """The validated objects for every part of ``cost`` that needs a choice, by component index;
+        None while waiting for the payer's (private) choice. Each object pays for one part only."""
+        given: dict[int, list[str]] = {}
+        for c in a.cost_choices:
+            if c.component == C.EITHER_SLOT and isinstance(a, A.CastSpell | A.ActivateAbility):  # -- static wordings (wave 6E) -- (either_costs; wave 43D: equip)
+                continue
+            if c.component in given:
+                raise ActionError("Choose the objects for each part of the cost once")
+            given[c.component] = list(c.cards)
+        from app.rules import counter_cost_order70
+
+        counter_index = counter_cost_order70.index(cost) if counter_first else None
+        parts = dict(cost.choices)
+        if set(given) - set(parts):
+>           raise ActionError("That ability's cost has no such part to choose for")
+E           app.game.errors.ActionError: That ability's cost has no such part to choose for
+
+scratch/cost82/stage/backend/app/rules/cost_payment.py:462: ActionError
+___________ test_actual_sacrifice_native_frozen_card_types[Forest-1] ___________
+
+cards = <app.cards.repository.CardRepository object at 0x7fe8366a6930>
+name = 'Forest', n = 1
+
+    @pytest.mark.parametrize("name,n", [("Gingerbrute", 2), ("Bitterblossom", 2), ("Forest", 1)])
+    def test_actual_sacrifice_native_frozen_card_types(cards, name, n):
+        s, c = setup(cards)
+        target = put(s, name, "battlefield")
+>       sac(s, target)
+
+scratch/cost82/stage/backend/tests/test_rules_sacrifice_type_costs82.py:77:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+scratch/cost82/stage/backend/tests/test_rules_sacrifice_type_costs82.py:49: in sac
+    act(s, pid, type="activate_ability", card_id=claws.id, ability=0, sources=[],
+scratch/cost82/stage/backend/tests/game_helpers.py:42: in act
+    return session.perform(actor, payload)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+scratch/cost82/stage/backend/app/game/session.py:61: in perform
+    resolved = resolve(self.state, action, actor=actor, cards=self.cards, trusted=trusted)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+scratch/cost82/stage/backend/app/game/resolve.py:76: in resolve
+    a.r = compile_intent(state, a, actor=actor, info=info, rng=rng)  # type: ignore[union-attr]
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+scratch/cost82/stage/backend/app/rules/engine.py:164: in compile_intent
+    handler(plan, intent)
+scratch/cost82/stage/backend/app/rules/casting.py:5426: in activate_ability
+    activate_to_stack(plan, card, ch, ability, a)
+scratch/cost82/stage/backend/app/rules/casting.py:6013: in activate_to_stack
+    cost_objects = cost_payment.choose(plan, a, cost, card, f"{ch.name}’s ability")  # (602.2b → 601.2h)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+plan = <app.rules.plan.Plan object at 0x7fe836568080>
+a = ActivateAbility(actor='p1', ts=1792727983.0754747, r=None, type='activate_ability', card_id='02fd3d9f9c44', ability=0,...ovise=False, delve=False, crew=None, cost_choices=[CostChoice(component=0, cards=['5a092cfa3b0b'])], life_symbols=None)
+cost = AbilityCost(numeric_roll_sides=None, mana='{1}', mana_allocation=None, tap=False, untap=False, sacrifice_self=False, l...gain_scope=None)), graveyard_only=False, exile_too=False, hand_only=False, command_only=False, life_x=False, either=())
+card = CardInstance(borrow_identity=None, id='02fd3d9f9c44', card_id='d02b645e-ba2c-44a0-889e-c1b46d2cd925', name='Claws of G...ts=[], damage=0, choices={}, stack_info=None, exile_group=None, token_source=None, origin='library', test_object=False)
+what = 'Claws of Gix’s ability', compatible_tap = False, counter_first = False
+component_excluded = None
+
+    def choose(plan: Plan, a: A.ActivateAbility | A.CastSpell | A.TurnFaceUp | A.DeclareAttackers | A.DeclareBlockers, cost: AbilityCost, card: CardInstance, what: str, *, compatible_tap: bool = False, counter_first: bool = False, component_excluded: dict[int, set[str]] | None = None) -> dict[int, list[str]] | None:
+        """The validated objects for every part of ``cost`` that needs a choice, by component index;
+        None while waiting for the payer's (private) choice. Each object pays for one part only."""
+        given: dict[int, list[str]] = {}
+        for c in a.cost_choices:
+            if c.component == C.EITHER_SLOT and isinstance(a, A.CastSpell | A.ActivateAbility):  # -- static wordings (wave 6E) -- (either_costs; wave 43D: equip)
+                continue
+            if c.component in given:
+                raise ActionError("Choose the objects for each part of the cost once")
+            given[c.component] = list(c.cards)
+        from app.rules import counter_cost_order70
+
+        counter_index = counter_cost_order70.index(cost) if counter_first else None
+        parts = dict(cost.choices)
+        if set(given) - set(parts):
+>           raise ActionError("That ability's cost has no such part to choose for")
+E           app.game.errors.ActionError: That ability's cost has no such part to choose for
+
+scratch/cost82/stage/backend/app/rules/cost_payment.py:462: ActionError
+_______________________ test_repeated_types_do_not_stack _______________________
+
+cards = <app.cards.repository.CardRepository object at 0x7fe83656dc70>
+
+    def test_repeated_types_do_not_stack(cards):
+        s, c = setup(cards)
+        for name in ["Gingerbrute", "Ornithopter"]:
+>           sac(s, put(s, name, "battlefield"))
+
+scratch/cost82/stage/backend/tests/test_rules_sacrifice_type_costs82.py:84:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+scratch/cost82/stage/backend/tests/test_rules_sacrifice_type_costs82.py:49: in sac
+    act(s, pid, type="activate_ability", card_id=claws.id, ability=0, sources=[],
+scratch/cost82/stage/backend/tests/game_helpers.py:42: in act
+    return session.perform(actor, payload)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+scratch/cost82/stage/backend/app/game/session.py:61: in perform
+    resolved = resolve(self.state, action, actor=actor, cards=self.cards, trusted=trusted)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+scratch/cost82/stage/backend/app/game/resolve.py:76: in resolve
+    a.r = compile_intent(state, a, actor=actor, info=info, rng=rng)  # type: ignore[union-attr]
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+scratch/cost82/stage/backend/app/rules/engine.py:164: in compile_intent
+    handler(plan, intent)
+scratch/cost82/stage/backend/app/rules/casting.py:5426: in activate_ability
+    activate_to_stack(plan, card, ch, ability, a)
+scratch/cost82/stage/backend/app/rules/casting.py:6013: in activate_to_stack
+    cost_objects = cost_payment.choose(plan, a, cost, card, f"{ch.name}’s ability")  # (602.2b → 601.2h)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+plan = <app.rules.plan.Plan object at 0x7fe837008fe0>
+a = ActivateAbility(actor='p1', ts=1792727987.5245538, r=None, type='activate_ability', card_id='021767c78e8f', ability=0,...ovise=False, delve=False, crew=None, cost_choices=[CostChoice(component=0, cards=['0a84e6b54acd'])], life_symbols=None)
+cost = AbilityCost(numeric_roll_sides=None, mana='{1}', mana_allocation=None, tap=False, untap=False, sacrifice_self=False, l...gain_scope=None)), graveyard_only=False, exile_too=False, hand_only=False, command_only=False, life_x=False, either=())
+card = CardInstance(borrow_identity=None, id='021767c78e8f', card_id='d02b645e-ba2c-44a0-889e-c1b46d2cd925', name='Claws of G...ts=[], damage=0, choices={}, stack_info=None, exile_group=None, token_source=None, origin='library', test_object=False)
+what = 'Claws of Gix’s ability', compatible_tap = False, counter_first = False
+component_excluded = None
+
+    def choose(plan: Plan, a: A.ActivateAbility | A.CastSpell | A.TurnFaceUp | A.DeclareAttackers | A.DeclareBlockers, cost: AbilityCost, card: CardInstance, what: str, *, compatible_tap: bool = False, counter_first: bool = False, component_excluded: dict[int, set[str]] | None = None) -> dict[int, list[str]] | None:
+        """The validated objects for every part of ``cost`` that needs a choice, by component index;
+        None while waiting for the payer's (private) choice. Each object pays for one part only."""
+        given: dict[int, list[str]] = {}
+        for c in a.cost_choices:
+            if c.component == C.EITHER_SLOT and isinstance(a, A.CastSpell | A.ActivateAbility):  # -- static wordings (wave 6E) -- (either_costs; wave 43D: equip)
+                continue
+            if c.component in given:
+                raise ActionError("Choose the objects for each part of the cost once")
+            given[c.component] = list(c.cards)
+        from app.rules import counter_cost_order70
+
+        counter_index = counter_cost_order70.index(cost) if counter_first else None
+        parts = dict(cost.choices)
+        if set(given) - set(parts):
+>           raise ActionError("That ability's cost has no such part to choose for")
+E           app.game.errors.ActionError: That ability's cost has no such part to choose for
+
+scratch/cost82/stage/backend/app/rules/cost_payment.py:462: ActionError
+____________________ test_opponent_sacrifices_do_not_count _____________________
+
+cards = <app.cards.repository.CardRepository object at 0x7fe83700ac00>
+
+    def test_opponent_sacrifices_do_not_count(cards):
+        s, c = setup(cards)
+>       sac(s, put(s, "Gingerbrute", "battlefield", "p2"), "p2")
+
+scratch/cost82/stage/backend/tests/test_rules_sacrifice_type_costs82.py:90:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+scratch/cost82/stage/backend/tests/test_rules_sacrifice_type_costs82.py:49: in sac
+    act(s, pid, type="activate_ability", card_id=claws.id, ability=0, sources=[],
+scratch/cost82/stage/backend/tests/game_helpers.py:42: in act
+    return session.perform(actor, payload)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+scratch/cost82/stage/backend/app/game/session.py:61: in perform
+    resolved = resolve(self.state, action, actor=actor, cards=self.cards, trusted=trusted)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+scratch/cost82/stage/backend/app/game/resolve.py:76: in resolve
+    a.r = compile_intent(state, a, actor=actor, info=info, rng=rng)  # type: ignore[union-attr]
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+scratch/cost82/stage/backend/app/rules/engine.py:164: in compile_intent
+    handler(plan, intent)
+scratch/cost82/stage/backend/app/rules/casting.py:5426: in activate_ability
+    activate_to_stack(plan, card, ch, ability, a)
+scratch/cost82/stage/backend/app/rules/casting.py:6013: in activate_to_stack
+    cost_objects = cost_payment.choose(plan, a, cost, card, f"{ch.name}’s ability")  # (602.2b → 601.2h)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+plan = <app.rules.plan.Plan object at 0x7fe83704bb30>
+a = ActivateAbility(actor='p2', ts=1792727992.3919892, r=None, type='activate_ability', card_id='400a8218a7e7', ability=0,...ovise=False, delve=False, crew=None, cost_choices=[CostChoice(component=0, cards=['220d47ebbf9d'])], life_symbols=None)
+cost = AbilityCost(numeric_roll_sides=None, mana='{1}', mana_allocation=None, tap=False, untap=False, sacrifice_self=False, l...gain_scope=None)), graveyard_only=False, exile_too=False, hand_only=False, command_only=False, life_x=False, either=())
+card = CardInstance(borrow_identity=None, id='400a8218a7e7', card_id='d02b645e-ba2c-44a0-889e-c1b46d2cd925', name='Claws of G...ts=[], damage=0, choices={}, stack_info=None, exile_group=None, token_source=None, origin='library', test_object=False)
+what = 'Claws of Gix’s ability', compatible_tap = False, counter_first = False
+component_excluded = None
+
+    def choose(plan: Plan, a: A.ActivateAbility | A.CastSpell | A.TurnFaceUp | A.DeclareAttackers | A.DeclareBlockers, cost: AbilityCost, card: CardInstance, what: str, *, compatible_tap: bool = False, counter_first: bool = False, component_excluded: dict[int, set[str]] | None = None) -> dict[int, list[str]] | None:
+        """The validated objects for every part of ``cost`` that needs a choice, by component index;
+        None while waiting for the payer's (private) choice. Each object pays for one part only."""
+        given: dict[int, list[str]] = {}
+        for c in a.cost_choices:
+            if c.component == C.EITHER_SLOT and isinstance(a, A.CastSpell | A.ActivateAbility):  # -- static wordings (wave 6E) -- (either_costs; wave 43D: equip)
+                continue
+            if c.component in given:
+                raise ActionError("Choose the objects for each part of the cost once")
+            given[c.component] = list(c.cards)
+        from app.rules import counter_cost_order70
+
+        counter_index = counter_cost_order70.index(cost) if counter_first else None
+        parts = dict(cost.choices)
+        if set(given) - set(parts):
+>           raise ActionError("That ability's cost has no such part to choose for")
+E           app.game.errors.ActionError: That ability's cost has no such part to choose for
+
+scratch/cost82/stage/backend/app/rules/cost_payment.py:462: ActionError
+_____________ test_controller_at_actual_sacrifice_not_owner_counts _____________
+
+cards = <app.cards.repository.CardRepository object at 0x7fe837002930>
+
+    def test_controller_at_actual_sacrifice_not_owner_counts(cards):
+        s, c = setup(cards)
+        target = put(s, "Gingerbrute", "battlefield", "p2")
+        act(s, "p1", type="set_controller", card_ids=[target.id], player="p1")
+>       sac(s, target)
+
+scratch/cost82/stage/backend/tests/test_rules_sacrifice_type_costs82.py:98:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+scratch/cost82/stage/backend/tests/test_rules_sacrifice_type_costs82.py:49: in sac
+    act(s, pid, type="activate_ability", card_id=claws.id, ability=0, sources=[],
+scratch/cost82/stage/backend/tests/game_helpers.py:42: in act
+    return session.perform(actor, payload)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+scratch/cost82/stage/backend/app/game/session.py:61: in perform
+    resolved = resolve(self.state, action, actor=actor, cards=self.cards, trusted=trusted)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+scratch/cost82/stage/backend/app/game/resolve.py:76: in resolve
+    a.r = compile_intent(state, a, actor=actor, info=info, rng=rng)  # type: ignore[union-attr]
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+scratch/cost82/stage/backend/app/rules/engine.py:164: in compile_intent
+    handler(plan, intent)
+scratch/cost82/stage/backend/app/rules/casting.py:5426: in activate_ability
+    activate_to_stack(plan, card, ch, ability, a)
+scratch/cost82/stage/backend/app/rules/casting.py:6013: in activate_to_stack
+    cost_objects = cost_payment.choose(plan, a, cost, card, f"{ch.name}’s ability")  # (602.2b → 601.2h)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+plan = <app.rules.plan.Plan object at 0x7fe836536540>
+a = ActivateAbility(actor='p1', ts=1792727997.696883, r=None, type='activate_ability', card_id='2759c12095f5', ability=0, ...ovise=False, delve=False, crew=None, cost_choices=[CostChoice(component=0, cards=['067d5735c795'])], life_symbols=None)
+cost = AbilityCost(numeric_roll_sides=None, mana='{1}', mana_allocation=None, tap=False, untap=False, sacrifice_self=False, l...gain_scope=None)), graveyard_only=False, exile_too=False, hand_only=False, command_only=False, life_x=False, either=())
+card = CardInstance(borrow_identity=None, id='2759c12095f5', card_id='d02b645e-ba2c-44a0-889e-c1b46d2cd925', name='Claws of G...ts=[], damage=0, choices={}, stack_info=None, exile_group=None, token_source=None, origin='library', test_object=False)
+what = 'Claws of Gix’s ability', compatible_tap = False, counter_first = False
+component_excluded = None
+
+    def choose(plan: Plan, a: A.ActivateAbility | A.CastSpell | A.TurnFaceUp | A.DeclareAttackers | A.DeclareBlockers, cost: AbilityCost, card: CardInstance, what: str, *, compatible_tap: bool = False, counter_first: bool = False, component_excluded: dict[int, set[str]] | None = None) -> dict[int, list[str]] | None:
+        """The validated objects for every part of ``cost`` that needs a choice, by component index;
+        None while waiting for the payer's (private) choice. Each object pays for one part only."""
+        given: dict[int, list[str]] = {}
+        for c in a.cost_choices:
+            if c.component == C.EITHER_SLOT and isinstance(a, A.CastSpell | A.ActivateAbility):  # -- static wordings (wave 6E) -- (either_costs; wave 43D: equip)
+                continue
+            if c.component in given:
+                raise ActionError("Choose the objects for each part of the cost once")
+            given[c.component] = list(c.cards)
+        from app.rules import counter_cost_order70
+
+        counter_index = counter_cost_order70.index(cost) if counter_first else None
+        parts = dict(cost.choices)
+        if set(given) - set(parts):
+>           raise ActionError("That ability's cost has no such part to choose for")
+E           app.game.errors.ActionError: That ability's cost has no such part to choose for
+
+scratch/cost82/stage/backend/app/rules/cost_payment.py:462: ActionError
+=========================== short test summary info ============================
+FAILED scratch/cost82/stage/backend/tests/test_rules_sacrifice_type_costs82.py::test_actual_sacrifice_native_frozen_card_types[Gingerbrute-2]
+FAILED scratch/cost82/stage/backend/tests/test_rules_sacrifice_type_costs82.py::test_actual_sacrifice_native_frozen_card_types[Bitterblossom-2]
+FAILED scratch/cost82/stage/backend/tests/test_rules_sacrifice_type_costs82.py::test_actual_sacrifice_native_frozen_card_types[Forest-1]
+FAILED scratch/cost82/stage/backend/tests/test_rules_sacrifice_type_costs82.py::test_repeated_types_do_not_stack
+FAILED scratch/cost82/stage/backend/tests/test_rules_sacrifice_type_costs82.py::test_opponent_sacrifices_do_not_count
+FAILED scratch/cost82/stage/backend/tests/test_rules_sacrifice_type_costs82.py::test_controller_at_actual_sacrifice_not_owner_counts

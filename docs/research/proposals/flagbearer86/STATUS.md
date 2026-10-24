@@ -1,0 +1,3 @@
+# Isolated Flagbearer candidate — not installed or counted
+
+Standard Bearer, Coalition Flag, Coalition Honor Guard: isolated native24 pass. Two missing generator return annotations and test import order were corrected after that behavior run; final mypy5 and Ruff6 pass. Runtime branches unchanged by those annotation/import corrections. Original failed quality logs remain in persistent scratch. Root integration/catalog/related gates are NOT complete. Do not count these3 in verified totals. Agent usage limit stopped further integration. Native target-group feasibility, random/delegated target authority and retarget exemptions are covered by isolated tests; no all-interaction claim.

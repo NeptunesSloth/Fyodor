@@ -1,0 +1,35 @@
+{
+  "id": "7a6f9984-dec7-4a1f-91d6-1e85b5df5e4c",
+  "oracle_id": "a9596b05-e0bb-4e70-82fe-5db60f87bf3d",
+  "name": "Vine Gecko",
+  "layout": "normal",
+  "set_code": "znr",
+  "set_name": "Zendikar Rising",
+  "collector_number": "219",
+  "rarity": "uncommon",
+  "mana_cost": "{1}{G}",
+  "cmc": 2.0,
+  "type_line": "Creature \u2014 Elemental Lizard",
+  "oracle_text": "The first kicked spell you cast each turn costs {1} less to cast.\nWhenever you cast a kicked spell, put a +1/+1 counter on this creature.",
+  "power": "2",
+  "toughness": "2",
+  "loyalty": null,
+  "defense": null,
+  "colors": [
+    "G"
+  ],
+  "color_identity": [
+    "G"
+  ],
+  "keywords": [],
+  "is_token": false,
+  "faces": [],
+  "double_faced": false,
+  "image_faces": 1,
+  "has_image": false,
+  "released_at": "2020-09-25",
+  "artist": "Uriah Voth",
+  "commander_legal": "legal",
+  "related_tokens": [],
+  "related_cards": []
+}

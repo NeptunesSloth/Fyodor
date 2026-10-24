@@ -1,0 +1,66 @@
+--- /dev/null
++++ b/backend/app/rules/demonic_covenant62.py
+@@ -0,0 +1,40 @@
++"""Exact latest-public-mill type-set continuation for Demonic Covenant."""
++from __future__ import annotations
++
++from typing import TYPE_CHECKING, Any
++
++if TYPE_CHECKING:
++    from app.rules.plan import Plan
++
++_BODY = "Create a 5/5 black Demon creature token with flying, then mill two cards. If two cards that share all their card types were milled this way, sacrifice ~."
++_PUBLIC = ('graveyard', 'exile', 'battlefield', 'command', 'stack')
++
++
++def parse(body: str) -> tuple[list[dict[str, Any]], Any, bool] | None:
++    from app.rules import scripts
++
++    if body.strip().casefold() != _BODY.casefold():
++        return None
++    token = scripts.parse_effects('Create a 5/5 black Demon creature token with flying.')
++    if token is None or token[1] is not None or token[2]:
++        return None
++    return [*token[0], {'do': 'mill', 'who': 'you', 'n': 2, 'as': 'covenant_mill62'},
++            {'do': 'covenant_types62'}], None, False
++
++
++def matching_types(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
++    from app.rules import context, effects
++
++    seen: set[frozenset[str]] = set()
++    for cid in context.objects(plan, ctx, 'covenant_mill62'):
++        card = plan.state.cards[cid]
++        if card.zone.rsplit(':', 1)[-1] not in _PUBLIC or card.face_down:
++            continue
++        types = frozenset(plan.ch(card).types)
++        if types in seen:
++            return effects.sacrifice(plan, ctx, {'who': 'self'})
++        seen.add(types)
++    return True
++
++
++PRIMITIVES = {'covenant_types62': matching_types}
+--- a/backend/app/rules/scripts.py
++++ b/backend/app/rules/scripts.py
+@@ -2657,6 +2657,10 @@
+
+     if (offered78 := object_mana_offers78.parse(body)) is not None:
+         return offered78
++    from app.rules import demonic_covenant62
++
++    if (covenant62 := demonic_covenant62.parse(body)) is not None:
++        return covenant62
+     from app.rules import public_mill_attachment59
+
+     if (continued59 := public_mill_attachment59.parse(body, it, event_player)) is not None:
+--- a/backend/app/rules/effects.py
++++ b/backend/app/rules/effects.py
+@@ -6712,3 +6712,7 @@
+ RESUME['restore_global_word71'] = _global_word71.resume_restore
+
+ RESUME['restore_global_continue71'] = _global_word71.resume_continue
++
++from app.rules import demonic_covenant62
++
++PRIMITIVES.update(demonic_covenant62.PRIMITIVES)

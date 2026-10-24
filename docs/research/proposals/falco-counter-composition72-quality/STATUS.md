@@ -1,0 +1,9 @@
+# Falco counter composition72 quality closure
+
+No new promotions. Dawnhand Dissident remains held for a separate full native closure.
+
+Actual current-live Falco70 failed to cast Hierophant Bio-Titan from its library with its printed optional counter reduction, both choosing zero counters and choosing three distinct counters from the same holder that paid Falco. The zero case failed original capture because there were two counter components; the nonzero case incorrectly reserved the entire holder. Once those were fixed, actual payment exposed another defect: removing the first counter renumbered tokens, causing a valid later selected original counter to disappear from lookup.
+
+The narrow two-file quality repair keeps bounded selected-grant provenance. It permits the actual optional Hierophant among+1 counter component alongside Falco’s fixed one-counter cost, reserves individual counter resources rather than the entire holder for that pair, captures every actual selected holder’s original object reference, pins automatic choices across later nonmana questions, and preserves the original token-to-holder/kind mapping across actual cost payment. Every native removal still checks payment succeeds; one token cannot pay twice. Missing original receipts fail explicitly rather than guessing.
+
+Exact gates: before2 actual current-live failures retained; after native whole6 PASS (including genuine cold3), related66 PASS (original Falco19 plus existing47c costs), scoped mypy2 PASS, Ruff3 PASS. Full patch, source/base hashes, current canonical Hierophant and complete official ruling set, and logs are retained beside this status. Root accepted source review and owns installation and final production/catalog validation. Casting, permissions, Dawnhand recipes and sibling changes are absent from this patch.

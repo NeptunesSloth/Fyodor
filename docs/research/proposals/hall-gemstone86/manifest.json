@@ -1,0 +1,26 @@
+{
+  "candidate_names": [
+    "Hall of Gemstone"
+  ],
+  "expected_promotions": 1,
+  "source_files": [
+    "backend/app/rules/hall_gemstone86.py",
+    "backend/app/rules/scripts.py",
+    "backend/app/rules/effects.py",
+    "backend/app/rules/mana_replace.py",
+    "backend/app/rules/contextual_mana_triggers.py"
+  ],
+  "patch": "UNINSTALLED.patch",
+  "test_destination": "backend/tests/test_rules_hall_gemstone86.py",
+  "fixture_destination": "backend/tests/fixtures/hall_gemstone86_cards.json",
+  "native_pass": 11,
+  "cold_roundtrips": 2,
+  "related_distinct_pass": 44,
+  "related_note": "First44:26pass18missingcanonicalDB; corrected isolated DB symlink, reran whole persistent21 exit0 (3 overlap), yielding23 other+21persistent=44distinct.",
+  "mypy_files": 5,
+  "ruff_files": 6,
+  "dependencies": [
+    "World duration foundation80"
+  ],
+  "admission": "root audit required; no live source edits"
+}

@@ -1,0 +1,11 @@
+{
+  "source_stage": "/tmp/extra89",
+  "Savor the Moment": "FULL",
+  "Time Bends to My Will": {
+    "level": "PARTIAL",
+    "manual_parts": [
+      "When you set this scheme in motion, take an extra turn after this one. Skip the untap step of that turn."
+    ]
+  },
+  "gate": "Actual coverage.of_card_data on full canonical objects, with native extra_turns89 parser imported in a fresh process."
+}

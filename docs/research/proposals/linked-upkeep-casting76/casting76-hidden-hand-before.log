@@ -1,0 +1,9 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+_ test_kaya_hidden_hand_without_an_eligible_legendary_still_gets_a_private_choice _
+tests/test_rules_linked_upkeep_casting76.py:264: in test_kaya_hidden_hand_without_an_eligible_legendary_still_gets_a_private_choice
+    assert d and d.kind == 'choose_cards' and not d.options
+E   assert (None)
+=========================== short test summary info ============================
+FAILED tests/test_rules_linked_upkeep_casting76.py::test_kaya_hidden_hand_without_an_eligible_legendary_still_gets_a_private_choice
+1 failed, 12 deselected in 13.67s

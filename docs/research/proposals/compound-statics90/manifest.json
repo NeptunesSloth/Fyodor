@@ -1,0 +1,25 @@
+{
+  "candidate_names": [
+    "Tek",
+    "Tribal Golem",
+    "Bride's Gown",
+    "Groom's Finery",
+    "So Tiny",
+    "Burden of Proof",
+    "Phoenix Fleet Airship"
+  ],
+  "expected_promotions": 7,
+  "source_files": [
+    "backend/app/rules/compound_static_grants90.py",
+    "backend/app/rules/scripts.py"
+  ],
+  "patch": "UNINSTALLED.patch",
+  "test_destination": "backend/tests/test_rules_compound_statics90.py",
+  "fixture_destination": "backend/tests/fixtures/compound_statics90_cards.json",
+  "native_pass": 23,
+  "cold_roundtrips": 3,
+  "related_native_pass": 36,
+  "mypy_files": 2,
+  "ruff_files": 3,
+  "admission": "root audit required; no live source edits"
+}

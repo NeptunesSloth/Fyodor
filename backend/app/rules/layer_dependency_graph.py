@@ -151,7 +151,7 @@ class Solver:
             real = state.cards.get(incoming.id)
             stamp = (state.rules.next_object + 1 if state.rules is not None and
                      (real is None or not real.zone.endswith(':battlefield')) else layers.timestamp(state, incoming.id))
-            for d in scripts.definitions(layers.copiable(state, incoming, info)).values():
+            for d in scripts.definitions(layers.source_text71(state, incoming, layers.copiable(state, incoming, info), info)).values():
                 if d['kind'] == 'static' and d.get('static') in ('grant', 'attached_rule'):
                     self.raw.append(layers.Static(incoming.id, incoming.controller, d, stamp))
                     self.raw.extend(layers.Static(incoming.id, incoming.controller, extra, stamp)
@@ -168,7 +168,7 @@ class Solver:
             if (real is None or not real.zone.endswith(':battlefield')) and not layers.spell_entry(self.original, incoming, info):
                 self.effects[incoming.id] = [e for e in self.effects[incoming.id] if e.id.startswith('entry:')]
         self.base = {cid: layers.name_changes(layers.subtype_cdas(c, layers.prepared(self.original, c, chars.of(c, info), info)),
-                                            self.effects[cid], layers._attached45(state, c, info, self.raw))
+                                            self.effects[cid], layers._attached45(state, c, info, self.raw), info, state, c)
                      for cid, c in self.cards.items()}
         self.base = {cid: replace(chars.provenance(self.cards[cid], ch), on_battlefield=True,
                                   object_counters=frozenset(k for k, n in self.cards[cid].counters.items() if n > 0),

@@ -361,6 +361,7 @@ export interface RulesPrefs {
 }
 
 export interface RulesHints {
+  deferred_payments?: { id: string; cost: string; name: string }[];
   has_priority?: boolean;
   playable_lands?: string[];
   castable?: string[];

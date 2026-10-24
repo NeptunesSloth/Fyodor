@@ -1,0 +1,41 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+_____ test_native_cybership_prepares_both_face_down_entry_counter_choices ______
+
+cards = <app.cards.repository.CardRepository object at 0x7f755574f4a0>
+
+    def test_native_cybership_prepares_both_face_down_entry_counter_choices(cards):
+        from tests.test_rules_wave30p_combat import attack
+        s=setup(cards)
+        grum=put(s,'Grumgully, the Generous','battlefield')
+        put(s,'Hardened Scales','battlefield')
+        put(s,'Doubling Season','battlefield')
+        pilot=put(s,'Hill Giant','battlefield')
+        ship=put(s,'Cybership','battlefield')
+        to_phase(s,'main1',7)
+        from app.rules.casting import activatable
+        ability=next(a for a in activatable(s.state,'p1',cards) if a['card_id']==ship.id)
+        act(s,'p1',type='activate_ability',card_id=ship.id,ability=ability['ability'],crew=[grum.id,pilot.id])
+        settle(s)
+        selected=top_for(s,['Grizzly Bears','Hill Giant'],'p2')
+        to_phase(s,'declare_attackers',turn=7)
+        attack(s,(ship,'p2'))
+        count=0
+        for _ in range(60):
+            d=s.state.rules.decision
+            if d is not None:
+                assert d.resume.get('step')=='enter_choice'
+                assert not any(c.face_down and c.zone=='p1:battlefield' for c in selected)
+                count+=1
+                act(s,d.player,type='choose',decision_id=d.id,option_ids=[next(o.id for o in d.options if 'Hardened Scales' in o.label)])
+            elif all(c.zone=='p1:battlefield' for c in selected):
+                break
+            else:
+                act(s,s.state.rules.priority,type='pass_priority')
+>       assert count==2, (s.state.turn, s.state.rules.decision, [(c.zone,c.face_down) for c in selected], s.state.players['p2'].life, ship.zone)
+E       AssertionError: (TurnState(number=7, active_player='p1', phase='combat_damage', starting_life={'p1': 40, 'p2': 40, 'p3': 40}), None, [('p1:battlefield', True), ('p1:battlefield', True)], 32, 'p1:battlefield')
+E       assert 0 == 2
+
+tests/test_rules_cyber_controller63.py:429: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_rules_cyber_controller63.py::test_native_cybership_prepares_both_face_down_entry_counter_choices

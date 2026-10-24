@@ -1,0 +1,178 @@
+--- /dev/null
++++ b/backend/app/rules/first_artifact_activation_cost84.py
+@@ -0,0 +1,61 @@
++"""Tezzeret's first artifact activation, with native actor and pre-cost source receipts."""
++from __future__ import annotations
++
++from typing import Any
++
++KEY = 'activated:{player}:artifact84'
++TEXT = 'The first activated ability of an artifact you activate each turn costs {2} less to activate.'
++
++
++def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
++    if ability.text != TEXT:
++        return None
++    return {'kind': 'static', 'static': 'ability_cost_modifier', 'who': 'you', 'filter': None,
++            'delta': -2, 'floor': False, 'first_artifact84': True, 'effects': []}
++
++
++def used(state: Any, player: str) -> bool:
++    return state.rules.once_per_turn.get(KEY.format(player=player)) == state.turn.number
++
++
++def pending(state: Any, player: str) -> bool:
++    for decision in (state.rules.decision, state.rules.payment_outer):
++        then = (decision.resume or {}).get('paid_then') if decision is not None else None
++        if not then or then.get('actor') != player:
++            continue
++        payload = then.get('payload') or {}
++        if then.get('stage') in ('activation_announced', 'chosen_mana_paid') and 'Artifact' in (payload.get('ch') or {}).get('types', []):
++            return True
++        if then.get('stage') == 'production_paid' and payload.get('artifact_source84'):
++            return True
++    return False
++
++
++def available(state: Any, player: str, ch: Any) -> bool:
++    return ('Artifact' in ch.types and state.rules.artifact_activation_history_turn84 == state.turn.number
++            and not used(state, player) and not pending(state, player))
++
++
++def present(state: Any, player: str, info: Any) -> bool:
++    from app.rules import permissions
++
++    return any(src.controller == player and d.get('first_artifact84') for src, _, d in
++               permissions._table_statics(state, info, {'ability_cost_modifier'}))
++
++
++def require_known(plan: Any, ch: Any, cost: Any, player: str | None = None) -> None:
++    player = player or plan.actor
++    if ('Artifact' not in ch.types or not cost.generic or used(plan.state, player) or pending(plan.state, player)
++            or plan.rules.artifact_activation_history_turn84 == plan.state.turn.number):
++        return
++    if present(plan.state, player, plan.info):
++        from app.game.errors import ActionError
++
++        raise ActionError('This saved turn lacks artifact activation history; resolve the Tezzeret discount manually or begin a new native turn.')
++
++
++def record(plan: Any, player: str, artifact: bool | None) -> None:
++    if artifact is True:
++        plan.rules.once_per_turn[KEY.format(player=player)] = plan.state.turn.number
++    elif artifact is None:
++        plan.rules.artifact_activation_history_turn84 = None  # Old prepared source typing cannot establish a new negative.
+--- a/backend/app/rules/scripts.py
++++ b/backend/app/rules/scripts.py
+@@ -5958,2 +5958,7 @@
+
++    from app.rules import first_artifact_activation_cost84
++
++    if (first84 := first_artifact_activation_cost84.definition(ability, ch)) is not None:
++        return first84
++
+     from app.rules import target_duration_costs69
+--- a/backend/app/rules/permissions.py
++++ b/backend/app/rules/permissions.py
+@@ -1837,2 +1837,7 @@
+     for src, d in mods:
++        if d.get('first_artifact84'):
++            from app.rules import first_artifact_activation_cost84
++
++            if not first_artifact_activation_cost84.available(state, player, ch):
++                continue
+         if d.get('target_rule62'):
+--- a/backend/app/game/rules_state.py
++++ b/backend/app/game/rules_state.py
+@@ -1444,2 +1444,3 @@
+     turn_seen: int = 0  # last turn number the bookkeeping saw
++    artifact_activation_history_turn84: int | None = None  # Missing legacy history remains unknown until a native turn boundary.
+     target_activation_history_turn: int | None = None  # Unknown on legacy midturn saves; complete after a native turn boundary.
+@@ -2043,2 +2044,3 @@
+         rules.target_activation_history_turn = state.turn.number
++        rules.artifact_activation_history_turn84 = state.turn.number
+         rules.crew_saddle_history_turn80 = state.turn.number
+--- a/backend/app/rules/casting.py
++++ b/backend/app/rules/casting.py
+@@ -1341,2 +1341,6 @@
+     restrictions.record_use(r, source_object or r.object_id(card.id), index, plan.state.turn.number)
++    if mana_context is not None and 'artifact_source84' in mana_context:
++        from app.rules import first_artifact_activation_cost84
++
++        first_artifact_activation_cost84.record(plan, who, mana_context['artifact_source84'])
+     if ability.once_per_turn:
+@@ -1641,2 +1645,3 @@
+         return _sequential_run(plan, data)
++    artifact_sources84 = ['Artifact' in plan.ch(card).types for card, _, _ in extras]
+     oids = {card.id: plan.oid(card) for card, _, _ in extras}  # (wave 5A: the objects as they were tapped)
+@@ -1659,2 +1664,6 @@
+         _replace_life.lose_life(plan, [(player, life)], actor=player)
++    from app.rules import first_artifact_activation_cost84
++
++    for artifact84 in artifact_sources84:
++        first_artifact_activation_cost84.record(plan, player, artifact84)
+     payment.auxiliary_life += max(0, life - payment.life - life_due)
+@@ -6043,2 +6052,6 @@
+     purpose = Purpose(ability_of=ch, selected_cost_has_x="{X}" in cost.mana, special=_special(ability), x_payment=x_payment, cost_colorless='{C}' in (ability.cost or ''))
++    from app.rules import first_artifact_activation_cost84
++
++    if plan.locked_cost is None:
++        first_artifact_activation_cost84.require_known(plan, ch, due)
+     announced_due = announce_phyrexian(plan, a, due, f"{ch.name}’s ability", exclude=not_mana, purpose=purpose, trusted=was_locked)  # (wave 50B: 602.2b → 601.2b)
+@@ -6237,2 +6250,5 @@
+     first_target_activation_cost58.record(plan, data.targets_controlled_creature)
++    from app.rules import first_artifact_activation_cost84
++
++    first_artifact_activation_cost84.record(plan, plan.actor, 'Artifact' in data.ch.types)
+     if ability.special == "equip":  # -- first activation (wave 48D) --
+@@ -6424,2 +6440,3 @@
+     option_index: int | None = None
++    artifact_source84: bool | None = None
+
+@@ -6430,3 +6447,3 @@
+     card = plan.state.cards.get(data.source.id) or data.source
+-    if _produce_body(plan, card, data.ability, data.option, data.index, data.extra, data.then, input_payment=payment, option_index=data.option_index):
++    if _produce_body(plan, card, data.ability, data.option, data.index, data.extra, data.then, input_payment=payment, option_index=data.option_index, artifact_source84=data.artifact_source84):
+         replacements_.run_then(plan, data.then)
+@@ -6438,4 +6455,11 @@
+     """Produce mana; false means its persistent continuation owns all further work."""
++    from app.rules import first_artifact_activation_cost84
++
++    ch84 = plan.ch(card)
++    artifact84 = 'Artifact' in ch84.types
++    if first_artifact_activation_cost84.present(plan.state, card.controller, plan.info) and artifact84:
++        activation_cost = None  # A filter's speculative quote is not an announced activation price.
+     extra = parse_ability_cost(ability.extra_cost, card_name=plan.ch(card).name) if ability.extra_cost else None
+     cost = activation_cost if activation_cost is not None else mana_activation_cost(plan.state, card, plan.ch(card), ability, plan.info)
++    first_artifact_activation_cost84.require_known(plan, ch84, cost, card.controller)
+     purpose = Purpose(ability_of=plan.ch(card), player=card.controller,
+@@ -6451,3 +6475,3 @@
+
+-            after = pc.continuation(plan, "production_paid", _Production(card, ability, option, index, extra, then, option_index))
++            after = pc.continuation(plan, "production_paid", _Production(card, ability, option, index, extra, then, option_index, artifact84))
+             pay_then(plan, card.controller, cost, f"paid {cost.text()} to activate {plan.ch(card).name}", then=after,
+@@ -6457,3 +6481,3 @@
+             exclude=(card.id,) + activation_exclude, purpose=purpose)
+-    return _produce_body(plan, card, ability, option, index, extra, then, input_payment=input_payment, option_index=option_index)
++    return _produce_body(plan, card, ability, option, index, extra, then, input_payment=input_payment, option_index=option_index, artifact_source84=artifact84)
+
+@@ -6461,3 +6485,3 @@
+ def _produce_body(plan: Plan, card: CardInstance, ability: M.ManaAbility, option: tuple[str, ...], index: int | None,
+-                  extra: AbilityCost | None, then: dict[str, Any] | None, *, input_payment: M.Payment | None = None, option_index: int | None = None) -> bool:
++                  extra: AbilityCost | None, then: dict[str, Any] | None, *, input_payment: M.Payment | None = None, option_index: int | None = None, artifact_source84: bool | None = None) -> bool:
+     from app.rules import cost_moves
+@@ -6496,3 +6520,3 @@
+         return after_mana_ability(plan, card, index, ability, who, source_object=oid, then=then, option=option,
+-            mana_context={'activation_payment': PaymentRecord(card=card.id, controller=who,
++            mana_context={'artifact_source84': artifact_source84, 'activation_payment': PaymentRecord(card=card.id, controller=who,
+                 mana_spent=dict(input_payment.spent) if input_payment else {},
+@@ -6521,2 +6545,5 @@
+     input_cost = mana_activation_cost(plan.state, card, ch, parsed, plan.info, x=a.x_value)
++    from app.rules import first_artifact_activation_cost84
++
++    first_artifact_activation_cost84.require_known(plan, ch, input_cost)
+     cost = replace(cost, mana=input_cost.text() if not input_cost.is_free else '', mana_allocation=input_cost.allocation)
+@@ -6556,2 +6583,3 @@
+     mana_context: dict[str, Any] = {"source_card": card.id, "source_object": plan.oid(card), "only": parsed.spend_only,
++                    "artifact_source84": 'Artifact' in ch.types,
+                     "riders": mana_units.rider_specs(parsed, ch.name), "note": parsed.spend_text, "tap": parsed.tap, "x": a.x_value,

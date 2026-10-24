@@ -1,0 +1,61 @@
+[
+  {
+    "name": "Lara Croft, Tomb Raider",
+    "mana_cost": "{G}{U}{R}",
+    "cmc": 3.0,
+    "type_line": "Legendary Creature \u2014 Human Ranger",
+    "oracle_text": "First strike, reach\nWhenever Lara Croft attacks, exile up to one target legendary artifact card or legendary land card from a graveyard and put a discovery counter on it. You may play a card from exile with a discovery counter on it this turn.\nRaid \u2014 At end of combat on your turn, if you attacked this turn, create a Treasure token.",
+    "power": "3",
+    "toughness": "4",
+    "colors": [
+      "G",
+      "R",
+      "U"
+    ],
+    "color_identity": [
+      "G",
+      "R",
+      "U"
+    ],
+    "keywords": [
+      "Reach",
+      "First strike",
+      "Treasure",
+      "Raid"
+    ]
+  },
+  {
+    "name": "Mox Amber",
+    "mana_cost": "{0}",
+    "cmc": 0.0,
+    "type_line": "Legendary Artifact",
+    "oracle_text": "{T}: Add one mana of any color among legendary creatures and planeswalkers you control.",
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  },
+  {
+    "name": "Boseiju, Who Endures",
+    "mana_cost": "",
+    "cmc": 0.0,
+    "type_line": "Legendary Land",
+    "oracle_text": "{T}: Add {G}.\nChannel \u2014 {1}{G}, Discard this card: Destroy target artifact, enchantment, or nonbasic land an opponent controls. That player may search their library for a land card with a basic land type, put it onto the battlefield, then shuffle. This ability costs {1} less to activate for each legendary creature you control.",
+    "colors": [],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [
+      "Channel"
+    ]
+  },
+  {
+    "name": "Mind Stone",
+    "mana_cost": "{2}",
+    "cmc": 2.0,
+    "type_line": "Artifact",
+    "oracle_text": "{T}: Add {C}.\n{1}, {T}, Sacrifice this artifact: Draw a card.",
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  }
+]

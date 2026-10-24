@@ -1,0 +1,21 @@
+{
+  "status": "closed; root admission pending",
+  "cards": [
+    "Astral Confrontation"
+  ],
+  "files": [
+    "app/rules/attacked_player_costs80.py",
+    "app/rules/scripts.py",
+    "app/rules/values.py"
+  ],
+  "source_sha256": {
+    "app/rules/attacked_player_costs80.py": "f24b97bc6bde45c00c8b1e68922413ff435767bff85df67c662e2fa2a06b6961",
+    "app/rules/scripts.py": "170cd4a0f359b41aa176072d3dca2e4b7ea6e942aba9f62792d7994d58a77f6c",
+    "app/rules/values.py": "99503aabd32bc0b9be9b11aba03e4b5aa22da35d6d65f8d9e31f2a9984150c6a"
+  },
+  "native": 13,
+  "cold": 1,
+  "related": 4,
+  "mypy": 3,
+  "ruff": 4
+}

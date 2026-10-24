@@ -1,0 +1,152 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+________ test_free_skydiver_still_announces_and_pays_positive_kicker_x _________
+
+cards = <app.cards.repository.CardRepository object at 0x7f8daaa38860>
+
+    def test_free_skydiver_still_announces_and_pays_positive_kicker_x(cards):
+        s=game(cards,['Thieving Skydiver','Omniscience'],opponents=['Silver-Inlaid Dagger'])
+        put(s,'Omniscience','battlefield')
+        equipment=put(s,'Silver-Inlaid Dagger','battlefield',pid='p2')
+        spell=put(s,'Thieving Skydiver','hand')
+        act(s,'p1',type='add_mana',player='p1',mana={'C':1})
+>       act(s,'p1',type='cast_spell',card_id=spell.id,free=True,kicker=1,x_value=1,sources=[])
+
+/workspace/Fyodor/backend/tests/test_rules_kicked_x_lki61.py:118:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+/workspace/Fyodor/backend/tests/game_helpers.py:42: in act
+    return session.perform(actor, payload)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/game/session.py:61: in perform
+    resolved = resolve(self.state, action, actor=actor, cards=self.cards, trusted=trusted)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/game/resolve.py:76: in resolve
+    a.r = compile_intent(state, a, actor=actor, info=info, rng=rng)  # type: ignore[union-attr]
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/engine.py:154: in compile_intent
+    handler(plan, intent)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+plan = <app.rules.plan.Plan object at 0x7f8daad869f0>
+a = CastSpell(actor='p1', ts=1792626256.0043013, r=None, mana_symbols=None, flashback_choice=None, type='cast_spell', card...ker=1, cost_choices=[], alt_cost=None, optional_costs=[], slot=None, via=None, optional_asked=False, life_symbols=None)
+
+    def cast_spell(plan: Plan, a: A.CastSpell) -> None:
+        require_no_decision(plan)
+        card = plan.state.cards.get(a.card_id)
+        if card is None:
+            raise ActionError("That card isn't here any more")
+        if card.zone == zone_key(plan.actor, "graveyard") and a.face is None and not a.fuse and not a.free:  # -- casting extras (wave 18E) -- 702.146a
+            from app.rules import disturb
+
+            if disturb.cast_face(plan.state, plan.actor, card, plan.info, a.alt_cost):
+                a.face = 1  # cast transformed: the spell is the back face (702.146b, 712.8c)
+        if a.face is None and a.alt_cost is not None and not a.fuse and not a.free and not plan.manual(card):  # -- commanders (wave 50C) -- 702.162a: cast converted = the back face is the spell (701.28a, 712.8c)
+            from app.rules import alt_costs as _converted
+
+            if any(o.key == a.alt_cost and o.tag == _converted.CONVERTED_TAG for o in _converted.converted_offers(plan.state, plan.actor, card, plan.info)):
+                a.face = 1
+        ch = chars.as_cast(card, plan.info, a.face, a.fuse)  # split cards / adventures: the half being cast
+        from app.rules import paid_effect_costs
+
+        if paid_effect_costs.announce(plan, a, card, ch):
+            return
+        if a.fuse and (ch.name.count(" // ") != 1 or card.zone != zone_key(plan.actor, "hand")):  # -- static_other sweep (wave 16B) -- 702.102a
+            raise ActionError("Only a split card with fuse can be cast as both halves, from your hand")
+        if a.alt_cost is not None and (a.free or a.evoke or a.dash or a.awaken or a.face_down):  # -- cost changers (wave 4I) --
+            raise ActionError("Only one alternative cost can be applied to a spell (118.9a)")
+        if a.free and card.id in plan.rules.free_casts:  # suspend / cascade / rebound / madness: what the engine granted
+            cast_free(plan, card, ch, a)
+            return
+        if a.alt_cost is not None and not plan.manual(card):  # -- keywords (wave 15E) -- bestow 702.103b/d: cast as an Aura spell
+            from app.rules import alt_costs as _alt
+            from app.rules import bestow
+
+            kinds = {o.tag for o in _alt.offers(plan.state, plan.actor, card, ch, plan.info) if o.key == a.alt_cost}
+            if "overload" in kinds:  # -- casting extras (wave 18E) -- 702.96a: "target" is "each" (no targets, 702.96b)
+                from app.rules import overload
+
+                ch = overload.overlay(ch)
+            if "cleave" in kinds:  # -- keywords (wave 50H) -- 702.148a: the words in square brackets are removed
+                from app.rules import cleave
+
+                ch = cleave.overlay(ch)
+            bestowed_cast = "bestow" in kinds
+            sneaking = "sneak" in kinds  # -- keywords (wave 30I) -- 702.190a
+            mutating_cast = "mutate" in kinds  # -- merged permanents (wave 18D) -- 702.140a: a mutating creature spell, targeting a creature
+            if bestowed_cast:
+                ch = bestow.overlay(ch)
+        else:
+            bestowed_cast = mutating_cast = sneaking = False
+        if a.prototype:  # -- casting extras (wave 18E) -- 702.160a / 718.3a: only the alternative cost, power and toughness are used to cast it
+            from app.rules import prototype
+
+            if a.face_down or a.fuse or prototype.parse(ch) is None or plan.manual(card):
+                raise ActionError(f"{ch.name or 'That card'} has no prototype the engine can cast it with")
+            ch = prototype.overlay(ch)
+        face_down_kind = face_down_cast_kind(ch) if a.face_down else None  # -- keyword actions & face-down (wave 3F) --
+        if a.face_down:  # morph / disguise: a nameless 2/2 creature spell (disguise: with ward {2}) for {3}
+            if face_down_kind is None or card.zone != zone_key(plan.actor, "hand"):
+                raise ActionError("Only a card with morph or disguise can be cast face down from your hand")
+            ch = chars.face_down_characteristics(face_down_kind)
+            # -- granted casts (wave 29B) -- 707.2: a copy of a face-down spell is not face down
+            from app.rules import cast_limits as _limits
+
+            if not plan.manual(card) and _limits.granted_cascade(plan, card.id, ch, "hand", "storm"):
+                raise ActionError("A face-down spell that is given storm isn't automated (its copies are face-up 2/2 creature spells): cast it face up")
+        # 601.3d / 601.2g: mana abilities may remove a conditional timing source after this announcement was legal.
+        # Only a server-created payment resume can authorize its original object; new casts and new incarnations cannot.
+        timing_locked = plan.locked_cast_timing == plan.oid(card)
+        problem = cast_problem(plan.state, plan.actor, card, ch, info=plan.info, free=a.free, sneak=sneaking or timing_locked, announced=True, alternative_key=a.alt_cost, optional_keys=tuple(a.optional_costs))
+        if problem:
+            raise ActionError(problem)
+        grant = cast_grant(plan.state, plan.actor, card, ch, plan.info, free=a.free, slot=a.slot, via=a.via)
+        sac_at_cleanup = not a.free and flash_sac(plan.state, plan.actor, card, ch, plan.info)  # (-- flash auras (wave 46B) -- judged before it is on the stack)
+        if grant is not None and grant.how == "permission" and a.x_value and "{X}" in ch.mana_cost:
+            # -- review 30c -- 202.3e, 601.2e: "with mana value 3 or less" reads the X announced (Lurrus ruling 2020-04-17: "{X}{W} … with X as 1 but not as 2")
+            grant = cast_grant(plan.state, plan.actor, card, replace(ch, mana_value=ch.mana_value + a.x_value * ch.mana_cost.count("{X}")), plan.info,
+                               free=a.free, slot=a.slot, via=a.via)
+            if grant is None:
+                raise ActionError(f"{ch.name} can't be cast this way with X = {a.x_value}: its mana value would be too high")
+        if a.slot is not None and grant is None:
+            raise ActionError(f"{ch.name or 'That card'} can't be cast as a {a.slot} spell now")
+        if a.via is not None and (grant is None or a.via not in (grant.use, grant.choice_key)):  # -- cast permissions (wave 32D) -- 601.2: a permission that doesn't cover this cast
+            raise ActionError(f"{ch.name or 'That card'} can't be cast using that permission now")
+        if grant is not None and len(grant.among) > 1:
+            permissions.ask_use(plan, a, card, ch, grant.among, "cast")  # (-- wave 30Q, 32D -- "choose one as you cast it" (Muldrotha); which limited permission: asked before anything is paid)
+            return
+        from app.rules import permission_spell_keywords
+
+        ch = permission_spell_keywords.apply(ch, grant)
+        free = grant is not None and grant.free  # "without paying its mana cost" (118.9): an alternative cost of {0}
+        base = M.parse_cost(ch.mana_cost)
+        airbent = grant is not None and bool(grant.alt_mana)  # -- trigger other (wave 25B) -- airbend 701.65a: cast only by paying its alternative cost
+        from app.rules import alt_costs as _alt_x  # (leaves over this module)
+
+        alt_x = a.alt_cost is not None and not free and not plan.manual(card) and any(  # -- cast keywords (wave 43D) -- 107.3a: an alternative cost with {X}
+            o.key == a.alt_cost and _alt_x.announces_x(o) for o in _alt_x.offers(plan.state, plan.actor, card, ch, plan.info))  # (harmonize, overload, surge …)
+        if (base.x or alt_x) and a.x_value is None:
+            if alt_x or (not free and a.alt_cost is None and not airbent):
+                raise ActionError(f"Choose a value for X to cast {ch.name}")
+            a.x_value = 0  # 107.3b: X is 0 when a spell is cast without paying its mana cost (or for an alternative cost, wave 4I)
+        elif base.x and a.x_value and (free or airbent):  # -- review (wave 25A) -- 107.3b: the only legal choice is 0
+            raise ActionError(f"X is 0 when {ch.name} is cast without paying its mana cost or for an alternative cost without X (107.3b)")
+        from app.rules import cast_limits as _x_limits
+
+        if base.x and (limited := _x_limits.cast_problem(plan.state, plan.actor, card, ch, plan.info, announced=a.x_value or 0)):
+            raise ActionError(limited)  # -- review 38 -- 601.2e: the X announced counts in its mana value ("spells with mana value 3 or less", Brisela)
+        if base.x and a.x_value and not plan.manual(card):  # -- X caps (wave 51C) -- 601.2b: "X can't be greater than the number of players in the game." (Open the Way): an X above it isn't a legal announcement
+            from app.rules import scripts as _caps
+            from app.rules import values as _cap_values
+
+            for d in _caps.definitions(ch).values():
+                if d.get("static") == "x_cap" and a.x_value > (cap := _cap_values.evaluate(plan, {"controller": plan.actor}, d["n"])):
+                    raise ActionError(f"{ch.name}: X can't be greater than {cap}")
+        kick_x = a.kicker and not a.face_down and (kc := kicker_cost(ch.abilities)) is not None and kc.x  # -- cast keywords (wave 43D) -- 107.3a: "Kicker {X}"
+        if kick_x and (base.x or a.x_value is None or free):  # ponytail: a spell with another X, or cast free this way, pays a kicker X by hand
+>           raise ActionError(f"Choose a value for X to pay the kicker cost of {ch.name}" if a.x_value is None and not (base.x or free)
+                              else f"{ch.name}: pay its kicker X by hand")
+E           app.game.errors.ActionError: Thieving Skydiver: pay its kicker X by hand
+
+app/rules/casting.py:3453: ActionError
+=========================== short test summary info ============================
+FAILED ../../workspace/Fyodor/backend/tests/test_rules_kicked_x_lki61.py::test_free_skydiver_still_announces_and_pays_positive_kicker_x

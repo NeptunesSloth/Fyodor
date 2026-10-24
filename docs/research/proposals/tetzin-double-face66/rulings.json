@@ -1,0 +1,209 @@
+[
+  {
+    "name": "Barrowgoyf",
+    "url": "https://api.scryfall.com/cards/cea3b218-0e6e-443a-84f7-380f1021e8e1/rulings",
+    "rulings": {
+      "object": "list",
+      "has_more": false,
+      "data": [
+        {
+          "object": "ruling",
+          "oracle_id": "74c0164c-130f-4572-9066-626c77f6e2ff",
+          "source": "wotc",
+          "published_at": "2024-06-07",
+          "comment": "The ability that defines Barrowgoyf's power and toughness works in all zones, not just the battlefield."
+        },
+        {
+          "object": "ruling",
+          "oracle_id": "74c0164c-130f-4572-9066-626c77f6e2ff",
+          "source": "wotc",
+          "published_at": "2024-06-07",
+          "comment": "The ability that defines Barrowgoyf's power and toughness counts card types, not cards. If the only card in all graveyards is a single artifact creature card, Barrowgoyf will be a 2/3. If the cards in all graveyards are ten artifact cards and ten creature cards, Barrowgoyf will still be a 2/3."
+        },
+        {
+          "object": "ruling",
+          "oracle_id": "74c0164c-130f-4572-9066-626c77f6e2ff",
+          "source": "wotc",
+          "published_at": "2024-06-07",
+          "comment": "Card types that can appear on cards in a graveyard are artifact, battle, creature, enchantment, instant, kindred, land, planeswalker, and sorcery. Legendary, basic, and snow are supertypes, not card types; Lhurgoyf, Forest, and Siege are subtypes, not card types."
+        }
+      ]
+    }
+  },
+  {
+    "name": "Nashi, Searcher in the Dark",
+    "url": "https://api.scryfall.com/cards/0fbf9e1e-43f2-499e-844d-22fc10dbad06/rulings",
+    "rulings": {
+      "object": "list",
+      "has_more": false,
+      "data": []
+    }
+  },
+  {
+    "name": "Greenhouse // Rickety Gazebo",
+    "url": "https://api.scryfall.com/cards/a22e8038-0706-47ec-bfda-f421a4912774/rulings",
+    "rulings": {
+      "object": "list",
+      "has_more": false,
+      "data": [
+        {
+          "object": "ruling",
+          "oracle_id": "a341eb75-e6a0-468b-8c83-61102249c648",
+          "source": "wotc",
+          "published_at": "2024-09-20",
+          "comment": "To cast a Room spell, choose a half (or \"door\") to cast. There's no way to cast both halves of a Room card. When the Room spell resolves, the corresponding door becomes unlocked as the Room enters."
+        },
+        {
+          "object": "ruling",
+          "oracle_id": "a341eb75-e6a0-468b-8c83-61102249c648",
+          "source": "wotc",
+          "published_at": "2024-09-20",
+          "comment": "Room cards have two card faces with a shared type line on a single card. The characteristics of the door you didn't cast are ignored while the spell is on the stack."
+        },
+        {
+          "object": "ruling",
+          "oracle_id": "a341eb75-e6a0-468b-8c83-61102249c648",
+          "source": "wotc",
+          "published_at": "2024-09-20",
+          "comment": "Each Room card is a single card. For example, if you discard a Room card, you've discarded one card, not two. If an effect counts the number of enchantment cards in your graveyard, Bottomless Pool // Locker Room counts once, not twice."
+        },
+        {
+          "object": "ruling",
+          "oracle_id": "a341eb75-e6a0-468b-8c83-61102249c648",
+          "source": "wotc",
+          "published_at": "2024-09-20",
+          "comment": "Each Room card has two names. If an effect instructs you to choose a card name, you may choose one of those names, but not both."
+        },
+        {
+          "object": "ruling",
+          "oracle_id": "a341eb75-e6a0-468b-8c83-61102249c648",
+          "source": "wotc",
+          "published_at": "2024-09-20",
+          "comment": "If an effect allows you to cast a spell with certain characteristics, consider only the characteristics of the door you're casting. For example, if an effect allows you to cast a permanent spell with mana value 3 or less from among cards in your graveyard, you could cast Bottomless Pool this way, but not Locker Room."
+        },
+        {
+          "object": "ruling",
+          "oracle_id": "a341eb75-e6a0-468b-8c83-61102249c648",
+          "source": "wotc",
+          "published_at": "2024-09-20",
+          "comment": "While in any zone other than the stack or the battlefield, a Room card's characteristics are a combination of its two doors. For example, Bottomless Pool // Locker Room has a mana value of 6 while it's in your library. If an effect allows you to search your library for a card with mana value 4 or less, you can't find Bottomless Pool // Locker Room."
+        },
+        {
+          "object": "ruling",
+          "oracle_id": "a341eb75-e6a0-468b-8c83-61102249c648",
+          "source": "wotc",
+          "published_at": "2024-09-20",
+          "comment": "While on the battlefield, a Room's characteristics are a combination of the characteristics of its unlocked doors. For example, if Bottomless Pool // Locker Room is on the battlefield with both doors unlocked, its names are Bottomless Pool and Locker Room, its mana value is 6, it's a Room Enchantment, and it has the abilities in each door's text box."
+        },
+        {
+          "object": "ruling",
+          "oracle_id": "a341eb75-e6a0-468b-8c83-61102249c648",
+          "source": "wotc",
+          "published_at": "2024-09-20",
+          "comment": "If a spell or ability would create a copy of a Room spell on the stack, the copy retains the choice of which door was cast but also retains the full characteristics of the spell. The characteristics of the door that wasn't cast are still ignored while the copy is on the stack, and when the copy resolves, the token it becomes will enter with the appropriate door unlocked."
+        },
+        {
+          "object": "ruling",
+          "oracle_id": "a341eb75-e6a0-468b-8c83-61102249c648",
+          "source": "wotc",
+          "published_at": "2024-09-20",
+          "comment": "If a Room enters from any zone other than the stack, it will enter with both halves locked."
+        },
+        {
+          "object": "ruling",
+          "oracle_id": "a341eb75-e6a0-468b-8c83-61102249c648",
+          "source": "wotc",
+          "published_at": "2024-09-20",
+          "comment": "If neither door of a Room is unlocked, it's a Room enchantment with no name and no abilities."
+        },
+        {
+          "object": "ruling",
+          "oracle_id": "a341eb75-e6a0-468b-8c83-61102249c648",
+          "source": "wotc",
+          "published_at": "2024-09-20",
+          "comment": "Any time you have priority during a main phase of your turn and the stack is empty, you may pay the mana cost of a locked door (also called its \"unlock cost\"). That door becomes unlocked. This is a special action. It doesn't use the stack and can't be responded to."
+        },
+        {
+          "object": "ruling",
+          "oracle_id": "a341eb75-e6a0-468b-8c83-61102249c648",
+          "source": "wotc",
+          "published_at": "2024-09-20",
+          "comment": "An ability that triggers \"when you unlock this door\" triggers when that door becomes unlocked. This can happen one of two ways: (1) the door becomes unlocked on the battlefield or (2) the door becomes unlocked as the Room enters the battlefield because you cast the corresponding half. In the latter case, since the door becoming unlocked is what causes the ability to trigger, effects that cause abilities that trigger when a permanent enters to trigger an additional time (such as that of Panharmonicon) won't apply."
+        },
+        {
+          "object": "ruling",
+          "oracle_id": "a341eb75-e6a0-468b-8c83-61102249c648",
+          "source": "wotc",
+          "published_at": "2024-09-20",
+          "comment": "Some abilities allow you to unlock a door of a Room you control. You can't choose to unlock a door that's already unlocked with such an ability. If such an ability requires a target, you can target a Room even if both of its doors are unlocked, but the ability won't do anything when it resolves."
+        },
+        {
+          "object": "ruling",
+          "oracle_id": "a341eb75-e6a0-468b-8c83-61102249c648",
+          "source": "wotc",
+          "published_at": "2024-09-20",
+          "comment": "Some abilities allow you to lock a door of a Room you control. You can't choose to lock a door that's already locked with such an ability. If such an ability requires a target, you can target a Room even if both of its doors are locked, but the ability won't do anything when it resolves."
+        },
+        {
+          "object": "ruling",
+          "oracle_id": "a341eb75-e6a0-468b-8c83-61102249c648",
+          "source": "wotc",
+          "published_at": "2024-09-20",
+          "comment": "Some doors have abilities that trigger whenever you unlock that door and require one or more targets. You can unlock that door even if there would be insufficient legal targets for that triggered ability. The triggered ability won't go on the stack."
+        },
+        {
+          "object": "ruling",
+          "oracle_id": "a341eb75-e6a0-468b-8c83-61102249c648",
+          "source": "wotc",
+          "published_at": "2024-09-20",
+          "comment": "An ability that triggers \"whenever you fully unlock a Room\" triggers when a door becomes unlocked and the other door of that Room is already unlocked, or when both doors of that Room become unlocked simultaneously."
+        }
+      ]
+    }
+  },
+  {
+    "name": "Tetzin, Gnome Champion // The Golden-Gear Colossus",
+    "url": "https://api.scryfall.com/cards/0502deea-95ad-4b6d-a3ac-d3adcd607624/rulings",
+    "rulings": {
+      "object": "list",
+      "has_more": false,
+      "data": [
+        {
+          "object": "ruling",
+          "oracle_id": "e12b38e5-621b-4b2c-8c04-c15c41d4fc70",
+          "source": "wotc",
+          "published_at": "2023-11-10",
+          "comment": "You can target any double-faced artifact you control with The Golden-Gear Colossus's triggered ability, but only transforming double-faced cards and transforming tokens can transform. Choosing an artifact represented by a modal double-faced card (Pestilent Cauldron from Strixhaven, for example) won't cause that permanent to transform."
+        },
+        {
+          "object": "ruling",
+          "oracle_id": "e12b38e5-621b-4b2c-8c04-c15c41d4fc70",
+          "source": "wotc",
+          "published_at": "2023-11-10",
+          "comment": "The back faces of some cards with craft refer to cards \"used to craft\" it. This refers to the cards exiled as part of the cost of the craft ability of the front face. Those cards are considered to be \"used to craft\" that permanent as long as they remain exiled and the permanent remains on the battlefield, even if the permanent's controller changes or some of its characteristics change (because of a copy effect, for example.)"
+        },
+        {
+          "object": "ruling",
+          "oracle_id": "e12b38e5-621b-4b2c-8c04-c15c41d4fc70",
+          "source": "wotc",
+          "published_at": "2023-11-10",
+          "comment": "If the materials required include multiple objects, you may exile some of them from among permanents you control and the rest from among cards in your graveyard. You don't have to choose all permanents or all cards from your graveyard."
+        },
+        {
+          "object": "ruling",
+          "oracle_id": "e12b38e5-621b-4b2c-8c04-c15c41d4fc70",
+          "source": "wotc",
+          "published_at": "2023-11-10",
+          "comment": "You may exile tokens you control as part of the materials required. However, because they aren't cards and won't stay in exile, any abilities that refer to what you \"used to craft\" the back faces won't refer to anything."
+        },
+        {
+          "object": "ruling",
+          "oracle_id": "e12b38e5-621b-4b2c-8c04-c15c41d4fc70",
+          "source": "wotc",
+          "published_at": "2023-11-10",
+          "comment": "If a card that isn't a transforming double-faced card becomes a copy of a card with craft, it'll stay in exile if you activate the craft ability. It won't return to the battlefield."
+        }
+      ]
+    }
+  }
+]

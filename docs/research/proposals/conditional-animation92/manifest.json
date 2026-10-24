@@ -1,0 +1,21 @@
+{
+  "candidate_names": [
+    "Rusted Relic",
+    "Futurist Operative",
+    "Grand Master of Flowers"
+  ],
+  "expected_promotions": 3,
+  "source_files": [
+    "backend/app/rules/conditional_animations92.py",
+    "backend/app/rules/scripts.py"
+  ],
+  "patch": "UNINSTALLED.patch",
+  "test_destination": "backend/tests/test_rules_conditional_animation92.py",
+  "fixture_destination": "backend/tests/fixtures/conditional_animation92_cards.json",
+  "native_pass": 20,
+  "cold_roundtrips": 3,
+  "related_native_pass": 43,
+  "mypy_files": 2,
+  "ruff_files": 3,
+  "admission": "root audit required; no live source edits"
+}

@@ -1,0 +1,362 @@
+[
+  {
+    "card": {
+      "id": "af976f42-3d56-4e32-8294-970a276a4bf3",
+      "oracle_id": "7f9116e1-9aab-470b-90eb-f51a3fbb3c0e",
+      "name": "Lim-D\u00fbl's Hex",
+      "layout": "normal",
+      "set_code": "ice",
+      "set_name": "Ice Age",
+      "collector_number": "146",
+      "rarity": "uncommon",
+      "mana_cost": "{1}{B}",
+      "cmc": 2.0,
+      "type_line": "Enchantment",
+      "oracle_text": "At the beginning of your upkeep, for each player, this enchantment deals 1 damage to that player unless they pay {B} or {3}.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null,
+      "defense": null,
+      "colors": [
+        "B"
+      ],
+      "color_identity": [
+        "B"
+      ],
+      "keywords": [],
+      "is_token": false,
+      "faces": [],
+      "double_faced": false,
+      "image_faces": 1,
+      "has_image": false,
+      "released_at": "1995-06-03",
+      "artist": "Liz Danforth",
+      "commander_legal": "legal",
+      "related_tokens": [],
+      "related_cards": []
+    },
+    "rulings": {
+      "object": "list",
+      "has_more": false,
+      "data": []
+    }
+  },
+  {
+    "card": {
+      "id": "c4e732fb-cbef-4fd8-b704-e4d513a6cf2d",
+      "oracle_id": "3cae0e4b-1827-4ed2-832f-98f8e79941a5",
+      "name": "Thrull Wizard",
+      "layout": "normal",
+      "set_code": "fem",
+      "set_name": "Fallen Empires",
+      "collector_number": "46",
+      "rarity": "uncommon",
+      "mana_cost": "{2}{B}",
+      "cmc": 3.0,
+      "type_line": "Creature \u2014 Thrull Wizard",
+      "oracle_text": "{1}{B}: Counter target black spell unless that spell's controller pays {B} or {3}.",
+      "power": "1",
+      "toughness": "1",
+      "loyalty": null,
+      "defense": null,
+      "colors": [
+        "B"
+      ],
+      "color_identity": [
+        "B"
+      ],
+      "keywords": [],
+      "is_token": false,
+      "faces": [],
+      "double_faced": false,
+      "image_faces": 1,
+      "has_image": false,
+      "released_at": "1994-11-01",
+      "artist": "Anson Maddocks",
+      "commander_legal": "legal",
+      "related_tokens": [],
+      "related_cards": []
+    },
+    "rulings": {
+      "object": "list",
+      "has_more": false,
+      "data": [
+        {
+          "object": "ruling",
+          "oracle_id": "3cae0e4b-1827-4ed2-832f-98f8e79941a5",
+          "source": "wotc",
+          "published_at": "2004-10-04",
+          "comment": "You can use this ability multiple times on one spell to force your opponent to use more than one mana to prevent the spell from being countered. You can even use this ability, let them pay, then use this ability repeatedly."
+        }
+      ]
+    }
+  },
+  {
+    "card": {
+      "id": "8dc539ff-03f5-4bec-877a-061fb5d40de9",
+      "oracle_id": "155ee24f-a458-4df4-86d5-5eb7396ebf45",
+      "name": "Erosion",
+      "layout": "normal",
+      "set_code": "4ed",
+      "set_name": "Fourth Edition",
+      "collector_number": "70",
+      "rarity": "common",
+      "mana_cost": "{U}{U}{U}",
+      "cmc": 3.0,
+      "type_line": "Enchantment \u2014 Aura",
+      "oracle_text": "Enchant land\nAt the beginning of the upkeep of enchanted land's controller, destroy that land unless that player pays {1} or 1 life.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null,
+      "defense": null,
+      "colors": [
+        "U"
+      ],
+      "color_identity": [
+        "U"
+      ],
+      "keywords": [
+        "Enchant"
+      ],
+      "is_token": false,
+      "faces": [],
+      "double_faced": false,
+      "image_faces": 1,
+      "has_image": false,
+      "released_at": "1995-04-01",
+      "artist": "Pete Venters",
+      "commander_legal": "legal",
+      "related_tokens": [],
+      "related_cards": []
+    },
+    "rulings": {
+      "object": "list",
+      "has_more": false,
+      "data": []
+    }
+  },
+  {
+    "card": {
+      "id": "2860a20d-e1bf-4e46-8c07-a858f616d5a5",
+      "oracle_id": "151388a4-a24b-4089-a323-e7c1d5e6490a",
+      "name": "Slow Motion",
+      "layout": "normal",
+      "set_code": "ulg",
+      "set_name": "Urza's Legacy",
+      "collector_number": "42",
+      "rarity": "common",
+      "mana_cost": "{2}{U}",
+      "cmc": 3.0,
+      "type_line": "Enchantment \u2014 Aura",
+      "oracle_text": "Enchant creature\nAt the beginning of the upkeep of enchanted creature's controller, that player sacrifices that creature unless they pay {2}.\nWhen this Aura is put into a graveyard from the battlefield, return it to its owner's hand.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null,
+      "defense": null,
+      "colors": [
+        "U"
+      ],
+      "color_identity": [
+        "U"
+      ],
+      "keywords": [
+        "Enchant"
+      ],
+      "is_token": false,
+      "faces": [],
+      "double_faced": false,
+      "image_faces": 1,
+      "has_image": false,
+      "released_at": "1999-02-15",
+      "artist": "Todd Lockwood",
+      "commander_legal": "legal",
+      "related_tokens": [],
+      "related_cards": []
+    },
+    "rulings": {
+      "object": "list",
+      "has_more": false,
+      "data": [
+        {
+          "object": "ruling",
+          "oracle_id": "151388a4-a24b-4089-a323-e7c1d5e6490a",
+          "source": "wotc",
+          "published_at": "2004-10-04",
+          "comment": "You choose whether to pay or not on resolution. If not, then you sacrifice the creature. You can choose to not pay if you no longer control the creature on resolution."
+        }
+      ]
+    }
+  },
+  {
+    "card": {
+      "id": "77e546ce-f498-4136-9015-bb262c301716",
+      "oracle_id": "60ff5af4-eb95-4544-9f63-d42c22112486",
+      "name": "Soul Tithe",
+      "layout": "normal",
+      "set_code": "rtr",
+      "set_name": "Return to Ravnica",
+      "collector_number": "23",
+      "rarity": "uncommon",
+      "mana_cost": "{1}{W}",
+      "cmc": 2.0,
+      "type_line": "Enchantment \u2014 Aura",
+      "oracle_text": "Enchant nonland permanent\nAt the beginning of the upkeep of enchanted permanent's controller, that player sacrifices it unless they pay {X}, where X is its mana value.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null,
+      "defense": null,
+      "colors": [
+        "W"
+      ],
+      "color_identity": [
+        "W"
+      ],
+      "keywords": [
+        "Enchant"
+      ],
+      "is_token": false,
+      "faces": [],
+      "double_faced": false,
+      "image_faces": 1,
+      "has_image": false,
+      "released_at": "2012-10-05",
+      "artist": "Dave Kendall",
+      "commander_legal": "legal",
+      "related_tokens": [],
+      "related_cards": []
+    },
+    "rulings": {
+      "object": "list",
+      "has_more": false,
+      "data": [
+        {
+          "object": "ruling",
+          "oracle_id": "60ff5af4-eb95-4544-9f63-d42c22112486",
+          "source": "wotc",
+          "published_at": "2012-10-01",
+          "comment": "The mana value of a creature token is 0, unless that token is a copy of another creature, in which case it copies that creature's mana cost."
+        },
+        {
+          "object": "ruling",
+          "oracle_id": "60ff5af4-eb95-4544-9f63-d42c22112486",
+          "source": "wotc",
+          "published_at": "2012-10-01",
+          "comment": "If the permanent has {X} in its mana cost, X is 0."
+        }
+      ]
+    }
+  },
+  {
+    "card": {
+      "id": "733933dd-c871-4f75-8b08-d7c010dddbe6",
+      "oracle_id": "6a0da9f3-cb06-42b1-ae73-b142c0eedaff",
+      "name": "In the Eye of Chaos",
+      "layout": "normal",
+      "set_code": "leg",
+      "set_name": "Legends",
+      "collector_number": "61",
+      "rarity": "rare",
+      "mana_cost": "{2}{U}",
+      "cmc": 3.0,
+      "type_line": "World Enchantment",
+      "oracle_text": "Whenever a player casts an instant spell, counter it unless that player pays {X}, where X is its mana value.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null,
+      "defense": null,
+      "colors": [
+        "U"
+      ],
+      "color_identity": [
+        "U"
+      ],
+      "keywords": [],
+      "is_token": false,
+      "faces": [],
+      "double_faced": false,
+      "image_faces": 1,
+      "has_image": false,
+      "released_at": "1994-06-01",
+      "artist": "Brian Sn\u00f5ddy",
+      "commander_legal": "legal",
+      "related_tokens": [],
+      "related_cards": []
+    },
+    "rulings": {
+      "object": "list",
+      "has_more": false,
+      "data": [
+        {
+          "object": "ruling",
+          "oracle_id": "6a0da9f3-cb06-42b1-ae73-b142c0eedaff",
+          "source": "wotc",
+          "published_at": "2008-10-01",
+          "comment": "This has the supertype world. When a world permanent enters, any world permanents that were already on the battlefield are put into their owners' graveyards. This is a state-based action called the \"world rule.\" The new world permanent stays on the battlefield. If two world permanents enter at the same time, they're both put into their owners' graveyards."
+        },
+        {
+          "object": "ruling",
+          "oracle_id": "6a0da9f3-cb06-42b1-ae73-b142c0eedaff",
+          "source": "wotc",
+          "published_at": "2004-10-04",
+          "comment": "This ability triggers when the spell is cast."
+        }
+      ]
+    }
+  },
+  {
+    "card": {
+      "id": "87a69f0c-69c2-41d5-b784-502dadf9d048",
+      "oracle_id": "6157ade6-9037-4339-869b-493fdee71dcf",
+      "name": "Draco",
+      "layout": "normal",
+      "set_code": "drb",
+      "set_name": "From the Vault: Dragons",
+      "collector_number": "3",
+      "rarity": "rare",
+      "mana_cost": "{16}",
+      "cmc": 16.0,
+      "type_line": "Artifact Creature \u2014 Dragon",
+      "oracle_text": "Domain \u2014 This spell costs {2} less to cast for each basic land type among lands you control.\nFlying\nDomain \u2014 At the beginning of your upkeep, sacrifice this creature unless you pay {10}. This cost is reduced by {2} for each basic land type among lands you control.",
+      "power": "9",
+      "toughness": "9",
+      "loyalty": null,
+      "defense": null,
+      "colors": [],
+      "color_identity": [],
+      "keywords": [
+        "Flying",
+        "Domain"
+      ],
+      "is_token": false,
+      "faces": [],
+      "double_faced": false,
+      "image_faces": 1,
+      "has_image": false,
+      "released_at": "2008-08-29",
+      "artist": "Sam Wood",
+      "commander_legal": "legal",
+      "related_tokens": [],
+      "related_cards": []
+    },
+    "rulings": {
+      "object": "list",
+      "has_more": false,
+      "data": [
+        {
+          "object": "ruling",
+          "oracle_id": "6157ade6-9037-4339-869b-493fdee71dcf",
+          "source": "wotc",
+          "published_at": "2021-06-18",
+          "comment": "Domain abilities count the number of basic land types among lands you control, not how many lands you control or how many of any type."
+        },
+        {
+          "object": "ruling",
+          "oracle_id": "6157ade6-9037-4339-869b-493fdee71dcf",
+          "source": "wotc",
+          "published_at": "2021-06-18",
+          "comment": "The basic land types are Plains, Island, Swamp, Mountain, and Forest. Land types other than basic land types (such as Desert) don't contribute to domain abilities."
+        }
+      ]
+    }
+  }
+]

@@ -1,0 +1,27 @@
+{
+  "object": "list",
+  "has_more": false,
+  "data": [
+    {
+      "object": "ruling",
+      "oracle_id": "e1b8a89a-b308-4fc5-ada7-61de6e21b7f9",
+      "source": "wotc",
+      "published_at": "2017-04-18",
+      "comment": "If you choose to pay New Perspectives\u2019s alternate activation cost, you still discard the card with cycling to activate the ability."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "e1b8a89a-b308-4fc5-ada7-61de6e21b7f9",
+      "source": "wotc",
+      "published_at": "2017-04-18",
+      "comment": "The card you wish to cycle counts when determining whether you have seven or more cards in hand."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "e1b8a89a-b308-4fc5-ada7-61de6e21b7f9",
+      "source": "wotc",
+      "published_at": "2017-04-18",
+      "comment": "Certain older cards have variants of cycling, such as basic landcycling or Wizardcycling. New Perspectives gives these abilities an alternate activation cost as well."
+    }
+  ]
+}

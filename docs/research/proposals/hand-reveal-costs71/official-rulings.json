@@ -1,0 +1,20 @@
+{
+  "object": "list",
+  "has_more": false,
+  "data": [
+    {
+      "object": "ruling",
+      "oracle_id": "e36f4649-934d-4e8a-bd5f-39f164ea6937",
+      "source": "wotc",
+      "published_at": "2004-10-04",
+      "comment": "You can pay the \u201creveal your hand\u201d cost even if your hand is already revealed due to another effect."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "e36f4649-934d-4e8a-bd5f-39f164ea6937",
+      "source": "wotc",
+      "published_at": "2004-10-04",
+      "comment": "Because the \u201csearch\u201d requires you to find a card with certain characteristics, you don\u2019t have to find the card if you don\u2019t want to."
+    }
+  ]
+}

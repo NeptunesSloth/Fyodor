@@ -287,12 +287,14 @@ def test_satchel_gains_two_life_for_a_noncreature_nonland_card(cards):
 
 # ---- Doubling Cube ------------------------------------------------------------------------------------------------------------------------------
 def test_doubling_cube_doubles_each_type_of_unspent_mana_left_after_paying(cards):
+    from app.rules.mana_units import visible_pool
+
     s = build(cards, ["Doubling Cube"])
     cube = put(s, "Doubling Cube")
     mana(s, "p1", R=4, G=2)  # {3} of it pays for the ability: R=3 and G=0 are left... the payer takes what it likes, so only the total is checked
     activate(s, "p1", cube)
     settle(s)
-    pool = s.state.players["p1"].mana
+    pool = visible_pool(s.state, "p1")  # Includes the Cube's attributed native mana units.
     assert sum(pool.values()) == 6  # 6 - 3 paid = 3 left, doubled
     check(s)
 
@@ -337,12 +339,15 @@ def test_assembly_worker_cannot_target_another_kind_of_creature(cards):
 
 # ---- Witch Engine -------------------------------------------------------------------------------------------------------------------------------
 def test_witch_engine_adds_the_mana_then_the_opponent_gains_control(cards):
+    from app.rules.mana_units import visible_pool
+
     s = build(cards, ["Witch Engine"])
     engine = put(s, "Witch Engine")
     next_turn(s)
     activate(s, "p1", engine, targets=["p2"])  # it has a target: not a mana ability, it uses the stack (605.1a)
     settle(s)
-    assert s.state.players["p1"].mana == {"B": 4} and s.state.cards[engine.id].controller == "p2"
+    assert visible_pool(s.state, "p1") == {"B": 4}
+    assert s.state.cards[engine.id].controller == "p2"
     check(s)
 
 

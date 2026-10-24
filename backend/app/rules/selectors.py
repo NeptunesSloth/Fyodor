@@ -2102,6 +2102,8 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
            for x in sel.extras):  # -- copy abilities (wave 19E) -- "… from an enchantment source"
         return False
     for extra in sel.extras:
+        if extra.startswith('exclude_successor58:') and plan.oid(card) == extra.partition(':')[2]:
+            return False
         if extra == 'controlled_since_turn_start69':
             from app.rules import controller_turn_history69
 
@@ -2209,7 +2211,14 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
     if set(sel.without_keywords) & ch.keywords:
         return False
     for what, op, n in sel.compare:
-        if isinstance(n, str) and n.startswith(REVEALED_STAT):  # -- static_other sweep (wave 17C) --
+        if isinstance(n, str) and n.startswith('fight90:'):
+            from app.rules import fight_receipts90
+
+            now90 = fight_receipts90.same_mv(plan, n)
+            if now90 is None:
+                return False
+            n = now90
+        elif isinstance(n, str) and n.startswith(REVEALED_STAT):
             revealed = revealed_stat(plan, source, n[len(REVEALED_STAT):])
             if revealed is None:
                 return False
@@ -2262,6 +2271,11 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
         if value is None or not isinstance(n, (int, float)) or not {"<=": value <= n, ">=": value >= n, "==": value == n, "<": value < n, ">": value > n}[op]:
             return False
     for extra in sel.extras:
+        if extra.startswith('exchange_choices92:'):
+            from app.rules import exchange_choices92
+
+            if not exchange_choices92.matches(plan, card, ch, extra):
+                return False
         if extra.startswith('controller_controls_land:') and not any(
                 c.controller == card.controller and c.zone.endswith(':battlefield')
                 and extra[len('controller_controls_land:'):] in plan.ch(c).subtypes
@@ -2411,6 +2425,12 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
 
             if card_names.has_name(ch, extra[9:]):
                 return False
+        if extra.startswith('paid_contributor81:'):
+            from app.rules import crew_saddle
+
+            _, kind, original_source = extra.split(':', 2)
+            if not crew_saddle.tapped_for(plan, kind, plan.oid(card), original_source):
+                return False
         if extra in ("crewed_it", "saddled_it"):  # (wave 23D)
             from app.rules import crew_saddle
 
@@ -2514,6 +2534,11 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
             src = plan.state.cards.get(source or "")
             # ponytail: the source's current characteristics, not last-known information (no subtypes are stored in the LKI snapshot)
             if src is None or not (ch.subtypes & plan.ch(src).subtypes & CREATURE_TYPES):
+                return False
+        if extra == 'double_faced_permanent66':
+            from app.rules import tetzin_double_face66
+
+            if not tetzin_double_face66.physical(plan, card):
                 return False
         if extra == 'double_faced_card':
             from app.cards.repository import DOUBLE_FACED_LAYOUTS

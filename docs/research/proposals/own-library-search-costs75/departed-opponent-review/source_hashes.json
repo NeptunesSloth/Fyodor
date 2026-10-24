@@ -1,0 +1,10 @@
+{
+  "app/rules/history.py": {
+    "before": "60fe12a669c810c2132f95953246c577deeab30da838d3c0519ea2514fd85559",
+    "after": "00dbc46c9c32f3aaab68d7db091110bf5b3b422498892d5a6c614fec748df69d"
+  },
+  "app/rules/alt_costs.py": {
+    "before": "8efa4df87e50debe222b24e67c1826df1692a522224d195c31bc8f5406473447",
+    "after": "f14c27f294688d91c8cc68d1e1a99f1f23a422fda7f19a45ef654a3394fc52e0"
+  }
+}

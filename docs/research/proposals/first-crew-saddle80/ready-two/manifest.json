@@ -1,0 +1,20 @@
+{
+  "status": "TWO-CARD REVIEW CANDIDATE; NOT YET INSTALLED OR ADMITTED",
+  "names": [
+    "Mighty Servant of Leuk-o",
+    "Mindlink Mech"
+  ],
+  "expected_promotions": 2,
+  "held": [
+    "Stubborn Burrowfiend: generic mill continuation can run pump before pending replacement commits; shared producer owner library58"
+  ],
+  "native_unique": 21,
+  "native_cold": 2,
+  "native_result": "PASS",
+  "related_prior": 58,
+  "final_marker_related": 3,
+  "types_final": "PASS6",
+  "ruff_final": "PASS7",
+  "stage": "/tmp/combat80-two/backend",
+  "patch_sha256": "d3e8fb00aca44cc4f8fa1da9b430dcccec34312fec039b0561261784236f062f"
+}

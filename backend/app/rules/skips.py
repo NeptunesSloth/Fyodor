@@ -23,9 +23,8 @@ Wordings (anything else stays manual):
   phase | turn(s)]" (Stonehorn Dignitary, Fatigue, Eater of Days, Chronatog, Blinding Angel), and
   the imperative "Skip your next turn." (Magosi, the Waterveil).
 
-Refused: conditional statics ("Skip your upkeep step if you have no cards in hand."), "this turn"
-skips ("you skip your draw step this turn", "skips their next combat phase this turn"), the
-player choosing what to skip (Fatespinner), skipping X turns.
+Exact turn-scoped spell and upkeep-choice wordings are admitted by phase_skips88.
+Other unsupported wordings, including conditional statics and skipping X turns, stay manual.
 """
 
 from __future__ import annotations
@@ -42,7 +41,7 @@ Definition = dict[str, Any]
 
 _WHAT = {"untap step": "untap", "upkeep step": "upkeep", "upkeep": "upkeep", "draw step": "draw", "combat phase": "combat",
          "turn": "turn", "turns": "turn"}
-_LABEL = {"untap": "untap step", "upkeep": "upkeep step", "draw": "draw step", "combat": "combat phase", "turn": "turn"}
+_LABEL = {"untap": "untap step", "upkeep": "upkeep step", "draw": "draw step", "combat": "combat phase", "turn": "turn", "main": "main phase"}
 
 # -- statics ---------------------------------------------------------------------------------------------
 _STATIC_YOU = re.compile(r"Skip your (?P<what>untap step|upkeep step|draw step)\.")
@@ -106,7 +105,7 @@ def skip_next(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     name = ctx.get("name") or "An effect"
     for pid in _players(plan, ctx, e["who"]):
         for _ in range(int(e.get("n") or 1)):
-            plan.rules.skips.append({"id": secrets.token_hex(4), "player": pid, "what": e["what"], "label": name, **({"turn": plan.state.turn.number} if e.get("this_turn") else {})})
+            plan.rules.skips.append({"id": secrets.token_hex(4), "player": pid, "what": e["what"], "label": name, **({"turn": plan.state.turn.number} if e.get("this_turn") else {}), **({"next_turn88": plan.state.turn.number} if e.get("next_turn88") else {}), **({"repeat88": True} if e.get("repeat88") else {})})
         n = int(e.get("n") or 1)
         what = _LABEL[e["what"]] + ("s" if n > 1 else "")
         timing = f"their {what} this turn" if e.get("this_turn") else f"their next {f'{n} ' if n > 1 else ''}{what}"
@@ -144,9 +143,11 @@ def take(plan: Plan, player: str, what: str) -> str | None:
     if found is not None:
         return found
     r = plan.rules
-    for i, rec in enumerate(r.skips):
-        if rec.get("player") == player and rec.get("what") == what:
-            if "turn" not in rec:
+    # An all-instance turn restriction skips the occurrence before a waiting
+    # one-shot next-occurrence effect can be satisfied (614.10a).
+    for i, rec in sorted(enumerate(r.skips), key=lambda pair: not pair[1].get("repeat88")):
+        if rec.get("player") == player and rec.get("what") == what and "next_turn88" not in rec:
+            if not rec.get("repeat88"):
                 del r.skips[i]
             return str(rec.get("label") or "an effect")
     return None
@@ -181,8 +182,15 @@ def skip_steps(plan: Plan) -> None:
     """The step (or the combat phase) the turn just moved into is skipped: on to the next one, with
     nothing of it happening (614.10a)."""
     for _ in range(4 + len(plan.rules.extra_steps) + len(plan.rules.extra_phases)):
+        # Every actual turn advances through this boundary, including turns whose
+        # relevant phase is absent/skipped. Bind waiting effects to that first
+        # actual next turn, so a turn with no combat never leaks to a later turn.
+        for rec in plan.rules.skips:
+            if rec.get('player') == plan.active and 'next_turn88' in rec and plan.state.turn.number > rec['next_turn88']:
+                rec['turn'] = plan.state.turn.number
+                del rec['next_turn88']
         phase = plan.state.turn.phase
-        what = {"upkeep": "upkeep", "draw": "draw", "begin_combat": "combat"}.get(phase)
+        what = {"upkeep": "upkeep", "draw": "draw", "begin_combat": "combat", "main1": "main", "main2": "main"}.get(phase)
         if what is None:
             return
         label = take(plan, plan.active, what)
@@ -194,10 +202,10 @@ def skip_steps(plan: Plan) -> None:
         inserted = r.extra_steps.pop(0) if r.extra_steps else None
         if inserted is not None and inserted != "phase":
             to = inserted
-        elif inserted == "phase" or what == "combat" or (what == "upkeep" and r.upkeep_only) or (what == "draw" and r.extra_beginning):
+        elif inserted == "phase" or what in ("combat", "main") or (what == "upkeep" and r.upkeep_only) or (what == "draw" and r.extra_beginning):
             from app.rules import combat_rules
 
-            fallback = "main2" if what == "combat" or r.upkeep_only else "end" if r.extra_beginning else "main1"
+            fallback = "begin_combat" if what == "main" and phase == "main1" else "end" if what == "main" else "main2" if what == "combat" or r.upkeep_only else "end" if r.extra_beginning else "main1"
             to = combat_rules.next_phase(plan) or fallback
             r.extra_beginning = to == "untap"
             r.upkeep_only = to == "upkeep" and r.combat_tag == "upkeep_only"

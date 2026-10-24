@@ -1,0 +1,7 @@
+# Fortune83 — root review candidate, isolated only
+
+Exact Fortune, Loyal Steed. Consolidated native11 PASS including one genuine fresh-process saved delayed-trigger continuation. This includes actual printed cast/scry completion, ordinary choose/decline, unsaddled no trigger, original source departure and reincarnation, contributor reincarnation exclusion, token disappearance, and actual controller changes to source/contributor with return to owners. Source leaf/type1 and configured source/test Ruff2 PASS. Relevant full saddle-receipt and delayed-combat-blink regressions31 PASS. All isolated gates are closed; root production installation and frozen audit remain pending.
+
+The bounded native trigger adapter preserves intervening saddled attack logic and schedules a native end-of-combat delayed ability. At resolution it chooses up to one actual original saddle contributor without targeting, retaining original Fortune OID even when the physical card has returned as a new object. It composes native simultaneous exile and actual-public-object return; tokens cannot return. Canonical and complete official ruling set are preserved. No shared kernel or classifier changes.
+
+Root source remains untouched. reviewed.patch was generated against the prior isolated reader81/cloud82 stage; preserve newer sibling hooks during integration. Restore native_tests.py to backend/tests/test_rules_fortune83.py and reuse existing crew_saddle_readers81 fixture after root review.

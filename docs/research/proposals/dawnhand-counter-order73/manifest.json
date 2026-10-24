@@ -1,0 +1,24 @@
+{
+  "status": "CLOSED_FOR_ROOT_PRODUCTION_REVIEW; uninstalled/unadmitted",
+  "names": [
+    "Dawnhand Dissident"
+  ],
+  "patch": "review.patch",
+  "patch_sha256": "154ca603a7c8fcc45b919a39c6e4fc2ce4548c94367200f74bfe5f0ac3feae3f",
+  "stage": "/tmp/dawn73-stage",
+  "native": {
+    "distinct_passed": 14,
+    "genuine_cold": 3,
+    "evidence": "Original final14 had13 pass and one stale-library-ID fixture failure; corrected Blight1 independently passes on unchanged app source. No fresh consolidated14 rerun claimed."
+  },
+  "related": {
+    "passed": 46,
+    "scope": "Falco composition72 quality6 + Falco70 original19 + pooled71 original21"
+  },
+  "mypy": "PASS4 source files",
+  "ruff": "PASS4 source files and native test",
+  "source_hashes": "source-hashes.json",
+  "test": "native_tests.py -> backend/tests/test_rules_dawnhand_counter_order73.py",
+  "fixture": "Reuse existing pooled_casting_authorities71_cards.json and wave47c_cards.json; no fixture mutation",
+  "next": "Root source-preserving installation, consolidated production native14, frozen exact1 catalog promotion"
+}

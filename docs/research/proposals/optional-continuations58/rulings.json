@@ -1,0 +1,89 @@
+{
+  "Eden, Seat of the Sanctum": {
+    "id": "e28eac1e-adc7-4f8d-b206-bef09ba07d38",
+    "oracle_id": "84856b92-5ce8-47f3-9a1c-78d6a3e26aca",
+    "scryfall_uri": "https://scryfall.com/card/fin/277/eden-seat-of-the-sanctum?utm_source=api",
+    "rulings": [
+      {
+        "object": "ruling",
+        "oracle_id": "84856b92-5ce8-47f3-9a1c-78d6a3e26aca",
+        "source": "wotc",
+        "published_at": "2025-06-06",
+        "comment": "You don't choose a target for Eden, Seat of the Sanctum's last ability at the time you activate it. Rather, a second \"reflexive\" ability triggers when you sacrifice Eden, Seat of the Sanctum this way. You choose a target for that ability as it goes on the stack. Each player may respond to this triggered ability as normal."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "84856b92-5ce8-47f3-9a1c-78d6a3e26aca",
+        "source": "wotc",
+        "published_at": "2025-06-06",
+        "comment": "Town is a land type with no special meaning. It doesn't grant the land any intrinsic abilities. Other cards may care about which lands are Towns."
+      }
+    ]
+  },
+  "Blood Spatter Analysis": {
+    "id": "2b80feb8-5cc8-4e91-ac22-a733305a67de",
+    "oracle_id": "aa929252-5dcc-4c9b-9e7c-61d0bef98d6d",
+    "scryfall_uri": "https://scryfall.com/card/mkm/189/blood-spatter-analysis?utm_source=api",
+    "rulings": [
+      {
+        "object": "ruling",
+        "oracle_id": "aa929252-5dcc-4c9b-9e7c-61d0bef98d6d",
+        "source": "wotc",
+        "published_at": "2024-02-02",
+        "comment": "Blood Spatter Analysis is sacrificed for having five or more bloodstain counters on it only while its second ability is resolving. If you put a fifth counter on it some other way, it won't be immediately sacrificed."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "aa929252-5dcc-4c9b-9e7c-61d0bef98d6d",
+        "source": "wotc",
+        "published_at": "2024-02-02",
+        "comment": "You don't choose a target creature card to return from your graveyard to your hand at the time Blood Spatter Analysis's second ability triggers. Rather, a second \"reflexive\" ability triggers when you sacrifice Blood Spatter Analysis this way. You choose a target for that ability as it goes on the stack. Each player may respond to this triggered ability as normal."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "aa929252-5dcc-4c9b-9e7c-61d0bef98d6d",
+        "source": "wotc",
+        "published_at": "2024-02-02",
+        "comment": "Blood Spatter Analysis's reflexive triggered ability triggers and returns a creature card to your hand only if you sacrifice it while resolving its second ability. It won't trigger if you sacrifice it for any other reason."
+      }
+    ]
+  },
+  "Serum-Core Chimera": {
+    "id": "31147651-9a5e-4329-923b-e464f67135e9",
+    "oracle_id": "ed54a59b-b24c-4681-b862-fa634fe759fd",
+    "scryfall_uri": "https://scryfall.com/card/one/215/serum-core-chimera?utm_source=api",
+    "rulings": [
+      {
+        "object": "ruling",
+        "oracle_id": "ed54a59b-b24c-4681-b862-fa634fe759fd",
+        "source": "wotc",
+        "published_at": "2023-02-04",
+        "comment": "You don't choose a target for Serum-Core Chimera's last ability at the time you activate it. Rather, a second \"reflexive\" ability triggers when you discard a card this way. You choose a target for that ability as it goes on the stack. Each player may respond to this triggered ability as normal."
+      }
+    ]
+  },
+  "Vengeful Villagers": {
+    "id": "8cabb6ed-5c80-4dab-b96c-9d4d9fe72db7",
+    "oracle_id": "ad6442c2-7aa2-4c24-8133-f679a3499bde",
+    "scryfall_uri": "https://scryfall.com/card/tla/40/vengeful-villagers?utm_source=api",
+    "rulings": []
+  },
+  "Airlift Chaplain": {
+    "id": "7ad55575-6053-43b1-9496-bcb1ea25e2a1",
+    "oracle_id": "719aeb50-c8cf-4cd8-b74c-d2cef408b52e",
+    "scryfall_uri": "https://scryfall.com/card/bro/2/airlift-chaplain?utm_source=api",
+    "rulings": []
+  },
+  "Winter Soldier, Icy Assassin": {
+    "id": "ebf71ffc-6e3e-4ca0-a84a-3c1ebd2b64b1",
+    "oracle_id": "6f4c94b6-f829-4646-a574-083997b78dfb",
+    "scryfall_uri": "https://scryfall.com/card/msh/239/winter-soldier-icy-assassin?utm_source=api",
+    "rulings": []
+  },
+  "Unexpected Request": {
+    "id": "0265fd20-a85d-49ce-b338-4c40843a5b18",
+    "oracle_id": "f4497af5-8b81-46b3-bb52-eaed1999809b",
+    "scryfall_uri": "https://scryfall.com/card/fin/167/unexpected-request?utm_source=api",
+    "rulings": []
+  }
+}

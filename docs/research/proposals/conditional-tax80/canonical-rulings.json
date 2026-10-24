@@ -1,0 +1,247 @@
+[
+  {
+    "id": "13b70321-75bd-4d44-b9f6-5f062a5dda0f",
+    "oracle_id": "1abe8246-d2f9-407b-8c16-83da0a6b7de3",
+    "name": "We Say Thee Nay!",
+    "layout": "normal",
+    "set_code": "msh",
+    "set_name": "Marvel Super Heroes",
+    "collector_number": "82",
+    "rarity": "common",
+    "mana_cost": "{1}{U}",
+    "cmc": 2.0,
+    "type_line": "Instant \u2014 Arcane",
+    "oracle_text": "Teamwork 2 (As an additional cost to cast this spell, you may tap any number of creatures you control with total power 2 or more.)\nCounter target spell unless its controller pays {2}. Counter that spell unless its controller pays {4} instead if this spell was cast using teamwork.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Teamwork"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2026-06-26",
+    "artist": "Mateus Manhanini",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [],
+    "official_rulings": {
+      "object": "list",
+      "has_more": false,
+      "data": []
+    }
+  },
+  {
+    "id": "1c9af3f1-711e-42ae-803a-1100eba3fb13",
+    "oracle_id": "dd3a4b64-0987-4e9b-a18d-c54365438857",
+    "name": "Dispelling Exhale",
+    "layout": "normal",
+    "set_code": "tdm",
+    "set_name": "Tarkir: Dragonstorm",
+    "collector_number": "41",
+    "rarity": "common",
+    "mana_cost": "{1}{U}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "As an additional cost to cast this spell, you may behold a Dragon. (You may choose a Dragon you control or reveal a Dragon card from your hand.)\nCounter target spell unless its controller pays {2}. If a Dragon was beheld, counter that spell unless its controller pays {4} instead.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Behold"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2025-04-11",
+    "artist": "David Auden Nash",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [],
+    "official_rulings": {
+      "object": "list",
+      "has_more": false,
+      "data": [
+        {
+          "object": "ruling",
+          "oracle_id": "dd3a4b64-0987-4e9b-a18d-c54365438857",
+          "source": "wotc",
+          "published_at": "2025-04-04",
+          "comment": "If an effect refers to a \u201c[subtype] card,\u201d it refers only to a card that has that subtype. For example, Teeming Dragonstorm is a card that cares about Dragons and features Dragons in its art, but it isn\u2019t a Dragon card."
+        },
+        {
+          "object": "ruling",
+          "oracle_id": "dd3a4b64-0987-4e9b-a18d-c54365438857",
+          "source": "wotc",
+          "published_at": "2025-04-04",
+          "comment": "Effects that say \u201cIf a [quality] was beheld\u201d only care if a card of that quality was revealed or a permanent you control of that quality was chosen. No matter what happens to that card or permanent after that, it was still beheld, and any additional effects that depend on that card or permanent being beheld will still happen."
+        },
+        {
+          "object": "ruling",
+          "oracle_id": "dd3a4b64-0987-4e9b-a18d-c54365438857",
+          "source": "wotc",
+          "published_at": "2025-04-04",
+          "comment": "If a cost to cast a spell includes revealing a card, that card remains revealed from the time the spell is announced until the time it leaves the stack."
+        },
+        {
+          "object": "ruling",
+          "oracle_id": "dd3a4b64-0987-4e9b-a18d-c54365438857",
+          "source": "wotc",
+          "published_at": "2025-04-04",
+          "comment": "If a card in your hand is already revealed (perhaps because it was revealed to pay a cost of a spell that\u2019s still on the stack or due to the effect of a card like Telepathy), you may reveal it again to pay the cost of another spell or ability that requires you to reveal a card from your hand."
+        }
+      ]
+    }
+  },
+  {
+    "id": "2270642d-fe2a-4265-aff0-a24a43ebe0a1",
+    "oracle_id": "1a8185ed-636b-49ad-bf24-2ab02c7fb91e",
+    "name": "Swallowed by Leviathan",
+    "layout": "normal",
+    "set_code": "fin",
+    "set_name": "Final Fantasy",
+    "collector_number": "79",
+    "rarity": "uncommon",
+    "mana_cost": "{2}{U}",
+    "cmc": 3.0,
+    "type_line": "Instant",
+    "oracle_text": "Choose target spell. Surveil 2, then counter the chosen spell unless its controller pays {1} for each card in your graveyard. (To surveil 2, look at the top two cards of your library, then put any number of them into your graveyard and the rest on top of your library in any order.)",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Surveil"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2025-06-13",
+    "artist": "Sansyu",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [],
+    "official_rulings": {
+      "object": "list",
+      "has_more": false,
+      "data": []
+    }
+  },
+  {
+    "id": "07e975cc-e89d-4ac3-b9dc-dad202dacc14",
+    "oracle_id": "d73df13d-942a-4104-ac9d-de7c100c086f",
+    "name": "Cosmic Horror",
+    "layout": "normal",
+    "set_code": "4ed",
+    "set_name": "Fourth Edition",
+    "collector_number": "126",
+    "rarity": "rare",
+    "mana_cost": "{3}{B}{B}{B}",
+    "cmc": 6.0,
+    "type_line": "Creature \u2014 Horror",
+    "oracle_text": "First strike\nAt the beginning of your upkeep, destroy this creature unless you pay {3}{B}{B}{B}. If this creature is destroyed this way, it deals 7 damage to you.",
+    "power": "7",
+    "toughness": "7",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [
+      "First strike"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "1995-04-01",
+    "artist": "Jesper Myrfors",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [],
+    "official_rulings": {
+      "object": "list",
+      "has_more": false,
+      "data": [
+        {
+          "object": "ruling",
+          "oracle_id": "d73df13d-942a-4104-ac9d-de7c100c086f",
+          "source": "wotc",
+          "published_at": "2013-07-01",
+          "comment": "If you choose not to pay Cosmic Horror\u2019s upkeep cost, it deals 7 damage to you only if it\u2019s actually destroyed. If it regenerates or an effect has given it indestructible, it deals no damage."
+        }
+      ]
+    }
+  },
+  {
+    "id": "18e6a219-207b-4fc4-aaeb-99e2efee188c",
+    "oracle_id": "2847c8a0-f6aa-4e4a-a7b8-fc116436a264",
+    "name": "Demonic Hordes",
+    "layout": "normal",
+    "set_code": "sum",
+    "set_name": "Summer Magic / Edgar",
+    "collector_number": "104",
+    "rarity": "rare",
+    "mana_cost": "{3}{B}{B}{B}",
+    "cmc": 6.0,
+    "type_line": "Creature \u2014 Demon",
+    "oracle_text": "{T}: Destroy target land.\nAt the beginning of your upkeep, unless you pay {B}{B}{B}, tap this creature and sacrifice a land of an opponent's choice.",
+    "power": "5",
+    "toughness": "5",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "1994-06-21",
+    "artist": "Jesper Myrfors",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [],
+    "official_rulings": {
+      "object": "list",
+      "has_more": false,
+      "data": []
+    }
+  }
+]

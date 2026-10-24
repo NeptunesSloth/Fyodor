@@ -8,7 +8,7 @@ from app.cards.images import ImageStore
 from app.cards.importer import build_database
 from app.cards.repository import CardRepository
 from app.game.session import GameSession
-from app.rules import context, effects, replace
+from app.rules import context, effects, engine, replace
 from app.rules import entry_harvest45 as model
 from app.rules.plan import Plan
 from tests.fixtures.cards import card, fixture_cards
@@ -28,6 +28,9 @@ def cards(settings, monkeypatch):
     repo = CardRepository(settings.cards_db_path, ImageStore(settings.images_dir))
     monkeypatch.setitem(effects.PRIMITIVES, model.STEP, model.primitive)
     monkeypatch.setitem(effects.RESUME, model.STEP, model.resume)
+    # The engine takes a copy of effect continuations when imported. Register the
+    # test-only scheduler there too, independent of test collection/import order.
+    monkeypatch.setitem(engine.RESUME, model.STEP, model.resume)
     monkeypatch.setitem(replace.SITES, model.PUT_SITE, model.resume_put)
     yield repo
     repo.close()

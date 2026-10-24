@@ -1,0 +1,609 @@
+.F.FF.F.FFF                                                              [100%]
+=================================== FAILURES ===================================
+_______ test_native_whole_card_cast_and_changeling[Shields of Velis Vel] _______
+
+cards = <app.cards.repository.CardRepository object at 0x7fca7b3308f0>
+name = 'Shields of Velis Vel'
+
+    @pytest.mark.parametrize('name',NAMES)
+    def test_native_whole_card_cast_and_changeling(cards,name):
+        from app.rules.creature_types import CREATURE_TYPES
+
+>       assert coverage.of_card_data(cards.resolve(name)).level=='FULL'
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_rules_temporary_creature_types93.py:62:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+app/rules/coverage.py:794: in of_card_data
+    return of_characteristics(printed_from_data(data, 0))
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/coverage.py:765: in of_characteristics
+    feats = tuple(features_of(ch))
+                  ^^^^^^^^^^^^^^^
+app/rules/coverage.py:690: in features_of
+    whole = templates.spell_definition(ch)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/scripts.py:8420: in spell_definition
+    whole = _spell_definition(ch)
+            ^^^^^^^^^^^^^^^^^^^^^
+app/rules/scripts.py:8469: in _spell_definition
+    own = target_groups(defs[ab.index])
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+definition = {'kind': 'spell', 'effects': [{'do': 'pump', 'who': 'controlled:target|sel:{"types":["Creature"]}', 'p': 0, 't': 1, ...}, {'do': 'become', 'who': 'ref:typed93', 'types': [], 'duration': 'end_of_turn', ...}], 'target': 'player'}
+
+    def target_groups(definition: dict[str, Any] | None) -> list[dict[str, Any]]:
+        """A definition's target groups in printed order (601.2c); the old single "target" is one
+        group of exactly one target."""
+        if not definition:
+            return []
+        if definition.get("targets"):
+            return [{"min": 1, "max": 1, **g} for g in definition["targets"]]
+        spec = definition.get("target")
+>       return [{**spec, "min": 1, "max": 1}] if spec else []
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       TypeError: 'str' object is not a mapping
+
+app/rules/scripts.py:1491: TypeError
+___________ test_native_whole_card_cast_and_changeling[Ego Erasure] ____________
+
+cards = <app.cards.repository.CardRepository object at 0x7fca7b30c4a0>
+name = 'Ego Erasure'
+
+    @pytest.mark.parametrize('name',NAMES)
+    def test_native_whole_card_cast_and_changeling(cards,name):
+        from app.rules.creature_types import CREATURE_TYPES
+
+>       assert coverage.of_card_data(cards.resolve(name)).level=='FULL'
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_rules_temporary_creature_types93.py:62:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+app/rules/coverage.py:794: in of_card_data
+    return of_characteristics(printed_from_data(data, 0))
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/coverage.py:765: in of_characteristics
+    feats = tuple(features_of(ch))
+                  ^^^^^^^^^^^^^^^
+app/rules/coverage.py:690: in features_of
+    whole = templates.spell_definition(ch)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/scripts.py:8420: in spell_definition
+    whole = _spell_definition(ch)
+            ^^^^^^^^^^^^^^^^^^^^^
+app/rules/scripts.py:8469: in _spell_definition
+    own = target_groups(defs[ab.index])
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+definition = {'kind': 'spell', 'effects': [{'do': 'pump', 'who': 'controlled:target|sel:{"types":["Creature"]}', 'p': -2, 't': 0, ...}, {'do': 'become', 'who': 'ref:typed93', 'types': [], 'duration': 'end_of_turn', ...}], 'target': 'player'}
+
+    def target_groups(definition: dict[str, Any] | None) -> list[dict[str, Any]]:
+        """A definition's target groups in printed order (601.2c); the old single "target" is one
+        group of exactly one target."""
+        if not definition:
+            return []
+        if definition.get("targets"):
+            return [{"min": 1, "max": 1, **g} for g in definition["targets"]]
+        spec = definition.get("target")
+>       return [{**spec, "min": 1, "max": 1}] if spec else []
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       TypeError: 'str' object is not a mapping
+
+app/rules/scripts.py:1491: TypeError
+________ test_native_whole_card_cast_and_changeling[Nameless Inversion] ________
+
+cards = <app.cards.repository.CardRepository object at 0x7fca7b2f3320>
+name = 'Nameless Inversion'
+
+    @pytest.mark.parametrize('name',NAMES)
+    def test_native_whole_card_cast_and_changeling(cards,name):
+        from app.rules.creature_types import CREATURE_TYPES
+
+>       assert coverage.of_card_data(cards.resolve(name)).level=='FULL'
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_rules_temporary_creature_types93.py:62:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+app/rules/coverage.py:794: in of_card_data
+    return of_characteristics(printed_from_data(data, 0))
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/coverage.py:765: in of_characteristics
+    feats = tuple(features_of(ch))
+                  ^^^^^^^^^^^^^^^
+app/rules/coverage.py:690: in features_of
+    whole = templates.spell_definition(ch)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/scripts.py:8420: in spell_definition
+    whole = _spell_definition(ch)
+            ^^^^^^^^^^^^^^^^^^^^^
+app/rules/scripts.py:8469: in _spell_definition
+    own = target_groups(defs[ab.index])
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+definition = {'kind': 'spell', 'effects': [{'do': 'pump', 'who': 'target', 'p': 3, 't': -3, ...}, {'do': 'become', 'who': 'ref:typed93', 'types': [], 'duration': 'end_of_turn', ...}], 'target': 'creature'}
+
+    def target_groups(definition: dict[str, Any] | None) -> list[dict[str, Any]]:
+        """A definition's target groups in printed order (601.2c); the old single "target" is one
+        group of exactly one target."""
+        if not definition:
+            return []
+        if definition.get("targets"):
+            return [{"min": 1, "max": 1, **g} for g in definition["targets"]]
+        spec = definition.get("target")
+>       return [{**spec, "min": 1, "max": 1}] if spec else []
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       TypeError: 'str' object is not a mapping
+
+app/rules/scripts.py:1491: TypeError
+_____ test_native_gain_types_actual_lord_and_expiry[Shields of Velis Vel] ______
+
+self = <app.game.session.GameSession object at 0x7fca7bc88e90>, actor = 'p1'
+payload = {'type': 'cast_spell', 'card_id': '92f1dd339b60', 'targets': ['p1'], 'sources': []}
+trusted = False
+
+    def perform(self, actor: str, payload: dict[str, Any] | Action, *, trusted: bool = False) -> Action:
+        """Validate, resolve, apply and record one action. Raises ActionError / ValidationError.
+
+        ``trusted`` is only for actions the server builds itself (e.g. restoring a snapshot)."""
+        if actor not in self.state.players:
+            raise ActionError("Only seated players can act")
+        action = parse_action(payload) if isinstance(payload, dict) else payload
+        if not trusted and action.type not in CONTROLLED_MAY:
+            self._check_not_controlled(actor)
+        try:
+>           resolved = resolve(self.state, action, actor=actor, cards=self.cards, trusted=trusted)
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+app/game/session.py:61:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+app/game/resolve.py:76: in resolve
+    a.r = compile_intent(state, a, actor=actor, info=info, rng=rng)  # type: ignore[union-attr]
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/engine.py:163: in compile_intent
+    handler(plan, intent)
+app/rules/casting.py:3603: in cast_spell
+    definition = None if plan.manual(card) or a.face_down else scripts.spell_definition(ch)
+                                                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/scripts.py:8420: in spell_definition
+    whole = _spell_definition(ch)
+            ^^^^^^^^^^^^^^^^^^^^^
+app/rules/scripts.py:8469: in _spell_definition
+    own = target_groups(defs[ab.index])
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+definition = {'kind': 'spell', 'effects': [{'do': 'pump', 'who': 'controlled:target|sel:{"types":["Creature"]}', 'p': 0, 't': 1, ...}, {'do': 'become', 'who': 'ref:typed93', 'types': [], 'duration': 'end_of_turn', ...}], 'target': 'player'}
+
+    def target_groups(definition: dict[str, Any] | None) -> list[dict[str, Any]]:
+        """A definition's target groups in printed order (601.2c); the old single "target" is one
+        group of exactly one target."""
+        if not definition:
+            return []
+        if definition.get("targets"):
+            return [{"min": 1, "max": 1, **g} for g in definition["targets"]]
+        spec = definition.get("target")
+>       return [{**spec, "min": 1, "max": 1}] if spec else []
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       TypeError: 'str' object is not a mapping
+
+app/rules/scripts.py:1491: TypeError
+
+The above exception was the direct cause of the following exception:
+
+cards = <app.cards.repository.CardRepository object at 0x7fca7b177470>
+name = 'Shields of Velis Vel'
+
+    @pytest.mark.parametrize('name',['Blades of Velis Vel','Shields of Velis Vel','Volatile Claws'])
+    def test_native_gain_types_actual_lord_and_expiry(cards,name):
+        from app.rules.creature_types import CREATURE_TYPES
+
+        s=game(cards)
+        bear=put(s,'Grizzly Bears','battlefield')
+        lord=cast(s,'Lord of Atlantis')
+        targets=[bear.id] if name=='Blades of Velis Vel' else ['p1'] if name=='Shields of Velis Vel' else []
+>       cast(s,name,targets=targets)
+
+tests/test_rules_temporary_creature_types93.py:84:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests/test_rules_temporary_creature_types93.py:49: in cast
+    act(s,pid,type='cast_spell',card_id=source.id,targets=list(targets),sources=[],**kwargs)
+tests/game_helpers.py:42: in act
+    return session.perform(actor, payload)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <app.game.session.GameSession object at 0x7fca7bc88e90>, actor = 'p1'
+payload = {'type': 'cast_spell', 'card_id': '92f1dd339b60', 'targets': ['p1'], 'sources': []}
+trusted = False
+
+    def perform(self, actor: str, payload: dict[str, Any] | Action, *, trusted: bool = False) -> Action:
+        """Validate, resolve, apply and record one action. Raises ActionError / ValidationError.
+
+        ``trusted`` is only for actions the server builds itself (e.g. restoring a snapshot)."""
+        if actor not in self.state.players:
+            raise ActionError("Only seated players can act")
+        action = parse_action(payload) if isinstance(payload, dict) else payload
+        if not trusted and action.type not in CONTROLLED_MAY:
+            self._check_not_controlled(actor)
+        try:
+            resolved = resolve(self.state, action, actor=actor, cards=self.cards, trusted=trusted)
+        except ActionError:
+            raise
+        except Exception as exc:
+            if action.type not in INTENT_TYPES and action.type != "configure":
+                raise
+            # A rules bug must never break game night: compiling works on a scratch copy, so
+            # nothing was applied. Remember the failure for EXPORT RULES SCENARIO.
+            log.exception("Rules engine failed on %s", action.type)
+            self.rules_failure = {
+                "intent": action.model_dump(mode="json", exclude={"r"}), "actor": actor, "seq": self.state.seq,
+                "error": f"{type(exc).__name__}: {exc}"[:500], "at": time.time(),
+            }
+>           raise AutomationError(
+                f"{AutomationError.PREFIX}: Fyodor couldn't carry out {action.type.replace('_', ' ')}. Nothing changed. "
+                "Resolve it manually with the table tools, pause automation, or export a rules scenario."
+            ) from exc
+E           app.game.errors.AutomationError: AUTOMATION ERROR: Fyodor couldn't carry out cast spell. Nothing changed. Resolve it manually with the table tools, pause automation, or export a rules scenario.
+
+app/game/session.py:74: AutomationError
+------------------------------ Captured log call -------------------------------
+ERROR    app.game.session:session.py:69 Rules engine failed on cast_spell
+Traceback (most recent call last):
+  File "/tmp/temporary-creature-types93-stage/backend/app/game/session.py", line 61, in perform
+    resolved = resolve(self.state, action, actor=actor, cards=self.cards, trusted=trusted)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/temporary-creature-types93-stage/backend/app/game/resolve.py", line 76, in resolve
+    a.r = compile_intent(state, a, actor=actor, info=info, rng=rng)  # type: ignore[union-attr]
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/temporary-creature-types93-stage/backend/app/rules/engine.py", line 163, in compile_intent
+    handler(plan, intent)
+  File "/tmp/temporary-creature-types93-stage/backend/app/rules/casting.py", line 3603, in cast_spell
+    definition = None if plan.manual(card) or a.face_down else scripts.spell_definition(ch)
+                                                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/temporary-creature-types93-stage/backend/app/rules/scripts.py", line 8420, in spell_definition
+    whole = _spell_definition(ch)
+            ^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/temporary-creature-types93-stage/backend/app/rules/scripts.py", line 8469, in _spell_definition
+    own = target_groups(defs[ab.index])
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/temporary-creature-types93-stage/backend/app/rules/scripts.py", line 1491, in target_groups
+    return [{**spec, "min": 1, "max": 1}] if spec else []
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: 'str' object is not a mapping
+_ test_native_remove_creature_subtypes_preserves_equipment_and_forest[Ego Erasure] _
+
+self = <app.game.session.GameSession object at 0x7fca7b197350>, actor = 'p1'
+payload = {'type': 'cast_spell', 'card_id': '9ac5a06f94d5', 'targets': ['p1'], 'sources': []}
+trusted = False
+
+    def perform(self, actor: str, payload: dict[str, Any] | Action, *, trusted: bool = False) -> Action:
+        """Validate, resolve, apply and record one action. Raises ActionError / ValidationError.
+
+        ``trusted`` is only for actions the server builds itself (e.g. restoring a snapshot)."""
+        if actor not in self.state.players:
+            raise ActionError("Only seated players can act")
+        action = parse_action(payload) if isinstance(payload, dict) else payload
+        if not trusted and action.type not in CONTROLLED_MAY:
+            self._check_not_controlled(actor)
+        try:
+>           resolved = resolve(self.state, action, actor=actor, cards=self.cards, trusted=trusted)
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+app/game/session.py:61:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+app/game/resolve.py:76: in resolve
+    a.r = compile_intent(state, a, actor=actor, info=info, rng=rng)  # type: ignore[union-attr]
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/engine.py:163: in compile_intent
+    handler(plan, intent)
+app/rules/casting.py:3603: in cast_spell
+    definition = None if plan.manual(card) or a.face_down else scripts.spell_definition(ch)
+                                                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/scripts.py:8420: in spell_definition
+    whole = _spell_definition(ch)
+            ^^^^^^^^^^^^^^^^^^^^^
+app/rules/scripts.py:8469: in _spell_definition
+    own = target_groups(defs[ab.index])
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+definition = {'kind': 'spell', 'effects': [{'do': 'pump', 'who': 'controlled:target|sel:{"types":["Creature"]}', 'p': -2, 't': 0, ...}, {'do': 'become', 'who': 'ref:typed93', 'types': [], 'duration': 'end_of_turn', ...}], 'target': 'player'}
+
+    def target_groups(definition: dict[str, Any] | None) -> list[dict[str, Any]]:
+        """A definition's target groups in printed order (601.2c); the old single "target" is one
+        group of exactly one target."""
+        if not definition:
+            return []
+        if definition.get("targets"):
+            return [{"min": 1, "max": 1, **g} for g in definition["targets"]]
+        spec = definition.get("target")
+>       return [{**spec, "min": 1, "max": 1}] if spec else []
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       TypeError: 'str' object is not a mapping
+
+app/rules/scripts.py:1491: TypeError
+
+The above exception was the direct cause of the following exception:
+
+cards = <app.cards.repository.CardRepository object at 0x7fca7bc89f10>
+name = 'Ego Erasure'
+
+    @pytest.mark.parametrize('name',['Ego Erasure','Nameless Inversion'])
+    def test_native_remove_creature_subtypes_preserves_equipment_and_forest(cards,name):
+        s=game(cards)
+        host=put(s,'Rabbit Battery','battlefield')
+        forest=put(s,'Dryad Arbor','battlefield')
+        for obj in [host,forest]:
+            act(s,'p1',type='counter',card_ids=[obj.id],kind='+1/+1',delta=3)
+        targets=['p1'] if name=='Ego Erasure' else [host.id]
+>       cast(s,name,targets=targets)
+
+tests/test_rules_temporary_creature_types93.py:105:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests/test_rules_temporary_creature_types93.py:49: in cast
+    act(s,pid,type='cast_spell',card_id=source.id,targets=list(targets),sources=[],**kwargs)
+tests/game_helpers.py:42: in act
+    return session.perform(actor, payload)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <app.game.session.GameSession object at 0x7fca7b197350>, actor = 'p1'
+payload = {'type': 'cast_spell', 'card_id': '9ac5a06f94d5', 'targets': ['p1'], 'sources': []}
+trusted = False
+
+    def perform(self, actor: str, payload: dict[str, Any] | Action, *, trusted: bool = False) -> Action:
+        """Validate, resolve, apply and record one action. Raises ActionError / ValidationError.
+
+        ``trusted`` is only for actions the server builds itself (e.g. restoring a snapshot)."""
+        if actor not in self.state.players:
+            raise ActionError("Only seated players can act")
+        action = parse_action(payload) if isinstance(payload, dict) else payload
+        if not trusted and action.type not in CONTROLLED_MAY:
+            self._check_not_controlled(actor)
+        try:
+            resolved = resolve(self.state, action, actor=actor, cards=self.cards, trusted=trusted)
+        except ActionError:
+            raise
+        except Exception as exc:
+            if action.type not in INTENT_TYPES and action.type != "configure":
+                raise
+            # A rules bug must never break game night: compiling works on a scratch copy, so
+            # nothing was applied. Remember the failure for EXPORT RULES SCENARIO.
+            log.exception("Rules engine failed on %s", action.type)
+            self.rules_failure = {
+                "intent": action.model_dump(mode="json", exclude={"r"}), "actor": actor, "seq": self.state.seq,
+                "error": f"{type(exc).__name__}: {exc}"[:500], "at": time.time(),
+            }
+>           raise AutomationError(
+                f"{AutomationError.PREFIX}: Fyodor couldn't carry out {action.type.replace('_', ' ')}. Nothing changed. "
+                "Resolve it manually with the table tools, pause automation, or export a rules scenario."
+            ) from exc
+E           app.game.errors.AutomationError: AUTOMATION ERROR: Fyodor couldn't carry out cast spell. Nothing changed. Resolve it manually with the table tools, pause automation, or export a rules scenario.
+
+app/game/session.py:74: AutomationError
+------------------------------ Captured log call -------------------------------
+ERROR    app.game.session:session.py:69 Rules engine failed on cast_spell
+Traceback (most recent call last):
+  File "/tmp/temporary-creature-types93-stage/backend/app/game/session.py", line 61, in perform
+    resolved = resolve(self.state, action, actor=actor, cards=self.cards, trusted=trusted)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/temporary-creature-types93-stage/backend/app/game/resolve.py", line 76, in resolve
+    a.r = compile_intent(state, a, actor=actor, info=info, rng=rng)  # type: ignore[union-attr]
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/temporary-creature-types93-stage/backend/app/rules/engine.py", line 163, in compile_intent
+    handler(plan, intent)
+  File "/tmp/temporary-creature-types93-stage/backend/app/rules/casting.py", line 3603, in cast_spell
+    definition = None if plan.manual(card) or a.face_down else scripts.spell_definition(ch)
+                                                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/temporary-creature-types93-stage/backend/app/rules/scripts.py", line 8420, in spell_definition
+    whole = _spell_definition(ch)
+            ^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/temporary-creature-types93-stage/backend/app/rules/scripts.py", line 8469, in _spell_definition
+    own = target_groups(defs[ab.index])
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/temporary-creature-types93-stage/backend/app/rules/scripts.py", line 1491, in target_groups
+    return [{**spec, "min": 1, "max": 1}] if spec else []
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: 'str' object is not a mapping
+_ test_native_remove_creature_subtypes_preserves_equipment_and_forest[Nameless Inversion] _
+
+self = <app.game.session.GameSession object at 0x7fca7b178a70>, actor = 'p1'
+payload = {'type': 'cast_spell', 'card_id': '55091c6892fb', 'targets': ['8f5a0ec36e7a'], 'sources': []}
+trusted = False
+
+    def perform(self, actor: str, payload: dict[str, Any] | Action, *, trusted: bool = False) -> Action:
+        """Validate, resolve, apply and record one action. Raises ActionError / ValidationError.
+
+        ``trusted`` is only for actions the server builds itself (e.g. restoring a snapshot)."""
+        if actor not in self.state.players:
+            raise ActionError("Only seated players can act")
+        action = parse_action(payload) if isinstance(payload, dict) else payload
+        if not trusted and action.type not in CONTROLLED_MAY:
+            self._check_not_controlled(actor)
+        try:
+>           resolved = resolve(self.state, action, actor=actor, cards=self.cards, trusted=trusted)
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+app/game/session.py:61:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+app/game/resolve.py:76: in resolve
+    a.r = compile_intent(state, a, actor=actor, info=info, rng=rng)  # type: ignore[union-attr]
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/engine.py:163: in compile_intent
+    handler(plan, intent)
+app/rules/casting.py:3603: in cast_spell
+    definition = None if plan.manual(card) or a.face_down else scripts.spell_definition(ch)
+                                                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/scripts.py:8420: in spell_definition
+    whole = _spell_definition(ch)
+            ^^^^^^^^^^^^^^^^^^^^^
+app/rules/scripts.py:8469: in _spell_definition
+    own = target_groups(defs[ab.index])
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+definition = {'kind': 'spell', 'effects': [{'do': 'pump', 'who': 'target', 'p': 3, 't': -3, ...}, {'do': 'become', 'who': 'ref:typed93', 'types': [], 'duration': 'end_of_turn', ...}], 'target': 'creature'}
+
+    def target_groups(definition: dict[str, Any] | None) -> list[dict[str, Any]]:
+        """A definition's target groups in printed order (601.2c); the old single "target" is one
+        group of exactly one target."""
+        if not definition:
+            return []
+        if definition.get("targets"):
+            return [{"min": 1, "max": 1, **g} for g in definition["targets"]]
+        spec = definition.get("target")
+>       return [{**spec, "min": 1, "max": 1}] if spec else []
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       TypeError: 'str' object is not a mapping
+
+app/rules/scripts.py:1491: TypeError
+
+The above exception was the direct cause of the following exception:
+
+cards = <app.cards.repository.CardRepository object at 0x7fca7b2ec800>
+name = 'Nameless Inversion'
+
+    @pytest.mark.parametrize('name',['Ego Erasure','Nameless Inversion'])
+    def test_native_remove_creature_subtypes_preserves_equipment_and_forest(cards,name):
+        s=game(cards)
+        host=put(s,'Rabbit Battery','battlefield')
+        forest=put(s,'Dryad Arbor','battlefield')
+        for obj in [host,forest]:
+            act(s,'p1',type='counter',card_ids=[obj.id],kind='+1/+1',delta=3)
+        targets=['p1'] if name=='Ego Erasure' else [host.id]
+>       cast(s,name,targets=targets)
+
+tests/test_rules_temporary_creature_types93.py:105:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests/test_rules_temporary_creature_types93.py:49: in cast
+    act(s,pid,type='cast_spell',card_id=source.id,targets=list(targets),sources=[],**kwargs)
+tests/game_helpers.py:42: in act
+    return session.perform(actor, payload)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <app.game.session.GameSession object at 0x7fca7b178a70>, actor = 'p1'
+payload = {'type': 'cast_spell', 'card_id': '55091c6892fb', 'targets': ['8f5a0ec36e7a'], 'sources': []}
+trusted = False
+
+    def perform(self, actor: str, payload: dict[str, Any] | Action, *, trusted: bool = False) -> Action:
+        """Validate, resolve, apply and record one action. Raises ActionError / ValidationError.
+
+        ``trusted`` is only for actions the server builds itself (e.g. restoring a snapshot)."""
+        if actor not in self.state.players:
+            raise ActionError("Only seated players can act")
+        action = parse_action(payload) if isinstance(payload, dict) else payload
+        if not trusted and action.type not in CONTROLLED_MAY:
+            self._check_not_controlled(actor)
+        try:
+            resolved = resolve(self.state, action, actor=actor, cards=self.cards, trusted=trusted)
+        except ActionError:
+            raise
+        except Exception as exc:
+            if action.type not in INTENT_TYPES and action.type != "configure":
+                raise
+            # A rules bug must never break game night: compiling works on a scratch copy, so
+            # nothing was applied. Remember the failure for EXPORT RULES SCENARIO.
+            log.exception("Rules engine failed on %s", action.type)
+            self.rules_failure = {
+                "intent": action.model_dump(mode="json", exclude={"r"}), "actor": actor, "seq": self.state.seq,
+                "error": f"{type(exc).__name__}: {exc}"[:500], "at": time.time(),
+            }
+>           raise AutomationError(
+                f"{AutomationError.PREFIX}: Fyodor couldn't carry out {action.type.replace('_', ' ')}. Nothing changed. "
+                "Resolve it manually with the table tools, pause automation, or export a rules scenario."
+            ) from exc
+E           app.game.errors.AutomationError: AUTOMATION ERROR: Fyodor couldn't carry out cast spell. Nothing changed. Resolve it manually with the table tools, pause automation, or export a rules scenario.
+
+app/game/session.py:74: AutomationError
+------------------------------ Captured log call -------------------------------
+ERROR    app.game.session:session.py:69 Rules engine failed on cast_spell
+Traceback (most recent call last):
+  File "/tmp/temporary-creature-types93-stage/backend/app/game/session.py", line 61, in perform
+    resolved = resolve(self.state, action, actor=actor, cards=self.cards, trusted=trusted)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/temporary-creature-types93-stage/backend/app/game/resolve.py", line 76, in resolve
+    a.r = compile_intent(state, a, actor=actor, info=info, rng=rng)  # type: ignore[union-attr]
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/temporary-creature-types93-stage/backend/app/rules/engine.py", line 163, in compile_intent
+    handler(plan, intent)
+  File "/tmp/temporary-creature-types93-stage/backend/app/rules/casting.py", line 3603, in cast_spell
+    definition = None if plan.manual(card) or a.face_down else scripts.spell_definition(ch)
+                                                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/temporary-creature-types93-stage/backend/app/rules/scripts.py", line 8420, in spell_definition
+    whole = _spell_definition(ch)
+            ^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/temporary-creature-types93-stage/backend/app/rules/scripts.py", line 8469, in _spell_definition
+    own = target_groups(defs[ab.index])
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/temporary-creature-types93-stage/backend/app/rules/scripts.py", line 1491, in target_groups
+    return [{**spec, "min": 1, "max": 1}] if spec else []
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: 'str' object is not a mapping
+________ test_native_two_targets_zero_targets_and_illegal_target_atomic ________
+
+cards = <app.cards.repository.CardRepository object at 0x7fca7b2efbf0>
+
+    def test_native_two_targets_zero_targets_and_illegal_target_atomic(cards):
+        from app.game.errors import ActionError
+        from app.rules.creature_types import CREATURE_TYPES
+
+        s=game(cards)
+        bear=put(s,'Grizzly Bears','battlefield')
+        spider=put(s,'Giant Spider','battlefield','p2')
+>       cast(s,'Blades of Velis Vel',targets=[bear.id,spider.id])
+
+tests/test_rules_temporary_creature_types93.py:121:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests/test_rules_temporary_creature_types93.py:49: in cast
+    act(s,pid,type='cast_spell',card_id=source.id,targets=list(targets),sources=[],**kwargs)
+tests/game_helpers.py:42: in act
+    return session.perform(actor, payload)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/game/session.py:61: in perform
+    resolved = resolve(self.state, action, actor=actor, cards=self.cards, trusted=trusted)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/game/resolve.py:76: in resolve
+    a.r = compile_intent(state, a, actor=actor, info=info, rng=rng)  # type: ignore[union-attr]
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/engine.py:163: in compile_intent
+    handler(plan, intent)
+app/rules/casting.py:3662: in cast_spell
+    picked_targets = choose_targets(plan, a, definition if aura is None else {"target": {"what": aura}}, ch.name or "it")
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/casting.py:806: in choose_targets
+    chosen = choose_target(plan, a, definition, what, exclude=exclude)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+plan = <app.rules.plan.Plan object at 0x7fca7b190bc0>
+a = CastSpell(actor='p1', ts=1792725335.7572117, r=None, mana_symbols=None, flashback_choice=None, type='cast_spell', card...ker=0, cost_choices=[], alt_cost=None, optional_costs=[], slot=None, via=None, optional_asked=False, life_symbols=None)
+definition = {'kind': 'spell', 'effects': [{'do': 'pump', 'who': 'target', 'p': 2, 't': 0, ...}, {'do': 'become', 'who': 'ref:l1_typed93', 'types': [], 'duration': 'end_of_turn', ...}], 'target': {'what': 'sel:{"types":["Creature"]}'}}
+what = 'Blades of Velis Vel', exclude = ()
+
+    def choose_target(plan: Plan, a: A.CastSpell | A.ActivateAbility, definition: dict[str, Any] | None,
+                      what: str, *, exclude: tuple[str, ...] = ()) -> list[TargetRef] | None:
+        """The target of an automated spell or ability: validated if given, else asked (privately).
+        Returns the chosen targets, or None while waiting for the choice."""
+        spec = definition.get("target") if definition else None
+        if not spec:
+            return []
+        legal = [t for t in legal_targets(plan, spec["what"], plan.actor, _target_source(plan, a), a.card_id)
+                 if t not in exclude]  # (wave 49C: a spell's targeting, 115.2)
+        if a.targets:
+            if len(a.targets) != 1 or a.targets[0] not in legal:
+>               raise ActionError("That isn't a legal target")
+E               app.game.errors.ActionError: That isn't a legal target
+
+app/rules/casting.py:766: ActionError
+=========================== short test summary info ============================
+FAILED tests/test_rules_temporary_creature_types93.py::test_native_whole_card_cast_and_changeling[Shields of Velis Vel]
+FAILED tests/test_rules_temporary_creature_types93.py::test_native_whole_card_cast_and_changeling[Ego Erasure]
+FAILED tests/test_rules_temporary_creature_types93.py::test_native_whole_card_cast_and_changeling[Nameless Inversion]
+FAILED tests/test_rules_temporary_creature_types93.py::test_native_gain_types_actual_lord_and_expiry[Shields of Velis Vel]
+FAILED tests/test_rules_temporary_creature_types93.py::test_native_remove_creature_subtypes_preserves_equipment_and_forest[Ego Erasure]
+FAILED tests/test_rules_temporary_creature_types93.py::test_native_remove_creature_subtypes_preserves_equipment_and_forest[Nameless Inversion]
+FAILED tests/test_rules_temporary_creature_types93.py::test_native_two_targets_zero_targets_and_illegal_target_atomic

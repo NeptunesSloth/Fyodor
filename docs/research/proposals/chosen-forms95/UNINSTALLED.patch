@@ -1,0 +1,334 @@
+--- /dev/null
++++ b/backend/app/rules/chosen_forms95.py
+@@ -0,0 +1,144 @@
++"""Bounded copiable entry forms (208.2b), distinct from chosen-number CDAs."""
++from __future__ import annotations
++
++from typing import TYPE_CHECKING, Any
++
++if TYPE_CHECKING:
++    from app.rules.plan import Plan
++
++PREFIX = 'copiable chosen form: '
++# The option labels are stable serialized choices, not card-name dispatch.
++_FORMS: dict[str, dict[str, tuple[int, int, str | None, str | None]]] = {
++    'As ~ enters, it becomes your choice of a 3/3 creature with flying, a 2/5 creature with vigilance, or a 0/12 creature with defender.': {
++        '3/3 flying': (3, 3, 'Flying', None), '2/5 vigilance': (2, 5, 'Vigilance', None), '0/12 defender': (0, 12, 'Defender', None)},
++    'As ~ enters, it becomes your choice of a 3/3 artifact creature, a 2/2 artifact creature with flying, or a 1/6 Wall artifact creature with defender in addition to its other types.': {
++        '3/3': (3, 3, None, None), '2/2 flying': (2, 2, 'Flying', None), '1/6 Wall defender': (1, 6, 'Defender', 'Wall')},
++    'As ~ enters, it becomes your choice of a 3/3 creature, a 2/2 creature with flying, or a 1/6 creature with defender.': {
++        '3/3': (3, 3, None, None), '2/2 flying': (2, 2, 'Flying', None), '1/6 defender': (1, 6, 'Defender', None)},
++    'As ~ enters or is turned face up, it becomes your choice of 5/1 or 1/5.': {
++        '5/1': (5, 1, None, None), '1/5': (1, 5, None, None)},
++}
++
++
++def form(text: str) -> str | None:
++    from app.rules.oracle import strip_reminders
++
++    cleaned = strip_reminders(text).strip()
++    return cleaned if cleaned in _FORMS else None
++
++
++def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
++    from app.rules import scripts
++
++    text = scripts.self_text(ability.text, ch.name)
++    if (key := form(text)) is not None:
++        return {'kind': 'replacement', 'replacement': 'enters_choice', 'effects': [
++            {'do': 'choose_value', 'who': 'you', 'what': PREFIX + key, 'options': list(_FORMS[key])}]}
++    if text == 'At the beginning of your upkeep, you may choose a number between 0 and 7.':
++        return {'kind': 'triggered', 'trigger': 'upkeep_you', 'optional': True, 'target': None,
++                'effects': [{'do': 'choose_value', 'who': 'you', 'what': 'number',
++                             'options': [str(n) for n in range(8)], 'remember': True}]}
++    if text == "~'s power is equal to the last chosen number and its toughness is equal to 7 minus that number.":
++        value = {'last_chosen_number95': True}
++        return {'kind': 'static', 'static': 'cda', 'effects': [], 'p': value, 't': {'minus': [7, value]}}
++    return None
++
++
++def recipe(plan: Plan, original: Any, what: str, answer: str) -> Any:
++    from app.game.rules_state import CopyExcept
++    from app.rules import copying
++
++    p, t, keyword, subtype = _FORMS[what[len(PREFIX):]][answer]
++    return copying.with_excepts(original, [CopyExcept(power=str(p), toughness=str(t),
++        add_text=[keyword] if keyword else [], add_subtypes=[subtype] if subtype else [])])
++
++
++def ensure(plan: Plan, card: Any, controller: str, answers: dict[str, str]) -> None:
++    from app.rules import copying, layers
++
++    for what, answer in answers.items():
++        if not what.startswith(PREFIX) or what[len(PREFIX):] not in _FORMS or answer not in _FORMS[what[len(PREFIX):]]:
++            continue
++        oid, label = plan.oid(card), what + ': ' + answer
++        if any(effect.layer == '1' and effect.label == label and oid in effect.affected for effect in plan.rules.effects):
++            continue
++        layers.add_effect(plan, affected=[oid], layer='1', controller=controller,
++            source=copying.ENTERING + card.id, duration='permanent',
++            copy_recipe=recipe(plan, copying.recipe_of(plan, card), what, answer), label=label)
++
++
++def number(plan: Plan, ctx: dict[str, Any]) -> int:
++    card = plan.state.cards.get(ctx.get('source_card') or '')
++    chosen = card.choices.get('Chosen number', '') if card is not None else ''
++    return int(chosen) if chosen in tuple(str(n) for n in range(8)) else 0
++
++
++def prepare_up(plan: Plan, card: Any, *, actor: str, kind: str | None = None,
++               tail: dict[str, Any] | None = None) -> bool:
++    """Post-payment, pre-flip continuation; never repeats payment on resume."""
++    from app.game.rules_state import DecisionOption
++    from app.rules.plan import decide
++
++    face = plan.ch(card.model_copy(update={'face_down': False}))
++    key = next((key for ability in face.abilities
++                if (key := form(ability.text.replace('this creature', '~'))) is not None
++                and 'turned face up' in key), None)
++    if key is None:
++        return False
++    decide(plan, player=card.controller, kind='choose_one', prompt=f'{face.name}: choose its form',
++           options=[DecisionOption(id=option, label=option) for option in _FORMS[key]], source=card,
++           resume={'step': 'chosen_form_up95', 'card': card.id, 'object': plan.oid(card),
++                   'what': PREFIX + key, 'actor': actor, 'kind': kind, 'tail': tail})
++    return True
++
++
++def finish_up(plan: Plan, card: Any, actor: str, kind: str | None = None) -> None:
++    from app.rules import casting, replace
++
++    plan.do({'type': 'face_down', 'card_ids': [card.id], 'face_down': False}, actor=actor)
++    casting.turned_up(plan, card)
++    plan.rules.passed = []
++    if kind == 'megamorph':
++        replace.put_counters(plan, [(card.id, '+1/+1', 1)], by=actor, then={'do': 'face_up_done'})
++
++
++def resume_up(plan: Plan, decision: Any, chosen: list[str]) -> None:
++    from app.rules import effects
++
++    data = decision.resume
++    card = plan.state.cards.get(data['card'])
++    if card is not None and plan.oid(card) == data['object'] and card.face_down and card.zone.endswith(':battlefield'):
++        # A new replacement is applied on every turn-up, even with the same answer.
++        from app.rules import copying, layers
++
++        layers.add_effect(plan, affected=[plan.oid(card)], layer='1', controller=card.controller,
++            source=copying.ENTERING + card.id, duration='permanent',
++            copy_recipe=recipe(plan, copying.recipe_of(plan, card), data['what'], chosen[0]),
++            label='Turned-face-up form: ' + chosen[0])
++        finish_up(plan, card, data['actor'], data.get('kind'))
++    if (tail := data.get('tail')) is not None:
++        if tail.get('chosen_form_batch95'):
++            run_batch(plan, tail['ctx'], tail['e'], tail['cards'], tail['done'])
++        else:
++            effects.continue_effects(plan, tail)
++
++
++RESUME = {'chosen_form_up95': resume_up}
++
++
++def run_batch(plan: Plan, ctx: dict[str, Any], effect: dict[str, Any], cards: list[str], done: list[str]) -> bool:
++    from app.rules import effects, facedown
++
++    while cards:
++        cid, cards = cards[0], cards[1:]
++        card = plan.state.cards.get(cid)
++        if card is None or not card.face_down or not card.zone.endswith(':battlefield'):
++            continue
++        tail = {'chosen_form_batch95': True, 'ctx': ctx, 'e': effect, 'cards': cards, 'done': [*done, cid]}
++        if prepare_up(plan, card, actor=ctx['controller'], tail=tail):
++            return False
++        if facedown._turn_up(plan, cid, ctx['controller']):
++            done.append(cid)
++    effects._remember(plan, ctx, effect, done)
++    effects.continue_effects(plan, ctx)
++    return False
+--- a/backend/app/rules/scripts.py
++++ b/backend/app/rules/scripts.py
+@@ -6261,6 +6261,11 @@
+
+     if (counter_comparison := counter_event_comparisons50.definition(ability, ch)) is not None:
+         return counter_comparison
++    from app.rules import chosen_forms95
++
++    if (chosen95 := chosen_forms95.definition(ability, ch)) is not None:
++        return chosen95
++
+     from app.rules import world_upkeep83
+
+     if (world_upkeep := world_upkeep83.definition(ability, ch)) is not None:
+--- a/backend/app/rules/replacements.py
++++ b/backend/app/rules/replacements.py
+@@ -100,6 +100,9 @@
+
+     if (answer := (kw.get("answers") or {}).get(copiable_coin_entry.WHAT)) is not None:
+         copiable_coin_entry.ensure_form(plan, card, controller, answer)
++    from app.rules import chosen_forms95
++
++    chosen_forms95.ensure(plan, card, controller, kw.get("answers") or {})
+     card = entry_characteristics.probe(card, kw.pop("entry_characteristics", None))
+     out = _entry_plan(plan, card, controller, **kw)
+     from app.rules import numeric_entry_roll42
+@@ -535,6 +538,10 @@
+     from app.rules.effects import _choice_options
+
+     what = choice["what"]
++    from app.rules import chosen_forms95
++
++    if what.startswith(chosen_forms95.PREFIX):
++        return f"{card.name}: choose its form", [DecisionOption(id=o, label=o) for o in choice["options"]]
+     if (named := card_names.prompt(plan, card, controller, choice)) is not None:  # -- card names (wave 22B) -- look at a hand, then name
+         return named
+     from app.rules import battles, reveal_lands
+@@ -960,6 +967,11 @@
+         from app.rules.effects import CHOICE_LABELS
+
+         for what, value in choices.items():
++            from app.rules import chosen_forms95
++
++            if value and what.startswith(chosen_forms95.PREFIX):
++                plan.do({"type": "set_choice", "card_id": card_id, "key": "Chosen form", "value": value}, actor=controller)
++                continue
+             if value and value in (_chosen.words(what) or ()):  # -- linked words (wave 33B) -- 607.2f: the word, public, kept for this object (400.7)
+                 plan.do({"type": "set_choice", "card_id": card_id, "key": _chosen.WORD_LABEL, "value": value}, actor=controller)
+                 _chosen.record_word(plan, card_id, value)
+@@ -1068,7 +1080,9 @@
+         ch = copying.characteristics(CopyRecipe.model_validate(spec["_copy"]), plan.info)
+         t = {"name": ch.name, "power": ch.power, "toughness": ch.toughness, "colors": sorted(ch.colors), "type_line": copying.type_line(ch),
+              "text": ch.oracle_text}
+-    if "choose" not in (t.get("text") or "").lower():
++    from app.rules import chosen_forms95
++
++    if "choose" not in (t.get("text") or "").lower() and not any(chosen_forms95.form(line.replace("this creature", "~")) for line in (t.get("text") or "").splitlines()):
+         from app.rules import copiable_coin_entry, token_copy_entry
+
+         if not any(copiable_coin_entry.definition(line.replace("this creature", "~"))
+@@ -1122,6 +1136,13 @@
+                         continue
+                     return rows, {"key": key, "player": pid, "prompt": prompt, "options": options, "source": ev.get("source")}
+                 row[k] = {**row[k], **(out.get("choices") or {})}
++                from app.rules import chosen_forms95
++
++                for what95, answer95 in row[k].copy().items():
++                    if what95.startswith(chosen_forms95.PREFIX):
++                        spec95 = token_copy_entry.effective(ev, row[k])
++                        recipe95 = CopyRecipe.model_validate(spec95["_copy"])
++                        row[k][token_copy_entry.COPY] = chosen_forms95.recipe(plan, recipe95, what95, answer95).model_dump_json()
+                 from app.rules import copiable_coin_entry
+
+                 if (answer := row[k].get(copiable_coin_entry.WHAT)) in ("heads", "tails"):
+--- a/backend/app/rules/characteristics.py
++++ b/backend/app/rules/characteristics.py
+@@ -296,9 +296,10 @@
+     This is not a characteristic-defining ability or a battlefield-only pump.
+     """
+     if ch.power == "*" and ch.toughness == "*":
++        from app.rules.chosen_forms95 import form
+         from app.rules.copiable_coin_entry import definition
+
+-        if any(definition(a.text.replace("this creature", "~")) for a in ch.abilities):
++        if any(definition(a.text.replace("this creature", "~")) or form(a.text.replace("this creature", "~")) for a in ch.abilities):
+             return replace(ch, power="0", toughness="0")
+     return ch
+
+--- a/backend/app/rules/values.py
++++ b/backend/app/rules/values.py
+@@ -701,6 +701,10 @@
+         return sized_damage.evaluate(plan, ctx, v)
+     if "x" in v:
+         return max(0, int(ctx.get("x") or 0))
++    if "last_chosen_number95" in v:
++        from app.rules import chosen_forms95
++
++        return chosen_forms95.number(plan, ctx)
+     if "chosen_n" in v:  # (wave 53B: never left unbound by a definition chosen.chosen_value_ok accepts)
+         return 0
+     if "coin_flips" in v:  # -- chosen filters (wave 53B) -- the flips this resolution made, won or lost (app/rules/coin_flips.py)
+--- a/backend/app/rules/casting.py
++++ b/backend/app/rules/casting.py
+@@ -2582,6 +2582,11 @@
+     "mana_cost" for a manifested or cloaked permanent (701.40b / 701.58b: a creature card's mana cost
+     — not an instant or sorcery card, nor one without a mana cost; 701.40c-d / 701.58c-d: a manifested
+     or cloaked card with morph or disguise may use those too). A cost with X isn't automated."""
++    if state is not None and info is not None:
++        from app.rules import layers
++
++        prospective95 = card.model_copy(update={'face_down': False})
++        printed = layers.derive(state, prospective95, chars.of(prospective95, info), info)
+     ways: dict[str, tuple[str, str]] = {}
+     found = morph_cost(printed)
+     if found is not None:
+@@ -2690,6 +2695,10 @@
+             raise ActionError(f"Not enough mana to pay {cost.text()}")
+         special_payment_tails.pay(plan, "face_up", card, printed, cost, f"paid {cost.text()} to turn {printed.name} face up",
+                                   sources=[] if own_pool else a.sources, purpose=purpose, faceup_kind=kind)
++        return
++    from app.rules import chosen_forms95
++
++    if chosen_forms95.prepare_up(plan, card, actor=plan.actor, kind=kind):
+         return
+     plan.do({"type": "face_down", "card_ids": [card.id], "face_down": False})
+     turned_up(plan, card)
+--- a/backend/app/rules/morph_costs78.py
++++ b/backend/app/rules/morph_costs78.py
+@@ -88,6 +88,10 @@
+             plan.do({'type': 'reveal', 'card_ids': frame.objects[i]}, actor=plan.actor)
+             plan.do({'type': 'hide', 'card_ids': frame.objects[i]}, actor=plan.actor)
+     plan.reserved_life = 0
++    from app.rules import chosen_forms95
++
++    if chosen_forms95.prepare_up(plan, card, actor=plan.actor, kind=frame.kind):
++        return
+     plan.do({'type': 'face_down', 'card_ids': [card.id], 'face_down': False})
+     casting.turned_up(plan, card)
+     plan.rules.passed = []
+--- a/backend/app/rules/special_payment_tails.py
++++ b/backend/app/rules/special_payment_tails.py
+@@ -75,6 +75,10 @@
+                          x=frame.number if frame.cost_has_x else None)
+         return
+     if kind == 'face_up':
++        from app.rules import chosen_forms95
++
++        if chosen_forms95.prepare_up(plan, card, actor=plan.actor, kind=frame.faceup_kind):
++            return
+         plan.do({'type': 'face_down', 'card_ids': [card.id], 'face_down': False})
+         casting.turned_up(plan, card)
+         plan.rules.passed = []
+--- a/backend/app/rules/facedown.py
++++ b/backend/app/rules/facedown.py
+@@ -196,6 +196,10 @@
+                min_choices=0 if e.get("optional") else 1, max_choices=1, resume={"step": "turn_face_up", "ctx": ctx, "e": e})
+         return False
+     cards = effects._cards(plan, ctx, e["who"])
++    from app.rules import chosen_forms95
++
++    if any(card.face_down and any(chosen_forms95.form(a.text.replace('this creature', '~')) for a in plan.ch(card.model_copy(update={'face_down': False})).abilities) for cid in cards if (card := plan.state.cards.get(cid)) is not None):
++        return chosen_forms95.run_batch(plan, ctx, e, list(cards), [])
+     done = [c for c in cards if _turn_up(plan, c, pid)]
+     for c in done:
+         plan.note(f"{plan.name(pid)} turns {plan.state.cards[c].name} face up")
+@@ -205,6 +209,11 @@
+
+ def resume_turn_face_up(plan: Plan, d: Any, chosen: list[str]) -> None:
+     ctx = d.resume["ctx"]
++    from app.rules import chosen_forms95
++
++    if chosen:
++        chosen_forms95.run_batch(plan, ctx, d.resume['e'], list(chosen), [])
++        return
+     for c in chosen:
+         if _turn_up(plan, c, d.player):
+             plan.note(f"{plan.name(d.player)} turns {plan.state.cards[c].name} face up")
+--- a/backend/app/rules/engine.py
++++ b/backend/app/rules/engine.py
+@@ -1843,3 +1843,7 @@
+ RESUME['echo_alternative76'] = _echo76.resume
+
+ RESUME['echo_draw_count76'] = _echo76.resume_draw
++
++from app.rules import chosen_forms95 as _chosen_forms95  # noqa: E402
++
++RESUME.update(_chosen_forms95.RESUME)

@@ -1,0 +1,26 @@
+FFF                                                                      [100%]
+=================================== FAILURES ===================================
+_ test_actual_kaya_minus_seven_creates_native_upkeep_emblem_pool_in_each_zone[hand] _
+tests/test_rules_linked_upkeep_casting76.py:132: in test_actual_kaya_minus_seven_creates_native_upkeep_emblem_pool_in_each_zone
+    assert target.id in offered and not {nonlegend.id, land.id, foreign.id} & offered
+E   AssertionError: assert ('7a7ed1e2c61a' in {'539d4442b891'})
+E    +  where '7a7ed1e2c61a' = CardInstance(borrow_identity=None, id='7a7ed1e2c61a', card_id='de2300f6-f6f3-5392-b9e0-d373757637a7', name='Isamaru, H...ts=[], damage=0, choices={}, stack_info=None, exile_group=None, token_source=None, origin='library', test_object=False).id
+_ test_actual_kaya_minus_seven_creates_native_upkeep_emblem_pool_in_each_zone[graveyard] _
+tests/test_rules_linked_upkeep_casting76.py:135: in test_actual_kaya_minus_seven_creates_native_upkeep_emblem_pool_in_each_zone
+    assert target.zone == 'p1:battlefield'
+E   AssertionError: assert 'p1:graveyard' == 'p1:battlefield'
+E
+E     - p1:battlefield
+E     + p1:graveyard
+_ test_actual_kaya_minus_seven_creates_native_upkeep_emblem_pool_in_each_zone[exile] _
+tests/test_rules_linked_upkeep_casting76.py:135: in test_actual_kaya_minus_seven_creates_native_upkeep_emblem_pool_in_each_zone
+    assert target.zone == 'p1:battlefield'
+E   AssertionError: assert 'p1:exile' == 'p1:battlefield'
+E
+E     - p1:battlefield
+E     + p1:exile
+=========================== short test summary info ============================
+FAILED tests/test_rules_linked_upkeep_casting76.py::test_actual_kaya_minus_seven_creates_native_upkeep_emblem_pool_in_each_zone[hand]
+FAILED tests/test_rules_linked_upkeep_casting76.py::test_actual_kaya_minus_seven_creates_native_upkeep_emblem_pool_in_each_zone[graveyard]
+FAILED tests/test_rules_linked_upkeep_casting76.py::test_actual_kaya_minus_seven_creates_native_upkeep_emblem_pool_in_each_zone[exile]
+3 failed, 4 deselected in 48.58s

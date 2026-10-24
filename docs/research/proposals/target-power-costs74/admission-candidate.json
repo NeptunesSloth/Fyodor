@@ -1,0 +1,36 @@
+{
+  "status": "CLOSED_FOR_ROOT_REVIEW; no live source writes or admission",
+  "names": [
+    "Belt of Giant Strength"
+  ],
+  "native": {
+    "passed": 11,
+    "genuine_cold": 1,
+    "log": "native11.log"
+  },
+  "related": {
+    "passed": 25,
+    "modules": [
+      "tests/test_rules_target_counter_equip.py",
+      "tests/test_rules_dragonfire_blade.py"
+    ],
+    "log": "related25.log"
+  },
+  "mypy": {
+    "passed": 2,
+    "log": "types2.log"
+  },
+  "ruff": {
+    "passed": 3,
+    "log": "ruff3.log"
+  },
+  "official_rulings_read": 1,
+  "patch": "production-candidate.patch",
+  "stage": "/tmp/cost74-stage/backend",
+  "test_module": "tests/test_rules_target_power_costs74.py",
+  "fixture": "tests/fixtures/target_power_costs74_cards.json",
+  "source_hashes": {
+    "cost_changes.py": "8711a88414592c87d3f2edc8aab17225061faa060db8585d4161b75ee7218e7d",
+    "oracle.py": "8d5eee1aa3730b8c85b8b9eda80a6a85326b91d22080975971785fbe79681f8e"
+  }
+}

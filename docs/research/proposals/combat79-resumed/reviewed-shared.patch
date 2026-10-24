@@ -1,0 +1,191 @@
+--- a/backend/app/rules/declaration_groups.py
++++ b/backend/app/rules/declaration_groups.py
+@@ -13,13 +13,15 @@
+ # The profile records only facts required by this grammar, never an unbounded subset.
+ # count<=3, highest power, greatest power needing a stronger companion,
+ # minimum group size, black/green count<=2, required black/green companions.
+-Profile = tuple[int, int | None, int | None, int, int, int]
+-EMPTY: Profile = (0, None, None, 0, 0, 0)
++Profile = tuple[int, int | None, int | None, int, int, int, bool]
++EMPTY: Profile = (0, None, None, 0, 0, 0, False)
+
+
+ def parse(text: str) -> dict[str, Any] | None:
+     from app.rules import statics
+
++    if text in ('This creature can only attack alone.', '~ can only attack alone.'):
++        return statics._definition('self', None, [], rules=['declaration_group:attack:alone'])
+     m = re.fullmatch(r"(?:~|[Tt]his creature) can't (?P<mode>attack|block) unless (?P<condition>a creature with greater power also (?:attacks|blocks)|at least two other creatures (?:attack|block)|a black or green creature also attacks)\.", text)
+     if m:
+         condition = m['condition']
+@@ -43,7 +45,7 @@
+ def add(plan: Plan, profile: Profile, cid: str, mode: str) -> Profile:
+     from app.rules.combat import _power
+
+-    count, highest, needed_power, minimum, colored, need_color = profile
++    count, highest, needed_power, minimum, colored, need_color, must_solo = profile
+     ch = plan.ch(plan.state.cards[cid])
+     own = rules(plan, cid)
+     p = _power(ch)
+@@ -56,12 +58,12 @@
+         minimum = max(minimum, 2)
+     if f'declaration_group:{mode}:black_green' in own:
+         need_color = max(need_color, 1 + int(qualifies))
+-    return min(3, count + 1), p if highest is None else max(highest, p), needed_power, minimum, min(2, colored + qualifies), need_color
++    return min(3, count + 1), p if highest is None else max(highest, p), needed_power, minimum, min(2, colored + qualifies), need_color, must_solo or f'declaration_group:{mode}:alone' in own
+
+
+ def valid(profile: Profile) -> bool:
+-    count, highest, needed_power, minimum, colored, need_color = profile
+-    return count >= minimum and colored >= need_color and (needed_power is None or (highest is not None and highest > needed_power))
++    count, highest, needed_power, minimum, colored, need_color, must_solo = profile
++    return (not must_solo or count <= 1) and count >= minimum and colored >= need_color and (needed_power is None or (highest is not None and highest > needed_power))
+
+
+ def legal(plan: Plan, ids: set[str], mode: str) -> bool:
+--- a/backend/app/game/rules_state.py
++++ b/backend/app/game/rules_state.py
+@@ -1223,6 +1223,14 @@
+     source: str | None = None
+     label: str = Field(default="", max_length=120)
+     amount: int = 0  # -- cant restrictions (wave 46A) -- keyword "cost": the generic mana it takes off ("The next spell you cast this turn costs {1} less to cast.", 601.2f, 118.7a)
++
++
++class SourceHandReveal79(BaseModel):
++    """A resolved reveal fixes its player and original source object for its duration."""
++
++    player: str
++    source_card: str
++    source_object: str
+
+
+ class TopReveal(BaseModel):
+@@ -1630,6 +1638,7 @@
+     permissions: list[Permission] = Field(default_factory=list)
+     cost_modifiers: list[CostModifier] = Field(default_factory=list)
+     next_spell_grants: list[NextSpellGrant] = Field(default_factory=list)  # -- spell grants (wave 28C) --
++    source_hand_reveals79: list[SourceHandReveal79] = Field(default_factory=list)
+     top_reveals: list[TopReveal] = Field(default_factory=list)
+     # -- conditional / instead clauses (wave 1B) --  this turn's and last turn's history (TurnLog)
+     turn_log: TurnLog = Field(default_factory=TurnLog)
+--- a/backend/app/game/visibility.py
++++ b/backend/app/game/visibility.py
+@@ -73,8 +73,13 @@
+     every player, spectators too): while a source that has it is on a battlefield, face up and automated, the hands it names are open. The source's
+     controller is "you" / "your opponents" (``RulesState.top_reveals``, refreshed by the engine)."""
+     rules = state.rules
+-    if rules is None or not rules.top_reveals:
++    if rules is None:
+         return False
++    for grant in rules.source_hand_reveals79:
++        source = state.cards.get(grant.source_card)
++        if (grant.player == card.owner and source is not None and source.zone.endswith(':battlefield')
++                and rules.object_id(source.id) == grant.source_object):
++            return True
+     owner = card.owner
+     for reveal in rules.top_reveals:
+         source = state.cards.get(reveal.source)
+--- a/backend/app/rules/delayed.py
++++ b/backend/app/rules/delayed.py
+@@ -616,6 +616,8 @@
+     table change: the source left, changed controller or untapped)."""
+     from app.rules import phase_lifetimes43, timed_damage_replacements
+
++    plan.rules.source_hand_reveals79 = [r for r in plan.rules.source_hand_reveals79
++        if _source_ok(plan, 'source_on_battlefield', r.source_card, r.source_object, None)]
+     phase_lifetimes43.expire(plan)
+     timed_damage_replacements.expire_source_records(plan)
+     r = plan.rules
+--- a/backend/app/rules/scripts.py
++++ b/backend/app/rules/scripts.py
+@@ -5721,6 +5721,10 @@
+
+ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
+     """The engine definition of one ability, or None (manual)."""
++    from app.rules import unblocked_choices79
++
++    if (unblocked79 := unblocked_choices79.definition(ability, ch)) is not None:
++        return unblocked79
+     from app.rules import first_event_receipts78
+
+     if (first78 := first_event_receipts78.definition(ability, ch)) is not None:
+--- a/backend/app/rules/effects.py
++++ b/backend/app/rules/effects.py
+@@ -6682,3 +6682,7 @@
+ from app.rules import first_event_receipts78 as _first_event78  # noqa: E402
+
+ PRIMITIVES['investigate_complete78'] = _first_event78.complete
++
++from app.rules import unblocked_choices79 as _unblocked79  # noqa: E402
++
++PRIMITIVES.update({'bone_entry79': _unblocked79.bone_entry, 'bone_finish79': _unblocked79.bone_finish, 'spy_reveal79': _unblocked79.spy_reveal})
+--- /dev/null
++++ b/backend/app/rules/unblocked_choices79.py
+@@ -0,0 +1,67 @@
++"""Unblocked riders use original attacker identity and committed native instructions."""
++from __future__ import annotations
++
++from dataclasses import replace
++from typing import Any
++
++MASTER = "Whenever this creature attacks a player and isn't blocked, that player's life total becomes 1. This creature assigns no combat damage this combat."
++BONE = "Whenever this creature attacks and isn't blocked, you may put the top creature card of defending player's graveyard onto the battlefield under your control. If you do, this creature assigns no combat damage this turn."
++SPY = "Whenever this creature attacks and isn't blocked, you may have defending player play with their hand revealed for as long as this creature remains on the battlefield. If you do, this creature assigns no combat damage this turn."
++
++
++def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
++    from app.rules import scripts
++
++    if ability.kind != 'triggered' or ability.text not in {MASTER, BONE, SPY}:
++        return None
++    prefix = ability.text.split(', ', 1)[0]
++    native = scripts.define(replace(ability, text=prefix + ', draw a card.'), ch)
++    if native is None:
++        return None
++    none = {'do': 'restrict', 'who': 'self', 'rules': ['assign_none']}
++    if ability.text == MASTER:
++        steps = [{'do': 'set_life', 'who': 'defending_player', 'n': 1}, {**none, 'duration': 'end_of_combat'}]
++    elif ability.text == BONE:
++        steps = [{'do': 'bone_entry79'}]
++    else:
++        steps = [{'do': 'may_rest'}, {'do': 'spy_reveal79'}]
++    return {**native, 'effects': steps}
++
++
++def bone_entry(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
++    from app.rules import context, effects, prohibitions
++
++    defenders = effects._players(plan, ctx, 'defending_player')
++    if len(defenders) != 1:
++        return True
++    selected = next((cid for cid in reversed(plan.state.zones.get(defenders[0] + ':graveyard', []))
++                     if not plan.state.cards[cid].is_token and plan.ch(plan.state.cards[cid]).is_creature), None)
++    if selected is not None and prohibitions.cant_enter(plan, plan.state.cards[selected], ctx['controller']) is None:
++        context.bind_objects(plan, ctx, 'bone_top79', [selected])
++        ctx['effects'][ctx['next']:ctx['next']] = [
++            {'do': 'may_rest'},
++            {'do': 'return_card', 'who': 'ref:bone_top79', 'to': 'battlefield', 'tapped': False, 'under': 'you', 'did': 'bone_paid79'},
++            {'do': 'bone_finish79'}]
++    return True
++
++
++def spy_reveal(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
++    from app.game.rules_state import SourceHandReveal79
++    from app.rules import delayed, effects
++
++    if delayed._source_ok(plan, 'source_on_battlefield', ctx.get('source_card'), ctx.get('source_object'), ctx['controller']):
++        for player in effects._players(plan, ctx, 'defending_player'):
++            plan.rules.source_hand_reveals79.append(SourceHandReveal79(
++                player=player, source_card=ctx['source_card'], source_object=ctx['source_object']))
++    ctx['effects'][ctx['next']:ctx['next']] = [{'do': 'restrict', 'who': 'self', 'rules': ['assign_none']}]
++    return True
++
++
++def bone_finish(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
++    from app.rules import context, effects
++
++    # CR118.12: an accepted payable return stays paid if a replacement redirects
++    # the move. Native return_card.did is bound before entry replacements.
++    if context.succeeded(ctx, 'bone_paid79'):
++        return effects.restrict(plan, ctx, {'who': 'self', 'rules': ['assign_none']})
++    return True

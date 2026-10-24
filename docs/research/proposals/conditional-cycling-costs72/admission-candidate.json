@@ -1,0 +1,36 @@
+{
+  "status": "CLOSED_FOR_ROOT_REVIEW; no live source writes or admission",
+  "names": [
+    "New Perspectives"
+  ],
+  "native": {
+    "passed": 15,
+    "genuine_cold": 2,
+    "logs": [
+      "native14-related20.log",
+      "cold-window1.log"
+    ]
+  },
+  "related": {
+    "passed": 20,
+    "module": "tests/test_rules_wave48d_first_activation.py",
+    "log": "native14-related20.log"
+  },
+  "mypy": {
+    "passed": 2,
+    "log": "types2.log"
+  },
+  "ruff": {
+    "passed": 3,
+    "log": "ruff3.log"
+  },
+  "official_rulings_read": 3,
+  "patch": "production-candidate.patch",
+  "stage": "/tmp/cost72-stage/backend",
+  "test_module": "tests/test_rules_conditional_cycling_costs72.py",
+  "fixture": "tests/fixtures/conditional_cycling_costs72_cards.json",
+  "source_hashes": {
+    "cast_limits.py": "6aff26d8d5f24b07db77fa56e5b2b4b177376cddf609af4e8df25b02935311e3",
+    "casting.py": "0dd8b89076818192108a980a562028b2e06e456a8d20fa8a200388507da36bcf"
+  }
+}

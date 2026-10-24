@@ -1,0 +1,31 @@
+{
+  "candidates": [
+    "Roots of Wisdom",
+    "Stillness in Motion"
+  ],
+  "promotion_count": 2,
+  "owned_sources": [
+    "post_mill_graveyard68.py",
+    "scripts.py",
+    "effects.py"
+  ],
+  "shared_runtime_changes": false,
+  "native": "7 +3 +2 =12 unique PASS on unchanged source; five genuine cold subprocesses",
+  "cold": [
+    "native private library order after forced five choice, plus actual Tomb one-batch proof",
+    "native616 Colossus/RIP exile vs library:shuffle actual-empty guards (2)",
+    "real Rhys commander903.9b hand vs command, no false fallback draw (2)"
+  ],
+  "native7_command": ".venv/bin/pytest -q tests/test_rules_post_mill_graveyard68.py -k 'not short_library and not actual_library_after and not original_elf'",
+  "native3_command": ".venv/bin/pytest -q tests/test_rules_post_mill_graveyard68.py -k 'short_library or actual_library_after'",
+  "native2_command": ".venv/bin/pytest -q tests/test_rules_post_mill_graveyard68.py -k original_elf",
+  "mypy": "3 source files PASS",
+  "ruff": "3 source +test PASS",
+  "related_command": ".venv/bin/pytest -q tests/test_rules_post_mill_continuations60.py tests/test_rules_library_placements.py -k 'not coverage_full and not every_card'",
+  "related_log": "/workspace/scratch/post-mill-graveyard68/related.log",
+  "stage": "/workspace/scratch/post-mill-graveyard68/backend",
+  "patch_sha256": "9796f67c0618b21ad1901d4683f5501cd76c2ba585b6634a1bbbea971b6d6a4c",
+  "patch_lines": 76,
+  "dependency": "none on unadmitted67; uses admitted native mill, return_choice, original-self exile and library_placements",
+  "related_result": "49 PASS"
+}

@@ -1,0 +1,386 @@
+[
+  {
+    "card": {
+      "id": "b7395d55-9457-42b2-ae9b-858708f98db8",
+      "oracle_id": "69d6b906-5461-4eba-8667-dbb8c0ce3fcb",
+      "name": "Killing Wave",
+      "layout": "normal",
+      "set_code": "inr",
+      "set_name": "Innistrad Remastered",
+      "collector_number": "386",
+      "rarity": "uncommon",
+      "mana_cost": "{X}{B}",
+      "cmc": 1.0,
+      "type_line": "Sorcery",
+      "oracle_text": "For each creature, its controller sacrifices it unless they pay X life.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null,
+      "defense": null,
+      "colors": [
+        "B"
+      ],
+      "color_identity": [
+        "B"
+      ],
+      "keywords": [],
+      "is_token": false,
+      "faces": [],
+      "double_faced": false,
+      "image_faces": 1,
+      "has_image": false,
+      "released_at": "2025-01-24",
+      "artist": "John Stanko",
+      "commander_legal": "legal",
+      "related_tokens": [],
+      "related_cards": []
+    },
+    "rulings": {
+      "object": "list",
+      "has_more": false,
+      "data": [
+        {
+          "object": "ruling",
+          "oracle_id": "69d6b906-5461-4eba-8667-dbb8c0ce3fcb",
+          "source": "wotc",
+          "published_at": "2012-05-01",
+          "comment": "First, the active player chooses whether to pay X life for each creature they control. Then each other player in turn order chooses for their creatures. Then each player pays life and sacrifices creatures at the same time. Players will know the decisions of players who chose before them."
+        },
+        {
+          "object": "ruling",
+          "oracle_id": "69d6b906-5461-4eba-8667-dbb8c0ce3fcb",
+          "source": "wotc",
+          "published_at": "2012-05-01",
+          "comment": "A player may choose to pay life for some creatures and sacrifice the rest. It\u2019s not an all-or-nothing decision."
+        },
+        {
+          "object": "ruling",
+          "oracle_id": "69d6b906-5461-4eba-8667-dbb8c0ce3fcb",
+          "source": "wotc",
+          "published_at": "2012-05-01",
+          "comment": "You can\u2019t pay more life than you have."
+        },
+        {
+          "object": "ruling",
+          "oracle_id": "69d6b906-5461-4eba-8667-dbb8c0ce3fcb",
+          "source": "wotc",
+          "published_at": "2012-05-01",
+          "comment": "If you can\u2019t sacrifice a creature (perhaps because of Sigarda, Host of Herons), you can choose not to pay life and nothing will happen."
+        }
+      ]
+    }
+  },
+  {
+    "card": {
+      "id": "a6f9103e-dcc2-4f7a-a8ca-eaa831f5f83b",
+      "oracle_id": "f92c2d47-f2f7-43d9-acf3-0145bad1977d",
+      "name": "Fade Away",
+      "layout": "normal",
+      "set_code": "exo",
+      "set_name": "Exodus",
+      "collector_number": "34",
+      "rarity": "common",
+      "mana_cost": "{2}{U}",
+      "cmc": 3.0,
+      "type_line": "Sorcery",
+      "oracle_text": "For each creature, its controller sacrifices a permanent of their choice unless they pay {1}.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null,
+      "defense": null,
+      "colors": [
+        "U"
+      ],
+      "color_identity": [
+        "U"
+      ],
+      "keywords": [],
+      "is_token": false,
+      "faces": [],
+      "double_faced": false,
+      "image_faces": 1,
+      "has_image": false,
+      "released_at": "1998-06-15",
+      "artist": "Jeff Miracola",
+      "commander_legal": "legal",
+      "related_tokens": [],
+      "related_cards": []
+    },
+    "rulings": {
+      "object": "list",
+      "has_more": false,
+      "data": [
+        {
+          "object": "ruling",
+          "oracle_id": "f92c2d47-f2f7-43d9-acf3-0145bad1977d",
+          "source": "wotc",
+          "published_at": "2004-10-04",
+          "comment": "At the beginning of the resolution, each player counts up the number of creatures they control, then they make the required number of payments and/or sacrifices. The active player announces their choices first followed by the other players, but all the sacrifices are done at the same time. Because of this, you can\u2019t sacrifice one creature in order to pay for another and thereby avoid payment for the first."
+        },
+        {
+          "object": "ruling",
+          "oracle_id": "f92c2d47-f2f7-43d9-acf3-0145bad1977d",
+          "source": "wotc",
+          "published_at": "2004-10-04",
+          "comment": "You can choose to pay some mana and sacrifice some permanents if you have more than one creature."
+        },
+        {
+          "object": "ruling",
+          "oracle_id": "f92c2d47-f2f7-43d9-acf3-0145bad1977d",
+          "source": "wotc",
+          "published_at": "2004-10-04",
+          "comment": "You can activate mana abilities during the resolution if you decide to pay mana."
+        }
+      ]
+    }
+  },
+  {
+    "card": {
+      "id": "fc1973a3-1410-4c6d-9b09-bd9d18646a1e",
+      "oracle_id": "46b83657-1699-4162-a4bb-b792da396fe6",
+      "name": "Cleansing",
+      "layout": "normal",
+      "set_code": "drk",
+      "set_name": "The Dark",
+      "collector_number": "4",
+      "rarity": "rare",
+      "mana_cost": "{W}{W}{W}",
+      "cmc": 3.0,
+      "type_line": "Sorcery",
+      "oracle_text": "For each land, destroy that land unless any player pays 1 life.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null,
+      "defense": null,
+      "colors": [
+        "W"
+      ],
+      "color_identity": [
+        "W"
+      ],
+      "keywords": [],
+      "is_token": false,
+      "faces": [],
+      "double_faced": false,
+      "image_faces": 1,
+      "has_image": false,
+      "released_at": "1994-08-01",
+      "artist": "Pete Venters",
+      "commander_legal": "legal",
+      "related_tokens": [],
+      "related_cards": []
+    },
+    "rulings": {
+      "object": "list",
+      "has_more": false,
+      "data": []
+    }
+  },
+  {
+    "card": {
+      "id": "4ff18307-9ef8-4e3a-89e9-cb8c04997222",
+      "oracle_id": "9af9b8de-eff6-48da-979b-4125e7965a11",
+      "name": "Cut the Tethers",
+      "layout": "normal",
+      "set_code": "chk",
+      "set_name": "Champions of Kamigawa",
+      "collector_number": "56",
+      "rarity": "uncommon",
+      "mana_cost": "{2}{U}{U}",
+      "cmc": 4.0,
+      "type_line": "Sorcery",
+      "oracle_text": "For each Spirit, return it to its owner's hand unless that player pays {3}.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null,
+      "defense": null,
+      "colors": [
+        "U"
+      ],
+      "color_identity": [
+        "U"
+      ],
+      "keywords": [],
+      "is_token": false,
+      "faces": [],
+      "double_faced": false,
+      "image_faces": 1,
+      "has_image": false,
+      "released_at": "2004-10-01",
+      "artist": "Ron Spears",
+      "commander_legal": "legal",
+      "related_tokens": [],
+      "related_cards": []
+    },
+    "rulings": {
+      "object": "list",
+      "has_more": false,
+      "data": []
+    }
+  },
+  {
+    "card": {
+      "id": "83b68363-173e-4a2b-b5ed-7e759e2c3e33",
+      "oracle_id": "ba9e129d-a3cf-431c-93af-f2e4902d40a0",
+      "name": "Whirlwind Denial",
+      "layout": "normal",
+      "set_code": "j25",
+      "set_name": "Foundations Jumpstart",
+      "collector_number": "388",
+      "rarity": "uncommon",
+      "mana_cost": "{2}{U}",
+      "cmc": 3.0,
+      "type_line": "Instant",
+      "oracle_text": "For each spell and ability your opponents control, counter it unless its controller pays {4}.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null,
+      "defense": null,
+      "colors": [
+        "U"
+      ],
+      "color_identity": [
+        "U"
+      ],
+      "keywords": [],
+      "is_token": false,
+      "faces": [],
+      "double_faced": false,
+      "image_faces": 1,
+      "has_image": false,
+      "released_at": "2024-11-15",
+      "artist": "Lie Setiawan",
+      "commander_legal": "legal",
+      "related_tokens": [],
+      "related_cards": []
+    },
+    "rulings": {
+      "object": "list",
+      "has_more": false,
+      "data": [
+        {
+          "object": "ruling",
+          "oracle_id": "ba9e129d-a3cf-431c-93af-f2e4902d40a0",
+          "source": "wotc",
+          "published_at": "2020-01-24",
+          "comment": "Among abilities, only activated and triggered abilities use the stack. Activated abilities are written in the form \"[Cost]: [Effect].\" Triggered abilities use the word \"when,\" \"whenever,\" or \"at.\" They're often written as \"[Trigger condition], [effect].\" Some keyword abilities are activated abilities and will have colons in their reminder texts, and some keyword abilities are triggered abilities and will have \"when,\" \"whenever,\" or \"at\" in their reminder texts."
+        },
+        {
+          "object": "ruling",
+          "oracle_id": "ba9e129d-a3cf-431c-93af-f2e4902d40a0",
+          "source": "wotc",
+          "published_at": "2020-01-24",
+          "comment": "As Whirlwind Denial resolves, first the opponent whose turn it is (or, if it's your turn, the next opponent in turn order) chooses which spells and/or abilities to pay for, then pays that amount. Then each other opponent in turn order does the same. Then all spells and abilities that weren't paid for are countered at the same time."
+        }
+      ]
+    }
+  },
+  {
+    "card": {
+      "id": "ce37492e-4f07-4171-97d4-84f28fb4e2be",
+      "oracle_id": "a9bdf857-0c6b-4afa-afbb-aff7e4b61b09",
+      "name": "Sirocco",
+      "layout": "normal",
+      "set_code": "mir",
+      "set_name": "Mirage",
+      "collector_number": "192",
+      "rarity": "uncommon",
+      "mana_cost": "{1}{R}",
+      "cmc": 2.0,
+      "type_line": "Instant",
+      "oracle_text": "Target player reveals their hand. For each blue instant card revealed this way, that player discards that card unless they pay 4 life.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null,
+      "defense": null,
+      "colors": [
+        "R"
+      ],
+      "color_identity": [
+        "R"
+      ],
+      "keywords": [],
+      "is_token": false,
+      "faces": [],
+      "double_faced": false,
+      "image_faces": 1,
+      "has_image": false,
+      "released_at": "1996-10-08",
+      "artist": "Alan Rabinowitz",
+      "commander_legal": "legal",
+      "related_tokens": [],
+      "related_cards": []
+    },
+    "rulings": {
+      "object": "list",
+      "has_more": false,
+      "data": [
+        {
+          "object": "ruling",
+          "oracle_id": "a9bdf857-0c6b-4afa-afbb-aff7e4b61b09",
+          "source": "wotc",
+          "published_at": "2014-02-01",
+          "comment": "If you target yourself with this spell, you must reveal your entire hand to the other players just as any other player would."
+        }
+      ]
+    }
+  },
+  {
+    "card": {
+      "id": "08ee87a0-a7eb-4472-9045-85d11e8a1501",
+      "oracle_id": "74716642-fc8c-4f62-a556-154ed0b4af0e",
+      "name": "Heroism",
+      "layout": "normal",
+      "set_code": "fem",
+      "set_name": "Fallen Empires",
+      "collector_number": "6",
+      "rarity": "uncommon",
+      "mana_cost": "{2}{W}",
+      "cmc": 3.0,
+      "type_line": "Enchantment",
+      "oracle_text": "Sacrifice a white creature: For each attacking red creature, prevent all combat damage that would be dealt by that creature this turn unless its controller pays {2}{R}.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null,
+      "defense": null,
+      "colors": [
+        "W"
+      ],
+      "color_identity": [
+        "R",
+        "W"
+      ],
+      "keywords": [],
+      "is_token": false,
+      "faces": [],
+      "double_faced": false,
+      "image_faces": 1,
+      "has_image": false,
+      "released_at": "1994-11-01",
+      "artist": "Mark Poole",
+      "commander_legal": "legal",
+      "related_tokens": [],
+      "related_cards": []
+    },
+    "rulings": {
+      "object": "list",
+      "has_more": false,
+      "data": [
+        {
+          "object": "ruling",
+          "oracle_id": "74716642-fc8c-4f62-a556-154ed0b4af0e",
+          "source": "wotc",
+          "published_at": "2004-10-04",
+          "comment": "The cost to avoid the penalty must be paid when the ability resolves. You can\u2019t wait until later to do so."
+        },
+        {
+          "object": "ruling",
+          "oracle_id": "74716642-fc8c-4f62-a556-154ed0b4af0e",
+          "source": "wotc",
+          "published_at": "2004-10-04",
+          "comment": "Paying the Heroism cost to allow a creature to deal damage does not prevent other effects from preventing it from dealing damage. Paying the cost only prevents the Heroism effect."
+        }
+      ]
+    }
+  }
+]

@@ -1,0 +1,13 @@
+# Optional continuations58 — UNINSTALLED, UNADMITTED
+
+Stopped for user-requested PR wrap-up. No batch58 production source, tests, fixtures, or admissions were installed. All native tests are preserved here outside backend collection.
+
+Thirteen isolated native cases passed before the final Airlift additions: Eden four (pay/decline, empty library, original source leave/return); Blood three (initial bloodstain 0/4/5 and actual creature death); Serum two (draw before optional nonland discard pay/decline); Vengeful Villagers two (actual attack target tapped before sacrifice, pay/decline); Winter Soldier two (actual graveyard return with finality, Equipment choice/decline, static power and finality death exile). `native13.log` is the clean consolidated run. These are incomplete whole-card coverage: cold-process, further negative and related/type/Ruff gates remain outstanding. No manifest or count promotion is claimed.
+
+The patch preserves exact-body parser compositions for these five plus a newly drafted, UNTESTED Airlift Chaplain branch and its public-mill/choice-payment hooks. Unexpected Request remains entirely unimplemented. Airlift was inspected for native parse output only after draft; no native behavior, types or Ruff have run for that final draft. Do not install or classify on this evidence.
+
+Eden's isolated native positive initially demonstrated that generic `other` accepts the sacrificed successor as a target. The staged correction reads the native optional-payment moved-successor receipt, freezes exact successor OIDs into the child target selector, and excludes those OIDs only. Parent requested review of successor semantics against Rise of the Witch-king. Broader zone-identity boundaries remain to prove; no generic `other` rule is changed.
+
+Airlift authority read from pinned 2026-09-25 Comprehensive Rules: 701.17c allows an effect to find a milled card in the public zone it moved to; 118.12 checks choosing/starting optional/mandatory payment regardless of actual events. The untested draft opts into actual moved public ObjectRefs rather than generic graveyard-only mill look; pick payment records the eligible chosen card before commander replacement. RIP/Colossus/commander replacement/empty/no-choice/original-object tests remain mandatory.
+
+All official rulings for all seven candidates were fetched and read before staging. The JSON files preserve canonical source and complete ruling sets. No monkeypatch or adapter was used by the thirteen native cases. Patch hooks were regenerated narrowly against current production; stale shared stage differences were excluded. `git apply --check` is only a patch applicability check, not approval or behavioral validation.

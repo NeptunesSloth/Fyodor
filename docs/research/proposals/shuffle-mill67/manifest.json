@@ -1,0 +1,37 @@
+{
+  "candidates": [
+    "Psychic Spiral",
+    "Stream of Thought"
+  ],
+  "promotion_count": 2,
+  "shared_quality_promotions": 0,
+  "owned_sources": [
+    "app/rules/shuffle_mill67.py",
+    "app/rules/scripts.py",
+    "app/game/rules_state.py",
+    "app/rules/triggers.py"
+  ],
+  "native_result": "15 + Grist1 + native6162 =18 unique PASS on unchanged functional production source; six genuine cold subprocesses",
+  "cold": "commander_first yes/no both spells (4), prepared_mill61 RIP/Colossus exile/library:shuffle (2)",
+  "related_command": ".venv/bin/pytest -q tests/test_rules_wave46b_shuffle.py tests/test_rules_life_card_outcomes41.py tests/test_rules_public_mill_picks65.py tests/test_rules_wave19c_ifyoudo.py -k 'not coverage_full and not every_card'",
+  "old_graveleave_command": ".venv/bin/pytest -q tests/test_rules_trigger_events2.py -k creature_card_leaves",
+  "old_graveleave_result": "1 PASS",
+  "mypy": "4 source files PASS",
+  "ruff": "4 source + test PASS",
+  "rules": [
+    "603.10a graveyard departures look back",
+    "701.24a shuffle objects into library",
+    "701.24c-d shuffle even when all specific objects diverted/set empty",
+    "701.17b forced mill as many as possible",
+    "903.9b original commander pre-move choice",
+    "702.56a replicate copies before original; copy not cast",
+    "608.2d choose nontarget cards on resolution"
+  ],
+  "shared_repair": "Capture public GY old snapshots in existing LKI; leave_graveyard reads original snapshot and outside_battlefield_self; no hidden successor or rename linkage",
+  "patch_sha256": "0ed9ea57b31a96b2c0498a95acd53c9f7d150ddcc3936a55993f27fc60887a2a",
+  "patch_lines": 82,
+  "recovered_stage": "/workspace/scratch/shuffle-mill67/backend",
+  "related_recovery_log": "/workspace/scratch/shuffle-mill67/related.log",
+  "recovery": "Closed native18, mypy4, Ruff5 and old-graveleave1 logs survived; only unarchived in-flight related gate restarted after environment replacement.",
+  "related_result": "96 PASS on recovered current baseline with reviewed patch"
+}

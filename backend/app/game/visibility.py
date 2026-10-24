@@ -73,8 +73,13 @@ def hand_revealed(state: GameState, card: CardInstance) -> bool:
     every player, spectators too): while a source that has it is on a battlefield, face up and automated, the hands it names are open. The source's
     controller is "you" / "your opponents" (``RulesState.top_reveals``, refreshed by the engine)."""
     rules = state.rules
-    if rules is None or not rules.top_reveals:
+    if rules is None:
         return False
+    for grant in rules.source_hand_reveals79:
+        source = state.cards.get(grant.source_card)
+        if (grant.player == card.owner and source is not None and source.zone.endswith(':battlefield')
+                and rules.object_id(source.id) == grant.source_object):
+            return True
     owner = card.owner
     for reveal in rules.top_reveals:
         source = state.cards.get(reveal.source)
@@ -96,11 +101,19 @@ def top_revealed(state: GameState, card: CardInstance, viewer: str) -> bool:
     source put onto the battlefield, taken or removed by hand is right at once, with no engine
     action in between. Only the top card, as the library is now."""
     rules = state.rules
-    if rules is None or not rules.top_reveals:
+    if rules is None:
         return False
     library = state.zones.get(card.zone) or []
     if not library or library[0] != card.id:
         return False
+    # A resolved end-of-turn authority is independent of its original source (611.2a).
+    # It reveals only the current top card to its beneficiary, never to spectators.
+    if card.zone == f"{viewer}:library" and any(
+        p.look_top and p.zone == 'library_top' and p.player == viewer
+        and p.until == 'end_of_turn' and p.turn == state.turn.number
+        for p in rules.permissions
+    ):
+        return True
     for reveal in rules.top_reveals:
         source = state.cards.get(reveal.source)
         if source is None or source.face_down or not source.zone.endswith(":battlefield") \

@@ -1,0 +1,24 @@
+{
+  "cards": [
+    "Exiled Doomsayer"
+  ],
+  "native": 13,
+  "cold": 1,
+  "files": [
+    "app/rules/morph_costs78.py",
+    "app/rules/scripts.py",
+    "app/rules/casting.py",
+    "app/rules/engine.py",
+    "app/rules/view.py"
+  ],
+  "source_sha256": {
+    "app/rules/morph_costs78.py": "91b59a6f06876da178360bbf20efa05a3f91704373416fe22225aefb5f78adb2",
+    "app/rules/scripts.py": "6e3067a4f198751b5828ac33f3388fb23d9a30c0a535bdf476fe67771f96e20a",
+    "app/rules/casting.py": "e736ef0648f8832bb7e89149be933745099aa281a8e8bafe5a4c6b01171ff1c9",
+    "app/rules/engine.py": "a25e0838a913b6b67e48bcaee901eb9c5f1809da55952bdeaa8b05fcebbafdcc",
+    "app/rules/view.py": "42af67fb1d05bc111030ba616ffa3de159b123cdbad1d8aa566282afc009ea9c"
+  },
+  "related": 15,
+  "mypy": 5,
+  "ruff": 6
+}

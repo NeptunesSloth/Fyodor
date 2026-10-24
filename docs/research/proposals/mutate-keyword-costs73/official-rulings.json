@@ -1,0 +1,41 @@
+{
+  "object": "list",
+  "has_more": false,
+  "data": [
+    {
+      "object": "ruling",
+      "oracle_id": "0a766368-c982-4cba-9638-c7a56978c240",
+      "source": "wotc",
+      "published_at": "2020-04-17",
+      "comment": "Pollywog Symbiote\u2019s first ability applies to creature spells you cast that have mutate even if you don\u2019t cast them for their mutate cost. Similarly, its second ability triggers even if the creature spell with mutate was cast for a cost other than its mutate cost."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "0a766368-c982-4cba-9638-c7a56978c240",
+      "source": "wotc",
+      "published_at": "2020-04-17",
+      "comment": "Effects that reduce the generic mana cost of a spell (such as that of Pollywog Symbiote) can\u2019t reduce that spell\u2019s colored mana requirements."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "0a766368-c982-4cba-9638-c7a56978c240",
+      "source": "wotc",
+      "published_at": "2020-04-17",
+      "comment": "An ability that triggers when a player casts a spell resolves before the spell that caused it to trigger. It resolves even if that spell is countered."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "0a766368-c982-4cba-9638-c7a56978c240",
+      "source": "wotc",
+      "published_at": "2020-04-17",
+      "comment": "Players can cast spells and activate abilities after the triggered ability resolves but before the spell that caused it to trigger does."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "0a766368-c982-4cba-9638-c7a56978c240",
+      "source": "wotc",
+      "published_at": "2020-04-17",
+      "comment": "You draw a card and discard a card all while Pollywog Symbiote\u2019s ability is resolving. Nothing can happen between the two, and no player may choose to take actions."
+    }
+  ]
+}

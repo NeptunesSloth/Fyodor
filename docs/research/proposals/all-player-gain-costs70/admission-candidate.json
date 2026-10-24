@@ -1,0 +1,61 @@
+{
+  "status": "CLOSED_FOR_ROOT_REVIEW; no live source writes or admission",
+  "names": [
+    "Reverent Silence",
+    "Skyshroud Cutter"
+  ],
+  "native": {
+    "passed": 24,
+    "genuine_cold": 2,
+    "log": "native24.log"
+  },
+  "related": {
+    "passed": 55,
+    "log": "related55.log",
+    "modules": [
+      "test_rules_opponent_gain_costs44.py",
+      "test_rules_opponent_gain_costs44_full.py",
+      "test_rules_mixed_life44.py"
+    ]
+  },
+  "mypy": {
+    "passed": 4,
+    "log": "types4.log"
+  },
+  "ruff": {
+    "passed": 5,
+    "log": "ruff5.log"
+  },
+  "patch": "production-candidate.patch",
+  "stage": "/tmp/cost70-stage/backend",
+  "source_hashes": {
+    "app/rules/costs.py": "ce281db1f5acdc2fea4188901b9e38d3791e4b952ffab97f840a206b9decc1c1",
+    "app/rules/opponent_gain_costs44.py": "cca239e9f416bcc8a60294c1679e54e353e743bf1a2d497b905e3366c368fc85",
+    "app/rules/cost_payment.py": "64114297ec1b5b99d3579cd7205f9ae4d8597d40b9e59dd6bd282320360007a0",
+    "app/rules/casting.py": "1b003708c81bf5e7879150b0a2b26fa938d6c60a8cc164b400122766b205d8f3",
+    "tests/test_rules_all_player_gain_costs70.py": "6142f18591a7e39532073cbfa9dc1d5692e1ee5260d9044f8afd729c20ce3f30",
+    "tests/fixtures/all_player_gain_costs70_cards.json": "1f6b7203f11ce1dececc4a59bc0da6412c9d814385068e6b44435c4628c833ad"
+  },
+  "base_hashes": {
+    "backend/app/rules/costs.py": "6b3ad165ff30c727ac1ed79d587f396fd766114648e6e49798d686fc49753068",
+    "backend/app/rules/opponent_gain_costs44.py": "fd86633efc4283627b830119070468527d008babb01f5f30bd7a94fe8c1fbda8",
+    "backend/app/rules/cost_payment.py": "3b2862a4aa2c4257a005679f2597c0671c00cec3277d64d170ddd90946ac2091",
+    "backend/app/rules/casting.py": "9979257520fc5f4c5d9844f30460b5b48b6e1e61e020fc27acabfc5327196802"
+  },
+  "authority": [
+    "Pinned CR118.11 cost events may be modified while still paying nominal cost",
+    "Pinned CR119.7 actual cannot-gain prohibition prevents paying life-gain cost",
+    "Native prepared life_changes44 site and existing RulesLifeChanges preserve simultaneous final events"
+  ],
+  "official_rulings_read": {
+    "Reverent Silence": 0,
+    "Skyshroud Cutter": 0
+  },
+  "boundaries": [
+    "Actual normal mana and exact Forest/Savannah alternate casts; no Forest, omitted/self participant and any blocked recipient reject atomically.",
+    "All actual gains commit in one native life batch, with one nominal receipt for every other player.",
+    "Native Sphere mana increase is paid once; actual Counterspell does not refund the alternative life cost.",
+    "Native zero, loss and double gain replacements preserve each nominal cost.",
+    "Fresh-process pending multi-player616: neither player changes after only first APNAP choice; both final changes commit together, nominal receipts and original Sphere mana preserved."
+  ]
+}

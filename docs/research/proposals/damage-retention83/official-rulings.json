@@ -1,0 +1,59 @@
+{
+  "Ancient Adamantoise": {
+    "object": "list",
+    "has_more": false,
+    "data": [
+      {
+        "object": "ruling",
+        "oracle_id": "e6873252-653a-47a8-99b7-b2ef70aa1f7f",
+        "source": "wotc",
+        "published_at": "2025-06-06",
+        "comment": "In the incredibly rare case where, during your cleanup step, Ancient Adamantoise is phased out with damage marked on it, Ancient Adamantoise's second ability won't apply and all marked damage will be removed from it during that cleanup step."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "e6873252-653a-47a8-99b7-b2ef70aa1f7f",
+        "source": "wotc",
+        "published_at": "2025-06-06",
+        "comment": "If you control more than one Ancient Adamantoise, you choose which redirection effect to apply. You can't divide damage dealt by a single source between them. For example, if an attacking creature would deal 8 damage to you and you control two Ancient Adamantoises, you'll choose which of those Ancient Adamantoises will take that damage. You can't have 4 damage be dealt to each Ancient Adamantoise, and you can't choose to take the damage yourself."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "e6873252-653a-47a8-99b7-b2ef70aa1f7f",
+        "source": "wotc",
+        "published_at": "2025-06-06",
+        "comment": "Effects that remove all damage from a permanent (such as regeneration) will still remove damage from Ancient Adamantoise."
+      }
+    ]
+  },
+  "Patient Zero": {
+    "object": "list",
+    "has_more": false,
+    "data": []
+  },
+  "Uthgardt Fury": {
+    "object": "list",
+    "has_more": false,
+    "data": []
+  },
+  "Victory of the Pyrohammer": {
+    "object": "list",
+    "has_more": false,
+    "data": []
+  },
+  "Case of the Market Melee": {
+    "object": "list",
+    "has_more": false,
+    "data": []
+  },
+  "Melt Through": {
+    "object": "list",
+    "has_more": false,
+    "data": []
+  },
+  "Switchgrass Grazer": {
+    "object": "list",
+    "has_more": false,
+    "data": []
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "backend/app/rules/chosen_forms95.py": "a3fb8aa21b31ab7098f4a9854fd515280b5dacaece9823417a4c7129b5368b68",
+  "backend/app/rules/scripts.py": "fc1849179d7029e5ea636ef383615e9e92765040d092e9e5000a6056eab9d2cc",
+  "backend/app/rules/replacements.py": "22d6aedddf1a8d5ff7f7eeb13d458d1abab77e8f6045acc3144e947c2ed8583f",
+  "backend/app/rules/characteristics.py": "dd9ea9da3079a94dd5c8ce29ff148a84b972e369f9925b18d98178f3d8918f99",
+  "backend/app/rules/values.py": "2e6592291d82e6800d9dfb63eff6c2ee678ffa7c12309acd4ff85bac5512a892",
+  "backend/app/rules/casting.py": "993f6f088bdebda229d0a6379d8685f3e8f7c0be628ea26df875f68879793555",
+  "backend/app/rules/morph_costs78.py": "2a51df55bc434e42616c33e08cbf2455347f34e78515cde9af9887796218a905",
+  "backend/app/rules/special_payment_tails.py": "3515a8f009fdf96a37a9013b6a997635185ae92c14b6a8f9a3ad097733db73bb",
+  "backend/app/rules/facedown.py": "89900ae2473abfeee99b73f7e521ba287e9884657738044491d1458d676a8fa5",
+  "backend/app/rules/engine.py": "0fe573cc64526e385d30d5295fff1924b632f7fe6058d0bdeb5310cc58518e22",
+  "backend/tests/test_rules_chosen_forms95.py": "45a570d244e3f46348f4a19e571e7170d9b02b294c49b35715163712a01a1983",
+  "backend/tests/fixtures/chosen_forms95_cards.json": "63087831cda8d59ded56f53a3c3cf6a64a980a4bec2ae1fd4a36be5f6afcacc7"
+}

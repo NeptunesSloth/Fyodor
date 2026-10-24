@@ -1,0 +1,4 @@
+{
+  "backend/app/rules/extra_turns.py": "61f9264e2bd194731a10549110a455a78b59f6003e122c2d23e10427563dfdf1",
+  "backend/tests/test_rules_wave8a_extra_turns.py": "ce7acfc1cc3d17a1d1c176e11da476ec94d9e1e636a1fe8c0038f4c388c79ee7"
+}

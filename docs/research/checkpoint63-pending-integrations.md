@@ -1,0 +1,15 @@
+CLOSED: checkpoint63 verified27 exact promotions;219 native integration cases across196+23, final Archive24, final core54/mypy893/Ruff, earlier329+106 regression checks. Detailed source provenance and the corrected fixture collection are in resumed-checkpoint63-integrations.md.
+
+# Checkpoint63 candidate — validation pending
+
+Finite27-card candidate installed against verified checkpoint62 (29,840 FULL /2,228 PARTIAL). No new verified totals yet. Frozen893-module source: /workspace/scratch/root/checkpoint63/backend; exact hashes and expected names are adjacent.
+
+Groups: public-mill-costs64, knowledge-pool78, untap-restrictions89, own-library-search-costs75 (legacy provenance repair), required-keyword79, colored-reveal-x87, compound-statics90, echo-alternatives76 (control-change repair), tetzin-double-face66 and fight-receipts90. All functional effects/engine/selector hunks preserved. Both search and fight known-history flags initialize together on a native new turn; old missing current-turn history remains unknown. Prepared face-down return branch retained.
+
+The separate legacy-wave4i-support79 test repair replaces four previously proven stale manual-support expectations while preserving original spell parsing context. No source behavior changed to satisfy stale negatives. Later isolated proposals are excluded from this cutoff. Production core54, full mypy893 and configured Ruff PASS against identical live/frozen source hashes. Related329 and collection/untap106 PASS. Native card suite and exact catalog audit are still running; admissions require both remaining gates.
+
+Recovery note: execution environment replacement removed /tmp before native/catalog closure. Identical893-module source reconstructed from committed live files and exact hashes. Durable core54, related329, collection/untap106, mypy893 and Ruff results retained. Only lost native and catalog gates rerun in persistent /workspace/scratch/root; baseline885-module checkpoint62 catalog is reconstructed from commit340597ab for an exact per-card diff. No new totals admitted before closure.
+
+Recovered catalogs completed: exactly27 expected promotions, no prior FULL regressions/unexpected/missing names, metadata/name sets equal. Candidate29,867FULL/2,201PARTIAL remains UNADMITTED pending the combined native suite and final affected Archive24. Compact per-card level maps now durable for both checkpoints to avoid rebuilding lost baselines again.
+
+History repair final scratch differs only in runtime history.holds and alt_costs.chosen (two boolean expressions); all classification definitions unchanged. Final repaired893-module source passes full mypy, configured Ruff and54 core tests. Original classifier/native snapshot remains immutable while its native suite finishes; full affected24 Archive tests are running separately on repaired source. Both exact source hash sets are saved; no claim that earlier broad gates exercised the new departed-opponent branch.

@@ -1,0 +1,51 @@
+F.F                                                                      [100%]
+=================================== FAILURES ===================================
+______ test_mindlink_animated_noncreature_has_no_copiable_power_toughness ______
+
+cards = <app.cards.repository.CardRepository object at 0x7fb57ab97ec0>
+
+    def test_mindlink_animated_noncreature_has_no_copiable_power_toughness(cards):
+        from tests.test_rules_bandmate_references import mana
+        s, source, bear, other, dragon = setup80(cards, 'Mindlink Mech')
+        ring = put(s, 'Sol Ring', 'battlefield')
+        ensoul = put(s, 'Ensoul Artifact', 'hand')
+        mana(s, U=1, C=1)
+        act(s, 'p1', type='cast_spell', card_id=ensoul.id, targets=[ring.id])
+        settle(s)
+        assert chars(s, ring).pt == (5, 5)
+        crew80(s, source, ring)
+        pick(s, [ring.id])
+        settle(s)
+>       assert s.state.cards[source.id].zone == 'p1:graveyard'
+E       AssertionError: assert 'p1:battlefield' == 'p1:graveyard'
+E
+E         - p1:graveyard
+E         + p1:battlefield
+
+tests/test_rules_first_crew_saddle80.py:124: AssertionError
+_____ test_copied_crew_retains_original_cost_objects_for_first_resolution ______
+
+cards = <app.cards.repository.CardRepository object at 0x7fb57b989460>
+
+    def test_copied_crew_retains_original_cost_objects_for_first_resolution(cards):
+        from tests.test_rules_bandmate_references import mana
+        s, source, bear, other, dragon = setup80(cards, 'Mighty Servant of Leuk-o')
+        copier = put(s, 'Lithoform Engine', 'battlefield')
+        act(s, 'p1', type='set_prefs', hold_priority=True)
+        index = next(a.index for a in chars(s, source).abilities if a.text.lower().startswith('crew'))
+        act(s, 'p1', type='activate_ability', card_id=source.id, ability=index, crew=[bear.id, other.id])
+        sid = s.state.zones['stack'][-1]
+        mana(s, C=2)
+        act(s, 'p1', type='activate_ability', card_id=copier.id, ability=0, targets=[sid])
+        settle(s)
+        # 707.10 retains the objects used for the original costs; only the first
+        # resolving crew ability creates the qualifying Vehicle trigger.
+>       assert sum(a.text.startswith('Whenever this creature deals combat damage to a player, draw two cards') for a in chars(s, source).abilities) == 1
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       assert 2 == 1
+E        +  where 2 = sum(<generator object test_copied_crew_retains_original_cost_objects_for_first_resolution.<locals>.<genexpr> at 0x7fb579f87ed0>)
+
+tests/test_rules_first_crew_saddle80.py:157: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_rules_first_crew_saddle80.py::test_mindlink_animated_noncreature_has_no_copiable_power_toughness
+FAILED tests/test_rules_first_crew_saddle80.py::test_copied_crew_retains_original_cost_objects_for_first_resolution

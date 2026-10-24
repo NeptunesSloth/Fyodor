@@ -196,6 +196,10 @@ def turn_face_up(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
                min_choices=0 if e.get("optional") else 1, max_choices=1, resume={"step": "turn_face_up", "ctx": ctx, "e": e})
         return False
     cards = effects._cards(plan, ctx, e["who"])
+    from app.rules import chosen_forms95
+
+    if any(card.face_down and any(chosen_forms95.form(a.text.replace('this creature', '~')) for a in plan.ch(card.model_copy(update={'face_down': False})).abilities) for cid in cards if (card := plan.state.cards.get(cid)) is not None):
+        return chosen_forms95.run_batch(plan, ctx, e, list(cards), [])
     done = [c for c in cards if _turn_up(plan, c, pid)]
     for c in done:
         plan.note(f"{plan.name(pid)} turns {plan.state.cards[c].name} face up")
@@ -205,6 +209,11 @@ def turn_face_up(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
 def resume_turn_face_up(plan: Plan, d: Any, chosen: list[str]) -> None:
     ctx = d.resume["ctx"]
+    from app.rules import chosen_forms95
+
+    if chosen:
+        chosen_forms95.run_batch(plan, ctx, d.resume['e'], list(chosen), [])
+        return
     for c in chosen:
         if _turn_up(plan, c, d.player):
             plan.note(f"{plan.name(d.player)} turns {plan.state.cards[c].name} face up")
@@ -304,7 +313,7 @@ def resume_exile_hand_down(plan: Plan, d: Any, chosen: list[str]) -> None:
 
 def put_down(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     """"Put the top N cards of [a player's] library / any number of cards from your hand onto the battlefield face down [as …]": under
-    the controller's control, one at a time (each is a face-down 2/2 or what the effect says, 708.2a). The hand cards are chosen
+    the controller's control together (each is a face-down 2/2 or what the effect says, 708.2a). The hand cards are chosen
     privately, and the question is asked even with an empty hand (it tells nothing)."""
     pid = ctx["controller"]
     if e["from"] == "hand":
@@ -316,20 +325,21 @@ def put_down(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     cards: list[str] = []
     for owner in effects._library_owner(plan, ctx, e):
         cards += effects._library(plan, owner)[: max(0, effects._amount(plan, ctx, e["n"]))]
-    _enter_down(plan, ctx, e, pid, cards)
-    return True
+    return _enter_down(plan, ctx, e, pid, cards)
 
 
-def _enter_down(plan: Plan, ctx: Context, e: dict[str, Any], pid: str, cards: list[str]) -> None:
-    for c in cards:
-        put_face_down(plan, c, pid, "generic", actor=pid, spec=e.get("spec"))
+def _enter_down(plan: Plan, ctx: Context, e: dict[str, Any], pid: str, cards: list[str]) -> bool:
+    from app.rules import attachments, face_down_entries64
+
+    entries = face_down_entries64.prepare(plan, cards, pid, under_you=True, spec=e.get("spec"))
+    return attachments.enter(plan, entries, ctx)
 
 
 def resume_put_down(plan: Plan, d: Any, chosen: list[str]) -> None:
     ctx, e = d.resume["ctx"], d.resume["e"]
     hand = plan.state.zones.get(zone_key(d.player, "hand"), [])
-    _enter_down(plan, ctx, e, d.player, [c for c in chosen if c in hand])
-    effects.continue_effects(plan, ctx)
+    if _enter_down(plan, ctx, e, d.player, [c for c in chosen if c in hand]):
+        effects.continue_effects(plan, ctx)
 
 
 def become_foretold(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:

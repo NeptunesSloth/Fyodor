@@ -1,12 +1,78 @@
-Current review: [PR #19](https://github.com/NeptunesSloth/Fyodor/pull/19). PR #18 was already merged; later work remained safely pushed on the same branch and is now included in the open continuation PR. Historical PR18 references below refer to that shared branch and earlier review.
+Current-work wrap-up is saved in [PR #20](https://github.com/NeptunesSloth/Fyodor/pull/20). The six agents reached their usage limit; no automatic assignments remain active.
 
-## CHECKPOINT57 VERIFIED — CONTINUING
+## CHECKPOINT67 VERIFIED — WRAP-UP
+
+Latest catalog: **29,945 FULL / 2,123 PARTIAL**. **11 exact additions**, zero prior FULL regressions or missing/unexpected promotions. **483 of 1,500 additional completions verified; 1,017 remain toward the target.** FULL is engine coverage classification; all cards are not complete.
+
+[Evidence](research/resumed-checkpoint67-integrations.md), [coverage](research/checkpoint67-coverage.json), [925-module hashes](research/checkpoint67-source-hashes.json), [logs](research/checkpoint67-validation), [held-work record](research/automation-current-work-wrap-up.md). Native110, related91, core54, full mypy925 and Ruff pass on the same immutable source. No fresh whole-suite claim.
+
+## CHECKPOINT66 VERIFIED — CONTINUING
+
+Latest catalog: **29,934 FULL /2,134 PARTIAL**. **20 exact Commander additions** (17 primary +3 reviewed shared assembly corrections), zero prior FULL regressions or missing/unexpected promotions. **472 of1,500 additional completions verified;1,028 remain.** FULL is engine coverage classification.
+
+[Evidence](research/resumed-checkpoint66-integrations.md), [coverage](research/checkpoint66-coverage.json), [919-module hashes](research/checkpoint66-source-hashes.json), [logs](research/checkpoint66-validation). Native148 plus8 unique collateral checks on identical source, related152, core54, full mypy919 and Ruff pass. Later work remains uncounted.
+
+## CHECKPOINT65 VERIFIED — CONTINUING
+
+Latest catalog: **29,914 FULL / 2,154 PARTIAL**. **26 exact Commander additions**, zero prior FULL regressions or unexpected/missing promotions. Four further tested digital implementations are outside the Commander catalog. **452 of1,500 additional completions verified;1,048 remain.** FULL is engine coverage classification.
+
+[Evidence](research/resumed-checkpoint65-integrations.md), [coverage](research/checkpoint65-coverage.json), [912-module hashes](research/checkpoint65-source-hashes.json), [logs](research/checkpoint65-validation). Native143, related150, core54, full mypy912 and Ruff pass on the same immutable source. The next17 candidates remain uncounted.
+
+## CHECKPOINT64 VERIFIED — CONTINUING
+
+Latest catalog: **29,888 FULL / 2,180 PARTIAL**. **21 exact additions**, zero prior FULL regressions or unexpected/missing promotions. **426 of 1,500 additional completions verified; 1,074 remain.** FULL is engine coverage classification.
+
+[Evidence](research/resumed-checkpoint64-integrations.md), [coverage](research/checkpoint64-coverage.json), [904-module hashes](research/checkpoint64-source-hashes.json), [logs](research/checkpoint64-validation). Native165, related155, core54, full mypy904 and Ruff pass on the same immutable source. Next 30 candidates remain uncounted until integrated and validated.
+
+## CHECKPOINT63 VERIFIED — CONTINUING
+
+Latest catalog: **29,867 FULL /2,201 PARTIAL**. **27 exact additions**, zero prior FULL regressions or unexpected/missing promotions. **405 of1,500 additional completions verified;1,095 remain.** FULL is coverage classification.
+
+[Evidence](research/resumed-checkpoint63-integrations.md), [coverage](research/checkpoint63-coverage.json), [final893-module hashes](research/checkpoint63-source-hashes.json), [logs](research/checkpoint63-validation). Native219 across196 integration passes plus23 Martyrs after a corrected fixture filename; final Archive24/core54/mypy893/Ruff pass. Earlier329+106 regressions predate the narrow final runtime history repair; source provenance is explicit. Next21-card checkpoint64 is frozen separately and unadmitted.
+
+## CHECKPOINT62 VERIFIED — CONTINUING
+
+Latest catalog: **29,840 FULL /2,228 PARTIAL**. **20 exact expected additions** from checkpoint61; zero prior FULL regressions, missing/unexpected promotions. Metadata and card names match. **378 of1,500 additional completions verified;1,122 remain.** FULL is engine coverage classification.
+
+[Coverage](research/checkpoint62-coverage.json), [885-module hashes](research/checkpoint62-source-hashes.json), [integration evidence](research/resumed-checkpoint62-integrations.md), [logs](research/checkpoint62-validation). Frozen source passes167 native,145 timing,67 collection/outside-game and54 core checks, full mypy885 and Ruff. No fresh full-suite claim. Workers continue subsequent groups automatically.
+
+## CHECKPOINT61 VERIFIED — CONTINUING
+
+Latest full catalog: **29,820 FULL /2,248 PARTIAL**. **12 exact expected promotions** from checkpoint60; zero prior FULL regressions, missing/unexpected promotions. Metadata and card names match. **358 of1,500 additional completions verified;1,142 remain.** FULL is engine coverage classification.
+
+[Coverage](research/checkpoint61-coverage.json), [874-module hashes](research/checkpoint61-source-hashes.json), [integration evidence](research/resumed-checkpoint61-integrations.md) and [final logs](research/checkpoint61-validation). Repaired frozen source passes132 native,145 related and54 core tests, full mypy874 and Ruff. Initial incomplete integration was rejected before admission. No fresh full-suite claim. Six agents continue automatically.
+
+## CHECKPOINT60 VERIFIED — CONTINUING
+
+Latest full catalog classification: **29,808 FULL /2,260 PARTIAL**, among32,068 Commander-legal cards. **19 exact expected promotions** from checkpoint59; zero prior FULL regressions, unexpected or missing promotions. Database metadata and card names match. **346 of1,500 additional completions verified;1,154 remain.** FULL is the engine coverage classification.
+
+Evidence: [coverage](research/checkpoint60-coverage.json), [868-module hashes](research/checkpoint60-source-hashes.json), [integration details](research/resumed-checkpoint60-integrations.md) and [validation logs](research/checkpoint60-validation). Frozen source passes full mypy868, configured Ruff,54 core tests,203 native card checks,141 casting regressions,93 frontend tests and frontend typing. No fresh full-suite claim. Six agents continue next groups automatically; subsequent candidates remain uncounted.
+
+## CHECKPOINT59 VERIFIED — CONTINUING
+
+Latest full catalog classification: **29,789 FULL /2,279 PARTIAL**, among32,068 Commander-legal cards. **42 exact expected promotions** from checkpoint58; zero prior FULL regressions, unexpected or missing promotions. Database metadata and card names match. **327 of1,500 additional completions verified;1,173 remain.** FULL is the engine coverage classification, not a guarantee of every interaction.
+
+Evidence: [coverage](research/checkpoint59-coverage.json), [857-module hashes](research/checkpoint59-source-hashes.json) and [integration details](research/resumed-checkpoint59-integrations.md). Final frozen source passes full mypy857, configured Ruff,54 core checks,166 native card checks and141 casting/flashback regressions. Earlier per-stream and fresh-process checks are retained; no fresh full-suite claim.
+
+The initial25-card candidate was superseded before admission after a real Falco/Bio-Titan additional-counter failure. The final shared repair verifies original disjoint counters across payment components and saved choices. Generic mill replacement sequencing and selected flashback-X behavior are also repaired. Six agents continue next groups automatically; later research is excluded from these totals.
+
+## CHECKPOINT58 VERIFIED — CONTINUING
+
+Latest full catalog classification: **29,747 FULL / 2,321 PARTIAL**, among 32,068 Commander-legal cards. **32 exact expected promotions** from checkpoint57; zero prior FULL regressions, unexpected or missing promotions. Database metadata and card names match. **285 of 1,500 additional completions verified; 1,215 remain toward the target.** FULL is the engine coverage classification, not a guarantee of every interaction.
+
+Evidence: [checkpoint58-coverage.json](research/checkpoint58-coverage.json) and [839-module source hashes](research/checkpoint58-source-hashes.json). Original frozen source passes full mypy839, configured Ruff and 54 core engine/history/privacy tests. Root production runs pass 212 checks across seven native integration files and the repaired existing Ruxa case. Per-stream related checks overlap; no fresh full-suite result is claimed.
+
+The32 cover nonzero kicker X and original-object damage (2), optional library/graveyard continuations (5), text-changing effects excluding Swirl (10), top-library permissions excluding Falco (4), conditional counter effects (4), unblocked combat (3), and target-dependent activation/spell costs (4). Native checks cover actual costs, illegal/changed targets, replacements, source reincarnations, private views, copied abilities and fresh-process saves.
+
+Existing impending counter/type cache behavior and stale replicate/Ruxa regression expectations are repaired without additional card counts. Offline saved-library/collection/outside-game31 checks pass; test-only scheduler11 checks pass after correcting its import-order registration. Six agents continue next groups automatically. Swirl, Falco cost ordering, Chants putter provenance and later research remain held or uncounted. See [integration evidence](research/resumed-checkpoint58-integrations.md).
+
+## CHECKPOINT57 VERIFIED — WORK RESUMED
 
 Latest full catalog classification: **29,715 FULL / 2,353 PARTIAL**, among32,068 Commander-legal cards. **13 exact expected promotions** from checkpoint56; zero prior FULL regressions, unexpected or missing promotions. Database metadata and card names match. **253 of1,500 additional completions verified;1,247 remain toward the target.** FULL is the engine coverage classification, not a guarantee of every interaction.
 
 Evidence: [checkpoint57-coverage.json](research/checkpoint57-coverage.json) and [830-module source hashes](research/checkpoint57-source-hashes.json). Original frozen source passes full mypy830, configured Ruff and54 core engine/history/privacy tests. The13 comprise7 static casting-permission cards,3 conditional kicker target/mode cards and3 first-event receipt cards. Every admission has closed native whole-card, negative, saved-game and relevant regression evidence. Unknown legacy history uses explicit native handling rather than invented first events. Additional costs, bound Aluren timing, genuine investigate actions and zero-mode payment continuations are exercised.
 
-Hojo's trustworthy fresh-turn1 marker repair and existing Abundance/Ruin zero-mode quality repairs are included without extra card counts. Current review is PR19, with ongoing work continuously pushed. Six workers continue text changes, original entry putters, optional-payment continuations, top-library permissions, remaining kicker foundations and unblocked combat. Later changes remain outside these totals until another audit; all remaining automation and the1,500-card target remain unfinished.
+Hojo's trustworthy fresh-turn1 marker repair and existing Abundance/Ruin zero-mode quality repairs are included without extra card counts. The user requested a wrap-up and PR. Six workers have been asked to stop implementation and preserve uninstalled text-change, entry-putter, optional-payment, top-library, kicker and combat proposals as research. These proposals are uncounted; all remaining automation and the 1,500-card target remain unfinished.
 
 ## CHECKPOINT56 VERIFIED — CONTINUING
 

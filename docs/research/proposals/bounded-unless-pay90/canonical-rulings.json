@@ -1,0 +1,181 @@
+[
+  {
+    "card": {
+      "id": "21ce365e-3002-42e9-aeb5-1b845408271e",
+      "oracle_id": "f6d371e6-e25e-4820-8cf7-f692a4d9be11",
+      "name": "Rhystic Lightning",
+      "layout": "normal",
+      "set_code": "pcy",
+      "set_name": "Prophecy",
+      "collector_number": "99",
+      "rarity": "common",
+      "mana_cost": "{2}{R}",
+      "cmc": 3.0,
+      "type_line": "Instant",
+      "oracle_text": "Rhystic Lightning deals 4 damage to any target unless that permanent's controller or that player pays {2}. If they do, Rhystic Lightning deals 2 damage to the permanent or player.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null,
+      "defense": null,
+      "colors": [
+        "R"
+      ],
+      "color_identity": [
+        "R"
+      ],
+      "keywords": [],
+      "is_token": false,
+      "faces": [],
+      "double_faced": false,
+      "image_faces": 1,
+      "has_image": false,
+      "released_at": "2000-06-05",
+      "artist": "Roger Raupp",
+      "commander_legal": "legal",
+      "related_tokens": [],
+      "related_cards": []
+    },
+    "rulings": {
+      "object": "list",
+      "has_more": false,
+      "data": [
+        {
+          "object": "ruling",
+          "oracle_id": "f6d371e6-e25e-4820-8cf7-f692a4d9be11",
+          "source": "wotc",
+          "published_at": "2004-10-04",
+          "comment": "The player gets the option to pay when this spell resolves."
+        }
+      ]
+    }
+  },
+  {
+    "card": {
+      "id": "750c5df2-e299-4bf3-8018-725893702314",
+      "oracle_id": "b1eea34a-74ef-4d7c-bf70-c64b3487f296",
+      "name": "Rhystic Syphon",
+      "layout": "normal",
+      "set_code": "pcy",
+      "set_name": "Prophecy",
+      "collector_number": "76",
+      "rarity": "uncommon",
+      "mana_cost": "{3}{B}{B}",
+      "cmc": 5.0,
+      "type_line": "Sorcery",
+      "oracle_text": "Unless target player pays {3}, that player loses 5 life and you gain 5 life.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null,
+      "defense": null,
+      "colors": [
+        "B"
+      ],
+      "color_identity": [
+        "B"
+      ],
+      "keywords": [],
+      "is_token": false,
+      "faces": [],
+      "double_faced": false,
+      "image_faces": 1,
+      "has_image": false,
+      "released_at": "2000-06-05",
+      "artist": "Ron Spencer",
+      "commander_legal": "legal",
+      "related_tokens": [],
+      "related_cards": []
+    },
+    "rulings": {
+      "object": "list",
+      "has_more": false,
+      "data": []
+    }
+  },
+  {
+    "card": {
+      "id": "46b762a7-a774-4cb4-8ecf-dd6486a066c3",
+      "oracle_id": "7fcc8aab-6f7b-4474-b4e4-58cf4a119b22",
+      "name": "Scarwood Bandits",
+      "layout": "normal",
+      "set_code": "drk",
+      "set_name": "The Dark",
+      "collector_number": "85",
+      "rarity": "rare",
+      "mana_cost": "{2}{G}{G}",
+      "cmc": 4.0,
+      "type_line": "Creature \u2014 Human Rogue",
+      "oracle_text": "Forestwalk (This creature can't be blocked as long as defending player controls a Forest.)\n{2}{G}, {T}: Unless an opponent pays {2}, gain control of target artifact for as long as this creature remains on the battlefield.",
+      "power": "2",
+      "toughness": "2",
+      "loyalty": null,
+      "defense": null,
+      "colors": [
+        "G"
+      ],
+      "color_identity": [
+        "G"
+      ],
+      "keywords": [
+        "Landwalk",
+        "Forestwalk"
+      ],
+      "is_token": false,
+      "faces": [],
+      "double_faced": false,
+      "image_faces": 1,
+      "has_image": false,
+      "released_at": "1994-08-01",
+      "artist": "Mark Poole",
+      "commander_legal": "legal",
+      "related_tokens": [],
+      "related_cards": []
+    },
+    "rulings": {
+      "object": "list",
+      "has_more": false,
+      "data": []
+    }
+  },
+  {
+    "card": {
+      "id": "8eb6e9f8-a508-451e-8a72-5f9834ba5352",
+      "oracle_id": "561aed01-322b-4699-b7b0-f4416075aa9b",
+      "name": "Divert",
+      "layout": "normal",
+      "set_code": "ody",
+      "set_name": "Odyssey",
+      "collector_number": "82",
+      "rarity": "rare",
+      "mana_cost": "{U}",
+      "cmc": 1.0,
+      "type_line": "Instant",
+      "oracle_text": "Change the target of target spell with a single target unless that spell's controller pays {2}.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null,
+      "defense": null,
+      "colors": [
+        "U"
+      ],
+      "color_identity": [
+        "U"
+      ],
+      "keywords": [],
+      "is_token": false,
+      "faces": [],
+      "double_faced": false,
+      "image_faces": 1,
+      "has_image": false,
+      "released_at": "2001-10-01",
+      "artist": "Christopher Moeller",
+      "commander_legal": "legal",
+      "related_tokens": [],
+      "related_cards": []
+    },
+    "rulings": {
+      "object": "list",
+      "has_more": false,
+      "data": []
+    }
+  }
+]

@@ -1,0 +1,173 @@
+--- /dev/null
++++ b/backend/app/rules/crew_saddle_readers81.py
+@@ -0,0 +1,62 @@
++"""Exact crew/saddle readers retain native object identities and graveyard grants."""
++from __future__ import annotations
++
++from dataclasses import replace
++from typing import Any
++
++SCHOONER = 'Whenever this Vehicle attacks, target creature that crewed it this turn explores.'
++GHOST = 'Repair Barge — Whenever this Vehicle becomes crewed, each artifact creature card in your graveyard gains unearth {3} until end of turn.'
++NEWT = ('Whenever this creature deals combat damage to a player, target instant or sorcery card in your graveyard gains flashback until end of turn. '
++        'The flashback cost is equal to its mana cost. That card gains flashback {0} until end of turn instead if this creature is saddled.')
++
++
++def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
++    from app.rules import scripts
++
++    if ability.kind != 'triggered':
++        return None
++    if ability.text == SCHOONER:
++        native = scripts.define(replace(ability, text=SCHOONER.replace('explores.', 'gains vigilance until end of turn.')), ch)
++        return {**native, 'effects': [{'do': 'explore', 'who': 'target'}]} if native else None
++    if ability.text == GHOST:
++        native = scripts.define(replace(ability, text='Whenever this Vehicle becomes crewed, draw a card.'), ch)
++        return {**native, 'effects': [{'do': 'ghost_unearth81'}]} if native else None
++    if ability.text == NEWT:
++        native = scripts.define(replace(ability, text=NEWT.split(' That card gains')[0]), ch)
++        return {**native, 'effects': [{'do': 'newt_flashback81'}]} if native else None
++    return None
++
++
++def bound_target(sel: Any, source_object: str) -> Any:
++    from app.rules import selectors
++
++    extras = tuple('paid_contributor81:' + ('crew' if x == 'crewed_it' else 'saddle') + ':' + source_object
++                   if x in {'crewed_it', 'saddled_it'} else x for x in sel.extras)
++    either = tuple(bound_target(selectors.from_key(key), source_object).key() for key in sel.either)
++    return replace(sel, extras=extras, either=either) if extras != sel.extras or either != sel.either else sel
++
++
++def ghost_unearth(plan: Any, ctx: dict[str, Any], effect: dict[str, Any]) -> bool:
++    from app.rules import effects, layers, selectors
++
++    selector = selectors.parse('artifact creature cards in your graveyard')
++    assert selector is not None
++    for cid in effects._cards(plan, ctx, selector.key()):
++        layers.add_effect(plan, affected=[plan.oid(cid)], layer='6', source=ctx.get('source_object'),
++            controller=ctx['controller'], duration='end_of_turn', add_abilities=['Unearth {3}.'],
++            ability_zone='graveyard', label='Unearth {3} until end of turn')
++    return True
++
++
++def newt_flashback(plan: Any, ctx: dict[str, Any], effect: dict[str, Any]) -> bool:
++    from app.rules import graveyard_grants
++
++    log = plan.rules.turn_log
++    # An ability uses its original source's last known designation after it leaves,
++    # never a new incarnation of the physical card. Saddle facts predate this card.
++    saddled = log.turn == plan.state.turn.number and any(
++        f.kind == 'saddled' and f.object_id == ctx.get('source_object') for f in log.facts)
++    return graveyard_grants.grant_flashback(plan, ctx, {'who': 'target', 'cost': '{0}' if saddled else 'mana_cost'})
++
++
++PRIMITIVES = {'ghost_unearth81': ghost_unearth, 'newt_flashback81': newt_flashback}
+--- a/backend/app/rules/scripts.py
++++ b/backend/app/rules/scripts.py
+@@ -5628,8 +5628,10 @@
+     if ab.kind == "keywords":
+         if ab.text.rstrip('.').lower() in ('affinity for artifacts', 'undaunted'):
+             return ab  # Native selected cast permissions grant actual cumulative cost abilities.
+-        from app.rules import graveyard_keywords
+-
++        from app.rules import costs, graveyard_keywords, unearth_costs
++
++        if ab.keywords == ('unearth',) and (unearth_cost := unearth_costs.parse(ab.text)) is not None and not costs.parse_ability_cost(unearth_cost).unsupported:
++            return ab  # Native graveyard keyword activation retains its sorcery restriction and replacement duration.
+         if len(ab.keywords) == 1 and ab.keywords[0] in ("embalm", "encore") and graveyard_keywords.supported(ab.keywords[0], ab.text):
+             return ab
+         from app.rules import banding
+@@ -5721,6 +5723,10 @@
+
+ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
+     """The engine definition of one ability, or None (manual)."""
++    from app.rules import crew_saddle_readers81
++
++    if (reader81 := crew_saddle_readers81.definition(ability, ch)) is not None:
++        return reader81
+     from app.rules import first_crew_saddle80
+
+     if (first80 := first_crew_saddle80.definition(ability, ch)) is not None:
+--- a/backend/app/rules/effects.py
++++ b/backend/app/rules/effects.py
+@@ -6690,3 +6690,8 @@
+ from app.rules import first_crew_saddle80 as _first_crew80  # noqa: E402
+
+ PRIMITIVES['mindlink_copy80'] = _first_crew80.mindlink_copy
++
++
++from app.rules import crew_saddle_readers81 as _crew_readers81  # noqa: E402
++
++PRIMITIVES.update(_crew_readers81.PRIMITIVES)
+--- a/backend/app/rules/targets.py
++++ b/backend/app/rules/targets.py
+@@ -226,8 +226,10 @@
+             oid = plan.oid(plan.state.cards[source_card])
+         return [p for p in plan.live() if selectors.matches_player(plan, sel, p, chooser, source_object=oid)
+                 and player_shields.can_target(plan, chooser, p, source)]
+-    from app.rules import prohibitions
+-
++    from app.rules import crew_saddle_readers81, prohibitions
++
++    if source_object is not None:
++        sel = crew_saddle_readers81.bound_target(sel, source_object)
+     if sel.other and source_card is not None and source_object is not None and (source_card not in plan.state.cards or plan.oid(source_card) != source_object):
+         sel = selectors.replace(sel, other=False)
+     out = []
+--- a/backend/app/rules/selectors.py
++++ b/backend/app/rules/selectors.py
+@@ -2411,6 +2411,12 @@
+
+             if card_names.has_name(ch, extra[9:]):
+                 return False
++        if extra.startswith('paid_contributor81:'):
++            from app.rules import crew_saddle
++
++            _, kind, original_source = extra.split(':', 2)
++            if not crew_saddle.tapped_for(plan, kind, plan.oid(card), original_source):
++                return False
+         if extra in ("crewed_it", "saddled_it"):  # (wave 23D)
+             from app.rules import crew_saddle
+
+--- a/backend/app/rules/casting.py
++++ b/backend/app/rules/casting.py
+@@ -3425,6 +3425,13 @@
+
+     ch = permission_spell_keywords.apply(ch, grant)
+     free = grant is not None and grant.free  # "without paying its mana cost" (118.9): an alternative cost of {0}
++    from app.rules import flashback_choices
++
++    using_flashback = not free and a.alt_cost is None and not a.face_down and not plan.manual(card) and grant is not None and grant.how == "flashback"
++    if using_flashback and flashback_choices.announce(plan, a, card, ch):
++        return
++    selected_flashback = flashback_choices.selected(flashback_choices.options(plan.state, card, ch, plan.info), a.flashback_choice) if using_flashback else None
++    flashback_without_x = selected_flashback is not None and not M.parse_cost(selected_flashback[0]).x and not (selected_flashback[1] and selected_flashback[1].x_chosen)
+     base = M.parse_cost(ch.mana_cost)
+     airbent = grant is not None and bool(grant.alt_mana)  # -- trigger other (wave 25B) -- airbend 701.65a: cast only by paying its alternative cost
+     from app.rules import alt_costs as _alt_x  # (leaves over this module)
+@@ -3432,10 +3439,10 @@
+     alt_x = a.alt_cost is not None and not free and not plan.manual(card) and any(  # -- cast keywords (wave 43D) -- 107.3a: an alternative cost with {X}
+         o.key == a.alt_cost and _alt_x.announces_x(o) for o in _alt_x.offers(plan.state, plan.actor, card, ch, plan.info))  # (harmonize, overload, surge …)
+     if (base.x or alt_x) and a.x_value is None:
+-        if alt_x or (not free and a.alt_cost is None and not airbent):
++        if alt_x or (not free and a.alt_cost is None and not airbent and not flashback_without_x):
+             raise ActionError(f"Choose a value for X to cast {ch.name}")
+         a.x_value = 0  # 107.3b: X is 0 when a spell is cast without paying its mana cost (or for an alternative cost, wave 4I)
+-    elif base.x and a.x_value and (free or airbent):  # -- review (wave 25A) -- 107.3b: the only legal choice is 0
++    elif base.x and a.x_value and (free or airbent or flashback_without_x):  # -- review (wave 25A) -- 107.3b: the only legal choice is 0
+         raise ActionError(f"X is 0 when {ch.name} is cast without paying its mana cost or for an alternative cost without X (107.3b)")
+     from app.rules import cast_limits as _x_limits
+
+@@ -3452,11 +3459,6 @@
+     if kick_x and (base.x or a.x_value is None or free):  # ponytail: a spell with another X, or cast free this way, pays a kicker X by hand
+         raise ActionError(f"Choose a value for X to pay the kicker cost of {ch.name}" if a.x_value is None and not (base.x or free)
+                           else f"{ch.name}: pay its kicker X by hand")
+-    from app.rules import flashback_choices
+-
+-    if not free and a.alt_cost is None and not a.face_down and not plan.manual(card) and grant is not None and grant.how == "flashback" \
+-            and flashback_choices.announce(plan, a, card, ch):
+-        return
+     alternative: M.ManaCost | None = M.parse_cost("{3}") if a.face_down else None
+     additional: list[M.ManaCost] = [M.ManaCost(generic=grant.generic_extra)] if grant is not None and grant.generic_extra else []
+     if a.buyback:

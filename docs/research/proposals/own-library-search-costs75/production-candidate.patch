@@ -1,0 +1,49 @@
+--- a/backend/app/game/rules_state.py
++++ b/backend/app/game/rules_state.py
+@@ -610,2 +610,4 @@
+     turn: int = 0
++    search_history75_known: bool | None = None  # Legacy missing authority is unknown until the next native turn.
++    searched_own_library75: list[str] = Field(default_factory=list)  # Actual own-library searches begun this turn, even no card found.
+     starting_life: dict[str, int] | None = None
+@@ -1958,3 +1960,3 @@
+         rules.last_turn_log = log if log.turn == n - 1 else None
+-        log = rules.turn_log = TurnLog(turn=n, active_player=state.turn.active_player,
++        log = rules.turn_log = TurnLog(turn=n, active_player=state.turn.active_player, search_history75_known=True,
+                                       starting_life=dict(state.turn.starting_life) if state.turn.starting_life is not None else None)
+--- a/backend/app/rules/prohibitions.py
++++ b/backend/app/rules/prohibitions.py
+@@ -260,2 +260,7 @@
+     if searcher == owner:
++        from app.game.rules_state import turn_log_now
++
++        log = turn_log_now(plan.state)
++        if log is not None and searcher not in log.searched_own_library75:
++            log.searched_own_library75.append(searcher)
+         emit(plan.state, "designation", counter="search_library", player=searcher)
+--- a/backend/app/rules/history.py
++++ b/backend/app/rules/history.py
+@@ -100,2 +100,4 @@
+     log = log_for(plan, bool(cond.get("last")))
++    if kind == "searched_own_library75":
++        return any(p != me and p in plan.live() for p in log.searched_own_library75)
+     if kind == "played_from_exile":
+--- a/backend/app/rules/alt_costs.py
++++ b/backend/app/rules/alt_costs.py
+@@ -146,2 +146,4 @@
+                 "op": "==", "n": 0}
++    if text == "an opponent searched their library this turn":
++        return {"history": "searched_own_library75"}
+     cond = conditions.parse(text)
+@@ -460,2 +462,12 @@
+     """The alternative cost the intent names, checked now (601.2b), or an ActionError."""
++    prefix75 = f'{card.id}:'
++    if key.startswith(prefix75) and key[len(prefix75):].isdigit():
++        from app.rules import history, scripts
++
++        definition75 = scripts.definitions(ch).get(int(key[len(prefix75):]), {})
++        if definition75.get('cond') == {'history': 'searched_own_library75'}:
++            log75 = history.log_for(plan)
++            positive75 = any(p != plan.actor and p in plan.live() for p in log75.searched_own_library75)
++            if log75.search_history75_known is not True and not positive75:
++                raise ActionError('Earlier searches this turn are unknown in this older save. Resolve this alternative cost manually.')
+     for offer in offers(plan.state, plan.actor, card, ch, plan.info):

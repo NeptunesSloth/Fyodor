@@ -1,0 +1,38 @@
+{
+  "status": "PEER_ILLEGAL_TARGET_INFORMATION_HOLD",
+  "cards": [
+    "Modify Memory",
+    "Gauntlets of Chaos",
+    "Gilded Drake"
+  ],
+  "stage": "/workspace/scratch/exchanges91",
+  "note": "No live source changes; first5 native whole/printed gates green, Drake none/legal/removed3 green, aura successful and failedexchange correction green; all17 consolidated pending.",
+  "native": {
+    "passed": 18,
+    "genuine_cold": 2,
+    "logs": [
+      "native17.log",
+      "native-no-target1.log"
+    ],
+    "note": "Consolidated17 green, plus distinct native no-legal-target Drake proof1 green."
+  },
+  "mypy": {
+    "files": 3,
+    "result": "PASS"
+  },
+  "ruff": {
+    "files": 4,
+    "result": "PASS"
+  },
+  "related": {
+    "passed": 105,
+    "log": "related105.log",
+    "files": [
+      "test_rules_permanent_exchange_qualities.py",
+      "test_rules_multitarget.py",
+      "test_rules_control.py"
+    ]
+  },
+  "patch": "reviewed.patch",
+  "patch_sha256": "0cbbe82fa90e3ea869af0d065d57e276af7df49c4222a406393106ecef0954ae"
+}

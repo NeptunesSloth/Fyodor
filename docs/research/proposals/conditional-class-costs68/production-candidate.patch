@@ -1,0 +1,56 @@
+--- /dev/null
++++ b/backend/app/rules/conditional_class_costs68.py
+@@ -0,0 +1,40 @@
++"""Paladin Class composes native turn pricing, levels and attack-target continuations."""
++
++from __future__ import annotations
++
++from dataclasses import replace
++from typing import Any
++
++TAX = "Spells your opponents cast during your turn cost {1} more to cast."
++ATTACK = "Whenever you attack, until end of turn, target attacking creature gets +1/+1 for each other attacking creature and gains double strike."
++
++
++def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
++    from app.rules import permissions, scripts, selectors
++
++    if ability.text == TAX:
++        return permissions.define_static(
++            "During your turn, spells your opponents cast cost {1} more to cast.", "static", ()
++        )
++    if ability.text == ATTACK:
++        text = "Whenever you attack, target attacking creature gets +1/+1 for each other attacking creature until end of turn. It gains double strike until end of turn."
++        native = scripts.define(replace(ability, text=text), ch)
++        if native is None:
++            return None
++        amount = {
++            "minus": [
++                {
++                    "count": selectors.Selector(
++                        zones=("battlefield",), types=("Creature",), attacking=True
++                    ).key()
++                },
++                1,
++            ]
++        }
++        return {
++            **native,
++            "effects": [
++                {**e, "p": amount, "t": amount} if e.get("do") == "pump" else e for e in native["effects"]
++            ],
++        }
++    return None
+--- a/backend/app/rules/scripts.py
++++ b/backend/app/rules/scripts.py
+@@ -5761,6 +5761,10 @@
+
+ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
+     """The engine definition of one ability, or None (manual)."""
++    from app.rules import conditional_class_costs68
++
++    if (class68 := conditional_class_costs68.definition(ability, ch)) is not None:
++        return class68
+     from app.rules import upkeep_consequences81
+
+     if (admitted := upkeep_consequences81.definition(ability, ch)) is not None:

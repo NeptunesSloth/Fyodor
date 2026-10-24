@@ -1,0 +1,29 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+______ test_trigger_original_controller_survives_actual_response_theft70 _______
+
+cards = <app.cards.repository.CardRepository object at 0x7f2f35abb200>
+
+    def test_trigger_original_controller_survives_actual_response_theft70(cards):
+        from tests.test_rules_wave30p_combat import attack
+        s=setup(cards)
+        source=put(s,'Gwenom, Remorseless','battlefield')
+        to_phase(s,'declare_attackers',turn=4)
+        attack(s,(source,'p2'))
+        assert s.state.rules.stack and not s.state.rules.permissions
+        # Respond to the native attack trigger with an actual control-changing instant.
+        ray=put(s,'Ray of Command','hand','p2')
+        act(s,'p2',type='add_mana',player='p2',mana={'U':1,'C':3})
+        while s.state.rules.priority!='p2':
+            act(s,s.state.rules.priority,type='pass_priority')
+        act(s,'p2',type='cast_spell',card_id=ray.id,sources=[],targets=[source.id])
+        settle(s)
+>       assert source.controller=='p2'
+E       AssertionError: assert 'p1' == 'p2'
+E
+E         - p2
+E         + p1
+
+tests/test_rules_gwenom_top70.py:212: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_rules_gwenom_top70.py::test_trigger_original_controller_survives_actual_response_theft70

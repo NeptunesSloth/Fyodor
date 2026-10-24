@@ -1,0 +1,33 @@
+{
+  "status": "UNINSTALLED / root accepted pending gates now closed",
+  "names": [
+    "Cosmic Horror",
+    "Demonic Hordes"
+  ],
+  "whole": {
+    "passed": 13,
+    "cold": 2,
+    "log": "docs/research/proposals/upkeep-consequences81/whole13.log"
+  },
+  "types": {
+    "files": 2,
+    "result": "PASS",
+    "log": "docs/research/proposals/upkeep-consequences81/types2.log"
+  },
+  "ruff": {
+    "files": 3,
+    "result": "PASS",
+    "log": "docs/research/proposals/upkeep-consequences81/ruff3.log"
+  },
+  "related": {
+    "passed": 56,
+    "result": "PASS",
+    "log": "docs/research/proposals/upkeep-consequences81/related56.log"
+  },
+  "patch": "docs/research/proposals/upkeep-consequences81/UNINSTALLED.patch",
+  "patch_sha256": "6dd9540ea9a0cd5e258af1db59f7fef00896f1d10cd6f3dc5db783b14238357f",
+  "leaf_sha256": "c962794bc75850a4d247f8097e570ad086d054941f16fece94f278e1cd25e02a",
+  "stage": "/tmp/upkeep81-stage",
+  "source_base": "shared root after conditional80 integration",
+  "test_source": "/tmp/upkeep81-tests/test_upkeep81.py"
+}

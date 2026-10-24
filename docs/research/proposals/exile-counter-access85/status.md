@@ -1,0 +1,7 @@
+Exact1 CLOSED: Lara Croft, Tomb Raider. Native6 PASS including genuine fresh-process2; related73 PASS including saved player collections/offline persistence, broad graveyard/land permissions; mypy4 PASS; Ruff5 PASS. Canonical four and complete official rulings21 retained; Draugr/Haldan/Evelyn explicitly held for snow-source and provenance foundations.
+
+The actual attack retains native optional legendary artifact/land graveyard targets, exile, discovery counter and normal fizzle semantics. The resulting permission selects current discovery-counter cards dynamically in any player's exile, rather than freezing the just-exiled object. A distinct card_filter applies current eligibility to both land plays and spell casts; a single native once use is shared by the two verbs, and native end-of-turn expiry remains unchanged.
+
+Native proofs: actual foreign exile/cast; old discovery object plus foreign legendary land sharing one play; zero-target attack still grants access to old objects; source departure does not revoke a resolved permission; next-turn expiry; counterless foreign spells and lands excluded; genuine saved permission cold cast and land play preserve original owner.
+
+Patch89 lines/four app files, generated against saved baseline. Main patch apply-check passed current root. Earlier fixture error and optional-empty-target fixture failures retained; no implementation change was made to force unnecessary target decisions.

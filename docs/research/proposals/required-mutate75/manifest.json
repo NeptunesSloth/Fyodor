@@ -1,0 +1,26 @@
+{
+  "status": "CLOSED_FOR_ROOT_PRODUCTION_REVIEW; uninstalled/unadmitted",
+  "names": [
+    "Brokkos, Apex of Forever"
+  ],
+  "patch": "review.patch",
+  "patch_sha256": "6304e9ec7be32402b92b6fe9491667d20c960414ef5f418c6c61b4e02ba7702e",
+  "stage": "/tmp/brokkos75-stage",
+  "native": {
+    "consolidated_passed": 15,
+    "genuine_cold": 2,
+    "log": "brokkos75-final15.log"
+  },
+  "related": {
+    "passed": 60,
+    "scope": "full native mutate18D/review18D and graveyard permissions30Q files",
+    "log": "brokkos75-final-related60.log"
+  },
+  "mypy": "PASS4 affected source files, final source",
+  "ruff": "PASS4 app files plus native test, final source",
+  "source_hashes": "source-hashes.json",
+  "rebase": "Registration-only scripts.py context rebased to current root; semantic source unchanged. See rebased-script-base.json.",
+  "test": "native_tests.py -> backend/tests/test_rules_required_mutate75.py",
+  "fixture": "cards.json -> backend/tests/fixtures/required_mutate75_cards.json",
+  "authority": "Complete Brokkos official rulings2020-04-17; requires mutate only through its own GY permission, independent permissions retain associated choices."
+}

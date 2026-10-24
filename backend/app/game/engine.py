@@ -157,6 +157,13 @@ def apply(state: GameState, action: A.Action) -> None:
     rules = state.rules
     if rules is not None:
         manual = action.type not in NOT_OVERRIDES
+        if manual and action.type in ('set_face', 'flip', 'face_down', 'merge'):
+            # A manual loss/regain between intents has no native World timing
+            # authority, even if its final copiable values match the old ones.
+            changed_worlds80 = getattr(action, 'card_ids', None) or [getattr(action, 'card_id', None)]
+            for cid80 in changed_worlds80:
+                if isinstance(cid80, str):
+                    rules.world_intervals80.pop(rules.object_id(cid80), None)
         if manual and state.settings.automation != "off" and not rules.paused:
             rules.overrides += 1
             for entry in state.log[log_start:]:
@@ -165,6 +172,7 @@ def apply(state: GameState, action: A.Action) -> None:
             # Automation isn't running: the bookkeeping may drift from the table. Resuming or
             # turning automation back on reconciles (app/rules/reconcile.py).
             rules.unsynced = True
-        track(state, before, manual=manual, actor=action.actor, put_by=wither_put_by(action))  # (actor: wave 5H)
+        track(state, before, manual=manual, actor=action.actor, put_by=wither_put_by(action),
+              non_discard=bool(getattr(action, "non_discard", False)))  # (actor: wave 5H)
     state.departures().clear()
     state.renames().clear()

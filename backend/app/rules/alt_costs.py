@@ -52,7 +52,7 @@ TABLE = re.compile(r"^(?P<once>once each turn, )?you may pay (?P<pay>(?:\{[^}]+\
                    r"for (?:(?:a|an) )?(?:(?P<sel>[A-Za-z][A-Za-z' -]*?) )?spells? you cast"
                    r"(?P<zone> from your hand| from exile)?(?: with mana value X or less, where X is (?P<mv>.+))?$")
 _EXILE_HAND = re.compile(r"^Exile (?P<n>a|an|one|two|three) (?P<what>(?:[\w\-]+ )*cards?(?: with mana value \d+ or (?:less|greater))?) from your hand$")
-_PART_SPLIT = re.compile(r" and (?=(?:pay|exile|sacrifice|return|tap|discard) )")
+_PART_SPLIT = re.compile(r" and (?=(?:pay|exile|sacrifice|return|tap|discard|collect) )")
 _WORDS = {"a": 1, "an": 1, "one": 1, "two": 2, "three": 3}
 
 
@@ -63,6 +63,8 @@ def _part(text: str, x_ok: bool = False) -> C.CostComponent | str | None:
 
     if (gain_cost := opponent_gain_costs44.component(text)) is not None:
         return gain_cost
+    if text == "reveal your hand":
+        return C.CostComponent("REVEAL_HAND", text=text)
     part = text[:1].upper() + text[1:]
     m = re.fullmatch(r"Pay (?P<mana>(?:\{[^}]+\})+)", part)
     if m:
@@ -77,8 +79,11 @@ def _part(text: str, x_ok: bool = False) -> C.CostComponent | str | None:
     # "tap four untapped creatures you control with flying" (Sephara): the selector grammar reads "… with flying you control"
     part = re.sub(r"^(Tap \w+ untapped \w+) you control (with [a-z ]+)$", r"\1 \2 you control", part)
     found = C._component(part, "")
+    if found is None and re.fullmatch(r'Collect evidence \d+', part):
+        parsed = C.parse_ability_cost(part)
+        found = parsed.components[0] if not parsed.unsupported and len(parsed.components) == 1 else None
     if found is None or found.kind not in (C.PAY_LIFE, C.PAY_ENERGY, C.SACRIFICE, C.RETURN_PERMANENT, C.TAP_OTHER, C.DISCARD,
-                                           C.EXILE_FROM_GRAVEYARD):
+                                           C.EXILE_FROM_GRAVEYARD, C.COLLECT_EVIDENCE):
         return None
     if found.kind not in (C.PAY_LIFE, C.PAY_ENERGY) and (found.selector is None or found.random):
         return None  # (never the spell itself; a random discard isn't printed on an alternative cost)
@@ -137,6 +142,13 @@ def parse_cost(text: str, x_ok: bool = False) -> AltCost | None:
 def _cond(text: str | None) -> Any:
     if text is None:
         return None
+    if text == "you have no land cards in hand":
+        from app.rules.selectors import Selector
+
+        return {"value": {"count": Selector(card=True, zones=("hand",), zone_owner="you", types=("Land",)).key()},
+                "op": "==", "n": 0}
+    if text == "an opponent searched their library this turn":
+        return {"history": "searched_own_library75"}
     cond = conditions.parse(text)
     if cond is None or "succeeded" in cond:
         raise ValueError(text)
@@ -271,6 +283,10 @@ def impending_n(ch: Characteristics) -> int | None:
 
 
 def keyword_definition(line: str) -> dict[str, Any] | None:
+    from app.rules import required_keyword79
+
+    if (composite79 := required_keyword79.keyword_definition(line)) is not None:
+        return composite79
     line = re.sub(r"\s*\(.*?\)", "", line).strip().rstrip(".")
     if (imp := _IMPENDING.fullmatch(line)) is not None and int(imp["n"]) > 0:
         found = define(f"you may pay {imp['cost']} rather than pay ~'s mana cost")
@@ -357,7 +373,7 @@ def converted_offers(state: GameState, player: str, card: CardInstance, info: Ca
 def offers(state: GameState, player: str, card: CardInstance, ch: Characteristics, info: CardInfo) -> list[Offer]:
     """The alternative costs ``player`` could use to cast this card now (conditions and "once each turn" included;
     whether the cast is allowed at all and the cost can be paid are the caller's)."""
-    from app.rules import permissions, scripts
+    from app.rules import permissions, required_keyword79, scripts
     from app.rules.plan import Plan
 
     r = state.rules
@@ -369,7 +385,8 @@ def offers(state: GameState, player: str, card: CardInstance, ch: Characteristic
     for index, d in scripts.definitions(ch).items():
         if d.get("static") != "alt_cost" or d.get("table") or d.get("tag") == CONVERTED:
             continue
-        if d.get("hand_only") and card.zone != f"{player}:hand":
+        if d.get("hand_only") and card.zone != f"{player}:hand" and not (
+                d.get("tag") == "warp" and required_keyword79.kind(state, player, card, ch) == "warp"):
             continue
         if (d.get("tag") == "foretell") != (card.zone == f"{player}:foretell"):
             continue  # -- hidden exile (wave 18A) -- 702.143a: a foretold card is cast for its foretell cost only (and it only from there)
@@ -451,6 +468,16 @@ def announces_x(offer: Offer) -> bool:
 
 def chosen(plan: Plan, key: str, card: CardInstance, ch: Characteristics, *, x: int | None = None) -> Offer:
     """The alternative cost the intent names, checked now (601.2b), or an ActionError."""
+    prefix75 = f'{card.id}:'
+    if key.startswith(prefix75) and key[len(prefix75):].isdigit():
+        from app.rules import history, scripts
+
+        definition75 = scripts.definitions(ch).get(int(key[len(prefix75):]), {})
+        if definition75.get('cond') == {'history': 'searched_own_library75'}:
+            log75 = history.log_for(plan)
+            positive75 = any(p != plan.actor for p in log75.searched_own_library75)
+            if log75.search_history75_known is not True and not positive75:
+                raise ActionError('Earlier searches this turn are unknown in this older save. Resolve this alternative cost manually.')
     for offer in offers(plan.state, plan.actor, card, ch, plan.info):
         if offer.key == key:
             if offer.minimum_mana_value is not None and (x is not None or not offer.alt.mana_cost.x):

@@ -1,0 +1,72 @@
+.......FF..                                                              [100%]
+=================================== FAILURES ===================================
+________ test_raft_target_actual_power_controls_price[Air Elemental-2] _________
+
+cards = <app.cards.repository.CardRepository object at 0x7fca2c4f3aa0>
+target_name = 'Air Elemental', amount = 2
+
+    @pytest.mark.parametrize('target_name,amount', [('Grizzly Bears',1), ('Air Elemental',2)])
+    def test_raft_target_actual_power_controls_price(cards, target_name, amount):
+>       s = table(cards, ['Raft Security Officer'], [target_name])
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_rules_target_cost_conditions62.py:65:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests/test_rules_shared_damage_choices.py:40: in table
+    s = three(cards, a, b, c)
+        ^^^^^^^^^^^^^^^^^^^^^
+tests/test_rules_wave30m_durations.py:55: in three
+    deck(cards, "Atraxa, Praetors' Voice", [*((1, n) for n in b), (20, "Island")]),
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+cards = <app.cards.repository.CardRepository object at 0x7fca2c4f3aa0>
+commander = "Atraxa, Praetors' Voice"
+spells = [(1, 'Air Elemental'), (20, 'Island')]
+
+    def deck(cards: CardRepository, commander: str, spells: list[tuple[int, str]]) -> list[DeckCard]:
+        cmd = cards.resolve(commander)
+        out = [DeckCard("commander", 1, cmd["name"], cmd["id"])]
+        for qty, name in spells:
+            card = cards.resolve(name)
+>           out.append(DeckCard("main", qty, card["name"], card["id"]))
+                                             ^^^^^^^^^^^^
+E           TypeError: 'NoneType' object is not subscriptable
+
+tests/game_helpers.py:16: TypeError
+________ test_raft_cannot_lock_preview_discount_for_large_actual_target ________
+
+cards = <app.cards.repository.CardRepository object at 0x7fca2c4f2b10>
+
+    def test_raft_cannot_lock_preview_discount_for_large_actual_target(cards):
+>       s = table(cards,['Raft Security Officer'],['Grizzly Bears','Air Elemental'])
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_rules_target_cost_conditions62.py:77:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests/test_rules_shared_damage_choices.py:40: in table
+    s = three(cards, a, b, c)
+        ^^^^^^^^^^^^^^^^^^^^^
+tests/test_rules_wave30m_durations.py:55: in three
+    deck(cards, "Atraxa, Praetors' Voice", [*((1, n) for n in b), (20, "Island")]),
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+cards = <app.cards.repository.CardRepository object at 0x7fca2c4f2b10>
+commander = "Atraxa, Praetors' Voice"
+spells = [(1, 'Grizzly Bears'), (1, 'Air Elemental'), (20, 'Island')]
+
+    def deck(cards: CardRepository, commander: str, spells: list[tuple[int, str]]) -> list[DeckCard]:
+        cmd = cards.resolve(commander)
+        out = [DeckCard("commander", 1, cmd["name"], cmd["id"])]
+        for qty, name in spells:
+            card = cards.resolve(name)
+>           out.append(DeckCard("main", qty, card["name"], card["id"]))
+                                             ^^^^^^^^^^^^
+E           TypeError: 'NoneType' object is not subscriptable
+
+tests/game_helpers.py:16: TypeError
+=========================== short test summary info ============================
+FAILED tests/test_rules_target_cost_conditions62.py::test_raft_target_actual_power_controls_price[Air Elemental-2]
+FAILED tests/test_rules_target_cost_conditions62.py::test_raft_cannot_lock_preview_discount_for_large_actual_target
+2 failed, 9 passed in 23.32s

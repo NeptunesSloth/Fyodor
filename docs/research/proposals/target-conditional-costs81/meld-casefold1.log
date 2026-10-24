@@ -1,0 +1,31 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+_ test_dire_actual_gisela_meld_root_has_one_destination_and_private_component_order _
+
+cards = <app.cards.repository.CardRepository object at 0x7f679c8320f0>
+
+    def test_dire_actual_gisela_meld_root_has_one_destination_and_private_component_order(cards):
+        from tests.test_rules_designations import settle
+
+        s, c, _ = setup(cards)
+        gisela = put(s, "Gisela, the Broken Blade", "battlefield", "p2")
+        put(s, "Bruna, the Fading Light", "battlefield", "p2")
+        to_phase(s, "end", 5)
+        answer(s)
+        target = s.state.cards[gisela.id]
+        assert target.melded and len(target.merged) == 2 and target.name == "Brisela, Voice of Nightmares"
+        act(s, "p2", type="tap", card_ids=[target.id], tapped=True)
+        cast(s, c, target, {"C": 2, "U": 1})
+        settle(s)
+        d = s.state.rules.decision
+>       assert d and d.player == "p2" and d.kind == "choose_cards" and len(d.options) == 1
+E       AssertionError: assert (Decision(id='5a45bf8c89b9', player='p2', kind='choose_one', prompt='Put Brisela, Voice of Nightmares on the top or the...vent': None}, 'e': {'do': 'to_library', 'who': 'target', 'place': 'choice'}, 'before': []}, display=None, decider=None) and 'p2' == 'p2'
+E
+E           p2 and 'choose_one' == 'choose_cards'
+E
+E         - choose_cards
+E         + choose_one)
+
+scratch/cost81/stage/backend/tests/test_rules_target_conditional_costs81.py:279: AssertionError
+=========================== short test summary info ============================
+FAILED scratch/cost81/stage/backend/tests/test_rules_target_conditional_costs81.py::test_dire_actual_gisela_meld_root_has_one_destination_and_private_component_order

@@ -1,0 +1,55 @@
+I001 [*] Import block is un-sorted or un-formatted
+  --> /tmp/fights90/tests/test_fights90.py:1:1
+   |
+ 1 | / from __future__ import annotations
+ 2 | |
+ 3 | | import json
+ 4 | | from pathlib import Path
+ 5 | |
+ 6 | | import pytest
+ 7 | |
+ 8 | | from app.cards.images import ImageStore
+ 9 | | from app.cards.importer import build_database
+10 | | from app.cards.repository import CardRepository
+11 | | from app.rules import coverage
+12 | | from app.rules.plan import Plan
+13 | | from tests.fixtures.cards import card, fixture_cards
+14 | | from tests.game_helpers import act
+15 | | from tests.test_rules_bandmate_references import mana, wait_priority
+16 | | from tests.test_rules_declaration_requirements33 import start
+17 | | from tests.test_rules_designations import pick, put
+18 | | from tests.test_rules_library_look import settle
+19 | | from tests.test_rules_shared_damage_choices import table
+20 | | from tests.test_rules_wave30m_durations import to_phase
+   | |_______________________________________________________^
+21 |
+22 |   DATA = json.loads(
+   |
+help: Organize imports
+  |
+6 | import pytest
+  -
+7 | from app.cards.images import ImageStore
+  |
+
+RUF059 Unpacked variable `ring` is never used
+   --> /tmp/fights90/tests/test_fights90.py:304:8
+    |
+302 |     from app.game.errors import ActionError
+303 |
+304 |     s, ring, bear, _, wall, orn, other = setup90(cards, NAMES[2])
+    |        ^^^^
+305 |     act(s, "p1", type="move", card_ids=[bear.id], to={"player": "p1", "zone": "hand"})
+306 |     act(s, "p1", type="set_prefs", hold_priority=True)
+    |
+help: Prefix it with an underscore or any other dummy variable pattern
+    |
+303 |
+    -     s, ring, bear, _, wall, orn, other = setup90(cards, NAMES[2])
+304 +     s, _ring, bear, _, wall, orn, other = setup90(cards, NAMES[2])
+305 |     act(s, "p1", type="move", card_ids=[bear.id], to={"player": "p1", "zone": "hand"})
+    |
+note: This is an unsafe fix and may change runtime behavior
+
+Found 2 errors.
+[*] 1 fixable with `--fix` (1 unsafe fix available with `--fix --unsafe-fixes`).

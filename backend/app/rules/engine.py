@@ -50,6 +50,7 @@ from app.rules import (
     cost_payment,
     counter_destinations,
     coverage,
+    deferred_payment82,
     delayed,
     effects,
     enlist,  # -- casting extras (wave 18E) --
@@ -85,6 +86,7 @@ from app.rules import (
     triggers,
     untap_choice,  # -- untap choice (wave 7F) --
 )
+from app.rules import morph_costs78 as _morph_costs78  # noqa: F401
 
 # Saved payment decisions must resume in a fresh process before another special action runs.
 from app.rules import special_payment_tails as _special_payment_tails  # noqa: F401
@@ -102,7 +104,7 @@ NOT_YET: dict[str, str] = {}
 RULES_ENGINE_VERSION = 2  # bump when the rules engine's behaviour changes (saved with scenarios/diagnostics)
 PREF_INTENTS = frozenset({"set_stops", "set_prefs", "set_card_automation"})  # allowed any time
 ACTION_INTENTS = frozenset({"play_land", "cast_spell", "activate_ability", "declare_attackers", "declare_blockers",
-                            "repeat_sequence", "turn_face_up", "unlock_door", "end_effect"})
+                            "repeat_sequence", "turn_face_up", "unlock_door", "end_effect", "pay_deferred"})
 
 
 def automation_on(state: GameState) -> bool:
@@ -139,8 +141,16 @@ def compile_intent(state: GameState, intent: A.Action, *, actor: str, info: Card
         except ValueError as exc:
             raise ActionError(str(exc)) from None
     plan = Plan(state, actor, info, rng)
-    begin(plan)
-    sync_step(plan)
+    from app.rules import text_global_word71
+
+    if intent.type != 'concede' and text_global_word71.recover(plan, intent):
+        plan.do({'type': 'rules_sync', 'rules': plan.rules.model_dump(mode='json')})
+        return plan.steps
+    # Restore unknown layer-3 source choices before any derived control sync.
+    restoring_word71 = plan.rules.decision is not None and (plan.rules.decision.resume or {}).get('step') == 'restore_global_word71'
+    if not restoring_word71:
+        begin(plan)
+        sync_step(plan)
     handler = INTENTS.get(intent.type)
     if handler is None:
         what = NOT_YET.get(intent.type, intent.type)
@@ -152,6 +162,12 @@ def compile_intent(state: GameState, intent: A.Action, *, actor: str, info: Card
         plan.rules.actions += 1  # for "pass until next action"
         plan.rules.last_actor = actor
     handler(plan, intent)
+    if plan.rules.decision is not None and (plan.rules.decision.resume or {}).get('step') == 'restore_global_word71':
+        # Another unknown layer-3 source is still awaiting manual restoration.
+        # Do not derive controls, run SBAs, or refresh reveals against guessed text.
+        remember_intent(plan, intent)
+        plan.do({'type': 'rules_sync', 'rules': plan.rules.model_dump(mode='json')})
+        return plan.steps
     settle(plan)
     if intent.type != "repeat_sequence":
         remember_intent(plan, intent)
@@ -650,7 +666,7 @@ def start_next_turn(plan: Plan) -> None:
     # -- untap choice (wave 7F) -- 502.3: "You may choose not to untap ~": asked below, after the turn changes
     asked = untap_choice.candidates(plan, skip_to or upcoming, keep) if stay is None else []
     # -- untap restrictions (wave 13E) -- 502.3: "Players can't untap more than one creature": held back until chosen below
-    limited = untap_choice.limited(plan, skip_to or upcoming, [*keep, *asked]) if stay is None else []
+    limited = untap_choice.limited(plan, skip_to or upcoming, keep) if stay is None else []
     keep = [*keep, *asked, *dict.fromkeys(c for g in limited for c in g[0])]
     # -- keyword actions & face-down (wave 3F) -- 122.1d: a stunned permanent stays tapped and loses a stun counter instead
     # (wave 7F: after every other reason to stay tapped, so a permanent that isn't untapping keeps its counter)
@@ -693,7 +709,7 @@ def extra_untap_step(plan: Plan) -> None:
         phasing.untap_step(plan, pid)
     keep = list(dict.fromkeys([*keep, *(stay or []), *_keep_tapped(plan), *_exerted(plan, pid), *next_untap.kept(plan, pid)]))
     asked = untap_choice.candidates(plan, pid, keep) if stay is None else []
-    limited = untap_choice.limited(plan, pid, [*keep, *asked]) if stay is None else []
+    limited = untap_choice.limited(plan, pid, keep) if stay is None else []
     keep = list(dict.fromkeys([*keep, *asked, *(c for g in limited for c in g[0])]))
     stunned = effects.keyword_actions.stunned(plan, [c.id for c in plan.state.cards.values() if c.tapped and c.id not in keep]) if stay is None else []
     keep = list(dict.fromkeys([*keep, *stunned]))
@@ -737,6 +753,8 @@ def on_step_start(plan: Plan) -> None:
     state = plan.state
     phase = state.turn.phase
     ap = plan.active
+    if phase == "draw":
+        delayed.at_step(plan, "draw")  # The early-payment deadline closes as the step begins, before any draw choice.
     if not plan.has_active_player() and phase in ("draw", "declare_attackers", "cleanup"):
         # 800.4j: the turn goes on without its active player — their turn-based actions (the draw,
         # 504.1; declaring attackers, 508.1; discarding to hand size, 514.1) don't happen; the
@@ -894,8 +912,9 @@ def finish_cleanup(plan: Plan) -> None:
 
 def turn_cleanup(plan: Plan) -> None:
     """514.2: damage is removed and "until end of turn" effects end, simultaneously."""
-    if any(c.damage for c in plan.state.cards.values()):
-        plan.do({"type": "cleanup", "what": ["damage"]}, actor=plan.active)
+    from app.rules import damage_retention83
+
+    damage_retention83.cleanup(plan)
     if plan.rules.effects:
         layers.end_of_turn(plan)
     plan.rules.regen_shields = {}  # regeneration shields last "this turn"
@@ -1453,7 +1472,7 @@ def choose(plan: Plan, a: A.Choose) -> None:
         casting.resume_outer(plan)
     permissions.free_cast_abandoned(plan)  # -- free-cast cleanup (wave 30A) -- a cancelled free cast ends before play goes on: advance would resolve the
     # ability it belongs to (still on the stack, ripple) again from its start (-- review 30 -- after the payment a nested choice set aside is back)
-    if step != "reconcile":  # after reconciling, play picks up where the table is (like without questions)
+    if step not in ("reconcile", "restore_global_word71"):  # Unknown layer-3 source restoration must complete before deriving reveals/SBAs.
         advance(plan)
 
 
@@ -1534,6 +1553,10 @@ def _settle_decision(plan: Plan, d: Decision, leaver: str) -> None:
         return
     r.decision = None  # (leave_game dropped it already)
     if resolving:
+        from app.rules import repeated_graveyard_offer89
+
+        if repeated_graveyard_offer89.replaced_choice(plan, d):
+            return
         # 800.4f-g: the choice isn't made; the resolution goes on — with the other players still to
         # choose in APNAP order ("each opponent discards a card"), then its next instruction
         plan.note(f"{plan.name(leaver)} left the game: their choice isn't made")
@@ -1646,6 +1669,7 @@ INTENTS: dict[str, Callable[[Plan, Any], None]] = {
     "cast_spell": casting.cast_spell,
     "turn_face_up": casting.turn_face_up,
     "unlock_door": rooms.unlock_action,
+    "pay_deferred": deferred_payment82.pay,
     "end_effect": licids.end_effect,  # -- licids (wave 50A) -- 116.2c
     "miracle_reveal": miracle.reveal,  # -- casting extras (wave 18E) --
     "activate_ability": casting.activate_ability,
@@ -1666,6 +1690,7 @@ RESUME: dict[str, Callable[[Plan, Decision, list[str]], None]] = {
     "cipher": recursion.resume_cipher,  # (wave 17C)
     "cleanup_manual": lambda plan, d, chosen: start_next_turn(plan),
     "untap_keep": untap_choice.resume,  # -- untap choice (wave 7F) --
+    "untap_category89": untap_choice.resume_category89,
     "untap_limit": untap_choice.resume_limit,  # -- untap restrictions (wave 13E) --
     "sba_confirm": sba.resume_confirm,
     "regeneration_replacement": regeneration_choices.resume,
@@ -1813,3 +1838,19 @@ RESUME.update(_chosen_color_pairs45.RESUME)
 from app.rules import first_event_receipts78 as _first_event78  # noqa: E402
 
 RESUME['first_event_legacy_done78'] = _first_event78.legacy_done
+
+from app.rules import echo_alternatives76 as _echo76  # noqa: E402
+
+RESUME['echo_alternative76'] = _echo76.resume
+
+RESUME['echo_draw_count76'] = _echo76.resume_draw
+
+from app.rules import chosen_forms95 as _chosen_forms95  # noqa: E402
+
+RESUME.update(_chosen_forms95.RESUME)
+
+from app.rules import zone_exchanges94 as _zone_exchanges94  # noqa: E402
+
+RESUME.update(_zone_exchanges94.RESUME)
+
+RESUME['graveyard_order_page94'] = graveyard_order.resume_page

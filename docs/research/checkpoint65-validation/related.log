@@ -1,0 +1,313 @@
+============================= test session starts ==============================
+platform linux -- Python 3.12.14, pytest-9.1.1, pluggy-1.7.0 -- /workspace/Fyodor/backend/.venv/bin/python3
+cachedir: .pytest_cache
+rootdir: /workspace/scratch/root/checkpoint65/backend
+configfile: pyproject.toml
+plugins: anyio-4.15.1, xdist-3.8.0
+created: 4/4 workers
+4 workers [150 items]
+
+scheduling tests via LoadScheduling
+
+tests/test_rules_trigger_events2.py::test_parse_more_conditions[~ deals combat damage to a creature-deal_damage-extra18]
+tests/test_rules_trigger_events2.py::test_whenever_you_sacrifice_a_creature[{1}, Sacrifice this creature: You gain 0 life.]
+tests/test_rules_trigger_events2.py::test_parse_more_conditions[you cast your second spell each turn-cast-extra0]
+tests/test_rules_trigger_events2.py::test_parse_more_conditions[you create one or more tokens-create_token-extra9]
+[gw0] [  0%] PASSED tests/test_rules_trigger_events2.py::test_parse_more_conditions[you cast your second spell each turn-cast-extra0]
+[gw1] [  1%] PASSED tests/test_rules_trigger_events2.py::test_parse_more_conditions[you create one or more tokens-create_token-extra9]
+tests/test_rules_trigger_events2.py::test_parse_more_conditions[one or more +1/+1 counters are put on ~-counters_put-extra10]
+[gw2] [  2%] PASSED tests/test_rules_trigger_events2.py::test_parse_more_conditions[~ deals combat damage to a creature-deal_damage-extra18]
+tests/test_rules_trigger_events2.py::test_parse_more_conditions[enchanted creature attacks-attack-extra19]
+tests/test_rules_trigger_events2.py::test_parse_more_conditions[you cast your first spell during each opponent's turn-cast-extra1]
+[gw0] [  2%] PASSED tests/test_rules_trigger_events2.py::test_parse_more_conditions[you cast your first spell during each opponent's turn-cast-extra1]
+tests/test_rules_trigger_events2.py::test_parse_more_conditions[you cast a spell that targets ~-cast-extra2]
+[gw0] [  3%] PASSED tests/test_rules_trigger_events2.py::test_parse_more_conditions[you cast a spell that targets ~-cast-extra2]
+tests/test_rules_trigger_events2.py::test_parse_more_conditions[you cast a spell from exile-cast-extra3]
+[gw0] [  4%] PASSED tests/test_rules_trigger_events2.py::test_parse_more_conditions[you cast a spell from exile-cast-extra3]
+tests/test_rules_trigger_events2.py::test_parse_more_conditions[you sacrifice a creature-sacrifice-extra4]
+[gw2] [  4%] PASSED tests/test_rules_trigger_events2.py::test_parse_more_conditions[enchanted creature attacks-attack-extra19]
+tests/test_rules_trigger_events2.py::test_parse_more_conditions[one or more tokens you control enter-enter-extra20]
+[gw0] [  5%] PASSED tests/test_rules_trigger_events2.py::test_parse_more_conditions[you sacrifice a creature-sacrifice-extra4]
+tests/test_rules_trigger_events2.py::test_parse_more_conditions[you sacrifice ~-sacrifice-extra5]
+[gw0] [  6%] PASSED tests/test_rules_trigger_events2.py::test_parse_more_conditions[you sacrifice ~-sacrifice-extra5]
+tests/test_rules_trigger_events2.py::test_parse_more_conditions[an opponent discards a card-discard-extra6]
+[gw0] [  6%] PASSED tests/test_rules_trigger_events2.py::test_parse_more_conditions[an opponent discards a card-discard-extra6]
+[gw2] [  7%] PASSED tests/test_rules_trigger_events2.py::test_parse_more_conditions[one or more tokens you control enter-enter-extra20]
+tests/test_rules_trigger_events2.py::test_more_unknown_conditions_stay_manual[you cast your second spell]
+[gw1] [  8%] PASSED tests/test_rules_trigger_events2.py::test_parse_more_conditions[one or more +1/+1 counters are put on ~-counters_put-extra10]
+tests/test_rules_trigger_events2.py::test_parse_more_conditions[one or more creature cards leave your graveyard-leave_graveyard-extra11]
+tests/test_rules_trigger_events2.py::test_parse_more_conditions[you cycle or discard a card-discard-extra7]
+[gw1] [  8%] PASSED tests/test_rules_trigger_events2.py::test_parse_more_conditions[one or more creature cards leave your graveyard-leave_graveyard-extra11]
+[gw2] [  9%] PASSED tests/test_rules_trigger_events2.py::test_more_unknown_conditions_stay_manual[you cast your second spell]
+tests/test_rules_trigger_events2.py::test_parse_more_conditions[~ attacks alone-attack-extra12]
+tests/test_rules_trigger_events2.py::test_more_unknown_conditions_stay_manual[you sacrifice two creatures]
+[gw2] [ 10%] PASSED tests/test_rules_trigger_events2.py::test_more_unknown_conditions_stay_manual[you sacrifice two creatures]
+tests/test_rules_trigger_events2.py::test_more_unknown_conditions_stay_manual[you create a Goblin]
+[gw2] [ 10%] PASSED tests/test_rules_trigger_events2.py::test_more_unknown_conditions_stay_manual[you create a Goblin]
+tests/test_rules_trigger_events2.py::test_second_spell_each_turn
+[gw1] [ 11%] PASSED tests/test_rules_trigger_events2.py::test_parse_more_conditions[~ attacks alone-attack-extra12]
+tests/test_rules_trigger_events2.py::test_parse_more_conditions[~ and at least two other creatures attack-attack-extra13]
+[gw1] [ 12%] PASSED tests/test_rules_trigger_events2.py::test_parse_more_conditions[~ and at least two other creatures attack-attack-extra13]
+tests/test_rules_trigger_events2.py::test_parse_more_conditions[you attack with three or more creatures-you_attack-extra14]
+[gw1] [ 12%] PASSED tests/test_rules_trigger_events2.py::test_parse_more_conditions[you attack with three or more creatures-you_attack-extra14]
+tests/test_rules_trigger_events2.py::test_parse_more_conditions[~ attacks or blocks-multi-extra15]
+[gw1] [ 13%] PASSED tests/test_rules_trigger_events2.py::test_parse_more_conditions[~ attacks or blocks-multi-extra15]
+tests/test_rules_trigger_events2.py::test_parse_more_conditions[~ becomes blocked by a creature-blocked-extra16]
+[gw1] [ 14%] PASSED tests/test_rules_trigger_events2.py::test_parse_more_conditions[~ becomes blocked by a creature-blocked-extra16]
+[gw0] [ 14%] PASSED tests/test_rules_trigger_events2.py::test_parse_more_conditions[you cycle or discard a card-discard-extra7]
+tests/test_rules_trigger_events2.py::test_parse_more_conditions[you cycle ~-cycle-extra8]
+[gw0] [ 15%] PASSED tests/test_rules_trigger_events2.py::test_parse_more_conditions[you cycle ~-cycle-extra8]
+tests/test_rules_trigger_events2.py::test_attacks_alone[2-False]
+tests/test_rules_trigger_events2.py::test_parse_more_conditions[~ becomes the target of a spell or ability an opponent controls-targeted-extra17]
+[gw1] [ 16%] PASSED tests/test_rules_trigger_events2.py::test_parse_more_conditions[~ becomes the target of a spell or ability an opponent controls-targeted-extra17]
+tests/test_rules_wave46b_shuffle.py::test_the_shufflers_are_full[Gaea's Blessing]
+[gw1] [ 16%] PASSED tests/test_rules_wave46b_shuffle.py::test_the_shufflers_are_full[Gaea's Blessing]
+tests/test_rules_wave46b_shuffle.py::test_the_shufflers_are_full[Rite of Renewal]
+[gw1] [ 17%] PASSED tests/test_rules_wave46b_shuffle.py::test_the_shufflers_are_full[Rite of Renewal]
+tests/test_rules_wave46b_shuffle.py::test_the_shufflers_are_full[Quandrix Command]
+[gw1] [ 18%] PASSED tests/test_rules_wave46b_shuffle.py::test_the_shufflers_are_full[Quandrix Command]
+tests/test_rules_wave46b_shuffle.py::test_stream_of_consciousness_shuffles_chosen_cards_into_the_targets_library
+[gw3] [ 18%] PASSED tests/test_rules_trigger_events2.py::test_whenever_you_sacrifice_a_creature[{1}, Sacrifice this creature: You gain 0 life.]
+tests/test_rules_trigger_events2.py::test_dying_is_not_sacrificing
+[gw3] [ 19%] PASSED tests/test_rules_trigger_events2.py::test_dying_is_not_sacrificing
+tests/test_rules_trigger_events2.py::test_when_you_sacrifice_this_creature
+[gw0] [ 20%] PASSED tests/test_rules_trigger_events2.py::test_attacks_alone[2-False]
+tests/test_rules_trigger_events2.py::test_attack_counts[Whenever this creature and at least two other creatures attack, you gain 1 life.-1]
+[gw2] [ 20%] PASSED tests/test_rules_trigger_events2.py::test_second_spell_each_turn
+tests/test_rules_trigger_events2.py::test_heroic_triggers_only_for_a_spell_that_targets_it
+[gw3] [ 21%] PASSED tests/test_rules_trigger_events2.py::test_when_you_sacrifice_this_creature
+tests/test_rules_trigger_events2.py::test_opponent_discards_that_player_loses_life
+[gw0] [ 22%] PASSED tests/test_rules_trigger_events2.py::test_attack_counts[Whenever this creature and at least two other creatures attack, you gain 1 life.-1]
+[gw1] [ 22%] PASSED tests/test_rules_wave46b_shuffle.py::test_stream_of_consciousness_shuffles_chosen_cards_into_the_targets_library
+tests/test_rules_trigger_events2.py::test_attack_counts[Whenever you attack with three or more creatures, you gain 1 life.-1]
+tests/test_rules_wave46b_shuffle.py::test_the_cards_on_offer_are_only_the_chosen_players_graveyard
+[gw3] [ 23%] PASSED tests/test_rules_trigger_events2.py::test_opponent_discards_that_player_loses_life
+tests/test_rules_trigger_events2.py::test_cycling_triggers_cycle_or_discard_once_and_its_own_ability
+[gw2] [ 24%] PASSED tests/test_rules_trigger_events2.py::test_heroic_triggers_only_for_a_spell_that_targets_it
+tests/test_rules_trigger_events2.py::test_whenever_you_sacrifice_a_creature[{1}: Sacrifice this creature.]
+[gw0] [ 24%] PASSED tests/test_rules_trigger_events2.py::test_attack_counts[Whenever you attack with three or more creatures, you gain 1 life.-1]
+tests/test_rules_trigger_events2.py::test_attack_counts[Whenever you attack with four or more creatures, you gain 1 life.-0]
+[gw1] [ 25%] PASSED tests/test_rules_wave46b_shuffle.py::test_the_cards_on_offer_are_only_the_chosen_players_graveyard
+tests/test_rules_wave46b_shuffle.py::test_with_no_card_chosen_the_player_still_shuffles_their_library
+[gw2] [ 26%] PASSED tests/test_rules_trigger_events2.py::test_whenever_you_sacrifice_a_creature[{1}: Sacrifice this creature.]
+tests/test_rules_trigger_events2.py::test_blocks_a_creature
+[gw3] [ 26%] PASSED tests/test_rules_trigger_events2.py::test_cycling_triggers_cycle_or_discard_once_and_its_own_ability
+tests/test_rules_trigger_events2.py::test_create_one_or_more_tokens_once_per_event
+[gw3] [ 27%] PASSED tests/test_rules_trigger_events2.py::test_create_one_or_more_tokens_once_per_event
+tests/test_rules_trigger_events2.py::test_counters_put_on_this_creature
+[gw1] [ 28%] PASSED tests/test_rules_wave46b_shuffle.py::test_with_no_card_chosen_the_player_still_shuffles_their_library
+tests/test_rules_wave46b_shuffle.py::test_a_card_that_left_the_graveyard_is_not_shuffled_in
+[gw0] [ 28%] PASSED tests/test_rules_trigger_events2.py::test_attack_counts[Whenever you attack with four or more creatures, you gain 1 life.-0]
+tests/test_rules_trigger_events2.py::test_attack_counts[Whenever this creature attacks or blocks, you gain 1 life.-1]
+[gw2] [ 29%] PASSED tests/test_rules_trigger_events2.py::test_blocks_a_creature
+tests/test_rules_trigger_events2.py::test_targeted_for_the_first_time_each_turn
+[gw3] [ 30%] PASSED tests/test_rules_trigger_events2.py::test_counters_put_on_this_creature
+tests/test_rules_trigger_events2.py::test_creature_card_leaves_your_graveyard
+[gw3] [ 30%] PASSED tests/test_rules_trigger_events2.py::test_creature_card_leaves_your_graveyard
+tests/test_rules_trigger_events2.py::test_attacks_alone[1-True]
+[gw2] [ 31%] PASSED tests/test_rules_trigger_events2.py::test_targeted_for_the_first_time_each_turn
+tests/test_rules_trigger_events2.py::test_deals_damage_once_for_several_recipients
+[gw0] [ 32%] PASSED tests/test_rules_trigger_events2.py::test_attack_counts[Whenever this creature attacks or blocks, you gain 1 life.-1]
+tests/test_rules_trigger_events2.py::test_blocked_by_each_creature[Whenever this creature becomes blocked by a creature, you gain 1 life.-2]
+[gw1] [ 32%] PASSED tests/test_rules_wave46b_shuffle.py::test_a_card_that_left_the_graveyard_is_not_shuffled_in
+tests/test_rules_wave46b_shuffle.py::test_quandrix_command_mode_with_two_target_groups
+[gw3] [ 33%] PASSED tests/test_rules_trigger_events2.py::test_attacks_alone[1-True]
+tests/test_rules_wave30s_attach_effects.py::test_the_cards_are_full[Ardenn, Intrepid Archaeologist]
+[gw3] [ 34%] PASSED tests/test_rules_wave30s_attach_effects.py::test_the_cards_are_full[Ardenn, Intrepid Archaeologist]
+tests/test_rules_wave30s_attach_effects.py::test_the_cards_are_full[Armory Automaton]
+[gw3] [ 34%] PASSED tests/test_rules_wave30s_attach_effects.py::test_the_cards_are_full[Armory Automaton]
+tests/test_rules_wave30s_attach_effects.py::test_the_cards_are_full[Super-Soldier Serum]
+[gw2] [ 35%] PASSED tests/test_rules_trigger_events2.py::test_deals_damage_once_for_several_recipients
+tests/test_rules_trigger_events2.py::test_trigger_resolves_after_its_source_left_and_another_spell_resolved
+[gw3] [ 36%] PASSED tests/test_rules_wave30s_attach_effects.py::test_the_cards_are_full[Super-Soldier Serum]
+tests/test_rules_wave30s_attach_effects.py::test_the_cards_are_full[Disarm]
+[gw3] [ 36%] PASSED tests/test_rules_wave30s_attach_effects.py::test_the_cards_are_full[Disarm]
+tests/test_rules_wave30s_attach_effects.py::test_the_cards_are_full[Fulgent Distraction]
+[gw3] [ 37%] PASSED tests/test_rules_wave30s_attach_effects.py::test_the_cards_are_full[Fulgent Distraction]
+tests/test_rules_wave30s_attach_effects.py::test_the_cards_are_full[Valduk, Keeper of the Flame]
+[gw3] [ 38%] PASSED tests/test_rules_wave30s_attach_effects.py::test_the_cards_are_full[Valduk, Keeper of the Flame]
+tests/test_rules_wave30s_attach_effects.py::test_the_cards_are_full[Captain America, Liberator]
+[gw3] [ 38%] PASSED tests/test_rules_wave30s_attach_effects.py::test_the_cards_are_full[Captain America, Liberator]
+tests/test_rules_wave30s_attach_effects.py::test_the_cards_are_full[Devout Harpist]
+[gw3] [ 39%] PASSED tests/test_rules_wave30s_attach_effects.py::test_the_cards_are_full[Devout Harpist]
+tests/test_rules_wave30s_attach_effects.py::test_the_cards_are_full[Sage's Reverie]
+[gw3] [ 40%] PASSED tests/test_rules_wave30s_attach_effects.py::test_the_cards_are_full[Sage's Reverie]
+tests/test_rules_wave30s_attach_effects.py::test_the_cards_are_full[Miracle Worker]
+[gw3] [ 40%] PASSED tests/test_rules_wave30s_attach_effects.py::test_the_cards_are_full[Miracle Worker]
+tests/test_rules_wave30s_attach_effects.py::test_the_cards_are_full[Seedling Charm]
+[gw2] [ 41%] PASSED tests/test_rules_trigger_events2.py::test_trigger_resolves_after_its_source_left_and_another_spell_resolved
+tests/test_rules_wave46b_shuffle.py::test_the_shufflers_are_full[Memory's Journey]
+[gw3] [ 42%] PASSED tests/test_rules_wave30s_attach_effects.py::test_the_cards_are_full[Seedling Charm]
+tests/test_rules_wave30s_attach_effects.py::test_the_cards_are_full[Piety Charm]
+[gw2] [ 42%] PASSED tests/test_rules_wave46b_shuffle.py::test_the_shufflers_are_full[Memory's Journey]
+tests/test_rules_wave46b_shuffle.py::test_the_shufflers_are_full[Stream of Consciousness]
+[gw2] [ 43%] PASSED tests/test_rules_wave46b_shuffle.py::test_the_shufflers_are_full[Stream of Consciousness]
+tests/test_rules_wave46b_shuffle.py::test_the_shufflers_are_full[Krosan Reclamation]
+[gw3] [ 44%] PASSED tests/test_rules_wave30s_attach_effects.py::test_the_cards_are_full[Piety Charm]
+tests/test_rules_wave30s_attach_effects.py::test_barret_moves_an_equipment_to_a_rebel_you_control
+[gw2] [ 44%] PASSED tests/test_rules_wave46b_shuffle.py::test_the_shufflers_are_full[Krosan Reclamation]
+tests/test_rules_wave46b_shuffle.py::test_the_shufflers_are_full[Dwell on the Past]
+[gw2] [ 45%] PASSED tests/test_rules_wave46b_shuffle.py::test_the_shufflers_are_full[Dwell on the Past]
+tests/test_rules_wave30s_attach_effects.py::test_sokka_takes_an_equipment_from_another_creature_and_may_decline
+[gw0] [ 46%] PASSED tests/test_rules_trigger_events2.py::test_blocked_by_each_creature[Whenever this creature becomes blocked by a creature, you gain 1 life.-2]
+tests/test_rules_trigger_events2.py::test_blocked_by_each_creature[Whenever this creature becomes blocked, you gain 1 life.-1]
+[gw2] [ 46%] PASSED tests/test_rules_wave30s_attach_effects.py::test_sokka_takes_an_equipment_from_another_creature_and_may_decline
+tests/test_rules_wave30s_attach_effects.py::test_sokka_attaches_it_to_himself
+[gw3] [ 47%] PASSED tests/test_rules_wave30s_attach_effects.py::test_barret_moves_an_equipment_to_a_rebel_you_control
+tests/test_rules_wave30s_attach_effects.py::test_attaching_to_what_it_is_attached_to_does_nothing
+[gw1] [ 48%] PASSED tests/test_rules_wave46b_shuffle.py::test_quandrix_command_mode_with_two_target_groups
+tests/test_rules_wave46b_shuffle.py::test_loaming_shaman_trigger_shuffles_any_number_of_an_opponents_cards
+[gw3] [ 48%] PASSED tests/test_rules_wave30s_attach_effects.py::test_attaching_to_what_it_is_attached_to_does_nothing
+tests/test_rules_wave30s_attach_effects.py::test_swordsman_attaches_when_another_villain_enters
+[gw0] [ 49%] PASSED tests/test_rules_trigger_events2.py::test_blocked_by_each_creature[Whenever this creature becomes blocked, you gain 1 life.-1]
+tests/test_rules_trigger_events2.py::test_blocked_by_each_creature[Whenever this creature blocks or becomes blocked by a creature, you gain 1 life.-2]
+[gw2] [ 50%] PASSED tests/test_rules_wave30s_attach_effects.py::test_sokka_attaches_it_to_himself
+tests/test_rules_wave30s_attach_effects.py::test_beatrix_attaches_the_ones_you_choose
+[gw3] [ 50%] PASSED tests/test_rules_wave30s_attach_effects.py::test_swordsman_attaches_when_another_villain_enters
+tests/test_rules_wave30s_attach_effects.py::test_halvar_moves_what_is_attached_to_your_creature_even_an_opponents_equipment
+[gw0] [ 51%] PASSED tests/test_rules_trigger_events2.py::test_blocked_by_each_creature[Whenever this creature blocks or becomes blocked by a creature, you gain 1 life.-2]
+tests/test_rules_wave30s_attach_effects.py::test_super_soldier_serum_attaches_equipment_to_the_attacker
+[gw2] [ 52%] PASSED tests/test_rules_wave30s_attach_effects.py::test_beatrix_attaches_the_ones_you_choose
+tests/test_rules_wave30s_attach_effects.py::test_heavenly_blademaster_gathers_only_what_you_control
+[gw1] [ 52%] PASSED tests/test_rules_wave46b_shuffle.py::test_loaming_shaman_trigger_shuffles_any_number_of_an_opponents_cards
+tests/test_rules_wave46b_shuffle.py::test_rite_of_renewal_numbers_its_groups_across_both_sentences
+[gw3] [ 53%] PASSED tests/test_rules_wave30s_attach_effects.py::test_halvar_moves_what_is_attached_to_your_creature_even_an_opponents_equipment
+tests/test_rules_wave30s_attach_effects.py::test_ardenn_can_put_an_aura_on_a_player_but_not_an_equipment
+[gw3] [ 54%] PASSED tests/test_rules_wave30s_attach_effects.py::test_ardenn_can_put_an_aura_on_a_player_but_not_an_equipment
+tests/test_rules_wave30s_attach_effects.py::test_ardenn_can_put_an_equipment_on_a_creature_but_not_a_curse
+[gw3] [ 54%] PASSED tests/test_rules_wave30s_attach_effects.py::test_ardenn_can_put_an_equipment_on_a_creature_but_not_a_curse
+tests/test_rules_wave30s_attach_effects.py::test_armory_automaton_attaches_all_or_none_of_the_targeted_equipment
+[gw1] [ 55%] PASSED tests/test_rules_wave46b_shuffle.py::test_rite_of_renewal_numbers_its_groups_across_both_sentences
+tests/test_rules_wave30s_attach_effects.py::test_the_cards_are_full[Barret, Avalanche Leader]
+[gw0] [ 56%] PASSED tests/test_rules_wave30s_attach_effects.py::test_super_soldier_serum_attaches_equipment_to_the_attacker
+tests/test_rules_wave30s_attach_effects.py::test_valduk_makes_a_token_for_each_aura_and_equipment_whoever_controls_it
+[gw1] [ 56%] PASSED tests/test_rules_wave30s_attach_effects.py::test_the_cards_are_full[Barret, Avalanche Leader]
+tests/test_rules_wave30s_attach_effects.py::test_the_cards_are_full[Sokka, Swordmaster]
+[gw1] [ 57%] PASSED tests/test_rules_wave30s_attach_effects.py::test_the_cards_are_full[Sokka, Swordmaster]
+tests/test_rules_wave30s_attach_effects.py::test_the_cards_are_full[Beatrix, Loyal General]
+[gw1] [ 58%] PASSED tests/test_rules_wave30s_attach_effects.py::test_the_cards_are_full[Beatrix, Loyal General]
+tests/test_rules_wave30s_attach_effects.py::test_the_cards_are_full[Swordsman, Sharp Scoundrel]
+[gw1] [ 58%] PASSED tests/test_rules_wave30s_attach_effects.py::test_the_cards_are_full[Swordsman, Sharp Scoundrel]
+tests/test_rules_wave30s_attach_effects.py::test_the_cards_are_full[Heavenly Blademaster]
+[gw1] [ 59%] PASSED tests/test_rules_wave30s_attach_effects.py::test_the_cards_are_full[Heavenly Blademaster]
+tests/test_rules_wave30s_attach_effects.py::test_the_cards_are_full[Vulshok Battlemaster]
+[gw1] [ 60%] PASSED tests/test_rules_wave30s_attach_effects.py::test_the_cards_are_full[Vulshok Battlemaster]
+tests/test_rules_wave30s_attach_effects.py::test_the_cards_are_full[Halvar, God of Battle // Sword of the Realms]
+[gw2] [ 60%] PASSED tests/test_rules_wave30s_attach_effects.py::test_heavenly_blademaster_gathers_only_what_you_control
+tests/test_rules_wave30s_attach_effects.py::test_vulshok_battlemaster_takes_every_equipment_without_changing_who_controls_it
+[gw1] [ 61%] PASSED tests/test_rules_wave30s_attach_effects.py::test_the_cards_are_full[Halvar, God of Battle // Sword of the Realms]
+tests/test_rules_control.py::test_the_grammar_reads_control_changes[Untap target creature and gain control of it until end of turn. That creature gains haste until end of turn.-gain_control]
+[gw1] [ 62%] PASSED tests/test_rules_control.py::test_the_grammar_reads_control_changes[Untap target creature and gain control of it until end of turn. That creature gains haste until end of turn.-gain_control]
+tests/test_rules_control.py::test_the_grammar_reads_control_changes[Gain control of target creature until end of turn. Untap that creature. It gains haste until end of turn.-gain_control]
+[gw1] [ 62%] PASSED tests/test_rules_control.py::test_the_grammar_reads_control_changes[Gain control of target creature until end of turn. Untap that creature. It gains haste until end of turn.-gain_control]
+tests/test_rules_control.py::test_the_grammar_reads_control_changes[Gain control of target creature with mana value X or less.-gain_control]
+[gw1] [ 63%] PASSED tests/test_rules_control.py::test_the_grammar_reads_control_changes[Gain control of target creature with mana value X or less.-gain_control]
+tests/test_rules_control.py::test_the_grammar_reads_control_changes[Gain control of target permanent.-gain_control]
+[gw1] [ 64%] PASSED tests/test_rules_control.py::test_the_grammar_reads_control_changes[Gain control of target permanent.-gain_control]
+tests/test_rules_control.py::test_the_grammar_reads_control_changes[Until end of turn, gain control of target creature.-gain_control]
+[gw1] [ 64%] PASSED tests/test_rules_control.py::test_the_grammar_reads_control_changes[Until end of turn, gain control of target creature.-gain_control]
+tests/test_rules_control.py::test_unread_wordings_stay_manual[Each opponent gains control of a creature of their choice.]
+[gw1] [ 65%] PASSED tests/test_rules_control.py::test_unread_wordings_stay_manual[Each opponent gains control of a creature of their choice.]
+tests/test_rules_control.py::test_unread_wordings_stay_manual[Exchange control of target creature and another target creature you control and two target lands.]
+[gw1] [ 66%] PASSED tests/test_rules_control.py::test_unread_wordings_stay_manual[Exchange control of target creature and another target creature you control and two target lands.]
+tests/test_rules_control.py::test_the_static_line_of_an_aura_is_read
+[gw1] [ 66%] PASSED tests/test_rules_control.py::test_the_static_line_of_an_aura_is_read
+tests/test_rules_control.py::test_threaten_takes_untaps_hastes_and_gives_it_back_at_cleanup
+[gw3] [ 67%] PASSED tests/test_rules_wave30s_attach_effects.py::test_armory_automaton_attaches_all_or_none_of_the_targeted_equipment
+tests/test_rules_wave30s_attach_effects.py::test_disarm_unattaches_every_equipment_and_they_stay
+[gw3] [ 68%] PASSED tests/test_rules_wave30s_attach_effects.py::test_disarm_unattaches_every_equipment_and_they_stay
+tests/test_rules_wave30s_attach_effects.py::test_fulgent_distraction_still_works_on_the_target_that_is_left
+[gw0] [ 68%] PASSED tests/test_rules_wave30s_attach_effects.py::test_valduk_makes_a_token_for_each_aura_and_equipment_whoever_controls_it
+tests/test_rules_wave30s_attach_effects.py::test_valduk_counts_what_was_last_attached_if_it_left
+[gw0] [ 69%] PASSED tests/test_rules_wave30s_attach_effects.py::test_valduk_counts_what_was_last_attached_if_it_left
+tests/test_rules_wave30s_attach_effects.py::test_devout_harpist_destroys_only_an_aura_attached_to_a_creature
+[gw3] [ 70%] PASSED tests/test_rules_wave30s_attach_effects.py::test_fulgent_distraction_still_works_on_the_target_that_is_left
+tests/test_rules_control.py::test_a_target_that_changed_before_resolution_is_not_taken
+[gw2] [ 70%] PASSED tests/test_rules_wave30s_attach_effects.py::test_vulshok_battlemaster_takes_every_equipment_without_changing_who_controls_it
+tests/test_rules_control.py::test_the_grammar_reads_control_changes[Target opponent gains control of target creature.-gain_control]
+[gw2] [ 71%] PASSED tests/test_rules_control.py::test_the_grammar_reads_control_changes[Target opponent gains control of target creature.-gain_control]
+tests/test_rules_control.py::test_the_grammar_reads_control_changes[Exchange control of two target creatures.-exchange_control]
+[gw0] [ 72%] PASSED tests/test_rules_wave30s_attach_effects.py::test_devout_harpist_destroys_only_an_aura_attached_to_a_creature
+tests/test_rules_wave30s_attach_effects.py::test_sages_reverie_counts_each_aura_you_control_on_a_creature
+[gw2] [ 72%] PASSED tests/test_rules_control.py::test_the_grammar_reads_control_changes[Exchange control of two target creatures.-exchange_control]
+[gw1] [ 73%] PASSED tests/test_rules_control.py::test_threaten_takes_untaps_hastes_and_gives_it_back_at_cleanup
+tests/test_rules_control.py::test_the_grammar_reads_control_changes[Exchange control of target artifact or creature you control and target creature an opponent controls with power 3 or less.-exchange_control]
+tests/test_rules_control.py::test_act_of_treason_can_attack_only_thanks_to_haste
+[gw2] [ 74%] PASSED tests/test_rules_control.py::test_the_grammar_reads_control_changes[Exchange control of target artifact or creature you control and target creature an opponent controls with power 3 or less.-exchange_control]
+tests/test_rules_control.py::test_the_grammar_reads_control_changes[Untap all creatures and gain control of them until end of turn. They gain haste until end of turn.-gain_control]
+[gw2] [ 74%] PASSED tests/test_rules_control.py::test_the_grammar_reads_control_changes[Untap all creatures and gain control of them until end of turn. They gain haste until end of turn.-gain_control]
+tests/test_rules_control.py::test_harmless_offering_gives_your_permanent_to_an_opponent
+[gw3] [ 75%] PASSED tests/test_rules_control.py::test_a_target_that_changed_before_resolution_is_not_taken
+tests/test_rules_control.py::test_mind_control_lasts_while_the_aura_is_attached
+[gw1] [ 76%] PASSED tests/test_rules_control.py::test_act_of_treason_can_attack_only_thanks_to_haste
+tests/test_rules_control.py::test_the_effect_locks_its_objects_when_it_begins
+[gw0] [ 76%] PASSED tests/test_rules_wave30s_attach_effects.py::test_sages_reverie_counts_each_aura_you_control_on_a_creature
+tests/test_rules_control.py::test_agent_of_treachery_steals_for_good
+[gw3] [ 77%] PASSED tests/test_rules_control.py::test_mind_control_lasts_while_the_aura_is_attached
+tests/test_rules_control.py::test_the_later_timestamp_wins_between_an_aura_and_a_resolved_effect
+[gw1] [ 78%] PASSED tests/test_rules_control.py::test_the_effect_locks_its_objects_when_it_begins
+tests/test_rules_control.py::test_exchange_with_an_illegal_target_does_nothing
+[gw2] [ 78%] PASSED tests/test_rules_control.py::test_harmless_offering_gives_your_permanent_to_an_opponent
+tests/test_rules_control.py::test_switcheroo_exchanges_two_creatures
+[gw3] [ 79%] PASSED tests/test_rules_control.py::test_the_later_timestamp_wins_between_an_aura_and_a_resolved_effect
+tests/test_rules_control.py::test_vedalken_plotter_exchanges_lands_of_two_players
+[gw1] [ 80%] PASSED tests/test_rules_control.py::test_exchange_with_an_illegal_target_does_nothing
+tests/test_rules_control.py::test_exchange_of_two_creatures_one_player_controls_does_nothing
+[gw0] [ 80%] PASSED tests/test_rules_control.py::test_agent_of_treachery_steals_for_good
+tests/test_rules_control.py::test_stolen_permanent_reverts_to_the_earlier_thief_not_the_owner
+[gw1] [ 81%] PASSED tests/test_rules_control.py::test_exchange_of_two_creatures_one_player_controls_does_nothing
+tests/test_rules_control.py::test_a_duration_that_is_already_over_does_nothing
+[gw3] [ 82%] PASSED tests/test_rules_control.py::test_vedalken_plotter_exchanges_lands_of_two_players
+tests/test_rules_control.py::test_sower_of_temptation_controls_while_it_remains
+[gw2] [ 82%] PASSED tests/test_rules_control.py::test_switcheroo_exchanges_two_creatures
+tests/test_rules_control.py::test_olivia_controls_a_vampire_only_while_you_control_olivia
+[gw1] [ 83%] PASSED tests/test_rules_control.py::test_a_duration_that_is_already_over_does_nothing
+tests/test_rules_control.py::test_a_player_leaving_ends_their_control_effects
+[gw3] [ 84%] PASSED tests/test_rules_control.py::test_sower_of_temptation_controls_while_it_remains
+tests/test_rules_control.py::test_zealous_conscripts_takes_a_permanent_until_end_of_turn
+[gw0] [ 84%] PASSED tests/test_rules_control.py::test_stolen_permanent_reverts_to_the_earlier_thief_not_the_owner
+tests/test_rules_control.py::test_wrong_turn_gives_a_creature_to_an_opponent
+[gw0] [ 85%] PASSED tests/test_rules_control.py::test_wrong_turn_gives_a_creature_to_an_opponent
+tests/test_rules_case_solve_watchers.py::test_auditor_only_actual_to_solve_resolution_triggers[resolve]
+[gw1] [ 86%] PASSED tests/test_rules_control.py::test_a_player_leaving_ends_their_control_effects
+tests/test_rules_control.py::test_captivating_crew_steals_until_end_of_turn
+[gw3] [ 86%] PASSED tests/test_rules_control.py::test_zealous_conscripts_takes_a_permanent_until_end_of_turn
+tests/test_rules_case_solve_watchers.py::test_auditor_canonical_etb_optional_enchantment_and_case_only_mana
+[gw2] [ 87%] PASSED tests/test_rules_control.py::test_olivia_controls_a_vampire_only_while_you_control_olivia
+tests/test_rules_control.py::test_dominate_takes_a_creature_with_mana_value_x_or_less
+[gw1] [ 88%] PASSED tests/test_rules_control.py::test_captivating_crew_steals_until_end_of_turn
+tests/test_rules_case_solve_watchers.py::test_auditor_only_actual_to_solve_resolution_triggers[condition_false]
+[gw2] [ 88%] PASSED tests/test_rules_control.py::test_dominate_takes_a_creature_with_mana_value_x_or_less
+tests/test_rules_case_solve_watchers.py::test_auditor_only_actual_to_solve_resolution_triggers[manual]
+[gw3] [ 89%] PASSED tests/test_rules_case_solve_watchers.py::test_auditor_canonical_etb_optional_enchantment_and_case_only_mana
+tests/test_rules_case_solve_watchers.py::test_auditor_only_actual_to_solve_resolution_triggers[source_left]
+[gw2] [ 90%] PASSED tests/test_rules_case_solve_watchers.py::test_auditor_only_actual_to_solve_resolution_triggers[manual]
+tests/test_rules_case_solve_watchers.py::test_auditor_to_solve_copy_counts_actual_resolutions_and_source_last_known[True]
+[gw1] [ 90%] PASSED tests/test_rules_case_solve_watchers.py::test_auditor_only_actual_to_solve_resolution_triggers[condition_false]
+tests/test_rules_case_solve_watchers.py::test_auditor_to_solve_copy_counts_actual_resolutions_and_source_last_known[False]
+[gw0] [ 91%] PASSED tests/test_rules_case_solve_watchers.py::test_auditor_only_actual_to_solve_resolution_triggers[resolve]
+tests/test_rules_case_solve_watchers.py::test_auditor_only_actual_to_solve_resolution_triggers[countered]
+[gw0] [ 92%] PASSED tests/test_rules_case_solve_watchers.py::test_auditor_only_actual_to_solve_resolution_triggers[countered]
+tests/test_rules_wave45c_sagas.py::test_the_cards_are_full[Narci, Fable Singer]
+[gw0] [ 92%] PASSED tests/test_rules_wave45c_sagas.py::test_the_cards_are_full[Narci, Fable Singer]
+tests/test_rules_wave45c_sagas.py::test_the_cards_are_full[Historian's Boon]
+[gw0] [ 93%] PASSED tests/test_rules_wave45c_sagas.py::test_the_cards_are_full[Historian's Boon]
+tests/test_rules_wave45c_sagas.py::test_narci_drains_for_the_sagas_mana_value_only_after_its_final_chapter_resolves
+[gw1] [ 94%] PASSED tests/test_rules_case_solve_watchers.py::test_auditor_to_solve_copy_counts_actual_resolutions_and_source_last_known[False]
+[gw3] [ 94%] PASSED tests/test_rules_case_solve_watchers.py::test_auditor_only_actual_to_solve_resolution_triggers[source_left]
+tests/test_rules_wave45c_sagas.py::test_the_cards_are_full[Tom Bombadil]
+tests/test_rules_case_solve_watchers.py::test_auditor_private_native_look_resumes_in_fresh_process[enters]
+[gw1] [ 95%] PASSED tests/test_rules_wave45c_sagas.py::test_the_cards_are_full[Tom Bombadil]
+tests/test_rules_wave45c_sagas.py::test_historians_boon_makes_an_angel_when_the_final_chapter_triggers
+[gw2] [ 96%] PASSED tests/test_rules_case_solve_watchers.py::test_auditor_to_solve_copy_counts_actual_resolutions_and_source_last_known[True]
+tests/test_rules_case_solve_watchers.py::test_auditor_private_native_look_resumes_in_fresh_process[solve]
+[gw3] [ 96%] PASSED tests/test_rules_case_solve_watchers.py::test_auditor_private_native_look_resumes_in_fresh_process[enters]
+tests/test_rules_wave45c_sagas.py::test_tom_bombadil_puts_a_saga_onto_the_battlefield
+[gw1] [ 97%] PASSED tests/test_rules_wave45c_sagas.py::test_historians_boon_makes_an_angel_when_the_final_chapter_triggers
+[gw0] [ 98%] PASSED tests/test_rules_wave45c_sagas.py::test_narci_drains_for_the_sagas_mana_value_only_after_its_final_chapter_resolves
+tests/test_rules_wave45c_sagas.py::test_narci_ignores_a_saga_an_opponent_controls
+[gw3] [ 98%] PASSED tests/test_rules_wave45c_sagas.py::test_tom_bombadil_puts_a_saga_onto_the_battlefield
+[gw2] [ 99%] PASSED tests/test_rules_case_solve_watchers.py::test_auditor_private_native_look_resumes_in_fresh_process[solve]
+[gw0] [100%] PASSED tests/test_rules_wave45c_sagas.py::test_narci_ignores_a_saga_an_opponent_controls
+
+============================= 150 passed in 47.70s =============================

@@ -1,0 +1,45 @@
+F.F                                                                      [100%]
+=================================== FAILURES ===================================
+_______ test_whole_definitions[Glamdring, Foe-hammer // Gleam of Death] ________
+
+cards = <app.cards.repository.CardRepository object at 0x7fad4736dc40>
+name = 'Glamdring, Foe-hammer // Gleam of Death'
+
+    @pytest.mark.parametrize('name',NAMES)
+    def test_whole_definitions(cards,name):
+>       assert coverage.of_card_data(cards.resolve(name)).level == 'FULL'
+E       AssertionError: assert 'PARTIAL' == 'FULL'
+E
+E         - FULL
+E         + PARTIAL
+
+tests/test_rules_equipment_notebook_costs67.py:46: AssertionError
+____ test_glamdring_actual_equip_uses_current_power_and_never_colored_mana _____
+
+cards = <app.cards.repository.CardRepository object at 0x7fad471b9a60>
+
+    def test_glamdring_actual_equip_uses_current_power_and_never_colored_mana(cards):
+        s = table(cards,['Glamdring, Foe-hammer // Gleam of Death','Grizzly Bears','Giant Growth','Divination'])
+        equipment = put(s,NAMES[0],'battlefield')
+        bearer = put(s,'Grizzly Bears','battlefield')
+        spell = put(s,'Divination','hand')
+        growth = put(s,'Giant Growth','hand')
+        ready(s)
+        index = next(a.index for a in Plan(s.state,'p1',cards,None).ch(equipment).abilities if 'equip' in a.keywords)
+        act(s,'p1',type='add_mana',player='p1',mana={'C':2,'G':1,'U':1})
+        act(s,'p1',type='activate_ability',card_id=equipment.id,ability=index,targets=[bearer.id],sources=[])
+        answer(s)
+        act(s,'p1',type='cast_spell',card_id=growth.id,targets=[bearer.id],sources=[])
+        answer(s)
+>       assert Plan(s.state,'p1',cards,None).ch(bearer).power == 5
+E       AssertionError: assert '2' == 5
+E        +  where '2' = Characteristics(name='Grizzly Bears', supertypes=frozenset(), types=frozenset({'Creature'}), subtypes=frozenset({'Bear...2, 2), granted=frozenset(), lost=frozenset(), imposed=frozenset(), level=None, doors=None, word=None, flanking_count=0).power
+E        +    where Characteristics(name='Grizzly Bears', supertypes=frozenset(), types=frozenset({'Creature'}), subtypes=frozenset({'Bear...2, 2), granted=frozenset(), lost=frozenset(), imposed=frozenset(), level=None, doors=None, word=None, flanking_count=0) = ch(CardInstance(borrow_identity=None, id='1b3fc70fafea', card_id='409f9b88-f03e-40b6-9883-68c14c37c0de', name='Grizzly Be...one)], damage=0, choices={}, stack_info=None, exile_group=None, token_source=None, origin='library', test_object=False))
+E        +      where ch = <app.rules.plan.Plan object at 0x7fad4723b5c0>.ch
+E        +        where <app.rules.plan.Plan object at 0x7fad4723b5c0> = Plan(GameState(format_version=1, id='8626fc55e20d04c0', name='Game', format='commander', created_at=1792716741.3862906, seq...ee_cast_faces={}, exile_if_graveyard=[], bottom_if_graveyard=[], cast_enters={}, exile_resolves={}, counter_stamps={})), 'p1', <app.cards.repository.CardRepository object at 0x7fad471b9a60>, None)
+E        +          where GameState(format_version=1, id='8626fc55e20d04c0', name='Game', format='commander', created_at=1792716741.3862906, seq...ee_cast_faces={}, exile_if_graveyard=[], bottom_if_graveyard=[], cast_enters={}, exile_resolves={}, counter_stamps={})) = <app.game.session.GameSession object at 0x7fad47ced8e0>.state
+
+tests/test_rules_equipment_notebook_costs67.py:62: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_rules_equipment_notebook_costs67.py::test_whole_definitions[Glamdring, Foe-hammer // Gleam of Death]
+FAILED tests/test_rules_equipment_notebook_costs67.py::test_glamdring_actual_equip_uses_current_power_and_never_colored_mana

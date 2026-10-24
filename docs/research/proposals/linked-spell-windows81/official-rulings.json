@@ -1,0 +1,112 @@
+{
+  "Boiling Rock Rioter": {
+    "object": "list",
+    "has_more": false,
+    "data": [
+      {
+        "object": "ruling",
+        "oracle_id": "5193172c-9024-409e-bd9e-0387971d65fe",
+        "source": "wotc",
+        "published_at": "2025-10-02",
+        "comment": "\"Firebending N\" is a keyword that represents the ability \"Whenever this creature attacks, add N {R}. Until end of combat, you don't lose this mana as steps end.\""
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "5193172c-9024-409e-bd9e-0387971d65fe",
+        "source": "wotc",
+        "published_at": "2025-10-02",
+        "comment": "Firebending abilities aren't mana abilities. They use the stack and can be responded to."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "5193172c-9024-409e-bd9e-0387971d65fe",
+        "source": "wotc",
+        "published_at": "2025-10-02",
+        "comment": "Multiple instances of firebending on the same creature trigger separately, each granting you the appropriate amount of mana."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "5193172c-9024-409e-bd9e-0387971d65fe",
+        "source": "wotc",
+        "published_at": "2025-10-02",
+        "comment": "Mana from firebending abilities isn't lost until you leave combat and go to your second main phase. It can be used at any time during combat, even after combat damage has been dealt."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "5193172c-9024-409e-bd9e-0387971d65fe",
+        "source": "wotc",
+        "published_at": "2025-10-02",
+        "comment": "Since Boiling Rock Rioter's activated ability doesn't have a tap symbol in its cost, you can tap a creature (including Boiling Rock Rioter itself) that hasn't been under your control since your most recent turn began to pay the cost."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "5193172c-9024-409e-bd9e-0387971d65fe",
+        "source": "wotc",
+        "published_at": "2025-10-02",
+        "comment": "Any other mana you add during combat will still be lost as normal when moving between steps of combat."
+      }
+    ]
+  },
+  "Azula, Cunning Usurper": {
+    "object": "list",
+    "has_more": false,
+    "data": [
+      {
+        "object": "ruling",
+        "oracle_id": "7c9e351d-2e6c-4050-9c3d-b15bb9255a4d",
+        "source": "wotc",
+        "published_at": "2025-10-02",
+        "comment": "\"Firebending N\" is a keyword that represents the ability \"Whenever this creature attacks, add N {R}. Until end of combat, you don't lose this mana as steps end.\""
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "7c9e351d-2e6c-4050-9c3d-b15bb9255a4d",
+        "source": "wotc",
+        "published_at": "2025-10-02",
+        "comment": "The six types of mana are white, blue, black, red, green, and colorless."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "7c9e351d-2e6c-4050-9c3d-b15bb9255a4d",
+        "source": "wotc",
+        "published_at": "2025-10-02",
+        "comment": "Firebending abilities aren't mana abilities. They use the stack and can be responded to."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "7c9e351d-2e6c-4050-9c3d-b15bb9255a4d",
+        "source": "wotc",
+        "published_at": "2025-10-02",
+        "comment": "You pay the costs for an exiled card if you cast it. You may pay any alternative costs the card has rather than the card's mana cost."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "7c9e351d-2e6c-4050-9c3d-b15bb9255a4d",
+        "source": "wotc",
+        "published_at": "2025-10-02",
+        "comment": "Any other mana you add during combat will still be lost as normal when moving between steps of combat."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "7c9e351d-2e6c-4050-9c3d-b15bb9255a4d",
+        "source": "wotc",
+        "published_at": "2025-10-02",
+        "comment": "Mana from firebending abilities isn't lost until you leave combat and go to your second main phase. It can be used at any time during combat, even after combat damage has been dealt."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "7c9e351d-2e6c-4050-9c3d-b15bb9255a4d",
+        "source": "wotc",
+        "published_at": "2025-10-02",
+        "comment": "Casting an exiled card causes it to leave exile. You can't cast it multiple times."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "7c9e351d-2e6c-4050-9c3d-b15bb9255a4d",
+        "source": "wotc",
+        "published_at": "2025-10-02",
+        "comment": "Multiple instances of firebending on the same creature trigger separately, each granting you the appropriate amount of mana."
+      }
+    ]
+  }
+}

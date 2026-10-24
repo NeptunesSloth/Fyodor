@@ -1,0 +1,22 @@
+....F..                                                                  [100%]
+=================================== FAILURES ===================================
+_ test_dire_actual_gisela_meld_root_has_one_destination_and_private_component_order _
+
+cards = <app.cards.repository.CardRepository object at 0x7fd40a8df860>
+
+    def test_dire_actual_gisela_meld_root_has_one_destination_and_private_component_order(cards):
+        from tests.test_rules_designations import settle
+
+        s, c, _ = setup(cards)
+        gisela = put(s, "Gisela, the Broken Blade", "battlefield", "p2")
+        put(s, "Bruna, the Fading Light", "battlefield", "p2")
+        to_phase(s, "end", 5)
+        answer(s)
+        target = s.state.cards[gisela.id]
+>       assert target.melded and len(target.merged) == 2 and target.name == "Brisela, Voice of Nightmares"
+E       AssertionError: assert (False)
+E        +  where False = CardInstance(borrow_identity=None, id='bd5f46eaf3d7', card_id='04506bad-3856-4184-8dda-941ded60f41a', name='Gisela, th...ts=[], damage=0, choices={}, stack_info=None, exile_group=None, token_source=None, origin='library', test_object=False).melded
+
+scratch/cost81/stage/backend/tests/test_rules_target_conditional_costs81.py:274: AssertionError
+=========================== short test summary info ============================
+FAILED scratch/cost81/stage/backend/tests/test_rules_target_conditional_costs81.py::test_dire_actual_gisela_meld_root_has_one_destination_and_private_component_order

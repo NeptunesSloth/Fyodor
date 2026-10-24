@@ -1,0 +1,425 @@
+FF                                                                       [100%]
+=================================== FAILURES ===================================
+_ test_real_altar_mana_sacrifices_original_target_but_cast_keeps_original_target_receipt _
+
+state = GameState(format_version=1, id='8032c7ed71d70922', name='Game', format='commander', created_at=1792726685.998601, seq=...ee_cast_faces={}, exile_if_graveyard=[], bottom_if_graveyard=[], cast_enters={}, exile_resolves={}, counter_stamps={}))
+player = 'p1'
+cost = ManaCost(generic=0, colored=('U', 'U', 'U'), hybrid=(), phyrexian=(), x=0, unsupported=(), allocation=None)
+info = <app.cards.repository.CardRepository object at 0x7f09697ae420>
+sources = None, exclude = ()
+purpose = Purpose(spell=Characteristics(name="Lullmage's Domination", supertypes=frozenset(), types=frozenset({'Sorcery'}), subt...None, cost_colorless=False, allocation=None, selected_cost_has_x=True, producer_requirement=None, cycling_menu72=False)
+reserve = 0
+
+    def _find_payment(state: GameState, player: str, cost: M.ManaCost, info: CardInfo, *,
+                      sources: list[str] | None = None, exclude: tuple[str, ...] = (), purpose: Purpose | None = None,
+                      reserve: int = 0) -> M.Payment:
+        from app.rules import mana_units
+
+        everything = [s for s in mana_sources(state, player, info, purpose) if s.card_id not in exclude]
+        available = [s for s in everything if s.activation is None]
+        filters = [s for s in everything if s.activation is not None]
+        pool = dict(state.players[player].mana)
+        life = max(0, spendable_life(state, player, info) - reserve)  # (wave 22B: 119.4; wave 29C: less the life other costs of it pay)
+        units = mana_units.unit_sources(state, player, purpose)  # -- mana provenance (wave 18B) -- pool mana that remembers its source
+        if sources is not None:
+            chosen = [s for s in available if s.card_id in set(sources)]
+            chosen_filters = [s for s in filters if s.card_id in set(sources) and s.card_id not in {c.card_id for c in chosen}]
+            if len({s.card_id for s in chosen + chosen_filters}) != len(set(sources)):
+                raise ActionError("Pick untapped mana sources you control")
+            try:
+                payment = _solve_with_filters(cost, pool, chosen + units, chosen_filters, life, input_spending=lambda due: _spending_cost(state, player, info, due))
+            except M.ManaError as exc:
+                raise ActionError(f"Those sources can't pay {cost.text()}") from exc
+            unused = set(sources) - set(payment.tapped)
+            if unused:
+                names = ", ".join(state.cards[c].name or "a source" for c in unused)
+                raise ActionError(f"{names} isn't needed to pay {cost.text()}")
+            return payment
+        protection = state.rules.prefs_for(player).mana_sources if state.rules else {}
+        marked = [replace(s, preferred=protection.get(s.card_id) == "prefer") for s in available]
+        normal = [s for s in marked if protection.get(s.card_id) != "save"]
+        normal_filters = [s for s in filters if protection.get(s.card_id) != "save"]
+        try:
+            return _solve_with_filters(cost, pool, normal + units, normal_filters, life, input_spending=lambda due: _spending_cost(state, player, info, due))
+        except M.ManaError:
+            pass
+        try:
+>           return _solve_with_filters(cost, pool, marked + units, filters, life, input_spending=lambda due: _spending_cost(state, player, info, due))  # SAVE sources only when nothing else works
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+scratch/cost81/stage/backend/app/rules/casting.py:1319:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+scratch/cost81/stage/backend/app/rules/casting.py:1202: in _solve_with_filters
+    raise error
+scratch/cost81/stage/backend/app/rules/casting.py:1131: in _solve_with_filters
+    return M.solve(cost, pool, plain, life=life)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+cost = ManaCost(generic=0, colored=('U', 'U', 'U'), hybrid=(), phyrexian=(), x=0, unsupported=(), allocation=None)
+pool = {'U': 2}, sources = [], life = 40
+
+    def solve(cost: ManaCost, pool: dict[str, int], sources: list[Source], *, life: int = 0) -> Payment:
+        """Find a payment for ``cost`` (X already fixed). Raises ManaError if there is none."""
+        mixed_snow = any(source.producer_facts and any(
+            (fact is not None and 'Snow' in fact.tags) != source.snow
+            for profile in source.producer_facts for fact in profile) for source in sources)
+        snow_due = SNOW in cost.colored or any(SNOW in symbols for symbols in cost.hybrid)
+        helper_matching = (cost.allocation is not None and
+            any(row.helpers is not None and row.helpers != row.alternatives
+                for row in (*cost.allocation.symbols, *cost.allocation.phyrexian)) and
+            any(source.abilities and any(index < 0 for index in source.abilities) for source in sources))
+        if (helper_matching or (mixed_snow and snow_due)
+                or any(s.generic_allowed and not all(s.generic_allowed) for s in sources)
+                or (cost.allocation is not None and any(row.producer is not None
+                    for row in (*cost.allocation.symbols, *cost.allocation.phyrexian)))):
+            from app.rules import mana_allocation_masks
+
+            return mana_allocation_masks.solve(cost, pool,
+                [mana_allocation_masks.MaskedSource(s, s.generic_allowed) for s in sources], life=life).payment
+        if cost.unsupported:
+            raise ManaError(f"Can't pay {' '.join('{' + s + '}' for s in cost.unsupported)} automatically")
+        # (review 18B: mana already in the pool — mana_units' pseudo-sources, rank -1 — before anything is tapped, as the plain pool)
+        ordered = sorted(sources, key=lambda s: (s.rank >= 0, not s.preferred, s.flexibility, s.rank, -max(len(o) for o in s.options)))
+        base = [(c,) for c in cost.colored] + sorted(cost.hybrid, key=len)
+        # Phyrexian symbols with mana first, then one more with 2 life each time (107.4f: each symbol on its own; wave 18B: K'rrik too;
+        # review 18B: any k of them, so {W/P}{U/P} with only {W} pays 2 life, not 4)
+        from itertools import combinations
+
+        phy = cost.phyrexian
+        by_life = {tuple(sorted(phy[i] for i in ix)): ix for k in range(len(phy) + 1) for ix in combinations(range(len(phy)), k)}
+        attempts = [(base + [tuple(c.split("/")) for i, c in enumerate(phy) if i not in ix], 2 * len(ix)) for ix in by_life.values()]
+        for reqs, life_cost in attempts:
+            if life_cost and life_cost > life:  # 119.4 (wave 29C): the life total only has to be at least the payment — all of it may be paid
+                continue
+            found = _solve(reqs, cost.generic, pool, ordered)
+            if found is None:
+                continue
+            left, chosen = found
+            payment = Payment(life=life_cost)
+            for src, oi in chosen:
+                opt = src.options[oi]
+                payment.selected_options.append((src.card_id, oi))
+                if src.ability_options:
+                    payment.ability_options.append((src.card_id, src.ability_options[oi]))
+                payment.slots.append((src.card_id, opt))
+                payment.tapped.append(src.card_id)
+                if src.sacrifice:
+                    payment.sacrificed.append(src.card_id)
+                if src.abilities:
+                    payment.used.append((src.card_id, src.abilities[oi]))
+                for m in opt:
+                    payment.produced[m] = payment.produced.get(m, 0) + 1
+            total = {k: v for k, v in pool.items() if v > 0}
+            for k, v in payment.produced.items():
+                total[k] = total.get(k, 0) + v
+            payment.spent = {k: v - left.get(k, 0) for k, v in total.items() if v - left.get(k, 0) > 0}
+            return payment
+>       raise ManaError(f"Not enough mana to pay {cost.text()}")
+E       app.rules.mana.ManaError: Not enough mana to pay {U}{U}{U}
+
+scratch/cost81/stage/backend/app/rules/mana.py:839: ManaError
+
+The above exception was the direct cause of the following exception:
+
+cards = <app.cards.repository.CardRepository object at 0x7f09697ae420>
+
+    def test_real_altar_mana_sacrifices_original_target_but_cast_keeps_original_target_receipt(cards):
+        s, c, target = setup(cards, "Lullmage's Domination", target_pid="p1")
+        altar = put(s, "Phyrexian Altar", "battlefield")
+        gy(s, "p1", 8)
+        original = s.state.rules.object_id(target.id)
+>       cast(s, c, target, {"U": 2}, x=2, window=True)
+
+scratch/cost81/stage/backend/tests/test_rules_target_conditional_costs81.py:161:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+scratch/cost81/stage/backend/tests/test_rules_target_conditional_costs81.py:55: in cast
+    return act(
+scratch/cost81/stage/backend/tests/game_helpers.py:42: in act
+    return session.perform(actor, payload)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+scratch/cost81/stage/backend/app/game/session.py:61: in perform
+    resolved = resolve(self.state, action, actor=actor, cards=self.cards, trusted=trusted)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+scratch/cost81/stage/backend/app/game/resolve.py:76: in resolve
+    a.r = compile_intent(state, a, actor=actor, info=info, rng=rng)  # type: ignore[union-attr]
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+scratch/cost81/stage/backend/app/rules/engine.py:163: in compile_intent
+    handler(plan, intent)
+scratch/cost81/stage/backend/app/rules/casting.py:3851: in cast_spell
+    _cast_payment(plan, payment_data, None)
+scratch/cost81/stage/backend/app/rules/casting.py:3912: in _cast_payment
+    pay_spell_then(plan, data.data.a, card, data.data.ch, data.cost,
+scratch/cost81/stage/backend/app/rules/casting.py:1901: in pay_spell_then
+    _pay_spell(plan, a, card, ch, cost, label, not_mana=not_mana, origin=origin, then=then, x_payment=x_payment, payment_context=payment_context)
+scratch/cost81/stage/backend/app/rules/casting.py:1761: in _pay_spell
+    pay_then(plan, player, rest, label, sources=a.sources, exclude=exclude, purpose=purpose,
+scratch/cost81/stage/backend/app/rules/casting.py:1574: in pay_then
+    result = _pay(plan, player, cost, label, sources=sources, exclude=exclude, purpose=purpose,
+scratch/cost81/stage/backend/app/rules/casting.py:1586: in _pay
+    payment = find_payment(plan.state, player, cost, plan.info, sources=sources, exclude=exclude, purpose=purpose,
+scratch/cost81/stage/backend/app/rules/casting.py:1215: in find_payment
+    payment = _find_payment(state, player, _constrained(_spending_cost(state, player, info, life_for_mana(state, player, info, cost)), purpose), info, sources=sources, exclude=exclude,
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+state = GameState(format_version=1, id='8032c7ed71d70922', name='Game', format='commander', created_at=1792726685.998601, seq=...ee_cast_faces={}, exile_if_graveyard=[], bottom_if_graveyard=[], cast_enters={}, exile_resolves={}, counter_stamps={}))
+player = 'p1'
+cost = ManaCost(generic=0, colored=('U', 'U', 'U'), hybrid=(), phyrexian=(), x=0, unsupported=(), allocation=None)
+info = <app.cards.repository.CardRepository object at 0x7f09697ae420>
+sources = None, exclude = ()
+purpose = Purpose(spell=Characteristics(name="Lullmage's Domination", supertypes=frozenset(), types=frozenset({'Sorcery'}), subt...None, cost_colorless=False, allocation=None, selected_cost_has_x=True, producer_requirement=None, cycling_menu72=False)
+reserve = 0
+
+    def _find_payment(state: GameState, player: str, cost: M.ManaCost, info: CardInfo, *,
+                      sources: list[str] | None = None, exclude: tuple[str, ...] = (), purpose: Purpose | None = None,
+                      reserve: int = 0) -> M.Payment:
+        from app.rules import mana_units
+
+        everything = [s for s in mana_sources(state, player, info, purpose) if s.card_id not in exclude]
+        available = [s for s in everything if s.activation is None]
+        filters = [s for s in everything if s.activation is not None]
+        pool = dict(state.players[player].mana)
+        life = max(0, spendable_life(state, player, info) - reserve)  # (wave 22B: 119.4; wave 29C: less the life other costs of it pay)
+        units = mana_units.unit_sources(state, player, purpose)  # -- mana provenance (wave 18B) -- pool mana that remembers its source
+        if sources is not None:
+            chosen = [s for s in available if s.card_id in set(sources)]
+            chosen_filters = [s for s in filters if s.card_id in set(sources) and s.card_id not in {c.card_id for c in chosen}]
+            if len({s.card_id for s in chosen + chosen_filters}) != len(set(sources)):
+                raise ActionError("Pick untapped mana sources you control")
+            try:
+                payment = _solve_with_filters(cost, pool, chosen + units, chosen_filters, life, input_spending=lambda due: _spending_cost(state, player, info, due))
+            except M.ManaError as exc:
+                raise ActionError(f"Those sources can't pay {cost.text()}") from exc
+            unused = set(sources) - set(payment.tapped)
+            if unused:
+                names = ", ".join(state.cards[c].name or "a source" for c in unused)
+                raise ActionError(f"{names} isn't needed to pay {cost.text()}")
+            return payment
+        protection = state.rules.prefs_for(player).mana_sources if state.rules else {}
+        marked = [replace(s, preferred=protection.get(s.card_id) == "prefer") for s in available]
+        normal = [s for s in marked if protection.get(s.card_id) != "save"]
+        normal_filters = [s for s in filters if protection.get(s.card_id) != "save"]
+        try:
+            return _solve_with_filters(cost, pool, normal + units, normal_filters, life, input_spending=lambda due: _spending_cost(state, player, info, due))
+        except M.ManaError:
+            pass
+        try:
+            return _solve_with_filters(cost, pool, marked + units, filters, life, input_spending=lambda due: _spending_cost(state, player, info, due))  # SAVE sources only when nothing else works
+        except M.ManaError as exc:
+>           raise ActionError(f"{exc}. Tap mana yourself first, or use the table tools.") from exc
+E           app.game.errors.ActionError: Not enough mana to pay {U}{U}{U}. Tap mana yourself first, or use the table tools.
+
+scratch/cost81/stage/backend/app/rules/casting.py:1321: ActionError
+_ test_real_altar_mana_raises_graveyard_threshold_without_repricing_locked_spell _
+
+state = GameState(format_version=1, id='e809a5257aabb933', name='Game', format='commander', created_at=1792726691.516209, seq=...ee_cast_faces={}, exile_if_graveyard=[], bottom_if_graveyard=[], cast_enters={}, exile_resolves={}, counter_stamps={}))
+player = 'p1'
+cost = ManaCost(generic=2, colored=('U', 'U', 'U'), hybrid=(), phyrexian=(), x=0, unsupported=(), allocation=None)
+info = <app.cards.repository.CardRepository object at 0x7f0968fc6ab0>
+sources = None, exclude = ()
+purpose = Purpose(spell=Characteristics(name="Lullmage's Domination", supertypes=frozenset(), types=frozenset({'Sorcery'}), subt...None, cost_colorless=False, allocation=None, selected_cost_has_x=True, producer_requirement=None, cycling_menu72=False)
+reserve = 0
+
+    def _find_payment(state: GameState, player: str, cost: M.ManaCost, info: CardInfo, *,
+                      sources: list[str] | None = None, exclude: tuple[str, ...] = (), purpose: Purpose | None = None,
+                      reserve: int = 0) -> M.Payment:
+        from app.rules import mana_units
+
+        everything = [s for s in mana_sources(state, player, info, purpose) if s.card_id not in exclude]
+        available = [s for s in everything if s.activation is None]
+        filters = [s for s in everything if s.activation is not None]
+        pool = dict(state.players[player].mana)
+        life = max(0, spendable_life(state, player, info) - reserve)  # (wave 22B: 119.4; wave 29C: less the life other costs of it pay)
+        units = mana_units.unit_sources(state, player, purpose)  # -- mana provenance (wave 18B) -- pool mana that remembers its source
+        if sources is not None:
+            chosen = [s for s in available if s.card_id in set(sources)]
+            chosen_filters = [s for s in filters if s.card_id in set(sources) and s.card_id not in {c.card_id for c in chosen}]
+            if len({s.card_id for s in chosen + chosen_filters}) != len(set(sources)):
+                raise ActionError("Pick untapped mana sources you control")
+            try:
+                payment = _solve_with_filters(cost, pool, chosen + units, chosen_filters, life, input_spending=lambda due: _spending_cost(state, player, info, due))
+            except M.ManaError as exc:
+                raise ActionError(f"Those sources can't pay {cost.text()}") from exc
+            unused = set(sources) - set(payment.tapped)
+            if unused:
+                names = ", ".join(state.cards[c].name or "a source" for c in unused)
+                raise ActionError(f"{names} isn't needed to pay {cost.text()}")
+            return payment
+        protection = state.rules.prefs_for(player).mana_sources if state.rules else {}
+        marked = [replace(s, preferred=protection.get(s.card_id) == "prefer") for s in available]
+        normal = [s for s in marked if protection.get(s.card_id) != "save"]
+        normal_filters = [s for s in filters if protection.get(s.card_id) != "save"]
+        try:
+            return _solve_with_filters(cost, pool, normal + units, normal_filters, life, input_spending=lambda due: _spending_cost(state, player, info, due))
+        except M.ManaError:
+            pass
+        try:
+>           return _solve_with_filters(cost, pool, marked + units, filters, life, input_spending=lambda due: _spending_cost(state, player, info, due))  # SAVE sources only when nothing else works
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+scratch/cost81/stage/backend/app/rules/casting.py:1319:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+scratch/cost81/stage/backend/app/rules/casting.py:1202: in _solve_with_filters
+    raise error
+scratch/cost81/stage/backend/app/rules/casting.py:1131: in _solve_with_filters
+    return M.solve(cost, pool, plain, life=life)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+cost = ManaCost(generic=2, colored=('U', 'U', 'U'), hybrid=(), phyrexian=(), x=0, unsupported=(), allocation=None)
+pool = {'U': 3}, sources = [], life = 40
+
+    def solve(cost: ManaCost, pool: dict[str, int], sources: list[Source], *, life: int = 0) -> Payment:
+        """Find a payment for ``cost`` (X already fixed). Raises ManaError if there is none."""
+        mixed_snow = any(source.producer_facts and any(
+            (fact is not None and 'Snow' in fact.tags) != source.snow
+            for profile in source.producer_facts for fact in profile) for source in sources)
+        snow_due = SNOW in cost.colored or any(SNOW in symbols for symbols in cost.hybrid)
+        helper_matching = (cost.allocation is not None and
+            any(row.helpers is not None and row.helpers != row.alternatives
+                for row in (*cost.allocation.symbols, *cost.allocation.phyrexian)) and
+            any(source.abilities and any(index < 0 for index in source.abilities) for source in sources))
+        if (helper_matching or (mixed_snow and snow_due)
+                or any(s.generic_allowed and not all(s.generic_allowed) for s in sources)
+                or (cost.allocation is not None and any(row.producer is not None
+                    for row in (*cost.allocation.symbols, *cost.allocation.phyrexian)))):
+            from app.rules import mana_allocation_masks
+
+            return mana_allocation_masks.solve(cost, pool,
+                [mana_allocation_masks.MaskedSource(s, s.generic_allowed) for s in sources], life=life).payment
+        if cost.unsupported:
+            raise ManaError(f"Can't pay {' '.join('{' + s + '}' for s in cost.unsupported)} automatically")
+        # (review 18B: mana already in the pool — mana_units' pseudo-sources, rank -1 — before anything is tapped, as the plain pool)
+        ordered = sorted(sources, key=lambda s: (s.rank >= 0, not s.preferred, s.flexibility, s.rank, -max(len(o) for o in s.options)))
+        base = [(c,) for c in cost.colored] + sorted(cost.hybrid, key=len)
+        # Phyrexian symbols with mana first, then one more with 2 life each time (107.4f: each symbol on its own; wave 18B: K'rrik too;
+        # review 18B: any k of them, so {W/P}{U/P} with only {W} pays 2 life, not 4)
+        from itertools import combinations
+
+        phy = cost.phyrexian
+        by_life = {tuple(sorted(phy[i] for i in ix)): ix for k in range(len(phy) + 1) for ix in combinations(range(len(phy)), k)}
+        attempts = [(base + [tuple(c.split("/")) for i, c in enumerate(phy) if i not in ix], 2 * len(ix)) for ix in by_life.values()]
+        for reqs, life_cost in attempts:
+            if life_cost and life_cost > life:  # 119.4 (wave 29C): the life total only has to be at least the payment — all of it may be paid
+                continue
+            found = _solve(reqs, cost.generic, pool, ordered)
+            if found is None:
+                continue
+            left, chosen = found
+            payment = Payment(life=life_cost)
+            for src, oi in chosen:
+                opt = src.options[oi]
+                payment.selected_options.append((src.card_id, oi))
+                if src.ability_options:
+                    payment.ability_options.append((src.card_id, src.ability_options[oi]))
+                payment.slots.append((src.card_id, opt))
+                payment.tapped.append(src.card_id)
+                if src.sacrifice:
+                    payment.sacrificed.append(src.card_id)
+                if src.abilities:
+                    payment.used.append((src.card_id, src.abilities[oi]))
+                for m in opt:
+                    payment.produced[m] = payment.produced.get(m, 0) + 1
+            total = {k: v for k, v in pool.items() if v > 0}
+            for k, v in payment.produced.items():
+                total[k] = total.get(k, 0) + v
+            payment.spent = {k: v - left.get(k, 0) for k, v in total.items() if v - left.get(k, 0) > 0}
+            return payment
+>       raise ManaError(f"Not enough mana to pay {cost.text()}")
+E       app.rules.mana.ManaError: Not enough mana to pay {2}{U}{U}{U}
+
+scratch/cost81/stage/backend/app/rules/mana.py:839: ManaError
+
+The above exception was the direct cause of the following exception:
+
+cards = <app.cards.repository.CardRepository object at 0x7f0968fc6ab0>
+
+    def test_real_altar_mana_raises_graveyard_threshold_without_repricing_locked_spell(cards):
+        s, c, target = setup(cards, "Lullmage's Domination", target_pid="p1")
+        altar = put(s, "Ashnod's Altar", "battlefield")
+        sacrifice = put(s, "Ornithopter", "battlefield")
+        gy(s, "p1", 7)
+>       cast(s, c, target, {"U": 3}, x=2, window=True)
+
+scratch/cost81/stage/backend/tests/test_rules_target_conditional_costs81.py:190:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+scratch/cost81/stage/backend/tests/test_rules_target_conditional_costs81.py:55: in cast
+    return act(
+scratch/cost81/stage/backend/tests/game_helpers.py:42: in act
+    return session.perform(actor, payload)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+scratch/cost81/stage/backend/app/game/session.py:61: in perform
+    resolved = resolve(self.state, action, actor=actor, cards=self.cards, trusted=trusted)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+scratch/cost81/stage/backend/app/game/resolve.py:76: in resolve
+    a.r = compile_intent(state, a, actor=actor, info=info, rng=rng)  # type: ignore[union-attr]
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+scratch/cost81/stage/backend/app/rules/engine.py:163: in compile_intent
+    handler(plan, intent)
+scratch/cost81/stage/backend/app/rules/casting.py:3851: in cast_spell
+    _cast_payment(plan, payment_data, None)
+scratch/cost81/stage/backend/app/rules/casting.py:3912: in _cast_payment
+    pay_spell_then(plan, data.data.a, card, data.data.ch, data.cost,
+scratch/cost81/stage/backend/app/rules/casting.py:1901: in pay_spell_then
+    _pay_spell(plan, a, card, ch, cost, label, not_mana=not_mana, origin=origin, then=then, x_payment=x_payment, payment_context=payment_context)
+scratch/cost81/stage/backend/app/rules/casting.py:1761: in _pay_spell
+    pay_then(plan, player, rest, label, sources=a.sources, exclude=exclude, purpose=purpose,
+scratch/cost81/stage/backend/app/rules/casting.py:1574: in pay_then
+    result = _pay(plan, player, cost, label, sources=sources, exclude=exclude, purpose=purpose,
+scratch/cost81/stage/backend/app/rules/casting.py:1586: in _pay
+    payment = find_payment(plan.state, player, cost, plan.info, sources=sources, exclude=exclude, purpose=purpose,
+scratch/cost81/stage/backend/app/rules/casting.py:1215: in find_payment
+    payment = _find_payment(state, player, _constrained(_spending_cost(state, player, info, life_for_mana(state, player, info, cost)), purpose), info, sources=sources, exclude=exclude,
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+state = GameState(format_version=1, id='e809a5257aabb933', name='Game', format='commander', created_at=1792726691.516209, seq=...ee_cast_faces={}, exile_if_graveyard=[], bottom_if_graveyard=[], cast_enters={}, exile_resolves={}, counter_stamps={}))
+player = 'p1'
+cost = ManaCost(generic=2, colored=('U', 'U', 'U'), hybrid=(), phyrexian=(), x=0, unsupported=(), allocation=None)
+info = <app.cards.repository.CardRepository object at 0x7f0968fc6ab0>
+sources = None, exclude = ()
+purpose = Purpose(spell=Characteristics(name="Lullmage's Domination", supertypes=frozenset(), types=frozenset({'Sorcery'}), subt...None, cost_colorless=False, allocation=None, selected_cost_has_x=True, producer_requirement=None, cycling_menu72=False)
+reserve = 0
+
+    def _find_payment(state: GameState, player: str, cost: M.ManaCost, info: CardInfo, *,
+                      sources: list[str] | None = None, exclude: tuple[str, ...] = (), purpose: Purpose | None = None,
+                      reserve: int = 0) -> M.Payment:
+        from app.rules import mana_units
+
+        everything = [s for s in mana_sources(state, player, info, purpose) if s.card_id not in exclude]
+        available = [s for s in everything if s.activation is None]
+        filters = [s for s in everything if s.activation is not None]
+        pool = dict(state.players[player].mana)
+        life = max(0, spendable_life(state, player, info) - reserve)  # (wave 22B: 119.4; wave 29C: less the life other costs of it pay)
+        units = mana_units.unit_sources(state, player, purpose)  # -- mana provenance (wave 18B) -- pool mana that remembers its source
+        if sources is not None:
+            chosen = [s for s in available if s.card_id in set(sources)]
+            chosen_filters = [s for s in filters if s.card_id in set(sources) and s.card_id not in {c.card_id for c in chosen}]
+            if len({s.card_id for s in chosen + chosen_filters}) != len(set(sources)):
+                raise ActionError("Pick untapped mana sources you control")
+            try:
+                payment = _solve_with_filters(cost, pool, chosen + units, chosen_filters, life, input_spending=lambda due: _spending_cost(state, player, info, due))
+            except M.ManaError as exc:
+                raise ActionError(f"Those sources can't pay {cost.text()}") from exc
+            unused = set(sources) - set(payment.tapped)
+            if unused:
+                names = ", ".join(state.cards[c].name or "a source" for c in unused)
+                raise ActionError(f"{names} isn't needed to pay {cost.text()}")
+            return payment
+        protection = state.rules.prefs_for(player).mana_sources if state.rules else {}
+        marked = [replace(s, preferred=protection.get(s.card_id) == "prefer") for s in available]
+        normal = [s for s in marked if protection.get(s.card_id) != "save"]
+        normal_filters = [s for s in filters if protection.get(s.card_id) != "save"]
+        try:
+            return _solve_with_filters(cost, pool, normal + units, normal_filters, life, input_spending=lambda due: _spending_cost(state, player, info, due))
+        except M.ManaError:
+            pass
+        try:
+            return _solve_with_filters(cost, pool, marked + units, filters, life, input_spending=lambda due: _spending_cost(state, player, info, due))  # SAVE sources only when nothing else works
+        except M.ManaError as exc:
+>           raise ActionError(f"{exc}. Tap mana yourself first, or use the table tools.") from exc
+E           app.game.errors.ActionError: Not enough mana to pay {2}{U}{U}{U}. Tap mana yourself first, or use the table tools.
+
+scratch/cost81/stage/backend/app/rules/casting.py:1321: ActionError
+=========================== short test summary info ============================
+FAILED scratch/cost81/stage/backend/tests/test_rules_target_conditional_costs81.py::test_real_altar_mana_sacrifices_original_target_but_cast_keeps_original_target_receipt
+FAILED scratch/cost81/stage/backend/tests/test_rules_target_conditional_costs81.py::test_real_altar_mana_raises_graveyard_threshold_without_repricing_locked_spell

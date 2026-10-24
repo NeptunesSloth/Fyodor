@@ -1,0 +1,69 @@
+{
+  "object": "list",
+  "has_more": false,
+  "data": [
+    {
+      "object": "ruling",
+      "oracle_id": "dc440b62-0bf0-4f23-9210-3550ff0a8d4d",
+      "source": "wotc",
+      "published_at": "2024-04-12",
+      "comment": "Fortune's middle ability creates a delayed triggered ability that triggers at end of combat. This ability will trigger whether or not Fortune is still on the battlefield. If it's not, you can still exile up to one creature that saddled it that turn."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "dc440b62-0bf0-4f23-9210-3550ff0a8d4d",
+      "source": "wotc",
+      "published_at": "2024-04-12",
+      "comment": "The delayed triggered ability doesn't target any creature. You choose which other creature to exile, if any, as that ability is resolving. At that point, it's too late for any player to respond."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "dc440b62-0bf0-4f23-9210-3550ff0a8d4d",
+      "source": "wotc",
+      "published_at": "2024-04-12",
+      "comment": "Tokens exiled by the delayed triggered ability won't return to the battlefield. It's usually not a good idea to saddle Fortune if Fortune itself is a token."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "dc440b62-0bf0-4f23-9210-3550ff0a8d4d",
+      "source": "wotc",
+      "published_at": "2024-04-12",
+      "comment": "\"Saddle N\" means \"Tap any number of other untapped creatures you control with total power N or greater: This permanent becomes saddled until end of turn. Activate only as a sorcery.\""
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "dc440b62-0bf0-4f23-9210-3550ff0a8d4d",
+      "source": "wotc",
+      "published_at": "2024-04-12",
+      "comment": "\"Saddled\" isn't an ability that a creature has. It's just something true about that creature. It won't stop being saddled until the turn ends or it leaves the battlefield."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "dc440b62-0bf0-4f23-9210-3550ff0a8d4d",
+      "source": "wotc",
+      "published_at": "2024-04-12",
+      "comment": "Creatures with saddle can attack or block as normal even if they aren't saddled."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "dc440b62-0bf0-4f23-9210-3550ff0a8d4d",
+      "source": "wotc",
+      "published_at": "2024-04-12",
+      "comment": "If a permanent becomes a copy of a saddled Mount, the copy won't be saddled."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "dc440b62-0bf0-4f23-9210-3550ff0a8d4d",
+      "source": "wotc",
+      "published_at": "2024-04-12",
+      "comment": "You may activate a permanent's saddle ability even if that permanent is already saddled."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "dc440b62-0bf0-4f23-9210-3550ff0a8d4d",
+      "source": "wotc",
+      "published_at": "2024-04-12",
+      "comment": "An ability that triggers when a creature \"attacks while saddled\" will trigger only if that creature was saddled when it was declared as an attacker."
+    }
+  ]
+}

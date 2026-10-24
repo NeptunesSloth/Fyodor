@@ -2653,6 +2653,90 @@ def _sacrifice_count_sequence(body: str) -> tuple[list[dict[str, Any]], Any, boo
 
 
 def parse_effects(body: str, it: str | None = None, *, event_player: bool = False) -> tuple[list[dict[str, Any]], Any, bool] | None:
+    from app.rules import vault_loop71
+
+    if (vault71 := vault_loop71.parse(body)) is not None:
+        return vault71
+    from app.rules import shuffle_mill67
+
+    if (shuffle67 := shuffle_mill67.parse(body)) is not None:
+        return shuffle67
+    from app.rules import repeated_graveyard_offer89
+
+    if (next64 := repeated_graveyard_offer89.parse(body)) is not None:
+        return next64
+    from app.rules import nightshade_reveal88
+
+    if (next64 := nightshade_reveal88.parse(body)) is not None:
+        return next64
+    from app.rules import public_mill_costs64
+
+    if (admitted63 := public_mill_costs64.parse(body)) is not None:
+        return admitted63
+    from app.rules import bounded_unless_pay90
+
+    if (answer90 := bounded_unless_pay90.parse(body)) is not None:
+        return answer90
+    from app.rules import conditional_upkeep_grants91
+
+    if (answer91 := conditional_upkeep_grants91.parse(body)) is not None:
+        return answer91
+    from app.rules import nonbattlefield_life_offers86
+
+    if (answer86 := nonbattlefield_life_offers86.parse(body)) is not None:
+        return answer86
+    from app.rules import public_mill_picks65
+
+    if (admitted62 := public_mill_picks65.parse(body)) is not None:
+        return admitted62
+    from app.rules import creature_obligations85
+
+    if (admitted62 := creature_obligations85.parse(body)) is not None:
+        return admitted62
+    from app.rules import greatest_creature_cost84
+
+    if (admitted62 := greatest_creature_cost84.parse(body)) is not None:
+        return admitted62
+    from app.rules import permanent_payments83
+
+    if (permanent83 := permanent_payments83.parse(body)) is not None:
+        return permanent83
+    from app.rules import cyber_controller63
+
+    if (cyber63 := cyber_controller63.parse(body)) is not None:
+        return cyber63
+    from app.rules import post_mill_continuations60
+
+    if (admitted := post_mill_continuations60.parse(body)) is not None:
+        return admitted
+    from app.rules import demonic_covenant62
+
+    if (admitted := demonic_covenant62.parse(body)) is not None:
+        return admitted
+    from app.rules import stored_player_costs66
+
+    if (stored66 := stored_player_costs66.parse(body, event_player)) is not None:
+        return stored66
+    from app.rules import object_mana_offers78
+
+    if (offered78 := object_mana_offers78.parse(body)) is not None:
+        return offered78
+    from app.rules import public_mill_attachment59
+
+    if (continued59 := public_mill_attachment59.parse(body, it, event_player)) is not None:
+        return continued59
+    from app.rules import conditional_counter_riders77
+
+    if (rider77 := conditional_counter_riders77.parse(body)) is not None:
+        return rider77
+    from app.rules import text_change_instructions71
+
+    if (text71 := text_change_instructions71.parse(body)) is not None:
+        return text71
+    from app.rules import optional_continuations58
+
+    if (continued58 := optional_continuations58.parse(body, it, event_player)) is not None:
+        return continued58
     from app.rules import graveyard_return57
 
     if (returned57 := graveyard_return57.parse(body, it)) is not None:
@@ -2782,6 +2866,11 @@ def parse_effects(body: str, it: str | None = None, *, event_player: bool = Fals
 
     if (creature_damage := creature_damage_followups.parse(body)) is not None:
         return creature_damage
+
+    from app.rules import kicked_x_lki_outcomes61
+
+    if (kicked_x_lki := kicked_x_lki_outcomes61.parse(body)) is not None:
+        return kicked_x_lki
 
     from app.rules import kicked_target_outcomes60
 
@@ -5628,7 +5717,10 @@ def granted_ability(text: str) -> AbilityText | None:
     if ab.kind == "keywords":
         if ab.text.rstrip('.').lower() in ('affinity for artifacts', 'undaunted'):
             return ab  # Native selected cast permissions grant actual cumulative cost abilities.
-        from app.rules import graveyard_keywords
+        from app.rules import costs, graveyard_keywords, unearth_costs
+
+        if ab.keywords == ('unearth',) and (unearth_cost := unearth_costs.parse(ab.text)) is not None and not costs.parse_ability_cost(unearth_cost).unsupported:
+            return ab  # Native graveyard activation preserves timing, actual cost and replacement duration.
 
         if len(ab.keywords) == 1 and ab.keywords[0] in ("embalm", "encore") and graveyard_keywords.supported(ab.keywords[0], ab.text):
             return ab
@@ -5641,6 +5733,10 @@ def granted_ability(text: str) -> AbilityText | None:
             return ab
         if ab.keywords == ('sunburst',) and ab.text.rstrip('.').lower() == 'sunburst':
             return ab  # Native prospective entry counters use the spell's actual payment.
+        if ab.keywords == ('bloodthirst',):
+            from app.rules.coverage import _keyword_supported
+
+            return ab if _keyword_supported('bloodthirst', ab.text) else None
         if ab.keywords == ('vanishing',) and ab.text.rstrip('.').lower() == 'vanishing':
             return ab  # CR702.63b: bare vanishing is its two native triggered abilities, with no entry counter number.
         # -- attached events (wave 4L) -- "Protection from red", "Ward {2}", "Toxic 1"
@@ -5721,6 +5817,224 @@ def _first_time_gate(text: str) -> str:
 
 def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     """The engine definition of one ability, or None (manual)."""
+    from app.rules import zone_exchanges94
+
+    if (zone94 := zone_exchanges94.definition(ability, ch)) is not None:
+        return zone94
+    from app.rules import exile_counter_access85
+
+    if (counter85 := exile_counter_access85.definition(ability, ch)) is not None:
+        return counter85
+    from app.rules import chosen_forms95
+
+    if (chosen95 := chosen_forms95.definition(ability, ch)) is not None:
+        return chosen95
+
+    from app.rules import stack_granted_abilities84
+
+    if (grant84 := stack_granted_abilities84.definition(ability, ch)) is not None:
+        return grant84
+    from app.rules import gwenom_top70
+
+    if (gwenom70 := gwenom_top70.definition(ability, ch)) is not None:
+        return gwenom70
+    from app.rules import exchange_spells93
+
+    if (exchange93 := exchange_spells93.definition(ability, ch)) is not None:
+        return exchange93
+    from app.rules import target_conditional_costs81
+
+    if (target81 := target_conditional_costs81.definition(ability, ch)) is not None:
+        return target81
+
+    from app.rules import flitting_reflexive69
+
+    if (flitting69 := flitting_reflexive69.definition(ability, ch)) is not None:
+        return flitting69
+    from app.rules import exchange_choices92
+
+    if (exchange92 := exchange_choices92.definition(ability, ch)) is not None:
+        return exchange92
+    from app.rules import static_count_values94
+
+    if (counts94 := static_count_values94.definition(ability, ch)) is not None:
+        return counts94
+    from app.rules import attached_destruction82
+
+    if (attached82 := attached_destruction82.definition(ability, ch)) is not None:
+        return attached82
+    from app.rules import damage_retention83
+
+    if (retention83 := damage_retention83.definition(ability, ch)) is not None:
+        return retention83
+    from app.rules import post_mill_graveyard68
+
+    if (grave68 := post_mill_graveyard68.definition(ability, ch)) is not None:
+        return grave68
+    from app.rules import linked_spell_windows81
+
+    if (linked81 := linked_spell_windows81.definition(ability, ch)) is not None:
+        return linked81
+    from app.rules import graveyard_windows80
+
+    if (window80 := graveyard_windows80.definition(ability, ch)) is not None:
+        return window80
+    from app.rules import exchange_conditions91
+
+    if (exchange91 := exchange_conditions91.definition(ability, ch)) is not None:
+        return exchange91
+    from app.rules import conditional_animations92
+
+    if (next64 := conditional_animations92.definition(ability, ch)) is not None:
+        return next64
+    from app.rules import morph_costs78
+
+    if (next64 := morph_costs78.definition(ability, ch)) is not None:
+        return next64
+    from app.rules import conditional_static_aliases91
+
+    if (next64 := conditional_static_aliases91.definition(ability, ch)) is not None:
+        return next64
+    from app.rules import first_kicked_costs77
+
+    if (next64 := first_kicked_costs77.definition(ability, ch)) is not None:
+        return next64
+    from app.rules import fight_receipts90
+
+    if (admitted63 := fight_receipts90.definition(ability, ch)) is not None:
+        return admitted63
+    from app.rules import tetzin_double_face66
+
+    if (admitted63 := tetzin_double_face66.definition(ability, ch)) is not None:
+        return admitted63
+    from app.rules import echo_alternatives76
+
+    if (admitted63 := echo_alternatives76.definition(ability, ch)) is not None:
+        return admitted63
+    from app.rules import compound_static_grants90
+
+    if (admitted63 := compound_static_grants90.definition(ability, ch)) is not None:
+        return admitted63
+    from app.rules import required_keyword79
+
+    if (admitted63 := required_keyword79.definition(ability, ch)) is not None:
+        return admitted63
+    from app.rules import knowledge_pool78
+
+    if (admitted63 := knowledge_pool78.definition(ability, ch)) is not None:
+        return admitted63
+    from app.rules import linked_owner_cast77
+
+    if (admitted62 := linked_owner_cast77.definition(ability, ch)) is not None:
+        return admitted62
+    from app.rules import conditional_untap87
+
+    if (admitted62 := conditional_untap87.definition(ability, ch)) is not None:
+        return admitted62
+    from app.rules import linked_upkeep_casting76
+
+    if (casting76 := linked_upkeep_casting76.definition(ability, ch)) is not None:
+        return casting76
+    from app.rules import phase_skips88
+
+    if (admitted62 := phase_skips88.definition(ability, ch)) is not None:
+        return admitted62
+    from app.rules import mutate_keyword_costs73
+
+    if (admitted62 := mutate_keyword_costs73.definition(ability, ch)) is not None:
+        return admitted62
+    from app.rules import hall_gemstone86
+
+    if (admitted62 := hall_gemstone86.definition(ability, ch)) is not None:
+        return admitted62
+    from app.rules import source_cohort87
+
+    if (admitted61 := source_cohort87.definition(ability, ch)) is not None:
+        return admitted61
+    from app.rules import teferi_realm84
+
+    if (admitted61 := teferi_realm84.definition(ability, ch)) is not None:
+        return admitted61
+    from app.rules import attack_subjects86
+
+    if (admitted61 := attack_subjects86.definition(ability, ch)) is not None:
+        return admitted61
+    from app.rules import required_mutate75
+
+    if (mutate75 := required_mutate75.definition(ability, ch)) is not None:
+        return mutate75
+    from app.rules import conditional_attacks85
+
+    if (attacks85 := conditional_attacks85.definition(ability, ch)) is not None:
+        return attacks85
+    from app.rules import attacked_player_costs80
+
+    if (attacked80 := attacked_player_costs80.definition(ability, ch)) is not None:
+        return attacked80
+
+    from app.rules import target_duration_costs69
+    if (duration69 := target_duration_costs69.definition(ability, ch)) is not None:
+        return duration69
+    from app.rules import equipment_notebook_costs67
+
+    if (admitted := equipment_notebook_costs67.definition(ability, ch)) is not None:
+        return admitted
+    from app.rules import conditional_class_costs68
+
+    if (admitted := conditional_class_costs68.definition(ability, ch)) is not None:
+        return admitted
+    from app.rules import fortune83
+
+    if (admitted := fortune83.definition(ability, ch)) is not None:
+        return admitted
+    from app.rules import crewed_attacks84
+
+    if (admitted := crewed_attacks84.definition(ability, ch)) is not None:
+        return admitted
+    from app.rules import grave_adventure74
+
+    if (admitted := grave_adventure74.definition(ability, ch)) is not None:
+        return admitted
+    from app.rules import deferred_payment82
+
+    if (window82 := deferred_payment82.definition(ability, ch)) is not None:
+        return window82
+    from app.rules import upkeep_consequences81
+
+    if (admitted := upkeep_consequences81.definition(ability, ch)) is not None:
+        return admitted
+    from app.rules import crew_saddle_readers81
+
+    if (admitted := crew_saddle_readers81.definition(ability, ch)) is not None:
+        return admitted
+    from app.rules import pooled_casting_authorities71
+
+    if (admitted := pooled_casting_authorities71.definition(ability, ch)) is not None:
+        return admitted
+    from app.rules import cloudspire82
+
+    if (admitted := cloudspire82.definition(ability, ch)) is not None:
+        return admitted
+    from app.rules import text_global_word71
+
+    if (global71 := text_global_word71.definition(ability, ch)) is not None:
+        return global71
+    from app.rules import conditional_tax80
+
+    if (tax80 := conditional_tax80.definition(ability, ch)) is not None:
+        return tax80
+    from app.rules import upkeep_tax79
+
+    if (tax79 := upkeep_tax79.definition(ability, ch)) is not None:
+        return tax79
+    from app.rules import first_crew_saddle80
+
+    if (first80 := first_crew_saddle80.definition(ability, ch)) is not None:
+        return first80
+    from app.rules import unblocked_choices79
+
+    if (unblocked79 := unblocked_choices79.definition(ability, ch)) is not None:
+        return unblocked79
     from app.rules import first_event_receipts78
 
     if (first78 := first_event_receipts78.definition(ability, ch)) is not None:
@@ -6022,6 +6336,18 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
 
     if (counter_comparison := counter_event_comparisons50.definition(ability, ch)) is not None:
         return counter_comparison
+    from app.rules import temporary_creature_types93
+
+    if (types93 := temporary_creature_types93.definition(ability, ch)) is not None:
+        return types93
+    from app.rules import conditional_toughness96
+
+    if (toughness96 := conditional_toughness96.definition(ability, ch)) is not None:
+        return toughness96
+    from app.rules import world_upkeep83
+
+    if (world_upkeep := world_upkeep83.definition(ability, ch)) is not None:
+        return world_upkeep
     from app.rules import upkeep_target_choice65
 
     if (upkeep_choice65 := upkeep_target_choice65.definition(ability, ch)) is not None:
@@ -6039,6 +6365,31 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
 
     if (kicked_keyword := kicked_spell_outcomes59.definition(ability, ch)) is not None:
         return kicked_keyword
+
+    from app.rules import kicked_x_lki_outcomes61
+
+    if (kicked_x_entry := kicked_x_lki_outcomes61.definition(ability, ch)) is not None:
+        return kicked_x_entry
+
+    from app.rules import target_cost_conditions62
+
+    if (target_cost := target_cost_conditions62.definition(ability, ch)) is not None:
+        return target_cost
+
+    from app.rules import caster_turn_costs63
+
+    if (caster_cost := caster_turn_costs63.definition(ability, ch)) is not None:
+        return caster_cost
+
+    from app.rules import source_spell_discounts64
+
+    if (source_discount := source_spell_discounts64.definition(ability, ch)) is not None:
+        return source_discount
+
+    from app.rules import selected_keyword_costs65
+
+    if (selected_keyword := selected_keyword_costs65.definition(ability, ch)) is not None:
+        return selected_keyword
 
     from app.rules import first_target_activation_cost58
 
@@ -6064,6 +6415,11 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
 
     if (torch_exile65 := torch_exile_receipts65.definition(ability, ch)) is not None:
         return torch_exile65
+    from app.rules import top_library_authorities69
+
+    if (top69 := top_library_authorities69.definition(ability, ch)) is not None:
+        return top69
+
     from app.rules import conditional_free_casts68
 
     if (conditional68 := conditional_free_casts68.definition(ability, ch)) is not None:
@@ -6680,6 +7036,10 @@ def _blight(text: str) -> str:
 
 def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     """The engine definition of one ability, or None (manual)."""
+    from app.rules import exile_counter_access85
+
+    if (counter85 := exile_counter_access85.definition(ability, ch)) is not None:
+        return counter85
     from app.rules import (
         ability_mana_history,
         merged,  # -- merged permanents (wave 18D) -- meld wordings carry card names with commas
@@ -8163,7 +8523,11 @@ def graveyard_only_ability(d: Definition | None) -> bool:
 
 
 def own_graveyard_activation(d: Definition | None) -> bool:
-    """113.6m: an independently parsed self-return activation is not a resolving spell instruction."""
+    """113.6m: a parsed graveyard-only activation is not a resolving spell instruction."""
+    if d is not None and d.get('kind') == 'activated':
+        cost = parse_ability_cost(d.get('cost') or '')
+        if not cost.unsupported and cost.from_graveyard:
+            return True
     effects = (d or {}).get("effects") or []
     return bool(d is not None and d.get("kind") == "activated" and effects and all(
         e.get("do") == "return_card" and e.get("who") in ("self_gy", "self_gy_exile") for e in effects

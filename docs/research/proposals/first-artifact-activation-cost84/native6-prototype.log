@@ -1,0 +1,209 @@
+..F.FF                                                                   [100%]
+=================================== FAILURES ===================================
+________________ test_zero_cost_mana_activation_consumes_first _________________
+
+cards = <app.cards.repository.CardRepository object at 0x7f9cc53cba10>
+
+    def test_zero_cost_mana_activation_consumes_first(cards):
+        s = setup(cards)
+        ring = put(s, 'Sol Ring', 'battlefield')
+        mana(s, ring)
+>       assert s.state.players['p1'].mana == {'C': 2}
+E       AssertionError: assert {} == {'C': 2}
+E
+E         Right contains 1 more item:
+E         {'C': 2}
+E         Use -v to get more diff
+
+scratch/cost84/stage/backend/tests/test_rules_first_artifact_activation_cost84.py:95: AssertionError
+_________ test_opponents_actual_mana_activation_does_not_consume_yours _________
+
+state = GameState(format_version=1, id='2ac570ad1273b762', name='Game', format='commander', created_at=1792729689.6035647, seq...ee_cast_faces={}, exile_if_graveyard=[], bottom_if_graveyard=[], cast_enters={}, exile_resolves={}, counter_stamps={}))
+player = 'p1'
+cost = ManaCost(generic=3, colored=(), hybrid=(), phyrexian=(), x=0, unsupported=(), allocation=None)
+info = <app.cards.repository.CardRepository object at 0x7f9cc53ce990>
+sources = [], exclude = ()
+purpose = Purpose(spell=None, ability_of=Characteristics(name='Basalt Monolith', supertypes=frozenset(), types=frozenset({'Artif...one, cost_colorless=False, allocation=None, selected_cost_has_x=False, producer_requirement=None, cycling_menu72=False)
+reserve = 0
+
+    def _find_payment(state: GameState, player: str, cost: M.ManaCost, info: CardInfo, *,
+                      sources: list[str] | None = None, exclude: tuple[str, ...] = (), purpose: Purpose | None = None,
+                      reserve: int = 0) -> M.Payment:
+        from app.rules import mana_units
+
+        everything = [s for s in mana_sources(state, player, info, purpose) if s.card_id not in exclude]
+        available = [s for s in everything if s.activation is None]
+        filters = [s for s in everything if s.activation is not None]
+        pool = dict(state.players[player].mana)
+        life = max(0, spendable_life(state, player, info) - reserve)  # (wave 22B: 119.4; wave 29C: less the life other costs of it pay)
+        units = mana_units.unit_sources(state, player, purpose)  # -- mana provenance (wave 18B) -- pool mana that remembers its source
+        if sources is not None:
+            chosen = [s for s in available if s.card_id in set(sources)]
+            chosen_filters = [s for s in filters if s.card_id in set(sources) and s.card_id not in {c.card_id for c in chosen}]
+            if len({s.card_id for s in chosen + chosen_filters}) != len(set(sources)):
+                raise ActionError("Pick untapped mana sources you control")
+            try:
+>               payment = _solve_with_filters(cost, pool, chosen + units, chosen_filters, life, input_spending=lambda due: _spending_cost(state, player, info, due))
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+scratch/cost84/stage/backend/app/rules/casting.py:1302:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+scratch/cost84/stage/backend/app/rules/casting.py:1202: in _solve_with_filters
+    raise error
+scratch/cost84/stage/backend/app/rules/casting.py:1131: in _solve_with_filters
+    return M.solve(cost, pool, plain, life=life)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+cost = ManaCost(generic=3, colored=(), hybrid=(), phyrexian=(), x=0, unsupported=(), allocation=None)
+pool = {'C': 1}, sources = [], life = 40
+
+    def solve(cost: ManaCost, pool: dict[str, int], sources: list[Source], *, life: int = 0) -> Payment:
+        """Find a payment for ``cost`` (X already fixed). Raises ManaError if there is none."""
+        mixed_snow = any(source.producer_facts and any(
+            (fact is not None and 'Snow' in fact.tags) != source.snow
+            for profile in source.producer_facts for fact in profile) for source in sources)
+        snow_due = SNOW in cost.colored or any(SNOW in symbols for symbols in cost.hybrid)
+        helper_matching = (cost.allocation is not None and
+            any(row.helpers is not None and row.helpers != row.alternatives
+                for row in (*cost.allocation.symbols, *cost.allocation.phyrexian)) and
+            any(source.abilities and any(index < 0 for index in source.abilities) for source in sources))
+        if (helper_matching or (mixed_snow and snow_due)
+                or any(s.generic_allowed and not all(s.generic_allowed) for s in sources)
+                or (cost.allocation is not None and any(row.producer is not None
+                    for row in (*cost.allocation.symbols, *cost.allocation.phyrexian)))):
+            from app.rules import mana_allocation_masks
+
+            return mana_allocation_masks.solve(cost, pool,
+                [mana_allocation_masks.MaskedSource(s, s.generic_allowed) for s in sources], life=life).payment
+        if cost.unsupported:
+            raise ManaError(f"Can't pay {' '.join('{' + s + '}' for s in cost.unsupported)} automatically")
+        # (review 18B: mana already in the pool — mana_units' pseudo-sources, rank -1 — before anything is tapped, as the plain pool)
+        ordered = sorted(sources, key=lambda s: (s.rank >= 0, not s.preferred, s.flexibility, s.rank, -max(len(o) for o in s.options)))
+        base = [(c,) for c in cost.colored] + sorted(cost.hybrid, key=len)
+        # Phyrexian symbols with mana first, then one more with 2 life each time (107.4f: each symbol on its own; wave 18B: K'rrik too;
+        # review 18B: any k of them, so {W/P}{U/P} with only {W} pays 2 life, not 4)
+        from itertools import combinations
+
+        phy = cost.phyrexian
+        by_life = {tuple(sorted(phy[i] for i in ix)): ix for k in range(len(phy) + 1) for ix in combinations(range(len(phy)), k)}
+        attempts = [(base + [tuple(c.split("/")) for i, c in enumerate(phy) if i not in ix], 2 * len(ix)) for ix in by_life.values()]
+        for reqs, life_cost in attempts:
+            if life_cost and life_cost > life:  # 119.4 (wave 29C): the life total only has to be at least the payment — all of it may be paid
+                continue
+            found = _solve(reqs, cost.generic, pool, ordered)
+            if found is None:
+                continue
+            left, chosen = found
+            payment = Payment(life=life_cost)
+            for src, oi in chosen:
+                opt = src.options[oi]
+                payment.selected_options.append((src.card_id, oi))
+                if src.ability_options:
+                    payment.ability_options.append((src.card_id, src.ability_options[oi]))
+                payment.slots.append((src.card_id, opt))
+                payment.tapped.append(src.card_id)
+                if src.sacrifice:
+                    payment.sacrificed.append(src.card_id)
+                if src.abilities:
+                    payment.used.append((src.card_id, src.abilities[oi]))
+                for m in opt:
+                    payment.produced[m] = payment.produced.get(m, 0) + 1
+            total = {k: v for k, v in pool.items() if v > 0}
+            for k, v in payment.produced.items():
+                total[k] = total.get(k, 0) + v
+            payment.spent = {k: v - left.get(k, 0) for k, v in total.items() if v - left.get(k, 0) > 0}
+            return payment
+>       raise ManaError(f"Not enough mana to pay {cost.text()}")
+E       app.rules.mana.ManaError: Not enough mana to pay {3}
+
+scratch/cost84/stage/backend/app/rules/mana.py:839: ManaError
+
+The above exception was the direct cause of the following exception:
+
+cards = <app.cards.repository.CardRepository object at 0x7f9cc53ce990>
+
+    def test_opponents_actual_mana_activation_does_not_consume_yours(cards):
+        s = setup(cards)
+        ring = put(s, 'Sol Ring', 'battlefield', 'p2')
+        mana(s, ring, 'p2')
+>       activate(s, source(s), 1)
+
+scratch/cost84/stage/backend/tests/test_rules_first_artifact_activation_cost84.py:114:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+scratch/cost84/stage/backend/tests/test_rules_first_artifact_activation_cost84.py:61: in activate
+    act(s, pid, type='activate_ability', card_id=c.id, ability=index, sources=list(sources))
+scratch/cost84/stage/backend/tests/game_helpers.py:42: in act
+    return session.perform(actor, payload)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+scratch/cost84/stage/backend/app/game/session.py:61: in perform
+    resolved = resolve(self.state, action, actor=actor, cards=self.cards, trusted=trusted)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+scratch/cost84/stage/backend/app/game/resolve.py:76: in resolve
+    a.r = compile_intent(state, a, actor=actor, info=info, rng=rng)  # type: ignore[union-attr]
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+scratch/cost84/stage/backend/app/rules/engine.py:164: in compile_intent
+    handler(plan, intent)
+scratch/cost84/stage/backend/app/rules/casting.py:5444: in activate_ability
+    activate_to_stack(plan, card, ch, ability, a)
+scratch/cost84/stage/backend/app/rules/casting.py:6080: in activate_to_stack
+    pay_then(plan, plan.actor, due, f"paid {due.text()} to activate {ch.name}",
+scratch/cost84/stage/backend/app/rules/casting.py:1578: in pay_then
+    result = _pay(plan, player, cost, label, sources=sources, exclude=exclude, purpose=purpose,
+scratch/cost84/stage/backend/app/rules/casting.py:1590: in _pay
+    payment = find_payment(plan.state, player, cost, plan.info, sources=sources, exclude=exclude, purpose=purpose,
+scratch/cost84/stage/backend/app/rules/casting.py:1215: in find_payment
+    payment = _find_payment(state, player, _constrained(_spending_cost(state, player, info, life_for_mana(state, player, info, cost)), purpose), info, sources=sources, exclude=exclude,
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+state = GameState(format_version=1, id='2ac570ad1273b762', name='Game', format='commander', created_at=1792729689.6035647, seq...ee_cast_faces={}, exile_if_graveyard=[], bottom_if_graveyard=[], cast_enters={}, exile_resolves={}, counter_stamps={}))
+player = 'p1'
+cost = ManaCost(generic=3, colored=(), hybrid=(), phyrexian=(), x=0, unsupported=(), allocation=None)
+info = <app.cards.repository.CardRepository object at 0x7f9cc53ce990>
+sources = [], exclude = ()
+purpose = Purpose(spell=None, ability_of=Characteristics(name='Basalt Monolith', supertypes=frozenset(), types=frozenset({'Artif...one, cost_colorless=False, allocation=None, selected_cost_has_x=False, producer_requirement=None, cycling_menu72=False)
+reserve = 0
+
+    def _find_payment(state: GameState, player: str, cost: M.ManaCost, info: CardInfo, *,
+                      sources: list[str] | None = None, exclude: tuple[str, ...] = (), purpose: Purpose | None = None,
+                      reserve: int = 0) -> M.Payment:
+        from app.rules import mana_units
+
+        everything = [s for s in mana_sources(state, player, info, purpose) if s.card_id not in exclude]
+        available = [s for s in everything if s.activation is None]
+        filters = [s for s in everything if s.activation is not None]
+        pool = dict(state.players[player].mana)
+        life = max(0, spendable_life(state, player, info) - reserve)  # (wave 22B: 119.4; wave 29C: less the life other costs of it pay)
+        units = mana_units.unit_sources(state, player, purpose)  # -- mana provenance (wave 18B) -- pool mana that remembers its source
+        if sources is not None:
+            chosen = [s for s in available if s.card_id in set(sources)]
+            chosen_filters = [s for s in filters if s.card_id in set(sources) and s.card_id not in {c.card_id for c in chosen}]
+            if len({s.card_id for s in chosen + chosen_filters}) != len(set(sources)):
+                raise ActionError("Pick untapped mana sources you control")
+            try:
+                payment = _solve_with_filters(cost, pool, chosen + units, chosen_filters, life, input_spending=lambda due: _spending_cost(state, player, info, due))
+            except M.ManaError as exc:
+>               raise ActionError(f"Those sources can't pay {cost.text()}") from exc
+E               app.game.errors.ActionError: Those sources can't pay {3}
+
+scratch/cost84/stage/backend/app/rules/casting.py:1304: ActionError
+_______ test_automatic_nested_filter_must_not_get_parents_first_discount _______
+
+cards = <app.cards.repository.CardRepository object at 0x7f9cc55369c0>
+
+    def test_automatic_nested_filter_must_not_get_parents_first_discount(cards):
+        s = setup(cards)
+        c = source(s)
+        prism = put(s, 'Mana Prism', 'battlefield')
+        wait_priority(s, 'p1')
+        index = next(a.index for a in Plan(s.state, 'p1', s.cards, None).ch(c).abilities if a.kind == 'activated')
+        before = s.state.model_dump_json()
+>       with pytest.raises(ActionError):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE ActionError
+
+scratch/cost84/stage/backend/tests/test_rules_first_artifact_activation_cost84.py:124: Failed
+=========================== short test summary info ============================
+FAILED scratch/cost84/stage/backend/tests/test_rules_first_artifact_activation_cost84.py::test_zero_cost_mana_activation_consumes_first
+FAILED scratch/cost84/stage/backend/tests/test_rules_first_artifact_activation_cost84.py::test_opponents_actual_mana_activation_does_not_consume_yours
+FAILED scratch/cost84/stage/backend/tests/test_rules_first_artifact_activation_cost84.py::test_automatic_nested_filter_must_not_get_parents_first_discount

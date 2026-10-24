@@ -1,0 +1,85 @@
+--- /dev/null
++++ b/backend/app/rules/first_kicked_costs77.py
+@@ -0,0 +1,33 @@
++"""First actual kicked spell uses paid kicker authority, never synthetic own-effect aliases."""
++from __future__ import annotations
++
++from typing import Any
++
++
++def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
++    if ability.text == 'The first kicked spell you cast each turn costs {1} less to cast.':
++        return {'kind': 'static', 'static': 'first_kicked77', 'effects': []}
++    return None
++
++
++def discount(state: Any, player: str, info: Any) -> int:
++    from app.rules import history, permissions
++    from app.rules.plan import Plan
++
++    notes = [n for n in history.log_for(Plan.view(state, player, info)).casts if n.player == player]
++    if any(n.kicked77 is not False for n in notes):
++        return 0  # Unknown old authority cannot create a first-kicked discount.
++    return sum(src.controller == player for src, _, _ in permissions._table_statics(state, info, {'first_kicked77'}))
++
++
++
++def guard(state: Any, player: str, info: Any) -> None:
++    from app.game.errors import ActionError
++    from app.rules import history, permissions
++    from app.rules.plan import Plan
++
++    notes = [n for n in history.log_for(Plan.view(state, player, info)).casts if n.player == player]
++    if any(n.kicked77 is True for n in notes) or not any(n.kicked77 is None for n in notes):
++        return
++    if any(src.controller == player for src, _, _ in permissions._table_statics(state, info, {'first_kicked77'})):
++        raise ActionError('Earlier kicker payments this turn are unknown in this older save. Resolve this kicked spell cost manually.')
+--- a/backend/app/rules/scripts.py
++++ b/backend/app/rules/scripts.py
+@@ -5831,2 +5831,6 @@
+         return attacks85
++    from app.rules import first_kicked_costs77
++
++    if (kicked77 := first_kicked_costs77.definition(ability, ch)) is not None:
++        return kicked77
+     from app.rules import target_duration_costs69
+--- a/backend/app/rules/history.py
++++ b/backend/app/rules/history.py
+@@ -242,3 +242,4 @@
+     record = plan.rules.payments.get(plan.oid(card))
+-    log.casts.append(CastNote(player=card.controller, object_id=plan.oid(card), names=card_names.names_of(ch), types=sorted(ch.types),
++    log.casts.append(CastNote(kicked77=("kicker" in record.additional and record.kicked > 0) if record is not None else None,
++                              player=card.controller, object_id=plan.oid(card), names=card_names.names_of(ch), types=sorted(ch.types),
+                               subtypes=sorted(ch.subtypes), supertypes=sorted(ch.supertypes), colors=sorted(ch.colors),
+--- a/backend/app/rules/casting.py
++++ b/backend/app/rules/casting.py
+@@ -2953,3 +2953,3 @@
+                flashback_choice: int | None = None, mana_symbols: list[str] | None = None,
+-               capture: list[Any] | None = None) -> M.ManaCost:
++               capture: list[Any] | None = None, announced_kicker77: bool = False) -> M.ManaCost:
+     """The total cost to cast (601.2f), in the rules' order: the mana cost (with X) or the
+@@ -2991,2 +2991,8 @@
+         affinity += discount + conditional_own_discounts.printed_flashback_discount(state, player, card, ch, info, flashback_choice)
++    from app.rules import first_kicked_costs77
++
++    if info is not None and kicker and (actual_kicker77 := kicker_cost(ch.abilities)) is not None and not actual_kicker77.entwine:
++        if announced_kicker77:
++            first_kicked_costs77.guard(state, player, info)
++        affinity += first_kicked_costs77.discount(state, player, info)
+     # -- cost changers (wave 44D) -- 107.3f, 202.3e: the spell being cast has the X announced for it, so a cost changer reading its mana value ("spells with mana value 4 or
+@@ -3744,3 +3750,3 @@
+                       reduce=emerge_reduction + (cost_payment.reduction(add_cost, add_objects) if add_cost is not None else 0),
+-                      flashback_choice=a.flashback_choice, mana_symbols=a.mana_symbols, capture=prepared)  # (wave 47C: "you may sacrifice any number of …")
++                      flashback_choice=a.flashback_choice, mana_symbols=a.mana_symbols, capture=prepared, announced_kicker77=True)  # (wave 47C: "you may sacrifice any number of …")
+     if alt_offer is not None and alt_offer.template_mana_has_x is not None:
+@@ -5081,3 +5087,3 @@
+                       reduce=cost_payment.reduction(add_cost, add_objects) if add_cost is not None else 0,
+-                      mana_symbols=a.mana_symbols, capture=prepared)  # (wave 47C: 118.9d, 601.2f)
++                      mana_symbols=a.mana_symbols, capture=prepared, announced_kicker77=True)  # (wave 47C: 118.9d, 601.2f)
+     if spell_mana_floor.minimum(plan.state, plan.info) or a.mana_symbols is not None:
+--- a/backend/app/game/rules_state.py
++++ b/backend/app/game/rules_state.py
+@@ -540,2 +540,3 @@
+
++    kicked77: bool | None = None  # Actual paid kicker; excludes synthetic awaken/gift/bargain own-effect aliases.
+     names: list[str] | None = None  # Public as-cast names; None means an older receipt lacks this fact.

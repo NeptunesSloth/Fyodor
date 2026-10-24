@@ -1,0 +1,109 @@
+--- a/backend/app/rules/plan.py
++++ b/backend/app/rules/plan.py
+@@ -4,6 +4,8 @@
+
+ import secrets
+ from typing import Any
++
++from pydantic import BaseModel, Field
+
+ from app.game import actions as A
+ from app.game.control import controller_of
+@@ -14,6 +16,7 @@
+     Decision,
+     DecisionOption,
+     ObjectRef,
++    ObjectSnapshot,
+     PlayerPrefs,
+     RulesState,
+     capture,
+@@ -28,6 +31,13 @@
+ MAX_STEPS = 400  # a safety valve: no single intent may expand into more table actions
+ ARROW_TARGETS = 20  # the most objects one arrow points at (A.CreateArrow.targets)
+ ENGINE_ARROWS = 190  # the engine's target arrows stop here (the table takes 200: handlers/marks.py; the rest is the players')
++
++
++class DepartureBefore(BaseModel):
++    """Server-produced look-back facts for departures in one simultaneous event."""
++
++    snapshots: dict[str, ObjectSnapshot] = Field(default_factory=dict)
++    types: dict[str, list[str]] = Field(default_factory=dict)
+
+
+ class Plan:
+@@ -100,7 +110,7 @@
+         assert self.state.rules is not None
+         return self.state.rules
+
+-    def do(self, payload: dict[str, Any], *, actor: str | None = None) -> A.Action:
++    def do(self, payload: dict[str, Any], *, actor: str | None = None, departure_before: DepartureBefore | None = None) -> A.Action:
+         """Resolve and apply one table action on the scratch copy, and record it."""
+         from app.game.engine import HANDLERS  # the game engine imports resolve → this module
+         from app.game.resolve import resolve
+@@ -135,6 +145,13 @@
+             from app.rules import graveyard_return57
+
+             graveyard_return57.freeze_attachments(self, before)
++            if departure_before is not None:
++                for cid in payload.get('card_ids') or []:
++                    frozen = departure_before.snapshots.get(cid)
++                    current = self.state.cards.get(cid)
++                    if frozen is None or current is None or self.oid(current) != frozen.object_id or current.zone != frozen.zone:
++                        raise ActionError('A prepared simultaneous departure lost its original object')
++                    before.types[cid] = departure_before.types[cid]
+         entered_before = (self.state.turn.number, len(self.rules.turn_log.entered)) if self.state.rules else None
+         gy_seen = graveyard_order.before(self, payload)
+         from app.rules import world_durations80
+@@ -148,6 +165,12 @@
+                     self.moved[cid] = self.moved.get(cid, False) or seen_move(zone, c.zone, was)
+         track(self.state, before, actor=resolved.actor or None, group=getattr(resolved, "group", 0),
+               put_by=wither_put_by(resolved), declared=getattr(resolved, "declared", False))  # (5H, 7C, 17D; 45C: the attack declaration's tap)
++        if departure_before is not None:
++            for cid in payload.get('card_ids') or []:
++                frozen = departure_before.snapshots[cid]
++                if frozen.object_id in self.rules.lki:
++                    self.rules.lki[frozen.object_id] = frozen.model_copy(deep=True, update={'turn': self.state.turn.number})
++                leaving.pop(frozen.object_id, None)
+         if world_before80 is not None:
+             world_durations80.after(self, world_before80)
+         if self.rules.madness_declined:
+@@ -183,6 +206,39 @@
+             clamp(self.state)
+         return resolved
+
++    def freeze_departures(self, card_ids: list[str]) -> DepartureBefore:
++        """Capture native physical and layered facts before a simultaneous packet starts.
++
++        Only departures consume these facts; resource tracking and replacement actions
++        continue using their own immediate before-state. No client action accepts this receipt.
++        """
++        from app.game.rules_state import copy_recipe_of
++        from app.rules import graveyard_return57
++
++        before = capture(self.state)
++        assert before is not None
++        payload = {'card_ids': card_ids}
++        before.types = self._battlefield_types(payload)
++        graveyard_return57.freeze_attachments(self, before)
++        layered = self._battlefield_lki(payload)
++        result = DepartureBefore(types=before.types)
++        for cid in card_ids:
++            snap = before.snaps[cid]
++            snap.copy_recipe = copy_recipe_of(self.rules, snap.object_id)
++            snap.attached = [c for c, s in before.snaps.items() if s.attached_to == cid]
++            snap.attached_objects = {c: s.object_id for c, s in before.snaps.items() if s.attached_to == cid}
++            snap.attached_objects_known = True
++            if (facts := layered.get(snap.object_id)) is not None:
++                pt, abilities, keywords, traits, base, goaded = facts
++                if pt is not None:
++                    snap.power, snap.toughness = pt
++                if base is not None:
++                    snap.base_power, snap.base_toughness = base
++                snap.abilities, snap.keywords, snap.traits = abilities, keywords, traits
++                snap.goaded = sorted(goaded)
++            result.snapshots[cid] = snap
++        return result
++
+     def target_arrows(self, source: str, ids: Any, *, actor: str | None = None) -> None:
+         """-- target limits (wave 29C) -- the arrows from a spell or ability to its targets: one arrow points at up to 20 objects
+         (``CreateArrow``), so a spell with more targets ("up to X target …", "any number of target …") gets several. (review 29C: arrows only

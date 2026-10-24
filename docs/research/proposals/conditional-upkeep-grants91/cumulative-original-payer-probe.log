@@ -1,0 +1,24 @@
+F
+=================================== FAILURES ===================================
+_ test_musician_own_cumulative_upkeep_actual_control_change_original_payment_probe _
+
+cards = <app.cards.repository.CardRepository object at 0x7fe59dcc98e0>
+
+    def test_musician_own_cumulative_upkeep_actual_control_change_original_payment_probe(cards):
+        s = game(cards)
+        source = put(s, 'Musician', 'battlefield')
+        upkeep(s)
+        respond(s, 'Dominate', [source.id], 'p2', {'C': 4, 'U': 2}, x_value=3)
+        assert s.state.cards[source.id].controller == 'p2'
+        act(s, 'p1', type='add_mana', player='p1', mana={'C': 1})
+        settle(s)
+        assert s.state.cards[source.id].counters['age'] == 1
+        d = s.state.rules.decision
+>       assert d and d.player == 'p1'
+E       assert (None)
+
+../tests/test_upkeep91.py:220: AssertionError
+=========================== short test summary info ============================
+FAILED ../../../../Fyodor/backend::test_musician_own_cumulative_upkeep_actual_control_change_original_payment_probe
+!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!
+1 failed, 12 deselected in 5.61s

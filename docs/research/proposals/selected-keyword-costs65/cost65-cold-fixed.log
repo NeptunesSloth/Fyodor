@@ -1,0 +1,92 @@
+.F                                                                       [100%]
+=================================== FAILURES ===================================
+___________ test_genuine_cold_selected_cost[Nahiri, Storm of Stone] ____________
+
+cards = <app.cards.repository.CardRepository object at 0x7fabe569b500>
+tmp_path = PosixPath('/tmp/pytest-of-agent/pytest-6453/test_genuine_cold_selected_cos1')
+name = 'Nahiri, Storm of Stone'
+
+    @pytest.mark.parametrize('name',NAMES)
+    def test_genuine_cold_selected_cost(cards,tmp_path,name):
+        import subprocess
+        import sys
+
+        from app.rules import selected_keyword_costs65
+        if name == 'Warbringer':
+            s = table(cards,[name,'Mardu Strike Leader'])
+            put(s,name,'battlefield')
+            target = put(s,'Mardu Strike Leader','hand')
+            ready(s)
+            act(s,'p1',type='add_mana',player='p1',mana={'C':1,'B':1})
+            action = dict(type='cast_spell',card_id=target.id,dash=True,sources=[])
+            equipment_id = None
+        else:
+            s = table(cards,[name,'Silver-Inlaid Dagger','Merfolk of the Pearl Trident'])
+            source = put(s,name,'hand')
+            equipment = put(s,'Silver-Inlaid Dagger','battlefield')
+            target = put(s,'Merfolk of the Pearl Trident','battlefield')
+            ready(s)
+            act(s,'p1',type='add_mana',player='p1',mana={'C':2,'R':2})
+            act(s,'p1',type='cast_spell',card_id=source.id,sources=[])
+            answer(s)
+            act(s,'p1',type='add_mana',player='p1',mana={'C':1})
+            action = dict(type='activate_ability',card_id=equipment.id,ability=1,targets=[target.id],sources=[])
+            equipment_id = equipment.id
+        saved = tmp_path/'saved.json'
+        saved.write_text(s.state.model_dump_json())
+        spec = tmp_path/'spec.json'
+        spec.write_text(json.dumps(dict(name=name,target=target.id,equipment=equipment_id,action=action)))
+        code = '''
+    import sys,json
+    from pathlib import Path
+    from app.cards.images import ImageStore
+    from app.cards.repository import CardRepository
+    from app.game.session import GameSession
+    from app.game.state import GameState
+    from app.rules.plan import Plan
+    from tests.game_helpers import act
+    from tests.test_rules_activated_copy_family import answer
+    from tests.test_rules_suspend import until
+    from tests.test_rules_designations import roundtrip
+    repo=CardRepository(Path(sys.argv[2]),ImageStore(Path(sys.argv[2]).parent/'images'))
+    s=GameSession(GameState.model_validate_json(Path(sys.argv[1]).read_text()),cards=repo)
+    spec=json.loads(Path(sys.argv[3]).read_text())
+    act(s,'p1',**spec['action'])
+    answer(s)
+    assert not s.state.players['p1'].mana_units
+    c=s.state.cards[spec['target']]
+    if spec['name']=='Warbringer':
+     assert c.zone=='p1:battlefield' and 'haste' in Plan(s.state,'p1',repo,None).ch(c).keywords
+     until(s,lambda s:s.state.cards[c.id].zone!='p1:battlefield')
+     assert c.zone=='p1:hand'
+    else:
+     assert s.state.cards[spec['equipment']].attached_to==c.id
+     assert 'first strike' in Plan(s.state,'p1',repo,None).ch(c).keywords
+    roundtrip(s)
+    repo.close()
+    '''
+        result = subprocess.run([sys.executable,'-c',code,str(saved),str(cards.db_path),str(spec)],cwd=Path(selected_keyword_costs65.__file__).resolve().parents[2],capture_output=True,text=True,timeout=90)
+>       assert result.returncode == 0, result.stdout+result.stderr
+E       AssertionError: Traceback (most recent call last):
+E           File "<string>", line 16, in <module>
+E           File "/tmp/cost65-stage/backend/tests/game_helpers.py", line 42, in act
+E             return session.perform(actor, payload)
+E                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           File "/tmp/cost65-stage/backend/app/game/session.py", line 61, in perform
+E             resolved = resolve(self.state, action, actor=actor, cards=self.cards, trusted=trusted)
+E                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           File "/tmp/cost65-stage/backend/app/game/resolve.py", line 76, in resolve
+E             a.r = compile_intent(state, a, actor=actor, info=info, rng=rng)  # type: ignore[union-attr]
+E                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           File "/tmp/cost65-stage/backend/app/rules/engine.py", line 154, in compile_intent
+E             handler(plan, intent)
+E           File "/tmp/cost65-stage/backend/app/rules/casting.py", line 5352, in activate_ability
+E             raise ActionError(f"“{ability.text}” isn't an ability you activate")
+E         app.game.errors.ActionError: “As long as equipped creature is a Human, it gets an additional +1/+0.” isn't an ability you activate
+E
+E       assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['/workspace/Fyodor/backend/.venv/bin/python3', '-c', "\nimport sys,json\nfrom pathlib import Pa...ActionError: “As long as equipped creature is a Human, it gets an additional +1/+0.” isn\'t an ability you activate\n').returncode
+
+tests/test_rules_selected_keyword_costs65.py:322: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_rules_selected_keyword_costs65.py::test_genuine_cold_selected_cost[Nahiri, Storm of Stone]

@@ -1,0 +1,11 @@
+# Exiled Doomsayer: all morph costs cost two more
+
+The native global static increases actual morph and megamorph costs regardless of caster/controller. Mana costs and owner-visible turn-up hints use the current layered static. Normal face-down spell casting, disguise and a manifested creature's original mana-cost method remain separate native payments.
+
+Originally nonmana morph costs receive a real mana component. The player chooses the original nonmana objects before the native mana payment; a registered typed continuation carries the original source, chosen object incarnations, original cost and morph kind. It reserves life and excludes selected objects from automatic mana sources, rechecks original source and selected-object identity before payment, then pays the original cost and completes native face-up handling/megamorph counters. Reveal costs use existing reveal/hide actions. Engine registration makes the continuation available on reload.
+
+Validation: unified 13 native tests PASS, including one genuine fresh-process reload with a pending discard-cost selection. Tests cover both controller sides, two physical sources stacking, exact mana/multicolored costs, actual megamorph counter, insufficient mana atomicity with a life cost, actual life/discard/reveal costs, source departure, normal face-down cast costing three, disguise and manifest-original-mana exclusions. Related morph/facedown identity tests: 15 PASS. Mypy five source files and Ruff six source/test files PASS. The earlier probe failures were corrected test-fixture mistakes (DecisionOption attribute access, action name, printed Zombie Cutthroat cost, and resetting a morph face-down kind before manifest); they are not passing gates.
+
+Authority: full canonical card and empty official-printing rulings endpoint saved. Pinned CR 702.37b explicitly makes a megamorph cost a morph cost. CR 702.37e requires showing the would-be face-up morph cost, paying it and then turning the permanent face up; it is a special action, not casting or activating an ability. This patch does not apply generic spell/activated-ability taxes to it.
+
+Owned patch: five source files, 149 lines, isolated and root-reviewed. No live source edits or commits by this worker.

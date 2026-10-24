@@ -24,6 +24,7 @@ from app.rules.characteristics import CardInfo, Characteristics
 from app.rules.plan import Plan, decide, live_players
 from app.rules.sba import power, toughness
 from app.rules.statics import rule_arg, rule_selectors
+from app.rules.world_durations80 import native as world_native80
 
 Round = Literal["only", "first", "second"]
 
@@ -1095,6 +1096,10 @@ def _assigns(card: CardInstance, ch: Characteristics) -> int | None:
         return toughness(card, ch)
     # -- counters (wave 44C) -- 510.1a: "assigns combat damage as though its power were positive" (Loot, the Anomaly): only the amount assigned changes, not its power; a toughness-based assignment wins
     p = power(card, ch)
+    if "assign_toughness_if_tougher" in ch.imposed:
+        t = toughness(card, ch)
+        if p is not None and t is not None and t > p:
+            return t
     return abs(p) if p is not None and "assign_abs_power" in ch.imposed else p
 # -- end damage wordings (wave 6B) --
 
@@ -1372,6 +1377,7 @@ def after_damage(plan: Plan, dealt: list[tuple[str, str, int]]) -> None:
     triggers.collect(plan)
 
 
+@world_native80
 def end_combat(plan: Plan) -> None:
     from app.rules import permissions
 

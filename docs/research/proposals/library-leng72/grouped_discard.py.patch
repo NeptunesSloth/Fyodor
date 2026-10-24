@@ -1,0 +1,91 @@
+--- app/rules/grouped_discard.py
++++ app/rules/grouped_discard.py
+@@ -46,8 +46,10 @@
+                    options=[DecisionOption(id=str(i), label=c['candidate']['label']) for i, c in enumerate(candidates)],
+                    resume={'step': 'grouped_discard_replace', 'ctx': ctx, 'request': request, 'card': entry['card']})
+             return False
+-    from app.rules import attachments
++    from app.rules import attachments, library_leng72
+
++    if request.get('effect_discard72') and not library_leng72.prepare(plan, ctx, request):
++        return False
+     incoming = [e for e in request['cards'] if _selected(request, e).get('candidate', {}).get('outcome') == 'battlefield']
+     if incoming:
+         ctx['simultaneous_move'] = request
+@@ -73,7 +75,7 @@
+
+
+ def commit(plan: Plan, planned: list[Any], request: dict[str, Any]) -> None:
+-    from app.rules import history, replacements
++    from app.rules import history, library_leng72, replacements
+     from app.rules.plan import Plan as Scratch
+
+     actor = request['actor']
+@@ -96,21 +98,39 @@
+             continue
+         picked = _selected(request, entry)
+         candidate = replacements.Cand(**picked['candidate']) if picked else None
+-        outcome = candidate.outcome if candidate is not None else 'graveyard'
++        outcome = library_leng72.outcome(picked)
+         if outcome == 'battlefield' and cid not in incoming:
+             continue
+         routes[cid] = {'player': card.owner, 'zone': outcome.split(':')[0]}
+         selected.append((cid, candidate, picked.get('madness')))
++        entry['hidden72'] = library_leng72.hidden(plan, cid, picked)
+     if routes:
+         # All hand choices remain private until everyone has committed. This
+         # reveal also covers replacement destinations that stay hidden.
+-        plan.do({'type': 'reveal', 'card_ids': list(routes)}, actor=actor)
+-        history.note_discards(plan, [cid for cid, c, _ in selected if c is not None])
++        hidden = {e['card'] for e in request['cards'] if e.get('hidden72')}
++        public = [cid for cid in routes if cid not in hidden]
++        if public:
++            plan.do({'type': 'reveal', 'card_ids': public}, actor=actor)
++        for cid, candidate, _ in selected:
++            if candidate is not None and routes[cid]['zone'] != 'graveyard':
++                history.note_discards(plan, [cid], hidden72=cid in hidden)
+         payload: dict[str, Any] = {'type': 'move', 'card_ids': list(routes), 'to': {'zone': 'graveyard'}, 'routes': routes}
++        order = [cid for ids in request.get('top_order72', {}).values() for cid in ids]
++        if order:
++            payload.update(library_positions={cid: 'top' for cid in order}, library_order=order)
+         tapped = [c.id for _, c, ep in planned if ep.get('tapped')]
+         if tapped:
+             payload['tapped_ids'] = tapped
+         plan.do(payload, actor=actor)
++        from app.game.rules_state import emit, snapshot
++
++        for entry in request['cards']:
++            cid = entry['card']
++            if cid in routes and routes[cid]['zone'] == 'library':
++                card = plan.state.cards[cid]
++                emit(plan.state, 'discarded', object_id=entry['object'], new_object_id=plan.oid(card),
++                     card=None if cid in hidden else cid, discarded_snapshot=None if cid in hidden else snapshot(plan.state, cid), player=card.owner,
++                     from_zone=f'{card.owner}:hand', to_zone=card.zone, actor=actor)
+     for entry, card, ep in planned:
+         replacements._after_move(plan, entry, card.id, ep, incoming, prepared=prepared[card.id])
+     for cid, candidate, madness in selected:
+@@ -126,14 +146,15 @@
+             replacements._discard_into_exile(plan, cid, madness, actor, already_moved=True)
+
+
++
+ RESUME = {'grouped_discard_replace': resume}
+
+
+ def begin_cards(plan: Plan, ctx: dict[str, Any], card_ids: list[str]) -> bool:
+     """A mandatory effect discards these exact hand objects as one prepared event."""
+-    from app.rules import prohibitions, replacements
++    from app.rules import library_leng72, prohibitions, replacements
+
+-    request: dict[str, Any] = {'kind': 'discard_group', 'actor': ctx['controller'], 'cards': [], 'chosen': {}}
++    request: dict[str, Any] = {'kind': 'discard_group', 'actor': ctx['controller'], 'cards': [], 'chosen': {}, 'effect_discard72': True}
+     for cid in dict.fromkeys(card_ids):
+         card = plan.state.cards.get(cid)
+         if card is None or not card.zone.endswith(':hand') or prohibitions.cant_cause_discard(plan, card.owner, ctx['controller']) is not None:
+@@ -146,5 +167,5 @@
+         if (madness := replacements._madness_cost(plan, card)) is not None:
+             candidate = replacements.Cand('Madness', 'exile')
+             candidates['madness'] = {'candidate': candidate._asdict(), 'madness': madness}
+-        request['cards'].append({'card': cid, 'object': plan.oid(card), 'owner': card.owner, 'candidates': list(candidates.values())})
++        request['cards'].append({'card': cid, 'object': plan.oid(card), 'owner': card.owner, 'candidates': library_leng72.candidates(plan, card, list(candidates.values()))})
+     return _choose(plan, ctx, request)

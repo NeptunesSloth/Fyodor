@@ -1,0 +1,57 @@
+{
+  "Cache Grab": [
+    {
+      "object": "ruling",
+      "oracle_id": "06ccec61-27d2-4079-80b5-29ebd3a980ee",
+      "source": "wotc",
+      "published_at": "2024-11-08",
+      "comment": "Food is an artifact type. Even though it appears on some creatures, it's never a creature type."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "06ccec61-27d2-4079-80b5-29ebd3a980ee",
+      "source": "wotc",
+      "published_at": "2024-11-08",
+      "comment": "You can't sacrifice a Food to pay multiple costs. For example, you can't sacrifice a Food token to activate its own ability and also to activate Maraleaf Rider's ability."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "06ccec61-27d2-4079-80b5-29ebd3a980ee",
+      "source": "wotc",
+      "published_at": "2024-11-08",
+      "comment": "Whatever you do, don't eat the delicious cards."
+    }
+  ],
+  "Midnight Tilling": [],
+  "Sparring Dummy": [],
+  "Demonic Covenant": [
+    {
+      "object": "ruling",
+      "oracle_id": "393b9d9e-9d71-43e7-aede-eac7f85d2365",
+      "source": "wotc",
+      "published_at": "2024-09-20",
+      "comment": "Creatures that enter attacking are never declared as attackers, and as such, they won't cause Demonic Covenant's first ability to trigger."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "393b9d9e-9d71-43e7-aede-eac7f85d2365",
+      "source": "wotc",
+      "published_at": "2024-09-20",
+      "comment": "The card types in Magic include artifact, battle, creature, enchantment, instant, kindred, land, planeswalker, and sorcery. Legendary, basic, and snow are supertypes, not card types; Horror and Room are subtypes, not card types."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "393b9d9e-9d71-43e7-aede-eac7f85d2365",
+      "source": "wotc",
+      "published_at": "2024-09-20",
+      "comment": "Demonic Covenant's last ability will only cause you to sacrifice Demonic Covenant if both cards have the exact same combination of card types. Supertypes and subtypes are not taken into account."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "393b9d9e-9d71-43e7-aede-eac7f85d2365",
+      "source": "wotc",
+      "published_at": "2024-09-20",
+      "comment": "Demonic Covenant's first ability will trigger once for each player you attack with one or more Demons."
+    }
+  ]
+}

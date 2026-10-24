@@ -1,0 +1,36 @@
+{
+  "status": "READY \u2014 root native foundation/dependency review",
+  "names": [
+    "Tariff"
+  ],
+  "dependency": [
+    "permanent-life-payments83",
+    "manual-choice-mana85"
+  ],
+  "native": {
+    "distinct": 12,
+    "genuine_cold": 1,
+    "prior9": "PASS10.26s",
+    "actual_manual3": "PASS8.21s",
+    "consolidated_current": "Fresh12 PASS within final82 incl1 genuine cold"
+  },
+  "prior_evidence": "initial6 passed in whole21; disjoint additional real mana-ability sacrifice and Sigarda2 passed2.30s",
+  "mypy": 3,
+  "related": 88,
+  "install_test": "backend/tests/test_rules_greatest_creature_payments84.py",
+  "install_fixture": "backend/tests/fixtures/tariff84_cards.json",
+  "patch_sha256": "da20e41f149717f60e56444c7b1f43ee1c8f99f1977175d691a323f00f8d6266",
+  "ruff": 5,
+  "hold": "Native manual-mana boundary repaired and final optional/deferred gates passed; root reviews independent manual85 and shared83 dependencies before integration.",
+  "final_current_source_gate": {
+    "passed": 82,
+    "seconds": 247.05,
+    "components": {
+      "Fade Away": 6,
+      "Tariff": 12,
+      "optional_payment": 38,
+      "deferred_payment82": 26
+    },
+    "stage": "/tmp/payment83-world-stage"
+  }
+}

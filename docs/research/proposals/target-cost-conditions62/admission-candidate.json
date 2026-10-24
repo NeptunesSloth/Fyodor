@@ -1,0 +1,35 @@
+{
+  "status": "REVIEW READY; isolated proof gates closed; root accepted scope. UNINSTALLED and uncounted until root integration/catalog audit.",
+  "names": [
+    "Ghostfire Blade",
+    "Raft Security Officer",
+    "Strong Back",
+    "Kopala, Warden of Waves"
+  ],
+  "stage": "/tmp/cost62-stage/backend",
+  "patch": "docs/research/proposals/target-cost-conditions62/production-candidate.patch",
+  "production_test_path": "backend/tests/test_rules_target_cost_conditions62.py",
+  "production_fixture_path": "backend/tests/fixtures/target_cost_conditions62_cards.json",
+  "whole": {
+    "passed": 23,
+    "cold": 4
+  },
+  "types": "PASS 5 app files after explicit helper dict annotation",
+  "ruff": "PASS configured Ruff5 app files and native test",
+  "related": {
+    "passed": 75,
+    "failed": 0,
+    "log": "docs/research/proposals/target-cost-conditions62/cost62-related.log"
+  },
+  "held": [
+    "Wayta, Trainer Prodigy remains partial; no Wayta changes in this patch"
+  ],
+  "source_hashes": {
+    "target_cost_conditions62.py": "07bf2678d5ac842728dd51abb3057340400ec8f1dc21334139f267c7d1069e50",
+    "cost_changes.py": "14b9854352d90aaeb3bf5bde57d6dcbafa0b233adef060376674429e5f67aeb7",
+    "casting.py": "71b63d35aca72c1de907e25a1750577d4a2b1ae10da24b746071c88145c3a793",
+    "scripts.py": "45c0e5587b2337264c45f948dfe27329ccfec6f0c5d3cdd6eb22fa499ec6657b",
+    "permissions.py": "d036f92b462bf4888c2a1a3a7de386ccc78176cf2af6ec72e77310a80b73eb2a"
+  },
+  "source_basis": "Owned stage source predates concurrent text71 additions. Patch reconstructed only own hunks and applies clean to current production; must never replace these shared files wholesale."
+}

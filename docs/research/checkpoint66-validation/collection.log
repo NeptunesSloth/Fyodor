@@ -1,0 +1,9 @@
+tests/test_rules_chosen_forms95.py: 34
+tests/test_rules_exchange_spells93.py: 22
+tests/test_rules_gwenom_top70.py: 13
+tests/test_rules_sacrifice_type_costs82.py: 8
+tests/test_rules_sacrifice_type_costs82_extra.py: 6
+tests/test_rules_source_named_reflexive69.py: 26
+tests/test_rules_stack_granted_abilities84.py: 20
+tests/test_rules_target_conditional_costs81.py: 19
+

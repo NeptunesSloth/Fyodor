@@ -931,6 +931,10 @@ def test_overlord_cast_for_its_impending_cost_enters_with_four_time_counters_and
     assert s.state.cards[overlord.id].counters.get("time") == 3 and not is_creature(s, "Overlord of the Mistmoors")
     act(s, "p1", type="counter", card_ids=[overlord.id], kind="time", delta=-3)  # (the table tool: the last counter is gone)
     assert is_creature(s, "Overlord of the Mistmoors")
+    act(s, "p1", type="counter", card_ids=[overlord.id], kind="time", delta=1)
+    assert not is_creature(s, "Overlord of the Mistmoors")
+    act(s, "p1", type="counter", card_ids=[overlord.id], kind="time", delta=-1)
+    assert is_creature(s, "Overlord of the Mistmoors")
     check(s)
 
 
@@ -1283,7 +1287,7 @@ def test_a_replicate_cost_is_offered_to_a_free_cast_as_often_as_the_energy_allow
     """Seven energy pay for two replicates (six) but not three: the caster (only) is asked, kicker:1 and kicker:2 are the options; the energy is paid."""
     s = gandalf_bolt(cards, 7)
     d = optional_question(s)
-    assert d is not None and d.player == "p1" and [o.id for o in d.options] == ["kicker:1", "kicker:2"]
+    assert d is not None and d.player == "p1" and [o.id for o in d.options if o.id != "kicker:other"] == ["kicker:1", "kicker:2"]
     assert d.options[0].label == "Replicate—Pay {E}{E}{E}" and "Replicate" not in json.dumps(s.view("p2")["rules"]["decision"])
     s = reloaded_session(s)  # a save and a load in the middle of the question
     pick(s, "kicker:2")
@@ -1300,12 +1304,14 @@ def test_a_replicate_cost_is_offered_to_a_free_cast_as_often_as_the_energy_allow
 
 
 def test_a_replicate_cost_the_caster_cant_pay_is_not_offered_to_a_free_cast(cards):
-    """Three energy: one replicate is offered, two is not (a partial payment is never an option, 118.3); two energy: no question at all."""
+    """Only payable preset counts are offered; the generic typed-count entry never pays a cost by itself."""
     s = gandalf_bolt(cards, 3)
     d = optional_question(s)
-    assert d is not None and [o.id for o in d.options] == ["kicker:1"]
+    assert d is not None and [o.id for o in d.options if o.id != "kicker:other"] == ["kicker:1"]
     s = gandalf_bolt(cards, 2)
-    assert optional_question(s) is None
+    d = optional_question(s)
+    assert d is not None and [o.id for o in d.options] == ["kicker:other"]
+    pick(s)  # Decline the generic typed-count entry; no partial replicate was paid.
     d = s.state.rules.decision
     assert d is not None and "target" in d.prompt.lower()
     check(s)

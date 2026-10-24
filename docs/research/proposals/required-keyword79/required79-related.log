@@ -1,0 +1,40 @@
+...................................................FFF....F............. [ 28%]
+........................................................................ [ 56%]
+........................................................................ [ 84%]
+.......................................                                  [100%]
+=================================== FAILURES ===================================
+_ test_wordings_still_refused[You may exile a blue card with mana value X from your hand rather than pay this spell's mana cost.] _
+/workspace/Fyodor/backend/tests/test_rules_wave4i_cost_changers.py:176: in test_wordings_still_refused
+    assert permissions.define_static(text[0].lower() + text[1:], "static") is None
+E   assert {'kind': 'static', 'static': 'alt_cost', 'cost': 'exile a blue card with mana value X from your hand', 'cond': None, ...} is None
+E    +  where {'kind': 'static', 'static': 'alt_cost', 'cost': 'exile a blue card with mana value X from your hand', 'cond': None, ...} = <function define_static at 0x7fd1fb4e76a0>(('y' + "ou may exile a blue card with mana value X from your hand rather than pay this spell's mana cost."), 'static')
+E    +    where <function define_static at 0x7fd1fb4e76a0> = permissions.define_static
+E    +    and   'y' = <built-in method lower of str object at 0x1557ce0>()
+E    +      where <built-in method lower of str object at 0x1557ce0> = 'Y'.lower
+_ test_wordings_still_refused[You may discard an Island card and another card rather than pay this spell's mana cost.] _
+/workspace/Fyodor/backend/tests/test_rules_wave4i_cost_changers.py:176: in test_wordings_still_refused
+    assert permissions.define_static(text[0].lower() + text[1:], "static") is None
+E   assert {'kind': 'static', 'static': 'alt_cost', 'cost': 'discard an Island card and another card', 'cond': None, ...} is None
+E    +  where {'kind': 'static', 'static': 'alt_cost', 'cost': 'discard an Island card and another card', 'cond': None, ...} = <function define_static at 0x7fd1fb4e76a0>(('y' + "ou may discard an Island card and another card rather than pay this spell's mana cost."), 'static')
+E    +    where <function define_static at 0x7fd1fb4e76a0> = permissions.define_static
+E    +    and   'y' = <built-in method lower of str object at 0x1557ce0>()
+E    +      where <built-in method lower of str object at 0x1557ce0> = 'Y'.lower
+_ test_wordings_still_refused[If you control a Forest, rather than pay this spell's mana cost, you may have each other player gain 5 life.] _
+/workspace/Fyodor/backend/tests/test_rules_wave4i_cost_changers.py:176: in test_wordings_still_refused
+    assert permissions.define_static(text[0].lower() + text[1:], "static") is None
+E   assert {'kind': 'static', 'static': 'alt_cost', 'cost': 'have each other player gain 5 life', 'cond': {'value': {'count': 'sel:{"controller":"you","subtypes":["Forest"]}'}, 'op': '>=', 'n': 1}, ...} is None
+E    +  where {'kind': 'static', 'static': 'alt_cost', 'cost': 'have each other player gain 5 life', 'cond': {'value': {'count': 'sel:{"controller":"you","subtypes":["Forest"]}'}, 'op': '>=', 'n': 1}, ...} = <function define_static at 0x7fd1fb4e76a0>(('i' + "f you control a Forest, rather than pay this spell's mana cost, you may have each other player gain 5 life."), 'static')
+E    +    where <function define_static at 0x7fd1fb4e76a0> = permissions.define_static
+E    +    and   'i' = <built-in method lower of str object at 0x15579e0>()
+E    +      where <built-in method lower of str object at 0x15579e0> = 'I'.lower
+_____ test_an_activated_ability_with_an_unread_cost_sentence_stays_manual ______
+/workspace/Fyodor/backend/tests/test_rules_wave4i_cost_changers.py:189: in test_an_activated_ability_with_an_unread_cost_sentence_stays_manual
+    assert not ok(text, "Raft Security Officer", "Artifact Creature — Robot")
+E   AssertionError: assert not True
+E    +  where True = ok('{2}, {T}: Tap target creature. This ability costs {1} less to activate if it targets a creature with power 3 or less.', 'Raft Security Officer', 'Artifact Creature — Robot')
+=========================== short test summary info ============================
+FAILED tests/test_rules_wave4i_cost_changers.py::test_wordings_still_refused[You may exile a blue card with mana value X from your hand rather than pay this spell's mana cost.]
+FAILED tests/test_rules_wave4i_cost_changers.py::test_wordings_still_refused[You may discard an Island card and another card rather than pay this spell's mana cost.]
+FAILED tests/test_rules_wave4i_cost_changers.py::test_wordings_still_refused[If you control a Forest, rather than pay this spell's mana cost, you may have each other player gain 5 life.]
+FAILED tests/test_rules_wave4i_cost_changers.py::test_an_activated_ability_with_an_unread_cost_sentence_stays_manual
+4 failed, 251 passed in 123.22s (0:02:03)

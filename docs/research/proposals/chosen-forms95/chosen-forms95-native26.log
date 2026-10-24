@@ -1,0 +1,39 @@
+..................FFF.....                                               [100%]
+=================================== FAILURES ===================================
+________ test_actual_token_copy_chooses_own_form_and_inherits_keywords _________
+tests/test_rules_chosen_forms95.py:177: in test_actual_token_copy_chooses_own_form_and_inherits_keywords
+    cast(s,'Cackling Counterpart',targets=[source.id]);choose(s,'1/6 defender')
+                                                       ^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_rules_chosen_forms95.py:87: in choose
+    act(s,d.player,type='choose',decision_id=d.id,option_ids=[answer]);settle(s)
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/game_helpers.py:42: in act
+    return session.perform(actor, payload)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/game/session.py:61: in perform
+    resolved = resolve(self.state, action, actor=actor, cards=self.cards, trusted=trusted)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/game/resolve.py:76: in resolve
+    a.r = compile_intent(state, a, actor=actor, info=info, rng=rng)  # type: ignore[union-attr]
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/engine.py:164: in compile_intent
+    handler(plan, intent)
+app/rules/engine.py:1447: in choose
+    raise ActionError("Choose from the options offered")
+E   app.game.errors.ActionError: Choose from the options offered
+______________ test_preentry_form_visible_to_actual_power_trigger ______________
+tests/test_rules_chosen_forms95.py:190: in test_preentry_form_visible_to_actual_power_trigger
+    assert len(s.state.zones['p1:hand'])==before+1
+E   AssertionError: assert 1 == (1 + 1)
+E    +  where 1 = len(['6dab97966238'])
+__________ test_shapeshifter_upkeep_last_choice_and_optional_decline ___________
+tests/test_rules_chosen_forms95.py:198: in test_shapeshifter_upkeep_last_choice_and_optional_decline
+    assert ch(s,source).pt==(1,6)
+E   assert (6, 1) == (1, 6)
+E
+E     At index 0 diff: 6 != 1
+E     Use -v to get more diff
+=========================== short test summary info ============================
+FAILED tests/test_rules_chosen_forms95.py::test_actual_token_copy_chooses_own_form_and_inherits_keywords
+FAILED tests/test_rules_chosen_forms95.py::test_preentry_form_visible_to_actual_power_trigger
+FAILED tests/test_rules_chosen_forms95.py::test_shapeshifter_upkeep_last_choice_and_optional_decline

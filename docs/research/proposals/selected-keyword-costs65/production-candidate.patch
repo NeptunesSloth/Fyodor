@@ -1,0 +1,94 @@
+--- a/backend/app/rules/casting.py
++++ b/backend/app/rules/casting.py
+@@ -3484,10 +3484,14 @@
+             raise ActionError("Only a card with evoke can be cast for its evoke cost from your hand")
+         alternative = M.parse_cost(evoke)
+     if a.dash:
++        if alternative is not None:
++            raise ActionError("Only one alternative cost can be applied to a spell (118.9a)")
+         dash = keyword_cost(ch, "dash", DASH)
+-        if dash is None or card.zone != zone_key(plan.actor, "hand"):
+-            raise ActionError("Only a card with dash can be cast for its dash cost from your hand")
+-        alternative = M.parse_cost(dash)
++        if dash is None:
++            raise ActionError("That spell has no dash cost")
++        if grant is not None and (grant.how in ('flashback', 'foretell', 'escape') or grant.alt_mana or grant.life_mv):
++            raise ActionError("The selected casting permission requires a different alternative cost (118.9a)")
++        alternative = M.parse_cost(dash)  # 702.109a: the actual casting permission, not dash, determines the allowed zone.
+     if a.awaken:  # -- static_other sweep (wave 16B) -- 702.113a: an alternative cost; its text is the spell's "if cast for its awaken cost" line
+         if a.evoke or a.dash or a.face_down or alternative is not None or keyword_cost(ch, "awaken", AWAKEN) is None \
+                 or card.zone != zone_key(plan.actor, "hand"):
+@@ -3674,6 +3678,10 @@
+         add_objects = found_objects
+     emerge_reduction = 0  # -- casting extras (wave 18E) -- 702.119a: reduced by the sacrificed permanent's mana value; 702.180a: harmonize, by
+     # the tapped creature's power
++    if a.dash:
++        from app.rules import selected_keyword_costs65
++
++        emerge_reduction += selected_keyword_costs65.dash_discount(plan.state, plan.actor, plan.info)
+     if alt_offer is not None and alt_offer.tag == "blitz":
+         from app.rules import dynamic_keyword_costs55
+
+--- a/backend/app/rules/permissions.py
++++ b/backend/app/rules/permissions.py
+@@ -1801,11 +1801,14 @@
+     """The mana part of an activated ability's cost after "Activated abilities of creatures you control cost {2} less to
+     activate" and its increases: increases first, then reductions on the generic component only (118.7a, 601.2f), and with
+     "can't reduce the mana in that cost to less than one mana" never below one mana. Costs with {X} are left alone."""
+-    cost_statics = _table_statics(state, info, {"ability_cost_modifier", "cost_modifier"})
++    cost_statics = _table_statics(state, info, {"ability_cost_modifier", "cost_modifier", "grant"})
+     mods = [(src, d) for src, _, d in cost_statics if d.get("static") == "ability_cost_modifier"]
+     from app.rules import caster_turn_costs63
+
+     mods += caster_turn_costs63.ability_modifiers(state, player, cost_statics)
++    from app.rules import selected_keyword_costs65
++
++    mods += selected_keyword_costs65.ability_modifiers(state, player, cost_statics)
+     if capture is not None:
+         capture.append(0)
+     if not mods and not own:  # (own: the ability's "This ability costs {1} less …", wave 4I)
+--- a/backend/app/rules/scripts.py
++++ b/backend/app/rules/scripts.py
+@@ -6093,6 +6093,11 @@
+     if (source_discount := source_spell_discounts64.definition(ability, ch)) is not None:
+         return source_discount
+
++    from app.rules import selected_keyword_costs65
++
++    if (selected_keyword := selected_keyword_costs65.definition(ability, ch)) is not None:
++        return selected_keyword
++
+     from app.rules import first_target_activation_cost58
+
+     if (first_target_cost := first_target_activation_cost58.definition(ability, ch)) is not None:
+--- /dev/null
++++ b/backend/app/rules/selected_keyword_costs65.py
+@@ -0,0 +1,28 @@
++"""Keyword-specific prices retain native total-cost order and current source-turn scope."""
++from __future__ import annotations
++
++from typing import Any
++
++
++def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
++    from app.rules import scripts, statics
++
++    text = scripts.self_text(ability.text, ch.name)
++    if text == 'Dash costs you pay cost {2} less.':
++        return {'kind': 'static', 'static': 'dash_reduction65', 'effects': []}
++    if text == 'During your turn, creatures you control have first strike and equip abilities you activate cost {1} less to activate.':
++        native = statics.parse('During your turn, creatures you control have first strike.')
++        return {**native, 'own_turn_equip65': True} if native is not None else None
++    return None
++
++
++def dash_discount(state: Any, player: str, info: Any) -> int:
++    from app.rules import permissions
++
++    return 2 * sum(source.controller == player for source, _, _ in permissions._table_statics(state, info, {'dash_reduction65'}))
++
++
++def ability_modifiers(state: Any, player: str, definitions: list[Any]) -> list[Any]:
++    return [(source, {'delta': -1, 'filter': None, 'who': 'you', 'floor': False, 'equip': True})
++            for source, _, definition in definitions if definition.get('own_turn_equip65')
++            and source.controller == player and state.turn.active_player == source.controller]

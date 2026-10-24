@@ -127,6 +127,8 @@ class CostComponent:
     names: str | None = None  # CR 201.2a–b: a constraint on the entire chosen payment group
     all_objects: bool = False  # Every matching controlled permanent, including an empty set.
     amount_rule: Literal["opponents"] | None = None  # Bound when the actual activation total is determined.
+    gain_scope: Literal["each_other_player"] | None = None  # Nominal life-gain cost paid to every other live player.
+    source_with_choices: bool = False  # One graveyard-exile instruction includes its required source and selected others.
 
     @property
     def chosen(self) -> bool:
@@ -154,7 +156,7 @@ class CostComponent:
         spell's additional cost."""
         return self.amount_rule is not None or self.kind in WAVE_4H_KINDS or self.names is not None or self.selector_x or (self.x and self.kind != PAY_ENERGY) or self.counter == ANY_COUNTER or self.among \
             or self.life_rule is not None or (self.kind == EXILE and self.selector is not None) \
-            or self.alt is not None or self.named_self
+            or self.alt is not None or self.named_self or self.source_with_choices
 
 
 @dataclass(frozen=True)
@@ -219,7 +221,7 @@ class AbilityCost:
     @property
     def from_graveyard(self) -> bool:
         """113.6m: "Exile this card from your graveyard" — the ability works only from there."""
-        return self.graveyard_only or any(c.kind == EXILE_FROM_GRAVEYARD and c.selector is None for c in self.components)
+        return self.graveyard_only or any(c.kind == EXILE_FROM_GRAVEYARD and (c.selector is None or c.source_with_choices) for c in self.components)
 
     @property
     def energy_x(self) -> bool:
@@ -396,6 +398,10 @@ def _component(part: str, card_name: str) -> CostComponent | None:
 
 
 def parse_ability_cost(cost: str, *, card_name: str = "", loyalty: bool = False, anyn: bool = True) -> AbilityCost:
+    from app.rules import source_named_cost69
+
+    if not loyalty and (source69 := source_named_cost69.parse(cost)) is not None:
+        return source69
     if not loyalty and cost.strip() == '{6}, Roll a d8':
         return replace(parse_ability_cost('{6}', card_name=card_name, anyn=anyn), numeric_roll_sides=8)
     cost = re.sub(r'Remove twelve ([\w+/\-]+) counters from ([^,{}:]+?) and exile it', r'Remove 12 \1 counters from \2, Exile \2', cost)
@@ -557,6 +563,10 @@ def _craft_part(m: re.Match[str], part: str) -> CostComponent | None:
 
 def _one_4h(part: str, card_name: str) -> CostComponent | None:
     """One more part (the list above), or None."""
+    from app.rules import colored_reveal_x87
+
+    if (colored87 := colored_reveal_x87.component(part)) is not None:
+        return colored87
     from app.rules import fixed_top_graveyard_cost46, ordered_zone_costs46
 
     if (fixed_top := fixed_top_graveyard_cost46.component(part)) is not None:
@@ -747,8 +757,21 @@ def kicker_mixed_parts(line: str) -> tuple[str, str] | None:
     return (m["mana"], rest) if found is not None and found.mana == m["mana"] and found.cost.components else None
 
 
+def positive_kicker_x(line: str) -> str | None:
+    """An actual keyword's explicit lower bound on its single announced kicker X."""
+    suffix = ". X can't be 0"
+    text = line.strip().rstrip(".")
+    if not text.endswith(suffix):
+        return None
+    match = _KICKER.fullmatch(text[:-len(suffix)])
+    return match["cost"] if match is not None and match["cost"].upper().count("{X}") == 1 and not any(
+        match[k] for k in ("multi", "many", "once", "entwine")) and _MANA_ONLY.match(match["cost"]) else None
+
+
 def kicker_line(line: str) -> bool:
     """Is this keyword line a kicker the engine pays ("Kicker {2}{R}", "Multikicker {1}")?"""
+    if positive_kicker_x(line) is not None:
+        return True
     if _entwine_extra(line) is not None or kicker_extra_parts(line) is not None or kicker_mixed_parts(line) is not None:
         return True
     if (two := _KICKER2.fullmatch(line.strip().rstrip("."))) is not None:  # (-- keywords (wave 50H) -- both mana only, no {X})
@@ -767,6 +790,7 @@ class Kicker:
     extra: str = ""  # (an entwine cost that isn't mana: "sacrifice two lands", paid with the additional costs)
     text: str = ""  # -- free-cast optional costs (wave 41D) -- the keyword line ("Kicker {R}", "Squad {2}"): the label of the question
     second: str = ""  # -- keywords (wave 50H) -- 702.33b: "Kicker {A} and/or {B}": B, the second kicker cost. Then the cast's ``kicker`` is a mask (1: A, 2: B, 3: both)
+    minimum_x: int = 0  # Only the actual selected keyword may constrain its announced X.
 
     def paid(self, times: int) -> int:
         """-- keywords (wave 50H) -- how many kicker costs the cast's ``kicker`` pays (702.33d): the bits of the mask of two costs, else the count."""
@@ -785,6 +809,9 @@ def kicker_cost(abilities: Iterable[AbilityText]) -> Kicker | None:
     found: list[Kicker] = []
     for ab in abilities:
         if ab.kind != "keywords" or not ({"kicker", "multikicker", "squad", "replicate", "offspring", "entwine"} & set(ab.keywords)):
+            continue
+        if (positive := positive_kicker_x(ab.text)) is not None:
+            found.append(Kicker(positive, text=ab.text.strip().rstrip("."), minimum_x=1))
             continue
         if (extra := _entwine_extra(ab.text)) is not None:
             found.append(Kicker("", entwine=True, extra=extra))
@@ -940,7 +967,8 @@ def parse_additional_cost(text: str) -> AbilityCost | None:
             # off-battlefield source. Keep variable/optional counter costs refused.
             counter_part = _one_4h(part[:1].upper() + part[1:], "")
             if (counter_part is not None and counter_part.kind == REMOVE_COUNTER
-                    and counter_part.selector is not None and counter_part.among
+                    and counter_part.selector is not None
+                    and (counter_part.among or part.lower() == "remove a counter from a creature you control")
                     and not counter_part.x and not counter_part.more and counter_part.amount > 0):
                 components.append(counter_part)
                 continue

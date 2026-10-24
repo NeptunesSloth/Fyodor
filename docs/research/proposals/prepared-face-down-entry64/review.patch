@@ -1,0 +1,232 @@
+--- /dev/null
++++ b/backend/app/rules/face_down_entries64.py
+@@ -0,0 +1,53 @@
++"""Native entry descriptors for cards an instruction puts onto the battlefield face down."""
++from __future__ import annotations
++
++from typing import TYPE_CHECKING, Any
++
++from app.game.errors import ActionError
++
++if TYPE_CHECKING:
++    from app.game.state import CardInstance
++    from app.rules.plan import Plan
++
++KEY = 'face_down_entry64'
++
++
++def probe(plan: Plan, card: CardInstance, entry: dict[str, Any]) -> CardInstance:
++    form = entry.get(KEY)
++    if form is None:
++        return card
++    actual = plan.state.cards.get(card.id)
++    if actual is None or plan.oid(actual) != form.get('object') or actual.zone != form.get('zone'):
++        raise ActionError('A selected face-down entry is no longer its original object')
++    return card.model_copy(update={'face_down': True, 'face_down_kind': form['kind'], 'face_down_as': form['spec']})
++
++
++def validate(plan: Plan, entries: list[dict[str, Any]]) -> None:
++    for entry in entries:
++        if KEY not in entry:
++            continue
++        card = plan.state.cards.get(entry['card'])
++        if card is not None and (card.owner not in plan.live() or entry['player'] not in plan.live()):
++            entry['stays'] = True  # 800.4a: departed players' cards remain table records only.
++            continue
++        if card is None:
++            raise ActionError('A selected face-down entry is no longer its original object')
++        probe(plan, card, entry)
++
++
++def payload(entries: list[dict[str, Any]], move: dict[str, Any]) -> None:
++    forms = [entry.get(KEY) for entry in entries]
++    if not any(forms):
++        return
++    if not all(forms) or len({(form['kind'], form['spec']) for form in forms if form}) != 1:
++        raise ActionError('Mixed face-down entry forms require a prepared native move')
++    form = forms[0]
++    assert form is not None
++    move.update(face_down=True, face_down_kind=form['kind'], face_down_as=form['spec'])
++
++
++def prepare(plan: Plan, cards: list[str], controller: str, *, under_you: bool, spec: str | None = None, tapped: bool = False) -> list[dict[str, Any]]:
++    return [{'card': cid, 'player': controller if under_you else plan.state.cards[cid].owner,
++             'actor': controller, 'tapped': tapped,
++             KEY: {'object': plan.oid(cid), 'zone': plan.state.cards[cid].zone,
++                   'kind': 'generic', 'spec': spec}} for cid in cards]
+--- /dev/null
++++ b/backend/app/rules/cyber_controller63.py
+@@ -0,0 +1,31 @@
++"""Bounded actual public mill cards returned with native face-down characteristics."""
++from __future__ import annotations
++
++from typing import TYPE_CHECKING, Any
++
++if TYPE_CHECKING:
++    from app.rules.plan import Plan
++
++_BODY = "Each opponent mills X cards. Put all creature cards milled this way onto the battlefield face down under your control. They're 2/2 Cyberman artifact creatures."
++_PUBLIC = ('graveyard', 'exile', 'battlefield', 'command', 'stack')
++
++
++def parse(body: str) -> tuple[list[dict[str, Any]], Any, bool] | None:
++    if body.strip().casefold() != _BODY.casefold():
++        return None
++    return [{'do': 'mill', 'who': 'each_opponent', 'n': {'x': 1}, 'as': 'cyber_mill63'},
++            {'do': 'cyber_return63'}], None, False
++
++
++def return_creatures(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
++    from app.rules import context, effects
++
++    selected = [cid for cid in context.objects(plan, ctx, 'cyber_mill63')
++                if plan.state.cards[cid].zone.rsplit(':', 1)[-1] in _PUBLIC
++                and not plan.state.cards[cid].face_down and 'Creature' in plan.ch(plan.state.cards[cid]).types]
++    context.bind_objects(plan, ctx, 'cyber_return63', selected)
++    return effects.return_card(plan, ctx, {'do': 'return_card', 'who': 'ref:cyber_return63', 'to': 'battlefield',
++                                          'under': 'you', 'face_down': True, 'spec': '2/2 Cyberman artifact creature'})
++
++
++PRIMITIVES = {'cyber_return63': return_creatures}
+--- a/backend/app/rules/attachments.py
++++ b/backend/app/rules/attachments.py
+@@ -318,13 +318,16 @@
+     rest continue on resume, then ``shuffle``'s library is shuffled — "put it onto the battlefield,
+     then shuffle" — and ``ctx``'s effects go on)."""
+     from app.rules import characteristics as chars
+-    from app.rules import copying, replacements
+-
++    from app.rules import copying, face_down_entries64, replacements
++
++    face_down_entries64.validate(plan, entries)
+     for back in (e for e in entries if e.get("to") == "hand"):  # -- resolution memory (wave 22D) -- 610.3: exiled from a hand, returns there
+         plan.do({"type": "move", "card_ids": [back["card"]], "to": {"player": back["player"], "zone": "hand"}}, actor=back["actor"])
+     entries = [dict(e) for e in entries if e.get("to") != "hand"]
+     for i, entry in enumerate(entries):
+         card = plan.state.cards.get(entry["card"])
++        if card is not None:
++            card = face_down_entries64.probe(plan, card, entry)
+         if card is not None and entry.get("transformed") and not chars.transformable(card, plan.info):
+             entry["stays"] = True  # -- transform (wave 11A) -- 712.14a: a card that isn't a double-faced card stays where it is
+         if card is None or entry.get("stays"):
+--- a/backend/app/rules/replacements.py
++++ b/backend/app/rules/replacements.py
+@@ -483,6 +483,9 @@
+     """The choice a permanent's own "As ~ enters, you may …" asks for before it enters (614.12a)."""
+     if not plan.state.players.get(entry["player"]):
+         return None
++    from app.rules import face_down_entries64
++
++    card = face_down_entries64.probe(plan, card, entry)
+     if entry.get("modal_back"):  # -- play now (wave 28A) -- 712.12: the land face chosen enters face up, so its replacements apply
+         card = card.model_copy(update={"face": 1})
+     return entry_plan(plan, card, entry["player"], pay_life=entry.get("pay_life"), tapped=bool(entry.get("tapped")),
+@@ -748,6 +751,9 @@
+         card = plan.state.cards.get(entry["card"])
+         if card is None or any(card.id == c.id for _, c, _ in planned):
+             continue
++        from app.rules import face_down_entries64
++
++        card = face_down_entries64.probe(plan, card, entry)
+         # (-- transform, wave 11A -- 712.14a: it enters with its back face up, so that face's replacement effects apply)
+         planned.append((entry, card, entry_plan(plan, card.model_copy(update={"face": 1}) if entry.get("transformed") or entry.get("modal_back") else card,
+                                                  entry["player"], pay_life=entry.get("pay_life"),
+@@ -812,6 +818,9 @@
+     first = planned[0][0]
+     payload: dict[str, Any] = {"type": "move", "card_ids": [c.id for _, c, _ in planned],
+                                "to": {"player": first["player"], "zone": "battlefield"}}
++    from app.rules import face_down_entries64
++
++    face_down_entries64.payload([entry for entry, _, _ in planned], payload)
+     forms = {c.id: e["entry_characteristics"] for e, c, _ in planned if e.get("entry_characteristics")}
+     if forms:
+         payload["entry_characteristics"] = forms
+--- a/backend/app/rules/scripts.py
++++ b/backend/app/rules/scripts.py
+@@ -2653,6 +2653,10 @@
+
+
+ def parse_effects(body: str, it: str | None = None, *, event_player: bool = False) -> tuple[list[dict[str, Any]], Any, bool] | None:
++    from app.rules import cyber_controller63
++
++    if (cyber63 := cyber_controller63.parse(body)) is not None:
++        return cyber63
+     from app.rules import post_mill_continuations60
+
+     if (admitted := post_mill_continuations60.parse(body)) is not None:
+--- a/backend/app/rules/effects.py
++++ b/backend/app/rules/effects.py
+@@ -2790,14 +2790,15 @@
+             plan.do({"type": "move", "card_ids": [cid], "to": {"player": card.owner, "zone": "hand"}}, actor=ctx["controller"])
+         _moved(plan, ctx, e, before)
+         return True
+-    if e.get("face_down"):  # -- hidden exile (wave 18A) -- 708.4: enters face down (a 2/2 creature; turned up with its morph cost)
+-        from app.rules import facedown
+-
+-        for cid in cards:
+-            facedown.put_face_down(plan, cid, ctx["controller"] if e.get("under") == "you" else plan.state.cards[cid].owner,
+-                                   "generic", actor=ctx["controller"], spec=e.get("spec"))
+-        _moved(plan, ctx, e, before)
+-        return True
++    if e.get("face_down"):
++        from app.rules import face_down_entries64
++
++        entries = face_down_entries64.prepare(plan, cards, ctx["controller"], under_you=e.get("under") == "you",
++                                              spec=e.get("spec"), tapped=bool(e.get("tapped")))
++        done = attachments.enter(plan, entries, ctx)
++        if done:
++            _moved(plan, ctx, e, before)
++        return done
+     from app.rules import conditions as entry_conditions
+
+     entry_counter_applies = not e.get('counter_condition') or entry_conditions.holds(plan, ctx, e['counter_condition'])
+@@ -6747,3 +6748,7 @@
+ from app.rules import target_duration_costs69 as _target_duration69  # noqa: E402
+
+ PRIMITIVES.update(_target_duration69.PRIMITIVES)
++
++from app.rules import cyber_controller63  # noqa: E402
++
++PRIMITIVES.update(cyber_controller63.PRIMITIVES)
+--- a/backend/app/rules/facedown.py
++++ b/backend/app/rules/facedown.py
+@@ -304,7 +304,7 @@
+
+ def put_down(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+     """"Put the top N cards of [a player's] library / any number of cards from your hand onto the battlefield face down [as …]": under
+-    the controller's control, one at a time (each is a face-down 2/2 or what the effect says, 708.2a). The hand cards are chosen
++    the controller's control together (each is a face-down 2/2 or what the effect says, 708.2a). The hand cards are chosen
+     privately, and the question is asked even with an empty hand (it tells nothing)."""
+     pid = ctx["controller"]
+     if e["from"] == "hand":
+@@ -316,20 +316,21 @@
+     cards: list[str] = []
+     for owner in effects._library_owner(plan, ctx, e):
+         cards += effects._library(plan, owner)[: max(0, effects._amount(plan, ctx, e["n"]))]
+-    _enter_down(plan, ctx, e, pid, cards)
+-    return True
+-
+-
+-def _enter_down(plan: Plan, ctx: Context, e: dict[str, Any], pid: str, cards: list[str]) -> None:
+-    for c in cards:
+-        put_face_down(plan, c, pid, "generic", actor=pid, spec=e.get("spec"))
++    return _enter_down(plan, ctx, e, pid, cards)
++
++
++def _enter_down(plan: Plan, ctx: Context, e: dict[str, Any], pid: str, cards: list[str]) -> bool:
++    from app.rules import attachments, face_down_entries64
++
++    entries = face_down_entries64.prepare(plan, cards, pid, under_you=True, spec=e.get("spec"))
++    return attachments.enter(plan, entries, ctx)
+
+
+ def resume_put_down(plan: Plan, d: Any, chosen: list[str]) -> None:
+     ctx, e = d.resume["ctx"], d.resume["e"]
+     hand = plan.state.zones.get(zone_key(d.player, "hand"), [])
+-    _enter_down(plan, ctx, e, d.player, [c for c in chosen if c in hand])
+-    effects.continue_effects(plan, ctx)
++    if _enter_down(plan, ctx, e, d.player, [c for c in chosen if c in hand]):
++        effects.continue_effects(plan, ctx)
+
+
+ def become_foretold(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:

@@ -1,0 +1,36 @@
+........F...                                                             [100%]
+=================================== FAILURES ===================================
+______ test_actual_artifact_creature_token_counts_two_without_token_type _______
+
+cards = <app.cards.repository.CardRepository object at 0x7fa618c0e900>
+
+    def test_actual_artifact_creature_token_counts_two_without_token_type(cards):
+        s, c = setup(cards)
+        turbine = put(s, 'Myr Turbine', 'battlefield')
+        wait_priority(s, 'p1')
+        act(s, 'p1', type='activate_ability', card_id=turbine.id, ability=0, sources=[])
+        answer(s)
+        token = next(q for q in s.state.cards.values() if q.name == 'Myr' and q.token and q.zone == 'p1:battlefield')
+>       sac(s, token)
+
+scratch/cost82/stage/backend/tests/test_rules_sacrifice_type_costs82_extra.py:24:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+s = <app.game.session.GameSession object at 0x7fa616a509b0>
+target = CardInstance(borrow_identity=None, id='d66d73bb473e', card_id=None, name='Myr', owner='p1', controller='p1', zone='p1:...roup=None, token_source=TokenSource(source_id='b5f3bbb2264a', name='Myr Turbine'), origin='library', test_object=False)
+pid = 'p1'
+
+    def sac(s, target, pid="p1"):
+        claws = put(s, "Claws of Gix", "battlefield", pid)
+        act(s, pid, type="add_mana", player=pid, mana={"C": 1})
+        wait_priority(s, pid)
+        act(s, pid, type="activate_ability", card_id=claws.id, ability=0, sources=[],
+            cost_choices=[{"component": 1, "cards": [target.id]}])
+        answer(s)
+>       assert not s.state.cards[target.id].zone.endswith(":battlefield")
+                   ^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'd66d73bb473e'
+
+scratch/cost82/stage/backend/tests/test_rules_sacrifice_type_costs82.py:52: KeyError
+=========================== short test summary info ============================
+FAILED scratch/cost82/stage/backend/tests/test_rules_sacrifice_type_costs82_extra.py::test_actual_artifact_creature_token_counts_two_without_token_type

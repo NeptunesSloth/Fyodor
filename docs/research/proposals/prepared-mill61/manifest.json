@@ -1,0 +1,25 @@
+{
+  "status": "ISOLATED SHARED QUALITY REPAIR CLOSED / PENDING ROOT PRODUCTION INTEGRATION",
+  "production_promotions": 0,
+  "airlift_restore_pending": true,
+  "native": 30,
+  "genuine_cold": 5,
+  "related": 128,
+  "configured_mypy": 3,
+  "configured_ruff": 3,
+  "independent_burrow": 4,
+  "independent_burrow_cold": 2,
+  "stage": "/tmp/library61-shared/backend",
+  "shared_patch": "/tmp/library61-shared-review.patch",
+  "airlift_restore_patch": "/tmp/library61-airlift-restore.patch",
+  "source_hashes": {
+    "effects.py": "bedd927cb8b446c0d1e8b8082ee2e54edcb8408b2abc7494b5b76f6e14578f4c",
+    "prepared_mill61.py": "2adf97dcba1aa7f5e43866bc177b5e7309afcbfdeb1b043bba611dc92c861915",
+    "public_mill_attachment59.py": "d4ca870094692e51dcc473d083dadb130c8ed5f97f2c1e81284086693238e622"
+  },
+  "known_baseline_failures": [
+    "Doubling Cube raw-mana pool assertion",
+    "Witch Engine raw-mana pool assertion"
+  ],
+  "related_scope": "seven full mill/pair/reflexive/optional modules plus two native Folio per-player count scenarios; unrelated activations excluded after untouched-base proof"
+}

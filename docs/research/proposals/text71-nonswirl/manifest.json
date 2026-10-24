@@ -1,0 +1,61 @@
+{
+  "status": "REVIEW CANDIDATE; UNINSTALLED; no promotions claimed",
+  "names": [
+    "Mind Bend",
+    "Sleight of Mind",
+    "Magical Hack",
+    "Alter Reality",
+    "Glamerdye",
+    "Spectral Shift",
+    "Crystal Spray",
+    "Whim of Volrath",
+    "Trait Doctoring",
+    "Artificial Evolution"
+  ],
+  "held": [
+    "Swirl the Mists"
+  ],
+  "native": {
+    "unified": 33,
+    "result": "PASS",
+    "log": "unified33.log",
+    "includes_true_cold": 3
+  },
+  "added_review_gate": {
+    "native_cold": 1,
+    "result": "PASS",
+    "log": "frozen-opponents-native-cold.log",
+    "scenario": "Blatant Thievery original p2/p3 groups, actual Domineering Will transfers p3 target to p2, then actual Sleight changes pending spell; cold restore retains original scoped groups and target refs; only original p2 target is gained."
+  },
+  "types": {
+    "files": 10,
+    "result": "PASS",
+    "log": "current-types.log"
+  },
+  "ruff": {
+    "files": 10,
+    "result": "PASS",
+    "log": "current-ruff.log"
+  },
+  "core": {
+    "tests": 54,
+    "result": "PASS",
+    "log": "current-core.log"
+  },
+  "patch": "proposal.patch",
+  "patch_sha256": "d4dbb13028cc93e41e4a29f45f0d928659fd95461ec47f07b7106871af150fce",
+  "original_base_hashes": "base-hashes.json",
+  "stage": "/tmp/text71-current-backend",
+  "source_hashes": {
+    "app/game/rules_state.py": "726bce0d9e420efe94975c490db545ce03754f92381d5dbc94227e056434131d",
+    "app/cards/repository.py": "e105cc203c44cde5af788c8807d7f4438140ba0ebc67cd41c0ea96e0229d061b",
+    "app/rules/scripts.py": "e217390ea1b93549378d31005ace55b3a224e3b58fb746e22204de61dcc836db",
+    "app/rules/effects.py": "660278879022bc0fc1d3e08b002656603ed733f301023297fe1892c0c0feefbd",
+    "app/rules/layers.py": "57669b7ce364d0f2d803d3a23a677d31e19ce3bc0f2f30680e6318a8fa904a1b",
+    "app/rules/layer_dependency_graph.py": "5051dd04f21d03ebbc091fce2831c192db0d946ada813293003ab1b3b4a44ed3",
+    "app/rules/casting.py": "3a4962e23fc45683a49b1782a1915b62d38971e37eca9353cff76cd52abf0e11",
+    "app/rules/text_word_changes71.py": "ada1d47813e37338d443e9e4943337649ba73f4cecb6eae1a5c37e3be68a2166",
+    "app/rules/text_change_instructions71.py": "086b6d052e22600575deb3116edd0b7b2f77f64608f6cc3b2b0e4b294e0f636f",
+    "app/rules/text_spell_refresh71.py": "819821579866d7b572b115a00703b881d0a85ea30658714deac8a2c7b7b29fb1"
+  }
+}

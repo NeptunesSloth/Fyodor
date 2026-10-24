@@ -1,0 +1,9 @@
+# Dawnhand Dissident73 — CLOSED FOR ROOT PRODUCTION REVIEW
+
+Exact one candidate. No live hooks or classification admission installed by this worker. Four-file103-line patch layers only Dawnhand over accepted Falco counter-composition72 quality and pooled71.
+
+Native14 distinct scenarios pass on unchanged app source: original unified14 had13 pass and one fixture failure, then the corrected Blight1 case passed independently. The fixture placed its library cards before advancing three turns, so normal draw steps consumed its asserted ID; stacking after the phase advance corrects the native surveil test. No engine workaround or source change. Three genuine fresh-process cases cover actual payment, original-holder reincarnation rejection and missing-original-receipt rejection. Mypy4 and configured Ruff5 pass. Related46 PASS (existing Falco composition6, Falco19 and pooled casting21), on the unchanged candidate app source.
+
+Actual native casts verify Blight1/surveil, Blight2/exile, creature/ownership/current-source-control restrictions, same or split original counter holders followed by native sacrifice, actual Hierophant additional counter reduction with disjoint original token identity and atomic duplicate rejection. Source control can change while its linked cards remain scoped to the same object; the new controller may cast only their own linked creature card during their turn and still pays all actual costs.
+
+The patch recognizes the exact selected fixed-three-counter text, forwards native linked Grant.extra and preserves native original-object payment guards. It adds no cost_payment changes and does not replace the quality72 implementation. Complete canonical record and all official rulings are retained. Existing pooled71 and wave47c fixtures are reused; no fixture mutation. Root alone integrates, runs production checks and admits an exact frozen catalog diff.

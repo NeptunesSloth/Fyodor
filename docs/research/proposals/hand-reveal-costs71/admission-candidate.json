@@ -1,0 +1,32 @@
+{
+  "status": "CLOSED_FOR_ROOT_REVIEW; no live source writes or admission",
+  "names": [
+    "Land Grant"
+  ],
+  "native": {
+    "passed": 11,
+    "genuine_cold": 1,
+    "logs": [
+      "native10.log",
+      "failfind1.log"
+    ]
+  },
+  "related": {
+    "passed": 2,
+    "log": "related2.log"
+  },
+  "mypy": {
+    "passed": 1,
+    "log": "types1.log"
+  },
+  "ruff": {
+    "passed": 2,
+    "log": "ruff2.log"
+  },
+  "official_rulings_read": 2,
+  "patch": "production-candidate.patch",
+  "stage": "/tmp/cost71-stage/backend",
+  "test_module": "tests/test_rules_hand_reveal_costs71.py",
+  "fixture": "tests/fixtures/hand_reveal_costs71_cards.json",
+  "source_hash": "9a76d0650ecf4804b517e2275752490753b887885bd6f2821adc30444399072f"
+}

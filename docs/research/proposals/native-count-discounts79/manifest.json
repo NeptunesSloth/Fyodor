@@ -1,0 +1,20 @@
+{
+  "status": "closed; root admission pending",
+  "cards": [
+    "Synchronized Eviction",
+    "Delightful Discovery"
+  ],
+  "files": [
+    "app/rules/native_count_discounts79.py",
+    "app/rules/cost_changes.py"
+  ],
+  "source_sha256": {
+    "app/rules/native_count_discounts79.py": "1fa41bed21b68d27f6c8d676a3b94ea002e6fbd4e8eace9278c322e32c3646c0",
+    "app/rules/cost_changes.py": "6e8c9657bd6f9cdf8221a414c6d21053f3d8ed9826132c20212f1be574b49f19"
+  },
+  "native": 15,
+  "cold": 2,
+  "related": 126,
+  "mypy": 2,
+  "ruff": 3
+}

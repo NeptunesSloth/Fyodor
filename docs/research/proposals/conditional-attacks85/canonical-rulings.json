@@ -1,0 +1,135 @@
+{
+  "Ironsoul Enforcer": {
+    "canonical": {
+      "id": "c2c0dfeb-2af0-4c91-bdfe-5270f64dff03",
+      "oracle_id": "a613b00e-d6e8-4470-a7dc-5eab5e48dce0",
+      "name": "Ironsoul Enforcer",
+      "layout": "normal",
+      "set_code": "nec",
+      "set_name": "Neon Dynasty Commander",
+      "collector_number": "7",
+      "rarity": "rare",
+      "mana_cost": "{4}{W}",
+      "cmc": 5.0,
+      "type_line": "Artifact Creature \u2014 Human Samurai",
+      "oracle_text": "Whenever this creature or a commander you control attacks alone, return target artifact card from your graveyard to the battlefield.",
+      "power": "4",
+      "toughness": "4",
+      "loyalty": null,
+      "defense": null,
+      "colors": [
+        "W"
+      ],
+      "color_identity": [
+        "W"
+      ],
+      "keywords": [],
+      "is_token": false,
+      "faces": [],
+      "double_faced": false,
+      "image_faces": 1,
+      "has_image": false,
+      "released_at": "2022-02-18",
+      "artist": "Antonio Jos\u00e9 Manzanedo",
+      "commander_legal": "legal",
+      "related_tokens": [],
+      "related_cards": []
+    },
+    "rulings": {
+      "object": "list",
+      "has_more": false,
+      "data": []
+    }
+  },
+  "Wargling": {
+    "canonical": {
+      "id": "1ccbf823-846f-4f09-9c67-1deebb5d1d92",
+      "oracle_id": "ce107656-f222-4d9a-9ba2-b33b4d47bdb5",
+      "name": "Wargling",
+      "layout": "normal",
+      "set_code": "hob",
+      "set_name": "The Hobbit",
+      "collector_number": "140",
+      "rarity": "common",
+      "mana_cost": "{1}{G}",
+      "cmc": 2.0,
+      "type_line": "Creature \u2014 Wolf",
+      "oracle_text": "Ferocious \u2014 Whenever this creature attacks while you control a creature with power 4 or greater, until end of turn, this creature gets +1/+0 and creatures you control gain trample.",
+      "power": "2",
+      "toughness": "2",
+      "loyalty": null,
+      "defense": null,
+      "colors": [
+        "G"
+      ],
+      "color_identity": [
+        "G"
+      ],
+      "keywords": [
+        "Ferocious"
+      ],
+      "is_token": false,
+      "faces": [],
+      "double_faced": false,
+      "image_faces": 1,
+      "has_image": false,
+      "released_at": "2026-08-14",
+      "artist": "Adri\u00e1n Rodr\u00edguez P\u00e9rez",
+      "commander_legal": "legal",
+      "related_tokens": [],
+      "related_cards": []
+    },
+    "rulings": {
+      "object": "list",
+      "has_more": false,
+      "data": [
+        {
+          "object": "ruling",
+          "oracle_id": "ce107656-f222-4d9a-9ba2-b33b4d47bdb5",
+          "source": "wotc",
+          "published_at": "2026-06-29",
+          "comment": "Wargling's triggered ability will check when it attacks to see if you control a creature with power 4 or greater. If you don't, the ability won't trigger at all. It will not check again when it resolves, so the ability will resolve even if you no longer control a creature with power 4 or greater."
+        }
+      ]
+    }
+  },
+  "Cytoshape": {
+    "canonical": {
+      "id": "758023cb-548a-4a98-a355-f5c6e9eab5ff",
+      "oracle_id": "14221c18-7801-49c9-a2c8-53b8c5181d63",
+      "name": "Cytoshape",
+      "layout": "normal",
+      "set_code": "dis",
+      "set_name": "Dissension",
+      "collector_number": "108",
+      "rarity": "rare",
+      "mana_cost": "{1}{G}{U}",
+      "cmc": 3.0,
+      "type_line": "Instant",
+      "oracle_text": "Choose a nonlegendary creature on the battlefield. Target creature becomes a copy of that creature until end of turn.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null,
+      "defense": null,
+      "colors": [
+        "G",
+        "U"
+      ],
+      "color_identity": [
+        "G",
+        "U"
+      ],
+      "keywords": [],
+      "is_token": false,
+      "faces": [],
+      "double_faced": false,
+      "image_faces": 1,
+      "has_image": false,
+      "released_at": "2006-05-05",
+      "artist": "Alan Pollack",
+      "commander_legal": "legal",
+      "related_tokens": [],
+      "related_cards": []
+    }
+  }
+}

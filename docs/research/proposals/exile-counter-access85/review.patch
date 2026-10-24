@@ -1,0 +1,89 @@
+--- a/backend/app/game/rules_state.py
++++ b/backend/app/game/rules_state.py
+@@ -1186,6 +1186,7 @@
+     look_top: bool = False  # Source-independent private top look for this stored library-top authority.
+     stop_on_linked_exile: str | None = None  # Source-object/link scope: expires when this permission holder next exiles a card with it.
+     filter: str | None = None  # a selector key the spell must match ("creature spells")
++    card_filter: str | None = None  # Current card eligibility, applied to both land plays and spell casts.
+     free: bool = False  # "without paying its mana cost": an alternative cost of {0} (118.9)
+     life_mv: bool = False  # Required alternative cost: pay life equal to the chosen spell's mana value.
+     use_trigger: PermissionUseTrigger | None = None
+--- a/backend/app/rules/permissions.py
++++ b/backend/app/rules/permissions.py
+@@ -1400,8 +1400,13 @@
+             if p.object_id != oid:
+                 continue  # a new object since (400.7): the permission was for the one it was
+         elif p.zone != "any" and p.zone != where and not (
+-                p.zone == "graveyard" and p.zone_owner == "any" and card.zone.endswith(":graveyard")):
+-            continue
++                p.zone in ("graveyard", "exile") and p.zone_owner == "any" and card.zone.endswith(":" + p.zone)):
++            continue
++        if p.card_filter:
++            from app.rules import selectors
++
++            if not selectors.matches(_view(state, player, info), selectors.from_key(p.card_filter), card, ch, player):
++                continue
+         if p.filter and verb == "cast" and not spell_matches(state, player, card, ch, p.filter, info):
+             continue
+         if p.nth is not None and cost_changes.casts_so_far(state, info, player, p.filter) != p.nth:
+@@ -1978,9 +1983,9 @@
+                                             label=f"{ctx.get('name') or 'An effect'}: {verb} it {when}" + (" paying life equal to its mana value" if e.get("life_mv") else " without paying its mana cost" if e.get("free") else "")))
+             plan.note(f"{plan.name(holder)} may {verb} {card.name} {when}", [cid])
+         return True
+-    zone_label = "any graveyard" if e.get("zone_owner") == "any" and e["zone"] == "graveyard" else f"your {e['zone']}"
++    zone_label = "exile" if e.get("zone_owner") == "any" and e["zone"] == "exile" else "any graveyard" if e.get("zone_owner") == "any" and e["zone"] == "graveyard" else f"your {e['zone']}"
+     r.permissions.append(Permission(id=secrets.token_hex(4), player=pid, play=e["play"], cast=e["cast"], zone=e["zone"],
+-                                    zone_owner=e.get("zone_owner", "you"), look_top=bool(e.get("look_top")),
++                                    zone_owner=e.get("zone_owner", "you"), card_filter=e.get("card_filter"), look_top=bool(e.get("look_top")),
+                                     extra=e.get("extra", ""), enters=e.get("enters"),
+                                     filter=e.get("filter"), once=bool(e.get("once")),  # (-- cast permissions (wave 30Q) -- "a creature spell": one spell, of that kind)
+                                     exile_gy=e.get("exile_gy", ""), exile_own=bool(e.get("exile_own")), graveyard_destination=e.get("graveyard_destination", ""),  # (wave 25C)
+--- a/backend/app/rules/scripts.py
++++ b/backend/app/rules/scripts.py
+@@ -5805,6 +5805,10 @@
+
+ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
+     """The engine definition of one ability, or None (manual)."""
++    from app.rules import exile_counter_access85
++
++    if (counter85 := exile_counter_access85.definition(ability, ch)) is not None:
++        return counter85
+     from app.rules import exchange_choices92
+
+     if (exchange92 := exchange_choices92.definition(ability, ch)) is not None:
+@@ -6986,6 +6990,10 @@
+
+ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
+     """The engine definition of one ability, or None (manual)."""
++    from app.rules import exile_counter_access85
++
++    if (counter85 := exile_counter_access85.definition(ability, ch)) is not None:
++        return counter85
+     from app.rules import (
+         ability_mana_history,
+         merged,  # -- merged permanents (wave 18D) -- meld wordings carry card names with commas
+--- /dev/null
++++ b/backend/app/rules/exile_counter_access85.py
+@@ -0,0 +1,22 @@
++"""Counter-qualified dynamic exile access preserves current eligibility."""
++from __future__ import annotations
++
++from dataclasses import replace
++from typing import TYPE_CHECKING, Any
++
++if TYPE_CHECKING:
++    from app.rules.characteristics import AbilityText, Characteristics
++
++LARA = ('Whenever ~ attacks, exile up to one target legendary artifact card or legendary land card from a graveyard '
++        'and put a discovery counter on it. You may play a card from exile with a discovery counter on it this turn.')
++
++def definition(ability: AbilityText, ch: Characteristics) -> dict[str, Any] | None:
++    from app.rules import scripts, selectors
++    if scripts.self_text(ability.text, ch.name) != LARA:
++        return None
++    native = scripts.define(replace(ability, text=LARA.split(' You may play')[0]), ch)
++    if native is None:
++        return None
++    selected = selectors.Selector(zones=('exile',), extras=('counter:discovery',)).key()
++    return {**native, 'effects': [*native['effects'], {'do':'grant_play', 'zone':'exile', 'zone_owner':'any',
++            'card_filter':selected, 'play':True, 'cast':True, 'once':True, 'until':'end_of_turn'}]}

@@ -1,0 +1,62 @@
+{
+  "object": "list",
+  "has_more": false,
+  "data": [
+    {
+      "object": "ruling",
+      "oracle_id": "d412b175-2365-4b2c-a8f5-3e4e9d06280d",
+      "source": "wotc",
+      "published_at": "2009-10-01",
+      "comment": "The opponent you target doesn\u2019t have to be the opponent who searched their library."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "d412b175-2365-4b2c-a8f5-3e4e9d06280d",
+      "source": "wotc",
+      "published_at": "2009-10-01",
+      "comment": "Casting a Trap by paying its alternative cost doesn\u2019t change its mana cost or mana value. The only difference is the cost you actually pay."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "d412b175-2365-4b2c-a8f5-3e4e9d06280d",
+      "source": "wotc",
+      "published_at": "2009-10-01",
+      "comment": "Effects that increase or reduce the cost to cast a Trap will apply to whichever cost you chose to pay."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "d412b175-2365-4b2c-a8f5-3e4e9d06280d",
+      "source": "wotc",
+      "published_at": "2009-10-01",
+      "comment": "If a search effect is affected by Aven Mindcensor\u2019s ability (which causes a player to search the top four cards of their library instead), that still counts as searching that library."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "d412b175-2365-4b2c-a8f5-3e4e9d06280d",
+      "source": "wotc",
+      "published_at": "2009-10-01",
+      "comment": "You may ignore a Trap\u2019s alternative cost condition and simply cast it for its normal mana cost. This is true even if its alternative cost condition has been met."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "d412b175-2365-4b2c-a8f5-3e4e9d06280d",
+      "source": "wotc",
+      "published_at": "2009-10-01",
+      "comment": "Archive Trap checks only whether an opponent searched their library. It doesn\u2019t matter whether that player found a card during the search."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "d412b175-2365-4b2c-a8f5-3e4e9d06280d",
+      "source": "wotc",
+      "published_at": "2009-10-01",
+      "comment": "A spell or ability causes a player to search their library only if it specifically contains the word \u201csearch\u201d in its text. For example, if a spell or ability lets a player look at the top four cards of their library and do something with one of those cards, that\u2019s not a search."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "d412b175-2365-4b2c-a8f5-3e4e9d06280d",
+      "source": "wotc",
+      "published_at": "2009-10-01",
+      "comment": "If the targeted opponent has fewer than thirteen cards in their library, that player puts their entire library into their graveyard."
+    }
+  ]
+}

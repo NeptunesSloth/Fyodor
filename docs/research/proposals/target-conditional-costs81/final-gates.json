@@ -1,0 +1,23 @@
+{
+  "final19": {
+    "exit": 0,
+    "distinct": 19,
+    "cold": 2
+  },
+  "related10": {
+    "exit": 0,
+    "distinct": 10,
+    "cold": 3
+  },
+  "types5": {
+    "exit": 0,
+    "files": 5,
+    "cache": "/workspace/scratch/cost81/mypy_cache"
+  },
+  "ruff6-final": {
+    "exit": 0,
+    "files": 6
+  },
+  "source_hashes_verified": true,
+  "earlier_failed_logs_retained": true
+}

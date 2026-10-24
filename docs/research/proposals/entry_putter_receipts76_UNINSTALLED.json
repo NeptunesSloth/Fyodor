@@ -1,0 +1,43 @@
+{
+  "status": "UNINSTALLED \u2014 root requested PR closeout; no production76 code or admissions",
+  "names": [
+    "Tourach's Chant",
+    "Thelon's Chant"
+  ],
+  "patch": "/tmp/counter76-owned-review.patch",
+  "patch_sha256": "8459aa8f20768c377225c75a6949566e415bd4d88d2fc41aa1341bbf37536ea0",
+  "source_stage": "/tmp/counter76-rebased-stage",
+  "whole": {
+    "passed": 24,
+    "cold": 2,
+    "log": "/tmp/counter76-putter-rebased-whole.log",
+    "archived_log": "docs/research/proposals/counter76-putter-rebased-whole.log"
+  },
+  "additional_mixed_cold": "NOT PASSED: fixture assertion expected :stack but native stack zone is stack; /tmp/counter76-putter-mixed-cold.log. No behavior evaluated; no claim.",
+  "types": {
+    "files": 19,
+    "result": "PASS",
+    "log": "/tmp/counter76-putter-rebased-types.log",
+    "archived_log": "docs/research/proposals/counter76-putter-rebased-types.log"
+  },
+  "ruff": {
+    "files": 3,
+    "result": "PASS",
+    "log": "/tmp/counter76-putter-rebased-ruff.log"
+  },
+  "related": {
+    "combined_passed": 135,
+    "combined_failed": 9,
+    "failure": "Explicit unimported scheduler-model fixture RESUME registration ordering; not a production native admission",
+    "combined_log": "/tmp/counter76-putter-rebased-related.log",
+    "isolated_scheduler_model_passed": 11,
+    "isolated_log": "/tmp/counter76-putter-harvest-isolated.log"
+  },
+  "authority_gate": "Automatic CR610.3 linked-exile return actual putter unknown; owner control does not prove owner instructed actor. Explicit None receipt proposed; root review pending.",
+  "tests_relocated": "docs/research/proposals/entry_putter_receipts76_native_tests.py",
+  "fixture_relocated": "docs/research/proposals/entry_putter_receipts76_cards.json",
+  "resume_note": "Restore native test and fixture to their original tests/ paths only in an isolated stage before running. Current test imports/fixture paths intentionally retain original stage layout.",
+  "archived_patch": "docs/research/proposals/entry_putter_receipts76.patch",
+  "archived_patch_sha256": "c0f350785aaf4cce2da408890b99944e71b2625c7ed8876ca924b6917dd452d9",
+  "archive_note": "Whitespace normalized for review; git apply --numstat identical to original proposal. Original staged patch hash retained above."
+}

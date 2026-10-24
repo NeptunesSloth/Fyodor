@@ -20,7 +20,7 @@ from tests.test_rules_linked_return_family import cold_choose
 from tests.test_rules_shared_damage_choices import table
 from tests.test_rules_wave30m_durations import to_phase
 
-NAMES = ["Magus of the Abyss"]
+NAMES = ["Magus of the Abyss", "The Abyss"]
 
 
 @pytest.fixture()
@@ -184,8 +184,8 @@ def test_magus_native_cast_pays_cost_then_enters_as_creature(cards):
     roundtrip(s)
 
 
-def test_world_source_remains_unadmitted(cards):
-    assert coverage.of_card_data(cards.resolve("The Abyss")).level == "PARTIAL"
+def test_world_source_now_has_native_world_foundation(cards):
+    assert coverage.of_card_data(cards.resolve("The Abyss")).level == "FULL"
 
 
 @pytest.mark.parametrize('new_controller', ['p1', 'p3'])

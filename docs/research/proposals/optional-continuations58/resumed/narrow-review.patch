@@ -1,0 +1,117 @@
+--- a/backend/app/rules/scripts.py
++++ b/backend/app/rules/scripts.py
+@@ -2653,6 +2653,10 @@
+
+
+ def parse_effects(body: str, it: str | None = None, *, event_player: bool = False) -> tuple[list[dict[str, Any]], Any, bool] | None:
++    from app.rules import optional_continuations58
++
++    if (continued58 := optional_continuations58.parse(body, it, event_player)) is not None:
++        return continued58
+     from app.rules import graveyard_return57
+
+     if (returned57 := graveyard_return57.parse(body, it)) is not None:
+--- a/backend/app/rules/effects.py
++++ b/backend/app/rules/effects.py
+@@ -3782,7 +3782,7 @@
+     (603.7) it is put on the stack the next time a player would receive priority (603.3), its controller choosing
+     its modes and targets then (603.3c-d) — not while the ability that created it was announced. Its source is that
+     ability's source; it has no trigger event of its own."""
+-    from app.rules import conditions
++    from app.rules import conditions, optional_continuations58
+     from app.rules.triggers import _add  # (triggers imports this module)
+
+     if e.get("entry_receipt56"):
+@@ -3823,7 +3823,7 @@
+                     if any(new["card"] == o.card for new, _ in _this_way._matched(plan, ctx, e["cond"]["value"]))]
+                    if e.get("each") and event is not None else [event] * _reflex_times(plan, ctx, e["cond"])):
+             _add(plan, controller=ctx["controller"], source_card=ctx.get("source_card") or "", source_object=ctx.get("source_object") or "",
+-                 name=str(ctx.get("name") or ""), index=7300, definition=e["ability"], event=ev)
++                 name=str(ctx.get("name") or ""), index=7300, definition=optional_continuations58.reflexive_ability(plan, ctx, e), event=ev)
+     return True
+
+
+--- a/backend/app/rules/selectors.py
++++ b/backend/app/rules/selectors.py
+@@ -2102,6 +2102,8 @@
+            for x in sel.extras):  # -- copy abilities (wave 19E) -- "… from an enchantment source"
+         return False
+     for extra in sel.extras:
++        if extra.startswith('exclude_successor58:') and plan.oid(card) == extra.partition(':')[2]:
++            return False
+         if extra == 'controlled_since_turn_start69':
+             from app.rules import controller_turn_history69
+
+--- /dev/null
++++ b/backend/app/rules/optional_continuations58.py
+@@ -0,0 +1,70 @@
++"""Mid-resolution optional costs preserve native success receipts and reflexive target timing."""
++from __future__ import annotations
++
++from typing import Any
++
++
++def payment_reflexive(parsed: tuple[list[dict[str, Any]], Any, bool]) -> bool:
++    effects, target, optional = parsed
++    if len(effects) != 2 or target is not None or optional:
++        return False
++    payment, child = effects
++    return (payment.get('do') == 'optional_payment' and isinstance(payment.get('bind'), str)
++            and child.get('do') == 'reflexive' and child.get('cond') == {'succeeded': payment['bind']})
++
++
++def parse(body: str, it: str | None, event_player: bool) -> tuple[list[dict[str, Any]], Any, bool] | None:
++    from app.rules import scripts
++
++    body = body.strip()
++    text = body[:1].upper() + body[1:]
++    if text == 'Mill a card and put a bloodstain counter on ~. Then sacrifice it if it has five or more bloodstain counters on it. When you do, return target creature card from your graveyard to your hand.':
++        return scripts.parse_effects('Mill a card. Put a bloodstain counter on ~. If ~ has five or more bloodstain counters on it, sacrifice ~. When you do, return target creature card from your graveyard to your hand.', it, event_player=event_player)
++    if text == 'Choose target creature an opponent controls. Tap it, then you may sacrifice an artifact or creature. If you do, put a stun counter on the chosen creature.':
++        return scripts.parse_effects('Tap target creature an opponent controls. You may sacrifice an artifact or creature. If you do, put a stun counter on that creature.', it, event_player=event_player)
++    if text in ('Return this card from your graveyard to the battlefield with a finality counter on ~. Then you may attach an Equipment you control to ~.', 'Return this card from your graveyard to the battlefield with a finality counter on him. Then you may attach an Equipment you control to him.'):
++        returned = scripts.parse_effects('Return ~ from your graveyard to the battlefield with a finality counter on it.', it, event_player=event_player)
++        if returned is not None and len(returned[0]) == 1:
++            returned[0][0]['as'] = 'winter58'
++            return [*returned[0], {'do': 'attach_choose', 'kinds': ['Equipment'], 'n': 1, 'who': 'ref:winter58', 'optional': True}], None, False
++    recipes = {
++        'Mill two cards. Then you may sacrifice ~. When you do, return another target permanent card from your graveyard to your hand.': (
++            'Mill two cards.', 'You may sacrifice ~. When you do, return another target permanent card from your graveyard to your hand.'),
++        'Draw a card. Then you may discard a nonland card. When you discard a card this way, ~ deals 3 damage to target creature or planeswalker.': (
++            'Draw a card.', 'You may discard a nonland card. When you discard a card this way, ~ deals 3 damage to target creature or planeswalker.'),
++    }
++    recipe = recipes.get(text)
++    if recipe is None:
++        return None
++    first = scripts.parse_effects(recipe[0], it, event_player=event_player)
++    tail = scripts.parse_effects(recipe[1], it, event_player=event_player)
++    if first is None or tail is None or first[1] is not None or first[2] or tail[1] is not None:
++        return None
++    if not tail[2] and not payment_reflexive(tail):
++        return None
++    if text.startswith('Mill two cards.'):
++        tail[0][-1]['exclude_paid_successor58'] = True
++    return [*first[0], *([{'do': 'may_rest'}] if tail[2] else []), *tail[0]], None, False
++
++
++def reflexive_ability(plan: Any, ctx: dict[str, Any], effect: dict[str, Any]) -> dict[str, Any]:
++    """Freeze actual sacrificed successors into the later target selector (400.7j)."""
++    from copy import deepcopy
++    from dataclasses import replace
++
++    from app.rules import context, selectors
++
++    ability = effect['ability']
++    if not effect.get('exclude_paid_successor58'):
++        return ability
++    receipt = context.refs(ctx).get(effect['cond']['succeeded']) or {}
++    successors = receipt.get('moved') or []
++    found = [ref['object_id'] for ref in successors if ref.get('object_id')]
++    ability = deepcopy(ability)
++    spec = ability.get('target') or {}
++    key = spec.get('what', '')
++    if not key.startswith(selectors.PREFIX):
++        return ability
++    selected = selectors.from_key(key)
++    spec['what'] = replace(selected, other=False, extras=(*selected.extras, *(f'exclude_successor58:{oid}' for oid in found))).key()
++    return ability

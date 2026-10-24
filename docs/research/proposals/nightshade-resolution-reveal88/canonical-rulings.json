@@ -1,0 +1,123 @@
+{
+  "card": {
+    "id": "cd610675-f8ab-47a7-a4db-c1bfb0e9d5c8",
+    "oracle_id": "370c5e5f-709b-415b-9b65-3f224d6ef1c7",
+    "name": "Nightshade Assassin",
+    "layout": "normal",
+    "set_code": "tsr",
+    "set_name": "Time Spiral Remastered",
+    "collector_number": "128",
+    "rarity": "uncommon",
+    "mana_cost": "{2}{B}{B}",
+    "cmc": 4.0,
+    "type_line": "Creature \u2014 Human Assassin",
+    "oracle_text": "First strike\nWhen this creature enters, you may reveal X black cards in your hand. If you do, target creature gets -X/-X until end of turn.\nMadness {1}{B} (If you discard this card, discard it into exile. When you do, cast it for its madness cost or put it into your graveyard.)",
+    "power": "2",
+    "toughness": "1",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [
+      "Madness",
+      "First strike"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2021-03-19",
+    "artist": "Alan Pollack",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  "rulings": {
+    "object": "list",
+    "has_more": false,
+    "data": [
+      {
+        "object": "ruling",
+        "oracle_id": "370c5e5f-709b-415b-9b65-3f224d6ef1c7",
+        "source": "wotc",
+        "published_at": "2022-12-08",
+        "comment": "If you discard a card with madness while a spell or ability is resolving, it moves immediately to exile. Continue resolving that spell or ability, noting that the card you discarded is not in your graveyard at this time. Its madness triggered ability will be placed onto the stack once that spell or ability has completely resolved."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "370c5e5f-709b-415b-9b65-3f224d6ef1c7",
+        "source": "wotc",
+        "published_at": "2022-12-08",
+        "comment": "If you choose not to cast a card with madness when the madness triggered ability resolves, it's put into your graveyard. Madness doesn't give you another chance to cast it later."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "370c5e5f-709b-415b-9b65-3f224d6ef1c7",
+        "source": "wotc",
+        "published_at": "2022-12-08",
+        "comment": "If you discard a card with madness to pay the cost of a spell or activated ability, that card's madness triggered ability (and the spell that card becomes, if you choose to cast it) will resolve before the spell or ability the discard paid for."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "370c5e5f-709b-415b-9b65-3f224d6ef1c7",
+        "source": "wotc",
+        "published_at": "2022-12-08",
+        "comment": "Cards are discarded in a Magic game only from a player's hand. Effects that put cards into a player's graveyard from anywhere else do not cause those cards to be discarded."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "370c5e5f-709b-415b-9b65-3f224d6ef1c7",
+        "source": "wotc",
+        "published_at": "2022-12-08",
+        "comment": "Madness works independently of why you're discarding the card. You could discard it to pay a cost, because a spell or ability tells you to, or because you have too many cards in your hand during your cleanup step. You can't discard a card with madness just because you want to, though."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "370c5e5f-709b-415b-9b65-3f224d6ef1c7",
+        "source": "wotc",
+        "published_at": "2022-12-08",
+        "comment": "A card with madness that's discarded counts as having been discarded even though it's put into exile rather than a graveyard. If it was discarded to pay a cost, that cost is still paid. Abilities that trigger when a card is discarded will still trigger."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "370c5e5f-709b-415b-9b65-3f224d6ef1c7",
+        "source": "wotc",
+        "published_at": "2022-12-08",
+        "comment": "A spell cast for its madness cost is put onto the stack like any other spell. It can be countered, copied, and so on. As it resolves, it's put onto the battlefield if it's a permanent card or into its owner's graveyard if it's an instant or sorcery card."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "370c5e5f-709b-415b-9b65-3f224d6ef1c7",
+        "source": "wotc",
+        "published_at": "2022-12-08",
+        "comment": "Casting a spell with madness ignores the timing rules based on the card's card type. For example, you can cast a sorcery with madness if you discard it during an opponent's turn."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "370c5e5f-709b-415b-9b65-3f224d6ef1c7",
+        "source": "wotc",
+        "published_at": "2022-12-08",
+        "comment": "To determine the total cost of a spell, start with the mana cost or alternative cost (such as a madness cost) you're paying, add any cost increases, then apply any cost reductions. The mana value of the spell is determined by only its mana cost, no matter what the total cost to cast that spell was."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "370c5e5f-709b-415b-9b65-3f224d6ef1c7",
+        "source": "wotc",
+        "published_at": "2021-03-19",
+        "comment": "You choose how many cards to reveal and which as Nightshade Assassin's triggered ability resolves. Players can't take actions between the time you reveal cards and the time the target creature gets -X/-X."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "370c5e5f-709b-415b-9b65-3f224d6ef1c7",
+        "source": "wotc",
+        "published_at": "2021-03-19",
+        "comment": "If the target creature becomes an illegal target, you don't reveal any cards."
+      }
+    ]
+  }
+}

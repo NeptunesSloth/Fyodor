@@ -1,0 +1,44 @@
+{
+  "status": "REVIEW CANDIDATE; not installed, uncounted until root catalog audit",
+  "names": [
+    "Thieving Skydiver",
+    "Agonizing Demise"
+  ],
+  "source_stage": "/tmp/kicker61-resume/backend",
+  "patch": "/workspace/Fyodor/docs/research/proposals/kicker-x-lki61/resumed-verified/production-candidate.patch",
+  "source_hashes": {
+    "costs.py": "6d48586e6e34c5fa031bcadf7b5cc1d358c5b23f794d104be11d94514c83d451",
+    "casting.py": "eff07c944a48ce3e0863a6f3220dfcd9736e86d5fa315f0b7991d50c757efd2e",
+    "scripts.py": "750b387cdfa949c3c9a048e48710fbbb389092b806e99df2dbfa3e0d597019fb",
+    "triggers.py": "1d206e250da6212ee59ac8396a183c62b25e8da7f9d65b724045abb1d2324921",
+    "kicked_x_lki_outcomes61.py": "861b98679fb679e92819e20a7c83676b6273fb6c0de430fd558cb717c8718b1e"
+  },
+  "whole": {
+    "passed": 20,
+    "cold": 2,
+    "log": "/workspace/Fyodor/docs/research/proposals/kicker-x-lki61/resumed-verified/kicker61-resume-whole20.log"
+  },
+  "related": {
+    "passed": 199,
+    "failed": 3,
+    "classification": "All three reproduced on unmodified production by root; unrelated baseline failures. No all-pass combined suite claim.",
+    "log": "/workspace/Fyodor/docs/research/proposals/kicker-x-lki61/resumed-verified/kicker61-resume-related.log",
+    "baseline_log": "/workspace/Fyodor/docs/research/proposals/kicker-x-lki61/resumed-verified/baseline3.log"
+  },
+  "types": "PASS five app files",
+  "ruff": "PASS full configured Ruff on five app files and native test",
+  "native_boundaries": [
+    "nonzero kicker X rejects zero atomically",
+    "free static Omniscience still pays positive additional kicker X",
+    "Electrodominance resolving free cast only offers payable optional positive X; no-mana branch remains unkicked",
+    "selected artifact mana value X limit and non-Equipment branch",
+    "Equipment attaches only to original source; native Cloudshift blink steals but cannot attach to new incarnation",
+    "kicked and unkicked original power with actual Giant Growth",
+    "native Dominate response fixes resolution controller, owner differs",
+    "indestructible survives but kicked damage still occurs",
+    "existing actual regeneration shield is ignored",
+    "black creature and noncreature refused atomically",
+    "both cards genuine subprocess resume and history/JSON roundtrip"
+  ],
+  "scope": "No sticker or pre-entry milling claims; no manual semantics changed."
+}

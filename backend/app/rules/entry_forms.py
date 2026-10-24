@@ -84,6 +84,7 @@ def enters_as(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
             if entry.card == cid and entry.object_id == plan.oid(card):
                 entry.types, entry.subtypes = sorted(now.types), sorted(now.subtypes)
                 entry.colors = sorted(now.colors)
+                entry.keywords83 = sorted(now.keywords)
     return True
 
 

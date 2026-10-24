@@ -1,0 +1,72 @@
+--- /dev/null
++++ b/backend/app/rules/knowledge_pool78.py
+@@ -0,0 +1,46 @@
++"""Knowledge Pool exchanges only the actual hand-cast spell for another linked card."""
++from __future__ import annotations
++
++from dataclasses import replace
++from typing import TYPE_CHECKING, Any
++
++if TYPE_CHECKING:
++    from app.rules.characteristics import AbilityText, Characteristics
++    from app.rules.plan import Plan
++
++TEXT = ('Whenever a player casts a spell from their hand, that player exiles it. If the player does, '
++        'they may cast a spell from among other cards exiled with this artifact without paying its mana cost.')
++
++
++def definition(ability: AbilityText, ch: Characteristics) -> dict[str, Any] | None:
++    from app.rules import scripts
++
++    if ability.text != TEXT:
++        return None
++    native = scripts.define(replace(ability, text='Whenever a player casts a spell from their hand, you gain 1 life.'), ch)
++    return {**native, 'effects': [{'do': 'knowledge_pool78', 'stage': 'exile'}]} if native is not None else None
++
++
++def run(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
++    from app.rules import context, effects, exiled_with
++    from app.rules import exile_packet_continuations as packets
++
++    if e['stage'] == 'exile':
++        spell = effects._cards(plan, ctx, 'event_spell')
++        players = context.players(plan, ctx, context.EVENT)
++        if not spell or len(players) != 1:
++            return True
++        return packets.insert(ctx, [{'do': 'as_player', 'player': players[0]},
++                                    {'do': 'exile', 'who': 'event_spell', 'link': True, 'as': 'pool78_moved'},
++                                    {'do': 'knowledge_pool78', 'stage': 'offer'}, {'do': 'as_player_end'}])
++    moved = [cid for cid in context.objects(plan, ctx, 'pool78_moved')
++             if plan.state.cards[cid].zone.endswith(':exile')]
++    if not moved:
++        return True
++    pool = [cid for cid in exiled_with.cards(plan, ctx) if cid not in moved]
++    context.bind_objects(plan, ctx, 'pool78_other', pool)
++    return packets.insert(ctx, [{'do': 'free_cast', 'zone': 'that', 'who': context.PREFIX + 'pool78_other',
++                                 'exact_refs': True}])
++
++
++PRIMITIVES = {'knowledge_pool78': run}
+--- a/backend/app/rules/scripts.py
++++ b/backend/app/rules/scripts.py
+@@ -5785,6 +5785,10 @@
+
+ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
+     """The engine definition of one ability, or None (manual)."""
++    from app.rules import knowledge_pool78
++
++    if (pool78 := knowledge_pool78.definition(ability, ch)) is not None:
++        return pool78
+     from app.rules import linked_owner_cast77
+
+     if (admitted62 := linked_owner_cast77.definition(ability, ch)) is not None:
+--- a/backend/app/rules/effects.py
++++ b/backend/app/rules/effects.py
+@@ -6803,3 +6803,7 @@
+
+ PRIMITIVES.update(_life86.PRIMITIVES)
+ RESUME.update(_life86.RESUME)
++
++from app.rules import knowledge_pool78 as _knowledge_pool78  # noqa: E402
++
++PRIMITIVES.update(_knowledge_pool78.PRIMITIVES)

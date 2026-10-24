@@ -1,0 +1,14 @@
+{
+  "attached_destruction82.py": {
+    "root": null,
+    "candidate": "454bf8c3c8abecb8faeddd63cac1a7531b9c35f87ad60a33a06c742e839472ed"
+  },
+  "scripts.py": {
+    "root": "be0e0eb42b138a284f4ab3c78fbc9b8dddd7e669d2c2539c084ea9c57ff95523",
+    "candidate": "81a9f5aafa4ff6febc49e412471783a5a2f7d28a25704d3730d6c88baa47b95a"
+  },
+  "effects.py": {
+    "root": "db307b8690b568a8cbb3bfbc2d26b49d4400306ac1a87c737d390040e0ae7647",
+    "candidate": "801f54cac0c0023f2627d3ffdb9c980aa84f086a0d472e261c0f291b1d06d255"
+  }
+}

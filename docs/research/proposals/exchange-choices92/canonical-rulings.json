@@ -1,0 +1,189 @@
+[
+  {
+    "id": "9d46aca2-4714-4d2c-9466-5f1c043b8726",
+    "oracle_id": "e477abb9-9b99-48a8-8c09-07b120b72540",
+    "name": "Confusion in the Ranks",
+    "lang": "en",
+    "layout": "normal",
+    "set_code": "mrd",
+    "set_name": "Mirrodin",
+    "set_type": "expansion",
+    "collector_number": "87",
+    "released_at": "2003-10-02",
+    "rarity": "rare",
+    "mana_cost": "{3}{R}{R}",
+    "cmc": 5.0,
+    "type_line": "Enchantment",
+    "oracle_text": "Whenever an artifact, creature, or enchantment enters, its controller chooses target permanent another player controls that shares a card type with it. Exchange control of those permanents.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [],
+    "produced_mana": null,
+    "card_faces": null,
+    "all_parts": null,
+    "image_uris": "{\"small\": \"https://cards.scryfall.io/small/front/9/d/9d46aca2-4714-4d2c-9466-5f1c043b8726.jpg?1783944542\", \"normal\": \"https://cards.scryfall.io/normal/front/9/d/9d46aca2-4714-4d2c-9466-5f1c043b8726.jpg?1783944542\", \"large\": \"https://cards.scryfall.io/large/front/9/d/9d46aca2-4714-4d2c-9466-5f1c043b8726.jpg?1783944542\", \"art_crop\": \"https://cards.scryfall.io/art_crop/front/9/d/9d46aca2-4714-4d2c-9466-5f1c043b8726.jpg?1783944542\"}",
+    "legalities": "{\"standard\": \"not_legal\", \"future\": \"not_legal\", \"historic\": \"not_legal\", \"timeless\": \"not_legal\", \"gladiator\": \"not_legal\", \"pioneer\": \"not_legal\", \"modern\": \"legal\", \"legacy\": \"legal\", \"pauper\": \"not_legal\", \"vintage\": \"legal\", \"penny\": \"legal\", \"commander\": \"legal\", \"oathbreaker\": \"legal\", \"standardbrawl\": \"not_legal\", \"brawl\": \"not_legal\", \"competitivebrawl\": \"not_legal\", \"alchemy\": \"not_legal\", \"paupercommander\": \"not_legal\", \"duel\": \"legal\", \"oldschool\": \"not_legal\", \"premodern\": \"not_legal\", \"predh\": \"legal\", \"tlr\": \"not_legal\"}",
+    "is_token": 0,
+    "digital": 0,
+    "promo": 0,
+    "artist": "Ron Spencer",
+    "edhrec_rank": 8019,
+    "official_rulings": {
+      "object": "list",
+      "has_more": false,
+      "data": [
+        {
+          "object": "ruling",
+          "oracle_id": "e477abb9-9b99-48a8-8c09-07b120b72540",
+          "source": "wotc",
+          "published_at": "2004-12-01",
+          "comment": "The permanents have to share a permanent type both when the target is chosen and when the ability resolves."
+        },
+        {
+          "object": "ruling",
+          "oracle_id": "e477abb9-9b99-48a8-8c09-07b120b72540",
+          "source": "wotc",
+          "published_at": "2004-12-01",
+          "comment": "Even though Confusion in the Ranks triggers only when an artifact, creature, or enchantment enters, the ability can target a land if the permanent entering is an artifact land."
+        },
+        {
+          "object": "ruling",
+          "oracle_id": "e477abb9-9b99-48a8-8c09-07b120b72540",
+          "source": "wotc",
+          "published_at": "2004-12-01",
+          "comment": "The permanents are exchanged only if they're both on the battlefield when the ability resolves."
+        },
+        {
+          "object": "ruling",
+          "oracle_id": "e477abb9-9b99-48a8-8c09-07b120b72540",
+          "source": "wotc",
+          "published_at": "2004-12-01",
+          "comment": "Confusion in the Ranks triggers on itself entering. If an opponent controls an enchantment, exchange Confusion in the Ranks for that enchantment."
+        },
+        {
+          "object": "ruling",
+          "oracle_id": "e477abb9-9b99-48a8-8c09-07b120b72540",
+          "source": "wotc",
+          "published_at": "2004-10-04",
+          "comment": "The exchange isn't optional. If there is a legal choice, you must make one."
+        }
+      ]
+    }
+  },
+  {
+    "id": "18e1a8eb-5219-4e2c-9134-100367ba8b08",
+    "oracle_id": "c85ba59f-2851-4c75-86db-da798334850c",
+    "name": "Cultural Exchange",
+    "lang": "en",
+    "layout": "normal",
+    "set_code": "sld",
+    "set_name": "Secret Lair Drop",
+    "set_type": "box",
+    "collector_number": "2071",
+    "released_at": "2025-04-28",
+    "rarity": "rare",
+    "mana_cost": "{4}{U}{U}",
+    "cmc": 6.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Choose any number of creatures target player controls. Choose the same number of creatures another target player controls. Those players exchange control of those creatures. (This effect lasts indefinitely.)",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [],
+    "produced_mana": null,
+    "card_faces": null,
+    "all_parts": null,
+    "image_uris": "{\"small\": \"https://cards.scryfall.io/small/front/1/8/18e1a8eb-5219-4e2c-9134-100367ba8b08.jpg?1783906748\", \"normal\": \"https://cards.scryfall.io/normal/front/1/8/18e1a8eb-5219-4e2c-9134-100367ba8b08.jpg?1783906748\", \"large\": \"https://cards.scryfall.io/large/front/1/8/18e1a8eb-5219-4e2c-9134-100367ba8b08.jpg?1783906748\", \"art_crop\": \"https://cards.scryfall.io/art_crop/front/1/8/18e1a8eb-5219-4e2c-9134-100367ba8b08.jpg?1783906748\"}",
+    "legalities": "{\"standard\": \"not_legal\", \"future\": \"not_legal\", \"historic\": \"not_legal\", \"timeless\": \"not_legal\", \"gladiator\": \"not_legal\", \"pioneer\": \"not_legal\", \"modern\": \"not_legal\", \"legacy\": \"legal\", \"pauper\": \"not_legal\", \"vintage\": \"legal\", \"penny\": \"legal\", \"commander\": \"legal\", \"oathbreaker\": \"legal\", \"standardbrawl\": \"not_legal\", \"brawl\": \"not_legal\", \"competitivebrawl\": \"not_legal\", \"alchemy\": \"not_legal\", \"paupercommander\": \"not_legal\", \"duel\": \"legal\", \"oldschool\": \"not_legal\", \"premodern\": \"legal\", \"predh\": \"legal\", \"tlr\": \"not_legal\"}",
+    "is_token": 0,
+    "digital": 0,
+    "promo": 0,
+    "artist": "Bene Rohlmann",
+    "edhrec_rank": 12611,
+    "official_rulings": {
+      "object": "list",
+      "has_more": false,
+      "data": []
+    }
+  },
+  {
+    "id": "3b894a51-6d4e-4e0f-b42a-dbab594fb81d",
+    "oracle_id": "a52ccb40-e950-4cd0-93ab-50daa52b03f3",
+    "name": "Juxtapose",
+    "lang": "en",
+    "layout": "normal",
+    "set_code": "me1",
+    "set_name": "Masters Edition",
+    "set_type": "masters",
+    "collector_number": "41",
+    "released_at": "2007-09-10",
+    "rarity": "uncommon",
+    "mana_cost": "{3}{U}",
+    "cmc": 4.0,
+    "type_line": "Sorcery",
+    "oracle_text": "You and target player exchange control of the creature you each control with the greatest mana value. Then exchange control of artifacts the same way. If two or more permanents a player controls are tied for greatest, their controller chooses one of them.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [],
+    "produced_mana": null,
+    "card_faces": null,
+    "all_parts": null,
+    "image_uris": "{\"small\": \"https://cards.scryfall.io/small/front/3/b/3b894a51-6d4e-4e0f-b42a-dbab594fb81d.jpg?1783942958\", \"normal\": \"https://cards.scryfall.io/normal/front/3/b/3b894a51-6d4e-4e0f-b42a-dbab594fb81d.jpg?1783942958\", \"large\": \"https://cards.scryfall.io/large/front/3/b/3b894a51-6d4e-4e0f-b42a-dbab594fb81d.jpg?1783942958\", \"art_crop\": \"https://cards.scryfall.io/art_crop/front/3/b/3b894a51-6d4e-4e0f-b42a-dbab594fb81d.jpg?1783942958\"}",
+    "legalities": "{\"standard\": \"not_legal\", \"future\": \"not_legal\", \"historic\": \"not_legal\", \"timeless\": \"not_legal\", \"gladiator\": \"not_legal\", \"pioneer\": \"not_legal\", \"modern\": \"not_legal\", \"legacy\": \"legal\", \"pauper\": \"not_legal\", \"vintage\": \"legal\", \"penny\": \"not_legal\", \"commander\": \"legal\", \"oathbreaker\": \"legal\", \"standardbrawl\": \"not_legal\", \"brawl\": \"not_legal\", \"competitivebrawl\": \"not_legal\", \"alchemy\": \"not_legal\", \"paupercommander\": \"not_legal\", \"duel\": \"legal\", \"oldschool\": \"not_legal\", \"premodern\": \"legal\", \"predh\": \"legal\", \"tlr\": \"not_legal\"}",
+    "is_token": 0,
+    "digital": 1,
+    "promo": 0,
+    "artist": "Justin Hampton",
+    "edhrec_rank": 24513,
+    "official_rulings": {
+      "object": "list",
+      "has_more": false,
+      "data": [
+        {
+          "object": "ruling",
+          "oracle_id": "a52ccb40-e950-4cd0-93ab-50daa52b03f3",
+          "source": "wotc",
+          "published_at": "2007-09-16",
+          "comment": "First creatures are exchanged, then artifacts are exchanged. It's possible that the same artifact creature may be involved in both exchanges."
+        },
+        {
+          "object": "ruling",
+          "oracle_id": "a52ccb40-e950-4cd0-93ab-50daa52b03f3",
+          "source": "wotc",
+          "published_at": "2007-09-16",
+          "comment": "No permanents are targeted by this effect, so permanents with Shroud may be exchanged this way."
+        },
+        {
+          "object": "ruling",
+          "oracle_id": "a52ccb40-e950-4cd0-93ab-50daa52b03f3",
+          "source": "wotc",
+          "published_at": "2007-09-16",
+          "comment": "If one of the players doesn't control a creature at the time the exchange would be made, that part of the effect does nothing, but the exchange of artifacts will still happen. Similarly, if one of the players doesn't control an artifact at the time the exchange would be made, that part of the effect does nothing."
+        }
+      ]
+    }
+  }
+]

@@ -1,0 +1,70 @@
+{
+  "Ian Malcolm, Chaotician": {
+    "object": "list",
+    "has_more": false,
+    "data": [
+      {
+        "object": "ruling",
+        "oracle_id": "57ff1665-0a7b-4d98-bd8f-cc07cf04f701",
+        "source": "wotc",
+        "published_at": "2023-11-10",
+        "comment": "Ian Malcolm, Chaotician's first ability can trigger only once each turn for each player. It doesn't matter if Ian was on the battlefield when the first card was drawn. If you control it when a player draws their second card in a turn, that ability will trigger."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "57ff1665-0a7b-4d98-bd8f-cc07cf04f701",
+        "source": "wotc",
+        "published_at": "2023-11-10",
+        "comment": "Players must follow all applicable timing rules for casting spells with the permission granted by Ian Malcolm, Chaotician's last ability. For example, if the spell is a sorcery, it can only be cast during that player's main phase while the stack is empty."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "57ff1665-0a7b-4d98-bd8f-cc07cf04f701",
+        "source": "wotc",
+        "published_at": "2023-11-10",
+        "comment": "The six types of mana are white, blue, black, red, green, and colorless. Snow mana is not a type of mana. Ian Malcolm, Chaotician won't let you pay a snow cost using mana produced by a nonsnow source."
+      }
+    ]
+  },
+  "Kaya the Inexorable": {
+    "object": "list",
+    "has_more": false,
+    "data": [
+      {
+        "object": "ruling",
+        "oracle_id": "13a4f88b-6832-43a1-b4fa-c1ee60560bad",
+        "source": "wotc",
+        "published_at": "2021-02-05",
+        "comment": "The ghostform counter added by the first ability doesn\u2019t have any functional importance. It\u2019s there to remind you of the ability the creature gains. Even if that counter is removed from the creature, the triggered ability it gains will still work."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "13a4f88b-6832-43a1-b4fa-c1ee60560bad",
+        "source": "wotc",
+        "published_at": "2021-02-05",
+        "comment": "If a nontoken creature gains more than one instance of that triggered ability, each of them will trigger separately. You can return the card to its owner\u2019s hand only once, but you\u2019ll create a Spirit creature token for each of those abilities."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "13a4f88b-6832-43a1-b4fa-c1ee60560bad",
+        "source": "wotc",
+        "published_at": "2021-02-05",
+        "comment": "If you own a face-down card in exile, Kaya\u2019s emblem will let you cast it only if you can look at the card (and only if it\u2019s legendary). If you aren\u2019t allowed to look at the card, you can\u2019t cast it, even if you know it\u2019s legendary."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "13a4f88b-6832-43a1-b4fa-c1ee60560bad",
+        "source": "wotc",
+        "published_at": "2021-02-05",
+        "comment": "If you cast a spell \u201cwithout paying its mana cost,\u201d you can\u2019t choose to cast it for any alternative costs. You can, however, pay additional costs, such as kicker costs. If the card has any mandatory additional costs, those must be paid to cast the spell."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "13a4f88b-6832-43a1-b4fa-c1ee60560bad",
+        "source": "wotc",
+        "published_at": "2021-02-05",
+        "comment": "If the spell has {X} in its mana cost, you must choose 0 as the value of X."
+      }
+    ]
+  }
+}

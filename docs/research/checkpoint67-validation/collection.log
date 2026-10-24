@@ -1,0 +1,8 @@
+tests/test_rules_colored_activation_costs83.py: 11
+tests/test_rules_colored_activation_costs83_extra.py: 6
+tests/test_rules_conditional_toughness96.py: 23
+tests/test_rules_conditional_upkeep_grants91.py: 28
+tests/test_rules_exile_counter_access85.py: 6
+tests/test_rules_vault_loop71.py: 11
+tests/test_rules_zone_exchanges94.py: 25
+

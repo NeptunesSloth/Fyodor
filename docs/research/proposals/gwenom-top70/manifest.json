@@ -1,0 +1,42 @@
+{
+  "candidates": [
+    "Gwenom, Remorseless"
+  ],
+  "promotion_count": 1,
+  "owned_sources": [
+    "gwenom_top70.py",
+    "scripts.py",
+    "permissions.py"
+  ],
+  "shared_functional_delta": "Zonal grant_play copies existing free and life_mv booleans, matching object grants. No casting/schema changes.",
+  "native_result": "13 unique PASS; one genuine cold subprocess",
+  "native_proof_matrix": {
+    "native-initial2.log": "whole + actual attack life casting/private top PASS2",
+    "native-boundaries4.log": "landcap/source departure/expiry + Emperion/Jubilation PASS3; initial insufficientlife test-harness action invalid, repaired next shard",
+    "native-next3.log": "insufficientlife + X0 PASS2; MDFC test initially did not answer entry replacement",
+    "native-modal-cold2.log": "true cold restore PASS1; initial MDFC decline option mismatch repaired next shard",
+    "native-modal1.log": "MDFC back land/native pay3life entry decline PASS1",
+    "native-controller-legacy2.log": "actual Word of Seizing response original controller PASS1; trusted injected legacy history replay inappropriate, repaired next shard",
+    "native-cost2.log": "legacy free zero-life + actual additional discard PASS2",
+    "native-timing1.log": "no preattack authority + normal combat timing PASS1"
+  },
+  "native_file": "tests/test_rules_gwenom_top70.py",
+  "native_command": "PYTHONPATH=. .venv/bin/python -m pytest -q tests/test_rules_gwenom_top70.py",
+  "mypy_result": "3 source files PASS",
+  "mypy_command": "PYTHONPATH=. .venv/bin/python -m mypy --cache-dir /workspace/scratch/gwenom70/mypy-cache app/rules/gwenom_top70.py app/rules/permissions.py app/rules/scripts.py",
+  "ruff_result": "3 source + test PASS",
+  "related_result": "3+7 =10 PASS",
+  "related_commands": [
+    "PYTHONPATH=. .venv/bin/python -m pytest -q tests/test_rules_wave43b_most_played.py -k bolas_citadel",
+    "PYTHONPATH=. .venv/bin/python -m pytest -q tests/test_rules_one_multiverse.py -k 'citadel or life_alternative or forbidden_life or top_look'"
+  ],
+  "patch_lines": 41,
+  "patch_sha256": "44769020701a761044492edbbdbb37947b10aa39f9f2cd2bddb1aac6f5c80a4b",
+  "quality_cards_not_promotions": [
+    "Bolas's Citadel",
+    "Word of Seizing",
+    "Tormenting Voice",
+    "Shatterskull Smashing // Shatterskull, the Hammer Pass"
+  ],
+  "no_live_source_edits": true
+}

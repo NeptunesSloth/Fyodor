@@ -1,0 +1,29 @@
+--- /dev/null
++++ b/backend/app/rules/native_count_discounts79.py
+@@ -0,0 +1,16 @@
++"""Exact own-spell reductions composed from native current characteristics and cast history."""
++from __future__ import annotations
++
++from typing import Any
++
++
++def self_change(text: str) -> dict[str, Any] | None:
++    if text == 'this spell costs {1} less to cast for each spell your opponents have cast this turn':
++        return {'dir': -1, 'value': {'minus': [{'spells_cast': 'all'}, {'spells_cast': 'you'}]}}
++    if text == 'this spell costs {2} less to cast if you control at least two creatures that share a creature type':
++        from app.rules import selectors
++
++        own = selectors.parse('creatures you control')
++        if own is not None:
++            return {'dir': -1, 'n': 2, 'cond': {'value': {'shared_type': 1, 'of': own.key()}, 'op': '>=', 'n': 2}}
++    return None
+--- a/backend/app/rules/cost_changes.py
++++ b/backend/app/rules/cost_changes.py
+@@ -260,3 +260,6 @@
+     same sentence with its condition last."""
+-    from app.rules import conditional_own_discounts, life_start_discounts44
++    from app.rules import conditional_own_discounts, life_start_discounts44, native_count_discounts79
++
++    if (count79 := native_count_discounts79.self_change(t)) is not None:
++        return count79
+

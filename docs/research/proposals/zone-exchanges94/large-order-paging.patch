@@ -1,0 +1,83 @@
+--- a/backend/app/rules/graveyard_order.py
++++ b/backend/app/rules/graveyard_order.py
+@@ -106,6 +106,9 @@
+         cards = [c for c in pile if c in batch["cards"]]
+         if len(cards) < 2 or pile.index(cards[-1]) - pile.index(cards[0]) != len(cards) - 1 or owner not in plan.live():
+             continue  # (cards left it meanwhile, or others came between them: the order stays as it is)
++        if len(cards) > 250:
++            _page(plan, {"owner": owner, "cards": cards, "ordered": []})
++            return True
+         decide(plan, player=owner, kind="order",
+                prompt=f"Order the {len(cards)} cards put into your graveyard together (first chosen ends up on top)",
+                options=[DecisionOption(id=c, label=plan.state.cards[c].name or "Card", card_id=c) for c in reversed(cards)],
+@@ -122,3 +125,70 @@
+     plan.note(f"{plan.name(owner)} ordered the {len(cards)} cards put into their graveyard together", cards[:20], actor=d.player)
+     plan.do({"type": "move", "card_ids": list(reversed(chosen)), "to": {"player": owner, "zone": "graveyard"}, "index": min(pile.index(c) for c in cards)},
+             actor=d.player)
++
++
++def _page_valid(plan: Plan, request: dict[str, Any]) -> bool:
++    pile = plan.state.zones.get(zone_key(request['owner'], 'graveyard'), [])
++    cards = request['cards']
++    return (request['owner'] in plan.live() and all(c in pile for c in cards)
++            and max(pile.index(c) for c in cards) - min(pile.index(c) for c in cards) == len(cards) - 1)
++
++
++def _page(plan: Plan, request: dict[str, Any]) -> None:
++    """Choose/order bounded prefixes; commit only after the complete arbitrary order."""
++    if not _page_valid(plan, request):
++        return
++    remaining = [c for c in request['cards'] if c not in request['ordered']]
++    if len(remaining) < 2:
++        _commit_page(plan, request, request['ordered'] + remaining)
++        return
++    owner = request['owner']
++    if len(remaining) > 250:
++        decide(plan, player=owner, kind='choose_cards',
++               prompt='Choose the cards to put first in your graveyard; you will order them next',
++               options=[DecisionOption(id=c, label=plan.state.cards[c].name or 'Card', card_id=c) for c in remaining],
++               min_choices=1, max_choices=250,
++               resume={'step': 'graveyard_order_page94', 'request': request, 'stage': 'select'})
++        return
++    _order_page(plan, request, remaining)
++
++
++def _order_page(plan: Plan, request: dict[str, Any], selected: list[str]) -> None:
++    if len(selected) == 1:
++        request['ordered'] += selected
++        _page(plan, request)
++        return
++    decide(plan, player=request['owner'], kind='order',
++           prompt='Order these cards for your graveyard (first chosen ends up on top)',
++           options=[DecisionOption(id=c, label=plan.state.cards[c].name or 'Card', card_id=c) for c in selected],
++           min_choices=len(selected), max_choices=len(selected),
++           resume={'step': 'graveyard_order_page94', 'request': request, 'stage': 'order', 'selected': selected})
++
++
++def _commit_page(plan: Plan, request: dict[str, Any], chosen: list[str]) -> None:
++    if not _page_valid(plan, request) or sorted(chosen) != sorted(request['cards']):
++        return
++    owner = request['owner']
++    pile = plan.state.zones[zone_key(owner, 'graveyard')]
++    base = min(pile.index(c) for c in request['cards'])
++    cards = list(reversed(chosen))
++    plan.note(f'{plan.name(owner)} ordered the {len(cards)} cards put into their graveyard together', cards[:20], actor=owner)
++    for offset in range(0, len(cards), 250):
++        plan.do({'type': 'move', 'card_ids': cards[offset:offset + 250], 'to': {'player': owner, 'zone': 'graveyard'},
++                 'index': base + offset}, actor=owner)
++
++
++def resume_page(plan: Plan, d: Any, chosen: list[str]) -> None:
++    request = d.resume['request']
++    if not _page_valid(plan, request):
++        return
++    if d.resume['stage'] == 'select':
++        remaining = set(request['cards']) - set(request['ordered'])
++        if not chosen or len(chosen) > 250 or len(set(chosen)) != len(chosen) or not set(chosen) <= remaining:
++            return
++        _order_page(plan, request, chosen)
++    else:
++        if sorted(chosen) != sorted(d.resume['selected']):
++            return
++        request['ordered'] += chosen
++        _page(plan, request)

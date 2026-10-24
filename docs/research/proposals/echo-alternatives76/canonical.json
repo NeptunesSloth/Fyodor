@@ -1,0 +1,35 @@
+{
+  "id": "96f6dfd2-f4b1-41bc-b848-5afa30b13e36",
+  "oracle_id": "e7436973-9ac8-45b2-9d79-769bfacef4b9",
+  "name": "Thick-Skinned Goblin",
+  "layout": "normal",
+  "set_code": "tsr",
+  "set_name": "Time Spiral Remastered",
+  "collector_number": "196",
+  "rarity": "uncommon",
+  "mana_cost": "{1}{R}",
+  "cmc": 2.0,
+  "type_line": "Creature \u2014 Goblin Shaman",
+  "oracle_text": "You may pay {0} rather than pay the echo cost for permanents you control.\n{R}: This creature gains protection from red until end of turn.",
+  "power": "2",
+  "toughness": "1",
+  "loyalty": null,
+  "defense": null,
+  "colors": [
+    "R"
+  ],
+  "color_identity": [
+    "R"
+  ],
+  "keywords": [],
+  "is_token": false,
+  "faces": [],
+  "double_faced": false,
+  "image_faces": 1,
+  "has_image": false,
+  "released_at": "2021-03-19",
+  "artist": "Ralph Horsley",
+  "commander_legal": "legal",
+  "related_tokens": [],
+  "related_cards": []
+}

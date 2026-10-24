@@ -1,0 +1,9 @@
+# Barrowgoyf optional mill cost64 — closed isolated root review candidate
+
+Only pending promotion: Barrowgoyf. No live source edit or admission by this worker. Exact full canonical body gates repaired native mill and native public-milled creature selection behind an actual optional nonmana cost decision. No shared payment/mill/look/replacement helper changes.
+
+CR118.3/118.12/701.17b require enough library cards for the original mill cost. Decline or insufficient library skips mill and selection. Acceptance remains paid even when replacement changes the actual mill event. Original positive combat damage count is frozen through the pending decision, missing count rejects atomically, and actual native producer retains its original objects through competing616 routes.
+
+Final10 native PASS with four genuine cold subprocesses: original cost accept/missing-count and competing public exile/hidden library:shuffle. Whole canonical definition, exact negative body, actual combat damage/lifelink and CDA, native accept/decline/insufficient library, and replacement-before-public-selection are proved. Additional genuine native Bruvac proof PASS1: original mill2 cost is payable from3 cards; replacement requests4, mills actual3, and still permits creature selection. The unchanged source has11 unique native cases closed across these logs. Related74 runtime cases PASS; source3 mypy PASS plus final narrowed helper guard1 PASS; four-file Ruff PASS. Full canonical text/all3 published Barrow rulings and pinned CR118.3/118.12/701.17 read completely.
+
+The87-line current-root-preserving owned patch adds one leaf plus exact parser/primitive/resume hooks only. Root installs review.patch and matching test/fixture, then owns integrated frozen verification/catalog admission. Stage /tmp/public-mill-costs64/backend. Canonical/rulings include other reserved family cards as research only; no Tetzin promotion claimed.

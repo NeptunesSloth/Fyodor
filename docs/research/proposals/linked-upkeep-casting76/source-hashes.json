@@ -1,0 +1,7 @@
+{
+  "app/rules/linked_upkeep_casting76.py": "cef66c2c0a6d3d9a058141dab6d76a651dc3af63018bf2f781cfa312d93f0b50",
+  "app/rules/scripts.py": "ef8eecd382571e9ea8d54e1414336e2bb69dadc2e4e4565dd64c547b2d684e00",
+  "app/rules/permissions.py": "09db8d8f485156df68efe3074f4757d347498d7b70be098f66cb21b7bf299b40",
+  "tests/test_rules_linked_upkeep_casting76.py": "6b0d5fd867e9211749902fb1bd6cb126fd11e9409a890a53eb96fbc22e725a9d",
+  "tests/fixtures/linked_upkeep_casting76_cards.json": "6e70aebf35b0021d19a5d981e29968a434898fa2b86841cb8880139593602d49"
+}

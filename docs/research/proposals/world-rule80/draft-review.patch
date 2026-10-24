@@ -1,0 +1,243 @@
+--- a/backend/app/game/rules_state.py
++++ b/backend/app/game/rules_state.py
+@@ -1361,7 +1361,18 @@
+         return self
+
+
++class WorldInterval80(BaseModel):
++    """An uninterrupted native World interval, or explicitly unknown legacy history."""
++
++    card: str
++    since: int | None = None
++    observed_before: int
++    event_batch: int | None = None
++
++
+ class RulesState(BaseModel):
++    world_epoch80: int = 0
++    world_intervals80: dict[str, WorldInterval80] = Field(default_factory=dict)
+     combat_memory: CombatMemory | None = None  # None: unknown legacy previous combat.
+     untap_operations: list[UntapOperation] = Field(default_factory=list)
+     paused: bool = False  # the host paused automation: intents are refused, the sandbox works
+--- a/backend/app/rules/combat.py
++++ b/backend/app/rules/combat.py
+@@ -24,6 +24,7 @@
+ from app.rules.plan import Plan, decide, live_players
+ from app.rules.sba import power, toughness
+ from app.rules.statics import rule_arg, rule_selectors
++from app.rules.world_durations80 import native as world_native80
+
+ Round = Literal["only", "first", "second"]
+
+@@ -1372,6 +1373,7 @@
+     triggers.collect(plan)
+
+
++@world_native80
+ def end_combat(plan: Plan) -> None:
+     from app.rules import permissions
+
+--- a/backend/app/rules/delayed.py
++++ b/backend/app/rules/delayed.py
+@@ -54,6 +54,7 @@
+
+ from app.game.rules_state import DelayedTrigger, ObjectRef, TriggerEvent
+ from app.game.state import PHASES
++from app.rules.world_durations80 import native as world_native80
+
+ if TYPE_CHECKING:
+     from app.game.rules_state import ContinuousEffect, Event, PendingTrigger
+@@ -548,6 +549,7 @@
+     return list(getattr(getattr(action, "r", None), "ids", None) or [])
+
+
++@world_native80
+ def _end(plan: Plan, ended: list[ContinuousEffect]) -> None:
+     """The effects end, and with them the table markers they wrote (keyed by the effect: another
+     effect's marker with the same wording on the same creature stays)."""
+@@ -611,6 +613,7 @@
+         _end(plan, due)
+
+
++@world_native80
+ def expire(plan: Plan) -> None:
+     """611.2b: "for as long as …" effects end as soon as it stops being true (checked after every
+     table change: the source left, changed controller or untapped)."""
+@@ -644,6 +647,7 @@
+     return card is not None and card.counters.get(kind, 0) > 0
+
+
++@world_native80
+ def _drop(plan: Plan, effect: ContinuousEffect, kept: list[str]) -> None:
+     """Objects that no longer have the counter leave the effect (and its table markers)."""
+     gone = set(effect.affected) - set(kept)
+--- a/backend/app/rules/layers.py
++++ b/backend/app/rules/layers.py
+@@ -45,6 +45,7 @@
+ from app.rules import chosen as _chosen  # -- chosen filters (wave 53B) --
+ from app.rules import read_pass
+ from app.rules.characteristics import AbilityText, CardInfo, Characteristics
++from app.rules.world_durations80 import native as world_native80
+
+ if TYPE_CHECKING:
+     from app.rules.plan import Plan
+@@ -1571,6 +1572,7 @@
+ Duration = Literal["end_of_turn", "permanent", "end_of_combat", "next_turn", "end_of_next_turn"]  # (wave 31C: "next_turn" — a copy effect "until your next turn", copying.add_copy_effect)
+
+
++@world_native80
+ def add_effect(plan: Plan, *, affected: list[str], layer: Layer, source: str | None, controller: str,
+                power: int | None = None, toughness: int | None = None, add_keywords: tuple[str, ...] = (),
+                remove_keywords: tuple[str, ...] = (), add_types: tuple[str, ...] = (), duration: Duration = "end_of_turn",
+@@ -1596,6 +1598,7 @@
+     return effect
+
+
++@world_native80
+ def end_of_turn(plan: Plan) -> None:
+     """514.2: "until end of turn" effects end in the cleanup step."""
+     r = plan.rules
+--- a/backend/app/rules/plan.py
++++ b/backend/app/rules/plan.py
+@@ -67,6 +67,8 @@
+         self.put_via: str | None = None  # -- trigger other (wave 51E) -- the object whose effect is putting cards onto the battlefield now (Entry.via)
+         self.moved: dict[str, bool] = {}  # card -> did one of its moves this intent make it a card others have seen (ops.seen_move)
+
++    world_depth80: int = 0
++
+     shuffle_after: list[str] | None = None  # An instruction completes all selected moves before shuffling.
+     shuffle_retained: tuple[ObjectRef, ...] = ()  # Same look instruction only; never a general shuffle immunity.
+
+@@ -134,6 +136,9 @@
+             graveyard_return57.freeze_attachments(self, before)
+         entered_before = (self.state.turn.number, len(self.rules.turn_log.entered)) if self.state.rules else None
+         gy_seen = graveyard_order.before(self, payload)
++        from app.rules import world_durations80
++
++        world_before80 = world_durations80.before(self) if resolved.type != 'rules_sync' else None
+         HANDLERS[resolved.type](self.state, resolved)
+         if before is not None and self.began is not None:
+             for cid, zone in before.zones.items():
+@@ -142,6 +147,8 @@
+                     self.moved[cid] = self.moved.get(cid, False) or seen_move(zone, c.zone, was)
+         track(self.state, before, actor=resolved.actor or None, group=getattr(resolved, "group", 0),
+               put_by=wither_put_by(resolved), declared=getattr(resolved, "declared", False))  # (5H, 7C, 17D; 45C: the attack declaration's tap)
++        if world_before80 is not None:
++            world_durations80.after(self, world_before80)
+         if self.rules.madness_declined:
+             from app.rules import discarded_references
+
+--- a/backend/app/rules/sba.py
++++ b/backend/app/rules/sba.py
+@@ -155,8 +155,10 @@
+             if sagas.must_sacrifice(plan, card, ch):
+                 out.dying.append((card, sagas.SACRIFICE_REASON))
+     # -- token & pump wordings (wave 6C) -- 704.5z: of one player's Roles on a permanent, only the newest stays
+-    from app.rules import roles
+-
++    from app.rules import roles, world_durations80
++
++    existing_deaths80 = {c.id for c, _ in out.dying}
++    out.dying += [(c, 'World rule (704.5k)') for c in world_durations80.dying(plan) if c.id not in existing_deaths80]
+     out.dying = [(c, why) for c, why in out.dying if c.id not in plan.rules.pending_616]  # (-- zone replacements (wave 22C) -- held)
+     dying = {c.id for c, _ in out.dying}
+     out.dying += [(c, "a newer Role of its controller is attached to the same permanent (704.5z)")
+--- /dev/null
++++ b/backend/app/rules/world_durations80.py
+@@ -0,0 +1,96 @@
++"""Staged CR 704.5k interval receipts; not installed or admitted."""
++from __future__ import annotations
++
++from collections.abc import Callable, Iterator
++from contextlib import contextmanager
++from functools import wraps
++from typing import TYPE_CHECKING, Concatenate, ParamSpec, TypeVar
++
++from app.game.errors import ActionError
++from app.game.rules_state import WorldInterval80
++
++if TYPE_CHECKING:
++    from app.game.state import CardInstance
++    from app.rules.plan import Plan
++
++P = ParamSpec('P')
++T = TypeVar('T')
++
++
++def profile(plan: Plan) -> dict[str, str]:
++    """Read effective supertype, including phased history, without applying SBAs."""
++    return {plan.oid(c): c.id for c in plan.state.cards.values()
++            if c.zone.endswith((':battlefield', ':phased')) and plan.in_game(c)
++            and 'World' in plan.ch(c).supertypes}
++
++
++def observe(plan: Plan, current: dict[str, str]) -> None:
++    """Unknown existing history stays unknown, with an honest relative-age bound."""
++    r = plan.rules
++    r.world_intervals80 = {oid: v for oid, v in r.world_intervals80.items()
++                           if oid in current and v.card == current[oid]}
++    for oid, card in current.items():
++        if oid not in r.world_intervals80:
++            r.world_intervals80[oid] = WorldInterval80(card=card, observed_before=r.world_epoch80)
++
++
++def before(plan: Plan) -> dict[str, str] | None:
++    if plan.world_depth80:
++        return None
++    current = profile(plan)
++    observe(plan, current)
++    return current
++
++
++def after(plan: Plan, prior: dict[str, str]) -> None:
++    current = profile(plan)
++    gained = {oid: card for oid, card in current.items() if oid not in prior}
++    r = plan.rules
++    # Finish losses before issuing the shared interval start. Ordinary APNAP
++    # timestamps and object-ID ordering never decide a World comparison.
++    observe(plan, current)
++    if gained:
++        r.world_epoch80 += 1
++        for oid, card in gained.items():
++            r.world_intervals80[oid] = WorldInterval80(card=card, since=r.world_epoch80,
++                observed_before=r.world_epoch80, event_batch=r.batch)
++
++
++@contextmanager
++def atomic(plan: Plan) -> Iterator[None]:
++    prior = before(plan)
++    plan.world_depth80 += 1
++    try:
++        yield
++    except BaseException:
++        raise
++    else:
++        if prior is not None:
++            after(plan, prior)
++    finally:
++        plan.world_depth80 -= 1
++
++
++def native(fn: Callable[Concatenate[Plan, P], T]) -> Callable[Concatenate[Plan, P], T]:
++    @wraps(fn)
++    def wrapped(plan: Plan, *args: P.args, **kwargs: P.kwargs) -> T:
++        with atomic(plan):
++            return fn(plan, *args, **kwargs)
++    return wrapped
++
++
++def dying(plan: Plan) -> list[CardInstance]:
++    current = profile(plan)
++    observe(plan, current)
++    worlds = [plan.state.cards[cid] for cid in current.values()
++              if plan.state.cards[cid].zone.endswith(':battlefield')]
++    if len(worlds) < 2:
++        return []
++    entries = [(c, plan.rules.world_intervals80[plan.oid(c)]) for c in worlds]
++    known = [v.since for _, v in entries if v.since is not None]
++    latest = max(known, default=0)
++    if any(v.since is None and v.observed_before >= latest for _, v in entries):
++        raise ActionError('The World rule needs historical World durations that this save does not record. '
++                          'Resolve the World rule with the table tools before continuing; no survivor was guessed.')
++    winners = [c for c, v in entries if v.since == latest]
++    return worlds if len(winners) != 1 else [c for c in worlds if c.id != winners[0].id]

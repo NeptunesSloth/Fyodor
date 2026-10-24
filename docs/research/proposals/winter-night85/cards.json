@@ -1,0 +1,90 @@
+[
+  {
+    "name": "Winter's Night",
+    "mana_cost": "{R}{G}{W}",
+    "cmc": 3.0,
+    "type_line": "World Enchantment",
+    "oracle_text": "Whenever a player taps a snow land for mana, that player adds one mana of any type that land produced. That land doesn't untap during its controller's next untap step.",
+    "power": null,
+    "toughness": null,
+    "colors": [
+      "G",
+      "R",
+      "W"
+    ],
+    "color_identity": [
+      "G",
+      "R",
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Snow-Covered Forest",
+    "mana_cost": "",
+    "cmc": 0.0,
+    "type_line": "Basic Snow Land \u2014 Forest",
+    "oracle_text": "({T}: Add {G}.)",
+    "power": null,
+    "toughness": null,
+    "colors": [],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Snow-Covered Wastes",
+    "mana_cost": "",
+    "cmc": 0.0,
+    "type_line": "Basic Snow Land",
+    "oracle_text": "{T}: Add {C}.",
+    "power": null,
+    "toughness": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  },
+  {
+    "name": "Forest",
+    "mana_cost": "",
+    "cmc": 0.0,
+    "type_line": "Basic Land \u2014 Forest",
+    "oracle_text": "({T}: Add {G}.)",
+    "power": null,
+    "toughness": null,
+    "colors": [],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Sol Ring",
+    "mana_cost": "{1}",
+    "cmc": 1.0,
+    "type_line": "Artifact",
+    "oracle_text": "{T}: Add {C}{C}.",
+    "power": null,
+    "toughness": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  },
+  {
+    "name": "Concordant Crossroads",
+    "mana_cost": "{G}",
+    "cmc": 1.0,
+    "type_line": "World Enchantment",
+    "oracle_text": "All creatures have haste.",
+    "power": null,
+    "toughness": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  }
+]

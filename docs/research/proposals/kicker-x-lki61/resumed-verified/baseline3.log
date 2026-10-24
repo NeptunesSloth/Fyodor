@@ -1,0 +1,68 @@
+FFF                                                                      [100%]
+=================================== FAILURES ===================================
+_ test_overlord_cast_for_its_impending_cost_enters_with_four_time_counters_and_isnt_a_creature _
+
+cards = <app.cards.repository.CardRepository object at 0x7f128af176e0>
+
+    def test_overlord_cast_for_its_impending_cost_enters_with_four_time_counters_and_isnt_a_creature(cards):
+        """"Impending 4—{2}{W}{W}": rather than {5}{W}{W}; "it enters with four time counters", "as long as its impending cost was paid and it has a time
+        counter on it, it's not a creature" — the enters trigger still happens (two 2/1 Insects), and at the beginning of your end step a time counter is
+        removed. When the last one is gone it is a creature again."""
+        s = build(cards, ["Overlord of the Mistmoors"])
+        to_hand(s, "Overlord of the Mistmoors")
+        key = alt_key(s, "Overlord of the Mistmoors", "impending")
+        mana(s, W=2, C=2)
+        act(s, "p1", type="cast_spell", card_id=card_named(s, "Overlord of the Mistmoors").id, alt_cost=key)
+        settle(s)
+        overlord = s.state.cards[card_named(s, "Overlord of the Mistmoors").id]
+        assert overlord.zone == "p1:battlefield" and overlord.counters.get("time") == 4
+        assert not is_creature(s, "Overlord of the Mistmoors")
+        assert len([c for c in s.state.cards.values() if c.name == "Insect" and c.zone == "p1:battlefield"]) == 2
+        s = reloaded_session(s)  # a save and a load: the cast record still says the impending cost was paid
+        assert not is_creature(s, "Overlord of the Mistmoors")
+        until(s, lambda s: s.state.cards[overlord.id].counters.get("time") == 3 and s.state.rules.decision is None)
+        settle(s)
+        assert s.state.cards[overlord.id].counters.get("time") == 3 and not is_creature(s, "Overlord of the Mistmoors")
+        act(s, "p1", type="counter", card_ids=[overlord.id], kind="time", delta=-3)  # (the table tool: the last counter is gone)
+>       assert is_creature(s, "Overlord of the Mistmoors")
+E       AssertionError: assert False
+E        +  where False = is_creature(<app.game.session.GameSession object at 0x7f128abd5520>, 'Overlord of the Mistmoors')
+
+tests/test_rules_wave43d_cast_keywords.py:933: AssertionError
+_ test_a_replicate_cost_is_offered_to_a_free_cast_as_often_as_the_energy_allows _
+
+cards = <app.cards.repository.CardRepository object at 0x7f128abffd10>
+
+    def test_a_replicate_cost_is_offered_to_a_free_cast_as_often_as_the_energy_allows(cards):
+        """Seven energy pay for two replicates (six) but not three: the caster (only) is asked, kicker:1 and kicker:2 are the options; the energy is paid."""
+        s = gandalf_bolt(cards, 7)
+        d = optional_question(s)
+>       assert d is not None and d.player == "p1" and [o.id for o in d.options] == ["kicker:1", "kicker:2"]
+E       AssertionError: assert (Decision(id='00b669e67213', player='p1', kind='choose_cards', prompt='Reiterating Bolt: pay any optional additional co...al_asked': False, 'life_symbols': None}, 'card_object': 'f9100537eb62.2', 'abandon': True}, display=None, decider=None) is not None and 'p1' == 'p1'
+E
+E           p1 and ['kicker:1', ...kicker:other'] == ['kicker:1', 'kicker:2']
+E
+E         Left contains one more item: 'kicker:other'
+E         Use -v to get more diff)
+
+tests/test_rules_wave43d_cast_keywords.py:1286: AssertionError
+___ test_a_replicate_cost_the_caster_cant_pay_is_not_offered_to_a_free_cast ____
+
+cards = <app.cards.repository.CardRepository object at 0x7f128bbda810>
+
+    def test_a_replicate_cost_the_caster_cant_pay_is_not_offered_to_a_free_cast(cards):
+        """Three energy: one replicate is offered, two is not (a partial payment is never an option, 118.3); two energy: no question at all."""
+        s = gandalf_bolt(cards, 3)
+        d = optional_question(s)
+>       assert d is not None and [o.id for o in d.options] == ["kicker:1"]
+E       AssertionError: assert (Decision(id='e3dc28d30247', player='p1', kind='choose_cards', prompt='Reiterating Bolt: pay any optional additional co...al_asked': False, 'life_symbols': None}, 'card_object': '26d518aa440a.2', 'abandon': True}, display=None, decider=None) is not None and ['kicker:1', 'kicker:other'] == ['kicker:1']
+E
+E         Left contains one more item: 'kicker:other'
+E         Use -v to get more diff)
+
+tests/test_rules_wave43d_cast_keywords.py:1306: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_rules_wave43d_cast_keywords.py::test_overlord_cast_for_its_impending_cost_enters_with_four_time_counters_and_isnt_a_creature
+FAILED tests/test_rules_wave43d_cast_keywords.py::test_a_replicate_cost_is_offered_to_a_free_cast_as_often_as_the_energy_allows
+FAILED tests/test_rules_wave43d_cast_keywords.py::test_a_replicate_cost_the_caster_cant_pay_is_not_offered_to_a_free_cast
+3 failed, 115 deselected in 4.59s

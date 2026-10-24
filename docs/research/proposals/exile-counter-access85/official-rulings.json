@@ -1,0 +1,171 @@
+{
+  "Draugr Necromancer": {
+    "object": "list",
+    "has_more": false,
+    "data": [
+      {
+        "object": "ruling",
+        "oracle_id": "ccdf3399-b836-47ab-802d-af5a9c24d759",
+        "source": "wotc",
+        "published_at": "2021-02-05",
+        "comment": "If an opponent controls a nontoken creature that you own and that creature would die, it will be exiled with an ice counter on it. However, you won\u2019t be able to cast that card from exile."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "ccdf3399-b836-47ab-802d-af5a9c24d759",
+        "source": "wotc",
+        "published_at": "2021-02-05",
+        "comment": "Similarly, if a nontoken land an opponent controls that\u2019s become a creature dies, that card will be exiled with an ice counter, but Draugr Necromancer doesn\u2019t allow you to play lands from exile."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "ccdf3399-b836-47ab-802d-af5a9c24d759",
+        "source": "wotc",
+        "published_at": "2021-02-05",
+        "comment": "Casting a spell from exile this way follows the normal rules for casting that spell. You must pay its costs, and you must follow all applicable timing rules."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "ccdf3399-b836-47ab-802d-af5a9c24d759",
+        "source": "wotc",
+        "published_at": "2021-02-05",
+        "comment": "Draugr Necromancer allows you to cast spells from among any cards in exile your opponents own with ice counters on them, including cards that were exiled by previous Draugr Necromancers."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "ccdf3399-b836-47ab-802d-af5a9c24d759",
+        "source": "wotc",
+        "published_at": "2021-02-05",
+        "comment": "Snow is a supertype, not a card type. It has no rules meaning or function by itself, but spells and abilities may refer to it."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "ccdf3399-b836-47ab-802d-af5a9c24d759",
+        "source": "wotc",
+        "published_at": "2021-02-05",
+        "comment": "The {S} symbol is a generic mana symbol. It represents a cost that can be paid by one mana that was produced by a snow source. That mana can be any color or colorless."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "ccdf3399-b836-47ab-802d-af5a9c24d759",
+        "source": "wotc",
+        "published_at": "2021-02-05",
+        "comment": "Snow isn\u2019t a type of mana. If an effect says you may spend mana as though it were any type, you can\u2019t pay for {S} using mana that wasn\u2019t produced by a snow source."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "ccdf3399-b836-47ab-802d-af5a9c24d759",
+        "source": "wotc",
+        "published_at": "2021-02-05",
+        "comment": "Some cards have additional effects for each {S} spent to cast them. You can cast these spells even if you don\u2019t spend any snow mana to cast them; their additional effects simply won\u2019t do anything."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "ccdf3399-b836-47ab-802d-af5a9c24d759",
+        "source": "wotc",
+        "published_at": "2021-02-05",
+        "comment": "The Kaldheim set doesn\u2019t have any cards with mana costs that include {S}, but some previous sets do. If an effect says such a spell costs {1} less to cast, that reduction doesn\u2019t apply to any {S} costs. This is also true for activated abilities that include {S} in their activation costs and effects that reduce those costs."
+      }
+    ]
+  },
+  "Haldan, Avid Arcanist": {
+    "object": "list",
+    "has_more": false,
+    "data": [
+      {
+        "object": "ruling",
+        "oracle_id": "6a0b78fb-3838-47d9-8d1a-b6b0c0e8927d",
+        "source": "wotc",
+        "published_at": "2020-04-17",
+        "comment": "Haldan's ability applies only while it's on the battlefield. You'll be able to play cards you exiled with fetch counters before Haldan entered the battlefield, and if Haldan leaves, you won't be able to play cards that were exiled with fetch counters until Haldan returns."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "6a0b78fb-3838-47d9-8d1a-b6b0c0e8927d",
+        "source": "wotc",
+        "published_at": "2020-04-17",
+        "comment": "Haldan doesn't change when you can play the exiled cards. For example, if you exile a sorcery card, you can cast it only during your main phase when the stack is empty. If you exile a land card, you can play it only during your main phase and only if you have an available land play remaining."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "6a0b78fb-3838-47d9-8d1a-b6b0c0e8927d",
+        "source": "wotc",
+        "published_at": "2020-04-17",
+        "comment": "A creature card that you exiled with a fetch counter on it may be cast as a noncreature spell if a rule or effect (such as that of adventurer cards) allows you to do so."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "6a0b78fb-3838-47d9-8d1a-b6b0c0e8927d",
+        "source": "wotc",
+        "published_at": "2020-04-17",
+        "comment": "In a multiplayer game, if a player leaves the game, all cards that player owns leave as well. If you leave the game, any spells or permanents you control that Pako fetched are exiled."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "6a0b78fb-3838-47d9-8d1a-b6b0c0e8927d",
+        "source": "wotc",
+        "published_at": "2020-04-17",
+        "comment": "\"Partner with [name]\" represents two abilities. The first is a triggered ability: \"When this permanent enters the battlefield, target player may search their library for a card named [name], reveal it, put it into their hand, then shuffle their library.\""
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "6a0b78fb-3838-47d9-8d1a-b6b0c0e8927d",
+        "source": "wotc",
+        "published_at": "2020-04-17",
+        "comment": "Note that the target player searches their library (which may be affected by effects such as that of Stranglehold) and that the card they find is revealed, even though these words aren't included in the ability's reminder text."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "6a0b78fb-3838-47d9-8d1a-b6b0c0e8927d",
+        "source": "wotc",
+        "published_at": "2020-04-17",
+        "comment": "The second ability represented by the \"partner with [name]\" keyword modifies the rules for deck construction in the Commander variant and has no function outside of that variant. If a legendary creature card with \"partner with [name]\" is designated as your commander, the named legendary creature card can also be designated as your commander."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "6a0b78fb-3838-47d9-8d1a-b6b0c0e8927d",
+        "source": "wotc",
+        "published_at": "2020-04-17",
+        "comment": "If your Commander deck has two commanders, you can only include cards whose own color identities are also found in your commanders' combined color identities. If Haldan and Pako are your commanders, your deck may contain cards with blue, red, and/or green in their color identity, but not cards with white or black."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "6a0b78fb-3838-47d9-8d1a-b6b0c0e8927d",
+        "source": "wotc",
+        "published_at": "2020-04-17",
+        "comment": "Both commanders start in the command zone, and the remaining 98 cards of your deck are shuffled to become your library."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "6a0b78fb-3838-47d9-8d1a-b6b0c0e8927d",
+        "source": "wotc",
+        "published_at": "2020-04-17",
+        "comment": "A creature with a \"partner with\" ability can't partner with any creature other than its designated partner. Losing a partner ability during the game doesn't cause either to cease to be your commander."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "6a0b78fb-3838-47d9-8d1a-b6b0c0e8927d",
+        "source": "wotc",
+        "published_at": "2020-04-17",
+        "comment": "Once the game begins, your two commanders are tracked separately. If you cast one, you won't have to pay an additional {2} the first time you cast the other. A player loses the game after having been dealt 21 damage from one of them, not from both of them combined. Command Beacon's effect puts one into your hand from the command zone, not both."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "6a0b78fb-3838-47d9-8d1a-b6b0c0e8927d",
+        "source": "wotc",
+        "published_at": "2020-04-17",
+        "comment": "The triggered ability of the \"partner with\" keyword still triggers in a Commander game. If your other commander has somehow ended up in your library, you can find it. You can also target another player who might have that card in their library."
+      }
+    ]
+  },
+  "Evelyn, the Covetous": {
+    "object": "list",
+    "has_more": false,
+    "data": []
+  },
+  "Lara Croft, Tomb Raider": {
+    "object": "list",
+    "has_more": false,
+    "data": []
+  }
+}

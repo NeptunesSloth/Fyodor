@@ -1,0 +1,41 @@
+{
+  "status": "UNINSTALLED / root review pending",
+  "names": [
+    "Moment of Glory",
+    "Beast Mode",
+    "Recursive Recruitment",
+    "Ent's Fury"
+  ],
+  "whole": {
+    "passed": 36,
+    "cold": 4,
+    "log": "docs/research/proposals/conditional-counter-riders77/whole36.log"
+  },
+  "types": {
+    "files": 3,
+    "result": "PASS",
+    "log": "docs/research/proposals/conditional-counter-riders77/types3.log"
+  },
+  "ruff": {
+    "files": 4,
+    "result": "PASS",
+    "log": "docs/research/proposals/conditional-counter-riders77/ruff4.log"
+  },
+  "related": {
+    "passed": 137,
+    "result": "PASS",
+    "log": "docs/research/proposals/conditional-counter-riders77/related137.log",
+    "suites": [
+      "conditional_counters",
+      "counter_followthrough",
+      "optional_counter55",
+      "casting_timing_permissions"
+    ]
+  },
+  "patch": "docs/research/proposals/conditional-counter-riders77/UNINSTALLED.patch",
+  "patch_sha256": "188434466d93fb1b3b5e23863cae556722df0c55baa240574b2de9a71805101b",
+  "leaf_sha256": "da3c625a0430601a95d5f806a91c8c3f950f49fb26ee38bb05071740f1347ea2",
+  "staged_backend_app": "/tmp/counter77-stage/app",
+  "test_source": "/tmp/counter77-tests/test_counter77.py",
+  "fixtures": "/tmp/counter77-tests/fixtures/conditional_counter_riders77_cards.json"
+}

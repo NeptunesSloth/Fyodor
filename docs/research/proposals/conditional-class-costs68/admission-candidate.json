@@ -1,0 +1,44 @@
+{
+  "status": "CLOSED_FOR_ROOT_REVIEW; no production install or admission",
+  "names": [
+    "Paladin Class"
+  ],
+  "native": {
+    "distinct_passed": 10,
+    "genuine_cold": 1,
+    "initial_unified": "8 of9 PASS; response test omitted actual opponent tax mana, fixture corrected only",
+    "response_corrected": "cost68-final-boundaries.log first case PASS",
+    "final_cumulative_two_real_casts": "cost68-two-native-casts1.log PASS; supersedes prototype token variant"
+  },
+  "related": {
+    "passed": 8,
+    "module": "tests/test_rules_wave16a_class.py",
+    "log": "cost68-related-class.log"
+  },
+  "mypy": {
+    "passed": 2,
+    "log": "cost68-types.log"
+  },
+  "ruff": {
+    "passed": 3,
+    "log": "cost68-ruff3.log"
+  },
+  "stage": "/tmp/cost68-stage/backend",
+  "patch": "production-candidate.patch",
+  "source_hashes": {
+    "app/rules/conditional_class_costs68.py": "faa91a84f6d567a6da617dfb1b65f0ffae792fe84190f499afa16d769018a517",
+    "app/rules/scripts.py": "3dfbe7c7514c03aacc9dfc04e3333742eceacf195e120d42c205aad534c6ea3a",
+    "tests/test_rules_conditional_class_costs68.py": "5dee6ccf907c8fdb26c0f6870876ea717adb82b84cc458629d652a65a218ac87",
+    "tests/fixtures/conditional_class_costs68_cards.json": "c7d449063fb40c31b2424e4d0feba12ae77c6d8fcdcd8dc9c4766f1620245dc0"
+  },
+  "base_hash": {
+    "backend/app/rules/scripts.py": "40524c80df952727cdee1c885df9fc2a6252a63059be2efc102608d4c897fd7b"
+  },
+  "authorities": "Complete canonical and all9 official published rulings read and saved",
+  "boundaries": [
+    "Actual cast, level2 native buff without premature level3 trigger, actual level3 chosen attacker with other attacker excluded from its own count.",
+    "Current attacking creature count at resolution after actual opposing Disperse; zero others still grants double strike; effect expires EOT.",
+    "Actual source control changes shift turn tax; two separately cast Classes stack their taxes.",
+    "Real enchantment return/recast loses old levels and level2 buff; genuine cold level3 target retains original class level/count."
+  ]
+}

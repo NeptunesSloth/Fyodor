@@ -1,0 +1,39 @@
+.F                                                                       [100%]
+=================================== FAILURES ===================================
+________ test_native_cyber_counter_entry_choices_finish_before_returns _________
+
+cards = <app.cards.repository.CardRepository object at 0x7f22f40bdca0>
+
+    def test_native_cyber_counter_entry_choices_finish_before_returns(cards):
+        s=setup(cards)
+        put(s,'Grumgully, the Generous','battlefield')
+        put(s,'Hardened Scales','battlefield')
+        put(s,'Doubling Season','battlefield')
+        top_for(s,['Grizzly Bears'],'p2')
+        top_for(s,['Hill Giant'],'p3')
+        source=put(s,'The Cyber-Controller','hand')
+        act(s,'p1',type='cast_spell',card_id=source.id,sources=[],x_value=1)
+        entry_choices=0
+        for _ in range(120):
+            d=s.state.rules.decision
+            if d is not None:
+                if d.kind=='order':
+                    ids=[o.id for o in d.options]
+                else:
+                    labels=[o.label for o in d.options]
+                    assert any('Hardened Scales' in label for label in labels),(d.kind,d.prompt,labels)
+                    entry_choices+=1
+                    ids=[next(o.id for o in d.options if 'Hardened Scales' in o.label)]
+                act(s,d.player,type='choose',decision_id=d.id,option_ids=ids)
+            elif s.state.zones.get('stack'):
+                act(s,s.state.rules.priority,type='pass_priority')
+            else:
+                break
+>       assert entry_choices==3,entry_choices
+E       AssertionError: 1
+E       assert 1 == 3
+
+tests/test_cyber63.py:276: AssertionError
+=========================== short test summary info ============================
+FAILED ../../../workspace/Fyodor/backend::test_native_cyber_counter_entry_choices_finish_before_returns
+1 failed, 1 passed, 17 deselected in 4.99s

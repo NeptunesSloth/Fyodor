@@ -1,0 +1,110 @@
+{
+  "Lux Artillery": {
+    "object": "list",
+    "has_more": false,
+    "data": [
+      {
+        "object": "ruling",
+        "oracle_id": "cbd76b22-d04e-48e7-bcab-c7f5466d67d8",
+        "source": "wotc",
+        "published_at": "2023-02-04",
+        "comment": "Lux Artillery's last ability will check if there are thirty or more counters among artifacts and creatures you control as your end step begins. If there aren't, the ability won't trigger at all. If there are, the ability will check again as it tries to resolve. If the number of counters among artifacts and creatures you control has fallen below thirty, the ability won't do anything."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "cbd76b22-d04e-48e7-bcab-c7f5466d67d8",
+        "source": "wotc",
+        "published_at": "2023-02-04",
+        "comment": "If the artifact creature already has sunburst (or if you control multiple copies of Lux Artillery), each instance of sunburst works separately."
+      }
+    ]
+  },
+  "Bloodlord of Vaasgoth": {
+    "object": "list",
+    "has_more": false,
+    "data": [
+      {
+        "object": "ruling",
+        "oracle_id": "d8560ee9-8cbb-440b-a132-e102a1eb3e89",
+        "source": "wotc",
+        "published_at": "2011-09-22",
+        "comment": "Multiple instances of bloodthirst are cumulative. For example, if you control Bloodlord of Vaasgoth and cast a Vampire creature spell that already has bloodthirst 1, that Vampire will enter with four +1/+1 counters on it if an opponent has been dealt damage that turn."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "d8560ee9-8cbb-440b-a132-e102a1eb3e89",
+        "source": "wotc",
+        "published_at": "2011-09-22",
+        "comment": "A creature spell like Phantasmal Image that may enter as a copy of a creature is not a Vampire creature spell, even if you intend on copying a Vampire creature when that creature enters."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "d8560ee9-8cbb-440b-a132-e102a1eb3e89",
+        "source": "wotc",
+        "published_at": "2011-09-22",
+        "comment": "Vampire creatures you put directly onto the battlefield without casting them and Vampire creature tokens you put onto the battlefield will not gain bloodthirst 3 from Bloodlord of Vaasgoth."
+      }
+    ]
+  },
+  "Tyvar Kell": {
+    "object": "list",
+    "has_more": false,
+    "data": [
+      {
+        "object": "ruling",
+        "oracle_id": "14c8a590-88ec-4982-ad7b-36a219ff6de7",
+        "source": "wotc",
+        "published_at": "2021-02-05",
+        "comment": "Tyvar may look like an Elf, but he's not a creature with the creature type Elf, so he doesn't give himself the mana ability he gives Elves you control and he can't be the target of the first loyalty ability."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "14c8a590-88ec-4982-ad7b-36a219ff6de7",
+        "source": "wotc",
+        "published_at": "2021-02-05",
+        "comment": "The first loyalty ability can target an Elf that's already untapped."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "14c8a590-88ec-4982-ad7b-36a219ff6de7",
+        "source": "wotc",
+        "published_at": "2021-02-05",
+        "comment": "The emblem will cause the Elf spell to gain haste. That change carries through to the permanent that the spell becomes."
+      }
+    ]
+  },
+  "Galea, Kindler of Hope": {
+    "object": "list",
+    "has_more": false,
+    "data": [
+      {
+        "object": "ruling",
+        "oracle_id": "30c0df75-9822-4016-a52b-d2e69dd58124",
+        "source": "wotc",
+        "published_at": "2021-07-23",
+        "comment": "You can look at the top card of your library whenever you want (with one restriction; see below), even if you don't have priority. This action doesn't use the stack. Knowing what that card is becomes part of the information you have access to, just like you can look at the cards in your hand."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "30c0df75-9822-4016-a52b-d2e69dd58124",
+        "source": "wotc",
+        "published_at": "2021-07-23",
+        "comment": "If the top card of your library changes while you're casting a spell, playing a land, or activating an ability, you can't look at the new top card until you finish doing so. This means that if you cast a spell from the top of your library, you can't look at the next card until you're done paying for that spell."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "30c0df75-9822-4016-a52b-d2e69dd58124",
+        "source": "wotc",
+        "published_at": "2021-07-23",
+        "comment": "Galea, Kindler of Hope doesn't change when you can cast Aura and Equipment spells. Normally, this means during your main phase when the stack is empty, although flash may change this."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "30c0df75-9822-4016-a52b-d2e69dd58124",
+        "source": "wotc",
+        "published_at": "2021-07-23",
+        "comment": "You'll still pay all costs for the spell, including additional costs. You may also pay alternative costs if any are available."
+      }
+    ]
+  }
+}

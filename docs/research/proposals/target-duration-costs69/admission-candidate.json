@@ -1,0 +1,58 @@
+{
+  "status": "CLOSED_FOR_ROOT_REVIEW; no live source installation or admission",
+  "names": [
+    "Will Kenrith"
+  ],
+  "native": {
+    "passed": 11,
+    "genuine_cold": 2,
+    "log": "native11.log"
+  },
+  "related": {
+    "passed": 41,
+    "log": "related41.log",
+    "modules": [
+      "test_rules_wave20e_cost_changer.py",
+      "test_rules_stored_player_costs66.py",
+      "test_rules_caster_turn_costs63.py"
+    ]
+  },
+  "mypy": {
+    "passed": 6,
+    "log": "types6.log"
+  },
+  "ruff": {
+    "passed": 7,
+    "log": "ruff7.log"
+  },
+  "stage": "/tmp/cost69-stage/backend",
+  "patch": "production-candidate.patch",
+  "source_hashes": {
+    "app/game/rules_state.py": "a4959cc1a43ce25adf713bd2ab39cc7cb7b5e5a39305b61982549ac247f12465",
+    "app/rules/permissions.py": "2830c5933b08e2fa5aba33b136cc952d0259580878990ecc3fdf555000d9d154",
+    "app/rules/delayed.py": "2237490ed331572886b34bd076679d7fb6046abf41e3455697d6b9ea7efafb39",
+    "app/rules/scripts.py": "b76329d623fd0f437be324583d6a55dd79e0a634179b8b14c73204a36b88088b",
+    "app/rules/effects.py": "91ddaba6ce5d61eccfde0328f5633d08d208d244008fdb61a9b20494aafd05fb",
+    "app/rules/target_duration_costs69.py": "a50de50a32ff13609f84f78deb82d62ce611c4e2e2e35296dc249701ee0cc07a",
+    "tests/test_rules_target_duration_costs69.py": "888d1ea89413e5fc9232aa0d8708cd2694e55ac603c90471fed697ac89bc4c8b",
+    "tests/fixtures/target_duration_costs69_cards.json": "256828e22b002b4da0adcdd8588f1338dd7566c7f00254ed2fcffd563401894b"
+  },
+  "authorities": {
+    "canonical": "canonical.json",
+    "all_published_rulings_read": true,
+    "rulings": "official-rulings.json",
+    "rules": [
+      "CR611.2a duration fixed at resolution",
+      "CR800.4m until your next turn when player leaves",
+      "CR601.2f total cost and generic-only reduction"
+    ]
+  },
+  "boundaries": [
+    "Actual six-mana native cast/partner and all three loyalty abilities, plus2 targets/zero optional targets, original-next-turn restoration.",
+    "Actual target draw and generic-only Instant/Sorcery/Planeswalker discount; artifact and other player exclusions.",
+    "Notion Thief redirects actual draw without changing original discount beneficiary.",
+    "Source changes controller while ability on stack or departs after resolution; captured original duration owner preserved.",
+    "Original controller concedes: recipient still discounts on its turn and expiry occurs at departed controller\u2019s would-be turn.",
+    "Two fresh-process saves retain beneficiary/expiry owner and two-target layer duration."
+  ]
+}

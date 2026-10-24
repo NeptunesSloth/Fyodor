@@ -1,0 +1,23 @@
+E702 Multiple statements on one line (semicolon)
+   --> tests/test_rules_gwenom_top70.py:170:34
+    |
+168 |     bears=top(s,['Grizzly Bears'])[0]
+169 |     act(s,'p1',type='move',card_ids=[source.id],to={'player':'p1','zone':'graveyard'})
+170 |     path=tmp_path/'gwenom70.json';path.write_text(s.state.model_dump_json())
+    |                                  ^
+171 |     code=r'''
+172 | import sys
+    |
+
+E702 Multiple statements on one line (semicolon)
+   --> tests/test_rules_gwenom_top70.py:266:46
+    |
+264 |         act(s,'p1',type='cast_spell',card_id=bears.id,sources=[],free=True)
+265 |     to_phase(s,'declare_attackers',turn=4)
+266 |     attack(s,(s.state.cards[source.id],'p2'));settle(s)
+    |                                              ^
+267 |     bears=top(s,['Grizzly Bears'])[0]
+268 |     with pytest.raises(ActionError):
+    |
+
+Found 5 errors (3 fixed, 2 remaining).

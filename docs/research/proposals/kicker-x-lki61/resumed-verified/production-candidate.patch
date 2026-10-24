@@ -1,0 +1,166 @@
+--- a/backend/app/rules/costs.py
++++ b/backend/app/rules/costs.py
+@@ -747,8 +747,21 @@
+     return (m["mana"], rest) if found is not None and found.mana == m["mana"] and found.cost.components else None
+
+
++def positive_kicker_x(line: str) -> str | None:
++    """An actual keyword's explicit lower bound on its single announced kicker X."""
++    suffix = ". X can't be 0"
++    text = line.strip().rstrip(".")
++    if not text.endswith(suffix):
++        return None
++    match = _KICKER.fullmatch(text[:-len(suffix)])
++    return match["cost"] if match is not None and match["cost"].upper().count("{X}") == 1 and not any(
++        match[k] for k in ("multi", "many", "once", "entwine")) and _MANA_ONLY.match(match["cost"]) else None
++
++
+ def kicker_line(line: str) -> bool:
+     """Is this keyword line a kicker the engine pays ("Kicker {2}{R}", "Multikicker {1}")?"""
++    if positive_kicker_x(line) is not None:
++        return True
+     if _entwine_extra(line) is not None or kicker_extra_parts(line) is not None or kicker_mixed_parts(line) is not None:
+         return True
+     if (two := _KICKER2.fullmatch(line.strip().rstrip("."))) is not None:  # (-- keywords (wave 50H) -- both mana only, no {X})
+@@ -767,6 +780,7 @@
+     extra: str = ""  # (an entwine cost that isn't mana: "sacrifice two lands", paid with the additional costs)
+     text: str = ""  # -- free-cast optional costs (wave 41D) -- the keyword line ("Kicker {R}", "Squad {2}"): the label of the question
+     second: str = ""  # -- keywords (wave 50H) -- 702.33b: "Kicker {A} and/or {B}": B, the second kicker cost. Then the cast's ``kicker`` is a mask (1: A, 2: B, 3: both)
++    minimum_x: int = 0  # Only the actual selected keyword may constrain its announced X.
+
+     def paid(self, times: int) -> int:
+         """-- keywords (wave 50H) -- how many kicker costs the cast's ``kicker`` pays (702.33d): the bits of the mask of two costs, else the count."""
+@@ -785,6 +799,9 @@
+     found: list[Kicker] = []
+     for ab in abilities:
+         if ab.kind != "keywords" or not ({"kicker", "multikicker", "squad", "replicate", "offspring", "entwine"} & set(ab.keywords)):
++            continue
++        if (positive := positive_kicker_x(ab.text)) is not None:
++            found.append(Kicker(positive, text=ab.text.strip().rstrip("."), minimum_x=1))
+             continue
+         if (extra := _entwine_extra(ab.text)) is not None:
+             found.append(Kicker("", entwine=True, extra=extra))
+--- a/backend/app/rules/casting.py
++++ b/backend/app/rules/casting.py
+@@ -3449,9 +3449,11 @@
+             if d.get("static") == "x_cap" and a.x_value > (cap := _cap_values.evaluate(plan, {"controller": plan.actor}, d["n"])):
+                 raise ActionError(f"{ch.name}: X can't be greater than {cap}")
+     kick_x = a.kicker and not a.face_down and (kc := kicker_cost(ch.abilities)) is not None and kc.x  # -- cast keywords (wave 43D) -- 107.3a: "Kicker {X}"
+-    if kick_x and (base.x or a.x_value is None or free):  # ponytail: a spell with another X, or cast free this way, pays a kicker X by hand
+-        raise ActionError(f"Choose a value for X to pay the kicker cost of {ch.name}" if a.x_value is None and not (base.x or free)
++    if kick_x and (base.x or a.x_value is None):  # The additional kicker X is announced even when the mana cost is waived (118.9d).
++        raise ActionError(f"Choose a value for X to pay the kicker cost of {ch.name}" if a.x_value is None and not base.x
+                           else f"{ch.name}: pay its kicker X by hand")
++    if kick_x and kc is not None and (a.x_value or 0) < kc.minimum_x:
++        raise ActionError(f"{ch.name}: kicker X must be at least {kc.minimum_x}")
+     from app.rules import flashback_choices
+
+     if not free and a.alt_cost is None and not a.face_down and not plan.manual(card) and grant is not None and grant.how == "flashback" \
+@@ -4669,7 +4671,7 @@
+             try:
+                 selected_costs: list[bool | None] = []
+                 ways = spell_cost_ways(plan.state, card, ch, info=plan.info, player=plan.actor, free=alt is None,
+-                                       alternative=M.parse_cost(alt) if alt is not None else None, kicker=n, selected_costs=selected_costs)
++                                       alternative=M.parse_cost(alt) if alt is not None else None, kicker=n, x=kick.minimum_x, selected_costs=selected_costs)
+             except ActionError:
+                 break  # (a kicker cost Fyodor can't pay)
+             if not any(can_pay(plan.state, plan.actor, total, plan.info,
+@@ -4733,7 +4735,7 @@
+     if a.x_value is not None or not ((kick is not None and kick.x) or (alt is not None and M.parse_cost(alt).x)):
+         return False
+     options: list[DecisionOption] = []
+-    for n in range(1001):  # every X supported by the cast-intent quantity field
++    for n in range(kick.minimum_x if kick is not None and kick.x else 0, 1001):  # actual selected kicker lower bound
+         x_payments: list[dict[str, Any] | None] = []
+         selected_costs: list[bool | None] = []
+         ways = spell_cost_ways(plan.state, card, ch, x=n, info=plan.info, player=plan.actor, free=alt is None,
+@@ -4745,6 +4747,8 @@
+                            reserve=life_due + (alternative_parts.life if alternative_parts is not None else 0)) for i, (total, life_due) in enumerate(ways)):
+             break
+         options.append(DecisionOption(id=f"x:{n}", label=str(n)))
++    if not options and kick is not None and kick.minimum_x:
++        raise ActionError(f"{ch.name}: you cannot pay its minimum kicker X")
+     if paid:
+         options.append(DecisionOption(id="x:other", label="Another value for X (0–1000)"))
+     decide(plan, player=plan.actor, kind="choose_one", prompt=f"{ch.name or 'This spell'}: choose a value for X (107.3a)",
+@@ -4898,6 +4902,8 @@
+         return
+     if announce_free_x(plan, a, card, ch):  # -- cast keywords (wave 43D) -- 107.3a: "Kicker {X}" kicked on a free cast, a miracle cost with {X}: X is announced with it
+         return
++    if a.kicker and (minimum_kick := kicker_cost(ch.abilities)) is not None and (a.x_value or 0) < minimum_kick.minimum_x:
++        raise ActionError(f"{ch.name}: kicker X must be at least {minimum_kick.minimum_x}")
+     if M.parse_cost(ch.mana_cost).x and (limited := cast_limits.cast_problem(plan.state, plan.actor, card, ch, plan.info, resolving=True, announced=a.x_value or 0)):
+         raise ActionError(limited)  # -- review 38 -- 601.2e, 107.3b: X is 0 unless a miracle cost with {X} announced it
+     definition = None if plan.manual(card) else scripts.spell_definition(ch)
+--- a/backend/app/rules/scripts.py
++++ b/backend/app/rules/scripts.py
+@@ -2783,6 +2783,11 @@
+     if (creature_damage := creature_damage_followups.parse(body)) is not None:
+         return creature_damage
+
++    from app.rules import kicked_x_lki_outcomes61
++
++    if (kicked_x_lki := kicked_x_lki_outcomes61.parse(body)) is not None:
++        return kicked_x_lki
++
+     from app.rules import kicked_target_outcomes60
+
+     if (kicked_targets := kicked_target_outcomes60.parse(body)) is not None:
+@@ -6040,6 +6045,11 @@
+     if (kicked_keyword := kicked_spell_outcomes59.definition(ability, ch)) is not None:
+         return kicked_keyword
+
++    from app.rules import kicked_x_lki_outcomes61
++
++    if (kicked_x_entry := kicked_x_lki_outcomes61.definition(ability, ch)) is not None:
++        return kicked_x_entry
++
+     from app.rules import first_target_activation_cost58
+
+     if (first_target_cost := first_target_activation_cost58.definition(ability, ch)) is not None:
+--- a/backend/app/rules/triggers.py
++++ b/backend/app/rules/triggers.py
+@@ -2670,7 +2670,7 @@
+ def put(plan: Plan, t: PendingTrigger, target: str | None = None, picks: dict[str, Any] | None = None) -> bool:
+     """Put one trigger on the stack. False if it waits for its controller's target choice.
+     ``picks``: the choices so far for an ability with target groups (603.3d → 601.2c-d)."""
+-    x = event_x(plan, t)  # -- X from the triggering object (wave 34C) -- its targets are chosen knowing that X: "with mana value X" (601.2c)
++    x = cast_x(plan, t)  # Own entry triggers also use their exact original payment X (107.3m); cast/cycle events delegate unchanged.
+     if x is None:
+         return _put(plan, t, target, picks)
+     before, plan.x_choice = plan.x_choice, x
+--- /dev/null
++++ b/backend/app/rules/kicked_x_lki_outcomes61.py
+@@ -0,0 +1,32 @@
++"""Native selected kicker-X targeting and kicked damage read actual object/payment history."""
++from __future__ import annotations
++
++from dataclasses import replace
++from typing import Any
++
++
++def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
++    from app.rules import scripts, selectors
++
++    text = scripts.self_text(ability.text, ch.name)
++    if text != "When ~ enters, if it was kicked, gain control of target artifact with mana value X or less. If that artifact is an Equipment, attach it to ~.":
++        return None
++    native = scripts.define(replace(ability, text="When ~ enters, if it was kicked, gain control of target artifact with mana value X or less."), ch)
++    attach = scripts.parse_effects("Attach target Equipment to ~.")
++    equipment = selectors.parse("Equipment")
++    if native is None or attach is None or equipment is None:
++        return None
++    return {**native, "effects": [{**native["effects"][0], "as": "skydiver61_target"},
++            {"do": "only_if", "cond": {"object": "ref:skydiver61_target", "is": equipment.key()}, "n": 1},
++            {**attach[0][0], "src": "ref:skydiver61_target"}]}
++
++
++def parse(body: str) -> tuple[list[dict[str, Any]], Any, bool] | None:
++    from app.rules import scripts
++
++    if body != "Destroy target nonblack creature. It can't be regenerated. If this spell was kicked, ~ deals damage equal to that creature's power to the creature's controller.":
++        return None
++    native = scripts.parse_effects("Destroy target nonblack creature. It can't be regenerated. ~ deals damage equal to that creature's power to that creature's controller.")
++    if native is None or len(native[0]) != 3:
++        return None
++    return [*native[0][:2], {"do": "kicked_gate", "kicked": True, "n": 1}, native[0][2]], native[1], False

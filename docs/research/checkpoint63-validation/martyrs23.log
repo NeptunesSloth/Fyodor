@@ -1,0 +1,59 @@
+============================= test session starts ==============================
+platform linux -- Python 3.12.14, pytest-9.1.1, pluggy-1.7.0 -- /workspace/Fyodor/backend/.venv/bin/python
+cachedir: .pytest_cache
+rootdir: /workspace/scratch/root/checkpoint63-final/backend
+configfile: pyproject.toml
+plugins: anyio-4.15.1, xdist-3.8.0
+created: 4/4 workers
+4 workers [23 items]
+
+scheduling tests via LoadScheduling
+
+tests/test_rules_colored_reveal_x87.py::test_canonical_whole_martyr[Martyr of Ashes]
+tests/test_rules_colored_reveal_x87.py::test_canonical_whole_martyr[Martyr of Spores]
+tests/test_rules_colored_reveal_x87.py::test_spores_native_x_buff_uses_two_original_green_cards
+tests/test_rules_colored_reveal_x87.py::test_canonical_whole_martyr[Martyr of Frost]
+[gw0] [  4%] PASSED tests/test_rules_colored_reveal_x87.py::test_canonical_whole_martyr[Martyr of Frost]
+tests/test_rules_colored_reveal_x87.py::test_canonical_whole_martyr[Martyr of Sands]
+[gw2] [  8%] PASSED tests/test_rules_colored_reveal_x87.py::test_canonical_whole_martyr[Martyr of Ashes]
+tests/test_rules_colored_reveal_x87.py::test_canonical_whole_martyr[Martyr of Bones]
+[gw0] [ 13%] PASSED tests/test_rules_colored_reveal_x87.py::test_canonical_whole_martyr[Martyr of Sands]
+tests/test_rules_colored_reveal_x87.py::test_bones_native_up_to_x_original_targets_in_one_graveyard
+[gw1] [ 17%] PASSED tests/test_rules_colored_reveal_x87.py::test_canonical_whole_martyr[Martyr of Spores]
+tests/test_rules_colored_reveal_x87.py::test_sands_native_chosen_x_reveal_lifetime_and_three_times_x_gain
+[gw2] [ 21%] PASSED tests/test_rules_colored_reveal_x87.py::test_canonical_whole_martyr[Martyr of Bones]
+tests/test_rules_colored_reveal_x87.py::test_frost_native_counter_tax_uses_revealed_x_after_source_sacrifice
+[gw1] [ 26%] PASSED tests/test_rules_colored_reveal_x87.py::test_sands_native_chosen_x_reveal_lifetime_and_three_times_x_gain
+tests/test_rules_colored_reveal_x87.py::test_zero_x_still_pays_mana_and_sacrifices_source_without_revealing_any_card[Martyr of Sands]
+[gw3] [ 30%] PASSED tests/test_rules_colored_reveal_x87.py::test_spores_native_x_buff_uses_two_original_green_cards
+tests/test_rules_colored_reveal_x87.py::test_ashes_native_x_damage_hits_ground_creatures_and_excludes_flying
+[gw0] [ 34%] PASSED tests/test_rules_colored_reveal_x87.py::test_bones_native_up_to_x_original_targets_in_one_graveyard
+tests/test_rules_colored_reveal_x87.py::test_zero_x_still_pays_mana_and_sacrifices_source_without_revealing_any_card[Martyr of Frost]
+[gw2] [ 39%] PASSED tests/test_rules_colored_reveal_x87.py::test_frost_native_counter_tax_uses_revealed_x_after_source_sacrifice
+tests/test_rules_colored_reveal_x87.py::test_zero_x_still_pays_mana_and_sacrifices_source_without_revealing_any_card[Martyr of Ashes]
+[gw1] [ 43%] PASSED tests/test_rules_colored_reveal_x87.py::test_zero_x_still_pays_mana_and_sacrifices_source_without_revealing_any_card[Martyr of Sands]
+tests/test_rules_colored_reveal_x87.py::test_zero_x_still_pays_mana_and_sacrifices_source_without_revealing_any_card[Martyr of Bones]
+[gw3] [ 47%] PASSED tests/test_rules_colored_reveal_x87.py::test_ashes_native_x_damage_hits_ground_creatures_and_excludes_flying
+tests/test_rules_colored_reveal_x87.py::test_zero_x_still_pays_mana_and_sacrifices_source_without_revealing_any_card[Martyr of Spores]
+[gw2] [ 52%] PASSED tests/test_rules_colored_reveal_x87.py::test_zero_x_still_pays_mana_and_sacrifices_source_without_revealing_any_card[Martyr of Ashes]
+tests/test_rules_colored_reveal_x87.py::test_duplicate_reveal_choices_cannot_fake_two_distinct_white_cards
+[gw1] [ 56%] PASSED tests/test_rules_colored_reveal_x87.py::test_zero_x_still_pays_mana_and_sacrifices_source_without_revealing_any_card[Martyr of Bones]
+tests/test_rules_colored_reveal_x87.py::test_bones_cannot_split_up_to_x_targets_between_two_graveyards
+[gw2] [ 60%] PASSED tests/test_rules_colored_reveal_x87.py::test_duplicate_reveal_choices_cannot_fake_two_distinct_white_cards
+tests/test_rules_colored_reveal_x87.py::test_actual_revealed_flash_card_returns_as_new_incarnation_without_changing_x_or_inheriting_reveal
+[gw3] [ 65%] PASSED tests/test_rules_colored_reveal_x87.py::test_zero_x_still_pays_mana_and_sacrifices_source_without_revealing_any_card[Martyr of Spores]
+tests/test_rules_colored_reveal_x87.py::test_actual_stifle_counters_activation_and_cleans_reveal_lifetime_without_refunding_cost
+[gw0] [ 69%] PASSED tests/test_rules_colored_reveal_x87.py::test_zero_x_still_pays_mana_and_sacrifices_source_without_revealing_any_card[Martyr of Frost]
+tests/test_rules_colored_reveal_x87.py::test_devoid_blue_mana_cost_card_is_not_blue_for_reveal_cost_and_rejection_is_atomic
+[gw1] [ 73%] PASSED tests/test_rules_colored_reveal_x87.py::test_bones_cannot_split_up_to_x_targets_between_two_graveyards
+tests/test_rules_colored_reveal_x87.py::test_already_revealed_multicolor_card_can_pay_two_distinct_activations_and_remains_revealed_until_both_originals_leave
+[gw0] [ 78%] PASSED tests/test_rules_colored_reveal_x87.py::test_devoid_blue_mana_cost_card_is_not_blue_for_reveal_cost_and_rejection_is_atomic
+[gw3] [ 82%] PASSED tests/test_rules_colored_reveal_x87.py::test_actual_stifle_counters_activation_and_cleans_reveal_lifetime_without_refunding_cost
+tests/test_rules_colored_reveal_x87.py::test_true_cold_native_x_reveal_cost_and_original_activation_visibility_lifetime[stack]
+[gw2] [ 86%] PASSED tests/test_rules_colored_reveal_x87.py::test_actual_revealed_flash_card_returns_as_new_incarnation_without_changing_x_or_inheriting_reveal
+tests/test_rules_colored_reveal_x87.py::test_true_cold_native_x_reveal_cost_and_original_activation_visibility_lifetime[private_choice]
+[gw1] [ 91%] PASSED tests/test_rules_colored_reveal_x87.py::test_already_revealed_multicolor_card_can_pay_two_distinct_activations_and_remains_revealed_until_both_originals_leave
+[gw3] [ 95%] PASSED tests/test_rules_colored_reveal_x87.py::test_true_cold_native_x_reveal_cost_and_original_activation_visibility_lifetime[stack]
+[gw2] [100%] PASSED tests/test_rules_colored_reveal_x87.py::test_true_cold_native_x_reveal_cost_and_original_activation_visibility_lifetime[private_choice]
+
+============================= 23 passed in 11.72s ==============================

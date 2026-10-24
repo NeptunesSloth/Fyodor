@@ -1,0 +1,27 @@
+FF.                                                                      [100%]
+=================================== FAILURES ===================================
+___________ test_countered_original_spell_creates_no_pool_exchange78 ___________
+tests/test_rules_knowledge_pool78.py:108: in test_countered_original_spell_creates_no_pool_exchange78
+    ability=ability(s, archmage, 'Sacrifice'), targets=[spell.id])
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/workspace/Fyodor/backend/tests/test_rules_wave4h_activation_costs.py:98: in ability
+    return next(a.index for a in ch(s, c).abilities if a.text.startswith(start))
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   StopIteration
+___ test_pool_with_only_lands_never_recasts_the_just_exiled_original_spell78 ___
+tests/test_rules_knowledge_pool78.py:119: in test_pool_with_only_lands_never_recasts_the_just_exiled_original_spell78
+    stack_library(s, ['Forest', 'Island', 'Plains'], pid=pid)
+/workspace/Fyodor/backend/tests/test_rules_refused_look.py:198: in stack_library
+    ids.insert(0, put(s, n, "library", pid, nth=sum(1 for m in names[:i] if m == n)).id)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/workspace/Fyodor/backend/tests/test_rules_refused_look.py:189: in put
+    c = find(s, name, pid, nth)
+        ^^^^^^^^^^^^^^^^^^^^^^^
+/workspace/Fyodor/backend/tests/test_rules_refused_look.py:185: in find
+    return [c for c in s.state.cards.values() if c.name == name and c.owner == pid][nth]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   IndexError: list index out of range
+=========================== short test summary info ============================
+FAILED tests/test_rules_knowledge_pool78.py::test_countered_original_spell_creates_no_pool_exchange78
+FAILED tests/test_rules_knowledge_pool78.py::test_pool_with_only_lands_never_recasts_the_just_exiled_original_spell78
+2 failed, 1 passed, 2 deselected in 1.70s

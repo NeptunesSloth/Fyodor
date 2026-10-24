@@ -1,0 +1,17 @@
+{
+  "status": "CLOSED_FOR_ROOT_REVIEW_ONLY",
+  "cards": [
+    "Confusion in the Ranks",
+    "Cultural Exchange",
+    "Juxtapose"
+  ],
+  "stage": "/workspace/scratch/exchanges92",
+  "patch_sha256": "65ad12d47f4449bdfc3c08f472798db7e6c910754981df99ae4ff851323a9218",
+  "note": "Final frozen native18 including three genuine cold processes; related119, scoped mypy5 and Ruff6 all pass. Narrow owned patch only; no live source writes.",
+  "gates": {
+    "native": "18 passed in 195.88s; includes 3 genuine cold",
+    "related": "119 passed in 221.08s",
+    "types": "5 source files pass",
+    "ruff": "6 files pass"
+  }
+}

@@ -64,6 +64,12 @@ def parse(text: str, *, objects: bool = False) -> Condition | None:
     refers to ("it's a land card", "~ is tapped") — only for wording inside an ability's effects or
     trigger, which has those objects (statics and restrictions don't)."""
     t = text.strip().rstrip(",").replace("’", "'")
+    from app.rules import damage_retention83
+
+    if (retention83 := damage_retention83.condition(t)) is not None:
+        return retention83
+    if t.lower() == 'you control a creature that fought this turn':
+        return {'fought_creature90': True}
     from app.rules import graveyard_return57
 
     if (returned57 := graveyard_return57.condition(t)) is not None and (objects or "history" in returned57):
@@ -1524,6 +1530,22 @@ def bind_objects(cond: Condition, who: str) -> Condition:
 
 
 def holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
+    if "damaged_creatures83" in cond:
+        from app.rules import damage_retention83
+
+        return damage_retention83.holds(plan, cond)
+    if cond.get('fought_creature90'):
+        from app.rules import fight_receipts90
+
+        return fight_receipts90.fought_creature(plan, ctx['controller'])
+    if cond.get('attack_pair_players86') or cond.get('attack_other_exact86'):
+        from app.rules import attack_subjects86
+
+        return attack_subjects86.holds(plan, ctx, cond)
+    if cond.get('crewed_by_source84'):
+        from app.rules import crewed_attacks84
+
+        return crewed_attacks84.holds(plan, ctx)
     if 'chosen_color_pair_overlap' in cond:
         from app.rules import chosen_color_pairs45
 

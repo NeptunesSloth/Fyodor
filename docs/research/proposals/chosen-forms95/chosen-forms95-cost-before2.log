@@ -1,0 +1,27 @@
+FF                                                                       [100%]
+=================================== FAILURES ===================================
+______________ test_copied_entity_can_pay_prospective_morph_cost _______________
+tests/test_rules_chosen_forms95.py:333: in test_copied_entity_can_pay_prospective_morph_cost
+    act(s,'p1',type='turn_face_up',card_id=clone.id,method='morph')
+tests/game_helpers.py:42: in act
+    return session.perform(actor, payload)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/game/session.py:61: in perform
+    resolved = resolve(self.state, action, actor=actor, cards=self.cards, trusted=trusted)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/game/resolve.py:76: in resolve
+    a.r = compile_intent(state, a, actor=actor, info=info, rng=rng)  # type: ignore[union-attr]
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/engine.py:164: in compile_intent
+    handler(plan, intent)
+app/rules/casting.py:2669: in turn_face_up
+    raise ActionError("It can't be turned face up that way: turn it face up with the table tools")
+E   app.game.errors.ActionError: It can't be turned face up that way: turn it face up with the table tools
+____________ test_copied_away_entity_cannot_pay_original_morph_cost ____________
+tests/test_rules_chosen_forms95.py:348: in test_copied_away_entity_cannot_pay_original_morph_cost
+    with pytest.raises(ActionError,match="can't be turned face up"):
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   Failed: DID NOT RAISE ActionError
+=========================== short test summary info ============================
+FAILED tests/test_rules_chosen_forms95.py::test_copied_entity_can_pay_prospective_morph_cost
+FAILED tests/test_rules_chosen_forms95.py::test_copied_away_entity_cannot_pay_original_morph_cost

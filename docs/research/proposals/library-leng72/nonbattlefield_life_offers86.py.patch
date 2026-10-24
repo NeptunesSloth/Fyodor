@@ -1,0 +1,75 @@
+--- app/rules/nonbattlefield_life_offers86.py
++++ app/rules/nonbattlefield_life_offers86.py
+@@ -19,6 +19,7 @@
+     paid: bool = False
+     routes: list[dict[str, Any]] = Field(default_factory=list)
+     madness: list[bool] = Field(default_factory=list)
++    leng_routes72: list[bool] = Field(default_factory=list)
+     madness_cost: str | None = None
+     route: int = 0
+     prepared: bool = False
+@@ -29,6 +30,7 @@
+     player: str
+     mode: str
+     rows: list[Card86]
++    leng_order72: list[str] | None = None
+
+
+ def parse(body: str) -> tuple[list[dict[str, Any]], Any, bool] | None:
+@@ -107,6 +109,13 @@
+             row.madness_cost = madness
+             row.routes.append(replacements.Cand('Madness', 'exile')._asdict())
+             row.madness.append(True)
++        if packet.mode == 'sirocco':
++            from app.rules import library_leng72
++
++            wrapped = library_leng72.candidates(plan, card, [{'candidate': c, 'madness': row.madness[i]} for i, c in enumerate(row.routes)])
++            row.routes = [c['candidate'] for c in wrapped]
++            row.madness = [bool(c.get('madness')) for c in wrapped]
++            row.leng_routes72 = [bool(c.get('leng72')) for c in wrapped]
+     if prepare(plan, d.resume['ctx'], packet):
+         effects.continue_effects(plan, d.resume['ctx'])
+
+@@ -131,6 +140,11 @@
+                        memory_key=f'commander_zone:{card.commander_key}', memory_context='hand')
+                 return False
+             row.command = answer
++    if packet.mode == 'sirocco':
++        from app.rules import library_leng72
++
++        if not library_leng72.prepare_life86(plan, ctx, packet):
++            return False
+     amount = (2 if packet.mode == 'moonlight' else 4) * sum(r.paid for r in packet.rows)
+     at = ctx['next']
+     ctx['effects'][at:at] = [
+@@ -174,6 +188,8 @@
+     for row, candidate in chosen:
+         card = plan.state.cards[row.object.card]
+         outcome = candidate.outcome if candidate is not None else 'graveyard'
++        if packet.mode == 'sirocco' and row.command and row.leng_routes72 and row.leng_routes72[row.route]:
++            outcome = 'command'
+         if packet.mode == 'sirocco' and outcome != 'graveyard':
+             history.note_discards(plan, [card.id])
+         groups.setdefault('bottom' if outcome == 'library:bottom' else 'top', {})[card.id] = {'player': card.owner, 'zone': outcome.split(':')[0]}
+@@ -184,7 +200,20 @@
+             plan.do({'type': 'reveal', 'card_ids': [card.id]}, actor=ctx['controller'])
+             shuffles.append(card.owner)
+     for position, destinations in groups.items():
+-        plan.do({'type': 'move', 'card_ids': list(destinations), 'to': {'zone': 'graveyard'}, 'routes': destinations, 'position': position}, actor=ctx['controller'])
++        payload: dict[str, Any] = {'type': 'move', 'card_ids': list(destinations), 'to': {'zone': 'graveyard'}, 'routes': destinations, 'position': position}
++        if position == 'top' and packet.leng_order72:
++            payload.update(library_positions={cid: 'top' for cid in packet.leng_order72}, library_order=packet.leng_order72)
++        plan.do(payload, actor=ctx['controller'])
++        if packet.mode == 'sirocco':
++            from app.game.rules_state import emit, snapshot
++
++            for row, candidate in chosen:
++                cid = row.object.card
++                if cid in destinations and destinations[cid]['zone'] == 'library':
++                    card = plan.state.cards[cid]
++                    emit(plan.state, 'discarded', object_id=row.object.object_id, new_object_id=plan.oid(card), card=cid,
++                         discarded_snapshot=snapshot(plan.state, cid), player=card.owner,
++                         from_zone=f'{card.owner}:hand', to_zone=card.zone, actor=ctx['controller'])
+     for row, candidate in chosen:
+         if candidate is not None:
+             if row.madness and row.madness[row.route]:

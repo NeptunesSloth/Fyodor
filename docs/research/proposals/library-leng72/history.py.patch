@@ -1,0 +1,65 @@
+--- app/rules/history.py
++++ app/rules/history.py
+@@ -278,7 +278,7 @@
+
+     first_event_receipts78.note_events(plan, events, log)
+     for e in events:
+-        if e.kind not in ("zone_change", "sacrificed", "damage", "counters", "milled", "land_played") or e.turn != plan.state.turn.number:
++        if e.kind not in ("zone_change", "discarded", "sacrificed", "damage", "counters", "milled", "land_played") or e.turn != plan.state.turn.number:
+             continue
+         for kind, obj, ch, player, info in _facts(plan, e, {"cast_from": {}}):
+             what: dict[str, Any] = {"types": sorted(ch.types), "subtypes": sorted(ch.subtypes),
+@@ -293,6 +293,8 @@
+                 # public result, never a later incarnation of the physical card.
+                 for fact in reversed(log.facts):
+                     if fact.kind == "discard" and fact.object_id == e.object_id:
++                        if e.kind == 'discarded':
++                            fact.batch = e.batch
+                         fact.discarded_results = ([ObjectRef(card=obj.id, object_id=info["oid"], zone=info.get("to"))]
+                             if obj is not None and info.get("oid") and (info.get("to") or "").rsplit(":", 1)[-1] not in ("hand", "library") else [])
+                         break
+@@ -337,7 +339,7 @@
+                                           actor=info.get("actor"), batch=e.batch, **what))  # (wave 39B: batch)
+
+
+-def note_discards(plan: Plan, card_ids: list[str]) -> None:
++def note_discards(plan: Plan, card_ids: list[str], *, hidden72: bool = False) -> None:
+     """Cards discarded from their owners' hands that a replacement put somewhere other than the graveyard (702.35a
+     madness, "exile it instead"): discarded all the same (701.9a; the card is revealed as it goes to exile)."""
+     from app.game.rules_state import TurnFact, turn_log_now
+@@ -349,8 +351,9 @@
+         if log is None or card is None:
+             continue
+         ch = outside_battlefield_self.apply(chars.of(card, plan.info))
+-        log.facts.append(TurnFact(kind="discard", player=card.owner, object_id=plan.oid(card), types=sorted(ch.types),
+-                                  subtypes=sorted(ch.subtypes), supertypes=sorted(ch.supertypes), discarded_results=[]))
++        log.facts.append(TurnFact(kind="discard", player=card.owner, object_id=plan.oid(card), types=[] if hidden72 else sorted(ch.types),
++                                  subtypes=[] if hidden72 else sorted(ch.subtypes), supertypes=[] if hidden72 else sorted(ch.supertypes), discarded_results=[],
++                                  characteristics_defined=not hidden72))
+
+
+ def note_look(plan: Plan, player: str, kind: str, looked: int = 0) -> None:
+@@ -581,7 +584,9 @@
+     for f in log.facts:
+         if f.kind != cond["kind"] or (cond.get("counter") and f.counter != cond["counter"]) or (cond.get("excess") and f.excess <= 0):  # (wave 39B: 120.10)
+             continue
+-        if sel is not None and not note_matches(sel, f.types, f.subtypes, f.supertypes, (), 0, f.token):
++        from app.rules import library_leng72
++
++        if sel is not None and ((not f.characteristics_defined and not library_leng72.plain_card(sel)) or not note_matches(sel, f.types, f.subtypes, f.supertypes, (), 0, f.token)):
+             continue
+         if cond.get("self") and f.object_id != _source_object(plan, ctx):  # (wave 16D) "a counter was put on ~ this turn"
+             continue
+@@ -885,12 +890,6 @@
+         return entered(plan, ctx, {"sel": v["sel"]}, log)
+     if kind == "attackers":  # -- cost self reduction (wave 16F) -- each creature declared as an attacker this turn, once (508.1)
+         return len({a for p, ids in log.attackers.items() if v.get("who") != "you" or p == me for a in ids})
+-    if kind == 'sacrificed_card_types82':
+-        # Korvold's cast reduction counts card types; Kindred counts here, whereas
+-        # its separate combat trigger counts only permanent types (700.7).
+-        card_types82 = {'Artifact', 'Battle', 'Creature', 'Enchantment', 'Instant', 'Kindred', 'Land', 'Planeswalker', 'Sorcery'}
+-        return len({('Kindred' if t == 'Tribal' else t) for f in log.facts
+-                    if f.kind == 'sacrifice' and f.player == me for t in f.types} & card_types82)
+     if kind in ("tokens", "sacrificed", "discarded"):  # -- X sized by a count (wave 19F) -- one fact per token / permanent (111.2, 701.21a)
+         return sum(1 for f in log.facts if f.kind == {"tokens": "token", "sacrificed": "sacrifice", "discarded": "discard"}[kind]
+                    and (f.player == me or v.get("who") == "any")  # (wave 21F: "who": "any" — each permanent sacrificed, whoever did it)

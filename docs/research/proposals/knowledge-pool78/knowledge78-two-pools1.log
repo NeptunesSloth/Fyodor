@@ -1,0 +1,24 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+_ test_two_actual_pool_sources_offer_only_the_first_successful_exiling_pool78 __
+tests/test_rules_knowledge_pool78.py:136: in test_two_actual_pool_sources_offer_only_the_first_successful_exiling_pool78
+    s = setup(cards)
+        ^^^^^^^^^^^^
+tests/test_rules_knowledge_pool78.py:50: in setup
+    return gameplay.setup(cards, *[c['name'] for c in DATA], 'Lightning Bolt', 'Disperse', 'Counterspell', 'Sol Ring', 'Forest', 'Island', 'Plains',
+../exile49-paid-x-stage/backend/tests/test_rules_exile_cast_outcomes45_foundation.py:55: in setup
+    s=table(cards,names,names,names)
+      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/workspace/Fyodor/backend/tests/test_rules_shared_damage_choices.py:40: in table
+    s = three(cards, a, b, c)
+        ^^^^^^^^^^^^^^^^^^^^^
+/workspace/Fyodor/backend/tests/test_rules_wave30m_durations.py:54: in three
+    decks = [deck(cards, "Krenko, Mob Boss", [*((1, n) for n in a), (20, "Forest")]),
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/game_helpers.py:16: in deck
+    out.append(DeckCard("main", qty, card["name"], card["id"]))
+                                     ^^^^^^^^^^^^
+E   TypeError: 'NoneType' object is not subscriptable
+=========================== short test summary info ============================
+FAILED tests/test_rules_knowledge_pool78.py::test_two_actual_pool_sources_offer_only_the_first_successful_exiling_pool78
+1 failed, 5 deselected in 3.22s

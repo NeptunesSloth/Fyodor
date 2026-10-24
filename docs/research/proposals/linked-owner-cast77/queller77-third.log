@@ -1,0 +1,24 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+___ test_native_queller_exiles_and_owner_casts_sorcery_during_opponents_turn ___
+tests/test_rules_linked_owner_cast77.py:75: in test_native_queller_exiles_and_owner_casts_sorcery_during_opponents_turn
+    cast(s, 'Disperse', targets=[queller.id])
+/workspace/Fyodor/backend/tests/test_rules_ordered_tutor_continuations.py:82: in cast
+    act(s, "p1", type="cast_spell", card_id=source.id, **kw)
+tests/game_helpers.py:42: in act
+    return session.perform(actor, payload)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/game/session.py:61: in perform
+    resolved = resolve(self.state, action, actor=actor, cards=self.cards, trusted=trusted)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/game/resolve.py:76: in resolve
+    a.r = compile_intent(state, a, actor=actor, info=info, rng=rng)  # type: ignore[union-attr]
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/engine.py:163: in compile_intent
+    handler(plan, intent)
+app/rules/casting.py:3449: in cast_spell
+    raise ActionError(problem)
+E   app.game.errors.ActionError: You don't have priority
+=========================== short test summary info ============================
+FAILED tests/test_rules_linked_owner_cast77.py::test_native_queller_exiles_and_owner_casts_sorcery_during_opponents_turn
+1 failed in 15.18s

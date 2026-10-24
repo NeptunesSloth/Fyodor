@@ -1,0 +1,708 @@
+--- a/backend/app/rules/top_library_authorities69.py
++++ b/backend/app/rules/top_library_authorities69.py
+@@ -23,6 +23,18 @@
+         )
+         return (
+             {**native, "effects": [*native["effects"], {"do": "grant_top69"}]} if native is not None else None
++        )
++    if (
++        text
++        == "You may cast spells from the top of your library by removing a counter from a creature you control in addition to paying their other costs."
++    ):
++        native = permissions.define_static(
++            "You may cast spells from the top of your library.", "static", lines
++        )
++        return (
++            {**native, "extra": "Remove a counter from a creature you control"}
++            if native is not None
++            else None
+         )
+     if text in (
+         "You may cast spells from the top of your library by sacrificing a nonland permanent in addition to paying their other costs.",
+--- a/backend/app/rules/counter_cost_order70.py
++++ b/backend/app/rules/counter_cost_order70.py
+@@ -0,0 +1,109 @@
++"""A selected fixed creature-counter cost may precede a sacrifice of its holder."""
++
++from __future__ import annotations
++
++from dataclasses import replace
++
++from app.game.errors import ActionError
++from app.game.rules_state import ObjectRef
++from app.game.state import CardInstance
++from app.rules import costs as C
++from app.rules.plan import Plan
++
++TEXT = "Remove a counter from a creature you control"
++
++
++def index(cost: C.AbilityCost) -> int | None:
++    counters = [(i, c) for i, c in enumerate(cost.components) if c.kind == C.REMOVE_COUNTER]
++    if len(counters) != 1:
++        return None
++    i, part = counters[0]
++    return (
++        i
++        if (
++            part.text == TEXT
++            and part.selector is not None
++            and part.counter == C.ANY_COUNTER
++            and part.amount == 1
++            and not part.x
++            and not part.among
++            and not part.more
++        )
++        else None
++    )
++
++
++def preflight(cost: C.AbilityCost) -> C.AbilityCost:
++    # Sacrifice eligibility can change when that exact counter is removed. The chooser
++    # checks each fixed sacrifice against the native counter-first preview instead.
++    return replace(cost, components=tuple(c for c in cost.components if not fixed_sacrifice(c)))
++
++
++def fixed_sacrifice(part: C.CostComponent) -> bool:
++    return part.kind == C.SACRIFICE and part.selector is not None and not part.anyn and not part.x
++
++
++def preview(plan: Plan, cost: C.AbilityCost, chosen: dict[int, list[str]]) -> Plan:
++    from app.rules import cost_payment, counter_removal_results
++
++    i = index(cost)
++    if i is None or len(chosen.get(i, [])) != 1:
++        raise ActionError("The counter-first cost has no selected counter")
++    token = chosen[i][0]
++    cid = token.rsplit(":", 2)[0]
++    tokens = cost_payment.counter_tokens(plan, [cid])
++    if token not in tokens:
++        raise ActionError("The selected counter can no longer pay the cost")
++    holder, kind = tokens[token]
++    trial = Plan(plan.state, plan.actor, plan.info, None)
++    trial.excluded, trial.x_choice = plan.excluded, plan.x_choice
++    if counter_removal_results.remove(trial, holder, kind, 1, by=plan.actor) != 1:
++        raise ActionError("The selected counter can no longer pay the cost")
++    return trial
++
++
++def capture(plan: Plan, cost: C.AbilityCost, chosen: dict[int, list[str]]) -> list[ObjectRef]:
++    i = index(cost)
++    if i is None or len(chosen.get(i, [])) != 1:
++        raise ActionError("The counter-first cost has no selected counter")
++    cid = chosen[i][0].rsplit(":", 2)[0]
++    card = plan.state.cards[cid]
++    return [ObjectRef(card=cid, object_id=plan.oid(card), zone=card.zone)]
++
++
++def guard(
++    plan: Plan,
++    cost: C.AbilityCost,
++    card: CardInstance,
++    chosen: dict[int, list[str]],
++    original: list[ObjectRef] | None,
++) -> None:
++    from app.rules import cost_payment
++
++    guard_original(plan, original)
++    expected = capture(plan, cost, chosen)
++    if original != expected:
++        raise ActionError("The selected counter holder is no longer the original object")
++    assert original is not None
++    holder = plan.state.cards[original[0].card]
++    if holder.controller != plan.actor or not plan.in_game(holder) or "Creature" not in plan.ch(holder).types:
++        raise ActionError("The selected counter holder is no longer a creature you control")
++    trial = preview(plan, cost, chosen)
++    for i, part in enumerate(cost.components):
++        if fixed_sacrifice(part):
++            candidates = cost_payment.candidates(trial, part, plan.actor, trial.state.cards[card.id])
++            if any(cid not in candidates for cid in chosen.get(i, [])):
++                raise ActionError("The selected sacrifice cannot pay after the counter is removed")
++
++
++def guard_original(plan: Plan, original: list[ObjectRef] | None) -> None:
++    if original is None:
++        raise ActionError(
++            "This older payment did not save the original counter holder; cancel and pay it manually"
++        )
++    if len(original) != 1:
++        raise ActionError("The counter-first payment needs its exact original counter holder")
++    ref = original[0]
++    current = plan.state.cards.get(ref.card)
++    if current is None or plan.oid(current) != ref.object_id or current.zone != ref.zone:
++        raise ActionError("The selected counter holder is no longer the original object")
+--- a/backend/app/rules/costs.py
++++ b/backend/app/rules/costs.py
+@@ -957,7 +957,8 @@
+             # off-battlefield source. Keep variable/optional counter costs refused.
+             counter_part = _one_4h(part[:1].upper() + part[1:], "")
+             if (counter_part is not None and counter_part.kind == REMOVE_COUNTER
+-                    and counter_part.selector is not None and counter_part.among
++                    and counter_part.selector is not None
++                    and (counter_part.among or part.lower() == "remove a counter from a creature you control")
+                     and not counter_part.x and not counter_part.more and counter_part.amount > 0):
+                 components.append(counter_part)
+                 continue
+--- a/backend/app/rules/cost_payment.py
++++ b/backend/app/rules/cost_payment.py
+@@ -444,7 +444,7 @@
+             and plan.in_game(plan.state.cards[cid])]
+
+
+-def choose(plan: Plan, a: A.ActivateAbility | A.CastSpell | A.TurnFaceUp | A.DeclareAttackers | A.DeclareBlockers, cost: AbilityCost, card: CardInstance, what: str, *, compatible_tap: bool = False, component_excluded: dict[int, set[str]] | None = None) -> dict[int, list[str]] | None:
++def choose(plan: Plan, a: A.ActivateAbility | A.CastSpell | A.TurnFaceUp | A.DeclareAttackers | A.DeclareBlockers, cost: AbilityCost, card: CardInstance, what: str, *, compatible_tap: bool = False, counter_first: bool = False, component_excluded: dict[int, set[str]] | None = None) -> dict[int, list[str]] | None:
+     """The validated objects for every part of ``cost`` that needs a choice, by component index;
+     None while waiting for the payer's (private) choice. Each object pays for one part only."""
+     given: dict[int, list[str]] = {}
+@@ -454,13 +454,17 @@
+         if c.component in given:
+             raise ActionError("Choose the objects for each part of the cost once")
+         given[c.component] = list(c.cards)
++    from app.rules import counter_cost_order70
++
++    counter_index = counter_cost_order70.index(cost) if counter_first else None
+     parts = dict(cost.choices)
+     if set(given) - set(parts):
+         raise ActionError("That ability's cost has no such part to choose for")
+     out: dict[int, list[str]] = {}
+     used: set[str] = set()
+     x = getattr(a, "x_value", None)  # (wave 4H: "Sacrifice X Treasures" — X announced as it's activated, 107.3a)
+-    for i, comp in cost.choices:
++    ordered = sorted(cost.choices, key=lambda item: item[0] != counter_index) if counter_index is not None else cost.choices
++    for i, comp in ordered:
+         if comp.kind == C.OPPONENT_GAIN_LIFE:
+             from app.rules import opponent_gain_costs44
+
+@@ -497,10 +501,18 @@
+             blocked = {cid for j, ids in out.items() for cid in ids
+                        if not ({comp.kind, parts[j].kind} & {C.TAP_OTHER} and
+                                {comp.kind, parts[j].kind} & {C.SACRIFICE, C.RETURN_PERMANENT})}
+-        usable = [c for c in candidates(plan, comp, plan.actor, card) if c not in _reserved(cost, comp, card)
++        candidate_plan = plan
++        if counter_index is not None and counter_cost_order70.fixed_sacrifice(comp):
++            # Counter tokens and a sacrifice consume different resources. Other objects
++            # remain reserved; a holder cannot satisfy two sacrifice components.
++            candidate_plan = counter_cost_order70.preview(plan, cost, out)
++            removed_holder = out[counter_index][0].rsplit(':', 2)[0]
++            other_claims = {cid for j, ids in out.items() if j != counter_index for cid in ids}
++            blocked = (used - {removed_holder}) | other_claims
++        usable = [c for c in candidates(candidate_plan, comp, plan.actor, card) if c not in _reserved(cost, comp, card)
+                   and c not in blocked and c not in (component_excluded or {}).get(i, set())]
+         if comp.all_objects:
+-            required = required_all(plan, comp, plan.actor, card)
++            required = required_all(candidate_plan, comp, plan.actor, card)
+             if set(required) - set(usable):
+                 raise ActionError(f"You can't pay “{comp.text}”")
+             need = len(required)
+@@ -527,7 +539,7 @@
+                            "intent": a.model_dump(mode="json", exclude={"r", "actor", "ts"})},
+                    source=card)
+             return None
+-        if not _names_fit(plan, comp, list(chosen)):
++        if not _names_fit(candidate_plan, comp, list(chosen)):
+             raise ActionError(f"Choose objects satisfying “{comp.text}”")  # 601.2h: no partial payments
+         out[i] = list(chosen)
+         used |= set(chosen)
+--- a/backend/app/rules/casting.py
++++ b/backend/app/rules/casting.py
+@@ -1941,12 +1941,15 @@
+
+ def payment_step(plan: Plan, a: A.CastSpell | A.ActivateAbility | A.EndEffect, cost: M.ManaCost, what: str, *,  # (-- licids (wave 50A) -- EndEffect)
+                  exclude: tuple[str, ...] = (), purpose: Purpose | None = None, then: dict[str, Any] | None = None,
+-                 cast_greatest_power: int | None = None) -> bool:
++                 cast_greatest_power: int | None = None, counter_cost_origins70: list[ObjectRef] | None = None) -> bool:
+     """Before a spell or ability is put on the stack: does the player want to see or choose the
+     payment first? Returns True if a decision was opened (the intent then waits for it; nothing
+     has moved yet, so CANCEL simply leaves everything where it was)."""
+     purpose = _purpose_for_cost(cost, purpose)
+     def saved(resume: dict[str, Any]) -> dict[str, Any]:
++        if counter_cost_origins70 is not None:
++            resume['counter_first70'] = True
++            resume['counter_cost_origins70'] = [ref.model_dump(mode='json') for ref in counter_cost_origins70]
+         if cast_greatest_power is not None:
+             resume['cast_greatest_power'] = cast_greatest_power
+         if then is not None:
+@@ -2370,6 +2373,11 @@
+ def _rerun(plan: Plan, d: Any, intent: Any, sources: list[str]) -> None:
+     from app.rules.engine import INTENTS  # the engine imports this module
+
++    if isinstance(d.resume, dict) and d.resume.get('counter_first70'):
++        from app.rules import counter_cost_order70
++
++        raw = d.resume.get('counter_cost_origins70')
++        counter_cost_order70.guard_original(plan, [ObjectRef.model_validate(ref) for ref in raw] if raw is not None else None)
+     intent.sources = sources
+     plan.rules.priority = d.player
+     plan.rules.passed = []
+@@ -3651,11 +3659,16 @@
+         add_cost = alt_costs.merged(add_cost, optional_more)
+     add_objects: dict[int, list[str]] = {}
+     if add_cost is not None:
+-        problem = additional_problem(plan, add_cost, card, plan.actor) or life_x_problem(plan, add_cost, a, plan.actor)  # (4K)
++        from app.rules import counter_cost_order70
++
++        counter_first70 = bool(grant is not None and grant.extra == counter_cost_order70.TEXT
++                               and counter_cost_order70.index(add_cost) is not None)
++        problem_cost70 = counter_cost_order70.preflight(add_cost) if counter_first70 else add_cost
++        problem = additional_problem(plan, problem_cost70, card, plan.actor) or life_x_problem(plan, add_cost, a, plan.actor)  # (4K)
+         if problem:
+             raise ActionError(problem)
+         plan.reserved_life = add_cost.life + ((a.x_value or 0) if add_cost.life_x else 0)  # (wave 29C: 119.4, with Phyrexian mana's life)
+-        found_objects = cost_payment.choose(plan, a, add_cost, card, ch.name or "it")
++        found_objects = cost_payment.choose(plan, a, add_cost, card, ch.name or "it", counter_first=counter_first70)
+         if found_objects is None:
+             return  # waiting for the payer's choice; nothing has been paid
+         add_objects = found_objects
+@@ -3736,8 +3749,9 @@
+     from app.rules import as_cast_values42
+
+     cast_greatest_power = as_cast_values42.capture(plan, definition)
++    origins70 = counter_cost_order70.capture(plan, add_cost, add_objects) if add_cost is not None and grant is not None and grant.extra == counter_cost_order70.TEXT else None
+     if payment_step(plan, a, cost, ch.name or "it", exclude=not_mana, purpose=purpose,
+-                    cast_greatest_power=cast_greatest_power):
++                    cast_greatest_power=cast_greatest_power, counter_cost_origins70=origins70):
+         return
+     commander_cast = from_command_zone(card, plan.actor)
+     harmonized = alt_offer is not None and alt_offer.tag == "harmonize"  # -- casting extras (wave 18E) -- 702.180a: exiled as it leaves the stack
+@@ -3767,6 +3781,8 @@
+     if commander_cast and not plan.state.settings.auto_commander_tax and card.commander_key:
+         plan.do({"type": "commander_tax", "commander": card.commander_key, "delta": 2})
+     data = _PostCast(a, add_cost, add_objects, alt_offer, aura, bargained, bestowed_cast, card, card_was_in_hand, cast_zone, ch, chosen, commander_cast, definition, entwined, escaping, flashback, foretold, free, from_oid, from_where, gift_to, grant, harmonized, jumped, kicked, mutating_cast, optional, picked, picked_targets, sac_at_cleanup, slot_specs, slots)
++    if add_cost is not None and grant is not None and grant.extra == counter_cost_order70.TEXT:
++        data.counter_cost_origins70 = origins70
+     data.cast_greatest_power = cast_greatest_power
+     from app.rules import card_names
+
+@@ -3826,6 +3842,7 @@
+     spliced_names: list[str] | None = None  # Announcement snapshot; None only in legacy saved continuations.
+     splice_text71: SpliceText71 | None = None
+     cast_greatest_power: int | None = None
++    counter_cost_origins70: list[ObjectRef] | None = None
+
+
+ @dataclass
+@@ -3912,6 +3929,10 @@
+             from app.rules import replace as _replace_life  # (wave 28B: 119.4)
+             _replace_life.lose_life(plan, [(plan.actor, a.x_value)])
+             record.life += a.x_value
++        from app.rules import counter_cost_order70
++
++        if grant is not None and grant.extra == counter_cost_order70.TEXT:
++            counter_cost_order70.guard(plan, add_cost, card, add_objects, data.counter_cost_origins70)
+         cost_payment.pay(plan, add_cost, card, add_objects, record)  # sacrifice, discard, exile, return, tap …
+         plan.reserved_life = 0  # (wave 29C: paid now; later payments of this intent are their own)
+     if a.splice:  # -- casting extras (wave 18E) -- 702.47a: the spliced cards are revealed (they stay in the hand)
+--- a/backend/tests/test_rules_falco_counter_cost_order70.py
++++ b/backend/tests/test_rules_falco_counter_cost_order70.py
+@@ -0,0 +1,368 @@
++"""Native chosen counter resources precede same-holder casualty sacrifices."""
++
++import json
++import os
++import subprocess
++import sys
++from pathlib import Path
++
++import pytest
++
++from app.cards.images import ImageStore
++from app.cards.importer import build_database
++from app.cards.repository import CardRepository
++from app.game.errors import ActionError
++from app.rules.cost_payment import counter_tokens
++from app.rules.plan import Plan
++from tests.test_rules_top_library_authorities69 import (
++    act,
++    answer,
++    cast,
++    put,
++    roundtrip,
++    settle,
++    setup,
++    stack_library,
++)
++
++
++@pytest.fixture()
++def cards(settings):
++    from tests.fixtures.cards import card, fixture_cards
++
++    base = {c["name"]: c for c in fixture_cards()}
++    for filename in [
++        "exile_outcomes42_cards.json",
++        "exile_cast_outcomes45_cards.json",
++        "fight_exile_receipts65_cards.json",
++        "top_library_authorities69_cards.json",
++        "falco_counter_cost_order70_cards.json",
++    ]:
++        for i, c in enumerate(json.loads((Path(__file__).parent / "fixtures" / filename).read_text())):
++            base[c["name"]] = card(
++                c["name"],
++                set_code="fc70",
++                number=str(i),
++                **{k: v for k, v in c.items() if k not in {"name", "set_code"}},
++            )
++    settings.ensure_dirs()
++    build_database(base.values(), settings.cards_db_path)
++    repo = CardRepository(settings.cards_db_path, ImageStore(settings.images_dir))
++    yield repo
++    repo.close()
++
++
++def prepare(cards, creature="Grizzly Bears", kind="+1/+1"):
++    s = setup(cards)
++    falco = cast(s, "Falco Spara, Pactweaver")
++    bear = put(s, creature, "battlefield")
++    act(s, "p1", type="set_counter", card_id=bear.id, kind=kind, value=1)
++    enemy = put(s, "Grizzly Bears", "battlefield", pid="p2")
++    top = stack_library(s, ["Light 'Em Up", "Forest"])
++    token = next(
++        t for t, (_, k) in counter_tokens(Plan(s.state, "p1", cards, None), [bear.id]).items() if k == kind
++    )
++    return s, falco, bear, enemy, top[0], token
++
++
++def announce(s, bear, enemy, top, token, *, counter=True):
++    act(
++        s,
++        "p1",
++        type="cast_spell",
++        card_id=top,
++        targets=[enemy.id],
++        optional_costs=[top + ":casualty"],
++        cost_choices=[
++            *([{"component": 0, "cards": [token]}] if counter else []),
++            {"component": 1, "cards": [bear.id]},
++        ],
++    )
++
++
++@pytest.mark.parametrize("kind", ["+1/+1", "-1/-1", "shield"])
++def test_same_creature_pays_counter_then_casualty_using_native_post_removal_power(cards, kind):
++    s, falco, bear, enemy, top, token = prepare(cards, kind=kind)
++    oid = s.state.rules.object_id(bear.id)
++    announce(s, bear, enemy, top, token)
++    settle(s)
++    d = s.state.rules.decision
++    assert d and d.resume["step"] == "copy_target"
++    paid = next(p for p in s.state.rules.payments.values() if p.card == top)
++    assert paid.sacrificed == [bear.id] and paid.sacrificed_objects == [oid]
++    assert s.state.rules.lki[oid].power == 2
++    assert not s.state.rules.lki[oid].counters.get(kind)
++    answer(s, ["keep"])
++    settle(s)
++    assert s.state.cards[bear.id].zone == "p1:graveyard"
++    assert s.state.cards[enemy.id].zone == "p2:graveyard"
++    assert s.state.cards[falco.id].counters.get("shield") == 1
++    roundtrip(s)
++
++
++def test_counter_removal_lowering_power_below_casualty_threshold_is_atomic(cards):
++    s, falco, bear, enemy, top, token = prepare(cards, creature="Llanowar Elves")
++    before = s.state.model_dump(mode="json")
++    with pytest.raises(ActionError, match="Sacrifice a creature with power 2 or greater"):
++        announce(s, bear, enemy, top, token)
++    assert s.state.model_dump(mode="json") == before
++    assert s.state.cards[bear.id].counters["+1/+1"] == 1
++    roundtrip(s)
++
++
++def test_native_counter_choice_can_be_cancelled_without_any_payment(cards):
++    s, falco, bear, enemy, top, token = prepare(cards)
++    announce(s, bear, enemy, top, token, counter=False)
++    d = s.state.rules.decision
++    assert d and d.resume["step"] == "ability_cost"
++    assert any(o.id == token for o in d.options)
++    answer(s, [])
++    settle(s)
++    assert s.state.cards[bear.id].zone == "p1:battlefield"
++    assert s.state.cards[top].zone == "p1:library"
++    assert s.state.cards[bear.id].counters["+1/+1"] == 1
++    roundtrip(s)
++
++
++def test_native_counter_choice_rejects_new_incarnation_of_same_physical_holder(cards):
++    s, falco, bear, enemy, top, token = prepare(cards)
++    announce(s, bear, enemy, top, token, counter=False)
++    d = s.state.rules.decision
++    act(s, "p1", type="move", card_ids=[bear.id], to={"player": "p1", "zone": "hand"})
++    act(s, "p1", type="move", card_ids=[bear.id], to={"player": "p1", "zone": "battlefield"})
++    act(s, "p1", type="set_counter", card_id=bear.id, kind="+1/+1", value=1)
++    before = s.state.model_dump(mode="json")
++    with pytest.raises(ActionError, match="original object"):
++        act(s, d.player, type="choose", decision_id=d.id, option_ids=[token])
++    assert s.state.model_dump(mode="json") == before
++    roundtrip(s)
++
++
++@pytest.mark.parametrize("kind", ["counter", "payment"])
++def test_actual_cold_counter_choice_or_mana_confirmation_preserves_paid_resource(cards, tmp_path, kind):
++    s, falco, bear, enemy, top, token = prepare(cards)
++    if kind == "payment":
++        act(s, "p1", type="configure", automation_options={"auto_mana_payment": False})
++    announce(s, bear, enemy, top, token, counter=kind == "payment")
++    d = s.state.rules.decision
++    assert d
++    if kind == "payment":
++        assert d.resume.get("counter_first70") and len(d.resume["counter_cost_origins70"]) == 1
++    else:
++        assert d.resume["step"] == "ability_cost"
++    p = tmp_path / "saved.json"
++    p.write_text(s.state.model_dump_json())
++    code = """
++import sys
++from pathlib import Path
++from app.cards.images import ImageStore
++from app.cards.repository import CardRepository
++from app.game.session import GameSession
++from app.game.state import GameState
++from tests.game_helpers import act
++from tests.test_rules_library_look import settle
++from tests.test_rules_designations import roundtrip
++p=Path(sys.argv[1]);repo=CardRepository(Path(sys.argv[2]),ImageStore(p.parent/'images'))
++s=GameSession(GameState.model_validate_json(p.read_text()),cards=repo)
++bear,top,answer=sys.argv[3:6];d=s.state.rules.decision
++act(s,d.player,type='choose',decision_id=d.id,option_ids=[answer]);settle(s)
++d=s.state.rules.decision
++assert d and d.resume['step']=='copy_target'
++assert any(p.card==top and p.sacrificed==[bear] for p in s.state.rules.payments.values())
++act(s,d.player,type='choose',decision_id=d.id,option_ids=['keep']);settle(s)
++assert s.state.cards[bear].zone=='p1:graveyard'
++assert s.state.cards[top].zone=='p1:graveyard'
++roundtrip(s)
++"""
++    result = subprocess.run(
++        [
++            sys.executable,
++            "-c",
++            code,
++            str(p),
++            str(cards.db_path),
++            bear.id,
++            top,
++            "pay" if kind == "payment" else token,
++        ],
++        text=True,
++        capture_output=True,
++        timeout=60,
++        env=os.environ.copy(),
++    )
++    assert result.returncode == 0, result.stdout + result.stderr
++
++
++@pytest.mark.parametrize("mode", ["new_object", "legacy"])
++def test_payment_confirmation_rejects_new_holder_or_unknown_original_receipt(cards, mode):
++    from app.game.state import GameState
++
++    s, falco, bear, enemy, top, token = prepare(cards)
++    act(s, "p1", type="configure", automation_options={"auto_mana_payment": False})
++    announce(s, bear, enemy, top, token)
++    d = s.state.rules.decision
++    assert d and d.resume.get("counter_first70")
++    if mode == "new_object":
++        act(s, "p1", type="move", card_ids=[bear.id], to={"player": "p1", "zone": "hand"})
++        act(s, "p1", type="move", card_ids=[bear.id], to={"player": "p1", "zone": "battlefield"})
++        act(s, "p1", type="set_counter", card_id=bear.id, kind="+1/+1", value=1)
++    else:
++        old = s.state.model_dump(mode="json")
++        old["rules"]["decision"]["resume"].pop("counter_cost_origins70")
++        s.state = GameState.model_validate(old)
++    before = s.state.model_dump(mode="json")
++    with pytest.raises(ActionError, match="original counter holder|original object"):
++        act(s, d.player, type="choose", decision_id=d.id, option_ids=["pay"])
++    assert s.state.model_dump(mode="json") == before
++    assert s.state.cards[bear.id].zone == "p1:battlefield"
++    if mode == "new_object":
++        roundtrip(s)
++
++
++@pytest.mark.parametrize("repeat_same_sacrifice", [False, True])
++def test_printed_sacrifice_precedes_counter_component_but_counter_is_paid_first_and_no_double_sacrifice(
++    cards, repeat_same_sacrifice
++):
++    from tests.test_rules_top_library_authorities69 import NAMES, SUPPORT, gameplay
++
++    s = gameplay.setup(cards, *NAMES, *SUPPORT, "Village Rites", "Anhelo, the Painter")
++    falco = cast(s, "Falco Spara, Pactweaver")
++    cast(s, "Anhelo, the Painter")
++    bear = put(s, "Grizzly Bears", "battlefield")
++    act(s, "p1", type="set_counter", card_id=bear.id, kind="+1/+1", value=1)
++    top = stack_library(s, ["Village Rites", "Forest"])[0]
++    token = next(iter(counter_tokens(Plan(s.state, "p1", cards, None), [bear.id])))
++    before = s.state.model_dump(mode="json")
++    payload = {
++        "type": "cast_spell",
++        "card_id": top,
++        "optional_costs": [top + ":casualty"],
++        "cost_choices": [
++            {"component": 0, "cards": [bear.id]},
++            {"component": 1, "cards": [token]},
++            {"component": 2, "cards": [bear.id if repeat_same_sacrifice else falco.id]},
++        ],
++    }
++    if repeat_same_sacrifice:
++        with pytest.raises(ActionError, match="Sacrifice a creature with power 2 or greater"):
++            act(s, "p1", **payload)
++        assert s.state.model_dump(mode="json") == before
++    else:
++        old_hand = len(s.state.zones["p1:hand"])
++        act(s, "p1", **payload)
++        settle(s)
++        assert s.state.cards[bear.id].zone == "p1:graveyard"
++        assert s.state.cards[falco.id].zone == "p1:graveyard"
++        assert len(s.state.zones["p1:hand"]) == old_hand + 4
++        assert not s.state.rules.decision
++    roundtrip(s)
++
++
++def test_whole_falco_definition_is_complete(cards):
++    from app.rules import coverage
++
++    assert coverage.of_card_data(cards.resolve("Falco Spara, Pactweaver")).level == "FULL"
++
++
++def test_automatically_selected_only_counter_on_permission_source_is_paid_once(cards):
++    s = setup(cards)
++    falco = cast(s, "Falco Spara, Pactweaver")
++    assert s.state.cards[falco.id].counters.get("shield") == 1
++    top = stack_library(s, ["Lightning Bolt", "Forest"])[0]
++    act(s, "p1", type="cast_spell", card_id=top, targets=["p2"])
++    settle(s)
++    assert s.state.players["p2"].life == 37
++    assert not s.state.cards[falco.id].counters.get("shield")
++    assert not s.state.rules.decision
++    roundtrip(s)
++
++
++@pytest.mark.parametrize("invalid_holder", ["opponent", "noncreature"])
++def test_falco_cannot_pay_from_counter_on_opponent_or_own_noncreature(cards, invalid_holder):
++    s, falco, bear, enemy, top, token = prepare(cards)
++    bad = enemy if invalid_holder == "opponent" else put(s, "Sol Ring", "battlefield")
++    act(s, "p1", type="set_counter", card_id=bad.id, kind="charge", value=1)
++    invalid = next(
++        t
++        for t, (_, kind) in counter_tokens(Plan(s.state, "p1", cards, None), [bad.id]).items()
++        if kind == "charge"
++    )
++    before = s.state.model_dump(mode="json")
++    with pytest.raises(ActionError, match="counter"):
++        announce(s, bear, enemy, top, invalid)
++    assert s.state.model_dump(mode="json") == before
++    roundtrip(s)
++
++
++def test_ordinary_legacy_mana_confirmation_does_not_require_counter_metadata(cards):
++    from app.game.state import GameState
++
++    s = setup(cards)
++    bolt = put(s, "Lightning Bolt", "hand")
++    act(s, "p1", type="configure", automation_options={"auto_mana_payment": False})
++    from tests.test_rules_bandmate_references import mana
++
++    mana(s, R=1)
++    act(s, "p1", type="cast_spell", card_id=bolt.id, targets=["p2"])
++    d = s.state.rules.decision
++    assert d and "counter_first70" not in d.resume
++    old = s.state.model_dump(mode="json")
++    s.state = GameState.model_validate(old)
++    act(s, "p1", type="choose", decision_id=d.id, option_ids=["pay"])
++    settle(s)
++    assert s.state.players["p2"].life == 37
++    roundtrip(s)
++
++
++def test_counter_cost_mana_confirmation_cancel_does_not_remove_counter_or_sacrifice(cards):
++    s, falco, bear, enemy, top, token = prepare(cards)
++    act(s, "p1", type="configure", automation_options={"auto_mana_payment": False})
++    announce(s, bear, enemy, top, token)
++    d = s.state.rules.decision
++    assert d and d.resume.get("counter_first70")
++    act(s, "p1", type="choose", decision_id=d.id, option_ids=["cancel"])
++    settle(s)
++    assert s.state.cards[bear.id].zone == "p1:battlefield"
++    assert s.state.cards[bear.id].counters["+1/+1"] == 1
++    assert s.state.cards[top].zone == "p1:library"
++    roundtrip(s)
++
++
++def test_genuine_cold_automatic_source_only_shield_payment(cards, tmp_path):
++    s = setup(cards)
++    falco = cast(s, "Falco Spara, Pactweaver")
++    top = stack_library(s, ["Lightning Bolt", "Forest"])[0]
++    act(s, "p1", type="configure", automation_options={"auto_mana_payment": False})
++    act(s, "p1", type="cast_spell", card_id=top, targets=["p2"])
++    d = s.state.rules.decision
++    assert d and d.resume.get("counter_first70")
++    assert d.resume["counter_cost_origins70"][0]["card"] == falco.id
++    p = tmp_path / "saved.json"
++    p.write_text(s.state.model_dump_json())
++    code = """
++import sys
++from pathlib import Path
++from app.cards.images import ImageStore
++from app.cards.repository import CardRepository
++from app.game.session import GameSession
++from app.game.state import GameState
++from tests.game_helpers import act
++from tests.test_rules_library_look import settle
++from tests.test_rules_designations import roundtrip
++p=Path(sys.argv[1]);repo=CardRepository(Path(sys.argv[2]),ImageStore(p.parent/'images'))
++s=GameSession(GameState.model_validate_json(p.read_text()),cards=repo)
++d=s.state.rules.decision
++act(s,d.player,type='choose',decision_id=d.id,option_ids=['pay']);settle(s)
++assert not s.state.cards[sys.argv[3]].counters.get('shield')
++assert s.state.players['p2'].life==37
++assert s.state.cards[sys.argv[4]].zone=='p1:graveyard'
++roundtrip(s)
++"""
++    result = subprocess.run(
++        [sys.executable, "-c", code, str(p), str(cards.db_path), falco.id, top],
++        text=True,
++        capture_output=True,
++        timeout=60,
++        env=os.environ.copy(),
++    )
++    assert result.returncode == 0, result.stdout + result.stderr
+--- a/backend/tests/fixtures/falco_counter_cost_order70_cards.json
++++ b/backend/tests/fixtures/falco_counter_cost_order70_cards.json
+@@ -0,0 +1,40 @@
++[
++  {
++    "name": "Village Rites",
++    "layout": "normal",
++    "mana_cost": "{B}",
++    "cmc": 1.0,
++    "type_line": "Instant",
++    "oracle_text": "As an additional cost to cast this spell, sacrifice a creature.\nDraw two cards.",
++    "colors": [
++      "B"
++    ],
++    "color_identity": [
++      "B"
++    ],
++    "keywords": []
++  },
++  {
++    "name": "Anhelo, the Painter",
++    "layout": "normal",
++    "mana_cost": "{U}{B}{R}",
++    "cmc": 3.0,
++    "type_line": "Legendary Creature \u2014 Vampire Assassin",
++    "oracle_text": "Deathtouch\nThe first instant or sorcery spell you cast each turn has casualty 2. (As you cast that spell, you may sacrifice a creature with power 2 or greater. When you do, copy the spell and you may choose new targets for the copy.)",
++    "colors": [
++      "B",
++      "R",
++      "U"
++    ],
++    "color_identity": [
++      "B",
++      "R",
++      "U"
++    ],
++    "keywords": [
++      "Deathtouch"
++    ],
++    "power": "1",
++    "toughness": "3"
++  }
++]

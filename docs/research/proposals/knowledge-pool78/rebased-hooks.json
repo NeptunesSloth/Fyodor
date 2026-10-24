@@ -1,0 +1,7 @@
+{
+  "note": "Registration hooks only rebased to siblings; staged semantic source unchanged.",
+  "live_base_sha256": {
+    "scripts.py": "cf689766623c7d370fe245c0a16c1320489ff223c77812e6a3435b4a092ced5e",
+    "effects.py": "032bb60360be74ce444c1afadb98fd465f33a0b79e49ec6928150c4ca4f2370d"
+  }
+}

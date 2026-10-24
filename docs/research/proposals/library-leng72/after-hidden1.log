@@ -1,0 +1,28 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+_ test_hidden_two_discard_single_event_private_order_generic_not_typed_triggers72 _
+
+cards = <app.cards.repository.CardRepository object at 0x7f169c99b440>
+
+    def test_hidden_two_discard_single_event_private_order_generic_not_typed_triggers72(cards):
+        s,chosen=mindrot72(cards)
+        ids=[c.id for c in chosen]
+        life=s.state.players['p2'].life
+        choose_leng72(s)
+        assert all(s.state.cards[cid].zone=='p2:hand' for cid in ids)
+        choose_leng72(s)
+        d=s.state.rules.decision
+        assert d and d.kind=='order' and d.player=='p2'
+        assert all(s.state.cards[cid].zone=='p2:hand' for cid in ids)
+        mana=s.state.players['p1'].mana.copy()
+        answer(s,list(reversed(ids)))
+        triggers72(s)
+        assert s.state.zones['p2:library'][:2]==list(reversed(ids))
+        assert s.view('p1')['zones']['p2:library']['known']==[]
+>       assert s.state.players['p2'].life==life-4
+E       AssertionError: assert 40 == (40 - 4)
+E        +  where 40 = PlayerState(id='p2', name='Bob', color='#5fa8d3', life=40, life_history=[], resources={'poison': 0, 'energy': 0, 'expe...id=None, deck_name=None, token_shortcuts=[], mana={}, mana_units=[], mana_seq=0, left=False, sleeve=None, playmat=None).life
+
+tests/test_rules_library_leng72.py:123: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_rules_library_leng72.py::test_hidden_two_discard_single_event_private_order_generic_not_typed_triggers72
