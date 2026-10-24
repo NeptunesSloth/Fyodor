@@ -38,6 +38,9 @@ _AS: dict[str, str] = {
     "graveyard, it deals double that damage instead.":
         "As long as there are four or more card types among cards in your graveyard, if a source you control would deal noncombat damage to a "
         "permanent or player, it deals double that damage instead.",
+    # Sage of the Skies: "this spell" is the spell the cast trigger is about (707.10, 707.10f: a copy of a permanent spell becomes a token)
+    "When you cast this spell, if you've cast another spell this turn, copy this spell.":
+        "When you cast this spell, if you've cast another spell this turn, copy it.",
     # The Lunar Whale: to play a card is to play it as a land or cast it as a spell (305.1, 601)
     "As long as ~ attacked this turn, you may play the top card of your library.":
         "As long as ~ attacked this turn, you may play lands and cast spells from the top of your library.",
@@ -227,6 +230,24 @@ def _drudge(d: Def) -> Def | None:
     return {**d, "effects": [{"do": "only_if", "cond": _GRAVEYARD_PLAY, "skip": 1}, *d["effects"]]} if _dos(d) == ["draw"] else None
 
 
+_CREATURE_CARDS = 'sel:{"card":true,"types":["Creature"],"zone_owner":"you","zones":["graveyard"]}'
+
+
+def _spider(d: Def) -> Def | None:
+    """Hatchery Spider (undergrowth): X is the creature cards in your graveyard as the cast trigger resolves, for the reveal and the mana value cap
+    (the reveal moves nothing: one count)."""
+    from app.rules import selectors
+
+    if _dos(d) != ["look_top", "pick_looked", "rest_looked"]:
+        return None
+    look, pick, rest = d["effects"]
+    sel = selectors.from_key(pick["sel"])
+    if sel.compare != (("mv", "<=", 3),):
+        return None
+    capped = replace(sel, compare=(("mv", "<=", selectors.COUNT_STAT + _CREATURE_CARDS),)).key()
+    return {**d, "effects": [{**look, "n": {"count": _CREATURE_CARDS}}, {**pick, "sel": capped}, rest]}
+
+
 def _goliath(d: Def) -> Def | None:
     """Goliath Hatchery (corrupted): the cards drawn are the chosen creature's total toxic value as it resolves (702.164b)."""
     if _dos(d) != ["only_if", "player_chooses", "draw"]:
@@ -324,6 +345,13 @@ _BUILD: dict[str, tuple[tuple[str, ...], Callable[..., Def | None]]] = {
     "creature token with flying and '{R}: This token gets +1/+0 until end of turn.'\"":
         (("Whenever a land you control enters, create a 0/2 red Dragon Egg creature token with defender and \"When this token dies, create a 2/2 red "
           "Dragon creature token with flying.\"",), _nesting),
+    "When you cast this spell, reveal the top X cards of your library, where X is the number of creature cards in your graveyard. You may put a green "
+    "permanent card with mana value X or less from among them onto the battlefield. Put the rest on the bottom of your library in a random order.":
+        (("When you cast this spell, reveal the top five cards of your library. You may put a green permanent card with mana value 3 or less from among "
+          "them onto the battlefield. Put the rest on the bottom of your library in a random order.",), _spider),
+    "If you attacked this turn, you may have ~ enter as a copy of any creature on the battlefield.":
+        (("You may have ~ enter as a copy of any creature on the battlefield.",),
+         lambda d: {**d, "raid100h": True} if d.get("replacement") == "enter_as_copy" else None),  # (Protean Raider: copying.entering reads it)
     "At the beginning of your upkeep, if an opponent has three or more poison counters, choose a creature you control, then draw cards equal to its "
     "total toxic value.":
         (("At the beginning of your upkeep, if an opponent has three or more poison counters, choose a creature you control, then draw cards equal to "

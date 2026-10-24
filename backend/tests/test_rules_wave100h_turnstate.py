@@ -948,3 +948,49 @@ def test_warriors_resolve_draws_for_an_attacker_with_a_counter(cards, counter):
     to_phase(s, "cleanup", turn=3)
     assert hand(s) == before + counter
     check(s)
+
+
+# -- Protean Raider (raid) ------------------------------------------------------------------------------------------------------------------------
+@pytest.mark.parametrize("attacked", [True, False])
+def test_protean_raider_may_enter_as_a_copy_after_you_attacked(cards, attacked):
+    s = build(cards, ["Protean Raider", "Grizzly Bears"], ["Wind Drake"])
+    bear, drake = put(s, "Grizzly Bears"), put(s, "Wind Drake", "p2")
+    if attacked:
+        attack(s, [bear])
+    else:
+        to_phase(s, "main2", turn=3)
+    raider = cast(s, "Protean Raider", pick=[drake.id])
+    assert ch(s, raider).name == ("Wind Drake" if attacked else "Protean Raider")
+    check(s)
+
+
+# -- Sage of the Skies ---------------------------------------------------------------------------------------------------------------------------
+@pytest.mark.parametrize("another", [True, False])
+def test_sage_of_the_skies_copies_itself_after_another_spell(cards, another):
+    s = build(cards, ["Sage of the Skies", "Opt"])
+    if another:
+        cast(s, "Opt")
+    cast(s, "Sage of the Skies")
+    assert names(s).count("Sage of the Skies") == (2 if another else 1)  # (the copy became a token, 707.10f)
+    check(s)
+
+
+# -- Hatchery Spider ---------------------------------------------------------------------------------------------------------------------------------
+def test_hatchery_spider_reveals_and_caps_by_the_creature_cards_in_your_graveyard(cards):
+    s = build(cards, ["Hatchery Spider", "Grizzly Bears", "Coral Merfolk", "Llanowar Elves", "Kitchen Finks"])
+    bury(s, "Grizzly Bears", "Coral Merfolk")  # (X = 2)
+    elves, finks = [next(c for c in s.state.cards.values() if c.name == n) for n in ("Llanowar Elves", "Kitchen Finks")]
+    for c in (elves, finks):
+        act(s, "p1", type="move", card_ids=[c.id], to={"zone": "library"}, position="top")
+    spider = to_hand(s, "Hatchery Spider")
+    mana(s, G=2, C=5)
+    act(s, "p1", type="cast_spell", card_id=spider.id)
+    for _ in range(6):
+        d = s.state.rules.decision
+        if d is not None or not s.state.zones.get("stack"):
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+    assert d is not None and finks.id not in [o.id for o in d.options] and elves.id in [o.id for o in d.options]  # (Finks has mana value 3)
+    answer(s, [elves.id])
+    assert zone(s, elves) == "p1:battlefield" and zone(s, finks) == "p1:library" and s.state.zones["p1:library"][-1] == finks.id
+    check(s)
