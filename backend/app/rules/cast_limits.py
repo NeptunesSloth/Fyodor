@@ -970,6 +970,8 @@ def any_activation_limits(state: GameState, info: CardInfo | None) -> bool:
 def loyalty_rule(state: GameState, card: CardInstance, info: CardInfo | None, key: str) -> bool:
     """-- static_other sweep (wave 19A) -- does a static let this planeswalker's loyalty abilities be activated ``key`` ("twice" each turn, at
     "instant" speed on any player's turn)? Its controller's "planeswalkers you control", or its own."""
+    if key == "twice" and state.rules is not None and state.rules.once_per_turn.get(f"loyalty_twice100g:{card.controller}") == state.turn.number:
+        return True  # -- zones (wave 100G) -- "… twice this turn rather than only once" (Urza Assembles the Titans III: zones100g.loyalty_twice)
     if info is None:
         return False
     from app.rules.plan import Plan
