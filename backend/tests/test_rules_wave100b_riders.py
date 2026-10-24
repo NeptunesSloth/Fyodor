@@ -53,6 +53,8 @@ Every scenario checks the replay and a save and a load.
 * Rescuer Sphinx - "As this creature enters, you may return a nonland permanent you control to its owner's hand. If you do, this creature
   enters with a +1/+1 counter on it." (614.12a; one already on the battlefield - 2019-05-03).
 * Veteran's Voice - "Tap enchanted creature: Target creature other than the creature tapped this way gets +2/+1 until end of turn."
+* Fishing Gear - "If it's a permanent card, you may put it onto the battlefield under your control. If you don't, create a 1/1 blue Fish
+  creature token." (a nonpermanent or a declined card: the Fish - 2025-10-02).
 * Hellfire - "deals X plus 3 damage to you, where X is the number of creatures that died this way." (a destroyed token counts, a creature a
   replacement effect exiled instead doesn't: the 2009-10-01 rulings).
 """
@@ -81,6 +83,7 @@ LOCKE, HELLION, HULK = "Locke, Treasure Hunter", "Devouring Hellion", "Deathbonn
 KALDHEIM, MANABOND, GUARDIAN = "Invasion of Kaldheim // Pyre of the World Tree", "Manabond", "Wicked Guardian"
 INVESTIGATORS, CLASH, SANCTUM = "Phenomenon Investigators", "Clash of Elements", "Theorist's Sanctum"
 HEDRON, ATEMSIS, SPHINX, VOICE = "Hedron Alignment", "Atemsis, All-Seeing", "Rescuer Sphinx", "Veteran's Voice"
+GEAR = "Fishing Gear"
 BEARS, GIANT, RIP, ELVES = "Grizzly Bears", "Hill Giant", "Rest in Peace", "Llanowar Elves"
 
 
@@ -89,7 +92,7 @@ def cards(settings):
     yield from open_repo(settings)
 
 
-@pytest.mark.parametrize("name", [ROWEN, ETCHINGS, KERANOS, SUGARMAW, HELLFIRE, TERROR, KELLAN, EGO, SHRIEK, GORILLA, DESERTER, AEROSTAT, FOLD, SWIFT, RESEARCHER, KOYA, SURVIVORS, VANISH, DAKRA, DURIN, LATNAM, SURGE, LOCKE, HELLION, HULK, KALDHEIM, MANABOND, GUARDIAN, INVESTIGATORS, CLASH, SANCTUM, HEDRON, ATEMSIS, SPHINX, VOICE])
+@pytest.mark.parametrize("name", [ROWEN, ETCHINGS, KERANOS, SUGARMAW, HELLFIRE, TERROR, KELLAN, EGO, SHRIEK, GORILLA, DESERTER, AEROSTAT, FOLD, SWIFT, RESEARCHER, KOYA, SURVIVORS, VANISH, DAKRA, DURIN, LATNAM, SURGE, LOCKE, HELLION, HULK, KALDHEIM, MANABOND, GUARDIAN, INVESTIGATORS, CLASH, SANCTUM, HEDRON, ATEMSIS, SPHINX, VOICE, GEAR])
 def test_the_cards_are_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL", name
 
@@ -856,4 +859,28 @@ def test_veterans_voice_pumps_another_creature_than_the_one_it_taps(cards):
     activate(s, "p1", voice, "Tap enchanted", targets=[elves.id])
     run(s)
     assert s.state.cards[bears.id].tapped and pt(s, ELVES) == (3, 2)
+    check(s)
+
+
+# -- Fishing Gear ---------------------------------------------------------------------------------------------------------------------
+@pytest.mark.parametrize("what", ["put", "decline", "instant"])
+def test_fishing_gear_takes_a_permanent_or_makes_a_fish(cards, what):
+    s = build_n(cards, [GEAR, BEARS], [GIANT, "Lightning Bolt"])
+    gear, bears = put(s, GEAR), put(s, BEARS)
+    act(s, "p1", type="attach", card_ids=[gear.id], to=bears.id)
+    to_phase(s, "main1", turn=3)
+    top = named(s, "Lightning Bolt" if what == "instant" else GIANT, "p2")
+    on_top(s, top, "p2")
+    stops(s)
+    to_phase(s, "declare_attackers")
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": bears.id, "target": "p2"}])
+    for _ in range(30):  # (through combat damage: the trigger, then its question)
+        d = s.state.rules.decision
+        if s.state.turn.phase == "main2":
+            break
+        act(s, d.player, type="choose", decision_id=d.id, option_ids=["yes" if what == "put" else "no"]) if d is not None \
+            else act(s, s.state.rules.priority, type="pass_priority")
+    fish = [c for c in s.state.cards.values() if c.zone == "p1:battlefield" and c.name == "Fish"]
+    assert zone(s, top) == ("p1:battlefield" if what == "put" else "p2:exile")
+    assert len(fish) == (0 if what == "put" else 1)
     check(s)

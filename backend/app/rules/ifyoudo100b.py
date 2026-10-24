@@ -67,7 +67,7 @@ GY_EMPTY = "gy_empty100b"
 def parse(body: str, it: str | None, event_player: bool) -> Found | None:
     text = body.strip()
     for form in (_put_discarded, _hit_discard, _draw_if, _dealt_cant_block, _give_source, _exiled_mv, _connives, _empty_gy, _truce, _each_who_lost,
-                 _either, _plot_paid, _hand_exile, _dont_sacrifice, _put_mv_x, _fold, _swift, _untap_then, _may_attach, _vanish, _dakra, _durin, _latnam, _surge, _locke, _gy_exile, _manabond, _have_deal, _own_bounce, _clash, _reveal_win):
+                 _either, _plot_paid, _hand_exile, _dont_sacrifice, _put_mv_x, _fold, _swift, _untap_then, _may_attach, _vanish, _dakra, _durin, _latnam, _surge, _locke, _gy_exile, _manabond, _have_deal, _own_bounce, _clash, _reveal_win, _fishing):
         if (found := form(text, it, event_player)) is not None:
             return found
     for pattern, repl in _REWRITES:
@@ -553,7 +553,7 @@ def hand_gate(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
 # -- Primal Surge: "Exile the top card of your library. If it's a permanent card, you may put it onto the battlefield. If you do, repeat this process."
 # The 2012-05-01 rulings: the repeat includes the repeat; it ends at a card that isn't a permanent card (110.4), one you don't put, or one that
 # can't be put there (an Aura with nothing to enchant, 303.4g); what the cards' entering triggers waits until it has resolved (603.3).
-SURGE, SURGE_AGAIN = "surge100b", "surge_again100b"
+SURGE = "surge100b"
 _PERMANENT = {"Artifact", "Battle", "Creature", "Enchantment", "Land", "Planeswalker"}
 
 
@@ -563,38 +563,61 @@ def _surge(text: str, it: str | None, event_player: bool) -> Found | None:
 
 
 def surge(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
-    from app.game.rules_state import DecisionOption
     from app.rules.effects import exile_cards
-    from app.rules.plan import decide
 
     library = plan.state.zones.get(f"{ctx['controller']}:library") or []
-    if not library:
+    if library:
+        exile_cards(plan, ctx, {"as": SURGE}, [library[0]])
+        ctx["effects"][ctx["next"]:ctx["next"]] = [{"do": PUT_EXILED, "of": f"ref:{SURGE}", "then": [{"do": SURGE}], "else": []}]
+    return True
+
+
+# -- Fishing Gear: "exile the top card of that player's library. If it's a permanent card, you may put it onto the battlefield under your control. If you
+# don't, create a 1/1 blue Fish creature token." "If you don't": not a permanent card, declined, or one that couldn't be put there (the 2025-10-02
+# rulings). The shared step (Primal Surge too): ``then`` once the exiled card entered, ``else`` otherwise.
+_FISHING = re.compile(r"^(?P<a>exile the top card of that player's library)\. If it's a permanent card, you may put it onto the battlefield under your control\. "
+                      r"If you don't, (?P<b>create [^.]+ token)\.$")
+PUT_EXILED, PUT_CHECK = "put_exiled100b", "put_check100b"
+
+
+def _fishing(text: str, it: str | None, event_player: bool) -> Found | None:
+    m = _FISHING.match(text)
+    found = _effects(f"{m['a']}. Draw a card for each card exiled this way.", it, event_player) if m is not None else None
+    token = _effects(f"{m['b'][0].upper()}{m['b'][1:]}.", it, event_player) if found is not None and m is not None else None
+    if found is None or token is None or len(found[0]) != 2 or found[0][0].get("do") != "exile_top" or not found[0][0].get("as"):
+        return None
+    return [found[0][0], {"do": PUT_EXILED, "of": f"ref:{found[0][0]['as']}", "then": [], "else": token[0]}], None, False
+
+
+def put_exiled(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    from app.game.rules_state import DecisionOption
+    from app.rules import context
+    from app.rules.plan import decide
+
+    cards = [plan.state.cards[c] for c in context.objects(plan, ctx, e["of"].removeprefix("ref:")) if plan.state.cards[c].zone.endswith(":exile")]
+    if not cards or not _PERMANENT & set(plan.ch(cards[0]).types):
+        ctx["effects"][ctx["next"]:ctx["next"]] = e["else"]
         return True
-    top = library[0]
-    exile_cards(plan, ctx, {"as": SURGE}, [top])
-    card = plan.state.cards[top]
-    if not card.zone.endswith(":exile") or not _PERMANENT & set(plan.ch(card).types):
-        return True
-    decide(plan, player=ctx["controller"], kind="confirm", prompt=f"{ctx.get('name') or 'It'}: put {card.name} onto the battlefield?",
-           options=[DecisionOption(id="yes", label="Put it onto the battlefield"), DecisionOption(id="no", label="Don't")], resume={"step": SURGE, "ctx": ctx})
+    decide(plan, player=ctx["controller"], kind="confirm", prompt=f"{ctx.get('name') or 'It'}: put {cards[0].name} onto the battlefield?",
+           options=[DecisionOption(id="yes", label="Put it onto the battlefield"), DecisionOption(id="no", label="Don't")],
+           resume={"step": PUT_EXILED, "ctx": ctx, "e": e})
     return False
 
 
-def resume_surge(plan: Any, d: Any, chosen: list[str]) -> None:
+def resume_put_exiled(plan: Any, d: Any, chosen: list[str]) -> None:
     from app.rules.effects import continue_effects
 
-    ctx = d.resume["ctx"]
-    if chosen == ["yes"]:
-        ctx["effects"][ctx["next"]:ctx["next"]] = [{"do": "return_card", "who": f"ref:{SURGE}", "to": "battlefield", "tapped": False, "under": "you", "as": SURGE_AGAIN},
-                                                   {"do": SURGE_AGAIN}]
+    ctx, e = d.resume["ctx"], d.resume["e"]
+    ctx["effects"][ctx["next"]:ctx["next"]] = ([{"do": "return_card", "who": e["of"], "to": "battlefield", "tapped": False, "under": "you", "as": PUT_CHECK},
+                                                {"do": PUT_CHECK, "then": e["then"], "else": e["else"]}] if chosen == ["yes"] else e["else"])
     continue_effects(plan, ctx)
 
 
-def surge_again(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+def put_check(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     from app.rules import context
 
-    if any(plan.state.cards[c].zone.endswith(":battlefield") for c in context.objects(plan, ctx, SURGE_AGAIN)):  # (it entered: repeat)
-        ctx["effects"][ctx["next"]:ctx["next"]] = [{"do": SURGE}]
+    entered = any(plan.state.cards[c].zone.endswith(":battlefield") for c in context.objects(plan, ctx, PUT_CHECK))
+    ctx["effects"][ctx["next"]:ctx["next"]] = e["then"] if entered else e["else"]
     return True
 
 
@@ -776,5 +799,5 @@ def resume_either(plan: Any, d: Any, chosen: list[str]) -> None:
 
 PRIMITIVES = {GY_EMPTY: gy_empty, TRUCE: truce, TRUCE_ASK: truce_ask, TRUCE_DRAW: truce_draw, TRUCE_LIFE: truce_life, EITHER: either, COUNTERED: countered,
               SWIFT: swift, BACK: back_creature, TO_GRAVEYARDS: to_graveyards, HAND_GATE: hand_gate,
-              SURGE: surge, SURGE_AGAIN: surge_again, OWN_EVERYWHERE: own_everywhere, HAND_VALUES: hand_values}
-RESUME = {TRUCE_ASK: resume_truce_ask, EITHER: resume_either, SURGE: resume_surge}
+              SURGE: surge, PUT_EXILED: put_exiled, PUT_CHECK: put_check, OWN_EVERYWHERE: own_everywhere, HAND_VALUES: hand_values}
+RESUME = {TRUCE_ASK: resume_truce_ask, EITHER: resume_either, PUT_EXILED: resume_put_exiled}
