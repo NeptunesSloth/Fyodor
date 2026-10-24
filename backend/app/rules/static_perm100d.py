@@ -90,6 +90,17 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
     text = scripts.self_text(ability.text, ch.name)
     if ability.kind == "loyalty":
         return loyalty(ability, ch, text)
+    if ability.kind == "activated" and text == "{1}: ~ becomes the creature type of your choice in addition to its other types until end of turn.":
+        base = _native(ability, ch, "{1}: ~ becomes the creature type of your choice until end of turn.")  # (Mistform Sliver's grant: 205.1b, added
+        if base is None or [e.get("pick") for e in base["effects"]] != ["creature type"]:  # not set; ruling 2004-10-04)
+            return None
+        return {**base, "effects": [{**base["effects"][0], "pick_added": True}]}
+    if ability.kind == "triggered" and text == "When ~ enters, you may fateseal 1.":
+        # 701.29a: look at the top card of an opponent's library (the fatesealing player picks which: no target), then you may put it on the
+        # bottom of that library (Mesmeric Sliver's grant). Only that player sees the card (701.29a "look").
+        base = _native(ability, ch, "When ~ enters, choose an opponent. Look at the top card of that player's library. You may put that card on the "
+                                    "bottom of that library.")
+        return None if base is None else {**base, "optional": True}
     if ability.kind == "activated" and text == "Sacrifice ~: Regenerate all Werewolf creatures you control.":
         # (Full Moon's Rise: a shield on each of them as it resolves, 701.19a, 608.2c)
         from app.rules import selectors
@@ -98,6 +109,24 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
         return {**base, "effects": [{"do": "regenerate", "who": wolves.key()}]} if base is not None and wolves is not None else None
     if ability.kind != "static":
         return None
+    if (solve := re.fullmatch(r"To solve — (?P<c>.+?)\.(?: \(If unsolved, solve at the beginning of your end step\.\))?", text)) is not None \
+            and solve["c"] in _SOLVE and "Case" in ch.subtypes:
+        return case_solve(_SOLVE[solve["c"]])
+    if text == "~ is a 4/4 Gorgon creature with deathtouch and lifelink in addition to its other types." and "Case" in ch.subtypes:
+        # (Case of the Gorgon's Kiss, "Solved —": characteristics.of keeps the line only while it is solved, 719.3c; layer 4 and 7b, 613.1d)
+        native = statics.parse("Enchanted land is a Gorgon creature with base power and toughness 4/4 in addition to its other types and has deathtouch and lifelink.")
+        return None if native is None else {**native, "who": "self", "attached_kind": None, "add_subtypes": []}
+    if text == "Other Sliver creatures you control have outlast {2}.":
+        # 702.107a: "Outlast [cost]" means "[Cost], {T}: Put a +1/+1 counter on this permanent. Activate only as a sorcery." (granted as that
+        # ability, the way oracle.py reads a printed outlast line; Enduring Sliver)
+        return statics.parse('Other Sliver creatures you control have "{2}, {T}: Put a +1/+1 counter on this creature. Activate only as a sorcery."')
+    if text in _CDAS:  # 604.3, 613.4a: characteristic-defining, in every zone (layers._cda)
+        return {"kind": "static", "static": "cda", "effects": [], "p": {"perm100d": _CDAS[text]}, "t": {"perm100d": _CDAS[text]}}
+    if text == "~ gets +1/+1 for each card in your hand and each foretold card you own in exile.":
+        pump = statics.parse("~ gets +1/+1 for each card in your hand.")  # (Alrund: layer 7c, on the battlefield only, ruling 2021-02-05)
+        if pump is None or not pump.get("each"):
+            return None
+        return {**pump, "each": {**pump["each"], "value": {"perm100d": "hand_and_foretold"}}}
     if text in _AS_ENTERS:
         return {"kind": "static", "static": AS_ENTERS, "do": _AS_ENTERS[text], "effects": []}
     if (m := _ATTACH_ONLY.fullmatch(text)) is not None and "Equipment" in ch.subtypes:
@@ -110,6 +139,75 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
     if m is not None and f"enchant {m['t'].lower()}" in (ch.oracle_text or "").lower().split("\n"):
         return statics.parse(f"Enchanted land {m['rest']}")  # (the Aura's own enchant line: the host is that land type, 303.4a)
     return None
+
+
+# -- characteristic-defining power and toughness (604.3, 613.4a) and counted bonuses -------------------------------------------
+# values.evaluate hands ``{"perm100d": kind}`` here. A CDA that sets power and toughness may set them below 0 (107.1b: an effect that sets
+# power and toughness to a value is the exception; Scourge of the Skyclaves ruling 2020-09-25: its toughness can be less than 0).
+_CDAS = {
+    "~'s power and toughness are each equal to 20 minus the highest life total among players.": "twenty_minus_highest",
+    "~'s power and toughness are each equal to your life total minus the life total of an opponent with the most life.": "life_minus_top_opponent",
+    "During your turn, ~'s power and toughness are each equal to 2 plus the number of Swamps your opponents control. During turns other "
+    "than yours, ~'s power and toughness are each 2.": "angry_mob",
+}
+
+
+# -- Cases (719.3a): "To solve — [condition]" is "At the beginning of your end step, if [condition] and this Case is not solved, it becomes
+# solved." (checked as it would trigger and again on resolution: rulings 2024-02-02). The conditions read this turn's history (608.2i):
+# * "You control no suspected Skeletons." — the Skeletons you control that are suspected now (701.60);
+# * "Three or more creatures attacked this turn." — the creatures declared as attackers this turn, each once (508.1; one put onto the
+#   battlefield attacking never attacked, 508.4);
+# * "Three or more creature cards were put into graveyards from anywhere this turn." — cards (no tokens) with the creature type as they are
+#   in the graveyard (ruling 2024-02-02), whoever owns them, each arrival once;
+# * "Three or more sources you controlled dealt damage this turn." — distinct source objects under your control as they dealt damage (a
+#   source dealing damage twice is one source; one that changed zones is a new one: rulings 2024-02-02).
+_SOLVE = {
+    "You control no suspected Skeletons": {"value": {"perm100d": "suspected_skeletons"}, "op": "==", "n": 0},
+    "Three or more creatures attacked this turn": {"value": {"turn_history": "attackers"}, "op": ">=", "n": 3},
+    "Three or more creature cards were put into graveyards from anywhere this turn": {"value": {"perm100d": "creature_cards_to_graveyards"}, "op": ">=", "n": 3},
+    "Three or more sources you controlled dealt damage this turn": {"value": {"perm100d": "damage_sources"}, "op": ">=", "n": 3},
+}
+
+
+def case_solve(cond: dict[str, Any]) -> dict[str, Any]:
+    unsolved = {"all": [cond, {"object": "self", "test": "solved", "negate": True}]}  # (the same trigger scripts builds for "To solve —")
+    return {"kind": "triggered", "trigger": "end_step_you", "if": unsolved, "optional": False, "target": None,
+            "effects": [{"do": "only_if", "cond": unsolved, "skip": 1}, {"do": "become_solved"}]}
+
+
+def amount(plan: Plan, ctx: dict[str, Any], v: dict[str, Any]) -> int:
+    from app.game.state import zone_key
+    from app.rules import values
+
+    you = ctx["controller"]
+    kind = v["perm100d"]
+    lives = {p: plan.state.players[p].life for p in plan.live()}  # (players still in the game, 800.4a)
+    if kind == "twenty_minus_highest":
+        return 20 - max(lives.values(), default=0)
+    if kind == "life_minus_top_opponent":  # (the opponent with the most life; ties give the same number)
+        return lives.get(you, plan.state.players[you].life if you in plan.state.players else 0) - max((n for p, n in lives.items() if p != you), default=0)
+    if kind == "angry_mob":  # "your turn": its controller's (outside the battlefield and the stack, its owner's: 108.4a)
+        if plan.state.turn.active_player != you:
+            return 2
+        swamps = values.parse_count("the number of Swamps your opponents control")
+        return 2 + (values.evaluate(plan, ctx, swamps) if swamps is not None else 0)
+    if kind == "hand_and_foretold":  # 702.143a: a foretold card is exiled face down, in its owner's foretell area of exile
+        return len(plan.state.zones.get(zone_key(you, "hand"), [])) + sum(
+            1 for c in plan.state.zones.get(zone_key(you, "foretell"), []) if plan.state.cards[c].owner == you)
+    if kind == "suspected_skeletons":
+        return sum(1 for c in plan.state.zones.get(zone_key(you, "battlefield"), []) if plan.in_game(plan.state.cards[c])
+                   and plan.oid(c) in plan.rules.suspected and "Skeleton" in plan.ch(plan.state.cards[c]).subtypes)
+    from app.rules import characteristics as chars
+    from app.rules import history
+
+    log = history.log_for(plan)
+    if kind == "creature_cards_to_graveyards":
+        return sum(1 for a in log.entered_graveyard if (card := plan.state.cards.get(a.card)) is not None and card.card_id is not None
+                   and not card.is_token and card.ability is None and "Creature" in chars.of(card, plan.info).types)
+    if kind == "damage_sources":  # (the history keeps each source by its object and its controller then, wave 42B)
+        return len({src for f in log.facts if f.amount > 0 and f.source_controller == you
+                    and (src := f.object_id if f.kind == "damage" else f.source if f.kind == "damaged" else None) is not None})
+    raise ValueError(f"unknown wave 100D value {v!r}")
 
 
 # -- "As ~ enters, <instruction>." (614.1c, 614.12) ------------------------------------------------------------------------

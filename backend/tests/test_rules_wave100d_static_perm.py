@@ -11,6 +11,7 @@ import pytest
 
 from app.game.errors import ActionError
 from app.rules import coverage
+from tests.fixtures.cards import card
 from tests.game_helpers import act
 from tests.test_rules_conditionals import settle, token_of
 from tests.test_rules_wave12a_counters_keywords import real
@@ -43,7 +44,32 @@ EXTRA += [
     real('Overlaid Terrain', '{2}{G}{G}', 4, 'Enchantment', 'As this enchantment enters, sacrifice all lands you control.\nLands you control have "{T}: Add two mana of any one color."', None, 'G'),
     real("Full Moon's Rise", '{1}{G}', 2, 'Enchantment', 'Werewolf creatures you control get +1/+0 and have trample.\nSacrifice this enchantment: Regenerate all Werewolf creatures you control.', None, 'G'),
 ]
-FULL = ["Heightened Awareness", "Overlaid Terrain", "Full Moon's Rise", "O-Naginata", "Gate Smasher", "Goblin Brawler", "Domineer", "Awaken the Ancient", "Gideon, the Oathsworn", "Dovin, Architect of Law",
+EXTRA += [
+    real('Scourge of the Skyclaves', '{1}{B}', 2, 'Creature — Demon', "Kicker {4}{B}\nWhen you cast this spell, if it was kicked, each player loses half their life, rounded up.\nScourge of the Skyclaves's power and toughness are each equal to 20 minus the highest life total among players.", ("*", "*"), 'B'),
+    real('Roiling Horror', '{3}{B}{B}', 5, 'Creature — Horror', "Roiling Horror's power and toughness are each equal to your life total minus the life total of an opponent with the most life.\nSuspend X—{X}{B}{B}{B}. X can't be 0. (Rather than cast this card from your hand, you may pay {X}{B}{B}{B} and exile it with X time counters on it. At the beginning of your upkeep, remove a time counter. When the last is removed, you may cast it without paying its mana cost. It has haste.)\nWhenever a time counter is removed from this card while it's exiled, target player loses 1 life and you gain 1 life.", ("*", "*"), 'B'),
+    real('Angry Mob', '{2}{W}{W}', 4, 'Creature — Human', "Trample\nDuring your turn, Angry Mob's power and toughness are each equal to 2 plus the number of Swamps your opponents control. During turns other than yours, Angry Mob's power and toughness are each 2.", ("2+*", "2+*"), 'W'),
+    real('Swamp', '', 0, 'Basic Land — Swamp', '({T}: Add {B}.)', None, ''),
+    card("Alrund, God of the Cosmos // Hakka, Whispering Raven", set_code="tst", number="100D-alrund", layout="modal_dfc", mana_cost=None, cmc=5.0,
+         type_line="Legendary Creature — God // Legendary Creature — Bird", colors=["U"], color_identity=["U"], image_uris=None, card_faces=[
+             {"object": "card_face", "name": "Alrund, God of the Cosmos", "mana_cost": "{3}{U}{U}", "type_line": "Legendary Creature — God",
+              "oracle_text": "Alrund gets +1/+1 for each card in your hand and each foretold card you own in exile.\nAt the beginning of your end step, choose a card type, then reveal the top two cards of your library. Put all cards of the chosen type revealed this way into your hand and the rest on the bottom of your library in any order.",
+              "power": "1", "toughness": "1", "colors": ["U"]},
+             {"object": "card_face", "name": "Hakka, Whispering Raven", "mana_cost": "{1}{U}", "type_line": "Legendary Creature — Bird",
+              "oracle_text": "Flying\nWhenever Hakka deals combat damage to a player, return it to its owner's hand, then scry 2.", "power": "2", "toughness": "3", "colors": ["U"]},
+         ]),
+]
+EXTRA += [
+    real('Case of the Stashed Skeleton', '{1}{B}', 2, 'Enchantment — Case', "When this Case enters, create a 2/1 black Skeleton creature token and suspect it. (It has menace and can't block.)\nTo solve — You control no suspected Skeletons. (If unsolved, solve at the beginning of your end step.)\nSolved — {1}{B}, Sacrifice this Case: Search your library for a card, put it into your hand, then shuffle. Activate only as a sorcery.", None, 'B'),
+    real('Case of the Gateway Express', '{1}{W}', 2, 'Enchantment — Case', "When this Case enters, choose target creature you don't control. Each creature you control deals 1 damage to that creature.\nTo solve — Three or more creatures attacked this turn. (If unsolved, solve at the beginning of your end step.)\nSolved — Creatures you control get +1/+0.", None, 'W'),
+    real("Case of the Gorgon's Kiss", '{B}', 1, 'Enchantment — Case', 'When this Case enters, destroy up to one target creature that was dealt damage this turn.\nTo solve — Three or more creature cards were put into graveyards from anywhere this turn. (If unsolved, solve at the beginning of your end step.)\nSolved — This Case is a 4/4 Gorgon creature with deathtouch and lifelink in addition to its other types.', None, 'B'),
+    real('Case of the Burning Masks', '{1}{R}{R}', 3, 'Enchantment — Case', 'When this Case enters, it deals 3 damage to target creature an opponent controls.\nTo solve — Three or more sources you controlled dealt damage this turn. (If unsolved, solve at the beginning of your end step.)\nSolved — Sacrifice this Case: Exile the top three cards of your library. Choose one of them. You may play that card this turn.', None, 'R'),
+]
+EXTRA += [
+    real('Mistform Sliver', '{1}{U}', 2, 'Creature — Illusion Sliver', 'All Slivers have "{1}: This permanent becomes the creature type of your choice in addition to its other types until end of turn."', ("1", "1"), 'U'),
+    real('Mesmeric Sliver', '{3}{U}', 4, 'Creature — Sliver', 'All Slivers have "When this permanent enters, you may fateseal 1." (To fateseal 1, its controller looks at the top card of an opponent\'s library, then they may put that card on the bottom of that library.)', ("2", "2"), 'U'),
+    real('Enduring Sliver', '{1}{W}', 2, 'Creature — Sliver', 'Outlast {2} ({2}, {T}: Put a +1/+1 counter on this creature. Outlast only as a sorcery.)\nOther Sliver creatures you control have outlast {2}.', ("2", "2"), 'W'),
+]
+FULL = ["Mistform Sliver", "Mesmeric Sliver", "Enduring Sliver", "Case of the Stashed Skeleton", "Case of the Gateway Express", "Case of the Gorgon's Kiss", "Case of the Burning Masks", "Scourge of the Skyclaves", "Roiling Horror", "Angry Mob", "Alrund, God of the Cosmos // Hakka, Whispering Raven", "Heightened Awareness", "Overlaid Terrain", "Full Moon's Rise", "O-Naginata", "Gate Smasher", "Goblin Brawler", "Domineer", "Awaken the Ancient", "Gideon, the Oathsworn", "Dovin, Architect of Law",
         "Ajani Unrelenting", "Nicol Bolas, Planeswalker", "Liliana, the Necromancer"]
 
 
@@ -322,4 +348,226 @@ def test_full_moons_rise_regenerates_every_werewolf(cards):
     act(s, "p1", type="cast_spell", card_id=murder.id, targets=[bear.id])
     settle(s)
     assert bear.id not in s.state.cards or zone(s, bear) != "p1:battlefield"  # no shield on a non-Werewolf
+    check(s)
+
+
+# -- characteristic-defining power and toughness (604.3, 613.4a) ----------------------------------------------------------------
+def set_life(s, pid, n):
+    act(s, "p1", type="set_life", player=pid, value=n)
+
+
+def test_scourge_of_the_skyclaves_is_twenty_minus_the_highest_life(cards):
+    s = build(cards, ["Scourge of the Skyclaves"])
+    set_life(s, "p1", 10)
+    set_life(s, "p2", 15)
+    assert pt(s, "Scourge of the Skyclaves") == (5, 5)  # (in the hand too: 604.3, ruling 2020-09-25)
+    scourge = put(s, "Scourge of the Skyclaves")
+    assert pt(s, "Scourge of the Skyclaves") == (5, 5)
+    set_life(s, "p2", 30)
+    assert pt(s, "Scourge of the Skyclaves") == (-10, -10)  # set below 0 (107.1b)
+    sba_check(s)
+    assert zone(s, scourge) == "p1:graveyard"  # 704.5f
+    check(s)
+
+
+def test_roiling_horror_is_your_life_minus_the_top_opponent(cards):
+    s = build(cards, ["Roiling Horror"])
+    set_life(s, "p1", 30)
+    set_life(s, "p2", 20)
+    horror = put(s, "Roiling Horror")
+    assert pt(s, "Roiling Horror") == (10, 10)
+    set_life(s, "p2", 35)
+    sba_check(s)
+    assert zone(s, horror) == "p1:graveyard"  # -5/-5
+    check(s)
+
+
+def test_angry_mob_counts_swamps_only_during_your_turn(cards):
+    from tests.test_rules_conditionals import until
+
+    s = build(cards, ["Angry Mob"], ["Swamp"])
+    mob = put(s, "Angry Mob")
+    put(s, "Swamp", "p2")
+    token_of(s, "p2", "Swampy", "Token Land — Swamp", "0/0")  # (any land with the subtype, 205.3i)
+    assert pt(s, "Angry Mob") == (4, 4)
+    until(s, lambda s: s.state.turn.active_player == "p2" and s.state.turn.phase == "main1")
+    assert pt(s, "Angry Mob") == (2, 2)
+    assert zone(s, mob) == "p1:battlefield"
+    check(s)
+
+
+def test_alrund_counts_the_hand_and_foretold_cards(cards):
+    s = build(cards, ["Alrund, God of the Cosmos // Hakka, Whispering Raven", "Grizzly Bears", "Sol Ring", "Swamp"], ["Grizzly Bears"])
+    put(s, "Alrund, God of the Cosmos // Hakka, Whispering Raven")
+    to_hand(s, "Grizzly Bears")
+    to_hand(s, "Sol Ring")
+    to_hand(s, "Grizzly Bears", "p2")  # (an opponent's hand doesn't count)
+    swamp = card_named(s, "Swamp")
+    act(s, "p1", type="move", card_ids=[swamp.id], to={"player": "p1", "zone": "foretell"})
+    n = len(s.state.zones.get("p1:hand", [])) + 1
+    assert pt(s, "Alrund, God of the Cosmos // Hakka, Whispering Raven") == (1 + n, 1 + n)
+    check(s)
+
+
+# -- Cases: "To solve — …" (719.3a) ---------------------------------------------------------------------------------------------
+def to_end(s, turn=1):
+    from tests.test_rules_wave30m_durations import stops, to_phase
+
+    stops(s, "end")
+    to_phase(s, "end", turn=turn)
+    settle(s)
+
+
+def solved(s, case):
+    return "Solved" in s.state.cards[case.id].choices
+
+
+@pytest.mark.parametrize("gone", [False, True])
+def test_stashed_skeleton_solves_once_no_suspected_skeleton_is_left(cards, gone):
+    s = build(cards, ["Case of the Stashed Skeleton"])
+    case = to_hand(s, "Case of the Stashed Skeleton")
+    mana(s, B=1, C=1)
+    act(s, "p1", type="cast_spell", card_id=case.id)
+    settle(s)
+    skeleton = next(c for c in s.state.cards.values() if c.name == "Skeleton")
+    assert s.state.rules.object_id(skeleton.id) in s.state.rules.suspected
+    if gone:
+        act(s, "p1", type="move", card_ids=[skeleton.id], to={"zone": "graveyard"})
+    token_of(s, "p1", "Bones", "Token Creature — Skeleton", "1/1")  # (a Skeleton that isn't suspected doesn't stop it)
+    to_end(s)
+    assert solved(s, case) == gone
+    check(s)
+
+
+@pytest.mark.parametrize("n", [2, 3])
+def test_gateway_express_counts_the_creatures_that_attacked(cards, n):
+    from tests.test_rules_wave6e_statics import attack_with
+
+    s = build(cards, ["Case of the Gateway Express"])
+    case = put(s, "Case of the Gateway Express")
+    settle(s)
+    raiders = [token_of(s, "p1", f"Raider {i}", "Token Creature — Soldier", "1/1", "Haste") for i in range(n)]
+    attack_with(s, *raiders)
+    to_end(s)
+    assert solved(s, case) == (n == 3)
+    if n == 3:
+        assert pt(s, "Raider 0") == (2, 1)  # Solved — Creatures you control get +1/+0.
+    check(s)
+
+
+@pytest.mark.parametrize("n", [2, 3])
+def test_gorgons_kiss_counts_creature_cards_put_into_graveyards(cards, n):
+    s = build(cards, ["Case of the Gorgon's Kiss", "Grizzly Bears", "Sol Ring"], ["Grizzly Bears", "Grizzly Bears"])
+    case = put(s, "Case of the Gorgon's Kiss")
+    settle(s)
+    mine = [c for c in s.state.cards.values() if c.name == "Grizzly Bears" and c.owner == "p1"][:1]
+    theirs = [c for c in s.state.cards.values() if c.name == "Grizzly Bears" and c.owner == "p2"][: n - 1]
+    ring = card_named(s, "Sol Ring")
+    act(s, "p1", type="move", card_ids=[c.id for c in mine] + [ring.id], to={"zone": "graveyard"})  # (a noncreature card doesn't count)
+    for c in theirs:
+        act(s, "p2", type="move", card_ids=[c.id], to={"zone": "graveyard"})
+    wolf = token_of(s, "p1", "Wolf", "Token Creature — Wolf", "2/2")
+    act(s, "p1", type="move", card_ids=[wolf.id], to={"zone": "graveyard"})  # (a token is no card: ruling 2024-02-02)
+    to_end(s)
+    from app.rules.plan import Plan
+
+    ch = Plan(s.state, "p1", s.cards, None).ch(s.state.cards[case.id])
+    if n == 3:
+        assert solved(s, case) and ch.is_creature and "Enchantment" in ch.types and "Gorgon" in ch.subtypes
+        assert {"deathtouch", "lifelink"} <= set(ch.keywords) and pt(s, "Case of the Gorgon's Kiss") == (4, 4)
+    else:
+        assert not solved(s, case) and not ch.is_creature
+    check(s)
+
+
+@pytest.mark.parametrize("n", [1, 2])
+def test_burning_masks_counts_each_source_once(cards, n):
+    from tests.test_rules_wave6e_statics import attack_with
+
+    s = build(cards, ["Case of the Burning Masks"])
+    victim = token_of(s, "p2", "Ogre", "Token Creature — Ogre", "5/5")
+    case = to_hand(s, "Case of the Burning Masks")
+    mana(s, R=2, C=1)
+    act(s, "p1", type="cast_spell", card_id=case.id)
+    settle(s)
+    assert s.state.cards[victim.id].damage == 3  # the Case is one source you controlled
+    raiders = [token_of(s, "p1", f"Raider {i}", "Token Creature — Soldier", "1/1", "Double strike\nHaste") for i in range(n)]
+    attack_with(s, *raiders)  # (a double striker deals damage twice: one source)
+    to_end(s)
+    assert solved(s, case) == (n == 2)
+    check(s)
+
+
+# -- Sliver grants (613.1f) ------------------------------------------------------------------------------------------------------
+def derived(s, c):
+    from app.rules.plan import Plan
+
+    return Plan(s.state, "p1", s.cards, None).ch(s.state.cards[c.id])
+
+
+def granted_index(s, c, needle):
+    return next((a.index for a in derived(s, c).abilities if needle in a.text and a.kind != "static"), None)
+
+
+def test_enduring_sliver_gives_other_slivers_you_control_outlast(cards):
+    from tests.test_rules_wave30m_durations import to_phase
+
+    s = build(cards, ["Enduring Sliver"])
+    put(s, "Enduring Sliver")
+    mine = token_of(s, "p1", "Sliver", "Token Creature — Sliver", "1/1")
+    theirs = token_of(s, "p2", "Their Sliver", "Token Creature — Sliver", "1/1")
+    bear = token_of(s, "p1", "Bear", "Token Creature — Bear", "2/2")
+    assert granted_index(s, theirs, "+1/+1 counter") is None and granted_index(s, bear, "+1/+1 counter") is None
+    to_phase(s, "main1", turn=3)
+    mana(s, C=2)
+    act(s, "p1", type="activate_ability", card_id=mine.id, ability=granted_index(s, mine, "+1/+1 counter"))
+    settle(s)
+    assert s.state.cards[mine.id].counters.get("+1/+1") == 1 and s.state.cards[mine.id].tapped  # 702.107a
+    check(s)
+
+
+def test_mistform_sliver_adds_the_chosen_type(cards):
+    s = build(cards, ["Mistform Sliver"])
+    sliver = put(s, "Mistform Sliver")
+    theirs = token_of(s, "p2", "Their Sliver", "Token Creature — Sliver", "1/1")
+    assert granted_index(s, theirs, "creature type of your choice") is not None  # "All Slivers": whoever controls them
+    mana(s, C=1)
+    act(s, "p1", type="activate_ability", card_id=sliver.id, ability=granted_index(s, sliver, "creature type of your choice"))
+    from tests.test_rules_conditionals import until
+
+    until(s, lambda s: s.state.rules.decision is not None)
+    d = s.state.rules.decision
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=["Elf"])
+    settle(s)
+    assert {"Illusion", "Sliver", "Elf"} <= set(derived(s, sliver).subtypes)  # in addition to its other types (ruling 2004-10-04)
+    check(s)
+
+
+@pytest.mark.parametrize("bottom", [True, False])
+def test_mesmeric_sliver_fateseals_one_as_a_sliver_enters(cards, bottom):
+    from tests.test_rules_conditionals import until
+
+    s = build(cards, ["Mesmeric Sliver", "Mistform Sliver"])
+    put(s, "Mesmeric Sliver")
+    library = list(s.state.zones["p2:library"])
+    other = to_hand(s, "Mistform Sliver")
+    mana(s, U=1, C=1)
+    act(s, "p1", type="cast_spell", card_id=other.id)  # another Sliver: it has the ability as it enters (613.1f)
+    seen = []
+    for _ in range(12):
+        until(s, lambda s: s.state.rules.decision is not None or not s.state.zones.get("stack"))
+        d = s.state.rules.decision
+        if d is None:
+            break
+        assert d.player == "p1"  # only the fatesealing player is asked (and sees the card)
+        seen.append(d.kind)
+        ids = [o.id for o in d.options]
+        if d.kind == "confirm":
+            pick = ["yes"]
+        elif library[0] in ids:
+            pick = [library[0]] if bottom else []
+        else:
+            pick = ids[: max(1, d.min_choices)]
+        act(s, "p1", type="choose", decision_id=d.id, option_ids=pick)
+    assert s.state.zones["p2:library"] == (library[1:] + library[:1] if bottom else library)  # 701.29a
     check(s)

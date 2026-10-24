@@ -659,6 +659,10 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
     """The number a value stands for right now (never negative: 107.1b)."""
     if isinstance(v, int):
         return max(0, v)
+    if isinstance(v, dict) and "perm100d" in v:  # -- static permanents (wave 100D) -- (a CDA setting P/T may set it below 0: 107.1b)
+        from app.rules import static_perm100d
+
+        return static_perm100d.amount(plan, ctx, v)
     if 'quotient' in v or 'mana_symbols' in v:
         from app.rules import static_count_values94
 
