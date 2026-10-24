@@ -2460,10 +2460,10 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
             if not any(c.id != source and c.zone.endswith(":battlefield") and c.attached_to == card.id
                        and kind in plan.ch(c).subtypes for c in plan.state.cards.values()):
                 return False
-        if extra.startswith(("attached_creature", "attached_permanent")):  # -- attached events (wave 30S) -- attached to a creature (of yours)
+        if extra.startswith(("attached_creature", "attached_permanent", "attached_land")):  # -- attached events (wave 30S) -- attached to a creature (of yours); a land (wave 100I)
             host = plan.state.cards.get(card.attached_to or "")
             if host is None or not host.zone.endswith(":battlefield") or (extra.startswith("attached_creature") and not plan.ch(host).is_creature) \
-                    or (extra.endswith("_you") and host.controller != you):
+                    or (extra.startswith("attached_land") and not plan.ch(host).is_land) or (extra.endswith("_you") and host.controller != you):
                 return False
         if extra.startswith("all_colors:") and not set(extra[11:]) <= set(ch.colors):  # -- both colors (wave 6D) --
             return False

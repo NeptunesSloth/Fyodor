@@ -28,6 +28,7 @@ OPPONENTS_ONLY = "Only your opponents may activate this ability."
 # -- activated sweep (wave 17B) -- "Any player may activate this ability but only as a sorcery / during their draw step." (Scandalmonger,
 # Well of Knowledge): the restriction is about the player who activates it (602.5)
 ANY_PLAYER_BUT = re.compile(r"^Any player may activate this ability but only (?P<rest>.+)\.$")
+OPPONENTS_BUT = re.compile(r"^Only your opponents may activate this ability and only (?P<rest>.+)\.$")  # -- activated (wave 100I) -- (Detention Vortex)
 
 _COMBAT_STATES = ("attacking", "blocked", "blocking")
 _SELF_COMBAT = re.compile(r"~ is (?P<a>attacking|blocked|blocking)(?: or (?P<b>attacking|blocked|blocking))?")
@@ -45,7 +46,7 @@ def any_player(ability: Any, cost: Any) -> bool:
 
 
 def opponents_only(ability: Any) -> bool:
-    return ability.kind == "activated" and ability.text.rstrip().endswith(OPPONENTS_ONLY)
+    return ability.kind == "activated" and (ability.text.rstrip().endswith(OPPONENTS_ONLY) or OPPONENTS_BUT.search(ability.text.rstrip().split('. ')[-1]) is not None)
 
 
 def actor_allowed(ability: Any, cost: Any, controller: str, player: str, *, owner: str | None = None) -> bool:
