@@ -2441,6 +2441,9 @@ def damage_outcome(plan: Plan, events: list[Event], *, answers: dict[str, str], 
     from app.rules import life_total_damage_results43
 
     infect_players = life_total_damage_results43.infect_players(plan)
+    from app.rules import static_perm100d  # -- static permanents (wave 100D) -- Everlasting Torment
+
+    all_wither = static_perm100d.any_static(plan, static_perm100d.ALL_WITHER)
     counters: list[tuple[str, str, int, str]] = []  # (target, kind, n, by)
     gains: dict[str, int] = {}
     for ev in out.events:
@@ -2461,7 +2464,7 @@ def damage_outcome(plan: Plan, events: list[Event], *, answers: dict[str, str], 
                 out.walkers[key] = out.walkers.get(key, 0) + n
             elif "Battle" in ch.types and not ch.is_creature:
                 out.battles[key] = out.battles.get(key, 0) + n
-            elif {"wither", "infect"} & kw:
+            elif {"wither", "infect"} & kw or all_wither:
                 counters.append((key, "-1/-1", n, by))  # 120.3d
             else:
                 out.creatures[key] = out.creatures.get(key, 0) + n

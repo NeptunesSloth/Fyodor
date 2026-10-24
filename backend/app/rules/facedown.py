@@ -169,7 +169,9 @@ def _turn_up(plan: Plan, card_id: str, actor: str) -> bool:
     from app.rules import characteristics as chars
 
     card = plan.state.cards.get(card_id)
-    if card is None or not card.face_down or not card.zone.endswith(":battlefield"):
+    from app.rules import static_perm100d  # -- static permanents (wave 100D) -- Karlov Watchdog
+
+    if card is None or not card.face_down or not card.zone.endswith(":battlefield") or static_perm100d.face_up_barred(plan, card):
         return False
     printed = chars.of(card.model_copy(update={"face_down": False}), plan.info)
     if card.face_down_kind in ("manifest", "cloak") and printed.is_instant_or_sorcery:

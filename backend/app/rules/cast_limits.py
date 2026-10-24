@@ -873,6 +873,10 @@ def cast_problem(state: GameState, player: str, card: CardInstance, ch: Characte
 
     if card.zone != zone_key(player, "graveyard") and any(d.get("only") for d in scripts.definitions(ch).values()):
         return f"{ch.name or 'It'} can be cast only from your graveyard"  # -- review 43 -- Haakon's "but not from anywhere else" (101.2) also holds as something resolves (cascade; 2006-07-15 ruling)
+    from app.rules import static_perm100d  # -- static permanents (wave 100D) -- Serra Avenger
+
+    if (first := static_perm100d.cast_problem(state, player, ch)) is not None:
+        return first
     for x in r.cast_limits:
         if x.get("player") == player and _record_live(state, x) and _cast_hit(state, player, card, ch, info, x, x=announced):
             return f"{x.get('label') or 'An effect'}: you can't cast {_spells_words(x.get('filter'), x.get('from'))} now"

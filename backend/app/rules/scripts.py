@@ -2653,9 +2653,9 @@ def _sacrifice_count_sequence(body: str) -> tuple[list[dict[str, Any]], Any, boo
 
 
 def parse_effects(body: str, it: str | None = None, *, event_player: bool = False) -> tuple[list[dict[str, Any]], Any, bool] | None:
-    from app.rules import vault_loop71
+    from app.rules import static_perm100d, vault_loop71  # (static_perm100d: wave 100D, Invert)
 
-    if (vault71 := vault_loop71.parse(body)) is not None:
+    if (vault71 := vault_loop71.parse(body) or static_perm100d.parse(body)) is not None:
         return vault71
     from app.rules import shuffle_mill67
 

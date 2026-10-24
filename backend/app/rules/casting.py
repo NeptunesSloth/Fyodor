@@ -2667,6 +2667,10 @@ def turn_face_up(plan: Plan, a: A.TurnFaceUp) -> None:
     card = plan.state.cards.get(a.card_id)
     if card is None or card.controller != plan.actor or not card.zone.endswith(":battlefield") or not card.face_down:
         raise ActionError("Turn face up a face-down permanent you control")
+    from app.rules import static_perm100d  # -- static permanents (wave 100D) -- Karlov Watchdog
+
+    if (barred := static_perm100d.face_up_barred(plan, card)) is not None:
+        raise ActionError(barred)
     printed = chars.of(card.model_copy(update={"face_down": False}), plan.info)
     ways = face_up_ways(card, printed, state=plan.state, info=plan.info)
     method = a.method or next((w for w in ("morph", "disguise", "mana_cost") if w in ways), None)
