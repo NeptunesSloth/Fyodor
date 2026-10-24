@@ -802,3 +802,688 @@ def test_xenic_poltergeist_animation_wears_off_at_your_next_upkeep(cards):
     to_phase(s, "upkeep", 5)
     assert not _ch(s, ring).is_creature
     check(s)
+
+
+
+
+# -- batch 5: control to the damaging side, per-player attack pumps, linked players ----------------------------------------------------------
+BATCH5 = ["Contested War Zone", "Contested Game Ball", "Indentured Djinn", "Jurin, Leading the Charge", "Namor, Atlantean King",
+          "Mirkwood Trapper", "Soul Scourge", "Laquatus's Champion"]
+PROMOTED += BATCH5
+
+
+@pytest.mark.parametrize("name", BATCH5)
+def test_wave100a_batch5_cards_are_full(cards, name):
+    assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
+
+
+def test_contested_war_zone_goes_to_whoever_damages_its_controller(cards):
+    s = build(cards, ["Contested War Zone", "Grizzly Bears"], ["Grizzly Bears"])
+    zone, mine = put(s, "Contested War Zone"), put(s, "Grizzly Bears")
+    bobs = put(s, "Grizzly Bears", "p2")
+    declare(s, 2, [(bobs, "p1")])
+    from tests.test_rules_wave30m_durations import to_phase
+
+    to_phase(s, "main2", 2)
+    assert s.state.cards[zone.id].controller == "p2"  # "that creature's controller"
+    declare(s, 3, [(mine, "p2")])  # now Bob is "you" (the official ruling: its current controller)
+    to_phase(s, "main2", 3)
+    assert s.state.cards[zone.id].controller == "p1"
+    check(s)
+
+
+def test_contested_game_ball_one_trigger_for_simultaneous_damage_and_untapped(cards):
+    s = build(cards, ["Contested Game Ball"], ["Grizzly Bears", "Llanowar Elves"])
+    ball = put(s, "Contested Game Ball")
+    act(s, "p1", type="tap", card_ids=[ball.id], tapped=True)
+    bears, elves = put(s, "Grizzly Bears", "p2"), put(s, "Llanowar Elves", "p2")
+    declare(s, 2, [(bears, "p1"), (elves, "p1")])
+    from tests.test_rules_wave30m_durations import to_phase
+
+    to_phase(s, "main2", 2)
+    assert s.state.cards[ball.id].controller == "p2" and not s.state.cards[ball.id].tapped  # the attacking player, untapped
+    stacked = [x for x in s.state.log if "Contested Game Ball’s ability" in "".join(p.t or "" for p in x.parts) and "put an ability on the stack" in "".join(p.t or "" for p in x.parts)]
+    assert len(stacked) == 1  # the official ruling: once, however many creatures dealt the damage
+    check(s)
+
+
+def test_indentured_djinn_each_other_player_chooses_how_many_to_draw(cards):
+    from tests.test_rules_wave30m_durations import three
+
+    s = three(cards, ["Indentured Djinn"], [], [])
+    hands = {p: len(s.state.zones.get(f"{p}:hand", [])) for p in ("p2", "p3")}
+    asked = []
+
+    def pick(d):
+        if d.player in ("p2", "p3") and {"0", "3"} <= {o.id for o in d.options}:
+            asked.append(d.player)
+            return ["2" if d.player == "p2" else "0"]
+        return None
+
+    cast_it(s, "Indentured Djinn", pick=pick, U=2, C=1)
+    assert asked == ["p2", "p3"]  # APNAP: Bob, then Carol (101.4); Alice isn't asked
+    assert {p: len(s.state.zones.get(f"{p}:hand", [])) - hands[p] for p in ("p2", "p3")} == {"p2": 2, "p3": 0}
+    check(s)
+
+
+def test_jurin_pumps_each_attacker_by_its_defending_players_creatures(cards):
+    from tests.test_rules_wave30m_durations import three, to_phase
+    from tests.wave9c_kit import pt
+
+    s = three(cards, ["Jurin, Leading the Charge", "Grizzly Bears", "Llanowar Elves"], ["Grizzly Bears", "Llanowar Elves", "Probe Walker"], ["Grizzly Bears"])
+    jurin, bears, elves = put(s, "Jurin, Leading the Charge"), put(s, "Grizzly Bears"), put(s, "Llanowar Elves")
+    theirs = [put(s, "Grizzly Bears", "p2"), put(s, "Llanowar Elves", "p2"), put(s, "Grizzly Bears", "p3")]
+    walker = put(s, "Probe Walker", "p2")
+    act(s, "p2", type="set_counter", card_id=walker.id, kind="loyalty", value=5)
+    to_phase(s, "main1", 4)
+    for c in theirs:
+        act(s, c.controller, type="tap", card_ids=[c.id], tapped=True)  # (none can block: Jurin's block requirement asks nothing)
+    declare(s, 4, [(jurin, "p2"), (bears, "p3"), (elves, walker.id)])
+    run(s)
+    assert pt(s, "Jurin, Leading the Charge") == (6, 6)  # Bob controls two creatures
+    assert pt(s, "Grizzly Bears") == (3, 2)  # Carol controls one
+    assert pt(s, "Llanowar Elves") == (1, 1)  # attacking a planeswalker, not a player
+    check(s)
+
+
+@pytest.mark.parametrize("richer", [True, False])
+def test_namor_pumps_the_others_attacking_a_player_with_more_life(cards, richer):
+    from tests.test_rules_wave30m_durations import three
+    from tests.wave9c_kit import pt
+
+    s = three(cards, ["Namor, Atlantean King", "Grizzly Bears", "Llanowar Elves"], [], [])
+    namor, bears, elves = put(s, "Namor, Atlantean King"), put(s, "Grizzly Bears"), put(s, "Llanowar Elves")
+    act(s, "p2", type="set_life", player="p2", value=41 if richer else 40)
+    declare(s, 4, [(namor, "p2"), (bears, "p2"), (elves, "p3")])
+    run(s)
+    assert pt(s, "Grizzly Bears") == ((4, 2) if richer else (2, 2))
+    assert pt(s, "Llanowar Elves") == (1, 1) and pt(s, "Namor, Atlantean King") == (2, 2)  # attacking another player; "other"
+    check(s)
+
+
+@pytest.mark.parametrize("at", ["p3", "p1", "walker"])
+def test_mirkwood_trapper_attacker_chooses_a_pumped_attacker_when_not_attacking_you(cards, at):
+    """Not when a creature attacks Alice; attacking only her planeswalker still counts as not attacking her (the official ruling)."""
+    from tests.test_rules_wave30m_durations import three
+    from tests.wave9c_kit import pt
+
+    s = three(cards, ["Mirkwood Trapper", "Probe Walker"], ["Grizzly Bears", "Llanowar Elves"], [])
+    put(s, "Mirkwood Trapper")
+    walker = put(s, "Probe Walker")
+    act(s, "p1", type="set_counter", card_id=walker.id, kind="loyalty", value=5)
+    bears, elves = put(s, "Grizzly Bears", "p2"), put(s, "Llanowar Elves", "p2")
+    asked = []
+
+    def pick(d):
+        ids = [o.id for o in d.options]
+        if d.player == "p2" and bears.id in ids:
+            asked.append(set(ids))
+            return [bears.id]
+        if d.player == "p1" and bears.id in ids:
+            return [elves.id]  # (its other trigger: "target attacking creature gets -2/-0")
+        return None
+
+    declare(s, 2, [(bears, "p3"), (elves, walker.id if at == "walker" else at)])
+    run(s, pick)
+    if at == "p1":
+        assert not asked and pt(s, "Grizzly Bears", "p2") == (2, 2)
+    else:
+        assert asked == [{bears.id, elves.id}] and pt(s, "Grizzly Bears", "p2") == (4, 2)
+    check(s)
+
+
+@pytest.mark.parametrize("name,n", [("Soul Scourge", 3), ("Laquatus's Champion", 6)])
+def test_linked_player_gains_back_the_life_when_it_leaves(cards, name, n):
+    from tests.test_rules_wave30m_durations import three
+
+    s = three(cards, [name, "Murder"], [], [])
+    cast_it(s, name, pick=lambda d: ["p3"] if "p3" in [o.id for o in d.options] else None, B=2, C=4)
+    assert s.state.players["p3"].life == 40 - n
+    act(s, "p1", type="move", card_ids=[card_named(s, "Murder").id], to={"zone": "hand"})
+    mana(s, B=2, C=1)
+    act(s, "p1", type="cast_spell", card_id=card_named(s, "Murder").id, targets=[card_named(s, name).id])
+    run(s)
+    assert s.state.players["p3"].life == 40 and s.state.players["p2"].life == 40  # "that player": the one its first ability targeted
+    check(s)
+
+
+def test_linked_player_still_on_the_stack(cards):
+    """The official ruling (Laquatus's Champion): if the first ability is still on the stack, the player gaining is its target."""
+    from tests.test_rules_wave30m_durations import three
+
+    s = three(cards, ["Soul Scourge", "Murder"], [], [])
+    scourge = card_named(s, "Soul Scourge")
+    act(s, "p1", type="set_prefs", response="on")
+    mana(s, B=3, C=5)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Soul Scourge").id)
+    act(s, "p1", type="move", card_ids=[card_named(s, "Murder").id], to={"zone": "hand"})
+    killed = False
+    for _ in range(40):
+        d = s.state.rules.decision
+        if d is not None:
+            ids = [o.id for o in d.options]
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=["p2"] if "p2" in ids else ids[: max(1, d.min_choices)])
+        elif not s.state.zones.get("stack"):
+            break
+        elif not killed and s.state.cards[scourge.id].zone == "p1:battlefield" and s.state.rules.priority == "p1" and len(s.state.zones["stack"]) == 1:
+            act(s, "p1", type="cast_spell", card_id=card_named(s, "Murder").id, targets=[scourge.id])  # in response to its enters ability
+            killed = True
+        else:
+            act(s, s.state.rules.priority, type="pass_priority")
+    assert killed and s.state.cards[scourge.id].zone == "p1:graveyard"
+    assert s.state.players["p2"].life == 40  # gained 3 (the leaves ability resolved first), then lost 3
+    check(s)
+
+
+def test_linked_player_twice_targeted_is_resolved_by_hand(cards):
+    """Its enters ability triggered twice (Panharmonicon) and targeted two players: no ruling says who "that player" is, so it's manual."""
+    from tests.test_rules_wave30m_durations import three
+
+    s = three(cards, ["Soul Scourge", "Panharmonicon", "Murder"], [], [])
+    put(s, "Panharmonicon")
+    targets = iter(["p2", "p3"])
+    cast_it(s, "Soul Scourge", pick=lambda d: [next(targets)] if "p3" in [o.id for o in d.options] else None, B=2, C=4)
+    assert s.state.players["p2"].life == 37 and s.state.players["p3"].life == 37
+    act(s, "p1", type="move", card_ids=[card_named(s, "Murder").id], to={"zone": "hand"})
+    mana(s, B=2, C=1)
+    act(s, "p1", type="cast_spell", card_id=card_named(s, "Murder").id, targets=[card_named(s, "Soul Scourge").id])
+    seen = run(s)
+    assert [d.kind for d in seen] == ["manual_resolution"] and "Bob, Carol" in seen[0].prompt
+    assert s.state.players["p2"].life == 37 and s.state.players["p3"].life == 37  # nobody gains automatically
+    check(s)
+
+
+# -- batch 6: one trigger for every opponent, counters history, "may … if they don't", top creature card, devour tokens ------------------------
+BATCH6 = ["Master of Barbs", "Mindblade Render", "Iridescent Hornbeetle", "Star Athlete", "Ogre Marauder", "Barrow Ghoul", "Cloaked Cadet",
+          "Tenuous Truce", "Day of the Dragons", "Magmatic Galleon", "Clandestine Meddler"]
+PROMOTED += BATCH6
+EXTRA += [real("Probe Ping", "{R}", 1, "Sorcery", "Probe Ping deals 1 damage to each opponent.", None, "R"),
+          real("Probe Warrior", "{1}{R}", 2, "Creature — Human Warrior", "", ("2", "2"), "R"),
+          real("Probe Human", "{W}", 1, "Creature — Human", "", ("1", "1"), "W"),
+          real("Probe Counters", "{G}", 1, "Sorcery", "Put a +1/+1 counter on each creature you control.", None, "G")]
+
+
+@pytest.mark.parametrize("name", BATCH6)
+def test_wave100a_batch6_cards_are_full(cards, name):
+    assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
+
+
+def test_master_of_barbs_one_pump_for_noncombat_damage_to_several_opponents(cards):
+    from tests.test_rules_wave30m_durations import three, to_phase
+    from tests.wave9c_kit import pt
+
+    s = three(cards, ["Master of Barbs", "Probe Ping"], [], [])
+    put(s, "Master of Barbs")
+    to_phase(s, "main1", 4)
+    cast_it(s, "Probe Ping", R=1)
+    assert s.state.players["p2"].life == 39 and s.state.players["p3"].life == 39
+    assert pt(s, "Master of Barbs") == (3, 1)  # once for the batch (603.2c), not once per opponent
+    check(s)
+
+
+def test_mindblade_render_once_when_a_warrior_dealt_some_of_the_combat_damage(cards):
+    from tests.test_rules_wave30m_durations import three, to_phase
+
+    s = three(cards, ["Mindblade Render", "Grizzly Bears", "Probe Warrior"], [], [])
+    put(s, "Mindblade Render")
+    bears, warrior = put(s, "Grizzly Bears"), put(s, "Probe Warrior")
+    hand = len(s.state.zones["p1:hand"])
+    declare(s, 4, [(bears, "p2")])  # the Bears are no Warrior: nothing (an intervening "if", 603.4)
+    to_phase(s, "main2", 4)
+    assert len(s.state.zones["p1:hand"]) == hand + 1 and s.state.players["p1"].life == 40  # (its draw step)
+    declare(s, 7, [(bears, "p2"), (warrior, "p3")])
+    to_phase(s, "main2", 7)
+    assert len(s.state.zones["p1:hand"]) == hand + 3 and s.state.players["p1"].life == 39  # once for both opponents (the ruling)
+    check(s)
+
+
+def test_iridescent_hornbeetle_counts_the_counters_you_put_on_your_creatures_this_turn(cards):
+    from tests.test_rules_wave30m_durations import to_phase
+
+    s = build(cards, ["Iridescent Hornbeetle", "Grizzly Bears", "Probe Counters"], ["Grizzly Bears", "Probe Counters"])
+    put(s, "Iridescent Hornbeetle"), put(s, "Grizzly Bears")
+    put(s, "Grizzly Bears", "p2")
+    stops(s, "end")
+    to_phase(s, "main1", 2)
+    cast_it(s, "Probe Counters", "p2", G=1)  # Bob's counters on Bob's creature: not "you've put"
+    to_phase(s, "main1", 3)
+    cast_it(s, "Probe Counters", G=1)  # two counters, one on each of Alice's creatures
+    to_phase(s, "end", 3)
+    run(s)
+    assert len([c for c in s.state.cards.values() if c.name == "Insect" and c.zone == "p1:battlefield"]) == 2
+    check(s)
+
+
+@pytest.mark.parametrize("sacrifice", [True, False])
+def test_star_athlete_its_controller_sacrifices_or_takes_five(cards, sacrifice):
+    s = build(cards, ["Star Athlete"], ["Sol Ring"])
+    athlete, ring = put(s, "Star Athlete"), put(s, "Sol Ring", "p2")
+    asked = []
+
+    def pick(d):
+        ids = [o.id for o in d.options]
+        if ring.id in ids:
+            return [ring.id]
+        if d.player == "p2" and "pay" in ids:
+            asked.append(d.player)
+            return ["pay" if sacrifice else "decline"]
+        return None
+
+    declare(s, 3, [(athlete, "p2")])
+    run(s, pick)
+    assert asked == ["p2"]
+    assert (s.state.cards[ring.id].zone == "p2:graveyard") == sacrifice
+    assert s.state.players["p2"].life == 40 - 3 - (0 if sacrifice else 5)  # (and its 3 combat damage)
+    check(s)
+
+
+@pytest.mark.parametrize("sacrifice", [True, False])
+def test_ogre_marauder_unblockable_unless_defending_player_sacrifices(cards, sacrifice):
+    from tests.test_rules_wave30m_durations import to_phase
+
+    s = build(cards, ["Ogre Marauder"], ["Grizzly Bears", "Llanowar Elves"])
+    ogre = put(s, "Ogre Marauder")
+    bears, elves = put(s, "Grizzly Bears", "p2"), put(s, "Llanowar Elves", "p2")
+
+    def pick(d):
+        ids = [o.id for o in d.options]
+        if d.player == "p2" and "pay" in ids:
+            return ["pay" if sacrifice else "decline"]
+        if d.player == "p2" and elves.id in ids:
+            return [elves.id]
+        return None
+
+    declare(s, 3, [(ogre, "p2")])
+    run(s, pick)
+    to_phase(s, "declare_blockers", 3)
+    if sacrifice:
+        assert s.state.cards[elves.id].zone == "p2:graveyard"
+        act(s, "p2", type="declare_blockers", blocks=[{"blocker_id": bears.id, "attacker_id": ogre.id}])
+    else:
+        from app.game.errors import ActionError
+
+        with pytest.raises(ActionError):
+            act(s, "p2", type="declare_blockers", blocks=[{"blocker_id": bears.id, "attacker_id": ogre.id}])
+    check(s)
+
+
+@pytest.mark.parametrize("exile", [True, False])
+def test_barrow_ghoul_exiles_only_the_top_creature_card(cards, exile):
+    from tests.test_rules_wave30m_durations import to_phase
+
+    s = build(cards, ["Barrow Ghoul", "Grizzly Bears", "Llanowar Elves", "Sol Ring"])
+    ghoul = put(s, "Barrow Ghoul")
+    bears, elves, ring = card_named(s, "Grizzly Bears"), card_named(s, "Llanowar Elves"), card_named(s, "Sol Ring")
+    for c in (bears, elves, ring):  # one at a time: the Sol Ring on top, the Elves the top creature card
+        act(s, "p1", type="move", card_ids=[c.id], to={"zone": "graveyard"})
+    offered = []
+
+    def pick(d):
+        ids = [o.id for o in d.options]
+        if elves.id in ids or bears.id in ids:
+            offered.append(set(ids))
+            return [elves.id] if exile else []
+        return None
+
+    stops(s, "upkeep")
+    to_phase(s, "upkeep", 3)
+    run(s, pick)
+    assert offered == [{elves.id}]
+    assert (s.state.cards[elves.id].zone == "p1:exile") == exile
+    assert (s.state.cards[ghoul.id].zone == "p1:battlefield") == exile
+    check(s)
+
+
+def test_cloaked_cadet_draws_once_a_turn_for_counters_on_humans(cards):
+    from tests.test_rules_wave30m_durations import to_phase
+
+    s = build(cards, ["Cloaked Cadet", "Probe Human", "Probe Counters", "Probe Counters"])
+    put(s, "Cloaked Cadet"), put(s, "Probe Human")
+    to_phase(s, "main1", 3)
+    first, second = (c for c in s.state.cards.values() if c.name == "Probe Counters")
+    act(s, "p1", type="move", card_ids=[first.id, second.id], to={"zone": "hand"})
+    hand = len(s.state.zones["p1:hand"])
+    cast_card(s, first, G=1)  # counters on two Humans at once: one card (the ruling)
+    assert len(s.state.zones["p1:hand"]) == hand - 1 + 1
+    cast_card(s, second, G=1)  # only once each turn
+    assert len(s.state.zones["p1:hand"]) == hand - 2 + 1
+    check(s)
+
+
+def test_tenuous_truce_draws_at_the_enchanted_opponents_end_step(cards):
+    from tests.test_rules_wave30m_durations import three, to_phase
+
+    s = three(cards, ["Tenuous Truce"], [], [])
+    cast_it(s, "Tenuous Truce", pick=lambda d: ["p2"] if "p2" in [o.id for o in d.options] else None, W=1, C=1)
+    truce = card_named(s, "Tenuous Truce")
+    assert s.state.cards[truce.id].attached_player == "p2"
+    stops(s, "end")
+    to_phase(s, "end", 1)
+    run(s)  # not at Alice's own end step
+    to_phase(s, "end", 2)
+    hands = {p: len(s.state.zones[f"{p}:hand"]) for p in ("p1", "p2", "p3")}
+    run(s)
+    assert {p: len(s.state.zones[f"{p}:hand"]) - hands[p] for p in ("p1", "p2", "p3")} == {"p1": 1, "p2": 1, "p3": 0}
+    check(s)
+
+
+@pytest.mark.parametrize("who,at,gone", [("p1", "p2", True), ("p1", "walker", True), ("p2", "p1", True), ("p3", "p1", False)])
+def test_tenuous_truce_is_sacrificed_when_you_and_the_enchanted_opponent_attack_each_other(cards, who, at, gone):
+    from tests.test_rules_wave30m_durations import three
+
+    s = three(cards, ["Tenuous Truce", "Grizzly Bears"], ["Grizzly Bears", "Probe Walker"], ["Grizzly Bears"])
+    cast_it(s, "Tenuous Truce", pick=lambda d: ["p2"] if "p2" in [o.id for o in d.options] else None, W=1, C=1)
+    truce, attacker, walker = card_named(s, "Tenuous Truce"), put(s, "Grizzly Bears", who), put(s, "Probe Walker", "p2")
+    act(s, "p2", type="set_counter", card_id=walker.id, kind="loyalty", value=5)
+    declare(s, {"p1": 4, "p2": 2, "p3": 3}[who], [(attacker, walker.id if at == "walker" else at)])
+    run(s)
+    assert (s.state.cards[truce.id].zone == "p1:graveyard") == gone
+    check(s)
+
+
+def test_day_of_the_dragons_trades_creatures_for_dragons_and_back(cards):
+    s = build(cards, ["Day of the Dragons", "Grizzly Bears", "Llanowar Elves", "Capsize", "Raise the Alarm"])
+    bears, elves = put(s, "Grizzly Bears"), put(s, "Llanowar Elves")
+    cast_it(s, "Raise the Alarm", W=1, C=1)
+    cast_it(s, "Day of the Dragons", U=3, C=4)
+    assert s.state.cards[bears.id].zone == "p1:exile" and s.state.cards[elves.id].zone == "p1:exile"
+    dragons = [c for c in s.state.cards.values() if c.name == "Dragon" and c.zone == "p1:battlefield"]
+    assert len(dragons) == 4  # the Soldier tokens count too (the ruling)
+    # the enchantment leaves: the Dragons are sacrificed, the exiled cards return
+    cast_card(s, card_named(s, "Capsize"), targets=[card_named(s, "Day of the Dragons").id], U=2, C=1)
+    assert s.state.cards[bears.id].zone == "p1:battlefield" and s.state.cards[elves.id].zone == "p1:battlefield"
+    assert not [c for c in s.state.cards.values() if c.name == "Dragon" and c.zone == "p1:battlefield"]
+    check(s)
+
+
+def _stacked(s, name):
+    return sum(1 for x in s.state.log if f"{name}’s ability" in "".join(p.t or "" for p in x.parts) and "put an ability on the stack" in "".join(p.t or "" for p in x.parts))
+
+
+def test_magmatic_galleon_one_treasure_for_a_batch_of_excess_damage(cards):
+    s = build(cards, ["Magmatic Galleon", "Pyroclasm"], ["Llanowar Elves", "Llanowar Elves", "Grizzly Bears"])
+    put(s, "Magmatic Galleon")
+    for c in [c for c in s.state.cards.values() if c.owner == "p2" and c.name in ("Llanowar Elves", "Grizzly Bears")]:
+        act(s, "p2", type="move", card_ids=[c.id], to={"zone": "battlefield"})
+    cast_it(s, "Pyroclasm", R=1, C=1)  # 2 damage: excess to each 1/1 Elf, none to the 2/2 Bears (120.10)
+    assert len([c for c in s.state.cards.values() if c.name == "Treasure" and c.zone == "p1:battlefield"]) == 1  # one for the batch (603.2c)
+    check(s)
+
+
+def test_clandestine_meddler_surveils_when_a_suspected_creature_attacks(cards):
+    s = build(cards, ["Clandestine Meddler", "Grizzly Bears"])
+    bears = put(s, "Grizzly Bears")
+    cast_it(s, "Clandestine Meddler", pick=lambda d: [bears.id] if bears.id in [o.id for o in d.options] else None, B=1, C=2)
+    meddler = card_named(s, "Clandestine Meddler")
+    declare(s, 3, [(meddler, "p2")])  # not suspected: nothing
+    run(s)
+    assert _stacked(s, "Clandestine Meddler") == 1  # (its enters ability only)
+    declare(s, 5, [(bears, "p2")])
+    run(s)
+    assert _stacked(s, "Clandestine Meddler") == 2
+    check(s)
+
+
+# -- batch 7: the caster's {1}, a damage condition, a cast trigger's sacrifice ----------------------------------------------------------------
+BATCH7 = ["Horn of Plenty", "Antagonism", "Mana Vortex", "Curse Artifact"]
+PROMOTED += BATCH7
+
+
+@pytest.mark.parametrize("name", BATCH7)
+def test_wave100a_batch7_cards_are_full(cards, name):
+    assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
+
+
+def test_horn_of_plenty_the_caster_pays_to_draw_at_the_next_end_step(cards):
+    from tests.test_rules_wave30m_durations import to_phase
+
+    s = build(cards, ["Horn of Plenty", "Grizzly Bears"])
+    put(s, "Horn of Plenty")
+    stops(s, "end")
+    cast_it(s, "Grizzly Bears", pick=lambda d: ["pay"] if "pay" in [o.id for o in d.options] else None, G=1, C=2)
+    hand = len(s.state.zones["p1:hand"])
+    to_phase(s, "end", 1)
+    run(s)
+    assert len(s.state.zones["p1:hand"]) == hand + 1
+    check(s)
+
+
+def test_antagonism_spares_a_player_whose_opponent_was_dealt_damage(cards):
+    from tests.test_rules_wave30m_durations import to_phase
+
+    s = build(cards, ["Antagonism", "Lightning Bolt"])
+    put(s, "Antagonism")
+    stops(s, "end")
+    to_phase(s, "end", 1)
+    run(s)
+    assert s.state.players["p1"].life == 38  # nobody was dealt damage
+    to_phase(s, "main1", 3)
+    bolt = card_named(s, "Lightning Bolt")
+    cast_card(s, bolt, targets=["p2"], R=1)
+    to_phase(s, "end", 3)
+    run(s)
+    assert s.state.players["p1"].life == 38 and s.state.players["p2"].life == 40 - 2 - 3  # Bob, Alice's opponent, was dealt damage
+    check(s)
+
+
+@pytest.mark.parametrize("pay", [True, False])
+def test_mana_vortex_is_countered_unless_you_sacrifice_a_land(cards, pay):
+    s = build(cards, ["Mana Vortex"])
+    forest = put(s, "Forest")
+    put(s, "Island", "p2")  # (a land stays: its last ability would sacrifice it)
+    cast_it(s, "Mana Vortex", pick=lambda d: (["pay" if pay else "decline"] if "pay" in [o.id for o in d.options] else
+                                              [forest.id] if forest.id in [o.id for o in d.options] else None), U=2)
+    assert (s.state.cards[forest.id].zone == "p1:graveyard") == pay
+    assert card_named(s, "Mana Vortex").zone == ("p1:battlefield" if pay else "p1:graveyard")
+    check(s)
+
+
+@pytest.mark.parametrize("pay", [True, False])
+def test_curse_artifact_damages_the_controller_unless_they_sacrifice_it(cards, pay):
+    from tests.test_rules_wave30m_durations import to_phase
+
+    s = build(cards, ["Curse Artifact"], ["Sol Ring"])
+    ring = put(s, "Sol Ring", "p2")
+    cast_it(s, "Curse Artifact", pick=lambda d: [ring.id] if ring.id in [o.id for o in d.options] else None, B=2, C=2)
+    act(s, "p2", type="set_stops", own=["upkeep"], others=[], smart_pass=False)
+    to_phase(s, "upkeep", 2)
+    run(s, lambda d: ["pay" if pay else "decline"] if "pay" in [o.id for o in d.options] else None)
+    assert (s.state.cards[ring.id].zone == "p2:graveyard") == pay
+    assert s.state.players["p2"].life == (40 if pay else 38)
+    check(s)
+
+
+# -- batch 8: a destroy by an opponent's spell or ability --------------------------------------------------------------------------------------
+PROMOTED += ["Karmic Justice"]
+EXTRA += [real("Probe Shatter", "{1}{R}", 2, "Instant", "Destroy target artifact or enchantment.", None, "R")]
+
+
+def test_karmic_justice_answers_an_opponents_destroy_even_of_itself(cards):
+    from tests.test_rules_wave30m_durations import to_phase
+
+    assert coverage.of_card_data(cards.resolve("Karmic Justice")).level == "FULL"
+    s = build(cards, ["Karmic Justice", "Sol Ring", "Probe Shatter"], ["Sol Ring", "Probe Shatter"])
+    justice, ring = put(s, "Karmic Justice"), put(s, "Sol Ring")
+    bobs = put(s, "Sol Ring", "p2")
+    cast_card(s, card_named(s, "Probe Shatter"), targets=[ring.id], R=1, C=1)  # Alice's own destroy: nothing (608.2: not an opponent's)
+    assert s.state.cards[ring.id].zone == "p1:graveyard" and s.state.cards[bobs.id].zone == "p2:battlefield"
+    to_phase(s, "main1", 2)
+    offered = []
+    cast_card(s, card_named(s, "Probe Shatter", "p2"), "p2", targets=[justice.id], pick=offered_then(bobs.id, offered), R=1, C=1)
+    assert s.state.cards[justice.id].zone == "p1:graveyard"  # (it looks back in time, 603.10a: the ruling)
+    assert bobs.id in offered and justice.id not in offered and s.state.cards[bobs.id].zone == "p2:graveyard"  # "that opponent controls"
+    check(s)
+
+
+# -- batch 9: the source still there, power against a hand --------------------------------------------------------------------------------------
+PROMOTED += ["Myr Servitor", "Noetic Scales"]
+
+
+def test_myr_servitor_returns_every_graveyards_servitors_to_their_owners(cards):
+    from tests.test_rules_wave30m_durations import to_phase
+
+    assert coverage.of_card_data(cards.resolve("Myr Servitor")).level == "FULL"
+    s = build(cards, ["Myr Servitor", "Myr Servitor"], ["Myr Servitor"])
+    mine, dead = (c for c in s.state.cards.values() if c.name == "Myr Servitor" and c.owner == "p1")
+    bobs = card_named(s, "Myr Servitor", "p2")
+    put(s, "Myr Servitor")
+    act(s, "p1", type="move", card_ids=[dead.id], to={"zone": "graveyard"})
+    act(s, "p2", type="move", card_ids=[bobs.id], to={"zone": "graveyard"})
+    stops(s, "upkeep")
+    to_phase(s, "upkeep", 3)
+    run(s)
+    assert s.state.cards[dead.id].zone == "p1:battlefield" and s.state.cards[bobs.id].zone == "p2:battlefield"  # under their owners' control
+    check(s)
+
+
+def test_noetic_scales_bounces_that_players_creatures_bigger_than_their_hand(cards):
+    from tests.test_rules_wave30m_durations import to_phase
+
+    assert coverage.of_card_data(cards.resolve("Noetic Scales")).level == "FULL"
+    s = build(cards, ["Noetic Scales", "Grizzly Bears"], ["Grizzly Bears", "Probe Wall Creature", "Lightning Bolt"])
+    put(s, "Noetic Scales")
+    mine, bears, wall = put(s, "Grizzly Bears"), put(s, "Grizzly Bears", "p2"), put(s, "Probe Wall Creature", "p2")
+    act(s, "p2", type="move", card_ids=[card_named(s, "Lightning Bolt", "p2").id], to={"zone": "hand"})  # one card: the 2-power Bears are bigger
+    act(s, "p1", type="set_stops", own=["upkeep"], others=["upkeep"], smart_pass=False)
+    to_phase(s, "upkeep", 2)
+    run(s)
+    assert s.state.cards[bears.id].zone == "p2:hand" and s.state.cards[wall.id].zone == "p2:battlefield"
+    assert s.state.cards[mine.id].zone == "p1:battlefield"  # only that player's
+    check(s)
+
+
+PROMOTED += ["Mischievous Quanar"]
+
+
+def test_mischievous_quanar_copies_a_spell_as_it_is_turned_face_up(cards):
+    assert coverage.of_card_data(cards.resolve("Mischievous Quanar")).level == "FULL"
+    s = build(cards, ["Mischievous Quanar", "Lightning Bolt"])
+    quanar = to_hand(s, "Mischievous Quanar")
+    mana(s, C=3)
+    act(s, "p1", type="cast_spell", card_id=quanar.id, face_down=True)
+    run(s)
+    act(s, "p1", type="set_prefs", hold_priority=True)
+    mana(s, R=1)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Lightning Bolt").id, targets=["p2"])
+    mana(s, U=2, C=1)
+    act(s, "p1", type="turn_face_up", card_id=quanar.id)  # a special action, with the Bolt on the stack (116.2b)
+    run(s, lambda d: ["p2"] if "p2" in [o.id for o in d.options] else None)
+    assert not s.state.cards[quanar.id].face_down and s.state.players["p2"].life == 34  # the Bolt and its copy
+    check(s)
+
+
+PROMOTED += ["Death Match"]
+
+
+@pytest.mark.parametrize("accept", [True, False])
+def test_death_match_the_entering_creatures_controller_chooses(cards, accept):
+    assert coverage.of_card_data(cards.resolve("Death Match")).level == "FULL"
+    s = build(cards, ["Death Match", "Grizzly Bears"], ["Llanowar Elves"])
+    put(s, "Death Match")
+    bears = put(s, "Grizzly Bears")
+    asked = []
+
+    def pick(d):
+        ids = [o.id for o in d.options]
+        if bears.id in ids:
+            asked.append(d.player)
+            return [bears.id]
+        if "pay" in ids:
+            asked.append(d.player)
+            return ["pay" if accept else "decline"]
+        return None
+
+    from tests.test_rules_wave30m_durations import to_phase
+
+    to_phase(s, "main1", 2)
+    cast_it(s, "Llanowar Elves", "p2", pick=pick, G=1)
+    assert asked == ["p2", "p2"]  # Bob chooses the target and whether (not Alice, who controls the ability)
+    assert (s.state.cards[bears.id].zone == "p1:graveyard") == accept
+    check(s)
+
+
+PROMOTED += ["Gate to the Aether"]
+
+
+def test_gate_to_the_aether_each_player_may_put_a_revealed_permanent_card(cards):
+    from tests.test_rules_wave30m_durations import to_phase
+
+    assert coverage.of_card_data(cards.resolve("Gate to the Aether")).level == "FULL"
+    s = build(cards, ["Gate to the Aether", "Lightning Bolt"], ["Grizzly Bears"])
+    put(s, "Gate to the Aether")
+    bolt, bears = card_named(s, "Lightning Bolt"), card_named(s, "Grizzly Bears", "p2")
+    act(s, "p1", type="move", card_ids=[bolt.id], to={"zone": "library"}, position="top")
+    act(s, "p2", type="move", card_ids=[bears.id], to={"zone": "library"}, position="top")
+    act(s, "p1", type="set_stops", own=["upkeep"], others=["upkeep"], smart_pass=False)
+    to_phase(s, "upkeep", 2)
+    run(s, lambda d: ["yes"] if "yes" in [o.id for o in d.options] else None)
+    assert s.state.cards[bears.id].zone == "p2:battlefield" and s.state.cards[bears.id].controller == "p2"
+    to_phase(s, "upkeep", 3)
+    assert not run(s) and s.state.cards[bolt.id].zone == "p1:library"  # an instant: nothing offered
+    check(s)
+
+
+PROMOTED += ["Fearless Swashbuckler"]
+
+
+def test_fearless_swashbuckler_loots_when_a_pirate_and_a_vehicle_attacked(cards):
+    from tests.test_rules_wave30m_durations import to_phase
+
+    assert coverage.of_card_data(cards.resolve("Fearless Swashbuckler")).level == "FULL"
+    s = build(cards, ["Fearless Swashbuckler", "Sky-Skiff", "Grizzly Bears"])
+    swash, skiff, pilot = put(s, "Fearless Swashbuckler"), put(s, "Sky-Skiff"), put(s, "Grizzly Bears")
+    declare(s, 3, [(swash, "p2")])  # a Pirate alone: it doesn't trigger (603.4)
+    run(s)
+    assert _stacked(s, "Fearless Swashbuckler") == 0
+    to_phase(s, "main1", 5)
+    act(s, "p1", type="activate_ability", card_id=skiff.id, ability=1, crew=[pilot.id])
+    run(s)
+    hand = len(s.state.zones["p1:hand"])
+    declare(s, 5, [(swash, "p2"), (skiff, "p2")])
+    run(s)
+    assert _stacked(s, "Fearless Swashbuckler") == 1 and len(s.state.zones["p1:hand"]) == hand + 3 - 2
+    check(s)
+
+
+PROMOTED += ["Volatile Arsonist // Dire-Strain Anarchist"]
+
+
+def test_volatile_arsonist_pings_up_to_one_creature_player_and_planeswalker(cards):
+    assert coverage.of_card_data(cards.resolve("Volatile Arsonist // Dire-Strain Anarchist")).level == "FULL"
+    s = build(cards, ["Volatile Arsonist // Dire-Strain Anarchist"], ["Grizzly Bears", "Probe Walker"])
+    arsonist = put(s, "Volatile Arsonist // Dire-Strain Anarchist")
+    bears, walker = put(s, "Grizzly Bears", "p2"), put(s, "Probe Walker", "p2")
+    act(s, "p2", type="set_counter", card_id=walker.id, kind="loyalty", value=5)
+    declare(s, 3, [(arsonist, "p2")])
+    run(s, lambda d: next(([x] for x in (bears.id, "p2", walker.id) if x in [o.id for o in d.options]), None))
+    assert s.state.cards[arsonist.id].face == 1  # night by now (502.2: no spells in Bob's turn): Dire-Strain Anarchist, 2 damage each
+    first = s.state.players["p2"].life_history[0]
+    assert s.state.cards[bears.id].zone == "p2:graveyard" and (first.before, first.after) == (40, 38) and s.state.cards[walker.id].counters.get("loyalty") == 3
+    check(s)
+
+
+# -- batch 15: "whenever you clash" ---------------------------------------------------------------------------------------------------------
+PROMOTED += ["Sylvan Echoes", "Entangling Trap"]
+
+
+@pytest.mark.parametrize("win", [True, False])
+def test_clash_triggers_after_the_clash_and_read_whether_you_won(cards, win):
+    from tests.test_rules_wave30m_durations import to_phase
+
+    for name in ("Sylvan Echoes", "Entangling Trap"):
+        assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
+    s = build(cards, ["Sylvan Echoes", "Entangling Trap", "Research the Deep", "Grizzly Bears", "Opt"], ["Llanowar Elves", "Grizzly Bears"])
+    put(s, "Sylvan Echoes"), put(s, "Entangling Trap")
+    elves = put(s, "Llanowar Elves", "p2")
+    mine, theirs = card_named(s, "Grizzly Bears"), card_named(s, "Grizzly Bears", "p2")
+    revealed = mine if win else card_named(s, "Opt")  # mana value 2, or 1 against Bob's 2 (701.30d)
+    act(s, "p1", type="move", card_ids=[revealed.id], to={"zone": "library"}, position="top")
+    act(s, "p1", type="move", card_ids=[card_named(s, "Forest").id], to={"zone": "library"}, position="top")  # (drawn first)
+    act(s, "p2", type="move", card_ids=[theirs.id if not win else card_named(s, "Island", "p2").id], to={"zone": "library"}, position="top")
+    hand = len(s.state.zones["p1:hand"])
+    cast_it(s, "Research the Deep", pick=lambda d: [elves.id] if elves.id in [o.id for o in d.options] else None, U=1, C=1)
+    assert s.state.cards[elves.id].tapped  # Entangling Trap, won or not
+    assert len(s.state.zones["p1:hand"]) == hand + (3 if win else 1)  # Research's draw; won: it returns, and Sylvan Echoes draws
+    to_phase(s, "main1", 2)
+    assert s.state.cards[elves.id].tapped == win  # it didn't untap during Bob's untap step only when Alice won
+    check(s)

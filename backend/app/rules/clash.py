@@ -6,7 +6,9 @@
 * 701.30d: a player wins if the revealed card's mana value is higher than all other revealed cards'. An empty library
   reveals nothing, so a lone revealed card wins. "If you win" reads this resolution's own clash (``ctx["clash"]``).
 
-Refused (manual): "whenever you clash" triggers, repeating a clash ("if you win, repeat this process").
+Refused (manual): repeating a clash ("if you win, repeat this process"). -- trigger lines (wave 100A) -- "Whenever you clash": a ``clash``
+designation event for each clashing player once the clash ends (the cards moved: the reminder "This ability triggers after the clash ends"),
+``amount`` 1 for a winner.
 """
 
 from __future__ import annotations
@@ -56,6 +58,7 @@ def _reveal(plan: Plan, ctx: Context, opponent: str) -> bool:
     mv = {p: plan.ch(plan.state.cards[c]).mana_value for p, c in cards.items()}
     winners = [p for p in mv if all(mv[p] > v for q, v in mv.items() if q != p)]
     ctx["clash"] = ctx["controller"] in winners
+    ctx["clashed100a"] = {p: p in winners for p in players}
     plan.note(f"Clash: {plan.name(winners[0])} wins" if winners else "Clash: no player wins", actor=ctx["controller"])
     return _ask(plan, ctx, players, cards, [])
 
@@ -71,6 +74,10 @@ def _ask(plan: Plan, ctx: Context, players: list[str], cards: dict[str, str], bo
     for cid in bottom:  # 701.30c: the cards chosen move at the same time
         owner = plan.state.cards[cid].owner
         plan.do({"type": "move", "card_ids": [cid], "to": {"player": owner, "zone": "library"}, "position": "bottom"}, actor=owner)
+    from app.game.rules_state import emit
+
+    for p, won in ctx.pop("clashed100a", {}).items():
+        emit(plan.state, "designation", counter="clash", player=p, amount=int(won))
     return True
 
 

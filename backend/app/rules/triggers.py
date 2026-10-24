@@ -1268,6 +1268,8 @@ def _defender_ok(want: str, watcher: CardInstance, info: dict[str, Any], plan: P
         return defended == you
     if want == "opponent_or_pw":  # -- trigger other (wave 36A) -- "attacks one of your opponents or a planeswalker an opponent controls": not you, not what you control
         return defended != you
+    if want == "truce100a":  # -- trigger lines (wave 100A) -- Tenuous Truce: you attack the enchanted player or a planeswalker they control, or they attack you or yours
+        return not info.get("battle") and (info.get("attacker"), defended) in ((you, watcher.attached_player), (watcher.attached_player, you))
     if not info.get("direct"):
         return False
     if want == "you":
@@ -1479,7 +1481,7 @@ def _fire_generic(plan: Plan, facts: list[Fact], batch: int, fired: Fired,
             # table, but was absent for look-back events in its entry batch.
             # Conversely, an object leaving in this batch does not see the
             # incoming object's ETB (it still sees simultaneous deaths).
-            look_back = fact[0] in ("die", "leave", "sacrifice", "exploit", "leave_graveyard", "unattached", "control_change")
+            look_back = fact[0] in ("die", "leave", "sacrifice", "exploit", "leave_graveyard", "unattached", "control_change", "destroyed")  # (destroyed: wave 100A, 603.10a — Karmic Justice's ruling)
             if batch >= 0 and ((look_back and batch == lo) or (not look_back and batch == hi)):
                 continue
             if not combat_player_scope43.printed_verdict(plan, whole, watcher, fact,
@@ -2811,6 +2813,8 @@ def _put(plan: Plan, t: PendingTrigger, target: str | None = None, picks: dict[s
         plan.do({"type": "set_stack_info", "card_id": ability_id, "modes": t.ability["chosen_modes"]}, actor=t.controller)
     if t.ability.get('stack_tags'):
         plan.do({'type': 'set_stack_info', 'card_id': ability_id, 'tags': t.ability['stack_tags']}, actor=t.controller)
+    if t.ability.get("link_player100a") and targets and t.source_object:  # -- trigger lines (wave 100A) -- the player a linked leaves ability means
+        r.linked_players100a.setdefault(t.source_object, []).append(targets[0].id)
     if targets:
         plan.target_arrows(ability_id, [x.id for x in targets], actor=t.controller)  # (review 28D: an arrow points at up to 20)
         targeted(plan, ability_id, t.controller, targets)

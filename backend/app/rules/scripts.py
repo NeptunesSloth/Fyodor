@@ -8013,7 +8013,7 @@ def _targeted(cond: dict[str, Any] | None) -> bool:
 def _has_player(cond: dict[str, Any]) -> bool:
     """Does the event name a player ("that player")? The player who acted, or who was dealt damage."""
     if cond.get("cause") == "opponent":
-        return cond["event"] == "discard"  # -- discard causes (wave 50E) -- "that player loses 5 life": the opponent whose spell or ability caused it (triggers._fire_generic)
+        return cond["event"] in ("discard", "destroyed")  # (destroyed: wave 100A, Karmic Justice) -- discard causes (wave 50E) -- "that player loses 5 life": the opponent whose spell or ability caused it (triggers._fire_generic)
     if cond.get("subject") == "player" or cond["event"] in _PLAYER_EVENTS:
         return True
     if _targeted(cond):  # -- triggers (wave 19B; wave 21B: any controller) -- the player whose spell or ability it was
