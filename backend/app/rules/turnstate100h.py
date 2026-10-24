@@ -198,6 +198,25 @@ def _retriever(d: Def) -> Def | None:
     return {**d, "effects": [d["effects"][0], {**d["effects"][1], "ability": {**ability, "targets": [{**ability["targets"][0], "x_value": count[0][0]["n"]}]}}]}
 
 
+def _jays(d: Def) -> Def | None:
+    """Messenger Jays (council's dilemma): one discard for each card the quill votes actually drew (121.2a: a replaced draw draws none)."""
+    if _dos(d) != ["vote", "vote_repeat", "add_counters", "vote_repeat", "draw"]:
+        return None
+    return {**d, "effects": [*d["effects"][:4], {**d["effects"][4], "as": "jays100h"},
+                             {"do": "discard", "who": "you", "n": {"this_way": "drawn", "of": None, "ref_count": "jays100h"}}]}
+
+
+_EGG = ('Defender\nWhen this creature dies, create a 2/2 red Dragon creature token with flying and "{R}: This creature gets +1/+0 until end of '
+        'turn."')
+
+
+def _nesting(d: Def) -> Def | None:
+    """Nesting Dragon: the Egg's own dies trigger makes the Dragon with its firebreathing (the inner quote is that token's ability, 111.4)."""
+    if _dos(d) != ["create_token"] or d["effects"][0]["token"].get("name") != "Dragon Egg":
+        return None
+    return {**d, "effects": [{**d["effects"][0], "token": {**d["effects"][0]["token"], "text": _EGG}}]}
+
+
 _HACK = "Whenever ~ deals combat damage to a player, you may draw a card. If you do, discard a card"
 _PONY = "Whenever ~ attacks, attacking creatures get +1/+1 until end of turn."
 _WED = "At the beginning of your end step, put an invitation counter on ~."
@@ -259,6 +278,14 @@ _BUILD: dict[str, tuple[tuple[str, ...], Callable[..., Def | None]]] = {
     "more times this game, draw a card.": (("Whenever ~ attacks, if you gained 3 or more life this turn, the Ring tempts you.",), _frodo),
     "{2}{U}{U}, {T}: Any number of target players each mill cards equal to the number of cards in their graveyard.":
         (("Exhaust — {2}{U}{U}, {T}: Any number of target players each mill two cards.",), _churn),
+    "When ~ enters, starting with you, each player votes for feather or quill. Put a +1/+1 counter on ~ for each feather vote and draw a card for each "
+    "quill vote. For each card drawn this way, discard a card.":
+        (("When ~ enters, starting with you, each player votes for feather or quill. Put a +1/+1 counter on ~ for each feather vote and draw a card "
+          "for each quill vote.",), _jays),
+    "Whenever a land you control enters, create a 0/2 red Dragon Egg creature token with defender and \"When this token dies, create a 2/2 red Dragon "
+    "creature token with flying and '{R}: This token gets +1/+0 until end of turn.'\"":
+        (("Whenever a land you control enters, create a 0/2 red Dragon Egg creature token with defender and \"When this token dies, create a 2/2 red "
+          "Dragon creature token with flying.\"",), _nesting),
     "When ~ dies, exile it. When you do, return up to X target cards from your graveyard to your hand, where X is the number of opponents who have "
     "three or more poison counters.":
         (("When ~ dies, exile it. When you do, return up to two target cards from your graveyard to your hand.",), _retriever),
@@ -310,10 +337,30 @@ _SPELL_BUILD: dict[str, tuple[str, Callable[[Def], Def | None]]] = {
 }
 
 
+_HELLBENT = "If you have no cards in hand, this spell can't be countered and the damage can't be prevented."
+_EMPTY_HAND = {"value": {"hand": "you"}, "op": "==", "n": 0}
+
+
+def _demonfire(d: Def) -> Def | None:
+    """Demonfire (hellbent): with no cards in your hand as it resolves (608.2c), its damage can't be prevented (615.12)."""
+    if _dos(d) != ["damage", "exile_if_dies"]:
+        return None
+    hit, exile = d["effects"]
+    return {**d, "effects": [{"do": "only_if", "cond": _EMPTY_HAND, "skip": 1, "bind": "cond0"}, {**hit, "unpreventable": True},
+                             {"do": "only_if", "cond": {"flag": "cond0", "negate": True}, "skip": 1}, hit, exile]}
+
+
 def definition(ability: Any, ch: Any) -> Def | None:
     from app.rules import scripts
 
     text = scripts.self_text(ability.text, ch.name)
+    if ability.kind == "spell" and text == _HELLBENT:  # (its "can't be countered" part: a static of the spell, judged when something would counter it)
+        return {"kind": "static", "static": "self_uncounterable", "cond": _EMPTY_HAND, "effects": []}
+    others = tuple(a for a in ch.abilities if scripts.self_text(a.text, ch.name) != _HELLBENT)
+    if ability.kind == "spell" and len(others) < len(ch.abilities) and \
+            text == "~ deals X damage to any target. If a creature dealt damage this way would die this turn, exile it instead.":
+        native = scripts.define(ability, replace(ch, abilities=others))
+        return None if native is None else _demonfire(native)
     if ability.kind == "spell" and (spell := _SPELL_BUILD.get(text)) is not None:
         native = scripts.define(replace(ability, text=spell[0]), ch)
         return None if native is None else spell[1](native)

@@ -782,3 +782,62 @@ def test_spellpyre_phoenix_returns_after_two_cyclings(cards, cycles):
     answer(s)
     assert zone(s, phoenix) == ("p1:hand" if cycles == 2 else "p1:graveyard")
     check(s)
+
+
+# -- Messenger Jays ----------------------------------------------------------------------------------------------------------------------------------
+@pytest.mark.parametrize("bob,counters,drawn", [("feather", 2, 0), ("quill", 1, 1)])
+def test_messenger_jays_counts_and_loots_by_the_votes(cards, bob, counters, drawn):
+    s = build(cards, ["Messenger Jays"])
+    jays = to_hand(s, "Messenger Jays")
+    mana(s, U=1, C=4)
+    act(s, "p1", type="cast_spell", card_id=jays.id)
+    for _ in range(4):
+        if s.state.rules.decision is None:
+            act(s, s.state.rules.priority, type="pass_priority")
+    before, library = hand(s), len(s.state.zones["p1:library"])
+    ballot(s, "p1", "feather")
+    ballot(s, "p2", bob)
+    answer(s)
+    assert s.state.cards[jays.id].counters.get("+1/+1") == counters
+    assert len(s.state.zones["p1:library"]) == library - drawn and hand(s) == before and len(gy(s)) == drawn  # (one discard per card drawn)
+    check(s)
+
+
+# -- Nesting Dragon ----------------------------------------------------------------------------------------------------------------------------------
+def test_nesting_dragon_egg_hatches_a_firebreathing_dragon(cards):
+    s = build(cards, ["Nesting Dragon", "Lightning Bolt"])
+    put(s, "Nesting Dragon")
+    act(s, "p1", type="play_land", card_id=to_hand(s, "Forest").id)
+    answer(s)
+    egg = next(c for c in s.state.cards.values() if c.name == "Dragon Egg")
+    assert "defender" in ch(s, egg).keywords
+    bolt(s, egg.id)
+    dragon = next(c for c in s.state.cards.values() if c.name == "Dragon" and c.zone == "p1:battlefield")
+    assert "flying" in ch(s, dragon).keywords
+    mana(s, R=1)
+    act(s, "p1", type="activate_ability", card_id=dragon.id, ability=next(a.index for a in ch(s, dragon).abilities if a.text.startswith("{R}")))
+    answer(s)
+    assert ch(s, dragon).pt == (3, 2)
+    check(s)
+
+
+# -- Demonfire ---------------------------------------------------------------------------------------------------------------------------------------
+@pytest.mark.parametrize("hellbent", [True, False])
+def test_demonfire_hellbent_cant_be_countered_or_prevented(cards, hellbent):
+    s = build(cards, ["Demonfire", "Opt"], ["Counterspell", "Test Ward"])
+    put(s, "Test Ward", "p2")  # ("Prevent all damage that would be dealt to you.")
+    fire = to_hand(s, "Demonfire")
+    for c in list(s.state.zones["p1:hand"]):
+        if c != fire.id:
+            act(s, "p1", type="move", card_ids=[c], to={"zone": "library"})
+    if not hellbent:
+        to_hand(s, "Opt")
+    act(s, "p2", type="set_prefs", response="on")
+    counter = to_hand(s, "Counterspell", "p2")
+    mana(s, R=1, C=3)
+    act(s, "p1", type="cast_spell", card_id=fire.id, targets=["p2"], x_value=3)
+    mana(s, "p2", U=2)
+    act(s, "p2", type="cast_spell", card_id=counter.id, targets=[fire.id])
+    answer(s)
+    assert zone(s, fire) == "p1:graveyard" and life(s, "p2") == (37 if hellbent else 40)  # (countered, or dealt its unpreventable 3)
+    check(s)
