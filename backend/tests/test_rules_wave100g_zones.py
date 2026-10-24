@@ -108,7 +108,8 @@ PROMOTED = ["Genju of the Realm", "Return of the Nightstalkers", "Vengeful Regro
             "Zurgo and Ojutai", "Imperial Mask", "All Suns' Dawn", "Rogues' Gallery",
             "Woodcaller Automaton", "Time Lord Regeneration", "Waking the Trolls", "Moorland Rescuer", "Custodi Soulcaller",
             "Revealing Wind", "Trial of a Time Lord", "Vault 13: Dweller's Journey",
-            "Summoner's Egg", "Esper Origins // Summon: Esper Maduin"]
+            "Summoner's Egg", "Esper Origins // Summon: Esper Maduin",
+            "Nemesis Phoenix"]
 
 
 @pytest.mark.parametrize("name", PROMOTED)
@@ -884,4 +885,43 @@ def test_esper_origins_from_a_graveyard_returns_transformed_with_finality(cards,
         assert c.zone == "p1:battlefield" and c.face == 1 and c.counters.get("finality") == 1
     else:
         assert c.zone == "p1:graveyard"
+    check(s)
+
+
+def build3(cards, mine=()):
+    """Alice, Bob and Carol (rules automation on), at Alice's precombat main phase."""
+    from app.game.factory import PlayerSetup, new_game
+    from app.game.session import GameSession
+    from tests.game_helpers import deck, enable
+
+    alice = deck(cards, "Krenko, Mob Boss", [*((1, n) for n in mine), (9, "Forest")])
+    others = [deck(cards, "Atraxa, Praetors' Voice", [(10, "Island")]) for _ in range(2)]
+    s = GameSession(enable(new_game([PlayerSetup("Alice", cards=alice), PlayerSetup("Bob", cards=others[0]), PlayerSetup("Carol", cards=others[1])],
+                                    shuffle=False)), cards=cards)
+    act(s, "p1", type="pass_priority")
+    return s
+
+
+@pytest.mark.parametrize("split", [False, True])
+def test_nemesis_phoenix_needs_two_opponents_attacked(cards, split):
+    s = build3(cards, ["Nemesis Phoenix", "Grizzly Bears", "Llanowar Elves"])
+    bears, elves = put(s, "Grizzly Bears"), put(s, "Llanowar Elves")
+    phoenix = gy(s, card_named(s, "Nemesis Phoenix"))
+    to_step(s, "main1", 4)
+    act(s, "p1", type="set_stops", own=["declare_attackers"], smart_pass=False)
+    for _ in range(20):
+        d = s.state.rules.decision
+        if d is not None and d.kind == "declare_attackers":
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": bears.id, "target": "p2"}, {"card_id": elves.id, "target": "p3" if split else "p2"}])
+    mana(s, R=1, C=2)
+    if not split:  # one opponent attacked: not allowed
+        with pytest.raises(ActionError):
+            act(s, "p1", type="activate_ability", card_id=phoenix.id, ability=1)
+        return
+    act(s, "p1", type="activate_ability", card_id=phoenix.id, ability=1)
+    run(s, lambda d: ["p3"] if "p3" in [o.id for o in d.options] else None)
+    c = s.state.cards[phoenix.id]
+    assert c.zone == "p1:battlefield" and c.tapped and c.attacking is not None
     check(s)

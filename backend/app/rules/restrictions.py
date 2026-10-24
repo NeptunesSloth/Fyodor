@@ -209,6 +209,8 @@ def _condition(text: str) -> dict[str, Any] | None:
         return {'object': 'self', 'test': 'graveyard_three_creatures_above'}
     from app.rules import conditions, selectors
 
+    if text == "you're attacking two or more opponents":  # -- zones (wave 100G) -- Nemesis Phoenix: the players creatures you control attack (506.2, values.players_attacked)
+        return {'value': {'players_attacked': 1, 'by': 'you'}, 'op': '>=', 'n': 2}
     if text == 'it has no time counters on it':
         text = '~ has no time counters on it'
     # -- activated other (wave 34B) -- "Activate only if this artifact or another artifact entered the battlefield under your control this turn." (Master's
