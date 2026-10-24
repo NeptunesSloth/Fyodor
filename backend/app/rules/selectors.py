@@ -919,6 +919,16 @@ def _compare_count(s: Selector, m: re.Match[str]) -> Selector:
 _SUFFIXES.insert(0, (_COUNT_CMP, _compare_count))  # (first: "… you control" is also the controller suffix)
 
 
+# -- attached (wave 100F) -- "target creature with power less than the number of cards in your graveyard" (Temporary Insanity): the same comparison with
+# the number of cards in the ability's controller's graveyard, counted when the target is chosen and again as it resolves (608.2b)
+def _power_below_graveyard(s: Selector, m: re.Match[str]) -> Selector:
+    counted = Selector(card=True, zone_owner="you", zones=("graveyard",))
+    return replace(s, compare=(*s.compare, ("power", "<", COUNT_STAT + counted.key())))
+
+
+_SUFFIXES.insert(0, (re.compile(r" with power less than the number of cards in your graveyard$"), _power_below_graveyard))  # (before the zone suffix)
+
+
 # "each nonland permanent with mana value equal to the number of charge counters on ~" (Ratchet Bomb, Blast Zone),
 # "a spell with mana value equal to the number of charge counters on ~" (Chalice of the Void): the source's counters as
 # it is, or as it last existed on the battlefield (sacrificed as a cost: 608.2h, 122.2)
@@ -1599,6 +1609,14 @@ def parse(phrase: str) -> Selector | None:
         if any(branch is None or branch.either or branch.player is not None for branch in branches):
             return None
         return Selector(either=tuple(branch.key() for branch in branches if branch is not None))
+    # -- attached (wave 100F) -- "enchanted creature or enchantment creature [you control]" (Feast of Dreams, Nyx Herald, Karametra's Blessing): a creature with an
+    # Aura attached (303.4) or one that is an enchantment, either one (each half read with the shared tail)
+    either_kind = re.fullmatch(r"(?P<pre>(?:another |other )?)enchanted (?P<n>creature) or enchantment creature(?P<post> you control| you don't control)?", phrase.strip())
+    if either_kind is not None:
+        halves = [_parse(_type_and(f"{either_kind['pre']}{k} {either_kind['n']}{either_kind['post'] or ''}")) for k in ("enchanted", "enchantment")]
+        if any(h is None or h.either or h.player is not None for h in halves):
+            return None
+        return Selector(either=tuple(h.key() for h in halves if h is not None))
     relative = re.fullmatch(r"(?P<base>(?:creatures?|permanents?)(?: you control| your opponents control| you don't control)?) "
                             r"that (?:are|is) (?P<traits>[A-Za-z]+(?: and/or [A-Za-z]+)+)", phrase.strip(), re.I)
     if relative is not None:

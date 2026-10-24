@@ -6882,3 +6882,9 @@ PRIMITIVES.update(_upkeep91.PRIMITIVES)
 from app.rules import zone_exchanges94 as _zone_exchanges94  # noqa: E402
 
 PRIMITIVES.update(_zone_exchanges94.PRIMITIVES)
+
+# -- attached (wave 100F) -- (app/rules/attached100f.py)
+from app.rules import attached100f as _attached100f  # noqa: E402, I001
+
+PRIMITIVES.update(_attached100f.PRIMITIVES)
+RESUME.update(_attached100f.RESUME)

@@ -81,6 +81,8 @@ WHEN = {
     # -- stack interaction (wave 5B) -- Mana Drain: the next main phase (precombat or postcombat, 505.1) of a turn of
     # yours to begin; a later one this turn if you're in your precombat main phase or combat now (engine: main1 / main2)
     "your next main phase": {"kind": "step", "step": "main", "whose": "you"},
+    # -- attached (wave 100F) -- "sacrifice this Aura at the beginning of the next cleanup step" (Cunning): it goes on the stack after 514.1-514.2 (514.3a; engine at_step "cleanup")
+    "the next cleanup step": {"kind": "step", "step": "cleanup", "whose": "next"},
 }
 END_OF_COMBAT = {"kind": "step", "step": "end_combat", "whose": "next"}  # -- other side (wave 6D) -- "at end of combat" (511.2)
 WHEN_RE = "|".join(re.escape(k) for k in sorted(WHEN, key=len, reverse=True))
@@ -212,6 +214,10 @@ def create(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
         watched = dealt_cards(plan, ctx, e["dealt"], e.get("types")) if e.get("dealt") else _cards(plan, ctx, e["who"])  # (wave 35B)
         watched = [c for c in watched if plan.state.cards[c].zone.endswith(":battlefield")]
+        if when.get("event") == "lose_control":  # -- attached (wave 100F) -- only what its controller controls can be lost
+            from app.rules import attached100f
+
+            watched = attached100f.watching(plan, ctx, watched)
         if not watched:  # 603.7a: it already left — the event can't happen to that object
             plan.note(f"{ctx.get('name') or 'The ability'}: nothing to watch (it already left)")
             return True
@@ -411,6 +417,14 @@ def on_events(plan: Plan, events: list[Event]) -> None:
     if not watching:
         return
     fired: list[DelayedTrigger] = []
+    # -- attached (wave 100F) -- "When you lose control of the creature, …": another player gains control of it, or it leaves (603.10d; attached100f)
+    from app.rules import attached100f
+
+    for t in [t for t in watching if t.when.get("event") == "lose_control"]:
+        if (gone := attached100f.lost(plan, t, events)):
+            fired.append(t)
+            _fire(plan, t, TriggerEvent(kind="lose_control", batch=events[-1].batch, count=1, objects=gone[:1]))
+    watching = [t for t in watching if t.when.get("event") != "lose_control"]
     for e in events:
         if e.kind != "zone_change" or e.manual or _zone(e.from_zone) != "battlefield" or _zone(e.to_zone) == "battlefield":
             continue

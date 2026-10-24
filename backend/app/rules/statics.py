@@ -1179,6 +1179,9 @@ RULES.update({"can block creatures with shadow as though it had shadow": ("block
 # -- static_other (wave 42A) -- 509.1a: "Tapped creatures you control can block as though they were untapped." (Masako the Humorless): a tapped creature
 # with the rule may be declared as a blocker (app/rules/combat.py ``block_problem``); the rest of its block is as any other
 RULES.update({"can block as though it were untapped": ("block_tapped",), "can block as though they were untapped": ("block_tapped",)})
+# -- attached (wave 100F) -- 302.6: "Enchanted creature can attack as though it had haste." (Instill Energy): only attacking, not its {T} abilities
+# (app/rules/combat.py ``attack_problem``); 506.5: "… can only attack alone." (Errantry): the self rule of declaration_groups, imposed on what it enchants
+RULES.update({"can attack as though it had haste": ("attack_as_haste",), "can only attack alone": ("declaration_group:attack:alone",)})
 
 
 def _rule(piece: str) -> list[str] | None:
