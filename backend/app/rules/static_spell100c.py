@@ -777,7 +777,33 @@ def _metamorphose() -> Parsed | None:
     return [{**tuck[0][0], "as": "meta100c"}, {**put[0][0], "who": "ref:meta100c.controller"}], tuck[1], False
 
 
+def _battlefield_improvisation() -> Parsed | None:
+    pump, attach = _plain("Target creature gets +2/+2 until end of turn."), _plain("Attach any number of Equipment you control to target creature.")
+    if pump is None or attach is None:
+        return None
+    # checked as the second sentence is reached (608.2c); "any number" (701.3a): none is a choice too
+    return [*pump[0], {"do": "only_if", "cond": {"object": "target", "is": _sel("attacking creature")}, "skip": 1}, *attach[0]], pump[1], False
+
+
+def _rite_of_ruin() -> Parsed | None:
+    from itertools import permutations
+
+    kinds = {"artifact": ("an artifact", "two artifacts", "three artifacts"), "creature": ("a creature", "two creatures", "three creatures"),
+             "land": ("a land", "two lands", "three lands")}
+    options = []
+    for order in permutations(kinds):  # 608.2d: the order chosen as it resolves; then one, two, three of each kind in that order (608.2c)
+        steps = [_plain(f"Each player sacrifices {kinds[k][i]} of their choice.") for i, k in enumerate(order)]
+        if any(p is None for p in steps):
+            return None
+        options.append({"label": ", ".join(k + "s" for k in order).capitalize(), "effects": [e for p in steps if p is not None for e in p[0]]})
+    return [{"do": "choose_effect", "who": _sel("permanent"), "options": options}], None, False
+
+
 BUILDERS: dict[str, Callable[[], Parsed | None]] = {
+    "Choose an order for artifacts, creatures, and lands. Each player sacrifices one permanent of their choice of the first type, sacrifices two of their "
+    "choice of the second type, then sacrifices three of their choice of the third type.": _rite_of_ruin,
+    "Target creature gets +2/+2 until end of turn. If that creature is attacking, you may attach any number of Equipment you control to it.":
+        _battlefield_improvisation,
     "Prevent all combat damage that would be dealt this turn. Clash with an opponent. If you win, creatures that player controls don't untap during the "
     "player's next untap step.": _pollen_lullaby,
     "Put target permanent an opponent controls on top of its owner's library. That opponent may put an artifact, creature, enchantment, or land card from "

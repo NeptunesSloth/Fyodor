@@ -24,6 +24,7 @@ from tests.wave100c_kit import (
     named,
     one,
     open_repo,
+    pt_of,
     put_on,
     settle,
     start_cast,
@@ -34,7 +35,8 @@ from tests.wave100c_kit import (
 )
 
 PROMOTED = ["Essence Filter", "Lava Storm", "Tombfire", "Telekinesis", "Fire and Brimstone", "Structural Collapse", "Pulse of the Forge",
-            "Feast of Worms", "Isildur's Fateful Strike", "No Witnesses", "False Memories", "Runic Repetition", "See Beyond", "Fog Patch"]
+            "Feast of Worms", "Isildur's Fateful Strike", "No Witnesses", "False Memories", "Runic Repetition", "See Beyond", "Fog Patch",
+            "Battlefield Improvisation"]
 
 
 @pytest.fixture()
@@ -290,4 +292,17 @@ def test_fog_patch_makes_the_attackers_blocked_in_the_declare_blockers_step_only
     cast(s, "Fog Patch", "p2", G=1, C=1)
     to_phase(s, "main2", turn=3)
     assert life(s, "p2") == 40
+    check(s)
+
+
+@pytest.mark.parametrize("attacking", [True, False])
+def test_battlefield_improvisation_attaches_equipment_only_to_an_attacker(cards, attacking):
+    """+2/+2; if the creature is attacking, Alice may attach her Bonesplitter (+2/+0) to it."""
+    s = build(cards, ["Battlefield Improvisation", "Grizzly Bears", "Bonesplitter"], [])
+    bear, sword = put_on(s, "Grizzly Bears"), put_on(s, "Bonesplitter")
+    if attacking:
+        alice_attacks(s, bear)
+    cast(s, "Battlefield Improvisation", targets=[bear.id], prefer=[sword.id], W=1, C=1)
+    assert s.state.cards[sword.id].attached_to == (bear.id if attacking else None)
+    assert pt_of(s, bear) == ((6, 4) if attacking else (4, 4))
     check(s)

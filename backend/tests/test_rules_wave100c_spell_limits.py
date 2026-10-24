@@ -35,7 +35,7 @@ PROMOTED = ["Verdant Command", "Everything Comes to Dust", "Irencrag Feat", "Wat
             "Split the Party", "Dreams of Steel and Oil", "Treacherous Urge", "Pox",
             "Omen of Fire", "Sway of the Stars", "Energybending", "Embiggen",
             "Eliminate the Impossible", "Aura Barbs", "Baki's Curse", "Pollen Lullaby",
-            "Metamorphose"]
+            "Metamorphose", "Rite of Ruin"]
 
 
 @pytest.fixture()
@@ -295,4 +295,14 @@ def test_metamorphose_tucks_the_permanent_and_its_controller_may_put_a_card_in(c
     ring, bear = put_on(s, "Sol Ring", "p2"), move(s, one(s, "Grizzly Bears", "p2"), "hand")
     cast(s, "Metamorphose", targets=[ring.id], prefer=[bear.id], U=1, C=1)
     assert s.state.zones["p2:library"][0] == ring.id and zone(s, bear) == "p2:battlefield"
+    check(s)
+
+
+def test_rite_of_ruin_one_two_three_in_the_chosen_order(cards):
+    """Order lands, creatures, artifacts: Bob (three Islands, two creatures, two artifacts) sacrifices one land, both creatures and both artifacts."""
+    s = build(cards, ["Rite of Ruin"], ["Grizzly Bears", "Llanowar Elves", "Sol Ring", "Arcane Signet"])
+    islands = [move(s, c, "battlefield") for c in named(s, "Island", "p2")[:3]]
+    rest = [put_on(s, n, "p2") for n in ("Grizzly Bears", "Llanowar Elves", "Sol Ring", "Arcane Signet")]
+    cast(s, "Rite of Ruin", prefer=["Lands, creatures, artifacts"], R=2, C=5)
+    assert [zone(s, c) for c in islands].count("p2:graveyard") == 1 and all(zone(s, c) == "p2:graveyard" for c in rest)
     check(s)
