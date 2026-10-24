@@ -1601,3 +1601,23 @@ def test_veiled_serpent_becomes_a_serpent_that_needs_an_island_to_attack(cards):
     put(s, "Island", "p2")
     act(s, "p1", type="declare_attackers", attackers=[{"card_id": serpent.id, "target": "p2"}])
     check(s)
+
+
+PROMOTED += ["Stensia Uprising"]
+
+
+@pytest.mark.parametrize("lands", [11, 10])
+def test_stensia_uprising_with_exactly_thirteen_permanents(cards, lands):
+    from tests.test_rules_wave30m_durations import to_phase
+
+    assert coverage.of_card_data(cards.resolve("Stensia Uprising")).level == "FULL"
+    s = build(cards, ["Stensia Uprising"], forests=12)
+    uprising = put(s, "Stensia Uprising")
+    act(s, "p1", type="move", card_ids=[c.id for c in s.state.cards.values() if c.name == "Forest" and c.zone == "p1:library"][:lands],
+        to={"zone": "battlefield"})
+    stops(s, "end")
+    to_phase(s, "end", 1)
+    run(s, lambda d: ["pay"] if "pay" in [o.id for o in d.options] else ["p2"] if "p2" in [o.id for o in d.options] else None)
+    thirteen = lands == 11  # the enchantment, the lands and the new Human
+    assert (s.state.cards[uprising.id].zone == "p1:graveyard") == thirteen and s.state.players["p2"].life == (33 if thirteen else 40)
+    check(s)

@@ -320,6 +320,17 @@ def _veiled(d: dict[str, Any]) -> dict[str, Any] | None:
     return {**d, "effects": [effects[0], {**effects[1], "abilities": ["This creature can't attack unless defending player controls an Island."]}]}
 
 
+def _uprising(d: dict[str, Any]) -> dict[str, Any] | None:
+    """Stensia Uprising: the count after the token (608.2c); "you may sacrifice ~. When you do, it deals 7 damage …": a reflexive ability (603.12)
+    whose source is the sacrificed enchantment as it last existed (608.2h)."""
+    effects = d["effects"]
+    if [e.get("do") for e in effects] != ["create_token", "only_if", "draw"]:
+        return None
+    back = {"kind": "triggered", "trigger": "reflexive", "effects": [{"do": "damage", "who": "target", "n": 7}], "optional": False, "target": {"what": "any"}}
+    return {**d, "effects": [effects[0], {**effects[1], "skip": 2}, {"do": "optional_payment", "who": "you", "cost": "Sacrifice ~", "bind": "pay0"},
+                             {"do": "reflexive", "cond": {"succeeded": "pay0"}, "ability": back}]}
+
+
 def _suspected(d: dict[str, Any]) -> dict[str, Any] | None:
     """Clandestine Meddler: "suspected creatures" — those with the designation (701.60a), as the attack is declared."""
     from app.rules import selectors
@@ -434,6 +445,9 @@ _BUILD: dict[str, tuple[str, Any]] = {
         ("When ~ enters, you may pay {E}{E}. If you don't, return ~ to its owner's hand and you get {E}.", _rampager),
     'When an opponent casts a spell, if ~ is an enchantment, it becomes a 4/4 Serpent creature with "~ can\'t attack unless defending player controls an '
     'Island."': ("When an opponent casts a spell, if ~ is an enchantment, ~ becomes a 4/4 Serpent creature.", _veiled),
+    "At the beginning of your end step, create a 1/1 red Human creature token. Then if you control exactly thirteen permanents, you may sacrifice ~. "
+    "When you do, it deals 7 damage to any target.": ("At the beginning of your end step, create a 1/1 red Human creature token. Then if you control "
+                                                     "exactly thirteen permanents, draw a card.", _uprising),
     "When you cast this spell, counter it unless you sacrifice a land.": ("When you cast this spell, draw a card.", _vortex),
     "At the beginning of each player's end step, ~ deals 2 damage to that player unless one of their opponents was dealt damage this turn.":
         ("At the beginning of each player's end step, ~ deals 2 damage to that player.", _antagonism),
