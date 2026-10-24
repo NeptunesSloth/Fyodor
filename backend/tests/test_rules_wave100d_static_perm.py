@@ -69,7 +69,17 @@ EXTRA += [
     real('Mesmeric Sliver', '{3}{U}', 4, 'Creature — Sliver', 'All Slivers have "When this permanent enters, you may fateseal 1." (To fateseal 1, its controller looks at the top card of an opponent\'s library, then they may put that card on the bottom of that library.)', ("2", "2"), 'U'),
     real('Enduring Sliver', '{1}{W}', 2, 'Creature — Sliver', 'Outlast {2} ({2}, {T}: Put a +1/+1 counter on this creature. Outlast only as a sorcery.)\nOther Sliver creatures you control have outlast {2}.', ("2", "2"), 'W'),
 ]
-FULL = ["Mistform Sliver", "Mesmeric Sliver", "Enduring Sliver", "Case of the Stashed Skeleton", "Case of the Gateway Express", "Case of the Gorgon's Kiss", "Case of the Burning Masks", "Scourge of the Skyclaves", "Roiling Horror", "Angry Mob", "Alrund, God of the Cosmos // Hakka, Whispering Raven", "Heightened Awareness", "Overlaid Terrain", "Full Moon's Rise", "O-Naginata", "Gate Smasher", "Goblin Brawler", "Domineer", "Awaken the Ancient", "Gideon, the Oathsworn", "Dovin, Architect of Law",
+EXTRA += [
+    real('Gruul Spellbreaker', '{1}{R}{G}', 3, 'Creature — Ogre Warrior', 'Riot (This creature enters with your choice of a +1/+1 counter or haste.)\nTrample\nDuring your turn, you and this creature have hexproof.', ('3', '3'), 'GR'),
+    real('Experimental Frenzy', '{3}{R}', 4, 'Enchantment', "You may look at the top card of your library any time.\nYou may play lands and cast spells from the top of your library.\nYou can't play lands or cast spells from your hand.\n{3}{R}: Destroy this enchantment.", None, 'R'),
+    real('City of Solitude', '{2}{G}', 3, 'Enchantment', 'Players can cast spells and activate abilities only during their own turns.', None, 'G'),
+    real('Melting', '{3}{R}', 4, 'Enchantment', 'All lands are no longer snow.', None, 'R'),
+    real('Dream Leash', '{3}{U}{U}', 5, 'Enchantment — Aura', "Enchant permanent\nYou can't choose an untapped permanent as this spell's target as you cast it.\nYou control enchanted permanent.", None, 'U'),
+    real('Enthralling Hold', '{3}{U}{U}', 5, 'Enchantment — Aura', "Enchant creature\nYou can't choose an untapped creature as this spell's target as you cast it.\nYou control enchanted creature.", None, 'U'),
+    real('Snow-Covered Forest', '', 0, 'Basic Snow Land — Forest', '({T}: Add {G}.)', None, ''),
+]
+RULES = ["Gruul Spellbreaker", "Experimental Frenzy", "City of Solitude", "Melting", "Dream Leash", "Enthralling Hold"]
+FULL = [*RULES, "Mistform Sliver", "Mesmeric Sliver", "Enduring Sliver", "Case of the Stashed Skeleton", "Case of the Gateway Express", "Case of the Gorgon's Kiss", "Case of the Burning Masks", "Scourge of the Skyclaves", "Roiling Horror", "Angry Mob", "Alrund, God of the Cosmos // Hakka, Whispering Raven", "Heightened Awareness", "Overlaid Terrain", "Full Moon's Rise", "O-Naginata", "Gate Smasher", "Goblin Brawler", "Domineer", "Awaken the Ancient", "Gideon, the Oathsworn", "Dovin, Architect of Law",
         "Ajani Unrelenting", "Nicol Bolas, Planeswalker", "Liliana, the Necromancer"]
 
 
@@ -570,4 +580,118 @@ def test_mesmeric_sliver_fateseals_one_as_a_sliver_enters(cards, bottom):
             pick = ids[: max(1, d.min_choices)]
         act(s, "p1", type="choose", decision_id=d.id, option_ids=pick)
     assert s.state.zones["p2:library"] == (library[1:] + library[:1] if bottom else library)  # 701.29a
+    check(s)
+
+
+# -- rule-modifying statics -------------------------------------------------------------------------------------------------
+def p2_priority(s):
+    act(s, "p2", type="set_prefs", full_control=True)
+    act(s, "p1", type="pass_priority")  # (Alice passes in her main phase: Bob has priority, 117.3d)
+    assert s.state.rules.priority == "p2"
+
+
+def test_gruul_spellbreaker_shields_you_and_itself_during_your_turn_only(cards):
+    from tests.test_rules_conditionals import until
+
+    s = build(cards, ["Gruul Spellbreaker"], ["Lightning Bolt"])
+    breaker = put(s, "Gruul Spellbreaker")
+    bolt = to_hand(s, "Lightning Bolt", "p2")
+    mana(s, "p2", R=1)
+    p2_priority(s)
+    for target in ("p1", breaker.id):  # 702.11c / 702.11b: not by an opponent's spell during your turn
+        with pytest.raises(ActionError):
+            act(s, "p2", type="cast_spell", card_id=bolt.id, targets=[target])
+    until(s, lambda s: s.state.turn.active_player == "p2" and s.state.turn.phase == "main1")
+    life = s.state.players["p1"].life
+    mana(s, "p2", R=1)
+    act(s, "p2", type="cast_spell", card_id=bolt.id, targets=["p1"])
+    settle(s)
+    assert s.state.players["p1"].life == life - 3  # (Bob's turn: no hexproof)
+    check(s)
+
+
+def test_experimental_frenzy_bars_the_hand_but_not_the_library_top(cards):
+    s = build(cards, ["Experimental Frenzy", "Grizzly Bears"])
+    put(s, "Experimental Frenzy")
+    bears = to_hand(s, "Grizzly Bears")
+    in_hand = to_hand(s, "Forest")
+    mana(s, G=2)
+    with pytest.raises(ActionError, match="Experimental Frenzy"):
+        act(s, "p1", type="cast_spell", card_id=bears.id)  # 601.3
+    with pytest.raises(ActionError, match="Experimental Frenzy"):
+        act(s, "p1", type="play_land", card_id=in_hand.id)  # 305.1
+    top = s.state.zones["p1:library"][0]
+    assert s.state.cards[top].name == "Forest"
+    act(s, "p1", type="play_land", card_id=top)  # (the top of the library: its own permission)
+    assert zone(s, s.state.cards[top]) == "p1:battlefield" and zone(s, bears) == "p1:hand"
+    check(s)
+
+
+def test_city_of_solitude_stops_spells_and_mana_abilities_on_other_turns(cards):
+    from tests.test_rules_conditionals import until
+
+    s = build(cards, ["City of Solitude", "Llanowar Elves"], ["Lightning Bolt"])
+    put(s, "City of Solitude")
+    elves = put(s, "Llanowar Elves")
+    island = card_named(s, "Island", "p2")
+    act(s, "p2", type="move", card_ids=[island.id], to={"player": "p2", "zone": "battlefield"})
+    bolt = to_hand(s, "Lightning Bolt", "p2")
+    mana(s, "p2", R=1)
+    p2_priority(s)
+    with pytest.raises(ActionError, match="City of Solitude"):
+        act(s, "p2", type="cast_spell", card_id=bolt.id, targets=[elves.id])  # 601.3: not Bob's turn
+    with pytest.raises(ActionError, match="City of Solitude"):
+        act(s, "p2", type="activate_ability", card_id=island.id, ability=0)  # a mana ability too (ruling 2009-10-01)
+    until(s, lambda s: s.state.turn.active_player == "p2" and s.state.turn.phase == "main1")
+    act(s, "p2", type="activate_ability", card_id=island.id, ability=0)  # his own turn
+    assert s.state.cards[island.id].tapped
+    mana(s, "p2", R=1)
+    act(s, "p1", type="set_prefs", full_control=True)
+    act(s, "p2", type="cast_spell", card_id=bolt.id, targets=[elves.id])
+    from tests.test_rules_wave34b_activated import priority_to
+
+    priority_to(s, "p1")
+    assert s.state.zones.get("stack")  # (the Bolt is still on the stack, with Alice holding priority)
+    with pytest.raises(ActionError, match="City of Solitude"):
+        act(s, "p1", type="activate_ability", card_id=elves.id, ability=0)  # (Alice's elf, on Bob's turn)
+    settle(s)
+    assert zone(s, elves) == "p1:graveyard"
+    check(s)
+
+
+def test_melting_takes_snow_away_from_every_land(cards):
+    s = build(cards, ["Melting", "Snow-Covered Forest"], ["Snow-Covered Forest"])
+    mine, theirs = put(s, "Snow-Covered Forest"), put(s, "Snow-Covered Forest", "p2")
+    assert "Snow" in derived(s, mine).supertypes
+    put(s, "Melting")
+    for land in (mine, theirs):
+        ch = derived(s, land)
+        assert "Snow" not in ch.supertypes and "Basic" in ch.supertypes and "Forest" in ch.subtypes  # 205.4: only snow goes
+    check(s)
+
+
+def test_dream_leash_targets_only_a_tapped_permanent_as_it_is_cast(cards):
+    s = build(cards, ["Dream Leash"], ["Sol Ring"])
+    ring = put(s, "Sol Ring", "p2")
+    leash = to_hand(s, "Dream Leash")
+    mana(s, U=2, C=3)
+    with pytest.raises(ActionError):
+        act(s, "p1", type="cast_spell", card_id=leash.id, targets=[ring.id])  # 601.2c: untapped
+    act(s, "p2", type="tap", card_ids=[ring.id], tapped=True)
+    act(s, "p1", type="cast_spell", card_id=leash.id, targets=[ring.id])
+    settle(s)
+    assert s.state.cards[leash.id].attached_to == ring.id and s.state.cards[ring.id].controller == "p1"
+    check(s)
+
+
+def test_enthralling_hold_still_resolves_if_its_target_untaps(cards):
+    s = build(cards, ["Enthralling Hold"], ["Grizzly Bears"])
+    bears = put(s, "Grizzly Bears", "p2")
+    act(s, "p2", type="tap", card_ids=[bears.id], tapped=True)
+    hold = to_hand(s, "Enthralling Hold")
+    mana(s, U=2, C=3)
+    act(s, "p1", type="cast_spell", card_id=hold.id, targets=[bears.id])
+    act(s, "p2", type="tap", card_ids=[bears.id], tapped=False)  # (ruling 2020-06-23: only the choice as it is cast)
+    settle(s)
+    assert s.state.cards[hold.id].attached_to == bears.id and s.state.cards[bears.id].controller == "p1"
     check(s)

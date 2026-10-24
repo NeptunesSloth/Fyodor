@@ -3380,7 +3380,9 @@ def free_cast_problem(plan: Plan, player: str, card: CardInstance, ch: Character
             if not allowed or (not modal["repeat"] and len(allowed) < modal["min"]):
                 return f"{ch.name or 'It'} has no mode you can choose"
         elif not manual:
-            aura = attachments.enchant_selector(ch)
+            from app.rules import static_perm100d  # -- static permanents (wave 100D) -- 601.2c
+
+            aura = static_perm100d.cast_aura(ch, attachments.enchant_selector(ch))
             src = quality_source  # The actual prospective face and announced X.
             from app.rules import kicked_instead
             from app.rules.targets import group_limits
@@ -3651,6 +3653,9 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
             if sc.cost.components:
                 splice_extra.append(sc.cost)
     aura = None if plan.manual(card) or a.face_down else (merged.MUTATE_TARGET if mutating_cast else attachments.enchant_selector(ch))
+    from app.rules import static_perm100d  # -- static permanents (wave 100D) -- 601.2c
+
+    aura = static_perm100d.cast_aura(ch, aura)
     slots: list[list[TargetRef]] = []
     slot_specs: list[dict[str, Any] | None] = []
     picked: list[int] = []
@@ -5029,6 +5034,9 @@ def cast_free(plan: Plan, card: CardInstance, ch: Characteristics, a: A.CastSpel
     if definition is not None and (a.x_value or 0) < definition.get("x_min", 0):
         raise ActionError(f"{ch.name}: X can't be {a.x_value or 0}")
     aura = None if plan.manual(card) else attachments.enchant_selector(ch)
+    from app.rules import static_perm100d  # -- static permanents (wave 100D) -- 601.2c
+
+    aura = static_perm100d.cast_aura(ch, aura)
     slots: list[list[TargetRef]] = []
     slot_specs: list[dict[str, Any] | None] = []
     picked: list[int] = []
