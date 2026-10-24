@@ -567,7 +567,7 @@ def _become_brutes() -> Parsed | None:
     haste = _plain("Up to two target creatures each gain haste until end of turn.")
     if haste is None or not isinstance(haste[1], list):
         return None
-    return [*haste[0], {"do": "roles_each100c", "who": "target:0", "role": "Monster"}], [{**haste[1][0], "min": 1}], False
+    return [*haste[0], {"do": "each100c", "who": "target:0", "then": {"do": "create_role", "role": "Monster"}}], [{**haste[1][0], "min": 1}], False
 
 
 def _fateful_handoff() -> Parsed | None:
@@ -799,7 +799,17 @@ def _rite_of_ruin() -> Parsed | None:
     return [{"do": "choose_effect", "who": _sel("permanent"), "options": options}], None, False
 
 
+def _goldwardens_gambit() -> Parsed | None:
+    made = _plain("Create five 2/2 red Rebel creature tokens. They gain haste until end of turn.")
+    if made is None or [e["do"] for e in made[0]] != ["create_token", "grant"]:
+        return None
+    # 701.3a: one optional attachment for each token, in turn (an Equipment may move on to a later one)
+    return [*made[0], {"do": "each100c", "who": made[0][1]["who"], "then": {"do": "attach_choose", "n": 1, "kinds": ["Equipment"], "optional": True}}], None, False
+
+
 BUILDERS: dict[str, Callable[[], Parsed | None]] = {
+    "Create five 2/2 red Rebel creature tokens. They gain haste until end of turn. For each of those tokens, you may attach an Equipment you control to it.":
+        _goldwardens_gambit,
     "Choose an order for artifacts, creatures, and lands. Each player sacrifices one permanent of their choice of the first type, sacrifices two of their "
     "choice of the second type, then sacrifices three of their choice of the third type.": _rite_of_ruin,
     "Target creature gets +2/+2 until end of turn. If that creature is attacking, you may attach any number of Equipment you control to it.":
@@ -1101,14 +1111,14 @@ def if_mv_upto_graveyard(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
     return True
 
 
-def roles_each(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
-    """"For each of those creatures, create a [Role] token attached to it": one Role for each, in order (roles.create_role)."""
+def each(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
+    """"For each of those creatures, [instruction] … it": the instruction ``then`` once for each object, in order, each about its own object."""
     from app.rules import context, effects
 
     at = ctx["next"]
     for i, cid in enumerate(effects._cards(plan, ctx, e["who"])):
-        context.bind_objects(plan, ctx, f"role100c_{at}_{i}", [cid])
-        ctx["effects"][at + i:at + i] = [{"do": "create_role", "role": e["role"], "who": f"ref:role100c_{at}_{i}"}]
+        context.bind_objects(plan, ctx, f"each100c_{at}_{i}", [cid])
+        ctx["effects"][at + i:at + i] = [{**e["then"], "who": f"ref:each100c_{at}_{i}"}]
     return True
 
 
@@ -1218,5 +1228,5 @@ def clash_freeze(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
     return True
 
 
-PRIMITIVES = {"clash_freeze100c": clash_freeze, "aura_damage100c": aura_damage, "unsuspect100c": unsuspect, "type_pump100c": type_pump, "thirds100c": thirds, "edict_each100c": edict_each, "one_more_spell100c": one_more_spell, "power_cap100c": power_cap, "if_coalition100c": if_coalition, "if_mv_upto_graveyard100c": if_mv_upto_graveyard, "roles_each100c": roles_each, "if_more_life100c": if_more_life, "hand_excess100c": hand_excess, "lose_all_counters100c": lose_all_counters, "edict_kinds100c": edict_kinds, "draw_for_revealed100c": draw_for_revealed,
+PRIMITIVES = {"clash_freeze100c": clash_freeze, "aura_damage100c": aura_damage, "unsuspect100c": unsuspect, "type_pump100c": type_pump, "thirds100c": thirds, "edict_each100c": edict_each, "one_more_spell100c": one_more_spell, "power_cap100c": power_cap, "if_coalition100c": if_coalition, "if_mv_upto_graveyard100c": if_mv_upto_graveyard, "each100c": each, "if_more_life100c": if_more_life, "hand_excess100c": hand_excess, "lose_all_counters100c": lose_all_counters, "edict_kinds100c": edict_kinds, "draw_for_revealed100c": draw_for_revealed,
               "draw_for_controllers100c": draw_for_controllers}
