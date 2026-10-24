@@ -48,6 +48,9 @@ _REWRITES = [
     # Koya, Death from Above: 118.12a, "you may pay [cost]. If you don't, [do it]" is "[do it] unless you pay [cost]"
     (re.compile(r"^(.+?)\. At the beginning of the next end step, you may pay ((?:\{[^}]+\})+)\. If you don't, (return that card to the battlefield under its owner's "
                 r"control)\.$"), r"\1. At the beginning of the next end step, \3 unless you pay \2."),
+    # Invasion of Kaldheim: "that many" is how many cards were exiled (the cards actually in exile, 400.7j), not the trigger event's amount
+    (re.compile(r"^exile all cards from your hand, then draw that many cards\. (?=Until the end of your next turn, you may play cards exiled this way\.$)"),
+     "Exile all cards from your hand, then draw a card for each card exiled this way. "),
     # Azra Bladeseeker: 102.4, outside a game between teams "your team" is "you"; the one who discarded draws (118.12: a discard can't be begun and not made)
     (re.compile(r"^each player on your team may discard a card, then each player who discarded a card this way draws a card\.$"),
      "you may discard a card. If you do, draw a card."),
@@ -62,7 +65,7 @@ GY_EMPTY = "gy_empty100b"
 def parse(body: str, it: str | None, event_player: bool) -> Found | None:
     text = body.strip()
     for form in (_put_discarded, _hit_discard, _draw_if, _dealt_cant_block, _give_source, _exiled_mv, _connives, _empty_gy, _truce, _each_who_lost,
-                 _either, _plot_paid, _hand_exile, _dont_sacrifice, _put_mv_x, _fold, _swift, _untap_then, _may_attach, _vanish, _dakra, _durin, _latnam, _surge, _locke):
+                 _either, _plot_paid, _hand_exile, _dont_sacrifice, _put_mv_x, _fold, _swift, _untap_then, _may_attach, _vanish, _dakra, _durin, _latnam, _surge, _locke, _gy_exile, _manabond, _have_deal, _own_bounce):
         if (found := form(text, it, event_player)) is not None:
             return found
     for pattern, repl in _REWRITES:
@@ -607,6 +610,71 @@ def _locke(text: str, it: str | None, event_player: bool) -> Found | None:
         return None
     grant = {"do": "grant_play", "who": f"ref:{found[0][0]['as']}", "play": False, "cast": True, "until": "end_of_turn", "optional": True, "limit": 1}
     return [*found[0], grant], None, False
+
+
+# -- Deathbonnet Hulk: "you may exile a card from a graveyard. If a creature card was exiled this way, put a +1/+1 counter on this creature." Not
+# targeted: chosen as it resolves among the cards in all graveyards (public, 404.2), none if they choose; the kind read in exile (400.7j).
+_GY_EXILE = re.compile(r"^you may exile a card from a graveyard\. (?P<b>If a creature card was exiled this way, [^.]+\.)$")
+
+
+def _gy_exile(text: str, it: str | None, event_player: bool) -> Found | None:
+    from app.rules import selectors
+
+    m = _GY_EXILE.match(text)
+    found = _effects(f"you may exile target card from a graveyard. {m['b']}", it, event_player) if m is not None else None
+    pool = selectors.parse("card in a graveyard")
+    if found is None or pool is None or not found[2] or found[0][0].get("do") != "exile" or found[0][0].get("who") != "target" or not found[0][0].get("as"):
+        return None
+    pick = {"do": "return_choice", "to": "exile", "sel": pool.key(), "n": 1, "upto": True, "random": False, "label": "card", "as": found[0][0]["as"]}
+    return [pick, *found[0][1:]], None, False
+
+
+# -- Manabond: "you may reveal your hand and put all land cards from it onto the battlefield. If you do, discard your hand." 603.5: declining does
+# nothing; the lands enter during the resolution (not played, 305.4) and the rest of the hand is discarded after (the 2004-10-04 rulings).
+_MANABOND = "you may reveal your hand and put all land cards from it onto the battlefield. If you do, discard your hand."
+
+
+def _manabond(text: str, it: str | None, event_player: bool) -> Found | None:
+    from app.rules import selectors
+
+    if text != _MANABOND:
+        return None
+    lands, discard = selectors.parse("land card in your hand"), _effects("Discard your hand.", it, event_player)
+    if lands is None or discard is None:
+        return None
+    return [{"do": "reveal_hand", "who": "you"}, {"do": "return_card", "who": lands.key(), "to": "battlefield", "tapped": False, "under": "you"},
+            *discard[0]], None, True
+
+
+# -- Wicked Guardian: "you may have it deal 2 damage to another creature you control. If you do, draw a card." Not targeted: the creature (if any) is
+# chosen as it resolves; "If you do" is that choice, even if the damage is prevented or it left the battlefield (the 2019-10-04 rulings).
+_HAVE_DEAL = re.compile(r"^you may (?:have it deal|~ deals) (?P<n>\d+) damage to another creature you control\. If you do, draw a card\.$")
+
+
+def _have_deal(text: str, it: str | None, event_player: bool) -> Found | None:
+    from app.rules import selectors
+
+    m = _HAVE_DEAL.match(text)
+    other = selectors.parse("another creature you control") if m is not None else None
+    if m is None or other is None or it != "self":
+        return None
+    return [{"do": "return_choice", "to": "choose", "sel": other.key(), "n": 1, "upto": True, "random": False, "label": "creature", "as": "deal100b",
+             "did": "deal100b_did"}, {"do": "only_if", "cond": {"succeeded": "deal100b_did"}, "skip": 2},
+            {"do": "damage", "who": "ref:deal100b", "n": int(m["n"])}, {"do": "draw", "who": "you", "n": 1}], None, False
+
+
+# -- Phenomenon Investigators: "you may return a nonland permanent you own to your hand. If you do, draw a card." Chosen as it resolves among the
+# nonland permanents you own, whoever controls them (108.3; to its owner's hand, 400.3); none if you choose.
+_OWN_BOUNCE = "you may return a nonland permanent you own to your hand. If you do, draw a card."
+
+
+def _own_bounce(text: str, it: str | None, event_player: bool) -> Found | None:
+    from app.rules import selectors
+
+    if text != _OWN_BOUNCE or (mine := selectors.parse("nonland permanent you own")) is None:
+        return None
+    return [{"do": "return_choice", "to": "hand", "sel": mine.key(), "n": 1, "upto": True, "random": False, "label": "nonland permanent",
+             "did": "own100b_did"}, {"do": "only_if", "cond": {"succeeded": "own100b_did"}, "skip": 1}, {"do": "draw", "who": "you", "n": 1}], None, False
 
 
 # -- Reign of Terror: "Destroy all green creatures or all white creatures. They can't be regenerated. You lose 2 life for each creature that died

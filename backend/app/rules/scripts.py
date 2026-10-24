@@ -5823,9 +5823,9 @@ def _first_time_gate(text: str) -> str:
 
 def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     """The engine definition of one ability, or None (manual)."""
-    from app.rules import first_reveal100b  # -- if you do (wave 100B) --
+    from app.rules import devour, first_reveal100b  # -- if you do (wave 100B) --
 
-    if (reveal100b := first_reveal100b.definition(ability, ch)) is not None:
+    if (reveal100b := first_reveal100b.definition(ability, ch) or devour.static100b(ability, ch)) is not None:
         return reveal100b
     from app.rules import zone_exchanges94
 

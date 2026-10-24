@@ -35,6 +35,16 @@ Every scenario checks the replay and a save and a load.
 * Primal Surge - "… If it's a permanent card, you may put it onto the battlefield. If you do, repeat this process." (110.4a; the 2012-05-01
   rulings: it ends at a nonpermanent card or one not put).
 * Locke, Treasure Hunter - "Until end of turn, you may cast a spell from among those cards." (every milled card; the 2025-06-06 rulings).
+* Devouring Hellion - "you may sacrifice any number of creatures and/or planeswalkers. If you do, it enters with twice that many +1/+1
+  counters on it." (devour 2 for both kinds, 702.82a).
+* Deathbonnet Hulk - "you may exile a card from a graveyard. If a creature card was exiled this way, put a +1/+1 counter on this creature."
+  (chosen as it resolves, any graveyard).
+* Invasion of Kaldheim - "exile all cards from your hand, then draw that many cards. Until the end of your next turn, you may play cards
+  exiled this way." ("that many": the cards exiled).
+* Manabond - "you may reveal your hand and put all land cards from it onto the battlefield. If you do, discard your hand." (2004-10-04).
+* Wicked Guardian - "you may have it deal 2 damage to another creature you control. If you do, draw a card." (chosen as it resolves;
+  the 2019-10-04 rulings).
+* Phenomenon Investigators - "you may return a nonland permanent you own to your hand. If you do, draw a card." (108.3: owned, whoever controls).
 * Hellfire - "deals X plus 3 damage to you, where X is the number of creatures that died this way." (a destroyed token counts, a creature a
   replacement effect exiled instead doesn't: the 2009-10-01 rulings).
 """
@@ -59,7 +69,9 @@ EGO, SHRIEK, FAERIE, GORILLA = "Ego Drain", "Specter's Shriek", "Pestermite", "G
 DESERTER, AEROSTAT, FOLD, SWIFT = "Afflicted Deserter // Werewolf Ransacker", "Metathran Aerostat", "Fold into Aether", "Swift Silence"
 RESEARCHER, KOYA, SURVIVORS, VANISH = "Innocuous Researcher", "Koya, Death from Above", "Auriok Survivors", "Vanish into Memory"
 DAKRA, DURIN, LATNAM, SURGE = "Dakra Mystic", "Doors of Durin", "Lat-Nam's Legacy", "Primal Surge"
-LOCKE = "Locke, Treasure Hunter"
+LOCKE, HELLION, HULK = "Locke, Treasure Hunter", "Devouring Hellion", "Deathbonnet Sprout // Deathbonnet Hulk"
+KALDHEIM, MANABOND, GUARDIAN = "Invasion of Kaldheim // Pyre of the World Tree", "Manabond", "Wicked Guardian"
+INVESTIGATORS = "Phenomenon Investigators"
 BEARS, GIANT, RIP, ELVES = "Grizzly Bears", "Hill Giant", "Rest in Peace", "Llanowar Elves"
 
 
@@ -68,7 +80,7 @@ def cards(settings):
     yield from open_repo(settings)
 
 
-@pytest.mark.parametrize("name", [ROWEN, ETCHINGS, KERANOS, SUGARMAW, HELLFIRE, TERROR, KELLAN, EGO, SHRIEK, GORILLA, DESERTER, AEROSTAT, FOLD, SWIFT, RESEARCHER, KOYA, SURVIVORS, VANISH, DAKRA, DURIN, LATNAM, SURGE, LOCKE])
+@pytest.mark.parametrize("name", [ROWEN, ETCHINGS, KERANOS, SUGARMAW, HELLFIRE, TERROR, KELLAN, EGO, SHRIEK, GORILLA, DESERTER, AEROSTAT, FOLD, SWIFT, RESEARCHER, KOYA, SURVIVORS, VANISH, DAKRA, DURIN, LATNAM, SURGE, LOCKE, HELLION, HULK, KALDHEIM, MANABOND, GUARDIAN, INVESTIGATORS])
 def test_the_cards_are_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL", name
 
@@ -630,4 +642,107 @@ def test_locke_mills_each_player_makes_a_treasure_and_lets_you_cast_one(cards):
     act(s, "p1", type="cast_spell", card_id=bolt.id, targets=["p2"])  # (an instant from Bob's graveyard)
     run(s)
     assert life(s, "p2") == bob - 3
+    check(s)
+
+
+# -- Devouring Hellion ----------------------------------------------------------------------------------------------------------------
+def test_devouring_hellion_devours_creatures_and_planeswalkers(cards):
+    s = build_n(cards, [HELLION, BEARS, "Gideon Jura", "Sol Ring"])
+    bears, ring, gideon = put(s, BEARS), put(s, "Sol Ring"), to_hand(s, "Gideon Jura")
+    mana(s, W=2, C=3)
+    act(s, "p1", type="cast_spell", card_id=gideon.id)
+    run(s)
+    hellion = to_hand(s, HELLION)
+    mana(s, R=1, C=2)
+    act(s, "p1", type="cast_spell", card_id=hellion.id)
+    offered: list[str] = []
+
+    def answer(d):
+        offered.extend(getattr(o, "card_id", None) or o.id for o in d.options)
+        return [next((o.id for o in d.options if o.id in (bears.id, gideon.id)), "done")]
+    run(s, answer)
+    assert ring.id not in offered  # (an artifact isn't one of the kinds)
+    assert zone(s, bears) == "p1:graveyard" and zone(s, gideon) == "p1:graveyard"
+    assert s.state.cards[hellion.id].counters.get("+1/+1") == 4
+    check(s)
+
+
+# -- Deathbonnet Hulk -----------------------------------------------------------------------------------------------------------------
+@pytest.mark.parametrize("what", ["creature", "land", "none"])
+def test_deathbonnet_hulk_exiles_a_card_from_any_graveyard(cards, what):
+    s = build_n(cards, [HULK], [GIANT])
+    hulk = put(s, HULK)
+    act(s, "p1", type="set_face", card_id=hulk.id, face=1)
+    giant, forest = named(s, GIANT, "p2"), named(s, "Forest")
+    for c, pid in ((giant, "p2"), (forest, "p1")):
+        act(s, pid, type="move", card_ids=[c.id], to={"player": pid, "zone": "graveyard"})
+    to_phase(s, "upkeep", turn=3)
+    chosen = {"creature": [giant.id], "land": [forest.id], "none": []}[what]
+    run(s, lambda d: chosen if any(getattr(o, "card_id", None) == giant.id for o in d.options) else None)
+    assert zone(s, giant) == ("p2:exile" if what == "creature" else "p2:graveyard")
+    assert s.state.cards[hulk.id].counters.get("+1/+1", 0) == (1 if what == "creature" else 0)
+    check(s)
+
+
+# -- Invasion of Kaldheim -------------------------------------------------------------------------------------------------------------
+def test_invasion_of_kaldheim_exiles_the_hand_draws_that_many_and_lets_you_play_them(cards):
+    s = build_n(cards, [KALDHEIM, BEARS, "Lightning Bolt"])
+    bears, bolt, siege = to_hand(s, BEARS), to_hand(s, "Lightning Bolt"), to_hand(s, KALDHEIM)
+    mana(s, R=1, C=3)
+    act(s, "p1", type="cast_spell", card_id=siege.id)
+    run(s, pick("p2"))
+    assert zone(s, bears) == zone(s, bolt) == "p1:exile" and hand_size(s, "p1") == 2
+    bob = life(s, "p2")
+    mana(s, R=1)
+    act(s, "p1", type="cast_spell", card_id=bolt.id, targets=["p2"])
+    run(s)
+    assert life(s, "p2") == bob - 3
+    check(s)
+
+
+# -- Manabond -------------------------------------------------------------------------------------------------------------------------
+def test_manabond_puts_the_lands_from_your_hand_then_discards_the_rest(cards):
+    s = build_n(cards, [MANABOND, BEARS])
+    put(s, MANABOND)
+    lands, bears = [to_hand(s, "Forest"), named(s, "Forest", n=1)], to_hand(s, BEARS)
+    act(s, "p1", type="move", card_ids=[lands[1].id], to={"zone": "hand"})
+    stops(s)
+    to_phase(s, "end", turn=1)
+    run(s)
+    assert all(zone(s, c) == "p1:battlefield" for c in lands) and zone(s, bears) == "p1:graveyard"
+    check(s)
+
+
+# -- Wicked Guardian ------------------------------------------------------------------------------------------------------------------
+@pytest.mark.parametrize("deal", [True, False])
+def test_wicked_guardian_hurts_one_of_your_creatures_to_draw(cards, deal):
+    s = build_n(cards, [GUARDIAN, BEARS])
+    bears, guardian = put(s, BEARS), to_hand(s, GUARDIAN)
+    mana(s, B=2, C=3)
+    act(s, "p1", type="cast_spell", card_id=guardian.id)
+    before = hand_size(s, "p1")
+    run(s, lambda d: ([bears.id] if deal else []) if any(getattr(o, "card_id", None) == bears.id for o in d.options) else None)
+    assert zone(s, bears) == ("p1:graveyard" if deal else "p1:battlefield")
+    assert hand_size(s, "p1") == before + (1 if deal else 0)
+    check(s)
+
+
+# -- Phenomenon Investigators ---------------------------------------------------------------------------------------------------------
+def test_phenomenon_investigators_doubt_returns_a_permanent_you_own_to_draw(cards):
+    s = build_n(cards, [INVESTIGATORS, "Sol Ring"], ["Sol Ring"])
+    mine, theirs = put(s, "Sol Ring"), put(s, "Sol Ring", "p2")
+    inv = to_hand(s, INVESTIGATORS)
+    mana(s, U=1, B=1, C=2)
+    act(s, "p1", type="cast_spell", card_id=inv.id)
+    run(s, lambda d: [o.id for o in d.options if "Doubt" in (o.label or o.id)][:1] or None)
+    stops(s)
+    to_phase(s, "end", turn=1)
+    offered: list[str] = []
+    before = hand_size(s, "p1")
+
+    def answer(d):
+        offered.extend(getattr(o, "card_id", None) or o.id for o in d.options)
+        return [mine.id] if mine.id in offered else None
+    run(s, answer)
+    assert theirs.id not in offered and zone(s, mine) == "p1:hand" and hand_size(s, "p1") == before + 2
     check(s)
