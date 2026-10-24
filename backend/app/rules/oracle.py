@@ -479,7 +479,7 @@ def parse_abilities(oracle_text: str | None, *, spell: bool = False, pt: tuple[s
                     "creature's power. Activate only as a sorcery.")  # (X: the exiled card's power, as it last existed)
         # -- static_other sweep (wave 16B) -- 702.77a: "Reinforce N—[cost]" means "[Cost], Discard this card: Put N +1/+1 counters on
         # target creature." (an activated ability that works only from the hand)
-        if m := re.fullmatch(r"Reinforce (\d+)—((?:\{[^}]+\})+)", line):
+        if m := re.fullmatch(r"Reinforce (\d+|X)—((?:\{[^}]+\})+)", line):  # (-- xdamage (wave 100E) -- X: the X paid, 107.3a)
             line = f"{m[2]}, Discard this card: Put {m[1]} +1/+1 counters on target creature."
         # -- static_other sweep (wave 19A) -- "Traxos enters tapped and doesn't untap during your untap step.": two abilities, "enters tapped"
         # (614.1d) and the static "doesn't untap" (502.3), the second one added after the printed lines as Reconfigure's are

@@ -58,6 +58,10 @@ def move(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         _record_receipt(ctx, e, CounterMoveReceipt())
         return True
     n = e.get("n", "all")
+    if isinstance(n, dict):  # -- xdamage (wave 100E) -- "move X +1/+1 counters" (Tester of the Tangential): X as the move is made
+        from app.rules.effects import _amount
+
+        n = _amount(plan, ctx, n)
     if n == "all":
         return _do(plan, ctx, e, sources, to[0], have)
     if n == "any" and not e.get("kind"):  # -- counter kinds (wave 24C) -- "any number of counters": how many of each kind, in turn
