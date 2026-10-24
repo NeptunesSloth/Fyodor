@@ -264,7 +264,8 @@ def facts(plan: Plan, e: Event) -> list[Any]:
         if got is None:
             return []
         return [("destroyed", got[0], got[1], got[0].controller,
-                 {"oid": e.object_id, "snap": None if triggers._live(plan, got[0]) else plan.rules.lki.get(e.object_id or "")})]
+                 {"oid": e.object_id, "snap": None if triggers._live(plan, got[0]) else plan.rules.lki.get(e.object_id or ""),
+                  "by": e.player})]  # (by: wave 100A, the player whose spell or ability destroyed it — Karmic Justice)
     if e.counter == "control" and e.card in plan.state.cards:  # -- control events (wave 45C) -- 603.10d: ``player`` gained control of it from ``was``
         card = plan.state.cards[e.card]
         if card.zone.endswith(":battlefield") and plan.oid(card) == e.object_id:
@@ -293,6 +294,8 @@ def facts(plan: Plan, e: Event) -> list[Any]:
         return [("search_library", None, None, e.player, {})]
     if e.counter == "proliferate" and e.player:  # -- trigger tail (wave 15B) -- 701.34a
         return [("proliferate", None, None, e.player, {})]
+    if e.counter == "clash" and e.player:  # -- trigger lines (wave 100A) -- 701.30d: ``amount`` 1 when that player won
+        return [("clash", None, None, e.player, {"amount": e.amount})]
     if e.counter in ("forage", "collect_evidence") and e.player:  # -- if you do (wave 26C) -- 701.61, 701.59 (cost_payment.pay)
         return [(e.counter, None, None, e.player, {})]
     if e.counter == "connive" and e.card in plan.state.cards:  # -- trigger tail (wave 15B) -- 701.50a: the conniving permanent

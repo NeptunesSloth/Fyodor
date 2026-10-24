@@ -64,7 +64,7 @@ _RETURN_X = re.compile(r"^Return X (?P<what>.+? you control) to (?:its|their) ow
 _TAP_OTHER = re.compile(rf"^Tap {_N} (?P<another>another |other )?untapped (?P<what>.+ you control(?: with [a-z ]+?)?(?: other than (?:~|this creature))?)$")  # (wave 48C: Radiant, "… you control with flying")
 # -- attached events (wave 40B) -- 303.4b, 301.5: "Tap enchanted land: …" (Earthlore), "Sacrifice enchanted creature: …" (Betrothed of Fire): the permanent the source
 # is attached to (selectors "host_of_source"), paid with it as the one choice, made for you
-_HOST_COST = re.compile(r"^(?P<verb>Tap|Sacrifice) (?:enchanted (?:creature|land|permanent)|equipped creature)$")
+_HOST_COST = re.compile(r"^(?P<verb>Tap|Sacrifice) (?:enchanted (?:creature|land|permanent|artifact)|equipped creature)$")  # (artifact: wave 100A, Curse Artifact)
 _UNTAP_OTHER = re.compile(rf"^Untap {_N} tapped (?P<what>.+ you control)$")  # -- activated sweep (wave 17B) -- Halo Fountain
 _REMOVE_CHOSEN = re.compile(
     r"^Remove (?P<n>a|an|one|two|three|\d+) (?P<kind>\+1/\+1|-1/-1|[a-z]+) counters? from (?:a|an|another) (?P<what>.+)$")

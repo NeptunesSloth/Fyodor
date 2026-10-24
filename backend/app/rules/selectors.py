@@ -2483,6 +2483,8 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
             return False
         if extra == "shares_commander_type" and not _shares_commander_type_now(plan, ch, you):  # (wave 22E)
             return False
+        if extra == "suspected" and not (plan.rules is not None and plan.oid(card) in plan.rules.suspected):
+            return False  # -- trigger lines (wave 100A) -- 701.60a: the designation is on this object (400.7)
         if extra == "renowned" and not (plan.rules is not None and plan.oid(card) in plan.rules.renowned):
             return False  # -- commanders (wave 47A) -- 702.112b: the designation is on this object (a new object has none, 400.7)
         if extra == "goaded":  # (wave 22E) 701.15b: goaded by someone (a goad effect lasts until that player's next turn: layers' imposed rules)
