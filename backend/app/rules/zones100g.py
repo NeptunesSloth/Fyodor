@@ -364,8 +364,95 @@ def self_exiled(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return True
 
 
-PRIMITIVES = {"named100g": named, "self_exiled100g": self_exiled, "turn_up_linked100g": turn_up_linked, "return_total_power100g": return_total_power, "bottom_linked100g": bottom_linked, "choose_greatest100g": choose_greatest, "choose_event100g": choose_event, "loyalty_twice100g": loyalty_twice, "face_down_looked100g": face_down_looked, "top_or_bottom100g": top_or_bottom}
-RESUME = {"return_total_power100g": resume_return_total_power, "choose_greatest100g": resume_choose_greatest, "choose_event100g": resume_choose_event, "face_down_looked100g": resume_face_down_looked, "top_or_bottom100g": resume_top_or_bottom}
+def opponent_pick(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Tasigur: "a nonland card of an opponent's choice" — as it resolves you choose an opponent, who then chooses the card from your graveyard (the
+    official rulings: nothing is targeted; any nonland card there, not only the milled ones). The graveyard is public (404.2)."""
+    from app.game.rules_state import DecisionOption
+    from app.rules.plan import decide
+
+    me = ctx["controller"]
+    opponents = [p for p in plan.apnap() if p != me and p in plan.live()]
+    if len(opponents) > 1:
+        decide(plan, player=me, kind="choose_one", prompt=f"{ctx.get('name') or 'It'}: choose an opponent to choose the card",
+               options=[DecisionOption(id=p, label=plan.name(p)) for p in opponents], resume={"step": "opponent_pick100g", "ctx": ctx, "e": e})
+        return False
+    return _opponent_choose(plan, ctx, e, opponents[0]) if opponents else True
+
+
+def _opponent_choose(plan: Any, ctx: dict[str, Any], e: dict[str, Any], who: str) -> bool:
+    from app.game.rules_state import DecisionOption
+    from app.rules import selectors
+    from app.rules.plan import decide
+
+    pool = sorted(selectors.candidates(plan, selectors.from_key(e["sel"]), ctx["controller"], ctx.get("source_card")))
+    if not pool:
+        return True
+    decide(plan, player=who, kind="choose_cards", prompt=f"{ctx.get('name') or 'It'}: choose a card for {plan.name(ctx['controller'])} to return to their hand",
+           options=[DecisionOption(id=c, label=plan.state.cards[c].name or "Card", card_id=c) for c in pool], min_choices=1, max_choices=1,
+           resume={"step": "opponent_card100g", "ctx": ctx, "e": e, "pool": pool})
+    return False
+
+
+def resume_opponent_pick(plan: Any, d: Any, chosen: list[str]) -> None:
+    from app.game.errors import ActionError
+    from app.rules import effects
+
+    if len(chosen) != 1 or chosen[0] == d.player or chosen[0] not in plan.live():
+        raise ActionError("Choose an opponent")
+    if _opponent_choose(plan, d.resume["ctx"], d.resume["e"], chosen[0]):
+        effects.continue_effects(plan, d.resume["ctx"])
+
+
+def resume_opponent_card(plan: Any, d: Any, chosen: list[str]) -> None:
+    from app.game.errors import ActionError
+    from app.rules import effects
+
+    r = d.resume
+    if len(chosen) != 1 or chosen[0] not in r["pool"]:
+        raise ActionError("Choose one of those cards")
+    if effects._return_cards(plan, r["ctx"], {"do": "return_card", "to": "hand"}, chosen):
+        effects.continue_effects(plan, r["ctx"])
+
+
+def three_each(plan: Any, ctx: dict[str, Any], e: dict[str, Any], picked: list[str] | None = None, todo: list[str] | None = None) -> bool:
+    """The Three Seasons III: the controller chooses three cards in each graveyard (all of them when it has fewer; public cards, 404.2), graveyard by
+    graveyard in turn order (101.4); then the owners shuffle them in (701.24a) — a player with nothing chosen doesn't shuffle (the official ruling)."""
+    from app.game.rules_state import DecisionOption
+    from app.rules.plan import decide
+
+    picked = list(picked or [])
+    todo = [p for p in plan.apnap() if p in plan.live()] if todo is None else list(todo)
+    while todo:
+        pid, todo = todo[0], todo[1:]
+        cards = list(plan.state.zones.get(f"{pid}:graveyard", []))
+        if len(cards) <= 3:
+            picked += cards
+            continue
+        decide(plan, player=ctx["controller"], kind="choose_cards", prompt=f"{ctx.get('name') or 'It'}: choose three cards in {plan.name(pid)}'s graveyard",
+               options=[DecisionOption(id=c, label=plan.state.cards[c].name or "Card", card_id=c) for c in cards], min_choices=3, max_choices=3,
+               resume={"step": "three_each100g", "ctx": ctx, "e": e, "picked": picked, "todo": todo, "pool": cards})
+        return False
+    groups = {pid: [c for c in picked if plan.state.cards[c].zone == f"{pid}:graveyard"] for pid in plan.apnap()}  # (library cards get new ids)
+    for pid, mine in groups.items():
+        if mine:
+            plan.do({"type": "move", "card_ids": mine, "to": {"player": pid, "zone": "library"}}, actor=pid)
+            plan.do({"type": "shuffle", "player": pid, "zone": "library"}, actor=pid)
+    return True
+
+
+def resume_three_each(plan: Any, d: Any, chosen: list[str]) -> None:
+    from app.game.errors import ActionError
+    from app.rules import effects
+
+    r = d.resume
+    if len(set(chosen)) != 3 or not set(chosen) <= set(r["pool"]):
+        raise ActionError("Choose three of those cards")
+    if three_each(plan, r["ctx"], r["e"], [*r["picked"], *dict.fromkeys(chosen)], r["todo"]):
+        effects.continue_effects(plan, r["ctx"])
+
+
+PRIMITIVES = {"named100g": named, "three_each100g": three_each, "opponent_pick100g": opponent_pick, "self_exiled100g": self_exiled, "turn_up_linked100g": turn_up_linked, "return_total_power100g": return_total_power, "bottom_linked100g": bottom_linked, "choose_greatest100g": choose_greatest, "choose_event100g": choose_event, "loyalty_twice100g": loyalty_twice, "face_down_looked100g": face_down_looked, "top_or_bottom100g": top_or_bottom}
+RESUME = {"three_each100g": resume_three_each, "opponent_pick100g": resume_opponent_pick, "opponent_card100g": resume_opponent_card, "return_total_power100g": resume_return_total_power, "choose_greatest100g": resume_choose_greatest, "choose_event100g": resume_choose_event, "face_down_looked100g": resume_face_down_looked, "top_or_bottom100g": resume_top_or_bottom}
 
 _BUILT = {
     "For each color, return up to one target card of that color from your graveyard to your hand. Exile ~.": _each_color("card", "Exile ~."),
@@ -386,6 +473,7 @@ _BUILT = {
 
 
 def parse(body: str) -> Parsed | None:
+    body = body.strip()  # (an activated ability's effect text comes after "cost:" with its space)
     if body == "Prevent all combat damage that would be dealt this turn. You may look at each face-down creature that's attacking or blocking.":
         p = _plain("Prevent all combat damage that would be dealt this turn.")  # (Revealing Wind: then a private look, 701.20e; "may": nothing else happens)
         if p is None or [x["do"] for x in p[0]] != ["prevent_all"]:
@@ -410,6 +498,13 @@ def parse(body: str) -> Parsed | None:
         return [*p[0][:2], {**p[0][2], "skip": 3}, {"do": "spell_self_move", "to": "exile"}, {"do": "self_exiled100g", "as": "esper100g"},
                 {"do": "return_card", "who": "ref:esper100g", "to": "battlefield", "tapped": False, "under": "owner", "transformed": True,
                  "counter": "finality"}], None, False
+    if body == "Mill two cards, then return a nonland card of an opponent's choice from your graveyard to your hand.":  # (Tasigur)
+        p = _plain("Mill two cards.")
+        if p is None or [x["do"] for x in p[0]] != ["mill"]:
+            return None
+        return [*p[0], {"do": "opponent_pick100g", "sel": _sel("nonland card from your graveyard")}], None, False
+    if body == "Choose three cards in each graveyard. Their owners shuffle those cards into their libraries.":
+        return [{"do": "three_each100g"}], None, False
     if body == ("Choose target opponent. If they control fewer lands than you, create a number of 4/4 green Troll Warrior creature tokens with trample "
                 "equal to the difference."):  # (Waking the Trolls III: none when they control as many or more, 107.1b)
         p = _plain("Create a number of 4/4 green Troll Warrior creature tokens with trample equal to the number of lands target opponent controls.")
@@ -441,14 +536,18 @@ def parse(body: str) -> Parsed | None:
 # -- whole abilities -- an Oracle line read as a native line (its definition), then, where needed, one field of it changed.
 POWER_NE_BASE = "power_ne_base100g"  # a selector extra: its power isn't its base power (208.4b: after layers 7a-7b, before counters and 7c)
 TRANSFORMED = "transformed100g"  # a selector extra: a transformed permanent (701.27g: a double-faced permanent with its back face up; never melded or merged)
+# a selector extra: blocking the source (509.1g) — a dying creature as it last existed (603.10a: triggers._snapshot_card keeps its blocks)
+BLOCKING_SOURCE = "blocks_this100g"
 
 
-def extra_ok(plan: Any, extra: str, card: Any, ch: Any) -> bool:
+def extra_ok(plan: Any, extra: str, card: Any, ch: Any, source: str | None = None) -> bool:
     from app.rules import characteristics as chars
     from app.rules import selectors
 
     if extra == POWER_NE_BASE:
         return ch.base_pt is not None and (selectors._stat(ch, "power") or 0) != ch.base_pt[0]
+    if extra == BLOCKING_SOURCE:
+        return source is not None and card.blocks(source)
     if extra == TRANSFORMED:  # (static_conditions' "you control a transformed permanent" test, per permanent)
         return card.zone.endswith(":battlefield") and card.face == 1 and not card.face_down and not card.melded and not card.merged \
             and chars.transformable(card, plan.info)
@@ -638,6 +737,13 @@ _AS: dict[str, tuple[str, Any]] = {
     "This creature gets +1/+0 for each transformed permanent you control.": ("This creature gets +1/+0 for each artifact you control.", _connoisseur),
     "Whenever a Zombie or Mutant you control dies, if its power was different from its base power, draw a card.":
         ("Whenever a Zombie or Mutant you control dies, draw a card.", _jason),
+    # Veiled Ascension: "a flying counter" is one more flying counter than it would enter with otherwise, as "an additional" one (614.1c, 122.6)
+    "Face-down creatures you control enter with a flying counter on them.": ("Face-down creatures you control enter with an additional flying counter "
+                                                                             "on them.", None),
+    # Baneclaw Marauder: the blocker as it last existed (603.10a), its controller then (608.2h)
+    "Whenever a creature blocking this creature dies, that creature's controller loses 1 life.":
+        ("Whenever a blocking creature dies, that creature's controller loses 1 life.",
+         lambda d: {**d, "cond": {**d["cond"], "sel": _with_extra(d["cond"]["sel"], BLOCKING_SOURCE)}} if (d.get("cond") or {}).get("event") == "die" else None),
     "When this creature enters, sacrifice it unless you return a basic land card from your graveyard to your hand.":
         ("When this creature enters, sacrifice it unless you discard a card.", _harvest_wurm),
 }
