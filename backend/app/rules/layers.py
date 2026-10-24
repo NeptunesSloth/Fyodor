@@ -757,7 +757,7 @@ def _layer4(ch: Characteristics, effects: list[ContinuousEffect],
                 types = frozenset(e["set_types"]) | (types & frozenset({"Instant", "Sorcery"}))
             types = (types - frozenset(e.get("remove_types") or ())) | frozenset(e.get("add_types") or ())  # (205.1b: "creature in addition …")
             supers = supers - frozenset(e.get("remove_supertypes") or ())  # (wave 42A) 205.4: "isn't legendary if it's a token" (Aeve)
-            subtypes = subtypes | frozenset(e.get("add_subtypes") or ())
+            subtypes = subtypes | frozenset(e.get("add_subtypes") or ()) | (CREATURE_TYPES if e.get("all_creature_types") else frozenset())  # (wave 100K: 205.3m)
             subtypes = frozenset(s for s in subtypes if _subtype_fits(s, types))
             continue
         if e.set_types is not None:

@@ -391,6 +391,7 @@ def extra_phases(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
             when={"kind": "step", "step": "begin_combat", "whose": "next", "tag": tag}, effects=e["then"], turn=plan.state.turn.number, step=phase,
             until_turn=plan.state.turn.number))
     count = int(e.get("count", 1))
+    tag = "only_land" if e.get("only_land") else tag  # (wave 100K: the combat's own tag, read by combat.attack_problem)
     added = ["begin_combat" + (f"@{tag}" if tag else "")] * count + (["main2"] if e.get("main") else [])
     r.extra_phases = added + (list(r.extra_phases) or [_NATURAL[current]])
     combats = "an additional combat phase" if count == 1 else f"{count} additional combat phases"
@@ -506,6 +507,8 @@ def clause(text: str) -> tuple[Effects, Any] | None:
                  "n": {"event_amount": 1} if upkeep["n"] == "that many" else 1, "after": upkeep["after"]}], None
     if text in ("there is an additional beginning phase after this phase", "there is an additional end step after this step"):
         return [{"do": "extra_steps", "kind": "beginning" if "beginning" in text else "end"}], None
+    if text == "after this phase, there is an additional combat phase in which only land creatures can attack":  # -- as long as (wave 100K) -- Bumi: only that
+        return [{"do": "extra_phases", "after": "phase", "main": False, "only_land": True}], None  # combat phase is restricted (its 2025-10-02 ruling; combat.attack_problem)
     if (many := re.fullmatch(r"after this main phase, there are (?P<n>two|three|four) additional combat phases", text)) is not None:
         return [{"do": "extra_phases", "after": "main", "main": False,
                  "count": {"two": 2, "three": 3, "four": 4}[many["n"]]}], None

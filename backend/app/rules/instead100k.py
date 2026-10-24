@@ -31,7 +31,10 @@ _SPLITS = {"Clash with an opponent, then return target creature to its owner's h
            "gain control of up to one target creature with lesser power for as long as you control ~":
            "gain control of up to one target creature with power less than ~'s power for as long as you control ~",
            # Walking Desecration: the type is chosen as the ability resolves (608.2d), then those creatures must attack (508.1d)
-           "Creatures of the creature type of your choice attack this turn if able.": "Choose a creature type. Creatures of the chosen type attack this turn if able."}
+           "Creatures of the creature type of your choice attack this turn if able.": "Choose a creature type. Creatures of the chosen type attack this turn if able.",
+           # Bumi, Unleashed: "that combat phase" is the one just added (combat_rules: its own tag)
+           "After this phase, there is an additional combat phase. Only land creatures can attack during that combat phase.":
+           "After this phase, there is an additional combat phase in which only land creatures can attack."}
 
 
 def normalize(text: str) -> str:

@@ -17,7 +17,17 @@ def _target_uncounterable(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     return [{"do": "uncounterable_target100k", "who": "target"}], "spell"
 
 
-TEMPLATES: list[tuple[re.Pattern[str], Any]] = [(re.compile(r"^target spell can't be countered$"), _target_uncounterable)]
+def _untargetable_turn(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    # Veilstone Amulet: "creatures you control can't be the targets of spells or abilities your opponents control this turn" changes no characteristic
+    # (no ability is granted), so it modifies the rules for the turn: creatures that come under your control later too (611.2c; effects.restrict)
+    from app.rules.selectors import Selector
+
+    return [{"do": "restrict", "who": Selector(controller="you", types=("Creature",)).key(), "rules": ["untargetable_by_opponents_of:@you"]}], None
+
+
+TEMPLATES: list[tuple[re.Pattern[str], Any]] = [
+    (re.compile(r"^target spell can't be countered$"), _target_uncounterable),
+    (re.compile(r"^creatures you control can't be the targets of spells or abilities your opponents control this turn$"), _untargetable_turn)]
 
 
 def uncounterable_target(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:

@@ -6908,7 +6908,8 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
             return None
     if d is not None and "blocking_source" in json.dumps(d, default=str) and not (
             d.get("kind") == "activated" or (d.get("kind"), d.get("static")) == ("static", "prevent") or d.get("kind") == "triggered" and (  # (wave 50E: a prevention shield)
-                str(d.get("trigger", "")).endswith("_self") or (d.get("cond") or {}).get("subject") == "self")):
+                str(d.get("trigger", "")).endswith("_self") or str(d.get("trigger", "")).startswith("step:end_combat:")  # (wave 100K: The Wretched, "At end of combat, … blocking ~": its own blockers, 511.3)
+                or (d.get("cond") or {}).get("subject") == "self")):
         return None
     # -- combat (wave 5C) -- "attacks each combat if able" needs its duration
     from app.rules import combat_rules
@@ -8126,7 +8127,8 @@ def _event_refs_ok(d: Definition) -> bool:
     # "target creature blocking it" / "it's blocking": "it" must be the source itself, still there to be read (a cost that
     # sacrifices it — Tinder Wall — leaves only its last known block, which isn't kept)
     if "blocking_source" in json.dumps(d) or "blocked_by_source" in json.dumps(d):
-        self_trigger = d.get("kind") == "triggered" and _trigger_antecedent(str(d.get("trigger")), d.get("cond")) == "self"
+        self_trigger = d.get("kind") == "triggered" and (_trigger_antecedent(str(d.get("trigger")), d.get("cond")) == "self"
+                                                         or str(d.get("trigger")).startswith("step:end_combat:"))  # (wave 100K: The Wretched, the source's own blockers)
         mine = d.get("kind") == "activated"  # (-- activated other (wave 52D) -- also with the source sacrificed as a cost: its last known blocks are kept, selectors)
         shield = d.get("kind") == "static" and d.get("static") == "prevent"  # -- damage wordings (wave 50E) -- 615.1: "Prevent all damage that would be dealt to this creature by creatures it's blocking" (Wall of Vapor): the shield's source is on the battlefield (replacements._object_matches)
         if not (self_trigger or mine or shield):
@@ -9267,6 +9269,11 @@ def define_replacement(ability: AbilityText, text: str) -> Definition | None:
     # CR 614.1a: "instead exile …" and "exile … instead" express the same replacement.
     text = re.sub(r"^(If .+ would (?:die|be put into [^,]+)), instead (exile (?:it|that card)(?: with an? [a-z]+ counter on it)?)\.$",
                   r"\1, \2 instead.", text)
+    if rider is None and (hand := re.fullmatch(r"If a (?P<sel>creature you control that's enchanted) would die, return it to its owner's hand instead\.", text)) is not None:
+        # -- instead (wave 100K) -- Necromancer's Magemark: the creature goes to its owner's hand instead of the graveyard (614.1a; it never dies, its 2006-02-01
+        # ruling), applied with the other zone replacements (replacements.zone_candidates, 616.1)
+        key = _selector_key(hand["sel"])
+        return None if key is None else {"kind": "static", "static": "hand_instead", "effects": [], "from": "battlefield", "graveyard_of": "any", "who": key}
     m = EXILE_INSTEAD_STATIC.match(text)
     if m is None and rider is not None:
         return None

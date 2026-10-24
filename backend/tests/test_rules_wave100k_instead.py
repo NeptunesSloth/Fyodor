@@ -18,6 +18,8 @@
 * "If it has unearth, instead exile it, then return that card to its owner's hand." (Meticulous Excavation: an unearthed creature too, its rulings).
 * "Until end of turn, if you would put one or more +1/+1 counters on a creature you control, put that many plus one …" (Prairie Dog: an entering
   creature's counters are put by its controller, 122.6a, its rulings; twice: plus two).
+* "If a creature you control that's enchanted would die, return it to its owner's hand instead." (Necromancer's Magemark: 614.1a, it never dies;
+  its Auras go to the graveyard, its rulings).
 """
 
 from __future__ import annotations
@@ -97,6 +99,9 @@ EXTRA = [
     real('Prairie Dog', '{1}{W}', 2, 'Creature — Squirrel',
          "Lifelink\nAt the beginning of your end step, if you haven't cast a spell from your hand this turn, put a +1/+1 counter on this creature.\n{4}{W}: Until "
          "end of turn, if you would put one or more +1/+1 counters on a creature you control, put that many plus one +1/+1 counters on it instead.", ('2', '2'), 'W'),
+    real("Necromancer's Magemark", '{2}{B}', 3, 'Enchantment — Aura',
+         "Enchant creature\nCreatures you control that are enchanted get +1/+1.\nIf a creature you control that's enchanted would die, return it to its owner's "
+         "hand instead.", None, 'B'),
 ]
 NAMES = [c["name"] for c in EXTRA]
 STEPS = ["main1", "begin_combat", "declare_attackers", "declare_blockers", "combat_damage", "end_combat", "main2", "end"]
@@ -584,4 +589,21 @@ def test_prairie_dog_adds_one_more_counter_per_resolution(cards, times):
     theirs = put(s, "Spike Feeder", "p2")
     act(s, "p2", type="counter", card_ids=[theirs.id], kind="+1/+1", delta=1)
     assert s.state.cards[theirs.id].counters.get("+1/+1") == 1  # (not a creature Alice controls)
+    check(s)
+
+
+def test_necromancers_magemark_returns_your_enchanted_creatures_instead_of_dying(cards):
+    s = build(cards, ["Necromancer's Magemark", "Grizzly Bears", "Llanowar Elves", "Wrath of God"], ["Grizzly Bears", "Holy Strength"])
+    mark = put(s, "Necromancer's Magemark")
+    bears, elves, theirs = put(s, "Grizzly Bears"), put(s, "Llanowar Elves"), put(s, "Grizzly Bears", "p2")
+    act(s, "p1", type="attach", card_ids=[mark.id], to=bears.id)
+    strength = put(s, "Holy Strength", "p2")
+    act(s, "p2", type="attach", card_ids=[strength.id], to=theirs.id)  # (enchanted, but Alice doesn't control it)
+    assert pt(s, "Grizzly Bears") == (3, 3)
+    mana(s, W=2, C=2)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Wrath of God").id)
+    answer(s)
+    assert s.state.cards[bears.id].zone == "p1:hand"  # (instead of dying: no dies triggers, 614.6)
+    assert s.state.cards[mark.id].zone == "p1:graveyard"  # (the Aura isn't returned, its ruling)
+    assert s.state.cards[elves.id].zone == "p1:graveyard" and s.state.cards[theirs.id].zone == "p2:graveyard"
     check(s)

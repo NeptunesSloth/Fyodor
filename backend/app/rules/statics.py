@@ -583,6 +583,9 @@ def _layer4_parts(body: str) -> tuple[str, dict[str, Any]] | None:
         from app.rules.creature_types import CREATURE_TYPES
 
         return ("", {"remove_types": [], "add_types": ["Creature"], "add_subtypes": [m["sub"]]}) if m["sub"] in CREATURE_TYPES else None
+    m = re.fullmatch(r"(?:(?P<pre>.+?),? and |(?:~|it) )is all creature types", body)  # -- as long as (wave 100K) -- 205.3m (Undercover Skrull)
+    if m:
+        return (m["pre"] or ""), {"remove_types": [], "add_subtypes": [], "all_creature_types": True}
     m = _IN_ADDITION.fullmatch(body)
     if m:
         from app.rules.creature_types import CREATURE_TYPES
@@ -606,6 +609,11 @@ def _layer4_safe(cond: dict[str, Any]) -> bool:
     if cond == {"static": "self", "test": "attached_to_a_creature"}:  # -- casting extras (wave 18E) -- reconfigure 702.151b
         return True
     value = cond.get("value")
+    if cond.get("static") is None and isinstance(value, dict) and set(value) == {"count"} and str(value["count"]).startswith(selectors.PREFIX):
+        # -- as long as (wave 100K) -- "two or more creature cards in your graveyard" (Undercover Skrull): cards in a graveyard, read with their own
+        # characteristics (as _color_safe reads them), never the battlefield's
+        sel = selectors.from_key(value["count"])
+        return sel.card and sel.zones == ("graveyard",) and sel.zone_owner == "you" and not (sel.compare or sel.extras or sel.controller)
     return cond.get("static") is None and isinstance(value, dict) and set(value) == {"devotion"}
 
 
