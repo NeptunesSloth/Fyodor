@@ -181,9 +181,9 @@ def _suffix(pattern: str):  # type: ignore[no-untyped-def]
 
 # -- attached events (wave 30S) -- "target Aura or Equipment attached to a creature you control" (Halvar): what it is attached to (301.5, 303.4);
 # before the controller suffix, whose "you control" is the host's
-@_suffix(r"(?:that(?:'s| is) )?attached to a creature(?P<you> you control)?")
+@_suffix(r"(?:that(?:'s| is) )?attached to a (?P<k>creature|permanent)(?P<you> you control)?")  # (wave 100F: "target Aura that's attached to a permanent", Aura Graft)
 def _attached_to_creature(s: Selector, m: re.Match[str]) -> Selector:
-    return replace(s, extras=(*s.extras, "attached_creature_you" if m["you"] else "attached_creature"))
+    return replace(s, extras=(*s.extras, f"attached_{m['k']}" + ("_you" if m["you"] else "")))
 
 
 # -- activated other (wave 34B) -- "Destroy all Auras attached to ~." (Hakim), "Sacrifice an Equipment attached to ~" (Ronin): what is attached to the source
@@ -411,7 +411,8 @@ def _that_player_controls(s: Selector, m: re.Match[str]) -> Selector:  # to it a
     return replace(s, controller=THAT_PLAYER)  # (triggers.bind_that_player: "player:<id>"; unbound, nothing matches)
 
 
-@_suffix(r"(?P<b>blocking (?:it|this creature|~)|(?:it['’]s|this creature is|~ is) blocking)")  # "target creature blocking it" / "… it's blocking": the source's
+@_suffix(r"(?:that(?:'s| is) (?=blocking))?(?P<b>blocking (?:it|this creature|~)|(?:it['’]s|this creature is|~ is) blocking)")  # "target creature blocking it" / "… it's blocking": the source's
+# (-- attached (wave 100F) -- also "that's blocking it": Arc Spitter's granted "{1}: This creature deals 1 damage to target creature that's blocking it.")
 def _blocking_source(s: Selector, m: re.Match[str]) -> Selector:  # blocks (509.1; scripts._event_refs_ok: "it" is ~)
     return replace(s, extras=(*s.extras, "blocking_source" if m["b"].startswith("blocking") else "blocked_by_source"))
 
@@ -2459,9 +2460,9 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
             if not any(c.id != source and c.zone.endswith(":battlefield") and c.attached_to == card.id
                        and kind in plan.ch(c).subtypes for c in plan.state.cards.values()):
                 return False
-        if extra.startswith("attached_creature"):  # -- attached events (wave 30S) -- attached to a creature (of yours)
+        if extra.startswith(("attached_creature", "attached_permanent")):  # -- attached events (wave 30S) -- attached to a creature (of yours)
             host = plan.state.cards.get(card.attached_to or "")
-            if host is None or not host.zone.endswith(":battlefield") or not plan.ch(host).is_creature \
+            if host is None or not host.zone.endswith(":battlefield") or (extra.startswith("attached_creature") and not plan.ch(host).is_creature) \
                     or (extra.endswith("_you") and host.controller != you):
                 return False
         if extra.startswith("all_colors:") and not set(extra[11:]) <= set(ch.colors):  # -- both colors (wave 6D) --
@@ -2763,7 +2764,17 @@ def _stat(ch: Characteristics, what: str) -> int | None:
 
 
 def _has_attached(plan: Plan, card: CardInstance, subtype: str) -> bool:
-    return any(c.attached_to == card.id and subtype in plan.ch(c).subtypes for c in plan.state.cards.values())
+    if any(c.attached_to == card.id and subtype in plan.ch(c).subtypes for c in plan.state.cards.values()):
+        return True
+    # -- attached (wave 100F) -- 603.10a: ``card`` is a departed permanent as it last existed (triggers._snapshot_card; "Whenever an enchanted creature
+    # dies", Hateful Eidolon) and its Auras are in the graveyard since (704.5m): read what was attached to it then (its latest departure snapshot)
+    live = plan.state.cards.get(card.id)
+    if live is None or live is card or live.zone == card.zone:
+        return False
+    from app.rules import attached100f
+
+    snap = next((s for s in reversed(plan.rules.lki.values()) if s.card == card.id and s.zone == card.zone and s.attached_objects_known), None)
+    return any(subtype in ch.subtypes for _, ch in attached100f.was_attached(plan, snap))
 
 
 def candidates(plan: Plan, sel: Selector, you: str, source: str | None = None, attacker: str | None = None) -> list[str]:

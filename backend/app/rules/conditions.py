@@ -140,7 +140,7 @@ def _compound(t: str, objects: bool) -> Condition | None:
         parts = [_parse_one(f"{m[k]} is in your graveyard", objects) for k in ("a", "b")]
         if all(p is not None for p in parts):
             return {"all": parts}
-    for joiner in (" and ", " or "):
+    for joiner in (" and ", " or ", " or if "):  # (-- attached (wave 100F) -- "If that creature's power is 2 or less or if you control another Lizard")
         for piece in re.finditer(re.escape(joiner), t):
             left, right = t[: piece.start()], t[piece.end():]
             a, b = parse(left, objects=objects), parse(right, objects=objects)

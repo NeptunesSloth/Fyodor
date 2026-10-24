@@ -49,7 +49,7 @@ _BLOCK_REL = re.compile(r"(?P<who>equipped|enchanted) creature is (?P<rel>blocki
 _ATTACHED_CONTROLLER = re.compile(r"(?P<who>you|another player) controls? (?P<what>enchanted|equipped) (?P<noun>creature|permanent|land|artifact)")
 # "~ is a creature" / "it's a Wall" / "this permanent isn't a creature": the source's own types now (305.7, 613.1d)
 _SELF_IS = re.compile(r"(?:~|it|this creature|this permanent|this artifact)(?P<neg> is not| isn't| is|'s) (?P<desc>(?:a|an) .+)")
-_ATTACHED_CTRL = re.compile(r"(?:its|(?:equipped|enchanted) (?:creature|permanent|land)'s) controller (?P<rest>(?:controls|has) .+)")
+_ATTACHED_CTRL = re.compile(r"(?:its|(?:equipped|enchanted) (?:creature|permanent|land)'s) controller (?P<rest>(?:controls|has) .+|is the monarch)")  # (wave 100F: the monarch)
 _ATTACHED_STAT = re.compile(r"(?:its|(?:equipped|enchanted) (?:creature|permanent)'s) (?P<stat>power|toughness) is (?P<n>\w+) or "
                             r"(?P<cmp>less|greater|more|fewer)")
 # -- static_other (wave 42A) -- "~'s power is 1 or less" (Stature, Technodrome: "her / his / its power", written "~'s" by statics.parse): the source's own power or
@@ -150,7 +150,7 @@ def parse(text: str) -> Condition | None:
     if m:
         from app.rules import conditions
 
-        inner = conditions.parse("you " + m["rest"])
+        inner = conditions.parse("you're the monarch" if m["rest"] == "is the monarch" else "you " + m["rest"])
         return {"static": "attached_ctrl", "cond": inner} if inner is not None else None
     m = _ATTACHED_STAT.fullmatch(t)
     if m:

@@ -178,10 +178,13 @@ def resume(plan: Plan, d: Any, chosen: list[str]) -> None:
                 or not _matches(plan, e, card, chars.of(card, plan.info), pid, ctx.get("source_card")):
             raise ActionError("Choose a matching card from your hand")
         cards.append(cid)
+    entries = [{"card": c, "player": pid, "actor": pid, "tapped": bool(e.get("tapped")), "via": ctx.get("source_object")} for c in cards]  # (wave 51E: Entry.via)
+    if e.get("host"):  # -- attached (wave 100F) -- "… onto the battlefield attached to it" (Holy Avenger): 303.4f, an Aura that can't enchant it stays (303.4g)
+        entries = effects._attached_entries(plan, ctx, e["host"], entries)
+        cards = [x["card"] for x in entries]
     before = effects._remember(plan, ctx, e, cards)
     if e.get("did"):  # -- if you do (wave 26C) -- 608.2c: a card was chosen and entered (the grammar reads it only for cards that can't stay in the hand)
         context.bind_payment(ctx, e["did"], bool(cards))
-    entries = [{"card": c, "player": pid, "actor": pid, "tapped": bool(e.get("tapped")), "via": ctx.get("source_object")} for c in cards]  # (wave 51E: Entry.via)
     if entries and not attachments.enter(plan, entries, ctx):
         return  # (an Aura chooses what it enchants; the resolution goes on from there)
     effects._moved(plan, ctx, e, before)

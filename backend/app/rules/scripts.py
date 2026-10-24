@@ -1199,6 +1199,8 @@ def resolve_it(effects: list[dict[str, Any]], antecedent: str | None, groups: li
                 e["src"] = "ref:" + bound(made)  # -- attached events (wave 25D) -- "Create a … Equipment token … Attach it to ~.": the token just made (400.7j)
             elif e.get("src") == "it" and e.get("do") == "attach_to" and made is not None and made.do == "gain_control" and (g := _group_of(out[made.index])) is not None:
                 e["src"] = "target" if groups is None else f"target:{g}"  # -- attached (wave 100F) -- "gain control of target Equipment …. Attach it to this creature." (Ogre Geargrabber): the target
+            elif e.get("src") == "it" and e.get("do") == "attach_to" and made is not None and made.do == "put_from_hand":
+                e["src"] = "ref:" + bound(made)  # (wave 100F: "… from your hand onto the battlefield. If it's an Equipment, attach it to ~.", The Invincible Iron Man)
             elif e.get("src") == "it" and e.get("do") == "explore" and (found := objects(index, 1, None)) is not None:
                 # -- trigger other (wave 52B) -- "Target attacking Rogue gains protection from creatures until end of turn. It explores." (Seasoned Dungeoneer): the object an
                 # earlier instruction chose or moved explores (701.44a: its controller reveals), as "It connives" does
@@ -2671,6 +2673,10 @@ def parse_effects(body: str, it: str | None = None, *, event_player: bool = Fals
 
     if (vault71 := vault_loop71.parse(body)) is not None:
         return vault71
+    from app.rules import attached100f
+
+    if (whole100f := attached100f.parse(body)) is not None:  # -- attached (wave 100F) -- exact bodies (Twist Allegiance, Reins of Power, Grip of Phyresis)
+        return whole100f
     from app.rules import shuffle_mill67
 
     if (shuffle67 := shuffle_mill67.parse(body)) is not None:
@@ -4858,6 +4864,8 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
             # Demon), "That player discards a card at random. If the player can't, you draw a card." (Urgoros): nothing was sacrificed / discarded, the same
             # probe as "If you don't" after a mandatory instruction (effects._did_r1: a permanent left the battlefield / a card left the hand)
             text = "if you don't, " + text.split(", ", 1)[1]
+            if effects[prev_start].get("who") in ("event_player", "that_player") and text.startswith("if you don't, they lose "):
+                text = text.replace("they lose ", "that player loses ", 1)  # -- attached (wave 100F) -- "If the player can't, they lose 5 life." (Cruel Reality)
         if (asked := _that_player_may(text, effects, groups, lambda t: _plain_clause(t, it, event_player))) is not None:  # (wave 25D)
             effects += asked
             continue
@@ -7451,6 +7459,8 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
         return rule
     if ability.kind == "static" and re.fullmatch(r"You control enchanted (?:creature|permanent|land|artifact|enchantment)\.", text):
         return {"kind": "static", "static": "control", "who": "host", "effects": []}  # -- control (wave 3K) -- layer 2 (613.1b); (wave 46C: "enchanted enchantment", Steal Enchantment)
+    if ability.kind == "static" and text == "The monarch controls enchanted creature.":  # -- attached (wave 100F) -- 613.1b, 724 (Fealty to the Realm; layers._control_pass)
+        return {"kind": "static", "static": "control", "who": "host", "to": "monarch", "effects": []}
     if ability.kind == "static" and text == "If it's neither day nor night, it becomes day as ~ enters.":
         return {"kind": "static", "static": "day_as_enters", "effects": []}  # (wave 3E: app/rules/designations.py, 731.1)
     if ability.kind == "static" and text == "Creatures you control can boast twice during each of your turns rather than once.":
@@ -7668,7 +7678,7 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                     # becomes a Coward" is one trigger for each player attacked, and "that player" is that one (the event's defended player, defending.py)
                     body = re.sub(r"\bthat player\b", "defending player", body)
                 if (trigger == "attacks_self" or cond is not None and cond.get("event") == "attack" and cond.get("subject") in ("self", "host") and not cond.get("aggregate")) \
-                        and (re.search(r"\bdefending player\b.*\bthat player\b", body) or cond is not None and cond.get("defender") == "player") \
+                        and (re.search(r"\bdefending player\b.*\bthat player\b", body) or cond is not None and cond.get("defender") in ("player", "monarch")) \
                         and re.search(r"\bthat player(?: controls|'s (?:hand|library|graveyard))\b", body) \
                         and not re.search(r"\b(?:target (?:player|opponent)|an opponent|each opponent|another player|each player)\b", body):
                     # -- player-relative selectors (wave 53A) -- 508.5: "if defending player controls no Walls, it deals 2 damage to each creature without flying that player controls" (Siege
@@ -11473,11 +11483,12 @@ _CHOSEN["return_choice"] = "n"
 # creature" is the target, as after any plain target (app/rules/language.py "control", app/rules/effects.py).
 _RECORDING.update({"gain_control": None, "exchange_control": None})
 # (-- cant restrictions (wave 46A) -- not across ", then": "Gain control of all Dragons, then untap all Dragons." (Karrthus) is two instructions in order, 608.2c,
-# which _clause splits; the control wording alone must not swallow the whole sentence and give up on it)
+# which _clause splits; the control wording alone must not swallow the whole sentence and give up on it; -- attached (wave 100F) -- nor an "unless" tail: "target
+# opponent gains control of this creature unless you sacrifice a land" (Custody Battle) is 118.12a's, _unless_sentence)
 
 
 @_first
-@effect(r"(?P<t>(?!.*, then )(?!.* (?:for as long as|until (?:the end of )?your next turn)\b)(?!.* at end of combat$)(?:(?:untap .+? and )?(?:you )?gain control of .+|.+? gains control of .+|exchange control of .+))")
+@effect(r"(?P<t>(?!.*, then )(?!.* (?:for as long as|until (?:the end of )?your next turn)\b)(?!.* at end of combat$)(?!.* unless )(?:(?:untap .+? and )?(?:you )?gain control of .+|.+? gains control of .+|exchange control of .+))")
 def _control(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     from app.rules import language
 
