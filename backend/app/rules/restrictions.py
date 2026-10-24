@@ -171,7 +171,8 @@ def parse(text: str) -> list[Restriction] | None:
         rest = m["rest"]
         if sentence.startswith("Activate no more than"):
             rest = "no more than " + rest
-        for clause in re.split(r" and (?:only )?(?=if |as |once|during |before |no more than |twice|three times)", rest):
+        # (-- activated (wave 100I) -- also a list: "during the declare blockers step, only if …, and only once each turn" (Grizzled Wolverine))
+        for clause in re.split(r",? and (?:only )?(?=if |as |once|during |before |no more than |twice|three times)|, only (?=if |as |once|during )", rest):
             one = _clause(clause.strip())
             if one is None:
                 return None
@@ -217,10 +218,11 @@ def _clause(clause: str) -> Restriction | None:
 def _condition(text: str) -> dict[str, Any] | None:
     if text == 'three or more creature cards are above this card':
         return {'object': 'self', 'test': 'graveyard_three_creatures_above'}
-    from app.rules import conditions, selectors
+    from app.rules import activated100i  # -- activated (wave 100I) --
 
-    if text == "you've controlled ~ continuously since the beginning of your most recent turn":  # -- activated (wave 100I) -- 302.6's test, any permanent (Rocket Launcher)
-        return {"activated100i": "controlled_since_turn"}
+    if (own100i := activated100i.condition(text)) is not None:
+        return own100i
+    from app.rules import conditions, selectors
     if text == 'it has no time counters on it':
         text = '~ has no time counters on it'
     # -- activated other (wave 34B) -- "Activate only if this artifact or another artifact entered the battlefield under your control this turn." (Master's

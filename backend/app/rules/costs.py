@@ -657,6 +657,8 @@ def _one_4h(part: str, card_name: str) -> CostComponent | None:
         return CostComponent(PAY_LIFE, amount=0, life_rule="half", text=part)
     if part == _COMMANDER_LIFE:
         return CostComponent(PAY_LIFE, amount=0, life_rule="commander_colors", text=part)
+    if (each := re.fullmatch(r"Pay (?P<n>\d+) life for each (?P<k>[a-z]+) counter on (?:~|this enchantment)", part)) is not None:  # -- activated (wave 100I) -- (Tornado:
+        return CostComponent(PAY_LIFE, amount=0, life_rule=f"per_counter100i:{each['k']}:{each['n']}", text=part)  # counted as it's paid, 601.2f-h)
     return None
 
 

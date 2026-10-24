@@ -218,7 +218,8 @@ def amount(plan: Plan, ctx: dict[str, Any], v: dict[str, Any]) -> int:
 # Overlaid Terrain 2004-10-04 "right before this enchantment enters"; Wood Elemental 2004-10-04 "no matter how this card enters").
 # The permanent being put onto the battlefield is no card of that player's hand or lands any more (it is the object entering).
 AS_ENTERS = "as_enters100d"
-_AS_ENTERS = {"As ~ enters, discard your hand.": "discard_hand", "As ~ enters, sacrifice all lands you control.": "sacrifice_lands"}
+_AS_ENTERS = {"As ~ enters, discard your hand.": "discard_hand", "As ~ enters, sacrifice all lands you control.": "sacrifice_lands",
+              "As ~ enters, if it was kicked, mill four cards.": "kicked_mill4"}  # (-- activated (wave 100I) -- Monstrous War-Leech: 702.33d, 701.17a)
 
 
 def plan_entry(plan: Plan, card: CardInstance, controller: str, out: dict[str, Any]) -> None:
@@ -252,6 +253,11 @@ def as_enters(plan: Plan, card_id: str, ep: dict[str, Any], controller: str) -> 
                      if c != card_id and plan.in_game(plan.state.cards[c]) and plan.ch(plan.state.cards[c]).is_land]
             plan.note(f"As {name} enters, {plan.name(controller)} sacrifices all lands they control", [card_id])
             effects._sacrifice_cards(plan, lands, controller, ctx)
+        elif what == "kicked_mill4":  # (the spell's own payment record, 601.2h: "if it was kicked")
+            from app.rules import conditions
+
+            if conditions.holds(plan, ctx, {"object": "self", "cast": {"kicked": True}}):
+                effects.PRIMITIVES["mill"](plan, ctx, {"do": "mill", "who": "you", "n": 4})
 
 
 def _statics(plan: Plan, card: CardInstance, kind: str) -> list[dict[str, Any]]:
