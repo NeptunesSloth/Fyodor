@@ -1,0 +1,640 @@
+[
+ {
+  "name": "Genju of the Realm",
+  "layout": "normal",
+  "mana_cost": "{W}{U}{B}{R}{G}",
+  "cmc": 5.0,
+  "type_line": "Legendary Enchantment — Aura",
+  "oracle_text": "Enchant land\n{2}: Enchanted land becomes a legendary 8/12 Spirit creature with trample until end of turn. It's still a land.\nWhen enchanted land is put into a graveyard, you may return Genju of the Realm from your graveyard to your hand.",
+  "colors": [
+   "B",
+   "G",
+   "R",
+   "U",
+   "W"
+  ],
+  "color_identity": [
+   "B",
+   "G",
+   "R",
+   "U",
+   "W"
+  ],
+  "keywords": [
+   "Enchant"
+  ]
+ },
+ {
+  "name": "Return of the Nightstalkers",
+  "layout": "normal",
+  "mana_cost": "{5}{B}{B}",
+  "cmc": 7.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Return all Nightstalker permanent cards from your graveyard to the battlefield. Then destroy all Swamps you control.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Vengeful Regrowth",
+  "layout": "normal",
+  "mana_cost": "{4}{G}{G}",
+  "cmc": 6.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Return up to three target land cards from your graveyard to the battlefield tapped. Create that many 4/2 green Plant Warrior creature tokens with reach.\nFlashback {6}{G}{G} (You may cast this card from your graveyard for its flashback cost. Then exile it.)",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [
+   "Flashback"
+  ]
+ },
+ {
+  "name": "Grim Captain's Call",
+  "layout": "normal",
+  "mana_cost": "{2}{B}",
+  "cmc": 3.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Return a Pirate card from your graveyard to your hand, then do the same for Vampire, Dinosaur, and Merfolk.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Ajani Fells the Godsire",
+  "layout": "saga",
+  "mana_cost": "{3}{W}{W}",
+  "cmc": 5.0,
+  "type_line": "Enchantment — Saga",
+  "oracle_text": "(As this Saga enters and after your draw step, add a lore counter. Sacrifice after III.)\nI — Exile target creature an opponent controls with power 3 or greater.\nII — Create a 2/1 white Cat Warrior creature token, then put a vigilance counter on a creature you control.\nIII — Target creature you control gains double strike until end of turn.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Defossilize",
+  "layout": "normal",
+  "mana_cost": "{4}{B}",
+  "cmc": 5.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Return target creature card from your graveyard to the battlefield. That creature explores, then it explores again. (Reveal the top card of your library. Put that card into your hand if it's a land. Otherwise, put a +1/+1 counter on that creature, then put the card back or put it into your graveyard. Then repeat this process.)",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Explore"
+  ]
+ },
+ {
+  "name": "Clear the Stage",
+  "layout": "normal",
+  "mana_cost": "{4}{B}",
+  "cmc": 5.0,
+  "type_line": "Instant",
+  "oracle_text": "Target creature gets -3/-3 until end of turn. If you control a creature with power 4 or greater, you may return up to one target creature card from your graveyard to your hand.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Perennation",
+  "layout": "normal",
+  "mana_cost": "{3}{W}{B}{G}",
+  "cmc": 6.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Return target permanent card from your graveyard to the battlefield with a hexproof counter and an indestructible counter on it.",
+  "colors": [
+   "B",
+   "G",
+   "W"
+  ],
+  "color_identity": [
+   "B",
+   "G",
+   "W"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Crystal Dragon // Rob the Hoard",
+  "layout": "adventure",
+  "mana_cost": "{4}{W}{W} // {1}{W}",
+  "cmc": 6.0,
+  "type_line": "Creature — Dragon // Sorcery — Adventure",
+  "oracle_text": "Flying, vigilance\n//\nReturn target artifact, enchantment, or legendary card from your graveyard to your hand. (Then exile this card. You may cast the creature later from exile.)",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "Flying",
+   "Vigilance"
+  ],
+  "power": "4",
+  "toughness": "4",
+  "card_faces": [
+   {
+    "name": "Crystal Dragon",
+    "mana_cost": "{4}{W}{W}",
+    "type_line": "Creature — Dragon",
+    "oracle_text": "Flying, vigilance",
+    "power": "4",
+    "toughness": "4"
+   },
+   {
+    "name": "Rob the Hoard",
+    "mana_cost": "{1}{W}",
+    "type_line": "Sorcery — Adventure",
+    "oracle_text": "Return target artifact, enchantment, or legendary card from your graveyard to your hand. (Then exile this card. You may cast the creature later from exile.)"
+   }
+  ]
+ },
+ {
+  "name": "Leonardo's Technique",
+  "layout": "normal",
+  "mana_cost": "{3}{W}",
+  "cmc": 4.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Sneak {1}{W} (You may cast this spell for {1}{W} if you also return an unblocked attacker you control to hand during the declare blockers step.)\nReturn one or two target creature cards each with mana value 3 or less from your graveyard to the battlefield.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "Sneak"
+  ]
+ },
+ {
+  "name": "An Unearthly Child",
+  "layout": "saga",
+  "mana_cost": "{1}{U}{U}",
+  "cmc": 3.0,
+  "type_line": "Enchantment — Saga",
+  "oracle_text": "(As this Saga enters and after your draw step, add a lore counter. Sacrifice after III.)\nI, II, III — Reveal cards from the top of your library until you reveal a Doctor card, a card with doctor's companion, or a Vehicle card. Put that card into your hand and the rest on the bottom of your library in a random order.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Lifeline",
+  "layout": "normal",
+  "mana_cost": "{5}",
+  "cmc": 5.0,
+  "type_line": "Artifact",
+  "oracle_text": "Whenever a creature dies, if another creature is on the battlefield, return the first card to the battlefield under its owner's control at the beginning of the next end step.",
+  "colors": [],
+  "color_identity": [],
+  "keywords": []
+ },
+ {
+  "name": "Catapult Fodder // Catapult Captain",
+  "layout": "transform",
+  "mana_cost": "{2}{B} // ",
+  "cmc": 3.0,
+  "type_line": "Creature — Zombie // Creature — Zombie",
+  "oracle_text": "At the beginning of combat on your turn, if you control three or more creatures that each have toughness greater than their power, transform this creature.\n//\n{2}{B}, {T}, Sacrifice another creature: Target opponent loses life equal to the sacrificed creature's toughness.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Transform"
+  ],
+  "power": "1",
+  "toughness": "5",
+  "card_faces": [
+   {
+    "name": "Catapult Fodder",
+    "mana_cost": "{2}{B}",
+    "type_line": "Creature — Zombie",
+    "oracle_text": "At the beginning of combat on your turn, if you control three or more creatures that each have toughness greater than their power, transform this creature.",
+    "power": "1",
+    "toughness": "5",
+    "colors": [
+     "B"
+    ]
+   },
+   {
+    "name": "Catapult Captain",
+    "mana_cost": "",
+    "type_line": "Creature — Zombie",
+    "oracle_text": "{2}{B}, {T}, Sacrifice another creature: Target opponent loses life equal to the sacrificed creature's toughness.",
+    "power": "2",
+    "toughness": "6",
+    "colors": [
+     "B"
+    ]
+   }
+  ]
+ },
+ {
+  "name": "Edgar, Charmed Groom // Edgar Markov's Coffin",
+  "layout": "transform",
+  "mana_cost": "{2}{W}{B} // ",
+  "cmc": 4.0,
+  "type_line": "Legendary Creature — Vampire Noble // Legendary Artifact",
+  "oracle_text": "Other Vampires you control get +1/+1.\nWhen Edgar dies, return it to the battlefield transformed under its owner's control.\n//\nAt the beginning of your upkeep, create a 1/1 white and black Vampire creature token with lifelink and put a bloodline counter on Edgar Markov's Coffin. Then if there are three or more bloodline counters on it, remove those counters and transform it.",
+  "colors": [
+   "B",
+   "W"
+  ],
+  "color_identity": [
+   "B",
+   "W"
+  ],
+  "keywords": [
+   "Transform"
+  ],
+  "power": "4",
+  "toughness": "4",
+  "card_faces": [
+   {
+    "name": "Edgar, Charmed Groom",
+    "mana_cost": "{2}{W}{B}",
+    "type_line": "Legendary Creature — Vampire Noble",
+    "oracle_text": "Other Vampires you control get +1/+1.\nWhen Edgar dies, return it to the battlefield transformed under its owner's control.",
+    "power": "4",
+    "toughness": "4",
+    "colors": [
+     "B",
+     "W"
+    ]
+   },
+   {
+    "name": "Edgar Markov's Coffin",
+    "mana_cost": "",
+    "type_line": "Legendary Artifact",
+    "oracle_text": "At the beginning of your upkeep, create a 1/1 white and black Vampire creature token with lifelink and put a bloodline counter on Edgar Markov's Coffin. Then if there are three or more bloodline counters on it, remove those counters and transform it.",
+    "colors": [
+     "B",
+     "W"
+    ]
+   }
+  ]
+ },
+ {
+  "name": "Garruk Relentless // Garruk, the Veil-Cursed",
+  "layout": "transform",
+  "mana_cost": "{3}{G} // ",
+  "cmc": 4.0,
+  "type_line": "Legendary Planeswalker — Garruk // Legendary Planeswalker — Garruk",
+  "oracle_text": "When Garruk has two or fewer loyalty counters on him, transform him.\n0: Garruk deals 3 damage to target creature. That creature deals damage equal to its power to him.\n0: Create a 2/2 green Wolf creature token.\n//\n+1: Create a 1/1 black Wolf creature token with deathtouch.\n−1: Sacrifice a creature. If you do, search your library for a creature card, reveal it, put it into your hand, then shuffle.\n−3: Creatures you control gain trample and get +X/+X until end of turn, where X is the number of creature cards in your graveyard.",
+  "colors": [
+   "B",
+   "G"
+  ],
+  "color_identity": [
+   "B",
+   "G"
+  ],
+  "keywords": [
+   "Transform"
+  ],
+  "loyalty": "3",
+  "card_faces": [
+   {
+    "name": "Garruk Relentless",
+    "mana_cost": "{3}{G}",
+    "type_line": "Legendary Planeswalker — Garruk",
+    "oracle_text": "When Garruk has two or fewer loyalty counters on him, transform him.\n0: Garruk deals 3 damage to target creature. That creature deals damage equal to its power to him.\n0: Create a 2/2 green Wolf creature token.",
+    "loyalty": "3",
+    "colors": [
+     "G"
+    ]
+   },
+   {
+    "name": "Garruk, the Veil-Cursed",
+    "mana_cost": "",
+    "type_line": "Legendary Planeswalker — Garruk",
+    "oracle_text": "+1: Create a 1/1 black Wolf creature token with deathtouch.\n−1: Sacrifice a creature. If you do, search your library for a creature card, reveal it, put it into your hand, then shuffle.\n−3: Creatures you control gain trample and get +X/+X until end of turn, where X is the number of creature cards in your graveyard.",
+    "colors": [
+     "B",
+     "G"
+    ]
+   }
+  ]
+ },
+ {
+  "name": "Mutagen Connoisseur",
+  "layout": "normal",
+  "mana_cost": "{1}{G}{U}",
+  "cmc": 3.0,
+  "type_line": "Creature — Vedalken Mutant",
+  "oracle_text": "Flying, vigilance\nThis creature gets +1/+0 for each transformed permanent you control.",
+  "colors": [
+   "G",
+   "U"
+  ],
+  "color_identity": [
+   "G",
+   "U"
+  ],
+  "keywords": [
+   "Flying",
+   "Vigilance",
+   "Transform"
+  ],
+  "power": "0",
+  "toughness": "5"
+ },
+ {
+  "name": "Jason Bright, Glowing Prophet",
+  "layout": "normal",
+  "mana_cost": "{2}{U}",
+  "cmc": 3.0,
+  "type_line": "Legendary Creature — Zombie Mutant Advisor",
+  "oracle_text": "Whenever a Zombie or Mutant you control dies, if its power was different from its base power, draw a card.\nCome Fly With Me — {2}, Sacrifice a creature: Put a +1/+1 counter on target creature you control. It gains flying until end of turn.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "Come Fly With Me"
+  ],
+  "power": "2",
+  "toughness": "3"
+ },
+ {
+  "name": "Harvest Wurm",
+  "layout": "normal",
+  "mana_cost": "{1}{G}",
+  "cmc": 2.0,
+  "type_line": "Creature — Wurm",
+  "oracle_text": "When this creature enters, sacrifice it unless you return a basic land card from your graveyard to your hand.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [],
+  "power": "3",
+  "toughness": "2"
+ },
+ {
+  "name": "The Curse of Fenric",
+  "layout": "saga",
+  "mana_cost": "{2}{G}{W}",
+  "cmc": 4.0,
+  "type_line": "Enchantment — Saga",
+  "oracle_text": "(As this Saga enters and after your draw step, add a lore counter. Sacrifice after III.)\nI — For each player, destroy up to one target creature that player controls. For each creature destroyed this way, its controller creates a 3/3 green Mutant creature token with deathtouch.\nII — Target nontoken creature becomes a 6/6 legendary Horror creature named Fenric and loses all abilities.\nIII — Target Mutant fights another target creature named Fenric.",
+  "colors": [
+   "G",
+   "W"
+  ],
+  "color_identity": [
+   "G",
+   "W"
+  ],
+  "keywords": [
+   "Fight"
+  ]
+ },
+ {
+  "name": "Nightmares and Daydreams",
+  "layout": "saga",
+  "mana_cost": "{2}{U}",
+  "cmc": 3.0,
+  "type_line": "Enchantment — Saga",
+  "oracle_text": "(As this Saga enters and after your draw step, add a lore counter. Sacrifice after IV.)\nI, II, III — Until your next turn, whenever you cast an instant or sorcery spell, target player mills cards equal to that spell's mana value.\nIV — Draw a card. If a graveyard has twenty or more cards in it, draw three cards instead.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "Mill"
+  ]
+ },
+ {
+  "name": "Urza Assembles the Titans",
+  "layout": "saga",
+  "mana_cost": "{3}{W}{W}",
+  "cmc": 5.0,
+  "type_line": "Enchantment — Saga",
+  "oracle_text": "Read ahead (Choose a chapter and start with that many lore counters. Add one after your draw step. Skipped chapters don't trigger. Sacrifice after III.)\nI — Scry 4, then you may reveal the top card of your library. If a planeswalker card is revealed this way, put it into your hand.\nII — You may put a planeswalker card with mana value 6 or less from your hand onto the battlefield.\nIII — You may activate the loyalty abilities of planeswalkers you control twice this turn rather than only once.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "Read Ahead",
+   "Scry"
+  ]
+ },
+ {
+  "name": "Write into Being",
+  "layout": "normal",
+  "mana_cost": "{2}{U}",
+  "cmc": 3.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Look at the top two cards of your library. Manifest one of those cards, then put the other on the top or bottom of your library. (To manifest a card, put it onto the battlefield face down as a 2/2 creature. Turn it face up any time for its mana cost if it's a creature card.)",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "Manifest"
+  ]
+ },
+ {
+  "name": "Hide in Plain Sight",
+  "layout": "normal",
+  "mana_cost": "{3}{G}",
+  "cmc": 4.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Look at the top five cards of your library, cloak two of them, and put the rest on the bottom of your library in a random order. (To cloak a card, put it onto the battlefield face down as a 2/2 creature with ward {2}. Turn it face up any time for its mana cost if it's a creature card.)",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [
+   "Cloak"
+  ]
+ },
+ {
+  "name": "Guardian Scalelord",
+  "layout": "normal",
+  "mana_cost": "{4}{W}",
+  "cmc": 5.0,
+  "type_line": "Creature — Dragon",
+  "oracle_text": "Backup 1 (When this creature enters, put a +1/+1 counter on target creature. If that's another creature, it gains the following abilities until end of turn.)\nFlying\nWhenever this creature attacks, return target nonland permanent card with mana value X or less from your graveyard to the battlefield, where X is this creature's power.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "Flying",
+   "Backup"
+  ],
+  "power": "3",
+  "toughness": "4"
+ },
+ {
+  "name": "Olivia, Crimson Bride",
+  "layout": "normal",
+  "mana_cost": "{4}{B}{R}",
+  "cmc": 6.0,
+  "type_line": "Legendary Creature — Vampire Noble",
+  "oracle_text": "Flying, haste\nWhenever Olivia attacks, return target creature card from your graveyard to the battlefield tapped and attacking. It gains \"When you don't control a legendary Vampire, exile this creature.\"",
+  "colors": [
+   "B",
+   "R"
+  ],
+  "color_identity": [
+   "B",
+   "R"
+  ],
+  "keywords": [
+   "Flying",
+   "Haste"
+  ],
+  "power": "3",
+  "toughness": "4"
+ },
+ {
+  "name": "Rekindling Phoenix",
+  "layout": "normal",
+  "mana_cost": "{2}{R}{R}",
+  "cmc": 4.0,
+  "type_line": "Creature — Phoenix",
+  "oracle_text": "Flying\nWhen this creature dies, create a 0/1 red Elemental creature token with \"At the beginning of your upkeep, sacrifice this token and return target card named Rekindling Phoenix from your graveyard to the battlefield. It gains haste until end of turn.\"",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Flying"
+  ],
+  "power": "4",
+  "toughness": "3"
+ },
+ {
+  "name": "Ozox, the Clattering King",
+  "layout": "normal",
+  "mana_cost": "{2}{B}",
+  "cmc": 3.0,
+  "type_line": "Legendary Creature — Skeleton Noble",
+  "oracle_text": "Ozox can't block.\nWhen Ozox dies, create Jumblebones, a legendary 2/1 black Skeleton creature token with \"Jumblebones can't block\" and \"When Jumblebones leaves the battlefield, return target card named Ozox, the Clattering King from your graveyard to your hand.\"",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [],
+  "power": "3",
+  "toughness": "2"
+ },
+ {
+  "name": "Reef Worm",
+  "layout": "normal",
+  "mana_cost": "{3}{U}",
+  "cmc": 4.0,
+  "type_line": "Creature — Worm",
+  "oracle_text": "When this creature dies, create a 3/3 blue Fish creature token with \"When this token dies, create a 6/6 blue Whale creature token with 'When this token dies, create a 9/9 blue Kraken creature token.'\"",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [],
+  "power": "0",
+  "toughness": "1"
+ },
+ {
+  "name": "Vault 12: The Necropolis",
+  "layout": "saga",
+  "mana_cost": "{4}{B}{B}",
+  "cmc": 6.0,
+  "type_line": "Enchantment — Saga",
+  "oracle_text": "(As this Saga enters and after your draw step, add a lore counter. Sacrifice after III.)\nI — Each player gets three rad counters.\nII — Create X 2/2 black Zombie Mutant creature tokens, where X is the total number of rad counters among players.\nIII — Put two +1/+1 counters on each creature you control that's a Zombie or Mutant.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Fall of the Impostor",
+  "layout": "saga",
+  "mana_cost": "{1}{G}{W}",
+  "cmc": 3.0,
+  "type_line": "Enchantment — Saga",
+  "oracle_text": "(As this Saga enters and after your draw step, add a lore counter. Sacrifice after III.)\nI, II — Put a +1/+1 counter on up to one target creature.\nIII — Exile a creature with the greatest power among creatures target opponent controls.",
+  "colors": [
+   "G",
+   "W"
+  ],
+  "color_identity": [
+   "G",
+   "W"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Braids's Frightful Return",
+  "layout": "saga",
+  "mana_cost": "{2}{B}",
+  "cmc": 3.0,
+  "type_line": "Enchantment — Saga",
+  "oracle_text": "Read ahead (Choose a chapter and start with that many lore counters. Add one after your draw step. Skipped chapters don't trigger. Sacrifice after III.)\nI — You may sacrifice a creature. If you do, each opponent discards a card.\nII — Return target creature card from your graveyard to your hand.\nIII — Target opponent may sacrifice a nonland, nontoken permanent of their choice. If they don't, they lose 2 life and you draw a card.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Read Ahead"
+  ]
+ }
+]

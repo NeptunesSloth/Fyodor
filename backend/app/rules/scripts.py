@@ -322,7 +322,7 @@ def self_text(text: str, name: str) -> str:
             # Lizard, Connors's Curse is no self-reference ("a green ~ creature" is nothing a card says)
             # (-- trigger other (wave 52B) -- "this Case" on "Case of …" is the type word after "this", not the short name)
             part = re.sub(r"(?<![\w-])(?<!named )" + (r"(?<!create )(?<!this )(?<!This )" if n != name else "") + (r"(?<!other )(?<!another )(?<![Tt]arget )" if n in _CREATURE_TYPES else "")  # A fixed named object isn't a self reference (201.5).
-                          + rf"{re.escape(n)}(?!\w)(?! target\b)" + (r"(?! (?:the|of) [A-Z])" if n == short else "")  # (-- most-played cards (wave 49A) -- "Exile target …" on Exile is the verb)
+                          + rf"{re.escape(n)}(?!\w)(?! target\b)" + (r"(?! (?:the|of) [A-Z])(?! all\b)" if n == short else "")  # (-- most-played cards (wave 49A) -- "Exile target …" on Exile is the verb; -- zones (wave 100G) -- "Return all …" on Return of the Nightstalkers too)
                           + (r"(?! (?:creature|token)s?\b)" if n != name else ""),  # (-- attached events (wave 40B) -- "create Icingdeath, Frost Tongue, a legendary … token": the token's own name, on Icingdeath, Frost Tyrant)
                           "~", part)  # (wave 16D: a name ending in "!" has no \b after it; wave 26C: not "non-Spirit" on a Spirit token)
         return part
@@ -2655,6 +2655,10 @@ def _sacrifice_count_sequence(body: str) -> tuple[list[dict[str, Any]], Any, boo
 
 
 def parse_effects(body: str, it: str | None = None, *, event_player: bool = False) -> tuple[list[dict[str, Any]], Any, bool] | None:
+    from app.rules import zones100g  # -- zones (wave 100G) -- exact wordings (app/rules/zones100g.py)
+
+    if (zones := zones100g.parse(body)) is not None:
+        return zones
     from app.rules import xdamage100e  # -- xdamage (wave 100E) -- exact wordings (app/rules/xdamage100e.py)
 
     if (xdamage := xdamage100e.parse(body)) is not None:
@@ -5837,6 +5841,10 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
 
     if (lines100a := triggers100a.definition(ability, ch)) is not None:
         return lines100a
+    from app.rules import zones100g  # -- zones (wave 100G) -- whole-ability wordings (app/rules/zones100g.py)
+
+    if (zones := zones100g.definition(ability, ch)) is not None:
+        return zones
     from app.rules import static_perm100d  # -- static permanents (wave 100D) --
 
     if (perm100d := static_perm100d.definition(ability, ch)) is not None:
@@ -7604,7 +7612,7 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                 if cond is not None and cond.get("subject") == "host":  # -- block events (wave 53C) -- Contract: "it gets +2/+0 … if …. Otherwise, its controller loses 2 life": the "it" of the
                     body = re.sub(r"\bOtherwise, its controller\b", "Otherwise, enchanted creature's controller", body)  # event is the host, whose controller is read once (effects._players)
                 aura_card = cond is not None and cond.get("subject") == "host" and cond["event"] in _GONE \
-                    and re.search(r"\bthis card\b", body) is not None
+                    and re.search(r"\bthis card\b|^you may return ~ from your graveyard to your hand\.$", body) is not None  # (-- zones (wave 100G) -- Genju of the Realm names itself: 201.5)
                 if aura_card:
                     body = re.sub(r"\bthis card\b", "~", body)
                     # -- attached events (wave 40B) -- 303.4f, 400.7: "When enchanted creature dies, return this card to the battlefield [transformed under your

@@ -6936,4 +6936,8 @@ RESUME.update(_attached100f.RESUME)
 from app.rules import static_spell100c as _static_spell100c  # noqa: E402
 
 PRIMITIVES.update(_static_spell100c.PRIMITIVES)
+from app.rules import zones100g as _zones100g  # noqa: E402  -- zones (wave 100G) --
+
+PRIMITIVES.update(_zones100g.PRIMITIVES)
+RESUME.update(_zones100g.RESUME)
 RESUME.update(_triggers100a.RESUME)

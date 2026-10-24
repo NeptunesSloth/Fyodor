@@ -993,8 +993,8 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
             for n in plan.state.cards[cid].counters.values()
         )
     if "player_counters" in v:
-        if v.get("of") == "opponents":  # (wave 3E) "poison counters your opponents have": all of them together
-            return sum(max(0, int(plan.state.players[p].resources.get(v["player_counters"], 0))) for p in plan.live() if p != you)
+        if v.get("of") in ("opponents", "all"):  # (wave 3E) "poison counters your opponents have": all of them together; -- zones (wave 100G) -- "all": among players (Vault 12)
+            return sum(max(0, int(plan.state.players[p].resources.get(v["player_counters"], 0))) for p in plan.live() if p != you or v["of"] == "all")
         return max(0, int(plan.state.players[you].resources.get(v["player_counters"], 0)))
     if "party" in v:  # -- refused modal/conditional (wave 3R1) --
         return party_size(plan, you)
