@@ -472,6 +472,10 @@ def _parse(c: str) -> Condition | None:
     if m:
         inner = _parse(f"{m['s']} becomes blocked")
         return None if inner is None or inner.get("event") != "blocked" or inner.get("aggregate") else {**inner, "min_blockers": _count(m["n"])}
+    # -- trigger lines (wave 100A) -- 509.3e: "Whenever ~ blocks two or more creatures" (Lairwatch Giant): it blocks that many as blockers are declared (509.3a: once)
+    m = re.fullmatch(r"~ blocks (?P<n>two|three|four|five) or more creatures", c)
+    if m:
+        return {"event": "block", "subject": "self", "min_blocked": _count(m["n"])}
     # 509.3b / 509.3d: "~ blocks or becomes blocked by a creature" — once per creature on the other side
     # (wave 11E: also "enchanted / equipped creature …", the permanent the source is attached to)
     m = re.fullmatch(r"(?P<s>~|enchanted creature|equipped creature) (?P<v>blocks or becomes blocked by|blocks|becomes blocked by)"

@@ -992,6 +992,8 @@ def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: F
         return False
     if cond.get("min_blockers") and info.get("blockers", 0) < cond["min_blockers"]:  # -- block events (wave 53C) -- 509.3c: "becomes blocked by two or more creatures"
         return False
+    if cond.get("min_blocked") and info.get("blocked", 0) < cond["min_blocked"]:  # -- trigger lines (wave 100A) -- 509.3e: "blocks two or more creatures"
+        return False
     if cond.get("while") is not None:  # "attacks while you control …", -- counters (wave 33C) -- "enters while this creature has a -1/-1 counter on it": part of the trigger event
         from app.rules import conditions
 
@@ -1722,6 +1724,8 @@ def generic_combat(plan: Plan, event: str, cards: list[CardInstance],
                 info["battle"] = True  # -- review 34 -- 310.5: an attack on a battle (attacks neither a player nor a planeswalker)
         if event == "blocked":  # -- block events (wave 53C) -- 509.3c: how many creatures were declared as blockers for it ("becomes blocked by two or more creatures")
             info["blockers"] = sum(1 for o in plan.state.cards.values() if o.blocks(c.id))
+        if event == "block":  # -- trigger lines (wave 100A) -- 509.3e: how many creatures it blocks ("blocks two or more creatures")
+            info["blocked"] = (1 if c.blocking else 0) + len(c.blocking_more)
         if event == "attack":  # "attacks for the first time each turn" (kept per object per turn)
             key = f"attacked:{info['oid']}"
             info["first"] = plan.rules.once_per_turn.get(key) != turn
