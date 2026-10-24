@@ -2028,6 +2028,12 @@ def matches_player(plan: Plan, sel: Selector, pid: str, you: str, *, source_obje
         return False
     if sel.player_exclude is not None and (not sel.player_exclude.startswith("player:") or pid == sel.player_exclude[7:]):
         return False
+    for extra100c in sel.extras:  # -- static spells (wave 100C) -- "each player who controls a white creature" (Disorder)
+        if extra100c.startswith("controls100c:"):
+            from app.rules import static_spell100c
+
+            if not static_spell100c.player_extra_ok(plan, extra100c, pid, you):
+                return False
     if any(x.startswith('upkeep_compare75:') for x in sel.extras):
         from app.rules import trigger_upkeep_comparison75
 
@@ -2230,6 +2236,10 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
             n = ref_value
         elif n == YOUR_HAND:  # (wave 51G)
             n = len(plan.state.zones.get(f"{you}:hand", []))
+        elif n == "your_life100c":  # -- static spells (wave 100C) -- "power greater than or equal to your life total" (Blazing Hope)
+            from app.rules import static_spell100c
+
+            n = static_spell100c.your_life(plan, you)
         elif n == OWN_GRAVEYARD:  # (wave 50I) its controller's graveyard, as it is when checked (608.2b: again as the spell resolves)
             n = len(plan.state.zones.get(f"{card.controller}:graveyard", []))
         elif isinstance(n, str) and n.startswith(COUNT_STAT):  # -- control change (wave 20E) --
@@ -2387,6 +2397,11 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
                 return False
         if extra.startswith("all_colors:") and not set(extra[11:]) <= set(ch.colors):  # -- both colors (wave 6D) --
             return False
+        if extra.startswith("not_sel100c:"):  # -- static spells (wave 100C) -- "each creature that isn't all colors", "except for creatures you control with flying"
+            from app.rules import static_spell100c
+
+            if not static_spell100c.extra_ok(plan, extra, card, ch, you, source, attacker):
+                return False
         if extra == "shares_color_source" and ((src := plan.state.cards.get(source or "")) is None or not plan.ch(src).colors & ch.colors):
             return False  # -- static_other sweep (wave 17C) -- conspire 702.78a: a creature that shares a color with the spell
         if extra == 'shares_color_legendary_creature_you_control' and not any(

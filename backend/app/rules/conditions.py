@@ -1744,8 +1744,8 @@ def holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
         per = [sum(1 for c in found if plan.state.cards[c].controller == p) for p in plan.live() if p != ctx["controller"]]
         # "an opponent controls two or more …" / "… controls no …": some one opponent does
         return any({">=": x >= n, "<=": x <= n, "==": x == n}[cond["op"]] for x in per)
-    got = plan.state.players[ctx["controller"]].life if "life" in v and v["life"] != "player_min" \
-        else values.evaluate(plan, ctx, v)  # (player_min: "a player has 13 or less life", wave 6E)
+    got = plan.state.players[ctx["controller"]].life if "life" in v and v["life"] not in ("player_min", "target") \
+        else values.evaluate(plan, ctx, v)  # (player_min: "a player has 13 or less life", wave 6E; target: "if target player has exactly 10 life", wave 100C)
     return _OPS[cond["op"]](got, n)  # (-- counters (wave 41A) -- all of them: "prime" too)
 
 
