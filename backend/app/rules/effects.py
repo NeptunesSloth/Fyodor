@@ -6937,3 +6937,7 @@ from app.rules import static_spell100c as _static_spell100c  # noqa: E402
 
 PRIMITIVES.update(_static_spell100c.PRIMITIVES)
 RESUME.update(_triggers100a.RESUME)
+# -- turn state (wave 100H) -- (app/rules/turnstate100h.py)
+from app.rules import turnstate100h as _turnstate100h  # noqa: E402
+
+PRIMITIVES.update(_turnstate100h.PRIMITIVES)

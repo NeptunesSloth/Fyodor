@@ -59,6 +59,8 @@ def static_definition(text: str) -> Definition | None:
     m = _STATIC_YOU.fullmatch(text.strip())
     if m:
         return {"kind": "static", "static": "skip", "what": _WHAT[m["what"]], "who": "you", "effects": []}
+    if text.strip() == "Skip your upkeep step if you have no cards in hand.":  # -- turn state (wave 100H) -- hellbent (Gibbering Descent): judged as the step would begin (614.10)
+        return {"kind": "static", "static": "skip", "what": "upkeep", "who": "you", "effects": [], "hand_empty100h": True}
     m = _STATIC_ALL.fullmatch(text.strip())
     if m:
         return {"kind": "static", "static": "skip", "what": m["a"] or m["b"], "who": "each", "effects": []}
@@ -127,7 +129,8 @@ def _static(plan: Plan, player: str, what: str) -> str | None:
         skip = conditional_lines(ch)  # (a leveler's / Class's level lines: the level isn't tracked)
         for i, d in scripts.definitions(ch).items():
             if i not in skip and d.get("kind") == "static" and d.get("static") == "skip" and d.get("what") == what \
-                    and (d.get("who") == "each" or (c.controller != player if d.get("who") == "opponents" else c.controller == player)):
+                    and (d.get("who") == "each" or (c.controller != player if d.get("who") == "opponents" else c.controller == player)) \
+                    and not (d.get("hand_empty100h") and plan.state.zones.get(f"{player}:hand")):
                 return plan.ch(c).name or c.name or "a permanent"
     return None
 

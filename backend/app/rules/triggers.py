@@ -177,10 +177,10 @@ def _add(plan: Plan, *, controller: str, source_card: str, source_object: str, n
             check["x"] = record.x
         if not conditions.holds(plan, check, definition["if"]):
             return None
-    if definition.get("limit") == "once_each_turn":  # "This ability triggers only once each turn." (app/rules/restrictions.py)
+    if definition.get("limit") in ("once_each_turn", "once_game"):  # "This ability triggers only once (each turn)." (app/rules/restrictions.py)
         from app.rules import restrictions
 
-        if restrictions.uses(plan.rules, source_object, index, plan.state.turn.number):
+        if restrictions.uses(plan.rules, source_object, index, None if definition["limit"] == "once_game" else plan.state.turn.number):
             return None  # it triggered this turn already (even if that ability was countered or removed)
         restrictions.record_use(plan.rules, source_object, index, plan.state.turn.number)
     if definition.get("limit") == "do_once":  # "Do this only once each turn." (603.2h, app/rules/restrictions.py)

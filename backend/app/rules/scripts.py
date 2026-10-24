@@ -2657,6 +2657,10 @@ def _sacrifice_count_sequence(body: str) -> tuple[list[dict[str, Any]], Any, boo
 
 
 def parse_effects(body: str, it: str | None = None, *, event_player: bool = False) -> tuple[list[dict[str, Any]], Any, bool] | None:
+    from app.rules import turnstate100h  # -- turn state (wave 100H) -- exact bodies read as a native wording
+
+    if (same100h := turnstate100h.SAME.get(body)) is not None:
+        body = same100h
     from app.rules import xdamage100e  # -- xdamage (wave 100E) -- exact wordings (app/rules/xdamage100e.py)
 
     if (xdamage := xdamage100e.parse(body)) is not None:
@@ -3847,7 +3851,7 @@ def _split_tails(body: str, event_player: bool) -> str:
     body = _OWNER_SHUFFLES.sub(lambda m: f"{m[1]}Shuffle ~ into its owner's library. Its owner draws {m[2]}", body)
     body = _YOU_ADD.sub(r"Add \1", body)  # "You add {R}." (Red Death, Shipwrecker) is "Add {R}."
     body = re.sub(r"\bthat player reveals the chosen card, puts it on the bottom", "that player reveals and puts it on the bottom", body)  # (wave 44A: Vendilion Clique, language._PLAYER_LIBRARY)
-    body = _EACH_RETURNS.sub(lambda m: f"Return all {m['x'].replace(' and all ', ' or ')} cards from all graveyards to "
+    body = _EACH_RETURNS.sub(lambda m: f"{'R' if m[0][0] == 'E' else 'r'}eturn all {m['x'].replace(' and all ', ' or ')} cards from all graveyards to "
                              + ("the battlefield under their owners' control" if m["d"] == "the battlefield" else "their owners' hands") + (m["w"] or ""), body)
     # "Goad target creature an opponent controls. That player draws a card.": the opponent named is the creature's controller (no event names a player here)
     return body if event_player else _THAT_PLAYER.sub("Its controller", body)  # (a trigger whose event names a player keeps "that player" for it)
@@ -5841,6 +5845,10 @@ def _first_time_gate(text: str) -> str:
 
 def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     """The engine definition of one ability, or None (manual)."""
+    from app.rules import turnstate100h  # -- turn state (wave 100H) --
+
+    if (turn100h := turnstate100h.definition(ability, ch)) is not None:
+        return turn100h
     from app.rules import triggers100a  # -- trigger lines (wave 100A) --
 
     if (lines100a := triggers100a.definition(ability, ch)) is not None:

@@ -3962,13 +3962,15 @@ def exile_choice(text: str) -> tuple[Effects, Any] | None:
             return None
         return [{"do": "return_choice", "to": "choose", "sel": sel.key(), "n": 1, "upto": False, "random": False, "label": pick["what"]}], None
     c = _RA_CHOICE.fullmatch(text[len("exile "):len(text) - len(" at random") * late]) if text.startswith("exile ") else None
-    if c is None or c["z"] != "your graveyard" or c["upto"] or c["n"] or c["any"]:
+    # (-- turn state (wave 100H) -- "Exile two cards from your graveyard." (Bloodcurdler): that many, or as many as there are, 609.3)
+    many = {"two": 2, "three": 3, "four": 4, "five": 5}.get(c["n"] or "") if c is not None else None
+    if c is None or c["z"] != "your graveyard" or c["upto"] or (c["n"] and many is None) or c["any"]:
         return None
     words = re.sub(r"\bcards\b", "card", c["what"])
     sel = selectors.parse(f"{words} from {c['z']}")
     if sel is None or not _graveyard_cards(sel.key()) or "card" not in words.split():
         return None
-    return [{"do": "return_choice", "to": "exile", "sel": sel.key(), "n": 1, "upto": False, "random": bool(c["rand"] or late), "label": words}], None
+    return [{"do": "return_choice", "to": "exile", "sel": sel.key(), "n": many or 1, "upto": False, "random": bool(c["rand"] or late), "label": words}], None
 
 
 def reanimation_forms(text: str) -> tuple[Effects, Any] | None:
