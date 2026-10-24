@@ -34,7 +34,7 @@ from tests.wave100c_kit import (
 PROMOTED = ["Verdant Command", "Everything Comes to Dust", "Irencrag Feat", "Waterbending Lesson", "Mercurial Transformation", "Burning of Xinye",
             "Split the Party", "Dreams of Steel and Oil", "Treacherous Urge", "Pox",
             "Omen of Fire", "Sway of the Stars", "Energybending", "Embiggen",
-            "Eliminate the Impossible"]
+            "Eliminate the Impossible", "Aura Barbs", "Baki's Curse"]
 
 
 @pytest.fixture()
@@ -250,4 +250,26 @@ def test_eliminate_the_impossible_investigates_shrinks_and_unsuspects_opponents_
     cast(s, "Eliminate the Impossible", U=1, C=1)
     assert pt_of(s, bear) == (0, 2) and "menace" not in chars(s, bear).keywords
     assert [c.controller for c in s.state.cards.values() if c.name == "Clue" and c.zone.endswith(":battlefield")] == ["p1"]
+    check(s)
+
+
+def test_aura_barbs_enchantments_hit_their_controllers_then_auras_their_creatures(cards):
+    """Holy Strength (on Alice's Grizzly Bears, now 3/4) and Bob's Propaganda each deal 2 to their controller; then Holy Strength deals 2 to the bear."""
+    s = build(cards, ["Aura Barbs", "Holy Strength", "Grizzly Bears"], ["Propaganda"])
+    bear, strength = put_on(s, "Grizzly Bears"), put_on(s, "Holy Strength")
+    act(s, "p1", type="attach", card_ids=[strength.id], to=bear.id)
+    put_on(s, "Propaganda", "p2")
+    cast(s, "Aura Barbs", R=1, C=2)
+    assert life(s) == 38 and life(s, "p2") == 38 and s.state.cards[bear.id].damage == 2
+    check(s)
+
+
+def test_bakis_curse_two_damage_per_aura_on_each_creature(cards):
+    """Grizzly Bears with Holy Strength and Pacifism (3/4): 4 damage, it dies; Llanowar Elves, no Aura: none."""
+    s = build(cards, ["Baki's Curse", "Holy Strength", "Pacifism", "Grizzly Bears", "Llanowar Elves"], [])
+    bear, elves = put_on(s, "Grizzly Bears"), put_on(s, "Llanowar Elves")
+    for name in ("Holy Strength", "Pacifism"):
+        act(s, "p1", type="attach", card_ids=[put_on(s, name).id], to=bear.id)
+    cast(s, "Baki's Curse", U=2, C=2)
+    assert zone(s, bear) == "p1:graveyard" and zone(s, elves) == "p1:battlefield" and s.state.cards[elves.id].damage == 0
     check(s)

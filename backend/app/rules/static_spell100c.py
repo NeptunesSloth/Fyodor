@@ -752,7 +752,18 @@ def _eliminate_the_impossible() -> Parsed | None:
     return [*clue[0], *pump[0], {"do": "unsuspect100c", "who": pump[0][0]["who"]}], None, False
 
 
+def _aura_barbs() -> Parsed | None:
+    own = _plain("Each enchantment deals 2 damage to its controller.")
+    if own is None or len(own[0]) != 1:
+        return None
+    # two damage events in order (608.2c), each enchantment / Aura its own source (120.3)
+    return [*own[0], {**own[0][0], "src": "each:" + _sel("Aura attached to a creature"), "to": "attached100c"}], None, False
+
+
 BUILDERS: dict[str, Callable[[], Parsed | None]] = {
+    "Each enchantment deals 2 damage to its controller, then each Aura attached to a creature deals 2 damage to the creature it's attached to.": _aura_barbs,
+    # one damage event (120.3), each creature's own amount counted as it resolves (608.2h)
+    "~ deals 2 damage to each creature for each Aura attached to that creature.": lambda: ([{"do": "aura_damage100c", "n": 2}], None, False),
     "Investigate. Creatures your opponents control get -2/-0 until end of turn. If any of them are suspected, they're no longer suspected.":
         _eliminate_the_impossible,
     "Until end of turn, target non-Brushwagg creature gets +1/+1 for each supertype, card type, and subtype it has.":
@@ -1139,5 +1150,19 @@ def unsuspect(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
     return True
 
 
-PRIMITIVES = {"unsuspect100c": unsuspect, "type_pump100c": type_pump, "thirds100c": thirds, "edict_each100c": edict_each, "one_more_spell100c": one_more_spell, "power_cap100c": power_cap, "if_coalition100c": if_coalition, "if_mv_upto_graveyard100c": if_mv_upto_graveyard, "roles_each100c": roles_each, "if_more_life100c": if_more_life, "hand_excess100c": hand_excess, "lose_all_counters100c": lose_all_counters, "edict_kinds100c": edict_kinds, "draw_for_revealed100c": draw_for_revealed,
+def aura_damage(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
+    """"~ deals N damage to each creature for each Aura attached to that creature": one damage instruction per creature, joined (with_next)."""
+    from app.rules import context, selectors
+
+    you, src = ctx["controller"], ctx.get("source_card")
+    auras = [plan.state.cards[c].attached_to for c in selectors.candidates(plan, selectors.from_key(_sel("Aura")), you, src)]
+    hits = [(c, auras.count(c)) for c in selectors.candidates(plan, selectors.from_key(_sel("creature")), you, src) if c in auras]
+    at = ctx["next"]
+    for i, (cid, k) in enumerate(hits):
+        context.bind_objects(plan, ctx, f"baki100c_{at}_{i}", [cid])
+        ctx["effects"][at + i:at + i] = [{"do": "damage", "who": f"ref:baki100c_{at}_{i}", "n": int(e["n"]) * k, "with_next": i < len(hits) - 1}]
+    return True
+
+
+PRIMITIVES = {"aura_damage100c": aura_damage, "unsuspect100c": unsuspect, "type_pump100c": type_pump, "thirds100c": thirds, "edict_each100c": edict_each, "one_more_spell100c": one_more_spell, "power_cap100c": power_cap, "if_coalition100c": if_coalition, "if_mv_upto_graveyard100c": if_mv_upto_graveyard, "roles_each100c": roles_each, "if_more_life100c": if_more_life, "hand_excess100c": hand_excess, "lose_all_counters100c": lose_all_counters, "edict_kinds100c": edict_kinds, "draw_for_revealed100c": draw_for_revealed,
               "draw_for_controllers100c": draw_for_controllers}

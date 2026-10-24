@@ -760,7 +760,8 @@ def _damage_hits(plan: Plan, ctx: Context, e: dict[str, Any]) -> list[tuple[_Sou
                 # (wave 4E: "Each creature deals damage to itself equal to its power": its own damage, to itself;
                 # "… to each other creature": other than the creature dealing it)
                 keys = [plan.state.cards[sid].controller] if e.get("to") == "controller" else \
-                    [sid] if e["who"] == "itself" else [*_other_than(plan, ctx, e, cards, sid), *players]  # (wave 24D: "to its controller")
+                    [str(plan.state.cards[sid].attached_to)] if e.get("to") == "attached100c" else \
+                    [sid] if e["who"] == "itself" else [*_other_than(plan, ctx, e, cards, sid), *players]  # (wave 24D: "to its controller"; wave 100C: "to the creature it's attached to")
                 hits += [(_card_source(plan, sid), key, each) for key in keys]
         return hits
     if e.get("src_many"):
