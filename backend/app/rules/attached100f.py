@@ -344,9 +344,11 @@ def _stasis_body(body: str) -> tuple[list[dict[str, Any]], Any, bool] | None:
     return effects, got[1], got[2]
 
 
-# Same meaning, wording the grammar reads: "choose up to one target creature. That creature …" (Atomic Microsizer) is the target of the ability (115.1, 601.2c)
+# Same meaning, wording the grammar reads: "choose up to one target creature. That creature …" (Atomic Microsizer) is the target of the ability (115.1, 601.2c);
+# "Enchanted creature's owner shuffles it into their library." (Watery Grasp): into its owner's library, which that player shuffles (401.3, 701.24)
 _SAME = {"choose up to one target creature. that creature can't be blocked this turn and has base power and toughness 1/1 until end of turn.":
-         "Up to one target creature can't be blocked this turn. It has base power and toughness 1/1 until end of turn."}
+         "Up to one target creature can't be blocked this turn. It has base power and toughness 1/1 until end of turn.",
+         "enchanted creature's owner shuffles it into their library.": "Shuffle enchanted creature into its owner's library."}
 
 
 # "At the beginning of each player's upkeep, that player may pay {R}{R} or 2 life. If the player does, they gain control of this creature." (Emberwilde

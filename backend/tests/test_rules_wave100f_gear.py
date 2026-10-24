@@ -19,6 +19,8 @@ load (tests/wave9c_kit.check).
 * 613.1b, 724: "The monarch controls enchanted creature." (Fealty to the Realm): whoever is the monarch now.
 * 605.4a: Elvish Guidance adds an additional {G} for each Elf on the battlefield (any player's), counted as the land is tapped.
 * 509.1: Arc Spitter's granted ability targets only a creature that's blocking the equipped creature.
+* 701.24, 401.3: Watery Grasp: "Enchanted creature's owner shuffles it into their library."
+* 509.1c, 702.103: Noble Quarry: every creature able to block it (as a creature) or the creature it enchants (bestowed) must.
 """
 
 from __future__ import annotations
@@ -34,7 +36,7 @@ from tests.test_rules_wave100f_control import EXTRA, answer, card_db, cast, ch, 
 from tests.wave9c_kit import build, check, life, mana, put, to_hand
 
 CARDS = ["The Spear of Bashenga", "Fall from Favor", "Latulla's Orders", "Draconic Destiny", "Deathrender", "Holy Avenger", "Serra Bestiary", "Observed Stasis", "Atomic Microsizer",
-         "Tony Stark // The Invincible Iron Man", "Emberwilde Djinn", "Inventory Management", "Ajani's Chosen", "Aura Graft", "Custody Battle", "Captivating Glance", "Fealty to the Realm", "Elvish Guidance", "Arc Spitter"]
+         "Tony Stark // The Invincible Iron Man", "Emberwilde Djinn", "Inventory Management", "Ajani's Chosen", "Aura Graft", "Custody Battle", "Captivating Glance", "Fealty to the Realm", "Elvish Guidance", "Arc Spitter", "Watery Grasp", "Noble Quarry"]
 
 
 @pytest.mark.parametrize("name", CARDS)
@@ -356,4 +358,45 @@ def test_arc_spitter_pings_a_creature_blocking_the_equipped_creature(cards):
     act(s, "p1", type="activate_ability", card_id=giant.id, ability=ab.index, targets=[corpse.id])
     answer(s)
     assert s.state.cards[corpse.id].damage == 1
+    check(s)
+
+
+# -- Watery Grasp -------------------------------------------------------------------------------------------------------------------------------------
+def test_watery_grasp_shuffles_the_creature_into_its_owners_library(cards):
+    s = build(cards, ["Watery Grasp"], ["Hill Giant"])
+    giant = put(s, "Hill Giant", "p2")
+    aura = cast(s, "Watery Grasp", [giant.id])
+    ab = next(x for x in ch(s, aura).abilities if x.text.startswith("Waterbend"))
+    mana(s, C=5)
+    act(s, "p1", type="activate_ability", card_id=aura.id, ability=ab.index)
+    answer(s)
+    assert zone(s, giant) == "p2:library" and zone(s, aura) == "p1:graveyard"
+    check(s)
+
+
+# -- Noble Quarry ---------------------------------------------------------------------------------------------------------------------------------------
+@pytest.mark.parametrize("bestow", [False, True])
+def test_noble_quarry_lures_every_able_blocker(cards, bestow):
+    from app.rules import alt_costs
+    from app.rules.plan import Plan
+
+    s = build(cards, ["Noble Quarry", "Hill Giant"], ["Walking Corpse", "Grizzly Bears"])
+    corpse, bear = put(s, "Walking Corpse", "p2"), put(s, "Grizzly Bears", "p2")
+    if bestow:
+        attacker = put(s, "Hill Giant")
+        quarry = to_hand(s, "Noble Quarry")
+        offer = next(o.key for o in alt_costs.offers(s.state, "p1", quarry, Plan(s.state, "p1", s.cards, None).ch(quarry), s.cards) if o.tag == "bestow")
+        mana(s, G=1, C=5)
+        act(s, "p1", type="cast_spell", card_id=quarry.id, alt_cost=offer, targets=[attacker.id])
+        answer(s)
+        assert s.state.cards[quarry.id].attached_to == attacker.id
+    else:
+        attacker = put(s, "Noble Quarry")
+    to_phase(s, "main1", turn=3)
+    attack(s, attacker)
+    while (d := s.state.rules.decision) is None or d.kind != "declare_blockers":
+        act(s, s.state.rules.priority, type="pass_priority")
+    with pytest.raises(ActionError, match="if able"):
+        act(s, "p2", type="declare_blockers", blocks=[{"blocker_id": corpse.id, "attacker_id": attacker.id}])
+    act(s, "p2", type="declare_blockers", blocks=[{"blocker_id": b.id, "attacker_id": attacker.id} for b in (corpse, bear)])
     check(s)

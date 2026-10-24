@@ -303,6 +303,8 @@ def parse(text: str) -> Definition | None:
                   lambda m: f"{m['c'] or ''}{'~' if m['o'] in ('~', 'this creature') else m['o'].capitalize()} must be blocked by all {m['w']} able",
                   body)
     body = re.sub(r"(?P<sep>, and| and|,) all creatures able to block it do so$", r"\g<sep> must be blocked by all creatures able", body)
+    if body in ("All creatures able to block this creature or enchanted creature do so", "All creatures able to block ~ or enchanted creature do so"):  # -- attached (wave 100F) -- Noble Quarry (bestow, 702.103): 509.1c, on
+        return _definition(UNION + json.dumps([UNION_SELF, UNION_HOST]), None, [], rules=["lure"])  # itself while a creature, on what it enchants while an Aura
     # -- counters (wave 44C) -- 510.1a: "If Loot's power is negative, he assigns combat damage as though his power were positive." (Loot, the Anomaly)
     body = re.sub(r"^If ~'s power is negative, (?:he|she|it|~) assigns combat damage as though (?:his|her|its|~'s) power were positive$",
                   "~ assigns combat damage as though its power were positive", body)
@@ -813,6 +815,7 @@ _EACH_TWO = re.compile(r"^(?P<d>Each|All) (?P<a>[A-Za-z][\w'-]*(?: [a-z][\w'-]*)
 # noun is shared), "Artifact creatures and Heroes you control" (Cid: so is "you control"), "White creatures and blue creatures", "Saproling creatures and other
 # Treefolk creatures". Only where no single selector reads the whole phrase ("creatures and lands you control" is one selector: a list of types, 205.2a).
 UNION_SELF = "self"
+UNION_HOST = "attached"  # (wave 100F: the creature the source is attached to)
 _UNION_SELF = re.compile(r"^(?:~|it) and (?P<g>[a-z][\w' -]*? (?:you control|your opponents control))$", re.IGNORECASE)
 _UNION_NOUN = re.compile(r"^(?P<pre>[Oo]ther )?(?P<a>[A-Z][a-z'\-]+|snow) and (?P<b>[A-Z][a-z'\-]+|snow) (?P<n>creatures|permanents)(?P<s> you control| your opponents control)?$")
 _UNION_NP = re.compile(r"^(?P<a>[A-Za-z][\w' -]*?) and (?P<b>(?:other )?[A-Za-z][\w' -]*?)(?P<s> you control| your opponents control)?$")
@@ -1524,7 +1527,8 @@ def applies(plan: Plan, d: Definition, *, source: CardInstance, controller: str,
         if kind == "planeswalker" and "Planeswalker" not in ch.types:
             return False
     elif who.startswith(UNION):  # -- static wordings (wave 6E) -- either group
-        if not any(card.id == source.id if k == UNION_SELF else selectors.matches(plan, selectors.from_key(k), card, ch, controller, source.id)
+        if not any(card.id == source.id if k == UNION_SELF else (source.attached_to == card.id and ch.is_creature) if k == UNION_HOST
+                   else selectors.matches(plan, selectors.from_key(k), card, ch, controller, source.id)
                    for k in _union_keys(who)):  # (wave 36B: "self" — the source itself, "Dion and other Knights you control")
             return False
     elif not selectors.matches(plan, selectors.from_key(who), card, ch, controller, source.id):
