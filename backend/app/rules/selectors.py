@@ -2272,6 +2272,9 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
         return False
     if "mana_ability" in sel.extras and not any(a.kind == "mana" for a in ch.abilities):  # (wave 45D)
         return False
+    if "level_up100j" in sel.extras and not any(a.kind == "activated" and re.fullmatch(r"(?:\{[^}]+\})+: Put a level counter on this creature\. Activate only as a sorcery\.", a.text)
+                                                for a in ch.abilities):  # -- counters (wave 100J) -- "with level up": 702.87a, as levelers.rewrite writes it
+        return False
     if "phyrexian_cost100e" in sel.extras and "/P}" not in (ch.mana_cost or ""):  # -- xdamage (wave 100E) -- "a spell with {H} in its mana cost" (Rage Extractor): a Phyrexian mana symbol of any color (107.4f)
         return False
     if "tap_ability" in sel.extras and not any(a.kind in ("activated", "mana") and "{T}" in (a.cost or "") for a in ch.abilities):  # (wave 52D)
@@ -2296,6 +2299,8 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
             if ref_value is None:
                 return False
             n = ref_value
+        elif n == "counters100j":  # -- counters (wave 100J) -- "the number of counters among permanents you control" (every kind, 122.1)
+            n = sum(sum(c.counters.values()) for c in plan.state.cards.values() if c.zone.endswith(":battlefield") and c.controller == you and plan.in_game(c))
         elif n == YOUR_HAND:  # (wave 51G)
             n = len(plan.state.zones.get(f"{you}:hand", []))
         elif n == "your_life100c":  # -- static spells (wave 100C) -- "power greater than or equal to your life total" (Blazing Hope)

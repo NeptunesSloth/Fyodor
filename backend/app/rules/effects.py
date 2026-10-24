@@ -6937,3 +6937,8 @@ from app.rules import static_spell100c as _static_spell100c  # noqa: E402
 
 PRIMITIVES.update(_static_spell100c.PRIMITIVES)
 RESUME.update(_triggers100a.RESUME)
+# -- counters (wave 100J) -- (app/rules/counters100j.py)
+from app.rules import counters100j as _counters100j  # noqa: E402
+
+PRIMITIVES.update(_counters100j.PRIMITIVES)
+RESUME.update(_counters100j.RESUME)
