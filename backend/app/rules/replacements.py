@@ -105,6 +105,10 @@ def entry_plan(plan: Plan, card: CardInstance, controller: str, **kw: Any) -> di
     chosen_forms95.ensure(plan, card, controller, kw.get("answers") or {})
     card = entry_characteristics.probe(card, kw.pop("entry_characteristics", None))
     out = _entry_plan(plan, card, controller, **kw)
+    # -- static permanents (wave 100D) -- "As ~ enters, discard your hand." (614.1c, 614.12)
+    from app.rules import static_perm100d
+
+    static_perm100d.plan_entry(plan, card, controller, out)
     from app.rules import numeric_entry_roll42
 
     if (receipt := numeric_entry_roll42.current_receipt(plan, card, kw.get("answers"))) is not None:
@@ -787,6 +791,9 @@ def move_together(plan: Plan, entries: list[Entry], *, simultaneous: dict[str, A
         from app.rules import devour
 
         devour.sacrifice(plan, ep, entry["player"])
+        from app.rules import static_perm100d  # -- static permanents (wave 100D) -- 614.12: done as it enters
+
+        static_perm100d.as_enters(plan, _card.id, ep, entry["player"])
         from app.rules import amplify  # -- casting extras (wave 18E) -- 702.38a: revealed as it enters
 
         amplify.reveal(plan, ep, entry["player"])

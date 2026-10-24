@@ -1138,6 +1138,9 @@ def resolve_top_of_stack(plan: Plan) -> None:
     from app.rules import devour  # -- keyword mechanics (wave 9D) -- 702.82a
 
     devour.sacrifice(plan, ep, controller)
+    from app.rules import static_perm100d  # -- static permanents (wave 100D) -- 614.12: done as it enters
+
+    static_perm100d.as_enters(plan, top_id, ep, controller)
     from app.rules import amplify  # -- casting extras (wave 18E) -- 702.38a
 
     amplify.reveal(plan, ep, controller)

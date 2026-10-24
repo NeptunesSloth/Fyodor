@@ -5817,6 +5817,10 @@ def _first_time_gate(text: str) -> str:
 
 def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     """The engine definition of one ability, or None (manual)."""
+    from app.rules import static_perm100d  # -- static permanents (wave 100D) --
+
+    if (perm100d := static_perm100d.definition(ability, ch)) is not None:
+        return perm100d
     from app.rules import zone_exchanges94
 
     if (zone94 := zone_exchanges94.definition(ability, ch)) is not None:
