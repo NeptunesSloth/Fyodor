@@ -105,7 +105,7 @@ SELF_FLASH_IF = re.compile(r"^you may cast (?:this spell|~) as though it had fla
 # Effects: "Your opponents can't cast spells this turn." / "Target player can't cast spells this turn." / "Players can't cast
 # noncreature spells this turn." / "Until your next turn, your opponents can't cast spells from anywhere other than their hands."
 EFFECT_CAST = re.compile(rf"^(?:(?P<lead>until your next turn|until the end of your next turn|this turn), )?(?P<who>your opponents|opponents|players|each player|each opponent|"
-                         rf"target player|target opponent|its controller) can't cast {_SPELLS}{_FROM}{_ACT}(?: (?P<when>this turn|until your next turn|until the end of your next turn|during that player's next turn))?$")  # (wave 32C: Single Combat)
+                         rf"target player|target opponent|its controller|you) can't cast {_SPELLS}{_FROM}{_ACT}(?: (?P<when>this turn|until your next turn|until the end of your next turn|during that player's next turn))?$")  # (wave 32C: Single Combat)
 # -- trigger lines (wave 100A) -- "Each opponent can't cast instant or sorcery spells during that player's next turn." (Azor, the Lawbringer; Sphinx's
 # Decree): each player's own next turn — the next one that player actually takes (723.1's reading of "that player's next turn"), never the current
 # one; the official rulings: several such effects all apply to that same turn. ``until`` "their_next100a"; ``during`` is set as that turn begins.
@@ -470,7 +470,7 @@ def _effect_cast(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     if act not in (None, "loyalty"):
         raise ValueError("only loyalty abilities")  # (an effect's other activation limits aren't read)
     who = {"your opponents": "each_opponent", "opponents": "each_opponent", "each opponent": "each_opponent", "players": "each_player", "each player": "each_player",
-           "target player": "target", "target opponent": "target", "its controller": "it.controller"}[m["who"]]  # (wave 51C: Render Silent)
+           "target player": "target", "target opponent": "target", "its controller": "it.controller", "you": "you"}[m["who"]]  # (wave 51C: Render Silent; wave 100B: "you", Innocuous Researcher)
     sel = {"target player": "player", "target opponent": "opponent"}.get(m["who"])
     until = "end_of_next_turn" if "end of your next turn" in (lead or when or "") else "next_turn" if "next turn" in (lead or when or "") else "turn"
     if when == "during that player's next turn":  # -- trigger lines (wave 100A) -- (each player named: "that player" is each of them)

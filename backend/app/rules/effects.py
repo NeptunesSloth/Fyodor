@@ -4133,12 +4133,12 @@ def describe(effects: list[dict[str, Any]]) -> str:
              "surveil": "surveil {n}", "damage": "deal {n} damage", "player_counter": "get {n} {counter}",
              "create_token": "create {n} token(s)", "add_counters": "put {n} {kind} counter(s)", "proliferate": "proliferate",
              "monarch": "become the monarch", "discard": "discard {n}", "search": "search your library",
-             "demonstrate_copy": "copy it, and an opponent copies it too (demonstrate)"}
+             "demonstrate_copy": "copy it, and an opponent copies it too (demonstrate)", "return_card": "return it", "attach_to": "attach it"}  # (wave 100B: Auriok Survivors)
     # (an amount that is worked out as it resolves — "equal to its mana value", X — reads as X, not as its data)
     parts = [("discard any number" if e["do"] == "discard" else f"sacrifice up to {e['n']}" if isinstance(e.get("n"), int) and e["n"] < 10**6  # (wave 100B: "up to three")
               else "sacrifice any number") if e["do"] in ("discard", "sacrifice_choice") and e.get("upto")
              else words.get(e["do"], e["do"]).format(**{k: "X" if isinstance(v, (dict, list)) else v for k, v in e.items()}) for e in effects
-             if e["do"] not in ("kicked_gate", "record_action", "action_gate", "only_if", "note_resolution", "reflexive", "demonstrate_opponent")]  # (wave 30G: "any number")
+             if e["do"] not in ("kicked_gate", "record_action", "action_gate", "only_if", "note_resolution", "reflexive", "demonstrate_opponent", "may_rest")]  # (wave 30G: "any number")
     return (", ".join(parts) or "do it").capitalize()
 
 

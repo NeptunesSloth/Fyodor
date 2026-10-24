@@ -25,7 +25,7 @@ if TYPE_CHECKING:
 WHAT = "devour"
 DONE = "done"
 _PIECE = re.compile(r"devour (?:(?P<q>land|artifact|food) )?(?P<n>\d+)")
-_QUALITY_WORD = {None: "creature", "land": "land", "artifact": "artifact", "food": "Food"}
+_QUALITY_WORD = {None: "creature", "land": "land", "artifact": "artifact", "food": "Food", "creature_pw": "creature or planeswalker"}
 
 
 def pieces(line: str) -> list[tuple[str | None, int]]:
@@ -44,8 +44,20 @@ def supported(line: str) -> bool:
     return len(pieces(line)) == 1
 
 
+# -- if you do (wave 100B) -- Devouring Hellion: "As this creature enters, you may sacrifice any number of creatures and/or planeswalkers. If you do,
+# it enters with twice that many +1/+1 counters on it." Devour 2 for both kinds (702.82a; the 2019-05-03 rulings: only permanents already there)
+HELLION = "As ~ enters, you may sacrifice any number of creatures and/or planeswalkers. If you do, it enters with twice that many +1/+1 counters on it."
+
+
+def static100b(ability: Any, ch: Any) -> dict[str, Any] | None:
+    from app.rules import scripts
+
+    return {"kind": "static", "static": "devour100b", "effects": []} if ability.kind == "static" and scripts.self_text(ability.text, ch.name) == HELLION else None
+
+
 def spec(ch: Any) -> tuple[str | None, int] | None:
     found = [p for ab in ch.abilities if ab.kind == "keywords" and "devour" in ab.keywords for p in pieces(ab.text)]
+    found += [("creature_pw", 2) for ab in ch.abilities if static100b(ab, ch) is not None]
     return found[0] if len(found) == 1 else None
 
 
@@ -67,7 +79,7 @@ def _matches(plan: Plan, cid: str, quality: str | None) -> bool:
 
     ch = chars.of(plan.state.cards[cid], plan.info)
     return {None: ch.is_creature, "land": ch.is_land, "artifact": "Artifact" in ch.types,
-            "food": "Food" in ch.subtypes}[quality]
+            "food": "Food" in ch.subtypes, "creature_pw": ch.is_creature or "Planeswalker" in ch.types}[quality]
 
 
 def candidates(plan: Plan, card: CardInstance, controller: str, quality: str | None, taken: set[str]) -> list[str]:

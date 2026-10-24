@@ -5859,6 +5859,10 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
 
     if (cda100c := static_spell100c.definition(ability, ch)) is not None:  # -- static spells (wave 100C) -- "Ghostfire is colorless."
         return cda100c
+    from app.rules import devour, first_reveal100b  # -- if you do (wave 100B) --
+
+    if (reveal100b := first_reveal100b.definition(ability, ch) or devour.static100b(ability, ch)) is not None:
+        return reveal100b
     from app.rules import zone_exchanges94
 
     if (zone94 := zone_exchanges94.definition(ability, ch)) is not None:
