@@ -112,6 +112,21 @@ def _vault12() -> Parsed | None:
     return [{**p[0][0], "n": {"player_counters": "rad", "of": "all"}}], p[1], False
 
 
+def _each_color(kind: str, tail: str = "") -> Any:
+    """All Suns' Dawn, Rogues' Gallery: "for each color, up to one target card of that color" — five target groups, one per color (601.2c),
+    each card chosen once (the official ruling: two white-and-blue cards, one as the white card and one as the blue one), its color checked
+    again as it resolves (608.2b)."""
+    def build() -> Parsed | None:
+        from app.rules import static_spell100c
+
+        colors = ("white", "blue", "black", "red", "green")
+        p = static_spell100c._seq(*(f"Return up to one target {c} {kind} from your graveyard to your hand." for c in colors), *([tail] if tail else []))
+        if p is None or not isinstance(p[1], list) or len(p[1]) != 5:
+            return None
+        return p[0], [{**g, "distinct_from": list(range(i))} if i else g for i, g in enumerate(p[1])], False
+    return build
+
+
 def _nightmares() -> Parsed | None:
     """Nightmares and Daydreams I-III: a delayed trigger until your next turn (603.7, 500.4); its target chosen each time it triggers (603.3d),
     "that spell" the spell whose casting triggered it (603.7c), its mana value as it is on the stack (202.3e)."""
@@ -246,10 +261,39 @@ def resume_choose_greatest(plan: Any, d: Any, chosen: list[str]) -> None:
     effects.continue_effects(plan, d.resume["ctx"])
 
 
-PRIMITIVES = {"named100g": named, "choose_greatest100g": choose_greatest, "loyalty_twice100g": loyalty_twice, "face_down_looked100g": face_down_looked, "top_or_bottom100g": top_or_bottom}
-RESUME = {"choose_greatest100g": resume_choose_greatest, "face_down_looked100g": resume_face_down_looked, "top_or_bottom100g": resume_top_or_bottom}
+def choose_event(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Zurgo and Ojutai: "you may return one of those Dragons" — none or one of the trigger's batch (the Dragons that dealt the damage) still on
+    the battlefield, chosen as it resolves (the official ruling: not targeted) — bound as ``as`` for the bounce after it."""
+    from app.game.rules_state import DecisionOption
+    from app.rules import context
+    from app.rules.plan import decide
+
+    those = sorted(c for c in context.objects(plan, ctx, context.EVENT) if plan.state.cards[c].zone.endswith(":battlefield"))
+    context.bind_objects(plan, ctx, e["as"], [])
+    if not those:
+        return True
+    decide(plan, player=ctx["controller"], kind="choose_cards", prompt=f"{ctx.get('name') or 'It'}: you may choose one of them to return to its owner's hand",
+           options=[DecisionOption(id=c, label=plan.state.cards[c].name or "Creature", card_id=c) for c in those], min_choices=0, max_choices=1,
+           resume={"step": "choose_event100g", "ctx": ctx, "e": e, "those": those})
+    return False
+
+
+def resume_choose_event(plan: Any, d: Any, chosen: list[str]) -> None:
+    from app.game.errors import ActionError
+    from app.rules import context, effects
+
+    if len(chosen) > 1 or not set(chosen) <= set(d.resume["those"]):
+        raise ActionError("Choose at most one of those creatures")
+    context.bind_objects(plan, d.resume["ctx"], d.resume["e"]["as"], chosen)
+    effects.continue_effects(plan, d.resume["ctx"])
+
+
+PRIMITIVES = {"named100g": named, "choose_greatest100g": choose_greatest, "choose_event100g": choose_event, "loyalty_twice100g": loyalty_twice, "face_down_looked100g": face_down_looked, "top_or_bottom100g": top_or_bottom}
+RESUME = {"choose_greatest100g": resume_choose_greatest, "choose_event100g": resume_choose_event, "face_down_looked100g": resume_face_down_looked, "top_or_bottom100g": resume_top_or_bottom}
 
 _BUILT = {
+    "For each color, return up to one target card of that color from your graveyard to your hand. Exile ~.": _each_color("card", "Exile ~."),
+    "For each color, return up to one target creature card of that color from your graveyard to your hand.": _each_color("creature card"),
     "Create X 2/2 black Zombie Mutant creature tokens, where X is the total number of rad counters among players.": _vault12,
     "Target nontoken creature becomes a 6/6 legendary Horror creature named Fenric and loses all abilities.": _fenric,
     "Until your next turn, whenever you cast an instant or sorcery spell, target player mills cards equal to that spell's mana value.": _nightmares,
@@ -399,6 +443,23 @@ _AS: dict[str, tuple[str, Any]] = {
     "At the beginning of your upkeep, sacrifice this token and return target card named Rekindling Phoenix from your graveyard to the battlefield. "
     "It gains haste until end of turn.": ("At the beginning of your upkeep, sacrifice this creature. Return target card named Rekindling Phoenix from "
                                           "your graveyard to the battlefield. It gains haste until end of turn.", None),
+    # Zurgo and Ojutai: the look as the native line, then the optional return of one of the Dragons of the batch (choose_event100g)
+    "Whenever one or more Dragons you control deal combat damage to a player or battle, look at the top three cards of your library. Put one of them "
+    "into your hand and the rest on the bottom of your library in any order. You may return one of those Dragons to its owner's hand.": (
+        "Whenever one or more Dragons you control deal combat damage to a player or battle, look at the top three cards of your library. Put one of "
+        "them into your hand and the rest on the bottom of your library in any order.",
+        lambda d: {**d, "effects": [*d["effects"], {"do": "choose_event100g", "as": "zurgo100g"}, {"do": "bounce", "who": "ref:zurgo100g"}]}),
+    # Woodcaller Automaton: the land's base power and toughness set (layer 7b, 613.4b) to the Automaton's as the ability resolves, or as it last
+    # existed (the official ruling; 608.2h) — 3/3 when cast prototyped (702.160)
+    "When this creature enters, if you cast it, untap target land you control. It becomes a Treefolk creature with haste and base power and "
+    "toughness equal to this creature's power and toughness. It's still a land.": (
+        "When this creature enters, if you cast it, untap target land you control. It becomes a 3/3 Treefolk creature with haste. It's still a land.",
+        lambda d: {**d, "effects": [{**e, "p": {"power": "self"}, "t": {"toughness": "self"}} if e.get("do") == "become" and (e.get("p"), e.get("t")) == (3, 3)
+                                    else e for e in d["effects"]]}),
+    # Imperial Mask: 102.3: teammates are the other players of a team; the engine's Commander game is Free-for-All (903.2, 806: no teams), so
+    # nobody creates a token — the ability still triggers (603.4, not a token) and does nothing
+    "When this enchantment enters, if it's not a token, each of your teammates creates a token that's a copy of this enchantment.": (
+        "When this enchantment enters, if it's not a token, draw a card.", lambda d: {**d, "effects": []} if d.get("if") else None),
     # Olivia, Crimson Bride: "you don't control a legendary Vampire" is "you control no legendary Vampires" (a state trigger of the creature, 603.8)
     "Whenever Olivia attacks, return target creature card from your graveyard to the battlefield tapped and attacking. It gains \"When you don't "
     "control a legendary Vampire, exile this creature.\"": ("Whenever ~ attacks, return target creature card from your graveyard to the battlefield "

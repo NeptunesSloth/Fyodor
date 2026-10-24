@@ -28,6 +28,7 @@ EXTRA = [
     real("Probe Companion", "{1}{W}", 2, "Creature — Human", "Doctor's companion", ("1", "1"), "W"),
     real("Probe Wall", "{1}{W}", 2, "Creature — Wall", "Defender", ("0", "4"), "W"),
     real("Probe Tall", "{1}{W}", 2, "Creature — Elf", "", ("1", "3"), "W"),
+    real("Probe WU", "{W}{U}", 2, "Creature — Human", "", ("2", "2"), "WU"),
     real("Probe Twin", "{4}{G}", 5, "Creature — Beast", "", ("5", "5"), "G"),
     real("Probe Huge", "{6}{G}", 7, "Creature — Beast", "", ("7", "7"), "G"),
 ]
@@ -102,7 +103,9 @@ PROMOTED = ["Genju of the Realm", "Return of the Nightstalkers", "Vengeful Regro
             "Mutagen Connoisseur", "Jason Bright, Glowing Prophet", "Harvest Wurm", "The Curse of Fenric", "Nightmares and Daydreams",
             "Urza Assembles the Titans", "Write into Being", "Hide in Plain Sight",
             "Guardian Scalelord", "Olivia, Crimson Bride", "Reef Worm", "Rekindling Phoenix", "Ozox, the Clattering King",
-            "Vault 12: The Necropolis", "Fall of the Impostor", "Braids's Frightful Return"]
+            "Vault 12: The Necropolis", "Fall of the Impostor", "Braids's Frightful Return",
+            "Zurgo and Ojutai", "Imperial Mask", "All Suns' Dawn", "Rogues' Gallery",
+            "Woodcaller Automaton"]
 
 
 @pytest.mark.parametrize("name", PROMOTED)
@@ -628,4 +631,60 @@ def test_braids_frightful_return_three_sacrifice_or_lose_and_draw(cards, pays):
         assert where(s, finks) != "p2:battlefield" and s.state.players["p2"].life == life
     else:
         assert s.state.players["p2"].life == life - 2 and len(s.state.zones["p1:hand"]) == hand + 1
+    check(s)
+
+
+@pytest.mark.parametrize("bounce", [False, True])
+def test_zurgo_and_ojutai_may_return_one_of_the_dragons(cards, bounce):
+    s = build(cards, ["Zurgo and Ojutai"])
+    zurgo = put(s, "Zurgo and Ojutai")
+    top = lib(s)[:3]
+    hand = len(s.state.zones["p1:hand"])
+
+    def pick(d):
+        ids = [o.id for o in d.options]
+        if ids == [zurgo.id]:
+            return [zurgo.id] if bounce else []
+        return None
+
+    attack(s, 1, [zurgo], pick=pick)  # haste
+    to_step(s, "main2", 1, pick=pick)
+    assert len([c for c in top if where(s, s.state.cards[c]) == "p1:hand"]) == 1 and set(lib(s)[-2:]) <= set(top)
+    assert where(s, zurgo) == ("p1:hand" if bounce else "p1:battlefield")
+    assert len(s.state.zones["p1:hand"]) == hand + 1 + (1 if bounce else 0)
+    check(s)
+
+
+def test_imperial_mask_has_no_teammates_in_commander(cards):
+    s = build(cards, ["Imperial Mask"])
+    cast_it(s, "Imperial Mask", W=1, C=4)
+    assert len([c for c in s.state.cards.values() if c.name == "Imperial Mask"]) == 1  # 903.2: Free-for-All, nobody gets a copy
+    check(s)
+
+
+def test_all_suns_dawn_one_card_per_color_each_chosen_once(cards):
+    s = build(cards, ["All Suns' Dawn", "Probe WU", "Grizzly Bears"])
+    wu, bears = gy(s, card_named(s, "Probe WU")), gy(s, card_named(s, "Grizzly Bears"))
+    mana(s, G=1, C=4)
+    dawn = to_hand(s, "All Suns' Dawn")
+    with pytest.raises(ActionError):  # the white-and-blue card as both the white and the blue card
+        act(s, "p1", type="cast_spell", card_id=dawn.id, targets=[wu.id, wu.id], target_counts=[1, 1, 0, 0, 0])
+    with pytest.raises(ActionError):  # a green card isn't the white one
+        act(s, "p1", type="cast_spell", card_id=dawn.id, targets=[bears.id], target_counts=[1, 0, 0, 0, 0])
+    act(s, "p1", type="cast_spell", card_id=dawn.id, targets=[wu.id, bears.id], target_counts=[0, 1, 0, 0, 1])
+    run(s)
+    assert where(s, wu) == where(s, bears) == "p1:hand" and where(s, dawn) == "p1:exile"
+    check(s)
+
+
+def test_woodcaller_automaton_prototyped_makes_a_3_3_treefolk_land(cards):
+    s = build(cards, ["Woodcaller Automaton"])
+    land = put(s, "Forest")
+    act(s, "p1", type="tap", card_ids=[land.id])
+    mana(s, G=2, C=2)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Woodcaller Automaton").id, prototype=True)
+    run(s)
+    c = s.state.cards[land.id]
+    ch = Plan(s.state, "p1", s.cards, None).ch(c)
+    assert not c.tapped and ch.is_creature and ch.is_land and "Treefolk" in ch.subtypes and ch.pt == (3, 3) and "haste" in ch.keywords
     check(s)
