@@ -177,6 +177,8 @@ def _keywords_line(line: str) -> tuple[str, ...] | None:
         return ("protection",)
     if re.fullmatch(r"kicker—(?:\{[^}]+\})+, [^;{}]+", line.strip(), re.IGNORECASE):  # -- keywords (wave 50H) -- 702.33a: "Kicker—{2}{R}, Sacrifice a land." is one keyword (its cost has two parts)
         return ("kicker",)
+    if re.fullmatch(r"(?i:equip)—(?:\{[^}]+\})+, [^;{}]+|Equip [A-Z][a-z]+(?:, [A-Z][a-z]+)+,? or [A-Z][a-z]+ (?:\{[^}]+\})+", line.strip()):
+        return ("equip",)  # -- static permanents (wave 100D) -- 702.6a-b: "Equip—{2}, Pay 2 life.", "Equip Shaman, Warlock, or Wizard {1}": one keyword
     if re.fullmatch(r"eternalize—\{[^;]+", line.strip(), re.IGNORECASE):  # -- keywords (wave 49C) -- 702.129a: "Eternalize—{2}{W}{W}, Discard a card." is one keyword (its cost has two parts)
         return ("eternalize",)
     if re.fullmatch(r"companion\s*—.+", line.strip(), re.IGNORECASE):  # -- companion (wave 38D) -- 702.139a: one keyword (Kaheera's condition lists creature types)

@@ -739,6 +739,7 @@ def _layer4(ch: Characteristics, effects: list[ContinuousEffect],
                     types = frozenset(l4["set_types"]) | (types & frozenset({"Instant", "Sorcery"}))
                 types = (types - frozenset(l4.get("remove_types") or ())) | frozenset(l4.get("add_types") or ())  # 205.1b
                 supers = supers | frozenset(l4.get("add_supertypes") or ())
+                supers = supers - frozenset(l4.get("remove_supertypes") or ())  # -- static permanents (wave 100D) -- "no longer snow" (Melting, 205.4)
                 if l4.get("set_creature_types") is not None:
                     known = LAND_TYPES | ARTIFACT_TYPES | ENCHANTMENT_TYPES | SPELL_TYPES | BATTLE_TYPES
                     subtypes = frozenset(s for s in subtypes if s in known) | frozenset(l4["set_creature_types"])

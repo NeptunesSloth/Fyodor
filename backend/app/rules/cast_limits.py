@@ -895,6 +895,8 @@ def _act_hit(state: GameState, player: str, card: CardInstance, ch: Characterist
         from app.rules.plan import Plan
 
         return card_names.matches(Plan.view(state, src_controller, info), source, ch)
+    if act == "all":  # -- static permanents (wave 100D) -- every activated ability, mana abilities too (City of Solitude, 605.1a)
+        return True
     if act == "ace":
         return on_field and bool({"Artifact", "Creature", "Enchantment"} & set(ch.types))
     if act == "nonmana":

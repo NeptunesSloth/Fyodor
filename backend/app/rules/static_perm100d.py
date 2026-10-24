@@ -131,6 +131,8 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
         return {"kind": "static", "static": AS_ENTERS, "do": _AS_ENTERS[text], "effects": []}
     if (m := _ATTACH_ONLY.fullmatch(text)) is not None and "Equipment" in ch.subtypes:
         return {"kind": "static", "static": ATTACH_ONLY, "stat": m["stat"], "min": int(m["n"]), "effects": []}
+    if (rule := _rule_static(text, ch)) is not None:
+        return rule
     if text in ("~ can't be equipped.", "This creature can't be equipped.") and ch.is_creature:
         return {"kind": "static", "static": CANT_BE_EQUIPPED, "effects": []}
     if text == "You control enchanted artifact creature.":
@@ -272,3 +274,85 @@ def equip_problem(plan: Plan, source: CardInstance, host: CardInstance) -> str |
         if value is not None and value < int(d["min"]):  # (a value the engine can't read: never moved off on a guess)
             return f"it can be attached only to a creature with {d['stat']} {d['min']} or greater"
     return None
+
+
+# -- rule-modifying statics (wave 100D) ---------------------------------------------------------------------------------------
+# * "During your turn, you and ~ have hexproof." (Gruul Spellbreaker): 702.11b/c, a player's hexproof and the creature's, both only while it
+#   is its controller's turn (611.3a; player_shields._shields reads the grant's condition).
+# * "You can't play lands or cast spells from your hand." (Experimental Frenzy): 601.3, 305.1; other actions with those cards stay possible
+#   (cycling, bloodrush: ruling 2018-10-05). Lands from hand: engine.land_play_problem reads ``lands_from_hand``.
+# * "Players can cast spells and activate abilities only during their own turns." (City of Solitude): 601.3, 602.5 — mana abilities too (605.1a;
+#   ruling 2009-10-01), and abilities of cards that aren't on the battlefield (ruling 2004-10-04); triggered abilities are never activated.
+# * "All lands are no longer snow." (Melting): 205.4, 613.1d, a supertype removed in layer 4.
+# * "You can't choose an untapped permanent / creature as this spell's target as you cast it." (Dream Leash, Enthralling Hold): 601.2c, only the
+#   target chosen as the Aura spell is cast (``cast_aura``); on resolution, or when its target changes, the enchant ability alone counts, and an
+#   Aura put onto the battlefield without being cast is attached to any legal object (rulings 2005-10-01, 2020-06-23).
+TAPPED_TARGET = "tapped_target100d"
+
+
+def _rule_static(text: str, ch: Any) -> dict[str, Any] | None:
+    from app.rules import statics
+
+    if text == "During your turn, you and ~ have hexproof.":
+        own = statics.parse("During your turn, ~ has hexproof.")
+        ok = own is not None and own.get("static") == "grant" and own.get("conditions") == [{"static": "your_turn"}]
+        return {**own, "player_shield": "hexproof"} if ok and own is not None else None
+    if text == "You can't play lands or cast spells from your hand.":
+        return {"kind": "static", "static": "cast_limit", "who": "you", "when": None, "filter": None, "from": ["hand"], "act": None, "max": None,
+                "lands_from_hand": True, "effects": []}
+    if text == "Players can cast spells and activate abilities only during their own turns.":
+        return {"kind": "static", "static": "cast_limit", "who": "each", "when": "not_own_turn", "filter": None, "from": None, "act": "all", "max": None,
+                "effects": []}
+    if text == "All lands are no longer snow.":
+        from app.rules import type_statics
+
+        return type_statics._definition("lands", {"remove_supertypes": ["Snow"]})
+    m = re.fullmatch(r"If (?:this card|~) is in a graveyard, effects from spells named (?P<n>[^.]+) count it as a card named (?P=n)\.", text)
+    if m is not None:
+        return {"kind": "static", "static": COUNTS_AS, "name": m["n"], "effects": []}
+    if text == "Recover—Pay half your life, rounded up.":
+        return _recover_half()
+    m = re.fullmatch(r"You can't choose an untapped (?P<n>permanent|creature) as this spell's target as you cast it\.", text)
+    if m is not None and "Aura" in ch.subtypes:
+        return {"kind": "static", "static": TAPPED_TARGET, "noun": m["n"], "effects": []}
+    return None
+
+
+def cast_aura(ch: Any, aura: str | None) -> str | None:
+    """The selector the Aura spell ``ch`` targets with as it is cast (601.2c): its enchant selector, tapped ones only under TAPPED_TARGET."""
+    from app.rules import scripts, selectors
+
+    if aura is None or not any(d.get("static") == TAPPED_TARGET and d["noun"] == aura for d in scripts.definitions(ch).values()):
+        return aura
+    sel = selectors.parse(f"tapped {aura}")
+    return aura if sel is None else sel.key()
+
+
+# -- "effects from spells named N count it as a card named N" (Pardic Firecat, Diligent Farmhand) --------------------------------
+# 201.2, 404.1: while the card is in a graveyard, a count by a spell named N of "cards named N" (Flame Burst, Muscle Burst: the selector
+# extra ``named_self``, selectors.matches) includes it; for any other source it keeps its own name.
+COUNTS_AS = "counts_as100d"
+
+
+def counted_as(plan: Plan, source: str | None, card: CardInstance, ch: Any) -> bool:
+    from app.rules import scripts
+
+    src = plan.state.cards.get(source or "")
+    if src is None or src.zone != "stack" or src.ability is not None or not card.zone.endswith(":graveyard"):
+        return False
+    name = plan.ch(src).name
+    return any(d.get("static") == COUNTS_AS and d["name"] == name for d in scripts.definitions(ch).values())
+
+
+def _recover_half() -> dict[str, Any] | None:
+    """702.59a: "Recover—Pay half your life, rounded up." (Garza's Assassin) is recover's trigger with that cost (119.4: half a life total,
+    rounded up, can always be paid; 0 at 0 life)."""
+    import json
+
+    from app.rules import keyword_triggers
+
+    found = keyword_triggers._definition("recover {2}")
+    d = json.loads(found)[0] if found else None
+    if d is None or d["effects"][0].get("cost") != "{2}":
+        return None
+    return {**d, "effects": [{**d["effects"][0], "cost": "Pay half your life, rounded up"}, *d["effects"][1:]]}

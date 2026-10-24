@@ -2467,9 +2467,9 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
         if extra == "has_flashback" and not any(re.match(r"flashback\b", a.text, re.IGNORECASE) for a in ch.abilities):
             return False
         if extra.startswith("name:"):  # -- card names (wave 22B) -- 709.4a, a name chosen earlier in this resolution
-            from app.rules import card_names
+            from app.rules import card_names, static_perm100d  # (wave 100D: Pardic Firecat)
 
-            if not card_names.has_name(ch, extra[5:]):
+            if not card_names.has_name(ch, extra[5:]) and not static_perm100d.counted_as(plan, source, card, ch):
                 return False
         if extra.startswith("not_name:"):
             from app.rules import card_names

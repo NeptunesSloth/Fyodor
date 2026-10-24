@@ -69,7 +69,33 @@ EXTRA += [
     real('Mesmeric Sliver', '{3}{U}', 4, 'Creature — Sliver', 'All Slivers have "When this permanent enters, you may fateseal 1." (To fateseal 1, its controller looks at the top card of an opponent\'s library, then they may put that card on the bottom of that library.)', ("2", "2"), 'U'),
     real('Enduring Sliver', '{1}{W}', 2, 'Creature — Sliver', 'Outlast {2} ({2}, {T}: Put a +1/+1 counter on this creature. Outlast only as a sorcery.)\nOther Sliver creatures you control have outlast {2}.', ("2", "2"), 'W'),
 ]
-FULL = ["Mistform Sliver", "Mesmeric Sliver", "Enduring Sliver", "Case of the Stashed Skeleton", "Case of the Gateway Express", "Case of the Gorgon's Kiss", "Case of the Burning Masks", "Scourge of the Skyclaves", "Roiling Horror", "Angry Mob", "Alrund, God of the Cosmos // Hakka, Whispering Raven", "Heightened Awareness", "Overlaid Terrain", "Full Moon's Rise", "O-Naginata", "Gate Smasher", "Goblin Brawler", "Domineer", "Awaken the Ancient", "Gideon, the Oathsworn", "Dovin, Architect of Law",
+EXTRA += [
+    real('Gruul Spellbreaker', '{1}{R}{G}', 3, 'Creature — Ogre Warrior', 'Riot (This creature enters with your choice of a +1/+1 counter or haste.)\nTrample\nDuring your turn, you and this creature have hexproof.', ('3', '3'), 'GR'),
+    real('Experimental Frenzy', '{3}{R}', 4, 'Enchantment', "You may look at the top card of your library any time.\nYou may play lands and cast spells from the top of your library.\nYou can't play lands or cast spells from your hand.\n{3}{R}: Destroy this enchantment.", None, 'R'),
+    real('City of Solitude', '{2}{G}', 3, 'Enchantment', 'Players can cast spells and activate abilities only during their own turns.', None, 'G'),
+    real('Melting', '{3}{R}', 4, 'Enchantment', 'All lands are no longer snow.', None, 'R'),
+    real('Dream Leash', '{3}{U}{U}', 5, 'Enchantment — Aura', "Enchant permanent\nYou can't choose an untapped permanent as this spell's target as you cast it.\nYou control enchanted permanent.", None, 'U'),
+    real('Enthralling Hold', '{3}{U}{U}', 5, 'Enchantment — Aura', "Enchant creature\nYou can't choose an untapped creature as this spell's target as you cast it.\nYou control enchanted creature.", None, 'U'),
+    real('Snow-Covered Forest', '', 0, 'Basic Snow Land — Forest', '({T}: Add {G}.)', None, ''),
+]
+EXTRA += [
+    real('Pardic Firecat', '{3}{R}', 4, 'Creature — Elemental Cat', 'Haste\nIf this card is in a graveyard, effects from spells named Flame Burst count it as a card named Flame Burst.', ('2', '3'), 'R'),
+    real('Diligent Farmhand', '{G}', 1, 'Creature — Human Druid', '{1}{G}, Sacrifice this creature: Search your library for a basic land card, put that card onto the battlefield tapped, then shuffle.\nIf this card is in a graveyard, effects from spells named Muscle Burst count it as a card named Muscle Burst.', ('1', '1'), 'G'),
+    real('Flame Burst', '{1}{R}', 2, 'Instant', 'Flame Burst deals X damage to any target, where X is 2 plus the number of cards named Flame Burst in all graveyards.', None, 'R'),
+    real('Muscle Burst', '{1}{G}', 2, 'Instant', 'Target creature gets +X/+X until end of turn, where X is 3 plus the number of cards named Muscle Burst in all graveyards.', None, 'G'),
+    real("Garza's Assassin", '{B}{B}{B}', 3, 'Creature — Human Assassin', 'Sacrifice this creature: Destroy target nonblack creature.\nRecover—Pay half your life, rounded up. (When another creature is put into your graveyard from the battlefield, you may pay half your life, rounded up. If you do, return this card from your graveyard to your hand. Otherwise, exile this card.)', ('2', '2'), 'B'),
+    real('Robe of the Archmagi', '{2}{U}', 3, 'Artifact — Equipment', 'Whenever equipped creature deals combat damage to a player, you draw that many cards.\nEquip {4}\nEquip Shaman, Warlock, or Wizard {1}', None, 'U'),
+    card("My Precious // Allure of Power", set_code="tst", number="100D-precious", layout="adventure", mana_cost="{3} // {1}{B}", cmc=3.0,
+         type_line="Legendary Artifact — Equipment // Instant — Adventure", colors=[], color_identity=["B"], image_uris=None, card_faces=[
+             {"object": "card_face", "name": "My Precious", "mana_cost": "{3}", "type_line": "Legendary Artifact — Equipment",
+              "oracle_text": "Equipped creature has hexproof and can't be blocked.\nEquip—{2}, Pay 2 life."},
+             {"object": "card_face", "name": "Allure of Power", "mana_cost": "{1}{B}", "type_line": "Instant — Adventure",
+              "oracle_text": "As an additional cost to cast this spell, sacrifice a creature.\nDraw two cards."},
+         ]),
+]
+SINGLES = ["Pardic Firecat", "Diligent Farmhand", "Garza's Assassin", "Robe of the Archmagi", "My Precious // Allure of Power"]
+RULES = ["Gruul Spellbreaker", "Experimental Frenzy", "City of Solitude", "Melting", "Dream Leash", "Enthralling Hold"]
+FULL = [*SINGLES, *RULES, "Mistform Sliver", "Mesmeric Sliver", "Enduring Sliver", "Case of the Stashed Skeleton", "Case of the Gateway Express", "Case of the Gorgon's Kiss", "Case of the Burning Masks", "Scourge of the Skyclaves", "Roiling Horror", "Angry Mob", "Alrund, God of the Cosmos // Hakka, Whispering Raven", "Heightened Awareness", "Overlaid Terrain", "Full Moon's Rise", "O-Naginata", "Gate Smasher", "Goblin Brawler", "Domineer", "Awaken the Ancient", "Gideon, the Oathsworn", "Dovin, Architect of Law",
         "Ajani Unrelenting", "Nicol Bolas, Planeswalker", "Liliana, the Necromancer"]
 
 
@@ -571,3 +597,203 @@ def test_mesmeric_sliver_fateseals_one_as_a_sliver_enters(cards, bottom):
         act(s, "p1", type="choose", decision_id=d.id, option_ids=pick)
     assert s.state.zones["p2:library"] == (library[1:] + library[:1] if bottom else library)  # 701.29a
     check(s)
+
+
+# -- rule-modifying statics -------------------------------------------------------------------------------------------------
+def p2_priority(s):
+    act(s, "p2", type="set_prefs", full_control=True)
+    act(s, "p1", type="pass_priority")  # (Alice passes in her main phase: Bob has priority, 117.3d)
+    assert s.state.rules.priority == "p2"
+
+
+def test_gruul_spellbreaker_shields_you_and_itself_during_your_turn_only(cards):
+    from tests.test_rules_conditionals import until
+
+    s = build(cards, ["Gruul Spellbreaker"], ["Lightning Bolt"])
+    breaker = put(s, "Gruul Spellbreaker")
+    bolt = to_hand(s, "Lightning Bolt", "p2")
+    mana(s, "p2", R=1)
+    p2_priority(s)
+    for target in ("p1", breaker.id):  # 702.11c / 702.11b: not by an opponent's spell during your turn
+        with pytest.raises(ActionError):
+            act(s, "p2", type="cast_spell", card_id=bolt.id, targets=[target])
+    until(s, lambda s: s.state.turn.active_player == "p2" and s.state.turn.phase == "main1")
+    life = s.state.players["p1"].life
+    mana(s, "p2", R=1)
+    act(s, "p2", type="cast_spell", card_id=bolt.id, targets=["p1"])
+    settle(s)
+    assert s.state.players["p1"].life == life - 3  # (Bob's turn: no hexproof)
+    check(s)
+
+
+def test_experimental_frenzy_bars_the_hand_but_not_the_library_top(cards):
+    s = build(cards, ["Experimental Frenzy", "Grizzly Bears"])
+    put(s, "Experimental Frenzy")
+    bears = to_hand(s, "Grizzly Bears")
+    in_hand = to_hand(s, "Forest")
+    mana(s, G=2)
+    with pytest.raises(ActionError, match="Experimental Frenzy"):
+        act(s, "p1", type="cast_spell", card_id=bears.id)  # 601.3
+    with pytest.raises(ActionError, match="Experimental Frenzy"):
+        act(s, "p1", type="play_land", card_id=in_hand.id)  # 305.1
+    top = s.state.zones["p1:library"][0]
+    assert s.state.cards[top].name == "Forest"
+    act(s, "p1", type="play_land", card_id=top)  # (the top of the library: its own permission)
+    assert zone(s, s.state.cards[top]) == "p1:battlefield" and zone(s, bears) == "p1:hand"
+    check(s)
+
+
+def test_city_of_solitude_stops_spells_and_mana_abilities_on_other_turns(cards):
+    from tests.test_rules_conditionals import until
+
+    s = build(cards, ["City of Solitude", "Llanowar Elves"], ["Lightning Bolt"])
+    put(s, "City of Solitude")
+    elves = put(s, "Llanowar Elves")
+    island = card_named(s, "Island", "p2")
+    act(s, "p2", type="move", card_ids=[island.id], to={"player": "p2", "zone": "battlefield"})
+    bolt = to_hand(s, "Lightning Bolt", "p2")
+    mana(s, "p2", R=1)
+    p2_priority(s)
+    with pytest.raises(ActionError, match="City of Solitude"):
+        act(s, "p2", type="cast_spell", card_id=bolt.id, targets=[elves.id])  # 601.3: not Bob's turn
+    with pytest.raises(ActionError, match="City of Solitude"):
+        act(s, "p2", type="activate_ability", card_id=island.id, ability=0)  # a mana ability too (ruling 2009-10-01)
+    until(s, lambda s: s.state.turn.active_player == "p2" and s.state.turn.phase == "main1")
+    act(s, "p2", type="activate_ability", card_id=island.id, ability=0)  # his own turn
+    assert s.state.cards[island.id].tapped
+    mana(s, "p2", R=1)
+    act(s, "p1", type="set_prefs", full_control=True)
+    act(s, "p2", type="cast_spell", card_id=bolt.id, targets=[elves.id])
+    from tests.test_rules_wave34b_activated import priority_to
+
+    priority_to(s, "p1")
+    assert s.state.zones.get("stack")  # (the Bolt is still on the stack, with Alice holding priority)
+    with pytest.raises(ActionError, match="City of Solitude"):
+        act(s, "p1", type="activate_ability", card_id=elves.id, ability=0)  # (Alice's elf, on Bob's turn)
+    settle(s)
+    assert zone(s, elves) == "p1:graveyard"
+    check(s)
+
+
+def test_melting_takes_snow_away_from_every_land(cards):
+    s = build(cards, ["Melting", "Snow-Covered Forest"], ["Snow-Covered Forest"])
+    mine, theirs = put(s, "Snow-Covered Forest"), put(s, "Snow-Covered Forest", "p2")
+    assert "Snow" in derived(s, mine).supertypes
+    put(s, "Melting")
+    for land in (mine, theirs):
+        ch = derived(s, land)
+        assert "Snow" not in ch.supertypes and "Basic" in ch.supertypes and "Forest" in ch.subtypes  # 205.4: only snow goes
+    check(s)
+
+
+def test_dream_leash_targets_only_a_tapped_permanent_as_it_is_cast(cards):
+    s = build(cards, ["Dream Leash"], ["Sol Ring"])
+    ring = put(s, "Sol Ring", "p2")
+    leash = to_hand(s, "Dream Leash")
+    mana(s, U=2, C=3)
+    with pytest.raises(ActionError):
+        act(s, "p1", type="cast_spell", card_id=leash.id, targets=[ring.id])  # 601.2c: untapped
+    act(s, "p2", type="tap", card_ids=[ring.id], tapped=True)
+    act(s, "p1", type="cast_spell", card_id=leash.id, targets=[ring.id])
+    settle(s)
+    assert s.state.cards[leash.id].attached_to == ring.id and s.state.cards[ring.id].controller == "p1"
+    check(s)
+
+
+def test_enthralling_hold_still_resolves_if_its_target_untaps(cards):
+    s = build(cards, ["Enthralling Hold"], ["Grizzly Bears"])
+    bears = put(s, "Grizzly Bears", "p2")
+    act(s, "p2", type="tap", card_ids=[bears.id], tapped=True)
+    hold = to_hand(s, "Enthralling Hold")
+    mana(s, U=2, C=3)
+    act(s, "p1", type="cast_spell", card_id=hold.id, targets=[bears.id])
+    act(s, "p2", type="tap", card_ids=[bears.id], tapped=False)  # (ruling 2020-06-23: only the choice as it is cast)
+    settle(s)
+    assert s.state.cards[hold.id].attached_to == bears.id and s.state.cards[bears.id].controller == "p1"
+    check(s)
+
+
+# -- single cards: named counts, recover, equip costs --------------------------------------------------------------------------
+@pytest.mark.parametrize("where", ["graveyard", "battlefield"])
+def test_pardic_firecat_counts_as_flame_burst_only_in_a_graveyard(cards, where):
+    s = build(cards, ["Pardic Firecat", "Flame Burst"])
+    cat = card_named(s, "Pardic Firecat")
+    act(s, "p1", type="move", card_ids=[cat.id], to={"player": "p1", "zone": where})
+    ogre = token_of(s, "p2", "Ogre", "Token Creature — Ogre", "5/5")
+    burst = to_hand(s, "Flame Burst")
+    mana(s, R=1, C=1)
+    act(s, "p1", type="cast_spell", card_id=burst.id, targets=[ogre.id])
+    settle(s)
+    assert s.state.cards[ogre.id].damage == (3 if where == "graveyard" else 2)  # 2 plus the cards named Flame Burst in all graveyards
+    check(s)
+
+
+def test_diligent_farmhand_counts_for_muscle_burst_and_not_for_flame_burst(cards):
+    s = build(cards, ["Diligent Farmhand", "Muscle Burst", "Flame Burst"])
+    act(s, "p1", type="move", card_ids=[card_named(s, "Diligent Farmhand").id], to={"zone": "graveyard"})
+    bear = token_of(s, "p1", "Bear", "Token Creature — Bear", "2/2")
+    muscle = to_hand(s, "Muscle Burst")
+    mana(s, G=1, C=1)
+    act(s, "p1", type="cast_spell", card_id=muscle.id, targets=[bear.id])
+    settle(s)
+    assert pt(s, "Bear") == (6, 6)  # 3 plus the Farmhand (the Muscle Burst itself is still on the stack)
+    ogre = token_of(s, "p2", "Ogre", "Token Creature — Ogre", "5/5")
+    flame = to_hand(s, "Flame Burst")
+    mana(s, R=1, C=1)
+    act(s, "p1", type="cast_spell", card_id=flame.id, targets=[ogre.id])
+    settle(s)
+    assert s.state.cards[ogre.id].damage == 2  # (it counts only for spells named Muscle Burst)
+    check(s)
+
+
+@pytest.mark.parametrize("pay", [True, False])
+def test_garzas_assassin_recovers_for_half_your_life(cards, pay):
+    from tests.test_rules_conditionals import until
+
+    s = build(cards, ["Garza's Assassin", "Murder", "Grizzly Bears"])
+    assassin = card_named(s, "Garza's Assassin")
+    act(s, "p1", type="move", card_ids=[assassin.id], to={"zone": "graveyard"})
+    bears = put(s, "Grizzly Bears")
+    set_life(s, "p1", 25)
+    murder = to_hand(s, "Murder")
+    mana(s, B=2, C=1)
+    act(s, "p1", type="cast_spell", card_id=murder.id, targets=[bears.id])
+    until(s, lambda s: s.state.rules.decision is not None)
+    d = s.state.rules.decision
+    assert d.player == "p1"
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=["pay" if pay else next(o.id for o in d.options if o.id != "pay")])
+    settle(s)
+    if pay:  # 119.4: half of 25, rounded up
+        assert s.state.players["p1"].life == 12 and zone(s, assassin) == "p1:hand"
+    else:  # 702.59a: otherwise, exile this card
+        assert s.state.players["p1"].life == 25 and zone(s, assassin) == "p1:exile"
+    check(s)
+
+
+def test_robe_of_the_archmagi_cheap_equip_needs_a_shaman_warlock_or_wizard(cards):
+    s = build(cards, ["Robe of the Archmagi"])
+    robe = put(s, "Robe of the Archmagi")
+    bear = token_of(s, "p1", "Bear", "Token Creature — Bear", "2/2")
+    warlock = token_of(s, "p1", "Warlock", "Token Creature — Human Warlock", "1/1")
+    mana(s, C=1)
+    with pytest.raises(ActionError):
+        act(s, "p1", type="activate_ability", card_id=robe.id, ability=2, targets=[bear.id])  # 702.6b: only that quality
+    act(s, "p1", type="activate_ability", card_id=robe.id, ability=2, targets=[warlock.id])
+    settle(s)
+    assert attached(s, robe) == warlock.id
+    equip(s, robe, 1, bear, C=4)  # Equip {4}: any creature you control
+    assert attached(s, robe) == bear.id
+    check(s)
+
+
+def test_my_precious_equip_costs_two_and_two_life(cards):
+    s = build(cards, ["My Precious // Allure of Power"])
+    precious = put(s, "My Precious // Allure of Power")
+    bear = token_of(s, "p1", "Bear", "Token Creature — Bear", "2/2")
+    life = s.state.players["p1"].life
+    equip(s, precious, 1, bear, C=2)
+    assert attached(s, precious) == bear.id and s.state.players["p1"].life == life - 2  # 702.6a: both parts paid
+    ch = derived(s, bear)
+    assert "hexproof" in ch.keywords
+    check(s)
+
