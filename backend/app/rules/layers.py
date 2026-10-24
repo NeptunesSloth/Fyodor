@@ -1653,9 +1653,12 @@ def _control_pass(plan: Plan) -> bool:
                 if oid in by_object:
                     entries.setdefault(by_object[oid], []).append(((e.object_seq, 1, e.timestamp), e.new_controller))
     for cid, c in battle.items():  # "You control enchanted creature." (a static: whatever it is attached to now, 611.3a)
-        if c.attached_to in battle and not c.face_down and c.controller in live and any(
-                d.get("static") == "control" for d in scripts.definitions(copiable(state, c, plan.info)).values()):
-            entries.setdefault(c.attached_to, []).append(((timestamp(state, cid), 0, 0), c.controller))
+        if c.attached_to in battle and not c.face_down and c.controller in live and (d := next(
+                (d for d in scripts.definitions(copiable(state, c, plan.info)).values() if d.get("static") == "control"), None)) is not None:
+            # (-- attached (wave 100F) -- "The monarch controls enchanted creature." (Fealty to the Realm): the monarch now, at the Aura's timestamp; none: no effect (the rulings))
+            who = state.table.monarch if d.get("to") == "monarch" else c.controller
+            if who is not None:
+                entries.setdefault(c.attached_to, []).append(((timestamp(state, cid), 0, 0), who))
     changed = False
     for cid in sorted(set(entries) | set(r.control_changed)):
         card = battle.get(cid)

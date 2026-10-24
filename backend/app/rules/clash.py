@@ -24,6 +24,7 @@ if TYPE_CHECKING:
 
 Context = dict[str, Any]
 STEP = "clash"
+CLASHED = "clashed"
 
 
 def _build(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
@@ -46,6 +47,9 @@ def clash(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
 
 def _reveal(plan: Plan, ctx: Context, opponent: str) -> bool:
+    from app.rules import context
+
+    context.bind_players(ctx, CLASHED, [opponent])  # -- attached (wave 100F) -- "Otherwise, that player …" (Captivating Glance): the opponent clashed with
     players = [p for p in plan.apnap() if p in (ctx["controller"], opponent)]
     cards: dict[str, str] = {}
     for p in players:

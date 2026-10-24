@@ -177,6 +177,9 @@ def parse(text: str) -> Definition | None:
                r"(loses all (?:other )?abilities)\.$", r"\1, \2, and \3.", t)
     t = re.sub(r"^(Enchanted land) is an? (\d+)/(\d+) ([^.]+? creature) that's still a land\.$",  # (wave 20A: Living Terrain, the same as Zendikon)
                r"\1 is a \4 with base power and toughness \2/\3 in addition to its other types.", t)
+    # -- attached (wave 100F) -- "Enchanted creature gets +1/+1 and has flying, haste, and "…". It's a Dragon in addition to its other types." (Draconic Destiny):
+    # "It" is the enchanted creature — one static, the subtype added in layer 4 (205.1b, 613.1d)
+    t = re.sub(r"^(Enchanted creature [^\".]*(?:\"[^\"]*\")?)\.? It's an? ([A-Z][a-z]+) in addition to its other types\.$", r"\1 and is a \2 in addition to its other types.", t)
     t = t.replace(" be activated unless they're mana abilities", " be activated-nonmana")  # ("unless" is not a condition here)
     t = re.sub(r"(?<=Vehicles)\. Its (activated abilities can't be activated-nonmana\.)$", r", and its \1", t)
     # -- attached events (wave 25D) -- 702.16n: "Enchanted creature has protection from black. This effect doesn't remove this Aura." (the Wards),
@@ -309,6 +312,9 @@ def parse(text: str) -> Definition | None:
     # block_by_all), not a condition; "has hexproof unless it's attacking or blocking" is "has hexproof as long as it isn't attacking or blocking" (611.3a)
     body = re.sub(r"^(?P<s>.+) can't be blocked unless all creatures defending player controls block (?:it|~)$", r"\g<s> can't be blocked by fewer than all creatures defending player controls", body)
     body = re.sub(r"^(?P<s>~|It) (?P<v>has|have) (?P<k>[a-z ]+?) unless it's (?P<c>attacking or blocking|attacking|blocking)$", r"\g<s> \g<v> \g<k> as long as it isn't \g<c>", body)
+    # -- attached (wave 100F) -- 502.3: "Enchanted creature doesn't untap during its controller's untap step unless that player is the monarch." (Fall from Favor):
+    # "that player" is the enchanted creature's controller, the monarch (724) or not as the untap step begins
+    body = re.sub(r"^(Enchanted creature doesn't untap during its controller's untap step unless) that player (is the monarch)$", r"\1 enchanted creature's controller \2", body)
     # -- keyword mechanics (wave 48B) -- 702.82b: "This creature has flying and trample if it devoured a creature." (Hellkite Hatchling) is "… as long as it devoured a creature" (611.3a)
     body = re.sub(r"^(?P<s>~) (?P<v>has|have) (?P<k>[a-z ]+?) if (?P<c>it devoured an? creature)$", r"\g<s> \g<v> \g<k> as long as \g<c>", body)
     # -- borrowed abilities (wave 18F) -- "As long as ~ is on the battlefield, …": a static of a permanent works there only (611.3b)
@@ -1181,7 +1187,10 @@ RULES.update({"can block creatures with shadow as though it had shadow": ("block
 RULES.update({"can block as though it were untapped": ("block_tapped",), "can block as though they were untapped": ("block_tapped",)})
 # -- attached (wave 100F) -- 302.6: "Enchanted creature can attack as though it had haste." (Instill Energy): only attacking, not its {T} abilities
 # (app/rules/combat.py ``attack_problem``); 506.5: "… can only attack alone." (Errantry): the self rule of declaration_groups, imposed on what it enchants
-RULES.update({"can attack as though it had haste": ("attack_as_haste",), "can only attack alone": ("declaration_group:attack:alone",)})
+RULES.update({"can attack as though it had haste": ("attack_as_haste",), "can only attack alone": ("declaration_group:attack:alone",),
+              "can't become suspected": ("cant_be_suspected",),  # (701.60: keyword_actions.suspect, the one way a creature becomes suspected — Airtight Alibi)
+              # 602.5: "… and its activated abilities with {T} in their costs can't be activated." (Serra Bestiary): mana abilities too (605.1a), not crew (702.122a: no {T})
+              "can't attack or block, and its activated abilities with {T} in their costs can't be activated": ("cant_attack_or_block", "cant_activate_tap")})
 
 
 def _rule(piece: str) -> list[str] | None:

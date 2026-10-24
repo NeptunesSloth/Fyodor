@@ -51,6 +51,9 @@ def definition(text: str) -> dict[str, Any] | None:
         options = [list(pair) for pair in combinations_with_replacement(COLORS, 2)]
     elif what == "one mana of the chosen color":
         options = [["CHOSEN"]]  # -- most-played cards (wave 43B) -- the color the Aura chose as it entered (614.12a), read in ``_extras``
+    elif (each := re.fullmatch(r"\{([WUBRGC])\} for each ([A-Z][a-z]+) on the battlefield", what)) is not None:
+        # -- attached (wave 100F) -- "an additional {G} for each Elf on the battlefield" (Elvish Guidance): counted as the land is tapped (605.3b, 605.4a), in ``_extras``
+        return {"kind": "triggered", "trigger": "tapped_for_mana", "extra": [[each[1]]], "per": each[2], "optional": False, "target": None, "effects": []}
     else:
         return None
     return {"kind": "triggered", "trigger": "tapped_for_mana", "extra": options, "optional": False, "target": None,
@@ -81,6 +84,15 @@ def _extras(state: GameState, card: CardInstance, info: CardInfo) -> list[tuple[
                     if color is None:
                         continue
                     out.append(([[color]], output_producer(state, info, c.id, {})))
+                elif d.get("per"):
+                    from app.rules import selectors
+                    from app.rules.plan import Plan
+
+                    view, kind = Plan.view(state, card.controller, info), selectors.Selector(subtypes=(d["per"],))
+                    n = sum(1 for x in state.cards.values() if x.zone.endswith(":battlefield") and view.in_game(x)
+                            and selectors.matches(view, kind, x, view.ch(x), card.controller, c.id))
+                    if n:
+                        out.append(([d["extra"][0] * n], output_producer(state, info, c.id, {})))
                 else:
                     out.append((d["extra"], output_producer(state, info, c.id, {})))
     return out

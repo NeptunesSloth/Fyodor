@@ -71,7 +71,7 @@ FULL = ["Sword of Feast and Famine", "Spirit Mantle", "Lavaspur Boots", "Kenrith
         "Amorphous Axe", "Ghoulflesh", "Sinister Strength", "Viridian Longbow", "Paradise Mantle",
         "Song of the Dryads", "Flickering Ward", "Super-Soldier Serum", "Witness Protection"]  # (wave 30S: its attach trigger, tests/test_rules_wave30s_attach_effects.py; wave 25D: the chosen color is the Aura's own recorded choice; wave 22A: a basic land type set, 305.7: tests/test_rules_wave22a_layers.py)
 STILL_MANUAL = {
-    "Elvish Guidance": "for each Elf",  # a counted extra
+    # (-- attached (wave 100F) -- Elvish Guidance's counted extra is read now: tests/test_rules_wave100f_gear.py)
     "Curse of Bounty": "untaps all nonland permanents they control",  # (not "does the same")
 }
 

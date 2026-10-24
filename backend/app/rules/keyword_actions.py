@@ -416,8 +416,13 @@ def suspect(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     cards = [c for c in effects._cards(plan, ctx, e["who"]) if plan.state.cards[c].zone.endswith(":battlefield")
              and plan.ch(plan.state.cards[c]).is_creature]
     effects._remember(plan, ctx, e, cards)
+    from app.rules import scripts
+
     for cid in cards:
         oid = plan.oid(cid)
+        if "cant_be_suspected" in scripts.statics(plan.ch(plan.state.cards[cid])):  # -- attached (wave 100F) -- "can't become suspected" (Airtight Alibi; 614.17)
+            plan.note(f"{plan.state.cards[cid].name} can't become suspected", [cid], actor=ctx["controller"])
+            continue
         if oid not in plan.rules.suspected:
             plan.rules.suspected.append(oid)
             plan.do({"type": "add_effect", "card_ids": [cid], "name": "Suspected", "value": "Suspected",

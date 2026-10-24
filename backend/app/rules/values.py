@@ -1080,6 +1080,9 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
     if "for_player" in v:  # -- value grammar (wave 23C) -- "the number of cards in that player's graveyard": the count as that one player's ("you" of the phrase)
         from app.rules import context
 
+        if v["for_player"] == "host_controller":  # -- attached (wave 100F) -- "each tapped creature its controller controls" (Observed Stasis): the enchanted creature's
+            got = _object(plan, ctx, "host")  # controller, as it is now (608.2h)
+            return evaluate(plan, {**ctx, "controller": got[0].controller}, v["of"]) if got is not None else 0
         if v["for_player"] not in ("target", "event") and not re.fullmatch(r"target:\d+", v["for_player"]):
             raise ValueError(f"unbound player in {v!r}")  # (scripts binds "that_player" / "target_player" / "target_opponent" or refuses the line)
         players = _target_players(plan, ctx, v["for_player"]) if v["for_player"] != "event" else context.players(plan, ctx, context.EVENT)
