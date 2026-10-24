@@ -1,0 +1,951 @@
+[
+ {
+  "name": "Minsc & Boo, Timeless Heroes",
+  "layout": "normal",
+  "mana_cost": "{2}{R}{G}",
+  "cmc": 4.0,
+  "type_line": "Legendary Planeswalker — Minsc",
+  "oracle_text": "When Minsc & Boo enters and at the beginning of your upkeep, you may create Boo, a legendary 1/1 red Hamster creature token with trample and haste.\n+1: Put three +1/+1 counters on up to one target creature with trample or haste.\n−2: Sacrifice a creature. When you do, Minsc & Boo deals X damage to any target, where X is that creature's power. If the sacrificed creature was a Hamster, draw X cards.\nMinsc & Boo, Timeless Heroes can be your commander.",
+  "colors": [
+   "G",
+   "R"
+  ],
+  "color_identity": [
+   "G",
+   "R"
+  ],
+  "keywords": [],
+  "loyalty": "3",
+  "all_parts": [
+   {
+    "id": "0149b45d-b7d4-46bf-ba3a-5137e93ea607",
+    "component": "combo_piece",
+    "name": "Minsc & Boo, Timeless Heroes",
+    "type_line": "Legendary Planeswalker — Minsc"
+   },
+   {
+    "id": "0d0475e9-68ae-4553-a5ef-650091e04967",
+    "component": "token",
+    "name": "Boo",
+    "type_line": "Token Legendary Creature — Hamster"
+   }
+  ]
+ },
+ {
+  "name": "Ajani, Nacatl Pariah // Ajani, Nacatl Avenger",
+  "layout": "transform",
+  "mana_cost": "{1}{W} // ",
+  "cmc": 2.0,
+  "type_line": "Legendary Creature — Cat Warrior // Legendary Planeswalker — Ajani",
+  "oracle_text": "When Ajani enters, create a 2/1 white Cat Warrior creature token.\nWhenever one or more other Cats you control die, you may exile Ajani, then return him to the battlefield transformed under his owner's control.\n//\n+2: Put a +1/+1 counter on each Cat you control.\n0: Create a 2/1 white Cat Warrior creature token. When you do, if you control a red permanent other than Ajani, he deals damage equal to the number of creatures you control to any target.\n−4: Each opponent chooses an artifact, a creature, an enchantment, and a planeswalker from among the nonland permanents they control, then sacrifices the rest.",
+  "colors": [
+   "R",
+   "W"
+  ],
+  "color_identity": [
+   "R",
+   "W"
+  ],
+  "keywords": [
+   "Transform"
+  ],
+  "power": "1",
+  "toughness": "2",
+  "card_faces": [
+   {
+    "name": "Ajani, Nacatl Pariah",
+    "mana_cost": "{1}{W}",
+    "type_line": "Legendary Creature — Cat Warrior",
+    "oracle_text": "When Ajani enters, create a 2/1 white Cat Warrior creature token.\nWhenever one or more other Cats you control die, you may exile Ajani, then return him to the battlefield transformed under his owner's control.",
+    "power": "1",
+    "toughness": "2",
+    "colors": [
+     "W"
+    ],
+    "image_uris": {
+     "small": "https://cards.scryfall.io/small/front/0/d/0d16e8e0-31b2-4389-afd6-783c501f6fa0.jpg?1791803778",
+     "normal": "https://cards.scryfall.io/normal/front/0/d/0d16e8e0-31b2-4389-afd6-783c501f6fa0.jpg?1791803778",
+     "large": "https://cards.scryfall.io/large/front/0/d/0d16e8e0-31b2-4389-afd6-783c501f6fa0.jpg?1791803778",
+     "art_crop": "https://cards.scryfall.io/art_crop/front/0/d/0d16e8e0-31b2-4389-afd6-783c501f6fa0.jpg?1791803778"
+    }
+   },
+   {
+    "name": "Ajani, Nacatl Avenger",
+    "mana_cost": "",
+    "type_line": "Legendary Planeswalker — Ajani",
+    "oracle_text": "+2: Put a +1/+1 counter on each Cat you control.\n0: Create a 2/1 white Cat Warrior creature token. When you do, if you control a red permanent other than Ajani, he deals damage equal to the number of creatures you control to any target.\n−4: Each opponent chooses an artifact, a creature, an enchantment, and a planeswalker from among the nonland permanents they control, then sacrifices the rest.",
+    "loyalty": "3",
+    "colors": [
+     "R",
+     "W"
+    ],
+    "image_uris": {
+     "small": "https://cards.scryfall.io/small/back/0/d/0d16e8e0-31b2-4389-afd6-783c501f6fa0.jpg?1791803778",
+     "normal": "https://cards.scryfall.io/normal/back/0/d/0d16e8e0-31b2-4389-afd6-783c501f6fa0.jpg?1791803778",
+     "large": "https://cards.scryfall.io/large/back/0/d/0d16e8e0-31b2-4389-afd6-783c501f6fa0.jpg?1791803778",
+     "art_crop": "https://cards.scryfall.io/art_crop/back/0/d/0d16e8e0-31b2-4389-afd6-783c501f6fa0.jpg?1791803778"
+    }
+   }
+  ],
+  "all_parts": [
+   {
+    "id": "f897d650-f1a2-4366-a025-f12c10310d96",
+    "component": "combo_piece",
+    "name": "Ajani, Nacatl Pariah // Ajani, Nacatl Avenger",
+    "type_line": "Legendary Creature — Cat Warrior // Legendary Planeswalker — Ajani"
+   },
+   {
+    "id": "ce5c5bcf-1fdd-4d73-a92b-223292da00ca",
+    "component": "token",
+    "name": "Cat Warrior",
+    "type_line": "Token Creature — Cat Warrior"
+   }
+  ]
+ },
+ {
+  "name": "Foray of Orcs",
+  "layout": "normal",
+  "mana_cost": "{3}{R}",
+  "cmc": 4.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Amass Orcs 2. When you do, Foray of Orcs deals X damage to target creature an opponent controls, where X is the amassed Army's power. (To amass Orcs 2, put two +1/+1 counters on an Army you control. It's also an Orc. If you don't control an Army, create a 0/0 black Orc Army creature token first.)",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Amass"
+  ],
+  "all_parts": [
+   {
+    "id": "43cddad8-b5ca-4b8f-a73c-38809ef279d6",
+    "component": "combo_piece",
+    "name": "Foray of Orcs",
+    "type_line": "Sorcery"
+   },
+   {
+    "id": "6943f966-fd21-427c-a13f-44727edcaa4b",
+    "component": "token",
+    "name": "Orc Army",
+    "type_line": "Token Creature — Orc Army"
+   }
+  ]
+ },
+ {
+  "name": "Widespread Brutality",
+  "layout": "normal",
+  "mana_cost": "{1}{B}{R}{R}",
+  "cmc": 4.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Amass Zombies 2, then the Army you amassed deals damage equal to its power to each non-Army creature. (To amass Zombies 2, put two +1/+1 counters on an Army you control. It's also a Zombie. If you don't control an Army, create a 0/0 black Zombie Army creature token first.)",
+  "colors": [
+   "B",
+   "R"
+  ],
+  "color_identity": [
+   "B",
+   "R"
+  ],
+  "keywords": [
+   "Amass"
+  ],
+  "all_parts": [
+   {
+    "id": "97715d22-f432-4f67-b4ea-47b8fe6edca5",
+    "component": "combo_piece",
+    "name": "Widespread Brutality",
+    "type_line": "Sorcery"
+   },
+   {
+    "id": "12742d1f-eb2e-4262-88e2-403c9ae6c431",
+    "component": "token",
+    "name": "Zombie Army",
+    "type_line": "Token Creature — Zombie Army"
+   }
+  ]
+ },
+ {
+  "name": "Surrounded by Orcs",
+  "layout": "normal",
+  "mana_cost": "{3}{U}",
+  "cmc": 4.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Amass Orcs 3, then target player mills X cards, where X is the amassed Army's power. (To amass Orcs 3, put three +1/+1 counters on an Army you control. It's also an Orc. If you don't control an Army, create a 0/0 black Orc Army creature token first.)",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "Amass",
+   "Mill"
+  ],
+  "all_parts": [
+   {
+    "id": "6943f966-fd21-427c-a13f-44727edcaa4b",
+    "component": "token",
+    "name": "Orc Army",
+    "type_line": "Token Creature — Orc Army"
+   },
+   {
+    "id": "aeacbeae-b9cd-4622-b686-cfa85e184e12",
+    "component": "combo_piece",
+    "name": "Surrounded by Orcs",
+    "type_line": "Sorcery"
+   }
+  ]
+ },
+ {
+  "name": "Pumpkin Bombs",
+  "layout": "normal",
+  "mana_cost": "{1}{R}",
+  "cmc": 2.0,
+  "type_line": "Artifact",
+  "oracle_text": "{T}, Discard two cards: Draw three cards, then put a fuse counter on this artifact. It deals damage equal to the number of fuse counters on it to target opponent. They gain control of this artifact.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Dragonspark Reactor",
+  "layout": "normal",
+  "mana_cost": "{1}{R}",
+  "cmc": 2.0,
+  "type_line": "Artifact",
+  "oracle_text": "Whenever this artifact or another artifact you control enters, put a charge counter on this artifact.\n{4}, Sacrifice this artifact: It deals damage equal to the number of charge counters on it to target player and that much damage to up to one target creature.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "The Royal Scions",
+  "layout": "normal",
+  "mana_cost": "{1}{U}{R}",
+  "cmc": 3.0,
+  "type_line": "Legendary Planeswalker — Will Rowan",
+  "oracle_text": "+1: Draw a card, then discard a card.\n+1: Target creature gets +2/+0 and gains first strike and trample until end of turn.\n−8: Draw four cards. When you do, The Royal Scions deals damage to any target equal to the number of cards in your hand.",
+  "colors": [
+   "R",
+   "U"
+  ],
+  "color_identity": [
+   "R",
+   "U"
+  ],
+  "keywords": [],
+  "loyalty": "5"
+ },
+ {
+  "name": "Mercy Killing",
+  "layout": "normal",
+  "mana_cost": "{2}{G/W}",
+  "cmc": 3.0,
+  "type_line": "Instant",
+  "oracle_text": "Target creature's controller sacrifices it, then creates X 1/1 green and white Elf Warrior creature tokens, where X is that creature's power.",
+  "colors": [
+   "G",
+   "W"
+  ],
+  "color_identity": [
+   "G",
+   "W"
+  ],
+  "keywords": [],
+  "all_parts": [
+   {
+    "id": "0ef5649d-10a4-44cc-b94a-9f2ee4c0aac7",
+    "component": "combo_piece",
+    "name": "Mercy Killing",
+    "type_line": "Instant"
+   },
+   {
+    "id": "cee23d72-2cd6-4133-98d1-c7b8da839408",
+    "component": "token",
+    "name": "Elf Warrior",
+    "type_line": "Token Creature — Elf Warrior"
+   }
+  ]
+ },
+ {
+  "name": "Infernal Genesis",
+  "layout": "normal",
+  "mana_cost": "{4}{B}{B}",
+  "cmc": 6.0,
+  "type_line": "Enchantment",
+  "oracle_text": "At the beginning of each player's upkeep, that player mills a card. Then they create X 1/1 black Minion creature tokens, where X is the milled card's mana value.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Mill"
+  ]
+ },
+ {
+  "name": "Wolfcaller's Howl",
+  "layout": "normal",
+  "mana_cost": "{3}{G}",
+  "cmc": 4.0,
+  "type_line": "Enchantment",
+  "oracle_text": "At the beginning of your upkeep, create X 2/2 green Wolf creature tokens, where X is the number of your opponents with four or more cards in hand.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [],
+  "all_parts": [
+   {
+    "id": "3e79f075-f663-4a23-8a56-2aa6164d23f6",
+    "component": "token",
+    "name": "Wolf",
+    "type_line": "Token Creature — Wolf"
+   },
+   {
+    "id": "f4bf2855-f5bf-4216-8123-576d6c5e1628",
+    "component": "combo_piece",
+    "name": "Wolfcaller's Howl",
+    "type_line": "Enchantment"
+   }
+  ]
+ },
+ {
+  "name": "Unexpectedly Absent",
+  "layout": "normal",
+  "mana_cost": "{X}{W}{W}",
+  "cmc": 2.0,
+  "type_line": "Instant",
+  "oracle_text": "Put target nonland permanent into its owner's library just beneath the top X cards of that library.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Quarry Colossus",
+  "layout": "normal",
+  "mana_cost": "{5}{W}{W}",
+  "cmc": 7.0,
+  "type_line": "Creature — Giant",
+  "oracle_text": "When this creature enters, put target creature into its owner's library just beneath the top X cards of that library, where X is the number of Plains you control.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [],
+  "power": "5",
+  "toughness": "6"
+ },
+ {
+  "name": "Commander's Insight",
+  "layout": "normal",
+  "mana_cost": "{X}{U}{U}{U}",
+  "cmc": 3.0,
+  "type_line": "Instant",
+  "oracle_text": "Target player draws X cards plus an additional card for each time they've cast a commander from the command zone this game.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Exponential Growth",
+  "layout": "normal",
+  "mana_cost": "{X}{X}{G}{G}",
+  "cmc": 2.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Until end of turn, double target creature's power X times.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [
+   "Double"
+  ]
+ },
+ {
+  "name": "Faerie Fencing",
+  "layout": "normal",
+  "mana_cost": "{X}{B}",
+  "cmc": 1.0,
+  "type_line": "Instant",
+  "oracle_text": "Target creature gets -X/-X until end of turn. That creature gets an additional -3/-3 until end of turn if you controlled a Faerie as you cast this spell.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Flunk",
+  "layout": "normal",
+  "mana_cost": "{1}{B}",
+  "cmc": 2.0,
+  "type_line": "Instant",
+  "oracle_text": "Target creature gets -X/-X until end of turn, where X is 7 minus the number of cards in that creature's controller's hand.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Winter Blast",
+  "layout": "normal",
+  "mana_cost": "{X}{G}",
+  "cmc": 1.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Tap X target creatures. Winter Blast deals 2 damage to each of those creatures with flying.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Aurelia's Fury",
+  "layout": "normal",
+  "mana_cost": "{X}{R}{W}",
+  "cmc": 2.0,
+  "type_line": "Instant",
+  "oracle_text": "Aurelia's Fury deals X damage divided as you choose among any number of targets. Tap each creature dealt damage this way. Players dealt damage this way can't cast noncreature spells this turn.",
+  "colors": [
+   "R",
+   "W"
+  ],
+  "color_identity": [
+   "R",
+   "W"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Huatli, Warrior Poet",
+  "layout": "normal",
+  "mana_cost": "{3}{R}{W}",
+  "cmc": 5.0,
+  "type_line": "Legendary Planeswalker — Huatli",
+  "oracle_text": "+2: You gain life equal to the greatest power among creatures you control.\n0: Create a 3/3 green Dinosaur creature token with trample.\n−X: Huatli deals X damage divided as you choose among any number of target creatures. Creatures dealt damage this way can't block this turn.",
+  "colors": [
+   "R",
+   "W"
+  ],
+  "color_identity": [
+   "R",
+   "W"
+  ],
+  "keywords": [],
+  "loyalty": "3",
+  "all_parts": [
+   {
+    "id": "1ccee594-e1e6-4a82-bc17-93bcdeb36198",
+    "component": "token",
+    "name": "Dinosaur",
+    "type_line": "Token Creature — Dinosaur"
+   },
+   {
+    "id": "a0cc61ba-e91a-4b30-841c-cae8dd288b40",
+    "component": "combo_piece",
+    "name": "Huatli, Warrior Poet",
+    "type_line": "Legendary Planeswalker — Huatli"
+   }
+  ]
+ },
+ {
+  "name": "Impact Resonance",
+  "layout": "normal",
+  "mana_cost": "{1}{R}",
+  "cmc": 2.0,
+  "type_line": "Instant",
+  "oracle_text": "Impact Resonance deals X damage divided as you choose among any number of target creatures, where X is the greatest amount of damage dealt by a source to a permanent or player this turn.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Pain for All",
+  "layout": "normal",
+  "mana_cost": "{2}{R}",
+  "cmc": 3.0,
+  "type_line": "Enchantment — Aura",
+  "oracle_text": "Enchant creature you control\nWhen this Aura enters, enchanted creature deals damage equal to its power to any other target.\nWhenever enchanted creature is dealt damage, it deals that much damage to each opponent.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Enchant"
+  ]
+ },
+ {
+  "name": "Alpha Brawl",
+  "layout": "normal",
+  "mana_cost": "{6}{R}{R}",
+  "cmc": 8.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Target creature an opponent controls deals damage equal to its power to each other creature that player controls, then each of those creatures deals damage equal to its power to that creature.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Iron Fist, Living Weapon",
+  "layout": "normal",
+  "mana_cost": "{2}{R}",
+  "cmc": 3.0,
+  "type_line": "Legendary Creature — Human Warrior Hero",
+  "oracle_text": "Whenever you cast a spell that targets a creature you control, Iron Fist gains \"{T}: Iron Fist deals damage equal to his power to any other target\" until end of turn.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [],
+  "power": "2",
+  "toughness": "3"
+ },
+ {
+  "name": "Surtland Flinger",
+  "layout": "normal",
+  "mana_cost": "{3}{R}{R}",
+  "cmc": 5.0,
+  "type_line": "Creature — Giant Berserker",
+  "oracle_text": "Whenever this creature attacks, you may sacrifice another creature. When you do, this creature deals damage equal to the sacrificed creature's power to any target. If the sacrificed creature was a Giant, this creature deals twice that much damage instead.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [],
+  "power": "4",
+  "toughness": "6"
+ },
+ {
+  "name": "Waltz of Rage",
+  "layout": "normal",
+  "mana_cost": "{3}{R}{R}",
+  "cmc": 5.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Target creature you control deals damage equal to its power to each other creature. Until end of turn, whenever a creature you control dies, exile the top card of your library. You may play it until the end of your next turn.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Imminent Doom",
+  "layout": "normal",
+  "mana_cost": "{2}{R}",
+  "cmc": 3.0,
+  "type_line": "Enchantment",
+  "oracle_text": "This enchantment enters with a doom counter on it.\nWhenever you cast a spell with mana value equal to the number of doom counters on this enchantment, this enchantment deals that much damage to any target. Then put a doom counter on this enchantment.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Arlinn Kord // Arlinn, Embraced by the Moon",
+  "layout": "transform",
+  "mana_cost": "{2}{R}{G} // ",
+  "cmc": 4.0,
+  "type_line": "Legendary Planeswalker — Arlinn // Legendary Planeswalker — Arlinn",
+  "oracle_text": "+1: Until end of turn, up to one target creature gets +2/+2 and gains vigilance and haste.\n0: Create a 2/2 green Wolf creature token. Transform Arlinn Kord.\n//\n+1: Creatures you control get +1/+1 and gain trample until end of turn.\n−1: Arlinn deals 3 damage to any target. Transform Arlinn.\n−6: You get an emblem with \"Creatures you control have haste and '{T}: This creature deals damage equal to its power to any target.'\"",
+  "colors": [
+   "G",
+   "R"
+  ],
+  "color_identity": [
+   "G",
+   "R"
+  ],
+  "keywords": [
+   "Transform"
+  ],
+  "loyalty": "3",
+  "card_faces": [
+   {
+    "name": "Arlinn Kord",
+    "mana_cost": "{2}{R}{G}",
+    "type_line": "Legendary Planeswalker — Arlinn",
+    "oracle_text": "+1: Until end of turn, up to one target creature gets +2/+2 and gains vigilance and haste.\n0: Create a 2/2 green Wolf creature token. Transform Arlinn Kord.",
+    "loyalty": "3",
+    "colors": [
+     "G",
+     "R"
+    ],
+    "image_uris": {
+     "small": "https://cards.scryfall.io/small/front/4/9/49825631-2498-41fe-a1df-f152ec05d1a8.jpg?1783908043",
+     "normal": "https://cards.scryfall.io/normal/front/4/9/49825631-2498-41fe-a1df-f152ec05d1a8.jpg?1783908043",
+     "large": "https://cards.scryfall.io/large/front/4/9/49825631-2498-41fe-a1df-f152ec05d1a8.jpg?1783908043",
+     "art_crop": "https://cards.scryfall.io/art_crop/front/4/9/49825631-2498-41fe-a1df-f152ec05d1a8.jpg?1783908043"
+    }
+   },
+   {
+    "name": "Arlinn, Embraced by the Moon",
+    "mana_cost": "",
+    "type_line": "Legendary Planeswalker — Arlinn",
+    "oracle_text": "+1: Creatures you control get +1/+1 and gain trample until end of turn.\n−1: Arlinn deals 3 damage to any target. Transform Arlinn.\n−6: You get an emblem with \"Creatures you control have haste and '{T}: This creature deals damage equal to its power to any target.'\"",
+    "colors": [
+     "G",
+     "R"
+    ],
+    "image_uris": {
+     "small": "https://cards.scryfall.io/small/back/4/9/49825631-2498-41fe-a1df-f152ec05d1a8.jpg?1783908043",
+     "normal": "https://cards.scryfall.io/normal/back/4/9/49825631-2498-41fe-a1df-f152ec05d1a8.jpg?1783908043",
+     "large": "https://cards.scryfall.io/large/back/4/9/49825631-2498-41fe-a1df-f152ec05d1a8.jpg?1783908043",
+     "art_crop": "https://cards.scryfall.io/art_crop/back/4/9/49825631-2498-41fe-a1df-f152ec05d1a8.jpg?1783908043"
+    }
+   }
+  ],
+  "all_parts": [
+   {
+    "id": "49825631-2498-41fe-a1df-f152ec05d1a8",
+    "component": "combo_piece",
+    "name": "Arlinn Kord // Arlinn, Embraced by the Moon",
+    "type_line": "Legendary Planeswalker — Arlinn // Legendary Planeswalker — Arlinn"
+   },
+   {
+    "id": "89040321-0d64-4631-a80e-5bd585d6fa51",
+    "component": "combo_piece",
+    "name": "Arlinn, Embraced by the Moon Emblem",
+    "type_line": "Emblem — Arlinn"
+   },
+   {
+    "id": "89b89a55-3ea2-4186-b946-06831bc16169",
+    "component": "token",
+    "name": "Wolf",
+    "type_line": "Token Creature — Wolf"
+   },
+   {
+    "id": "4825c59d-9e27-4a12-ba84-642b8540e573",
+    "component": "combo_piece",
+    "name": "Shadows Over Innistrad Checklist 2",
+    "type_line": "Card"
+   }
+  ]
+ },
+ {
+  "name": "Let the Galaxy Burn",
+  "layout": "normal",
+  "mana_cost": "{X}{5}{R}",
+  "cmc": 6.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Cascade (When you cast this spell, exile cards from the top of your library until you exile a nonland card that costs less. You may cast it without paying its mana cost. Put the exiled cards on the bottom in a random order.)\nLet the Galaxy Burn deals X plus 2 damage to each creature that didn't enter this turn.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Cascade"
+  ]
+ },
+ {
+  "name": "Banshee",
+  "layout": "normal",
+  "mana_cost": "{2}{B}{B}",
+  "cmc": 4.0,
+  "type_line": "Creature — Spirit",
+  "oracle_text": "{X}, {T}: This creature deals half X damage, rounded down, to any target, and half X damage, rounded up, to you.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [],
+  "power": "0",
+  "toughness": "1"
+ },
+ {
+  "name": "Yotia Declares War",
+  "layout": "saga",
+  "mana_cost": "{1}{R}",
+  "cmc": 2.0,
+  "type_line": "Enchantment — Saga",
+  "oracle_text": "Read ahead (Choose a chapter and start with that many lore counters. Add one after your draw step. Skipped chapters don't trigger. Sacrifice after III.)\nI — Create a 0/2 colorless Thopter artifact creature token with flying named Ornithopter.\nII — Tap any number of untapped artifacts you control. When you do, this Saga deals that much damage to target creature or planeswalker.\nIII — Up to one target artifact you control becomes an artifact creature with base power and toughness 4/4 until end of turn.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Read Ahead"
+  ],
+  "all_parts": [
+   {
+    "id": "3bd9e99a-ae8c-4323-aa86-b19288c877d4",
+    "component": "combo_piece",
+    "name": "Yotia Declares War",
+    "type_line": "Enchantment — Saga"
+   },
+   {
+    "id": "a63d3174-75af-4dfa-b2f9-c4330c755af1",
+    "component": "token",
+    "name": "Ornithopter",
+    "type_line": "Token Artifact Creature — Thopter"
+   }
+  ]
+ },
+ {
+  "name": "Lightmine Field",
+  "layout": "normal",
+  "mana_cost": "{2}{W}{W}",
+  "cmc": 4.0,
+  "type_line": "Enchantment",
+  "oracle_text": "Whenever one or more creatures attack, this enchantment deals damage to each of those creatures equal to the number of attacking creatures.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Spiteful Repossession",
+  "layout": "normal",
+  "mana_cost": "{4}{R}",
+  "cmc": 5.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Spiteful Repossession deals damage to each opponent who controls more lands than you equal to the difference. Then create a number of Treasure tokens equal to the damage dealt this way.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Treasure"
+  ],
+  "all_parts": [
+   {
+    "id": "93116d98-2dad-4b80-a3af-9e36e34da6d4",
+    "component": "token",
+    "name": "Treasure",
+    "type_line": "Token Artifact — Treasure"
+   },
+   {
+    "id": "545afa4b-cb38-41f4-aa6e-ae27c43944d0",
+    "component": "combo_piece",
+    "name": "Spiteful Repossession",
+    "type_line": "Sorcery"
+   }
+  ]
+ },
+ {
+  "name": "Khorvath's Fury",
+  "layout": "normal",
+  "mana_cost": "{4}{R}",
+  "cmc": 5.0,
+  "type_line": "Sorcery",
+  "oracle_text": "For each player, choose friend or foe. Each friend discards all cards from their hand, then draws that many cards plus one. Khorvath's Fury deals damage to each foe equal to the number of cards in their hand.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Rage Extractor",
+  "layout": "normal",
+  "mana_cost": "{4}{R/P}",
+  "cmc": 5.0,
+  "type_line": "Artifact",
+  "oracle_text": "({R/P} can be paid with either {R} or 2 life.)\nWhenever you cast a spell with {H} in its mana cost, this artifact deals damage equal to that spell's mana value to any target.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Enchanter's Bane",
+  "layout": "normal",
+  "mana_cost": "{1}{R}",
+  "cmc": 2.0,
+  "type_line": "Enchantment",
+  "oracle_text": "At the beginning of your end step, target enchantment deals damage equal to its mana value to its controller unless that player sacrifices it.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Gitaxian Probe",
+  "layout": "normal",
+  "mana_cost": "{U/P}",
+  "cmc": 1.0,
+  "type_line": "Sorcery",
+  "oracle_text": "({U/P} can be paid with either {U} or 2 life.)\nLook at target player's hand.\nDraw a card.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Angrath, Minotaur Pirate",
+  "layout": "normal",
+  "mana_cost": "{4}{B}{R}",
+  "cmc": 6.0,
+  "type_line": "Legendary Planeswalker — Angrath",
+  "oracle_text": "+2: Angrath deals 1 damage to target opponent or planeswalker and each creature that player or that planeswalker's controller controls.\n−3: Return target Pirate card from your graveyard to the battlefield.\n−11: Destroy all creatures target opponent controls. Angrath deals damage to that player equal to their total power.",
+  "colors": [
+   "B",
+   "R"
+  ],
+  "color_identity": [
+   "B",
+   "R"
+  ],
+  "keywords": [],
+  "loyalty": "5",
+  "all_parts": [
+   {
+    "id": "f17103dd-f31b-4f6e-b2ea-4ea91815bdd6",
+    "component": "combo_piece",
+    "name": "Angrath, Minotaur Pirate",
+    "type_line": "Legendary Planeswalker — Angrath"
+   },
+   {
+    "id": "708006ba-d494-4093-b108-8249b110831e",
+    "component": "combo_piece",
+    "name": "Angrath's Fury",
+    "type_line": "Sorcery"
+   }
+  ]
+ },
+ {
+  "name": "Consuming Ferocity",
+  "layout": "normal",
+  "mana_cost": "{1}{R}",
+  "cmc": 2.0,
+  "type_line": "Enchantment — Aura",
+  "oracle_text": "Enchant non-Wall creature\nEnchanted creature gets +1/+0.\nAt the beginning of your upkeep, put a +1/+0 counter on enchanted creature. If that creature has three or more +1/+0 counters on it, it deals damage equal to its power to its controller, then destroy that creature and it can't be regenerated.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Enchant"
+  ]
+ },
+ {
+  "name": "Blazing Effigy",
+  "layout": "normal",
+  "mana_cost": "{1}{R}",
+  "cmc": 2.0,
+  "type_line": "Creature — Elemental",
+  "oracle_text": "When this creature dies, it deals X damage to target creature, where X is 3 plus the amount of damage dealt to this creature this turn by other sources named Blazing Effigy.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [],
+  "power": "0",
+  "toughness": "3"
+ },
+ {
+  "name": "Sycorax Commander",
+  "layout": "normal",
+  "mana_cost": "{2}{B}{R}",
+  "cmc": 4.0,
+  "type_line": "Creature — Alien Soldier",
+  "oracle_text": "First strike, haste\nSanctified Rules of Combat — When this creature enters, each opponent faces a villainous choice — That opponent discards all the cards in their hand, then draws that many cards minus one, or this creature deals damage to that player equal to the number of cards in their hand.",
+  "colors": [
+   "B",
+   "R"
+  ],
+  "color_identity": [
+   "B",
+   "R"
+  ],
+  "keywords": [
+   "First strike",
+   "Haste",
+   "Sanctified Rules of Combat"
+  ],
+  "power": "4",
+  "toughness": "2"
+ },
+ {
+  "name": "Darksteel Myr",
+  "layout": "normal",
+  "mana_cost": "{3}",
+  "cmc": 3.0,
+  "type_line": "Artifact Creature — Myr",
+  "oracle_text": "Indestructible (Damage and effects that say \"destroy\" don't destroy this creature. If its toughness is 0 or less, it still dies.)",
+  "colors": [],
+  "color_identity": [],
+  "keywords": [
+   "Indestructible"
+  ],
+  "power": "0",
+  "toughness": "1"
+ }
+]

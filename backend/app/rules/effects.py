@@ -6889,3 +6889,7 @@ PRIMITIVES.update(_zone_exchanges94.PRIMITIVES)
 from app.rules import triggers100a as _triggers100a  # noqa: E402
 
 PRIMITIVES.update(_triggers100a.PRIMITIVES)
+from app.rules import xdamage100e as _xdamage100e  # noqa: E402  -- xdamage (wave 100E) --
+
+PRIMITIVES.update(_xdamage100e.PRIMITIVES)
+RESUME.update(_xdamage100e.RESUME)

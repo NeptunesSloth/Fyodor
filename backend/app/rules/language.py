@@ -4290,7 +4290,8 @@ def _emblem(text: str) -> tuple[Effects, Any] | None:
     # Nested Oracle ability quotations use single quotes inside the emblem's
     # outer double quotes. Restore only a has/have ability quotation; apostrophes
     # in names and possessives remain literal text.
-    abilities = [re.sub(r"\b(has|have) '([^']+)'", r'\1 "\2"', a) for a in abilities]
+    abilities = [re.sub(r"\b(has|have) ((?:[a-z]+(?:, [a-z]+)*,? and )?)'([^']+)'", r'\1 \2"\3"', a) for a in abilities]  # (-- xdamage (wave 100E) --
+    # "have haste and '{T}: …'" (Arlinn, Embraced by the Moon): keywords first, then the quoted ability)
     text = "\n".join(a if a.endswith((".", "!", "?")) else a + "." for a in abilities)
     if not emblem_text_ok(text):
         raise _Fail

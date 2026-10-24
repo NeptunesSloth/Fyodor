@@ -2653,6 +2653,10 @@ def _sacrifice_count_sequence(body: str) -> tuple[list[dict[str, Any]], Any, boo
 
 
 def parse_effects(body: str, it: str | None = None, *, event_player: bool = False) -> tuple[list[dict[str, Any]], Any, bool] | None:
+    from app.rules import xdamage100e  # -- xdamage (wave 100E) -- exact wordings (app/rules/xdamage100e.py)
+
+    if (xdamage := xdamage100e.parse(body)) is not None:
+        return xdamage
     from app.rules import vault_loop71
 
     if (vault71 := vault_loop71.parse(body)) is not None:
@@ -5825,6 +5829,12 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
 
     if (perm100d := static_perm100d.definition(ability, ch)) is not None:
         return perm100d
+    from app.rules import (
+        xdamage100e,  # -- xdamage (wave 100E) -- exact whole-ability wordings (app/rules/xdamage100e.py)
+    )
+
+    if (xdamage := xdamage100e.definition(ability, ch)) is not None:
+        return xdamage
     from app.rules import zone_exchanges94
 
     if (zone94 := zone_exchanges94.definition(ability, ch)) is not None:

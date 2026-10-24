@@ -905,6 +905,16 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
 
         sel = selectors.from_key(v["defending_player_graveyard_count"])
         return sum(len(selectors.candidates(plan, selectors.replace(sel, zone_owner=f"player:{p}"), you, ctx.get("source_card"))) for p in defending.players(plan, ctx))
+    if "greatest_damage100e" in v or "total_power100e" in v or "effigy_damage100e" in v:  # -- xdamage (wave 100E) -- Impact Resonance, Angrath,
+        from app.rules import xdamage100e  # Blazing Effigy (app/rules/xdamage100e.py)
+
+        return (xdamage100e.greatest_damage if "greatest_damage100e" in v else xdamage100e.total_power if "total_power100e" in v
+                else xdamage100e.effigy_damage)(plan, ctx, v)
+    if "hand" in v and str(v["hand"]).startswith("player:"):  # -- xdamage (wave 100E) -- one named player's hand (a villainous choice's "their hand", each_may._for)
+        return len(plan.state.zones.get(f"{v['hand'][7:]}:hand", [])) if v["hand"][7:] in plan.live() else 0
+    if "controller_hand100e" in v:  # -- xdamage (wave 100E) -- "the number of cards in that creature's controller's hand" (Flunk): its controller as it is, or as it last existed (608.2h)
+        got = _object(plan, ctx, v["controller_hand100e"])
+        return len(plan.state.zones.get(f"{got[0].controller}:hand", [])) if got is not None and got[0].controller in plan.live() else 0
     if "hand" in v and v["hand"] == "defending_player":
         from app.rules import defending
 
