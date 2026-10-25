@@ -320,6 +320,13 @@ def _blocked_this_turn(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, extras=(*s.extras, "blocked_this_turn"))
 
 
+@_suffix(r"that attacked or blocked this turn")  # -- instead (wave 100K) -- Gideon's Triumph: declared as an attacker (508.1) or a blocker (509.1g) this turn
+def _attacked_or_blocked_this_turn(s: Selector, m: re.Match[str]) -> Selector:
+    if not m.string[: m.start()].endswith(("creature", "creatures", "creature of their choice")):
+        raise ValueError("only \"creature(s) that attacked or blocked this turn\"")
+    return replace(s, extras=(*s.extras, "attacked_or_blocked_this_turn"))
+
+
 # -- combat history (wave 31D) -- 509.1g: which creature blocked which this turn (TurnLog.blocks, objects): "each creature that blocked or was
 # blocked this turn" (Heat Stroke), "all creatures it blocked this turn" (Defiant Vanguard: those the source blocked)
 @_suffix(r"that blocked or was blocked this turn")
@@ -490,6 +497,11 @@ def _equal_power_toughness(s: Selector, m: re.Match[str]) -> Selector:
 @_suffix(r"(?:that(?:['’]s| are) )?attacking (?:one of )?your opponents(?P<pw> and/or planeswalkers they control)?")  # -- most-played cards II (wave 45A) -- Oviya, Automech Artisan: attacking a player who is an opponent of the source's controller (a planeswalker's controller isn't "attacked": 506.2)
 def _attacking_opponent(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, attacking=True, extras=(*s.extras, "attacking_opponent_pw" if m["pw"] else "attacking_opponent"))
+
+
+@_suffix(r"that's attacking a battle")  # -- instead (wave 100K) -- Rampaging Geoderm's "if it's attacking a battle": the attack is on a battle (310.5, 506.3)
+def _attacking_battle(s: Selector, m: re.Match[str]) -> Selector:
+    return replace(s, attacking=True, extras=(*s.extras, "attacking_battle"))
 
 
 @_suffix(r"(?:that(?:['’]s| are) )?attacking you(?P<pw> or a planeswalker you control)?")  # (wave 17D: also plural / bare; wave 46C: "or a planeswalker you control", Soul Snare)
@@ -850,7 +862,7 @@ def source_stat(plan: Plan, source: str | None, what: str) -> int | None:
 _WITH_KEYWORDS = (*KEYWORDS, "decayed", "infect", "wither", "fear", "shadow", "horsemanship", "intimidate", "skulk", "convoke",
                   "modular", "toxic", "mutate", "awaken", "cascade", "flanking",  # (wave 39A: "all attacking creatures with flanking", Telim'Tor)
                   "plainswalk", "islandwalk", "swampwalk", "mountainwalk", "forestwalk",
-                  "doctor's companion")  # (wave 44B: "creature spell with doctor's companion", Rose Noble)  # (wave 26A: "creatures with plainswalk")  # (wave 21D: "a spell with cascade")  # (wave 20C: toxic/mutate/awaken; wave 19D: "each creature you control with modular": a printed keyword line; level up is rewritten into
+                  "doctor's companion", "unearth")  # (wave 44B: "creature spell with doctor's companion", Rose Noble)  # (wave 26A: "creatures with plainswalk")  # (wave 21D: "a spell with cascade")  # (wave 20C: toxic/mutate/awaken; wave 19D: "each creature you control with modular": a printed keyword line; level up is rewritten into
 # an activated ability and statics by app/rules/levelers.py, so it is no keyword of the object and stays unread)
 
 
@@ -2568,6 +2580,9 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
             return False  # -- activated other (wave 42C) -- 506.5 (the same count statics.py reads for "as long as it's attacking alone")
         if extra == "attacking_you" and (card.attacking is None or card.attacking.kind != "player" or card.attacking.id != you):
             return False
+        if extra == "attacking_battle" and (card.attacking is None or card.attacking.kind != "card" or (attacked := plan.state.cards.get(card.attacking.id)) is None
+                                            or "Battle" not in plan.ch(attacked).types):  # (wave 100K)
+            return False
         if extra == "attacking_you_pw" and (card.attacking is None or not (  # -- most-played cards III (wave 46C) -- 506.3: attacks you, or a planeswalker you control
                 (card.attacking.kind == "player" and card.attacking.id == you) or (card.attacking.kind == "card" and (target_walker := plan.state.cards.get(card.attacking.id)) is not None
                                                                                    and "Planeswalker" in plan.ch(target_walker).types and target_walker.controller == you))):
@@ -2605,6 +2620,8 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
         if extra == "didnt_attack_this_turn" and _attacked_this_turn_now(plan, card):  # -- damage sized by a count (wave 34D) --
             return False
         if extra == "blocked_this_turn" and not _blocked_this_turn_now(plan, card):  # -- combat state (wave 27A) --
+            return False
+        if extra == "attacked_or_blocked_this_turn" and not (_attacked_this_turn_now(plan, card) or _blocked_this_turn_now(plan, card)):  # (wave 100K)
             return False
         if extra in ("block_involved_this_turn", "blocked_by_source_this_turn") and not _block_history(plan, card, extra, source):  # -- wave 31D --
             return False

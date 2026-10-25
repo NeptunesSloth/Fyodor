@@ -409,6 +409,9 @@ def self_text(text: str, name: str) -> str:
     # Replacing that name must retain the sentence boundary for effect parsing.
     if name.endswith(("!", "?")) and text.rstrip().endswith(name) and out.rstrip().endswith("~"):
         out = out.rstrip() + "."
+    from app.rules import instead100k  # -- instead (wave 100K) --
+
+    out = instead100k.normalize(out)
     out = out.replace("choose target face-up exiled card. Its owner shuffles it into their library.",
                       "shuffle target face-up card in exile into its owner's library.")
     return _counter_threshold(_language.base_become(out))  # (-- layers (wave 30O) -- "~'s base power and toughness become …")
@@ -6229,9 +6232,9 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
 
     if (counter_state := counter_state_thresholds50.definition(ability, ch)) is not None:
         return counter_state
-    from app.rules import conditional_instead59
+    from app.rules import aslongas100k, conditional_instead59
 
-    if (instead59 := conditional_instead59.definition(ability, ch)) is not None:
+    if (instead59 := conditional_instead59.definition(ability, ch) or aslongas100k.definition(ability, ch)) is not None:  # (wave 100K)
         return instead59
     from app.rules import trigger_grave_counter_top65
 
@@ -6975,7 +6978,8 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
             return None
     if d is not None and "blocking_source" in json.dumps(d, default=str) and not (
             d.get("kind") == "activated" or (d.get("kind"), d.get("static")) == ("static", "prevent") or d.get("kind") == "triggered" and (  # (wave 50E: a prevention shield)
-                str(d.get("trigger", "")).endswith("_self") or (d.get("cond") or {}).get("subject") == "self")):
+                str(d.get("trigger", "")).endswith("_self") or str(d.get("trigger", "")).startswith("step:end_combat:")  # (wave 100K: The Wretched, "At end of combat, … blocking ~": its own blockers, 511.3)
+                or (d.get("cond") or {}).get("subject") == "self")):
         return None
     # -- combat (wave 5C) -- "attacks each combat if able" needs its duration
     from app.rules import combat_rules
@@ -8195,7 +8199,8 @@ def _event_refs_ok(d: Definition) -> bool:
     # "target creature blocking it" / "it's blocking": "it" must be the source itself, still there to be read (a cost that
     # sacrifices it — Tinder Wall — leaves only its last known block, which isn't kept)
     if "blocking_source" in json.dumps(d) or "blocked_by_source" in json.dumps(d):
-        self_trigger = d.get("kind") == "triggered" and _trigger_antecedent(str(d.get("trigger")), d.get("cond")) == "self"
+        self_trigger = d.get("kind") == "triggered" and (_trigger_antecedent(str(d.get("trigger")), d.get("cond")) == "self"
+                                                         or str(d.get("trigger")).startswith("step:end_combat:"))  # (wave 100K: The Wretched, the source's own blockers)
         mine = d.get("kind") == "activated"  # (-- activated other (wave 52D) -- also with the source sacrificed as a cost: its last known blocks are kept, selectors)
         shield = d.get("kind") == "static" and d.get("static") == "prevent"  # -- damage wordings (wave 50E) -- 615.1: "Prevent all damage that would be dealt to this creature by creatures it's blocking" (Wall of Vapor): the shield's source is on the battlefield (replacements._object_matches)
         if not (self_trigger or mine or shield):
@@ -9336,6 +9341,11 @@ def define_replacement(ability: AbilityText, text: str) -> Definition | None:
     # CR 614.1a: "instead exile …" and "exile … instead" express the same replacement.
     text = re.sub(r"^(If .+ would (?:die|be put into [^,]+)), instead (exile (?:it|that card)(?: with an? [a-z]+ counter on it)?)\.$",
                   r"\1, \2 instead.", text)
+    if rider is None and (hand := re.fullmatch(r"If a (?P<sel>creature you control that's enchanted) would die, return it to its owner's hand instead\.", text)) is not None:
+        # -- instead (wave 100K) -- Necromancer's Magemark: the creature goes to its owner's hand instead of the graveyard (614.1a; it never dies, its 2006-02-01
+        # ruling), applied with the other zone replacements (replacements.zone_candidates, 616.1)
+        key = _selector_key(hand["sel"])
+        return None if key is None else {"kind": "static", "static": "hand_instead", "effects": [], "from": "battlefield", "graveyard_of": "any", "who": key}
     m = EXILE_INSTEAD_STATIC.match(text)
     if m is None and rider is not None:
         return None
@@ -9405,7 +9415,7 @@ _UNTIL_EOT_IF = re.compile(r"^until end of turn, (?P<rest>if .+)$")
 # -- life floor (wave 35C) -- "Until end of turn, damage that would reduce your life total to less than 1 reduces it to 1 instead." (Angel's Grace)
 _UNTIL_EOT_FLOOR = re.compile(r"^until end of turn, (?P<rest>damage that would reduce your life total to less than 1 reduces it to 1 instead)$")
 _NEXT_TIME_DRAW = re.compile(r"^the next time you would draw a card this turn, (?P<rest>.+)$")  # -- replacements: draws (wave 28B) -- Words of …
-_IF_THIS_TURN = re.compile(r"^(?P<head>if [^,]+?) this turn(?P<tail>, .+)$")
+_IF_THIS_TURN = re.compile(r"^(?P<head>if [^,]+?) this turn(?P<mid> to [^,]+)?(?P<tail>, .+)$")  # (wave 100K: "… deal damage this turn to an opponent or …", Isengard Unleashed)
 
 
 def _turn_record(text: str) -> list[dict[str, Any]] | None:
@@ -9434,7 +9444,7 @@ def _turn_record(text: str) -> list[dict[str, Any]] | None:
     body = m["rest"] if m else None
     if body is None:
         m2 = _IF_THIS_TURN.match(text)
-        body = m2["head"] + m2["tail"] if m2 else None
+        body = m2["head"] + (m2["mid"] or "") + m2["tail"] if m2 else None
     if body is None or " this turn" in body:
         return None
     d = replace_grammar.parse("I" + body[1:] + ".")
@@ -10332,6 +10342,8 @@ def _instead_or_otherwise(text: str, effects: list[dict[str, Any]], prev_start: 
         cond = conditions.parse(m["c"], objects=True)
         rest = m["rest"]
         base = effects[prev_start:]
+        may = rest.startswith("you may ") and m.re is _INSTEAD_FORMS[0]  # -- instead (wave 100K) -- "If C, you may Y instead." (instead100k)
+        rest = rest[len("you may "):] if may else rest
         if cond is None or rest.startswith("you may ") or not base:
             return False
         # -- kicked / instead (wave 4G) -- "it deals 7 damage instead" (608.2c)
@@ -10358,7 +10370,9 @@ def _instead_or_otherwise(text: str, effects: list[dict[str, Any]], prev_start: 
 
             unless = _each_may.unless_sentence(rest)
             alt = (unless, None) if unless is not None else _gated_alt(rest, base)
-        if alt is None or alt[1] is not None or not _replaceable(base, alt[0]):
+        from app.rules import instead100k
+
+        if alt is None or alt[1] is not None or not (_replaceable(base, alt[0]) or instead100k.whole_loot(base, alt[0])):  # (wave 100K)
             return False
         if _cond_has_it(cond) and not spell_cond:  # "it": what the replaced sentence is about — its one target (else an earlier object)
             whos = {str(e["who"]) for e in base if str(e.get("who") or "").startswith("target")}
@@ -10367,6 +10381,11 @@ def _instead_or_otherwise(text: str, effects: list[dict[str, Any]], prev_start: 
             if whos:
                 cond = _bind_cond(cond, next(iter(whos)))
         flag = _next_flag(effects)
+        if may:  # -- instead (wave 100K) --
+            from app.rules import instead100k
+
+            return (False if outer is not None or restated is not None else
+                    (instead100k.may_branch(effects, prev_start, cond, base, alt[0], flag, rest), 3))
         if outer is not None:  # -- kicked / instead (wave 4G) -- (the outer gate now covers both branches)
             effects = [*effects[:prev_start - 1], {**outer, "skip": len(base) + len(alt[0]) + 2}, *effects[prev_start:]]
         return [*effects[:prev_start], {"do": "only_if", "cond": {"not": cond}, "skip": len(base), "bind": flag}, *base,
@@ -11582,6 +11601,9 @@ from app.rules import game_result as _game_result  # noqa: E402
 from app.rules import prohibitions as _prohibitions  # noqa: E402
 
 EFFECTS[:0] = [*_game_result.TEMPLATES, *_prohibitions.TEMPLATES]
+from app.rules import aslongas100k as _aslongas100k  # noqa: E402  -- as long as (wave 100K) --
+
+EFFECTS[:0] = _aslongas100k.TEMPLATES
 # -- next untap step (wave 6A) -- "… doesn't untap during its controller's next untap step" (app/rules/next_untap.py)
 from app.rules import next_untap as _next_untap  # noqa: E402
 

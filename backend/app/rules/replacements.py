@@ -1212,7 +1212,7 @@ def _static_exile_all(plan: Plan, card: CardInstance) -> list[tuple[CardInstance
         if not src.zone.endswith(":battlefield") or src.face_down or not plan.in_game(src) or plan.manual(src):
             continue
         for d in scripts.definitions(plan.ch(src)).values():
-            if d["kind"] != "static" or d.get("static") != "exile_instead":
+            if d["kind"] != "static" or d.get("static") not in ("exile_instead", "hand_instead"):  # (wave 100K: hand_instead, Necromancer's Magemark)
                 continue
             if d.get("from") == "battlefield" and frm != "battlefield":
                 continue
@@ -1349,7 +1349,7 @@ def _graveyard_candidates(plan: Plan, card: CardInstance, frm: str) -> list[Cand
         out.append(Cand(card.name or "its own ability", "library:shuffle"))
     for src, d in _static_exile_all(plan, card):
         rider = {"source": src.id, "controller": src.controller, **d["rider"]} if d.get("rider") else None
-        out.append(Cand(src.name or "a static ability", "exile", False, rider, plan.oid(src) if d.get("link") else "", d.get("counter", "")))
+        out.append(Cand(src.name or "a static ability", "hand" if d["static"] == "hand_instead" else "exile", False, rider, plan.oid(src) if d.get("link") else "", d.get("counter", "")))
     if frm == "battlefield" and (why := _record_exile_instead(plan, card)) is not None:  # -- replacement effects stage 2 (wave 2E) --
         out.append(Cand(why, "exile"))
     if (why := _record_exile_cards(plan, card)) is not None:  # -- zone replacements (wave 37B) -- from any zone
@@ -1406,7 +1406,7 @@ def move_instead(plan: Plan, cid: str, outcome: str | Cand, actor: str | None, *
         return
     card = plan.state.cards[cid]
     owner = card.owner
-    if outcome in ("exile", "battlefield"):  # (review 23D: battlefield, a discard's "put it onto the battlefield instead")
+    if outcome in ("exile", "battlefield", "hand"):  # (review 23D: battlefield, a discard's "put it onto the battlefield instead"; wave 100K: hand)
         plan.do({"type": "move", "card_ids": [cid], "to": {"player": owner, "zone": outcome}}, actor=actor)
         return
     where = outcome.split(":", 1)[1]
@@ -1456,7 +1456,7 @@ def run_rider(plan: Plan, rider: dict[str, Any]) -> None:
             break
 
 
-_OUTCOME_TEXT = {"exile": "Exile it", "battlefield": "Put it onto the battlefield","library:top": "Put it on top of its owner's library", "library:bottom":
+_OUTCOME_TEXT = {"exile": "Exile it", "battlefield": "Put it onto the battlefield", "hand": "Return it to its owner's hand","library:top": "Put it on top of its owner's library", "library:bottom":
                  "Put it on the bottom of its owner's library", "library:shuffle": "Reveal it and shuffle it into its owner's library"}
 
 

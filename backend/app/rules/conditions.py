@@ -118,6 +118,11 @@ def parse(text: str, *, objects: bool = False) -> Condition | None:
     # -- attached events (wave 40B) -- "enchanted creature is white and untapped" (Nature's Chosen): one subject, two adjectives
     t = re.sub(rf"^({_HOST_WORDS}) is ((?:white|blue|black|red|green|tapped|untapped|attacking|blocking)) and ((?:white|blue|black|red|green|tapped|untapped|attacking|blocking))$",
                r"\1 is \2 and \1 is \3", t)
+    if objects:  # -- instead (wave 100K) -- "if that creature is attacking" (Sweep Away) / "if it's an enchantment creature or legendary creature" (Regent's Authority)
+        t = re.sub(r"^(?:it's|it is|that creature is) (attacking|blocking)$", r"it's an \1 creature", t)
+        t = re.sub(r"^(?:it's|it is) attacking a battle$", "it's a creature that's attacking a battle", t)  # (Rampaging Geoderm)
+        t = re.sub(r"^it has unearth$", "it's a permanent with unearth", t)  # (Meticulous Excavation: an unearth ability, 702.84a)
+        t = re.sub(r"^it's an? (\w+) creature or (?:an? )?(\w+) creature$", r"it's a \1 creature or it's a \2 creature", t)
     found = _parse_one(t, objects)
     if found is None:
         found = _as_cond(t) if objects else None  # -- intervening ifs (wave 11F) -- (an ability's own event: not statics)
@@ -381,6 +386,9 @@ def _parse_one(t: str, objects: bool) -> Condition | None:
         if m["neg"]:  # -- if you do (wave 44A) -- "if you don't control a creature named Darkstar" (Rufus Shinra): none with that name (one name only)
             return {"value": parts[0]["value"], "op": "==", "n": 0} if len(parts) == 1 else None
         return parts[0] if len(parts) == 1 else {"all": parts}
+    m = re.fullmatch(r"an opponent has at least (?P<n>\w+) more cards in hand than you", t)
+    if m and _num(m["n"]) is not None:  # -- instead (wave 100K) -- Teachings of the Archaics: some one opponent's hand is at least n bigger than yours
+        return {"versus": {"value": {"hand": "you"}, "op": ">=", "margin": _num(m["n"])}}
     m = re.fullmatch(r"an opponent controls at least (?P<n>\w+) more (?P<what>.+) than you", t)
     if m and _num(m["n"]) is not None:  # -- cost alt (wave 16F) -- Avatar of Might: some opponent's count is at least n above yours
         key = _count(m["what"], "you control")
@@ -2080,11 +2088,13 @@ def _cast_how(t: str) -> Condition | None:
         return {"object": "self", "cast": {"optional": "blight"}}
     if re.fullmatch(r"an? [a-z]+ was beheld", t):  # 701.4a: "If a Dragon was beheld" (the only behold cost on the spell)
         return {"object": "self", "cast": {"optional": "behold"}}
+    if (mount := re.fullmatch(r"you controlled an? (?P<type>[A-Z][a-z]+) as you cast (?:this spell|~)", t)) is not None:  # -- instead (wave 100K) -- Steer Clear: the
+        return {"object": "self", "cast": {"controlled_subtype": mount["type"]}}  # subtypes you controlled as you finished casting it (its ruling: whatever you control later)
     if t in ("this spell was cast using teamwork", "it was cast using teamwork"):  # -- static_other sweep (wave 17C) -- 702.194b
         return {"object": "self", "cast": {"optional": "teamwork"}}
     if t in ("this spell's prowl cost was paid", "its prowl cost was paid"):  # -- static_other sweep (wave 17C) -- 702.76a
         return {"object": "self", "cast": {"alt": "prowl"}}
-    if (m := re.fullmatch(r"(?:(?:this spell's|this creature's|its|his|her) (?P<k>mayhem|web-slinging|sneak|surge|spectacle|emerge) cost was paid(?P<turn> this turn)?|(?P<w>it|this spell|~|they) (?:was|were) cast "
+    if (m := re.fullmatch(r"(?:(?:this spell's|this creature's|~'s|its|his|her) (?P<k>mayhem|web-slinging|sneak|surge|spectacle|emerge) cost was paid(?P<turn> this turn)?|(?P<w>it|this spell|~|they) (?:was|were) cast "
                           r"using (?P<k2>mayhem|web-slinging))", t)) is not None:  # -- Marvel keywords (wave 25A; sneak: 30I) -- 702.187b, 702.188a, 702.190a
         # (-- static_other (wave 36B) -- surge 702.117a, spectacle 702.137a, emerge 702.119a: the cast record's alternative is the keyword (alt_costs.keyword_definition))
         return {"object": _cast_who(m["w"] or "self"), "cast": {"alt": m["k"] or m["k2"], **({"this_turn": True} if m["turn"] else {})}}
@@ -2234,6 +2244,8 @@ def _cast_holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
         return False  # -- xdamage (wave 100E) -- "if you controlled a Faerie as you cast this spell" (Faerie Fencing): the snapshot as casting finished (601.2i)
     if how.get("controlled_modified100e") and not record.cast_controlled_modified:
         return False  # -- xdamage (wave 100E) -- "if you controlled a modified creature as you cast this spell" (Flame Discharge)
+    if how.get("controlled_subtype") is not None and how["controlled_subtype"] not in record.cast_controlled_subtypes:  # -- instead (wave 100K) --
+        return False
     if how.get("by_you") and record.controller != ctx["controller"]:
         return False
     if how.get("own_graveyard"):  # 400.3: a card goes to its owner's graveyard, so "your graveyard" is the controller's when the controller owns it and cast it

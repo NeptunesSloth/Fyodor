@@ -48,6 +48,8 @@ def attack_problem(state: GameState, card: CardInstance, ch: Characteristics) ->
         return f"{ch.name} can't attack after attacking during its controller's last turn"
     if {"cant_attack", "cant_attack_or_block"} & rules:
         return f"{ch.name} can't attack"
+    if state.rules is not None and state.rules.combat_tag == "only_land" and not ch.is_land:  # -- as long as (wave 100K) -- Bumi's combat phase
+        return f"{ch.name} isn't a land creature: only land creatures can attack during this combat phase"
     if state.rules is not None and any(e[0] == state.turn.number and e[1] == card.controller and state.rules.object_id(card.id) not in e[2] for e in state.rules.attack_piles):
         return f"{ch.name} is not in the pile chosen (700.3)"  # -- piles (wave 53D) -- Fight or Flight
     if "haste" not in ch.keywords and "attack_as_haste" not in rules and summoning_sick(state, card):  # (wave 100F: "can attack as though it had haste", 302.6)

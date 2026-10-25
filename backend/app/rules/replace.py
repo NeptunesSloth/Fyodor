@@ -2036,6 +2036,9 @@ def _recipient_matches(plan: Plan, spec: dict[str, Any], c: Candidate, ev: Event
         want = spec.get("players")
         if want is None:
             return False
+        if want == "enchanted":  # -- instead (wave 100K) -- the player the source Aura is attached to now (702.5d)
+            source = plan.state.cards.get(c.source_card or "")
+            return source is not None and source.attached_player == target
         return not (want == "you" and target != c.controller or want == "opponent" and target == c.controller)
     objects = spec.get("objects")
     if objects is None:

@@ -154,6 +154,9 @@ def _counters(text: str) -> Definition | None:
     m = _PUTTER.match(text)
     if m:
         return _putter(m)
+    m = re.fullmatch(r"If you would put one or more (?P<k>\+1/\+1) counters on (?P<on>a creature you control), put that many plus one (?P=k) counters on it instead\.", text)
+    if m and (on_obj := _object(m["on"])) is not None:  # -- instead (wave 100K) -- Prairie Dog: one kind of counter, put by you (122.6a, review 22C)
+        return _static("counters", {"on": on_obj, "putter": "you", "counter": m["k"]}, {"do": "add", "n": 1})
     m = _DOUBLING_SEASON.match(text)
     if m:
         on = _object(m["on"])
@@ -512,6 +515,8 @@ def _recipient(phrase: str | None) -> dict[str, Any] | None:
     if phrase is None or phrase in ("a permanent or player", "a player or permanent", "any target"):
         return {}
     players = {"you": "you", "an opponent": "opponent", "a player": "any"}
+    if phrase == "enchanted player":  # -- instead (wave 100K) -- Curse of Bloodletting: the player this Aura enchants (702.5d)
+        return {"players": "enchanted"}
     if phrase in players:
         return {"players": players[phrase]}
     m = re.fullmatch(r"(?P<p>you|an opponent|a player) or (?P<o>.+)", phrase)

@@ -591,6 +591,9 @@ def _layer4_parts(body: str) -> tuple[str, dict[str, Any]] | None:
         from app.rules.creature_types import CREATURE_TYPES
 
         return ("", {"remove_types": [], "add_types": ["Creature"], "add_subtypes": [m["sub"]]}) if m["sub"] in CREATURE_TYPES else None
+    m = re.fullmatch(r"(?:(?P<pre>.+?),? and |(?:~|it) )is all creature types", body)  # -- as long as (wave 100K) -- 205.3m (Undercover Skrull)
+    if m:
+        return (m["pre"] or ""), {"remove_types": [], "add_subtypes": [], "all_creature_types": True}
     m = _IN_ADDITION.fullmatch(body)
     if m:
         from app.rules.creature_types import CREATURE_TYPES
@@ -614,6 +617,11 @@ def _layer4_safe(cond: dict[str, Any]) -> bool:
     if cond == {"static": "self", "test": "attached_to_a_creature"}:  # -- casting extras (wave 18E) -- reconfigure 702.151b
         return True
     value = cond.get("value")
+    if cond.get("static") is None and isinstance(value, dict) and set(value) == {"count"} and str(value["count"]).startswith(selectors.PREFIX):
+        # -- as long as (wave 100K) -- "two or more creature cards in your graveyard" (Undercover Skrull): cards in a graveyard, read with their own
+        # characteristics (as _color_safe reads them), never the battlefield's
+        sel = selectors.from_key(value["count"])
+        return sel.card and sel.zones == ("graveyard",) and sel.zone_owner == "you" and not (sel.compare or sel.extras or sel.controller)
     return cond.get("static") is None and isinstance(value, dict) and set(value) == {"devotion"}
 
 
@@ -1211,10 +1219,10 @@ def _rule(piece: str) -> list[str] | None:
         return [f"lure:{sels}"] if sels else None
     # -- multiple blocks (wave 13B) -- 509.1a: "can block an additional creature [each combat]" is block_extra:1:@src (the number of
     # extra attackers; one entry per source so that several of them add up), "any number of creatures" a huge number
-    m = re.fullmatch(r"can block (?:(?P<one>an additional creature)|an additional (?P<a>\w+) creatures|up to (?P<b>\w+) additional "
+    m = re.fullmatch(r"can block (?:(?P<one>an additional creature)|an additional (?P<a>\w+|ninety-nine) creatures|up to (?P<b>\w+) additional "
                      r"creatures|(?P<any>any number of creatures))(?: each combat)?", piece)
     if m:
-        n = 1 if m["one"] else 999 if m["any"] else _num(m["a"] or m["b"])
+        n = 1 if m["one"] else 999 if m["any"] else 99 if m["a"] == "ninety-nine" else _num(m["a"] or m["b"])  # (wave 100K: Hundred-Handed One)
         return [f"block_extra:{n}:@src"] if n else None
     # -- static_other sweep (wave 17C) -- 702.122: "This creature crews Vehicles as though its power were 2 greater." / "… using its toughness
     # rather than its power." — the number it counts toward crew (casting.crew_value)
@@ -1246,9 +1254,12 @@ def _rule(piece: str) -> list[str] | None:
     # whose source (a spell, or the source of an ability) has that color (or lacks it) can't target it. Colorless is nongreen.
     # -- cant (wave 49C) -- 115.2: "can't be the target of spells" (Spectral Shield), "… of blue or black spells" (Karplusan Strider): no spell (of that color) may target it
     # (anyone's, its controller's too); an ability still may
-    m = re.fullmatch(r"can't be the targets? of (?:(?P<c>(?:white|blue|black|red|green)(?: or (?:white|blue|black|red|green))*) )?spells", piece)
-    if m:
-        return ["untargetable_spells" + (":" + "".join({"white": "W", "blue": "U", "black": "B", "red": "R", "green": "G"}[c] for c in m["c"].split(" or ")) if m["c"] else "")]
+    m = re.fullmatch(r"can't be the targets? of (?:(?P<c>(?:white|blue|black|red|green)(?: or (?:white|blue|black|red|green))*) )?spells(?P<o> your opponents control)?", piece)
+    if m:  # (wave 100K: "… your opponents control", Fiendslayer Paladin: only an opponent's spell, as targets.can_target reads "untargetable_opp_spells")
+        return [("untargetable_opp_spells" if m["o"] else "untargetable_spells")
+                + (":" + "".join({"white": "W", "blue": "U", "black": "B", "red": "R", "green": "G"}[c] for c in m["c"].split(" or ")) if m["c"] else "")]
+    if piece == "can't be the target of abilities your opponents control":  # -- instead (wave 100K) -- 115.2 (Shanna): an opponent's ability, never a spell
+        return ["untargetable_opp_abilities"]
     if piece == "can't be the target of Aura spells":  # -- cant restrictions (wave 50G) -- 115.2, 303.4: no Aura spell may target it (Tetsuo Umezawa, Bartel Runeaxe); an ability still may
         return ["untargetable_aura_spells"]
     m = re.fullmatch(r"can't be the targets? of (?P<n>non)?(?P<c>white|blue|black|red|green) spells(?: (?P<o1>your opponents control))? or "

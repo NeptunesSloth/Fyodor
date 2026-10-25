@@ -67,13 +67,14 @@ _ACTS = {"activate abilities of artifacts, creatures, or enchantments": "ace",
          "activate abilities that aren't mana abilities": "nonmana",
          "activate abilities of cards in graveyards": "graveyard", "activate planeswalkers' loyalty abilities": "loyalty"}
 _WHO = {"your opponents": "opponents", "each opponent": "opponents", "players": "each", "each player": "each", "you": "you",
-        "enchanted player": "enchanted", "enchanted creature's controller": "host_controller"}  # (wave 25D: an Aura's Curse, Brand of Ill Omen)
+        "enchanted player": "enchanted", "enchanted creature's controller": "host_controller",  # (wave 25D: an Aura's Curse, Brand of Ill Omen)
+        "defending player": "defending"}  # (wave 100K: Wardscale Dragon, while it is attacking)
 _WHEN = {"during your turn": "your_turn", "during combat": "combat"}
 # "Your opponents can't cast spells during your turn." / "During your turn, your opponents can't cast spells or activate
 # abilities of artifacts, creatures, or enchantments." / "Your opponents can't cast spells from anywhere other than their
 # hands." / "Players can't cast spells from graveyards or activate abilities of cards in graveyards." / "During combat,
 # players can't cast spells or activate abilities that aren't mana abilities." / "You can't cast creature spells."
-STATIC_CAST = re.compile(rf"^(?:(?P<lead>during your turn|during combat), )?(?P<who>your opponents|each opponent|players|each player|you|enchanted player|enchanted creature's controller) "
+STATIC_CAST = re.compile(rf"^(?:(?P<lead>during your turn|during combat), )?(?P<who>your opponents|each opponent|players|each player|you|enchanted player|enchanted creature's controller|defending player) "
                          rf"can't cast {_SPELLS}{_FROM}{_ACT}(?: (?P<when>during your turn|during combat))?$")
 # "Each player can't cast more than one spell each turn." / "Each player can't cast more than one noncreature spell each turn."
 # -- prohibitions (wave 22B) -- 601.3: "Spells with the chosen name can't be cast." (Meddling Mage, Nevermore), "Creature spells can't be cast."
@@ -779,6 +780,10 @@ def _statics(state: GameState, info: CardInfo | None, kind: str) -> list[tuple[C
 
 
 def _who_ok(who: str, player: str, controller: str, src: CardInstance | None = None, state: GameState | None = None) -> bool:
+    if who == "defending":  # -- instead (wave 100K) -- 506.2, 802.1b: the player the source is attacking (or who controls or protects what it attacks)
+        from app.rules.combat import defender_of
+
+        return src is not None and state is not None and src.attacking is not None and defender_of(state, src.attacking) == player
     if who in ("enchanted", "host_controller"):  # -- attached events (wave 25D) -- the player the Aura is attached to / the controller of the creature it is
         if src is None or state is None:
             return False
