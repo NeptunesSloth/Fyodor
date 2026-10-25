@@ -1680,6 +1680,9 @@ def _type_and(phrase: str) -> str:
 
 def parse(phrase: str) -> Selector | None:
     """A noun phrase without its determiner ("nonland permanent an opponent controls") → Selector."""
+    if phrase.strip() == "planeswalker that was activated this turn or tapped creature":  # -- wave 110A -- Cut Short: a different qualifier per kind;
+        # "activated" = a loyalty ability of it was activated this turn (606; RulesState.loyalty_used)
+        return Selector(either=(Selector(types=("Planeswalker",), extras=("loyalty_activated110a",)).key(), Selector(types=("Creature",), tapped=True).key()))
     sticker = re.fullmatch(r'(?P<base>.+?) with (?:a|an) (?P<kind>name|art|ability|power and toughness) sticker(?: on (?:it|them))?', phrase.strip())
     if sticker is not None:
         base = parse(sticker['base'])
@@ -2537,6 +2540,9 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
             return False  # (wave 5H)
         if extra == "not_entered_this_turn" and _entered_now(plan, card, None):  # (wave 41A)
             return False
+        if extra == "loyalty_activated110a":  # -- wave 110A -- Cut Short
+            if plan.rules.loyalty_used.get(plan.rules.object_id(card.id)) != plan.state.turn.number:
+                return False
         if extra == "could_produce_c":  # -- wave 110A -- 106.1: colorless mana; the card's own mana abilities (continuous effects don't add to "could produce")
             from app.rules import wave110a_grants
 
