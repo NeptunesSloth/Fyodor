@@ -252,7 +252,7 @@ def test_eureka_and_hypergenesis_repeat_the_round_until_a_whole_round_puts_nothi
 def test_cleansing_meditation_threshold_returns_your_destroyed_enchantments(cards, threshold):
     """Threshold is judged as it resolves; instead the destroyed enchantment cards in YOUR graveyard (your own, whoever controlled them) return."""
     s = build(cards, [MEDITATION, "Sylvan Library"], ["Sylvan Library", "Grizzly Bears"])
-    mine, theirs = put(s, "Sylvan Library"), put(s, "Sylvan Library", "p2")
+    put(s, "Sylvan Library"), put(s, "Sylvan Library", "p2")
     to_graveyard(s, 7 if threshold else 5)
     cast(s, MEDITATION)
     answer(s)
