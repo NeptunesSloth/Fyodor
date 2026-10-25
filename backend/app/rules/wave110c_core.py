@@ -322,6 +322,10 @@ def definition(ability: AbilityText, ch: Any) -> dict[str, Any] | None:
         return kusari
     if (tevesh := wave110c_tevesh.definition(ability, ch)) is not None:  # Tevesh Szat, Doom of Fools
         return tevesh
+    from app.rules import wave110c_wheel
+
+    if (wheel := wave110c_wheel.definition(ability.text)) is not None:  # Wheel of Sun and Moon
+        return wheel
     if (lose := wave110c_lose.definition(ability.text)) is not None:  # "If you would lose the game, instead ..." (Exquisite Archangel, The Golden Throne, Lich's Mirror)
         return lose
     if ability.text.replace("Ugin's Nexus", "~") == _NEXUS:  # 614.6, 500.7: the exile replaces the move; the extra turn is part of the same replacement (rider)
