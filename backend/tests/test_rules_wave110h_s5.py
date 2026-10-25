@@ -59,34 +59,6 @@ def cast(s, name, targets=(), pid="p1", **kw):
     return c
 
 
-@pytest.mark.parametrize("name", NAMES)
-def test_full(cards, name):
-    assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
-
-
-def answer(s, *picks, limit=60):
-    """Resolve everything; decisions are answered from ``picks`` in turn, else with their first options."""
-    picks = list(picks)
-    for _ in range(limit):
-        d = s.state.rules.decision
-        if d is not None:
-            pick = picks.pop(0) if picks else None
-            ids = pick if isinstance(pick, list) else [pick] if pick else [o.id for o in d.options][: max(1, d.min_choices)]
-            act(s, d.player, type="choose", decision_id=d.id, option_ids=ids)
-        elif s.state.zones.get("stack"):
-            act(s, s.state.rules.priority, type="pass_priority")
-        else:
-            return
-    raise AssertionError("never settled")
-
-
-def cast(s, name, targets=(), pid="p1", **kw):
-    c = to_hand(s, name, pid)
-    act(s, pid, type="cast_spell", card_id=c.id, targets=list(targets), **kw)
-    return c
-
-
-
 def _phoenix(cards, evidence):
     s = build(cards, ["Lamplight Phoenix", "Doom Blade", *evidence])
     phx = put(s, "Lamplight Phoenix")
