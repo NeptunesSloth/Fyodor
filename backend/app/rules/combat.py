@@ -282,7 +282,7 @@ LANDWALK = {"plainswalk": "Plains", "islandwalk": "Island", "swampwalk": "Swamp"
             "artifact landwalk": "Artifact", **{f"snow {w}walk": f"Snow {w.capitalize()}"
                                                 for w in ("plains", "island", "swamp", "mountain", "forest")},
             # -- zones (wave 100G) -- any land type's (205.3i), snow or not: "landwalk of the chosen type" (Illusionary Presence, Barbarian Guides)
-            **{f"{t.lower()}walk": t for t in LAND_TYPES}, **{f"snow {t.lower()}walk": f"Snow {t}" for t in LAND_TYPES}}
+            **{f"{t.lower()}walk": t for t in sorted(LAND_TYPES)}, **{f"snow {t.lower()}walk": f"Snow {t}" for t in sorted(LAND_TYPES)}}
 
 
 def _controls_land(state: GameState, player: str, kind: str, info: CardInfo | None) -> bool:
