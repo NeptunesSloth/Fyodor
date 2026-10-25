@@ -15,6 +15,7 @@
 * 508.1d, 509.1c: "Target creature attacks or blocks this turn if able."; 701.40g, 708.8: "You may turn a creature you control face up." (Hustle // Bustle).
 * 701.20a, 202.2d: "Reveal any number of cards in your hand. You gain 2 life for each green mana symbol in those cards' mana costs." (Phosphorescent Feast).
 * 602.5, 605.1a: "Creatures with flying can't attack or block, and their activated abilities with {T} in their costs can't be activated." (Katabatic Winds).
+* 508.3a, 508.5: "Whenever an opponent attacks a planeswalker you control with one or more creatures, ~ deals 2 damage to that player and you gain 2 life." (Oath of Kaya).
 """
 
 from __future__ import annotations
@@ -37,6 +38,8 @@ from tests.test_rules_wave100n_multi import (
 from tests.wave9c_kit import build, check, life, mana, put, to_hand, zone_of
 
 EXTRA = [
+    real('Oath of Kaya', '{1}{R}{W}', 3, 'Legendary Enchantment',
+         "Whenever an opponent attacks a planeswalker you control with one or more creatures, Oath of Kaya deals 2 damage to that player and you gain 2 life.", None, 'RW'),
     real('Katabatic Winds', '{2}{G}', 3, 'Enchantment',
          "Creatures with flying can't attack or block, and their activated abilities with {T} in their costs can't be activated.", None, 'G'),
     real("Rivals' Duel", '{3}{R}', 4, 'Sorcery',
@@ -84,7 +87,7 @@ EXTRA = [
     real('Test Flyer', '{2}{U}', 3, 'Creature — Bird', 'Flying\n{T}: Draw a card.', ('1', '1'), 'U'),
 ]
 _BASE.extend(EXTRA)  # the shared fixture DB builder reads this list
-NAMES = ["Katabatic Winds", "Rivals' Duel", "Dead Ringers", "Cathedral Membrane", "Taunt", "Jabari's Influence", "Don & Leo, Problem Solvers", "Rapid Fire", "Time and Tide", "Abby, Merciless Soldier", "Zombie Scavengers", "Toluz, Clever Conductor", "Invasion of Regatha", "Test Disciples 110F", "Hustle // Bustle", "Phosphorescent Feast"]
+NAMES = ["Oath of Kaya", "Katabatic Winds", "Rivals' Duel", "Dead Ringers", "Cathedral Membrane", "Taunt", "Jabari's Influence", "Don & Leo, Problem Solvers", "Rapid Fire", "Time and Tide", "Abby, Merciless Soldier", "Zombie Scavengers", "Toluz, Clever Conductor", "Invasion of Regatha", "Test Disciples 110F", "Hustle // Bustle", "Phosphorescent Feast"]
 
 
 @pytest.mark.parametrize("name", NAMES)
@@ -409,4 +412,26 @@ def test_phosphorescent_feast_counts_green_symbols_of_the_revealed_cards(cards, 
     answer(s, [hand[n].id for n in reveal])
     assert life(s) == 40 + gain
     assert all(c.id in s.state.zones["p1:hand"] for c in hand.values())  # (revealing moves nothing)
+    check(s)
+
+
+@pytest.mark.parametrize("case,p2_life,p1_life", [("one", 38, 42), ("two", 36, 44), ("player", 40, 40)])
+def test_oath_of_kaya_triggers_once_per_planeswalker_attacked(cards, case, p2_life, p1_life):
+    """508.3a: one trigger for each planeswalker you control that is attacked, none for an attack on you."""
+    from tests.test_rules_conditionals import until
+    from tests.test_rules_wave36a_trigger_words import loyal
+    from tests.wave36a_kit import ready, to_turn_of
+
+    s = build(cards, ["Oath of Kaya", "Gideon Jura", "Vivien, Champion of the Wilds"], ["Grizzly Bears", "Test Giant 110F"], forests=20, islands=20)
+    put(s, "Oath of Kaya")
+    gideon, vivien = loyal(s, "Gideon Jura"), loyal(s, "Vivien, Champion of the Wilds")
+    bear, giant = put(s, "Grizzly Bears", "p2"), put(s, "Test Giant 110F", "p2")
+    ready(s, "Grizzly Bears", "Test Giant 110F", pid="p2")
+    to_turn_of(s, "p2")
+    until(s, lambda s: s.state.rules.decision is not None and s.state.rules.decision.kind == "declare_attackers")
+    targets = {"one": [gideon.id, gideon.id], "two": [gideon.id, vivien.id], "player": ["p1", "p1"]}[case]
+    act(s, "p2", type="declare_attackers", attackers=[{"card_id": c.id, "target": t} for c, t in zip((bear, giant), targets, strict=True)])
+    until(s, lambda s: s.state.turn.phase == "main2")
+    assert life(s, "p2") == p2_life
+    assert life(s, "p1") == p1_life - (5 if case == "player" else 0)  # (the 2/2 Bears and 3/3 Giant hit you for 5 unblocked)
     check(s)
