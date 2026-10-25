@@ -45,6 +45,8 @@ def parse(body: str) -> tuple[list[dict[str, Any]], Any, bool] | None:
         return [copy(key('artifact creature you control'))], None, False
     if t == 'exile x target creature cards from your graveyard. for each card exiled this way, create a token that\'s a copy of that card, except it\'s a 4/4 black zombie':
         return [{'do': 'exile', 'who': 'target', 'as': ORIGINAL}, action('exiled_only', excepts=[{'power': '4', 'toughness': '4', 'set_colors': ['B'], 'set_creature_types': ['Zombie']}])], [{'what': key('creature card in your graveyard'), 'min': 0, 'max': 250, 'x_count': 'exact'}], False
+    if t == "exile x target creature cards from graveyards. for each creature card exiled this way, create a token that's a copy of it. at the beginning of your next end step, sacrifice those tokens":  # -- foggy swamp visions (wave 110C) --
+        return [{'do': 'exile', 'who': 'target', 'as': ORIGINAL}, action('exiled_only', excepts=[]), cleanup('sacrifice', whose='you')], [{'what': key('creature card in a graveyard'), 'min': 0, 'max': 250, 'x_count': 'exact'}], False
     if t == 'until your next turn, up to one target creature attacks a player each combat if able':
         return [{'do': 'until', 'duration': 'next_turn', 'n': 1}, {'do': 'restrict', 'who': 'target', 'rules': ['attack_player_any']}], [{'what': key('creature'), 'min': 0, 'max': 1}], False
     if t == "exile target creature or equipment card with mana value less than ~'s loyalty from your graveyard. create a token that's a copy of it. that token gains haste. exile it at the beginning of the next end step":
