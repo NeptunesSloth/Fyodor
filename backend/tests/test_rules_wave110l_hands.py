@@ -111,3 +111,41 @@ def test_apocalypse_chime_destroys_only_names_first_printed_in_homelands(cards):
     assert zone_of(s, "Grizzly Bears") == "p1:battlefield"
     assert zone_of(s, CHIME) == "p1:graveyard"  # sacrificed as a cost
     check(s)
+
+
+DESCENT = "Descent into Madness"
+test_full_descent = full_test([DESCENT])
+
+
+def to_upkeep_trigger(s):
+    """Pass until Alice's next upkeep trigger asks Alice something (or settles)."""
+    for _ in range(60):
+        if s.state.rules.decision is not None:
+            return s.state.rules.decision
+        act(s, s.state.rules.priority, type="pass_priority")
+    raise AssertionError("no decision")
+
+
+def test_descent_into_madness_each_player_exiles_x_from_permanents_and_hand(cards):
+    s = build(cards, [DESCENT, "Grizzly Bears", "Llanowar Elves"], ["Giant Growth"])
+    put(s, DESCENT)
+    put(s, "Grizzly Bears")
+    put(s, "Llanowar Elves")
+    keep = {"Giant Growth"}
+    for pid in ("p1", "p2"):  # hands: p1 empty, p2 only Giant Growth
+        for c in list(s.state.zones[f"{pid}:hand"]):
+            if s.state.cards[c].name not in keep:
+                act(s, pid, type="move", card_ids=[c], to={"zone": "library"})
+    to_hand(s, "Giant Growth", "p2")
+    act(s, "p1", type="set_stops", own=["upkeep"], others=["upkeep"], smart_pass=False)
+    for _ in range(60):  # to Alice's next upkeep: the counter is put (X = 1), then she chooses one of her three permanents, Bob exiles his only card
+        d = s.state.rules.decision
+        if d is not None:
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+    assert d is not None and d.player == "p1" and {o.label for o in d.options} == {DESCENT, "Grizzly Bears", "Llanowar Elves"}
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[next(o.id for o in d.options if o.label == "Grizzly Bears")])
+    answer(s)
+    assert zone_of(s, "Grizzly Bears") == "p1:exile" and zone_of(s, "Giant Growth", "p2") == "p2:exile"
+    assert zone_of(s, "Llanowar Elves") == "p1:battlefield"
+    check(s)

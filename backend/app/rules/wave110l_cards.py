@@ -58,6 +58,70 @@ _BUILD["{2}, {T}, Sacrifice this artifact: Destroy all nontoken permanents with 
     "{2}, {T}, Sacrifice this artifact: Destroy all nontoken permanents. They can't be regenerated.", _chime)
 
 
+def _bookworm(d: Def) -> Def:
+    """Oblivious Bookworm: the discard of "if you do, discard a card" is also skipped when a permanent entered face down under your control or you turned
+    one face up this turn (708.2, 702.37e; facts of history.note_events / rules_state.emit)."""
+    gate = [e for e in d["effects"] if e.get("do") == "only_if" and e["cond"].get("succeeded")]
+    if len(gate) != 1:
+        return d
+    skip = {"any": [{"history": "facts", "kind": k, "who": "you", "n": 1} for k in ("enter_fd110l", "turned_up110l")]}
+    return {**d, "effects": [{**e, "cond": {"all": [e["cond"], {"not": skip}]}} if e is gate[0] else e for e in d["effects"]]}
+
+
+_BUILD["At the beginning of your end step, you may draw a card. If you do, discard a card unless a permanent entered the battlefield face down under your control "
+       "this turn or you turned a permanent face up this turn."] = (
+    "At the beginning of your end step, you may draw a card. If you do, discard a card.", _bookworm)
+
+
+def _descent(d: Def) -> Def:
+    """Descent into Madness: each player exiles X permanents they control and/or cards from their hand (X the despair counters, the one just put on included)."""
+    sac = [e for e in d["effects"] if e.get("do") == "sacrifice_choice"]
+    if len(sac) != 1:
+        return d
+    return {**d, "effects": [{"do": "exile_mixed110l", "n": e["n"]} if e is sac[0] else e for e in d["effects"]]}
+
+
+_BUILD["At the beginning of your upkeep, put a despair counter on this enchantment, then each player exiles X permanents they control and/or cards from their hand, "
+       "where X is the number of despair counters on this enchantment."] = (
+    "At the beginning of your upkeep, put a despair counter on this enchantment, then each player sacrifices X permanents, "
+    "where X is the number of despair counters on this enchantment.", _descent)
+
+
+def exile_mixed(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """Each player, in APNAP order (101.4), chooses X from their own permanents and hand cards (fewer if they have fewer); all are exiled at once.
+    The hand is private: only the chooser sees the options until the cards are exiled (exile is face up, 406.3)."""
+    from app.rules.effects import _amount
+
+    return _exile_next(plan, ctx, _amount(plan, ctx, e["n"]), list(plan.apnap()), [])
+
+
+def _exile_next(plan: Plan, ctx: Context, want: int, players: list[str], picked: list[str]) -> bool:
+    from app.rules.effects import decide, exile_cards, zone_key
+
+    for i, pid in enumerate(players):
+        pool = [c for c in plan.state.zones.get(zone_key(pid, "battlefield"), []) if plan.state.cards[c].controller == pid]
+        pool += plan.state.zones.get(zone_key(pid, "hand"), [])
+        n = min(want, len(pool))
+        if n == 0:
+            continue
+        if n == len(pool):
+            picked = [*picked, *pool]
+            continue
+        decide(plan, player=pid, kind="choose_cards", prompt=f"Exile {n} permanent{'s' if n != 1 else ''} you control and/or card{'s' if n != 1 else ''} from your hand",
+               options=[DecisionOption(id=c, label=plan.state.cards[c].name or "Card", card_id=c) for c in pool],
+               min_choices=n, max_choices=n, resume={"step": "exile_mixed110l", "ctx": ctx, "want": want, "rest": players[i + 1:], "picked": picked})
+        return False
+    return exile_cards(plan, ctx, {}, picked)
+
+
+def resume_exile_mixed(plan: Plan, d: Any, chosen: list[str]) -> None:
+    from app.rules.effects import continue_effects
+
+    r = d.resume
+    if _exile_next(plan, r["ctx"], r["want"], r["rest"], [*r["picked"], *chosen]):
+        continue_effects(plan, r["ctx"])
+
+
 def pick_discard(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     """The owner reveals their hand; the chooser picks one card of it, which is discarded (an empty hand reveals nothing and discards nothing)."""
     from app.rules.effects import _players, decide, zone_key
@@ -100,5 +164,5 @@ def resume_pick_discard(plan: Plan, d: Any, chosen: list[str]) -> None:
     continue_effects(plan, d.resume["ctx"])
 
 
-PRIMITIVES = {"pick_discard110l": pick_discard}
-RESUME = {"pick_discard110l": resume_pick_discard}
+PRIMITIVES = {"pick_discard110l": pick_discard, "exile_mixed110l": exile_mixed}
+RESUME = {"pick_discard110l": resume_pick_discard, "exile_mixed110l": resume_exile_mixed}
