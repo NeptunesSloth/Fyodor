@@ -173,6 +173,22 @@ def exile_hands(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return effects.exile_cards(plan, ctx, e, [c for p in plan.live() for c in plan.state.zones.get(zone_key(p, "hand"), [])])
 
 
+def counter_opponents(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """701.6a: counter every spell and ability an opponent controls on the stack (not this spell); then ``make``'s n tokens, one for each
+    that was really countered (a spell that can't be countered stays, 101.2): "for each spell and ability countered this way" (608.2c)."""
+    from app.rules import effects
+
+    sids = [c for c in plan.state.zones.get("stack", []) if c != ctx.get("stack_id") and plan.state.cards[c].controller != ctx["controller"]]
+    for sid in sids:
+        effects.counter_object(plan, sid, ctx["controller"], by=ctx["controller"])
+    return effects.PRIMITIVES["create_token"](plan, ctx, {**e["make"], "n": sum(c not in plan.rules.stack for c in sids)})
+
+
+def _answer() -> Parsed:
+    """Glen Elendra's Answer: one Faerie token for each spell and ability that was countered."""
+    return [{"do": "counter_opponents110a", "make": _p("Create a 1/1 blue and black Faerie creature token with flying.")[0][0]}], None, False
+
+
 def _decree() -> Parsed:
     """Decree of Annihilation: the three exiles in order (608.2c); "all cards from all hands" is every card in every hand (the hand zones, 400.1)."""
     first = _p("Exile all artifacts, creatures, and lands. Exile all cards from all graveyards.")[0]
@@ -288,6 +304,8 @@ def _beheld_power(text: str) -> Callable[[], Parsed]:
 
 
 BUILDERS: dict[str, Callable[[], Parsed]] = {
+    "Counter all spells your opponents control and all abilities your opponents control. Create a 1/1 blue and black Faerie creature token with "
+    "flying for each spell and ability countered this way.": _answer,
     "Create three 1/1 white Ninja Turtle Spirit creature tokens. If this spell's sneak cost was paid, they enter tapped and attacking.": _ronin,
     "~ deals damage equal to the power of the creature you chose or the card you revealed to target creature.":
         _beheld_power("~ deals damage equal to the power of the sacrificed creature to target creature."),
@@ -496,4 +514,4 @@ def unblocked_turn(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
 
 
 PRIMITIVES = {"bind_sacrificed110a": bind_sacrificed, "unblocked_turn110a": unblocked_turn, "repeat_put110a": repeat_put, "note_put110a": note_put, "bind110a": bind, "end_combat_phase110a": end_combat_phase, "snow110a": snow,
-              "exiled_power_damage110a": exiled_power_damage, "exile_hands110a": exile_hands}
+              "exiled_power_damage110a": exiled_power_damage, "exile_hands110a": exile_hands, "counter_opponents110a": counter_opponents}

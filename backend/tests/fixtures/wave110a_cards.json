@@ -1602,5 +1602,22 @@
   ],
   "power": "2",
   "toughness": "1"
+ },
+ {
+  "name": "Abrupt Decay",
+  "layout": "normal",
+  "mana_cost": "{B}{G}",
+  "cmc": 2.0,
+  "type_line": "Instant",
+  "oracle_text": "This spell can't be countered.\nDestroy target nonland permanent with mana value 3 or less.",
+  "colors": [
+   "B",
+   "G"
+  ],
+  "color_identity": [
+   "B",
+   "G"
+  ],
+  "keywords": []
  }
 ]

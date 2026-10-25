@@ -64,3 +64,41 @@ def test_ninja_reflexive_reveal_hits_the_damaged_player(cards):
     connect(s, ninja)
     assert s.state.cards[giant.id].zone == "p2:exile"
     check(s)
+
+
+ANSWER = "Glen Elendra's Answer"
+
+test_full_answer = full_test([ANSWER])
+
+
+def _respond(s):
+    """Alice's Bolt (at Bob) is on the stack; Bob answers with his own Bolt (at Alice) and an ability, then Alice has priority again."""
+    for p in ("p1", "p2"):
+        act(s, p, type="set_prefs", response="on")
+        act(s, p, type="set_stops", own=STEPS, others=STEPS, smart_pass=False)
+    fund(s, "{R}")
+    bolt = card_named(s, "Lightning Bolt", "p1")
+    act(s, "p1", type="move", card_ids=[bolt.id], to={"zone": "hand"})
+    act(s, "p1", type="cast_spell", card_id=bolt.id, targets=["p2"])
+    assert s.state.rules.priority == "p2"
+
+
+@pytest.mark.parametrize("what, faeries", [("spell", 1), ("ability", 1), ("uncounterable", 0)])
+def test_answer_counters_opposing_spells_and_abilities_a_faerie_for_each_countered(cards, what, faeries):
+    """701.6a: Bob's spell or ability is countered, Alice's own Bolt is not; one Faerie for each object really countered (608.2c);
+    a spell that can't be countered (101.2) stays and makes none."""
+    s = build(cards, [ANSWER, "Lightning Bolt", "Grizzly Bears"], ["Lightning Bolt", "Shivan Dragon", "Abrupt Decay"])
+    dragon = put(s, "Shivan Dragon", "p2")
+    bears = put(s, "Grizzly Bears")
+    _respond(s)
+    if what == "ability":
+        fund(s, "{R}", "p2")
+        act(s, "p2", type="activate_ability", card_id=dragon.id, ability=1)
+    else:
+        cast(s, "Abrupt Decay" if what == "uncounterable" else "Lightning Bolt", [bears.id] if what == "uncounterable" else ["p1"], pid="p2")
+    assert s.state.rules.priority == "p1" and len(s.state.zones["stack"]) == 2
+    cast(s, ANSWER)
+    answer(s)
+    assert len([c for c in s.state.zones["p1:battlefield"] if s.state.cards[c].name == "Faerie"]) == faeries
+    assert life(s, "p2") == 37 and (life(s, "p1") == 40 or what == "uncounterable")
+    check(s)
