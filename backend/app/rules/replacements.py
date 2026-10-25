@@ -1251,10 +1251,10 @@ def _static_exile_all(plan: Plan, card: CardInstance) -> list[tuple[CardInstance
     return found
 
 
-def _record_exile_instead(plan: Plan, card: CardInstance) -> str | None:
+def _record_exile_instead(plan: Plan, card: CardInstance) -> tuple[str, dict[str, Any] | None] | None:
     """-- replacement effects stage 2 (wave 2E) -- This turn's "If that creature / a creature dealt
     damage this way / a creature would die this turn, exile it instead" (effects.exile_if_dies):
-    the name of the spell or ability whose effect applies, or None. Like every other "exile
+    the name of the spell or ability whose effect applies (with its rider: Cosmic Intervention returns the card at the next end step), or None. Like every other "exile
     instead" here they agree on what happens, so there is no 616.1 choice between them."""
     turn = plan.state.turn.number
     oid = plan.oid(card)
@@ -1268,7 +1268,9 @@ def _record_exile_instead(plan: Plan, card: CardInstance) -> str | None:
         elif not rec.get("each") or not selectors.matches(plan, selectors.from_key(rec["each"]), card, ch,
                                                           rec["controller"], None):
             continue
-        return rec.get("label") or "a replacement effect"
+        rider = {"source": rec["return110b"], "controller": rec["controller"], "reflexive": False,  # -- one-card wordings (wave 110B) --
+                 "effects": [{"do": "return_next_end110b", "card": card.id}]} if rec.get("return110b") else None
+        return rec.get("label") or "a replacement effect", rider
     return None
 
 
@@ -1362,8 +1364,8 @@ def _graveyard_candidates(plan: Plan, card: CardInstance, frm: str) -> list[Cand
     for src, d in _static_exile_all(plan, card):
         rider = {"source": src.id, "controller": src.controller, **d["rider"]} if d.get("rider") else None
         out.append(Cand(src.name or "a static ability", "hand" if d["static"] == "hand_instead" else "exile", False, rider, plan.oid(src) if d.get("link") else "", d.get("counter", "")))
-    if frm == "battlefield" and (why := _record_exile_instead(plan, card)) is not None:  # -- replacement effects stage 2 (wave 2E) --
-        out.append(Cand(why, "exile"))
+    if frm == "battlefield" and (recorded := _record_exile_instead(plan, card)) is not None:  # -- replacement effects stage 2 (wave 2E) --
+        out.append(Cand(recorded[0], "exile", False, recorded[1]))
     if (why := _record_exile_cards(plan, card)) is not None:  # -- zone replacements (wave 37B) -- from any zone
         out.append(Cand(why, "exile"))
     return out

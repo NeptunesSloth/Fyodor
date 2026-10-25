@@ -514,6 +514,8 @@ def _trigger_antecedent(name: str, cond: dict[str, Any] | None) -> str | None:
     if event == "either" and cond.get("subject") == "player" and {c["event"] for c in cond["conds"]} == {"sacrifice", "discard"} \
             and all(c.get("obj") for c in cond["conds"]):
         return "event_gone"  # -- either with two actions (wave 51C) -- Tergrid: the card in the graveyard after either (context.EVENT_NEW reads a discarded card as it is)
+    if event == "either" and cond.get("subject") == "mixed" and {c["event"] for c in cond["conds"]} == {"sacrifice", "to_graveyard"}:
+        return "event_gone"  # -- trigger other (wave 110B) -- Desert Warfare: the card in the graveyard after either (a sacrificed card, a card put there)
     if event == "either" and cond.get("subject") == "self" and all(c["event"] in _STAYING for c in cond["conds"]):
         return "self"  # -- history (wave 22E) -- "Whenever ~ attacks, blocks, or becomes the target of a spell, it deals …"
     if event == "either" and cond.get("subject") == "sel" and all(c["event"] in _STAYING and not c.get("aggregate") for c in cond["conds"]):
@@ -7750,8 +7752,9 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                         generic = [h[1] for h in halves if h and h[1] is not None]
                         # (-- cant restrictions (wave 46A) -- the same event twice with different subjects, "Whenever Giott or another Dwarf you control enters and
                         # whenever an Equipment you control enters": one object entering is one event, so one trigger however many halves it matches, 603.2c)
-                        if names == ["event", "event"] and not re.search(
-                                r"\b(?:it|its|it's|that|those|them|they)\b", re.sub(r"\bit's the \w+ time\b", "", m["body"])) and not any(
+                        if names == ["event", "event"] and (not re.search(
+                                r"\b(?:it|its|it's|that|those|them|they)\b", re.sub(r"\bit's the \w+ time\b", "", m["body"]))
+                                or {g["event"] for g in generic} == {"sacrifice", "to_graveyard"}) and not any(  # (wave 110B: Desert Warfare, "that card" is the one in the graveyard)
                                 g.get("aggregate") or g["event"] in ("either", "multi") for g in generic):
                             # -- ability words (wave 20C) -- "Whenever an enchantment you control enters and whenever you fully unlock a
                             # Room" (eerie): two whole conditions, each its own event (603.2c) — the "or" form's either condition

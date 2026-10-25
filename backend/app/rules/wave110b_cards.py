@@ -23,6 +23,11 @@ def firebending(line: str) -> int | None:
 
 # whole ability text -> the wording the grammar reads for it
 _AS: dict[str, str] = {
+    # Desert Warfare: "that many" is the number of Deserts you control (the "five or more" test, 603.4, counts them); "They gain haste" is the tokens' own
+    "At the beginning of combat on your turn, if you control five or more Deserts, create that many 1/1 red, green, and white Sand Warrior creature tokens. "
+    "They gain haste.":
+        "At the beginning of combat on your turn, if you control five or more Deserts, create a 1/1 red, green, and white Sand Warrior creature token with "
+        "haste for each Desert you control.",
     # Saproling Infestation: 702.33d a player "kicks" a spell as they cast it kicked
     "Whenever a player kicks a spell, you create a 1/1 green Saproling creature token.":
         "Whenever a player casts a kicked spell, you create a 1/1 green Saproling creature token.",
@@ -136,7 +141,9 @@ def _mirror(d: Def) -> Def:
     """Mirror of Life Trapping (607.2a linked exile): returning the cards exiled with it first is the same as returning "all other" ones after the exile."""
     from app.rules import selectors
 
-    key = selectors.parse("permanent card").key()
+    sel = selectors.parse("permanent card")
+    assert sel is not None
+    key = sel.key()
     back = {"do": "return_card", "who": f"exiled_with:{key}", "to": "battlefield", "tapped": False, "under": "owner"}
     gate, exile = d["effects"]
     return {**d, "effects": [{**gate, "skip": 2}, back, {**exile, "link": True}], "accumulating_link": True}
@@ -160,7 +167,37 @@ def gap_search(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return True
 
 
+def _intervention(d: Def) -> Def:
+    """Cosmic Intervention: 614.1a the replacement covers every permanent you control (a "die" replacement is the creature case of it)."""
+    from app.rules import selectors
+
+    gone, = d["effects"]
+    sel = selectors.parse("permanent you control")
+    assert gone["do"] == "exile_if_dies" and sel is not None
+    return {**d, "effects": [{**gone, "each": sel.key(), "return110b": True}]}
+
+
+def return_next_end(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Cosmic Intervention (603.7, 400.7): the card the replacement exiled returns under its owner's control at the beginning of the next end step; a token
+    ceased to exist in exile (111.7), and a card that has moved again is another object."""
+    from app.game.rules_state import ObjectRef
+    from app.rules import delayed
+
+    card = plan.state.cards.get(e["card"])
+    if card is None or card.is_token or not card.zone.endswith(":exile"):
+        return True
+    ref = ObjectRef(card=card.id, object_id=plan.oid(card), zone=card.zone).model_dump(mode="json")
+    delayed.create_plain(plan, ctx["controller"], ctx.get("source_card") or "", ctx.get("source_object") or "", ctx.get("name") or "",
+                         {"kind": "step", "step": "end", "whose": "next"},
+                         [{"do": "bind_refs", "refs": {"ret110b": {"kind": "objects", "objects": [ref]}}},
+                          {"do": "return_card", "who": "ref:ret110b", "to": "battlefield", "tapped": False, "under": "owner"}])
+    return True
+
+
 _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
+    "If a permanent you control would be put into a graveyard from the battlefield this turn, exile it instead. Return it to the battlefield under its "
+    "owner's control at the beginning of the next end step.":
+        ("If a creature you control would die this turn, exile it instead.", _intervention),
     "When this creature enters, each player who controls fewer lands than the player who controls the most lands searches their library for a number of "
     "basic land cards less than or equal to the difference, puts those cards onto the battlefield tapped, then shuffles.":
         ("When this creature enters, each player who controls fewer lands than you searches their library for up to two basic land cards, puts them onto "
@@ -419,4 +456,4 @@ def gift_given(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return True
 
 
-PRIMITIVES: dict[str, Any] = {"gap_search110b": gap_search, "gift_given110b": gift_given, "ungoad110b": ungoad, "no_attack_next110b": no_attack_next, "draw_game110b": draw_game, "reaver110b": reaver, "veil110b": veil, "exile_own110b": exile_own}
+PRIMITIVES: dict[str, Any] = {"return_next_end110b": return_next_end, "gap_search110b": gap_search, "gift_given110b": gift_given, "ungoad110b": ungoad, "no_attack_next110b": no_attack_next, "draw_game110b": draw_game, "reaver110b": reaver, "veil110b": veil, "exile_own110b": exile_own}

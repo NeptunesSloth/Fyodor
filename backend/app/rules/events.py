@@ -734,7 +734,7 @@ def _parse(c: str) -> Condition | None:
     if c in ("~ is put into your graveyard from your library", "this card is put into your graveyard from your library"):
         return {"event": "to_graveyard", "subject": "self", "from": "library"}  # -- triggers (wave 19B) -- (Narcomoeba)
     m = re.fullmatch(r"(?P<o>one or more (?:.+? )?cards|an? .+? card|a card) (?:is|are) put into (?:(?P<g>your|an opponent's|a) "
-                     r"graveyard|graveyards) from (?P<f>anywhere other than the battlefield|anywhere|your library|their library|a library)", c)  # (wave 43B: Syr Konrad; wave 50G: "graveyards", Dennick)
+                     r"graveyard|graveyards) from (?P<f>anywhere other than the battlefield|anywhere|your hand or library|your hand|your library|their library|a library)", c)  # (wave 43B: Syr Konrad; wave 50G: "graveyards", Dennick)
     if m:
         gsel = selectors.from_key(_object_sel(m["o"], card=True))
         owner = {"your": "you", "an opponent's": "opponent"}.get(m["g"])
@@ -748,6 +748,10 @@ def _parse(c: str) -> Condition | None:
             if owner != "you":
                 return None
             out["from"] = "library"
+        elif m["f"] in ("your hand", "your hand or library"):  # -- trigger other (wave 110B) -- Desert Warfare: a card goes to its owner's graveyard, so "your" hand is its owner's
+            if owner != "you":
+                return None
+            out["froms"] = ["hand", "library"] if m["f"].endswith("library") else ["hand"]
         elif m["f"] == "their library":  # -- trigger other (wave 52B) -- "a creature card is put into an opponent's graveyard from their library" (Undead Alchemist): a card goes to its owner's graveyard, so their own library
             if owner != "opponent":
                 return None

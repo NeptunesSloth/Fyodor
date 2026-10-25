@@ -4992,6 +4992,8 @@ def exile_if_dies(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     if e.get("cards"):  # -- zone replacements (wave 37B) -- "If a card would be put into your graveyard from anywhere this turn, exile that card instead."
         plan.rules.replacements.append({**rec, "kind": "exile_cards", "whose": e["cards"]})
         return True
+    if e.get("return110b"):  # -- one-card wordings (wave 110B) -- Cosmic Intervention: the exiled card comes back at the next end step (the spell is the rider's source)
+        rec["return110b"] = ctx.get("source_card") or ""
     if e.get("each"):
         rec["each"] = e["each"]
     else:

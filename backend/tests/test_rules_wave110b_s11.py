@@ -1,6 +1,9 @@
 """Wave 110B session 11: single cards read from an exact wording (real Oracle text in tests/fixtures/wave110b_cards.json).
 
 * Scholarship Sponsor: 701.23, 101.4 each player with fewer lands than the most searches for up to the difference in basic lands, tapped.
+* Desert Warfare: 603.2c a Desert sacrificed or put into your graveyard from your hand or library returns at your next end step (400.7: that card);
+  at the beginning of your combat with five or more Deserts, a hasty Sand Warrior for each.
+* Cosmic Intervention: 614.1a, 611.2a a permanent you control put into a graveyard from the battlefield this turn is exiled instead and returns at the next end step.
 * Mirror of Life Trapping: 607.2a linked exile; a cast creature is exiled as it enters and every other permanent card exiled with it returns (400.7).
 """
 
@@ -19,7 +22,7 @@ def cards(settings):
     yield from repository(settings)
 
 
-@pytest.mark.parametrize("name", ["Mirror of Life Trapping", "Scholarship Sponsor"])
+@pytest.mark.parametrize("name", ["Mirror of Life Trapping", "Scholarship Sponsor", "Desert Warfare", "Cosmic Intervention"])
 def test_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
@@ -73,4 +76,67 @@ def test_scholarship_sponsor_fetches_the_land_difference_for_each_trailing_playe
     assert len(_lands(s, "p1")) - before[0] == gain_p1
     assert len(_lands(s, "p2")) - before[1] == gain_p2
     assert all(c.tapped for c in _lands(s, "p1")[mine:]) and all(c.tapped for c in _lands(s, "p2")[theirs:])
+    check(s)
+
+
+DESERTS = ["Desert", "Hostile Desert", "Endless Sands", "Hashep Oasis", "Ipnu Rivulet"]
+
+
+def test_desert_warfare_returns_a_discarded_desert_at_the_end_step_but_not_other_lands(cards):
+    s = build(cards, ["Desert Warfare", "Desert", "Mind Rot"], [])
+    put(s, "Desert Warfare")
+    desert = to_hand(s, "Desert")
+    forests = [to_hand(s, "Forest").id]
+    mana(s, "p1", B=1, C=2)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Mind Rot").id, targets=["p1"])
+    drive(s, lambda d: [desert.id, *forests][: d.max_choices] if desert.id in [o.id for o in d.options] else None)
+    assert s.state.cards[desert.id].zone == "p1:graveyard" and s.state.cards[forests[0]].zone == "p1:graveyard"
+    to_phase(s, "main1", turn=2)  # (the end step of turn 1 passes without a stop)
+    drive(s)
+    assert s.state.cards[desert.id].zone == "p1:battlefield"
+    assert s.state.cards[forests[0]].zone == "p1:graveyard"
+    check(s)
+
+
+def test_desert_warfare_returns_a_sacrificed_desert(cards):
+    s = build(cards, ["Desert Warfare", "Zuran Orb", "Desert"], [])
+    put(s, "Desert Warfare")
+    put(s, "Zuran Orb")
+    desert = put(s, "Desert")
+    act(s, "p1", type="activate_ability", card_id=card_named(s, "Zuran Orb").id, ability=0)
+    drive(s, lambda d: [desert.id] if desert.id in [o.id for o in d.options] else None)
+    assert s.state.cards[desert.id].zone == "p1:graveyard"
+    to_phase(s, "main1", turn=2)  # (the end step of turn 1 passes without a stop)
+    drive(s)
+    assert s.state.cards[desert.id].zone == "p1:battlefield"
+    check(s)
+
+
+@pytest.mark.parametrize("n, warriors", [(5, 5), (4, 0)])
+def test_desert_warfare_makes_a_hasty_sand_warrior_for_each_desert(cards, n, warriors):
+    s = build(cards, ["Desert Warfare", *DESERTS], [])
+    put(s, "Desert Warfare")
+    for name in DESERTS[:n]:
+        put(s, name)
+    to_phase(s, "declare_attackers" if warriors else "main2", turn=1)  # (the tokens, with haste, can attack: a decision)
+    made = [c for c in s.state.cards.values() if c.name == "Sand Warrior" and c.zone == "p1:battlefield"]
+    assert len(made) == warriors
+    assert (s.state.rules.decision is not None) == bool(warriors)
+    check(s)
+
+
+@pytest.mark.parametrize("mine, zone_after, returns", [(True, "p1:battlefield", True), (False, "p2:graveyard", False)])
+def test_cosmic_intervention_exiles_only_your_permanents_and_returns_them(cards, mine, zone_after, returns):
+    s = build(cards, ["Cosmic Intervention", "Grizzly Bears", "Lightning Bolt"], ["Grizzly Bears"])
+    bears = put(s, "Grizzly Bears", "p1" if mine else "p2")
+    mana(s, "p1", W=1, C=3)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Cosmic Intervention").id)
+    drive(s)
+    mana(s, "p1", R=1)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Lightning Bolt").id, targets=[bears.id])
+    drive(s)
+    assert s.state.cards[bears.id].zone == ("p1:exile" if mine else "p2:graveyard")
+    to_phase(s, "main1", turn=2)
+    drive(s)
+    assert s.state.cards[bears.id].zone == zone_after
     check(s)
