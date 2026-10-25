@@ -5,6 +5,8 @@
   relation: the second target is a creature its controller controls, bound from the first; 122.6 counters moved).
 * Discovery // Dispersal (Dispersal) - "Each opponent returns a nonland permanent they control with the greatest mana value among permanents they
   control to its owner's hand, then discards a card." (701.21a-like choice by each opponent; 400.3 owner's hand; lands have mana value 0).
+* Indulge // Excess (Excess) - "Create a Treasure token for each creature you controlled that dealt combat damage to a player this turn." (510.2
+  combat damage, 608.2i: the creatures as they dealt it, each once; 702.127a aftermath from the graveyard).
 """
 
 # ruff: noqa: F403, F405
@@ -15,7 +17,7 @@ import pytest
 from app.game.errors import ActionError
 from tests.wave110a_kit import *
 
-CUT, SHIFT, DISP = "Cut Short", "Bioshift", "Discovery // Dispersal"
+CUT, SHIFT, DISP, EXC = "Cut Short", "Bioshift", "Discovery // Dispersal", "Indulge // Excess"
 
 
 @pytest.fixture()
@@ -23,7 +25,7 @@ def cards(settings):
     yield from open_repo(settings)
 
 
-test_full = full_test([CUT, SHIFT, DISP])
+test_full = full_test([CUT, SHIFT, DISP, EXC])
 
 
 @pytest.mark.parametrize("used", [True, False])
@@ -87,4 +89,24 @@ def test_dispersal_returns_their_most_expensive_nonland_permanent_then_discards(
     assert zone_of(s, "Hill Giant", "p2") in ("p2:hand", "p2:graveyard")  # (returned, then possibly the card discarded)
     assert zone_of(s, "Grizzly Bears", "p2") == "p2:battlefield" and s.state.cards[forest.id].zone == "p2:battlefield" and bears and giant
     assert len(s.state.zones["p2:hand"]) == hand  # (Giant came back, one card discarded)
+    check(s)
+
+
+@pytest.mark.parametrize("attackers", [0, 1, 2])
+def test_excess_makes_a_treasure_per_creature_that_dealt_combat_damage(cards, attackers):
+    s = build(cards, [EXC, "Grizzly Bears", "Hill Giant"])
+    crew = [put(s, "Grizzly Bears"), put(s, "Hill Giant")][:attackers]
+    put(s, "Hill Giant") if attackers < 2 else None  # (a creature that stays home deals no damage)
+    to_graveyard(s, 1, EXC)
+    next_turn(s)
+    stops(s)
+    if crew:
+        to_phase(s, "declare_attackers")
+        act(s, "p1", type="declare_attackers", attackers=[{"card_id": c.id, "target": "p2"} for c in crew])
+    to_phase(s, "main2")
+    answer(s)
+    mana(s, R=1, C=1)
+    act(s, "p1", type="cast_spell", card_id=card_named(s, EXC).id, face=1)
+    answer(s)
+    assert sum(1 for c in s.state.cards.values() if c.name == "Treasure" and c.zone == "p1:battlefield") == attackers
     check(s)

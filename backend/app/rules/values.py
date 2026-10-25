@@ -583,6 +583,8 @@ def _turn_amount(what: str) -> Value | None:
         return {"turn_history": "visited100l"}
     if _TURN_OPP_DREW.match(what):  # the cards your opponents (still in the game, 800.4a) drew this turn, all of them together (121.1)
         return {"turn_history": "opp_drew"}
+    if re.fullmatch(r"(?:the number of )?creatures? you controlled that dealt combat damage to a player this turn", what):  # -- wave 110A -- Excess
+        return {"turn_history": "combat_damagers110a"}
     m = _TURN_EXILED.match(what)
     if m:  # -- this-turn history (wave 41B) -- "the number of creatures that were exiled under your opponents' control this turn" (Vren): each left the battlefield
         # for exile, controlled by an opponent as it left (608.2i: as it last existed there)

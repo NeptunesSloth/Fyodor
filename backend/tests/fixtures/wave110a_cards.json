@@ -1016,5 +1016,37 @@
     "oracle_text": "Each opponent returns a nonland permanent they control with the greatest mana value among permanents they control to its owner's hand, then discards a card."
    }
   ]
+ },
+ {
+  "name": "Indulge // Excess",
+  "layout": "split",
+  "mana_cost": "{2}{R} // {1}{R}",
+  "cmc": 5.0,
+  "type_line": "Sorcery // Sorcery",
+  "oracle_text": "Whenever a creature you control attacks this turn, create a 1/1 green and white Citizen creature token that's tapped and attacking.\n//\nAftermath (Cast this spell only from your graveyard. Then exile it.)\nCreate a Treasure token for each creature you controlled that dealt combat damage to a player this turn.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Treasure",
+   "Aftermath"
+  ],
+  "card_faces": [
+   {
+    "name": "Indulge",
+    "mana_cost": "{2}{R}",
+    "type_line": "Sorcery",
+    "oracle_text": "Whenever a creature you control attacks this turn, create a 1/1 green and white Citizen creature token that's tapped and attacking."
+   },
+   {
+    "name": "Excess",
+    "mana_cost": "{1}{R}",
+    "type_line": "Sorcery",
+    "oracle_text": "Aftermath (Cast this spell only from your graveyard. Then exile it.)\nCreate a Treasure token for each creature you controlled that dealt combat damage to a player this turn."
+   }
+  ]
  }
 ]
