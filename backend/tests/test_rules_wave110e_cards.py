@@ -1,6 +1,9 @@
 """Wave 110E: single-card builds on real Oracle text; every scenario checks the replay and a save and a load.
 
 * Garruk, Savage Herald: -7 grants the 510.1c permission to creatures for the turn (a quoted static the granting layer now reads).
+* Storm, Windrider: 508.1c/509.1b flyers can't attack its controller or block its controller's creatures; 603.2 its cast trigger grants flying to the
+  creatures the spell targets (115.9b), only when the spell has such a target.
+* Blaze of Glory: 509.1c the target, which can block any number of creatures, must block each attacking creature it is able to.
 * Spin into Myth: 701.29a fateseal 2 (look at the top two cards of an opponent's library, any to the bottom, the rest back on top in any order).
 """
 from __future__ import annotations
@@ -14,6 +17,12 @@ from tests.test_rules_wave12a_counters_keywords import real
 from tests.wave9c_kit import build, check, mana, put, to_hand
 
 EXTRA = [
+    real("Blaze of Glory", "{W}", 1, "Instant", "Cast this spell only during combat before blockers are declared.\n"
+         "Target creature defending player controls can block any number of creatures this turn. It blocks each attacking creature this turn if able.", None, "W"),
+    real("Storm, Windrider", "{1}{G}{W}{W}", 4, "Legendary Creature — Mutant Hero",
+         "Flying\nCreatures with flying can't attack you or block creatures you control.\n"
+         "Whenever you cast a spell that targets one or more creatures, those creatures gain flying until end of turn.", ("4", "4"), "GW"),
+    real("Giant Growth", "{G}", 1, "Instant", "Target creature gets +3/+3 until end of turn.", None, "G"),
     real("Garruk, Savage Herald", "{4}{G}{G}", 6, "Legendary Planeswalker — Garruk",
          "+1: Reveal the top card of your library. If it's a creature card, put it into your hand. Otherwise, put it on the bottom of your library.\n"
          "−2: Target creature you control deals damage equal to its power to another target creature.\n"
@@ -110,3 +119,63 @@ def test_garruk_minus_seven_lets_blocked_creatures_assign_as_unblocked(cards, gr
     assert finish_combat(s) == ([bears.id] if grant else [])  # 510.1c: asked only while the grant lasts
     assert s.state.players["p2"].life == (38 if grant else 40)
     check(s)
+
+
+def keywords(s, card):
+    from app.rules.plan import Plan
+
+    return Plan(s.state, "p1", s.cards, None).ch(s.state.cards[card.id]).keywords
+
+
+@pytest.mark.parametrize("targeted", [True, False])
+def test_storm_windrider_grants_flying_to_the_spells_targets(cards, targeted):
+    s = build(cards, ["Storm, Windrider", "Giant Growth", "Grizzly Bears"])
+    put(s, "Storm, Windrider")
+    bears = put(s, "Grizzly Bears")
+    mana(s, G=1)
+    if targeted:
+        cast(s, "Giant Growth", [bears.id])
+        answer(s)
+    assert ("flying" in {k.lower() for k in keywords(s, bears)}) is targeted  # 115.9b: only the spell's targets
+    check(s)
+
+
+def test_storm_windrider_flyers_cant_attack_its_controller(cards):
+    from app.game.errors import ActionError
+    from tests.test_rules_conditionals import until
+
+    s = build(cards, ["Storm, Windrider"], ["Shivan Dragon"])
+    put(s, "Storm, Windrider")
+    dragon = put(s, "Shivan Dragon", "p2")
+    until(s, lambda s: s.state.turn.number >= 2 and s.state.rules.decision is not None and s.state.rules.decision.kind == "declare_attackers")
+    assert s.state.turn.active_player == "p2"
+    with pytest.raises(ActionError):
+        act(s, "p2", type="declare_attackers", attackers=[{"card_id": dragon.id, "target": "p1"}])  # 508.1c
+
+
+@pytest.mark.parametrize("blocks,legal", [(0, False), (1, False), (2, True)])
+def test_blaze_of_glory_forces_the_target_to_block_every_attacker(cards, blocks, legal):
+    from app.game.errors import ActionError
+    from tests.test_rules_conditionals import until
+
+    s = build(cards, ["Blaze of Glory", "Grizzly Bears", "Grizzly Bears"], ["Grizzly Bears"])
+    bears = [c for c in s.state.cards.values() if c.name == "Grizzly Bears" and c.owner == "p1"]
+    for c in bears:
+        act(s, "p1", type="move", card_ids=[c.id], to={"player": "p1", "zone": "battlefield"})
+    wall = put(s, "Grizzly Bears", "p2")
+    act(s, "p1", type="set_prefs", full_control=True)
+    until(s, lambda s: s.state.turn.number >= 3 and s.state.rules.decision is not None and s.state.rules.decision.kind == "declare_attackers"
+          and s.state.turn.active_player == "p1")
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": c.id, "target": "p2"} for c in bears])
+    mana(s, W=1)
+    cast(s, "Blaze of Glory", [wall.id])
+    while s.state.zones.get("stack"):
+        act(s, s.state.rules.priority, type="pass_priority")
+    until(s, lambda s: s.state.rules.decision is not None and s.state.rules.decision.kind == "declare_blockers")
+    pairs = [{"blocker_id": wall.id, "attacker_id": c.id} for c in bears[:blocks]]
+    if legal:
+        act(s, "p2", type="declare_blockers", blocks=pairs)
+        check(s)
+    else:
+        with pytest.raises(ActionError):
+            act(s, "p2", type="declare_blockers", blocks=pairs)

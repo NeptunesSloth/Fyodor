@@ -998,6 +998,12 @@ def block_requirements(plan: Plan, a: A.DeclareBlockers, blockers: set[str], att
     for b in idle:
         if "must_block" in scripts.statics(plan.ch(b)) and any(could(b, x, joined=joined(b, x)) for x in att):
             return f"{b.name} blocks each combat if able"
+    for b in (state.cards[i] for i in blockers):  # -- combat (wave 110E) -- 509.1c: "blocks each attacking creature this turn if able" (Blaze of Glory)
+        if "must_block_all110e" in scripts.statics(plan.ch(b)):
+            for x in att:
+                if x.id not in covered.get(b.id, set()) and len(used.get(b.id, [])) < block_limit(plan, plan.ch(b)) \
+                        and could(b, x, joined=joined(b, x)):
+                    return f"{b.name} blocks {x.name} this turn if able"
     # -- block effects (wave 7E) -- "blocks this creature this turn if able": judged for the creatures that block nothing, and
     # for those blocking another attacker unless that block meets a requirement of its own (509.1c)
     for b in (state.cards[i] for i in blockers):

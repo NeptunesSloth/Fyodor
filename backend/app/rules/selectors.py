@@ -2132,6 +2132,8 @@ def defending_players(plan: Plan, source: str | None, attacker: str | None = Non
     let the ability's controller pick one defending player (508.5a); that choice isn't modelled:
     nothing matches. Empty outside combat."""
     creature = plan.state.cards.get(attacker or source or "")
+    if creature is not None and (creature.zone == "stack" or creature.zone.endswith(":hand")) and attacker is None:  # -- combat (wave 110E) -- 508.5a: a spell's controller chooses among
+        return {d for c in plan.state.cards.values() if c.attacking is not None and (d := _defender(plan, c.attacking))}  # the defending players
     if creature is None or creature.attacking is None:
         return set()
     d = _defender(plan, creature.attacking)

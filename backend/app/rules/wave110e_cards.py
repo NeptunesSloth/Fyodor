@@ -23,9 +23,40 @@ _APPEND: dict[str, tuple[str, list[Def]]] = {
 }
 
 
+def bind_targets(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """601.2c/115.9b: the creatures the cast spell targets (still on the battlefield), as one named group for "those creatures"."""
+    from app.rules import context, token_copy_sources
+
+    refs = token_copy_sources.spell_targets(plan, ctx, e["selector"])
+    context.refs(ctx)[e["as"]] = {"kind": "objects", "objects": [r.model_dump(mode="json") for r in refs]}
+    return True
+
+
+PRIMITIVES = {"spell_targets110e": bind_targets}
+
+_FLYERS = "Creatures with flying can't attack you or block creatures you control."
+_BLAZE = ("Target creature defending player controls can block any number of creatures this turn. "
+          "It blocks each attacking creature this turn if able.")
+_STORM = "Whenever you cast a spell that targets one or more creatures, those creatures gain flying until end of turn."
+
+
 def definition(ability: Any, ch: Any) -> Def | None:
     from app.rules import scripts
 
+    if ability.text.strip() == _STORM:
+        native = scripts.define(replace(ability, text="Whenever you cast a spell that targets one or more creatures, draw a card."), ch)
+        if native is None:
+            return None
+        return {**native, "effects": [{"do": "spell_targets110e", "selector": native["cond"]["targets"], "as": "st110e"},
+                                      {"do": "grant", "who": "ref:st110e", "keywords": ["flying"]}]}
+    if ability.text.strip() == _FLYERS:  # 508.1c, 509.1b: both rules on the same group, as the two sentences read apart
+        a, b = (scripts.define(replace(ability, text=t), ch) for t in ("Creatures with flying can't attack you.",
+                                                                       "Creatures with flying can't block creatures you control."))
+        return None if a is None or b is None or a["who"] != b["who"] else {**a, "rules": [*a["rules"], *b["rules"]]}
+    if ability.text.strip() == _BLAZE:  # 509.1c: the creature it names is the target of the first sentence
+        native = scripts.define(replace(ability, text=_BLAZE.split(". It ")[0] + "."), ch)
+        return None if native is None else {**native, "effects": [*native["effects"],
+                                                                  {"do": "restrict", "who": "target", "rules": ["must_block_all110e"]}]}
     got = _APPEND.get(ability.text.strip())
     if got is None:
         return None
