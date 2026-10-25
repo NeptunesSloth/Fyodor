@@ -6,3 +6,10 @@
 - Asinine Antics: "flash if you pay {2} more" has no foundation (conditional extra cost at cast time).
 - Xantcha, Sleeper Agent: "Any player may activate this ability" (activation by non-controllers) and "can't attack its owner or planeswalkers its owner controls" are not read; the enters-under-an-opponent part is done (wave110a_control).
 - Berserker's Frenzy: "Roll two d20 and ignore the lower roll" with a result table and "Choose any number of creatures. They block this turn if able." are not read (the "You choose which creatures block" mode is done).
+- Metamorphic Alteration: "enchanted creature is a copy of the chosen creature" needs a dynamic layer-1 copy static tracking the Aura.
+- Scheming Fence: grants all activated abilities (minus loyalty) of the chosen permanent plus a can't-activate static; no grant-from-object machinery.
+- Tectonic Split: "sacrifice half the lands you control, rounded up" additional cost needs state at 7 spell_additional_cost call sites.
+- Spin into Myth: fateseal 2 (ordering, opponent-owned library) not generalised in effects._look.
+- Needle Drop: "any target that was dealt damage this turn" needs players dealt damage as a target filter.
+- Jabari's Influence: "attacked you this turn" needs per-creature attack targets in the turn log.
+- Viral Spawning: self graveyard flashback with poison condition (Corrupted) not in graveyard_grants.

@@ -631,5 +631,22 @@
   "keywords": [],
   "power": "2",
   "toughness": "1"
+ },
+ {
+  "name": "Wood Elemental",
+  "layout": "normal",
+  "mana_cost": "{3}{G}",
+  "cmc": 4.0,
+  "type_line": "Creature — Elemental",
+  "oracle_text": "As this creature enters, sacrifice any number of untapped Forests.\nWood Elemental's power and toughness are each equal to the number of Forests sacrificed as it entered.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [],
+  "power": "*",
+  "toughness": "*"
  }
 ]

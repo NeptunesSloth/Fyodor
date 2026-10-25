@@ -25,7 +25,7 @@ if TYPE_CHECKING:
 WHAT = "devour"
 DONE = "done"
 _PIECE = re.compile(r"devour (?:(?P<q>land|artifact|food) )?(?P<n>\d+)")
-_QUALITY_WORD = {None: "creature", "land": "land", "artifact": "artifact", "food": "Food", "creature_pw": "creature or planeswalker",
+_QUALITY_WORD = {None: "creature", "land": "land", "artifact": "artifact", "food": "Food", "untapped_forest": "untapped Forest", "creature_pw": "creature or planeswalker",
                  "nonland": "nonland permanent"}
 
 
@@ -51,7 +51,9 @@ def supported(line: str) -> bool:
 # +1/+1 counter on it." The same choice, of at most one permanent, returned instead of sacrificed (the 2019-05-03 rulings: only one already there).
 _STATICS = {"As ~ enters, you may sacrifice any number of creatures and/or planeswalkers. If you do, it enters with twice that many +1/+1 counters on it.":
             ("creature_pw", 2),
-            "As ~ enters, you may return a nonland permanent you control to its owner's hand. If you do, ~ enters with a +1/+1 counter on it.": ("nonland", 1)}
+            "As ~ enters, you may return a nonland permanent you control to its owner's hand. If you do, ~ enters with a +1/+1 counter on it.": ("nonland", 1),
+            "As ~ enters, sacrifice any number of untapped Forests.": ("untapped_forest", 0)}  # (wave 110A: Wood Elemental, no counters: its P/T read "Forests sacrificed")
+NO_COUNTERS = {"untapped_forest"}
 RETURNS = "nonland"  # (the one quality returned to its owner's hand, at most one)
 
 
@@ -87,7 +89,8 @@ def _matches(plan: Plan, cid: str, quality: str | None) -> bool:
 
     ch = chars.of(plan.state.cards[cid], plan.info)
     return {None: ch.is_creature, "land": ch.is_land, "artifact": "Artifact" in ch.types,
-            "food": "Food" in ch.subtypes, "creature_pw": ch.is_creature or "Planeswalker" in ch.types, "nonland": not ch.is_land}[quality]
+            "food": "Food" in ch.subtypes, "creature_pw": ch.is_creature or "Planeswalker" in ch.types, "nonland": not ch.is_land,
+            "untapped_forest": "Forest" in ch.subtypes and not plan.state.cards[cid].tapped}[quality]
 
 
 def candidates(plan: Plan, card: CardInstance, controller: str, quality: str | None, taken: set[str]) -> list[str]:
@@ -137,6 +140,8 @@ def prompt(plan: Plan, card: CardInstance, controller: str, choice: dict[str, An
     options.append(DecisionOption(id=DONE, label=f"Done: {verb} {len(already)}" if already else f"Don't {verb} any"))
     if quality == RETURNS:
         return f"{card.name}: as it enters, return a {word} you control to its owner's hand?", options
+    if quality in NO_COUNTERS:
+        return f"{card.name}: as it enters, sacrifice any number of {word}s? ({len(already)} chosen)", options
     return (f"{card.name}: devour {n or 'X'} — as it enters, sacrifice {word}s? ({len(already)} chosen)", options)
 
 
@@ -163,4 +168,4 @@ def sacrifice(plan: Plan, ep: dict[str, Any], controller: str) -> None:
 def counters(ch: Any, choices: dict[str, str] | None) -> int:
     found = spec(ch)
     n = len(picked((choices or {}).get(WHAT)))
-    return (found[1] or n) * n if found is not None else 0  # (Thromok: N 0, X is how many were sacrificed)
+    return 0 if found is None or found[0] in NO_COUNTERS else (found[1] or n) * n  # (Thromok: N 0, X is how many were sacrificed)

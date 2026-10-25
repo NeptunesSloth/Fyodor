@@ -331,7 +331,7 @@ def _parse_count(phrase: str, *, it: str | None = None) -> Value | None:
         return {"kicked": 1, "of": "cast_spell"}
     if what in ("times this creature has mutated", "times ~ has mutated", "times this permanent has mutated", "time this creature has mutated"):  # -- merged permanents (wave 18D)
         return {"mutated": 1}  # (702.140: how many spells merged with it)
-    if what in ("creature it devoured", "creature ~ devoured"):  # -- keyword mechanics (wave 9D) -- 702.82b
+    if what in ("creature it devoured", "creature ~ devoured", "Forest sacrificed as it entered", "Forests sacrificed as it entered"):  # (wave 110A: Wood Elemental)  # -- keyword mechanics (wave 9D) -- 702.82b
         return {"devoured": 1}
     if (paid_group := re.fullmatch(r"(?P<symbols>(?:\{[WUBRG]\}){2,}) spent to cast (?:this spell|it|~|this creature|this permanent)", what)) is not None:
         symbols = re.findall(r"\{([WUBRG])\}", paid_group['symbols'])

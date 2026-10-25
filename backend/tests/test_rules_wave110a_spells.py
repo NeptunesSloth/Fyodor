@@ -486,3 +486,26 @@ def test_tyrannical_pitlord_pumps_the_chosen_creature_and_sacrifices_it_when_it_
     answer(s)
     assert s.state.cards[bears.id].zone == "p1:graveyard" and s.state.cards[giant.id].zone == "p1:battlefield"
     check(s)
+
+
+WOOD = "Wood Elemental"
+test_full_wave110a_wood = full_test([WOOD])
+
+
+@pytest.mark.parametrize("n", [0, 2])
+def test_wood_elemental_is_as_big_as_the_untapped_forests_sacrificed_as_it_entered(cards, n):
+    """702.82-style entering sacrifice (614.12a): only untapped Forests are offered; its P/T equal the number sacrificed (0/0 dies, 704.5f)."""
+    s = build(cards, [WOOD, "Forest"])
+    forests = [c for c in s.state.cards.values() if c.name == "Forest" and c.zone == "p1:library"][:3]
+    act(s, "p1", type="move", card_ids=[f.id for f in forests], to={"player": "p1", "zone": "battlefield"})
+    act(s, "p1", type="tap", card_ids=[forests[2].id], tapped=True)
+    cast(s, WOOD)
+    d = s.state.rules.decision
+    assert forests[2].id not in [o.card_id for o in d.options], [(o.id, o.label) for o in d.options]
+    answer(s, *([forests[0].id, forests[1].id] if n else []), "done")
+    elemental = card_named(s, WOOD)
+    if n:
+        assert pt(s, WOOD) == (n, n) and len([f for f in forests if s.state.cards[f.id].zone == "p1:graveyard"]) == n
+    else:
+        assert s.state.cards[elemental.id].zone == "p1:graveyard"
+    check(s)
