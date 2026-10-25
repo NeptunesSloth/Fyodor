@@ -6015,6 +6015,10 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
 
     if (whole110d := wave110d.definition(ability, ch)) is not None:
         return whole110d
+    from app.rules import wave110j_cards  # -- wave 110J --
+
+    if (card110j := wave110j_cards.definition(ability, ch)) is not None:
+        return card110j
     from app.rules import retarget100o  # -- retarget (wave 100O) --
 
     if (lines100o := retarget100o.definition(ability, ch)) is not None:
@@ -10327,7 +10331,13 @@ _RECORDING["enters_as"] = None
 @_first  # (before agent J's "until your next turn" wrapper, which only wraps pumps, grants and restrictions)
 @effect(r"(?P<text>(?:until your next turn, (?:have )?.+? becomes? (?:(?:a|an) |(?=\d+/\d+ )).+|(?:have )?.+? becomes? (?:(?:a|an) |(?=\d+/\d+ )).+ until your next turn))")
 def _become_next_turn(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
-    return _become(m)
+    try:
+        return _become(m)
+    except _NoMatch:
+        # -- wave 110J -- "Target land becomes a Swamp until your next turn.": a land type set, read as the duration over "… until end of turn"
+        if (land := re.fullmatch(rf"(?P<clause>target land becomes an? (?:{_language._BASICS})) (?P<duration>until your next turn)", m["text"], re.I)) is None:
+            raise
+        return _with_duration(land)
 
 
 @_first  # ("… until your next turn": before agent J's wrapper, as above)

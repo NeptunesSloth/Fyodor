@@ -502,6 +502,12 @@ def apply_duration(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     r = plan.rules
     mark = r.timestamp
     before = {cid: {m.id for m in c.effects} for cid, c in plan.state.cards.items()}
+    until_player = ctx["controller"]
+    if e.get("controller110j"):  # -- wave 110J -- "until its controller's next untap step" (Orcish Farmer): the target's controller, as the effect begins
+        from app.rules.effects import _cards
+
+        held = _cards(plan, ctx, inner[0]["who"])
+        until_player = plan.state.cards[held[0]].controller if held else until_player
     for x in inner:
         if not PRIMITIVES[x["do"]](plan, ctx, x):
             raise AssertionError("a duration wraps only effects that never pause")  # (the grammar only wraps pumps and grants)
@@ -522,7 +528,7 @@ def apply_duration(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         if effect.timestamp > mark:
             effect.duration = duration
             effect.until_object = until_object
-            effect.until_player = ctx["controller"]
+            effect.until_player = until_player
             effect.turn = plan.state.turn.number
             if counter:
                 effect.counter = counter
