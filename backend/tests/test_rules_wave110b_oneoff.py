@@ -31,7 +31,7 @@ def cards(settings):
     yield from repository(settings)
 
 
-@pytest.mark.parametrize("name", ["Prince of Thralls", "Oath of Lim-Dûl", "Chaos Lord", "Divine Intervention", "Herald of Anafenza", "Guardian of New Benalia", "Aloe Alchemist", "Parapet Thrasher", "Overclocked Electromancer", "Arashin War Beast", "Firemane Angel", "Bane of the Living", "Warbreak Trumpeter", "Kadena's Silencer", "Longhorn Sharpshooter", "Plague Reaver", "Quakebringer", "Suppressor Skyguard", "Shirei, Shizo's Caretaker", "Lich's Mastery", "The Chain Veil", "Campsite Cuisine", "Way of the Mind Sculptor", "Kitsune Ace", "Knights of the Black Rose"])
+@pytest.mark.parametrize("name", ["Prince of Thralls", "Oath of Lim-Dûl", "Chaos Lord", "Divine Intervention", "Herald of Anafenza", "Guardian of New Benalia", "Aloe Alchemist", "Parapet Thrasher", "Overclocked Electromancer", "Arashin War Beast", "Firemane Angel", "Goblin Plate Mail", "Wall of Dust", "Bane of the Living", "Warbreak Trumpeter", "Kadena's Silencer", "Longhorn Sharpshooter", "Plague Reaver", "Quakebringer", "Suppressor Skyguard", "Shirei, Shizo's Caretaker", "Lich's Mastery", "The Chain Veil", "Campsite Cuisine", "Way of the Mind Sculptor", "Kitsune Ace", "Knights of the Black Rose"])
 def test_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
@@ -587,4 +587,44 @@ def test_firemane_angel_gains_life_in_the_graveyard_or_on_the_battlefield(cards,
         act(s, "p1", type="move", card_ids=[a.id], to={"player": "p1", "zone": zone})
     to_turn(s, 3, "main1")
     assert s.state.players["p1"].life == life
+    check(s)
+
+
+@pytest.mark.parametrize("army_first", [False, True])
+def test_goblin_plate_mail_attaches_to_the_amassed_army(cards, army_first):
+    """Goblin Plate Mail: 701.47a amass creates an Army if you have none (or uses yours), 701.47c "the amassed Army" is that creature; it gets +1/+0 and menace."""
+    s = build(cards, ["Goblin Plate Mail", "Goblin Plate Mail"], [])
+    if army_first:
+        mana(s, "p1", R=1, B=1, C=1)
+        cast(s, "Goblin Plate Mail")
+        first = next(c for c in s.state.cards.values() if c.name == "Goblin Plate Mail" and c.zone == "p1:battlefield")
+        act(s, "p1", type="move", card_ids=[first.id], to={"player": "p1", "zone": "graveyard"})
+    mana(s, "p1", R=1, B=1, C=1)
+    cast(s, "Goblin Plate Mail")
+    armies = [c for c in s.state.cards.values() if c.zone == "p1:battlefield" and c.is_token]
+    mail = next(c for c in s.state.cards.values() if c.name == "Goblin Plate Mail" and c.zone == "p1:battlefield")
+    assert len(armies) == 1 and mail.attached_to == armies[0].id
+    assert ch(s, armies[0]).pt == ((3, 2) if army_first else (2, 1))  # (+1/+1 counters, +1/+0 from the Equipment)
+    check(s)
+
+
+@pytest.mark.parametrize("blocked", [True, False])
+def test_wall_of_dust_stops_the_blocked_creature_attacking_in_its_controllers_next_turn_only(cards, blocked):
+    """Wall of Dust: 611.2 the blocked creature can't attack during its controller's next turn (turn 3), but may attack again in the turn after."""
+    from tests.test_rules_conditionals import to_turn
+    from tests.wave110b_kit import through_combat
+
+    s = build(cards, ["Hill Giant", *["Forest"] * 8], ["Wall of Dust", *["Forest"] * 8])
+    giant, wall = put(s, "Hill Giant"), put(s, "Wall of Dust", "p2")
+    attack(s, giant)
+    through_combat(s, [(wall, giant)] if blocked else [])
+    to_turn(s, 3, "main1")
+    s.state.rules.controlled_since[giant.id].turn = 0
+    act(s, "p1", type="pass_priority")
+    declares = s.state.rules.decision is not None and s.state.rules.decision.kind == "declare_attackers"
+    assert declares != blocked  # (blocked: no creature may attack, so no declaration)
+    if blocked:
+        to_turn(s, 5, "main1")
+        act(s, "p1", type="pass_priority")
+        assert s.state.rules.decision is not None and s.state.rules.decision.kind == "declare_attackers"
     check(s)

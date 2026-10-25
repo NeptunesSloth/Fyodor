@@ -16,3 +16,8 @@
 - Hylda of the Icy Crown: no "you tap an untapped creature" event (tapper not tracked).
 - Twisted Sewer-Witch: per-Rat Role loop reruns on replacement ordering (would duplicate Roles).
 - Rigo, Streetwise Mentor: "attack a player or planeswalker" trigger count per defender unverified.
+- Spinneret and Spiderling: "deals 4 or more damage" with no recipient; whether damage to several recipients at once sums is unverified (events.py threshold is per recipient).
+- Mysterio, Master of Illusion: "Exile those tokens when Mysterio leaves the battlefield" needs a delayed trigger keyed on the source leaving, acting on the created tokens; no such foundation.
+- Overburden: "that player" is the player who puts the creature onto the battlefield, not always its controller (e.g. a blinked creature returns under its owner's control); controller-based rewrite would be wrong.
+- Invasion of Fiora // Marchesa: "since your last turn" damage history is not logged across turns.
+- Curator of Sun's Creation: no "you discover" event or discover-value record.

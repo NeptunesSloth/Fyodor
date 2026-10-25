@@ -878,5 +878,44 @@
   ],
   "power": "4",
   "toughness": "3"
+ },
+ {
+  "name": "Goblin Plate Mail",
+  "layout": "normal",
+  "mana_cost": "{1}{B/R}",
+  "cmc": 2.0,
+  "type_line": "Artifact — Equipment",
+  "oracle_text": "When this Equipment enters, amass Goblins 1, then attach this Equipment to the amassed Army. (To amass Goblins 1, put a +1/+1 counter on an Army you control. It's also a Goblin. If you don't control an Army, create a 0/0 black Goblin Army creature token first.)\nEquipped creature gets +1/+0 and has menace.\nEquip {4}",
+  "colors": [
+   "B",
+   "R"
+  ],
+  "color_identity": [
+   "B",
+   "R"
+  ],
+  "keywords": [
+   "Amass",
+   "Equip"
+  ]
+ },
+ {
+  "name": "Wall of Dust",
+  "layout": "normal",
+  "mana_cost": "{2}{R}",
+  "cmc": 3.0,
+  "type_line": "Creature — Wall",
+  "oracle_text": "Defender (This creature can't attack.)\nWhenever this creature blocks a creature, that creature can't attack during its controller's next turn.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Defender"
+  ],
+  "power": "1",
+  "toughness": "4"
  }
 ]

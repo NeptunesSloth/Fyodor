@@ -160,6 +160,14 @@ _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
     # Firemane Angel: works from the graveyard (as Quakebringer) or on the battlefield (603.4 intervening "if")
     "At the beginning of your upkeep, if Firemane Angel is in your graveyard or on the battlefield, you may gain 1 life.":
         ("At the beginning of your upkeep, if this creature is in your graveyard, you may gain 1 life.", _quake),
+    # Goblin Plate Mail: the Army chosen by amassing, whether or not it got counters (701.47c), is what the Equipment attaches to (701.3a)
+    "When this Equipment enters, amass Goblins 1, then attach this Equipment to the amassed Army.":
+        ("When this Equipment enters, amass Goblins 1.",
+         lambda d: {**d, "effects": [{**d["effects"][0], "as": "army110b"}, {"do": "attach_to", "who": "ref:army110b"}]}),
+    # Wall of Dust: the blocked creature can't attack in its controller's next turn (a window rule that starts with that turn, as attack_destinations)
+    "Whenever this creature blocks a creature, that creature can't attack during its controller's next turn.":
+        ("Whenever this creature blocks a creature, that creature doesn't untap during its controller's next untap step.",
+         lambda d: {**d, "effects": [{"do": "no_attack_next110b", "who": "event"}]}),
     # Ozai: the mana a player would lose stays in the pool as red mana (614.1a, 500.4)
     "If you would lose unspent mana, that mana becomes red instead.":
         ("If you would lose unspent mana, that mana becomes colorless instead.", lambda d: {**d, "to": "R"}),
@@ -277,5 +285,17 @@ def resume_exile_own(plan: Any, d: Any, chosen: list[str]) -> None:
     effects.continue_effects(plan, ctx)
 
 
+def no_attack_next(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
+    """Wall of Dust: 508.1c-style restriction "can't attack" (a continuous effect, 611.2) from the start of the creature's controller's next turn
+    (declaration window "next_turn", engine.begin_window) to its end."""
+    from app.rules import effects, layers
+
+    for cid in effects._cards(plan, ctx, e["who"]):
+        card = plan.state.cards[cid]
+        layers.add_effect(plan, affected=[plan.oid(cid)], layer="6", source=ctx.get("source_object"), controller=ctx["controller"], duration="permanent",
+                          imposes=("cant_attack",), declaration_window="next_turn", declaration_player=card.controller)
+    return True
+
+
 RESUME: dict[str, Any] = {"exile_own110b": resume_exile_own}
-PRIMITIVES: dict[str, Any] = {"draw_game110b": draw_game, "reaver110b": reaver, "veil110b": veil, "exile_own110b": exile_own}
+PRIMITIVES: dict[str, Any] = {"no_attack_next110b": no_attack_next, "draw_game110b": draw_game, "reaver110b": reaver, "veil110b": veil, "exile_own110b": exile_own}
