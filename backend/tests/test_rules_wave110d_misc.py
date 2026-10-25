@@ -5,6 +5,9 @@
   damage to them." (Curse of Shaken Faith) — the first spell is free, the second costs 2.
 * 602.5, 605.1a, 606: "Enchanted player can't activate abilities that aren't mana abilities or loyalty abilities." (Overwhelming Splendor) — a
   mana ability still works, any other activated ability is refused.
+* 502.3, 603.2c, 107.1: "Whenever you untap one or more permanents during your untap step, put that many time counters on The Millennium Calendar." and
+  "When there are 1,000 or more time counters on The Millennium Calendar, sacrifice it and each opponent loses 1,000 life." — one counter per permanent
+  untapped; doubling past 1000 sacrifices it.
 """
 
 from __future__ import annotations
@@ -78,4 +81,22 @@ def test_overwhelming_splendor_stops_only_nonmana_abilities(cards):
     refused(s, "can't be activated", coat, "{T}: Target permanent", pid="p2", targets=[ring.id])
     activate(s, ring, "{T}: Add", pid="p2")
     assert s.state.cards[ring.id].tapped
+    check(s)
+
+
+def test_millennium_calendar_is_full():
+    assert full("The Millennium Calendar")
+
+
+def test_millennium_calendar_counts_untapped_permanents_then_ends(cards):
+    s = build(cards, ["The Millennium Calendar", "Sol Ring", "Grizzly Bears"])
+    cal, ring, bears = put(s, "The Millennium Calendar"), put(s, "Sol Ring"), put(s, "Grizzly Bears")
+    act(s, "p1", type="tap", card_ids=[ring.id, bears.id])
+    next_turn(s)
+    next_turn(s)
+    assert s.state.cards[cal.id].counters == {"time": 2}  # the two that untapped
+    act(s, "p1", type="counter", card_ids=[cal.id], kind="time", delta=598)
+    mana(s, C=2)
+    activate(s, cal, "{2}, {T}: Double")
+    assert s.state.cards[cal.id].zone == "p1:graveyard" and life(s, "p2") == 40 - 1000
     check(s)

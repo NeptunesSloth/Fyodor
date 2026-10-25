@@ -1,6 +1,7 @@
 """-- lines (wave 110D) -- whole abilities read as an equivalent native wording (same meaning, citations at each entry; CR 2026-09-25)."""
 from __future__ import annotations
 
+import json
 from dataclasses import replace
 from typing import Any
 
@@ -24,11 +25,22 @@ _AS: dict[str, str] = {
     # Mjölnir: doubling all of a source's damage is "it deals double that damage instead" to any recipient (120.1, 614.1)
     "Double all damage equipped creature would deal.":
         "If equipped creature would deal damage to a permanent or player, it deals double that damage instead.",
+    # The Millennium Calendar: untapping in the untap step happens to every permanent at once (502.3), one batch (603.2c); the count is read below
+    "Whenever you untap one or more permanents during your untap step, put that many time counters on ~.":
+        "Whenever one or more permanents you control become untapped, put that many time counters on this artifact.",
+    # "1,000" is the number 1000 (107.1)
+    "When there are 1,000 or more time counters on ~, sacrifice it and each opponent loses 1,000 life.":
+        "When there are 1000 or more time counters on this artifact, sacrifice it and each opponent loses 1000 life.",
 }
 
 
 def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
     from app.rules import scripts
 
-    native = _AS.get(scripts.self_text(ability.text, ch.name))
-    return None if native is None else scripts.define(replace(ability, text=native), ch)
+    text = scripts.self_text(ability.text, ch.name)
+    native = _AS.get(text)
+    d = None if native is None else scripts.define(replace(ability, text=native), ch)
+    if d is not None and text.startswith("Whenever you untap one or more"):  # (own_untap: only the untap step of its controller, triggers.py)
+        d = json.loads(json.dumps(d, default=str).replace('{"event_amount": 1}', '{"event_count": 1}'))
+        d["cond"]["own_untap"] = True
+    return d
