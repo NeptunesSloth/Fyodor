@@ -39,6 +39,25 @@ _BUILD["{T}: Reveal your hand and discard a card of target opponent's choice. Th
     "{T}: Target opponent loses 1 life. Activate only as a sorcery.", _swap_hands)
 
 
+def _chime(d: Def) -> Def:
+    """Apocalypse Chime: only the permanents with a name first printed in Homelands (wave110l_homelands) are destroyed."""
+    from dataclasses import replace as rep
+
+    from app.rules import selectors
+
+    out = []
+    for e in d["effects"]:
+        if e.get("do") == "destroy":
+            sel = selectors.from_key(e["who"])
+            e = {**e, "who": rep(sel, extras=(*sel.extras, "first_hml110l")).key()}
+        out.append(e)
+    return {**d, "effects": out}
+
+
+_BUILD["{2}, {T}, Sacrifice this artifact: Destroy all nontoken permanents with a name originally printed in the Homelands expansion. They can't be regenerated."] = (
+    "{2}, {T}, Sacrifice this artifact: Destroy all nontoken permanents. They can't be regenerated.", _chime)
+
+
 def pick_discard(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     """The owner reveals their hand; the chooser picks one card of it, which is discarded (an empty hand reveals nothing and discards nothing)."""
     from app.rules.effects import _players, decide, zone_key

@@ -92,3 +92,22 @@ def test_the_unpicked_cards_are_hidden_again(cards):
     for pid in ("p1", "p2"):
         assert all(not s.state.cards[c].revealed_to for c in s.state.zones[f"{pid}:hand"])
     check(s)
+
+
+CHIME = "Apocalypse Chime"
+test_full_chime = full_test([CHIME])
+
+
+def test_apocalypse_chime_destroys_only_names_first_printed_in_homelands(cards):
+    s = build(cards, [CHIME, "Hungry Mist", "Grizzly Bears"], ["Aysen Bureaucrats"])
+    chime = put(s, CHIME)
+    for n in ("Hungry Mist", "Grizzly Bears"):
+        put(s, n)
+    put(s, "Aysen Bureaucrats", "p2")
+    mana(s, C=2)
+    act(s, "p1", type="activate_ability", card_id=chime.id, ability=0)
+    answer(s)
+    assert zone_of(s, "Hungry Mist") == "p1:graveyard" and zone_of(s, "Aysen Bureaucrats", "p2") == "p2:graveyard"
+    assert zone_of(s, "Grizzly Bears") == "p1:battlefield"
+    assert zone_of(s, CHIME) == "p1:graveyard"  # sacrificed as a cost
+    check(s)

@@ -2762,6 +2762,11 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
 
             if not card_names.has_name(ch, extra[5:]) and not static_perm100d.counted_as(plan, source, card, ch):
                 return False
+        if extra == "first_hml110l":  # -- (wave 110L) -- "a name originally printed in the Homelands expansion" (Apocalypse Chime)
+            from app.rules import card_names, wave110l_homelands
+
+            if not any(card_names.has_name(ch, n) for n in wave110l_homelands.NAMES):
+                return False
         if extra.startswith("not_name:"):
             from app.rules import card_names
 
