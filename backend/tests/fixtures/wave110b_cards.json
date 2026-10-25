@@ -361,5 +361,24 @@
    "W"
   ],
   "keywords": []
+ },
+ {
+  "name": "Herald of Anafenza",
+  "layout": "normal",
+  "mana_cost": "{W}",
+  "cmc": 1.0,
+  "type_line": "Creature — Human Soldier",
+  "oracle_text": "Outlast {2}{W} ({2}{W}, {T}: Put a +1/+1 counter on this creature. Outlast only as a sorcery.)\nWhenever you activate this creature's outlast ability, create a 1/1 white Warrior creature token.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "Outlast"
+  ],
+  "power": "1",
+  "toughness": "2"
  }
 ]

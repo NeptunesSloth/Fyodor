@@ -18,7 +18,7 @@ def cards(settings):
     yield from repository(settings)
 
 
-@pytest.mark.parametrize("name", ["Prince of Thralls", "Oath of Lim-Dûl", "Chaos Lord", "Divine Intervention"])
+@pytest.mark.parametrize("name", ["Prince of Thralls", "Oath of Lim-Dûl", "Chaos Lord", "Divine Intervention", "Herald of Anafenza"])
 def test_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
@@ -88,4 +88,19 @@ def test_divine_intervention_is_a_draw_when_the_last_counter_goes(cards):
     until(s, lambda s: s.state.rules.draw_reason is not None)
     assert s.state.turn.number == 5
     assert s.state.rules.draw_reason is not None
+    check(s)
+
+
+def test_herald_of_anafenza_makes_a_warrior_for_its_own_outlast_only(cards):
+    """Herald of Anafenza: 702.107a outlast is an activated ability; only the Herald whose outlast was activated makes the token (two Heralds)."""
+    s = build(cards, ["Herald of Anafenza", "Herald of Anafenza"], [])
+    heralds = [c.id for c in s.state.cards.values() if c.name == "Herald of Anafenza" and c.zone == "p1:library"][:2]
+    act(s, "p1", type="move", card_ids=heralds, to={"player": "p1", "zone": "battlefield"})
+    for h in heralds:
+        s.state.rules.controlled_since[h].turn = 0
+    mana(s, "p1", W=1, C=2)
+    act(s, "p1", type="activate_ability", card_id=heralds[0], ability=0)
+    drive(s)
+    warriors = [c for c in s.state.cards.values() if c.name == "Warrior" and c.zone == "p1:battlefield"]
+    assert len(warriors) == 1 and s.state.cards[heralds[0]].counters.get("+1/+1") == 1
     check(s)

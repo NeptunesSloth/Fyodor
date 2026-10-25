@@ -1087,6 +1087,10 @@ def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: F
         return False
     if event == "activate" and cond.get("host_source") and (obj is None or not _hosted(plan, watcher, obj, info, event)):
         return False
+    if event == "activate" and cond.get("ability_word") and info.get("outlast110b") is not True:  # -- (wave 110B) -- its own outlast ability (702.107a)
+        return False
+    if event == "activate" and cond.get("self_source") and (obj is None or obj.id != watcher.id):
+        return False
     if event == "activate" and cond.get("word") and info.get("word") != cond["word"]:  # -- counters (wave 33C) -- "an exhaust / a boast / a power-up ability"
         return False
     if event == "activate" and cond.get("ability_targets"):  # -- stack interaction (wave 23B) -- "an ability that targets a creature or player"
@@ -2463,6 +2467,7 @@ def activated(plan: Plan, card: CardInstance, oid: str, *, loyalty: bool = False
     fact: Fact = ("activate", obj, och, actor,
                           {"oid": oid, "snap": snap, "actor": actor, "mana_ability": mana_ability, "amount": 1, "loyalty": loyalty, "activation_cost": activation_cost,
                            "ability_kind": "ninjutsu" if ninjutsu.is_ninjutsu(text) else controller_tutors.activation_kind(och, text),
+                           "outlast110b": re.fullmatch(r"(?:\{[^}]+\})+, \{T\}: Put a \+1/\+1 counter on this creature\. Activate only as a sorcery\.", text) is not None,
                            "word": (w[1].lower() if (w := re.match(r"(Exhaust|Boast|Power-up) — ", text)) else None),  # (wave 33C: its ability word)
                            "source_ref": ObjectRef(card=ability.id, object_id=plan.oid(ability), zone=ability.zone) if ability else None})
     _fire_generic(plan, [fact], -1, {})

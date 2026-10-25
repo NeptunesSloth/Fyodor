@@ -1246,6 +1246,8 @@ def _ability_targets(what: str) -> list[str] | None:
 def _activate(c: str) -> Condition | None:
     if c == "you activate an eternalize or embalm ability":
         return {"event": "activate", "subject": "player", "player": "you", "ability_kinds": ["eternalize", "embalm"], "loyalty": False, "nonmana": True}
+    if c in ("you activate ~'s outlast ability", "you activate this creature's outlast ability"):  # -- (wave 110B) -- 702.107a: Herald of Anafenza
+        return {"event": "activate", "subject": "player", "player": "you", "ability_word": "outlast", "self_source": True, "loyalty": False, "nonmana": True}
     if (keyword := re.fullmatch(rf"{_P} activates? a ninjutsu ability", c)) is not None:
         return {"event": "activate", "subject": "player", "player": _PLAYERS[keyword["p"]], "ability_kind": "ninjutsu", "loyalty": False, "nonmana": True}
     if (host := re.fullmatch(rf"{_P} activates? a loyalty ability of enchanted planeswalker", c)) is not None:
