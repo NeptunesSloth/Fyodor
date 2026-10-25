@@ -27,6 +27,8 @@ _AS: dict[str, str] = {
     "of Ran and Shaw, except it's not legendary.":
         "When this creature enters, if you cast it and there are three or more Dragon or Lesson cards in your graveyard, create a token that's a copy "
         "of this creature, except it's not legendary.",
+    # Longhorn Sharpshooter: "it" is the plotted card itself (a source of damage in exile, 120.1)
+    "When this card becomes plotted, it deals 2 damage to any target.": "When this card becomes plotted, this creature deals 2 damage to any target.",
     # Prince of Thralls: "that opponent" is the opponent whose permanent went to the graveyard, as "that player"
     "Whenever a permanent an opponent controls is put into a graveyard, put that card onto the battlefield under your control unless that opponent pays 3 life.":
         "Whenever a permanent an opponent controls is put into a graveyard, put that card onto the battlefield under your control unless that player pays 3 life.",

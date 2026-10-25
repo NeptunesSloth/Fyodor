@@ -1,0 +1,5 @@
+- Rigo, Streetwise Mentor: "attack a player or planeswalker" triggers once per attacked player or planeswalker (see wave100 Rigo, Oath of Kaya); not settled.
+- Spinneret and Spiderling: "deals 4 or more damage" with no recipient: one event or the total over recipients is unsettled (exile_damage_choices49 held).
+- Don & Leo: one trigger with two optional targets and a joint flicker; splitting into two abilities changes the trigger count.
+- Flameblade Angel: "damage to you or a permanent you control" needs a new recipient class; single card.
+- Mysterio: "Exile those tokens when Mysterio leaves the battlefield" has no linked-token leave machinery yet.

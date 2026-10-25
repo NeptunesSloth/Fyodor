@@ -550,6 +550,9 @@ def _facts(plan: Plan, e: Event, window: dict[str, Any]) -> list[Fact]:
         return [("land_played", got[0], got[1], e.player, {"oid": e.object_id, "actor": e.player, "played_from": e.from_zone})] if got is not None else []
     if e.kind == 'investigated':
         return [('investigate', None, None, e.player, {'actor': e.actor or e.player, 'amount': 1})]
+    if e.kind == "plotted":  # -- (wave 110B) -- 702.170d: the card, in exile
+        card = plan.state.cards.get(e.card or "")
+        return [("plotted", card, plan.ch(card), e.player, {"oid": e.object_id, "actor": e.player, "amount": 1})] if card is not None else []
     if e.kind == "foretold":
         return [("foretell", None, None, e.player, {"actor": e.player, "amount": 1})]
     if e.kind == "cycled":  # 702.29: the card is in its owner's graveyard now (702.29c)
@@ -1663,6 +1666,12 @@ def _generic_events(plan: Plan, events: list[Event]) -> None:
                 ch = plan.ch(card)  # (Zidane taken by an opponent) are its old controller's, as it was before the event
                 watchers += [((card.model_copy(update={"controller": e.from_zone}), ch, i, d), -big, big) for i, d in abilities(plan, ch, "event")
                              if d.get("cond", {}).get("event") == "control_change"]
+        if e.kind == "plotted" and not e.manual and e.card in plan.state.cards:  # -- (wave 110B) -- "When this card becomes plotted": from exile (603.6)
+            card = plan.state.cards[e.card]
+            if not plan.manual(card) and card.owner in plan.live():
+                ch = plan.ch(card)
+                watchers += [((card, ch, i, d), -big, big) for i, d in abilities(plan, ch, "event")
+                             if d.get("cond", {}).get("event") == "plotted" and d["cond"].get("subject") == "self"]
         if e.kind == "cycled" and not e.manual and e.card in plan.state.cards:
             # 702.29c: "When you cycle ~" triggers from whatever zone the card went to
             card = plan.state.cards[e.card]

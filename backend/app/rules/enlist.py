@@ -105,7 +105,7 @@ def finish(plan: Plan, attackers: list[CardInstance], exerted: list[CardInstance
     for attacker_id, _ in pairs:
         if log is not None and attacker_id in plan.state.cards:
             log.enlisted[plan.oid(plan.state.cards[attacker_id])] = plan.rules.combats
-    facts = [("enlisted110b", a, plan.ch(a), a.controller, {"oid": plan.oid(a), "actor": a.controller, "amount": 1})  # -- (wave 110B) -- 702.154a: "Whenever ~ enlists a creature"
+    facts: list[Any] = [("enlisted110b", a, plan.ch(a), a.controller, {"oid": plan.oid(a), "actor": a.controller, "amount": 1})  # -- (wave 110B) -- 702.154a: "Whenever ~ enlists a creature"
              for attacker_id, _ in pairs if (a := plan.state.cards.get(attacker_id)) is not None]
     if facts:
         triggers._fire_generic(plan, facts, -1, {})

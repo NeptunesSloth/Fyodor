@@ -18,7 +18,7 @@ def cards(settings):
     yield from repository(settings)
 
 
-@pytest.mark.parametrize("name", ["Prince of Thralls", "Oath of Lim-Dûl", "Chaos Lord", "Divine Intervention", "Herald of Anafenza", "Guardian of New Benalia"])
+@pytest.mark.parametrize("name", ["Prince of Thralls", "Oath of Lim-Dûl", "Chaos Lord", "Divine Intervention", "Herald of Anafenza", "Guardian of New Benalia", "Aloe Alchemist", "Longhorn Sharpshooter"])
 def test_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
@@ -122,4 +122,35 @@ def test_guardian_of_new_benalia_scries_only_when_it_enlists(cards, enlists):
     kinds = []
     drive(s, lambda d: kinds.append(d.kind) or None)
     assert ("choose_cards" in kinds) == enlists, kinds  # the scry's choice of cards for the top or bottom (701.22a)
+    check(s)
+
+
+def _plot(s, name, **paid):
+    c = to_hand(s, name)
+    mana(s, "p1", **paid)
+    from tests.wave110b_kit import ch
+
+    plot = next(a.index for a in ch(s, c).abilities if a.text.startswith("Plot"))
+    act(s, "p1", type="activate_ability", card_id=c.id, ability=plot)  # the plot special action (702.170a-b)
+    return c
+
+
+def test_longhorn_sharpshooter_deals_2_damage_when_it_becomes_plotted(cards):
+    """Longhorn Sharpshooter: 702.170d "When this card becomes plotted" triggers from exile; the card is the source of the damage (120.1)."""
+    s = build(cards, ["Longhorn Sharpshooter"], [])
+    c = _plot(s, "Longhorn Sharpshooter", R=1, C=3)
+    drive(s, lambda d: ["p2"] if any(o.id == "p2" for o in d.options) else None)
+    assert s.state.cards[c.id].zone == "p1:exile" and s.state.players["p2"].life == 38
+    check(s)
+
+
+def test_aloe_alchemist_pumps_a_creature_when_it_becomes_plotted(cards):
+    """Aloe Alchemist: 702.170d "When this card becomes plotted, target creature gets +3/+2 and gains trample until end of turn." (613.4c)"""
+    from tests.wave110b_kit import pt
+
+    s = build(cards, ["Aloe Alchemist", "Grizzly Bears"], [])
+    put(s, "Grizzly Bears")
+    _plot(s, "Aloe Alchemist", G=1, C=1)
+    drive(s)
+    assert pt(s, "Grizzly Bears") == (5, 4)
     check(s)

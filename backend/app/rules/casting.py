@@ -4449,6 +4449,7 @@ def become_plotted(plan: Plan, card_id: str) -> None:
         until="permanent", turn=plan.state.turn.number, after_turn=plan.state.turn.number, sorcery=True,
         label=f"{name}: cast it without paying its mana cost (plotted)"))
     plan.note(f"{name} is plotted", [card.id])
+    emit(plan.state, "plotted", object_id=plan.oid(card), card=card.id, player=card.owner)  # -- (wave 110B) -- "When this card becomes plotted"
 
 
 FORETELL = re.compile(r"^foretell (?P<cost>(?:\{[^}X]+\})+)$", re.IGNORECASE)
