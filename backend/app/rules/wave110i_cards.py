@@ -42,8 +42,16 @@ def _lose_types(d: Def) -> Def:
     return {**d, "layered": True, "layer4": {"set_creature_types": []}}
 
 
+def _bounce_gate(d: Def) -> Def:
+    """Puppet Master: the payment is offered only if that card was returned to its owner's hand this way (a token or a card exiled instead isn't)."""
+    first, *rest = d["effects"]
+    return {**d, "effects": [{**first, "do": "bounce_gate110i", "skip": len(rest)}, *rest]}
+
+
 # whole ability text -> (the wording the grammar reads, what to change in its definition)
 _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
+    "When enchanted creature dies, return that card to its owner's hand. If that card is returned to its owner's hand this way, you may pay {U}{U}{U}. If you do, return this card to its owner's hand.":
+        ("When enchanted creature dies, return that card to its owner's hand. You may pay {U}{U}{U}. If you do, return this card to its owner's hand.", _bounce_gate),
     "Nonlegendary creatures enchanted player controls have base power and toughness 3/3 and lose all creature types.":
         ("Nonlegendary creatures enchanted player controls have base power and toughness 3/3.", _lose_types),
     "{2}, {T}: Untap target creature you control. It phases out until The Moment leaves the battlefield.":
@@ -81,7 +89,17 @@ def lose_rad(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     return True
 
 
-PRIMITIVES = {"lose_rad110i": lose_rad}
+def bounce_gate(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    from app.rules import effects
+
+    cards = effects._cards(plan, ctx, e["who"])
+    effects.bounce(plan, ctx, e)
+    if not any(plan.state.cards[c].zone.endswith(":hand") for c in cards):
+        del ctx["effects"][ctx["next"]:ctx["next"] + e["skip"]]  # the later instructions don't happen
+    return True
+
+
+PRIMITIVES = {"lose_rad110i": lose_rad, "bounce_gate110i": bounce_gate}
 
 
 def definition(ability: Any, ch: Any) -> Def | None:

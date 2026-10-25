@@ -1,6 +1,7 @@
 """Wave 110I (second session): real Oracle text; every scenario checks the replay and a save and a load.
 
 * Curse of Conformity: base P/T 3/3 (613.4b) and no creature types (205.1a), nonlegendary only.
+* Puppet Master: the payment is offered only once the creature card is back in hand; the Aura comes back from the graveyard (603.10a, 400.7).
 * The Moment: "phases out until The Moment leaves the battlefield" (610.3, 702.26a), untapped first, not tapped as it returns.
 """
 
@@ -21,9 +22,13 @@ EXTRA = [
     real("Curse of Conformity", "{3}{U}", 4, "Enchantment — Aura Curse",
          "Enchant player\nNonlegendary creatures enchanted player controls have base power and toughness 3/3 and lose all creature types.", None, "U"),
     real("Probe Legend", "{1}", 1, "Legendary Creature — Human Soldier", "", ("1", "1"), ""),
+    real("Puppet Master", "{U}{U}{U}", 3, "Enchantment — Aura",
+         "Enchant creature\nWhen enchanted creature dies, return that card to its owner's hand. If that card is returned to its owner's hand this way, you may pay {U}{U}{U}. If you do, return this card to its owner's hand.",
+         None, "U"),
+    real("Lightning Bolt", "{R}", 1, "Instant", "Lightning Bolt deals 3 damage to any target.", None, "R"),
     real("Naturalize", "{1}{G}", 2, "Instant", "Destroy target artifact or enchantment.", None, "G"),
 ]
-NAMES = ["The Moment", "Curse of Conformity"]
+NAMES = ["The Moment", "Curse of Conformity", "Puppet Master"]
 
 
 @pytest.fixture()
@@ -61,4 +66,20 @@ def test_curse_of_conformity_makes_nonlegendary_creatures_3_3_without_types(card
     plan = Plan(s.state, "p1", s.cards, None)
     assert (plan.ch(s.state.cards[bear.id]).pt, "Bear" in plan.ch(s.state.cards[bear.id]).subtypes) == ((3, 3), False)
     assert (plan.ch(s.state.cards[legend.id]).pt, "Human" in plan.ch(s.state.cards[legend.id]).subtypes) == ((1, 1), True)
+    check(s)
+
+
+@pytest.mark.parametrize("pay", [True, False])
+def test_puppet_master_returns_the_creature_and_itself_if_paid(cards, pay):
+    s = build(cards, ["Puppet Master", "Lightning Bolt"], ["Grizzly Bears"])
+    bear = put(s, "Grizzly Bears", "p2")
+    mana(s, U=3)
+    master = cast(s, "Puppet Master", [bear.id])
+    answer(s)
+    assert zone(s, master) == "p1:battlefield"
+    mana(s, R=1, U=3 if pay else 0)
+    cast(s, "Lightning Bolt", [bear.id])
+    answer(s, "pay" if pay else "decline")
+    assert zone(s, bear) == "p2:hand"
+    assert zone(s, master) == ("p1:hand" if pay else "p1:graveyard")
     check(s)
