@@ -4871,7 +4871,7 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
             effects += each[0]
             skip_to = i + each[1]  # (wave 23A: the one sentence, or it and the one after it)
             continue
-        if text.startswith("then you may ") and effects and texts[i + 1:i + 2] and texts[i + 1].startswith("If you do") \
+        if text.startswith("then you may ") and effects and texts[i + 1:i + 2] and texts[i + 1].startswith(("If you do", "When you do, ")) \
                 and _may_pay_sentence(text[5:], texts[i + 1:i + 2], it, effects) is not None:
             text = text[5:]  # ("You gain 2 life. Then you may discard two cards. If you do, …": "then" only orders, 608.2c)
         if (paid := _may_pay_sentence(text, texts[i + 1:i + 2], it, effects)) is not None:

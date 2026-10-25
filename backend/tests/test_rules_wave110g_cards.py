@@ -2,6 +2,8 @@
 
 * Portcullis: 610.3 exile until the artifact leaves; the count includes the entering creature.
 * Acquisitions Expert: 700.8 party size sets how many cards the opponent reveals (701.20a).
+* Golgari Brownscale: 603.6 / 400.7 the card put into its owner's hand from the graveyard (dredge, 702.52a) triggers from the hand.
+* Invasion of the Giants: 603.12 'Then you may reveal a Giant card. When you do' is a reflexive trigger after the draw.
 * Serene Master: 701.12g exchanging two powers sets each to the other's previous value (613.4b), until end of combat.
 """
 from __future__ import annotations
@@ -25,8 +27,14 @@ EXTRA = [
          "Whenever a creature enters, if there are two or more other creatures on the battlefield, exile that creature. Return that card to the battlefield under its owner's control when this artifact leaves the battlefield.", None, ''),
     real('Acquisitions Expert', '{1}{B}', 2, 'Creature — Human Rogue',
          'When this creature enters, target opponent reveals a number of cards from their hand equal to the number of creatures in your party. You choose one of those cards. That player discards that card. (Your party consists of up to one each of Cleric, Rogue, Warrior, and Wizard.)', ('1', '2'), 'B'),
+    real('Golgari Brownscale', '{1}{G}{G}', 3, 'Creature — Lizard',
+         'When this card is put into your hand from your graveyard, you gain 2 life.\nDredge 2 (If you would draw a card, you may mill two cards instead. If you do, return this card from your graveyard to your hand.)', ('2', '3'), 'G'),
+    real('Invasion of the Giants', '{U}{R}', 2, 'Enchantment — Saga',
+         '(As this Saga enters and after your draw step, add a lore counter. Sacrifice after III.)\nI — Scry 2.\nII — Draw a card. Then you may reveal a Giant card from your hand. When you do, this Saga deals 2 damage to target opponent or planeswalker.\nIII — The next Giant spell you cast this turn costs {2} less to cast.', None, 'RU'),
+    real('Hill Giant', '{3}{R}', 4, 'Creature — Giant', '', ('3', '3'), 'R'),
+    real('Divination', '{2}{U}', 3, 'Sorcery', 'Draw two cards.', None, 'U'),
 ]
-NAMES = [c["name"] for c in EXTRA]
+NAMES = [c["name"] for c in EXTRA if c["name"] not in ("Divination", "Hill Giant")]
 
 
 @pytest.fixture()
@@ -115,4 +123,49 @@ def test_acquisitions_expert_reveals_party_size_cards(cards):
             break
     assert ("p2", "choose_cards", 3, 2) in seen and seen[-1] == ("p1", "choose_cards", 2, 1), seen  # Cleric + Rogue: reveals two
     assert len(s.state.zones["p2:hand"]) == 2
+    check(s)
+
+
+@pytest.mark.parametrize("dredge,life", [(True, 42), (False, 40)])
+def test_golgari_brownscale_gains_life_when_dredged_back(cards, dredge, life):
+    s = build(cards, ["Golgari Brownscale", "Divination"], [])
+    scale = to_hand(s, "Golgari Brownscale")
+    act(s, "p1", type="move", card_ids=[scale.id], to={"player": "p1", "zone": "graveyard"})
+    mana(s, "p1", U=1, C=2)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Divination").id, targets=[])
+    for _ in range(40):
+        d = s.state.rules.decision
+        if d is not None:
+            ids = [o.id for o in d.options]
+            pick = ("decline" if "decline" in ids and not dredge else next(i for i in ids if i != "decline"))
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[pick])
+        elif s.state.zones.get("stack"):
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            break
+    assert (s.state.cards[scale.id].zone == "p1:hand") == dredge
+    assert s.state.players["p1"].life == life
+    check(s)
+
+
+@pytest.mark.parametrize("giant,life", [(True, 38), (False, 40)])
+def test_invasion_of_the_giants_chapter_two(cards, giant, life):
+    s = build(cards, ["Invasion of the Giants", "Hill Giant"] if giant else ["Invasion of the Giants"], [])
+    mana(s, "p1", U=1, R=1)
+    saga = to_hand(s, "Invasion of the Giants")
+    act(s, "p1", type="cast_spell", card_id=saga.id, targets=[])
+    if giant:
+        to_hand(s, "Hill Giant")
+    for _ in range(300):
+        d = s.state.rules.decision
+        if s.state.cards[saga.id].counters.get("lore") == 2 and d is None and not s.state.zones.get("stack"):
+            break
+        if d is not None and d.kind in ("declare_attackers", "declare_blockers"):
+            act(s, d.player, type=d.kind, **({"attackers": []} if d.kind == "declare_attackers" else {"blocks": []}))
+        elif d is not None:
+            ids = [o.id for o in d.options]
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[next((i for i in ids if i in ("yes", "o0", "p2")), ids[0])])
+        else:
+            act(s, s.state.rules.priority, type="pass_priority")
+    assert s.state.players["p2"].life == life, s.state.players["p2"].life
     check(s)

@@ -1280,6 +1280,8 @@ def _object_event(c: str) -> Condition | None:
     # main phase" (a creature tapped to pay the cost; the Vehicle / Mount is the creature "on the other side"), 702.122e: "~ becomes crewed"
     if c in ("this card becomes plotted", "~ becomes plotted"):  # -- (wave 110B) -- 702.170d: Aloe Alchemist, Longhorn Sharpshooter (triggers.py, from exile)
         return {"event": "plotted", "subject": "self"}
+    if c in ("this card is put into your hand from your graveyard", "~ is put into your hand from your graveyard"):  # -- (wave 110G) -- Golgari Brownscale (triggers.py, from the hand)
+        return {"event": "gy_to_hand110g", "subject": "self"}
     if c == "~ enlists a creature":  # -- (wave 110B) -- 702.154a: Guardian of New Benalia (enlist.finish)
         return {"event": "enlisted110b", "subject": "self"}
     m = re.fullmatch(r"~ (?:(?P<s>saddles a Mount) or )?(?P<c>crews a Vehicle)(?P<d> during your main phase)?", c)
