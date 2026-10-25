@@ -7,6 +7,8 @@ from typing import Any
 
 # the Oracle line (the card's name as ~) -> the wording the grammar already reads, with the same meaning
 _AS: dict[str, str] = {
+    '{2}: If ~ isn\'t a creature, it becomes a 0/0 Construct Hero artifact creature with flying and "~ gets +1/+1 for each artifact you control" until end of turn.':
+        "{2}: If ~ isn't a creature, it becomes a 0/0 Construct Hero artifact creature with flying until end of turn.",
     # Sorin, Ravenous Neonate: "a white permanent other than that creature or Sorin" (here ~) = other than Sorin (the native "another") and not the stolen creature (patched below)
     "−6: Gain control of target creature. It becomes a Vampire in addition to its other types. Put a lifelink counter on it if you control a white permanent other than that creature or ~.":
         "−6: Gain control of target creature. It becomes a Vampire in addition to its other types. Put a lifelink counter on it if you control another white permanent.",
@@ -79,6 +81,8 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
     if d is not None and text.endswith("and you tap that creature."):  # (Mind Whip: both consequences follow a failed payment)
         d["effects"][1]["skip"] = 2
         d["effects"].append({"do": "tap", "who": "host"})
+    if d is not None and text.startswith("{2}: If ~ isn't a creature, it becomes a 0/0 Construct Hero"):  # (Iron Man Armor: quoted static, 613.1f)
+        d["effects"][-1]["abilities"] = ["This creature gets +1/+1 for each artifact you control."]
     if d is not None and text.endswith("it enters tapped and attacking."):
         d["effects"][0]["tap_atk110d"] = "Enchantment"
     return d
