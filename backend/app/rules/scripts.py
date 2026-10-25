@@ -292,6 +292,8 @@ def _self_pronouns(part: str) -> str:
 def self_text(text: str, name: str) -> str:
     """The ability with the card's own name (and "this creature" etc.) written as ~, without an
     ability word (207.2c). Only immutable text is cached; no table state is read."""
+    if name.endswith(" Emblem"):  # -- spells (wave 110A) -- 114.2: an emblem has no name; "<Card> Emblem" is only its label ("a Gideon planeswalker" isn't the emblem)
+        name = ""
     out = _ABILITY_WORD.sub("", text, count=1)
     if out.startswith("Exhaust — "):  # -- ability words (wave 4F) -- 702.177a (the restriction: restrictions.parse)
         out = out[len("Exhaust — "):]
@@ -2082,6 +2084,11 @@ def _meld(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
 @effect(r"that player sacrifices (?:that creature|it)")
 def _that_player_sacrifices(m: re.Match[str]) -> tuple[list[dict[str, Any]], None]:
     return [{"do": "sacrifice", "who": "it", "by": "event_player"}], None
+
+
+@effect(r"sacrifice the chosen creature")  # -- chosen objects (wave 110A) -- Tyrannical Pitlord (701.21a: only if you control it)
+def _sacrifice_chosen(m: re.Match[str]) -> tuple[list[dict[str, Any]], None]:
+    return [{"do": "sacrifice", "who": selectors.parse("chosen creature").key()}], None  # type: ignore[union-attr]
 
 
 @effect(r"sacrifice (?P<who>~|it)")
@@ -7258,6 +7265,8 @@ def _conditional_static(ability: AbilityText, ch: Characteristics, text: str) ->
         return {**inner, "if": cond}  # -- station (wave 48D) -- 611.3a: "As long as this permanent has 8 or more charge counters on it, once during each of your turns, you may cast … from your graveyard" (permissions: the table statics' "if")
     if inner.get("static") == "grant" and inner.get("player_shield") and not inner.get("conditions"):
         return {**inner, "conditions": [cond]}
+    if inner.get("static") == "game_result" and not inner.get("conditions"):  # -- spells (wave 110A) -- Gideon of the Trials' emblem (game_result._stops checks it)
+        return {**inner, "conditions": [cond]}
     if inner.get("static") == "grant" and not inner.get("conditions") and all(r.startswith(("attack_tax", "block_tax")) for r in inner.get("rules") or ["-"]):
         return {**inner, "conditions": [cond]}  # (wave 45D: Dáin) the attack tax is imposed (a grant's rules) only while the condition holds, 611.3a
     return None
@@ -9338,6 +9347,10 @@ def define_replacement(ability: AbilityText, text: str) -> Definition | None:
 
     if (ctl := wave110a_control.definition(text)) is not None:
         return ctl
+    from app.rules import wave110a_pick  # -- chosen objects (wave 110A) --
+
+    if (picked := wave110a_pick.definition(text)) is not None:
+        return picked
     chosen = language.enters_choice(text)  # "As ~ enters, choose a color." (614.1c, 614.12a)
     if chosen is not None:
         return chosen

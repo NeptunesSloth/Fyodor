@@ -61,7 +61,7 @@ HOF_RETURN = "When this token leaves the battlefield, return the exiled card to 
 
 
 def other_definition(text: str, kind: str, index: int = 0) -> dict[str, Any] | None:
-    from app.rules import events
+    from app.rules import events, selectors
     from app.rules.token_copy_sources import cleanup, copy
     from app.rules.token_source_groups import key
 
@@ -92,6 +92,10 @@ def other_definition(text: str, kind: str, index: int = 0) -> dict[str, Any] | N
              'ability': triggered(None, [action('attached_attackers', who='event')], trigger='reflexive')}])
     if t == "whenever ~ attacks, for each card you've discarded this turn, create a token that's a copy of ~, except the token isn't legendary. the tokens enter tapped and attacking. exile the tokens at the beginning of the next end step":
         return triggered(None, [action('laser'), cleanup()], trigger='attacks_self')
+    if t == "whenever ~ attacks, create x tokens that are copies of it and that are tapped and attacking, where x is the number of creatures defending player controls. exile the tokens at the beginning of the next end step":
+        # Nacatl War-Pride: X counted as the ability resolves (608.2h), one token per creature (111.1)
+        return triggered(None, [{**copy('self'), 'n': {'count': selectors.Selector(types=('Creature',), controller='defending').key()}, 'creation_each_count': True, 'tapped': True, 'attacking': True},
+                                cleanup()], trigger='attacks_self')
     if t == "whenever ~ attacks, you may blight 1. if you do, create a tapped and attacking token that's a copy of the blighted creature, except it has \"at the beginning of the end step, sacrifice this token.\"":
         return triggered(None, [{'do': 'optional_payment', 'who': 'you', 'cost': 'Blight 1', 'bind': 'grub_blight'},
             {'do': 'only_if', 'cond': {'succeeded': 'grub_blight'}, 'skip': 1},

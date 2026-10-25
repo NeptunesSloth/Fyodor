@@ -2,6 +2,7 @@
 
 * Captive Audience, Pendant of Prosperity - "enters under the control of an opponent of your choice" (110.2, 614.12): the permanent is given to the
   chosen opponent while still a spell on the stack, so it enters under them. Pendant's second sentence is done by the artifact's owner (108.3).
+* Invasion Plans - "The attacking player chooses how each creature blocks each combat." (509.1a: a static; the active player declares every block).
 * Master Warcraft, Melee, Odric - "You choose which creatures attack/block ..." (508.1a, 509.1a): the effect's controller makes the declaration for
   the active/defending player (the legality of the declaration is unchanged) and learns nothing hidden about that player. Melee's watch: 509.3g,
   506.4 (an unblocked attacker is untapped and removed from combat).
@@ -24,7 +25,7 @@ def cards(settings):
     yield from open_repo(settings)
 
 
-test_full = full_test([AUDIENCE, PENDANT, WARCRAFT, MELEE, ODRIC])
+test_full = full_test([AUDIENCE, PENDANT, WARCRAFT, MELEE, ODRIC, "Invasion Plans"])
 
 
 @pytest.mark.parametrize("name", [AUDIENCE, PENDANT])
@@ -185,4 +186,23 @@ def test_master_warcraft_cast_by_the_defender_declares_the_active_players_attack
         act(s, "p1", type="declare_attackers", attackers=[])
     act(s, "p2", type="declare_attackers", attackers=[{"card_id": a.id, "target": "p2"}])
     assert s.state.cards[a.id].is_attacking and not s.state.cards[b.id].is_attacking
+    check(s)
+
+
+def test_invasion_plans_lets_the_attacking_player_declare_the_blocks(cards):
+    s = build(cards, ["Invasion Plans", "Grizzly Bears"], ["Hill Giant"])
+    put(s, "Invasion Plans")
+    mine = put(s, "Grizzly Bears")
+    theirs = put(s, "Hill Giant", "p2")
+    next_turn(s)
+    stops(s)
+    next_turn(s)
+    stops(s)
+    to_phase(s, "declare_attackers")
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": mine.id, "target": "p2"}])
+    to_phase(s, "declare_blockers")
+    d = s.state.rules.decision
+    assert d.kind == "declare_blockers" and d.player == "p2" and d.decider == "p1" and d.blind  # 509.1a: the attacking player chooses
+    act(s, "p1", type="declare_blockers", blocks=[{"blocker_id": theirs.id, "attacker_id": mine.id}])
+    assert s.state.cards[theirs.id].is_blocking
     check(s)

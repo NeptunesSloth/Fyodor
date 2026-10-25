@@ -3560,7 +3560,8 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
     using_flashback = not free and a.alt_cost is None and not a.face_down and not plan.manual(card) and grant is not None and grant.how == "flashback"
     if using_flashback and flashback_choices.announce(plan, a, card, ch):
         return
-    selected_flashback = flashback_choices.selected(flashback_choices.options(plan.state, card, ch, plan.info), a.flashback_choice) if using_flashback else None
+    selected_flashback = flashback_choices.selected(flashback_choices.options(plan.state, card, ch, plan.info), a.flashback_choice) \
+        if using_flashback and "aftermath" not in ch.keywords else None  # (wave 110A: an Aftermath half has no flashback cost to announce, 702.127a)
     flashback_without_x = selected_flashback is not None and not M.parse_cost(selected_flashback[0]).x and not (selected_flashback[1] and selected_flashback[1].x_chosen)
     base = M.parse_cost(ch.mana_cost)
     airbent = grant is not None and bool(grant.alt_mana)  # -- trigger other (wave 25B) -- airbend 701.65a: cast only by paying its alternative cost

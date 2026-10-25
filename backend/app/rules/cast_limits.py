@@ -801,6 +801,9 @@ def _when_ok(state: GameState, when: str | None, controller: str, player: str | 
         return state.turn.active_player == controller
     if when == "combat":
         return state.turn.phase in COMBAT_PHASES
+    if when == "attacked110a":  # -- wave 110A -- Angelic Arbiter: the player declared attackers this turn (508.1)
+        log = state.rules.turn_log if state.rules is not None else None
+        return player is not None and log is not None and log.turn == state.turn.number and player in log.attacked
     return True
 
 

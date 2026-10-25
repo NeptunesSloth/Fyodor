@@ -758,6 +758,11 @@ _ENTER_EXTRA = re.compile(
 
 
 def _enter_extra(text: str) -> Definition | None:
+    if text == "Each other colorless creature you control has bloodthirst 2.":  # -- bloodthirst grant (wave 110A) -- 702.54a, as counters
+        d = _enter_extra("Each other colorless creature you control enters with two additional +1/+1 counters on it.")
+        if d is not None:
+            d["match"]["bloodthirst110a"] = True  # replace._counters_applies: only if an opponent was dealt damage this turn
+        return d
     # Thunderous Velocipede: both branches describe one entry replacement,
     # whose amount uses the entering permanent's characteristics (614.12).
     threshold = re.fullmatch(

@@ -635,6 +635,14 @@ def define_static(text: str, kind: str, lines: tuple[str, ...] = ()) -> Definiti
         from app.rules import alt_costs
 
         return alt_costs.grant_prowl(t)
+    if t == "auras attached to permanents you control have umbra armor" and kind == "static":  # -- grants (wave 110A) -- Umbra Mystic
+        from app.rules import wave110a_grants
+
+        return wave110a_grants.umbra_static(wave110a_grants.UMBRA)
+    if " gain evoke " in t and kind == "static":  # -- grants (wave 110A) -- Ashling, the Limitless
+        from app.rules import wave110a_grants
+
+        return wave110a_grants.grant_evoke(t)
     if " has web-slinging " in t and kind == "static":  # -- Marvel keywords (wave 25A) -- granted web-slinging (702.188a)
         from app.rules import alt_costs
 

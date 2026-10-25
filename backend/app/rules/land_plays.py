@@ -28,7 +28,7 @@ if TYPE_CHECKING:
     from app.rules.characteristics import CardInfo
 
 EXTRA_LANDS = "extra_land_plays"
-_LINE = re.compile(r"^(?:You may|(?P<each>Each player may)) play (?:an additional land|(?P<n>two|three) additional lands) on each of "
+_LINE = re.compile(r"^(?:You may|(?P<each>Each player may)) play (?:an additional land|(?P<n>two|three) additional lands) (?:on|during) each of "
                    r"(?(each)their|your) turns\.$")  # (wave 15A: Rites of Flourishing, Ghirapur Orrery: every player, 305.2)
 _N = {"two": 2, "three": 3}
 

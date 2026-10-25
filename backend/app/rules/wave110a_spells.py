@@ -123,6 +123,53 @@ def _meditation() -> Parsed:
     alt = _p("Destroy all enchantments, then return all enchantment cards put into your graveyard this way to the battlefield.")[0]
     return multi100n._instead(multi100n._cond("there are seven or more cards in your graveyard"), base, alt), target, optional
 
+def _searing_light_exile() -> Parsed:
+    """Olórin's Searing Light: each opponent exiles a creature with the greatest power among creatures they control (101.4: simultaneous choices,
+    the edict's group exile)."""
+    exile = copy.deepcopy(_p("Each opponent exiles a creature they control with the greatest power among creatures they control.")[0][0])
+    return [{**exile, "as": "exiled110a"}], None, False
+
+
+def _searing_light_mastery() -> Parsed:
+    """Spell mastery (an ability word, no rule meaning, 207.2c): each opponent is dealt damage equal to the power of the creature that player exiled,
+    as it last existed (608.2h)."""
+    cond = _cond("there are two or more instant and/or sorcery cards in your graveyard")
+    return [{"do": "only_if", "cond": cond, "skip": 1}, {"do": "exiled_power_damage110a", "ref": "exiled110a"}], None, False
+
+
+def _cond(text: str) -> dict[str, Any]:
+    from app.rules import multi100n
+
+    return multi100n._cond(text)
+
+
+def exiled_power_damage(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Damage from the source to each player who exiled a creature this way, equal to that creature's power as it last existed (120.3, 608.2h)."""
+    from app.rules import context, effects, sba
+
+    hits = []
+    # (a spell's lines keep their own binding names, scripts.rename_bindings: the first line's "l0_exiled110a" is found by its suffix)
+    name = next((k for k in context.refs(ctx) if k.endswith(e["ref"])), e["ref"])
+    for card, ch in context.infos(plan, ctx, name):
+        n = sba.power(card, ch)
+        if n and n > 0:
+            hits.append((effects._ability_source(plan, ctx), card.controller, n))
+    return effects._deal(plan, ctx, hits) if hits else True
+
+
+def exile_hands(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Every card in every hand, at once (a selector never reads hidden zones of other players; the move is public, 400.1)."""
+    from app.game.state import zone_key
+    from app.rules import effects
+
+    return effects.exile_cards(plan, ctx, e, [c for p in plan.live() for c in plan.state.zones.get(zone_key(p, "hand"), [])])
+
+
+def _decree() -> Parsed:
+    """Decree of Annihilation: the three exiles in order (608.2c); "all cards from all hands" is every card in every hand (the hand zones, 400.1)."""
+    first = _p("Exile all artifacts, creatures, and lands. Exile all cards from all graveyards.")[0]
+    return [*first, {"do": "exile_hands110a"}], None, False
+
 
 # Sentences the grammar reads in other words with the same meaning (the rewrite must mean the same: 608.2c).
 REWRITES = {
@@ -133,6 +180,15 @@ REWRITES = {
     "Return target historic permanent card from your graveyard to the battlefield. It enters with two additional +1/+1 counters on it if it's a "
     "creature.": "Return target historic permanent card from your graveyard to the battlefield. If a creature enters this way, it enters with two "
                  "additional +1/+1 counters on it.",
+    # (Bioshift: "with the same controller" = the controller of the first target, the "that player" of Mutiny's wording; player_relative._names_player)
+    "Move any number of +1/+1 counters from target creature onto another target creature with the same controller.":
+        "Move any number of +1/+1 counters from target creature onto another target creature that player controls.",
+    # (Dispersal: lands have mana value 0, so a nonland permanent has the greatest mana value among all permanents its controller controls exactly
+    # when it has it among their nonland ones; each opponent chooses, 701.21a-style, one after the other, then the discards)
+    "Each opponent returns a nonland permanent they control with the greatest mana value among permanents they control to its owner's hand, then "
+    "discards a card.":
+        "Each opponent chooses a nonland permanent with the greatest mana value among nonland permanents they control. Return it to its owner's hand. "
+        "Each opponent discards a card.",
 }
 
 
@@ -162,7 +218,23 @@ def _chooser(kind: str, combat: bool = False) -> Callable[[], Parsed]:
 
 
 BUILDERS: dict[str, Callable[[], Parsed]] = {
+    # Gideon of the Trials +1: 615.1 a prevention shield that lasts until the controller's next turn (the shield record's own duration)
+    "Until your next turn, prevent all damage target permanent would deal.": lambda: (
+        [{**(got := _p("Prevent all damage target permanent would deal this turn."))[0][0], "duration": "next_turn"}], got[1], got[2]),
+    "Target player draws 2ˣ cards.": lambda: ([{"do": "draw", "who": "target", "n": {"two_pow": {"x": 1}}}], "player", False),  # Mathemagics: 107.3 X
+    "Each opponent exiles a creature with the greatest power among creatures that player controls.": _searing_light_exile,
+    "If there are two or more instant and/or sorcery cards in your graveyard, ~ deals damage to each opponent equal to the power of the "
+    "creature they exiled.": _searing_light_mastery,
+    "Exile all artifacts, creatures, and lands from the battlefield, all cards from all graveyards, and all cards from all hands.": _decree,
     "Whenever a creature attacks and isn't blocked this combat, untap it and remove it from combat.": _melee,
+    # Predatory Focus: 510.1c, each blocked creature of the controller asks its own "as though it weren't blocked" (group_unblocked.allows)
+    "You may have creatures you control assign their combat damage this turn as though they weren't blocked.":
+        lambda: ([{"do": "unblocked_turn110a"}], None, False),
+    # Full Bore: 702.185a, the creature's spell was cast for its warp cost (the record stays with the permanent)
+    "Target creature you control gets +3/+2 until end of turn. If that creature was cast for its warp cost, it also gains trample and haste until "
+    "end of turn.": lambda: (lambda got: ([got[0][0], {"do": "only_if", "cond": {"object": "target", "cast_alt110a": "warp"}, "skip": 1}, got[0][2]],
+                                          got[1], got[2]))(_p("Target creature you control gets +3/+2 until end of turn. If that creature is tapped, it also "
+                                                                "gains trample and haste until end of turn.")),
     "You choose which creatures attack this turn.": _chooser("attack"),  # Master Warcraft: 508.1a
     "You choose which creatures block this turn and how those creatures block.": _chooser("block"),  # 509.1a
     "You choose which creatures block this combat and how those creatures block.": _chooser("block", True),
@@ -184,6 +256,8 @@ BUILDERS: dict[str, Callable[[], Parsed]] = {
     "Incubate 2, then transform an Incubator token you control.": lambda: (  # Sunder the Gateway: 701.53a, then 701.28 the Incubator you choose
         [*_p("Incubate 2.")[0], *_choose_transform("Incubator token you control")[0]], None, False),
     # Thermal Flux: 205.4 snow is a supertype, so layer 4 (613.1d), until end of turn (the duration of supertype100i is the effect's default)
+    # Needle Drop: 115.4 any target (a player, creature, planeswalker or battle) that was dealt damage this turn (targets.legal_targets "any_hurt110a")
+    "~ deals 1 damage to any target that was dealt damage this turn.": lambda: (_p("~ deals 1 damage to any target.")[0], "any_hurt110a", False),
     "Target nonsnow permanent becomes snow until end of turn.": _snow(True),
     "Target snow permanent isn't snow until end of turn.": _snow(False),
     "Prevent all combat damage that would be dealt to you and planeswalkers you control this turn. Untap all attacking creatures and goad them. "
@@ -244,4 +318,63 @@ def snow(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return True
 
 
-PRIMITIVES = {"repeat_put110a": repeat_put, "note_put110a": note_put, "bind110a": bind, "end_combat_phase110a": end_combat_phase, "snow110a": snow}
+# Whole abilities the grammar reads in other words (same meaning).
+ABILITY_REWRITES = {
+    # Storm Cauldron: a land tapped for mana is tapped by a player (106.12a); a stack trigger, it adds no mana (so not a mana ability, 605.1b)
+    "Whenever a land is tapped for mana, return it to its owner's hand.":
+        "Whenever a player taps a land for mana, return that land to its owner's hand.",
+    # Xenagos, the Reveler: the same choice, "any number" (the exiled cards are public; 608.2d the controller chooses on resolution)
+    "\u22126: Exile the top seven cards of your library. You may put any number of creature and/or land cards from among them onto the battlefield.":
+        "\u22126: Exile the top seven cards of your library. Put a creature or land card exiled this way onto the battlefield.",
+    # Nacatl War-Pride: "exactly one" = at least one (509.1c requirement) and no more than one (509.1b restriction)
+    "~ must be blocked by exactly one creature if able.":
+        "~ must be blocked if able and can't be blocked by more than one creature.",
+}
+_ANY_NUMBER = {"\u22126: Exile the top seven cards of your library. You may put any number of creature and/or land cards from among them onto the battlefield."}
+
+
+BOUNCE_CHAMBER = ("Whenever you roll to visit your Attractions, return a creature you don't control with the lowest toughness among creatures you don't control to its owner's hand.")
+
+
+def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
+    from dataclasses import replace
+
+    from app.rules import scripts
+
+    old = scripts.self_text(ability.text, ch.name)
+    if old == "The attacking player chooses how each creature blocks each combat.":  # Invasion Plans: 509.1a, read by wave110a_choosers.chooser
+        return {"kind": "static", "static": "block_chooser110a", "effects": []}
+    if old == BOUNCE_CHAMBER:  # Bounce Chamber: the visitor (not each opponent) chooses among the tied lowest-toughness creatures it doesn't control
+        from app.rules import selectors
+
+        d = scripts.define(replace(ability, text="Whenever you roll to visit your Attractions, each opponent chooses a creature with the least toughness "
+                                                 "among creatures they control. Return it to its owner's hand."), ch)
+        sel = selectors.parse("creature you don't control with the lowest toughness among creatures you don't control")
+        if d is None or sel is None or d["effects"][0]["do"] != "player_chooses":
+            return None
+        d["effects"][0].update(who="you", any=True, sel=sel.key(), label="creature with the lowest toughness among creatures you don't control")
+        return d
+    if old == "Each opponent who cast a spell this turn can't attack with creatures.":  # Angelic Arbiter: 508.1c, the creatures of an opponent who has cast a spell
+        from app.rules import selectors
+
+        d = scripts.define(replace(ability, text="Creatures your opponents control can't attack."), ch)
+        return None if d is None else {**d, "who": selectors.Selector(types=("Creature",), controller="opponent", extras=("ctrl_cast110a",)).key()}
+    if old == "Each opponent who attacked with a creature this turn can't cast spells.":  # Angelic Arbiter: 601.3, an opponent who declared attackers this turn
+        d = scripts.define(replace(ability, text="Your opponents can't cast spells."), ch)
+        return None if d is None else {**d, "when": "attacked110a"}
+    new = ABILITY_REWRITES.get(old)
+    d = None if new is None else scripts.define(replace(ability, text=new), ch)
+    if d is not None and old in _ANY_NUMBER:
+        for e in d["effects"]:
+            if e["do"] == "return_choice":
+                e.update(n=99, upto=True)
+    return d
+
+
+def unblocked_turn(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    plan.rules.assign_unblocked_turn[ctx["controller"]] = plan.state.turn.number
+    return True
+
+
+PRIMITIVES = {"unblocked_turn110a": unblocked_turn, "repeat_put110a": repeat_put, "note_put110a": note_put, "bind110a": bind, "end_combat_phase110a": end_combat_phase, "snow110a": snow,
+              "exiled_power_damage110a": exiled_power_damage, "exile_hands110a": exile_hands}

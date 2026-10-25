@@ -331,7 +331,7 @@ def _parse_count(phrase: str, *, it: str | None = None) -> Value | None:
         return {"kicked": 1, "of": "cast_spell"}
     if what in ("times this creature has mutated", "times ~ has mutated", "times this permanent has mutated", "time this creature has mutated"):  # -- merged permanents (wave 18D)
         return {"mutated": 1}  # (702.140: how many spells merged with it)
-    if what in ("creature it devoured", "creature ~ devoured"):  # -- keyword mechanics (wave 9D) -- 702.82b
+    if what in ("creature it devoured", "creature ~ devoured", "Forest sacrificed as it entered", "Forests sacrificed as it entered"):  # (wave 110A: Wood Elemental)  # -- keyword mechanics (wave 9D) -- 702.82b
         return {"devoured": 1}
     if (paid_group := re.fullmatch(r"(?P<symbols>(?:\{[WUBRG]\}){2,}) spent to cast (?:this spell|it|~|this creature|this permanent)", what)) is not None:
         symbols = re.findall(r"\{([WUBRG])\}", paid_group['symbols'])
@@ -583,6 +583,8 @@ def _turn_amount(what: str) -> Value | None:
         return {"turn_history": "visited100l"}
     if _TURN_OPP_DREW.match(what):  # the cards your opponents (still in the game, 800.4a) drew this turn, all of them together (121.1)
         return {"turn_history": "opp_drew"}
+    if re.fullmatch(r"(?:the number of )?creatures? you controlled that dealt combat damage to a player this turn", what):  # -- wave 110A -- Excess
+        return {"turn_history": "combat_damagers110a"}
     m = _TURN_EXILED.match(what)
     if m:  # -- this-turn history (wave 41B) -- "the number of creatures that were exiled under your opponents' control this turn" (Vren): each left the battlefield
         # for exile, controlled by an opponent as it left (608.2i: as it last existed there)
@@ -750,6 +752,8 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
     if "times" in v:
         a, b = v["times"]
         return evaluate(plan, ctx, a) * evaluate(plan, ctx, b)
+    if "two_pow" in v:  # -- spells (wave 110A) -- "2ˣ" (107.1: an integer); ponytail: capped, a bigger number of draws than any library is the same loss
+        return min(2 ** evaluate(plan, ctx, v["two_pow"]), 10000)
     if "plus" in v:  # (review 30b: 107.1b, a calculation uses a negative power as it is, only its result is at least 0: Phthisis's 2021 ruling)
         return max(0, sum(_signed_stat(plan, ctx, x) for x in v["plus"]))
     if "half" in v:

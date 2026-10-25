@@ -888,6 +888,8 @@ def _subject(subject: str, *, plural: bool = False) -> tuple[str | None, str | N
         return "self", None
     if low in ("both creatures", "each of those creatures"):  # -- soulbond (wave 24B) -- 702.95b: the pair (needs the "paired" condition)
         return "paired", None
+    if low == "the chosen creature":  # -- chosen objects (wave 110A) -- the creature the source chose as it entered (wave110a_pick)
+        return selectors.parse("chosen creature").key(), None  # type: ignore[union-attr]
     if low in ATTACHED_SUBJECTS:
         kind = ATTACHED_SUBJECTS[low]
         return ("attached", kind) if kind else (None, None)

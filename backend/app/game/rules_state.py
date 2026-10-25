@@ -1634,6 +1634,7 @@ class RulesState(BaseModel):
     block_split: dict[str, dict[str, int]] = Field(default_factory=dict)
     assign_unblocked: dict[str, bool] = Field(default_factory=dict)  # -- static_other sweep (wave 19A) -- attacker -> "as though it weren't blocked"
     declare_choosers: dict[str, dict[str, Any]] = Field(default_factory=dict)  # -- declaration choosers (wave 110A) -- "attack"/"block" -> {player, turn, combat}: who declares them, until end of turn/combat
+    assign_unblocked_turn: dict[str, int] = Field(default_factory=dict)  # -- wave 110A -- player -> turn number: "creatures you control assign combat damage as though they weren't blocked" this turn (510.1c)
     block_caps: dict[str, int] = Field(default_factory=dict)  # -- commander sweep (wave 49B) -- 509.1b: player -> "can't block with more than N creatures this combat" (Mirri), dropped at end of combat
     # -- combat (wave 5C) -- 500.8: the phases still to come after the current one when effects added some (the
     # last is the phase that would have come next), and how many combat phases began this turn
@@ -1709,6 +1710,9 @@ class RulesState(BaseModel):
     color_words71: dict[str, list[ColorWordEntry71]] = Field(default_factory=dict)
     chosen_color_pairs: dict[str, ChosenColorPairReceipt] = Field(default_factory=dict)
     chosen_players: dict[str, str] = Field(default_factory=dict)
+    # -- wave 110A -- player -> ``next_object`` when their last turn ended ("entered since your last turn ended", selectors)
+    chosen_objects: dict[str, str] = Field(default_factory=dict)  # -- wave 110A -- source card id -> the object it chose as it entered (wave110a_pick)
+    turn_end_objects: dict[str, int] = Field(default_factory=dict)
     # -- linked words (wave 33B) -- 607.2f: "As this enchantment enters, choose Khans or Dragons.": object id -> the word it chose (app/rules/chosen.py)
     chosen_words: dict[str, str] = Field(default_factory=dict)
     # How each spell was paid for (stack object id -> record); follows the spell onto the battlefield.

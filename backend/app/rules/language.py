@@ -331,6 +331,8 @@ def ref(phrase: str) -> tuple[str, str, dict[str, Any] | None]:
         return "self", "", None
     if p in ("it", "that creature", "that permanent", "that card", "that token", "that artifact"):  # (wave 20E: "Untap that artifact")
         return "it", "", None  # a pronoun: resolved against its antecedent (scripts.resolve_it)
+    if p == "the chosen creature":  # -- chosen objects (wave 110A) -- the creature the source chose as it entered (wave110a_pick)
+        return "each", selectors.parse("chosen creature").key(), None  # type: ignore[union-attr]
     if p == OTHER_SIDE:  # -- damage wordings (wave 6B) -- (scripts._define writes it for a block trigger's "that creature")
         return "each", "ref:event_other", None
     if p == "that land":  # -- recursion & tutors (wave 4M) -- "… put it onto the battlefield tapped, then shuffle. Then if
