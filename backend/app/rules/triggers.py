@@ -875,6 +875,8 @@ def _cond_matches(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact:
             if selected_color is None or selectors.COLORS.get(selected_color.lower()) not in (och.colors if och is not None else ()):
                 return False
         return int(info.get("amount") or 0) > 0 and (cond.get("ctl", "any") == "any" or (cond["ctl"] == "you") == (player == you))
+    if subject == "self_or_paired110c":  # -- soulbond (wave 110C) -- "~ or a creature it's paired with" (Donna Noble): the pair is on the battlefield with it (702.95e)
+        return obj.id == watcher.id or (plan.rules.pairs.get(plan.oid(watcher)) or [None])[0] == plan.oid(obj)
     if subject == "self_or_host":  # "~ or equipped creature"
         return obj.id == watcher.id or _hosted(plan, watcher, obj, info, event)
     if subject == "self" and event == "cycle" and cond.get("cycle_other_you") and obj.id != watcher.id:

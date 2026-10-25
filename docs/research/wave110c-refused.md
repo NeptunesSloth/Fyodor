@@ -28,3 +28,5 @@
 - Timothar, Baron of Bats: the Bat's granted trigger must return the specific exiled card (no object memory for granted abilities).
 - Wheel of Sun and Moon: "revealed and put on the bottom of that player's library" graveyard replacement for an enchanted player; one card.
 - Dire Flail // Dire Blunderbuss: "other than Dire Blunderbuss" in a granted ability would read as "another" (excludes the wielder, not the Equipment).
+- Library of Leng, Nephalia Academy, Pulmonic Sliver: optional ("you may") graveyard replacement; Cand has no decline outcome and zone_candidates has 10+ consumers (grouped_discard, mill, cost_moves).
+- Relentless Dead (X pay): target chosen on the stack before X; reflexive rewrite would change timing. Chancellor of the Annex: per-opponent first-spell delayed trigger not modeled.

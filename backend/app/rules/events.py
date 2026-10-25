@@ -190,6 +190,9 @@ def parse_condition(cond: str) -> Condition | None:
     if (single := re.fullmatch(r"(?P<s>an? .+? spell you control) that targets only a single creature (?P<d>deals (?:combat )?damage) to that creature", cond)) is not None:
         base = parse_condition(f"{single['s']} {single['d']} to a creature")  # -- trigger damage (wave 110C) -- Imodane: 115.9c, the one target it damages
         return {**base, "single110c": True} if base is not None and base.get("event") == "deal_damage" else None
+    if (paired := re.fullmatch(r"~ or a creature it's paired with (is dealt damage)", cond)) is not None:  # -- soulbond (wave 110C) -- Donna Noble: 702.95b
+        base = parse_condition(f"~ {paired[1]}")
+        return {**base, "subject": "self_or_paired110c"} if base is not None and base.get("subject") == "self" else None
     if cond == "~ becomes untapped during your untap step":
         return {"event": "untapped", "subject": "self", "own_untap": True}
     cond = re.sub(r"\benchanted (?:Plains|Island|Swamp|Mountain|Forest)\b", "enchanted land", cond)
