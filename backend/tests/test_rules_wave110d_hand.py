@@ -7,8 +7,24 @@
 
 from __future__ import annotations
 
+import pytest
+
+from tests.fixtures.cards import fixture_cards
+from tests.test_rules_wave12a_counters_keywords import real
 from tests.wave9c_kit import build, life, to_hand
-from tests.wave110d_kit import activate, card_db, ch, check, full, mana, put, settle, to_phase  # noqa: F401
+from tests.wave110d_kit import EXTRA, activate, card_db, ch, check, full, mana, put, settle, to_phase  # noqa: F401
+
+
+VECNA = real("Vecna", "{3}", 3, "Legendary Creature — Zombie", "", ("1", "1"), "B")
+
+
+@pytest.fixture()
+def card_db_vecna(settings):
+    from app.cards.importer import build_database
+
+    settings.ensure_dirs()
+    build_database([*fixture_cards(), *EXTRA, VECNA], settings.cards_db_path, meta={"bulk_type": "test"})
+    return settings.cards_db_path
 
 
 def test_hand_of_vecna_is_full():
@@ -28,4 +44,17 @@ def test_equip_costs_life_per_card_in_hand_and_pumps_at_combat(cards):
     to_phase(s, "begin_combat", turn=s.state.turn.number)
     settle(s)
     assert ch(s, bears).pt[0] == 2 + n
+    check(s)
+
+
+def test_creature_named_vecna_gets_pump_without_equipment(cards, card_db_vecna):
+    s = build(cards, ["Hand of Vecna", "Vecna", "Grizzly Bears", "Forest", "Island"])
+    put(s, "Hand of Vecna")
+    vecna, bears = put(s, "Vecna"), put(s, "Grizzly Bears")
+    for land in ("Forest", "Island"):
+        to_hand(s, land)
+    n = len(s.state.zones["p1:hand"])
+    to_phase(s, "begin_combat", turn=s.state.turn.number)
+    settle(s)
+    assert ch(s, vecna).pt[0] == 1 + n and ch(s, bears).pt[0] == 2
     check(s)
