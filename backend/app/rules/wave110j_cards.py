@@ -223,6 +223,15 @@ _BUILD[oracle.EARTHBIND] = (
 _BUILD["As long as this Aura gained that ability, enchanted creature loses flying."] = ("Enchanted creature loses flying.", _earthbind_static)
 
 
+def _splinter(d: Def) -> Def:
+    """Splintering Wind: the delayed trigger's damage comes from the token itself ("it deals", last known information, 608.2h), not from the enchantment."""
+    return {**d, "effects": [{**e, "src": "ref:e1"} if str(e.get("do")) == "deferred:damage" else e for e in d["effects"]]}
+
+
+_BUILD['{2}{G}: This enchantment deals 1 damage to target creature. Create a 1/1 green Splinter creature token. It has flying and "Cumulative upkeep {G}." When it leaves the battlefield, it deals 1 damage to you and each creature you control.'] = (
+    '{2}{G}: This enchantment deals 1 damage to target creature. Create a 1/1 green Splinter creature token with flying and "Cumulative upkeep {G}." '
+    'When it leaves the battlefield, this enchantment deals 1 damage to you and each creature you control.', _splinter)
+
 GAINED = "Gained ability"
 
 
