@@ -658,6 +658,8 @@ class TurnLog(BaseModel):
     blockers: list[str] = Field(default_factory=list)  # -- combat state (wave 27A) -- creatures (objects) declared as blockers this turn (509.1g)
     blocks: dict[str, list[str]] = Field(default_factory=dict)  # -- combat history (wave 31D) -- blocker (object) -> the attackers (objects) it blocked this turn
     attacked_who: dict[str, list[str]] = Field(default_factory=dict)  # -- static_other sweep (wave 19A) -- attacker object -> players it attacked
+    counters_removed110j: list[str] = Field(default_factory=list)  # -- (wave 110J) -- "<controller>:<kind>" per counter kind removed from a permanent this turn (122.1)
+    gy_counters110j: list[str] = Field(default_factory=list)  # -- (wave 110J) -- counter kinds on permanents as they were put into a graveyard this turn (603.10a)
     attacked_battle110j: list[str] = Field(default_factory=list)  # -- (wave 110J) -- attacker objects declared against a battle this turn (310.5)
     attack_counts: dict[str, int] = Field(default_factory=dict)  # -- commander sweep (wave 49B) -- attacker object -> the combats it was declared an attacker in this turn (Moraug)
     # -- trailing & intervening ifs (wave 38A) -- 508.1, 500.8: attacker object -> the combat phase (RulesState.combats) it was last declared as an
@@ -2256,6 +2258,8 @@ def _diff(state: GameState, rules: RulesState, before: Capture, manual: bool, ac
                                           types=before.types.get(card_id)))
         elif old_name == "graveyard" and (log := turn_log_now(state)) is not None:
             log.left_graveyard.append(old_zone.split(":")[0])  # (a zone key is "<owner>:graveyard")
+        if old_name == "battlefield" and new_name == "graveyard" and snap is not None and snap.counters and (log := turn_log_now(state)) is not None:
+            log.gy_counters110j.extend(k for k, n in snap.counters.items() if n > 0)  # -- (wave 110J) -- "a permanent with an oil counter on it was put into a graveyard"
         if new_name == "graveyard" and new_zone and card is not None and card.card_id is not None \
                 and (log := turn_log_now(state)) is not None:  # (a token is no card: it never "descends")
             log.entered_graveyard.append(Arrival(card=card_id, owner=new_zone.split(":")[0], object_id=new_oid, from_zone=old_name,
@@ -2303,6 +2307,8 @@ def _diff(state: GameState, rules: RulesState, before: Capture, manual: bool, ac
                     emit(state, "counters", object_id=oid, card=card_id, counter=kind, amount=n, actor=pid,
                          counter_remaining=card.counters.get(kind, 0))
             elif delta:
+                if delta < 0 and _zone_name(card.zone) == "battlefield" and (log := turn_log_now(state)) is not None:  # -- (wave 110J) --
+                    log.counters_removed110j.append(f"{card.controller}:{kind}")
                 emit(state, "counters", object_id=oid, card=card_id, counter=kind, amount=delta,
                      counter_remaining=card.counters.get(kind, 0), **({"actor": actor} if actor else {}), **({"group": group} if group else {}))  # (5H, 7C)
             if kind in KEYWORD_COUNTERS:  # -- counters (wave 5H) -- 613.7c

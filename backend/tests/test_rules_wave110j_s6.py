@@ -236,3 +236,53 @@ def test_all_hallows_eve_ticks_down_on_its_owners_upkeeps_then_returns_every_cre
     assert now(s, eve).zone == "p1:graveyard" and not now(s, eve).counters
     assert now(s, mine).zone == "p1:battlefield" and now(s, theirs).zone == "p2:battlefield"  # each under its owner's control (400.3)
     check(s)
+
+
+RES = "Churning Reservoir"
+
+
+def _goblins(s):
+    return sum(1 for c in s.state.cards.values() if c.name == "Phyrexian Goblin" and c.zone == "p1:battlefield")
+
+
+@pytest.mark.parametrize(("what", "ok"), [
+    ("nothing", False),
+    ("mine_removed", True),
+    ("theirs_removed", False),  # "a permanent you controlled"
+    ("theirs_died", True),  # any permanent with an oil counter put into a graveyard
+    ("mine_died", True),
+])
+def test_churning_reservoir_activates_only_after_oil_was_removed_or_a_permanent_with_oil_died(cards, what, ok):
+    """122.1, 603.10a: the history is this turn's: a counter removed from your permanent, or a permanent that had an oil counter going to a graveyard."""
+    s = build(cards, [RES, "Grizzly Bears"], ["Grizzly Bears"])
+    res = put_new(s, RES)
+    s.state.rules.controlled_since[res.id].turn = 0
+    mine, theirs = put_new(s, "Grizzly Bears", "p1"), put_new(s, "Grizzly Bears", "p2")
+    for c in (mine, theirs):
+        act(s, "p1", type="counter", card_ids=[c.id], kind="oil", delta=1)
+    if what == "mine_removed":
+        act(s, "p1", type="counter", card_ids=[mine.id], kind="oil", delta=-1)
+    elif what == "theirs_removed":
+        act(s, "p1", type="counter", card_ids=[theirs.id], kind="oil", delta=-1)
+    elif what in ("theirs_died", "mine_died"):
+        c = theirs if what == "theirs_died" else mine
+        act(s, "p1", type="move", card_ids=[c.id], to={"zone": "graveyard"})
+    mana(s, C=2)
+    if ok:
+        activate(s, res, "{2}, {T}")
+        assert _goblins(s) == 1
+        check(s)
+    else:
+        with pytest.raises(ActionError):
+            act(s, "p1", type="activate_ability", card_id=res.id, ability=ability(s, res, "{2}, {T}"))
+
+
+def test_churning_reservoir_ignores_a_permanent_without_an_oil_counter_dying(cards):
+    s = build(cards, [RES, "Grizzly Bears"])
+    res = put_new(s, RES)
+    s.state.rules.controlled_since[res.id].turn = 0
+    bears = put_new(s, "Grizzly Bears", "p1")
+    act(s, "p1", type="move", card_ids=[bears.id], to={"zone": "graveyard"})
+    mana(s, C=2)
+    with pytest.raises(ActionError):
+        act(s, "p1", type="activate_ability", card_id=res.id, ability=ability(s, res, "{2}, {T}"))
