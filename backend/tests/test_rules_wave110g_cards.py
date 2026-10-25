@@ -970,7 +970,13 @@ def test_touch_of_moonglove_blocker_dies_and_controller_loses_2(cards):
 
 def test_eye_for_an_eye_deals_the_same_damage_to_the_sources_controller(cards):
     """Eye for an Eye (609.7a, 614.1): Bob's Bolt is the chosen source; its 3 damage to Alice is still dealt and Eye deals 3 to Bob. A second Bolt is a different source."""
-    from tests.test_rules_wave35a_one_shot_shields import alice_responds, bobs_turn, bolt, choose, stops, until_asked
+    from tests.test_rules_wave35a_one_shot_shields import (
+        bobs_turn,
+        bolt,
+        choose,
+        stops,
+        until_asked,
+    )
 
     s = build(cards, ["Eye for an Eye"], ["Lightning Bolt", "Lightning Bolt"])
     stops(s)
