@@ -8,9 +8,20 @@
 
 from __future__ import annotations
 
-from tests.game_helpers import act
 from tests.wave9c_kit import build, life
-from tests.wave110d_kit import activate, card_db, cast_on, check, full, mana, now, put, refused, settle, to_phase  # noqa: F401
+from tests.wave110d_kit import (  # noqa: F401
+    activate,
+    card_db,
+    cast_on,
+    check,
+    full,
+    mana,
+    now,
+    put,
+    refused,
+    settle,
+    to_phase,
+)
 
 
 def hand(s, pid):
