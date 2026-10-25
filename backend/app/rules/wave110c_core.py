@@ -76,7 +76,20 @@ def _bounty_of_the_hunt() -> Parsed:
     return [{**effects[0], "receipt": "bounty110c"}, {"do": "temporary_counters110c", "receipt": "bounty110c"}], groups, optional
 
 
+def _scrap_mastery() -> Parsed:
+    """Scrap Mastery: every player's artifact cards leave their graveyards together, then every artifact is sacrificed, then the cards exiled
+    by the first instruction (not those a replacement effect exiled instead: its 2014-11-07 ruling) are put onto the battlefield, each under its
+    owner's control — a player puts back what came from their own graveyard (404.1)."""
+    return read("Exile all artifact cards from all graveyards. Each player sacrifices all artifacts they control. Return all cards exiled this way "
+                "to the battlefield under their owners' control.")
+
+
 BUILDERS: dict[str, Callable[[], Parsed]] = {
+    "Each player reveals a number of cards from the top of their library equal to the number of nonland permanents they control, puts all "
+    "permanent cards they revealed this way onto the battlefield, and puts the rest into their graveyard.":
+        lambda: ([{"do": "over_the_top110c"}], None, False),
+    "Each player exiles all artifact cards from their graveyard, then sacrifices all artifacts they control, then puts all cards they exiled this "
+    "way onto the battlefield.": _scrap_mastery,
     "Distribute three +1/+1 counters among one, two, or three target creatures. For each +1/+1 counter you put on a creature this way, remove a "
     "+1/+1 counter from that creature at the beginning of the next cleanup step.": _bounty_of_the_hunt,
     "If the {2}{U} cost was paid, you draw three cards, then an opponent creates two Treasure tokens and they scry 2. If that cost wasn't paid, "
@@ -142,3 +155,6 @@ def temporary_counters(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
 PRIMITIVES = {"choose_branch110c": choose_branch, "temporary_counters110c": temporary_counters}
 RESUME = {"choose_branch110c": resume_branch}
+from app.rules import wave110c_mass  # noqa: E402
+
+PRIMITIVES.update(wave110c_mass.PRIMITIVES)
