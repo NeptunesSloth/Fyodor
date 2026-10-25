@@ -211,8 +211,15 @@ CHOKING = real("Choking Vines", "{X}{G}", 1, "Instant",
 LETHAL = real("Lethal Exploit", "{1}{B}", 2, "Instant",
               "Target creature gets -2/-2 until end of turn. It gets an additional -1/-1 until end of turn for each modified creature you controlled as you cast this spell. "
               "(Equipment, Auras you control, and counters are modifications.)", None, "B")
-EXTRA.extend([CHOKING, LETHAL])
-NAMES.extend(["Choking Vines", "Lethal Exploit"])
+BEATDOWN = real("Beastie Beatdown", "{2}{G}", 3, "Sorcery",
+                "Choose target creature you control and target creature an opponent controls.\n"
+                "Delirium — If there are four or more card types among cards in your graveyard, put two +1/+1 counters on the creature you control.\n"
+                "The creature you control deals damage equal to its power to the creature an opponent controls.", None, "G")
+AVENGE = real("Avenge", "{4}{W}{W}", 6, "Sorcery",
+              "This spell costs {2} less to cast if a player attacked you during their last turn.\n"
+              "Destroy all creatures. You gain 1 life for each creature destroyed this way.", None, "W")
+EXTRA.extend([CHOKING, LETHAL, BEATDOWN, AVENGE, real("Gy Rock", "{1}", 1, "Artifact", "", None)])
+NAMES.extend(["Choking Vines", "Lethal Exploit", "Beastie Beatdown", "Avenge"])
 
 
 def test_choking_vines_blocks_unblocked_attackers_and_pings_each(cards):
@@ -260,4 +267,45 @@ def test_lethal_exploit_counts_modified_creatures_as_cast(cards, modified):
     settle(s)
     from app.rules.plan import Plan
     assert Plan(s.state, "p1", s.cards, None).ch(s.state.cards[victim.id]).pt == (4 - modified, 4 - modified)
+    check(s)
+
+
+@pytest.mark.parametrize("delirium", [True, False])
+def test_beastie_beatdown_delirium_counters_then_damage(cards, delirium):
+    """700.2/608.2c: with four card types in your graveyard the creature gets two counters first, so it deals power 2+2; otherwise just 2."""
+    s = build(cards, ["Beastie Beatdown", "Grizzly Bears", "Giant Growth", "Gy Rock", "Shivan Dragon"], ["Shivan Dragon"])
+    mine = put(s, "Grizzly Bears")
+    theirs = put(s, "Shivan Dragon", "p2")
+    for name in ("Shivan Dragon", "Giant Growth", "Gy Rock", "Forest")[: 4 if delirium else 3]:
+        c = next(c for c in s.state.cards.values() if c.name == name and c.owner == "p1" and c.zone == "p1:library")
+        act(s, "p1", type="move", card_ids=[c.id], to={"player": "p1", "zone": "graveyard"})
+    mana(s, G=1, C=2)
+    cast(s, "Beastie Beatdown", [mine.id, theirs.id], target_counts=[1, 1])
+    answer(s)
+    assert s.state.cards[theirs.id].damage == (4 if delirium else 2)
+    assert s.state.cards[mine.id].counters.get("+1/+1", 0) == (2 if delirium else 0)
+    check(s)
+
+
+@pytest.mark.parametrize("attacked", [True, False])
+def test_avenge_is_cheaper_after_a_player_attacked_you_in_their_last_turn(cards, attacked):
+    """508.1 + 601.2f: {2} less only when another player attacked you in their own previous turn; destroyed creatures give 1 life each."""
+    from app.game.errors import ActionError
+    from tests.test_rules_conditionals import until
+
+    s = build(cards, ["Avenge", "Grizzly Bears"], ["Grizzly Bears"])
+    bears = put(s, "Grizzly Bears", "p2")
+    until(s, lambda s: s.state.turn.number >= 2 and s.state.turn.active_player == "p2" and s.state.rules.decision is not None
+          and s.state.rules.decision.kind == "declare_attackers")
+    act(s, "p2", type="declare_attackers", attackers=[{"card_id": bears.id, "target": "p1"}] if attacked else [])
+    until(s, lambda s: s.state.turn.number >= 3 and s.state.turn.active_player == "p1" and s.state.turn.phase == "main1")
+    mana(s, W=2, C=2)
+    life = s.state.players["p1"].life
+    if not attacked:
+        with pytest.raises(ActionError):
+            cast(s, "Avenge")
+        return
+    cast(s, "Avenge")
+    answer(s)
+    assert s.state.cards[bears.id].zone == "p2:graveyard" and s.state.players["p1"].life == life + 1  # 1 life per creature destroyed
     check(s)

@@ -35,6 +35,12 @@ _SWAP: dict[str, tuple[str, list[Def]]] = {
 }
 
 
+# Beastie Beatdown: line 1 names both targets (115.1), the other lines are read as part of it (all effects run in line order, 608.2c).
+_BEATDOWN = "Choose target creature you control and target creature an opponent controls."
+_BEATDOWN_REST = ("Delirium — If there are four or more card types among cards in your graveyard, put two +1/+1 counters on the creature you control.",
+                  "The creature you control deals damage equal to its power to the creature an opponent controls.")
+
+
 def bind_targets(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     """601.2c/115.9b: the creatures the cast spell targets (still on the battlefield), as one named group for "those creatures"."""
     from app.rules import context, token_copy_sources
@@ -62,6 +68,7 @@ _STORM = "Whenever you cast a spell that targets one or more creatures, those cr
 def definition(ability: Any, ch: Any) -> Def | None:
     from app.rules import scripts
 
+    text = ability.text.strip()
     if ability.text.strip() == _STORM:
         native = scripts.define(replace(ability, text="Whenever you cast a spell that targets one or more creatures, draw a card."), ch)
         if native is None:
@@ -76,6 +83,15 @@ def definition(ability: Any, ch: Any) -> Def | None:
         native = scripts.define(replace(ability, text=_BLAZE.split(". It ")[0] + "."), ch)
         return None if native is None else {**native, "effects": [*native["effects"],
                                                                   {"do": "restrict", "who": "target", "rules": ["must_block_all110e"]}]}
+    if text == _BEATDOWN:
+        deal = scripts.define(replace(ability, text="Target creature you control deals damage equal to its power to target creature an opponent controls."), ch)
+        grow = scripts.define(replace(ability, text=_BEATDOWN_REST[0].split(" — ")[1].replace("the creature you control", "target creature you control")), ch)
+        if deal is None or grow is None:
+            return None
+        counters = [{**e, "who": "target:0"} if e.get("who") == "target" else e for e in grow["effects"]]
+        return {**deal, "effects": [*counters, *deal["effects"]]}
+    if text in _BEATDOWN_REST:
+        return {"kind": "spell", "effects": []}
     swap = _SWAP.get(ability.text.strip())
     if swap is not None:
         native = scripts.define(replace(ability, text=swap[0]), ch)

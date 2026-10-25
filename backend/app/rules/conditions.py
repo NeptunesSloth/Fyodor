@@ -68,6 +68,8 @@ def parse(text: str, *, objects: bool = False) -> Condition | None:
 
     if (hist110c := wave110c_history.condition(t)) is not None:
         return hist110c
+    if t == "a player attacked you during their last turn":  # -- wave 110E -- previous_own_turns
+        return {"w110e": "attacked_last_turn"}
     if t.lower() == 'you control a stickered permanent':
         return {'stickered_you101': True}
     from app.rules import damage_retention83
@@ -1597,6 +1599,10 @@ def bind_objects(cond: Condition, who: str) -> Condition:
 
 
 def holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
+    if "w110e" in cond:  # -- wave 110E -- 508.1: another player's last completed turn (previous_own_turns); unknown history (old save) = no
+        from app.rules import previous_own_turns
+
+        return previous_own_turns.eligible_player(plan.state, ctx["controller"])
     if "w110a" in cond:  # -- wave 110A --
         from app.rules import wave110a
 
