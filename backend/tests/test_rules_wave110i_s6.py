@@ -5,6 +5,7 @@
 * Infinite Authority: destroys the other creature (toughness 3 or less) at end of combat; the counter comes only if that destroy did it (701.8a).
 * The Pandorica: the permanent stays phased out while The Pandorica remains tapped, and phases in when it untaps or leaves (611.2b, 610.3).
 * Bloodthirsty Adversary: pays {2}{R} N times, N counters, exiles up to N cheap instants/sorceries and may cast any number of the copies free (707.12, 608.2g).
+* Dodecapod: discarded by an opponent's spell it enters with two +1/+1 counters (614.12); discarded by its own controller's spell it goes to the graveyard.
 * Grifter's Blade: chosen as it enters (303.4f), attached on entry; only a legal host; none to choose: unattached.
 """
 
@@ -46,6 +47,10 @@ EXTRA = [
     real("Lightning Bolt", "{R}", 1, "Instant", "Lightning Bolt deals 3 damage to any target.", None, "R"),
     real("Shock", "{R}", 1, "Instant", "Shock deals 2 damage to any target.", None, "R"),
     real("Probe Big Sorcery", "{4}{R}", 5, "Sorcery", "Probe Big Sorcery deals 9 damage to any target.", None, "R"),
+    real("Dodecapod", "{3}{R}", 4, "Artifact Creature — Construct",
+         "If a spell or ability an opponent controls causes you to discard this card, put it onto the battlefield with two +1/+1 counters on it instead of putting it into your graveyard.",
+         ("3", "3"), ""),
+    real("Probe Hymn", "{B}", 1, "Instant", "Target player discards a card.", None, "B"),
     real("Grizzly Bears", "{1}{G}", 2, "Creature — Bear", "", ("2", "2"), "G"),
     real("Shivan Dragon", "{4}{R}{R}", 6, "Creature — Dragon", "", ("5", "5"), "R"),
 ]
@@ -261,3 +266,26 @@ def test_adversary_only_offers_cheap_instants_and_sorceries(cards):
     act(s, "p1", type="choose", decision_id=s.state.rules.decision.id, option_ids=["x:2"])
     ids = [o.id for o in s.state.rules.decision.options]  # the target choice: mana value 5 is not offered
     assert big.id not in ids and set(ids) == {b.id for b in bolts}
+
+
+@pytest.mark.parametrize("by_opponent", [True, False])
+def test_dodecapod_enters_with_counters_only_when_an_opponent_makes_you_discard(cards, by_opponent):
+    s = build(cards, ["Dodecapod", "Probe Hymn", "Grizzly Bears"], ["Probe Hymn"])
+    pod = to_hand(s, "Dodecapod")
+    for c in [c for c in s.state.zones["p1:hand"] if c != pod.id]:
+        act(s, "p1", type="move", card_ids=[c], to={"player": "p1", "zone": "graveyard"})
+    who = "p2" if by_opponent else "p1"
+    to_hand(s, "Probe Hymn", who)
+    mana(s, who, B=1)
+    if by_opponent:  # Bob needs priority: Alice casts something first and passes
+        to_hand(s, "Grizzly Bears")
+        mana(s, G=1, C=1)
+        act(s, "p1", type="cast_spell", card_id=card_named(s, "Grizzly Bears").id)
+    act(s, who, type="cast_spell", card_id=card_named(s, "Probe Hymn", who).id, targets=["p1"])
+    answer(s)
+    z = s.state.cards[pod.id]
+    assert z.zone == ("p1:battlefield" if by_opponent else "p1:graveyard")
+    assert z.counters.get("+1/+1", 0) == (2 if by_opponent else 0)
+    if by_opponent:
+        assert pt(s, "Dodecapod") == (5, 5)
+    check(s)

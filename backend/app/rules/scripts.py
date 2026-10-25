@@ -9613,6 +9613,9 @@ def define_replacement(ability: AbilityText, text: str) -> Definition | None:
     if text == "If a spell or ability an opponent controls causes you to discard this card, put it onto the battlefield instead of putting it " \
                "into your graveyard.":  # -- discard causes (wave 23D) -- 614.1a, 701.9: the discard is replaced (replacements.replace_move)
         return {"kind": "replacement", "replacement": "discard_battlefield", "effects": []}
+    if text == "If a spell or ability an opponent controls causes you to discard this card, put it onto the battlefield with two +1/+1 counters on it instead of " \
+               "putting it into your graveyard.":  # -- discard causes (wave 110I) -- Dodecapod: the same replacement, 614.12 / 122.6 counters as it enters (replacements.replace_move)
+        return {"kind": "replacement", "replacement": "discard_battlefield", "effects": [], "counters110i": {"+1/+1": 2}}
     if text == "If a card that has a cycling ability would be put into your graveyard from anywhere and it wasn't cycled, exile it instead.":
         return {"kind": "static", "static": "exile_instead", "effects": [], "from": "anywhere",
                 "graveyard_of": "you", "who": "card", "cycling_not_cycled": True}

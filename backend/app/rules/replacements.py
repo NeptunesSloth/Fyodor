@@ -1780,6 +1780,9 @@ def replace_move(plan: Plan, payload: dict[str, Any], actor: str | None) -> dict
             move_instead(plan, cid, zone, actor, shuffle_after=plan.shuffle_after)
             continue
         plan.do({"type": "move", "card_ids": [cid], "to": {"player": owner, "zone": zone}, **also}, actor=actor)
+        if zone == "battlefield" and (with_counters := next((d["counters110i"] for d in _definitions(plan, plan.state.cards[cid]).values()
+                                                             if d.get("replacement") == "discard_battlefield" and d.get("counters110i")), None)):
+            after_entry(plan, cid, owner, extra_counters=dict(with_counters))  # -- wave 110I -- Dodecapod: "with two +1/+1 counters on it" (122.6, 614.12)
         if cid in links:
             _record_link(plan, cid, links[cid])
         if cid in marks:  # (it is in exile now: the counter goes on that object)
