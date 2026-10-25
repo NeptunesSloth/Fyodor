@@ -1,0 +1,7 @@
+{
+  "app/rules/flagbearer86.py": "e3592d3bb37dd7d79385ecc488a261860029a9558702186b63d2fdc146638faf",
+  "app/rules/casting.py": "e9f195135e7a811f0833186b4c3d8941b1bb591f715ac588b11c38165ce0f9fc",
+  "app/rules/targets.py": "0ea9a46ecb173fa58b463c3eac5d1c31903745d3d00a8d44bb959c2aaadf599b",
+  "app/rules/delegated_target_announcements.py": "14bebdca18471d1c39265ac1c13affda58df3c77f1a1bc031f04dd70ada6289f",
+  "app/rules/scripts.py": "24b76db78bf57b56970803adf9b0c7151542c7c42b9a94cb8af77cea8fe3b265"
+}

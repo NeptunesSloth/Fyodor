@@ -1,0 +1,357 @@
+============================= test session starts ==============================
+platform linux -- Python 3.12.14, pytest-9.1.1, pluggy-1.7.0 -- /workspace/Fyodor/backend/.venv/bin/python3
+cachedir: .pytest_cache
+rootdir: /workspace/scratch/combat101/backend
+configfile: pyproject.toml
+plugins: anyio-4.15.1, xdist-3.8.0
+created: 2/2 workers
+2 workers [172 items]
+
+scheduling tests via LoadScheduling
+
+tests/test_rules_delegated_target_announcements.py::test_opponent_chooses_another_players_creature_before_native_costs_and_stack
+tests/test_rules_modal_abilities.py::test_a_modal_ability_with_no_mode_to_choose_cant_be_activated
+[gw1] [  0%] PASSED tests/test_rules_modal_abilities.py::test_a_modal_ability_with_no_mode_to_choose_cant_be_activated
+tests/test_rules_modal_abilities.py::test_a_triggered_ability_with_no_legal_mode_is_removed
+[gw1] [  1%] PASSED tests/test_rules_modal_abilities.py::test_a_triggered_ability_with_no_legal_mode_is_removed
+tests/test_rules_modal_abilities.py::test_choosing_no_mode_of_an_up_to_one_ability_removes_it
+[gw1] [  1%] PASSED tests/test_rules_modal_abilities.py::test_choosing_no_mode_of_an_up_to_one_ability_removes_it
+tests/test_rules_modal_abilities.py::test_an_up_to_one_ability_can_still_take_its_mode
+[gw1] [  2%] PASSED tests/test_rules_modal_abilities.py::test_an_up_to_one_ability_can_still_take_its_mode
+tests/test_rules_modal_abilities.py::test_choose_two_takes_exactly_two_modes
+[gw1] [  2%] PASSED tests/test_rules_modal_abilities.py::test_choose_two_takes_exactly_two_modes
+tests/test_rules_modal_abilities.py::test_fewer_legal_modes_than_the_instruction_needs_removes_the_ability
+[gw1] [  3%] PASSED tests/test_rules_modal_abilities.py::test_fewer_legal_modes_than_the_instruction_needs_removes_the_ability
+tests/test_rules_modal_abilities.py::test_each_chosen_mode_has_its_own_target_and_modes_run_in_printed_order
+[gw1] [  4%] PASSED tests/test_rules_modal_abilities.py::test_each_chosen_mode_has_its_own_target_and_modes_run_in_printed_order
+tests/test_rules_modal_abilities.py::test_one_of_two_modes_can_be_chosen_alone
+[gw1] [  4%] PASSED tests/test_rules_modal_abilities.py::test_one_of_two_modes_can_be_chosen_alone
+tests/test_rules_modal_abilities.py::test_a_dies_trigger_offers_a_targeted_mode_only_with_a_legal_target
+[gw1] [  5%] PASSED tests/test_rules_modal_abilities.py::test_a_dies_trigger_offers_a_targeted_mode_only_with_a_legal_target
+tests/test_rules_modal_abilities.py::test_a_dies_trigger_with_a_target_mode
+[gw1] [  5%] PASSED tests/test_rules_modal_abilities.py::test_a_dies_trigger_with_a_target_mode
+tests/test_rules_modal_abilities.py::test_a_pending_mode_choice_survives_a_reload
+[gw1] [  6%] PASSED tests/test_rules_modal_abilities.py::test_a_pending_mode_choice_survives_a_reload
+tests/test_rules_modal_abilities.py::test_unchosen_modes_are_remembered_per_object_across_reloads_and_control_changes
+[gw0] [  6%] PASSED tests/test_rules_delegated_target_announcements.py::test_opponent_chooses_another_players_creature_before_native_costs_and_stack
+tests/test_rules_delegated_target_announcements.py::test_original_activator_can_cancel_before_delegation_without_costs
+[gw1] [  7%] PASSED tests/test_rules_modal_abilities.py::test_unchosen_modes_are_remembered_per_object_across_reloads_and_control_changes
+tests/test_rules_modal_abilities.py::test_a_new_object_has_no_memory_of_the_modes
+[gw0] [  8%] PASSED tests/test_rules_delegated_target_announcements.py::test_original_activator_can_cancel_before_delegation_without_costs
+tests/test_rules_delegated_target_announcements.py::test_opponent_cannot_cancel_pay_or_choose_for_a_different_opponent
+[gw1] [  8%] PASSED tests/test_rules_modal_abilities.py::test_a_new_object_has_no_memory_of_the_modes
+tests/test_rules_modal_abilities.py::test_a_mode_counts_even_if_the_ability_doesnt_resolve
+[gw1] [  9%] PASSED tests/test_rules_modal_abilities.py::test_a_mode_counts_even_if_the_ability_doesnt_resolve
+tests/test_rules_modal_abilities.py::test_the_two_faces_of_one_object_keep_separate_memory
+[gw1] [  9%] PASSED tests/test_rules_modal_abilities.py::test_the_two_faces_of_one_object_keep_separate_memory
+tests/test_rules_modal_abilities.py::test_modes_given_out_of_order_keep_their_targets_and_run_as_printed
+[gw1] [ 10%] PASSED tests/test_rules_modal_abilities.py::test_modes_given_out_of_order_keep_their_targets_and_run_as_printed
+tests/test_rules_modal_abilities.py::test_a_mode_already_chosen_is_refused_when_given_up_front
+[gw1] [ 11%] PASSED tests/test_rules_modal_abilities.py::test_a_mode_already_chosen_is_refused_when_given_up_front
+tests/test_rules_modal_abilities.py::test_unchosen_this_turn_starts_over_each_turn
+[gw0] [ 11%] PASSED tests/test_rules_delegated_target_announcements.py::test_opponent_cannot_cancel_pay_or_choose_for_a_different_opponent
+tests/test_rules_delegated_target_announcements.py::test_no_legal_creature_or_activator_supplied_target_is_rejected_before_costs
+[gw0] [ 12%] PASSED tests/test_rules_delegated_target_announcements.py::test_no_legal_creature_or_activator_supplied_target_is_rejected_before_costs
+tests/test_rules_delegated_target_announcements.py::test_source_departure_returns_cancellation_only_to_original_activator
+[gw1] [ 12%] PASSED tests/test_rules_modal_abilities.py::test_unchosen_this_turn_starts_over_each_turn
+tests/test_rules_modal_abilities.py::test_every_instance_that_triggers_together_takes_a_different_mode
+[gw0] [ 13%] PASSED tests/test_rules_delegated_target_announcements.py::test_source_departure_returns_cancellation_only_to_original_activator
+tests/test_rules_delegated_target_announcements.py::test_legality_uses_original_ability_controller_not_opponent_choosing_target
+[gw1] [ 13%] PASSED tests/test_rules_modal_abilities.py::test_every_instance_that_triggers_together_takes_a_different_mode
+tests/test_rules_modal_abilities.py::test_two_players_modal_triggers_are_announced_in_apnap_order
+[gw0] [ 14%] PASSED tests/test_rules_delegated_target_announcements.py::test_legality_uses_original_ability_controller_not_opponent_choosing_target
+tests/test_rules_delegated_target_announcements.py::test_target_departure_during_announcement_returns_only_original_payer_cancellation
+[gw1] [ 15%] PASSED tests/test_rules_modal_abilities.py::test_two_players_modal_triggers_are_announced_in_apnap_order
+tests/test_rules_modal_abilities.py::test_one_modes_target_becomes_illegal_the_other_mode_still_happens
+[gw1] [ 15%] PASSED tests/test_rules_modal_abilities.py::test_one_modes_target_becomes_illegal_the_other_mode_still_happens
+tests/test_rules_modal_abilities.py::test_the_only_target_becoming_illegal_removes_the_whole_ability
+[gw0] [ 16%] PASSED tests/test_rules_delegated_target_announcements.py::test_target_departure_during_announcement_returns_only_original_payer_cancellation
+tests/test_rules_delegated_target_announcements.py::test_original_activation_legality_is_checked_again_before_any_costs
+[gw1] [ 16%] PASSED tests/test_rules_modal_abilities.py::test_the_only_target_becoming_illegal_removes_the_whole_ability
+tests/test_rules_modal_abilities.py::test_a_modal_abilitys_own_restriction_still_applies
+[gw1] [ 17%] PASSED tests/test_rules_modal_abilities.py::test_a_modal_abilitys_own_restriction_still_applies
+tests/test_rules_modal_abilities.py::test_undo_and_redo_take_back_a_mode_choice_and_its_memory
+[gw1] [ 18%] PASSED tests/test_rules_modal_abilities.py::test_undo_and_redo_take_back_a_mode_choice_and_its_memory
+tests/test_rules_modal_abilities.py::test_in_assisted_mode_the_table_confirms_then_the_modes_are_chosen
+[gw0] [ 18%] PASSED tests/test_rules_delegated_target_announcements.py::test_original_activation_legality_is_checked_again_before_any_costs
+tests/test_rules_delegated_target_announcements.py::test_unpayable_announcement_is_returned_to_original_payer_for_cancellation
+[gw1] [ 19%] PASSED tests/test_rules_modal_abilities.py::test_in_assisted_mode_the_table_confirms_then_the_modes_are_chosen
+tests/test_rules_modal_abilities.py::test_a_payment_decision_after_the_modes_keeps_them
+[gw1] [ 19%] PASSED tests/test_rules_modal_abilities.py::test_a_payment_decision_after_the_modes_keeps_them
+tests/test_rules_modal_abilities.py::test_a_modal_attack_trigger
+[gw0] [ 20%] PASSED tests/test_rules_delegated_target_announcements.py::test_unpayable_announcement_is_returned_to_original_payer_for_cancellation
+tests/test_rules_delegated_target_announcements.py::test_resolved_target_is_bound_once_and_later_hexproof_or_new_incarnation_is_handled[False]
+[gw1] [ 20%] PASSED tests/test_rules_modal_abilities.py::test_a_modal_attack_trigger
+tests/test_rules_modal_abilities.py::test_choose_any_number_may_choose_none_and_runs_the_chosen_modes
+[gw1] [ 21%] PASSED tests/test_rules_modal_abilities.py::test_choose_any_number_may_choose_none_and_runs_the_chosen_modes
+tests/test_rules_modal_abilities.py::test_costs_with_choices_come_after_the_modes_and_targets
+[gw1] [ 22%] PASSED tests/test_rules_modal_abilities.py::test_costs_with_choices_come_after_the_modes_and_targets
+tests/test_rules_modal_abilities.py::test_choose_one_or_more_at_the_beginning_of_the_first_main_phase
+[gw0] [ 22%] PASSED tests/test_rules_delegated_target_announcements.py::test_resolved_target_is_bound_once_and_later_hexproof_or_new_incarnation_is_handled[False]
+tests/test_rules_delegated_target_announcements.py::test_resolved_target_is_bound_once_and_later_hexproof_or_new_incarnation_is_handled[True]
+[gw1] [ 23%] PASSED tests/test_rules_modal_abilities.py::test_choose_one_or_more_at_the_beginning_of_the_first_main_phase
+tests/test_rules_modal_abilities.py::test_choosing_none_of_a_one_or_more_ability_isnt_allowed
+[gw1] [ 23%] PASSED tests/test_rules_modal_abilities.py::test_choosing_none_of_a_one_or_more_ability_isnt_allowed
+tests/test_rules_modal_abilities.py::test_a_mode_that_returns_the_object_makes_it_a_new_one_with_no_memory
+[gw1] [ 24%] PASSED tests/test_rules_modal_abilities.py::test_a_mode_that_returns_the_object_makes_it_a_new_one_with_no_memory
+tests/test_rules_modal_abilities.py::test_a_hidden_source_is_not_named_in_prompts_or_shown_in_the_stack_text
+[gw0] [ 25%] PASSED tests/test_rules_delegated_target_announcements.py::test_resolved_target_is_bound_once_and_later_hexproof_or_new_incarnation_is_handled[True]
+tests/test_rules_delegated_target_announcements.py::test_delegated_target_can_leave_during_native_mana_payment_and_keeps_original_ref
+[gw1] [ 25%] PASSED tests/test_rules_modal_abilities.py::test_a_hidden_source_is_not_named_in_prompts_or_shown_in_the_stack_text
+tests/test_rules_modal_abilities.py::test_the_other_players_see_only_who_is_choosing
+[gw1] [ 26%] PASSED tests/test_rules_modal_abilities.py::test_the_other_players_see_only_who_is_choosing
+tests/test_rules_modal_abilities.py::test_a_modal_loyalty_ability_announces_modes_before_its_loyalty_cost
+[gw1] [ 26%] PASSED tests/test_rules_modal_abilities.py::test_a_modal_loyalty_ability_announces_modes_before_its_loyalty_cost
+tests/test_rules_modal_abilities.py::test_a_modal_loyalty_ability_offers_a_targeted_mode_only_with_a_target
+[gw1] [ 27%] PASSED tests/test_rules_modal_abilities.py::test_a_modal_loyalty_ability_offers_a_targeted_mode_only_with_a_target
+tests/test_rules_modal_abilities.py::test_a_modal_loyalty_ability_with_a_targeted_mode
+[gw1] [ 27%] PASSED tests/test_rules_modal_abilities.py::test_a_modal_loyalty_ability_with_a_targeted_mode
+tests/test_rules_modal_abilities.py::test_headers_read[When this creature enters, choose one \u2014\n\u2022 Draw a card.\n\u2022 You gain 1 life.-1-1-None]
+[gw1] [ 28%] PASSED tests/test_rules_modal_abilities.py::test_headers_read[When this creature enters, choose one \u2014\n\u2022 Draw a card.\n\u2022 You gain 1 life.-1-1-None]
+tests/test_rules_modal_abilities.py::test_headers_read[When this creature enters, choose two \u2014\n\u2022 Draw a card.\n\u2022 You gain 1 life.\n\u2022 Scry 1.-2-2-None]
+[gw1] [ 29%] PASSED tests/test_rules_modal_abilities.py::test_headers_read[When this creature enters, choose two \u2014\n\u2022 Draw a card.\n\u2022 You gain 1 life.\n\u2022 Scry 1.-2-2-None]
+tests/test_rules_modal_abilities.py::test_headers_read[When this creature enters, choose one or both \u2014\n\u2022 Draw a card.\n\u2022 You gain 1 life.-1-2-None]
+[gw1] [ 29%] PASSED tests/test_rules_modal_abilities.py::test_headers_read[When this creature enters, choose one or both \u2014\n\u2022 Draw a card.\n\u2022 You gain 1 life.-1-2-None]
+tests/test_rules_modal_abilities.py::test_headers_read[At the beginning of your first main phase, choose one or more \u2014\n\u2022 Draw a card.\n\u2022 You gain 1 life.\n\u2022 Scry 1.-1-3-None]
+[gw1] [ 30%] PASSED tests/test_rules_modal_abilities.py::test_headers_read[At the beginning of your first main phase, choose one or more \u2014\n\u2022 Draw a card.\n\u2022 You gain 1 life.\n\u2022 Scry 1.-1-3-None]
+tests/test_rules_modal_abilities.py::test_headers_read[Whenever this creature deals combat damage to a player, choose any number \u2014\n\u2022 Draw a card.\n\u2022 You gain 1 life.-0-2-None]
+[gw1] [ 30%] PASSED tests/test_rules_modal_abilities.py::test_headers_read[Whenever this creature deals combat damage to a player, choose any number \u2014\n\u2022 Draw a card.\n\u2022 You gain 1 life.-0-2-None]
+tests/test_rules_modal_abilities.py::test_headers_read[When this creature enters, choose up to one \u2014\n\u2022 Draw a card.\n\u2022 You gain 1 life.-0-1-None]
+[gw1] [ 31%] PASSED tests/test_rules_modal_abilities.py::test_headers_read[When this creature enters, choose up to one \u2014\n\u2022 Draw a card.\n\u2022 You gain 1 life.-0-1-None]
+tests/test_rules_modal_abilities.py::test_headers_read[When this creature enters, choose three \u2014\n\u2022 Draw a card.\n\u2022 You gain 1 life.\n\u2022 Scry 1.\n\u2022 Surveil 1.-3-3-None]
+[gw1] [ 31%] PASSED tests/test_rules_modal_abilities.py::test_headers_read[When this creature enters, choose three \u2014\n\u2022 Draw a card.\n\u2022 You gain 1 life.\n\u2022 Scry 1.\n\u2022 Surveil 1.-3-3-None]
+tests/test_rules_modal_abilities.py::test_headers_read[At the beginning of your upkeep, choose one that hasn't been chosen \u2014\n\u2022 Draw a card.\n\u2022 You gain 1 life.-1-1-game]
+[gw1] [ 32%] PASSED tests/test_rules_modal_abilities.py::test_headers_read[At the beginning of your upkeep, choose one that hasn't been chosen \u2014\n\u2022 Draw a card.\n\u2022 You gain 1 life.-1-1-game]
+tests/test_rules_modal_abilities.py::test_headers_read[Whenever you discard a card, choose one that hasn't been chosen this turn \u2014\n\u2022 Draw a card.\n\u2022 You gain 1 life.-1-1-turn]
+[gw1] [ 33%] PASSED tests/test_rules_modal_abilities.py::test_headers_read[Whenever you discard a card, choose one that hasn't been chosen this turn \u2014\n\u2022 Draw a card.\n\u2022 You gain 1 life.-1-1-turn]
+tests/test_rules_modal_abilities.py::test_headers_read[{1}: Choose one that hasn't been chosen this turn \u2014\n\u2022 Draw a card.\n\u2022 You gain 1 life.-1-1-turn]
+[gw1] [ 33%] PASSED tests/test_rules_modal_abilities.py::test_headers_read[{1}: Choose one that hasn't been chosen this turn \u2014\n\u2022 Draw a card.\n\u2022 You gain 1 life.-1-1-turn]
+tests/test_rules_modal_abilities.py::test_headers_read[{T}: Choose one \u2014\n\u2022 Draw a card.\n\u2022 You gain 1 life.-1-1-None]
+[gw1] [ 34%] PASSED tests/test_rules_modal_abilities.py::test_headers_read[{T}: Choose one \u2014\n\u2022 Draw a card.\n\u2022 You gain 1 life.-1-1-None]
+tests/test_rules_modal_abilities.py::test_the_lines_of_the_modes_belong_to_the_ability
+[gw1] [ 34%] PASSED tests/test_rules_modal_abilities.py::test_the_lines_of_the_modes_belong_to_the_ability
+tests/test_rules_modal_abilities.py::test_refused_wordings_stay_manual[Whenever this creature attacks, choose two at random \u2014\n\u2022 Draw a card.\n\u2022 You gain 1 life.]
+[gw1] [ 35%] PASSED tests/test_rules_modal_abilities.py::test_refused_wordings_stay_manual[Whenever this creature attacks, choose two at random \u2014\n\u2022 Draw a card.\n\u2022 You gain 1 life.]
+tests/test_rules_modal_abilities.py::test_refused_wordings_stay_manual[When this creature dies, choose one or more. Each mode must target a different player.\n\u2022 Target player loses 1 life.\n\u2022 You gain 1 life.]
+[gw1] [ 36%] PASSED tests/test_rules_modal_abilities.py::test_refused_wordings_stay_manual[When this creature dies, choose one or more. Each mode must target a different player.\n\u2022 Target player loses 1 life.\n\u2022 You gain 1 life.]
+tests/test_rules_modal_abilities.py::test_refused_wordings_stay_manual[When this creature enters, choose one. If you have exactly 13 poison counters, you may choose both instead.\n\u2022 Draw a card.\n\u2022 You gain 1 life.]
+[gw1] [ 36%] PASSED tests/test_rules_modal_abilities.py::test_refused_wordings_stay_manual[When this creature enters, choose one. If you have exactly 13 poison counters, you may choose both instead.\n\u2022 Draw a card.\n\u2022 You gain 1 life.]
+tests/test_rules_modal_abilities.py::test_refused_wordings_stay_manual[{T}: Choose one. X is the number of spells you've cast this turn.\n\u2022 Draw a card.\n\u2022 You gain 1 life.]
+[gw1] [ 37%] PASSED tests/test_rules_modal_abilities.py::test_refused_wordings_stay_manual[{T}: Choose one. X is the number of spells you've cast this turn.\n\u2022 Draw a card.\n\u2022 You gain 1 life.]
+tests/test_rules_modal_abilities.py::test_refused_wordings_stay_manual[Whenever another nontoken permanent you control leaves the battlefield, choose one that hasn't been chosen this turn. Create a creature token with those characteristics.\n\u2022 Draw a card.\n\u2022 You gain 1 life.]
+[gw1] [ 37%] PASSED tests/test_rules_modal_abilities.py::test_refused_wordings_stay_manual[Whenever another nontoken permanent you control leaves the battlefield, choose one that hasn't been chosen this turn. Create a creature token with those characteristics.\n\u2022 Draw a card.\n\u2022 You gain 1 life.]
+tests/test_rules_modal_abilities.py::test_refused_wordings_stay_manual[When this creature enters, choose one \u2014\n\u2022 You may draw a card.\n\u2022 You gain 1 life.]
+[gw1] [ 38%] PASSED tests/test_rules_modal_abilities.py::test_refused_wordings_stay_manual[When this creature enters, choose one \u2014\n\u2022 You may draw a card.\n\u2022 You gain 1 life.]
+tests/test_rules_modal_abilities.py::test_refused_wordings_stay_manual[{T}: Choose one \u2014\n\u2022 Put a +1/+1 counter on each of up to X target creatures.\n\u2022 You gain 1 life.]
+[gw1] [ 38%] PASSED tests/test_rules_modal_abilities.py::test_refused_wordings_stay_manual[{T}: Choose one \u2014\n\u2022 Put a +1/+1 counter on each of up to X target creatures.\n\u2022 You gain 1 life.]
+tests/test_rules_modal_abilities.py::test_refused_wordings_stay_manual[When this creature enters, choose one \u2014\n\u2022 Put a +1/+1 counter on each of up to X target creatures.\n\u2022 You gain 1 life.]
+[gw1] [ 39%] PASSED tests/test_rules_modal_abilities.py::test_refused_wordings_stay_manual[When this creature enters, choose one \u2014\n\u2022 Put a +1/+1 counter on each of up to X target creatures.\n\u2022 You gain 1 life.]
+tests/test_rules_modal_abilities.py::test_refused_wordings_stay_manual[When this creature enters, choose one \u2014\n\u2022 Draw a card.\n\u2022 You gain 1 life.\nThis ability triggers only once each turn.]
+[gw1] [ 40%] PASSED tests/test_rules_modal_abilities.py::test_refused_wordings_stay_manual[When this creature enters, choose one \u2014\n\u2022 Draw a card.\n\u2022 You gain 1 life.\nThis ability triggers only once each turn.]
+tests/test_rules_modal_abilities.py::test_refused_wordings_stay_manual[{T}: Choose one \u2014\n\u2022 Draw a card.\n\u2022 You gain 1 life.\nActivate only as a sorcery.]
+[gw1] [ 40%] PASSED tests/test_rules_modal_abilities.py::test_refused_wordings_stay_manual[{T}: Choose one \u2014\n\u2022 Draw a card.\n\u2022 You gain 1 life.\nActivate only as a sorcery.]
+tests/test_rules_modal_abilities.py::test_refused_wordings_stay_manual[{T}: Choose up to one \u2014\n\u2022 Draw a card.\n\u2022 You gain 1 life.]
+[gw0] [ 41%] PASSED tests/test_rules_delegated_target_announcements.py::test_delegated_target_can_leave_during_native_mana_payment_and_keeps_original_ref
+tests/test_rules_delegated_target_announcements.py::test_original_source_reserved_for_tap_cost_cannot_be_sacrificed_for_native_mana
+[gw1] [ 41%] PASSED tests/test_rules_modal_abilities.py::test_refused_wordings_stay_manual[{T}: Choose up to one \u2014\n\u2022 Draw a card.\n\u2022 You gain 1 life.]
+tests/test_rules_modal_abilities.py::test_refused_wordings_stay_manual[When this creature enters, choose one \u2014\n\u2022 Draw a card.]
+[gw1] [ 42%] PASSED tests/test_rules_modal_abilities.py::test_refused_wordings_stay_manual[When this creature enters, choose one \u2014\n\u2022 Draw a card.]
+tests/test_rules_modal_abilities.py::test_refused_wordings_stay_manual[When this creature enters, choose two \u2014\n\u2022 Draw a card.]
+[gw1] [ 43%] PASSED tests/test_rules_modal_abilities.py::test_refused_wordings_stay_manual[When this creature enters, choose two \u2014\n\u2022 Draw a card.]
+tests/test_rules_modal_abilities.py::test_refused_wordings_stay_manual[When this creature enters, choose one or both \u2014\n\u2022 Draw a card.\n\u2022 You gain 1 life.\n\u2022 Scry 1.]
+[gw1] [ 43%] PASSED tests/test_rules_modal_abilities.py::test_refused_wordings_stay_manual[When this creature enters, choose one or both \u2014\n\u2022 Draw a card.\n\u2022 You gain 1 life.\n\u2022 Scry 1.]
+tests/test_rules_modal_abilities.py::test_refused_wordings_stay_manual[When this creature enters, choose one \u2014\n\u2022 Draw a card.\n\u2022 Frobnicate the widget.]
+[gw1] [ 44%] PASSED tests/test_rules_modal_abilities.py::test_refused_wordings_stay_manual[When this creature enters, choose one \u2014\n\u2022 Draw a card.\n\u2022 Frobnicate the widget.]
+tests/test_rules_modal_abilities.py::test_a_triggers_intervening_if_belongs_to_the_whole_ability
+[gw1] [ 44%] PASSED tests/test_rules_modal_abilities.py::test_a_triggers_intervening_if_belongs_to_the_whole_ability
+tests/test_rules_modal_abilities.py::test_modes_that_name_the_event_keep_their_references
+[gw1] [ 45%] PASSED tests/test_rules_modal_abilities.py::test_modes_that_name_the_event_keep_their_references
+tests/test_rules_modal_abilities.py::test_mode_names_are_labels_not_rules_text
+[gw1] [ 45%] PASSED tests/test_rules_modal_abilities.py::test_mode_names_are_labels_not_rules_text
+tests/test_rules_modal_abilities.py::test_a_form_the_engine_doesnt_list_stays_partial
+[gw1] [ 46%] PASSED tests/test_rules_modal_abilities.py::test_a_form_the_engine_doesnt_list_stays_partial
+tests/test_rules_modal_abilities.py::test_real_cards_are_fully_automated
+[gw1] [ 47%] PASSED tests/test_rules_modal_abilities.py::test_real_cards_are_fully_automated
+tests/test_rules_modal_abilities.py::test_an_intervening_if_is_checked_as_it_triggers_and_again_as_it_resolves
+[gw1] [ 47%] PASSED tests/test_rules_modal_abilities.py::test_an_intervening_if_is_checked_as_it_triggers_and_again_as_it_resolves
+tests/test_rules_modal_abilities.py::test_a_mode_can_create_a_delayed_trigger
+[gw0] [ 48%] PASSED tests/test_rules_delegated_target_announcements.py::test_original_source_reserved_for_tap_cost_cannot_be_sacrificed_for_native_mana
+tests/test_rules_delegated_target_announcements.py::test_delegated_announcement_resumes_in_genuinely_cold_process[opponent]
+[gw1] [ 48%] PASSED tests/test_rules_modal_abilities.py::test_a_mode_can_create_a_delayed_trigger
+tests/test_rules_modal_abilities.py::test_one_players_different_modal_triggers_are_ordered_then_announced_one_by_one
+[gw1] [ 49%] PASSED tests/test_rules_modal_abilities.py::test_one_players_different_modal_triggers_are_ordered_then_announced_one_by_one
+tests/test_rules_modal_abilities.py::test_a_paid_energy_cost_then_a_reflexive_modal_trigger
+[gw1] [ 50%] PASSED tests/test_rules_modal_abilities.py::test_a_paid_energy_cost_then_a_reflexive_modal_trigger
+tests/test_rules_multitarget.py::test_target_groups_are_parsed[Tap up to two target creatures.-groups0]
+[gw1] [ 50%] PASSED tests/test_rules_multitarget.py::test_target_groups_are_parsed[Tap up to two target creatures.-groups0]
+tests/test_rules_multitarget.py::test_target_groups_are_parsed[Destroy two target creatures.-groups1]
+[gw1] [ 51%] PASSED tests/test_rules_multitarget.py::test_target_groups_are_parsed[Destroy two target creatures.-groups1]
+tests/test_rules_multitarget.py::test_target_groups_are_parsed[Return one or two target creatures to their owners' hands.-groups2]
+[gw1] [ 51%] PASSED tests/test_rules_multitarget.py::test_target_groups_are_parsed[Return one or two target creatures to their owners' hands.-groups2]
+tests/test_rules_multitarget.py::test_target_groups_are_parsed[Tap any number of target creatures.-groups3]
+[gw1] [ 52%] PASSED tests/test_rules_multitarget.py::test_target_groups_are_parsed[Tap any number of target creatures.-groups3]
+tests/test_rules_multitarget.py::test_target_groups_are_parsed[~ deals 2 damage to each of up to three targets.-groups4]
+[gw1] [ 52%] PASSED tests/test_rules_multitarget.py::test_target_groups_are_parsed[~ deals 2 damage to each of up to three targets.-groups4]
+tests/test_rules_multitarget.py::test_target_groups_are_parsed[Destroy target artifact and target enchantment.-groups5]
+[gw1] [ 53%] PASSED tests/test_rules_multitarget.py::test_target_groups_are_parsed[Destroy target artifact and target enchantment.-groups5]
+tests/test_rules_multitarget.py::test_target_groups_are_parsed[Tap target creature. Untap target creature.-groups6]
+[gw1] [ 54%] PASSED tests/test_rules_multitarget.py::test_target_groups_are_parsed[Tap target creature. Untap target creature.-groups6]
+tests/test_rules_multitarget.py::test_target_groups_are_parsed[Tap target creature. Untap another target creature.-groups7]
+[gw1] [ 54%] PASSED tests/test_rules_multitarget.py::test_target_groups_are_parsed[Tap target creature. Untap another target creature.-groups7]
+tests/test_rules_multitarget.py::test_target_groups_are_parsed[~ deals 2 damage to any target and 1 damage to another target.-groups8]
+[gw1] [ 55%] PASSED tests/test_rules_multitarget.py::test_target_groups_are_parsed[~ deals 2 damage to any target and 1 damage to another target.-groups8]
+tests/test_rules_multitarget.py::test_target_groups_are_parsed[~ deals 3 damage divided as you choose among one, two, or three targets.-groups9]
+[gw1] [ 55%] PASSED tests/test_rules_multitarget.py::test_target_groups_are_parsed[~ deals 3 damage divided as you choose among one, two, or three targets.-groups9]
+tests/test_rules_multitarget.py::test_target_groups_are_parsed[~ deals 2 damage divided as you choose among one or two targets.-groups10]
+[gw1] [ 56%] PASSED tests/test_rules_multitarget.py::test_target_groups_are_parsed[~ deals 2 damage divided as you choose among one or two targets.-groups10]
+tests/test_rules_multitarget.py::test_target_groups_are_parsed[~ deals 4 damage divided as you choose among any number of targets.-groups11]
+[gw1] [ 56%] PASSED tests/test_rules_multitarget.py::test_target_groups_are_parsed[~ deals 4 damage divided as you choose among any number of targets.-groups11]
+tests/test_rules_multitarget.py::test_target_groups_are_parsed[Distribute two +1/+1 counters among one or two target creatures you control.-groups12]
+[gw1] [ 57%] PASSED tests/test_rules_multitarget.py::test_target_groups_are_parsed[Distribute two +1/+1 counters among one or two target creatures you control.-groups12]
+tests/test_rules_multitarget.py::test_one_plain_target_keeps_the_old_shape
+[gw1] [ 58%] PASSED tests/test_rules_multitarget.py::test_one_plain_target_keeps_the_old_shape
+tests/test_rules_multitarget.py::test_pronouns_bind_to_the_last_group
+[gw1] [ 58%] PASSED tests/test_rules_multitarget.py::test_pronouns_bind_to_the_last_group
+tests/test_rules_multitarget.py::test_unsupported_wordings[~ deals X damage divided as you choose among any number of target creatures, where X is its power.]
+[gw1] [ 59%] PASSED tests/test_rules_multitarget.py::test_unsupported_wordings[~ deals X damage divided as you choose among any number of target creatures, where X is its power.]
+tests/test_rules_multitarget.py::test_unsupported_wordings[Exile two target cards from an opponent's graveyard and an opponent's hand.]
+[gw1] [ 59%] PASSED tests/test_rules_multitarget.py::test_unsupported_wordings[Exile two target cards from an opponent's graveyard and an opponent's hand.]
+tests/test_rules_multitarget.py::test_unsupported_wordings[~ deals 2 damage to another target.]
+[gw1] [ 60%] PASSED tests/test_rules_multitarget.py::test_unsupported_wordings[~ deals 2 damage to another target.]
+tests/test_rules_multitarget.py::test_cards_with_groups_are_full
+[gw1] [ 61%] PASSED tests/test_rules_multitarget.py::test_cards_with_groups_are_full
+tests/test_rules_multitarget.py::test_exact_number_of_targets
+[gw1] [ 61%] PASSED tests/test_rules_multitarget.py::test_exact_number_of_targets
+tests/test_rules_multitarget.py::test_up_to_n_targets[0]
+[gw1] [ 62%] PASSED tests/test_rules_multitarget.py::test_up_to_n_targets[0]
+tests/test_rules_multitarget.py::test_up_to_n_targets[1]
+[gw1] [ 62%] PASSED tests/test_rules_multitarget.py::test_up_to_n_targets[1]
+tests/test_rules_multitarget.py::test_up_to_n_targets[2]
+[gw1] [ 63%] PASSED tests/test_rules_multitarget.py::test_up_to_n_targets[2]
+tests/test_rules_multitarget.py::test_targets_given_up_front_with_counts
+[gw1] [ 63%] PASSED tests/test_rules_multitarget.py::test_targets_given_up_front_with_counts
+tests/test_rules_multitarget.py::test_the_same_target_twice_for_one_word_target_is_refused
+[gw1] [ 64%] PASSED tests/test_rules_multitarget.py::test_the_same_target_twice_for_one_word_target_is_refused
+tests/test_rules_multitarget.py::test_the_same_object_for_two_words_target
+[gw1] [ 65%] PASSED tests/test_rules_multitarget.py::test_the_same_object_for_two_words_target
+tests/test_rules_multitarget.py::test_another_target_cant_be_the_first_one
+[gw1] [ 65%] PASSED tests/test_rules_multitarget.py::test_another_target_cant_be_the_first_one
+tests/test_rules_multitarget.py::test_a_spell_whose_lines_each_target
+[gw1] [ 66%] PASSED tests/test_rules_multitarget.py::test_a_spell_whose_lines_each_target
+tests/test_rules_multitarget.py::test_one_illegal_target_the_others_are_still_affected
+[gw1] [ 66%] PASSED tests/test_rules_multitarget.py::test_one_illegal_target_the_others_are_still_affected
+tests/test_rules_multitarget.py::test_all_targets_illegal_it_does_nothing
+[gw1] [ 67%] PASSED tests/test_rules_multitarget.py::test_all_targets_illegal_it_does_nothing
+tests/test_rules_multitarget.py::test_zero_targets_chosen_resolves_normally
+[gw1] [ 68%] PASSED tests/test_rules_multitarget.py::test_zero_targets_chosen_resolves_normally
+tests/test_rules_multitarget.py::test_divided_damage_is_asked_after_the_targets
+[gw1] [ 68%] PASSED tests/test_rules_multitarget.py::test_divided_damage_is_asked_after_the_targets
+tests/test_rules_multitarget.py::test_one_target_gets_all_of_it
+[gw1] [ 69%] PASSED tests/test_rules_multitarget.py::test_one_target_gets_all_of_it
+tests/test_rules_multitarget.py::test_division_given_up_front_and_limits
+[gw1] [ 69%] PASSED tests/test_rules_multitarget.py::test_division_given_up_front_and_limits
+tests/test_rules_multitarget.py::test_an_illegal_targets_share_isnt_reassigned
+[gw1] [ 70%] PASSED tests/test_rules_multitarget.py::test_an_illegal_targets_share_isnt_reassigned
+tests/test_rules_multitarget.py::test_distributed_counters
+[gw1] [ 70%] PASSED tests/test_rules_multitarget.py::test_distributed_counters
+tests/test_rules_multitarget.py::test_a_trigger_with_two_target_groups
+[gw1] [ 71%] PASSED tests/test_rules_multitarget.py::test_a_trigger_with_two_target_groups
+tests/test_rules_multitarget.py::test_a_divided_trigger
+[gw1] [ 72%] PASSED tests/test_rules_multitarget.py::test_a_divided_trigger
+tests/test_rules_multitarget.py::test_a_trigger_without_enough_legal_targets_is_removed
+[gw1] [ 72%] PASSED tests/test_rules_multitarget.py::test_a_trigger_without_enough_legal_targets_is_removed
+tests/test_rules_kicked_target_outcomes60.py::test_canonical_complete[Inscription of Insight]
+[gw1] [ 73%] PASSED tests/test_rules_kicked_target_outcomes60.py::test_canonical_complete[Inscription of Insight]
+tests/test_rules_kicked_target_outcomes60.py::test_canonical_complete[Waste Management]
+[gw1] [ 73%] PASSED tests/test_rules_kicked_target_outcomes60.py::test_canonical_complete[Waste Management]
+tests/test_rules_kicked_target_outcomes60.py::test_canonical_complete[The Eagles Are Coming!]
+[gw1] [ 74%] PASSED tests/test_rules_kicked_target_outcomes60.py::test_canonical_complete[The Eagles Are Coming!]
+tests/test_rules_kicked_target_outcomes60.py::test_insight_all_modes_use_actual_later_player_slot_hand
+[gw0] [ 75%] PASSED tests/test_rules_delegated_target_announcements.py::test_delegated_announcement_resumes_in_genuinely_cold_process[opponent]
+tests/test_rules_delegated_target_announcements.py::test_delegated_announcement_resumes_in_genuinely_cold_process[creature]
+[gw1] [ 75%] PASSED tests/test_rules_kicked_target_outcomes60.py::test_insight_all_modes_use_actual_later_player_slot_hand
+tests/test_rules_kicked_target_outcomes60.py::test_any_number_kicked_modes_includes_actual_zero_choice[Inscription of Insight-mana0]
+[gw0] [ 76%] PASSED tests/test_rules_delegated_target_announcements.py::test_delegated_announcement_resumes_in_genuinely_cold_process[creature]
+tests/test_rules_delegated_target_announcements.py::test_canonical_nova_pentacle_is_whole_card_full
+[gw0] [ 76%] PASSED tests/test_rules_delegated_target_announcements.py::test_canonical_nova_pentacle_is_whole_card_full
+tests/test_rules_modal_abilities.py::test_modal_enters_trigger_asks_the_modes_then_the_target
+[gw0] [ 77%] PASSED tests/test_rules_modal_abilities.py::test_modal_enters_trigger_asks_the_modes_then_the_target
+tests/test_rules_modal_abilities.py::test_modal_trigger_with_a_target_chooses_it_after_the_mode
+[gw0] [ 77%] PASSED tests/test_rules_modal_abilities.py::test_modal_trigger_with_a_target_chooses_it_after_the_mode
+tests/test_rules_modal_abilities.py::test_modal_landfall_trigger_chooses_a_mode_each_time
+[gw0] [ 78%] PASSED tests/test_rules_modal_abilities.py::test_modal_landfall_trigger_chooses_a_mode_each_time
+tests/test_rules_modal_abilities.py::test_modal_activated_ability_announces_modes_and_targets_before_paying
+[gw1] [ 79%] PASSED tests/test_rules_kicked_target_outcomes60.py::test_any_number_kicked_modes_includes_actual_zero_choice[Inscription of Insight-mana0]
+tests/test_rules_kicked_target_outcomes60.py::test_any_number_kicked_modes_includes_actual_zero_choice[Inscription of Abundance-mana1]
+[gw0] [ 79%] PASSED tests/test_rules_modal_abilities.py::test_modal_activated_ability_announces_modes_and_targets_before_paying
+tests/test_rules_modal_abilities.py::test_modal_activated_ability_with_the_modes_given_up_front
+[gw0] [ 80%] PASSED tests/test_rules_modal_abilities.py::test_modal_activated_ability_with_the_modes_given_up_front
+tests/test_rules_kicked_target_outcomes60.py::test_eagles_returns_announced_targets_then_delayed_actual_count[0]
+[gw1] [ 80%] PASSED tests/test_rules_kicked_target_outcomes60.py::test_any_number_kicked_modes_includes_actual_zero_choice[Inscription of Abundance-mana1]
+tests/test_rules_kicked_target_outcomes60.py::test_any_number_kicked_modes_includes_actual_zero_choice[Inscription of Ruin-mana2]
+[gw0] [ 81%] PASSED tests/test_rules_kicked_target_outcomes60.py::test_eagles_returns_announced_targets_then_delayed_actual_count[0]
+tests/test_rules_kicked_target_outcomes60.py::test_eagles_returns_announced_targets_then_delayed_actual_count[1]
+[gw1] [ 81%] PASSED tests/test_rules_kicked_target_outcomes60.py::test_any_number_kicked_modes_includes_actual_zero_choice[Inscription of Ruin-mana2]
+tests/test_rules_kicked_target_outcomes60.py::test_waste_management_conditional_native_target_groups_and_creature_count[0]
+[gw0] [ 82%] PASSED tests/test_rules_kicked_target_outcomes60.py::test_eagles_returns_announced_targets_then_delayed_actual_count[1]
+tests/test_rules_kicked_target_outcomes60.py::test_waste_management_rejects_unkicked_cards_from_different_graveyards
+[gw1] [ 83%] PASSED tests/test_rules_kicked_target_outcomes60.py::test_waste_management_conditional_native_target_groups_and_creature_count[0]
+tests/test_rules_kicked_target_outcomes60.py::test_waste_management_conditional_native_target_groups_and_creature_count[1]
+[gw0] [ 83%] PASSED tests/test_rules_kicked_target_outcomes60.py::test_waste_management_rejects_unkicked_cards_from_different_graveyards
+tests/test_rules_kicked_target_outcomes60.py::test_eagles_returned_creature_tokens_count_after_they_cease
+[gw1] [ 84%] PASSED tests/test_rules_kicked_target_outcomes60.py::test_waste_management_conditional_native_target_groups_and_creature_count[1]
+tests/test_rules_kicked_target_outcomes60.py::test_true_cold_eagles_delayed_count_survives_returned_tokens_ceasing
+[gw0] [ 84%] PASSED tests/test_rules_kicked_target_outcomes60.py::test_eagles_returned_creature_tokens_count_after_they_cease
+tests/test_rules_kicked_target_outcomes60.py::test_eagles_commander_replaced_into_command_does_not_count_as_returned
+[gw1] [ 85%] PASSED tests/test_rules_kicked_target_outcomes60.py::test_true_cold_eagles_delayed_count_survives_returned_tokens_ceasing
+tests/test_rules_kicked_target_outcomes60.py::test_true_cold_waste_management_kicked_player_group_and_original_card_count
+[gw0] [ 86%] PASSED tests/test_rules_kicked_target_outcomes60.py::test_eagles_commander_replaced_into_command_does_not_count_as_returned
+tests/test_rules_kicked_target_outcomes60.py::test_true_cold_explicit_zero_modes_locked_before_mana_payment
+[gw1] [ 86%] PASSED tests/test_rules_kicked_target_outcomes60.py::test_true_cold_waste_management_kicked_player_group_and_original_card_count
+tests/test_rules_kicked_target_outcomes60.py::test_zero_native_targets_are_legal_for_kicked_eagles_or_unkicked_waste[The Eagles Are Coming!-1-mana0]
+[gw0] [ 87%] PASSED tests/test_rules_kicked_target_outcomes60.py::test_true_cold_explicit_zero_modes_locked_before_mana_payment
+tests/test_rules_conditional_optional_target.py::test_return_to_dust_is_full
+[gw0] [ 87%] PASSED tests/test_rules_conditional_optional_target.py::test_return_to_dust_is_full
+tests/test_rules_conditional_optional_target.py::test_cast_timing_gates_second_exile_and_controller_may_still_decline[True-main1-1-True]
+[gw0] [ 88%] PASSED tests/test_rules_conditional_optional_target.py::test_cast_timing_gates_second_exile_and_controller_may_still_decline[True-main1-1-True]
+tests/test_rules_conditional_optional_target.py::test_cast_timing_gates_second_exile_and_controller_may_still_decline[True-main2-1-True]
+[gw0] [ 88%] PASSED tests/test_rules_conditional_optional_target.py::test_cast_timing_gates_second_exile_and_controller_may_still_decline[True-main2-1-True]
+tests/test_rules_conditional_optional_target.py::test_cast_timing_gates_second_exile_and_controller_may_still_decline[True-begin_combat-1-False]
+[gw0] [ 89%] PASSED tests/test_rules_conditional_optional_target.py::test_cast_timing_gates_second_exile_and_controller_may_still_decline[True-begin_combat-1-False]
+tests/test_rules_conditional_optional_target.py::test_cast_timing_gates_second_exile_and_controller_may_still_decline[True-main1-2-False]
+[gw1] [ 90%] PASSED tests/test_rules_kicked_target_outcomes60.py::test_zero_native_targets_are_legal_for_kicked_eagles_or_unkicked_waste[The Eagles Are Coming!-1-mana0]
+tests/test_rules_kicked_target_outcomes60.py::test_zero_native_targets_are_legal_for_kicked_eagles_or_unkicked_waste[Waste Management-0-mana1]
+[gw0] [ 90%] PASSED tests/test_rules_conditional_optional_target.py::test_cast_timing_gates_second_exile_and_controller_may_still_decline[True-main1-2-False]
+tests/test_rules_conditional_optional_target.py::test_cast_timing_gates_second_exile_and_controller_may_still_decline[True-end-1-False]
+[gw0] [ 91%] PASSED tests/test_rules_conditional_optional_target.py::test_cast_timing_gates_second_exile_and_controller_may_still_decline[True-end-1-False]
+tests/test_rules_conditional_optional_target.py::test_cast_timing_gates_second_exile_and_controller_may_still_decline[False-main1-1-True]
+[gw0] [ 91%] PASSED tests/test_rules_conditional_optional_target.py::test_cast_timing_gates_second_exile_and_controller_may_still_decline[False-main1-1-True]
+tests/test_rules_conditional_optional_target.py::test_cast_timing_gates_second_exile_and_controller_may_still_decline[False-main2-1-True]
+[gw1] [ 92%] PASSED tests/test_rules_kicked_target_outcomes60.py::test_zero_native_targets_are_legal_for_kicked_eagles_or_unkicked_waste[Waste Management-0-mana1]
+tests/test_rules_kicked_target_outcomes60.py::test_eagles_ownership_not_controller_authorizes_the_target
+[gw0] [ 93%] PASSED tests/test_rules_conditional_optional_target.py::test_cast_timing_gates_second_exile_and_controller_may_still_decline[False-main2-1-True]
+tests/test_rules_conditional_optional_target.py::test_cast_timing_gates_second_exile_and_controller_may_still_decline[False-begin_combat-1-False]
+[gw0] [ 93%] PASSED tests/test_rules_conditional_optional_target.py::test_cast_timing_gates_second_exile_and_controller_may_still_decline[False-begin_combat-1-False]
+tests/test_rules_conditional_optional_target.py::test_cast_timing_gates_second_exile_and_controller_may_still_decline[False-end-1-False]
+[gw0] [ 94%] PASSED tests/test_rules_conditional_optional_target.py::test_cast_timing_gates_second_exile_and_controller_may_still_decline[False-end-1-False]
+tests/test_rules_conditional_optional_target.py::test_zero_optional_targets_needs_no_choice
+[gw0] [ 94%] PASSED tests/test_rules_conditional_optional_target.py::test_zero_optional_targets_needs_no_choice
+tests/test_rules_conditional_optional_target.py::test_departed_targets_do_not_invalidate_the_other_instruction[first]
+[gw0] [ 95%] PASSED tests/test_rules_conditional_optional_target.py::test_departed_targets_do_not_invalidate_the_other_instruction[first]
+tests/test_rules_conditional_optional_target.py::test_departed_targets_do_not_invalidate_the_other_instruction[second]
+[gw0] [ 95%] PASSED tests/test_rules_conditional_optional_target.py::test_departed_targets_do_not_invalidate_the_other_instruction[second]
+tests/test_rules_conditional_optional_target.py::test_departed_targets_do_not_invalidate_the_other_instruction[both]
+[gw0] [ 96%] PASSED tests/test_rules_conditional_optional_target.py::test_departed_targets_do_not_invalidate_the_other_instruction[both]
+tests/test_rules_conditional_optional_target.py::test_optional_target_must_differ_from_the_first_before_payment
+[gw1] [ 97%] PASSED tests/test_rules_kicked_target_outcomes60.py::test_eagles_ownership_not_controller_authorizes_the_target
+tests/test_rules_conditional_optional_target.py::test_cast_timing_gates_second_exile_and_controller_may_still_decline[False-main1-2-False]
+[gw0] [ 97%] PASSED tests/test_rules_conditional_optional_target.py::test_optional_target_must_differ_from_the_first_before_payment
+tests/test_rules_conditional_optional_target.py::test_cast_phase_is_remembered_when_resolution_phase_changes[False]
+[gw0] [ 98%] PASSED tests/test_rules_conditional_optional_target.py::test_cast_phase_is_remembered_when_resolution_phase_changes[False]
+tests/test_rules_conditional_optional_target.py::test_spell_copy_was_not_cast_but_original_retains_main_phase_option
+[gw0] [ 98%] PASSED tests/test_rules_conditional_optional_target.py::test_spell_copy_was_not_cast_but_original_retains_main_phase_option
+[gw1] [ 99%] PASSED tests/test_rules_conditional_optional_target.py::test_cast_timing_gates_second_exile_and_controller_may_still_decline[False-main1-2-False]
+tests/test_rules_conditional_optional_target.py::test_cast_phase_is_remembered_when_resolution_phase_changes[True]
+[gw1] [100%] PASSED tests/test_rules_conditional_optional_target.py::test_cast_phase_is_remembered_when_resolution_phase_changes[True]
+
+============================= 172 passed in 56.05s =============================

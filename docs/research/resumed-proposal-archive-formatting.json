@@ -983,5 +983,15 @@
     "original_sha256": "d9d0e7bf4ae6d4942d835ce8b7eb50675c2476e41b5b3f6b17b640710c8e9eb9",
     "archived_sha256": "13550fb92e140908048da8967999d5921fe5e3f0a268b5aa2bd8c1e5cec9ee94",
     "numstat_preserved": null
+  },
+  "docs/research/proposals/after21-combat101/flag-related.log": {
+    "original_sha256": "cc6d4a98109b6e903eff072aa9abee7a026e5d3301eaceb746450eca7062c26b",
+    "archived_sha256": "579b33e81e9559109c916a23d835d2dfdc88664fa2cf1863a53f3adc5ffc6967",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/after21-combat101/review.patch": {
+    "original_sha256": "ca6c9e71b7bf0fee0642a02703318600283d44e89fc652edf72a884cad7a1f52",
+    "archived_sha256": "e40dafdba1e8dbf70b38072fc79e69fa4693f6f1e1c2ff99aaae4d140d96e16f",
+    "numstat_preserved": true
   }
 }
