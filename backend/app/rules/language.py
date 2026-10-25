@@ -3096,7 +3096,7 @@ CHOOSE_VALUE = rf"choose (?:(?:a|an) )?(?P<what>color|creature type|basic land t
 CARD_TYPE_FIVE = "artifact, creature, enchantment, instant, or sorcery"  # -- commanders (wave 47A) -- Cloud Key: the five card types it offers
 TYPE_LIST = r"[A-Z][a-z]+(?:, [A-Z][a-z]+)+, or [A-Z][a-z]+"  # -- chosen type (wave 51C) -- "choose Elemental, Elf, Faerie, Giant, Goblin, Kithkin, Merfolk, or Treefolk" (Eclipsed Realms, Dawn-Blessed Pennant)
 _BASIC_PAIR = "(?:Plains|Island|Swamp|Mountain|Forest) or (?:Plains|Island|Swamp|Mountain|Forest)"  # -- chosen filters (wave 53B) -- "choose Island or Swamp" (Roots of Life): a basic land type, only those two
-ENTERS_CHOICE = re.compile(rf"^As ~ enters, choose (?:(?:a|an) )?(?P<what>color|creature type|basic land type|land type|opponent|player|odd or even|card type(?: other than creature or land)?|{CARD_TYPE_FIVE}|number between 1 and 10|two abilities from among first strike, vigilance, and lifelink|{TYPE_LIST}|{_chosen.TYPE_CHOICE}|{_chosen.NUMBER_CHOICE}|color and a creature type|color and an opponent|two basic land types|two colors|{_BASIC_PAIR}|{_chosen.PAIRS})\.$")  # (wave 47A: card type, Umori and Stenn; Cloud Key; wave 51C: a short list of creature types)
+ENTERS_CHOICE = re.compile(rf"^As ~ enters, (?:choose (?:(?:a|an) )?|(?P<opp>an opponent chooses )(?:a )?(?=creature type\.$))(?P<what>color|creature type|basic land type|land type|opponent|player|odd or even|card type(?: other than creature or land)?|{CARD_TYPE_FIVE}|number between 1 and 10|two abilities from among first strike, vigilance, and lifelink|{TYPE_LIST}|{_chosen.TYPE_CHOICE}|{_chosen.NUMBER_CHOICE}|color and a creature type|color and an opponent|two basic land types|two colors|{_BASIC_PAIR}|{_chosen.PAIRS})\.$")  # (wave 47A: card type, Umori and Stenn; Cloud Key; wave 51C: a short list of creature types)
 
 
 # -- choose own (wave 32A) -- "Then you may choose a token you control." (Brudiclad), "Choose a Giant creature you control. It deals damage equal to its
@@ -3369,6 +3369,9 @@ def enters_choice(text: str) -> dict[str, Any] | None:
     m = ENTERS_CHOICE.match(text)
     if m is None:
         return None
+    if m["opp"]:  # -- opponent chooses (wave 110E) -- 614.12a: an opponent answers "As ~ enters, an opponent chooses a creature type." (Callous Oppressor); replacements.named_choices
+        return {"kind": "replacement", "replacement": "enters_choice",
+                "effects": [{"do": "choose_value", "who": "you", "what": "creature type", "remember": True, "opp110e": True}]}
     if re.fullmatch(_BASIC_PAIR, m["what"]):  # (wave 53B: the answer is a basic land type; the two words are its options)
         return {"kind": "replacement", "replacement": "enters_choice",
                 "effects": [{"do": "choose_value", "who": "you", "what": "basic land type", "options": m["what"].split(" or "), "remember": True}]}

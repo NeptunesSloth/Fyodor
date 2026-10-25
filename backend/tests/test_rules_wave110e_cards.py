@@ -47,6 +47,10 @@ EXTRA = [
          "Target creature you control deals damage equal to its power to another target creature. If this spell's additional cost was paid, destroy target noncreature artifact or noncreature enchantment.", None, "R"),
     real("Gamma Test", "{2}{G}", 3, "Creature — Mutant Gamma", "", ("3", "3"), "G"),
     real("Phyrexian Purge", "{2}{B}{B}", 4, "Sorcery", "This spell costs 3 life more to cast for each target.\nDestroy any number of target creatures.", None, "B"),
+    real("Callous Oppressor", "{1}{U}{U}", 3, "Creature — Cephalid",
+         "You may choose not to untap this creature during your untap step.\nAs this creature enters, an opponent chooses a creature type.\n"
+         "{T}: Gain control of target creature that isn't of the chosen type for as long as this creature remains tapped.", ("1", "4"), "U"),
+    real("Goblin Test", "{R}", 1, "Creature — Goblin", "", ("1", "1"), "R"),
     real("Spin into Myth", "{3}{U}", 4, "Instant",
          "Put target creature on top of its owner's library, then fateseal 2. (To fateseal 2, look at the top two cards of an opponent's library, then put any number of them on the bottom of that player's library and the rest on top in any order.)", None, "U"),
 ]
@@ -429,4 +433,31 @@ def test_phyrexian_purge_costs_three_life_per_target(cards, life_total):
     cast(s, "Phyrexian Purge", [d.id for d in dragons], target_counts=[2])
     answer(s)
     assert life(s, "p1") == 34 and all(s.state.cards[d.id].zone == "p2:graveyard" for d in dragons)
+    check(s)
+
+
+@pytest.mark.parametrize("target", ["Grizzly Bears", "Goblin Test"])
+def test_callous_oppressor_opponent_names_the_type_it_cant_steal(cards, target):
+    """614.12a: an opponent answers the entering choice (the type is public on the permanent); 108.3/613 control: only a creature not of that type can be stolen."""
+    from app.game.errors import ActionError
+    from tests.test_rules_wave30m_durations import to_phase
+
+    s = build(cards, ["Callous Oppressor"], ["Grizzly Bears", "Goblin Test"])
+    mana(s, U=2, C=1)
+    op = cast(s, "Callous Oppressor")
+    d = s.state.rules.decision
+    assert d is not None and d.player == "p2"  # the opponent, not the caster, chooses
+    act(s, "p2", type="choose", decision_id=d.id, option_ids=["Bear"])
+    answer(s)
+    assert "Bear" in s.state.cards[op.id].choices.values()
+    bears, goblin = put(s, "Grizzly Bears", "p2"), put(s, "Goblin Test", "p2")
+    to_phase(s, "main1", turn=3)
+    victim = bears if target == "Grizzly Bears" else goblin
+    if target == "Grizzly Bears":
+        with pytest.raises(ActionError):
+            act(s, "p1", type="activate_ability", card_id=op.id, ability=2, targets=[victim.id])
+        return
+    act(s, "p1", type="activate_ability", card_id=op.id, ability=2, targets=[victim.id])
+    answer(s)
+    assert s.state.cards[victim.id].controller == "p1"
     check(s)
