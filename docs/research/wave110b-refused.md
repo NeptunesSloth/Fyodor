@@ -26,3 +26,7 @@
 - Flameblade Angel: one trigger for damage to you or a permanent you control; batch granularity (one source damaging several recipients at once) unsettled.
 - Equal Treatment: "it deals 2 damage instead" sets damage to a fixed amount (also lowers bigger damage); no set-damage replacement.
 - Cards seen with "a player or planeswalker" attack triggers (once per attacked planeswalker, 508.3e) need per-planeswalker events: engine only has per-player.
+- Meandering Towershell: "at the beginning of the declare attackers step" delayed return tapped and attacking has no step hook (attackers are declared as a turn-based action; delayed.at_step has no declare_attackers phase).
+- Weeping Angel: needs a "isn't a creature until end of turn" type-removal effect plus a combat-damage replacement that shuffles the creature into its owner's library; two new pieces, one card.
+- Lathiel, the Bounteous Dawn: "distribute up to that many counters" needs a divide total evaluated when the trigger's targets are chosen (targets[].divide.total is a literal today).
+- Mistbind Clique: champion is not modelled ("championed with this creature" has no event).

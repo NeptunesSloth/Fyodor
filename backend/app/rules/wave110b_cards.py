@@ -23,6 +23,9 @@ def firebending(line: str) -> int | None:
 
 # whole ability text -> the wording the grammar reads for it
 _AS: dict[str, str] = {
+    # Saproling Infestation: 702.33d a player "kicks" a spell as they cast it kicked
+    "Whenever a player kicks a spell, you create a 1/1 green Saproling creature token.":
+        "Whenever a player casts a kicked spell, you create a 1/1 green Saproling creature token.",
     # Kitsune Ace: an attacking Vehicle is a creature (301.7), so "that Vehicle" is "that creature"
     "Whenever a Vehicle you control attacks, That Vehicle gains first strike until end of turn.":
         "Whenever a Vehicle you control attacks, that creature gains first strike until end of turn.",
@@ -340,4 +343,12 @@ def no_attack_next(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
 
 
 RESUME: dict[str, Any] = {"exile_own110b": resume_exile_own}
-PRIMITIVES: dict[str, Any] = {"ungoad110b": ungoad, "no_attack_next110b": no_attack_next, "draw_game110b": draw_game, "reaver110b": reaver, "veil110b": veil, "exile_own110b": exile_own}
+def gift_given(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """702.174c: the gift was given (its instant or sorcery resolved, or its permanent's gift trigger resolved): "Whenever you give a gift"."""
+    from app.game.rules_state import emit
+
+    emit(plan.state, "designation", counter="gift_given110b", player=ctx["controller"])
+    return True
+
+
+PRIMITIVES: dict[str, Any] = {"gift_given110b": gift_given, "ungoad110b": ungoad, "no_attack_next110b": no_attack_next, "draw_game110b": draw_game, "reaver110b": reaver, "veil110b": veil, "exile_own110b": exile_own}

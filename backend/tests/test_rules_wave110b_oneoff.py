@@ -32,7 +32,7 @@ def cards(settings):
     yield from repository(settings)
 
 
-@pytest.mark.parametrize("name", ["Prince of Thralls", "Oath of Lim-Dûl", "Chaos Lord", "Divine Intervention", "Herald of Anafenza", "Guardian of New Benalia", "Aloe Alchemist", "Parapet Thrasher", "Overclocked Electromancer", "Arashin War Beast", "Firemane Angel", "Goblin Plate Mail", "Wall of Dust", "Bane of the Living", "Warbreak Trumpeter", "Kadena's Silencer", "Longhorn Sharpshooter", "Plague Reaver", "Quakebringer", "Suppressor Skyguard", "Shirei, Shizo's Caretaker", "Lich's Mastery", "The Chain Veil", "Campsite Cuisine", "Way of the Mind Sculptor", "Kitsune Ace", "Knights of the Black Rose", "Dalkovan Encampment", "Expedited Inheritance", "Serene Sleuth", "Boros Battleshaper", "Jade Seedstones // Jadeheart Attendant"])
+@pytest.mark.parametrize("name", ["Prince of Thralls", "Oath of Lim-Dûl", "Chaos Lord", "Divine Intervention", "Herald of Anafenza", "Guardian of New Benalia", "Aloe Alchemist", "Parapet Thrasher", "Overclocked Electromancer", "Arashin War Beast", "Firemane Angel", "Goblin Plate Mail", "Wall of Dust", "Bane of the Living", "Warbreak Trumpeter", "Kadena's Silencer", "Longhorn Sharpshooter", "Plague Reaver", "Quakebringer", "Suppressor Skyguard", "Shirei, Shizo's Caretaker", "Lich's Mastery", "The Chain Veil", "Campsite Cuisine", "Way of the Mind Sculptor", "Kitsune Ace", "Knights of the Black Rose", "Dalkovan Encampment", "Expedited Inheritance", "Serene Sleuth", "Boros Battleshaper", "Jade Seedstones // Jadeheart Attendant", "Teferi's Imp", "Saproling Infestation", "Multani's Presence", "Jolly Gerbils", "Crack in Time"])
 def test_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
@@ -723,4 +723,119 @@ def test_jadeheart_attendant_gains_life_equal_to_the_crafted_cards_mana_value(ca
     drive(s)
     assert s.state.cards[giant.id].zone == "p1:exile" and s.state.cards[seeds.id].face == 1
     assert s.state.players["p1"].life == 44
+    check(s)
+
+
+def _next_turn(s, n=1):
+    start = s.state.turn.number
+    for _ in range(200):
+        if s.state.turn.number >= start + n and s.state.turn.phase == "main1" and s.state.rules.decision is None:
+            return
+        d = s.state.rules.decision
+        if d is not None and d.kind == "declare_attackers":
+            act(s, d.player, type="declare_attackers", attackers=[])
+        elif d is not None:
+            return
+        else:
+            act(s, s.state.rules.priority, type="pass_priority")
+
+
+def test_teferis_imp_discards_when_it_phases_out_and_draws_when_it_phases_in(cards):
+    """Teferi's Imp: 702.26a it phases out in its controller's untap step (trigger: discard a card, 702.26d no leave trigger), then phases in the next one (draw)."""
+    s = build(cards, ["Teferi's Imp", "Forest", "Forest", "Forest", "Forest", "Forest"], [])
+    imp = put(s, "Teferi's Imp")
+    fodder = to_hand(s, "Forest")
+    _next_turn(s, 2)
+    for _ in range(5):
+        d = s.state.rules.decision
+        if d is None:
+            break
+        drive(s, lambda d: [d.options[0].id])
+    assert s.state.cards[imp.id].zone == "p1:phased"
+    grave = len([c for c in s.state.cards.values() if c.zone == "p1:graveyard"])
+    assert grave == 1 and s.state.cards[fodder.id].zone == "p1:graveyard"
+    check(s)
+    hand = len([c for c in s.state.cards.values() if c.zone == "p1:hand"])
+    _next_turn(s, 2)
+    assert s.state.cards[imp.id].zone == "p1:battlefield"
+    assert len([c for c in s.state.cards.values() if c.zone == "p1:hand"]) == hand + 2  # draw step + Imp phasing in
+    check(s)
+
+
+@pytest.mark.parametrize("caster", ["p1", "p2"])
+def test_saproling_infestation_triggers_for_any_players_kicked_spell(cards, caster):
+    """Saproling Infestation: 702.33d "a player kicks a spell" is any player casting a kicked spell; the token is always the Infestation controller's."""
+    s = build(cards, ["Saproling Infestation", "Burst Lightning"], ["Burst Lightning"])
+    put(s, "Saproling Infestation")
+    mana(s, caster, R=1, C=4)
+    if caster == "p2":  # p2 has priority only in response: p1 casts first
+        mana(s, "p1", R=1)
+        act(s, "p2", type="set_prefs", response="on")
+        act(s, "p1", type="set_prefs", response="on")
+        act(s, "p1", type="cast_spell", card_id=to_hand(s, "Burst Lightning", "p1").id, targets=["p2"])
+    cast(s, "Burst Lightning", ["p2" if caster == "p1" else "p1"], pid=caster, kicker=1)
+    assert sum(c.name == "Saproling" and c.zone == "p1:battlefield" for c in s.state.cards.values()) == 1
+    check(s)
+
+
+def test_saproling_infestation_ignores_unkicked_spell(cards):
+    s = build(cards, ["Saproling Infestation", "Burst Lightning"], [])
+    put(s, "Saproling Infestation")
+    mana(s, "p1", R=1)
+    cast(s, "Burst Lightning", ["p2"])
+    assert not any(c.name == "Saproling" for c in s.state.cards.values())
+    check(s)
+
+
+@pytest.mark.parametrize("mine", [True, False])
+def test_multanis_presence_draws_only_when_my_cast_spell_is_countered(cards, mine):
+    """Multani's Presence: 701.6a a spell you've cast is countered (Counterspell): you draw; an opponent's countered spell does nothing."""
+    s = build(cards, ["Multani's Presence", "Lightning Bolt", "Counterspell", "Forest", "Forest"], ["Counterspell", "Lightning Bolt"])
+    put(s, "Multani's Presence")
+    act(s, "p2", type="set_prefs", response="on")
+    act(s, "p1", type="set_prefs", response="on")
+    mana(s, "p1", R=1, U=2)
+    mana(s, "p2", R=1, U=2)
+    hand = len([c for c in s.state.cards.values() if c.zone == "p1:hand"])
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Lightning Bolt", "p1").id, targets=["p2"])
+    if mine:  # p2 counters p1's own Bolt
+        act(s, "p2", type="cast_spell", card_id=to_hand(s, "Counterspell", "p2").id, targets=[s.state.zones["stack"][-1]])
+    else:  # p2 answers with its own Bolt, which p1 counters
+        act(s, "p2", type="cast_spell", card_id=to_hand(s, "Lightning Bolt", "p2").id, targets=["p1"])
+        act(s, "p1", type="cast_spell", card_id=to_hand(s, "Counterspell", "p1").id, targets=[s.state.zones["stack"][-1]])
+    drive(s)
+    now = len([c for c in s.state.cards.values() if c.zone == "p1:hand"])
+    assert now == hand + (1 if mine else 0) + (0 if mine else 0)
+    check(s)
+
+
+@pytest.mark.parametrize("name,gift,draws", [("Wear Down", True, 1), ("Wear Down", False, 0), ("Scrapshooter", True, 1), ("Scrapshooter", False, 0)])
+def test_jolly_gerbils_draws_when_a_gift_is_given(cards, name, gift, draws):
+    """Jolly Gerbils: 702.174c "give a gift" is a promised instant or sorcery resolving, or the gift trigger of a permanent resolving; an unpromised cast gives none."""
+    s = build(cards, ["Jolly Gerbils", name, "Forest", "Forest", "Forest"], ["Sol Ring", "Arcane Signet", "Forest"])
+    put(s, "Jolly Gerbils")
+    rings = [put(s, "Sol Ring", "p2").id, put(s, "Arcane Signet", "p2").id]
+    mana(s, "p1", G=3, C=1)
+    hand = len([c for c in s.state.cards.values() if c.zone == "p1:hand"])
+    c = to_hand(s, name)
+    act(s, "p1", type="cast_spell", card_id=c.id, optional_costs=[f"{c.id}:gift"] if gift else [], targets=rings[:2 if gift else 1] if name == "Wear Down" else [], **({"target_counts": [0, 2] if gift else [1, 0]} if name == "Wear Down" else {}))
+    drive(s)
+    p1_hand = len([x for x in s.state.cards.values() if x.zone == "p1:hand"])
+    assert p1_hand == hand + draws  # (the cast card itself left the hand again)
+    check(s)
+
+
+def test_crack_in_time_exiles_on_entering_and_again_each_first_main_phase(cards):
+    """Crack in Time: 603.2 one trigger with two conditions (enters; the beginning of your first main phase), each exiling a creature until it leaves (610.3)."""
+    s = build(cards, ["Crack in Time"], ["Grizzly Bears", "Hill Giant"])
+    bears = put(s, "Grizzly Bears", "p2")
+    giant = put(s, "Hill Giant", "p2")
+    mana(s, "p1", W=1, U=1, B=1, R=1, G=1, C=3)
+    cast(s, "Crack in Time", [bears.id])
+    drive(s, lambda d: [bears.id])
+    assert s.state.cards[bears.id].zone == "p2:exile" and s.state.cards[giant.id].zone == "p2:battlefield"
+    check(s)
+    _next_turn(s, 2)
+    drive(s, lambda d: [giant.id])
+    assert s.state.cards[giant.id].zone == "p2:exile"
     check(s)

@@ -2169,6 +2169,8 @@ def _diff(state: GameState, rules: RulesState, before: Capture, manual: bool, ac
         if old_name == "exile" and new_name != "exile":
             rules.suspended = [cid for cid in rules.suspended if cid != card_id]
         if {old_name, new_name} == {"battlefield", "phased"}:
+            if new_name == "phased" and card is not None:  # -- phase out (wave 110B) -- "Whenever ~ phases out" (702.26d: no leave trigger, but this one)
+                emit(state, "designation", counter="phase_out", card=card_id, object_id=rules.object_id(card_id), player=card.controller)
             continue  # -- phasing (wave 13D) -- 702.26d: phasing is no zone change: same object, no leave / enter triggers
         if old_name == new_name == "battlefield":
             if card is not None:  # -- control events (wave 45C) -- 613.1b, 603.10d: its controller changed (``from_zone``: the player who lost control)

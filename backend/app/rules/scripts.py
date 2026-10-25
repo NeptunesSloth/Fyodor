@@ -183,6 +183,8 @@ def _half_trigger(text: str) -> tuple[str, dict[str, Any] | None] | None:
         return "cast_self", None
     if text in ("at the beginning of your upkeep", "at the beginning of your end step"):
         return ("upkeep_you" if text.endswith("upkeep") else "end_step_you"), None
+    if text == "at the beginning of your first main phase":  # -- steps (wave 110B) -- "When ~ enters and at the beginning of your first main phase" (Crack in Time): a step half beside a self half
+        return "step:main1:you", None
     from app.rules import events as event_grammar
 
     text = re.sub(r"^it ", "~ ", re.sub(r" it$", " ~", text))  # ("~ enters and when you sacrifice it": the first half's object)
@@ -447,7 +449,7 @@ _STAYING = {"enter", "attack", "unblocked", "block", "blocked", "tapped", "untap
             "deal_combat_damage_player", "deal_damage", "counters_put", "counters_removed", "targeted", "create_token"}
 _STAYING.update({"become_monstrous", "become_renowned", "become_level", "explore", "connive", "mutate"})  # -- becomes monstrous (wave 6D) --
 _STAYING.update({"to_graveyard", "to_exile", "to_library"})  # -- into a graveyard (wave 6D; wave 21D: exile, a library) -- the card(s) there, as they are there
-_STAYING.add("phase_in")  # (wave 50G: "Whenever ~ phases in")
+_STAYING.update({"phase_in", "phase_out"})  # (wave 50G: "Whenever ~ phases in")
 _STAYING.add("tapped_for_mana")  # -- mana riders (wave 5A) -- "Whenever you tap this creature for mana, it deals …"
 _STAYING.add("transform")  # -- transform (wave 26D) -- 701.28, 712.18: the same object turned over: "Whenever a permanent you control transforms into a Phyrexian, put a counter on it"
 _STAYING.add("exerted")  # 701.43: the exact permanent exerted
@@ -7729,7 +7731,7 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
 
                     # -- triggers (wave 5D) -- "When ~ enters and whenever an opponent draws a card …" (Orcish
                     # Bowmasters): one ability, two trigger conditions — it triggers on each (603.2)
-                    both = re.fullmatch(r"(?P<a>.+?) and (?:(?:when|whenever) |(?=at the beginning of your (?:upkeep|end step)))(?P<b>.+)", m["cond"])
+                    both = re.fullmatch(r"(?P<a>.+?) and (?:(?:when|whenever) |(?=at the beginning of your (?:upkeep|end step|first main phase)))(?P<b>.+)", m["cond"])
                     pair = (both["a"], both["b"]) if both else None
                     if pair is None and event_grammar.parse_condition(m["cond"]) is None and (
                             either := re.fullmatch(r"(~ (?:enters|dies|attacks)) or ((?:becomes|deals|enters|dies|attacks) .+)", m["cond"])):

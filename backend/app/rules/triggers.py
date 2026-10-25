@@ -1847,6 +1847,11 @@ def _watchers(plan: Plan, trigger: str) -> list[tuple[CardInstance, Characterist
                 out += [(card, ch, i, d) for i, d in abilities(plan, ch, trigger)
                         if ((d.get("cond") or {}).get("subject") == "haunted" and plan.oid(card) in plan.rules.haunting) or (d.get("cond") or {}).get("exiled")]
             continue
+        if card.zone.endswith(":phased"):  # -- phase out (wave 110B) -- 702.26d: a phased-out permanent's "Whenever ~ phases out" still triggers (looks back at the shift)
+            if trigger == "event" and plan.in_game(card) and not plan.manual(card):
+                ch = plan.ch(card)
+                out += [(card, ch, i, d) for i, d in abilities(plan, ch, trigger) if (d.get("cond") or {}).get("event") == "phase_out"]
+            continue
         if not (card.zone.endswith(":battlefield") or designations.emblem_card(card)) or not plan.in_game(card) or plan.manual(card):
             continue  # (-- emblems (wave 13A) -- 114.4: an emblem's triggered abilities work from the command zone)
         ch = plan.ch(card)
@@ -2069,7 +2074,7 @@ def at_step_generic(plan: Plan) -> None:
             continue
         ch = plan.ch(card)
         for i, d in scripts.definitions(ch).items():
-            if d["kind"] != "triggered" or not str(d["trigger"]).startswith(prefixes):
+            if d["kind"] != "triggered" or not str(d["trigger"]).removeprefix("multi:").split("+")[-1].startswith(prefixes):  # (-- wave 110B -- a "multi:" ability may end in a step half)
                 continue
             if bool(d.get("exiled_step")) != exiled:
                 continue

@@ -69,6 +69,7 @@ class _Refuse(Exception):
 
 _EVENT_VERBS = [
     (r"enters?", "enter"),
+    (r"phases? out", "phase_out"),  # -- phase out (wave 110B) --
     (r"phases? in", "phase_in"),  # -- trigger other (wave 50G) -- 702.26a
     (r"dies|die", "die"),
     (r"leaves? the battlefield", "leave"),
@@ -153,6 +154,8 @@ _DESIGNATION_EVENTS = [
     (re.compile(r"(?P<p>you) proliferate"), "proliferate"),  # -- trigger tail (wave 15B) -- 701.34a
     (re.compile(r"(?P<p>you) clash"), "clash"),  # -- trigger lines (wave 100A) -- 701.30: also a clash another player's effect made (the rulings)
     (re.compile(r"(?P<p>you) fully unlock a room", re.IGNORECASE), "fully_unlock"),  # -- ability words (wave 20C) -- 709.5i (rooms.unlock)
+    (re.compile(r"(?P<p>you) give a gift"), "gift_given110b"),  # -- gift given (wave 110B) -- 702.174c
+    (re.compile(r"a spell (?P<p>you)'ve cast is countered"), "spell_countered110b"),  # -- spell countered (wave 110B) -- 701.6a (effects.counter_object)
     (re.compile(r"a spell or ability (?P<p>you) control counters a spell"), "counters_spell"),  # -- counter events (wave 19C) -- 701.6a
     (re.compile(r"(?P<p>you|an opponent|a player) commits? a crime"), "commit_crime"),  # -- crimes (wave 6D) -- 700.13
     (re.compile(r"day becomes night or night becomes day"), "day_night"),
