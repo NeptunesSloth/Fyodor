@@ -7064,3 +7064,6 @@ RESUME.update(_wave110c_core.RESUME)
 
 from app.rules import wave110c_kusari as _wave110c_kusari  # noqa: E402, I001
 PRIMITIVES.update(_wave110c_kusari.PRIMITIVES)  # -- Kusari-Gama (wave 110C) --
+
+from app.rules import wave110c_any as _wave110c_any  # noqa: E402, I001
+PRIMITIVES.update(_wave110c_any.PRIMITIVES)  # -- any opponent may (wave 110C) --
