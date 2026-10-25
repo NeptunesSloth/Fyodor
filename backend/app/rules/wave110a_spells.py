@@ -464,9 +464,6 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
         if d is None or "if" not in d:
             return None
         d.pop("if")
-        for e in d["effects"]:
-            if e["do"] == "reflexive":
-                e["keep_event"] = True  # "that player" is still the one dealt the damage (603.12)
         return d
     new = ABILITY_REWRITES.get(old)
     d = None if new is None else scripts.define(replace(ability, text=new), ch)

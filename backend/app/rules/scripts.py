@@ -11091,7 +11091,7 @@ def _reflexive(rest: str, effects: list[dict[str, Any]], prev_start: int, option
         if (now := _x_now()):  # (the stand-in of a "where X is …" sentence: _where_x swaps it in)
             now[0] = json.loads(json.dumps(now[0]).replace('"cost:exiled"', '"event"'))
     stand_in = bool(_x_now()) and "event_amount" in json.dumps(_x_now()[0]) and "event_amount" in body_json  # (wave 34C: "where X is the amount of life you gained", read in _where_x)
-    keep = (keep and '"event"' in body_json) or (stand_in and lki is None and not sized_x)  # (only when the body actually reads the trigger's event; wave 34C: or its amount, explicitly)
+    keep = (keep and '"event"' in body_json) or (stand_in and lki is None and not sized_x) or ('"event_player"' in body_json and lki is None and not sized_x)  # (only when the body actually reads the trigger's event; or its player, whatever "it" is: "that player" = who event_player, 603.12, Ezio / Biting-Palm Ninja; wave 34C: or its amount, explicitly)
     x_bind = None
     if sized_x:
         # -- if you do (wave 25C) -- "you may pay {X}. When you do, ~ deals X damage to target player.": the X paid (107.3f, paid_x) is the
