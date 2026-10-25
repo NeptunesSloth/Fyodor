@@ -2,15 +2,19 @@
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
+
 import pytest
 
 from app.rules import coverage
+from tests.fixtures.cards import card
 from tests.game_helpers import act
 from tests.wave110c_kit import answer, build, ch, check, make_db, mana, put, real, to_graveyard
 
-TEXT = ("{T}: Add {B}.\n{T}: You may cast a creature spell from your graveyard this turn. If you do, it enters with a finality counter on it and is a Vampire in addition "
-        "to its other types. (If a creature with a finality counter on it would die, exile it instead.)")
-EXTRA = [real("The Tomb of Aclazotz", "", 0, "Legendary Land", TEXT)]
+NAME = "Tarrian's Journal // The Tomb of Aclazotz"
+DATA = json.loads((Path(__file__).parent / "fixtures" / "wave110c_journal_cards.json").read_text("utf-8"))  # real DB row, both faces
+EXTRA = [card(c["name"], set_code="w110c", number="J001", **{k: v for k, v in c.items() if k != "name"}) for c in DATA]
 
 
 @pytest.fixture()
@@ -19,12 +23,16 @@ def card_db(settings):
 
 
 def test_full(cards):
-    assert coverage.of_card_data(cards.resolve("The Tomb of Aclazotz")).level == "FULL"
+    assert coverage.of_card_data(cards.resolve(NAME)).level == "FULL"
 
 
 def _go(cards):
-    s = build(cards, ["The Tomb of Aclazotz", "Grizzly Bears", "Grizzly Bears", "Grizzly Bears"])
-    tomb = put(s, "The Tomb of Aclazotz")
+    s = build(cards, [NAME, "Grizzly Bears", "Grizzly Bears", "Grizzly Bears"])
+    tomb = put(s, NAME)
+    mana(s, C=2)
+    act(s, "p1", type="activate_ability", card_id=tomb.id, ability=1)  # {2},{T},discard your hand: transform
+    answer(s)
+    act(s, "p1", type="tap", card_ids=[tomb.id], tapped=False)  # transformed permanent is the same object (712.8)
     to_graveyard(s, 2, "Grizzly Bears")
     act(s, "p1", type="activate_ability", card_id=tomb.id, ability=1)
     answer(s)
