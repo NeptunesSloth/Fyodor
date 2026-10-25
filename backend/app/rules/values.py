@@ -111,7 +111,7 @@ _STATS = {"power": "power", "toughness": "toughness", "mana value": "mana_value"
 _COUNTERS_ON = re.compile(r"^(?:(?P<kind>\+1/\+1|-1/-1|[a-z]+) )?counters? on (?P<on>.+)$")
 _ON = {"~": "self", "it": "it", "this creature": "self", "this permanent": "self", "this artifact": "self",
        "this enchantment": "self", "this land": "self", "this equipment": "self", "this aura": "self",
-       "that creature": "it", "that permanent": "it"}
+       "that creature": "it", "that permanent": "it", "its creator": "creator110d"}  # (wave 110D: a token reads the permanent that made it)
 _DISTINCT = {"card types": "types", "different card types": "types", "card type": "types",
              "permanent types": "permanent_types", "permanent type": "permanent_types",
              "colors": "colors", "different colors": "colors", "color": "colors",
@@ -1324,6 +1324,10 @@ def _object(plan: Plan, ctx: dict[str, Any], who: str) -> tuple[Any, Any] | None
         from app.rules.effects import _cards  # (effects imports this module)
 
         refs = [(c, plan.oid(c)) for c in _cards(plan, ctx, "host")]
+    if who == "creator110d":  # -- lines (wave 110D) -- 111.2: the permanent that created this token (Gutter Grime's Oozes), as it is or as it last existed
+        token = plan.state.cards.get(ctx.get("source_card") or "")
+        made = token.token_source.source_id if token is not None and token.token_source is not None else None
+        refs = [(made or "", plan.oid(plan.state.cards[made]) if made in plan.state.cards else None)]
     if who.startswith("granter:"):  # -- xdamage (wave 100E) -- the granting object (layers.py binds its object id), as it is or as it last existed
         refs = [(next((c.id for c in plan.state.cards.values() if plan.oid(c) == who[8:]), ""), who[8:])]
     if who == "each":  # -- sized amounts (wave 3D) -- "each creature you control deals damage equal to its power": the one being read

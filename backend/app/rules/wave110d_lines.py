@@ -23,6 +23,12 @@ _AS: dict[str, str] = {
     # (the conditional "loses the game if" / "Otherwise" is built in definition)
     "Whenever ~ deals combat damage to a player, that player loses the game if the Ring has tempted you four or more times this game. Otherwise, the Ring tempts you.":
         "Whenever ~ deals combat damage to a player, that player loses the game.",
+    # Holy Frazzle-Cannon: 205.3m the attacker gets its counter first, then the other creatures sharing a creature type with it (share_counters110d)
+    "Whenever equipped creature attacks, put a +1/+1 counter on that creature and each other creature you control that shares a creature type with it.":
+        "Whenever equipped creature attacks, put a +1/+1 counter on that creature.",
+    # Gutter Grime: the token's quoted CDA counts the counters on the enchantment that made it (the one named in the quote)
+    "Whenever a nontoken creature you control dies, put a slime counter on ~, then create a green Ooze creature token with \"This token's power and toughness are each equal to the number of slime counters on ‹granter›.\"":
+        "Whenever a nontoken creature you control dies, put a slime counter on this enchantment, then create a green Ooze creature token with \"This token's power and toughness are each equal to the number of slime counters on its creator.\"",
     # Shallow Grave: 404.1 the top card of a graveyard is the last one put there; it is not a target (patched in definition)
     "Return the top creature card of your graveyard to the battlefield. That creature gains haste until end of turn. Exile it at the beginning of the next end step.":
         "Return target creature card from your graveyard to the battlefield. That creature gains haste until end of turn. Exile it at the beginning of the next end step.",
@@ -130,6 +136,8 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
         lose = d["effects"][0]
         d["effects"] = [{"do": "only_if", "cond": {"ring110d": 4}, "skip": 1}, lose,
                         {"do": "only_if", "cond": {"not": {"ring110d": 4}}, "skip": 1}, {"do": "ring_tempts", "who": "you"}]
+    if d is not None and text.startswith("Whenever equipped creature attacks, put a +1/+1 counter on that creature and each other"):
+        d["effects"].append({"do": "share_counters110d"})
     if d is not None and text.endswith("it enters tapped and attacking."):
         d["effects"][0]["tap_atk110d"] = "Enchantment"
     return d
@@ -179,7 +187,7 @@ def share_counters(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
         return True
     types = found[1].subtypes & CREATURE_TYPES
     ids = [c.id for c in plan.state.cards.values()
-           if c.zone == f"{ctx['controller']}:battlefield" and c.id != ctx.get("source_card") and "Creature" in plan.ch(c).types
+           if c.zone == f"{ctx['controller']}:battlefield" and c.id not in (ctx.get("source_card"), found[0].id) and "Creature" in plan.ch(c).types
            and plan.ch(c).subtypes & types]
     context.bind_objects(plan, ctx, "share110d", ids)
     return effects.add_counters(plan, ctx, {"do": "add_counters", "who": "ref:share110d", "kind": "+1/+1", "n": 1})
