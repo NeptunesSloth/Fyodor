@@ -84,8 +84,22 @@ def exploited_big(plan: Any, ctx: dict[str, Any], cond: Def) -> bool:
     return bool(got and got[1].pt and got[1].pt[0] >= 3)
 
 
+def hand_began_empty(plan: Any, ctx: dict[str, Any], cond: Def) -> bool:
+    """The controller had no cards in hand as this turn began (an unknown receipt, turn one or an old save, reads the hand now)."""
+    began = plan.state.turn.starting_hand
+    you = ctx["controller"]
+    return (began[you] if began is not None and you in began else len(plan.state.zones.get(f"{you}:hand", []))) == 0
+
+
 def holds(plan: Any, ctx: dict[str, Any], cond: Def) -> bool:
-    return bool({"walls_block": walls_block, "opp_protects": opponent_protects, "exploited_big": exploited_big}[cond["w110g"]](plan, ctx, cond))
+    return bool({"walls_block": walls_block, "opp_protects": opponent_protects, "exploited_big": exploited_big,
+                   "hand_began_empty": hand_began_empty}[cond["w110g"]](plan, ctx, cond))
+
+
+def _crown(d: Def) -> Def:
+    empty = {"w110g": "hand_began_empty"}
+    draw, hurt = d["effects"]
+    return {**d, "effects": [{"do": "only_if", "cond": empty, "skip": 1}, draw, {"do": "only_if", "cond": {"not": empty}, "skip": 1}, hurt]}
 
 
 def _treasure_if_big(d: Def) -> Def:
@@ -146,6 +160,8 @@ def _lowest_life_control(d: Def) -> Def:
 
 # whole ability text -> the wording the grammar reads for it
 _AS: dict[str, str] = {
+    # Carry Away: the Aura only enchants Equipment, so "enchanted permanent" is the enchanted Equipment
+    "You control enchanted Equipment.": "You control enchanted permanent.",
     # Wormfang Drake: "a creature you control other than this creature" is "another creature you control"
     "When this creature enters, sacrifice it unless you exile a creature you control other than this creature.":
         "When this creature enters, sacrifice it unless you exile another creature you control.",
@@ -224,6 +240,12 @@ _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
     # Henry Wu
     "Whenever a creature you control exploits a non-Human creature, draw a card. If the exploited creature had power 3 or greater, create a Treasure token.":
         ("Whenever a creature you control exploits a non-Human creature, draw a card. Create a Treasure token.", _treasure_if_big),
+    # Carry Away (701.3d): the Equipment the Aura enchants stops equipping its creature
+    "When this Aura enters, unattach enchanted Equipment.":
+        ("When this Aura enters, you gain 1 life.", lambda d: {**d, "effects": [{"do": "unattach_enchanted110g"}]}),
+    # Mindstorm Crown: "If you had a card in hand" is the other branch of the same snapshot
+    "At the beginning of your upkeep, draw a card if you had no cards in hand at the beginning of this turn. If you had a card in hand, this artifact deals 1 damage to you.":
+        ("At the beginning of your upkeep, draw a card. This artifact deals 1 damage to you.", _crown),
     # Wormfang Crab
     "When this creature enters, an opponent chooses a permanent you control other than this creature and exiles it.":
         ("When this creature enters, exile another permanent you control.", lambda d: _opponent_exiles(d)),
@@ -297,6 +319,15 @@ def resume_opponent_exiles(plan: Any, d: Any, chosen: list[str]) -> None:
         effects.continue_effects(plan, ctx)
 
 
+def unattach_enchanted(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """701.3d: the permanent this Aura is attached to becomes unattached (it stays on the battlefield)."""
+    src = plan.state.cards.get(ctx.get("source_card") or "")
+    host = plan.state.cards.get(src.attached_to) if src is not None and src.attached_to else None
+    if host is not None and host.attached_to:
+        plan.do({"type": "detach", "card_ids": [host.id]}, actor=ctx["controller"])
+    return True
+
+
 def lowest_life_control(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     """Control goes to the lowest life total (119.1); on a tie the controller chooses one of the tied players (this card's text)."""
     from app.rules import effects
@@ -357,5 +388,6 @@ def exchange_power(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
 
 
 PRIMITIVES: dict[str, Any] = {"exchange_power110g": exchange_power, "lowest_life_control110g": lowest_life_control,
-                           "sacrifice_pair110g": sacrifice_pair, "swap_tapped110g": swap_tapped, "opponent_exiles110g": opponent_exiles}
+                           "sacrifice_pair110g": sacrifice_pair, "swap_tapped110g": swap_tapped, "opponent_exiles110g": opponent_exiles,
+                              "unattach_enchanted110g": unattach_enchanted}
 RESUME: dict[str, Any] = {"lowest_control110g": resume_lowest_control, "opponent_exiles110g": resume_opponent_exiles}

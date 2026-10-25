@@ -16,3 +16,4 @@
 - Acidic Dagger: Activate-only-before-blockers body with a bound deal-damage watch plus recipient "non-Wall" never reaches parse_effects (activation wrapper); Eye for an Eye: redirect with a second damage source (rider) not in source_shields.
 - Lich's Mirror: no "would lose the game" replacement in this branch (wave 110C has one on another branch).
 - Stangg / named linked tokens: "create Name, a legendary 3/4 ... token" has no named-token grammar.
+- Halfdane (until end of your next upkeep + base P/T equal to target), Sacred Ground (cause of land to graveyard has no event info), Season of the Witch ("couldn't attack" needs declaration-time legality).

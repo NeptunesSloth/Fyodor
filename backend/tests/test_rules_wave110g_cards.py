@@ -12,6 +12,8 @@
 * Henry Wu: 702.110b / 608.2h the Treasure needs the exploited non-Human creature to have had power 3 or greater; Humans give no card.
 * Wormfang Crab: 607.2a link; an opponent picks which of the controller's other permanents is exiled; it returns when the Crab leaves.
 * Wormfang Drake: 607.2a linked exile as the 'unless' payment; the exiled creature returns when the Drake leaves.
+* Carry Away: 701.3d the enchanted Equipment is unattached when the Aura enters; 613.1b / 303.4e the Aura's controller controls it.
+* Mindstorm Crown: 500.1 / 503.1a the hand as the turn began (before the upkeep) picks between drawing and the 1 damage.
 * Serene Master: 701.12g exchanging two powers sets each to the other's previous value (613.4b), until end of combat.
 """
 from __future__ import annotations
@@ -86,10 +88,13 @@ EXTRA = [
     real('Wormfang Crab', '{2}{U}', 3, 'Creature — Crab Horror', "This creature can't be blocked.\nWhen this creature enters, an opponent chooses a permanent you control other than this creature and exiles it.\nWhen this creature leaves the battlefield, return the exiled card to the battlefield under its owner's control.", ('3', '3'), 'U'),
     real('Test Doom', '{1}', 1, 'Instant', 'Destroy target creature.', None, ''),
     real('Wormfang Drake', '{1}{U}', 2, 'Creature — Drake Horror', 'Flying\nWhen this creature enters, sacrifice it unless you exile a creature you control other than this creature.\nWhen this creature leaves the battlefield, return the exiled card to the battlefield under its owner\'s control.', ('3', '3'), 'U'),
+    real('Carry Away', '{1}{U}', 2, 'Enchantment — Aura', 'Enchant Equipment\nWhen this Aura enters, unattach enchanted Equipment.\nYou control enchanted Equipment.', None, 'U'),
+    real('Test Blade', '{1}', 1, 'Artifact — Equipment', 'Equipped creature gets +1/+1.\nEquip {1}', None, ''),
+    real('Mindstorm Crown', '{3}', 3, 'Artifact', 'At the beginning of your upkeep, draw a card if you had no cards in hand at the beginning of this turn. If you had a card in hand, this artifact deals 1 damage to you.', None, ''),
     real('Hill Giant', '{3}{R}', 4, 'Creature — Giant', '', ('3', '3'), 'R'),
     real('Divination', '{2}{U}', 3, 'Sorcery', 'Draw two cards.', None, 'U'),
 ]
-NAMES = [c["name"] for c in EXTRA if c["name"] not in ("Divination", "Hill Giant", "Test Wall", "Test Human", "Test Doom", "Relentless Assault", "Test Vigil", "Test Convoke", "Test Shuffle", "Test Teamwork")]
+NAMES = [c["name"] for c in EXTRA if c["name"] not in ("Divination", "Hill Giant", "Test Wall", "Test Human", "Test Doom", "Test Blade", "Relentless Assault", "Test Vigil", "Test Convoke", "Test Shuffle", "Test Teamwork")]
 
 
 @pytest.fixture()
@@ -608,4 +613,39 @@ def test_wormfang_drake_exiles_another_creature_or_is_sacrificed(cards, pay):
     mana(s, C=1)
     cast(s, "Test Doom", [drake.id])
     assert s.state.cards[bears.id].zone == "p1:battlefield"
+    check(s)
+
+
+def test_carry_away_steals_the_equipment_and_unattaches_it(cards):
+    """Carry Away (701.3d, 303.4e): Bob's equipped Equipment is unattached from his creature and Alice controls it."""
+    s = build(cards, ["Carry Away"], ["Test Blade", "Goblin"])
+    blade, goblin = put(s, "Test Blade", "p2"), put(s, "Goblin", "p2")
+    act(s, "p1", type="attach", card_ids=[blade.id], to=goblin.id)
+    assert s.state.cards[blade.id].attached_to == goblin.id
+    mana(s, U=1, C=1)
+    cast(s, "Carry Away", [blade.id])
+    got = s.state.cards[blade.id]
+    assert got.attached_to is None and got.controller == "p1" and got.owner == "p2"
+    check(s)
+
+
+@pytest.mark.parametrize(("holding", "life_after"), [(False, 40), (True, 39)])
+def test_mindstorm_crown_draws_on_an_empty_hand_else_hurts(cards, holding, life_after):
+    """Mindstorm Crown: Alice's turn-3 upkeep compares her hand as the turn began; a draw on an empty hand, 1 damage otherwise."""
+    s = build(cards, ["Mindstorm Crown", "Divination"])
+    put(s, "Mindstorm Crown")
+    if holding:
+        to_hand(s, "Divination")
+    for _ in range(80):
+        if s.state.turn.number == 3 and s.state.turn.phase == "main1":
+            break
+        d = s.state.rules.decision
+        if d is None:
+            act(s, s.state.rules.priority, type="pass_priority")
+        elif d.kind == "declare_attackers":
+            act(s, d.player, type="declare_attackers", attackers=[])
+        else:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[d.options[0].id])
+    assert s.state.players["p1"].life == life_after
+    assert len(s.state.zones["p1:hand"]) == 2  # the draw step's card plus the Crown's draw, or the held card
     check(s)

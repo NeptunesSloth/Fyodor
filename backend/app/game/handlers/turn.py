@@ -74,6 +74,7 @@ def next_turn(state: GameState, a: A.NextTurn) -> None:
     state.turn.active_player = nxt
     state.turn.phase = "untap"
     state.turn.starting_life = {pid: p.life for pid, p in state.players.items()}
+    state.turn.starting_hand = {pid: len(state.zones.get(f"{pid}:hand", [])) for pid in state.players}  # (wave 110G)
     if state.settings.clear_mana_on_step:
         objects.empty_mana_pools(state)
     parts = [text(f"Turn {state.turn.number}: "), pname(state, nxt)]
