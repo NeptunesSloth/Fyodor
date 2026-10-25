@@ -1938,6 +1938,10 @@ def _object_holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
     that object where it was, else as it last existed (608.2h); an object that can't be found
     fails the test (608.2b: a part that needs the information can't be carried out)."""
     who = cond["object"]
+    if "cast_alt110a" in cond:  # -- wave 110A -- "if that creature was cast for its warp cost": the record its spell left (engine.py:1044)
+        found = values._object(plan, ctx, who)
+        record = None if found is None else plan.rules.payments.get(plan.oid(found[0]))
+        return record is not None and record.alternative == cond["cast_alt110a"]
     if "controlled_by" in cond:  # -- static_other sweep (wave 17C) -- the controller it had: as it is, or as it last existed (608.2h)
         found = values._object(plan, ctx, who)
         return found is not None and (found[0].controller == ctx["controller"]) != bool(cond.get("negate"))

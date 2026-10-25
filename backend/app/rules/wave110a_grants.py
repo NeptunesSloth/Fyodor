@@ -37,3 +37,17 @@ def has_umbra(plan: Any, aura: Any, host: Any) -> bool:
         return True
     return "Aura" in plan.ch(aura).subtypes and any(
         src.controller == host.controller for src, _, _ in permissions._table_statics(plan.state, plan.info, {"umbra_grant110a"}))
+
+
+def could_produce(plan: Any, card: Any, ch: Any, symbol: str) -> bool:
+    """Whether one of the permanent's own mana abilities can add ``symbol`` (its controller's color identity for Command Tower-like text)."""
+    from app.rules import mana as M
+    from app.rules.casting import commander_identity
+
+    for ab in ch.abilities:
+        if ab.kind != "mana":
+            continue
+        parsed = M.parse_mana_ability(ab.text, commander_identity(plan.state, card.controller, plan.info), card_name=ch.name)
+        if parsed is not None and any(symbol in opt for opt in parsed.options):
+            return True
+    return False

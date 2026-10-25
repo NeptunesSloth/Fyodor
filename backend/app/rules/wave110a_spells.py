@@ -218,6 +218,14 @@ BUILDERS: dict[str, Callable[[], Parsed]] = {
     "creature they exiled.": _searing_light_mastery,
     "Exile all artifacts, creatures, and lands from the battlefield, all cards from all graveyards, and all cards from all hands.": _decree,
     "Whenever a creature attacks and isn't blocked this combat, untap it and remove it from combat.": _melee,
+    # Predatory Focus: 510.1c, each blocked creature of the controller asks its own "as though it weren't blocked" (group_unblocked.allows)
+    "You may have creatures you control assign their combat damage this turn as though they weren't blocked.":
+        lambda: ([{"do": "unblocked_turn110a"}], None, False),
+    # Full Bore: 702.185a, the creature's spell was cast for its warp cost (the record stays with the permanent)
+    "Target creature you control gets +3/+2 until end of turn. If that creature was cast for its warp cost, it also gains trample and haste until "
+    "end of turn.": lambda: (lambda got: ([got[0][0], {"do": "only_if", "cond": {"object": "target", "cast_alt110a": "warp"}, "skip": 1}, got[0][2]],
+                                          got[1], got[2]))(_p("Target creature you control gets +3/+2 until end of turn. If that creature is tapped, it also "
+                                                                "gains trample and haste until end of turn.")),
     "You choose which creatures attack this turn.": _chooser("attack"),  # Master Warcraft: 508.1a
     "You choose which creatures block this turn and how those creatures block.": _chooser("block"),  # 509.1a
     "You choose which creatures block this combat and how those creatures block.": _chooser("block", True),
@@ -304,7 +312,11 @@ ABILITY_REWRITES = {
     # Storm Cauldron: a land tapped for mana is tapped by a player (106.12a); a stack trigger, it adds no mana (so not a mana ability, 605.1b)
     "Whenever a land is tapped for mana, return it to its owner's hand.":
         "Whenever a player taps a land for mana, return that land to its owner's hand.",
+    # Xenagos, the Reveler: the same choice, "any number" (the exiled cards are public; 608.2d the controller chooses on resolution)
+    "\u22126: Exile the top seven cards of your library. You may put any number of creature and/or land cards from among them onto the battlefield.":
+        "\u22126: Exile the top seven cards of your library. Put a creature or land card exiled this way onto the battlefield.",
 }
+_ANY_NUMBER = {"\u22126: Exile the top seven cards of your library. You may put any number of creature and/or land cards from among them onto the battlefield."}
 
 
 def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
@@ -312,9 +324,22 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
 
     from app.rules import scripts
 
-    new = ABILITY_REWRITES.get(scripts.self_text(ability.text, ch.name))
-    return None if new is None else scripts.define(replace(ability, text=new), ch)
+    old = scripts.self_text(ability.text, ch.name)
+    if old == "The attacking player chooses how each creature blocks each combat.":  # Invasion Plans: 509.1a, read by wave110a_choosers.chooser
+        return {"kind": "static", "static": "block_chooser110a", "effects": []}
+    new = ABILITY_REWRITES.get(old)
+    d = None if new is None else scripts.define(replace(ability, text=new), ch)
+    if d is not None and old in _ANY_NUMBER:
+        for e in d["effects"]:
+            if e["do"] == "return_choice":
+                e.update(n=99, upto=True)
+    return d
 
 
-PRIMITIVES = {"repeat_put110a": repeat_put, "note_put110a": note_put, "bind110a": bind, "end_combat_phase110a": end_combat_phase, "snow110a": snow,
+def unblocked_turn(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    plan.rules.assign_unblocked_turn[ctx["controller"]] = plan.state.turn.number
+    return True
+
+
+PRIMITIVES = {"unblocked_turn110a": unblocked_turn, "repeat_put110a": repeat_put, "note_put110a": note_put, "bind110a": bind, "end_combat_phase110a": end_combat_phase, "snow110a": snow,
               "exiled_power_damage110a": exiled_power_damage, "exile_hands110a": exile_hands}

@@ -1133,6 +1133,11 @@ def _entered_this_turn(s: Selector, m: re.Match[str]) -> Selector:
 
 # -- wave 110A -- "target nonblack creature that entered since your last turn ended" (Premature Burial): an object numbered after the counter value
 # stored when its controller's last turn ended (engine.start_next_turn). 400.7: a permanent that left and came back is a new object.
+@_suffix(r"that could produce \{C\}")
+def _could_produce_c(s: Selector, m: re.Match[str]) -> Selector:
+    return replace(s, extras=(*s.extras, "could_produce_c"))  # -- wave 110A -- Obsidian Charmaw
+
+
 @_suffix(r"that entered since your last turn ended")
 def _entered_since_my_turn(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, extras=(*s.extras, "entered_since_my_turn"))
@@ -2532,6 +2537,11 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
             return False  # (wave 5H)
         if extra == "not_entered_this_turn" and _entered_now(plan, card, None):  # (wave 41A)
             return False
+        if extra == "could_produce_c":  # -- wave 110A -- 106.1: colorless mana; the card's own mana abilities (continuous effects don't add to "could produce")
+            from app.rules import wave110a_grants
+
+            if not wave110a_grants.could_produce(plan, card, ch, "C"):
+                return False
         if extra == "entered_since_my_turn" and not (card.zone.endswith(":battlefield") and plan.rules.objects.get(card.id, 0) > plan.rules.turn_end_objects.get(you, 0)):
             return False  # (wave 110A)
         if extra == "suspended":
