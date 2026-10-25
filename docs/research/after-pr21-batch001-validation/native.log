@@ -1,0 +1,137 @@
+============================= test session starts ==============================
+platform linux -- Python 3.12.14, pytest-9.1.1, pluggy-1.7.0 -- /workspace/Fyodor/backend/.venv/bin/python3
+cachedir: .pytest_cache
+rootdir: /workspace/scratch/after-pr21/batch001/backend
+configfile: pyproject.toml
+plugins: anyio-4.15.1, xdist-3.8.0
+created: 4/4 workers
+4 workers [62 items]
+
+scheduling tests via LoadScheduling
+
+tests/test_rules_flagbearer86.py::test_actual_printed_flagbearer_forces_opponent_spell_choice86[Standard Bearer]
+tests/test_rules_flagbearer86.py::test_actual_activated_ability_must_target_legal_flagbearer86
+tests/test_rules_flagbearer86.py::test_actual_dress_down_removes_creature_requirement_but_aura_remains86
+tests/test_rules_flagbearer86.py::test_flagbearer_does_not_force_own_controller86
+[gw1] [  1%] PASSED tests/test_rules_flagbearer86.py::test_flagbearer_does_not_force_own_controller86
+tests/test_rules_flagbearer86.py::test_flagbearer_no_legal_foreign_target_for_own_creature_pump86
+[gw3] [  3%] PASSED tests/test_rules_flagbearer86.py::test_actual_dress_down_removes_creature_requirement_but_aura_remains86
+tests/test_rules_flagbearer86.py::test_any_players_legal_flagbearer_satisfies_requirement86
+[gw2] [  4%] PASSED tests/test_rules_flagbearer86.py::test_actual_activated_ability_must_target_legal_flagbearer86
+tests/test_rules_flagbearer86.py::test_tapped_only_target_rule_does_not_force_untapped_flagbearer86
+[gw0] [  6%] PASSED tests/test_rules_flagbearer86.py::test_actual_printed_flagbearer_forces_opponent_spell_choice86[Standard Bearer]
+tests/test_rules_flagbearer86.py::test_actual_printed_flagbearer_forces_opponent_spell_choice86[Coalition Honor Guard]
+[gw1] [  8%] PASSED tests/test_rules_flagbearer86.py::test_flagbearer_no_legal_foreign_target_for_own_creature_pump86
+tests/test_rules_flagbearer86.py::test_actual_hexproof_makes_flagbearer_unavailable86
+[gw3] [  9%] PASSED tests/test_rules_flagbearer86.py::test_any_players_legal_flagbearer_satisfies_requirement86
+tests/test_rules_flagbearer86.py::test_opponent_triggered_ability_is_exempt86
+[gw1] [ 11%] PASSED tests/test_rules_flagbearer86.py::test_actual_hexproof_makes_flagbearer_unavailable86
+tests/test_rules_flagbearer86.py::test_real_multiple_target_groups_need_only_one_flagbearer86
+[gw2] [ 12%] PASSED tests/test_rules_flagbearer86.py::test_tapped_only_target_rule_does_not_force_untapped_flagbearer86
+tests/test_rules_flagbearer86.py::test_real_divided_damage_keeps_announced_count_and_requires_one_flagbearer86
+[gw0] [ 14%] PASSED tests/test_rules_flagbearer86.py::test_actual_printed_flagbearer_forces_opponent_spell_choice86[Coalition Honor Guard]
+tests/test_rules_flagbearer86.py::test_actual_printed_flagbearer_forces_opponent_spell_choice86[Coalition Flag]
+[gw1] [ 16%] PASSED tests/test_rules_flagbearer86.py::test_real_multiple_target_groups_need_only_one_flagbearer86
+tests/test_rules_flagbearer86.py::test_full_native_shared_type_feasibility_cannot_force_impossible_group86
+[gw3] [ 17%] PASSED tests/test_rules_flagbearer86.py::test_opponent_triggered_ability_is_exempt86
+tests/test_rules_flagbearer86.py::test_native_redirect_new_target_choice_is_exempt86
+[gw2] [ 19%] PASSED tests/test_rules_flagbearer86.py::test_real_divided_damage_keeps_announced_count_and_requires_one_flagbearer86
+tests/test_rules_flagbearer86.py::test_aura_flagbearer_requirement_survives_creature_dress_down86
+[gw2] [ 20%] PASSED tests/test_rules_flagbearer86.py::test_aura_flagbearer_requirement_survives_creature_dress_down86
+tests/test_rules_flagbearer86.py::test_genuine_cold_flagbearer_current_requirement_and_full_group_legality86[single]
+[gw0] [ 22%] PASSED tests/test_rules_flagbearer86.py::test_actual_printed_flagbearer_forces_opponent_spell_choice86[Coalition Flag]
+tests/test_rules_modal_clauses101.py::test_whole_canonical_card101[Deadly Complication]
+[gw0] [ 24%] PASSED tests/test_rules_modal_clauses101.py::test_whole_canonical_card101[Deadly Complication]
+tests/test_rules_modal_clauses101.py::test_whole_canonical_card101[Compel Brutality]
+[gw1] [ 25%] PASSED tests/test_rules_flagbearer86.py::test_full_native_shared_type_feasibility_cannot_force_impossible_group86
+[gw0] [ 27%] PASSED tests/test_rules_modal_clauses101.py::test_whole_canonical_card101[Compel Brutality]
+tests/test_rules_flagbearer86.py::test_full_native_shared_type_feasibility_finds_two_target_replacement86
+tests/test_rules_modal_clauses101.py::test_whole_canonical_card101[Display of Dominance]
+[gw0] [ 29%] PASSED tests/test_rules_modal_clauses101.py::test_whole_canonical_card101[Display of Dominance]
+tests/test_rules_modal_clauses101.py::test_gix_untargeted_choice_can_choose_shroud_then_later_destroy_uses_new_power101
+[gw0] [ 30%] PASSED tests/test_rules_modal_clauses101.py::test_gix_untargeted_choice_can_choose_shroud_then_later_destroy_uses_new_power101
+tests/test_rules_modal_clauses101.py::test_gix_first_mode_selects_at_resolution_counter_before_destroy_and_grant_expires101
+[gw0] [ 32%] PASSED tests/test_rules_modal_clauses101.py::test_gix_first_mode_selects_at_resolution_counter_before_destroy_and_grant_expires101
+tests/test_rules_modal_clauses101.py::test_gix_optional_zero_and_counter_prohibition_still_grants_lifelink101
+[gw0] [ 33%] PASSED tests/test_rules_modal_clauses101.py::test_gix_optional_zero_and_counter_prohibition_still_grants_lifelink101
+tests/test_rules_modal_clauses101.py::test_deadly_both_modes_native_suspected_target_and_optional_removal101[False]
+[gw3] [ 35%] PASSED tests/test_rules_flagbearer86.py::test_native_redirect_new_target_choice_is_exempt86
+tests/test_rules_flagbearer86.py::test_actual_random_target_activation_samples_only_required_legal_flagbearers86
+[gw0] [ 37%] PASSED tests/test_rules_modal_clauses101.py::test_deadly_both_modes_native_suspected_target_and_optional_removal101[False]
+tests/test_rules_modal_clauses101.py::test_deadly_both_modes_native_suspected_target_and_optional_removal101[True]
+[gw0] [ 38%] PASSED tests/test_rules_modal_clauses101.py::test_deadly_both_modes_native_suspected_target_and_optional_removal101[True]
+tests/test_rules_modal_clauses101.py::test_deadly_second_mode_rejects_unsuspected_or_foreign_creature_atomically101
+[gw0] [ 40%] PASSED tests/test_rules_modal_clauses101.py::test_deadly_second_mode_rejects_unsuspected_or_foreign_creature_atomically101
+tests/test_rules_modal_clauses101.py::test_compel_planeswalker_damage_uses_loyalty_and_actual_source101
+[gw0] [ 41%] PASSED tests/test_rules_modal_clauses101.py::test_compel_planeswalker_damage_uses_loyalty_and_actual_source101
+tests/test_rules_modal_clauses101.py::test_compel_first_mode_creature_deals_damage_to_planeswalker101
+[gw1] [ 43%] PASSED tests/test_rules_flagbearer86.py::test_full_native_shared_type_feasibility_finds_two_target_replacement86
+tests/test_rules_flagbearer86.py::test_zero_optional_target_count_is_announced_before_target_identities86
+[gw0] [ 45%] PASSED tests/test_rules_modal_clauses101.py::test_compel_first_mode_creature_deals_damage_to_planeswalker101
+tests/test_rules_modal_clauses101.py::test_compel_blue_planeswalker_source_protection_prevents_damage101
+[gw0] [ 46%] PASSED tests/test_rules_modal_clauses101.py::test_compel_blue_planeswalker_source_protection_prevents_damage101
+tests/test_rules_modal_clauses101.py::test_display_first_mode_destroys_blue_noncreature_but_not_creature101
+[gw0] [ 48%] PASSED tests/test_rules_modal_clauses101.py::test_display_first_mode_destroys_blue_noncreature_but_not_creature101
+tests/test_rules_modal_clauses101.py::test_display_second_mode_blocks_opponent_blue_spell_allows_own_and_late_permanent101
+[gw0] [ 50%] PASSED tests/test_rules_modal_clauses101.py::test_display_second_mode_blocks_opponent_blue_spell_allows_own_and_late_permanent101
+tests/test_rules_modal_clauses101.py::test_compel_lost_planeswalker_target_does_not_deal_lki_damage101
+[gw2] [ 51%] PASSED tests/test_rules_flagbearer86.py::test_genuine_cold_flagbearer_current_requirement_and_full_group_legality86[single]
+tests/test_rules_flagbearer86.py::test_genuine_cold_flagbearer_current_requirement_and_full_group_legality86[shared_group]
+[gw0] [ 53%] PASSED tests/test_rules_modal_clauses101.py::test_compel_lost_planeswalker_target_does_not_deal_lki_damage101
+tests/test_rules_modal_clauses101.py::test_genuine_cold_gix_original_nontarget_choice101
+[gw1] [ 54%] PASSED tests/test_rules_flagbearer86.py::test_zero_optional_target_count_is_announced_before_target_identities86
+tests/test_rules_flagbearer86.py::test_actual_mogg_controller_forced_but_delegated_noncontroller_exempt86
+[gw0] [ 56%] PASSED tests/test_rules_modal_clauses101.py::test_genuine_cold_gix_original_nontarget_choice101
+tests/test_rules_modal_clauses101.py::test_genuine_cold_display_dynamic_rule_then_expires101
+[gw3] [ 58%] PASSED tests/test_rules_flagbearer86.py::test_actual_random_target_activation_samples_only_required_legal_flagbearers86
+tests/test_rules_flagbearer86.py::test_actual_modal_spell_only_chosen_mode_determines_flagbearer_eligibility86[0]
+[gw0] [ 59%] PASSED tests/test_rules_modal_clauses101.py::test_genuine_cold_display_dynamic_rule_then_expires101
+tests/test_rules_modal_clauses101.py::test_display_existing_blue_spell_loses_its_only_target_on_resolution101
+[gw0] [ 61%] PASSED tests/test_rules_modal_clauses101.py::test_display_existing_blue_spell_loses_its_only_target_on_resolution101
+tests/test_rules_upkeep_sacrifice101.py::test_whole_cards101[Doom Foretold]
+[gw0] [ 62%] PASSED tests/test_rules_upkeep_sacrifice101.py::test_whole_cards101[Doom Foretold]
+tests/test_rules_upkeep_sacrifice101.py::test_whole_cards101[Infernal Denizen]
+[gw0] [ 64%] PASSED tests/test_rules_upkeep_sacrifice101.py::test_whole_cards101[Infernal Denizen]
+tests/test_rules_upkeep_sacrifice101.py::test_whole_cards101[Cocoon]
+[gw0] [ 66%] PASSED tests/test_rules_upkeep_sacrifice101.py::test_whole_cards101[Cocoon]
+tests/test_rules_upkeep_sacrifice101.py::test_doom_mandatory_sacrifice_actual_outcome_not_graveyard_destination[False]
+[gw1] [ 67%] PASSED tests/test_rules_flagbearer86.py::test_actual_mogg_controller_forced_but_delegated_noncontroller_exempt86
+tests/test_rules_modal_clauses101.py::test_display_actual_opponent_blue_ability_is_not_prohibited101
+[gw2] [ 69%] PASSED tests/test_rules_flagbearer86.py::test_genuine_cold_flagbearer_current_requirement_and_full_group_legality86[shared_group]
+tests/test_rules_modal_clauses101.py::test_whole_canonical_card101[Gix's Command]
+[gw2] [ 70%] PASSED tests/test_rules_modal_clauses101.py::test_whole_canonical_card101[Gix's Command]
+tests/test_rules_upkeep_sacrifice101.py::test_doom_impossible_sacrifice_keeps_all_consequences_and_original_payer[True]
+[gw0] [ 72%] PASSED tests/test_rules_upkeep_sacrifice101.py::test_doom_mandatory_sacrifice_actual_outcome_not_graveyard_destination[False]
+tests/test_rules_upkeep_sacrifice101.py::test_doom_mandatory_sacrifice_actual_outcome_not_graveyard_destination[True]
+[gw3] [ 74%] PASSED tests/test_rules_flagbearer86.py::test_actual_modal_spell_only_chosen_mode_determines_flagbearer_eligibility86[0]
+tests/test_rules_flagbearer86.py::test_actual_modal_spell_only_chosen_mode_determines_flagbearer_eligibility86[2]
+[gw1] [ 75%] PASSED tests/test_rules_modal_clauses101.py::test_display_actual_opponent_blue_ability_is_not_prohibited101
+tests/test_rules_upkeep_sacrifice101.py::test_doom_impossible_sacrifice_keeps_all_consequences_and_original_payer[False]
+[gw0] [ 77%] PASSED tests/test_rules_upkeep_sacrifice101.py::test_doom_mandatory_sacrifice_actual_outcome_not_graveyard_destination[True]
+tests/test_rules_upkeep_sacrifice101.py::test_denizen_mandatory_partial_swamps_and_opponents_optional_choice[1]
+[gw3] [ 79%] PASSED tests/test_rules_flagbearer86.py::test_actual_modal_spell_only_chosen_mode_determines_flagbearer_eligibility86[2]
+tests/test_rules_upkeep_sacrifice101.py::test_denizen_mandatory_partial_swamps_and_opponents_optional_choice[2]
+[gw2] [ 80%] PASSED tests/test_rules_upkeep_sacrifice101.py::test_doom_impossible_sacrifice_keeps_all_consequences_and_original_payer[True]
+tests/test_rules_upkeep_sacrifice101.py::test_denizen_mandatory_partial_swamps_and_opponents_optional_choice[0]
+[gw1] [ 82%] PASSED tests/test_rules_upkeep_sacrifice101.py::test_doom_impossible_sacrifice_keeps_all_consequences_and_original_payer[False]
+tests/test_rules_upkeep_sacrifice101.py::test_cocoon_actual_counter_removed_and_original_host_flying_after_aura_leaves[0]
+[gw2] [ 83%] PASSED tests/test_rules_upkeep_sacrifice101.py::test_denizen_mandatory_partial_swamps_and_opponents_optional_choice[0]
+tests/test_rules_upkeep_sacrifice101.py::test_denizen_cold_choice_source_duration_ends_after_actual_murder
+[gw0] [ 85%] PASSED tests/test_rules_upkeep_sacrifice101.py::test_denizen_mandatory_partial_swamps_and_opponents_optional_choice[1]
+tests/test_rules_upkeep_sacrifice101.py::test_cocoon_actual_counter_removed_and_original_host_flying_after_aura_leaves[1]
+[gw3] [ 87%] PASSED tests/test_rules_upkeep_sacrifice101.py::test_denizen_mandatory_partial_swamps_and_opponents_optional_choice[2]
+tests/test_rules_upkeep_sacrifice101.py::test_doom_actual_response_control_change_and_cold_original_payer
+[gw1] [ 88%] PASSED tests/test_rules_upkeep_sacrifice101.py::test_cocoon_actual_counter_removed_and_original_host_flying_after_aura_leaves[0]
+tests/test_rules_upkeep_sacrifice101.py::test_denizen_optional_opponent_may_decline
+[gw3] [ 90%] PASSED tests/test_rules_upkeep_sacrifice101.py::test_doom_actual_response_control_change_and_cold_original_payer
+tests/test_rules_upkeep_sacrifice101.py::test_cocoon_cannot_put_counters_still_gives_flying
+[gw0] [ 91%] PASSED tests/test_rules_upkeep_sacrifice101.py::test_cocoon_actual_counter_removed_and_original_host_flying_after_aura_leaves[1]
+tests/test_rules_upkeep_sacrifice101.py::test_cocoon_cold_original_host_flying_is_permanent
+[gw2] [ 93%] PASSED tests/test_rules_upkeep_sacrifice101.py::test_denizen_cold_choice_source_duration_ends_after_actual_murder
+tests/test_rules_upkeep_sacrifice101.py::test_denizen_two_native_sacrifices_replaced_into_exile_still_satisfy
+[gw1] [ 95%] PASSED tests/test_rules_upkeep_sacrifice101.py::test_denizen_optional_opponent_may_decline
+[gw3] [ 96%] PASSED tests/test_rules_upkeep_sacrifice101.py::test_cocoon_cannot_put_counters_still_gives_flying
+[gw2] [ 98%] PASSED tests/test_rules_upkeep_sacrifice101.py::test_denizen_two_native_sacrifices_replaced_into_exile_still_satisfy
+[gw0] [100%] PASSED tests/test_rules_upkeep_sacrifice101.py::test_cocoon_cold_original_host_flying_is_permanent
+
+======================== 62 passed in 67.86s (0:01:07) =========================

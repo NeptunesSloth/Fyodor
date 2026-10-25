@@ -1,3 +1,5 @@
+Latest verified: **10/1000 NEW after PR21**; **30,734 FULL / 1,334 PARTIAL**. [batch001 evidence](after-pr21-batch001-evidence.md). Six streams continue automatically. No further cards counted until frozen admission.
+
 #1000 additional cards after merged PR21 — active
 
 Baseline is exact merged commit456c95d6aa3eaaa38583129be436ef57c1937a01 (PR21),941 modules. **30,724 FULL /1,344 PARTIAL** among32,068 Commander-legal cards. New request starts at **0/1000 additional verified**. Reaching1000 requires at least31,724 FULL against this unchanged catalog. FULL is engine coverage classification.

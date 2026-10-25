@@ -1,0 +1,30 @@
+{
+  "baseline_pr": 21,
+  "baseline_commit": "456c95d6aa3eaaa38583129be436ef57c1937a01",
+  "target": 1000,
+  "new_verified": 10,
+  "remaining_target": 990,
+  "summary": {
+    "FULL": 30734,
+    "PARTIAL": 1334
+  },
+  "latest_batch": "batch001",
+  "source_modules": 944,
+  "new_names": [
+    "Coalition Flag",
+    "Coalition Honor Guard",
+    "Cocoon",
+    "Compel Brutality",
+    "Deadly Complication",
+    "Display of Dominance",
+    "Doom Foretold",
+    "Gix's Command",
+    "Infernal Denizen",
+    "Standard Bearer"
+  ],
+  "native_passed": 62,
+  "related_passed": 38,
+  "core_passed": 54,
+  "mypy_modules": 944,
+  "ruff": "PASS"
+}

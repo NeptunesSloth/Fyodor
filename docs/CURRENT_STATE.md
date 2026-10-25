@@ -1,3 +1,7 @@
+## POST-PR21 BATCH001 VERIFIED — CONTINUING
+
+**30,734 FULL / 1,334 PARTIAL**; **10/1000 new completions verified**, 990 remain. [PR22](https://github.com/NeptunesSloth/Fyodor/pull/22), [evidence](research/after-pr21-batch001-evidence.md). Native62, related38, core54, full mypy944, Ruff and exact catalog/definition diff pass on frozen source. Six agents continue; inherited PR21 work excluded. FULL is coverage classification.
+
 New work continues from merged [PR21](https://github.com/NeptunesSloth/Fyodor/pull/21) in [draft PR22](https://github.com/NeptunesSloth/Fyodor/pull/22). Six agents are active; the new request is1000 additional completions beyond PR21.
 
 ## POST-PR21 BASELINE VERIFIED — ACTIVE
