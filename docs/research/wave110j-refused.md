@@ -10,3 +10,6 @@
 - Rasputin Dreamweaver: "started the turn untapped" has no turn-start snapshot and the untap-step ruling is unconfirmed; plus a counter cap.
 - Livio, Oathsworn Sentinel: exiled-with-counter cards returned later (aegis); no exile-counter foundation.
 - Simic Guildmage: Aura reattach to another permanent (303.4) not supported.
+- Manor Gargoyle: "indestructible as long as it has defender" reads the source's own layer-6 keywords while deriving them (613.8 dependency), needs a keyword-aware static condition.
+- Rumbling Ruin: selector compare has no "number of +1/+1 counters on creatures you control" right side, and the number must be fixed at resolution.
+- Corruption of Towashi: no "enters transformed" event in the engine.

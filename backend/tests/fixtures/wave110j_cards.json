@@ -259,5 +259,106 @@
   ],
   "power": "2",
   "toughness": "3"
+ },
+ {
+  "name": "Hibernation's End",
+  "layout": "normal",
+  "mana_cost": "{4}{G}",
+  "cmc": 5.0,
+  "type_line": "Enchantment",
+  "oracle_text": "Cumulative upkeep {1} (At the beginning of your upkeep, put an age counter on this permanent, then sacrifice it unless you pay its upkeep cost for each age counter on it.)\nWhenever you pay this enchantment's cumulative upkeep, you may search your library for a creature card with mana value equal to the number of age counters on this enchantment, put it onto the battlefield, then shuffle.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [
+   "Cumulative upkeep"
+  ]
+ },
+ {
+  "name": "Kudzu",
+  "layout": "normal",
+  "mana_cost": "{1}{G}{G}",
+  "cmc": 3.0,
+  "type_line": "Enchantment — Aura",
+  "oracle_text": "Enchant land\nWhen enchanted land becomes tapped, destroy it. That land's controller may attach this Aura to a land of their choice.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [
+   "Enchant"
+  ]
+ },
+ {
+  "name": "Ray of Frost",
+  "layout": "normal",
+  "mana_cost": "{1}{U}",
+  "cmc": 2.0,
+  "type_line": "Enchantment — Aura",
+  "oracle_text": "Flash\nEnchant creature\nWhen this Aura enters, if enchanted creature is red, tap it.\nAs long as enchanted creature is red, it loses all abilities.\nEnchanted creature doesn't untap during its controller's untap step.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "Enchant",
+   "Flash"
+  ]
+ },
+ {
+  "name": "Cannibalize",
+  "layout": "normal",
+  "mana_cost": "{1}{B}",
+  "cmc": 2.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Choose two target creatures controlled by the same player. Exile one of those creatures and put two +1/+1 counters on the other.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Steam Vines",
+  "layout": "normal",
+  "mana_cost": "{1}{R}{R}",
+  "cmc": 3.0,
+  "type_line": "Enchantment — Aura",
+  "oracle_text": "Enchant land\nWhen enchanted land becomes tapped, destroy it and this Aura deals 1 damage to that land's controller. That player attaches this Aura to a land of their choice.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Enchant"
+  ]
+ },
+ {
+  "name": "Mogg Fanatic",
+  "layout": "normal",
+  "mana_cost": "{R}",
+  "cmc": 1.0,
+  "type_line": "Creature — Goblin",
+  "oracle_text": "Sacrifice this creature: It deals 1 damage to any target.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [],
+  "power": "1",
+  "toughness": "1"
  }
 ]

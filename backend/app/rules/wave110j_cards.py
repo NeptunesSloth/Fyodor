@@ -120,3 +120,47 @@ def _scavenger(d: Def) -> Def:
 
 _BUILD["Whenever another creature you control dies, put a +1/+1 counter on this creature. It gains haste until end of turn if it exploited that creature."] = (
     "Whenever another creature you control dies, put a +1/+1 counter on this creature.", _scavenger)
+
+
+def _reattach(d: Def) -> Def:
+    """Kudzu, Steam Vines: after the land is destroyed, its controller may choose any land; the Aura (still on the battlefield until state-based actions, 704.3) attaches to it (303.4f)."""
+    from app.rules.nontarget_creature_choices import key
+
+    if [e.get("do") for e in d["effects"]][:1] != ["destroy"]:
+        raise ValueError("Kudzu/Steam Vines: unexpected native shape")
+    d = {**d, "effects": [{**d["effects"][0], "as": "e0"}, *d["effects"][1:]]}
+    pick = {"do": "player_chooses", "who": "ref:e0.controller", "sel": key("land"), "n": 1, "label": "land", "any": True, "upto": True, "optional": True, "as": "kz110j"}
+    return {**d, "effects": [*d["effects"], pick, {"do": "attach_to", "src": "self", "who": "ref:kz110j"}]}
+
+
+_BUILD["When enchanted land becomes tapped, destroy it. That land's controller may attach this Aura to a land of their choice."] = (
+    "When enchanted land becomes tapped, destroy it.", _reattach)
+_BUILD["When enchanted land becomes tapped, destroy it and this Aura deals 1 damage to that land's controller. That player attaches this Aura to a land of their choice."] = (
+    "When enchanted land becomes tapped, destroy it and this Aura deals 1 damage to that land's controller.", _reattach)
+
+
+def _paid_cu(d: Def) -> Def:
+    """Hibernation's End: not an upkeep trigger; the paid_cumulative110j step starts it once the cumulative upkeep was paid (702.24a)."""
+    return {**d, "trigger": PAID_CU} if d.get("trigger") == "upkeep_you" else d
+
+
+PAID_CU = "paid_cu110j"
+_BUILD["Whenever you pay this enchantment's cumulative upkeep, you may search your library for a creature card with mana value equal to the number of age counters on this enchantment, put it onto the battlefield, then shuffle."] = (
+    "At the beginning of your upkeep, you may search your library for a creature card with mana value equal to the number of age counters on this enchantment, put it onto the battlefield, then shuffle.",
+    _paid_cu)
+
+
+def paid_cumulative(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
+    """Last step of a cumulative upkeep trigger: the permanent is still here only if it was paid (otherwise it was sacrificed, 702.24a), so its
+    "Whenever you pay this permanent's cumulative upkeep" abilities trigger now (603.2)."""
+    from app.rules import triggers
+
+    src = plan.state.cards.get(ctx.get("source_card", ""))
+    if src is not None and src.zone.endswith(":battlefield") and plan.oid(src) == ctx.get("source_object"):
+        for card, ch, i, d in triggers._watchers(plan, PAID_CU):
+            if card.id == src.id:
+                triggers._add(plan, controller=card.controller, source_card=card.id, source_object=plan.oid(card), name=ch.name, index=i, definition=d)
+    return True
+
+
+PRIMITIVES = {"paid_cumulative110j": paid_cumulative}

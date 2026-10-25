@@ -441,7 +441,7 @@ def parse(text: str) -> Definition | None:
             return {**_definition("self", None, conds), **type_parts}
     attached_cond = next((a for c in conds if (a := _attached_of(c)) is not None), None)
     it_bound = False  # (wave 35D) the sentence's "it" is the object the condition names; any other subject is its own (Goblin Caves)
-    if attached_cond is not None and re.match(r"it (?:gets?|has|can't|attacks|blocks|must|doesn't|assigns)\b", body):
+    if attached_cond is not None and re.match(r"it (?:gets?|has|can't|attacks|blocks|must|doesn't|assigns|loses all abilities)\b", body):
         # "As long as equipped creature is legendary, it has hexproof.": "it" is the object the condition names
         body = f"{attached_cond['who'].capitalize()} {attached_cond['noun']}{body[2:]}"
         it_bound = True
@@ -497,7 +497,10 @@ def parse(text: str) -> Definition | None:
     # players, which never reads the colors of what it modifies (layers._own_layer5)
     own_colors = bool(extra) and who == "self" and set(extra) == {"set_colors"} and bool(conds) \
         and all(_color_safe(c) for c in conds) and x_value is None and not defender_sel and not rule_cond
-    if extra and not own_colors and (who != "attached" or conds or x_value is not None or defender_sel or rule_cond):
+    # -- (wave 110J) -- Ray of Frost: "As long as enchanted creature is red, it loses all abilities": the colour is set in layer 5, before layer 6 removes abilities (613.1e-f)
+    wipe_if_color = extra == {"lose_all": True} and who == "attached" and len(conds) == 1 and conds[0].get("static") == "attached_is" \
+        and str(conds[0].get("sel", "")).startswith('sel:{"colors":') and x_value is None and not defender_sel and not rule_cond
+    if extra and not own_colors and not wipe_if_color and (who != "attached" or conds or x_value is not None or defender_sel or rule_cond):
         return None  # (layers 4-6 parts of a static: only an Aura's or Equipment's, unconditional)
     if extra and not own_colors and not attached_types.consistent(extra, kind):
         return None

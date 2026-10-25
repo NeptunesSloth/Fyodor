@@ -6,17 +6,23 @@
 * 508.1, 603.2: Mob Mentality triggers only when every non-Wall creature its controller has is attacking (a Wall may stay home); +X/+0 counts the attackers.
 * 502.3, 611.2a: Mindbender Spores puts four fungus counters on the creature it blocks, which then stays tapped through its controller's untap step
   while it has one, and loses one at each of its controller's upkeeps.
+* 608.2c, 115.1: Cannibalize targets two creatures of one player; its caster picks which is exiled, the other gets two +1/+1 counters.
+* 613.1e-f: Ray of Frost removes all abilities only while the enchanted creature is red.
+* 303.4f, 704.3: Kudzu / Steam Vines destroy the land when it becomes tapped; its controller may then move the Aura to any land.
+* 702.24a, 603.2: Hibernation's End triggers each time its cumulative upkeep is paid, not when it is sacrificed.
 """
 
 from __future__ import annotations
 
 import pytest
 
+from app.game.errors import ActionError
 from tests.game_helpers import act
 from tests.wave9c_kit import build
 from tests.wave110b_kit import attack, through_combat
 from tests.wave110j_kit import (  # noqa: F401
     EXTRA,
+    ability,
     activate,
     card_db,
     cast_on,
@@ -29,6 +35,7 @@ from tests.wave110j_kit import (  # noqa: F401
     put,
     put_new,
     settle,
+    to_hand,
     to_phase,
 )
 
@@ -210,4 +217,85 @@ def test_silumgar_scavenger_gets_haste_only_for_the_creature_it_exploited(cards)
     assert "haste" not in ch(s, scavenger).keywords
     cast_on(s, "Lightning Bolt", other)
     assert now(s, scavenger).counters == {"+1/+1": 2} and "haste" not in ch(s, scavenger).keywords
+    check(s)
+
+
+@pytest.mark.parametrize("name", ["Cannibalize", "Ray of Frost", "Kudzu", "Steam Vines", "Hibernation's End"])
+def test_wave_two_cards_are_full(name):
+    assert full(name)
+
+
+def test_cannibalize_caster_exiles_one_and_the_other_grows(cards):
+    s = build(cards, ["Cannibalize", "Grizzly Bears", "Llanowar Elves"], ["Grizzly Bears", "Llanowar Elves"])
+    a, b = put_new(s, "Grizzly Bears", "p2"), put_new(s, "Llanowar Elves", "p2")
+    mana(s, B=1, C=1)
+    c = to_hand(s, "Cannibalize")
+    act(s, "p1", type="cast_spell", card_id=c.id, targets=[a.id, b.id], target_counts=[2])
+    d = s.state.rules.decision
+    assert d is not None and d.player == "p1"  # the caster chooses (608.2c)
+    settle(s, answers=[[a.id]])
+    assert now(s, a).zone.endswith(":exile") and now(s, b).counters == {"+1/+1": 2}
+    check(s)
+
+
+def test_cannibalize_refuses_creatures_of_two_players(cards):
+    s = build(cards, ["Cannibalize", "Grizzly Bears"], ["Grizzly Bears"])
+    a, b = put_new(s, "Grizzly Bears", "p1"), put_new(s, "Grizzly Bears", "p2")
+    mana(s, B=1, C=1)
+    c = to_hand(s, "Cannibalize")
+    with pytest.raises(ActionError):
+        act(s, "p1", type="cast_spell", card_id=c.id, targets=[a.id, b.id], target_counts=[2])
+
+
+@pytest.mark.parametrize(("who", "bare"), [("Mogg Fanatic", True), ("Llanowar Elves", False)])
+def test_ray_of_frost_only_strips_red_creatures(cards, who, bare):
+    s = build(cards, ["Ray of Frost", "Mogg Fanatic", "Llanowar Elves"])
+    c = put_new(s, who)
+    before = len(ch(s, c).abilities)
+    cast_on(s, "Ray of Frost", c)
+    assert (len(ch(s, c).abilities) == 0) is (bare and before > 0) and (bare or len(ch(s, c).abilities) == before)
+    check(s)
+
+
+@pytest.mark.parametrize("aura", ["Kudzu", "Steam Vines"])
+def test_land_aura_destroys_the_tapped_land_and_moves_to_a_land_of_its_controllers_choice(cards, aura):
+    s = build(cards, [aura, "Forest", "Mountain"], ["Forest"])
+    forest, mountain = put_new(s, "Forest"), put_new(s, "Mountain")
+    cast_on(s, aura, forest)
+    hp = s.state.players["p1"].life
+    act(s, "p1", type="activate_ability", card_id=forest.id, ability=ability(s, forest, "{T}"))
+    for _ in range(10):
+        if s.state.rules.decision is not None:
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+    d = s.state.rules.decision
+    assert d is not None and d.player == "p1" and mountain.id in {o.id for o in d.options}
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[mountain.id])
+    settle(s)
+    assert now(s, forest).zone.endswith(":graveyard")
+    aura_card = next(c for c in s.state.cards.values() if c.name == aura)
+    assert aura_card.attached_to == mountain.id
+    assert s.state.players["p1"].life == hp - (1 if aura == "Steam Vines" else 0)
+    check(s)
+
+
+def test_hibernations_end_searches_each_time_the_upkeep_is_paid_but_not_when_sacrificed(cards):
+    s = build(cards, ["Hibernation's End", "Llanowar Elves", "Forest", "Forest"])
+    end = put(s, "Hibernation's End")
+    put_new(s, "Forest")
+    for _ in range(300):
+        d = s.state.rules.decision
+        if d is not None and d.kind == "choose_one" and (d.resume or {}).get("step") == "pay_or_sacrifice":
+            break
+        if d is not None and d.kind in ("declare_attackers", "declare_blockers"):
+            act(s, d.player, type=d.kind, **({"attackers": []} if d.kind == "declare_attackers" else {"blocks": []}))
+        elif d is not None:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: max(1, d.min_choices)])
+        else:
+            act(s, s.state.rules.priority, type="pass_priority")
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=["pay"])
+    settle(s)  # the may-search: the first option is "yes"
+    assert now(s, end).counters == {"age": 1}
+    elves = [c for c in s.state.cards.values() if c.name == "Llanowar Elves"]
+    assert elves[0].zone.endswith(":battlefield")
     check(s)
