@@ -15,6 +15,12 @@ _AS: dict[str, str] = {
     # Heliod's Punishment: "It" is the enchanted creature, so one sentence with the same three parts (613.1f, 508.1c, 509.1b)
     'Enchanted creature can\'t attack or block. It loses all abilities and has "{T}: Remove a task counter from ‹granter›. Then if it has no task counters on it, destroy ‹granter›."':
         'Enchanted creature can\'t attack or block, loses all abilities, and has "{T}: Remove a task counter from ‹granter›. Then if it has no task counters on it, destroy ‹granter›."',
+    # Infantry Shield: the granted keyword is the triggered ability it stands for (702.181a, X read as it resolves, 107.3c)
+    "Equipped creature has menace and mobilize X, where X is its power.":
+        'Equipped creature has menace and "Whenever this creature attacks, create X tapped and attacking 1/1 red Warrior creature tokens, '
+        'where X is its power. Sacrifice them at the beginning of the next end step."',
+    # Unable to Scream: a creature that is not face down can't be turned face up anyway (708.2), so the condition changes nothing
+    "As long as enchanted creature is face down, it can't be turned face up.": "Enchanted creature can't be turned face up.",
 }
 
 
