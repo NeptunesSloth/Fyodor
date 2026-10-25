@@ -2081,6 +2081,11 @@ def _that_player_sacrifices(m: re.Match[str]) -> tuple[list[dict[str, Any]], Non
     return [{"do": "sacrifice", "who": "it", "by": "event_player"}], None
 
 
+@effect(r"sacrifice the chosen creature")  # -- chosen objects (wave 110A) -- Tyrannical Pitlord (701.21a: only if you control it)
+def _sacrifice_chosen(m: re.Match[str]) -> tuple[list[dict[str, Any]], None]:
+    return [{"do": "sacrifice", "who": selectors.parse("chosen creature").key()}], None  # type: ignore[union-attr]
+
+
 @effect(r"sacrifice (?P<who>~|it)")
 def _sacrifice_self(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     return [{"do": "sacrifice", "who": _self_or_it(m["who"])}], None
@@ -9300,6 +9305,10 @@ def define_replacement(ability: AbilityText, text: str) -> Definition | None:
 
     if (ctl := wave110a_control.definition(text)) is not None:
         return ctl
+    from app.rules import wave110a_pick  # -- chosen objects (wave 110A) --
+
+    if (picked := wave110a_pick.definition(text)) is not None:
+        return picked
     chosen = language.enters_choice(text)  # "As ~ enters, choose a color." (614.1c, 614.12a)
     if chosen is not None:
         return chosen

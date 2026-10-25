@@ -561,5 +561,75 @@
    "W"
   ],
   "keywords": []
+ },
+ {
+  "name": "Vraska the Unseen",
+  "layout": "normal",
+  "mana_cost": "{3}{B}{G}",
+  "cmc": 5.0,
+  "type_line": "Legendary Planeswalker — Vraska",
+  "oracle_text": "+1: Until your next turn, whenever a creature deals combat damage to Vraska, destroy that creature.\n−3: Destroy target nonland permanent.\n−7: Create three 1/1 black Assassin creature tokens with \"Whenever this token deals combat damage to a player, that player loses the game.\"",
+  "colors": [
+   "B",
+   "G"
+  ],
+  "color_identity": [
+   "B",
+   "G"
+  ],
+  "keywords": [],
+  "loyalty": "5"
+ },
+ {
+  "name": "Premature Burial",
+  "layout": "normal",
+  "mana_cost": "{1}{B}",
+  "cmc": 2.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Destroy target nonblack creature that entered since your last turn ended.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Tyrannical Pitlord",
+  "layout": "normal",
+  "mana_cost": "{4}{B}{B}",
+  "cmc": 6.0,
+  "type_line": "Creature — Demon",
+  "oracle_text": "Flying, trample\nAs this creature enters, choose another creature you control.\nThe chosen creature gets +3/+3 and has flying.\nWhen this creature leaves the battlefield, sacrifice the chosen creature.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Flying",
+   "Trample"
+  ],
+  "power": "6",
+  "toughness": "6"
+ },
+ {
+  "name": "Dauntless Bodyguard",
+  "layout": "normal",
+  "mana_cost": "{W}",
+  "cmc": 1.0,
+  "type_line": "Creature — Human Knight",
+  "oracle_text": "As this creature enters, choose another creature you control.\nSacrifice this creature: The chosen creature gains indestructible until end of turn.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [],
+  "power": "2",
+  "toughness": "1"
  }
 ]

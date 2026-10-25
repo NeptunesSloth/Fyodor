@@ -268,7 +268,7 @@ def named_choices(plan: Plan, controller: str, defs: list[dict[str, Any]], answe
             if what in answers:
                 out.setdefault("choices", {})[what] = answers[what]
             elif "choice" not in out:
-                out["choice"] = {"what": what, **({"look": answers.get(card_names.LOOK)} if e.get("look") else {}), **({"reveal": True} if e.get("reveal") else {}),
+                out["choice"] = {"what": what, **({"pick110a": e["pick110a"]} if e.get("pick110a") else {}), **({"look": answers.get(card_names.LOOK)} if e.get("look") else {}), **({"reveal": True} if e.get("reveal") else {}),
                                  **({"options": e["options"]} if e.get("options") else {}), **({"random": True} if e.get("random") else {})}  # (wave 51C: "choose Elemental, Elf, …": only the creature types listed)
                 if what == "second color":
                     out["choice"]["options"] = [o for o in ("White", "Blue", "Black", "Red", "Green") if o != answers.get("color")]
@@ -548,6 +548,10 @@ def choice_prompt(plan: Plan, card: CardInstance, controller: str, choice: dict[
     from app.rules.effects import _choice_options
 
     what = choice["what"]
+    if choice.get("pick110a"):  # -- chosen objects (wave 110A) --
+        from app.rules import wave110a_pick
+
+        return wave110a_pick.prompt(plan, card, controller, choice)
     from app.rules import chosen_forms95
 
     if what.startswith(chosen_forms95.PREFIX):
@@ -1006,6 +1010,9 @@ def after_entry(plan: Plan, card_id: str, controller: str, *, x: int | None = No
         from app.rules import wave110a_control  # -- entry control (wave 110A) --
 
         wave110a_control.give(plan, card_id, choices)
+        from app.rules import wave110a_pick  # -- chosen objects (wave 110A) --
+
+        wave110a_pick.record(plan, card_id, choices)
         from app.rules import chosen_color_pairs45
 
         chosen_color_pairs45.record_entry(plan, card_id, choices)

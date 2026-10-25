@@ -412,3 +412,77 @@ def test_gideon_of_the_trials_emblem_keeps_you_in_the_game_only_while_you_contro
     act(s, "p1", type="move", card_ids=[gideon.id], to={"player": "p1", "zone": "graveyard"})
     act(s, "p1", type="pass_priority")
     assert "p1" in dict(s.state.rules.lost)
+
+
+VRASKA = "Vraska the Unseen"
+test_full_wave110a_third = full_test([VRASKA])
+
+
+@pytest.mark.parametrize("hits_vraska", [True, False])
+def test_vraska_the_unseen_plus_one_destroys_creatures_that_damage_her_until_your_next_turn(cards, hits_vraska):
+    """603.7 / 611.2: the +1 delayed trigger destroys a creature that deals combat damage to Vraska (not one that hits you) until your next turn."""
+    s = build(cards, [VRASKA], ["Hill Giant"])
+    vraska = put(s, VRASKA)
+    act(s, "p1", type="counter", card_ids=[vraska.id], kind="loyalty", delta=5)
+    act(s, "p1", type="activate_ability", card_id=vraska.id, ability=0)
+    answer(s)
+    giant = put(s, "Hill Giant", "p2")
+    stops(s)
+    bob_attacks(s, giant, vraska.id if hits_vraska else "p1")
+    to_phase(s, "end_combat", turn=2)
+    assert (s.state.cards[giant.id].zone == "p2:graveyard") == hits_vraska
+    check(s)
+
+
+BURIAL = "Premature Burial"
+test_full_wave110a_burial = full_test([BURIAL])
+
+
+def test_premature_burial_targets_only_creatures_that_entered_since_your_last_turn_ended(cards):
+    """400.7: a permanent is a new object each time it enters; a creature there before turn 1 ended is out, one that entered on turn 2 is in."""
+    s = build(cards, [BURIAL], ["Hill Giant", "Grizzly Bears"])
+    old = put(s, "Hill Giant", "p2")
+    to_phase(s, "main1", turn=2)
+    new = put(s, "Grizzly Bears", "p2")
+    to_phase(s, "main1", turn=3)
+    with pytest.raises(ActionError):
+        cast(s, BURIAL, [old.id])
+    cast(s, BURIAL, [new.id])
+    answer(s)
+    assert s.state.cards[new.id].zone == "p2:graveyard" and s.state.cards[old.id].zone == "p2:battlefield"
+    check(s)
+
+
+BODYGUARD, PITLORD = "Dauntless Bodyguard", "Tyrannical Pitlord"
+test_full_wave110a_chosen = full_test([BODYGUARD, PITLORD])
+
+
+def test_dauntless_bodyguard_gives_indestructible_to_the_creature_chosen_as_it_entered(cards):
+    """614.12a: the creature is chosen as the Bodyguard enters (public); the sacrifice ability then affects only that creature."""
+    s = build(cards, [BODYGUARD, "Grizzly Bears", "Hill Giant"])
+    bears, giant = put(s, "Grizzly Bears"), put(s, "Hill Giant")
+    cast(s, BODYGUARD)
+    answer(s, bears.id)
+    guard = card_named(s, BODYGUARD)
+    assert s.state.cards[guard.id].choices["Chosen creature"] == "Grizzly Bears"
+    act(s, "p1", type="activate_ability", card_id=guard.id, ability=1)
+    answer(s)
+    assert "indestructible" in ch(s, bears).keywords and "indestructible" not in ch(s, giant).keywords
+    assert s.state.cards[guard.id].zone == "p1:graveyard"
+    check(s)
+
+
+def test_tyrannical_pitlord_pumps_the_chosen_creature_and_sacrifices_it_when_it_leaves(cards):
+    """613.4c / 603.10a: +3/+3 and flying while the Pitlord is on the battlefield; when it leaves, the chosen creature is sacrificed (701.21a)."""
+    s = build(cards, [PITLORD, "Grizzly Bears", "Hill Giant", "Swords to Plowshares"])
+    bears, giant = put(s, "Grizzly Bears"), put(s, "Hill Giant")
+    cast(s, PITLORD)
+    answer(s, bears.id)
+    pitlord = card_named(s, PITLORD)
+    assert pt(s, "Grizzly Bears") == (5, 5) and "flying" in ch(s, bears).keywords
+    assert pt(s, "Hill Giant") == (3, 3) and "flying" not in ch(s, giant).keywords
+    check(s)
+    cast(s, "Swords to Plowshares", [pitlord.id])
+    answer(s)
+    assert s.state.cards[bears.id].zone == "p1:graveyard" and s.state.cards[giant.id].zone == "p1:battlefield"
+    check(s)

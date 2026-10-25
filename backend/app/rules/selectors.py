@@ -1131,6 +1131,13 @@ def _entered_this_turn(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, extras=(*s.extras, "entered_this_turn_you" if m["you"] else "entered_this_turn"))
 
 
+# -- wave 110A -- "target nonblack creature that entered since your last turn ended" (Premature Burial): an object numbered after the counter value
+# stored when its controller's last turn ended (engine.start_next_turn). 400.7: a permanent that left and came back is a new object.
+@_suffix(r"that entered since your last turn ended")
+def _entered_since_my_turn(s: Selector, m: re.Match[str]) -> Selector:
+    return replace(s, extras=(*s.extras, "entered_since_my_turn"))
+
+
 def _entered_now(plan: Plan, card: CardInstance, you: str | None) -> bool:
     from app.rules.history import log_for
 
@@ -1476,6 +1483,8 @@ def _prefix(s: Selector, word: str) -> Selector | None:
         return replace(s, multicolored=False, colorless=False)
     if low == "commander":
         return replace(s, commander=True)
+    if low == "chosen":  # -- chosen objects (wave 110A) -- "the chosen creature": the object the source chose as it entered (wave110a_pick)
+        return replace(s, extras=(*s.extras, "picked110a"))
     if low in ("enchanted", "equipped", "modified", "historic", "goaded", "renowned"):  # (wave 11C: modified 700.9, historic 700.6; wave 22E: goaded 701.15; wave 47A: renowned 702.112b)
         return replace(s, extras=(*s.extras, low))
     if low in ("face-down", "face-up"):  # -- keyword actions & face-down (wave 3F) -- 708: "face-down creatures you control"
@@ -2523,6 +2532,8 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
             return False  # (wave 5H)
         if extra == "not_entered_this_turn" and _entered_now(plan, card, None):  # (wave 41A)
             return False
+        if extra == "entered_since_my_turn" and not (card.zone.endswith(":battlefield") and plan.rules.objects.get(card.id, 0) > plan.rules.turn_end_objects.get(you, 0)):
+            return False  # (wave 110A)
         if extra == "suspended":
             from app.rules import suspend_grants
 
@@ -2534,6 +2545,11 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
             return False
         if extra == "not_put_there_combat" and _put_there_now(plan, card, "combat"):
             return False
+        if extra == "picked110a":  # (wave 110A)
+            from app.rules import wave110a_pick
+
+            if not wave110a_pick.is_picked(plan, card, source):
+                return False
         if extra == "attached_source" and (source is None or card.attached_to != source):  # -- activated other (wave 34B) -- attached to the source itself
             return False
         if extra == "not_host_of_source" and (src_ := plan.state.cards.get(source or "")) is not None and src_.attached_to == card.id:  # (wave 53C)
