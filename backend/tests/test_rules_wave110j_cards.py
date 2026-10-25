@@ -190,3 +190,24 @@ def test_rootwater_matriarch_keeps_the_creature_only_while_it_is_enchanted(cards
         act(s, "p1", type="pass_priority")  # (a table edit is looked at on the next intent)
         assert now(s, bears).controller == "p2"
     check(s)
+
+
+def test_silumgar_scavenger_is_full():
+    assert full("Silumgar Scavenger")
+
+
+def test_silumgar_scavenger_gets_haste_only_for_the_creature_it_exploited(cards):
+    """702.110b, 603.2: it grows for any other creature you control that dies, but gains haste only when it exploited that creature."""
+    s = build(cards, ["Silumgar Scavenger", "Grizzly Bears", "Templar Knight", "Lightning Bolt"])
+    bears, knight = put_new(s, "Grizzly Bears"), put_new(s, "Templar Knight")
+    scavenger = cast_on(s, "Silumgar Scavenger")
+    assert now(s, scavenger).zone.endswith(":battlefield") is True
+    exploited = bears if now(s, bears).zone.endswith(":graveyard") else knight
+    other = knight if exploited is bears else bears
+    assert now(s, exploited).zone.endswith(":graveyard")
+    assert now(s, scavenger).counters == {"+1/+1": 1} and "haste" in ch(s, scavenger).keywords
+    to_phase(s, "main1", turn=3)
+    assert "haste" not in ch(s, scavenger).keywords
+    cast_on(s, "Lightning Bolt", other)
+    assert now(s, scavenger).counters == {"+1/+1": 2} and "haste" not in ch(s, scavenger).keywords
+    check(s)

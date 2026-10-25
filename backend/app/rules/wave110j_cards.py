@@ -111,3 +111,12 @@ def _love(d: Def) -> Def:
 _BUILD["Whenever you attack with exactly two creatures, those creatures gain first strike until end of turn, then draw a card. Whenever either of those creatures deals combat damage to a player this combat, put a +1/+1 counter on it."] = (
     "Whenever you attack with two or more creatures, attacking creatures gain first strike until end of turn, then draw a card. Whenever an attacking creature deals combat damage to a player this combat, put a +1/+1 counter on it.",
     _love)
+
+
+def _scavenger(d: Def) -> Def:
+    """Silumgar Scavenger: the haste goes to the Scavenger only if it exploited the creature that died (702.110b; conditions.py exploited110j)."""
+    return {**d, "effects": [*d["effects"], {"do": "only_if", "cond": {"exploited110j": True}, "skip": 1}, {"do": "grant", "who": "self", "keywords": ["haste"]}]}
+
+
+_BUILD["Whenever another creature you control dies, put a +1/+1 counter on this creature. It gains haste until end of turn if it exploited that creature."] = (
+    "Whenever another creature you control dies, put a +1/+1 counter on this creature.", _scavenger)

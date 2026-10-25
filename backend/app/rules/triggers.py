@@ -281,6 +281,7 @@ def exploiting(plan: Plan, card_ids: list[str], exploiter: str, player: str) -> 
         card = plan.state.cards.get(cid)
         if card is not None and card.zone.endswith(":battlefield"):
             emit(plan.state, "exploited", object_id=plan.oid(card), card=cid, player=player, source=plan.oid(src), by_card=exploiter)
+            plan.rules.exploited110j.append((plan.oid(src), plan.oid(card)))
 
 
 def _discarded_instead(plan: Plan, e: Event) -> bool:

@@ -1669,6 +1669,9 @@ def holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
         from app.rules import name_relation_continuations
 
         return name_relation_continuations.event_linked_name(plan, ctx)
+    if cond.get("exploited110j"):  # -- wave 110J -- the creature the trigger is about was exploited by this source (702.110b)
+        refs = (ctx.get("event") or {}).get("objects") or []
+        return bool(refs) and (ctx.get("source_object"), refs[0]["object_id"]) in plan.rules.exploited110j
     if 'copy_spell_targets' in cond:
         from app.rules import token_copy_sources
 
