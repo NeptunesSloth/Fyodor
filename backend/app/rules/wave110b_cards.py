@@ -88,7 +88,7 @@ def tiered(ch: Any, lines: list[Any]) -> Def | None:
     if len(lines) != 4 or lines[0].text != _VINCENT or None in found:
         return None
     modes = []
-    for ab, m in zip(lines[1:], found, strict=True):
+    for m in found:
         assert m is not None
         parts = [scripts.define(replace(lines[0], text=t), ch) for t in (
             'Until end of turn, target creature you control gains "When this creature dies, return it to the battlefield tapped under its owner\'s control."',
