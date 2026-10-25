@@ -40,7 +40,7 @@ _REMOVE = re.compile(
 _REMOVE_ALL = re.compile(rf"^Remove all (?P<kind>[\w+/\-]+) counters from {_SELF}$")  # (the source's own: ~ / this permanent)
 _N = r"(?P<n>a|an|another|one|two|three|four|five|six|seven|eight|nine|ten|thirteen|fifteen|\d+)"  # (seven …: wave 4H; fifteen: 17B)
 _SAC_CHOSEN = re.compile(rf"^Sacrifice {_N} (?P<what>.+)$")
-_COST_CARD = r"(?:[\w\-]+ )*cards?(?: with mana value X)?"
+_COST_CARD = r"(?:[\w\-]+ )*cards?(?: with (?:mana value X|flying))?"  # (wave 110F: "a creature card with flying", Steamcore Scholar)
 _DISCARD = re.compile(rf"^Discard {_N} (?P<what>{_COST_CARD})(?P<random> at random)?$")
 _DISCARD_SELF = re.compile(r"^Discard (?:this card|~)$")  # -- ability words (wave 4F) -- channel (113.6m)
 _REVEAL_SELF = re.compile(r"^Reveal (?:this (?:card|creature)|~) from your hand$")  # -- forecast (wave 24C) -- 702.57a (113.6m: from the hand)
@@ -387,7 +387,7 @@ def _component(part: str, card_name: str) -> CostComponent | None:
             return None
         key = _selector(m["what"], zone="hand")
         if key is None and m["n"] in ("a", "an", "one") and not m["random"] and " or " in m["what"]:
-            first, second = m["what"].split(" or ", 1)
+            first, second = re.split(r" or (?=an? )", m["what"], maxsplit=1) if re.search(r" or an? ", m["what"]) else m["what"].split(" or ", 1)  # (wave 110F: "an instant or sorcery card or a creature card with flying")
             left = _selector(first, zone="hand")
             right = _selector(re.sub(r"^an? ", "", second), zone="hand")
             # 701.9a / 602.2b: discard one card matching either complete description.

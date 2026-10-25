@@ -15,6 +15,7 @@
 * 508.1d, 509.1c: "Target creature attacks or blocks this turn if able."; 701.40g, 708.8: "You may turn a creature you control face up." (Hustle // Bustle).
 * 701.20a, 202.2d: "Reveal any number of cards in your hand. You gain 2 life for each green mana symbol in those cards' mana costs." (Phosphorescent Feast).
 * 602.5, 605.1a: "Creatures with flying can't attack or block, and their activated abilities with {T} in their costs can't be activated." (Katabatic Winds).
+* 701.9a, 118.12: "Then discard two cards unless you discard an instant or sorcery card or a creature card with flying." (Steamcore Scholar).
 * 709.5f, 709.5h: "unlock a locked door of up to one target Room you control" (Ghostly Keybearer).
 * 508.3a, 508.5: "Whenever an opponent attacks a planeswalker you control with one or more creatures, ~ deals 2 damage to that player and you gain 2 life." (Oath of Kaya).
 """
@@ -27,6 +28,7 @@ from app.game.errors import ActionError
 from app.rules import coverage
 from tests.game_helpers import act
 from tests.test_rules_wave12a_counters_keywords import real
+from tests.test_rules_wave18g_rooms import room
 from tests.test_rules_wave34b_activated import attack
 from tests.test_rules_wave100f_attached import to_phase
 from tests.test_rules_wave100f_gear import block
@@ -35,13 +37,20 @@ from tests.test_rules_wave100n_multi import (
     answer,
     card_db,  # noqa: F401  (fixture DB with EXTRA)
     cast,
+    gy,
 )
-from tests.test_rules_wave18g_rooms import room
 from tests.wave9c_kit import build, check, life, mana, put, to_hand, zone_of
 
 EXTRA = [
     real('Oath of Kaya', '{1}{R}{W}', 3, 'Legendary Enchantment',
          "Whenever an opponent attacks a planeswalker you control with one or more creatures, Oath of Kaya deals 2 damage to that player and you gain 2 life.", None, 'RW'),
+    real('Steamcore Scholar', '{2}{U}', 3, 'Creature — Weird Detective',
+         "Flying, vigilance\nWhen this creature enters, draw two cards. Then discard two cards unless you discard an instant or sorcery card or a creature card with flying.",
+         ('2', '2'), 'U'),
+    real('Ravager Wurm', '{3}{R}{G}{G}', 6, 'Creature — Wurm',
+         "Riot (This creature enters with your choice of a +1/+1 counter or haste.)\nWhen this creature enters, choose up to one —\n• This creature fights target creature you don't control.\n• Destroy target land with an activated ability that isn't a mana ability.",
+         ('4', '5'), 'RG'),
+    real('Test Utility Land 110F', '', 0, 'Land', "{T}: Add {C}.\n{2}, {T}: Draw a card.", None, ''),
     real('Ghostly Keybearer', '{3}{U}', 4, 'Creature — Spirit',
          "Flying\nWhenever this creature deals combat damage to a player, unlock a locked door of up to one target Room you control.", ('3', '3'), 'U'),
     room("Grand Entryway", ("Grand Entryway", "{1}{W}", "When you unlock this door, create a 1/1 white Glimmer enchantment creature token."),
@@ -93,7 +102,7 @@ EXTRA = [
     real('Test Flyer', '{2}{U}', 3, 'Creature — Bird', 'Flying\n{T}: Draw a card.', ('1', '1'), 'U'),
 ]
 _BASE.extend(EXTRA)  # the shared fixture DB builder reads this list
-NAMES = ["Ghostly Keybearer", "Oath of Kaya", "Katabatic Winds", "Rivals' Duel", "Dead Ringers", "Cathedral Membrane", "Taunt", "Jabari's Influence", "Don & Leo, Problem Solvers", "Rapid Fire", "Time and Tide", "Abby, Merciless Soldier", "Zombie Scavengers", "Toluz, Clever Conductor", "Invasion of Regatha", "Test Disciples 110F", "Hustle // Bustle", "Phosphorescent Feast"]
+NAMES = ["Ravager Wurm", "Steamcore Scholar", "Ghostly Keybearer", "Oath of Kaya", "Katabatic Winds", "Rivals' Duel", "Dead Ringers", "Cathedral Membrane", "Taunt", "Jabari's Influence", "Don & Leo, Problem Solvers", "Rapid Fire", "Time and Tide", "Abby, Merciless Soldier", "Zombie Scavengers", "Toluz, Clever Conductor", "Invasion of Regatha", "Test Disciples 110F", "Hustle // Bustle", "Phosphorescent Feast"]
 
 
 @pytest.mark.parametrize("name", NAMES)
@@ -460,4 +469,54 @@ def test_ghostly_keybearer_unlocks_the_locked_door_of_your_room(cards, cast_face
     assert life(s, "p2") == (37 if cast_face == 0 else 36)  # (the right door's counter came before combat when it was the cast half)
     assert any(c.name == "Glimmer" for c in s.state.cards.values())  # (the left door's trigger: at the cast, or from the unlock)
     assert s.state.cards[key.id].counters.get("+1/+1", 0) == 1  # (the right door's trigger, from the cast or from the unlock)
+    check(s)
+
+
+@pytest.mark.parametrize("pay,discarded", [("Test Burn 110F", 1), ("Test Flyer", 1), (None, 2)])
+def test_steamcore_scholar_discards_one_fitting_card_or_two_cards(cards, pay, discarded):
+    """118.12: an instant, a sorcery or a creature card with flying pays; Grizzly Bears (no flying) doesn't; declining discards two cards."""
+    s = build(cards, ["Steamcore Scholar", "Test Burn 110F", "Test Flyer", "Grizzly Bears"], forests=20)
+    hand = {n: to_hand(s, n) for n in ("Test Burn 110F", "Test Flyer", "Grizzly Bears")}
+    mana(s, U=1, C=2)
+    cast(s, "Steamcore Scholar")
+    while s.state.rules.decision is None:
+        act(s, s.state.rules.priority, type="pass_priority")
+    act(s, "p1", type="choose", decision_id=s.state.rules.decision.id, option_ids=["pay" if pay else "decline"])
+    d = s.state.rules.decision
+    if pay:
+        assert d is not None and {o.id for o in d.options} == {hand["Test Burn 110F"].id, hand["Test Flyer"].id}  # (not the Bears)
+        answer(s, [hand[pay].id])
+    else:
+        answer(s, [hand["Grizzly Bears"].id, hand["Test Burn 110F"].id])
+    assert gy(s) == discarded
+    assert (s.state.cards[hand[pay].id].zone == "p1:graveyard") if pay else (s.state.cards[hand["Grizzly Bears"].id].zone == "p1:graveyard")
+    check(s)
+
+
+@pytest.mark.parametrize("mode", ["fight", "land"])
+def test_ravager_wurm_fights_or_destroys_a_land_with_a_nonmana_ability(cards, mode):
+    """602.1, 605.1a: only a land with an activated ability that isn't a mana ability can be chosen (not an Island, not a mana-only land)."""
+    s = build(cards, ["Ravager Wurm"], ["Grizzly Bears", "Test Utility Land 110F"], forests=20)
+    bear = put(s, "Grizzly Bears", "p2")
+    utility = put(s, "Test Utility Land 110F", "p2")
+    island = next(c for c in s.state.cards.values() if c.name == "Island" and c.owner == "p2")
+    act(s, "p2", type="move", card_ids=[island.id], to={"player": "p2", "zone": "battlefield"})
+    mana(s, R=1, G=2, C=3)
+    cast(s, "Ravager Wurm")
+    for _ in range(12):
+        d = s.state.rules.decision
+        if d is None:
+            if not s.state.zones.get("stack"):
+                break
+            act(s, s.state.rules.priority, type="pass_priority")
+        elif d.options[0].id == "0:0":
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=["0:0" if mode == "fight" else "1:0"])
+        elif {o.id for o in d.options} & {bear.id, utility.id, island.id}:
+            assert {o.id for o in d.options} == ({bear.id} if mode == "fight" else {utility.id})
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[d.options[0].id])
+        else:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[d.options[0].id])  # (riot)
+    assert s.state.cards[bear.id].zone == ("p2:graveyard" if mode == "fight" else "p2:battlefield")
+    assert s.state.cards[utility.id].zone == ("p2:battlefield" if mode == "fight" else "p2:graveyard")
+    assert s.state.cards[island.id].zone == "p2:battlefield"
     check(s)
