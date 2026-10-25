@@ -206,6 +206,15 @@ def noted_draw(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return True
 
 
+def _memories() -> Parsed:
+    """Memories Returning: the five revealed cards are split by turns, you taking one, then a chosen opponent putting one on the bottom (608.2c)."""
+    first = _p("Reveal the top five cards of your library. Put one of them into your hand.")[0]
+    pick = first[1]
+    bottom = {**pick, "to": "bottom", "chooser": "ref:opp110a"}
+    last = {**pick, "which": "all"}
+    return [*first, {"do": "choose_value", "who": "you", "what": "opponent", "as": "opp110a"}, bottom, copy.deepcopy(pick), copy.deepcopy(bottom), last], None, False
+
+
 def _decree() -> Parsed:
     """Decree of Annihilation: the three exiles in order (608.2c); "all cards from all hands" is every card in every hand (the hand zones, 400.1)."""
     first = _p("Exile all artifacts, creatures, and lands. Exile all cards from all graveyards.")[0]
@@ -321,6 +330,8 @@ def _beheld_power(text: str) -> Callable[[], Parsed]:
 
 
 BUILDERS: dict[str, Callable[[], Parsed]] = {
+    "Reveal the top five cards of your library. Put one of them into your hand. Then choose an opponent. They put one on the bottom of your library. "
+    "Then you put one into your hand. Then they put one on the bottom of your library. Put the other into your hand.": _memories,
     "Counter all spells your opponents control and all abilities your opponents control. Create a 1/1 blue and black Faerie creature token with "
     "flying for each spell and ability countered this way.": _answer,
     "Create three 1/1 white Ninja Turtle Spirit creature tokens. If this spell's sneak cost was paid, they enter tapped and attacking.": _ronin,

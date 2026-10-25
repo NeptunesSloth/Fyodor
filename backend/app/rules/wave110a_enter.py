@@ -36,7 +36,7 @@ def static(t: str) -> dict[str, Any] | None:
 def apply(plan: Plan, card: CardInstance) -> None:
     from app.rules import layers, permissions, selectors
 
-    for src, _, d in permissions._table_statics(plan.state, plan.info, {"note_life110a"}):
+    for src, _, _d in permissions._table_statics(plan.state, plan.info, {"note_life110a"}):
         if src.id == card.id:
             note(plan, card)
     for src, _, d in permissions._table_statics(plan.state, plan.info, {"enter_become110a"}):

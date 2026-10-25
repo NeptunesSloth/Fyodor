@@ -126,3 +126,32 @@ def test_splendor_draws_only_if_life_is_at_least_the_life_noted_as_it_entered(ca
     assert _hand(s) == 1 + (1 if draws else 0)  # the draw step's card, and the upkeep trigger's
     assert s.state.cards[card_named(s, SPLENDOR).id].choices["Noted life total"] == str(after)  # "Then note your life total"
     check(s)
+
+
+MEMORIES = "Memories Returning"
+
+test_full_memories = full_test([MEMORIES])
+
+
+def test_memories_returning_splits_the_five_cards_you_two_and_the_opponent_two_to_the_bottom(cards):
+    """608.2c in order: you take one, the chosen opponent bottoms one, you take one, they bottom one, the last one is yours."""
+    s = build(cards, [MEMORIES], forests=40, islands=40)
+    cast(s, MEMORIES)
+    top = list(s.state.zones["p1:library"][:5])
+    hand = _hand(s)
+    picks = []
+    for _ in range(12):
+        d = s.state.rules.decision
+        if d is None:
+            if not s.state.zones.get("stack"):
+                break
+            act(s, s.state.rules.priority, type="pass_priority")
+            continue
+        if d.kind == "choose_cards":
+            picks.append((d.player, d.options[0].card_id))
+        act(s, d.player, type="choose", decision_id=d.id, option_ids=[d.options[0].id])
+    assert [p for p, _ in picks] == ["p1", "p2", "p1", "p2"]
+    assert _hand(s) == hand + 3  # three of the five (the spell itself left the hand)
+    assert s.state.zones["p1:library"][-2:] == [picks[1][1], picks[3][1]]  # in the order they were put on the bottom
+    assert all(s.state.cards[c].zone == "p1:hand" for c in top if c not in (picks[1][1], picks[3][1]))
+    check(s)
