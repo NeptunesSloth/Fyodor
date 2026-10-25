@@ -1608,6 +1608,10 @@ def holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
         from app.rules import previous_own_turns
 
         return previous_own_turns.eligible_player(plan.state, ctx["controller"])
+    if "w110g" in cond:  # -- wave 110G --
+        from app.rules import wave110g_cards
+
+        return wave110g_cards.holds(plan, ctx, cond)
     if "w110a" in cond:  # -- wave 110A --
         from app.rules import wave110a
 

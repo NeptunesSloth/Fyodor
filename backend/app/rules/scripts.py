@@ -4885,7 +4885,7 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
             effects += each[0]
             skip_to = i + each[1]  # (wave 23A: the one sentence, or it and the one after it)
             continue
-        if text.startswith("then you may ") and effects and texts[i + 1:i + 2] and texts[i + 1].startswith("If you do") \
+        if text.startswith("then you may ") and effects and texts[i + 1:i + 2] and texts[i + 1].startswith(("If you do", "When you do, ")) \
                 and _may_pay_sentence(text[5:], texts[i + 1:i + 2], it, effects) is not None:
             text = text[5:]  # ("You gain 2 life. Then you may discard two cards. If you do, …": "then" only orders, 608.2c)
         if (paid := _may_pay_sentence(text, texts[i + 1:i + 2], it, effects)) is not None:
@@ -6026,6 +6026,10 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
 
     if (card110e := wave110e_cards.definition(ability, ch)) is not None:
         return card110e
+    from app.rules import wave110g_cards  # -- wave 110G --
+
+    if (card110g := wave110g_cards.definition(ability, ch)) is not None:
+        return card110g
     from app.rules import multi100n  # -- multi (wave 100N) --
 
     if (whole100n := multi100n.definition(ability, ch)) is not None:

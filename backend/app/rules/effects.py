@@ -4505,7 +4505,10 @@ def resume_choose_from_hand(plan: Plan, d: Any, chosen: list[str]) -> None:
     _remember(plan, ctx, e, chosen)  # "that card" / "those cards": the chosen cards, in that hand
     if e.get("did"):  # -- if you do (wave 15C) -- "You may choose a card from it. If you do, …": a card was chosen (608.2c)
         context.bind_payment(ctx, e["did"], bool(chosen))
-    _after_hand_choice(plan, ctx, chosen)
+    if e.get("keep110g"):  # -- wave 110G -- a second choice from the same revealed hand follows (Distended Mindbender): the rest stays revealed
+        ctx["revealed"] = [c for c in ctx.get("revealed") or [] if c not in chosen]
+    else:
+        _after_hand_choice(plan, ctx, chosen)
     continue_effects(plan, ctx)
 
 
@@ -7096,3 +7099,7 @@ from app.rules import wave110e_cards as _wave110e  # noqa: E402, I001  -- wave 1
 PRIMITIVES.update(_wave110e.PRIMITIVES)
 from app.rules import wave110f_cards as _wave110f_cards  # noqa: E402, I001  -- cards (wave 110F) --
 PRIMITIVES.update(_wave110f_cards.PRIMITIVES)
+# -- wave 110G --
+from app.rules import wave110g_cards as _wave110g_cards  # noqa: E402
+
+PRIMITIVES.update(_wave110g_cards.PRIMITIVES)

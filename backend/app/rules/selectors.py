@@ -2762,6 +2762,10 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
             return False
         if extra == "didnt_attack_this_turn" and _attacked_this_turn_now(plan, card):  # -- damage sized by a count (wave 34D) --
             return False
+        if extra == "protected_by_opp110g" and __import__("app.rules.battles", fromlist=["x"]).protector(plan.state, card) in (None, you):  # -- (wave 110G) -- 310.8: a battle an opponent protects
+            return False
+        if extra == "didnt_attack_combat110g" and card.is_attacking:  # -- (wave 110G) -- 508.1: not among this combat's declared attackers (Total War)
+            return False
         if extra == "blocked_this_turn" and not _blocked_this_turn_now(plan, card):  # -- combat state (wave 27A) --
             return False
         if extra == "attacked_or_blocked_this_turn" and not (_attacked_this_turn_now(plan, card) or _blocked_this_turn_now(plan, card)):  # (wave 100K)

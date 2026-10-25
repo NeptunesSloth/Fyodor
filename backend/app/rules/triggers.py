@@ -669,6 +669,8 @@ def _zone_facts(plan: Plan, e: Event) -> list[Fact]:
         if got is not None:
             out.append(("leave_graveyard", got[0], got[1], got[0].owner,
                         {"oid": e.object_id, "new_oid": e.new_object_id, "to": e.to_zone, "amount": 1}))
+        if to == "hand" and not e.manual and (new := _card_in(plan, e.card, e.to_zone)) is not None and new[0].owner == (e.from_zone or "").split(":")[0]:
+            out.append(("gy_to_hand110g", new[0], new[1], new[0].owner, {"oid": e.new_object_id, "actor": new[0].owner, "amount": 1}))  # -- (wave 110G) -- 400.7: the new object in its owner's hand
     if to == "battlefield" and frm != "battlefield":
         # (if it has left again since, as it was on the battlefield: it still entered, 603.6a)
         got = _object_then(plan, e.card, e.new_object_id)
@@ -1687,6 +1689,12 @@ def _generic_events(plan: Plan, events: list[Event]) -> None:
                 ch = plan.ch(card)
                 watchers += [((card, ch, i, d), -big, big) for i, d in abilities(plan, ch, "event")
                              if d.get("cond", {}).get("event") == "plotted" and d["cond"].get("subject") == "self"]
+        if e.kind == "zone_change" and not e.manual and _zone(e.from_zone) == "graveyard" and _zone(e.to_zone) == "hand" and e.card in plan.state.cards:
+            card = plan.state.cards[e.card]  # -- (wave 110G) -- "When this card is put into your hand from your graveyard": triggers from the hand (603.6)
+            if not plan.manual(card) and card.owner in plan.live():
+                ch = plan.ch(card)
+                watchers += [((card, ch, i, d), -big, big) for i, d in abilities(plan, ch, "event")
+                             if d.get("cond", {}).get("event") == "gy_to_hand110g" and d["cond"].get("subject") == "self"]
         if e.kind == "cycled" and not e.manual and e.card in plan.state.cards:
             # 702.29c: "When you cycle ~" triggers from whatever zone the card went to
             card = plan.state.cards[e.card]
