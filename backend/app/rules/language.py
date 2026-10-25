@@ -2346,8 +2346,8 @@ def _parse(text: str) -> tuple[Effects, Any]:
     m = re.fullmatch(rf"remove (?P<n>{AMT}|all) (?P<k>[+-]\d+/[+-]\d+|[a-z]+) counters? from (?P<o>.+)", text)
     if m:
         kind, key, group = ref(m["o"])
-        if kind == "players" or (m["n"] == "all" and rider is not None):
-            raise _Fail
+        if kind == "players" or (m["n"] == "all" and rider is not None) or re.search(r"\b(?:players?|opponents?)\b", m["o"]):
+            raise _Fail  # (wave 110I: remove_counters only reads cards; a player's counters would silently do nothing)
         # (wave 17D: "remove all -1/-1 counters from it" - as many as there are, 122.8)
         n = 10**6 if m["n"] == "all" else _apply(_amount(m["n"]), rider)
         return [{"do": "remove_counters", "who": _who(kind, key), "kind": m["k"], "n": n}], _one(group)

@@ -51,7 +51,7 @@ def resolve_target(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     source = ObjectRef(card=ctx['source_card'], object_id=ctx['source_object'])
     for r in phase_out(plan, source, effects._cards(plan, ctx, 'target'), ctx['controller']):
         for p in plan.rules.phase_lifetimes:
-            if p.source == source and r in p.recipients:
+            if p.source == source and r in p.recipients and not e.get('untapped110i'):  # (110I The Moment: no tap, 702.26a)
                 p.tap_on_return = True
     return True
 

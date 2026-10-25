@@ -713,6 +713,7 @@ def _less_than_x(s: Selector, m: re.Match[str]) -> Selector:  # (107.3f: the X o
     return replace(s, compare=(*s.compare, ({"mana value": "mv", "power": "power", "toughness": "toughness"}[m["what"]], "<", X_VALUE)))
 
 
+OWN_COUNTERS = "own_counters:"  # -- counters (wave 110I) -- the counters of that kind on the object tested
 OWN_GRAVEYARD = "own_gy"  # -- most-played modal spells (wave 50I) -- the number of cards in the graveyard of the controller of the object tested
 
 
@@ -731,6 +732,11 @@ _SUFFIXES.insert(0, (re.compile(r"(?:,)? with (?P<what>power|toughness|mana valu
 @_suffix(r"with (?P<what>mana value|power|toughness) less than or equal to the number of cards in its controller's graveyard")  # (Drown in the Loch)
 def _own_graveyard(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, compare=(*s.compare, ({"mana value": "mv", "power": "power", "toughness": "toughness"}[m["what"]], "<=", OWN_GRAVEYARD)))
+
+
+@_suffix(r"with (?P<what>mana value|power|toughness) less than or equal to the number of (?P<kind>[a-z]+) counters on it")  # -- counters (wave 110I) -- Corrosion
+def _own_counters(s: Selector, m: re.Match[str]) -> Selector:
+    return replace(s, compare=(*s.compare, ({"mana value": "mv", "power": "power", "toughness": "toughness"}[m["what"]], "<=", OWN_COUNTERS + m["kind"])))
 
 
 @_suffix(r"with power or toughness (?P<n>\d+) or (?P<dir>less|greater)")  # (wave 15A: Tetsuko Umezawa — either one)
@@ -1289,6 +1295,39 @@ def _extreme(s: Selector, m: re.Match[str]) -> Selector:
 
 
 _SUFFIXES.insert(0, _SUFFIXES.pop())  # (before the controller suffix, whose "you control" would be taken for the whole phrase's: "… among creatures you control")
+
+
+def _left_together(plan: Plan, card: CardInstance, stat: str, want: str, unwanted: str) -> list[int | None]:
+    """603.10a / 700.4: a leaves-the-battlefield trigger looks back at the battlefield as it was just before the event, so
+    permanents that left with this one (a board wipe, one batch) still count. Their last known information, same controller."""
+    now = plan.state.cards.get(card.id)
+    if now is not None and now.zone.endswith(":battlefield"):
+        return []
+    from app.rules.triggers import _lki_characteristics
+
+    events = plan.rules.events
+
+    mine = next((e for e in reversed(events) if e.card == card.id and (e.from_zone or "").endswith(":battlefield")), None)
+    snap = plan.rules.lki.get(mine.object_id or "") if mine else None
+    if mine is None or snap is None:
+        return []
+    out: list[int | None] = []
+    for e in events:
+        other = plan.rules.lki.get(e.object_id or "")
+        if e.batch != mine.batch or e.card == card.id or other is None or not (e.from_zone or "").endswith(":battlefield") or other.controller != snap.controller:
+            continue
+        ch = _lki_characteristics(plan, other)
+        if (not want or set(want.split("|")) & ch.types) and not set(filter(None, unwanted.split("|"))) & ch.types:
+            out.append(_stat(ch, stat))
+    return out
+
+
+@_suffix(r"with the greatest power among creatures that player controls")  # -- extremes (wave 110I) -- Kraven the Hunter: of that object's own controller (reads greatest_own, 700.4 LKI)
+def _extreme_own(s: Selector, m: re.Match[str]) -> Selector:
+    return replace(s, extras=(*s.extras, "greatest_own:power:Creature"))
+
+
+_SUFFIXES.insert(0, _SUFFIXES.pop())
 
 
 @_suffix(r"(?:with|that has) (?:the chosen|that) name")  # -- card names (wave 22B) -- 709.4a: one of its names is the chosen name
@@ -2441,6 +2480,8 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
             from app.rules import zones100g
 
             n = zones100g.attacked(plan, you)
+        elif isinstance(n, str) and n.startswith(OWN_COUNTERS):  # (wave 110I) 122.1: counters on the object, as it is when checked
+            n = card.counters.get(n[len(OWN_COUNTERS):], 0)
         elif n == OWN_GRAVEYARD:  # (wave 50I) its controller's graveyard, as it is when checked (608.2b: again as the spell resolves)
             n = len(plan.state.zones.get(f"{card.controller}:graveyard", []))
         elif isinstance(n, str) and n.startswith(COUNT_STAT):  # -- control change (wave 20E) --
@@ -2840,6 +2881,7 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
             rivals = [_stat(plan.ch(c), stat) for c in plan.state.cards.values()
                       if c.controller == card.controller and c.zone.endswith(":battlefield") and plan.in_game(c)
                       and (not want or set(want.split("|")) & plan.ch(c).types) and not set(filter(None, unwanted.split("|"))) & plan.ch(c).types]
+            rivals += _left_together(plan, card, stat, want, unwanted)  # -- extremes (wave 110I) -- 603.10a: creatures that left in the same event
             if mine is None or any(p is not None and (p < mine if extra.startswith("least") else p > mine) for p in rivals):
                 return False
         if (extra == "no_abilities" and ch.has_abilities) or (extra == "has_abilities" and not ch.has_abilities):  # (wave 42A)
