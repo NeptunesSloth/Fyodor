@@ -25,6 +25,28 @@ _APPEND: dict[str, tuple[str, list[Def]]] = {
 
 # whole ability text -> (the wording the grammar reads for the targets, the effects that replace the parsed ones; "target:0" = the first target group)
 _SWAP: dict[str, tuple[str, list[Def]]] = {
+    "For each creature attacking you or a planeswalker you control, create a token that's a copy of that creature and that's blocking that creature. Exile those tokens at end of combat.":
+        ("Draw a card.", [{"do": "mirror_match110e"}]),
+    # 509.4, 509.1h/509.3c: the token enters blocking the attacker (an unblocked one becomes blocked by it; combat_rules.enter_blocking, block_events.become_blocked)
+    "Create a 1/1 green Saproling creature token that's blocking target creature attacking you.":
+        ("Tap target creature attacking you.",
+         [{"do": "create_token", "who": "you", "n": 1, "as": "blk110e",
+           "token": {"name": "Saproling", "power": "1", "toughness": "1", "colors": ["G"], "type_line": "Token Creature — Saproling", "text": ""}},
+          {"do": "become_blocked", "who": "target"}, {"do": "enter_blocking", "who": "ref:blk110e", "blocked": "target"}]),
+    # 205.1b: "becomes a Coward in addition to its other types" (the card's own name is read as ~ in the grammar, so the type is added here)
+    "Target creature can't block this turn and becomes a Coward in addition to its other types until end of turn.":
+        ("Target creature can't block this turn.",
+         [{"do": "restrict", "who": "target", "rules": ["cant_block"]},
+          {"do": "become", "who": "target", "types": [], "retain": True, "add_creature_types": ["Coward"], "duration": "end_of_turn"}]),
+    "Killer deals 3 damage to target creature and each other creature that shares a creature type with it.":  # 120.3; all of them are dealt damage at once
+        ("Killer deals 3 damage to target creature.", [{"do": "damage", "who": "kin110e", "n": 3}]),
+    # 608.2h/707.2: the Shapeshifters copy the returned creature as it last existed on the battlefield (the ref keeps its last known information)
+    "Return target creature to its owner's hand. You may have Shapeshifters you control become copies of that creature until end of turn.":
+        ("Return target creature to its owner's hand.",
+         [{"do": "bounce", "who": "target", "as": "abs110e"},
+          {"do": "may_rest"},
+          {"do": "become_copy", "who": 'sel:{"controller":"you","subtypes":["Shapeshifter"]}', "with": "ref:abs110e", "last_known": True,
+           "duration": "end_of_turn"}]),
     "Permanents enter tapped this turn.": ("Draw a card.", [{"do": "enter_tapped110e"}]),
     # 509.1h/509.3c: each target becomes blocked (no-op for one no longer an unblocked attacker); then 120.3 damage to each of them
     "X target attacking creatures become blocked. Choking Vines deals 1 damage to each of those creatures.":
@@ -91,7 +113,38 @@ def modal_lines(lines: list[Any]) -> list[Any]:
                                                            f"{m[1]} {m[2]} and gains {m[3]}.") for x in lines[1:] if (m := _WILD_MODE.match(x.text)))]
 
 
-PRIMITIVES = {"spell_targets110e": bind_targets, "modified_cast110e": bind_modified, "enter_tapped110e": enter_tapped_turn}
+def mirror_match(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Mirror Match: for each creature attacking the caster or a planeswalker they control (as the spell resolves), a token copy of it that enters
+    blocking it (509.4; an unblocked attacker becomes blocked, 509.3c) and is exiled at end of combat. Expanded into one native block per attacker."""
+    import copy
+
+    from app.rules import context, scripts
+
+    me = ctx["controller"]
+    attackers = []
+    for c in plan.state.cards.values():
+        t = c.attacking
+        if c.is_attacking and c.zone.endswith(":battlefield") and t is not None and (
+                t.id == me or (t.id in plan.state.cards and plan.state.cards[t.id].controller == me)):
+            attackers.append(c.id)
+    made = scripts.parse_effects("Create a token that's a copy of target creature attacking you. Exile it at end of combat.")
+    assert made is not None
+    block: list[dict[str, Any]] = []
+    for i, cid in enumerate(attackers):
+        context.bind_objects(plan, ctx, f"mm{i}", [cid])
+        for eff in copy.deepcopy(made[0]):
+            eff = {**eff, **({"who": f"ref:mm{i}"} if eff.get("who") == "target" else {}), **({"as": f"mmt{i}"} if eff.get("as") else {})}
+            if eff.get("who") == "ref:e0":
+                eff["who"] = f"ref:mmt{i}"
+            block.append(eff)
+            if eff.get("do") == "token_copy":
+                block[-1:] = [{"do": "become_blocked", "who": f"ref:mm{i}"}, eff,
+                              {"do": "enter_blocking", "who": f"ref:mmt{i}", "blocked": f"ref:mm{i}"}]
+    ctx["effects"][ctx["next"]:ctx["next"]] = block
+    return True
+
+
+PRIMITIVES = {"mirror_match110e": mirror_match, "spell_targets110e": bind_targets, "modified_cast110e": bind_modified, "enter_tapped110e": enter_tapped_turn}
 
 _FLYERS = "Creatures with flying can't attack you or block creatures you control."
 _BLAZE = ("Target creature defending player controls can block any number of creatures this turn. "
