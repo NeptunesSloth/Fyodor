@@ -1227,5 +1227,24 @@
   "keywords": [
    "Vanishing"
   ]
+ },
+ {
+  "name": "Flameblade Angel",
+  "layout": "normal",
+  "mana_cost": "{4}{R}{R}",
+  "cmc": 6.0,
+  "type_line": "Creature — Angel",
+  "oracle_text": "Flying\nWhenever a source an opponent controls deals damage to you or a permanent you control, you may have this creature deal 1 damage to that source's controller.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Flying"
+  ],
+  "power": "4",
+  "toughness": "4"
  }
 ]

@@ -750,6 +750,7 @@ def _damage_facts(plan: Plan, e: Event) -> list[Fact]:
     recipient_is_battle = got is not None and "Battle" in got[1].types  # (120.3h)
     dealt_info = {**base, "combat": e.combat, "recipient": e.player, "recipient_creature": recipient_is_creature,
                   "recipient_planeswalker": recipient_is_walker, "recipient_battle": recipient_is_battle,
+                  "recipient_ctl110b": got[0].controller if got is not None else None,  # (-- one-card wordings (wave 110B) -- a permanent's controller)
                   "recipient_blocking110b": got is not None and bool(got[0].blocking),  # (-- one-card wordings (wave 110B) -- 509.1g: a blocker)
                   "recipient_subtypes": list(got[1].subtypes) if got is not None else []}  # (wave 15B)
     if got is not None:  # -- other side (wave 6D) -- "deals damage to a creature, destroy that creature" (other_side.py)
@@ -1274,6 +1275,7 @@ def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: F
                 return False
         recipient = info.get("recipient")
         if (to == "player" and recipient is None) or (to == "you" and recipient != you) or \
+                (to == "you_or_perm110b" and you not in (recipient, info.get("recipient_ctl110b"))) or \
                 (to == "creature_or_opponent" and not (info.get('recipient_creature') or recipient is not None and recipient != you)) or \
                 (to == "opponent" and (recipient is None or recipient == you)) or \
                 (to == "creature" and not info.get("recipient_creature")) or \
