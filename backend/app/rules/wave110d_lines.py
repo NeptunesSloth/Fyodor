@@ -113,6 +113,8 @@ _AS: dict[str, str] = {
 }
 
 
+_KALDRA = "{1}: If you control Equipment named Helm of Kaldra, Sword of Kaldra, and Shield of Kaldra, create Kaldra, a legendary 4/4 colorless Avatar creature token. Attach those Equipment to it."
+_PYXIS = "{7}, {T}, Sacrifice ~: Each player turns face up all cards they own exiled with ~, then puts all permanent cards among them onto the battlefield."
 _SAME_MV = "Whenever you cast a spell, your opponents can't cast spells with the same mana value as that spell until your next turn."
 
 
@@ -184,6 +186,27 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
 
             d["targets"][0]["what"] = selectors.Selector(player="any", player_exclude=selectors.THAT_PLAYER).key()
             d["effects"] = [{"do": "draw_per_curse110d"}]
+        return d
+    if text == _KALDRA:  # Helm of Kaldra: 701.3a attach each of the three named Equipment to the new token (a plain create parse, then the checks and attach by hand)
+        d = scripts.define(replace(ability, text="{1}: Create Kaldra, a legendary 4/4 colorless Avatar creature token."), ch)
+        if d is not None:
+            from app.rules import selectors
+
+            names = ("Helm of Kaldra", "Sword of Kaldra", "Shield of Kaldra")
+            one = [selectors.Selector(controller="you", subtypes=("Equipment",), extras=("name:" + n,)).key() for n in names]
+            allk = selectors.Selector(either=tuple(one)).key()
+            conds = [{"value": {"count": k}, "op": ">=", "n": 1} for k in one]
+            d["effects"] = [{"do": "only_if", "cond": c, "skip": 4 - i} for i, c in enumerate(conds)] + [{**d["effects"][0], "as": "kaldra110d"}]
+            d["effects"].append({"do": "attach_to", "src": allk, "who": "ref:kaldra110d"})
+        return d
+    if text == _PYXIS:  # Pyxis of Pandemonium: 406.3 the cards turn face up in exile (public), then each permanent card enters under its owner's control (400.3)
+        d = scripts.define(replace(ability, text="{7}, {T}, Sacrifice ~: Each player returns to the battlefield all cards they own exiled with ~."), ch)
+        if d is not None:
+            from app.rules import selectors
+
+            sel = selectors.parse("permanent card")
+            assert sel is not None
+            d["effects"] = [{"do": "turn_up_linked100g", "who": "exiled_with", "as": "pyxis110d"}, {**d["effects"][0], "who": "exiled_with:" + sel.key()}]
         return d
     if text == _SAME_MV:
         d = scripts.define(replace(ability, text="Whenever you cast a spell, you gain life equal to that spell's mana value."), ch)
