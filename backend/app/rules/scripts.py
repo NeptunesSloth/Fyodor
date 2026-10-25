@@ -8998,8 +8998,12 @@ def _spell_definition(ch: Characteristics) -> Definition | None:
     as_cast = {defs[ab.index]['x_as_cast'] for ab in lines if defs[ab.index].get('x_as_cast') is not None}
     if as_cast - {'greatest_own_power'} or len(as_cast) > 1:
         return None
+    delegated = [defs[ab.index] for ab in lines if defs[ab.index].get("delegated_target")]  # -- delegated (wave 110D) -- "of an opponent's choice" (Evangelize): a lone line
+    if delegated and len(lines) != 1:
+        return None
     return {"kind": "spell", "effects": effects, **target_fields(target), **({"x_min": minimum_x} if minimum_x else {}),
-            **({'x_as_cast': next(iter(as_cast))} if as_cast else {})}
+            **({'x_as_cast': next(iter(as_cast))} if as_cast else {}),
+            **({k: delegated[0][k] for k in ("delegated_target", "delegated_controls110d")} if delegated else {})}
 
 
 # =====================================================================================================

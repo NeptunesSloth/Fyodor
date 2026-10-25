@@ -32,11 +32,40 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
 
         d = scripts.define(replace(ability, text="{T}: For as long as this creature remains tapped, gain control of target creature."), ch)
         return {**d, 'delegated_target': 'opponent', 'delegated_controls110d': True} if d else None
+    if (own := _opp_definition(ability, ch)) is not None:  # -- delegated (wave 110D) -- spells, triggers and a mixed own + opponent pair
+        return own
     if ability.kind != 'activated' or ability.text != TEXT:
         return None
     return {'kind': 'activated', 'cost': ability.cost, 'target': {'what': 'creature'},
             'delegated_target': 'opponent', 'effects': [
                 {'do': 'source_shield', 'props': {}, 'to': 'you', 'once': True, 'redirect': 'target'}]}
+
+
+EVANGELIZE = "Gain control of target creature of an opponent's choice they control."
+ARENA = "{3}, {T}: Tap target creature you control and target creature of an opponent's choice they control. Those creatures fight each other."
+TURNKEY = "When this creature enters, return target creature card of an opponent's choice from your graveyard to your hand."
+OWN = 'own_opponent110d'
+
+
+def _opp_definition(ability: Any, ch: Any) -> dict[str, Any] | None:
+    """Evangelize (spell), Arena (own target + opponent's pick, then they fight: 701.14a), Mausoleum Turnkey (trigger, 603.3d: its controller
+    puts it on the stack, the chosen opponent picks the target). The ability's controller keeps legality, payment and cancellation."""
+    from app.rules import scripts
+
+    text = ability.text.split(' (')[0]
+    if ability.kind == 'spell' and text == EVANGELIZE:
+        d = scripts.define(replace(ability, text="Gain control of target creature."), ch)
+        return {**d, 'delegated_target': 'opponent', 'delegated_controls110d': True} if d else None
+    if ability.kind == 'activated' and text == ARENA:
+        d = scripts.define(replace(ability, text="{3}, {T}: Tap target creature you control and target creature an opponent controls."), ch)
+        if not d:
+            return None
+        return {**d, 'effects': [*d['effects'], {'do': 'fight', 'who': 'target:0', 'with': 'target:1'}],
+                'delegated_target': OWN, 'delegated_controls110d': True}
+    if ability.kind == 'triggered' and text == TURNKEY:
+        d = scripts.define(replace(ability, text="When this creature enters, return target creature card from your graveyard to your hand."), ch)
+        return {**d, 'target_choice': 'opponent110d'} if d else None
+    return None
 
 
 @dataclass
@@ -61,6 +90,8 @@ def _mode(definition_: dict[str, Any]) -> str | None:
     marker = definition_.get('delegated_target')
     if marker == 'opponent':
         return 'opponent'
+    if marker == OWN:
+        return OWN
     if marker == {'kind': 'target_controller', 'of': 0, 'group': 1}:
         from app.rules import scripts
 
@@ -87,6 +118,8 @@ def _source(plan: Plan, frame: Announcement) -> tuple[Any, Any, Any]:
     if card is None or plan.oid(card) != frame.source_object or card.controller != frame.actor:
         raise ActionError('The original activating object has changed')
     ch = plan.ch(card)
+    if frame.text == '':  # a spell still in its announcement
+        return card, ch, None
     ability = next((a for a in ch.abilities if a.index == frame.ability and a.text == frame.text), None)
     if ability is None or ability.kind != 'activated' or not handles(frame.definition):
         raise ActionError('The original activated ability has changed')
@@ -94,13 +127,15 @@ def _source(plan: Plan, frame: Announcement) -> tuple[Any, Any, Any]:
 
 
 def _legal(plan: Plan, frame: Announcement, *, first: bool = False) -> list[str]:
-    from app.rules import scripts, targets
+    from app.rules import casting, scripts, targets
 
     _source(plan, frame)
-    source = targets.source_of(plan, frame.source_card, object_id=frame.source_object)
-    selector = scripts.target_groups(frame.definition)[0 if first else 1]['what'] if frame.mode == 'target_controller' else 'creature'
-    legal = targets.legal_targets(plan, selector, frame.actor, source, frame.source_card, source_object=frame.source_object)
-    if frame.definition.get('delegated_controls110d') and frame.opponent:
+    spell = frame.text == ''
+    source = (casting._target_source(plan, A.parse_action(frame.intent)) if spell
+              else targets.source_of(plan, frame.source_card, object_id=frame.source_object))
+    selector = scripts.target_groups(frame.definition)[0 if first else 1]['what'] if frame.mode in ('target_controller', OWN) else 'creature'
+    legal = targets.legal_targets(plan, selector, frame.actor, source, frame.source_card, **({} if spell else {'source_object': frame.source_object}))
+    if frame.definition.get('delegated_controls110d') and frame.opponent and not first:
         legal = [c for c in legal if plan.state.cards[c].controller == frame.opponent]
     if first:
         from app.rules import flagbearer86
@@ -112,23 +147,30 @@ def _legal(plan: Plan, frame: Announcement, *, first: bool = False) -> list[str]
 def announce(plan: Plan, action: A.CastSpell | A.ActivateAbility, definition_: dict[str, Any], what: str) -> Any:
     from app.rules.plan import decide
 
-    if not isinstance(action, A.ActivateAbility):
-        raise ActionError('Delegated target announcement is only available to this activated ability')
+    spell = isinstance(action, A.CastSpell)
     mode = _mode(definition_)
+    if spell and mode != 'opponent':
+        raise ActionError('Delegated target announcement is only available to this activated ability')
+    if spell and getattr(plan, 'delegated110d', None):  # the chosen opponent's pick, checked when they made it (resume_creature)
+        from app.rules import casting
+
+        if list(action.targets) != [plan.delegated110d]:
+            raise ActionError('The chosen opponent must select this spell’s target')
+        return casting.ChosenTargets(flat=[casting.target_ref(plan, plan.delegated110d)])
     if mode is None:
         raise ActionError('Unsupported delegated target announcement')
     if action.targets and (mode == 'opponent' or len(action.targets) != 1):
         raise ActionError('The chosen opponent must select this ability’s target')
     card = plan.state.cards[action.card_id]
     ch = plan.ch(card)
-    ability = next((a for a in ch.abilities if a.index == action.ability), None)
-    if ability is None or ability.kind != 'activated':
+    ability = None if spell else next((a for a in ch.abilities if a.index == action.ability), None)
+    if not spell and (ability is None or ability.kind != 'activated'):
         raise ActionError('This ability has no supported delegated target announcement')
-    frame = Announcement(plan.actor, card.id, plan.oid(card), action.ability, ability.text,
+    frame = Announcement(plan.actor, card.id, plan.oid(card), -1 if ability is None else action.ability, '' if ability is None else ability.text,
                          action.model_dump(mode='json', exclude={'r', 'actor', 'ts'}), what, definition_, mode)
-    if not _legal(plan, frame, first=mode == 'target_controller') or not _legal(plan, frame):
+    if not _legal(plan, frame, first=mode != 'opponent') or not _legal(plan, frame):
         raise ActionError(f'{what} has no legal target')
-    if mode == 'target_controller':
+    if mode != 'opponent':
         if action.targets:
             _first_target(plan, frame, action.targets[0])
         else:
@@ -152,6 +194,17 @@ def _first_target(plan: Plan, frame: Announcement, cid: str) -> None:
     if cid not in _legal(plan, frame, first=True):
         raise ActionError('The first target is not legal for the original activator')
     first = casting.target_ref(plan, cid).model_dump(mode='json')
+    if frame.mode == OWN:  # the opponent is chosen by the activator (one opponent: no question)
+        opponents = [pid for pid in plan.live() if pid != frame.actor]
+        frame = replace(frame, first=first)
+        if len(opponents) == 1:
+            _creature_choice(plan, replace(frame, opponent=opponents[0]))
+        else:
+            from app.rules.plan import decide
+
+            decide(plan, player=frame.actor, kind='choose_one', prompt=f'Choose an opponent to select the target for {frame.name}',
+                   options=[DecisionOption(id=pid, label=plan.name(pid)) for pid in opponents], resume=_resume(OPPONENT, frame))
+        return
     frame = replace(frame, first=first, opponent=plan.state.cards[cid].controller)
     _creature_choice(plan, frame)
 
@@ -199,7 +252,7 @@ def resume_opponent(plan: Plan, decision: Any, chosen: list[str]) -> None:
         return
     if decision.resume.get('invalid'):
         raise ActionError('Only the original activator may cancel this invalid announcement')
-    if frame.mode == 'target_controller':
+    if frame.mode == 'target_controller' or (frame.mode == OWN and frame.first is None):
         if len(chosen) != 1:
             raise ActionError('Choose one first target')
         try:
@@ -230,6 +283,18 @@ def resume_creature(plan: Plan, decision: Any, chosen: list[str]) -> None:
         return
     if len(chosen) != 1 or chosen[0] not in legal:
         _invalid(plan, frame, 'The selected target is no longer legal')
+        return
+    if frame.text == '':  # a spell: cast again with the chosen target, as the original caster (601.2c)
+        from app.rules.engine import INTENTS
+
+        intent = A.parse_action({**frame.intent, 'targets': list(chosen), 'actor': frame.actor})
+        actor = plan.actor
+        plan.actor, plan.delegated110d = frame.actor, chosen[0]
+        plan.rules.priority, plan.rules.passed = frame.actor, []
+        try:
+            INTENTS[intent.type](plan, intent)
+        finally:
+            plan.actor, plan.delegated110d = actor, None
         return
     definition_ = {k: v for k, v in frame.definition.items() if k != 'delegated_target'}
     combined = ([frame.first['id']] if frame.first else []) + list(chosen)
