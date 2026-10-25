@@ -511,7 +511,20 @@ def cyber_linked(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
                                                 "spec": "2/2 Cyberman artifact creature"}))
 
 
-PRIMITIVES = {"named100g": named, "random_looked100g": random_looked, "cyber_linked100g": cyber_linked, "landwalk100g": landwalk, "three_each100g": three_each, "opponent_pick100g": opponent_pick, "self_exiled100g": self_exiled, "turn_up_linked100g": turn_up_linked, "return_total_power100g": return_total_power, "bottom_linked100g": bottom_linked, "choose_greatest100g": choose_greatest, "choose_event100g": choose_event, "loyalty_twice100g": loyalty_twice, "face_down_looked100g": face_down_looked, "top_or_bottom100g": top_or_bottom}
+def power_covers(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Vulpine Harvester: "if its mana value is less than or equal to their total power" — the attacking Phyrexians' powers as the ability
+    resolves, each as it last existed if it left (the official ruling: counted even if no longer attacking or a Phyrexian; 608.2h; a negative
+    total is 0, 107.1b); otherwise the return doesn't happen (608.2c)."""
+    from app.rules import context, effects, selectors
+
+    total = max(0, sum(selectors._stat(ch, "power") or 0 for _, ch in context.infos(plan, ctx, context.EVENT)))
+    cards = effects._cards(plan, ctx, e["who"])
+    if not cards or plan.ch(plan.state.cards[cards[0]]).mana_value > total:
+        ctx["next"] = len(ctx["effects"])
+    return True
+
+
+PRIMITIVES = {"named100g": named, "power_covers100g": power_covers, "random_looked100g": random_looked, "cyber_linked100g": cyber_linked, "landwalk100g": landwalk, "three_each100g": three_each, "opponent_pick100g": opponent_pick, "self_exiled100g": self_exiled, "turn_up_linked100g": turn_up_linked, "return_total_power100g": return_total_power, "bottom_linked100g": bottom_linked, "choose_greatest100g": choose_greatest, "choose_event100g": choose_event, "loyalty_twice100g": loyalty_twice, "face_down_looked100g": face_down_looked, "top_or_bottom100g": top_or_bottom}
 RESUME = {"landwalk100g": resume_landwalk, "three_each100g": resume_three_each, "opponent_pick100g": resume_opponent_pick, "opponent_card100g": resume_opponent_card, "return_total_power100g": resume_return_total_power, "choose_greatest100g": resume_choose_greatest, "choose_event100g": resume_choose_event, "face_down_looked100g": resume_face_down_looked, "top_or_bottom100g": resume_top_or_bottom}
 
 _BUILT = {
@@ -842,6 +855,12 @@ _AS: dict[str, tuple[str, Any]] = {
         "among them onto the battlefield. Put the rest on the bottom of your library in a random order.",
         lambda d: {**d, "effects": [{**e, "do": "random_looked100g"} if e.get("do") == "pick_looked" and not e.get("optional") else e
                                     for e in d["effects"]]}),
+    # Vulpine Harvester: any artifact card is a legal target; the power check as it resolves (zones100g.power_covers)
+    "Whenever one or more Phyrexians you control attack, return target artifact card from your graveyard to the battlefield if its mana value "
+    "is less than or equal to their total power.": (
+        "Whenever one or more Phyrexians you control attack, return target artifact card from your graveyard to the battlefield.",
+        lambda d: {**d, "effects": [{"do": "power_covers100g", "who": "target"}, *d["effects"]]}
+        if [e.get("do") for e in d["effects"]] == ["return_card"] else None),
     "When this creature enters, sacrifice it unless you return a basic land card from your graveyard to your hand.":
         ("When this creature enters, sacrifice it unless you discard a card.", _harvest_wurm),
 }

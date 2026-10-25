@@ -35,6 +35,8 @@ EXTRA = [
     real("Probe Gate", "", 0, "Land — Gate", ""),
     real("Probe Snow Lair", "", 0, "Snow Land — Lair", ""),
     real("Probe Shatter", "{1}{R}", 2, "Instant", "Destroy target artifact.", None, "R"),
+    real("Probe Phyrexian", "{1}{W}", 2, "Creature — Phyrexian Horror", "", ("2", "2"), "W"),
+    real("Probe Relic", "{5}", 5, "Artifact", ""),
 ]
 
 
@@ -114,7 +116,7 @@ PROMOTED = ["Genju of the Realm", "Return of the Nightstalkers", "Vengeful Regro
             "Summoner's Egg", "Esper Origins // Summon: Esper Maduin",
             "Nemesis Phoenix", "Tasigur, the Golden Fang", "The Three Seasons", "Veiled Ascension",
             "Baneblade Scoundrel // Baneclaw Marauder", "Giant Slug", "Illusionary Presence", "Barbarian Guides",
-            "Getaway Barrel", "Death in Heaven", "Kang Dynasty"]
+            "Getaway Barrel", "Death in Heaven", "Kang Dynasty", "Vulpine Harvester"]
 
 
 @pytest.mark.parametrize("name", PROMOTED)
@@ -1151,4 +1153,15 @@ def test_kang_dynasty_three_pumps_by_hand_size_and_cant_be_blocked(cards):
     attack(s, 3, [bears])
     with pytest.raises(ActionError):
         act(s, "p2", type="declare_blockers", blocks=[{"blocker_id": elves.id, "attacker_id": bears.id}])
+    check(s)
+
+
+@pytest.mark.parametrize("both", [False, True])
+def test_vulpine_harvester_returns_the_artifact_only_within_the_attackers_total_power(cards, both):
+    s = build(cards, ["Vulpine Harvester", "Probe Phyrexian", "Probe Relic"])
+    fox, horror = put(s, "Vulpine Harvester"), put(s, "Probe Phyrexian")
+    relic = gy(s, card_named(s, "Probe Relic"))
+    to_step(s, "main1", 3)
+    attack(s, 3, [fox, horror] if both else [fox], pick=lambda d: [relic.id] if relic.id in [o.id for o in d.options] else None)
+    assert where(s, relic) == ("p1:battlefield" if both else "p1:graveyard")  # mana value 5: 3 + 2 attacking, not 3 alone
     check(s)
