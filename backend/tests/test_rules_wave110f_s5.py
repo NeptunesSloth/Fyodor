@@ -20,6 +20,7 @@ from tests.test_rules_wave100n_multi import EXTRA as _BASE
 from tests.test_rules_wave100n_multi import (
     card_db,  # noqa: F401  (fixture DB with EXTRA)
     cast,
+    to_graveyard,
 )
 from tests.wave9c_kit import build, check, mana, put, to_hand
 
@@ -36,11 +37,13 @@ EXTRA = [
     real('Dracoplasm', '{U}{R}', 2, 'Creature — Shapeshifter',
          "Flying\nAs this creature enters, sacrifice any number of creatures. This creature's power becomes the total power of those creatures and its toughness becomes their total toughness.\n{R}: This creature gets +1/+0 until end of turn.", ('0', '0'), 'RU'),
     real('Clone', '{3}{U}', 4, 'Creature — Shapeshifter', 'You may have this creature enter as a copy of any creature on the battlefield.', ('0', '0'), 'U'),
+    real('Sutured Ghoul', '{4}{B}{B}{B}', 7, 'Creature — Zombie Horror',
+         "Trample\nAs this creature enters, exile any number of creature cards from your graveyard.\nSutured Ghoul's power is equal to the total power of the exiled cards and its toughness is equal to their total toughness.", ('*', '*'), 'B'),
     real('Test Giant 110F', '{3}{R}', 4, 'Creature — Giant', 'Vigilance', ('3', '3'), 'R'),
     real('Test Flash Bear 110F', '{1}{U}', 2, 'Creature — Bear', 'Flash', ('2', '2'), 'U'),
 ]
 _BASE.extend(EXTRA)
-NAMES = ["Blink", "Unyielding Gatekeeper", "Sparkshaper Visionary", "Essence of the Wild", "Dracoplasm"]
+NAMES = ["Blink", "Unyielding Gatekeeper", "Sparkshaper Visionary", "Essence of the Wild", "Dracoplasm", "Sutured Ghoul"]
 
 
 @pytest.mark.parametrize("name", NAMES)
@@ -204,4 +207,27 @@ def test_essence_with_clone_own_choice_applies_last_else_essence_copy_stays(card
             act(s, d.player, type="choose", decision_id=d.id, option_ids=[bear.id if copy_bear else NONE])
     got = ch(s, s.state.cards[clone.id])
     assert (got.name, got.pt) == (("Grizzly Bears", (2, 2)) if copy_bear else ("Essence of the Wild", (6, 6)))
+    check(s)
+
+
+def test_sutured_ghoul_exiles_graveyard_creatures_and_takes_their_totals(cards):
+    """614.12, 400.7: "exile any number of creature cards from your graveyard" as it enters; P/T are their totals (the Land stays)."""
+    from tests.test_rules_wave100f_control import ch
+
+    s = build(cards, ["Sutured Ghoul", "Grizzly Bears", "Test Giant 110F", "Forest"], forests=20, islands=20)
+    for n in ("Grizzly Bears", "Test Giant 110F", "Forest"):
+        to_graveyard(s, 1, n)
+    mana(s, B=4, C=3)
+    ghoul = cast(s, "Sutured Ghoul")
+    for pick in ("Grizzly Bears", "Test Giant 110F"):
+        d = s.state.rules.decision
+        while d is None and s.state.zones.get("stack"):
+            act(s, s.state.rules.priority, type="pass_priority")
+            d = s.state.rules.decision
+        assert d is not None and all("Forest" not in o.label for o in d.options)
+        opt = next((o.id for o in d.options if pick and pick in o.label), "done")
+        act(s, d.player, type="choose", decision_id=d.id, option_ids=[opt])
+    _resolve(s)
+    got = ch(s, s.state.cards[ghoul.id])
+    assert got.pt == (5, 5) and sorted(c.name for c in s.state.cards.values() if c.zone == "p1:exile") == ["Grizzly Bears", "Test Giant 110F"]
     check(s)
