@@ -310,6 +310,26 @@ _VINCENT = ('Until end of turn, target creature you control gains "When this cre
 _TIER = re.compile(r"• (?P<label>[^—{}]+) — (?P<cost>(?:\{[^}]+\})+) — (?P<p>\d+)/(?P<t>\d+)\.")
 
 
+# Genku: the header's "those characteristics" are each bullet's own token (700.2, "hasn't been chosen this turn" is modal_abilities' memory)
+_GENKU = ("Whenever another nontoken permanent you control leaves the battlefield, choose one that hasn't been chosen this turn. Create a creature token with those characteristics.",
+          ["• 2/2 white Fox with vigilance.", "• 1/2 blue Moonfolk with flying.", "• 1/1 black Rat with lifelink."],
+          ["Create a 2/2 white Fox creature token with vigilance.", "Create a 1/2 blue Moonfolk creature token with flying.",
+           "Create a 1/1 black Rat creature token with lifelink."])
+
+
+def merge_lines(ch: Any, out: dict[int, Any]) -> None:
+    from app.rules import modal_abilities
+
+    head, rows, creates = _GENKU
+    for offset, ab in enumerate(ch.abilities):
+        if ab.text != head or [r.text for r in ch.abilities[offset + 1 : offset + 4]] != rows:
+            continue
+        new = {ab.index: replace(ab, text=head.split(", choose")[0] + ", choose one that hasn't been chosen this turn —")}
+        new.update({r.index: replace(r, text="• " + t) for r, t in zip(ch.abilities[offset + 1 : offset + 4], creates, strict=True)})
+        rewritten = replace(ch, abilities=tuple(new.get(a.index, a) for a in ch.abilities))
+        out.update(modal_abilities.definitions(new[ab.index], rewritten) or {})
+
+
 def tiered(ch: Any, lines: list[Any]) -> Def | None:
     """Vincent's Limit Break (702.183a): the line above the tiers is the spell, each tier gives the base power and toughness it names (613.4b)."""
     from app.rules import scripts

@@ -1,6 +1,7 @@
 """Wave 110B session 12 (real Oracle text in tests/fixtures/wave110b_cards.json).
 
 * Stunning Reversal: 614.1a, 614.5 the next loss of the game this turn draws seven and sets life to 1; the card is exiled; used up after one loss.
+* Genku: 700.2, a mode not yet chosen this turn (modal memory) makes one of three tokens per nontoken permanent leaving.
 * Oblivious Bookworm: 708.2, 708.8 the end-step loot discards unless a permanent entered face down under your control this turn or you turned one face up this turn.
 """
 
@@ -19,7 +20,7 @@ def cards(settings):
     yield from repository(settings)
 
 
-@pytest.mark.parametrize("name", ["Oblivious Bookworm", "Stunning Reversal"])
+@pytest.mark.parametrize("name", ["Oblivious Bookworm", "Stunning Reversal", "Genku, Future Shaper"])
 def test_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
@@ -84,3 +85,21 @@ def test_stunning_reversal_ends_with_the_turn(cards):
     to_phase(s, "main1", turn=3)
     _lose(s)
     assert s.state.rules.winner == "p2"
+
+
+def test_genku_makes_each_token_once_per_turn_and_ignores_tokens(cards):
+    s = build(cards, ["Genku, Future Shaper", "Zuran Orb", "Forest", "Forest", "Forest", "Forest"], [])
+    put(s, "Genku, Future Shaper")
+    orb = put(s, "Zuran Orb")
+    forests = [c for c in s.state.zones["p1:library"] if s.state.cards[c].name == "Forest"][:4]
+    for fid in forests:
+        act(s, "p1", type="move", card_ids=[fid], to={"player": "p1", "zone": "battlefield"})
+    seen = []
+    for fid in forests:
+        act(s, "p1", type="activate_ability", card_id=orb.id, ability=0)
+        drive(s, lambda d, fid=fid: [fid] if fid in [o.id for o in d.options] else None)
+        toks = sorted(c.name for c in s.state.cards.values() if c.zone == "p1:battlefield" and c.token)
+        seen.append(toks)
+    assert [len(t) for t in seen] == [1, 2, 3, 3]  # (the fourth leaving finds every mode chosen)
+    assert sorted(seen[-1]) == ["Fox", "Moonfolk", "Rat"]
+    check(s)

@@ -8513,6 +8513,9 @@ def _cached(ch: Characteristics) -> dict[int, Definition]:
     from app.rules import random_characteristic_choices
 
     random_characteristic_choices.merge_lines(ch, out)
+    from app.rules import wave110b_cards as _w110b  # -- wave 110B --
+
+    _w110b.merge_lines(ch, out)
     from app.rules import random_native_outcomes42
 
     random_native_outcomes42.merge_lines(ch, out)
