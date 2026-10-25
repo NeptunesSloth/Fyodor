@@ -28,7 +28,7 @@ Context = dict[str, Any]
 
 
 def _options(plan: Plan, ctx: Context, e: dict[str, Any]) -> list[str]:
-    pid = ctx["controller"]
+    pid = e.get("player") or ctx["controller"]
     sel = selectors.from_key(e["sel"])
     hand = plan.state.zones.get(f"{pid}:hand", [])
     return [c for c in hand if selectors.matches(plan, sel, plan.state.cards[c], chars.of(plan.state.cards[c], plan.info), pid,
@@ -41,10 +41,10 @@ def reveal_hand_cards(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     from app.rules.effects import decide
 
     options = _options(plan, ctx, e)
-    pid = ctx["controller"]
+    pid = e.get("player") or ctx["controller"]
     decide(plan, player=pid, kind="choose_cards", prompt=e.get("prompt") or "Reveal any number of cards from your hand",
            options=[DecisionOption(id=c, label=plan.state.cards[c].name or "Card", card_id=c) for c in options],
-           min_choices=0, max_choices=len(options), resume={"step": "reveal_hand_cards", "ctx": ctx, "e": e})
+           min_choices=0, max_choices=min(len(options), int(e.get("n", 99))), resume={"step": "reveal_hand_cards", "ctx": ctx, "e": e})
     return False
 
 
@@ -52,9 +52,9 @@ def resume(plan: Plan, d: Any, chosen: list[str]) -> None:
     from app.rules.effects import continue_effects
 
     ctx, e = d.resume["ctx"], d.resume["e"]
-    picked = [c for c in chosen if c in set(_options(plan, ctx, e))]  # (only what matched, still in the hand)
-    if picked:
-        plan.do({"type": "reveal", "card_ids": picked}, actor=ctx["controller"])  # to everyone (701.20a)
+    picked = [c for c in chosen if c in set(_options(plan, ctx, e))][:int(e.get("n", 99))]  # (only what matched, still in the hand)
+    if picked and not e.get("hold"):  # ("hold": shown later with the other players' choices, 101.4a)
+        plan.do({"type": "reveal", "card_ids": picked}, actor=e.get("player") or ctx["controller"])  # to everyone (701.20a)
     if e.get("as"):
         context.bind_objects(plan, ctx, e["as"], picked)
     continue_effects(plan, ctx)

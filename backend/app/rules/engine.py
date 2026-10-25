@@ -792,6 +792,10 @@ def on_step_start(plan: Plan) -> None:
         from app.rules import sagas
 
         sagas.precombat_main(plan)
+        # -- Attractions (wave 100L) -- 505.5: then the roll to visit (a turn-based action)
+        from app.rules import attractions100l
+
+        attractions100l.precombat_main(plan)
         from app.rules import (
             paradigm,  # -- keywords (wave 50H) -- 702.192a: the copies of the exiled paradigm cards
         )
@@ -972,7 +976,10 @@ def leave_stack(plan: Plan, card_id: str, controller: str, *, tapped: bool = Fal
     # controller's hand. A control change can enable or disable rebound.
     hand_player = (record.cast_from_player or record.controller) if record is not None else card.owner if was_rebound else None
     from_hand = record.cast_from == "hand" if record is not None else was_rebound
-    if not countered and from_hand and hand_player == controller and "rebound" in plan.ch(card).keywords:
+    from app.rules import static_perm100d  # -- static permanents (wave 100D) -- Cast Through Time
+
+    if not countered and from_hand and hand_player == controller and ("rebound" in plan.ch(card).keywords or (
+            plan.ch(card).is_instant_or_sorcery and static_perm100d.yours(plan, static_perm100d.REBOUND, controller))):
         plan.do({"type": "move", "card_ids": [card_id], "to": {"player": card.owner, "zone": "exile"}}, actor=controller)
         plan.rules.rebounding.append(card_id)
         plan.rules.rebound_objects[card_id] = plan.oid(card_id)
@@ -1138,6 +1145,9 @@ def resolve_top_of_stack(plan: Plan) -> None:
     from app.rules import devour  # -- keyword mechanics (wave 9D) -- 702.82a
 
     devour.sacrifice(plan, ep, controller)
+    from app.rules import static_perm100d  # -- static permanents (wave 100D) -- 614.12: done as it enters
+
+    static_perm100d.as_enters(plan, top_id, ep, controller)
     from app.rules import amplify  # -- casting extras (wave 18E) -- 702.38a
 
     amplify.reveal(plan, ep, controller)
@@ -1289,6 +1299,9 @@ def land_play_problem(state: GameState, player: str, card: CardInstance, ch: Cha
 
     if info is not None and (barred := next((src for src, d in cast_limits._statics(state, info, "cant_play_lands") if d.get("players") or src.controller == player), None)) is not None:
         return f"{barred.name or 'A permanent'}: you can't play lands"  # -- most-played cards III (wave 46C) -- 305.1
+    if info is not None and card.zone == zone_key(player, "hand") and (barred := next(
+            (src for src, d in cast_limits._statics(state, info, "cast_limit") if d.get("lands_from_hand") and src.controller == player), None)) is not None:
+        return f"{barred.name or 'A permanent'}: you can't play lands from your hand"  # -- static permanents (wave 100D) -- Experimental Frenzy (305.1)
     if info is not None and card.zone.endswith(":graveyard") and (barred := next(
             (src for src, _ in cast_limits._statics(state, info, "cant_play_gy_lands") if src.controller != player), None)) is not None:
         return f"{barred.name or 'A permanent'}: you can't play land cards from graveyards"  # -- cant restrictions (wave 50G) -- Tomik, Distinguished Advokist

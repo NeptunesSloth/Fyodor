@@ -1,7 +1,9 @@
 import pytest
+
 from app.rules import mana as M
 from app.rules.mana_allocation_masks import MaskedSource, Slot, settle, solve
-from app.rules.mana_requirement_rows import ProducerFact, ProducerRequirement as P, Requirement, RequirementPlan
+from app.rules.mana_requirement_rows import ProducerFact, Requirement, RequirementPlan
+from app.rules.mana_requirement_rows import ProducerRequirement as P
 
 CREATURE=ProducerFact(('Creature',),'p1:battlefield')
 BASIC=ProducerFact(('Basic','Land'),'p1:battlefield')

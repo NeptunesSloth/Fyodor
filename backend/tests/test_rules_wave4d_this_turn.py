@@ -21,7 +21,7 @@ from app.game.state import GameState
 from app.rules import conditions, coverage, history, restrictions, scripts
 from app.rules.plan import Plan
 from tests.fixtures.cards import card, fixture_cards
-from tests.game_helpers import act
+from tests.game_helpers import act, mana_pool
 from tests.test_rules_conditionals import (
     attack,
     build,
@@ -150,6 +150,8 @@ SPELL = 'sel:{"zones":["stack"]}'
      {"history": "departed", "sel": 'sel:{"subtypes":["Human"]}', "n": 1, "op": ">=", "died": True, "who": "you", "other": True}),
     ("a creature entered the battlefield under an opponent's control this turn",
      {"history": "entered", "sel": 'sel:{"types":["Creature"]}', "n": 1, "who": "opponent"}),
+    ("you attacked with two or more Merfolk this turn",  # (-- turn state (wave 100H) -- the declared attackers of that kind, history._attacked_with)
+     {"history": "attacked_with", "sel": 'sel:{"subtypes":["Merfolk"]}', "n": 2}),
 ])
 def test_wordings(text, expected):
     assert conditions.parse(text) == expected
@@ -157,7 +159,6 @@ def test_wordings(text, expected):
 
 @pytest.mark.parametrize("text", [
     "you've cast a spell with flying this turn",  # (keywords aren't recorded)
-    "you attacked with two or more Merfolk this turn",  # (only how many creatures)
     "an opponent has cast another spell this turn",
     "an opponent was the second player to cast a spell this turn",  # (wave 33D reads "it was the second spell you cast this turn": cast_nth)
 ])
@@ -611,7 +612,7 @@ def test_river_of_tears_after_playing_a_land(cards):
     river = put(s, "River of Tears")  # (put onto the battlefield, not played)
     assert dict(mana_abilities(s.state, s.state.cards[river.id], s.cards))[0].options == (("U",),)
     act(s, "p1", type="activate_ability", card_id=river.id, ability=0)
-    assert dict(s.state.players["p1"].mana) == {"U": 1}
+    assert mana_pool(s) == {"U": 1}
     forest = next(c for c in s.state.cards.values() if c.name == "Forest" and c.zone == "p1:library")
     act(s, "p1", type="move", card_ids=[forest.id], to={"zone": "hand"})
     act(s, "p1", type="play_land", card_id=forest.id)

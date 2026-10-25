@@ -58,11 +58,21 @@ def amass(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         if not armies:
             return True  # 701.47b: amassed, even though the token couldn't be created
     if len(armies) == 1:
+        _bind_army(plan, ctx, e.get("as"), armies[0])
         return _amass_on(plan, ctx, armies[0], sub, n)
     decide(plan, player=ctx["controller"], kind="choose_cards", prompt=f"Amass {sub}s {n}: choose an Army you control",
            options=[DecisionOption(id=c, label=plan.state.cards[c].name or "Army", card_id=c) for c in armies],
-           resume={"step": "amass_choose", "ctx": ctx, "sub": sub, "n": n})
+           resume={"step": "amass_choose", "ctx": ctx, "sub": sub, "n": n, **({"as": e["as"]} if e.get("as") else {})})
     return False
+
+
+def _bind_army(plan: Plan, ctx: Context, name: str | None, cid: str) -> None:
+    """-- xdamage (wave 100E) -- 701.47c: "the Army you amassed" / "the amassed Army" is the creature chosen, whether or not it got the
+    counters: bound (``as``) for what the rest of the resolution reads ("deals damage equal to its power", "where X is the amassed Army's power")."""
+    if name:
+        from app.rules import context
+
+        context.bind_objects(plan, ctx, name, [cid])
 
 
 def _amass_on(plan: Plan, ctx: Context, cid: str, sub: str, n: int) -> bool:
@@ -100,6 +110,8 @@ def _amass_subtype(plan: Plan, ctx: Context, cid: str, sub: str) -> None:
 
 def resume_amass(plan: Plan, d: Any, chosen: list[str]) -> None:
     r = d.resume
+    if chosen and chosen[0] in plan.state.cards and plan.state.cards[chosen[0]].zone.endswith(":battlefield"):
+        _bind_army(plan, r["ctx"], r.get("as"), chosen[0])  # -- xdamage (wave 100E) --
     if chosen and chosen[0] in plan.state.cards and plan.state.cards[chosen[0]].zone.endswith(":battlefield") \
             and not _amass_on(plan, r["ctx"], chosen[0], r["sub"], r["n"]):
         return  # (a 616.1 choice first)
@@ -416,8 +428,13 @@ def suspect(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     cards = [c for c in effects._cards(plan, ctx, e["who"]) if plan.state.cards[c].zone.endswith(":battlefield")
              and plan.ch(plan.state.cards[c]).is_creature]
     effects._remember(plan, ctx, e, cards)
+    from app.rules import scripts
+
     for cid in cards:
         oid = plan.oid(cid)
+        if "cant_be_suspected" in scripts.statics(plan.ch(plan.state.cards[cid])):  # -- attached (wave 100F) -- "can't become suspected" (Airtight Alibi; 614.17)
+            plan.note(f"{plan.state.cards[cid].name} can't become suspected", [cid], actor=ctx["controller"])
+            continue
         if oid not in plan.rules.suspected:
             plan.rules.suspected.append(oid)
             plan.do({"type": "add_effect", "card_ids": [cid], "name": "Suspected", "value": "Suspected",

@@ -67,13 +67,14 @@ _ACTS = {"activate abilities of artifacts, creatures, or enchantments": "ace",
          "activate abilities that aren't mana abilities": "nonmana",
          "activate abilities of cards in graveyards": "graveyard", "activate planeswalkers' loyalty abilities": "loyalty"}
 _WHO = {"your opponents": "opponents", "each opponent": "opponents", "players": "each", "each player": "each", "you": "you",
-        "enchanted player": "enchanted", "enchanted creature's controller": "host_controller"}  # (wave 25D: an Aura's Curse, Brand of Ill Omen)
+        "enchanted player": "enchanted", "enchanted creature's controller": "host_controller",  # (wave 25D: an Aura's Curse, Brand of Ill Omen)
+        "defending player": "defending"}  # (wave 100K: Wardscale Dragon, while it is attacking)
 _WHEN = {"during your turn": "your_turn", "during combat": "combat"}
 # "Your opponents can't cast spells during your turn." / "During your turn, your opponents can't cast spells or activate
 # abilities of artifacts, creatures, or enchantments." / "Your opponents can't cast spells from anywhere other than their
 # hands." / "Players can't cast spells from graveyards or activate abilities of cards in graveyards." / "During combat,
 # players can't cast spells or activate abilities that aren't mana abilities." / "You can't cast creature spells."
-STATIC_CAST = re.compile(rf"^(?:(?P<lead>during your turn|during combat), )?(?P<who>your opponents|each opponent|players|each player|you|enchanted player|enchanted creature's controller) "
+STATIC_CAST = re.compile(rf"^(?:(?P<lead>during your turn|during combat), )?(?P<who>your opponents|each opponent|players|each player|you|enchanted player|enchanted creature's controller|defending player) "
                          rf"can't cast {_SPELLS}{_FROM}{_ACT}(?: (?P<when>during your turn|during combat))?$")
 # "Each player can't cast more than one spell each turn." / "Each player can't cast more than one noncreature spell each turn."
 # -- prohibitions (wave 22B) -- 601.3: "Spells with the chosen name can't be cast." (Meddling Mage, Nevermore), "Creature spells can't be cast."
@@ -105,7 +106,10 @@ SELF_FLASH_IF = re.compile(r"^you may cast (?:this spell|~) as though it had fla
 # Effects: "Your opponents can't cast spells this turn." / "Target player can't cast spells this turn." / "Players can't cast
 # noncreature spells this turn." / "Until your next turn, your opponents can't cast spells from anywhere other than their hands."
 EFFECT_CAST = re.compile(rf"^(?:(?P<lead>until your next turn|until the end of your next turn|this turn), )?(?P<who>your opponents|opponents|players|each player|each opponent|"
-                         rf"target player|target opponent|its controller) can't cast {_SPELLS}{_FROM}{_ACT}(?: (?P<when>this turn|until your next turn|until the end of your next turn))?$")  # (wave 32C: Single Combat)
+                         rf"target player|target opponent|its controller|you) can't cast {_SPELLS}{_FROM}{_ACT}(?: (?P<when>this turn|until your next turn|until the end of your next turn|during that player's next turn))?$")  # (wave 32C: Single Combat)
+# -- trigger lines (wave 100A) -- "Each opponent can't cast instant or sorcery spells during that player's next turn." (Azor, the Lawbringer; Sphinx's
+# Decree): each player's own next turn — the next one that player actually takes (723.1's reading of "that player's next turn"), never the current
+# one; the official rulings: several such effects all apply to that same turn. ``until`` "their_next100a"; ``during`` is set as that turn begins.
 # Flash permissions (601.3b): "You may cast Spirit spells as though they had flash." / "You may cast Dragon spells and artifact
 # spells as though they had flash." / "Any player may cast spells as though they had flash." / "During each opponent's end
 # step, you may cast spells as though they had flash." — and the effect "You may cast spells this turn as though they had flash."
@@ -467,9 +471,13 @@ def _effect_cast(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     if act not in (None, "loyalty"):
         raise ValueError("only loyalty abilities")  # (an effect's other activation limits aren't read)
     who = {"your opponents": "each_opponent", "opponents": "each_opponent", "each opponent": "each_opponent", "players": "each_player", "each player": "each_player",
-           "target player": "target", "target opponent": "target", "its controller": "it.controller"}[m["who"]]  # (wave 51C: Render Silent)
+           "target player": "target", "target opponent": "target", "its controller": "it.controller", "you": "you"}[m["who"]]  # (wave 51C: Render Silent; wave 100B: "you", Innocuous Researcher)
     sel = {"target player": "player", "target opponent": "opponent"}.get(m["who"])
     until = "end_of_next_turn" if "end of your next turn" in (lead or when or "") else "next_turn" if "next turn" in (lead or when or "") else "turn"
+    if when == "during that player's next turn":  # -- trigger lines (wave 100A) -- (each player named: "that player" is each of them)
+        if who not in ("each_opponent", "each_player", "target"):
+            raise ValueError("whose next turn")
+        until = "their_next100a"
     return [{"do": "cast_limit", "who": who, "until": until, "filter": key, "from": list(_FROMS[m["frm"]]) if m["frm"] else None,
              "act": act}], sel
 
@@ -619,8 +627,9 @@ def cast_limit(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         what = _spells_words(e.get("filter"), e.get("from"))
         if e.get("act") == "loyalty":
             what += " or activate loyalty abilities"
-        plan.note(f"{plan.name(pid)} can't cast {what} {'this turn' if e['until'] == 'turn' else ('until the end of ' if e['until'] == 'end_of_next_turn' else 'until ') + plan.name(ctx['controller']) + '’s next turn'} ({label})",
-                  actor=ctx["controller"])
+        when = "during their next turn" if e["until"] == "their_next100a" else "this turn" if e["until"] == "turn" else \
+            ("until the end of " if e["until"] == "end_of_next_turn" else "until ") + plan.name(ctx["controller"]) + "’s next turn"
+        plan.note(f"{plan.name(pid)} can't cast {what} {when} ({label})", actor=ctx["controller"])
     return True
 
 
@@ -674,6 +683,10 @@ def turn_began(plan: Plan, skipped: list[tuple[str, int]] | None = None) -> None
     r = plan.rules
     turn, active = plan.state.turn.number, plan.active
     ended = {(active, turn), *(skipped or ())}
+    for x in r.cast_limits:  # -- trigger lines (wave 100A) -- "during that player's next turn": this is it (the first turn they take after the effect)
+        if x.get("until") == "their_next100a" and x.get("during") is None and x.get("player") == active and turn > int(x.get("turn") or 0):
+            x["during"] = turn
+    r.cast_limits = [x for x in r.cast_limits if not (x.get("until") == "their_next100a" and x.get("during") is not None and x["during"] != turn)]
     r.cast_limits = [x for x in r.cast_limits if not (x.get("until") == "next_turn" and any(
         x.get("controller") == p and n > int(x.get("turn") or 0) for p, n in ended))
         and not (x.get("until") == "end_of_next_turn" and any(x.get("controller") == p and n > int(x.get("turn") or 0) for p, n in skipped or ()))  # (wave 32C)
@@ -767,6 +780,10 @@ def _statics(state: GameState, info: CardInfo | None, kind: str) -> list[tuple[C
 
 
 def _who_ok(who: str, player: str, controller: str, src: CardInstance | None = None, state: GameState | None = None) -> bool:
+    if who == "defending":  # -- instead (wave 100K) -- 506.2, 802.1b: the player the source is attacking (or who controls or protects what it attacks)
+        from app.rules.combat import defender_of
+
+        return src is not None and state is not None and src.attacking is not None and defender_of(state, src.attacking) == player
     if who in ("enchanted", "host_controller"):  # -- attached events (wave 25D) -- the player the Aura is attached to / the controller of the creature it is
         if src is None or state is None:
             return False
@@ -788,6 +805,8 @@ def _when_ok(state: GameState, when: str | None, controller: str, player: str | 
 
 
 def _record_live(state: GameState, x: dict[str, Any]) -> bool:
+    if x.get("until") == "their_next100a":  # -- trigger lines (wave 100A) -- only during that player's next turn
+        return x.get("during") == state.turn.number
     return x.get("until") != "turn" or x.get("turn") == state.turn.number
 
 
@@ -803,6 +822,10 @@ def _cast_hit(state: GameState, player: str, card: CardInstance, ch: Characteris
     if d.get("sorcery"):  # 307.1
         return resolving or not (state.turn.active_player == player and state.turn.phase in ("main1", "main2")
                                  and not state.zones.get("stack"))
+    if d.get("share_last100i"):  # -- activated (wave 100I) -- "share a color with the spell most recently cast this turn" (any player's, as it was cast)
+        log = state.rules.turn_log if state.rules is not None else None
+        last = log.casts[-1] if log is not None and log.turn == state.turn.number and log.casts else None
+        return last is not None and bool(set(last.colors) & ch.colors)
     frm = d.get("from")
     if frm:
         if frm == ["not_hand"]:
@@ -873,6 +896,10 @@ def cast_problem(state: GameState, player: str, card: CardInstance, ch: Characte
 
     if card.zone != zone_key(player, "graveyard") and any(d.get("only") for d in scripts.definitions(ch).values()):
         return f"{ch.name or 'It'} can be cast only from your graveyard"  # -- review 43 -- Haakon's "but not from anywhere else" (101.2) also holds as something resolves (cascade; 2006-07-15 ruling)
+    from app.rules import static_perm100d  # -- static permanents (wave 100D) -- Serra Avenger
+
+    if (first := static_perm100d.cast_problem(state, player, ch)) is not None:
+        return first
     for x in r.cast_limits:
         if x.get("player") == player and _record_live(state, x) and _cast_hit(state, player, card, ch, info, x, x=announced):
             return f"{x.get('label') or 'An effect'}: you can't cast {_spells_words(x.get('filter'), x.get('from'))} now"
@@ -895,6 +922,8 @@ def _act_hit(state: GameState, player: str, card: CardInstance, ch: Characterist
         from app.rules.plan import Plan
 
         return card_names.matches(Plan.view(state, src_controller, info), source, ch)
+    if act == "all":  # -- static permanents (wave 100D) -- every activated ability, mana abilities too (City of Solitude, 605.1a)
+        return True
     if act == "ace":
         return on_field and bool({"Artifact", "Creature", "Enchantment"} & set(ch.types))
     if act == "nonmana":
@@ -950,6 +979,8 @@ def any_activation_limits(state: GameState, info: CardInfo | None) -> bool:
 def loyalty_rule(state: GameState, card: CardInstance, info: CardInfo | None, key: str) -> bool:
     """-- static_other sweep (wave 19A) -- does a static let this planeswalker's loyalty abilities be activated ``key`` ("twice" each turn, at
     "instant" speed on any player's turn)? Its controller's "planeswalkers you control", or its own."""
+    if key == "twice" and state.rules is not None and state.rules.once_per_turn.get(f"loyalty_twice100g:{card.controller}") == state.turn.number:
+        return True  # -- zones (wave 100G) -- "… twice this turn rather than only once" (Urza Assembles the Titans III: zones100g.loyalty_twice)
     if info is None:
         return False
     from app.rules.plan import Plan
@@ -961,6 +992,12 @@ def loyalty_rule(state: GameState, card: CardInstance, info: CardInfo | None, ke
             continue
         if d.get('planeswalker_only') and 'Planeswalker' not in Plan.view(state, card.controller, info).ch(card).types:
             continue
+        if d.get('entered100h'):  # -- turn state (wave 100H) -- "as long as ~ entered this turn" (The Wandering Emperor)
+            from app.rules import history
+
+            view = Plan.view(state, card.controller, info)
+            if not any(e.object_id == view.oid(card) for e in history.log_for(view).entered):
+                continue
         return True
     return False
 

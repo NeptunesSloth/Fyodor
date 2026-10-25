@@ -201,6 +201,8 @@ def set_life(plan: Plan, ctx: dict[str, Any], effect: dict[str, Any]) -> bool:
             if effect["n"] == "half_start"
             else start // 2
             if effect["n"] == "half_start_down"
+            else start
+            if effect["n"] == "start"  # -- if you do (wave 100B) -- "your life total becomes equal to your starting life total" (Long Rest, 103.4)
             else effects._amount(plan, {**ctx, "recipient": pid}, effect["n"])
         )
         changes.append([pid, want - plan.state.players[pid].life])

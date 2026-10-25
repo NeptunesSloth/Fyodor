@@ -93,7 +93,7 @@ def stay_tapped(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     named = _players(plan, ctx, e["player"])[:1] if e.get("during") == "player" else []
     for cid in cards if e.get("during") != "player" or named else []:  # ("that player's": nobody left → nothing)
         player = me if e.get("during") == "you" else named[0] if named else "controller"
-        plan.rules.stay_tapped.append({"oid": plan.oid(cid), "player": player})
+        plan.rules.stay_tapped.append({"oid": plan.oid(cid), "player": player, **({"more": str(e["more"])} if e.get("more") else {})})  # (wave 100C: "next two untap steps")
         whose = f"{plan.name(me)}'s" if player == me else "its controller's"
         plan.note(f"{plan.state.cards[cid].name or 'It'} doesn't untap during {whose} next untap step", [cid], actor=me)
     return True
@@ -139,6 +139,8 @@ def untap_step_done(plan: Plan, player: str) -> None:
                 keep.append(rec)  # (wave 13E: it waits for that player's untap step)
             continue
         if card is None or _applies(plan, rec, card, player) or rec["player"] == player:
+            if card is not None and int(rec.get("more", 0)) > 0:  # -- static spells (wave 100C) -- "next two untap steps": one more to wait for
+                keep.append({**rec, "more": str(int(rec["more"]) - 1)})
             continue
         keep.append(rec)
     plan.rules.stay_tapped = keep

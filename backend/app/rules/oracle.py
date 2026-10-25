@@ -177,6 +177,8 @@ def _keywords_line(line: str) -> tuple[str, ...] | None:
         return ("protection",)
     if re.fullmatch(r"kicker—(?:\{[^}]+\})+, [^;{}]+", line.strip(), re.IGNORECASE):  # -- keywords (wave 50H) -- 702.33a: "Kicker—{2}{R}, Sacrifice a land." is one keyword (its cost has two parts)
         return ("kicker",)
+    if re.fullmatch(r"(?i:equip)—(?:\{[^}]+\})+, [^;{}]+|Equip [A-Z][a-z]+(?:, [A-Z][a-z]+)+,? or [A-Z][a-z]+ (?:\{[^}]+\})+", line.strip()):
+        return ("equip",)  # -- static permanents (wave 100D) -- 702.6a-b: "Equip—{2}, Pay 2 life.", "Equip Shaman, Warlock, or Wizard {1}": one keyword
     if re.fullmatch(r"eternalize—\{[^;]+", line.strip(), re.IGNORECASE):  # -- keywords (wave 49C) -- 702.129a: "Eternalize—{2}{W}{W}, Discard a card." is one keyword (its cost has two parts)
         return ("eternalize",)
     if re.fullmatch(r"companion\s*—.+", line.strip(), re.IGNORECASE):  # -- companion (wave 38D) -- 702.139a: one keyword (Kaheera's condition lists creature types)
@@ -477,7 +479,7 @@ def parse_abilities(oracle_text: str | None, *, spell: bool = False, pt: tuple[s
                     "creature's power. Activate only as a sorcery.")  # (X: the exiled card's power, as it last existed)
         # -- static_other sweep (wave 16B) -- 702.77a: "Reinforce N—[cost]" means "[Cost], Discard this card: Put N +1/+1 counters on
         # target creature." (an activated ability that works only from the hand)
-        if m := re.fullmatch(r"Reinforce (\d+)—((?:\{[^}]+\})+)", line):
+        if m := re.fullmatch(r"Reinforce (\d+|X)—((?:\{[^}]+\})+)", line):  # (-- xdamage (wave 100E) -- X: the X paid, 107.3a)
             line = f"{m[2]}, Discard this card: Put {m[1]} +1/+1 counters on target creature."
         # -- static_other sweep (wave 19A) -- "Traxos enters tapped and doesn't untap during your untap step.": two abilities, "enters tapped"
         # (614.1d) and the static "doesn't untap" (502.3), the second one added after the printed lines as Reconfigure's are

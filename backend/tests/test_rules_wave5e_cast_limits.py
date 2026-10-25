@@ -135,8 +135,7 @@ def test_refused_statics(text):
 
 @pytest.mark.parametrize("text", [
     "You may cast spells as though they had flash.",  # (an effect without a duration)
-    "Defending player can't cast spells this turn.",
-])
+])  # ("Defending player can't cast spells this turn." is read since Xantid Swarm: test_rules_defender_relative36.py)
 def test_refused_effects(text):
     assert scripts.parse_effects(text) is None
 

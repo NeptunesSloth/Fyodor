@@ -717,6 +717,8 @@ def _apply(n: Any, rider: Any) -> Any:
         return n
     kind, v = rider
     if kind == "x":
+        if isinstance(n, dict) and len(n) == 1 and (op := next(iter(n))) in ("plus", "minus") and n[op][0] == {"x": 1} and isinstance(n[op][1], int):
+            return {op: [v, n[op][1]]}  # -- if you do (wave 100B) -- "deals X plus 3 damage to you, where X is …" (Hellfire): 107.1b, never below 0
         if n != {"x": 1}:
             raise _Fail  # "where X is" with no X in the sentence
         return v
@@ -1825,6 +1827,13 @@ def _parse(text: str) -> tuple[Effects, Any]:
         if any(selectors.from_key(k).controller not in (None, "you") for k in sel.either):
             raise _Fail
         return [{"do": "sacrifice_choice", "who": "you", "sel": sel.key(), "n": 10**6, "upto": True}], None
+    # -- if you do (wave 100B) -- "you may sacrifice up to three Zombies" (Ravenous Rotbelly): the player's own choice of none to three (701.21a)
+    m = re.fullmatch(r"sacrifice up to (?P<n>two|three|four|five) (?P<sel>[A-Za-z]+s)", text)
+    if m and rider is None:
+        sel = selectors.parse(m["sel"])
+        if sel is None or sel.player is not None or sel.controller is not None or sel.zones != ("battlefield",) or sel.other:
+            raise _Fail
+        return [{"do": "sacrifice_choice", "who": "you", "sel": sel.key(), "n": _amount(m["n"]), "upto": True}], None
     # -- trigger other (wave 39A) -- "Sacrifice half the non-Demon permanents you control, rounded up." (Rakdos the Defiler): 107.1a, counted as it resolves
     m = re.fullmatch(r"sacrifice half the (?P<sel>.+?) you control, rounded (?P<r>up|down)", text)
     if m and rider is None:
@@ -3955,13 +3964,15 @@ def exile_choice(text: str) -> tuple[Effects, Any] | None:
             return None
         return [{"do": "return_choice", "to": "choose", "sel": sel.key(), "n": 1, "upto": False, "random": False, "label": pick["what"]}], None
     c = _RA_CHOICE.fullmatch(text[len("exile "):len(text) - len(" at random") * late]) if text.startswith("exile ") else None
-    if c is None or c["z"] != "your graveyard" or c["upto"] or c["n"] or c["any"]:
+    # (-- turn state (wave 100H) -- "Exile two cards from your graveyard." (Bloodcurdler): that many, or as many as there are, 609.3)
+    many = {"two": 2, "three": 3, "four": 4, "five": 5}.get(c["n"] or "") if c is not None else None
+    if c is None or c["z"] != "your graveyard" or c["upto"] or (c["n"] and many is None) or c["any"]:
         return None
     words = re.sub(r"\bcards\b", "card", c["what"])
     sel = selectors.parse(f"{words} from {c['z']}")
     if sel is None or not _graveyard_cards(sel.key()) or "card" not in words.split():
         return None
-    return [{"do": "return_choice", "to": "exile", "sel": sel.key(), "n": 1, "upto": False, "random": bool(c["rand"] or late), "label": words}], None
+    return [{"do": "return_choice", "to": "exile", "sel": sel.key(), "n": many or 1, "upto": False, "random": bool(c["rand"] or late), "label": words}], None
 
 
 def reanimation_forms(text: str) -> tuple[Effects, Any] | None:
@@ -4229,7 +4240,7 @@ def _exchange(phrase: str) -> tuple[Effects, Any] | None:
 # counter", "target player gets four rad counters", "you get {E}{E}" / "six {E}" / "that many {E}" / "an
 # amount of {E} equal to …" (107.14: {E} is one energy counter). Only the kinds whose rules the engine
 # models: poison (704.5c), energy (107.14), experience (122.1), rad (728: app/rules/designations.py).
-PLAYER_COUNTER_KINDS = ("poison", "energy", "experience", "rad")
+PLAYER_COUNTER_KINDS = ("poison", "energy", "experience", "rad", "ticket")  # (ticket: wave 100L, 107.17)
 _GETS = _SUBJ + r"gets? "
 _PC_KIND = r"(?P<kind>poison|experience|rad|energy)"
 _PC_FORMS = (
@@ -4237,6 +4248,7 @@ _PC_FORMS = (
     re.compile(_GETS + r"(?P<e>(?:\{E\})+)"),
     re.compile(_GETS + rf"(?P<n>{AMT}) \{{E\}}"),
     re.compile(_GETS + r"(?:an amount of \{E\}|a number of " + _PC_KIND + r" counters) equal to (?P<stat>.+)"),
+    re.compile(_GETS + r"(?P<tk>(?:\{TK\})+)"),  # -- Attractions (wave 100L) -- 107.17: {TK} is one ticket counter
 )
 
 
@@ -4251,12 +4263,12 @@ def player_counters(text: str, rider: Any) -> tuple[Effects, Any] | None:
         if m is None:
             continue
         who, target = _subject(m)
-        kind = m.groupdict().get("kind") or "energy"
+        kind = m.groupdict().get("kind") or ("ticket" if i == 4 else "energy")
         n: Any
-        if i == 1:  # "{E}{E}" (a count of symbols; "for each …" multiplies it)
+        if i in (1, 4):  # "{E}{E}" / "{TK}{TK}" (a count of symbols; "for each …" multiplies it)
             if rider is not None and rider[0] != "each":
                 raise _Fail
-            n = _apply(m["e"].count("{E}"), rider)
+            n = _apply(m["e"].count("{E}") if i == 1 else m["tk"].count("{TK}"), rider)
         elif i == 3:  # "an amount of {E} equal to its mana value"
             if rider is not None:
                 raise _Fail
@@ -4290,7 +4302,8 @@ def _emblem(text: str) -> tuple[Effects, Any] | None:
     # Nested Oracle ability quotations use single quotes inside the emblem's
     # outer double quotes. Restore only a has/have ability quotation; apostrophes
     # in names and possessives remain literal text.
-    abilities = [re.sub(r"\b(has|have) '([^']+)'", r'\1 "\2"', a) for a in abilities]
+    abilities = [re.sub(r"\b(has|have) ((?:[a-z]+(?:, [a-z]+)*,? and )?)'([^']+)'", r'\1 \2"\3"', a) for a in abilities]  # (-- xdamage (wave 100E) --
+    # "have haste and '{T}: …'" (Arlinn, Embraced by the Moon): keywords first, then the quoted ability)
     text = "\n".join(a if a.endswith((".", "!", "?")) else a + "." for a in abilities)
     if not emblem_text_ok(text):
         raise _Fail
@@ -4309,6 +4322,12 @@ def designation_instruction(text: str) -> tuple[Effects, Any] | None:
         return [{"do": "venture", "who": "you", "into": "undercity" if m["into"] == "Undercity" else "dungeon"}], None
     if _RING.fullmatch(text):
         return [{"do": "ring_tempts", "who": "you"}], None
+    if m := re.fullmatch(r"open (an|two) Attractions?", text):  # -- Attractions (wave 100L) -- 701.51, 701.52 (app/rules/attractions100l.py)
+        return [{"do": "open_attraction", "n": 1 if m[1] == "an" else 2}], None
+    if text == "roll to visit your Attractions":
+        from app.rules.attractions100l import ROLL
+
+        return [dict(e) for e in ROLL], None
     m = re.fullmatch(r"it becomes (?P<v>day|night)", text)  # 731.1
     if m:
         return [{"do": "day_night", "value": m["v"]}], None

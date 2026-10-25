@@ -25,7 +25,8 @@ if TYPE_CHECKING:
 WHAT = "devour"
 DONE = "done"
 _PIECE = re.compile(r"devour (?:(?P<q>land|artifact|food) )?(?P<n>\d+)")
-_QUALITY_WORD = {None: "creature", "land": "land", "artifact": "artifact", "food": "Food"}
+_QUALITY_WORD = {None: "creature", "land": "land", "artifact": "artifact", "food": "Food", "creature_pw": "creature or planeswalker",
+                 "nonland": "nonland permanent"}
 
 
 def pieces(line: str) -> list[tuple[str | None, int]]:
@@ -44,8 +45,27 @@ def supported(line: str) -> bool:
     return len(pieces(line)) == 1
 
 
+# -- if you do (wave 100B) -- Devouring Hellion: "As this creature enters, you may sacrifice any number of creatures and/or planeswalkers. If you do,
+# it enters with twice that many +1/+1 counters on it." Devour 2 for both kinds (702.82a; the 2019-05-03 rulings: only permanents already there)
+# Rescuer Sphinx: "As this creature enters, you may return a nonland permanent you control to its owner's hand. If you do, this creature enters with a
+# +1/+1 counter on it." The same choice, of at most one permanent, returned instead of sacrificed (the 2019-05-03 rulings: only one already there).
+_STATICS = {"As ~ enters, you may sacrifice any number of creatures and/or planeswalkers. If you do, it enters with twice that many +1/+1 counters on it.":
+            ("creature_pw", 2),
+            "As ~ enters, you may return a nonland permanent you control to its owner's hand. If you do, ~ enters with a +1/+1 counter on it.": ("nonland", 1)}
+RETURNS = "nonland"  # (the one quality returned to its owner's hand, at most one)
+
+
+def static100b(ability: Any, ch: Any) -> dict[str, Any] | None:
+    from app.rules import scripts
+
+    return {"kind": "static", "static": "devour100b", "effects": []} if ability.kind == "static" and scripts.self_text(ability.text, ch.name) in _STATICS else None
+
+
 def spec(ch: Any) -> tuple[str | None, int] | None:
+    from app.rules import scripts
+
     found = [p for ab in ch.abilities if ab.kind == "keywords" and "devour" in ab.keywords for p in pieces(ab.text)]
+    found += [_STATICS[scripts.self_text(ab.text, ch.name)] for ab in ch.abilities if static100b(ab, ch) is not None]
     return found[0] if len(found) == 1 else None
 
 
@@ -67,7 +87,7 @@ def _matches(plan: Plan, cid: str, quality: str | None) -> bool:
 
     ch = chars.of(plan.state.cards[cid], plan.info)
     return {None: ch.is_creature, "land": ch.is_land, "artifact": "Artifact" in ch.types,
-            "food": "Food" in ch.subtypes}[quality]
+            "food": "Food" in ch.subtypes, "creature_pw": ch.is_creature or "Planeswalker" in ch.types, "nonland": not ch.is_land}[quality]
 
 
 def candidates(plan: Plan, card: CardInstance, controller: str, quality: str | None, taken: set[str]) -> list[str]:
@@ -88,13 +108,15 @@ def plan_entry(plan: Plan, card: CardInstance, controller: str, answers: dict[st
         return
     value = answers.get(WHAT)
     left = candidates(plan, card, controller, found[0], {*reserved, *picked(value)})
-    if not finished(value) and left:
+    if not finished(value) and left and not (found[0] == RETURNS and picked(value)):
         if "choice" not in out:
             out["choice"] = {"what": WHAT, "reserved": sorted(reserved), "picked": value}
         return
     ids = [c for c in picked(value) if c in plan.state.zones.get(zone_key(controller, "battlefield"), [])]
     if ids:
         out["devour"] = ids
+        if found[0] == RETURNS:
+            out["devour_return"] = True
     out.setdefault("choices", {})[WHAT] = ",".join(ids) + ("," if ids else "") + DONE
 
 
@@ -109,9 +131,12 @@ def prompt(plan: Plan, card: CardInstance, controller: str, choice: dict[str, An
     quality, n = found
     already = picked(choice.get("picked"))
     word = _QUALITY_WORD[quality]
-    options = [DecisionOption(id=c, label=f"Sacrifice {plan.state.cards[c].name or word}", card_id=c)
+    verb = "return" if quality == RETURNS else "sacrifice"
+    options = [DecisionOption(id=c, label=f"{verb.capitalize()} {plan.state.cards[c].name or word}", card_id=c)
                for c in candidates(plan, card, controller, quality, {*(choice.get("reserved") or ()), *already})]
-    options.append(DecisionOption(id=DONE, label=f"Done: sacrifice {len(already)}" if already else "Don't sacrifice any"))
+    options.append(DecisionOption(id=DONE, label=f"Done: {verb} {len(already)}" if already else f"Don't {verb} any"))
+    if quality == RETURNS:
+        return f"{card.name}: as it enters, return a {word} you control to its owner's hand?", options
     return (f"{card.name}: devour {n or 'X'} — as it enters, sacrifice {word}s? ({len(already)} chosen)", options)
 
 
@@ -125,11 +150,14 @@ def sacrifice(plan: Plan, ep: dict[str, Any], controller: str) -> None:
     live = [c for c in ids if c in plan.state.cards and plan.state.cards[c].zone.endswith(":battlefield")
             and plan.state.cards[c].controller == controller]
     was = {c: plan.oid(c) for c in live}  # (wave 48B: the answer then names the objects they were, 702.82b: "the Goblins it devoured" reads them as they last existed)
-    _sacrifice_cards(plan, live, controller)
+    if ep.get("devour_return"):  # (Rescuer Sphinx: to its owner's hand, 400.3)
+        plan.do({"type": "move", "card_ids": live, "to": {"zone": "hand"}}, actor=controller)
+    else:
+        _sacrifice_cards(plan, live, controller)
     gone = [was[c] for c in live if c not in plan.state.cards or not plan.state.cards[c].zone.endswith(":battlefield")]
     ep.setdefault("choices", {})[WHAT] = ",".join(gone) + ("," if gone else "") + DONE
     if gone:
-        plan.note(f"{plan.name(controller)} devours {len(gone)} as it enters", [o.rsplit(".", 1)[0] for o in gone])
+        plan.note(f"{plan.name(controller)} {'returns' if ep.get('devour_return') else 'devours'} {len(gone)} as it enters", [o.rsplit(".", 1)[0] for o in gone])
 
 
 def counters(ch: Any, choices: dict[str, str] | None) -> int:

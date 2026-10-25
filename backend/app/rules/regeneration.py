@@ -35,6 +35,11 @@ def regenerate(plan: Plan, card: CardInstance, *, consume: bool = True, shield_i
         else:
             plan.rules.regen_shields.pop(oid, None)
     plan.note(f"{card.name} regenerates", [card.id], actor=card.controller)
+    # -- turn state (wave 100H) -- "for each time it regenerated this turn" (701.19a)
+    from app.game.rules_state import TurnFact, turn_log_now
+
+    if (log100h := turn_log_now(plan.state)) is not None:
+        log100h.facts.append(TurnFact(kind="regenerated", player=card.controller, object_id=oid))
     if consume and left <= 0:
         for marker in [m for m in card.effects if m.name == "Regeneration shield"]:
             plan.do({"type": "remove_effect", "card_ids": [card.id], "effect_id": marker.id}, actor=card.controller)

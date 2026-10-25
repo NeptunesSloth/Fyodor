@@ -37,7 +37,7 @@ from typing import TYPE_CHECKING, Any
 
 from app.game.state import COMBAT_PHASES, PHASES, STACK
 from app.rules import activation_words
-from app.rules.activation_words import ANY_PLAYER, ANY_PLAYER_BUT, OPPONENTS_ONLY
+from app.rules.activation_words import ANY_PLAYER, ANY_PLAYER_BUT, OPPONENTS_BUT, OPPONENTS_ONLY
 
 if TYPE_CHECKING:
     from app.game.rules_state import RulesState
@@ -51,6 +51,8 @@ _BEFORE_ATTACKERS = tuple(PHASES[: PHASES.index("declare_attackers")])
 
 # The sentence(s) that carry an activation restriction, at the end of an activated ability's text.
 _RESTRICTION_SENTENCE = re.compile(r"^(?:Activate (?:this ability )?only|Activate no more than|You can't activate this ability) (?P<rest>.+)\.$")
+# -- activated (wave 100I) -- 602.5b: a limit counted at each attempt (Withering Wisps ruling 2008-10-01)
+_COUNTED_LIMIT = re.compile(r"^Activate no more times each turn than the number of (?P<what>.+)\.$")
 # Trigger limits (the last sentence of a triggered ability's text)
 TRIGGER_LIMIT_ONCE = "This ability triggers only once each turn."
 # 603.2h: "Do this only once each turn." — the ability triggers only if its source's controller has
@@ -58,7 +60,8 @@ TRIGGER_LIMIT_ONCE = "This ability triggers only once each turn."
 # gets to it (effects.record_action), and triggers._add reads that count as it would trigger.
 TRIGGER_LIMIT_DO_ONCE = "Do this only once each turn."
 TRIGGER_LIMIT_REFUSED: tuple[str, ...] = ()
-TRIGGER_LIMITS = {TRIGGER_LIMIT_ONCE: "once_each_turn", TRIGGER_LIMIT_DO_ONCE: "do_once"}
+TRIGGER_LIMITS = {TRIGGER_LIMIT_ONCE: "once_each_turn", TRIGGER_LIMIT_DO_ONCE: "do_once",
+                  "This ability triggers only once.": "once_game"}  # -- turn state (wave 100H) -- once for the object (a new object may again, 400.7)
 
 
 def limit_kind(sentence: str) -> str:
@@ -94,7 +97,7 @@ def split(body: str) -> tuple[str, str | None]:
     sentences = _sentences(body)
     found: list[str] = []
     while sentences and (_RESTRICTION_SENTENCE.match(sentences[-1]) or sentences[-1] in (ANY_PLAYER, OPPONENTS_ONLY)
-                         or ANY_PLAYER_BUT.match(sentences[-1])):  # (ANY_PLAYER: wave 7B; ANY_PLAYER_BUT: wave 17B)
+                         or ANY_PLAYER_BUT.match(sentences[-1]) or OPPONENTS_BUT.match(sentences[-1]) or _COUNTED_LIMIT.match(sentences[-1])):  # (ANY_PLAYER: wave 7B; ANY_PLAYER_BUT: wave 17B; wave 100I)
         found.insert(0, sentences.pop())
     if not found:
         return body, None
@@ -148,9 +151,17 @@ def parse(text: str) -> list[Restriction] | None:
         if sentence == ANY_PLAYER:  # -- activation wordings (wave 7B) -- 602.2
             out.append({"kind": "any_player"})
             continue
-        but = ANY_PLAYER_BUT.match(sentence)
-        if but is not None:  # -- activated sweep (wave 17B) -- "Any player may activate this ability but only as a sorcery."
-            out.append({"kind": "any_player"})
+        if (counted := _COUNTED_LIMIT.match(sentence)) is not None:  # -- activated (wave 100I) --
+            from app.rules import selectors
+
+            sel = selectors.parse(counted["what"])
+            if sel is None or sel.player is not None:
+                return None
+            out.append({"kind": "per_turn", "n": 0, "count100i": sel.key(), "text": f"the number of {counted['what']}"})
+            continue
+        but = ANY_PLAYER_BUT.match(sentence) or OPPONENTS_BUT.match(sentence)
+        if but is not None:  # -- activated sweep (wave 17B) -- "Any player may activate this ability but only as a sorcery." (wave 100I: "Only your opponents … and only as a sorcery.")
+            out.append({"kind": "any_player", **({"opponents_only": True} if sentence.startswith("Only") else {})})
         m = _RESTRICTION_SENTENCE.match(sentence) if but is None else but
         assert m is not None  # (split only keeps matching sentences)
         if sentence == "You can't activate this ability during combat.":
@@ -161,7 +172,8 @@ def parse(text: str) -> list[Restriction] | None:
         rest = m["rest"]
         if sentence.startswith("Activate no more than"):
             rest = "no more than " + rest
-        for clause in re.split(r" and (?:only )?(?=if |as |once|during |before |no more than |twice|three times)", rest):
+        # (-- activated (wave 100I) -- also a list: "during the declare blockers step, only if …, and only once each turn" (Grizzled Wolverine))
+        for clause in re.split(r",? and (?:only )?(?=if |as |once|during |before |no more than |twice|three times)|, only (?=if |as |once|during )", rest):
             one = _clause(clause.strip())
             if one is None:
                 return None
@@ -207,8 +219,13 @@ def _clause(clause: str) -> Restriction | None:
 def _condition(text: str) -> dict[str, Any] | None:
     if text == 'three or more creature cards are above this card':
         return {'object': 'self', 'test': 'graveyard_three_creatures_above'}
-    from app.rules import conditions, selectors
+    from app.rules import activated100i  # -- activated (wave 100I) --
 
+    if (own100i := activated100i.condition(text)) is not None:
+        return own100i
+    from app.rules import conditions, selectors
+    if text == "you're attacking two or more opponents":  # -- zones (wave 100G) -- Nemesis Phoenix: the players creatures you control attack (506.2, values.players_attacked)
+        return {'value': {'players_attacked': 1, 'by': 'you'}, 'op': '>=', 'n': 2}
     if text == 'it has no time counters on it':
         text = '~ has no time counters on it'
     # -- activated other (wave 34B) -- "Activate only if this artifact or another artifact entered the battlefield under your control this turn." (Master's
@@ -294,6 +311,12 @@ def problem(state: GameState, player: str, card: CardInstance, index: int, restr
             if x.get("boast") and turn.active_player == player and any(  # (wave 4H) Birgi: "can boast twice during each of your turns"
                     (c := state.cards.get(cid)) is not None and _face_name(c) in _BOAST_TWICE for cid in state.zones.get(f"{player}:battlefield", [])):
                 n = 2
+            if x.get("count100i"):  # -- activated (wave 100I) -- "Activate no more times each turn than the number of …": counted at each attempt (602.5b)
+                from app.rules import values
+
+                n = values.evaluate(plan, {"controller": player, "source_card": card.id}, {"count": x["count100i"]}) if plan is not None else 0
+                if uses(r, r.object_id(card.id), index, turn.number) >= n:
+                    return f"That can be activated only as many times each turn as {x['text']}"
             if uses(r, r.object_id(card.id), index, turn.number) >= n:
                 return "That can only be activated once each turn" if x["n"] == 1 else \
                     f"That can be activated only {_times(x['n'])} each turn"
@@ -326,9 +349,13 @@ def problem(state: GameState, player: str, card: CardInstance, index: int, restr
 
 def _exhaust_again(state: GameState, player: str) -> bool:
     """-- ability words (wave 4F) -- does a permanent let exhaust abilities be activated "as though they haven't been
-    activated" (Elvish Refueler, 702.177b: the only such card)? That permission isn't modelled, so the engine doesn't
-    refuse the activation."""
-    return any((c := state.cards.get(cid)) is not None and _face_name(c) in _EXHAUST_AGAIN
+    activated" (Elvish Refueler, 702.177b: the only such card)? -- turn state (wave 100H) -- only during that player's turn and while they
+    haven't activated an exhaust ability this turn (casting.py records each activation as a turn fact).
+    ponytail: name-keyed like Birgi's (it stays while Refueler has lost its abilities)."""
+    log = state.rules.turn_log if state.rules is not None and state.rules.turn_log.turn == state.turn.number else None
+    if state.turn.active_player != player or (log is not None and any(f.kind == "exhaust" and f.player == player for f in log.facts)):
+        return False
+    return any((c := state.cards.get(cid)) is not None and not c.face_down and _face_name(c) in _EXHAUST_AGAIN
                for cid in state.zones.get(f"{player}:battlefield", []))
 
 

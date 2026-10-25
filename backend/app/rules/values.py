@@ -579,6 +579,8 @@ def _turn_amount(what: str) -> Value | None:
         return {"turn_history": "attackers", **({"who": "you"} if m["mine"] else {})}
     if _TURN_DREW.match(what):
         return {"turn_history": "drew"}
+    if re.fullmatch(r"(?:the number of )?Attractions? you(?:'ve| have) visited this turn", what):  # -- Attractions (wave 100L) -- 701.52a
+        return {"turn_history": "visited100l"}
     if _TURN_OPP_DREW.match(what):  # the cards your opponents (still in the game, 800.4a) drew this turn, all of them together (121.1)
         return {"turn_history": "opp_drew"}
     m = _TURN_EXILED.match(what)
@@ -659,10 +661,18 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
     """The number a value stands for right now (never negative: 107.1b)."""
     if isinstance(v, int):
         return max(0, v)
+    if isinstance(v, dict) and "perm100d" in v:  # -- static permanents (wave 100D) -- (a CDA setting P/T may set it below 0: 107.1b)
+        from app.rules import static_perm100d
+
+        return static_perm100d.amount(plan, ctx, v)
     if 'quotient' in v or 'mana_symbols' in v:
         from app.rules import static_count_values94
 
         return static_count_values94.amount(plan, ctx, v)
+    if isinstance(v, dict) and "votes100p" in v:  # -- other choosers (wave 100P) -- "for each wild vote": this resolution's tally (701.38)
+        from app.rules import otherchooser100p
+
+        return otherchooser100p.votes(ctx, v["votes100p"])
     if isinstance(v, dict) and 'event_x' in v:
         return max(0, int((ctx.get('event') or {}).get('x') or 0))
     if isinstance(v, dict) and 'activation_life' in v:
@@ -901,6 +911,16 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
 
         sel = selectors.from_key(v["defending_player_graveyard_count"])
         return sum(len(selectors.candidates(plan, selectors.replace(sel, zone_owner=f"player:{p}"), you, ctx.get("source_card"))) for p in defending.players(plan, ctx))
+    if "greatest_damage100e" in v or "total_power100e" in v or "effigy_damage100e" in v:  # -- xdamage (wave 100E) -- Impact Resonance, Angrath,
+        from app.rules import xdamage100e  # Blazing Effigy (app/rules/xdamage100e.py)
+
+        return (xdamage100e.greatest_damage if "greatest_damage100e" in v else xdamage100e.total_power if "total_power100e" in v
+                else xdamage100e.effigy_damage)(plan, ctx, v)
+    if "hand" in v and str(v["hand"]).startswith("player:"):  # -- xdamage (wave 100E) -- one named player's hand (a villainous choice's "their hand", each_may._for)
+        return len(plan.state.zones.get(f"{v['hand'][7:]}:hand", [])) if v["hand"][7:] in plan.live() else 0
+    if "controller_hand100e" in v:  # -- xdamage (wave 100E) -- "the number of cards in that creature's controller's hand" (Flunk): its controller as it is, or as it last existed (608.2h)
+        got = _object(plan, ctx, v["controller_hand100e"])
+        return len(plan.state.zones.get(f"{got[0].controller}:hand", [])) if got is not None and got[0].controller in plan.live() else 0
     if "hand" in v and v["hand"] == "defending_player":
         from app.rules import defending
 
@@ -979,8 +999,8 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
             for n in plan.state.cards[cid].counters.values()
         )
     if "player_counters" in v:
-        if v.get("of") == "opponents":  # (wave 3E) "poison counters your opponents have": all of them together
-            return sum(max(0, int(plan.state.players[p].resources.get(v["player_counters"], 0))) for p in plan.live() if p != you)
+        if v.get("of") in ("opponents", "all"):  # (wave 3E) "poison counters your opponents have": all of them together; -- zones (wave 100G) -- "all": among players (Vault 12)
+            return sum(max(0, int(plan.state.players[p].resources.get(v["player_counters"], 0))) for p in plan.live() if p != you or v["of"] == "all")
         return max(0, int(plan.state.players[you].resources.get(v["player_counters"], 0)))
     if "party" in v:  # -- refused modal/conditional (wave 3R1) --
         return party_size(plan, you)
@@ -1080,6 +1100,9 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
     if "for_player" in v:  # -- value grammar (wave 23C) -- "the number of cards in that player's graveyard": the count as that one player's ("you" of the phrase)
         from app.rules import context
 
+        if v["for_player"] == "host_controller":  # -- attached (wave 100F) -- "each tapped creature its controller controls" (Observed Stasis): the enchanted creature's
+            got = _object(plan, ctx, "host")  # controller, as it is now (608.2h)
+            return evaluate(plan, {**ctx, "controller": got[0].controller}, v["of"]) if got is not None else 0
         if v["for_player"] not in ("target", "event") and not re.fullmatch(r"target:\d+", v["for_player"]):
             raise ValueError(f"unbound player in {v!r}")  # (scripts binds "that_player" / "target_player" / "target_opponent" or refuses the line)
         players = _target_players(plan, ctx, v["for_player"]) if v["for_player"] != "event" else context.players(plan, ctx, context.EVENT)
@@ -1293,6 +1316,8 @@ def _object(plan: Plan, ctx: dict[str, Any], who: str) -> tuple[Any, Any] | None
         from app.rules.effects import _cards  # (effects imports this module)
 
         refs = [(c, plan.oid(c)) for c in _cards(plan, ctx, "host")]
+    if who.startswith("granter:"):  # -- xdamage (wave 100E) -- the granting object (layers.py binds its object id), as it is or as it last existed
+        refs = [(next((c.id for c in plan.state.cards.values() if plan.oid(c) == who[8:]), ""), who[8:])]
     if who == "each":  # -- sized amounts (wave 3D) -- "each creature you control deals damage equal to its power": the one being read
         card = plan.state.cards.get(ctx.get("each_source") or "")
         return (card, plan.ch(card)) if card is not None else None

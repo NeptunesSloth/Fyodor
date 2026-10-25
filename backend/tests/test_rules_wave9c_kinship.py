@@ -39,7 +39,7 @@ EXTRA = [
     card('Plain Idol', set_code='wk', number='E13', mana_cost='{2}', cmc=2.0, type_line='Artifact', oracle_text='', colors=[], color_identity=[], keywords=[]),  # noqa: E501
 ]
 FULL = ["Wolf-Skull Shaman", "Pyroclast Consul", "Squeaking Pie Grubfellows", "Winnower Patrol", "Sensation Gorger",
-        "Wandering Graybeard"]
+        "Wandering Graybeard", "Leaf-Crowned Elder"]
 
 
 @pytest.fixture()
@@ -97,12 +97,9 @@ def test_definitions_of_the_full_cards():
             assert coverage.of_characteristics(chs).level == "FULL", c["name"]
 
 
-def test_the_free_play_variant_and_other_wordings_stay_manual():
+def test_other_wordings_stay_manual():
     from tests.test_rules_scripts import ch as characteristics
 
-    for name in ("Leaf-Crowned Elder",):
-        c = next(c for c in EXTRA if c["name"] == name)
-        assert coverage.of_characteristics(characteristics(c["name"], c["type_line"], c["oracle_text"])).level != "FULL"
     for text in ("At the beginning of your upkeep, you may look at the top card of your library. If it shares a creature type "
                  "with this creature, you may reveal it. If you do, destroy target creature.",
                  "At the beginning of your upkeep, you may look at the top card of your library. If it shares a color "
@@ -190,4 +187,31 @@ def test_revealing_a_sharing_card_gains_the_life(cards):
     answer(s, [ch.id])
     finish(s)
     assert life(s) == before + 4
+    check(s)
+
+
+def test_leaf_crowned_elder_plays_the_revealed_card_free(cards):
+    """-- turn state (wave 100H) -- the revealed card is cast from the library without paying its mana cost (rulings 2008-04-01)."""
+    s = setup(cards, "Leaf-Crowned Elder", "Elf Scout")
+    ch = move(s, "Shifty Changeling", "library", "top")
+    to_upkeep(s)
+    answer(s, ["look"])
+    answer(s, [ch.id])
+    d = s.state.rules.decision
+    assert d.player == "p1" and ch.id in [o.id for o in d.options]
+    answer(s, [ch.id])
+    finish(s)
+    assert s.state.cards[ch.id].zone == "p1:battlefield"
+    check(s)
+    roundtrip(s)
+
+
+def test_leaf_crowned_elder_offers_nothing_without_the_reveal(cards):
+    s = setup(cards, "Leaf-Crowned Elder", "Elf Scout")
+    elf = move(s, "Elf Scout", "library", "top")
+    to_upkeep(s)
+    answer(s, ["look"])
+    answer(s, [])
+    finish(s)
+    assert s.state.cards[elf.id].zone == "p1:hand"  # (stays on top: drawn in the draw step)
     check(s)

@@ -118,6 +118,11 @@ def parse(text: str, *, objects: bool = False) -> Condition | None:
     # -- attached events (wave 40B) -- "enchanted creature is white and untapped" (Nature's Chosen): one subject, two adjectives
     t = re.sub(rf"^({_HOST_WORDS}) is ((?:white|blue|black|red|green|tapped|untapped|attacking|blocking)) and ((?:white|blue|black|red|green|tapped|untapped|attacking|blocking))$",
                r"\1 is \2 and \1 is \3", t)
+    if objects:  # -- instead (wave 100K) -- "if that creature is attacking" (Sweep Away) / "if it's an enchantment creature or legendary creature" (Regent's Authority)
+        t = re.sub(r"^(?:it's|it is|that creature is) (attacking|blocking)$", r"it's an \1 creature", t)
+        t = re.sub(r"^(?:it's|it is) attacking a battle$", "it's a creature that's attacking a battle", t)  # (Rampaging Geoderm)
+        t = re.sub(r"^it has unearth$", "it's a permanent with unearth", t)  # (Meticulous Excavation: an unearth ability, 702.84a)
+        t = re.sub(r"^it's an? (\w+) creature or (?:an? )?(\w+) creature$", r"it's a \1 creature or it's a \2 creature", t)
     found = _parse_one(t, objects)
     if found is None:
         found = _as_cond(t) if objects else None  # -- intervening ifs (wave 11F) -- (an ability's own event: not statics)
@@ -140,7 +145,7 @@ def _compound(t: str, objects: bool) -> Condition | None:
         parts = [_parse_one(f"{m[k]} is in your graveyard", objects) for k in ("a", "b")]
         if all(p is not None for p in parts):
             return {"all": parts}
-    for joiner in (" and ", " or "):
+    for joiner in (" and ", " or ", " or if "):  # (-- attached (wave 100F) -- "If that creature's power is 2 or less or if you control another Lizard")
         for piece in re.finditer(re.escape(joiner), t):
             left, right = t[: piece.start()], t[piece.end():]
             a, b = parse(left, objects=objects), parse(right, objects=objects)
@@ -381,6 +386,9 @@ def _parse_one(t: str, objects: bool) -> Condition | None:
         if m["neg"]:  # -- if you do (wave 44A) -- "if you don't control a creature named Darkstar" (Rufus Shinra): none with that name (one name only)
             return {"value": parts[0]["value"], "op": "==", "n": 0} if len(parts) == 1 else None
         return parts[0] if len(parts) == 1 else {"all": parts}
+    m = re.fullmatch(r"an opponent has at least (?P<n>\w+) more cards in hand than you", t)
+    if m and _num(m["n"]) is not None:  # -- instead (wave 100K) -- Teachings of the Archaics: some one opponent's hand is at least n bigger than yours
+        return {"versus": {"value": {"hand": "you"}, "op": ">=", "margin": _num(m["n"])}}
     m = re.fullmatch(r"an opponent controls at least (?P<n>\w+) more (?P<what>.+) than you", t)
     if m and _num(m["n"]) is not None:  # -- cost alt (wave 16F) -- Avatar of Might: some opponent's count is at least n above yours
         key = _count(m["what"], "you control")
@@ -779,6 +787,11 @@ def _attacked(m: re.Match[str]) -> Condition:
     return {"history": "attacked"}  # 508.1: declared attackers; 508.4: a creature put onto the battlefield attacking never "attacked"
 
 
+@_history_pattern(r"you attacked with a Spacecraft this turn")
+def _attacked_spacecraft(m: re.Match[str]) -> Condition:
+    return {"history": "attacked_with", "sel": selectors.Selector(subtypes=("Spacecraft",)).key()}  # -- activated (wave 100I) -- 508.1 (Thaumaton Torpedo)
+
+
 @_history_pattern(r"you (?:didn't|did not) attack(?: with a creature)? this turn")
 def _not_attacked(m: re.Match[str]) -> Condition:
     return {"not": {"history": "attacked"}}
@@ -978,6 +991,28 @@ def _tokens(m: re.Match[str]) -> Condition | None:
 def _attackers(m: re.Match[str]) -> Condition | None:
     n = _num(m["n"])
     return None if n is None else {"history": "attackers", "n": n}  # 508.1: creatures declared as attackers, any combat
+
+
+@_history_pattern(r"you(?:'ve| have)? activated a loyalty ability this turn")
+def _loyalty(m: re.Match[str]) -> Condition:
+    return {"history": "facts", "kind": "loyalty", "who": "you", "n": 1}  # -- turn state (wave 100H) -- 606.3: an activation you made (casting.py)
+
+
+@_history_pattern(r"you(?:'ve| have)? cycled (?P<n>\w+) or more cards this turn")
+def _cycled(m: re.Match[str]) -> Condition | None:
+    n = _num(m["n"])  # -- turn state (wave 100H) -- 702.29a: each cycling this turn, a card cycled twice counting twice (Spellpyre Phoenix ruling)
+    return None if n is None else {"history": "facts", "kind": "cycle", "who": "you", "n": n}
+
+
+@_history_pattern(r"you attacked with (?:an? (?P<one>[A-Z][\w']*)|(?P<n>\w+) or more (?P<many>[A-Z][\w']*)) this turn")
+def _attacked_kind(m: re.Match[str]) -> Condition | None:
+    """-- turn state (wave 100H) -- "you attacked with a Hero / three or more Merfolk this turn": creatures of the kind declared as attackers (508.1),
+    as they are or last existed (history._attacked_with)."""
+    n = _num(m["n"]) if m["n"] else 1
+    sel = selectors.parse(m["one"] or m["many"])
+    if n is None or sel is None or sel.player is not None or sel.card or sel.zones not in ((), ("battlefield",)):
+        return None
+    return {"history": "attacked_with", "sel": sel.key(), **({"n": n} if n > 1 else {})}
 
 
 @_history_pattern(r"you attacked with creatures with total power (?P<n>\w+) or greater this combat")
@@ -1271,6 +1306,13 @@ def _object_attacked_or_blocked(m: re.Match[str]) -> Condition:
     return _obj(m, "attacked_or_blocked", **({"this_combat": True} if m["when"] == "combat" else {}))  # 508.1 / 509.1g
 
 
+# -- attached (wave 100F) -- 508.1: "destroy that creature if it didn't attack this turn" (Aggression), "unless that creature attacked this turn"
+# (Insubordination): that object was declared as an attacker this turn (history "attacked", by object; "~" stays _self_attacked)
+@_history_pattern(r"(?P<o>it|that creature) (?P<neg>didn't |did not )?attack(?:ed)? this turn")
+def _object_attacked(m: re.Match[str]) -> Condition:
+    return _obj(m, "attacked", **({"negate": True} if m["neg"] else {}))
+
+
 @_history_pattern(r"(?P<o>it|that (?:creature|permanent|token)) entered this turn")  # (~: entered_self)
 def _object_entered(m: re.Match[str]) -> Condition:
     return _obj(m, "entered")
@@ -1325,6 +1367,11 @@ def _cast_nth(m: re.Match[str]) -> Condition | None:
 @_history_pattern(r"you(?:'ve| have)? drawn more than one card this turn")
 def _drew_two(m: re.Match[str]) -> Condition:
     return {"history": "drew", "n": 2}
+
+
+@_history_pattern(r"you(?:'ve| have) visited an Attraction this turn")  # -- Attractions (wave 100L) -- 701.52a (attractions100l.visited)
+def _visited100l(m: re.Match[str]) -> Condition:
+    return {"value": {"turn_history": "visited100l"}, "op": ">=", "n": 1}
 
 
 @_history_pattern(r"(?:a|one or more) cards? (?:was|were) put into exile this turn")
@@ -1465,6 +1512,8 @@ def _object(t: str) -> Condition | None:
             det = re.match(r"(?P<rest>another .+)", what)
         if det is None and re.fullmatch(r"(?:white|blue|black|red|green)(?: or (?:white|blue|black|red|green))*", what):
             det = re.match(r"(?P<rest>.+)", what + " permanent")  # "it's blue": a color test, on whatever it is
+        if det is None and what == "historic":  # -- attached (wave 100F) -- 700.6: "if it was historic" (Curator's Ward): legendary, an artifact or a Saga
+            det = re.match(r"(?P<rest>.+)", "historic permanent")
         if det is None and what == "modified":  # -- trigger other (wave 50F) -- 700.9: "if it's modified" (Ian the Reckless): a counter on it, equipped, or enchanted by its controller's Aura
             det = re.match(r"(?P<rest>.+)", "modified creature")
         if det is None and re.fullmatch(r"(?:non)?(?:basic|legendary|snow)", what):  # -- damage wordings (wave 6B) --
@@ -1538,6 +1587,26 @@ def holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
         from app.rules import fight_receipts90
 
         return fight_receipts90.fought_creature(plan, ctx['controller'])
+    if "exiled100l" in cond:  # -- Attractions (wave 100L) -- Storybook Ride's "if any of those cards remain exiled"
+        from app.rules import attractions100l
+
+        return attractions100l.still_exiled(plan, ctx, cond)
+    if cond.get("activated100i"):  # -- activated (wave 100I) --
+        from app.rules import activated100i
+
+        return activated100i.holds(plan, ctx, cond)
+    if any(str(k).endswith("100j") for k in cond):  # -- counters (wave 100J) --
+        from app.rules import counters100j
+
+        return counters100j.holds(plan, ctx, cond)
+    if cond.get("frodo100h") or cond.get("flurry100h"):  # -- turn state (wave 100H) --
+        from app.rules import turnstate100h
+
+        return turnstate100h.holds(plan, ctx, cond)
+    if any(str(k).endswith("100a") for k in cond):  # -- trigger lines (wave 100A) --
+        from app.rules import triggers100a
+
+        return triggers100a.holds(plan, ctx, cond)
     if cond.get('attack_pair_players86') or cond.get('attack_other_exact86'):
         from app.rules import attack_subjects86
 
@@ -1744,8 +1813,8 @@ def holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
         per = [sum(1 for c in found if plan.state.cards[c].controller == p) for p in plan.live() if p != ctx["controller"]]
         # "an opponent controls two or more …" / "… controls no …": some one opponent does
         return any({">=": x >= n, "<=": x <= n, "==": x == n}[cond["op"]] for x in per)
-    got = plan.state.players[ctx["controller"]].life if "life" in v and v["life"] != "player_min" \
-        else values.evaluate(plan, ctx, v)  # (player_min: "a player has 13 or less life", wave 6E)
+    got = plan.state.players[ctx["controller"]].life if "life" in v and v["life"] not in ("player_min", "target") \
+        else values.evaluate(plan, ctx, v)  # (player_min: "a player has 13 or less life", wave 6E; target: "if target player has exactly 10 life", wave 100C)
     return _OPS[cond["op"]](got, n)  # (-- counters (wave 41A) -- all of them: "prime" too)
 
 
@@ -2028,11 +2097,13 @@ def _cast_how(t: str) -> Condition | None:
         return {"object": "self", "cast": {"optional": "blight"}}
     if re.fullmatch(r"an? [a-z]+ was beheld", t):  # 701.4a: "If a Dragon was beheld" (the only behold cost on the spell)
         return {"object": "self", "cast": {"optional": "behold"}}
+    if (mount := re.fullmatch(r"you controlled an? (?P<type>[A-Z][a-z]+) as you cast (?:this spell|~)", t)) is not None:  # -- instead (wave 100K) -- Steer Clear: the
+        return {"object": "self", "cast": {"controlled_subtype": mount["type"]}}  # subtypes you controlled as you finished casting it (its ruling: whatever you control later)
     if t in ("this spell was cast using teamwork", "it was cast using teamwork"):  # -- static_other sweep (wave 17C) -- 702.194b
         return {"object": "self", "cast": {"optional": "teamwork"}}
     if t in ("this spell's prowl cost was paid", "its prowl cost was paid"):  # -- static_other sweep (wave 17C) -- 702.76a
         return {"object": "self", "cast": {"alt": "prowl"}}
-    if (m := re.fullmatch(r"(?:(?:this spell's|this creature's|its|his|her) (?P<k>mayhem|web-slinging|sneak|surge|spectacle|emerge) cost was paid(?P<turn> this turn)?|(?P<w>it|this spell|~|they) (?:was|were) cast "
+    if (m := re.fullmatch(r"(?:(?:this spell's|this creature's|~'s|its|his|her) (?P<k>mayhem|web-slinging|sneak|surge|spectacle|emerge) cost was paid(?P<turn> this turn)?|(?P<w>it|this spell|~|they) (?:was|were) cast "
                           r"using (?P<k2>mayhem|web-slinging))", t)) is not None:  # -- Marvel keywords (wave 25A; sneak: 30I) -- 702.187b, 702.188a, 702.190a
         # (-- static_other (wave 36B) -- surge 702.117a, spectacle 702.137a, emerge 702.119a: the cast record's alternative is the keyword (alt_costs.keyword_definition))
         return {"object": _cast_who(m["w"] or "self"), "cast": {"alt": m["k"] or m["k2"], **({"this_turn": True} if m["turn"] else {})}}
@@ -2177,6 +2248,12 @@ def _cast_holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
         return False
     if ((subtype := how.get("revealed_or_controlled_subtype")) is not None
             and subtype not in record.cast_controlled_subtypes and subtype not in record.cast_revealed_subtypes):
+        return False
+    if (subtype := how.get("controlled_subtype100e")) is not None and subtype not in record.cast_controlled_subtypes:
+        return False  # -- xdamage (wave 100E) -- "if you controlled a Faerie as you cast this spell" (Faerie Fencing): the snapshot as casting finished (601.2i)
+    if how.get("controlled_modified100e") and not record.cast_controlled_modified:
+        return False  # -- xdamage (wave 100E) -- "if you controlled a modified creature as you cast this spell" (Flame Discharge)
+    if how.get("controlled_subtype") is not None and how["controlled_subtype"] not in record.cast_controlled_subtypes:  # -- instead (wave 100K) --
         return False
     if how.get("by_you") and record.controller != ctx["controller"]:
         return False

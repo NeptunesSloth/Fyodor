@@ -230,7 +230,9 @@ def backup_definition(ch: Any, ab: AbilityText, nth: int = 0) -> dict[str, Any] 
         if x.kind == "keywords":
             keywords += [p.strip().lower() for p in re.split(r"[,;]\s*", text.rstrip(".")) if p.strip()]
         elif '"' not in text:
-            quotes.append(text)
+            from app.rules import zones100g
+
+            quotes.append(zones100g.native(text))  # -- zones (wave 100G) -- a line read in other words with the same meaning (Guardian Scalelord)
         else:
             return None
     gains = [*keywords, *(f'"{q}"' for q in quotes)]

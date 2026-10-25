@@ -9,7 +9,7 @@ import pytest
 from app.game.errors import ActionError
 from app.game.factory import DeckCard, PlayerSetup, new_game
 from app.game.session import GameSession
-from tests.game_helpers import act, enable, find, zone
+from tests.game_helpers import act, enable, find, mana_pool, zone
 
 
 def build(cards, p1: list[tuple[int, str]], p2: list[tuple[int, str]], *, c1="Krenko, Mob Boss", c2="Atraxa, Praetors' Voice"):
@@ -107,7 +107,7 @@ def test_summoning_sick_creatures_cannot_tap_for_mana(cards):
     act(s, "p2", type="pass_priority")  # → Alice's turn 3
     assert (s.state.turn.number, s.state.turn.active_player) == (3, "p1")
     act(s, "p1", type="activate_ability", card_id=elves.id, ability=0)
-    assert s.state.players["p1"].mana == {"G": 1}
+    assert mana_pool(s, "p1") == {"G": 1}
 
 
 def test_sol_ring_commander_tax_and_mana_pools_empty(cards):
@@ -116,12 +116,12 @@ def test_sol_ring_commander_tax_and_mana_pools_empty(cards):
         put(s, "p1", "Mountain", "battlefield")
     sol = put(s, "p1", "Sol Ring", "battlefield")
     act(s, "p1", type="activate_ability", card_id=sol.id, ability=0)
-    assert s.state.players["p1"].mana == {"C": 2} and s.state.cards[sol.id].tapped
+    assert mana_pool(s, "p1") == {"C": 2} and s.state.cards[sol.id].tapped
     krenko = find(s.state, "Krenko, Mob Boss", "p1")
     act(s, "p1", type="cast_spell", card_id=krenko.id)  # {2}{R}{R}: {C}{C} from the pool + 2 Mountains
     assert s.state.cards[krenko.id].zone == "p1:battlefield"
     assert s.state.players["p1"].commander_tax[krenko.commander_key] == 2
-    assert s.state.players["p1"].mana == {}
+    assert mana_pool(s, "p1") == {}
     # back to the command zone by hand: now it costs {4}{R}{R} and Alice can't pay
     act(s, "p1", type="move", card_ids=[krenko.id], to={"zone": "command"})
     act(s, "p1", type="tap", card_ids=[c for c in zone(s.state, "p1", "battlefield")], tapped=False)
@@ -130,7 +130,7 @@ def test_sol_ring_commander_tax_and_mana_pools_empty(cards):
     # mana empties when the step ends
     act(s, "p1", type="activate_ability", card_id=sol.id, ability=0)
     act(s, "p1", type="pass_priority")
-    assert s.state.players["p1"].mana == {} and s.state.turn.phase == "main2"
+    assert mana_pool(s, "p1") == {} and s.state.turn.phase == "main2"
 
 
 def test_any_color_sources_ask_which_color(cards):
@@ -142,7 +142,7 @@ def test_any_color_sources_ask_which_color(cards):
     d = rules(s).decision
     assert d and d.kind == "choose_one" and sorted(o.label for o in d.options) == ["{B}", "{G}", "{U}", "{W}"]
     act(s, "p2", type="choose", decision_id=d.id, option_ids=[next(o.id for o in d.options if o.label == "{U}")])
-    assert s.state.players["p2"].mana == {"U": 1} and rules(s).priority == "p2"
+    assert mana_pool(s, "p2") == {"U": 1} and rules(s).priority == "p2"
     with pytest.raises(ActionError, match="tapped"):
         act(s, "p2", type="activate_ability", card_id=tower.id, ability=0, mana_choice="G")
 

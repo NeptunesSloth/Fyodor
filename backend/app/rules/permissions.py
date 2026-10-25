@@ -1296,7 +1296,8 @@ def spell_uncounterable(state: GameState, info: CardInfo, card: CardInstance, ch
 
     for d in _definitions(ch).values():
         if d.get("static") == "self_uncounterable" and state.rules is not None:
-            ctx = {"controller": card.controller, "source_card": card.id, "source_object": state.rules.object_id(card.id)}
+            ctx = {"controller": card.controller, "source_card": card.id, "source_object": state.rules.object_id(card.id),
+                   "x": card.stack_info.x if card.stack_info is not None else None}  # (-- multi (wave 100M) -- Banefire: the X chosen as it was cast, 107.3)
             if conditions.holds(_view(state, card.controller, info), ctx, d["cond"]):
                 return True
     turn = state.turn.number  # -- most-played cards (wave 43B) -- "Spells you control can't be countered this turn." (prohibitions.uncounterable_turn)

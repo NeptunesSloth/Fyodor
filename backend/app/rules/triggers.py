@@ -177,10 +177,10 @@ def _add(plan: Plan, *, controller: str, source_card: str, source_object: str, n
             check["x"] = record.x
         if not conditions.holds(plan, check, definition["if"]):
             return None
-    if definition.get("limit") == "once_each_turn":  # "This ability triggers only once each turn." (app/rules/restrictions.py)
+    if definition.get("limit") in ("once_each_turn", "once_game"):  # "This ability triggers only once (each turn)." (app/rules/restrictions.py)
         from app.rules import restrictions
 
-        if restrictions.uses(plan.rules, source_object, index, plan.state.turn.number):
+        if restrictions.uses(plan.rules, source_object, index, None if definition["limit"] == "once_game" else plan.state.turn.number):
             return None  # it triggered this turn already (even if that ability was countered or removed)
         restrictions.record_use(plan.rules, source_object, index, plan.state.turn.number)
     if definition.get("limit") == "do_once":  # "Do this only once each turn." (603.2h, app/rules/restrictions.py)
@@ -992,6 +992,8 @@ def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: F
         return False
     if cond.get("min_blockers") and info.get("blockers", 0) < cond["min_blockers"]:  # -- block events (wave 53C) -- 509.3c: "becomes blocked by two or more creatures"
         return False
+    if cond.get("min_blocked") and info.get("blocked", 0) < cond["min_blocked"]:  # -- trigger lines (wave 100A) -- 509.3e: "blocks two or more creatures"
+        return False
     if cond.get("while") is not None:  # "attacks while you control …", -- counters (wave 33C) -- "enters while this creature has a -1/-1 counter on it": part of the trigger event
         from app.rules import conditions
 
@@ -1091,6 +1093,11 @@ def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: F
         from app.rules import dice
 
         if not dice.die_matches(cond, info):
+            return False
+    if event == "roll_visit":  # -- Attractions (wave 100L) -- a visit ability: the result lit up on it (702.159a)
+        from app.rules import attractions100l
+
+        if not attractions100l.matches(plan, cond, watcher, info):
             return False
     if event == "die" and cond.get("damaged_by_self") and not _damaged_by(plan, watcher, info.get("oid")):  # (wave 7C)
         return False
@@ -1266,6 +1273,8 @@ def _defender_ok(want: str, watcher: CardInstance, info: dict[str, Any], plan: P
         return defended == you
     if want == "opponent_or_pw":  # -- trigger other (wave 36A) -- "attacks one of your opponents or a planeswalker an opponent controls": not you, not what you control
         return defended != you
+    if want == "truce100a":  # -- trigger lines (wave 100A) -- Tenuous Truce: you attack the enchanted player or a planeswalker they control, or they attack you or yours
+        return not info.get("battle") and (info.get("attacker"), defended) in ((you, watcher.attached_player), (watcher.attached_player, you))
     if not info.get("direct"):
         return False
     if want == "you":
@@ -1477,7 +1486,7 @@ def _fire_generic(plan: Plan, facts: list[Fact], batch: int, fired: Fired,
             # table, but was absent for look-back events in its entry batch.
             # Conversely, an object leaving in this batch does not see the
             # incoming object's ETB (it still sees simultaneous deaths).
-            look_back = fact[0] in ("die", "leave", "sacrifice", "exploit", "leave_graveyard", "unattached", "control_change")
+            look_back = fact[0] in ("die", "leave", "sacrifice", "exploit", "leave_graveyard", "unattached", "control_change", "destroyed")  # (destroyed: wave 100A, 603.10a — Karmic Justice's ruling)
             if batch >= 0 and ((look_back and batch == lo) or (not look_back and batch == hi)):
                 continue
             if not combat_player_scope43.printed_verdict(plan, whole, watcher, fact,
@@ -1722,6 +1731,8 @@ def generic_combat(plan: Plan, event: str, cards: list[CardInstance],
                 info["battle"] = True  # -- review 34 -- 310.5: an attack on a battle (attacks neither a player nor a planeswalker)
         if event == "blocked":  # -- block events (wave 53C) -- 509.3c: how many creatures were declared as blockers for it ("becomes blocked by two or more creatures")
             info["blockers"] = sum(1 for o in plan.state.cards.values() if o.blocks(c.id))
+        if event == "block":  # -- trigger lines (wave 100A) -- 509.3e: how many creatures it blocks ("blocks two or more creatures")
+            info["blocked"] = (1 if c.blocking else 0) + len(c.blocking_more)
         if event == "attack":  # "attacks for the first time each turn" (kept per object per turn)
             key = f"attacked:{info['oid']}"
             info["first"] = plan.rules.once_per_turn.get(key) != turn
@@ -1804,7 +1815,9 @@ def graveyard_ability(d: dict[str, Any]) -> bool:
     import json
 
     # (-- graveyard triggers (wave 19C) -- "At the beginning of your upkeep, if this card is in your graveyard, …": it works there only)
-    return '"self_gy"' in json.dumps(d, default=str) or arrives_in_graveyard(d) or d.get("if") == IN_GRAVEYARD
+    # (-- multi (wave 100M) -- 113.6m: "you may exile this card from your graveyard" moves it out of the graveyard: Kozilek's Return)
+    s = json.dumps(d, default=str)
+    return '"self_gy"' in s or '"Exile this card from your graveyard"' in s or arrives_in_graveyard(d) or d.get("if") == IN_GRAVEYARD
 
 
 IN_GRAVEYARD = {"object": "self", "test": "in_graveyard"}
@@ -2783,6 +2796,12 @@ def _put(plan: Plan, t: PendingTrigger, target: str | None = None, picks: dict[s
                     plan.note(f"{t.name}'s ability has no unique player to choose its target and is removed")
                     return True
                 choice_player = event_players[0]
+            if t.ability.get("target_choice") == "defending100j":  # -- counters (wave 100J) -- "of defending player's choice" (Erithizon: 508.5)
+                if t.event is None or t.event.defended not in plan.live():
+                    r.pending_triggers = [p for p in r.pending_triggers if p.id != t.id]
+                    plan.note(f"{t.name}'s ability has no defending player to choose its target and is removed")
+                    return True
+                choice_player = t.event.defended
             decide(plan, player=choice_player, kind="choose_one", prompt=f"{t.name}: choose a target",
                    options=[DecisionOption(id=x, label=label(plan, x), card_id=x if x in plan.state.cards else None) for x in legal],
                    resume={"step": "trigger_target", "trigger": t.id})
@@ -2807,6 +2826,8 @@ def _put(plan: Plan, t: PendingTrigger, target: str | None = None, picks: dict[s
         plan.do({"type": "set_stack_info", "card_id": ability_id, "modes": t.ability["chosen_modes"]}, actor=t.controller)
     if t.ability.get('stack_tags'):
         plan.do({'type': 'set_stack_info', 'card_id': ability_id, 'tags': t.ability['stack_tags']}, actor=t.controller)
+    if t.ability.get("link_player100a") and targets and t.source_object:  # -- trigger lines (wave 100A) -- the player a linked leaves ability means
+        r.linked_players100a.setdefault(t.source_object, []).append(targets[0].id)
     if targets:
         plan.target_arrows(ability_id, [x.id for x in targets], actor=t.controller)  # (review 28D: an arrow points at up to 20)
         targeted(plan, ability_id, t.controller, targets)

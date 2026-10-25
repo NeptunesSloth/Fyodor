@@ -21,6 +21,7 @@ from app.rules import characteristics as chars
 from app.rules import mana as M
 from app.rules.casting import summoning_sick
 from app.rules.characteristics import CardInfo, Characteristics
+from app.rules.layers import LAND_TYPES
 from app.rules.plan import Plan, decide, live_players
 from app.rules.sba import power, toughness
 from app.rules.statics import rule_arg, rule_selectors
@@ -48,9 +49,11 @@ def attack_problem(state: GameState, card: CardInstance, ch: Characteristics) ->
         return f"{ch.name} can't attack after attacking during its controller's last turn"
     if {"cant_attack", "cant_attack_or_block"} & rules:
         return f"{ch.name} can't attack"
+    if state.rules is not None and state.rules.combat_tag == "only_land" and not ch.is_land:  # -- as long as (wave 100K) -- Bumi's combat phase
+        return f"{ch.name} isn't a land creature: only land creatures can attack during this combat phase"
     if state.rules is not None and any(e[0] == state.turn.number and e[1] == card.controller and state.rules.object_id(card.id) not in e[2] for e in state.rules.attack_piles):
         return f"{ch.name} is not in the pile chosen (700.3)"  # -- piles (wave 53D) -- Fight or Flight
-    if "haste" not in ch.keywords and summoning_sick(state, card):
+    if "haste" not in ch.keywords and "attack_as_haste" not in rules and summoning_sick(state, card):  # (wave 100F: "can attack as though it had haste", 302.6)
         return f"{ch.name} has summoning sickness"
     return None
 
@@ -277,7 +280,9 @@ LANDWALK = {"plainswalk": "Plains", "islandwalk": "Island", "swampwalk": "Swamp"
             # -- landwalk variants (wave 12B) -- 702.14a/c: the type, supertype and/or subtype the land has, or (nonbasic) lacks
             "snow landwalk": "Snow", "nonbasic landwalk": "nonbasic", "legendary landwalk": "Legendary",
             "artifact landwalk": "Artifact", **{f"snow {w}walk": f"Snow {w.capitalize()}"
-                                                for w in ("plains", "island", "swamp", "mountain", "forest")}}
+                                                for w in ("plains", "island", "swamp", "mountain", "forest")},
+            # -- zones (wave 100G) -- any land type's (205.3i), snow or not: "landwalk of the chosen type" (Illusionary Presence, Barbarian Guides)
+            **{f"{t.lower()}walk": t for t in sorted(LAND_TYPES)}, **{f"snow {t.lower()}walk": f"Snow {t}" for t in sorted(LAND_TYPES)}}
 
 
 def _controls_land(state: GameState, player: str, kind: str, info: CardInfo | None) -> bool:

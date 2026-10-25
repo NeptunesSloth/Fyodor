@@ -52,6 +52,7 @@ SUPPORTED_REPLACEMENTS: set[str] = {
     "enters_turn_down",  # "As ~ enters, turn all other nontoken creatures face down." (708.2a; wave 18A: replacements.turn_down)
     "discard_battlefield",  # -- discard causes (wave 23D) -- "If a spell or ability an opponent controls causes you to discard this card, put it onto the battlefield instead of putting it into your graveyard."
     "exile_instead",  # "If ~ would die / be put into a graveyard from anywhere, exile it instead" (own and statics)
+    "hand_instead",  # -- instead (wave 100K) -- "If a creature you control that's enchanted would die, return it to its owner's hand instead." (Necromancer's Magemark)
     "library_instead",  # "If ~ would die, put it on top of / on the bottom of its owner's library instead" (wave 20B)
     "shuffle_instead",  # -- zone replacements (wave 22C) -- "… reveal ~ and shuffle it into its owner's library instead" (Blightsteel)
     "prevent",  # "Prevent all [combat] damage that would be dealt [to …] [by …] [this turn]" (615)
@@ -133,7 +134,7 @@ def definition_supported(d: dict[str, Any]) -> bool:
         return verdict
     if d.get("kind") == "replacement":  # (review 26D: self_in_group — scripts._enters_self_check, unsettled)
         return d.get("replacement") in SUPPORTED_REPLACEMENTS and not d.get("self_in_group")
-    if d.get("kind") == "static" and d.get("static") in ("prevent", "exile_instead"):
+    if d.get("kind") == "static" and d.get("static") in ("prevent", "exile_instead", "hand_instead"):
         return d["static"] in SUPPORTED_REPLACEMENTS
     if d.get("kind") == "spell" and any(e.get("do") == "prevent_all" for e in d.get("effects") or []):
         return "prevent" in SUPPORTED_REPLACEMENTS
@@ -302,6 +303,7 @@ SUPPORTED_KEYWORD_ACTIONS: set[str] = {
 }
 SUPPORTED_KEYWORD_ACTIONS.update({"clash", "detain", "suspect"})  # -- clash, detain, suspect (wave 12A) -- app/rules/clash.py, test_rules_wave12a_counters_keywords.py
 SUPPORTED_KEYWORD_ACTIONS.add("populate")  # -- token copies & attach on entry (wave 5J) -- test_rules_wave5j_token_copies.py
+SUPPORTED_KEYWORD_ACTIONS.update({"open an attraction", "roll to visit your attractions"})  # -- Attractions (wave 100L) -- test_rules_wave100l_attractions.py
 
 
 # -- refusals (agent T) ------------------------------------------------------------------------------

@@ -30,7 +30,7 @@ _WORDS = {"a": 1, "an": 1, "one": 1, "two": 2, "three": 3, "four": 4, "five": 5,
 _TIMES = {"once": 1, "twice": 2, "three times": 3, "four times": 4, "five times": 5}
 
 # "it deals 4 damage" / "~ deals 4 damage" (no recipient: the replaced instruction's)
-_DEALS = re.compile(r"^(?:it|~) deals (?P<n>\d+|[a-z]+) damage$")
+_DEALS = re.compile(r"^(?:it|~) deals (?P<n>\d+|[a-z]+) damage(?: to that creature)?$")  # (wave 100K: "to that creature", Steer Clear: the replaced damage's one target)
 # "create four of those tokens" (the replaced instruction's tokens: the same token, another number)
 _THOSE_TOKENS = re.compile(r"^create (?P<n>\d+|[a-z]+) of those tokens$")
 # "that creature gets -4/-4" (no duration: the replaced pump's)
@@ -79,6 +79,9 @@ def restate(rest: str, base: list[dict[str, Any]]) -> list[dict[str, Any]] | Non
         # -- kicked / instead (wave 48A) -- "Counter target spell if its mana value is 2 or less. If this spell was kicked, counter that spell if its mana value is 4 or less
         # instead." (Prohibit, Overload): the replaced instruction with another limit (608.2c)
         return [{**base[0], "cond": {**base[0]["cond"], "n": int(c["n"])}}, base[1]]
+    if len(base) == 1 and base[0].get("do") == "mill" and str(base[0].get("who")).startswith("target") and rest == "that player mills twice that many cards":
+        # -- instead (wave 100K) -- "Target player mills X cards. If …, that player mills twice that many cards instead." (Increasing Confusion, 608.2c)
+        return [{**base[0], "n": {"times": [2, base[0]["n"]]}}]
     if len(base) != 1 or not isinstance(base[0].get("n"), int):
         return None
     e = base[0]
@@ -90,6 +93,17 @@ def restate(rest: str, base: list[dict[str, Any]]) -> list[dict[str, Any]] | Non
         if e["do"] not in ("create_token", "token_copy"):
             return None
         n = _amount(m["n"])
+    elif (m := re.fullmatch(r"that player sacrifices (?P<n>\w+) of those creatures of their choice", rest)) is not None:
+        # -- instead (wave 100K) -- "Target opponent sacrifices a creature of their choice that …. If …, that player sacrifices two of those creatures of
+        # their choice instead." (Gideon's Triumph): the same edict, of two (701.21a)
+        if e["do"] != "edict" or not str(e.get("who")).startswith("target"):
+            return None
+        n = _amount(m["n"])
+    elif (m := re.fullmatch(r"create (?P<n>\w+) of those tokens that are tapped and attacking", rest)) is not None:
+        # -- instead (wave 100K) -- "create two tapped 1/1 … tokens. If …, instead create two of those tokens that are tapped and attacking." (Andúril): the same token,
+        # entering attacking (508.4)
+        n = _amount(m["n"])
+        return [{**e, "do": "create_attacking", "n": n, "tapped": True}] if e["do"] == "create_token" and e.get("tapped") and n else None
     elif (m := _INVESTIGATE.fullmatch(rest)) is not None:
         if e["do"] != "create_token" or (e.get("token") or {}).get("name") != "Clue" or e.get("n") != 1:
             return None
@@ -110,6 +124,12 @@ def implies(stronger: dict[str, Any], weaker: dict[str, Any]) -> bool:
 
     if stronger == weaker:
         return True
+    s, w = stronger.get("versus"), weaker.get("versus")
+    if s is not None and w is not None and set(stronger) == set(weaker) == {"versus"}:
+        # -- instead (wave 100K) -- "an opponent has at least four more cards in hand than you" against "an opponent has more cards in hand than you"
+        # (Teachings of the Archaics): the opponent with at least n more (n >= 1) has more
+        return set(s) == {"value", "op", "margin"} and set(w) == {"value", "op"} and s["value"] == w["value"] \
+            and s["op"] == ">=" and w["op"] == ">" and int(s["margin"]) >= 1
     if "all" in stronger:
         return any(implies(c, weaker) for c in stronger["all"])
     if set(stronger) != {"value", "op", "n"} or set(weaker) != {"value", "op", "n"}:

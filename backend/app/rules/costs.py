@@ -55,6 +55,7 @@ _EXILE_SELF_HAND = re.compile(r"^Exile (?:this card|~) from your hand$")  # -- a
 _EXILE_SELF = re.compile(rf"^Exile {_SELF}$")
 _EXILE_GY = re.compile(rf"^Exile {_N} (?P<what>{_COST_CARD} from your graveyard)$")
 _RETURN_SELF = re.compile(rf"^Return {_SELF} to its owner's hand$")
+_BOTTOM_SELF = re.compile(rf"^Put {_SELF} on the bottom of its owner's library$")  # -- activated (wave 100I) -- (Timestream Navigator)
 _RETURN = re.compile(rf"^Return {_N} (?P<what>.+? you control) to (?:its|their) owner's hands?$")
 # -- X sized by a count (wave 25D) -- a spell's additional cost sized by the X announced as it's cast (107.3a, 601.2b): "discard X cards",
 # "return X Swamps you control to their owner's hand" (the sacrifice / exile ones are ``_SAC_X`` / ``_EXILE_GY_X``)
@@ -64,7 +65,7 @@ _RETURN_X = re.compile(r"^Return X (?P<what>.+? you control) to (?:its|their) ow
 _TAP_OTHER = re.compile(rf"^Tap {_N} (?P<another>another |other )?untapped (?P<what>.+ you control(?: with [a-z ]+?)?(?: other than (?:~|this creature))?)$")  # (wave 48C: Radiant, "… you control with flying")
 # -- attached events (wave 40B) -- 303.4b, 301.5: "Tap enchanted land: …" (Earthlore), "Sacrifice enchanted creature: …" (Betrothed of Fire): the permanent the source
 # is attached to (selectors "host_of_source"), paid with it as the one choice, made for you
-_HOST_COST = re.compile(r"^(?P<verb>Tap|Sacrifice) (?:enchanted (?:creature|land|permanent)|equipped creature)$")
+_HOST_COST = re.compile(r"^(?P<verb>Tap|Sacrifice) (?:enchanted (?:creature|land|permanent|artifact)|equipped creature)$")  # (artifact: wave 100A, Curse Artifact)
 _UNTAP_OTHER = re.compile(rf"^Untap {_N} tapped (?P<what>.+ you control)$")  # -- activated sweep (wave 17B) -- Halo Fountain
 _REMOVE_CHOSEN = re.compile(
     r"^Remove (?P<n>a|an|one|two|three|\d+) (?P<kind>\+1/\+1|-1/-1|[a-z]+) counters? from (?:a|an|another) (?P<what>.+)$")
@@ -94,7 +95,9 @@ CRAFT = "CRAFT"
 UNATTACH = "UNATTACH"
 HAND_TO_TOP = 'HAND_TO_TOP'
 EXILE_TOP_OWN_GY = 'EXILE_TOP_OWN_GY'
-WAVE_4H_KINDS = frozenset({EXILE_TOP_OWN_GY, HAND_TO_TOP, PUT_COUNTER, DISCARD_HAND, MILL, EXILE_LIBRARY, EXERT, COLLECT_EVIDENCE, FORAGE, WATERBEND, CRAFT, UNATTACH, REVEAL_SECRET, REVEAL_HAND})
+LIBRARY_BOTTOM_SELF = "LIBRARY_BOTTOM_SELF"  # -- activated (wave 100I) -- the source onto the bottom of its owner's library
+WAVE_4H_KINDS = frozenset({EXILE_TOP_OWN_GY, HAND_TO_TOP, PUT_COUNTER, DISCARD_HAND, MILL, EXILE_LIBRARY, EXERT, COLLECT_EVIDENCE, FORAGE, WATERBEND, CRAFT, UNATTACH, REVEAL_SECRET, REVEAL_HAND,
+                           LIBRARY_BOTTOM_SELF})
 ANY_COUNTER = "*"
 OPPONENT_GAIN_LIFE = "OPPONENT_GAIN_LIFE"
 
@@ -348,10 +351,14 @@ def _component(part: str, card_name: str) -> CostComponent | None:
         return CostComponent(EXILE, text=part)
     if _RETURN_SELF.match(part):
         return CostComponent(RETURN_PERMANENT, text=part)
+    if _BOTTOM_SELF.match(part):
+        return CostComponent(LIBRARY_BOTTOM_SELF, text=part)
     if m := _SAC_CHOSEN.match(part):
         key = _selector(m["what"], zone="battlefield", other=m["n"] == "another")
         if key is None and m["n"] in ("a", "an", "another") and " or " in m["what"]:  # -- keywords (wave 43C) -- "Sacrifice a legendary artifact or legendary creature"
             one, two = m["what"].split(" or ", 1)  # (wave 50G: "Sacrifice another creature or a Blood token" (Anje): "another" is the first kind's only, the second kind has its own article)
+            if m["what"].endswith(" or token") and m["what"].count(" or ") == 2:  # -- if you do (wave 100B) -- "an artifact, enchantment, or token" (Devouring Sugarmaw)
+                one, two = m["what"].rsplit(" or ", 1)
             first, second = _selector(one, zone="battlefield", other=m["n"] == "another"), \
                 _selector(re.sub(r"^an? ", "", two), zone="battlefield", other=m["n"] == "another" and not re.match(r"an? ", two))  # (Sauron, the Dark Lord's ward): two kinds, each;
             # ("another creature or token" (Ice Cream Kitty): no article of its own, so "another" covers both, as in "another artifact or creature")
@@ -657,6 +664,8 @@ def _one_4h(part: str, card_name: str) -> CostComponent | None:
         return CostComponent(PAY_LIFE, amount=0, life_rule="half", text=part)
     if part == _COMMANDER_LIFE:
         return CostComponent(PAY_LIFE, amount=0, life_rule="commander_colors", text=part)
+    if (each := re.fullmatch(r"Pay (?P<n>\d+) life for each (?P<k>[a-z]+) counter on (?:~|this enchantment)", part)) is not None:  # -- activated (wave 100I) -- (Tornado:
+        return CostComponent(PAY_LIFE, amount=0, life_rule=f"per_counter100i:{each['k']}:{each['n']}", text=part)  # counted as it's paid, 601.2f-h)
     return None
 
 
@@ -989,13 +998,14 @@ def parse_additional_cost(text: str) -> AbilityCost | None:
 # "sacrifice a creature or pay {3}{B}" (a mana branch is paid with the mana cost). Each side must be a cost the grammar
 # pays by itself; "reveal …", "behold …", "blight …", "forage" sides stay manual.
 _EITHER_SPLIT = re.compile(r" or (?=(?:sacrifice|discard|pay|exile|return|tap) )")
+_EITHER_LIST = re.compile(r",(?: or)? (?=(?:sacrifice|discard|pay|exile|return|tap) )")
 _PAY_MANA = re.compile(r"^pay (?P<mana>(?:\{(?:\d+|[WUBRGC]|[WUBRG2]/[WUBRGP])\})+)$")
 EITHER_SLOT = 20  # (the cost choice that names the chosen side: "either:<i>", A.CostChoice.component's last index)
 
 
 def _either(text: str) -> AbilityCost | None:
     """None: not a choice; AbilityCost(either=()) a choice the grammar can't pay; else the sides."""
-    sides = _EITHER_SPLIT.split(text)
+    sides = (_EITHER_LIST if ", or " in text else _EITHER_SPLIT).split(text)  # (wave 100D: "sacrifice a creature, discard a card, or pay 4 life", Dusk Mangler)
     if len(sides) < 2:
         return None
     out: list[AbilityCost] = []

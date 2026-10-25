@@ -59,6 +59,7 @@ _NOUN_ONLY = re.compile(r"^(?:cards?)$")
 _GREATEST = re.compile(r"^the greatest number of cards a player (?P<verb>discarded|milled) this way$")
 _TOTAL = re.compile(r"^the total (?P<stat>power|toughness) of the (?P<verb>sacrificed|tapped) (?P<what>.+)$")
 _TOTAL_GOADED = re.compile(r"^the total (?P<stat>power|toughness) of (?P<what>.+?) goaded this way$")  # -- goad (wave 50J) -- Havoc Eater
+_TOTAL_SACRIFICED = re.compile(r"^the total (?P<stat>power|toughness) of the (?P<what>creatures) sacrificed this way$")  # -- if you do (wave 100B) -- Reign of the Pit: each as it last existed (608.2h)
 
 
 def parse(phrase: str) -> dict[str, Any] | None:
@@ -70,6 +71,8 @@ def parse(phrase: str) -> dict[str, Any] | None:
         return {"this_way": total["verb"], "of": sel.key(), "stat": total["stat"]}  # ("the total power of the sacrificed creatures": as each last existed, 608.2h)
     if (tg := _TOTAL_GOADED.match(p)) is not None and (sel := selectors.parse(tg["what"])) is not None and sel.player is None:
         return {"this_way": "goaded", "of": sel.key(), "stat": tg["stat"]}
+    if (ts := _TOTAL_SACRIFICED.match(p)) is not None and (sel := selectors.parse(ts["what"])) is not None and sel.player is None:
+        return {"this_way": "sacrificed", "of": sel.key(), "stat": ts["stat"]}
     most = _GREATEST.match(p)
     if most is not None:  # Windfall: "the greatest number of cards a player discarded this way" (each player's own)
         return {"this_way": most["verb"], "of": None, "max_by": "owner"}
@@ -163,7 +166,11 @@ def filtered(plan: Plan, ctx: dict[str, Any], cards: list[str], key: str) -> lis
 _IF_PASSIVE = re.compile(r"^(?:a|an|(?P<another>another)|at least one|one or more|any) (?P<what>.+?) (?:is|was|were|are) (?P<rest>.+ this way)$")  # (wave 52A: another)
 _IF_THAT = re.compile(r"^that (?:creature|permanent) (?:(?:was|is) (?P<verb>destroyed|sacrificed|exiled)|(?P<dies>dies|died)) this way$")
 _IF_YOU_PUT = re.compile(r"^you put (?:a|an|one or more) (?P<what>.+?) (?P<dest>into your hand|onto the battlefield) this way$")  # (wave 45A)
-_IF_YOU = re.compile(r"^you (?P<verb>sacrificed|exiled|discarded|milled|destroyed) (?:a|an|one or more) (?P<what>.+?) this way$")
+_IF_YOU = re.compile(r"^you (?P<verb>sacrificed|exiled|discarded|milled|destroyed|sacrifice|exile|discard|mill|destroy) (?:a|an|one or more) (?P<what>.+?) this way$")
+# -- if you do (wave 100B) -- "If you sacrifice an Island this way" (Serendib Djinn), "If you discard a land card this way" (Silvan Reveler): the same question as the past tense
+_PAST = {"sacrifice": "sacrificed", "exile": "exiled", "discard": "discarded", "mill": "milled", "destroy": "destroyed"}
+_EITHER = re.compile(r"^(?:a|an) (?P<a>.+?) or (?:a|an) (?P<b>.+?) (?P<rest>(?:is|was) .+ this way)$")  # -- if you do (wave 100B) -- Break the Spell: either kind
+_YOU_RETURN_N = re.compile(r"^you return (?P<n>two|three|four|five) or more (?P<what>[a-z ]+?) you control this way$")  # -- if you do (wave 100B) -- Flood of Tears
 
 
 # -- if you do (wave 10C) -- "If a player / a Dragon / a nonred permanent is dealt damage this way, …" (Play with Fire, The Black Arrow,
@@ -171,11 +178,14 @@ _IF_YOU = re.compile(r"^you (?P<verb>sacrificed|exiled|discarded|milled|destroye
 # damage" when some damage was actually dealt to it (damage that was all prevented dealt none, 615.1), and what it is is judged as
 # it was when the damage was dealt (608.2h).
 HIT = "dealt_hit"
-_HIT_WHO = re.compile(r"^(?:target(?::\d+)?|it|event)$")  # (one recipient: the trigger event's object is one)
+_HIT_WHO = re.compile(r"^(?:target(?::\d+)?|it|event|you)$")  # (one recipient: the trigger event's object is one; wave 100B: you)
 _DEALT_THIS_WAY = re.compile(r"^(?:a|an) (?P<what>.+?) (?:is|was) dealt damage this way$")
+_DEALT_YOU = re.compile(r"^(?:it|~|this creature) deals damage to you this way$")  # -- if you do (wave 100B) -- Mishra's War Machine, Minion of Leshrac
 
 
 def hit_condition(text: str) -> dict[str, Any] | None:
+    if _DEALT_YOU.match(text.strip()):  # (the source's damage to you: ``hit_to``, checked by dealt_to against the damage instruction)
+        return {"value": {"ref_amount": HIT}, "op": ">=", "n": 1, "hit_is": selectors.Selector(player="any").key(), "hit_to": "you"}
     m = _DEALT_THIS_WAY.match(text.strip())
     if m is None:
         return None
@@ -214,6 +224,8 @@ def dealt_to(found: Any) -> Any:
     if d.get("with_next") or any(d.get(k) for k in ("dealt_as", "bind_hit", "bind_dealt", "bind_excess", "excess")) \
             or not _HIT_WHO.match(str(d.get("who"))) or (dmg[0] > 0 and effects[dmg[0] - 1].get("with_next")):
         return None
+    if (gates[0]["cond"].get("hit_to") or d.get("who")) == "you" and d.get("who") != gates[0]["cond"].get("hit_to"):
+        return None  # -- if you do (wave 100B) -- "If it deals damage to you this way": that instruction's damage to you, and nothing else's
     effects[dmg[0]] = {**d, "bind_hit": HIT, "hit_is": gates[0]["cond"]["hit_is"]}
     return effects, found[1], found[2]
 
@@ -249,13 +261,22 @@ def condition(text: str) -> dict[str, Any] | None:
         # creature this way" counts yours; an exile or destruction of your ability is yours; a player mills and
         # discards their own cards, so "you milled / discarded" after "each player …" isn't read)
         # (wave 19C: counted by owner — "each player discards a card. If you discarded a card this way": 701.9a, the card is its owner's)
-        ctl = " you controlled" if m["verb"] == "sacrificed" else ""
-        phrase = f"{m['what']}{ctl} {m['verb']} this way"
-        if m["verb"] in ("milled", "discarded") and (v := parse(phrase)) is not None:
+        verb = _PAST.get(m["verb"], m["verb"])
+        ctl = " you controlled" if verb == "sacrificed" else ""
+        phrase = f"{m['what']}{ctl} {verb} this way"
+        if verb in ("milled", "discarded") and (v := parse(phrase)) is not None:
             return {"value": {**v, "by": "you"}, "op": ">=", "n": 1}
     if phrase is None and (m := _IF_YOU_PUT.match(text)) is not None:  # -- most-played cards II (wave 45A) -- "If you put a Town card into your hand this way" (Town Greeter), "a Cave onto the battlefield" (Spelunking)
         phrase = f"{m['what']} you put {m['dest']} this way"
     v = parse(phrase) if phrase is not None else None
+    if v is None and (many := _YOU_RETURN_N.match(text)) is not None:  # -- if you do (wave 100B) -- "If you return four or more nontoken permanents you control this way"
+        counted = parse(f"{many['what']} you controlled returned this way")  # (as each last existed, 608.2h; returned to a hand, so not a commander put into the command zone instead)
+        if counted is not None and counted.get("of"):
+            return {"value": counted, "op": ">=", "n": {"two": 2, "three": 3, "four": 4, "five": 5}[many["n"]]}
+    if v is None and (either := _EITHER.match(text)) is not None:  # -- if you do (wave 100B) -- "a permanent you controlled or a token was destroyed this way"
+        parts = [condition(f"a {either['a']} {either['rest']}"), condition(f"a {either['b']} {either['rest']}")]
+        if all(p is not None and "value" in p and "this_way" in p["value"] for p in parts):
+            return {"any": parts}
     if v is None:
         return hit_condition(text)  # -- if you do (wave 10C) --
     return {"value": v, "op": ">=", "n": 1} if v is not None else None
@@ -350,11 +371,12 @@ def count(plan: Plan, ctx: dict[str, Any], v: dict[str, Any]) -> int:
     found = _matched(plan, ctx, v)
     if v.get("stat"):  # -- any number as an additional cost (wave 48B) -- "the total power of the sacrificed creatures": each as it is, or as it last existed (608.2h)
         from app.game.rules_state import ObjectRef
-        from app.rules import context
+        from app.rules import context, sba
         from app.rules.triggers import _snapshot_card
 
         got = [_still_there(plan, was) or (_snapshot_card(plan, snap) if (snap := context.snapshot(plan, ObjectRef.model_validate(was))) else None) for _, was in found]
-        return max(0, sum(int(getattr(ch, v["stat"]) or 0) for g in got if g for ch in (g[1],)))  # (107.1b: a total below 0 is 0)
+        stat = sba.power if v["stat"] == "power" else sba.toughness  # (wave 100B: its power with every layer and counter applied, 613.4c — not the printed number)
+        return max(0, sum(stat(g[0], g[1]) or 0 for g in got if g))  # (107.1b: a total below 0 is 0)
     if v.get("distinct"):  # "card types among cards discarded this way": the different types the cards have where they went (205.2a)
         from app.rules import values
 
@@ -384,7 +406,10 @@ def mark_drawn(plan: Plan, ctx: dict[str, Any], name: str) -> None:
 def drawn(plan: Plan, ctx: dict[str, Any], v: dict[str, Any]) -> int:
     from app.rules import history
 
-    before = ((ctx.get("refs") or {}).get(v["ref_count"]) or {}).get("drew") or {}
+    mark = (ctx.get("refs") or {}).get(v["ref_count"])
+    if mark is None:
+        return 0  # -- if you do (wave 100B) -- the draw instruction never ran (a condition before it skipped it): it drew nothing (Trade Route Envoy)
+    before = mark.get("drew") or {}
     now = history.log_for(plan).drew
     each = {p: max(0, n - before.get(p, 0)) for p, n in now.items() if p in plan.live()}
     if v.get("players") == "you":

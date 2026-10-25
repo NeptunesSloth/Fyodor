@@ -323,9 +323,9 @@ def test_exhaust_with_elvish_refueler_is_left_to_the_player(cards):
     mana(s, G=8)
     act(s, "p1", type="activate_ability", card_id=guardian.id, ability=1)
     pass_until_stack_empty(s)
-    act(s, "p1", type="activate_ability", card_id=guardian.id, ability=1)  # 702.177b: not refused by the engine
-    pass_until_stack_empty(s)
-    assert s.state.cards[guardian.id].counters.get("+1/+1") == 6
+    with pytest.raises(ActionError):  # -- turn state (wave 100H) -- 702.177b: not after an exhaust ability was activated this turn
+        act(s, "p1", type="activate_ability", card_id=guardian.id, ability=1)
+    assert s.state.cards[guardian.id].counters.get("+1/+1") == 3
     roundtrip(s)
 
 

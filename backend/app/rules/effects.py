@@ -85,6 +85,11 @@ def divided(ctx: Context, e: dict[str, Any]) -> dict[str, int] | None:
 
 def _players(plan: Plan, ctx: Context, who: str) -> list[str]:
     me = ctx["controller"]
+    if who.startswith("others100c:"):  # -- static spells (wave 100C) -- "each player other than target player"
+        named = set(_players(plan, ctx, who[len("others100c:"):]))
+        return [p for p in plan.live() if p not in named]
+    if who.startswith("owners100c:"):  # -- static spells (wave 100C) -- "the owners of those cards"
+        return [p for p in dict.fromkeys(plan.state.cards[c].owner for c in _cards(plan, ctx, who[len("owners100c:"):])) if p in plan.live()]
     if who.startswith(selectors.PREFIX):  # "each opponent", "each player" … as a selector
         sel = selectors.from_key(who)
         return [p for p in plan.live() if selectors.matches_player(plan, sel, p, me)] if sel.player else []
@@ -182,6 +187,10 @@ def _players(plan: Plan, ctx: Context, who: str) -> list[str]:
 
 
 def _cards(plan: Plan, ctx: Context, who: str) -> list[str]:
+    if who.startswith(("owned100c:", "attached100c:", "partner100c:", "samemv100c:", "dust100c")):  # -- static spells (wave 100C) -- "all artifacts target player owns", "all Auras attached to it", ...
+        from app.rules import static_spell100c
+
+        return static_spell100c.cards(plan, ctx, who)
     if who == 'all_targets':
         return list(dict.fromkeys(cid for i in range(len(ctx.get('groups') or []))
                                   for cid in _cards(plan, ctx, f'target:{i}')))
@@ -388,6 +397,11 @@ def draw(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
         this_way.mark_drawn(plan, ctx, e["as"])
     players = _players(plan, ctx, e["who"])
+    if sized_damage.has_per_player(e["n"]):  # -- static spells (wave 100C) -- "each player draws a card for each creature card in their graveyard":
+        # every player's number determined once, before the first draw (608.2h); the draws in APNAP order (121.2c)
+        each = {p: max(0, _amount(plan, {**ctx, "recipient": p}, e["n"])) for p in players}
+        players = [p for p in players if each[p] > 0]
+        return not players or replace.draw_cards(plan, players, each, then=_then(ctx, e), ctx=ctx)
     if isinstance(e["n"], dict) and e["n"].get("each_hand_shortfall"):
         # 608.2h: determine every shortfall once, before the first draw. A draw
         # replacement may then enlarge one hand without increasing later draws.
@@ -746,7 +760,8 @@ def _damage_hits(plan: Plan, ctx: Context, e: dict[str, Any]) -> list[tuple[_Sou
                 # (wave 4E: "Each creature deals damage to itself equal to its power": its own damage, to itself;
                 # "… to each other creature": other than the creature dealing it)
                 keys = [plan.state.cards[sid].controller] if e.get("to") == "controller" else \
-                    [sid] if e["who"] == "itself" else [*_other_than(plan, ctx, e, cards, sid), *players]  # (wave 24D: "to its controller")
+                    [str(plan.state.cards[sid].attached_to)] if e.get("to") == "attached100c" else \
+                    [sid] if e["who"] == "itself" else [*_other_than(plan, ctx, e, cards, sid), *players]  # (wave 24D: "to its controller"; wave 100C: "to the creature it's attached to")
                 hits += [(_card_source(plan, sid), key, each) for key in keys]
         return hits
     if e.get("src_many"):
@@ -972,6 +987,9 @@ def restrict(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     the text states none (611.2a)."""
     if e.get('dealt'):
         oids = list(dict.fromkeys((ctx.get(DEALT_KEY) or {}).get(e['dealt']) or []))
+        if e.get('types'):  # -- if you do (wave 100B) -- "A creature dealt damage this way can't block this turn": only those that were creatures (not a planeswalker)
+            oids = [o for o in oids if (c := plan.state.cards.get(o.rsplit('.', 1)[0])) is not None and plan.oid(c) == o
+                    and set(e['types']) & set(plan.ch(c).types)]
         e = {**e, 'who': 'union:' + '+'.join('object:' + oid for oid in oids), 'locked': True}
     who = _GROUPS.get(e["who"], e["who"])
     cards = _cards(plan, ctx, who)
@@ -1145,6 +1163,10 @@ def _look(plan: Plan, ctx: Context, e: dict[str, Any], where: str) -> bool:
     if e.get("who") == "target" and (named := _players(plan, ctx, "target")):  # -- most-played modal spells (wave 50I) -- "Target player scries 3": that player looks
         pid = named[0]
     n = _amount(plan, ctx, e["n"])
+    if where == "graveyard" and n > 0:  # -- static permanents (wave 100D) -- Enhanced Surveillance
+        from app.rules import static_perm100d
+
+        n += 2 * static_perm100d.yours(plan, static_perm100d.MORE_SURVEIL, pid)
     if where == "bottom" and n > 0 and (replaced := replace.keyword_replace(plan, ctx, e, "scry", pid, n=n)) is not None:
         return replaced  # -- keyword actions (wave 35C) -- "If you would scry a number of cards, draw that many cards instead." (Eligeth)
     top = plan.state.zones.get(zone_key(pid, "library"), [])[:n]
@@ -1176,7 +1198,11 @@ def create_token(plan: Plan, ctx: Context, e: dict[str, Any], *, then: dict[str,
 
         return first_event_receipts78.investigate(plan, ctx, e)
     t = e["token"]
-    count = _amount(plan, ctx, e["n"])
+    # -- static spells (wave 100C) -- "Each player creates a … token for each untapped Forest they control": each player's own count, all
+    # determined before any token is created (608.2h), one creation batch (616.1 APNAP)
+    per100c = {p: max(0, _amount(plan, {**ctx, "recipient": p}, e["n"])) for p in _players(plan, ctx, e["who"])} \
+        if sized_damage.has_per_player(e["n"]) and not e.get("more") and not e.get("per_controller") else None
+    count = _amount(plan, ctx, e["n"]) if per100c is None else max(per100c.values(), default=0)
     if count <= 0 and not e.get("more"):  # (wave 34C: a list of kinds is judged kind by kind below: "create X A tokens and two B tokens", X = 0)
         _remember(plan, ctx, e, [])
         return True
@@ -1189,6 +1215,8 @@ def create_token(plan: Plan, ctx: Context, e: dict[str, Any], *, then: dict[str,
         from app.rules import this_way
 
         each = this_way.by_controller(plan, ctx, e["per_controller"])
+    if e.get("per_player"):  # -- if you do (wave 100B) -- "each player creates a number of … equal to the amount of mana they paid this way" (Liege of the Hollows)
+        each = {p: int(n) for p, n in e["per_player"].items()}
     # -- triggers (wave 5D) -- "create a 3/3 … token with deathtouch and a 3/3 … token with lifelink" (Wurmcoil Engine):
     # one instruction, so one batch of tokens entering together (701.7a, 603.2c)
     creation_atoms: list[str] | None = [] if each is not None else None
@@ -1223,6 +1251,9 @@ def create_token(plan: Plan, ctx: Context, e: dict[str, Any], *, then: dict[str,
                     requests.append((pid, spec, count, source, tapped))
                     assert creation_atoms is not None
                     creation_atoms.append("controller:" + pid + ":" + str(iteration))
+            elif per100c is not None:  # -- static spells (wave 100C) --
+                if per100c.get(pid, 0) > 0:
+                    requests.append((pid, spec, per100c[pid], source, tapped))
             else:
                 requests.append((pid, spec, count, source, tapped))
     # (the tokens are recorded as binding "as", the new objects they are: "they gain haste")
@@ -1837,6 +1868,9 @@ def _stack_targets(plan: Plan, ctx: Context, e: dict[str, Any]) -> list[str]:
     if e.get("who") == "each_opponent_spell":  # -- cast keywords (wave 43D) -- "Counter each spell you don't control." (an overloaded Counterflux): spells only (not abilities)
         return [c for c in plan.state.zones.get("stack", []) if c != ctx.get("stack_id") and plan.state.cards[c].ability is None
                 and plan.state.cards[c].controller != ctx["controller"]]
+    if e.get("who") in ("all_other_spells100c", "all_abilities100c"):  # -- static spells (wave 100C) -- "Counter all other spells." / "counter all abilities"
+        spells = e["who"] == "all_other_spells100c"
+        return [c for c in plan.state.zones.get("stack", []) if c != ctx.get("stack_id") and (plan.state.cards[c].ability is None) == spells]
     if e.get("who") == "event_source":  # -- unless pays (wave 20E) -- the spell or ability a "becomes the target" event names, while still that object
         ref = (ctx.get("event") or {}).get("source")
         card = context._same(plan, ObjectRef.model_validate(ref)) if ref else None
@@ -2759,6 +2793,8 @@ def return_card(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     # -- reanimation (wave 37B) -- ``also``: "Return this card and target land card …" (Sandman): the source too, both in one move (608.2c)
     cards = [c for w in (e["who"], e.get("also")) if w for c in _cards(plan, ctx, w)
              if e["to"] == "command" or not plan.state.cards[c].zone.endswith(":battlefield")]
+    if e.get("from"):  # -- if you do (wave 100B) -- "put it from your graveyard onto the battlefield" (Silvan Reveler): only while it is in that graveyard
+        cards = [c for c in cards if plan.state.cards[c].zone == f"{ctx['controller']}:{e['from']}"]
     return _return_cards(plan, ctx, e, list(dict.fromkeys(cards)))
 
 
@@ -3513,7 +3549,7 @@ def shuffle_library(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     before = _remember(plan, ctx, e, [c for pid in players for zone in e.get("zones") or [] for c in plan.state.zones.get(zone_key(pid, zone), [])] + chosen)
     moved_count = 0
     for pid in players:
-        if mine := [c for c in chosen if plan.state.cards[c].zone == zone_key(pid, "graveyard")]:  # (their graveyard: 701.24a puts them in before the shuffle)
+        if mine := [c for c in chosen if c in plan.state.cards and plan.state.cards[c].zone == zone_key(pid, "graveyard")]:  # (their graveyard: 701.24a puts them in before the shuffle; wave 100C: an earlier owner's shuffle re-keyed theirs)
             originals = {cid: plan.oid(cid) for cid in mine}
             plan.do({"type": "move", "card_ids": mine, "to": {"player": pid, "zone": "library"}}, actor=pid)
             moved_count += sum(cid in plan.state.cards and plan.state.cards[cid].zone == zone_key(pid, "library")
@@ -3858,7 +3894,10 @@ def kicked_gate(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     """702.33e: "If this spell was kicked, …" (``kicked`` True) — and, for "… instead", the
     unkicked text (``kicked`` False): the next ``n`` effects happen only if the spell was (or
     wasn't) kicked; otherwise they're skipped."""
-    if values.kicked_holds(plan, ctx, e.get("with")) != bool(e["kicked"]):  # (-- keywords (wave 50H) -- "kicked with its {R} kicker": ``with``)
+    from app.rules import conditions
+
+    held = conditions.holds(plan, ctx, {"object": "self", "cast": {"optional": "teamwork"}}) if e.get("teamwork") else values.kicked_holds(plan, ctx, e.get("with"))
+    if held != bool(e["kicked"]):  # (-- keywords (wave 50H) -- "kicked with its {R} kicker": ``with``; wave 100K: ``teamwork``, 702.194b, its announcement)
         ctx["next"] += int(e["n"])
     return True
 
@@ -4103,11 +4142,12 @@ def describe(effects: list[dict[str, Any]]) -> str:
              "surveil": "surveil {n}", "damage": "deal {n} damage", "player_counter": "get {n} {counter}",
              "create_token": "create {n} token(s)", "add_counters": "put {n} {kind} counter(s)", "proliferate": "proliferate",
              "monarch": "become the monarch", "discard": "discard {n}", "search": "search your library",
-             "demonstrate_copy": "copy it, and an opponent copies it too (demonstrate)"}
+             "demonstrate_copy": "copy it, and an opponent copies it too (demonstrate)", "return_card": "return it", "attach_to": "attach it"}  # (wave 100B: Auriok Survivors)
     # (an amount that is worked out as it resolves — "equal to its mana value", X — reads as X, not as its data)
-    parts = [("discard any number" if e["do"] == "discard" else "sacrifice any number") if e["do"] in ("discard", "sacrifice_choice") and e.get("upto")
+    parts = [("discard any number" if e["do"] == "discard" else f"sacrifice up to {e['n']}" if isinstance(e.get("n"), int) and e["n"] < 10**6  # (wave 100B: "up to three")
+              else "sacrifice any number") if e["do"] in ("discard", "sacrifice_choice") and e.get("upto")
              else words.get(e["do"], e["do"]).format(**{k: "X" if isinstance(v, (dict, list)) else v for k, v in e.items()}) for e in effects
-             if e["do"] not in ("kicked_gate", "record_action", "action_gate", "only_if", "note_resolution", "reflexive", "demonstrate_opponent")]  # (wave 30G: "any number")
+             if e["do"] not in ("kicked_gate", "record_action", "action_gate", "only_if", "note_resolution", "reflexive", "demonstrate_opponent", "may_rest")]  # (wave 30G: "any number")
     return (", ".join(parts) or "do it").capitalize()
 
 
@@ -4153,6 +4193,7 @@ def _choose_next(plan: Plan, ctx: Context, e: dict[str, Any], players: list[Any]
     from app.rules import conditions
 
     half = e["n"].get("half_own") if isinstance(e["n"], dict) else None  # -- trigger other (wave 39A) -- "sacrifices half the creatures they control, rounded down": each player's own count
+    div = int(e["n"].get("div", 2)) if half else 2  # -- static permanents (wave 100D) -- "a tenth of the creatures they control" (Legate Lanius)
     fewest = e["n"].get("fewest") if isinstance(e["n"], dict) else None  # -- group choices (wave 53D) -- "a number of lands they control equal to the number of lands controlled by the player who controls the fewest"
     want = min((len(_controlled(plan, fewest, p, ctx.get("source_card"))) for p in plan.live()), default=0) if fewest else 0 if half else _amount(plan, ctx, e["n"])
     exiling = e.get("action") == "exile"  # -- modal spells (wave 24D) -- "Target opponent exiles a creature they control."
@@ -4197,7 +4238,7 @@ def _choose_next(plan: Plan, ctx: Context, e: dict[str, Any], players: list[Any]
         if step == "edict" and not exiling and mine and _sacrifice_barred(plan, ctx, pid):
             mine = []  # -- prohibitions (wave 22B) -- nothing for them to sacrifice
         cap = e.get("power_cap")  # "any number of creatures they control with total power 4 or less" (Slaughter the Strong): always a choice
-        n = len(mine) if cap is not None else (len(mine) + (half == "up")) // 2 if half else min(len(e["party"]), len(mine)) if e.get("party") else min(want, len(mine))  # (107.1a: half rounded as written)
+        n = len(mine) if cap is not None else (len(mine) + (div - 1) * (half == "up")) // div if half else min(len(e["party"]), len(mine)) if e.get("party") else min(want, len(mine))  # (107.1a: half rounded as written)
         if n == 0:
             continue
         by = ctx["controller"] if e.get("by") == "you" or (e.get("by_if") and conditions.holds(plan, ctx, e["by_if"])) else pid
@@ -4503,6 +4544,10 @@ def _choice_options(plan: Plan, ctx: Context, what: str) -> list[DecisionOption]
 
     if card_names.is_choice(what):  # -- card names (wave 22B) -- typed, not listed (201.4)
         return [card_names.option(what)]
+    from app.rules import static_perm100d  # -- static permanents (wave 100D) -- life paid
+
+    if what == static_perm100d.LIFE_KEY:
+        return [DecisionOption(id=str(n), label=str(n)) for n in range(static_perm100d.life_cap(plan, ctx) + 1)]
     if what.endswith(copying.TO_COPY):  # -- copy system (wave 2F): "enter as a copy of …" (707.5, 614.12a) --
         return copying.entry_options(plan, ctx["controller"], what, ctx.get("source_card"))  # (wave 5F: the entering card)
     if what == "creature type":
@@ -4876,6 +4921,8 @@ def resume_become_pick(plan: Plan, d: Any, chosen: list[str]) -> None:
         raise ValueError("not an offered choice")
     plan.note(f"{plan.name(d.player)} chooses {chosen[0]} ({e['pick']})", actor=d.player)
     more = {"creature_types": [chosen[0]]} if e["pick"] == "creature type" else {"colors": [_COLOR_LETTER[chosen[0]]]}
+    if e.get("pick_added") and e["pick"] == "creature type":  # -- static permanents (wave 100D) -- "… in addition to its other types" (205.1b)
+        more = {"add_creature_types": [chosen[0]]}
     if become(plan, ctx, {**e, "pick": None, **more}):
         continue_effects(plan, ctx)
 
@@ -6720,6 +6767,7 @@ RESUME.update(_prepared_mill61.RESUME)
 
 CHOICE_OPTIONS['color word'] = list(_text_change_instructions71.COLORS)
 CHOICE_LABELS['color word'] = 'Chosen color word'
+CHOICE_LABELS["amount of life to pay"] = "Life paid"  # -- static permanents (wave 100D) -- static_perm100d.LIFE_KEY
 
 from app.rules import text_global_word71 as _global_word71  # noqa: E402
 
@@ -6882,3 +6930,56 @@ PRIMITIVES.update(_upkeep91.PRIMITIVES)
 from app.rules import zone_exchanges94 as _zone_exchanges94  # noqa: E402
 
 PRIMITIVES.update(_zone_exchanges94.PRIMITIVES)
+
+# -- trigger lines (wave 100A) --
+from app.rules import triggers100a as _triggers100a  # noqa: E402
+
+PRIMITIVES.update(_triggers100a.PRIMITIVES)
+from app.rules import xdamage100e as _xdamage100e  # noqa: E402  -- xdamage (wave 100E) --
+
+PRIMITIVES.update(_xdamage100e.PRIMITIVES)
+RESUME.update(_xdamage100e.RESUME)
+from app.rules import ifyoudo100b as _ifyoudo100b  # noqa: E402, I001  -- if you do (wave 100B) --
+
+PRIMITIVES.update(_ifyoudo100b.PRIMITIVES)
+RESUME.update(_ifyoudo100b.RESUME)
+# -- attached (wave 100F) -- (app/rules/attached100f.py)
+from app.rules import attached100f as _attached100f  # noqa: E402, I001
+
+PRIMITIVES.update(_attached100f.PRIMITIVES)
+RESUME.update(_attached100f.RESUME)
+# -- static spells (wave 100C) --
+from app.rules import static_spell100c as _static_spell100c  # noqa: E402
+
+PRIMITIVES.update(_static_spell100c.PRIMITIVES)
+from app.rules import zones100g as _zones100g  # noqa: E402  -- zones (wave 100G) --
+
+PRIMITIVES.update(_zones100g.PRIMITIVES)
+RESUME.update(_zones100g.RESUME)
+RESUME.update(_triggers100a.RESUME)
+# -- activated (wave 100I) -- (app/rules/activated100i.py)
+from app.rules import activated100i as _activated100i  # noqa: E402, I001
+
+PRIMITIVES.update(_activated100i.PRIMITIVES)
+# -- counters (wave 100J) -- (app/rules/counters100j.py)
+from app.rules import counters100j as _counters100j  # noqa: E402
+
+PRIMITIVES.update(_counters100j.PRIMITIVES)
+RESUME.update(_counters100j.RESUME)
+# -- turn state (wave 100H) -- (app/rules/turnstate100h.py)
+from app.rules import turnstate100h as _turnstate100h  # noqa: E402
+
+PRIMITIVES.update(_turnstate100h.PRIMITIVES)
+from app.rules import instead100k as _instead100k  # noqa: E402, I001  -- instead (wave 100K) --
+
+PRIMITIVES.update(_instead100k.PRIMITIVES)
+RESUME.update(_instead100k.RESUME)
+from app.rules import aslongas100k as _aslongas100k  # noqa: E402, I001  -- as long as (wave 100K) --
+
+PRIMITIVES.update(_aslongas100k.PRIMITIVES)
+from app.rules import attractions100l as _attractions100l  # noqa: E402  -- Attractions (wave 100L) --
+
+PRIMITIVES.update(_attractions100l.PRIMITIVES)
+from app.rules import otherchooser100p as _otherchooser100p  # noqa: E402  -- other choosers (wave 100P) --
+
+PRIMITIVES.update(_otherchooser100p.PRIMITIVES)

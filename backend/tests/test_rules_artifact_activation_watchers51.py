@@ -247,7 +247,7 @@ from app.cards.repository import CardRepository
 from app.game.state import GameState
 from app.game.session import GameSession
 from tests.test_rules_activated_copy_family import answer
-repo=CardRepository(Path('/workspace/Fyodor/data/cards.sqlite'),ImageStore(Path('/workspace/Fyodor/data/images')))
+repo=CardRepository(Path(sys.argv[-1]),ImageStore(Path(sys.argv[-1]).parent/'images'))
 s=GameSession(GameState.model_validate_json(Path(sys.argv[1]).read_text()),cards=repo)
 s.view('p3');answer(s)
 name=sys.argv[2]
@@ -256,7 +256,7 @@ else:assert s.state.players['p2'].life==40-(2 if name=='Artifact Possession' els
 assert GameState.model_validate_json(s.state.model_dump_json())==s.state
 """
     run = subprocess.run(
-        [sys.executable, "-c", code, str(saved), name],
+        [sys.executable, "-c", code, str(saved), name, str(cards.db_path)],
         cwd=Path(__file__).resolve().parents[1],
         capture_output=True,
         text=True,
@@ -406,7 +406,7 @@ from app.cards.repository import CardRepository
 from app.game.state import GameState
 from app.game.session import GameSession
 from tests.test_rules_activated_copy_family import answer
-repo=CardRepository(Path('/workspace/Fyodor/data/cards.sqlite'),ImageStore(Path('/workspace/Fyodor/data/images')))
+repo=CardRepository(Path(sys.argv[-1]),ImageStore(Path(sys.argv[-1]).parent/'images'))
 s=GameSession(GameState.model_validate_json(Path(sys.argv[1]).read_text()),cards=repo)
 s.view('p3');answer(s)
 name=sys.argv[2]
@@ -415,7 +415,7 @@ else:assert s.state.players['p2'].life==40-(2 if name=='Artifact Possession' els
 assert GameState.model_validate_json(s.state.model_dump_json())==s.state
 """
     run = subprocess.run(
-        [sys.executable, "-c", code, str(saved), name],
+        [sys.executable, "-c", code, str(saved), name, str(cards.db_path)],
         cwd=Path(__file__).resolve().parents[1],
         capture_output=True,
         text=True,

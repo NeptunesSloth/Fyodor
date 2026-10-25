@@ -105,6 +105,10 @@ def entry_plan(plan: Plan, card: CardInstance, controller: str, **kw: Any) -> di
     chosen_forms95.ensure(plan, card, controller, kw.get("answers") or {})
     card = entry_characteristics.probe(card, kw.pop("entry_characteristics", None))
     out = _entry_plan(plan, card, controller, **kw)
+    # -- static permanents (wave 100D) -- "As ~ enters, discard your hand." (614.1c, 614.12)
+    from app.rules import static_perm100d
+
+    static_perm100d.plan_entry(plan, card, controller, out, kw.get("answers"))
     from app.rules import numeric_entry_roll42
 
     if (receipt := numeric_entry_roll42.current_receipt(plan, card, kw.get("answers"))) is not None:
@@ -383,6 +387,10 @@ def entering_counters(plan: Plan, card: CardInstance, controller: str, ch: Any, 
             counters["+1/+1"] = counters.get("+1/+1", 0) + tribute.counters(ch, choices)
         if devour.counters(ch, choices):
             counters["+1/+1"] = counters.get("+1/+1", 0) + devour.counters(ch, choices)
+        from app.rules import reveal_lands  # (wave 100K: Dragon's Disciple)
+
+        if reveal_lands.counters(ch, choices):
+            counters["+1/+1"] = counters.get("+1/+1", 0) + reveal_lands.counters(ch, choices)
         for ab in ch.abilities:  # -- keyword mechanics (wave 9D) -- 702.44a sunburst: a +1/+1 counter (a creature, ignoring
             if ab.kind == "keywords" and "sunburst" in ab.keywords:  # type-changing effects) or a charge counter for each
                 from app.rules import (
@@ -787,6 +795,9 @@ def move_together(plan: Plan, entries: list[Entry], *, simultaneous: dict[str, A
         from app.rules import devour
 
         devour.sacrifice(plan, ep, entry["player"])
+        from app.rules import static_perm100d  # -- static permanents (wave 100D) -- 614.12: done as it enters
+
+        static_perm100d.as_enters(plan, _card.id, ep, entry["player"])
         from app.rules import amplify  # -- casting extras (wave 18E) -- 702.38a: revealed as it enters
 
         amplify.reveal(plan, ep, entry["player"])
@@ -1205,7 +1216,7 @@ def _static_exile_all(plan: Plan, card: CardInstance) -> list[tuple[CardInstance
         if not src.zone.endswith(":battlefield") or src.face_down or not plan.in_game(src) or plan.manual(src):
             continue
         for d in scripts.definitions(plan.ch(src)).values():
-            if d["kind"] != "static" or d.get("static") != "exile_instead":
+            if d["kind"] != "static" or d.get("static") not in ("exile_instead", "hand_instead"):  # (wave 100K: hand_instead, Necromancer's Magemark)
                 continue
             if d.get("from") == "battlefield" and frm != "battlefield":
                 continue
@@ -1222,6 +1233,9 @@ def _static_exile_all(plan: Plan, card: CardInstance) -> list[tuple[CardInstance
                     continue
             elif who.startswith("types:"):  # -- instead (wave 20B) -- "an instant or sorcery card": a card (not a token) with one of the types
                 if card.is_token or not set(who[6:].split("|")) & plan.ch(card).types:
+                    continue
+            elif who.startswith("colors:"):  # (wave 100K) Sanctifier en-Vec: any object of those colors, tokens too
+                if not set(who[7:].split("|")) & plan.ch(card).colors:
                     continue
             elif who not in ("any", "card"):
                 if frm != "battlefield":
@@ -1317,9 +1331,14 @@ def zone_candidates(plan: Plan, card: CardInstance, dest: str = "graveyard") -> 
         if any(d["kind"] == "replacement" and d.get("replacement") == "exile_instead" and d.get("from") == "leaves"
                for d in _definitions(plan, card).values()):
             out.append(Cand(card.name or "its own ability", "exile"))
+    # -- Attractions (wave 100L) -- 717.6: to the command zone (its junkyard) instead
+    from app.rules import attractions100l
+
+    if dest not in ("battlefield", "exile", "command") and attractions100l.astrotorium(plan, card):
+        out.append(Cand("its Astrotorium card back (717.6)", "command"))
     if dest != "graveyard":
         return out
-    leaves = bool(out)
+    leaves = any(c.outcome == "exile" for c in out)
     out += _graveyard_candidates(plan, card, frm)
     if leaves:  # (review 22C) 616.1e: a library result still leaves the battlefield, so "exile it if it would leave" applies after it
         out = [c for c in out if not c.outcome.startswith("library:")]  # anyway: no choice between them (a rider still is one)
@@ -1342,7 +1361,7 @@ def _graveyard_candidates(plan: Plan, card: CardInstance, frm: str) -> list[Cand
         out.append(Cand(card.name or "its own ability", "library:shuffle"))
     for src, d in _static_exile_all(plan, card):
         rider = {"source": src.id, "controller": src.controller, **d["rider"]} if d.get("rider") else None
-        out.append(Cand(src.name or "a static ability", "exile", False, rider, plan.oid(src) if d.get("link") else "", d.get("counter", "")))
+        out.append(Cand(src.name or "a static ability", "hand" if d["static"] == "hand_instead" else "exile", False, rider, plan.oid(src) if d.get("link") else "", d.get("counter", "")))
     if frm == "battlefield" and (why := _record_exile_instead(plan, card)) is not None:  # -- replacement effects stage 2 (wave 2E) --
         out.append(Cand(why, "exile"))
     if (why := _record_exile_cards(plan, card)) is not None:  # -- zone replacements (wave 37B) -- from any zone
@@ -1399,7 +1418,7 @@ def move_instead(plan: Plan, cid: str, outcome: str | Cand, actor: str | None, *
         return
     card = plan.state.cards[cid]
     owner = card.owner
-    if outcome in ("exile", "battlefield"):  # (review 23D: battlefield, a discard's "put it onto the battlefield instead")
+    if outcome in ("exile", "battlefield", "hand", "command"):  # (review 23D: battlefield, a discard's "put it onto the battlefield instead"; wave 100K: hand; wave 100L: 717.6)
         plan.do({"type": "move", "card_ids": [cid], "to": {"player": owner, "zone": outcome}}, actor=actor)
         return
     where = outcome.split(":", 1)[1]
@@ -1449,8 +1468,9 @@ def run_rider(plan: Plan, rider: dict[str, Any]) -> None:
             break
 
 
-_OUTCOME_TEXT = {"exile": "Exile it", "battlefield": "Put it onto the battlefield","library:top": "Put it on top of its owner's library", "library:bottom":
-                 "Put it on the bottom of its owner's library", "library:shuffle": "Reveal it and shuffle it into its owner's library"}
+_OUTCOME_TEXT = {"exile": "Exile it", "battlefield": "Put it onto the battlefield", "hand": "Return it to its owner's hand","library:top": "Put it on top of its owner's library", "library:bottom":
+                 "Put it on the bottom of its owner's library", "library:shuffle": "Reveal it and shuffle it into its owner's library",
+                 "command": "Put it into its owner's command zone"}  # (wave 100L: 717.6)
 
 
 def offer_616(plan: Plan) -> bool:
@@ -1721,7 +1741,7 @@ def replace_move(plan: Plan, payload: dict[str, Any], actor: str | None) -> dict
     if replaced and all(zone == "battlefield" for _, zone, _ in replaced):  # (review 23D: Obstinate Baloth)
         text = "Put onto the battlefield instead"
     if replaced and all(zone == "command" for _, zone, _ in replaced):
-        text = "Put into the command zone instead (903.9b)"
+        text = f"Put into the command zone instead ({', '.join(whys)})"  # (903.9b; wave 100L: 717.6)
     ids = [cid for cid, _, _ in replaced] + [cid for cid, _ in madness]
     return {"type": "rules_log", "text": text, "card_ids": ids[:20]}  # (a log line names at most 20 cards)
 

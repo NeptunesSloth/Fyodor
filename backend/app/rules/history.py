@@ -104,6 +104,9 @@ def holds(plan: Plan, ctx: dict[str, Any], cond: dict[str, Any]) -> bool:
         return (any(c.player == me and c.cast_from == "exile" for c in log.casts)
                 or any(f.kind == "land_play" and f.player == me and (f.from_zone or '').endswith(':exile')
                        for f in log.facts))
+    if kind == "played_not_hand100m":  # -- multi (wave 100M) -- a land played (305.1) or a spell cast (601.2i) from anywhere other than your hand
+        return (any(c.player == me and c.cast_from not in (None, "hand") for c in log.casts)
+                or any(f.kind == "land_play" and f.player == me and f.from_zone is not None and not f.from_zone.endswith(":hand") for f in log.facts))
     if kind == "attacked":
         return bool(log.attacked) if cond.get("who") == "any" else me in log.attacked
     if kind in _WAVE_4D:  # -- this-turn history (wave 4D) --
@@ -278,6 +281,10 @@ def note_events(plan: Plan, events: list[Any], into: TurnLog | None = None) -> N
 
     first_event_receipts78.note_events(plan, events, log)
     for e in events:
+        if e.kind == "cycled" and not e.manual and e.player and e.turn == plan.state.turn.number:  # -- turn state (wave 100H) -- 702.29a: one cycling
+            if not any(f.kind == "cycle" and f.object_id == e.object_id for f in log.facts):  # (one fact per cycled object: a card cycled again is a new one, 400.7)
+                log.facts.append(TurnFact(kind="cycle", player=e.player, object_id=e.object_id))
+            continue
         if e.kind not in ("zone_change", "sacrificed", "damage", "counters", "milled", "land_played") or e.turn != plan.state.turn.number:
             continue
         for kind, obj, ch, player, info in _facts(plan, e, {"cast_from": {}}):
@@ -662,6 +669,8 @@ def _object_history(plan: Plan, ctx: dict[str, Any], cond: dict[str, Any], log: 
                 log.declared.get(i) == plan.rules.combats or log.declared_blockers.get(i) == plan.rules.combats for i in ids)
         else:
             got = bool(ids & set(log.blockers)) or any(a in ids for attacking in log.attackers.values() for a in attacking)
+    elif what == "attacked":  # -- attached (wave 100F) -- 508.1: declared as an attacker this turn (TurnLog.attackers)
+        got = any(a in ids for attacking in log.attackers.values() for a in attacking)
     elif what == "damaged":
         got = total("damaged", lambda f: f.object_id in ids) >= n
     elif what == "damaged_by":  # -- trigger damage (wave 39B) -- a Giant, Wizard or spell you controlled dealt it damage (the source as it was, 608.2i)
@@ -759,6 +768,11 @@ def _departed(plan: Plan, ctx: dict[str, Any], cond: dict[str, Any], log: TurnLo
         snap = plan.rules.lki.get(d.object_id)
         if snap is None or (cond.get("owner") == "you" and snap.owner != me):
             continue
+        if cond.get("modified100h"):  # -- turn state (wave 100H) -- "a modified creature died": 700.9 as it last existed (603.10a)
+            from app.rules.triggers import _was_modified
+
+            if not _was_modified(plan, snap):
+                continue
         _, ch = _snapshot_card(plan, snap)
         types = d.types if d.types is not None else ch.types
         if cond.get('not_name'):
@@ -794,7 +808,8 @@ def _attacked_with(plan: Plan, ctx: dict[str, Any], cond: dict[str, Any], log: A
     if cond.get("self"):
         return ctx.get("source_object") in ids
     sel = selectors.from_key(cond["sel"])
-    for oid in ids:
+    need = int(cond.get("n", 1))  # (-- turn state (wave 100H) -- "three or more Merfolk": that many of the kind)
+    for oid in dict.fromkeys(ids):  # (a creature that attacked in two combats is one creature)
         card = next((c for c in plan.state.cards.values() if c.zone.endswith(":battlefield") and plan.oid(c) == oid), None)
         if card is not None:
             ch = plan.ch(card)
@@ -803,7 +818,9 @@ def _attacked_with(plan: Plan, ctx: dict[str, Any], cond: dict[str, Any], log: A
         else:
             continue
         if selectors.matches(plan, sel, card, ch, ctx["controller"], None):
-            return True
+            need -= 1
+            if need <= 0:
+                return True
     return False
 
 
@@ -866,6 +883,10 @@ def amount(plan: Plan, ctx: dict[str, Any], v: dict[str, Any]) -> int:
         return max(log.gained.get(me, 0), log.lost.get(me, 0))
     if kind == "drew":
         return log.drew.get(me, 0)
+    if kind == "visited100l":  # -- Attractions (wave 100L) -- each Attraction once (attractions100l.visited)
+        from app.rules import attractions100l
+
+        return attractions100l.visited(plan, me)
     if kind == "opp_drew_max":
         # Thought Sponge explicitly counts opponents who have left the game.
         return max((n for player, n in log.drew.items() if player != me), default=0)

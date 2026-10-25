@@ -1522,6 +1522,9 @@ def do_draws(plan: Plan, actions: list[tuple[Event, list[Event]]], after: dict[s
             )
 
             miracle.on_draw(plan, pid, top)
+            from app.rules import first_reveal100b
+
+            first_reveal100b.on_draw(plan, pid, top)  # -- if you do (wave 100B) -- "Reveal the first card you draw each turn" (Rowen)
             key = _draw_step_key(plan)
             if r.replace_step_key != key:
                 r.replace_step_key, r.replace_step_draws = key, {}
@@ -2033,6 +2036,9 @@ def _recipient_matches(plan: Plan, spec: dict[str, Any], c: Candidate, ev: Event
         want = spec.get("players")
         if want is None:
             return False
+        if want == "enchanted":  # -- instead (wave 100K) -- the player the source Aura is attached to now (702.5d)
+            source = plan.state.cards.get(c.source_card or "")
+            return source is not None and source.attached_player == target
         return not (want == "you" and target != c.controller or want == "opponent" and target == c.controller)
     objects = spec.get("objects")
     if objects is None:
@@ -2441,6 +2447,9 @@ def damage_outcome(plan: Plan, events: list[Event], *, answers: dict[str, str], 
     from app.rules import life_total_damage_results43
 
     infect_players = life_total_damage_results43.infect_players(plan)
+    from app.rules import static_perm100d  # -- static permanents (wave 100D) -- Everlasting Torment
+
+    all_wither = static_perm100d.any_static(plan, static_perm100d.ALL_WITHER)
     counters: list[tuple[str, str, int, str]] = []  # (target, kind, n, by)
     gains: dict[str, int] = {}
     for ev in out.events:
@@ -2461,7 +2470,7 @@ def damage_outcome(plan: Plan, events: list[Event], *, answers: dict[str, str], 
                 out.walkers[key] = out.walkers.get(key, 0) + n
             elif "Battle" in ch.types and not ch.is_creature:
                 out.battles[key] = out.battles.get(key, 0) + n
-            elif {"wither", "infect"} & kw:
+            elif {"wither", "infect"} & kw or all_wither:
                 counters.append((key, "-1/-1", n, by))  # 120.3d
             else:
                 out.creatures[key] = out.creatures.get(key, 0) + n

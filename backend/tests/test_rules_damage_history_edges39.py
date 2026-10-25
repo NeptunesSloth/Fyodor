@@ -177,8 +177,8 @@ def test_justice_red_creature_and_noncreature_permanent_sources_are_distinct(car
 
 
 def test_spirit_flare_real_flashback_pays_life_and_exiles_after_second_damage(cards):
-    from tests.test_rules_bandmate_references import mana, wait_priority
     from tests.game_helpers import act
+    from tests.test_rules_bandmate_references import mana, wait_priority
 
     s = game(cards)
     own = put(s, "Grizzly Bears", "battlefield")

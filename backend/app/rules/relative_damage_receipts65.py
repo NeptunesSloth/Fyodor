@@ -6,6 +6,8 @@ from typing import Any
 
 TEXTS = frozenset({
     "Whenever a source you control deals noncombat damage to an opponent, ~ deals that much damage to target creature or planeswalker that player controls.",
+    "Whenever a source you control deals noncombat damage to an opponent, if there are four or more card types among cards in your graveyard, ~ deals that "
+    "amount of damage to target creature that player controls.",  # -- turn state (wave 100H) -- Fear of Burning Alive (delirium: 603.4)
 })
 
 

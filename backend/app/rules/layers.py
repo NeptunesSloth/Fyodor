@@ -739,6 +739,7 @@ def _layer4(ch: Characteristics, effects: list[ContinuousEffect],
                     types = frozenset(l4["set_types"]) | (types & frozenset({"Instant", "Sorcery"}))
                 types = (types - frozenset(l4.get("remove_types") or ())) | frozenset(l4.get("add_types") or ())  # 205.1b
                 supers = supers | frozenset(l4.get("add_supertypes") or ())
+                supers = supers - frozenset(l4.get("remove_supertypes") or ())  # -- static permanents (wave 100D) -- "no longer snow" (Melting, 205.4)
                 if l4.get("set_creature_types") is not None:
                     known = LAND_TYPES | ARTIFACT_TYPES | ENCHANTMENT_TYPES | SPELL_TYPES | BATTLE_TYPES
                     subtypes = frozenset(s for s in subtypes if s in known) | frozenset(l4["set_creature_types"])
@@ -757,7 +758,7 @@ def _layer4(ch: Characteristics, effects: list[ContinuousEffect],
                 types = frozenset(e["set_types"]) | (types & frozenset({"Instant", "Sorcery"}))
             types = (types - frozenset(e.get("remove_types") or ())) | frozenset(e.get("add_types") or ())  # (205.1b: "creature in addition …")
             supers = supers - frozenset(e.get("remove_supertypes") or ())  # (wave 42A) 205.4: "isn't legendary if it's a token" (Aeve)
-            subtypes = subtypes | frozenset(e.get("add_subtypes") or ())
+            subtypes = subtypes | frozenset(e.get("add_subtypes") or ()) | (CREATURE_TYPES if e.get("all_creature_types") else frozenset())  # (wave 100K: 205.3m)
             subtypes = frozenset(s for s in subtypes if _subtype_fits(s, types))
             continue
         if e.set_types is not None:
@@ -768,6 +769,7 @@ def _layer4(ch: Characteristics, effects: list[ContinuousEffect],
         types = types - frozenset(e.remove_types)
         if e.add_supertypes:
             supers = supers | frozenset(e.add_supertypes)
+        supers = supers - frozenset(e.remove_supertypes)  # -- activated (wave 100I) --
         if e.set_creature_types is not None:
             # (a subtype in no list is a creature type — or, on a planeswalker, a planeswalker type, which stays)
             known = LAND_TYPES | ARTIFACT_TYPES | ENCHANTMENT_TYPES | SPELL_TYPES | BATTLE_TYPES
@@ -1653,9 +1655,12 @@ def _control_pass(plan: Plan) -> bool:
                 if oid in by_object:
                     entries.setdefault(by_object[oid], []).append(((e.object_seq, 1, e.timestamp), e.new_controller))
     for cid, c in battle.items():  # "You control enchanted creature." (a static: whatever it is attached to now, 611.3a)
-        if c.attached_to in battle and not c.face_down and c.controller in live and any(
-                d.get("static") == "control" for d in scripts.definitions(copiable(state, c, plan.info)).values()):
-            entries.setdefault(c.attached_to, []).append(((timestamp(state, cid), 0, 0), c.controller))
+        if c.attached_to in battle and not c.face_down and c.controller in live and (d := next(
+                (d for d in scripts.definitions(copiable(state, c, plan.info)).values() if d.get("static") == "control"), None)) is not None:
+            # (-- attached (wave 100F) -- "The monarch controls enchanted creature." (Fealty to the Realm): the monarch now, at the Aura's timestamp; none: no effect (the rulings))
+            who = state.table.monarch if d.get("to") == "monarch" else c.controller
+            if who is not None:
+                entries.setdefault(c.attached_to, []).append(((timestamp(state, cid), 0, 0), who))
     changed = False
     for cid in sorted(set(entries) | set(r.control_changed)):
         card = battle.get(cid)

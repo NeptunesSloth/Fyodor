@@ -70,6 +70,7 @@ SELECTORS: dict[str, tuple[bool, Check | None]] = {
     "permanent_or_opponent": (True, lambda plan, who, card, ch: True),
     "artifact_creature_planeswalker_or_opponent": (True, _types("Artifact", "Creature", "Planeswalker")),
     "permanent_or_player": (True, lambda plan, who, card, ch: True),  # -- counter kinds (wave 24C) -- "target permanent or player"
+    "creature_token_player_or_planeswalker": (True, lambda plan, who, card, ch: "Planeswalker" in ch.types or ch.is_creature and card.is_token),  # (wave 100I: Coalborn Entity)
 }
 OPPONENTS_ONLY = ("permanent_or_opponent", "artifact_creature_planeswalker_or_opponent", "opponent_or_creature_or_planeswalker_opp", "opponent", "opponent_or_planeswalker", "opponent_or_battle")
 
@@ -105,6 +106,12 @@ def can_target(plan: Plan, chooser: str, card: CardInstance, ch: Characteristics
             colors = rule.partition(":")[2]
             if not colors or set(colors) & source.colors:
                 return False
+        if rule.startswith("untargetable_opp_spells") and source is not None and source.is_spell and card.controller != chooser:  # -- instead (wave 100K) --
+            colors = rule.partition(":")[2]
+            if not colors or set(colors) & source.colors:
+                return False
+        if rule == "untargetable_opp_abilities" and source is not None and source.is_ability and card.controller != chooser:  # -- instead (wave 100K) --
+            return False
         if rule == "untargetable_aura_spells" and source is not None and source.is_spell and "Aura" in source.subtypes:  # -- cant restrictions (wave 50G) -- 115.2: an Aura spell
             return False
         if rule.startswith("untargetable:") and source is not None:
@@ -165,6 +172,9 @@ def legal_targets(plan: Plan, selector: str, chooser: str, source: Characteristi
         margin = 2 if cond == "hand2" else 1
         return [p for p in legal_targets(plan, "opponent", chooser, source, source_card, attacker)
                 if _more(plan, cond, p) >= _more(plan, cond, chooser) + margin]
+    if selector == "any_not_host100e":  # -- xdamage (wave 100E) -- "enchanted creature deals … to any other target" (Pain for All): any target but
+        host = plan.state.cards[source_card].attached_to if source_card in plan.state.cards else None  # the creature the source is attached to (115.4)
+        return [t for t in legal_targets(plan, "any", chooser, source, source_card, attacker, source_object=source_object) if t != host]
     if selector == "any_other":  # -- damage sized by a count (wave 34D) -- 115.4: "deals that much damage to any other target" (Black Panther): any target
         excluded = source_card if source_object is None or source_card in plan.state.cards and plan.oid(source_card) == source_object else None
         return [t for t in legal_targets(plan, "any", chooser, source, source_card, attacker, source_object=source_object) if t != excluded]

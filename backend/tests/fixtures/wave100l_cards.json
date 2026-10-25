@@ -1,0 +1,667 @@
+[
+ {
+  "name": "Deadbeat Attendant",
+  "layout": "normal",
+  "mana_cost": "{1}{B}",
+  "cmc": 2.0,
+  "type_line": "Creature — Vampire Employee",
+  "oracle_text": "When this creature enters, open an Attraction. (Put the top card of your Attraction deck onto the battlefield.)",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Open an Attraction"
+  ],
+  "power": "1",
+  "toughness": "1"
+ },
+ {
+  "name": "Discourtesy Clerk",
+  "layout": "normal",
+  "mana_cost": "{3}{B}",
+  "cmc": 4.0,
+  "type_line": "Creature — Vampire Employee",
+  "oracle_text": "When this creature enters, open an Attraction. (Put the top card of your Attraction deck onto the battlefield.)\nAt the beginning of your end step, if you control three or more Attractions, you draw a card and you lose 1 life.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Open an Attraction"
+  ],
+  "power": "3",
+  "toughness": "2"
+ },
+ {
+  "name": "Step Right Up",
+  "layout": "normal",
+  "mana_cost": "{3}{B}",
+  "cmc": 4.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Open two Attractions. (Put the top two cards of your Attraction deck onto the battlefield.)",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Open an Attraction"
+  ]
+ },
+ {
+  "name": "Quick Fixer",
+  "layout": "normal",
+  "mana_cost": "{2}{B}",
+  "cmc": 3.0,
+  "type_line": "Creature — Azra Employee",
+  "oracle_text": "Menace\nWhenever this creature deals combat damage to a player, open an Attraction. (Put the top card of your Attraction deck onto the battlefield.)",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Open an Attraction",
+   "Menace"
+  ],
+  "power": "2",
+  "toughness": "3"
+ },
+ {
+  "name": "Draconian Gate-Bot",
+  "layout": "normal",
+  "mana_cost": "{5}",
+  "cmc": 5.0,
+  "type_line": "Artifact Creature — Robot",
+  "oracle_text": "When this creature enters, choose one —\n• Open an Attraction. (Put the top card of your Attraction deck onto the battlefield.)\n• Destroy target Attraction. (It's put into its owner's junkyard.)",
+  "colors": [],
+  "color_identity": [],
+  "keywords": [
+   "Open an Attraction"
+  ],
+  "power": "4",
+  "toughness": "2"
+ },
+ {
+  "name": "Soul Swindler",
+  "layout": "normal",
+  "mana_cost": "{4}{B}",
+  "cmc": 5.0,
+  "type_line": "Creature — Demon Employee",
+  "oracle_text": "As long as you've visited an Attraction this turn, this creature has indestructible. (Damage and effects that say \"destroy\" don't destroy it.)\nWhen this creature enters, open an Attraction. (Put the top card of your Attraction deck onto the battlefield.)",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Open an Attraction"
+  ],
+  "power": "5",
+  "toughness": "3"
+ },
+ {
+  "name": "Line Cutter",
+  "layout": "normal",
+  "mana_cost": "{3}{B}",
+  "cmc": 4.0,
+  "type_line": "Creature — Human Rogue Guest",
+  "oracle_text": "When this creature enters, roll to visit your Attractions.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Roll to Visit Your Attractions"
+  ],
+  "power": "3",
+  "toughness": "4"
+ },
+ {
+  "name": "Coming Attraction",
+  "layout": "normal",
+  "mana_cost": "{2}{G}",
+  "cmc": 3.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Search your library for a basic land card, put it onto the battlefield tapped, then shuffle. Open an Attraction. (Put the top card of your Attraction deck onto the battlefield.)",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [
+   "Open an Attraction"
+  ]
+ },
+ {
+  "name": "Black Hole",
+  "layout": "normal",
+  "mana_cost": "{3}{B}",
+  "cmc": 4.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Destroy target creature and up to X other target creatures, where X is the number of Attractions you've visited this turn.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Squirrel Squatters",
+  "layout": "normal",
+  "mana_cost": "{3}{G}{G}",
+  "cmc": 5.0,
+  "type_line": "Creature — Squirrel",
+  "oracle_text": "When this creature enters, open an Attraction. (Put the top card of your Attraction deck onto the battlefield.)\nWhenever this creature attacks, create a 1/1 green Squirrel creature token that's tapped and attacking for each Attraction you've visited this turn.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [
+   "Open an Attraction"
+  ],
+  "power": "4",
+  "toughness": "4"
+ },
+ {
+  "name": "The Most Dangerous Gamer",
+  "layout": "normal",
+  "mana_cost": "{2}{B}{G}",
+  "cmc": 4.0,
+  "type_line": "Legendary Creature — Human Gamer Guest",
+  "oracle_text": "Deathtouch\nWhenever The Most Dangerous Gamer enters or attacks, open an Attraction.\nWhenever you open an Attraction, put a +1/+1 counter on The Most Dangerous Gamer.\nWhenever you claim the prize of an Attraction, destroy target permanent.",
+  "colors": [
+   "B",
+   "G"
+  ],
+  "color_identity": [
+   "B",
+   "G"
+  ],
+  "keywords": [
+   "Deathtouch",
+   "Open an Attraction"
+  ],
+  "power": "2",
+  "toughness": "2"
+ },
+ {
+  "name": "Petting Zookeeper",
+  "layout": "normal",
+  "mana_cost": "{2}{G}",
+  "cmc": 3.0,
+  "type_line": "Creature — Elf Employee",
+  "oracle_text": "Reach\nWhen this creature enters, open an Attraction. (Put the top card of your Attraction deck onto the battlefield.)",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [
+   "Open an Attraction",
+   "Reach"
+  ],
+  "power": "0",
+  "toughness": "4"
+ },
+ {
+  "name": "Complaints Clerk",
+  "layout": "normal",
+  "mana_cost": "{3}{W}",
+  "cmc": 4.0,
+  "type_line": "Creature — Sloth Beast Employee",
+  "oracle_text": "When this creature enters, open an Attraction. (Put the top card of your Attraction deck onto the battlefield.)\nWhenever you roll a 1, create a 1/1 white Clown Robot artifact creature token.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "Open an Attraction"
+  ],
+  "power": "3",
+  "toughness": "3"
+ },
+ {
+  "name": "Rad Rascal",
+  "layout": "normal",
+  "mana_cost": "{3}{R}",
+  "cmc": 4.0,
+  "type_line": "Creature — Devil Employee",
+  "oracle_text": "When this creature enters, open an Attraction. (Put the top card of your Attraction deck onto the battlefield.)",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Open an Attraction"
+  ],
+  "power": "3",
+  "toughness": "3"
+ },
+ {
+  "name": "Spinnerette, Arachnobat",
+  "layout": "normal",
+  "mana_cost": "{3}{B}{G}",
+  "cmc": 5.0,
+  "type_line": "Legendary Creature — Spider Performer",
+  "oracle_text": "Reach\nWhen Spinnerette enters, open an Attraction.\nAs long as you control three or more Attractions, Spinnerette gets +2/+0 and has menace.",
+  "colors": [
+   "B",
+   "G"
+  ],
+  "color_identity": [
+   "B",
+   "G"
+  ],
+  "keywords": [
+   "Open an Attraction",
+   "Reach"
+  ],
+  "power": "2",
+  "toughness": "4"
+ },
+ {
+  "name": "Seasoned Buttoneer",
+  "layout": "normal",
+  "mana_cost": "{2}{U}",
+  "cmc": 3.0,
+  "type_line": "Creature — Vedalken Employee",
+  "oracle_text": "When this creature enters, open an Attraction. (Put the top card of your Attraction deck onto the battlefield.)",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "Open an Attraction"
+  ],
+  "power": "2",
+  "toughness": "2"
+ },
+ {
+  "name": "Dee Kay, Finder of the Lost",
+  "layout": "normal",
+  "mana_cost": "{1}{U}{B}",
+  "cmc": 3.0,
+  "type_line": "Legendary Creature — Zombie Employee",
+  "oracle_text": "When Dee Kay enters, open an Attraction.\nWhenever you roll a 2, each opponent loses 1 life and you gain 1 life.\nWhenever you roll a 4, you may tap or untap target artifact or creature.\nWhenever you roll a 6, return target creature card from your graveyard to your hand.",
+  "colors": [
+   "B",
+   "U"
+  ],
+  "color_identity": [
+   "B",
+   "U"
+  ],
+  "keywords": [
+   "Open an Attraction"
+  ],
+  "power": "1",
+  "toughness": "4"
+ },
+ {
+  "name": "Ticket Turbotubes",
+  "layout": "normal",
+  "mana_cost": "{3}",
+  "cmc": 3.0,
+  "type_line": "Artifact",
+  "oracle_text": "{T}: Add one mana of any color.\n{3}, {T}: You get {TK} (a ticket counter).",
+  "colors": [],
+  "color_identity": [],
+  "keywords": []
+ },
+ {
+  "name": "Motion Sickness",
+  "layout": "normal",
+  "mana_cost": "{3}{U}",
+  "cmc": 4.0,
+  "type_line": "Enchantment — Aura",
+  "oracle_text": "Enchant creature\nWhen this Aura enters, tap enchanted creature.\nEnchanted creature doesn't untap during its controller's untap step.\nWhenever you visit an Attraction, you may attach this Aura to target tapped creature.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "Enchant"
+  ]
+ },
+ {
+  "name": "Ride Guide",
+  "layout": "normal",
+  "mana_cost": "{4}{W}",
+  "cmc": 5.0,
+  "type_line": "Creature — Human Employee",
+  "oracle_text": "When this creature enters, open an Attraction. (Put the top card of your Attraction deck onto the battlefield.)",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "Open an Attraction"
+  ],
+  "power": "4",
+  "toughness": "4"
+ },
+ {
+  "name": "Blorbian Buddy",
+  "layout": "normal",
+  "mana_cost": "{G}",
+  "cmc": 1.0,
+  "type_line": "Creature — Alien Guest",
+  "oracle_text": "Trample\n{G}, {T}: You get {TK} (a ticket counter).",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [
+   "Trample"
+  ],
+  "power": "1",
+  "toughness": "1"
+ },
+ {
+  "name": "\"Lifetime\" Pass Holder",
+  "layout": "normal",
+  "mana_cost": "{B}",
+  "cmc": 1.0,
+  "type_line": "Creature — Zombie Guest",
+  "oracle_text": "This creature enters tapped.\nWhen this creature dies, open an Attraction.\nWhenever you roll to visit your Attractions, if you roll a 6, you may return this card from your graveyard to the battlefield.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Roll to Visit Your Attractions",
+   "Open an Attraction"
+  ],
+  "power": "2",
+  "toughness": "1"
+ },
+ {
+  "name": "Pick-a-Beeble",
+  "layout": "normal",
+  "mana_cost": "",
+  "cmc": 0.0,
+  "type_line": "Artifact — Attraction",
+  "oracle_text": "Visit — Roll a six-sided die. Put a number of luck counters on Pick-a-Beeble equal to the result and create a Treasure token. Then if there are six or more luck counters on Pick-a-Beeble, claim the prize!\nPrize — Create two Treasure tokens, then sacrifice Pick-a-Beeble and open an Attraction.",
+  "colors": [],
+  "color_identity": [],
+  "keywords": [
+   "Open an Attraction",
+   "Treasure"
+  ],
+  "set": "unf",
+  "collector_number": "223c"
+ },
+ {
+  "name": "Storybook Ride",
+  "layout": "normal",
+  "mana_cost": "",
+  "cmc": 0.0,
+  "type_line": "Artifact — Attraction",
+  "oracle_text": "Visit — Exile the top X cards of your library, where X is the number of Attractions you've visited this turn (including this one). You may play those cards this turn. At the beginning of the next end step, if any of those cards remain exiled, put them on the bottom of your library in any order.",
+  "colors": [],
+  "color_identity": [],
+  "keywords": [],
+  "set": "unf",
+  "collector_number": "229b"
+ },
+ {
+  "name": "Balloon Stand",
+  "layout": "normal",
+  "mana_cost": "",
+  "cmc": 0.0,
+  "type_line": "Artifact — Attraction",
+  "oracle_text": "Visit — Choose one.\n• Create a 1/1 red Balloon creature token with flying.\n• Sacrifice a Balloon. If you do, target creature gains flying until end of turn.",
+  "colors": [],
+  "color_identity": [],
+  "keywords": [],
+  "set": "unf",
+  "collector_number": "200d"
+ },
+ {
+  "name": "Bumper Cars",
+  "layout": "normal",
+  "mana_cost": "",
+  "cmc": 0.0,
+  "type_line": "Artifact — Attraction",
+  "oracle_text": "Visit — Target creature must be blocked this turn if able.",
+  "colors": [],
+  "color_identity": [],
+  "keywords": [],
+  "set": "unf",
+  "collector_number": "202f"
+ },
+ {
+  "name": "Clown Extruder",
+  "layout": "normal",
+  "mana_cost": "",
+  "cmc": 0.0,
+  "type_line": "Artifact — Attraction",
+  "oracle_text": "Visit — Create a 1/1 white Clown Robot artifact creature token.",
+  "colors": [],
+  "color_identity": [],
+  "keywords": [],
+  "set": "unf",
+  "collector_number": "204d"
+ },
+ {
+  "name": "Concession Stand",
+  "layout": "normal",
+  "mana_cost": "",
+  "cmc": 0.0,
+  "type_line": "Artifact — Attraction",
+  "oracle_text": "Visit — Create a Food token. (It's an artifact with \"{2}, {T}, Sacrifice this artifact: You gain 3 life.\")",
+  "colors": [],
+  "color_identity": [],
+  "keywords": [
+   "Food"
+  ],
+  "set": "unf",
+  "collector_number": "205b"
+ },
+ {
+  "name": "Foam Weapons Kiosk",
+  "layout": "normal",
+  "mana_cost": "",
+  "cmc": 0.0,
+  "type_line": "Artifact — Attraction",
+  "oracle_text": "Visit — Put a +1/+1 counter on target creature you control. That creature gains vigilance until end of turn.",
+  "colors": [],
+  "color_identity": [],
+  "keywords": [],
+  "set": "unf",
+  "collector_number": "211d"
+ },
+ {
+  "name": "Fortune Teller",
+  "layout": "normal",
+  "mana_cost": "",
+  "cmc": 0.0,
+  "type_line": "Artifact — Attraction",
+  "oracle_text": "Visit — Scry 1.",
+  "colors": [],
+  "color_identity": [],
+  "keywords": [
+   "Scry"
+  ],
+  "set": "unf",
+  "collector_number": "212c"
+ },
+ {
+  "name": "Hall of Mirrors",
+  "layout": "normal",
+  "mana_cost": "",
+  "cmc": 0.0,
+  "type_line": "Artifact — Attraction",
+  "oracle_text": "Visit — Choose target creature you control. Each other creature you control becomes a copy of that creature until end of turn, except it isn't legendary.",
+  "colors": [],
+  "color_identity": [],
+  "keywords": [],
+  "set": "unf",
+  "collector_number": "216a"
+ },
+ {
+  "name": "Haunted House",
+  "layout": "normal",
+  "mana_cost": "",
+  "cmc": 0.0,
+  "type_line": "Artifact — Attraction",
+  "oracle_text": "Visit — Return target creature card from your graveyard to the battlefield. It gains haste. Exile it at the beginning of your next end step.",
+  "colors": [],
+  "color_identity": [],
+  "keywords": [],
+  "set": "unf",
+  "collector_number": "217a"
+ },
+ {
+  "name": "Information Booth",
+  "layout": "normal",
+  "mana_cost": "",
+  "cmc": 0.0,
+  "type_line": "Artifact — Attraction",
+  "oracle_text": "Visit — Draw a card.",
+  "colors": [],
+  "color_identity": [],
+  "keywords": [],
+  "set": "unf",
+  "collector_number": "218a"
+ },
+ {
+  "name": "Kiddie Coaster",
+  "layout": "normal",
+  "mana_cost": "",
+  "cmc": 0.0,
+  "type_line": "Artifact — Attraction",
+  "oracle_text": "Visit — Creatures you control get +1/+0 until end of turn.",
+  "colors": [],
+  "color_identity": [],
+  "keywords": [],
+  "set": "unf",
+  "collector_number": "219c"
+ },
+ {
+  "name": "Merry-Go-Round",
+  "layout": "normal",
+  "mana_cost": "",
+  "cmc": 0.0,
+  "type_line": "Artifact — Attraction",
+  "oracle_text": "Visit — Creatures you control with power 2 or less gain horsemanship until end of turn. (They can't be blocked except by creatures with horsemanship.)",
+  "colors": [],
+  "color_identity": [],
+  "keywords": [],
+  "set": "unf",
+  "collector_number": "222b"
+ },
+ {
+  "name": "Roller Coaster",
+  "layout": "normal",
+  "mana_cost": "",
+  "cmc": 0.0,
+  "type_line": "Artifact — Attraction",
+  "oracle_text": "Visit — Creatures you control get +2/+0 until end of turn.",
+  "colors": [],
+  "color_identity": [],
+  "keywords": [],
+  "set": "unf",
+  "collector_number": "225d"
+ },
+ {
+  "name": "Spinny Ride",
+  "layout": "normal",
+  "mana_cost": "",
+  "cmc": 0.0,
+  "type_line": "Artifact — Attraction",
+  "oracle_text": "Visit — Tap target creature an opponent controls.",
+  "colors": [],
+  "color_identity": [],
+  "keywords": [],
+  "set": "unf",
+  "collector_number": "227c"
+ },
+ {
+  "name": "Trash Bin",
+  "layout": "normal",
+  "mana_cost": "",
+  "cmc": 0.0,
+  "type_line": "Artifact — Attraction",
+  "oracle_text": "Visit — Mill two cards, then return a card at random from your graveyard to your hand. (To mill a card, a player puts the top card of their library into their graveyard.)",
+  "colors": [],
+  "color_identity": [],
+  "keywords": [
+   "Mill"
+  ],
+  "set": "unf",
+  "collector_number": "232b"
+ },
+ {
+  "name": "Rest in Peace",
+  "layout": "normal",
+  "mana_cost": "{1}{W}",
+  "cmc": 2.0,
+  "type_line": "Enchantment",
+  "oracle_text": "When this enchantment enters, exile all graveyards.\nIf a card or token would be put into a graveyard from anywhere, exile it instead.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Ferris Wheel",
+  "layout": "normal",
+  "mana_cost": "",
+  "cmc": 0.0,
+  "type_line": "Artifact — Attraction",
+  "oracle_text": "Visit — Choose target creature that hasn't been phased out with this Attraction. That creature phases out until you roll a 3 or less while rolling to visit your Attractions.",
+  "colors": [],
+  "color_identity": [],
+  "keywords": [],
+  "set": "unf",
+  "collector_number": "210"
+ },
+ {
+  "name": "Costume Shop",
+  "layout": "normal",
+  "mana_cost": "",
+  "cmc": 0.0,
+  "type_line": "Artifact — Attraction",
+  "oracle_text": "Visit — You may put a sticker on a nonland permanent you own.",
+  "colors": [],
+  "color_identity": [],
+  "keywords": [],
+  "set": "unf",
+  "collector_number": "206d"
+ }
+]

@@ -63,7 +63,7 @@ _ENCHANT = re.compile(r"^enchant (?P<what>.+?)\.?$", re.IGNORECASE)
 # -- equip (wave 15E) -- 702.6a "Equip [cost]", "Equip [quality] [cost]" (702.6b: only a creature with that quality) and
 # "Equip—[non-mana cost]": the cost, the target selector and the ability's own trailing sentences ("Activate only once each
 # turn.", "This ability costs {3} less to activate if …")
-EQUIP = re.compile(r"^equip(?: (?P<q>[A-Za-z][A-Za-z' -]*?))? (?P<cost>(?:\{[^}]+\})+(?: or (?:\{[^}]+\})+)?)(?P<tail>(?:\. .+|\.)?)$|"
+EQUIP = re.compile(r"^equip(?: (?P<q>[A-Za-z][A-Za-z' ,-]*?))? (?P<cost>(?:\{[^}]+\})+(?: or (?:\{[^}]+\})+)?)(?P<tail>(?:\. .+|\.)?)$|"
                    r"^equip—(?P<cost2>[^.]+)(?P<tail2>\..*)?$", re.IGNORECASE)
 
 
@@ -272,7 +272,12 @@ def host_problem(plan: Plan, source: CardInstance, host: str, controller: str | 
             return "an Equipment that's also a creature can't equip"
         from app.rules import equipment_animation
 
-        return None if hch.is_creature or equipment_animation.makes_host_creature(plan, source, card) else "Equipment can only equip a creature"
+        if not (hch.is_creature or equipment_animation.makes_host_creature(plan, source, card)):
+            return "Equipment can only equip a creature"
+        # -- static permanents (wave 100D) -- "can be attached only to …", "can't be equipped" (701.3b, 704.5n)
+        from app.rules import static_perm100d
+
+        return static_perm100d.equip_problem(plan, source, card)
     if sch.is_creature:
         return "a Fortification that's also a creature can't fortify"  # 301.6
     return None if hch.is_land else "a Fortification can only fortify a land"

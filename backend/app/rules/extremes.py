@@ -26,6 +26,9 @@ _STATS = {"power": "power", "toughness": "toughness", "mana value": "mana_value"
 _STAT = "power|toughness|mana value"
 _THE = re.compile(rf"you control the (?P<kind>[a-z]+) with the greatest (?P<s>{_STAT}) or tied for the greatest (?P<s2>{_STAT})")
 _A = re.compile(rf"you control an? (?P<kind>[a-z]+) with the greatest (?P<s>{_STAT}) among (?P<kinds>[a-z]+) on the battlefield")
+# -- attached (wave 100F) -- "if you control each creature on the battlefield with the greatest power" (Might Makes Right): every one holding the greatest
+# value is yours — a tie with another player's fails (the rulings of 2014-07-18); one holding it alone is "each" too
+_EACH = re.compile(rf"you control each (?P<kind>[a-z]+) on the battlefield with the greatest (?P<s>{_STAT})")
 
 
 def parse(t: str) -> dict[str, Any] | None:
@@ -34,7 +37,10 @@ def parse(t: str) -> dict[str, Any] | None:
         assert sel is not None
         return {"object": "it", "extreme": {"stat": "power", "sel": sel.key()}}
     m = _THE.fullmatch(t)
-    if m and m["s"] == m["s2"]:
+    each = _EACH.fullmatch(t)
+    if each:
+        m, kind = each, each["kind"]
+    elif m and m["s"] == m["s2"]:
         kind = m["kind"]
     else:
         m = _A.fullmatch(t)
@@ -44,7 +50,7 @@ def parse(t: str) -> dict[str, Any] | None:
     sel, plural = selectors.parse(kind), selectors.parse(kind + "s")
     if sel is None or plural is None or sel.key() != plural.key() or sel.player is not None or sel.card:
         return None
-    return {"extreme": {"stat": _STATS[m["s"]], "sel": sel.key()}}
+    return {"extreme": {"stat": _STATS[m["s"]], "sel": sel.key(), **({"each": True} if each else {})}}
 
 
 def holds(plan: Plan, ctx: dict[str, Any], cond: dict[str, Any]) -> bool:
@@ -58,4 +64,6 @@ def holds(plan: Plan, ctx: dict[str, Any], cond: dict[str, Any]) -> bool:
     stats = [(plan.state.cards[c].controller, values._stat_of(plan.ch(plan.state.cards[c]), spec["stat"])) for c in found]
     known = [s for _, s in stats if s is not None]
     mine = [s for who, s in stats if who == ctx["controller"] and s is not None]
+    if spec.get("each"):
+        return bool(known) and all(who == ctx["controller"] for who, s in stats if s == max(known))
     return bool(mine) and max(mine) >= max(known)

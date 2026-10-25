@@ -391,6 +391,7 @@ def mana_abilities(state: GameState, card: CardInstance, info: CardInfo) -> list
     ch = derive(state, card, chars.of(card, info), info)  # (granted mana abilities: Cryptolith Rite …)
     if "cant_activate" in ch.imposed:  # "its activated abilities can't be activated" (mana abilities too)
         return []
+    no_tap = "cant_activate_tap" in ch.imposed  # -- attached (wave 100F) -- "… with {T} in their costs can't be activated" (Serra Bestiary)
     # -- cast limits (wave 5E) -- Grand Abolisher, Collector Ouphe (602.5, 605.1a)
     from app.rules import cast_limits
 
@@ -404,7 +405,7 @@ def mana_abilities(state: GameState, card: CardInstance, info: CardInfo) -> list
         if ab.kind != "mana":
             continue
         parsed = M.parse_mana_ability(ab.text, identity, card_name=ch.name)
-        if parsed is None or parsed.from_hand:  # (from_hand: only from the hand, wave 5A — mana_riders.activate_from_hand)
+        if parsed is None or parsed.from_hand or (no_tap and parsed.tap):  # (from_hand: only from the hand, wave 5A — mana_riders.activate_from_hand)
             continue
         if parsed.from_graveyard and card.zone != zone_key(card.owner, 'graveyard'):
             continue
@@ -809,7 +810,8 @@ def choose_targets(plan: Plan, a: A.CastSpell | A.ActivateAbility, definition: d
     if isinstance(a, A.CastSpell):  # -- kicked / instead (wave 4G) -- 601.2c / 702.33g: targets tied to the kicker
         from app.rules import kicked_instead
 
-        specs = kicked_instead.applicable(specs, a.kicker or int(a.awaken) or int(f"{a.card_id}:gift" in a.optional_costs) or int(f"{a.card_id}:bargain" in a.optional_costs))  # (awaken: wave 16B; bargain: 30E;
+        specs = kicked_instead.applicable(specs, a.kicker or int(a.awaken) or int(f"{a.card_id}:gift" in a.optional_costs) or int(f"{a.card_id}:bargain" in a.optional_costs)
+                                          or int(f"{a.card_id}:teamwork" in a.optional_costs))  # (awaken: wave 16B; bargain: 30E; teamwork: wave 100K, aslongas100k.TEAMWORK;
         # gift: wave 23D, 702.174m: the targets only a promised spell chooses)
     found = choose_groups(plan, specs, plan.actor, _target_source(plan, a), a.card_id, list(a.targets),  # (review 41: 115.2)
                           list(a.target_counts), list(a.division), a.x_value, what, exclude)
@@ -1715,10 +1717,15 @@ def _pay_spell(plan: Plan, a: A.CastSpell, card: CardInstance, ch: Characteristi
     if any(h.card in not_mana for h in helpers):  # (wave 3$) an object an additional cost uses can't also help pay
         raise ActionError("A permanent that pays the additional cost can't also convoke / improvise")
     exclude = tuple(h.card for h in helpers) + not_mana
+    from app.rules import static_perm100d  # -- static permanents (wave 100D) -- Hogaak: no mana at all
+
+    manaless = static_perm100d.no_mana(ch)
 
     def covers(rest: M.ManaCost) -> bool:
         if rest.is_free:
             return True
+        if manaless:
+            return False
         try:
             find_payment(plan.state, player, rest, plan.info, sources=a.sources, exclude=exclude, purpose=purpose,
                          reserve=plan.reserved_life)
@@ -1727,6 +1734,8 @@ def _pay_spell(plan: Plan, a: A.CastSpell, card: CardInstance, ch: Characteristi
         return True
 
     assignment = P.assign(cost, helpers, covers) if helpers else []
+    if manaless and (assignment is None or not P.remaining(cost, assignment).is_free):
+        raise ActionError(f"You can't spend mana to cast {ch.name or 'this spell'}: pay it all with convoke and delve")
     if assignment is None:
         raise ActionError(f"Those can't pay {cost.text()}: convoke pays {{1}} or one mana of the creature's color; "
                           "improvise and delve pay only {1}")
@@ -1911,6 +1920,11 @@ def _note_cast(plan: Plan, record: PaymentRecord, zone: str, *, zone_player: str
     record.cast_controlled_subtypes = sorted({subtype for c in plan.state.cards.values()
         if c.controller == record.controller and c.zone.endswith(":battlefield") and plan.in_game(c)
         for subtype in plan.ch(c).subtypes})
+    from app.rules import (
+        selectors,  # -- xdamage (wave 100E) -- "if you controlled a modified creature as you cast this spell" (601.2i)
+    )
+
+    record.cast_controlled_modified = bool(selectors.candidates(plan, selectors.Selector(controller="you", types=("Creature",), extras=("modified",)), record.controller, None))
     record.cast_revealed_subtypes = sorted({subtype for cid in record.revealed
         if (revealed_card := plan.state.cards.get(cid)) is not None
         for subtype in plan.ch(revealed_card).subtypes})
@@ -2667,6 +2681,10 @@ def turn_face_up(plan: Plan, a: A.TurnFaceUp) -> None:
     card = plan.state.cards.get(a.card_id)
     if card is None or card.controller != plan.actor or not card.zone.endswith(":battlefield") or not card.face_down:
         raise ActionError("Turn face up a face-down permanent you control")
+    from app.rules import static_perm100d  # -- static permanents (wave 100D) -- Karlov Watchdog
+
+    if (barred := static_perm100d.face_up_barred(plan, card)) is not None:
+        raise ActionError(barred)
     printed = chars.of(card.model_copy(update={"face_down": False}), plan.info)
     ways = face_up_ways(card, printed, state=plan.state, info=plan.info)
     method = a.method or next((w for w in ("morph", "disguise", "mana_cost") if w in ways), None)
@@ -2939,6 +2957,8 @@ def affinity_pred(what: str) -> Any:
         return lambda c, _card: "Legendary" in c.supertypes or "Artifact" in c.types or "Saga" in c.subtypes
     if what == "outlaws":
         return lambda c, _card: bool(OUTLAWS & set(c.subtypes))
+    if what == "snow lands":  # -- multi (wave 100M) -- Icebreaker Kraken (205.4a: snow is a supertype)
+        return lambda c, _card: "Snow" in c.supertypes and "Land" in c.types
     from app.rules.creature_types import CREATURE_TYPES
     from app.rules.protection import _PLURALS
     from app.rules.selectors import _IRREGULAR
@@ -3380,7 +3400,9 @@ def free_cast_problem(plan: Plan, player: str, card: CardInstance, ch: Character
             if not allowed or (not modal["repeat"] and len(allowed) < modal["min"]):
                 return f"{ch.name or 'It'} has no mode you can choose"
         elif not manual:
-            aura = attachments.enchant_selector(ch)
+            from app.rules import static_perm100d  # -- static permanents (wave 100D) -- 601.2c
+
+            aura = static_perm100d.cast_aura(ch, attachments.enchant_selector(ch))
             src = quality_source  # The actual prospective face and announced X.
             from app.rules import kicked_instead
             from app.rules.targets import group_limits
@@ -3651,6 +3673,9 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
             if sc.cost.components:
                 splice_extra.append(sc.cost)
     aura = None if plan.manual(card) or a.face_down else (merged.MUTATE_TARGET if mutating_cast else attachments.enchant_selector(ch))
+    from app.rules import static_perm100d  # -- static permanents (wave 100D) -- 601.2c
+
+    aura = static_perm100d.cast_aura(ch, aura)
     slots: list[list[TargetRef]] = []
     slot_specs: list[dict[str, Any] | None] = []
     picked: list[int] = []
@@ -4391,15 +4416,18 @@ def foretell(plan: Plan, card: CardInstance, ch: Characteristics, a: A.ActivateA
     """-- hidden exile (wave 18A) -- 702.143a/b foretell: a special action (116.2h), any time you have priority during your turn:
     pay {2} and exile this card from your hand face down. Its owner alone may look at it (the foretell zone); it may be cast
     after this turn has ended for its foretell cost (alt_costs.offers, casting.cast_grant)."""
-    if plan.state.turn.active_player != plan.actor:
+    from app.rules import static_perm100d  # -- static permanents (wave 100D) -- Cosmos Charger
+
+    chargers = static_perm100d.yours(plan, static_perm100d.FORETELL, plan.actor)
+    if plan.state.turn.active_player != plan.actor and not chargers:
         raise ActionError("You can foretell a card only during your turn (702.143a)")
-    cost = M.parse_cost("{2}")
+    cost = M.parse_cost(f"{{{max(0, 2 - chargers)}}}")
     if payment_step(plan, a, cost, f"foretelling {ch.name}", purpose=Purpose(special="foretell")):  # (review 19: 116.2h, not a cast)
         return
     from app.rules import special_payment_tails
 
     selected = next((ability for ability in ch.abilities if ability.index == a.ability), None)
-    special_payment_tails.pay(plan, "foretell", card, ch, cost, "paid {2} to foretell a card",
+    special_payment_tails.pay(plan, "foretell", card, ch, cost, f"paid {cost.text()} to foretell a card",
                               sources=a.sources, purpose=Purpose(special="foretell"),
                               granted_mana_cost=selected.granted_mana_cost if selected is not None else None)
 
@@ -4617,9 +4645,9 @@ def crew(plan: Plan, card: CardInstance, ch: Characteristics, a: A.ActivateAbili
 
 # -- static statics (wave 10B) -- cascade a permanent gives the spell as it's cast (cast_limits.granted_cascade)
 def _granted_cascade(plan: Plan, card: CardInstance, ch: Characteristics, cast_from: str | None) -> int:
-    from app.rules import cast_limits
+    from app.rules import cast_limits, turnstate100h
 
-    return cast_limits.granted_cascade(plan, card.id, ch, cast_from)
+    return cast_limits.granted_cascade(plan, card.id, ch, cast_from) + turnstate100h.own_cascade(plan, card, ch, cast_from)  # (wave 100H: Bloodbraid Marauder, Yidris)
 
 
 def _cascade_triggers(plan: Plan, card: CardInstance, ch: Characteristics, extra: int = 0) -> None:
@@ -5029,6 +5057,9 @@ def cast_free(plan: Plan, card: CardInstance, ch: Characteristics, a: A.CastSpel
     if definition is not None and (a.x_value or 0) < definition.get("x_min", 0):
         raise ActionError(f"{ch.name}: X can't be {a.x_value or 0}")
     aura = None if plan.manual(card) else attachments.enchant_selector(ch)
+    from app.rules import static_perm100d  # -- static permanents (wave 100D) -- 601.2c
+
+    aura = static_perm100d.cast_aura(ch, aura)
     slots: list[list[TargetRef]] = []
     slot_specs: list[dict[str, Any] | None] = []
     picked: list[int] = []
@@ -5416,6 +5447,8 @@ def activate_ability(plan: Plan, a: A.ActivateAbility) -> None:
     ability = _find_ability(ch, a.ability)
     if "cant_activate_nonmana" in ch.imposed and ability.kind != "mana":  # -- attached events (wave 16F) -- Faith's Fetters (605.1a)
         raise ActionError(f"{ch.name}’s activated abilities can't be activated unless they're mana abilities")
+    if "cant_activate_tap" in ch.imposed and ab is not None and ability_cost(ch, ab, state=plan.state, card=card, info=plan.info).tap:  # -- attached (wave 100F) --
+        raise ActionError(f"{ch.name}’s activated abilities with {{T}} in their costs can't be activated")
     _activation_limit(plan, card, ch, mana=ability.kind == "mana", loyalty=ability.kind == "loyalty")  # -- cast limits (wave 5E) --
     n = crew_power(ch, a.ability) if not plan.manual(card) else None
     if n is not None:
@@ -5785,7 +5818,7 @@ def ability_problem(state: GameState, player: str, card: CardInstance, ch: Chara
         return "You can only activate abilities of permanents you control"
     if cost.unsupported:
         return f"Pay “{', '.join(cost.unsupported)}” by hand with the table tools"
-    if "cant_activate" in ch.imposed or ("cant_activate_nonmana" in ch.imposed and ability.kind != "mana"):
+    if "cant_activate" in ch.imposed or ("cant_activate_nonmana" in ch.imposed and ability.kind != "mana") or ("cant_activate_tap" in ch.imposed and cost.tap):  # (wave 100F: {T})
         return f"{ch.name}’s activated abilities can't be activated"
     # -- cast limits (wave 5E) -- (602.5)
     from app.rules import cast_limits
@@ -5804,7 +5837,10 @@ def ability_problem(state: GameState, player: str, card: CardInstance, ch: Chara
         if r.loyalty_used.get(oid) == state.turn.number and (r.loyalty_second.get(oid) == state.turn.number
                                                              or not cast_limits.loyalty_rule(state, card, rule_info, "twice")):  # (Oath of Teferi)
             return f"{ch.name} has already used a loyalty ability this turn"
-        if cost.loyalty is not None and cost.loyalty < 0 and card.counters.get("loyalty", 0) < -cost.loyalty:
+        from app.rules import static_perm100d  # -- static permanents (wave 100D) -- Carth the Lion
+
+        loyal = None if cost.loyalty is None else cost.loyalty + static_perm100d.loyalty_plus(state, rule_info, player)
+        if loyal is not None and loyal < 0 and card.counters.get("loyalty", 0) < -loyal:
             return f"{ch.name} doesn't have enough loyalty"
     # -- activation restrictions (602.5; app/rules/restrictions.py): "Activate only as a sorcery",
     # "… only once each turn" (per object, 602.5b / 400.7), "… only during your turn", "… only if …"
@@ -5990,7 +6026,10 @@ def activate_to_stack(plan: Plan, card: CardInstance, ch: Characteristics, abili
         raise ActionError("Choose a value for X")
     if (every := next((c for c in cost.components if c.every), None)) is not None:
         a.x_value = cost_payment.counters_on(card, every.counter)  # -- activated sweep (wave 26C) -- "Remove all oil counters": all there are now (602.2b)
-    if cost.loyalty_x and card.counters.get("loyalty", 0) < (a.x_value or 0):
+    from app.rules import static_perm100d  # -- static permanents (wave 100D) -- Carth the Lion: [+1] more
+
+    plus = static_perm100d.loyalty_plus(plan.state, plan.info, plan.actor) if cost.loyalty is not None or cost.loyalty_x else 0
+    if cost.loyalty_x and card.counters.get("loyalty", 0) < (a.x_value or 0) - plus:
         raise ActionError(f"{ch.name} doesn't have {a.x_value} loyalty")  # 606.6
     if definition is None:
         definition = None if plan.manual(card) else scripts.definitions(ch).get(ability.index)
@@ -6144,8 +6183,10 @@ def _activation_announced(plan: Plan, data: _PostActivation, paid: M.Payment | N
     # Pay the costs (602.2): tap first so the source can't also pay for its own mana cost.
     if cost.tap:
         plan.do({"type": "tap", "card_ids": [card.id], "tapped": True})
-    if cost.loyalty or (cost.loyalty_x and a.x_value):
-        delta = (cost.loyalty or 0) if not cost.loyalty_x else -(a.x_value or 0)
+    from app.rules import static_perm100d  # -- static permanents (wave 100D) -- Carth the Lion
+
+    plus = static_perm100d.loyalty_plus(plan.state, plan.info, plan.actor) if cost.loyalty is not None or cost.loyalty_x else 0
+    if (delta := ((cost.loyalty or 0) if not cost.loyalty_x else -(a.x_value or 0)) + plus):
         if delta > 0:  # -- loyalty costs (review 31) -- 606.4: put as a cost through the counter choke point like any cost's counters (122.6):
             from app.rules import replace
 
@@ -6247,6 +6288,16 @@ def _post_activation(plan: Plan, data: _PostActivation, paid: M.Payment | None) 
         if r.loyalty_used.get(oid) == plan.state.turn.number:
             r.loyalty_second[oid] = plan.state.turn.number  # -- static_other sweep (wave 19A) -- the second use (Oath of Teferi)
         r.loyalty_used[oid] = plan.state.turn.number
+    # -- turn state (wave 100H) -- "if you've activated a loyalty ability this turn", "… an ability of a card in a graveyard", "an exhaust ability"
+    # (602.2: who did; the source as it was as it was activated, before a cost moved it: 603.10a; 702.177b)
+    was = r.lki.get(oid) if plan.oid(card) != oid else None
+    kinds100h = [k for k, hit in (("loyalty", ability.kind == "loyalty"), ("exhaust", ability.text.startswith(restrictions.EXHAUST)),
+                                  ("gy_ability", (was.zone if was is not None else card.zone).endswith(":graveyard"))) if hit]
+    if kinds100h:
+        from app.game.rules_state import TurnFact, turn_log_now
+
+        if (log100h := turn_log_now(plan.state)) is not None:
+            log100h.facts += [TurnFact(kind=k, player=plan.actor, object_id=oid) for k in kinds100h]
     if restrictions.limited(restrictions.parse(_own_text(ability.text, ch.name)) or []) or (  # "Activate only once each turn" / "… only once"
             definition is not None and '"history": "activations"' in json.dumps(definition["effects"])):
         restrictions.record_use(r, oid, ability.index, plan.state.turn.number)  # (wave 19E: also for "activated N or more times this turn")

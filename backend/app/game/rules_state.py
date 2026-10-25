@@ -735,7 +735,8 @@ class ContinuousEffect(BaseModel):
     # ``until_player``'s next turn (a later turn than ``turn``, even when it began in one of their own turns: delayed.end_of_next_turn)
     counter_since_batch: int = 0  # while-counter durations ignore earlier zero-counter events
     duration: Literal["end_of_turn", "permanent", "next_turn", "end_of_next_turn", "source_on_battlefield", "source_controlled",
-                      "source_tapped", "source_controlled_tapped", "while_counter", "end_of_combat", "until_cast"] = "end_of_turn"
+                      "source_tapped", "source_controlled_tapped", "while_counter", "end_of_combat", "until_cast",
+                      "next_upkeep"] = "end_of_turn"  # (next_upkeep: wave 100A, "until your next upkeep" — delayed.at_step)
     until_object: str | None = None  # -- as long as (wave 37A) -- until_cast: the object (in exile) whose being cast ends the effect (delayed.spell_cast)
     counter: str | None = None  # while_counter: the kind of counter
     until_player: str | None = None  # next_turn: whose next turn; source_controlled: who must control the source
@@ -759,6 +760,7 @@ class ContinuousEffect(BaseModel):
     # creature types" (every creature type, as changeling has, 702.73a).
     set_types: list[str] | None = None
     add_supertypes: list[str] = Field(default_factory=list)
+    remove_supertypes: list[str] = Field(default_factory=list)  # -- activated (wave 100I) -- "is no longer snow" (205.4; Arcum's Weathervane)
     set_creature_types: list[str] | None = None
     all_creature_types: bool = False
     # -- land types set (wave 12D) -- 305.7: "target land becomes an Island": its land types are replaced by these basic
@@ -1124,6 +1126,7 @@ class PaymentRecord(BaseModel):
     exiled_facts: list[PaidCardFact] | None = None
     milled_facts: list[PaidCardFact] | None = None
     cast_controlled_subtypes: list[str] = Field(default_factory=list)  # Permanent subtype snapshot as casting finishes.
+    cast_controlled_modified: bool = False  # -- xdamage (wave 100E) -- a modified creature (700.9) controlled as casting finished (Flame Discharge)
     cast_revealed_subtypes: list[str] = Field(default_factory=list)  # Subtypes of cards revealed for this spell's cost.
     revealed: list[str] = Field(default_factory=list)  # -- static_other sweep (wave 17C) -- cards revealed from the hand to pay ("the revealed card's …")
     exiled: list[str] = Field(default_factory=list)  # cards exiled to pay (from a graveyard, or the source)
@@ -1656,6 +1659,8 @@ class RulesState(BaseModel):
     transformed: dict[str, int] = Field(default_factory=dict)
     lki: dict[str, ObjectSnapshot] = Field(default_factory=dict)  # object id -> last known information
     stack_lki: dict[str, StackMemory] = Field(default_factory=dict)  # -- spell copies (wave 31D) -- object id of a spell that left the stack -> how it was there
+    # -- trigger lines (wave 100A) -- object id -> the players its enters ability targeted as it went on the stack (Soul Scourge's "that player")
+    linked_players100a: dict[str, list[str]] = Field(default_factory=dict)
     batch: int = 0  # last event batch number
     events: list[Event] = Field(default_factory=list)  # events since the engine last acted (this intent's, or manual ones)
     events_dropped: bool = False  # manual play produced more events than are kept

@@ -86,6 +86,12 @@ def candidates(plan: Plan, ctx: dict[str, Any], e: dict[str, Any], cards: list[s
     if e.get('distinct_names'):
         from app.rules.card_names import names_of
         cards = [cid for cid in cards if names_of(plan.ch(plan.state.cards[cid]))]
+    if e.get('except_ref'):  # -- attached (wave 100F) -- "other than enchanted creature": not that object, bound as the ability resolves (608.2h; attached100f.bind_host)
+        gone = {ref.object_id for ref in context._object_refs(ctx, e['except_ref'])}
+        cards = [cid for cid in cards if plan.oid(plan.state.cards[cid]) not in gone]
+    if e.get('exclude'):  # -- static spells (wave 100C) -- "sacrifices another land" (Feast of Worms): not the object the binding still names
+        gone = set(context.objects(plan, ctx, e['exclude']))
+        cards = [cid for cid in cards if cid not in gone]
     return cards
 
 

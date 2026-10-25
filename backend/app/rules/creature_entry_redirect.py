@@ -20,6 +20,8 @@ def definition(text: str) -> dict[str, Any] | None:
 
 
 def parse(body: str) -> tuple[list[dict[str, Any]], None, bool] | None:
+    if body.strip() == TIMED.replace('a creature', 'a nontoken creature'):  # -- as long as (wave 100K) -- Mistcaller: tokens still enter (its 2018-07-13 ruling)
+        return [{'do': 'replace_record', 'event': 'creature_entry', 'match': {'nontoken': True}, 'op': {'do': 'exile'}}], None, False
     if body not in (TIMED, TIMED + ' Draw a card.'):
         return None
     effects: list[dict[str, Any]] = [{'do': 'replace_record', 'event': 'creature_entry', 'match': {}, 'op': {'do': 'exile'}}]

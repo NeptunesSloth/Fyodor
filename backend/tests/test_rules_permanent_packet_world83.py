@@ -57,10 +57,9 @@ def cast(s, name):
 
 
 def test_prepared_native_departures_in_distinct_groups_keep_remaining_world_original_interval(cards):
-    from app.rules.permanent_payments83 import Offer83, Packet83
-
     from app.rules import permanent_payments83, replacements, world_durations80
     from app.rules.context import ref_of
+    from app.rules.permanent_payments83 import Offer83, Packet83
     from app.rules.plan import Plan
 
     s = game(cards)

@@ -48,7 +48,7 @@ def _reserved(cost: AbilityCost, comp: CostComponent, source: CardInstance) -> s
     """Objects a part can't use because another part of the same cost already does: the source
     when it's tapped ({T}) or leaves (sacrificed / exiled / returned) as part of the cost.
     CR 601.2h: counters may be removed from that source before paying its leave cost."""
-    leaves = cost.sacrifice_self or any((c.selector is None or c.source_with_choices) and c.kind in (C.EXILE, C.RETURN_PERMANENT, C.EXILE_FROM_GRAVEYARD)
+    leaves = cost.sacrifice_self or any((c.selector is None or c.source_with_choices) and c.kind in (C.EXILE, C.RETURN_PERMANENT, C.EXILE_FROM_GRAVEYARD, C.LIBRARY_BOTTOM_SELF)
                                         for c in cost.components)
     if (leaves and comp.kind != C.REMOVE_COUNTER) or (comp.kind in (C.TAP_OTHER, C.UNTAP_OTHER, C.WATERBEND) and (cost.tap or cost.untap)):
         return {source.id}
@@ -230,9 +230,12 @@ def objects_needed(comp: CostComponent, x: int | None) -> int:
     return max(0, x or 0) if comp.x else comp.objects
 
 
-def life_amount(plan: Plan, comp: CostComponent, player: str) -> int | None:
+def life_amount(plan: Plan, comp: CostComponent, player: str, card: CardInstance | None = None) -> int | None:
     """The life a PAY_LIFE part costs now (None: it can't be paid — 903.4f, no commander)."""
     life = plan.state.players[player].life
+    if comp.life_rule and comp.life_rule.startswith("per_counter100i:"):  # -- activated (wave 100I) -- "Pay 3 life for each velocity counter on ~"
+        _, kind, n = comp.life_rule.split(":")
+        return int(n) * (card.counters.get(kind, 0) if card is not None else 0)
     if comp.life_rule == "half":  # 107.1a: "rounded up"; 119.4b: 0 can always be paid
         return max(0, -(-life // 2))
     if comp.life_rule == "commander_colors":  # 903.4: the commanders' combined color identity
@@ -286,14 +289,14 @@ def _new_part_problem(plan: Plan, comp: CostComponent, card: CardInstance, playe
             return f"{name} doesn't have {need} {what}"
     elif comp.kind == C.REVEAL_SECRET and (plan.rules.secret_choices.get(plan.oid(card)) or [""])[0] != player:  # -- group choices (wave 53D) -- the choice its controller made as it entered
         return f"You didn't choose anything as {name} entered"
-    elif comp.kind in (C.PUT_COUNTER, C.EXERT) and comp.selector is None and not card.zone.endswith(":battlefield"):
+    elif comp.kind in (C.PUT_COUNTER, C.EXERT, C.LIBRARY_BOTTOM_SELF) and comp.selector is None and not card.zone.endswith(":battlefield"):
         return f"{name} isn't on the battlefield"  # (122.6; 701.43c)
     elif comp.kind in (C.MILL, C.EXILE_LIBRARY) and len(plan.state.zones.get(zone_key(player, "library"), [])) < comp.amount:
         return f"You don't have {comp.amount} card{'s' if comp.amount != 1 else ''} in your library"  # 701.17b, 118.3
     elif comp.kind in (C.COLLECT_EVIDENCE, C.FORAGE) and not _flexible_options(plan, comp, card, player, set())[1]:
         return f"You can't pay “{comp.text}”"  # 701.59b; 701.61a
     elif comp.kind == C.PAY_LIFE and comp.life_rule is not None:
-        amount = life_amount(plan, comp, player)
+        amount = life_amount(plan, comp, player, card)
         if amount is None:
             return "You have no commander, so that cost can't be paid (903.4f)"
         if plan.state.players[player].life < amount:  # 119.4
@@ -379,7 +382,7 @@ def problem(plan: Plan, cost: AbilityCost, card: CardInstance, player: str, x: i
         if comp.kind == C.PAY_LIFE and (comp.amount or comp.life_rule):  # -- can't lose life (wave 29D) -- 119.8, 614.17b: any payment, a resolving one too
             from app.rules import life_lock
 
-            if (why := life_lock.pay_problem(plan.state, plan.info, player, life_amount(plan, comp, player))):
+            if (why := life_lock.pay_problem(plan.state, plan.info, player, life_amount(plan, comp, player, card))):
                 return why
         if comp.kind == C.SACRIFICE and comp.selector is None and prohibitions.sacrifice_forbidden(plan, card):
             return f"{name} can't be sacrificed"
@@ -1045,6 +1048,9 @@ def _pay_new_part(plan: Plan, comp: CostComponent, card: CardInstance, ids: list
 
             counter_removal_results.remove(plan, card.id, comp.counter or "", x, by=player)
         return True
+    if comp.kind == C.LIBRARY_BOTTOM_SELF:  # -- activated (wave 100I) -- 601.2h: the source, to the bottom of its owner's library (401.1)
+        plan.do({"type": "move", "card_ids": [card.id], "to": {"player": card.owner, "zone": "library"}, "position": "bottom"})
+        return True
     if comp.kind == C.PUT_COUNTER:  # 122.6; a cost isn't an effect (614.16: Doubling Season doesn't apply)
         from app.rules import replace
 
@@ -1072,7 +1078,7 @@ def _pay_new_part(plan: Plan, comp: CostComponent, card: CardInstance, ids: list
             record.discarded += hand
         return True
     if comp.kind == C.PAY_LIFE and comp.life_rule is not None:
-        amount = life_amount(plan, comp, player)
+        amount = life_amount(plan, comp, player, card)
         if amount is None:
             raise ActionError("You have no commander, so that cost can't be paid (903.4f)")
         if amount:

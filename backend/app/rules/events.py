@@ -82,6 +82,9 @@ _EVENT_VERBS = [
     (r"(?:is|are) dealt damage", "dealt_damage"),
     (r"deals? combat damage to a player", "deal_combat_damage_player"),
     (r"deals? combat damage to an opponent", "deal_combat_damage_player"),
+    # -- attached (wave 100F) -- (Latulla's Orders): combat damage reaches a player only from an attacker, and only the one it attacks or the controller of the
+    # planeswalker it attacks (510.1b, 702.19c, 702.19e) — its defending player (508.5)
+    (r"deals? combat damage to defending player", "deal_combat_damage_player"),
     (r"deals? damage to an opponent", "deal_damage_opponent"),
 ]
 # "~ deals [combat / noncombat] damage [to a creature / player / you]" (120.1, 510.2)
@@ -146,6 +149,7 @@ _DESIGNATION_EVENTS = [
     (re.compile(r"(?P<p>you) choose a creature as your ring-bearer", re.IGNORECASE), "ring_bearer"),
     (re.compile(r"(?P<p>you) complete a dungeon"), "complete_dungeon"),
     (re.compile(r"(?P<p>you) proliferate"), "proliferate"),  # -- trigger tail (wave 15B) -- 701.34a
+    (re.compile(r"(?P<p>you) clash"), "clash"),  # -- trigger lines (wave 100A) -- 701.30: also a clash another player's effect made (the rulings)
     (re.compile(r"(?P<p>you) fully unlock a room", re.IGNORECASE), "fully_unlock"),  # -- ability words (wave 20C) -- 709.5i (rooms.unlock)
     (re.compile(r"a spell or ability (?P<p>you) control counters a spell"), "counters_spell"),  # -- counter events (wave 19C) -- 701.6a
     (re.compile(r"(?P<p>you|an opponent|a player) commits? a crime"), "commit_crime"),  # -- crimes (wave 6D) -- 700.13
@@ -156,6 +160,11 @@ _DESIGNATION_EVENTS = [
     # -- most-played cards (wave 43B) -- 701.23: "Whenever an opponent searches their library" (Archivist of Oghma, Wan Shi Tong, Ob Nixilis, Unshackled): a search of
     # the searcher's OWN library (the rulings: not one of your search of an opponent's library, nor an opponent's of another player's)
     (re.compile(r"(?P<p>an opponent|a player) searches their library"), "search_library"),
+    # -- Attractions (wave 100L) -- 701.52, 701.51c, 702.159b (app/rules/attractions100l.py)
+    (re.compile(r"(?P<p>you) roll to visit your Attractions"), "roll_visit"),
+    (re.compile(r"(?P<p>you) visit an Attraction"), "visit_attraction"),
+    (re.compile(r"(?P<p>you) open an Attraction"), "open_attraction"),
+    (re.compile(r"(?P<p>you) claim the prize of an Attraction"), "claim_prize"),
 ]
 # "enchanted creature", "equipped creature" …: the permanent the source is attached to (303.4, 301.5)
 _HOSTS = ("enchanted creature", "equipped creature", "enchanted permanent", "enchanted land", "enchanted artifact")
@@ -472,6 +481,10 @@ def _parse(c: str) -> Condition | None:
     if m:
         inner = _parse(f"{m['s']} becomes blocked")
         return None if inner is None or inner.get("event") != "blocked" or inner.get("aggregate") else {**inner, "min_blockers": _count(m["n"])}
+    # -- trigger lines (wave 100A) -- 509.3e: "Whenever ~ blocks two or more creatures" (Lairwatch Giant): it blocks that many as blockers are declared (509.3a: once)
+    m = re.fullmatch(r"~ blocks (?P<n>two|three|four|five) or more creatures", c)
+    if m:
+        return {"event": "block", "subject": "self", "min_blocked": _count(m["n"])}
     # 509.3b / 509.3d: "~ blocks or becomes blocked by a creature" — once per creature on the other side
     # (wave 11E: also "enchanted / equipped creature …", the permanent the source is attached to)
     m = re.fullmatch(r"(?P<s>~|enchanted creature|equipped creature) (?P<v>blocks or becomes blocked by|blocks|becomes blocked by)"
@@ -504,9 +517,9 @@ def _parse(c: str) -> Condition | None:
         return None if sel is None else {"event": "attack", "subject": "self", "min_attackers": 1, "sel": sel.key(),
                                          "others_only": True}
     # battalion: "~ and at least two other creatures attack" (the creatures declared as attackers)
-    m = re.fullmatch(r"~ and at least (?P<n>\w+) other creatures? attack", c)
-    if m:
-        return {"event": "attack", "subject": "self", "min_attackers": _count(m["n"]) + 1}
+    m = re.fullmatch(r"(?P<s>~|equipped creature) and at least (?P<n>\w+) other creatures? attack", c)
+    if m:  # (-- attached (wave 100F) -- "Whenever equipped creature and at least one other creature attack" (Glimmer Lens): what it's attached to)
+        return {"event": "attack", "subject": "self" if m["s"] == "~" else "host", "min_attackers": _count(m["n"]) + 1}
     # -- trigger qualifiers (wave 11C) -- "~ and at least one other Warrior attack" (attackers other than ~ that are Warriors),
     # "~ and at least two Zombies attack" (Zombies among all the attackers, ~ counting if it is one)
     m = re.fullmatch(r"~ and at least (?P<n>\w+) (?P<o>other )?(?P<w>[A-Z][\w-]*?)s? attack", c)

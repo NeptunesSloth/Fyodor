@@ -181,9 +181,9 @@ def _suffix(pattern: str):  # type: ignore[no-untyped-def]
 
 # -- attached events (wave 30S) -- "target Aura or Equipment attached to a creature you control" (Halvar): what it is attached to (301.5, 303.4);
 # before the controller suffix, whose "you control" is the host's
-@_suffix(r"(?:that(?:'s| is) )?attached to a creature(?P<you> you control)?")
+@_suffix(r"(?:that(?:'s| is) )?attached to a (?P<k>creature|permanent)(?P<you> you control)?")  # (wave 100F: "target Aura that's attached to a permanent", Aura Graft)
 def _attached_to_creature(s: Selector, m: re.Match[str]) -> Selector:
-    return replace(s, extras=(*s.extras, "attached_creature_you" if m["you"] else "attached_creature"))
+    return replace(s, extras=(*s.extras, f"attached_{m['k']}" + ("_you" if m["you"] else "")))
 
 
 # -- activated other (wave 34B) -- "Destroy all Auras attached to ~." (Hakim), "Sacrifice an Equipment attached to ~" (Ronin): what is attached to the source
@@ -320,6 +320,13 @@ def _blocked_this_turn(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, extras=(*s.extras, "blocked_this_turn"))
 
 
+@_suffix(r"that attacked or blocked this turn")  # -- instead (wave 100K) -- Gideon's Triumph: declared as an attacker (508.1) or a blocker (509.1g) this turn
+def _attacked_or_blocked_this_turn(s: Selector, m: re.Match[str]) -> Selector:
+    if not m.string[: m.start()].endswith(("creature", "creatures", "creature of their choice")):
+        raise ValueError("only \"creature(s) that attacked or blocked this turn\"")
+    return replace(s, extras=(*s.extras, "attacked_or_blocked_this_turn"))
+
+
 # -- combat history (wave 31D) -- 509.1g: which creature blocked which this turn (TurnLog.blocks, objects): "each creature that blocked or was
 # blocked this turn" (Heat Stroke), "all creatures it blocked this turn" (Defiant Vanguard: those the source blocked)
 @_suffix(r"that blocked or was blocked this turn")
@@ -411,7 +418,8 @@ def _that_player_controls(s: Selector, m: re.Match[str]) -> Selector:  # to it a
     return replace(s, controller=THAT_PLAYER)  # (triggers.bind_that_player: "player:<id>"; unbound, nothing matches)
 
 
-@_suffix(r"(?P<b>blocking (?:it|this creature|~)|(?:it['’]s|this creature is|~ is) blocking)")  # "target creature blocking it" / "… it's blocking": the source's
+@_suffix(r"(?:that(?:'s| is) (?=blocking))?(?P<b>blocking (?:it|this creature|~)|(?:it['’]s|this creature is|~ is) blocking)")  # "target creature blocking it" / "… it's blocking": the source's
+# (-- attached (wave 100F) -- also "that's blocking it": Arc Spitter's granted "{1}: This creature deals 1 damage to target creature that's blocking it.")
 def _blocking_source(s: Selector, m: re.Match[str]) -> Selector:  # blocks (509.1; scripts._event_refs_ok: "it" is ~)
     return replace(s, extras=(*s.extras, "blocking_source" if m["b"].startswith("blocking") else "blocked_by_source"))
 
@@ -491,6 +499,11 @@ def _attacking_opponent(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, attacking=True, extras=(*s.extras, "attacking_opponent_pw" if m["pw"] else "attacking_opponent"))
 
 
+@_suffix(r"that's attacking a battle")  # -- instead (wave 100K) -- Rampaging Geoderm's "if it's attacking a battle": the attack is on a battle (310.5, 506.3)
+def _attacking_battle(s: Selector, m: re.Match[str]) -> Selector:
+    return replace(s, attacking=True, extras=(*s.extras, "attacking_battle"))
+
+
 @_suffix(r"(?:that(?:['’]s| are) )?attacking you(?P<pw> or a planeswalker you control)?")  # (wave 17D: also plural / bare; wave 46C: "or a planeswalker you control", Soul Snare)
 def _attacking_you(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, attacking=True, extras=(*s.extras, "attacking_you_pw" if m["pw"] else "attacking_you"))
@@ -502,6 +515,47 @@ _SUFFIXES.insert(0, _SUFFIXES.pop())  # (first: its "… you control" is also th
 @_suffix(r"that['’]s exactly two colors")
 def _exactly_two_colors(s: Selector, m: re.Match[str]) -> Selector:  # (wave 44C: Niv-Mizzet, Supreme) 105.2: two of the five colors, no more and no fewer
     return replace(s, extras=(*s.extras, "two_colors"))
+
+
+# -- trigger lines (wave 100A) -- Invasion of Ravnica "that isn't exactly two colors" (105.2: colorless, one, three or more colors); Gilt-Leaf
+# Winnower "whose power and toughness aren't equal" (208.1: its current values); Witchbane Orb "Curses attached to you" (303.4, 702.5d: an Aura enchanting the player)
+@_suffix(r"that (?:isn['’]t|is not) exactly two colors")
+def _not_two_colors(s: Selector, m: re.Match[str]) -> Selector:
+    return replace(s, extras=(*s.extras, "not_two_colors"))
+
+
+@_suffix(r"whose power and toughness aren['’]t equal")
+def _pt_unequal(s: Selector, m: re.Match[str]) -> Selector:
+    return replace(s, extras=(*s.extras, "power_ne_toughness"))
+
+
+@_suffix(r"attached to you")
+def _attached_to_you(s: Selector, m: re.Match[str]) -> Selector:
+    return replace(s, extras=(*s.extras, "attached_you"))
+
+
+# (Kitesail Skirmisher) "another target creature attacking the same player or planeswalker": 508.1b, 506.3 — the one the source attacks, as it is now
+# or as the source last existed (608.2h); a battle is neither, so beside a source attacking a battle nothing matches
+@_suffix(r"attacking the same player or planeswalker")
+def _attacking_same(s: Selector, m: re.Match[str]) -> Selector:
+    return replace(s, attacking=True, extras=(*s.extras, "attacking_same100a"))
+
+
+def _attacking_same100a(plan: Plan, card: CardInstance, source: str | None) -> bool:
+    src = plan.state.cards.get(source or "")
+    if src is None or card.attacking is None or card.id == src.id:
+        return False
+    if src.zone.endswith(":battlefield"):
+        on = f"{src.attacking.kind}:{src.attacking.id}" if src.attacking is not None else None
+    else:
+        last = plan.rules.last_known(src.id)
+        on = last.attack_on if last is not None else None
+    if on is None or on != f"{card.attacking.kind}:{card.attacking.id}":
+        return False
+    if card.attacking.kind == "player":
+        return True
+    walker = plan.state.cards.get(card.attacking.id)
+    return walker is not None and "Planeswalker" in plan.ch(walker).types
 
 
 @_suffix(r"that(?:['’]s| is| are) (?P<list>(?:" + "|".join(COLORS) + r")(?:, (?:" + "|".join(COLORS) + r"))*(?:,? or (?:" + "|".join(COLORS) + r"))?)")
@@ -808,7 +862,7 @@ def source_stat(plan: Plan, source: str | None, what: str) -> int | None:
 _WITH_KEYWORDS = (*KEYWORDS, "decayed", "infect", "wither", "fear", "shadow", "horsemanship", "intimidate", "skulk", "convoke",
                   "modular", "toxic", "mutate", "awaken", "cascade", "flanking",  # (wave 39A: "all attacking creatures with flanking", Telim'Tor)
                   "plainswalk", "islandwalk", "swampwalk", "mountainwalk", "forestwalk",
-                  "doctor's companion")  # (wave 44B: "creature spell with doctor's companion", Rose Noble)  # (wave 26A: "creatures with plainswalk")  # (wave 21D: "a spell with cascade")  # (wave 20C: toxic/mutate/awaken; wave 19D: "each creature you control with modular": a printed keyword line; level up is rewritten into
+                  "doctor's companion", "unearth")  # (wave 44B: "creature spell with doctor's companion", Rose Noble)  # (wave 26A: "creatures with plainswalk")  # (wave 21D: "a spell with cascade")  # (wave 20C: toxic/mutate/awaken; wave 19D: "each creature you control with modular": a printed keyword line; level up is rewritten into
 # an activated ability and statics by app/rules/levelers.py, so it is no keyword of the object and stays unread)
 
 
@@ -917,6 +971,16 @@ def _compare_count(s: Selector, m: re.Match[str]) -> Selector:
 
 
 _SUFFIXES.insert(0, (_COUNT_CMP, _compare_count))  # (first: "… you control" is also the controller suffix)
+
+
+# -- attached (wave 100F) -- "target creature with power less than the number of cards in your graveyard" (Temporary Insanity): the same comparison with
+# the number of cards in the ability's controller's graveyard, counted when the target is chosen and again as it resolves (608.2b)
+def _power_below_graveyard(s: Selector, m: re.Match[str]) -> Selector:
+    counted = Selector(card=True, zone_owner="you", zones=("graveyard",))
+    return replace(s, compare=(*s.compare, ("power", "<", COUNT_STAT + counted.key())))
+
+
+_SUFFIXES.insert(0, (re.compile(r" with power less than the number of cards in your graveyard$"), _power_below_graveyard))  # (before the zone suffix)
 
 
 # "each nonland permanent with mana value equal to the number of charge counters on ~" (Ratchet Bomb, Blast Zone),
@@ -1599,6 +1663,14 @@ def parse(phrase: str) -> Selector | None:
         if any(branch is None or branch.either or branch.player is not None for branch in branches):
             return None
         return Selector(either=tuple(branch.key() for branch in branches if branch is not None))
+    # -- attached (wave 100F) -- "enchanted creature or enchantment creature [you control]" (Feast of Dreams, Nyx Herald, Karametra's Blessing): a creature with an
+    # Aura attached (303.4) or one that is an enchantment, either one (each half read with the shared tail)
+    either_kind = re.fullmatch(r"(?P<pre>(?:another |other )?)enchanted (?P<n>creature) or enchantment creature(?P<post> you control| you don't control)?", phrase.strip())
+    if either_kind is not None:
+        halves = [_parse(_type_and(f"{either_kind['pre']}{k} {either_kind['n']}{either_kind['post'] or ''}")) for k in ("enchanted", "enchantment")]
+        if any(h is None or h.either or h.player is not None for h in halves):
+            return None
+        return Selector(either=tuple(h.key() for h in halves if h is not None))
     relative = re.fullmatch(r"(?P<base>(?:creatures?|permanents?)(?: you control| your opponents control| you don't control)?) "
                             r"that (?:are|is) (?P<traits>[A-Za-z]+(?: and/or [A-Za-z]+)+)", phrase.strip(), re.I)
     if relative is not None:
@@ -2028,6 +2100,12 @@ def matches_player(plan: Plan, sel: Selector, pid: str, you: str, *, source_obje
         return False
     if sel.player_exclude is not None and (not sel.player_exclude.startswith("player:") or pid == sel.player_exclude[7:]):
         return False
+    for extra100c in sel.extras:  # -- static spells (wave 100C) -- "each player who controls a white creature" (Disorder), "target player who attacked this turn"
+        if extra100c.startswith(("controls100c:", "attacked100c")):
+            from app.rules import static_spell100c
+
+            if not static_spell100c.player_extra_ok(plan, extra100c, pid, you):
+                return False
     if any(x.startswith('upkeep_compare75:') for x in sel.extras):
         from app.rules import trigger_upkeep_comparison75
 
@@ -2043,9 +2121,13 @@ def matches_player(plan: Plan, sel: Selector, pid: str, you: str, *, source_obje
 
         if source_object is None or not any(
             fact.kind == "damage" and fact.player == pid and fact.amount > 0 and fact.object_id == source_object
+            and (fact.combat or "combat100i" not in sel.extras)  # (-- activated (wave 100I) -- "dealt combat damage by ~ this turn")
             for fact in log_for(plan).facts
         ):
             return False
+    if "not_source_owner100i" in sel.extras and (  # -- activated (wave 100I) -- "target player other than ~'s owner" (108.3)
+            (src := plan.state.cards.get((source_object or "").rsplit(".", 1)[0])) is None or src.owner == pid):
+        return False
     if sel.player == "opponent":
         return pid != you
     if sel.player == "you":
@@ -2206,6 +2288,11 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
         return False
     if "mana_ability" in sel.extras and not any(a.kind == "mana" for a in ch.abilities):  # (wave 45D)
         return False
+    if "level_up100j" in sel.extras and not any(a.kind == "activated" and re.fullmatch(r"(?:\{[^}]+\})+: Put a level counter on this creature\. Activate only as a sorcery\.", a.text)
+                                                for a in ch.abilities):  # -- counters (wave 100J) -- "with level up": 702.87a, as levelers.rewrite writes it
+        return False
+    if "phyrexian_cost100e" in sel.extras and "/P}" not in (ch.mana_cost or ""):  # -- xdamage (wave 100E) -- "a spell with {H} in its mana cost" (Rage Extractor): a Phyrexian mana symbol of any color (107.4f)
+        return False
     if "tap_ability" in sel.extras and not any(a.kind in ("activated", "mana") and "{T}" in (a.cost or "") for a in ch.abilities):  # (wave 52D)
         return False
     if set(sel.without_keywords) & ch.keywords:
@@ -2228,8 +2315,18 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
             if ref_value is None:
                 return False
             n = ref_value
+        elif n == "counters100j":  # -- counters (wave 100J) -- "the number of counters among permanents you control" (every kind, 122.1)
+            n = sum(sum(c.counters.values()) for c in plan.state.cards.values() if c.zone.endswith(":battlefield") and c.controller == you and plan.in_game(c))
         elif n == YOUR_HAND:  # (wave 51G)
             n = len(plan.state.zones.get(f"{you}:hand", []))
+        elif n == "your_life100c":  # -- static spells (wave 100C) -- "power greater than or equal to your life total" (Blazing Hope)
+            from app.rules import static_spell100c
+
+            n = static_spell100c.your_life(plan, you)
+        elif n == "attacked100g":  # -- zones (wave 100G) -- "the number of players you attacked this combat" (Custodi Soulcaller)
+            from app.rules import zones100g
+
+            n = zones100g.attacked(plan, you)
         elif n == OWN_GRAVEYARD:  # (wave 50I) its controller's graveyard, as it is when checked (608.2b: again as the spell resolves)
             n = len(plan.state.zones.get(f"{card.controller}:graveyard", []))
         elif isinstance(n, str) and n.startswith(COUNT_STAT):  # -- control change (wave 20E) --
@@ -2288,6 +2385,14 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
         if extra == "nameless" and ch.name:  # (wave 53C)
             return False
         if extra == "two_colors" and len(ch.colors) != 2:  # (wave 44C)
+            return False
+        if extra == "not_two_colors" and len(ch.colors) == 2:  # -- trigger lines (wave 100A) --
+            return False
+        if extra == "attached_you" and card.attached_player != you:  # -- trigger lines (wave 100A) -- 702.5d
+            return False
+        if extra == "power_ne_toughness" and (_stat(ch, "power") is None or _stat(ch, "toughness") is None or _stat(ch, "power") == _stat(ch, "toughness")):
+            return False  # -- trigger lines (wave 100A) -- 208.1: current values
+        if extra == "attacking_same100a" and not _attacking_same100a(plan, card, source):
             return False
         if extra == "enchanted" and not _has_attached(plan, card, "Aura"):
             return False
@@ -2380,13 +2485,23 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
             if not any(c.id != source and c.zone.endswith(":battlefield") and c.attached_to == card.id
                        and kind in plan.ch(c).subtypes for c in plan.state.cards.values()):
                 return False
-        if extra.startswith("attached_creature"):  # -- attached events (wave 30S) -- attached to a creature (of yours)
+        if extra.startswith(("attached_creature", "attached_permanent", "attached_land")):  # -- attached events (wave 30S) -- attached to a creature (of yours); a land (wave 100I)
             host = plan.state.cards.get(card.attached_to or "")
-            if host is None or not host.zone.endswith(":battlefield") or not plan.ch(host).is_creature \
-                    or (extra.endswith("_you") and host.controller != you):
+            if host is None or not host.zone.endswith(":battlefield") or (extra.startswith("attached_creature") and not plan.ch(host).is_creature) \
+                    or (extra.startswith("attached_land") and not plan.ch(host).is_land) or (extra.endswith("_you") and host.controller != you):
                 return False
         if extra.startswith("all_colors:") and not set(extra[11:]) <= set(ch.colors):  # -- both colors (wave 6D) --
             return False
+        if extra.endswith("100g"):  # -- zones (wave 100G) -- "transformed permanent", "power different from its base power"
+            from app.rules import zones100g
+
+            if not zones100g.extra_ok(plan, extra, card, ch, source):
+                return False
+        if extra.startswith(("not_sel100c:", "loyalty100c")):  # -- static spells (wave 100C) -- "each creature that isn't all colors", "… loyalty ability of a planeswalker"
+            from app.rules import static_spell100c
+
+            if not static_spell100c.extra_ok(plan, extra, card, ch, you, source, attacker):
+                return False
         if extra == "shares_color_source" and ((src := plan.state.cards.get(source or "")) is None or not plan.ch(src).colors & ch.colors):
             return False  # -- static_other sweep (wave 17C) -- conspire 702.78a: a creature that shares a color with the spell
         if extra == 'shares_color_legendary_creature_you_control' and not any(
@@ -2398,6 +2513,8 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
             return False
         if extra == "shares_commander_type" and not _shares_commander_type_now(plan, ch, you):  # (wave 22E)
             return False
+        if extra == "suspected" and not (plan.rules is not None and plan.oid(card) in plan.rules.suspected):
+            return False  # -- trigger lines (wave 100A) -- 701.60a: the designation is on this object (400.7)
         if extra == "renowned" and not (plan.rules is not None and plan.oid(card) in plan.rules.renowned):
             return False  # -- commanders (wave 47A) -- 702.112b: the designation is on this object (a new object has none, 400.7)
         if extra == "goaded":  # (wave 22E) 701.15b: goaded by someone (a goad effect lasts until that player's next turn: layers' imposed rules)
@@ -2416,9 +2533,9 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
         if extra == "has_flashback" and not any(re.match(r"flashback\b", a.text, re.IGNORECASE) for a in ch.abilities):
             return False
         if extra.startswith("name:"):  # -- card names (wave 22B) -- 709.4a, a name chosen earlier in this resolution
-            from app.rules import card_names
+            from app.rules import card_names, static_perm100d  # (wave 100D: Pardic Firecat)
 
-            if not card_names.has_name(ch, extra[5:]):
+            if not card_names.has_name(ch, extra[5:]) and not static_perm100d.counted_as(plan, source, card, ch):
                 return False
         if extra.startswith("not_name:"):
             from app.rules import card_names
@@ -2463,6 +2580,9 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
             return False  # -- activated other (wave 42C) -- 506.5 (the same count statics.py reads for "as long as it's attacking alone")
         if extra == "attacking_you" and (card.attacking is None or card.attacking.kind != "player" or card.attacking.id != you):
             return False
+        if extra == "attacking_battle" and (card.attacking is None or card.attacking.kind != "card" or (attacked := plan.state.cards.get(card.attacking.id)) is None
+                                            or "Battle" not in plan.ch(attacked).types):  # (wave 100K)
+            return False
         if extra == "attacking_you_pw" and (card.attacking is None or not (  # -- most-played cards III (wave 46C) -- 506.3: attacks you, or a planeswalker you control
                 (card.attacking.kind == "player" and card.attacking.id == you) or (card.attacking.kind == "card" and (target_walker := plan.state.cards.get(card.attacking.id)) is not None
                                                                                    and "Planeswalker" in plan.ch(target_walker).types and target_walker.controller == you))):
@@ -2500,6 +2620,8 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
         if extra == "didnt_attack_this_turn" and _attacked_this_turn_now(plan, card):  # -- damage sized by a count (wave 34D) --
             return False
         if extra == "blocked_this_turn" and not _blocked_this_turn_now(plan, card):  # -- combat state (wave 27A) --
+            return False
+        if extra == "attacked_or_blocked_this_turn" and not (_attacked_this_turn_now(plan, card) or _blocked_this_turn_now(plan, card)):  # (wave 100K)
             return False
         if extra in ("block_involved_this_turn", "blocked_by_source_this_turn") and not _block_history(plan, card, extra, source):  # -- wave 31D --
             return False
@@ -2679,7 +2801,17 @@ def _stat(ch: Characteristics, what: str) -> int | None:
 
 
 def _has_attached(plan: Plan, card: CardInstance, subtype: str) -> bool:
-    return any(c.attached_to == card.id and subtype in plan.ch(c).subtypes for c in plan.state.cards.values())
+    if any(c.attached_to == card.id and subtype in plan.ch(c).subtypes for c in plan.state.cards.values()):
+        return True
+    # -- attached (wave 100F) -- 603.10a: ``card`` is a departed permanent as it last existed (triggers._snapshot_card; "Whenever an enchanted creature
+    # dies", Hateful Eidolon) and its Auras are in the graveyard since (704.5m): read what was attached to it then (its latest departure snapshot)
+    live = plan.state.cards.get(card.id)
+    if live is None or live is card or live.zone == card.zone:
+        return False
+    from app.rules import attached100f
+
+    snap = next((s for s in reversed(plan.rules.lki.values()) if s.card == card.id and s.zone == card.zone and s.attached_objects_known), None)
+    return any(subtype in ch.subtypes for _, ch in attached100f.was_attached(plan, snap))
 
 
 def candidates(plan: Plan, sel: Selector, you: str, source: str | None = None, attacker: str | None = None) -> list[str]:
