@@ -10,11 +10,12 @@ from app.rules import (
     wave110d_enter,
     wave110d_granter,
     wave110d_hit,
+    wave110d_lines,
     wave110d_rules,
 )
 
 TEMPLATES: list[Any] = [*wave110d_rules.TEMPLATES]
-PRIMITIVES: dict[str, Any] = {**wave110d_enter.PRIMITIVES, **wave110d_aura.PRIMITIVES, **wave110d_granter.PRIMITIVES, **wave110d_hit.PRIMITIVES, **wave110d_crown.PRIMITIVES}
+PRIMITIVES: dict[str, Any] = {**wave110d_enter.PRIMITIVES, **wave110d_aura.PRIMITIVES, **wave110d_granter.PRIMITIVES, **wave110d_hit.PRIMITIVES, **wave110d_crown.PRIMITIVES, **wave110d_lines.PRIMITIVES}
 RESUME: dict[str, Any] = {**wave110d_crown.RESUME}
 
 

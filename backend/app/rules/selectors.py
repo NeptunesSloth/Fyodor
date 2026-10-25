@@ -611,6 +611,11 @@ def _thats_not(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, extras=(*s.extras, "not_" + w))
 
 
+@_suffix(r"you own but don't control")  # -- lines (wave 110D) -- 108.3 / 110.2: you own it, another player controls it (Coveted Falcon)
+def _own_not_control(s: Selector, m: re.Match[str]) -> Selector:
+    return replace(s, controller="opponent", owner="you")
+
+
 @_suffix(r"you own")
 def _you_own(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, owner="you")
@@ -812,6 +817,12 @@ def _compare_event(s: Selector, m: re.Match[str]) -> Selector:
     # Riveteers Ascendancy): less than the object the trigger is about (the creature that died / was sacrificed), as it last
     # existed (608.2h); triggers.bind_event_stat swaps in the number as the ability goes on the stack (an unbound one matches nothing)
     return replace(s, compare=(*s.compare, (_REF_STAT[m["what"]], "<=" if m["eq"] else "<", EVENT_STAT + _REF_STAT[m["what"]])))
+
+
+@_suffix(r"with mana value (?P<op>less than or equal to|less than) the number of counters on that creature")
+def _compare_event_counters(s: Selector, m: re.Match[str]) -> Selector:
+    # -- lines (wave 110D) -- Puca's Covenant: the counters the creature the trigger is about had as it last existed (608.2h), bound in triggers.bind_event_stat
+    return replace(s, compare=(*s.compare, ("mv", _REF_OPS[m["op"]], EVENT_STAT + "counters")))
 
 
 @_suffix(r"with that spell's mana value")  # (-- event spells (wave 36A) -- the same comparison, worded short: Infernal Kirin, Celestial Kirin)

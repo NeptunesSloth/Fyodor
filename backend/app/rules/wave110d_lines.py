@@ -7,6 +7,9 @@ from typing import Any
 
 # the Oracle line (the card's name as ~) -> the wording the grammar already reads, with the same meaning
 _AS: dict[str, str] = {
+    # Coveted Falcon: 608.2b only the legal targets are given away; the draw below counts the ones the opponent now controls (any number: a group of 0-N, patched in definition)
+    "When ~ is turned face up, target opponent gains control of any number of target permanents you control. Draw a card for each one they gained control of this way.":
+        "When ~ is turned face up, target opponent gains control of target permanent you control. Draw a card.",
     # Oft-Nabbed Goat: 611.2 the activator gains control (the same "you" as the draw); the dies trigger counts the -1/-1 counters it last had (608.2h)
     "{1}: Draw a card. Gain control of ~ and put a -1/-1 counter on it. Only your opponents may activate this ability and only as a sorcery.":
         "{1}: Draw a card. Put a -1/-1 counter on ~. Gain control of ~. Only your opponents may activate this ability and only as a sorcery.",
@@ -90,6 +93,9 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
         d["effects"][-1]["abilities"] = ["This creature gets +1/+1 for each artifact you control."]
     if d is not None and text.startswith("When ~ dies, if it had one or more -1/-1 counters on it, its owner draws"):  # (Oft-Nabbed Goat: other than the owner)
         d["effects"][-1]["who"] = "each_other_than_source_owner110d"
+    if d is not None and text.startswith("When ~ is turned face up, target opponent gains control of any number"):
+        d["targets"][1] = {**d["targets"][1], "min": 0, "max": 250}  # (language.MAX_TARGETS)
+        d["effects"][-1] = {"do": "draw_gained110d"}
     if d is not None and text.endswith("it enters tapped and attacking."):
         d["effects"][0]["tap_atk110d"] = "Enchantment"
     return d
@@ -107,3 +113,15 @@ def ward_xp(plan: Any, card: Any) -> list[str]:
         return []
     n = int(plan.state.players[card.controller].resources.get("experience", 0))
     return [f"{{{n}}}"] if n > 0 else []
+
+
+def draw_gained(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
+    """Coveted Falcon: draw a card for each permanent of the second target group that the first target player now controls (608.2c)."""
+    from app.rules import effects
+
+    owners = effects._players(plan, ctx, "target:0")
+    n = sum(1 for c in effects._cards(plan, ctx, "target:1") if plan.state.cards[c].controller in owners) if owners else 0
+    return effects.draw(plan, ctx, {"do": "draw", "who": "you", "n": n}) if n else True
+
+
+PRIMITIVES = {"draw_gained110d": draw_gained}

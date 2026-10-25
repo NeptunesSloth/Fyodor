@@ -2746,8 +2746,10 @@ def bind_event_stat(plan: Plan, t: PendingTrigger) -> None:
     card = plan.state.cards.get(ref.card)
     if snap is not None and (card is None or not card.zone.endswith(":battlefield") or plan.oid(card) != ref.object_id):
         ch = _lki_characteristics(plan, snap)
+        counters = sum(snap.counters.values())
     elif card is not None:
         ch = plan.ch(card)
+        counters = sum(card.counters.values())
     else:
         return
     if other_is_type:
@@ -2759,6 +2761,7 @@ def bind_event_stat(plan: Plan, t: PendingTrigger) -> None:
             for group in groups
         ]}
         raw = json.dumps(t.ability)
+    raw = raw.replace(f'\\"{EVENT_STAT}counters\\"', str(counters))  # -- lines (wave 110D) -- Puca's Covenant: counters on that creature, as it last existed
     for what in ("mv", "power", "toughness"):
         n = _stat(ch, what)
         if n is not None and what == "mv" and card is not None and card.zone == "stack" and card.stack_info is not None and card.stack_info.x:
