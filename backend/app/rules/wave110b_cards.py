@@ -27,6 +27,9 @@ _AS: dict[str, str] = {
     "of Ran and Shaw, except it's not legendary.":
         "When this creature enters, if you cast it and there are three or more Dragon or Lesson cards in your graveyard, create a token that's a copy "
         "of this creature, except it's not legendary.",
+    # Prince of Thralls: "that opponent" is the opponent whose permanent went to the graveyard, as "that player"
+    "Whenever a permanent an opponent controls is put into a graveyard, put that card onto the battlefield under your control unless that opponent pays 3 life.":
+        "Whenever a permanent an opponent controls is put into a graveyard, put that card onto the battlefield under your control unless that player pays 3 life.",
 }
 
 
@@ -53,6 +56,10 @@ _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
     "Whenever you win a clash, draw a card. Then you may cast a spell from your hand with mana value 8 or less without paying its mana cost.":
         ("Whenever you clash, draw a card. Then you may cast a spell from your hand with mana value 8 or less without paying its mana cost.",
          lambda d: {**d, "if": {"clash_won100a": True}}),
+    # Oath of Lim-Dul: one sacrifice-unless-discard for each 1 life lost (the event's amount), each time its own choice (608.2c)
+    "Whenever you lose life, for each 1 life you lost, sacrifice a permanent other than this enchantment unless you discard a card.":
+        ("Whenever you lose life, sacrifice a permanent other than this enchantment unless you discard a card.",
+         lambda d: {**d, "effects": [{"do": "repeat", "n": {"event_amount": 1}, "span": len(d["effects"])}, *d["effects"]]}),
     # Ozai: the mana a player would lose stays in the pool as red mana (614.1a, 500.4)
     "If you would lose unspent mana, that mana becomes red instead.":
         ("If you would lose unspent mana, that mana becomes colorless instead.", lambda d: {**d, "to": "R"}),
