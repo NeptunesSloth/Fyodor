@@ -61,6 +61,10 @@ _DECREE = ("Counter target spell. If a permanent spell is countered this way, ex
            "You may cast that card without paying its mana cost for as long as it remains exiled.")
 
 
+_SWORD = ("Reveal the top three cards of your library. For each of those cards, put that card into your hand unless any opponent pays 3 life. "
+          "Then exile the rest.")
+
+
 def parse(body: str) -> Any:
     """Exact spell bodies: the parts the grammar reads, joined with the card's own step."""
     from app.rules import scripts
@@ -71,6 +75,8 @@ def parse(body: str) -> Any:
         if parsed is not None and len(parsed[0]) == 2 and parsed[0][0].get("do") == "counter":
             effects, target, optional = parsed
             return [{**effects[0], "do": "decree110n"}, effects[1]], target, optional
+    if body.strip() == _SWORD:
+        return [{"do": "look_top", "n": 3, "player": "you", "reveal": True, "as": "e0"}, {"do": "sword110n", "who": "ref:e0"}], None, False
     return None
 
 
@@ -85,6 +91,48 @@ def decree(plan: Any, ctx: Any, e: Def) -> bool:
     effects.counter(plan, ctx, {**e, "do": "counter", "to": "exile" if perm else None})
     if not (perm and plan.state.cards[sids[0]].zone.endswith(":exile")):
         context.bind_objects(plan, ctx, e["as"], [])  # nothing was exiled by this: no card to cast
+    return True
+
+
+def sword(plan: Any, ctx: Any, e: Def) -> bool:
+    """Sword-Point Diplomacy: for each revealed card in turn, the opponents are offered 3 life in turn order (101.4, 118.12) until one pays; if none does the
+    card goes to its controller's hand (still where it was revealed, 400.7), and the rest are exiled at the end. A later opponent is asked only while no
+    earlier one has paid: the card is then already kept out of the hand."""
+    from app.rules import context
+
+    me = ctx["controller"]
+    opponents = [p for p in plan.apnap() if p != me and p in plan.live()]
+    steps: list[Def] = []
+    cards = [c for c in context.objects(plan, ctx, e["who"][len(context.PREFIX):]) if plan.state.cards[c].zone == f"{me}:library"]
+    for i, cid in enumerate(cards):
+        binds = [f"sword110n_{i}_{p}" for p in opponents]
+        steps.append({"do": "sword_note110n", "card": cid})
+        for j, (p, b) in enumerate(zip(opponents, binds, strict=True)):
+            if j:
+                steps.append({"do": "only_if", "cond": {"not": {"any_paid100j": binds[:j]}}, "skip": 1})
+            steps.append({"do": "optional_payment", "who": f"player:{p}", "cost": "Pay 3 life", "bind": b})
+        steps += [{"do": "only_if", "cond": {"not": {"any_paid100j": binds}}, "skip": 1}, {"do": "sword_hand110n", "card": cid, "oid": plan.oid(cid)}]
+    steps.append({"do": "sword_rest110n", "cards": [[c, plan.oid(c)] for c in cards]})
+    ctx["effects"][ctx["next"]:ctx["next"]] = steps
+    return True
+
+
+def sword_note(plan: Any, ctx: Any, e: Def) -> bool:
+    plan.note(f"{ctx.get('name') or 'It'}: any opponent may pay 3 life so that {plan.state.cards[e['card']].name} isn't put into hand")
+    return True
+
+
+def sword_hand(plan: Any, ctx: Any, e: Def) -> bool:
+    card = plan.state.cards[e["card"]]
+    if card.zone == f"{ctx['controller']}:library" and plan.oid(card) == e["oid"]:
+        plan.do({"type": "move", "card_ids": [card.id], "to": {"player": ctx["controller"], "zone": "hand"}}, actor=ctx["controller"])
+    return True
+
+
+def sword_rest(plan: Any, ctx: Any, e: Def) -> bool:
+    left = [c for c, oid in e["cards"] if plan.state.cards[c].zone == f"{ctx['controller']}:library" and plan.oid(c) == oid]
+    if left:
+        plan.do({"type": "move", "card_ids": left, "to": {"player": ctx["controller"], "zone": "exile"}}, actor=ctx["controller"])
     return True
 
 
@@ -146,5 +194,6 @@ def land_problem(state: Any, player: str, info: Any) -> str | None:
     return None
 
 
-PRIMITIVES: dict[str, Any] = {"decree110n": decree, "willow110n": willow}
+PRIMITIVES: dict[str, Any] = {"decree110n": decree, "willow110n": willow, "sword110n": sword, "sword_note110n": sword_note,
+                              "sword_hand110n": sword_hand, "sword_rest110n": sword_rest}
 RESUME: dict[str, Any] = {}
