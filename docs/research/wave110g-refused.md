@@ -24,3 +24,4 @@
 - Elkin Lair: no "exile a card at random from hand" primitive plus owner-play-then-graveyard check.
 - North Star: "for one spell this turn" spend permission must be consumed by the first spell; no one-shot spend grant.
 - Touch of Moonglove: a spell-made "whenever a creature dealt damage by that creature dies this turn" watch needs a die watch bound to the target's damage log.
+- Thijarian Witness: "attacking or blocking alone" needs the simultaneous-death combat state (who else was attacking/blocking at the same instant); LKI cannot tell, so refused.
