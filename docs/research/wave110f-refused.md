@@ -15,3 +15,6 @@
 - Oath of Kaya, Rigo: trigger once per attacked planeswalker/defender, not once per attack declaration (existing your_pw fires once); ruling unverified locally.
 - Taste of Paradise: multikicker rewrite would make it a "kicked" spell for other cards (wrong); needs a plain pay-N-times additional cost.
 - Fblthp (Impossibly Lost), Worms of the Earth, Overblaze, Melira, Parnesse, Mangara's Equity: batch-opponent damage trigger / second upkeep ability / doubling / poison cap / copy-by-opponent / chosen-color recipient: each a new foundation.
+- Vengeful Pharaoh: "dealt to you or a planeswalker you control" union event count unsettled; graveyard trigger plus "put on top of library".
+- Thunderblade Charge: graveyard trigger "if this card is in your graveyard, you may pay ... cast it without paying" needs graveyard batch-damage trigger and free cast from graveyard.
+- Gather Specimens: replaces every creature entry (reanimation, put-onto, tokens) under an opponent; no single entry hook.

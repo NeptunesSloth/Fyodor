@@ -8425,7 +8425,7 @@ def _cached(ch: Characteristics) -> dict[int, Definition]:
         if out.get(ab.index, {}).get("kind") == "mode":
             continue  # (a mode line of the modal ability above it)
         d = define(ab, ch)
-        if d is None and ab.kind in ("triggered", "activated", "loyalty"):
+        if d is None and (ab.kind in ("triggered", "activated", "loyalty") or (ab.kind == "static" and "Saga" in ch.subtypes and ab.text.rstrip().endswith("—"))):  # (wave 110F: a modal Saga chapter)
             # -- modal triggered/activated abilities (wave 1A): "…, choose one —" and its bulleted modes,
             # read by app/rules/modal_abilities.py (the header's definition and one stub per mode line)
             from app.rules import modal_abilities

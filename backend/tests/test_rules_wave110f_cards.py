@@ -47,6 +47,13 @@ EXTRA = [
     real('Steamcore Scholar', '{2}{U}', 3, 'Creature — Weird Detective',
          "Flying, vigilance\nWhen this creature enters, draw two cards. Then discard two cards unless you discard an instant or sorcery card or a creature card with flying.",
          ('2', '2'), 'U'),
+    real('Life of Toshiro Umezawa // Memory of Toshiro', '{1}{B}', 2, 'Enchantment — Saga // Enchantment Creature — Human Samurai',
+         "(As this Saga enters and after your draw step, add a lore counter.)\nI, II — Choose one —\n• Target creature gets +2/+2 until end of turn.\n• Target creature gets -1/-1 until end of turn.\n• You gain 2 life.\nIII — Exile this Saga, then return it to the battlefield transformed under your control.\n//\n{T}, Pay 1 life: Add {B}. Spend this mana only to cast an instant or sorcery spell.", None, 'B')
+    | {"layout": "transform", "card_faces": [
+        {"name": "Life of Toshiro Umezawa", "mana_cost": "{1}{B}", "type_line": "Enchantment — Saga",
+         "oracle_text": "(As this Saga enters and after your draw step, add a lore counter.)\nI, II — Choose one —\n• Target creature gets +2/+2 until end of turn.\n• Target creature gets -1/-1 until end of turn.\n• You gain 2 life.\nIII — Exile this Saga, then return it to the battlefield transformed under your control.", "colors": ["B"]},
+        {"name": "Memory of Toshiro", "mana_cost": "", "type_line": "Enchantment Creature — Human Samurai",
+         "oracle_text": "{T}, Pay 1 life: Add {B}. Spend this mana only to cast an instant or sorcery spell.", "power": "2", "toughness": "3", "colors": ["B"]}]},
     real('Kaust, Eyes of the Glade', '{R/W}{G}', 2, 'Legendary Creature — Dryad Detective',
          "Whenever a creature you control that was turned face up this turn deals combat damage to a player, draw a card.\n{T}: Turn target face-down attacking creature you control face up.",
          ('2', '2'), 'GRW'),
@@ -105,7 +112,7 @@ EXTRA = [
     real('Test Flyer', '{2}{U}', 3, 'Creature — Bird', 'Flying\n{T}: Draw a card.', ('1', '1'), 'U'),
 ]
 _BASE.extend(EXTRA)  # the shared fixture DB builder reads this list
-NAMES = ["Kaust, Eyes of the Glade", "Ravager Wurm", "Steamcore Scholar", "Ghostly Keybearer", "Oath of Kaya", "Katabatic Winds", "Rivals' Duel", "Dead Ringers", "Cathedral Membrane", "Taunt", "Jabari's Influence", "Don & Leo, Problem Solvers", "Rapid Fire", "Time and Tide", "Abby, Merciless Soldier", "Zombie Scavengers", "Toluz, Clever Conductor", "Invasion of Regatha", "Test Disciples 110F", "Hustle // Bustle", "Phosphorescent Feast"]
+NAMES = ["Life of Toshiro Umezawa // Memory of Toshiro", "Kaust, Eyes of the Glade", "Ravager Wurm", "Steamcore Scholar", "Ghostly Keybearer", "Oath of Kaya", "Katabatic Winds", "Rivals' Duel", "Dead Ringers", "Cathedral Membrane", "Taunt", "Jabari's Influence", "Don & Leo, Problem Solvers", "Rapid Fire", "Time and Tide", "Abby, Merciless Soldier", "Zombie Scavengers", "Toluz, Clever Conductor", "Invasion of Regatha", "Test Disciples 110F", "Hustle // Bustle", "Phosphorescent Feast"]
 
 
 @pytest.mark.parametrize("name", NAMES)
@@ -545,4 +552,35 @@ def test_kaust_draws_only_for_a_creature_turned_face_up_this_turn(cards, turn_up
     to_phase(s, "main2")
     assert len(s.state.zones["p1:hand"]) - before == (1 if turn_up else 0)
     assert life(s, "p2") == 40 - (3 + 2 if turn_up else 2 + 2)
+    check(s)
+
+
+def _toshiro_mode(s, mode, bear):
+    """Answer the chapter's mode choice (700.2) with ``mode`` and, for the two target modes, the Bears' id."""
+    for _ in range(12):
+        d = s.state.rules.decision
+        if d is None:
+            if not s.state.zones.get("stack"):
+                return
+            act(s, s.state.rules.priority, type="pass_priority")
+        elif d.options[0].id.endswith(":0"):
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[f"{mode}:0"])
+        else:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[bear.id])
+
+
+@pytest.mark.parametrize("mode,pt,gain", [(0, (4, 4), 0), (1, (1, 1), 0), (2, (2, 2), 2)])
+def test_toshiro_chapters_one_and_two_each_choose_a_mode(cards, mode, pt, gain):
+    """714.2b, 700.2: the chapter ability chooses one mode as it is put on the stack; chapter II (after the draw step) chooses again."""
+    from tests.test_rules_wave100f_control import ch
+
+    s = build(cards, ["Life of Toshiro Umezawa // Memory of Toshiro", "Grizzly Bears"], ["Grizzly Bears"], forests=20, islands=20)
+    bear = put(s, "Grizzly Bears", "p2" if mode == 1 else "p1")
+    mana(s, B=1, C=1)
+    cast(s, "Life of Toshiro Umezawa // Memory of Toshiro")
+    _toshiro_mode(s, mode, bear)
+    assert ch(s, bear).pt == pt and life(s) == 40 + gain
+    to_phase(s, "main1", turn=3)
+    _toshiro_mode(s, 2, bear)
+    assert life(s) == 40 + gain + 2  # (chapter II: asked again, gain 2 life)
     check(s)
