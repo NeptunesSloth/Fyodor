@@ -132,7 +132,19 @@ def _battleshaper(d: Def) -> Def:
             "targets": [d["targets"][0], dict(d["targets"][0])]}
 
 
+def _mirror(d: Def) -> Def:
+    """Mirror of Life Trapping (607.2a linked exile): returning the cards exiled with it first is the same as returning "all other" ones after the exile."""
+    from app.rules import selectors
+
+    key = selectors.parse("permanent card").key()
+    back = {"do": "return_card", "who": f"exiled_with:{key}", "to": "battlefield", "tapped": False, "under": "owner"}
+    gate, exile = d["effects"]
+    return {**d, "effects": [{**gate, "skip": 2}, back, {**exile, "link": True}], "accumulating_link": True}
+
+
 _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
+    "Whenever a creature enters, if it was cast, exile it, then return all other permanent cards exiled with this artifact to the battlefield under "
+    "their owners' control.": ("Whenever a creature enters, if it was cast, exile it.", _mirror),
     "At the beginning of each combat, up to one target creature attacks or blocks this combat if able and up to one target creature can't attack or block this combat.":
         ("At the beginning of each combat, up to one target creature attacks this combat if able.", _battleshaper),
     "At the beginning of combat on your turn, investigate for each goaded creature you control. Then each creature you control is no longer goaded.":

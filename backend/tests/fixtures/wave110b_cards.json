@@ -1380,5 +1380,16 @@
   ],
   "power": "3",
   "toughness": "2"
+ },
+ {
+  "name": "Mirror of Life Trapping",
+  "layout": "normal",
+  "mana_cost": "{4}",
+  "cmc": 4.0,
+  "type_line": "Artifact",
+  "oracle_text": "Whenever a creature enters, if it was cast, exile it, then return all other permanent cards exiled with this artifact to the battlefield under their owners' control.",
+  "colors": [],
+  "color_identity": [],
+  "keywords": []
  }
 ]
