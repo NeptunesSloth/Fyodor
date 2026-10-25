@@ -791,7 +791,7 @@
     "Zurgo, Thunder's Decree"
   ],
   "inherited_pr21_regressions": [],
-  "new_target": 500,
+  "new_target": 1000,
   "new_verified": 0,
-  "full_threshold_for500": 31224
+  "full_threshold_for1000": 31724
 }
