@@ -206,7 +206,18 @@ def _not_creature() -> Parsed:
     return [{**{k: v for k, v in effects[0].items() if k != "lose_abilities"}, "remove_types": ["Creature"]}], targets, optional
 
 
+def _gatekeeper() -> Parsed:
+    """Unyielding Gatekeeper: exile (LKI of its controller, 603.10), then either back tapped under its OWNER's control (110.2, 400.7: a stolen
+    permanent goes home) if you controlled it, or its controller creates the Detective."""
+    effects, targets, optional = _p("Exile another target nonland permanent. If you controlled it, return it to the battlefield tapped.")
+    effects[2]["under"] = "owner"
+    token = _p("Exile target nonland permanent. Its controller creates a 2/2 white and blue Detective creature token.")[0][1]
+    gate = copy.deepcopy(effects[1])
+    return [*effects, {**gate, "cond": {"not": gate["cond"]}}, token], targets, optional
+
+
 BUILDERS: dict[str, Callable[[], Parsed]] = {
+    "exile another target nonland permanent. If you controlled it, return it to the battlefield tapped. Otherwise, its controller creates a 2/2 white and blue Detective creature token.": _gatekeeper,
     "Choose target creature. Its owner shuffles it into their library, then investigates.": _blink,
     "this token isn't a creature until end of turn.": _not_creature,
     "unlock a locked door of up to one target Room you control.": _keybearer,
