@@ -4146,7 +4146,8 @@ def describe(effects: list[dict[str, Any]]) -> str:
              "surveil": "surveil {n}", "damage": "deal {n} damage", "player_counter": "get {n} {counter}",
              "create_token": "create {n} token(s)", "add_counters": "put {n} {kind} counter(s)", "proliferate": "proliferate",
              "monarch": "become the monarch", "discard": "discard {n}", "search": "search your library",
-             "demonstrate_copy": "copy it, and an opponent copies it too (demonstrate)", "return_card": "return it", "attach_to": "attach it"}  # (wave 100B: Auriok Survivors)
+             "demonstrate_copy": "copy it, and an opponent copies it too (demonstrate)", "return_card": "return it", "attach_to": "attach it",
+             "aura_sharing110d": "return this Aura to a creature that shares a creature type", "aura_back110d": "return this Aura to the battlefield"}  # (wave 110D; wave 100B: Auriok Survivors)
     # (an amount that is worked out as it resolves — "equal to its mana value", X — reads as X, not as its data)
     parts = [("discard any number" if e["do"] == "discard" else f"sacrifice up to {e['n']}" if isinstance(e.get("n"), int) and e["n"] < 10**6  # (wave 100B: "up to three")
               else "sacrifice any number") if e["do"] in ("discard", "sacrifice_choice") and e.get("upto")

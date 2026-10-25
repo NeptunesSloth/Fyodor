@@ -187,3 +187,18 @@ def test_traveling_plague_comes_back_under_the_creatures_controller(cards):
     assert got.zone == "p2:battlefield" and got.controller == "p2" and got.owner == "p1"  # 110.2a: p2 returned it
     assert got.attached_to == knight.id  # the only creature it can enchant
     check(s)
+
+
+def test_reins_uses_the_types_the_dead_creature_had_when_it_died(cards):
+    """608.2h, 603.10a: an Angel by Angelic Destiny (layer 4) counts; the Knight card in the graveyard is not an Angel."""
+    s = build(cards, ["Reins of the Vinesteed", "Angelic Destiny", "Templar Knight", "Resplendent Marshal", "Murder"])
+    a = put(s, "Templar Knight")
+    angel = put(s, "Resplendent Marshal")
+    reins = cast_on(s, "Reins of the Vinesteed", a)
+    cast_on(s, "Angelic Destiny", a)
+    assert "Angel" in ch(s, now(s, a)).subtypes
+    cast_on(s, "Murder", a)
+    settle(s)
+    assert now(s, a).zone == "p1:graveyard"
+    assert now(s, reins).zone == "p1:battlefield" and now(s, reins).attached_to == angel.id
+    check(s)

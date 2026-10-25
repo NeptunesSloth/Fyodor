@@ -6610,5 +6610,37 @@
 "keywords": [],
 "power": "2",
 "toughness": "2"
+},
+{
+"name": "Angelic Destiny",
+"layout": "normal",
+"mana_cost": "{2}{W}{W}",
+"cmc": 4.0,
+"type_line": "Enchantment — Aura",
+"oracle_text": "Enchant creature\nEnchanted creature gets +4/+4, has flying and first strike, and is an Angel in addition to its other types.\nWhen enchanted creature dies, return this card to its owner's hand.",
+"colors": [
+"W"
+],
+"color_identity": [
+"W"
+],
+"keywords": [
+"Enchant"
+]
+},
+{
+"name": "Murder",
+"layout": "normal",
+"mana_cost": "{1}{B}{B}",
+"cmc": 3.0,
+"type_line": "Instant",
+"oracle_text": "Destroy target creature.",
+"colors": [
+"B"
+],
+"color_identity": [
+"B"
+],
+"keywords": []
 }
 ]

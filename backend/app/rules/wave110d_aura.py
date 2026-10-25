@@ -36,11 +36,10 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
 def sharing(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     from app.rules import context, creature_types, effects, linked_attachment_return
 
-    aura, dead = effects._cards(plan, ctx, e["who"]), context.objects(plan, ctx, context.EVENT_NEW)
-    if not aura or not dead or plan.state.cards[aura[0]].owner != ctx["controller"]:
+    aura, dead = effects._cards(plan, ctx, e["who"]), context.info(plan, ctx, context.EVENT)
+    if not aura or dead is None or plan.state.cards[aura[0]].owner != ctx["controller"]:
         return True
-    # ponytail: the dead creature's types as its card has them in the graveyard (no subtypes in the LKI snapshot); layer-added types are lost
-    kin = plan.ch(plan.state.cards[dead[0]]).subtypes & creature_types.CREATURE_TYPES
+    kin = dead[1].subtypes & creature_types.CREATURE_TYPES  # as it last existed (608.2h, 603.10a): layer-added types count
     hosts = [r for c in plan.state.cards.values() if c.zone.endswith(":battlefield") and plan.ch(c).is_creature
              and plan.ch(c).subtypes & kin and (r := context.ref_of(plan, c.id)) is not None]
     ref = context.ref_of(plan, aura[0])
