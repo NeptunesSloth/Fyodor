@@ -19,7 +19,11 @@ PARTY = real("Party Dude", "{1}{G}", 2, "Enchantment \u2014 Class",
              "(Gain the next level as a sorcery to add its ability.)\nWhen this Class enters, each player creates a Food token.\n{1}{G}: Level 2\n"
              "Whenever an artifact an opponent controls is put into a graveyard from the battlefield, draw a card.\n{4}{G}: Level 3\n"
              "Whenever one or more of your opponents are attacked, up to one target attacking creature gets +X/+X until end of turn, where X is the number of cards in your hand.", None, "G")
-EXTRA.extend([OOZE, PARTY])
+PANTHER = real("Black Panther, Wakandan King", "{2}{G}{W}", 4, "Legendary Creature \u2014 Human Noble Hero",
+               "First strike\nSurvey the Realm \u2014 Whenever Black Panther or another creature you control enters, put a +1/+1 counter on target land you control.\n"
+               "Mine Vibranium \u2014 {3}: Move all +1/+1 counters from target land you control onto target creature. If one or more +1/+1 counters are moved this way, "
+               "you gain that much life and draw a card.", ("3", "3"), "GW")
+EXTRA.extend([OOZE, PARTY, PANTHER])
 
 
 @pytest.fixture()
@@ -89,4 +93,22 @@ def test_party_dude_level_3_pumps_an_attacker_by_cards_in_hand(cards, attack):
         act(s, "p1", type="declare_attackers", attackers=[])
         answer(s)
         assert Plan(s.state, "p1", s.cards, None).ch(s.state.cards[bear.id]).pt == (2, 2)
+    check(s)
+
+
+@pytest.mark.parametrize("counters", [3, 0])
+def test_black_panther_moves_counters_then_gains_and_draws(cards, counters):
+    """122.5: life gained and the draw follow the counters actually moved (none moved: nothing)."""
+    s = build(cards, ["Black Panther, Wakandan King"], forests=40)
+    panther = put(s, "Black Panther, Wakandan King")
+    answer(s)
+    land = put(s, "Forest")
+    if counters:
+        act(s, "p1", type="counter", card_ids=[land.id], kind="+1/+1", delta=counters)
+    hand, life = len(s.state.zones["p1:hand"]), s.state.players["p1"].life
+    mana(s, C=3)
+    act(s, "p1", type="activate_ability", card_id=panther.id, ability=2, targets=[land.id, panther.id], target_counts=[1, 1])
+    answer(s)
+    assert s.state.cards[panther.id].counters.get("+1/+1", 0) == counters
+    assert s.state.players["p1"].life == life + counters and len(s.state.zones["p1:hand"]) == hand + (1 if counters else 0)
     check(s)

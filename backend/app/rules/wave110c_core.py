@@ -187,6 +187,22 @@ def _bring_the_ending() -> Parsed:
     return [{**effects[0], "do": "corrupt_counter110c"}], groups, optional
 
 
+def _black_panther() -> Parsed:
+    """Mine Vibranium: "moved this way" is read from the move's receipt (122.5: what was actually removed and put), as the move finishes."""
+    effects, groups, optional = read("Move all +1/+1 counters from target land you control onto target creature.")
+    return [{**effects[0], "receipt": "vibranium110c"}, {"do": "moved_reward110c", "receipt": "vibranium110c"}], groups, optional
+
+
+def moved_reward(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    from app.rules import counter_moves
+
+    got = counter_moves.CounterMoveReceipt.model_validate(ctx.get("counter_move_receipts", {}).get(e["receipt"], {}))
+    moved = sum(t.amount for t in got.removed)  # ponytail: counters removed; a put replacement that changes the placed number isn't followed
+    if moved:
+        ctx["effects"][ctx["next"]:ctx["next"]] = [{"do": "gain_life", "who": "you", "n": moved}, {"do": "draw", "who": "you", "n": 1}]
+    return True
+
+
 def corrupt_counter(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     from app.rules import effects
 
@@ -197,6 +213,8 @@ def corrupt_counter(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
 
 BUILDERS: dict[str, Callable[[], Parsed]] = {
+    "Move all +1/+1 counters from target land you control onto target creature. If one or more +1/+1 counters are moved this way, you gain that much life and draw a card.":
+        _black_panther,
     "Counter target spell unless its controller pays {2}. Counter that spell instead if its controller has three or more poison counters.": _bring_the_ending,
     "~ deals 3 damage to each opponent. You may exile this spell and four cards named Dragon's Approach from your graveyard. If you do, "
     "search your library for a Dragon creature card, put it onto the battlefield, then shuffle.":
@@ -428,7 +446,7 @@ def enter_tapped_turn(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     return True
 
 
-PRIMITIVES = {"corrupt_counter110c": corrupt_counter, "extra_land_x110c": extra_land_x, "enter_tapped_turn110c": enter_tapped_turn, "bargain_return110c": bargain_return, "power_gap110c": power_gap, "surveil_take110c": surveil_take, "surveil_take_end110c": surveil_take_end, "choose_branch110c": choose_branch, "temporary_counters110c": temporary_counters, "approach110c": approach, "exile_spell110c": exile_spell}
+PRIMITIVES = {"moved_reward110c": moved_reward, "corrupt_counter110c": corrupt_counter, "extra_land_x110c": extra_land_x, "enter_tapped_turn110c": enter_tapped_turn, "bargain_return110c": bargain_return, "power_gap110c": power_gap, "surveil_take110c": surveil_take, "surveil_take_end110c": surveil_take_end, "choose_branch110c": choose_branch, "temporary_counters110c": temporary_counters, "approach110c": approach, "exile_spell110c": exile_spell}
 RESUME = {"choose_branch110c": resume_branch}
 from app.rules import wave110c_mass  # noqa: E402
 
