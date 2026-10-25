@@ -77,6 +77,7 @@ Every scenario checks the replay and a save and a load.
   equal to the amount of mana they paid this way." (active player first, the tokens at once - 2008-04-01).
 * Plague of Vermin - "Starting with you, each player may pay any amount of life. Repeat this process until no one pays life." (rounds until
   all players in sequence pay nothing, then all the Rats at once - 2008-05-01).
+* Vault 21: House Gambit - "For each of those cards that has the same mana value as another card revealed this way, create a Treasure token."
 * Hellfire - "deals X plus 3 damage to you, where X is the number of creatures that died this way." (a destroyed token counts, a creature a
   replacement effect exiled instead doesn't: the 2009-10-01 rulings).
 """
@@ -109,6 +110,7 @@ GEAR, MIRROR, RUNES, RALLY = "Fishing Gear", "Moonring Mirror", "Read the Runes"
 REST, BRINGER, VAULT101 = "Long Rest", "Bringer of the Last Gift", "Vault 101: Birthday Party"
 INFERNO, FOXGLOVE, SPIRIT = "Inferno of the Star Mounts", "Mr. Foxglove", "Call the Spirit Dragons"
 HOLISTIC, WERNOG, LIEGE, PLAGUE = "Holistic Wisdom", "Wernog, Rider's Chaplain", "Liege of the Hollows", "Plague of Vermin"
+VAULT21 = "Vault 21: House Gambit"
 BEARS, GIANT, RIP, ELVES = "Grizzly Bears", "Hill Giant", "Rest in Peace", "Llanowar Elves"
 
 
@@ -117,7 +119,7 @@ def cards(settings):
     yield from open_repo(settings)
 
 
-@pytest.mark.parametrize("name", [ROWEN, ETCHINGS, KERANOS, SUGARMAW, HELLFIRE, TERROR, KELLAN, EGO, SHRIEK, GORILLA, DESERTER, AEROSTAT, FOLD, SWIFT, RESEARCHER, KOYA, SURVIVORS, VANISH, DAKRA, DURIN, LATNAM, SURGE, LOCKE, HELLION, HULK, KALDHEIM, MANABOND, GUARDIAN, INVESTIGATORS, CLASH, SANCTUM, HEDRON, ATEMSIS, SPHINX, VOICE, GEAR, MIRROR, RUNES, RALLY, REST, BRINGER, VAULT101, INFERNO, FOXGLOVE, SPIRIT, HOLISTIC, WERNOG, LIEGE])
+@pytest.mark.parametrize("name", [ROWEN, ETCHINGS, KERANOS, SUGARMAW, HELLFIRE, TERROR, KELLAN, EGO, SHRIEK, GORILLA, DESERTER, AEROSTAT, FOLD, SWIFT, RESEARCHER, KOYA, SURVIVORS, VANISH, DAKRA, DURIN, LATNAM, SURGE, LOCKE, HELLION, HULK, KALDHEIM, MANABOND, GUARDIAN, INVESTIGATORS, CLASH, SANCTUM, HEDRON, ATEMSIS, SPHINX, VOICE, GEAR, MIRROR, RUNES, RALLY, REST, BRINGER, VAULT101, INFERNO, FOXGLOVE, SPIRIT, HOLISTIC, WERNOG, LIEGE, PLAGUE, VAULT21])
 def test_the_cards_are_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL", name
 
@@ -1129,4 +1131,16 @@ def test_plague_of_vermin_repeats_rounds_until_no_one_pays(cards):
     run(s, answer)
     rats = {p: len([c for c in s.state.cards.values() if c.zone == f"{p}:battlefield" and c.name == "Rat"]) for p in ("p1", "p2")}
     assert order == ["p1", "p2"] * 3 and rats == {"p1": 2, "p2": 3} and (life(s, "p1"), life(s, "p2")) == (38, 37)
+    check(s)
+
+
+def test_vault_21_makes_a_treasure_per_revealed_card_sharing_a_mana_value(cards):
+    s = build_n(cards, [VAULT21, "Llanowar Elves", "Bonesplitter", BEARS, "Hill Giant"])
+    saga = put(s, VAULT21)
+    s.state.cards[saga.id].counters["lore"] = 2
+    shown = [to_hand(s, n).id for n in ("Llanowar Elves", "Bonesplitter", BEARS, "Hill Giant")]
+    to_phase(s, "main1", turn=3)
+    run(s, lambda d: shown if any(getattr(o, "card_id", None) in shown for o in d.options) else None)
+    treasures = [c for c in s.state.cards.values() if c.zone == "p1:battlefield" and c.name == "Treasure"]
+    assert len(treasures) == 2 and all(zone(s, s.state.cards[c]) == "p1:hand" for c in shown)
     check(s)

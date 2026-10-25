@@ -67,7 +67,7 @@ GY_EMPTY = "gy_empty100b"
 def parse(body: str, it: str | None, event_player: bool) -> Found | None:
     text = body.strip()
     for form in (_put_discarded, _hit_discard, _draw_if, _dealt_cant_block, _give_source, _exiled_mv, _connives, _empty_gy, _truce, _each_who_lost,
-                 _either, _plot_paid, _hand_exile, _dont_sacrifice, _put_mv_x, _fold, _swift, _untap_then, _may_attach, _vanish, _dakra, _durin, _latnam, _surge, _locke, _gy_exile, _manabond, _have_deal, _own_bounce, _clash, _reveal_win, _fishing, _runes, _rally, _long_rest, _bringer, _vault101, _becomes20, _foxglove, _spirit_dragons, _holistic, _wernog, _liege, _plague):
+                 _either, _plot_paid, _hand_exile, _dont_sacrifice, _put_mv_x, _fold, _swift, _untap_then, _may_attach, _vanish, _dakra, _durin, _latnam, _surge, _locke, _gy_exile, _manabond, _have_deal, _own_bounce, _clash, _reveal_win, _fishing, _runes, _rally, _long_rest, _bringer, _vault101, _becomes20, _foxglove, _spirit_dragons, _holistic, _wernog, _liege, _plague, _vault21):
         if (found := form(text, it, event_player)) is not None:
             return found
     for pattern, repl in _REWRITES:
@@ -1087,6 +1087,32 @@ def plague(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return True
 
 
+# -- Vault 21: House Gambit III: "Reveal up to five nonland cards from your hand. For each of those cards that has the same mana value as another card
+# revealed this way, create a Treasure token." 701.20a: the cards stay in hand; 202.3e: {X} is 0 there (the 2024-03-08 ruling).
+_VAULT21 = ("Reveal up to five nonland cards from your hand. For each of those cards that has the same mana value as another card revealed this way, create "
+            "a Treasure token.")
+SAME_MV = "same_mv100b"
+
+
+def _vault21(text: str, it: str | None, event_player: bool) -> Found | None:
+    from app.rules import selectors
+
+    token = _effects("Create a Treasure token.", it, event_player) if text == _VAULT21 else None
+    sel = selectors.parse("nonland card in your hand")
+    if token is None or sel is None or len(token[0]) != 1:
+        return None
+    return [{"do": "reveal_hand_cards", "sel": sel.key(), "n": 5, "as": "v21"}, {"do": SAME_MV, "of": "ref:v21", "token": token[0][0]}], None, False
+
+
+def same_mv(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    from app.rules import context
+
+    mvs = [int(plan.ch(plan.state.cards[c]).mana_value) for c in context.objects(plan, ctx, e["of"].removeprefix("ref:")) if c in plan.state.cards]
+    n = sum(1 for v in mvs if mvs.count(v) > 1)
+    ctx["effects"][ctx["next"]:ctx["next"]] = [{**e["token"], "n": n}] if n else []
+    return True
+
+
 # -- Reign of Terror: "Destroy all green creatures or all white creatures. They can't be regenerated. You lose 2 life for each creature that died
 # this way." 608.2d: the controller picks one as it resolves (and announces it, 101.4b); the rest of the text reads the one done.
 _EITHER = re.compile(r"^Destroy all (?P<a>[a-z]+ creatures) or all (?P<b>[a-z]+ creatures)\. (?P<rest>[^.]+\.(?: [^.]+\.)*)$")
@@ -1133,5 +1159,5 @@ def resume_either(plan: Any, d: Any, chosen: list[str]) -> None:
 PRIMITIVES = {GY_EMPTY: gy_empty, TRUCE: truce, TRUCE_ASK: truce_ask, TRUCE_DRAW: truce_draw, TRUCE_LIFE: truce_life, EITHER: either, COUNTERED: countered,
               SWIFT: swift, BACK: back_creature, TO_GRAVEYARDS: to_graveyards, HAND_GATE: hand_gate,
               SURGE: surge, PUT_EXILED: put_exiled, PUT_CHECK: put_check, OWN_EVERYWHERE: own_everywhere, HAND_VALUES: hand_values,
-              OTHERS: others_back, RALLY: rally, BECAME: became, SPIRIT: spirit, SPIRIT_WIN: spirit_win, SHARES: shares_type, LIEGE: liege, LIEGE_MAKE: liege_make, PLAGUE: plague}
+              OTHERS: others_back, RALLY: rally, BECAME: became, SPIRIT: spirit, SPIRIT_WIN: spirit_win, SHARES: shares_type, LIEGE: liege, LIEGE_MAKE: liege_make, PLAGUE: plague, SAME_MV: same_mv}
 RESUME = {TRUCE_ASK: resume_truce_ask, EITHER: resume_either, PUT_EXILED: resume_put_exiled, SPIRIT: resume_spirit}
