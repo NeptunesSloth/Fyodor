@@ -7,6 +7,9 @@ from typing import Any
 
 # the Oracle line (the card's name as ~) -> the wording the grammar already reads, with the same meaning
 _AS: dict[str, str] = {
+    # Growing Dread: 702.37e a permanent is turned face up by its controller (the special action or their effect), so "you turn" = "a permanent you control"
+    "Whenever you turn a permanent face up, put a +1/+1 counter on it.":
+        "Whenever a permanent you control is turned face up, put a +1/+1 counter on it.",
     # Shallow Grave: 404.1 the top card of a graveyard is the last one put there; it is not a target (patched in definition)
     "Return the top creature card of your graveyard to the battlefield. That creature gains haste until end of turn. Exile it at the beginning of the next end step.":
         "Return target creature card from your graveyard to the battlefield. That creature gains haste until end of turn. Exile it at the beginning of the next end step.",
