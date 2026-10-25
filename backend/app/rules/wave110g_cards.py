@@ -1,6 +1,7 @@
 """-- wave 110G -- exact Oracle wordings of single cards, read as a wording the grammar reads or built from parts of it (as wave110b_cards)."""
 from __future__ import annotations
 
+import re
 from collections.abc import Callable
 from dataclasses import replace
 from typing import Any
@@ -116,6 +117,11 @@ _BARGE = ("Target creature gains islandwalk until end of turn. When ~ leaves the
 _SWING = ("Choose target battle. If an opponent protects it, remove three defense counters from it. Otherwise, put three defense counters on it.")
 
 
+_CULTIST = "The next time damage would be dealt to target creature this turn, destroy that creature instead."
+_AGONY = re.compile(r"(~ deals X damage to target creature, where X is the number of colors of mana spent to cast this spell\.) Exile cards from the top "
+                    r"of your library equal to the excess damage dealt to that creature this way\. You may play those cards until the end of your next turn\.")
+
+
 def parse(body: str) -> Any:
     """Etched Host Doombringer's mode: one target battle; the protector decides between removing and adding (310.4, 310.8)."""
     from app.rules import scripts
@@ -139,6 +145,18 @@ def parse(body: str) -> Any:
             return None
         return [{"do": "grant", "who": "target", "keywords": ["islandwalk"]},
                 *bound._event("leave", "self", [{"do": "destroy", "who": "target"}, {"do": "no_regen"}])], [group], False
+    if body.strip() == _CULTIST:  # Kill-Suit Cultist: the target creature, chosen now
+        from app.rules import language
+
+        group = language.target_group("target creature")
+        return None if group is None else ([{"do": "destroy_instead110g", "who": "target"}], [group], False)
+    if (agony := _AGONY.fullmatch(body.strip())) is not None:  # Archaic's Agony: excess damage (120.10) sizes the exile
+        got = scripts.parse_effects(f"{agony[1]} You gain life equal to the excess damage dealt to that creature this way.")
+        if got is None:
+            return None
+        (hit, _life), target, optional = got
+        (top, play), _, _ = scripts.parse_effects("Exile the top 3 cards of your library. You may play those cards until the end of your next turn.")  # type: ignore[misc]
+        return [hit, {**top, "n": {"ref_amount": "excess_dealt"}}, play], target, optional
     if body != _SWING:
         return None
     (remove,), target, optional = scripts.parse_effects("Remove three defense counters from target battle.")  # type: ignore[misc]
@@ -197,8 +215,18 @@ def _swap_tapped(d: Def) -> Def:
     return {**d, "effects": [{"do": "swap_tapped110g", "who": "event_player"}]}
 
 
+def _one_copy(d: Def) -> Def:
+    """Beamsplitter Mage: one copy, for the one creature its controller chooses (707.10d, 115.9c); no creature to choose: no copy."""
+    return {**d, "effects": [{**e, "one": True} if e.get("do") == "copy_each" else e for e in d["effects"]]}
+
+
 # whole ability text -> (the wording the grammar reads, what to change in its definition)
 _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
+    # Beamsplitter Mage
+    "Whenever you cast an instant or sorcery spell that targets only this creature, if you control one or more other creatures that spell could target, choose one of "
+    "those creatures. Copy that spell. The copy targets the chosen creature.":
+        ("Whenever you cast an instant or sorcery spell that targets only this creature, copy that spell for each other creature you control that the spell could "
+         "target. Each copy targets a different one of those creatures.", _one_copy),
     # Serene Master
     "Whenever this creature blocks, exchange its power and the power of target creature it's blocking until end of combat.":
         ("Whenever this creature blocks, target creature it's blocking has base power 3 until end of combat.", _exchange_power),
@@ -387,7 +415,20 @@ def exchange_power(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return effects.become(plan, ctx, {**base, "who": "target", "p": mine})
 
 
-PRIMITIVES: dict[str, Any] = {"exchange_power110g": exchange_power, "lowest_life_control110g": lowest_life_control,
+def destroy_instead(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """614.1a / 615.8: the next damage to the target this turn is replaced (never dealt, 614.6) by destroying it; used up by that one time (a body, as Phytohydra's)."""
+    from app.rules import replace as rep
+    from app.rules import source_shields
+
+    to = source_shields._recipient(plan, ctx, {"to": "target"})
+    if to is not None:
+        rep.add_record(plan, event="damage", match={"source": {}, "to": to}, op={"do": "body", "once": True, "batch": True,
+                           "rider": {"effects": [{"do": "destroy", "who": "ref:to"}], "if": False}}, controller=ctx["controller"],
+                           source=ctx.get("source_object"), source_card=ctx.get("source_card"), label=ctx.get("name") or "a replacement effect")
+    return True
+
+
+PRIMITIVES: dict[str, Any] = {"destroy_instead110g": destroy_instead, "exchange_power110g": exchange_power, "lowest_life_control110g": lowest_life_control,
                            "sacrifice_pair110g": sacrifice_pair, "swap_tapped110g": swap_tapped, "opponent_exiles110g": opponent_exiles,
                               "unattach_enchanted110g": unattach_enchanted}
 RESUME: dict[str, Any] = {"lowest_control110g": resume_lowest_control, "opponent_exiles110g": resume_opponent_exiles}

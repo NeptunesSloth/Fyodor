@@ -14,6 +14,9 @@
 * Wormfang Drake: 607.2a linked exile as the 'unless' payment; the exiled creature returns when the Drake leaves.
 * Carry Away: 701.3d the enchanted Equipment is unattached when the Aura enters; 613.1b / 303.4e the Aura's controller controls it.
 * Mindstorm Crown: 500.1 / 503.1a the hand as the turn began (before the upkeep) picks between drawing and the 1 damage.
+* Archaic's Agony: 120.10 / 702.34 converge sizes the damage; the excess over lethal sizes the exile (top of library) and those cards are playable.
+* Kill-Suit Cultist: 614.1a / 615.8 the next damage to the target this turn is replaced by destroying it; only the next time.
+* Beamsplitter Mage: 707.10d / 115.9c one copy for the one other creature its controller chooses, none when there is none.
 * Serene Master: 701.12g exchanging two powers sets each to the other's previous value (613.4b), until end of combat.
 """
 from __future__ import annotations
@@ -91,10 +94,14 @@ EXTRA = [
     real('Carry Away', '{1}{U}', 2, 'Enchantment — Aura', 'Enchant Equipment\nWhen this Aura enters, unattach enchanted Equipment.\nYou control enchanted Equipment.', None, 'U'),
     real('Test Blade', '{1}', 1, 'Artifact — Equipment', 'Equipped creature gets +1/+1.\nEquip {1}', None, ''),
     real('Mindstorm Crown', '{3}', 3, 'Artifact', 'At the beginning of your upkeep, draw a card if you had no cards in hand at the beginning of this turn. If you had a card in hand, this artifact deals 1 damage to you.', None, ''),
+    real('Archaic\'s Agony', '{4}{R}', 5, 'Sorcery', 'Converge \u2014 Archaic\'s Agony deals X damage to target creature, where X is the number of colors of mana spent to cast this spell. Exile cards from the top of your library equal to the excess damage dealt to that creature this way. You may play those cards until the end of your next turn.', None, 'R'),
+    real('Kill-Suit Cultist', '{B}', 1, 'Creature \u2014 Human Cleric', 'This creature attacks each combat if able.\n{B}, Sacrifice this creature: The next time damage would be dealt to target creature this turn, destroy that creature instead.', ('1', '1'), 'B'),
+    real('Test Zap', '{R}', 1, 'Instant', 'Test Zap deals 1 damage to target creature.', None, 'R'),
+    real('Beamsplitter Mage', '{1}{R}', 2, 'Creature \u2014 Human Wizard', 'Whenever you cast an instant or sorcery spell that targets only this creature, if you control one or more other creatures that spell could target, choose one of those creatures. Copy that spell. The copy targets the chosen creature.', ('1', '3'), 'R'),
     real('Hill Giant', '{3}{R}', 4, 'Creature — Giant', '', ('3', '3'), 'R'),
     real('Divination', '{2}{U}', 3, 'Sorcery', 'Draw two cards.', None, 'U'),
 ]
-NAMES = [c["name"] for c in EXTRA if c["name"] not in ("Divination", "Hill Giant", "Test Wall", "Test Human", "Test Doom", "Test Blade", "Relentless Assault", "Test Vigil", "Test Convoke", "Test Shuffle", "Test Teamwork")]
+NAMES = [c["name"] for c in EXTRA if c["name"] not in ("Divination", "Test Zap", "Hill Giant", "Test Wall", "Test Human", "Test Doom", "Test Blade", "Relentless Assault", "Test Vigil", "Test Convoke", "Test Shuffle", "Test Teamwork")]
 
 
 @pytest.fixture()
@@ -648,4 +655,59 @@ def test_mindstorm_crown_draws_on_an_empty_hand_else_hurts(cards, holding, life_
             act(s, d.player, type="choose", decision_id=d.id, option_ids=[d.options[0].id])
     assert s.state.players["p1"].life == life_after
     assert len(s.state.zones["p1:hand"]) == 2  # the draw step's card plus the Crown's draw, or the held card
+    check(s)
+
+
+@pytest.mark.parametrize("colors,exiled", [(2, 1), (1, 0)])
+def test_archaics_agony_excess_sizes_exile(cards, colors, exiled):
+    """Archaic's Agony (120.10, 702.34 converge): X = colors spent; excess damage over the 1/1's lethal exiles that many cards from the library top."""
+    s = build(cards, ["Archaic's Agony"], ["Test Human"])
+    human = put(s, "Test Human", "p2")
+    lib = len(s.state.zones["p1:library"])
+    mana(s, "p1", **({"R": 1, "G": 1, "C": 3} if colors == 2 else {"R": 1, "C": 4}))
+    cast(s, "Archaic's Agony", [human.id])
+    drive(s)
+    assert s.state.cards[human.id].zone == "p2:graveyard"
+    assert len(s.state.zones["p1:library"]) == lib - 1 - exiled and len(s.state.zones["p1:exile"]) == exiled
+    check(s)
+
+
+@pytest.mark.parametrize("armed", [True, False])
+def test_kill_suit_cultist_destroys_instead_of_damage(cards, armed):
+    """Kill-Suit Cultist (614.1a): the first damage to the target is never dealt; the creature is destroyed instead. Without the shield 1 damage is harmless."""
+    s = build(cards, ["Kill-Suit Cultist", "Grizzly Bears", "Test Zap"], [])
+    cultist = put(s, "Kill-Suit Cultist")
+    bears = put(s, "Grizzly Bears")
+    if armed:
+        mana(s, "p1", B=1)
+        act(s, "p1", type="activate_ability", card_id=cultist.id, ability=1, targets=[bears.id], target_counts=[1])
+        settle(s)
+        assert s.state.cards[cultist.id].zone == "p1:graveyard"
+    mana(s, "p1", R=1)
+    cast(s, "Test Zap", [bears.id])
+    settle(s)
+    assert s.state.cards[bears.id].zone == ("p1:graveyard" if armed else "p1:battlefield")
+    check(s)
+
+
+@pytest.mark.parametrize("others", [2, 0])
+def test_beamsplitter_mage_copies_for_one_chosen_creature(cards, others):
+    """Beamsplitter Mage (707.10d): the copy targets only the creature the controller chooses among the other legal ones; with none there is no copy."""
+    s = build(cards, ["Beamsplitter Mage", "Grizzly Bears", "Hill Giant", "Test Zap"], [])
+    mage = put(s, "Beamsplitter Mage")
+    bears, giant = (put(s, "Grizzly Bears"), put(s, "Hill Giant")) if others else (None, None)
+    mana(s, "p1", R=1)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Test Zap").id, targets=[mage.id])
+    for _ in range(12):
+        if (d := s.state.rules.decision) is not None:
+            pick = [giant.id] if giant and giant.id in [o.id for o in d.options] else [d.options[0].id]
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=pick)
+        elif s.state.zones.get("stack"):
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            break
+    hurt = lambda c: s.state.cards[c.id].damage  # noqa: E731
+    assert hurt(mage) == 1
+    if others:
+        assert (hurt(bears), hurt(giant)) == (0, 1)
     check(s)

@@ -1096,7 +1096,8 @@ def copy_each(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     from app.rules import spell_copy_replacements
 
     job = {"ctx": ctx, "spell": spell, "oid": oid, "controller": pid, "victims": victims,
-           "additional": spell_copy_replacements.additional(plan, pid) if victims else 0}
+           "additional": spell_copy_replacements.additional(plan, pid) if victims else 0,
+           **({"one": True} if e.get("one") else {})}  # -- one copy (wave 110G) -- Beamsplitter Mage: only one chosen creature gets a copy
     return _each_run(plan, job)
 
 
@@ -1141,6 +1142,8 @@ def _each_run(plan: Plan, job: dict[str, Any]) -> bool:
         pos = positions(entry)
         plan.rules.stack[copy_id] = _retargeted(plan.rules.stack[copy_id], pos, [targets.ref(plan, victim)] * len(pos))
         finalize(plan, copy_id, pid)
+        if job.get("one"):  # (-- one copy (wave 110G) --)
+            job["victims"] = []
     return True
 
 
