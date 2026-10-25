@@ -1,6 +1,7 @@
 """Wave 110H session 5: one-card builds on real Oracle text (each scenario checks replay and a save/load round trip).
 
 * Bloodfeather Phoenix: damage to an opponent or a battle (120.3, 310.5) by an instant or sorcery you control; {R} returns it from the graveyard.
+* The Spot, Living Portal: put on the bottom of its owner's library; if it got there, the exiled cards return to their owners' hands (608.2c).
 * Lamplight Phoenix: "exile it and collect evidence 4" is one optional cost (701.59a, 118.12); only if all of it is paid does the card return tapped.
 """
 from __future__ import annotations
@@ -8,9 +9,9 @@ from __future__ import annotations
 import pytest
 
 from app.rules import coverage
+from tests.fixtures.cards import card
 from tests.game_helpers import act
 from tests.test_rules_wave12a_counters_keywords import real
-from tests.fixtures.cards import card
 from tests.wave9c_kit import build, check, mana, put, to_hand
 
 SIEGE = "Invasion of Pyrulea // Gargantuan Slabhorn"
@@ -27,6 +28,10 @@ EXTRA = [
     real("Bloodfeather Phoenix", "{2}{R}", 3, "Creature \u2014 Phoenix",
          "Flying\nThis creature can't block.\nWhenever an instant or sorcery spell you control deals damage to an opponent or battle, you may pay {R}. "
          "If you do, return this card from your graveyard to the battlefield. It gains haste until end of turn.", ("3", "2"), "R"),
+    real("The Spot, Living Portal", "{2}{W}{U}{B}", 5, "Legendary Creature \u2014 Human Villain",
+         "When The Spot enters, exile up to one other target nonland permanent and up to one target nonland permanent card from a graveyard.\n"
+         "When The Spot dies, put him on the bottom of his owner's library. If you do, return the exiled cards to their owners' hands.", ("4", "4"), "WUB"),
+    real("Murder", "{1}{B}{B}", 3, "Instant", "Destroy target creature.", None, "B"),
     real("Lightning Bolt", "{R}", 1, "Instant", "Lightning Bolt deals 3 damage to any target.", None, "R"),
 
     real("Lamplight Phoenix", "{2}{R}{R}", 4, "Creature \u2014 Phoenix Spirit",
@@ -144,4 +149,21 @@ def test_bloodfeather_phoenix_battle(cards):
     s, phx = _bloodfeather(cards, None, hit_battle=True)
     answer(s, "pay")
     assert s.state.cards[phx.id].zone == "p1:battlefield"
+    check(s)
+
+
+def test_the_spot_returns_the_exiled_cards_when_it_dies(cards):
+    s = build(cards, ["The Spot, Living Portal", "Murder", "Hill Giant"], ["Hill Giant"])
+    giant = put(s, "Hill Giant", "p2")
+    mine = to_hand(s, "Hill Giant")
+    act(s, "p1", type="move", card_ids=[mine.id], to={"player": "p1", "zone": "graveyard"})
+    mana(s, W=1, U=1, B=1, C=2)
+    spot = cast(s, "The Spot, Living Portal", [giant.id, mine.id], target_counts=[1, 1])
+    answer(s)
+    assert s.state.cards[giant.id].zone == "p2:exile" and s.state.cards[mine.id].zone == "p1:exile"
+    mana(s, B=2, C=1)
+    cast(s, "Murder", [spot.id])
+    answer(s)
+    assert s.state.cards[spot.id].zone == "p1:library" and s.state.zones["p1:library"][-1] == spot.id
+    assert s.state.cards[giant.id].zone == "p2:hand" and s.state.cards[mine.id].zone == "p1:hand"
     check(s)
