@@ -4,6 +4,7 @@
 * Rebellion of the Flamekin: "if you won" reads the clash the trigger is about (701.30d).
 * Rebellion of the Flamekin: "if you won" reads the clash the trigger is about (701.30d).
 * Corrosion: a counter-count selector, "number of rust counters on it" (122.1) and no regeneration (701.8c, 701.19c).
+* Survivor's Med Kit: "Choose one that hasn't been chosen" and "loses all rad counters" (122.1i, 728).
 * Green Dragon: an end-of-turn watch on damage to creatures an opponent controls (603.7, 120.3).
 """
 
@@ -15,6 +16,7 @@ from app.rules import coverage
 from app.rules.plan import Plan
 from tests.game_helpers import act
 from tests.test_rules_wave12a_counters_keywords import real
+from tests.test_rules_wave30m_durations import to_phase
 from tests.test_rules_wave100n_multi import answer, cast
 from tests.wave9c_kit import build, card_named, check, mana, put
 
@@ -31,6 +33,9 @@ EXTRA = [
     real("Corrosion", "{2}{B}{B}", 4, "Enchantment",
          "Cumulative upkeep {1}\nAt the beginning of your upkeep, put a rust counter on each artifact target opponent controls. Then destroy each artifact with mana value less than or equal to the number of rust counters on it. Artifacts destroyed this way can't be regenerated.\nWhen this enchantment leaves the battlefield, remove all rust counters from all permanents.",
          None, "B"),
+    real("Survivor's Med Kit", "{2}", 2, "Artifact",
+         "{1}, {T}: Choose one that hasn't been chosen —\n• Stimpak — Draw a card.\n• Fancy Lads Snack Cakes — Create a Food token. (It's an artifact with \"{2}, {T}, Sacrifice this token: You gain 3 life.\")\n• RadAway — Target player loses all rad counters. Sacrifice this artifact.",
+         None, ""),
 ]
 NAMES = [c["name"] for c in EXTRA]
 EXTRA += [real("Probe Trinket", "{1}", 1, "Artifact", "", None, ""), real("Probe Idol", "{3}", 3, "Artifact", "", None, "")]
@@ -111,4 +116,24 @@ def test_corrosion_rusts_then_destroys_artifacts_the_counters_reach(cards):
     answer(s)
     assert s.state.cards[trinket.id].zone.endswith("graveyard")  # mana value 1 <= 1 rust counter
     assert s.state.cards[idol.id].zone.endswith("battlefield") and s.state.cards[idol.id].counters == {"rust": 1}
+    check(s)
+
+
+def test_med_kit_radaway_clears_rad_counters_and_each_mode_is_used_once(cards):
+    s = build(cards, ["Survivor's Med Kit"])
+    kit = put(s, "Survivor's Med Kit")
+    mana(s, C=1)
+    act(s, "p1", type="activate_ability", card_id=kit.id, ability=0, sources=[])
+    act(s, "p1", type="choose", decision_id=s.state.rules.decision.id, option_ids=["0:0"])  # Stimpak
+    answer(s)
+    assert s.state.cards[kit.id].tapped
+    to_phase(s, "main1", 3)  # (untapped again)
+    act(s, "p2", type="set_resource", player="p2", key="rad", value=3)
+    mana(s, C=1)
+    act(s, "p1", type="activate_ability", card_id=kit.id, ability=0, sources=[])
+    d = s.state.rules.decision
+    assert [o.id for o in d.options] == ["1:0", "2:0"]  # the chosen mode can't be chosen again
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=["2:0"])
+    answer(s, "p2")
+    assert s.state.players["p2"].resources.get("rad", 0) == 0 and s.state.cards[kit.id].zone.endswith("graveyard")
     check(s)

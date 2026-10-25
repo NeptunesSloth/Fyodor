@@ -7,8 +7,12 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import replace
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
+if TYPE_CHECKING:
+    from app.rules.plan import Plan
+
+Context = dict[str, Any]
 Def = dict[str, Any]
 
 
@@ -33,6 +37,37 @@ _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
     "Whenever you clash, you may pay {1}. If you do, create a 3/1 red Elemental Shaman creature token. If you won, that token gains haste until end of turn.":
         ("Whenever you clash, you may pay {1}. If you do, create a 3/1 red Elemental Shaman creature token. That token gains haste until end of turn.", _won_last),
 }
+
+
+# a spell / mode body -> the wording the grammar reads for it
+REWRITES: dict[str, str] = {}
+
+# Survivor's Med Kit (RadAway): "loses all rad counters" is removing every rad counter the player has (122.1i, 728). The grammar's
+# "Remove all rad counters from target player" only reads permanents' counters, so its first instruction is swapped for ``lose_rad110i``.
+_RADAWAY = "Target player loses all rad counters. Sacrifice ~."
+
+
+def parse(body: str) -> Any:
+    from app.rules import scripts
+
+    if body.strip() == _RADAWAY:
+        parsed = scripts.parse_effects("Target player gets 1 rad counters. Sacrifice ~.")
+        assert parsed is not None
+        effects, target, optional = parsed
+        return [{"do": "lose_rad110i", "who": "target"}, *effects[1:]], target, optional
+    return scripts.parse_effects(same) if (same := REWRITES.get(body.strip())) is not None else None
+
+
+def lose_rad(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    from app.rules import effects
+
+    for pid in effects._players(plan, ctx, e["who"]):
+        if (have := plan.state.players[pid].resources.get("rad", 0)) > 0:
+            plan.do({"type": "resource", "player": pid, "key": "rad", "delta": -have}, actor=ctx["controller"])
+    return True
+
+
+PRIMITIVES = {"lose_rad110i": lose_rad}
 
 
 def definition(ability: Any, ch: Any) -> Def | None:

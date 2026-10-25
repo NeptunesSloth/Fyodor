@@ -2697,6 +2697,10 @@ def parse_effects(body: str, it: str | None = None, *, event_player: bool = Fals
 
     if (body110a := wave110a.parse(body)) is not None:
         return body110a
+    from app.rules import wave110i_cards  # -- cards (wave 110I) --
+
+    if (body110i := wave110i_cards.parse(body)) is not None:
+        return body110i
     from app.rules import multi100n  # -- multi (wave 100N) --
 
     if (body100n := multi100n.parse(body)) is not None:
