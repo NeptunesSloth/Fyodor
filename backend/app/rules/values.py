@@ -323,6 +323,8 @@ def _parse_count(phrase: str, *, it: str | None = None) -> Value | None:
         return {"exiled_with": 1}  # -- resolution memory (wave 22D) -- 607.2a: the cards the linked ability exiled and that are still there
     if what == "opponent you attacked with a creature this combat":  # -- casting extras (wave 18E) -- melee 702.121a
         return {"attacked_opponents": 1}
+    if what == "opponents being attacked":  # -- opponents attacked (wave 110C) -- 506.2: the opponents some creature of yours is attacking now (Dimir Strandcatcher)
+        return {"players_attacked": 1, "by": "you"}
     if what in ("players being attacked", "player being attacked"):  # -- if you do (wave 40A) -- "draw a card for each player being attacked" (Amber Gristle O'Maul), "create a
         return {"players_attacked": 1}  # Food token for each player being attacked" (Apothecary White): the players some creature is attacking now (506.2, 506.6; not a player whose planeswalker or battle is attacked — Commander Liara Portyr's ruling of 2022-06-10, Suppressor Skyguard's of 2024-02-02)
     if re.fullmatch(r"times? (?:it|he|she|~|this (?:spell|creature|permanent|enchantment|artifact|land|planeswalker)) (?:was|were) kicked", what):
