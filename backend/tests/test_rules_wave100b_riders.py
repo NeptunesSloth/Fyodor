@@ -75,6 +75,8 @@ Every scenario checks the replay and a save and a load.
   plus the number of opponents who investigated this way." (101.4).
 * Liege of the Hollows - "each player may pay any amount of mana. Then each player creates a number of 1/1 green Squirrel creature tokens
   equal to the amount of mana they paid this way." (active player first, the tokens at once - 2008-04-01).
+* Plague of Vermin - "Starting with you, each player may pay any amount of life. Repeat this process until no one pays life." (rounds until
+  all players in sequence pay nothing, then all the Rats at once - 2008-05-01).
 * Hellfire - "deals X plus 3 damage to you, where X is the number of creatures that died this way." (a destroyed token counts, a creature a
   replacement effect exiled instead doesn't: the 2009-10-01 rulings).
 """
@@ -106,7 +108,7 @@ HEDRON, ATEMSIS, SPHINX, VOICE = "Hedron Alignment", "Atemsis, All-Seeing", "Res
 GEAR, MIRROR, RUNES, RALLY = "Fishing Gear", "Moonring Mirror", "Read the Runes", "Rally the Horde"
 REST, BRINGER, VAULT101 = "Long Rest", "Bringer of the Last Gift", "Vault 101: Birthday Party"
 INFERNO, FOXGLOVE, SPIRIT = "Inferno of the Star Mounts", "Mr. Foxglove", "Call the Spirit Dragons"
-HOLISTIC, WERNOG, LIEGE = "Holistic Wisdom", "Wernog, Rider's Chaplain", "Liege of the Hollows"
+HOLISTIC, WERNOG, LIEGE, PLAGUE = "Holistic Wisdom", "Wernog, Rider's Chaplain", "Liege of the Hollows", "Plague of Vermin"
 BEARS, GIANT, RIP, ELVES = "Grizzly Bears", "Hill Giant", "Rest in Peace", "Llanowar Elves"
 
 
@@ -1108,4 +1110,23 @@ def test_liege_of_the_hollows_gives_each_player_squirrels_for_their_mana(cards):
     run(s, answer)
     squirrels = {p: len([c for c in s.state.cards.values() if c.zone == f"{p}:battlefield" and c.name == "Squirrel"]) for p in ("p1", "p2")}
     assert zone(s, liege) == "p1:graveyard" and order == ["p1", "p2"] and squirrels == {"p1": 2, "p2": 1}
+    check(s)
+
+
+def test_plague_of_vermin_repeats_rounds_until_no_one_pays(cards):
+    s = build_n(cards, [PLAGUE])
+    plague = to_hand(s, PLAGUE)
+    mana(s, B=1, C=6)
+    act(s, "p1", type="cast_spell", card_id=plague.id)
+    pays = iter(["x:2", "x:1", "decline", "x:2", "decline", "decline"])
+    order: list[str] = []
+
+    def answer(d):
+        if not any(o.id == "decline" for o in d.options):
+            return None
+        order.append(d.player)
+        return [next(pays)]
+    run(s, answer)
+    rats = {p: len([c for c in s.state.cards.values() if c.zone == f"{p}:battlefield" and c.name == "Rat"]) for p in ("p1", "p2")}
+    assert order == ["p1", "p2"] * 3 and rats == {"p1": 2, "p2": 3} and (life(s, "p1"), life(s, "p2")) == (38, 37)
     check(s)

@@ -67,7 +67,7 @@ GY_EMPTY = "gy_empty100b"
 def parse(body: str, it: str | None, event_player: bool) -> Found | None:
     text = body.strip()
     for form in (_put_discarded, _hit_discard, _draw_if, _dealt_cant_block, _give_source, _exiled_mv, _connives, _empty_gy, _truce, _each_who_lost,
-                 _either, _plot_paid, _hand_exile, _dont_sacrifice, _put_mv_x, _fold, _swift, _untap_then, _may_attach, _vanish, _dakra, _durin, _latnam, _surge, _locke, _gy_exile, _manabond, _have_deal, _own_bounce, _clash, _reveal_win, _fishing, _runes, _rally, _long_rest, _bringer, _vault101, _becomes20, _foxglove, _spirit_dragons, _holistic, _wernog, _liege):
+                 _either, _plot_paid, _hand_exile, _dont_sacrifice, _put_mv_x, _fold, _swift, _untap_then, _may_attach, _vanish, _dakra, _durin, _latnam, _surge, _locke, _gy_exile, _manabond, _have_deal, _own_bounce, _clash, _reveal_win, _fishing, _runes, _rally, _long_rest, _bringer, _vault101, _becomes20, _foxglove, _spirit_dragons, _holistic, _wernog, _liege, _plague):
         if (found := form(text, it, event_player)) is not None:
             return found
     for pattern, repl in _REWRITES:
@@ -1051,6 +1051,42 @@ def liege_make(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return True
 
 
+# -- Plague of Vermin: "Starting with you, each player may pay any amount of life. Repeat this process until no one pays life. Each player creates a 1/1
+# black Rat creature token for each 1 life they paid this way." The 2008-05-01 rulings: rounds in turn order from you (101.4) until a whole round pays
+# nothing; each payment is its own life loss now (119.4) and caps the next one; then all the tokens at once.
+_PLAGUE = ("Starting with you, each player may pay any amount of life. Repeat this process until no one pays life. Each player creates a 1/1 black Rat "
+           "creature token for each 1 life they paid this way.")
+PLAGUE = "plague100b"
+
+
+def _plague(text: str, it: str | None, event_player: bool) -> Found | None:
+    token = _effects("Create a 1/1 black Rat creature token.", it, event_player) if text == _PLAGUE else None
+    return ([{"do": PLAGUE, "token": token[0][0], "k": 0, "totals": {}, "paid": False}], None, False) if token is not None and len(token[0]) == 1 else None
+
+
+def plague(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    from app.rules import paid_x
+
+    seats = plan.apnap()
+    order = e.get("order") or seats[seats.index(ctx["controller"]):] + seats[:seats.index(ctx["controller"])]
+    k, totals, paid = e["k"], dict(e["totals"]), e["paid"]
+    if k:
+        n = paid_x.amount(ctx, f"{PLAGUE}{k}")
+        totals[order[(k - 1) % len(order)]] = totals.get(order[(k - 1) % len(order)], 0) + n
+        paid = paid or n > 0
+    if k and k % len(order) == 0:
+        if not paid:
+            live = {p: n for p, n in totals.items() if p in plan.live()}
+            ctx["effects"][ctx["next"]:ctx["next"]] = [{**e["token"], "per_player": live}] if any(live.values()) else []
+            return True
+        paid = False
+    p = order[k % len(order)]
+    pay = [{"do": "optional_payment", "who": f"player:{p}", "cost": "", "bind": f"{PLAGUE}{k + 1}",
+            "choose_x": {"max": plan.state.players[p].life, "life": True}}] if p in plan.live() else []
+    ctx["effects"][ctx["next"]:ctx["next"]] = [*pay, {**e, "k": k + 1, "totals": totals, "paid": paid, "order": order}]
+    return True
+
+
 # -- Reign of Terror: "Destroy all green creatures or all white creatures. They can't be regenerated. You lose 2 life for each creature that died
 # this way." 608.2d: the controller picks one as it resolves (and announces it, 101.4b); the rest of the text reads the one done.
 _EITHER = re.compile(r"^Destroy all (?P<a>[a-z]+ creatures) or all (?P<b>[a-z]+ creatures)\. (?P<rest>[^.]+\.(?: [^.]+\.)*)$")
@@ -1097,5 +1133,5 @@ def resume_either(plan: Any, d: Any, chosen: list[str]) -> None:
 PRIMITIVES = {GY_EMPTY: gy_empty, TRUCE: truce, TRUCE_ASK: truce_ask, TRUCE_DRAW: truce_draw, TRUCE_LIFE: truce_life, EITHER: either, COUNTERED: countered,
               SWIFT: swift, BACK: back_creature, TO_GRAVEYARDS: to_graveyards, HAND_GATE: hand_gate,
               SURGE: surge, PUT_EXILED: put_exiled, PUT_CHECK: put_check, OWN_EVERYWHERE: own_everywhere, HAND_VALUES: hand_values,
-              OTHERS: others_back, RALLY: rally, BECAME: became, SPIRIT: spirit, SPIRIT_WIN: spirit_win, SHARES: shares_type, LIEGE: liege, LIEGE_MAKE: liege_make}
+              OTHERS: others_back, RALLY: rally, BECAME: became, SPIRIT: spirit, SPIRIT_WIN: spirit_win, SHARES: shares_type, LIEGE: liege, LIEGE_MAKE: liege_make, PLAGUE: plague}
 RESUME = {TRUCE_ASK: resume_truce_ask, EITHER: resume_either, PUT_EXILED: resume_put_exiled, SPIRIT: resume_spirit}
