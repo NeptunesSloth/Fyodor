@@ -11,7 +11,7 @@ import pytest
 from app.game.errors import ActionError
 from app.rules import coverage
 from tests.game_helpers import act
-from tests.wave110b_kit import build, card_named, cast, ch, check, drive, mana, put, repository, to_hand
+from tests.wave110b_kit import attack, build, card_named, cast, ch, check, drive, mana, put, repository, to_hand
 
 
 @pytest.fixture()
@@ -19,7 +19,7 @@ def cards(settings):
     yield from repository(settings)
 
 
-@pytest.mark.parametrize("name", ["Prince of Thralls", "Oath of Lim-Dûl", "Chaos Lord", "Divine Intervention", "Herald of Anafenza", "Guardian of New Benalia", "Aloe Alchemist", "Parapet Thrasher", "Bane of the Living", "Warbreak Trumpeter", "Kadena's Silencer", "Longhorn Sharpshooter", "Plague Reaver", "Quakebringer", "Suppressor Skyguard", "Shirei, Shizo's Caretaker", "Lich's Mastery", "The Chain Veil"])
+@pytest.mark.parametrize("name", ["Prince of Thralls", "Oath of Lim-Dûl", "Chaos Lord", "Divine Intervention", "Herald of Anafenza", "Guardian of New Benalia", "Aloe Alchemist", "Parapet Thrasher", "Bane of the Living", "Warbreak Trumpeter", "Kadena's Silencer", "Longhorn Sharpshooter", "Plague Reaver", "Quakebringer", "Suppressor Skyguard", "Shirei, Shizo's Caretaker", "Lich's Mastery", "The Chain Veil", "Campsite Cuisine"])
 def test_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
@@ -432,4 +432,45 @@ def test_chain_veil_end_step_costs_2_life_unless_a_loyalty_ability_was_activated
         drive(s)
     the_end_step(s)
     assert s.state.players["p1"].life == (40 if activates else 38)
+    check(s)
+
+
+def test_campsite_cuisine_makes_food_for_itself_and_legendary_creatures_you_control(cards):
+    """Campsite Cuisine: the enchantment or a legendary creature entering creates a Food (603.2)."""
+    s = build(cards, ["Campsite Cuisine", "Ozai, the Phoenix King"], [])
+    mana(s, "p1", G=1, C=2)
+    cast(s, "Campsite Cuisine")
+    mana(s, "p1", B=2, R=2, C=2)
+    cast(s, "Ozai, the Phoenix King")
+    drive(s)
+    assert sorted(s.state.cards[c].name for c in s.state.zones["p1:battlefield"]) == ["Campsite Cuisine", "Food", "Food", "Ozai, the Phoenix King"]
+    check(s)
+
+
+@pytest.mark.parametrize("n", [0, 1, 2])
+def test_campsite_cuisine_sacrifices_foods_for_that_many_pumped_attackers(cards, n):
+    """Campsite Cuisine: sacrifice X Foods as you attack; the reflexive trigger gives up to X target attackers +3/+3 and trample (603.12, 608.2)."""
+    s = build(cards, ["Campsite Cuisine", "Ozai, the Phoenix King", "Grizzly Bears", "Grizzly Bears"], [])
+    mana(s, "p1", G=1, B=2, R=2, C=8)
+    cast(s, "Campsite Cuisine")
+    cast(s, "Ozai, the Phoenix King")
+    drive(s)
+    bears = [c for c in s.state.cards.values() if c.name == "Grizzly Bears" and c.zone == "p1:library"][:2]
+    act(s, "p1", type="move", card_ids=[b.id for b in bears], to={"player": "p1", "zone": "battlefield"})
+    ozai = card_named(s, "Ozai, the Phoenix King")
+    attack(s, ozai, *bears)
+    def answer(d):
+        if d.kind == "confirm":
+            return ["yes" if n else "no"]
+        if d.kind == "choose_cards" and d.options[0].label == "Food":
+            return [o.id for o in d.options][:n]
+        if d.kind == "choose_cards":
+            return [o.id for o in d.options if o.label == "Grizzly Bears"][:n]
+        return None
+
+    drive(s, answer)
+    foods = [c for c in s.state.zones["p1:battlefield"] if s.state.cards[c].name == "Food"]
+    assert len(foods) == 2 - n
+    pumped = [b for b in bears if ch(s, b).pt == (5, 5)]
+    assert len(pumped) == n and all({"trample", "indestructible"} <= ch(s, b).keywords for b in pumped)
     check(s)

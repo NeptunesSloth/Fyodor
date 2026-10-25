@@ -23,6 +23,14 @@ def firebending(line: str) -> int | None:
 
 # whole ability text -> the wording the grammar reads for it
 _AS: dict[str, str] = {
+    # Campsite Cuisine: the enchantment itself is no creature, so "a legendary creature you control" is another one; X Foods are "any number of Foods" and
+    # X targets are "that many" (the number sacrificed, set as the reflexive trigger is put on the stack, 603.12)
+    "Whenever this enchantment or a legendary creature you control enters, create a Food token.":
+        "Whenever this enchantment or another legendary creature you control enters, create a Food token.",
+    "Whenever you attack, you may sacrifice X Foods. When you do, up to X target attacking creatures each get +3/+3 and gain trample and indestructible "
+    "until end of turn.":
+        "Whenever you attack, you may sacrifice any number of Foods. When you do, up to that many target attacking creatures each get +3/+3 and gain "
+        "trample and indestructible until end of turn.",
     # Plague Reaver: "each other creature you control" is "all other creatures you control" (701.21a)
     "At the beginning of your end step, sacrifice each other creature you control.":
         "At the beginning of your end step, sacrifice all other creatures you control.",
