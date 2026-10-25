@@ -102,7 +102,36 @@ _AS: dict[str, str] = {
     # Mind Whip: the same unless-payment (118.12); the tap is the second consequence of not paying (patched in below)
     "At the beginning of the upkeep of enchanted creature's controller, that player may pay {3}. If they don't, ~ deals 2 damage to that player and you tap that creature.":
         "At the beginning of the upkeep of enchanted creature's controller, ~ deals 2 damage to that player unless they pay {3}.",
+    # Yarus: 708.9 a face-down creature that dies is revealed as its card; only a permanent card (110.4) can return (read as "if it's a permanent card")
+    "Whenever a face-down creature you control dies, return it to the battlefield face down under its owner's control if it's a permanent card, then turn it face up.":  # noqa: E501
+        "Whenever a face-down creature you control dies, return it to the battlefield face down under its owner's control, then turn it face up.",
+    # Archnemesis: "that player" is the enchanted player; the second ability moves the Aura (303.4, 701.3) with an own primitive (patched in definition)
+    "Whenever you attack enchanted player, that player loses 2 life. You draw a card and gain 2 life.":
+        "Whenever you attack enchanted player, enchanted player loses 2 life. You draw a card and gain 2 life.",
+    "Whenever a player attacks you, you may attach ~ to that player.":
+        "Whenever a player attacks you, you may draw a card.",
 }
+
+
+_SAME_MV = "Whenever you cast a spell, your opponents can't cast spells with the same mana value as that spell until your next turn."
+
+
+def same_mv_limit(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
+    """Living Breakthrough: 117.1, 202.3: opponents can't cast spells with the cast spell's mana value (as it is on the stack) until your next turn."""
+    from app.rules import cast_limits, selectors, values
+
+    key = selectors.Selector(compare=(("mv", "==", values.evaluate(plan, ctx, {"mana_value": "event"})),), zones=("stack",)).key()
+    return cast_limits.cast_limit(plan, ctx, {"who": "each_opponent", "until": "next_turn", "filter": key})
+
+
+_CANT_DRAW = " If you can't, draw a card."
+
+
+def draw_if_none(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
+    """Draw a card when the earlier "return" moved nothing (the instruction could not be carried out)."""
+    from app.rules import effects
+
+    return bool(effects._cards(plan, ctx, "ref:" + e["ref"])) or effects.draw(plan, ctx, {"do": "draw", "who": "you", "n": 1})
 
 
 def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
@@ -112,6 +141,17 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
     if text == WARD_XP:
         return {"kind": "static", "static": "ward_xp110d", "effects": []}
     native = _AS.get(text)
+    if text == _SAME_MV:
+        d = scripts.define(replace(ability, text="Whenever you cast a spell, you gain life equal to that spell's mana value."), ch)
+        if d is not None:
+            d["effects"] = [{"do": "same_mv_limit110d"}]
+        return d
+    if text.endswith(_CANT_DRAW):  # Inventive Iteration: the graveyard pick is not a target, so "can't" = no artifact card to return (701.21, 608.2c)
+        d = scripts.define(replace(ability, text=text[: -len(_CANT_DRAW)]), ch)
+        if d is not None:
+            d["effects"][0]["as"] = "back110d"
+            d["effects"].append({"do": "draw_if_none110d", "ref": "back110d"})
+        return d
     d = None if native is None else scripts.define(replace(ability, text=native), ch)
     if d is not None and text.startswith("−6: Gain control of target creature. It becomes a Vampire"):
         # the stolen creature is now yours: it counts in "another white permanent" when white, so it needs one more
@@ -152,6 +192,11 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
         d["effects"].append({"do": "restrict", "who": 'controlled:you|sel:{"types":["Creature"]}', "rules": ["cant_attack_player:@that"], "player": "target"})
     if d is not None and text.startswith("Choose two target creatures. Untap them. Put two +1/+1"):
         d["effects"][-1]["only110d"] = "target:0"
+    if d is not None and text.endswith("if it's a permanent card, then turn it face up."):  # (Yarus: the permanent-card test gates both steps)
+        sel = 'sel:{"card":true,"types":["Artifact","Creature","Enchantment","Land","Planeswalker","Battle"],"zones":[]}'
+        d["effects"].insert(0, {"do": "only_if", "cond": {"object": "event", "is": sel}, "skip": 2})
+    if d is not None and text.startswith("Whenever a player attacks you, you may attach ~"):
+        d["effects"] = [{"do": "attach_event_player110d"}]
     if d is not None and text.endswith("it enters tapped and attacking."):
         d["effects"][0]["tap_atk110d"] = "Enchantment"
     return d
@@ -207,7 +252,18 @@ def share_counters(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
     return effects.add_counters(plan, ctx, {"do": "add_counters", "who": "ref:share110d", "kind": "+1/+1", "n": 1})
 
 
-PRIMITIVES = {"share_counters110d": share_counters, "draw_gained110d": draw_gained, "top_creature110d": top_creature}
+def attach_event_player(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
+    """Archnemesis: attach the Aura to the attacking player (701.3a, 303.4f; an illegal host leaves it where it is)."""
+    from app.rules import attachments, effects
+
+    src = plan.state.cards.get(ctx.get("source_card") or "")
+    who = effects._players(plan, ctx, "event_player")
+    if src is not None and who and plan.in_game(src) and attachments.host_problem(plan, src, who[0]) is None:
+        attachments.attach(plan, src.id, who[0], ctx["controller"])
+    return True
+
+
+PRIMITIVES = {"same_mv_limit110d": same_mv_limit, "draw_if_none110d": draw_if_none, "attach_event_player110d": attach_event_player, "share_counters110d": share_counters, "draw_gained110d": draw_gained, "top_creature110d": top_creature}
 
 
 def holds(plan: Any, ctx: dict[str, Any], cond: dict[str, Any]) -> bool:
