@@ -38,6 +38,11 @@ def _any_shuffle(d: Def) -> Def:
     return {**d, "cond": {**d["cond"], "player": "any"}}
 
 
+def _shuffler_puts_back(d: Def) -> Def:
+    """Widespread Panic: the shuffling player (the trigger's event player) puts the card back, not each opponent."""
+    return {**_any_shuffle(d), "effects": [{**d["effects"][0], "who": "event_player"}]}
+
+
 def _twin(d: Def) -> Def:
     """The token is named Twin and copies the attacker's power and toughness once, as it is created (111.1)."""
     token = d["effects"][0]["token"]
@@ -63,8 +68,32 @@ def walls_block(plan: Any, ctx: dict[str, Any], cond: Def) -> bool:
     return any(c.id != ctx.get("source_card") for c in blockers) and all("Wall" in plan.ch(c).subtypes for c in blockers)
 
 
+def opponent_protects(plan: Any, ctx: dict[str, Any], cond: Def) -> bool:
+    """310.8: the targeted battle's protector is an opponent of the ability's controller."""
+    from app.rules import battles
+
+    return any((p := battles.protector(plan.state, c)) is not None and p != ctx["controller"]
+               for t in ctx.get("targets") or [] if t and (c := plan.state.cards.get(t["id"])) is not None)
+
+
 def holds(plan: Any, ctx: dict[str, Any], cond: Def) -> bool:
-    return bool({"walls_block": walls_block}[cond["w110g"]](plan, ctx, cond))
+    return bool({"walls_block": walls_block, "opp_protects": opponent_protects}[cond["w110g"]](plan, ctx, cond))
+
+
+_SWING = ("Choose target battle. If an opponent protects it, remove three defense counters from it. Otherwise, put three defense counters on it.")
+
+
+def parse(body: str) -> Any:
+    """Etched Host Doombringer's mode: one target battle; the protector decides between removing and adding (310.4, 310.8)."""
+    from app.rules import scripts
+
+    if body != _SWING:
+        return None
+    (remove,), target, optional = scripts.parse_effects("Remove three defense counters from target battle.")  # type: ignore[misc]
+    (add,), _, _ = scripts.parse_effects("Put three defense counters on target battle.")  # type: ignore[misc]
+    opp = {"w110g": "opp_protects"}
+    gate = lambda cond: {"do": "only_if", "cond": cond, "skip": 1}  # noqa: E731 - a failed condition skips the next effect
+    return [gate(opp), remove, gate({"not": opp}), add], target, optional
 
 
 def _exchange_power(d: Def) -> Def:
@@ -103,6 +132,9 @@ _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
     # Psychogenic Probe: every library shuffle in the engine is made by a spell or ability (701.24)
     "Whenever a spell or ability causes a player to shuffle their library, this artifact deals 2 damage to that player.":
         ("Whenever an opponent shuffles their library, this artifact deals 2 damage to that player.", _any_shuffle),
+    # Widespread Panic
+    "Whenever a spell or ability causes its controller to shuffle their library, that player puts a card from their hand on top of their library.":
+        ("Whenever an opponent shuffles their library, each opponent puts a card from their hand on top of their library.", _shuffler_puts_back),
     # Joyful Stormsculptor
     "Whenever you cast a spell that has convoke, this creature deals 1 damage to each opponent and each battle they protect.":
         ("Whenever you cast a spell that has convoke, this creature deals 1 damage to each opponent.", _battles),

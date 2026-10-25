@@ -21,9 +21,10 @@ from app.cards.repository import CardRepository
 from app.rules import coverage
 from tests.fixtures.cards import fixture_cards
 from tests.game_helpers import act
+from tests.test_rules_review34_head import EXTRA as REVIEW34
+from tests.test_rules_review34_head import SIEGE, drive
 from tests.test_rules_wave12a_counters_keywords import real
 from tests.wave9c_kit import build, card_named
-from tests.test_rules_review34_head import EXTRA as REVIEW34, SIEGE, drive
 from tests.wave110b_kit import attack, cast, ch, check, mana, put, settle, through_combat, to_hand
 
 EXTRA = [
@@ -53,6 +54,8 @@ EXTRA = [
     real('Test Convoke', '{1}', 1, 'Sorcery', 'Convoke', None, ''),
     real('Psychogenic Probe', '{2}', 2, 'Artifact', 'Whenever a spell or ability causes a player to shuffle their library, this artifact deals 2 damage to that player.', None, ''),
     real('Test Shuffle', '{1}', 1, 'Sorcery', 'Target player shuffles their library.', None, ''),
+    real('Widespread Panic', '{2}{R}', 3, 'Enchantment', 'Whenever a spell or ability causes its controller to shuffle their library, that player puts a card from their hand on top of their library.', None, 'R'),
+    real('Etched Host Doombringer', '{4}{B}', 5, 'Creature — Phyrexian Demon', 'When this creature enters, choose one —\n• Target opponent loses 2 life and you gain 2 life.\n• Choose target battle. If an opponent protects it, remove three defense counters from it. Otherwise, put three defense counters on it.', ('3', '5'), 'B'),
     real('Test Wall', '{1}', 1, 'Creature — Wall', '', ('0', '4'), ''),
     real('Hill Giant', '{3}{R}', 4, 'Creature — Giant', '', ('3', '3'), 'R'),
     real('Divination', '{2}{U}', 3, 'Sorcery', 'Draw two cards.', None, 'U'),
@@ -284,6 +287,47 @@ def test_psychogenic_probe_damages_whoever_shuffles(cards, target):
     mana(s, C=1)
     cast(s, "Test Shuffle", [target])
     assert s.state.players[target].life == 38 and s.state.players["p2" if target == "p1" else "p1"].life == 40
+    check(s)
+
+
+def test_widespread_panic_shuffler_puts_a_hand_card_on_top(cards):
+    """Widespread Panic (701.24): the player whose library was shuffled (here Bob, via Test Shuffle) puts a hand card on top of it."""
+    s = build(cards, ["Widespread Panic", "Test Shuffle"], ["Grizzly Bears"])
+    put(s, "Widespread Panic")
+    mana(s, C=1)
+    to_hand(s, "Grizzly Bears", "p2")
+    cast(s, "Test Shuffle", ["p2"])
+    for _ in range(5):
+        d = s.state.rules.decision
+        if d is None:
+            break
+        assert d.player == "p2", d.player
+        act(s, d.player, type="choose", decision_id=d.id, option_ids=[d.options[0].id])
+        settle(s)
+    assert s.state.zones["p2:library"][0] == card_named(s, "Grizzly Bears", "p2").id and not s.state.zones["p2:hand"]
+    check(s)
+
+
+@pytest.mark.parametrize("owner, expected", [("p1", 1), ("p2", 7)])  # a Siege is protected by an opponent of its controller
+def test_etched_host_doombringer_battle_mode_follows_the_protector(cards, owner, expected):
+    """Etched Host Doombringer (310.4, 310.8): a battle an opponent protects loses three defense counters, any other gains three (starts at 4)."""
+    s = build(cards, ["Etched Host Doombringer", SIEGE], [SIEGE])
+    battle = put(s, SIEGE, owner)
+    act(s, owner, type="counter", card_ids=[battle.id], kind="defense", delta=4)
+    settle(s)  # state-based actions: the Siege's protector is chosen (310.11)
+    mana(s, C=1, B=1)
+    mana(s, C=4)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Etched Host Doombringer").id)
+    for _ in range(12):
+        d = s.state.rules.decision
+        if d is None and not s.state.zones.get("stack"):
+            break
+        if d is None:
+            act(s, s.state.rules.priority, type="pass_priority")
+            continue
+        pick = next((o.id for o in d.options if "battle" in (o.label or "").lower() or o.id == battle.id), d.options[0].id)
+        act(s, d.player, type="choose", decision_id=d.id, option_ids=[pick])
+    assert s.state.cards[battle.id].counters.get("defense", 0) == expected, s.state.cards[battle.id].counters
     check(s)
 
 
