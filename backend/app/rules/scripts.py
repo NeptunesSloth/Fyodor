@@ -1924,6 +1924,11 @@ def _counter(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     return [{"do": "counter", "who": "target"}], SELECTORS[m["sel"]]
 
 
+@effect(r"counter all abilities your opponents control")  # -- trigger other (wave 110B) -- Kadena's Silencer, 701.6a: the abilities on the stack, not the permanents
+def _counter_opponent_abilities(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    return [{"do": "counter", "who": "opponent_abilities110b"}], None
+
+
 @effect(r"counter each spell (?:you don't control|your opponents control)")
 def _counter_each(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     # -- cast keywords (wave 43D) -- 702.96a: "Counter target spell you don't control" read with "each" (Counterflux, overloaded): every spell on the stack
@@ -5979,6 +5984,10 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
 
     if (whole110a := wave110a.definition(ability, ch)) is not None:
         return whole110a
+    from app.rules import wave110b_cards  # -- wave 110B --
+
+    if (card110b := wave110b_cards.definition(ability, ch)) is not None:
+        return card110b
     from app.rules import multi100n  # -- multi (wave 100N) --
 
     if (whole100n := multi100n.definition(ability, ch)) is not None:
@@ -7818,8 +7827,12 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                                   lambda m: f"{m[1] or ''}draw {'a' if m[2] == 'an' else m[2]} {m[3]}", body)  # cards. If you do, …")
                 # -- other side (wave 6D) -- "… blocks a creature, destroy that creature. You gain life equal to that
                 # creature's toughness" / "… deals damage to a creature, …": the event's object (app/rules/other_side.py)
+                from app.rules import defending as _defending110
                 from app.rules import other_side
 
+                if cond is not None and (cond.get("event") == "deal_combat_damage_player" and cond.get("combat_recipient") == "opponent"
+                                         or _defending110.per_player_attack(cond)):  # -- trigger other (wave 110B) -- "…to an opponent, … that opponent controls": the player dealt damage / attacked
+                    body = re.sub(r"\bthat opponent\b", "that player", body)
                 if cond is not None and cond.get("event") == "deal_damage" and cond.get("to") == "planeswalker":
                     body = re.sub(r"\bthat planeswalker\b", "that permanent", body)  # -- trigger other (wave 44B) -- Zagras: the planeswalker dealt damage (other_side)
                 if cond is not None and other_side.wanted(cond) and cond.get("subject") == "host" and "that creature" not in body:
@@ -8564,6 +8577,8 @@ def _impending_trigger() -> Definition | None:
 
 def keyword_triggers(ch: Characteristics) -> list[tuple[int, Definition]]:
     """Triggered keyword abilities of a card, with keys that can't clash with ability indexes."""
+    from app.rules import wave110b_cards  # -- wave 110B --
+
     if ch.is_ability or ch.face_down:
         return []
     out = []
@@ -8607,11 +8622,11 @@ def keyword_triggers(ch: Characteristics) -> list[tuple[int, Definition]]:
                     "kind": "triggered", "trigger": "dies_self", "optional": True,
                     "target": {"what": f"graveyard:Spirit:{ns[ab.keywords[:k].count(kw)]}"},
                     "effects": [{"do": "bounce", "who": "target"}]}))
-            fb = re.fullmatch(r"firebending (\d+)", ab.text.strip().rstrip(".").lower()) if kw == "firebending" else None
+            fb = wave110b_cards.firebending(ab.text) if kw == "firebending" else None  # (wave 110B: among other keywords of the line)
             if fb:  # -- keyword actions & face-down (wave 3F) -- 702.189a: "Whenever this creature attacks, add N {R}. …"
                 out.append((1000 + ab.index * 10 + k, {
                     "kind": "triggered", "trigger": "attacks_self", "optional": False, "target": None,
-                    "effects": [{"do": "firebend", "n": int(fb.group(1))}]}))
+                    "effects": [{"do": "firebend", "n": fb}]}))
     return out
 
 
@@ -8705,6 +8720,10 @@ _SPREE_MODE = re.compile(r"^(?:\+ |• (?P<label>[^—{}]+) — )(?P<cost>(?:\{[
 
 def spree_definition(ch: Characteristics, lines: list[AbilityText]) -> Definition | None:
     tiered = any(ab.keywords == ("tiered",) for ab in ch.abilities if ab.kind == "keywords")
+    from app.rules import wave110b_cards  # -- wave 110B --
+
+    if tiered and (own110b := wave110b_cards.tiered(ch, lines)) is not None:
+        return own110b
     found = [_SPREE_MODE.fullmatch(ab.text) for ab in lines]
     if any(m is None or bool(m["label"]) != tiered for m in found) or len(lines) < 2:
         return None
@@ -11706,7 +11725,7 @@ _RECORDING.update({"gain_control": None, "exchange_control": None})
 
 
 @_first
-@effect(r"(?P<t>(?!.*, then )(?!.* (?:for as long as|until (?:the end of )?your next turn)\b)(?!.* at end of combat$)(?!.* unless )(?:(?:untap .+? and )?(?:you )?gain control of .+|.+? gains control of .+|exchange control of .+))")
+@effect(r"(?P<t>(?!.*, then )(?!.* (?:for as long as|until (?:the end of )?your next turn)\b)(?!.* at end of combat$)(?!.* unless )(?!.* if the number of permanents is even$)(?:(?:untap .+? and )?(?:you )?gain control of .+|.+? gains control of .+|exchange control of .+))")
 def _control(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     from app.rules import language
 

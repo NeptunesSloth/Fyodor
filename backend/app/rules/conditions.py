@@ -360,6 +360,9 @@ def _parse_one(t: str, objects: bool) -> Condition | None:
     m = re.fullmatch(r"the number of attacking creatures is greater than the number of (?P<k>\+1/\+1|-1/-1|[a-z]+) counters on ~", t)
     if m and (key := _count("attacking creatures", "")) is not None:  # -- counters (wave 41A) -- ED-E, Lonesome Eyebot: counted as it triggers and again as it resolves (603.4; the ruling of 2024-03-08)
         return {"value": {"count": key}, "op": ">", "n": {"counters": m["k"], "on": "self"}}
+    m = re.fullmatch(r"the number of permanents is (?P<p>even|odd)", t)
+    if m and (key := _count("permanents", "")) is not None:  # -- (wave 110B) -- Chaos Lord: every permanent on the battlefield, whoever controls it; zero is even
+        return {"value": {"count": key}, "op": "parity", "n": int(m["p"] == "odd")}
     m = re.fullmatch(r"you control a prime number of (?P<what>lands|creatures|artifacts|enchantments)", t)
     if m and (key := _count(m["what"], "you control")) is not None:  # -- counters (wave 41A) -- Zimone, All-Questioning: read as it triggers and as it resolves (603.4)
         return {"value": {"count": key}, "op": "prime", "n": 0}

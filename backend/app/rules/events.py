@@ -104,7 +104,8 @@ _DAMAGE_TO_RE = "|".join(re.escape(k) for k in sorted(_DAMAGE_TO, key=len, rever
 # 508.3a / 508.3b / 508.3e / 508.6: whom an attack was declared against
 _DEFENDERS = {"one or more planeswalkers you control": "your_pw", "you": "you", "you or a planeswalker you control": "you_or_pw", "a player": "player",
               "you and/or one or more planeswalkers you control": "you_or_pw",  # (-- as long as (wave 37A) -- 508.3e: Cunning Rhetoric; once per player attacked)
-              "one of your opponents": "opponent", "one or more of your opponents": "opponent_any",
+              "one of your opponents": "opponent", "an opponent": "opponent",  # -- trigger other (wave 110B) -- "attack an opponent" = one of your opponents (508.3a)
+              "one or more of your opponents": "opponent_any",
               "another one of your opponents": "other_opponent", "enchanted player": "enchanted_player",
               "the player with the most life or tied for most life": "most_life",  # (wave 15E: dethrone, 702.105a)
               # -- trigger other (wave 36A) -- 508.3a: "attacks one of your opponents or a planeswalker an opponent controls" (Gahiji): any attack on an opponent
@@ -1246,6 +1247,8 @@ def _ability_targets(what: str) -> list[str] | None:
 def _activate(c: str) -> Condition | None:
     if c == "you activate an eternalize or embalm ability":
         return {"event": "activate", "subject": "player", "player": "you", "ability_kinds": ["eternalize", "embalm"], "loyalty": False, "nonmana": True}
+    if c in ("you activate ~'s outlast ability", "you activate this creature's outlast ability"):  # -- (wave 110B) -- 702.107a: Herald of Anafenza
+        return {"event": "activate", "subject": "player", "player": "you", "ability_word": "outlast", "self_source": True, "loyalty": False, "nonmana": True}
     if (keyword := re.fullmatch(rf"{_P} activates? a ninjutsu ability", c)) is not None:
         return {"event": "activate", "subject": "player", "player": _PLAYERS[keyword["p"]], "ability_kind": "ninjutsu", "loyalty": False, "nonmana": True}
     if (host := re.fullmatch(rf"{_P} activates? a loyalty ability of enchanted planeswalker", c)) is not None:
@@ -1275,6 +1278,10 @@ def _object_event(c: str) -> Condition | None:
     becoming the target of a spell or ability (115.9, 603.2e), dealing damage (120.1)."""
     # -- crew & saddle (wave 23D) -- 702.122b / 702.171c: "Whenever ~ crews a Vehicle" / "~ saddles a Mount or crews a Vehicle during your
     # main phase" (a creature tapped to pay the cost; the Vehicle / Mount is the creature "on the other side"), 702.122e: "~ becomes crewed"
+    if c in ("this card becomes plotted", "~ becomes plotted"):  # -- (wave 110B) -- 702.170d: Aloe Alchemist, Longhorn Sharpshooter (triggers.py, from exile)
+        return {"event": "plotted", "subject": "self"}
+    if c == "~ enlists a creature":  # -- (wave 110B) -- 702.154a: Guardian of New Benalia (enlist.finish)
+        return {"event": "enlisted110b", "subject": "self"}
     m = re.fullmatch(r"~ (?:(?P<s>saddles a Mount) or )?(?P<c>crews a Vehicle)(?P<d> during your main phase)?", c)
     if m:
         crew = {"event": "crew", "subject": "self", "other": selectors.Selector(types=("Artifact",), subtypes=("Vehicle",)).key()}

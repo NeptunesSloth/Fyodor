@@ -451,8 +451,9 @@ def parse_abilities(oracle_text: str | None, *, spell: bool = False, pt: tuple[s
     for n, line in enumerate(lines):
         # -- keyword meanings (wave 11B) -- 702.107a: "Outlast [cost]" means "[Cost], {T}: Put a +1/+1 counter on this
         # creature. Activate only as a sorcery." (read as that activated ability)
+        outlast = False
         if m := re.fullmatch(r"Outlast ((?:\{[^}]+\})+)", line):
-            line = f"{m[1]}, {{T}}: Put a +1/+1 counter on this creature. Activate only as a sorcery."
+            line, outlast = f"{m[1]}, {{T}}: Put a +1/+1 counter on this creature. Activate only as a sorcery.", True
         # -- keyword meanings (wave 17C) -- 702.81a: "Retrace" means "You may cast this card from your graveyard by discarding a land
         # card as an additional cost to cast it." (a permission with an additional cost, 601.2b: permissions.SELF_GY_BY)
         if line == "Retrace":
@@ -496,7 +497,8 @@ def parse_abilities(oracle_text: str | None, *, spell: bool = False, pt: tuple[s
 
             line = speed.rewrite(line)
         kind, kws, cost = classify(line, spell=spell)
-        out.append(AbilityText(index=len(out), text=line, kind=kind, keywords=kws, cost=cost, section=sections[n], linked=linked.get(n)))
+        out.append(AbilityText(index=len(out), text=line, kind=kind, keywords=kws, cost=cost, section=sections[n], linked=linked.get(n),
+                               special="outlast" if outlast else None))  # (wave 110B: the keyword's origin, 702.107a)
         # -- keyword meanings (wave 18E) -- 702.151a: "Reconfigure [cost]" is two activated abilities, "[Cost]: Attach this permanent to another
         # target creature you control. Activate only as a sorcery." and "[Cost]: Unattach this permanent. Activate only if this permanent is
         # attached to a creature and only as a sorcery."; 702.151b: attached to a creature, it isn't a creature (a static of its own).

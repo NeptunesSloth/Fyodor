@@ -1868,6 +1868,8 @@ def _stack_targets(plan: Plan, ctx: Context, e: dict[str, Any]) -> list[str]:
     if e.get("who") == "each_opponent_spell":  # -- cast keywords (wave 43D) -- "Counter each spell you don't control." (an overloaded Counterflux): spells only (not abilities)
         return [c for c in plan.state.zones.get("stack", []) if c != ctx.get("stack_id") and plan.state.cards[c].ability is None
                 and plan.state.cards[c].controller != ctx["controller"]]
+    if e.get("who") == "opponent_abilities110b":  # -- face-down X (wave 110B) -- "counter all abilities your opponents control" (701.6a): every activated or triggered ability on the stack they control
+        return [c for c in plan.state.zones.get("stack", []) if plan.state.cards[c].ability is not None and plan.state.cards[c].controller != ctx["controller"]]
     if e.get("who") in ("all_other_spells100c", "all_abilities100c"):  # -- static spells (wave 100C) -- "Counter all other spells." / "counter all abilities"
         spells = e["who"] == "all_other_spells100c"
         return [c for c in plan.state.zones.get("stack", []) if c != ctx.get("stack_id") and (plan.state.cards[c].ability is None) == spells]
@@ -7050,3 +7052,7 @@ PRIMITIVES.update(_copy105.PRIMITIVES)
 from app.rules import wave110a as _wave110a  # noqa: E402  -- wave 110A --
 
 PRIMITIVES.update(_wave110a.primitives())
+# -- wave 110B --
+from app.rules import wave110b_cards as _wave110b_cards  # noqa: E402
+
+PRIMITIVES.update(_wave110b_cards.PRIMITIVES)

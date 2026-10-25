@@ -10,7 +10,7 @@
   promised spell chooses (702.174m, like 702.33g) are the kicked machinery's (scripts.self_text writes the wording as it).
 * 702.174d-i: the effect is performed by the chosen opponent: a Food / Treasure token, a card drawn, a tapped 1/1 blue Fish, an 8/8 blue
   Octopus. 702.174j: on an instant or sorcery it happens before the spell's other abilities and not at all if the spell is countered or
-  leaves the stack. "an extra turn" (702.174g) and "whenever you give a gift" (702.174c) are not modelled: such cards stay manual.
+  leaves the stack. "whenever you give a gift" (702.174c) is not modelled: such cards stay manual. (Wave 110B: "an extra turn", 702.174g.)
 """
 
 from __future__ import annotations
@@ -30,9 +30,10 @@ if TYPE_CHECKING:
     from app.rules.plan import Plan
 
 WAITING = object()  # the opponent question was asked: the cast resumes with its answer
-GIFT = re.compile(r"^gift (?P<what>a card|a treasure|a food|a tapped fish|an octopus)$", re.IGNORECASE)
+GIFT = re.compile(r"^gift (?P<what>a card|a treasure|a food|a tapped fish|an octopus|an extra turn)$", re.IGNORECASE)
 _DOES = {"a card": "draws a card", "a treasure": "creates a Treasure token", "a food": "creates a Food token",
-         "a tapped fish": "creates a tapped 1/1 blue Fish creature token", "an octopus": "creates an 8/8 blue Octopus creature token"}
+         "a tapped fish": "creates a tapped 1/1 blue Fish creature token", "an octopus": "creates an 8/8 blue Octopus creature token",
+         "an extra turn": "takes an extra turn after this one"}  # (wave 110B: 702.174g; the turn is taken after this one, 500.7)
 
 
 def what(text: str) -> str | None:

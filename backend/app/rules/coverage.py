@@ -507,7 +507,7 @@ def _keyword_supported(kw: str, line: str) -> bool:
 
         return keyword_cost(line, "echo") is not None
     if kw in ("morph", "megamorph"):  # casting.morph_cost: a mana morph cost
-        if re.fullmatch(r"(?:mega)?morph (?:\{[^}x]+\})+", line.strip().rstrip(".").lower()) is not None:  # (no X: wave 3F)
+        if re.fullmatch(r"(?:mega)?morph (?:\{[^}]+\})+", line.strip().rstrip(".").lower()) is not None:  # (X: wave 110B, 107.3a: announced as it is turned face up)
             return True
         from app.rules.casting import (  # -- hidden exile (wave 18A) -- "Morph—Discard a card."
             MORPH_COST,
@@ -573,7 +573,11 @@ def _keyword_supported(kw: str, line: str) -> bool:
         pieces = [p.strip() for p in re.split(r"[,;]\s*", re.sub(r"\s*\(.*?\)", "", line).strip().rstrip(".").lower())]
         mine = [p for p in pieces if p.startswith(kw)]
         return bool(mine) and all(re.fullmatch(rf"{kw} \d+", p) for p in mine)
-    if kw in ("bloodthirst", "toxic", "fabricate", "firebending", "dredge"):  # numbered keywords (firebending: wave 3F) (triggers.py, engine.enter_with_counters)
+    if kw == "firebending":  # -- wave 110B -- 702.189a: its piece of a line with other keywords
+        from app.rules import wave110b_cards
+
+        return wave110b_cards.firebending(line) is not None
+    if kw in ("bloodthirst", "toxic", "fabricate", "dredge"):  # numbered keywords (firebending: wave 3F) (triggers.py, engine.enter_with_counters)
         return re.fullmatch(rf"{kw} \d+", line.strip().rstrip(".").lower()) is not None or (  # (-- random choices (wave 47B) -- 702.54b "Bloodthirst X": replacements.entering_counters)
             kw == "bloodthirst" and line.strip().rstrip(".").lower() == "bloodthirst x")
     if kw == "plot":  # -- keywords (wave 15E) -- casting.plot: a mana plot cost

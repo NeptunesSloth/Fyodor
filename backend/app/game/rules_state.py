@@ -406,6 +406,7 @@ EventKind = Literal[
     "spell_cast",  # a player cast a spell (the object is the spell on the stack)
     "investigated",  # A completed investigate action, independent of replaced token count.
     "cycled",  # a player cycled a card (702.29: "when you cycle …")
+    "plotted",  # -- (wave 110B) -- 702.170d: a card in exile became plotted (the plot special action or an effect)
     "foretold",  # A completed native foretell special action, not an effect making a card foretold.
     "milled",  # -- triggers (wave 17D) -- 701.17a: ``player`` milled ``card`` (read where it lies, in their graveyard)
     "land_played",  # -- entry forms (wave 5F) -- a player played a land (305.1: "when you play another land")
