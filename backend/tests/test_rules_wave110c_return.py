@@ -7,7 +7,7 @@ import pytest
 
 from app.rules import coverage
 from tests.game_helpers import act
-from tests.wave110c_kit import answer, build, cast, check, make_db, mana, put, real, to_graveyard, zone
+from tests.wave110c_kit import answer, build, cast, ch, check, make_db, mana, put, real, to_graveyard, zone
 
 EXTRA = [real("Retether", "{3}{W}", 4, "Sorcery",
               "Return each Aura card from your graveyard to the battlefield. Only creatures can be enchanted this way. (Aura cards that can't enchant a creature on the battlefield remain in your graveyard.)", None, "W"),
@@ -17,6 +17,8 @@ EXTRA = [real("Retether", "{3}{W}", 4, "Sorcery",
          real("Wild Growth", "{G}", 1, "Enchantment — Aura", "Enchant land\nWhenever enchanted land is tapped for mana, its controller adds an additional {G}.", None, "G"),
          real("Fix What's Broken", "{2}{W}{B}", 4, "Sorcery",
               "As an additional cost to cast this spell, pay X life.\nReturn each artifact and creature card with mana value X from your graveyard to the battlefield.", None, "W"),
+         real("Spry and Mighty", "{2}{G}", 3, "Sorcery",
+              "Choose exactly two creatures you control. You draw X cards and the chosen creatures get +X/+X and gain trample until end of turn, where X is the difference between the chosen creatures' powers.", None, "G"),
          real("Test Rock", "{2}", 2, "Artifact", "", None),
          real("Test Gem", "{3}", 3, "Artifact", "", None),
          real("Small Bear", "{1}{G}", 2, "Creature — Bear", "", ("2", "2"), "G"),
@@ -28,7 +30,7 @@ def card_db(settings):
     return make_db(settings, EXTRA)
 
 
-@pytest.mark.parametrize("name", ["Retether", "Another Round", "Fix What's Broken"])
+@pytest.mark.parametrize("name", ["Retether", "Another Round", "Fix What's Broken", "Spry and Mighty"])
 def test_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
@@ -92,4 +94,18 @@ def test_fix_whats_broken_pays_x_life_and_returns_only_cards_with_that_mana_valu
     answer(s)
     assert s.state.players["p1"].life == before - 2
     assert [zone(s, x) for x in gone] == ["p1:battlefield", "p1:graveyard", "p1:battlefield", "p1:graveyard"]
+    check(s)
+
+
+def test_spry_and_mighty_draws_and_pumps_by_the_power_difference(cards):
+    """608.2d/608.2h: two creatures chosen on resolution; X = |4 - 2| = 2 cards drawn, both get +2/+2 and trample; the third creature is untouched."""
+    s = build(cards, ["Spry and Mighty", "Small Bear", "Big Bear", "Test Gem"])
+    a, b = put(s, "Small Bear"), put(s, "Big Bear")
+    mana(s, G=1, C=2)
+    hand = len(s.state.zones["p1:hand"])
+    cast(s, "Spry and Mighty")
+    answer(s, [a.id, b.id])
+    assert len(s.state.zones["p1:hand"]) == hand + 2  # (the spell comes into hand inside cast() and leaves it again)
+    assert (ch(s, a).pt, ch(s, b).pt) == ((4, 4), (6, 6))
+    assert "trample" in ch(s, a).keywords and "trample" in ch(s, b).keywords
     check(s)

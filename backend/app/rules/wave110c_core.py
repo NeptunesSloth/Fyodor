@@ -115,7 +115,23 @@ def _another_round() -> Parsed:
     return [*step, {"do": "repeat", "n": values.parse_amount("X"), "span": 3}, *copy.deepcopy(step)], None, False
 
 
+def _spry_and_mighty() -> Parsed:
+    """Spry and Mighty: exactly two creatures are chosen as it resolves (608.2d, not targets); X, the difference of the chosen creatures' powers (608.2h),
+    is fixed once, then used for the cards drawn and for the +X/+X (the chosen creatures also gain trample)."""
+    from app.rules import selectors
+
+    key = selectors.parse("creatures you control").key()  # type: ignore[union-attr]
+    x = {"ref_amount": "x110c"}
+    return [{"do": "player_chooses", "who": "you", "sel": key, "n": 2, "label": "creatures", "as": "gco"},
+            {"do": "power_gap110c", "who": "ref:gco", "bind_amount": "x110c"},
+            {"do": "draw", "who": "you", "n": x},
+            {"do": "pump", "who": "ref:gco", "p": x, "t": x},
+            {"do": "grant", "who": "ref:gco", "keywords": ["trample"]}], None, False
+
+
 BUILDERS: dict[str, Callable[[], Parsed]] = {
+    "Choose exactly two creatures you control. You draw X cards and the chosen creatures get +X/+X and gain trample until end of turn, where X is "
+    "the difference between the chosen creatures' powers.": _spry_and_mighty,
     "Return each Aura card from your graveyard to the battlefield. Only creatures can be enchanted this way.": _retether,
     "Exile any number of creatures you control, then return them to the battlefield under their owner's control. Then repeat this process X more times.":
         _another_round,
@@ -246,7 +262,16 @@ def surveil_take_end(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     return True
 
 
-PRIMITIVES = {"surveil_take110c": surveil_take, "surveil_take_end110c": surveil_take_end, "choose_branch110c": choose_branch, "temporary_counters110c": temporary_counters}
+def power_gap(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """Binds the difference between the greatest and least power among the chosen creatures (0 if fewer than two could be chosen)."""
+    from app.rules import context, values
+
+    powers = [values._stat_of(plan.ch(plan.state.cards[c]), "power") or 0 for c in context.objects(plan, ctx, e["who"].removeprefix("ref:"))]
+    context.bind_amount(ctx, e["bind_amount"], max(powers) - min(powers) if powers else 0)
+    return True
+
+
+PRIMITIVES = {"power_gap110c": power_gap, "surveil_take110c": surveil_take, "surveil_take_end110c": surveil_take_end, "choose_branch110c": choose_branch, "temporary_counters110c": temporary_counters}
 RESUME = {"choose_branch110c": resume_branch}
 from app.rules import wave110c_mass  # noqa: E402
 
