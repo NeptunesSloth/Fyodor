@@ -21,7 +21,7 @@ from app.rules import coverage
 from tests.game_helpers import act
 from tests.test_rules_designations import put as put3
 from tests.test_rules_wave12a_counters_keywords import real
-from tests.wave9c_kit import build, check, life, mana, put, to_hand
+from tests.wave9c_kit import build, card_named, check, life, mana, put, to_hand
 
 EXTRA = [
     real("Vivien's Stampede", "{4}{G}{G}", 6, "Sorcery",
@@ -60,6 +60,10 @@ EXTRA = [
     real("Thrill-Kill Disciple", "{2}{R}", 3, "Creature — Human Mercenary",
          "Squad—{1}, Discard a card. (As an additional cost to cast this spell, you may pay its squad cost any number of times. When this creature enters, create that many tokens that are copies of it.)\n"
          "When this creature dies, create a Junk token.", ("3", "2"), "R"),
+    real("Lunar Hatchling", "{4}{G}{U}", 6, "Creature — Alien Beast",
+         "Flying, trample\nBasic landcycling {2} ({2}, Discard this card: Search your library for a basic land card, reveal it, put it into your hand, then shuffle.)\n"
+         "Escape—{4}{G}{U}, Exile a land you control, Exile five other cards from your graveyard. (You may cast this card from your graveyard for its escape cost.)",
+         ("6", "6"), "GU"),
     real("Covenant of Minds", "{4}{U}", 5, "Sorcery",
          "Reveal the top three cards of your library. Target opponent may choose to put those cards into your hand. If they don't, put those cards into your graveyard and draw five cards.",
          None, "U"),
@@ -637,3 +641,28 @@ def test_thrill_kill_disciple_squad_needs_a_card_to_discard_for_each_payment(car
     with pytest.raises(ActionError):
         act(s, "p1", type="cast_spell", card_id=c.id, kicker=2)
     assert s.state.cards[c.id].zone == "p1:hand"
+
+
+@pytest.mark.parametrize("has_land", [True, False])
+def test_lunar_hatchling_escape_also_exiles_a_land_you_control(cards, has_land):
+    """702.138a: Escape—{4}{G}{U}, Exile a land you control, Exile five other cards from your graveyard: the land is exiled with the five cards (601.2h); no land, no cast."""
+    from app.game.errors import ActionError
+
+    s = build(cards, ["Lunar Hatchling", "Grizzly Bears", "Llanowar Elves", "Goblin Test", "Opt", "Giant Growth"])
+    names = ["Lunar Hatchling", "Grizzly Bears", "Llanowar Elves", "Goblin Test", "Opt", "Giant Growth"]
+    for n in names:
+        act(s, "p1", type="move", card_ids=[card_named(s, n).id], to={"player": "p1", "zone": "graveyard"})
+    if has_land:
+        put(s, "Forest")
+    mana(s, G=1, U=1, C=4)
+    hatchling = card_named(s, "Lunar Hatchling")
+    if not has_land:
+        with pytest.raises(ActionError):
+            act(s, "p1", type="cast_spell", card_id=hatchling.id)
+        assert s.state.cards[hatchling.id].zone == "p1:graveyard"
+        return
+    act(s, "p1", type="cast_spell", card_id=hatchling.id)
+    answer(s)
+    assert s.state.cards[hatchling.id].zone == "p1:battlefield"
+    assert len(s.state.zones["p1:exile"]) == 6 and sum(1 for x in s.state.cards.values() if x.zone == "p1:battlefield" and x.name == "Forest") == 0
+    check(s)

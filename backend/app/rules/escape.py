@@ -36,7 +36,7 @@ if TYPE_CHECKING:
 Definition = dict[str, Any]
 
 _WORDS = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10}
-PRINTED = re.compile(r"^escape—(?P<mana>(?:\{[^}]+\})+), exile (?P<n>[a-z]+) other cards from your graveyard$", re.IGNORECASE)
+PRINTED = re.compile(r"^escape—(?P<mana>(?:\{[^}]+\})+),(?: exile (?P<land>a land you control),)? exile (?P<n>[a-z]+) other cards from your graveyard$", re.IGNORECASE)
 GRANT = re.compile(r"^each (?P<sel>[A-Za-z][A-Za-z -]*?) card in your graveyard has escape\. the escape cost is equal to "
                    r"the card's mana cost plus exile (?P<n>[a-z]+) other cards from your graveyard$", re.IGNORECASE)
 # -- cost alt (wave 21F) -- "You may cast this card from your graveyard by paying {2}{W} rather than paying its mana cost." (Raffine's
@@ -58,7 +58,7 @@ def define_static(t: str) -> Definition | None:
         cost = M.parse_cost(m["mana"])
         if n is None or cost.x or cost.unsupported:
             return None
-        return {"kind": "static", "static": "escape", "mana": m["mana"], "exile": n, "effects": []}
+        return {"kind": "static", "static": "escape", "mana": m["mana"], "exile": n, "land": bool(m["land"]), "effects": []}  # (wave 110E: Lunar Hatchling's extra land)
     m = GY_COST.fullmatch(t)
     if m:
         from app.rules import alt_costs
@@ -77,9 +77,9 @@ def define_static(t: str) -> Definition | None:
     return None
 
 
-def _cost_text(mana: str, n: int) -> str:
+def _cost_text(mana: str, n: int, land: bool = False) -> str:
     word = next(w for w, k in _WORDS.items() if k == n)
-    return f"pay {mana} and exile {word} other cards from your graveyard"
+    return f"pay {mana}{' and exile a land you control' if land else ''} and exile {word} other cards from your graveyard"
 
 
 def offers(state: GameState, player: str, card: CardInstance, ch: Characteristics, info: CardInfo) -> list[Offer]:
@@ -97,9 +97,9 @@ def offers(state: GameState, player: str, card: CardInstance, ch: Characteristic
     out: list[Offer] = []
     for index, d in scripts.definitions(ch).items():
         if d.get("static") == "escape":
-            alt = alt_costs.parse_cost(_cost_text(d["mana"], d["exile"]))
+            alt = alt_costs.parse_cost(_cost_text(d["mana"], d["exile"], d.get("land", False)))
             if alt is not None:
-                out.append(alt_costs.Offer(f"{card.id}:{index}", f"{ch.name}: escape ({d['mana']}, exile {d['exile']} other "
+                out.append(alt_costs.Offer(f"{card.id}:{index}", f"{ch.name}: escape ({d['mana']}{', exile a land you control' if d.get('land') else ''}, exile {d['exile']} other "
                                            "cards from your graveyard)", alt, escape=True))
         elif d.get("static") == "gy_cost" and (alt := alt_costs.parse_cost(d["cost"])) is not None:  # (wave 21F)
             out.append(alt_costs.Offer(f"{card.id}:{index}", f"{ch.name}: {d['cost']}", alt, escape=True, tag="graveyard"))
