@@ -336,7 +336,32 @@ def _vats() -> Parsed:
     return effects, targets, optional
 
 
+def gambit(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Illusionist's Gambit: the attackers leave combat (506.4) and untap (701.26b); in the additional combat (500.8) each of them attacks if able
+    and can't attack the caster or their planeswalkers: continuous attack effects that begin with the next combat (attack_destinations.begin_window)."""
+    from app.rules import effects, layers
+
+    who = 'sel:{"attacking":true,"types":["Creature"]}'
+    cards = effects._cards(plan, ctx, who)
+    effects.PRIMITIVES["remove_from_combat"](plan, ctx, {"do": "remove_from_combat", "who": who})
+    if cards:
+        effects.PRIMITIVES["untap"](plan, ctx, {"do": "untap", "who": "union:" + "+".join("object:" + plan.oid(c) for c in cards)})
+    for cid in cards:
+        card = plan.state.cards[cid]
+        if card.zone.endswith(":battlefield"):
+            layers.add_effect(plan, affected=[plan.oid(cid)], layer="6", source=ctx.get("source_object"), controller=ctx["controller"], duration="permanent",
+                              imposes=("must_attack", f"cant_attack_player_pw:{ctx['controller']}"), declaration_window="next_combat",
+                              declaration_player=card.controller)
+    return effects.PRIMITIVES["extra_phases"](plan, ctx, {"do": "extra_phases", "after": "phase", "main": False})
+
+
+def _gambit() -> Parsed:
+    return [{"do": "gambit110a"}], None, False
+
+
 BUILDERS: dict[str, Callable[[], Parsed]] = {
+    "Remove all attacking creatures from combat and untap them. After this phase, there is an additional combat phase. Each of those creatures attacks that "
+    "combat if able. They can't attack you or planeswalkers you control that combat.": _gambit,
     "Choose any number of target creatures with equal toughness. Destroy the chosen creatures.": _vats,
     "Reveal the top five cards of your library. Put one of them into your hand. Then choose an opponent. They put one on the bottom of your library. "
     "Then you put one into your hand. Then they put one on the bottom of your library. Put the other into your hand.": _memories,
@@ -552,5 +577,5 @@ def unblocked_turn(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return True
 
 
-PRIMITIVES = {"bind_sacrificed110a": bind_sacrificed, "unblocked_turn110a": unblocked_turn, "repeat_put110a": repeat_put, "note_put110a": note_put, "bind110a": bind, "end_combat_phase110a": end_combat_phase, "snow110a": snow,
+PRIMITIVES = {"gambit110a": gambit, "bind_sacrificed110a": bind_sacrificed, "unblocked_turn110a": unblocked_turn, "repeat_put110a": repeat_put, "note_put110a": note_put, "bind110a": bind, "end_combat_phase110a": end_combat_phase, "snow110a": snow,
               "exiled_power_damage110a": exiled_power_damage, "exile_hands110a": exile_hands, "counter_opponents110a": counter_opponents, "noted_draw110a": noted_draw}
