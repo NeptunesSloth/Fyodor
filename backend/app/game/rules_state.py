@@ -1434,6 +1434,7 @@ class RulesState(BaseModel):
     spells_cast: dict[str, TurnCount] = Field(default_factory=dict)
     mana_cast: dict[str, TurnCount] = Field(default_factory=dict)  # -- wave 15B -- mana spent to cast spells this turn (700.14 expend)
     loyalty_used: dict[str, int] = Field(default_factory=dict)  # planeswalker -> turn it last used a loyalty ability
+    monarch_began110b: str | None = None  # -- wave 110B -- the monarch as the current turn began (Knights of the Black Rose)
     loyalty_second: dict[str, int] = Field(default_factory=dict)  # -- static_other sweep (wave 19A) -- planeswalker -> turn of its second use
     # -- activation costs (wave 4H) -- exerted permanents (701.43a): object id -> the player who exerted it; it doesn't
     # untap during that player's next untap step (app/rules/engine.start_next_turn)
@@ -2176,6 +2177,8 @@ def _diff(state: GameState, rules: RulesState, before: Capture, manual: bool, ac
         if old_name == "exile" and new_name != "exile":
             rules.suspended = [cid for cid in rules.suspended if cid != card_id]
         if {old_name, new_name} == {"battlefield", "phased"}:
+            if new_name == "phased" and card is not None:  # -- phase out (wave 110B) -- "Whenever ~ phases out" (702.26d: no leave trigger, but this one)
+                emit(state, "designation", counter="phase_out", card=card_id, object_id=rules.object_id(card_id), player=card.controller)
             continue  # -- phasing (wave 13D) -- 702.26d: phasing is no zone change: same object, no leave / enter triggers
         if old_name == new_name == "battlefield":
             if card is not None:  # -- control events (wave 45C) -- 613.1b, 603.10d: its controller changed (``from_zone``: the player who lost control)

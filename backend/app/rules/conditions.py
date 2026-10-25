@@ -721,7 +721,7 @@ def _more_ifs(t: str) -> Condition | None:
 _HAS_COUNTERS = re.compile(r"(?P<who>you|an opponent) (?:has|have) (?:(?P<no>no)|(?P<a>a|an|one or more)|(?P<n>\w+) or more) "
                            r"(?P<kind>poison|experience|rad|energy) counters?")
 _COMPLETED = re.compile(r"you(?: (?P<neg>haven't|have not)|'ve| have) completed (?P<d>Lost Mine of Phandelver|Dungeon of the Mad Mage|Tomb of Annihilation|Undercity)")
-_DESIGNATIONS = {"there is no monarch": "no_monarch", "an opponent is the monarch": "opponent_monarch",
+_DESIGNATIONS = {"you were the monarch as the turn began": "monarch_began", "there is no monarch": "no_monarch", "an opponent is the monarch": "opponent_monarch",
                  "you're not the monarch": "not_monarch", "you aren't the monarch": "not_monarch",
                  "you don't have the initiative": "not_initiative", "you've completed a dungeon": "completed_dungeon",
                  "you have completed a dungeon": "completed_dungeon",
@@ -1014,6 +1014,11 @@ def _attackers(m: re.Match[str]) -> Condition | None:
 @_history_pattern(r"you(?:'ve| have)? activated a loyalty ability this turn")
 def _loyalty(m: re.Match[str]) -> Condition:
     return {"history": "facts", "kind": "loyalty", "who": "you", "n": 1}  # -- turn state (wave 100H) -- 606.3: an activation you made (casting.py)
+
+
+@_history_pattern(r"you didn't activate a loyalty ability of a planeswalker this turn")
+def _no_loyalty(m: re.Match[str]) -> Condition:
+    return {"not": {"history": "facts", "kind": "loyalty", "who": "you", "n": 1}}  # -- wave 110B -- The Chain Veil; 606.3 (only planeswalkers have them)
 
 
 @_history_pattern(r"you(?:'ve| have)? cycled (?P<n>\w+) or more cards this turn")
@@ -1641,6 +1646,10 @@ def holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
         from app.rules import triggers100a
 
         return triggers100a.holds(plan, ctx, cond)
+    if cond.get("skyguard110b"):  # -- wave 110B --
+        from app.rules import wave110b_cards
+
+        return wave110b_cards.skyguard_holds(plan, ctx)
     if cond.get('attack_pair_players86') or cond.get('attack_other_exact86'):
         from app.rules import attack_subjects86
 

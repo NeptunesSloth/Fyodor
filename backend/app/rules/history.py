@@ -924,6 +924,9 @@ def amount(plan: Plan, ctx: dict[str, Any], v: dict[str, Any]) -> int:
                    and (v.get("sel") is None or note_matches(selectors.from_key(v["sel"]), f.types, f.subtypes, f.supertypes, token=f.token)))  # (wave 47C: artifacts or creatures)
     if kind == "opponents_attacked":  # -- this-turn state (wave 33D) -- 508.6: the opponents (still in the game, 800.4a) you declared attackers against
         return len({p for a in log.attackers.get(me, []) for p in log.attacked_who.get(a, []) if p != me and p in plan.live()})
+    if kind == "excess_obj110b":  # -- one-card wordings (wave 110B) -- 120.10: all the excess damage that object was dealt this turn
+        ids = object_ids(plan, ctx, v["object"])
+        return sum(f.excess for f in log.facts if f.kind == "damaged" and f.object_id in ids)
     if kind == "damage_to_you":  # -- this-turn history (wave 50E) -- all the damage dealt to you this turn, however many sources (120.3)
         return sum(f.amount for f in log.facts if f.kind == "damage" and f.player == me)
     if kind == "all_lost":  # -- activated other (wave 52D) -- the life every player lost this turn (119.3)

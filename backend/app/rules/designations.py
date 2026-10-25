@@ -57,6 +57,8 @@ def status(plan: Plan, you: str, kind: str) -> bool:
         return monarch is None
     if kind == "opponent_monarch":
         return monarch is not None and monarch != you
+    if kind == "monarch_began":  # -- wave 110B -- 725: "if you were the monarch as the turn began" (engine.start_next_turn takes the snapshot)
+        return plan.rules.monarch_began110b == you
     if kind == "not_monarch":
         return monarch != you
     if kind == "not_initiative":
@@ -290,6 +292,10 @@ def facts(plan: Plan, e: Event) -> list[Any]:
         return [("fully_unlock", None, None, e.player, {})]
     if e.counter == "counters_spell" and e.player:  # -- counter events (wave 19C) -- the controller of the spell or ability that countered it
         return [("counters_spell", None, None, e.player, {})]
+    if e.counter == "spell_countered110b" and e.player:  # -- spell countered (wave 110B) -- the controller of the cast spell that was countered
+        return [("spell_countered110b", None, None, e.player, {})]
+    if e.counter == "gift_given110b" and e.player:  # -- gift given (wave 110B) -- 702.174c (gift.py)
+        return [("gift_given110b", None, None, e.player, {})]
     if e.counter == "search_library" and e.player:  # -- most-played cards (wave 43B) -- 701.23: a player searched their own library (effects._ask_search)
         return [("search_library", None, None, e.player, {})]
     if e.counter == "proliferate" and e.player:  # -- trigger tail (wave 15B) -- 701.34a
@@ -309,6 +315,11 @@ def facts(plan: Plan, e: Event) -> list[Any]:
         card = plan.state.cards[e.card]
         if card.zone.endswith(":battlefield") and plan.oid(card) == e.object_id:
             return [("phase_in", card, plan.ch(card), card.controller, {"oid": e.object_id})]
+        return []
+    if e.counter == "phase_out" and e.card in plan.state.cards:  # -- phase out (wave 110B) -- 702.26d: the permanent that phased out (it is in the phased zone now)
+        card = plan.state.cards[e.card]
+        if card.zone.endswith(":phased") and plan.oid(card) == e.object_id:
+            return [("phase_out", card, plan.ch(card), card.controller, {"oid": e.object_id})]
         return []
     if e.counter == "explore" and e.card in plan.state.cards:  # -- trigger tail (wave 15B) -- 701.44a: the creature that explored
         card = plan.state.cards[e.card]

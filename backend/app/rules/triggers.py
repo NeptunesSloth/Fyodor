@@ -750,6 +750,7 @@ def _damage_facts(plan: Plan, e: Event) -> list[Fact]:
     recipient_is_battle = got is not None and "Battle" in got[1].types  # (120.3h)
     dealt_info = {**base, "combat": e.combat, "recipient": e.player, "recipient_creature": recipient_is_creature,
                   "recipient_planeswalker": recipient_is_walker, "recipient_battle": recipient_is_battle,
+                  "recipient_blocking110b": got is not None and bool(got[0].blocking),  # (-- one-card wordings (wave 110B) -- 509.1g: a blocker)
                   "recipient_subtypes": list(got[1].subtypes) if got is not None else []}  # (wave 15B)
     if got is not None:  # -- other side (wave 6D) -- "deals damage to a creature, destroy that creature" (other_side.py)
         dealt_info.update(other=got[0].id, other_oid=e.object_id)
@@ -1069,6 +1070,8 @@ def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: F
         return False
     if cond.get('cost_has_x') and (och is None or '{X}' not in (och.mana_cost or '')):
         return False
+    if event == 'activate' and info.get('loyalty_removed110b', 0) < cond.get('loyalty_removed110b', 0):
+        return False  # -- wave 110B -- "if you removed two or more loyalty counters to activate it" (Way of the Mind Sculptor)
     if cond.get('activation_cost'):
         from app.rules import activated_copy_effects
 
@@ -1281,7 +1284,7 @@ def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: F
                 (to == "its_owner" and (recipient is None or obj is None or recipient != obj.owner)) or \
                 (to == "self" and info.get("other") != watcher.id) or \
                 (to == "players" and recipient is None) or (to == "opponents" and (recipient is None or recipient == you)) or \
-                (to == "creatures" and not info.get("recipient_creature")) or \
+                (to == "creatures" and not info.get("recipient_creature")) or (cond.get("blocking110b") and not info.get("recipient_blocking110b")) or \
                 (cond.get("min") and int(info.get("amount") or 0) < cond["min"]) or \
                 (to == "enchanted_player" and (recipient is None or recipient != watcher.attached_player)):
             return False
@@ -1844,10 +1847,15 @@ def _watchers(plan: Plan, trigger: str) -> list[tuple[CardInstance, Characterist
                 out += [(card, ch, i, d) for i, d in abilities(plan, ch, trigger)
                         if ((d.get("cond") or {}).get("subject") == "haunted" and plan.oid(card) in plan.rules.haunting) or (d.get("cond") or {}).get("exiled")]
             continue
+        if card.zone.endswith(":phased"):  # -- phase out (wave 110B) -- 702.26d: a phased-out permanent's "Whenever ~ phases out" still triggers (looks back at the shift)
+            if trigger == "event" and plan.in_game(card) and not plan.manual(card):
+                ch = plan.ch(card)
+                out += [(card, ch, i, d) for i, d in abilities(plan, ch, trigger) if (d.get("cond") or {}).get("event") == "phase_out"]
+            continue
         if not (card.zone.endswith(":battlefield") or designations.emblem_card(card)) or not plan.in_game(card) or plan.manual(card):
             continue  # (-- emblems (wave 13A) -- 114.4: an emblem's triggered abilities work from the command zone)
         ch = plan.ch(card)
-        out += [(card, ch, i, d) for i, d in abilities(plan, ch, trigger) if not graveyard_ability(d)]
+        out += [(card, ch, i, d) for i, d in abilities(plan, ch, trigger) if not graveyard_ability(d) or d.get("gy_bf110b")]  # (-- wave 110B -- Quakebringer: also from the battlefield)
     return out
 
 
@@ -1865,7 +1873,7 @@ def graveyard_ability(d: dict[str, Any]) -> bool:
     # (-- graveyard triggers (wave 19C) -- "At the beginning of your upkeep, if this card is in your graveyard, …": it works there only)
     # (-- multi (wave 100M) -- 113.6m: "you may exile this card from your graveyard" moves it out of the graveyard: Kozilek's Return)
     s = json.dumps(d, default=str)
-    return '"self_gy"' in s or '"Exile this card from your graveyard"' in s or arrives_in_graveyard(d) or d.get("if") == IN_GRAVEYARD
+    return '"self_gy"' in s or '"Exile this card from your graveyard"' in s or arrives_in_graveyard(d) or d.get("if") == IN_GRAVEYARD or bool(d.get("gy_bf110b"))
 
 
 IN_GRAVEYARD = {"object": "self", "test": "in_graveyard"}
@@ -2048,7 +2056,7 @@ def at_step(plan: Plan, trigger: str) -> None:
             continue
         ch = plan.ch(card)
         for i, d in abilities(plan, ch, trigger):
-            if graveyard_ability(d):
+            if graveyard_ability(d) and not d.get("gy_bf110b"):  # (-- wave 110B --)
                 continue  # (113.6m: it functions only in the graveyard)
             _add(plan, controller=card.controller, source_card=card.id, source_object=plan.oid(card), name=ch.name, index=i,
                  definition=d)
@@ -2071,7 +2079,7 @@ def at_step_generic(plan: Plan) -> None:
             continue
         ch = plan.ch(card)
         for i, d in scripts.definitions(ch).items():
-            if d["kind"] != "triggered" or not str(d["trigger"]).startswith(prefixes):
+            if d["kind"] != "triggered" or not str(d["trigger"]).removeprefix("multi:").split("+")[-1].startswith(prefixes):  # (-- wave 110B -- a "multi:" ability may end in a step half)
                 continue
             if bool(d.get("exiled_step")) != exiled:
                 continue
@@ -2480,6 +2488,7 @@ def activated(plan: Plan, card: CardInstance, oid: str, *, loyalty: bool = False
                        else cost_has_x if cost_has_x is not None else '{X}' in (text.split(':', 1)[0] if ':' in text else '')}
     fact: Fact = ("activate", obj, och, actor,
                           {"oid": oid, "snap": snap, "actor": actor, "mana_ability": mana_ability, "amount": 1, "loyalty": loyalty, "activation_cost": activation_cost,
+                           "loyalty_removed110b": plan.rules.once_per_turn.get("loyalty_removed110b", 0) if loyalty else 0,  # (606.4: counters its cost removed)
                            "ability_kind": "ninjutsu" if ninjutsu.is_ninjutsu(text) else controller_tutors.activation_kind(och, text),
                            "outlast110b": outlast and re.fullmatch(r"(?:\{[^}]+\})+, \{T\}: Put a \+1/\+1 counter on this creature\. Activate only as a sorcery\.", text) is not None,  # (702.107a: the keyword's own ability: AbilityText.special, or a granted one)
                            "word": (w[1].lower() if (w := re.match(r"(Exhaust|Boast|Power-up) — ", text)) else None),  # (wave 33C: its ability word)

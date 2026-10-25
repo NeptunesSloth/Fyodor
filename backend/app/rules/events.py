@@ -69,6 +69,7 @@ class _Refuse(Exception):
 
 _EVENT_VERBS = [
     (r"enters?", "enter"),
+    (r"phases? out", "phase_out"),  # -- phase out (wave 110B) --
     (r"phases? in", "phase_in"),  # -- trigger other (wave 50G) -- 702.26a
     (r"dies|die", "die"),
     (r"leaves? the battlefield", "leave"),
@@ -98,7 +99,8 @@ _DAMAGE_TO = {"": "any", " to a player": "player", " to a creature": "creature",
               # -- source damage (wave 11F) -- 603.2c: "to one or more players" is one trigger for the whole batch
               " to its owner": "its_owner",  # -- trigger other (wave 44B) -- 120.1: The Beast, "a creature deals combat damage to its owner" (the damage dealer's owner is the player)
               " to one or more players": "players", " to your opponents": "opponents",
-              " to one or more of your opponents": "opponents", " to ~": "self", " to one or more creatures": "creatures"}
+              " to one or more of your opponents": "opponents", " to ~": "self", " to one or more creatures": "creatures",
+              " to one or more blocking creatures": "creatures"}  # (-- one-card wordings (wave 110B) -- Arashin War Beast: the cond's "blocking110b")
 _ONE_OR_MORE_TO = (" to one or more players", " to your opponents", " to one or more of your opponents")  # (wave 39B)
 _DAMAGE_TO_RE = "|".join(re.escape(k) for k in sorted(_DAMAGE_TO, key=len, reverse=True) if k)
 # 508.3a / 508.3b / 508.3e / 508.6: whom an attack was declared against
@@ -152,6 +154,8 @@ _DESIGNATION_EVENTS = [
     (re.compile(r"(?P<p>you) proliferate"), "proliferate"),  # -- trigger tail (wave 15B) -- 701.34a
     (re.compile(r"(?P<p>you) clash"), "clash"),  # -- trigger lines (wave 100A) -- 701.30: also a clash another player's effect made (the rulings)
     (re.compile(r"(?P<p>you) fully unlock a room", re.IGNORECASE), "fully_unlock"),  # -- ability words (wave 20C) -- 709.5i (rooms.unlock)
+    (re.compile(r"(?P<p>you) give a gift"), "gift_given110b"),  # -- gift given (wave 110B) -- 702.174c
+    (re.compile(r"a spell (?P<p>you)'ve cast is countered"), "spell_countered110b"),  # -- spell countered (wave 110B) -- 701.6a (effects.counter_object)
     (re.compile(r"a spell or ability (?P<p>you) control counters a spell"), "counters_spell"),  # -- counter events (wave 19C) -- 701.6a
     (re.compile(r"(?P<p>you|an opponent|a player) commits? a crime"), "commit_crime"),  # -- crimes (wave 6D) -- 700.13
     (re.compile(r"day becomes night or night becomes day"), "day_night"),
@@ -1492,6 +1496,6 @@ def _object_event(c: str) -> Condition | None:
             return None
         # (a "min" is the damage one source dealt one recipient in one event: 120.3; "to one or more creatures": 603.2c)
         return {**who, "event": "deal_damage", "to": to, **({"min": _count(m["min"])} if m["min"] else {}),
-                **({"aggregate": True} if to == "creatures" else {}),
+                **({"aggregate": True} if to == "creatures" else {}), **({"blocking110b": True} if "blocking" in m["to"] else {}),
                 "combat": {"combat ": True, "noncombat ": False}.get(m["c"] or "")}
     return None

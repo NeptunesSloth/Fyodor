@@ -1839,8 +1839,12 @@ def counter_object(plan: Plan, stack_id: str, actor: str, to: str | None = None,
         return
     r = plan.rules
     remember_stack(plan.state, stack_id)  # -- spell copies (wave 31D) -- a copy of it can still be made (608.2h, 707.10)
-    r.stack.pop(stack_id, None)
+    entry = r.stack.pop(stack_id, None)
     oid = plan.oid(stack_id)
+    if card.ability is None and (entry is None or entry.copy_of is None):  # -- spell countered (wave 110B) -- 701.6a, 707.10: a cast spell (not a copy) was countered; its caster is told
+        from app.game.rules_state import emit
+
+        emit(plan.state, "designation", counter="spell_countered110b", player=card.controller)
     r.buyback = [o for o in r.buyback if o != oid]
     r.rebound_cast = [o for o in r.rebound_cast if o != oid]
     r.exile_resolves.pop(oid, None)  # -- cast riders (wave 38C) -- a countered spell doesn't resolve (701.6a): "as it resolves" never applies to it
@@ -7075,3 +7079,4 @@ from app.rules import wave110d as _wave110d  # noqa: E402, I001  -- wave 110D --
 
 PRIMITIVES.update(_wave110d.PRIMITIVES)
 RESUME.update(_wave110d.RESUME)
+RESUME.update(_wave110b_cards.RESUME)
