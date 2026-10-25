@@ -67,6 +67,7 @@ _IRREGULAR = {"elves": "Elf", "dwarves": "Dwarf", "wolves": "Wolf", "werewolves"
 _IRREGULAR.update({"oxen": "Ox", "armies": "Army", "spies": "Spy", "cyclopes": "Cyclops"})  # -- static wordings (wave 6E) --
 _IRREGULAR.update({"aurochs": "Aurochs"})  # -- trigger tail (wave 15B) -- (its own plural)
 _IRREGULAR.update({"urza's": "Urza's", "urza’s": "Urza's"})  # 205.3i: possessive land subtype, never a plural
+_IRREGULAR.update({"astartes": "Astartes", "custodes": "Custodes", "thalakos": "Thalakos", "cyclops": "Cyclops"})  # -- (wave 110O) -- own plurals
 _IRREGULAR.update({"heroes": "Hero"})  # -- counters (wave 21D) --
 _MARKERS = {"card", "spell", "perm", "token", "commander"}  # nouns that mark what kind of object, not its type
 ZONES = ("battlefield", "graveyard", "hand", "exile", "library", "stack", "command")
@@ -1543,6 +1544,10 @@ def _core(word: str) -> tuple[str, str] | None:
     cap = w[:1].upper() + w[1:]
     if cap in CREATURE_TYPES or cap in OTHER_SUBTYPES:
         return "sub", cap
+    if (curly := cap.replace("'", "’")) in CREATURE_TYPES:  # -- (wave 110O) -- C’tan, Shi’ar (statics.parse writes the apostrophe straight)
+        return "sub", curly
+    if cap == "TimeLord":  # -- (wave 110O) -- "Time Lord" is one creature type of two words (205.3m); parse() joins them
+        return "sub", "Time Lord"
     if word[:1].isupper() and word in PLANESWALKER_TYPES:  # -- kicked / instead (wave 4G) -- 205.3j
         return "sub", word
     return None
@@ -1785,6 +1790,7 @@ def _type_and(phrase: str) -> str:
 
 def parse(phrase: str) -> Selector | None:
     """A noun phrase without its determiner ("nonland permanent an opponent controls") → Selector."""
+    phrase = re.sub(r"\bTime Lords?\b", lambda m: m[0].replace(" ", ""), phrase)  # -- (wave 110O) --
     if phrase.strip() == "planeswalker that was activated this turn or tapped creature":  # -- wave 110A -- Cut Short: a different qualifier per kind;
         # "activated" = a loyalty ability of it was activated this turn (606; RulesState.loyalty_used)
         return Selector(either=(Selector(types=("Planeswalker",), extras=("loyalty_activated110a",)).key(), Selector(types=("Creature",), tapped=True).key()))

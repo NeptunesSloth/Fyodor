@@ -5,6 +5,7 @@ Researched against the Comprehensive Rules of 2026-09-25.
 """
 from __future__ import annotations
 
+from dataclasses import replace
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
@@ -23,8 +24,14 @@ _THRALL = ("Gain control of target creature until end of turn. If you control a 
            "creature until the end of your next turn instead. Untap that creature. It gains haste until end of turn.")
 
 
+_SANDS = "Redistribute any number of players' life totals."
+
+
 def parse(body: str) -> Any:
     from app.rules import scripts
+
+    if body.strip() == _SANDS:
+        return [{"do": "redistribute110o"}], None, False
 
     if body.strip() == _THRALL:  # 608.2c: the "instead" duration replaces the first one, so exactly one control effect is made
         short = scripts.parse_effects("Gain control of target creature until end of turn. Untap that creature. It gains haste until end of turn.")
@@ -42,12 +49,51 @@ def parse(body: str) -> Any:
     return scripts.parse_effects(same) if (same := REWRITES.get(body.strip())) is not None else None
 
 
+_OKO_TYPES = "+2: Up to one target creature gains all creature types."
+_OKO_EMBLEM = ('−6: Choose a creature type. You get an emblem with "Creatures you control of the chosen type get +3/+3 and have vigilance and '
+               'hexproof."')
+
+
 def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
     from app.rules import scripts
 
     text = scripts.self_text(ability.text, ch.name)
-    del text
+    if ability.kind == "loyalty" and text == _OKO_TYPES:  # Oko: 613.1d layer 4, "(This effect doesn't end.)": a permanent effect on the object
+        native = scripts.define(replace(ability, text="+2: Up to one target creature gets +0/+0 until end of turn."), ch)
+        if native is None:
+            return None
+        return {**native, "effects": [{"do": "become", "who": "target", "types": [], "all_creature_types": True, "duration": "permanent"}]}
+    if ability.kind == "loyalty" and text == _OKO_EMBLEM:
+        native = scripts.define(replace(ability, text="−6: You get an emblem with \"Elf creatures you control get +3/+3 and have vigilance and hexproof.\""), ch)
+        if native is None:
+            return None
+        return {**native, "effects": [{"do": "type_emblem110o"}]}
     return None
+
+
+def type_emblem(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """Oko, Shadowmoor Scion: the creature type is chosen as the ability resolves (the loyalty ability's controller, 608.2d); the emblem (114.1) then
+    names that type, since an emblem keeps no "chosen" value of its own (114.2: it has no source)."""
+    from app.game.rules_state import DecisionOption
+    from app.rules.creature_types import CREATURE_TYPES
+    from app.rules.plan import decide
+
+    decide(plan, player=ctx["controller"], kind="choose_one", prompt=f"{ctx.get('name') or 'It'}: choose a creature type",
+           options=[DecisionOption(id=t, label=t) for t in sorted(CREATURE_TYPES)], resume={"step": "type_emblem110o", "ctx": ctx, "e": e})
+    return False
+
+
+def resume_type_emblem(plan: Plan, d: Any, chosen: list[str]) -> None:
+    from app.game.errors import ActionError
+    from app.rules import designations, effects
+    from app.rules.creature_types import CREATURE_TYPES
+
+    ctx = d.resume["ctx"]
+    if len(chosen) != 1 or chosen[0] not in CREATURE_TYPES:
+        raise ActionError("Choose one creature type")
+    plan.note(f"{plan.name(d.player)} chooses {chosen[0]}", actor=d.player)
+    designations.emblem(plan, ctx, {"who": "you", "text": f"{chosen[0]} creatures you control get +3/+3 and have vigilance and hexproof."})
+    effects.continue_effects(plan, ctx)
 
 
 def holds(plan: Plan, ctx: Context, cond: dict[str, Any]) -> bool:
@@ -61,5 +107,92 @@ def holds(plan: Plan, ctx: Context, cond: dict[str, Any]) -> bool:
         for c in plan.state.cards.values() if c.zone.endswith(":battlefield") and c.controller == ctx["controller"])
 
 
-PRIMITIVES: dict[str, Any] = {}
-RESUME: dict[str, Any] = {}
+
+# -- Reverse the Sands: "Redistribute any number of players' life totals." (119.7-8) ------------------------------------------------------------
+def _allowed(plan: Plan, pid: str, total: int) -> bool:
+    """119.7-8: a player who can't gain life can't receive a higher total, one who can't lose life no lower one."""
+    from app.rules import cant_gain, life_lock
+
+    now = plan.state.players[pid].life
+    return not ((total > now and cant_gain.why_not(plan, pid)) or (total < now and life_lock.why_not(plan, pid, "lose")))
+
+
+def _completable(plan: Plan, players: list[str], totals: dict[str, int], left: list[str], given: dict[str, str]) -> bool:
+    """Can the players not yet given a total still all be given one of the totals left (each source once)?"""
+    todo = [p for p in players if p not in given]
+    if not todo:
+        return True
+    p = todo[0]
+    return any(_allowed(plan, p, totals[src]) and _completable(plan, players, totals, [x for x in left if x != src], {**given, p: src}) for src in left)
+
+
+def redistribute(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    from app.game.rules_state import DecisionOption
+    from app.rules.plan import decide
+
+    live = [p for p in plan.apnap() if p in plan.live()]
+    decide(plan, player=ctx["controller"], kind="choose_cards", prompt=f"{ctx.get('name') or 'It'}: choose any number of players whose life totals are redistributed",
+           options=[DecisionOption(id=p, label=f"{plan.name(p)} ({plan.state.players[p].life} life)") for p in live], min_choices=0, max_choices=len(live),
+           resume={"step": "redistribute_players110o", "ctx": ctx, "e": e})
+    return False
+
+
+def resume_redistribute_players(plan: Plan, d: Any, chosen: list[str]) -> None:
+    from app.game.errors import ActionError
+    from app.rules import effects
+
+    ctx = d.resume["ctx"]
+    live = [p for p in plan.apnap() if p in plan.live()]
+    if len(set(chosen)) != len(chosen) or any(p not in live for p in chosen):
+        raise ActionError("Choose players still in the game")
+    players = [p for p in live if p in chosen]
+    if len(players) < 2:  # one player given back their own total, or none: nothing changes
+        effects.continue_effects(plan, ctx)
+        return
+    totals = {p: plan.state.players[p].life for p in players}  # (the totals as the choice is made, 608.2h)
+    _next_assignment(plan, ctx, players, totals, {})
+
+
+def _next_assignment(plan: Plan, ctx: Context, players: list[str], totals: dict[str, int], given: dict[str, str]) -> None:
+    from app.game.rules_state import DecisionOption
+    from app.rules.plan import decide
+
+    todo = [p for p in players if p not in given]
+    left = [p for p in players if p not in given.values()]
+    p = todo[0]
+    options = [src for src in left if _allowed(plan, p, totals[src])
+               and _completable(plan, players, totals, [x for x in left if x != src], {**given, p: src})]
+    if len(todo) == 1:  # the last total goes to the last player
+        _finish(plan, ctx, players, totals, {**given, p: options[0]})
+        return
+    decide(plan, player=ctx["controller"], kind="choose_one", prompt=f"{ctx.get('name') or 'It'}: which life total does {plan.name(p)} get?",
+           options=[DecisionOption(id=src, label=f"{totals[src]} (was {plan.name(src)}'s)") for src in options],
+           resume={"step": "redistribute_give110o", "ctx": ctx, "players": players, "totals": totals, "given": given})
+
+
+def resume_redistribute_give(plan: Plan, d: Any, chosen: list[str]) -> None:
+    from app.game.errors import ActionError
+
+    r = d.resume
+    players, totals, given = r["players"], r["totals"], r["given"]
+    p = [x for x in players if x not in given][0]
+    left = [x for x in players if x not in given.values()]
+    if len(chosen) != 1 or chosen[0] not in left or not _allowed(plan, p, totals[chosen[0]]):
+        raise ActionError("Choose one of the life totals offered")
+    plan.note(f"{plan.name(p)} gets {totals[chosen[0]]}", actor=d.player)
+    _next_assignment(plan, r["ctx"], players, totals, {**given, p: chosen[0]})
+
+
+def _finish(plan: Plan, ctx: Context, players: list[str], totals: dict[str, int], given: dict[str, str]) -> None:
+    """An exchange of every chosen player's total (119.7-8, life_changes44.change: replacements, 616.1, are applied there)."""
+    from app.rules import effects, life_changes44, replace
+
+    request = {"mode": "exchange", "participants": players, "changes": [[p, totals[given[p]] - plan.state.players[p].life] for p in players],
+               "actor": ctx["controller"], "bind": None, "operation": replace._life_operation(plan, None)}
+    if life_changes44.change(plan, request, then={"do": "continue", "ctx": ctx}, ctx=ctx):
+        effects.continue_effects(plan, ctx)
+
+
+PRIMITIVES: dict[str, Any] = {"type_emblem110o": type_emblem, "redistribute110o": redistribute}
+RESUME: dict[str, Any] = {"type_emblem110o": resume_type_emblem, "redistribute_players110o": resume_redistribute_players,
+                          "redistribute_give110o": resume_redistribute_give}
