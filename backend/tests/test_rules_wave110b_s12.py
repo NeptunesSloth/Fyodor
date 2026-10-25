@@ -3,6 +3,7 @@
 * Stunning Reversal: 614.1a, 614.5 the next loss of the game this turn draws seven and sets life to 1; the card is exiled; used up after one loss.
 * Genku: 700.2, a mode not yet chosen this turn (modal memory) makes one of three tokens per nontoken permanent leaving.
 * Unidentified Hovership: 607.2a, 701.62a the exiled card's owner (not the Vehicle's controller) manifests dread when the Vehicle leaves.
+* Martyr's Bond: 603.10a, 608.2h each opponent sacrifices a permanent sharing a card type with the one that went to the graveyard (as it last existed).
 * Oblivious Bookworm: 708.2, 708.8 the end-step loot discards unless a permanent entered face down under your control this turn or you turned one face up this turn.
 """
 
@@ -21,7 +22,7 @@ def cards(settings):
     yield from repository(settings)
 
 
-@pytest.mark.parametrize("name", ["Oblivious Bookworm", "Stunning Reversal", "Genku, Future Shaper", "Unidentified Hovership"])
+@pytest.mark.parametrize("name", ["Oblivious Bookworm", "Stunning Reversal", "Genku, Future Shaper", "Unidentified Hovership", "Martyr's Bond"])
 def test_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
@@ -118,4 +119,21 @@ def test_unidentified_hovership_gives_the_owner_of_the_exiled_card_a_manifest(ca
     drive(s)
     down = [c for c in s.state.cards.values() if c.zone.endswith(":battlefield") and c.face_down]
     assert [c.controller for c in down] == ["p2"]
+    check(s)
+
+
+@pytest.mark.parametrize("opp_has_creature", [True, False])
+def test_martyrs_bond_makes_opponents_sacrifice_a_permanent_sharing_a_type(cards, opp_has_creature):
+    s = build(cards, ["Martyr's Bond", "Grizzly Bears", "Lightning Bolt"], ["Grizzly Bears", "Forest"])
+    put(s, "Martyr's Bond")
+    mine = put(s, "Grizzly Bears")
+    forest = put(s, "Forest", "p2")
+    theirs = put(s, "Grizzly Bears", "p2") if opp_has_creature else None
+    mana(s, "p1", R=1)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Lightning Bolt").id, targets=[mine.id])
+    drive(s)
+    assert s.state.cards[mine.id].zone == "p1:graveyard"
+    assert s.state.cards[forest.id].zone == "p2:battlefield"  # (a land shares nothing with a creature)
+    if theirs is not None:
+        assert s.state.cards[theirs.id].zone == "p2:graveyard"
     check(s)

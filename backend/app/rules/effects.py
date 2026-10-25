@@ -4255,6 +4255,9 @@ def _choose_next(plan: Plan, ctx: Context, e: dict[str, Any], players: list[Any]
             context.refs(ctx)["gcost"] = {"kind": "objects", **this_way.cost_objects(plan, ctx, this_way.COST, "sacrificed")}
             shared = {t for _, ch in context.infos(plan, ctx, "gcost") for t in ch.types}
             mine = [c for c in mine if plan.ch(plan.state.cards[c]).types & shared]
+        if e.get("shares_type_with") == "event":  # -- group choices (wave 110B) -- Martyr's Bond: the card types of the permanent that left, as it last existed (603.10a, 608.2h)
+            shared = {t for _, ch in context.infos(plan, ctx, context.EVENT) for t in ch.types}
+            mine = [c for c in mine if plan.ch(plan.state.cards[c]).types & shared]
         if e.get("distinct"):  # -- group choices (wave 53D) -- "a creature card in your graveyard that hasn't been chosen" (Rejoin the Fight): no object twice
             mine = [c for c in mine if c not in picked]
         if e.get("cap_power"):  # -- group choices (wave 53D) -- "with equal or lesser power" than the creature chosen first (Sculpted Sunburst)
