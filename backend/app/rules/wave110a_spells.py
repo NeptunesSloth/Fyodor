@@ -217,7 +217,14 @@ def _chooser(kind: str, combat: bool = False) -> Callable[[], Parsed]:
     return lambda: ([{"do": "declare_chooser110a", "kind": kind, "combat": combat}], None, False)
 
 
+def _dovin() -> Parsed:
+    """Dovin Baan +1: the -3/-0 and "can't be activated" (602.5, mana abilities too) both last until your next turn (611.2b)."""
+    pump, target, optional = _p("Until your next turn, up to one target creature gets -3/-0.")
+    return [*pump, {"do": "restrict", "who": "target:0", "rules": ["cant_activate"], "duration": "next_turn"}], target, optional
+
+
 BUILDERS: dict[str, Callable[[], Parsed]] = {
+    "Until your next turn, up to one target creature gets -3/-0 and its activated abilities can't be activated.": _dovin,
     # Gideon of the Trials +1: 615.1 a prevention shield that lasts until the controller's next turn (the shield record's own duration)
     "Until your next turn, prevent all damage target permanent would deal.": lambda: (
         [{**(got := _p("Prevent all damage target permanent would deal this turn."))[0][0], "duration": "next_turn"}], got[1], got[2]),

@@ -1354,7 +1354,7 @@ def _all_table_statics(state: GameState, info: CardInfo) -> list[tuple[CardInsta
         ch = derive(state, card, chars.of(card, info), info)
         for index, d in scripts.definitions(ch).items():
             if d.get("kind") == "static":
-                if emblem and d.get('static') not in ('permission', 'cost_modifier'):
+                if emblem and d.get('static') not in ('permission', 'cost_modifier', 'untap_limit'):  # -- planeswalker statics (wave 110A) -- Dovin Baan's emblem
                     continue
                 if eminent and (d.get("change") or {}).get("cond") != triggers.COMMAND_OR_BATTLEFIELD:
                     continue

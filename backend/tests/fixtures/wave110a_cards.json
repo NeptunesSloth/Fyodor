@@ -1153,5 +1153,23 @@
   ],
   "power": "5",
   "toughness": "6"
+ },
+ {
+  "name": "Dovin Baan",
+  "layout": "normal",
+  "mana_cost": "{2}{W}{U}",
+  "cmc": 4.0,
+  "type_line": "Legendary Planeswalker — Dovin",
+  "oracle_text": "+1: Until your next turn, up to one target creature gets -3/-0 and its activated abilities can't be activated.\n−1: You gain 2 life and draw a card.\n−7: You get an emblem with \"Your opponents can't untap more than two permanents during their untap steps.\"",
+  "colors": [
+   "U",
+   "W"
+  ],
+  "color_identity": [
+   "U",
+   "W"
+  ],
+  "keywords": [],
+  "loyalty": "3"
  }
 ]
