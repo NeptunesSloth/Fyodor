@@ -168,16 +168,22 @@ def static_candidates(plan: Plan, event: str | tuple[str, ...]) -> list[Candidat
     out: list[Candidate] = []
     for c in plan.state.cards.values():
         emblem = c.zone.endswith(":command") and c.token is not None and c.token.type_line == "Emblem"  # (-- life floor (wave 35C) -- 114.4: an emblem's)
-        if not (c.zone.endswith(":battlefield") or emblem) or c.face_down or not plan.in_game(c) or plan.manual(c):
+        from app.rules import (
+            wave110d_enter,  # -- enters (wave 110D) -- "As long as this creature is in your graveyard, …" (113.6)
+        )
+
+        gy110d = c.zone.endswith(":graveyard") and not c.is_token and "counters" in events and wave110d_enter.in_graveyard(c, plan.ch(c))
+        if not (c.zone.endswith(":battlefield") or emblem or gy110d) or c.face_down or not plan.in_game(c) or plan.manual(c):
             continue
         ch = plan.ch(c)
-        if "damage" in events:
+        if "damage" in events and not gy110d:
             from app.rules import absorb
 
             out += absorb.candidates(plan, c, ch)
         defs = scripts.definitions(ch)
         wanted = [(i, d) for i, d in defs.items() if d["kind"] == "static" and d.get("static") == "replace"
-                  and d.get("event") in events and (not emblem or d.get("event") in ("life_loss", "damage"))]
+                  and d.get("event") in events and (not emblem or d.get("event") in ("life_loss", "damage"))
+                  and bool(d.get("gy110d")) == gy110d]
         if not wanted or "Room" in ch.subtypes:  # (a Room's door is unlocked or not: not modelled)
             continue
         skip = conditional_lines(ch)
@@ -185,9 +191,12 @@ def static_candidates(plan: Plan, event: str | tuple[str, ...]) -> list[Candidat
         for i, d in sorted(wanted):
             if i in skip or not statics.static_if_holds(plan, d, c):  # (wave 35D: "As long as ~ is untapped, …", 611.3a)
                 continue
-            out.append(Candidate(id=f"s:{oid}:{i}", event=d["event"], match=d["match"], op=d["op"], controller=c.controller,
-                                 source_card=c.id, source_oid=oid, seq=(timestamp(plan.state, c.id), 0, i),
-                                 label=ch.name or c.name or "a permanent"))
+            # -- enters (wave 110D) -- "a counter of that kind" for each kind on the source (Blue, Loyal Raptor): one static per kind
+            for kind in wave110d_enter.kinds(c, d):
+                out.append(Candidate(id=f"s:{oid}:{i}" + (f":{kind}" if kind else ""), event=d["event"],
+                                     match={**d["match"], "counter": kind} if kind else d["match"], op=d["op"], controller=c.controller,
+                                     source_card=c.id, source_oid=oid, seq=(timestamp(plan.state, c.id), 0, i),
+                                     label=ch.name or c.name or "a permanent"))
     return out
 
 

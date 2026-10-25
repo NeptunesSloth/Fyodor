@@ -159,6 +159,10 @@ def _candidates(plan: Plan, comp: CostComponent, player: str, source: CardInstan
     opponent_counters = comp.kind == C.PUT_COUNTER and sel.controller == "opponent"
     pool = ([cid for pid in plan.live() for cid in plan.state.zones.get(zone_key(pid, "battlefield"), [])]
             if opponent_counters else plan.state.zones.get(zone, []))
+    from app.rules import wave110d_costs  # -- costs (wave 110D) -- "from a graveyard": every graveyard
+
+    if comp.kind == C.EXILE_FROM_GRAVEYARD and not wave110d_costs.own_pool_only(comp):
+        pool = wave110d_costs.graveyard_pool(plan, comp)
     suspended_counter_cost = comp.kind == C.REMOVE_COUNTER and bool(sel.either) and any(
         'suspended' in selectors.from_key(branch).extras for branch in sel.either)
     if suspended_counter_cost:
@@ -311,6 +315,12 @@ def _names_fit(plan: Plan, comp: CostComponent, ids: list[str]) -> bool:
 
     if not comp.names:
         return True
+    from app.rules import (
+        wave110d_costs,  # -- costs (wave 110D) -- groups that share a type / color / graveyard
+    )
+
+    if comp.names in wave110d_costs.GROUPS:
+        return wave110d_costs.fit(plan, comp, ids)
     groups = [set(names_of(plan.ch(plan.state.cards[c]))) for c in ids]
     if not groups or any(not g for g in groups):
         return False
@@ -327,6 +337,10 @@ def _names_payable(plan: Plan, comp: CostComponent, ids: list[str], need: int) -
 
     if not comp.names:
         return len(ids) >= need
+    from app.rules import wave110d_costs  # -- costs (wave 110D) --
+
+    if comp.names in wave110d_costs.GROUPS:
+        return wave110d_costs.payable(plan, comp, ids, need)
     groups = [frozenset(names_of(plan.ch(plan.state.cards[c]))) for c in ids]
     if comp.names == "same":
         counts = Counter(n for g in groups for n in g)

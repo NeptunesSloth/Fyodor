@@ -1065,6 +1065,12 @@ def after_entry(plan: Plan, card_id: str, controller: str, *, x: int | None = No
                 from app.rules import keyword_actions
 
                 keyword_actions.become_prepared(plan, card)
+    if not preview:
+        from app.rules import (
+            wave110d_enter,  # -- enters (wave 110D) -- "… and as a Mutant in addition to its other types"
+        )
+
+        wave110d_enter.entered(plan, card, controller, newcomers)
     if prepared is not None:
         if prepared[1] is not None:
             replace.do_counters(plan, prepared[1], by=controller)

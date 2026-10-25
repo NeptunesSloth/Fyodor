@@ -1,0 +1,3 @@
+- Razor Boomerang: "{T}, Unattach Razor Boomerang: It deals 1 damage to any target." - who "It" is (the Equipment or the creature) is not settled by a ruling in the repo; the granter machinery would pick the Equipment. Refused until a ruling is found.
+- Smoke Spirits' Aid: "For each of up to X target creatures, create ... attached to that creature" needs a per-target fan-out for token creation (no such primitive; "up to X" targets with a Role/Aura token each).
+- Shuriken: "That creature's controller gains control of Shuriken unless it was unattached from a Ninja" needs the unattach-source history in the granted ability.

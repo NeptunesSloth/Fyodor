@@ -5859,25 +5859,32 @@ def parse_anthem(text: str) -> Definition | None:
 # creature ("this creature", "it") is ambiguous to the grammar and stays unread.
 _GRANTER_RE = re.compile(selectors.GRANTER)
 _OTHER_SELF = re.compile(r"\b(?:this \w+|it|its(?! owner)|that creature|equipped creature)\b", re.IGNORECASE)
-_GRANTER_SUBJECT = {"add_counters", "bounce", "sacrifice", "tap", "untap"}
+_GRANTER_SUBJECT = {"add_counters", "bounce", "sacrifice", "tap", "untap", "remove_counters", "destroy"}  # (wave 110D: Heliod's Punishment)
 
 
 def _granter_view(ability: AbilityText) -> tuple[AbilityText, str] | None:
     head, _, effect = ability.text.partition(":")
+    from app.rules import wave110d_granter  # -- granter counters (wave 110D) --
+
     found = _GRANTER_RE.search(effect)
-    if ability.kind != "activated" or found is None or _OTHER_SELF.search(_GRANTER_RE.sub("", effect)):
+    effect, marker = wave110d_granter.text(effect)
+    if ability.kind != "activated" or found is None or _OTHER_SELF.search(_GRANTER_RE.sub("", effect).replace(" counters on it", "")):
         return None
-    return replace(ability, text=f"{head}:{_GRANTER_RE.sub('this permanent', effect)}"), found["oid"] or ""
+    return replace(ability, text=f"{head}:{_GRANTER_RE.sub('this permanent', effect)}"), marker + (found["oid"] or "")
 
 
 def _granter_bound(d: Definition, oid: str) -> Definition | None:
+    from app.rules import wave110d_granter
+
+    if (own := wave110d_granter.bound(d, oid)) is not None:
+        return own
     effects = []
     for e in d["effects"]:
         if e.get("do") in _GRANTER_SUBJECT and e.get("who") == "self":
             e = {**e, "who": f"obj:{oid}"}
         elif e.get("do") == "damage" and not e.get("src"):
             e = {**e, "src": f"obj:{oid}"}
-        effects.append(e)
+        effects.append(wave110d_granter.cond(e, oid))  # -- granter counters (wave 110D) --
     return None if '"self"' in json.dumps(effects) else {**d, "effects": effects}
 
 
@@ -6004,6 +6011,10 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
 
     if (whole100n := multi100n.definition(ability, ch)) is not None:
         return whole100n
+    from app.rules import wave110d  # -- wave 110D --
+
+    if (whole110d := wave110d.definition(ability, ch)) is not None:
+        return whole110d
     from app.rules import retarget100o  # -- retarget (wave 100O) --
 
     if (lines100o := retarget100o.definition(ability, ch)) is not None:
@@ -12293,3 +12304,7 @@ EFFECTS[:0] = _harness.TEMPLATES
 from app.rules import attached100f as _attached100f  # noqa: E402, I001
 
 EFFECTS[:0] = _attached100f.TEMPLATES
+
+from app.rules import wave110d as _wave110d  # noqa: E402, I001  -- wave 110D --
+
+EFFECTS[:0] = _wave110d.TEMPLATES
