@@ -1153,6 +1153,7 @@ class PaymentRecord(BaseModel):
     tapped_objects: list[str] = Field(default_factory=list)  # (review 26C) the object ids they were: "the creature tapped this way" (608.2h)
     kicked: int = 0  # 702.33d: times its kicker cost was paid
     kicked_mask: int = 0  # -- keywords (wave 50H) -- 702.33f: of two kicker costs, which were paid (1: the first, 2: the second)
+    pick110e: str | None = Field(default=None, max_length=64)  # -- cast-time choice (wave 110E) -- the creature type chosen as the spell was cast
     gift_to: str | None = Field(default=None, max_length=64)  # -- gift (wave 23D) -- 702.174a: the opponent the gift was promised to
     alternative: str | None = None  # "evoke", "dash", "flashback", "madness", "face_down", "free", …
     prototyped: bool = False  # -- casting extras (wave 18E) -- 718.3: cast prototyped (the spell and the permanent have the alternative values)

@@ -43,6 +43,7 @@ _BEATDOWN_REST = ("Delirium — If there are four or more card types among cards
                   "The creature you control deals damage equal to its power to the creature an opponent controls.")
 
 
+_CLOSE_LINE2 = "Close Encounter deals damage equal to the power of the chosen creature or card to target creature."
 _RETURNS = ("Each player shuffles their hand and graveyard into their library. You exile the top ten cards of your library. "
             "Then each player draws up to seven cards.")
 _THUNDERCLAP = ("Target creature you control deals damage equal to its power to another target creature. "
@@ -101,6 +102,14 @@ def definition(ability: Any, ch: Any) -> Def | None:
     from app.rules import scripts
 
     text = ability.text.strip()
+    if text == _CLOSE_LINE2:  # 120.3, 608.2h: the power of what was chosen as it was cast, as it is now or last was
+        native = scripts.define(replace(ability, text="Close Encounter deals 1 damage to target creature."), ch)
+        if native is None or len(native["effects"]) != 1 or native["effects"][0].get("do") != "damage":
+            return None
+        return {**native, "effects": [{"do": "pick110e", "as": "pk110e"}, {**native["effects"][0], "n": {"sum": "power", "of": "ref:pk110e"}}]}
+    if text in ("As an additional cost to cast this spell, choose a creature type.",
+                "As an additional cost to cast this spell, choose a creature you control or a warped creature card you own in exile."):  # 601.2b: asked as the spell is cast (wave110e_opp.announce), kept on the permanent
+        return {"kind": "spell", "effects": []}
     if ability.text.strip() == _STORM:
         native = scripts.define(replace(ability, text="Whenever you cast a spell that targets one or more creatures, draw a card."), ch)
         if native is None:

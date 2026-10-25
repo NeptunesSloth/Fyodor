@@ -50,6 +50,13 @@ EXTRA = [
     real("Callous Oppressor", "{1}{U}{U}", 3, "Creature — Cephalid",
          "You may choose not to untap this creature during your untap step.\nAs this creature enters, an opponent chooses a creature type.\n"
          "{T}: Gain control of target creature that isn't of the chosen type for as long as this creature remains tapped.", ("1", "4"), "U"),
+    real("Caller of the Hunt", "{2}{G}", 3, "Creature — Human",
+         "As an additional cost to cast this spell, choose a creature type.\n"
+         "Caller of the Hunt's power and toughness are each equal to the number of creatures of the chosen type on the battlefield.", ("*", "*"), "G"),
+    real("Bear Cub", "{G}", 1, "Creature — Bear", "", ("1", "1"), "G"),
+    real("Close Encounter", "{1}{R}", 2, "Instant",
+         "As an additional cost to cast this spell, choose a creature you control or a warped creature card you own in exile.\n"
+         "Close Encounter deals damage equal to the power of the chosen creature or card to target creature.", None, "R"),
     real("Goblin Test", "{R}", 1, "Creature — Goblin", "", ("1", "1"), "R"),
     real("Spin into Myth", "{3}{U}", 4, "Instant",
          "Put target creature on top of its owner's library, then fateseal 2. (To fateseal 2, look at the top two cards of an opponent's library, then put any number of them on the bottom of that player's library and the rest on top in any order.)", None, "U"),
@@ -460,4 +467,44 @@ def test_callous_oppressor_opponent_names_the_type_it_cant_steal(cards, target):
     act(s, "p1", type="activate_ability", card_id=op.id, ability=2, targets=[victim.id])
     answer(s)
     assert s.state.cards[victim.id].controller == "p1"
+    check(s)
+
+
+@pytest.mark.parametrize(("kind", "size"), [("Bear", 2), ("Human", 1), ("Goblin", 1), ("Elf", 0)])
+def test_caller_of_the_hunt_counts_the_type_chosen_as_it_was_cast(cards, kind, size):
+    """601.2b the type is chosen as an additional cost and kept on the permanent (public "Chosen creature type"); its P/T counts creatures of that type (two Bears, a Goblin, itself a Human)."""
+    from app.rules.plan import Plan
+
+    s = build(cards, ["Caller of the Hunt"], ["Grizzly Bears", "Bear Cub", "Goblin Test"])
+    put(s, "Grizzly Bears", "p2")
+    put(s, "Bear Cub", "p2")
+    put(s, "Goblin Test", "p2")
+    c = to_hand(s, "Caller of the Hunt")
+    mana(s, G=1, C=2)
+    act(s, "p1", type="cast_spell", card_id=c.id)
+    d = s.state.rules.decision
+    assert d is not None and d.player == "p1" and "Bear" in [o.id for o in d.options]
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[kind])
+    answer(s)
+    if size == 0:  # 704.5f: a 0/0 dies
+        assert s.state.cards[c.id].zone == "p1:graveyard"
+        return
+    assert s.state.cards[c.id].zone == "p1:battlefield" and s.state.cards[c.id].choices.get("Chosen creature type") == kind
+    assert Plan(s.state, "p1", s.cards, None).ch(s.state.cards[c.id]).pt == (size, size)
+    check(s)
+
+
+@pytest.mark.parametrize(("chosen", "dies"), [("Shivan Dragon", True), ("Goblin Test", False)])
+def test_close_encounter_uses_the_power_of_the_creature_chosen_as_cast(cards, chosen, dies):
+    """601.2b/120.3: the creature is chosen as an additional cost (only creatures you control or warped cards you own in exile); damage equals its power."""
+    s = build(cards, ["Close Encounter", "Shivan Dragon", "Goblin Test"], ["Grizzly Bears", "Shivan Dragon"])
+    dragon, goblin, bears = put(s, "Shivan Dragon"), put(s, "Goblin Test"), put(s, "Grizzly Bears", "p2")
+    mana(s, R=1, C=1)
+    c = to_hand(s, "Close Encounter")
+    act(s, "p1", type="cast_spell", card_id=c.id, targets=[bears.id])
+    d = s.state.rules.decision
+    assert d is not None and d.player == "p1" and sorted(o.id for o in d.options) == sorted([dragon.id, goblin.id])  # not the opponent's creature
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[dragon.id if chosen == "Shivan Dragon" else goblin.id])
+    answer(s)
+    assert (s.state.cards[bears.id].zone == "p2:graveyard") == dies
     check(s)

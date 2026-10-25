@@ -4109,6 +4109,7 @@ def _post_cast(plan: Plan, data: _PostCast, payment: M.Payment | None) -> None:
     record.prototyped = a.prototype  # -- casting extras (wave 18E) -- 718.3b
     record.kicked_mask = kick_mask(ch, a.kicker)  # (-- keywords (wave 50H) -- "kicked with its {R} kicker", 702.33f)
     record.kicked = kicked or int(a.awaken) or int(gift_to is not None or bargained)  # 702.33d (-- static_other sweep (wave 16B) -- awaken: the line is read as
+    record.pick110e = a.pick110e  # (wave 110E)
     record.gift_to = gift_to  # "If this spell was kicked"; wave 23D: a promised gift, 702.174k, likewise)
     _note_cast(plan, record, cast_zone, zone_player=data.origin_player103)  # -- refused modal/conditional (wave 3R1) --
     record.spliced_names = data.spliced_names
@@ -4830,6 +4831,12 @@ def optional_announced(plan: Plan, a: A.CastSpell, card: CardInstance, ch: Chara
         if found_gift is gift.WAITING:
             return None
         gift_to = found_gift
+    if not plan.manual(card):  # -- cast-time choice (wave 110E) -- 601.2b
+        from app.rules import wave110e_opp
+
+        if (picked := wave110e_opp.announce(plan, a, card, ch)) is wave110e_opp.WAITING:
+            return None
+        a.pick110e = picked
     if a.optional_costs and plan.manual(card):
         raise ActionError("That card is played by hand: pay its costs with the table tools")
     return optional, gift_to, any(o.kind == "bargain" for o in optional)  # -- keywords (wave 30E) -- 702.166b: its controller declared the intention to pay it
@@ -5312,6 +5319,7 @@ def _post_free_cast(plan: Plan, data: _PostFreeCast, payment: M.Payment | None) 
     record.kicked_mask = kick_mask(ch, a.kicker)  # (-- keywords (wave 50H) --)
     record.kicked = kick_count(ch, a.kicker) or int(gift_to is not None or bargained)  # (702.33d; a promised gift and a bargain read as kicked, as with the cost: 702.174k, 702.166)
     record.gift_to = gift_to
+    record.pick110e = a.pick110e  # (wave 110E)
     pending_suspend = r.free_cast_then or {}
     was_suspended = (pending_suspend["suspend_object"] == plan.oid(card) if "suspend_object" in pending_suspend
                      else card.id in r.suspended)  # absent only: preserve legacy saved announcement behavior

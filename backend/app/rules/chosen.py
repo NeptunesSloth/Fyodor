@@ -123,7 +123,8 @@ def _enters_choices(ch: Characteristics) -> list[str]:
     both += [k for t in texts if (m := ENTERS_CHOICE.match(t)) is not None and m["what"] == "color and an opponent" for k in ("color", "opponent")]
     typed = ["card type" for ab in ch.abilities if self_text(ab.text, ch.name) == "As ~ enters, look at an opponent's hand, then choose a card type other than creature."]  # (wave 53B: Arachne)
     color_pairs = ["color pair" for t in texts if (m := ENTERS_CHOICE.match(t)) is not None and m["what"] == "two colors"]
-    return singles + both + pairs + typed + color_pairs + ["card name" for _ in named]  # (wave 47A: the card type choices, Umori, Stenn, Cloud Key)
+    return singles + both + pairs + typed + color_pairs + ["card name" for _ in named] \
+        + (["creature type"] if any(ab.text == "As an additional cost to cast this spell, choose a creature type." for ab in ch.abilities) else [])  # (wave 110E: Caller of the Hunt)  # (wave 47A: the card type choices, Umori, Stenn, Cloud Key)
 
 
 def _kind(what: str | None) -> str | None:

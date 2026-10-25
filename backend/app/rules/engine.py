@@ -85,6 +85,7 @@ from app.rules import (
     spell_grants,  # -- spell grants (wave 28C) --
     triggers,
     untap_choice,  # -- untap choice (wave 7F) --
+    wave110e_opp,  # -- cast-time choice (wave 110E) --
 )
 from app.rules import morph_costs78 as _morph_costs78  # noqa: F401
 
@@ -1042,6 +1043,8 @@ def leave_stack(plan: Plan, card_id: str, controller: str, *, tapped: bool = Fal
         record = plan.rules.payments.pop(oid, None)
         if record is not None and card_id in plan.state.cards and plan.state.cards[card_id].zone.endswith(":battlefield"):
             plan.rules.payments[plan.oid(card_id)] = record  # the permanent remembers how its spell was paid
+            if record.pick110e and "|" not in record.pick110e:  # -- cast-time choice (wave 110E) -- public, read as the permanent's "Chosen creature type"
+                plan.do({"type": "set_choice", "card_id": card_id, "key": "Chosen creature type", "value": record.pick110e}, actor=controller)
             if (paid := [c for c in record.exiled if c != card_id and c in plan.state.cards and plan.state.cards[c].zone.endswith(":exile")
                         and (not record.exiled_objects or plan.oid(c) in record.exiled_objects)]) \
                     and any(ab.index < 100 and ab.kind not in ("triggered", "activated") and re.search(r"\bexile\b", ab.text, re.IGNORECASE)
@@ -1798,6 +1801,7 @@ RESUME: dict[str, Callable[[Plan, Decision, list[str]], None]] = {
     "exert_attackers": exert.resume,  # -- static wordings (wave 6E) -- 508.1g
     "enlist": enlist.resume,  # -- casting extras (wave 18E) -- 702.154a
     "assist": assist.resume,  # -- casting extras (wave 18E) -- 702.132a
+    "pick110e": wave110e_opp.resume,  # -- cast-time choice (wave 110E)
     "gift": gift.resume,  # -- gift (wave 23D) -- 702.174a
     "free_multikicker": casting.resume_free_multikicker,
     "free_optional": casting.resume_free_optional,  # -- free-cast optional costs (wave 41D) -- 118.9d, 601.2b
