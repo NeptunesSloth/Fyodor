@@ -22,7 +22,7 @@ def _controlled_since_turn_start(d: Def) -> Def:
     eff = d["effects"][0]
     head, _, key = eff["who"].partition("|sel:")
     sel = selectors.from_key("sel:" + key)
-    return {**d, "effects": [{**eff, "who": f"{head}|" + replace(sel, extras=(*sel.extras, controller_turn_history69.EXTRA)).key()}]}
+    return {**d, "effects": [{**eff, "who": f"{head}|" + replace(sel, extras=(*(("didnt_attack_combat110g" if x == "didnt_attack_this_turn" else x) for x in sel.extras), controller_turn_history69.EXTRA)).key()}]}
 
 
 def _twin(d: Def) -> Def:
@@ -77,7 +77,7 @@ _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
     # Serene Master
     "Whenever this creature blocks, exchange its power and the power of target creature it's blocking until end of combat.":
         ("Whenever this creature blocks, target creature it's blocking has base power 3 until end of combat.", _exchange_power),
-    # Total War: attack declaration (508.1); "didn't attack" is read as this turn's declaration
+    # Total War: attack declaration (508.1); "didn't attack" = not among this combat's attackers
     "Whenever a player attacks with one or more creatures, destroy all untapped non-Wall creatures that player controls that didn't attack, except for creatures "
     "the player hasn't controlled continuously since the beginning of the turn.":
         ("Whenever a player attacks with one or more creatures, destroy all untapped non-Wall creatures that player controls that didn't attack this turn.",

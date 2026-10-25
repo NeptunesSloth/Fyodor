@@ -22,7 +22,7 @@ from app.rules import coverage
 from tests.fixtures.cards import fixture_cards
 from tests.game_helpers import act
 from tests.test_rules_wave12a_counters_keywords import real
-from tests.wave9c_kit import build
+from tests.wave9c_kit import build, card_named
 from tests.wave110b_kit import attack, cast, ch, check, mana, put, settle, through_combat, to_hand
 
 EXTRA = [
@@ -46,11 +46,13 @@ EXTRA = [
          'Extort (Whenever you cast a spell, you may pay {W/B}. If you do, each opponent loses 1 life and you gain that much life.)\nWhen this creature enters, pay any amount of life. Target opponent reveals that many cards from their hand. You choose one of them and exile it.', ('1', '3'), 'BW'),
     real('Wall of Caltrops', '{1}{W}', 2, 'Creature — Wall',
          "Defender (This creature can't attack.)\nWhenever this creature blocks a creature, if at least one other Wall creature is blocking that creature and no non-Wall creatures are blocking that creature, this creature gains banding until end of turn. (If any creatures with banding you control are blocking a creature, you divide that creature's combat damage, not its controller, among any of the creatures it's being blocked by.)", ('2', '1'), 'W'),
+    real('Relentless Assault', '{2}{R}{R}', 4, 'Sorcery', 'Untap all creatures that attacked this turn. After this main phase, there is an additional combat phase followed by an additional main phase.', None, 'R'),
+    real('Test Vigil', '{1}', 1, 'Creature — Human', 'Vigilance', ('1', '1'), ''),
     real('Test Wall', '{1}', 1, 'Creature — Wall', '', ('0', '4'), ''),
     real('Hill Giant', '{3}{R}', 4, 'Creature — Giant', '', ('3', '3'), 'R'),
     real('Divination', '{2}{U}', 3, 'Sorcery', 'Draw two cards.', None, 'U'),
 ]
-NAMES = [c["name"] for c in EXTRA if c["name"] not in ("Divination", "Hill Giant", "Test Wall")]
+NAMES = [c["name"] for c in EXTRA if c["name"] not in ("Divination", "Hill Giant", "Test Wall", "Relentless Assault", "Test Vigil")]
 
 
 @pytest.fixture()
@@ -224,6 +226,32 @@ def test_total_war_destroys_idle_old_non_walls(cards):
     assert z["Test Wall"] == "p1:battlefield" and z["Hill Giant"] == "p1:battlefield"  # Wall; new this turn
     assert z["Benalish Hero"] == "p1:battlefield" and z["Grizzly Bears"] == "p1:battlefield"  # tapped; attacker
     assert s.state.cards[bob.id].zone == "p2:battlefield"
+    check(s)
+
+
+def test_total_war_didnt_attack_means_this_combat(cards):
+    """Total War (508.1, 500.8): in an additional combat, a creature that attacked only in the first combat 'didn't attack' in this one and dies."""
+    s = build(cards, ["Test Vigil", "Grizzly Bears", "Relentless Assault", "Total War"], ["Goblin"])
+    vig, bears = put(s, "Test Vigil"), put(s, "Grizzly Bears")
+    for c in (vig, bears):
+        s.state.rules.controlled_since[c.id].turn = s.state.rules.controlled_since[c.id].observed_from_turn = 0
+    attack(s, vig)
+    through_combat(s)
+    assert s.state.cards[vig.id].zone == "p1:battlefield"
+    put(s, "Total War", "p1")
+    to_hand(s, "Relentless Assault")
+    mana(s, R=2, C=2)
+    act(s, "p1", type="cast_spell", card_id=card_named(s, "Relentless Assault").id)
+    settle(s)
+    for _ in range(60):
+        d = s.state.rules.decision
+        if d is not None and d.kind == "declare_attackers":
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+    assert s.state.rules.combats == 2
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": bears.id, "target": "p2"}])
+    settle(s)
+    assert s.state.cards[vig.id].zone == "p1:graveyard" and s.state.cards[bears.id].zone == "p1:battlefield"
     check(s)
 
 
