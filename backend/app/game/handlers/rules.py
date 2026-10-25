@@ -125,7 +125,7 @@ def rules_damage(state: GameState, a: A.RulesDamage) -> None:
         emit(state, "damage", source_targets=[t.id for t in stack[spell].targets] if spell is not None else None,
              object_id=d.target_object, card=d.target if d.target in state.cards else None,
              player=d.target if d.target in state.players else None, source=d.source, amount=d.amount, combat=a.combat,
-             excess=d.excess, actor=d.source_controller, attacking_player=d.attacking_player if a.combat else None)
+             excess=d.excess, pair110c=(state.rules.pairs.get(d.target_object) or [None])[0] if state.rules is not None and d.target_object else None, actor=d.source_controller, attacking_player=d.attacking_player if a.combat else None)
         if a.combat and d.amount > 0 and d.target in state.players and state.rules is not None:
             for name in d.creature_names:
                 named_hits = state.rules.named_combat_damage.setdefault(name, [])

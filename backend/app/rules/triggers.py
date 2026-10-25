@@ -729,7 +729,7 @@ def _damage_facts(plan: Plan, e: Event) -> list[Fact]:
     if got is not None:
         out.append(("dealt_damage", got[0], got[1], got[0].controller,
                     {"oid": e.object_id, "snap": None if _live(plan, got[0]) else r.lki.get(e.object_id or ""),
-                     "amount": e.amount, "source_oid": e.source, "combat": e.combat, "attacking_player": e.attacking_player, "excess": e.excess}))  # (wave 39B: 120.10)
+                     "amount": e.amount, "source_oid": e.source, "combat": e.combat, "attacking_player": e.attacking_player, "excess": e.excess, "pair110c": e.pair110c}))  # (wave 39B: 120.10)
     elif e.player is not None:  # "you're dealt combat damage", "an opponent is dealt noncombat damage"
         out.append(("dealt_damage", None, None, e.player,
                     {"recipient": e.player, "amount": e.amount, "source_oid": e.source, "combat": e.combat, "attacking_player": e.attacking_player}))
@@ -876,7 +876,7 @@ def _cond_matches(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact:
                 return False
         return int(info.get("amount") or 0) > 0 and (cond.get("ctl", "any") == "any" or (cond["ctl"] == "you") == (player == you))
     if subject == "self_or_paired110c":  # -- soulbond (wave 110C) -- "~ or a creature it's paired with" (Donna Noble): the pair is on the battlefield with it (702.95e)
-        return obj.id == watcher.id or (plan.rules.pairs.get(plan.oid(watcher)) or [None])[0] == plan.oid(obj)
+        return obj.id == watcher.id or (plan.rules.pairs.get(plan.oid(watcher)) or [None])[0] == plan.oid(obj) or (info.get("pair110c") is not None and info["pair110c"] == plan.oid(watcher))  # 603.2: pair as the damage was dealt
     if subject == "self_or_host":  # "~ or equipped creature"
         return obj.id == watcher.id or _hosted(plan, watcher, obj, info, event)
     if subject == "self" and event == "cycle" and cond.get("cycle_other_you") and obj.id != watcher.id:

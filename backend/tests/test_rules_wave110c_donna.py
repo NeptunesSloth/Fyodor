@@ -36,3 +36,17 @@ def test_damage_to_the_paired_creature_is_copied_to_an_opponent(cards, victim, l
     answer(s, "p2")
     assert life(s, "p2") == 40 - loss
     check(s)
+
+
+def test_lethal_damage_to_the_paired_creature_still_triggers(cards):
+    """603.2: trigger judged at the damage event, the pair exists then, even though SBA ends it."""
+    s = build(cards, ["Donna Noble", "Foundry Inspector", "Lightning Bolt"], [])
+    put(s, "Foundry Inspector")
+    mana(s, R=1, C=2)
+    cast(s, "Donna Noble")
+    answer(s, "yes", [next(c.id for c in s.state.cards.values() if c.name == "Foundry Inspector")])
+    mana(s, R=1)
+    cast(s, "Lightning Bolt", [next(c.id for c in s.state.cards.values() if c.name == "Foundry Inspector")])
+    answer(s, "p2")
+    assert life(s, "p2") == 37
+    check(s)
