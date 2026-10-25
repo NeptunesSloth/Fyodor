@@ -111,7 +111,7 @@ _STATS = {"power": "power", "toughness": "toughness", "mana value": "mana_value"
 _COUNTERS_ON = re.compile(r"^(?:(?P<kind>\+1/\+1|-1/-1|[a-z]+) )?counters? on (?P<on>.+)$")
 _ON = {"~": "self", "it": "it", "this creature": "self", "this permanent": "self", "this artifact": "self",
        "this enchantment": "self", "this land": "self", "this equipment": "self", "this aura": "self",
-       "that creature": "it", "that permanent": "it"}
+       "that creature": "it", "that permanent": "it", "its creator": "creator110d"}  # (wave 110D: a token reads the permanent that made it)
 _DISTINCT = {"card types": "types", "different card types": "types", "card type": "types",
              "permanent types": "permanent_types", "permanent type": "permanent_types",
              "colors": "colors", "different colors": "colors", "color": "colors",
@@ -397,7 +397,8 @@ def _parse_count(phrase: str, *, it: str | None = None) -> Value | None:
         on = "self" if m["on"] == "~" else it
         if on != "self":
             return None
-        return {"attached": sorted(set(re.findall(r"Aura|Equipment", m["kinds"]))), "on": on}
+        # (wave 110D: "other than ‹granter›" — the granting Aura, 113.10; layers.py binds its object id into the granted text, none while it is only being read)
+        return {"attached": sorted(set(re.findall(r"Aura|Equipment", m["kinds"]))), "on": on, **({"except_oid": m["ex"] or ""} if "‹granter" in what else {})}
     m = _COUNTERS_AMONG.match(what)  # -- value grammar (wave 23C) -- "the number of counters on permanents you control", "time counters among permanents you control"
     if m and m["sel"].lower() not in _ON and "‹granter" not in m["sel"]:  # (review 23C: one granting object is no group — a token an effect
         key = _selector_key(m["sel"])  # created never has its ‹granter› bound (Gutter Grime's Ooze would read 0)
@@ -473,7 +474,7 @@ def _parse_count(phrase: str, *, it: str | None = None) -> Value | None:
 
 # -- token & pump wordings (wave 6C) -- "+2/+2 for each Aura attached to it", "… for each Aura and Equipment attached to
 # ~": the Auras / Equipment attached to the source now (301.5, 303.4; read whenever its characteristics are, 611.3a)
-_ATTACHED_TO = re.compile(r"(?P<kinds>Aura|Equipment|Aura (?:and|or|and/or) Equipment) attached to (?P<on>it|~)")
+_ATTACHED_TO = re.compile(r"(?P<kinds>Aura|Equipment|Aura (?:and|or|and/or) Equipment) attached to (?P<on>it|~)(?: other than ‹granter(?:#(?P<ex>[^›]+))?›)?")
 
 
 # -- sized amounts (wave 3D) -- ------------------------------------------------------------------
@@ -1121,7 +1122,7 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
             return sum(1 for c in snap.attached if (c in plan.state.cards or c in gone) and kinds & (
                 plan.ch(plan.state.cards[c]) if c in plan.state.cards else _snapshot_card(plan, gone[c])[1]).subtypes)
         return sum(1 for c in plan.state.cards.values() if c.attached_to == host and c.zone.endswith(":battlefield")
-                   and plan.in_game(c) and kinds & plan.ch(c).subtypes)
+                   and plan.in_game(c) and kinds & plan.ch(c).subtypes and not (v.get("except_oid") and plan.oid(c) == v["except_oid"]))
     if "for_player" in v:  # -- value grammar (wave 23C) -- "the number of cards in that player's graveyard": the count as that one player's ("you" of the phrase)
         from app.rules import context
 
@@ -1343,6 +1344,10 @@ def _object(plan: Plan, ctx: dict[str, Any], who: str) -> tuple[Any, Any] | None
         from app.rules.effects import _cards  # (effects imports this module)
 
         refs = [(c, plan.oid(c)) for c in _cards(plan, ctx, "host")]
+    if who == "creator110d":  # -- lines (wave 110D) -- 111.2: the permanent that created this token (Gutter Grime's Oozes), as it is or as it last existed
+        token = plan.state.cards.get(ctx.get("source_card") or "")
+        made = token.token_source.source_id if token is not None and token.token_source is not None else None
+        refs = [(made or "", plan.oid(plan.state.cards[made]) if made in plan.state.cards else None)]
     if who.startswith("granter:"):  # -- xdamage (wave 100E) -- the granting object (layers.py binds its object id), as it is or as it last existed
         refs = [(next((c.id for c in plan.state.cards.values() if plan.oid(c) == who[8:]), ""), who[8:])]
     if who == "each":  # -- sized amounts (wave 3D) -- "each creature you control deals damage equal to its power": the one being read

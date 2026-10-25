@@ -868,7 +868,8 @@ def _self_attacked(plan: Plan, ctx: dict[str, Any], cond: dict[str, Any], log: T
     if cond.get("combat"):
         from app.game.state import COMBAT_PHASES
 
-        return oid is not None and plan.state.turn.phase in COMBAT_PHASES and log.declared.get(oid) == plan.rules.combats
+        others = sum(1 for o, n in log.declared.items() if n == plan.rules.combats and o != oid)  # (wave 110D: "and at least two other creatures", Kytheon)
+        return oid is not None and plan.state.turn.phase in COMBAT_PHASES and log.declared.get(oid) == plan.rules.combats and others >= cond.get("others", 0)
     return oid in {a for v in log.attackers.values() for a in v}
 
 

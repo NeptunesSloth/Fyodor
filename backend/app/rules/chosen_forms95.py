@@ -96,7 +96,7 @@ def finish_up(plan: Plan, card: Any, actor: str, kind: str | None = None) -> Non
     from app.rules import casting, replace
 
     plan.do({'type': 'face_down', 'card_ids': [card.id], 'face_down': False}, actor=actor)
-    casting.turned_up(plan, card)
+    casting.turned_up(plan, card, by=actor)
     plan.rules.passed = []
     if kind == 'megamorph':
         replace.put_counters(plan, [(card.id, '+1/+1', 1)], by=actor, then={'do': 'face_up_done'})

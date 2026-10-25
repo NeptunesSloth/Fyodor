@@ -26,3 +26,26 @@
 - Gutter Grime: the token's quoted CDA counts counters on its creator by name; quoted token abilities have no link to the creating permanent.
 - Scrap Welder, Sidisi, Regent of the Mire: X is the mana value of a cost-sacrificed object but the target is chosen before the cost (601.2c vs 601.2h); needs a ruling-backed X-from-cost design.
 - Nuka-Nuke Launcher: watch lasting "until the end of defending player's next turn" bound to another player; the 50G watch machinery is controller-bound only.
+- Font of Agonies: "Whenever you pay life" needs a life-paid event at ~10 cost sites (cost_payment, casting x6, optional_payment, Phyrexian mana).
+- Nuka-Nuke Launcher: per-player watch lasting through the defending player's next turn (turn-bounded "whenever they cast") not modelled.
+- Gift of Doom: "As this Aura is turned face up, you may attach it" needs a pre-SBA attach decision inside the turn-up special action.
+- Quicksilver Elemental: borrowed activated abilities + "spend blue mana as any color" for its abilities (two foundations).
+- Archnemesis: "attack enchanted player" event for an Aura on a player not modelled.
+- Geth's Summons: Corrupted adds one target per opponent with 3+ poison as cast (variable target count by cast-time state).
+- Evangelize / Mausoleum Turnkey / Arena: delegated target announcement exists only for activated abilities; spells, triggers and a mixed own+opponent-choice pair need new foundations.
+- Ghostly Dancers / Marina Vendrell: no "unlock/lock a door" effect primitive yet (rooms.unlock exists; needs door choice decision).
+
+## Session 12
+- Ultima, Origin of Oblivion: "loses all land types and abilities" for a counter-bound duration has no land-type-removal layer effect (305.7 foundation).
+- Mechtitan Core: cost "Exile this Vehicle and four other artifact creatures and/or Vehicles" plus exiled-with return of all but itself; four unread parts.
+- Welcome to . . . // Jurassic Park, Kitesail Larcenist: "for each opponent/player ... up to one target" is a variable number of target groups.
+- Jeweled Amulet: noted mana type of an activation cost needs per-source memory of the mana spent plus a mana ability reading it.
+- Tyvar the Bellicose: "whenever a mana ability of this creature resolves" has no event (mana abilities skip the stack).
+
+## Session 13
+- Font of Agonies: "Whenever you pay life" has no event; life is paid in cost_payment, Phyrexian mana, optional payments and effects (no single choke point).
+- Twilight Diviner: "one or more other creatures ... enter" + "entered or were cast from a graveyard" + copy of one of them + once per turn; base batch copy wording unread.
+- Experimental Lab // Staff Room: "turn that creature face up or put a +1/+1 counter" needs a non-modal either/or choice primitive.
+- Gift of Doom: "As this Aura is turned face up, you may attach it" needs a decision inside casting.turned_up and an SBA hold until attached.
+- Reap, Geth's Summons: X / per-opponent counts "as you cast this spell" need cast-time snapshots.
+- Panglacial Wurm: casting from the library mid-search has no hook in search resolution.

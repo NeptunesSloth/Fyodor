@@ -7,12 +7,37 @@ from typing import Any
 
 # the Oracle line (the card's name as ~) -> the wording the grammar already reads, with the same meaning
 _AS: dict[str, str] = {
+    # Liege of the Tangle: "Each of those lands" = each of them (the targets); 613.1d/613.1f, 205.1b the lands stay lands
+    "Whenever ~ deals combat damage to a player, you may choose any number of target lands you control and put an awakening counter on each of them. Each of those lands is an 8/8 green Elemental creature for as long as it has an awakening counter on it. They're still lands.":  # noqa: E501
+        "Whenever ~ deals combat damage to a player, you may choose any number of target lands you control and put an awakening counter on each of them. Each of them becomes an 8/8 green Elemental creature for as long as it has an awakening counter on it. They're still lands.",
+    # Last Night Together: the restriction is the extra combat's own tag (combat_rules.extra_phases "only110d", combat.attack_problem)
+    "Choose two target creatures. Untap them. Put two +1/+1 counters on each of them. They gain vigilance, indestructible, and haste until end of turn. After this main phase, there is an additional combat phase. Only the chosen creatures can attack during that combat phase.":  # noqa: E501
+        "Choose two target creatures. Untap them. Put two +1/+1 counters on each of them. They gain vigilance, indestructible, and haste until end of turn. After this main phase, there is an additional combat phase.",
+    # Call for Aid: 701.21 "you can't sacrifice those creatures" = they can't be sacrificed (only you control them this turn, 611.2c); the attack ban is appended
+    "Gain control of all creatures target opponent controls until end of turn. Untap those creatures. They gain haste until end of turn. You can't attack that player this turn. You can't sacrifice those creatures this turn.":  # noqa: E501
+        "Gain control of all creatures target opponent controls until end of turn. Untap those creatures. They gain haste and \"This creature can't be sacrificed\" until end of turn.",
     # Resplendent Marshal: 205.3m the creatures that share a creature type with the exiled card are picked by a primitive (patched in definition)
     "When ~ enters or dies, you may exile another creature card from your graveyard. When you do, put a +1/+1 counter on each creature you control other than ~ that shares a creature type with the exiled card.":
         "When ~ enters or dies, you may exile another creature card from your graveyard. When you do, put a +1/+1 counter on each creature you control other than ~.",
-    # Growing Dread: 702.37e a permanent is turned face up by its controller (the special action or their effect), so "you turn" = "a permanent you control"
+    # Growing Dread: 702.37e, 701.40b any permanent, turned up by you (the special action's player or the effect's controller; patched in definition)
     "Whenever you turn a permanent face up, put a +1/+1 counter on it.":
-        "Whenever a permanent you control is turned face up, put a +1/+1 counter on it.",
+        "Whenever a permanent is turned face up, put a +1/+1 counter on it.",
+    # Yes Man: 603.12 the reflexive trigger of the control change ("When they do" = when that happens, for the ability's controller); 111.2 the owner makes
+    # the tokens, 608.2h from the quest counters it last had (the owner patched in definition)
+    "{T}: Target opponent gains control of ~. When they do, you draw two cards and put a quest counter on ~. Activate only during your turn.":
+        "{T}: Target opponent gains control of ~. When you do, draw two cards and put a quest counter on ~. Activate only during your turn.",
+    "When ~ leaves the battlefield, its owner creates a tapped 1/1 white Soldier creature token for each quest counter on it.":
+        "When ~ leaves the battlefield, create a tapped 1/1 white Soldier creature token for each quest counter on it.",
+    # Frodo, Sauron's Bane (the quoted ability, 113.10): 701.54c the count of times the Ring tempted its controller decides which sentence is followed
+    # (the conditional "loses the game if" / "Otherwise" is built in definition)
+    "Whenever ~ deals combat damage to a player, that player loses the game if the Ring has tempted you four or more times this game. Otherwise, the Ring tempts you.":
+        "Whenever ~ deals combat damage to a player, that player loses the game.",
+    # Holy Frazzle-Cannon: 205.3m the attacker gets its counter first, then the other creatures sharing a creature type with it (share_counters110d)
+    "Whenever equipped creature attacks, put a +1/+1 counter on that creature and each other creature you control that shares a creature type with it.":
+        "Whenever equipped creature attacks, put a +1/+1 counter on that creature.",
+    # Gutter Grime: the token's quoted CDA counts the counters on the enchantment that made it (the one named in the quote)
+    "Whenever a nontoken creature you control dies, put a slime counter on ~, then create a green Ooze creature token with \"This token's power and toughness are each equal to the number of slime counters on ‹granter›.\"":
+        "Whenever a nontoken creature you control dies, put a slime counter on this enchantment, then create a green Ooze creature token with \"This token's power and toughness are each equal to the number of slime counters on its creator.\"",
     # Shallow Grave: 404.1 the top card of a graveyard is the last one put there; it is not a target (patched in definition)
     "Return the top creature card of your graveyard to the battlefield. That creature gains haste until end of turn. Exile it at the beginning of the next end step.":
         "Return target creature card from your graveyard to the battlefield. That creature gains haste until end of turn. Exile it at the beginning of the next end step.",
@@ -77,7 +102,62 @@ _AS: dict[str, str] = {
     # Mind Whip: the same unless-payment (118.12); the tap is the second consequence of not paying (patched in below)
     "At the beginning of the upkeep of enchanted creature's controller, that player may pay {3}. If they don't, ~ deals 2 damage to that player and you tap that creature.":
         "At the beginning of the upkeep of enchanted creature's controller, ~ deals 2 damage to that player unless they pay {3}.",
+    # Yarus: 708.9 a face-down creature that dies is revealed as its card; only a permanent card (110.4) can return (read as "if it's a permanent card")
+    "Whenever a face-down creature you control dies, return it to the battlefield face down under its owner's control if it's a permanent card, then turn it face up.":  # noqa: E501
+        "Whenever a face-down creature you control dies, return it to the battlefield face down under its owner's control, then turn it face up.",
+    # Archnemesis: "that player" is the enchanted player; the second ability moves the Aura (303.4, 701.3) with an own primitive (patched in definition)
+    "Whenever you attack enchanted player, that player loses 2 life. You draw a card and gain 2 life.":
+        "Whenever you attack enchanted player, enchanted player loses 2 life. You draw a card and gain 2 life.",
+    "Whenever a player attacks you, you may attach ~ to that player.":
+        "Whenever a player attacks you, you may draw a card.",
 }
+
+
+_SAME_MV = "Whenever you cast a spell, your opponents can't cast spells with the same mana value as that spell until your next turn."
+
+
+def same_mv_limit(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
+    """Living Breakthrough: 117.1, 202.3: opponents can't cast spells with the cast spell's mana value (as it is on the stack) until your next turn."""
+    from app.rules import cast_limits, selectors, values
+
+    key = selectors.Selector(compare=(("mv", "==", values.evaluate(plan, ctx, {"mana_value": "event"})),), zones=("stack",)).key()
+    return cast_limits.cast_limit(plan, ctx, {"who": "each_opponent", "until": "next_turn", "filter": key})
+
+
+_SURVEIL = "At the beginning of enchanted player's upkeep, any number of target players other than that player each draw cards equal to the number of Curses attached to that player."
+
+
+def draw_per_curse(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
+    """Curse of Surveillance: each target player draws a card per Curse attached to the enchanted player (303.4, 702.5d), counted as it resolves (608.2h)."""
+    from app.rules import effects
+
+    host = effects._players(plan, ctx, "event_player")
+    n = sum(c.zone.endswith(":battlefield") and c.attached_player in host and "Curse" in plan.ch(c).subtypes for c in plan.state.cards.values())
+    return all(effects.draw(plan, ctx, {"do": "draw", "who": f"player:{p}", "n": n}) for p in effects._players(plan, ctx, "target:0")) if n else True
+
+
+_ATTACKS_ME = "+2: Up to one target creature an opponent controls attacks ~ during its controller's next turn if able."
+
+
+def attack_me_next_turn(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
+    """Gideon, Battle-Forged: 508.1d, 508.1c requirement on the target for its controller's next turn (like attack_destinations.attack_window)."""
+    from app.rules import effects, layers
+
+    for cid in effects._cards(plan, ctx, "target:0"):
+        layers.add_effect(plan, affected=[plan.oid(cid)], layer="6", source=ctx.get("source_object"), controller=ctx["controller"], duration="permanent",
+                          imposes=(f"attack_object:{ctx.get('source_object')}",), declaration_window="next_turn", declaration_player=plan.state.cards[cid].controller)
+    return True
+
+
+_KYTHEON = "At end of combat, if ~ and at least two other creatures attacked this combat, exile ~, then return it to the battlefield transformed under its owner's control."
+_CANT_DRAW = " If you can't, draw a card."
+
+
+def draw_if_none(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
+    """Draw a card when the earlier "return" moved nothing (the instruction could not be carried out)."""
+    from app.rules import effects
+
+    return bool(effects._cards(plan, ctx, "ref:" + e["ref"])) or effects.draw(plan, ctx, {"do": "draw", "who": "you", "n": 1})
 
 
 def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
@@ -87,6 +167,35 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
     if text == WARD_XP:
         return {"kind": "static", "static": "ward_xp110d", "effects": []}
     native = _AS.get(text)
+    if text == _KYTHEON:  # the conditional parse loses the exile binding ("return him" would find nothing): define it plain, then add the intervening if (603.4)
+        d = scripts.define(replace(ability, text="At end of combat, exile ~, then return it to the battlefield transformed under its owner's control."), ch)
+        if d is not None:
+            d["if"] = {"history": "self_attacked", "object": "self", "combat": True, "others": 2}  # (508.1, 500.8: conditions "and at least two other creatures")
+        return d
+    if text == _ATTACKS_ME:
+        d = scripts.define(replace(ability, text="+2: Up to one target creature an opponent controls gains flying until end of turn."), ch)
+        if d is not None:
+            d["effects"] = [{"do": "attack_me110d"}]
+        return d
+    if text == _SURVEIL:
+        d = scripts.define(replace(ability, text="At the beginning of enchanted player's upkeep, any number of target players each draw a card."), ch)
+        if d is not None:
+            from app.rules import selectors
+
+            d["targets"][0]["what"] = selectors.Selector(player="any", player_exclude=selectors.THAT_PLAYER).key()
+            d["effects"] = [{"do": "draw_per_curse110d"}]
+        return d
+    if text == _SAME_MV:
+        d = scripts.define(replace(ability, text="Whenever you cast a spell, you gain life equal to that spell's mana value."), ch)
+        if d is not None:
+            d["effects"] = [{"do": "same_mv_limit110d"}]
+        return d
+    if text.endswith(_CANT_DRAW):  # Inventive Iteration: the graveyard pick is not a target, so "can't" = no artifact card to return (701.21, 608.2c)
+        d = scripts.define(replace(ability, text=text[: -len(_CANT_DRAW)]), ch)
+        if d is not None:
+            d["effects"][0]["as"] = "back110d"
+            d["effects"].append({"do": "draw_if_none110d", "ref": "back110d"})
+        return d
     d = None if native is None else scripts.define(replace(ability, text=native), ch)
     if d is not None and text.startswith("−6: Gain control of target creature. It becomes a Vampire"):
         # the stolen creature is now yours: it counts in "another white permanent" when white, so it needs one more
@@ -112,6 +221,26 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
         d.pop("target")
         d["effects"][0]["who"] = "ref:top110d"
         d["effects"].insert(0, {"do": "top_creature110d", "bind": "top110d"})
+    if d is not None and text.startswith("Whenever you turn a permanent face up"):
+        d["cond"]["turner110d"] = "you"  # (triggers.py)
+    if d is not None and text.startswith("When ~ leaves the battlefield, its owner creates a tapped"):
+        d["effects"][0]["who"] = "ref:event.owner"  # (as the native "its owner creates")
+    if d is not None and text.endswith("Otherwise, the Ring tempts you."):  # (Frodo: lose the game at the fourth temptation or after, else tempt)
+        lose = d["effects"][0]
+        d["effects"] = [{"do": "only_if", "cond": {"ring110d": 4}, "skip": 1}, lose,
+                        {"do": "only_if", "cond": {"not": {"ring110d": 4}}, "skip": 1}, {"do": "ring_tempts", "who": "you"}]
+    if d is not None and text.startswith("Whenever equipped creature attacks, put a +1/+1 counter on that creature and each other"):
+        d["effects"].append({"do": "share_counters110d"})
+    if d is not None and text.startswith("Gain control of all creatures target opponent controls until end of turn. Untap"):
+        # 508.1c, 611.2c: every creature you control, also one that arrives later this turn, can't attack that player
+        d["effects"].append({"do": "restrict", "who": 'controlled:you|sel:{"types":["Creature"]}', "rules": ["cant_attack_player:@that"], "player": "target"})
+    if d is not None and text.startswith("Choose two target creatures. Untap them. Put two +1/+1"):
+        d["effects"][-1]["only110d"] = "target:0"
+    if d is not None and text.endswith("if it's a permanent card, then turn it face up."):  # (Yarus: the permanent-card test gates both steps)
+        sel = 'sel:{"card":true,"types":["Artifact","Creature","Enchantment","Land","Planeswalker","Battle"],"zones":[]}'
+        d["effects"].insert(0, {"do": "only_if", "cond": {"object": "event", "is": sel}, "skip": 2})
+    if d is not None and text.startswith("Whenever a player attacks you, you may attach ~"):
+        d["effects"] = [{"do": "attach_event_player110d"}]
     if d is not None and text.endswith("it enters tapped and attacking."):
         d["effects"][0]["tap_atk110d"] = "Enchantment"
     return d
@@ -161,10 +290,28 @@ def share_counters(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
         return True
     types = found[1].subtypes & CREATURE_TYPES
     ids = [c.id for c in plan.state.cards.values()
-           if c.zone == f"{ctx['controller']}:battlefield" and c.id != ctx.get("source_card") and "Creature" in plan.ch(c).types
+           if c.zone == f"{ctx['controller']}:battlefield" and c.id not in (ctx.get("source_card"), found[0].id) and "Creature" in plan.ch(c).types
            and plan.ch(c).subtypes & types]
     context.bind_objects(plan, ctx, "share110d", ids)
     return effects.add_counters(plan, ctx, {"do": "add_counters", "who": "ref:share110d", "kind": "+1/+1", "n": 1})
 
 
-PRIMITIVES = {"share_counters110d": share_counters, "draw_gained110d": draw_gained, "top_creature110d": top_creature}
+def attach_event_player(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
+    """Archnemesis: attach the Aura to the attacking player (701.3a, 303.4f; an illegal host leaves it where it is)."""
+    from app.rules import attachments, effects
+
+    src = plan.state.cards.get(ctx.get("source_card") or "")
+    who = effects._players(plan, ctx, "event_player")
+    if src is not None and who and plan.in_game(src) and attachments.host_problem(plan, src, who[0]) is None:
+        attachments.attach(plan, src.id, who[0], ctx["controller"])
+    return True
+
+
+PRIMITIVES = {"attack_me110d": attack_me_next_turn, "draw_per_curse110d": draw_per_curse, "same_mv_limit110d": same_mv_limit, "draw_if_none110d": draw_if_none, "attach_event_player110d": attach_event_player, "share_counters110d": share_counters, "draw_gained110d": draw_gained, "top_creature110d": top_creature}
+
+
+def holds(plan: Any, ctx: dict[str, Any], cond: dict[str, Any]) -> bool:
+    """701.54c: the Ring has tempted the ability's controller N or more times."""
+    from app.rules import designations
+
+    return designations.ring_level(plan, ctx["controller"]) >= cond["ring110d"]

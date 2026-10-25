@@ -6691,5 +6691,20 @@
 "Morph"
 ],
 "layout": "normal"
+},
+{
+"name": "Break Open",
+"layout": "normal",
+"mana_cost": "{1}{R}",
+"cmc": 2.0,
+"type_line": "Instant",
+"oracle_text": "Turn target face-down creature an opponent controls face up.",
+"colors": [
+"R"
+],
+"color_identity": [
+"R"
+],
+"keywords": []
 }
 ]
