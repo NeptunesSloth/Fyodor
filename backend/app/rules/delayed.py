@@ -63,7 +63,7 @@ if TYPE_CHECKING:
 Context = dict[str, Any]
 
 # -- the wording of when a delayed trigger triggers ---------------------------------------------
-WHEN = {
+WHEN: dict[str, dict[str, Any]] = {
     "the next end step": {"kind": "step", "step": "end", "whose": "next"},
     "your next end step": {"kind": "step", "step": "end", "whose": "you"},
     "the next turn's upkeep": {"kind": "step", "step": "upkeep", "whose": "next_turn"},
@@ -81,6 +81,8 @@ WHEN = {
     # -- stack interaction (wave 5B) -- Mana Drain: the next main phase (precombat or postcombat, 505.1) of a turn of
     # yours to begin; a later one this turn if you're in your precombat main phase or combat now (engine: main1 / main2)
     "your next main phase": {"kind": "step", "step": "main", "whose": "you"},
+    # -- cards (wave 110E) -- 603.7: "the next main phase this turn" (Vivien's Stampede): whoever's, and never a later turn's (until_turn)
+    "the next main phase this turn": {"kind": "step", "step": "main", "whose": "next", "this_turn110e": True},
     # -- attached (wave 100F) -- "sacrifice this Aura at the beginning of the next cleanup step" (Cunning): it goes on the stack after 514.1-514.2 (514.3a; engine at_step "cleanup")
     "the next cleanup step": {"kind": "step", "step": "cleanup", "whose": "next"},
 }

@@ -4,6 +4,7 @@
 * Storm, Windrider: 508.1c/509.1b flyers can't attack its controller or block its controller's creatures; 603.2 its cast trigger grants flying to the
   creatures the spell targets (115.9b), only when the spell has such a target.
 * Blaze of Glory: 509.1c the target, which can block any number of creatures, must block each attacking creature it is able to.
+* Vivien's Stampede: 603.7 "at the beginning of the next main phase this turn" (the postcombat main phase, never a later turn's), counted when it resolves.
 * Spin into Myth: 701.29a fateseal 2 (look at the top two cards of an opponent's library, any to the bottom, the rest back on top in any order).
 """
 from __future__ import annotations
@@ -17,6 +18,9 @@ from tests.test_rules_wave12a_counters_keywords import real
 from tests.wave9c_kit import build, check, mana, put, to_hand
 
 EXTRA = [
+    real("Vivien's Stampede", "{4}{G}{G}", 6, "Sorcery",
+         "Each creature you control gains vigilance, trample, and melee until end of turn. (Whenever a creature with melee attacks, it gets +1/+1 until end of turn for each opponent you attacked this combat.)\n"
+         "At the beginning of the next main phase this turn, draw a card for each player who was dealt combat damage this turn.", None, "G"),
     real("Blaze of Glory", "{W}", 1, "Instant", "Cast this spell only during combat before blockers are declared.\n"
          "Target creature defending player controls can block any number of creatures this turn. It blocks each attacking creature this turn if able.", None, "W"),
     real("Storm, Windrider", "{1}{G}{W}{W}", 4, "Legendary Creature — Mutant Hero",
@@ -179,3 +183,22 @@ def test_blaze_of_glory_forces_the_target_to_block_every_attacker(cards, blocks,
     else:
         with pytest.raises(ActionError):
             act(s, "p2", type="declare_blockers", blocks=pairs)
+
+
+@pytest.mark.parametrize("attack", [True, False])
+def test_vivien_stampede_draws_in_the_next_main_phase_for_each_damaged_player(cards, attack):
+    from tests.test_rules_conditionals import until
+
+    s = build(cards, ["Vivien's Stampede", "Grizzly Bears"])
+    bears = put(s, "Grizzly Bears")
+    until(s, lambda s: s.state.turn.number >= 3 and s.state.turn.active_player == "p1" and s.state.turn.phase == "main1")
+    mana(s, G=2, C=4)
+    cast(s, "Vivien's Stampede")
+    answer(s)
+    hand = len(s.state.zones["p1:hand"])
+    if attack:
+        until(s, lambda s: s.state.rules.decision is not None and s.state.rules.decision.kind == "declare_attackers")
+        act(s, "p1", type="declare_attackers", attackers=[{"card_id": bears.id, "target": "p2"}])
+    until(s, lambda s: s.state.turn.phase == "main2" and not s.state.zones.get("stack") and s.state.rules.decision is None)
+    assert len(s.state.zones["p1:hand"]) == hand + (1 if attack else 0)  # one player dealt combat damage / none
+    check(s)
