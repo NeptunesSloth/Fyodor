@@ -181,7 +181,23 @@ def exile_spell(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     return True
 
 
+def _bring_the_ending() -> Parsed:
+    """Bring the Ending: corrupted (ability word, 207.2c) is judged on the target spell's controller as it resolves (608.2c); with 3+ poison counters (122.1f) it is countered outright."""
+    effects, groups, optional = read("Counter target spell unless its controller pays {2}.")
+    return [{**effects[0], "do": "corrupt_counter110c"}], groups, optional
+
+
+def corrupt_counter(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    from app.rules import effects
+
+    sids = effects._stack_targets(plan, ctx, e)
+    if sids and int(plan.state.players[plan.state.cards[sids[0]].controller].resources.get("poison", 0)) >= 3:
+        return effects.counter(plan, ctx, {"do": "counter", "who": "target"})
+    return effects.counter_unless(plan, ctx, e)
+
+
 BUILDERS: dict[str, Callable[[], Parsed]] = {
+    "Counter target spell unless its controller pays {2}. Counter that spell instead if its controller has three or more poison counters.": _bring_the_ending,
     "~ deals 3 damage to each opponent. You may exile this spell and four cards named Dragon's Approach from your graveyard. If you do, "
     "search your library for a Dragon creature card, put it onto the battlefield, then shuffle.":
         _approach("Dragon's Approach", "~ deals 3 damage to each opponent.", "Search your library for a Dragon creature card, put it onto the battlefield, then shuffle."),
@@ -387,7 +403,7 @@ def enter_tapped_turn(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     return True
 
 
-PRIMITIVES = {"extra_land_x110c": extra_land_x, "enter_tapped_turn110c": enter_tapped_turn, "bargain_return110c": bargain_return, "power_gap110c": power_gap, "surveil_take110c": surveil_take, "surveil_take_end110c": surveil_take_end, "choose_branch110c": choose_branch, "temporary_counters110c": temporary_counters, "approach110c": approach, "exile_spell110c": exile_spell}
+PRIMITIVES = {"corrupt_counter110c": corrupt_counter, "extra_land_x110c": extra_land_x, "enter_tapped_turn110c": enter_tapped_turn, "bargain_return110c": bargain_return, "power_gap110c": power_gap, "surveil_take110c": surveil_take, "surveil_take_end110c": surveil_take_end, "choose_branch110c": choose_branch, "temporary_counters110c": temporary_counters, "approach110c": approach, "exile_spell110c": exile_spell}
 RESUME = {"choose_branch110c": resume_branch}
 from app.rules import wave110c_mass  # noqa: E402
 
