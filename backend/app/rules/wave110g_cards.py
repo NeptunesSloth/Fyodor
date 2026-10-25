@@ -97,7 +97,7 @@ def parse(body: str) -> Any:
                                     "Each player who sacrificed a creature this way draws two cards.")
         if got is None:
             return None
-        (pick, sac, *rest), target, optional = got  # type: ignore[misc]
+        (pick, sac, *rest), target, optional = got
         return [{**pick, "as": "e0"}, {**sac, "do": "sacrifice_pair110g", "who": "ref:e0"}, *rest], target, optional
     if body.strip() == _REANIMATE:  # Infernal Offering mode 2: "then" is a sequence, as the grammar reads two sentences
         return scripts.parse_effects("Choose an opponent. Return a creature card from your graveyard to the battlefield. "
@@ -159,6 +159,11 @@ def _land_or_dfc(d: Def) -> Def:
     return {**d, "effects": fx}
 
 
+def _swap_tapped(d: Def) -> Def:
+    """Sands of Time: one simultaneous swap of the tapped and untapped artifacts, creatures and lands of the upkeep's player."""
+    return {**d, "effects": [{"do": "swap_tapped110g", "who": "event_player"}]}
+
+
 # whole ability text -> (the wording the grammar reads, what to change in its definition)
 _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
     # Serene Master
@@ -191,6 +196,10 @@ _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
         ("Other creatures you control have trample and ward {2}.", _transformed),
     "When this Siege enters, scry 3, then reveal the top card of your library. If it's a land or double-faced card, draw a card.":
         ("When this Siege enters, scry 3, then reveal the top card of your library. If it's a land card, draw a card.", _land_or_dfc),
+    # Sands of Time
+    "At the beginning of each player's upkeep, that player simultaneously untaps each tapped artifact, creature, and land they control and taps each untapped "
+    "artifact, creature, and land they control.":
+        ("At the beginning of each player's upkeep, that player draws a card.", _swap_tapped),
     # Loxodon Peacekeeper
     "At the beginning of your upkeep, the player with the lowest life total gains control of this creature. If two or more players are tied for lowest life total, "
     "you choose one of them, and that player gains control of this creature.":
@@ -248,7 +257,23 @@ def sacrifice_pair(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     from app.rules import effects
 
     pair = {ctx["controller"], *effects._players(plan, ctx, e["who"])}
-    return effects._sacrifice_next(plan, ctx, e["sel"], 1, [p for p in plan.apnap() if p in pair], [], e.get("as"))  # type: ignore[no-any-return]
+    return effects._sacrifice_next(plan, ctx, e["sel"], 1, [p for p in plan.apnap() if p in pair], [], e.get("as"))
+
+
+def swap_tapped(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Sands of Time: both groups are fixed first (the swap is simultaneous), then untapped (stun counters replace it, 122.1d) and tapped."""
+    from app.rules import effects, keyword_actions
+
+    for pid in effects._players(plan, ctx, e["who"]):
+        mine = [c for c in plan.state.cards.values() if c.zone.endswith(":battlefield") and c.controller == pid and plan.in_game(c)
+                and plan.ch(c).types & {"Artifact", "Creature", "Land"}]
+        up = keyword_actions.untap_stunned(plan, [c.id for c in mine if c.tapped], pid)
+        down = [c.id for c in mine if not c.tapped]
+        if up:
+            plan.do({"type": "tap", "card_ids": up, "tapped": False}, actor=pid)
+        if down:
+            plan.do({"type": "tap", "card_ids": down, "tapped": True}, actor=pid)
+    return True
 
 
 def exchange_power(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
@@ -262,5 +287,5 @@ def exchange_power(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
 
 
 PRIMITIVES: dict[str, Any] = {"exchange_power110g": exchange_power, "lowest_life_control110g": lowest_life_control,
-                           "sacrifice_pair110g": sacrifice_pair}
+                           "sacrifice_pair110g": sacrifice_pair, "swap_tapped110g": swap_tapped}
 RESUME: dict[str, Any] = {"lowest_control110g": resume_lowest_control}

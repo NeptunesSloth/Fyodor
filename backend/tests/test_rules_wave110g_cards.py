@@ -75,6 +75,8 @@ EXTRA = [
          "{3}: Target creature gains islandwalk until end of turn. When this artifact leaves the battlefield this turn, destroy that creature. A creature destroyed this way can't be regenerated. (A creature with islandwalk can't be blocked as long as defending player controls an Island.)", None, ''),
     real('Infernal Offering', '{4}{B}', 5, 'Sorcery',
          'Choose an opponent. You and that player each sacrifice a creature. Each player who sacrificed a creature this way draws two cards.\nChoose an opponent. Return a creature card from your graveyard to the battlefield, then that player returns a creature card from their graveyard to the battlefield.', None, 'B'),
+    real('Sands of Time', '{4}', 4, 'Artifact',
+         "Each player skips their untap step.\nAt the beginning of each player's upkeep, that player simultaneously untaps each tapped artifact, creature, and land they control and taps each untapped artifact, creature, and land they control.", None, ''),
     real('Hill Giant', '{3}{R}', 4, 'Creature — Giant', '', ('3', '3'), 'R'),
     real('Divination', '{2}{U}', 3, 'Sorcery', 'Draw two cards.', None, 'U'),
 ]
@@ -515,4 +517,26 @@ def test_invasion_of_pyrulea_draws_for_a_land_or_double_faced_top_card(cards, to
     cast(s, PYRULEA)
     drive(s, lambda d: "p2" if "p2" in [o.id for o in d.options] else None)
     assert len(s.state.zones["p1:hand"]) == hand + draws, [s.state.cards[c].name for c in s.state.zones["p1:hand"]]
+    check(s)
+
+
+def test_sands_of_time_swaps_tapped_and_untapped_on_the_upkeep_players_permanents_only(cards):
+    """Sands of Time (502.1, 603.2): at each player's upkeep that player's tapped artifacts/creatures/lands untap while the untapped ones tap; others are left alone."""
+    s = build(cards, ["Sands of Time", "Grizzly Bears", "Forest"], ["Goblin"])
+    sands, bears, theirs = put(s, "Sands of Time"), put(s, "Grizzly Bears"), put(s, "Goblin", "p2")
+    forest = put(s, "Forest")
+    act(s, "p1", type="tap", card_ids=[bears.id], tapped=True)
+    for _ in range(80):  # to Alice's turn 3 main phase, answering what is asked
+        if s.state.turn.number == 3 and s.state.turn.phase == "main1":
+            break
+        d = s.state.rules.decision
+        if d is None:
+            act(s, s.state.rules.priority, type="pass_priority")
+        elif d.kind == "declare_attackers":
+            act(s, d.player, type="declare_attackers", attackers=[])
+        else:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[d.options[0].id])
+    tapped = lambda c: s.state.cards[c.id].tapped  # noqa: E731
+    assert (tapped(bears), tapped(forest), tapped(sands)) == (False, True, True)  # Alice's upkeep swapped hers
+    assert tapped(theirs)  # Bob's upkeep (turn 2) tapped his untapped Goblin; Alice's upkeep left it alone
     check(s)
