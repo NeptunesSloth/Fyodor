@@ -1458,6 +1458,8 @@ def holds(plan: Plan, cond: dict[str, Any], *, source: CardInstance, controller:
         from app.rules import combat_soulbond_partner70
 
         return combat_soulbond_partner70.holds(plan, source)
+    if kind == "marked110j":  # -- (wave 110J) -- "this Aura gains …" (Earthbind): set as that ability resolved, for this object only (400.7)
+        return source.choices.get("Gained ability") == "Yes"
     if kind == "your_turn":
         return plan.state.turn.active_player == controller
     if kind == "your_end_step":  # (wave 100K)

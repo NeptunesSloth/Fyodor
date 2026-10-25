@@ -348,3 +348,20 @@ def test_kongmings_contraptions_only_when_attacked_in_the_declare_attackers_step
         check(s)
     else:
         refused(s, "attack", kong, "{T}:", targets=[knight.id])
+
+
+def test_earthbind_is_full():
+    assert full("Earthbind")
+
+
+@pytest.mark.parametrize("flier", [True, False])
+def test_earthbind_hurts_and_grounds_only_a_flier(cards, flier):
+    """611.3a, 400.7: the Aura deals 2 damage to a flying creature and gains the ability; a ground creature is left alone."""
+    name = "Serra Angel" if flier else "Templar Knight"
+    s = build(cards, ["Earthbind", name])
+    c = put_new(s, name)
+    assert ("flying" in ch(s, c).keywords) is flier
+    aura = cast_on(s, "Earthbind", c)
+    assert (now(s, c).damage == 2) is flier and "flying" not in ch(s, c).keywords
+    assert aura.zone.endswith(":battlefield")
+    check(s)

@@ -8,6 +8,8 @@ from collections.abc import Callable
 from dataclasses import replace
 from typing import Any
 
+from app.rules import oracle
+
 Def = dict[str, Any]
 
 _FORESTS = "half the number of Forests you control"
@@ -207,4 +209,29 @@ def effects_stack_targets(plan: Any, ctx: Any, e: dict[str, Any]) -> list[str]:
     return list(_stack_targets(plan, ctx, e))
 
 
-PRIMITIVES = {"paid_cumulative110j": paid_cumulative, "ruin110j": ruin, "dragon110j": dragon}
+def _earthbind_trigger(d: Def) -> Def:
+    return {**d, "effects": [*d["effects"], {"do": "mark110j"}]}
+
+
+def _earthbind_static(d: Def) -> Def:
+    return {**d, "conditions": [*d.get("conditions", []), {"static": "marked110j"}]}
+
+
+# Earthbind (oracle.EARTHBIND splits the line in two): the trigger marks the Aura, the static applies only to a marked one (611.3a)
+_BUILD[oracle.EARTHBIND] = (
+    "When this Aura enters, if enchanted creature has flying, this Aura deals 2 damage to that creature.", _earthbind_trigger)
+_BUILD["As long as this Aura gained that ability, enchanted creature loses flying."] = ("Enchanted creature loses flying.", _earthbind_static)
+
+
+GAINED = "Gained ability"
+
+
+def mark(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
+    """"This Aura gains …": remember it for this object, if it is still on the battlefield (the static reads the mark)."""
+    card = plan.state.cards.get(ctx.get("source_card", ""))
+    if card is not None and card.zone.endswith(":battlefield") and plan.oid(card) == ctx.get("source_object"):
+        plan.do({"type": "set_choice", "card_id": card.id, "key": GAINED, "value": "Yes"}, actor=ctx["controller"])  # (a zone change clears it: ops.py, 400.7)
+    return True
+
+
+PRIMITIVES = {"paid_cumulative110j": paid_cumulative, "ruin110j": ruin, "dragon110j": dragon, "mark110j": mark}
