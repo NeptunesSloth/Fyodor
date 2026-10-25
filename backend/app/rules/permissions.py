@@ -625,6 +625,8 @@ def define_static(text: str, kind: str, lines: tuple[str, ...] = ()) -> Definiti
         if pc.hybrid or pc.phyrexian or pc.x or pc.unsupported or pc.is_free:
             return None
         return {"kind": "static", "static": "self_cost", "per_target": sv["cost"], "effects": []}
+    if (lv := _LIFE_PER_TARGET.fullmatch(t)) is not None:  # -- wave 110E -- Phyrexian Purge: 118.8 additional life cost, 601.2f once the targets are chosen
+        return {"kind": "static", "static": "self_cost", "life_per_target": int(lv["n"]), "effects": []}
     if cost_changes.is_self(t):
         change = cost_changes.self_change(t)
         return {"kind": "static", "static": "self_cost", "change": change, "effects": []} if change else None
@@ -1777,6 +1779,7 @@ def modifiers(state: GameState, player: str, card: CardInstance, ch: Characteris
     return out
 
 
+_LIFE_PER_TARGET = re.compile(r"^(?:this spell|~) costs (?P<n>\d+) life more to cast for each target$")
 _PER_TARGET = re.compile(r"^(?:this spell|~) costs (?P<cost>(?:\{[^}]+\})+) more to cast for each target beyond the first$")
 
 
@@ -1791,7 +1794,7 @@ def self_reduction(state: GameState, player: str, card: CardInstance, ch: Charac
         total += opponents * max(1, sum('undaunted' in ability.keywords for ability in ch.abilities))
     view = None
     for d in _definitions(ch).values():
-        if d.get("static") != "self_cost" or "change" in d or "per_target" in d:  # (wave 4I: a "change" is cost_changes.own_changes')
+        if d.get("static") != "self_cost" or "change" in d or "per_target" in d or "life_per_target" in d:  # (wave 4I: a "change" is cost_changes.own_changes')
             continue
         if d.get("per") == "opponent":
             total += d["n"] * opponents

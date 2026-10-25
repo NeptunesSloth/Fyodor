@@ -4,6 +4,7 @@ Each entry matches one whole ability's Oracle text exactly and nothing else; any
 """
 from __future__ import annotations
 
+import re
 from dataclasses import replace
 from typing import Any
 
@@ -24,6 +25,7 @@ _APPEND: dict[str, tuple[str, list[Def]]] = {
 
 # whole ability text -> (the wording the grammar reads for the targets, the effects that replace the parsed ones; "target:0" = the first target group)
 _SWAP: dict[str, tuple[str, list[Def]]] = {
+    "Permanents enter tapped this turn.": ("Draw a card.", [{"do": "enter_tapped110e"}]),
     # 509.1h/509.3c: each target becomes blocked (no-op for one no longer an unblocked attacker); then 120.3 damage to each of them
     "X target attacking creatures become blocked. Choking Vines deals 1 damage to each of those creatures.":
         ("X target attacking creatures gain flying until end of turn.",
@@ -39,6 +41,15 @@ _SWAP: dict[str, tuple[str, list[Def]]] = {
 _BEATDOWN = "Choose target creature you control and target creature an opponent controls."
 _BEATDOWN_REST = ("Delirium — If there are four or more card types among cards in your graveyard, put two +1/+1 counters on the creature you control.",
                   "The creature you control deals damage equal to its power to the creature an opponent controls.")
+
+
+_CORRUPTED_FB = "Corrupted — As long as an opponent has three or more poison counters and this card is in your graveyard, it has flashback {2}{G}."
+_CLOSE_LINE2 = "Close Encounter deals damage equal to the power of the chosen creature or card to target creature."
+_RETURNS = ("Each player shuffles their hand and graveyard into their library. You exile the top ten cards of your library. "
+            "Then each player draws up to seven cards.")
+_THUNDERCLAP = ("Target creature you control deals damage equal to its power to another target creature. "
+                "If this spell's additional cost was paid, destroy target noncreature artifact or noncreature enchantment.")
+_SURGE = "Voltage Surge deals 2 damage to target creature or planeswalker. If this spell's additional cost was paid, Voltage Surge deals 4 damage instead."
 
 
 def bind_targets(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
@@ -57,7 +68,30 @@ def bind_modified(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return True
 
 
-PRIMITIVES = {"spell_targets110e": bind_targets, "modified_cast110e": bind_modified}
+def enter_tapped_turn(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """614.1d, 611.2c: "Permanents enter tapped this turn." = a replacement record for every permanent entering (read by others_enter_tapped)."""
+    from app.rules import replace, selectors
+
+    replace.add_record(plan, event="enters_tapped", match={"selector": selectors.Selector().key()}, op={"do": "tap"},
+                       controller=ctx["controller"], source=ctx.get("source_object"), source_card=ctx.get("source_card"),
+                       label=ctx.get("name") or "Enter tapped")
+    return True
+
+
+_WILD = ("Choose one. Until end of turn, target creature you control has that base power and toughness, becomes that creature type, "
+         "and gains that ability.")
+_WILD_MODE = re.compile(r"^• (\d+/\d+) ([A-Z][a-z]+) with ([a-z]+)\.$")
+
+
+def modal_lines(lines: list[Any]) -> list[Any]:
+    """Wild Shape: the shared sentence after "Choose one." is read as part of every bullet (700.2: each mode is its own instruction)."""
+    if not lines or lines[0].text != _WILD or not all(_WILD_MODE.match(x.text) for x in lines[1:]):
+        return lines
+    return [replace(lines[0], text="Choose one —"), *(replace(x, text=f"• Until end of turn, target creature you control becomes a "
+                                                           f"{m[1]} {m[2]} and gains {m[3]}.") for x in lines[1:] if (m := _WILD_MODE.match(x.text)))]
+
+
+PRIMITIVES = {"spell_targets110e": bind_targets, "modified_cast110e": bind_modified, "enter_tapped110e": enter_tapped_turn}
 
 _FLYERS = "Creatures with flying can't attack you or block creatures you control."
 _BLAZE = ("Target creature defending player controls can block any number of creatures this turn. "
@@ -69,6 +103,23 @@ def definition(ability: Any, ch: Any) -> Def | None:
     from app.rules import scripts
 
     text = ability.text.strip()
+    from app.rules import wave110e_imps
+
+    if (imp := wave110e_imps.definition(ability, ch)) is not None:  # Nettling Imp, Norritt
+        return imp
+    if text == _CORRUPTED_FB:  # 702.34a: the card's own conditional flashback, read by graveyard_grants.flashback_costs while it is in a graveyard
+        from app.rules import conditions
+
+        cond = conditions.parse("an opponent has three or more poison counters")
+        return None if cond is None else {"kind": "static", "static": "gy_flashback110e", "cond": cond, "cost": "{2}{G}", "effects": []}
+    if text == _CLOSE_LINE2:  # 120.3, 608.2h: the power of what was chosen as it was cast, as it is now or last was
+        native = scripts.define(replace(ability, text="Close Encounter deals 1 damage to target creature."), ch)
+        if native is None or len(native["effects"]) != 1 or native["effects"][0].get("do") != "damage":
+            return None
+        return {**native, "effects": [{"do": "pick110e", "as": "pk110e"}, {**native["effects"][0], "n": {"sum": "power", "of": "ref:pk110e"}}]}
+    if text in ("As an additional cost to cast this spell, choose a creature type.",
+                "As an additional cost to cast this spell, choose a creature you control or a warped creature card you own in exile."):  # 601.2b: asked as the spell is cast (wave110e_opp.announce), kept on the permanent
+        return {"kind": "spell", "effects": []}
     if ability.text.strip() == _STORM:
         native = scripts.define(replace(ability, text="Whenever you cast a spell that targets one or more creatures, draw a card."), ch)
         if native is None:
@@ -92,6 +143,22 @@ def definition(ability: Any, ch: Any) -> Def | None:
         return {**deal, "effects": [*counters, *deal["effects"]]}
     if text in _BEATDOWN_REST:
         return {"kind": "spell", "effects": []}
+    if text == _THUNDERCLAP:  # 601.2b: the optional behold is the "additional cost"; read "if it was kicked" with that cost as the gate
+        native = scripts.define(replace(ability, text=text.replace("this spell's additional cost was paid", "it was kicked")), ch)
+        if native is None:
+            return None
+        return {**native, "effects": [{**e, "optional": "behold"} if e["do"] == "kicked_gate" else e for e in native["effects"]],
+                "targets": [{**g, "optional": "behold"} if "kicked" in g else g for g in native["targets"]]}  # 601.2c: only a spell that paid it chooses this target
+    if text == _SURGE:  # 601.2b: the optional sacrifice is the "additional cost"; read "if it was kicked" with that cost as the gate
+        native = scripts.define(replace(ability, text="Voltage Surge deals 2 damage to target creature or planeswalker. If it was kicked, Voltage Surge deals 4 damage instead."), ch)
+        if native is None:
+            return None
+        return {**native, "effects": [{**e, "optional": "sacrifice110e"} if e["do"] == "kicked_gate" else e for e in native["effects"]]}
+    if text == _RETURNS:  # 121.2c, 101.4: each player picks 0..7 first (APNAP), then draws; reuses the Indentured Djinn chooser
+        native = scripts.define(replace(ability, text=_RETURNS.replace("draws up to", "draws")), ch)
+        if native is None or native["effects"][-1]["do"] != "draw":
+            return None
+        return {**native, "effects": [*native["effects"][:-1], {"do": "trigger_leaf51_djinn_draws", "all": True, "n": 7}]}
     swap = _SWAP.get(ability.text.strip())
     if swap is not None:
         native = scripts.define(replace(ability, text=swap[0]), ch)

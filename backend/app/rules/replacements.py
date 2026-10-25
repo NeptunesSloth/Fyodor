@@ -265,10 +265,16 @@ def named_choices(plan: Plan, controller: str, defs: list[dict[str, Any]], answe
                 answers[what] = only  # -- card names (wave 22B) -- one opponent: no question
             if d.get("control") and what not in answers and (only := card_names.sole_opponent(plan, controller)):
                 answers[what] = only  # -- entry control (wave 110A) -- one opponent: no question
+            deciding = None
+            if e.get("opp110e") and what not in answers and "choice" not in out:  # -- opponent chooses (wave 110E) --
+                from app.rules import wave110e_opp
+
+                if (deciding := wave110e_opp.decider(plan, controller, answers, out)) is None:
+                    continue
             if what in answers:
                 out.setdefault("choices", {})[what] = answers[what]
             elif "choice" not in out:
-                out["choice"] = {"what": what, **({"pick110a": e["pick110a"]} if e.get("pick110a") else {}), **({"look": answers.get(card_names.LOOK)} if e.get("look") else {}), **({"reveal": True} if e.get("reveal") else {}),
+                out["choice"] = {"what": what, **({"pick110a": e["pick110a"]} if e.get("pick110a") else {}), **({"decider": deciding} if deciding else {}), **({"look": answers.get(card_names.LOOK)} if e.get("look") else {}), **({"reveal": True} if e.get("reveal") else {}),
                                  **({"options": e["options"]} if e.get("options") else {}), **({"random": True} if e.get("random") else {})}  # (wave 51C: "choose Elemental, Elf, …": only the creature types listed)
                 if what == "second color":
                     out["choice"]["options"] = [o for o in ("White", "Blue", "Black", "Red", "Green") if o != answers.get("color")]
@@ -552,6 +558,10 @@ def choice_prompt(plan: Plan, card: CardInstance, controller: str, choice: dict[
         from app.rules import wave110a_pick
 
         return wave110a_pick.prompt(plan, card, controller, choice)
+    from app.rules import wave110e_opp
+
+    if what == wave110e_opp.WHO:  # (wave 110E)
+        return wave110e_opp.prompt(plan, card, controller)
     from app.rules import chosen_forms95
 
     if what.startswith(chosen_forms95.PREFIX):

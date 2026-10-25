@@ -3920,7 +3920,8 @@ def kicked_gate(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     wasn't) kicked; otherwise they're skipped."""
     from app.rules import conditions
 
-    held = conditions.holds(plan, ctx, {"object": "self", "cast": {"optional": "teamwork"}}) if e.get("teamwork") else values.kicked_holds(plan, ctx, e.get("with"))
+    held = conditions.holds(plan, ctx, {"object": "self", "cast": {"optional": "teamwork"}}) if e.get("teamwork") else conditions.holds(
+        plan, ctx, {"object": "self", "cast": {"optional": e["optional"]}}) if e.get("optional") else values.kicked_holds(plan, ctx, e.get("with"))
     if held != bool(e["kicked"]):  # (-- keywords (wave 50H) -- "kicked with its {R} kicker": ``with``; wave 100K: ``teamwork``, 702.194b, its announcement)
         ctx["next"] += int(e["n"])
     return True
@@ -7115,3 +7116,9 @@ from app.rules import wave110i_cards as _wave110i_cards  # noqa: E402, I001  -- 
 PRIMITIVES.update(_wave110i_cards.PRIMITIVES)
 from app.rules import wave110c_any as _wave110c_any  # noqa: E402, I001
 PRIMITIVES.update(_wave110c_any.PRIMITIVES)  # -- any opponent may (wave 110C) --
+from app.rules import wave110e_opp as _wave110e_opp  # noqa: E402, I001  -- wave 110E --
+PRIMITIVES.update(_wave110e_opp.PRIMITIVES)
+
+from app.rules import wave110e_imps as _wave110e_imps  # noqa: E402  -- Nettling Imp (wave 110E)
+
+PRIMITIVES.update(_wave110e_imps.PRIMITIVES)

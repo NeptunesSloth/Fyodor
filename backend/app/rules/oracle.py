@@ -175,6 +175,8 @@ def _keywords_line(line: str) -> tuple[str, ...] | None:
         return ("ward",)
     if re.fullmatch(r"protection from [^,;]+(?:, (?:and )?from [^,;]+)+", line.strip(), re.IGNORECASE):  # -- keywords (wave 50H) -- 702.16a: "Protection from blue, from black, and from red" is one keyword (app/rules/protection.py)
         return ("protection",)
+    if re.fullmatch(r"squad—(?:\{[^}]+\})+, [^;{}]+", line.strip(), re.IGNORECASE):  # -- squad (wave 110E) -- "Squad—{1}, Discard a card." is one keyword (702.157a)
+        return ("squad",)
     if re.fullmatch(r"kicker—(?:\{[^}]+\})+, [^;{}]+", line.strip(), re.IGNORECASE):  # -- keywords (wave 50H) -- 702.33a: "Kicker—{2}{R}, Sacrifice a land." is one keyword (its cost has two parts)
         return ("kicker",)
     if re.fullmatch(r"(?i:equip)—(?:\{[^}]+\})+, [^;{}]+|Equip [A-Z][a-z]+(?:, [A-Z][a-z]+)+,? or [A-Z][a-z]+ (?:\{[^}]+\})+", line.strip()):

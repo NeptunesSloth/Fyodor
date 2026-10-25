@@ -815,7 +815,8 @@ def choose_targets(plan: Plan, a: A.CastSpell | A.ActivateAbility, definition: d
         from app.rules import kicked_instead
 
         specs = kicked_instead.applicable(specs, a.kicker or int(a.awaken) or int(f"{a.card_id}:gift" in a.optional_costs) or int(f"{a.card_id}:bargain" in a.optional_costs)
-                                          or int(f"{a.card_id}:teamwork" in a.optional_costs))  # (awaken: wave 16B; bargain: 30E; teamwork: wave 100K, aslongas100k.TEAMWORK;
+                                          or int(f"{a.card_id}:teamwork" in a.optional_costs)
+                                          or int(any(f"{a.card_id}:{g['optional']}" in a.optional_costs for g in specs if "optional" in g)))  # (wave 110E: Hulk's Thunderclap)  # (awaken: wave 16B; bargain: 30E; teamwork: wave 100K, aslongas100k.TEAMWORK;
         # gift: wave 23D, 702.174m: the targets only a promised spell chooses)
     from app.rules import flagbearer86
 
@@ -3805,6 +3806,9 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
     if (target_life := cost_changes.targeting_life(plan.state, plan.actor, card, ch, plan.info, tuple(t.id for t in chosen))):
         add_cost = alt_costs.merged(add_cost, costs.AbilityCost(  # -- casting costs (wave 22F) -- Terror of the Peaks: life for its targets (601.2f)
             components=(costs.CostComponent(costs.PAY_LIFE, amount=target_life, text=f"Pay {target_life} life"),), life=target_life))
+    if (each_life := sum(d.get("life_per_target", 0) for d in permissions._definitions(ch).values())) and chosen:  # -- wave 110E -- "costs 3 life more for each target"
+        add_cost = alt_costs.merged(add_cost, costs.AbilityCost(
+            components=(costs.CostComponent(costs.PAY_LIFE, amount=each_life * len(chosen), text=f"Pay {each_life * len(chosen)} life"),), life=each_life * len(chosen)))
     if (optional_more := optional_parts(optional, a.x_value or 0)) is not None:  # -- cost changers (wave 4I) -- Defiler of Vigor's 2 life, paid with the rest (601.2h, 119.4)
         add_cost = alt_costs.merged(add_cost, optional_more)
     add_objects: dict[int, list[str]] = {}
@@ -4116,6 +4120,7 @@ def _post_cast(plan: Plan, data: _PostCast, payment: M.Payment | None) -> None:
     record.prototyped = a.prototype  # -- casting extras (wave 18E) -- 718.3b
     record.kicked_mask = kick_mask(ch, a.kicker)  # (-- keywords (wave 50H) -- "kicked with its {R} kicker", 702.33f)
     record.kicked = kicked or int(a.awaken) or int(gift_to is not None or bargained)  # 702.33d (-- static_other sweep (wave 16B) -- awaken: the line is read as
+    record.pick110e = a.pick110e  # (wave 110E)
     record.gift_to = gift_to  # "If this spell was kicked"; wave 23D: a promised gift, 702.174k, likewise)
     _note_cast(plan, record, cast_zone, zone_player=data.origin_player103)  # -- refused modal/conditional (wave 3R1) --
     record.spliced_names = data.spliced_names
@@ -4837,6 +4842,12 @@ def optional_announced(plan: Plan, a: A.CastSpell, card: CardInstance, ch: Chara
         if found_gift is gift.WAITING:
             return None
         gift_to = found_gift
+    if not plan.manual(card):  # -- cast-time choice (wave 110E) -- 601.2b
+        from app.rules import wave110e_opp
+
+        if (picked := wave110e_opp.announce(plan, a, card, ch)) is wave110e_opp.WAITING:
+            return None
+        a.pick110e = picked
     if a.optional_costs and plan.manual(card):
         raise ActionError("That card is played by hand: pay its costs with the table tools")
     return optional, gift_to, any(o.kind == "bargain" for o in optional)  # -- keywords (wave 30E) -- 702.166b: its controller declared the intention to pay it
@@ -5319,6 +5330,7 @@ def _post_free_cast(plan: Plan, data: _PostFreeCast, payment: M.Payment | None) 
     record.kicked_mask = kick_mask(ch, a.kicker)  # (-- keywords (wave 50H) --)
     record.kicked = kick_count(ch, a.kicker) or int(gift_to is not None or bargained)  # (702.33d; a promised gift and a bargain read as kicked, as with the cost: 702.174k, 702.166)
     record.gift_to = gift_to
+    record.pick110e = a.pick110e  # (wave 110E)
     pending_suspend = r.free_cast_then or {}
     was_suspended = (pending_suspend["suspend_object"] == plan.oid(card) if "suspend_object" in pending_suspend
                      else card.id in r.suspended)  # absent only: preserve legacy saved announcement behavior

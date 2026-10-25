@@ -106,12 +106,20 @@ def modular_sunburst(line: str) -> bool:
     return strip_reminders(line).strip().rstrip(".").lower() == "modular—sunburst"
 
 
+def _squad_mixed(line: str) -> bool:
+    from app.rules import costs
+
+    return costs.kicker_mixed_parts(re.sub(r"\s*\(.*?\)", "", line).strip()) is not None
+
+
 def pieces(kw: str, line: str) -> list[str]:
     """The pieces of a keyword line that are this keyword ("Flying, battle cry" → ["battle cry"])."""
     if kw == "modular" and modular_sunburst(line):
         # Its triggered half is ordinary modular; entry computes the variable
         # count separately from mana colors (702.44c), rather than this zero.
         return ["modular 0"]
+    if kw == "squad" and _squad_mixed(line):  # -- squad (wave 110E) -- "Squad—{1}, Discard a card." is one keyword (its cost has a comma)
+        return [kw]
     out = []
     for p in re.split(r"[,;]\s*", re.sub(r"\s*\(.*?\)", "", line).strip().rstrip(".")):
         p = p.strip().lower()
