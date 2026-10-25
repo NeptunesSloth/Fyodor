@@ -51,6 +51,14 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
     return None
 
 
+def holds(plan: Any, ctx: dict[str, Any], cond: dict[str, Any]) -> bool:
+    """A condition of ``{"w110a": kind, …}``: the kind's function in the first module that has it (``CONDITIONS``)."""
+    for mod in _mods():
+        if (fn := getattr(mod, "CONDITIONS", {}).get(cond["w110a"])) is not None:
+            return bool(fn(plan, ctx, cond))
+    raise ValueError(f"unknown wave 110A condition {cond!r}")
+
+
 def primitives() -> dict[str, Any]:
     out: dict[str, Any] = {}
     for mod in _mods():

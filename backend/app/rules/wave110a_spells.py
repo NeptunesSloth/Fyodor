@@ -47,6 +47,44 @@ def _snow(add: bool) -> Callable[[], Parsed]:
     return build
 
 
+def controller_of(plan: Any, ctx: dict[str, Any], cond: dict[str, Any]) -> bool:
+    """"its controller has …": the condition judged for the controller the object has, or had as it last existed (608.2h); gone: false (608.2b)."""
+    from app.rules import conditions, values
+
+    found = values._object(plan, ctx, cond["object"])
+    return found is not None and conditions.holds(plan, {**ctx, "controller": found[0].controller}, cond["cond"])
+
+
+CONDITIONS = {"controller_of": controller_of}
+
+
+def _anoint() -> Parsed:
+    """Anoint with Affliction: judged once as it resolves (608.2c): corrupted (its controller has three or more poison counters) exiles it
+    whatever its mana value, else only with mana value 3 or less."""
+    from app.rules import multi100n
+
+    base, target, optional = _p("Exile target creature if it has mana value 3 or less.")
+    alt = _p("Exile target creature.")[0]
+    corrupted = {"w110a": "controller_of", "object": "target", "cond": {"value": {"player_counters": "poison"}, "op": ">=", "n": 3}}
+    return multi100n._instead(corrupted, base, alt), target, optional
+
+
+def _slime() -> Parsed:
+    """Convert to Slime: delirium counts the graveyard after the destruction ("Then", 608.2c); X is the total mana value of the permanents that were
+    destroyed this way, each as it last existed (608.2h) — one that wasn't destroyed (indestructible, regenerated) counts for nothing."""
+    effects, groups, optional = _p("Destroy up to one target artifact, up to one target creature, and up to one target enchantment. Then if there are four "
+                                   "or more card types among cards in your graveyard, create a 1/1 green Ooze creature token.")
+    total = {"plus": [{"sum": "mana_value", "of": f"ref:slime{i}"} for i in range(3)]}
+    out = []
+    for e in effects:
+        if e["do"] == "destroy":
+            e = {**e, "as": f"slime{e['who'].rpartition(':')[2]}"}
+        elif e["do"] == "create_token":
+            e = {**e, "token": {**e["token"], "power": total, "toughness": total}}
+        out.append(e)
+    return out, groups, optional
+
+
 # Sentences the grammar reads in other words with the same meaning (the rewrite must mean the same: 608.2c).
 REWRITES = {
     # (122.6: "enters with … additional counters" is the grammar's "if a creature enters this way, it enters with …" for the returned permanent card)
@@ -63,6 +101,9 @@ def _choose_transform(kind: str) -> Parsed:
 
 
 BUILDERS: dict[str, Callable[[], Parsed]] = {
+    "Destroy up to one target artifact, up to one target creature, and up to one target enchantment. Then if there are four or more card types among "
+    "cards in your graveyard, create an X/X green Ooze creature token, where X is the total mana value of permanents destroyed this way.": _slime,
+    "Exile target creature if it has mana value 3 or less. Exile that creature instead if its controller has three or more poison counters.": _anoint,
     "Tap up to three target creatures. Put a stun counter on one of them.": lambda: (  # Aerith Rescue Mission: 122.1g, one of the targets (608.2d)
         [*(tap := _p("Tap up to three target creatures."))[0], {"do": "bind110a", "who": "target:0", "as": "targets110a"},
          {"do": "choose_one_of", "who": "ref:targets110a", "n": 1, "as": "one110a"},

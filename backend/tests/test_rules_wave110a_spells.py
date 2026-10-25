@@ -5,31 +5,16 @@ Every scenario checks the replay and a save and a load.
   condition is judged as the delayed trigger resolves).
 """
 
+# ruff: noqa: F403, F405
 from __future__ import annotations
 
 import pytest
 
 from app.game.errors import ActionError
-from tests.wave110a_kit import (
-    act,
-    answer,
-    build,
-    cast,
-    ch,
-    check,
-    full_test,
-    life,
-    next_turn,
-    open_repo,
-    pt,
-    put,
-    stops,
-    to_phase,
-    zone_of,
-)
+from tests.wave110a_kit import *
 
 BERSERK, MANDATE, BAIT, FLUX = "Berserk", "Mandate of Peace", "Take the Bait", "Thermal Flux"
-AERITH, SUNDER, WMBD = "Aerith Rescue Mission", "Sunder the Gateway", "What Must Be Done"
+AERITH, SUNDER, WMBD, ANOINT, SLIME = "Aerith Rescue Mission", "Sunder the Gateway", "What Must Be Done", "Anoint with Affliction", "Convert to Slime"
 
 
 @pytest.fixture()
@@ -37,7 +22,7 @@ def cards(settings):
     yield from open_repo(settings)
 
 
-test_full = full_test([BERSERK, MANDATE, BAIT, FLUX, AERITH, SUNDER, WMBD])
+test_full = full_test([BERSERK, MANDATE, BAIT, FLUX, AERITH, SUNDER, WMBD, ANOINT, SLIME])
 
 
 def attack(s, c, target="p2"):
@@ -196,4 +181,35 @@ def test_what_must_be_done_returns_a_historic_permanent_a_creature_with_two_more
     cast(s, WMBD, [card.id], modes=[1])
     answer(s)
     assert zone_of(s, name) == "p1:battlefield" and s.state.cards[card.id].counters.get("+1/+1", 0) == counters
+    check(s)
+
+
+@pytest.mark.parametrize("name, poison, exiled", [("Hill Giant", 2, False), ("Hill Giant", 3, True), ("Grizzly Bears", 0, True)])
+def test_anoint_with_affliction_exiles_mana_value_3_or_less_or_any_if_corrupted(cards, name, poison, exiled):
+    """Corrupted (its controller has three or more poison counters) is judged as the spell resolves: instead exile any creature (608.2c)."""
+    s = build(cards, [ANOINT], [name])
+    target = put(s, name, "p2")
+    act(s, "p2", type="set_resource", player="p2", key="poison", value=poison)
+    cast(s, ANOINT, [target.id])
+    answer(s)
+    assert (zone_of(s, name, "p2") == "p2:exile") == exiled
+    check(s)
+
+
+@pytest.mark.parametrize("delirium", [False, True])
+def test_convert_to_slime_ooze_as_big_as_the_total_mana_value_destroyed_with_delirium(cards, delirium):
+    """Destroys up to one of each; delirium (four card types in your graveyard, checked after the destruction) makes an X/X Ooze, X the total mana
+    value of what was destroyed (Sol Ring 1 + Hill Giant 4)."""
+    s = build(cards, [SLIME, "Sol Ring", "Grizzly Bears", "Lightning Bolt"], ["Sol Ring", "Hill Giant"])
+    ring, giant = put(s, "Sol Ring", "p2"), put(s, "Hill Giant", "p2")
+    mine = [card_named(s, n).id for n in (["Sol Ring", "Grizzly Bears"] + (["Lightning Bolt"] if delirium else []))]
+    act(s, "p1", type="move", card_ids=mine, to={"player": "p1", "zone": "graveyard"})
+    to_graveyard(s, 1)
+    cast(s, SLIME, [ring.id, giant.id], target_counts=[1, 1, 0])
+    answer(s)
+    assert zone_of(s, "Sol Ring", "p2") == zone_of(s, "Hill Giant", "p2") == "p2:graveyard"
+    oozes = [c for c in s.state.cards.values() if c.name == "Ooze" and c.zone == "p1:battlefield"]
+    assert len(oozes) == (1 if delirium else 0)
+    if delirium:
+        assert pt(s, "Ooze") == (5, 5)
     check(s)
