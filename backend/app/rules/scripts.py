@@ -8327,7 +8327,7 @@ def _event_refs_ok(d: Definition) -> bool:
             and '\\"evt:' in json.dumps({**d, "effects": [e for i, e in enumerate(d.get("effects") or []) if i not in (_delayed.object_deferred(d.get("effects") or []) | entry_receipt56.object_deferred(d.get("effects") or []))]}):
         # (wave 28D: the spell a cast trigger is about; -- turn-long triggers (wave 35B) -- or the one object a "When that creature dies this turn" trigger is about)
         return False  # -- reanimation (wave 16F) -- "lesser mana value": than the one object the event is about
-    if "not_event" in raw and not (ev is not None and ev["event"] in ("targeted", "unblocked")):  # -- stack interaction (wave 23B) -- "other than that creature":
+    if "not_event" in raw and not (ev is not None and ev["event"] in ("targeted", "unblocked", "attack")):  # -- stack interaction (wave 23B) -- "other than that creature" (wave 110C: attack, Saw -- selectors.attacker_of reads it):
         return False  # the object a "becomes the target" event is about (selectors.attacker_of); nothing else names one here
     if '"event_attacking"' in raw and not (ev is not None and ev["event"] == "you_attack" and ev.get("min_attackers")):
         return False  # -- trailing & intervening ifs (wave 38A) -- "those creatures": the attackers an "attacks with creatures" trigger counted (its event's objects)

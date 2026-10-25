@@ -293,6 +293,8 @@ _SLIME = ("If a creature an opponent controls would die, instead exile it and pu
 _GATEWAY = ("Tap two untapped creatures you control: You may put a creature card from your hand that shares a creature type with each creature "
             "tapped this way onto the battlefield.")
 
+_SAW = ("Whenever equipped creature attacks, you may sacrifice a permanent other than that creature or this Equipment. If you do, draw a card.")
+
 _ADVENTURER = {
     "If a creature an opponent controls would die, instead exile it and put a hit counter on it.":
         "If a creature an opponent controls would die, exile that card with a hit counter on it instead.",
@@ -344,6 +346,19 @@ def definition(ability: AbilityText, ch: Any) -> dict[str, Any] | None:
         if native is None or [e.get("do") for e in native["effects"]] != ["put_from_hand"]:
             return None
         native["effects"][0]["shares_tapped110c"] = True
+        return native
+    if ability.text == _SAW:  # Saw: "you may sacrifice" = sacrifice up to one; "another" excludes the Equipment, not_event the attacker (scripts._event_refs_ok refuses the wording itself for attack events)
+        from dataclasses import replace
+
+        from app.rules import scripts, selectors
+
+        native = scripts.define(replace(ability, text=_SAW.replace(" other than that creature or this Equipment", "").replace("you may sacrifice a", "sacrifice another")), ch)
+        picks = [e for e in (native or {}).get("effects", []) if e.get("do") == "sacrifice_choice"]
+        if len(picks) != 1:
+            return None
+        picks[0]["upto"] = True
+        sel = selectors.from_key(picks[0]["sel"])
+        picks[0]["sel"] = replace(sel, extras=(*sel.extras, "not_event")).key()  # (selectors.py:2451, the attacking creature)
         return native
     if ability.text in _ADVENTURER:  # Ravenloft Adventurer: the same results in wordings the grammar reads (614.6 exile with a counter; 508.5 defending owner)
         from dataclasses import replace

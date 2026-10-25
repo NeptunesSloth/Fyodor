@@ -2720,7 +2720,7 @@ def _sacrifice_next(plan: Plan, ctx: Context, key: str, want: int, players: list
                     binding: str | None = None, exile: bool | str = False, link: bool = False, upto: bool = False) -> bool:
     sel = selectors.from_key(key)
     for i, pid in enumerate(players):
-        mine = [c for c in selectors.candidates(plan, sel, pid, ctx.get("source_card"))
+        mine = [c for c in selectors.candidates(plan, sel, pid, ctx.get("source_card"), selectors.attacker_of(ctx.get("event")))  # (wave 110C: "other than that creature", Saw)
                 if plan.state.cards[c].controller == pid and plan.state.cards[c].zone.endswith(":battlefield")]
         if not exile:
             from app.rules import prohibitions
