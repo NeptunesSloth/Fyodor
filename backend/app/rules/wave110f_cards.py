@@ -156,7 +156,45 @@ def _bustle() -> Parsed:
     return [*effects, {"do": "turn_up_choice110f"}], targets, optional
 
 
+def _keybearer() -> Parsed:
+    effects, targets, optional = _p("tap up to one target Room you control.")
+    return [{"do": "unlock110f", "who": effects[0]["who"]}], targets, optional
+
+
+def unlock(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Ghostly Keybearer: "unlock a locked door of up to one target Room you control" (709.5f: the designation, whatever the means; 709.5h triggers).
+    One locked door: that one. Both locked: its controller picks (a Room with no door unlocked can only get here by entering any way but cast)."""
+    from app.game.rules_state import DecisionOption
+    from app.rules import characteristics as chars
+    from app.rules import effects, rooms
+    from app.rules.copying import room_printing
+    from app.rules.plan import decide
+
+    for cid in effects._cards(plan, ctx, e["who"]):
+        card = plan.state.cards[cid]
+        if not card.zone.endswith(":battlefield") or card.controller != ctx["controller"] or plan.ch(card).doors is None:
+            continue
+        locked = [d for d in (1, 2) if d not in rooms.doors_of(plan, cid)]
+        if len(locked) == 2:
+            data = plan.info.get(room_printing(plan.rules, card, plan.oid(card))) or {}
+            decide(plan, player=ctx["controller"], kind="choose_cards", prompt="Unlock a locked door",
+                   options=[DecisionOption(id=str(d), label=chars.half_from_data(data, d - 1).name) for d in locked], min_choices=1, max_choices=1,
+                   resume={"step": "unlock110f", "ctx": ctx, "card": cid})
+            return False
+        if locked:
+            rooms.unlock(plan, cid, locked[0])
+    return True
+
+
+def resume_unlock(plan: Any, d: Any, chosen: list[str]) -> None:
+    from app.rules import effects, rooms
+
+    rooms.unlock(plan, d.resume["card"], int(chosen[0]))
+    effects.continue_effects(plan, d.resume["ctx"])
+
+
 BUILDERS: dict[str, Callable[[], Parsed]] = {
+    "unlock a locked door of up to one target Room you control.": _keybearer,
     "Reveal any number of cards in your hand. You gain 2 life for each green mana symbol in those cards' mana costs.":
         lambda: ([{"do": "reveal_chroma110f"}], None, False),
     "Creatures you control get +2/+2 and gain trample until end of turn. You may turn a creature you control face up.": _bustle,
@@ -182,8 +220,8 @@ REWRITES = {
         "Gain control of target nonartifact, nonblack creature that attacked you this turn, then put a -1/-0 counter on it.",
     "it deals 6 damage to each creature it blocked this combat.": "~ deals 6 damage to each creature blocked by it.",
 }
-PRIMITIVES: dict[str, Any] = {"same_colors110f": same_colors, "phase_swap110f": phase_swap, "exile_discarded110f": exile_discarded, "turn_up_choice110f": turn_up_choice, "reveal_chroma110f": reveal_chroma}
-RESUME: dict[str, Any] = {"turn_up_choice110f": resume_turn_up, "reveal_chroma110f": resume_reveal_chroma}
+PRIMITIVES: dict[str, Any] = {"same_colors110f": same_colors, "phase_swap110f": phase_swap, "exile_discarded110f": exile_discarded, "turn_up_choice110f": turn_up_choice, "reveal_chroma110f": reveal_chroma, "unlock110f": unlock}
+RESUME: dict[str, Any] = {"turn_up_choice110f": resume_turn_up, "reveal_chroma110f": resume_reveal_chroma, "unlock110f": resume_unlock}
 
 
 def parse(body: str) -> Parsed | None:

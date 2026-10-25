@@ -15,6 +15,7 @@
 * 508.1d, 509.1c: "Target creature attacks or blocks this turn if able."; 701.40g, 708.8: "You may turn a creature you control face up." (Hustle // Bustle).
 * 701.20a, 202.2d: "Reveal any number of cards in your hand. You gain 2 life for each green mana symbol in those cards' mana costs." (Phosphorescent Feast).
 * 602.5, 605.1a: "Creatures with flying can't attack or block, and their activated abilities with {T} in their costs can't be activated." (Katabatic Winds).
+* 709.5f, 709.5h: "unlock a locked door of up to one target Room you control" (Ghostly Keybearer).
 * 508.3a, 508.5: "Whenever an opponent attacks a planeswalker you control with one or more creatures, ~ deals 2 damage to that player and you gain 2 life." (Oath of Kaya).
 """
 
@@ -35,11 +36,16 @@ from tests.test_rules_wave100n_multi import (
     card_db,  # noqa: F401  (fixture DB with EXTRA)
     cast,
 )
+from tests.test_rules_wave18g_rooms import room
 from tests.wave9c_kit import build, check, life, mana, put, to_hand, zone_of
 
 EXTRA = [
     real('Oath of Kaya', '{1}{R}{W}', 3, 'Legendary Enchantment',
          "Whenever an opponent attacks a planeswalker you control with one or more creatures, Oath of Kaya deals 2 damage to that player and you gain 2 life.", None, 'RW'),
+    real('Ghostly Keybearer', '{3}{U}', 4, 'Creature — Spirit',
+         "Flying\nWhenever this creature deals combat damage to a player, unlock a locked door of up to one target Room you control.", ('3', '3'), 'U'),
+    room("Grand Entryway", ("Grand Entryway", "{1}{W}", "When you unlock this door, create a 1/1 white Glimmer enchantment creature token."),
+         ("Elegant Rotunda", "{2}{W}", "When you unlock this door, put a +1/+1 counter on each of up to two target creatures."), ["W"]),
     real('Katabatic Winds', '{2}{G}', 3, 'Enchantment',
          "Creatures with flying can't attack or block, and their activated abilities with {T} in their costs can't be activated.", None, 'G'),
     real("Rivals' Duel", '{3}{R}', 4, 'Sorcery',
@@ -87,7 +93,7 @@ EXTRA = [
     real('Test Flyer', '{2}{U}', 3, 'Creature — Bird', 'Flying\n{T}: Draw a card.', ('1', '1'), 'U'),
 ]
 _BASE.extend(EXTRA)  # the shared fixture DB builder reads this list
-NAMES = ["Oath of Kaya", "Katabatic Winds", "Rivals' Duel", "Dead Ringers", "Cathedral Membrane", "Taunt", "Jabari's Influence", "Don & Leo, Problem Solvers", "Rapid Fire", "Time and Tide", "Abby, Merciless Soldier", "Zombie Scavengers", "Toluz, Clever Conductor", "Invasion of Regatha", "Test Disciples 110F", "Hustle // Bustle", "Phosphorescent Feast"]
+NAMES = ["Ghostly Keybearer", "Oath of Kaya", "Katabatic Winds", "Rivals' Duel", "Dead Ringers", "Cathedral Membrane", "Taunt", "Jabari's Influence", "Don & Leo, Problem Solvers", "Rapid Fire", "Time and Tide", "Abby, Merciless Soldier", "Zombie Scavengers", "Toluz, Clever Conductor", "Invasion of Regatha", "Test Disciples 110F", "Hustle // Bustle", "Phosphorescent Feast"]
 
 
 @pytest.mark.parametrize("name", NAMES)
@@ -434,4 +440,24 @@ def test_oath_of_kaya_triggers_once_per_planeswalker_attacked(cards, case, p2_li
     until(s, lambda s: s.state.turn.phase == "main2")
     assert life(s, "p2") == p2_life
     assert life(s, "p1") == p1_life - (5 if case == "player" else 0)  # (the 2/2 Bears and 3/3 Giant hit you for 5 unblocked)
+    check(s)
+
+
+@pytest.mark.parametrize("cast_face,locked_left", [(0, 2), (1, 1)])
+def test_ghostly_keybearer_unlocks_the_locked_door_of_your_room(cards, cast_face, locked_left):
+    """709.5f: the one locked door gets unlocked; 709.5h: its "when you unlock this door" ability triggers."""
+    s = build(cards, ["Ghostly Keybearer", "Grand Entryway // Elegant Rotunda"])
+    key = put(s, "Ghostly Keybearer")
+    room_card = to_hand(s, "Grand Entryway // Elegant Rotunda")
+    mana(s, W=1, C=2)
+    act(s, "p1", type="cast_spell", card_id=room_card.id, face=cast_face)
+    answer(s)
+    to_phase(s, "main1", turn=3)
+    attack(s, key)
+    answer(s)
+    oid = s.state.rules.object_id(room_card.id)
+    assert s.state.rules.unlocked[oid] == [1, 2]
+    assert life(s, "p2") == (37 if cast_face == 0 else 36)  # (the right door's counter came before combat when it was the cast half)
+    assert any(c.name == "Glimmer" for c in s.state.cards.values())  # (the left door's trigger: at the cast, or from the unlock)
+    assert s.state.cards[key.id].counters.get("+1/+1", 0) == 1  # (the right door's trigger, from the cast or from the unlock)
     check(s)
