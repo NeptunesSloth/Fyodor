@@ -1,0 +1,110 @@
+[
+ {
+  "name": "Ozai, the Phoenix King",
+  "layout": "normal",
+  "mana_cost": "{2}{B}{B}{R}{R}",
+  "cmc": 6.0,
+  "type_line": "Legendary Creature — Human Noble",
+  "oracle_text": "Trample, firebending 4, haste\nIf you would lose unspent mana, that mana becomes red instead.\nOzai has flying and indestructible as long as you have six or more unspent mana.",
+  "colors": [
+   "B",
+   "R"
+  ],
+  "color_identity": [
+   "B",
+   "R"
+  ],
+  "keywords": [
+   "Haste",
+   "Trample",
+   "Firebending"
+  ],
+  "power": "7",
+  "toughness": "7"
+ },
+ {
+  "name": "Ran and Shaw",
+  "layout": "normal",
+  "mana_cost": "{3}{R}{R}",
+  "cmc": 5.0,
+  "type_line": "Legendary Creature — Dragon",
+  "oracle_text": "Flying, firebending 2\nWhen Ran and Shaw enter, if you cast them and there are three or more Dragon and/or Lesson cards in your graveyard, create a token that's a copy of Ran and Shaw, except it's not legendary.\n{3}{R}: Dragons you control get +2/+0 until end of turn.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Flying",
+   "Firebending"
+  ],
+  "power": "4",
+  "toughness": "4"
+ },
+ {
+  "name": "Avatar Aang // Aang, Master of Elements",
+  "layout": "transform",
+  "mana_cost": "{R}{G}{W}{U} // ",
+  "cmc": 4.0,
+  "type_line": "Legendary Creature — Human Avatar Ally // Legendary Creature — Avatar Ally",
+  "oracle_text": "Flying, firebending 2\nWhenever you waterbend, earthbend, firebend, or airbend, draw a card. Then if you've done all four this turn, transform Avatar Aang.\n//\nFlying\nSpells you cast cost {W}{U}{B}{R}{G} less to cast. (This can reduce generic costs.)\nAt the beginning of each upkeep, you may transform Aang, Master of Elements. If you do, you gain 4 life, draw four cards, put four +1/+1 counters on him, and he deals 4 damage to each opponent.",
+  "colors": [
+   "G",
+   "R",
+   "U",
+   "W"
+  ],
+  "color_identity": [
+   "B",
+   "G",
+   "R",
+   "U",
+   "W"
+  ],
+  "keywords": [
+   "Flying",
+   "Transform",
+   "Firebending"
+  ],
+  "power": "4",
+  "toughness": "4",
+  "card_faces": [
+   {
+    "name": "Avatar Aang",
+    "mana_cost": "{R}{G}{W}{U}",
+    "type_line": "Legendary Creature — Human Avatar Ally",
+    "oracle_text": "Flying, firebending 2\nWhenever you waterbend, earthbend, firebend, or airbend, draw a card. Then if you've done all four this turn, transform Avatar Aang.",
+    "power": "4",
+    "toughness": "4",
+    "colors": [
+     "G",
+     "R",
+     "U",
+     "W"
+    ],
+    "image_uris": {
+     "small": "https://cards.scryfall.io/small/front/2/5/257928ba-27ae-4a11-ae41-76dfcd626ed4.jpg?1783904902",
+     "normal": "https://cards.scryfall.io/normal/front/2/5/257928ba-27ae-4a11-ae41-76dfcd626ed4.jpg?1783904902",
+     "large": "https://cards.scryfall.io/large/front/2/5/257928ba-27ae-4a11-ae41-76dfcd626ed4.jpg?1783904902",
+     "art_crop": "https://cards.scryfall.io/art_crop/front/2/5/257928ba-27ae-4a11-ae41-76dfcd626ed4.jpg?1783904902"
+    }
+   },
+   {
+    "name": "Aang, Master of Elements",
+    "mana_cost": "",
+    "type_line": "Legendary Creature — Avatar Ally",
+    "oracle_text": "Flying\nSpells you cast cost {W}{U}{B}{R}{G} less to cast. (This can reduce generic costs.)\nAt the beginning of each upkeep, you may transform Aang, Master of Elements. If you do, you gain 4 life, draw four cards, put four +1/+1 counters on him, and he deals 4 damage to each opponent.",
+    "power": "6",
+    "toughness": "6",
+    "colors": [],
+    "image_uris": {
+     "small": "https://cards.scryfall.io/small/back/2/5/257928ba-27ae-4a11-ae41-76dfcd626ed4.jpg?1783904902",
+     "normal": "https://cards.scryfall.io/normal/back/2/5/257928ba-27ae-4a11-ae41-76dfcd626ed4.jpg?1783904902",
+     "large": "https://cards.scryfall.io/large/back/2/5/257928ba-27ae-4a11-ae41-76dfcd626ed4.jpg?1783904902",
+     "art_crop": "https://cards.scryfall.io/art_crop/back/2/5/257928ba-27ae-4a11-ae41-76dfcd626ed4.jpg?1783904902"
+    }
+   }
+  ]
+ }
+]

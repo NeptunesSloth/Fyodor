@@ -5971,6 +5971,10 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
 
     if (lines100j := counters100j.definition(ability, ch)) is not None:
         return lines100j
+    from app.rules import wave110b_cards  # -- wave 110B --
+
+    if (card110b := wave110b_cards.definition(ability, ch)) is not None:
+        return card110b
     from app.rules import multi100n  # -- multi (wave 100N) --
 
     if (whole100n := multi100n.definition(ability, ch)) is not None:
@@ -8556,6 +8560,8 @@ def _impending_trigger() -> Definition | None:
 
 def keyword_triggers(ch: Characteristics) -> list[tuple[int, Definition]]:
     """Triggered keyword abilities of a card, with keys that can't clash with ability indexes."""
+    from app.rules import wave110b_cards  # -- wave 110B --
+
     if ch.is_ability or ch.face_down:
         return []
     out = []
@@ -8599,11 +8605,11 @@ def keyword_triggers(ch: Characteristics) -> list[tuple[int, Definition]]:
                     "kind": "triggered", "trigger": "dies_self", "optional": True,
                     "target": {"what": f"graveyard:Spirit:{ns[ab.keywords[:k].count(kw)]}"},
                     "effects": [{"do": "bounce", "who": "target"}]}))
-            fb = re.fullmatch(r"firebending (\d+)", ab.text.strip().rstrip(".").lower()) if kw == "firebending" else None
+            fb = wave110b_cards.firebending(ab.text) if kw == "firebending" else None  # (wave 110B: among other keywords of the line)
             if fb:  # -- keyword actions & face-down (wave 3F) -- 702.189a: "Whenever this creature attacks, add N {R}. …"
                 out.append((1000 + ab.index * 10 + k, {
                     "kind": "triggered", "trigger": "attacks_self", "optional": False, "target": None,
-                    "effects": [{"do": "firebend", "n": int(fb.group(1))}]}))
+                    "effects": [{"do": "firebend", "n": fb}]}))
     return out
 
 

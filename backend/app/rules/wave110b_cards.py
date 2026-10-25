@@ -1,0 +1,64 @@
+"""-- wave 110B -- exact Oracle wordings of single cards, read as a wording the grammar already reads (``_AS``) or built from parts of it.
+
+Each entry matches one whole ability's Oracle text exactly (plural names and "and/or" included) and nothing else; any other wording stays
+unsupported. Researched against the Comprehensive Rules of 2026-09-25.
+"""
+from __future__ import annotations
+
+import re
+from collections.abc import Callable
+from dataclasses import replace
+from typing import Any
+
+Def = dict[str, Any]
+
+
+def firebending(line: str) -> int | None:
+    """702.189a: N of the one "firebending N" piece of a keyword line ("Trample, firebending 4, haste"), else None."""
+    pieces = [p.strip() for p in re.split(r"[,;]\s*", re.sub(r"\s*\([^()]*\)", "", line).strip().rstrip("."))]
+    found = [re.fullmatch(r"firebending (\d+)", p.lower()) for p in pieces if p.lower().startswith("firebending")]
+    return int(found[0][1]) if len(found) == 1 and found[0] else None
+
+
+# whole ability text -> the wording the grammar reads for it
+_AS: dict[str, str] = {
+    # Ran and Shaw: one object with a plural name (201.5); "Dragon and/or Lesson" is a card with either subtype
+    "When Ran and Shaw enter, if you cast them and there are three or more Dragon and/or Lesson cards in your graveyard, create a token that's a copy "
+    "of Ran and Shaw, except it's not legendary.":
+        "When this creature enters, if you cast it and there are three or more Dragon or Lesson cards in your graveyard, create a token that's a copy "
+        "of this creature, except it's not legendary.",
+}
+
+
+def _swap_value(d: Def, old: Def, new: Def) -> Def:
+    """The native definition with the one condition value ``old`` read as ``new``."""
+    hit = [c for c in d["conditions"] if c.get("value") == old]
+    assert len(hit) == 1
+    return {**d, "conditions": [{**c, "value": new} if c is hit[0] else c for c in d["conditions"]]}
+
+
+# whole ability text -> (the wording the grammar reads, what to change in its definition)
+_BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
+    # Ozai: the mana a player would lose stays in the pool as red mana (614.1a, 500.4)
+    "If you would lose unspent mana, that mana becomes red instead.":
+        ("If you would lose unspent mana, that mana becomes colorless instead.", lambda d: {**d, "to": "R"}),
+    # Ozai: unspent mana of any type, in the pool and in units with restrictions (106.4)
+    "Ozai has flying and indestructible as long as you have six or more unspent mana.":
+        ("Ozai has flying and indestructible as long as you have six or more cards in your hand.",
+         lambda d: _swap_value(d, {"hand": "you"}, {"unspent": ""})),
+}
+
+
+def definition(ability: Any, ch: Any) -> Def | None:
+    from app.rules import scripts
+
+    text = ability.text.strip()
+    if (same := _AS.get(text)) is not None:
+        return scripts.define(replace(ability, text=same), ch)
+    if (built := _BUILD.get(text)) is not None:
+        native = scripts.define(replace(ability, text=built[0]), ch)
+        return None if native is None else built[1](native)
+    return None
+
+
+PRIMITIVES: dict[str, Any] = {}
