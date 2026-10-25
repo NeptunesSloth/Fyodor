@@ -406,6 +406,10 @@ ABILITY_REWRITES = {
     # Nacatl War-Pride: "exactly one" = at least one (509.1c requirement) and no more than one (509.1b restriction)
     "~ must be blocked by exactly one creature if able.":
         "~ must be blocked if able and can't be blocked by more than one creature.",
+    # Zariel's emblem: the end of the first combat phase (500.8, 511.2) is "at end of combat" while it is the first combat phase of the turn
+    "At the end of the first combat phase on your turn, untap target creature you control. After this phase, there is an additional combat phase.":
+        "At end of combat on your turn, if it's the first combat phase of the turn, untap target creature you control. "
+        "After this phase, there is an additional combat phase.",
 }
 _ANY_NUMBER = {"\u22126: Exile the top seven cards of your library. You may put any number of creature and/or land cards from among them onto the battlefield."}
 

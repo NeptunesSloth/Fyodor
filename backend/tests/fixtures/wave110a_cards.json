@@ -1404,5 +1404,21 @@
   "keywords": [],
   "power": "7",
   "toughness": "7"
+ },
+ {
+  "name": "Zariel, Archduke of Avernus",
+  "layout": "normal",
+  "mana_cost": "{2}{R}{R}",
+  "cmc": 4.0,
+  "type_line": "Legendary Planeswalker — Zariel",
+  "oracle_text": "+1: Creatures you control get +1/+0 and gain haste until end of turn.\n0: Create a 1/1 red Devil creature token with \"When this token dies, it deals 1 damage to any target.\"\n−6: You get an emblem with \"At the end of the first combat phase on your turn, untap target creature you control. After this phase, there is an additional combat phase.\"",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [],
+  "loyalty": "4"
  }
 ]
