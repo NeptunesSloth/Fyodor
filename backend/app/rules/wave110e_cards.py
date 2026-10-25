@@ -11,7 +11,7 @@ Def = dict[str, Any]
 
 # 701.29a: fateseal N = look at the top N cards of an opponent's library (chosen, not targeted), any number to the bottom, the rest back on top
 # in any order. Only the looking player sees them (look_top reveal false).
-_FATESEAL2 = [{"do": "choose_value", "who": "you", "what": "opponent", "as": "fs110e"},
+_FATESEAL2: list[Def] = [{"do": "choose_value", "who": "you", "what": "opponent", "as": "fs110e"},
               {"do": "look_top", "n": 2, "player": "ref:fs110e", "reveal": False},
               {"do": "pick_looked", "n": 2, "optional": True, "to": "bottom_any", "reveal": False},
               {"do": "rest_looked", "to": "top_any"}]
