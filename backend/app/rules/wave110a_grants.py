@@ -34,6 +34,28 @@ def grant_freerunning(t: str) -> dict[str, Any] | None:
             "mv": None, "cond": alt_costs._cond(alt_costs.FREERUN_COND), "tag": "freerunning", "effects": []}
 
 
+# 702.35a: "Each Vampire creature card you own that isn't on the battlefield has madness. The madness cost is equal to its mana cost." (Falkenrath Gorger)
+_MADNESS = re.compile(r"^each (?P<sub>[a-z]+) creature card you own that isn't on the battlefield has madness\. the madness cost is equal to its mana cost$", re.I)
+
+
+def grant_madness(t: str) -> dict[str, Any] | None:
+    m = _MADNESS.fullmatch(t.strip().rstrip("."))
+    return None if m is None else {"kind": "static", "static": "madness_grant110a", "sub": m["sub"].capitalize(), "effects": []}
+
+
+def madness(plan: Any, card: Any) -> str | None:
+    """The madness cost a static gives this card (its mana cost) while it is in a hand about to be discarded (a card you own, not on the battlefield)."""
+    from app.rules import permissions
+
+    ch = plan.ch(card)
+    if not ch.mana_cost or "{X}" in ch.mana_cost or "Creature" not in ch.types or card.zone.endswith(":battlefield"):
+        return None
+    for src, _, d in permissions._table_statics(plan.state, plan.info, {"madness_grant110a"}):
+        if src.controller == card.owner and d["sub"] in ch.subtypes:
+            return str(ch.mana_cost)
+    return None
+
+
 UMBRA = "Auras attached to permanents you control have umbra armor."
 
 

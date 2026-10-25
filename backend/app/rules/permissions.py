@@ -652,6 +652,10 @@ def define_static(text: str, kind: str, lines: tuple[str, ...] = ()) -> Definiti
         from app.rules import wave110a_grants
 
         return wave110a_grants.grant_freerunning(t)
+    if " has madness. " in t and kind == "static":  # -- grants (wave 110A) -- Falkenrath Gorger
+        from app.rules import wave110a_grants
+
+        return wave110a_grants.grant_madness(t)
     if " has replicate. " in t and kind == "static":  # -- grants (wave 110A) -- Hatchery Sliver, Ian Chesterton
         from app.rules import wave110a_grants
 

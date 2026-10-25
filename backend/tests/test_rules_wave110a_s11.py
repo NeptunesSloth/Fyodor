@@ -5,6 +5,7 @@
 * The Last Ronin's Technique - 702.190a sneak: the tokens enter tapped and attacking (508.4) only if the sneak cost was paid.
 * Ezio Auditore da Firenze - 702.173a granted freerunning (Assassin spells you cast), and the combat damage trigger: pay {W}{U}{B}{R}{G} (the life
   test is on resolution) and the player loses the game.
+* Falkenrath Gorger - 702.35a a Vampire creature card you own gets madness (its mana cost) from the static: discarded into exile, cast or put into the graveyard.
 """
 
 # ruff: noqa: F403, F405
@@ -16,6 +17,7 @@ DINO = "Displaced Dinosaurs"
 ZARIEL = "Zariel, Archduke of Avernus"
 RONIN = "The Last Ronin's Technique"
 EZIO = "Ezio Auditore da Firenze"
+GORGER = "Falkenrath Gorger"
 
 
 @pytest.fixture()
@@ -23,7 +25,7 @@ def cards(settings):
     yield from open_repo(settings)
 
 
-test_full = full_test([DINO, ZARIEL, RONIN, EZIO])
+test_full = full_test([DINO, ZARIEL, RONIN, EZIO, GORGER])
 
 
 def test_historic_artifact_enters_as_a_7_7_dinosaur_creature(cards):
@@ -159,4 +161,26 @@ def test_ezio_pays_five_colors_to_make_a_player_at_ten_or_less_life_lose(cards, 
     act(s, "p1", type="set_life", player="p2", value=life + 3)  # Ezio deals 3 combat damage
     connect(s, ezio, pay=True)
     assert ("p2" in s.state.rules.lost) == loses and (loses or life_of(s) == life)  # 104.3e;   # the life test is made on resolution
+    check(s)
+
+
+@pytest.mark.parametrize("gorger, cast_it", [(True, True), (True, False), (False, False)])
+def test_gorger_gives_vampire_cards_madness_on_discard(cards, gorger, cast_it):
+    s = build(cards, [GORGER, "Vampire Nighthawk", "Mind Rot"])
+    if gorger:
+        put(s, GORGER)
+    hawk = to_hand(s, "Vampire Nighthawk")
+    mana(s, B=1, C=2)
+    cast(s, "Mind Rot", ["p1"])
+    for _ in range(12):
+        if s.state.rules.decision is not None or not s.state.zones.get("stack"):
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+    d = s.state.rules.decision
+    assert (d is not None and "Madness" in d.prompt) == gorger  # only with the static is the discard offered a cast (702.35a)
+    if d is not None:
+        mana(s, B=2, C=1)
+        act(s, d.player, type="choose", decision_id=d.id, option_ids=["yes" if cast_it else "no"])
+        answer(s)
+    assert s.state.cards[hawk.id].zone == ("p1:battlefield" if cast_it else "p1:graveyard")
     check(s)

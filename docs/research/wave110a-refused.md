@@ -34,3 +34,8 @@
 - Tectonic Split: additional cost "sacrifice half the lands you control, rounded up" is a variable mandatory cost (no CostComponent amount from a count); skipped.
 - Frenzied Saddlebrute: haste "as attacking your opponents" needs the defender in combat.attack_problem (not passed); skipped.
 - Zinnia, Valley's Voice: granted offspring is read from the permanent's keywords at entry (keyword_triggers), not the spell's cast abilities; skipped.
+- Teferi, Who Slows the Sunset: emblem "untap during each opponent's untap step" and "draw during each opponent's draw step" are turn-based actions in the opponent's step; a trigger would give opponents a response window (wrong).
+- Tezzeret, Betrayer of Flesh: "first activated ability of an artifact you activate each turn" must count mana abilities too (which skip the casting path), so the cost cut would apply to the wrong ability.
+- Karn, Living Legacy: emblem with an activated ability ("Tap an untapped artifact you control: ...") is not run from the command zone (designations.emblem_text_ok allows no activated abilities); -1 pay any amount of mana unsupported.
+- See the Unwritten: ferocious "put two creature cards instead of one": whether exactly one may be put is undecided (earlier wave 100 note).
+- Officious Interrogation: "any number of target players" with a total-creature investigate count has no target group foundation.

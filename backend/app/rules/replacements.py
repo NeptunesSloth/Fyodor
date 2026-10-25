@@ -1798,8 +1798,10 @@ def _madness_cost(plan: Plan, card: CardInstance) -> str | None:
 
     if plan.manual(card):
         return None
+    from app.rules import wave110a_grants  # -- grants (wave 110A) -- a static gives the card madness
+
     return next((cost for ab in plan.ch(card).abilities if ab.kind == "keywords" and "madness" in ab.keywords
-                 and (cost := madness_costs.line(ab.text)) is not None), None)
+                 and (cost := madness_costs.line(ab.text)) is not None), None) or wave110a_grants.madness(plan, card)
 
 
 def _discard_into_exile(plan: Plan, cid: str, cost: str, actor: str | None, *, already_moved: bool = False) -> None:
