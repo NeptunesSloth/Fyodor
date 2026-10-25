@@ -119,6 +119,8 @@ EXTRA = [
          "Target creature you control gets +1/+0 and gains deathtouch until end of turn. Whenever a creature dealt damage by that creature dies this turn, its controller loses 2 life. (Any amount of damage a creature with deathtouch deals to a creature is enough to destroy it.)", None, 'B'),
     real('Eye for an Eye', '{W}{W}', 2, 'Instant',
          "The next time a source of your choice would deal damage to you this turn, instead that source deals that much damage to you and Eye for an Eye deals that much damage to that source's controller.", None, 'W'),
+    real('Phyrexian Ingester', '{6}{U}', 7, 'Creature \u2014 Phyrexian Beast',
+         "Imprint \u2014 When this creature enters, you may exile target nontoken creature.\nThis creature gets +X/+Y, where X is the exiled creature card's power and Y is its toughness.", ('3', '3'), 'U'),
     real('Test Zap', '{R}', 1, 'Instant', 'Test Zap deals 1 damage to target creature.', None, 'R'),
     real('Beamsplitter Mage', '{1}{R}', 2, 'Creature \u2014 Human Wizard', 'Whenever you cast an instant or sorcery spell that targets only this creature, if you control one or more other creatures that spell could target, choose one of those creatures. Copy that spell. The copy targets the chosen creature.', ('1', '3'), 'R'),
     real('Biblioplex Tomekeeper', '{4}', 4, 'Artifact Creature \u2014 Construct', 'When this creature enters, choose up to one \u2014\n\u2022 Target creature becomes prepared.\n\u2022 Target creature becomes unprepared.', ('3', '4'), ''),
@@ -998,4 +1000,28 @@ def test_eye_for_an_eye_deals_the_same_damage_to_the_sources_controller(cards):
         if s.state.zones.get("stack"):
             act(s, s.state.rules.priority, type="pass_priority")
     assert (s.state.players["p1"].life, s.state.players["p2"].life) == (34, 37)
+    check(s)
+
+
+@pytest.mark.parametrize("exile", [True, False])
+def test_phyrexian_ingester_gets_the_imprinted_creatures_power_and_toughness(cards, exile):
+    """Phyrexian Ingester (607.2a, 613.4c): 3/3 plus the exiled Hill Giant's 3/3; with nothing exiled it stays 3/3."""
+    s = build(cards, ["Phyrexian Ingester"], ["Hill Giant"])
+    giant = put(s, "Hill Giant", "p2")
+    mana(s, "p1", U=1, C=6)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Phyrexian Ingester").id)
+    for _ in range(12):
+        d = s.state.rules.decision
+        if d is not None:
+            ids = [o.id for o in d.options]
+            labels = {o.label: o.id for o in d.options}
+            want = "Hill Giant" if "Hill Giant" in labels else "Yes" if exile else "No"
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[labels.get(want, d.options[0].id)])
+        elif s.state.zones.get("stack"):
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            break
+    ing = next(c for c in s.state.cards.values() if c.name == "Phyrexian Ingester")
+    assert (s.state.cards[giant.id].zone == "p2:exile") is exile
+    assert ch(s, ing).pt == ((6, 6) if exile else (3, 3))
     check(s)

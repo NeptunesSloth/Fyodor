@@ -1151,7 +1151,7 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
 
 def evaluate_signed(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
     """A modification's amount, with its sign ("-1/-1 for each …": ``{"neg": …}``; 613.4c)."""
-    if isinstance(v, dict) and (v.get('linked_pool') or {}).get('projection') == 'power':
+    if isinstance(v, dict) and (v.get('linked_pool') or {}).get('projection') in ('power', 'toughness'):
         from app.rules import linked_aggregates
 
         return int(linked_aggregates.aggregate(plan, ctx, v['linked_pool']))

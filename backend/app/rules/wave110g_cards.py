@@ -297,7 +297,22 @@ def _shares(d: Def) -> Def:
 
 
 # whole ability text -> (the wording the grammar reads, what to change in its definition)
+def _imprint_pt(d: Def) -> Def:
+    """Phyrexian Ingester: +X/+Y from the imprinted creature card, two statics of one line (613.4c; 607.2a link); no card exiled adds 0."""
+    import copy
+
+    def part(proj: str, p: int, t: int) -> Def:
+        e = copy.deepcopy(d)
+        e["each"] = {"p": p, "t": t, "value": {"linked_pool": {"projection": proj}}}
+        return e
+
+    return {**part("power", 1, 0), "also": [part("toughness", 0, 1)]}
+
+
 _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
+    # Phyrexian Ingester
+    "This creature gets +X/+Y, where X is the exiled creature card's power and Y is its toughness.":
+        ("This creature gets +X/+X, where X is the number of creatures you control.", _imprint_pt),
     # Thought Prison
     "Imprint \u2014 When this artifact enters, you may have target player reveal their hand. If you do, choose a nonland card from it and exile that card.":
         ("When this artifact enters, target player reveals their hand. You choose a nonland card from it. Exile that card.", _may),
