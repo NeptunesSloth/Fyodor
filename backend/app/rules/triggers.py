@@ -1963,6 +1963,11 @@ def _cast_triggers(plan: Plan, spell_id: str, caster: str, batch: int = 0) -> No
     # a copy isn't cast, 707.10: no spell_cast event)
     if not plan.manual(spell) and spell.zone == "stack" and spell.controller == caster:
         for i, d in abilities(plan, sch, "cast_self"):
+            if d.get("while") is not None:  # -- retarget (wave 100O); multi (wave 100N) -- "When you cast this spell while you control your commander": judged as it triggers only
+                from app.rules import conditions
+
+                if not conditions.holds(plan, {"controller": caster, "source_card": spell.id, "source_object": plan.oid(spell)}, d["while"]):
+                    continue
             if d.get("cast_hand103"):
                 receipt = plan.rules.payments.get(plan.oid(spell))
                 if receipt is None or receipt.cast_from != "hand" or receipt.cast_from_player != caster:
