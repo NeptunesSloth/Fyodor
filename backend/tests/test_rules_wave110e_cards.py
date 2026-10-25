@@ -57,6 +57,9 @@ EXTRA = [
     real("Close Encounter", "{1}{R}", 2, "Instant",
          "As an additional cost to cast this spell, choose a creature you control or a warped creature card you own in exile.\n"
          "Close Encounter deals damage equal to the power of the chosen creature or card to target creature.", None, "R"),
+    real("Thrill-Kill Disciple", "{2}{R}", 3, "Creature — Human Mercenary",
+         "Squad—{1}, Discard a card. (As an additional cost to cast this spell, you may pay its squad cost any number of times. When this creature enters, create that many tokens that are copies of it.)\n"
+         "When this creature dies, create a Junk token.", ("3", "2"), "R"),
     real("Covenant of Minds", "{4}{U}", 5, "Sorcery",
          "Reveal the top three cards of your library. Target opponent may choose to put those cards into your hand. If they don't, put those cards into your graveyard and draw five cards.",
          None, "U"),
@@ -606,3 +609,31 @@ def test_callous_oppressor_with_two_opponents_the_controller_picks_who_names_the
     answer(s)
     assert "Goblin" in s.state.cards[op.id].choices.values()
     check(s)
+
+
+@pytest.mark.parametrize("times", [0, 1, 2])
+def test_thrill_kill_disciple_squad_discards_a_card_for_each_copy(cards, times):
+    """702.157a: Squad—{1}, Discard a card. Each payment costs {1} and a discard (601.2h) and makes one token copy as the creature enters."""
+    s = build(cards, ["Thrill-Kill Disciple", "Grizzly Bears", "Goblin Test"])
+    to_hand(s, "Grizzly Bears"), to_hand(s, "Goblin Test")
+    c = to_hand(s, "Thrill-Kill Disciple")
+    mana(s, R=1, C=2 + times)
+    act(s, "p1", type="cast_spell", card_id=c.id, kicker=times)
+    answer(s)
+    names = [x.name for x in s.state.cards.values() if x.zone == "p1:battlefield"]
+    assert names.count("Thrill-Kill Disciple") == 1 + times
+    assert sum(1 for x in s.state.cards.values() if x.zone == "p1:graveyard") == times
+    check(s)
+
+
+def test_thrill_kill_disciple_squad_needs_a_card_to_discard_for_each_payment(cards):
+    """601.2h: two payments need two other cards in hand; one card is not enough."""
+    from app.game.errors import ActionError
+
+    s = build(cards, ["Thrill-Kill Disciple", "Grizzly Bears"])
+    to_hand(s, "Grizzly Bears")
+    c = to_hand(s, "Thrill-Kill Disciple")
+    mana(s, R=1, C=4)
+    with pytest.raises(ActionError):
+        act(s, "p1", type="cast_spell", card_id=c.id, kicker=2)
+    assert s.state.cards[c.id].zone == "p1:hand"

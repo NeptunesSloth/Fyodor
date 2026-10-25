@@ -767,11 +767,11 @@ def kicker_extra_parts(line: str) -> tuple[bool, str] | None:
 
 # -- keywords (wave 50H) -- 702.33a: "Kicker—{2}{R}, Sacrifice a land." (Dwarven Landslide): a mana part and parts an alternative cost may have, the mana added to the total
 # cost and the rest paid with the other additional costs, once
-_KICKER_MIXED = re.compile(r"^kicker—(?P<mana>(?:\{[^}X]+\})+), (?P<rest>[^{}]+)$", re.IGNORECASE)
+_KICKER_MIXED = re.compile(r"^(?P<k>kicker|squad)—(?P<mana>(?:\{[^}X]+\})+), (?P<rest>[^{}]+)$", re.IGNORECASE)
 
 
-def kicker_mixed_parts(line: str) -> tuple[str, str] | None:
-    """(the mana, the other parts) of a "Kicker—{mana}, [parts]" line the engine pays, or None."""
+def kicker_mixed_parts(line: str) -> tuple[str, str, bool] | None:
+    """(the mana, the other parts, paid any number of times) of a "Kicker—{mana}, [parts]" / "Squad—{mana}, [parts]" (wave 110E) line the engine pays, or None."""
     from app.rules import alt_costs
 
     m = _KICKER_MIXED.fullmatch(re.sub(r"\s*\(.*?\)", "", line).strip().rstrip("."))
@@ -780,7 +780,7 @@ def kicker_mixed_parts(line: str) -> tuple[str, str] | None:
     rest = m["rest"].strip()
     rest = rest[:1].lower() + rest[1:]
     found = alt_costs.parse_cost(f"pay {m['mana']} and {rest}")
-    return (m["mana"], rest) if found is not None and found.mana == m["mana"] and found.cost.components else None
+    return (m["mana"], rest, m["k"].lower() == "squad") if found is not None and found.mana == m["mana"] and found.cost.components else None
 
 
 def positive_kicker_x(line: str) -> str | None:
@@ -843,7 +843,7 @@ def kicker_cost(abilities: Iterable[AbilityText]) -> Kicker | None:
             found.append(Kicker("", entwine=True, extra=extra))
             continue
         if (mixed := kicker_mixed_parts(ab.text)) is not None:  # (wave 50H)
-            found.append(Kicker(mixed[0], extra=mixed[1], text=ab.text.strip().rstrip(".")))
+            found.append(Kicker(mixed[0], multi=mixed[2], extra=mixed[1], text=ab.text.strip().rstrip(".")))
             continue
         if (non_mana := kicker_extra_parts(ab.text)) is not None:  # (wave 43D)
             found.append(Kicker("", multi=non_mana[0], extra=non_mana[1], text=ab.text.strip().rstrip(".")))
