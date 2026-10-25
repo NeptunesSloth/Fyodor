@@ -29,7 +29,7 @@ from app.rules import coverage
 from tests.game_helpers import act
 from tests.test_rules_wave12a_counters_keywords import real
 from tests.test_rules_wave18g_rooms import room
-from tests.test_rules_wave34b_activated import attack
+from tests.test_rules_wave34b_activated import activate, attack
 from tests.test_rules_wave100f_attached import to_phase
 from tests.test_rules_wave100f_gear import block
 from tests.test_rules_wave100n_multi import EXTRA as _BASE
@@ -47,6 +47,9 @@ EXTRA = [
     real('Steamcore Scholar', '{2}{U}', 3, 'Creature — Weird Detective',
          "Flying, vigilance\nWhen this creature enters, draw two cards. Then discard two cards unless you discard an instant or sorcery card or a creature card with flying.",
          ('2', '2'), 'U'),
+    real('Kaust, Eyes of the Glade', '{R/W}{G}', 2, 'Legendary Creature — Dryad Detective',
+         "Whenever a creature you control that was turned face up this turn deals combat damage to a player, draw a card.\n{T}: Turn target face-down attacking creature you control face up.",
+         ('2', '2'), 'GRW'),
     real('Ravager Wurm', '{3}{R}{G}{G}', 6, 'Creature — Wurm',
          "Riot (This creature enters with your choice of a +1/+1 counter or haste.)\nWhen this creature enters, choose up to one —\n• This creature fights target creature you don't control.\n• Destroy target land with an activated ability that isn't a mana ability.",
          ('4', '5'), 'RG'),
@@ -102,7 +105,7 @@ EXTRA = [
     real('Test Flyer', '{2}{U}', 3, 'Creature — Bird', 'Flying\n{T}: Draw a card.', ('1', '1'), 'U'),
 ]
 _BASE.extend(EXTRA)  # the shared fixture DB builder reads this list
-NAMES = ["Ravager Wurm", "Steamcore Scholar", "Ghostly Keybearer", "Oath of Kaya", "Katabatic Winds", "Rivals' Duel", "Dead Ringers", "Cathedral Membrane", "Taunt", "Jabari's Influence", "Don & Leo, Problem Solvers", "Rapid Fire", "Time and Tide", "Abby, Merciless Soldier", "Zombie Scavengers", "Toluz, Clever Conductor", "Invasion of Regatha", "Test Disciples 110F", "Hustle // Bustle", "Phosphorescent Feast"]
+NAMES = ["Kaust, Eyes of the Glade", "Ravager Wurm", "Steamcore Scholar", "Ghostly Keybearer", "Oath of Kaya", "Katabatic Winds", "Rivals' Duel", "Dead Ringers", "Cathedral Membrane", "Taunt", "Jabari's Influence", "Don & Leo, Problem Solvers", "Rapid Fire", "Time and Tide", "Abby, Merciless Soldier", "Zombie Scavengers", "Toluz, Clever Conductor", "Invasion of Regatha", "Test Disciples 110F", "Hustle // Bustle", "Phosphorescent Feast"]
 
 
 @pytest.mark.parametrize("name", NAMES)
@@ -519,4 +522,27 @@ def test_ravager_wurm_fights_or_destroys_a_land_with_a_nonmana_ability(cards, mo
     assert s.state.cards[bear.id].zone == ("p2:graveyard" if mode == "fight" else "p2:battlefield")
     assert s.state.cards[utility.id].zone == ("p2:battlefield" if mode == "fight" else "p2:graveyard")
     assert s.state.cards[island.id].zone == "p2:battlefield"
+    check(s)
+
+
+@pytest.mark.parametrize("turn_up", [True, False])
+def test_kaust_draws_only_for_a_creature_turned_face_up_this_turn(cards, turn_up):
+    """708.8: the creature is the same object after turning up, so it "was turned face up this turn"; its unturned partner doesn't count."""
+    s = build(cards, ["Kaust, Eyes of the Glade", "Test Morpher 110F", "Grizzly Bears"], forests=20, islands=20)
+    mana(s, C=3)
+    morph = to_hand(s, "Test Morpher 110F")
+    act(s, "p1", type="cast_spell", card_id=morph.id, face_down=True)
+    answer(s)
+    kaust, bear = put(s, "Kaust, Eyes of the Glade"), put(s, "Grizzly Bears")
+    to_phase(s, "main1", turn=3)
+    act(s, "p1", type="set_stops", own=["declare_attackers"], others=[], smart_pass=False)
+    attack(s, morph, bear)
+    if turn_up:
+        activate(s, "p1", kaust, "Turn target", targets=[morph.id])
+        answer(s)
+        assert not s.state.cards[morph.id].face_down
+    before = len(s.state.zones["p1:hand"])
+    to_phase(s, "main2")
+    assert len(s.state.zones["p1:hand"]) - before == (1 if turn_up else 0)
+    assert life(s, "p2") == 40 - (3 + 2 if turn_up else 2 + 2)
     check(s)
