@@ -191,3 +191,24 @@ def test_plunge_entwined_does_both_modes_in_order(cards):
     assert life(s) == 41 and zone_of(s, "Grizzly Bears") == "p1:graveyard" and s.state.cards[top[0]].zone == "p1:hand"
     assert s.state.cards[top[1]].zone == "p1:exile"
     check(s)
+
+
+ANTICS = "Asinine Antics"
+test_full_antics = full_test([ANTICS])
+
+
+@pytest.mark.parametrize("flash", [False, True])
+def test_asinine_antics_cursed_role_on_each_creature_your_opponents_control(cards, flash):
+    """303.7 / 111.1: a Cursed Role (enchanted creature is 1/1) for each opposing creature, none for your own; with flash only if {2} more is paid."""
+    s = build(cards, [ANTICS, "Grizzly Bears"], ["Grizzly Bears", "Hill Giant"])
+    mine, a, b = put(s, "Grizzly Bears"), put(s, "Grizzly Bears", "p2"), put(s, "Hill Giant", "p2")
+    stops(s)
+    if flash:
+        to_phase(s, "upkeep", turn=2)
+        act(s, "p2", type="pass_priority")
+        with pytest.raises(ActionError):
+            cast(s, ANTICS)
+    cast(s, ANTICS, extra="{2}" if flash else "")
+    answer(s)
+    assert pt(s, "Grizzly Bears", "p2") == (1, 1) and pt(s, "Hill Giant", "p2") == (1, 1) and pt(s, "Grizzly Bears") == (2, 2)
+    check(s)

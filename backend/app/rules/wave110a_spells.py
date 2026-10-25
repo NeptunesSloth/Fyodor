@@ -242,6 +242,13 @@ def bind_sacrificed(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return True
 
 
+def _cursed_each() -> Parsed:
+    from app.rules import selectors
+
+    return [{"do": "each100c", "who": selectors.Selector(types=("Creature",), controller="opponent").key(),
+             "then": {"do": "create_role", "role": "Cursed"}}], None, False
+
+
 def _plunge() -> Parsed:
     """Plunge into Darkness: the amount of life is chosen as it resolves (119.4: at most your life total, 0 allowed), paid, and the same number of
     cards are looked at (608.2c)."""
@@ -251,6 +258,8 @@ def _plunge() -> Parsed:
 
 
 BUILDERS: dict[str, Callable[[], Parsed]] = {
+    # Asinine Antics: 303.7 / 111.1 one Cursed Role token per creature, each attached to its own creature (static_spell100c.each)
+    "For each creature your opponents control, create a Cursed Role token attached to that creature.": _cursed_each,
     "Pay any amount of life, then look at that many cards from the top of your library. Put one of those cards into your hand and exile the rest.":
         _plunge,
     "Choose target creature card in your graveyard. Return that card and the sacrificed card to the battlefield under your control at the beginning "
