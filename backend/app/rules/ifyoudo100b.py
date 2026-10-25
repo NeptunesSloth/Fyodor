@@ -67,7 +67,7 @@ GY_EMPTY = "gy_empty100b"
 def parse(body: str, it: str | None, event_player: bool) -> Found | None:
     text = body.strip()
     for form in (_put_discarded, _hit_discard, _draw_if, _dealt_cant_block, _give_source, _exiled_mv, _connives, _empty_gy, _truce, _each_who_lost,
-                 _either, _plot_paid, _hand_exile, _dont_sacrifice, _put_mv_x, _fold, _swift, _untap_then, _may_attach, _vanish, _dakra, _durin, _latnam, _surge, _locke, _gy_exile, _manabond, _have_deal, _own_bounce, _clash, _reveal_win, _fishing, _runes, _rally, _long_rest, _bringer, _vault101, _becomes20, _foxglove, _spirit_dragons, _holistic, _wernog, _liege, _plague, _vault21):
+                 _either, _plot_paid, _hand_exile, _dont_sacrifice, _put_mv_x, _fold, _swift, _untap_then, _may_attach, _vanish, _dakra, _durin, _latnam, _surge, _locke, _gy_exile, _manabond, _have_deal, _own_bounce, _clash, _reveal_win, _fishing, _runes, _rally, _long_rest, _bringer, _vault101, _becomes20, _foxglove, _spirit_dragons, _holistic, _wernog, _liege, _plague, _vault21, _kamahl):
         if (found := form(text, it, event_player)) is not None:
             return found
     for pattern, repl in _REWRITES:
@@ -1044,9 +1044,13 @@ def liege(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
 
 
 def liege_make(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
-    from app.rules import paid_x
+    from app.rules import context, paid_x
 
-    counts = {p: paid_x.amount(ctx, b) for p, b in e["paid"].items() if p in plan.live()}
+    if e.get("revealed"):  # (Kamahl's Summons: the held choices, shown together - 101.4a)
+        shown = {p: [c for c in context.objects(plan, ctx, b) if c in plan.state.cards] for p, b in e["paid"].items()}
+        if ids := [c for cs in shown.values() for c in cs]:
+            plan.do({"type": "reveal", "card_ids": ids}, actor=ctx["controller"])
+    counts = {p: len(shown[p]) if e.get("revealed") else paid_x.amount(ctx, b) for p, b in e["paid"].items() if p in plan.live()}
     ctx["effects"][ctx["next"]:ctx["next"]] = [{**e["token"], "per_player": counts}] if any(counts.values()) else []
     return True
 
@@ -1113,6 +1117,30 @@ def same_mv(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return True
 
 
+# -- Kamahl's Summons: "Each player may reveal any number of creature cards from their hand. Then each player creates a 2/2 green Bear creature token
+# for each card they revealed this way." 101.4, 101.4a: each chooses in APNAP order, face down; the cards are shown together, then the tokens at once.
+_KAMAHL = ("Each player may reveal any number of creature cards from their hand. Then each player creates a 2/2 green Bear creature token for each card "
+           "they revealed this way.")
+KAMAHL = "kamahl100b"
+
+
+def _kamahl(text: str, it: str | None, event_player: bool) -> Found | None:
+    from app.rules import selectors
+
+    token = _effects("Create a 2/2 green Bear creature token.", it, event_player) if text == _KAMAHL else None
+    sel = selectors.parse("creature card in your hand")
+    return ([{"do": KAMAHL, "sel": sel.key(), "token": token[0][0]}], None, False) if token is not None and sel is not None and len(token[0]) == 1 else None
+
+
+def kamahl(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    order = [p for p in plan.apnap() if p in plan.live()]
+    picks = [{"do": "reveal_hand_cards", "sel": e["sel"], "n": 99, "player": p, "hold": True, "as": f"{KAMAHL}{i}",
+              "prompt": "Reveal any number of creature cards from your hand"} for i, p in enumerate(order)]
+    ctx["effects"][ctx["next"]:ctx["next"]] = [*picks, {"do": LIEGE_MAKE, "token": e["token"], "paid": {p: f"{KAMAHL}{i}" for i, p in enumerate(order)},
+                                                        "revealed": True}]
+    return True
+
+
 # -- Reign of Terror: "Destroy all green creatures or all white creatures. They can't be regenerated. You lose 2 life for each creature that died
 # this way." 608.2d: the controller picks one as it resolves (and announces it, 101.4b); the rest of the text reads the one done.
 _EITHER = re.compile(r"^Destroy all (?P<a>[a-z]+ creatures) or all (?P<b>[a-z]+ creatures)\. (?P<rest>[^.]+\.(?: [^.]+\.)*)$")
@@ -1159,5 +1187,5 @@ def resume_either(plan: Any, d: Any, chosen: list[str]) -> None:
 PRIMITIVES = {GY_EMPTY: gy_empty, TRUCE: truce, TRUCE_ASK: truce_ask, TRUCE_DRAW: truce_draw, TRUCE_LIFE: truce_life, EITHER: either, COUNTERED: countered,
               SWIFT: swift, BACK: back_creature, TO_GRAVEYARDS: to_graveyards, HAND_GATE: hand_gate,
               SURGE: surge, PUT_EXILED: put_exiled, PUT_CHECK: put_check, OWN_EVERYWHERE: own_everywhere, HAND_VALUES: hand_values,
-              OTHERS: others_back, RALLY: rally, BECAME: became, SPIRIT: spirit, SPIRIT_WIN: spirit_win, SHARES: shares_type, LIEGE: liege, LIEGE_MAKE: liege_make, PLAGUE: plague, SAME_MV: same_mv}
+              OTHERS: others_back, RALLY: rally, BECAME: became, SPIRIT: spirit, SPIRIT_WIN: spirit_win, SHARES: shares_type, LIEGE: liege, LIEGE_MAKE: liege_make, PLAGUE: plague, SAME_MV: same_mv, KAMAHL: kamahl}
 RESUME = {TRUCE_ASK: resume_truce_ask, EITHER: resume_either, PUT_EXILED: resume_put_exiled, SPIRIT: resume_spirit}
