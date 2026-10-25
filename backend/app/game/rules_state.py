@@ -541,6 +541,7 @@ class Entry(BaseModel):
     # -- trigger other (wave 51E) -- the object whose effect put it onto the battlefield (Kodama of the East Tree: "if it wasn't put onto the battlefield with
     # this ability"); None: nobody's, or an older save
     via: str | None = Field(default=None, max_length=80)
+    face_down110b: bool = False  # -- history (wave 110B) -- it entered face down (708.2: "entered the battlefield face down this turn", Oblivious Bookworm)
 # -- end refused modal/conditional (wave 3R1) --
 
 
@@ -624,6 +625,7 @@ class TurnLog(BaseModel):
     combat_damage95_known: bool | None = None  # Complete native current-turn damage history; None is legacy.
     fight_history90_known: bool | None = None  # Legacy missing current-turn fight history is unknown.
     fought90: list[str] = Field(default_factory=list)  # Original objects that actually fought this turn.
+    turned_up_by110b: list[str] = Field(default_factory=list)  # Players who turned a permanent face up this turn (Oblivious Bookworm).
     turned_up110f: list[str] = Field(default_factory=list)  # Objects turned face up this turn (708.8: the same object, "was turned face up this turn").
     search_history75_known: bool | None = None  # Legacy missing authority is unknown until the next native turn.
     searched_own_library75: list[str] = Field(default_factory=list)  # Actual own-library searches begun this turn, even no card found.
@@ -1957,6 +1959,7 @@ def emit(state: GameState, kind: EventKind, **fields: Any) -> None:
     rules.events.append(Event(batch=rules.batch + 1, kind=kind, turn=state.turn.number, **fields))
     if kind == "turned_face_up" and (up_log110f := turn_log_now(state)) is not None and fields.get("object_id"):
         up_log110f.turned_up110f = list(dict.fromkeys([*up_log110f.turned_up110f, fields["object_id"]]))
+        up_log110f.turned_up_by110b = list(dict.fromkeys([*up_log110f.turned_up_by110b, fields.get("actor") or ""]))
     if kind == "fought" and (fight_log90 := turn_log_now(state)) is not None:
         fight_log90.fought90 = list(dict.fromkeys([*fight_log90.fought90, *(snap.object_id for snap in fields.get("fighters90", []))]))
     # CR 107.14, 608.2i: count removals during this turn, including costs; gains never offset them.
@@ -2265,7 +2268,7 @@ def _diff(state: GameState, rules: RulesState, before: Capture, manual: bool, ac
             if not manual:
                 rules.entry_life_origins.append(new_oid)
             log.entered.append(Entry(card=card_id, object_id=new_oid, controller=card.controller,
-                                     tapped=card.tapped, from_zone=old_zone))  # (-- entry forms (wave 5F) --; wave 22E: from_zone)
+                                     tapped=card.tapped, from_zone=old_zone, face_down110b=bool(card.face_down)))  # (-- entry forms (wave 5F) --; wave 22E: from_zone)
         if old_name == "battlefield" and snap is not None and (snap.attached_to or snap.attached_player):
             _attach_event(state, "unattached", card_id, old_oid, snap.attached_to, snap.attached_player, before.snaps)  # -- attachment events (wave 30S) -- 701.3d
         emit(state, "zone_change", object_id=old_oid, new_object_id=new_oid, card=card_id,
@@ -2289,7 +2292,7 @@ def _diff(state: GameState, rules: RulesState, before: Capture, manual: bool, ac
                 if not manual:
                     rules.entry_life_origins.append(rules.object_id(card_id))
                 log.entered.append(Entry(card=card_id, object_id=rules.object_id(card_id), controller=card.controller,
-                                         tapped=card.tapped))  # (-- entry forms (wave 5F) --)
+                                         tapped=card.tapped, face_down110b=bool(card.face_down)))  # (-- entry forms (wave 5F) --)
     for card_id, snap in before.snaps.items():
         card = state.cards.get(card_id)
         if card is None or card.zone != snap.zone:
