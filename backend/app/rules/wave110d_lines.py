@@ -10,9 +10,15 @@ _AS: dict[str, str] = {
     # Resplendent Marshal: 205.3m the creatures that share a creature type with the exiled card are picked by a primitive (patched in definition)
     "When ~ enters or dies, you may exile another creature card from your graveyard. When you do, put a +1/+1 counter on each creature you control other than ~ that shares a creature type with the exiled card.":
         "When ~ enters or dies, you may exile another creature card from your graveyard. When you do, put a +1/+1 counter on each creature you control other than ~.",
-    # Growing Dread: 702.37e a permanent is turned face up by its controller (the special action or their effect), so "you turn" = "a permanent you control"
+    # Growing Dread: 702.37e, 701.40b any permanent, turned up by you (the special action's player or the effect's controller; patched in definition)
     "Whenever you turn a permanent face up, put a +1/+1 counter on it.":
-        "Whenever a permanent you control is turned face up, put a +1/+1 counter on it.",
+        "Whenever a permanent is turned face up, put a +1/+1 counter on it.",
+    # Yes Man: 603.12 the reflexive trigger of the control change ("When they do" = when that happens, for the ability's controller); 111.2 the owner makes
+    # the tokens, 608.2h from the quest counters it last had (the owner patched in definition)
+    "{T}: Target opponent gains control of ~. When they do, you draw two cards and put a quest counter on ~. Activate only during your turn.":
+        "{T}: Target opponent gains control of ~. When you do, draw two cards and put a quest counter on ~. Activate only during your turn.",
+    "When ~ leaves the battlefield, its owner creates a tapped 1/1 white Soldier creature token for each quest counter on it.":
+        "When ~ leaves the battlefield, create a tapped 1/1 white Soldier creature token for each quest counter on it.",
     # Shallow Grave: 404.1 the top card of a graveyard is the last one put there; it is not a target (patched in definition)
     "Return the top creature card of your graveyard to the battlefield. That creature gains haste until end of turn. Exile it at the beginning of the next end step.":
         "Return target creature card from your graveyard to the battlefield. That creature gains haste until end of turn. Exile it at the beginning of the next end step.",
@@ -112,6 +118,10 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
         d.pop("target")
         d["effects"][0]["who"] = "ref:top110d"
         d["effects"].insert(0, {"do": "top_creature110d", "bind": "top110d"})
+    if d is not None and text.startswith("Whenever you turn a permanent face up"):
+        d["cond"]["turner110d"] = "you"  # (triggers.py)
+    if d is not None and text.startswith("When ~ leaves the battlefield, its owner creates a tapped"):
+        d["effects"][0]["who"] = "ref:event.owner"  # (as the native "its owner creates")
     if d is not None and text.endswith("it enters tapped and attacking."):
         d["effects"][0]["tap_atk110d"] = "Enchantment"
     return d

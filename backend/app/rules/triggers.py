@@ -1104,6 +1104,8 @@ def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: F
         return False
     if event == "coin_flip" and cond.get("won") != info.get("won"):  # -- coin events (wave 45C) -- won or lost (705.2)
         return False
+    if event == "turned_face_up" and cond.get("turner110d") == "you" and info.get("tapper") != you:
+        return False  # -- lines (wave 110D) -- "Whenever you turn a permanent face up": 702.37e, 701.40b the player who turned it up
     if event == "tapped" and ((cond.get("tapper") == "you" and info.get("tapper") != you) or (cond.get("not_declared") and info.get("declared"))):
         return False  # -- tap events (wave 45C) -- "you tap …" (the step's actor); "if it isn't being declared as an attacker" (508.1f)
     if event == "control_change":

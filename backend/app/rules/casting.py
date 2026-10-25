@@ -2668,11 +2668,12 @@ def pay_nonmana_cost(plan: Plan, a: A.TurnFaceUp, card: CardInstance, printed: C
     return True
 
 
-def turned_up(plan: Plan, card: CardInstance) -> None:
+def turned_up(plan: Plan, card: CardInstance, by: str | None = None) -> None:
     """-- hidden exile (wave 18A) -- the permanent was just turned face up (by the special action or by an effect): its "When ~ is
     turned face up" and the table's "Whenever a permanent you control is turned face up" abilities trigger (702.37e: not
     "enters" abilities, 708.8)."""
-    emit(plan.state, "turned_face_up", object_id=plan.oid(card), card=card.id, player=card.controller)
+    # 702.37e: who turned it up (the special action's player, or the effect's controller) rides on the event: "Whenever you turn a permanent face up"
+    emit(plan.state, "turned_face_up", object_id=plan.oid(card), card=card.id, player=card.controller, actor=by or plan.actor)
     from app.rules import (
         counters52d,  # -- counters (wave 52D) -- 708.11: "As ~ is turned face up, put five +1/+1 counters on it."
     )

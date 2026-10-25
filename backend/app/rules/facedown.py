@@ -179,7 +179,7 @@ def _turn_up(plan: Plan, card_id: str, actor: str) -> bool:
         plan.do({"type": "hide", "card_ids": [card_id]}, actor=actor)
         return False
     plan.do({"type": "face_down", "card_ids": [card_id], "face_down": False}, actor=actor)
-    casting.turned_up(plan, card)
+    casting.turned_up(plan, card, actor)  # (the effect's controller turns it up)
     return True
 
 
