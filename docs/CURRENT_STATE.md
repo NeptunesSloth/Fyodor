@@ -1,4 +1,29 @@
-Current-work wrap-up is saved in [PR #20](https://github.com/NeptunesSloth/Fyodor/pull/20). The six agents reached their usage limit; no automatic assignments remain active.
+Current work is saved in [PR #21](https://github.com/NeptunesSloth/Fyodor/pull/21) (wave 100). No agents are running.
+
+## WAVE 100 — WRAP-UP
+
+Latest catalog: **30,775 FULL / 1,293 PARTIAL** among 32,068 Commander-legal cards (from 29,945 / 2,123 at checkpoint67): **830 additions**,
+zero prior FULL regressions. FULL is engine coverage classification; all cards are not complete.
+
+Sixteen parallel packages (waves 100A–100P), one module each (`app/rules/<area>100<letter>.py`) with small marked hooks in shared files and
+tests in `tests/test_rules_wave100<letter>_*.py`: trigger lines, "if you do" riders, spell effects, permanent statics, X/sized damage,
+Auras/Equipment/control, zones, turn state and ability words, activated abilities and costs, counters, "as long as"/"instead", Unfinity
+Attractions (Attraction deck zone and deck section, open/visit/roll to visit, the junkyard, tickets), multi-family cards, change/choose new
+targets, and other-player choices and votes.
+
+Every merge was gated by Ruff, full mypy, the merged packages' tests plus related files, and a catalog-wide coverage + parsed-definition
+fingerprint diff (no prior FULL card may regress; every changed FULL definition was reviewed: Become Brutes, Karametra's Blessing,
+Hammerheim and Shipwreck Sifters, all equivalent or corrected). No fresh whole-suite run (31,914 tests take hours on the 4-CPU session
+machine). GitHub Actions jobs on `main` and the PR fail before any step runs (no runner assigned), so CI gives no signal.
+
+Also fixed: Ruff on the whole backend, tests with hardcoded `/workspace/Fyodor` paths, several stale test expectations (legacy
+`players[].mana` reads, refusal lists naming cards that are now FULL), and a process-dependent `combat.LANDWALK` order.
+
+Researched and refused cards, with the missing foundation or the unsettled ruling, are listed in
+[research/wave100-refused.md](research/wave100-refused.md). Stickers (~45 cards) are refused: the card data lacks the sheets' name and art
+stickers. Biggest remaining foundations: copy-with-exceptions and "for as long as" durations, opponent-chosen modes during casting (700.2e),
+enters-under-a-chosen-controller replacements, can't-untap/can't-transform/phasing locks, granted keywords (replicate, offspring, evoke),
+saga "Choose one" chapters, LKI of types (layers 4–5), and Avatar bending costs.
 
 ## CHECKPOINT67 VERIFIED — WRAP-UP
 
