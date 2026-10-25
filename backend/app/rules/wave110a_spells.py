@@ -85,6 +85,35 @@ def _slime() -> Parsed:
     return out, groups, optional
 
 
+def _repeat_put(what: str) -> Callable[[], Parsed]:
+    """Eureka, Hypergenesis: each player in turn, starting with you, may put one such card from their hand onto the battlefield (101.4: in turn order,
+    each choice after the cards before it entered); the round is repeated while someone put a card onto the battlefield."""
+    def build() -> Parsed:
+        put = _p(f"Each player may put {what} card from their hand onto the battlefield.")[0][0]
+        return [{"do": "repeat_put110a", "put": put, "first": True}], None, False
+    return build
+
+
+def repeat_put(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    if not e["first"] and not ctx.get("_any_put110a"):
+        return True
+    ctx["_any_put110a"] = False
+    seats = plan.apnap()
+    order = [p for p in seats[seats.index(ctx["controller"]):] + seats[:seats.index(ctx["controller"])] if p in plan.live()]
+    steps: list[dict[str, Any]] = []
+    for p in order:
+        steps += [{**e["put"], "who": f"player:{p}"}, {"do": "note_put110a", "p": p}]
+    ctx["effects"][ctx["next"]:ctx["next"]] = [*steps, {**e, "first": False}]
+    return True
+
+
+def note_put(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """each_put left the players who put nothing in ``_put_none``: this round goes on if one put a card."""
+    if e["p"] not in ctx.get("_put_none", ()):
+        ctx["_any_put110a"] = True
+    return True
+
+
 # Sentences the grammar reads in other words with the same meaning (the rewrite must mean the same: 608.2c).
 REWRITES = {
     # (122.6: "enters with … additional counters" is the grammar's "if a creature enters this way, it enters with …" for the returned permanent card)
@@ -100,7 +129,11 @@ def _choose_transform(kind: str) -> Parsed:
     return [pick.choose(kind, **{"as": "choice_group"}), {"do": "transform", "who": "ref:choice_group"}], None, False
 
 
+_ROUND = " Repeat this process until no one puts a card onto the battlefield."
 BUILDERS: dict[str, Callable[[], Parsed]] = {
+    "Starting with you, each player may put a permanent card from their hand onto the battlefield." + _ROUND: _repeat_put("a permanent"),
+    "Starting with you, each player may put an artifact, creature, enchantment, or land card from their hand onto the battlefield." + _ROUND:
+        _repeat_put("an artifact, creature, enchantment, or land"),
     "Destroy up to one target artifact, up to one target creature, and up to one target enchantment. Then if there are four or more card types among "
     "cards in your graveyard, create an X/X green Ooze creature token, where X is the total mana value of permanents destroyed this way.": _slime,
     "Exile target creature if it has mana value 3 or less. Exile that creature instead if its controller has three or more poison counters.": _anoint,
@@ -171,4 +204,4 @@ def snow(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return True
 
 
-PRIMITIVES = {"bind110a": bind, "end_combat_phase110a": end_combat_phase, "snow110a": snow}
+PRIMITIVES = {"repeat_put110a": repeat_put, "note_put110a": note_put, "bind110a": bind, "end_combat_phase110a": end_combat_phase, "snow110a": snow}

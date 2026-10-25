@@ -14,6 +14,7 @@ from app.game.errors import ActionError
 from tests.wave110a_kit import *
 
 BERSERK, MANDATE, BAIT, FLUX = "Berserk", "Mandate of Peace", "Take the Bait", "Thermal Flux"
+EUREKA, HYPERGENESIS = "Eureka", "Hypergenesis"
 AERITH, SUNDER, WMBD, ANOINT, SLIME = "Aerith Rescue Mission", "Sunder the Gateway", "What Must Be Done", "Anoint with Affliction", "Convert to Slime"
 
 
@@ -22,7 +23,7 @@ def cards(settings):
     yield from open_repo(settings)
 
 
-test_full = full_test([BERSERK, MANDATE, BAIT, FLUX, AERITH, SUNDER, WMBD, ANOINT, SLIME])
+test_full = full_test([BERSERK, MANDATE, BAIT, FLUX, AERITH, SUNDER, WMBD, ANOINT, SLIME, EUREKA, HYPERGENESIS])
 
 
 def attack(s, c, target="p2"):
@@ -212,4 +213,36 @@ def test_convert_to_slime_ooze_as_big_as_the_total_mana_value_destroyed_with_del
     assert len(oozes) == (1 if delirium else 0)
     if delirium:
         assert pt(s, "Ooze") == (5, 5)
+    check(s)
+
+
+@pytest.mark.parametrize("name", [EUREKA, HYPERGENESIS])
+def test_eureka_and_hypergenesis_repeat_the_round_until_a_whole_round_puts_nothing(cards, name):
+    """Starting with you, each player in turn may put one card; the process is repeated until no one does (101.4, 608.2c). Eureka takes any permanent
+    card, Hypergenesis (cast by its last suspend counter, 702.62a) an artifact, creature, enchantment or land card — never a planeswalker."""
+    s = build(cards, [name, "Grizzly Bears", "Sol Ring", "Gideon Jura"], ["Hill Giant"])
+    spell = to_hand(s, name)
+    for n in ("Gideon Jura", "Grizzly Bears", "Sol Ring"):
+        to_hand(s, n)
+    to_hand(s, "Hill Giant", "p2")
+    if name == EUREKA:
+        cast(s, name)
+    else:
+        ab = next(a.index for a in ch(s, spell).abilities if "suspend" in a.keywords)
+        fund(s, "{1}{G}{G}")
+        act(s, "p1", type="activate_ability", card_id=spell.id, ability=ab, sources=[])
+        act(s, "p1", type="counter", card_ids=[spell.id], kind="time", delta=-2)
+        to_phase(s, "upkeep", turn=3)
+    for _ in range(10):  # (to the first question: whose hand cards may be put)
+        d = s.state.rules.decision
+        if d is not None and d.kind == "choose_cards":
+            break
+        if d is not None:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[d.options[0].id])  # ("Cast it")
+        else:
+            act(s, s.state.rules.priority, type="pass_priority")
+    assert ("Gideon Jura" in [o.label for o in d.options]) == (name == EUREKA)
+    answer(s, "Grizzly Bears", "Hill Giant", "Sol Ring", [], [], [])
+    assert zone_of(s, "Grizzly Bears") == zone_of(s, "Sol Ring") == "p1:battlefield" and zone_of(s, "Hill Giant", "p2") == "p2:battlefield"
+    assert zone_of(s, "Gideon Jura") == "p1:hand"
     check(s)
