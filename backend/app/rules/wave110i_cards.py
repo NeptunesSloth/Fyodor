@@ -40,6 +40,21 @@ def _until_leaves(d: Def) -> Def:
     return {**d, "effects": [{"do": "phase_until_target110c", "untapped110i": True} if x.get("do") == "phase_out" else x for x in d["effects"]]}
 
 
+def _pandorica(d: Def) -> Def:
+    """The Pandorica: it can't phase in for as long as the source remains tapped, and phases in when it untaps or leaves (610.3, 702.26d)."""
+    return {**d, "effects": [{"do": "phase_until_target110c", "untapped110i": True, "tapped110i": True} if x.get("do") == "phase_out" else x for x in d["effects"]]}
+
+
+def _copy_cast(d: Def) -> Def:
+    """Bloodthirsty Adversary: the exiled cards are copied and any number of the copies may be cast without paying (707.12, 608.2g), one at a time."""
+    inner = next(e for e in d["effects"] if e.get("do") == "reflexive")["ability"]["effects"]
+    at = next(i for i, e in enumerate(inner) if e.get("do") == "exile")
+    inner[at] = {**inner[at], "as": "ex110i"}
+    inner += [{"do": "copy_cards", "who": "ref:ex110i", "as": "cp110i"},
+              {"do": "free_cast", "zone": "that", "who": "ref:cp110i", "filter": None, "optional": True, "mv": None, "all": True}]
+    return d
+
+
 def _lose_types(d: Def) -> Def:
     """Curse of Conformity: "lose all creature types" sets the creature types to none (205.1a, 613.1d layer 4), beside the layer 7b base P/T."""
     return {**d, "layered": True, "layer4": {"set_creature_types": []}}
@@ -61,6 +76,18 @@ def _prevent_paid(d: Def) -> Def:
     (hit,) = d["effects"]
     pay = {"do": "optional_payment", "who": "event_player", "cost": "", "bind": "leak110i", "choose_x": {"max": None}}
     return {**d, "effects": [pay, {"do": "prevent", "who": "event_player", "n": {"paid_x": "leak110i"}}, hit]}
+
+
+_INFINITE = ("Whenever enchanted creature blocks or becomes blocked by a creature with toughness 3 or less, destroy the other creature at end of combat. "
+             "At the beginning of the next end step, if that creature was destroyed this way, put a +1/+1 counter on the first creature.")
+
+
+def _destroy_mark(d: Def) -> Def:
+    """Infinite Authority: remember the enchanted creature as the trigger resolves, and make the end-of-combat destroy schedule the counter."""
+    effects = d["effects"]
+    at = next(i for i, e in enumerate(effects) if e.get("do") == "deferred:destroy")
+    effects[at] = {**effects[at], "do": "deferred:destroy_mark110i"}
+    return {**d, "effects": [{"do": "bind_first110i"}, *effects]}
 
 
 def _batch(d: Def) -> Def:
@@ -95,6 +122,15 @@ _POWER_LEAK = "At the beginning of the upkeep of enchanted {0}'s controller, tha
 
 # whole ability text -> (the wording the grammar reads, what to change in its definition)
 _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
+    "When this creature enters, you may pay {2}{R} any number of times. When you pay this cost one or more times, put that many +1/+1 counters on this creature, "
+    "then exile up to that many target instant and/or sorcery cards with mana value 3 or less from your graveyard and copy them. "
+    "You may cast any number of the copies without paying their mana costs.":
+        ("When this creature enters, you may pay {2}{R} any number of times. When you pay this cost one or more times, put that many +1/+1 counters on this creature, "
+         "then exile up to that many target instant and/or sorcery cards with mana value 3 or less from your graveyard.", _copy_cast),
+    "{1}{W}, {T}: Untap another target nonland permanent, then it phases out. It can't phase in for as long as The Pandorica remains tapped. "
+    "When The Pandorica becomes untapped or leaves the battlefield, that permanent phases in. Activate only as a sorcery.":
+        ("{1}{W}, {T}: Untap another target nonland permanent, then it phases out. Activate only as a sorcery.", _pandorica),
+    _INFINITE: ("Whenever enchanted creature blocks or becomes blocked by a creature with toughness 3 or less, destroy the other creature at end of combat.", _destroy_mark),
     "{T}, Sacrifice this artifact: Choose up to seven face-up exiled cards you own. Exile all the cards from your library, then put the chosen cards on top of your library.":
         ("{T}, Sacrifice this artifact: Put up to seven target cards you own from exile on top of your library.", _mirror),
     "Whenever one or more loyalty counters are put on planeswalkers you control, put that many +1/+1 counters on this creature.":
@@ -220,7 +256,30 @@ def exile_library(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     return True
 
 
-PRIMITIVES = {"goad_while110i": goad_while, "bind_rest110i": bind_rest, "exile_library110i": exile_library, "attach_all110i": attach_all, "lose_rad110i": lose_rad, "bounce_gate110i": bounce_gate}
+def bind_first(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    from app.rules import context, effects
+
+    context.bind_objects(plan, ctx, "first110i", effects._cards(plan, ctx, "host"))
+    return True
+
+
+def destroy_mark(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """701.8a: the creature is "destroyed this way" only if this destroy put it into a graveyard (regeneration / indestructible: no); then the
+    counter goes on the first creature at the next end step (603.7)."""
+    from app.rules import context, delayed, effects
+
+    doomed = [c for c in effects._cards(plan, ctx, e["who"]) if plan.state.cards[c].zone.endswith(":battlefield")]
+    effects.PRIMITIVES["destroy"](plan, ctx, {**e, "do": "destroy"})
+    now = plan.state.cards.get(doomed[0]) if doomed else None  # (a token ceases to exist in the graveyard, 111.7)
+    if doomed and (now is None or now.zone.endswith(":graveyard")) and (first := context._object_refs(ctx, "first110i")):
+        refs = {"first110i": {"kind": "objects", "objects": [r.model_dump(mode="json") for r in first]}}
+        delayed.create_plain(plan, ctx["controller"], ctx["source_card"], ctx["source_object"], ctx.get("name") or "Infinite Authority",
+                             {"kind": "step", "step": "end", "whose": "next"},
+                             [{"do": "bind_refs", "refs": refs}, {"do": "add_counters", "who": "ref:first110i", "kind": "+1/+1", "n": 1}])
+    return True
+
+
+PRIMITIVES = {"bind_first110i": bind_first, "destroy_mark110i": destroy_mark, "goad_while110i": goad_while, "bind_rest110i": bind_rest, "exile_library110i": exile_library, "attach_all110i": attach_all, "lose_rad110i": lose_rad, "bounce_gate110i": bounce_gate}
 
 
 def definition(ability: Any, ch: Any) -> Def | None:

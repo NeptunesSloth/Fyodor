@@ -846,6 +846,7 @@ class PhaseLifetime(BaseModel):
     recipients: list[ObjectRef] = Field(default_factory=list)
     tap_on_return: bool = False  # Oubliette: tapped as it phases in
     control: str | None = None  # -- wave 110D -- "for as long as you control this Saga": the player who must control the source
+    while_tapped: bool = False  # -- wave 110I -- The Pandorica: held only while the source remains tapped
 
 
 class CostReveal(BaseModel):
