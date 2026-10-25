@@ -81,5 +81,35 @@ def decree(plan: Any, ctx: Any, e: Def) -> bool:
     return True
 
 
-PRIMITIVES: dict[str, Any] = {"decree110n": decree}
+def _willow(d: Def) -> Def:
+    return {**d, "effects": [{"do": "willow110n", "who": "target"}]}
+
+
+_BUILD["{G}: Until end of turn, Autumn Willow can be the target of spells and abilities controlled by target player as though it didn't have shroud."] = (
+    "{G}: Target player gains 1 life.", _willow)
+
+
+def willow(plan: Any, ctx: Any, e: Def) -> bool:
+    """609.4: for the turn, the chosen player's spells and abilities may target this object although it has shroud (702.18a); the permission is theirs
+    and about this object only (400.7), so it ends with the turn or when the Willow leaves."""
+    from app.rules import effects
+
+    src = plan.state.cards.get(ctx.get("source_card", ""))
+    if src is None or not src.zone.endswith(":battlefield") or plan.oid(src) != ctx.get("source_object"):
+        return True
+    for pid in effects._players(plan, ctx, e["who"]):
+        plan.rules.cast_limits.append({"shroud_ignore110n": {"card": src.id, "oid": plan.oid(src), "player": pid}, "controller": ctx["controller"],
+                                       "until": "turn", "turn": plan.state.turn.number, "spells": False, "label": ctx.get("name") or "Targeting permission"})
+        plan.note(f"{plan.name(pid)} may target {src.name} as though it didn't have shroud this turn", actor=ctx["controller"])
+    return True
+
+
+def ignores_shroud(plan: Any, chooser: str, card: Any) -> bool:
+    from app.rules import cast_limits
+
+    return any(d["player"] == chooser and d["card"] == card.id and d["oid"] == plan.oid(card)
+               for x in plan.rules.cast_limits if (d := x.get("shroud_ignore110n")) and cast_limits._record_live(plan.state, x))
+
+
+PRIMITIVES: dict[str, Any] = {"decree110n": decree, "willow110n": willow}
 RESUME: dict[str, Any] = {}

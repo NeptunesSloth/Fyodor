@@ -92,7 +92,10 @@ def can_target(plan: Plan, chooser: str, card: CardInstance, ch: Characteristics
         return False
     on_battlefield = card.zone.endswith(":battlefield")
     if on_battlefield and "shroud" in ch.keywords:
-        return False
+        from app.rules import wave110n_cards  # -- (wave 110N) -- Autumn Willow: 702.18a, 609.4
+
+        if not wave110n_cards.ignores_shroud(plan, chooser, card):
+            return False
     from app.rules import hexproof_targeting
 
     target_source = replace(source, targeting_controller=chooser) if source is not None else Characteristics(name='', targeting_controller=chooser)
