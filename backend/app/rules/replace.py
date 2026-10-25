@@ -1621,8 +1621,8 @@ def _loss_applies(plan: Plan, c: Candidate, ev: Event, sim: Sim) -> bool:
     if c.match.get("damage") and not ev.get("damage"):
         return False  # -- life floor (wave 35C) -- "damage that would reduce your life total": the life damage makes a player lose (120.3a), not other loss
     if c.op["do"] == "floor":  # the loss would take them below 1 life from 1 or more (a player already below 1 is dealt damage as normal)
-        life = plan.state.players[ev["player"]].life
-        if life < 1 or ev["n"] < life:
+        life, keep = plan.state.players[ev["player"]].life, int(c.op.get("to", 1))  # (wave 110B: Elderscale Wurm keeps 7)
+        if life < keep or ev["n"] < life - keep + 1:
             return False
     if (cond := c.match.get("if")) is not None:
         from app.rules import conditions
@@ -1637,7 +1637,7 @@ def _loss_apply(plan: Plan, c: Candidate, ev: Event, sim: Sim) -> list[Event]:
     if op["do"] == "mul":
         return [{**ev, "n": ev["n"] * int(op["n"])}]
     if op["do"] == "floor":  # (applies only with 1 or more life and a loss of at least that much) they keep 1 life
-        return [{**ev, "n": plan.state.players[ev["player"]].life - 1}]
+        return [{**ev, "n": plan.state.players[ev["player"]].life - int(op.get("to", 1))}]
     return [ev]
 
 

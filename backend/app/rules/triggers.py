@@ -728,6 +728,8 @@ def _to_zone(plan: Plan, e: Event, frm: str) -> list[Fact]:
 
 
 def _damage_facts(plan: Plan, e: Event) -> list[Fact]:
+    from app.rules import sba
+
     r = plan.rules
     out: list[Fact] = []
     # (a creature dealt lethal damage was still dealt it: 510.3a / 603.10a)
@@ -753,6 +755,8 @@ def _damage_facts(plan: Plan, e: Event) -> list[Fact]:
     recipient_is_battle = got is not None and "Battle" in got[1].types  # (120.3h)
     dealt_info = {**base, "combat": e.combat, "recipient": e.player, "recipient_creature": recipient_is_creature,
                   "recipient_planeswalker": recipient_is_walker, "recipient_battle": recipient_is_battle,
+                  "recipient_ctl110b": got[0].controller if got is not None else None,  # (-- one-card wordings (wave 110B) -- a permanent's controller)
+                  "recipient_toughness110b": sba.toughness(got[0], got[1]) if got is not None and recipient_is_creature else None,  # (wave 110B: Taii Wakeen)
                   "recipient_blocking110b": got is not None and bool(got[0].blocking),  # (-- one-card wordings (wave 110B) -- 509.1g: a blocker)
                   "recipient_subtypes": list(got[1].subtypes) if got is not None else []}  # (wave 15B)
     dealt_info["recipient_blocking110c"] = got is not None and got[0].is_blocking  # -- blocking recipient (wave 110C) -- Kusari-Gama
@@ -1261,6 +1265,8 @@ def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: F
         return False
     if event == "to_graveyard" and cond.get("from") and info.get("from") != cond["from"]:  # -- into a graveyard (wave 6D)
         return False
+    if event == "to_graveyard" and cond.get("froms") and info.get("from") not in cond["froms"]:  # -- trigger other (wave 110B) -- "from your hand or library"
+        return False
     if event == "to_graveyard" and cond.get("not_from") and info.get("from") == cond["not_from"]:  # -- most-played cards (wave 43B) -- "from anywhere other than the battlefield"
         return False
     if event in ("to_exile", "to_library") and ((cond.get("froms") and info.get("from") not in cond["froms"])
@@ -1293,6 +1299,7 @@ def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: F
             return False
         recipient = info.get("recipient")
         if (to == "player" and recipient is None) or (to == "you" and recipient != you) or \
+                (to == "you_or_perm110b" and you not in (recipient, info.get("recipient_ctl110b"))) or \
                 (to == "creature_or_opponent" and not (info.get('recipient_creature') or recipient is not None and recipient != you)) or \
                 (to == "opponent" and (recipient is None or recipient == you)) or \
                 (to == "creature" and not info.get("recipient_creature")) or \
@@ -1305,6 +1312,7 @@ def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: F
                 (to == "players" and recipient is None) or (to == "opponents" and (recipient is None or recipient == you)) or \
                 (to == "creatures" and not info.get("recipient_creature")) or (cond.get("blocking110b") and not info.get("recipient_blocking110b")) or \
                 (cond.get("min") and int(info.get("amount") or 0) < cond["min"]) or \
+                (cond.get("eq_toughness110b") and info.get("amount") != info.get("recipient_toughness110b")) or \
                 (to == "enchanted_player" and (recipient is None or recipient != watcher.attached_player)):
             return False
     return True

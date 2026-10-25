@@ -5014,6 +5014,8 @@ def exile_if_dies(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     if e.get("cards"):  # -- zone replacements (wave 37B) -- "If a card would be put into your graveyard from anywhere this turn, exile that card instead."
         plan.rules.replacements.append({**rec, "kind": "exile_cards", "whose": e["cards"]})
         return True
+    if e.get("return110b"):  # -- one-card wordings (wave 110B) -- Cosmic Intervention: the exiled card comes back at the next end step (the spell is the rider's source)
+        rec["return110b"] = ctx.get("source_card") or ""
     if e.get("each"):
         rec["each"] = e["each"]
     else:
@@ -5043,7 +5045,8 @@ def replace_record(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
             recipient["objects"] = {"sel": selectors.Selector(controller=f"player:{players[0]}").key()}
         match = {**match, "to": recipient}
     extra = {"until": "next_turn", "until_player": ctx["controller"]} if e.get("duration") == "next_turn" else {}
-    replace.add_record(plan, event=e["event"], match=match, op=e["op"], controller=ctx["controller"],
+    op = {**e["op"], "n": int(e["op"]["n"]) + int(ctx.get("x") or 0)} if e["op"].get("x110b") else e["op"]  # -- one-card wordings (wave 110B) -- "plus X" (X paid)
+    replace.add_record(plan, event=e["event"], match=match, op=op, controller=ctx["controller"],
                        source=ctx.get("source_object"), source_card=ctx.get("source_card"),
                        label=ctx.get("name") or "an effect", **extra)
     return True

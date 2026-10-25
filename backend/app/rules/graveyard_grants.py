@@ -40,6 +40,8 @@ _FLASHBACK = re.compile(rf"(?P<lead>until end of turn, )?{_WHO} gains flashback(
                         r"(?P<trail> until end of turn)?")
 _PLAY = re.compile(rf"until end of turn, {_WHO} gains \"you may play this card from your graveyard\.?\"\.?", re.IGNORECASE)
 COST_SENTENCE = re.compile(r"the flashback cost is equal to (?:its|that card's) mana cost")
+_HARMONIZE = re.compile(rf"^{_WHO} gains harmonize until end of turn$")  # -- one-card wordings (wave 110B) -- 702.180a, 611.2a (Songcrafter Mage)
+_HARMONIZE_COST = re.compile(r"its harmonize cost is equal to its mana cost")
 
 
 def _selector(m: re.Match[str]) -> str:
@@ -64,6 +66,11 @@ def _flashback(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     return [e], sel if target else None
 
 
+def _harmonize(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    sel = _selector(m)
+    return [{"do": "grant_flashback", "who": "target", "cost": "pending", "keyword": "harmonize"}], sel
+
+
 def _play(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     sel = _selector(m)
     target = m["s1"] is not None
@@ -72,15 +79,17 @@ def _play(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
 
 TEMPLATES: list[tuple[re.Pattern[str], Any]] = [
     (re.compile("^" + _FLASHBACK.pattern + "$"), _flashback),
+    (_HARMONIZE, _harmonize),
     (re.compile("^" + _PLAY.pattern + "$", re.IGNORECASE), _play),
 ]
 
 
 def cost_sentence(text: str, effects: list[dict[str, Any]]) -> bool:
     """"The flashback cost is equal to its mana cost." after a grant of flashback: its cost."""
-    if not COST_SENTENCE.fullmatch(text):
+    harmonize = _HARMONIZE_COST.fullmatch(text) is not None
+    if not harmonize and not COST_SENTENCE.fullmatch(text):
         return False
-    pending = [e for e in effects if e.get("do") == "grant_flashback" and e.get("cost") == "pending"]
+    pending = [e for e in effects if e.get("do") == "grant_flashback" and e.get("cost") == "pending" and (e.get("keyword") == "harmonize") == harmonize]
     if len(pending) != 1:
         return False
     pending[0]["cost"] = "mana_cost"
@@ -107,11 +116,12 @@ def grant_flashback(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     found = _cards(plan, ctx, e["who"])
     for cid in found:
         r.graveyard_grants.append({"id": secrets.token_hex(4), "oid": plan.oid(cid), "card": cid, "turn": turn,
-                                   "flashback": e["cost"], "controller": ctx["controller"]})
+                                   e.get("keyword", "flashback"): e["cost"], "controller": ctx["controller"]})
     if found:
         cost = "equal to its mana cost" if e["cost"] == "mana_cost" else e["cost"]
+        kw = e.get("keyword", "flashback")
         names = ", ".join(plan.state.cards[c].name or "a card" for c in found[:5]) + (" …" if len(found) > 5 else "")
-        plan.note(f"{names} gain{'s' if len(found) == 1 else ''} flashback ({cost}) until end of turn", found[:20],
+        plan.note(f"{names} gain{'s' if len(found) == 1 else ''} {kw} ({cost}) until end of turn", found[:20],
                   actor=ctx["controller"])
     return True
 

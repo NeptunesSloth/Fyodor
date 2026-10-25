@@ -991,6 +991,12 @@ def leave_stack(plan: Plan, card_id: str, controller: str, *, tapped: bool = Fal
 
     if not countered and from_hand and hand_player == controller and ("rebound" in plan.ch(card).keywords or (
             plan.ch(card).is_instant_or_sorcery and static_perm100d.yours(plan, static_perm100d.REBOUND, controller))):
+        from app.rules import (
+            wave110b_cards,  # -- rebound vs hand (wave 110B) -- 616.1: its controller picks between the two replacements
+        )
+
+        if wave110b_cards.rebound_or_hand(plan, card_id, controller):
+            return
         plan.do({"type": "move", "card_ids": [card_id], "to": {"player": card.owner, "zone": "exile"}}, actor=controller)
         plan.rules.rebounding.append(card_id)
         plan.rules.rebound_objects[card_id] = plan.oid(card_id)

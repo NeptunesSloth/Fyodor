@@ -517,6 +517,8 @@ def _trigger_antecedent(name: str, cond: dict[str, Any] | None) -> str | None:
     if event == "either" and cond.get("subject") == "player" and {c["event"] for c in cond["conds"]} == {"sacrifice", "discard"} \
             and all(c.get("obj") for c in cond["conds"]):
         return "event_gone"  # -- either with two actions (wave 51C) -- Tergrid: the card in the graveyard after either (context.EVENT_NEW reads a discarded card as it is)
+    if event == "either" and cond.get("subject") == "mixed" and {c["event"] for c in cond["conds"]} == {"sacrifice", "to_graveyard"}:
+        return "event_gone"  # -- trigger other (wave 110B) -- Desert Warfare: the card in the graveyard after either (a sacrificed card, a card put there)
     if event == "either" and cond.get("subject") == "self" and all(c["event"] in _STAYING for c in cond["conds"]):
         return "self"  # -- history (wave 22E) -- "Whenever ~ attacks, blocks, or becomes the target of a spell, it deals …"
     if event == "either" and cond.get("subject") == "sel" and all(c["event"] in _STAYING and not c.get("aggregate") for c in cond["conds"]):
@@ -5581,6 +5583,9 @@ def _unless_sentence(text: str, effects: list[dict[str, Any]], may: bool = False
         phrase = re.sub(r"\btheir\b(?! choice)", "your", phrase)  # (wave 26B) a cost is read as its payer's: "exiles a card from their graveyard"
     if re.search(r"\bit\b", phrase):
         return None
+    times_n = None
+    if m["lead"] == "that player loses that much life" and phrase == "sacrifice that many permanents of their choice":
+        phrase, times_n = "sacrifice a permanent", {"event_amount": 1}  # -- trigger other (wave 110B) -- Archfiend of Spite: the damage dealt, one permanent each (unless_pays.repeat_cost)
     cost = optional_payment.cost_text(phrase)
     alts = optional_payment.alternatives(phrase) if cost is None else None  # -- if you do (wave 15C) -- "sacrifice … or discard a card"
     if alts is not None:
@@ -5679,6 +5684,8 @@ def _unless_sentence(text: str, effects: list[dict[str, Any]], may: bool = False
     pay: dict[str, Any] = {"do": "optional_payment", "who": payer, "cost": cost, "bind": bind}
     if alts is not None:
         pay["alts"] = alts
+    if times_n is not None:
+        pay["times"] = times_n
     if sized is not None:  # -- unless pays (wave 4C) --
         pay.update(sized)
     if sized_damage_cost is not None:  # -- unless damage (wave 34D) -- "deal that much damage to them": the lead's own damage amount (one damage instruction)
@@ -7819,8 +7826,9 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                         generic = [h[1] for h in halves if h and h[1] is not None]
                         # (-- cant restrictions (wave 46A) -- the same event twice with different subjects, "Whenever Giott or another Dwarf you control enters and
                         # whenever an Equipment you control enters": one object entering is one event, so one trigger however many halves it matches, 603.2c)
-                        if names == ["event", "event"] and not re.search(
-                                r"\b(?:it|its|it's|that|those|them|they)\b", re.sub(r"\bit's the \w+ time\b", "", m["body"])) and not any(
+                        if names == ["event", "event"] and (not re.search(
+                                r"\b(?:it|its|it's|that|those|them|they)\b", re.sub(r"\bit's the \w+ time\b", "", m["body"]))
+                                or {g["event"] for g in generic} == {"sacrifice", "to_graveyard"}) and not any(  # (wave 110B: Desert Warfare, "that card" is the one in the graveyard)
                                 g.get("aggregate") or g["event"] in ("either", "multi") for g in generic):
                             # -- ability words (wave 20C) -- "Whenever an enchantment you control enters and whenever you fully unlock a
                             # Room" (eerie): two whole conditions, each its own event (603.2c) — the "or" form's either condition
@@ -7883,7 +7891,8 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
 
                 # -- trigger other (wave 39A) -- ("that player" is read when the damage is to "you" from "a source an opponent controls": it can only be that opponent, Michiko Konda)
                 if cond is not None and cond.get("subject") == "source" and re.search(r"\b(?:that player|they|them)\b", body) \
-                        and not (cond.get("ctl") == "opponent" and cond.get("to") == "you" and not re.search(r"\b(?:they|them)\b", body)):
+                        and not (cond.get("ctl") == "opponent" and cond.get("to") == "you" and not re.search(r"\b(?:they|them)\b", body)) \
+                        and not re.fullmatch(r"that source's controller [^.]+? unless they \w+ [^.]+\.?", body):  # -- trigger other (wave 110B) -- "they" is that controller (Archfiend of Spite)
                     return None  # -- source damage (wave 11F) -- the source's controller, or the player dealt damage? (not read)
                 if name == "enters_self" or cond is not None and cond.get("event") == "enter" and cond.get("subject") == "self":
                     # The entry event's subject is this object, including a qualified entry from hand.

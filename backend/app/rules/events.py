@@ -100,7 +100,8 @@ _DAMAGE_TO = {"": "any", " to a player": "player", " to a creature": "creature",
               " to its owner": "its_owner",  # -- trigger other (wave 44B) -- 120.1: The Beast, "a creature deals combat damage to its owner" (the damage dealer's owner is the player)
               " to one or more players": "players", " to your opponents": "opponents",
               " to one or more of your opponents": "opponents", " to ~": "self", " to one or more creatures": "creatures",
-              " to one or more blocking creatures": "creatures"}  # (-- one-card wordings (wave 110B) -- Arashin War Beast: the cond's "blocking110b")
+              " to one or more blocking creatures": "creatures",
+              " to you or a permanent you control": "you_or_perm110b"}  # -- one-card wordings (wave 110B) -- Flameblade Angel  # (-- one-card wordings (wave 110B) -- Arashin War Beast: the cond's "blocking110b")
 _ONE_OR_MORE_TO = (" to one or more players", " to your opponents", " to one or more of your opponents")  # (wave 39B)
 _DAMAGE_TO_RE = "|".join(re.escape(k) for k in sorted(_DAMAGE_TO, key=len, reverse=True) if k)
 # 508.3a / 508.3b / 508.3e / 508.6: whom an attack was declared against
@@ -744,7 +745,7 @@ def _parse(c: str) -> Condition | None:
     if c in ("~ is put into your graveyard from your library", "this card is put into your graveyard from your library"):
         return {"event": "to_graveyard", "subject": "self", "from": "library"}  # -- triggers (wave 19B) -- (Narcomoeba)
     m = re.fullmatch(r"(?P<o>one or more (?:.+? )?cards|an? .+? card|a card) (?:is|are) put into (?:(?P<g>your|an opponent's|a) "
-                     r"graveyard|graveyards) from (?P<f>anywhere other than the battlefield|anywhere|your library|their library|a library)", c)  # (wave 43B: Syr Konrad; wave 50G: "graveyards", Dennick)
+                     r"graveyard|graveyards) from (?P<f>anywhere other than the battlefield|anywhere|your hand or library|your hand|your library|their library|a library)", c)  # (wave 43B: Syr Konrad; wave 50G: "graveyards", Dennick)
     if m:
         gsel = selectors.from_key(_object_sel(m["o"], card=True))
         owner = {"your": "you", "an opponent's": "opponent"}.get(m["g"])
@@ -758,6 +759,10 @@ def _parse(c: str) -> Condition | None:
             if owner != "you":
                 return None
             out["from"] = "library"
+        elif m["f"] in ("your hand", "your hand or library"):  # -- trigger other (wave 110B) -- Desert Warfare: a card goes to its owner's graveyard, so "your" hand is its owner's
+            if owner != "you":
+                return None
+            out["froms"] = ["hand", "library"] if m["f"].endswith("library") else ["hand"]
         elif m["f"] == "their library":  # -- trigger other (wave 52B) -- "a creature card is put into an opponent's graveyard from their library" (Undead Alchemist): a card goes to its owner's graveyard, so their own library
             if owner != "opponent":
                 return None

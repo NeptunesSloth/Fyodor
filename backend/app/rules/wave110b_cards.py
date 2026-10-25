@@ -23,6 +23,11 @@ def firebending(line: str) -> int | None:
 
 # whole ability text -> the wording the grammar reads for it
 _AS: dict[str, str] = {
+    # Desert Warfare: "that many" is the number of Deserts you control (the "five or more" test, 603.4, counts them); "They gain haste" is the tokens' own
+    "At the beginning of combat on your turn, if you control five or more Deserts, create that many 1/1 red, green, and white Sand Warrior creature tokens. "
+    "They gain haste.":
+        "At the beginning of combat on your turn, if you control five or more Deserts, create a 1/1 red, green, and white Sand Warrior creature token with "
+        "haste for each Desert you control.",
     # Saproling Infestation: 702.33d a player "kicks" a spell as they cast it kicked
     "Whenever a player kicks a spell, you create a 1/1 green Saproling creature token.":
         "Whenever a player casts a kicked spell, you create a 1/1 green Saproling creature token.",
@@ -132,7 +137,73 @@ def _battleshaper(d: Def) -> Def:
             "targets": [d["targets"][0], dict(d["targets"][0])]}
 
 
+def _mirror(d: Def) -> Def:
+    """Mirror of Life Trapping (607.2a linked exile): returning the cards exiled with it first is the same as returning "all other" ones after the exile."""
+    from app.rules import selectors
+
+    sel = selectors.parse("permanent card")
+    assert sel is not None
+    key = sel.key()
+    back = {"do": "return_card", "who": f"exiled_with:{key}", "to": "battlefield", "tapped": False, "under": "owner"}
+    gate, exile = d["effects"]
+    return {**d, "effects": [{**gate, "skip": 2}, back, {**exile, "link": True}], "accumulating_link": True}
+
+
+def _sponsor(d: Def) -> Def:
+    """Scholarship Sponsor: the search of "each player who controls fewer lands than you" (a native reading) is sized per player by ``gap_search110b``."""
+    where, search = d["effects"]
+    assert where["do"] == "players_where" and search["do"] == "search"
+    return {**d, "effects": [{"do": "gap_search110b", "search": {k: v for k, v in search.items() if k not in ("who", "max")}}]}
+
+
+def gap_search(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Scholarship Sponsor: each player (in turn order, 101.4) who controls fewer lands than the player who controls the most searches for up to as many
+    basic lands as the difference (701.23), put onto the battlefield tapped; counted once, before any search (608.2c)."""
+    lands = {p: sum(1 for c in plan.state.cards.values() if c.controller == p and c.zone.endswith(":battlefield") and "Land" in plan.ch(c).types)
+             for p in plan.apnap() if not plan.state.players[p].left}
+    most = max(lands.values(), default=0)
+    at = ctx["next"]
+    ctx["effects"][at:at] = [{**e["search"], "who": f"player:{p}", "max": most - lands[p]} for p in plan.apnap() if p in lands and lands[p] < most]
+    return True
+
+
+def _intervention(d: Def) -> Def:
+    """Cosmic Intervention: 614.1a the replacement covers every permanent you control (a "die" replacement is the creature case of it)."""
+    from app.rules import selectors
+
+    gone, = d["effects"]
+    sel = selectors.parse("permanent you control")
+    assert gone["do"] == "exile_if_dies" and sel is not None
+    return {**d, "effects": [{**gone, "each": sel.key(), "return110b": True}]}
+
+
+def return_next_end(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Cosmic Intervention (603.7, 400.7): the card the replacement exiled returns under its owner's control at the beginning of the next end step; a token
+    ceased to exist in exile (111.7), and a card that has moved again is another object."""
+    from app.game.rules_state import ObjectRef
+    from app.rules import delayed
+
+    card = plan.state.cards.get(e["card"])
+    if card is None or card.is_token or not card.zone.endswith(":exile"):
+        return True
+    ref = ObjectRef(card=card.id, object_id=plan.oid(card), zone=card.zone).model_dump(mode="json")
+    delayed.create_plain(plan, ctx["controller"], ctx.get("source_card") or "", ctx.get("source_object") or "", ctx.get("name") or "",
+                         {"kind": "step", "step": "end", "whose": "next"},
+                         [{"do": "bind_refs", "refs": {"ret110b": {"kind": "objects", "objects": [ref]}}},
+                          {"do": "return_card", "who": "ref:ret110b", "to": "battlefield", "tapped": False, "under": "owner"}])
+    return True
+
+
 _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
+    "If a permanent you control would be put into a graveyard from the battlefield this turn, exile it instead. Return it to the battlefield under its "
+    "owner's control at the beginning of the next end step.":
+        ("If a creature you control would die this turn, exile it instead.", _intervention),
+    "When this creature enters, each player who controls fewer lands than the player who controls the most lands searches their library for a number of "
+    "basic land cards less than or equal to the difference, puts those cards onto the battlefield tapped, then shuffles.":
+        ("When this creature enters, each player who controls fewer lands than you searches their library for up to two basic land cards, puts them onto "
+         "the battlefield tapped, then shuffles.", _sponsor),
+    "Whenever a creature enters, if it was cast, exile it, then return all other permanent cards exiled with this artifact to the battlefield under "
+    "their owners' control.": ("Whenever a creature enters, if it was cast, exile it.", _mirror),
     "At the beginning of each combat, up to one target creature attacks or blocks this combat if able and up to one target creature can't attack or block this combat.":
         ("At the beginning of each combat, up to one target creature attacks this combat if able.", _battleshaper),
     "At the beginning of combat on your turn, investigate for each goaded creature you control. Then each creature you control is no longer goaded.":
@@ -142,6 +213,12 @@ _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
     # Dalkovan Encampment (the sacrifice rides on each trigger's tokens)
     "{2}{W}, {T}: Whenever you attack this turn, create two 1/1 red Warrior creature tokens that are tapped and attacking. Sacrifice them at the beginning of the next end step.":
         ("{2}{W}, {T}: Whenever you attack this turn, create two 1/1 red Warrior creature tokens that are tapped and attacking.", _warriors),
+    # Taii Wakeen: 120.3, "equal to that creature's toughness" is the amount of this one damage event; "plus X" is the X paid (107.3k)
+    "Whenever a source you control deals noncombat damage to a creature equal to that creature's toughness, draw a card.":
+        ("Whenever a source you control deals noncombat damage to a creature, draw a card.", lambda d: {**d, "cond": {**d["cond"], "eq_toughness110b": True}}),
+    "{X}, {T}: If a source you control would deal noncombat damage to a permanent or player this turn, it deals that much damage plus X instead.":
+        ("{X}, {T}: Until end of turn, if a source you control would deal noncombat damage to a permanent or player, it deals that much damage plus 1 instead.",
+         lambda d: {**d, "effects": [{**e, "op": {**e["op"], "n": 0, "x110b": True}} if e.get("do") == "replace_record" else e for e in d["effects"]]}),
     # Way of the Mind Sculptor: the activation event carries the loyalty counters its cost removed (606.4, 603.4)
     "Whenever you activate a loyalty ability, if you removed two or more loyalty counters to activate it, draw a card.":
         ("Whenever you activate a loyalty ability, draw a card.", lambda d: {**d, "cond": {**d["cond"], "loyalty_removed110b": 2}}),
@@ -330,6 +407,34 @@ def resume_exile_own(plan: Any, d: Any, chosen: list[str]) -> None:
     effects.continue_effects(plan, ctx)
 
 
+def rebound_or_hand(plan: Any, card_id: str, controller: str) -> bool:
+    """614.1a, 616.1: a rebound spell that also goes to its owner's hand as it resolves (buyback, Soulfire Grand Master): two replacements of the same
+    event, so its controller picks one. True: the question is open (engine.leave_stack waits for it)."""
+    from app.game.rules_state import DecisionOption
+    from app.rules.plan import decide
+
+    if plan.oid(card_id) not in plan.rules.buyback or plan.oid(card_id) in plan.rules.flashback:
+        return False
+    decide(plan, player=controller, kind="choose_one", prompt="Rebound (exile it) or return it to your hand as it resolves?",
+           options=[DecisionOption(id="rebound", label="Exile it with rebound"), DecisionOption(id="hand", label="Put it into your hand")],
+           resume={"step": "rebound_hand110b", "card": card_id, "oid": plan.oid(card_id), "controller": controller})
+    return True
+
+
+def resume_rebound_hand(plan: Any, d: Any, chosen: list[str]) -> None:
+    from app.rules import engine
+
+    r = d.resume
+    card = plan.state.cards.get(r["card"])
+    if card is None or card.zone != "stack" or plan.oid(card) != r["oid"]:
+        return
+    plan.rules.buyback = [o for o in plan.rules.buyback if o != r["oid"]]
+    if chosen[0] == "hand":
+        plan.do({"type": "move", "card_ids": [card.id], "to": {"player": card.owner, "zone": "hand"}}, actor=r["controller"])
+    else:
+        engine.leave_stack(plan, card.id, r["controller"])
+
+
 def no_attack_next(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
     """Wall of Dust: 508.1c-style restriction "can't attack" (a continuous effect, 611.2) from the start of the creature's controller's next turn
     (declaration window "next_turn", engine.begin_window) to its end."""
@@ -342,7 +447,7 @@ def no_attack_next(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
     return True
 
 
-RESUME: dict[str, Any] = {"exile_own110b": resume_exile_own}
+RESUME: dict[str, Any] = {"exile_own110b": resume_exile_own, "rebound_hand110b": resume_rebound_hand}
 def gift_given(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     """702.174c: the gift was given (its instant or sorcery resolved, or its permanent's gift trigger resolved): "Whenever you give a gift"."""
     from app.game.rules_state import emit
@@ -351,4 +456,4 @@ def gift_given(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return True
 
 
-PRIMITIVES: dict[str, Any] = {"gift_given110b": gift_given, "ungoad110b": ungoad, "no_attack_next110b": no_attack_next, "draw_game110b": draw_game, "reaver110b": reaver, "veil110b": veil, "exile_own110b": exile_own}
+PRIMITIVES: dict[str, Any] = {"return_next_end110b": return_next_end, "gap_search110b": gap_search, "gift_given110b": gift_given, "ungoad110b": ungoad, "no_attack_next110b": no_attack_next, "draw_game110b": draw_game, "reaver110b": reaver, "veil110b": veil, "exile_own110b": exile_own}

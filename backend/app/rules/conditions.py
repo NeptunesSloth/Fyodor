@@ -107,6 +107,7 @@ def parse(text: str, *, objects: bool = False) -> Condition | None:
     t = re.sub(r"^(defending player|that player|an opponent) is poisoned$", r"\1 has a poison counter", t)  # -- player counters (wave 20F) -- 122.1f
     t = re.sub(r"^your library has no cards in it$", "there are no cards in your library", t)  # -- activated other (wave 34B) -- Doctor Doom, Unrivaled: "your library has no cards in it" is the condition "there are no cards in your library" read as the effect resolves (608.2c)
     t = re.sub(r"^your life total is (\d+ or (?:less|more))$", r"you have \1 life", t)
+    t = re.sub(r"^your life total is less than ([1-9]\d*)$", lambda m: f"you have {int(m[1]) - 1} or less life", t)  # -- one-card wordings (wave 110B) -- 119.1: whole numbers, so "less than 7" is "6 or less" (Elderscale Wurm)
     t = re.sub(r"^you control no (\w+) other than (?:this \w+|~)(?= and |$)", r"you control no other \1", t)  # -- most-played cards (wave 49A) -- Barren Glory: "no permanents other than this enchantment"
     t = re.sub(r"^(you control no other \w+) and have ", r"\1 and you have ", t)  # (the elided subject of the second half)
     t = re.sub(r"^an? ([a-z -]+?) you control is attacking$", r"you control an attacking \1", t)  # -- cant restrictions (wave 50G) -- "As long as an artifact creature you control is attacking" (Sanwell): you control an attacking one
