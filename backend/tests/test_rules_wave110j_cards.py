@@ -365,3 +365,22 @@ def test_earthbind_hurts_and_grounds_only_a_flier(cards, flier):
     assert (now(s, c).damage == 2) is flier and "flying" not in ch(s, c).keywords
     assert aura.zone.endswith(":battlefield")
     check(s)
+
+
+def test_splintering_wind_is_full():
+    assert full("Splintering Wind")
+
+
+def test_splintering_wind_token_deals_damage_to_you_and_your_creatures_when_it_leaves(cards):
+    """603.7, 608.2h: when the Splinter leaves, it deals 1 damage to its creator and each creature they control; the 1 damage to the target came first."""
+    s = build(cards, ["Splintering Wind", "Llanowar Elves", "Lightning Bolt"], ["Llanowar Elves"])
+    wind, mine, theirs = put_new(s, "Splintering Wind"), put_new(s, "Llanowar Elves"), put_new(s, "Llanowar Elves", "p2")
+    mana(s, "p1", G=3)
+    activate(s, wind, "{2}{G}", targets=[theirs.id])
+    assert now(s, theirs).zone.endswith(":graveyard")
+    token = next(c for c in s.state.cards.values() if c.name == "Splinter" and c.zone.endswith(":battlefield"))
+    assert {"flying"} <= ch(s, token).keywords
+    life = s.state.players["p1"].life
+    cast_on(s, "Lightning Bolt", token)
+    assert s.state.players["p1"].life == life - 1 and now(s, mine).zone.endswith(":graveyard")
+    check(s)
