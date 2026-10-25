@@ -74,3 +74,20 @@ _BUILD[_SPORES] = (
     'Whenever this creature blocks a creature, put four fungus counters on that creature. That creature gains "This creature doesn\'t untap during your '
     'untap step if it has a fungus counter on it." That creature gains "At the beginning of your upkeep, remove a fungus counter from this creature."',
     lambda d: d)
+
+
+def _loki(d: Def) -> Def:
+    """Loki, God of Lies: "that creature" is the spell's single target (115.9c), not a target of the trigger; its control, untap and haste follow (611.2b)."""
+    from app.rules import token_copy_sources
+
+    sel = d.get("target", {}).get("what")
+    if not (sel and d.get("cond", {}).get("targets") == f"only_one:{sel}"):
+        return d
+    ref = f"ref:{token_copy_sources.CHOSEN}"
+    effects = [{**e, "who": ref} if e.get("who") == "target" else e for e in d["effects"]]
+    return {**{k: v for k, v in d.items() if k != "target"}, "effects": [{"do": "select_copy_spell_target", "selector": sel}, *effects]}
+
+
+_BUILD["Whenever you cast a spell that targets only a single creature, gain control of that creature until end of turn. If it's your turn, untap that creature and it gains haste until end of turn."] = (
+    "Whenever you cast a spell that targets only a single creature, gain control of target creature until end of turn. If it's your turn, untap that creature and it gains haste until end of turn.",
+    _loki)

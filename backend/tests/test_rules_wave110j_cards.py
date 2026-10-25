@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import pytest
 
+from tests.game_helpers import act
 from tests.wave9c_kit import build
 from tests.wave110b_kit import attack, through_combat
 from tests.wave110j_kit import (  # noqa: F401
@@ -23,6 +24,7 @@ from tests.wave110j_kit import (  # noqa: F401
     check,
     full,
     mana,
+    now,
     put,
     put_new,
     settle,
@@ -109,4 +111,41 @@ def test_mindbender_spores_keeps_the_blocked_creature_tapped_until_the_counters_
     for turn, left in ((3, 3), (5, 2)):
         to_phase(s, "main1", turn=turn)
         assert s.state.cards[bears.id].counters == {"fungus": left} and s.state.cards[bears.id].tapped
+    check(s)
+
+
+def test_loki_is_full():
+    assert full("Loki, God of Lies")
+
+
+def test_loki_steals_the_spells_single_target_until_end_of_turn(cards):
+    """115.9c, 611.2b: Loki takes the creature a spell targets; on its controller's turn it also untaps and gains haste; control ends at cleanup."""
+    s = build(cards, ["Loki, God of Lies", "Aspect of Wolf", "Grizzly Bears"], ["Grizzly Bears"])
+    put(s, "Loki, God of Lies")
+    bears = put_new(s, "Grizzly Bears", "p2")
+    act(s, "p2", type="tap", card_ids=[bears.id])
+    mana(s, G=1, C=1)
+    cast_on(s, "Aspect of Wolf", bears)
+    assert now(s, bears).controller == "p1" and not now(s, bears).tapped
+    assert "haste" in ch(s, bears).keywords
+    to_phase(s, "main1", turn=2)
+    assert now(s, bears).controller == "p2"
+    check(s)
+
+
+def test_lithoform_blight_is_full():
+    assert full("Lithoform Blight")
+
+
+def test_lithoform_blight_replaces_a_lands_types_and_abilities(cards):
+    """305.7, 613.1d, 613.1f: the land has no land types (so no intrinsic mana ability), only the two granted mana abilities; the Aura draws on entering."""
+    s = build(cards, ["Lithoform Blight", "Forest"])
+    forest = put_new(s, "Forest")
+    assert "Forest" in ch(s, forest).subtypes
+    hand = len(s.state.zones["p1:hand"])
+    cast_on(s, "Lithoform Blight", forest)
+    now_ch = ch(s, forest)
+    assert not now_ch.subtypes and "Land" in now_ch.types
+    assert sorted(a.text for a in now_ch.abilities if "Add" in a.text) == ["{T}, Pay 1 life: Add one mana of any color.", "{T}: Add {C}."]
+    assert len(s.state.zones["p1:hand"]) == hand + 1
     check(s)
