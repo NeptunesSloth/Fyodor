@@ -23,6 +23,7 @@ from tests.fixtures.cards import fixture_cards
 from tests.game_helpers import act
 from tests.test_rules_wave12a_counters_keywords import real
 from tests.wave9c_kit import build, card_named
+from tests.test_rules_review34_head import EXTRA as REVIEW34, SIEGE, drive
 from tests.wave110b_kit import attack, cast, ch, check, mana, put, settle, through_combat, to_hand
 
 EXTRA = [
@@ -48,17 +49,21 @@ EXTRA = [
          "Defender (This creature can't attack.)\nWhenever this creature blocks a creature, if at least one other Wall creature is blocking that creature and no non-Wall creatures are blocking that creature, this creature gains banding until end of turn. (If any creatures with banding you control are blocking a creature, you divide that creature's combat damage, not its controller, among any of the creatures it's being blocked by.)", ('2', '1'), 'W'),
     real('Relentless Assault', '{2}{R}{R}', 4, 'Sorcery', 'Untap all creatures that attacked this turn. After this main phase, there is an additional combat phase followed by an additional main phase.', None, 'R'),
     real('Test Vigil', '{1}', 1, 'Creature — Human', 'Vigilance', ('1', '1'), ''),
+    real('Joyful Stormsculptor', '{2}{U}{R}', 4, 'Creature — Faerie Wizard', 'When this creature enters, create two 1/1 blue and red Elemental creature tokens.\nWhenever you cast a spell that has convoke, this creature deals 1 damage to each opponent and each battle they protect.', ('3', '3'), 'RU'),
+    real('Test Convoke', '{1}', 1, 'Sorcery', 'Convoke', None, ''),
+    real('Psychogenic Probe', '{2}', 2, 'Artifact', 'Whenever a spell or ability causes a player to shuffle their library, this artifact deals 2 damage to that player.', None, ''),
+    real('Test Shuffle', '{1}', 1, 'Sorcery', 'Target player shuffles their library.', None, ''),
     real('Test Wall', '{1}', 1, 'Creature — Wall', '', ('0', '4'), ''),
     real('Hill Giant', '{3}{R}', 4, 'Creature — Giant', '', ('3', '3'), 'R'),
     real('Divination', '{2}{U}', 3, 'Sorcery', 'Draw two cards.', None, 'U'),
 ]
-NAMES = [c["name"] for c in EXTRA if c["name"] not in ("Divination", "Hill Giant", "Test Wall", "Relentless Assault", "Test Vigil")]
+NAMES = [c["name"] for c in EXTRA if c["name"] not in ("Divination", "Hill Giant", "Test Wall", "Relentless Assault", "Test Vigil", "Test Convoke", "Test Shuffle")]
 
 
 @pytest.fixture()
 def cards(settings):
     settings.ensure_dirs()
-    build_database([*fixture_cards(), *EXTRA], settings.cards_db_path, meta={"bulk_type": "test"})
+    build_database([*fixture_cards(), *REVIEW34, *EXTRA], settings.cards_db_path, meta={"bulk_type": "test"})
     repo = CardRepository(settings.cards_db_path, ImageStore(settings.images_dir))
     yield repo
     repo.close()
@@ -252,6 +257,33 @@ def test_total_war_didnt_attack_means_this_combat(cards):
     act(s, "p1", type="declare_attackers", attackers=[{"card_id": bears.id, "target": "p2"}])
     settle(s)
     assert s.state.cards[vig.id].zone == "p1:graveyard" and s.state.cards[bears.id].zone == "p1:battlefield"
+    check(s)
+
+
+def test_joyful_stormsculptor_hits_opponent_and_their_battle_only(cards):
+    """Joyful Stormsculptor (310.8, 120.3): a convoke spell pings each opponent and each battle an opponent protects, not a battle I protect."""
+    s = build(cards, ["Joyful Stormsculptor", "Test Convoke", SIEGE], [SIEGE])
+    put(s, "Joyful Stormsculptor")
+    mine, theirs = put(s, SIEGE), put(s, SIEGE, "p2")
+    for b in (mine, theirs):
+        act(s, "p1", type="counter", card_ids=[b.id], kind="defense", delta=4)
+    drive(s, lambda d: "p2" if "p2" in [o.id for o in d.options] else None)
+    protectors = dict(s.state.rules.protectors)  # (shown on failure)
+    cast(s, "Test Convoke")
+    assert s.state.players["p2"].life == 39
+    defense = {b.id: next((n for k, n in s.state.cards[b.id].counters.items() if k == "defense"), 0) for b in (mine, theirs)}
+    assert (defense[mine.id], defense[theirs.id]) == (3, 4), (defense, protectors)  # mine is protected by Bob, Bob's by me
+    check(s)
+
+
+@pytest.mark.parametrize("target", ["p1", "p2"])
+def test_psychogenic_probe_damages_whoever_shuffles(cards, target):
+    """Psychogenic Probe (701.24): 2 damage to the shuffling player, the Probe's controller included."""
+    s = build(cards, ["Psychogenic Probe", "Test Shuffle"], [])
+    put(s, "Psychogenic Probe")
+    mana(s, C=1)
+    cast(s, "Test Shuffle", [target])
+    assert s.state.players[target].life == 38 and s.state.players["p2" if target == "p1" else "p1"].life == 40
     check(s)
 
 

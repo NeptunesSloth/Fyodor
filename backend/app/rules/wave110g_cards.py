@@ -25,6 +25,19 @@ def _controlled_since_turn_start(d: Def) -> Def:
     return {**d, "effects": [{**eff, "who": f"{head}|" + replace(sel, extras=(*(("didnt_attack_combat110g" if x == "didnt_attack_this_turn" else x) for x in sel.extras), controller_turn_history69.EXTRA)).key()}]}
 
 
+def _battles(d: Def) -> Def:
+    """"...and each battle they protect": a second damage effect to the battles an opponent protects (310.8)."""
+    from app.rules import selectors
+
+    sel = replace(selectors.from_key('sel:{"types":["Battle"]}'), extras=("protected_by_opp110g",))
+    return {**d, "effects": [*d["effects"], {**d["effects"][0], "who": sel.key()}]}
+
+
+def _any_shuffle(d: Def) -> Def:
+    """Psychogenic Probe: any player's shuffle (701.24), not just an opponent's."""
+    return {**d, "cond": {**d["cond"], "player": "any"}}
+
+
 def _twin(d: Def) -> Def:
     """The token is named Twin and copies the attacker's power and toughness once, as it is created (111.1)."""
     token = d["effects"][0]["token"]
@@ -87,6 +100,12 @@ _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
     "and its toughness is equal to this creature's toughness. Sacrifice the token at end of combat.":
         ("Whenever this creature attacks, create an X/X colorless Construct artifact creature token that's attacking, where X is this creature's power. "
          "Sacrifice it at end of combat.", _twin),
+    # Psychogenic Probe: every library shuffle in the engine is made by a spell or ability (701.24)
+    "Whenever a spell or ability causes a player to shuffle their library, this artifact deals 2 damage to that player.":
+        ("Whenever an opponent shuffles their library, this artifact deals 2 damage to that player.", _any_shuffle),
+    # Joyful Stormsculptor
+    "Whenever you cast a spell that has convoke, this creature deals 1 damage to each opponent and each battle they protect.":
+        ("Whenever you cast a spell that has convoke, this creature deals 1 damage to each opponent.", _battles),
     # Vizkopa Confessor
     "When this creature enters, pay any amount of life. Target opponent reveals that many cards from their hand. You choose one of them and exile it.":
         ("When this creature enters, target opponent reveals a number of cards from their hand equal to the number of creatures you control. "
