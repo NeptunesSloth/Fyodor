@@ -38,6 +38,8 @@ _SCAPEGOAT = ("Whenever one or more other creatures you control enter, if this c
               "If you do, this creature is no longer suspected.")
 
 
+_SPECTER = ("Whenever ~ deals combat damage to a player, you may pay {X}. If you do, that player reveals X cards from their hand and you choose one of "
+            "them. That player discards that card.")
 _AETHER = ("Whenever ~ blocks a creature, you may return ~ to its owner's hand. If you do, you may put a creature card from your hand onto the "
            "battlefield blocking that creature.")
 
@@ -82,6 +84,16 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
     if text == _SCAPEGOAT.replace("this creature", "~") or text == _SCAPEGOAT:
         native = scripts.define(replace(ability, text="Whenever one or more other creatures you control enter, if this creature is suspected, draw a card."), ch)
         return None if native is None else {**native, "effects": [{"do": "scapegoat110h"}]}
+    if text == _SPECTER.replace("~", ch.name) or text == _SPECTER:  # Hollow Specter: the paid X (107.3) sizes the reveal (701.20a), then Cabal Interrogator's chain
+        native = scripts.define(replace(ability, text="Whenever ~ deals combat damage to a player, you may pay {X}. If you do, that player discards X cards."), ch)
+        if native is None or native["effects"][-1].get("do") != "discard":
+            return None
+        paid = native["effects"][-1]["n"]
+        chain = scripts.parse_effects("Target player reveals three cards from their hand and you choose one of them. That player discards that card.")
+        if chain is None or len(chain[0]) != 3:
+            return None
+        reveal, pick, drop = chain[0]
+        return {**native, "effects": [*native["effects"][:-1], {**reveal, "who": "event_player", "n": paid}, pick, drop]}
     if text == _AETHER:
         native = scripts.define(replace(ability, text=text.replace(" blocking that creature.", ".")), ch)
         if native is None or native["effects"][-1].get("do") != "put_from_hand":

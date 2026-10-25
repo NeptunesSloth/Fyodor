@@ -13,6 +13,7 @@
 * Dralnu, Lich Lord: damage to it is replaced by sacrificing that many permanents (614.6, 701.21).
 * Lava Burst: damage to a creature ignores Carom's redirection (614.9, 615.12); to a player it is plain damage.
 * Temporal Firestorm: chosen as it resolves (not targeted), up to X = times kicked, those permanents phase out before the 5 damage (608.2d, 702.26).
+* Hollow Specter: the X paid sizes the reveal; the opponent picks which X hand cards to show, you choose one of them, it is discarded (701.20a, 701.9).
 * Binding Negotiation: "Otherwise" after an optional choice (608.2c), a face-up exiled card to its owner's graveyard (406.3, 400.3).
 """
 from __future__ import annotations
@@ -81,6 +82,9 @@ EXTRA.append(real("Temporal Firestorm", "{5}{R}", 6, "Sorcery",
                   "Kicker {1}{W} and/or {1}{U} (You may pay an additional {1}{W} and/or {1}{U} as you cast this spell.)\nChoose up to X creatures "
                   "and/or planeswalkers you control, where X is the number of times this spell was kicked. Those permanents phase out.\n"
                   "Temporal Firestorm deals 5 damage to each creature and each planeswalker.", None, "R"))
+EXTRA.append(real("Hollow Specter", "{1}{B}{B}", 3, "Creature \u2014 Specter",
+                  "Flying\nWhenever this creature deals combat damage to a player, you may pay {X}. If you do, that player reveals X cards from their "
+                  "hand and you choose one of them. That player discards that card.", ("2", "2"), "B"))
 NAMES = [c["name"] for c in EXTRA]
 
 
@@ -442,4 +446,38 @@ def test_temporal_firestorm(cards, kicker, saved):
     answer(s, [giant.id, bears.id][:saved] if saved else [])
     zones = [s.state.cards[c.id].zone for c in (giant, bears)]
     assert sum(z.endswith("phased") for z in zones) == saved and sum(z.endswith("graveyard") for z in zones) == 2 - saved  # phased out: untouched
+    check(s)
+
+
+def test_hollow_specter(cards):
+    """Pay {2}: Bob reveals two of his three cards (his pick), Alice chooses one of the two; only that card is discarded."""
+    from tests.test_rules_conditionals import attack, until
+
+    s = build(cards, ["Hollow Specter"], ["Hill Giant", "Grizzly Bears", "Carom"])
+    spec = to_hand(s, "Hollow Specter")
+    forests = [c for c in s.state.cards.values() if c.name == "Forest" and c.owner == "p1"][:2]
+    for c in (spec, *forests):
+        act(s, "p1", type="move", card_ids=[c.id], to={"player": "p1", "zone": "battlefield"})
+    hand = [to_hand(s, n, "p2") for n in ("Hill Giant", "Grizzly Bears", "Carom")]
+    until(s, lambda s: s.state.turn.number == 3 and (d := s.state.rules.decision) is not None and d.kind == "declare_attackers")
+    attack(s, (s.state.cards[spec.id], "p2"))
+    for _ in range(12):  # no blocks; damage; the trigger asks for X
+        d = s.state.rules.decision
+        if d is not None and d.kind == "declare_blockers":
+            act(s, d.player, type="declare_blockers", blocks=[])
+        elif d is not None:
+            break
+        else:
+            act(s, s.state.rules.priority, type="pass_priority")
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=["x:2"])  # pay X = 2
+    d = s.state.rules.decision
+    assert d.player == "p2" and d.kind == "choose_cards"  # Bob picks which two cards to show (701.20a)
+    gi, bears, carom = hand
+    act(s, "p2", type="choose", decision_id=d.id, option_ids=[gi.id, bears.id])
+    d = s.state.rules.decision
+    assert d.player == "p1" and {o.id for o in d.options} == {gi.id, bears.id}  # Alice chooses among the revealed only
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[bears.id])
+    answer(s)
+    zones = {c.name: s.state.cards[c.id].zone for c in hand}
+    assert zones == {"Hill Giant": "p2:hand", "Grizzly Bears": "p2:graveyard", "Carom": "p2:hand"}
     check(s)
