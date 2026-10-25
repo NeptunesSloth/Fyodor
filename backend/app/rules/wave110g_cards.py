@@ -25,6 +25,13 @@ def _controlled_since_turn_start(d: Def) -> Def:
     return {**d, "effects": [{**eff, "who": f"{head}|" + replace(sel, extras=(*sel.extras, controller_turn_history69.EXTRA)).key()}]}
 
 
+def _twin(d: Def) -> Def:
+    """The token is named Twin and copies the attacker's power and toughness once, as it is created (111.1)."""
+    token = d["effects"][0]["token"]
+    token.update(name="Twin", toughness={"toughness": "self"})
+    return d
+
+
 def _exchange_power(d: Def) -> Def:
     """701.12g: exchanging two powers makes a continuous effect setting each (613.4b) to the other's previous value."""
     return {**d, "effects": [{"do": "exchange_power110g", "duration": "end_of_combat"}]}
@@ -53,6 +60,11 @@ _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
     "the player hasn't controlled continuously since the beginning of the turn.":
         ("Whenever a player attacks with one or more creatures, destroy all untapped non-Wall creatures that player controls that didn't attack this turn.",
          _controlled_since_turn_start),
+    # Gemini Engine: "X/X where X is its power", toughness patched
+    "Whenever this creature attacks, create a colorless Construct artifact creature token named Twin that's attacking. Its power is equal to this creature's power "
+    "and its toughness is equal to this creature's toughness. Sacrifice the token at end of combat.":
+        ("Whenever this creature attacks, create an X/X colorless Construct artifact creature token that's attacking, where X is this creature's power. "
+         "Sacrifice it at end of combat.", _twin),
     # Distended Mindbender: two sequential choices from the revealed hand (701.9)
     "When you cast this spell, target opponent reveals their hand. You choose from it a nonland card with mana value 3 or less and a card with mana value 4 or greater. "
     "That player discards those cards.":

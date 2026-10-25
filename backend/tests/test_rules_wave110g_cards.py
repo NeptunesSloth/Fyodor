@@ -6,6 +6,7 @@
 * Invasion of the Giants: 603.12 'Then you may reveal a Giant card. When you do' is a reflexive trigger after the draw.
 * Distended Mindbender: 701.9 / 701.20a one discard per size class from the revealed hand, chosen by the caster.
 * Total War: 508.1 / 302.6 untapped non-Wall creatures that did not attack and were controlled since the turn began are destroyed.
+* Gemini Engine: 508.4 / 111.1 an attacking token with the attacker's power and toughness, sacrificed at end of combat.
 * Serene Master: 701.12g exchanging two powers sets each to the other's previous value (613.4b), until end of combat.
 """
 from __future__ import annotations
@@ -20,7 +21,7 @@ from tests.fixtures.cards import fixture_cards
 from tests.game_helpers import act
 from tests.test_rules_wave12a_counters_keywords import real
 from tests.wave9c_kit import build
-from tests.wave110b_kit import attack, cast, check, mana, put, settle, to_hand
+from tests.wave110b_kit import attack, cast, ch, check, mana, put, settle, through_combat, to_hand
 
 EXTRA = [
     real('Serene Master', '{1}{W}', 2, 'Creature — Human Monk',
@@ -37,6 +38,8 @@ EXTRA = [
          "Emerge {5}{B}{B} (You may cast this spell by sacrificing a creature and paying the emerge cost reduced by that creature's mana value.)\nWhen you cast this spell, target opponent reveals their hand. You choose from it a nonland card with mana value 3 or less and a card with mana value 4 or greater. That player discards those cards.", ('5', '5'), ''),
     real('Total War', '{3}{R}', 4, 'Enchantment',
          "Whenever a player attacks with one or more creatures, destroy all untapped non-Wall creatures that player controls that didn't attack, except for creatures the player hasn't controlled continuously since the beginning of the turn.", None, 'R'),
+    real('Gemini Engine', '{6}', 6, 'Artifact Creature — Construct',
+         "Whenever this creature attacks, create a colorless Construct artifact creature token named Twin that's attacking. Its power is equal to this creature's power and its toughness is equal to this creature's toughness. Sacrifice the token at end of combat.", ('3', '4'), ''),
     real('Test Wall', '{1}', 1, 'Creature — Wall', '', ('0', '4'), ''),
     real('Hill Giant', '{3}{R}', 4, 'Creature — Giant', '', ('3', '3'), 'R'),
     real('Divination', '{2}{U}', 3, 'Sorcery', 'Draw two cards.', None, 'U'),
@@ -215,4 +218,17 @@ def test_total_war_destroys_idle_old_non_walls(cards):
     assert z["Test Wall"] == "p1:battlefield" and z["Hill Giant"] == "p1:battlefield"  # Wall; new this turn
     assert z["Benalish Hero"] == "p1:battlefield" and z["Grizzly Bears"] == "p1:battlefield"  # tapped; attacker
     assert s.state.cards[bob.id].zone == "p2:battlefield"
+    check(s)
+
+
+def test_gemini_engine_twin_attacks_and_is_sacrificed(cards):
+    s = build(cards, ["Gemini Engine"], ["Goblin"])
+    put(s, "Goblin", "p2")
+    gem = put(s, "Gemini Engine")
+    attack(s, gem)
+    twin = next(c for c in s.state.cards.values() if c.name == "Twin")
+    assert (twin.zone, ch(s, twin).pt) == ("p1:battlefield", (3, 4)), twin
+    act(s, "p2", type="declare_blockers", blocks=[])
+    through_combat(s)
+    assert twin.id not in s.state.zones["p1:battlefield"] and s.state.players["p2"].life == 34
     check(s)
