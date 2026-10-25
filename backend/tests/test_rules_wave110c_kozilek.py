@@ -5,6 +5,7 @@ from __future__ import annotations
 import pytest
 
 from app.rules import coverage
+from tests.game_helpers import act
 from tests.wave110c_kit import answer, build, cast, check, make_db, mana, real, to_hand
 
 TEXT = ("When you cast this spell, up to two target players each manifest two cards from their hands. For each card manifested this way, you draw a card. (To manifest a card, put it onto the battlefield face down as a 2/2 creature. Turn it face up any time for its mana cost if it's a creature card.)\n"
@@ -41,4 +42,36 @@ def test_each_target_player_manifests_two_and_you_draw_for_each(cards):
     assert sorted(c.controller for c in face_down) == ["p1", "p2", "p2"]
     assert len(s.state.zones["p2:hand"]) == 1
     assert len(s.state.zones["p1:hand"]) == mine - 1 + 3
+    check(s)
+
+
+def test_manifest_picks_stay_private(cards):
+    """101.4 / 701.40a: the decision options, the face-down cards and the log never show a player's hand or manifested identities to the other players."""
+    import json
+
+    secret = ("Courser of Kruphix", "Foundry Inspector", "Lightning Bolt")
+    s = build(cards, ["Kozilek, the Broken Reality", "Grizzly Bears"], list(secret))
+    for n in secret:
+        to_hand(s, n, "p2")
+    mana(s, C=9)
+    cast(s, "Kozilek, the Broken Reality")
+    d = s.state.rules.decision
+    assert d is not None
+    act(s, d.player, type="choose", decision_id=d.id, option_ids=["p1", "p2"])
+    seen = 0
+    for _ in range(12):
+        if not s.state.rules.decision and s.state.zones.get("stack"):
+            act(s, s.state.rules.priority, type="pass_priority")
+        d = s.state.rules.decision
+        if d is None:
+            break
+        if d.player == "p2":
+            seen += 1
+            assert any(n in json.dumps(s.view("p2")) for n in secret)  # the chooser sees the options
+            mine = json.dumps(s.view("p1"))
+            assert not any(n in mine for n in secret), "p2 hand/options leaked to p1"
+        act(s, d.player, type="choose", decision_id=d.id, option_ids=[d.options[0].id])
+    assert seen == 2
+    for viewer in ("p1",):
+        assert not any(n in json.dumps(s.view(viewer)) for n in secret), "manifested identity leaked"
     check(s)

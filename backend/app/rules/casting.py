@@ -3133,6 +3133,13 @@ def life_x_problem(plan: Plan, extra: AbilityCost, a: Any, player: str) -> str |
     spell is cast (601.2b, 107.3a) and can't be more than the caster's life (119.4; 119.4b: 0 always can be paid)."""
     if extra.x_chosen and a.x_value is None:  # -- X sized by a count (wave 25D) -- "discard X cards": the announced X sizes the cost (107.3a, 601.2b)
         return "Choose a value for X (the number of objects to pay)"
+    if any(c.counters_x for c in extra.components) and a.x_value:  # -- blight X (wave 110C) -- "X can't be greater than the greatest toughness among creatures you control" (601.2b)
+        from app.rules import values as _values
+
+        best = max((_values._stat_of(ch, "toughness") or 0 for c in plan.state.cards.values()
+                    if c.zone == f"{player}:battlefield" and "Creature" in (ch := plan.ch(c)).types), default=0)
+        if a.x_value > best:
+            return f"X can't be greater than {best}, the greatest toughness among your creatures"
     if not extra.life_x:
         return None
     if a.x_value is None:

@@ -133,6 +133,7 @@ class CostComponent:
     gain_scope: Literal["each_other_player"] | None = None  # Nominal life-gain cost paid to every other live player.
     source_with_choices: bool = False  # One graveyard-exile instruction includes its required source and selected others.
     counter_options: tuple[str, ...] = ()  # A bounded choice of named counter kinds, not every counter.
+    counters_x: bool = False  # -- blight X (wave 110C) -- 701.68a: the announced X is the number of counters put on the one creature chosen
 
     @property
     def chosen(self) -> bool:
@@ -203,7 +204,7 @@ class AbilityCost:
     def x_chosen(self) -> bool:
         """-- activation costs (wave 4H) -- a part sized by an X announced as it's activated (107.3a, 107.3k):
         "Sacrifice X Treasures", "Remove X ki counters from this creature", "Pay X {E}"."""
-        return any((c.x or c.selector_x) and not c.every for c in self.components)
+        return any((c.x or c.selector_x or c.counters_x) and not c.every for c in self.components)
 
     @property
     def energy(self) -> int:
@@ -518,7 +519,7 @@ _COUNTER_NUMBERS = "|".join(w for w in _WORDS if w != "another") + r"|\d+"
 _AMONG = re.compile(rf"^Remove (?P<n>{_COUNTER_NUMBERS}|X|any number of|one or more) (?:(?P<kind>\+1/\+1|-1/-1|[a-z]+) )?counters? from among (?P<what>.+ you control)$")
 _PUT_SELF = re.compile(rf"^Put {_N} (?P<kind>[\w+/\-]+) counters? on {_SELF}$")
 _PUT_CHOSEN = re.compile(rf"^Put {_N} (?P<kind>[+-]\d+/[+-]\d+) counters? on (?P<another>a|an|another) (?P<what>[^,]+ (?:you control|an opponent controls))$")
-_BLIGHT = re.compile(r"^Blight (?P<n>\d+)$")
+_BLIGHT = re.compile(r"^Blight (?P<n>\d+|X)$")
 _SAC_X = re.compile(r"^Sacrifice X (?P<what>.+)$")
 _TAP_X = re.compile(r"^Tap X untapped (?P<what>.+ you control)$")
 _EXILE_GY_X = re.compile(r"^Exile X (?P<what>(?:[\w\-]+ )*cards from your graveyard)$")
@@ -626,6 +627,8 @@ def _one_4h(part: str, card_name: str) -> CostComponent | None:
             if key and m["n"] != "another" else None
     if m := _BLIGHT.match(part):  # 701.68a: put N -1/-1 counters on a creature you control
         key = _selector("creature you control", zone="battlefield")
+        if m["n"] == "X":  # (wave 110C: Soul Immolation; the cap on X is casting.life_x_problem)
+            return CostComponent(PUT_COUNTER, amount=0, counter="-1/-1", selector=key, text=part, counters_x=True) if key else None
         return CostComponent(PUT_COUNTER, amount=int(m["n"]), counter="-1/-1", selector=key, text=part) if key else None
     if m := _SAC_X.match(part):
         return _x_part(SACRIFICE, m["what"], "battlefield", part)
@@ -913,6 +916,9 @@ def any_number_part(text: str, per: int) -> CostComponent | None:
 def additional_cost_text(line: str) -> str | None:
     """"As an additional cost to cast this spell, sacrifice a creature." → "sacrifice a creature"."""
     m = _ADDITIONAL.match(line.strip())
+    if m is None and line.strip().lower().rstrip(".") == ("as an additional cost to cast this spell, blight x. x can't be greater than the greatest "
+                                                         "toughness among creatures you control"):
+        return "blight X"  # -- blight X (wave 110C) -- the cap is checked as X is announced (casting.life_x_problem)
     return m["cost"] if m else None
 
 
@@ -978,7 +984,7 @@ def parse_additional_cost(text: str) -> AbilityCost | None:
     if text.lower().startswith("you may") or "," in text:
         return None
     has_x = re.search(r"\bx\b", text, re.IGNORECASE) is not None  # -- X sized by a count (wave 25D) -- one part sized by the announced X (below)
-    if has_x and not re.match(r"^(?:sacrifice|discard|exile|return) X ", text, re.IGNORECASE):
+    if has_x and not re.match(r"^(?:(?:sacrifice|discard|exile|return) X |blight X$)", text, re.IGNORECASE):
         return None
     parts = [p.strip() for p in re.split(r" and (?=(?:sacrifice|discard|pay|exile|return|tap) )", text)]
     components: list[CostComponent] = []

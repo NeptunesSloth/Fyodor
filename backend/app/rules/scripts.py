@@ -2850,7 +2850,8 @@ def parse_effects(body: str, it: str | None = None, *, event_player: bool = Fals
         x_mana_restrictions,
     )
 
-    if body.strip().lower().rstrip(".").startswith("until end of turn, you may cast creature spells from your graveyard by foraging "):
+    if body.strip().lower().rstrip(".").startswith(("until end of turn, you may cast creature spells from your graveyard by foraging ",
+                                                       "you may cast a creature spell from your graveyard this turn. if you do, it enters with a finality counter")):  # (wave 110C: Tarrian's Journal)
         from app.rules import permissions
 
         if (forage_permission := permissions.parse_clause(body.strip().rstrip("."))) is not None:

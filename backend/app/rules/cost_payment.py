@@ -1062,7 +1062,7 @@ def _pay_new_part(plan: Plan, comp: CostComponent, card: CardInstance, ids: list
         from app.rules import replace
 
         target = ids[0] if comp.selector is not None else card.id
-        replace.put_counters(plan, [(target, comp.counter or "", comp.amount)], by=player, effect=False)
+        replace.put_counters(plan, [(target, comp.counter or "", x if comp.counters_x else comp.amount)], by=player, effect=False)
         return True
     if comp.kind in (C.COLLECT_EVIDENCE, C.FORAGE):  # 701.59a / 701.61a: exiled from the graveyard (a Food: pay())
         plan.do({"type": "move", "card_ids": ids, "to": {"zone": "exile"}})
