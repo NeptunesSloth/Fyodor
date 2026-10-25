@@ -298,6 +298,7 @@ _SAW = ("Whenever equipped creature attacks, you may sacrifice a permanent other
 _SURGE = ("At the beginning of each player's upkeep, this enchantment deals X damage to that player, where X is the number of untapped lands they controlled "
           "at the beginning of this turn.")
 
+_BINDING = "Pay 1 life: Until your next upkeep, target permanent can't phase out."
 _TILONALLI = ("Whenever this creature attacks, you may pay {X}{R}. If you do, create X 1/1 red Elemental creature tokens that are tapped and attacking. "
               "At the beginning of the next end step, exile those tokens unless you have the city's blessing.")
 
@@ -347,6 +348,17 @@ def definition(ability: AbilityText, ch: Any) -> dict[str, Any] | None:
         from app.rules import scripts
 
         return scripts.define(replace(ability, text=_PARTY.replace("one or more of your opponents are attacked", "a player attacks one or more of your opponents")), ch)
+    if ability.text == _BINDING:  # Spatial Binding: the grammar reads "can't attack" for a creature; the rule is swapped for a phase-out prohibition (phasing._held)
+        from dataclasses import replace
+
+        from app.rules import scripts, selectors
+
+        native = scripts.define(replace(ability, text=_BINDING.replace("permanent can't phase out", "creature can't attack")), ch)
+        if native is None or native["effects"][-1].get("rules") != ["cant_attack"]:
+            return None
+        native["effects"][-1]["rules"] = ["cant_phase_out"]
+        native["target"] = {**native["target"], "what": selectors.parse("permanent").key()}
+        return native
     if ability.text == _SLIME:  # Ravenous Slime: plain "exile it instead" plus a rider that counts the dying creature's power (614.6)
         from dataclasses import replace
 
