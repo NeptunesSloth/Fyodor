@@ -61,6 +61,8 @@ class Plan:
     # -- cost reductions paid with objects (wave 47C) -- "for each counter, … sacrifices a nonland permanent … or discards a card": what a player's earlier choices of one resolution already
     # take (paid together at the end), so none is chosen twice (optional_payment._taken)
     excluded: frozenset[str] = frozenset()
+    # -- optional payments (wave 110C) -- the attacking creature of the trigger being resolved: a cost's "other than that creature" (selector not_event) excludes it
+    cost_attacker: str | None = None
 
     def __init__(self, state: GameState, actor: str, info: CardInfo, rng: Any) -> None:
         self.state = state.model_copy(deep=True)
@@ -384,7 +386,8 @@ def require_priority(plan: Plan) -> None:
 
 def decide(plan: Plan, *, player: str, kind: str, prompt: str, options: list[DecisionOption], resume: dict[str, Any],
            min_choices: int = 1, max_choices: int = 1, source: CardInstance | None = None,
-           memory_key: str | None = None, memory_context: str = "", display: dict[str, Any] | None = None, decider: str | None = None) -> None:
+           memory_key: str | None = None, memory_context: str = "", display: dict[str, Any] | None = None, decider: str | None = None,
+           blind: bool = False) -> None:
     from app.game.ops import shown  # (review 18F: a granter is read as its name)
 
     source_id = source.id if source is not None and publicly_visible(plan.state, source) else None
@@ -395,6 +398,6 @@ def decide(plan: Plan, *, player: str, kind: str, prompt: str, options: list[Dec
         resume={**resume, **({"zero_modes_object": plan.locked_zero_modes} if plan.locked_zero_modes else {})},
         memory_key=memory_key, memory_context=memory_context, display=display,
         # -- controlling another player (wave 18H) -- 723.5: who makes this choice for ``player`` (None: they do)
-        decider=(by if (by := decider or controller_of(plan.state, player)) != player else None),
+        decider=(by if (by := decider or controller_of(plan.state, player)) != player else None), blind=blind,
     )
     plan.rules.priority = None

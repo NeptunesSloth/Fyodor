@@ -138,6 +138,8 @@ def quote(text: str) -> str | None:
         return t
     if d["kind"] == "static" and d.get("static") == "cda":
         return t
+    if d["kind"] == "static" and d.get("static") == "assign_unblocked":
+        return t  # -- combat (wave 110E) -- 510.1c: combat.py reads it through scripts.statics(ch), the current abilities
     if d.get("static") == "creature_combat_cost" and d.get("who") == "self":
         return t  # Declaration costs read the holder's completed layer-6 abilities.
     if (d.get("static") == "grant" and d.get("who") == "self" and not d.get("conditions")
@@ -161,6 +163,9 @@ def rules_of(text: str) -> tuple[str, ...] | None:
     t = re.sub(r"^((?:When|Whenever) )this token( dies\b)", r"\1this permanent\2", t)  # -- token copies (wave 31C) -- "When this token dies, draw a card." (Jaxis): the object that has it
     if not t:
         return None
+    # -- wave 110J -- 502.3: "This creature doesn't untap during your untap step if it has a fungus counter on it." (Mindbender Spores): the counter is read when it untaps
+    if kept := re.fullmatch(r"[Tt]his \w+ doesn't untap during your untap step if it has an? ([\w+/-]+) counter on it\.?", t):
+        return (f"doesnt_untap_counter:{kept[1]}",)
     from app.rules import scripts
     from app.rules.characteristics import Characteristics
 

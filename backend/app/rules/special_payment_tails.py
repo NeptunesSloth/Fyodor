@@ -80,7 +80,7 @@ def _paid(plan: Plan, frame: SpecialPayment, payment: M.Payment | None) -> None:
         if chosen_forms95.prepare_up(plan, card, actor=plan.actor, kind=frame.faceup_kind):
             return
         plan.do({'type': 'face_down', 'card_ids': [card.id], 'face_down': False})
-        casting.turned_up(plan, card)
+        casting.turned_up(plan, card, x=frame.number if frame.cost_has_x else None)  # (wave 110B: "Morph {X}{B}{B}")
         plan.rules.passed = []
         if frame.faceup_kind == 'megamorph':
             replace.put_counters(plan, [(card.id, '+1/+1', 1)], by=plan.actor, then={'do': 'face_up_done'})

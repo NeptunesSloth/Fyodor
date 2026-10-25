@@ -64,6 +64,12 @@ def parse(text: str, *, objects: bool = False) -> Condition | None:
     refers to ("it's a land card", "~ is tapped") — only for wording inside an ability's effects or
     trigger, which has those objects (statics and restrictions don't)."""
     t = text.strip().rstrip(",").replace("’", "'")
+    from app.rules import wave110c_history  # -- turn history (wave 110C) --
+
+    if (hist110c := wave110c_history.condition(t)) is not None:
+        return hist110c
+    if t == "a player attacked you during their last turn":  # -- wave 110E -- previous_own_turns
+        return {"w110e": "attacked_last_turn"}
     if t.lower() == 'you control a stickered permanent':
         return {'stickered_you101': True}
     from app.rules import damage_retention83
@@ -101,6 +107,7 @@ def parse(text: str, *, objects: bool = False) -> Condition | None:
     t = re.sub(r"^(defending player|that player|an opponent) is poisoned$", r"\1 has a poison counter", t)  # -- player counters (wave 20F) -- 122.1f
     t = re.sub(r"^your library has no cards in it$", "there are no cards in your library", t)  # -- activated other (wave 34B) -- Doctor Doom, Unrivaled: "your library has no cards in it" is the condition "there are no cards in your library" read as the effect resolves (608.2c)
     t = re.sub(r"^your life total is (\d+ or (?:less|more))$", r"you have \1 life", t)
+    t = re.sub(r"^your life total is less than ([1-9]\d*)$", lambda m: f"you have {int(m[1]) - 1} or less life", t)  # -- one-card wordings (wave 110B) -- 119.1: whole numbers, so "less than 7" is "6 or less" (Elderscale Wurm)
     t = re.sub(r"^you control no (\w+) other than (?:this \w+|~)(?= and |$)", r"you control no other \1", t)  # -- most-played cards (wave 49A) -- Barren Glory: "no permanents other than this enchantment"
     t = re.sub(r"^(you control no other \w+) and have ", r"\1 and you have ", t)  # (the elided subject of the second half)
     t = re.sub(r"^an? ([a-z -]+?) you control is attacking$", r"you control an attacking \1", t)  # -- cant restrictions (wave 50G) -- "As long as an artifact creature you control is attacking" (Sanwell): you control an attacking one
@@ -259,7 +266,7 @@ _COUNT_COUNTERS = re.compile(r"(?P<who>it|~|that creature|that permanent) (?:has
 # last existed, 608.2h — granted ones included). Keyword abilities only; "protection" (which quality?) isn't read.
 _HAS_KEYWORD = re.compile(rf"(?P<who>it|~|that (?:creature|permanent|card)|{_HOST_WORDS}) (?:has|had|(?P<neg>doesn't have|didn't have)) (?P<kw>decayed|flying|reach|haste|trample|deathtouch|"
                           r"lifelink|menace|vigilance|first strike|double strike|hexproof|indestructible|defender|infect|"
-                          r"toxic|wither|flash|madness|flashback|shroud|cycling)")
+                          r"toxic|wither|flash|madness|flashback|shroud|cycling|rampage)")  # (wave 110F: Rapid Fire)
 
 
 def _stat_object(who: str) -> str:
@@ -360,6 +367,9 @@ def _parse_one(t: str, objects: bool) -> Condition | None:
     m = re.fullmatch(r"the number of attacking creatures is greater than the number of (?P<k>\+1/\+1|-1/-1|[a-z]+) counters on ~", t)
     if m and (key := _count("attacking creatures", "")) is not None:  # -- counters (wave 41A) -- ED-E, Lonesome Eyebot: counted as it triggers and again as it resolves (603.4; the ruling of 2024-03-08)
         return {"value": {"count": key}, "op": ">", "n": {"counters": m["k"], "on": "self"}}
+    m = re.fullmatch(r"the number of permanents is (?P<p>even|odd)", t)
+    if m and (key := _count("permanents", "")) is not None:  # -- (wave 110B) -- Chaos Lord: every permanent on the battlefield, whoever controls it; zero is even
+        return {"value": {"count": key}, "op": "parity", "n": int(m["p"] == "odd")}
     m = re.fullmatch(r"you control a prime number of (?P<what>lands|creatures|artifacts|enchantments)", t)
     if m and (key := _count(m["what"], "you control")) is not None:  # -- counters (wave 41A) -- Zimone, All-Questioning: read as it triggers and as it resolves (603.4)
         return {"value": {"count": key}, "op": "prime", "n": 0}
@@ -714,7 +724,7 @@ def _more_ifs(t: str) -> Condition | None:
 _HAS_COUNTERS = re.compile(r"(?P<who>you|an opponent) (?:has|have) (?:(?P<no>no)|(?P<a>a|an|one or more)|(?P<n>\w+) or more) "
                            r"(?P<kind>poison|experience|rad|energy) counters?")
 _COMPLETED = re.compile(r"you(?: (?P<neg>haven't|have not)|'ve| have) completed (?P<d>Lost Mine of Phandelver|Dungeon of the Mad Mage|Tomb of Annihilation|Undercity)")
-_DESIGNATIONS = {"there is no monarch": "no_monarch", "an opponent is the monarch": "opponent_monarch",
+_DESIGNATIONS = {"you were the monarch as the turn began": "monarch_began", "there is no monarch": "no_monarch", "an opponent is the monarch": "opponent_monarch",
                  "you're not the monarch": "not_monarch", "you aren't the monarch": "not_monarch",
                  "you don't have the initiative": "not_initiative", "you've completed a dungeon": "completed_dungeon",
                  "you have completed a dungeon": "completed_dungeon",
@@ -950,6 +960,11 @@ def _self_attacked(m: re.Match[str]) -> Condition:
     return {"not": found} if m["neg"] else found
 
 
+@_history_pattern(r"~ attacked a battle this turn")
+def _self_attacked_battle(m: re.Match[str]) -> Condition:
+    return {"history": "self_attacked_battle110j", "object": "self"}  # (wave 110J) 310.5: it was declared against a battle this turn
+
+
 @_history_pattern(r"~ (?:didn't|did not) enter the battlefield this turn")
 def _self_not_entered(m: re.Match[str]) -> Condition:
     return {"not": {"history": "entered_self", "object": "self"}}  # ("object": what "it" after it names, 608.2c)
@@ -1007,6 +1022,11 @@ def _attackers(m: re.Match[str]) -> Condition | None:
 @_history_pattern(r"you(?:'ve| have)? activated a loyalty ability this turn")
 def _loyalty(m: re.Match[str]) -> Condition:
     return {"history": "facts", "kind": "loyalty", "who": "you", "n": 1}  # -- turn state (wave 100H) -- 606.3: an activation you made (casting.py)
+
+
+@_history_pattern(r"you didn't activate a loyalty ability of a planeswalker this turn")
+def _no_loyalty(m: re.Match[str]) -> Condition:
+    return {"not": {"history": "facts", "kind": "loyalty", "who": "you", "n": 1}}  # -- wave 110B -- The Chain Veil; 606.3 (only planeswalkers have them)
 
 
 @_history_pattern(r"you(?:'ve| have)? cycled (?P<n>\w+) or more cards this turn")
@@ -1590,6 +1610,18 @@ def bind_objects(cond: Condition, who: str) -> Condition:
 
 
 def holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
+    if "w110e" in cond:  # -- wave 110E -- 508.1: another player's last completed turn (previous_own_turns); unknown history (old save) = no
+        from app.rules import previous_own_turns
+
+        return previous_own_turns.eligible_player(plan.state, ctx["controller"])
+    if "w110g" in cond:  # -- wave 110G --
+        from app.rules import wave110g_cards
+
+        return wave110g_cards.holds(plan, ctx, cond)
+    if "w110a" in cond:  # -- wave 110A --
+        from app.rules import wave110a
+
+        return wave110a.holds(plan, ctx, cond)
     if cond.get("damage_death105"):
         from app.rules import vampire_returns105
 
@@ -1634,6 +1666,10 @@ def holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
         from app.rules import triggers100a
 
         return triggers100a.holds(plan, ctx, cond)
+    if cond.get("skyguard110b"):  # -- wave 110B --
+        from app.rules import wave110b_cards
+
+        return wave110b_cards.skyguard_holds(plan, ctx)
     if cond.get('attack_pair_players86') or cond.get('attack_other_exact86'):
         from app.rules import attack_subjects86
 
@@ -1662,6 +1698,9 @@ def holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
         from app.rules import name_relation_continuations
 
         return name_relation_continuations.event_linked_name(plan, ctx)
+    if cond.get("exploited110j"):  # -- wave 110J -- the creature the trigger is about was exploited by this source (702.110b)
+        refs = (ctx.get("event") or {}).get("objects") or []
+        return bool(refs) and (ctx.get("source_object"), refs[0]["object_id"]) in plan.rules.exploited110j
     if 'copy_spell_targets' in cond:
         from app.rules import token_copy_sources
 
@@ -1938,6 +1977,10 @@ def _object_holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
     that object where it was, else as it last existed (608.2h); an object that can't be found
     fails the test (608.2b: a part that needs the information can't be carried out)."""
     who = cond["object"]
+    if "cast_alt110a" in cond:  # -- wave 110A -- "if that creature was cast for its warp cost": the record its spell left (engine.py:1044)
+        found = values._object(plan, ctx, who)
+        record = None if found is None else plan.rules.payments.get(plan.oid(found[0]))
+        return record is not None and record.alternative == cond["cast_alt110a"]
     if "controlled_by" in cond:  # -- static_other sweep (wave 17C) -- the controller it had: as it is, or as it last existed (608.2h)
         found = values._object(plan, ctx, who)
         return found is not None and (found[0].controller == ctx["controller"]) != bool(cond.get("negate"))

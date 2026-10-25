@@ -175,6 +175,8 @@ def _keywords_line(line: str) -> tuple[str, ...] | None:
         return ("ward",)
     if re.fullmatch(r"protection from [^,;]+(?:, (?:and )?from [^,;]+)+", line.strip(), re.IGNORECASE):  # -- keywords (wave 50H) -- 702.16a: "Protection from blue, from black, and from red" is one keyword (app/rules/protection.py)
         return ("protection",)
+    if re.fullmatch(r"squad—(?:\{[^}]+\})+, [^;{}]+", line.strip(), re.IGNORECASE):  # -- squad (wave 110E) -- "Squad—{1}, Discard a card." is one keyword (702.157a)
+        return ("squad",)
     if re.fullmatch(r"kicker—(?:\{[^}]+\})+, [^;{}]+", line.strip(), re.IGNORECASE):  # -- keywords (wave 50H) -- 702.33a: "Kicker—{2}{R}, Sacrifice a land." is one keyword (its cost has two parts)
         return ("kicker",)
     if re.fullmatch(r"(?i:equip)—(?:\{[^}]+\})+, [^;{}]+|Equip [A-Z][a-z]+(?:, [A-Z][a-z]+)+,? or [A-Z][a-z]+ (?:\{[^}]+\})+", line.strip()):
@@ -237,7 +239,7 @@ def word_prefix(line: str) -> tuple[str, str] | None:
     return None
 
 
-_WATCH_LINE = re.compile(r"^(?:At the beginning of each combat this turn, |Whenever .+? this turn, |When you next cast .+? this turn, "
+_WATCH_LINE = re.compile(r"^(?:At the beginning of each combat this turn, |Whenever .+? this (?:turn|combat), |When you next cast .+? this turn, "
                          r"|When (?:target|that) [^,]+? (?:dies|leaves the battlefield) this turn, "
                          r"|At the beginning of (?:the next|your next|the next turn's|that player's next|its owner's next|their next) [^,]+, )")  # (wave 23B: the Pacts' own paragraph, 603.7)  # -- turn watches (wave 7D; 16D: "When target creature dies this turn,") --
 
@@ -372,6 +374,7 @@ MASTER_CHEF = ('Commander creatures you own have "This creature enters with an a
 
 STAFF_ROOM = "Whenever a creature you control deals combat damage to a player, turn that creature face up or put a +1/+1 counter on it."
 DOG_UMBRA = "As long as another player controls enchanted creature, it can't attack or block. Otherwise, this Aura has umbra armor."
+EARTHBIND = "When this Aura enters, if enchanted creature has flying, this Aura deals 2 damage to that creature and this Aura gains \"Enchanted creature loses flying.\""
 
 
 def parse_abilities(oracle_text: str | None, *, spell: bool = False, pt: tuple[str | None, str | None] = (None, None)) -> list[AbilityText]:
@@ -416,6 +419,10 @@ def parse_abilities(oracle_text: str | None, *, spell: bool = False, pt: tuple[s
         if line == STAFF_ROOM:
             lines[i:i + 1] = ["Whenever a creature you control deals combat damage to a player, choose one —",
                               "• Turn that creature face up.", "• Put a +1/+1 counter on that creature."]
+    # -- (wave 110J) -- Earthbind: "…and this Aura gains "Enchanted creature loses flying."" is the trigger plus a static that applies once it was gained
+    for i, line in enumerate(lines):
+        if line == EARTHBIND:
+            lines[i:i + 1] = [line, "As long as this Aura gained that ability, enchanted creature loses flying."]
     # -- keywords (wave 50H) -- 207.2d: a flavor word before an equip cost ("Machina — Equip {4}", Final Fantasy equipment) has no rules meaning
     for i, line in enumerate(lines):
         if not spell and " — Equip" in line and (w := word_prefix(line)) is not None and w[1].startswith("Equip") and _keywords_line(w[1]) == ("equip",):
@@ -476,8 +483,9 @@ def parse_abilities(oracle_text: str | None, *, spell: bool = False, pt: tuple[s
     for n, line in enumerate(lines):
         # -- keyword meanings (wave 11B) -- 702.107a: "Outlast [cost]" means "[Cost], {T}: Put a +1/+1 counter on this
         # creature. Activate only as a sorcery." (read as that activated ability)
+        outlast = False
         if m := re.fullmatch(r"Outlast ((?:\{[^}]+\})+)", line):
-            line = f"{m[1]}, {{T}}: Put a +1/+1 counter on this creature. Activate only as a sorcery."
+            line, outlast = f"{m[1]}, {{T}}: Put a +1/+1 counter on this creature. Activate only as a sorcery.", True
         # -- keyword meanings (wave 17C) -- 702.81a: "Retrace" means "You may cast this card from your graveyard by discarding a land
         # card as an additional cost to cast it." (a permission with an additional cost, 601.2b: permissions.SELF_GY_BY)
         if line == "Retrace":
@@ -521,7 +529,8 @@ def parse_abilities(oracle_text: str | None, *, spell: bool = False, pt: tuple[s
 
             line = speed.rewrite(line)
         kind, kws, cost = classify(line, spell=spell)
-        out.append(AbilityText(index=len(out), text=line, kind=kind, keywords=kws, cost=cost, section=sections[n], linked=linked.get(n)))
+        out.append(AbilityText(index=len(out), text=line, kind=kind, keywords=kws, cost=cost, section=sections[n], linked=linked.get(n),
+                               special="outlast" if outlast else None))  # (wave 110B: the keyword's origin, 702.107a)
         # -- keyword meanings (wave 18E) -- 702.151a: "Reconfigure [cost]" is two activated abilities, "[Cost]: Attach this permanent to another
         # target creature you control. Activate only as a sorcery." and "[Cost]: Unattach this permanent. Activate only if this permanent is
         # attached to a creature and only as a sorcery."; 702.151b: attached to a creature, it isn't a creature (a static of its own).

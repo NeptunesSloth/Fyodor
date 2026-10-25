@@ -63,7 +63,7 @@ if TYPE_CHECKING:
 Context = dict[str, Any]
 
 # -- the wording of when a delayed trigger triggers ---------------------------------------------
-WHEN = {
+WHEN: dict[str, dict[str, Any]] = {
     "the next end step": {"kind": "step", "step": "end", "whose": "next"},
     "your next end step": {"kind": "step", "step": "end", "whose": "you"},
     "the next turn's upkeep": {"kind": "step", "step": "upkeep", "whose": "next_turn"},
@@ -81,6 +81,8 @@ WHEN = {
     # -- stack interaction (wave 5B) -- Mana Drain: the next main phase (precombat or postcombat, 505.1) of a turn of
     # yours to begin; a later one this turn if you're in your precombat main phase or combat now (engine: main1 / main2)
     "your next main phase": {"kind": "step", "step": "main", "whose": "you"},
+    # -- cards (wave 110E) -- 603.7: "the next main phase this turn" (Vivien's Stampede): whoever's, and never a later turn's (until_turn)
+    "the next main phase this turn": {"kind": "step", "step": "main", "whose": "next", "this_turn110e": True},
     # -- attached (wave 100F) -- "sacrifice this Aura at the beginning of the next cleanup step" (Cunning): it goes on the stack after 514.1-514.2 (514.3a; engine at_step "cleanup")
     "the next cleanup step": {"kind": "step", "step": "cleanup", "whose": "next"},
 }
@@ -101,6 +103,7 @@ DURATIONS: dict[str, str] = {
     "for as long as ~ remains on the battlefield": "source_on_battlefield",
     "for as long as you control ~": "source_controlled",
     "for as long as ~ remains tapped": "source_tapped",
+    "for as long as that creature is enchanted": "while_enchanted",  # -- wave 110J -- Rootwater Matriarch: 611.2b, 303.4: an Aura is attached to it
     "until this card is cast from exile": "until_cast",  # -- as long as (wave 37A) -- 611.2a: ends as that card (the object its cost exiled) is cast
     # -- untap choice (wave 7F) -- Rubinia Soulsinger: both must stay true (611.2b: it ends the moment either stops)
     "for as long as you control ~ and ~ remains tapped": "source_controlled_tapped",
@@ -118,7 +121,7 @@ LABELS = {"next_turn": "until your next turn", "end_of_next_turn": "until the en
           "source_controlled": "for as long as you control ~", "source_tapped": "for as long as ~ remains tapped",
           "until_cast": "until this card is cast from exile",
           "source_controlled_tapped": "for as long as you control ~ and ~ remains tapped",
-          "while_counter": "for as long as it has a counter on it", "next_upkeep": "until your next upkeep",
+          "while_counter": "for as long as it has a counter on it", "while_enchanted": "for as long as that creature is enchanted", "next_upkeep": "until your next upkeep",
           "monarch_player": "for as long as they're the monarch"}
 MARKER = "until end of turn"  # the table marker text app/rules/effects._mark writes
 
@@ -507,6 +510,9 @@ def apply_duration(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
                                                           ctx["controller"]):
         plan.note(f"{ctx.get('name') or 'The effect'} does nothing: its duration has already ended")
         return True
+    if duration == "while_enchanted" and not any(_enchanted(plan, plan.oid(plan.state.cards[c])) for c in _held(plan, ctx, inner)):
+        plan.note(f"{ctx.get('name') or 'The effect'} does nothing: its duration has already ended")  # 611.2b
+        return True
     r = plan.rules
     mark = r.timestamp
     monarch = None
@@ -516,6 +522,12 @@ def apply_duration(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
             plan.note(f"{ctx.get('name') or 'The effect'} does nothing: its duration has already ended")
             return True
     before = {cid: {m.id for m in c.effects} for cid, c in plan.state.cards.items()}
+    until_player = ctx["controller"]
+    if e.get("controller110j"):  # -- wave 110J -- "until its controller's next untap step" (Orcish Farmer): the target's controller, as the effect begins
+        from app.rules.effects import _cards
+
+        held = _cards(plan, ctx, inner[0]["who"])
+        until_player = plan.state.cards[held[0]].controller if held else until_player
     for x in inner:
         if not PRIMITIVES[x["do"]](plan, ctx, x):
             raise AssertionError("a duration wraps only effects that never pause")  # (the grammar only wraps pumps and grants)
@@ -536,7 +548,7 @@ def apply_duration(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         if effect.timestamp > mark:
             effect.duration = duration
             effect.until_object = until_object
-            effect.until_player = monarch or ctx["controller"]
+            effect.until_player = monarch or until_player
             effect.turn = plan.state.turn.number
             if counter:
                 effect.counter = counter
@@ -679,11 +691,31 @@ def expire(plan: Plan) -> None:
                 ended.append(e)
             elif len(kept) < len(e.affected):
                 _drop(plan, e, kept)
+    for e in r.effects:  # -- wave 110J -- "for as long as that creature is enchanted": per object, while an Aura is attached (611.2b)
+        if e.duration == "while_enchanted":
+            kept = [oid for oid in e.affected if _enchanted(plan, oid)]
+            if not kept:
+                ended.append(e)
+            elif len(kept) < len(e.affected):
+                _drop(plan, e, kept)
     if ended:
         _end(plan, ended)
     from app.rules import permissions
 
     permissions.expire_source(plan)  # -- durations (wave 30M) -- "You may play that card for as long as you control ~" (a stored permission)
+
+
+def _held(plan: Plan, ctx: Context, inner: list[dict[str, Any]]) -> list[str]:
+    from app.rules.effects import _cards
+
+    return [c for x in inner[:1] for c in _cards(plan, ctx, x["who"])]
+
+
+def _enchanted(plan: Plan, oid: str) -> bool:
+    """303.4: the permanent (that object) has an Aura attached to it."""
+    host = next((c for c in plan.state.cards.values() if c.zone.endswith(":battlefield") and plan.oid(c) == oid), None)
+    return host is not None and any(a.attached_to == host.id and a.zone.endswith(":battlefield") and "Aura" in plan.ch(a).subtypes
+                                    for a in plan.state.cards.values())
 
 
 def _has_counter(plan: Plan, oid: str, kind: str) -> bool:

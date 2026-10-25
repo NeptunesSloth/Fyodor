@@ -1,0 +1,42 @@
+- Rigo, Streetwise Mentor: "attack a player or planeswalker" triggers once per attacked player or planeswalker (see wave100 Rigo, Oath of Kaya); not settled.
+- Spinneret and Spiderling: "deals 4 or more damage" with no recipient: one event or the total over recipients is unsettled (exile_damage_choices49 held).
+- Don & Leo: one trigger with two optional targets and a joint flicker; splitting into two abilities changes the trigger count.
+- Flameblade Angel: "damage to you or a permanent you control" needs a new recipient class; single card.
+- Mysterio: "Exile those tokens when Mysterio leaves the battlefield" has no linked-token leave machinery yet.
+- Firkraag, Cunning Instigator: "if that creature had to attack this combat" needs a requirement record at declaration (goad/must-attack source tracking); not built.
+- Kaust, Eyes of the Glade: needs a per-turn "turned face up this turn" record for the controlled face-down creatures; not built.
+- Aurelia's Vindicator: disguise {X} rejected by the coverage.py disguise gate, plus mixed battlefield/graveyard exile targets; not built.
+- Unyielding Gatekeeper: "If you controlled it, return it tapped. Otherwise, its controller creates ..." fails only with return plus "its controller"; no safe reading yet.
+- Dragon Broodmother: a token with "devour 2" needs a devour choice at token creation (tokens skip replacements.entry_plan); foundation not built.
+- Autumn's Veil: "can't be countered by blue or black spells" needs the countering source in effects.counterable (many callers).
+- Contractual Safeguard: 'other' = other than which creature when several share the chosen counter kind is unruled; refused.
+- Oath of Kaya: unsure whether it triggers once per attacked planeswalker or per attack; engine "your_pw" is per batch.
+- Autumn's Veil: "can't be countered by blue or black spells" needs the countering spell's color in counter_object (no source color today).
+- Karplusan Minotaur, Bladegriff Prototype: a trigger's target chosen by an opponent (only activated abilities delegate targets today).
+- Hylda of the Icy Crown: no "you tap an untapped creature" event (tapper not tracked).
+- Twisted Sewer-Witch: per-Rat Role loop reruns on replacement ordering (would duplicate Roles).
+- Rigo, Streetwise Mentor: "attack a player or planeswalker" trigger count per defender unverified.
+- Spinneret and Spiderling: "deals 4 or more damage" with no recipient; whether damage to several recipients at once sums is unverified (events.py threshold is per recipient).
+- Mysterio, Master of Illusion: "Exile those tokens when Mysterio leaves the battlefield" needs a delayed trigger keyed on the source leaving, acting on the created tokens; no such foundation.
+- Overburden: "that player" is the player who puts the creature onto the battlefield, not always its controller (e.g. a blinked creature returns under its owner's control); controller-based rewrite would be wrong.
+- Invasion of Fiora // Marchesa: "since your last turn" damage history is not logged across turns.
+- Curator of Sun's Creation: no "you discover" event or discover-value record.
+- Dragon Broodmother: a token with "devour 2" needs devour's entry choice in the token path (replace.token_choices), not just a token keyword; foundation not built.
+- Linvala, Shield of Sea Gate: temporary "its activated abilities can't be activated until your next turn" on a target has no effect primitive; "choose hexproof or indestructible" needs its own chooser.
+- Flameblade Angel: one trigger for damage to you or a permanent you control; batch granularity (one source damaging several recipients at once) unsettled.
+- Equal Treatment: "it deals 2 damage instead" sets damage to a fixed amount (also lowers bigger damage); no set-damage replacement.
+- Cards seen with "a player or planeswalker" attack triggers (once per attacked planeswalker, 508.3e) need per-planeswalker events: engine only has per-player.
+- Meandering Towershell: "at the beginning of the declare attackers step" delayed return tapped and attacking has no step hook (attackers are declared as a turn-based action; delayed.at_step has no declare_attackers phase).
+- Weeping Angel: needs a "isn't a creature until end of turn" type-removal effect plus a combat-damage replacement that shuffles the creature into its owner's library; two new pieces, one card.
+- Lathiel, the Bounteous Dawn: "distribute up to that many counters" needs a divide total evaluated when the trigger's targets are chosen (targets[].divide.total is a literal today).
+- Mistbind Clique: champion is not modelled ("championed with this creature" has no event).
+- Spinneret and Spiderling: "deals 4 or more damage" with no recipient; wave 39B test pins it unread (split damage among recipients unsettled).
+- Overencumbered: "can't attack this combat", "combat on enchanted player's turn", "pay {1} for each artifact" all unread (3 foundations).
+- Dragon Broodmother: devour on a created token (entering sacrifice for tokens, replacements.token_choices).
+- Bronze Bombshell: state trigger "when a player other than owner controls it" + "if the player does".
+- Lathiel: "distribute up to that many" counters; division is exact total only.
+- Karplusan Minotaur: "any target of an opponent's choice" in a trigger (delegated targets only on activation); cost "Flip a coin" not payable-listed.
+- Martyr's Bond: sacrifice a permanent sharing a card type with the event object.
+- Saruman of Many Colors: ward discard three types + milled-this-way reflexive exile.
+- Hylda of the Icy Crown: "tap an untapped creature" singular event vs batch.
+- Stunning Reversal: needs wave 110c lose-game replacement (not in this branch).

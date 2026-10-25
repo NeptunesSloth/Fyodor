@@ -6,6 +6,7 @@ on it is removed. "Can't be regenerated" destruction ignores shields. Shields en
 from __future__ import annotations
 
 from app.game.state import CardInstance
+from app.rules import wave110c_aura
 from app.rules.plan import Plan
 
 
@@ -59,18 +60,23 @@ def regenerate(plan: Plan, card: CardInstance, *, consume: bool = True, shield_i
 
 
 def umbra_armor(plan: Plan, card: CardInstance) -> CardInstance | None:
+    from app.rules import wave110a_grants
+
     """-- keywords (wave 15E) -- 702.89a: an Aura with umbra armor attached to the permanent (the oldest, when it has several:
     which replacement applies is its controller's choice, not asked here)."""
     for aura in plan.state.cards.values():
         if aura.attached_to == card.id and aura.zone.endswith(":battlefield") and not plan.manual(aura) and (
-                "umbra armor" in plan.ch(aura).keywords  # (wave 110D: granted, Dog Umbra)
-                or any(ab.kind == "keywords" and "umbra armor" in ab.keywords for ab in plan.ch(aura).abilities)):
+                wave110a_grants.has_umbra(plan, aura, card)  # (wave 110A: Umbra Mystic grants it)
+                or "umbra armor" in plan.ch(aura).keywords  # (wave 110D: granted, Dog Umbra)
+                or wave110c_aura.guards(plan, aura)):  # -- aura guard (wave 110C) --
             return aura
     return None
 
 
 def use_umbra_armor(plan: Plan, card: CardInstance, aura: CardInstance, actor: str | None) -> None:
     """702.89a: instead of being destroyed, remove all damage marked on the permanent and destroy the Aura."""
+    if wave110c_aura.guards(plan, aura):  # -- aura guard (wave 110C) --
+        return wave110c_aura.use(plan, card, aura, actor)
     plan.note(f"{card.name}: {aura.name}'s umbra armor is used instead", [card.id, aura.id], actor=actor)
     if card.damage:
         plan.do({"type": "set_damage", "card_ids": [card.id], "value": 0}, actor=actor)

@@ -11,12 +11,22 @@ from app.rules.plan import Plan
 
 STEP = 'phase_until_source43'
 FINISH = 'phase_until_source_finish43'
+STEP_TARGET = 'phase_until_target110c'
 
 
 def parse(body: str) -> tuple[list[dict[str, Any]], Any, bool] | None:
     text = body.strip()
     text = text[:1].upper() + text[1:]
     text = text.replace('~', 'this enchantment')
+    if text == ('Target creature phases out until this enchantment leaves the battlefield. '
+                'Tap that creature as it phases in this way.'):
+        # Oubliette (wave 110C): 702.26a/610.3; the tap rides on the packet and happens as it phases in (702.26d).
+        from app.rules import scripts
+
+        parsed = scripts.parse_effects('Target creature phases out.')
+        assert parsed is not None
+        _, target, optional = parsed
+        return ([{'do': STEP_TARGET}], target, optional)
     if text != ('Untap all creatures, then those creatures phase out until this enchantment leaves the battlefield. '
                 'Put a time counter on this enchantment for each creature that phased out this way.'):
         return None
@@ -32,6 +42,17 @@ def resolve(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     # which the attempted untap removed a stun counter instead.
     ctx['effects'][ctx['next']:ctx['next']] = [
         {'do': 'untap', 'who': 'ref:_phase_until43'}, {'do': FINISH}]
+    return True
+
+
+def resolve_target(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    from app.rules import effects
+
+    source = ObjectRef(card=ctx['source_card'], object_id=ctx['source_object'])
+    for r in phase_out(plan, source, effects._cards(plan, ctx, 'target'), ctx['controller']):
+        for p in plan.rules.phase_lifetimes:
+            if p.source == source and r in p.recipients and not e.get('untapped110i'):  # (110I The Moment: no tap, 702.26a)
+                p.tap_on_return = True
     return True
 
 
@@ -101,6 +122,9 @@ def expire(plan: Plan) -> None:
             emit(plan.state, 'designation', counter='phase_in', card=cid,
                  object_id=plan.oid(cid), player=plan.state.cards[cid].controller)
         plan.do({'type': 'phase_shift', 'card_ids': back, 'out': False})
+        tap = [r.card for p in ended if p.tap_on_return for r in p.recipients if r.card in back]
+        if tap:
+            plan.do({'type': 'tap', 'card_ids': tap, 'tapped': True})
         from app.rules import keyword_actions
 
         for cid in back:
@@ -109,4 +133,4 @@ def expire(plan: Plan) -> None:
                 keyword_actions.become_prepared(plan, card)
 
 
-PRIMITIVES = {STEP: resolve, FINISH: finish}
+PRIMITIVES = {STEP: resolve, FINISH: finish, STEP_TARGET: resolve_target}

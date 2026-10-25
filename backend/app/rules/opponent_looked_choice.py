@@ -28,6 +28,13 @@ def parse(body: str) -> tuple[list[dict[str, Any]], Any, bool] | None:
         return ([{**look, 'n': 2}, opponent, {**pick, 'to': 'hand'},
                  {'do': 'rest_looked', 'to': 'exile', 'as': 'silver_exiled'},
                  {'do': 'add_counters', 'who': 'ref:silver_exiled', 'kind': 'silver', 'n': 1}], None, False)
+    if text == "reveal the top three cards of your library. target opponent may choose to put those cards into your hand. if they don't, put those cards into your graveyard and draw five cards":
+        # -- wave 110E -- 608.2d: the target opponent decides (a yes/no they alone answer); their refusal sends the revealed cards to the graveyard
+        target = language._one(language.ref('target opponent')[2])
+        return ([{**look, 'n': 3}, {'do': 'optional_payment', 'who': 'target', 'ask': 'put those cards into their hand', 'bind': 'cov110e'},
+                 {'do': 'only_if', 'cond': {'succeeded': 'cov110e'}, 'skip': 1}, {'do': 'rest_looked', 'to': 'hand'},
+                 {'do': 'only_if', 'cond': {'succeeded': 'cov110e', 'negate': True}, 'skip': 2},
+                 {'do': 'rest_looked', 'to': 'graveyard'}, {'do': 'draw', 'who': 'you', 'n': 5}], target, False)
     if text == 'put a card you own with a silver counter on it from exile into your hand':
         sel = selectors.parse('card you own with a silver counter on it from exile')
         assert sel is not None

@@ -365,7 +365,7 @@ def where(s, c):
 def test_enter_cost_coverage(cards):
     for name in ("Mox Diamond", "Lake of the Dead", "Soldevi Excavations"):
         assert coverage.of_card_data(cards.resolve(name)).level == "FULL", name
-    assert coverage.of_card_data(cards.resolve("Scorched Ruins")).level != "FULL"  # (two objects: not read)
+    assert coverage.of_card_data(cards.resolve("Scorched Ruins")).level == "FULL"  # (two objects: wave 110C, tests/test_rules_wave110c_choose.py)
 
 
 @pytest.mark.parametrize("discard", [True, False])

@@ -713,7 +713,7 @@ _REPLACEABLE = {"counter", "resource", "create_token", "draw", "life", "rules_da
 _ALLOWED = {
     ("replacements.py", "mark_exiled_counters"): "Validated prepared replacements mark cards already in exile before riders; these are not permanent/player counters",
     # outside wave 2E's ownership, to be rerouted at integration (UNVERIFIED how the lead reroutes them):
-    ("casting.py", "activate_to_stack"): "a loyalty ability's cost (606.4: a cost, not an effect; agent A's region)",
+    ("casting.py", "_activation_announced"): "a loyalty ability's cost (606.4: a cost, not an effect; agent A's region)",
     ("recursion.py", "spell_self_move"): "wave 7C: a spell's time counters as it exiles itself (a card in exile, as above)",
     ("replacements.py", "move_instead"): "wave 50J: the counter an exiling replacement puts on the card it exiled (Rayami: a card in exile, not a permanent)",
     ("replacements.py", "replace_move"): "wave 50J: the same, for the batch path",

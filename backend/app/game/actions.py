@@ -1008,6 +1008,7 @@ class CastSpell(_Intent):
     splice: list[Id] = Field(default_factory=list, max_length=10)  # 702.47a: cards revealed from your hand to splice onto this spell, in order
     assist: str | None = None  # 702.132a: the player chosen to help pay generic mana ("" = no one; None = not asked yet)
     assist_amount: int | None = Field(default=None, ge=0, le=200)  # how much of it that player pays
+    pick110e: str | None = None  # -- cast-time choice (wave 110E) -- the creature type chosen as an additional cost (rules/wave110e_opp.py)
     gift_to: str | None = None  # -- gift (wave 23D) -- 702.174a: the opponent a promised gift goes to (None: asked when there is a choice)
     prototype: bool = False  # 702.160a: cast it prototyped (its alternative mana cost, power and toughness, 718.3)
     fuse: bool = False  # 702.102a: cast both halves of a split card with fuse from your hand (one fused split spell)
@@ -1054,6 +1055,7 @@ class TurnFaceUp(_Intent):
     # -- keyword actions & face-down (wave 3F) -- which way, when there are several: its morph cost
     # (702.37e), its disguise cost (702.168d), or a manifested / cloaked creature card's mana cost (701.40b)
     method: Literal["morph", "disguise", "mana_cost"] | None = None
+    x_value: int | None = Field(default=None, ge=0, le=1000)  # -- face-down X (wave 110B) -- 107.3a: the X of "Morph {X}{B}{B}", announced as it is paid
     cost_choices: list[CostChoice] = Field(default_factory=list)  # -- hidden exile (wave 18A) -- what pays a non-mana morph cost (602.2b)
 
 

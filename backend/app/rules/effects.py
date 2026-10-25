@@ -665,6 +665,8 @@ def _deal(plan: Plan, ctx: Context, hits: list[tuple[_Source, str, int]], e: dic
               "kw": sorted(src.keywords & _DAMAGE_KEYWORDS), "lkey": src.key,
               # -- refused grants/replacements (wave 3R2) -- "The damage can't be prevented." (615.12)
               **({"unpreventable": True} if e is not None and e.get("unpreventable") else {})}
+        if e is not None and e.get("creature_firm110h") and key in plan.state.cards and "Creature" in plan.ch(plan.state.cards[key]).types:
+            ev.update(unpreventable=True, unredirectable110h=True)  # -- Lava Burst (wave 110H) -- 615.12, 614.9
         kept.append(ev)
     rerun = replace.rerun_then(ctx, e)
     answers = dict(ctx.get(replace.ANSWERS) or {})
@@ -857,8 +859,12 @@ def fight(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     A creature fighting itself deals damage equal to twice its power to itself (701.14c)."""
     if e.get("bind_excess"):
         context.bind_amount(ctx, e["bind_excess"], 0)
-    a = _cards(plan, ctx, e["who"].replace("pair:", "target:"))  # (wave 26D: "pair:N" = the ability's Nth chosen group, app/rules/fight_pair.py)
-    b = _cards(plan, ctx, e["with"].replace("pair:", "target:"))
+    if e.get("twin110f"):  # -- wave 110F -- the two creatures of one chosen group fight each other (Rivals' Duel)
+        both = _cards(plan, ctx, e["who"])
+        a, b = (both[:1], both[1:]) if len(both) == 2 else ([], [])
+    else:
+        a = _cards(plan, ctx, e["who"].replace("pair:", "target:"))  # (wave 26D: "pair:N" = the ability's Nth chosen group, app/rules/fight_pair.py)
+        b = _cards(plan, ctx, e["with"].replace("pair:", "target:"))
     _remember(plan, ctx, e, a)
     if len(a) != 1 or len(b) != 1:
         plan.note(f"{ctx.get('name') or 'It'}: no fight (one of the creatures is gone or wasn't chosen)", actor=ctx["controller"])
@@ -1068,13 +1074,13 @@ def _destroy_cards(plan: Plan, ctx: Context, e: dict[str, Any], cards: list[str]
     if doomed:
         gone = {c: plan.oid(c) for c in doomed}
         plan.do({"type": "move", "card_ids": doomed, "to": {"zone": "graveyard"}}, actor=ctx["controller"])
-        _destroyed(plan, gone)
+        _destroyed(plan, gone, ctx["controller"])
     _moved(plan, ctx, e, before)
     regeneration_choices.finish(plan)
     return True
 
 
-def _destroyed(plan: Plan, gone: dict[str, str]) -> None:
+def _destroyed(plan: Plan, gone: dict[str, str], by: str | None = None) -> None:
     """-- destroy events (wave 45C) -- 701.8a-b: these permanents (card -> the object it was) were destroyed: an effect's "destroy" that put them into their
     owner's graveyard (a replacement that sent one elsewhere, or a regeneration or an indestructible permanent, didn't destroy it). The event joins the
     batch of the move, so a permanent that left with them sees it (603.10a). ponytail: the state-based destruction (704.5g-h) isn't recorded, so the
@@ -1082,6 +1088,10 @@ def _destroyed(plan: Plan, gone: dict[str, str]) -> None:
     from app.game.rules_state import Event
 
     r = plan.rules
+    if by is not None:  # -- turn history (wave 110C) -- who destroyed them (Cobra Trap)
+        from app.rules import wave110c_history
+
+        wave110c_history.note_destroyed(plan, {c: o for c, o in gone.items() if (k := plan.state.cards.get(c)) is None or k.zone.endswith(":graveyard")}, by)
     for cid, oid in gone.items():
         card = plan.state.cards.get(cid)
         if card is None or card.zone.endswith(":graveyard"):  # (a token is gone from the graveyard once there: 111.7)
@@ -1163,7 +1173,8 @@ def surveil(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
 def _look(plan: Plan, ctx: Context, e: dict[str, Any], where: str) -> bool:
     pid = ctx["controller"]
-    if e.get("who") == "target" and (named := _players(plan, ctx, "target")):  # -- most-played modal spells (wave 50I) -- "Target player scries 3": that player looks
+    # (-- most-played modal spells (wave 50I) -- "Target player scries 3": that player looks; wave 110C: "an opponent … and they scry 2", the player an earlier instruction chose)
+    if (e.get("who") == "target" or str(e.get("who")).startswith("ref:")) and (named := _players(plan, ctx, e["who"])):
         pid = named[0]
     n = _amount(plan, ctx, e["n"])
     if where == "graveyard" and n > 0:  # -- static permanents (wave 100D) -- Enhanced Surveillance
@@ -1822,7 +1833,7 @@ def counterable(plan: Plan, stack_id: str) -> bool:
 
 
 def counter_object(plan: Plan, stack_id: str, actor: str, to: str | None = None, *, exile: bool = False,
-                   by: str | None = None) -> None:
+                   by: str | None = None, types: list[str] | None = None) -> None:
     """701.6: a countered spell goes to its owner's graveyard (a flashback spell into exile); a
     countered ability simply stops existing. ``exile``: "If that spell is countered this way, exile
     it instead of putting it into its owner's graveyard" (608.2c; wave 4C).
@@ -1837,8 +1848,12 @@ def counter_object(plan: Plan, stack_id: str, actor: str, to: str | None = None,
         return
     r = plan.rules
     remember_stack(plan.state, stack_id)  # -- spell copies (wave 31D) -- a copy of it can still be made (608.2h, 707.10)
-    r.stack.pop(stack_id, None)
+    entry = r.stack.pop(stack_id, None)
     oid = plan.oid(stack_id)
+    if card.ability is None and (entry is None or entry.copy_of is None):  # -- spell countered (wave 110B) -- 701.6a, 707.10: a cast spell (not a copy) was countered; its caster is told
+        from app.game.rules_state import emit
+
+        emit(plan.state, "designation", counter="spell_countered110b", player=card.controller)
     r.buyback = [o for o in r.buyback if o != oid]
     r.rebound_cast = [o for o in r.rebound_cast if o != oid]
     r.exile_resolves.pop(oid, None)  # -- cast riders (wave 38C) -- a countered spell doesn't resolve (701.6a): "as it resolves" never applies to it
@@ -1849,11 +1864,17 @@ def counter_object(plan: Plan, stack_id: str, actor: str, to: str | None = None,
         )
 
         emit(plan.state, "designation", counter="counters_spell", player=by)
+        from app.rules import wave110c_history  # -- turn history (wave 110C) -- Summoning Trap
+
+        wave110c_history.note_countered(plan, card, by)
     if oid in r.flashback or exile:
         r.flashback = [o for o in r.flashback if o != oid]
         plan.do({"type": "move", "card_ids": [stack_id], "to": {"player": card.owner, "zone": "exile"}}, actor=actor)
     elif to == "exile":  # (wave 4A)
         plan.do({"type": "move", "card_ids": [stack_id], "to": {"player": card.owner, "zone": "exile"}}, actor=actor)
+    elif to == "battlefield_you" and by is not None and types and any(t in plan.ch(card).types for t in types):
+        # -- counter outcomes (wave 110C) -- Desertion: an artifact or creature spell is put onto the battlefield under the counterer's control (608.2c, 701.6a)
+        plan.do({"type": "move", "card_ids": [stack_id], "to": {"player": by, "zone": "battlefield"}}, actor=actor)
     elif to == "hand":  # -- zone replacements (wave 37B) -- "put it into its owner's hand instead of into that player's graveyard" (Remand)
         plan.do({"type": "move", "card_ids": [stack_id], "to": {"player": card.owner, "zone": "hand"}}, actor=actor)
     elif to in ("top", "bottom"):  # (wave 4A)
@@ -1871,6 +1892,8 @@ def _stack_targets(plan: Plan, ctx: Context, e: dict[str, Any]) -> list[str]:
     if e.get("who") == "each_opponent_spell":  # -- cast keywords (wave 43D) -- "Counter each spell you don't control." (an overloaded Counterflux): spells only (not abilities)
         return [c for c in plan.state.zones.get("stack", []) if c != ctx.get("stack_id") and plan.state.cards[c].ability is None
                 and plan.state.cards[c].controller != ctx["controller"]]
+    if e.get("who") == "opponent_abilities110b":  # -- face-down X (wave 110B) -- "counter all abilities your opponents control" (701.6a): every activated or triggered ability on the stack they control
+        return [c for c in plan.state.zones.get("stack", []) if plan.state.cards[c].ability is not None and plan.state.cards[c].controller != ctx["controller"]]
     if e.get("who") in ("all_other_spells100c", "all_abilities100c"):  # -- static spells (wave 100C) -- "Counter all other spells." / "counter all abilities"
         spells = e["who"] == "all_other_spells100c"
         return [c for c in plan.state.zones.get("stack", []) if c != ctx.get("stack_id") and (plan.state.cards[c].ability is None) == spells]
@@ -1910,7 +1933,7 @@ def counter(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     before = _remember(plan, ctx, e, sids)  # -- stack interaction (wave 5B) -- "its controller": 608.2h
     perms = _ability_sources(plan, sids, e) if e.get("perm_as") else {}
     for sid in sids:
-        counter_object(plan, sid, ctx["controller"], e.get("to"), exile=bool(e.get("exile")), by=ctx["controller"])  # (exile: 4C; to: 4A)
+        counter_object(plan, sid, ctx["controller"], e.get("to"), exile=bool(e.get("exile")), by=ctx["controller"], types=e.get("types"))  # (exile: 4C; to: 4A)
     if e.get("perm_as"):  # -- stack interaction (wave 23B) -- "If a permanent's ability is countered this way, … that permanent": the sources
         context.bind_objects(plan, ctx, e["perm_as"], [c for sid, c in perms.items() if sid not in plan.rules.stack])  # of the abilities that were
     _moved(plan, ctx, e, before)  # (wave 5B)
@@ -2226,7 +2249,7 @@ def destroy_all(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     if doomed:
         gone = {c: plan.oid(c) for c in doomed}
         plan.do({"type": "move", "card_ids": doomed, "to": {"zone": "graveyard"}}, actor=ctx["controller"])
-        _destroyed(plan, gone)
+        _destroyed(plan, gone, ctx["controller"])
     _moved(plan, ctx, e, before)
     regeneration_choices.finish(plan)
     return True
@@ -2712,7 +2735,7 @@ def _sacrifice_next(plan: Plan, ctx: Context, key: str, want: int, players: list
                     binding: str | None = None, exile: bool | str = False, link: bool = False, upto: bool = False) -> bool:
     sel = selectors.from_key(key)
     for i, pid in enumerate(players):
-        mine = [c for c in selectors.candidates(plan, sel, pid, ctx.get("source_card"))
+        mine = [c for c in selectors.candidates(plan, sel, pid, ctx.get("source_card"), selectors.attacker_of(ctx.get("event")))  # (wave 110C: "other than that creature", Saw)
                 if plan.state.cards[c].controller == pid and plan.state.cards[c].zone.endswith(":battlefield")]
         if not exile:
             from app.rules import prohibitions
@@ -3899,7 +3922,8 @@ def kicked_gate(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     wasn't) kicked; otherwise they're skipped."""
     from app.rules import conditions
 
-    held = conditions.holds(plan, ctx, {"object": "self", "cast": {"optional": "teamwork"}}) if e.get("teamwork") else values.kicked_holds(plan, ctx, e.get("with"))
+    held = conditions.holds(plan, ctx, {"object": "self", "cast": {"optional": "teamwork"}}) if e.get("teamwork") else conditions.holds(
+        plan, ctx, {"object": "self", "cast": {"optional": e["optional"]}}) if e.get("optional") else values.kicked_holds(plan, ctx, e.get("with"))
     if held != bool(e["kicked"]):  # (-- keywords (wave 50H) -- "kicked with its {R} kicker": ``with``; wave 100K: ``teamwork``, 702.194b, its announcement)
         ctx["next"] += int(e["n"])
     return True
@@ -4484,7 +4508,10 @@ def resume_choose_from_hand(plan: Plan, d: Any, chosen: list[str]) -> None:
     _remember(plan, ctx, e, chosen)  # "that card" / "those cards": the chosen cards, in that hand
     if e.get("did"):  # -- if you do (wave 15C) -- "You may choose a card from it. If you do, …": a card was chosen (608.2c)
         context.bind_payment(ctx, e["did"], bool(chosen))
-    _after_hand_choice(plan, ctx, chosen)
+    if e.get("keep110g"):  # -- wave 110G -- a second choice from the same revealed hand follows (Distended Mindbender): the rest stays revealed
+        ctx["revealed"] = [c for c in ctx.get("revealed") or [] if c not in chosen]
+    else:
+        _after_hand_choice(plan, ctx, chosen)
     continue_effects(plan, ctx)
 
 
@@ -4990,6 +5017,8 @@ def exile_if_dies(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     if e.get("cards"):  # -- zone replacements (wave 37B) -- "If a card would be put into your graveyard from anywhere this turn, exile that card instead."
         plan.rules.replacements.append({**rec, "kind": "exile_cards", "whose": e["cards"]})
         return True
+    if e.get("return110b"):  # -- one-card wordings (wave 110B) -- Cosmic Intervention: the exiled card comes back at the next end step (the spell is the rider's source)
+        rec["return110b"] = ctx.get("source_card") or ""
     if e.get("each"):
         rec["each"] = e["each"]
     else:
@@ -5019,7 +5048,8 @@ def replace_record(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
             recipient["objects"] = {"sel": selectors.Selector(controller=f"player:{players[0]}").key()}
         match = {**match, "to": recipient}
     extra = {"until": "next_turn", "until_player": ctx["controller"]} if e.get("duration") == "next_turn" else {}
-    replace.add_record(plan, event=e["event"], match=match, op=e["op"], controller=ctx["controller"],
+    op = {**e["op"], "n": int(e["op"]["n"]) + int(ctx.get("x") or 0)} if e["op"].get("x110b") else e["op"]  # -- one-card wordings (wave 110B) -- "plus X" (X paid)
+    replace.add_record(plan, event=e["event"], match=match, op=op, controller=ctx["controller"],
                        source=ctx.get("source_object"), source_card=ctx.get("source_card"),
                        label=ctx.get("name") or "an effect", **extra)
     return True
@@ -7051,7 +7081,51 @@ from app.rules import copy_controllers105 as _copy105  # noqa: E402
 
 PRIMITIVES.update(_copy105.PRIMITIVES)
 
+from app.rules import wave110a as _wave110a  # noqa: E402  -- wave 110A --
+
+PRIMITIVES.update(_wave110a.primitives())
+# -- wave 110B --
+from app.rules import wave110b_cards as _wave110b_cards  # noqa: E402
+
+PRIMITIVES.update(_wave110b_cards.PRIMITIVES)
+from app.rules import wave110c_core as _wave110c_core  # noqa: E402, I001  -- core (wave 110C) --
+PRIMITIVES.update(_wave110c_core.PRIMITIVES)
+RESUME.update(_wave110c_core.RESUME)
 from app.rules import wave110d as _wave110d  # noqa: E402, I001  -- wave 110D --
 
 PRIMITIVES.update(_wave110d.PRIMITIVES)
 RESUME.update(_wave110d.RESUME)
+RESUME.update(_wave110b_cards.RESUME)
+
+from app.rules import wave110c_kusari as _wave110c_kusari  # noqa: E402, I001
+PRIMITIVES.update(_wave110c_kusari.PRIMITIVES)  # -- Kusari-Gama (wave 110C) --
+
+from app.rules import wave110e_cards as _wave110e  # noqa: E402, I001  -- wave 110E --
+
+PRIMITIVES.update(_wave110e.PRIMITIVES)
+from app.rules import wave110f_cards as _wave110f_cards  # noqa: E402, I001  -- cards (wave 110F) --
+PRIMITIVES.update(_wave110f_cards.PRIMITIVES)
+# -- wave 110G --
+from app.rules import wave110g_cards as _wave110g_cards  # noqa: E402
+
+PRIMITIVES.update(_wave110g_cards.PRIMITIVES)
+from app.rules import wave110h_cards as _wave110h  # noqa: E402, I001  -- wave 110H --
+
+PRIMITIVES.update(_wave110h.PRIMITIVES)
+RESUME.update(_wave110h.RESUME)
+from app.rules import wave110i_cards as _wave110i_cards  # noqa: E402, I001  -- cards (wave 110I) --
+
+PRIMITIVES.update(_wave110i_cards.PRIMITIVES)
+from app.rules import wave110c_any as _wave110c_any  # noqa: E402, I001
+PRIMITIVES.update(_wave110c_any.PRIMITIVES)  # -- any opponent may (wave 110C) --
+from app.rules import wave110e_opp as _wave110e_opp  # noqa: E402, I001  -- wave 110E --
+PRIMITIVES.update(_wave110e_opp.PRIMITIVES)
+
+from app.rules import wave110e_imps as _wave110e_imps  # noqa: E402  -- Nettling Imp (wave 110E)
+
+PRIMITIVES.update(_wave110e_imps.PRIMITIVES)
+RESUME.update(_wave110f_cards.RESUME)
+RESUME.update(_wave110g_cards.RESUME)
+from app.rules import wave110j_cards as _wave110j  # noqa: E402, I001  -- wave 110J --
+
+PRIMITIVES.update(_wave110j.PRIMITIVES)

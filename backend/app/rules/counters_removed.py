@@ -13,8 +13,16 @@ from typing import Any
 _MANA = re.compile(r"^add (?:\{(?P<sym>[WUBRGC])\}|one mana of any color) for each (?P<kind>[\w+/-]+) counters? removed this way$")
 
 
+# -- counters removed (wave 110C) -- "Draw a card for each counter removed this way." (Nexus Mentality; "counter" = every kind, 122.8): 608.2c, the number actually removed.
+_DRAW = re.compile(r"^draw a card for each (?P<kind>counter|[\w+/-]+ counter) removed this way$")
+
+
 def parse(text: str, effects: list[dict[str, Any]]) -> list[dict[str, Any]] | None:
     """The mana instruction (the removal before it is marked to record how many it removed), or None (not this form)."""
+    if (d := _DRAW.match(text)) is not None and effects and effects[-1].get("do") == "remove_counters" and not effects[-1].get("bind") \
+            and effects[-1].get("kind") == ("*" if d["kind"] == "counter" else d["kind"].removesuffix(" counter")):
+        effects[-1] = {**effects[-1], "bind": f"removed{len(effects) - 1}"}
+        return [{"do": "draw", "who": "you", "n": {"ref_amount": f"removed{len(effects) - 1}"}}]
     m = _MANA.match(text)
     if m is None or not effects or effects[-1].get("do") != "remove_counters" or effects[-1].get("kind") != m["kind"] or effects[-1].get("bind"):
         return None

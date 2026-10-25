@@ -36,6 +36,8 @@ def allows(plan: Plan, creature: CardInstance, ch: Characteristics) -> bool:
 
     if 'assign_unblocked' in scripts.statics(ch):
         return True
+    if plan.rules.assign_unblocked_turn.get(creature.controller) == plan.state.turn.number:  # -- wave 110A -- Predatory Focus
+        return True
     for source, _, d in permissions._table_statics(plan.state, plan.info, {STATIC}):
         if d['source_attacking'] and not source.is_attacking:
             continue

@@ -68,7 +68,7 @@ def test_the_turn_trigger_cards_are_full(name):
 
 @pytest.mark.parametrize("text", [
     "Until end of turn, whenever target creature deals damage to one or more permanents, you gain that much life.",  # (that recipient class is unsupported)
-    "Until end of turn, whenever a creature an opponent controls is dealt damage, destroy it.",
+    # ("… a creature an opponent controls is dealt damage, destroy it." is read since wave 110I: Green Dragon)
     "Whenever one or more creatures you control deal combat damage to a player this turn, draw that many cards.",  # (one trigger, many amounts)
     "Until end of turn, whenever a creature you control deals combat damage to a player, destroy it.",  # ("it" moved: no such object for this event)
 ])

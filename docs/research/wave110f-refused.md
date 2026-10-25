@@ -1,0 +1,20 @@
+# Wave 110F refused / deferred
+- Zombie Scavengers: "top creature card of your graveyard" cost needs graveyard-order cost machinery (fixed_top_graveyard_cost46) generalised.
+- Oath of Kaya, Rigo: "attacks a planeswalker/player ... with creatures" once-per-what unclear (no rulings in repo).
+- Gather Specimens: control-changing entry replacement must cover every entry path (spell, token, move).
+- Peace Talks: two-turn global duration plus player targeting prohibition (activated only, not triggered).
+- Ogre Enforcer: damage is not tracked per source.
+- Circling Vultures: discard is a special action, not an activated ability.
+- Medomai's Prophecy, Vengeful Pharaoh, Homura (flip), Faces of the Past: multi-piece foundations.
+- Steamcore Scholar: 'unless you discard an instant or sorcery card or a creature card with flying': optional_payment.parse refuses CostComponent.alt (activation_only); needs alt-aware optional discard.
+- Profaner of the Dead: 'toughness less than the exploited creature's toughness': exploit event objects = exploiter, evt: stat binds wrong object.
+- Fires of Mount Doom: 2nd ability 'When you play a card this way' reflexive on play of exiled card.
+- Thunderblade Charge: gy-trigger + pay then cast free from graveyard.
+- Fatal Lore / Bane: 'opponent chooses one' modal / 'target opponent may have you draw' foundations.
+- Ogre Enforcer: needs damage marked per source (no per-source tally on cards).
+- Oath of Kaya, Rigo: trigger once per attacked planeswalker/defender, not once per attack declaration (existing your_pw fires once); ruling unverified locally.
+- Taste of Paradise: multikicker rewrite would make it a "kicked" spell for other cards (wrong); needs a plain pay-N-times additional cost.
+- Fblthp (Impossibly Lost), Worms of the Earth, Overblaze, Melira, Parnesse, Mangara's Equity: batch-opponent damage trigger / second upkeep ability / doubling / poison cap / copy-by-opponent / chosen-color recipient: each a new foundation.
+- Vengeful Pharaoh: "dealt to you or a planeswalker you control" union event count unsettled; graveyard trigger plus "put on top of library".
+- Thunderblade Charge: graveyard trigger "if this card is in your graveyard, you may pay ... cast it without paying" needs graveyard batch-damage trigger and free cast from graveyard.
+- Gather Specimens: replaces every creature entry (reanimation, put-onto, tokens) under an opponent; no single entry hook.
