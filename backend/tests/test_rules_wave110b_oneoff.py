@@ -31,7 +31,7 @@ def cards(settings):
     yield from repository(settings)
 
 
-@pytest.mark.parametrize("name", ["Prince of Thralls", "Oath of Lim-Dûl", "Chaos Lord", "Divine Intervention", "Herald of Anafenza", "Guardian of New Benalia", "Aloe Alchemist", "Parapet Thrasher", "Bane of the Living", "Warbreak Trumpeter", "Kadena's Silencer", "Longhorn Sharpshooter", "Plague Reaver", "Quakebringer", "Suppressor Skyguard", "Shirei, Shizo's Caretaker", "Lich's Mastery", "The Chain Veil", "Campsite Cuisine", "Way of the Mind Sculptor"])
+@pytest.mark.parametrize("name", ["Prince of Thralls", "Oath of Lim-Dûl", "Chaos Lord", "Divine Intervention", "Herald of Anafenza", "Guardian of New Benalia", "Aloe Alchemist", "Parapet Thrasher", "Bane of the Living", "Warbreak Trumpeter", "Kadena's Silencer", "Longhorn Sharpshooter", "Plague Reaver", "Quakebringer", "Suppressor Skyguard", "Shirei, Shizo's Caretaker", "Lich's Mastery", "The Chain Veil", "Campsite Cuisine", "Way of the Mind Sculptor", "Kitsune Ace"])
 def test_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
@@ -491,7 +491,7 @@ def test_campsite_cuisine_sacrifices_foods_for_that_many_pumped_attackers(cards,
 @pytest.mark.parametrize("ability, draws", [(0, 0), (1, 2)])
 def test_way_of_the_mind_sculptor_draws_when_two_or_more_loyalty_counters_were_removed(cards, ability, draws):
     """Way of the Mind Sculptor: its Jace token (empower 5) −1 removes one counter (no card); −3 removes three (Way's card, plus the ability's own)."""
-    s = build(cards, ["Way of the Mind Sculptor"] + ["Forest"] * 6, [])
+    s = build(cards, ["Way of the Mind Sculptor", "Kitsune Ace"] + ["Forest"] * 6, [])
     mana(s, "p1", U=1, C=4)
     cast(s, "Way of the Mind Sculptor")
     drive(s)
@@ -500,4 +500,31 @@ def test_way_of_the_mind_sculptor_draws_when_two_or_more_loyalty_counters_were_r
     act(s, "p1", type="activate_ability", card_id=jace, ability=ability)
     drive(s)
     assert len(s.state.zones["p1:hand"]) - before == draws
+    check(s)
+
+
+@pytest.mark.parametrize("mode", ["That Vehicle gains first strike until end of turn.", "Untap this creature."])
+def test_kitsune_ace_gives_the_attacking_vehicle_first_strike_or_untaps_itself(cards, mode):
+    """Kitsune Ace: crewed (tapping the Ace, 702.122), the Vehicle attacks; the trigger's chosen mode (700.2) runs for that Vehicle."""
+    s = build(cards, ["Kitsune Ace", "Smuggler's Copter"], [])
+    ace = put(s, "Kitsune Ace")
+    copter = put(s, "Smuggler's Copter")
+    s.state.rules.controlled_since[ace.id].turn = 0
+    crew = next(i for i, a in enumerate(ch(s, copter).abilities) if a.text.startswith("Crew"))
+    act(s, "p1", type="activate_ability", card_id=copter.id, ability=crew, crew=[ace.id])
+    drive(s)
+    assert s.state.cards[ace.id].tapped
+    attack(s, copter)
+
+    def answer(d):
+        if d.kind == "choose_cards":
+            return [next(o.id for o in d.options if o.label == mode)]
+        return ["no"] if d.kind == "confirm" else None
+
+    drive(s, answer)
+    if mode.startswith("That"):
+        assert "first_strike" in ch(s, copter).keywords or "first strike" in ch(s, copter).keywords
+        assert s.state.cards[ace.id].tapped
+    else:
+        assert not s.state.cards[ace.id].tapped
     check(s)

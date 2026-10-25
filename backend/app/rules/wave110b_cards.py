@@ -23,6 +23,9 @@ def firebending(line: str) -> int | None:
 
 # whole ability text -> the wording the grammar reads for it
 _AS: dict[str, str] = {
+    # Kitsune Ace: an attacking Vehicle is a creature (301.7), so "that Vehicle" is "that creature"
+    "Whenever a Vehicle you control attacks, That Vehicle gains first strike until end of turn.":
+        "Whenever a Vehicle you control attacks, that creature gains first strike until end of turn.",
     # Campsite Cuisine: the enchantment itself is no creature, so "a legendary creature you control" is another one; X Foods are "any number of Foods" and
     # X targets are "that many" (the number sacrificed, set as the reflexive trigger is put on the stack, 603.12)
     "Whenever this enchantment or a legendary creature you control enters, create a Food token.":
