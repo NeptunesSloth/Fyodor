@@ -99,5 +99,6 @@ def resume_reveal(plan: Plan, d: Any, chosen: list[str]) -> None:
     ok = bool(chosen) and plan.state.zones.get(f"{me}:library", [])[:1] == [top]
     if ok:
         plan.do({"type": "reveal", "card_ids": [top]}, actor=me)  # 701.20a: to everyone; it stays on top (701.20b)
+        ctx["looked"], ctx["looked_owner"] = [top], me  # -- turn state (wave 100H) -- "that card" (Leaf-Crowned Elder's free play)
     context.bind_flag(ctx, e["flag"], ok)
     continue_effects(plan, ctx)

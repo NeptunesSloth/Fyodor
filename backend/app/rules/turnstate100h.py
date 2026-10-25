@@ -287,6 +287,13 @@ def _sita(counters: Def, base: Def) -> Def | None:
                                     *base["effects"]]}
 
 
+def _elder(d: Def) -> Def | None:
+    """Leaf-Crowned Elder (kinship): the revealed card is played from the library as the ability resolves (rulings 2008-04-01)."""
+    if _dos(d) != ["look_top", "free_cast"]:
+        return None
+    return {**d, "effects": [{"do": "kinship", "flag": "kinship"}, {"do": "only_if", "cond": {"flag": "kinship"}, "skip": 1}, d["effects"][1]]}
+
+
 def _goliath(d: Def) -> Def | None:
     """Goliath Hatchery (corrupted): the cards drawn are the chosen creature's total toxic value as it resolves (702.164b)."""
     if _dos(d) != ["only_if", "player_chooses", "draw"]:
@@ -406,6 +413,9 @@ _BUILD: dict[str, tuple[tuple[str, ...], Callable[..., Def | None]]] = {
     "total toxic value.":
         (("At the beginning of your upkeep, if an opponent has three or more poison counters, choose a creature you control, then draw cards equal to "
           "its power.",), _goliath),
+    "At the beginning of your upkeep, you may look at the top card of your library. If it shares a creature type with ~, you may reveal it. If you "
+    "do, you may play that card without paying its mana cost.":
+        (("At the beginning of your upkeep, reveal the top card of your library. You may play that card without paying its mana cost.",), _elder),
     "At the beginning of your end step, if you control a creature with a +1/+1 counter on it that attacked this turn, draw a card.":
         (("At the beginning of your end step, if you control a creature with a +1/+1 counter on it, draw a card.",), _resolve),
     "At the beginning of each end step, draw a card if you've cast a spell from a graveyard or activated an ability of a card in a graveyard this turn.":
