@@ -8633,6 +8633,7 @@ _MODAL_HEADERS = {
 # [as you cast this spell], [you may] choose both / two / one or more instead." (an ability word may lead: "Delirium — "), the condition checked
 # as the spell is cast (casting.choose_modes). Read: the two announced facts of a cast (kicked, teamwork 702.194b) and conditions about the table.
 _NUMBERS = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5}
+X_HEADER = "Choose X. You may choose the same mode more than once."
 _REPEAT_HEADER = re.compile(r"^Choose (?P<n>three|four|five)\. You may choose the same mode more than once\.$")
 _INSTEAD_HEADER = re.compile(r"^(?:[A-Z][a-z]+(?: \d+)? — )?Choose one\. If (?P<c>.+?)(?: as you cast this spell)?, (?P<may>you may )?"
                              r"choose (?P<k>both|two|one or more|any number) instead\.$")
@@ -8644,6 +8645,8 @@ def modal_header(text: str) -> tuple[int, int, bool, dict[str, Any] | None] | No
         return (*_MODAL_HEADERS[text], None)
     if (m := _REPEAT_HEADER.match(text)) is not None:
         return _NUMBERS[m["n"]], _NUMBERS[m["n"]], True, None
+    if text == X_HEADER:  # -- choose X (wave 110C) -- 700.2d, 601.2b: casting.choose_modes makes min = max = the announced X
+        return 0, 99, True, None
     if (m := _INSTEAD_HEADER.match(text)) is None:
         return None
     from app.rules import conditions
@@ -8686,7 +8689,8 @@ def modal_definition(lines: list[AbilityText], name: str = "") -> Definition | N
                       "target": {"what": target} if target else None})
     if not repeat and lo > len(modes):
         return None
-    modal: dict[str, Any] = {"min": lo, "max": min(hi, 99 if repeat else len(modes)), "repeat": repeat, "condition": None}
+    modal: dict[str, Any] = {"min": lo, "max": min(hi, 99 if repeat else len(modes)), "repeat": repeat, "condition": None,
+                             **({"x": True} if lines[0].text == X_HEADER else {})}  # -- choose X (wave 110C) --
     if instead is not None:  # -- modal frames (wave 33B) --
         modal["instead"] = {**instead, "max": min(instead["max"], len(modes))}
     return {"kind": "spell", "effects": [], "target": None, "modes": modes, "modal": modal}
