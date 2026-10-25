@@ -10,7 +10,7 @@ import pytest
 
 from app.rules import coverage
 from tests.game_helpers import act
-from tests.wave110b_kit import build, check, drive, mana, put, repository, to_hand
+from tests.wave110b_kit import build, ch, check, drive, mana, put, repository, to_hand
 
 
 @pytest.fixture()
@@ -253,3 +253,26 @@ def test_kadenas_silencer_counters_only_opponents_abilities(cards):
     assert not s.state.cards[silencer.id].face_down
     assert s.state.cards[herald.id].counters.get("+1/+1") == 1  # its own ability still resolved
     check(s)
+
+
+def test_kadenas_silencer_counters_an_opponents_ability_on_the_stack(cards):
+    """701.6a: the turn-face-up trigger counters Bob's activated ability on the stack and not Alice's own, which resolves."""
+    s = build(cards, ["Kadena's Silencer", "Herald of Anafenza"], ["Shivan Dragon"])
+    silencer = _face_down(s, "Kadena's Silencer", {"C": 3})
+    herald = put(s, "Herald of Anafenza")
+    sorcerer = put(s, "Shivan Dragon", pid="p2")
+    s.state.rules.controlled_since[herald.id].turn = 0
+    act(s, "p2", type="set_prefs", response="on")  # both players stop at every priority
+    act(s, "p1", type="set_prefs", response="on")
+    mana(s, "p1", W=1, C=2)
+    act(s, "p1", type="activate_ability", card_id=herald.id, ability=0)
+    mana(s, "p2", R=1)
+    act(s, "p2", type="activate_ability", card_id=sorcerer.id, ability=1)
+    assert len(s.state.zones["stack"]) == 3  # Alice outlast + its Warrior trigger, Bob pump
+    mana(s, "p1", U=1, C=1)
+    act(s, "p1", type="turn_face_up", card_id=silencer.id)
+    drive(s)
+    assert ch(s, sorcerer).power == "5"  # Bob's {R}: +1/+0 was countered (a Shivan Dragon is 5/5)
+    assert s.state.cards[herald.id].counters.get("+1/+1") == 1
+    check(s)
+

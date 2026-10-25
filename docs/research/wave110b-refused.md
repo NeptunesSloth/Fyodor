@@ -3,3 +3,9 @@
 - Don & Leo: one trigger with two optional targets and a joint flicker; splitting into two abilities changes the trigger count.
 - Flameblade Angel: "damage to you or a permanent you control" needs a new recipient class; single card.
 - Mysterio: "Exile those tokens when Mysterio leaves the battlefield" has no linked-token leave machinery yet.
+- Firkraag, Cunning Instigator: "if that creature had to attack this combat" needs a requirement record at declaration (goad/must-attack source tracking); not built.
+- Kaust, Eyes of the Glade: needs a per-turn "turned face up this turn" record for the controlled face-down creatures; not built.
+- Aurelia's Vindicator: disguise {X} rejected by the coverage.py disguise gate, plus mixed battlefield/graveyard exile targets; not built.
+- Unyielding Gatekeeper: "If you controlled it, return it tapped. Otherwise, its controller creates ..." fails only with return plus "its controller"; no safe reading yet.
+- Dragon Broodmother: a token with "devour 2" needs a devour choice at token creation (tokens skip replacements.entry_plan); foundation not built.
+- Autumn's Veil: "can't be countered by blue or black spells" needs the countering source in effects.counterable (many callers).
