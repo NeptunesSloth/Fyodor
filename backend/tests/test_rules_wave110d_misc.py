@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import pytest
 
+from app.game.errors import ActionError
 from tests.game_helpers import act
 from tests.wave9c_kit import build, life, to_hand
 from tests.wave110d_kit import (  # noqa: F401
@@ -218,4 +219,34 @@ def test_summoners_grimoire_only_an_enchantment_enters_attacking(cards, name, en
     assert other.zone == "p1:battlefield" and other.tapped == enters_attacking
     to_phase(s, "end", turn=3)
     assert life(s, "p2") == 40 - 2 - (ch(s, other).pt[0] if enters_attacking else 0)
+    check(s)
+
+
+def test_etrata_is_full():
+    assert full("Etrata, the Silencer")
+
+
+@pytest.mark.parametrize("already", [1, 2])
+def test_etrata_exiles_counts_hit_counters_and_shuffles_in(cards, already):
+    """701.13, 122.1, 104.3e, 701.24: the third owned exiled card with a hit counter loses the game; Etrata is shuffled into its owner's library."""
+    mine = ["Etrata, the Silencer"]
+    theirs = ["Grizzly Bears", "Twisted Abomination", "Courser of Kruphix"]
+    s = build(cards, mine, theirs)
+    etrata = put(s, "Etrata, the Silencer")
+    victim = put(s, "Courser of Kruphix", "p2")
+    for name in theirs[:already]:
+        gone = put(s, name, "p2")
+        act(s, "p2", type="move", card_ids=[gone.id], to={"player": "p2", "zone": "exile"})
+        act(s, "p1", type="counter", card_ids=[gone.id], kind="hit", delta=1)
+    s.state.rules.controlled_since[etrata.id].turn = 0
+    _attack(s, etrata)
+    settle(s)
+    if already == 1:
+        to_phase(s, "end", turn=3)
+    else:
+        with pytest.raises(ActionError, match="game is over"):  # (the third card: p2 loses, Alice wins)
+            to_phase(s, "end", turn=3)
+    assert now(s, victim).zone == "p2:exile" and now(s, victim).counters == {"hit": 1}
+    assert now(s, etrata).zone == "p1:library"
+    assert bool(s.state.rules.lost.get("p2")) == (already == 2)
     check(s)
