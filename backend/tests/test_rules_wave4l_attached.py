@@ -69,10 +69,8 @@ FULL = ["Sword of Feast and Famine", "Spirit Mantle", "Lavaspur Boots", "Kenrith
         "Lignify", "Colossus Hammer", "Wild Growth", "Fertile Ground", "Shiny Impetus", "Sword of Body and Mind",
         "Prosthetic Injector", "Curse of Opulence", "Curse of Verbosity", "Vow of Duty", "Carapace", "Sinister Possession",
         "Amorphous Axe", "Ghoulflesh", "Sinister Strength", "Viridian Longbow", "Paradise Mantle",
-        "Song of the Dryads", "Flickering Ward", "Super-Soldier Serum", "Witness Protection"]  # (wave 30S: its attach trigger, tests/test_rules_wave30s_attach_effects.py; wave 25D: the chosen color is the Aura's own recorded choice; wave 22A: a basic land type set, 305.7: tests/test_rules_wave22a_layers.py)
-STILL_MANUAL = {
-    # (-- attached (wave 100F) -- Elvish Guidance's counted extra is read now: tests/test_rules_wave100f_gear.py)
-    "Curse of Bounty": "untaps all nonland permanents they control",  # (not "does the same")
+        "Song of the Dryads", "Flickering Ward", "Super-Soldier Serum", "Witness Protection", "Curse of Bounty"]  # (wave 30S: its attach trigger, tests/test_rules_wave30s_attach_effects.py; wave 25D: the chosen color is the Aura's own recorded choice; wave 22A: a basic land type set, 305.7: tests/test_rules_wave22a_layers.py)
+STILL_MANUAL: dict[str, str] = {  # (Elvish Guidance's counted extra is read: wave 100F; Curse of Bounty's untap for each attacker: wave 110D, below)
 }
 
 
@@ -398,6 +396,24 @@ def test_curse_of_opulence_and_verbosity_the_attacking_opponent_does_the_same(ca
     settle(s)
     assert golds(s, "p1") == 1 and golds(s, "p2") == 1
     assert len(s.state.zones["p1:hand"]) == hands["p1"] + 1 and len(s.state.zones["p2:hand"]) == hands["p2"] + 1
+    replay_matches(s)
+    replay_matches(reloaded(s))
+
+
+def test_curse_of_bounty_each_attacking_opponent_untaps_their_own_nonland_permanents(cards):
+    """Wave 110D, 608.2c: Alice untaps hers and Bob, an opponent attacking her, untaps his (his attacker, tapped by attacking) - lands stay as they were."""
+    s = build(cards, "Curse of Bounty", "Lightning Bolt")
+    cast(s, "Curse of Bounty", targets=["p1"], G=1, C=1)
+    settle(s)
+    ogre = token(s, "p2", "Ogre", "3/3")
+    until(s, lambda s: s.state.turn.number == 2 and s.state.rules.decision is not None
+          and s.state.rules.decision.kind == "declare_attackers")
+    mine, mine_land = named(s, "Curse of Bounty"), put(s, "Forest")  # (a nonland permanent and a land of Alice)
+    for c in (mine, mine_land):
+        act(s, "p1", type="tap", card_ids=[c.id], tapped=True)
+    act(s, "p2", type="declare_attackers", attackers=[{"card_id": ogre.id, "target": "p1"}])
+    settle(s)
+    assert not s.state.cards[mine.id].tapped and s.state.cards[mine_land.id].tapped and not s.state.cards[ogre.id].tapped  # (Bob's attacker was tapped by attacking)
     replay_matches(s)
     replay_matches(reloaded(s))
 

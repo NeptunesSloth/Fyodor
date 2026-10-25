@@ -1,0 +1,41 @@
+- Needle Drop: "any target that was dealt damage this turn" needs player damage history as a target filter (damage_history.matches is object-only).
+- Squandered Resources: mana type depends on the land sacrificed as a hand-chosen cost (cost_payment would need to hand its LKI to the mana ability).
+- Hellish Rebuke: granted trigger with "You lose 2 life" where "you" must stay the spell's caster, not the permanent's controller.
+- Dragon's Fire: optional additional cost "reveal a Dragon or choose a Dragon" with the revealed/chosen object's power read later.
+- Uphill Battle: "Creatures played by your opponents enter tapped" needs a cast-by-opponent condition on entry (not "controlled by").
+- Asinine Antics: "flash if you pay {2} more" has no foundation (conditional extra cost at cast time).
+- Xantcha, Sleeper Agent: "Any player may activate this ability" (activation by non-controllers) and "can't attack its owner or planeswalkers its owner controls" are not read; the enters-under-an-opponent part is done (wave110a_control).
+- Berserker's Frenzy: "Roll two d20 and ignore the lower roll" with a result table and "Choose any number of creatures. They block this turn if able." are not read (the "You choose which creatures block" mode is done).
+- Metamorphic Alteration: "enchanted creature is a copy of the chosen creature" needs a dynamic layer-1 copy static tracking the Aura.
+- Scheming Fence: grants all activated abilities (minus loyalty) of the chosen permanent plus a can't-activate static; no grant-from-object machinery.
+- Tectonic Split: "sacrifice half the lands you control, rounded up" additional cost needs state at 7 spell_additional_cost call sites.
+- Spin into Myth: fateseal 2 (ordering, opponent-owned library) not generalised in effects._look.
+- Needle Drop: "any target that was dealt damage this turn" needs players dealt damage as a target filter.
+- Jabari's Influence: "attacked you this turn" needs per-creature attack targets in the turn log.
+- Viral Spawning: self graveyard flashback with poison condition (Corrupted) not in graveyard_grants.
+- Leyline of Transformation: "As this enchantment enters, choose a creature type" would pause the game start (opening_hand.py); plus type-adding to hand/library cards.
+- Hulking Metamorph: copy exception "power and toughness equal to this creature's" depends on prototype size; CopyExcept has no own-P/T source.
+- Frenzied Saddlebrute: haste only toward opponents; combat.attack_problem has no defender parameter.
+- Desert Were-Worm: needs min_total_power attack condition (wave 110D branch), not in this branch.
+- Squandered Resources: mana types of the sacrificed land (LKI) not available to the mana-ability reader.
+- Uphill Battle: "played" excludes tokens and put-onto-battlefield creatures; "enter tapped" for opponents' creatures is not equal.
+- Leyline of Transformation: opening-hand play would pause the game start for the creature-type choice (opening_hand.py note).
+- V.A.T.S.: "equal toughness" relation on an "any number" group; language.py refuses relations for more than two targets (608.2b unsettled).
+- Spin into Myth: fateseal 2 (look at 2 of an opponent's library, order) has no primitive; only fateseal 1 exists (static_perm100d).
+- Zombie Scavengers: "top creature card of your graveyard" cost needs graveyard order handling beyond fixed_top_graveyard_cost46.
+- Frenzied Saddlebrute: haste-for-attacking limited to opponents/their planeswalkers; attack_as_haste rule has no target scope.
+- The Valeyard: 701.55c extra villainous choice would need every villainous implementation (villainous.py, exile_outcomes42 Mara, exile_cast_outcomes45, xdamage100e) to honor it; a partial hook would be wrong.
+- Tectonic Split: sacrifice half the lands as a spell additional cost needs the count bound at cast time; spell_additional_cost has no state and ~12 call sites.
+- Zilortha, Strength Incarnate: lethal damage by power touches sba 704.5g and combat lethal assignment; no ruling text in repo to settle 0-power and damage-with-no-toughness edges.
+- Ward of Bones: three conditional spell bans plus a land-play ban; needs a "controls more X than you" player condition (cast_limits _when_ok now has a hook for it).
+- Konda's Banner: attach restriction plus two "shares a color/creature type with equipped creature" anthems; selector has no equipped-relative share.
+- Squandered Resources: LKI of the sacrificed land inside a mana ability (already refused in wave 100).
+- Leyline of Transformation: "As this enters, choose a creature type" from the opening hand needs a pending choice in the pregame (opening_hand.act raises if enter asks); foundation, skipped.
+- Tectonic Split: additional cost "sacrifice half the lands you control, rounded up" is a variable mandatory cost (no CostComponent amount from a count); skipped.
+- Frenzied Saddlebrute: haste "as attacking your opponents" needs the defender in combat.attack_problem (not passed); skipped.
+- Zinnia, Valley's Voice: granted offspring is read from the permanent's keywords at entry (keyword_triggers), not the spell's cast abilities; skipped.
+- Teferi, Who Slows the Sunset: emblem "untap during each opponent's untap step" and "draw during each opponent's draw step" are turn-based actions in the opponent's step; a trigger would give opponents a response window (wrong).
+- Tezzeret, Betrayer of Flesh: "first activated ability of an artifact you activate each turn" must count mana abilities too (which skip the casting path), so the cost cut would apply to the wrong ability.
+- Karn, Living Legacy: emblem with an activated ability ("Tap an untapped artifact you control: ...") is not run from the command zone (designations.emblem_text_ok allows no activated abilities); -1 pay any amount of mana unsupported.
+- See the Unwritten: ferocious "put two creature cards instead of one": whether exactly one may be put is undecided (earlier wave 100 note).
+- Officious Interrogation: "any number of target players" with a total-creature investigate count has no target group foundation.

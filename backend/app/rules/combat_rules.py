@@ -391,6 +391,10 @@ def extra_phases(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
             when={"kind": "step", "step": "begin_combat", "whose": "next", "tag": tag}, effects=e["then"], turn=plan.state.turn.number, step=phase,
             until_turn=plan.state.turn.number))
     count = int(e.get("count", 1))
+    if e.get("only110d"):  # -- extra combat (wave 110D) -- 500.8: "Only the chosen creatures can attack during that combat phase": their object ids
+        from app.rules import effects
+
+        tag = "only:" + ",".join(plan.oid(c) for c in effects._cards(plan, ctx, e["only110d"]))
     tag = "only_land" if e.get("only_land") else tag  # (wave 100K: the combat's own tag, read by combat.attack_problem)
     added = ["begin_combat" + (f"@{tag}" if tag else "")] * count + (["main2"] if e.get("main") else [])
     r.extra_phases = added + (list(r.extra_phases) or [_NATURAL[current]])
@@ -479,7 +483,7 @@ _BLOCK_CAP = re.compile(r"each opponent can't block with more than (?P<n>one|two
 _REMOVE = re.compile(r"remove (?P<o>.+?) from combat")
 _MAZE = re.compile(r"prevent all combat damage that would be dealt to and dealt by (?P<o>that creature|it|target creature(?: you control)?|~)"
                    r" this turn")
-_DOUBLE = re.compile(r"double (?:the (?P<w1>power and toughness|power|toughness) of (?P<o1>.+?)|(?P<o2>.+?)'s "  # (-- trigger other (wave 41C) -- toughness alone, Rasaad yn Bashir)
+_DOUBLE = re.compile(r"(?P<verb>double|triple) (?:the (?P<w1>power and toughness|power|toughness) of (?P<o1>.+?)|(?P<o2>.+?)'s "  # (-- trigger other (wave 41C) -- toughness alone, Rasaad yn Bashir)
                      r"(?P<w2>power and toughness|power|toughness)|(?P<o3>its) (?P<w3>power and toughness|power|toughness)) until end of turn")
 # -- keywords (wave 15E) -- myriad (702.116a): "for each opponent other than defending player, you may create a token that's a
 # copy of ~ that's tapped and attacking that player or a planeswalker they control. If one or more tokens are created this way,
@@ -551,7 +555,8 @@ def clause(text: str) -> tuple[Effects, Any] | None:
         found = _object(m["o1"] or m["o2"] or m["o3"], each=True)
         if found is None:
             return None
-        return [{"do": "double_pt", "who": found[0], "toughness": what != "power", **({"power": False} if what == "toughness" else {})}], found[1]
+        return [{"do": "double_pt", "who": found[0], "toughness": what != "power", **({"power": False} if what == "toughness" else {}),
+                 **({"triple": True} if m["verb"] == "triple" else {})}], found[1]  # (wave 110B: 701.11, tripling)
     m = _EACH_COMBAT.fullmatch(text)
     if m:  # (with a duration: "until end of turn", or "until your next turn, …" read as that: ``unwrapped``)
         restricted = _restrict(m["o"], ["must_attack"] + ([f"{OTHER_THAN}:@you"] if m["pl"] or m["sg"] else []))
@@ -760,9 +765,11 @@ def double_pt(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
         if p is None or t is None:
             plan.note(f"{ctx.get('name') or 'The effect'}: {card.name}'s power isn't known: double it by hand")
             continue
+        if e.get("triple"):  # 701.11b: twice its power as the effect resolves (701.11c: a negative one the same way)
+            p, t = 2 * p, 2 * t
         layers.add_effect(plan, affected=[plan.oid(card)], layer="7c", source=ctx.get("source_object"),
                           controller=ctx["controller"], power=p, toughness=t,
-                          label=f"doubled: {p:+d}/{t:+d} until end of turn ({ctx.get('name', '')})")
+                          label=f"{'tripled' if e.get('triple') else 'doubled'}: {p:+d}/{t:+d} until end of turn ({ctx.get('name', '')})")
         effects._mark(plan, [cid], f"{p:+d}/{t:+d}")
     return True
 

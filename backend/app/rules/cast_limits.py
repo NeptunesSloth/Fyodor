@@ -297,6 +297,9 @@ def static_definition(text: str) -> Definition | None:
             return None
         return {"kind": "static", "static": "cast_limit", "who": "each", "when": None, "filter": key, "from": None,
                 "act": None, "max": None, "effects": []}
+    if t == "enchanted player can't activate abilities that aren't mana abilities or loyalty abilities":  # -- cant restrictions (wave 110D) -- 602.5, 605.1a, 606 (Overwhelming Splendor)
+        return {"kind": "static", "static": "cast_limit", "who": "enchanted", "when": None, "filter": None, "from": None, "act": "nonmana_noloyalty",
+                "max": None, "spells": False, "effects": []}
     m = STATIC_NAMED.fullmatch(t)
     if m:
         return {"kind": "static", "static": "cast_limit", "who": "each", "when": None, "filter": None, "from": None,
@@ -714,7 +717,7 @@ _KINDS = ("cant_cycle", "hexproof_targeting", "cast_limit", "activate_as_haste",
           "cant_enter", "cant_counters", "cant_remove_counters", "cant_play_lands", "cant_pay", "cant_cause_sacrifice", "cant_search", "search_top", "draw_cap", "cant_target", "cant_play_gy_lands",  # (wave 22B: app/rules/prohibitions.py; 43B: Aven Mindcensor)
           "zone_grant",  # (wave 25A: app/rules/zone_grants.py)
           "life_lock",  # (wave 29D: app/rules/life_lock.py)
-          "rad_gain", "venture_limit", "first_alt")  # (wave 44C: app/rules/designations.py; 45B: Keen-Eared Sentry)
+          "rad_gain", "venture_limit", "first_alt", "spell_replicate110a")  # (wave 44C: app/rules/designations.py; 45B: Keen-Eared Sentry)
 
 
 def _scan(state: GameState, info: CardInfo) -> list[tuple[str, int, Definition]]:
@@ -801,6 +804,9 @@ def _when_ok(state: GameState, when: str | None, controller: str, player: str | 
         return state.turn.active_player == controller
     if when == "combat":
         return state.turn.phase in COMBAT_PHASES
+    if when == "attacked110a":  # -- wave 110A -- Angelic Arbiter: the player declared attackers this turn (508.1)
+        log = state.rules.turn_log if state.rules is not None else None
+        return player is not None and log is not None and log.turn == state.turn.number and player in log.attacked
     return True
 
 
@@ -815,6 +821,10 @@ def _cast_hit(state: GameState, player: str, card: CardInstance, ch: Characteris
     """Does this limit forbid ``player`` casting this card as this spell now (``resolving``: as something resolves; ``x``: the X announced)?"""
     if d.get("spells") is False:
         return False
+    if d.get("more110a"):  # -- wave 110A -- Ward of Bones: only while the player controls more permanents of the cast spell's type than the source's controller
+        from app.rules import wave110a_spells
+
+        return source in state.cards and wave110a_spells.more_of(state, info, state.cards[source], d, player, ch.types)
     if d.get('name_permanent'):
         return info is not None and _shares_permanent_name(state, info, ch)
     if d.get("exiled_with_name"):  # -- linked exile (wave 30H) --
@@ -928,6 +938,8 @@ def _act_hit(state: GameState, player: str, card: CardInstance, ch: Characterist
         return on_field and bool({"Artifact", "Creature", "Enchantment"} & set(ch.types))
     if act == "nonmana":
         return not mana
+    if act == "nonmana_noloyalty":  # (wave 110D)
+        return not mana and not loyalty
     if act == "graveyard":
         return card.zone.endswith(":graveyard")
     if act == "loyalty":
@@ -981,6 +993,8 @@ def loyalty_rule(state: GameState, card: CardInstance, info: CardInfo | None, ke
     "instant" speed on any player's turn)? Its controller's "planeswalkers you control", or its own."""
     if key == "twice" and state.rules is not None and state.rules.once_per_turn.get(f"loyalty_twice100g:{card.controller}") == state.turn.number:
         return True  # -- zones (wave 100G) -- "… twice this turn rather than only once" (Urza Assembles the Titans III: zones100g.loyalty_twice)
+    if key == "twice" and state.rules is not None and state.rules.once_per_turn.get(f"loyalty_veil110b:{card.id}") == state.turn.number:
+        return True  # -- wave 110B -- The Chain Veil: one more activation of this planeswalker this turn (wave110b_cards.veil)
     if info is None:
         return False
     from app.rules.plan import Plan

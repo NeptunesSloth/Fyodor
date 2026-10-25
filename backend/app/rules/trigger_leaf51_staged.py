@@ -60,7 +60,7 @@ def djinn_draws(plan: Plan, ctx: dict[str, Any], effect: dict[str, Any]) -> bool
 
     state = ctx.setdefault(
         "trigger_leaf51_djinn",
-        {"players": [p for p in plan.apnap() if p != ctx["controller"]], "counts": {}, "at": 0},
+        {"players": [p for p in plan.apnap() if effect.get("all") or p != ctx["controller"]], "counts": {}, "at": 0, "n": effect.get("n", 3)},  # -- wave 110E -- "each player draws up to N"
     )
     while state["at"] < len(state["players"]):
         player = state["players"][state["at"]]
@@ -70,12 +70,12 @@ def djinn_draws(plan: Plan, ctx: dict[str, Any], effect: dict[str, Any]) -> bool
         from app.rules import prohibitions
 
         cap = prohibitions.draw_left(plan, player)
-        maximum = min(3, cap[0]) if cap is not None else 3
+        maximum = min(state["n"], cap[0]) if cap is not None else state["n"]
         decide(
             plan,
             player=player,
             kind="choose_one",
-            prompt="Indentured Djinn: draw how many cards?",
+            prompt=f"{ctx.get('name') or 'Indentured Djinn'}: draw how many cards?",
             options=[DecisionOption(id=str(n), label=f"Draw {n}") for n in range(maximum + 1)],
             resume={
                 "step": "trigger_leaf51_djinn_count",

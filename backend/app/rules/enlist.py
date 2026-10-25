@@ -105,6 +105,10 @@ def finish(plan: Plan, attackers: list[CardInstance], exerted: list[CardInstance
     for attacker_id, _ in pairs:
         if log is not None and attacker_id in plan.state.cards:
             log.enlisted[plan.oid(plan.state.cards[attacker_id])] = plan.rules.combats
+    facts: list[Any] = [("enlisted110b", a, plan.ch(a), a.controller, {"oid": plan.oid(a), "actor": a.controller, "amount": 1})  # -- (wave 110B) -- 702.154a: "Whenever ~ enlists a creature"
+             for attacker_id, _ in pairs if (a := plan.state.cards.get(attacker_id)) is not None]
+    if facts:
+        triggers._fire_generic(plan, facts, -1, {})
     exert.finish(plan, attackers, exerted)  # the attack triggers (508.1m) and the exerted creatures' "when you do"
     for attacker_id, tapped_id in pairs:  # 702.154a: "When you do": reflexive, for the creature that enlisted
         a, t = plan.state.cards.get(attacker_id), plan.state.cards.get(tapped_id)

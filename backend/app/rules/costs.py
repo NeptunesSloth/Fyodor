@@ -40,7 +40,7 @@ _REMOVE = re.compile(
 _REMOVE_ALL = re.compile(rf"^Remove all (?P<kind>[\w+/\-]+) counters from {_SELF}$")  # (the source's own: ~ / this permanent)
 _N = r"(?P<n>a|an|another|one|two|three|four|five|six|seven|eight|nine|ten|thirteen|fifteen|\d+)"  # (seven …: wave 4H; fifteen: 17B)
 _SAC_CHOSEN = re.compile(rf"^Sacrifice {_N} (?P<what>.+)$")
-_COST_CARD = r"(?:[\w\-]+ )*cards?(?: with mana value X)?"
+_COST_CARD = r"(?:[\w\-]+ )*cards?(?: with (?:mana value X|flying))?"  # (wave 110F: "a creature card with flying", Steamcore Scholar)
 _DISCARD = re.compile(rf"^Discard {_N} (?P<what>{_COST_CARD})(?P<random> at random)?$")
 _DISCARD_SELF = re.compile(r"^Discard (?:this card|~)$")  # -- ability words (wave 4F) -- channel (113.6m)
 _REVEAL_SELF = re.compile(r"^Reveal (?:this (?:card|creature)|~) from your hand$")  # -- forecast (wave 24C) -- 702.57a (113.6m: from the hand)
@@ -285,6 +285,10 @@ def _selector(phrase: str, *, zone: str, other: bool = False) -> str | None:
 
 def _component(part: str, card_name: str) -> CostComponent | None:
     """One comma-separated part of an activation cost, or None when the engine can't pay it."""
+    from app.rules import wave110d_costs  # -- costs (wave 110D) --
+
+    if (own110d := wave110d_costs.component(part, card_name)) is not None:
+        return own110d
     if m := re.fullmatch(r"Sacrifice all (?P<what>.+)", part):
         key = _selector(m["what"], zone="battlefield")
         return CostComponent(SACRIFICE, selector=key, all_objects=True, text=part) if key else None
@@ -384,7 +388,7 @@ def _component(part: str, card_name: str) -> CostComponent | None:
             return None
         key = _selector(m["what"], zone="hand")
         if key is None and m["n"] in ("a", "an", "one") and not m["random"] and " or " in m["what"]:
-            first, second = m["what"].split(" or ", 1)
+            first, second = re.split(r" or (?=an? )", m["what"], maxsplit=1) if re.search(r" or an? ", m["what"]) else m["what"].split(" or ", 1)  # (wave 110F: "an instant or sorcery card or a creature card with flying")
             left = _selector(first, zone="hand")
             right = _selector(re.sub(r"^an? ", "", second), zone="hand")
             # 701.9a / 602.2b: discard one card matching either complete description.
@@ -422,6 +426,9 @@ def parse_ability_cost(cost: str, *, card_name: str = "", loyalty: bool = False,
     if not loyalty and cost.strip() == '{6}, Roll a d8':
         return replace(parse_ability_cost('{6}', card_name=card_name, anyn=anyn), numeric_roll_sides=8)
     cost = re.sub(r'Remove twelve ([\w+/\-]+) counters from ([^,{}:]+?) and exile it', r'Remove 12 \1 counters from \2, Exile \2', cost)
+    from app.rules import wave110d_costs  # -- costs (wave 110D) --
+
+    cost = wave110d_costs.rewrite(cost)
     if loyalty:
         raw = cost.strip().replace("−", "-")
         if raw.upper() == "-X":
@@ -763,11 +770,11 @@ def kicker_extra_parts(line: str) -> tuple[bool, str] | None:
 
 # -- keywords (wave 50H) -- 702.33a: "Kicker—{2}{R}, Sacrifice a land." (Dwarven Landslide): a mana part and parts an alternative cost may have, the mana added to the total
 # cost and the rest paid with the other additional costs, once
-_KICKER_MIXED = re.compile(r"^kicker—(?P<mana>(?:\{[^}X]+\})+), (?P<rest>[^{}]+)$", re.IGNORECASE)
+_KICKER_MIXED = re.compile(r"^(?P<k>kicker|squad)—(?P<mana>(?:\{[^}X]+\})+), (?P<rest>[^{}]+)$", re.IGNORECASE)
 
 
-def kicker_mixed_parts(line: str) -> tuple[str, str] | None:
-    """(the mana, the other parts) of a "Kicker—{mana}, [parts]" line the engine pays, or None."""
+def kicker_mixed_parts(line: str) -> tuple[str, str, bool] | None:
+    """(the mana, the other parts, paid any number of times) of a "Kicker—{mana}, [parts]" / "Squad—{mana}, [parts]" (wave 110E) line the engine pays, or None."""
     from app.rules import alt_costs
 
     m = _KICKER_MIXED.fullmatch(re.sub(r"\s*\(.*?\)", "", line).strip().rstrip("."))
@@ -776,7 +783,7 @@ def kicker_mixed_parts(line: str) -> tuple[str, str] | None:
     rest = m["rest"].strip()
     rest = rest[:1].lower() + rest[1:]
     found = alt_costs.parse_cost(f"pay {m['mana']} and {rest}")
-    return (m["mana"], rest) if found is not None and found.mana == m["mana"] and found.cost.components else None
+    return (m["mana"], rest, m["k"].lower() == "squad") if found is not None and found.mana == m["mana"] and found.cost.components else None
 
 
 def positive_kicker_x(line: str) -> str | None:
@@ -839,7 +846,7 @@ def kicker_cost(abilities: Iterable[AbilityText]) -> Kicker | None:
             found.append(Kicker("", entwine=True, extra=extra))
             continue
         if (mixed := kicker_mixed_parts(ab.text)) is not None:  # (wave 50H)
-            found.append(Kicker(mixed[0], extra=mixed[1], text=ab.text.strip().rstrip(".")))
+            found.append(Kicker(mixed[0], multi=mixed[2], extra=mixed[1], text=ab.text.strip().rstrip(".")))
             continue
         if (non_mana := kicker_extra_parts(ab.text)) is not None:  # (wave 43D)
             found.append(Kicker("", multi=non_mana[0], extra=non_mana[1], text=ab.text.strip().rstrip(".")))
@@ -872,6 +879,8 @@ _BEHOLD_COST = re.compile(r"^Behold (?:(?P<one>a|an)|(?P<n>two|three|four|five))
 
 def _extra_part(part: str) -> CostComponent | None:
     """-- static_other sweep (wave 17C) -- one of the parts above that a spell's additional cost may also be made of."""
+    if part == "Choose a creature you control or reveal a creature card from your hand":  # 701.4a (wave 110A): Monstrous Emergence
+        return _extra_part("Behold a Creature")
     if m := _REVEAL_HAND_COST.match(part):
         key = _selector(m["what"], zone="hand")
         return CostComponent("REVEAL_FROM_HAND", selector=key, text=part) if key else None

@@ -33,12 +33,20 @@ def _build(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     return [{"do": "clash"}], None
 
 
-TEMPLATES: list[tuple[re.Pattern[str], Any]] = [(re.compile(r"^clash with an opponent$"), _build)]
+def _defending(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    """-- wave 110B -- "Whenever Marvo attacks, clash with defending player." (701.30b: the opponent is named, not chosen; 508.5)"""
+    return [{"do": "clash", "with": "defending_player"}], None
+
+
+TEMPLATES: list[tuple[re.Pattern[str], Any]] = [(re.compile(r"^clash with an opponent$"), _build),
+                                                 (re.compile(r"^clash with defending player$"), _defending)]
 
 
 def clash(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    from app.rules import effects
+
     pid = ctx["controller"]
-    opponents = [p for p in plan.live() if p != pid]
+    opponents = [p for p in (effects._players(plan, ctx, e["with"]) if e.get("with") else plan.live()) if p != pid]  # (wave 110B: a named opponent)
     if not opponents:
         return True
     if len(opponents) == 1:

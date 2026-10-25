@@ -85,6 +85,8 @@ from app.rules import (
     spell_grants,  # -- spell grants (wave 28C) --
     triggers,
     untap_choice,  # -- untap choice (wave 7F) --
+    wave110e_opp,  # -- cast-time choice (wave 110E) --
+    wave110h_cards,  # -- untap hold (wave 110H) --
 )
 from app.rules import morph_costs78 as _morph_costs78  # noqa: F401
 
@@ -619,7 +621,10 @@ def _keep_tapped(plan: Plan) -> list[str]:
 def _untap_restricted(plan: Plan, card: CardInstance) -> bool:
     from app.rules import previous_own_turns
     rules = scripts.statics(plan.ch(card))
-    return "doesnt_untap" in rules or (previous_own_turns.UNTAP in rules and previous_own_turns.attacked(plan.state, card) is not False)
+    # (wave 110D: "can't become untapped" stays tapped too, 701.26)
+    if any(r.startswith("doesnt_untap_counter:") and card.counters.get(r.split(":", 1)[1], 0) > 0 for r in rules):  # -- wave 110J -- Mindbender Spores, 502.3
+        return True
+    return "doesnt_untap" in rules or "cant_untap" in rules or (previous_own_turns.UNTAP in rules and previous_own_turns.attacked(plan.state, card) is not False)
 
 
 def _exerted(plan: Plan, player: str) -> list[str]:
@@ -637,6 +642,7 @@ def _exerted(plan: Plan, player: str) -> list[str]:
 def start_next_turn(plan: Plan) -> None:
     from app.game.rules_state import complete_own_turn
     complete_own_turn(plan.state)
+    plan.rules.turn_end_objects[plan.active] = plan.rules.next_object  # (wave 110A: selectors "entered since your last turn ended")
     combat_rules.new_turn(plan)  # -- combat (wave 5C) -- added phases belong to the turn that ends
     keep = _keep_tapped(plan)
     # -- extra turns (wave 8A) -- 500.7: an extra turn comes first (the latest created first); otherwise the turn order goes
@@ -650,6 +656,7 @@ def start_next_turn(plan: Plan) -> None:
     skipped: list[tuple[str, int]] = []  # 800.4k: a departed player's turn doesn't begin
     previous = (plan.active, plan.state.turn.number)
     plan.rules.previous_turn = previous
+    plan.rules.monarch_began110b = plan.state.table.monarch  # -- wave 110B -- 725: "if you were the monarch as the turn began"
     # -- refused grants/replacements (wave 3R2) -- 614.10: skipped turns (they never begin: nothing ends with
     # them, 500.4) and a skipped untap step (nothing untaps, 502.2's day / night check doesn't happen)
     skip_to = extra or effects.skips.next_active(plan, base)
@@ -675,6 +682,7 @@ def start_next_turn(plan: Plan) -> None:
     # (wave 7F: after every other reason to stay tapped, so a permanent that isn't untapping keeps its counter)
     stunned = effects.keyword_actions.stunned(plan, [c.id for c in plan.state.cards.values() if c.tapped and c.id not in keep])
     keep = [*keep, *stunned]
+    keep += wave110h_cards.untap_hold(plan, skip_to or upcoming, keep) if stay is None else []  # -- untap hold (wave 110H) --
     if skip_to is not None:
         plan.do({"type": "next_turn", "force": True, "keep_tapped": keep, "player": skip_to}, actor=plan.active)
     # -- end refused grants/replacements (wave 3R2) --
@@ -716,6 +724,7 @@ def extra_untap_step(plan: Plan) -> None:
     keep = list(dict.fromkeys([*keep, *asked, *(c for g in limited for c in g[0])]))
     stunned = effects.keyword_actions.stunned(plan, [c.id for c in plan.state.cards.values() if c.tapped and c.id not in keep]) if stay is None else []
     keep = list(dict.fromkeys([*keep, *stunned]))
+    keep += wave110h_cards.untap_hold(plan, pid, keep) if stay is None else []  # -- untap hold (wave 110H) --
     previous = plan.rules.previous_turn or (plan.state.seat_order[(plan.state.seat_order.index(pid) - 1) % len(plan.state.seat_order)], max(0, plan.state.turn.number - 1))
     finish = {"stunned": stunned, "previous": list(previous), "skipped": [], "plain": stay is None, "keep": keep, "same_turn": True}
     if untap_choice.ask(plan, asked, finish, limited):
@@ -983,6 +992,12 @@ def leave_stack(plan: Plan, card_id: str, controller: str, *, tapped: bool = Fal
 
     if not countered and from_hand and hand_player == controller and ("rebound" in plan.ch(card).keywords or (
             plan.ch(card).is_instant_or_sorcery and static_perm100d.yours(plan, static_perm100d.REBOUND, controller))):
+        from app.rules import (
+            wave110b_cards,  # -- rebound vs hand (wave 110B) -- 616.1: its controller picks between the two replacements
+        )
+
+        if wave110b_cards.rebound_or_hand(plan, card_id, controller):
+            return
         plan.do({"type": "move", "card_ids": [card_id], "to": {"player": card.owner, "zone": "exile"}}, actor=controller)
         plan.rules.rebounding.append(card_id)
         plan.rules.rebound_objects[card_id] = plan.oid(card_id)
@@ -1044,6 +1059,8 @@ def leave_stack(plan: Plan, card_id: str, controller: str, *, tapped: bool = Fal
         record = plan.rules.payments.pop(oid, None)
         if record is not None and card_id in plan.state.cards and plan.state.cards[card_id].zone.endswith(":battlefield"):
             plan.rules.payments[plan.oid(card_id)] = record  # the permanent remembers how its spell was paid
+            if record.pick110e and "|" not in record.pick110e:  # -- cast-time choice (wave 110E) -- public, read as the permanent's "Chosen creature type"
+                plan.do({"type": "set_choice", "card_id": card_id, "key": "Chosen creature type", "value": record.pick110e}, actor=controller)
             if (paid := [c for c in record.exiled if c != card_id and c in plan.state.cards and plan.state.cards[c].zone.endswith(":exile")
                         and (not record.exiled_objects or plan.oid(c) in record.exiled_objects)]) \
                     and any(ab.index < 100 and ab.kind not in ("triggered", "activated") and re.search(r"\bexile\b", ab.text, re.IGNORECASE)
@@ -1166,6 +1183,11 @@ def resolve_top_of_stack(plan: Plan) -> None:
         plan.rules.payments.pop(plan.oid(top_id), None)
         _after_resolution(plan)
         return
+    if entering:  # -- entry control (wave 110A) -- 110.2, 614.12: it enters under the opponent chosen
+        from app.rules import wave110a_control
+
+        wave110a_control.give(plan, top_id, ep.get("choices"))
+        controller = plan.state.cards[top_id].controller
     leave_stack(plan, top_id, controller, tapped=bool(ep["tapped"]))
     if entering:
         rooms.entered(plan, top_id)  # -- Rooms (wave 18G) -- 709.5d: the cast half's door is unlocked as it enters
@@ -1302,9 +1324,9 @@ def land_play_problem(state: GameState, player: str, card: CardInstance, ch: Cha
         return "Lands are played in a main phase"
     if state.zones.get(STACK):
         return "You can only play a land while the stack is empty"
-    from app.rules import cast_limits
+    from app.rules import cast_limits, wave110a_spells  # (-- wave 110A -- Ward of Bones)
 
-    if info is not None and (barred := next((src for src, d in cast_limits._statics(state, info, "cant_play_lands") if d.get("players") or src.controller == player), None)) is not None:
+    if info is not None and (barred := next((src for src, d in cast_limits._statics(state, info, "cant_play_lands") if (wave110a_spells.more_of(state, info, src, d, player) if d.get("more110a") else d.get("players") or src.controller == player)), None)) is not None:
         return f"{barred.name or 'A permanent'}: you can't play lands"  # -- most-played cards III (wave 46C) -- 305.1
     if info is not None and card.zone == zone_key(player, "hand") and (barred := next(
             (src for src, d in cast_limits._statics(state, info, "cast_limit") if d.get("lands_from_hand") and src.controller == player), None)) is not None:
@@ -1795,6 +1817,7 @@ RESUME: dict[str, Callable[[Plan, Decision, list[str]], None]] = {
     "exert_attackers": exert.resume,  # -- static wordings (wave 6E) -- 508.1g
     "enlist": enlist.resume,  # -- casting extras (wave 18E) -- 702.154a
     "assist": assist.resume,  # -- casting extras (wave 18E) -- 702.132a
+    "pick110e": wave110e_opp.resume,  # -- cast-time choice (wave 110E)
     "gift": gift.resume,  # -- gift (wave 23D) -- 702.174a
     "free_multikicker": casting.resume_free_multikicker,
     "free_optional": casting.resume_free_optional,  # -- free-cast optional costs (wave 41D) -- 118.9d, 601.2b

@@ -34,3 +34,11 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
         native["effects"][1]["who"] = sel.key()
         return native
     return None
+
+
+def _sel(phrase: str) -> Any:
+    from app.rules import selectors
+
+    got = selectors.parse(phrase)
+    assert got is not None, phrase
+    return got

@@ -159,6 +159,10 @@ def _candidates(plan: Plan, comp: CostComponent, player: str, source: CardInstan
     opponent_counters = comp.kind == C.PUT_COUNTER and sel.controller == "opponent"
     pool = ([cid for pid in plan.live() for cid in plan.state.zones.get(zone_key(pid, "battlefield"), [])]
             if opponent_counters else plan.state.zones.get(zone, []))
+    from app.rules import wave110d_costs  # -- costs (wave 110D) -- "from a graveyard": every graveyard
+
+    if comp.kind == C.EXILE_FROM_GRAVEYARD and not wave110d_costs.own_pool_only(comp):
+        pool = wave110d_costs.graveyard_pool(plan, comp)
     suspended_counter_cost = comp.kind == C.REMOVE_COUNTER and bool(sel.either) and any(
         'suspended' in selectors.from_key(branch).extras for branch in sel.either)
     if suspended_counter_cost:
@@ -236,6 +240,8 @@ def life_amount(plan: Plan, comp: CostComponent, player: str, card: CardInstance
     if comp.life_rule and comp.life_rule.startswith("per_counter100i:"):  # -- activated (wave 100I) -- "Pay 3 life for each velocity counter on ~"
         _, kind, n = comp.life_rule.split(":")
         return int(n) * (card.counters.get(kind, 0) if card is not None else 0)
+    if comp.life_rule == "per_hand110d":  # -- costs (wave 110D) -- "Pay 1 life for each card in your hand"
+        return len(plan.state.zones.get(zone_key(player, "hand"), []))
     if comp.life_rule == "half":  # 107.1a: "rounded up"; 119.4b: 0 can always be paid
         return max(0, -(-life // 2))
     if comp.life_rule == "commander_colors":  # 903.4: the commanders' combined color identity
@@ -311,6 +317,12 @@ def _names_fit(plan: Plan, comp: CostComponent, ids: list[str]) -> bool:
 
     if not comp.names:
         return True
+    from app.rules import (
+        wave110d_costs,  # -- costs (wave 110D) -- groups that share a type / color / graveyard
+    )
+
+    if comp.names in wave110d_costs.GROUPS:
+        return wave110d_costs.fit(plan, comp, ids)
     groups = [set(names_of(plan.ch(plan.state.cards[c]))) for c in ids]
     if not groups or any(not g for g in groups):
         return False
@@ -327,6 +339,10 @@ def _names_payable(plan: Plan, comp: CostComponent, ids: list[str], need: int) -
 
     if not comp.names:
         return len(ids) >= need
+    from app.rules import wave110d_costs  # -- costs (wave 110D) --
+
+    if comp.names in wave110d_costs.GROUPS:
+        return wave110d_costs.payable(plan, comp, ids, need)
     groups = [frozenset(names_of(plan.ch(plan.state.cards[c]))) for c in ids]
     if comp.names == "same":
         counts = Counter(n for g in groups for n in g)
@@ -829,7 +845,9 @@ def pay(plan: Plan, cost: AbilityCost, card: CardInstance, chosen: dict[int, lis
             from app.rules import payment_card_facts
 
             payment_card_facts.record(plan, record, "revealed", [card.id])
-        elif comp.kind in ("REVEAL_FROM_HAND", C.BEHOLD):  # -- static_other sweep (wave 17C) -- revealed to everyone (701.20a); a beheld permanent just is
+        elif comp.kind in ("REVEAL_FROM_HAND", C.BEHOLD):  # -- static_other sweep (wave 17C)
+            if comp.kind == C.BEHOLD:
+                record.beheld110a.update({c: plan.oid(plan.state.cards[c]) for c in ids})  # -- behold (wave 110A) -- "the power of the beheld creature" -- revealed to everyone (701.20a); a beheld permanent just is
             shown = [c for c in ids if plan.state.cards[c].zone.endswith(":hand")]
             if shown:
                 if comp.kind == 'REVEAL_FROM_HAND' and comp.x:

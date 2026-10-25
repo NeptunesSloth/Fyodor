@@ -29,6 +29,8 @@ _SAME = " Each opponent attacking that player does the same."
 
 def split_same(body: str, cond: dict[str, Any] | None) -> tuple[bool, str]:
     """(does the body end with the sharing sentence on an "enchanted player is attacked" trigger, the rest)."""
+    if body == "untap all nonland permanents you control. Each opponent attacking that player untaps all nonland permanents they control.":
+        body = body.removesuffix(" Each opponent attacking that player untaps all nonland permanents they control.") + _SAME  # (wave 110D: Curse of Bounty, the same in other words)
     if not body.endswith(_SAME) or cond is None or cond.get("event") != "you_attack" \
             or cond.get("defender") != "enchanted_player":
         return False, body
@@ -40,6 +42,9 @@ _ONE_PLAYER = {"create_token", "draw", "gain_life", "lose_life", "scry", "survei
 
 def does_the_same(parsed: tuple[list[dict[str, Any]], Any, bool]) -> tuple[list[dict[str, Any]], Any, bool] | None:
     effects, target, optional = parsed
+    if not target and not optional and len(effects) == 1 and effects[0].get("do") == "untap" and '"controller":"you"' in str(effects[0].get("who")):
+        # -- Curse of Bounty (wave 110D) -- "untap all nonland permanents you control": each attacking opponent's own (selector read as that player's)
+        return [*effects, {"do": "untap_each110d", "who": effects[0]["who"]}], target, optional
     if target or optional or not effects or any(e.get("do") not in _ONE_PLAYER or e.get("who") != "you" for e in effects):
         return None
     return effects + [{**e, "who": "attacking_opponents"} for e in effects], target, optional
