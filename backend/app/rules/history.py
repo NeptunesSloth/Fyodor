@@ -837,6 +837,8 @@ _WAVE_4D: dict[str, Any] = {
     "cast": _cast,
     "facts": _facts_holds,
     "damage": _damage,
+    "damage_by_creatures100n": lambda plan, ctx, cond, log: len({f.object_id for f in log.facts if f.kind == "damage" and f.player == ctx["controller"]
+                                                                  and f.amount > 0 and "Creature" in f.source_types}) >= int(cond["n"]),  # (wave 100N)
     "prowl": _prowl,
     "freerunning": _freerunning,  # (wave 43D)
     "source_damage": lambda plan, ctx, cond, log: _source_damage(ctx, cond, log),  # (wave 42B)

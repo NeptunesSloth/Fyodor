@@ -244,7 +244,7 @@ def _plain_groups(ab: AbilityText, groups: list[Definition]) -> bool:
     support X-sized counts and totals, read from the object whose event caused the trigger.
     Activated X/total/divided groups remain unsupported until their mode preflight reads them.
     """
-    allowed = {"what", "min", "max"}
+    allowed = {"what", "min", "max", "same_graveyard"}  # (wave 100N: "from a single graveyard", checked by targets.choose_groups for joined groups too)
     if ab.kind == "triggered":
         allowed |= {"x_count", "total"}
     elif ab.kind not in ("activated", "loyalty"):

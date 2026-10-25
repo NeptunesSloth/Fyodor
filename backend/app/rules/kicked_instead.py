@@ -31,6 +31,8 @@ _TIMES = {"once": 1, "twice": 2, "three times": 3, "four times": 4, "five times"
 
 # "it deals 4 damage" / "~ deals 4 damage" (no recipient: the replaced instruction's)
 _DEALS = re.compile(r"^(?:it|~) deals (?P<n>\d+|[a-z]+) damage(?: to that creature)?$")  # (wave 100K: "to that creature", Steer Clear: the replaced damage's one target)
+_DEALS100N = re.compile(r"^(?:it|~) deals (?P<x>X plus )?(?P<n>\d+|[a-z]+) damage(?: to (?:that permanent or player|each of those permanents and/or players))?"
+                        r"(?P<u> and the damage can't be prevented)?$")  # (wave 100N)
 # "create four of those tokens" (the replaced instruction's tokens: the same token, another number)
 _THOSE_TOKENS = re.compile(r"^create (?P<n>\d+|[a-z]+) of those tokens$")
 # "that creature gets -4/-4" (no duration: the replaced pump's)
@@ -82,6 +84,13 @@ def restate(rest: str, base: list[dict[str, Any]]) -> list[dict[str, Any]] | Non
     if len(base) == 1 and base[0].get("do") == "mill" and str(base[0].get("who")).startswith("target") and rest == "that player mills twice that many cards":
         # -- instead (wave 100K) -- "Target player mills X cards. If …, that player mills twice that many cards instead." (Increasing Confusion, 608.2c)
         return [{**base[0], "n": {"times": [2, base[0]["n"]]}}]
+    if len(base) == 1 and base[0].get("do") == "damage" and base[0].get("src") in (None, "self") and str(base[0].get("who")).startswith("target") \
+            and (m := _DEALS100N.fullmatch(rest)) is not None and (base[0].get("n") == {"x": 1} if m["x"] else isinstance(base[0].get("n"), int)):
+        # -- multi (wave 100N) -- "If C, instead ~ deals 6 damage to that permanent or player and the damage can't be prevented." (Lightning Surge, Arrow
+        # Storm) / "~ deals 4 damage to each of those permanents and/or players instead if …" (Shower of Coals) / "~ deals X plus 2 damage instead if …"
+        # (Crater's Claws): the replaced damage to the same target(s) with another amount (608.2c); "can't be prevented": 615.12
+        n = _amount(m["n"])
+        return None if n is None else [{**base[0], "n": {"plus": [{"x": 1}, n]} if m["x"] else n, **({"unpreventable": True} if m["u"] else {})}]
     if len(base) != 1 or not isinstance(base[0].get("n"), int):
         return None
     e = base[0]
