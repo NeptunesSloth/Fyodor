@@ -142,6 +142,12 @@ _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
     # Dalkovan Encampment (the sacrifice rides on each trigger's tokens)
     "{2}{W}, {T}: Whenever you attack this turn, create two 1/1 red Warrior creature tokens that are tapped and attacking. Sacrifice them at the beginning of the next end step.":
         ("{2}{W}, {T}: Whenever you attack this turn, create two 1/1 red Warrior creature tokens that are tapped and attacking.", _warriors),
+    # Taii Wakeen: 120.3, "equal to that creature's toughness" is the amount of this one damage event; "plus X" is the X paid (107.3k)
+    "Whenever a source you control deals noncombat damage to a creature equal to that creature's toughness, draw a card.":
+        ("Whenever a source you control deals noncombat damage to a creature, draw a card.", lambda d: {**d, "cond": {**d["cond"], "eq_toughness110b": True}}),
+    "{X}, {T}: If a source you control would deal noncombat damage to a permanent or player this turn, it deals that much damage plus X instead.":
+        ("{X}, {T}: Until end of turn, if a source you control would deal noncombat damage to a permanent or player, it deals that much damage plus 1 instead.",
+         lambda d: {**d, "effects": [{**e, "op": {**e["op"], "n": 0, "x110b": True}} if e.get("do") == "replace_record" else e for e in d["effects"]]}),
     # Way of the Mind Sculptor: the activation event carries the loyalty counters its cost removed (606.4, 603.4)
     "Whenever you activate a loyalty ability, if you removed two or more loyalty counters to activate it, draw a card.":
         ("Whenever you activate a loyalty ability, draw a card.", lambda d: {**d, "cond": {**d["cond"], "loyalty_removed110b": 2}}),

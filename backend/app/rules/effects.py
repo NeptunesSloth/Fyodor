@@ -5021,7 +5021,8 @@ def replace_record(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
             recipient["objects"] = {"sel": selectors.Selector(controller=f"player:{players[0]}").key()}
         match = {**match, "to": recipient}
     extra = {"until": "next_turn", "until_player": ctx["controller"]} if e.get("duration") == "next_turn" else {}
-    replace.add_record(plan, event=e["event"], match=match, op=e["op"], controller=ctx["controller"],
+    op = {**e["op"], "n": int(e["op"]["n"]) + int(ctx.get("x") or 0)} if e["op"].get("x110b") else e["op"]  # -- one-card wordings (wave 110B) -- "plus X" (X paid)
+    replace.add_record(plan, event=e["event"], match=match, op=op, controller=ctx["controller"],
                        source=ctx.get("source_object"), source_card=ctx.get("source_card"),
                        label=ctx.get("name") or "an effect", **extra)
     return True

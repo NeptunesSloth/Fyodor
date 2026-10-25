@@ -13,7 +13,8 @@ import pytest
 
 from app.rules import coverage
 from tests.game_helpers import act
-from tests.wave110b_kit import build, cast, check, drive, mana, put, repository, to_hand
+from tests.test_rules_wave30m_durations import to_phase
+from tests.wave110b_kit import build, card_named, cast, check, drive, mana, put, repository, to_hand
 
 
 @pytest.fixture()
@@ -21,7 +22,7 @@ def cards(settings):
     yield from repository(settings)
 
 
-@pytest.mark.parametrize("name", ["Flameblade Angel", "Equal Treatment", "Archfiend of Spite", "Elderscale Wurm", "Soulfire Grand Master"])
+@pytest.mark.parametrize("name", ["Flameblade Angel", "Equal Treatment", "Archfiend of Spite", "Elderscale Wurm", "Soulfire Grand Master", "Taii Wakeen, Perfect Shot"])
 def test_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
@@ -135,4 +136,42 @@ def test_soulfire_on_a_rebound_spell_controller_picks_616_1(cards, pick, zone):
     drive(s, lambda d: [pick] if {o.id for o in d.options} == {"rebound", "hand"} else None)
     assert s.state.players["p2"].life == 38
     assert s.state.cards[shock.id].zone == zone
+    check(s)
+
+
+def test_taii_wakeen_draws_on_exact_toughness_and_adds_x(cards):
+    """120.3, 614.1a: draw only when noncombat damage to a creature equals its toughness; {X},{T}: damage plus X this turn."""
+    s = build(cards, ["Taii Wakeen, Perfect Shot", "Lightning Bolt"], ["Grizzly Bears", "Shivan Dragon"])
+    taii = put(s, "Taii Wakeen, Perfect Shot")
+    bears, dragon = put(s, "Grizzly Bears", "p2"), put(s, "Shivan Dragon", "p2")
+    to_phase(s, "main1", turn=3)
+
+    def bolt(target):
+        bolt_card = to_hand(s, "Lightning Bolt")
+        mana(s, "p1", R=1)
+        before = len(s.state.zones["p1:hand"])
+        act(s, "p1", type="cast_spell", card_id=bolt_card.id, targets=[target])
+        drive(s)
+        return len(s.state.zones["p1:hand"]) - before + 1  # cards drawn
+
+    assert bolt(dragon.id) == 0  # 3 damage to 5 toughness
+    assert bolt(bears.id) == 0  # 3 damage to 2 toughness
+    mana(s, "p1", C=2)
+    act(s, "p1", type="activate_ability", card_id=taii.id, ability=1, x_value=2)
+    drive(s)
+    assert bolt(dragon.id) == 1  # 3 + 2 = 5 = its toughness
+    check(s)
+
+
+def test_taii_wakeen_x_adds_to_noncombat_damage(cards):
+    s = build(cards, ["Taii Wakeen, Perfect Shot", "Lightning Bolt"], [])
+    taii = put(s, "Taii Wakeen, Perfect Shot")
+    to_phase(s, "main1", turn=3)
+    mana(s, "p1", C=2)
+    act(s, "p1", type="activate_ability", card_id=taii.id, ability=1, x_value=2)
+    drive(s)
+    mana(s, "p1", R=1)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Lightning Bolt").id, targets=["p2"])
+    drive(s)
+    assert s.state.players["p2"].life == 35  # 3 + X(2)
     check(s)

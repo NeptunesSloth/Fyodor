@@ -725,6 +725,8 @@ def _to_zone(plan: Plan, e: Event, frm: str) -> list[Fact]:
 
 
 def _damage_facts(plan: Plan, e: Event) -> list[Fact]:
+    from app.rules import sba
+
     r = plan.rules
     out: list[Fact] = []
     # (a creature dealt lethal damage was still dealt it: 510.3a / 603.10a)
@@ -751,6 +753,7 @@ def _damage_facts(plan: Plan, e: Event) -> list[Fact]:
     dealt_info = {**base, "combat": e.combat, "recipient": e.player, "recipient_creature": recipient_is_creature,
                   "recipient_planeswalker": recipient_is_walker, "recipient_battle": recipient_is_battle,
                   "recipient_ctl110b": got[0].controller if got is not None else None,  # (-- one-card wordings (wave 110B) -- a permanent's controller)
+                  "recipient_toughness110b": sba.toughness(got[0], got[1]) if got is not None and recipient_is_creature else None,  # (wave 110B: Taii Wakeen)
                   "recipient_blocking110b": got is not None and bool(got[0].blocking),  # (-- one-card wordings (wave 110B) -- 509.1g: a blocker)
                   "recipient_subtypes": list(got[1].subtypes) if got is not None else []}  # (wave 15B)
     if got is not None:  # -- other side (wave 6D) -- "deals damage to a creature, destroy that creature" (other_side.py)
@@ -1288,6 +1291,7 @@ def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: F
                 (to == "players" and recipient is None) or (to == "opponents" and (recipient is None or recipient == you)) or \
                 (to == "creatures" and not info.get("recipient_creature")) or (cond.get("blocking110b") and not info.get("recipient_blocking110b")) or \
                 (cond.get("min") and int(info.get("amount") or 0) < cond["min"]) or \
+                (cond.get("eq_toughness110b") and info.get("amount") != info.get("recipient_toughness110b")) or \
                 (to == "enchanted_player" and (recipient is None or recipient != watcher.attached_player)):
             return False
     return True
