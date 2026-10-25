@@ -6977,3 +6977,7 @@ PRIMITIVES.update(_aslongas100k.PRIMITIVES)
 from app.rules import attractions100l as _attractions100l  # noqa: E402  -- Attractions (wave 100L) --
 
 PRIMITIVES.update(_attractions100l.PRIMITIVES)
+from app.rules import retarget100o as _retarget100o  # noqa: E402  -- retarget (wave 100O) --
+
+PRIMITIVES.update(_retarget100o.PRIMITIVES)
+RESUME.update(_retarget100o.RESUME)

@@ -185,9 +185,6 @@ def test_wordings():
 @pytest.mark.parametrize("text", [
     "Change the target of target spell.",  # (several targets: which? not "with a single target")
     "Change a target of target spell or ability.",  # (to what, and which one?)
-    "Change the target of target spell that targets only a single creature to this creature.",  # Muck Drubb
-    "Change the target of target spell that targets only a player. The new target must be a player.",  # Rebound
-    "Change the target of target spell or ability that targets only this creature. The new target must be a creature.",
     "Add an amount of {C} equal to that spell's mana value.",  # (no spell to bind "that spell" to)
 ])
 def test_refused(text):
@@ -445,7 +442,7 @@ def test_that_targets_wordings():
 
     sel = selectors.parse("spell or ability that targets you or a creature you control")
     assert sel is not None and sel.ability == "spell_or_ability" and sel.extras[0].startswith("targets:you|")
-    for refused in ("spell that targets only a single creature", "spell that targets a creature card in a graveyard"):
+    for refused in ("spell that targets a creature card in a graveyard",):  # (wave 100O reads "targets only a single creature": 115.9c)
         assert selectors.parse(refused) is None
 
 

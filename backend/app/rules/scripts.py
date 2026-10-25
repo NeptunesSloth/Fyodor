@@ -5314,6 +5314,8 @@ def _own_choice(parsed: tuple[list[dict[str, Any]], Any, bool] | None) -> tuple[
     # (each is asked: keep or a new one), not a question about the whole spell
     if parsed is not None and parsed[2] and len(parsed[0]) == 1 and parsed[0][0]["do"] == "choose_new_targets":
         return parsed[0], parsed[1], False
+    if parsed is not None and parsed[2] and len(parsed[0]) == 1 and parsed[0][0]["do"] == "change_target" and parsed[0][0].get("each"):
+        return [{**parsed[0][0], "optional": True}], parsed[1], False  # -- retarget (wave 100O) -- "You may change the targets …" (Goblin Flectomancer): leaving them all is an answer
     return parsed
 
 
@@ -5856,6 +5858,10 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
 
     if (lines100j := counters100j.definition(ability, ch)) is not None:
         return lines100j
+    from app.rules import retarget100o  # -- retarget (wave 100O) --
+
+    if (lines100o := retarget100o.definition(ability, ch)) is not None:
+        return lines100o
     from app.rules import turnstate100h  # -- turn state (wave 100H) --
 
     if (turn100h := turnstate100h.definition(ability, ch)) is not None:

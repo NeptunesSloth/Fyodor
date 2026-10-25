@@ -1535,6 +1535,42 @@ def _targets_suffix(s: Selector, m: re.Match[str]) -> Selector:
 _SUFFIXES.insert(0, (re.compile(r" that targets (?P<w>(?!only\b).+)$"), _targets_suffix))
 
 
+# -- retarget (wave 100O) -- 115.9c: "… that targets only this creature / only a single creature / only a player" (Torchling, Muck Drubb, Rebound): one
+# different object or player was chosen (however many times), and it is that now (115.9b). Extra "targets_only:<self|player|selector key>".
+def _targets_only_suffix(s: Selector, m: re.Match[str]) -> Selector:
+    w = m["w"]
+    sub = parse(w[len("a single "):]) if w.startswith("a single ") else None
+    if w in ("this creature", "~", "a player"):
+        key = "player" if w == "a player" else "self"
+    elif sub is not None and sub.zones == ("battlefield",) and sub.player is None and not sub.extras and sub.ability is None and not sub.card:
+        key = sub.key()
+    else:
+        raise ValueError("unread target condition")
+    return replace(s, extras=(*s.extras, "targets_only:" + key))
+
+
+_SUFFIXES.insert(0, (re.compile(r" that targets only (?P<w>.+)$"), _targets_only_suffix))
+# -- retarget (wave 100O) -- "target spell you control that wasn't cast" (Errant, Street Artist): a spell with no cast record — a copy (707.10)
+_SUFFIXES.insert(0, (re.compile(r" that wasn't cast$"), lambda s, m: replace(s, extras=(*s.extras, "not_cast"))))
+
+
+def targets_only(plan: Plan, card: CardInstance, key: str, you: str, source: str | None) -> bool:
+    """115.9c: the spell or ability (an Aura spell's one target too) has one different target, and it is that now; 115.9b: a player
+    who left the game, or an object no longer in its zone (a new object, 400.7), is ignored."""
+    from app.rules import stack_interaction  # (it imports this module)
+
+    entry = stack_interaction.target_entry(plan, card.id) if plan.rules is not None else None
+    if entry is None or len({t.id for t in entry.targets}) != 1:
+        return False
+    t = entry.targets[0]
+    if t.id in plan.state.players:
+        return key == "player" and not plan.state.players[t.id].left
+    target = plan.state.cards.get(t.id)
+    if key == "player" or target is None or not target.zone.endswith(":battlefield") or plan.oid(target) != t.object_id:
+        return False
+    return target.id == source if key == "self" else matches(plan, from_key(key), target, plan.ch(target), you, source)
+
+
 # -- copy abilities (wave 19E) -- "target activated or triggered ability you control from an enchantment source" / "… from another
 # legendary source that's not a commander" (Weaver of Harmony, Peregrine Dynamo): the ability's source as it last existed
 # (608.2h; ``source_matches``), encoded as the extras "src:<selector key>" and "src_nc".
@@ -1601,9 +1637,9 @@ def targets_match(plan: Plan, card: CardInstance, extra: str, you: str, source: 
 
 
 def single_target(plan: Plan, card: CardInstance) -> bool:
-    from app.rules import copying  # (copying imports this module)
+    from app.rules import copying, stack_interaction  # (copying imports this module)
 
-    entry = plan.rules.stack.get(card.id) if plan.rules is not None else None
+    entry = stack_interaction.target_entry(plan, card.id) if plan.rules is not None else None  # (wave 100O: an Aura spell's one target too, 115.1b)
     return entry is not None and len(copying.positions(entry)) == 1
 # -- end stack interaction (wave 5B) --
 
@@ -2207,6 +2243,11 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
             if not random_target_relations.matches(plan, card, extra, source):
                 return False
         if extra.startswith("targets:") and (zone != "stack" or not targets_match(plan, card, extra, you, source)):
+            return False
+        if extra.startswith("targets_only:") and (zone != "stack" or not targets_only(plan, card, extra[len("targets_only:"):], you, source)):
+            return False  # -- retarget (wave 100O) --
+        if extra == "not_cast" and (zone != "stack" or card.ability is not None or (
+                (rec := plan.rules.payments.get(plan.oid(card)) if plan.rules is not None else None) is not None and rec.cast_from is not None)):
             return False
     if sel.union:  # "creature or Vehicle": either the type or the subtype (-- target forms (agent T) --)
         if not ((set(sel.types) <= ch.types if "all_types" in sel.extras else set(sel.types) & ch.types) or set(sel.subtypes) & ch.subtypes):
