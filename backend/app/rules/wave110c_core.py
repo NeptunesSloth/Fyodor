@@ -359,7 +359,7 @@ def definition(ability: AbilityText, ch: Any) -> dict[str, Any] | None:
         if native is None or native["effects"][-1].get("rules") != ["cant_attack"]:
             return None
         native["effects"][-1]["rules"] = ["cant_phase_out"]
-        native["target"] = {**native["target"], "what": selectors.parse("permanent").key()}
+        native["target"] = {**native["target"], "what": selectors.Selector().key()}
         return native
     if ability.text == _SLIME:  # Ravenous Slime: plain "exile it instead" plus a rider that counts the dying creature's power (614.6)
         from dataclasses import replace
