@@ -75,6 +75,17 @@ Every scenario checks the replay and a save and a load.
   plus the number of opponents who investigated this way." (101.4).
 * Liege of the Hollows - "each player may pay any amount of mana. Then each player creates a number of 1/1 green Squirrel creature tokens
   equal to the amount of mana they paid this way." (active player first, the tokens at once - 2008-04-01).
+* Plague of Vermin - "Starting with you, each player may pay any amount of life. Repeat this process until no one pays life." (rounds until
+  all players in sequence pay nothing, then all the Rats at once - 2008-05-01).
+* Vault 21: House Gambit - "For each of those cards that has the same mana value as another card revealed this way, create a Treasure token."
+* Kamahl's Summons - "Each player may reveal any number of creature cards from their hand. Then each player creates a 2/2 green Bear creature
+  token for each card they revealed this way." (101.4, 101.4a: chosen in APNAP order face down, shown together).
+* Oversimplify - "… puts a number of +1/+1 counters on it equal to the total power of creatures they controlled that were exiled this way." (as
+  they last existed on the battlefield - 2021-04-16).
+* Mass Polymorph - "Exile all creatures you control, then reveal cards from the top of your library until you reveal that many creature cards."
+  (2010-08-15: all put onto the battlefield at once, the rest shuffled in).
+* Kethek, Crucible Goliath - "you may sacrifice another creature. If you do, reveal cards … until you reveal a nonlegendary creature card with lesser
+  mana value" (lesser than the sacrificed creature's, as it last existed: 608.2h).
 * Hellfire - "deals X plus 3 damage to you, where X is the number of creatures that died this way." (a destroyed token counts, a creature a
   replacement effect exiled instead doesn't: the 2009-10-01 rulings).
 """
@@ -106,7 +117,9 @@ HEDRON, ATEMSIS, SPHINX, VOICE = "Hedron Alignment", "Atemsis, All-Seeing", "Res
 GEAR, MIRROR, RUNES, RALLY = "Fishing Gear", "Moonring Mirror", "Read the Runes", "Rally the Horde"
 REST, BRINGER, VAULT101 = "Long Rest", "Bringer of the Last Gift", "Vault 101: Birthday Party"
 INFERNO, FOXGLOVE, SPIRIT = "Inferno of the Star Mounts", "Mr. Foxglove", "Call the Spirit Dragons"
-HOLISTIC, WERNOG, LIEGE = "Holistic Wisdom", "Wernog, Rider's Chaplain", "Liege of the Hollows"
+HOLISTIC, WERNOG, LIEGE, PLAGUE = "Holistic Wisdom", "Wernog, Rider's Chaplain", "Liege of the Hollows", "Plague of Vermin"
+VAULT21, KAMAHL, OVERSIMPLIFY = "Vault 21: House Gambit", "Kamahl's Summons", "Oversimplify"
+POLYMORPH, KETHEK = "Mass Polymorph", "Kethek, Crucible Goliath"
 BEARS, GIANT, RIP, ELVES = "Grizzly Bears", "Hill Giant", "Rest in Peace", "Llanowar Elves"
 
 
@@ -115,7 +128,7 @@ def cards(settings):
     yield from open_repo(settings)
 
 
-@pytest.mark.parametrize("name", [ROWEN, ETCHINGS, KERANOS, SUGARMAW, HELLFIRE, TERROR, KELLAN, EGO, SHRIEK, GORILLA, DESERTER, AEROSTAT, FOLD, SWIFT, RESEARCHER, KOYA, SURVIVORS, VANISH, DAKRA, DURIN, LATNAM, SURGE, LOCKE, HELLION, HULK, KALDHEIM, MANABOND, GUARDIAN, INVESTIGATORS, CLASH, SANCTUM, HEDRON, ATEMSIS, SPHINX, VOICE, GEAR, MIRROR, RUNES, RALLY, REST, BRINGER, VAULT101, INFERNO, FOXGLOVE, SPIRIT, HOLISTIC, WERNOG, LIEGE])
+@pytest.mark.parametrize("name", [ROWEN, ETCHINGS, KERANOS, SUGARMAW, HELLFIRE, TERROR, KELLAN, EGO, SHRIEK, GORILLA, DESERTER, AEROSTAT, FOLD, SWIFT, RESEARCHER, KOYA, SURVIVORS, VANISH, DAKRA, DURIN, LATNAM, SURGE, LOCKE, HELLION, HULK, KALDHEIM, MANABOND, GUARDIAN, INVESTIGATORS, CLASH, SANCTUM, HEDRON, ATEMSIS, SPHINX, VOICE, GEAR, MIRROR, RUNES, RALLY, REST, BRINGER, VAULT101, INFERNO, FOXGLOVE, SPIRIT, HOLISTIC, WERNOG, LIEGE, PLAGUE, VAULT21, KAMAHL, OVERSIMPLIFY, POLYMORPH, KETHEK])
 def test_the_cards_are_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL", name
 
@@ -1108,4 +1121,98 @@ def test_liege_of_the_hollows_gives_each_player_squirrels_for_their_mana(cards):
     run(s, answer)
     squirrels = {p: len([c for c in s.state.cards.values() if c.zone == f"{p}:battlefield" and c.name == "Squirrel"]) for p in ("p1", "p2")}
     assert zone(s, liege) == "p1:graveyard" and order == ["p1", "p2"] and squirrels == {"p1": 2, "p2": 1}
+    check(s)
+
+
+def test_plague_of_vermin_repeats_rounds_until_no_one_pays(cards):
+    s = build_n(cards, [PLAGUE])
+    plague = to_hand(s, PLAGUE)
+    mana(s, B=1, C=6)
+    act(s, "p1", type="cast_spell", card_id=plague.id)
+    pays = iter(["x:2", "x:1", "decline", "x:2", "decline", "decline"])
+    order: list[str] = []
+
+    def answer(d):
+        if not any(o.id == "decline" for o in d.options):
+            return None
+        order.append(d.player)
+        return [next(pays)]
+    run(s, answer)
+    rats = {p: len([c for c in s.state.cards.values() if c.zone == f"{p}:battlefield" and c.name == "Rat"]) for p in ("p1", "p2")}
+    assert order == ["p1", "p2"] * 3 and rats == {"p1": 2, "p2": 3} and (life(s, "p1"), life(s, "p2")) == (38, 37)
+    check(s)
+
+
+def test_vault_21_makes_a_treasure_per_revealed_card_sharing_a_mana_value(cards):
+    s = build_n(cards, [VAULT21, "Llanowar Elves", "Bonesplitter", BEARS, "Hill Giant"])
+    saga = put(s, VAULT21)
+    s.state.cards[saga.id].counters["lore"] = 2
+    shown = [to_hand(s, n).id for n in ("Llanowar Elves", "Bonesplitter", BEARS, "Hill Giant")]
+    to_phase(s, "main1", turn=3)
+    run(s, lambda d: shown if any(getattr(o, "card_id", None) in shown for o in d.options) else None)
+    treasures = [c for c in s.state.cards.values() if c.zone == "p1:battlefield" and c.name == "Treasure"]
+    assert len(treasures) == 2 and all(zone(s, s.state.cards[c]) == "p1:hand" for c in shown)
+    check(s)
+
+
+def test_kamahls_summons_gives_each_player_bears_for_the_creatures_they_reveal(cards):
+    s = build_n(cards, [KAMAHL, BEARS], ["Hill Giant", "Llanowar Elves"])
+    summons, bears = to_hand(s, KAMAHL), to_hand(s, BEARS)
+    giant, elves = to_hand(s, "Hill Giant", "p2"), to_hand(s, "Llanowar Elves", "p2")
+    mana(s, G=1, C=3)
+    act(s, "p1", type="cast_spell", card_id=summons.id)
+    order: list[str] = []
+
+    def answer(d):
+        if not d.prompt.startswith("Reveal any number"):
+            return None
+        order.append(d.player)
+        assert d.player == "p1" or not s.state.cards[bears.id].revealed_to  # (p1's choice still face down: 101.4a)
+        return [bears.id] if d.player == "p1" else [giant.id, elves.id]
+    run(s, answer)
+    tokens = {p: len([c for c in s.state.cards.values() if c.zone == f"{p}:battlefield" and c.name == "Bear"]) for p in ("p1", "p2")}
+    assert order == ["p1", "p2"] and tokens == {"p1": 1, "p2": 2} and zone(s, giant) == "p2:hand" and s.state.cards[bears.id].revealed_to
+    check(s)
+
+
+def test_oversimplify_counts_each_players_exiled_power_as_it_last_existed(cards):
+    s = build_n(cards, [OVERSIMPLIFY, BEARS, "Hill Giant"], ["Llanowar Elves"])
+    bears = put(s, BEARS)
+    put(s, "Hill Giant")
+    put(s, "Llanowar Elves", "p2")
+    s.state.cards[bears.id].counters["+1/+1"] = 1
+    spell = to_hand(s, OVERSIMPLIFY)
+    mana(s, G=1, U=1, C=3)
+    act(s, "p1", type="cast_spell", card_id=spell.id)
+    run(s)
+    fractals = {c.controller: c.counters.get("+1/+1") for c in s.state.cards.values() if c.zone.endswith(":battlefield") and c.name == "Fractal"}
+    assert fractals == {"p1": 6, "p2": 1} and zone(s, bears) == "p1:exile"
+    check(s)
+
+
+def test_mass_polymorph_reveals_until_as_many_creature_cards_as_it_exiled(cards):
+    s = build_n(cards, [POLYMORPH, BEARS, "Hill Giant", "Llanowar Elves", "Fog Bank"])
+    gone = [put(s, BEARS), put(s, "Hill Giant")]
+    spell = to_hand(s, POLYMORPH)
+    library = len(s.state.zones["p1:library"])
+    mana(s, U=1, C=5)
+    act(s, "p1", type="cast_spell", card_id=spell.id)
+    run(s)
+    mine = sorted(c.name for c in s.state.cards.values() if c.zone == "p1:battlefield" and c.name in ("Fog Bank", "Llanowar Elves", BEARS, "Hill Giant"))
+    assert mine == ["Fog Bank", "Llanowar Elves"] and all(zone(s, c) == "p1:exile" for c in gone) and len(s.state.zones["p1:library"]) == library - 2
+    check(s)
+
+
+def test_kethek_finds_a_creature_card_with_lesser_mana_value_than_the_sacrificed_one(cards):
+    s = build_n(cards, [KETHEK, "Hill Giant", "Volcanic Dragon", "Llanowar Elves"])
+    put(s, KETHEK)
+    giant = put(s, "Hill Giant")
+    library = s.state.zones["p1:library"]
+    dragon, elves = (next(c for c in library if s.state.cards[c].name == n) for n in ("Volcanic Dragon", "Llanowar Elves"))
+    library.remove(dragon)
+    library.remove(elves)
+    library[:0] = [dragon, elves]  # (the Dragon's 6 isn't less than the Giant's 4)
+    to_phase(s, "end")
+    run(s, lambda d: [o.id for o in d.options if o.id == "pay" or getattr(o, "card_id", None) == giant.id][:1] or None)
+    assert zone(s, giant) == "p1:graveyard" and zone(s, s.state.cards[elves]) == "p1:battlefield" and s.state.zones["p1:library"][-1] == dragon
     check(s)

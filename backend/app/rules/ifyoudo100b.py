@@ -56,6 +56,10 @@ _REWRITES = [
     # Azra Bladeseeker: 102.4, outside a game between teams "your team" is "you"; the one who discarded draws (118.12: a discard can't be begun and not made)
     (re.compile(r"^each player on your team may discard a card, then each player who discarded a card this way draws a card\.$"),
      "you may discard a card. If you do, draw a card."),
+    # Mass Polymorph: "that many" is the creatures exiled this way (a token too: it was exiled, 111.7); the 2010-08-15 rulings: the whole library when short, all at once
+    (re.compile(r"^(Exile all creatures you control), then reveal cards from the top of your library until you reveal that many creature cards\. (?=Put all creature "
+                r"cards revealed this way onto the battlefield, then shuffle the rest of the revealed cards into your library\.$)"),
+     r"\1. Reveal cards from the top of your library until you reveal X creature cards, where X is the number of creatures exiled this way. "),
 ]
 
 
@@ -67,7 +71,7 @@ GY_EMPTY = "gy_empty100b"
 def parse(body: str, it: str | None, event_player: bool) -> Found | None:
     text = body.strip()
     for form in (_put_discarded, _hit_discard, _draw_if, _dealt_cant_block, _give_source, _exiled_mv, _connives, _empty_gy, _truce, _each_who_lost,
-                 _either, _plot_paid, _hand_exile, _dont_sacrifice, _put_mv_x, _fold, _swift, _untap_then, _may_attach, _vanish, _dakra, _durin, _latnam, _surge, _locke, _gy_exile, _manabond, _have_deal, _own_bounce, _clash, _reveal_win, _fishing, _runes, _rally, _long_rest, _bringer, _vault101, _becomes20, _foxglove, _spirit_dragons, _holistic, _wernog, _liege):
+                 _either, _plot_paid, _hand_exile, _dont_sacrifice, _put_mv_x, _fold, _swift, _untap_then, _may_attach, _vanish, _dakra, _durin, _latnam, _surge, _locke, _gy_exile, _manabond, _have_deal, _own_bounce, _clash, _reveal_win, _fishing, _runes, _rally, _long_rest, _bringer, _vault101, _becomes20, _foxglove, _spirit_dragons, _holistic, _wernog, _liege, _plague, _vault21, _kamahl, _oversimplify, _kethek):
         if (found := form(text, it, event_player)) is not None:
             return found
     for pattern, repl in _REWRITES:
@@ -1044,10 +1048,174 @@ def liege(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
 
 
 def liege_make(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    from app.rules import context, paid_x
+
+    if e.get("revealed"):  # (Kamahl's Summons: the held choices, shown together - 101.4a)
+        shown = {p: [c for c in context.objects(plan, ctx, b) if c in plan.state.cards] for p, b in e["paid"].items()}
+        if ids := [c for cs in shown.values() for c in cs]:
+            plan.do({"type": "reveal", "card_ids": ids}, actor=ctx["controller"])
+    counts = {p: len(shown[p]) if e.get("revealed") else paid_x.amount(ctx, b) for p, b in e["paid"].items() if p in plan.live()}
+    ctx["effects"][ctx["next"]:ctx["next"]] = [{**e["token"], "per_player": counts}] if any(counts.values()) else []
+    return True
+
+
+# -- Plague of Vermin: "Starting with you, each player may pay any amount of life. Repeat this process until no one pays life. Each player creates a 1/1
+# black Rat creature token for each 1 life they paid this way." The 2008-05-01 rulings: rounds in turn order from you (101.4) until a whole round pays
+# nothing; each payment is its own life loss now (119.4) and caps the next one; then all the tokens at once.
+_PLAGUE = ("Starting with you, each player may pay any amount of life. Repeat this process until no one pays life. Each player creates a 1/1 black Rat "
+           "creature token for each 1 life they paid this way.")
+PLAGUE = "plague100b"
+
+
+def _plague(text: str, it: str | None, event_player: bool) -> Found | None:
+    token = _effects("Create a 1/1 black Rat creature token.", it, event_player) if text == _PLAGUE else None
+    return ([{"do": PLAGUE, "token": token[0][0], "k": 0, "totals": {}, "paid": False}], None, False) if token is not None and len(token[0]) == 1 else None
+
+
+def plague(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     from app.rules import paid_x
 
-    counts = {p: paid_x.amount(ctx, b) for p, b in e["paid"].items() if p in plan.live()}
-    ctx["effects"][ctx["next"]:ctx["next"]] = [{**e["token"], "per_player": counts}] if any(counts.values()) else []
+    seats = plan.apnap()
+    order = e.get("order") or seats[seats.index(ctx["controller"]):] + seats[:seats.index(ctx["controller"])]
+    k, totals, paid = e["k"], dict(e["totals"]), e["paid"]
+    if k:
+        n = paid_x.amount(ctx, f"{PLAGUE}{k}")
+        totals[order[(k - 1) % len(order)]] = totals.get(order[(k - 1) % len(order)], 0) + n
+        paid = paid or n > 0
+    if k and k % len(order) == 0:
+        if not paid:
+            live = {p: n for p, n in totals.items() if p in plan.live()}
+            ctx["effects"][ctx["next"]:ctx["next"]] = [{**e["token"], "per_player": live}] if any(live.values()) else []
+            return True
+        paid = False
+    p = order[k % len(order)]
+    pay = [{"do": "optional_payment", "who": f"player:{p}", "cost": "", "bind": f"{PLAGUE}{k + 1}",
+            "choose_x": {"max": plan.state.players[p].life, "life": True}}] if p in plan.live() else []
+    ctx["effects"][ctx["next"]:ctx["next"]] = [*pay, {**e, "k": k + 1, "totals": totals, "paid": paid, "order": order}]
+    return True
+
+
+# -- Vault 21: House Gambit III: "Reveal up to five nonland cards from your hand. For each of those cards that has the same mana value as another card
+# revealed this way, create a Treasure token." 701.20a: the cards stay in hand; 202.3e: {X} is 0 there (the 2024-03-08 ruling).
+_VAULT21 = ("Reveal up to five nonland cards from your hand. For each of those cards that has the same mana value as another card revealed this way, create "
+            "a Treasure token.")
+SAME_MV = "same_mv100b"
+
+
+def _vault21(text: str, it: str | None, event_player: bool) -> Found | None:
+    from app.rules import selectors
+
+    token = _effects("Create a Treasure token.", it, event_player) if text == _VAULT21 else None
+    sel = selectors.parse("nonland card in your hand")
+    if token is None or sel is None or len(token[0]) != 1:
+        return None
+    return [{"do": "reveal_hand_cards", "sel": sel.key(), "n": 5, "as": "v21"}, {"do": SAME_MV, "of": "ref:v21", "token": token[0][0]}], None, False
+
+
+def same_mv(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    from app.rules import context
+
+    mvs = [int(plan.ch(plan.state.cards[c]).mana_value) for c in context.objects(plan, ctx, e["of"].removeprefix("ref:")) if c in plan.state.cards]
+    n = sum(1 for v in mvs if mvs.count(v) > 1)
+    ctx["effects"][ctx["next"]:ctx["next"]] = [{**e["token"], "n": n}] if n else []
+    return True
+
+
+# -- Kamahl's Summons: "Each player may reveal any number of creature cards from their hand. Then each player creates a 2/2 green Bear creature token
+# for each card they revealed this way." 101.4, 101.4a: each chooses in APNAP order, face down; the cards are shown together, then the tokens at once.
+_KAMAHL = ("Each player may reveal any number of creature cards from their hand. Then each player creates a 2/2 green Bear creature token for each card "
+           "they revealed this way.")
+KAMAHL = "kamahl100b"
+
+
+def _kamahl(text: str, it: str | None, event_player: bool) -> Found | None:
+    from app.rules import selectors
+
+    token = _effects("Create a 2/2 green Bear creature token.", it, event_player) if text == _KAMAHL else None
+    sel = selectors.parse("creature card in your hand")
+    return ([{"do": KAMAHL, "sel": sel.key(), "token": token[0][0]}], None, False) if token is not None and sel is not None and len(token[0]) == 1 else None
+
+
+def kamahl(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    order = [p for p in plan.apnap() if p in plan.live()]
+    picks = [{"do": "reveal_hand_cards", "sel": e["sel"], "n": 99, "player": p, "hold": True, "as": f"{KAMAHL}{i}",
+              "prompt": "Reveal any number of creature cards from your hand"} for i, p in enumerate(order)]
+    ctx["effects"][ctx["next"]:ctx["next"]] = [*picks, {"do": LIEGE_MAKE, "token": e["token"], "paid": {p: f"{KAMAHL}{i}" for i, p in enumerate(order)},
+                                                        "revealed": True}]
+    return True
+
+
+# -- Oversimplify: "Exile all creatures. Each player creates a 0/0 green and blue Fractal creature token and puts a number of +1/+1 counters on it equal to
+# the total power of creatures they controlled that were exiled this way." The 2021-04-16 ruling: each power as it last existed on the battlefield (608.2h).
+_OVERSIMPLIFY = ("Exile all creatures. Each player creates a 0/0 green and blue Fractal creature token and puts a number of +1/+1 counters on it equal to the "
+                 "total power of creatures they controlled that were exiled this way.")
+OVERSIMPLIFY, FRACTAL = "oversimplify100b", "fractal100b"
+
+
+def _oversimplify(text: str, it: str | None, event_player: bool) -> Found | None:
+    from app.rules import selectors
+
+    if text != _OVERSIMPLIFY:
+        return None
+    exile = _effects("Exile all creatures.", it, event_player)
+    made = _effects("Create a 0/0 green and blue Fractal creature token and put a +1/+1 counter on it.", it, event_player)
+    mine = selectors.parse("creatures you control")
+    if exile is None or made is None or mine is None or len(exile[0]) != 1 or [x.get("do") for x in made[0]] != ["create_token", "add_counters"]:
+        return None
+    token = {k: v for k, v in made[0][0].items() if k != "as"}
+    return [{**exile[0][0], "as": "ov"}, {"do": OVERSIMPLIFY, "of": mine.key(), "ref": "ref:ov", "token": token, "counters": made[0][1]}], None, False
+
+
+def oversimplify(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    from app.rules import this_way
+
+    live = [p for p in plan.apnap() if p in plan.live()]
+    v = {"this_way": "exiled", "of": e["of"], "stat": "power", "ref_count": e["ref"].removeprefix("ref:")}
+    totals = {p: this_way.count(plan, {**ctx, "controller": p}, v) for p in live}  # ("they controlled": each player's own, as each last existed)
+    ctx["effects"][ctx["next"]:ctx["next"]] = [{**e["token"], "per_player": dict.fromkeys(live, 1), "as": FRACTAL},
+                                               {"do": FRACTAL, "totals": totals, "counters": e["counters"]}]
+    return True
+
+
+def fractal(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    from app.rules import context
+
+    out = []
+    for i, c in enumerate(context.objects(plan, ctx, FRACTAL)):
+        if c in plan.state.cards and (n := e["totals"].get(plan.state.cards[c].controller, 0)):
+            context.bind_objects(plan, ctx, f"{FRACTAL}{i}", [c])
+            out.append({**e["counters"], "who": f"ref:{FRACTAL}{i}", "n": n})
+    ctx["effects"][ctx["next"]:ctx["next"]] = out
+    return True
+
+
+# -- Kethek, Crucible Goliath: "you may sacrifice another creature. If you do, reveal cards from the top of your library until you reveal a nonlegendary
+# creature card with lesser mana value, put it onto the battlefield, then put the rest on the bottom of your library in a random order." Lesser than the
+# sacrificed creature's, as it last existed (608.2h; an {X} there is 0: the 2023-02-04 ruling).
+_KETHEK = ("you may sacrifice another creature. If you do, reveal cards from the top of your library until you reveal a nonlegendary creature card with lesser "
+           "mana value, put it onto the battlefield, then put the rest on the bottom of your library in a random order.")
+KETHEK = "kethek100b"
+
+
+def _kethek(text: str, it: str | None, event_player: bool) -> Found | None:
+    if text[:1].lower() + text[1:] != _KETHEK:
+        return None
+    pay = _effects("You may sacrifice another creature. If you do, draw a card.", it, event_player)
+    dig = _effects("Reveal cards from the top of your library until you reveal a nonlegendary creature card with mana value 0 or less. Put that card onto the "
+                   "battlefield and the rest on the bottom of your library in a random order.", it, event_player)
+    if pay is None or dig is None or [x.get("do") for x in pay[0]] != ["optional_payment", "only_if", "draw"] or len(dig[0]) != 3 or not dig[0][0].get("until"):
+        return None
+    return [*pay[0][:2], {"do": KETHEK, "paid": f"ref:{pay[0][0]['bind']}", "dig": dig[0]}], None, False
+
+
+def kethek(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    from app.rules import context, selectors
+
+    gone = context.info(plan, ctx, e["paid"].removeprefix("ref:"))
+    if gone is None:
+        return True
+    until = selectors.replace(selectors.from_key(e["dig"][0]["until"]), compare=(("mv", "<", int(gone[1].mana_value)),))
+    ctx["effects"][ctx["next"]:ctx["next"]] = [{**e["dig"][0], "until": until.key()}, *e["dig"][1:]]
     return True
 
 
@@ -1097,5 +1265,5 @@ def resume_either(plan: Any, d: Any, chosen: list[str]) -> None:
 PRIMITIVES = {GY_EMPTY: gy_empty, TRUCE: truce, TRUCE_ASK: truce_ask, TRUCE_DRAW: truce_draw, TRUCE_LIFE: truce_life, EITHER: either, COUNTERED: countered,
               SWIFT: swift, BACK: back_creature, TO_GRAVEYARDS: to_graveyards, HAND_GATE: hand_gate,
               SURGE: surge, PUT_EXILED: put_exiled, PUT_CHECK: put_check, OWN_EVERYWHERE: own_everywhere, HAND_VALUES: hand_values,
-              OTHERS: others_back, RALLY: rally, BECAME: became, SPIRIT: spirit, SPIRIT_WIN: spirit_win, SHARES: shares_type, LIEGE: liege, LIEGE_MAKE: liege_make}
+              OTHERS: others_back, RALLY: rally, BECAME: became, SPIRIT: spirit, SPIRIT_WIN: spirit_win, SHARES: shares_type, LIEGE: liege, LIEGE_MAKE: liege_make, PLAGUE: plague, SAME_MV: same_mv, KAMAHL: kamahl, OVERSIMPLIFY: oversimplify, FRACTAL: fractal, KETHEK: kethek}
 RESUME = {TRUCE_ASK: resume_truce_ask, EITHER: resume_either, PUT_EXILED: resume_put_exiled, SPIRIT: resume_spirit}
