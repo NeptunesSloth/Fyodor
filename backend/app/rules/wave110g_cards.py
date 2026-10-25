@@ -118,6 +118,7 @@ _SWING = ("Choose target battle. If an opponent protects it, remove three defens
 
 
 _CULTIST = "The next time damage would be dealt to target creature this turn, destroy that creature instead."
+_PREPARE = {"Target creature becomes prepared.": "prepare", "Target creature becomes unprepared.": "unprepare100f"}
 _AGONY = re.compile(r"(~ deals X damage to target creature, where X is the number of colors of mana spent to cast this spell\.) Exile cards from the top "
                     r"of your library equal to the excess damage dealt to that creature this way\. You may play those cards until the end of your next turn\.")
 
@@ -150,6 +151,11 @@ def parse(body: str) -> Any:
 
         group = language.target_group("target creature")
         return None if group is None else ([{"do": "destroy_instead110g", "who": "target"}], [group], False)
+    if (prep := _PREPARE.get(body.strip())) is not None:  # Biblioplex Tomekeeper: 722.3a / 722.3b on the target creature
+        from app.rules import language
+
+        group = language.target_group("target creature")
+        return None if group is None else ([{"do": prep, "who": "target"}], [group], False)
     if (agony := _AGONY.fullmatch(body.strip())) is not None:  # Archaic's Agony: excess damage (120.10) sizes the exile
         got = scripts.parse_effects(f"{agony[1]} You gain life equal to the excess damage dealt to that creature this way.")
         if got is None:

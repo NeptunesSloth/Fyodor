@@ -17,6 +17,7 @@
 * Archaic's Agony: 120.10 / 702.34 converge sizes the damage; the excess over lethal sizes the exile (top of library) and those cards are playable.
 * Kill-Suit Cultist: 614.1a / 615.8 the next damage to the target this turn is replaced by destroying it; only the next time.
 * Beamsplitter Mage: 707.10d / 115.9c one copy for the one other creature its controller chooses, none when there is none.
+* Biblioplex Tomekeeper: 722.3a / 722.3b the target creature becomes prepared or unprepared (modes, up to one).
 * Serene Master: 701.12g exchanging two powers sets each to the other's previous value (613.4b), until end of combat.
 """
 from __future__ import annotations
@@ -32,6 +33,7 @@ from tests.game_helpers import act
 from tests.test_rules_review34_head import EXTRA as REVIEW34
 from tests.test_rules_review34_head import SIEGE, drive
 from tests.test_rules_wave12a_counters_keywords import real
+from tests.test_rules_wave100f_control import PREPARED
 from tests.wave9c_kit import build, card_named
 from tests.wave110b_kit import attack, cast, ch, check, mana, put, settle, through_combat, to_hand
 
@@ -98,6 +100,7 @@ EXTRA = [
     real('Kill-Suit Cultist', '{B}', 1, 'Creature \u2014 Human Cleric', 'This creature attacks each combat if able.\n{B}, Sacrifice this creature: The next time damage would be dealt to target creature this turn, destroy that creature instead.', ('1', '1'), 'B'),
     real('Test Zap', '{R}', 1, 'Instant', 'Test Zap deals 1 damage to target creature.', None, 'R'),
     real('Beamsplitter Mage', '{1}{R}', 2, 'Creature \u2014 Human Wizard', 'Whenever you cast an instant or sorcery spell that targets only this creature, if you control one or more other creatures that spell could target, choose one of those creatures. Copy that spell. The copy targets the chosen creature.', ('1', '3'), 'R'),
+    real('Biblioplex Tomekeeper', '{4}', 4, 'Artifact Creature \u2014 Construct', 'When this creature enters, choose up to one \u2014\n\u2022 Target creature becomes prepared.\n\u2022 Target creature becomes unprepared.', ('3', '4'), ''),
     real('Hill Giant', '{3}{R}', 4, 'Creature — Giant', '', ('3', '3'), 'R'),
     real('Divination', '{2}{U}', 3, 'Sorcery', 'Draw two cards.', None, 'U'),
 ]
@@ -107,7 +110,7 @@ NAMES = [c["name"] for c in EXTRA if c["name"] not in ("Divination", "Test Zap",
 @pytest.fixture()
 def cards(settings):
     settings.ensure_dirs()
-    build_database([*fixture_cards(), *REVIEW34, *EXTRA], settings.cards_db_path, meta={"bulk_type": "test"})
+    build_database([*fixture_cards(), *REVIEW34, *EXTRA, PREPARED], settings.cards_db_path, meta={"bulk_type": "test"})
     repo = CardRepository(settings.cards_db_path, ImageStore(settings.images_dir))
     yield repo
     repo.close()
@@ -710,4 +713,31 @@ def test_beamsplitter_mage_copies_for_one_chosen_creature(cards, others):
     assert hurt(mage) == 1
     if others:
         assert (hurt(bears), hurt(giant)) == (0, 1)
+    check(s)
+
+
+@pytest.mark.parametrize("mode,prepared", [("unprepared", 0), ("becomes prepared", 1)])
+def test_biblioplex_tomekeeper_prepares_or_unprepares(cards, mode, prepared):
+    """Biblioplex Tomekeeper (722.3a, 722.3b): the chosen mode gives or removes the prepared designation of the target creature."""
+    s = build(cards, ["Biblioplex Tomekeeper", "Studious First-Year // Rampant Growth"], [])
+    if mode == "unprepared":  # it enters prepared (cast it); otherwise it is just put onto the battlefield, not prepared
+        first = to_hand(s, "Studious First-Year // Rampant Growth")
+        mana(s, "p1", G=1)
+        act(s, "p1", type="cast_spell", card_id=first.id)
+        settle(s)
+        assert len(s.state.rules.prepared) == 1
+    else:
+        first = put(s, "Studious First-Year // Rampant Growth")
+    mana(s, "p1", C=4)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Biblioplex Tomekeeper").id)
+    for _ in range(14):
+        d = s.state.rules.decision
+        if d is None and not s.state.zones.get("stack"):
+            break
+        if d is None:
+            act(s, s.state.rules.priority, type="pass_priority")
+            continue
+        pick = next((o.id for o in d.options if mode in (o.label or "").lower() or o.id == first.id), d.options[0].id)
+        act(s, d.player, type="choose", decision_id=d.id, option_ids=[pick])
+    assert len(s.state.rules.prepared) == prepared
     check(s)
