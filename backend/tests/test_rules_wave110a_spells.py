@@ -14,7 +14,7 @@ from app.game.errors import ActionError
 from tests.wave110a_kit import *
 
 BERSERK, MANDATE, BAIT, FLUX = "Berserk", "Mandate of Peace", "Take the Bait", "Thermal Flux"
-EUREKA, HYPERGENESIS, MEDITATION, DONTMOVE, REINS = "Eureka", "Hypergenesis", "Cleansing Meditation", "Don't Move", "Grab the Reins"
+EUREKA, HYPERGENESIS, MEDITATION, DONTMOVE, REINS, MOMENT = "Eureka", "Hypergenesis", "Cleansing Meditation", "Don't Move", "Grab the Reins", "Moment of Reckoning"
 AERITH, SUNDER, WMBD, ANOINT, SLIME = "Aerith Rescue Mission", "Sunder the Gateway", "What Must Be Done", "Anoint with Affliction", "Convert to Slime"
 
 
@@ -23,7 +23,7 @@ def cards(settings):
     yield from open_repo(settings)
 
 
-test_full = full_test([BERSERK, MANDATE, BAIT, FLUX, AERITH, SUNDER, WMBD, ANOINT, SLIME, EUREKA, HYPERGENESIS, MEDITATION, DONTMOVE, REINS])
+test_full = full_test([BERSERK, MANDATE, BAIT, FLUX, AERITH, SUNDER, WMBD, ANOINT, SLIME, EUREKA, HYPERGENESIS, MEDITATION, DONTMOVE, REINS, MOMENT])
 
 
 def attack(s, c, target="p2"):
@@ -294,4 +294,16 @@ def test_grab_the_reins_sacrifice_mode_damages_for_the_sacrificed_creatures_powe
     cast(s, REINS, ["p2"], modes=[1])
     answer(s)
     assert life(s, "p2") == 37
+    check(s)
+
+
+def test_moment_of_reckoning_repeats_a_mode_each_with_its_own_target(cards):
+    """700.2d: "Choose up to four" with the same mode more than once, a target for each instance (601.2c); modes resolve in order (608.2c)."""
+    s = build(cards, [MOMENT, "Grizzly Bears"], ["Hill Giant", "Hill Giant"])
+    a, b = put(s, "Hill Giant", "p2"), put(s, "Hill Giant", "p2")
+    dead = put(s, "Grizzly Bears")
+    act(s, "p1", type="move", card_ids=[dead.id], to={"player": "p1", "zone": "graveyard"})
+    cast(s, MOMENT, [a.id, b.id, dead.id], modes=[0, 0, 1])
+    answer(s)
+    assert s.state.cards[a.id].zone == s.state.cards[b.id].zone == "p2:graveyard" and s.state.cards[dead.id].zone == "p1:battlefield"
     check(s)

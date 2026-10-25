@@ -8626,7 +8626,7 @@ _MODAL_HEADERS = {
 # [as you cast this spell], [you may] choose both / two / one or more instead." (an ability word may lead: "Delirium — "), the condition checked
 # as the spell is cast (casting.choose_modes). Read: the two announced facts of a cast (kicked, teamwork 702.194b) and conditions about the table.
 _NUMBERS = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5}
-_REPEAT_HEADER = re.compile(r"^Choose (?P<n>three|four|five)\. You may choose the same mode more than once\.$")
+_REPEAT_HEADER = re.compile(r"^Choose (?P<up>up to )?(?P<n>three|four|five)\. You may choose the same mode more than once\.$")
 _INSTEAD_HEADER = re.compile(r"^(?:[A-Z][a-z]+(?: \d+)? — )?Choose one\. If (?P<c>.+?)(?: as you cast this spell)?, (?P<may>you may )?"
                              r"choose (?P<k>both|two|one or more|any number) instead\.$")
 
@@ -8636,7 +8636,8 @@ def modal_header(text: str) -> tuple[int, int, bool, dict[str, Any] | None] | No
     if text in _MODAL_HEADERS:
         return (*_MODAL_HEADERS[text], None)
     if (m := _REPEAT_HEADER.match(text)) is not None:
-        return _NUMBERS[m["n"]], _NUMBERS[m["n"]], True, None
+        # -- spells (wave 110A) -- "Choose up to four. You may choose the same mode more than once." (Moment of Reckoning): zero to four modes, 700.2d
+        return (0 if m["up"] else _NUMBERS[m["n"]]), _NUMBERS[m["n"]], True, None
     if (m := _INSTEAD_HEADER.match(text)) is None:
         return None
     from app.rules import conditions

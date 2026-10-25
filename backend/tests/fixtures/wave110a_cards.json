@@ -388,5 +388,22 @@
   "keywords": [
    "Entwine"
   ]
+ },
+ {
+  "name": "Moment of Reckoning",
+  "layout": "normal",
+  "mana_cost": "{3}{W}{W}{B}{B}",
+  "cmc": 7.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Choose up to four. You may choose the same mode more than once.\n• Destroy target nonland permanent.\n• Return target nonland permanent card from your graveyard to the battlefield.",
+  "colors": [
+   "B",
+   "W"
+  ],
+  "color_identity": [
+   "B",
+   "W"
+  ],
+  "keywords": []
  }
 ]
