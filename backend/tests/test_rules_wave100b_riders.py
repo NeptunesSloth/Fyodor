@@ -57,6 +57,20 @@ Every scenario checks the replay and a save and a load.
   creature token." (a nonpermanent or a declined card: the Fish - 2025-10-02).
 * Moonring Mirror - "you may exile all cards from your hand face down. If you do, put all other cards you own exiled with this artifact into
   your hand." (both abilities' cards; not the ones just exiled - 2004-12-01).
+* Read the Runes - "For each card drawn this way, discard a card unless you sacrifice a permanent." (sacrifice any, then discard the rest at
+  once - 2004-10-04). Rally the Horde - "If the last card exiled isn't a land card, repeat this process. Create a 1/1 red Warrior creature
+  token for each nonland card exiled this way."
+* Long Rest - "If eight or more cards were returned to your hand this way, your life total becomes equal to your starting life total." (103.4)
+* Bringer of the Last Gift - "Then each player returns all creature cards from their graveyard that weren't put there this way to the
+  battlefield." (owners' control; not the cards just sacrificed).
+* Vault 101: Birthday Party - "If an Equipment is put onto the battlefield this way, you may attach it to a creature you control." (701.3a)
+* Inferno of the Star Mounts - "When its power becomes 20 this way, it deals 20 damage to any target." (exactly 20, from this ability - the
+  2021-07-23 rulings).
+* Mr. Foxglove - "draw cards equal to the number of cards in defending player's hand minus the number of cards in your hand. If you didn't
+  draw cards this way, you may put a creature card from your hand onto the battlefield." (0 or less: none - 2024-07-26).
+* Call the Spirit Dragons - "for each color, put a +1/+1 counter on a Dragon you control of that color. If you put +1/+1 counters on five
+  Dragons this way, you win the game." (five different Dragons - 2025-04-04).
+* Holistic Wisdom - "Return target card from your graveyard to your hand if it shares a card type with the card exiled this way." (the cost's)
 * Hellfire - "deals X plus 3 damage to you, where X is the number of creatures that died this way." (a destroyed token counts, a creature a
   replacement effect exiled instead doesn't: the 2009-10-01 rulings).
 """
@@ -85,7 +99,10 @@ LOCKE, HELLION, HULK = "Locke, Treasure Hunter", "Devouring Hellion", "Deathbonn
 KALDHEIM, MANABOND, GUARDIAN = "Invasion of Kaldheim // Pyre of the World Tree", "Manabond", "Wicked Guardian"
 INVESTIGATORS, CLASH, SANCTUM = "Phenomenon Investigators", "Clash of Elements", "Theorist's Sanctum"
 HEDRON, ATEMSIS, SPHINX, VOICE = "Hedron Alignment", "Atemsis, All-Seeing", "Rescuer Sphinx", "Veteran's Voice"
-GEAR, MIRROR = "Fishing Gear", "Moonring Mirror"
+GEAR, MIRROR, RUNES, RALLY = "Fishing Gear", "Moonring Mirror", "Read the Runes", "Rally the Horde"
+REST, BRINGER, VAULT101 = "Long Rest", "Bringer of the Last Gift", "Vault 101: Birthday Party"
+INFERNO, FOXGLOVE, SPIRIT = "Inferno of the Star Mounts", "Mr. Foxglove", "Call the Spirit Dragons"
+HOLISTIC = "Holistic Wisdom"
 BEARS, GIANT, RIP, ELVES = "Grizzly Bears", "Hill Giant", "Rest in Peace", "Llanowar Elves"
 
 
@@ -94,7 +111,7 @@ def cards(settings):
     yield from open_repo(settings)
 
 
-@pytest.mark.parametrize("name", [ROWEN, ETCHINGS, KERANOS, SUGARMAW, HELLFIRE, TERROR, KELLAN, EGO, SHRIEK, GORILLA, DESERTER, AEROSTAT, FOLD, SWIFT, RESEARCHER, KOYA, SURVIVORS, VANISH, DAKRA, DURIN, LATNAM, SURGE, LOCKE, HELLION, HULK, KALDHEIM, MANABOND, GUARDIAN, INVESTIGATORS, CLASH, SANCTUM, HEDRON, ATEMSIS, SPHINX, VOICE, GEAR, MIRROR])
+@pytest.mark.parametrize("name", [ROWEN, ETCHINGS, KERANOS, SUGARMAW, HELLFIRE, TERROR, KELLAN, EGO, SHRIEK, GORILLA, DESERTER, AEROSTAT, FOLD, SWIFT, RESEARCHER, KOYA, SURVIVORS, VANISH, DAKRA, DURIN, LATNAM, SURGE, LOCKE, HELLION, HULK, KALDHEIM, MANABOND, GUARDIAN, INVESTIGATORS, CLASH, SANCTUM, HEDRON, ATEMSIS, SPHINX, VOICE, GEAR, MIRROR, RUNES, RALLY, REST, BRINGER, VAULT101, INFERNO, FOXGLOVE, SPIRIT, HOLISTIC])
 def test_the_cards_are_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL", name
 
@@ -906,4 +923,149 @@ def test_moonring_mirror_swaps_your_hand_for_the_cards_it_exiled(cards):
     run(s)
     assert s.state.zones["p1:hand"] == stashed
     assert len([c for c in s.state.zones["p1:exile"] if s.state.cards[c].face_down]) == len(hand)  # (face down: new hidden identities, 406.3)
+    check(s)
+
+
+# -- Read the Runes / Rally the Horde -------------------------------------------------------------------------------------------------
+def test_read_the_runes_sacrifices_what_you_choose_then_discards_the_rest(cards):
+    s = build_n(cards, [RUNES, "Sol Ring"])
+    ring, runes = put(s, "Sol Ring"), to_hand(s, RUNES)
+    mana(s, U=1, C=3)
+    act(s, "p1", type="cast_spell", card_id=runes.id, x_value=3)
+    run(s, lambda d: [ring.id] if any(o.id == ring.id or getattr(o, "card_id", None) == ring.id for o in d.options) else None)
+    assert zone(s, ring) == "p1:graveyard"
+    assert hand_size(s, "p1") == 1 and len(s.state.zones["p1:graveyard"]) == 1 + 1 + 2  # (three drawn, one permanent sacrificed, two discarded)
+    check(s)
+
+
+def test_rally_the_horde_repeats_until_the_last_card_is_a_land(cards):
+    s = build_n(cards, [RALLY, BEARS, GIANT, ELVES, "Lightning Bolt"])
+    order = [named(s, BEARS), named(s, GIANT), named(s, ELVES), named(s, "Lightning Bolt"), named(s, "Forest"), named(s, "Forest", n=1)]
+    for c in reversed(order):
+        on_top(s, c)
+    spell = to_hand(s, RALLY)
+    mana(s, R=1, C=5)
+    act(s, "p1", type="cast_spell", card_id=spell.id)
+    run(s)
+    assert all(zone(s, c) == "p1:exile" for c in order)  # (three nonland: again; Bolt, Forest, Forest: the last is a land, it stops)
+    assert len([c for c in s.state.cards.values() if c.zone == "p1:battlefield" and c.name == "Warrior"]) == 4
+    check(s)
+
+
+# -- Long Rest ------------------------------------------------------------------------------------------------------------------------
+@pytest.mark.parametrize("eight", [True, False])
+def test_long_rest_resets_life_for_eight_cards_returned(cards, eight):
+    names = ["Forest", ELVES, BEARS, FAERIE, GIANT, "Gideon Jura", RALLY, GORILLA]  # (mana values 0 to 7)
+    s = build_n(cards, [REST, *names[1:]])
+    picked = [named(s, n) for n in names[: 8 if eight else 7]]
+    for c in picked:
+        act(s, "p1", type="move", card_ids=[c.id], to={"player": "p1", "zone": "graveyard"})
+    act(s, "p1", type="set_life", player="p1", value=12)
+    spell = to_hand(s, REST)
+    x = len(picked)
+    mana(s, G=3, C=x)
+    act(s, "p1", type="cast_spell", card_id=spell.id, x_value=x, targets=[c.id for c in picked], target_counts=[x])
+    run(s)
+    assert all(zone(s, c) == "p1:hand" for c in picked) and zone(s, spell) == "p1:exile"
+    assert life(s) == (40 if eight else 12)
+    check(s)
+
+
+# -- Bringer of the Last Gift ---------------------------------------------------------------------------------------------------------
+def test_bringer_of_the_last_gift_swaps_the_board_for_the_graveyards(cards):
+    s = build_n(cards, [BRINGER, BEARS, ELVES], [GIANT, ELVES])
+    bears, giant = put(s, BEARS), put(s, GIANT, "p2")
+    mine, theirs = named(s, ELVES), named(s, ELVES, "p2")
+    for c, pid in ((mine, "p1"), (theirs, "p2")):
+        act(s, pid, type="move", card_ids=[c.id], to={"player": pid, "zone": "graveyard"})
+    bringer = to_hand(s, BRINGER)
+    mana(s, B=2, C=6)
+    act(s, "p1", type="cast_spell", card_id=bringer.id)
+    run(s)
+    assert zone(s, bears) == "p1:graveyard" and zone(s, giant) == "p2:graveyard"  # (put there this way: they stay)
+    assert zone(s, mine) == "p1:battlefield" and zone(s, theirs) == "p2:battlefield" and zone(s, bringer) == "p1:battlefield"
+    check(s)
+
+
+# -- Vault 101: Birthday Party --------------------------------------------------------------------------------------------------------
+def test_vault_101_puts_an_equipment_and_attaches_it(cards):
+    s = build_n(cards, [VAULT101, BEARS, "Bonesplitter"])
+    bears, blade = put(s, BEARS), named(s, "Bonesplitter")
+    act(s, "p1", type="move", card_ids=[blade.id], to={"player": "p1", "zone": "graveyard"})
+    saga = to_hand(s, VAULT101)
+    mana(s, W=1, C=3)
+    act(s, "p1", type="cast_spell", card_id=saga.id)
+    run(s)  # (chapter I: a Human Soldier and a Food)
+    to_phase(s, "main1", turn=3)
+    run(s, lambda d: [blade.id] if any(getattr(o, "card_id", None) == blade.id for o in d.options) else [bears.id]
+        if any(getattr(o, "card_id", None) == bears.id for o in d.options) else None)
+    assert zone(s, blade) == "p1:battlefield" and s.state.cards[blade.id].attached_to == bears.id
+    check(s)
+
+
+# -- Inferno of the Star Mounts -------------------------------------------------------------------------------------------------------
+def test_inferno_of_the_star_mounts_hits_once_its_power_becomes_twenty(cards):
+    s = build_n(cards, [INFERNO])
+    inferno = put(s, INFERNO)
+    bob = life(s, "p2")
+    for i in range(15):  # (6 power: the 14th makes it 20; the 15th, 21, doesn't trigger)
+        mana(s, R=1)
+        activate(s, "p1", inferno, "+1/+0")
+        run(s, pick("p2"))
+        assert life(s, "p2") == (bob - 20 if i >= 13 else bob)
+    check(s)
+
+
+# -- Mr. Foxglove ---------------------------------------------------------------------------------------------------------------------
+@pytest.mark.parametrize("bob_cards", [3, 0])
+def test_mr_foxglove_draws_the_difference_or_puts_a_creature(cards, bob_cards):
+    s = build_n(cards, [FOXGLOVE, BEARS])
+    fox = put(s, FOXGLOVE)
+    to_phase(s, "main1", turn=3)
+    for c in [c for c in s.state.zones["p1:hand"] if c != named(s, BEARS).id]:
+        act(s, "p1", type="move", card_ids=[c], to={"player": "p1", "zone": "graveyard"})
+    bears = to_hand(s, BEARS)
+    for i in range(bob_cards):
+        act(s, "p2", type="move", card_ids=[named(s, "Island", "p2", n=i).id], to={"zone": "hand"})
+    stops(s)
+    to_phase(s, "declare_attackers")
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": fox.id, "target": "p2"}])
+    run(s, pick(bears.id))
+    if bob_cards:
+        assert hand_size(s, "p1") == 1 + 2 and zone(s, bears) == "p1:hand"
+    else:
+        assert zone(s, bears) == "p1:battlefield"
+    check(s)
+
+
+# -- Call the Spirit Dragons ----------------------------------------------------------------------------------------------------------
+@pytest.mark.parametrize("five", [True, False])
+def test_call_the_spirit_dragons_wins_with_five_dragons(cards, five):
+    dragons = ["Pearl Dragon", "Dragonborn Looter", "Ebon Dragon", "Volcanic Dragon", "Avenging Hunter"]  # (W, U, B, R, G)
+    s = build_n(cards, [SPIRIT, *dragons])
+    put(s, SPIRIT)
+    mine = [put(s, n) for n in dragons[: 5 if five else 4]]
+    stops(s)
+    to_phase(s, "upkeep", turn=3)
+    run(s)
+    assert all(s.state.cards[c.id].counters.get("+1/+1") == 1 for c in mine)
+    assert (s.state.rules.winner == "p1") == five
+    check(s)
+
+
+# -- Holistic Wisdom ------------------------------------------------------------------------------------------------------------------
+@pytest.mark.parametrize("shared", [True, False])
+def test_holistic_wisdom_returns_a_card_sharing_a_type_with_the_exiled_one(cards, shared):
+    s = build_n(cards, [HOLISTIC, BEARS, GIANT, "Lightning Bolt"])
+    wisdom = put(s, HOLISTIC)
+    bears, bolt = named(s, BEARS), named(s, "Lightning Bolt")
+    for c in (bears, bolt):
+        act(s, "p1", type="move", card_ids=[c.id], to={"player": "p1", "zone": "graveyard"})
+    giant = to_hand(s, GIANT)
+    target = bears if shared else bolt
+    mana(s, C=2)
+    activate(s, "p1", wisdom, "Exile a card", targets=[target.id])
+    run(s, pick(giant.id))
+    assert zone(s, giant) == "p1:exile"
+    assert zone(s, target) == ("p1:hand" if shared else "p1:graveyard")
     check(s)
