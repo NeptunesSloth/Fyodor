@@ -74,7 +74,7 @@ def test_chaos_lord_goes_to_the_opponent_only_when_the_permanent_count_is_even(c
 
 def test_divine_intervention_is_a_draw_when_the_last_counter_goes(cards):
     """Divine Intervention: removing the second of two counters (one per upkeep of its controller) makes the game a draw (104.4c)."""
-    from tests.test_rules_conditionals import to_turn
+    from tests.test_rules_conditionals import to_turn, until
 
     s = build(cards, ["Divine Intervention"], [])
     mana(s, "p1", W=2, C=6)
@@ -82,14 +82,10 @@ def test_divine_intervention_is_a_draw_when_the_last_counter_goes(cards):
     act(s, "p1", type="cast_spell", card_id=di.id)
     drive(s)
     assert s.state.cards[di.id].counters.get("intervention") == 2
-    try:
-        to_turn(s, 3, "upkeep")
-    except Exception:
-        print("STATE", s.state.turn.number, s.state.turn.phase, s.state.rules.draw_reason, s.state.cards[di.id].counters)
-        raise
+    to_turn(s, 3)
     drive(s)
     assert s.state.cards[di.id].counters.get("intervention") == 1 and s.state.rules.draw_reason is None
-    to_turn(s, 5, "upkeep")
-    drive(s)
+    until(s, lambda s: s.state.rules.draw_reason is not None)
+    assert s.state.turn.number == 5
     assert s.state.rules.draw_reason is not None
     check(s)
