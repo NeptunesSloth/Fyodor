@@ -155,6 +155,9 @@ def _mv_ok(plan: Plan, ctx: Context, e: dict[str, Any], cid: str) -> bool:
         pt = plan.ch(plan.state.cards[cid]).pt
         if pt is None or pt[0] >= effects._amount(plan, ctx, e["pw"][1]):
             return False
+    if (limit110n := e.get("tough110n")) is not None:  # -- (wave 110N) -- Bane: "with equal or lesser toughness" than the (last known) creature, 603.10a
+        pt = plan.ch(plan.state.cards[cid]).pt
+        return pt is not None and pt[1] <= effects._amount(plan, ctx, limit110n)
     if not e.get("mv"):
         return True
     op, value = e["mv"]

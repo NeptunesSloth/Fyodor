@@ -39,6 +39,8 @@ def definition(ability: Any, ch: Any) -> Def | None:
 
     if (flag := _FLAGS.get(ability.text.strip())) is not None:
         return {"kind": "static", "static": flag, "effects": []}
+    if ability.text.strip() == _BANE:
+        return _bane(ability, ch)
     if (built := _BUILD.get(ability.text.strip())) is None:
         return None
     native = scripts.define(replace(ability, text=built[0]), ch)
@@ -150,6 +152,29 @@ def _thief(d: Def) -> Def:
 _BUILD["When you cast this spell, exile up to one target noncreature, nonland permanent an opponent controls with mana value 4 or less. If you do, "
        "Thief of Existence gains \"When this creature leaves the battlefield, target opponent draws a card.\""] = (
     "When you cast this spell, exile up to one target noncreature, nonland permanent an opponent controls with mana value 4 or less. If you do, you gain 1 life.", _thief)
+
+
+_BANE = ("Whenever another nontoken creature you control dies, target opponent may have you draw a card. If they don't, you may put a creature card "
+         "with equal or lesser toughness from your hand onto the battlefield.")
+
+
+def _bane(ability: Any, ch: Any) -> Def | None:
+    """Bane, Lord of Darkness: the targeted opponent answers first (608.2d); "if they don't" the controller may put a creature card from hand whose toughness
+    is at most the dead creature's as it last existed (603.10a); "if they do" the controller draws instead."""
+    from app.rules import scripts
+
+    head = scripts.define(replace(ability, text="Whenever another nontoken creature you control dies, target opponent loses 1 life."), ch)
+    put = scripts.define(replace(ability, text="Whenever another nontoken creature you control dies, you may put a creature card with mana value less than or "
+                                 "equal to that creature's mana value from your hand onto the battlefield."), ch)
+    if head is None or put is None or put["effects"][0].get("do") != "put_from_hand":
+        return None
+    card = {k: v for k, v in put["effects"][0].items() if k != "mv"}
+    return {**head, "effects": [
+        {"do": "optional_payment", "who": "target", "ask": "Have its controller draw a card", "bind": "bane110n"},
+        {"do": "only_if", "cond": {"not": {"succeeded": "bane110n"}}, "skip": 1},
+        {**card, "tough110n": {"toughness": "event"}},
+        {"do": "only_if", "cond": {"succeeded": "bane110n"}, "skip": 1},
+        {"do": "draw", "who": "you", "n": 1}]}
 
 
 def _willow(d: Def) -> Def:
