@@ -66,10 +66,22 @@ def _batch(d: Def) -> Def:
     return {**d, "cond": {**d["cond"], "aggregate": True}}
 
 
+def _mirror(d: Def) -> Def:
+    """Mirror of Fate: the up to seven face-up exiled cards are chosen as it resolves, not targeted (608.2d, 115.1), then the library is exiled
+    (face up, 406.3) and the chosen cards go on top (401.4: their owner orders them)."""
+    from app.rules import selectors
+
+    key = selectors.parse("face-up card you own in exile").key()  # type: ignore[union-attr]
+    pick = {"do": "player_chooses", "who": "you", "sel": key, "n": 7, "label": "exiled card", "zone": "exile", "upto": True, "optional": True, "as": "mof"}
+    return {**d, "targets": [], "effects": [pick, {"do": "exile_library110i"}, {"do": "to_library", "who": "ref:mof", "place": "top"}]}
+
+
 _POWER_LEAK = "At the beginning of the upkeep of enchanted {0}'s controller, that player may pay any amount of mana. This Aura deals 2 damage to that player. Prevent X of that damage, where X is the amount of mana that player paid this way."
 
 # whole ability text -> (the wording the grammar reads, what to change in its definition)
 _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
+    "{T}, Sacrifice this artifact: Choose up to seven face-up exiled cards you own. Exile all the cards from your library, then put the chosen cards on top of your library.":
+        ("{T}, Sacrifice this artifact: Put up to seven target cards you own from exile on top of your library.", _mirror),
     "Whenever one or more loyalty counters are put on planeswalkers you control, put that many +1/+1 counters on this creature.":
         ("Whenever one or more loyalty counters are put on a planeswalker you control, put that many +1/+1 counters on this creature.", _batch),
     **{_POWER_LEAK.format(k): (f"At the beginning of the upkeep of enchanted {k}'s controller, this Aura deals 2 damage to that player.", _prevent_paid)
@@ -143,7 +155,39 @@ def attach_all(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     return True
 
 
-PRIMITIVES = {"attach_all110i": attach_all, "lose_rad110i": lose_rad, "bounce_gate110i": bounce_gate}
+# friend or foe sides (app/rules/friend_foe.py): the acting player is "you" while the block runs (tempting.as_player)
+SIDES: dict[str, list[Def]] = {
+    # Regna's Sanction: a choice of their own (608.2d), then every other creature they control becomes tapped
+    "chooses one untapped creature they control, then taps the rest": [
+        {"do": "player_chooses", "who": "you", "sel": 'sel:{"tapped":false,"types":["Creature"]}', "n": 1, "label": "untapped creature", "as": "keep110i"},
+        {"do": "bind_rest110i", "as": "rest110i"}, {"do": "tap", "who": "ref:rest110i"}],
+    # Zndrsplt's Judgment: the friend chooses which creature they control to copy; the token is created under their control (111.2)
+    "creates a token that's a copy of a creature they control": [
+        {"do": "player_chooses", "who": "you", "sel": 'sel:{"types":["Creature"]}', "n": 1, "label": "creature", "as": "copy110i"},
+        {"do": "token_copy", "n": 1, "who": "ref:copy110i"}],
+}
+
+
+def bind_rest(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """"Taps the rest": the creatures the acting player controls other than the one they chose."""
+    from app.rules import context
+
+    chosen = next((n for n in context.refs(ctx) if n.endswith("keep110i")), None)  # (spell lines rename their bindings: scripts.rename_bindings)
+    keep = set(context.objects(plan, ctx, chosen)) if chosen else set()
+    mine = [c.id for c in plan.state.cards.values() if c.zone == f"{ctx['controller']}:battlefield" and "Creature" in plan.ch(c).types and c.id not in keep]
+    context.bind_objects(plan, ctx, e["as"], mine)
+    return True
+
+
+def exile_library(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """701.13 exile: every card of the controller's library moves to exile, face up."""
+    pid = ctx["controller"]
+    if cards := list(plan.state.zones.get(f"{pid}:library", [])):
+        plan.do({"type": "move", "card_ids": cards, "to": {"zone": "exile"}}, actor=pid)
+    return True
+
+
+PRIMITIVES = {"bind_rest110i": bind_rest, "exile_library110i": exile_library, "attach_all110i": attach_all, "lose_rad110i": lose_rad, "bounce_gate110i": bounce_gate}
 
 
 def definition(ability: Any, ch: Any) -> Def | None:

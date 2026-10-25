@@ -65,9 +65,21 @@ EXTRA = [
     real("Tezzeret's Gambit", "{3}{U}", 4, "Sorcery", "Draw two cards, then proliferate.", None, "U"),
     real("Angrath's Marauders", "{3}{R}{R}", 5, "Creature — Human Pirate",
          "If a source you control would deal damage to a permanent or player, it deals double that damage instead.", ("4", "4"), "R"),
+    real("Spectral Adversary", "{3}{U}", 4, "Creature — Spirit",
+         "Flash\nFlying\nWhen this creature enters, you may pay {1}{U} any number of times. When you pay this cost one or more times, put that many +1/+1 counters on this creature, then up to that many other target artifacts, creatures, and/or enchantments phase out.",
+         ("2", "2"), "U"),
+    real("Mirror of Fate", "{3}", 3, "Artifact",
+         "{T}, Sacrifice this artifact: Choose up to seven face-up exiled cards you own. Exile all the cards from your library, then put the chosen cards on top of your library.",
+         None, ""),
+    real("Regna's Sanction", "{2}{W}{W}", 4, "Sorcery",
+         "For each player, choose friend or foe. Each friend puts a +1/+1 counter on each creature they control. Each foe chooses one untapped creature they control, then taps the rest.",
+         None, "W"),
+    real("Zndrsplt's Judgment", "{2}{W}{U}", 4, "Sorcery",
+         "For each player, choose friend or foe. Each friend creates a token that's a copy of a creature they control. Each foe returns a creature they control to its owner's hand.",
+         None, "WU"),
     real("Naturalize", "{1}{G}", 2, "Instant", "Destroy target artifact or enchantment.", None, "G"),
 ]
-NAMES = ["The Moment", "Curse of Conformity", "Puppet Master", "Rhuk, Hexgold Nabber", "Errant Minion", "Power Leak", "Glimpse the Cosmos", "Traveler's Cloak", "Bioessence Hydra"]
+NAMES = ["The Moment", "Curse of Conformity", "Puppet Master", "Rhuk, Hexgold Nabber", "Errant Minion", "Power Leak", "Glimpse the Cosmos", "Traveler's Cloak", "Bioessence Hydra", "Spectral Adversary", "Mirror of Fate", "Regna's Sanction", "Zndrsplt's Judgment"]
 
 
 @pytest.fixture()
@@ -306,4 +318,84 @@ def test_errant_minion_prevention_combines_with_doubling(cards, paid):
     to_phase(s, "upkeep", turn=2)
     answer(s, f"x:{paid}" if paid else "decline")
     assert life(s, "p2") == 40 - max(0, 4 - paid)
+    check(s)
+
+
+@pytest.mark.parametrize("times", [0, 1, 2])
+def test_spectral_adversary_pays_n_times_for_n_counters_and_n_phase_outs(cards, times):
+    """603.12, 107.3f, 118.3: the reflexive ability's counters and its "up to that many" targets (chosen as it goes on the stack) follow the times paid."""
+    s = build(cards, ["Spectral Adversary", "Probe Legend"], ["Grizzly Bears", "Probe Giant"])
+    legend, bear, giant = put(s, "Probe Legend"), put(s, "Grizzly Bears", "p2"), put(s, "Probe Giant", "p2")
+    mana(s, U=8)
+    adv = cast(s, "Spectral Adversary")
+    while s.state.rules.decision is None and s.state.zones.get("stack"):
+        act(s, s.state.rules.priority, type="pass_priority")
+    d = s.state.rules.decision
+    assert "how many times" in d.prompt
+    act(s, d.player, type="choose", decision_id=d.id, option_ids=[f"x:{times}" if times else "decline"])
+    for _ in range(40):
+        d = s.state.rules.decision
+        if d is not None:
+            ids = [o.id for o in d.options if o.card_id in (legend.id, bear.id, giant.id)][:times]
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=ids or [d.options[0].id])
+        elif s.state.zones.get("stack"):
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            break
+    assert s.state.cards[adv.id].counters.get("+1/+1", 0) == times
+    assert sum(zone(s, c).endswith(":phased") for c in (legend, bear, giant)) == times
+    check(s)
+
+
+def test_mirror_of_fate_exiles_the_library_and_puts_the_chosen_exiled_cards_on_top(cards):
+    """608.2d: chosen on resolution (no targets); the library is exiled (face up), the chosen cards (owned, in exile) end up as the whole library."""
+    s = build(cards, ["Mirror of Fate", "Probe Legend", "Probe Giant", "Soldier Maker"], [])
+    mirror = put(s, "Mirror of Fate")
+    keep, other = put(s, "Probe Legend"), put(s, "Probe Giant")
+    for c in (keep, other):
+        act(s, "p1", type="move", card_ids=[c.id], to={"player": "p1", "zone": "exile"})
+    library_before = list(s.state.zones["p1:library"])
+    act(s, "p1", type="activate_ability", card_id=mirror.id, ability=0)
+    answer(s, [keep.id])
+    assert zone(s, mirror) == "p1:graveyard" and zone(s, other) == "p1:exile"
+    assert s.state.zones["p1:library"] == [keep.id] and all(s.state.cards[c].zone == "p1:exile" for c in library_before)
+    check(s)
+
+
+def _sort(s, **sides):
+    for pid, side in sides.items():
+        d = s.state.rules.decision
+        assert d is not None and d.prompt == f"Is {s.state.players[pid].name} a friend or a foe?", d
+        act(s, "p1", type="choose", decision_id=d.id, option_ids=[side])
+
+
+def test_regnas_sanction_friend_gets_counters_foe_keeps_one_untapped(cards):
+    """101.4, 608.2d: the friend puts a counter on each creature they control; the foe chooses one untapped creature and taps the rest."""
+    s = build(cards, ["Regna's Sanction", "Probe Legend"], ["Grizzly Bears", "Probe Giant", "Probe Revenant"])
+    mine = put(s, "Probe Legend")
+    theirs = [put(s, n, "p2") for n in ("Grizzly Bears", "Probe Giant")]
+    mana(s, W=4)
+    cast(s, "Regna's Sanction")
+    while s.state.rules.decision is None:
+        act(s, s.state.rules.priority, type="pass_priority")
+    _sort(s, p1="friend", p2="foe")
+    answer(s, theirs[1].id)
+    assert s.state.cards[mine.id].counters.get("+1/+1") == 1 and not any(s.state.cards[c.id].counters.get("+1/+1") for c in theirs)
+    assert [s.state.cards[c.id].tapped for c in theirs] == [True, False]
+    check(s)
+
+
+def test_zndrspts_judgment_friend_copies_foe_returns(cards):
+    """111.2: the friend's token copy is created under their control; the foe returns a creature they control to its owner's hand (101.4)."""
+    s = build(cards, ["Zndrsplt's Judgment", "Grizzly Bears"], ["Probe Giant"])
+    put(s, "Grizzly Bears")
+    theirs = put(s, "Probe Giant", "p2")
+    mana(s, W=2, U=1, C=2)
+    cast(s, "Zndrsplt's Judgment")
+    while s.state.rules.decision is None:
+        act(s, s.state.rules.priority, type="pass_priority")
+    _sort(s, p1="friend", p2="foe")
+    answer(s)
+    copies = [c for c in s.state.cards.values() if c.name == "Grizzly Bears" and c.zone == "p1:battlefield"]
+    assert len(copies) == 2 and any(c.token for c in copies) and zone(s, theirs) == "p2:hand"
     check(s)

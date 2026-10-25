@@ -7217,7 +7217,9 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     counted_damage_targets = d is not None and isinstance(d.get("cond"), dict) and d["cond"].get("event") in ("deal_combat_damage_player", "gain_life") and bool(
         [g for g in d.get("targets") or [] if g.get("x_count")]) and all(
         g.get("x_value") == {"event_amount": 1} for g in d["targets"] if g.get("x_count"))
-    if d is not None and d.get("kind") == "triggered" and '"x_count"' in json.dumps(d, default=str) and not (
+    own = None if d is None else {**d, "effects": [e for e in d.get("effects") or [] if not (  # (wave 110I: a reflexive ability's X is the payment's, above)
+        e.get("do") == "reflexive" and e.get("x_from") and (e.get("ability") or {}).get("x_event"))]}
+    if d is not None and d.get("kind") == "triggered" and '"x_count"' in json.dumps(own, default=str) and not (
             counted_damage_targets or monstrous_x or x_given or (d.get("trigger") == "enters_self" and "{X}" in (ch.mana_cost or "") and "where X is" not in ability.text)):
         return None  # ("up to X target …" in a trigger: its targets are chosen before any X is known to it; wave 19F: but the X an
         # enters trigger of a spell cast with X, or a becomes-monstrous trigger, is given: triggers.cast_x)
@@ -11142,6 +11144,8 @@ def _reflexive(rest: str, effects: list[dict[str, Any]], prev_start: int, option
     # -- cast-permission riders (wave 38C) -- 603.12, 107.3f: "you may pay {X}. When you do, … target creature card with mana value X …" (Halo Forager, Isareth the
     # Awakener): the reflexive ability goes on the stack after the payment, so its target is chosen knowing the X paid (the event's amount: triggers.event_x)
     x_event = x_bind is not None and bool(re.search(rf',{selectors.X_VALUE}\]', json.dumps(b_target, default=str)))
+    # -- cost-sized reflexive targets (wave 110I) -- 603.12, 107.3f: "up to that many other target creatures" of a reflexive ability: chosen as it goes on the stack, knowing the X paid
+    x_event = x_event or (x_bind is not None and isinstance(b_target, list) and any(g.get("x_count") == "upto" for g in b_target))
     out = {"do": "reflexive", "cond": cond, "ability": {"kind": "triggered", "trigger": "reflexive", "effects": b_effects,
                                                         "optional": b_optional, **target_fields(b_target), **({"x_event": True} if x_event else {})},
            **({"x_from": x_bind} if x_bind else {}), **({"keep_event": True} if keep else {})}
