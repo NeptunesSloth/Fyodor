@@ -41,6 +41,9 @@ _AS: dict[str, str] = {
     # Sage of the Skies: "this spell" is the spell the cast trigger is about (707.10, 707.10f: a copy of a permanent spell becomes a token)
     "When you cast this spell, if you've cast another spell this turn, copy this spell.":
         "When you cast this spell, if you've cast another spell this turn, copy it.",
+    # TARDIS: outside a Planechase game planeswalking does nothing (701.31a; ruling 2023-10-13)
+    "Whenever ~ attacks, if you control a Time Lord, the next spell you cast this turn has cascade and you may planeswalk.":
+        "Whenever ~ attacks, if you control a Time Lord, the next spell you cast this turn has cascade.",
     # The Lunar Whale: to play a card is to play it as a land or cast it as a spell (305.1, 601)
     "As long as ~ attacked this turn, you may play the top card of your library.":
         "As long as ~ attacked this turn, you may play lands and cast spells from the top of your library.",
@@ -139,6 +142,13 @@ def _zimone(dread: Def, up: Def) -> Def | None:
         return None
     return {**dread, "effects": [{**dread["effects"][0], "bind": "cond0"}, dread["effects"][1],
                                  {"do": "only_if", "cond": {"flag": "cond0", "negate": True}, "skip": 1}, {**up["effects"][0], "optional": True}]}
+
+
+def _flurry(copy: Def, draw: Def) -> Def | None:
+    if _dos(copy) != ["copy_spell", "copy_new_targets"] or _dos(draw) != ["draw"]:
+        return None
+    return {**copy, "effects": [{"do": "only_if", "cond": {"flurry100h": True}, "skip": 2, "bind": "cond0"}, *copy["effects"],
+                                {"do": "only_if", "cond": {"flag": "cond0", "negate": True}, "skip": 1}, *draw["effects"]]}
 
 
 def _ashling(counter: Def, blast: Def) -> Def | None:
@@ -426,6 +436,16 @@ _BUILD: dict[str, tuple[tuple[str, ...], Callable[..., Def | None]]] = {
     "permanent you control face up.":
         (("Whenever a land you control enters, manifest dread if this is the first time this ability has resolved this turn.",
           "Whenever a land you control enters, you may turn a face-down permanent you control face up."), _zimone),
+    # Shiko and Narset, Unified (flurry): the copy is made only if the spell targets a permanent or player as this resolves, and then it must be
+    # (ruling 2025-04-04); otherwise a card is drawn
+    "Whenever you cast your second spell each turn, copy that spell if it targets a permanent or player, and you may choose new targets for the copy. "
+    "If you don't copy a spell this way, draw a card.":
+        (("Whenever you cast your second spell each turn, copy that spell. You may choose new targets for the copy.",
+          "Whenever you cast your second spell each turn, draw a card."), _flurry),
+    # Yidris, Maelstrom Wielder: every spell its controller casts from hand for the rest of the turn gains cascade, once per resolution, even after
+    # Yidris leaves (rulings 2016-11-08; casting._granted_cascade reads the turn facts)
+    "Whenever ~ deals combat damage to a player, as you cast spells from your hand this turn, they gain cascade.":
+        (("Whenever ~ deals combat damage to a player, draw a card.",), lambda d: {**d, "effects": [{"do": "yidris100h"}]} if _dos(d) == ["draw"] else None),
     "At the beginning of your upkeep, you may look at the top card of your library. If it shares a creature type with ~, you may reveal it. If you "
     "do, you may play that card without paying its mana cost.":
         (("At the beginning of your upkeep, reveal the top card of your library. You may play that card without paying its mana cost.",), _elder),
@@ -549,8 +569,20 @@ def definition(ability: Any, ch: Any) -> Def | None:
 
 
 def holds(plan: Any, ctx: dict[str, Any], cond: dict[str, Any]) -> bool:
-    """Frodo: the source is its controller's Ring-bearer (701.54a) and the Ring has tempted them two or more times (701.54c)."""
-    from app.rules import designations
+    """Frodo: the source is its controller's Ring-bearer (701.54a) and the Ring has tempted them two or more times (701.54c).
+    Flurry (Shiko and Narset): the spell the trigger is about targets a permanent or a player now (115.9b: a target still on the battlefield as
+    the same object, or a player still in the game)."""
+    from app.rules import copying, designations
+
+    if cond.get("flurry100h"):
+        for sid, oid in copying._copy_sources(plan, ctx, "event_spell"):
+            mem = copying.lki_spell(plan, sid, oid)
+            entry = mem.entry if mem is not None else plan.rules.stack.get(sid)
+            for t in entry.targets if entry is not None else []:
+                c = plan.state.cards.get(t.id)
+                if t.id in plan.live() or (c is not None and c.zone.endswith(":battlefield") and (t.object_id is None or plan.oid(c) == t.object_id)):
+                    return True
+        return False
 
     card = plan.state.cards.get(ctx.get("source_card") or "")
     return bool(card is not None and plan.oid(card) == ctx.get("source_object") and designations.ring_bearer_of(plan.state, card)
@@ -592,12 +624,23 @@ def shade(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return permissions.grant_play(plan, ctx, {"do": "grant_play", "who": context.PREFIX + "shade100h", "play": False, "cast": True, "until": "end_of_turn"})
 
 
-def own_cascade(plan: Any, card: Any, ch: Any) -> int:
-    """The instances of cascade a spell's own conditional static gives it as it is cast (702.85a)."""
-    from app.rules import conditions, scripts
+def own_cascade(plan: Any, card: Any, ch: Any, cast_from: str | None = None) -> int:
+    """The instances of cascade a spell's own conditional static gives it as it is cast (702.85a), and one for each Yidris resolution this turn
+    when it is cast from its caster's hand."""
+    from app.rules import conditions, history, scripts
 
     ctx = {"controller": plan.actor, "source_card": card.id, "source_object": plan.oid(card)}
-    return sum(1 for d in scripts.definitions(ch).values() if d.get("static") == "own_cascade100h" and conditions.holds(plan, ctx, d["cond"]))
+    hand = sum(1 for f in history.log_for(plan).facts if f.kind == "hand_cascade100h" and f.player == plan.actor) if cast_from == "hand" else 0
+    return hand + sum(1 for d in scripts.definitions(ch).values() if d.get("static") == "own_cascade100h" and conditions.holds(plan, ctx, d["cond"]))
+
+
+def yidris(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    from app.game.rules_state import TurnFact, turn_log_now
+
+    if (log := turn_log_now(plan.state)) is not None:
+        log.facts.append(TurnFact(kind="hand_cascade100h", player=ctx["controller"]))
+    plan.note(f"{ctx.get('name') or 'Yidris'}: spells {plan.name(ctx['controller'])} casts from hand this turn gain cascade", actor=ctx["controller"])
+    return True
 
 
 def starfish(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
@@ -607,4 +650,4 @@ def starfish(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return effects.PRIMITIVES["create_token"](plan, ctx, {**e, "do": "create_token", "n": n}) if n else True
 
 
-PRIMITIVES = {"council100h": council, "destiny100h": destiny, "toxic_draw100h": toxic_draw, "shade100h": shade, "starfish100h": starfish}
+PRIMITIVES = {"yidris100h": yidris, "council100h": council, "destiny100h": destiny, "toxic_draw100h": toxic_draw, "shade100h": shade, "starfish100h": starfish}

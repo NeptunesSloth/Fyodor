@@ -1149,3 +1149,38 @@ def test_zimone_manifests_dread_first_then_turns_a_permanent_face_up(cards):
     assert not s.state.cards[down[0].id].face_down
     assert not [c for c in s.state.cards.values() if c.face_down and c.zone == "p1:battlefield"]  # (no second manifest)
     check(s)
+
+
+# -- Yidris, Maelstrom Wielder ----------------------------------------------------------------------------------------------------------------------
+@pytest.mark.parametrize("hit", [True, False])
+def test_yidris_gives_spells_cast_from_hand_cascade_after_combat_damage(cards, hit):
+    s = build(cards, ["Yidris, Maelstrom Wielder", "Grizzly Bears", "Llanowar Elves"])
+    yidris = put(s, "Yidris, Maelstrom Wielder")
+    attack(s, [yidris] if hit else [])
+    elves = next(c for c in s.state.cards.values() if c.name == "Llanowar Elves")
+    act(s, "p1", type="move", card_ids=[elves.id], to={"zone": "library"}, position="top")
+    act(s, "p1", type="move", card_ids=[yidris.id], to={"zone": "graveyard"})  # (it needn't stay: ruling 2016-11-08)
+    bears = cast(s, "Grizzly Bears", pick=["yes", elves.id])
+    assert zone(s, bears) == "p1:battlefield" and zone(s, elves) == ("p1:battlefield" if hit else "p1:library")
+    check(s)
+
+
+# -- Shiko and Narset, Unified ----------------------------------------------------------------------------------------------------------------------
+def test_shiko_and_narset_copy_a_second_spell_that_targets_a_player(cards):
+    s = build(cards, ["Shiko and Narset, Unified", "Opt", "Lightning Bolt"])
+    put(s, "Shiko and Narset, Unified")
+    cast(s, "Opt")
+    before = hand(s)
+    bolt(s, "p2")
+    assert life(s, "p2") == 34 and hand(s) == before  # (the copy and the Bolt; no draw)
+    check(s)
+
+
+def test_shiko_and_narset_draw_when_the_second_spell_targets_nothing(cards):
+    s = build(cards, ["Shiko and Narset, Unified", "Opt", "Lightning Bolt"])
+    put(s, "Shiko and Narset, Unified")
+    bolt(s, "p2")
+    before = hand(s)
+    cast(s, "Opt")
+    assert life(s, "p2") == 37 and hand(s) == before + 2  # (Opt's draw and the flurry draw; cast() puts Opt in hand first)
+    check(s)

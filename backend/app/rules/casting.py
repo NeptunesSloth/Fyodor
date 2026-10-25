@@ -4630,7 +4630,7 @@ def crew(plan: Plan, card: CardInstance, ch: Characteristics, a: A.ActivateAbili
 def _granted_cascade(plan: Plan, card: CardInstance, ch: Characteristics, cast_from: str | None) -> int:
     from app.rules import cast_limits, turnstate100h
 
-    return cast_limits.granted_cascade(plan, card.id, ch, cast_from) + turnstate100h.own_cascade(plan, card, ch)  # (wave 100H: Bloodbraid Marauder)
+    return cast_limits.granted_cascade(plan, card.id, ch, cast_from) + turnstate100h.own_cascade(plan, card, ch, cast_from)  # (wave 100H: Bloodbraid Marauder, Yidris)
 
 
 def _cascade_triggers(plan: Plan, card: CardInstance, ch: Characteristics, extra: int = 0) -> None:

@@ -1299,5 +1299,71 @@
   ],
   "power": "3",
   "toughness": "3"
+ },
+ {
+  "name": "TARDIS",
+  "layout": "normal",
+  "mana_cost": "{2}",
+  "cmc": 2.0,
+  "type_line": "Artifact — Vehicle",
+  "oracle_text": "Flying\nWhenever this Vehicle attacks, if you control a Time Lord, the next spell you cast this turn has cascade and you may planeswalk.\nCrew 2 (Tap any number of creatures you control with total power 2 or more: This Vehicle becomes an artifact creature until end of turn.)",
+  "colors": [],
+  "color_identity": [],
+  "keywords": [
+   "Flying",
+   "Crew"
+  ],
+  "power": "2",
+  "toughness": "4"
+ },
+ {
+  "name": "Yidris, Maelstrom Wielder",
+  "layout": "normal",
+  "mana_cost": "{U}{B}{R}{G}",
+  "cmc": 4.0,
+  "type_line": "Legendary Creature — Ogre Wizard",
+  "oracle_text": "Trample\nWhenever Yidris deals combat damage to a player, as you cast spells from your hand this turn, they gain cascade. (When you cast the spell, exile cards from the top of your library until you exile a nonland card that costs less. You may cast it without paying its mana cost. Put the exiled cards on the bottom in a random order.)",
+  "colors": [
+   "B",
+   "G",
+   "R",
+   "U"
+  ],
+  "color_identity": [
+   "B",
+   "G",
+   "R",
+   "U"
+  ],
+  "keywords": [
+   "Trample"
+  ],
+  "power": "5",
+  "toughness": "4"
+ },
+ {
+  "name": "Shiko and Narset, Unified",
+  "layout": "normal",
+  "mana_cost": "{1}{U}{R}{W}",
+  "cmc": 4.0,
+  "type_line": "Legendary Creature — Human Spirit Dragon",
+  "oracle_text": "Flying, vigilance\nFlurry — Whenever you cast your second spell each turn, copy that spell if it targets a permanent or player, and you may choose new targets for the copy. If you don't copy a spell this way, draw a card.",
+  "colors": [
+   "R",
+   "U",
+   "W"
+  ],
+  "color_identity": [
+   "R",
+   "U",
+   "W"
+  ],
+  "keywords": [
+   "Flying",
+   "Flurry",
+   "Vigilance"
+  ],
+  "power": "4",
+  "toughness": "4"
  }
 ]

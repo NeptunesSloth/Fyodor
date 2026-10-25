@@ -1569,7 +1569,7 @@ def holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
         from app.rules import fight_receipts90
 
         return fight_receipts90.fought_creature(plan, ctx['controller'])
-    if cond.get("frodo100h"):  # -- turn state (wave 100H) --
+    if cond.get("frodo100h") or cond.get("flurry100h"):  # -- turn state (wave 100H) --
         from app.rules import turnstate100h
 
         return turnstate100h.holds(plan, ctx, cond)
