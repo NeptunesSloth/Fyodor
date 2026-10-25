@@ -92,6 +92,9 @@ BUILDERS: dict[str, Callable[[], Parsed]] = {
 # Sentences the grammar reads in other words (608.2c). 509.1g: while a combat phase is going (the only time the "dies during combat" trigger fires),
 # "the creatures it blocked this combat" are the creatures blocked by it (block_events reads them off its last known information).
 REWRITES = {
+    # 601.2h, 107.3: "a number of tokens equal to the amount of mana spent" = X tokens, X the amount of mana spent to cast it.
+    "create a number of 1/1 black Fungus Zombie creature tokens named Cordyceps Infected equal to the amount of mana spent to cast this spell.":
+        "create X 1/1 black Fungus Zombie creature tokens named Cordyceps Infected, where X is the amount of mana spent to cast this spell.",
     # 611.2 / 122.1: control change then the counter on the same (still targeted) creature, as two sentences.
     "Gain control of target nonartifact, nonblack creature that attacked you this turn and put a -1/-0 counter on it.":
         "Gain control of target nonartifact, nonblack creature that attacked you this turn, then put a -1/-0 counter on it.",

@@ -7,6 +7,7 @@
 * 601.3, 506.3, 122.1: "Cast this spell only after combat." + control change of a creature that attacked you + -1/-0 counter (Jabari's Influence).
 * 400.7, 603.1: "At the beginning of your end step, exile up to one target artifact ... and up to one target creature ... Then return them ..." (Don & Leo).
 * 702.23a, 613.1f, 702.7b: "Target creature gains first strike ... If it doesn't have rampage, that creature gains rampage 2 until end of turn." (Rapid Fire).
+* 601.2h, 107.3: "create a number of ... tokens ... equal to the amount of mana spent to cast it" (Abby, Merciless Soldier).
 * 702.26a-d: "Simultaneously, all phased-out creatures phase in and all creatures with phasing phase out." (Time and Tide).
 * 602.5, 605.1a: "Creatures with flying can't attack or block, and their activated abilities with {T} in their costs can't be activated." (Katabatic Winds).
 """
@@ -52,10 +53,12 @@ EXTRA = [
          "Simultaneously, all phased-out creatures phase in and all creatures with phasing phase out.", None, 'U'),
     real('Test Fade 110F', '{U}', 1, 'Instant', "Target creature phases out.", None, 'U'),
     real('Test Phaser 110F', '{1}{U}', 2, 'Creature — Spirit', 'Phasing', ('2', '2'), 'U'),
+    real('Abby, Merciless Soldier', '{1}{R}{G}', 3, 'Legendary Creature — Human Survivor',
+         "When you cast this spell, create a number of 1/1 black Fungus Zombie creature tokens named Cordyceps Infected equal to the amount of mana spent to cast it.\nAbby enters under the control of an opponent of your choice.\nPartner\u2014Survivors (You can have two commanders if both have this ability.)", ('4', '4'), 'RG'),
     real('Test Flyer', '{2}{U}', 3, 'Creature — Bird', 'Flying\n{T}: Draw a card.', ('1', '1'), 'U'),
 ]
 _BASE.extend(EXTRA)  # the shared fixture DB builder reads this list
-NAMES = ["Katabatic Winds", "Rivals' Duel", "Dead Ringers", "Cathedral Membrane", "Taunt", "Jabari's Influence", "Don & Leo, Problem Solvers", "Rapid Fire", "Time and Tide"]
+NAMES = ["Katabatic Winds", "Rivals' Duel", "Dead Ringers", "Cathedral Membrane", "Taunt", "Jabari's Influence", "Don & Leo, Problem Solvers", "Rapid Fire", "Time and Tide", "Abby, Merciless Soldier"]
 
 
 @pytest.mark.parametrize("name", NAMES)
@@ -196,7 +199,8 @@ def test_rapid_fire_grants_rampage_and_first_strike(cards):
 
 def test_time_and_tide_swaps_phased_out_and_phasing_creatures(cards):
     s = build(cards, ["Time and Tide", "Test Fade 110F", "Test Phaser 110F", "Grizzly Bears"])
-    phaser, bear = put(s, "Test Phaser 110F"), put(s, "Grizzly Bears")
+    put(s, "Test Phaser 110F")
+    bear = put(s, "Grizzly Bears")
     mana(s, U=3)
     cast(s, "Test Fade 110F", [bear.id])
     answer(s)
@@ -204,4 +208,15 @@ def test_time_and_tide_swaps_phased_out_and_phasing_creatures(cards):
     cast(s, "Time and Tide")
     answer(s)
     assert zone_of(s, "Grizzly Bears") == "p1:battlefield" and zone_of(s, "Test Phaser 110F") == "p1:phased"
+    check(s)
+
+
+def test_abby_makes_a_token_per_mana_spent_and_enters_under_an_opponent(cards):
+    s = build(cards, ["Abby, Merciless Soldier"])
+    mana(s, R=1, G=1, C=1)
+    cast(s, "Abby, Merciless Soldier")
+    answer(s)
+    tokens = [c for c in s.state.cards.values() if c.name == "Cordyceps Infected" and c.zone == "p1:battlefield"]
+    assert len(tokens) == 3
+    assert zone_of(s, "Abby, Merciless Soldier") == "p2:battlefield"
     check(s)
