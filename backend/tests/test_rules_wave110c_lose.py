@@ -88,3 +88,38 @@ def test_two_replacements_player_chooses_order(cards):
         if chosen is throne:
             assert s.state.cards[other.id].zone == "p1:battlefield"
         check(s)
+
+
+TRIS = real("Triskaidekaphobia", "{3}", 3, "Enchantment",
+            "At the beginning of your upkeep, choose one —\n• Each player with exactly 13 life loses the game, then each player gains 1 life.\n"
+            "• Each player with exactly 13 life loses the game, then each player loses 1 life.", None, "")
+EXTRA.append(TRIS)
+
+
+def test_two_player_loss_each_replaced_then_rest_of_effect_runs(cards):
+    """104.3e + 616.1: both players lose at once; p1's choice among two replacements pauses the effect, p2's own applies, then 'each player gains 1 life' still runs."""
+    s = build(cards, ["Triskaidekaphobia", "The Golden Throne", "Lich's Mirror"], ["Exquisite Archangel"])
+    put(s, "Triskaidekaphobia")
+    throne, mirror = put(s, "The Golden Throne"), put(s, "Lich's Mirror")
+    angel = put(s, "Exquisite Archangel", "p2")
+    for p in ("p1", "p2"):
+        act(s, p, type="set_life", player=p, value=13)
+    for _ in range(60):  # (to p1's next upkeep trigger: choose the first mode)
+        d = s.state.rules.decision
+        if d is not None and d.kind == "choose_one" and d.player == "p1" and any(o.id == throne.id for o in d.options):
+            break
+        if d is not None and d.kind == "declare_attackers":
+            act(s, d.player, type="declare_attackers", attackers=[])
+        elif d is not None and d.kind == "declare_blockers":
+            act(s, d.player, type="declare_blockers", blocks=[])
+        elif d is not None:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[d.options[0].id])
+        else:
+            act(s, s.state.rules.priority, type="pass_priority")
+    assert d is not None and {o.id for o in d.options} == {throne.id, mirror.id}
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[throne.id])
+    answer(s)
+    assert life(s, "p1") == 2 and life(s, "p2") == 41  # replaced to 1 / 40, then each player gains 1
+    assert s.state.cards[throne.id].zone == "p1:exile" and s.state.cards[angel.id].zone == "p2:exile"
+    assert s.state.cards[mirror.id].zone == "p1:battlefield" and s.state.rules.winner is None
+    check(s)

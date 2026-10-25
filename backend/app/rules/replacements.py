@@ -1404,6 +1404,9 @@ def _graveyard_candidates(plan: Plan, card: CardInstance, frm: str) -> list[Cand
         out.append(Cand(recorded[0], "exile", False, recorded[1]))
     if (why := _record_exile_cards(plan, card)) is not None:  # -- zone replacements (wave 37B) -- from any zone
         out.append(Cand(why, "exile"))
+    from app.rules import wave110c_wheel  # -- (wave 110C) --
+
+    out += wave110c_wheel.candidates(plan, card)
     return out
 
 

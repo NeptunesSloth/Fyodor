@@ -2882,7 +2882,8 @@ def parse_effects(body: str, it: str | None = None, *, event_player: bool = Fals
         x_mana_restrictions,
     )
 
-    if body.strip().lower().rstrip(".").startswith("until end of turn, you may cast creature spells from your graveyard by foraging "):
+    if body.strip().lower().rstrip(".").startswith(("until end of turn, you may cast creature spells from your graveyard by foraging ",
+                                                       "you may cast a creature spell from your graveyard this turn. if you do, it enters with a finality counter")):  # (wave 110C: Tarrian's Journal)
         from app.rules import permissions
 
         if (forage_permission := permissions.parse_clause(body.strip().rstrip("."))) is not None:
@@ -7746,7 +7747,8 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
         from app.rules import permissions  # permissions, cost modifiers, "play with the top card revealed"
 
         granted = permissions.define_static(text, ability.kind, tuple(self_text(ab.text, ch.name) for ab in ch.abilities))
-        if granted is not None and granted.get("static") in ("alt_cost", "cost_modifier") and "Room" in ch.subtypes:
+        # (-- Rooms (wave 110C) -- an alt_cost table static of an unlocked door is read like any permanent's: _cached drops a locked door's text, 709.5)
+        if granted is not None and granted.get("static") in ("alt_cost", "cost_modifier") and "Room" in ch.subtypes and not (granted.get("static") == "alt_cost" and granted.get("table")):
             return None  # -- cost changers (wave 4I) -- a Room door's ability works only while it's unlocked: not modelled
         if granted is not None:
             return granted
@@ -9002,7 +9004,7 @@ _UNLESS_OPPONENTS = re.compile(r"^you have (?P<n>\w+) or more opponents$")
 # The object's own "instead": "If ~ would die, exile it instead." / "… be put into a graveyard from anywhere …"
 EXILE_INSTEAD_SELF = re.compile(r"^If ~ would (?P<what>die|be put into a graveyard from anywhere), exile it instead\.$")
 _EXILE_RIDER = re.compile(r"^(?P<head>If .+? would (?:die|be put into (?:a|your|an opponent's) graveyard(?: from anywhere)?), )"
-                          r"(?:exile (?:it|that card) instead\. When you do, (?P<when>.+)|instead exile (?:it|that card) and (?P<and_>(?:create|you gain) .+))\.$")
+                          r"(?:exile (?:it|that card) instead\. When you do, (?P<when>.+)|instead exile (?:it|that card) and (?P<and_>(?:create|you gain) .+))(?:\.|(?<=\.\"))$")
 _LEAVES_EXILE_SELF = re.compile(r"^If ~ would leave the battlefield, exile it instead(?: of putting it anywhere else)?\.$")
 # -- zone replacements (wave 22C) -- "If ~ would be put into a graveyard from anywhere, reveal ~ and shuffle it into its owner's library instead." (Blightsteel Colossus)
 SHUFFLE_INSTEAD_SELF = re.compile(r"^If ~ would be put into a graveyard from anywhere, reveal ~ and shuffle it into its owner's library instead\.$")
@@ -9604,8 +9606,8 @@ def define_replacement(ability: AbilityText, text: str) -> Definition | None:
                 "position": "top" if m["pos"] == "top" else "bottom"}
     rider = None
     if (mr := _EXILE_RIDER.match(text)) is not None:  # -- zone replacements (wave 22C) -- "…, instead exile that card and create a 2/2 … token." (Kalitas)
-        parsed = parse_effects((mr["when"] or mr["and_"])[:1].upper() + (mr["when"] or mr["and_"])[1:] + ".", None)  # / "…, exile it instead. When you do, …" (Nemata)
-        if parsed is None or not parsed[0] or parsed[1] is not None or parsed[2] or any(e["do"] not in ("create_token", "gain_life") for e in parsed[0]):
+        parsed = parse_effects((mr["when"] or mr["and_"])[:1].upper() + (mr["when"] or mr["and_"])[1:] + ("" if (mr["when"] or mr["and_"]).endswith('"') else "."), None)  # / "…, exile it instead. When you do, …" (Nemata)
+        if parsed is None or not parsed[0] or parsed[1] is not None or parsed[2] or any(e["do"] not in ("create_token", "gain_life", "optional_payment", "only_if") for e in parsed[0]):
             return None
         rider = {"effects": parsed[0], "reflexive": bool(mr["when"])}
         text = mr["head"] + "exile it instead."

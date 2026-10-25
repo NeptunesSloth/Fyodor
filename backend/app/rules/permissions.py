@@ -1242,6 +1242,10 @@ def parse_clause(text: str) -> tuple[list[dict[str, Any]], Any] | None:
                  "play": False, "cast": True, "until": "end_of_turn", "optional": True,
                  "filter": spell_filter("creature"), "extra": "forage",
                  "enters": {"counters": {"finality": 1}}}], None
+    if text.lower() == ("you may cast a creature spell from your graveyard this turn. if you do, it enters with a finality counter on it "
+                        "and is a vampire in addition to its other types"):  # -- Tarrian's Journal (wave 110C) -- one creature spell; 122.6, 205.1b
+        return [{"do": "grant_play", "zone": "graveyard", "zone_owner": "you", "play": False, "cast": True, "until": "end_of_turn", "optional": True,
+                 "once": True, "filter": spell_filter("creature"), "enters": {"counters": {"finality": 1}, "subtypes": ["Vampire"]}}], None
     m = GRANT_ZONE.fullmatch(text)
     if m:
         if m["until"] and m["this_turn"]:
@@ -1684,6 +1688,11 @@ def gain_on_entry(plan: Plan, card_id: str, controller: str, rider: dict[str, An
 
         layers.add_effect(plan, affected=[plan.oid(card_id)], layer="6", source=None, controller=controller, add_keywords=tuple(rider["keywords"]),
                           label="Gained from the cast permission")
+    if rider and rider.get("subtypes") and card is not None and card.zone.endswith(":battlefield"):  # -- wave 110C -- "and is a Vampire in addition to its other types": layer 4 (205.1b, 613.1d), kept while it is that object
+        from app.rules import layers
+
+        layers.add_effect(plan, affected=[plan.oid(card_id)], layer="4", source=None, controller=controller, duration="permanent",
+                          add_subtypes=tuple(rider["subtypes"]), label="Gained from the cast permission")
     if rider and rider.get("abilities") and card is not None and card.zone.endswith(":battlefield"):
         from app.rules import layers
 

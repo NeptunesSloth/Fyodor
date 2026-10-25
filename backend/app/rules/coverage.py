@@ -850,4 +850,4 @@ def x_selector_ok(ch: Characteristics, d: dict[str, Any]) -> bool:
     from app.rules.costs import spell_additional_cost
 
     extra = spell_additional_cost(ch.abilities)
-    return d.get("kind") == "spell" and ("{X}" in (ch.mana_cost or "") or (extra is not None and extra.life_x))
+    return d.get("kind") == "spell" and ("{X}" in (ch.mana_cost or "") or (extra is not None and (extra.life_x or any(c.counters_x for c in extra.components))))

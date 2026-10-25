@@ -7113,3 +7113,5 @@ RESUME.update(_wave110h.RESUME)
 from app.rules import wave110i_cards as _wave110i_cards  # noqa: E402, I001  -- cards (wave 110I) --
 
 PRIMITIVES.update(_wave110i_cards.PRIMITIVES)
+from app.rules import wave110c_any as _wave110c_any  # noqa: E402, I001
+PRIMITIVES.update(_wave110c_any.PRIMITIVES)  # -- any opponent may (wave 110C) --

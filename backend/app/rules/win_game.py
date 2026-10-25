@@ -59,10 +59,7 @@ def lose_game(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     A player who "can't lose the game" (game_result.py, wave 10B) stays; any other such wording leaves it to the players."""
     from app.rules import game_result
     from app.rules.effects import _players
-    from app.rules.leave import leave_game
-    from app.rules.plan import live_players
 
-    r = plan.rules
     losers = [p for p in _players(plan, ctx, e["who"]) if p in plan.live()]
     if losers and (unread := _unread_blocker(plan, "lose")) is not None:
         plan.note(f"{plan.name(losers[0])} would lose the game, but {unread} says a player can't: resolve it by hand")
@@ -71,12 +68,25 @@ def lose_game(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
         if game_result.cannot_lose(plan, pid):
             plan.note(f"{plan.name(pid)} would lose the game, but can't")
     losers = [p for p in losers if not game_result.cannot_lose(plan, p)]
-    from app.rules import wave110c_lose  # -- lose replacements (wave 110C) --
+    return finish_loss(plan, ctx, losers, [])
 
-    losers = [p for p in losers if not wave110c_lose.replace_loss(plan, p)]
+
+def finish_loss(plan: Plan, ctx: dict[str, Any], todo: list[str], lost: list[str]) -> bool:
+    """-- lose replacements (wave 110C) -- each loser in turn: a replacement may apply (614.1a) or ask for its order (616.1; False,
+    the choice's resume calls this again with the players left and the ones already lost, then the rest of the effect list)."""
+    from app.rules import life_game_history, wave110c_lose
+    from app.rules.leave import leave_game
+    from app.rules.plan import live_players
+
+    r = plan.rules
+    for i, pid in enumerate(todo):
+        got = wave110c_lose.replace_loss(plan, pid, {"ctx": ctx, "rest": todo[i + 1:], "lost": lost})
+        if got == "wait":
+            return False
+        if not got:
+            lost = [*lost, pid]
+    losers = lost
     if losers:
-        from app.rules import life_game_history
-
         life_game_history.loss_events(plan, losers)
     for pid in losers:
         r.lost[pid] = "an effect"

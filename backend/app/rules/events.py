@@ -164,6 +164,7 @@ _DESIGNATION_EVENTS = [
     (re.compile(r"(?P<p>you) waterbend"), "waterbend"),
     (re.compile(r"(?P<p>you) forage"), "forage"),  # -- if you do (wave 26C) -- 701.61: the cost was paid (cost_payment.pay)
     (re.compile(r"(?P<p>you) collect evidence"), "collect_evidence"),  # 701.59
+    (re.compile(r"(?P<p>you) manifest dread"), "manifest_dread"),  # -- manifest dread (wave 110C) -- 701.62a (facedown.finish_dread)
     # -- most-played cards (wave 43B) -- 701.23: "Whenever an opponent searches their library" (Archivist of Oghma, Wan Shi Tong, Ob Nixilis, Unshackled): a search of
     # the searcher's OWN library (the rulings: not one of your search of an opponent's library, nor an opponent's of another player's)
     (re.compile(r"(?P<p>an opponent|a player) searches their library"), "search_library"),
@@ -193,6 +194,12 @@ def parse_condition(cond: str) -> Condition | None:
     if cond.endswith(" without being played"):
         base = parse_condition(cond.removesuffix(" without being played"))
         return {**base, "not_played": True} if base is not None and base.get("event") == "enter" else None
+    if (single := re.fullmatch(r"(?P<s>an? .+? spell you control) that targets only a single creature (?P<d>deals (?:combat )?damage) to that creature", cond)) is not None:
+        base = parse_condition(f"{single['s']} {single['d']} to a creature")  # -- trigger damage (wave 110C) -- Imodane: 115.9c, the one target it damages
+        return {**base, "single110c": True} if base is not None and base.get("event") == "deal_damage" else None
+    if (paired := re.fullmatch(r"~ or a creature it's paired with (is dealt damage)", cond)) is not None:  # -- soulbond (wave 110C) -- Donna Noble: 702.95b
+        base = parse_condition(f"~ {paired[1]}")
+        return {**base, "subject": "self_or_paired110c"} if base is not None and base.get("subject") == "self" else None
     if cond == "~ becomes untapped during your untap step":
         return {"event": "untapped", "subject": "self", "own_untap": True}
     cond = re.sub(r"\benchanted (?:Plains|Island|Swamp|Mountain|Forest)\b", "enchanted land", cond)
