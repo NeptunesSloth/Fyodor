@@ -1171,5 +1171,16 @@
   ],
   "keywords": [],
   "loyalty": "3"
+ },
+ {
+  "name": "Ward of Bones",
+  "layout": "normal",
+  "mana_cost": "{6}",
+  "cmc": 6.0,
+  "type_line": "Artifact",
+  "oracle_text": "Each opponent who controls more creatures than you can't cast creature spells. The same is true for artifacts and enchantments.\nEach opponent who controls more lands than you can't play lands.",
+  "colors": [],
+  "color_identity": [],
+  "keywords": []
  }
 ]

@@ -1305,9 +1305,9 @@ def land_play_problem(state: GameState, player: str, card: CardInstance, ch: Cha
         return "Lands are played in a main phase"
     if state.zones.get(STACK):
         return "You can only play a land while the stack is empty"
-    from app.rules import cast_limits
+    from app.rules import cast_limits, wave110a_spells  # (-- wave 110A -- Ward of Bones)
 
-    if info is not None and (barred := next((src for src, d in cast_limits._statics(state, info, "cant_play_lands") if d.get("players") or src.controller == player), None)) is not None:
+    if info is not None and (barred := next((src for src, d in cast_limits._statics(state, info, "cant_play_lands") if (wave110a_spells.more_of(state, info, src, d, player) if d.get("more110a") else d.get("players") or src.controller == player)), None)) is not None:
         return f"{barred.name or 'A permanent'}: you can't play lands"  # -- most-played cards III (wave 46C) -- 305.1
     if info is not None and card.zone == zone_key(player, "hand") and (barred := next(
             (src for src, d in cast_limits._statics(state, info, "cast_limit") if d.get("lands_from_hand") and src.controller == player), None)) is not None:

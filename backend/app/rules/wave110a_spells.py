@@ -366,6 +366,11 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
 
         d = scripts.define(replace(ability, text="Creatures your opponents control can't attack."), ch)
         return None if d is None else {**d, "who": selectors.Selector(types=("Creature",), controller="opponent", extras=("ctrl_cast110a",)).key()}
+    if old == "Each opponent who controls more creatures than you can't cast creature spells. The same is true for artifacts and enchantments.":
+        return {"kind": "static", "static": "cast_limit", "who": "opponents", "when": None, "filter": None, "from": None, "act": None, "max": None,
+                "more110a": ["Creature", "Artifact", "Enchantment"], "effects": []}  # Ward of Bones: 601.3, per type the opponent has more of
+    if old == "Each opponent who controls more lands than you can't play lands.":  # Ward of Bones: 305.1, read by engine.play_land_problem
+        return {"kind": "static", "static": "cant_play_lands", "effects": [], "more110a": ["Land"]}
     if old == "Each opponent who attacked with a creature this turn can't cast spells.":  # Angelic Arbiter: 601.3, an opponent who declared attackers this turn
         d = scripts.define(replace(ability, text="Your opponents can't cast spells."), ch)
         return None if d is None else {**d, "when": "attacked110a"}
@@ -376,6 +381,22 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
             if e["do"] == "return_choice":
                 e.update(n=99, upto=True)
     return d
+
+
+def more_of(state: Any, info: Any, src: Any, d: dict[str, Any], player: str, types: Any = None) -> bool:
+    """Ward of Bones: ``player`` (an opponent of the source's controller) controls more permanents of one of the d["more110a"] types (limited to
+    ``types``, the types of the spell cast) than the source's controller does, counted now (601.3: when the spell is proposed)."""
+    from app.rules import characteristics as chars
+    from app.rules.layers import derive
+
+    if info is None or player == src.controller:
+        return False
+    count: dict[str, dict[str, int]] = {player: {}, src.controller: {}}
+    for c in state.cards.values():
+        if c.zone.endswith(":battlefield") and c.controller in count:
+            for t in derive(state, c, chars.of(c, info), info).types:
+                count[c.controller][t] = count[c.controller].get(t, 0) + 1
+    return any(count[player].get(t, 0) > count[src.controller].get(t, 0) for t in d["more110a"] if types is None or t in types)
 
 
 def unblocked_turn(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
