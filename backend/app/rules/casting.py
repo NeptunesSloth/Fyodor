@@ -3795,6 +3795,9 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
     if (target_life := cost_changes.targeting_life(plan.state, plan.actor, card, ch, plan.info, tuple(t.id for t in chosen))):
         add_cost = alt_costs.merged(add_cost, costs.AbilityCost(  # -- casting costs (wave 22F) -- Terror of the Peaks: life for its targets (601.2f)
             components=(costs.CostComponent(costs.PAY_LIFE, amount=target_life, text=f"Pay {target_life} life"),), life=target_life))
+    if (each_life := sum(d.get("life_per_target", 0) for d in permissions._definitions(ch).values())) and chosen:  # -- wave 110E -- "costs 3 life more for each target"
+        add_cost = alt_costs.merged(add_cost, costs.AbilityCost(
+            components=(costs.CostComponent(costs.PAY_LIFE, amount=each_life * len(chosen), text=f"Pay {each_life * len(chosen)} life"),), life=each_life * len(chosen)))
     if (optional_more := optional_parts(optional, a.x_value or 0)) is not None:  # -- cost changers (wave 4I) -- Defiler of Vigor's 2 life, paid with the rest (601.2h, 119.4)
         add_cost = alt_costs.merged(add_cost, optional_more)
     add_objects: dict[int, list[str]] = {}

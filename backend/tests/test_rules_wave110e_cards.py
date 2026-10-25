@@ -11,6 +11,7 @@
 * Wild Shape: 700.2 the shared sentence applies to the chosen mode; 205.1a becoming "a 1/3 Turtle" replaces the creature types, sets base P/T, 611.2a for the turn.
 * Hulk's Thunderclap: 701.4a/601.2b the optional "behold a Gamma creature" cost; 120.3 the first creature deals damage equal to its power; the destroy
   instruction (608.2h-style "if the additional cost was paid") happens only when it was paid.
+* Phyrexian Purge: 118.8/601.2f 3 life per chosen target is added to the cost (paid with it, 119.4 never more than the life total).
 """
 from __future__ import annotations
 
@@ -20,7 +21,7 @@ from app.rules import coverage
 from tests.game_helpers import act
 from tests.test_rules_designations import put as put3
 from tests.test_rules_wave12a_counters_keywords import real
-from tests.wave9c_kit import build, check, mana, put, to_hand
+from tests.wave9c_kit import build, check, life, mana, put, to_hand
 
 EXTRA = [
     real("Vivien's Stampede", "{4}{G}{G}", 6, "Sorcery",
@@ -45,6 +46,7 @@ EXTRA = [
          "As an additional cost to cast this spell, you may behold a Gamma creature. (You may choose a Gamma creature you control or reveal a Gamma creature card from your hand.)\n"
          "Target creature you control deals damage equal to its power to another target creature. If this spell's additional cost was paid, destroy target noncreature artifact or noncreature enchantment.", None, "R"),
     real("Gamma Test", "{2}{G}", 3, "Creature — Mutant Gamma", "", ("3", "3"), "G"),
+    real("Phyrexian Purge", "{2}{B}{B}", 4, "Sorcery", "This spell costs 3 life more to cast for each target.\nDestroy any number of target creatures.", None, "B"),
     real("Spin into Myth", "{3}{U}", 4, "Instant",
          "Put target creature on top of its owner's library, then fateseal 2. (To fateseal 2, look at the top two cards of an opponent's library, then put any number of them on the bottom of that player's library and the rest on top in any order.)", None, "U"),
 ]
@@ -409,4 +411,22 @@ def test_hulks_thunderclap_destroys_only_when_beheld(cards, paid):
     answer(s)
     assert s.state.cards[dragon.id].damage == 3
     assert s.state.cards[rock.id].zone == ("p1:graveyard" if paid else "p1:battlefield")
+    check(s)
+
+
+@pytest.mark.parametrize("life_total", [40, 5])
+def test_phyrexian_purge_costs_three_life_per_target(cards, life_total):
+    from app.game.errors import ActionError
+
+    s = build(cards, ["Phyrexian Purge"], ["Shivan Dragon", "Grizzly Bears"])
+    dragons = [put(s, "Shivan Dragon", "p2"), put(s, "Grizzly Bears", "p2")]
+    act(s, "p1", type="set_life", player="p1", value=life_total)
+    mana(s, B=2, C=2)
+    if life_total < 6:
+        with pytest.raises(ActionError):
+            cast(s, "Phyrexian Purge", [d.id for d in dragons], target_counts=[2])
+        return
+    cast(s, "Phyrexian Purge", [d.id for d in dragons], target_counts=[2])
+    answer(s)
+    assert life(s, "p1") == 34 and all(s.state.cards[d.id].zone == "p2:graveyard" for d in dragons)
     check(s)
