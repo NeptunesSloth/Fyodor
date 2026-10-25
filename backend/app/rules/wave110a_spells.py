@@ -126,6 +126,9 @@ def _meditation() -> Parsed:
 
 # Sentences the grammar reads in other words with the same meaning (the rewrite must mean the same: 608.2c).
 REWRITES = {
+    # (Threaten: control and haste both last until end of turn, 611.2a)
+    "Until end of turn, you gain control of target creature and it gains haste.":
+        "Gain control of target creature until end of turn. It gains haste until end of turn.",
     # (122.6: "enters with … additional counters" is the grammar's "if a creature enters this way, it enters with …" for the returned permanent card)
     "Return target historic permanent card from your graveyard to the battlefield. It enters with two additional +1/+1 counters on it if it's a "
     "creature.": "Return target historic permanent card from your graveyard to the battlefield. If a creature enters this way, it enters with two "

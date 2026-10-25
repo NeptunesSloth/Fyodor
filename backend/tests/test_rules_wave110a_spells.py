@@ -14,7 +14,7 @@ from app.game.errors import ActionError
 from tests.wave110a_kit import *
 
 BERSERK, MANDATE, BAIT, FLUX = "Berserk", "Mandate of Peace", "Take the Bait", "Thermal Flux"
-EUREKA, HYPERGENESIS, MEDITATION = "Eureka", "Hypergenesis", "Cleansing Meditation"
+EUREKA, HYPERGENESIS, MEDITATION, DONTMOVE, REINS = "Eureka", "Hypergenesis", "Cleansing Meditation", "Don't Move", "Grab the Reins"
 AERITH, SUNDER, WMBD, ANOINT, SLIME = "Aerith Rescue Mission", "Sunder the Gateway", "What Must Be Done", "Anoint with Affliction", "Convert to Slime"
 
 
@@ -23,7 +23,7 @@ def cards(settings):
     yield from open_repo(settings)
 
 
-test_full = full_test([BERSERK, MANDATE, BAIT, FLUX, AERITH, SUNDER, WMBD, ANOINT, SLIME, EUREKA, HYPERGENESIS, MEDITATION])
+test_full = full_test([BERSERK, MANDATE, BAIT, FLUX, AERITH, SUNDER, WMBD, ANOINT, SLIME, EUREKA, HYPERGENESIS, MEDITATION, DONTMOVE, REINS])
 
 
 def attack(s, c, target="p2"):
@@ -258,4 +258,40 @@ def test_cleansing_meditation_threshold_returns_your_destroyed_enchantments(card
     answer(s)
     assert zone_of(s, "Sylvan Library") == ("p1:battlefield" if threshold else "p1:graveyard")
     assert zone_of(s, "Sylvan Library", "p2") == "p2:graveyard"
+    check(s)
+
+
+def test_dont_move_destroys_tapped_creatures_now_and_any_that_become_tapped_until_your_next_turn(cards):
+    """701.26a (tapping makes no new object, so "it" is the creature that became tapped), 603.7 (the watch lasts until your next turn, 500.4)."""
+    s = build(cards, [DONTMOVE], ["Grizzly Bears", "Hill Giant"])
+    already, fresh = put(s, "Grizzly Bears", "p2"), put(s, "Hill Giant", "p2")
+    act(s, "p2", type="tap", card_ids=[already.id])
+    stops(s)
+    cast(s, DONTMOVE)
+    answer(s)
+    assert zone_of(s, "Grizzly Bears", "p2") == "p2:graveyard" and zone_of(s, "Hill Giant", "p2") == "p2:battlefield"
+    to_phase(s, "declare_attackers", turn=2)
+    act(s, "p2", type="declare_attackers", attackers=[{"card_id": fresh.id, "target": "p1"}])
+    answer(s)
+    assert zone_of(s, "Hill Giant", "p2") == "p2:graveyard"
+    check(s)
+
+
+def test_grab_the_reins_threaten_mode_steals_with_haste_until_end_of_turn(cards):
+    """611.2a: control and haste both last until end of turn (the mode's "Until end of turn, you gain control … and it gains haste")."""
+    s = build(cards, [REINS], ["Hill Giant"])
+    giant = put(s, "Hill Giant", "p2")
+    cast(s, REINS, [giant.id], modes=[0])
+    answer(s)
+    assert s.state.cards[giant.id].controller == "p1" and "haste" in ch(s, giant).keywords
+    check(s)
+
+
+def test_grab_the_reins_sacrifice_mode_damages_for_the_sacrificed_creatures_power(cards):
+    """701.21a (sacrifice), 608.2b-c: damage equal to the sacrificed creature's power (last known information, 113.7a)."""
+    s = build(cards, [REINS, "Hill Giant"])
+    put(s, "Hill Giant")
+    cast(s, REINS, ["p2"], modes=[1])
+    answer(s)
+    assert life(s, "p2") == 37
     check(s)
