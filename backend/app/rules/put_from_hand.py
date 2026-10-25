@@ -144,6 +144,13 @@ def _mv_ok(plan: Plan, ctx: Context, e: dict[str, Any], cid: str) -> bool:
     from app.rules import effects
 
     ch = chars.of(plan.state.cards[cid], plan.info)
+    if e.get("shares_tapped110c"):  # -- (wave 110C) -- Cryptic Gateway: a creature type in common with each creature the cost tapped (205.3m)
+        from app.rules.creature_types import CREATURE_TYPES
+
+        record = plan.rules.payments.get(plan.rules.object_id(ctx.get("stack_id") or ""))
+        tapped = [plan.ch(plan.state.cards[t]).subtypes & CREATURE_TYPES for t in (record.tapped_for_cost if record else []) if t in plan.state.cards]
+        if not tapped or any(not (ch.subtypes & kinds) for kinds in tapped):
+            return False
     if e.get("pw"):  # -- put from hand (wave 30P) -- "with lesser power": the card's power is less than the source's
         pt = plan.ch(plan.state.cards[cid]).pt
         if pt is None or pt[0] >= effects._amount(plan, ctx, e["pw"][1]):
