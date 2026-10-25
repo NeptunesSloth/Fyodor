@@ -52,8 +52,20 @@ def _attach_all(d: Def) -> Def:
     return {**d, "effects": [{"do": "attach_all110i"}]}
 
 
+def _prevent_paid(d: Def) -> Def:
+    """Errant Minion / Power Leak: the host's controller pays any amount of mana (118.3), then the Aura deals 2 minus that much (615.1: preventing X of the 2
+    leaves 2 - X, never below 0)."""
+    (hit,) = d["effects"]
+    pay = {"do": "optional_payment", "who": "event_player", "cost": "", "bind": "leak110i", "choose_x": {"max": None}}
+    return {**d, "effects": [pay, {**hit, "n": {"minus": [hit["n"], {"paid_x": "leak110i"}]}}]}
+
+
+_POWER_LEAK = "At the beginning of the upkeep of enchanted {0}'s controller, that player may pay any amount of mana. This Aura deals 2 damage to that player. Prevent X of that damage, where X is the amount of mana that player paid this way."
+
 # whole ability text -> (the wording the grammar reads, what to change in its definition)
 _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
+    **{_POWER_LEAK.format(k): (f"At the beginning of the upkeep of enchanted {k}'s controller, this Aura deals 2 damage to that player.", _prevent_paid)
+       for k in ("creature", "enchantment")},
     "Whenever an equipped creature you control other than Rhuk attacks or dies, you may attach all Equipment attached to that creature to Rhuk.":
         ("Whenever an equipped creature you control other than ~ attacks or dies, you may draw a card.", _attach_all),
     "When enchanted creature dies, return that card to its owner's hand. If that card is returned to its owner's hand this way, you may pay {U}{U}{U}. If you do, return this card to its owner's hand.":

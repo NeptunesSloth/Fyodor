@@ -16,6 +16,7 @@ from tests.game_helpers import act, mana_pool
 from tests.test_rules_wave12a_counters_keywords import real
 from tests.test_rules_wave34b_activated import stops, to_phase
 from tests.wave110a_kit import next_turn
+from tests.wave9c_kit import life
 from tests.wave110c_kit import answer, build, cast, check, make_db, mana, put, zone
 
 EXTRA = [
@@ -33,9 +34,16 @@ EXTRA = [
          "Trample, haste\nWhenever an equipped creature you control other than Rhuk attacks or dies, you may attach all Equipment attached to that creature to Rhuk.",
          ("2", "2"), "R"),
     real("Soldier Maker", "{W}", 1, "Sorcery", "Create a 1/1 white Soldier creature token.", None, "W"),
+    real("Errant Minion", "{2}{U}", 3, "Enchantment — Aura",
+         "Enchant creature\nAt the beginning of the upkeep of enchanted creature's controller, that player may pay any amount of mana. This Aura deals 2 damage to that player. Prevent X of that damage, where X is the amount of mana that player paid this way.",
+         None, "U"),
+    real("Power Leak", "{1}{U}", 2, "Enchantment — Aura",
+         "Enchant enchantment\nAt the beginning of the upkeep of enchanted enchantment's controller, that player may pay any amount of mana. This Aura deals 2 damage to that player. Prevent X of that damage, where X is the amount of mana that player paid this way.",
+         None, "U"),
+    real("Probe Rune", "{1}", 1, "Enchantment", "", None, ""),
     real("Naturalize", "{1}{G}", 2, "Instant", "Destroy target artifact or enchantment.", None, "G"),
 ]
-NAMES = ["The Moment", "Curse of Conformity", "Puppet Master", "Rhuk, Hexgold Nabber"]
+NAMES = ["The Moment", "Curse of Conformity", "Puppet Master", "Rhuk, Hexgold Nabber", "Errant Minion", "Power Leak"]
 
 
 @pytest.fixture()
@@ -133,4 +141,21 @@ def test_rhuk_takes_the_equipment_of_an_attacking_equipped_creature(cards):
     act(s, "p1", type="declare_attackers", attackers=[{"card_id": bear.id, "target": "p2"}])
     answer(s, "yes")
     assert s.state.cards[gear.id].attached_to == rhuk.id and s.state.cards[bear.id].is_attacking
+    check(s)
+
+
+@pytest.mark.parametrize("paid", [0, 1, 2, 3])
+@pytest.mark.parametrize("aura, host", [("Errant Minion", "Grizzly Bears"), ("Power Leak", "Probe Rune")])
+def test_errant_minion_and_power_leak_deal_2_minus_the_mana_paid(cards, aura, host, paid):
+    """615.1 prevention of X of the 2 damage: 2 - X, never negative; the enchanted permanent's controller pays (118.3) and takes the damage."""
+    s = build(cards, [aura], [host, "Forest", "Island", "Swamp"])
+    target = put(s, host, "p2")
+    for land in ("Forest", "Island", "Swamp"):
+        put(s, land, "p2")
+    mana(s, U=3)
+    cast(s, aura, [target.id])
+    answer(s)
+    to_phase(s, "upkeep", turn=2)
+    answer(s, f"x:{paid}" if paid else "decline")
+    assert life(s, "p2") == 40 - max(0, 2 - paid) and life(s, "p1") == 40
     check(s)
