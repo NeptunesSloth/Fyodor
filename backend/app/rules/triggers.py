@@ -1129,6 +1129,8 @@ def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: F
     n = cond.get("min_attackers")
     if n and len(_counted_attackers(plan, cond, watcher, info)) < n:
         return False
+    if cond.get("min_total_power") and sum((plan.ch(c).pt or (0, 0))[0] for c in _counted_attackers(plan, cond, watcher, info)) < cond["min_total_power"]:  # (wave 110D)
+        return False
     if event == "cast":
         if cond.get('cast_targets102') and not (info.get('targets') or []):
             return False

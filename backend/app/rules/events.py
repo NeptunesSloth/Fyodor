@@ -934,6 +934,10 @@ def _combat(c: str) -> Condition | None:
                 "defender": "enchanted_player" if m["p"].startswith("enchanted") else "you"}
     # 508.3c / 508.3d: "you attack with one or more creatures", "you attack with three or more
     # creatures", "an opponent attacks with creatures" (the creatures declared as attackers)
+    # -- trigger other (wave 110D) -- 508.1, 603.2c: "you attack with creatures with total power 6 or greater" (Ugin's Mastery): the declared attackers' powers added up
+    if (tp := re.fullmatch(r"you attack with creatures with total power (?P<n>\d+) or greater", c)) is not None:
+        return {"event": "you_attack", "subject": "player", "player": "you", "min_attackers": 1, "min_total_power": int(tp["n"]),
+                "sel": selectors.Selector(types=("Creature",)).key()}
     m = re.fullmatch(rf"{_P} attacks? with (?:(?P<n>\w+) or more )?(?P<o>.+)", c)
     if m:
         sel = selectors.parse(m["o"])

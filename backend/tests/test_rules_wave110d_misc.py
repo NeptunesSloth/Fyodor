@@ -10,12 +10,14 @@
   untapped; doubling past 1000 sacrifices it.
 * 603.2, 400.7: "Creatures you control have 'Whenever this creature becomes tapped for the first time during each of your turns, put a +1/+1 counter on it.'"
   (Tale of Katara and Toph) — the first tap in the controller's turn counts, a second tap that turn does not.
+* 508.1, 603.2c: "Whenever you attack with creatures with total power 6 or greater, you may turn a face-down creature you control face up." (Ugin's
+  Mastery) — attackers with power 7 in all trigger it, 2 do not.
 """
 
 from __future__ import annotations
 
 from tests.game_helpers import act
-from tests.wave9c_kit import build, life
+from tests.wave9c_kit import build, life, to_hand
 from tests.wave110d_kit import (  # noqa: F401
     activate,
     card_db,
@@ -125,4 +127,54 @@ def test_tale_of_katara_counts_the_first_tap_only(cards):
     act(s, "p1", type="tap", card_ids=[bears.id])
     settle(s)
     assert now(s, bears).counters == {"+1/+1": 1}  # the second tap of the turn
+    check(s)
+
+
+def test_ugins_mastery_is_full():
+    assert full("Ugin's Mastery")
+
+
+def _attack(s, *creatures):
+    for c in creatures:
+        s.state.rules.controlled_since[c.id].turn = 0
+    next_turn(s)
+    next_turn(s)
+    to_phase(s, "declare_attackers", turn=3)
+    act(s, "p1", type="set_stops", own=["declare_attackers"], smart_pass=False)
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": c.id, "target": "p2"} for c in creatures])
+
+
+def _slinger(s):
+    mana(s, C=3)
+    slinger = to_hand(s, "Gravel Slinger")
+    act(s, "p1", type="cast_spell", card_id=slinger.id, face_down=True, sources=[])
+    settle(s)
+    return slinger
+
+
+def test_ugins_mastery_needs_total_power_six(cards):
+    s = build(cards, ["Ugin's Mastery", "Gravel Slinger", "Twisted Abomination"])
+    put(s, "Ugin's Mastery")
+    dragon = put(s, "Twisted Abomination")  # (before the face-down cast: Mastery manifests the top card of the library for it)
+    slinger = _slinger(s)
+    _attack(s, slinger, dragon)
+    assert s.state.zones.get("stack")  # 2 + 5: the trigger
+    act(s, "p1", type="pass_priority")
+    d = s.state.rules.decision
+    assert d is not None and d.player == "p1"  # asks: the trigger asks
+    mana(s, W=1, C=1)
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=["yes"])
+    d = s.state.rules.decision  # (the manifested Forest is face down too)
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[next(o.id for o in d.options if o.label == "Gravel Slinger")])
+    settle(s)
+    assert not now(s, slinger).face_down
+    check(s)
+
+
+def test_ugins_mastery_stays_quiet_below_six(cards):
+    s = build(cards, ["Ugin's Mastery", "Gravel Slinger"])
+    put(s, "Ugin's Mastery")
+    slinger = _slinger(s)
+    _attack(s, slinger)
+    assert s.state.rules.decision is None and not s.state.zones.get("stack") and now(s, slinger).face_down  # 2 only
     check(s)

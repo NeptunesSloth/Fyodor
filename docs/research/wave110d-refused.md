@@ -1,3 +1,7 @@
 - Razor Boomerang: "{T}, Unattach Razor Boomerang: It deals 1 damage to any target." - who "It" is (the Equipment or the creature) is not settled by a ruling in the repo; the granter machinery would pick the Equipment. Refused until a ruling is found.
 - Smoke Spirits' Aid: "For each of up to X target creatures, create ... attached to that creature" needs a per-target fan-out for token creation (no such primitive; "up to X" targets with a Role/Aura token each).
 - Shuriken: "That creature's controller gains control of Shuriken unless it was unattached from a Ninja" needs the unattach-source history in the granted ability.
+- Font of Agonies: "you pay life" has no event; life is paid in cost parts, effects and Phyrexian mana, each would need an emit (foundation, not one card).
+- Dog Umbra: "this Aura has umbra armor" is not a grantable keyword (statics.GRANTABLE_KEYWORDS, abilities of a granted keyword not read by regeneration.umbra_armor).
+- Minthara, Merciless Soul: ward {X} dynamic needs ward_costs to know the controller's experience counters (ward_costs(ch) has no player).
+- Brutal Hordechief: needs wave 110A declare_choosers (not in this branch).
