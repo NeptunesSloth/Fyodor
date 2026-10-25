@@ -7129,3 +7129,7 @@ RESUME.update(_wave110g_cards.RESUME)
 from app.rules import wave110j_cards as _wave110j  # noqa: E402, I001  -- wave 110J --
 
 PRIMITIVES.update(_wave110j.PRIMITIVES)
+from app.rules import wave110l_cards as _wave110l  # noqa: E402, I001  -- wave 110L --
+
+PRIMITIVES.update(_wave110l.PRIMITIVES)
+RESUME.update(_wave110l.RESUME)

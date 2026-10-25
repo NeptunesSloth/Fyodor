@@ -6074,6 +6074,10 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
 
     if (card110j := wave110j_cards.definition(ability, ch)) is not None:
         return card110j
+    from app.rules import wave110l_cards  # -- wave 110L --
+
+    if (card110l := wave110l_cards.definition(ability, ch)) is not None:
+        return card110l
     from app.rules import retarget100o  # -- retarget (wave 100O) --
 
     if (lines100o := retarget100o.definition(ability, ch)) is not None:

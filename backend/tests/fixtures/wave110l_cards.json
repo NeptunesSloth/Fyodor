@@ -1,0 +1,23 @@
+[
+ {
+  "name": "Rakdos Augermage",
+  "layout": "normal",
+  "mana_cost": "{B}{B}{R}",
+  "cmc": 3.0,
+  "type_line": "Creature — Human Wizard",
+  "oracle_text": "First strike\n{T}: Reveal your hand and discard a card of target opponent's choice. Then that player reveals their hand and discards a card of your choice. Activate only as a sorcery.",
+  "colors": [
+   "B",
+   "R"
+  ],
+  "color_identity": [
+   "B",
+   "R"
+  ],
+  "keywords": [
+   "First strike"
+  ],
+  "power": "3",
+  "toughness": "2"
+ }
+]
