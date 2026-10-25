@@ -620,6 +620,8 @@ def _untap_restricted(plan: Plan, card: CardInstance) -> bool:
     from app.rules import previous_own_turns
     rules = scripts.statics(plan.ch(card))
     # (wave 110D: "can't become untapped" stays tapped too, 701.26)
+    if any(r.startswith("doesnt_untap_counter:") and card.counters.get(r.split(":", 1)[1], 0) > 0 for r in rules):  # -- wave 110J -- Mindbender Spores, 502.3
+        return True
     return "doesnt_untap" in rules or "cant_untap" in rules or (previous_own_turns.UNTAP in rules and previous_own_turns.attacked(plan.state, card) is not False)
 
 

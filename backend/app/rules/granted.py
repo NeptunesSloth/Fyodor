@@ -161,6 +161,9 @@ def rules_of(text: str) -> tuple[str, ...] | None:
     t = re.sub(r"^((?:When|Whenever) )this token( dies\b)", r"\1this permanent\2", t)  # -- token copies (wave 31C) -- "When this token dies, draw a card." (Jaxis): the object that has it
     if not t:
         return None
+    # -- wave 110J -- 502.3: "This creature doesn't untap during your untap step if it has a fungus counter on it." (Mindbender Spores): the counter is read when it untaps
+    if kept := re.fullmatch(r"[Tt]his \w+ doesn't untap during your untap step if it has an? ([\w+/-]+) counter on it\.?", t):
+        return (f"doesnt_untap_counter:{kept[1]}",)
     from app.rules import scripts
     from app.rules.characteristics import Characteristics
 

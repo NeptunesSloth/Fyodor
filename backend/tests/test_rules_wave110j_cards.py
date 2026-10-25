@@ -4,6 +4,8 @@
 * 611.2a, 305.7, 502.3: Orcish Farmer makes a land a Swamp until its controller's next untap step — the land's controller, not the Farmer's.
 * 602.2, 611.2a: Bronze Cudgels pumps by the number of times its ability has resolved this turn (1, then 2: +3 in all), and starts over next turn.
 * 508.1, 603.2: Mob Mentality triggers only when every non-Wall creature its controller has is attacking (a Wall may stay home); +X/+0 counts the attackers.
+* 502.3, 611.2a: Mindbender Spores puts four fungus counters on the creature it blocks, which then stays tapped through its controller's untap step
+  while it has one, and loses one at each of its controller's upkeeps.
 """
 
 from __future__ import annotations
@@ -11,11 +13,24 @@ from __future__ import annotations
 import pytest
 
 from tests.wave9c_kit import build
-from tests.wave110b_kit import attack
-from tests.wave110j_kit import EXTRA, activate, card_db, cast_on, ch, check, full, mana, put, put_new, settle, to_phase  # noqa: F401
+from tests.wave110b_kit import attack, through_combat
+from tests.wave110j_kit import (  # noqa: F401
+    EXTRA,
+    activate,
+    card_db,
+    cast_on,
+    ch,
+    check,
+    full,
+    mana,
+    put,
+    put_new,
+    settle,
+    to_phase,
+)
 
 
-@pytest.mark.parametrize("name", ["Aspect of Wolf", "Orcish Farmer", "Bronze Cudgels", "Mob Mentality"])
+@pytest.mark.parametrize("name", ["Aspect of Wolf", "Orcish Farmer", "Bronze Cudgels", "Mob Mentality", "Mindbender Spores"])
 def test_the_cards_are_full(name):
     assert full(name)
 
@@ -82,4 +97,16 @@ def test_mob_mentality_needs_every_non_wall_creature_to_attack(cards, stay_home,
     attack(s, *(c for n, c in crew.items() if n != stay_home and n != "Wall of Stone"))
     settle(s)
     assert int(ch(s, crew["Grizzly Bears"]).pt[0]) == base + bonus
+    check(s)
+
+
+def test_mindbender_spores_keeps_the_blocked_creature_tapped_until_the_counters_run_out(cards):
+    s = build(cards, ["Grizzly Bears"], ["Mindbender Spores"])
+    bears, spores = put_new(s, "Grizzly Bears"), put(s, "Mindbender Spores", "p2")
+    attack(s, bears)
+    through_combat(s, [(spores, bears)])
+    assert s.state.cards[bears.id].counters == {"fungus": 4} and s.state.cards[bears.id].tapped
+    for turn, left in ((3, 3), (5, 2)):
+        to_phase(s, "main1", turn=turn)
+        assert s.state.cards[bears.id].counters == {"fungus": left} and s.state.cards[bears.id].tapped
     check(s)

@@ -151,5 +151,25 @@
   "keywords": [
    "Enchant"
   ]
+ },
+ {
+  "name": "Mindbender Spores",
+  "layout": "normal",
+  "mana_cost": "{2}{G}",
+  "cmc": 3.0,
+  "type_line": "Creature — Fungus Wall",
+  "oracle_text": "Defender (This creature can't attack.)\nFlying\nWhenever this creature blocks a creature, put four fungus counters on that creature. The creature gains \"This creature doesn't untap during your untap step if it has a fungus counter on it\" and \"At the beginning of your upkeep, remove a fungus counter from this creature.\"",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [
+   "Flying",
+   "Defender"
+  ],
+  "power": "0",
+  "toughness": "1"
  }
 ]
