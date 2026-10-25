@@ -327,5 +327,39 @@
    "B"
   ],
   "keywords": []
+ },
+ {
+  "name": "Chaos Lord",
+  "layout": "normal",
+  "mana_cost": "{4}{R}{R}{R}",
+  "cmc": 7.0,
+  "type_line": "Creature — Human",
+  "oracle_text": "First strike\nAt the beginning of your upkeep, target opponent gains control of this creature if the number of permanents is even.\nThis creature can attack as though it had haste unless it entered this turn.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "First strike"
+  ],
+  "power": "7",
+  "toughness": "7"
+ },
+ {
+  "name": "Divine Intervention",
+  "layout": "normal",
+  "mana_cost": "{6}{W}{W}",
+  "cmc": 8.0,
+  "type_line": "Enchantment",
+  "oracle_text": "This enchantment enters with two intervention counters on it.\nAt the beginning of your upkeep, remove an intervention counter from this enchantment.\nWhen you remove the last intervention counter from this enchantment, the game is a draw.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": []
  }
 ]

@@ -60,6 +60,10 @@ _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
     "Whenever you lose life, for each 1 life you lost, sacrifice a permanent other than this enchantment unless you discard a card.":
         ("Whenever you lose life, sacrifice a permanent other than this enchantment unless you discard a card.",
          lambda d: {**d, "effects": [{"do": "repeat", "n": {"event_amount": 1}, "span": len(d["effects"])}, *d["effects"]]}),
+    # Divine Intervention: the effect states that the game is a draw (104.4c)
+    "When you remove the last intervention counter from this enchantment, the game is a draw.":
+        ("When the last intervention counter is removed from this enchantment, draw a card.",
+         lambda d: {**d, "effects": [{"do": "draw_game110b"}]}),
     # Ozai: the mana a player would lose stays in the pool as red mana (614.1a, 500.4)
     "If you would lose unspent mana, that mana becomes red instead.":
         ("If you would lose unspent mana, that mana becomes colorless instead.", lambda d: {**d, "to": "R"}),
@@ -108,4 +112,13 @@ def tiered(ch: Any, lines: list[Any]) -> Def | None:
     return {"kind": "spell", "effects": [], "target": None, "modes": modes, "modal": {"min": 1, "max": 1, "repeat": False, "condition": None}}
 
 
-PRIMITIVES: dict[str, Any] = {}
+def draw_game(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """104.4c: "the game is a draw" (a Commander game does not use the limited range of influence option, 104.4e)."""
+    plan.rules.draw_reason = "An effect states that the game is a draw (104.4c)"
+    plan.rules.priority = None
+    plan.rules.decision = None
+    plan.note("The game is a draw (104.4c)")
+    return False
+
+
+PRIMITIVES: dict[str, Any] = {"draw_game110b": draw_game}

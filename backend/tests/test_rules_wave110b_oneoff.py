@@ -18,7 +18,7 @@ def cards(settings):
     yield from repository(settings)
 
 
-@pytest.mark.parametrize("name", ["Prince of Thralls", "Oath of Lim-Dûl"])
+@pytest.mark.parametrize("name", ["Prince of Thralls", "Oath of Lim-Dûl", "Chaos Lord", "Divine Intervention"])
 def test_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
@@ -54,4 +54,42 @@ def test_oath_asks_once_per_life_lost(cards, discards):
     drive(s, answer)
     lands = [c for c in s.state.zones["p1:battlefield"] if s.state.cards[c].name == "Forest"]
     assert len(lands) == discards
+    check(s)
+
+
+@pytest.mark.parametrize("extra, passes", [(0, False), (1, True)])
+def test_chaos_lord_goes_to_the_opponent_only_when_the_permanent_count_is_even(cards, extra, passes):
+    """Chaos Lord: a trailing "if" is checked as the ability resolves (608.2c, 603.4 is only for intervening ifs); every permanent counts, zero is even."""
+    from tests.test_rules_conditionals import to_turn
+
+    s = build(cards, ["Chaos Lord", "Forest"], [])
+    lord = put(s, "Chaos Lord")
+    for c in [c for c in s.state.cards.values() if c.name == "Forest" and c.zone == "p1:library"][:extra]:
+        act(s, "p1", type="move", card_ids=[c.id], to={"player": "p1", "zone": "battlefield"})
+    to_turn(s, 3, "upkeep")
+    drive(s, lambda d: ["p2"] if any(o.id == "p2" for o in d.options) else None)
+    assert (s.state.cards[lord.id].controller == "p2") == passes
+    check(s)
+
+
+def test_divine_intervention_is_a_draw_when_the_last_counter_goes(cards):
+    """Divine Intervention: removing the second of two counters (one per upkeep of its controller) makes the game a draw (104.4c)."""
+    from tests.test_rules_conditionals import to_turn
+
+    s = build(cards, ["Divine Intervention"], [])
+    mana(s, "p1", W=2, C=6)
+    di = to_hand(s, "Divine Intervention")
+    act(s, "p1", type="cast_spell", card_id=di.id)
+    drive(s)
+    assert s.state.cards[di.id].counters.get("intervention") == 2
+    try:
+        to_turn(s, 3, "upkeep")
+    except Exception:
+        print("STATE", s.state.turn.number, s.state.turn.phase, s.state.rules.draw_reason, s.state.cards[di.id].counters)
+        raise
+    drive(s)
+    assert s.state.cards[di.id].counters.get("intervention") == 1 and s.state.rules.draw_reason is None
+    to_turn(s, 5, "upkeep")
+    drive(s)
+    assert s.state.rules.draw_reason is not None
     check(s)
