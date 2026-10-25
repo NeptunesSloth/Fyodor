@@ -5914,6 +5914,10 @@ def _first_time_gate(text: str) -> str:
 
 def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     """The engine definition of one ability, or None (manual)."""
+    from app.rules import wave110f_cards  # -- whole abilities (wave 110F) --
+
+    if (whole110f := wave110f_cards.definition(ability, ch)) is not None:
+        return whole110f
     from app.rules import wave110c_core  # -- whole abilities (wave 110C) --
 
     if (whole110c := wave110c_core.definition(ability, ch)) is not None:

@@ -266,3 +266,34 @@ def parse(body: str) -> Parsed | None:
     if build is not None:
         return build()
     return scripts.parse_effects(REWRITES[body.strip()]) if body.strip() in REWRITES else None
+
+
+COPY_ENTRY = "copy_entry110f"
+_COPY_ENTRY_TEXT = "Creatures you control enter as a copy of this creature."
+
+
+def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
+    """Essence of the Wild: the static is read at entry (copying.entering -> :func:`copy_on_entry`), it has no effect of its own."""
+    from app.rules import scripts
+
+    if ability.kind == "static" and scripts.self_text(ability.text, ch.name).replace("~", "this creature") == _COPY_ENTRY_TEXT:
+        return {"kind": "static", "static": COPY_ENTRY, "effects": []}
+    return None
+
+
+def copy_on_entry(plan: Any, card: Any, controller: str) -> None:
+    """614.1c, 707.9: a creature entering under the controller of a permanent with the static enters as a copy of that permanent (its
+    copiable values, 707.2), no choice. Several such permanents copy to the same values, so the first is used (ponytail: a card with a
+    "may enter as a copy" replacement of its own, or a different copy-entry static, is not ordered against it, 616.1)."""
+    from app.game.rules_state import CopyEntrySource
+    from app.game.state import zone_key
+    from app.rules import copying, permissions
+
+    probe = card.model_copy(update={"zone": zone_key(controller, "battlefield"), "controller": controller})
+    if copying.entering_as_copy(plan, card) or not plan.ch(probe).is_creature:
+        return
+    for source, _, _ in permissions._table_statics(plan.state, plan.info, {COPY_ENTRY}):
+        if source.controller == controller and source.id != card.id and plan.ch(source).is_creature:
+            copying.add_copy_effect(plan, [plan.oid(card)], copying.recipe_of(plan, source), controller, source=copying.ENTERING + card.id,
+                                    entry_source=CopyEntrySource(card=source.id, object_id=plan.oid(source), controller=source.controller))
+            return

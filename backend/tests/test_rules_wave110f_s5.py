@@ -3,6 +3,7 @@
 * 701.24, 701.16a, 108.3: "Choose target creature. Its owner shuffles it into their library, then investigates." (Blink chapters I, III).
 * 701.13a, 603.10, 110.2: "exile another target nonland permanent. If you controlled it, return it to the battlefield tapped. Otherwise, its controller creates a ... Detective" (Unyielding Gatekeeper).
 * 115.4, 205.1a, 611.2a: "choose any number of target planeswalkers you control. Until end of turn, they become 3/3 blue Bird creatures with flying, hexproof, and ..." (Sparkshaper Visionary).
+* 614.1c, 707.9: "Creatures you control enter as a copy of this creature." (Essence of the Wild).
 * 205.1b, 611.2a: token "Whenever an opponent casts a creature spell, this token isn't a creature until end of turn." (Blink chapters II, IV).
 """
 
@@ -29,10 +30,12 @@ EXTRA = [
     real('Sparkshaper Visionary', '{2}{U}', 3, 'Creature — Human Wizard',
          'At the beginning of combat on your turn, choose any number of target planeswalkers you control. Until end of turn, they become 3/3 blue Bird creatures with flying, hexproof, and "Whenever this creature deals combat damage to a player, scry 1." (They\'re no longer planeswalkers. Loyalty abilities can still be activated.)', ('0', '5'), 'U'),
     {**real('Test Walker 110F', '{2}{U}', 3, 'Legendary Planeswalker — Test', '+1: You gain 1 life.', None, 'U'), 'loyalty': '3'},
+    real('Essence of the Wild', '{3}{G}{G}{G}', 6, 'Creature — Avatar',
+         'Creatures you control enter as a copy of this creature.', ('6', '6'), 'G'),
     real('Test Flash Bear 110F', '{1}{U}', 2, 'Creature — Bear', 'Flash', ('2', '2'), 'U'),
 ]
 _BASE.extend(EXTRA)
-NAMES = ["Blink", "Unyielding Gatekeeper", "Sparkshaper Visionary"]
+NAMES = ["Blink", "Unyielding Gatekeeper", "Sparkshaper Visionary", "Essence of the Wild"]
 
 
 @pytest.mark.parametrize("name", NAMES)
@@ -129,4 +132,22 @@ def test_sparkshaper_turns_chosen_planeswalkers_into_birds_for_the_turn(cards, p
     assert ("Creature" in got.types) is pick and ("Planeswalker" in got.types) is not pick
     if pick:
         assert got.pt == (3, 3) and {"flying", "hexproof"} <= set(got.keywords) and "Bird" in got.subtypes
+    check(s)
+
+
+@pytest.mark.parametrize("pid,copied", [("p1", True), ("p2", False)])
+def test_essence_makes_only_its_controllers_creatures_enter_as_copies(cards, pid, copied):
+    """614.1c: a Bear entering under Essence's controller is a 6/6 copy of Essence (and copies again, 707.2); an opponent's Bear is unchanged."""
+    from tests.test_rules_wave100f_control import ch
+
+    s = build(cards, ["Essence of the Wild", "Grizzly Bears"], ["Grizzly Bears"], forests=20, islands=20)
+    put(s, "Essence of the Wild")
+    if pid == "p2":
+        to_phase(s, "main1", turn=2)
+    mana(s, pid, G=2)
+    bear = cast(s, "Grizzly Bears", pid=pid)
+    _resolve(s)
+    got = ch(s, s.state.cards[bear.id])
+    assert s.state.cards[bear.id].zone == f"{pid}:battlefield"
+    assert (got.name, got.pt) == (("Essence of the Wild", (6, 6)) if copied else ("Grizzly Bears", (2, 2)))
     check(s)
