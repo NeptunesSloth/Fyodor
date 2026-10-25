@@ -100,6 +100,20 @@ def test_night_soil_refuses_a_pair_split_over_two_graveyards(cards):
     check(s)
 
 
+def test_a_your_graveyard_cost_never_reads_another_graveyard(cards):
+    """Rotwidow Pack: "Exile a creature card from your graveyard" (118.3): "a graveyard" (Thelon) reads every graveyard, "your graveyard" only your own."""
+    s = build(cards, ["Rotwidow Pack", "Grizzly Bears"], ["Grizzly Bears"])
+    pack = put(s, "Rotwidow Pack")
+    theirs = grave_new(s, "Grizzly Bears", "p2")
+    mana(s, B=1, G=1, C=3)
+    refused(s, "You can.t pay|Choose|isn.t|aren.t", pack, "{3}{B}{G}, Exile a creature card from your graveyard")  # only an opponent's card
+    refused(s, "You can.t pay|Choose|isn.t|aren.t", pack, "{3}{B}{G}, Exile a creature card from your graveyard", cost_choices=[{"component": 1, "cards": [theirs.id]}])
+    mine = grave_new(s, "Grizzly Bears")
+    activate(s, pack, "{3}{B}{G}, Exile a creature card from your graveyard")
+    assert now(s, mine).zone == "p1:exile" and now(s, theirs).zone == "p2:graveyard"
+    check(s)
+
+
 def test_thelon_puts_a_spore_counter_on_every_fungus(cards):
     s = build(cards, ["Thelon of Havenwood", "Thallid"], ["Thallid", "Thallid"])
     thelon, mine, theirs = put(s, "Thelon of Havenwood"), put(s, "Thallid"), put_new(s, "Thallid", "p2")

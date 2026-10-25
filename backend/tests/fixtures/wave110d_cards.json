@@ -6555,5 +6555,60 @@
 "U",
 "W"
 ]
+},
+{
+"name": "Dromosaur",
+"layout": "normal",
+"mana_cost": "{2}{R}",
+"cmc": 3.0,
+"type_line": "Creature — Dinosaur",
+"oracle_text": "Whenever this creature blocks or becomes blocked, it gets +2/-2 until end of turn.",
+"colors": [
+"R"
+],
+"color_identity": [
+"R"
+],
+"keywords": [],
+"power": "2",
+"toughness": "3"
+},
+{
+"name": "Rotwidow Pack",
+"layout": "normal",
+"mana_cost": "{2}{B}{G}",
+"cmc": 4.0,
+"type_line": "Creature — Spider",
+"oracle_text": "Reach\n{3}{B}{G}, Exile a creature card from your graveyard: Create a 1/2 green Spider creature token with reach, then each opponent loses 1 life for each Spider you control.",
+"colors": [
+"B",
+"G"
+],
+"color_identity": [
+"B",
+"G"
+],
+"keywords": [
+"Reach"
+],
+"power": "2",
+"toughness": "4"
+},
+{
+"name": "Grizzly Bears",
+"layout": "normal",
+"mana_cost": "{1}{G}",
+"cmc": 2.0,
+"type_line": "Creature — Bear",
+"oracle_text": "",
+"colors": [
+"G"
+],
+"color_identity": [
+"G"
+],
+"keywords": [],
+"power": "2",
+"toughness": "2"
 }
 ]
