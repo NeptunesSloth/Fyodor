@@ -2,6 +2,7 @@
 
 * Equal Treatment: 614.1a, 611.2a "any source would deal 1 or more damage ... this turn, 2 instead": 3 becomes 2, 1 becomes 2 (Flameblade ping), then draw.
 * Archfiend of Spite: 118.12a, 120.3 "loses that much life unless they sacrifice that many permanents": the damage dealt is the count, the source's controller chooses.
+* Elderscale Wurm: 119.1 "life total is less than 7" as it enters, and 120.3a/614.1a "damage that would reduce your life total to less than 7 reduces it to 7" while at 7+.
 * Flameblade Angel: 120.3 / 603.2 damage from an opponent's source to you or to a permanent you control triggers once; 603.7-free "may" 1 damage to that source's controller.
 """
 
@@ -19,7 +20,7 @@ def cards(settings):
     yield from repository(settings)
 
 
-@pytest.mark.parametrize("name", ["Flameblade Angel", "Equal Treatment", "Archfiend of Spite"])
+@pytest.mark.parametrize("name", ["Flameblade Angel", "Equal Treatment", "Archfiend of Spite", "Elderscale Wurm"])
 def test_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
@@ -61,7 +62,7 @@ def test_equal_treatment_sets_every_damage_to_2_this_turn(cards):
 
 @pytest.mark.parametrize("pays", [False, True])
 def test_archfiend_of_spite_makes_the_source_controller_lose_life_or_sacrifice_that_many(cards, pays):
-    s = build(cards, ["Archfiend of Spite"], ["Lightning Bolt", "Grizzly Bears", "Shivan Dragon", "Forest"])
+    s = build(cards, ["Archfiend of Spite", "Elderscale Wurm"], ["Lightning Bolt", "Grizzly Bears", "Shivan Dragon", "Forest"])
     archfiend = put(s, "Archfiend of Spite")
     kept = [put(s, n, "p2") for n in ("Grizzly Bears", "Shivan Dragon", "Forest")]
     act(s, "p2", type="set_prefs", response="on")
@@ -72,4 +73,29 @@ def test_archfiend_of_spite_makes_the_source_controller_lose_life_or_sacrifice_t
     drive(s, lambda d: [next((o.id for o in d.options if o.label.startswith("Pay") == pays), d.options[0].id)])
     assert s.state.players["p2"].life == (40 if pays else 37)
     assert [s.state.cards[c.id].zone for c in kept] == (["p2:graveyard"] * 3 if pays else ["p2:battlefield"] * 3)
+    check(s)
+
+
+@pytest.mark.parametrize("start, after", [(3, 7), (7, 7), (20, 20)])
+def test_elderscale_wurm_raises_a_low_life_total_to_7_as_it_enters(cards, start, after):
+    s = build(cards, ["Elderscale Wurm"], [])
+    act(s, "p1", type="set_life", player="p1", value=start)
+    mana(s, "p1", G=3, C=4)
+    cast(s, "Elderscale Wurm")
+    assert s.state.players["p1"].life == after
+    check(s)
+
+
+@pytest.mark.parametrize("start, after", [(10, 7), (8, 7), (7, 7), (5, 2)])
+def test_elderscale_wurm_keeps_you_at_7_against_damage_only_from_7_or_more(cards, start, after):
+    s = build(cards, ["Elderscale Wurm"], ["Lightning Bolt"])
+    put(s, "Elderscale Wurm")
+    act(s, "p1", type="set_life", player="p1", value=start)
+    act(s, "p2", type="set_prefs", response="on")
+    act(s, "p1", type="set_prefs", response="on")
+    mana(s, "p2", R=1)
+    s.state.rules.priority = "p2"
+    act(s, "p2", type="cast_spell", card_id=to_hand(s, "Lightning Bolt", "p2").id, targets=["p1"])
+    drive(s)
+    assert s.state.players["p1"].life == after
     check(s)

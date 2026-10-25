@@ -327,7 +327,7 @@ def _loss(text: str) -> Definition | None:
 # Sustaining Spirit), "If you control a creature, damage that would …" (Worship, Serra the Benevolent's emblem). 120.3a: the damage dealt stays what it was;
 # only the life it makes the player lose is replaced (the Gatherer rulings: lifelink and "deals damage" triggers see all of it, "lose life" and paying life
 # bypass it, and nothing applies to a player already below 1 life). Event ``life_loss`` of damage (``damage``: True), op ``floor``.
-_FLOOR = re.compile(r"^(?:If (?P<cond>[^,]+), d|D)amage that would reduce your life total to less than 1 reduces it to 1 instead\.$")
+_FLOOR = re.compile(r"^(?:If (?P<cond>[^,]+), d|As long as you have (?P<k>[2-9]|\d\d+) or more life, d|D)amage that would reduce your life total to less than (?P<n>\d+) reduces it to (?P=n) instead\.$")
 
 
 def _floor(text: str) -> Definition | None:
@@ -335,6 +335,10 @@ def _floor(text: str) -> Definition | None:
     if not m:
         return None
     match: dict[str, Any] = {"who": "you", "damage": True}
+    if (m["k"] or m["n"] != "1") and m["k"] != m["n"]:
+        return None  # (only "As long as you have N or more life, … less than N reduces it to N" (Elderscale Wurm) beyond the floor of 1)
+    if m["k"]:
+        return _static("life_loss", match, {"do": "floor", "to": int(m["k"])})
     if m["cond"]:
         from app.rules import conditions
 

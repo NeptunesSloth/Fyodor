@@ -1281,5 +1281,24 @@
   ],
   "power": "6",
   "toughness": "6"
+ },
+ {
+  "name": "Elderscale Wurm",
+  "layout": "normal",
+  "mana_cost": "{4}{G}{G}{G}",
+  "cmc": 7.0,
+  "type_line": "Creature — Wurm",
+  "oracle_text": "Trample\nWhen this creature enters, if your life total is less than 7, your life total becomes 7.\nAs long as you have 7 or more life, damage that would reduce your life total to less than 7 reduces it to 7 instead.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [
+   "Trample"
+  ],
+  "power": "7",
+  "toughness": "7"
  }
 ]
