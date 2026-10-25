@@ -315,6 +315,10 @@ _ADVENTURER = {
 
 
 def definition(ability: AbilityText, ch: Any) -> dict[str, Any] | None:
+    from app.rules import wave110c_lose
+
+    if (lose := wave110c_lose.definition(ability.text)) is not None:  # "If you would lose the game, instead ..." (Exquisite Archangel, The Golden Throne, Lich's Mirror)
+        return lose
     if ability.text.replace("Ugin's Nexus", "~") == _NEXUS:  # 614.6, 500.7: the exile replaces the move; the extra turn is part of the same replacement (rider)
         from app.rules import scripts
 
