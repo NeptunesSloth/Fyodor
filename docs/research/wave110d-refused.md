@@ -31,3 +31,6 @@
 - Gift of Doom: "As this Aura is turned face up, you may attach it" needs a pre-SBA attach decision inside the turn-up special action.
 - Quicksilver Elemental: borrowed activated abilities + "spend blue mana as any color" for its abilities (two foundations).
 - Archnemesis: "attack enchanted player" event for an Aura on a player not modelled.
+- Geth's Summons: Corrupted adds one target per opponent with 3+ poison as cast (variable target count by cast-time state).
+- Evangelize / Mausoleum Turnkey / Arena: delegated target announcement exists only for activated abilities; spells, triggers and a mixed own+opponent-choice pair need new foundations.
+- Ghostly Dancers / Marina Vendrell: no "unlock/lock a door" effect primitive yet (rooms.unlock exists; needs door choice decision).

@@ -7,6 +7,9 @@ from typing import Any
 
 # the Oracle line (the card's name as ~) -> the wording the grammar already reads, with the same meaning
 _AS: dict[str, str] = {
+    # Liege of the Tangle: "Each of those lands" = each of them (the targets); 613.1d/613.1f, 205.1b the lands stay lands
+    "Whenever ~ deals combat damage to a player, you may choose any number of target lands you control and put an awakening counter on each of them. Each of those lands is an 8/8 green Elemental creature for as long as it has an awakening counter on it. They're still lands.":  # noqa: E501
+        "Whenever ~ deals combat damage to a player, you may choose any number of target lands you control and put an awakening counter on each of them. Each of them becomes an 8/8 green Elemental creature for as long as it has an awakening counter on it. They're still lands.",
     # Last Night Together: the restriction is the extra combat's own tag (combat_rules.extra_phases "only110d", combat.attack_problem)
     "Choose two target creatures. Untap them. Put two +1/+1 counters on each of them. They gain vigilance, indestructible, and haste until end of turn. After this main phase, there is an additional combat phase. Only the chosen creatures can attack during that combat phase.":  # noqa: E501
         "Choose two target creatures. Untap them. Put two +1/+1 counters on each of them. They gain vigilance, indestructible, and haste until end of turn. After this main phase, there is an additional combat phase.",
