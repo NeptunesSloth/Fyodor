@@ -7667,7 +7667,8 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
         from app.rules import permissions  # permissions, cost modifiers, "play with the top card revealed"
 
         granted = permissions.define_static(text, ability.kind, tuple(self_text(ab.text, ch.name) for ab in ch.abilities))
-        if granted is not None and granted.get("static") in ("alt_cost", "cost_modifier") and "Room" in ch.subtypes:
+        # (-- Rooms (wave 110C) -- an alt_cost table static of an unlocked door is read like any permanent's: _cached drops a locked door's text, 709.5)
+        if granted is not None and granted.get("static") in ("alt_cost", "cost_modifier") and "Room" in ch.subtypes and not (granted.get("static") == "alt_cost" and granted.get("table")):
             return None  # -- cost changers (wave 4I) -- a Room door's ability works only while it's unlocked: not modelled
         if granted is not None:
             return granted
