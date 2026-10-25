@@ -85,6 +85,7 @@ from app.rules import (
     spell_grants,  # -- spell grants (wave 28C) --
     triggers,
     untap_choice,  # -- untap choice (wave 7F) --
+    wave110h_cards,  # -- untap hold (wave 110H) --
 )
 from app.rules import morph_costs78 as _morph_costs78  # noqa: F401
 
@@ -673,6 +674,7 @@ def start_next_turn(plan: Plan) -> None:
     # (wave 7F: after every other reason to stay tapped, so a permanent that isn't untapping keeps its counter)
     stunned = effects.keyword_actions.stunned(plan, [c.id for c in plan.state.cards.values() if c.tapped and c.id not in keep])
     keep = [*keep, *stunned]
+    keep += wave110h_cards.untap_hold(plan, skip_to or upcoming, keep) if stay is None else []  # -- untap hold (wave 110H) --
     if skip_to is not None:
         plan.do({"type": "next_turn", "force": True, "keep_tapped": keep, "player": skip_to}, actor=plan.active)
     # -- end refused grants/replacements (wave 3R2) --
@@ -714,6 +716,7 @@ def extra_untap_step(plan: Plan) -> None:
     keep = list(dict.fromkeys([*keep, *asked, *(c for g in limited for c in g[0])]))
     stunned = effects.keyword_actions.stunned(plan, [c.id for c in plan.state.cards.values() if c.tapped and c.id not in keep]) if stay is None else []
     keep = list(dict.fromkeys([*keep, *stunned]))
+    keep += wave110h_cards.untap_hold(plan, pid, keep) if stay is None else []  # -- untap hold (wave 110H) --
     previous = plan.rules.previous_turn or (plan.state.seat_order[(plan.state.seat_order.index(pid) - 1) % len(plan.state.seat_order)], max(0, plan.state.turn.number - 1))
     finish = {"stunned": stunned, "previous": list(previous), "skipped": [], "plain": stay is None, "keep": keep, "same_turn": True}
     if untap_choice.ask(plan, asked, finish, limited):
