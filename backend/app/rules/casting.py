@@ -762,6 +762,9 @@ def choose_target(plan: Plan, a: A.CastSpell | A.ActivateAbility, definition: di
         return []
     legal = [t for t in legal_targets(plan, spec["what"], plan.actor, _target_source(plan, a), a.card_id)
              if t not in exclude]  # (wave 49C: a spell's targeting, 115.2)
+    from app.rules import flagbearer86
+
+    legal = flagbearer86.single(plan, legal)
     if a.targets:
         if len(a.targets) != 1 or a.targets[0] not in legal:
             raise ActionError("That isn't a legal target")
@@ -813,11 +816,15 @@ def choose_targets(plan: Plan, a: A.CastSpell | A.ActivateAbility, definition: d
         specs = kicked_instead.applicable(specs, a.kicker or int(a.awaken) or int(f"{a.card_id}:gift" in a.optional_costs) or int(f"{a.card_id}:bargain" in a.optional_costs)
                                           or int(f"{a.card_id}:teamwork" in a.optional_costs))  # (awaken: wave 16B; bargain: 30E; teamwork: wave 100K, aslongas100k.TEAMWORK;
         # gift: wave 23D, 702.174m: the targets only a promised spell chooses)
+    from app.rules import flagbearer86
+
     found = choose_groups(plan, specs, plan.actor, _target_source(plan, a), a.card_id, list(a.targets),  # (review 41: 115.2)
-                          list(a.target_counts), list(a.division), a.x_value, what, exclude)
+                          list(a.target_counts), list(a.division), a.x_value, what, exclude,
+                          required_any=frozenset(flagbearer86.current(plan)))
     if found.ask is not None:
         ask_targets(plan, plan.actor, found, specs, what, _announcing(plan, "cast_group", a, counts=found.counts))
         return None
+    flagbearer86.enforce_groups(plan, a, specs, found, _target_source(plan, a), what, exclude)
     groups = [[target_ref(plan, t) for t in g] for g in found.groups]
     return ChosenTargets(flat=[t for g in groups for t in g], groups=groups, specs=specs, division=found.division)
 
@@ -985,6 +992,10 @@ def choose_slot_targets(plan: Plan, a: A.CastSpell | A.ActivateAbility, specs: l
         spec = specs[k]
         assert spec is not None
         legal = legal_targets(plan, spec["what"], plan.actor, src, a.card_id)
+        if len(need) == 1:
+            from app.rules import flagbearer86
+
+            legal = flagbearer86.single(plan, legal)
         if n < len(a.targets):
             if a.targets[n] not in legal:
                 raise ActionError("That isn't a legal target")
@@ -997,6 +1008,11 @@ def choose_slot_targets(plan: Plan, a: A.CastSpell | A.ActivateAbility, specs: l
                         for x in legal],
                resume=_announcing(plan, "cast_slot_target", a))
         return None
+    from app.rules import flagbearer86, targets
+
+    selected_specs = [{**(specs[k] or {}), "min": 1, "max": 1} for k in need]
+    selected = targets.GroupChoice(groups=[[t.id for t in out[k]] for k in need], counts=[1] * len(need))
+    flagbearer86.enforce_groups(plan, a, selected_specs, selected, src, what, ())
     return out
 
 

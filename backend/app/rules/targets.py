@@ -363,7 +363,8 @@ def group_limits(spec: dict[str, Any], x: int | None) -> tuple[int, int]:
 def choose_groups(plan: Plan, specs: list[dict[str, Any]], chooser: str, source: Characteristics | None,
                   source_card: str | None, targets: list[str], counts: list[int], division: list[int],
                   x: int | None, what: str, exclude: tuple[str, ...] = (), attacker: str | None = None,
-                  source_object: str | None = None, event: dict[str, Any] | None = None) -> GroupChoice:
+                  source_object: str | None = None, event: dict[str, Any] | None = None,
+                  required_any: frozenset[str] = frozenset()) -> GroupChoice:
     """Check the choices made so far for each target group, in printed order (601.2c): the
     number of targets (``counts``: how many of ``targets`` are each group's), no object twice
     for one word "target" (115.3; the same object may be chosen for another group unless it says
@@ -395,6 +396,8 @@ def choose_groups(plan: Plan, specs: list[dict[str, Any]], chooser: str, source:
             plan, spec, chooser, source_card, source_object, event, x)
         lo, hi = group_limits(shaped, counted)
         allowed = free_limits(shaped, counted)[1]
+        if random_only and required_any.intersection(options):
+            options = [t for t in options if t in required_any]
         if random_only and options and (lo, hi) == (1, 1):
             import secrets
 

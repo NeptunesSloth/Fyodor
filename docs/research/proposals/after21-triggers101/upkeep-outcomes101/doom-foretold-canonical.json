@@ -1,0 +1,49 @@
+{
+  "id": "e76c0c83-3e87-474d-bc72-1677eed32cfa",
+  "oracle_id": "e2baf24c-7055-431d-8e96-ba5ff2ef91e1",
+  "name": "Doom Foretold",
+  "layout": "normal",
+  "set_code": "eld",
+  "set_name": "Throne of Eldraine",
+  "collector_number": "187",
+  "rarity": "rare",
+  "mana_cost": "{2}{W}{B}",
+  "cmc": 4.0,
+  "type_line": "Enchantment",
+  "oracle_text": "At the beginning of each player's upkeep, that player sacrifices a nonland, nontoken permanent of their choice. If that player can't, they discard a card, they lose 2 life, you draw a card, you gain 2 life, you create a 2/2 white Knight creature token with vigilance, then you sacrifice this enchantment.",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "defense": null,
+  "colors": [
+    "B",
+    "W"
+  ],
+  "color_identity": [
+    "B",
+    "W"
+  ],
+  "keywords": [],
+  "is_token": false,
+  "faces": [],
+  "double_faced": false,
+  "image_faces": 1,
+  "has_image": false,
+  "released_at": "2019-10-04",
+  "artist": "Daniel Ljunggren",
+  "commander_legal": "legal",
+  "related_tokens": [
+    {
+      "id": "703e7ecf-3d73-40c1-8cfe-0758778817cf",
+      "name": "Knight",
+      "type_line": "Token Creature \u2014 Knight"
+    }
+  ],
+  "related_cards": [
+    {
+      "id": "4e6d15f8-7ebc-43b7-b8fd-00555e74bcb0",
+      "name": "Doom Foretold",
+      "component": "combo_piece"
+    }
+  ]
+}

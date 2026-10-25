@@ -1,0 +1,28 @@
+F.....                                                                   [100%]
+=================================== FAILURES ===================================
+_______ test_doom_actual_response_control_change_and_cold_original_payer _______
+
+cards = <app.cards.repository.CardRepository object at 0x7fda4927e450>
+tmp_path = PosixPath('/tmp/pytest-of-agent/pytest-274/test_doom_actual_response_cont0')
+
+    def test_doom_actual_response_control_change_and_cold_original_payer(cards, tmp_path):
+        s = setup(cards)
+        source = cast(s, 'Doom Foretold')
+        put(s, 'Sigarda, Host of Herons', 'p2')
+        to_phase(s, 'upkeep', 2)
+        word = put(s, 'Word of Seizing', 'p3', 'hand')
+        wait_priority(s, 'p3')
+        act(s, 'p3', type='add_mana', player='p3', mana={'C': 3, 'R': 2})
+        act(s, 'p3', type='cast_spell', card_id=word.id, sources=[], targets=[source.id])
+        while len(s.state.zones.get('stack', [])) > 1:
+            assert s.state.rules.decision is None
+            act(s, s.state.rules.priority, type='pass_priority')
+        assert s.state.cards[source.id].controller == 'p3'
+        settle(s)
+>       assert s.state.rules.decision.player == 'p2'
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: 'NoneType' object has no attribute 'player'
+
+tests/test_rules_upkeep_sacrifice101.py:198: AttributeError
+=========================== short test summary info ============================
+FAILED tests/test_rules_upkeep_sacrifice101.py::test_doom_actual_response_control_change_and_cold_original_payer

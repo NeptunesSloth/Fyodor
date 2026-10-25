@@ -1,0 +1,70 @@
+F
+=================================== FAILURES ===================================
+_______ test_doom_actual_response_control_change_and_cold_original_payer _______
+
+cards = <app.cards.repository.CardRepository object at 0x7ffa79c62420>
+tmp_path = PosixPath('/tmp/pytest-of-agent/pytest-282/test_doom_actual_response_cont0')
+
+    def test_doom_actual_response_control_change_and_cold_original_payer(cards, tmp_path):
+        s = setup(cards)
+        source = cast(s, 'Doom Foretold')
+        put(s, 'Sigarda, Host of Herons', 'p2')
+        to_phase(s, 'upkeep', 2)
+        word = put(s, 'Word of Seizing', 'p3', 'hand')
+        wait_priority(s, 'p3')
+        act(s, 'p3', type='add_mana', player='p3', mana={'C': 3, 'R': 2})
+        act(s, 'p3', type='cast_spell', card_id=word.id, sources=[], targets=[source.id])
+        while len(s.state.zones.get('stack', [])) > 1:
+            assert s.state.rules.decision is None
+            act(s, s.state.rules.priority, type='pass_priority')
+        assert s.state.cards[source.id].controller == 'p3'
+        assert s.state.zones.get('stack')
+        hand = len(s.state.zones['p1:hand'])
+>       cold(s, tmp_path, f'''resolve_choices(s)
+    assert s.state.players['p1'].life==42 and s.state.players['p2'].life==38
+    assert len(s.state.zones['p1:hand'])=={hand + 1}
+    assert s.state.cards[{source.id!r}].zone=='p1:battlefield' and s.state.cards[{source.id!r}].controller=='p3'
+    assert any(c.name=='Knight' and c.controller=='p1' and c.zone.endswith(':battlefield') for c in s.state.cards.values())''')
+
+tests/test_rules_upkeep_sacrifice101.py:199:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+s = <app.game.session.GameSession object at 0x7ffa7b7bf470>
+tmp_path = PosixPath('/tmp/pytest-of-agent/pytest-282/test_doom_actual_response_cont0')
+body = "resolve_choices(s)\nassert s.state.players['p1'].life==42 and s.state.players['p2'].life==38\nassert len(s.state.zone...ssert any(c.name=='Knight' and c.controller=='p1' and c.zone.endswith(':battlefield') for c in s.state.cards.values())"
+
+    def cold(s, tmp_path, body):
+        import subprocess
+        import sys
+
+        saved = tmp_path / 'upkeep101.json'
+        saved.write_text(s.state.model_dump_json())
+        code = '''import sys
+    from pathlib import Path
+    from app.cards.images import ImageStore
+    from app.cards.repository import CardRepository
+    from app.game.session import GameSession
+    from app.game.state import GameState
+    from tests.game_helpers import act
+    from tests.test_rules_designations import pick,roundtrip
+    from tests.test_rules_library_placements import settle
+    from tests.test_rules_upkeep_sacrifice101 import cast,resolve_choices
+    from tests.test_rules_wave30m_durations import to_phase
+    from app.rules.plan import Plan
+    repo=CardRepository(Path(sys.argv[2]),ImageStore(Path(sys.argv[2]).parent/'images'))
+    s=GameSession(GameState.model_validate_json(Path(sys.argv[1]).read_text()),cards=repo)
+    '''+body+'\nroundtrip(s);repo.close()\n'
+        result = subprocess.run([sys.executable, '-c', code, str(saved), str(s.cards.db_path)],
+                                cwd=Path(__file__).resolve().parents[1], capture_output=True, text=True, timeout=90)
+>       assert result.returncode == 0, result.stdout + result.stderr
+E       AssertionError: Traceback (most recent call last):
+E           File "<string>", line 18, in <module>
+E         AssertionError
+E
+E       assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['/workspace/Fyodor/backend/.venv/bin/python3', '-c', "import sys\nfrom pathlib import Path\nfro...e=1, stdout='', stderr='Traceback (most recent call last):\n  File "<string>", line 18, in <module>\nAssertionError\n').returncode
+
+tests/test_rules_upkeep_sacrifice101.py:181: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_rules_upkeep_sacrifice101.py::test_doom_actual_response_control_change_and_cold_original_payer
+!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!

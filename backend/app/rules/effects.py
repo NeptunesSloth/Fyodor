@@ -6983,3 +6983,11 @@ PRIMITIVES.update(_attractions100l.PRIMITIVES)
 from app.rules import otherchooser100p as _otherchooser100p  # noqa: E402  -- other choosers (wave 100P) --
 
 PRIMITIVES.update(_otherchooser100p.PRIMITIVES)
+
+from app.rules import modal_clauses101 as _modal101  # noqa: E402
+
+PRIMITIVES.update(_modal101.PRIMITIVES)
+
+from app.rules import upkeep_sacrifice101 as _upkeep101  # noqa: E402
+
+PRIMITIVES.update(_upkeep101.PRIMITIVES)

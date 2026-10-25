@@ -993,5 +993,25 @@
     "original_sha256": "ca6c9e71b7bf0fee0642a02703318600283d44e89fc652edf72a884cad7a1f52",
     "archived_sha256": "e40dafdba1e8dbf70b38072fc79e69fa4693f6f1e1c2ff99aaae4d140d96e16f",
     "numstat_preserved": true
+  },
+  "docs/research/proposals/after21-spells101/review.patch": {
+    "original_sha256": "3598481ca7a87e078365efb0bc92357dce6c282fb77068c6661b2d339f328252",
+    "archived_sha256": "1f37fe97fbb92e80c7786de4ee9ff3eafe6f344f479d2e5aa1ccc1d8d4e75341",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/after21-triggers101/upkeep-outcomes101/doom-cold-refined1.log": {
+    "original_sha256": "2b58f4b38576f28b0140db3cf62c634b1cb940096f1b19df1b68e0880a9a2e39",
+    "archived_sha256": "d60d49a53973a05db3e93a42ff4ae35b1b0057df82baa386e8008c62160c9a06",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/after21-triggers101/upkeep-outcomes101/native12-fixturefix.log": {
+    "original_sha256": "1810f9e7097ac8427168f7a57e9820f58b948775bac61b457e0f58b594583842",
+    "archived_sha256": "0fcb058b3a1d2ab0a2aff0fa474c19d8baa0f8ab9e669c3ae32ddff2fe9852a0",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/after21-triggers101/upkeep-outcomes101/review.patch": {
+    "original_sha256": "29e7be6502ebbbc9e09de34dc406e7cc0b88ef623c479ea74cd54f5bfcb57cc2",
+    "archived_sha256": "f1daffc7a1d405eee16bfb9943f791c444a3892a1c9f4a841a0259e01548deb4",
+    "numstat_preserved": true
   }
 }

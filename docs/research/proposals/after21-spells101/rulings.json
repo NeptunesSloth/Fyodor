@@ -1,0 +1,110 @@
+{
+  "Gix's Command": {
+    "object": "list",
+    "has_more": false,
+    "data": [
+      {
+        "object": "ruling",
+        "oracle_id": "9270eb03-4600-40cc-83a5-ea987d5d4978",
+        "source": "wotc",
+        "published_at": "2022-10-14",
+        "comment": "Since none of the modes have targets, you don't have to choose which creature is getting the counters or which cards you're returning until Gix's Command resolves."
+      }
+    ]
+  },
+  "Deadly Complication": {
+    "object": "list",
+    "has_more": false,
+    "data": [
+      {
+        "object": "ruling",
+        "oracle_id": "c53c75a0-c248-4e76-8d28-f7e53b2dcc49",
+        "source": "wotc",
+        "published_at": "2024-02-02",
+        "comment": "When an effect suspects a creature, it becomes suspected. It gains menace and \"This creature can't block\" for as long as it's suspected. It stays suspected until it leaves the battlefield or another effect causes it to no longer be suspected."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "c53c75a0-c248-4e76-8d28-f7e53b2dcc49",
+        "source": "wotc",
+        "published_at": "2024-02-02",
+        "comment": "If a suspected creature loses all abilities, it will lose menace and \"This creature can't block\", but it won't stop being suspected."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "c53c75a0-c248-4e76-8d28-f7e53b2dcc49",
+        "source": "wotc",
+        "published_at": "2024-02-02",
+        "comment": "Being suspected isn't a copiable value. If a permanent becomes a copy of a suspected creature, it won't be suspected."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "c53c75a0-c248-4e76-8d28-f7e53b2dcc49",
+        "source": "wotc",
+        "published_at": "2024-02-02",
+        "comment": "If a creature is already suspected, suspecting it again won't have any effect."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "c53c75a0-c248-4e76-8d28-f7e53b2dcc49",
+        "source": "wotc",
+        "published_at": "2024-02-02",
+        "comment": "There's no limit to the number of creatures that can be suspected simultaneously. Suspecting a new creature doesn't cause other creatures to stop being suspected."
+      }
+    ]
+  },
+  "Compel Brutality": {
+    "object": "list",
+    "has_more": false,
+    "data": [
+      {
+        "object": "ruling",
+        "oracle_id": "3a9059ac-c595-4e71-b704-b04d2d47db70",
+        "source": "wotc",
+        "published_at": "2026-08-21",
+        "comment": "The power of the creature or the loyalty of the planeswalker is checked as the spell resolves. If that creature or planeswalker is no longer on the battlefield at the time the spell resolves, no damage is dealt."
+      }
+    ]
+  },
+  "Display of Dominance": {
+    "object": "list",
+    "has_more": false,
+    "data": [
+      {
+        "object": "ruling",
+        "oracle_id": "4a2233de-50bd-49be-ac49-4a3c0f02dd52",
+        "source": "wotc",
+        "published_at": "2015-02-25",
+        "comment": "If you choose the second mode, and if a permanent you control is being targeted by a spell when Display of Dominance resolves, nothing happens right away. When that spell would resolve, its color is checked. If it\u2019s blue or black, that permanent will be an illegal target for that spell and won\u2019t be affected by it. If all that spell\u2019s targets have become illegal by the time it would resolve, it\u2019s countered."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "4a2233de-50bd-49be-ac49-4a3c0f02dd52",
+        "source": "wotc",
+        "published_at": "2015-02-25",
+        "comment": "If you choose the second mode, no new blue or black spell may be cast by an opponent that turn targeting a permanent you control after Display of Dominance resolves."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "4a2233de-50bd-49be-ac49-4a3c0f02dd52",
+        "source": "wotc",
+        "published_at": "2015-02-25",
+        "comment": "If you choose the second mode, Display of Dominance will affect any permanent you happen to control at any point during the rest of the turn, not just permanents you control as it resolves. That\u2019s because it doesn\u2019t grant an ability to those permanents; rather, it affects the game rules and states something that\u2019s now true about those permanents."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "4a2233de-50bd-49be-ac49-4a3c0f02dd52",
+        "source": "wotc",
+        "published_at": "2015-02-25",
+        "comment": "Keep in mind that an Aura spell targets the permanent it will enchant (but an Aura on the battlefield doesn\u2019t target the permanent it\u2019s attached to)."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "4a2233de-50bd-49be-ac49-4a3c0f02dd52",
+        "source": "wotc",
+        "published_at": "2015-02-25",
+        "comment": "Permanents you control may be the targets of abilities from blue or black sources controlled by your opponents."
+      }
+    ]
+  }
+}

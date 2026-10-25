@@ -1867,3 +1867,7 @@ from app.rules import zone_exchanges94 as _zone_exchanges94  # noqa: E402
 RESUME.update(_zone_exchanges94.RESUME)
 
 RESUME['graveyard_order_page94'] = graveyard_order.resume_page
+
+from app.rules import modal_clauses101 as _modal101  # noqa: E402
+
+RESUME.update(_modal101.RESUME)

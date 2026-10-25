@@ -2660,6 +2660,10 @@ def _sacrifice_count_sequence(body: str) -> tuple[list[dict[str, Any]], Any, boo
 
 
 def parse_effects(body: str, it: str | None = None, *, event_player: bool = False) -> tuple[list[dict[str, Any]], Any, bool] | None:
+    from app.rules import modal_clauses101
+
+    if (modal101 := modal_clauses101.parse(body)) is not None:
+        return modal101
     from app.rules import zones100g  # -- zones (wave 100G) -- exact wordings (app/rules/zones100g.py)
 
     if (zones := zones100g.parse(body)) is not None:
@@ -5856,6 +5860,14 @@ def _first_time_gate(text: str) -> str:
 
 def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     """The engine definition of one ability, or None (manual)."""
+    from app.rules import upkeep_sacrifice101
+
+    if (upkeep101 := upkeep_sacrifice101.definition(ability, ch)) is not None:
+        return upkeep101
+    from app.rules import flagbearer86
+
+    if (flag86 := flagbearer86.definition(ability, ch)) is not None:
+        return flag86
     from app.rules import multi100m  # -- multi (wave 100M) --
 
     if (lines100m := multi100m.definition(ability, ch)) is not None:

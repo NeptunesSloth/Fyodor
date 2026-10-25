@@ -1,0 +1,32 @@
+...............F..                                                       [100%]
+=================================== FAILURES ===================================
+_______ test_compel_lost_planeswalker_target_does_not_deal_lki_damage101 _______
+tests/test_rules_modal_clauses101.py:194: in test_compel_lost_planeswalker_target_does_not_deal_lki_damage101
+    cast(s, 'Unsummon', targets=[jace.id], U=1)
+tests/wave100c_kit.py:141: in cast
+    c = start_cast(s, name, pid, targets, target_counts, modes, kicker, **pool)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/wave100c_kit.py:136: in start_cast
+    act(s, pid, type="cast_spell", card_id=c.id, targets=list(targets), **kw)
+tests/game_helpers.py:42: in act
+    return session.perform(actor, payload)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/game/session.py:61: in perform
+    resolved = resolve(self.state, action, actor=actor, cards=self.cards, trusted=trusted)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/game/resolve.py:76: in resolve
+    a.r = compile_intent(state, a, actor=actor, info=info, rng=rng)  # type: ignore[union-attr]
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/engine.py:164: in compile_intent
+    handler(plan, intent)
+app/rules/casting.py:3713: in cast_spell
+    picked_targets = choose_targets(plan, a, definition if aura is None else {"target": {"what": aura}}, ch.name or "it")
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/casting.py:807: in choose_targets
+    chosen = choose_target(plan, a, definition, what, exclude=exclude)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/casting.py:767: in choose_target
+    raise ActionError("That isn't a legal target")
+E   app.game.errors.ActionError: That isn't a legal target
+=========================== short test summary info ============================
+FAILED tests/test_rules_modal_clauses101.py::test_compel_lost_planeswalker_target_does_not_deal_lki_damage101

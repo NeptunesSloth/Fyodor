@@ -1,0 +1,27 @@
+{
+  "status": "CLOSED pending root integration/catalog",
+  "names": [
+    "Gix's Command",
+    "Deadly Complication",
+    "Compel Brutality",
+    "Display of Dominance"
+  ],
+  "native_unique_passed": 20,
+  "native_cold": 2,
+  "native_matrix": {
+    "native-frozen.log": "19 pass +1 fixture failure: Unsummon incorrectly targeted planeswalker; no production failure",
+    "native-source-departure.log": "corrected actual Boomerang source-departure case pass1, runtime source unchanged"
+  },
+  "related_passed": 24,
+  "mypy_source_files": 4,
+  "ruff_files": 5,
+  "test_destination": "backend/tests/test_rules_modal_clauses101.py",
+  "fixture_destination": "backend/tests/fixtures/modal_clauses101_cards.json",
+  "base_commit": "456c95d6",
+  "source_files": [
+    "app/rules/modal_clauses101.py",
+    "app/rules/scripts.py",
+    "app/rules/effects.py",
+    "app/rules/engine.py"
+  ]
+}
