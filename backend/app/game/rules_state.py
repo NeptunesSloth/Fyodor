@@ -1449,6 +1449,7 @@ class RulesState(BaseModel):
     ability_uses: dict[str, int] = Field(default_factory=dict)
     # -- soulbond (wave 24B) -- 702.95b: paired creatures, both directions: object id -> (partner's object id, the pairing's controller)
     pairs: dict[str, tuple[str, str]] = Field(default_factory=dict)
+    dread_gy110c: list[str] = Field(default_factory=list)  # -- manifest dread (wave 110C) -- 701.62a: the card each finished manifest dread put into the graveyard ("" none), read by its "Whenever you manifest dread" triggers
     # -- modal triggered/activated abilities (wave 1A) --
     # "Choose one that hasn't been chosen [this turn]": the modes already chosen for that ability of
     # that object (app/rules/modal_abilities.py) — "<object id>:<ability index>:game" (the game) or

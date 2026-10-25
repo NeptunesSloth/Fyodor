@@ -158,6 +158,7 @@ _DESIGNATION_EVENTS = [
     (re.compile(r"(?P<p>you) waterbend"), "waterbend"),
     (re.compile(r"(?P<p>you) forage"), "forage"),  # -- if you do (wave 26C) -- 701.61: the cost was paid (cost_payment.pay)
     (re.compile(r"(?P<p>you) collect evidence"), "collect_evidence"),  # 701.59
+    (re.compile(r"(?P<p>you) manifest dread"), "manifest_dread"),  # -- manifest dread (wave 110C) -- 701.62a (facedown.finish_dread)
     # -- most-played cards (wave 43B) -- 701.23: "Whenever an opponent searches their library" (Archivist of Oghma, Wan Shi Tong, Ob Nixilis, Unshackled): a search of
     # the searcher's OWN library (the rulings: not one of your search of an opponent's library, nor an opponent's of another player's)
     (re.compile(r"(?P<p>an opponent|a player) searches their library"), "search_library"),

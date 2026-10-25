@@ -293,6 +293,7 @@ _SLIME = ("If a creature an opponent controls would die, instead exile it and pu
 _GATEWAY = ("Tap two untapped creatures you control: You may put a creature card from your hand that shares a creature type with each creature "
             "tapped this way onto the battlefield.")
 
+_ANALYST = "Whenever you manifest dread, put a card you put into your graveyard this way into your hand."
 _SAW = ("Whenever equipped creature attacks, you may sacrifice a permanent other than that creature or this Equipment. If you do, draw a card.")
 
 _SURGE = ("At the beginning of each player's upkeep, this enchantment deals X damage to that player, where X is the number of untapped lands they controlled "
@@ -335,6 +336,13 @@ def definition(ability: AbilityText, ch: Any) -> dict[str, Any] | None:
         assert parsed is not None
         return {"kind": "replacement", "replacement": "exile_instead", "from": "battlefield", "effects": [],
                 "rider": {"effects": parsed[0], "reflexive": False}}
+    if ability.text == _ANALYST:  # Paranormal Analyst
+        from dataclasses import replace
+
+        from app.rules import scripts
+
+        native = scripts.define(replace(ability, text="Whenever you manifest dread, draw a card."), ch)
+        return None if native is None else {**native, "effects": [{"do": "dread_return110c"}]}
     if ability.text == _CHANDRA:  # Chandra, Chill of Compliance: surveil 1, then the card goes to hand only if it is a noncreature, nonland card put into the graveyard
         from dataclasses import replace
 
@@ -551,7 +559,17 @@ def enter_tapped_turn(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     return True
 
 
-PRIMITIVES = {"moved_reward110c": moved_reward, "corrupt_counter110c": corrupt_counter, "extra_land_x110c": extra_land_x, "enter_tapped_turn110c": enter_tapped_turn, "bargain_return110c": bargain_return, "power_gap110c": power_gap, "surveil_take110c": surveil_take, "surveil_take_end110c": surveil_take_end, "choose_branch110c": choose_branch, "temporary_counters110c": temporary_counters, "approach110c": approach, "exile_spell110c": exile_spell}
+def dread_return(plan: Any, ctx: Context, e: dict[str, Any]) -> bool:
+    """Paranormal Analyst (701.62a): the card this manifest dread put into the graveyard goes to hand, if it is still there."""
+    queue = plan.rules.dread_gy110c
+    card = queue.pop(0) if queue else ""
+    pid = ctx["controller"]
+    if card and plan.state.cards[card].zone == f"{pid}:graveyard":
+        plan.do({"type": "move", "card_ids": [card], "to": {"player": pid, "zone": "hand"}}, actor=pid)
+    return True
+
+
+PRIMITIVES = {"dread_return110c": dread_return, "moved_reward110c": moved_reward, "corrupt_counter110c": corrupt_counter, "extra_land_x110c": extra_land_x, "enter_tapped_turn110c": enter_tapped_turn, "bargain_return110c": bargain_return, "power_gap110c": power_gap, "surveil_take110c": surveil_take, "surveil_take_end110c": surveil_take_end, "choose_branch110c": choose_branch, "temporary_counters110c": temporary_counters, "approach110c": approach, "exile_spell110c": exile_spell}
 RESUME = {"choose_branch110c": resume_branch}
 from app.rules import wave110c_mass  # noqa: E402
 

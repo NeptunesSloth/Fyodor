@@ -298,7 +298,7 @@ def facts(plan: Plan, e: Event) -> list[Any]:
         return [("clash", None, None, e.player, {"amount": e.amount})]
     if e.counter in ("roll_visit", "visit", "open_attraction", "claim_prize") and e.player:  # -- Attractions (wave 100L) -- (attractions100l.py)
         return [({"visit": "visit_attraction"}.get(e.counter, e.counter), None, None, e.player, {"amount": e.amount, "oid": e.object_id})]
-    if e.counter in ("forage", "collect_evidence") and e.player:  # -- if you do (wave 26C) -- 701.61, 701.59 (cost_payment.pay)
+    if e.counter in ("forage", "collect_evidence", "manifest_dread") and e.player:  # -- if you do (wave 26C) -- 701.61, 701.59 (cost_payment.pay)
         return [(e.counter, None, None, e.player, {})]
     if e.counter == "connive" and e.card in plan.state.cards:  # -- trigger tail (wave 15B) -- 701.50a: the conniving permanent
         card = plan.state.cards[e.card]
