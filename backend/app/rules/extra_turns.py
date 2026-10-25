@@ -67,7 +67,13 @@ def _you_no_untap89(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]
     return [{"do": "extra_turn", "who": "you", "n": 1, "skip_untap89": True}], None
 
 
+def _each_opponent(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    """-- gift (wave 110B) -- 702.174g: "Gift an extra turn" is read as "each opponent takes an extra turn after this one" (gift.py makes the chosen opponent the taker)."""
+    return [{"do": "extra_turn", "who": "each_opponent", "n": 1}], None
+
+
 TEMPLATES: list[tuple[re.Pattern[str], Any]] = [
+    (re.compile(r"^each opponent takes an extra turn after this one$"), _each_opponent),
     (re.compile(r"^take an extra turn after this one without an untap step$", re.IGNORECASE), _you_no_untap89),
     (re.compile(r"^take an extra turn after this one with a loss at its end step$", re.IGNORECASE), _you_then_lose),
     (re.compile(r"^take an extra turn after this one with no power-up abilities$", re.IGNORECASE), _you_no_power_up),

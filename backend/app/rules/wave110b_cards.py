@@ -37,8 +37,22 @@ def _swap_value(d: Def, old: Def, new: Def) -> Def:
     return {**d, "conditions": [{**c, "value": new} if c is hit[0] else c for c in d["conditions"]]}
 
 
+def _gated(n: int) -> Callable[[Def], Def]:
+    """The one kicked gate (a promised gift is a kicked spell, 702.174k) covers the ``n`` instructions after it."""
+    return lambda d: {**d, "effects": [{**e, "n": n} if e["do"] == "kicked_gate" else e for e in d["effects"]]}
+
+
 # whole ability text -> (the wording the grammar reads, what to change in its definition)
 _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
+    # Perch Protection: all three instructions are conditional on the promised gift (608.2c: one sentence)
+    "Create four 2/2 blue Bird creature tokens with flying. If the gift was promised, all permanents you control phase out, and until your next turn, "
+    "your life total can't change and you gain protection from everything.":
+        ("Create four 2/2 blue Bird creature tokens with flying. If the gift was promised, all permanents you control phase out. Until your next turn, "
+         "your life total can't change. You gain protection from everything until your next turn.", _gated(3)),
+    # Marvo: the clash he won (701.30d), as Entangling Trap's "if you won" reads it
+    "Whenever you win a clash, draw a card. Then you may cast a spell from your hand with mana value 8 or less without paying its mana cost.":
+        ("Whenever you clash, draw a card. Then you may cast a spell from your hand with mana value 8 or less without paying its mana cost.",
+         lambda d: {**d, "if": {"clash_won100a": True}}),
     # Ozai: the mana a player would lose stays in the pool as red mana (614.1a, 500.4)
     "If you would lose unspent mana, that mana becomes red instead.":
         ("If you would lose unspent mana, that mana becomes colorless instead.", lambda d: {**d, "to": "R"}),

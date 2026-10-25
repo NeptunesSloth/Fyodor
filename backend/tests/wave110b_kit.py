@@ -68,3 +68,22 @@ def through_combat(s, blocks=None):
         else:
             act(s, s.state.rules.priority, type="pass_priority")
     raise AssertionError("combat never ended")
+
+
+def top(s, name, pid="p1"):
+    """The player's card named ``name`` goes on top of their library (drawn first)."""
+    act(s, pid, type="move", card_ids=[card_named(s, name, pid).id], to={"zone": "library"}, position="top")
+
+
+def drive(s, answer=None, limit=80):
+    """Resolve everything: a decision is answered by ``answer(decision)`` (option ids, or None for the first options), else priority passes."""
+    for _ in range(limit):
+        d = s.state.rules.decision
+        if d is not None:
+            ids = answer(d) if answer else None
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=ids or [o.id for o in d.options][: max(1, d.min_choices)])
+        elif s.state.zones.get("stack"):
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            return
+    raise AssertionError("never settled")
