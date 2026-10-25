@@ -669,6 +669,10 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
         from app.rules import static_count_values94
 
         return static_count_values94.amount(plan, ctx, v)
+    if isinstance(v, dict) and "votes100p" in v:  # -- other choosers (wave 100P) -- "for each wild vote": this resolution's tally (701.38)
+        from app.rules import otherchooser100p
+
+        return otherchooser100p.votes(ctx, v["votes100p"])
     if isinstance(v, dict) and 'event_x' in v:
         return max(0, int((ctx.get('event') or {}).get('x') or 0))
     if isinstance(v, dict) and 'activation_life' in v:

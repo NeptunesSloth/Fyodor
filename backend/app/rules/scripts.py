@@ -2664,6 +2664,10 @@ def parse_effects(body: str, it: str | None = None, *, event_player: bool = Fals
 
     if (zones := zones100g.parse(body)) is not None:
         return zones
+    from app.rules import otherchooser100p  # -- other choosers (wave 100P) -- exact wordings
+
+    if (other100p := otherchooser100p.parse(body)) is not None:
+        return other100p
     from app.rules import turnstate100h  # -- turn state (wave 100H) -- exact bodies read as a native wording
 
     if (same100h := turnstate100h.SAME.get(body)) is not None:

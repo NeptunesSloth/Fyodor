@@ -6980,3 +6980,6 @@ PRIMITIVES.update(_aslongas100k.PRIMITIVES)
 from app.rules import attractions100l as _attractions100l  # noqa: E402  -- Attractions (wave 100L) --
 
 PRIMITIVES.update(_attractions100l.PRIMITIVES)
+from app.rules import otherchooser100p as _otherchooser100p  # noqa: E402  -- other choosers (wave 100P) --
+
+PRIMITIVES.update(_otherchooser100p.PRIMITIVES)

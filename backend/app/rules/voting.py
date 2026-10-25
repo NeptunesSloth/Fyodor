@@ -89,6 +89,9 @@ _COND = re.compile(r"^(?:(?P<w>[\w' ]+?) gets more votes(?P<tie> or the vote is 
 TEMPLATES: list[tuple[re.Pattern[str], Any]] = [
     (re.compile(r"^you choose how each player votes this turn$"), lambda m: ([{"do": "vote_control"}], None)),
 ]
+# -- other choosers (wave 100P) -- Will of the Planeswalkers (Path of the Enigma): 701.31a only a Planechase game has planeswalking, 311.7 only plane
+# cards have chaos abilities; a Commander game has neither, so whatever wins, nothing happens (the vote itself still happens: 701.38, voted triggers)
+_PLANECHASE = ("If planeswalk gets more votes, planeswalk.", "If chaos gets more votes or the vote is tied, chaos ensues.")
 
 
 # -- reading the wording -------------------------------------------------------------------------
@@ -209,7 +212,12 @@ def bind(head: dict[str, Any], parse: Any, split_sentences: Any) -> tuple[list[d
     for sentence in split_sentences(head["rest"]):
         if any(x.get("do") == "vote_choose" for x in effects) and sentence.startswith("Then for each "):
             sentence = "F" + sentence[len("Then f"):]
-        if (m := _CHOOSE_FOR_VOTES.match(sentence)) is not None and words and m["w"].lower() in opts and not any(x.get("do") == "vote_choose" for x in effects):
+        if sentence in _PLANECHASE and words == ["planeswalk", "chaos"]:  # (wave 100P)
+            if not flush():
+                return None
+            if sentence == _PLANECHASE[1]:
+                effects.append({"do": "planechase_only"})
+        elif (m := _CHOOSE_FOR_VOTES.match(sentence)) is not None and words and m["w"].lower() in opts and not any(x.get("do") == "vote_choose" for x in effects):
             from app.rules import selectors
 
             if not flush() or (creature := selectors.parse("creature")) is None:
@@ -524,6 +532,13 @@ def bind_player(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     return True
 
 
+def planechase_only(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """-- other choosers (wave 100P) -- "planeswalk" / "chaos ensues" outside a Planechase game (701.31a, 311.7): nothing happens."""
+    plan.note("Not a Planechase game: nothing happens (701.31a)")
+    return True
+
+
 PRIMITIVES = {"vote": vote, "vote_repeat": repeat, "vote_control": vote_control, "vote_each": each, "vote_bind": bind_player,
-              "vote_objects": objects, "vote_bind_object": bind_object, "vote_choose": choose_for_votes}
+              "vote_objects": objects, "vote_bind_object": bind_object, "vote_choose": choose_for_votes,
+              "planechase_only": planechase_only}
 RESUME = {"vote": resume}
