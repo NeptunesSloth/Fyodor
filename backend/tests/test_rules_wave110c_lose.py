@@ -68,3 +68,23 @@ def test_loss_happens_without_a_replacement(cards):
     s = build(cards, ["Grizzly Bears"])
     _lose(s)
     assert s.state.rules.winner == "p2"
+
+
+def test_two_replacements_player_chooses_order(cards):
+    """616.1: Golden Throne and Lich's Mirror both apply; the player picks, and the other stays for the next loss."""
+    for pick, expect_life in (("The Golden Throne", 1), ("Lich's Mirror", 20)):
+        s = build(cards, ["The Golden Throne", "Lich's Mirror"])
+        throne, mirror = put(s, "The Golden Throne"), put(s, "Lich's Mirror")
+        act(s, "p1", type="set_life", player="p1", value=0)
+        act(s, "p1", type="pass_priority")
+        d = s.state.rules.decision
+        assert d is not None and d.player == "p1" and {o.label for o in d.options} == {"The Golden Throne", "Lich's Mirror"}
+        chosen = throne if pick == "The Golden Throne" else mirror
+        other = mirror if chosen is throne else throne
+        act(s, "p1", type="choose", decision_id=d.id, option_ids=[chosen.id])
+        answer(s)
+        assert life(s) == expect_life and s.state.rules.winner is None
+        assert s.state.cards[chosen.id].zone != "p1:battlefield"
+        if chosen is throne:
+            assert s.state.cards[other.id].zone == "p1:battlefield"
+        check(s)

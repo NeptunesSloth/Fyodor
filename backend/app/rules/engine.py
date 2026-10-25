@@ -1897,3 +1897,6 @@ RESUME.update(_sticker_effects101.RESUME)
 
 from app.rules import vampire_returns105 as _vampire_returns105  # noqa: E402, I001
 RESUME.update(_vampire_returns105.RESUME)
+
+from app.rules import wave110c_lose as _wave110c_lose  # noqa: E402, I001
+RESUME.update(_wave110c_lose.RESUME)  # -- lose replacements (wave 110C) --
