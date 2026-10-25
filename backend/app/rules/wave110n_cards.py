@@ -136,6 +136,22 @@ def sword_rest(plan: Any, ctx: Any, e: Def) -> bool:
     return True
 
 
+def _thief(d: Def) -> Def:
+    """Thief of Existence: the spell gains the leaves-the-battlefield trigger only if the exile happened, and keeps it as the permanent it becomes (400.7a)."""
+    from app.rules import scripts
+
+    grant = scripts.parse_effects('Exile up to one target permanent. If you do, ~ gains "When this creature leaves the battlefield, target opponent draws a card."')
+    gains = [e for e in d["effects"] if e.get("do") == "gain_life"]
+    if grant is None or len(gains) != 1:
+        return d
+    return {**d, "effects": [{**grant[0][2], "who": "self_stack"} if e is gains[0] else e for e in d["effects"]]}  # the spell, still on the stack
+
+
+_BUILD["When you cast this spell, exile up to one target noncreature, nonland permanent an opponent controls with mana value 4 or less. If you do, "
+       "Thief of Existence gains \"When this creature leaves the battlefield, target opponent draws a card.\""] = (
+    "When you cast this spell, exile up to one target noncreature, nonland permanent an opponent controls with mana value 4 or less. If you do, you gain 1 life.", _thief)
+
+
 def _willow(d: Def) -> Def:
     return {**d, "effects": [{"do": "willow110n", "who": "target"}]}
 
