@@ -7061,3 +7061,6 @@ PRIMITIVES.update(_copy105.PRIMITIVES)
 from app.rules import wave110c_core as _wave110c_core  # noqa: E402, I001  -- core (wave 110C) --
 PRIMITIVES.update(_wave110c_core.PRIMITIVES)
 RESUME.update(_wave110c_core.RESUME)
+
+from app.rules import wave110c_kusari as _wave110c_kusari  # noqa: E402, I001
+PRIMITIVES.update(_wave110c_kusari.PRIMITIVES)  # -- Kusari-Gama (wave 110C) --

@@ -316,8 +316,10 @@ _ADVENTURER = {
 
 
 def definition(ability: AbilityText, ch: Any) -> dict[str, Any] | None:
-    from app.rules import wave110c_lose, wave110c_tevesh
+    from app.rules import wave110c_kusari, wave110c_lose, wave110c_tevesh
 
+    if (kusari := wave110c_kusari.definition(ability, ch)) is not None:  # Kusari-Gama
+        return kusari
     if (tevesh := wave110c_tevesh.definition(ability, ch)) is not None:  # Tevesh Szat, Doom of Fools
         return tevesh
     if (lose := wave110c_lose.definition(ability.text)) is not None:  # "If you would lose the game, instead ..." (Exquisite Archangel, The Golden Throne, Lich's Mirror)
