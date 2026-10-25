@@ -36,7 +36,7 @@ from typing import Any
 from app.game.errors import ActionError
 from app.game.rules_state import DecisionOption, ObjectRef, PaymentRecord
 from app.game.state import CardInstance
-from app.rules import context, cost_payment, mana_units, optional_counter55
+from app.rules import context, cost_payment, mana_units, optional_counter55, selectors
 from app.rules import costs as C
 from app.rules import mana as M
 from app.rules.costs import AbilityCost
@@ -230,14 +230,14 @@ def problem(plan: Plan, ctx: Context, cost: AbilityCost, payer: str, chosen: dic
             or (prohibitions.cant_cause_discard(plan, payer, ctx["controller"]) if parts & {C.DISCARD, C.DISCARD_HAND} else None)):
         return f"{why}: {plan.name(payer)} can't be made to sacrifice or discard by it"
     was, plan.resolution_cost = plan.resolution_cost, True  # (a cost paid as it resolves: Angel of Jubilation doesn't reach it)
-    excluded_before = plan.excluded
+    excluded_before, plan.cost_attacker = plan.excluded, selectors.attacker_of(ctx.get("event"))  # (wave 110C: "other than that creature")
     if ctx.get('resolution_cost_exclusions'):
         plan.excluded = plan.excluded | _taken(plan, ctx, payer)
     try:
         return _problem(plan, ctx, cost, payer, chosen, cost_has_x=cost_has_x)
     finally:
         plan.resolution_cost = was
-        plan.excluded = excluded_before
+        plan.excluded, plan.cost_attacker = excluded_before, None
 
 
 def _problem(plan: Plan, ctx: Context, cost: AbilityCost, payer: str, chosen: dict[int, list[str]] | None,
@@ -610,12 +610,12 @@ def _choose_next(plan: Plan, ctx: Context, opt: dict[str, Any], cost: AbilityCos
                    resume=_resume(ctx, opt, cost, component=i, amount=None, hand=True, flexible=True),
                    source=plan.state.cards.get(ctx.get("source_card") or ""))
             return False
-        was, plan.resolution_cost = plan.resolution_cost, True  # (review 22B)
+        was, plan.resolution_cost, plan.cost_attacker = plan.resolution_cost, True, selectors.attacker_of(ctx.get("event"))  # (review 22B)
         try:
             usable = [c for c in cost_payment.candidates(plan, comp, payer, source)
                       if c not in cost_payment._reserved(cost, comp, source) and c not in used]
         finally:
-            plan.resolution_cost = was
+            plan.resolution_cost, plan.cost_attacker = was, None
         if comp.kind == C.WATERBEND:
             if not usable:
                 opt["chosen"][str(i)] = []

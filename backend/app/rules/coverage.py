@@ -846,4 +846,8 @@ def x_selector_ok(ch: Characteristics, d: dict[str, Any]) -> bool:
         from app.rules import triggers
 
         return triggers.x_source(d, ch) is not None
-    return d.get("kind") == "spell" and "{X}" in (ch.mana_cost or "")
+    # -- additional cost X (wave 110C) -- 107.3a, 601.2b: "As an additional cost to cast this spell, pay X life." announces the X too (Fix What's Broken)
+    from app.rules.costs import spell_additional_cost
+
+    extra = spell_additional_cost(ch.abilities)
+    return d.get("kind") == "spell" and ("{X}" in (ch.mana_cost or "") or (extra is not None and extra.life_x))

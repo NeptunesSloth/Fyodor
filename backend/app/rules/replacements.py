@@ -1381,14 +1381,18 @@ def _graveyard_candidates(plan: Plan, card: CardInstance, frm: str) -> list[Cand
         out.append(Cand("its own cast", "exile", True))  # "without paying …": "If that spell would be put into your graveyard, exile it instead"
     if frm == "battlefield" and card.counters.get("finality", 0) > 0:  # 122.1h (-- refused zones/sized (wave 3R4) --)
         out.append(Cand("finality counter", "exile"))
-    if _self_exile_instead(plan, card):
-        out.append(Cand(card.name or "its own ability", "exile"))
+    if _self_exile_instead(plan, card):  # (wave 110C: Ugin's Nexus' rider, "and take an extra turn")
+        rider = next(({"source": card.id, "controller": card.controller, **d["rider"]} for d in _definitions(plan, card).values()
+                      if d.get("replacement") == "exile_instead" and d.get("rider")), None)
+        out.append(Cand(card.name or "its own ability", "exile", False, rider))
     if (where := _self_library_instead(plan, card)) is not None:  # -- instead (wave 20B) --
         out.append(Cand(card.name or "its own ability", f"library:{where}"))
     if _self_shuffle_instead(plan, card):
         out.append(Cand(card.name or "its own ability", "library:shuffle"))
     for src, d in _static_exile_all(plan, card):
         rider = {"source": src.id, "controller": src.controller, **d["rider"]} if d.get("rider") else None
+        if rider is not None and rider.get("power_counters"):  # -- (wave 110C) -- Ravenous Slime: its +1/+1 counters equal the power the creature had as it died (LKI, 608.2h)
+            rider["n"] = max(0, int(plan.ch(card).pt[0]))
         out.append(Cand(src.name or "a static ability", "hand" if d["static"] == "hand_instead" else "exile", False, rider, plan.oid(src) if d.get("link") else "", d.get("counter", "")))
     if frm == "battlefield" and (why := _record_exile_instead(plan, card)) is not None:  # -- replacement effects stage 2 (wave 2E) --
         out.append(Cand(why, "exile"))
@@ -1479,6 +1483,12 @@ def run_rider(plan: Plan, rider: dict[str, Any]) -> None:
         return
     src = plan.state.cards.get(rider["source"])
     if src is None:
+        return
+    if rider.get("power_counters"):  # -- (wave 110C) -- Ravenous Slime: counters on the source, only while it is still on the battlefield
+        if rider["n"] and src.zone.endswith(":battlefield"):
+            from app.rules import replace
+
+            replace.put_counters(plan, [(src.id, "+1/+1", rider["n"])], by=rider["controller"])
         return
     ctx = {"controller": rider["controller"], "source_card": src.id, "source_object": plan.oid(src), "name": src.name or "",
            "targets": [], "stack_id": "", "kind": "replacement", "effects": rider["effects"], "next": len(rider["effects"]), "x": None,

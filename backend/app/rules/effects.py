@@ -2726,7 +2726,7 @@ def _sacrifice_next(plan: Plan, ctx: Context, key: str, want: int, players: list
                     binding: str | None = None, exile: bool | str = False, link: bool = False, upto: bool = False) -> bool:
     sel = selectors.from_key(key)
     for i, pid in enumerate(players):
-        mine = [c for c in selectors.candidates(plan, sel, pid, ctx.get("source_card"))
+        mine = [c for c in selectors.candidates(plan, sel, pid, ctx.get("source_card"), selectors.attacker_of(ctx.get("event")))  # (wave 110C: "other than that creature", Saw)
                 if plan.state.cards[c].controller == pid and plan.state.cards[c].zone.endswith(":battlefield")]
         if not exile:
             from app.rules import prohibitions
@@ -7080,3 +7080,6 @@ from app.rules import wave110d as _wave110d  # noqa: E402, I001  -- wave 110D --
 PRIMITIVES.update(_wave110d.PRIMITIVES)
 RESUME.update(_wave110d.RESUME)
 RESUME.update(_wave110b_cards.RESUME)
+
+from app.rules import wave110c_kusari as _wave110c_kusari  # noqa: E402, I001
+PRIMITIVES.update(_wave110c_kusari.PRIMITIVES)  # -- Kusari-Gama (wave 110C) --

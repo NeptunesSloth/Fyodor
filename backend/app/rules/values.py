@@ -323,6 +323,8 @@ def _parse_count(phrase: str, *, it: str | None = None) -> Value | None:
         return {"exiled_with": 1}  # -- resolution memory (wave 22D) -- 607.2a: the cards the linked ability exiled and that are still there
     if what == "opponent you attacked with a creature this combat":  # -- casting extras (wave 18E) -- melee 702.121a
         return {"attacked_opponents": 1}
+    if what == "opponents being attacked":  # -- opponents attacked (wave 110C) -- 506.2: the opponents some creature of yours is attacking now (Dimir Strandcatcher)
+        return {"players_attacked": 1, "by": "you"}
     if what in ("players being attacked", "player being attacked"):  # -- if you do (wave 40A) -- "draw a card for each player being attacked" (Amber Gristle O'Maul), "create a
         return {"players_attacked": 1}  # Food token for each player being attacked" (Apothecary White): the players some creature is attacking now (506.2, 506.6; not a player whose planeswalker or battle is attacked — Commander Liara Portyr's ruling of 2022-06-10, Suppressor Skyguard's of 2024-02-02)
     if re.fullmatch(r"times? (?:it|he|she|~|this (?:spell|creature|permanent|enchantment|artifact|land|planeswalker)) (?:was|were) kicked", what):
@@ -404,6 +406,9 @@ def _parse_count(phrase: str, *, it: str | None = None) -> Value | None:
         if m["kinds"]:  # 122.1: how many different kinds of counters there are among them
             return {"counter_kinds": 1, "of": key}
         return {"counters_among": m["kind"], "of": key}
+    if (m := re.fullmatch(r"(?:different )?kinds? of counters? on (?P<on>.+)", what)) is not None and _ON.get(m["on"].lower()) is not None:
+        on = _ON[m["on"].lower()]  # -- kinds of counters (wave 110C) -- 122.1: how many kinds of counters the one object has (Blitzball Stadium)
+        return {"counters": None, "kinds": True, "on": it if on == "it" else on}
     m = _COUNTERS_ON.match(what)
     if m:
         on = _ON.get(m["on"].lower())
@@ -663,6 +668,8 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
     """The number a value stands for right now (never negative: 107.1b)."""
     if isinstance(v, int):
         return max(0, v)
+    if isinstance(v, dict) and 'began_lands110c' in v:  # (wave 110C) Power Surge: the active player's untapped lands as the turn began
+        return plan.rules.began_lands110c.get(plan.active, 0)
     if 'sticker_vowels102' in v:
         from app.rules import sticker_riders102
 
@@ -1135,6 +1142,8 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
         if got is None:
             return 0
         counters = got[0].counters
+        if v.get("kinds"):
+            return sum(1 for n in counters.values() if n > 0)
         return counters.get(v["counters"], 0) if v["counters"] else sum(counters.values())
     raise ValueError(f"unknown value {v!r}")
 

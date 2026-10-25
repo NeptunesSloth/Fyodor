@@ -395,6 +395,7 @@ def self_text(text: str, name: str) -> str:
     # -- keywords (wave 30E) -- 702.166b: a bargained spell is read the same way (a bargain card has no kicker): casting.py records it as kicked
     out = re.sub(r"(?:^|(?<=\. ))If this spell was bargained, ", "If this spell was kicked, ", out)
     out = re.sub(r"\bif it was bargained, ", "if it was kicked, ", out)
+    out = re.sub(r", support X\b", ", put a +1/+1 counter on each of up to X other target creatures", out)  # -- support X (wave 110C) -- 701.41a, Blitzball Stadium
     # -- damage sized by a count (wave 20A) -- "Choose any target. Scry 3, then reveal the top card of your library. ~ deals damage equal to
     # that card's mana value to that permanent or player." (Riddle of Lightning): the target is declared as the spell is cast (115.1, 601.2c)
     # whatever the order of the text, so the damage sentence names "any target" itself
@@ -8369,7 +8370,7 @@ def _event_refs_ok(d: Definition) -> bool:
             and '\\"evt:' in json.dumps({**d, "effects": [e for i, e in enumerate(d.get("effects") or []) if i not in (_delayed.object_deferred(d.get("effects") or []) | entry_receipt56.object_deferred(d.get("effects") or []))]}):
         # (wave 28D: the spell a cast trigger is about; -- turn-long triggers (wave 35B) -- or the one object a "When that creature dies this turn" trigger is about)
         return False  # -- reanimation (wave 16F) -- "lesser mana value": than the one object the event is about
-    if "not_event" in raw and not (ev is not None and ev["event"] in ("targeted", "unblocked")):  # -- stack interaction (wave 23B) -- "other than that creature":
+    if "not_event" in raw and not (ev is not None and ev["event"] in ("targeted", "unblocked", "attack")):  # -- stack interaction (wave 23B) -- "other than that creature" (wave 110C: attack, Saw -- selectors.attacker_of reads it):
         return False  # the object a "becomes the target" event is about (selectors.attacker_of); nothing else names one here
     if '"event_attacking"' in raw and not (ev is not None and ev["event"] == "you_attack" and ev.get("min_attackers")):
         return False  # -- trailing & intervening ifs (wave 38A) -- "those creatures": the attackers an "attacks with creatures" trigger counted (its event's objects)
@@ -9266,6 +9267,10 @@ def define_replacement(ability: AbilityText, text: str) -> Definition | None:
         return kicked_entry
     if text == 'If ~ would be destroyed, regenerate it.':
         return {'kind': 'static', 'static': 'regenerate_instead', 'effects': []}
+    from app.rules import wave110c_aura  # -- aura guard (wave 110C) --
+
+    if (guard := wave110c_aura.definition(ability)) is not None:
+        return guard
     # -- cant restrictions (wave 46A) -- "~ enters with six +1/+1 counters on it. It escapes with twelve +1/+1 counters on it instead." (Polukranos, Unchained):
     # the usual amount, and the escaped one that replaces it (614.1c, 702.138b); replacements.counter_amount reads "escaped_n"
     if (esc := re.fullmatch(r"(~ enters with (?P<n>\w+) (?P<k>[+-]\d+/[+-]\d+) counters on it)\. It escapes with (?P<e>\w+) (?P=k) counters on it instead\.", text)) is not None \

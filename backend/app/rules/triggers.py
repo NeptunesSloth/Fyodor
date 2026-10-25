@@ -426,7 +426,7 @@ def _snapshot_card(plan: Plan, snap: ObjectSnapshot) -> tuple[CardInstance, Char
                         attached_to=snap.attached_to, attached_player=snap.attached_player, tapped=snap.tapped,
                         entry_characteristics=snap.entry_characteristics, attacking=attacking, attacking_without_target=snap.attacking_without_target, attack_defender_lost=snap.attack_defender_lost, blocking=snap.blocking_ids[0] if snap.blocking_ids else None,
                         blocking_more=snap.blocking_ids[1:], blocking_without_attacker=snap.blocking and not snap.blocking_ids,
-                        counters=dict(snap.counters))  # (wave 3S: "each page counter on this Aura", 608.2h)
+                        counters=dict(snap.counters), commander_key=snap.commander_key)  # (wave 3S: "each page counter on this Aura", 608.2h)
     if snap.x is not None:  # -- stack interaction (wave 5B) -- a spell's X as it last existed on the stack (202.3e)
         card.stack_info = StackInfo(x=snap.x)
     return card, ch
@@ -752,6 +752,7 @@ def _damage_facts(plan: Plan, e: Event) -> list[Fact]:
                   "recipient_planeswalker": recipient_is_walker, "recipient_battle": recipient_is_battle,
                   "recipient_blocking110b": got is not None and bool(got[0].blocking),  # (-- one-card wordings (wave 110B) -- 509.1g: a blocker)
                   "recipient_subtypes": list(got[1].subtypes) if got is not None else []}  # (wave 15B)
+    dealt_info["recipient_blocking110c"] = got is not None and got[0].is_blocking  # -- blocking recipient (wave 110C) -- Kusari-Gama
     if got is not None:  # -- other side (wave 6D) -- "deals damage to a creature, destroy that creature" (other_side.py)
         dealt_info.update(other=got[0].id, other_oid=e.object_id)
     out.append(("deal_damage", src[0], src[1], src[0].controller, dealt_info))
@@ -1272,6 +1273,8 @@ def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: F
             before = plan.rules.lki.get(oid or "")
             if not info.get("recipient_planeswalker") or not (current or (before is not None and watcher.id in before.attached)):
                 return False
+        if cond.get("blocking110c") and not info.get("recipient_blocking110c"):
+            return False
         recipient = info.get("recipient")
         if (to == "player" and recipient is None) or (to == "you" and recipient != you) or \
                 (to == "creature_or_opponent" and not (info.get('recipient_creature') or recipient is not None and recipient != you)) or \
@@ -1553,6 +1556,11 @@ def _fire_generic(plan: Plan, facts: list[Fact], batch: int, fired: Fired,
             info = fact[4]
             if cond.get('damaged_by_host104'):
                 event.other = info.get('damage_host104')
+            if cond.get("blocking110c"):  # -- blocking recipient (wave 110C) -- the blocker, and the defending player (508.5) of the attacker that damaged it
+                from app.rules import defending
+
+                event.other = _source_ref(plan, info.get("other_oid"))
+                event.defended = defending.defended(plan, fact[1])
             if cond.get('cast_targets102'):
                 event.amount = len({(cid, oid) for cid, oid in info.get('targets') or []})
             if cond.get("excess"):  # -- trigger damage (wave 39B) -- 120.10: "that excess damage" / "the excess": the amount of this event is the excess (the batch's total, 603.2c)

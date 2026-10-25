@@ -61,6 +61,8 @@ class Plan:
     # -- cost reductions paid with objects (wave 47C) -- "for each counter, … sacrifices a nonland permanent … or discards a card": what a player's earlier choices of one resolution already
     # take (paid together at the end), so none is chosen twice (optional_payment._taken)
     excluded: frozenset[str] = frozenset()
+    # -- optional payments (wave 110C) -- the attacking creature of the trigger being resolved: a cost's "other than that creature" (selector not_event) excludes it
+    cost_attacker: str | None = None
 
     def __init__(self, state: GameState, actor: str, info: CardInfo, rng: Any) -> None:
         self.state = state.model_copy(deep=True)

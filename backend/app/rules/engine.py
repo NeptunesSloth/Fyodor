@@ -658,6 +658,9 @@ def start_next_turn(plan: Plan) -> None:
     skip_to = extra or effects.skips.next_active(plan, base)
     if skip_to is None and upcoming != plan.after(plan.active):  # (leaving an extra turn)
         skip_to = upcoming
+    # -- (wave 110C) -- 500.1: as the turn begins, before anything untaps: "untapped lands they controlled at the beginning of this turn" (Power Surge)
+    plan.rules.began_lands110c = {(who := skip_to or upcoming): sum(
+        1 for c in plan.state.cards.values() if c.zone.endswith(":battlefield") and c.controller == who and not c.tapped and "Land" in plan.ch(c).types)}
     stay = effects.skips.untap_skipped(plan, skip_to or upcoming)
     if stay is None:  # -- phasing (wave 13D) -- 702.26a/m: before the untap step, unless it is skipped
         phasing.untap_step(plan, skip_to or upcoming)
@@ -1902,3 +1905,6 @@ RESUME.update(_sticker_effects101.RESUME)
 
 from app.rules import vampire_returns105 as _vampire_returns105  # noqa: E402, I001
 RESUME.update(_vampire_returns105.RESUME)
+
+from app.rules import wave110c_lose as _wave110c_lose  # noqa: E402, I001
+RESUME.update(_wave110c_lose.RESUME)  # -- lose replacements (wave 110C) --

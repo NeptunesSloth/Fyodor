@@ -217,6 +217,12 @@ def _defending_controls(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, controller="defending")
 
 
+# -- defending owner (wave 110C) -- "card in exile … that defending player owns" (Ravenloft Adventurer)
+@_suffix(r"(?:that )?defending player owns")
+def _defending_owns(s: Selector, m: re.Match[str]) -> Selector:
+    return replace(s, owner="defending")
+
+
 @_suffix(r"(?:that )?enchanted player controls")
 def _enchanted_controls(s: Selector, m: re.Match[str]) -> Selector:
     # -- attached events (wave 16F) -- the player the source (a Curse) enchants, 702.5d
@@ -895,6 +901,11 @@ def _with_flashback(s: Selector, m: re.Match[str]) -> Selector:
 @_suffix(r"with (?:a|an) mana abilit(?:y|ies)")  # (wave 45D) 605.1a: an activated ability that could add mana ("creatures you control with a mana ability", Raggadragga)
 def _with_mana_ability(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, extras=(*s.extras, "mana_ability"))
+
+
+@_suffix(r"without mana abilit(?:y|ies)")  # -- (wave 110C) -- 605.1a: "artifacts without mana abilities" (Midnight Arsonist)
+def _without_mana_ability(s: Selector, m: re.Match[str]) -> Selector:
+    return replace(s, extras=(*s.extras, "no_mana_ability"))
 
 
 @_suffix(r"(?:that )?has an activated ability with \{T\} in its cost")  # -- activated other (wave 52D) -- Magewright's Stone: 602.1, a mana ability is an activated ability too (605.1a)
@@ -2329,6 +2340,8 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
             return False
     if sel.owner == "you" and card.owner != you:
         return False
+    if sel.owner == "defending" and card.owner not in defending_players(plan, source, attacker):  # -- defending owner (wave 110C) --
+        return False
     if sel.owner == "opponent" and card.owner == you:
         return False
     if sel.owner is not None and sel.owner.startswith("player:") and card.owner != sel.owner[7:]:
@@ -2358,6 +2371,8 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
     if sel.with_keywords and not set(sel.with_keywords) <= ch.keywords:
         return False
     if any(x.startswith("any_kw:") and not set(x[7:].split(",")) & ch.keywords for x in sel.extras):  # (wave 45D)
+        return False
+    if "no_mana_ability" in sel.extras and any(a.kind == "mana" for a in ch.abilities):  # (wave 110C)
         return False
     if "mana_ability" in sel.extras and not any(a.kind == "mana" for a in ch.abilities):  # (wave 45D)
         return False

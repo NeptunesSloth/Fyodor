@@ -4461,7 +4461,7 @@ def become_plotted(plan: Plan, card_id: str) -> None:
     emit(plan.state, "plotted", object_id=plan.oid(card), card=card.id, player=card.owner)  # -- (wave 110B) -- "When this card becomes plotted"
 
 
-FORETELL = re.compile(r"^foretell (?P<cost>(?:\{[^}X]+\})+)$", re.IGNORECASE)
+FORETELL = re.compile(r"^foretell (?P<cost>(?:\{[^}]+\})+)$", re.IGNORECASE)
 
 
 def foretell(plan: Plan, card: CardInstance, ch: Characteristics, a: A.ActivateAbility) -> None:

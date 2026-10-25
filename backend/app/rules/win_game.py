@@ -71,6 +71,9 @@ def lose_game(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
         if game_result.cannot_lose(plan, pid):
             plan.note(f"{plan.name(pid)} would lose the game, but can't")
     losers = [p for p in losers if not game_result.cannot_lose(plan, p)]
+    from app.rules import wave110c_lose  # -- lose replacements (wave 110C) --
+
+    losers = [p for p in losers if not wave110c_lose.replace_loss(plan, p)]
     if losers:
         from app.rules import life_game_history
 
