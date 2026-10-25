@@ -287,6 +287,9 @@ _PARTY = ("Whenever one or more of your opponents are attacked, up to one target
           "where X is the number of cards in your hand.")
 
 
+_SLIME = ("If a creature an opponent controls would die, instead exile it and put a number of +1/+1 counters equal to that creature's power "
+          "on this creature.")
+
 _ADVENTURER = {
     "If a creature an opponent controls would die, instead exile it and put a hit counter on it.":
         "If a creature an opponent controls would die, exile that card with a hit counter on it instead.",
@@ -322,6 +325,13 @@ def definition(ability: AbilityText, ch: Any) -> dict[str, Any] | None:
         from app.rules import scripts
 
         return scripts.define(replace(ability, text=_PARTY.replace("one or more of your opponents are attacked", "a player attacks one or more of your opponents")), ch)
+    if ability.text == _SLIME:  # Ravenous Slime: plain "exile it instead" plus a rider that counts the dying creature's power (614.6)
+        from dataclasses import replace
+
+        from app.rules import scripts
+
+        native = scripts.define(replace(ability, text="If a creature an opponent controls would die, exile it instead."), ch)
+        return None if native is None else {**native, "rider": {"effects": [], "reflexive": False, "power_counters": True}}
     if ability.text in _ADVENTURER:  # Ravenloft Adventurer: the same results in wordings the grammar reads (614.6 exile with a counter; 508.5 defending owner)
         from dataclasses import replace
 
