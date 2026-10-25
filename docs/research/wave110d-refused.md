@@ -15,3 +15,6 @@
 - Growing Dread: "Whenever you turn a permanent face up" names the turner, not the controller; no event carries the actor, a controller rewrite would guess.
 - Orcish Farmer: "until its controller's next untap step" is a new layer-effect duration; no foundation yet.
 - Aspect of Wolf: +X/+Y with two different counted values; layers.py "each" carries one value (needs a t_value field).
+- Sidisi, Regent of the Mire: X is the sacrificed creature's mana value but the target "mana value X plus 1" is chosen before the cost is paid (601.2c vs 601.2h); no announce-X-from-cost foundation.
+- Fractured Powerstone: the planar die is not part of Commander play (no planar die machinery).
+- Geth's Summons: corrupted "for each opponent ... as you cast this spell" targets a graveyard per opponent; needs per-opponent targets counted at cast time.

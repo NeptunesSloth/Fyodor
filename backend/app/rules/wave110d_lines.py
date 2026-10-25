@@ -7,6 +7,9 @@ from typing import Any
 
 # the Oracle line (the card's name as ~) -> the wording the grammar already reads, with the same meaning
 _AS: dict[str, str] = {
+    # Sorin, Ravenous Neonate: "a white permanent other than that creature or Sorin" (here ~) = other than Sorin (the native "another") and not the stolen creature (patched below)
+    "−6: Gain control of target creature. It becomes a Vampire in addition to its other types. Put a lifelink counter on it if you control a white permanent other than that creature or ~.":
+        "−6: Gain control of target creature. It becomes a Vampire in addition to its other types. Put a lifelink counter on it if you control another white permanent.",
     # Sheltering Prayers: 613.7 each basic land is checked against its own controller's land count (a controller-relative selector extra)
     "Basic lands each player controls have shroud as long as that player controls three or fewer lands.":
         "Basic lands controlled by a player who controls three or fewer lands have shroud.",
@@ -66,6 +69,10 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
         return {"kind": "static", "static": "ward_xp110d", "effects": []}
     native = _AS.get(text)
     d = None if native is None else scripts.define(replace(ability, text=native), ch)
+    if d is not None and text.startswith("−6: Gain control of target creature. It becomes a Vampire"):
+        # the stolen creature is now yours: it counts in "another white permanent" when white, so it needs one more
+        old = d["effects"][-2]["cond"]  # (the "only_if" before the counter)
+        d["effects"][-2]["cond"] = {"any": [{"all": [{"not": {"object": "target", "is": 'sel:{"colors":["W"]}'}}, old]}, {**old, "n": 2}]}
     if d is not None and text.startswith("Whenever you untap one or more"):  # (own_untap: only the untap step of its controller, triggers.py)
         d = json.loads(json.dumps(d, default=str).replace('{"event_amount": 1}', '{"event_count": 1}'))
         d["cond"]["own_untap"] = True
