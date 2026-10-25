@@ -8,6 +8,13 @@ from typing import Any
 Def = dict[str, Any]
 
 
+def _keep_revealed(d: Def) -> Def:
+    """The first choice leaves the rest of the revealed hand revealed for the second (701.20a)."""
+    first = next(e for e in d["effects"] if e["do"] == "choose_from_hand")
+    first["keep110g"] = True
+    return d
+
+
 def _exchange_power(d: Def) -> Def:
     """701.12g: exchanging two powers makes a continuous effect setting each (613.4b) to the other's previous value."""
     return {**d, "effects": [{"do": "exchange_power110g", "duration": "end_of_combat"}]}
@@ -31,6 +38,11 @@ _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
     # Serene Master
     "Whenever this creature blocks, exchange its power and the power of target creature it's blocking until end of combat.":
         ("Whenever this creature blocks, target creature it's blocking has base power 3 until end of combat.", _exchange_power),
+    # Distended Mindbender: two sequential choices from the revealed hand (701.9)
+    "When you cast this spell, target opponent reveals their hand. You choose from it a nonland card with mana value 3 or less and a card with mana value 4 or greater. "
+    "That player discards those cards.":
+        ("When you cast this spell, target opponent reveals their hand. You choose a nonland card with mana value 3 or less from it. That player discards that card. "
+         "You choose a card with mana value 4 or greater from it. That player discards that card.", _keep_revealed),
 }
 
 

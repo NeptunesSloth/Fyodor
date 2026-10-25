@@ -4,6 +4,7 @@
 * Acquisitions Expert: 700.8 party size sets how many cards the opponent reveals (701.20a).
 * Golgari Brownscale: 603.6 / 400.7 the card put into its owner's hand from the graveyard (dredge, 702.52a) triggers from the hand.
 * Invasion of the Giants: 603.12 'Then you may reveal a Giant card. When you do' is a reflexive trigger after the draw.
+* Distended Mindbender: 701.9 / 701.20a one discard per size class from the revealed hand, chosen by the caster.
 * Serene Master: 701.12g exchanging two powers sets each to the other's previous value (613.4b), until end of combat.
 """
 from __future__ import annotations
@@ -31,6 +32,8 @@ EXTRA = [
          'When this card is put into your hand from your graveyard, you gain 2 life.\nDredge 2 (If you would draw a card, you may mill two cards instead. If you do, return this card from your graveyard to your hand.)', ('2', '3'), 'G'),
     real('Invasion of the Giants', '{U}{R}', 2, 'Enchantment — Saga',
          '(As this Saga enters and after your draw step, add a lore counter. Sacrifice after III.)\nI — Scry 2.\nII — Draw a card. Then you may reveal a Giant card from your hand. When you do, this Saga deals 2 damage to target opponent or planeswalker.\nIII — The next Giant spell you cast this turn costs {2} less to cast.', None, 'RU'),
+    real('Distended Mindbender', '{8}', 8, 'Creature — Eldrazi Insect',
+         "Emerge {5}{B}{B} (You may cast this spell by sacrificing a creature and paying the emerge cost reduced by that creature's mana value.)\nWhen you cast this spell, target opponent reveals their hand. You choose from it a nonland card with mana value 3 or less and a card with mana value 4 or greater. That player discards those cards.", ('5', '5'), ''),
     real('Hill Giant', '{3}{R}', 4, 'Creature — Giant', '', ('3', '3'), 'R'),
     real('Divination', '{2}{U}', 3, 'Sorcery', 'Draw two cards.', None, 'U'),
 ]
@@ -168,4 +171,24 @@ def test_invasion_of_the_giants_chapter_two(cards, giant, life):
         else:
             act(s, s.state.rules.priority, type="pass_priority")
     assert s.state.players["p2"].life == life, s.state.players["p2"].life
+    check(s)
+
+
+def test_distended_mindbender_discards_one_cheap_nonland_and_one_expensive(cards):
+    s = build(cards, ["Distended Mindbender"], ["Grizzly Bears", "Llanowar Elves", "Forest", "Hill Giant"])
+    for name in ("Grizzly Bears", "Llanowar Elves", "Forest", "Hill Giant"):
+        to_hand(s, name, "p2")
+    mana(s, "p1", C=8)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Distended Mindbender").id, targets=["p2"])
+    for _ in range(40):
+        d = s.state.rules.decision
+        if d is not None:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][:1])
+        elif s.state.zones.get("stack"):
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            break
+    # first nonland <=3 option and first >=4 option are discarded: Forest (land) and one of the cheap cards stay
+    hand = [s.state.cards[c].name for c in s.state.zones["p2:hand"]]
+    assert "Hill Giant" not in hand and "Forest" in hand and len(hand) == 2, hand
     check(s)
