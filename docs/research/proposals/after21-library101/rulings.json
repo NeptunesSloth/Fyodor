@@ -1,0 +1,625 @@
+{
+  "Auspicious Starrix": {
+    "object": "list",
+    "has_more": false,
+    "data": [
+      {
+        "object": "ruling",
+        "oracle_id": "8432df19-dbf4-457b-8c0b-1f4b3a0a37d2",
+        "source": "wotc",
+        "published_at": "2020-04-17",
+        "comment": "If an Aura is put onto the battlefield without being cast, the Aura\u2019s controller-to-be chooses what it will enchant as it enters the battlefield. An Aura put onto the battlefield this way doesn\u2019t target anything (so it could be attached to an opponent\u2019s permanent with hexproof, for example), but the Aura\u2019s enchant ability restricts what it can be attached to. If the Aura can\u2019t legally be attached to anything, it remains in its current zone."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "8432df19-dbf4-457b-8c0b-1f4b3a0a37d2",
+        "source": "wotc",
+        "published_at": "2020-04-17",
+        "comment": "An Aura being put onto the battlefield this way can\u2019t enchant anything else that is being put onto the battlefield at the same time."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "8432df19-dbf4-457b-8c0b-1f4b3a0a37d2",
+        "source": "wotc",
+        "published_at": "2020-04-17",
+        "comment": "Auspicious Starrix\u2019s effect doesn\u2019t count as playing lands. It can put land cards onto the battlefield even if it\u2019s not your turn or if you\u2019ve already played your land for the turn."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "8432df19-dbf4-457b-8c0b-1f4b3a0a37d2",
+        "source": "wotc",
+        "published_at": "2020-04-17",
+        "comment": "If there are fewer than X permanent cards in your library, you exile your entire library and put the permanent cards in it onto the battlefield."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "8432df19-dbf4-457b-8c0b-1f4b3a0a37d2",
+        "source": "wotc",
+        "published_at": "2020-04-17",
+        "comment": "Any cards that you exile but don\u2019t put on the battlefield for any reason (for example, because the card is an instant card or an Aura that can\u2019t enchant anything) remain in exile."
+      }
+    ]
+  },
+  "Illuna, Apex of Wishes": {
+    "object": "list",
+    "has_more": false,
+    "data": [
+      {
+        "object": "ruling",
+        "oracle_id": "08daa30f-7ce0-4a72-b539-fbb0c585fd73",
+        "source": "wotc",
+        "published_at": "2020-04-17",
+        "comment": "Illuna's last ability exiles the cards face up. All players will see what the card is if you put it into your hand."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "08daa30f-7ce0-4a72-b539-fbb0c585fd73",
+        "source": "wotc",
+        "published_at": "2020-04-17",
+        "comment": "You choose whether to put the card into your hand or onto the battlefield after seeing what the card is."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "08daa30f-7ce0-4a72-b539-fbb0c585fd73",
+        "source": "wotc",
+        "published_at": "2020-04-17",
+        "comment": "A nonland permanent card is an artifact, creature, enchantment, or planeswalker card."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "08daa30f-7ce0-4a72-b539-fbb0c585fd73",
+        "source": "wotc",
+        "published_at": "2020-04-17",
+        "comment": "Any land, instant, and sorcery cards exiled this way remain in exile."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "08daa30f-7ce0-4a72-b539-fbb0c585fd73",
+        "source": "wotc",
+        "published_at": "2020-04-17",
+        "comment": "If an Aura is put onto the battlefield without being cast, the Aura's controller-to-be chooses what it will enchant as it enters the battlefield. An Aura put onto the battlefield this way doesn't target anything (so it could be attached to an opponent's permanent with hexproof, for example), but the Aura's enchant ability restricts what it can be attached to. If the Aura can't legally be attached to anything, it remains in its current zone."
+      }
+    ]
+  },
+  "Empty the Laboratory": {
+    "object": "list",
+    "has_more": false,
+    "data": [
+      {
+        "object": "ruling",
+        "oracle_id": "84f3736f-5b2a-40f9-8c3b-c18f8c637c22",
+        "source": "wotc",
+        "published_at": "2021-09-24",
+        "comment": "The Zombies will enter the battlefield simultaneously. They will see each other enter for the purposes of triggered abilities."
+      }
+    ]
+  },
+  "Demonlord Belzenlok": {
+    "object": "list",
+    "has_more": false,
+    "data": [
+      {
+        "object": "ruling",
+        "oracle_id": "667ece0e-a474-4e11-8ac4-6c8fc354457c",
+        "source": "wotc",
+        "published_at": "2018-04-27",
+        "comment": "Once the triggered ability resolves, the ability will continue until you either exile a nonland card with mana value 3 or less or fail to exile any nonland cards while performing the process. You can't choose to stop receiving the blessings of Demonlord Belzenlok any sooner."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "667ece0e-a474-4e11-8ac4-6c8fc354457c",
+        "source": "wotc",
+        "published_at": "2018-04-27",
+        "comment": "Land cards exiled this way remain exiled."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "667ece0e-a474-4e11-8ac4-6c8fc354457c",
+        "source": "wotc",
+        "published_at": "2018-04-27",
+        "comment": "Demonlord Belzenlok's ability causes it to deal an amount of damage to you all at once; it doesn't deal 1 damage multiple times."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "667ece0e-a474-4e11-8ac4-6c8fc354457c",
+        "source": "wotc",
+        "published_at": "2018-04-27",
+        "comment": "If the mana cost of the nonland card includes {X}, X is considered to be 0."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "667ece0e-a474-4e11-8ac4-6c8fc354457c",
+        "source": "wotc",
+        "published_at": "2018-04-27",
+        "comment": "If the nonland card doesn't have a mana cost, its mana value is 0."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "667ece0e-a474-4e11-8ac4-6c8fc354457c",
+        "source": "wotc",
+        "published_at": "2018-04-27",
+        "comment": "The mana value of a split card, such as a card with aftermath from the Amonkhet block, is equal to the combined mana cost of its two halves."
+      }
+    ]
+  },
+  "Improvisation Capstone": {
+    "object": "list",
+    "has_more": false,
+    "data": [
+      {
+        "object": "ruling",
+        "oracle_id": "fd4f0315-567a-4cc5-bc7e-88a9d2cee910",
+        "source": "wotc",
+        "published_at": "2026-03-20",
+        "comment": "If an exiled card has {X} in its mana cost, X is 0 for the purpose of determining its mana value and you must choose 0 as the value of X when casting it without paying its mana cost."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "fd4f0315-567a-4cc5-bc7e-88a9d2cee910",
+        "source": "wotc",
+        "published_at": "2026-03-20",
+        "comment": "Paradigm creates a delayed triggered ability that triggers at the beginning of each of your first main phases for the rest of the game. When that ability resolves and the copy is created, you can choose not to cast the copy. In that case, the copy will cease to exist the next time state-based actions are checked. The delayed triggered ability will still trigger again at the beginning of your first main phase on your next turn regardless."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "fd4f0315-567a-4cc5-bc7e-88a9d2cee910",
+        "source": "wotc",
+        "published_at": "2026-03-20",
+        "comment": "You cast the spells while Improvisation Capstone is resolving and still on the stack. You can't wait to cast them later in the turn. Timing restrictions based on the cards' types are ignored."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "fd4f0315-567a-4cc5-bc7e-88a9d2cee910",
+        "source": "wotc",
+        "published_at": "2026-03-20",
+        "comment": "Each spell with paradigm has the Lesson subtype. The Lesson subtype appears on instants and sorceries and has no inherent rules meaning. Other effects (such as the learn ability from the original Strixhaven release) may refer to it."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "fd4f0315-567a-4cc5-bc7e-88a9d2cee910",
+        "source": "wotc",
+        "published_at": "2026-03-20",
+        "comment": "Once a spell with paradigm has resolved, it doesn't matter what happens to the card in exile. Even if the card leaves exile, the delayed triggered ability will still trigger during each of your first main phases, and the copy will still be created."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "fd4f0315-567a-4cc5-bc7e-88a9d2cee910",
+        "source": "wotc",
+        "published_at": "2026-03-20",
+        "comment": "If you cast a spell \"without paying its mana cost,\" you can't choose to cast it for any alternative costs. You can, however, pay additional costs. If the card has any mandatory additional costs, you must pay those to cast the spell."
+      }
+    ]
+  },
+  "Neera, Wild Mage": {
+    "object": "list",
+    "has_more": false,
+    "data": [
+      {
+        "object": "ruling",
+        "oracle_id": "88fb1dd1-60fb-4f51-ac4d-30b43156a474",
+        "source": "wotc",
+        "published_at": "2022-06-10",
+        "comment": "You must have legal targets to cast a spell with targets, even if you intend to put it onto the bottom of your library this way."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "88fb1dd1-60fb-4f51-ac4d-30b43156a474",
+        "source": "wotc",
+        "published_at": "2022-06-10",
+        "comment": "Neera, Wild Mage has received a minor update to its Oracle text to clarify its function. Specifically, if you choose not to cast the nonland card, it will be put on the bottom of your library along with the other revealed cards."
+      }
+    ]
+  },
+  "Venture Forth": {
+    "object": "list",
+    "has_more": false,
+    "data": [
+      {
+        "object": "ruling",
+        "oracle_id": "261f371f-bcda-4761-810f-3216608b31d8",
+        "source": "wotc",
+        "published_at": "2024-02-02",
+        "comment": "Suspend is a keyword that represents three abilities. The first is a static ability that allows you to exile the card from your hand with the specified number of time counters (the number before the dash) on it by paying its suspend cost (listed after the dash). The second is a triggered ability that removes a time counter from the suspended card at the beginning of each of your upkeeps. The third is a triggered ability that gives you the option to cast the card when the last time counter is removed."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "261f371f-bcda-4761-810f-3216608b31d8",
+        "source": "wotc",
+        "published_at": "2024-02-02",
+        "comment": "You can exile a card in your hand using suspend any time you could cast that card. Consider its card type, any effects that modify when you could cast it (such as flash) and any other effects that stop you from casting it (such as from Meddling Mage's ability) to determine if and when you can do this. Whether you could actually complete all steps in casting the card is irrelevant. For example, you can exile a card with suspend that has no mana cost or that requires a target even if no legal targets are available at that time."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "261f371f-bcda-4761-810f-3216608b31d8",
+        "source": "wotc",
+        "published_at": "2024-02-02",
+        "comment": "Cards exiled with suspend are exiled face up."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "261f371f-bcda-4761-810f-3216608b31d8",
+        "source": "wotc",
+        "published_at": "2024-02-02",
+        "comment": "Exiling a card with suspend isn't casting that card. This action doesn't use the stack and can't be responded to."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "261f371f-bcda-4761-810f-3216608b31d8",
+        "source": "wotc",
+        "published_at": "2024-02-02",
+        "comment": "If the spell requires any targets, those targets are chosen when the spell is finally cast, not when it's exiled."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "261f371f-bcda-4761-810f-3216608b31d8",
+        "source": "wotc",
+        "published_at": "2024-02-02",
+        "comment": "If an effect refers to a \"suspended card,\" that means a card that (1) has suspend, (2) is in exile, and (3) has one or more time counters on it."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "261f371f-bcda-4761-810f-3216608b31d8",
+        "source": "wotc",
+        "published_at": "2024-02-02",
+        "comment": "If the first triggered ability of suspend (the one that removes time counters) is countered, no time counter is removed. The ability will trigger again at the beginning of the card's owner's next upkeep."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "261f371f-bcda-4761-810f-3216608b31d8",
+        "source": "wotc",
+        "published_at": "2024-02-02",
+        "comment": "When the last time counter is removed, the second triggered ability of suspend (the one that lets you cast the card) triggers. It doesn't matter why the last time counter was removed or what effect removed it."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "261f371f-bcda-4761-810f-3216608b31d8",
+        "source": "wotc",
+        "published_at": "2024-02-02",
+        "comment": "If the second triggered ability is countered, the card can't be cast. It remains exiled with no time counters on it, and it's no longer suspended."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "261f371f-bcda-4761-810f-3216608b31d8",
+        "source": "wotc",
+        "published_at": "2024-02-02",
+        "comment": "Due to a recent rules change to suspend, you are no longer required to cast the suspended card as the second triggered ability of suspend resolves. Instead, as the second triggered ability resolves, you may cast the card. Timing permissions based on the card's type are ignored. If you don't cast the card, it remains exiled with no time counters on it, and it's no longer suspended."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "261f371f-bcda-4761-810f-3216608b31d8",
+        "source": "wotc",
+        "published_at": "2024-02-02",
+        "comment": "If you cast a card \"without paying its mana cost,\" such as with suspend, you can't choose to cast it for any alternative costs. You can, however, pay additional costs. If the card has any mandatory additional costs, you must pay those if you want to cast the card."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "261f371f-bcda-4761-810f-3216608b31d8",
+        "source": "wotc",
+        "published_at": "2024-02-02",
+        "comment": "If the card has {X} in its mana cost, you must choose 0 as the value of X when casting it without paying its mana cost."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "261f371f-bcda-4761-810f-3216608b31d8",
+        "source": "wotc",
+        "published_at": "2024-02-02",
+        "comment": "The mana value of a spell cast without paying its mana cost is determined by its mana cost, even though that cost wasn't paid."
+      }
+    ]
+  },
+  "Transforming Flourish": {
+    "object": "list",
+    "has_more": false,
+    "data": [
+      {
+        "object": "ruling",
+        "oracle_id": "9fb7e7ca-ad2f-4677-859c-7a9adf8fb5fd",
+        "source": "wotc",
+        "published_at": "2025-04-04",
+        "comment": "You choose whether to make a copy as the demonstrate ability resolves. This happens before the original spell resolves. Your copy goes on the stack above the original spell."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "9fb7e7ca-ad2f-4677-859c-7a9adf8fb5fd",
+        "source": "wotc",
+        "published_at": "2025-04-04",
+        "comment": "If you copy a spell with demonstrate, you then immediately choose an opponent. If they copy the spell, it goes on top of the stack."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "9fb7e7ca-ad2f-4677-859c-7a9adf8fb5fd",
+        "source": "wotc",
+        "published_at": "2025-04-04",
+        "comment": "If the spell requires targets, you choose the target of the original spell as you cast it. If you create a copy of the spell, you may choose new targets for the copy as you create that copy. Similarly, the opponent you chose to create a copy may choose new targets for that copy as it\u2019s created. In other words, your opponent will know the targets of your original spell and your copy when choosing the new targets, if any, for their copy."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "9fb7e7ca-ad2f-4677-859c-7a9adf8fb5fd",
+        "source": "wotc",
+        "published_at": "2025-04-04",
+        "comment": "If you cast a spell with demonstrate and both you and an opponent copy it, the opponent\u2019s copy will resolve first, then your copy will resolve, and finally the original spell will resolve."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "9fb7e7ca-ad2f-4677-859c-7a9adf8fb5fd",
+        "source": "wotc",
+        "published_at": "2025-04-04",
+        "comment": "If you cast the spell and choose not to copy it, no opponent will get to copy it either."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "9fb7e7ca-ad2f-4677-859c-7a9adf8fb5fd",
+        "source": "wotc",
+        "published_at": "2025-04-04",
+        "comment": "If the destroyed permanent\u2019s controller chooses to cast the exiled card without paying its mana cost, they can\u2019t choose to cast it for any alternative costs. They can, however, pay additional costs, such as kicker costs. If the spell has any mandatory additional costs, those must be paid to cast the spell."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "9fb7e7ca-ad2f-4677-859c-7a9adf8fb5fd",
+        "source": "wotc",
+        "published_at": "2025-04-04",
+        "comment": "If the exiled card has {X} in its mana cost, the destroyed permanent\u2019s controller must choose 0 as the value of X when casting it without paying its mana cost."
+      }
+    ]
+  },
+  "Aurora Awakener": {
+    "object": "list",
+    "has_more": false,
+    "data": [
+      {
+        "object": "ruling",
+        "oracle_id": "cf9d13e2-bdcc-4c66-95ad-654ef795dbd3",
+        "source": "wotc",
+        "published_at": "2025-11-17",
+        "comment": "The value of X is calculated only once, as Aurora Awakener's triggered ability resolves."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "cf9d13e2-bdcc-4c66-95ad-654ef795dbd3",
+        "source": "wotc",
+        "published_at": "2025-11-17",
+        "comment": "An Aura being put onto the battlefield this way can't enchant anything else that is being put onto the battlefield at the same time."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "cf9d13e2-bdcc-4c66-95ad-654ef795dbd3",
+        "source": "wotc",
+        "published_at": "2025-11-17",
+        "comment": "If an Aura is put onto the battlefield without being cast, the Aura's controller-to-be chooses what it will enchant as it enters the battlefield. An Aura put onto the battlefield this way doesn't target anything (so it could be attached to an opponent's permanent with hexproof, for example), but the Aura's enchant ability restricts what it can be attached to. If the Aura can't legally be attached to anything, it remains in its current zone."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "cf9d13e2-bdcc-4c66-95ad-654ef795dbd3",
+        "source": "wotc",
+        "published_at": "2025-11-17",
+        "comment": "Lands are normally colorless permanents, even if they tap for mana of a certain color."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "cf9d13e2-bdcc-4c66-95ad-654ef795dbd3",
+        "source": "wotc",
+        "published_at": "2025-11-17",
+        "comment": "The colors are white, blue, black, red, and green. Colorless is not a color."
+      }
+    ]
+  },
+  "Reality Scramble": {
+    "object": "list",
+    "has_more": false,
+    "data": [
+      {
+        "object": "ruling",
+        "oracle_id": "afad2e76-4b53-4884-8f96-ba68b0808990",
+        "source": "wotc",
+        "published_at": "2018-07-13",
+        "comment": "The target permanent\u2019s last known existence on the battlefield is checked to determine its types."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "afad2e76-4b53-4884-8f96-ba68b0808990",
+        "source": "wotc",
+        "published_at": "2018-07-13",
+        "comment": "Reality Scramble can target any permanent you own, including those another player controls. A token\u2019s owner is the player who created it."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "afad2e76-4b53-4884-8f96-ba68b0808990",
+        "source": "wotc",
+        "published_at": "2018-07-13",
+        "comment": "You\u2019ll stop as soon as you reveal a card that shares any card types with the target permanent. For example, if the target permanent is an artifact creature, you\u2019ll stop as soon as you reveal a card that\u2019s an artifact or a creature."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "afad2e76-4b53-4884-8f96-ba68b0808990",
+        "source": "wotc",
+        "published_at": "2018-07-13",
+        "comment": "In most cases, at least one card in your library (the card you put on the bottom of your library) will share a card type with the target permanent. However, in some unusual situations, no cards in your library share a card type with the permanent (perhaps because the permanent was a token or its types were changed). In that case, you\u2019ll reveal your entire library, put nothing onto the battlefield, and put the cards back in a random order."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "afad2e76-4b53-4884-8f96-ba68b0808990",
+        "source": "wotc",
+        "published_at": "2018-07-13",
+        "comment": "Casting a card by using its retrace ability works just like casting any other spell, with two exceptions: You\u2019re casting it from your graveyard rather than your hand, and you must discard a land card in addition to any other costs."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "afad2e76-4b53-4884-8f96-ba68b0808990",
+        "source": "wotc",
+        "published_at": "2018-07-13",
+        "comment": "Casting a card with retrace from your graveyard follows the normal timing rules for its card type."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "afad2e76-4b53-4884-8f96-ba68b0808990",
+        "source": "wotc",
+        "published_at": "2018-07-13",
+        "comment": "When a retrace card you cast from your graveyard resolves or is countered, it\u2019s put back into your graveyard. You may use the retrace ability to cast it again. If it\u2019s your turn, you may do so before any other player may take actions to try to remove it from your graveyard."
+      }
+    ]
+  },
+  "Chaos Mutation": {
+    "object": "list",
+    "has_more": false,
+    "data": [
+      {
+        "object": "ruling",
+        "oracle_id": "1a240953-26e0-429f-9663-dcfe5bc2c1c7",
+        "source": "wotc",
+        "published_at": "2022-10-07",
+        "comment": "The phrase \"target creatures controlled by different players\" means that no two targets may be controlled by the same player."
+      }
+    ]
+  },
+  "Divergent Transformations": {
+    "object": "list",
+    "has_more": false,
+    "data": [
+      {
+        "object": "ruling",
+        "oracle_id": "f08e835a-7827-4fdc-8dcf-ae74507da052",
+        "source": "wotc",
+        "published_at": "2016-11-08",
+        "comment": "You can't cast Divergent Transformations without two target creatures. If a targeted creature becomes an illegal target for Divergent Transformations after it's been cast, its controller won't exile or replace that creature, but the other creature is still affected."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "f08e835a-7827-4fdc-8dcf-ae74507da052",
+        "source": "wotc",
+        "published_at": "2016-11-08",
+        "comment": "If two players' creatures are exiled this way, start with the player whose turn it is. If that player controlled a creature exiled this way, that player follows the process on Divergent Transformations to replace it. If not, proceed to the next player in turn order. Repeat until the players who controlled the exiled creatures have each replaced those creatures."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "f08e835a-7827-4fdc-8dcf-ae74507da052",
+        "source": "wotc",
+        "published_at": "2016-11-08",
+        "comment": "If one player's creatures are exiled this way, that player repeats this process twice."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "f08e835a-7827-4fdc-8dcf-ae74507da052",
+        "source": "wotc",
+        "published_at": "2016-11-08",
+        "comment": "The two creatures that are put onto the battlefield are put onto the battlefield sequentially. Triggered abilities of the second won't see the first enter the battlefield."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "f08e835a-7827-4fdc-8dcf-ae74507da052",
+        "source": "wotc",
+        "published_at": "2016-11-08",
+        "comment": "Any abilities that trigger during the resolution of Divergent Transformations will wait to be put onto the stack until Divergent Transformations finishes resolving. An ability that triggers on the first creature entering the battlefield may target the second creature and vice versa."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "f08e835a-7827-4fdc-8dcf-ae74507da052",
+        "source": "wotc",
+        "published_at": "2016-11-08",
+        "comment": "If the controller of a creature exiled this way has no creature cards left in their library, that player reveals the cards in their library, then shuffles it."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "f08e835a-7827-4fdc-8dcf-ae74507da052",
+        "source": "wotc",
+        "published_at": "2016-11-08",
+        "comment": "Causing an opponent to lose the game after you've announced that you're casting a spell with undaunted and determined its total cost won't cause you to have to pay more mana."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "f08e835a-7827-4fdc-8dcf-ae74507da052",
+        "source": "wotc",
+        "published_at": "2016-11-08",
+        "comment": "Effects that reduce what you pay to cast a spell don't affect its mana value."
+      }
+    ]
+  },
+  "Indomitable Creativity": {
+    "object": "list",
+    "has_more": false,
+    "data": [
+      {
+        "object": "ruling",
+        "oracle_id": "e2161ae2-e5d2-4a56-85d4-d2214c5b3e2e",
+        "source": "wotc",
+        "published_at": "2017-02-09",
+        "comment": "If a player controls no permanents destroyed this way, that player reveals no cards from their library and doesn't shuffle it."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "e2161ae2-e5d2-4a56-85d4-d2214c5b3e2e",
+        "source": "wotc",
+        "published_at": "2017-02-09",
+        "comment": "If an artifact or creature is targeted but not destroyed (perhaps because it gained indestructible or became an illegal target), it doesn't count as one of the artifacts or creatures destroyed this way. An artifact or creature that's destroyed but put into a zone other than a graveyard (for example, due to the effect of Rest in Peace) does count."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "e2161ae2-e5d2-4a56-85d4-d2214c5b3e2e",
+        "source": "wotc",
+        "published_at": "2017-02-09",
+        "comment": "While revealing cards, a player stops as soon as they reveal a card that's an artifact or a creature (or both). That player doesn't choose one type."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "e2161ae2-e5d2-4a56-85d4-d2214c5b3e2e",
+        "source": "wotc",
+        "published_at": "2017-02-09",
+        "comment": "If a player's library no longer contains an artifact or creature card when instructed to reveal cards, that player reveals the entire library, exiles no cards, and then shuffles it."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "e2161ae2-e5d2-4a56-85d4-d2214c5b3e2e",
+        "source": "wotc",
+        "published_at": "2017-02-09",
+        "comment": "All of the exiled cards are put onto the battlefield at the same time."
+      }
+    ]
+  },
+  "Synthetic Destiny": {
+    "object": "list",
+    "has_more": false,
+    "data": [
+      {
+        "object": "ruling",
+        "oracle_id": "640a7d2c-42c4-4ea7-bd5b-72f12a65785e",
+        "source": "wotc",
+        "published_at": "2015-11-04",
+        "comment": "The creature cards will enter the battlefield simultaneously."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "640a7d2c-42c4-4ea7-bd5b-72f12a65785e",
+        "source": "wotc",
+        "published_at": "2015-11-04",
+        "comment": "The cards you exile will stay in exile. They're not part of the group you shuffle into your library."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "640a7d2c-42c4-4ea7-bd5b-72f12a65785e",
+        "source": "wotc",
+        "published_at": "2015-11-04",
+        "comment": "Creature tokens you exile this way will count toward the number of creature cards you put onto the battlefield."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "640a7d2c-42c4-4ea7-bd5b-72f12a65785e",
+        "source": "wotc",
+        "published_at": "2015-11-04",
+        "comment": "If you don't reveal any noncreature cards this way (perhaps because all the creature cards you needed were on top of your library), you still shuffle your library."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "640a7d2c-42c4-4ea7-bd5b-72f12a65785e",
+        "source": "wotc",
+        "published_at": "2015-11-04",
+        "comment": "If you exile your commander as Synthetic Destiny resolves, you may not put it into the command zone until after Synthetic Destiny is finished resolving. It will still count toward the number of creature cards you put onto the battlefield."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "640a7d2c-42c4-4ea7-bd5b-72f12a65785e",
+        "source": "wotc",
+        "published_at": "2015-11-04",
+        "comment": "If the number of creatures you exile is greater than the number of creature cards remaining in your library, you'll wind up revealing your entire library, putting all creature cards revealed that way onto the battlefield, then shuffling your library."
+      }
+    ]
+  }
+}

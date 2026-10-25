@@ -1,0 +1,206 @@
+--- /dev/null
++++ b/backend/app/rules/cost_statics101.py
+@@ -0,0 +1,98 @@
++"""Native cost statics for chosen-source taxes and commander/stack identities."""
++
++from __future__ import annotations
++
++from dataclasses import replace
++from typing import TYPE_CHECKING, Any
++
++if TYPE_CHECKING:
++    from app.game.state import CardInstance, GameState
++    from app.rules.characteristics import CardInfo, Characteristics
++    from app.rules.oracle import AbilityText
++
++MYTH = "Your commander costs {1} less to cast for each time it's been cast from the command zone this game."
++LIESA = "Rather than pay {2} for each previous time you've cast this spell from the command zone this game, pay 2 life that many times."
++TORCH = "As long as ~ is on the stack, spells that target it cost {2} more to cast."
++
++
++def definition(ability: AbilityText, ch: Characteristics) -> dict[str, Any] | None:
++    from app.rules import scripts, selectors
++
++    text = scripts.self_text(ability.text, ch.name)
++    if text == MYTH:
++        return {
++            "kind": "static",
++            "static": "cost_modifier",
++            "delta": -1,
++            "caster": "any",
++            "filter": None,
++            "commander_history101": True,
++            "effects": [],
++        }
++    if text == LIESA:
++        return {"kind": "static", "static": "commander_tax_life101", "effects": []}
++    if text == TORCH:
++        return {
++            "kind": "static",
++            "static": "cost_modifier",
++            "delta": 2,
++            "caster": "any",
++            "filter": None,
++            "stack_target101": True,
++            "effects": [],
++        }
++    if text == "Whenever your commander is put into the command zone from anywhere, draw a card.":
++        native = scripts.define(
++            replace(
++                ability,
++                text="Whenever a creature card is put into your graveyard from anywhere, draw a card.",
++            ),
++            ch,
++        )
++        assert native is not None
++        return {
++            **native,
++            "cond": {
++                "event": "to_command",
++                "subject": "sel",
++                "aggregate": False,
++                "sel": selectors.Selector(card=True, commander=True, owner="you", zones=()).key(),
++            },
++        }
++    return None
++
++
++def commander_life(state: GameState, card: CardInstance, ch: Characteristics) -> int:
++    from app.rules import scripts
++
++    if not card.commander_key or card.zone != f"{card.owner}:command":
++        return 0
++    if not any(d.get("static") == "commander_tax_life101" for d in scripts.definitions(ch).values()):
++        return 0
++    return 2 * state.players[card.owner].commander_casts.get(card.commander_key, 0)
++
++
++def replaces_commander_tax(card: CardInstance, ch: Characteristics) -> bool:
++    from app.rules import scripts
++
++    return bool(
++        card.commander_key
++        and card.zone == f"{card.owner}:command"
++        and any(d.get("static") == "commander_tax_life101" for d in scripts.definitions(ch).values())
++    )
++
++
++def stack_statics(state: GameState, info: CardInfo) -> list[tuple[CardInstance, int, dict[str, Any]]]:
++    from app.rules import scripts
++    from app.rules.plan import Plan
++
++    view = None
++    out = []
++    for card in state.cards.values():
++        if card.zone != "stack" or card.ability is not None:
++            continue
++        view = view or Plan.view(state, card.controller, info)
++        for index, d in scripts.definitions(view.ch(card)).items():
++            if d.get("stack_target101"):
++                out.append((card, index, d))
++    return out
+--- a/backend/app/rules/scripts.py
++++ b/backend/app/rules/scripts.py
+@@ -5856,6 +5856,10 @@
+
+ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
+     """The engine definition of one ability, or None (manual)."""
++    from app.rules import cost_statics101
++
++    if (native101 := cost_statics101.definition(ability, ch)) is not None:
++        return native101
+     from app.rules import multi100m  # -- multi (wave 100M) --
+
+     if (lines100m := multi100m.definition(ability, ch)) is not None:
+@@ -8656,6 +8660,7 @@
+     # (wave 3C: nor "If you control a commander, you may cast this spell without paying its mana cost"; 3$: additional costs)
+     lines = [ab for ab in ch.abilities if ab.kind != "keywords" and not _from_hand_ability(ab) and not graveyard_only_ability(defs.get(ab.index))
+              and not defs.get(ab.index, {}).get("exiled_step")
++             and not defs.get(ab.index, {}).get("stack_target101")  # Native stack-only cost rule, not a resolving spell instruction.
+              and not own_graveyard_activation(defs.get(ab.index))
+              and not own_card_event_ability(defs.get(ab.index))  # (wave 36A: cycling / discard triggers of the card itself)
+              and defs.get(ab.index, {}).get("trigger") != "cast_self"  # -- spell copies (wave 31D) -- 601.2i: "When you cast this spell, …" triggers
+--- a/backend/app/rules/casting.py
++++ b/backend/app/rules/casting.py
+@@ -3022,6 +3022,10 @@
+     extras = [extra.with_x(x) for extra in extras]
+     tax = state.players[card.owner].commander_tax.get(card.commander_key, 0) \
+         if from_command_zone(card, card.owner) and card.commander_key else 0
++    from app.rules import cost_statics101
++
++    if cost_statics101.replaces_commander_tax(card, ch):
++        tax = 0
+     affinity = (affinity_discount(state, player, ch, info, card) if info is not None else 0) + reduce  # (reduce: emerge, 18E)
+     if paying_flashback and info is not None:
+         from app.rules import flashback_costs
+@@ -3076,7 +3080,9 @@
+             x_maximum = min(kwargs.get('x', 0), final.generic)
+             final = spell_mana_floor.apply(state, info, final) if floor else final
+             final = M.spend_as(final, mode) if floor and mode else final
+-            out.append((final, life))
++            from app.rules import cost_statics101
++
++            out.append((final, life + cost_statics101.commander_life(state, card, ch)))
+             if selected_costs is not None:
+                 selected_costs.append(prepared.selected_cost_has_x)
+             if x_payments is not None:
+@@ -3747,6 +3753,11 @@
+         add_cost = alt_costs.merged(add_cost, kick_more)
+     if (life_more := permissions.life_cost(grant, ch)) is not None:
+         add_cost = alt_costs.merged(add_cost, life_more)
++    from app.rules import cost_statics101
++
++    if (commander_life101 := cost_statics101.commander_life(plan.state, card, ch)):
++        add_cost = alt_costs.merged(add_cost, costs.AbilityCost(
++            components=(costs.CostComponent(costs.PAY_LIFE, amount=commander_life101, text=f"Pay {commander_life101} life"),), life=commander_life101))
+     if (target_life := cost_changes.targeting_life(plan.state, plan.actor, card, ch, plan.info, tuple(t.id for t in chosen))):
+         add_cost = alt_costs.merged(add_cost, costs.AbilityCost(  # -- casting costs (wave 22F) -- Terror of the Peaks: life for its targets (601.2f)
+             components=(costs.CostComponent(costs.PAY_LIFE, amount=target_life, text=f"Pay {target_life} life"),), life=target_life))
+--- a/backend/app/rules/cost_changes.py
++++ b/backend/app/rules/cost_changes.py
+@@ -681,6 +681,12 @@
+ def static_delta(state: GameState, info: CardInfo, src: CardInstance, d: dict[str, Any], player: str,
+                  card: CardInstance, ch: Characteristics, targets: tuple[str, ...] = ()) -> int | None:
+     """The signed change a table cost changer makes to this spell now, or None when it doesn't apply to it."""
++    if d.get('commander_history101'):
++        if card.owner != src.controller or not card.commander_key:
++            return None
++        return -state.players[card.owner].commander_casts.get(card.commander_key, 0)
++    if d.get('stack_target101'):
++        return 2 if targets != ANY_TARGET and src.id in targets else None
+     if d.get('source_color_pair64'):
+         if player != src.controller:
+             return None
+--- a/backend/app/rules/permissions.py
++++ b/backend/app/rules/permissions.py
+@@ -780,8 +780,6 @@
+         # permanent's own mana cost (702.193a), on the generic component (118.7a)
+         return {"kind": "static", "static": "ability_cost_modifier", "delta": -int(m["n"]), "filter": pu.key(), "who": "you", "floor": False, "power_up": True, "effects": []}
+     m = ABILITY_COST.fullmatch(tt)
+-    if m and m["sel"] == "sources with the chosen name" and not m["nomana"]:
+-        return None  # Named-source taxes that also change mana abilities still need their own payment coverage.
+     if m:  # -- costs (wave 3$) -- the source permanent is matched at the cost, relative to the ability's controller
+         key = None
+         if m["sel"] == "sources with the chosen name":  # -- chosen filters (wave 53B) -- 201.2 / 709.4a: any source with the permanent's chosen name, in any zone it can be activated from
+@@ -1709,7 +1707,9 @@
+     if r is None:
+         return []
+     found: list[CostModifier] = []
+-    for src, index, d in _table_statics(state, info, {"cost_modifier"}):
++    from app.rules import cost_statics101
++
++    for src, index, d in _table_statics(state, info, {"cost_modifier"}) + cost_statics101.stack_statics(state, info):
+         # -- cost changers (wave 4I) -- per count, with a turn, of the chosen type, from a zone, colored (cost_changes.py)
+         delta = cost_changes.static_delta(state, info, src, d, player, card, ch, targets)
+         if delta is None:
+--- a/backend/app/rules/triggers.py
++++ b/backend/app/rules/triggers.py
+@@ -704,7 +704,7 @@
+     """-- counters (wave 21D) -- a card put into exile or into a library from another zone: the new object there (603.6c: "from
+     anywhere" doesn't look back), with the zone and the owner of the zone it came from. (A token never is a card there: 111.7.)"""
+     to = _zone(e.to_zone)
+-    if to not in ("exile", "library") or frm == to or not e.card or not e.new_object_id:
++    if to not in ("exile", "library", "command") or frm == to or not e.card or not e.new_object_id:
+         return []
+     got = _card_in(plan, e.card, e.to_zone)
+     if got is None or got[0].is_token or plan.oid(got[0]) != e.new_object_id:

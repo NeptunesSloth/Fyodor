@@ -1,0 +1,38 @@
+{
+  "candidate_names": [
+    "Auspicious Starrix",
+    "Illuna, Apex of Wishes",
+    "Empty the Laboratory",
+    "Aurora Awakener",
+    "Demonlord Belzenlok",
+    "Venture Forth",
+    "Improvisation Capstone"
+  ],
+  "expected_promotions": 7,
+  "production_sources": [
+    "app/rules/library_packets101.py",
+    "app/rules/scripts.py",
+    "app/rules/effects.py"
+  ],
+  "native": "23 unique PASS across original19 (17 unaffected paths), final affected4 (2 repeated+2 new) and final cold2;5 genuine cold total",
+  "types": "final repaired3 source files PASS",
+  "ruff": "final repaired4 files PASS",
+  "related": "29 earlier unchanged library/suspend/mutate regressions PASS; before Belzenlok-only repair, provenance explicit",
+  "runtime_shared_changes": "Additive scripts define/parse hooks and effects primitive/resume registry only; native library/entry/casting engine paths unchanged",
+  "test_destination": "backend/tests/test_rules_library_packets101.py",
+  "fixture_destination": "backend/tests/fixtures/library_packets101_cards.json",
+  "source": "merged PR21 plus this owned3-file proposal only; all7 PARTIAL in root fresh baseline",
+  "held_reserved_names": [
+    "Neera, Wild Mage",
+    "Transforming Flourish",
+    "Reality Scramble",
+    "Chaos Mutation",
+    "Divergent Transformations",
+    "Indomitable Creativity",
+    "Synthetic Destiny"
+  ],
+  "patch_base_commit": "456c95d6aa3eaaa38583129be436ef57c1937a01",
+  "status": "CLOSED after actual903.9b repair; root integration/catalog admission pending",
+  "repair": "Inline Belzenlok loop rejected by real commander2 before-probe; replaced with serialized packet/native return_card/after-return continuations, no core changes",
+  "patch_sha256": "3b91d31d7e5d8858b86340a118e39486b832db5ffbb262389f4653af77868fc7"
+}

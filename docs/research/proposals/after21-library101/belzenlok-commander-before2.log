@@ -1,0 +1,50 @@
+============================= test session starts ==============================
+platform linux -- Python 3.12.14, pytest-9.1.1, pluggy-1.7.0
+rootdir: /workspace/scratch/library101/backend
+configfile: pyproject.toml
+plugins: anyio-4.15.1, xdist-3.8.0
+collected 21 items / 19 deselected / 2 selected
+
+tests/test_rules_library_packets101.py FF                                [100%]
+
+=================================== FAILURES ===================================
+_________ test_belzenlok_native_commander_to_hand_replacement101[yes] __________
+
+cards = <app.cards.repository.CardRepository object at 0x7f967fcd3c50>
+answer = 'yes'
+
+    @pytest.mark.parametrize('answer', ['yes', 'no'])
+    def test_belzenlok_native_commander_to_hand_replacement101(cards, answer):
+        s = setup(cards)
+        ids = top(s, ['Forest', 'Krenko, Mob Boss', 'Hill Giant'])
+        cast(s, 'Demonlord Belzenlok')
+        advance(s, stop=lambda d: any('command' in o.label.lower() for o in d.options))
+        d = s.state.rules.decision
+        assert d is not None, 'Expected native903.9b hand replacement choice'
+>       assert s.state.players['p1'].life == 40
+E       AssertionError: assert 33 == 40
+E        +  where 33 = PlayerState(id='p1', name='Alice', color='#d4a852', life=33, life_history=[LifeChange(turn=1, before=40, after=33, seq...C': 46, 'W': 50, 'U': 50, 'B': 48, 'R': 50, 'G': 50}, mana_units=[], mana_seq=0, left=False, sleeve=None, playmat=None).life
+
+tests/test_rules_library_packets101.py:294: AssertionError
+__________ test_belzenlok_native_commander_to_hand_replacement101[no] __________
+
+cards = <app.cards.repository.CardRepository object at 0x7f967fc71640>
+answer = 'no'
+
+    @pytest.mark.parametrize('answer', ['yes', 'no'])
+    def test_belzenlok_native_commander_to_hand_replacement101(cards, answer):
+        s = setup(cards)
+        ids = top(s, ['Forest', 'Krenko, Mob Boss', 'Hill Giant'])
+        cast(s, 'Demonlord Belzenlok')
+        advance(s, stop=lambda d: any('command' in o.label.lower() for o in d.options))
+        d = s.state.rules.decision
+        assert d is not None, 'Expected native903.9b hand replacement choice'
+>       assert s.state.players['p1'].life == 40
+E       AssertionError: assert 33 == 40
+E        +  where 33 = PlayerState(id='p1', name='Alice', color='#d4a852', life=33, life_history=[LifeChange(turn=1, before=40, after=33, seq...C': 46, 'W': 50, 'U': 50, 'B': 48, 'R': 50, 'G': 50}, mana_units=[], mana_seq=0, left=False, sleeve=None, playmat=None).life
+
+tests/test_rules_library_packets101.py:294: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_rules_library_packets101.py::test_belzenlok_native_commander_to_hand_replacement101[yes]
+FAILED tests/test_rules_library_packets101.py::test_belzenlok_native_commander_to_hand_replacement101[no]
+======================= 2 failed, 19 deselected in 1.86s =======================

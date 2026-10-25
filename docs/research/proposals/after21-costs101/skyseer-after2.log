@@ -1,0 +1,25 @@
+.F                                                                       [100%]
+=================================== FAILURES ===================================
+____________ test_real_named_mana_source_needs_tax_before_producing ____________
+
+cards = <app.cards.repository.CardRepository object at 0x7f2f41182db0>
+
+    def test_real_named_mana_source_needs_tax_before_producing(cards):
+        s=setup(cards)
+>       chariot(s)
+
+tests/test_rules_cost_statics101.py:65:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+s = <app.game.session.GameSession object at 0x7f2f40fc4b00>, name = 'Sol Ring'
+pid = 'p1'
+
+    def chariot(s,name='Sol Ring',pid='p1'):
+        source=put(s,"Skyseer's Chariot",'battlefield',pid)
+        d=s.state.rules.decision
+>       assert d and d.options[0].id=='__name__'
+E       assert (None)
+
+tests/test_rules_cost_statics101.py:46: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_rules_cost_statics101.py::test_real_named_mana_source_needs_tax_before_producing

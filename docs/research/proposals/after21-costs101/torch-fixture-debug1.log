@@ -1,0 +1,26 @@
+{'id': 'fa2187ca-d751-5cfe-9036-cc24c877ebb8', 'oracle_id': '8851577e-8a29-5280-bf43-7117e7395496', 'name': "Kaervek's Torch", 'layout': 'normal', 'set_code': 'c01', 'set_name': 'C01 Set', 'collector_number': '3', 'rarity': 'common', 'mana_cost': '{X}{R}', 'cmc': 1.0, 'type_line': 'Sorcery', 'oracle_text': "As long as Kaervek's Torch is on the stack, spells that target it cost {2} more to cast.\nKaervek's Torch deals X damage to any target.", 'power': None, 'toughness': None, 'loyalty': None, 'defense': None, 'colors': ['R'], 'color_identity': ['R'], 'keywords': [], 'is_token': False, 'faces': [], 'double_faced': False, 'image_faces': 1, 'has_image': False, 'released_at': '2020-01-01', 'artist': None, 'commander_legal': 'legal', 'related_tokens': [], 'related_cards': []}
+{0: {'kind': 'static', 'static': 'cost_modifier', 'delta': 2, 'caster': 'any', 'filter': None, 'stack_target101': True, 'effects': []}, 1: {'kind': 'spell', 'effects': [{'do': 'damage', 'who': 'target', 'n': {'x': 1}}], 'target': {'what': 'any'}}} None Coverage(level='PARTIAL', name="Kaervek's Torch", oracle_id='8851577e-8a29-5280-bf43-7117e7395496', features=(Feature(id='cast:spell', label='Cast it (timing, costs, the stack)', supported=True), Feature(id='text:0', label="As long as Kaervek's Torch is on the stack, spells that target it cost {2} more to cast.", supported=False), Feature(id='text:1', label="Kaervek's Torch deals X damage to any target.", supported=False)), review_needed=False)
+F
+=================================== FAILURES ===================================
+________________ test_other_cost_statics_full[Kaervek's Torch] _________________
+
+cards = <app.cards.repository.CardRepository object at 0x7f0c13e1da90>
+name = "Kaervek's Torch"
+
+    @pytest.mark.parametrize('name',["Myth Unbound",'Liesa, Shroud of Dusk',"Kaervek's Torch"])
+    def test_other_cost_statics_full(cards,name):
+        if name == "Kaervek's Torch":
+            from app.rules import scripts
+            from app.rules.characteristics import printed_from_data
+            ch=printed_from_data(cards.resolve(name))
+            print(cards.resolve(name))
+            print(scripts.definitions(ch), scripts.spell_definition(ch), coverage.of_card_data(cards.resolve(name)))
+>       assert coverage.of_card_data(cards.resolve(name)).level=='FULL'
+E       AssertionError: assert 'PARTIAL' == 'FULL'
+E
+E         - FULL
+E         + PARTIAL
+
+tests/test_rules_cost_statics101.py:122: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_rules_cost_statics101.py::test_other_cost_statics_full[Kaervek's Torch]

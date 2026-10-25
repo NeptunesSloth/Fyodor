@@ -1,0 +1,22 @@
+PACKETDEBUG101 1 {'do': 'library_packet101', 'mode': 'reveal', 'sel': 'sel:{"card":true,"subtypes":["Zombie"],"types":["Creature"],"zones":[]}', 'need': {'ref_count': 'l0_sacrificed101', 'this_way': 'sacrificed'}} {'l0_sacrificed101': {'kind': 'objects', 'objects': [{'card': '05528d407f05', 'object_id': '05528d407f05.14', 'zone': 'p1:graveyard', 'snapshot': None}], 'was': [{'card': '05528d407f05', 'object_id': '05528d407f05.1', 'zone': 'p1:battlefield', 'snapshot': {'object_id': '05528d407f05.1', 'choices': {}, 'ring_bearer': False, 'suspected': False, 'card': '05528d407f05', 'printing': 'bba689c0-6303-52d3-b2de-3a46681f5799', 'name': 'Walking Corpse', 'owner': 'p1', 'controller': 'p1', 'zone': 'p1:battlefield', 'turn': 1, 'tapped': False, 'face_down': False, 'face_down_kind': None, 'face_down_as': None, 'face': 0, 'is_token': False, 'token_power': None, 'token_toughness': None, 'token_type_line': None, 'power': 2, 'toughness': 2, 'base_power': 2, 'base_toughness': 2, 'token_colors': [], 'token_mana_cost': '', 'commander_key': None, 'counters': {}, 'damage': 0, 'effects': [], 'attacking': False, 'attacking_without_target': None, 'attack_defender_lost': False, 'entry_characteristics': None, 'attack_on': None, 'blocking': False, 'blocking_ids': [], 'blocked_by_ids': [], 'banded_with_ids': [], 'attached_to': None, 'attached_object': None, 'attached_player': None, 'attachments_before': [], 'attached': [], 'attached_objects': {}, 'attached_objects_known': True, 'text': '', 'merged': [], 'melded': False, 'abilities': None, 'keywords': None, 'traits': None, 'copy_recipe': None, 'x': None, 'goaded': []}}]}}
+F
+=================================== FAILURES ===================================
+__________ test_empty_lab_actual_paid_x_zombies_enter_simultaneously ___________
+
+cards = <app.cards.repository.CardRepository object at 0x7f1b34a89dc0>
+
+    def test_empty_lab_actual_paid_x_zombies_enter_simultaneously(cards):
+        s = setup(cards)
+        old = [put(s, 'Walking Corpse', 'battlefield').id for _ in range(2)]
+        ids = top(s, ['Lightning Bolt', 'Champion of the Perished', 'Island', 'Diregraf Ghoul', 'Forest'])
+        source = cast(s, 'Empty the Laboratory', x_value=2)
+        advance(s)
+        assert all(s.state.cards[c].zone == 'p1:graveyard' for c in old)
+>       assert all(s.state.cards[c].zone == 'p1:battlefield' for c in [ids[1], ids[3]])
+E       assert False
+E        +  where False = all(<generator object test_empty_lab_actual_paid_x_zombies_enter_simultaneously.<locals>.<genexpr> at 0x7f1b34513ac0>)
+
+tests/test_rules_library_packets101.py:160: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_rules_library_packets101.py::test_empty_lab_actual_paid_x_zombies_enter_simultaneously
+1 failed, 9 deselected in 1.52s

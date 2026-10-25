@@ -1013,5 +1013,75 @@
     "original_sha256": "29e7be6502ebbbc9e09de34dc406e7cc0b88ef623c479ea74cd54f5bfcb57cc2",
     "archived_sha256": "f1daffc7a1d405eee16bfb9943f791c444a3892a1c9f4a841a0259e01548deb4",
     "numstat_preserved": true
+  },
+  "docs/research/proposals/after21-costs101/extra-fixed5.log": {
+    "original_sha256": "4a7af7a9248ed1c7793843e0e43fc25cee8d758d39ea907f347dfb19e7812b1d",
+    "archived_sha256": "467d0e8617ab39dd4af9b9ee90cb854cab568d23f1c844c6ac6bf5e310c5ba36",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/after21-costs101/extra5.log": {
+    "original_sha256": "2b1f4e97a13750fe83007af41255413aecf58652fea0f9ed2a3034aeccedace3",
+    "archived_sha256": "637ac149d5b37fa9bb676c7af487e8828cd811f6b503b4e3a37a08509e182edf",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/after21-costs101/fixed-fixtures5.log": {
+    "original_sha256": "6d353a966ebca812ffea5dc9e7796227e1aa9ee5d2f37776df0d58ea2b05b0d8",
+    "archived_sha256": "7e8ae7adec46598bf59fbd24988fbec12dddefb7bf715370167e67638cf98f37",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/after21-costs101/liesa-fixture-fixed2.log": {
+    "original_sha256": "242733832ae17a2a9fed18eccce7e192e468c36c00ab73c1be881af069d9af3d",
+    "archived_sha256": "ac49c6b3ddc3429c4fd6d58fcbdecd434535f7d6a25db49c268c0f421b16987d",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/after21-costs101/native-first12.log": {
+    "original_sha256": "9378875907fdb2350a508eba332f2b15de4d7aea93e8f334a29a3898b0779fd8",
+    "archived_sha256": "72684bbbc513df79cc3a8ed5957a091ca70e5ba1ff0ef881059ebccfccab1a6e",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/after21-costs101/review.patch": {
+    "original_sha256": "8f8cbe175881b7797bcc34542da96a1ec2f6651484815c16904b7e651bb0b15f",
+    "archived_sha256": "0ff1eda7b178edf53673599446277d1f5ddf4cd6cdfb31c100d0dcba08adc413",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/after21-costs101/skyseer-after2.log": {
+    "original_sha256": "d3d988b577bc42b5841c6b4a35ad4756fdfb1b29f14a831824b69ec4ad1e60ab",
+    "archived_sha256": "81f85238cd3a7fabe1dd3a88a782d172675d7d934016dd75cb408209724a04e9",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/after21-costs101/skyseer-after2b.log": {
+    "original_sha256": "26d5d9a989951fc5dfddfe5f8dbddcfb6424d080772e59aa3843a7aaf672661f",
+    "archived_sha256": "cb4b98efb56ac37787a2a60551b7ebc3d543f37213fd0360637fcdd7ab2e8c37",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/after21-costs101/skyseer-after2c.log": {
+    "original_sha256": "66d5fd664f81bce885aab811c4263d9195ca1df5131cf510ad5cc27dda198607",
+    "archived_sha256": "3f6cc904554f475d137e204738b9db4b7e37e10ccd46617915251cfb51bad8e2",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/after21-costs101/skyseer-before2.log": {
+    "original_sha256": "6f680f65f080ca952d399930b6315eeb87eadf856aa43bf9d39107b61e3de263",
+    "archived_sha256": "97f49e94a79fd5f20bcb8ebd84b2071afac8394edb6b3b51925a9b9ed14b6f7b",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/after21-costs101/torch-fixture-debug1.log": {
+    "original_sha256": "1043e2924dc533b40fe1919f3e491887cd42ba4ee0c342369a1e8b6e3d595583",
+    "archived_sha256": "c67d707c1ebafb643a439c34bef056337504d1e372c6b3d36544f18e74fe446b",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/after21-library101/belzenlok-first.log": {
+    "original_sha256": "558314669814a1c10c34543b8f94f89d9660aa71ce3d722dc07167067f669082",
+    "archived_sha256": "7e5e5f6e3e3a6df7787ccffed3d31f681043c89d298dfd4f2207320e2d538ffa",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/after21-library101/review.patch": {
+    "original_sha256": "3b91d31d7e5d8858b86340a118e39486b832db5ffbb262389f4653af77868fc7",
+    "archived_sha256": "62997c80f32a1fe8156040e6a85af3806e13be6014742a3e21b49c27edde045f",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/after21-library101/venture-capstone4.log": {
+    "original_sha256": "8fc8421f96e3894fde99fa95dec4da3c3cddae95e1eb4ef0c0b9887a21be74cc",
+    "archived_sha256": "605a7a42768c230ef365c5c752c97b0051e0684b150d411a1331aa1a913a7264",
+    "numstat_preserved": null
   }
 }

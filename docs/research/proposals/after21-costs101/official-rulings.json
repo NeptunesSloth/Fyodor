@@ -1,0 +1,89 @@
+[
+  {
+    "name": "Skyseer's Chariot",
+    "printing_id": "96ed5b66-8e74-4a90-ad4e-c39d15993994",
+    "rulings": {
+      "object": "list",
+      "has_more": false,
+      "data": []
+    }
+  },
+  {
+    "name": "Myth Unbound",
+    "printing_id": "b88ca71b-de1f-497c-b094-8fe954cf8223",
+    "rulings": {
+      "object": "list",
+      "has_more": false,
+      "data": [
+        {
+          "object": "ruling",
+          "oracle_id": "83e047ac-aaa9-4bd8-9ea0-49761d39139c",
+          "source": "wotc",
+          "published_at": "2018-12-07",
+          "comment": "If another player is somehow able to cast your commander, Myth Unbound\u2019s first ability applies to that player\u2019s spell."
+        },
+        {
+          "object": "ruling",
+          "oracle_id": "83e047ac-aaa9-4bd8-9ea0-49761d39139c",
+          "source": "wotc",
+          "published_at": "2018-07-13",
+          "comment": "Myth Unbound\u2019s cost reduction applies after you apply the commander tax. In effect, this reduces the commander tax to {1}."
+        },
+        {
+          "object": "ruling",
+          "oracle_id": "83e047ac-aaa9-4bd8-9ea0-49761d39139c",
+          "source": "wotc",
+          "published_at": "2018-07-13",
+          "comment": "Myth Unbound\u2019s cost reduction applies even if you\u2019re casting your commander from a zone other than the command zone."
+        },
+        {
+          "object": "ruling",
+          "oracle_id": "83e047ac-aaa9-4bd8-9ea0-49761d39139c",
+          "source": "wotc",
+          "published_at": "2018-07-13",
+          "comment": "If Myth Unbound leaves the battlefield at the same time as your commander is put into the command zone, its last ability won\u2019t trigger."
+        }
+      ]
+    }
+  },
+  {
+    "name": "Liesa, Shroud of Dusk",
+    "printing_id": "e32453a1-1fd9-4bda-aaa8-7c287e4c2587",
+    "rulings": {
+      "object": "list",
+      "has_more": false,
+      "data": [
+        {
+          "object": "ruling",
+          "oracle_id": "2270daaf-252d-40c4-bed5-bd46ae15f041",
+          "source": "wotc",
+          "published_at": "2020-11-10",
+          "comment": "Liesa's first ability applies only to the \"commander tax.\" If there are any other additional costs to cast Liesa, those costs must be paid as normal."
+        },
+        {
+          "object": "ruling",
+          "oracle_id": "2270daaf-252d-40c4-bed5-bd46ae15f041",
+          "source": "wotc",
+          "published_at": "2020-11-10",
+          "comment": "Liesa's first ability isn't optional. You can't choose to pay mana to cover the \"commander tax,\" even if you have that mana available."
+        },
+        {
+          "object": "ruling",
+          "oracle_id": "2270daaf-252d-40c4-bed5-bd46ae15f041",
+          "source": "wotc",
+          "published_at": "2020-11-10",
+          "comment": "Liesa's last ability will resolve before the spell that caused it to trigger."
+        }
+      ]
+    }
+  },
+  {
+    "name": "Kaervek's Torch",
+    "printing_id": "0a1624ab-e50e-48a3-acf7-457069914616",
+    "rulings": {
+      "object": "list",
+      "has_more": false,
+      "data": []
+    }
+  }
+]
