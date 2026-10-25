@@ -30,3 +30,13 @@
 - Weeping Angel: needs a "isn't a creature until end of turn" type-removal effect plus a combat-damage replacement that shuffles the creature into its owner's library; two new pieces, one card.
 - Lathiel, the Bounteous Dawn: "distribute up to that many counters" needs a divide total evaluated when the trigger's targets are chosen (targets[].divide.total is a literal today).
 - Mistbind Clique: champion is not modelled ("championed with this creature" has no event).
+- Spinneret and Spiderling: "deals 4 or more damage" with no recipient; wave 39B test pins it unread (split damage among recipients unsettled).
+- Overencumbered: "can't attack this combat", "combat on enchanted player's turn", "pay {1} for each artifact" all unread (3 foundations).
+- Dragon Broodmother: devour on a created token (entering sacrifice for tokens, replacements.token_choices).
+- Bronze Bombshell: state trigger "when a player other than owner controls it" + "if the player does".
+- Lathiel: "distribute up to that many" counters; division is exact total only.
+- Karplusan Minotaur: "any target of an opponent's choice" in a trigger (delegated targets only on activation); cost "Flip a coin" not payable-listed.
+- Martyr's Bond: sacrifice a permanent sharing a card type with the event object.
+- Saruman of Many Colors: ward discard three types + milled-this-way reflexive exile.
+- Hylda of the Icy Crown: "tap an untapped creature" singular event vs batch.
+- Stunning Reversal: needs wave 110c lose-game replacement (not in this branch).
