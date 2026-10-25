@@ -457,6 +457,17 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
     if old == "Each opponent who attacked with a creature this turn can't cast spells.":  # Angelic Arbiter: 601.3, an opponent who declared attackers this turn
         d = scripts.define(replace(ability, text="Your opponents can't cast spells."), ch)
         return None if d is None else {**d, "when": "attacked110a"}
+    if old == ("Whenever ~ deals combat damage to a player, you may pay {W}{U}{B}{R}{G} if that player has 10 or less life. When you do, that player loses the game."):
+        # Ezio: the life test is made on resolution only (it is no intervening "if", 603.4): the leading-"if" reading without its trigger-time test
+        d = scripts.define(replace(ability, text="Whenever ~ deals combat damage to a player, if that player has 10 or less life, you may pay {W}{U}{B}{R}{G}. "
+                                                 "When you do, that player loses the game."), ch)
+        if d is None or "if" not in d:
+            return None
+        d.pop("if")
+        for e in d["effects"]:
+            if e["do"] == "reflexive":
+                e["keep_event"] = True  # "that player" is still the one dealt the damage (603.12)
+        return d
     new = ABILITY_REWRITES.get(old)
     d = None if new is None else scripts.define(replace(ability, text=new), ch)
     if d is not None and old in _ANY_NUMBER:

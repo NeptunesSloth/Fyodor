@@ -3,6 +3,8 @@
 * Displaced Dinosaurs - 614.12 / 205.1b / 613.4b: a historic permanent you control becomes a 7/7 Dinosaur creature in addition as it enters.
 * Zariel, Archduke of Avernus - -6 emblem: 511.2 / 500.8 untap a creature and get an additional combat phase after the first combat only.
 * The Last Ronin's Technique - 702.190a sneak: the tokens enter tapped and attacking (508.4) only if the sneak cost was paid.
+* Ezio Auditore da Firenze - 702.173a granted freerunning (Assassin spells you cast), and the combat damage trigger: pay {W}{U}{B}{R}{G} (the life
+  test is on resolution) and the player loses the game.
 """
 
 # ruff: noqa: F403, F405
@@ -13,6 +15,7 @@ from tests.wave110a_kit import *
 DINO = "Displaced Dinosaurs"
 ZARIEL = "Zariel, Archduke of Avernus"
 RONIN = "The Last Ronin's Technique"
+EZIO = "Ezio Auditore da Firenze"
 
 
 @pytest.fixture()
@@ -20,7 +23,7 @@ def cards(settings):
     yield from open_repo(settings)
 
 
-test_full = full_test([DINO, ZARIEL, RONIN])
+test_full = full_test([DINO, ZARIEL, RONIN, EZIO])
 
 
 def test_historic_artifact_enters_as_a_7_7_dinosaur_creature(cards):
@@ -105,4 +108,55 @@ def test_last_ronin_tokens_attack_only_when_sneaked(cards, sneak):
     answer(s)
     tokens = [c for c in s.state.cards.values() if c.is_token and c.zone == "p1:battlefield"]
     assert len(tokens) == 3 and all(t.tapped == sneak and (t.attacking is not None) == sneak for t in tokens)
+    check(s)
+
+
+def test_ezio_gives_assassin_spells_freerunning_after_an_assassin_hit_a_player(cards):
+    from tests.test_rules_wave30i_sneak import sneak_of
+    from tests.test_rules_wave43d_cast_keywords import connect
+
+    s = build(cards, [EZIO, "Thorn of the Black Rose"])
+    ezio = put(s, EZIO)
+    s.state.rules.controlled_since[ezio.id].turn = 0
+    thorn = to_hand(s, "Thorn of the Black Rose")
+    mana(s, B=2)
+    connect(s, ezio)
+    mana(s, B=2)
+    act(s, "p1", type="cast_spell", card_id=thorn.id, alt_cost=sneak_of(s, cards, thorn))  # {B}{B} instead of {3}{B}
+    answer(s)
+    assert s.state.cards[thorn.id].zone == "p1:battlefield"
+    check(s)
+
+
+def connect(s, ezio, pay=False):
+    """Alice's next turn: Ezio attacks Bob unblocked; the "pay" decision of his trigger is answered yes."""
+    until(s, lambda s: s.state.turn.number >= 3 and s.state.turn.phase == "main1" and s.state.rules.decision is None and s.state.turn.active_player == "p1")
+    until(s, lambda s: s.state.rules.decision is not None and s.state.rules.decision.kind == "declare_attackers")
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": ezio.id, "target": "p2"}])
+    for _ in range(60):
+        d = s.state.rules.decision
+        if d is not None and d.kind == "declare_blockers":
+            act(s, d.player, type="declare_blockers", blocks=[])
+        elif d is not None:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=["pay"] if d.kind == "choose_one" and pay else [o.id for o in d.options][: max(1, d.min_choices)])
+        elif s.state.rules.winner is not None or (s.state.turn.phase == "main2" and not s.state.zones.get("stack")):
+            return
+        else:
+            act(s, s.state.rules.priority, type="pass_priority")
+
+
+def life_of(s):
+    return s.state.players["p2"].life
+
+
+@pytest.mark.parametrize("life, loses", [(10, True), (11, False)])
+def test_ezio_pays_five_colors_to_make_a_player_at_ten_or_less_life_lose(cards, life, loses):
+    s = build(cards, [EZIO, "Plains", "Island", "Swamp", "Mountain", "Forest"])
+    for land in ("Plains", "Island", "Swamp", "Mountain", "Forest"):
+        put(s, land)
+    ezio = put(s, EZIO)
+    s.state.rules.controlled_since[ezio.id].turn = 0
+    act(s, "p1", type="set_life", player="p2", value=life + 3)  # Ezio deals 3 combat damage
+    connect(s, ezio, pay=True)
+    assert ("p2" in s.state.rules.lost) == loses and (loses or life_of(s) == life)  # 104.3e;   # the life test is made on resolution
     check(s)

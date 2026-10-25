@@ -19,6 +19,21 @@ def grant_evoke(t: str) -> dict[str, Any] | None:
             "mv": None, "cond": None, "tag": "evoke", "effects": []}
 
 
+# 702.173a: "Assassin spells you cast have freerunning {B}{B}." (Ezio Auditore da Firenze): the freerunning alternative cost, with its condition, on those spells
+_FREERUN = re.compile(r"^(?P<sel>[A-Za-z]+) spells you cast have freerunning (?P<cost>(?:\{[^}X]+\})+)$")
+
+
+def grant_freerunning(t: str) -> dict[str, Any] | None:
+    from app.rules import alt_costs
+    from app.rules.permissions import spell_filter
+
+    m = _FREERUN.fullmatch(t)
+    if m is None or alt_costs.parse_cost(f"pay {m['cost']}") is None or (key := spell_filter(m["sel"])) is None:
+        return None
+    return {"kind": "static", "static": "alt_cost", "cost": f"pay {m['cost']}", "table": True, "filter": key, "once": False, "zone": None,
+            "mv": None, "cond": alt_costs._cond(alt_costs.FREERUN_COND), "tag": "freerunning", "effects": []}
+
+
 UMBRA = "Auras attached to permanents you control have umbra armor."
 
 
