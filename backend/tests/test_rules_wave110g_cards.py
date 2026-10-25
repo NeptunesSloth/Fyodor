@@ -56,11 +56,13 @@ EXTRA = [
     real('Test Shuffle', '{1}', 1, 'Sorcery', 'Target player shuffles their library.', None, ''),
     real('Widespread Panic', '{2}{R}', 3, 'Enchantment', 'Whenever a spell or ability causes its controller to shuffle their library, that player puts a card from their hand on top of their library.', None, 'R'),
     real('Etched Host Doombringer', '{4}{B}', 5, 'Creature — Phyrexian Demon', 'When this creature enters, choose one —\n• Target opponent loses 2 life and you gain 2 life.\n• Choose target battle. If an opponent protects it, remove three defense counters from it. Otherwise, put three defense counters on it.', ('3', '5'), 'B'),
+    real('Virtual Assistant', '{2}', 2, 'Artifact Creature — Robot', 'Defender\nWhenever you cast a spell using teamwork, create a 1/1 colorless Robot Hero artifact creature token with flying.', ('0', '3'), ''),
+    real('Test Teamwork', '{1}', 1, 'Sorcery', 'Teamwork 1 (As an additional cost to cast this spell, you may tap any number of creatures you control with total power 1 or more.)\nYou gain 1 life.', None, ''),
     real('Test Wall', '{1}', 1, 'Creature — Wall', '', ('0', '4'), ''),
     real('Hill Giant', '{3}{R}', 4, 'Creature — Giant', '', ('3', '3'), 'R'),
     real('Divination', '{2}{U}', 3, 'Sorcery', 'Draw two cards.', None, 'U'),
 ]
-NAMES = [c["name"] for c in EXTRA if c["name"] not in ("Divination", "Hill Giant", "Test Wall", "Relentless Assault", "Test Vigil", "Test Convoke", "Test Shuffle")]
+NAMES = [c["name"] for c in EXTRA if c["name"] not in ("Divination", "Hill Giant", "Test Wall", "Relentless Assault", "Test Vigil", "Test Convoke", "Test Shuffle", "Test Teamwork")]
 
 
 @pytest.fixture()
@@ -328,6 +330,22 @@ def test_etched_host_doombringer_battle_mode_follows_the_protector(cards, owner,
         pick = next((o.id for o in d.options if "battle" in (o.label or "").lower() or o.id == battle.id), d.options[0].id)
         act(s, d.player, type="choose", decision_id=d.id, option_ids=[pick])
     assert s.state.cards[battle.id].counters.get("defense", 0) == expected, s.state.cards[battle.id].counters
+    check(s)
+
+
+@pytest.mark.parametrize("teamwork", [False, True])
+def test_virtual_assistant_makes_a_robot_only_for_a_teamwork_spell(cards, teamwork):
+    """Virtual Assistant (702.194b): casting a spell using teamwork (tapping creatures, total power 1+) creates a 1/1 flying Robot Hero."""
+    s = build(cards, ["Virtual Assistant", "Test Teamwork", "Grizzly Bears"], [])
+    put(s, "Virtual Assistant")
+    helper = put(s, "Grizzly Bears")
+    s.state.rules.controlled_since[helper.id].turn = s.state.rules.controlled_since[helper.id].observed_from_turn = 0
+    mana(s, C=1)
+    spell = to_hand(s, "Test Teamwork")
+    extra = {"optional_costs": [f"{spell.id}:teamwork"], "cost_choices": [{"component": 0, "cards": [helper.id]}]} if teamwork else {}
+    act(s, "p1", type="cast_spell", card_id=spell.id, **extra)
+    settle(s)
+    assert any(c.name == "Robot Hero" for c in s.state.cards.values()) == teamwork
     check(s)
 
 

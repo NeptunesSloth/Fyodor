@@ -505,6 +505,7 @@ def _facts(plan: Plan, e: Event, window: dict[str, Any]) -> list[Fact]:
             x.endswith(":bargain") for x in paid.additional))))
         info = {"oid": plan.oid(spell), "actor": e.player, "nth": nth, "from": window["cast_from"].get(spell.id),  # 702.33d, 702.174k)
                 "opponent_turn": plan.active != e.player, "kicked": kicked,
+                "teamwork": paid is not None and any(x.endswith(":teamwork") for x in paid.additional),  # -- (wave 110G) -- 702.194b
                 "snow_spent": dict(paid.snow_spent) if paid is not None and paid.snow_spent is not None else None,
                 "mana_tags": [list(tags) for tags in paid.mana_tags] if paid is not None and paid.mana_known else None,
                 "mana_sources": list(paid.mana_sources) if paid is not None and paid.mana_known else [],
@@ -1177,6 +1178,8 @@ def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: F
         if cond.get("turn") == "opponent" and not info.get("opponent_turn"):
             return False
         if cond.get("kicked") and not info.get("kicked"):
+            return False
+        if cond.get("teamwork") and not info.get("teamwork"):  # -- (wave 110G) -- "a spell using teamwork" (702.194b)
             return False
         frm = _zone(info.get("from"))
         frm = "exile" if frm == "foretell" else frm  # (-- review 30 -- the foretell zone is exile, 702.143a, as casting.cast_spell records it)

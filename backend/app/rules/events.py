@@ -1127,6 +1127,9 @@ def _cast(c: str) -> Condition | None:
     if k:
         out["kicked"] = True
         spell = "a " + k["rest"]
+    if spell == "a spell using teamwork":  # -- (wave 110G) -- 702.194b
+        out["teamwork"] = True
+        spell = "a spell"
     spell = re.sub(r"^an? ", "", spell)
     spell = re.sub(r"^(\w+) spell or an? (\w+) spell$", r"\1 or \2 spell", spell)  # (wave 17D: "a noncreature spell or a Dragon spell")
     sel = (selectors.Selector(types=("Instant", "Sorcery"), subtypes=("Adventure",), zones=("stack",))
