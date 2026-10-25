@@ -7,6 +7,16 @@ from typing import Any
 
 # the Oracle line (the card's name as ~) -> the wording the grammar already reads, with the same meaning
 _AS: dict[str, str] = {
+    # Sheltering Prayers: 613.7 each basic land is checked against its own controller's land count (a controller-relative selector extra)
+    "Basic lands each player controls have shroud as long as that player controls three or fewer lands.":
+        "Basic lands controlled by a player who controls three or fewer lands have shroud.",
+    # One with the Kami: the enchanted creature is itself modified (700.9: this Aura, which its controller controls, is attached), so "enchanted creature or
+    # another modified creature you control" is every modified creature you control
+    "Whenever enchanted creature or another modified creature you control dies, create X 1/1 colorless Spirit creature tokens, where X is that creature's power.":
+        "Whenever a modified creature you control dies, create X 1/1 colorless Spirit creature tokens, where X is that creature's power.",
+    # Hand of Vecna: a single object named Vecna per player under the legend rule (704.5j), so "a creature named Vecna" = "each"; X is the same for both
+    "At the beginning of combat on your turn, equipped creature or a creature you control named Vecna gets +X/+X until end of turn, where X is the number of cards in your hand.":
+        "At the beginning of combat on your turn, equipped creature gets +X/+X until end of turn, where X is the number of cards in your hand. Each creature you control named Vecna gets +X/+X until end of turn, where X is the number of cards in your hand.",
     # Common Cause: "they" are the nonartifact creatures the line names (statics._condition "share_color110d", 105.4: one color all of them have)
     "Nonartifact creatures get +2/+2 as long as they all share a color.":
         "Nonartifact creatures get +2/+2 as long as all nonartifact creatures share a color.",

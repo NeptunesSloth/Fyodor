@@ -1081,6 +1081,8 @@ def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: F
     if event == "activate" and ((cond.get("loyalty") and not info.get("loyalty")) or (
             cond.get("own") and (obj is None or obj.controller != player))):  # -- activation (wave 11F) --
         return False
+    if event == "activate" and cond.get("gy110d") and (obj is None or obj.zone != f"{obj.owner}:graveyard" or obj.owner != info.get("actor")):  # (wave 110D) Neerdiv
+        return False
     if event == "activate" and cond.get("ability_kinds") and info.get("ability_kind") not in cond["ability_kinds"]:
         return False
     if event == "activate" and cond.get("ability_kind") != info.get("ability_kind") and cond.get("ability_kind"):

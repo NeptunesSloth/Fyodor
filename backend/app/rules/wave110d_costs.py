@@ -43,6 +43,8 @@ def component(part: str, card_name: str) -> CostComponent | None:
     if (m := re.fullmatch(r"Tap five untapped attacking creatures you control named (?P<name>[A-Z][\w' -]+)", part)) is not None:
         sel = selectors.Selector(types=("Creature",), controller="you", tapped=False, attacking=True, extras=("name:" + m["name"],))
         return C.CostComponent(C.TAP_OTHER, amount=5, selector=sel.key(), text=part)
+    if part == "Pay 1 life for each card in your hand":  # Hand of Vecna's equip; 118.3: counted as it's paid (cost_payment.life_amount)
+        return C.CostComponent(C.PAY_LIFE, amount=0, life_rule="per_hand110d", text=part)
     return None
 
 

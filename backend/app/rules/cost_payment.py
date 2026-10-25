@@ -240,6 +240,8 @@ def life_amount(plan: Plan, comp: CostComponent, player: str, card: CardInstance
     if comp.life_rule and comp.life_rule.startswith("per_counter100i:"):  # -- activated (wave 100I) -- "Pay 3 life for each velocity counter on ~"
         _, kind, n = comp.life_rule.split(":")
         return int(n) * (card.counters.get(kind, 0) if card is not None else 0)
+    if comp.life_rule == "per_hand110d":  # -- costs (wave 110D) -- "Pay 1 life for each card in your hand"
+        return len(plan.state.zones.get(zone_key(player, "hand"), []))
     if comp.life_rule == "half":  # 107.1a: "rounded up"; 119.4b: 0 can always be paid
         return max(0, -(-life // 2))
     if comp.life_rule == "commander_colors":  # 903.4: the commanders' combined color identity

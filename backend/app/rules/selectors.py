@@ -276,6 +276,14 @@ def _not_attacking(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, extras=(*s.extras, "not_attacking"))
 
 
+@_suffix(r"controlled by a player who controls (?P<n>\w+) or fewer lands")  # -- statics (wave 110D) -- Sheltering Prayers: each one's own controller's land count
+def _owner_few_lands(s: Selector, m: re.Match[str]) -> Selector:
+    n = _NUMBERS.get(m["n"].lower())
+    if n is None:
+        raise ValueError("a number word")
+    return replace(s, extras=(*s.extras, f"ctrl_lands_le:{n}"))
+
+
 @_suffix(r"other than that (?:creature|permanent)")  # -- stack interaction (wave 23B) -- Pawpatch Recruit: not the object the trigger's event is about
 def _other_than_event(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, extras=(*s.extras, "not_event"))
@@ -2473,6 +2481,9 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
                 c.attached_to == card.id and "Aura" in plan.ch(c).subtypes and c.controller == card.controller
                 for c in plan.state.cards.values())):
             return False
+        if extra.startswith("ctrl_lands_le:") and sum(1 for c in plan.state.cards.values() if c.zone == f"{card.controller}:battlefield"
+                                                     and "Land" in plan.ch(c).types) > int(extra[14:]):
+            return False  # (wave 110D)
         if extra == "not_commander" and card.commander_key is not None:
             return False  # (wave 51G)
         if extra in _NOT_EXTRAS and matches(plan, Selector(zones=sel.zones, card=sel.card, extras=(extra[4:],)), card, ch, you, source):

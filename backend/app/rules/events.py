@@ -332,6 +332,14 @@ def _parse(c: str) -> Condition | None:
                 **({"exiled": True} if removal["exiled"] else {}), **({"by": "you"} if active_removed else {})}
     if re.fullmatch(r"the creature (?:it|this card|~) haunts dies", c):  # -- keywords (wave 50H) -- 702.55b-c: a haunt card in exile (triggers._cond_matches)
         return {"event": "die", "subject": "haunted"}
+    # -- activation (wave 110D) -- Neerdiv: a spell cast from your graveyard, or an ability (602.2) of a card as it last was in your graveyard (603.10a: eternalize and
+    # embalm exile it as a cost); each half is its own event (603.2c)
+    if c == "you cast a spell from your graveyard or activate an ability of a card in your graveyard":
+        cast = _parse("you cast a spell from your graveyard")
+        if cast is None or cast.get("aggregate"):
+            return None
+        return {"event": "either", "subject": "player", "player": "you", "conds": [cast, {"event": "activate", "subject": "player", "player": "you", "nonmana": True,
+                                                                                         "loyalty": False, "gy110d": True}]}
     # -- either with a batch half (wave 49D) -- "Whenever an opponent discards a card or mills one or more cards" (Lo and Li, Royal Advisors): one player's two
     # actions, each its own event (603.2c); the "one or more" half is once per batch of its own (triggers.py reads the half that matched)
     m = re.fullmatch(r"(?P<p>you|an opponent|a player) (?P<a>[a-z]+ an? [^,]+?) or (?P<b>[a-z]+ one or more [^,]+)", c)
