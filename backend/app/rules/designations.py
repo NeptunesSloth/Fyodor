@@ -1052,6 +1052,8 @@ def emblem_text_ok(text: str) -> bool:
         if d.get("kind") == "static":
             if d.get('static') in ('spell_keyword', 'permission', 'loyalty_rule', 'cast_limit', 'cost_modifier'):
                 continue
+            if d.get("static") == "game_result":  # -- spells (wave 110A) -- Gideon of the Trials' emblem (game_result._stops reads emblems)
+                continue
             if d.get("static") == "no_max_hand":  # -- ability words (wave 20C) -- "You have no maximum hand size." (hand_size.maximum reads emblems)
                 continue
             if d.get("static") == "replace" and d.get("event") in ("life_loss", "damage"):  # -- life floor (wave 35C) -- Serra the Benevolent's emblem (replace.static_candidates)

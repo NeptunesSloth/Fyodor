@@ -750,6 +750,8 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
     if "times" in v:
         a, b = v["times"]
         return evaluate(plan, ctx, a) * evaluate(plan, ctx, b)
+    if "two_pow" in v:  # -- spells (wave 110A) -- "2ˣ" (107.1: an integer); ponytail: capped, a bigger number of draws than any library is the same loss
+        return min(2 ** evaluate(plan, ctx, v["two_pow"]), 10000)
     if "plus" in v:  # (review 30b: 107.1b, a calculation uses a negative power as it is, only its result is at least 0: Phthisis's 2021 ruling)
         return max(0, sum(_signed_stat(plan, ctx, x) for x in v["plus"]))
     if "half" in v:

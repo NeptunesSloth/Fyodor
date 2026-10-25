@@ -123,6 +123,53 @@ def _meditation() -> Parsed:
     alt = _p("Destroy all enchantments, then return all enchantment cards put into your graveyard this way to the battlefield.")[0]
     return multi100n._instead(multi100n._cond("there are seven or more cards in your graveyard"), base, alt), target, optional
 
+def _searing_light_exile() -> Parsed:
+    """Olórin's Searing Light: each opponent exiles a creature with the greatest power among creatures they control (101.4: simultaneous choices,
+    the edict's group exile)."""
+    exile = copy.deepcopy(_p("Each opponent exiles a creature they control with the greatest power among creatures they control.")[0][0])
+    return [{**exile, "as": "exiled110a"}], None, False
+
+
+def _searing_light_mastery() -> Parsed:
+    """Spell mastery (an ability word, no rule meaning, 207.2c): each opponent is dealt damage equal to the power of the creature that player exiled,
+    as it last existed (608.2h)."""
+    cond = _cond("there are two or more instant and/or sorcery cards in your graveyard")
+    return [{"do": "only_if", "cond": cond, "skip": 1}, {"do": "exiled_power_damage110a", "ref": "exiled110a"}], None, False
+
+
+def _cond(text: str) -> dict[str, Any]:
+    from app.rules import multi100n
+
+    return multi100n._cond(text)
+
+
+def exiled_power_damage(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Damage from the source to each player who exiled a creature this way, equal to that creature's power as it last existed (120.3, 608.2h)."""
+    from app.rules import context, effects, sba
+
+    hits = []
+    # (a spell's lines keep their own binding names, scripts.rename_bindings: the first line's "l0_exiled110a" is found by its suffix)
+    name = next((k for k in context.refs(ctx) if k.endswith(e["ref"])), e["ref"])
+    for card, ch in context.infos(plan, ctx, name):
+        n = sba.power(card, ch)
+        if n and n > 0:
+            hits.append((effects._ability_source(plan, ctx), card.controller, n))
+    return effects._deal(plan, ctx, hits) if hits else True
+
+
+def exile_hands(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Every card in every hand, at once (a selector never reads hidden zones of other players; the move is public, 400.1)."""
+    from app.game.state import zone_key
+    from app.rules import effects
+
+    return effects.exile_cards(plan, ctx, e, [c for p in plan.live() for c in plan.state.zones.get(zone_key(p, "hand"), [])])
+
+
+def _decree() -> Parsed:
+    """Decree of Annihilation: the three exiles in order (608.2c); "all cards from all hands" is every card in every hand (the hand zones, 400.1)."""
+    first = _p("Exile all artifacts, creatures, and lands. Exile all cards from all graveyards.")[0]
+    return [*first, {"do": "exile_hands110a"}], None, False
+
 
 # Sentences the grammar reads in other words with the same meaning (the rewrite must mean the same: 608.2c).
 REWRITES = {
@@ -162,6 +209,14 @@ def _chooser(kind: str, combat: bool = False) -> Callable[[], Parsed]:
 
 
 BUILDERS: dict[str, Callable[[], Parsed]] = {
+    # Gideon of the Trials +1: 615.1 a prevention shield that lasts until the controller's next turn (the shield record's own duration)
+    "Until your next turn, prevent all damage target permanent would deal.": lambda: (
+        [{**(got := _p("Prevent all damage target permanent would deal this turn."))[0][0], "duration": "next_turn"}], got[1], got[2]),
+    "Target player draws 2ˣ cards.": lambda: ([{"do": "draw", "who": "target", "n": {"two_pow": {"x": 1}}}], "player", False),  # Mathemagics: 107.3 X
+    "Each opponent exiles a creature with the greatest power among creatures that player controls.": _searing_light_exile,
+    "If there are two or more instant and/or sorcery cards in your graveyard, ~ deals damage to each opponent equal to the power of the "
+    "creature they exiled.": _searing_light_mastery,
+    "Exile all artifacts, creatures, and lands from the battlefield, all cards from all graveyards, and all cards from all hands.": _decree,
     "Whenever a creature attacks and isn't blocked this combat, untap it and remove it from combat.": _melee,
     "You choose which creatures attack this turn.": _chooser("attack"),  # Master Warcraft: 508.1a
     "You choose which creatures block this turn and how those creatures block.": _chooser("block"),  # 509.1a
@@ -244,4 +299,22 @@ def snow(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return True
 
 
-PRIMITIVES = {"repeat_put110a": repeat_put, "note_put110a": note_put, "bind110a": bind, "end_combat_phase110a": end_combat_phase, "snow110a": snow}
+# Whole abilities the grammar reads in other words (same meaning).
+ABILITY_REWRITES = {
+    # Storm Cauldron: a land tapped for mana is tapped by a player (106.12a); a stack trigger, it adds no mana (so not a mana ability, 605.1b)
+    "Whenever a land is tapped for mana, return it to its owner's hand.":
+        "Whenever a player taps a land for mana, return that land to its owner's hand.",
+}
+
+
+def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
+    from dataclasses import replace
+
+    from app.rules import scripts
+
+    new = ABILITY_REWRITES.get(scripts.self_text(ability.text, ch.name))
+    return None if new is None else scripts.define(replace(ability, text=new), ch)
+
+
+PRIMITIVES = {"repeat_put110a": repeat_put, "note_put110a": note_put, "bind110a": bind, "end_combat_phase110a": end_combat_phase, "snow110a": snow,
+              "exiled_power_damage110a": exiled_power_damage, "exile_hands110a": exile_hands}

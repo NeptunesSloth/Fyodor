@@ -292,6 +292,8 @@ def _self_pronouns(part: str) -> str:
 def self_text(text: str, name: str) -> str:
     """The ability with the card's own name (and "this creature" etc.) written as ~, without an
     ability word (207.2c). Only immutable text is cached; no table state is read."""
+    if name.endswith(" Emblem"):  # -- spells (wave 110A) -- 114.2: an emblem has no name; "<Card> Emblem" is only its label ("a Gideon planeswalker" isn't the emblem)
+        name = ""
     out = _ABILITY_WORD.sub("", text, count=1)
     if out.startswith("Exhaust — "):  # -- ability words (wave 4F) -- 702.177a (the restriction: restrictions.parse)
         out = out[len("Exhaust — "):]
@@ -7225,6 +7227,8 @@ def _conditional_static(ability: AbilityText, ch: Characteristics, text: str) ->
     if inner.get("static") == "permission" and inner.get("zone") == "graveyard" and not inner.get("self") and "if" not in inner:
         return {**inner, "if": cond}  # -- station (wave 48D) -- 611.3a: "As long as this permanent has 8 or more charge counters on it, once during each of your turns, you may cast … from your graveyard" (permissions: the table statics' "if")
     if inner.get("static") == "grant" and inner.get("player_shield") and not inner.get("conditions"):
+        return {**inner, "conditions": [cond]}
+    if inner.get("static") == "game_result" and not inner.get("conditions"):  # -- spells (wave 110A) -- Gideon of the Trials' emblem (game_result._stops checks it)
         return {**inner, "conditions": [cond]}
     if inner.get("static") == "grant" and not inner.get("conditions") and all(r.startswith(("attack_tax", "block_tax")) for r in inner.get("rules") or ["-"]):
         return {**inner, "conditions": [cond]}  # (wave 45D: Dáin) the attack tax is imposed (a grant's rules) only while the condition holds, 611.3a

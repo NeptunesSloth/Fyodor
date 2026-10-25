@@ -484,5 +484,82 @@
   ],
   "power": "3",
   "toughness": "4"
+ },
+ {
+  "name": "Storm Cauldron",
+  "layout": "normal",
+  "mana_cost": "{5}",
+  "cmc": 5.0,
+  "type_line": "Artifact",
+  "oracle_text": "Each player may play an additional land during each of their turns.\nWhenever a land is tapped for mana, return it to its owner's hand.",
+  "colors": [],
+  "color_identity": [],
+  "keywords": []
+ },
+ {
+  "name": "Mathemagics",
+  "layout": "normal",
+  "mana_cost": "{X}{X}{U}{U}",
+  "cmc": 2.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Target player draws 2ˣ cards. (2⁰ = 1, 2¹ = 2, 2² = 4, 2³ = 8, 2⁴ = 16, 2⁵ = 32, and so on.)",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Decree of Annihilation",
+  "layout": "normal",
+  "mana_cost": "{8}{R}{R}",
+  "cmc": 10.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Exile all artifacts, creatures, and lands from the battlefield, all cards from all graveyards, and all cards from all hands.\nCycling {5}{R}{R} ({5}{R}{R}, Discard this card: Draw a card.)\nWhen you cycle this card, destroy all lands.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Cycling"
+  ]
+ },
+ {
+  "name": "Olórin's Searing Light",
+  "layout": "normal",
+  "mana_cost": "{2}{R}{W}",
+  "cmc": 4.0,
+  "type_line": "Instant",
+  "oracle_text": "Each opponent exiles a creature with the greatest power among creatures that player controls.\nSpell mastery — If there are two or more instant and/or sorcery cards in your graveyard, Olórin's Searing Light deals damage to each opponent equal to the power of the creature they exiled.",
+  "colors": [
+   "R",
+   "W"
+  ],
+  "color_identity": [
+   "R",
+   "W"
+  ],
+  "keywords": [
+   "Spell mastery"
+  ]
+ },
+ {
+  "name": "Gideon of the Trials",
+  "layout": "normal",
+  "mana_cost": "{1}{W}{W}",
+  "cmc": 3.0,
+  "type_line": "Legendary Planeswalker — Gideon",
+  "oracle_text": "+1: Until your next turn, prevent all damage target permanent would deal.\n0: Until end of turn, Gideon becomes a 4/4 Human Soldier creature with indestructible that's still a planeswalker. Prevent all damage that would be dealt to him this turn.\n0: You get an emblem with \"As long as you control a Gideon planeswalker, you can't lose the game and your opponents can't win the game.\"",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": []
  }
 ]

@@ -38,16 +38,19 @@ def static_definition(text: str) -> dict[str, Any] | None:
 
 
 def _stops(plan: Plan, player: str, what: str) -> bool:
-    from app.rules import scripts
+    from app.rules import designations, scripts, statics
     from app.rules.replace import conditional_lines
 
     for c in plan.state.cards.values():
-        if not c.zone.endswith(":battlefield") or c.face_down or not plan.in_game(c) or plan.manual(c):
+        emblem = designations.emblem_card(c)  # -- spells (wave 110A) -- 114.4: an emblem's static works from the command zone
+        if not (emblem or c.zone.endswith(":battlefield")) or c.face_down or not plan.in_game(c) or plan.manual(c):
             continue
         ch = plan.ch(c)
         skip = conditional_lines(ch)  # (a leveler's / Class's level lines: the level isn't tracked)
         for i, d in scripts.definitions(ch).items():
             if i in skip or d.get("kind") != "static" or d.get("static") != KIND:
+                continue
+            if not statics.conditions_hold(plan, d, source=c, controller=c.controller):  # ("As long as you control a Gideon planeswalker", 611.3a)
                 continue
             if d["you" if c.controller == player else "opponents"] == what:
                 return True
