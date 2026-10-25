@@ -22,6 +22,9 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
         parsed = scripts.parse_effects(CRAFT_RETURN)
         if base is not None and parsed is not None and parsed[1] is None and not parsed[2]:
             return {**base, 'effects': [{'do': 'prepare_craft_materials'}, *parsed[0], {'do': 'cleanup_craft_materials'}]}
+    if ability.kind == 'triggered' and text == 'When ~ enters, you gain life equal to the mana value of the exiled card used to craft it.':  # (wave 110B)
+        base = scripts.define(replace(ability, text='When this creature enters, you gain 1 life.'), ch)
+        return None if base is None else {**base, 'effects': [{**base['effects'][0], 'n': {'crafted_mv': True}}]}
     if ability.kind == 'static' and text == "~'s power and toughness are each equal to the number of colors among the exiled cards used to craft it.":
         return {'kind': 'static', 'static': 'cda', 'p': {'crafted_colors': True}, 't': {'crafted_colors': True}, 'effects': []}
     return None
@@ -84,6 +87,13 @@ def colors(plan: Plan, ctx: dict[str, Any]) -> set[str]:
     return {color for ref in refs if (card := plan.state.cards.get(ref.card)) is not None
             and plan.oid(card) == ref.object_id and card.zone.endswith(':exile')
             for color in plan.ch(card).colors}
+
+
+def mana_value(plan: Plan, ctx: dict[str, Any]) -> int:
+    """The mana value of the exiled card(s) the permanent was crafted with (702.167a); a card's mana value in exile is its own (202.3)."""
+    refs = plan.rules.crafted_materials.get(ctx.get('source_object') or '', [])
+    return sum(int(plan.ch(card).mana_value) for ref in refs if (card := plan.state.cards.get(ref.card)) is not None
+               and plan.oid(card) == ref.object_id and card.zone.endswith(':exile'))
 
 
 def production(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:

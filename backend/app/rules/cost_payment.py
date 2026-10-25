@@ -159,6 +159,10 @@ def _candidates(plan: Plan, comp: CostComponent, player: str, source: CardInstan
     opponent_counters = comp.kind == C.PUT_COUNTER and sel.controller == "opponent"
     pool = ([cid for pid in plan.live() for cid in plan.state.zones.get(zone_key(pid, "battlefield"), [])]
             if opponent_counters else plan.state.zones.get(zone, []))
+    from app.rules import wave110d_costs  # -- costs (wave 110D) -- "from a graveyard": every graveyard
+
+    if comp.kind == C.EXILE_FROM_GRAVEYARD and not wave110d_costs.own_pool_only(comp):
+        pool = wave110d_costs.graveyard_pool(plan, comp)
     suspended_counter_cost = comp.kind == C.REMOVE_COUNTER and bool(sel.either) and any(
         'suspended' in selectors.from_key(branch).extras for branch in sel.either)
     if suspended_counter_cost:
@@ -169,8 +173,8 @@ def _candidates(plan: Plan, comp: CostComponent, player: str, source: CardInstan
             continue
         if cid == source.id and not zone.endswith(":battlefield"):
             continue  # -- costs (wave 3$) -- a spell's additional cost can't discard / exile the spell being cast (601.2a)
-        if not selectors.matches(plan, sel, card, plan.ch(card), player, source.id) and not (
-                alt is not None and selectors.matches(plan, alt, card, plan.ch(card), player, source.id)):
+        if not selectors.matches(plan, sel, card, plan.ch(card), player, source.id, plan.cost_attacker) and not (
+                alt is not None and selectors.matches(plan, alt, card, plan.ch(card), player, source.id, plan.cost_attacker)):
             continue
         if comp.named_self and plan.ch(card).name != plan.ch(source).name:  # (wave 4H: grandeur)
             continue
@@ -236,6 +240,8 @@ def life_amount(plan: Plan, comp: CostComponent, player: str, card: CardInstance
     if comp.life_rule and comp.life_rule.startswith("per_counter100i:"):  # -- activated (wave 100I) -- "Pay 3 life for each velocity counter on ~"
         _, kind, n = comp.life_rule.split(":")
         return int(n) * (card.counters.get(kind, 0) if card is not None else 0)
+    if comp.life_rule == "per_hand110d":  # -- costs (wave 110D) -- "Pay 1 life for each card in your hand"
+        return len(plan.state.zones.get(zone_key(player, "hand"), []))
     if comp.life_rule == "half":  # 107.1a: "rounded up"; 119.4b: 0 can always be paid
         return max(0, -(-life // 2))
     if comp.life_rule == "commander_colors":  # 903.4: the commanders' combined color identity
@@ -311,6 +317,12 @@ def _names_fit(plan: Plan, comp: CostComponent, ids: list[str]) -> bool:
 
     if not comp.names:
         return True
+    from app.rules import (
+        wave110d_costs,  # -- costs (wave 110D) -- groups that share a type / color / graveyard
+    )
+
+    if comp.names in wave110d_costs.GROUPS:
+        return wave110d_costs.fit(plan, comp, ids)
     groups = [set(names_of(plan.ch(plan.state.cards[c]))) for c in ids]
     if not groups or any(not g for g in groups):
         return False
@@ -327,6 +339,10 @@ def _names_payable(plan: Plan, comp: CostComponent, ids: list[str], need: int) -
 
     if not comp.names:
         return len(ids) >= need
+    from app.rules import wave110d_costs  # -- costs (wave 110D) --
+
+    if comp.names in wave110d_costs.GROUPS:
+        return wave110d_costs.payable(plan, comp, ids, need)
     groups = [frozenset(names_of(plan.ch(plan.state.cards[c]))) for c in ids]
     if comp.names == "same":
         counts = Counter(n for g in groups for n in g)
@@ -1064,7 +1080,7 @@ def _pay_new_part(plan: Plan, comp: CostComponent, card: CardInstance, ids: list
         from app.rules import replace
 
         target = ids[0] if comp.selector is not None else card.id
-        replace.put_counters(plan, [(target, comp.counter or "", comp.amount)], by=player, effect=False)
+        replace.put_counters(plan, [(target, comp.counter or "", x if comp.counters_x else comp.amount)], by=player, effect=False)
         return True
     if comp.kind in (C.COLLECT_EVIDENCE, C.FORAGE):  # 701.59a / 701.61a: exiled from the graveyard (a Food: pay())
         plan.do({"type": "move", "card_ids": ids, "to": {"zone": "exile"}})

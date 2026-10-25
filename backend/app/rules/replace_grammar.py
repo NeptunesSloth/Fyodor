@@ -281,6 +281,9 @@ _LIFE = re.compile(r"^If (?P<who>you|an opponent|a player) would gain life(?P<ca
 
 
 def _life(text: str) -> Definition | None:
+    if text == "If a spell or ability would cause its controller to gain life, that player loses that much life instead.":
+        # -- life gain (wave 110H) -- Rain of Gore: only a gain its source's controller gets (lifelink's source is a permanent: 702.15)
+        return _static("life", {"who": "any", "by_controller": True}, {"do": "lose"})
     m = _LIFE.match(text)
     if not m:
         return None
@@ -327,7 +330,7 @@ def _loss(text: str) -> Definition | None:
 # Sustaining Spirit), "If you control a creature, damage that would …" (Worship, Serra the Benevolent's emblem). 120.3a: the damage dealt stays what it was;
 # only the life it makes the player lose is replaced (the Gatherer rulings: lifelink and "deals damage" triggers see all of it, "lose life" and paying life
 # bypass it, and nothing applies to a player already below 1 life). Event ``life_loss`` of damage (``damage``: True), op ``floor``.
-_FLOOR = re.compile(r"^(?:If (?P<cond>[^,]+), d|D)amage that would reduce your life total to less than 1 reduces it to 1 instead\.$")
+_FLOOR = re.compile(r"^(?:If (?P<cond>[^,]+), d|As long as you have (?P<k>[2-9]|\d\d+) or more life, d|D)amage that would reduce your life total to less than (?P<n>\d+) reduces it to (?P=n) instead\.$")
 
 
 def _floor(text: str) -> Definition | None:
@@ -335,6 +338,10 @@ def _floor(text: str) -> Definition | None:
     if not m:
         return None
     match: dict[str, Any] = {"who": "you", "damage": True}
+    if (m["k"] or m["n"] != "1") and m["k"] != m["n"]:
+        return None  # (only "As long as you have N or more life, … less than N reduces it to N" (Elderscale Wurm) beyond the floor of 1)
+    if m["k"]:
+        return _static("life_loss", match, {"do": "floor", "to": int(m["k"])})
     if m["cond"]:
         from app.rules import conditions
 
@@ -660,7 +667,7 @@ def _damage_plain(text: str) -> Definition | None:
         text = "If ~ would deal damage to a permanent or player, it deals double that damage instead."
     if (d := _damage_to(text)) is not None:
         return d
-    m = _DAMAGE.match(text)
+    m = _DAMAGE.match(text.replace("to a creature, battle, or opponent,", "to an opponent or a creature or battle,"))  # (wave 110F: Disciples of the Inferno; the comma list would split the match)
     if not m:
         return None
     src = _source(m["src"])
@@ -686,7 +693,7 @@ def _damage_plain(text: str) -> Definition | None:
             match["at_least"] = int(m["min"])
         if kind == "cap":
             cap = _num(m2["n"])
-            return _static("damage", match, {"do": "cap", "n": cap}) if cap and cap < match["at_least"] else None
+            return _static("damage", match, {"do": "cap", "n": cap}) if cap else None  # (-- one-card wordings (wave 110B) -- 614.1a: it sets the amount whenever the threshold is met; Equal Treatment "1 or more" -> 2)
         if kind == "mul":
             return _static("damage", match, {"do": "mul", "n": 2 if m2["m"] == "double" else 3})
         if kind == "mul2":

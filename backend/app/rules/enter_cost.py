@@ -17,8 +17,9 @@ holds another card, even when none would do (skipping it would tell the table th
 do, app/rules/reveal_lands.py); a sacrifice needs a permanent on the battlefield (public), so with none it isn't
 asked. The answer is recorded like the other entering answers (``choices[WHAT]``: the object, or :data:`NONE`).
 
-Not read: costs of more than one object ("sacrifice two untapped lands instead": Scorched Ruins, Lotus Vale — an
-entering answer is one object). A token copy of such a permanent is left to the players (app/rules/copying.py).
+-- Several objects (wave 110C) -- "sacrifice two untapped lands instead" (Scorched Ruins, Lotus Vale): the answer is the picks so far,
+comma-joined (as devour's are), asked again until there are as many as the cost needs; refusing any one of them is refusing the payment.
+A token copy of such a permanent is left to the players (app/rules/copying.py).
 """
 
 from __future__ import annotations
@@ -37,7 +38,7 @@ KIND = "enter_cost"
 WHAT = "enter_cost"
 NONE = "none"
 _TEXT = re.compile(r"^If ~ would enter, (?P<may>you may )?(?P<cost>discard a land card|sacrifice an? (?:untapped )?"
-                   r"(?:Plains|Island|Swamp|Mountain|Forest)) instead\. If you do, put ~ onto the battlefield\. If you don't, "
+                   r"(?:Plains|Island|Swamp|Mountain|Forest)|sacrifice two untapped lands) instead\. If you do, put ~ onto the battlefield\. If you don't, "
                    r"put it into its owner's graveyard\.$")
 
 
@@ -49,7 +50,7 @@ def definition(text: str) -> dict[str, Any] | None:
 
     cost = m["cost"][0].upper() + m["cost"][1:]
     parsed = optional_payment.parse(cost)
-    if parsed is None or len(parsed.components) != 1 or parsed.components[0].amount != 1:
+    if parsed is None or len(parsed.components) != 1 or parsed.components[0].amount not in (1, 2):
         return None
     return {"kind": "replacement", "replacement": KIND, "cost": cost, "may": bool(m["may"]), "effects": []}
 
@@ -71,6 +72,15 @@ def candidates(plan: Plan, card: CardInstance, controller: str, d: dict[str, Any
     return [c for c in cost_payment.candidates(plan, _component(d), controller, probe) if c != card.id and c not in reserved]
 
 
+def picks(value: str | None) -> list[str]:
+    return [x for x in (value or "").split(",") if x]
+
+
+def merge(previous: str | None, chosen: str) -> str:
+    """-- several objects (wave 110C) -- the answer after one more pick (declining at any point declines the payment)."""
+    return NONE if NONE in (previous, chosen) else ",".join([*picks(previous), chosen])
+
+
 def _is_discard(d: dict[str, Any]) -> bool:
     return d["cost"].startswith("Discard")
 
@@ -84,13 +94,14 @@ def plan_entry(plan: Plan, card: CardInstance, controller: str, defs: list[dict[
             continue
         found = candidates(plan, card, controller, d, reserved)
         given = answers.get(WHAT)
-        if given is None:
+        chosen, need = picks(given), _component(d).amount
+        if given is None or (chosen and NONE not in chosen and len(chosen) < need and set(chosen) <= set(found)):
             hidden = _is_discard(d) and any(c != card.id for c in plan.state.zones.get(zone_key(controller, "hand"), []))
-            if not found and not hidden:
+            if len(found) < need - len(chosen) and not hidden:
                 out["divert"] = True
             elif "choice" not in out:
-                out["choice"] = {"what": WHAT}
-        elif given in found:
+                out["choice"] = {"what": WHAT, "picked": given}
+        elif len(chosen) == need and set(chosen) <= set(found) and len(set(chosen)) == need:
             out.setdefault("choices", {})[WHAT] = given
             out["pay"] = {"cost": d["cost"], "object": given}
         else:  # declined, or what was chosen is gone meanwhile (nothing paid: 118.3)
@@ -102,12 +113,12 @@ def is_choice(what: str) -> bool:
     return what == WHAT
 
 
-def prompt(plan: Plan, card: CardInstance, controller: str, reserved: set[str] | None = None) -> tuple[str, list[DecisionOption]]:
+def prompt(plan: Plan, card: CardInstance, controller: str, reserved: set[str] | None = None, picked: str | None = None) -> tuple[str, list[DecisionOption]]:
     """The private question: what to pay with, or nothing (it goes to the graveyard)."""
     from app.rules import scripts
 
     d = next(x for x in scripts.definitions(plan.ch(card)).values() if x.get("replacement") == KIND)
-    found = candidates(plan, card, controller, d, set(reserved or ()))
+    found = candidates(plan, card, controller, d, {*(reserved or ()), *picks(picked)})
     verb = "Discard" if _is_discard(d) else "Sacrifice"
     options = [DecisionOption(id=c, label=f"{verb} {plan.state.cards[c].name or 'card'}", card_id=c) for c in found]
     if d["may"] or not found:
@@ -123,16 +134,17 @@ def pay(plan: Plan, card: CardInstance, controller: str, pay: dict[str, Any], ac
     assert cost is not None
     comp = cost.components[0]
     probe = card.model_copy(update={"controller": controller})
-    if pay["object"] not in cost_payment.candidates(plan, comp, controller, probe):
+    objects = picks(pay["object"])
+    if not objects or any(o not in cost_payment.candidates(plan, comp, controller, probe) for o in objects):
         return False
     record = PaymentRecord(card=card.id, controller=controller, total_cost=pay["cost"])
     saved = plan.actor
     plan.actor = controller  # (cost_payment acts as the payer: the discard / sacrifice is theirs)
     try:
-        cost_payment.pay(plan, cost, probe, {0: [pay["object"]]}, record)
+        cost_payment.pay(plan, cost, probe, {0: objects}, record)
     finally:
         plan.actor = saved
-    plan.note(f"{plan.name(controller)} paid “{pay['cost']}” for {card.name or 'it'} to enter", [pay["object"]])
+    plan.note(f"{plan.name(controller)} paid “{pay['cost']}” for {card.name or 'it'} to enter", objects)
     return True
 
 
@@ -148,6 +160,6 @@ def chosen_objects(entries: list[dict[str, Any]], skip: int) -> set[str]:
     """The objects other entries entering together already chose (614.13b)."""
     from app.rules import devour  # -- keyword mechanics (wave 9D) -- what another entering devourer picked
 
-    return {str(e["choices"][WHAT]) for i, e in enumerate(entries)
-            if i != skip and (e.get("choices") or {}).get(WHAT) not in (None, NONE)} | {
+    return {c for i, e in enumerate(entries)
+            if i != skip and (e.get("choices") or {}).get(WHAT) not in (None, NONE) for c in picks(e["choices"][WHAT])} | {
         c for i, e in enumerate(entries) if i != skip for c in devour.picked((e.get("choices") or {}).get(devour.WHAT))}

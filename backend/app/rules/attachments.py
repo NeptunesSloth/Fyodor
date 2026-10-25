@@ -128,6 +128,8 @@ def _equip_target(q: str | None) -> str | None:
         selected = selectors.parse("planeswalker you control")
         assert selected is not None
         return selected.key()
+    if q.lower() == "worthy":  # -- equip (wave 110D) -- Mjölnir's reminder: worthy = a legendary non-Villain creature that's red and/or white
+        q = "legendary non-Villain red or white creature"
     for phrase in (f"{q} you control", f"{q} creature you control", f"creature you control that's a {q}"):
         sel = selectors.parse(phrase)
         if sel is not None and sel.player is None and not sel.card and ("Creature" in sel.types or sel.subtypes) \

@@ -297,6 +297,9 @@ def static_definition(text: str) -> Definition | None:
             return None
         return {"kind": "static", "static": "cast_limit", "who": "each", "when": None, "filter": key, "from": None,
                 "act": None, "max": None, "effects": []}
+    if t == "enchanted player can't activate abilities that aren't mana abilities or loyalty abilities":  # -- cant restrictions (wave 110D) -- 602.5, 605.1a, 606 (Overwhelming Splendor)
+        return {"kind": "static", "static": "cast_limit", "who": "enchanted", "when": None, "filter": None, "from": None, "act": "nonmana_noloyalty",
+                "max": None, "spells": False, "effects": []}
     m = STATIC_NAMED.fullmatch(t)
     if m:
         return {"kind": "static", "static": "cast_limit", "who": "each", "when": None, "filter": None, "from": None,
@@ -935,6 +938,8 @@ def _act_hit(state: GameState, player: str, card: CardInstance, ch: Characterist
         return on_field and bool({"Artifact", "Creature", "Enchantment"} & set(ch.types))
     if act == "nonmana":
         return not mana
+    if act == "nonmana_noloyalty":  # (wave 110D)
+        return not mana and not loyalty
     if act == "graveyard":
         return card.zone.endswith(":graveyard")
     if act == "loyalty":
@@ -988,6 +993,8 @@ def loyalty_rule(state: GameState, card: CardInstance, info: CardInfo | None, ke
     "instant" speed on any player's turn)? Its controller's "planeswalkers you control", or its own."""
     if key == "twice" and state.rules is not None and state.rules.once_per_turn.get(f"loyalty_twice100g:{card.controller}") == state.turn.number:
         return True  # -- zones (wave 100G) -- "… twice this turn rather than only once" (Urza Assembles the Titans III: zones100g.loyalty_twice)
+    if key == "twice" and state.rules is not None and state.rules.once_per_turn.get(f"loyalty_veil110b:{card.id}") == state.turn.number:
+        return True  # -- wave 110B -- The Chain Veil: one more activation of this planeswalker this turn (wave110b_cards.veil)
     if info is None:
         return False
     from app.rules.plan import Plan

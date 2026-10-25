@@ -625,6 +625,8 @@ def define_static(text: str, kind: str, lines: tuple[str, ...] = ()) -> Definiti
         if pc.hybrid or pc.phyrexian or pc.x or pc.unsupported or pc.is_free:
             return None
         return {"kind": "static", "static": "self_cost", "per_target": sv["cost"], "effects": []}
+    if (lv := _LIFE_PER_TARGET.fullmatch(t)) is not None:  # -- wave 110E -- Phyrexian Purge: 118.8 additional life cost, 601.2f once the targets are chosen
+        return {"kind": "static", "static": "self_cost", "life_per_target": int(lv["n"]), "effects": []}
     if cost_changes.is_self(t):
         change = cost_changes.self_change(t)
         return {"kind": "static", "static": "self_cost", "change": change, "effects": []} if change else None
@@ -722,7 +724,7 @@ def define_static(text: str, kind: str, lines: tuple[str, ...] = ()) -> Definiti
 
         if cast_limits.SELF_FLASH_IF.fullmatch(t) or cast_limits.HAS_FLASH_WHILE.fullmatch(t):
             return cast_limits.static_definition(text)
-        if t.startswith("escape—"):  # -- static_other (wave 52C) -- 702.138a: an instant's or sorcery's printed escape (Cling to Dust): functions from the graveyard
+        if t.startswith(("escape—", "as long as you control a")):  # -- static_other (wave 52C) -- 702.138a: an instant's or sorcery's printed escape (Cling to Dust): functions from the graveyard
             from app.rules import escape
 
             return escape.define_static(t)
@@ -871,7 +873,7 @@ def define_static(text: str, kind: str, lines: tuple[str, ...] = ()) -> Definiti
         return found_mayhem
     if re.search(r" in (?:your|each player's) (?:hand|graveyard)(?: that's [^.]*?)? (?:has|have) ", t) and (found_zone := zone_grants.define(t)) is not None:  # -- zone keyword grants (wave 25A)
         return found_zone
-    if t.lower().startswith(("escape—", "each ", "you may cast ~ from your graveyard by", "you may cast this c")) and (found_escape := escape.define_static(t)) is not None:
+    if t.lower().startswith(("escape—", "each ", "you may cast ~ from your graveyard by", "you may cast this c", "as long as you control a")) and (found_escape := escape.define_static(t)) is not None:
         return found_escape  # (702.138a: a printed escape cost, or "Each nonland card in your graveyard has escape. …")
     # -- end top of library (wave 5I) --
     if (m := LINKED_PLAY.fullmatch(t)) is not None:  # -- resolution memory (wave 22D) -- 607.2a: "cards exiled with ~" (app/rules/exiled_with.py)
@@ -1246,6 +1248,10 @@ def parse_clause(text: str) -> tuple[list[dict[str, Any]], Any] | None:
                  "play": False, "cast": True, "until": "end_of_turn", "optional": True,
                  "filter": spell_filter("creature"), "extra": "forage",
                  "enters": {"counters": {"finality": 1}}}], None
+    if text.lower() == ("you may cast a creature spell from your graveyard this turn. if you do, it enters with a finality counter on it "
+                        "and is a vampire in addition to its other types"):  # -- Tarrian's Journal (wave 110C) -- one creature spell; 122.6, 205.1b
+        return [{"do": "grant_play", "zone": "graveyard", "zone_owner": "you", "play": False, "cast": True, "until": "end_of_turn", "optional": True,
+                 "once": True, "filter": spell_filter("creature"), "enters": {"counters": {"finality": 1}, "subtypes": ["Vampire"]}}], None
     m = GRANT_ZONE.fullmatch(text)
     if m:
         if m["until"] and m["this_turn"]:
@@ -1688,6 +1694,11 @@ def gain_on_entry(plan: Plan, card_id: str, controller: str, rider: dict[str, An
 
         layers.add_effect(plan, affected=[plan.oid(card_id)], layer="6", source=None, controller=controller, add_keywords=tuple(rider["keywords"]),
                           label="Gained from the cast permission")
+    if rider and rider.get("subtypes") and card is not None and card.zone.endswith(":battlefield"):  # -- wave 110C -- "and is a Vampire in addition to its other types": layer 4 (205.1b, 613.1d), kept while it is that object
+        from app.rules import layers
+
+        layers.add_effect(plan, affected=[plan.oid(card_id)], layer="4", source=None, controller=controller, duration="permanent",
+                          add_subtypes=tuple(rider["subtypes"]), label="Gained from the cast permission")
     if rider and rider.get("abilities") and card is not None and card.zone.endswith(":battlefield"):
         from app.rules import layers
 
@@ -1772,6 +1783,7 @@ def modifiers(state: GameState, player: str, card: CardInstance, ch: Characteris
     return out
 
 
+_LIFE_PER_TARGET = re.compile(r"^(?:this spell|~) costs (?P<n>\d+) life more to cast for each target$")
 _PER_TARGET = re.compile(r"^(?:this spell|~) costs (?P<cost>(?:\{[^}]+\})+) more to cast for each target beyond the first$")
 
 
@@ -1786,7 +1798,7 @@ def self_reduction(state: GameState, player: str, card: CardInstance, ch: Charac
         total += opponents * max(1, sum('undaunted' in ability.keywords for ability in ch.abilities))
     view = None
     for d in _definitions(ch).values():
-        if d.get("static") != "self_cost" or "change" in d or "per_target" in d:  # (wave 4I: a "change" is cost_changes.own_changes')
+        if d.get("static") != "self_cost" or "change" in d or "per_target" in d or "life_per_target" in d:  # (wave 4I: a "change" is cost_changes.own_changes')
             continue
         if d.get("per") == "opponent":
             total += d["n"] * opponents

@@ -179,7 +179,7 @@ def allowed(definition: dict[str, Any]) -> bool:
             # 3 or more life this turn faces a villainous choice — …" (Davros) — the log is what it was: creating a token loses no life, discards no card)
             # (-- trigger other (wave 44D) -- also after a discard: log_for reads the events no trigger collection has noted yet (wave 24A), so "You may discard a card. Then you get an
             # experience counter for each player who discarded a card this turn." (Azula) sees the discard it just made, 608.2h)
-            if "players_where" in dumped and ('"history"' in dumped or '"dealt"' in dumped) and not all(x.get("do") in ("create_token", "only_if", "may_rest", "discard") for x in effects[:i]):
+            if "players_where" in dumped and ('"history"' in dumped or '"dealt"' in dumped) and not all(x.get("do") in ("create_token", "only_if", "may_rest", "discard", "delayed") for x in effects[:i]):  # (wave 110E: "delayed" only schedules the deferred read, 603.7)
                 return False
     return True
 

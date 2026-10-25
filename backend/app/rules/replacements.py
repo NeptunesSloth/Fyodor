@@ -265,10 +265,16 @@ def named_choices(plan: Plan, controller: str, defs: list[dict[str, Any]], answe
                 answers[what] = only  # -- card names (wave 22B) -- one opponent: no question
             if d.get("control") and what not in answers and (only := card_names.sole_opponent(plan, controller)):
                 answers[what] = only  # -- entry control (wave 110A) -- one opponent: no question
+            deciding = None
+            if e.get("opp110e") and what not in answers and "choice" not in out:  # -- opponent chooses (wave 110E) --
+                from app.rules import wave110e_opp
+
+                if (deciding := wave110e_opp.decider(plan, controller, answers, out)) is None:
+                    continue
             if what in answers:
                 out.setdefault("choices", {})[what] = answers[what]
             elif "choice" not in out:
-                out["choice"] = {"what": what, **({"pick110a": e["pick110a"]} if e.get("pick110a") else {}), **({"look": answers.get(card_names.LOOK)} if e.get("look") else {}), **({"reveal": True} if e.get("reveal") else {}),
+                out["choice"] = {"what": what, **({"pick110a": e["pick110a"]} if e.get("pick110a") else {}), **({"decider": deciding} if deciding else {}), **({"look": answers.get(card_names.LOOK)} if e.get("look") else {}), **({"reveal": True} if e.get("reveal") else {}),
                                  **({"options": e["options"]} if e.get("options") else {}), **({"random": True} if e.get("random") else {})}  # (wave 51C: "choose Elemental, Elf, …": only the creature types listed)
                 if what == "second color":
                     out["choice"]["options"] = [o for o in ("White", "Blue", "Black", "Red", "Green") if o != answers.get("color")]
@@ -552,6 +558,10 @@ def choice_prompt(plan: Plan, card: CardInstance, controller: str, choice: dict[
         from app.rules import wave110a_pick
 
         return wave110a_pick.prompt(plan, card, controller, choice)
+    from app.rules import wave110e_opp
+
+    if what == wave110e_opp.WHO:  # (wave 110E)
+        return wave110e_opp.prompt(plan, card, controller)
     from app.rules import chosen_forms95
 
     if what.startswith(chosen_forms95.PREFIX):
@@ -568,7 +578,7 @@ def choice_prompt(plan: Plan, card: CardInstance, controller: str, choice: dict[
     from app.rules import enter_cost
 
     if enter_cost.is_choice(what):  # -- entering for a cost (wave 5G) -- private: the cards in their hand
-        return enter_cost.prompt(plan, card, controller, set(choice.get("reserved") or ()))
+        return enter_cost.prompt(plan, card, controller, set(choice.get("reserved") or ()), choice.get("picked"))
     from app.rules import devour  # -- keyword mechanics (wave 9D) --
 
     if devour.is_choice(what):
@@ -601,7 +611,13 @@ def _answer(entry_or_answers: dict[str, Any], choice: dict[str, Any], chosen: st
     """Record an answer: a shock land's ``pay_life``, or a named choice under ``choices``."""
     if "life" in choice:
         return {**entry_or_answers, "pay_life": chosen == "pay"}
-    from app.rules import devour  # -- keyword mechanics (wave 9D) -- devour's picks pile up
+    from app.rules import (
+        devour,  # -- keyword mechanics (wave 9D) -- devour's picks pile up
+        enter_cost,  # -- entering for a cost (wave 110C) -- so do the several objects of "sacrifice two untapped lands"
+    )
+
+    if choice["what"] == enter_cost.WHAT:
+        chosen = enter_cost.merge((entry_or_answers.get("choices") or {}).get(choice["what"]), chosen)
 
     if devour.is_choice(choice["what"]):
         chosen = devour.merge((entry_or_answers.get("choices") or {}).get(choice["what"]), chosen)
@@ -723,6 +739,10 @@ def _picked(plan: Plan, d: Any, chosen: str) -> str:
         devour,  # -- keyword mechanics (wave 9D) --
     )
 
+    if d.resume["what"] == "enter_cost":  # -- entering for a cost (wave 110C) --
+        from app.rules import enter_cost
+
+        return enter_cost.merge(plan.rules.entry_choices.get(d.resume["card"], {}).get(enter_cost.WHAT), chosen)
     if amplify.is_choice(d.resume["what"]):
         return amplify.merge(plan.rules.entry_choices.get(d.resume["card"], {}).get(amplify.WHAT), chosen)
     if not devour.is_choice(d.resume["what"]):
@@ -1038,6 +1058,7 @@ def after_entry(plan: Plan, card_id: str, controller: str, *, x: int | None = No
         from app.rules import wave110a_enter  # -- entry types (wave 110A) --
 
         wave110a_enter.apply(plan, card)
+    devour.apply_totals(plan, card, ch, choices)  # -- stats (wave 110F) -- Dracoplasm
     from app.rules import tribute  # -- keywords (wave 50H) -- 702.104b: "if tribute wasn't paid" reads this
 
     if tribute.counters(ch, choices):
@@ -1066,6 +1087,12 @@ def after_entry(plan: Plan, card_id: str, controller: str, *, x: int | None = No
                 from app.rules import keyword_actions
 
                 keyword_actions.become_prepared(plan, card)
+    if not preview:
+        from app.rules import (
+            wave110d_enter,  # -- enters (wave 110D) -- "… and as a Mutant in addition to its other types"
+        )
+
+        wave110d_enter.entered(plan, card, controller, newcomers)
     if prepared is not None:
         if prepared[1] is not None:
             replace.do_counters(plan, prepared[1], by=controller)
@@ -1267,10 +1294,10 @@ def _static_exile_all(plan: Plan, card: CardInstance) -> list[tuple[CardInstance
     return found
 
 
-def _record_exile_instead(plan: Plan, card: CardInstance) -> str | None:
+def _record_exile_instead(plan: Plan, card: CardInstance) -> tuple[str, dict[str, Any] | None] | None:
     """-- replacement effects stage 2 (wave 2E) -- This turn's "If that creature / a creature dealt
     damage this way / a creature would die this turn, exile it instead" (effects.exile_if_dies):
-    the name of the spell or ability whose effect applies, or None. Like every other "exile
+    the name of the spell or ability whose effect applies (with its rider: Cosmic Intervention returns the card at the next end step), or None. Like every other "exile
     instead" here they agree on what happens, so there is no 616.1 choice between them."""
     turn = plan.state.turn.number
     oid = plan.oid(card)
@@ -1284,7 +1311,9 @@ def _record_exile_instead(plan: Plan, card: CardInstance) -> str | None:
         elif not rec.get("each") or not selectors.matches(plan, selectors.from_key(rec["each"]), card, ch,
                                                           rec["controller"], None):
             continue
-        return rec.get("label") or "a replacement effect"
+        rider = {"source": rec["return110b"], "controller": rec["controller"], "reflexive": False,  # -- one-card wordings (wave 110B) --
+                 "effects": [{"do": "return_next_end110b", "card": card.id}]} if rec.get("return110b") else None
+        return rec.get("label") or "a replacement effect", rider
     return None
 
 
@@ -1369,19 +1398,26 @@ def _graveyard_candidates(plan: Plan, card: CardInstance, frm: str) -> list[Cand
         out.append(Cand("its own cast", "exile", True))  # "without paying …": "If that spell would be put into your graveyard, exile it instead"
     if frm == "battlefield" and card.counters.get("finality", 0) > 0:  # 122.1h (-- refused zones/sized (wave 3R4) --)
         out.append(Cand("finality counter", "exile"))
-    if _self_exile_instead(plan, card):
-        out.append(Cand(card.name or "its own ability", "exile"))
+    if _self_exile_instead(plan, card):  # (wave 110C: Ugin's Nexus' rider, "and take an extra turn")
+        rider = next(({"source": card.id, "controller": card.controller, **d["rider"]} for d in _definitions(plan, card).values()
+                      if d.get("replacement") == "exile_instead" and d.get("rider")), None)
+        out.append(Cand(card.name or "its own ability", "exile", False, rider))
     if (where := _self_library_instead(plan, card)) is not None:  # -- instead (wave 20B) --
         out.append(Cand(card.name or "its own ability", f"library:{where}"))
     if _self_shuffle_instead(plan, card):
         out.append(Cand(card.name or "its own ability", "library:shuffle"))
     for src, d in _static_exile_all(plan, card):
         rider = {"source": src.id, "controller": src.controller, **d["rider"]} if d.get("rider") else None
+        if rider is not None and rider.get("power_counters"):  # -- (wave 110C) -- Ravenous Slime: its +1/+1 counters equal the power the creature had as it died (LKI, 608.2h)
+            rider["n"] = max(0, int((plan.ch(card).pt or (0, 0))[0]))
         out.append(Cand(src.name or "a static ability", "hand" if d["static"] == "hand_instead" else "exile", False, rider, plan.oid(src) if d.get("link") else "", d.get("counter", "")))
-    if frm == "battlefield" and (why := _record_exile_instead(plan, card)) is not None:  # -- replacement effects stage 2 (wave 2E) --
-        out.append(Cand(why, "exile"))
+    if frm == "battlefield" and (recorded := _record_exile_instead(plan, card)) is not None:  # -- replacement effects stage 2 (wave 2E) --
+        out.append(Cand(recorded[0], "exile", False, recorded[1]))
     if (why := _record_exile_cards(plan, card)) is not None:  # -- zone replacements (wave 37B) -- from any zone
         out.append(Cand(why, "exile"))
+    from app.rules import wave110c_wheel  # -- (wave 110C) --
+
+    out += wave110c_wheel.candidates(plan, card)
     return out
 
 
@@ -1467,6 +1503,12 @@ def run_rider(plan: Plan, rider: dict[str, Any]) -> None:
         return
     src = plan.state.cards.get(rider["source"])
     if src is None:
+        return
+    if rider.get("power_counters"):  # -- (wave 110C) -- Ravenous Slime: counters on the source, only while it is still on the battlefield
+        if rider["n"] and src.zone.endswith(":battlefield"):
+            from app.rules import replace
+
+            replace.put_counters(plan, [(src.id, "+1/+1", rider["n"])], by=rider["controller"])
         return
     ctx = {"controller": rider["controller"], "source_card": src.id, "source_object": plan.oid(src), "name": src.name or "",
            "targets": [], "stack_id": "", "kind": "replacement", "effects": rider["effects"], "next": len(rider["effects"]), "x": None,
@@ -2075,5 +2117,6 @@ def prevent_all(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
                                     "controller": ctx["controller"], "source": source,
                                     "source_card": ctx.get("source_card"), "scope": scope,
                                     **({"until": "next_turn", "until_player": ctx["controller"]} if e.get("duration") == "next_turn" else {}),
+                                    **({"until": "end_of_combat"} if e.get("duration") == "end_of_combat" else {}),  # (-- wave 110B -- "this combat", 500.5)
                                     **({"rider": e["rider"]} if e.get("rider") else {})})  # (wave 17A) 615.5
     return True

@@ -507,7 +507,7 @@ def _keyword_supported(kw: str, line: str) -> bool:
 
         return keyword_cost(line, "echo") is not None
     if kw in ("morph", "megamorph"):  # casting.morph_cost: a mana morph cost
-        if re.fullmatch(r"(?:mega)?morph (?:\{[^}x]+\})+", line.strip().rstrip(".").lower()) is not None:  # (no X: wave 3F)
+        if re.fullmatch(r"(?:mega)?morph (?:\{[^}]+\})+", line.strip().rstrip(".").lower()) is not None:  # (X: wave 110B, 107.3a: announced as it is turned face up)
             return True
         from app.rules.casting import (  # -- hidden exile (wave 18A) -- "Morph—Discard a card."
             MORPH_COST,
@@ -573,7 +573,11 @@ def _keyword_supported(kw: str, line: str) -> bool:
         pieces = [p.strip() for p in re.split(r"[,;]\s*", re.sub(r"\s*\(.*?\)", "", line).strip().rstrip(".").lower())]
         mine = [p for p in pieces if p.startswith(kw)]
         return bool(mine) and all(re.fullmatch(rf"{kw} \d+", p) for p in mine)
-    if kw in ("bloodthirst", "toxic", "fabricate", "firebending", "dredge"):  # numbered keywords (firebending: wave 3F) (triggers.py, engine.enter_with_counters)
+    if kw == "firebending":  # -- wave 110B -- 702.189a: its piece of a line with other keywords
+        from app.rules import wave110b_cards
+
+        return wave110b_cards.firebending(line) is not None
+    if kw in ("bloodthirst", "toxic", "fabricate", "dredge"):  # numbered keywords (firebending: wave 3F) (triggers.py, engine.enter_with_counters)
         return re.fullmatch(rf"{kw} \d+", line.strip().rstrip(".").lower()) is not None or (  # (-- random choices (wave 47B) -- 702.54b "Bloodthirst X": replacements.entering_counters)
             kw == "bloodthirst" and line.strip().rstrip(".").lower() == "bloodthirst x")
     if kw == "plot":  # -- keywords (wave 15E) -- casting.plot: a mana plot cost
@@ -756,7 +760,7 @@ def features_of(ch: Characteristics) -> list[Feature]:
         gaps |= {g for g in [counters_designations_gap(whole)] if g is not None}
     for gap in sorted(gaps):
         add("engine:dungeon", gap[0].upper() + gap[1:], False)
-    if any(d.get("kind") == "static" and d.get("static") == "roll_adjust" for d in defs.values()):
+    if any(d.get("kind") == "static" and d.get("static") == "roll_adjust" and d.get("life", True) for d in defs.values()):  # (wave 110H: a counter cost has no life to pay)
         # Night Shift's numeric rules are complete. Its accepted-use life payment
         # on a symbolic planar die still requires the native planar-roll model.
         add("engine:planar_roll_payment", "Planar-die life payment and accepted-use accounting", False)
@@ -842,4 +846,8 @@ def x_selector_ok(ch: Characteristics, d: dict[str, Any]) -> bool:
         from app.rules import triggers
 
         return triggers.x_source(d, ch) is not None
-    return d.get("kind") == "spell" and "{X}" in (ch.mana_cost or "")
+    # -- additional cost X (wave 110C) -- 107.3a, 601.2b: "As an additional cost to cast this spell, pay X life." announces the X too (Fix What's Broken)
+    from app.rules.costs import spell_additional_cost
+
+    extra = spell_additional_cost(ch.abilities)
+    return d.get("kind") == "spell" and ("{X}" in (ch.mana_cost or "") or (extra is not None and (extra.life_x or any(c.counters_x for c in extra.components))))

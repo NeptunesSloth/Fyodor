@@ -1,0 +1,20 @@
+# Wave 110H refused
+
+- Rain of Gore: "a spell or ability would cause its controller to gain life": cause (spell/ability vs lifelink damage) not recorded on life events; no ruling in repo.
+- Reversal of Fortune: copy_cards only copies cards in exile/graveyard; copying a card in hand needs a hand-zone copy foundation.
+- Crowd-Control Warden: "As ... is turned face up" as a trigger would use the stack (observable); needs a turn-face-up replacement.
+- Darigaaz Reincarnated: three egg counters on exile replacement plus an upkeep trigger from exile; replacement counter is fixed at one.
+- Time Reaper, Grime Gorger, Specter of Mortality: already refused in wave100 notes.
+- Nefarious Lich: damage-to-you exile replacement with "if you can't, you lose the game" plus gain-life-to-draw; already refused in wave100 (damage timing / lose-game).
+- Battletide Alchemist: optional prevention ("you may prevent X") is asked of the affected player by the replacement engine, but here the Alchemist's controller decides for any player's damage.
+- Heart of Kiran: crew alternative cost (remove a loyalty counter from a planeswalker) needs an ActivateAbility intent field and UI; foundation not built.
+- Lightning Storm: "any player may activate this ability but only if it's on the stack" (stack-only activation by any player) not modelled.
+- Evil's Thrall: "Villain with greater mana value than that creature" condition + duration swap; refused in wave100.
+- Zimone's Experiment: qualified_selection_packets deliberately stubs it (land creature revealed twice: lands to battlefield, creatures to hand; cross-zone policy unverified).
+- Hankyu: granted ability cost "Remove all aim counters from <granter>" (counters of another object as a cost, with the removed count as amount) not built.
+- Ludevic: back face "becomes a copy of a creature card exiled with it" unsupported (front line alone reads).
+- Magma Pummeler: reflexive trigger from counter removal needs a target chosen mid-replacement (stack-visible).
+- Rampaging Raptor: "battle that player protects" needs a protector-aware that_player selector (controller is not protector, 310.9).
+- Freyalise's Winds: wind-counter untap replacement vs stun on one permanent gives different outcomes (616.1 choice), no untap-order prompt.
+- Ertai's Meddling: delay counters + exile-until-upkeep + cast copy (suspend-like) foundation missing.
+- Spinning Darkness (top three black cards of graveyard as alt cost: needs graveyard_order machinery for a multi-card top cost)

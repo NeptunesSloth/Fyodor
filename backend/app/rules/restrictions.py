@@ -173,7 +173,7 @@ def parse(text: str) -> list[Restriction] | None:
         if sentence.startswith("Activate no more than"):
             rest = "no more than " + rest
         # (-- activated (wave 100I) -- also a list: "during the declare blockers step, only if …, and only once each turn" (Grizzled Wolverine))
-        for clause in re.split(r",? and (?:only )?(?=if |as |once|during |before |no more than |twice|three times)|, only (?=if |as |once|during )", rest):
+        for clause in re.split(r",? and (?:only )?(?=if |as |once|during |before |no more than |twice|three times)|, only (?=if |as |once|during )|(?<=opponent's turn), (?=before attackers are declared$)", rest):  # (wave 110E: "during an opponent's turn, before attackers are declared", Nettling Imp)
             one = _clause(clause.strip())
             if one is None:
                 return None

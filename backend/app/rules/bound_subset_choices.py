@@ -28,6 +28,7 @@ def parse(body: str) -> tuple[list[dict[str, Any]], Any, bool] | None:
     pairs = {
         "Choose two target creatures controlled by the same opponent. That player chooses one of those creatures. ~ deals 5 damage to that creature, and the other can't block this turn.": "agony",
         "Choose two target creatures controlled by the same player. That player sacrifices one of them of their choice.": "incriminate",
+        "Choose two target creatures controlled by the same player. Exile one of those creatures and put two +1/+1 counters on the other.": "cannibalize",
         "Choose two target creatures controlled by the same player. Their controller chooses and sacrifices one of them. Return the other to its owner's hand.": "spite",
         "Choose two target creatures controlled by the same opponent. That player chooses and sacrifices one of those creatures. Put a -1/-1 counter on the other.": "retribution",
     }
@@ -192,12 +193,12 @@ def run(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
         pool: list[str] = []
         players: list[str] = []
         steps: list[dict[str, Any]] = []
-        if action in ("agony", "incriminate", "spite", "retribution", "wake", "coin"):
+        if action in ("agony", "incriminate", "spite", "retribution", "wake", "coin", "cannibalize"):
             pool = effects._cards(plan, ctx, e["who"])
             if action in ("wake", "coin"):
                 steps.append({"do": "choose_opponent", "as": CHOOSER})
             elif pool:
-                players = [plan.state.cards[pool[0]].controller]
+                players = [ctx["controller"] if action == "cannibalize" else plan.state.cards[pool[0]].controller]  # (wave 110J) Cannibalize: its caster picks
         else:
             players = effects._players(
                 plan,
@@ -275,6 +276,8 @@ def run(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
                 tail.append({"do": "bounce", "who": rest})
             elif action == "retribution":
                 tail.append({"do": "add_counters", "who": rest, "kind": "-1/-1", "n": 1})
+        elif action == "cannibalize":  # (wave 110J) 608.2c: the caster picks the one to exile; the other keeps the counters
+            tail = [{"do": "exile", "who": first}, {"do": "add_counters", "who": rest, "kind": "+1/+1", "n": 2}]
         elif action == "coin":
             tail = [
                 {"do": "to_library", "who": first, "place": "bottom"},

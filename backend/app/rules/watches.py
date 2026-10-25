@@ -55,7 +55,8 @@ def cond_ok(cond: dict[str, Any] | None, bound: str | None = None) -> bool:
     if cond["event"] == "dealt_damage" and not bound:
         from app.rules import selectors
 
-        if cond.get("subject") != "sel" or cond.get("sel") != selectors.Selector(types=("Creature",)).key():
+        if cond.get("subject") != "sel" or cond.get("sel") not in (selectors.Selector(types=("Creature",)).key(),
+                                                                    selectors.Selector(types=("Creature",), controller="opponent").key()):  # -- watches (wave 110I) -- Green Dragon
             return False
     if cond["event"] == "you_attack":
         return not bound and cond.get("subject") == "player"

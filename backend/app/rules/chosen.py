@@ -123,7 +123,8 @@ def _enters_choices(ch: Characteristics) -> list[str]:
     both += [k for t in texts if (m := ENTERS_CHOICE.match(t)) is not None and m["what"] == "color and an opponent" for k in ("color", "opponent")]
     typed = ["card type" for ab in ch.abilities if self_text(ab.text, ch.name) == "As ~ enters, look at an opponent's hand, then choose a card type other than creature."]  # (wave 53B: Arachne)
     color_pairs = ["color pair" for t in texts if (m := ENTERS_CHOICE.match(t)) is not None and m["what"] == "two colors"]
-    return singles + both + pairs + typed + color_pairs + ["card name" for _ in named]  # (wave 47A: the card type choices, Umori, Stenn, Cloud Key)
+    return singles + both + pairs + typed + color_pairs + ["card name" for _ in named] \
+        + (["creature type"] if any(ab.text == "As an additional cost to cast this spell, choose a creature type." for ab in ch.abilities) else [])  # (wave 110E: Caller of the Hunt)  # (wave 47A: the card type choices, Umori, Stenn, Cloud Key)
 
 
 def _kind(what: str | None) -> str | None:
@@ -412,7 +413,8 @@ def rewrite(body: str) -> str:
 # grant is applied (layers; the choice is public, 614.12a). A card type is protected from by its plural name (702.16a: "protection from artifacts"), a creature type as
 # "creatures of that type" ("Elf creatures"); the line stays unwritten (no protection) when the source recorded no choice.
 PROTECTION = {"Protection from the chosen player": ("player", "Chosen player"), "Protection from the chosen color": ("color", "Chosen color"), "Protection from the chosen card type": ("card type", "Chosen card type"),
-              "Protection from creatures of the chosen type": ("creature type", "Chosen creature type")}
+              "Protection from creatures of the chosen type": ("creature type", "Chosen creature type"),
+              "Landwalk of the chosen type": ("land type", "Chosen land type")}  # (wave 110I: Traveler's Cloak, 702.14a)
 
 
 def protection_line(text: str, choices: dict[str, str], *, player_id: str | None = None) -> str | None:
@@ -428,6 +430,8 @@ def protection_line(text: str, choices: dict[str, str], *, player_id: str | None
     if kind == "card type":
         plural = next((k for k, v in protection.CARD_TYPES.items() if v == value), None)
         return f"Protection from {plural}" if plural else None
+    if kind == "land type":
+        return f"{value.lower()}walk" if value else None  # 702.14a: "Swampwalk" (combat.LANDWALK reads every land type)
     return f"Protection from {value.lower()} creatures" if value else None
 
 

@@ -180,6 +180,12 @@ def cant_counters(plan: Plan, card_id: str, entering_for: str | None, counter: s
     under (it isn't on the battlefield yet: only other permanents' lines are read). ``counter``: the kind put (a line about one kind, wave 46C, bars that kind only)."""
     found = _statics(plan, "cant_counters")
     card = plan.state.cards.get(card_id)
+    from app.rules import (
+        wave110d_rules,  # -- rules (wave 110D) -- an Aura's "Enchanted creature can't have counters put on it" (Blossombind)
+    )
+
+    if entering_for is None and card is not None and wave110d_rules.has_rule(plan, card, "cant_counters_host110d"):
+        return "an Aura"
     if card is None or not found and entering_for is None:
         return None
     if entering_for is None and not card.zone.endswith(":battlefield"):

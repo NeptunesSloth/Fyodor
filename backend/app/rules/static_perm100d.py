@@ -534,6 +534,10 @@ def any_static(plan: Plan, kind: str) -> bool:
 
 
 def face_up_barred(plan: Plan, card: CardInstance) -> str | None:
+    from app.rules import wave110d_rules  # -- rules (wave 110D) -- "can't be turned face up"
+
+    if (own := wave110d_rules.face_up_barred(plan, card)) is not None:
+        return own
     you = plan.state.turn.active_player
     src = next((c for c in _sources(plan, NO_FACE_UP) if c.controller == you != card.controller), None)
     return None if src is None else f"{src.name or 'A permanent'}: permanents its controller's opponents control can't be turned face up during their turn"

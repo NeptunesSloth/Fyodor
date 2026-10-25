@@ -46,4 +46,13 @@ def offers(state: GameState, player: str, card: CardInstance, ch: Characteristic
             tap = C.CostComponent(C.TAP_OTHER, amount=1, selector=key, up_to=True, text="Tap up to one untapped creature you control")
             alt = alt_costs.AltCost(alt.mana, C.AbilityCost(components=(tap,)))
             out.append(alt_costs.Offer(f"{card.id}:{ab.index}", f"{ch.name}: harmonize {cost}", alt, escape=True, tag="harmonize"))
+    # -- one-card wordings (wave 110B) -- "gains harmonize until end of turn. Its harmonize cost is equal to its mana cost." (graveyard_grants, 611.2a)
+    granted = state.rules is not None and any(g.get("oid") == state.rules.object_id(card.id) and g.get("turn") == state.turn.number
+                                              and g.get("harmonize") for g in state.rules.graveyard_grants)
+    if granted and key is not None and ch.mana_cost and "//" not in ch.mana_cost and not card.face and "//" not in (card.name or ""):
+        alt = alt_costs.parse_cost(f"pay {ch.mana_cost}", x_ok=True)
+        if alt is not None:
+            tap = C.CostComponent(C.TAP_OTHER, amount=1, selector=key, up_to=True, text="Tap up to one untapped creature you control")
+            out.append(alt_costs.Offer(f"{card.id}:granted", f"{ch.name}: harmonize {ch.mana_cost}", alt_costs.AltCost(alt.mana, C.AbilityCost(components=(tap,))),
+                                       escape=True, tag="harmonize"))
     return out

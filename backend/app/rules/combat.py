@@ -51,6 +51,8 @@ def attack_problem(state: GameState, card: CardInstance, ch: Characteristics) ->
         return f"{ch.name} can't attack"
     if state.rules is not None and state.rules.combat_tag == "only_land" and not ch.is_land:  # -- as long as (wave 100K) -- Bumi's combat phase
         return f"{ch.name} isn't a land creature: only land creatures can attack during this combat phase"
+    if state.rules is not None and state.rules.combat_tag.startswith("only:") and state.rules.object_id(card.id) not in state.rules.combat_tag[5:].split(","):
+        return f"{ch.name} isn't one of the chosen creatures: only they can attack during this combat phase"  # -- extra combat (wave 110D) --
     if state.rules is not None and any(e[0] == state.turn.number and e[1] == card.controller and state.rules.object_id(card.id) not in e[2] for e in state.rules.attack_piles):
         return f"{ch.name} is not in the pile chosen (700.3)"  # -- piles (wave 53D) -- Fight or Flight
     if "haste" not in ch.keywords and "attack_as_haste" not in rules and summoning_sick(state, card):  # (wave 100F: "can attack as though it had haste", 302.6)
@@ -551,6 +553,12 @@ def _finish_attackers(plan: Plan, payload: PaidAttackers, payment: M.Payment | N
         note_attack(plan.state, plan.actor,  # (wave 4D: the attacking objects)
                     [plan.oid(plan.state.cards[x.card_id]) for x in a.attackers],  # 508.1: "if you attacked this turn" (conditional clauses, wave 1B)
                     [x.target for x in a.attackers])
+        from app.rules import (
+            wave110j_cards,  # -- battles (wave 110J) -- "attacked a battle this turn" (War Historian)
+        )
+
+        wave110j_cards.note_battle_attacks(plan, a.attackers)
+        wave110j_cards.note_engaged(plan, [x.card_id for x in a.attackers])
         # -- static wordings (wave 6E) -- 508.1g / 701.43d: "You may exert this creature as it attacks" (app/rules/exert.py)
         from app.rules import exert
 
@@ -934,8 +942,12 @@ def _finish_blockers(plan: Plan, frame: PaidBlockers, payment: M.Payment | None)
     note_block(plan.state, [plan.oid(plan.state.cards[b]) for b in dict.fromkeys(x.blocker_id for x in blocks)],  # (wave 27A)
                [(plan.oid(plan.state.cards[x.blocker_id]), plan.oid(plan.state.cards[x.attacker_id])) for x in blocks])  # (wave 31D)
     if blocks:
-        from app.rules import triggers  # triggers → plan; imported late
+        from app.rules import (
+            triggers,  # triggers → plan; imported late
+            wave110j_cards,  # -- (wave 110J) -- blocked or was blocked, for "since your last upkeep"
+        )
 
+        wave110j_cards.note_engaged(plan, [x for d in blocks for x in (d.blocker_id, d.attacker_id)])
         triggers.blocked(plan, [plan.state.cards[d.blocker_id] for d in blocks],
                          [plan.state.cards[aid] for aid in per_attacker])
         triggers.flanking(plan, [(plan.state.cards[d.blocker_id], plan.state.cards[d.attacker_id]) for d in blocks])
@@ -998,6 +1010,12 @@ def block_requirements(plan: Plan, a: A.DeclareBlockers, blockers: set[str], att
     for b in idle:
         if "must_block" in scripts.statics(plan.ch(b)) and any(could(b, x, joined=joined(b, x)) for x in att):
             return f"{b.name} blocks each combat if able"
+    for b in (state.cards[i] for i in blockers):  # -- combat (wave 110E) -- 509.1c: "blocks each attacking creature this turn if able" (Blaze of Glory)
+        if "must_block_all110e" in scripts.statics(plan.ch(b)):
+            for x in att:
+                if x.id not in covered.get(b.id, set()) and len(used.get(b.id, [])) < block_limit(plan, plan.ch(b)) \
+                        and could(b, x, joined=joined(b, x)):
+                    return f"{b.name} blocks {x.name} this turn if able"
     # -- block effects (wave 7E) -- "blocks this creature this turn if able": judged for the creatures that block nothing, and
     # for those blocking another attacker unless that block meets a requirement of its own (509.1c)
     for b in (state.cards[i] for i in blockers):

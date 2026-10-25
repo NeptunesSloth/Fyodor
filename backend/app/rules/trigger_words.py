@@ -180,7 +180,9 @@ def comma_condition(text: str, m: re.Match[str]) -> re.Match[str]:
         cond = rest[: found.start()]
         if len(cond) <= len(m["cond"]):
             continue
-        if events.parse_condition(cond) is not None:
+        # (-- stat any (wave 110G) -- "When ~ enters and whenever you cast a spell with power, toughness, or mana value 4, …": two conditions, the second one read here)
+        both = re.fullmatch(r"(.+?) and (?:when|whenever) (.+)", cond)
+        if events.parse_condition(cond) is not None or (both is not None and events.parse_condition(both[2]) is not None):
             again = re.match(rf"^(?:When|Whenever) (?P<cond>{re.escape(cond)}), (?P<body>.+)$", text, re.DOTALL)
             return again if again is not None else m
     return m
