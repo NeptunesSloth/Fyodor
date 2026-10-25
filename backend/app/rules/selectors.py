@@ -903,6 +903,11 @@ def _with_mana_ability(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, extras=(*s.extras, "mana_ability"))
 
 
+@_suffix(r"without mana abilit(?:y|ies)")  # -- (wave 110C) -- 605.1a: "artifacts without mana abilities" (Midnight Arsonist)
+def _without_mana_ability(s: Selector, m: re.Match[str]) -> Selector:
+    return replace(s, extras=(*s.extras, "no_mana_ability"))
+
+
 @_suffix(r"(?:that )?has an activated ability with \{T\} in its cost")  # -- activated other (wave 52D) -- Magewright's Stone: 602.1, a mana ability is an activated ability too (605.1a)
 def _with_tap_ability(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, extras=(*s.extras, "tap_ability"))
@@ -2349,6 +2354,8 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
     if sel.with_keywords and not set(sel.with_keywords) <= ch.keywords:
         return False
     if any(x.startswith("any_kw:") and not set(x[7:].split(",")) & ch.keywords for x in sel.extras):  # (wave 45D)
+        return False
+    if "no_mana_ability" in sel.extras and any(a.kind == "mana" for a in ch.abilities):  # (wave 110C)
         return False
     if "mana_ability" in sel.extras and not any(a.kind == "mana" for a in ch.abilities):  # (wave 45D)
         return False

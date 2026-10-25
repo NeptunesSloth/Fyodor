@@ -666,6 +666,8 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
     """The number a value stands for right now (never negative: 107.1b)."""
     if isinstance(v, int):
         return max(0, v)
+    if isinstance(v, dict) and 'began_lands110c' in v:  # (wave 110C) Power Surge: the active player's untapped lands as the turn began
+        return plan.rules.began_lands110c.get(plan.active, 0)
     if 'sticker_vowels102' in v:
         from app.rules import sticker_riders102
 

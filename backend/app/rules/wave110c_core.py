@@ -295,6 +295,9 @@ _GATEWAY = ("Tap two untapped creatures you control: You may put a creature card
 
 _SAW = ("Whenever equipped creature attacks, you may sacrifice a permanent other than that creature or this Equipment. If you do, draw a card.")
 
+_SURGE = ("At the beginning of each player's upkeep, this enchantment deals X damage to that player, where X is the number of untapped lands they controlled "
+          "at the beginning of this turn.")
+
 _ADVENTURER = {
     "If a creature an opponent controls would die, instead exile it and put a hit counter on it.":
         "If a creature an opponent controls would die, exile that card with a hit counter on it instead.",
@@ -359,6 +362,17 @@ def definition(ability: AbilityText, ch: Any) -> dict[str, Any] | None:
         picks[0]["upto"] = True
         sel = selectors.from_key(picks[0]["sel"])
         picks[0]["sel"] = replace(sel, extras=(*sel.extras, "not_event")).key()  # (selectors.py:2451, the attacking creature)
+        return native
+    if ability.text == _SURGE:  # Power Surge: damage read with a fixed number, whose value is the turn-start snapshot (values.py began_lands110c)
+        from dataclasses import replace
+
+        from app.rules import scripts
+
+        native = scripts.define(replace(ability, text="At the beginning of each player's upkeep, this enchantment deals 3 damage to that player."), ch)
+        hits = [e for e in (native or {}).get("effects", []) if e.get("n") == 3]
+        if len(hits) != 1:
+            return None
+        hits[0]["n"] = {"began_lands110c": 1}
         return native
     if ability.text in _ADVENTURER:  # Ravenloft Adventurer: the same results in wordings the grammar reads (614.6 exile with a counter; 508.5 defending owner)
         from dataclasses import replace

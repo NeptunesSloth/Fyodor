@@ -17,3 +17,9 @@
 - Chancellor of the Annex: per-opponent first-spell delayed cast trigger from the opening hand (opening_hand.py "not read").
 - Incinerator of the Guilty: collect evidence X with variable X (choose X, exile total MV) has no support.
 - Mariposa Military Base: optional enter-tapped choice with rad-counter rider; shock-land path is life-only (replacements.py ~177).
+- Hipparion: block tax depends on the attacker's power; combat_rules.block_cost only sees the blocker set (needs blocker-to-attacker pairs).
+- Thief of Blood / Sin, Unending Cataclysm: entry_harvest45 is a prototype not wired to casting; needs a real entry-with-counters-removed pipeline.
+- Timothar, Baron of Bats: granted token trigger must return that one exiled card (per-token binding); not modeled.
+- Darigaaz Reincarnated: exile with 3 counters is easy but the upkeep trigger works from exile (no exile-zone trigger machinery).
+- Library of Leng / Nephalia Academy / Pulmonic Sliver: optional "you may put it on top instead" zone replacement (player choice inside 616); not modeled.
+- Exquisite Archangel / Lich's Mirror / Nefarious Lich: "would lose the game" replacement has no hook (win_game only refuses).
