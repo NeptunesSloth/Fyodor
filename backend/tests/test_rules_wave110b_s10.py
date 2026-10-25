@@ -3,6 +3,7 @@
 * Equal Treatment: 614.1a, 611.2a "any source would deal 1 or more damage ... this turn, 2 instead": 3 becomes 2, 1 becomes 2 (Flameblade ping), then draw.
 * Archfiend of Spite: 118.12a, 120.3 "loses that much life unless they sacrifice that many permanents": the damage dealt is the count, the source's controller chooses.
 * Elderscale Wurm: 119.1 "life total is less than 7" as it enters, and 120.3a/614.1a "damage that would reduce your life total to less than 7 reduces it to 7" while at 7+.
+* Soulfire Grand Master: 608.2n, 614.1a "the next time you cast an instant or sorcery spell from your hand this turn, put that card into your hand instead of into your graveyard": used by one cast, only from hand, not when countered.
 * Flameblade Angel: 120.3 / 603.2 damage from an opponent's source to you or to a permanent you control triggers once; 603.7-free "may" 1 damage to that source's controller.
 """
 
@@ -20,7 +21,7 @@ def cards(settings):
     yield from repository(settings)
 
 
-@pytest.mark.parametrize("name", ["Flameblade Angel", "Equal Treatment", "Archfiend of Spite", "Elderscale Wurm"])
+@pytest.mark.parametrize("name", ["Flameblade Angel", "Equal Treatment", "Archfiend of Spite", "Elderscale Wurm", "Soulfire Grand Master"])
 def test_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
@@ -62,7 +63,7 @@ def test_equal_treatment_sets_every_damage_to_2_this_turn(cards):
 
 @pytest.mark.parametrize("pays", [False, True])
 def test_archfiend_of_spite_makes_the_source_controller_lose_life_or_sacrifice_that_many(cards, pays):
-    s = build(cards, ["Archfiend of Spite", "Elderscale Wurm"], ["Lightning Bolt", "Grizzly Bears", "Shivan Dragon", "Forest"])
+    s = build(cards, ["Archfiend of Spite", "Elderscale Wurm", "Soulfire Grand Master"], ["Lightning Bolt", "Grizzly Bears", "Shivan Dragon", "Forest"])
     archfiend = put(s, "Archfiend of Spite")
     kept = [put(s, n, "p2") for n in ("Grizzly Bears", "Shivan Dragon", "Forest")]
     act(s, "p2", type="set_prefs", response="on")
@@ -98,4 +99,23 @@ def test_elderscale_wurm_keeps_you_at_7_against_damage_only_from_7_or_more(cards
     act(s, "p2", type="cast_spell", card_id=to_hand(s, "Lightning Bolt", "p2").id, targets=["p1"])
     drive(s)
     assert s.state.players["p1"].life == after
+    check(s)
+
+
+def test_soulfire_grand_master_returns_only_the_next_spell_cast_from_hand(cards):
+    s = build(cards, ["Soulfire Grand Master", "Lightning Bolt"], [])
+    master = put(s, "Soulfire Grand Master")
+    mana(s, "p1", U=1, R=1, C=2)
+    act(s, "p1", type="activate_ability", card_id=master.id, ability=2)
+    drive(s)
+    bolt = to_hand(s, "Lightning Bolt")
+    mana(s, "p1", R=2)
+    act(s, "p1", type="cast_spell", card_id=bolt.id, targets=["p2"])
+    drive(s)
+    assert s.state.players["p2"].life == 37
+    assert s.state.cards[bolt.id].zone == "p1:hand"  # not the graveyard
+    act(s, "p1", type="cast_spell", card_id=bolt.id, targets=["p2"])  # the grant is used up
+    drive(s)
+    assert s.state.players["p2"].life == 34
+    assert s.state.cards[bolt.id].zone == "p1:graveyard"
     check(s)

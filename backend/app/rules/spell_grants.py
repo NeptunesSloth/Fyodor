@@ -55,6 +55,8 @@ _BOTH = re.compile(r"^(?P<bf>[A-Za-z][A-Za-z' ,-]*? you control) and (?P<sel>[A-
                    + "|".join(KEYWORDS) + r")$", re.IGNORECASE)
 _NEXT = re.compile(r"^the next (?:(?P<sel>[A-Za-z][A-Za-z' ,-]*?) )?spell you cast this turn (?:has|have) "
                    r"(?P<kw>convoke|improvise|cascade|storm|affinity for artifacts)$", re.IGNORECASE)
+_NEXT_HAND = re.compile(r"^the next time you cast an instant or sorcery spell from your hand this turn, put that card into your hand instead of into your graveyard as it resolves$",
+                        re.IGNORECASE)
 _NEXT_COST = re.compile(r"^the next (?:(?P<sel>[A-Za-z][A-Za-z' ,-]*?) )?spell you cast this turn costs \{(?P<n>\d+|X)\} less to cast(?:, where X is (?P<v>.+))?$", re.IGNORECASE)
 _NEXT_TWO = re.compile(r"^the next (?P<a>instant|sorcery|creature|noncreature) spell and the next (?P<b>instant|sorcery|creature|noncreature) spell "
                        r"you cast this turn each have (?P<kw>cascade|storm)$", re.IGNORECASE)
@@ -162,6 +164,8 @@ def clause(text: str) -> tuple[list[dict[str, Any]], None] | None:
         if not ok or amount is None or (cost["n"] != "X") != (cost["v"] is None):
             return None
         return [{"do": "next_spell_grant", "grants": [{"keyword": "cost", "n": amount, "filter": key}]}], None
+    if _NEXT_HAND.fullmatch(t):  # -- one-card wordings (wave 110B) -- Soulfire Grand Master: consume() sends the spell to hand as it resolves (like buyback, 702.27a)
+        return [{"do": "next_spell_grant", "grants": [{"keyword": "hand110b", "filter": _filter("instant or sorcery")[1]}]}], None
     m = _NEXT.fullmatch(t)
     if m is None:
         return None
@@ -220,8 +224,18 @@ def consume(plan: Plan, card: Any, ch: Characteristics) -> None:
     from app.rules.permissions import spell_matches
 
     player, turn = card.controller, plan.state.turn.number
-    r.next_spell_grants = [g for g in r.next_spell_grants if g.turn == turn and not (
-        g.player == player and (g.filter is None or spell_matches(plan.state, player, card, ch, g.filter, plan.info)))]
+    record = r.payments.get(plan.oid(card))
+    from_hand = record is not None and record.cast_from == "hand"
+
+    def used(g: Any) -> bool:
+        if g.player != player or (g.keyword == "hand110b" and not from_hand):  # (wave 110B: "from your hand" waits for one)
+            return False
+        return g.filter is None or spell_matches(plan.state, player, card, ch, g.filter, plan.info)
+
+    for g in r.next_spell_grants:
+        if g.turn == turn and g.keyword == "hand110b" and used(g):
+            r.buyback.append(plan.oid(card))  # 608.2n: the card goes to its owner's hand as it resolves (engine.leave_stack, unless countered)
+    r.next_spell_grants = [g for g in r.next_spell_grants if g.turn == turn and not used(g)]
 
 
 def expire(plan: Plan) -> None:
