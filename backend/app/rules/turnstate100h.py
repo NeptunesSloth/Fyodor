@@ -248,6 +248,36 @@ def _spider(d: Def) -> Def | None:
     return {**d, "effects": [{**look, "n": {"count": _CREATURE_CARDS}}, {**pick, "sel": capped}, rest]}
 
 
+def _shade(d: Def) -> Def | None:
+    """Skyclave Shade: from your graveyard, on your turn, the card (that object, 400.7) may be cast from there this turn (normal timing and costs,
+    kicker included: rulings 2020-09-25)."""
+    if _dos(d) != ["only_if", "return_card"] or d["effects"][1].get("who") != "self_gy":
+        return None
+    return {**d, "gy_watch": True, "effects": [d["effects"][0], {"do": "shade100h", "who": "self_gy"}]}
+
+
+def _basri(d: Def) -> Def | None:
+    """Basri Ket −2: the turn-long delayed ability (603.7c) triggers once for each declaration with nontoken attackers (one or more: 603.2c), and
+    makes that many Soldiers attacking (508.4: they were never declared, so they don't trigger it)."""
+    if _dos(d) != ["delayed", "deferred:create_attacking"]:
+        return None
+    watch, make = d["effects"]
+    cond = {"event": "attack", "subject": "sel", "sel": 'sel:{"token":false,"types":["Creature"]}', "aggregate": True}
+    return {**d, "effects": [{**watch, "when": {**watch["when"], "cond": cond, "text": "one or more nontoken creatures attack"}},
+                             {**make, "n": {"event_amount": 1}}]}
+
+
+_REGENERATED = {"history": "facts", "kind": "regenerated", "self": True, "who": "any", "n": 1}
+
+
+def _starfish(d: Def) -> Def | None:
+    """Spiny Starfish: it used a regeneration shield this turn (intervening if, 603.4; ruling 2009-10-01), one token per regeneration counted as
+    it resolves."""
+    if _dos(d) != ["create_token"]:
+        return None
+    return {**d, "if": _REGENERATED, "effects": [{"do": "only_if", "cond": _REGENERATED, "skip": 1}, {**d["effects"][0], "do": "starfish100h"}]}
+
+
 def _goliath(d: Def) -> Def | None:
     """Goliath Hatchery (corrupted): the cards drawn are the chosen creature's total toxic value as it resolves (702.164b)."""
     if _dos(d) != ["only_if", "player_chooses", "draw"]:
@@ -349,6 +379,13 @@ _BUILD: dict[str, tuple[tuple[str, ...], Callable[..., Def | None]]] = {
     "permanent card with mana value X or less from among them onto the battlefield. Put the rest on the bottom of your library in a random order.":
         (("When you cast this spell, reveal the top five cards of your library. You may put a green permanent card with mana value 3 or less from among "
           "them onto the battlefield. Put the rest on the bottom of your library in a random order.",), _spider),
+    "Whenever a land you control enters, if this card is in your graveyard and it's your turn, you may cast it from your graveyard this turn.":
+        (("Whenever a land you control enters, if this card is in your graveyard and it's your turn, return this card from your graveyard to your "
+          "hand.",), _shade),
+    "−2: Whenever one or more nontoken creatures attack this turn, create that many 1/1 white Soldier creature tokens that are tapped and attacking.":
+        (("−2: Whenever you attack this turn, create a 1/1 white Soldier creature token that's tapped and attacking.",), _basri),
+    "At the beginning of each end step, if ~ regenerated this turn, create a 0/1 blue Starfish creature token for each time it regenerated this turn.":
+        (("At the beginning of each end step, create a 0/1 blue Starfish creature token.",), _starfish),
     "If you attacked this turn, you may have ~ enter as a copy of any creature on the battlefield.":
         (("You may have ~ enter as a copy of any creature on the battlefield.",),
          lambda d: {**d, "raid100h": True} if d.get("replacement") == "enter_as_copy" else None),  # (Protean Raider: copying.entering reads it)
@@ -435,6 +472,9 @@ def definition(ability: Any, ch: Any) -> Def | None:
     if ability.kind == "static" and text == "As long as ~ entered this turn, you may activate her loyalty abilities any time you could cast an instant.":
         # The Wandering Emperor: 606.3's sorcery timing lifted (still once each turn) while the object entered this turn (cast_limits.loyalty_rule)
         return {"kind": "static", "static": "loyalty_rule", "who": "self", "instant": True, "entered100h": True, "effects": []}
+    if ability.kind == "static" and text == ("During your turn, as long as you haven't activated an exhaust ability this turn, you may activate exhaust "
+                                             "abilities as though they haven't been activated."):
+        return {"kind": "static", "static": "exhaust_again100h", "effects": []}  # (Elvish Refueler: restrictions._exhaust_again, 702.177b)
     if ability.kind == "spell" and text == _HELLBENT:  # (its "can't be countered" part: a static of the spell, judged when something would counter it)
         return {"kind": "static", "static": "self_uncounterable", "cond": _EMPTY_HAND, "effects": []}
     others = tuple(a for a in ch.abilities if scripts.self_text(a.text, ch.name) != _HELLBENT)
@@ -488,4 +528,21 @@ def toxic_draw(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return effects.draw(plan, ctx, {"do": "draw", "who": "you", "n": n}) if n else True
 
 
-PRIMITIVES = {"council100h": council, "destiny100h": destiny, "toxic_draw100h": toxic_draw}
+def shade(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    from app.rules import context, permissions
+
+    card = plan.state.cards.get(ctx.get("source_card") or "")
+    if card is None or card.zone != f"{ctx['controller']}:graveyard" or plan.oid(card) != ctx.get("source_object"):
+        return True  # (it left the graveyard, or is a new object there: no permission)
+    context.bind_objects(plan, ctx, "shade100h", [card.id])
+    return permissions.grant_play(plan, ctx, {"do": "grant_play", "who": context.PREFIX + "shade100h", "play": False, "cast": True, "until": "end_of_turn"})
+
+
+def starfish(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    from app.rules import effects, history
+
+    n = sum(1 for f in history.log_for(plan).facts if f.kind == "regenerated" and f.object_id == ctx.get("source_object"))
+    return effects.PRIMITIVES["create_token"](plan, ctx, {**e, "do": "create_token", "n": n}) if n else True
+
+
+PRIMITIVES = {"council100h": council, "destiny100h": destiny, "toxic_draw100h": toxic_draw, "shade100h": shade, "starfish100h": starfish}

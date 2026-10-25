@@ -322,8 +322,11 @@ def on_facts(plan: Plan, facts: list[Any], batch: int, fired_once: dict[Any, Any
                 if (cond.get("aggregate") or one_event) and fired_once is not None:
                     if key in fired_once:
                         pending = fired_once[key]
-                        if one_event and pending is not None and pending.event is not None:
+                        if pending is not None and pending.event is not None:  # (-- turn state (wave 100H) -- a "one or more" batch joins too: "that many", 603.2c)
                             event = triggers._event(plan, fact, batch)
+                            if not one_event:
+                                pending.event.objects += event.objects
+                                pending.event.new_objects += event.new_objects
                             pending.event.amount += event.amount
                             pending.event.count += 1
                             from app.rules import trigger_multipliers

@@ -349,9 +349,13 @@ def problem(state: GameState, player: str, card: CardInstance, index: int, restr
 
 def _exhaust_again(state: GameState, player: str) -> bool:
     """-- ability words (wave 4F) -- does a permanent let exhaust abilities be activated "as though they haven't been
-    activated" (Elvish Refueler, 702.177b: the only such card)? That permission isn't modelled, so the engine doesn't
-    refuse the activation."""
-    return any((c := state.cards.get(cid)) is not None and _face_name(c) in _EXHAUST_AGAIN
+    activated" (Elvish Refueler, 702.177b: the only such card)? -- turn state (wave 100H) -- only during that player's turn and while they
+    haven't activated an exhaust ability this turn (casting.py records each activation as a turn fact).
+    ponytail: name-keyed like Birgi's (it stays while Refueler has lost its abilities)."""
+    log = state.rules.turn_log if state.rules is not None and state.rules.turn_log.turn == state.turn.number else None
+    if state.turn.active_player != player or (log is not None and any(f.kind == "exhaust" and f.player == player for f in log.facts)):
+        return False
+    return any((c := state.cards.get(cid)) is not None and not c.face_down and _face_name(c) in _EXHAUST_AGAIN
                for cid in state.zones.get(f"{player}:battlefield", []))
 
 

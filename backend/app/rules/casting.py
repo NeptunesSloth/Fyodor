@@ -6285,15 +6285,16 @@ def _post_activation(plan: Plan, data: _PostActivation, paid: M.Payment | None) 
         if r.loyalty_used.get(oid) == plan.state.turn.number:
             r.loyalty_second[oid] = plan.state.turn.number  # -- static_other sweep (wave 19A) -- the second use (Oath of Teferi)
         r.loyalty_used[oid] = plan.state.turn.number
-    # -- turn state (wave 100H) -- "if you've activated a loyalty ability this turn", "… an ability of a card in a graveyard" (602.2: who did; the
-    # source as it was as it was activated, before a cost moved it: 603.10a)
+    # -- turn state (wave 100H) -- "if you've activated a loyalty ability this turn", "… an ability of a card in a graveyard", "an exhaust ability"
+    # (602.2: who did; the source as it was as it was activated, before a cost moved it: 603.10a; 702.177b)
     was = r.lki.get(oid) if plan.oid(card) != oid else None
-    kind100h = "loyalty" if ability.kind == "loyalty" else "gy_ability" if (was.zone if was is not None else card.zone).endswith(":graveyard") else None
-    if kind100h is not None:
+    kinds100h = [k for k, hit in (("loyalty", ability.kind == "loyalty"), ("exhaust", ability.text.startswith(restrictions.EXHAUST)),
+                                  ("gy_ability", (was.zone if was is not None else card.zone).endswith(":graveyard"))) if hit]
+    if kinds100h:
         from app.game.rules_state import TurnFact, turn_log_now
 
         if (log100h := turn_log_now(plan.state)) is not None:
-            log100h.facts.append(TurnFact(kind=kind100h, player=plan.actor, object_id=oid))
+            log100h.facts += [TurnFact(kind=k, player=plan.actor, object_id=oid) for k in kinds100h]
     if restrictions.limited(restrictions.parse(_own_text(ability.text, ch.name)) or []) or (  # "Activate only once each turn" / "… only once"
             definition is not None and '"history": "activations"' in json.dumps(definition["effects"])):
         restrictions.record_use(r, oid, ability.index, plan.state.turn.number)  # (wave 19E: also for "activated N or more times this turn")
