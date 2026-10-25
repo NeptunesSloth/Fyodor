@@ -45,3 +45,23 @@ def _farmer(d: Def) -> Def:
 
 _BUILD["{T}: Target land becomes a Swamp until its controller's next untap step."] = (
     "{T}: Target land becomes a Swamp until your next turn.", _farmer)
+
+
+def _cudgels(d: Def) -> Def:
+    """Bronze Cudgels: X is the number of times the ability has resolved this turn, this resolution included (history.counting_resolutions)."""
+    pumps = [e for e in d["effects"] if e.get("do") == "pump"]
+    return {**d, "effects": [{**e, "p": {"ref_amount": "resolution"}} if e in pumps else e for e in d["effects"]]} if len(pumps) == 1 else d
+
+
+_BUILD["{2}: Until end of turn, equipped creature gets +X/+0, where X is the number of times this ability has resolved this turn."] = (
+    "{2}: Until end of turn, equipped creature gets +1/+0.", _cudgels)
+
+
+def _all_attack(d: Def) -> Def:
+    """Mob Mentality: the trigger waits for every non-Wall creature its controller has to be attacking (triggers.py all110j)."""
+    return {**d, "cond": {**d["cond"], "all110j": True}} if d.get("cond", {}).get("event") == "you_attack" else d
+
+
+_BUILD["Whenever all non-Wall creatures you control attack, enchanted creature gets +X/+0 until end of turn, where X is the number of attacking creatures."] = (
+    "Whenever you attack with one or more non-Wall creatures, enchanted creature gets +X/+0 until end of turn, where X is the number of attacking creatures.",
+    _all_attack)

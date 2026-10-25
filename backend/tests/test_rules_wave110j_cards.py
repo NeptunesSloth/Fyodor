@@ -2,6 +2,8 @@
 
 * 613.4c, 107.1a: Aspect of Wolf gives +X/+Y, X half the Forests its controller has (rounded down), Y half of them (rounded up).
 * 611.2a, 305.7, 502.3: Orcish Farmer makes a land a Swamp until its controller's next untap step — the land's controller, not the Farmer's.
+* 602.2, 611.2a: Bronze Cudgels pumps by the number of times its ability has resolved this turn (1, then 2: +3 in all), and starts over next turn.
+* 508.1, 603.2: Mob Mentality triggers only when every non-Wall creature its controller has is attacking (a Wall may stay home); +X/+0 counts the attackers.
 """
 
 from __future__ import annotations
@@ -9,10 +11,11 @@ from __future__ import annotations
 import pytest
 
 from tests.wave9c_kit import build
-from tests.wave110j_kit import EXTRA, activate, card_db, cast_on, ch, check, full, put, put_new, to_phase  # noqa: F401
+from tests.wave110b_kit import attack
+from tests.wave110j_kit import EXTRA, activate, card_db, cast_on, ch, check, full, mana, put, put_new, settle, to_phase  # noqa: F401
 
 
-@pytest.mark.parametrize("name", ["Aspect of Wolf", "Orcish Farmer"])
+@pytest.mark.parametrize("name", ["Aspect of Wolf", "Orcish Farmer", "Bronze Cudgels", "Mob Mentality"])
 def test_the_cards_are_full(name):
     assert full(name)
 
@@ -50,4 +53,33 @@ def test_orcish_farmer_lasts_until_the_lands_controllers_next_untap_step(cards, 
     assert (types(s, land) == {"Swamp"}) is still_a_swamp_on_turn_2
     to_phase(s, "main1", turn=3)
     assert types(s, land) == base
+    check(s)
+
+
+def test_bronze_cudgels_counts_its_resolutions(cards):
+    s = build(cards, ["Bronze Cudgels", "Templar Knight"])
+    knight, cudgels = put_new(s, "Templar Knight"), put(s, "Bronze Cudgels")
+    mana(s, C=1)
+    activate(s, cudgels, "Equip", targets=[knight.id])
+    base = int(ch(s, knight).pt[0])
+    for total in (1, 3, 6):
+        mana(s, C=2)
+        activate(s, cudgels, "{2}")
+        assert int(ch(s, knight).pt[0]) == base + total
+    to_phase(s, "main1", turn=3)
+    mana(s, C=2)
+    activate(s, cudgels, "{2}")
+    assert int(ch(s, knight).pt[0]) == base + 1
+    check(s)
+
+
+@pytest.mark.parametrize(("stay_home", "bonus"), [("Wall of Stone", 2), ("Templar Knight", 0)])
+def test_mob_mentality_needs_every_non_wall_creature_to_attack(cards, stay_home, bonus):
+    s = build(cards, ["Mob Mentality", "Grizzly Bears", "Templar Knight", "Wall of Stone"])
+    crew = {n: put_new(s, n) for n in ("Grizzly Bears", "Templar Knight", "Wall of Stone")}
+    cast_on(s, "Mob Mentality", crew["Grizzly Bears"])
+    base = int(ch(s, crew["Grizzly Bears"]).pt[0])
+    attack(s, *(c for n, c in crew.items() if n != stay_home and n != "Wall of Stone"))
+    settle(s)
+    assert int(ch(s, crew["Grizzly Bears"]).pt[0]) == base + bonus
     check(s)

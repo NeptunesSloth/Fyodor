@@ -1136,6 +1136,13 @@ def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: F
     n = cond.get("min_attackers")
     if n and len(_counted_attackers(plan, cond, watcher, info)) < n:
         return False
+    if cond.get("all110j"):  # -- wave 110J -- "Whenever all non-Wall creatures you control attack" (Mob Mentality): none of them stays home, 508.1
+        from app.rules import selectors as _sel
+
+        kind = _sel.from_key(cond["sel"])
+        if any(c.id not in (info.get("attacking") or []) for c in plan.state.cards.values() if c.zone.endswith(":battlefield")
+               and c.controller == watcher.controller and _sel.matches(plan, kind, c, plan.ch(c), watcher.controller, watcher.id)):
+            return False
     if event == "cast":
         if cond.get('cast_targets102') and not (info.get('targets') or []):
             return False

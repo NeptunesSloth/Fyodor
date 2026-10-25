@@ -440,7 +440,7 @@ def counting_resolutions(effects: list[dict[str, Any]], key: str) -> list[dict[s
     doesn't resolve — countered, or every target gone, 608.2b — never gets to it)."""
     import json
 
-    if '"history": "resolution"' not in json.dumps(effects):
+    if not any(f'"{k}": "resolution"' in json.dumps(effects) for k in ("history", "ref_amount")):  # (-- wave 110J -- Bronze Cudgels: an amount)
         return effects
     return [{"do": "note_resolution", "key": key}, *effects]
 
