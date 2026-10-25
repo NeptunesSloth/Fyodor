@@ -146,7 +146,18 @@ def _lava_burst() -> Any:
     return [{**native[0][0], "creature_firm110h": True}], native[1], native[2]
 
 
+def _firestorm() -> Any:
+    """Temporal Firestorm: chosen as it resolves, not targeted (608.2d, 115.1): up to X of your creatures and/or planeswalkers (X = kicks) phase out (702.26)."""
+    from app.rules import selectors
+
+    key = selectors.parse("creatures and/or planeswalkers you control").key()  # type: ignore[union-attr]
+    return [{"do": "player_chooses", "who": "you", "sel": key, "n": {"kicked": 1}, "label": "creature or planeswalker", "upto": True, "optional": True,
+             "as": "gco"}, {"do": "phase_out", "who": "ref:gco"}], None, False
+
+
 BUILDERS = {
+    "Choose up to X creatures and/or planeswalkers you control, where X is the number of times this spell was kicked. Those permanents phase out.":
+        _firestorm,
     "~ deals X damage to any target. If ~ would deal damage to a creature, that damage can't be prevented or dealt instead to another permanent or "
     "player.": _lava_burst,
     "Gain control of target creature if its toughness is 2 or less. If this spell's madness cost was paid, instead gain control of that creature if "

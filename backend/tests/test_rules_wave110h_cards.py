@@ -12,6 +12,7 @@
 * Dire Blunderbuss (back of Dire Flail): "an artifact other than <granter>" excludes the Equipment itself, not the creature (607.1a, 603.12).
 * Dralnu, Lich Lord: damage to it is replaced by sacrificing that many permanents (614.6, 701.21).
 * Lava Burst: damage to a creature ignores Carom's redirection (614.9, 615.12); to a player it is plain damage.
+* Temporal Firestorm: chosen as it resolves (not targeted), up to X = times kicked, those permanents phase out before the 5 damage (608.2d, 702.26).
 * Binding Negotiation: "Otherwise" after an optional choice (608.2c), a face-up exiled card to its owner's graveyard (406.3, 400.3).
 """
 from __future__ import annotations
@@ -76,6 +77,10 @@ EXTRA.append(real("Dralnu, Lich Lord", "{3}{U}{B}", 5, "Legendary Creature \u201
 EXTRA.append(real("Lava Burst", "{X}{R}", 1, "Sorcery",
                   "Lava Burst deals X damage to any target. If Lava Burst would deal damage to a creature, that damage can't be prevented or dealt "
                   "instead to another permanent or player.", None, "R"))
+EXTRA.append(real("Temporal Firestorm", "{5}{R}", 6, "Sorcery",
+                  "Kicker {1}{W} and/or {1}{U} (You may pay an additional {1}{W} and/or {1}{U} as you cast this spell.)\nChoose up to X creatures "
+                  "and/or planeswalkers you control, where X is the number of times this spell was kicked. Those permanents phase out.\n"
+                  "Temporal Firestorm deals 5 damage to each creature and each planeswalker.", None, "R"))
 NAMES = [c["name"] for c in EXTRA]
 
 
@@ -422,4 +427,19 @@ def test_lava_burst_not_redirected(cards, spell):
         assert got[giant.id].zone.endswith("graveyard") and got[bears.id].damage == 0  # all 3 landed on the 3/3 Giant
     else:
         assert (got[giant.id].damage, got[bears.id].damage) == (2, 1)
+    check(s)
+
+
+@pytest.mark.parametrize("kicker,saved", [(0, 0), (1, 1), (3, 2)])
+def test_temporal_firestorm(cards, kicker, saved):
+    """X = times kicked: that many of your creatures (picked as it resolves) phase out and dodge the 5 damage; the rest die."""
+    s = build(cards, ["Temporal Firestorm", "Hill Giant", "Grizzly Bears"])
+    giant, bears = (to_hand(s, n) for n in ("Hill Giant", "Grizzly Bears"))
+    for c in (giant, bears):
+        act(s, "p1", type="move", card_ids=[c.id], to={"player": "p1", "zone": "battlefield"})
+    mana(s, R=1, W=1, U=1, C=7)
+    cast(s, "Temporal Firestorm", kicker=kicker)
+    answer(s, [giant.id, bears.id][:saved] if saved else [])
+    zones = [s.state.cards[c.id].zone for c in (giant, bears)]
+    assert sum(z.endswith("phased") for z in zones) == saved and sum(z.endswith("graveyard") for z in zones) == 2 - saved  # phased out: untouched
     check(s)
