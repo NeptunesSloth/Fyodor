@@ -23,3 +23,8 @@
 - Darigaaz Reincarnated: exile with 3 counters is easy but the upkeep trigger works from exile (no exile-zone trigger machinery).
 - Library of Leng / Nephalia Academy / Pulmonic Sliver: optional "you may put it on top instead" zone replacement (player choice inside 616); not modeled.
 - Exquisite Archangel / Lich's Mirror / Nefarious Lich: "would lose the game" replacement has no hook (win_game only refuses).
+- Numa, Joraga Chieftain: "{X}{X}" optional payment plus "distribute X counters among any number of target Elves" reflexive; two missing foundations.
+- Hollow Specter: "reveals X cards from their hand and you choose one": opponent picks X cards, hidden-info flow not built.
+- Timothar, Baron of Bats: the Bat's granted trigger must return the specific exiled card (no object memory for granted abilities).
+- Wheel of Sun and Moon: "revealed and put on the bottom of that player's library" graveyard replacement for an enchanted player; one card.
+- Dire Flail // Dire Blunderbuss: "other than Dire Blunderbuss" in a granted ability would read as "another" (excludes the wielder, not the Equipment).
