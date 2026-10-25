@@ -686,7 +686,7 @@ def _damage_plain(text: str) -> Definition | None:
             match["at_least"] = int(m["min"])
         if kind == "cap":
             cap = _num(m2["n"])
-            return _static("damage", match, {"do": "cap", "n": cap}) if cap and cap < match["at_least"] else None
+            return _static("damage", match, {"do": "cap", "n": cap}) if cap else None  # (-- one-card wordings (wave 110B) -- 614.1a: it sets the amount whenever the threshold is met; Equal Treatment "1 or more" -> 2)
         if kind == "mul":
             return _static("damage", match, {"do": "mul", "n": 2 if m2["m"] == "double" else 3})
         if kind == "mul2":
