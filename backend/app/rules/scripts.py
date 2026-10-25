@@ -2721,6 +2721,10 @@ def parse_effects(body: str, it: str | None = None, *, event_player: bool = Fals
 
     if (body110f := wave110f_cards.parse(body)) is not None:
         return body110f
+    from app.rules import wave110o_cards  # -- (wave 110O) --
+
+    if (body110o := wave110o_cards.parse(body)) is not None:
+        return body110o
     from app.rules import wave110i_cards  # -- cards (wave 110I) --
 
     if (body110i := wave110i_cards.parse(body)) is not None:
@@ -6046,6 +6050,10 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
 
     if (whole110a := wave110a.definition(ability, ch)) is not None:
         return whole110a
+    from app.rules import wave110o_cards as _w110o  # -- (wave 110O) --
+
+    if (card110o := _w110o.definition(ability, ch)) is not None:
+        return card110o
     from app.rules import wave110b_cards  # -- wave 110B --
 
     if (card110b := wave110b_cards.definition(ability, ch)) is not None:
