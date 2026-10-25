@@ -1753,5 +1753,22 @@
   "keywords": [],
   "power": "4",
   "toughness": "4"
+ },
+ {
+  "name": "Worlds Within Worlds",
+  "layout": "normal",
+  "mana_cost": "{5}{G}{U}",
+  "cmc": 7.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Exile all creatures. Each player may put any number of creature cards from their hand onto the battlefield. Then put all cards exiled this way into their owners' hands. Exile Worlds Within Worlds.",
+  "colors": [
+   "G",
+   "U"
+  ],
+  "color_identity": [
+   "G",
+   "U"
+  ],
+  "keywords": []
  }
 ]

@@ -60,6 +60,9 @@ _REWRITES = [
     (re.compile(r"^(Exile all creatures you control), then reveal cards from the top of your library until you reveal that many creature cards\. (?=Put all creature "
                 r"cards revealed this way onto the battlefield, then shuffle the rest of the revealed cards into your library\.$)"),
      r"\1. Reveal cards from the top of your library until you reveal X creature cards, where X is the number of creatures exiled this way. "),
+    # Worlds Within Worlds: "put … into their owners' hands" is the return grammar's (the exiled cards, 400.7j)
+    (re.compile(r"^(Exile all creatures\. Each player may put any number of creature cards from their hand onto the battlefield\.) Then put all cards exiled this "
+                r"way into their owners' hands\. (?=Exile ~\.$)"), r"\1 Then return all cards exiled this way to their owners' hands. "),
 ]
 
 
