@@ -981,5 +981,24 @@
   ],
   "power": "2",
   "toughness": "2"
+ },
+ {
+  "name": "Boros Battleshaper",
+  "layout": "normal",
+  "mana_cost": "{5}{R}{W}",
+  "cmc": 7.0,
+  "type_line": "Creature — Minotaur Soldier",
+  "oracle_text": "At the beginning of each combat, up to one target creature attacks or blocks this combat if able and up to one target creature can't attack or block this combat.",
+  "colors": [
+   "R",
+   "W"
+  ],
+  "color_identity": [
+   "R",
+   "W"
+  ],
+  "keywords": [],
+  "power": "5",
+  "toughness": "5"
  }
 ]

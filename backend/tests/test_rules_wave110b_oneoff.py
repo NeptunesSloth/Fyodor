@@ -32,7 +32,7 @@ def cards(settings):
     yield from repository(settings)
 
 
-@pytest.mark.parametrize("name", ["Prince of Thralls", "Oath of Lim-Dûl", "Chaos Lord", "Divine Intervention", "Herald of Anafenza", "Guardian of New Benalia", "Aloe Alchemist", "Parapet Thrasher", "Overclocked Electromancer", "Arashin War Beast", "Firemane Angel", "Goblin Plate Mail", "Wall of Dust", "Bane of the Living", "Warbreak Trumpeter", "Kadena's Silencer", "Longhorn Sharpshooter", "Plague Reaver", "Quakebringer", "Suppressor Skyguard", "Shirei, Shizo's Caretaker", "Lich's Mastery", "The Chain Veil", "Campsite Cuisine", "Way of the Mind Sculptor", "Kitsune Ace", "Knights of the Black Rose", "Dalkovan Encampment", "Expedited Inheritance", "Serene Sleuth"])
+@pytest.mark.parametrize("name", ["Prince of Thralls", "Oath of Lim-Dûl", "Chaos Lord", "Divine Intervention", "Herald of Anafenza", "Guardian of New Benalia", "Aloe Alchemist", "Parapet Thrasher", "Overclocked Electromancer", "Arashin War Beast", "Firemane Angel", "Goblin Plate Mail", "Wall of Dust", "Bane of the Living", "Warbreak Trumpeter", "Kadena's Silencer", "Longhorn Sharpshooter", "Plague Reaver", "Quakebringer", "Suppressor Skyguard", "Shirei, Shizo's Caretaker", "Lich's Mastery", "The Chain Veil", "Campsite Cuisine", "Way of the Mind Sculptor", "Kitsune Ace", "Knights of the Black Rose", "Dalkovan Encampment", "Expedited Inheritance", "Serene Sleuth", "Boros Battleshaper"])
 def test_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
@@ -683,4 +683,30 @@ def test_serene_sleuth_investigates_for_each_goaded_creature_then_they_are_no_lo
     assert goaded(sleuth) == {"p2"} and goaded(bears) == {"p2"}
     until(s, lambda s: clues() > 0 or s.state.turn.number > 3)
     assert clues() == 2 and not goaded(sleuth) and not goaded(bears)
+    check(s)
+
+
+def test_boros_battleshaper_forces_one_creature_to_attack_and_stops_another_blocking(cards):
+    """Boros Battleshaper: 508.1d the first target must attack if able, 509.1b the second can't block, both for this combat only (the targets are chosen as the trigger goes on the stack, 603.3d)."""
+    s = build(cards, ["Boros Battleshaper", "Grizzly Bears", "Forest"], ["Hill Giant"])
+    put(s, "Boros Battleshaper")
+    bears, giant = put(s, "Grizzly Bears"), put(s, "Hill Giant", "p2")
+    s.state.rules.controlled_since[bears.id].turn = 0
+    act(s, "p1", type="pass_priority")
+    for pick in (bears, giant):
+        d = s.state.rules.decision
+        assert d.kind == "choose_cards"
+        act(s, "p1", type="choose", decision_id=d.id, option_ids=[pick.id])
+    drive(s, lambda d: None) if s.state.zones.get("stack") else None
+    with pytest.raises(ActionError):
+        act(s, "p1", type="declare_attackers", attackers=[])  # (the Bears must attack)
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": bears.id, "target": "p2"}])
+    for _ in range(30):
+        d = s.state.rules.decision
+        if d is not None and d.kind == "declare_blockers":
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+    with pytest.raises(ActionError):
+        act(s, "p2", type="declare_blockers", blocks=[{"blocker_id": giant.id, "attacker_id": bears.id}])  # (the Giant can't block)
+    act(s, "p2", type="declare_blockers", blocks=[])
     check(s)

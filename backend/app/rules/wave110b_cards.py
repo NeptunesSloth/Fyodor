@@ -122,7 +122,16 @@ def _inheritance(d: Def) -> Def:
                                                 {**exile, "player": "ref:event.controller"}, {**grant, "owner": True, "optional": True}]}
 
 
+def _battleshaper(d: Def) -> Def:
+    """Boros Battleshaper: two "up to one" targets; 508.1d / 509.1c the first must attack or block if able, 508.1c the second can't attack or block, both this combat only."""
+    force, = d["effects"]
+    return {**d, "effects": [{**force, "rules": ["must_attack", "must_block"]}, {**force, "who": "target:1", "rules": ["cant_attack_or_block"]}],
+            "targets": [d["targets"][0], dict(d["targets"][0])]}
+
+
 _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
+    "At the beginning of each combat, up to one target creature attacks or blocks this combat if able and up to one target creature can't attack or block this combat.":
+        ("At the beginning of each combat, up to one target creature attacks this combat if able.", _battleshaper),
     "At the beginning of combat on your turn, investigate for each goaded creature you control. Then each creature you control is no longer goaded.":
         ("At the beginning of combat on your turn, investigate for each goaded creature you control.", lambda d: {**d, "effects": [*d["effects"], {"do": "ungoad110b"}]}),
     "Whenever a creature is dealt damage, its controller may exile that many cards from the top of their library. They may play those cards until the end of their next turn.":
