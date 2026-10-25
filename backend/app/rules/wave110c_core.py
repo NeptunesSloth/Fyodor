@@ -145,7 +145,18 @@ def _back_for_seconds() -> Parsed:
     return [{"do": "kicked_gate", "kicked": False, "n": 1}, *effects, {"do": "kicked_gate", "kicked": True, "n": 1}, {"do": "bargain_return110c"}], groups, optional
 
 
+def _lithoforming() -> Parsed:
+    """Nahiri's Lithoforming: X additional land plays (305.2) and a this-turn "enter tapped" replacement for your lands (614.1d, 611.2a)."""
+    from app.rules import selectors, values
+
+    effects, groups, optional = read("Sacrifice X lands. For each land sacrificed this way, draw a card.")
+    key = selectors.parse("lands you control").key()  # type: ignore[union-attr]
+    return [*effects, {"do": "extra_land_x110c", "n": values.parse_amount("X")}, {"do": "enter_tapped_turn110c", "sel": key}], groups, optional
+
+
 BUILDERS: dict[str, Callable[[], Parsed]] = {
+    "Sacrifice X lands. For each land sacrificed this way, draw a card. You may play X additional lands this turn. Lands you control enter tapped this turn.":
+        _lithoforming,
     "Return up to two target creature cards from your graveyard to your hand. If this spell was bargained, you may put one of those cards with mana value 4 "
     "or less onto the battlefield instead of putting it into your hand.": _back_for_seconds,
     # (scripts.py reads "bargained" as "kicked", 702.166b, before the body gets here)
@@ -316,7 +327,22 @@ def bargain_return(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     return True
 
 
-PRIMITIVES = {"bargain_return110c": bargain_return, "power_gap110c": power_gap, "surveil_take110c": surveil_take, "surveil_take_end110c": surveil_take_end, "choose_branch110c": choose_branch, "temporary_counters110c": temporary_counters}
+def extra_land_x(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    from app.rules import land_plays, values
+
+    return land_plays.extra_land(plan, ctx, {"n": max(0, int(values.evaluate(plan, ctx, e["n"])))})
+
+
+def enter_tapped_turn(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """A resolved spell's replacement lasting this turn (611.2a): permanents matching ``sel`` (relative to its controller) enter tapped (614.1d)."""
+    from app.rules import replace
+
+    replace.add_record(plan, event="enters_tapped", match={"selector": e["sel"]}, op={"do": "tap"}, controller=ctx["controller"],
+                       source=ctx.get("source_object"), source_card=ctx.get("source_card"), label=ctx.get("name") or "Enter tapped")
+    return True
+
+
+PRIMITIVES = {"extra_land_x110c": extra_land_x, "enter_tapped_turn110c": enter_tapped_turn, "bargain_return110c": bargain_return, "power_gap110c": power_gap, "surveil_take110c": surveil_take, "surveil_take_end110c": surveil_take_end, "choose_branch110c": choose_branch, "temporary_counters110c": temporary_counters}
 RESUME = {"choose_branch110c": resume_branch}
 from app.rules import wave110c_mass  # noqa: E402
 
