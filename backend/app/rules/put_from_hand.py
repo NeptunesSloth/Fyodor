@@ -178,7 +178,11 @@ def resume(plan: Plan, d: Any, chosen: list[str]) -> None:
                 or not _matches(plan, e, card, chars.of(card, plan.info), pid, ctx.get("source_card")):
             raise ActionError("Choose a matching card from your hand")
         cards.append(cid)
-    entries = [{"card": c, "player": pid, "actor": pid, "tapped": bool(e.get("tapped")), "via": ctx.get("source_object")} for c in cards]  # (wave 51E: Entry.via)
+    atk = e.get("attacking")
+    if kind := e.get("tap_atk110d"):  # -- (wave 110D) -- only a card of this type enters tapped and attacking (508.4, 614.12; Summoner's Grimoire)
+        cards_tapped = {c for c in cards if kind in chars.of(plan.state.cards[c], plan.info).types}
+        atk = bool(cards_tapped)
+    entries = [{"card": c, "player": pid, "actor": pid, "tapped": bool(e.get("tapped")) or (e.get("tap_atk110d") is not None and c in cards_tapped), "via": ctx.get("source_object")} for c in cards]  # (wave 51E: Entry.via)
     if e.get("host"):  # -- attached (wave 100F) -- "… onto the battlefield attached to it" (Holy Avenger): 303.4f, an Aura that can't enchant it stays (303.4g)
         entries = effects._attached_entries(plan, ctx, e["host"], entries)
         cards = [x["card"] for x in entries]
@@ -188,10 +192,10 @@ def resume(plan: Plan, d: Any, chosen: list[str]) -> None:
     if entries and not attachments.enter(plan, entries, ctx):
         return  # (an Aura chooses what it enchants; the resolution goes on from there)
     effects._moved(plan, ctx, e, before)
-    if e.get("attacking"):  # -- trigger tail (wave 15B) -- 508.4 (the choice of whom, if any, goes on from token_attack)
+    if atk:  # -- trigger tail (wave 15B) -- 508.4 (the choice of whom, if any, goes on from token_attack)
         from app.rules import looking
 
-        if not looking.attack_with_entered(plan, ctx, cards, e.get("at")):
+        if not looking.attack_with_entered(plan, ctx, [c for c in cards if not e.get("tap_atk110d") or c in cards_tapped], e.get("at")):
             return
     effects.continue_effects(plan, ctx)
 

@@ -16,6 +16,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from tests.game_helpers import act
 from tests.wave9c_kit import build, life, to_hand
 from tests.wave110d_kit import (  # noqa: F401
@@ -195,4 +197,25 @@ def test_ugins_mastery_stays_quiet_below_six(cards):
     slinger = _slinger(s)
     _attack(s, slinger)
     assert s.state.rules.decision is None and not s.state.zones.get("stack") and now(s, slinger).face_down  # 2 only
+    check(s)
+
+
+def test_summoners_grimoire_is_full():
+    assert full("Summoner's Grimoire")
+
+
+@pytest.mark.parametrize(("name", "enters_attacking"), [("Courser of Kruphix", True), ("Twisted Abomination", False)])
+def test_summoners_grimoire_only_an_enchantment_enters_attacking(cards, name, enters_attacking):
+    """508.4, 614.12: the put creature enters tapped and attacking only if it is an enchantment card."""
+    s = build(cards, ["Summoner's Grimoire", "Grizzly Bears", name])
+    grimoire, bears = put(s, "Summoner's Grimoire"), put(s, "Grizzly Bears")
+    mana(s, C=3)
+    activate(s, grimoire, "Equip {3}", targets=[bears.id])
+    to_hand(s, name)
+    _attack(s, bears)
+    settle(s)
+    other = next(c for c in s.state.cards.values() if c.name == name)
+    assert other.zone == "p1:battlefield" and other.tapped == enters_attacking
+    to_phase(s, "end", turn=3)
+    assert life(s, "p2") == 40 - 2 - (ch(s, other).pt[0] if enters_attacking else 0)
     check(s)

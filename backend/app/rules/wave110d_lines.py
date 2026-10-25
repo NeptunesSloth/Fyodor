@@ -7,6 +7,9 @@ from typing import Any
 
 # the Oracle line (the card's name as ~) -> the wording the grammar already reads, with the same meaning
 _AS: dict[str, str] = {
+    # Summoner's Grimoire (granted trigger): 508.4, 614.12 only an enchantment card enters tapped and attacking (put_from_hand.resume, tap_atk110d)
+    "Whenever ~ attacks, you may put a creature card from your hand onto the battlefield. If that card is an enchantment card, it enters tapped and attacking.":
+        "Whenever ~ attacks, you may put a creature card from your hand onto the battlefield.",
     # Thelon of Havenwood: "each Fungus on the battlefield" is each permanent with the Fungus subtype (a selector reads permanents on the battlefield; 109.2)
     "{B}{G}, Exile a Fungus card from a graveyard: Put a spore counter on each Fungus on the battlefield.":
         "{B}{G}, Exile a Fungus card from a graveyard: Put a spore counter on each Fungus.",
@@ -43,4 +46,6 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
     if d is not None and text.startswith("Whenever you untap one or more"):  # (own_untap: only the untap step of its controller, triggers.py)
         d = json.loads(json.dumps(d, default=str).replace('{"event_amount": 1}', '{"event_count": 1}'))
         d["cond"]["own_untap"] = True
+    if d is not None and text.endswith("it enters tapped and attacking."):
+        d["effects"][0]["tap_atk110d"] = "Enchantment"
     return d
