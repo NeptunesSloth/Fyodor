@@ -42,8 +42,9 @@ GRANT = re.compile(r"^each (?P<sel>[A-Za-z][A-Za-z -]*?) card in your graveyard 
 # -- cost alt (wave 21F) -- "You may cast this card from your graveyard by paying {2}{W} rather than paying its mana cost." (Raffine's
 # Guidance) / "... by paying {3}{R} and exiling four other cards from your graveyard ..." / "... and sacrificing two creatures ...": a
 # graveyard cast for its own alternative cost (118.9, 601.3), offered as escape's is but not an escape (702.138b): tag "graveyard"
-GY_COST = re.compile(r"^you may cast (?:this card|this creature|~) from your graveyard by paying (?P<pay>(?:\{[^}X]+\})+)"
-                     r"(?: and (?P<rest>(?:exil|sacrific)ing .+))? rather than paying its mana cost$", re.IGNORECASE)
+GY_COST = re.compile(r"^(?:as long as you control an? (?P<need>[A-Z][A-Za-z]+), )?you may cast (?:this card|this creature|~) from your graveyard by paying (?P<pay>(?:\{[^}X]+\})+)"
+                     r"(?: and (?P<rest>(?:exil|sacrific)ing .+))? rather than paying its mana cost"
+                     r"(?P<exile>\. if you cast this card this way and it would be put into your graveyard, exile it instead)?$", re.IGNORECASE)
 ESCAPED = {"object": "self", "cast": {"escaped": True}}  # 702.138b, as a condition on the source (conditions._cast_holds)
 
 
@@ -65,7 +66,9 @@ def define_static(t: str) -> Definition | None:
 
         rest = re.sub(r"^(exil|sacrific)ing", r"\1e", m["rest"].lower()) if m["rest"] else ""
         text = f"pay {m['pay']}" + (f" and {rest}" if rest else "")
-        return {"kind": "static", "static": "gy_cost", "cost": text, "effects": []} if alt_costs.parse_cost(text) else None
+        # -- wave 110I -- Glimpse the Cosmos: "As long as you control a Giant, …" (need) and "… exile it instead" (614.1a, exile)
+        return {"kind": "static", "static": "gy_cost", "cost": text, "effects": [], **({"need": m["need"]} if m["need"] else {}),
+                **({"exile": True} if m["exile"] else {})} if alt_costs.parse_cost(text) else None
     m = GRANT.fullmatch(t)
     if m:
         n = _WORDS.get(m["n"].lower())
@@ -102,7 +105,12 @@ def offers(state: GameState, player: str, card: CardInstance, ch: Characteristic
                 out.append(alt_costs.Offer(f"{card.id}:{index}", f"{ch.name}: escape ({d['mana']}{', exile a land you control' if d.get('land') else ''}, exile {d['exile']} other "
                                            "cards from your graveyard)", alt, escape=True))
         elif d.get("static") == "gy_cost" and (alt := alt_costs.parse_cost(d["cost"])) is not None:  # (wave 21F)
-            out.append(alt_costs.Offer(f"{card.id}:{index}", f"{ch.name}: {d['cost']}", alt, escape=True, tag="graveyard"))
+            if d.get("exile") and not ch.is_instant_or_sorcery:
+                continue  # (the exile replacement is only applied to a spell leaving the stack, 614.1a)
+            if d.get("need") and not any(c.controller == player and c.zone == zone_key(player, "battlefield") and d["need"] in permissions._view(state, player, info).ch(c).subtypes
+                                         for c in state.cards.values()):
+                continue
+            out.append(alt_costs.Offer(f"{card.id}:{index}", f"{ch.name}: {d['cost']}", alt, escape=True, tag="graveyard", exile_gy=bool(d.get("exile"))))
     granted = permissions._table_statics(state, info, {"escape_grant"})
     if granted and ch.mana_cost and "//" not in ch.mana_cost and not _two_ways(card):
         cost = M.parse_cost(ch.mana_cost)

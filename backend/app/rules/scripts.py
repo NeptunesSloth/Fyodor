@@ -7268,7 +7268,9 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     counted_damage_targets = d is not None and isinstance(d.get("cond"), dict) and d["cond"].get("event") in ("deal_combat_damage_player", "gain_life") and bool(
         [g for g in d.get("targets") or [] if g.get("x_count")]) and all(
         g.get("x_value") == {"event_amount": 1} for g in d["targets"] if g.get("x_count"))
-    if d is not None and d.get("kind") == "triggered" and '"x_count"' in json.dumps(d, default=str) and not (
+    own = None if d is None else {**d, "effects": [e for e in d.get("effects") or [] if not (  # (wave 110I: a reflexive ability's X is the payment's, above)
+        e.get("do") == "reflexive" and e.get("x_from") and (e.get("ability") or {}).get("x_event"))]}
+    if d is not None and d.get("kind") == "triggered" and '"x_count"' in json.dumps(own, default=str) and not (
             counted_damage_targets or monstrous_x or x_given or (d.get("trigger") == "enters_self" and "{X}" in (ch.mana_cost or "") and "where X is" not in ability.text)):
         return None  # ("up to X target …" in a trigger: its targets are chosen before any X is known to it; wave 19F: but the X an
         # enters trigger of a spell cast with X, or a becomes-monstrous trigger, is given: triggers.cast_x)
@@ -8913,7 +8915,7 @@ def _spell_definition(ch: Characteristics) -> Definition | None:
              and not own_card_event_ability(defs.get(ab.index))  # (wave 36A: cycling / discard triggers of the card itself)
              and defs.get(ab.index, {}).get("trigger") != "cast_self"  # -- spell copies (wave 31D) -- 601.2i: "When you cast this spell, …" triggers
              and defs.get(ab.index, {}).get("replacement") != "shuffle_instead"  # -- zone replacements (wave 51C) -- Nexus of Fate: where the spell card goes (614.1), not what it does
-             and defs.get(ab.index, {}).get("static") not in ("self_cost", "additional_cost", "alt_cost", "cast_restriction", "own_optional", "x_cap", "escape", "draft_only", "cant_be_copied", "self_uncounterable", "x_mana_restriction", "own_spell_kicked_keyword59", "color_cda100c", "gy_flashback110e")  # (escape: wave 52C, 702.138a; draft_only: wave 52C; x_cap: wave 51C; own_optional: wave 22F; alt_cost: wave 4I; cast_restriction: wave 7A)
+             and defs.get(ab.index, {}).get("static") not in ("self_cost", "additional_cost", "alt_cost", "cast_restriction", "own_optional", "x_cap", "escape", "draft_only", "cant_be_copied", "self_uncounterable", "x_mana_restriction", "own_spell_kicked_keyword59", "color_cda100c", "gy_flashback110e", "gy_cost")  # (escape: wave 52C, 702.138a; draft_only: wave 52C; x_cap: wave 51C; own_optional: wave 22F; alt_cost: wave 4I; cast_restriction: wave 7A)
              and not (defs.get(ab.index, {}).get("static") == "permission" and defs[ab.index].get("self")
                       and (defs[ab.index].get("free") or defs[ab.index].get("zone") in ("graveyard", "exile")
                            or defs[ab.index].get("flash")))]  # (wave 17C: retrace, 702.81a; wave 22F: "cast this spell as though it had flash if …", 601.3d)
@@ -11222,6 +11224,8 @@ def _reflexive(rest: str, effects: list[dict[str, Any]], prev_start: int, option
     # -- cast-permission riders (wave 38C) -- 603.12, 107.3f: "you may pay {X}. When you do, … target creature card with mana value X …" (Halo Forager, Isareth the
     # Awakener): the reflexive ability goes on the stack after the payment, so its target is chosen knowing the X paid (the event's amount: triggers.event_x)
     x_event = x_bind is not None and bool(re.search(rf',{selectors.X_VALUE}\]', json.dumps(b_target, default=str)))
+    # -- cost-sized reflexive targets (wave 110I) -- 603.12, 107.3f: "up to that many other target creatures" of a reflexive ability: chosen as it goes on the stack, knowing the X paid
+    x_event = x_event or (x_bind is not None and isinstance(b_target, list) and any(g.get("x_count") == "upto" for g in b_target))
     out = {"do": "reflexive", "cond": cond, "ability": {"kind": "triggered", "trigger": "reflexive", "effects": b_effects,
                                                         "optional": b_optional, **target_fields(b_target), **({"x_event": True} if x_event else {})},
            **({"x_from": x_bind} if x_bind else {}), **({"keep_event": True} if keep else {})}

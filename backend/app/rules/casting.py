@@ -4165,6 +4165,8 @@ def _post_cast(plan: Plan, data: _PostCast, payment: M.Payment | None) -> None:
         plan.rules.rebound_cast.append(plan.oid(card))
     if flashback or harmonized or jumped:
         plan.rules.flashback.append(plan.oid(card))  # 702.34a: exiled instead of going anywhere else (702.133a, 702.180a)
+    if alt_offer is not None and alt_offer.exile_gy:  # -- wave 110I -- Glimpse the Cosmos (614.1a)
+        plan.rules.exile_if_graveyard.append(plan.oid(card))
     if grant is not None and grant.graveyard_destination == "library_bottom":
         plan.rules.bottom_if_graveyard.append(plan.oid(card))
     if grant is not None and grant.exile_gy and (grant.exile_gy == "all" or ch.is_instant_or_sorcery):  # -- cast from graveyard (wave 19C) -- 614.1a

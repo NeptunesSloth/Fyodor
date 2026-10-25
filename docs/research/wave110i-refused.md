@@ -14,3 +14,10 @@
 - Merieke Ri Berit: needs a persistent delayed trigger bound to the controlled creature (leaves/untaps); no such watch exists.
 - Fasting: "you may skip your draw step instead" needs an optional-skip decision at step start (skips.py has only unconditional skips).
 - Torrent of Lava, Dark Intimations, Aeon Engine, Hero of Bretagard, Aegis of the Legion, Grifter's Blade: stack-granted ability / Bolas-cast trigger / turn-order reversal / exile-from-hand batch / mentor event / equipment enters-attached choice: each a separate foundation.
+- Cuombajj Witches: second target chosen by an opponent for an any-target damage; delegated_target_announcements only supports one creature target on activated abilities.
+- Evershrike: Aura "attached to it" with mana value X limit after a graveyard return; two missing foundations.
+- Tainted Specter: "discards a card unless they put a card from hand on top of library" (no unless-put-on-library payer).
+- Heart of Bogardan / Balduvian Fallen: need cumulative-upkeep paid/unpaid events and mana spent on it; deferred.
+- Curse of Inertia / Become the Pilot / Awesome Presence: attacker-chosen target, conditional unblockable, block tax not modelled.
+- Shifty Doppelganger: delayed sacrifice then "return this card" (the exiled-as-cost source) not modelled.
+- Etched Slith: removing a counter from an opponent (player counter kinds) not modelled.

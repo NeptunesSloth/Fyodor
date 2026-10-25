@@ -55,6 +55,12 @@ def bind(body: str, parse: Any, split_sentences: Any) -> tuple[list[dict[str, An
         if m is None or m["side"] in seen:
             return None
         seen.add(m["side"])
+        # -- cards (wave 110I) -- a side whose instruction binds a choice of its own (Regna's Sanction, Zndrsplt's Judgment)
+        from app.rules import wave110i_cards
+
+        if (own := wave110i_cards.SIDES.get(m["rest"])) is not None:
+            effects += [{"do": "side_does", "side": m["side"], "n": len(own)}, *copy.deepcopy(own)]
+            continue
         found = parse(_you(m["rest"]))
         if found is None or found[1] or found[2] or not found[0]:
             return None
