@@ -288,3 +288,27 @@ _UP = "At the beginning of your upkeep, put a +1/+1 counter on %s if it %s since
 _NATIVE = "At the beginning of your upkeep, put a +1/+1 counter on %s if %s attacked or blocked this turn. Otherwise, remove a +1/+1 counter from %s."
 _BUILD[_UP % ("this creature", "has blocked or been blocked")] = (_NATIVE % ("~", "~", "~"), _since_upkeep)
 _BUILD[_UP % ("enchanted creature", "attacked or blocked")] = (_NATIVE % ("enchanted creature", "it", "it"), _since_upkeep)
+
+
+# -- spell/ability bodies (exact text -> a wording the grammar reads) --
+REWRITES: dict[str, str] = {
+    # Simic Guildmage: "with the same controller" = "that player" of the first target (player_relative._names_player; Bioshift)
+    "Move a +1/+1 counter from target creature onto another target creature with the same controller.":
+        "Move a +1/+1 counter from target creature onto another target creature that player controls.",
+}
+
+
+def parse(body: str) -> Any:
+    from app.rules import scripts
+
+    return scripts.parse_effects(same) if (same := REWRITES.get(body.strip())) is not None else None
+
+
+def _guildmage(d: Def) -> Def:
+    """Simic Guildmage: the new host is another permanent controlled by the controller of the Aura's current host (permanent_exchanges, 701.3)."""
+    first, second = d["targets"]
+    return {**d, "targets": [first, {**second, "of": 0, "relative_quality": {"kind": "hostctl110j"}}]}
+
+
+_BUILD["{1}{U}: Attach target Aura attached to a permanent to another permanent with the same controller."] = (
+    "{1}{U}: Attach target Aura attached to a permanent to target permanent.", _guildmage)
