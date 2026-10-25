@@ -48,8 +48,14 @@ def _bounce_gate(d: Def) -> Def:
     return {**d, "effects": [{**first, "do": "bounce_gate110i", "skip": len(rest)}, *rest]}
 
 
+def _attach_all(d: Def) -> Def:
+    return {**d, "effects": [{"do": "attach_all110i"}]}
+
+
 # whole ability text -> (the wording the grammar reads, what to change in its definition)
 _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
+    "Whenever an equipped creature you control other than Rhuk attacks or dies, you may attach all Equipment attached to that creature to Rhuk.":
+        ("Whenever an equipped creature you control other than ~ attacks or dies, you may draw a card.", _attach_all),
     "When enchanted creature dies, return that card to its owner's hand. If that card is returned to its owner's hand this way, you may pay {U}{U}{U}. If you do, return this card to its owner's hand.":
         ("When enchanted creature dies, return that card to its owner's hand. You may pay {U}{U}{U}. If you do, return this card to its owner's hand.", _bounce_gate),
     "Nonlegendary creatures enchanted player controls have base power and toughness 3/3 and lose all creature types.":
@@ -99,7 +105,25 @@ def bounce_gate(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     return True
 
 
-PRIMITIVES = {"lose_rad110i": lose_rad, "bounce_gate110i": bounce_gate}
+def attach_all(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """Rhuk: every Equipment attached to the event creature (603.10a: as it was just before it died) moves to the source (701.3a)."""
+    from app.rules import attachments, context
+
+    me = plan.state.cards.get(ctx.get("source_card") or "")
+    if me is None or not me.zone.endswith(":battlefield") or plan.oid(me) != ctx.get("source_object"):
+        return True
+    for ref in context._object_refs(ctx, context.EVENT, was=True):
+        here = context._same(plan, ref)
+        snap = context.snapshot(plan, ref)
+        ids = [c.id for c in plan.state.cards.values() if c.attached_to == here.id] if here is not None else list(snap.attached) if snap else []
+        for cid in ids:
+            gear = plan.state.cards.get(cid)
+            if gear is not None and gear.zone.endswith(":battlefield") and "Equipment" in plan.ch(gear).subtypes:
+                attachments.attach(plan, cid, me.id, ctx["controller"])
+    return True
+
+
+PRIMITIVES = {"attach_all110i": attach_all, "lose_rad110i": lose_rad, "bounce_gate110i": bounce_gate}
 
 
 def definition(ability: Any, ch: Any) -> Def | None:

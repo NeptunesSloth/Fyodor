@@ -2,6 +2,7 @@
 
 * Curse of Conformity: base P/T 3/3 (613.4b) and no creature types (205.1a), nonlegendary only.
 * Puppet Master: the payment is offered only once the creature card is back in hand; the Aura comes back from the graveyard (603.10a, 400.7).
+* Rhuk, Hexgold Nabber: Equipment attached to the dying creature as it last was moves to Rhuk (701.3a, 603.10a); optional.
 * The Moment: "phases out until The Moment leaves the battlefield" (610.3, 702.26a), untapped first, not tapped as it returns.
 """
 
@@ -26,9 +27,12 @@ EXTRA = [
          "Enchant creature\nWhen enchanted creature dies, return that card to its owner's hand. If that card is returned to its owner's hand this way, you may pay {U}{U}{U}. If you do, return this card to its owner's hand.",
          None, "U"),
     real("Lightning Bolt", "{R}", 1, "Instant", "Lightning Bolt deals 3 damage to any target.", None, "R"),
+    real("Rhuk, Hexgold Nabber", "{2}{R}", 3, "Legendary Creature — Goblin Rebel",
+         "Trample, haste\nWhenever an equipped creature you control other than Rhuk attacks or dies, you may attach all Equipment attached to that creature to Rhuk.",
+         ("2", "2"), "R"),
     real("Naturalize", "{1}{G}", 2, "Instant", "Destroy target artifact or enchantment.", None, "G"),
 ]
-NAMES = ["The Moment", "Curse of Conformity", "Puppet Master"]
+NAMES = ["The Moment", "Curse of Conformity", "Puppet Master", "Rhuk, Hexgold Nabber"]
 
 
 @pytest.fixture()
@@ -82,4 +86,17 @@ def test_puppet_master_returns_the_creature_and_itself_if_paid(cards, pay):
     answer(s, "pay" if pay else "decline")
     assert zone(s, bear) == "p2:hand"
     assert zone(s, master) == ("p1:hand" if pay else "p1:graveyard")
+    check(s)
+
+
+@pytest.mark.parametrize("take", [True, False])
+def test_rhuk_takes_the_equipment_of_a_dying_equipped_creature(cards, take):
+    s = build(cards, ["Rhuk, Hexgold Nabber", "Grizzly Bears", "Bonesplitter", "Lightning Bolt"], [])
+    rhuk, bear, gear = put(s, "Rhuk, Hexgold Nabber"), put(s, "Grizzly Bears"), put(s, "Bonesplitter")
+    act(s, "p1", type="attach", card_ids=[gear.id], to=bear.id)
+    mana(s, R=1)
+    cast(s, "Lightning Bolt", [bear.id])
+    answer(s, "yes" if take else "no")
+    assert zone(s, bear) == "p1:graveyard"
+    assert s.state.cards[gear.id].attached_to == (rhuk.id if take else None)
     check(s)
