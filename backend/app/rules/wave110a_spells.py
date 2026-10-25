@@ -329,7 +329,15 @@ def _beheld_power(text: str) -> Callable[[], Parsed]:
     return build
 
 
+def _vats() -> Parsed:
+    """V.A.T.S.: any number of target creatures whose toughnesses are all equal (601.2c; targets.relation_ok ``same_toughness110a``), destroyed."""
+    effects, targets, optional = _p("Destroy any number of target creatures.")
+    targets[0]["same_toughness110a"] = True
+    return effects, targets, optional
+
+
 BUILDERS: dict[str, Callable[[], Parsed]] = {
+    "Choose any number of target creatures with equal toughness. Destroy the chosen creatures.": _vats,
     "Reveal the top five cards of your library. Put one of them into your hand. Then choose an opponent. They put one on the bottom of your library. "
     "Then you put one into your hand. Then they put one on the bottom of your library. Put the other into your hand.": _memories,
     "Counter all spells your opponents control and all abilities your opponents control. Create a 1/1 blue and black Faerie creature token with "

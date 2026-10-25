@@ -445,7 +445,7 @@ def choose_groups(plan: Plan, specs: list[dict[str, Any]], chooser: str, source:
             stat = spec["total"][0].replace("_", " ")  # -- "with total mana value 3 or less": checked as they're chosen (601.2c)
             raise BadPick(f"Those targets have a total {stat} over {limit}")
         if not relation_ok(plan, spec, [ref(plan, t) for t in chosen]):  # -- group relations (wave 51A) -- "that share a creature type" / "controlled by different players" (601.2c)
-            raise BadPick("Those targets must share no " + spec["shares_none"].replace("_", " ") + "s" if spec.get("shares_none") else "Those targets must share a " + spec["shares"].replace("_", " ") if spec.get("shares") else "Those targets must be controlled by the same player" if spec.get("same_controller") else "Those targets must be controlled by different players")
+            raise BadPick("Those targets must have equal toughness" if spec.get("same_toughness110a") else "Those targets must share no " + spec["shares_none"].replace("_", " ") + "s" if spec.get("shares_none") else "Those targets must share a " + spec["shares"].replace("_", " ") if spec.get("shares") else "Those targets must be controlled by the same player" if spec.get("same_controller") else "Those targets must be controlled by different players")
         if spec.get("different") and not _different(plan, chosen, spec["different"]):  # -- refused zones/sized (wave 3R4)
             raise BadPick(f"Those targets must have different {'names' if spec['different'] == 'name' else 'mana values'}")
         out.groups.append(chosen)
@@ -500,14 +500,20 @@ def relation_ok(plan: Plan, spec: dict[str, Any], refs: list[TargetRef]) -> bool
             return False
     if spec.get("same_controller") and len({c for _, c in facts}) > 1:
         return False
+    if spec.get("same_toughness110a") and len({ch.pt[1] if ch.pt else None for ch, _ in facts}) > 1:  # -- cards (wave 110A) -- V.A.T.S.
+        return False
     return not spec.get("controllers") or len({c for _, c in facts}) == len(facts)
 
 
 def relation_room(plan: Plan, spec: dict[str, Any], options: list[str]) -> int:
     """How many of the legal ``options`` can be chosen together under the group's relation (all of them without one)."""
-    if not (spec.get("shares") or spec.get("controllers") or spec.get("same_controller") or spec.get("shares_none")):
+    if not (spec.get("shares") or spec.get("controllers") or spec.get("same_controller") or spec.get("shares_none") or spec.get("same_toughness110a")):
         return len(options)
     facts = [f for t in options if (f := _facts(plan, ref(plan, t)))]
+    if spec.get("same_toughness110a"):  # -- cards (wave 110A) -- the largest set of equal toughness
+        from collections import Counter
+
+        return max(Counter(ch.pt[1] if ch.pt else None for ch, _ in facts).values(), default=0)
     if spec.get("shares_none"):  # (wave 110F: pairs only) two can be chosen when some two share nothing
         ks = [_kinds(ch, spec["shares_none"]) for ch, _ in facts]
         return 2 if any(not (a & b) for i, a in enumerate(ks) for b in ks[i + 1:]) else min(1, len(ks))
