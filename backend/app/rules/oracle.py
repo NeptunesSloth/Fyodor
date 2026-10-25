@@ -370,6 +370,9 @@ MASTER_CHEF = ('Commander creatures you own have "This creature enters with an a
                '"Other creatures you control enter with an additional +1/+1 counter on them."')
 
 
+DOG_UMBRA = "As long as another player controls enchanted creature, it can't attack or block. Otherwise, this Aura has umbra armor."
+
+
 def parse_abilities(oracle_text: str | None, *, spell: bool = False, pt: tuple[str | None, str | None] = (None, None)) -> list[AbilityText]:
     """Split Oracle text into classified ability lines (reminder text removed).
 
@@ -401,6 +404,12 @@ def parse_abilities(oracle_text: str | None, *, spell: bool = False, pt: tuple[s
         if line == MASTER_CHEF:
             lines[i:i + 1] = ["Commander creatures you own enter with an additional +1/+1 counter on them.",
                               'Commander creatures you own have "Other creatures you control enter with an additional +1/+1 counter on them."']
+    # -- lines (wave 110D) -- Dog Umbra: 608.2c "Otherwise" = the enchanted creature is not controlled by another player, so you control it (an Aura's
+    # controller can't be attached to nothing); two conditional statics
+    for i, line in enumerate(lines):
+        if line == DOG_UMBRA:
+            lines[i:i + 1] = ["As long as another player controls enchanted creature, it can't attack or block.",
+                              "As long as you control enchanted creature, this Aura has umbra armor."]
     # -- keywords (wave 50H) -- 207.2d: a flavor word before an equip cost ("Machina — Equip {4}", Final Fantasy equipment) has no rules meaning
     for i, line in enumerate(lines):
         if not spell and " — Equip" in line and (w := word_prefix(line)) is not None and w[1].startswith("Equip") and _keywords_line(w[1]) == ("equip",):

@@ -89,6 +89,7 @@ GRANTABLE_KEYWORDS: frozenset[str] = frozenset({
     "plainswalk", "islandwalk", "swampwalk", "mountainwalk", "forestwalk", "desertwalk",
     "snow landwalk", "nonbasic landwalk", "legendary landwalk", "artifact landwalk", "snow plainswalk", "snow islandwalk", "snow swampwalk", "snow mountainwalk", "snow forestwalk",  # (wave 12B: 702.14c variants)
     "shadow", "horsemanship", "fear", "intimidate", "skulk", "wither", "infect",
+    "umbra armor",  # (wave 110D: Dog Umbra; 702.89a read from the Aura's characteristics, regeneration.umbra_armor)
 })
 
 # -- static wordings (wave 6E) -- triggered keywords a static may grant (613.1f): granted as the keyword line itself, an

@@ -62,8 +62,9 @@ def umbra_armor(plan: Plan, card: CardInstance) -> CardInstance | None:
     """-- keywords (wave 15E) -- 702.89a: an Aura with umbra armor attached to the permanent (the oldest, when it has several:
     which replacement applies is its controller's choice, not asked here)."""
     for aura in plan.state.cards.values():
-        if aura.attached_to == card.id and aura.zone.endswith(":battlefield") and not plan.manual(aura) and any(
-                ab.kind == "keywords" and "umbra armor" in ab.keywords for ab in plan.ch(aura).abilities):
+        if aura.attached_to == card.id and aura.zone.endswith(":battlefield") and not plan.manual(aura) and (
+                "umbra armor" in plan.ch(aura).keywords  # (wave 110D: granted, Dog Umbra)
+                or any(ab.kind == "keywords" and "umbra armor" in ab.keywords for ab in plan.ch(aura).abilities)):
             return aura
     return None
 
