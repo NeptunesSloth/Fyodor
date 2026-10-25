@@ -2732,6 +2732,8 @@ def bind_event_stat(plan: Plan, t: PendingTrigger) -> None:
     other_is_type = bool(t.ability.get('target_other_is_type'))
     if (f'\\"{EVENT_STAT}' not in raw and not other_is_type) or t.event is None or len(t.event.objects) != 1:
         return
+    if t.event.kind != "reflexive" and '"do": "reflexive"' in raw:  # -- amass reflexive (wave 110D) -- its nested ability binds its own event (the amassed Army)
+        return
     ref = t.event.objects[0]
     snap = ref.snapshot or plan.rules.lki.get(ref.object_id)
     card = plan.state.cards.get(ref.card)
