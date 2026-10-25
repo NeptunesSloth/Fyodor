@@ -19,6 +19,11 @@ _AS: dict[str, str] = {
     "Whenever a creature enters, if there are two or more other creatures on the battlefield, exile that creature. Return that card to the battlefield "
     "under its owner's control when this artifact leaves the battlefield.":
         "Whenever a creature enters, if there are three or more creatures on the battlefield, exile it until this artifact leaves the battlefield.",
+    # Acquisitions Expert: the opponent reveals that many cards of their choice (701.20a); "those cards" read as "them"
+    "When this creature enters, target opponent reveals a number of cards from their hand equal to the number of creatures in your party. "
+    "You choose one of those cards. That player discards that card.":
+        "When this creature enters, target opponent reveals a number of cards from their hand equal to the number of creatures in your party. "
+        "You choose one of them. That player discards that card.",
 }
 
 # whole ability text -> (the wording the grammar reads, what to change in its definition)

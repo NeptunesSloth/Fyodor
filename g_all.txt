@@ -1,0 +1,1 @@
+/home/user/Fyodor/backend/.venv/bin/python: can't open file '/tmp/claude-0/-home-user-Fyodor/4bdad12e-9707-56f5-8534-8a1c5f15bfbf/scratchpad/wt-g/backend/../card.py': [Errno 2] No such file or directory
