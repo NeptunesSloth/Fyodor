@@ -118,6 +118,7 @@ _SWING = ("Choose target battle. If an opponent protects it, remove three defens
 
 
 _CULTIST = "The next time damage would be dealt to target creature this turn, destroy that creature instead."
+_FREE_PLAY = ("Target player exiles the top card of their library. Until that player's next end step, they may play that card without paying its mana cost.")
 _PREPARE = {"Target creature becomes prepared.": "prepare", "Target creature becomes unprepared.": "unprepare100f"}
 _AGONY = re.compile(r"(~ deals X damage to target creature, where X is the number of colors of mana spent to cast this spell\.) Exile cards from the top "
                     r"of your library equal to the excess damage dealt to that creature this way\. You may play those cards until the end of your next turn\.")
@@ -151,6 +152,12 @@ def parse(body: str) -> Any:
 
         group = language.target_group("target creature")
         return None if group is None else ([{"do": "destroy_instead110g", "who": "target"}], [group], False)
+    if body.strip() == _FREE_PLAY:  # Casey & Raph: the targeted player (the cards' owner) plays the exiled card free until their own next end step (611.2a)
+        got = scripts.parse_effects("Target player exiles the top card of their library. Until your next end step, you may play that card without paying its mana cost.")
+        if got is None:
+            return None
+        (top, play), target, optional = got
+        return [top, {**play, "owner": True}], target, optional
     if (prep := _PREPARE.get(body.strip())) is not None:  # Biblioplex Tomekeeper: 722.3a / 722.3b on the target creature
         from app.rules import language
 

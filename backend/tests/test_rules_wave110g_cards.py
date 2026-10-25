@@ -18,6 +18,8 @@
 * Kill-Suit Cultist: 614.1a / 615.8 the next damage to the target this turn is replaced by destroying it; only the next time.
 * Beamsplitter Mage: 707.10d / 115.9c one copy for the one other creature its controller chooses, none when there is none.
 * Biblioplex Tomekeeper: 722.3a / 722.3b the target creature becomes prepared or unprepared (modes, up to one).
+* The Fantastic Four: 700.2 / 603.2 enters and cast triggers; a spell with power, toughness or mana value 4; a mode not chosen yet this turn.
+* Casey & Raph: 700.2 / 601.2c one or both modes at different players; the targeted player may play the exiled card free until their next end step.
 * Serene Master: 701.12g exchanging two powers sets each to the other's previous value (613.4b), until end of combat.
 """
 from __future__ import annotations
@@ -101,10 +103,13 @@ EXTRA = [
     real('Test Zap', '{R}', 1, 'Instant', 'Test Zap deals 1 damage to target creature.', None, 'R'),
     real('Beamsplitter Mage', '{1}{R}', 2, 'Creature \u2014 Human Wizard', 'Whenever you cast an instant or sorcery spell that targets only this creature, if you control one or more other creatures that spell could target, choose one of those creatures. Copy that spell. The copy targets the chosen creature.', ('1', '3'), 'R'),
     real('Biblioplex Tomekeeper', '{4}', 4, 'Artifact Creature \u2014 Construct', 'When this creature enters, choose up to one \u2014\n\u2022 Target creature becomes prepared.\n\u2022 Target creature becomes unprepared.', ('3', '4'), ''),
+    real('The Fantastic Four', '{2}{U}{R}{W}', 5, 'Legendary Creature \u2014 Human Hero', "When The Fantastic Four enter and whenever you cast a spell with power, toughness, or mana value 4, choose one that hasn't been chosen this turn.\n\u2022 Create a 0/4 colorless Wall creature token with defender.\n\u2022 The Fantastic Four deal 3 damage to each opponent.\n\u2022 Put two +1/+1 counters on target creature.\n\u2022 Draw a card.", ('4', '4'), 'RUW'),
+    real('Test Four Power', '{1}', 1, 'Creature \u2014 Human', '', ('4', '1'), ''),
+    real('Casey & Raph, Hotheads', '{3}{R}', 4, 'Legendary Creature \u2014 Mutant Ninja Turtle', "When Casey & Raph enter, choose one or both. Each mode must target a different player.\n\u2022 Target player exiles the top card of their library. Until that player's next end step, they may play that card without paying its mana cost.\n\u2022 Target player creates two Treasure tokens.", ('4', '3'), 'R'),
     real('Hill Giant', '{3}{R}', 4, 'Creature — Giant', '', ('3', '3'), 'R'),
     real('Divination', '{2}{U}', 3, 'Sorcery', 'Draw two cards.', None, 'U'),
 ]
-NAMES = [c["name"] for c in EXTRA if c["name"] not in ("Divination", "Test Zap", "Hill Giant", "Test Wall", "Test Human", "Test Doom", "Test Blade", "Relentless Assault", "Test Vigil", "Test Convoke", "Test Shuffle", "Test Teamwork")]
+NAMES = [c["name"] for c in EXTRA if c["name"] not in ("Divination", "Test Zap", "Test Four Power", "Hill Giant", "Test Wall", "Test Human", "Test Doom", "Test Blade", "Relentless Assault", "Test Vigil", "Test Convoke", "Test Shuffle", "Test Teamwork")]
 
 
 @pytest.fixture()
@@ -740,4 +745,68 @@ def test_biblioplex_tomekeeper_prepares_or_unprepares(cards, mode, prepared):
         pick = next((o.id for o in d.options if mode in (o.label or "").lower() or o.id == first.id), d.options[0].id)
         act(s, d.player, type="choose", decision_id=d.id, option_ids=[pick])
     assert len(s.state.rules.prepared) == prepared
+    check(s)
+
+
+def _modes(s, pick):
+    """Drive decisions; ``pick`` is a mode-label word. Returns the labels offered at each mode decision."""
+    offered = []
+    for _ in range(16):
+        d = s.state.rules.decision
+        if d is None and not s.state.zones.get("stack"):
+            break
+        if d is None:
+            act(s, s.state.rules.priority, type="pass_priority")
+            continue
+        labels = [(o.label or "").lower() for o in d.options]
+        if any("wall" in x for x in labels):
+            offered.append(labels)
+        choice = next((o.id for o in d.options if pick in (o.label or "").lower()), d.options[0].id)
+        act(s, d.player, type="choose", decision_id=d.id, option_ids=[choice])
+    return offered
+
+
+@pytest.mark.parametrize("second,triggers", [("Hill Giant", True), ("Test Four Power", True), ("Grizzly Bears", False)])
+def test_fantastic_four_modes_not_repeated_in_a_turn(cards, second, triggers):
+    """The Fantastic Four: entering and casting a spell with power, toughness or mana value 4 each choose a mode not yet chosen this turn."""
+    s = build(cards, ["The Fantastic Four", second], [])
+    mana(s, "p1", C=2, U=1, R=1, W=1)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "The Fantastic Four").id)
+    _modes(s, "3 damage")
+    assert s.state.players["p2"].life == 37
+    mana(s, "p1", C=4, R=1, G=1)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, second).id)
+    offered = _modes(s, "wall")
+    if triggers:
+        assert offered and all(not any("3 damage" in x for x in labels) for labels in offered)
+        assert any(c.name == "Wall" or "Wall" in c.name for c in s.state.cards.values() if c.zone == "p1:battlefield")
+    else:
+        assert not offered
+    check(s)
+
+
+def test_casey_and_raph_two_modes_two_players(cards):
+    """Casey & Raph (700.2d, 601.2c): both modes, each at a different player; the exile's player (owner) may play the card free until their next end step."""
+    s = build(cards, ["Casey & Raph, Hotheads"], [])
+    mana(s, "p1", C=3, R=1)
+    lib = len(s.state.zones["p2:library"])
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Casey & Raph, Hotheads").id)
+    first = True
+    for _ in range(12):
+        d = s.state.rules.decision
+        if d is None and not s.state.zones.get("stack"):
+            break
+        if d is None:
+            act(s, s.state.rules.priority, type="pass_priority")
+            continue
+        if d.kind == "choose_cards":
+            pick = [o.id for o in d.options]
+        else:
+            pick = ["p2"] if first and "p2" in [o.id for o in d.options] else [d.options[0].id]
+            first = False
+        act(s, d.player, type="choose", decision_id=d.id, option_ids=pick)
+    assert len(s.state.zones["p2:library"]) == lib - 1 and len(s.state.zones["p2:exile"]) == 1
+    assert sum(1 for c in s.state.cards.values() if c.name == "Treasure" and c.zone == "p1:battlefield") == 2
+    perms = s.state.rules.permissions
+    assert [(p.player, p.until) for p in perms] == [("p2", "next_end_step")]
     check(s)

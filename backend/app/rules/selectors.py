@@ -714,6 +714,12 @@ def _power_or_toughness(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, extras=(*s.extras, f"pot:{'<=' if m['dir'] == 'less' else '>='}{m['n']}"))
 
 
+# -- stat any (wave 110G) -- "a spell with power, toughness, or mana value 4" (The Fantastic Four): any one of the three is that number
+@_suffix(r"with power, toughness, or mana value (?P<n>\d+)")
+def _any_stat(s: Selector, m: re.Match[str]) -> Selector:
+    return replace(s, extras=(*s.extras, f"anystat110g:{m['n']}"))
+
+
 # -- trigger sweep (wave 27B) -- "a creature spell with mana value 4, 5, or 6", "with power 2 or 3": one of the listed values (107.1: whole numbers)
 @_suffix(r"with (?P<what>mana value|power|toughness) (?P<vals>\d+(?:, \d+)*,? or \d+)")
 def _one_of_values(s: Selector, m: re.Match[str]) -> Selector:
@@ -2500,6 +2506,12 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
             if value is not None and what == "mv" and zone == "stack" and card.stack_info is not None and card.stack_info.x:
                 value += card.stack_info.x * ch.mana_cost.count("{X}")
             if value is None or value not in {int(v) for v in listed.split(",")}:
+                return False
+        if extra.startswith("anystat110g:"):  # (wave 110G)
+            mv = _stat(ch, "mv")
+            if mv is not None and zone == "stack" and card.stack_info is not None and card.stack_info.x:
+                mv += card.stack_info.x * ch.mana_cost.count("{X}")
+            if int(extra[12:]) not in (_stat(ch, "power"), _stat(ch, "toughness"), mv):
                 return False
         if extra == "basic_land_type" and not ch.subtypes & {"Plains", "Island", "Swamp", "Mountain", "Forest"}:
             return False  # (wave 20D)

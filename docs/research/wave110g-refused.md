@@ -17,3 +17,10 @@
 - Lich's Mirror: no "would lose the game" replacement in this branch (wave 110C has one on another branch).
 - Stangg / named linked tokens: "create Name, a legendary 3/4 ... token" has no named-token grammar.
 - Halfdane (until end of your next upkeep + base P/T equal to target), Sacred Ground (cause of land to graveyard has no event info), Season of the Witch ("couldn't attack" needs declaration-time legality).
+- Reed Richards: "first time you would draw each turn except the draw step's first" needs a per-turn count of draw attempts (not cards drawn) kept across replacement simulation; not modelled.
+- Inquisitor Eisenhorn: optional reveal while drawing (hidden info choice in on_draw) plus named legendary token (Cherubael) has no grammar.
+- Numa, Joraga Chieftain: "{X}{X}" payment and "distribute X counters among any number of target Elves" chosen after X is known; neither exists together.
+- Suncleanser: "can't have counters put on it / can't get counters for as long as this creature remains" is a prohibition scoped to a chosen object or player, not a battlefield static.
+- Elkin Lair: no "exile a card at random from hand" primitive plus owner-play-then-graveyard check.
+- North Star: "for one spell this turn" spend permission must be consumed by the first spell; no one-shot spend grant.
+- Touch of Moonglove: a spell-made "whenever a creature dealt damage by that creature dies this turn" watch needs a die watch bound to the target's damage log.
