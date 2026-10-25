@@ -62,6 +62,22 @@ def _quake(d: Def) -> Def:
     return {**d, "if": cond, "gy_watch": True, "gy_bf110b": True, "effects": [{**e, "cond": cond} if e["do"] == "only_if" else e for e in d["effects"]]}
 
 
+def _skyguard(d: Def) -> Def:
+    return {**d, "if": {"skyguard110b": True},
+            "effects": [{**e, "duration": "end_of_combat"} if e["do"] == "prevent_all" else e for e in d["effects"]]}
+
+
+def skyguard_holds(plan: Any, ctx: dict[str, Any]) -> bool:
+    """Suppressor Skyguard: the attacking player (the active player, 508.1) has an opponent other than the Skyguard's controller who is not being
+    attacked (508.3d: a player is attacked by a creature attacking them or a planeswalker or battle they control)."""
+    me, atk = ctx["controller"], plan.active
+    attacked = set()
+    for c in plan.state.cards.values():
+        if c.attacking is not None and c.controller == atk:
+            attacked.add(c.attacking.id if c.attacking.kind == "player" else plan.state.cards[c.attacking.id].controller)
+    return any(p != atk and p != me and not plan.state.players[p].left and p not in attacked for p in plan.state.players)
+
+
 # whole ability text -> (the wording the grammar reads, what to change in its definition)
 _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
     # Perch Protection: all three instructions are conditional on the promised gift (608.2c: one sentence)
@@ -86,6 +102,10 @@ _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
     "if Quakebringer is in your graveyard and you control a Giant.":
         ("At the beginning of your upkeep, if this card is in your graveyard and you control a Giant, this creature deals 2 damage to each opponent.",
          _quake),
+    # Suppressor Skyguard: prevention lasts through this combat only (500.5); the attacker needs another opponent nobody attacks
+    "Whenever a player attacks you, if that player has another opponent who isn't being attacked, prevent all combat damage that would be dealt to you "
+    "this combat.":
+        ("Whenever a player attacks you, prevent all combat damage that would be dealt to you this turn.", _skyguard),
     # Divine Intervention: the effect states that the game is a draw (104.4c)
     "When you remove the last intervention counter from this enchantment, the game is a draw.":
         ("When the last intervention counter is removed from this enchantment, draw a card.",

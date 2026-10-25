@@ -2057,5 +2057,6 @@ def prevent_all(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
                                     "controller": ctx["controller"], "source": source,
                                     "source_card": ctx.get("source_card"), "scope": scope,
                                     **({"until": "next_turn", "until_player": ctx["controller"]} if e.get("duration") == "next_turn" else {}),
+                                    **({"until": "end_of_combat"} if e.get("duration") == "end_of_combat" else {}),  # (-- wave 110B -- "this combat", 500.5)
                                     **({"rider": e["rider"]} if e.get("rider") else {})})  # (wave 17A) 615.5
     return True

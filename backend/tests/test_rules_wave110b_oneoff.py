@@ -18,7 +18,7 @@ def cards(settings):
     yield from repository(settings)
 
 
-@pytest.mark.parametrize("name", ["Prince of Thralls", "Oath of Lim-Dûl", "Chaos Lord", "Divine Intervention", "Herald of Anafenza", "Guardian of New Benalia", "Aloe Alchemist", "Parapet Thrasher", "Bane of the Living", "Warbreak Trumpeter", "Kadena's Silencer", "Longhorn Sharpshooter", "Plague Reaver", "Quakebringer"])
+@pytest.mark.parametrize("name", ["Prince of Thralls", "Oath of Lim-Dûl", "Chaos Lord", "Divine Intervention", "Herald of Anafenza", "Guardian of New Benalia", "Aloe Alchemist", "Parapet Thrasher", "Bane of the Living", "Warbreak Trumpeter", "Kadena's Silencer", "Longhorn Sharpshooter", "Plague Reaver", "Quakebringer", "Suppressor Skyguard"])
 def test_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
@@ -320,4 +320,32 @@ def test_quakebringer_triggers_on_the_battlefield_or_from_the_graveyard_with_a_g
         act(s, "p1", type="move", card_ids=[q.id], to={"player": "p1", "zone": zone})
     to_turn(s, 3, "main1")
     assert s.state.players["p2"].life == 40 - dmg
+    check(s)
+
+
+@pytest.mark.parametrize("also_carol, bob_life", [(False, 40), (True, 38)])
+def test_suppressor_skyguard_prevents_combat_damage_only_when_another_opponent_is_not_attacked(cards, also_carol, bob_life):
+    """Suppressor Skyguard: 508.3d the attacker has another opponent (Carol) who is not being attacked -> prevention this combat (615.1); not otherwise."""
+    from tests.wave100c_kit import three
+
+    s = three(cards, ["Grizzly Bears", "Hill Giant"], ["Suppressor Skyguard"], [])
+    bears, giant = put(s, "Grizzly Bears"), put(s, "Hill Giant")
+    put(s, "Suppressor Skyguard", "p2")
+    for c in (bears, giant):
+        s.state.rules.controlled_since[c.id].turn = 0
+    act(s, "p1", type="pass_priority")
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": bears.id, "target": "p2"},
+                                                      *([{"card_id": giant.id, "target": "p3"}] if also_carol else [])])
+    for _ in range(40):
+        if s.state.turn.phase == "main2":
+            break
+        d = s.state.rules.decision
+        if d is not None and d.kind == "declare_blockers":
+            act(s, d.player, type="declare_blockers", blocks=[])
+        elif d is not None:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: max(1, d.min_choices)])
+        else:
+            act(s, s.state.rules.priority, type="pass_priority")
+    assert s.state.players["p2"].life == bob_life  # (Grizzly Bears deals 2)
+    assert s.state.players["p3"].life == (37 if also_carol else 40)
     check(s)

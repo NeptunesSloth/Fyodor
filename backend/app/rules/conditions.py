@@ -1633,6 +1633,10 @@ def holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
         from app.rules import triggers100a
 
         return triggers100a.holds(plan, ctx, cond)
+    if cond.get("skyguard110b"):  # -- wave 110B --
+        from app.rules import wave110b_cards
+
+        return wave110b_cards.skyguard_holds(plan, ctx)
     if cond.get('attack_pair_players86') or cond.get('attack_other_exact86'):
         from app.rules import attack_subjects86
 
