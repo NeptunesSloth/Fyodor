@@ -58,6 +58,40 @@ EXTRA = [
        "each {G/P} paid with life, this planeswalker enters with two fewer loyalty counters.)\n+1: Create an X/X green Phyrexian Horror creature token, "
        "where X is Nissa's loyalty.\n−1: Destroy target artifact or enchantment.\n−7: Until end of turn, creatures you control get +1/+1 for each "
        "Forest you control and gain trample.", colors="G", loyalty="7", keywords=["Compleated"]),
+    rc('Descend upon the Sinful', '{4}{W}{W}', 6, 'Sorcery', 'Exile all creatures.\nDelirium — Create a 4/4 white Angel creature token with flying if there are '
+       'four or more card types among cards in your graveyard.', colors='W', keywords=['Delirium']),
+    rc('Hymn of the Faller', '{1}{B}', 2, 'Sorcery', 'Surveil 1, then you draw a card and lose 1 life. (To surveil 1, look at the top card of your library. '
+       'You may put it into your graveyard.)\nVoid — If a nonland permanent left the battlefield this turn or a spell was warped this turn, draw another '
+       'card.', colors='B', keywords=['Surveil', 'Void']),
+    rc('Blood for Bones', '{3}{B}', 4, 'Sorcery', 'As an additional cost to cast this spell, sacrifice a creature.\nReturn a creature card from your '
+       'graveyard to the battlefield, then return another creature card from your graveyard to your hand.', colors='B'),
+    rc('Under the Skin', '{2}{G}', 3, 'Sorcery', "Manifest dread. (Look at the top two cards of your library. Put one onto the battlefield face down as a "
+       "2/2 creature and the other into your graveyard. Turn it face up any time for its mana cost if it's a creature card.)\nYou may return a permanent "
+       "card from your graveyard to your hand.", colors='G', keywords=['Manifest', 'Manifest dread']),
+    card("Startled Awake // Persistent Nightmare", set_code="tst", number="100M-startled", layout="transform", mana_cost=None, cmc=4.0,
+         type_line="Sorcery // Creature — Nightmare", colors=["U"], color_identity=["U"], image_uris=None, card_faces=[
+             {"object": "card_face", "name": "Startled Awake", "mana_cost": "{2}{U}{U}", "type_line": "Sorcery", "colors": ["U"],
+              "oracle_text": "Target opponent mills thirteen cards.\n{3}{U}{U}: Put this card from your graveyard onto the battlefield transformed. "
+                             "Activate only as a sorcery."},
+             {"object": "card_face", "name": "Persistent Nightmare", "mana_cost": "", "type_line": "Creature — Nightmare", "colors": ["U"],
+              "oracle_text": "Skulk (This creature can't be blocked by creatures with greater power.)\nWhen this creature deals combat damage to a "
+                             "player, return it to its owner's hand.", "power": "1", "toughness": "1"}]),
+    rc('Malicious Affliction', '{B}{B}', 2, 'Instant', 'Morbid — When you cast this spell, if a creature died this turn, you may copy Malicious Affliction '
+       'and may choose a new target for the copy.\nDestroy target nonblack creature.', colors='B', keywords=['Morbid']),
+    rc('Bygone Marvels', '{G}{G}', 2, 'Sorcery', 'Descend 8 — When you cast this spell, if there are eight or more permanent cards in your graveyard, copy '
+       'this spell twice. You may choose new targets for the copies.\nReturn target permanent card from your graveyard to your hand. Exile Bygone '
+       'Marvels.', colors='G', keywords=['Descend']),
+    rc('Icebreaker Kraken', '{10}{U}{U}', 12, 'Snow Creature — Kraken', "Affinity for snow lands (This spell costs {1} less to cast for each snow land you "
+       "control.)\nWhen this creature enters, artifacts and creatures target opponent controls don't untap during that player's next untap step.\n"
+       "Return three snow lands you control to their owner's hand: Return this creature to its owner's hand.", ('8', '8'), colors='U', keywords=['Affinity']),
+    rc('Risk Factor', '{2}{R}', 3, 'Instant', "Target opponent may have Risk Factor deal 4 damage to them. If that player doesn't, you draw three cards.\n"
+       "Jump-start (You may cast this card from your graveyard by discarding a card in addition to paying its other costs. Then exile this card.)",
+       colors='R', keywords=['Jump', 'Jump-start']),
+    rc('Dark Dabbling', '{2}{B}', 3, 'Instant', 'Regenerate target creature. Draw a card. (The next time the creature would be destroyed this turn, instead '
+       'tap it, remove it from combat, and heal all damage on it.)\nSpell mastery — If there are two or more instant and/or sorcery cards in your '
+       'graveyard, also regenerate each other creature you control.', colors='B', keywords=['Heal', 'Regenerate', 'Spell mastery']),
+    rc('Savage Punch', '{1}{G}', 2, 'Sorcery', "Target creature you control fights target creature you don't control.\nFerocious — The creature you "
+       "control gets +2/+2 until end of turn before it fights if you control a creature with power 4 or greater.", colors='G', keywords=['Ferocious', 'Fight']),
 ]
 HELPERS = [
     rc("Ulamog's Crusher", "{8}", 8, "Creature — Eldrazi", "Annihilator 2 (Whenever this creature attacks, defending player sacrifices two permanents "
@@ -65,6 +99,7 @@ HELPERS = [
     rc("Shatter", "{1}{R}", 2, "Instant", "Destroy target artifact.", colors="R"),
     rc("Crucible of Worlds", "{3}", 3, "Artifact", "You may play lands from your graveyard."),
     rc("Hero's Downfall", "{1}{B}{B}", 3, "Instant", "Destroy target creature or planeswalker.", colors="B"),
+    rc('Snow-Covered Island', '', 0, 'Basic Snow Land — Island', '({T}: Add {U}.)', identity='U'),
 ]
 NAMES = [c["name"] for c in EXTRA]
 
@@ -393,4 +428,204 @@ def test_nissa_ascended_animist_ultimate_counts_forests_once(cards):
 
     plan = Plan(s.state, "p1", s.cards, None)
     assert "trample" in plan.ch(s.state.cards[bears.id]).keywords
+    check(s)
+
+
+def run(s, *picks, limit=80):
+    """Resolve everything; the n-th decision takes the options its pick names (ids, card ids or labels), else the first options."""
+    todo, seen = list(picks), []
+    for _ in range(limit):
+        d = s.state.rules.decision
+        if d is not None:
+            want = set(todo.pop(0)) if todo else set()
+            seen.append((d.kind, d.player, [(o.id, o.label) for o in d.options]))
+            ids = [o.id for o in d.options if want & {o.id, o.label, getattr(o, "card_id", None)}][: max(1, d.max_choices or 1)]
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=ids or [o.id for o in d.options][: max(1, d.min_choices)])
+        elif s.state.zones.get("stack"):
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            return seen
+    raise AssertionError(f"never settled: {seen}")
+
+
+def zone(s, c):
+    return s.state.cards[c.id].zone
+
+
+@pytest.mark.parametrize("delirium", [True, False])
+def test_descend_upon_the_sinful_counts_types_after_the_exile(cards, delirium):
+    s = build(cards, ["Descend upon the Sinful", "Grizzly Bears", "Sol Ring", "Lightning Bolt", "Ulamog's Crusher"], ["Llanowar Elves"])
+    bears, elves = put(s, "Grizzly Bears"), put(s, "Llanowar Elves", "p2")
+    for name in ("Forest", "Lightning Bolt", "Ulamog's Crusher", *(["Sol Ring"] if delirium else [])):
+        to_graveyard(s, name)  # (land, instant, creature: the spell itself doesn't count, its ruling)
+    mana(s, W=2, C=4)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Descend upon the Sinful").id)
+    run(s)
+    assert zone(s, bears) == "p1:exile" and zone(s, elves) == "p2:exile"
+    assert [c.name for c in s.state.cards.values() if c.name == "Angel" and c.zone == "p1:battlefield"] == (["Angel"] if delirium else [])
+    check(s)
+
+
+@pytest.mark.parametrize("left", [True, False])
+def test_hymn_of_the_faller_draws_another_after_a_nonland_permanent_left(cards, left):
+    s = build(cards, ["Hymn of the Faller", "Grizzly Bears", "Murder"])
+    if left:
+        mana(s, B=3)
+        act(s, "p1", type="cast_spell", card_id=to_hand(s, "Murder").id, targets=[put(s, "Grizzly Bears").id])
+        run(s)
+    hymn = to_hand(s, "Hymn of the Faller")
+    hand = len(s.state.zones["p1:hand"])
+    mana(s, B=2)
+    act(s, "p1", type="cast_spell", card_id=hymn.id)
+    run(s)
+    assert s.state.players["p1"].life == 39 and len(s.state.zones["p1:hand"]) == hand - 1 + 1 + left
+    check(s)
+
+
+def test_blood_for_bones_may_return_the_sacrificed_creature(cards):
+    s = build(cards, ["Blood for Bones", "Grizzly Bears", "Ulamog's Crusher"])
+    bears = put(s, "Grizzly Bears")
+    crusher = to_graveyard(s, "Ulamog's Crusher")
+    mana(s, B=1, C=3)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Blood for Bones").id)
+    run(s, [crusher.id])  # (the other is the only one left for the hand)
+    assert zone(s, bears) == "p1:hand" and zone(s, crusher) == "p1:battlefield"
+    check(s)
+
+
+def test_under_the_skin_may_return_the_card_the_dread_milled(cards):
+    s = build(cards, ["Under the Skin", "Grizzly Bears", "Sol Ring"])
+    skin = to_hand(s, "Under the Skin")
+    bears, ring = card_named(s, "Grizzly Bears"), card_named(s, "Sol Ring")
+    mana(s, G=1, C=2)
+    act(s, "p1", type="cast_spell", card_id=skin.id)
+    run(s, [bears.id], [ring.id])
+    assert zone(s, bears) == "p1:battlefield" and s.state.cards[bears.id].face_down and zone(s, ring) == "p1:hand"
+    check(s)
+
+
+def test_startled_awake_mills_then_returns_transformed_from_the_graveyard(cards):
+    s = build(cards, ["Startled Awake // Persistent Nightmare"])
+    awake = to_hand(s, "Startled Awake // Persistent Nightmare")
+    library = len(s.state.zones["p2:library"])
+    mana(s, U=2, C=2)
+    act(s, "p1", type="cast_spell", card_id=awake.id, targets=["p2"])
+    run(s)
+    assert len(s.state.zones["p2:library"]) == max(0, library - 13) and zone(s, awake) == "p1:graveyard"
+    mana(s, U=2, C=3)
+    act(s, "p1", type="activate_ability", card_id=awake.id, ability=1)
+    run(s)
+    a = s.state.cards[awake.id]
+    assert a.zone == "p1:battlefield" and a.face == 1
+    check(s)
+
+
+@pytest.mark.parametrize("died", [True, False])
+def test_malicious_affliction_copies_itself_only_after_a_death(cards, died):
+    s = build(cards, ["Malicious Affliction", "Murder"], ["Llanowar Elves", "Kitchen Finks", "Monastery Swiftspear"])
+    elves, finks, swift = (put(s, n, "p2") for n in ("Llanowar Elves", "Kitchen Finks", "Monastery Swiftspear"))
+    if died:
+        mana(s, B=3)
+        act(s, "p1", type="cast_spell", card_id=to_hand(s, "Murder").id, targets=[swift.id])
+        run(s)
+    mana(s, B=2)
+    act(s, "p1", type="set_prefs", hold_priority=True)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Malicious Affliction").id, targets=[elves.id])
+    assert len(s.state.zones["stack"]) == (2 if died else 1)  # (an intervening "if": no trigger at all, 603.4)
+    act(s, "p1", type="set_prefs", hold_priority=False)
+    run(s, ["yes"], [finks.id])
+    assert zone(s, elves) == "p2:graveyard"
+    f = s.state.cards[finks.id]
+    assert (f.zone != "p2:battlefield" or bool(f.counters.get("-1/-1"))) == died  # (the copy's new target; persist brings it back)
+    check(s)
+
+
+@pytest.mark.parametrize("descend", [True, False])
+def test_bygone_marvels_copies_twice_with_eight_permanent_cards(cards, descend):
+    s = build(cards, ["Bygone Marvels", "Grizzly Bears", "Sol Ring", "Opt"], forests=9)
+    gy = [card_named(s, "Grizzly Bears"), card_named(s, "Sol Ring")] + [c for c in s.state.cards.values() if c.name == "Forest" and c.owner == "p1"][:5 + descend]
+    for c in gy:
+        act(s, "p1", type="move", card_ids=[c.id], to={"zone": "graveyard"})
+    to_graveyard(s, "Opt")  # (an instant: not a permanent card)
+    marvels = to_hand(s, "Bygone Marvels")
+    mana(s, G=2)
+    act(s, "p1", type="set_prefs", hold_priority=True)
+    act(s, "p1", type="cast_spell", card_id=marvels.id, targets=[gy[0].id])
+    assert len(s.state.zones["stack"]) == (2 if descend else 1)  # (603.4: no trigger with seven)
+    act(s, "p1", type="set_prefs", hold_priority=False)
+    run(s, ["choose"], [gy[1].id], [gy[2].id])
+    back = [c for c in gy if zone(s, c) == "p1:hand"]
+    assert len(back) == (3 if descend else 1) and zone(s, marvels) == "p1:exile"
+    check(s)
+
+
+def test_icebreaker_kraken_costs_less_per_snow_land_and_freezes_artifacts_and_creatures(cards):
+    s = build(cards, ["Icebreaker Kraken", *["Snow-Covered Island"] * 1], ["Sol Ring", "Llanowar Elves", "Island"])
+    snow = card_named(s, "Snow-Covered Island")
+    act(s, "p1", type="move", card_ids=[snow.id], to={"player": "p1", "zone": "battlefield"})
+    act(s, "p1", type="tap", card_ids=[snow.id])  # (tapped, it still counts: "each snow land you control")
+    ring, elves, island = put(s, "Sol Ring", "p2"), put(s, "Llanowar Elves", "p2"), put(s, "Island", "p2")
+    act(s, "p2", type="tap", card_ids=[ring.id, elves.id, island.id])
+    mana(s, U=2, C=9)  # ({10}{U}{U}, one snow land: {1} less)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Icebreaker Kraken").id)
+    run(s, ["p2"])
+    assert s.state.cards[card_named(s, "Icebreaker Kraken").id].zone == "p1:battlefield"
+    to_next_turn(s)
+    assert s.state.turn.active_player == "p2"
+    assert s.state.cards[ring.id].tapped and s.state.cards[elves.id].tapped and not s.state.cards[island.id].tapped
+    check(s)
+
+
+def three(cards, mine=()):
+    from app.game.factory import PlayerSetup, new_game
+    from app.game.session import GameSession
+    from tests.game_helpers import deck, enable
+
+    alice = deck(cards, "Krenko, Mob Boss", [*((1, n) for n in mine), (10, "Mountain")])
+    bob = deck(cards, "Atraxa, Praetors' Voice", [(10, "Island")])
+    carol = deck(cards, "Atraxa, Praetors' Voice", [(10, "Island")])
+    s = GameSession(enable(new_game([PlayerSetup("Alice", cards=alice), PlayerSetup("Bob", cards=bob), PlayerSetup("Carol", cards=carol)],
+                                    shuffle=False)), cards=cards)
+    act(s, "p1", type="pass_priority")
+    return s
+
+
+@pytest.mark.parametrize("take", [True, False])
+def test_risk_factor_asks_only_the_target_opponent(cards, take):
+    s = three(cards, ["Risk Factor"])
+    risk = to_hand(s, "Risk Factor")
+    hand = len(s.state.zones["p1:hand"])
+    mana(s, R=1, C=2)
+    act(s, "p1", type="cast_spell", card_id=risk.id, targets=["p3"])
+    seen = run(s, ["pay" if take else "decline"])
+    assert [p for _, p, _ in seen] == ["p3"]
+    assert s.state.players["p3"].life == (36 if take else 40) and len(s.state.zones["p1:hand"]) == hand - 1 + (0 if take else 3)
+    check(s)
+
+
+@pytest.mark.parametrize("mastery", [True, False])
+def test_dark_dabbling_also_shields_each_other_creature_with_spell_mastery(cards, mastery):
+    s = build(cards, ["Dark Dabbling", "Grizzly Bears", "Llanowar Elves", "Lightning Bolt", "Opt"], ["Kitchen Finks"])
+    bears, elves, finks = put(s, "Grizzly Bears"), put(s, "Llanowar Elves"), put(s, "Kitchen Finks", "p2")
+    if mastery:
+        to_graveyard(s, "Lightning Bolt")
+        to_graveyard(s, "Opt")
+    mana(s, B=1, C=2)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Dark Dabbling").id, targets=[bears.id])
+    run(s)
+    shields = {c.name: s.state.rules.regen_shields.get(s.state.rules.object_id(c.id), 0) for c in (bears, elves, finks)}
+    assert shields == {"Grizzly Bears": 1, "Llanowar Elves": 1 if mastery else 0, "Kitchen Finks": 0}  # (the target once: "each other")
+    check(s)
+
+
+@pytest.mark.parametrize("ferocious", [True, False])
+def test_savage_punch_pumps_before_the_fight_with_ferocious(cards, ferocious):
+    s = build(cards, ["Savage Punch", "Grizzly Bears", "Twisted Abomination"], ["Hundred-Talon Kami"])
+    bears, kami = put(s, "Grizzly Bears"), put(s, "Hundred-Talon Kami", "p2")
+    if ferocious:
+        put(s, "Twisted Abomination")
+    mana(s, G=1, C=1)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Savage Punch").id)
+    run(s, [bears.id], [kami.id])
+    assert zone(s, bears) == ("p1:battlefield" if ferocious else "p1:graveyard") and zone(s, kami) == ("p2:graveyard" if ferocious else "p2:battlefield")
     check(s)

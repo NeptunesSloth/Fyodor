@@ -37,6 +37,10 @@ def parse(body: str, it: str | None, event_player: bool) -> tuple[list[dict[str,
 
 
 def start(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    if e["who"] == "target":  # -- multi (wave 100M) -- "Target opponent may have ~ deal 4 damage to them." (Risk Factor): that player alone
+        from app.rules import effects
+
+        return _ask(plan, ctx, e, effects._players(plan, ctx, "target")[:1], [])
     players = [p for p in plan.apnap() if e["who"] == "player" or p != ctx["controller"]]
     return _ask(plan, ctx, e, players, [])
 

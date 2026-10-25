@@ -2957,6 +2957,8 @@ def affinity_pred(what: str) -> Any:
         return lambda c, _card: "Legendary" in c.supertypes or "Artifact" in c.types or "Saga" in c.subtypes
     if what == "outlaws":
         return lambda c, _card: bool(OUTLAWS & set(c.subtypes))
+    if what == "snow lands":  # -- multi (wave 100M) -- Icebreaker Kraken (205.4a: snow is a supertype)
+        return lambda c, _card: "Snow" in c.supertypes and "Land" in c.types
     from app.rules.creature_types import CREATURE_TYPES
     from app.rules.protection import _PLURALS
     from app.rules.selectors import _IRREGULAR
