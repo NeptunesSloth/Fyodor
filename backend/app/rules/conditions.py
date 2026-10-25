@@ -1622,6 +1622,10 @@ def holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
         from app.rules import counters100j
 
         return counters100j.holds(plan, ctx, cond)
+    if "ring110d" in cond:  # -- lines (wave 110D) -- the Ring has tempted you N or more times
+        from app.rules import wave110d_lines
+
+        return wave110d_lines.holds(plan, ctx, cond)
     if cond.get("frodo100h") or cond.get("flurry100h"):  # -- turn state (wave 100H) --
         from app.rules import turnstate100h
 

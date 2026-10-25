@@ -19,6 +19,10 @@ _AS: dict[str, str] = {
         "{T}: Target opponent gains control of ~. When you do, draw two cards and put a quest counter on ~. Activate only during your turn.",
     "When ~ leaves the battlefield, its owner creates a tapped 1/1 white Soldier creature token for each quest counter on it.":
         "When ~ leaves the battlefield, create a tapped 1/1 white Soldier creature token for each quest counter on it.",
+    # Frodo, Sauron's Bane (the quoted ability, 113.10): 701.54c the count of times the Ring tempted its controller decides which sentence is followed
+    # (the conditional "loses the game if" / "Otherwise" is built in definition)
+    "Whenever ~ deals combat damage to a player, that player loses the game if the Ring has tempted you four or more times this game. Otherwise, the Ring tempts you.":
+        "Whenever ~ deals combat damage to a player, that player loses the game.",
     # Shallow Grave: 404.1 the top card of a graveyard is the last one put there; it is not a target (patched in definition)
     "Return the top creature card of your graveyard to the battlefield. That creature gains haste until end of turn. Exile it at the beginning of the next end step.":
         "Return target creature card from your graveyard to the battlefield. That creature gains haste until end of turn. Exile it at the beginning of the next end step.",
@@ -122,6 +126,10 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
         d["cond"]["turner110d"] = "you"  # (triggers.py)
     if d is not None and text.startswith("When ~ leaves the battlefield, its owner creates a tapped"):
         d["effects"][0]["who"] = "ref:event.owner"  # (as the native "its owner creates")
+    if d is not None and text.endswith("Otherwise, the Ring tempts you."):  # (Frodo: lose the game at the fourth temptation or after, else tempt)
+        lose = d["effects"][0]
+        d["effects"] = [{"do": "only_if", "cond": {"ring110d": 4}, "skip": 1}, lose,
+                        {"do": "only_if", "cond": {"not": {"ring110d": 4}}, "skip": 1}, {"do": "ring_tempts", "who": "you"}]
     if d is not None and text.endswith("it enters tapped and attacking."):
         d["effects"][0]["tap_atk110d"] = "Enchantment"
     return d
@@ -178,3 +186,10 @@ def share_counters(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
 
 
 PRIMITIVES = {"share_counters110d": share_counters, "draw_gained110d": draw_gained, "top_creature110d": top_creature}
+
+
+def holds(plan: Any, ctx: dict[str, Any], cond: dict[str, Any]) -> bool:
+    """701.54c: the Ring has tempted the ability's controller N or more times."""
+    from app.rules import designations
+
+    return designations.ring_level(plan, ctx["controller"]) >= cond["ring110d"]
