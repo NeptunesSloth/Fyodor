@@ -1805,6 +1805,7 @@ def generic_combat(plan: Plan, event: str, cards: list[CardInstance],
             if direct:
                 g["direct"].append(c.id)
         for c in cards:  # -- trigger lines (wave 110F) -- 508.3a: "attacks a planeswalker you control": once for each planeswalker attacked
+            # 603.2c: an ability can trigger repeatedly if one event (one attack declaration) contains multiple occurrences, so one fact per planeswalker.
             pw = plan.state.cards.get(c.attacking.id) if c.attacking is not None and c.attacking.kind != "player" else None
             if pw is not None and "Planeswalker" in plan.ch(pw).types and not any(f[4].get("pw") == pw.id for f in facts):
                 ids = [x.id for x in cards if x.attacking is not None and x.attacking.id == pw.id]
