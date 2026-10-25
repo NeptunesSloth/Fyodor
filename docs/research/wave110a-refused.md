@@ -25,3 +25,9 @@
 - Spin into Myth: fateseal 2 (look at 2 of an opponent's library, order) has no primitive; only fateseal 1 exists (static_perm100d).
 - Zombie Scavengers: "top creature card of your graveyard" cost needs graveyard order handling beyond fixed_top_graveyard_cost46.
 - Frenzied Saddlebrute: haste-for-attacking limited to opponents/their planeswalkers; attack_as_haste rule has no target scope.
+- The Valeyard: 701.55c extra villainous choice would need every villainous implementation (villainous.py, exile_outcomes42 Mara, exile_cast_outcomes45, xdamage100e) to honor it; a partial hook would be wrong.
+- Tectonic Split: sacrifice half the lands as a spell additional cost needs the count bound at cast time; spell_additional_cost has no state and ~12 call sites.
+- Zilortha, Strength Incarnate: lethal damage by power touches sba 704.5g and combat lethal assignment; no ruling text in repo to settle 0-power and damage-with-no-toughness edges.
+- Ward of Bones: three conditional spell bans plus a land-play ban; needs a "controls more X than you" player condition (cast_limits _when_ok now has a hook for it).
+- Konda's Banner: attach restriction plus two "shares a color/creature type with equipped creature" anthems; selector has no equipped-relative share.
+- Squandered Resources: LKI of the sacrificed land inside a mana ability (already refused in wave 100).
