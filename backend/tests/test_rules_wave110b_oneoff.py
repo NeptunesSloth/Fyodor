@@ -18,7 +18,7 @@ def cards(settings):
     yield from repository(settings)
 
 
-@pytest.mark.parametrize("name", ["Prince of Thralls", "Oath of Lim-Dûl", "Chaos Lord", "Divine Intervention", "Herald of Anafenza", "Guardian of New Benalia", "Aloe Alchemist", "Parapet Thrasher", "Bane of the Living", "Warbreak Trumpeter", "Kadena's Silencer", "Longhorn Sharpshooter"])
+@pytest.mark.parametrize("name", ["Prince of Thralls", "Oath of Lim-Dûl", "Chaos Lord", "Divine Intervention", "Herald of Anafenza", "Guardian of New Benalia", "Aloe Alchemist", "Parapet Thrasher", "Bane of the Living", "Warbreak Trumpeter", "Kadena's Silencer", "Longhorn Sharpshooter", "Plague Reaver"])
 def test_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
@@ -276,3 +276,32 @@ def test_kadenas_silencer_counters_an_opponents_ability_on_the_stack(cards):
     assert s.state.cards[herald.id].counters.get("+1/+1") == 1
     check(s)
 
+
+
+def test_plague_reaver_returns_under_the_chosen_opponent(cards):
+    """Plague Reaver: 701.21a end-step sacrifice of the other creatures; 603.7 delayed return at that player's next upkeep under their control (110.2a)."""
+    s = build(cards, ["Plague Reaver", "Grizzly Bears", "Forest", "Forest"], [])
+    reaver = put(s, "Plague Reaver")
+    bears = put(s, "Grizzly Bears")
+    for f in [c.id for c in s.state.cards.values() if c.name == "Forest" and c.zone == "p1:library"]:
+        act(s, "p1", type="move", card_ids=[f], to={"player": "p1", "zone": "hand"})
+    act(s, "p1", type="activate_ability", card_id=reaver.id, ability=1, targets=["p2"])
+    drive(s, lambda d: [o.id for o in d.options][:2])
+    assert s.state.cards[reaver.id].zone == "p1:graveyard"
+    from tests.test_rules_conditionals import until
+
+    until(s, lambda s: s.state.cards[reaver.id].zone.endswith(":battlefield"))
+    assert s.state.cards[reaver.id].zone == "p2:battlefield"
+    assert s.state.cards[bears.id].zone == "p1:battlefield"
+    check(s)
+
+
+def test_plague_reaver_end_step_sacrifices_each_other_creature(cards):
+    """701.21a: at its controller's end step every other creature that player controls is sacrificed, the Reaver stays."""
+    from tests.test_rules_conditionals import until
+
+    s = build(cards, ["Plague Reaver", "Grizzly Bears"], [])
+    reaver, bears = put(s, "Plague Reaver"), put(s, "Grizzly Bears")
+    until(s, lambda s: s.state.cards[bears.id].zone == "p1:graveyard")
+    assert s.state.cards[reaver.id].zone == "p1:battlefield"
+    check(s)

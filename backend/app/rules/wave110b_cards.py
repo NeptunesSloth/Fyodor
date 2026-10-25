@@ -6,6 +6,7 @@ unsupported. Researched against the Comprehensive Rules of 2026-09-25.
 from __future__ import annotations
 
 import re
+import secrets
 from collections.abc import Callable
 from dataclasses import replace
 from typing import Any
@@ -22,6 +23,9 @@ def firebending(line: str) -> int | None:
 
 # whole ability text -> the wording the grammar reads for it
 _AS: dict[str, str] = {
+    # Plague Reaver: "each other creature you control" is "all other creatures you control" (701.21a)
+    "At the beginning of your end step, sacrifice each other creature you control.":
+        "At the beginning of your end step, sacrifice all other creatures you control.",
     # Ran and Shaw: one object with a plural name (201.5); "Dragon and/or Lesson" is a card with either subtype
     "When Ran and Shaw enter, if you cast them and there are three or more Dragon and/or Lesson cards in your graveyard, create a token that's a copy "
     "of Ran and Shaw, except it's not legendary.":
@@ -47,6 +51,10 @@ def _gated(n: int) -> Callable[[Def], Def]:
     return lambda d: {**d, "effects": [{**e, "n": n} if e["do"] == "kicked_gate" else e for e in d["effects"]]}
 
 
+def _reaver(d: Def) -> Def:
+    return {**d, "effects": [{"do": "reaver110b"}]}
+
+
 # whole ability text -> (the wording the grammar reads, what to change in its definition)
 _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
     # Perch Protection: all three instructions are conditional on the promised gift (608.2c: one sentence)
@@ -62,6 +70,10 @@ _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
     "Whenever you lose life, for each 1 life you lost, sacrifice a permanent other than this enchantment unless you discard a card.":
         ("Whenever you lose life, sacrifice a permanent other than this enchantment unless you discard a card.",
          lambda d: {**d, "effects": [{"do": "repeat", "n": {"event_amount": 1}, "span": len(d["effects"])}, *d["effects"]]}),
+    # Plague Reaver: the chosen opponent's next upkeep returns the sacrificed card under that player's control (603.7, 110.2a)
+    "Discard two cards, Sacrifice this creature: Choose target opponent. Return this creature to the battlefield under that player's control at the "
+    "beginning of their next upkeep.":
+        ("Discard two cards, Sacrifice this creature: Target opponent gains 1 life.", _reaver),
     # Divine Intervention: the effect states that the game is a draw (104.4c)
     "When you remove the last intervention counter from this enchantment, the game is a draw.":
         ("When the last intervention counter is removed from this enchantment, draw a card.",
@@ -123,4 +135,27 @@ def draw_game(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return False
 
 
-PRIMITIVES: dict[str, Any] = {"draw_game110b": draw_game}
+def reaver(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Plague Reaver: delayed trigger (603.7a) at the chosen opponent's next upkeep returns the sacrificed card (still the same object, 603.7c) to the
+    battlefield under that opponent's control (110.2a)."""
+    from app.game.rules_state import DelayedTrigger
+    from app.rules import context
+    from app.rules.effects import _players
+
+    who = _players(plan, ctx, "target")
+    card = ctx.get("source_card")
+    if len(who) != 1 or card is None or plan.state.cards[card].zone.endswith(":battlefield"):
+        return True
+    refs: dict[str, Any] = {}
+    context.bind_objects(plan, {"refs": refs}, "reaver", [card])
+    context.bind_players({"refs": refs}, "opp", who)
+    plan.rules.delayed.append(DelayedTrigger(
+        id=secrets.token_hex(4), controller=ctx["controller"], source_card=card, source_object=ctx.get("source_object"), name=ctx.get("name") or "",
+        when={"kind": "step", "step": "upkeep", "whose": "payer", "player": who[0]},
+        effects=[{"do": "return_card", "who": "ref:reaver", "to": "battlefield", "tapped": False, "under": "ref:opp"}], refs=refs,
+        turn=plan.state.turn.number, step=plan.state.turn.phase, created_step=plan.rules.step_serial))
+    plan.note(f"{ctx.get('name')} will return at {who[0]}'s next upkeep")
+    return True
+
+
+PRIMITIVES: dict[str, Any] = {"draw_game110b": draw_game, "reaver110b": reaver}
