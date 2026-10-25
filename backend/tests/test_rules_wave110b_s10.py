@@ -14,7 +14,7 @@ import pytest
 from app.rules import coverage
 from tests.game_helpers import act
 from tests.test_rules_wave30m_durations import to_phase
-from tests.wave110b_kit import build, card_named, cast, check, drive, mana, put, repository, to_hand
+from tests.wave110b_kit import build, cast, check, drive, mana, put, repository, to_hand
 
 
 @pytest.fixture()
