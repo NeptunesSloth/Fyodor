@@ -11,10 +11,21 @@ from __future__ import annotations
 
 import pytest
 
+from app.game.errors import ActionError
 from app.rules import coverage
 from tests.game_helpers import act
 from tests.test_rules_wave30m_durations import to_phase
-from tests.wave110b_kit import build, cast, check, drive, mana, put, repository, to_hand
+from tests.wave110b_kit import (
+    build,
+    card_named,
+    cast,
+    check,
+    drive,
+    mana,
+    put,
+    repository,
+    to_hand,
+)
 
 
 @pytest.fixture()
@@ -22,7 +33,7 @@ def cards(settings):
     yield from repository(settings)
 
 
-@pytest.mark.parametrize("name", ["Flameblade Angel", "Equal Treatment", "Archfiend of Spite", "Elderscale Wurm", "Soulfire Grand Master", "Taii Wakeen, Perfect Shot"])
+@pytest.mark.parametrize("name", ["Flameblade Angel", "Equal Treatment", "Archfiend of Spite", "Elderscale Wurm", "Soulfire Grand Master", "Taii Wakeen, Perfect Shot", "Songcrafter Mage"])
 def test_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
@@ -174,4 +185,23 @@ def test_taii_wakeen_x_adds_to_noncombat_damage(cards):
     act(s, "p1", type="cast_spell", card_id=to_hand(s, "Lightning Bolt").id, targets=["p2"])
     drive(s)
     assert s.state.players["p2"].life == 35  # 3 + X(2)
+    check(s)
+
+
+def test_songcrafter_mage_gives_harmonize_at_the_mana_cost_for_the_turn(cards):
+    """611.2a, 702.180a: the instant in the graveyard gains harmonize (cost = its mana cost) until end of turn; cast that way it is exiled."""
+    s = build(cards, ["Songcrafter Mage", "Lightning Bolt"], [])
+    bolt = card_named(s, "Lightning Bolt")
+    act(s, "p1", type="move", card_ids=[bolt.id], to={"player": "p1", "zone": "graveyard"})
+    with pytest.raises(ActionError):  # no harmonize yet: a graveyard instant can't be cast
+        mana(s, "p1", R=1)
+        act(s, "p1", type="cast_spell", card_id=bolt.id, targets=["p2"])
+    mana(s, "p1", G=1, U=1, R=1)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Songcrafter Mage").id)
+    drive(s, lambda d: [bolt.id] if bolt.id in {o.id for o in d.options} else None)
+    mana(s, "p1", R=1)
+    act(s, "p1", type="cast_spell", card_id=bolt.id, targets=["p2"], cost_choices=[{"component": 0, "cards": []}])
+    drive(s)
+    assert s.state.players["p2"].life == 37
+    assert s.state.cards[bolt.id].zone == "p1:exile"
     check(s)
