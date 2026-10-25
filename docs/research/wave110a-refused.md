@@ -31,3 +31,7 @@
 - Ward of Bones: three conditional spell bans plus a land-play ban; needs a "controls more X than you" player condition (cast_limits _when_ok now has a hook for it).
 - Konda's Banner: attach restriction plus two "shares a color/creature type with equipped creature" anthems; selector has no equipped-relative share.
 - Squandered Resources: LKI of the sacrificed land inside a mana ability (already refused in wave 100).
+- Leyline of Transformation: "As this enters, choose a creature type" from the opening hand needs a pending choice in the pregame (opening_hand.act raises if enter asks); foundation, skipped.
+- Tectonic Split: additional cost "sacrifice half the lands you control, rounded up" is a variable mandatory cost (no CostComponent amount from a count); skipped.
+- Frenzied Saddlebrute: haste "as attacking your opponents" needs the defender in combat.attack_problem (not passed); skipped.
+- Hatchery Sliver, Ian Chesterton (and Djinn Illuminatus, Threefold Signal): granted replicate needs kicker machinery (casting.kicker_cost reads ch.abilities) fed from a layer grant on spells in hand; foundation, skipped.

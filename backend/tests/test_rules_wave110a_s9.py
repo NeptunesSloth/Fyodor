@@ -201,7 +201,7 @@ test_full_antics = full_test([ANTICS])
 def test_asinine_antics_cursed_role_on_each_creature_your_opponents_control(cards, flash):
     """303.7 / 111.1: a Cursed Role (enchanted creature is 1/1) for each opposing creature, none for your own; with flash only if {2} more is paid."""
     s = build(cards, [ANTICS, "Grizzly Bears"], ["Grizzly Bears", "Hill Giant"])
-    mine, a, b = put(s, "Grizzly Bears"), put(s, "Grizzly Bears", "p2"), put(s, "Hill Giant", "p2")
+    put(s, "Grizzly Bears"), put(s, "Grizzly Bears", "p2"), put(s, "Hill Giant", "p2")
     stops(s)
     if flash:
         to_phase(s, "upkeep", turn=2)
@@ -211,4 +211,29 @@ def test_asinine_antics_cursed_role_on_each_creature_your_opponents_control(card
     cast(s, ANTICS, extra="{2}" if flash else "")
     answer(s)
     assert pt(s, "Grizzly Bears", "p2") == (1, 1) and pt(s, "Hill Giant", "p2") == (1, 1) and pt(s, "Grizzly Bears") == (2, 2)
+    check(s)
+
+
+BANNER = "Konda's Banner"
+test_full_banner = full_test([BANNER])
+
+
+def test_konda_banner_attaches_only_to_a_legendary_creature_and_pumps_those_sharing_a_color_or_type(cards):
+    """301.5c / 704.5n: not onto a nonlegendary creature. 105.2 / 205.3m: +1/+1 per shared color and per shared creature type with the host."""
+    from tests.test_rules_conditionals import token_of
+    from tests.test_rules_wave100d_static_perm import equip
+
+    s = build(cards, [BANNER])
+    banner = put(s, BANNER)
+    host = token_of(s, "p1", "Hostess", "Legendary Token Creature — Human Soldier", "2/2", colors=["R"])
+    plain = token_of(s, "p1", "Plain", "Token Creature — Human Soldier", "2/2", colors=["G"])
+    token_of(s, "p1", "Redgob", "Token Creature — Goblin", "2/2", colors=["R"])
+    token_of(s, "p1", "Both", "Token Creature — Human Soldier", "2/2", colors=["R"])
+    token_of(s, "p1", "Elfy", "Token Creature — Elf", "2/2", colors=["U"])
+    equip(s, banner, 3, plain, C=2)
+    assert s.state.cards[banner.id].attached_to is None  # (not legendary)
+    assert pt(s, "Plain") == (2, 2) and pt(s, "Both") == (2, 2)
+    equip(s, banner, 3, host, C=2)
+    assert s.state.cards[banner.id].attached_to == host.id
+    assert [pt(s, n) for n in ("Hostess", "Plain", "Redgob", "Both", "Elfy")] == [(4, 4), (3, 3), (3, 3), (4, 4), (2, 2)]
     check(s)

@@ -1110,6 +1110,11 @@ def _shares_type_source(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, extras=(*s.extras, "shares_type_source"))
 
 
+@_suffix(r"that shares? a (?P<k>color|creature type) with equipped creature")  # -- wave 110A -- Konda's Banner: the creature this Equipment is attached to
+def _shares_host(s: Selector, m: re.Match[str]) -> Selector:
+    return replace(s, extras=(*s.extras, "shares_" + ("color" if m["k"] == "color" else "type") + "_host110a"))
+
+
 @_suffix(r"that shares a creature type with your commander")
 def _shares_commander_type(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, extras=(*s.extras, "shares_commander_type"))
@@ -2754,6 +2759,14 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
             src = plan.state.cards.get(source or "")
             # ponytail: the source's current characteristics, not last-known information (no subtypes are stored in the LKI snapshot)
             if src is None or not (ch.subtypes & plan.ch(src).subtypes & CREATURE_TYPES):
+                return False
+        if extra in ("shares_color_host110a", "shares_type_host110a"):  # -- wave 110A -- 105.2 / 205.3m: in common with the creature the source is attached to
+            from app.rules.creature_types import CREATURE_TYPES
+
+            src = plan.state.cards.get(source or "")
+            host = plan.state.cards.get(src.attached_to or "") if src is not None else None
+            if host is None or not ((ch.colors & plan.ch(host).colors) if extra == "shares_color_host110a"
+                                    else (ch.subtypes & plan.ch(host).subtypes & CREATURE_TYPES)):
                 return False
         if extra == 'double_faced_permanent66':
             from app.rules import tetzin_double_face66
