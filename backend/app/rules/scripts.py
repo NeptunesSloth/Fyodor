@@ -2665,6 +2665,10 @@ def _sacrifice_count_sequence(body: str) -> tuple[list[dict[str, Any]], Any, boo
 
 
 def parse_effects(body: str, it: str | None = None, *, event_player: bool = False) -> tuple[list[dict[str, Any]], Any, bool] | None:
+    from app.rules import wave110c_core  # -- exact wordings (wave 110C) --
+
+    if (body110c := wave110c_core.parse(body)) is not None:
+        return body110c
     from app.rules import sticker_effects101
 
     if (sticker101 := sticker_effects101.parse(body, it)) is not None:
@@ -4680,6 +4684,10 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
             # (after anything but a plain counter: other readers, e.g. unless_pays (wave 4C), or manual)
             effects[-1] = {**effects[-1], "to": "choice_you" if dest["choice"] else "exile" if dest["exile"] else "hand" if dest["hand"] else ("top" if dest["top"] else "bottom")}
             continue
+        if text == "if an artifact or creature spell is countered this way, put that card onto the battlefield under your control instead of into its owner's graveyard" \
+                and len(effects) - prev_start == 1 and effects[-1]["do"] == "counter" and "to" not in effects[-1]:  # -- counter outcomes (wave 110C) -- Desertion
+            effects[-1] = {**effects[-1], "to": "battlefield_you", "types": ["Artifact", "Creature"]}
+            continue
         text = _for_each_this_way(text)  # -- "this way" outcomes (wave 4A) --
         from app.rules import (
             chain_spells,  # -- chain spells (wave 52C) -- "that player may pay {R}{R}. If the player does, they may copy this spell …"
@@ -5895,6 +5903,10 @@ def _first_time_gate(text: str) -> str:
 
 def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     """The engine definition of one ability, or None (manual)."""
+    from app.rules import wave110c_core  # -- whole abilities (wave 110C) --
+
+    if (whole110c := wave110c_core.definition(ability, ch)) is not None:
+        return whole110c
     from app.rules import sticker_riders102
 
     if (rider102 := sticker_riders102.definition(ability, ch)) is not None:

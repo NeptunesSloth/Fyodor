@@ -64,6 +64,10 @@ def parse(text: str, *, objects: bool = False) -> Condition | None:
     refers to ("it's a land card", "~ is tapped") — only for wording inside an ability's effects or
     trigger, which has those objects (statics and restrictions don't)."""
     t = text.strip().rstrip(",").replace("’", "'")
+    from app.rules import wave110c_history  # -- turn history (wave 110C) --
+
+    if (hist110c := wave110c_history.condition(t)) is not None:
+        return hist110c
     if t.lower() == 'you control a stickered permanent':
         return {'stickered_you101': True}
     from app.rules import damage_retention83

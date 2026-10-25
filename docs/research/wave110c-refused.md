@@ -1,0 +1,2 @@
+- Scorched Ruins, Lotus Vale: enter_cost.py answers one object; "sacrifice two untapped lands instead" needs a multi-object entering answer (foundation not built).
+- SOLDIER Military Program: "each of up to two Soldiers you control" is a resolution-time choice, no non-target "up to N" pick primitive; targeting would be wrong.

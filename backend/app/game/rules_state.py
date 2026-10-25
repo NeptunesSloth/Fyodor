@@ -840,6 +840,7 @@ class PhaseLifetime(BaseModel):
 
     source: ObjectRef
     recipients: list[ObjectRef] = Field(default_factory=list)
+    tap_on_return: bool = False  # Oubliette: tapped as it phases in
 
 
 class CostReveal(BaseModel):
