@@ -1,0 +1,6 @@
+- Needle Drop: "any target that was dealt damage this turn" needs player damage history as a target filter (damage_history.matches is object-only).
+- Squandered Resources: mana type depends on the land sacrificed as a hand-chosen cost (cost_payment would need to hand its LKI to the mana ability).
+- Hellish Rebuke: granted trigger with "You lose 2 life" where "you" must stay the spell's caster, not the permanent's controller.
+- Dragon's Fire: optional additional cost "reveal a Dragon or choose a Dragon" with the revealed/chosen object's power read later.
+- Uphill Battle: "Creatures played by your opponents enter tapped" needs a cast-by-opponent condition on entry (not "controlled by").
+- Asinine Antics: "flash if you pay {2} more" has no foundation (conditional extra cost at cast time).
