@@ -180,6 +180,9 @@ REWRITES = {
     "Return target historic permanent card from your graveyard to the battlefield. It enters with two additional +1/+1 counters on it if it's a "
     "creature.": "Return target historic permanent card from your graveyard to the battlefield. If a creature enters this way, it enters with two "
                  "additional +1/+1 counters on it.",
+    # (Bioshift: "with the same controller" = the controller of the first target, the "that player" of Mutiny's wording; player_relative._names_player)
+    "Move any number of +1/+1 counters from target creature onto another target creature with the same controller.":
+        "Move any number of +1/+1 counters from target creature onto another target creature that player controls.",
 }
 
 
