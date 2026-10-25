@@ -50,7 +50,16 @@ def _taunt() -> Parsed:
     return [{**effects[0], "rules": ["attack_player:@you"], "duration": "their_turn"}], targets, optional
 
 
+def _don_and_leo() -> Parsed:
+    """Don & Leo: exile both targets (up to one each), then return each under its owner's control (400.7: new objects; 614.1 nothing if no target)."""
+    effects, targets, optional = _p("Exile up to one target artifact you control and up to one target creature you control.")
+    effects = [{**effects[0], "as": "e0"}, {**effects[1], "as": "e1"}]
+    back = {"do": "return_card", "to": "battlefield", "tapped": False, "under": "owner"}
+    return [*effects, {**back, "who": "ref:e0"}, {**back, "who": "ref:e1"}], targets, optional
+
+
 BUILDERS: dict[str, Callable[[], Parsed]] = {
+    "exile up to one target artifact you control and up to one target creature you control. Then return them to the battlefield under their owners' control.": _don_and_leo,
     "During target player's next turn, creatures that player controls attack you if able.": _taunt,
     "Destroy two target nonblack creatures unless either one is a color the other isn't. They can't be regenerated.": _dead_ringers,
     "Choose two target creatures that share no creature types. Those creatures fight each other.": _rivals_duel,

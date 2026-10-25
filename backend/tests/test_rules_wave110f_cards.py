@@ -5,6 +5,8 @@
 * 603.10a, 509.1g: "When this creature dies during combat, it deals 6 damage to each creature it blocked this combat." (Cathedral Membrane).
 * 611.2a, 508.1d: "During target player's next turn, creatures that player controls attack you if able." (Taunt).
 * 601.3, 506.3, 122.1: "Cast this spell only after combat." + control change of a creature that attacked you + -1/-0 counter (Jabari's Influence).
+* 400.7, 603.1: "At the beginning of your end step, exile up to one target artifact ... and up to one target creature ... Then return them ..." (Don & Leo).
+* 702.23a, 613.1f, 702.7b: "Target creature gains first strike ... If it doesn't have rampage, that creature gains rampage 2 until end of turn." (Rapid Fire).
 * 602.5, 605.1a: "Creatures with flying can't attack or block, and their activated abilities with {T} in their costs can't be activated." (Katabatic Winds).
 """
 
@@ -41,10 +43,14 @@ EXTRA = [
          "During target player's next turn, creatures that player controls attack you if able.", None, 'U'),
     real("Jabari's Influence", '{3}{U}{U}', 5, 'Instant',
          "Cast this spell only after combat.\nGain control of target nonartifact, nonblack creature that attacked you this turn and put a -1/-0 counter on it.", None, 'U'),
+    real('Don & Leo, Problem Solvers', '{3}{W/U}{W/U}', 5, 'Legendary Creature — Mutant Ninja Turtle',
+         "Vigilance\nAt the beginning of your end step, exile up to one target artifact you control and up to one target creature you control. Then return them to the battlefield under their owners' control.", ('4', '6'), 'WU'),
+    real('Rapid Fire', '{3}{W}', 4, 'Instant',
+         "Cast this spell only before blockers are declared.\nTarget creature gains first strike until end of turn. If it doesn't have rampage, that creature gains rampage 2 until end of turn. (Whenever the creature becomes blocked, it gets +2/+2 until end of turn for each creature blocking it beyond the first.)", None, 'W'),
     real('Test Flyer', '{2}{U}', 3, 'Creature — Bird', 'Flying\n{T}: Draw a card.', ('1', '1'), 'U'),
 ]
 _BASE.extend(EXTRA)  # the shared fixture DB builder reads this list
-NAMES = ["Katabatic Winds", "Rivals' Duel", "Dead Ringers", "Cathedral Membrane", "Taunt", "Jabari's Influence"]
+NAMES = ["Katabatic Winds", "Rivals' Duel", "Dead Ringers", "Cathedral Membrane", "Taunt", "Jabari's Influence", "Don & Leo, Problem Solvers", "Rapid Fire"]
 
 
 @pytest.mark.parametrize("name", NAMES)
@@ -151,3 +157,33 @@ def test_jabaris_influence_after_combat_steals_the_attacker(cards, phase, ok):
     else:
         with pytest.raises(ActionError):
             cast(s, "Jabari's Influence", [bear.id], pid="p2")
+
+
+def test_don_and_leo_blinks_the_chosen_artifact_and_creature_at_end_step(cards):
+    s = build(cards, ["Don & Leo, Problem Solvers", "Grizzly Bears", "Sol Ring"])
+    put(s, "Don & Leo, Problem Solvers")
+    bear, ring = put(s, "Grizzly Bears"), put(s, "Sol Ring")
+    before = [s.state.rules.object_id(c.id) for c in (bear, ring)]
+    to_phase(s, "end")
+    answer(s, ring.id, bear.id)  # (the artifact, then the creature: Don & Leo itself is also a legal creature)
+    assert [zone_of(s, n) for n in ("Grizzly Bears", "Sol Ring")] == ["p1:battlefield"] * 2
+    assert all(s.state.rules.object_id(c.id) != b for c, b in zip((bear, ring), before, strict=True))  # 400.7: new objects
+    check(s)
+
+
+def test_rapid_fire_grants_rampage_and_first_strike(cards):
+    s = build(cards, ["Rapid Fire", "Grizzly Bears"], ["Llanowar Elves", "Test Giant 110F"])
+    bear = put(s, "Grizzly Bears")
+    elf, giant = put(s, "Llanowar Elves", "p2"), put(s, "Test Giant 110F", "p2")
+    to_phase(s, "main1", turn=3)  # (the Bears are summoning sick before)
+    mana(s, W=1, C=3)
+    cast(s, "Rapid Fire", [bear.id])
+    answer(s)
+    attack(s, bear)
+    block(s, (elf, bear), (giant, bear))
+    while s.state.zones.get("stack"):  # (resolve the rampage trigger; stop before the damage division)
+        act(s, s.state.rules.priority, type="pass_priority")
+    from tests.test_rules_wave100f_control import ch
+    assert "first strike" in ch(s, bear).keywords
+    assert ch(s, bear).pt == (4, 4)  # 2/2 + 2/2 for the second blocker (702.23a)
+    check(s)
