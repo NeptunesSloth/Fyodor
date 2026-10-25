@@ -80,6 +80,8 @@ Every scenario checks the replay and a save and a load.
 * Vault 21: House Gambit - "For each of those cards that has the same mana value as another card revealed this way, create a Treasure token."
 * Kamahl's Summons - "Each player may reveal any number of creature cards from their hand. Then each player creates a 2/2 green Bear creature
   token for each card they revealed this way." (101.4, 101.4a: chosen in APNAP order face down, shown together).
+* Oversimplify - "… puts a number of +1/+1 counters on it equal to the total power of creatures they controlled that were exiled this way." (as
+  they last existed on the battlefield - 2021-04-16).
 * Hellfire - "deals X plus 3 damage to you, where X is the number of creatures that died this way." (a destroyed token counts, a creature a
   replacement effect exiled instead doesn't: the 2009-10-01 rulings).
 """
@@ -112,7 +114,7 @@ GEAR, MIRROR, RUNES, RALLY = "Fishing Gear", "Moonring Mirror", "Read the Runes"
 REST, BRINGER, VAULT101 = "Long Rest", "Bringer of the Last Gift", "Vault 101: Birthday Party"
 INFERNO, FOXGLOVE, SPIRIT = "Inferno of the Star Mounts", "Mr. Foxglove", "Call the Spirit Dragons"
 HOLISTIC, WERNOG, LIEGE, PLAGUE = "Holistic Wisdom", "Wernog, Rider's Chaplain", "Liege of the Hollows", "Plague of Vermin"
-VAULT21, KAMAHL = "Vault 21: House Gambit", "Kamahl's Summons"
+VAULT21, KAMAHL, OVERSIMPLIFY = "Vault 21: House Gambit", "Kamahl's Summons", "Oversimplify"
 BEARS, GIANT, RIP, ELVES = "Grizzly Bears", "Hill Giant", "Rest in Peace", "Llanowar Elves"
 
 
@@ -121,7 +123,7 @@ def cards(settings):
     yield from open_repo(settings)
 
 
-@pytest.mark.parametrize("name", [ROWEN, ETCHINGS, KERANOS, SUGARMAW, HELLFIRE, TERROR, KELLAN, EGO, SHRIEK, GORILLA, DESERTER, AEROSTAT, FOLD, SWIFT, RESEARCHER, KOYA, SURVIVORS, VANISH, DAKRA, DURIN, LATNAM, SURGE, LOCKE, HELLION, HULK, KALDHEIM, MANABOND, GUARDIAN, INVESTIGATORS, CLASH, SANCTUM, HEDRON, ATEMSIS, SPHINX, VOICE, GEAR, MIRROR, RUNES, RALLY, REST, BRINGER, VAULT101, INFERNO, FOXGLOVE, SPIRIT, HOLISTIC, WERNOG, LIEGE, PLAGUE, VAULT21, KAMAHL])
+@pytest.mark.parametrize("name", [ROWEN, ETCHINGS, KERANOS, SUGARMAW, HELLFIRE, TERROR, KELLAN, EGO, SHRIEK, GORILLA, DESERTER, AEROSTAT, FOLD, SWIFT, RESEARCHER, KOYA, SURVIVORS, VANISH, DAKRA, DURIN, LATNAM, SURGE, LOCKE, HELLION, HULK, KALDHEIM, MANABOND, GUARDIAN, INVESTIGATORS, CLASH, SANCTUM, HEDRON, ATEMSIS, SPHINX, VOICE, GEAR, MIRROR, RUNES, RALLY, REST, BRINGER, VAULT101, INFERNO, FOXGLOVE, SPIRIT, HOLISTIC, WERNOG, LIEGE, PLAGUE, VAULT21, KAMAHL, OVERSIMPLIFY])
 def test_the_cards_are_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL", name
 
@@ -1165,4 +1167,19 @@ def test_kamahls_summons_gives_each_player_bears_for_the_creatures_they_reveal(c
     run(s, answer)
     tokens = {p: len([c for c in s.state.cards.values() if c.zone == f"{p}:battlefield" and c.name == "Bear"]) for p in ("p1", "p2")}
     assert order == ["p1", "p2"] and tokens == {"p1": 1, "p2": 2} and zone(s, giant) == "p2:hand" and s.state.cards[bears.id].revealed_to
+    check(s)
+
+
+def test_oversimplify_counts_each_players_exiled_power_as_it_last_existed(cards):
+    s = build_n(cards, [OVERSIMPLIFY, BEARS, "Hill Giant"], ["Llanowar Elves"])
+    bears = put(s, BEARS)
+    put(s, "Hill Giant")
+    put(s, "Llanowar Elves", "p2")
+    s.state.cards[bears.id].counters["+1/+1"] = 1
+    spell = to_hand(s, OVERSIMPLIFY)
+    mana(s, G=1, U=1, C=3)
+    act(s, "p1", type="cast_spell", card_id=spell.id)
+    run(s)
+    fractals = {c.controller: c.counters.get("+1/+1") for c in s.state.cards.values() if c.zone.endswith(":battlefield") and c.name == "Fractal"}
+    assert fractals == {"p1": 6, "p2": 1} and zone(s, bears) == "p1:exile"
     check(s)

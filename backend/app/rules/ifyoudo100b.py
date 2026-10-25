@@ -67,7 +67,7 @@ GY_EMPTY = "gy_empty100b"
 def parse(body: str, it: str | None, event_player: bool) -> Found | None:
     text = body.strip()
     for form in (_put_discarded, _hit_discard, _draw_if, _dealt_cant_block, _give_source, _exiled_mv, _connives, _empty_gy, _truce, _each_who_lost,
-                 _either, _plot_paid, _hand_exile, _dont_sacrifice, _put_mv_x, _fold, _swift, _untap_then, _may_attach, _vanish, _dakra, _durin, _latnam, _surge, _locke, _gy_exile, _manabond, _have_deal, _own_bounce, _clash, _reveal_win, _fishing, _runes, _rally, _long_rest, _bringer, _vault101, _becomes20, _foxglove, _spirit_dragons, _holistic, _wernog, _liege, _plague, _vault21, _kamahl):
+                 _either, _plot_paid, _hand_exile, _dont_sacrifice, _put_mv_x, _fold, _swift, _untap_then, _may_attach, _vanish, _dakra, _durin, _latnam, _surge, _locke, _gy_exile, _manabond, _have_deal, _own_bounce, _clash, _reveal_win, _fishing, _runes, _rally, _long_rest, _bringer, _vault101, _becomes20, _foxglove, _spirit_dragons, _holistic, _wernog, _liege, _plague, _vault21, _kamahl, _oversimplify):
         if (found := form(text, it, event_player)) is not None:
             return found
     for pattern, repl in _REWRITES:
@@ -1141,6 +1141,50 @@ def kamahl(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return True
 
 
+# -- Oversimplify: "Exile all creatures. Each player creates a 0/0 green and blue Fractal creature token and puts a number of +1/+1 counters on it equal to
+# the total power of creatures they controlled that were exiled this way." The 2021-04-16 ruling: each power as it last existed on the battlefield (608.2h).
+_OVERSIMPLIFY = ("Exile all creatures. Each player creates a 0/0 green and blue Fractal creature token and puts a number of +1/+1 counters on it equal to the "
+                 "total power of creatures they controlled that were exiled this way.")
+OVERSIMPLIFY, FRACTAL = "oversimplify100b", "fractal100b"
+
+
+def _oversimplify(text: str, it: str | None, event_player: bool) -> Found | None:
+    from app.rules import selectors
+
+    if text != _OVERSIMPLIFY:
+        return None
+    exile = _effects("Exile all creatures.", it, event_player)
+    made = _effects("Create a 0/0 green and blue Fractal creature token and put a +1/+1 counter on it.", it, event_player)
+    mine = selectors.parse("creatures you control")
+    if exile is None or made is None or mine is None or len(exile[0]) != 1 or [x.get("do") for x in made[0]] != ["create_token", "add_counters"]:
+        return None
+    token = {k: v for k, v in made[0][0].items() if k != "as"}
+    return [{**exile[0][0], "as": "ov"}, {"do": OVERSIMPLIFY, "of": mine.key(), "ref": "ref:ov", "token": token, "counters": made[0][1]}], None, False
+
+
+def oversimplify(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    from app.rules import this_way
+
+    live = [p for p in plan.apnap() if p in plan.live()]
+    v = {"this_way": "exiled", "of": e["of"], "stat": "power", "ref_count": e["ref"].removeprefix("ref:")}
+    totals = {p: this_way.count(plan, {**ctx, "controller": p}, v) for p in live}  # ("they controlled": each player's own, as each last existed)
+    ctx["effects"][ctx["next"]:ctx["next"]] = [{**e["token"], "per_player": dict.fromkeys(live, 1), "as": FRACTAL},
+                                               {"do": FRACTAL, "totals": totals, "counters": e["counters"]}]
+    return True
+
+
+def fractal(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    from app.rules import context
+
+    out = []
+    for i, c in enumerate(context.objects(plan, ctx, FRACTAL)):
+        if c in plan.state.cards and (n := e["totals"].get(plan.state.cards[c].controller, 0)):
+            context.bind_objects(plan, ctx, f"{FRACTAL}{i}", [c])
+            out.append({**e["counters"], "who": f"ref:{FRACTAL}{i}", "n": n})
+    ctx["effects"][ctx["next"]:ctx["next"]] = out
+    return True
+
+
 # -- Reign of Terror: "Destroy all green creatures or all white creatures. They can't be regenerated. You lose 2 life for each creature that died
 # this way." 608.2d: the controller picks one as it resolves (and announces it, 101.4b); the rest of the text reads the one done.
 _EITHER = re.compile(r"^Destroy all (?P<a>[a-z]+ creatures) or all (?P<b>[a-z]+ creatures)\. (?P<rest>[^.]+\.(?: [^.]+\.)*)$")
@@ -1187,5 +1231,5 @@ def resume_either(plan: Any, d: Any, chosen: list[str]) -> None:
 PRIMITIVES = {GY_EMPTY: gy_empty, TRUCE: truce, TRUCE_ASK: truce_ask, TRUCE_DRAW: truce_draw, TRUCE_LIFE: truce_life, EITHER: either, COUNTERED: countered,
               SWIFT: swift, BACK: back_creature, TO_GRAVEYARDS: to_graveyards, HAND_GATE: hand_gate,
               SURGE: surge, PUT_EXILED: put_exiled, PUT_CHECK: put_check, OWN_EVERYWHERE: own_everywhere, HAND_VALUES: hand_values,
-              OTHERS: others_back, RALLY: rally, BECAME: became, SPIRIT: spirit, SPIRIT_WIN: spirit_win, SHARES: shares_type, LIEGE: liege, LIEGE_MAKE: liege_make, PLAGUE: plague, SAME_MV: same_mv, KAMAHL: kamahl}
+              OTHERS: others_back, RALLY: rally, BECAME: became, SPIRIT: spirit, SPIRIT_WIN: spirit_win, SHARES: shares_type, LIEGE: liege, LIEGE_MAKE: liege_make, PLAGUE: plague, SAME_MV: same_mv, KAMAHL: kamahl, OVERSIMPLIFY: oversimplify, FRACTAL: fractal}
 RESUME = {TRUCE_ASK: resume_truce_ask, EITHER: resume_either, PUT_EXILED: resume_put_exiled, SPIRIT: resume_spirit}
