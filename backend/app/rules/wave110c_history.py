@@ -19,6 +19,7 @@ if TYPE_CHECKING:
 CONDITIONS: dict[str, dict[str, Any]] = {
     "a noncreature permanent under your control was destroyed this turn by a spell or ability an opponent controlled": {"history": "destroyed_by_opponent110c"},
     "a creature spell you cast this turn was countered by a spell or ability an opponent controlled": {"history": "countered_by_opponent110c"},
+    "three or more cards were put into your graveyard from anywhere other than the battlefield this turn": {"history": "gy_not_bf110c", "n": 3},
 }
 
 
@@ -50,6 +51,8 @@ def holds(plan: Plan, ctx: dict[str, Any], cond: dict[str, Any], log: TurnLog) -
     from app.rules import history
 
     me = ctx["controller"]
+    if cond["history"] == "gy_not_bf110c":  # 400.7: arrivals record where the card came from (never a token, 111.1); an unknown origin (old save) is not counted
+        return sum(a.owner == me and a.from_zone not in (None, "battlefield") for a in log.entered_graveyard) >= cond["n"]
     if cond["history"] == "countered_by_opponent110c":
         return any(f.kind == "countered" and f.player == me and "Creature" in f.types and f.source_controller not in (None, me) for f in log.facts)
     by = {f.object_id: f.source_controller for f in log.facts if f.kind == "destroyed"}

@@ -6642,5 +6642,69 @@
 "B"
 ],
 "keywords": []
+},
+{
+"name": "Lightning Bolt",
+"layout": "normal",
+"mana_cost": "{R}",
+"cmc": 1.0,
+"type_line": "Instant",
+"oracle_text": "Lightning Bolt deals 3 damage to any target.",
+"colors": [
+"R"
+],
+"color_identity": [
+"R"
+],
+"keywords": []
+},
+{
+"name": "Reverberate",
+"layout": "normal",
+"mana_cost": "{R}{R}",
+"cmc": 2.0,
+"type_line": "Instant",
+"oracle_text": "Copy target instant or sorcery spell. You may choose new targets for the copy.",
+"colors": [
+"R"
+],
+"color_identity": [
+"R"
+],
+"keywords": []
+},
+{
+"name": "Scornful Egotist",
+"mana_cost": "{7}{U}",
+"cmc": 8.0,
+"type_line": "Creature — Human Wizard",
+"oracle_text": "Morph {U} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)",
+"power": "1",
+"toughness": "1",
+"colors": [
+"U"
+],
+"color_identity": [
+"U"
+],
+"keywords": [
+"Morph"
+],
+"layout": "normal"
+},
+{
+"name": "Break Open",
+"layout": "normal",
+"mana_cost": "{1}{R}",
+"cmc": 2.0,
+"type_line": "Instant",
+"oracle_text": "Turn target face-down creature an opponent controls face up.",
+"colors": [
+"R"
+],
+"color_identity": [
+"R"
+],
+"keywords": []
 }
 ]

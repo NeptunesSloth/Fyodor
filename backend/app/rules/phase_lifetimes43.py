@@ -68,12 +68,12 @@ def finish(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return True
 
 
-def source_present(plan: Plan, ref: ObjectRef) -> bool:
+def source_present(plan: Plan, ref: ObjectRef, control: str | None = None) -> bool:
     card = plan.state.cards.get(ref.card)
     # A departing controller's control effect may end without this permanent
     # leaving (800.4a). Ownership departure, unlike that transient controller
     # state, means the object left the game even if its table record remains.
-    return (card is not None and card.owner in plan.live() and plan.oid(card) == ref.object_id
+    return (card is not None and card.owner in plan.live() and plan.oid(card) == ref.object_id and (control is None or card.controller == control)
             and card.zone.rsplit(':', 1)[-1] in ('battlefield', 'phased'))
 
 
@@ -82,13 +82,13 @@ def held(plan: Plan, card_id: str) -> bool:
     if card is None:
         return False
     oid = plan.oid(card)
-    return any(source_present(plan, packet.source) and any(r.card == card_id and r.object_id == oid for r in packet.recipients)
+    return any(source_present(plan, packet.source, packet.control) and any(r.card == card_id and r.object_id == oid for r in packet.recipients)
                for packet in plan.rules.phase_lifetimes)
 
 
-def phase_out(plan: Plan, source: ObjectRef, card_ids: list[str], actor: str) -> list[ObjectRef]:
+def phase_out(plan: Plan, source: ObjectRef, card_ids: list[str], actor: str, control: str | None = None) -> list[ObjectRef]:
     """610.3b: a duration already over never starts; preserve native indirect phasing."""
-    if not source_present(plan, source):
+    if not source_present(plan, source, control):
         return []
     refs = [ObjectRef(card=cid, object_id=plan.oid(card), zone=card.zone)
             for cid in card_ids if (card := plan.state.cards.get(cid)) is not None and plan.in_game(card)
@@ -97,7 +97,7 @@ def phase_out(plan: Plan, source: ObjectRef, card_ids: list[str], actor: str) ->
         return []
     # Install before the native action: a source that is itself among the
     # creatures stays present as a phased object, with precisely the same OID.
-    packet = PhaseLifetime(source=source, recipients=refs)
+    packet = PhaseLifetime(source=source, recipients=refs, control=control)
     plan.rules.phase_lifetimes.append(packet)
     plan.do({'type': 'phase_shift', 'card_ids': [r.card for r in refs], 'out': True}, actor=actor)
     packet.recipients = [r for r in refs if (c := plan.state.cards.get(r.card)) is not None
@@ -106,7 +106,7 @@ def phase_out(plan: Plan, source: ObjectRef, card_ids: list[str], actor: str) ->
 
 
 def expire(plan: Plan) -> None:
-    ended = [p for p in plan.rules.phase_lifetimes if not source_present(plan, p.source)]
+    ended = [p for p in plan.rules.phase_lifetimes if not source_present(plan, p.source, p.control)]
     if not ended:
         return
     # Remove before actions or characteristic queries can recursively expire.

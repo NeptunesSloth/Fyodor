@@ -34,7 +34,6 @@ def test_the_lines_are_supported(kind, line):
 
 
 @pytest.mark.parametrize("line", [
-    "Whenever this creature phases out, discard a card.",
     "Target creature phases out until this enchantment leaves the battlefield.",
     "Permanents can't phase in.",
     "Target creature phases out. It can't phase in for as long as this remains tapped."])

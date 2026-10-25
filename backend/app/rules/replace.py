@@ -1011,6 +1011,8 @@ def _counters_applies(plan: Plan, c: Candidate, ev: Event, sim: Sim) -> bool:
     m = c.match
     if m.get("counter") and m["counter"] != ev["counter"]:
         return False
+    if m.get("bloodthirst110a") and not any(t == plan.state.turn.number for p, t in plan.rules.damaged.items() if p != c.controller):
+        return False  # -- bloodthirst grant (wave 110A) -- 702.54a: an opponent was dealt damage this turn
     if not _putter_ok(c, ev):
         return False
     if m.get("effect_only") and not ev.get("effect"):
@@ -1605,6 +1607,8 @@ def _life_applies(plan: Plan, c: Candidate, ev: Event, sim: Sim) -> bool:
     who = c.match.get("who")
     if who == "you" and ev["player"] != c.controller or who == "opponent" and ev["player"] == c.controller:
         return False
+    if c.match.get("by_controller") and ev["key"] == ev["player"] and ev.get("actor") != ev["player"]:
+        return False  # -- life gain (wave 110H) -- Rain of Gore: a spell or ability gain of its controller (a lifelink key is its source card)
     cap = c.match.get("life_max")  # -- life modifiers (wave 28B) -- "while you have 5 or less life": as the gain would happen (119.10)
     return cap is None or plan.state.players[ev["player"]].life <= int(cap)  # (review 28B: one call's gains are simultaneous, 702.15e)
 
@@ -1619,8 +1623,8 @@ def _loss_applies(plan: Plan, c: Candidate, ev: Event, sim: Sim) -> bool:
     if c.match.get("damage") and not ev.get("damage"):
         return False  # -- life floor (wave 35C) -- "damage that would reduce your life total": the life damage makes a player lose (120.3a), not other loss
     if c.op["do"] == "floor":  # the loss would take them below 1 life from 1 or more (a player already below 1 is dealt damage as normal)
-        life = plan.state.players[ev["player"]].life
-        if life < 1 or ev["n"] < life:
+        life, keep = plan.state.players[ev["player"]].life, int(c.op.get("to", 1))  # (wave 110B: Elderscale Wurm keeps 7)
+        if life < keep or ev["n"] < life - keep + 1:
             return False
     if (cond := c.match.get("if")) is not None:
         from app.rules import conditions
@@ -1635,7 +1639,7 @@ def _loss_apply(plan: Plan, c: Candidate, ev: Event, sim: Sim) -> list[Event]:
     if op["do"] == "mul":
         return [{**ev, "n": ev["n"] * int(op["n"])}]
     if op["do"] == "floor":  # (applies only with 1 or more life and a loss of at least that much) they keep 1 life
-        return [{**ev, "n": plan.state.players[ev["player"]].life - 1}]
+        return [{**ev, "n": plan.state.players[ev["player"]].life - int(op.get("to", 1))}]
     return [ev]
 
 
@@ -1653,12 +1657,12 @@ def _life_apply(plan: Plan, c: Candidate, ev: Event, sim: Sim) -> list[Event]:
 
 
 def plan_life(plan: Plan, gains: list[tuple[str, int, str]], *, answers: dict[str, str], ask: bool,
-              cands: list[Candidate] | None = None) -> tuple[list[tuple[Event, list[Event]]], Planner] | Ask:
+              cands: list[Candidate] | None = None, actor: str | None = None) -> tuple[list[tuple[Event, list[Event]]], Planner] | Ask:
     """Life gain events ([(player, n, key)], each its own event: 702.15e) through 616.1."""
     planner = Planner(plan, cands if cands is not None else candidates(plan, ("life", "life_loss")), answers, ask=ask)
     sim: Sim = {}  # (review 28B: the gains of one call happen at the same time, 702.15e: a condition reads the life total before them)
     order = plan.apnap()
-    evs: list[Event] = [{"kind": "life", "player": p, "n": int(n), "key": key, "applied": []} for p, n, key in gains]
+    evs: list[Event] = [{"kind": "life", "player": p, "n": int(n), "key": key, "applied": [], "actor": actor} for p, n, key in gains]
     evs.sort(key=lambda e: order.index(e["player"]) if e["player"] in order else len(order))
     finals: list[tuple[Event, list[Event]]] = []
     from app.rules import cant_gain  # -- refused grants/replacements (wave 3R2) --
@@ -1689,7 +1693,7 @@ def gain_life(plan: Plan, gains: list[tuple[str, int]], *, actor: str, then: dic
     """THE life-gain choke point (see the module docstring). False while a choice is open."""
     operation = _life_operation(plan, operation)
     answers = answers if answers is not None else _ctx_answers(ctx)
-    planned = plan_life(plan, [(p, n, p) for p, n in gains], answers=answers, ask=then is not None)
+    planned = plan_life(plan, [(p, n, p) for p, n in gains], answers=answers, ask=then is not None, actor=actor)
     if isinstance(planned, Ask):
         request = {"gains": [list(g) for g in gains], "actor": actor, "operation": operation}
         if _pause(plan, planned, answers, _resume_for(then, "life", request)):
@@ -2075,6 +2079,8 @@ def _damage_applies(plan: Plan, c: Candidate, ev: Event, sim: Sim) -> bool:
     if (c.prevention or c.legacy is not None) and ev.get("unpreventable") and not (
             (c.op.get("rider") and c.id.startswith("s:")) or c.op.get("consume_unpreventable")):  # (-- prevention riders (wave 17A) -- a static's additional effect
         return False  # still takes place, 615.12; a record's or shield's riders all count the damage prevented: none)
+    if ev.get("unredirectable110h") and c.op.get("do") == "redirect":  # -- Lava Burst (wave 110H) -- 614.9: that damage can't be dealt instead to another
+        return False
     if c.op.get("once") and not c.op.get("batch") and f"once:{c.id}" in sim.get("shields", {}):  # (wave 35A: ``batch``, see Planner.applies)
         return False
     # -- end refused grants/replacements (wave 3R2) --

@@ -57,6 +57,8 @@ def _names_player(group: dict[str, Any]) -> bool:
     if not isinstance(what, str) or not what.startswith(selectors.PREFIX):
         return False
     sel = selectors.from_key(what)
+    if what == selectors.Selector(types=("Creature",)).key():  # -- wave 110A -- Bioshift: "target creature … another target creature that player controls" (its controller)
+        return True
     return sel.player is None and not sel.card and sel.zones == ("battlefield",) and sel.controller == "opponent" and not sel.either
 
 

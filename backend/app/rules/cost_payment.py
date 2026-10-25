@@ -173,8 +173,8 @@ def _candidates(plan: Plan, comp: CostComponent, player: str, source: CardInstan
             continue
         if cid == source.id and not zone.endswith(":battlefield"):
             continue  # -- costs (wave 3$) -- a spell's additional cost can't discard / exile the spell being cast (601.2a)
-        if not selectors.matches(plan, sel, card, plan.ch(card), player, source.id) and not (
-                alt is not None and selectors.matches(plan, alt, card, plan.ch(card), player, source.id)):
+        if not selectors.matches(plan, sel, card, plan.ch(card), player, source.id, plan.cost_attacker) and not (
+                alt is not None and selectors.matches(plan, alt, card, plan.ch(card), player, source.id, plan.cost_attacker)):
             continue
         if comp.named_self and plan.ch(card).name != plan.ch(source).name:  # (wave 4H: grandeur)
             continue
@@ -240,6 +240,8 @@ def life_amount(plan: Plan, comp: CostComponent, player: str, card: CardInstance
     if comp.life_rule and comp.life_rule.startswith("per_counter100i:"):  # -- activated (wave 100I) -- "Pay 3 life for each velocity counter on ~"
         _, kind, n = comp.life_rule.split(":")
         return int(n) * (card.counters.get(kind, 0) if card is not None else 0)
+    if comp.life_rule == "per_hand110d":  # -- costs (wave 110D) -- "Pay 1 life for each card in your hand"
+        return len(plan.state.zones.get(zone_key(player, "hand"), []))
     if comp.life_rule == "half":  # 107.1a: "rounded up"; 119.4b: 0 can always be paid
         return max(0, -(-life // 2))
     if comp.life_rule == "commander_colors":  # 903.4: the commanders' combined color identity
@@ -843,7 +845,9 @@ def pay(plan: Plan, cost: AbilityCost, card: CardInstance, chosen: dict[int, lis
             from app.rules import payment_card_facts
 
             payment_card_facts.record(plan, record, "revealed", [card.id])
-        elif comp.kind in ("REVEAL_FROM_HAND", C.BEHOLD):  # -- static_other sweep (wave 17C) -- revealed to everyone (701.20a); a beheld permanent just is
+        elif comp.kind in ("REVEAL_FROM_HAND", C.BEHOLD):  # -- static_other sweep (wave 17C)
+            if comp.kind == C.BEHOLD:
+                record.beheld110a.update({c: plan.oid(plan.state.cards[c]) for c in ids})  # -- behold (wave 110A) -- "the power of the beheld creature" -- revealed to everyone (701.20a); a beheld permanent just is
             shown = [c for c in ids if plan.state.cards[c].zone.endswith(":hand")]
             if shown:
                 if comp.kind == 'REVEAL_FROM_HAND' and comp.x:
@@ -1076,7 +1080,7 @@ def _pay_new_part(plan: Plan, comp: CostComponent, card: CardInstance, ids: list
         from app.rules import replace
 
         target = ids[0] if comp.selector is not None else card.id
-        replace.put_counters(plan, [(target, comp.counter or "", comp.amount)], by=player, effect=False)
+        replace.put_counters(plan, [(target, comp.counter or "", x if comp.counters_x else comp.amount)], by=player, effect=False)
         return True
     if comp.kind in (C.COLLECT_EVIDENCE, C.FORAGE):  # 701.59a / 701.61a: exiled from the graveyard (a Food: pay())
         plan.do({"type": "move", "card_ids": ids, "to": {"zone": "exile"}})

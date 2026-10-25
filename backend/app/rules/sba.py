@@ -267,6 +267,12 @@ def _round(plan: Plan, *, confirmed: bool = False) -> bool:
     from app.rules import speed  # -- speed (wave 24B) -- 704.5aa
 
     happened = speed.start_engines(plan) or happened
+    if found.losers:  # -- lose replacements (wave 110C) -- 614.1a: "If you would lose the game, instead ..."
+        from app.rules import wave110c_lose
+
+        replaced = [pid for pid, _ in found.losers if wave110c_lose.replace_loss(plan, pid)]
+        found.losers = [(p, why) for p, why in found.losers if p not in replaced]
+        happened = happened or bool(replaced)
     if found.losers:
         from app.rules import life_game_history
 

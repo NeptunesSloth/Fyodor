@@ -79,11 +79,13 @@ def _part(text: str, x_ok: bool = False) -> C.CostComponent | str | None:
     # "tap four untapped creatures you control with flying" (Sephara): the selector grammar reads "… with flying you control"
     part = re.sub(r"^(Tap \w+ untapped \w+) you control (with [a-z ]+)$", r"\1 \2 you control", part)
     found = C._component(part, "")
+    if found is None and C._EXILE_CHOSEN.match(part):  # (wave 110E) "exile a land you control" (Lunar Hatchling's escape)
+        found = C._one_4h(part, "")
     if found is None and re.fullmatch(r'Collect evidence \d+', part):
         parsed = C.parse_ability_cost(part)
         found = parsed.components[0] if not parsed.unsupported and len(parsed.components) == 1 else None
     if found is None or found.kind not in (C.PAY_LIFE, C.PAY_ENERGY, C.SACRIFICE, C.RETURN_PERMANENT, C.TAP_OTHER, C.DISCARD,
-                                           C.EXILE_FROM_GRAVEYARD, C.COLLECT_EVIDENCE):
+                                           C.EXILE_FROM_GRAVEYARD, C.COLLECT_EVIDENCE, C.EXILE):  # (EXILE: wave 110E, "exile a land you control")
         return None
     if found.kind not in (C.PAY_LIFE, C.PAY_ENERGY) and (found.selector is None or found.random):
         return None  # (never the spell itself; a random discard isn't printed on an alternative cost)
@@ -238,7 +240,7 @@ KEYWORD_CONDS = {"spectacle": "an opponent lost life this turn", "surge": "you'v
 # (-- casting extras (wave 18E) -- "Emerge {cost}" / "Emerge from artifact {cost}": 702.119a-b, the cost and a sacrifice)
 _KEYWORD_LINE = re.compile(r"^(?P<kw>spectacle|surge|blitz|warp|bestow|prowl|overload|cleave|emerge|foretell|mutate|web-slinging|sneak|freerunning|more than meets the eye)(?: from (?P<q>[A-Za-z]+))? "
                            r"(?P<cost>(?:\{[^}]+\})+)$", re.IGNORECASE)
-X_KEYWORDS = frozenset({"surge", "warp", "bestow", "overload", "cleave"})  # -- cast keywords (wave 43D) -- 107.3a: the cost may have {X} (the X announced for the spell is its too)
+X_KEYWORDS = frozenset({"surge", "warp", "bestow", "overload", "cleave", "foretell"})  # -- cast keywords (wave 43D) -- 107.3a: the cost may have {X} (the X announced for the spell is its too)
 # -- static_other sweep (wave 17C) -- "Dinosaur spells you cast have prowl {2}{R}." (Hunting Velociraptor): a table alternative cost, offered
 # when the prowl condition holds for that spell
 GRANT_PROWL = re.compile(r"^(?:(?P<sel>[A-Za-z][A-Za-z' -]*?) )?spells you cast have prowl (?P<cost>(?:\{[^}X]+\})+)$")

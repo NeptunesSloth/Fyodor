@@ -17,6 +17,11 @@ if TYPE_CHECKING:
 
 def chooser(plan: Plan, kind: str, player: str) -> str | None:
     """Who declares ``player``'s attackers/blockers instead of them now (None: they do)."""
+    if kind == "block" and (ap := plan.state.turn.active_player) != player and ap in plan.live():  # Invasion Plans (static)
+        from app.rules import permissions
+
+        if permissions._table_statics(plan.state, plan.info, {"block_chooser110a"}):
+            return ap
     c = plan.rules.declare_choosers.get(kind)
     if c is None or c["turn"] != plan.state.turn.number or c["player"] == player or c["player"] not in plan.live():
         return None
