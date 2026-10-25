@@ -34,6 +34,7 @@ from tests.wave110j_kit import (  # noqa: F401
     now,
     put,
     put_new,
+    refused,
     settle,
     to_hand,
     to_phase,
@@ -320,3 +321,30 @@ def test_rumbling_ruin_stops_blockers_with_power_up_to_the_counters_counted(card
     stopped = {c.id for c in (small, big) if int(ch(s, c).pt[0]) <= counters}
     assert {c.id for c in (small, big) if "cant_block" in ch(s, c).imposed} == stopped
     check(s)
+
+
+def test_kongmings_contraptions_is_full():
+    assert full("Kongming's Contraptions")
+
+
+@pytest.mark.parametrize("attacked", [True, False])
+def test_kongmings_contraptions_only_when_attacked_in_the_declare_attackers_step(cards, attacked):
+    """506.3, 602.5b: only in the declare attackers step and only while creatures attack its controller."""
+    s = build(cards, ["Templar Knight", "Kongming's Contraptions"], ["Kongming's Contraptions"])
+    knight = put_new(s, "Templar Knight")
+    kong = put_new(s, "Kongming's Contraptions", "p2" if attacked else "p1")
+    to_phase(s, "main1", turn=3)  # (past each controller's first turn: no summoning sickness for the {T} cost)
+    act(s, "p2", type="set_stops", own=[], others=["declare_attackers"], smart_pass=False)
+    act(s, "p1", type="set_stops", own=["declare_attackers"], others=[], smart_pass=False)
+    act(s, "p1", type="pass_priority")
+    while s.state.rules.decision is None:
+        act(s, s.state.rules.priority, type="pass_priority")
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": knight.id, "target": "p2"}])
+    assert s.state.turn.phase == "declare_attackers"
+    if attacked:
+        act(s, "p1", type="pass_priority")
+        activate(s, kong, "{T}:", pid="p2", targets=[knight.id])
+        assert now(s, knight).zone.endswith(":graveyard")  # (2 damage kills the 2/2)
+        check(s)
+    else:
+        refused(s, "attack", kong, "{T}:", targets=[knight.id])
