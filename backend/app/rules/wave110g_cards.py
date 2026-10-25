@@ -32,6 +32,13 @@ def _twin(d: Def) -> Def:
     return d
 
 
+def _pay_life_reveal(d: Def) -> Def:
+    """Pay any amount of life (119.4, 0 up to the life total), then reveal that many cards (701.20a): the payment's amount sizes the reveal."""
+    pay = {"do": "optional_payment", "who": "you", "cost": "", "bind": "viz110g", "choose_x": {"max": {"life": "you"}, "life": True}}
+    reveal, *rest = d["effects"]
+    return {**d, "effects": [pay, {**reveal, "n": {"paid_x": "viz110g"}}, *rest]}
+
+
 def _exchange_power(d: Def) -> Def:
     """701.12g: exchanging two powers makes a continuous effect setting each (613.4b) to the other's previous value."""
     return {**d, "effects": [{"do": "exchange_power110g", "duration": "end_of_combat"}]}
@@ -65,6 +72,10 @@ _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
     "and its toughness is equal to this creature's toughness. Sacrifice the token at end of combat.":
         ("Whenever this creature attacks, create an X/X colorless Construct artifact creature token that's attacking, where X is this creature's power. "
          "Sacrifice it at end of combat.", _twin),
+    # Vizkopa Confessor
+    "When this creature enters, pay any amount of life. Target opponent reveals that many cards from their hand. You choose one of them and exile it.":
+        ("When this creature enters, target opponent reveals a number of cards from their hand equal to the number of creatures you control. "
+         "You choose one of them. Exile that card.", _pay_life_reveal),
     # Distended Mindbender: two sequential choices from the revealed hand (701.9)
     "When you cast this spell, target opponent reveals their hand. You choose from it a nonland card with mana value 3 or less and a card with mana value 4 or greater. "
     "That player discards those cards.":

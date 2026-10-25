@@ -7,6 +7,7 @@
 * Distended Mindbender: 701.9 / 701.20a one discard per size class from the revealed hand, chosen by the caster.
 * Total War: 508.1 / 302.6 untapped non-Wall creatures that did not attack and were controlled since the turn began are destroyed.
 * Gemini Engine: 508.4 / 111.1 an attacking token with the attacker's power and toughness, sacrificed at end of combat.
+* Vizkopa Confessor: 119.4 the life paid sizes the reveal (701.20a); paying 0 reveals nothing.
 * Serene Master: 701.12g exchanging two powers sets each to the other's previous value (613.4b), until end of combat.
 """
 from __future__ import annotations
@@ -40,6 +41,8 @@ EXTRA = [
          "Whenever a player attacks with one or more creatures, destroy all untapped non-Wall creatures that player controls that didn't attack, except for creatures the player hasn't controlled continuously since the beginning of the turn.", None, 'R'),
     real('Gemini Engine', '{6}', 6, 'Artifact Creature — Construct',
          "Whenever this creature attacks, create a colorless Construct artifact creature token named Twin that's attacking. Its power is equal to this creature's power and its toughness is equal to this creature's toughness. Sacrifice the token at end of combat.", ('3', '4'), ''),
+    real('Vizkopa Confessor', '{3}{W}{B}', 5, 'Creature — Human Cleric',
+         'Extort (Whenever you cast a spell, you may pay {W/B}. If you do, each opponent loses 1 life and you gain that much life.)\nWhen this creature enters, pay any amount of life. Target opponent reveals that many cards from their hand. You choose one of them and exile it.', ('1', '3'), 'BW'),
     real('Test Wall', '{1}', 1, 'Creature — Wall', '', ('0', '4'), ''),
     real('Hill Giant', '{3}{R}', 4, 'Creature — Giant', '', ('3', '3'), 'R'),
     real('Divination', '{2}{U}', 3, 'Sorcery', 'Draw two cards.', None, 'U'),
@@ -231,4 +234,27 @@ def test_gemini_engine_twin_attacks_and_is_sacrificed(cards):
     act(s, "p2", type="declare_blockers", blocks=[])
     through_combat(s)
     assert twin.id not in s.state.zones["p1:battlefield"] and s.state.players["p2"].life == 34
+    check(s)
+
+
+@pytest.mark.parametrize("pay,exiled,life", [(2, 1, 38), (0, 0, 40)])
+def test_vizkopa_confessor_life_sizes_the_reveal(cards, pay, exiled, life):
+    s = build(cards, ["Vizkopa Confessor"], ["Grizzly Bears", "Llanowar Elves", "Goblin"])
+    for name in ("Grizzly Bears", "Llanowar Elves", "Goblin"):
+        to_hand(s, name, "p2")
+    mana(s, "p1", W=1, B=1, C=3)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Vizkopa Confessor").id, targets=[])
+    seen = []
+    for _ in range(40):
+        d = s.state.rules.decision
+        if d is not None:
+            seen.append((d.player, d.kind, [o.label for o in d.options], d.min_choices, d.max_choices))
+            ids = [o.id for o in d.options]
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=ids[: d.min_choices] if d.kind == "choose_cards" else ids[:1] if len(ids) < 3 else ids[pay:pay + 1])
+        elif s.state.zones.get("stack"):
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            break
+    assert len(s.state.zones["p2:hand"]) == 3 - exiled and len(s.state.zones["p2:exile"]) == exiled
+    assert s.state.players["p1"].life == life
     check(s)
