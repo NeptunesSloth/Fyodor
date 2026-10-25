@@ -1,8 +1,8 @@
-"""Wave 110C: Eumidian Wastewaker ("Whenever this creature attacks, you and defending player each discard a card or sacrifice a permanent. You draw a card for each
-land card put into a graveyard this way." Each of the two players, in APNAP order, picks one card to discard or one permanent to sacrifice (101.4); the picks are then
-carried out together (701.9a, 701.21a) and the controller draws for each land card that reached a graveyard (a token is not a card, 111.7)."""
+"""Wave 110C: Eumidian Wastewaker (you and defending player each discard a card or sacrifice a permanent, you draw per land card put into a graveyard this way).
+Each of the two players, in APNAP order, picks one card to discard or one permanent to sacrifice (101.4); the picks are then carried out together (701.9a, 701.21a)
+and the controller draws for each land card that reached a graveyard (a token is not a card, 111.7).
+Kain, Traitorous Dragoon: "If they do" is the control change having happened (608.2c), read as the grammar's "If you do" gate."""
 
-Kain, Traitorous Dragoon: "If they do" is the control change having happened (608.2c).
 from __future__ import annotations
 
 from dataclasses import replace
