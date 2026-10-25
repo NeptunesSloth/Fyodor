@@ -8625,6 +8625,7 @@ _MODAL_HEADERS = {
     "Choose two —": (2, 2, False),
     "Choose one or both —": (1, 2, False),
     "Choose one or more —": (1, 99, False),
+    "Choose up to two —": (0, 2, False),  # (-- wave 110D -- only Call Damage Control, via wave110d_misc.modal_lines)
 }
 # -- modal frames (wave 33B) -- 700.2d: "Choose four. You may choose the same mode more than once."; 700.2a / 601.2b: "Choose one. If [condition]
 # [as you cast this spell], [you may] choose both / two / one or more instead." (an ability word may lead: "Delirium — "), the condition checked
@@ -8804,6 +8805,9 @@ def _spell_definition(ch: Characteristics) -> Definition | None:
                            or defs[ab.index].get("flash")))]  # (wave 17C: retrace, 702.81a; wave 22F: "cast this spell as though it had flash if …", 601.3d)
     if lines and (pawed := pawprint_definition(lines, ch.name)) is not None:  # (-- most-played modal spells (wave 50I) -- the Seasons)
         return pawed if _event_refs_ok(pawed) else None
+    from app.rules import wave110d_misc  # -- modal spell (wave 110D) --
+
+    lines = wave110d_misc.modal_lines(lines)
     if lines and modal_header(lines[0].text) is not None:  # (-- modal frames (wave 33B) -- after the lines about casting it: "Cast this spell only during combat.")
         from app.rules import gift
 

@@ -68,3 +68,16 @@ def spell_permanents(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
 
 PRIMITIVES: dict[str, Any] = {"may_hit110d": may_hit, "spell_permanents110d": spell_permanents}
 RESUME: dict[str, Any] = {"may_hit110d": resume}
+
+
+CALL = "Choose up to two. Return those cards from your graveyard to your hand."
+
+
+def modal_lines(lines: list[Any]) -> list[Any]:
+    """Call Damage Control: "Choose up to two. Return those cards from your graveyard to your hand. • Target artifact card. • ..." is up to two modes
+    (700.2), each returning its one targeted card (the common instruction acts on each target on its own, 608.2b), as "Choose up to two — • Return
+    target artifact card from your graveyard to your hand. • ..."."""
+    if len(lines) < 3 or lines[0].text != CALL or not all(x.text.startswith("• Target ") and x.text.endswith(" card.") for x in lines[1:]):
+        return lines
+    return [replace(lines[0], text="Choose up to two —"),
+            *(replace(x, text=x.text[:-1].replace("• Target ", "• Return target ") + " from your graveyard to your hand.") for x in lines[1:])]
