@@ -1756,5 +1756,89 @@
   ],
   "power": "5",
   "toughness": "5"
+ },
+ {
+  "name": "Cloaked Cadet",
+  "layout": "normal",
+  "mana_cost": "{4}{G}",
+  "cmc": 5.0,
+  "type_line": "Creature — Human Ranger",
+  "oracle_text": "Training (Whenever this creature attacks with another creature with greater power, put a +1/+1 counter on this creature.)\nWhenever one or more +1/+1 counters are put on one or more Humans you control, draw a card. This ability triggers only once each turn.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [
+   "Training"
+  ],
+  "power": "2",
+  "toughness": "4"
+ },
+ {
+  "name": "Reality Shift",
+  "layout": "normal",
+  "mana_cost": "{1}{U}",
+  "cmc": 2.0,
+  "type_line": "Instant",
+  "oracle_text": "Exile target creature. Its controller manifests the top card of their library. (That player puts the top card of their library onto the battlefield face down as a 2/2 creature. If it's a creature card, it can be turned face up any time for its mana cost.)",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "Manifest"
+  ]
+ },
+ {
+  "name": "Exquisite Archangel",
+  "layout": "normal",
+  "mana_cost": "{5}{W}{W}",
+  "cmc": 7.0,
+  "type_line": "Creature — Angel",
+  "oracle_text": "Flying\nIf you would lose the game, instead exile this creature and your life total becomes equal to your starting life total.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "Flying"
+  ],
+  "power": "5",
+  "toughness": "5"
+ },
+ {
+  "name": "Lich's Mirror",
+  "layout": "normal",
+  "mana_cost": "{5}",
+  "cmc": 5.0,
+  "type_line": "Artifact",
+  "oracle_text": "If you would lose the game, instead shuffle your hand, your graveyard, and all permanents you own into your library, then draw seven cards and your life total becomes 20.",
+  "colors": [],
+  "color_identity": [],
+  "keywords": []
+ },
+ {
+  "name": "Case of the Shifting Visage",
+  "layout": "case",
+  "mana_cost": "{1}{U}{U}",
+  "cmc": 3.0,
+  "type_line": "Enchantment — Case",
+  "oracle_text": "At the beginning of your upkeep, surveil 1.\nTo solve — There are fifteen or more cards in your graveyard. (If unsolved, solve at the beginning of your end step.)\nSolved — Whenever you cast a nonlegendary creature spell, copy that spell. (The copy becomes a token.)",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "Surveil",
+   "Solved"
+  ]
  }
 ]

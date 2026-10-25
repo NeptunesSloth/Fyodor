@@ -165,3 +165,43 @@ def test_rendmaw_goads_a_bird_for_each_player_when_it_enters_or_a_multitype_card
     drive(s)
     assert len(_birds(s)) == 6
     check(s)
+
+
+def test_oblivious_bookworm_manifest_counts_as_entering_face_down(cards):
+    """708.2: a manifested card enters face down (701.40a), so the end-step loot does not discard."""
+    s = build(cards, ["Oblivious Bookworm", "Grizzly Bears", "Reality Shift", "Forest", "Forest", "Forest"], [])
+    put(s, "Oblivious Bookworm")
+    bears = put(s, "Grizzly Bears")
+    mana(s, "p1", U=1, C=1)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Reality Shift").id, targets=[bears.id])
+    drive(s)
+    assert any(c.face_down and c.zone == "p1:battlefield" for c in s.state.cards.values())
+    gy = lambda: len(s.state.zones["p1:graveyard"])  # noqa: E731
+    before = gy()
+    to_phase(s, "main1", turn=2)
+    drive(s)
+    assert gy() == before
+    check(s)
+
+
+@pytest.mark.parametrize("pick", [0, 1])
+def test_lose_replacements_616_1_choice(cards, pick):
+    """616.1: Stunning Reversal and Exquisite Archangel both replace the loss; the player picks one, the other stays for the next loss."""
+    s = build(cards, ["Stunning Reversal", "Exquisite Archangel", "Forest"], [])
+    put(s, "Exquisite Archangel")
+    mana(s, "p1", B=1, C=3)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Stunning Reversal").id)
+    drive(s)
+    act(s, "p1", type="set_life", player="p1", value=0)
+    act(s, "p1", type="pass_priority")
+    d = s.state.rules.decision
+    assert d is not None and len(d.options) == 2
+    names = [o.label for o in d.options]
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[d.options[pick].id])
+    drive(s)
+    assert s.state.rules.winner is None
+    if names[pick] == "Stunning Reversal":
+        assert s.state.players["p1"].life == 1
+    else:
+        assert s.state.players["p1"].life == 40
+    check(s)
