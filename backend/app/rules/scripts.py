@@ -2684,6 +2684,10 @@ def parse_effects(body: str, it: str | None = None, *, event_player: bool = Fals
 
     if (other100p := otherchooser100p.parse(body)) is not None:
         return other100p
+    from app.rules import wave110a  # -- wave 110A --
+
+    if (body110a := wave110a.parse(body)) is not None:
+        return body110a
     from app.rules import multi100n  # -- multi (wave 100N) --
 
     if (body100n := multi100n.parse(body)) is not None:
@@ -5971,6 +5975,10 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
 
     if (lines100j := counters100j.definition(ability, ch)) is not None:
         return lines100j
+    from app.rules import wave110a  # -- wave 110A --
+
+    if (whole110a := wave110a.definition(ability, ch)) is not None:
+        return whole110a
     from app.rules import multi100n  # -- multi (wave 100N) --
 
     if (whole100n := multi100n.definition(ability, ch)) is not None:
