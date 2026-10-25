@@ -193,7 +193,22 @@ def resume_unlock(plan: Any, d: Any, chosen: list[str]) -> None:
     effects.continue_effects(plan, d.resume["ctx"])
 
 
+def _blink() -> Parsed:
+    """Blink chapters I, III: the target's owner (108.3) shuffles it into their library (701.24), then that player investigates (701.16a)."""
+    effects, targets, optional = _p("Shuffle target creature into its owner's library.")
+    clue = _p("Investigate.")[0][0]
+    return [*effects, {**clue, "who": "target_owner"}], targets, optional
+
+
+def _not_creature() -> Parsed:
+    """Alien Angel token: 205.1b, a continuing type-removing effect for the turn (611.2a); "this token" = the permanent itself."""
+    effects, targets, optional = _p("~ loses all abilities until end of turn.")
+    return [{**{k: v for k, v in effects[0].items() if k != "lose_abilities"}, "remove_types": ["Creature"]}], targets, optional
+
+
 BUILDERS: dict[str, Callable[[], Parsed]] = {
+    "Choose target creature. Its owner shuffles it into their library, then investigates.": _blink,
+    "this token isn't a creature until end of turn.": _not_creature,
     "unlock a locked door of up to one target Room you control.": _keybearer,
     "Reveal any number of cards in your hand. You gain 2 life for each green mana symbol in those cards' mana costs.":
         lambda: ([{"do": "reveal_chroma110f"}], None, False),
