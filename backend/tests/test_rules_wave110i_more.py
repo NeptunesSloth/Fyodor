@@ -11,9 +11,9 @@ from __future__ import annotations
 import pytest
 
 from app.rules import coverage
+from app.rules.plan import Plan
 from tests.game_helpers import act
 from tests.test_rules_wave12a_counters_keywords import real
-from app.rules.plan import Plan
 from tests.wave110c_kit import answer, build, cast, check, make_db, mana, put, zone
 
 EXTRA = [
