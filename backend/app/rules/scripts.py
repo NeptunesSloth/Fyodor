@@ -2660,6 +2660,10 @@ def _sacrifice_count_sequence(body: str) -> tuple[list[dict[str, Any]], Any, boo
 
 
 def parse_effects(body: str, it: str | None = None, *, event_player: bool = False) -> tuple[list[dict[str, Any]], Any, bool] | None:
+    from app.rules import wave110c_core  # -- exact wordings (wave 110C) --
+
+    if (body110c := wave110c_core.parse(body)) is not None:
+        return body110c
     from app.rules import sticker_effects101
 
     if (sticker101 := sticker_effects101.parse(body, it)) is not None:
@@ -5886,6 +5890,10 @@ def _first_time_gate(text: str) -> str:
 
 def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     """The engine definition of one ability, or None (manual)."""
+    from app.rules import wave110c_core  # -- whole abilities (wave 110C) --
+
+    if (whole110c := wave110c_core.definition(ability, ch)) is not None:
+        return whole110c
     from app.rules import sticker_riders102
 
     if (rider102 := sticker_riders102.definition(ability, ch)) is not None:
