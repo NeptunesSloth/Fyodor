@@ -6,6 +6,7 @@
 * Invasion of the Giants: 603.12 'Then you may reveal a Giant card. When you do' is a reflexive trigger after the draw.
 * Distended Mindbender: 701.9 / 701.20a one discard per size class from the revealed hand, chosen by the caster.
 * Fugitive of the Judoon: 702.21a a token created with ward {2}; 118.3 the Human and the artifact are exiled together, then a Doctor is searched out.
+* Foul Emissary: 702.119a / 701.21a the Eldrazi Horror comes only when it was sacrificed as the emerge cost, not by an effect.
 * Total War: 508.1 / 302.6 untapped non-Wall creatures that did not attack and were controlled since the turn began are destroyed.
 * Gemini Engine: 508.4 / 111.1 an attacking token with the attacker's power and toughness, sacrificed at end of combat.
 * Vizkopa Confessor: 119.4 the life paid sizes the reveal (701.20a); paying 0 reveals nothing.
@@ -66,6 +67,8 @@ EXTRA = [
     real('Fugitive of the Judoon', '{4}{G}', 5, 'Enchantment \u2014 Saga',
          '(As this Saga enters and after your draw step, add a lore counter. Sacrifice after III.)\nI \u2014 Create a 1/1 white Human creature token with ward {2} and a 4/4 white Alien Rhino creature token.\nII \u2014 Investigate.\nIII \u2014 You may exile a Human you control and an artifact you control. If you do, search your library for a Doctor card, put it onto the battlefield, then shuffle.', None, 'G'),
     real('Test Doctor', '{G}', 1, 'Creature \u2014 Time Lord Doctor', '', ('1', '1'), 'G'),
+    real('Foul Emissary', '{2}{G}', 3, 'Creature \u2014 Human Horror',
+         'When this creature enters, look at the top four cards of your library. You may reveal a creature card from among them and put it into your hand. Put the rest on the bottom of your library in any order.\nWhen you sacrifice this creature while casting a spell with emerge, create a 3/2 colorless Eldrazi Horror creature token.', ('1', '1'), 'G'),
     real('Total War', '{3}{R}', 4, 'Enchantment',
          "Whenever a player attacks with one or more creatures, destroy all untapped non-Wall creatures that player controls that didn't attack, except for creatures the player hasn't controlled continuously since the beginning of the turn.", None, 'R'),
     real('Gemini Engine', '{6}', 6, 'Artifact Creature — Construct',
@@ -863,4 +866,23 @@ def test_fugitive_of_the_judoon_token_has_ward_and_chapter_three_exiles_both(car
     on = lambda n, z: [c for c in s.state.cards.values() if c.name == n and c.zone == z]  # noqa: E731
     assert bool(on("Test Doctor", "p1:battlefield")) == pay
     assert len(on("Human", "p1:battlefield")) == (0 if pay else 1) and len(on("Clue", "p1:battlefield")) == (0 if pay else 1)
+    check(s)
+
+
+@pytest.mark.parametrize("emerge", [True, False])
+def test_foul_emissary_makes_a_horror_only_when_sacrificed_to_emerge(cards, emerge):
+    """Foul Emissary (702.119a): sacrificed to cast a spell with emerge it makes a 3/2 Eldrazi Horror; sacrificed by an effect it does not."""
+    s = build(cards, ["Foul Emissary", "Distended Mindbender" if emerge else "Infernal Offering"], ["Goblin"])
+    put(s, "Foul Emissary")
+    mana(s, "p1", B=2, C=8)
+    if emerge:
+        mind = to_hand(s, "Distended Mindbender")
+        emissary = card_named(s, "Foul Emissary")
+        act(s, "p1", type="cast_spell", card_id=mind.id, alt_cost=f"{mind.id}:0", cost_choices=[{"component": 0, "cards": [emissary.id]}], targets=["p2"])
+    else:
+        cast(s, "Infernal Offering")
+    drive(s)
+    horrors = [c for c in s.state.cards.values() if c.name == "Eldrazi Horror" and c.zone == "p1:battlefield"]
+    assert len(horrors) == (1 if emerge else 0)
+    assert emerge or card_named(s, "Infernal Offering").zone == "p1:graveyard"  # it resolved: the Emissary was sacrificed there (and came back with mode 2)
     check(s)
