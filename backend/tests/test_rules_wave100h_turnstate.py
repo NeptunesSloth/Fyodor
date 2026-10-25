@@ -1102,3 +1102,50 @@ def test_sita_varma_counters_then_sets_the_others_base_power(cards, choose):
     with pytest.raises(ActionError):  # (exhaust: only once, 702.177a)
         act(s, "p1", type="activate_ability", card_id=sita.id, ability=0, x_value=0)
     check(s)
+
+
+# -- Magnigoth Treefolk -----------------------------------------------------------------------------------------------------------------------------
+def test_magnigoth_treefolk_has_the_landwalk_of_each_basic_type_you_control(cards):
+    s = build(cards, ["Magnigoth Treefolk", "Island", "Forest"])
+    tree = put(s, "Magnigoth Treefolk")
+    assert not {k for k in ch(s, tree).keywords if k.endswith("walk")}
+    put(s, "Island")
+    assert {k for k in ch(s, tree).keywords if k.endswith("walk")} == {"islandwalk"}
+    put(s, "Forest")
+    assert {k for k in ch(s, tree).keywords if k.endswith("walk")} == {"islandwalk", "forestwalk"}
+    check(s)
+
+
+# -- Goddric, Cloaked Reveler -----------------------------------------------------------------------------------------------------------------------
+def test_goddric_is_a_dragon_after_two_nonland_permanents_entered(cards):
+    s = build(cards, ["Goddric, Cloaked Reveler", "Grizzly Bears", "Forest"])
+    god = put(s, "Goddric, Cloaked Reveler")  # (one nonland permanent entered)
+    put(s, "Forest")
+    assert "Dragon" not in ch(s, god).subtypes and "flying" not in ch(s, god).keywords and ch(s, god).pt != (4, 4)
+    cast(s, "Grizzly Bears")
+    got = ch(s, god)
+    assert got.subtypes == {"Dragon"} and got.pt == (4, 4) and "flying" in got.keywords and "haste" in got.keywords
+    pump = next(a.index for a in got.abilities if a.text.startswith("{R}: Dragons"))
+    mana(s, R=1)
+    act(s, "p1", type="activate_ability", card_id=god.id, ability=pump)
+    answer(s)
+    assert ch(s, god).pt == (5, 4)  # (it is a Dragon itself)
+    check(s)
+
+
+# -- Zimone, Mystery Unraveler ----------------------------------------------------------------------------------------------------------------------
+def test_zimone_manifests_dread_first_then_turns_a_permanent_face_up(cards):
+    s = build(cards, ["Zimone, Mystery Unraveler", "Forest", "Rampant Growth", "Grizzly Bears", "Llanowar Elves"])
+    put(s, "Zimone, Mystery Unraveler")
+    for name in ("Grizzly Bears", "Llanowar Elves"):
+        c = next(c for c in s.state.cards.values() if c.name == name)
+        act(s, "p1", type="move", card_ids=[c.id], to={"zone": "library"}, position="top")
+    act(s, "p1", type="play_land", card_id=to_hand(s, "Forest").id)
+    answer(s)
+    down = [c for c in s.state.cards.values() if c.face_down and c.zone == "p1:battlefield"]
+    assert len(down) == 1
+    cast(s, "Rampant Growth")
+    answer(s)
+    assert not s.state.cards[down[0].id].face_down
+    assert not [c for c in s.state.cards.values() if c.face_down and c.zone == "p1:battlefield"]  # (no second manifest)
+    check(s)

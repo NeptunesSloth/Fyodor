@@ -132,6 +132,15 @@ def _treasurer(treasure: Def, pay: Def) -> Def | None:
     return {**pay, "effects": [first, treasure["effects"][1], {"do": "only_if", "cond": {"flag": "cond0", "negate": True}, "skip": 2}, *pay["effects"]]}
 
 
+def _zimone(dread: Def, up: Def) -> Def | None:
+    """Zimone, Mystery Unraveler: manifest dread on the first resolution this turn; otherwise turn a face-down permanent you control face up (only a
+    face-down one can be, 708.2b; no cost paid: an effect, not the special action of 116.2b)."""
+    if _dos(dread) != ["only_if", "manifest"] or _dos(up) != ["turn_face_up"] or not up.get("optional"):
+        return None
+    return {**dread, "effects": [{**dread["effects"][0], "bind": "cond0"}, dread["effects"][1],
+                                 {"do": "only_if", "cond": {"flag": "cond0", "negate": True}, "skip": 1}, {**up["effects"][0], "optional": True}]}
+
+
 def _ashling(counter: Def, blast: Def) -> Def | None:
     """Ashling the Pilgrim: on the third resolution this turn exactly (history.resolution_holds), all its +1/+1 counters come off and it deals that
     many damage to each creature and each player at once (120.2)."""
@@ -413,6 +422,10 @@ _BUILD: dict[str, tuple[tuple[str, ...], Callable[..., Def | None]]] = {
     "total toxic value.":
         (("At the beginning of your upkeep, if an opponent has three or more poison counters, choose a creature you control, then draw cards equal to "
           "its power.",), _goliath),
+    "Whenever a land you control enters, manifest dread if this is the first time this ability has resolved this turn. Otherwise, you may turn a "
+    "permanent you control face up.":
+        (("Whenever a land you control enters, manifest dread if this is the first time this ability has resolved this turn.",
+          "Whenever a land you control enters, you may turn a face-down permanent you control face up."), _zimone),
     "At the beginning of your upkeep, you may look at the top card of your library. If it shares a creature type with ~, you may reveal it. If you "
     "do, you may play that card without paying its mana cost.":
         (("At the beginning of your upkeep, reveal the top card of your library. You may play that card without paying its mana cost.",), _elder),
@@ -489,6 +502,10 @@ def _demonfire(d: Def) -> Def | None:
                              {"do": "only_if", "cond": {"flag": "cond0", "negate": True}, "skip": 1}, hit, exile]}
 
 
+_GODDRIC = ('As long as two or more nonland permanents entered the battlefield under your control this turn, ~{} base power and toughness 4/4, '
+            'flying, and "{{R}}: Dragons you control get +1/+0 until end of turn."')
+
+
 def definition(ability: Any, ch: Any) -> Def | None:
     from app.rules import scripts
 
@@ -502,6 +519,16 @@ def definition(ability: Any, ch: Any) -> Def | None:
     if ability.kind == "static" and text == "This spell has cascade as long as there are four or more card types among cards in your graveyard.":
         # Bloodbraid Marauder (delirium): judged as the spell becomes cast (ruling 2021-06-18), casting._granted_cascade reads it
         return {"kind": "static", "static": "own_cascade100h", "cond": _DELIRIUM, "effects": []}
+    if ability.kind == "static" and text == _GODDRIC.format(' is a Dragon with'):
+        # Goddric, Cloaked Reveler (celebration): "is a Dragon" sets its creature types (205.1a; layer 4, as During your turn, ~ is a Bear …)
+        native = scripts.define(replace(ability, text=_GODDRIC.format(' has')), ch)
+        return None if native is None else {**native, "layered": True, "layer4": {"set_creature_types": ["Dragon"]}}
+    if ability.kind == "static" and text == "For each basic land type among lands you control, ~ has landwalk of that type.":
+        # (Magnigoth Treefolk, domain: one landwalk grant per type, 702.14c; 305.6)
+        from app.rules import compound_static_grants90 as grants
+
+        return grants._bundle([grants._part(f"~ has {land.lower()}walk as long as you control a{'n' * (land == 'Island')} {land}.")
+                               for land in ("Plains", "Island", "Swamp", "Mountain", "Forest")])
     if ability.kind == "spell" and text == _HELLBENT:  # (its "can't be countered" part: a static of the spell, judged when something would counter it)
         return {"kind": "static", "static": "self_uncounterable", "cond": _EMPTY_HAND, "effects": []}
     others = tuple(a for a in ch.abilities if scripts.self_text(a.text, ch.name) != _HELLBENT)
