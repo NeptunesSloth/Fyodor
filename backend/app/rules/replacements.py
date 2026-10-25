@@ -1363,8 +1363,10 @@ def _graveyard_candidates(plan: Plan, card: CardInstance, frm: str) -> list[Cand
         out.append(Cand("its own cast", "exile", True))  # "without paying …": "If that spell would be put into your graveyard, exile it instead"
     if frm == "battlefield" and card.counters.get("finality", 0) > 0:  # 122.1h (-- refused zones/sized (wave 3R4) --)
         out.append(Cand("finality counter", "exile"))
-    if _self_exile_instead(plan, card):
-        out.append(Cand(card.name or "its own ability", "exile"))
+    if _self_exile_instead(plan, card):  # (wave 110C: Ugin's Nexus' rider, "and take an extra turn")
+        rider = next(({"source": card.id, "controller": card.controller, **d["rider"]} for d in _definitions(plan, card).values()
+                      if d.get("replacement") == "exile_instead" and d.get("rider")), None)
+        out.append(Cand(card.name or "its own ability", "exile", False, rider))
     if (where := _self_library_instead(plan, card)) is not None:  # -- instead (wave 20B) --
         out.append(Cand(card.name or "its own ability", f"library:{where}"))
     if _self_shuffle_instead(plan, card):

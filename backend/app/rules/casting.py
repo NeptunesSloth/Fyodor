@@ -4451,7 +4451,7 @@ def become_plotted(plan: Plan, card_id: str) -> None:
     plan.note(f"{name} is plotted", [card.id])
 
 
-FORETELL = re.compile(r"^foretell (?P<cost>(?:\{[^}X]+\})+)$", re.IGNORECASE)
+FORETELL = re.compile(r"^foretell (?P<cost>(?:\{[^}]+\})+)$", re.IGNORECASE)
 
 
 def foretell(plan: Plan, card: CardInstance, ch: Characteristics, a: A.ActivateAbility) -> None:

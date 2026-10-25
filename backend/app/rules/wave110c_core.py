@@ -123,7 +123,27 @@ _MEATHOOK = {  # Meathook Massacre II: 400.7 the card returns as a new object "u
 }
 
 
+_NEXUS = "If ~ would be put into a graveyard from the battlefield, instead exile it and take an extra turn after this one."
+
+
+_CHANDRA = "+1: Surveil 1. If you put a noncreature, nonland card into your graveyard this way, put that card into your hand."
+
+
 def definition(ability: AbilityText, ch: Any) -> dict[str, Any] | None:
+    if ability.text.replace("Ugin's Nexus", "~") == _NEXUS:  # 614.6, 500.7: the exile replaces the move; the extra turn is part of the same replacement (rider)
+        from app.rules import scripts
+
+        parsed = scripts.parse_effects("Take an extra turn after this one.")
+        assert parsed is not None
+        return {"kind": "replacement", "replacement": "exile_instead", "from": "battlefield", "effects": [],
+                "rider": {"effects": parsed[0], "reflexive": False}}
+    if ability.text == _CHANDRA:  # Chandra, Chill of Compliance: surveil 1, then the card goes to hand only if it is a noncreature, nonland card put into the graveyard
+        from dataclasses import replace
+
+        from app.rules import scripts
+
+        native = scripts.define(replace(ability, text="+1: Surveil 1."), ch)
+        return None if native is None else {**native, "effects": [{"do": "surveil_take110c"}]}
     if ability.text in _MEATHOOK:
         from dataclasses import replace
 
@@ -177,7 +197,31 @@ def temporary_counters(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     return True
 
 
-PRIMITIVES = {"choose_branch110c": choose_branch, "temporary_counters110c": temporary_counters}
+def surveil_take(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """701.25a: surveil 1 looks at the top card; 608.2c the card put into the graveyard this way (read as it is there, 608.2h) returns to hand only if noncreature and nonland."""
+    from app.rules import context
+
+    context.bind_objects(plan, ctx, "_surveil110c", plan.state.zones.get(ctx["controller"] + ":library", [])[:1])
+    ctx["effects"][ctx["next"]:ctx["next"]] = [{"do": "surveil", "who": "you", "n": 1}, {"do": "surveil_take_end110c"}]
+    return True
+
+
+def surveil_take_end(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    from app.rules import context
+
+    context.bind_moved(plan, ctx, "_surveil110c", context._object_refs(ctx, "_surveil110c", was=True))
+    found = context.objects(plan, ctx, "_surveil110c")
+    card = plan.state.cards[found[0]] if found else None
+    if card is None or card.zone != ctx["controller"] + ":graveyard":
+        return True
+    ch = plan.ch(card)
+    if ch.is_creature or "Land" in ch.types:
+        return True
+    ctx["effects"][ctx["next"]:ctx["next"]] = [{"do": "return_card", "who": "ref:_surveil110c", "to": "hand"}]
+    return True
+
+
+PRIMITIVES = {"surveil_take110c": surveil_take, "surveil_take_end110c": surveil_take_end, "choose_branch110c": choose_branch, "temporary_counters110c": temporary_counters}
 RESUME = {"choose_branch110c": resume_branch}
 from app.rules import wave110c_mass  # noqa: E402
 
