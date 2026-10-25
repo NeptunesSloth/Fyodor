@@ -121,9 +121,8 @@ LABELS = {"next_turn": "until your next turn", "end_of_next_turn": "until the en
           "source_controlled": "for as long as you control ~", "source_tapped": "for as long as ~ remains tapped",
           "until_cast": "until this card is cast from exile",
           "source_controlled_tapped": "for as long as you control ~ and ~ remains tapped",
-          "while_counter": "for as long as it has a counter on it", "next_upkeep": "until your next upkeep",
+          "while_counter": "for as long as it has a counter on it", "while_enchanted": "for as long as that creature is enchanted", "next_upkeep": "until your next upkeep",
           "monarch_player": "for as long as they're the monarch"}
-          "while_counter": "for as long as it has a counter on it", "while_enchanted": "for as long as that creature is enchanted", "next_upkeep": "until your next upkeep"}
 MARKER = "until end of turn"  # the table marker text app/rules/effects._mark writes
 
 
@@ -549,8 +548,7 @@ def apply_duration(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         if effect.timestamp > mark:
             effect.duration = duration
             effect.until_object = until_object
-            effect.until_player = monarch or ctx["controller"]
-            effect.until_player = until_player
+            effect.until_player = monarch or until_player
             effect.turn = plan.state.turn.number
             if counter:
                 effect.counter = counter

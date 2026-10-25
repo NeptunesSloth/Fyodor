@@ -1043,10 +1043,10 @@ def _cast(c: str) -> Condition | None:
     # -- trigger other (wave 110D) -- 601.2i, 707.10, 603.2c: "enchanted player casts a spell other than the first spell they cast each turn or copies a spell"
     # (Curse of Shaken Faith): two events, each read on its own
     if (nc := re.fullmatch(rf"{_P} casts a spell other than the first spell (?:they|you) cast each turn or copies a spell", c)) is not None:
-        halves = (_cast(f"{nc['p']} casts a spell other than your first spell each turn"), _cast(f"{nc['p']} copies a spell"))
-        if None in halves:
+        either = (_cast(f"{nc['p']} casts a spell other than your first spell each turn"), _cast(f"{nc['p']} copies a spell"))
+        if None in either:
             return None
-        return {"event": "either", "subject": "player", "player": _PLAYERS[nc["p"]], "conds": list(halves)}
+        return {"event": "either", "subject": "player", "player": _PLAYERS[nc["p"]], "conds": list(either)}
     cm = re.fullmatch(rf"{_P} (?:(?P<both>casts? or cop(?:y|ies))|cop(?:y|ies)) (?P<spell>.+)", c)
     if cm is not None:
         verb = "casts" if cm["p"] in ("an opponent", "a player") else "cast"

@@ -353,13 +353,13 @@ def definition(ability: AbilityText, ch: Any) -> dict[str, Any] | None:
     if ability.text == _BINDING:  # Spatial Binding: the grammar reads "can't attack" for a creature; the rule is swapped for a phase-out prohibition (phasing._held)
         from dataclasses import replace
 
-        from app.rules import scripts, selectors
+        from app.rules import scripts
 
         native = scripts.define(replace(ability, text=_BINDING.replace("permanent can't phase out", "creature can't attack")), ch)
         if native is None or native["effects"][-1].get("rules") != ["cant_attack"]:
             return None
         native["effects"][-1]["rules"] = ["cant_phase_out"]
-        native["target"] = {**native["target"], "what": selectors.parse("permanent").key()}
+        native["target"] = {**native["target"], "what": _permanent().key()}
         return native
     if ability.text == _SLIME:  # Ravenous Slime: plain "exile it instead" plus a rider that counts the dying creature's power (614.6)
         from dataclasses import replace
@@ -552,3 +552,11 @@ RESUME = {"choose_branch110c": resume_branch}
 from app.rules import wave110c_mass  # noqa: E402
 
 PRIMITIVES.update(wave110c_mass.PRIMITIVES)
+
+
+def _permanent() -> Any:
+    from app.rules import selectors
+
+    got = selectors.parse("permanent")
+    assert got is not None
+    return got

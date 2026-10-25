@@ -224,7 +224,17 @@ NAMES.extend(["Choking Vines", "Lethal Exploit", "Beastie Beatdown", "Avenge"])
 
 def test_choking_vines_blocks_unblocked_attackers_and_pings_each(cards):
     """509.1h/509.3c: targets become blocked (no damage to the player); 120.3: 1 damage to each of them."""
-    from tests.wave53c_kit import combat_step, creature, in_play, pool, priority_to, sandbox, settle, swing, to_postcombat
+    from tests.wave53c_kit import (
+        combat_step,
+        creature,
+        in_play,
+        pool,
+        priority_to,
+        sandbox,
+        settle,
+        swing,
+        to_postcombat,
+    )
 
     s = sandbox(cards, "Choking Vines")
     a = creature(s, "p1", "Aaa", "5/5", text="Whenever this creature becomes blocked, you gain 1 life.")

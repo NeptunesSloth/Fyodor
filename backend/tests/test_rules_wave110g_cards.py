@@ -21,9 +21,10 @@ from app.cards.repository import CardRepository
 from app.rules import coverage
 from tests.fixtures.cards import fixture_cards
 from tests.game_helpers import act
+from tests.test_rules_review34_head import EXTRA as REVIEW34
+from tests.test_rules_review34_head import SIEGE, drive
 from tests.test_rules_wave12a_counters_keywords import real
 from tests.wave9c_kit import build, card_named
-from tests.test_rules_review34_head import EXTRA as REVIEW34, SIEGE, drive
 from tests.wave110b_kit import attack, cast, ch, check, mana, put, settle, through_combat, to_hand
 
 EXTRA = [

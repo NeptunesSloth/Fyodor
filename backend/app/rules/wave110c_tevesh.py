@@ -14,7 +14,7 @@ _MINUS = "−10: Gain control of all commanders. Put all commanders from the com
 
 
 def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
-    from app.rules import scripts, selectors
+    from app.rules import scripts
 
     if ability.text == _PLUS:  # the bonus draw reads the object the payment sacrificed (as it last existed, 608.2h)
         native = scripts.define(replace(ability, text="+1: You may sacrifice another creature or planeswalker. If you do, draw two cards."), ch)
@@ -22,14 +22,22 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
             return None
         pay, gate, draw = native["effects"]
         gate["skip"] = 3
-        bonus = {"do": "only_if", "cond": {"object": f"ref:{pay['bind']}", "is": selectors.parse("commander").key()}, "skip": 1}
+        bonus = {"do": "only_if", "cond": {"object": f"ref:{pay['bind']}", "is": _sel("commander").key()}, "skip": 1}
         native["effects"] = [pay, gate, draw, bonus, {**draw, "n": 1}]
         return native
     if ability.text == _MINUS:  # 114.4a-style: two instructions, the second moves every commander in a command zone
         native = scripts.define(replace(ability, text="−10: Gain control of all commanders. Put all creature cards from your graveyard onto the battlefield under your control."), ch)
         if native is None or [e.get("do") for e in native["effects"]] != ["gain_control", "return_card"]:
             return None
-        sel = replace(selectors.parse("creature card in your graveyard"), types=(), zones=("command",), zone_owner=None, commander=True)
+        sel = replace(_sel("creature card in your graveyard"), types=(), zones=("command",), zone_owner=None, commander=True)
         native["effects"][1]["who"] = sel.key()
         return native
     return None
+
+
+def _sel(phrase: str) -> Any:
+    from app.rules import selectors
+
+    got = selectors.parse(phrase)
+    assert got is not None, phrase
+    return got
