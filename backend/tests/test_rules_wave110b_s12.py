@@ -12,10 +12,23 @@ from __future__ import annotations
 
 import pytest
 
+from app.game.errors import ActionError
 from app.rules import coverage
 from tests.game_helpers import act
 from tests.test_rules_wave30m_durations import to_phase
-from tests.wave110b_kit import build, card_named, cast, ch, check, drive, mana, put, repository, to_hand, zone_of
+from tests.wave110b_kit import (
+    build,
+    card_named,
+    cast,
+    ch,
+    check,
+    drive,
+    mana,
+    put,
+    repository,
+    to_hand,
+    zone_of,
+)
 
 
 @pytest.fixture()
@@ -247,6 +260,6 @@ def test_autumns_veil_blue_spells_cant_target_your_creatures(cards):
     mana(s, "p1", G=1)
     cast(s, "Autumn's Veil")
     mana(s, "p2", U=1)
-    with pytest.raises(Exception):
+    with pytest.raises(ActionError):
         cast(s, "Unsummon", [bears.id], pid="p2")
     assert zone_of(s, "Grizzly Bears") == "p1:battlefield"
