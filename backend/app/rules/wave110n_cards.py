@@ -50,5 +50,36 @@ def union_types(plan: Any, ctx: Any, v: Def) -> int:
     return len(found)
 
 
-PRIMITIVES: dict[str, Any] = {}
+_DECREE = ("Counter target spell. If a permanent spell is countered this way, exile it instead of putting it into its owner's graveyard. "
+           "You may cast that card without paying its mana cost for as long as it remains exiled.")
+
+
+def parse(body: str) -> Any:
+    """Exact spell bodies: the parts the grammar reads, joined with the card's own step."""
+    from app.rules import scripts
+
+    if body.strip() == _DECREE:
+        parsed = scripts.parse_effects("Counter target spell. If that spell is countered this way, exile it instead of putting it into its owner's graveyard. "
+                                       "You may cast that card without paying its mana cost for as long as it remains exiled.")
+        if parsed is not None and len(parsed[0]) == 2 and parsed[0][0].get("do") == "counter":
+            effects, target, optional = parsed
+            return [{**effects[0], "do": "decree110n"}, effects[1]], target, optional
+    return None
+
+
+def decree(plan: Any, ctx: Any, e: Def) -> bool:
+    """Thranduil's Decree: a permanent spell is exiled instead of going to the graveyard (608.2c, 701.6a); only a card that is in exile because of it may then
+    be cast (a nonpermanent spell, or one that can't be countered, leaves "that card" nothing to be cast)."""
+    from app.rules import context, effects
+    from app.rules.values import PERMANENT_TYPES
+
+    sids = effects._stack_targets(plan, ctx, e)
+    perm = bool(sids) and bool(plan.ch(plan.state.cards[sids[0]]).types & PERMANENT_TYPES)
+    effects.counter(plan, ctx, {**e, "do": "counter", "to": "exile" if perm else None})
+    if not (perm and plan.state.cards[sids[0]].zone.endswith(":exile")):
+        context.bind_objects(plan, ctx, e["as"], [])  # nothing was exiled by this: no card to cast
+    return True
+
+
+PRIMITIVES: dict[str, Any] = {"decree110n": decree}
 RESUME: dict[str, Any] = {}
