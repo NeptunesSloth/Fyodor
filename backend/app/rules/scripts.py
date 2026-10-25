@@ -9350,6 +9350,10 @@ def define_replacement(ability: AbilityText, text: str) -> Definition | None:
         # ruling), applied with the other zone replacements (replacements.zone_candidates, 616.1)
         key = _selector_key(hand["sel"])
         return None if key is None else {"kind": "static", "static": "hand_instead", "effects": [], "from": "battlefield", "graveyard_of": "any", "who": key}
+    from app.rules import instead100k  # (wave 100K)
+
+    if rider is None and text in instead100k.EXILE:
+        return dict(instead100k.EXILE[text])
     m = EXILE_INSTEAD_STATIC.match(text)
     if m is None and rider is not None:
         return None

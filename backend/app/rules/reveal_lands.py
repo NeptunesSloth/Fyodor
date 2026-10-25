@@ -30,8 +30,10 @@ if TYPE_CHECKING:
 KIND = "reveal_or_tapped"
 PREFIX = "reveal:"
 NONE = "none"
+CONTROLS = "controls"  # (wave 100K: no question, the counter because you control one)
 _TEXT = re.compile(r"^As ~ enters, you may reveal an? (?P<what>.+?) card from your hand\. (?:If you don't, (?:~|it) enters tapped\.|"
-                   r"(?:~|This land) enters tapped unless you revealed an? (?P<w2>.+?) card this way or you control an? (?P<w3>.+?)\.)$")
+                   r"(?:~|This land) enters tapped unless you revealed an? (?P<w2>.+?) card this way or you control an? (?P<w3>.+?)\.|"
+                   r"If you do or if you control an? (?P<w4>.+?), (?:~|this creature) enters with a \+1/\+1 counter on it\.)$")  # (wave 100K: Dragon's Disciple)
 
 
 # -- if you do (wave 100B) -- "As this land enters, you may behold a Jace. If you don't, this land enters tapped." (Theorist's Sanctum): 701.4a, reveal a
@@ -50,6 +52,11 @@ def definition(text: str) -> dict[str, Any] | None:
     sel = selectors.parse(f"{m['what']} card")
     if sel is None or not sel.card or sel.player is not None or sel.other or sel.controller or sel.owner:
         return None
+    if m["w4"]:  # -- as long as (wave 100K) -- Dragon's Disciple: the counter (once, its ruling) if it was revealed or you control one
+        ctl = selectors.parse(f"{m['w4']} you control")
+        if m["w4"] != m["what"] or ctl is None or ctl.card:
+            return None
+        return {"kind": "replacement", "replacement": KIND, "sel": sel.key(), "ctl": ctl.key(), "counter": "+1/+1", "effects": []}
     if m["w2"]:  # -- if you do (wave 25C) -- "… tapped unless you revealed a Dragon card this way or you control a Dragon" (Temple of the Dragon Queen)
         ctl = selectors.parse(f"{m['w3']} you control")
         if m["w2"] != m["what"] or m["w3"] != m["what"] or ctl is None or ctl.card:
@@ -72,9 +79,11 @@ def plan_entry(plan: Plan, card: CardInstance, controller: str, defs: list[dict[
     """replacements.entry_plan's part for these lands: tapped unless a matching card is revealed; the
     question (``out["choice"]``) while it isn't answered."""
     for d in defs:
-        if d.get("replacement") != KIND or out["tapped"]:
+        if d.get("replacement") != KIND or out["tapped"] and not d.get("counter"):
             continue
         if d.get("ctl") and selectors.candidates(plan, selectors.from_key(d["ctl"]), controller):
+            if d.get("counter"):
+                out.setdefault("choices", {})[PREFIX + d["sel"]] = CONTROLS
             continue  # (you control one: it enters untapped without revealing anything; public, so no question to leak)
         what = PREFIX + d["sel"] + ("|" + d["behold"] if d.get("behold") else "")
         cards = _matching(plan, card, controller, what[len(PREFIX):])
@@ -83,14 +92,14 @@ def plan_entry(plan: Plan, card: CardInstance, controller: str, defs: list[dict[
         # question only when no card matches would tell the table they hold none (hidden information)
         others = any(c != card.id for c in plan.state.zones.get(zone_key(controller, "hand"), [])) or (bool(d.get("behold")) and bool(cards))
         if not others or given == NONE:
-            out["tapped"] = True
+            out["tapped"] = out["tapped"] or not d.get("counter")
         elif given is None:
             if "choice" not in out:
                 out["choice"] = {"what": what}
         elif given in cards:
             out.setdefault("choices", {})[what] = given
         else:  # (the card answered with left the hand meanwhile: nothing revealed)
-            out["tapped"] = True
+            out["tapped"] = out["tapped"] or not d.get("counter")
 
 
 def is_choice(what: str) -> bool:
@@ -102,6 +111,11 @@ def prompt(plan: Plan, card: CardInstance, controller: str, what: str) -> tuple[
     cards = _matching(plan, card, controller, what[len(PREFIX):])
     options = [DecisionOption(id=c, label=f"{'Choose' if plan.state.cards[c].zone.endswith(':battlefield') else 'Reveal'} {plan.state.cards[c].name or 'card'}",
                               card_id=c) for c in cards]
+    from app.rules import scripts
+
+    if any(d.get("counter") for d in scripts.definitions(plan.ch(card)).values()):  # (wave 100K)
+        options.append(DecisionOption(id=NONE, label="Don't reveal (no +1/+1 counter)"))
+        return f"{card.name}: as it enters, reveal a card from your hand for a +1/+1 counter?", options
     options.append(DecisionOption(id=NONE, label="Don't reveal (it enters tapped)"))
     if "|" in what:  # (behold, 701.4a)
         return f"{card.name}: as it enters, behold (reveal a card from your hand or choose a permanent you control), or it enters tapped?", options
@@ -117,3 +131,11 @@ def after_entry(plan: Plan, controller: str, choices: dict[str, str] | None) -> 
             continue
         plan.do({"type": "reveal", "card_ids": [cid]}, actor=controller)
         plan.do({"type": "hide", "card_ids": [cid]}, actor=controller)
+
+
+def counters(ch: Any, choices: dict[str, str] | None) -> int:
+    """-- as long as (wave 100K) -- Dragon's Disciple's +1/+1 counter: a card revealed, or one you control."""
+    from app.rules import scripts
+
+    return sum(1 for d in scripts.definitions(ch).values() if d.get("replacement") == KIND and d.get("counter")
+               and (choices or {}).get(PREFIX + d["sel"], NONE) != NONE)

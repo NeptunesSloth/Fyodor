@@ -34,13 +34,25 @@ _SPLITS = {"Clash with an opponent, then return target creature to its owner's h
            "Creatures of the creature type of your choice attack this turn if able.": "Choose a creature type. Creatures of the chosen type attack this turn if able.",
            # Bumi, Unleashed: "that combat phase" is the one just added (combat_rules: its own tag)
            "After this phase, there is an additional combat phase. Only land creatures can attack during that combat phase.":
-           "After this phase, there is an additional combat phase in which only land creatures can attack."}
+           "After this phase, there is an additional combat phase in which only land creatures can attack.",
+           # Relic Axe: the static's "instead" sentence in the form static_pairs reads (611.3a: two statics whose conditions exclude each other)
+           "Equipped creature gets +1/+1. If it's a Warrior, it gets +2/+1 instead.": "Equipped creature gets +1/+1. It gets +2/+1 instead as long as it's a Warrior.",
+           # Zurgo, Thunder's Decree: "this token" in the granted ability is the token itself, as "this permanent" (the object with the ability)
+           'Warrior tokens you control have "This token can\'t be sacrificed."': 'Warrior tokens you control have "This permanent can\'t be sacrificed."'}
 
 
 def normalize(text: str) -> str:
     for old, new in _SPLITS.items():
         text = text.replace(old, new)
     return text
+
+
+# Graveyard → exile statics read as the others (replacements._static_exile_all), the object as it is in the zone it leaves (their rulings):
+# Sanctifier en-Vec (any black or red object, tokens too), Anafenza, the Foremost (a nontoken creature / creature card an opponent owns)
+EXILE = {"If a black or red permanent, spell, or card not on the battlefield would be put into a graveyard, exile it instead.":
+         {"kind": "static", "static": "exile_instead", "effects": [], "from": "anywhere", "graveyard_of": "any", "who": "colors:B|R"},
+         "If a nontoken creature an opponent owns would die or a creature card not on the battlefield would be put into an opponent's graveyard, exile that card instead.":
+         {"kind": "static", "static": "exile_instead", "effects": [], "from": "anywhere", "graveyard_of": "opponent", "who": "types:Creature"}}
 
 
 def whole_loot(base: list[dict[str, Any]], alt: list[dict[str, Any]]) -> bool:

@@ -20,12 +20,17 @@
   creature's counters are put by its controller, 122.6a, its rulings; twice: plus two).
 * "If a creature you control that's enchanted would die, return it to its owner's hand instead." (Necromancer's Magemark: 614.1a, it never dies;
   its Auras go to the graveyard, its rulings).
+* "Equipped creature gets +1/+1. If it's a Warrior, it gets +2/+1 instead." (Relic Axe: two statics with exclusive conditions, 611.3a).
+* Teamwork (702.194b) announced before targets (601.2b-c) like a kicker: Cruel Alliance, Too Evil to Stay Dead choose their teamwork-only target.
+* Graveyard → exile statics (614.1a, 616.1), the object read in the zone it leaves (their rulings): Sanctifier en-Vec (black or red: spells and
+  simultaneous deaths too), Anafenza, the Foremost (what an opponent owns: a nontoken creature that dies, a milled creature card).
 """
 
 from __future__ import annotations
 
 import pytest
 
+from app.game.errors import ActionError
 from app.rules import coverage
 from tests.game_helpers import act
 from tests.test_rules_conditionals import token_of, until
@@ -102,6 +107,22 @@ EXTRA = [
     real("Necromancer's Magemark", '{2}{B}', 3, 'Enchantment — Aura',
          "Enchant creature\nCreatures you control that are enchanted get +1/+1.\nIf a creature you control that's enchanted would die, return it to its owner's "
          "hand instead.", None, 'B'),
+    real('Relic Axe', '{2}', 2, 'Artifact — Equipment',
+         "When this Equipment enters, attach it to target creature you control.\nEquipped creature gets +1/+1. If it's a Warrior, it gets +2/+1 instead.\nEquip {2} "
+         "({2}: Attach to target creature you control. Equip only as a sorcery.)", None, ''),
+    real('Cruel Alliance', '{2}{B}', 3, 'Sorcery',
+         'Teamwork 2 (As an additional cost to cast this spell, you may tap any number of creatures you control with total power 2 or more.)\nExile target '
+         'creature with mana value 3 or less. If this spell was cast using teamwork, instead exile target creature and you gain 3 life.', None, 'B'),
+    real('Too Evil to Stay Dead', '{2}{B}', 3, 'Sorcery',
+         'Teamwork 4 (As an additional cost to cast this spell, you may tap any number of creatures you control with total power 4 or more.)\nChoose target '
+         'creature card in your graveyard with mana value 4 or less. If this spell was cast using teamwork, instead choose target creature card in your graveyard. '
+         'Return the chosen card to the battlefield.', None, 'B'),
+    real('Sanctifier en-Vec', '{W}{W}', 2, 'Creature — Human Cleric',
+         'Protection from black and from red\nWhen this creature enters, exile all cards that are black or red from all graveyards.\nIf a black or red permanent, '
+         'spell, or card not on the battlefield would be put into a graveyard, exile it instead.', ('2', '2'), 'W'),
+    real('Anafenza, the Foremost', '{W}{B}{G}', 3, 'Legendary Creature — Human Soldier',
+         "Whenever Anafenza attacks, put a +1/+1 counter on another target tapped creature you control.\nIf a nontoken creature an opponent owns would die or a "
+         "creature card not on the battlefield would be put into an opponent's graveyard, exile that card instead.", ('4', '4'), 'BGW'),
 ]
 NAMES = [c["name"] for c in EXTRA]
 STEPS = ["main1", "begin_combat", "declare_attackers", "declare_blockers", "combat_damage", "end_combat", "main2", "end"]
@@ -606,4 +627,85 @@ def test_necromancers_magemark_returns_your_enchanted_creatures_instead_of_dying
     assert s.state.cards[bears.id].zone == "p1:hand"  # (instead of dying: no dies triggers, 614.6)
     assert s.state.cards[mark.id].zone == "p1:graveyard"  # (the Aura isn't returned, its ruling)
     assert s.state.cards[elves.id].zone == "p1:graveyard" and s.state.cards[theirs.id].zone == "p2:graveyard"
+    check(s)
+
+
+@pytest.mark.parametrize("warrior", [False, True])
+def test_relic_axe_gives_a_warrior_more(cards, warrior):
+    s = build(cards, ["Relic Axe", "Grizzly Bears"])
+    axe = put(s, "Relic Axe")
+    bearer = token_of(s, "p1", "Hero", "Token Creature — Human Warrior") if warrior else put(s, "Grizzly Bears")
+    act(s, "p1", type="attach", card_ids=[axe.id], to=bearer.id)
+    assert pt(s, bearer.name) == ((4, 3) if warrior else (3, 3))
+    check(s)
+
+
+def teamwork_cast(s, spell, target, counts, helpers=()):
+    extra = {"optional_costs": [f"{spell.id}:teamwork"], "cost_choices": [{"component": 0, "cards": [h.id for h in helpers]}]} if helpers else {}
+    act(s, "p1", type="cast_spell", card_id=spell.id, targets=[target.id], target_counts=counts, **extra)
+
+
+@pytest.mark.parametrize("teamwork", [False, True])
+def test_cruel_alliance_teamwork_chooses_any_creature_and_gains_life(cards, teamwork):
+    s = build(cards, ["Cruel Alliance"], ["Llanowar Elves", "Bloodbraid Elf"])
+    small, big = put(s, "Llanowar Elves", "p2"), put(s, "Bloodbraid Elf", "p2")  # (mana values 1 and 4)
+    helper = token_of(s, "p1", "Ox", "Token Creature — Ox", "2/2")
+    spell = to_hand(s, "Cruel Alliance")
+    mana(s, B=1, C=2)
+    with pytest.raises(ActionError):  # (601.2c: each casting chooses only its own target)
+        teamwork_cast(s, spell, small if teamwork else big, [1, 0] if teamwork else [1, 0], [helper] if teamwork else ())
+    teamwork_cast(s, spell, big if teamwork else small, [0, 1] if teamwork else [1, 0], [helper] if teamwork else ())
+    answer(s)
+    assert s.state.cards[(big if teamwork else small).id].zone == "p2:exile"
+    assert life(s) == 40 + (3 if teamwork else 0) and s.state.cards[helper.id].tapped == teamwork
+    check(s)
+
+
+@pytest.mark.parametrize("teamwork", [False, True])
+def test_too_evil_to_stay_dead_teamwork_returns_any_creature_card(cards, teamwork):
+    s = build(cards, ["Too Evil to Stay Dead", "Mulldrifter", "Grizzly Bears"])
+    small, big = card_named(s, "Grizzly Bears"), card_named(s, "Mulldrifter")  # (mana values 2 and 5)
+    act(s, "p1", type="move", card_ids=[small.id, big.id], to={"player": "p1", "zone": "graveyard"})
+    helper = token_of(s, "p1", "Giant", "Token Creature — Giant", "4/4")
+    spell = to_hand(s, "Too Evil to Stay Dead")
+    mana(s, B=1, C=2)
+    if not teamwork:
+        with pytest.raises(ActionError):  # (mana value 5: not without teamwork)
+            teamwork_cast(s, spell, big, [1, 0])
+    teamwork_cast(s, spell, big if teamwork else small, [0, 1] if teamwork else [1, 0], [helper] if teamwork else ())
+    answer(s)
+    assert s.state.cards[(big if teamwork else small).id].zone == "p1:battlefield"
+    assert s.state.cards[helper.id].tapped == teamwork
+    check(s)
+
+
+def test_sanctifier_en_vec_exiles_black_and_red_objects_from_anywhere(cards):
+    s = build(cards, ["Sanctifier en-Vec", "Lightning Bolt", "Wrath of God"], ["Monastery Swiftspear", "Grizzly Bears"])
+    sanctifier = put(s, "Sanctifier en-Vec")
+    red, green = put(s, "Monastery Swiftspear", "p2"), put(s, "Grizzly Bears", "p2")
+    bolt = cast(s, "Lightning Bolt", ["p2"], R=1)
+    answer(s)
+    assert s.state.cards[bolt.id].zone == "p1:exile"  # (a red spell)
+    cast(s, "Wrath of God", (), W=2, C=2)
+    answer(s)
+    assert s.state.cards[red.id].zone == "p2:exile"  # (dying with Sanctifier: still exiled, its ruling)
+    assert s.state.cards[green.id].zone == "p2:graveyard" and s.state.cards[sanctifier.id].zone == "p1:graveyard"
+    check(s)
+
+
+def test_anafenza_exiles_creature_cards_an_opponent_owns(cards):
+    s = build(cards, ["Anafenza, the Foremost", "Grizzly Bears", "Increasing Confusion", "Wrath of God"], ["Grizzly Bears", "Grizzly Bears"])
+    anafenza, mine, theirs = put(s, "Anafenza, the Foremost"), put(s, "Grizzly Bears"), put(s, "Grizzly Bears", "p2")
+    milled = next(c for c in s.state.cards.values() if c.name == "Grizzly Bears" and c.zone == "p2:library")
+    act(s, "p1", type="move", card_ids=[milled.id], to={"player": "p2", "zone": "library"}, position="top")
+    land = s.state.zones["p2:library"][1]
+    spell = to_hand(s, "Increasing Confusion")
+    mana(s, U=1, C=2)
+    act(s, "p1", type="cast_spell", card_id=spell.id, targets=["p2"], x_value=2)
+    answer(s)
+    assert s.state.cards[milled.id].zone == "p2:exile" and s.state.cards[land].zone == "p2:graveyard"  # (a creature card not on the battlefield)
+    cast(s, "Wrath of God", (), W=2, C=2)
+    answer(s)
+    assert s.state.cards[theirs.id].zone == "p2:exile"
+    assert s.state.cards[mine.id].zone == "p1:graveyard" and s.state.cards[anafenza.id].zone == "p1:graveyard"  # (Alice's own)
     check(s)

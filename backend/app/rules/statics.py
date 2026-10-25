@@ -339,6 +339,9 @@ def parse(text: str) -> Definition | None:
     names_source = False  # -- conditional statics (wave 4B) -- the condition names the source as "~", not "it"
     defender_sel: str | None = None  # "… as long as defending player controls an artifact"
     rule_cond = False  # "unless …" / "if …": conditions only restrictions are worded with
+    if (end_step := re.match(r"^During your end step, (?P<rest>.+)$", body)) is not None:  # -- as long as (wave 100K) -- Zurgo: 513.1, the step of your own turn
+        conds.append({"static": "your_end_step"})
+        body = end_step["rest"]
     # "During your turn, …" / "As long as <condition>, …" / "… as long as <condition>"
     m = re.match(r"^(?:During your turn|As long as it's your turn), (?P<rest>.+)$", body)
     m = m or re.match(r"^(?P<rest>.+? (?:has|have|gets?) .+) during your turn$", body)  # (wave 15A: "~ has first strike during your turn")
@@ -1447,6 +1450,8 @@ def holds(plan: Plan, cond: dict[str, Any], *, source: CardInstance, controller:
         return combat_soulbond_partner70.holds(plan, source)
     if kind == "your_turn":
         return plan.state.turn.active_player == controller
+    if kind == "your_end_step":  # (wave 100K)
+        return plan.state.turn.active_player == controller and plan.state.turn.phase == "end"
     if kind == "not":  # "unless …"
         return not holds(plan, cond["cond"], source=source, controller=controller)
     if kind == "extra_turn":  # -- static_other (wave 42A) -- 500.7: the turn in progress was added by an effect (engine.start_next_turn records it)

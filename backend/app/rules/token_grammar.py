@@ -154,7 +154,7 @@ def _with(part: str | None, vehicle: bool = False) -> tuple[list[str], str | Non
         return [], None
     from app.rules.coverage import SUPPORTED_KEYWORDS
 
-    quoted = None
+    quoted, pair = None, None
     if part.endswith('"'):
         first = part.find('"')
         if first < 0 or first == len(part) - 1:
@@ -164,7 +164,10 @@ def _with(part: str | None, vehicle: bool = False) -> tuple[list[str], str | Non
         if part.endswith(" and"):
             part = part[:-4].rstrip(", ")  # (wave 26D: "flying, haste, and "…"")
         if '"' in quoted:
-            return None
+            two = re.fullmatch(r'([^"]+)" and "([^"]+)', quoted)  # -- as long as (wave 100K) -- 'with "…" and "…"' (Pursued Whale): each one carried out
+            pair = [_quoted_text(q.rstrip(".") + ".") for q in two.groups()] if two else [None]
+            if None in pair:
+                return None
     kws = [k.strip() for k in re.split(r", and |, | and ", part) if k.strip()]
     # (wave 3E: "toxic N", read by combat.py from the token's keyword line, 702.164)
     # (wave 17D: a keyword whose meaning is a triggered ability the engine reads — training, mentor, dethrone … — 702.149a)
@@ -179,7 +182,7 @@ def _with(part: str | None, vehicle: bool = False) -> tuple[list[str], str | Non
            and not (vehicle and re.fullmatch(r"crew \d+", k)) for k in kws):  # (wave 38B: a Vehicle token's "crew N", 702.122a)
         return None
     if quoted is not None:
-        quoted = _quoted_text(quoted)
+        quoted = "\n".join(pair) if pair else _quoted_text(quoted)  # type: ignore[arg-type]
         if quoted is None:
             return None
     return kws, quoted

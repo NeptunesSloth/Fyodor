@@ -48,11 +48,27 @@ PRIMITIVES = {"uncounterable_target100k": uncounterable_target}
 THREATS = ("Creatures target opponent controls attack this turn if able. During that player's next untap step, creatures they control don't untap.")
 
 
+# Teamwork (702.194b) is announced as the spell is cast (601.2b), before its targets (601.2c), as a kicker is: read through the kicker grammar's
+# target groups (kicked_instead), with the gates reading the teamwork announcement (effects.kicked_gate ``teamwork``, casting: the groups chosen)
+TEAMWORK = {
+    "Exile target creature with mana value 3 or less. If this spell was cast using teamwork, instead exile target creature and you gain 3 life.":
+    "Exile target creature with mana value 3 or less. If this spell was kicked, instead exile target creature and you gain 3 life.",  # Cruel Alliance
+    "Choose target creature card in your graveyard with mana value 4 or less. If this spell was cast using teamwork, instead choose target creature card in "
+    "your graveyard. Return the chosen card to the battlefield.":  # Too Evil to Stay Dead: "choose … Return the chosen card" is the targeted return
+    "Return target creature card with mana value 4 or less from your graveyard to the battlefield. If this spell was kicked, return target creature card from "
+    "your graveyard to the battlefield instead."}
+
+
 def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
     from dataclasses import replace
 
     from app.rules import scripts, selectors
 
+    if ability.kind == "spell" and ability.text in TEAMWORK:
+        native = scripts.define(replace(ability, text=TEAMWORK[ability.text]), ch)
+        if native is None or not any(e["do"] == "kicked_gate" for e in native["effects"]):
+            return None
+        return {**native, "effects": [{**e, "teamwork": True} if e["do"] == "kicked_gate" else e for e in native["effects"]]}
     if ability.kind != "spell" or ability.text != THREATS:
         return None
     native = scripts.define(replace(ability, text=THREATS.split(". ")[0] + "."), ch)
