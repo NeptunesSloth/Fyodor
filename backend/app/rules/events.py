@@ -152,6 +152,8 @@ _DESIGNATION_EVENTS = [
     (re.compile(r"the ring tempts (?P<p>you)", re.IGNORECASE), "ring_tempts"),
     (re.compile(r"(?P<p>you) choose a creature as your ring-bearer", re.IGNORECASE), "ring_bearer"),
     (re.compile(r"(?P<p>you) complete a dungeon"), "complete_dungeon"),
+    (re.compile(r"(?P<p>you) put an art sticker on a creature"), "put_art_sticker110f"),  # -- stickers (wave 110F) -- 123.2
+    (re.compile(r"(?P<p>you) put a name sticker on a creature"), "put_name_sticker110f"),
     (re.compile(r"(?P<p>you) proliferate"), "proliferate"),  # -- trigger tail (wave 15B) -- 701.34a
     (re.compile(r"(?P<p>you) clash"), "clash"),  # -- trigger lines (wave 100A) -- 701.30: also a clash another player's effect made (the rulings)
     (re.compile(r"(?P<p>you) fully unlock a room", re.IGNORECASE), "fully_unlock"),  # -- ability words (wave 20C) -- 709.5i (rooms.unlock)

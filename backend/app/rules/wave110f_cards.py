@@ -272,10 +272,19 @@ COPY_ENTRY = "copy_entry110f"
 _COPY_ENTRY_TEXT = "Creatures you control enter as a copy of this creature."
 
 
+_STICKER_BACK = "Whenever you put {k} sticker on a creature, you may return this card from your graveyard to your hand."
+
+
 def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
     """Essence of the Wild: the static is read at entry (copying.entering -> :func:`copy_on_entry`), it has no effect of its own."""
+    from dataclasses import replace
+
     from app.rules import scripts
 
+    # Unlawful Entry, A Good Day to Pie: a graveyard trigger (603.4 intervening "if", gy_watch) on the sticker event (events.py)
+    for k in ("an art", "a name"):
+        if ability.kind == "triggered" and ability.text.strip() == _STICKER_BACK.format(k=k):
+            return scripts.define(replace(ability, text=_STICKER_BACK.format(k=k).replace("sticker on a creature,", "sticker on a creature, if this card is in your graveyard,")), ch)
     if ability.kind == "static" and scripts.self_text(ability.text, ch.name).replace("~", "this creature") == _COPY_ENTRY_TEXT:
         return {"kind": "static", "static": COPY_ENTRY, "effects": []}
     return None
