@@ -5975,6 +5975,10 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
 
     if (whole100n := multi100n.definition(ability, ch)) is not None:
         return whole100n
+    from app.rules import wave110d  # -- wave 110D --
+
+    if (whole110d := wave110d.definition(ability, ch)) is not None:
+        return whole110d
     from app.rules import retarget100o  # -- retarget (wave 100O) --
 
     if (lines100o := retarget100o.definition(ability, ch)) is not None:

@@ -119,3 +119,53 @@ def ch(s, c, viewer="p1"):
 
 def now(s, c):
     return s.state.cards[c.id]
+
+
+def ability(s, c, start):
+    """The index of the card's ability whose text starts with ``start``."""
+    return next(a.index for a in ch(s, c).abilities if a.text.startswith(start))
+
+
+def activate(s, c, start, pid="p1", **kw):
+    act(s, pid, type="activate_ability", card_id=c.id, ability=ability(s, c, start), **kw)
+    settle(s)
+
+
+def refused(s, match, c, start, pid="p1", **kw):
+    """Refused, and nothing at all changed (118.3, 601.2h)."""
+    before = s.state.model_dump(mode="json")
+    with pytest.raises(ActionError, match=match):
+        act(s, pid, type="activate_ability", card_id=c.id, ability=ability(s, c, start), **kw)
+    assert s.state.model_dump(mode="json") == before
+
+
+def move(s, c, zone, pid="p1"):
+    act(s, pid, type="move", card_ids=[c.id], to={"zone": zone} if zone != "battlefield" else {"player": pid, "zone": zone})
+
+
+def fresh(s, name, pid="p1"):
+    """A card named ``name`` (owned by ``pid``) that is still in the library: decks list a name once per copy."""
+    return next(c for c in s.state.cards.values() if c.name == name and c.owner == pid and c.zone.endswith(":library"))
+
+
+def put_new(s, name, pid="p1"):
+    c = fresh(s, name, pid)
+    act(s, pid, type="move", card_ids=[c.id], to={"player": pid, "zone": "battlefield"})
+    return c
+
+
+def hand_new(s, name, pid="p1"):
+    c = fresh(s, name, pid)
+    act(s, pid, type="move", card_ids=[c.id], to={"zone": "hand"})
+    return c
+
+
+def grave_new(s, name, pid="p1"):
+    c = fresh(s, name, pid)
+    act(s, pid, type="move", card_ids=[c.id], to={"zone": "graveyard"})
+    return c
+
+
+def to_bottom(s, c, pid="p1"):
+    """Put the card on the bottom of its owner's library (so that nobody draws it)."""
+    act(s, pid, type="move", card_ids=[c.id], to={"zone": "library"}, position="bottom")

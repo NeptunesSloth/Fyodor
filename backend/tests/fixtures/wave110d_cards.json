@@ -6441,5 +6441,119 @@
 }
 }
 ]
+},
+{
+"name": "Repeat Offender",
+"layout": "normal",
+"mana_cost": "{1}{B}",
+"cmc": 2.0,
+"type_line": "Creature — Human Assassin",
+"oracle_text": "{2}{B}: If this creature is suspected, put a +1/+1 counter on it. Otherwise, suspect it. (A suspected creature has menace and can't block.)",
+"colors": [
+"B"
+],
+"color_identity": [
+"B"
+],
+"keywords": [
+"Suspect"
+],
+"power": "2",
+"toughness": "1"
+},
+{
+"name": "Thallid",
+"layout": "normal",
+"mana_cost": "{G}",
+"cmc": 1.0,
+"type_line": "Creature — Fungus",
+"oracle_text": "At the beginning of your upkeep, put a spore counter on this creature.\nRemove three spore counters from this creature: Create a 1/1 green Saproling creature token.",
+"colors": [
+"G"
+],
+"color_identity": [
+"G"
+],
+"keywords": [],
+"power": "1",
+"toughness": "1"
+},
+{
+"name": "Feral Shadow",
+"layout": "normal",
+"mana_cost": "{2}{B}",
+"cmc": 3.0,
+"type_line": "Creature — Nightstalker",
+"oracle_text": "Flying",
+"colors": [
+"B"
+],
+"color_identity": [
+"B"
+],
+"keywords": [
+"Flying"
+],
+"power": "2",
+"toughness": "1"
+},
+{
+"name": "Breathstealer",
+"layout": "normal",
+"mana_cost": "{2}{B}",
+"cmc": 3.0,
+"type_line": "Creature — Nightstalker",
+"oracle_text": "{B}: This creature gets +1/-1 until end of turn.",
+"colors": [
+"B"
+],
+"color_identity": [
+"B"
+],
+"keywords": [],
+"power": "2",
+"toughness": "2"
+},
+{
+"name": "Spirit of the Night",
+"layout": "normal",
+"mana_cost": "{6}{B}{B}{B}",
+"cmc": 9.0,
+"type_line": "Legendary Creature — Demon Spirit",
+"oracle_text": "Flying, trample, haste, protection from black\nSpirit of the Night has first strike as long as it's attacking.",
+"colors": [
+"B"
+],
+"color_identity": [
+"B"
+],
+"keywords": [
+"Flying",
+"Protection",
+"Haste",
+"Trample"
+],
+"power": "6",
+"toughness": "5"
+},
+{
+"name": "Mox Opal",
+"layout": "normal",
+"mana_cost": "{0}",
+"cmc": 0.0,
+"type_line": "Legendary Artifact",
+"oracle_text": "Metalcraft — {T}: Add one mana of any color. Activate only if you control three or more artifacts.",
+"colors": [],
+"color_identity": [],
+"keywords": [
+"Metalcraft"
+],
+"produced_mana": [
+"B",
+"G",
+"R",
+"U",
+"W"
+]
 }
 ]

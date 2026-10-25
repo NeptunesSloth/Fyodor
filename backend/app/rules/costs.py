@@ -284,6 +284,10 @@ def _selector(phrase: str, *, zone: str, other: bool = False) -> str | None:
 
 def _component(part: str, card_name: str) -> CostComponent | None:
     """One comma-separated part of an activation cost, or None when the engine can't pay it."""
+    from app.rules import wave110d_costs  # -- costs (wave 110D) --
+
+    if (own110d := wave110d_costs.component(part, card_name)) is not None:
+        return own110d
     if m := re.fullmatch(r"Sacrifice all (?P<what>.+)", part):
         key = _selector(m["what"], zone="battlefield")
         return CostComponent(SACRIFICE, selector=key, all_objects=True, text=part) if key else None
@@ -421,6 +425,9 @@ def parse_ability_cost(cost: str, *, card_name: str = "", loyalty: bool = False,
     if not loyalty and cost.strip() == '{6}, Roll a d8':
         return replace(parse_ability_cost('{6}', card_name=card_name, anyn=anyn), numeric_roll_sides=8)
     cost = re.sub(r'Remove twelve ([\w+/\-]+) counters from ([^,{}:]+?) and exile it', r'Remove 12 \1 counters from \2, Exile \2', cost)
+    from app.rules import wave110d_costs  # -- costs (wave 110D) --
+
+    cost = wave110d_costs.rewrite(cost)
     if loyalty:
         raw = cost.strip().replace("−", "-")
         if raw.upper() == "-X":

@@ -13,7 +13,9 @@ RESUME: dict[str, Any] = {}
 
 def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
     """A whole ability (scripts.define): the first module that reads it."""
-    return None
+    from app.rules import wave110d_lines
+
+    return wave110d_lines.definition(ability, ch)
 
 
 def parse(body: str) -> Any:
