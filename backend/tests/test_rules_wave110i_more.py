@@ -12,8 +12,10 @@ import pytest
 
 from app.rules import coverage
 from app.rules.plan import Plan
-from tests.game_helpers import act
+from tests.game_helpers import act, mana_pool
 from tests.test_rules_wave12a_counters_keywords import real
+from tests.test_rules_wave34b_activated import stops, to_phase
+from tests.wave110a_kit import next_turn
 from tests.wave110c_kit import answer, build, cast, check, make_db, mana, put, zone
 
 EXTRA = [
@@ -30,6 +32,7 @@ EXTRA = [
     real("Rhuk, Hexgold Nabber", "{2}{R}", 3, "Legendary Creature — Goblin Rebel",
          "Trample, haste\nWhenever an equipped creature you control other than Rhuk attacks or dies, you may attach all Equipment attached to that creature to Rhuk.",
          ("2", "2"), "R"),
+    real("Soldier Maker", "{W}", 1, "Sorcery", "Create a 1/1 white Soldier creature token.", None, "W"),
     real("Naturalize", "{1}{G}", 2, "Instant", "Destroy target artifact or enchantment.", None, "G"),
 ]
 NAMES = ["The Moment", "Curse of Conformity", "Puppet Master", "Rhuk, Hexgold Nabber"]
@@ -99,4 +102,35 @@ def test_rhuk_takes_the_equipment_of_a_dying_equipped_creature(cards, take):
     answer(s, "yes" if take else "no")
     assert zone(s, bear) == "p1:graveyard"
     assert s.state.cards[gear.id].attached_to == (rhuk.id if take else None)
+    check(s)
+
+
+def test_puppet_master_on_a_token_offers_no_payment(cards):
+    """A token ceases to exist in the graveyard (111.7, 704.5d): nothing returns to hand, so no payment is offered and the Aura stays."""
+    s = build(cards, ["Puppet Master", "Soldier Maker", "Lightning Bolt"], [])
+    mana(s, W=1)
+    cast(s, "Soldier Maker")
+    answer(s)
+    tok = next(c for c in s.state.cards.values() if c.zone == "p1:battlefield" and c.name != "Puppet Master")
+    mana(s, U=3)
+    master = cast(s, "Puppet Master", [tok.id])
+    answer(s)
+    mana(s, R=1, U=3)
+    cast(s, "Lightning Bolt", [tok.id])
+    answer(s, "pay")  # (no payment decision exists: the answer is ignored)
+    assert s.state.rules.decision is None
+    assert zone(s, master) == "p1:graveyard" and mana_pool(s).get("U", 0) == 3
+    check(s)
+
+
+def test_rhuk_takes_the_equipment_of_an_attacking_equipped_creature(cards):
+    s = build(cards, ["Rhuk, Hexgold Nabber", "Grizzly Bears", "Bonesplitter"], [])
+    rhuk, bear, gear = put(s, "Rhuk, Hexgold Nabber"), put(s, "Grizzly Bears"), put(s, "Bonesplitter")
+    act(s, "p1", type="attach", card_ids=[gear.id], to=bear.id)
+    next_turn(s)
+    stops(s)
+    to_phase(s, "declare_attackers")
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": bear.id, "target": "p2"}])
+    answer(s, "yes")
+    assert s.state.cards[gear.id].attached_to == rhuk.id and s.state.cards[bear.id].is_attacking
     check(s)
