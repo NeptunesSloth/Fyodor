@@ -1,5 +1,5 @@
 {
-  "status": "CLOSED pending root integration/catalog",
+  "status": "CLOSED; corrective Gix follow-up required, zero new promotions",
   "names": [
     "Gix's Command",
     "Deadly Complication",
@@ -23,5 +23,14 @@
     "app/rules/scripts.py",
     "app/rules/effects.py",
     "app/rules/engine.py"
-  ]
+  ],
+  "correction": {
+    "native_corrected_scope": 8,
+    "genuine_cold_in_scope": 2,
+    "new_unique_boundaries": 3,
+    "types": 4,
+    "ruff": 5,
+    "source_sha256": "7000c4d9e649cdf24e73e1e13d6d1632690f6d38c509468e72dddb2a3a3c47d5",
+    "note": "Original20 gates predate narrow Gix BF prefix/current-creature guard repair; warm/cold real ControlMagic concession and stale March artifact proved. No new counts."
+  }
 }

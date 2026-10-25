@@ -1,0 +1,109 @@
+============================= test session starts ==============================
+platform linux -- Python 3.12.14, pytest-9.1.1, pluggy-1.7.0 -- /workspace/Fyodor/backend/.venv/bin/python3
+cachedir: .pytest_cache
+rootdir: /workspace/scratch/after-pr21/batch002/backend
+configfile: pyproject.toml
+plugins: anyio-4.15.1, xdist-3.8.0
+created: 4/4 workers
+4 workers [48 items]
+
+scheduling tests via LoadScheduling
+
+tests/test_rules_damage_values102.py::test_mega_flare_kicked_prefix_once_then_native_simultaneous_damage102
+tests/test_rules_damage_values102.py::test_fireball_zero_targets_or_more_targets_than_x102[True]
+tests/test_rules_damage_values102.py::test_actual_whole_definition102[Fireball]
+tests/test_rules_damage_values102.py::test_actual_whole_definition102[Delirium]
+[gw1] [  2%] PASSED tests/test_rules_damage_values102.py::test_actual_whole_definition102[Fireball]
+tests/test_rules_damage_values102.py::test_actual_whole_definition102[Mega Flare]
+[gw2] [  4%] PASSED tests/test_rules_damage_values102.py::test_actual_whole_definition102[Delirium]
+tests/test_rules_damage_values102.py::test_actual_whole_definition102[Piercing Exhale]
+[gw2] [  6%] PASSED tests/test_rules_damage_values102.py::test_actual_whole_definition102[Piercing Exhale]
+tests/test_rules_damage_values102.py::test_fireball_actual_cost_rounding_and_mixed_targets102
+[gw1] [  8%] PASSED tests/test_rules_damage_values102.py::test_actual_whole_definition102[Mega Flare]
+tests/test_rules_damage_values102.py::test_actual_whole_definition102[Vengeful Rebirth]
+[gw1] [ 10%] PASSED tests/test_rules_damage_values102.py::test_actual_whole_definition102[Vengeful Rebirth]
+tests/test_rules_damage_values102.py::test_rebirth_illegal_damage_target_returns_card_and_self_exiles102
+[gw0] [ 12%] PASSED tests/test_rules_damage_values102.py::test_fireball_zero_targets_or_more_targets_than_x102[True]
+tests/test_rules_damage_values102.py::test_fireball_zero_targets_or_more_targets_than_x102[False]
+[gw2] [ 14%] PASSED tests/test_rules_damage_values102.py::test_fireball_actual_cost_rounding_and_mixed_targets102
+tests/test_rules_damage_values102.py::test_rebirth_actual_return_mana_value_land_and_self_exile102[False]
+[gw0] [ 16%] PASSED tests/test_rules_damage_values102.py::test_fireball_zero_targets_or_more_targets_than_x102[False]
+tests/test_rules_damage_values102.py::test_fireball_native_response_changes_divisor_at_resolution102
+[gw2] [ 18%] PASSED tests/test_rules_damage_values102.py::test_rebirth_actual_return_mana_value_land_and_self_exile102[False]
+tests/test_rules_damage_values102.py::test_rebirth_actual_return_mana_value_land_and_self_exile102[True]
+[gw2] [ 20%] PASSED tests/test_rules_damage_values102.py::test_rebirth_actual_return_mana_value_land_and_self_exile102[True]
+tests/test_rules_damage_values102.py::test_rebirth_missing_return_does_not_deal_damage_but_still_self_exiles102
+[gw0] [ 22%] PASSED tests/test_rules_damage_values102.py::test_fireball_native_response_changes_divisor_at_resolution102
+tests/test_rules_damage_values102.py::test_piercing_exhale_real_behold_optional_cost_and_surveil102[True]
+[gw3] [ 25%] PASSED tests/test_rules_damage_values102.py::test_mega_flare_kicked_prefix_once_then_native_simultaneous_damage102
+tests/test_rules_damage_values102.py::test_mega_flare_zero_targets_still_creates_one_kicked_dragon102
+[gw2] [ 27%] PASSED tests/test_rules_damage_values102.py::test_rebirth_missing_return_does_not_deal_damage_but_still_self_exiles102
+tests/test_rules_damage_values102.py::test_genuine_cold_mega_flare_partial_group_does_not_repeat_kicker_prefix102
+[gw0] [ 29%] PASSED tests/test_rules_damage_values102.py::test_piercing_exhale_real_behold_optional_cost_and_surveil102[True]
+tests/test_rules_damage_values102.py::test_genuine_cold_fireball_target_announcement_remembers_x_cost_and_division102
+[gw1] [ 31%] PASSED tests/test_rules_damage_values102.py::test_rebirth_illegal_damage_target_returns_card_and_self_exiles102
+tests/test_rules_damage_values102.py::test_delirium_native_active_player_target_tapped_target_and_noncombat102
+[gw3] [ 33%] PASSED tests/test_rules_damage_values102.py::test_mega_flare_zero_targets_still_creates_one_kicked_dragon102
+tests/test_rules_damage_values102.py::test_mega_flare_targets_remain_bound_to_original_opponent102
+[gw3] [ 35%] PASSED tests/test_rules_damage_values102.py::test_mega_flare_targets_remain_bound_to_original_opponent102
+tests/test_rules_damage_values102.py::test_delirium_component_fixed_active_recipient_after_native_tap_control_change102
+[gw2] [ 37%] PASSED tests/test_rules_damage_values102.py::test_genuine_cold_mega_flare_partial_group_does_not_repeat_kicker_prefix102
+[gw0] [ 39%] PASSED tests/test_rules_damage_values102.py::test_genuine_cold_fireball_target_announcement_remembers_x_cost_and_division102
+tests/test_rules_damage_values102.py::test_rebirth_both_original_targets_illegal_is_countered_not_self_exiled102
+tests/test_rules_damage_values102.py::test_delirium_actual_blocked_combat_prevents_both_directions102
+[gw2] [ 41%] PASSED tests/test_rules_damage_values102.py::test_rebirth_both_original_targets_illegal_is_countered_not_self_exiled102
+tests/test_rules_modal_clauses101.py::test_whole_canonical_card101[Deadly Complication]
+[gw2] [ 43%] PASSED tests/test_rules_modal_clauses101.py::test_whole_canonical_card101[Deadly Complication]
+tests/test_rules_modal_clauses101.py::test_whole_canonical_card101[Compel Brutality]
+[gw2] [ 45%] PASSED tests/test_rules_modal_clauses101.py::test_whole_canonical_card101[Compel Brutality]
+tests/test_rules_modal_clauses101.py::test_whole_canonical_card101[Display of Dominance]
+[gw2] [ 47%] PASSED tests/test_rules_modal_clauses101.py::test_whole_canonical_card101[Display of Dominance]
+tests/test_rules_modal_clauses101.py::test_gix_untargeted_choice_can_choose_shroud_then_later_destroy_uses_new_power101
+[gw2] [ 50%] PASSED tests/test_rules_modal_clauses101.py::test_gix_untargeted_choice_can_choose_shroud_then_later_destroy_uses_new_power101
+tests/test_rules_modal_clauses101.py::test_gix_first_mode_selects_at_resolution_counter_before_destroy_and_grant_expires101
+[gw2] [ 52%] PASSED tests/test_rules_modal_clauses101.py::test_gix_first_mode_selects_at_resolution_counter_before_destroy_and_grant_expires101
+tests/test_rules_modal_clauses101.py::test_gix_optional_zero_and_counter_prohibition_still_grants_lifelink101
+[gw3] [ 54%] PASSED tests/test_rules_damage_values102.py::test_delirium_component_fixed_active_recipient_after_native_tap_control_change102
+tests/test_rules_modal_clauses101.py::test_whole_canonical_card101[Gix's Command]
+[gw2] [ 56%] PASSED tests/test_rules_modal_clauses101.py::test_gix_optional_zero_and_counter_prohibition_still_grants_lifelink101
+tests/test_rules_modal_clauses101.py::test_deadly_both_modes_native_suspected_target_and_optional_removal101[False]
+[gw3] [ 58%] PASSED tests/test_rules_modal_clauses101.py::test_whole_canonical_card101[Gix's Command]
+tests/test_rules_modal_clauses101.py::test_deadly_both_modes_native_suspected_target_and_optional_removal101[True]
+[gw1] [ 60%] PASSED tests/test_rules_damage_values102.py::test_delirium_native_active_player_target_tapped_target_and_noncombat102
+tests/test_rules_damage_values102.py::test_piercing_exhale_real_behold_optional_cost_and_surveil102[False]
+[gw2] [ 62%] PASSED tests/test_rules_modal_clauses101.py::test_deadly_both_modes_native_suspected_target_and_optional_removal101[False]
+tests/test_rules_modal_clauses101.py::test_deadly_second_mode_rejects_unsuspected_or_foreign_creature_atomically101
+[gw2] [ 64%] PASSED tests/test_rules_modal_clauses101.py::test_deadly_second_mode_rejects_unsuspected_or_foreign_creature_atomically101
+tests/test_rules_modal_clauses101.py::test_compel_blue_planeswalker_source_protection_prevents_damage101
+[gw2] [ 66%] PASSED tests/test_rules_modal_clauses101.py::test_compel_blue_planeswalker_source_protection_prevents_damage101
+tests/test_rules_modal_clauses101.py::test_display_first_mode_destroys_blue_noncreature_but_not_creature101
+[gw0] [ 68%] PASSED tests/test_rules_damage_values102.py::test_delirium_actual_blocked_combat_prevents_both_directions102
+tests/test_rules_damage_values102.py::test_mega_flare_one_native_simultaneous_damage_lifelink_event102
+[gw1] [ 70%] PASSED tests/test_rules_damage_values102.py::test_piercing_exhale_real_behold_optional_cost_and_surveil102[False]
+tests/test_rules_modal_clauses101.py::test_compel_first_mode_creature_deals_damage_to_planeswalker101
+[gw2] [ 72%] PASSED tests/test_rules_modal_clauses101.py::test_display_first_mode_destroys_blue_noncreature_but_not_creature101
+tests/test_rules_modal_clauses101.py::test_display_second_mode_blocks_opponent_blue_spell_allows_own_and_late_permanent101
+[gw3] [ 75%] PASSED tests/test_rules_modal_clauses101.py::test_deadly_both_modes_native_suspected_target_and_optional_removal101[True]
+tests/test_rules_modal_clauses101.py::test_compel_planeswalker_damage_uses_loyalty_and_actual_source101
+[gw1] [ 77%] PASSED tests/test_rules_modal_clauses101.py::test_compel_first_mode_creature_deals_damage_to_planeswalker101
+tests/test_rules_modal_clauses101.py::test_genuine_cold_gix_original_nontarget_choice101
+[gw3] [ 79%] PASSED tests/test_rules_modal_clauses101.py::test_compel_planeswalker_damage_uses_loyalty_and_actual_source101
+tests/test_rules_modal_clauses101.py::test_display_actual_opponent_blue_ability_is_not_prohibited101
+[gw0] [ 81%] PASSED tests/test_rules_damage_values102.py::test_mega_flare_one_native_simultaneous_damage_lifelink_event102
+tests/test_rules_modal_clauses101.py::test_compel_lost_planeswalker_target_does_not_deal_lki_damage101
+[gw2] [ 83%] PASSED tests/test_rules_modal_clauses101.py::test_display_second_mode_blocks_opponent_blue_spell_allows_own_and_late_permanent101
+tests/test_rules_modal_clauses101.py::test_genuine_cold_display_dynamic_rule_then_expires101
+[gw0] [ 85%] PASSED tests/test_rules_modal_clauses101.py::test_compel_lost_planeswalker_target_does_not_deal_lki_damage101
+tests/test_rules_modal_clauses101.py::test_actual_concession_restores_controller_without_changing_gix_chosen_object101[True]
+[gw3] [ 87%] PASSED tests/test_rules_modal_clauses101.py::test_display_actual_opponent_blue_ability_is_not_prohibited101
+tests/test_rules_modal_clauses101.py::test_actual_concession_restores_controller_without_changing_gix_chosen_object101[False]
+[gw1] [ 89%] PASSED tests/test_rules_modal_clauses101.py::test_genuine_cold_gix_original_nontarget_choice101
+tests/test_rules_modal_clauses101.py::test_display_existing_blue_spell_loses_its_only_target_on_resolution101
+[gw1] [ 91%] PASSED tests/test_rules_modal_clauses101.py::test_display_existing_blue_spell_loses_its_only_target_on_resolution101
+[gw2] [ 93%] PASSED tests/test_rules_modal_clauses101.py::test_genuine_cold_display_dynamic_rule_then_expires101
+tests/test_rules_modal_clauses101.py::test_concession_stale_gix_artifact_option_no_longer_creature_is_not_modified101
+[gw3] [ 95%] PASSED tests/test_rules_modal_clauses101.py::test_actual_concession_restores_controller_without_changing_gix_chosen_object101[False]
+[gw0] [ 97%] PASSED tests/test_rules_modal_clauses101.py::test_actual_concession_restores_controller_without_changing_gix_chosen_object101[True]
+[gw2] [100%] PASSED tests/test_rules_modal_clauses101.py::test_concession_stale_gix_artifact_option_no_longer_creature_is_not_modified101
+
+============================= 48 passed in 25.17s ==============================

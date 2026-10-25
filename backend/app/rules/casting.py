@@ -3038,6 +3038,10 @@ def spell_cost(state: GameState, card: CardInstance, ch: Characteristics, x: int
     extras = [extra.with_x(x) for extra in extras]
     tax = state.players[card.owner].commander_tax.get(card.commander_key, 0) \
         if from_command_zone(card, card.owner) and card.commander_key else 0
+    from app.rules import cost_statics101
+
+    if cost_statics101.replaces_commander_tax(card, ch):
+        tax = 0
     affinity = (affinity_discount(state, player, ch, info, card) if info is not None else 0) + reduce  # (reduce: emerge, 18E)
     if paying_flashback and info is not None:
         from app.rules import flashback_costs
@@ -3092,7 +3096,9 @@ def spell_cost_ways(state: GameState, card: CardInstance, ch: Characteristics, *
             x_maximum = min(kwargs.get('x', 0), final.generic)
             final = spell_mana_floor.apply(state, info, final) if floor else final
             final = M.spend_as(final, mode) if floor and mode else final
-            out.append((final, life))
+            from app.rules import cost_statics101
+
+            out.append((final, life + cost_statics101.commander_life(state, card, ch)))
             if selected_costs is not None:
                 selected_costs.append(prepared.selected_cost_has_x)
             if x_payments is not None:
@@ -3763,6 +3769,11 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
         add_cost = alt_costs.merged(add_cost, kick_more)
     if (life_more := permissions.life_cost(grant, ch)) is not None:
         add_cost = alt_costs.merged(add_cost, life_more)
+    from app.rules import cost_statics101
+
+    if (commander_life101 := cost_statics101.commander_life(plan.state, card, ch)):
+        add_cost = alt_costs.merged(add_cost, costs.AbilityCost(
+            components=(costs.CostComponent(costs.PAY_LIFE, amount=commander_life101, text=f"Pay {commander_life101} life"),), life=commander_life101))
     if (target_life := cost_changes.targeting_life(plan.state, plan.actor, card, ch, plan.info, tuple(t.id for t in chosen))):
         add_cost = alt_costs.merged(add_cost, costs.AbilityCost(  # -- casting costs (wave 22F) -- Terror of the Peaks: life for its targets (601.2f)
             components=(costs.CostComponent(costs.PAY_LIFE, amount=target_life, text=f"Pay {target_life} life"),), life=target_life))

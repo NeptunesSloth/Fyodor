@@ -1,3 +1,7 @@
+# Corrective Gix follow-up — zero new promotions
+
+Batch001 already counted these cards on the original source. A real native Control Magic/concession proof exposed that full zone-prefix equality wrongly rejects a same-object creature whose controller restores. Final guard requires sameOID, nonnull same zone base and current Creature type. Final focused8 PASS includes2 genuine cold, actual3-player warm/cold restored-controller cases and stale March of Machines artifact noncreature case. Scoped mypy4/Ruff5 PASS. The original20 and related24 gates predate this narrow runtime fix and are historical, not final-source broad claims. Root owns final integrated correction verification. New test/fixture snapshots have23 unique cases; original implementation patch and source hashes remain for honest ancestry, corrective patch/hash are adjacent.
+
 # Closed four-card modal packet — root admission required
 
 Gix’s Command, Deadly Complication, Compel Brutality and Display of Dominance. Native20 unique PASS including2 actual fresh-process restores, across19 passes plus1 corrected fixture case on identical production source. Native-frozen log honestly retains an invalid Unsummon-on-planeswalker assumption; corrected Boomerang proof passes. Initial logs also retain wrong printed-cost/autopass fixture assumptions. No runtime bug was hidden or source guard weakened. Related24, configured mypy4 and Ruff5 pass.

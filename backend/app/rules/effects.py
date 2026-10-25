@@ -6991,3 +6991,12 @@ PRIMITIVES.update(_modal101.PRIMITIVES)
 from app.rules import upkeep_sacrifice101 as _upkeep101  # noqa: E402
 
 PRIMITIVES.update(_upkeep101.PRIMITIVES)
+
+from app.rules import library_packets101 as _library_packets101  # noqa: E402
+
+PRIMITIVES.update(_library_packets101.PRIMITIVES)
+RESUME.update(_library_packets101.RESUME)
+
+from app.rules import damage_values102 as _damage_values102  # noqa: E402
+
+PRIMITIVES.update(_damage_values102.PRIMITIVES)

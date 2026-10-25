@@ -1,0 +1,51 @@
+============================= test session starts ==============================
+platform linux -- Python 3.12.14, pytest-9.1.1, pluggy-1.7.0 -- /workspace/Fyodor/backend/.venv/bin/python3
+cachedir: .pytest_cache
+rootdir: /workspace/scratch/combat102/backend
+configfile: pyproject.toml
+plugins: anyio-4.15.1, xdist-3.8.0
+collecting ... collected 25 items / 21 deselected / 4 selected
+
+tests/test_rules_damage_values102.py::test_actual_whole_definition102[Delirium] PASSED [ 25%]
+tests/test_rules_damage_values102.py::test_delirium_native_active_player_target_tapped_target_and_noncombat102 PASSED [ 50%]
+tests/test_rules_damage_values102.py::test_delirium_actual_blocked_combat_prevents_both_directions102 PASSED [ 75%]
+tests/test_rules_damage_values102.py::test_delirium_component_fixed_active_recipient_after_native_tap_control_change102 FAILED [100%]
+
+=================================== FAILURES ===================================
+_ test_delirium_component_fixed_active_recipient_after_native_tap_control_change102 _
+
+cards = <app.cards.repository.CardRepository object at 0x7f29f0e89df0>
+
+    def test_delirium_component_fixed_active_recipient_after_native_tap_control_change102(cards):
+        """The active recipient is not re-derived from the tapped creature's new controller."""
+        from app.rules import damage_values102, effects
+        from app.rules.plan import Plan
+        from app.rules.targets import ref
+
+        s=setup(cards)
+        creature=put(s,'Earth Elemental','battlefield',pid='p2')
+        source=put(s,'Delirium','hand')
+        to_phase(s,'main1',turn=2)
+        act(s,'p1',type='counter',card_ids=[creature.id],kind='lifelink',delta=1)
+        plan=Plan(s.state,'p1',cards,None)
+        parsed=damage_values102.parse('Tap target creature that player controls. That creature deals damage equal to its power to the player. Prevent all combat damage that would be dealt to and dealt by the creature this turn.')
+        assert parsed is not None
+        sequence=parsed[0]
+        ctx={'controller':'p1','source_card':source.id,'source_object':plan.oid(source),'name':'Delirium',
+             'targets':[ref(plan,creature.id).model_dump(mode='json')],'effects':sequence,'next':1}
+        assert damage_values102.bind_active(plan,ctx,sequence[0])
+        ctx['next']=2
+        assert effects.tap(plan,ctx,sequence[1])
+        plan.do({'type':'set_controller','card_ids':[creature.id],'player':'p3'},actor='p1')
+        ctx['next']=3
+        assert effects.damage(plan,ctx,sequence[2])
+>       assert s.state.cards[creature.id].controller=='p3'
+E       AssertionError: assert 'p2' == 'p3'
+E
+E         - p3
+E         + p2
+
+tests/test_rules_damage_values102.py:314: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_rules_damage_values102.py::test_delirium_component_fixed_active_recipient_after_native_tap_control_change102
+================== 1 failed, 3 passed, 21 deselected in 8.91s ==================

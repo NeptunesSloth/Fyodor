@@ -1,0 +1,104 @@
+--- /dev/null
++++ b/backend/app/rules/damage_values102.py
+@@ -0,0 +1,58 @@
++"""Exact damage values composed with native targets, receipts and replacements."""
++from __future__ import annotations
++
++from typing import Any
++
++
++def parse(body: str) -> tuple[list[dict[str, Any]], Any, bool] | None:
++    from app.rules import per_opponent, scripts, selectors, values
++
++    text = body.strip()
++    if text == '~ deals X damage divided evenly, rounded down, among any number of targets.':
++        return [{'do': 'fireball_even102'}], [{'what': 'any', 'min': 0, 'max': 250}], False
++    if text == 'For each opponent, choose up to one target creature that player controls. ~ deals damage equal to the greatest power among creatures you control to each of the chosen creatures.':
++        key = selectors.Selector(types=('Creature',), controller='opponent').key()
++        amount = values.parse_count('the greatest power among creatures you control')
++        assert amount is not None
++        return [{'do': 'damage', 'who': 'target:0', 'n': amount, 'with_next': True}], [
++            {'what': key, 'min': 0, 'max': 1, per_opponent.FLAG: True}], False
++    if text == 'Target creature you control deals damage equal to its power to target creature or planeswalker. If a Dragon was beheld, surveil 2.':
++        bite = scripts.parse_effects('Target creature you control deals damage equal to its power to target creature or planeswalker.')
++        tail = scripts.parse_effects('If a dragon was beheld, surveil 2.')
++        assert bite is not None and tail is not None
++        return [*bite[0], *tail[0]], bite[1], False
++    if text == 'Tap target creature that player controls. That creature deals damage equal to its power to the player. Prevent all combat damage that would be dealt to and dealt by the creature this turn.':
++        tap = scripts.parse_effects('Tap target creature. It deals damage equal to its power to its controller.')
++        prevent = scripts.parse_effects('Prevent all combat damage that would be dealt to and dealt by target creature this turn.')
++        assert tap is not None and prevent is not None
++        key = selectors.Selector(types=('Creature',), controller='active').key()
++        tapped = [*tap[0]]
++        tapped[1] = {**tapped[1], 'who': 'ref:active102'}
++        return [{'do': 'bind_active102', 'as': 'active102'}, *tapped, *[{**e, 'who': 'ref:e0'} for e in prevent[0]]], key, False
++    if text == "Return target card from your graveyard to your hand. If you return a nonland card to your hand this way, ~ deals damage equal to that card's mana value to any target.":
++        returned = scripts.parse_effects('Return target card from your graveyard to your hand.')
++        assert returned is not None
++        nonland = selectors.Selector(card=True, zones=('hand',), not_types=('Land',)).key()
++        return [{**returned[0][0], 'who': 'target:0', 'as': 'returned102'},
++                {'do': 'only_if', 'cond': {'value': {'ref_count': 'returned102', 'this_way': 'returned', 'of': nonland, 'public': True}, 'op': '>=', 'n': 1}, 'skip': 1},
++                {'do': 'damage', 'who': 'target:1', 'n': {'mana_value': 'ref:returned102'}}], [
++                    {'what': returned[1], 'min': 1, 'max': 1}, {'what': 'any', 'min': 1, 'max': 1}], False
++    return None
++
++
++def even(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
++    from app.rules import effects, values
++
++    count = len(effects._cards(plan, ctx, 'target:0')) + len(effects._players(plan, ctx, 'target:0'))
++    amount = values.evaluate(plan, ctx, {'x': True}) // count if count else 0
++    return effects.damage(plan, ctx, {'do': 'damage', 'who': 'target:0', 'n': amount})
++
++
++def bind_active(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
++    from app.rules import context
++
++    context.bind_players(ctx, e['as'], [plan.active])
++    return True
++
++
++PRIMITIVES = {'fireball_even102': even, 'bind_active102': bind_active}
+--- a/backend/app/rules/scripts.py
++++ b/backend/app/rules/scripts.py
+@@ -2660,6 +2660,10 @@
+
+
+ def parse_effects(body: str, it: str | None = None, *, event_player: bool = False) -> tuple[list[dict[str, Any]], Any, bool] | None:
++    from app.rules import damage_values102
++
++    if (damage102 := damage_values102.parse(body)) is not None:
++        return damage102
+     from app.rules import zones100g  # -- zones (wave 100G) -- exact wordings (app/rules/zones100g.py)
+
+     if (zones := zones100g.parse(body)) is not None:
+@@ -8688,6 +8692,8 @@
+         offset = len(groups)
+         index = list(range(offset, offset + len(own)))
+         for g in own:
++            if g.get("opponent_group") and effects:
++                g["from"] = g.get("from", 0) + len(effects)
+             if g.get("distinct_from"):
+                 g["distinct_from"] = [offset + d for d in g["distinct_from"]]
+             if g.get("graveyard_of") is not None:  # (wave 46B)
+--- a/backend/app/rules/selectors.py
++++ b/backend/app/rules/selectors.py
+@@ -2233,6 +2233,8 @@
+         return False
+     if sel.controller == "opponent" and card.controller == you:
+         return False
++    if sel.controller == "active" and card.controller != plan.active:
++        return False
+     if sel.controller is not None and (sel.controller in (THAT_PLAYER, DEFENDED) or (  # -- damage wordings (wave 6B) --
+             sel.controller.startswith("player:") and card.controller != sel.controller[7:])):
+         return False
+--- a/backend/app/rules/effects.py
++++ b/backend/app/rules/effects.py
+@@ -6983,3 +6983,7 @@
+ from app.rules import otherchooser100p as _otherchooser100p  # noqa: E402  -- other choosers (wave 100P) --
+
+ PRIMITIVES.update(_otherchooser100p.PRIMITIVES)
++
++from app.rules import damage_values102 as _damage_values102  # noqa: E402
++
++PRIMITIVES.update(_damage_values102.PRIMITIVES)

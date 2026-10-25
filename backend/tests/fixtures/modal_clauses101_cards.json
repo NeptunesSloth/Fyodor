@@ -477,6 +477,78 @@
     "related_cards": []
   },
   {
+    "id": "84992800-9bad-4598-afd4-f1e59d2e0956",
+    "oracle_id": "cd0d7141-46d2-4aa3-bc77-6b3b4513803e",
+    "name": "Control Magic",
+    "layout": "normal",
+    "set_code": "cma",
+    "set_name": "Commander Anthology",
+    "collector_number": "34",
+    "rarity": "uncommon",
+    "mana_cost": "{2}{U}{U}",
+    "cmc": 4.0,
+    "type_line": "Enchantment \u2014 Aura",
+    "oracle_text": "Enchant creature\nYou control enchanted creature.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Enchant"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2017-06-09",
+    "artist": "Clint Cearley",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "3245f858-b5c3-42dd-8ec2-3f775ad9e1ec",
+    "oracle_id": "51092634-308e-4779-aa51-182715dbc734",
+    "name": "March of the Machines",
+    "layout": "normal",
+    "set_code": "arc",
+    "set_name": "Archenemy",
+    "collector_number": "6",
+    "rarity": "rare",
+    "mana_cost": "{3}{U}",
+    "cmc": 4.0,
+    "type_line": "Enchantment",
+    "oracle_text": "Each noncreature artifact is an artifact creature with power and toughness each equal to its mana value. (Equipment that's a creature can't equip a creature.)",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2010-06-18",
+    "artist": "Ben Thompson",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
     "id": "f4095675-1e3f-4d3c-b565-5c434d2e5cc0",
     "oracle_id": "dc4a4996-108a-4aac-850f-2d9f76403446",
     "name": "Boomerang",

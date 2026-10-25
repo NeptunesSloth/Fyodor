@@ -2233,6 +2233,8 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
         return False
     if sel.controller == "opponent" and card.controller == you:
         return False
+    if sel.controller == "active" and card.controller != plan.active:
+        return False
     if sel.controller is not None and (sel.controller in (THAT_PLAYER, DEFENDED) or (  # -- damage wordings (wave 6B) --
             sel.controller.startswith("player:") and card.controller != sel.controller[7:])):
         return False

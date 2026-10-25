@@ -18,7 +18,7 @@ from app.cards.importer import build_database
 from app.config import Settings
 from app.game.factory import PlayerSetup, new_game
 from app.game.session import GameSession
-from app.rules import coverage, per_opponent, scripts
+from app.rules import coverage, mana_units, per_opponent, scripts
 from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act, deck, enable
 from tests.test_rules_effects import mana, pass_until_stack_empty
@@ -162,7 +162,7 @@ def test_sacrifice_adds_mana_equal_to_the_sacrificed_mana_value(cards):
     mana(s, B=1)
     act(s, "p1", type="cast_spell", card_id=spell.id)
     pass_until_stack_empty(s)
-    assert s.state.players["p1"].mana.get("B") == 2  # Grizzly Bears: mana value 2
+    assert mana_units.visible_pool(s.state, "p1").get("B") == 2  # Grizzly Bears: mana value 2
     roundtrip(s)
 
 
@@ -333,7 +333,7 @@ def test_burnt_offering_adds_mana_for_the_sacrificed_mana_value(cards):
     choose(s, ["B"])
     choose(s, ["R"])
     pass_until_stack_empty(s)
-    assert s.state.players["p1"].mana.get("B") == 1 and s.state.players["p1"].mana.get("R") == 1
+    assert mana_units.visible_pool(s.state, "p1").get("B") == 1 and mana_units.visible_pool(s.state, "p1").get("R") == 1
     roundtrip(s)
 
 

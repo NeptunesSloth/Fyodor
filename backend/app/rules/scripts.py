@@ -2660,6 +2660,14 @@ def _sacrifice_count_sequence(body: str) -> tuple[list[dict[str, Any]], Any, boo
 
 
 def parse_effects(body: str, it: str | None = None, *, event_player: bool = False) -> tuple[list[dict[str, Any]], Any, bool] | None:
+    from app.rules import damage_values102
+
+    if (damage102 := damage_values102.parse(body)) is not None:
+        return damage102
+    from app.rules import library_packets101
+
+    if (library101 := library_packets101.parse(body)) is not None:
+        return library101
     from app.rules import modal_clauses101
 
     if (modal101 := modal_clauses101.parse(body)) is not None:
@@ -5860,6 +5868,14 @@ def _first_time_gate(text: str) -> str:
 
 def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     """The engine definition of one ability, or None (manual)."""
+    from app.rules import library_packets101
+
+    if (library101 := library_packets101.definition(ability, ch)) is not None:
+        return library101
+    from app.rules import cost_statics101
+
+    if (native101 := cost_statics101.definition(ability, ch)) is not None:
+        return native101
     from app.rules import upkeep_sacrifice101
 
     if (upkeep101 := upkeep_sacrifice101.definition(ability, ch)) is not None:
@@ -8668,6 +8684,7 @@ def _spell_definition(ch: Characteristics) -> Definition | None:
     # (wave 3C: nor "If you control a commander, you may cast this spell without paying its mana cost"; 3$: additional costs)
     lines = [ab for ab in ch.abilities if ab.kind != "keywords" and not _from_hand_ability(ab) and not graveyard_only_ability(defs.get(ab.index))
              and not defs.get(ab.index, {}).get("exiled_step")
+             and not defs.get(ab.index, {}).get("stack_target101")  # Native stack-only cost rule, not a resolving spell instruction.
              and not own_graveyard_activation(defs.get(ab.index))
              and not own_card_event_ability(defs.get(ab.index))  # (wave 36A: cycling / discard triggers of the card itself)
              and defs.get(ab.index, {}).get("trigger") != "cast_self"  # -- spell copies (wave 31D) -- 601.2i: "When you cast this spell, …" triggers
@@ -8700,6 +8717,8 @@ def _spell_definition(ch: Characteristics) -> Definition | None:
         offset = len(groups)
         index = list(range(offset, offset + len(own)))
         for g in own:
+            if g.get("opponent_group") and effects:
+                g["from"] = g.get("from", 0) + len(effects)
             if g.get("distinct_from"):
                 g["distinct_from"] = [offset + d for d in g["distinct_from"]]
             if g.get("graveyard_of") is not None:  # (wave 46B)

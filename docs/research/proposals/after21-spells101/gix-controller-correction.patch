@@ -1,0 +1,17 @@
+--- a/backend/app/rules/modal_clauses101.py
++++ b/backend/app/rules/modal_clauses101.py
+@@ -102,7 +102,13 @@
+         cid = chosen[0]
+         ref = ObjectRef.model_validate(data["originals"][cid])
+         card = plan.state.cards.get(cid)
+-        if card is not None and plan.oid(card) == ref.object_id and card.zone == ref.zone:
++        if (
++            card is not None
++            and plan.oid(card) == ref.object_id
++            and ref.zone is not None
++            and card.zone.rsplit(":", 1)[-1] == ref.zone.rsplit(":", 1)[-1]
++            and plan.ch(card).is_creature
++        ):
+             key = data["e"]["as"]
+             context.bind_objects(plan, ctx, key, [cid])
+             at = ctx["next"]

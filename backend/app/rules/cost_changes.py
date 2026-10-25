@@ -681,6 +681,12 @@ ANY_TARGET: tuple[str, ...] = ("*any target*",)
 def static_delta(state: GameState, info: CardInfo, src: CardInstance, d: dict[str, Any], player: str,
                  card: CardInstance, ch: Characteristics, targets: tuple[str, ...] = ()) -> int | None:
     """The signed change a table cost changer makes to this spell now, or None when it doesn't apply to it."""
+    if d.get('commander_history101'):
+        if card.owner != src.controller or not card.commander_key:
+            return None
+        return -state.players[card.owner].commander_casts.get(card.commander_key, 0)
+    if d.get('stack_target101'):
+        return 2 if targets != ANY_TARGET and src.id in targets else None
     if d.get('source_color_pair64'):
         if player != src.controller:
             return None

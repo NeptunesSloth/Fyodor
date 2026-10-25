@@ -349,3 +349,69 @@ def test_display_existing_blue_spell_loses_its_only_target_on_resolution101(card
     cast(s, "Display of Dominance", modes=[1], G=1, C=1)
     assert zone(s, bear) == "p1:battlefield" and zone(s, enemy) == "p2:graveyard"
     check(s)
+
+
+@pytest.mark.parametrize("cold_restore", [False, True])
+def test_actual_concession_restores_controller_without_changing_gix_chosen_object101(
+    cards, tmp_path, cold_restore
+):
+    from tests.wave100c_kit import three
+
+    s = three(cards, ["Gix's Command"], ["Control Magic"], ["Grizzly Bears"])
+    for pid in s.state.players:
+        act(s, pid, type="set_prefs", response="on")
+    bear = put_on(s, "Grizzly Bears", "p3")
+    to_phase(s, "main1", turn=2)
+    start_cast(s, "Control Magic", pid="p2", targets=[bear.id], U=2, C=2)
+    settle(s)
+    assert s.state.cards[bear.id].controller == "p2"
+    to_phase(s, "main1", turn=4)
+    start_cast(s, "Gix's Command", modes=[0, 1], B=2, C=3)
+    advance_question(s)
+    original = s.state.rules.object_id(bear.id)
+    act(s, "p2", type="concede")
+    assert s.state.rules.object_id(bear.id) == original and s.state.cards[bear.id].controller == "p3"
+    assert s.state.rules.decision and bear.id in [o.id for o in s.state.rules.decision.options]
+    if cold_restore:
+        cold(
+            s,
+            tmp_path,
+            """d=s.state.rules.decision
+act(s,d.player,type='choose',decision_id=d.id,option_ids=[m['bear']]);settle(s)
+c=s.state.cards[m['bear']]
+assert c.zone=='p3:battlefield' and c.counters['+1/+1']==2
+assert 'lifelink' in Plan.view(s.state,'p1',repo).ch(c).keywords
+assert s.history.rebuild().model_dump(mode='json')==s.state.model_dump(mode='json')
+""",
+            {"bear": bear.id},
+        )
+    else:
+        pick(s, [bear.id])
+        settle(s)
+        assert s.state.cards[bear.id].zone == "p3:battlefield"
+        assert s.state.cards[bear.id].counters["+1/+1"] == 2 and "lifelink" in chars(s, bear).keywords
+        check(s)
+
+
+def test_concession_stale_gix_artifact_option_no_longer_creature_is_not_modified101(cards):
+    from tests.wave100c_kit import three
+
+    s = three(cards, ["Gix's Command"], ["March of the Machines"], ["Sol Ring"])
+    for pid in s.state.players:
+        act(s, pid, type="set_prefs", response="on")
+    artifact = put_on(s, "Sol Ring", "p3")
+    to_phase(s, "main1", turn=2)
+    start_cast(s, "March of the Machines", pid="p2", U=1, C=3)
+    settle(s)
+    assert chars(s, artifact).is_creature
+    to_phase(s, "main1", turn=4)
+    start_cast(s, "Gix's Command", modes=[0, 1], B=2, C=3)
+    advance_question(s)
+    original = s.state.rules.object_id(artifact.id)
+    act(s, "p2", type="concede")
+    assert s.state.rules.object_id(artifact.id) == original and not chars(s, artifact).is_creature
+    pick(s, [artifact.id])
+    settle(s)
+    assert not artifact.counters and "lifelink" not in chars(s, artifact).keywords
+    assert zone(s, artifact) == "p3:battlefield"
+    check(s)

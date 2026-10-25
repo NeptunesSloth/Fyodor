@@ -780,8 +780,6 @@ def define_static(text: str, kind: str, lines: tuple[str, ...] = ()) -> Definiti
         # permanent's own mana cost (702.193a), on the generic component (118.7a)
         return {"kind": "static", "static": "ability_cost_modifier", "delta": -int(m["n"]), "filter": pu.key(), "who": "you", "floor": False, "power_up": True, "effects": []}
     m = ABILITY_COST.fullmatch(tt)
-    if m and m["sel"] == "sources with the chosen name" and not m["nomana"]:
-        return None  # Named-source taxes that also change mana abilities still need their own payment coverage.
     if m:  # -- costs (wave 3$) -- the source permanent is matched at the cost, relative to the ability's controller
         key = None
         if m["sel"] == "sources with the chosen name":  # -- chosen filters (wave 53B) -- 201.2 / 709.4a: any source with the permanent's chosen name, in any zone it can be activated from
@@ -1709,7 +1707,9 @@ def modifiers(state: GameState, player: str, card: CardInstance, ch: Characteris
     if r is None:
         return []
     found: list[CostModifier] = []
-    for src, index, d in _table_statics(state, info, {"cost_modifier"}):
+    from app.rules import cost_statics101
+
+    for src, index, d in _table_statics(state, info, {"cost_modifier"}) + cost_statics101.stack_statics(state, info):
         # -- cost changers (wave 4I) -- per count, with a turn, of the chosen type, from a zone, colored (cost_changes.py)
         delta = cost_changes.static_delta(state, info, src, d, player, card, ch, targets)
         if delta is None:

@@ -704,7 +704,7 @@ def _to_zone(plan: Plan, e: Event, frm: str) -> list[Fact]:
     """-- counters (wave 21D) -- a card put into exile or into a library from another zone: the new object there (603.6c: "from
     anywhere" doesn't look back), with the zone and the owner of the zone it came from. (A token never is a card there: 111.7.)"""
     to = _zone(e.to_zone)
-    if to not in ("exile", "library") or frm == to or not e.card or not e.new_object_id:
+    if to not in ("exile", "library", "command") or frm == to or not e.card or not e.new_object_id:
         return []
     got = _card_in(plan, e.card, e.to_zone)
     if got is None or got[0].is_token or plan.oid(got[0]) != e.new_object_id:

@@ -1,0 +1,59 @@
+============================= test session starts ==============================
+platform linux -- Python 3.12.14, pytest-9.1.1, pluggy-1.7.0 -- /workspace/Fyodor/backend/.venv/bin/python3
+cachedir: .pytest_cache
+rootdir: /workspace/scratch/combat102/backend
+configfile: pyproject.toml
+plugins: anyio-4.15.1, xdist-3.8.0
+created: 2/2 workers
+2 workers [23 items]
+
+scheduling tests via LoadScheduling
+
+tests/test_rules_damage_values102.py::test_actual_whole_definition102[Fireball]
+tests/test_rules_damage_values102.py::test_actual_whole_definition102[Vengeful Rebirth]
+[gw0] [  4%] PASSED tests/test_rules_damage_values102.py::test_actual_whole_definition102[Fireball]
+tests/test_rules_damage_values102.py::test_actual_whole_definition102[Mega Flare]
+[gw0] [  8%] PASSED tests/test_rules_damage_values102.py::test_actual_whole_definition102[Mega Flare]
+tests/test_rules_damage_values102.py::test_actual_whole_definition102[Piercing Exhale]
+[gw0] [ 13%] PASSED tests/test_rules_damage_values102.py::test_actual_whole_definition102[Piercing Exhale]
+tests/test_rules_damage_values102.py::test_fireball_actual_cost_rounding_and_mixed_targets102
+[gw1] [ 17%] PASSED tests/test_rules_damage_values102.py::test_actual_whole_definition102[Vengeful Rebirth]
+tests/test_rules_damage_values102.py::test_actual_whole_definition102[Delirium]
+[gw1] [ 21%] PASSED tests/test_rules_damage_values102.py::test_actual_whole_definition102[Delirium]
+tests/test_rules_damage_values102.py::test_fireball_zero_targets_or_more_targets_than_x102[False]
+[gw0] [ 26%] PASSED tests/test_rules_damage_values102.py::test_fireball_actual_cost_rounding_and_mixed_targets102
+tests/test_rules_damage_values102.py::test_fireball_zero_targets_or_more_targets_than_x102[True]
+[gw1] [ 30%] PASSED tests/test_rules_damage_values102.py::test_fireball_zero_targets_or_more_targets_than_x102[False]
+tests/test_rules_damage_values102.py::test_fireball_native_response_changes_divisor_at_resolution102
+[gw0] [ 34%] PASSED tests/test_rules_damage_values102.py::test_fireball_zero_targets_or_more_targets_than_x102[True]
+tests/test_rules_damage_values102.py::test_mega_flare_zero_targets_still_creates_one_kicked_dragon102
+[gw0] [ 39%] PASSED tests/test_rules_damage_values102.py::test_mega_flare_zero_targets_still_creates_one_kicked_dragon102
+tests/test_rules_damage_values102.py::test_mega_flare_targets_remain_bound_to_original_opponent102
+[gw1] [ 43%] PASSED tests/test_rules_damage_values102.py::test_fireball_native_response_changes_divisor_at_resolution102
+tests/test_rules_damage_values102.py::test_mega_flare_kicked_prefix_once_then_native_simultaneous_damage102
+[gw1] [ 47%] PASSED tests/test_rules_damage_values102.py::test_mega_flare_kicked_prefix_once_then_native_simultaneous_damage102
+tests/test_rules_damage_values102.py::test_rebirth_actual_return_mana_value_land_and_self_exile102[True]
+[gw0] [ 52%] PASSED tests/test_rules_damage_values102.py::test_mega_flare_targets_remain_bound_to_original_opponent102
+tests/test_rules_damage_values102.py::test_rebirth_actual_return_mana_value_land_and_self_exile102[False]
+[gw1] [ 56%] PASSED tests/test_rules_damage_values102.py::test_rebirth_actual_return_mana_value_land_and_self_exile102[True]
+tests/test_rules_damage_values102.py::test_rebirth_missing_return_does_not_deal_damage_but_still_self_exiles102
+[gw0] [ 60%] PASSED tests/test_rules_damage_values102.py::test_rebirth_actual_return_mana_value_land_and_self_exile102[False]
+tests/test_rules_damage_values102.py::test_rebirth_illegal_damage_target_returns_card_and_self_exiles102
+[gw1] [ 65%] PASSED tests/test_rules_damage_values102.py::test_rebirth_missing_return_does_not_deal_damage_but_still_self_exiles102
+tests/test_rules_damage_values102.py::test_delirium_native_active_player_target_tapped_target_and_noncombat102
+[gw0] [ 69%] PASSED tests/test_rules_damage_values102.py::test_rebirth_illegal_damage_target_returns_card_and_self_exiles102
+tests/test_rules_damage_values102.py::test_piercing_exhale_real_behold_optional_cost_and_surveil102[False]
+[gw0] [ 73%] PASSED tests/test_rules_damage_values102.py::test_piercing_exhale_real_behold_optional_cost_and_surveil102[False]
+tests/test_rules_damage_values102.py::test_genuine_cold_fireball_target_announcement_remembers_x_cost_and_division102
+[gw1] [ 78%] PASSED tests/test_rules_damage_values102.py::test_delirium_native_active_player_target_tapped_target_and_noncombat102
+tests/test_rules_damage_values102.py::test_piercing_exhale_real_behold_optional_cost_and_surveil102[True]
+[gw1] [ 82%] PASSED tests/test_rules_damage_values102.py::test_piercing_exhale_real_behold_optional_cost_and_surveil102[True]
+tests/test_rules_damage_values102.py::test_rebirth_both_original_targets_illegal_is_countered_not_self_exiled102
+[gw0] [ 86%] PASSED tests/test_rules_damage_values102.py::test_genuine_cold_fireball_target_announcement_remembers_x_cost_and_division102
+tests/test_rules_damage_values102.py::test_genuine_cold_mega_flare_partial_group_does_not_repeat_kicker_prefix102
+[gw1] [ 91%] PASSED tests/test_rules_damage_values102.py::test_rebirth_both_original_targets_illegal_is_countered_not_self_exiled102
+tests/test_rules_damage_values102.py::test_delirium_actual_blocked_combat_prevents_both_directions102
+[gw0] [ 95%] PASSED tests/test_rules_damage_values102.py::test_genuine_cold_mega_flare_partial_group_does_not_repeat_kicker_prefix102
+[gw1] [100%] PASSED tests/test_rules_damage_values102.py::test_delirium_actual_blocked_combat_prevents_both_directions102
+
+============================= 23 passed in 16.76s ==============================
