@@ -706,6 +706,7 @@ def test_beamsplitter_mage_copies_for_one_chosen_creature(cards, others):
     bears, giant = (put(s, "Grizzly Bears"), put(s, "Hill Giant")) if others else (None, None)
     mana(s, "p1", R=1)
     act(s, "p1", type="cast_spell", card_id=to_hand(s, "Test Zap").id, targets=[mage.id])
+    assert len(s.state.zones["stack"]) == (2 if others else 0)  # 603.4: without another creature to target there is no trigger (the spell has resolved)
     for _ in range(12):
         if (d := s.state.rules.decision) is not None:
             pick = [giant.id] if giant and giant.id in [o.id for o in d.options] else [d.options[0].id]
@@ -809,4 +810,22 @@ def test_casey_and_raph_two_modes_two_players(cards):
     assert sum(1 for c in s.state.cards.values() if c.name == "Treasure" and c.zone == "p1:battlefield") == 2
     perms = s.state.rules.permissions
     assert [(p.player, p.until) for p in perms] == [("p2", "next_end_step")]
+    check(s)
+
+
+def test_beamsplitter_mage_rechecks_if_on_resolution(cards):
+    """Beamsplitter Mage (603.4): the other creature is gone when the ability resolves, so it does nothing."""
+    s = build(cards, ["Beamsplitter Mage", "Grizzly Bears", "Test Zap"], ["Lightning Bolt"])
+    mage = put(s, "Beamsplitter Mage")
+    bears = put(s, "Grizzly Bears")
+    mana(s, "p1", R=1)
+    mana(s, "p2", R=1)
+    act(s, "p1", type="configure", automation_options={"auto_priority_pass": False})  # stop for responses
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Test Zap").id, targets=[mage.id])
+    assert len(s.state.zones["stack"]) == 2 and s.state.rules.priority == "p2"
+    act(s, "p2", type="cast_spell", card_id=to_hand(s, "Lightning Bolt", "p2").id, targets=[bears.id])
+    settle(s)
+    assert s.state.cards[bears.id].zone == "p1:graveyard"
+    assert s.state.rules.decision is None and not s.state.zones["stack"]
+    assert s.state.cards[mage.id].damage == 1
     check(s)

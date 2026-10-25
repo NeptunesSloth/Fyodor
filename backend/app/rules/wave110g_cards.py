@@ -85,6 +85,15 @@ def exploited_big(plan: Any, ctx: dict[str, Any], cond: Def) -> bool:
     return bool(got and got[1].pt and got[1].pt[0] >= 3)
 
 
+def other_targetable(plan: Any, ctx: dict[str, Any], cond: Def) -> bool:
+    """Beamsplitter Mage, 603.4: you control another creature the cast spell could target (as it triggers; again as it resolves, the spell still on the stack)."""
+    from app.rules import copying
+
+    spell = next(iter(copying._stack_objects(plan, ctx, "event_spell")), None)
+    entry = plan.rules.stack.get(spell) if spell else None
+    return entry is not None and bool(copying._each_victims(plan, ctx, ctx["controller"], entry))
+
+
 def hand_began_empty(plan: Any, ctx: dict[str, Any], cond: Def) -> bool:
     """The controller had no cards in hand as this turn began (an unknown receipt, turn one or an old save, reads the hand now)."""
     began = plan.state.turn.starting_hand
@@ -94,7 +103,7 @@ def hand_began_empty(plan: Any, ctx: dict[str, Any], cond: Def) -> bool:
 
 def holds(plan: Any, ctx: dict[str, Any], cond: Def) -> bool:
     return bool({"walls_block": walls_block, "opp_protects": opponent_protects, "exploited_big": exploited_big,
-                   "hand_began_empty": hand_began_empty}[cond["w110g"]](plan, ctx, cond))
+                   "hand_began_empty": hand_began_empty, "other_targetable": other_targetable}[cond["w110g"]](plan, ctx, cond))
 
 
 def _crown(d: Def) -> Def:
@@ -230,7 +239,9 @@ def _swap_tapped(d: Def) -> Def:
 
 def _one_copy(d: Def) -> Def:
     """Beamsplitter Mage: one copy, for the one creature its controller chooses (707.10d, 115.9c); no creature to choose: no copy."""
-    return {**d, "effects": [{**e, "one": True} if e.get("do") == "copy_each" else e for e in d["effects"]]}
+    gate = {"w110g": "other_targetable"}  # 603.4: an intervening "if": no trigger without such a creature, checked again on resolution
+    fx = [{**e, "one": True} if e.get("do") == "copy_each" else e for e in d["effects"]]
+    return {**d, "if": gate, "effects": [{"do": "only_if", "cond": gate, "skip": len(fx)}, *fx]}
 
 
 # whole ability text -> (the wording the grammar reads, what to change in its definition)
