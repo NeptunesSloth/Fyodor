@@ -976,7 +976,11 @@ def day_night_sync(plan: Plan, became: bool = False) -> bool:
     r = plan.rules
     entering = {e.new_object_id for e in r.events if e.kind == "zone_change" and e.batch > r.trigger_batch
                 and (e.to_zone or "").endswith(":battlefield")} if to == 1 and not (changed or became) else set()
-    for c in flip:
+    from app.rules import (
+        wave110d_rules,  # -- rules (wave 110D) -- 701.28f: a permanent that can't transform stays as it is
+    )
+
+    for c in [c for c in flip if not wave110d_rules.has_rule(plan, c, wave110d_rules.CANT_TRANSFORM)]:
         plan.do({"type": "set_face", "card_id": c.id, "face": to, "faces": 2}, actor=c.controller)
         # -- transform (wave 26D) -- 701.27, 702.145c/f: the flip is a transformation like any other: "transforms into X" and "a permanent transforms" triggers
         from app.game.rules_state import emit

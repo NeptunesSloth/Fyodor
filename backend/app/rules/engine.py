@@ -619,7 +619,8 @@ def _keep_tapped(plan: Plan) -> list[str]:
 def _untap_restricted(plan: Plan, card: CardInstance) -> bool:
     from app.rules import previous_own_turns
     rules = scripts.statics(plan.ch(card))
-    return "doesnt_untap" in rules or (previous_own_turns.UNTAP in rules and previous_own_turns.attacked(plan.state, card) is not False)
+    # (wave 110D: "can't become untapped" stays tapped too, 701.26)
+    return "doesnt_untap" in rules or "cant_untap" in rules or (previous_own_turns.UNTAP in rules and previous_own_turns.attacked(plan.state, card) is not False)
 
 
 def _exerted(plan: Plan, player: str) -> list[str]:

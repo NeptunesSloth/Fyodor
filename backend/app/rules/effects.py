@@ -7046,3 +7046,8 @@ PRIMITIVES.update(_vampire_returns105.PRIMITIVES)
 from app.rules import copy_controllers105 as _copy105  # noqa: E402
 
 PRIMITIVES.update(_copy105.PRIMITIVES)
+
+from app.rules import wave110d as _wave110d  # noqa: E402, I001  -- wave 110D --
+
+PRIMITIVES.update(_wave110d.PRIMITIVES)
+RESUME.update(_wave110d.RESUME)

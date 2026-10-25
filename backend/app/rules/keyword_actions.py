@@ -625,6 +625,10 @@ def transform(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         card = plan.state.cards[cid]
         if not card.zone.endswith(":battlefield") or card.face_down:
             continue
+        from app.rules import wave110d_rules  # -- rules (wave 110D) -- 701.28f
+
+        if wave110d_rules.has_rule(plan, card, wave110d_rules.CANT_TRANSFORM):
+            continue
         if (card.token is None or card.token.back is None) and not chars.transformable(card, plan.info):
             continue
         if r.transformed.get(cid, 0) > r.objects.get(ctx.get("stack_id") or "", 1 << 60):
@@ -678,6 +682,11 @@ def lose_stun(plan: Plan, card_ids: list[str], actor: str | None) -> None:
 
 def untap_stunned(plan: Plan, card_ids: list[str], actor: str | None) -> list[str]:
     """The cards to untap after 122.1d replaced the untapping of the stunned ones."""
+    from app.rules import (
+        wave110d_rules,  # -- rules (wave 110D) -- "can't become untapped": nothing is replaced, nothing untaps
+    )
+
+    card_ids = wave110d_rules.untappable(plan, card_ids)
     stuck = stunned(plan, card_ids)
     lose_stun(plan, stuck, actor)
     return [c for c in card_ids if c not in stuck]

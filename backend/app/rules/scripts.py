@@ -12237,3 +12237,7 @@ EFFECTS[:0] = _harness.TEMPLATES
 from app.rules import attached100f as _attached100f  # noqa: E402, I001
 
 EFFECTS[:0] = _attached100f.TEMPLATES
+
+from app.rules import wave110d as _wave110d  # noqa: E402, I001  -- wave 110D --
+
+EFFECTS[:0] = _wave110d.TEMPLATES
