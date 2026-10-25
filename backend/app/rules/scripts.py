@@ -8472,7 +8472,7 @@ def _merge_instead_lines(ch: Characteristics, out: dict[int, Definition]) -> Non
 def definitions(ch: Characteristics) -> dict[int, Definition]:
     """Engine definitions for a card's abilities, by ability index (see ``app.rules.oracle``).
     Hand-written scripts (``app.rules.cards``) are consulted by the caller first."""
-    if ch.is_ability or ch.face_down:
+    if ch.is_ability or (ch.face_down and not ch.abilities):  # -- face-down abilities (wave 110D) -- 708.2: none of its own, but an effect may grant some (Etrata)
         return {}
     from app.rules import cards  # hand-written scripts (a leaf package)
 
