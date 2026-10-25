@@ -24,8 +24,12 @@ GAMBIT = ("Remove all attacking creatures from combat and untap them. After this
           "attacks that combat if able. They can't attack you or planeswalkers you control that combat.")
 EXTRA.append(real("Illusionist's Gambit", "{1}{U}{U}", 3, "Instant",
                   "Cast this spell only during the declare blockers step on an opponent's turn.\n" + GAMBIT, None, "U"))
+EXTRA.append(real("Wheel of Potential", "{2}{R}", 3, "Sorcery",
+                  "You get {E}{E}{E} (three energy counters), then you may pay any amount of {E}.\nEach player may exile their hand and draw a number of cards equal "
+                  "to the amount of {E} paid this way. If seven or more {E} was paid this way, you may play cards you own exiled this way until the end of "
+                  "your next turn.", None, "R"))
 _BASE.extend(EXTRA)
-NAMES = ["V.A.T.S."]
+NAMES = ["V.A.T.S.", "Wheel of Potential"]
 NAMES.append("Illusionist's Gambit")
 
 
@@ -85,4 +89,30 @@ def test_gambit_attackers_untap_and_must_attack_someone_else(cards):
         act(s, "p2", type="declare_attackers", attackers=[])
     act(s, "p2", type="declare_attackers", attackers=[{"card_id": wolf.id, "target": "p3"}])
     assert s.state.cards[wolf.id].is_attacking
+    check(s)
+
+
+@pytest.mark.parametrize("paid,p2_yes", [(3, False), (3, True), (7, True)])
+def test_wheel_of_potential(cards, paid, p2_yes):
+    """107.14 pay any amount of {E}; each player may exile their hand and draw that many; seven or more: play your exiled cards (next turn too)."""
+    from tests.game_helpers import act
+    from tests.wave9c_kit import to_hand
+
+    s = build(cards, ["Wheel of Potential", "Test Two 110A", "Test Three 110A"], ["Test Two 110A", "Test Three 110A"])
+    if paid > 3:
+        act(s, "p1", type="set_resource", player="p1", key="energy", value=paid - 3)
+    to_hand(s, "Test Two 110A", "p2")
+    to_hand(s, "Test Two 110A")
+    to_hand(s, "Test Three 110A")
+    theirs = len(s.state.zones["p2:hand"])
+    mana(s, R=1, C=2)
+    cast(s, "Wheel of Potential")
+    answer(s, str(paid), "yes", "yes" if p2_yes else "no")
+    assert s.state.players["p1"].resources.get("energy", 0) == 3 + (paid - 3) - paid
+    assert len(s.state.zones["p1:hand"]) == paid  # the whole hand went, `paid` cards came
+    assert len(s.state.zones["p2:hand"]) == (paid if p2_yes else theirs)
+    assert len(s.state.zones.get("p1:exile", [])) == 2 and len(s.state.zones.get("p2:exile", [])) == (theirs if p2_yes else 0)
+    granted = {p.card for p in s.state.rules.permissions if p.player == "p1"}
+    exiled = set(s.state.zones.get("p1:exile", []))
+    assert (granted == exiled) if paid >= 7 else not granted  # 7 or more: both exiled cards may be played (until the end of your next turn)
     check(s)

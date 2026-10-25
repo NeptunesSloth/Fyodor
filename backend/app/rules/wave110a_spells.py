@@ -355,11 +355,48 @@ def gambit(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return effects.PRIMITIVES["extra_phases"](plan, ctx, {"do": "extra_phases", "after": "phase", "main": False})
 
 
+def wheel(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Wheel of Potential: each player in turn order may exile their hand and draw as many cards as the {E} paid (101.4: all answer first,
+    then it happens); if seven or more were paid, the controller may play the cards they own exiled this way until the end of their next turn."""
+    from app.rules import context
+
+    n = context.amount(ctx, next((k for k in context.refs(ctx) if k.endswith("energy_paid")), "energy_paid"))
+    me, at = ctx["controller"], ctx["next"]
+    players = list(plan.apnap())
+    added: list[dict[str, Any]] = [{"do": "tempt_ask", "player": p, "bind": f"w110a_{i}", "text": "exile your hand and draw cards"}
+                                   for i, p in enumerate(players)]
+    hand = 'sel:{"card":true,"zone_owner":"you","zones":["hand"]}'
+    for i, p in enumerate(players):
+        added += [{"do": "only_if", "cond": {"flag": f"w110a_{i}"}, "skip": 4}, {"do": "as_player", "player": p},
+                  {"do": "exile", "who": hand, "as": f"w110a_x{i}"}, {"do": "draw", "who": "you", "n": n}, {"do": "as_player_end"}]
+    if n >= 7:
+        added.append({"do": "grant_owned110a", "from": f"w110a_x{players.index(me)}"})
+    ctx["effects"][at:at] = added
+    return True
+
+
+def grant_owned(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """The controller may play the exiled cards they own (the others stay exiled) until the end of their next turn."""
+    from app.rules import context, effects
+
+    if e["from"] not in context.refs(ctx):  # (the controller declined: nothing was exiled)
+        return True
+    context.bind_objects(plan, ctx, "w110a_own", [c for c in context.objects(plan, ctx, e["from"]) if plan.state.cards[c].owner == ctx["controller"]])
+    return effects.PRIMITIVES["grant_play"](plan, ctx, {"do": "grant_play", "who": "ref:w110a_own", "play": True, "cast": True,
+                                                         "until": "end_of_next_turn", "optional": True})
+
+
+def _wheel() -> Parsed:
+    return [{"do": "wheel110a"}], None, False
+
+
 def _gambit() -> Parsed:
     return [{"do": "gambit110a"}], None, False
 
 
 BUILDERS: dict[str, Callable[[], Parsed]] = {
+    "Each player may exile their hand and draw a number of cards equal to the amount of {E} paid this way. If seven or more {E} was paid this way, "
+    "you may play cards you own exiled this way until the end of your next turn.": _wheel,
     "Remove all attacking creatures from combat and untap them. After this phase, there is an additional combat phase. Each of those creatures attacks that "
     "combat if able. They can't attack you or planeswalkers you control that combat.": _gambit,
     "Choose any number of target creatures with equal toughness. Destroy the chosen creatures.": _vats,
@@ -577,5 +614,5 @@ def unblocked_turn(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return True
 
 
-PRIMITIVES = {"gambit110a": gambit, "bind_sacrificed110a": bind_sacrificed, "unblocked_turn110a": unblocked_turn, "repeat_put110a": repeat_put, "note_put110a": note_put, "bind110a": bind, "end_combat_phase110a": end_combat_phase, "snow110a": snow,
+PRIMITIVES = {"wheel110a": wheel, "grant_owned110a": grant_owned, "gambit110a": gambit, "bind_sacrificed110a": bind_sacrificed, "unblocked_turn110a": unblocked_turn, "repeat_put110a": repeat_put, "note_put110a": note_put, "bind110a": bind, "end_combat_phase110a": end_combat_phase, "snow110a": snow,
               "exiled_power_damage110a": exiled_power_damage, "exile_hands110a": exile_hands, "counter_opponents110a": counter_opponents, "noted_draw110a": noted_draw}
