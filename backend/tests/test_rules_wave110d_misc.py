@@ -22,6 +22,7 @@ from app.game.errors import ActionError
 from tests.game_helpers import act
 from tests.wave9c_kit import build, life, to_hand
 from tests.wave110d_kit import (  # noqa: F401
+    ability,
     activate,
     card_db,
     cast_on,
@@ -266,4 +267,29 @@ def test_common_cause_needs_one_color_all_nonartifact_creatures_share(cards):
     assert ch(s, bears).pt == (2, 2) and ch(s, abomination).pt == (5, 3)
     act(s, "p1", type="move", card_ids=[abomination.id], to={"player": "p1", "zone": "graveyard"})
     assert ch(s, bears).pt == (4, 4)
+    check(s)
+
+
+def test_crown_of_the_ages_is_full():
+    assert full("Crown of the Ages")
+
+
+def test_crown_of_the_ages_moves_the_aura_to_another_creature(cards):
+    """701.3a-b, 115.1: only the Aura is targeted; the new host is chosen on resolution and can't be the creature it is already on."""
+    s = build(cards, ["Crown of the Ages", "Holy Strength", "Grizzly Bears", "Courser of Kruphix", "Twisted Abomination"])
+    crown, bears, courser = put(s, "Crown of the Ages"), put(s, "Grizzly Bears"), put(s, "Courser of Kruphix")
+    abomination = put(s, "Twisted Abomination")
+    aura = cast_on(s, "Holy Strength", bears)
+    assert aura.attached_to == bears.id and ch(s, bears).pt == (3, 4)
+    mana(s, C=4)
+    act(s, "p1", type="activate_ability", card_id=crown.id, ability=ability(s, crown, "{4}, {T}"), targets=[aura.id])
+    for _ in range(5):  # (pass priority until the ability resolves and asks for the creature)
+        if s.state.rules.decision is not None:
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+    d = s.state.rules.decision
+    assert sorted(o.id for o in d.options) == sorted([courser.id, abomination.id])  # (not the creature it is attached to)
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[abomination.id])
+    settle(s)
+    assert now(s, aura).attached_to == abomination.id and ch(s, bears).pt == (2, 2)
     check(s)
