@@ -202,3 +202,62 @@ def test_vivien_stampede_draws_in_the_next_main_phase_for_each_damaged_player(ca
     until(s, lambda s: s.state.turn.phase == "main2" and not s.state.zones.get("stack") and s.state.rules.decision is None)
     assert len(s.state.zones["p1:hand"]) == hand + (1 if attack else 0)  # one player dealt combat damage / none
     check(s)
+
+
+CHOKING = real("Choking Vines", "{X}{G}", 1, "Instant",
+               "Cast this spell only during the declare blockers step.\n"
+               "X target attacking creatures become blocked. Choking Vines deals 1 damage to each of those creatures. "
+               "(This spell works on creatures that can't be blocked.)", None, "G")
+LETHAL = real("Lethal Exploit", "{1}{B}", 2, "Instant",
+              "Target creature gets -2/-2 until end of turn. It gets an additional -1/-1 until end of turn for each modified creature you controlled as you cast this spell. "
+              "(Equipment, Auras you control, and counters are modifications.)", None, "B")
+EXTRA.extend([CHOKING, LETHAL])
+NAMES.extend(["Choking Vines", "Lethal Exploit"])
+
+
+def test_choking_vines_blocks_unblocked_attackers_and_pings_each(cards):
+    """509.1h/509.3c: targets become blocked (no damage to the player); 120.3: 1 damage to each of them."""
+    from tests.wave53c_kit import combat_step, creature, in_play, pool, priority_to, sandbox, settle, swing, to_postcombat
+
+    s = sandbox(cards, "Choking Vines")
+    a = creature(s, "p1", "Aaa", "5/5", text="Whenever this creature becomes blocked, you gain 1 life.")
+    b = creature(s, "p1", "Bbb", "3/3")
+    guard = creature(s, "p2", "Guard", "0/9")
+    combat_step(s)
+    swing(s, [a, b], [(guard, b)], before=None)
+
+    vines = in_play(s, "Choking Vines")
+    act(s, "p1", type="move", card_ids=[vines.id], to={"zone": "hand"})
+    pool(s, "p1", G=1, C=2)
+    priority_to(s, "p1")
+    act(s, "p1", type="cast_spell", card_id=vines.id, targets=[a.id, b.id], target_counts=[2], x_value=2)
+    settle(s)  # X=2: b is already blocked, still takes 1
+    assert s.state.players["p1"].life == 41 and s.state.cards[a.id].damage == 1 and s.state.cards[b.id].damage == 1
+    to_postcombat(s)
+    assert s.state.players["p2"].life == 40  # a is blocked, no blocker, no trample: no damage (510.1c)
+    check(s)
+
+
+@pytest.mark.parametrize("modified", [0, 2])
+def test_lethal_exploit_counts_modified_creatures_as_cast(cards, modified):
+    """601.2i/700.9: -1/-1 more per creature with a counter or attachment when the spell was cast, none for later changes."""
+    from tests.test_rules_conditionals import creature, sandbox
+    from tests.wave53c_kit import pool, priority_to, settle
+
+    s = sandbox(cards, "Lethal Exploit")
+    victim = creature(s, "p2", "Victim", "6/6")
+    for i in range(modified):
+        c = creature(s, "p1", f"Mod{i}", "1/1")
+        act(s, "p1", type="set_counter", card_id=c.id, kind="+1/+1", value=1)
+    creature(s, "p1", "Plain", "1/1")
+    from tests.wave53c_kit import main_step
+    main_step(s)
+    spell = next(c for c in s.state.cards.values() if c.name == "Lethal Exploit")
+    act(s, "p1", type="move", card_ids=[spell.id], to={"zone": "hand"})
+    pool(s, "p1", B=1, C=1)
+    priority_to(s, "p1")
+    act(s, "p1", type="cast_spell", card_id=spell.id, targets=[victim.id])
+    settle(s)
+    from app.rules.plan import Plan
+    assert Plan(s.state, "p1", s.cards, None).ch(s.state.cards[victim.id]).pt == (4 - modified, 4 - modified)
+    check(s)

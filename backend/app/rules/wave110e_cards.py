@@ -22,6 +22,18 @@ _APPEND: dict[str, tuple[str, list[Def]]] = {
         ("Put target creature on top of its owner's library.", _FATESEAL2),
 }
 
+# whole ability text -> (the wording the grammar reads for the targets, the effects that replace the parsed ones; "target:0" = the first target group)
+_SWAP: dict[str, tuple[str, list[Def]]] = {
+    # 509.1h/509.3c: each target becomes blocked (no-op for one no longer an unblocked attacker); then 120.3 damage to each of them
+    "X target attacking creatures become blocked. Choking Vines deals 1 damage to each of those creatures.":
+        ("X target attacking creatures gain flying until end of turn.",
+         [{"do": "become_blocked", "who": "target:0"}, {"do": "damage", "who": "target:0", "n": 1}]),
+    "Target creature gets -2/-2 until end of turn. It gets an additional -1/-1 until end of turn for each modified creature you controlled as you cast this spell.":
+        ("Target creature gets -2/-2 until end of turn.",
+         [{"do": "modified_cast110e", "as": "mod110e"}, {"do": "pump", "who": "target", "p": -2, "t": -2},
+          {"do": "pump", "who": "target", "p": {"neg": {"ref_amount": "mod110e"}}, "t": {"neg": {"ref_amount": "mod110e"}}}]),
+}
+
 
 def bind_targets(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     """601.2c/115.9b: the creatures the cast spell targets (still on the battlefield), as one named group for "those creatures"."""
@@ -32,7 +44,14 @@ def bind_targets(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return True
 
 
-PRIMITIVES = {"spell_targets110e": bind_targets}
+def bind_modified(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """601.2i: the number of modified creatures (700.9) its controller had as the spell was cast, kept as a count for later amounts."""
+    record = plan.rules.payments.get(ctx.get("source_object") or "")
+    ctx.setdefault("refs", {})[e["as"]] = {"kind": "amount", "n": record.cast_modified_n110e if record else 0}
+    return True
+
+
+PRIMITIVES = {"spell_targets110e": bind_targets, "modified_cast110e": bind_modified}
 
 _FLYERS = "Creatures with flying can't attack you or block creatures you control."
 _BLAZE = ("Target creature defending player controls can block any number of creatures this turn. "
@@ -57,6 +76,10 @@ def definition(ability: Any, ch: Any) -> Def | None:
         native = scripts.define(replace(ability, text=_BLAZE.split(". It ")[0] + "."), ch)
         return None if native is None else {**native, "effects": [*native["effects"],
                                                                   {"do": "restrict", "who": "target", "rules": ["must_block_all110e"]}]}
+    swap = _SWAP.get(ability.text.strip())
+    if swap is not None:
+        native = scripts.define(replace(ability, text=swap[0]), ch)
+        return None if native is None else {**native, "effects": swap[1]}
     got = _APPEND.get(ability.text.strip())
     if got is None:
         return None
