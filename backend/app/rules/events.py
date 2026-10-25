@@ -689,6 +689,8 @@ def _parse(c: str) -> Condition | None:
     m = re.fullmatch(r"(?P<s>~|this creature|this permanent) transforms", c)  # -- transform (wave 26D) -- any face
     if m:
         return {"subject": "self", "event": "transform"}
+    if c in ("equipped creature transforms", "enchanted creature transforms"):  # -- transform (wave 110I) -- 701.28: the permanent this one is attached to
+        return {"subject": "host", "event": "transform"}
     m = re.fullmatch(r"(?P<s>(?:a|another) [^,]+? you control) transforms(?: into (?P<d>an? [^,]+))?", c)  # (701.28: the permanent that turned over; its new face is read)
     if m:
         base = _subject(m["s"])

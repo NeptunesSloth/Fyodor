@@ -1,0 +1,136 @@
+[
+ {
+  "name": "Nezumi Shortfang // Stabwhisker the Odious",
+  "layout": "flip",
+  "mana_cost": "{1}{B}",
+  "cmc": 2.0,
+  "type_line": "Creature \u2014 Rat Rogue // Legendary Creature \u2014 Rat Shaman",
+  "oracle_text": "{1}{B}, {T}: Target opponent discards a card. Then if that player has no cards in hand, flip this creature.\n//\nAt the beginning of each opponent's upkeep, that player loses 1 life for each card fewer than three in their hand.",
+  "power": "1",
+  "toughness": "1",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [],
+  "card_faces": [
+   {
+    "name": "Nezumi Shortfang",
+    "mana_cost": "{1}{B}",
+    "type_line": "Creature \u2014 Rat Rogue",
+    "oracle_text": "{1}{B}, {T}: Target opponent discards a card. Then if that player has no cards in hand, flip this creature.",
+    "power": "1",
+    "toughness": "1"
+   },
+   {
+    "name": "Stabwhisker the Odious",
+    "mana_cost": "",
+    "type_line": "Legendary Creature \u2014 Rat Shaman",
+    "oracle_text": "At the beginning of each opponent's upkeep, that player loses 1 life for each card fewer than three in their hand.",
+    "power": "3",
+    "toughness": "3"
+   }
+  ]
+ },
+ {
+  "name": "Neglected Heirloom // Ashmouth Blade",
+  "layout": "transform",
+  "mana_cost": "{1} // ",
+  "cmc": 1.0,
+  "type_line": "Artifact \u2014 Equipment // Artifact \u2014 Equipment",
+  "oracle_text": "Equipped creature gets +1/+1.\nWhen equipped creature transforms, transform this Equipment.\nEquip {1}\n//\nEquipped creature gets +3/+3 and has first strike.\nEquip {3}",
+  "colors": [],
+  "color_identity": [],
+  "keywords": [
+   "Transform",
+   "Equip"
+  ],
+  "card_faces": [
+   {
+    "name": "Neglected Heirloom",
+    "mana_cost": "{1}",
+    "type_line": "Artifact \u2014 Equipment",
+    "oracle_text": "Equipped creature gets +1/+1.\nWhen equipped creature transforms, transform this Equipment.\nEquip {1}",
+    "colors": [],
+    "image_uris": {
+     "small": "https://cards.scryfall.io/small/front/5/c/5cc2ac21-d31f-4a0d-956a-dabb6e1f3b5a.jpg?1783937716",
+     "normal": "https://cards.scryfall.io/normal/front/5/c/5cc2ac21-d31f-4a0d-956a-dabb6e1f3b5a.jpg?1783937716",
+     "large": "https://cards.scryfall.io/large/front/5/c/5cc2ac21-d31f-4a0d-956a-dabb6e1f3b5a.jpg?1783937716",
+     "art_crop": "https://cards.scryfall.io/art_crop/front/5/c/5cc2ac21-d31f-4a0d-956a-dabb6e1f3b5a.jpg?1783937716"
+    }
+   },
+   {
+    "name": "Ashmouth Blade",
+    "mana_cost": "",
+    "type_line": "Artifact \u2014 Equipment",
+    "oracle_text": "Equipped creature gets +3/+3 and has first strike.\nEquip {3}",
+    "colors": [],
+    "image_uris": {
+     "small": "https://cards.scryfall.io/small/back/5/c/5cc2ac21-d31f-4a0d-956a-dabb6e1f3b5a.jpg?1783937716",
+     "normal": "https://cards.scryfall.io/normal/back/5/c/5cc2ac21-d31f-4a0d-956a-dabb6e1f3b5a.jpg?1783937716",
+     "large": "https://cards.scryfall.io/large/back/5/c/5cc2ac21-d31f-4a0d-956a-dabb6e1f3b5a.jpg?1783937716",
+     "art_crop": "https://cards.scryfall.io/art_crop/back/5/c/5cc2ac21-d31f-4a0d-956a-dabb6e1f3b5a.jpg?1783937716"
+    }
+   }
+  ]
+ },
+ {
+  "name": "Civilized Scholar // Homicidal Brute",
+  "layout": "transform",
+  "mana_cost": "{2}{U} // ",
+  "cmc": 3.0,
+  "type_line": "Creature \u2014 Human Advisor // Creature \u2014 Human Mutant",
+  "oracle_text": "{T}: Draw a card, then discard a card. If a creature card is discarded this way, untap this creature, then transform it.\n//\nAt the beginning of your end step, if this creature didn't attack this turn, tap this creature, then transform it.",
+  "power": "0",
+  "toughness": "1",
+  "colors": [
+   "R",
+   "U"
+  ],
+  "color_identity": [
+   "R",
+   "U"
+  ],
+  "keywords": [
+   "Transform"
+  ],
+  "card_faces": [
+   {
+    "name": "Civilized Scholar",
+    "mana_cost": "{2}{U}",
+    "type_line": "Creature \u2014 Human Advisor",
+    "oracle_text": "{T}: Draw a card, then discard a card. If a creature card is discarded this way, untap this creature, then transform it.",
+    "power": "0",
+    "toughness": "1",
+    "colors": [
+     "U"
+    ],
+    "image_uris": {
+     "small": "https://cards.scryfall.io/small/front/7/b/7bf864db-4754-433d-9d77-6695f78f6c09.jpg?1783940983",
+     "normal": "https://cards.scryfall.io/normal/front/7/b/7bf864db-4754-433d-9d77-6695f78f6c09.jpg?1783940983",
+     "large": "https://cards.scryfall.io/large/front/7/b/7bf864db-4754-433d-9d77-6695f78f6c09.jpg?1783940983",
+     "art_crop": "https://cards.scryfall.io/art_crop/front/7/b/7bf864db-4754-433d-9d77-6695f78f6c09.jpg?1783940983"
+    }
+   },
+   {
+    "name": "Homicidal Brute",
+    "mana_cost": "",
+    "type_line": "Creature \u2014 Human Mutant",
+    "oracle_text": "At the beginning of your end step, if this creature didn't attack this turn, tap this creature, then transform it.",
+    "power": "5",
+    "toughness": "1",
+    "colors": [
+     "R"
+    ],
+    "image_uris": {
+     "small": "https://cards.scryfall.io/small/back/7/b/7bf864db-4754-433d-9d77-6695f78f6c09.jpg?1783940983",
+     "normal": "https://cards.scryfall.io/normal/back/7/b/7bf864db-4754-433d-9d77-6695f78f6c09.jpg?1783940983",
+     "large": "https://cards.scryfall.io/large/back/7/b/7bf864db-4754-433d-9d77-6695f78f6c09.jpg?1783940983",
+     "art_crop": "https://cards.scryfall.io/art_crop/back/7/b/7bf864db-4754-433d-9d77-6695f78f6c09.jpg?1783940983"
+    }
+   }
+  ]
+ }
+]

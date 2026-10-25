@@ -76,6 +76,11 @@ def _mirror(d: Def) -> Def:
     return {**d, "targets": [], "effects": [pick, {"do": "exile_library110i"}, {"do": "to_library", "who": "ref:mof", "place": "top"}]}
 
 
+def _target_hand(d: Def) -> Def:
+    """Nezumi Shortfang: "that player" of the later "if" is the one target opponent (608.2c), not any opponent."""
+    return {**d, "effects": [{**e, "cond": {**e["cond"], "as": "target"}} if e.get("do") == "only_if" else e for e in d["effects"]]}
+
+
 _POWER_LEAK = "At the beginning of the upkeep of enchanted {0}'s controller, that player may pay any amount of mana. This Aura deals 2 damage to that player. Prevent X of that damage, where X is the amount of mana that player paid this way."
 
 # whole ability text -> (the wording the grammar reads, what to change in its definition)
@@ -86,6 +91,10 @@ _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
         ("Whenever one or more loyalty counters are put on a planeswalker you control, put that many +1/+1 counters on this creature.", _batch),
     **{_POWER_LEAK.format(k): (f"At the beginning of the upkeep of enchanted {k}'s controller, this Aura deals 2 damage to that player.", _prevent_paid)
        for k in ("creature", "enchantment")},
+    "{1}{B}, {T}: Target opponent discards a card. Then if that player has no cards in hand, flip this creature.":
+        ("{1}{B}, {T}: Target opponent discards a card. Then if an opponent has no cards in hand, flip this creature.", _target_hand),
+    "At the beginning of each opponent's upkeep, that player loses 1 life for each card fewer than three in their hand.":
+        ("At the beginning of each opponent's upkeep, that player loses X life, where X is 3 minus the number of cards in their hand.", lambda d: d),
     "Whenever an equipped creature you control other than Rhuk attacks or dies, you may attach all Equipment attached to that creature to Rhuk.":
         ("Whenever an equipped creature you control other than ~ attacks or dies, you may draw a card.", _attach_all),
     "When enchanted creature dies, return that card to its owner's hand. If that card is returned to its owner's hand this way, you may pay {U}{U}{U}. If you do, return this card to its owner's hand.":
