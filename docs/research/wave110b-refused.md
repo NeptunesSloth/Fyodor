@@ -43,3 +43,9 @@
 - Firesong and Sunspeaker: life gain events carry no source spell (color of the spell that caused the gain unknown).
 - Tombstone Stairwell: "for each creature card in their graveyard" per player + named tokens + "tokens created with this enchantment" destroy: three gaps.
 - Temporal Extortion: "any player may pay half their life ... counter" cast trigger not read (even "any player may pay N life, counter this spell").
+- Bronze Bombshell: "When a player other than this creature's owner controls it" is a state trigger (603.8), not a control-change event; a control_change approximation would miss entering under another player's control.
+- Faramir, Prince of Ithilien: chosen opponent bound to a delayed "that player's next end step" trigger plus a who-attacked-whom condition: three gaps.
+- Jace, Multiverse Architect: "creatures they control can't attack Jaces you control" has no per-planeswalker attack restriction.
+- Firkraag, Cunning Instigator: needs a record of "had to attack this combat" (forced-attack requirement) on the creature.
+- Ramses, Assassin Lord: per-defender "attacked this turn by an Assassin you controlled" history absent.
+- Endless Whispers: granted triggered ability for all creatures with a delayed "under target opponent's control" return of the card: no such grant machinery.

@@ -196,6 +196,11 @@ def return_next_end(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
 
 
 _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
+    # Rendmaw: 701.15a each token is goaded by Rendmaw's controller, "for the rest of the game" (token_copy_sources.permanent_goad, as Nettling Nuisance)
+    "When Rendmaw enters and whenever you play a card with two or more card types, each player creates a tapped 2/2 black Bird creature token with flying. "
+    "The tokens are goaded for the rest of the game.":
+        ("When ~ enters and whenever you play a card with two or more card types, each player creates a tapped 2/2 black Bird creature token with flying.",
+         lambda d: {**d, "effects": [{**d["effects"][0], "as": "bird110b"}, {"do": "permanent_copy_goad", "who": "ref:bird110b"}]}),
     # Stunning Reversal: 614.1a the next loss of the game this turn is replaced (wave110c_lose reads the shield)
     "The next time you would lose the game this turn, instead draw seven cards and your life total becomes 1.":
         ("Draw a card.", lambda d: {**d, "effects": [{"do": "lose_shield110b"}]}),

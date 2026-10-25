@@ -4,6 +4,7 @@
 * Genku: 700.2, a mode not yet chosen this turn (modal memory) makes one of three tokens per nontoken permanent leaving.
 * Unidentified Hovership: 607.2a, 701.62a the exiled card's owner (not the Vehicle's controller) manifests dread when the Vehicle leaves.
 * Martyr's Bond: 603.10a, 608.2h each opponent sacrifices a permanent sharing a card type with the one that went to the graveyard (as it last existed).
+* Rendmaw, Creaking Nest: 205.2a a played card with two or more types (Ornithopter, Dryad Arbor) or entering gives each player a goaded Bird (701.15a, for the rest of the game).
 * Oblivious Bookworm: 708.2, 708.8 the end-step loot discards unless a permanent entered face down under your control this turn or you turned one face up this turn.
 """
 
@@ -14,7 +15,7 @@ import pytest
 from app.rules import coverage
 from tests.game_helpers import act
 from tests.test_rules_wave30m_durations import to_phase
-from tests.wave110b_kit import build, card_named, check, drive, mana, put, repository, to_hand
+from tests.wave110b_kit import build, card_named, ch, check, drive, mana, put, repository, to_hand
 
 
 @pytest.fixture()
@@ -22,7 +23,7 @@ def cards(settings):
     yield from repository(settings)
 
 
-@pytest.mark.parametrize("name", ["Oblivious Bookworm", "Stunning Reversal", "Genku, Future Shaper", "Unidentified Hovership", "Martyr's Bond"])
+@pytest.mark.parametrize("name", ["Oblivious Bookworm", "Stunning Reversal", "Genku, Future Shaper", "Unidentified Hovership", "Martyr's Bond", "Rendmaw, Creaking Nest"])
 def test_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
@@ -136,4 +137,31 @@ def test_martyrs_bond_makes_opponents_sacrifice_a_permanent_sharing_a_type(cards
     assert s.state.cards[forest.id].zone == "p2:battlefield"  # (a land shares nothing with a creature)
     if theirs is not None:
         assert s.state.cards[theirs.id].zone == "p2:graveyard"
+    check(s)
+
+
+def _birds(s):
+    return [c for c in s.state.cards.values() if c.name == "Bird" and c.zone.endswith(":battlefield")]
+
+
+def test_rendmaw_goads_a_bird_for_each_player_when_it_enters_or_a_multitype_card_is_played(cards):
+    from app.rules import keyword_actions
+
+    s = build(cards, ["Rendmaw, Creaking Nest", "Grizzly Bears", "Ornithopter", "Dryad Arbor"], [])
+    mana(s, "p1", B=1, G=1, C=3)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Rendmaw, Creaking Nest").id)
+    drive(s)
+    birds = _birds(s)
+    assert sorted(b.controller for b in birds) == ["p1", "p2"] and all(b.tapped for b in birds)
+    assert all(keyword_actions.goaded_by(ch(s, b)) == {"p1"} for b in birds)
+    mana(s, "p1", G=1, C=1)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Grizzly Bears").id)  # one card type: nothing
+    drive(s)
+    assert len(_birds(s)) == 2
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Ornithopter").id)  # artifact creature
+    drive(s)
+    assert len(_birds(s)) == 4
+    act(s, "p1", type="play_land", card_id=to_hand(s, "Dryad Arbor").id)  # land creature
+    drive(s)
+    assert len(_birds(s)) == 6
     check(s)
