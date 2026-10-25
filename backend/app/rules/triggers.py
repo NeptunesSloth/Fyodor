@@ -1069,6 +1069,8 @@ def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: F
         return False
     if cond.get('cost_has_x') and (och is None or '{X}' not in (och.mana_cost or '')):
         return False
+    if event == 'activate' and info.get('loyalty_removed110b', 0) < cond.get('loyalty_removed110b', 0):
+        return False  # -- wave 110B -- "if you removed two or more loyalty counters to activate it" (Way of the Mind Sculptor)
     if cond.get('activation_cost'):
         from app.rules import activated_copy_effects
 
@@ -2475,6 +2477,7 @@ def activated(plan: Plan, card: CardInstance, oid: str, *, loyalty: bool = False
                        else cost_has_x if cost_has_x is not None else '{X}' in (text.split(':', 1)[0] if ':' in text else '')}
     fact: Fact = ("activate", obj, och, actor,
                           {"oid": oid, "snap": snap, "actor": actor, "mana_ability": mana_ability, "amount": 1, "loyalty": loyalty, "activation_cost": activation_cost,
+                           "loyalty_removed110b": plan.rules.once_per_turn.get("loyalty_removed110b", 0) if loyalty else 0,  # (606.4: counters its cost removed)
                            "ability_kind": "ninjutsu" if ninjutsu.is_ninjutsu(text) else controller_tutors.activation_kind(och, text),
                            "outlast110b": outlast and re.fullmatch(r"(?:\{[^}]+\})+, \{T\}: Put a \+1/\+1 counter on this creature\. Activate only as a sorcery\.", text) is not None,  # (702.107a: the keyword's own ability: AbilityText.special, or a granted one)
                            "word": (w[1].lower() if (w := re.match(r"(Exhaust|Boast|Power-up) — ", text)) else None),  # (wave 33C: its ability word)

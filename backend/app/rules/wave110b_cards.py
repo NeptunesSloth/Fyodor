@@ -101,6 +101,9 @@ def _lich(d: Def) -> Def:
 
 # whole ability text -> (the wording the grammar reads, what to change in its definition)
 _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
+    # Way of the Mind Sculptor: the activation event carries the loyalty counters its cost removed (606.4, 603.4)
+    "Whenever you activate a loyalty ability, if you removed two or more loyalty counters to activate it, draw a card.":
+        ("Whenever you activate a loyalty ability, draw a card.", lambda d: {**d, "cond": {**d["cond"], "loyalty_removed110b": 2}}),
     # The Chain Veil: each planeswalker you control may be activated one more time this turn (606.3 as though none were activated)
     "{4}, {T}: For each planeswalker you control, you may activate one of its loyalty abilities once this turn as though none of its loyalty abilities "
     "have been activated this turn.":

@@ -6242,7 +6242,9 @@ def _activation_announced(plan: Plan, data: _PostActivation, paid: M.Payment | N
     from app.rules import static_perm100d  # -- static permanents (wave 100D) -- Carth the Lion
 
     plus = static_perm100d.loyalty_plus(plan.state, plan.info, plan.actor) if cost.loyalty is not None or cost.loyalty_x else 0
-    if (delta := ((cost.loyalty or 0) if not cost.loyalty_x else -(a.x_value or 0)) + plus):
+    delta = ((cost.loyalty or 0) if not cost.loyalty_x else -(a.x_value or 0)) + plus
+    plan.rules.once_per_turn["loyalty_removed110b"] = max(0, -delta) if cost.loyalty is not None or cost.loyalty_x else 0  # -- wave 110B -- read by triggers.activated
+    if delta:
         if delta > 0:  # -- loyalty costs (review 31) -- 606.4: put as a cost through the counter choke point like any cost's counters (122.6):
             from app.rules import replace
 

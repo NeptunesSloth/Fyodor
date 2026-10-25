@@ -11,7 +11,19 @@ import pytest
 from app.game.errors import ActionError
 from app.rules import coverage
 from tests.game_helpers import act
-from tests.wave110b_kit import attack, build, card_named, cast, ch, check, drive, mana, put, repository, to_hand
+from tests.wave110b_kit import (
+    attack,
+    build,
+    card_named,
+    cast,
+    ch,
+    check,
+    drive,
+    mana,
+    put,
+    repository,
+    to_hand,
+)
 
 
 @pytest.fixture()
@@ -19,7 +31,7 @@ def cards(settings):
     yield from repository(settings)
 
 
-@pytest.mark.parametrize("name", ["Prince of Thralls", "Oath of Lim-Dûl", "Chaos Lord", "Divine Intervention", "Herald of Anafenza", "Guardian of New Benalia", "Aloe Alchemist", "Parapet Thrasher", "Bane of the Living", "Warbreak Trumpeter", "Kadena's Silencer", "Longhorn Sharpshooter", "Plague Reaver", "Quakebringer", "Suppressor Skyguard", "Shirei, Shizo's Caretaker", "Lich's Mastery", "The Chain Veil", "Campsite Cuisine"])
+@pytest.mark.parametrize("name", ["Prince of Thralls", "Oath of Lim-Dûl", "Chaos Lord", "Divine Intervention", "Herald of Anafenza", "Guardian of New Benalia", "Aloe Alchemist", "Parapet Thrasher", "Bane of the Living", "Warbreak Trumpeter", "Kadena's Silencer", "Longhorn Sharpshooter", "Plague Reaver", "Quakebringer", "Suppressor Skyguard", "Shirei, Shizo's Caretaker", "Lich's Mastery", "The Chain Veil", "Campsite Cuisine", "Way of the Mind Sculptor"])
 def test_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
@@ -473,4 +485,19 @@ def test_campsite_cuisine_sacrifices_foods_for_that_many_pumped_attackers(cards,
     assert len(foods) == 2 - n
     pumped = [b for b in bears if ch(s, b).pt == (5, 5)]
     assert len(pumped) == n and all({"trample", "indestructible"} <= ch(s, b).keywords for b in pumped)
+    check(s)
+
+
+@pytest.mark.parametrize("ability, draws", [(0, 0), (1, 2)])
+def test_way_of_the_mind_sculptor_draws_when_two_or_more_loyalty_counters_were_removed(cards, ability, draws):
+    """Way of the Mind Sculptor: its Jace token (empower 5) −1 removes one counter (no card); −3 removes three (Way's card, plus the ability's own)."""
+    s = build(cards, ["Way of the Mind Sculptor"] + ["Forest"] * 6, [])
+    mana(s, "p1", U=1, C=4)
+    cast(s, "Way of the Mind Sculptor")
+    drive(s)
+    jace = next(c for c in s.state.zones["p1:battlefield"] if s.state.cards[c].name == "Jace")
+    before = len(s.state.zones["p1:hand"])
+    act(s, "p1", type="activate_ability", card_id=jace, ability=ability)
+    drive(s)
+    assert len(s.state.zones["p1:hand"]) - before == draws
     check(s)
