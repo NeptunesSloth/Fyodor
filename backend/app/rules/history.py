@@ -104,6 +104,9 @@ def holds(plan: Plan, ctx: dict[str, Any], cond: dict[str, Any]) -> bool:
         return (any(c.player == me and c.cast_from == "exile" for c in log.casts)
                 or any(f.kind == "land_play" and f.player == me and (f.from_zone or '').endswith(':exile')
                        for f in log.facts))
+    if kind == "played_not_hand100m":  # -- multi (wave 100M) -- a land played (305.1) or a spell cast (601.2i) from anywhere other than your hand
+        return (any(c.player == me and c.cast_from not in (None, "hand") for c in log.casts)
+                or any(f.kind == "land_play" and f.player == me and f.from_zone is not None and not f.from_zone.endswith(":hand") for f in log.facts))
     if kind == "attacked":
         return bool(log.attacked) if cond.get("who") == "any" else me in log.attacked
     if kind in _WAVE_4D:  # -- this-turn history (wave 4D) --

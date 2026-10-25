@@ -5852,6 +5852,10 @@ def _first_time_gate(text: str) -> str:
 
 def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     """The engine definition of one ability, or None (manual)."""
+    from app.rules import multi100m  # -- multi (wave 100M) --
+
+    if (lines100m := multi100m.definition(ability, ch)) is not None:
+        return lines100m
     from app.rules import counters100j  # -- counters (wave 100J) --
 
     if (lines100j := counters100j.definition(ability, ch)) is not None:

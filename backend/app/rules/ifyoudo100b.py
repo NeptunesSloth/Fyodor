@@ -313,7 +313,7 @@ def truce_life(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
 
 # -- Kellan Joins Up: "you may exile a nonland card with mana value 3 or less from your hand. If you do, it becomes plotted." 118.12: the exile is
 # the payment; "it" is the card it exiled, the new object in exile (400.7j: the payment's moved objects), 702.170c.
-_PLOT_PAID = re.compile(r"^(?P<a>you may exile an? [^.]+ from your hand)\. If you do, (?:it|that card) becomes plotted\.$")
+_PLOT_PAID = re.compile(r"^(?P<a>[Yy]ou may exile an? [^.]+ from your hand)\. If you do, (?:it|that card) becomes plotted\.$")
 
 
 def _plot_paid(text: str, it: str | None, event_player: bool) -> Found | None:
