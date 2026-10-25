@@ -15,6 +15,7 @@ from tests.wave110a_kit import *
 
 BERSERK, MANDATE, BAIT, FLUX = "Berserk", "Mandate of Peace", "Take the Bait", "Thermal Flux"
 EUREKA, HYPERGENESIS, MEDITATION, DONTMOVE, REINS, MOMENT = "Eureka", "Hypergenesis", "Cleansing Meditation", "Don't Move", "Grab the Reins", "Moment of Reckoning"
+SEARING, DECREE, CAULDRON, MATHEMAGICS = "Olórin's Searing Light", "Decree of Annihilation", "Storm Cauldron", "Mathemagics"
 AERITH, SUNDER, WMBD, ANOINT, SLIME = "Aerith Rescue Mission", "Sunder the Gateway", "What Must Be Done", "Anoint with Affliction", "Convert to Slime"
 
 
@@ -306,4 +307,205 @@ def test_moment_of_reckoning_repeats_a_mode_each_with_its_own_target(cards):
     cast(s, MOMENT, [a.id, b.id, dead.id], modes=[0, 0, 1])
     answer(s)
     assert s.state.cards[a.id].zone == s.state.cards[b.id].zone == "p2:graveyard" and s.state.cards[dead.id].zone == "p1:battlefield"
+    check(s)
+
+
+GIDEON = "Gideon of the Trials"
+test_full_wave110a_second = full_test([SEARING, DECREE, CAULDRON, MATHEMAGICS, GIDEON])
+
+
+def _exiled_creature_scenario(cards, mastery):
+    s = build(cards, [SEARING, "Berserk", "Mandate of Peace"], ["Hill Giant", "Grizzly Bears"])
+    giant, bears = put(s, "Hill Giant", "p2"), put(s, "Grizzly Bears", "p2")
+    if mastery:
+        for n in ("Berserk", "Mandate of Peace"):
+            act(s, "p1", type="move", card_ids=[card_named(s, n).id], to={"player": "p1", "zone": "graveyard"})
+    cast(s, SEARING)
+    answer(s)
+    return s, giant, bears
+
+
+@pytest.mark.parametrize("mastery", [False, True])
+def test_olorins_searing_light_exiles_the_greatest_power_creature_and_with_spell_mastery_damages_for_its_power(cards, mastery):
+    """701.13 exile, 101.4 each opponent chooses among their creatures with the greatest power; spell mastery (207.2c) damage = exiled power (608.2h)."""
+    s, giant, bears = _exiled_creature_scenario(cards, mastery)
+    assert s.state.cards[giant.id].zone == "p2:exile" and s.state.cards[bears.id].zone == "p2:battlefield"
+    assert life(s, "p2") == (37 if mastery else 40)
+    check(s)
+
+
+def test_decree_of_annihilation_exiles_battlefield_graveyards_and_hands(cards):
+    """701.13: artifacts, creatures and lands from the battlefield, then every graveyard, then every hand, in order (608.2c)."""
+    s = build(cards, [DECREE, "Hill Giant", "Sol Ring"], ["Grizzly Bears"])
+    giant, bears, forest = put(s, "Hill Giant"), put(s, "Grizzly Bears", "p2"), next(c for c in s.state.cards.values() if c.name == "Forest" and c.zone == "p1:library")
+    act(s, "p1", type="move", card_ids=[forest.id], to={"player": "p1", "zone": "battlefield"})
+    ring = to_hand(s, "Sol Ring")
+    dead = card_named(s, "Island", "p2")
+    act(s, "p2", type="move", card_ids=[dead.id], to={"player": "p2", "zone": "graveyard"})
+    cast(s, DECREE)
+    answer(s)
+    assert {s.state.cards[c.id].zone for c in (giant, bears, forest, ring, dead)} == {"p1:exile", "p2:exile"}
+    assert not [c for c in s.state.cards.values() if c.zone.endswith((":battlefield", ":hand", ":graveyard")) and c.name != DECREE]
+    check(s)
+
+
+def test_storm_cauldron_gives_each_player_a_second_land_and_returns_a_tapped_land(cards):
+    """305.2 (each player, during each of their turns); a land tapped for mana (106.12a) is returned to its owner's hand by a stack trigger."""
+    s = build(cards, [CAULDRON])
+    put(s, CAULDRON)
+    forests = [c for c in s.state.cards.values() if c.name == "Forest" and c.zone == "p1:library"][:3]
+    for c in forests[:2]:
+        act(s, "p1", type="move", card_ids=[c.id], to={"zone": "hand"})
+        act(s, "p1", type="play_land", card_id=c.id)
+    act(s, "p1", type="move", card_ids=[forests[2].id], to={"zone": "hand"})
+    with pytest.raises(ActionError, match="already played"):
+        act(s, "p1", type="play_land", card_id=forests[2].id)
+    act(s, "p1", type="activate_ability", card_id=forests[0].id, ability=0)
+    answer(s)
+    assert s.state.cards[forests[0].id].zone == "p1:hand" and s.state.cards[forests[1].id].zone == "p1:battlefield"
+    check(s)
+
+
+@pytest.mark.parametrize("x, drawn", [(0, 1), (1, 2), (3, 8)])
+def test_mathemagics_draws_two_to_the_x_cards(cards, x, drawn):
+    """107.1 / 107.3: X is chosen as it is cast; the target player draws 2^X cards (121.1)."""
+    s = build(cards, [MATHEMAGICS])
+    before = len(s.state.zones["p2:hand"])
+    c = to_hand(s, MATHEMAGICS)
+    fund(s, "{" + str(2 * x) + "}{U}{U}")  # {X}{X}{U}{U}
+    act(s, "p1", type="cast_spell", card_id=c.id, targets=["p2"], x_value=x)
+    answer(s)
+    assert len(s.state.zones["p2:hand"]) - before == drawn
+    check(s)
+
+
+def _gideon(cards):
+    s = build(cards, [GIDEON], ["Hill Giant"])
+    gideon = put(s, GIDEON)
+    act(s, "p1", type="counter", card_ids=[gideon.id], kind="loyalty", delta=3)
+    return s, gideon
+
+
+def test_gideon_of_the_trials_plus_one_prevents_the_targets_damage_until_your_next_turn(cards):
+    """615.1 / 606.4: the +1 shield on target permanent lasts through the opponent's whole turn (until your next turn, 611.2)."""
+    s, gideon = _gideon(cards)
+    giant = put(s, "Hill Giant", "p2")
+    act(s, "p1", type="activate_ability", card_id=gideon.id, ability=0, targets=[giant.id])
+    answer(s)
+    stops(s)
+    bob_attacks(s, giant, "p1")
+    to_phase(s, "end_combat", turn=2)
+    assert life(s, "p1") == 40
+    check(s)
+
+
+def test_gideon_of_the_trials_emblem_keeps_you_in_the_game_only_while_you_control_a_gideon_planeswalker(cards):
+    """114.4 (the emblem stays), 104.3b / 104.2: "can't lose the game" holds as long as you control a Gideon planeswalker (611.3a)."""
+    s, gideon = _gideon(cards)
+    act(s, "p1", type="activate_ability", card_id=gideon.id, ability=2)
+    answer(s)
+    assert [c for c in s.state.cards.values() if c.zone == "p1:command"]
+    act(s, "p1", type="life", player="p1", delta=-40)
+    act(s, "p1", type="pass_priority")
+    assert "p1" not in dict(s.state.rules.lost)
+    check(s)
+    act(s, "p1", type="move", card_ids=[gideon.id], to={"player": "p1", "zone": "graveyard"})
+    act(s, "p1", type="pass_priority")
+    assert "p1" in dict(s.state.rules.lost)
+
+
+VRASKA = "Vraska the Unseen"
+test_full_wave110a_third = full_test([VRASKA])
+
+
+@pytest.mark.parametrize("hits_vraska", [True, False])
+def test_vraska_the_unseen_plus_one_destroys_creatures_that_damage_her_until_your_next_turn(cards, hits_vraska):
+    """603.7 / 611.2: the +1 delayed trigger destroys a creature that deals combat damage to Vraska (not one that hits you) until your next turn."""
+    s = build(cards, [VRASKA], ["Hill Giant"])
+    vraska = put(s, VRASKA)
+    act(s, "p1", type="counter", card_ids=[vraska.id], kind="loyalty", delta=5)
+    act(s, "p1", type="activate_ability", card_id=vraska.id, ability=0)
+    answer(s)
+    giant = put(s, "Hill Giant", "p2")
+    stops(s)
+    bob_attacks(s, giant, vraska.id if hits_vraska else "p1")
+    to_phase(s, "end_combat", turn=2)
+    assert (s.state.cards[giant.id].zone == "p2:graveyard") == hits_vraska
+    check(s)
+
+
+BURIAL = "Premature Burial"
+test_full_wave110a_burial = full_test([BURIAL])
+
+
+def test_premature_burial_targets_only_creatures_that_entered_since_your_last_turn_ended(cards):
+    """400.7: a permanent is a new object each time it enters; a creature there before turn 1 ended is out, one that entered on turn 2 is in."""
+    s = build(cards, [BURIAL], ["Hill Giant", "Grizzly Bears"])
+    old = put(s, "Hill Giant", "p2")
+    to_phase(s, "main1", turn=2)
+    new = put(s, "Grizzly Bears", "p2")
+    to_phase(s, "main1", turn=3)
+    with pytest.raises(ActionError):
+        cast(s, BURIAL, [old.id])
+    cast(s, BURIAL, [new.id])
+    answer(s)
+    assert s.state.cards[new.id].zone == "p2:graveyard" and s.state.cards[old.id].zone == "p2:battlefield"
+    check(s)
+
+
+BODYGUARD, PITLORD = "Dauntless Bodyguard", "Tyrannical Pitlord"
+test_full_wave110a_chosen = full_test([BODYGUARD, PITLORD])
+
+
+def test_dauntless_bodyguard_gives_indestructible_to_the_creature_chosen_as_it_entered(cards):
+    """614.12a: the creature is chosen as the Bodyguard enters (public); the sacrifice ability then affects only that creature."""
+    s = build(cards, [BODYGUARD, "Grizzly Bears", "Hill Giant"])
+    bears, giant = put(s, "Grizzly Bears"), put(s, "Hill Giant")
+    cast(s, BODYGUARD)
+    answer(s, bears.id)
+    guard = card_named(s, BODYGUARD)
+    assert s.state.cards[guard.id].choices["Chosen creature"] == "Grizzly Bears"
+    act(s, "p1", type="activate_ability", card_id=guard.id, ability=1)
+    answer(s)
+    assert "indestructible" in ch(s, bears).keywords and "indestructible" not in ch(s, giant).keywords
+    assert s.state.cards[guard.id].zone == "p1:graveyard"
+    check(s)
+
+
+def test_tyrannical_pitlord_pumps_the_chosen_creature_and_sacrifices_it_when_it_leaves(cards):
+    """613.4c / 603.10a: +3/+3 and flying while the Pitlord is on the battlefield; when it leaves, the chosen creature is sacrificed (701.21a)."""
+    s = build(cards, [PITLORD, "Grizzly Bears", "Hill Giant", "Swords to Plowshares"])
+    bears, giant = put(s, "Grizzly Bears"), put(s, "Hill Giant")
+    cast(s, PITLORD)
+    answer(s, bears.id)
+    pitlord = card_named(s, PITLORD)
+    assert pt(s, "Grizzly Bears") == (5, 5) and "flying" in ch(s, bears).keywords
+    assert pt(s, "Hill Giant") == (3, 3) and "flying" not in ch(s, giant).keywords
+    check(s)
+    cast(s, "Swords to Plowshares", [pitlord.id])
+    answer(s)
+    assert s.state.cards[bears.id].zone == "p1:graveyard" and s.state.cards[giant.id].zone == "p1:battlefield"
+    check(s)
+
+
+WOOD = "Wood Elemental"
+test_full_wave110a_wood = full_test([WOOD])
+
+
+@pytest.mark.parametrize("n", [0, 2])
+def test_wood_elemental_is_as_big_as_the_untapped_forests_sacrificed_as_it_entered(cards, n):
+    """702.82-style entering sacrifice (614.12a): only untapped Forests are offered; its P/T equal the number sacrificed (0/0 dies, 704.5f)."""
+    s = build(cards, [WOOD, "Forest"])
+    forests = [c for c in s.state.cards.values() if c.name == "Forest" and c.zone == "p1:library"][:3]
+    act(s, "p1", type="move", card_ids=[f.id for f in forests], to={"player": "p1", "zone": "battlefield"})
+    act(s, "p1", type="tap", card_ids=[forests[2].id], tapped=True)
+    cast(s, WOOD)
+    d = s.state.rules.decision
+    assert forests[2].id not in [o.card_id for o in d.options], [(o.id, o.label) for o in d.options]
+    answer(s, *([forests[0].id, forests[1].id] if n else []), "done")
+    elemental = card_named(s, WOOD)
+    if n:
+        assert pt(s, WOOD) == (n, n) and len([f for f in forests if s.state.cards[f.id].zone == "p1:graveyard"]) == n
+    else:
+        assert s.state.cards[elemental.id].zone == "p1:graveyard"
     check(s)

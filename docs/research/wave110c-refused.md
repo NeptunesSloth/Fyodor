@@ -1,2 +1,36 @@
 - Scorched Ruins, Lotus Vale: enter_cost.py answers one object; "sacrifice two untapped lands instead" needs a multi-object entering answer (foundation not built).
 - SOLDIER Military Program: "each of up to two Soldiers you control" is a resolution-time choice, no non-target "up to N" pick primitive; targeting would be wrong.
+- Relentless Dead: X is chosen after the target is chosen; engine announces X before targets.
+- Party Dude: trigger condition about which opponents attacked is unclear in the Oracle wording; not guessed.
+- Mariposa: shock plumbing is life-specific and the choice is inverted; no safe rewrite.
+- Bring the Ending: condition on poison counters of the spell's controller has no condition reader.
+- Nahiri's Lithoforming: X extra land drops plus "enter tapped this turn" has no foundation.
+- Foretell X widening check (casting.FORETELL, alt_costs.X_KEYWORDS): only Starnheim Unleashed has X in a foretell cost in the DB; no other card flips.
+- Library of Leng, Nephalia Academy, Pulmonic Sliver: "may put on top of library instead of graveyard" needs an optional 616 candidate (zone_candidates is mandatory-only; madness and grouped_discard interplay).
+- Printlifter Ooze: token "enters with X counters" has no foundation; X counts creatures other than the source (the token must not count), put-after would count it.
+- Bring the Ending: "Corrupted — Counter that spell instead" is a separate spell line; line 1 would still ask the payment of a corrupted player (wrong; payment must not be offered).
+- Imodane, the Pyrohammer: needs "the damage dealt to that creature (the spell's only target)" distinguished from other damage by the same spell; no such event filter yet.
+- The Golden Throne: replacement of losing the game (all loss causes, SBA 704.5) not modelled.
+- Mariposa Military Base: optional "may have it enter tapped, if you do rad counters" entry choice needs a new entry-choice decision; only pay-life shock lands exist.
+- Soul Immolation: blight X additional cost (X bound by greatest toughness, counters on one creature chosen at payment) not modelled.
+- Imodane, the Pyrohammer: "deals damage to that creature" must be the one targeted creature; needs a damaged-object-is-target condition (foundation).
+- Chancellor of the Annex: per-opponent first-spell delayed cast trigger from the opening hand (opening_hand.py "not read").
+- Incinerator of the Guilty: collect evidence X with variable X (choose X, exile total MV) has no support.
+- Mariposa Military Base: optional enter-tapped choice with rad-counter rider; shock-land path is life-only (replacements.py ~177).
+- Hipparion: block tax depends on the attacker's power; combat_rules.block_cost only sees the blocker set (needs blocker-to-attacker pairs).
+- Thief of Blood / Sin, Unending Cataclysm: entry_harvest45 is a prototype not wired to casting; needs a real entry-with-counters-removed pipeline.
+- Timothar, Baron of Bats: granted token trigger must return that one exiled card (per-token binding); not modeled.
+- Darigaaz Reincarnated: exile with 3 counters is easy but the upkeep trigger works from exile (no exile-zone trigger machinery).
+- Library of Leng / Nephalia Academy / Pulmonic Sliver: optional "you may put it on top instead" zone replacement (player choice inside 616); not modeled.
+- Exquisite Archangel / Lich's Mirror / Nefarious Lich: "would lose the game" replacement has no hook (win_game only refuses).
+- Numa, Joraga Chieftain: "{X}{X}" optional payment plus "distribute X counters among any number of target Elves" reflexive; two missing foundations.
+- Hollow Specter: "reveals X cards from their hand and you choose one": opponent picks X cards, hidden-info flow not built.
+- Timothar, Baron of Bats: the Bat's granted trigger must return the specific exiled card (no object memory for granted abilities).
+- Wheel of Sun and Moon: "revealed and put on the bottom of that player's library" graveyard replacement for an enchanted player; one card.
+- Dire Flail // Dire Blunderbuss: "other than Dire Blunderbuss" in a granted ability would read as "another" (excludes the wielder, not the Equipment).
+- Library of Leng, Nephalia Academy, Pulmonic Sliver: optional ("you may") graveyard replacement; Cand has no decline outcome and zone_candidates has 10+ consumers (grouped_discard, mill, cost_moves).
+- Relentless Dead (X pay): target chosen on the stack before X; reflexive rewrite would change timing. Chancellor of the Annex: per-opponent first-spell delayed trigger not modeled.
+- Toralf, God of Fury: "any target other than that permanent" (no selector for an excluded any-target) plus the Hammer's granted unattach/return ability.
+- Ob Nixilis of the Black Oath: emblem activated ability (sacrifice cost) is not run from the command zone (designations.emblem_text_ok allows statics/triggers only).
+- Heirloom Epic: "for each mana in this ability's activation cost, tap an untapped creature" (convoke for abilities) not modeled.
+- Mariposa Military Base: optional "enter tapped, if you do get rad counters" entry choice not modeled (replacements._entry_plan has only pay-life/tapped-unless forms).

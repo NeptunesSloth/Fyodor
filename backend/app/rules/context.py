@@ -137,7 +137,7 @@ def _object_refs(ctx: Context, name: str, *, was: bool = False) -> list[ObjectRe
     if name == EVENT:
         raw = event.get("objects") or []
     elif name == EVENT_NEW:
-        raw = event.get("new_objects") or (event.get("objects") if event.get("kind") == "discard" else None) or []  # (wave 51C: a discarded card is already the new object in the graveyard, 701.9a)
+        raw = event.get("new_objects") or (event.get("objects") if event.get("kind") in ("discard", "to_graveyard") else None) or []  # (wave 51C: a discarded card is already the new object in the graveyard, 701.9a)
     elif name == EVENT_OTHER:  # -- damage wordings (wave 6B) -- the creature on the other side of a block
         raw = [event["other"]] if event.get("other") else []
     else:

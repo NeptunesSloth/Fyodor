@@ -1517,6 +1517,10 @@ def entering(plan: Plan, card: CardInstance, controller: str, answers: dict[str,
     go on. Nothing to copy: no choice, it enters as itself."""
     d = enter_definition(plan, card)
     if d is None:
+        # -- Essence of the Wild (wave 110F) -- "Creatures you control enter as a copy of this creature." (614.1c)
+        from app.rules import wave110f_cards
+
+        wave110f_cards.copy_on_entry(plan, card, controller)
         return False
     if d.get("raid100h"):  # -- turn state (wave 100H) -- "If you attacked this turn, you may have ~ enter as a copy …" (Protean Raider: 508.1, 614.12)
         from app.rules import history

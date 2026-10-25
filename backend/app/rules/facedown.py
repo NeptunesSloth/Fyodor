@@ -19,7 +19,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from app.game.rules_state import DecisionOption
+from app.game.rules_state import DecisionOption, emit
 from app.game.state import CardInstance, zone_key
 from app.game.visibility import can_see
 from app.rules import effects, selectors
@@ -107,6 +107,7 @@ def _manifest_next(plan: Plan, ctx: Context, e: dict[str, Any], todo: list[tuple
             top = library[:2]
             if len(top) == 1:
                 _manifested(plan, ctx, pid, top[0], "manifest")
+                finish_dread(plan, pid, None)
                 continue
             plan.do({"type": "look_top", "player": pid, "count": 2}, actor=pid)
             decide(plan, player=pid, kind="choose_cards", prompt="Manifest dread: choose the card to manifest (the other goes "
@@ -136,6 +137,12 @@ def _bind(plan: Plan, ctx: Context, e: dict[str, Any]) -> None:
                                                   if c in plan.state.cards and plan.state.cards[c].zone.endswith(":battlefield")])
 
 
+def finish_dread(plan: Plan, pid: str, binned: str | None) -> None:
+    """-- manifest dread (wave 110C) -- 701.62a: the action is done; "Whenever you manifest dread" triggers, and may read the card it put into the graveyard."""
+    plan.rules.dread_gy110c.append(binned or "")
+    emit(plan.state, "designation", counter="manifest_dread", player=pid)
+
+
 def resume_manifest_dread(plan: Plan, d: Any, chosen: list[str]) -> None:
     r = d.resume
     ctx, e, cards = r["ctx"], r["e"], r["cards"]
@@ -148,6 +155,7 @@ def resume_manifest_dread(plan: Plan, d: Any, chosen: list[str]) -> None:
     rest = [c for c in cards if c != pick and c in plan.state.zones.get(zone_key(pid, "library"), [])]
     if rest:
         plan.do({"type": "move", "card_ids": rest, "to": {"player": pid, "zone": "graveyard"}}, actor=pid)
+    finish_dread(plan, pid, rest[0] if rest else None)
     if _manifest_next(plan, ctx, e, todo):
         effects.continue_effects(plan, ctx)
 
@@ -179,7 +187,7 @@ def _turn_up(plan: Plan, card_id: str, actor: str) -> bool:
         plan.do({"type": "hide", "card_ids": [card_id]}, actor=actor)
         return False
     plan.do({"type": "face_down", "card_ids": [card_id], "face_down": False}, actor=actor)
-    casting.turned_up(plan, card)
+    casting.turned_up(plan, card, by=actor)  # (the effect's controller turns it up)
     return True
 
 

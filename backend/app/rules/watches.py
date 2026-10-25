@@ -55,7 +55,8 @@ def cond_ok(cond: dict[str, Any] | None, bound: str | None = None) -> bool:
     if cond["event"] == "dealt_damage" and not bound:
         from app.rules import selectors
 
-        if cond.get("subject") != "sel" or cond.get("sel") != selectors.Selector(types=("Creature",)).key():
+        if cond.get("subject") != "sel" or cond.get("sel") not in (selectors.Selector(types=("Creature",)).key(),
+                                                                    selectors.Selector(types=("Creature",), controller="opponent").key()):  # -- watches (wave 110I) -- Green Dragon
             return False
     if cond["event"] == "you_attack":
         return not bound and cond.get("subject") == "player"
@@ -110,8 +111,10 @@ def build(cond: dict[str, Any] | None, clause: str, *, once: bool, text: str, bo
         if not (isinstance(own_target, dict) and set(own_target) == {"what"}):
             return None
     # (-- turn-long triggers (wave 33A) -- "that player" is the player the event was about: who was dealt the damage, 603.7c)
-    effects = delayed.inner_for_event([{**e, "who": "event_player"} if e.get("who") == "that_player" else e for e in inner[0]])
-    if effects is not None and cond["event"] in ("dealt_damage", "tapped"):  # (-- spells (wave 110A) -- tapping makes no new object either, 701.26a)
+    effects = delayed.inner_for_event([{**e, "who": "event_player"} if e.get("who") == "that_player" else
+                                       {**e, "src": "event"} if e.get("src") == "it" and cond["event"] == "deal_damage" else e  # -- spells (wave 110A) -- Harsh Justice: "it deals that much damage to its controller", the dealer is the source (120.3)
+                                       for e in inner[0]])
+    if effects is not None and cond["event"] in ("dealt_damage", "tapped", "deal_damage"):  # (wave 110A: "a creature deals combat damage to ~, destroy that creature" - the dealer)  # (-- spells (wave 110A) -- tapping makes no new object either, 701.26a)
         # Damage creates no new incarnation. A following move names its recipient.
         effects = [{**e, "who": "event"} if e.get("who") == "event.new" else e for e in effects]
     if effects is None or any(e.get("do") in delayed.UNDEFERRABLE for e in effects) \

@@ -18,7 +18,7 @@ if TYPE_CHECKING:
     from app.rules.costs import CostComponent
     from app.rules.plan import Plan
 
-GROUPS = ("single_gy", "share_type", "share_color")
+GROUPS = ("single_gy", "share_type", "share_color", "top_creature110f")  # (wave 110F: Zombie Scavengers)
 
 
 def component(part: str, card_name: str) -> CostComponent | None:
@@ -34,6 +34,9 @@ def component(part: str, card_name: str) -> CostComponent | None:
                                selector=selectors.Selector(card=True, zones=("graveyard",), types=("Creature",)).key())
     if (m := re.fullmatch(r"Exile a (?P<t>[A-Z][a-z]+) card from a graveyard", part)) is not None:
         return C.CostComponent(C.EXILE_FROM_GRAVEYARD, text=part, selector=selectors.Selector(card=True, zones=("graveyard",), subtypes=(m["t"],)).key())
+    if part == "Exile the top creature card of your graveyard":  # -- costs (wave 110F) -- no choice: only the topmost creature card (404.2) qualifies
+        return C.CostComponent(C.EXILE_FROM_GRAVEYARD, names="top_creature110f", text=part,
+                               selector=selectors.Selector(card=True, zones=("graveyard",), zone_owner="you", types=("Creature",)).key())
     if part == "Tap two untapped creatures you control that share a creature type":
         sel = selectors.Selector(types=("Creature",), controller="you", tapped=False)
         return C.CostComponent(C.TAP_OTHER, amount=2, names="share_type", selector=sel.key(), text=part)
@@ -43,6 +46,8 @@ def component(part: str, card_name: str) -> CostComponent | None:
     if (m := re.fullmatch(r"Tap five untapped attacking creatures you control named (?P<name>[A-Z][\w' -]+)", part)) is not None:
         sel = selectors.Selector(types=("Creature",), controller="you", tapped=False, attacking=True, extras=("name:" + m["name"],))
         return C.CostComponent(C.TAP_OTHER, amount=5, selector=sel.key(), text=part)
+    if part == "Pay 1 life for each card in your hand":  # Hand of Vecna's equip; 118.3: counted as it's paid (cost_payment.life_amount)
+        return C.CostComponent(C.PAY_LIFE, amount=0, life_rule="per_hand110d", text=part)
     return None
 
 
@@ -66,11 +71,20 @@ def _sets(plan: Plan, comp: CostComponent, ids: list[str]) -> list[set[str]]:
 
 
 def fit(plan: Plan, comp: CostComponent, ids: list[str]) -> bool:
+    if comp.names == "top_creature110f":  # the last creature card of the graveyard order is its top (effects.py "top creature card")
+        return len(ids) == 1 and _top_creature(plan, ids[0]) == ids[0]
     sets = _sets(plan, comp, ids)
     return bool(sets) and bool(set.intersection(*sets))
 
 
+def _top_creature(plan: Plan, cid: str) -> str | None:
+    zone = plan.state.cards[cid].zone
+    return next((c for c in reversed(plan.state.zones.get(zone, [])) if "Creature" in plan.ch(plan.state.cards[c]).types), None)
+
+
 def payable(plan: Plan, comp: CostComponent, ids: list[str], need: int) -> bool:
+    if comp.names == "top_creature110f":
+        return bool(ids)
     from collections import Counter
 
     counts = Counter(v for s in _sets(plan, comp, ids) for v in s)

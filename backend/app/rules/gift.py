@@ -70,6 +70,9 @@ def _definition(w: str, spell: bool) -> str | None:
     d = scripts.define(ab, Characteristics(name="\u0000", abilities=(ab,), types=frozenset({"Sorcery" if spell else "Creature"})))
     if d is None or d.get("kind") != ("spell" if spell else "triggered"):
         return None
+    d["effects"] = [*d["effects"], {"do": "gift_given110b"}]  # -- gift given (wave 110B) -- 702.174c; the spell's gate skips both
+    if spell:
+        d["effects"][0]["n"] = 2
     raw = json.dumps(d).replace('"who": "each_opponent"', '"who": "gifted"')
     return raw if '"each_opponent"' not in raw else None
 

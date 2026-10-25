@@ -689,7 +689,6 @@ def test_target_player_skips_their_next_draw_step(cards):
 
 
 @pytest.mark.parametrize("text", [
-    "Skip your upkeep step if you have no cards in hand.",  # Gibbering Descent (conditional)
     "{1}: Target player skips their next combat phase this turn.",  # Moment of Silence ("this turn")
     "{1}: Target opponent skips their next X turns.",
 ])

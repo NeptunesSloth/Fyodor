@@ -778,7 +778,7 @@ def source_scope(phrase: str) -> dict[str, Any] | None:
 # prevented this way, …" (a reflexive trigger, 603.12), choices and targets in the rider ("deals that much damage to any
 # target"), riders after "of your choice" shields to several recipients.
 RIDER_DOS = frozenset({"gain_life", "damage", "add_counters", "remove_counters", "create_token", "mill", "exile_top", "lose_life",
-                       "draw"})
+                       "draw", "sacrifice_choice"})
 PREVENTIONS = frozenset({"source_shield", "prevent", "prevent_all"})
 _RIDER_IF = re.compile(r"^if damage(?: from (?P<col>an? (?:white|blue|black|red|green) source))? is prevented this way, (?P<body>.+)$")
 _ANAPHORS = (("that source's controller", "target player", "from_ctrl"), ("the source's controller", "target player", "from_ctrl"),
@@ -824,6 +824,8 @@ def rider_body(body: str, it: str | None = None, *, to_player: bool = False, pre
     _READING.n = getattr(_READING, "n", 0) + 1  # (the rider is read as a sentence of its own: rider() must not look for a prevention before it)
     try:
         found = scripts.parse_effects(text[:1].upper() + text[1:] + ".")
+        if found is None and text == "sacrifice X permanents, where X is the damage prevented this way":  # -- damage bodies (wave 110H) -- Dralnu: 614.6
+            found = ([{"do": "sacrifice_choice", "who": "you", "sel": "sel:{}", "n": {"ref_amount": "that_damage"}}], None, False)
     finally:
         _READING.n -= 1
     if found is None:

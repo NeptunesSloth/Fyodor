@@ -34,3 +34,8 @@ def turned_up(plan: Plan, card: CardInstance) -> None:
     for d in scripts.definitions(ch).values():
         if d.get("replacement") == FACE_UP:
             replace.put_counters(plan, [(card.id, d["counter"], d["n"])], by=card.controller)
+        elif d.get("face_up110h"):  # -- counters (wave 110H) -- "As ~ enters or is turned face up, put X counters": the entry amount again
+            from app.rules import replacements
+
+            if (n := replacements._counter_amount(plan, card.id, card.controller, d, None)) > 0:
+                replace.put_counters(plan, [(card.id, d["counter"], n)], by=card.controller)

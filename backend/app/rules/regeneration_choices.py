@@ -40,7 +40,7 @@ def automatic(plan: Plan, cid: str) -> bool:
 
 
 def options(plan: Plan, cid: str, *, can_regenerate: bool, effect: bool) -> list[Candidate]:
-    from app.rules import regeneration, regeneration_riders
+    from app.rules import regeneration, regeneration_riders, wave110a_grants
 
     card = plan.state.cards[cid]
     oid = plan.oid(card)
@@ -56,8 +56,7 @@ def options(plan: Plan, cid: str, *, can_regenerate: bool, effect: bool) -> list
     if effect and card.counters.get('shield', 0) > 0:
         out.append(Candidate('counter', 'Remove a shield counter'))
     for aura in plan.state.cards.values():
-        if aura.zone.endswith(':battlefield') and aura.attached_to == cid and not plan.manual(aura) and any(
-                'umbra armor' in a.keywords for a in plan.ch(aura).abilities if a.kind == 'keywords'):
+        if aura.attached_to == cid and wave110a_grants.has_umbra(plan, aura, card):  # (wave 110A: Umbra Mystic grants it)
             out.append(Candidate(f'aura:{plan.oid(aura)}', f"{aura.name}: use umbra armor", aura.id, plan.oid(aura)))
     return out
 

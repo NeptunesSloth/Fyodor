@@ -155,6 +155,9 @@ def _players(plan: Plan, ctx: Context, who: str) -> list[str]:
             snap = plan.rules.lki.get(ctx.get("source_object") or "")
             pid = snap.controller if snap is not None else None
         return [pid] if pid is not None and pid in plan.live() else []
+    if who == "each_other_than_source_owner110d":  # -- lines (wave 110D) -- "each other player" next to "its owner" (Oft-Nabbed Goat): everyone but the source card's owner (108.3)
+        src = plan.state.cards.get(ctx.get("source_card") or "") or plan.rules.lki.get(ctx.get("source_object") or "")
+        return [p for p in plan.live() if src is None or p != src.owner]
     if who == "source_owner":  # -- review 33 -- "~'s owner": the source card's owner, wherever it is now (108.3; a card shuffled into a
         src = plan.state.cards.get(ctx.get("source_card") or "") or plan.rules.lki.get(ctx.get("source_object") or "")  # library is known
         return [src.owner] if src is not None and src.owner in plan.live() else []  # there by no id: as it last existed, 608.2h)
@@ -662,6 +665,8 @@ def _deal(plan: Plan, ctx: Context, hits: list[tuple[_Source, str, int]], e: dic
               "kw": sorted(src.keywords & _DAMAGE_KEYWORDS), "lkey": src.key,
               # -- refused grants/replacements (wave 3R2) -- "The damage can't be prevented." (615.12)
               **({"unpreventable": True} if e is not None and e.get("unpreventable") else {})}
+        if e is not None and e.get("creature_firm110h") and key in plan.state.cards and "Creature" in plan.ch(plan.state.cards[key]).types:
+            ev.update(unpreventable=True, unredirectable110h=True)  # -- Lava Burst (wave 110H) -- 615.12, 614.9
         kept.append(ev)
     rerun = replace.rerun_then(ctx, e)
     answers = dict(ctx.get(replace.ANSWERS) or {})
@@ -854,8 +859,12 @@ def fight(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     A creature fighting itself deals damage equal to twice its power to itself (701.14c)."""
     if e.get("bind_excess"):
         context.bind_amount(ctx, e["bind_excess"], 0)
-    a = _cards(plan, ctx, e["who"].replace("pair:", "target:"))  # (wave 26D: "pair:N" = the ability's Nth chosen group, app/rules/fight_pair.py)
-    b = _cards(plan, ctx, e["with"].replace("pair:", "target:"))
+    if e.get("twin110f"):  # -- wave 110F -- the two creatures of one chosen group fight each other (Rivals' Duel)
+        both = _cards(plan, ctx, e["who"])
+        a, b = (both[:1], both[1:]) if len(both) == 2 else ([], [])
+    else:
+        a = _cards(plan, ctx, e["who"].replace("pair:", "target:"))  # (wave 26D: "pair:N" = the ability's Nth chosen group, app/rules/fight_pair.py)
+        b = _cards(plan, ctx, e["with"].replace("pair:", "target:"))
     _remember(plan, ctx, e, a)
     if len(a) != 1 or len(b) != 1:
         plan.note(f"{ctx.get('name') or 'It'}: no fight (one of the creatures is gone or wasn't chosen)", actor=ctx["controller"])
@@ -1839,8 +1848,12 @@ def counter_object(plan: Plan, stack_id: str, actor: str, to: str | None = None,
         return
     r = plan.rules
     remember_stack(plan.state, stack_id)  # -- spell copies (wave 31D) -- a copy of it can still be made (608.2h, 707.10)
-    r.stack.pop(stack_id, None)
+    entry = r.stack.pop(stack_id, None)
     oid = plan.oid(stack_id)
+    if card.ability is None and (entry is None or entry.copy_of is None):  # -- spell countered (wave 110B) -- 701.6a, 707.10: a cast spell (not a copy) was countered; its caster is told
+        from app.game.rules_state import emit
+
+        emit(plan.state, "designation", counter="spell_countered110b", player=card.controller)
     r.buyback = [o for o in r.buyback if o != oid]
     r.rebound_cast = [o for o in r.rebound_cast if o != oid]
     r.exile_resolves.pop(oid, None)  # -- cast riders (wave 38C) -- a countered spell doesn't resolve (701.6a): "as it resolves" never applies to it
@@ -2722,7 +2735,7 @@ def _sacrifice_next(plan: Plan, ctx: Context, key: str, want: int, players: list
                     binding: str | None = None, exile: bool | str = False, link: bool = False, upto: bool = False) -> bool:
     sel = selectors.from_key(key)
     for i, pid in enumerate(players):
-        mine = [c for c in selectors.candidates(plan, sel, pid, ctx.get("source_card"))
+        mine = [c for c in selectors.candidates(plan, sel, pid, ctx.get("source_card"), selectors.attacker_of(ctx.get("event")))  # (wave 110C: "other than that creature", Saw)
                 if plan.state.cards[c].controller == pid and plan.state.cards[c].zone.endswith(":battlefield")]
         if not exile:
             from app.rules import prohibitions
@@ -3909,7 +3922,8 @@ def kicked_gate(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     wasn't) kicked; otherwise they're skipped."""
     from app.rules import conditions
 
-    held = conditions.holds(plan, ctx, {"object": "self", "cast": {"optional": "teamwork"}}) if e.get("teamwork") else values.kicked_holds(plan, ctx, e.get("with"))
+    held = conditions.holds(plan, ctx, {"object": "self", "cast": {"optional": "teamwork"}}) if e.get("teamwork") else conditions.holds(
+        plan, ctx, {"object": "self", "cast": {"optional": e["optional"]}}) if e.get("optional") else values.kicked_holds(plan, ctx, e.get("with"))
     if held != bool(e["kicked"]):  # (-- keywords (wave 50H) -- "kicked with its {R} kicker": ``with``; wave 100K: ``teamwork``, 702.194b, its announcement)
         ctx["next"] += int(e["n"])
     return True
@@ -5003,6 +5017,8 @@ def exile_if_dies(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     if e.get("cards"):  # -- zone replacements (wave 37B) -- "If a card would be put into your graveyard from anywhere this turn, exile that card instead."
         plan.rules.replacements.append({**rec, "kind": "exile_cards", "whose": e["cards"]})
         return True
+    if e.get("return110b"):  # -- one-card wordings (wave 110B) -- Cosmic Intervention: the exiled card comes back at the next end step (the spell is the rider's source)
+        rec["return110b"] = ctx.get("source_card") or ""
     if e.get("each"):
         rec["each"] = e["each"]
     else:
@@ -5032,7 +5048,8 @@ def replace_record(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
             recipient["objects"] = {"sel": selectors.Selector(controller=f"player:{players[0]}").key()}
         match = {**match, "to": recipient}
     extra = {"until": "next_turn", "until_player": ctx["controller"]} if e.get("duration") == "next_turn" else {}
-    replace.add_record(plan, event=e["event"], match=match, op=e["op"], controller=ctx["controller"],
+    op = {**e["op"], "n": int(e["op"]["n"]) + int(ctx.get("x") or 0)} if e["op"].get("x110b") else e["op"]  # -- one-card wordings (wave 110B) -- "plus X" (X paid)
+    replace.add_record(plan, event=e["event"], match=match, op=op, controller=ctx["controller"],
                        source=ctx.get("source_object"), source_card=ctx.get("source_card"),
                        label=ctx.get("name") or "an effect", **extra)
     return True
@@ -7078,8 +7095,37 @@ from app.rules import wave110d as _wave110d  # noqa: E402, I001  -- wave 110D --
 
 PRIMITIVES.update(_wave110d.PRIMITIVES)
 RESUME.update(_wave110d.RESUME)
+RESUME.update(_wave110b_cards.RESUME)
+
+from app.rules import wave110c_kusari as _wave110c_kusari  # noqa: E402, I001
+PRIMITIVES.update(_wave110c_kusari.PRIMITIVES)  # -- Kusari-Gama (wave 110C) --
+
+from app.rules import wave110e_cards as _wave110e  # noqa: E402, I001  -- wave 110E --
+
+PRIMITIVES.update(_wave110e.PRIMITIVES)
+from app.rules import wave110f_cards as _wave110f_cards  # noqa: E402, I001  -- cards (wave 110F) --
+PRIMITIVES.update(_wave110f_cards.PRIMITIVES)
 # -- wave 110G --
 from app.rules import wave110g_cards as _wave110g_cards  # noqa: E402
 
 PRIMITIVES.update(_wave110g_cards.PRIMITIVES)
+from app.rules import wave110h_cards as _wave110h  # noqa: E402, I001  -- wave 110H --
+
+PRIMITIVES.update(_wave110h.PRIMITIVES)
+RESUME.update(_wave110h.RESUME)
+from app.rules import wave110i_cards as _wave110i_cards  # noqa: E402, I001  -- cards (wave 110I) --
+
+PRIMITIVES.update(_wave110i_cards.PRIMITIVES)
+from app.rules import wave110c_any as _wave110c_any  # noqa: E402, I001
+PRIMITIVES.update(_wave110c_any.PRIMITIVES)  # -- any opponent may (wave 110C) --
+from app.rules import wave110e_opp as _wave110e_opp  # noqa: E402, I001  -- wave 110E --
+PRIMITIVES.update(_wave110e_opp.PRIMITIVES)
+
+from app.rules import wave110e_imps as _wave110e_imps  # noqa: E402  -- Nettling Imp (wave 110E)
+
+PRIMITIVES.update(_wave110e_imps.PRIMITIVES)
+RESUME.update(_wave110f_cards.RESUME)
 RESUME.update(_wave110g_cards.RESUME)
+from app.rules import wave110j_cards as _wave110j  # noqa: E402, I001  -- wave 110J --
+
+PRIMITIVES.update(_wave110j.PRIMITIVES)

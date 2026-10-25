@@ -57,6 +57,8 @@ def status(plan: Plan, you: str, kind: str) -> bool:
         return monarch is None
     if kind == "opponent_monarch":
         return monarch is not None and monarch != you
+    if kind == "monarch_began":  # -- wave 110B -- 725: "if you were the monarch as the turn began" (engine.start_next_turn takes the snapshot)
+        return plan.rules.monarch_began110b == you
     if kind == "not_monarch":
         return monarch != you
     if kind == "not_initiative":
@@ -290,6 +292,10 @@ def facts(plan: Plan, e: Event) -> list[Any]:
         return [("fully_unlock", None, None, e.player, {})]
     if e.counter == "counters_spell" and e.player:  # -- counter events (wave 19C) -- the controller of the spell or ability that countered it
         return [("counters_spell", None, None, e.player, {})]
+    if e.counter == "spell_countered110b" and e.player:  # -- spell countered (wave 110B) -- the controller of the cast spell that was countered
+        return [("spell_countered110b", None, None, e.player, {})]
+    if e.counter == "gift_given110b" and e.player:  # -- gift given (wave 110B) -- 702.174c (gift.py)
+        return [("gift_given110b", None, None, e.player, {})]
     if e.counter == "search_library" and e.player:  # -- most-played cards (wave 43B) -- 701.23: a player searched their own library (effects._ask_search)
         return [("search_library", None, None, e.player, {})]
     if e.counter == "proliferate" and e.player:  # -- trigger tail (wave 15B) -- 701.34a
@@ -298,7 +304,7 @@ def facts(plan: Plan, e: Event) -> list[Any]:
         return [("clash", None, None, e.player, {"amount": e.amount})]
     if e.counter in ("roll_visit", "visit", "open_attraction", "claim_prize") and e.player:  # -- Attractions (wave 100L) -- (attractions100l.py)
         return [({"visit": "visit_attraction"}.get(e.counter, e.counter), None, None, e.player, {"amount": e.amount, "oid": e.object_id})]
-    if e.counter in ("forage", "collect_evidence") and e.player:  # -- if you do (wave 26C) -- 701.61, 701.59 (cost_payment.pay)
+    if e.counter in ("forage", "collect_evidence", "manifest_dread") and e.player:  # -- if you do (wave 26C) -- 701.61, 701.59 (cost_payment.pay)
         return [(e.counter, None, None, e.player, {})]
     if e.counter == "connive" and e.card in plan.state.cards:  # -- trigger tail (wave 15B) -- 701.50a: the conniving permanent
         card = plan.state.cards[e.card]
@@ -309,6 +315,11 @@ def facts(plan: Plan, e: Event) -> list[Any]:
         card = plan.state.cards[e.card]
         if card.zone.endswith(":battlefield") and plan.oid(card) == e.object_id:
             return [("phase_in", card, plan.ch(card), card.controller, {"oid": e.object_id})]
+        return []
+    if e.counter == "phase_out" and e.card in plan.state.cards:  # -- phase out (wave 110B) -- 702.26d: the permanent that phased out (it is in the phased zone now)
+        card = plan.state.cards[e.card]
+        if card.zone.endswith(":phased") and plan.oid(card) == e.object_id:
+            return [("phase_out", card, plan.ch(card), card.controller, {"oid": e.object_id})]
         return []
     if e.counter == "explore" and e.card in plan.state.cards:  # -- trigger tail (wave 15B) -- 701.44a: the creature that explored
         card = plan.state.cards[e.card]
@@ -1054,7 +1065,9 @@ def emblem_text_ok(text: str) -> bool:
         return False
     for d in scripts.definitions(ch).values():
         if d.get("kind") == "static":
-            if d.get('static') in ('spell_keyword', 'permission', 'loyalty_rule', 'cast_limit', 'cost_modifier'):
+            if d.get('static') in ('spell_keyword', 'permission', 'loyalty_rule', 'cast_limit', 'cost_modifier', 'untap_limit'):
+                continue
+            if d.get("static") == "game_result":  # -- spells (wave 110A) -- Gideon of the Trials' emblem (game_result._stops reads emblems)
                 continue
             if d.get("static") == "no_max_hand":  # -- ability words (wave 20C) -- "You have no maximum hand size." (hand_size.maximum reads emblems)
                 continue

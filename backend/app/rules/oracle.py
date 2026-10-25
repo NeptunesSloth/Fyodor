@@ -175,6 +175,8 @@ def _keywords_line(line: str) -> tuple[str, ...] | None:
         return ("ward",)
     if re.fullmatch(r"protection from [^,;]+(?:, (?:and )?from [^,;]+)+", line.strip(), re.IGNORECASE):  # -- keywords (wave 50H) -- 702.16a: "Protection from blue, from black, and from red" is one keyword (app/rules/protection.py)
         return ("protection",)
+    if re.fullmatch(r"squad—(?:\{[^}]+\})+, [^;{}]+", line.strip(), re.IGNORECASE):  # -- squad (wave 110E) -- "Squad—{1}, Discard a card." is one keyword (702.157a)
+        return ("squad",)
     if re.fullmatch(r"kicker—(?:\{[^}]+\})+, [^;{}]+", line.strip(), re.IGNORECASE):  # -- keywords (wave 50H) -- 702.33a: "Kicker—{2}{R}, Sacrifice a land." is one keyword (its cost has two parts)
         return ("kicker",)
     if re.fullmatch(r"(?i:equip)—(?:\{[^}]+\})+, [^;{}]+|Equip [A-Z][a-z]+(?:, [A-Z][a-z]+)+,? or [A-Z][a-z]+ (?:\{[^}]+\})+", line.strip()):
@@ -366,6 +368,14 @@ def split_sentences(body: str) -> list[str]:
     return [s for s in out if s]
 
 
+MASTER_CHEF = ('Commander creatures you own have "This creature enters with an additional +1/+1 counter on it" and '
+               '"Other creatures you control enter with an additional +1/+1 counter on them."')
+
+
+DOG_UMBRA = "As long as another player controls enchanted creature, it can't attack or block. Otherwise, this Aura has umbra armor."
+EARTHBIND = "When this Aura enters, if enchanted creature has flying, this Aura deals 2 damage to that creature and this Aura gains \"Enchanted creature loses flying.\""
+
+
 def parse_abilities(oracle_text: str | None, *, spell: bool = False, pt: tuple[str | None, str | None] = (None, None)) -> list[AbilityText]:
     """Split Oracle text into classified ability lines (reminder text removed).
 
@@ -391,6 +401,22 @@ def parse_abilities(oracle_text: str | None, *, spell: bool = False, pt: tuple[s
             lines[i:i + 1] = [f"When this permanent enters, sacrifice it unless you exile another {m[1]} you control.",
                               "When this permanent leaves the battlefield, return the exiled card to the battlefield under "
                               "its owner's control."]
+    # -- lines (wave 110D) -- Master Chef: 614.12 a commander creature entering is checked with the abilities it would have there (its own and Chef's
+    # grants), so the granted "This creature enters with ..." is "commander creatures you own enter with ...", then the second grant as its own ability
+    for i, line in enumerate(lines):
+        if line == MASTER_CHEF:
+            lines[i:i + 1] = ["Commander creatures you own enter with an additional +1/+1 counter on them.",
+                              'Commander creatures you own have "Other creatures you control enter with an additional +1/+1 counter on them."']
+    # -- lines (wave 110D) -- Dog Umbra: 608.2c "Otherwise" = the enchanted creature is not controlled by another player, so you control it (an Aura's
+    # controller can't be attached to nothing); two conditional statics
+    for i, line in enumerate(lines):
+        if line == DOG_UMBRA:
+            lines[i:i + 1] = ["As long as another player controls enchanted creature, it can't attack or block.",
+                              "As long as you control enchanted creature, this Aura has umbra armor."]
+    # -- (wave 110J) -- Earthbind: "…and this Aura gains "Enchanted creature loses flying."" is the trigger plus a static that applies once it was gained
+    for i, line in enumerate(lines):
+        if line == EARTHBIND:
+            lines[i:i + 1] = [line, "As long as this Aura gained that ability, enchanted creature loses flying."]
     # -- keywords (wave 50H) -- 207.2d: a flavor word before an equip cost ("Machina — Equip {4}", Final Fantasy equipment) has no rules meaning
     for i, line in enumerate(lines):
         if not spell and " — Equip" in line and (w := word_prefix(line)) is not None and w[1].startswith("Equip") and _keywords_line(w[1]) == ("equip",):

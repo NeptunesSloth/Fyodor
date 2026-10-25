@@ -36,14 +36,15 @@ if TYPE_CHECKING:
 Definition = dict[str, Any]
 
 _WORDS = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10}
-PRINTED = re.compile(r"^escape—(?P<mana>(?:\{[^}]+\})+), exile (?P<n>[a-z]+) other cards from your graveyard$", re.IGNORECASE)
+PRINTED = re.compile(r"^escape—(?P<mana>(?:\{[^}]+\})+),(?: exile (?P<land>a land you control),)? exile (?P<n>[a-z]+) other cards from your graveyard$", re.IGNORECASE)
 GRANT = re.compile(r"^each (?P<sel>[A-Za-z][A-Za-z -]*?) card in your graveyard has escape\. the escape cost is equal to "
                    r"the card's mana cost plus exile (?P<n>[a-z]+) other cards from your graveyard$", re.IGNORECASE)
 # -- cost alt (wave 21F) -- "You may cast this card from your graveyard by paying {2}{W} rather than paying its mana cost." (Raffine's
 # Guidance) / "... by paying {3}{R} and exiling four other cards from your graveyard ..." / "... and sacrificing two creatures ...": a
 # graveyard cast for its own alternative cost (118.9, 601.3), offered as escape's is but not an escape (702.138b): tag "graveyard"
-GY_COST = re.compile(r"^you may cast (?:this card|this creature|~) from your graveyard by paying (?P<pay>(?:\{[^}X]+\})+)"
-                     r"(?: and (?P<rest>(?:exil|sacrific)ing .+))? rather than paying its mana cost$", re.IGNORECASE)
+GY_COST = re.compile(r"^(?:as long as you control an? (?P<need>[A-Z][A-Za-z]+), )?you may cast (?:this card|this creature|~) from your graveyard by paying (?P<pay>(?:\{[^}X]+\})+)"
+                     r"(?: and (?P<rest>(?:exil|sacrific)ing .+))? rather than paying its mana cost"
+                     r"(?P<exile>\. if you cast this card this way and it would be put into your graveyard, exile it instead)?$", re.IGNORECASE)
 ESCAPED = {"object": "self", "cast": {"escaped": True}}  # 702.138b, as a condition on the source (conditions._cast_holds)
 
 
@@ -58,14 +59,16 @@ def define_static(t: str) -> Definition | None:
         cost = M.parse_cost(m["mana"])
         if n is None or cost.x or cost.unsupported:
             return None
-        return {"kind": "static", "static": "escape", "mana": m["mana"], "exile": n, "effects": []}
+        return {"kind": "static", "static": "escape", "mana": m["mana"], "exile": n, "land": bool(m["land"]), "effects": []}  # (wave 110E: Lunar Hatchling's extra land)
     m = GY_COST.fullmatch(t)
     if m:
         from app.rules import alt_costs
 
         rest = re.sub(r"^(exil|sacrific)ing", r"\1e", m["rest"].lower()) if m["rest"] else ""
         text = f"pay {m['pay']}" + (f" and {rest}" if rest else "")
-        return {"kind": "static", "static": "gy_cost", "cost": text, "effects": []} if alt_costs.parse_cost(text) else None
+        # -- wave 110I -- Glimpse the Cosmos: "As long as you control a Giant, …" (need) and "… exile it instead" (614.1a, exile)
+        return {"kind": "static", "static": "gy_cost", "cost": text, "effects": [], **({"need": m["need"]} if m["need"] else {}),
+                **({"exile": True} if m["exile"] else {})} if alt_costs.parse_cost(text) else None
     m = GRANT.fullmatch(t)
     if m:
         n = _WORDS.get(m["n"].lower())
@@ -77,9 +80,9 @@ def define_static(t: str) -> Definition | None:
     return None
 
 
-def _cost_text(mana: str, n: int) -> str:
+def _cost_text(mana: str, n: int, land: bool = False) -> str:
     word = next(w for w, k in _WORDS.items() if k == n)
-    return f"pay {mana} and exile {word} other cards from your graveyard"
+    return f"pay {mana}{' and exile a land you control' if land else ''} and exile {word} other cards from your graveyard"
 
 
 def offers(state: GameState, player: str, card: CardInstance, ch: Characteristics, info: CardInfo) -> list[Offer]:
@@ -97,12 +100,17 @@ def offers(state: GameState, player: str, card: CardInstance, ch: Characteristic
     out: list[Offer] = []
     for index, d in scripts.definitions(ch).items():
         if d.get("static") == "escape":
-            alt = alt_costs.parse_cost(_cost_text(d["mana"], d["exile"]))
+            alt = alt_costs.parse_cost(_cost_text(d["mana"], d["exile"], d.get("land", False)))
             if alt is not None:
-                out.append(alt_costs.Offer(f"{card.id}:{index}", f"{ch.name}: escape ({d['mana']}, exile {d['exile']} other "
+                out.append(alt_costs.Offer(f"{card.id}:{index}", f"{ch.name}: escape ({d['mana']}{', exile a land you control' if d.get('land') else ''}, exile {d['exile']} other "
                                            "cards from your graveyard)", alt, escape=True))
         elif d.get("static") == "gy_cost" and (alt := alt_costs.parse_cost(d["cost"])) is not None:  # (wave 21F)
-            out.append(alt_costs.Offer(f"{card.id}:{index}", f"{ch.name}: {d['cost']}", alt, escape=True, tag="graveyard"))
+            if d.get("exile") and not ch.is_instant_or_sorcery:
+                continue  # (the exile replacement is only applied to a spell leaving the stack, 614.1a)
+            if d.get("need") and not any(c.controller == player and c.zone == zone_key(player, "battlefield") and d["need"] in permissions._view(state, player, info).ch(c).subtypes
+                                         for c in state.cards.values()):
+                continue
+            out.append(alt_costs.Offer(f"{card.id}:{index}", f"{ch.name}: {d['cost']}", alt, escape=True, tag="graveyard", exile_gy=bool(d.get("exile"))))
     granted = permissions._table_statics(state, info, {"escape_grant"})
     if granted and ch.mana_cost and "//" not in ch.mana_cost and not _two_ways(card):
         cost = M.parse_cost(ch.mana_cost)
@@ -129,6 +137,7 @@ def offers(state: GameState, player: str, card: CardInstance, ch: Characteristic
 def escapes_with(text: str) -> str | None:
     """702.138c: "~ escapes with two +1/+1 counters on it." is "If ~ escaped, ~ enters with two +1/+1 counters on it.";
     the line rewritten so (``scripts.define_replacement``) reads it, or None."""
-    m = re.fullmatch(r"~ escapes with (?P<rest>(?:a|an|one|two|three|four|five|six|seven|eight|nine|ten) [^ ]+ counters? on it)\.?",
+    m = re.fullmatch(r"~ escapes with (?P<rest>(?:a|an|one|two|three|four|five|six|seven|eight|nine|ten) [^ ]+ counters? on it"
+                     r"|your choice of an? [^ ]+ counter or an? [^ ]+ counter on it)\.?",  # (-- wave 110D -- "your choice of …": Tizerus Charger, as "enters with your choice of")
                      text)
     return f"If ~ escaped, ~ enters with {m['rest']}." if m else None

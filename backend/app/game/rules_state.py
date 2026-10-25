@@ -476,6 +476,8 @@ class Event(BaseModel):
     natural: int = 0
     nth: int = 0
     sides: int = 0
+    source_targets: list[str] | None = None  # -- trigger damage (wave 110C) -- a ``damage`` event: the targets of the spell dealing it (115.9c), None for any other source
+    pair110c: str | None = None  # -- soulbond (wave 110C) -- a ``damage`` event: the object paired with the damaged one when it was dealt (603.2: judged as the event happens)
     excess: int = 0  # -- trigger damage (wave 39B) -- a ``damage`` event: the excess damage (120.10) the batch dealt to the permanent, on its first event
 
 
@@ -622,6 +624,7 @@ class TurnLog(BaseModel):
     combat_damage95_known: bool | None = None  # Complete native current-turn damage history; None is legacy.
     fight_history90_known: bool | None = None  # Legacy missing current-turn fight history is unknown.
     fought90: list[str] = Field(default_factory=list)  # Original objects that actually fought this turn.
+    turned_up110f: list[str] = Field(default_factory=list)  # Objects turned face up this turn (708.8: the same object, "was turned face up this turn").
     search_history75_known: bool | None = None  # Legacy missing authority is unknown until the next native turn.
     searched_own_library75: list[str] = Field(default_factory=list)  # Actual own-library searches begun this turn, even no card found.
     starting_life: dict[str, int] | None = None
@@ -655,6 +658,7 @@ class TurnLog(BaseModel):
     blockers: list[str] = Field(default_factory=list)  # -- combat state (wave 27A) -- creatures (objects) declared as blockers this turn (509.1g)
     blocks: dict[str, list[str]] = Field(default_factory=dict)  # -- combat history (wave 31D) -- blocker (object) -> the attackers (objects) it blocked this turn
     attacked_who: dict[str, list[str]] = Field(default_factory=dict)  # -- static_other sweep (wave 19A) -- attacker object -> players it attacked
+    attacked_battle110j: list[str] = Field(default_factory=list)  # -- (wave 110J) -- attacker objects declared against a battle this turn (310.5)
     attack_counts: dict[str, int] = Field(default_factory=dict)  # -- commander sweep (wave 49B) -- attacker object -> the combats it was declared an attacker in this turn (Moraug)
     # -- trailing & intervening ifs (wave 38A) -- 508.1, 500.8: attacker object -> the combat phase (RulesState.combats) it was last declared as an
     # attacker in ("~ attacked this combat"); attacker object -> the combat phase it enlisted a creature in (702.154a: "it enlisted a creature this combat")
@@ -742,8 +746,8 @@ class ContinuousEffect(BaseModel):
     # ``until_player``'s next turn (a later turn than ``turn``, even when it began in one of their own turns: delayed.end_of_next_turn)
     counter_since_batch: int = 0  # while-counter durations ignore earlier zero-counter events
     duration: Literal["end_of_turn", "permanent", "next_turn", "end_of_next_turn", "source_on_battlefield", "source_controlled",
-                      "source_tapped", "source_controlled_tapped", "while_counter", "end_of_combat", "until_cast",
-                      "next_upkeep"] = "end_of_turn"  # (next_upkeep: wave 100A, "until your next upkeep" — delayed.at_step)
+                      "source_tapped", "source_controlled_tapped", "while_counter", "end_of_combat", "until_cast", "while_enchanted",
+                      "next_upkeep", "monarch_player"] = "end_of_turn"  # (next_upkeep: wave 100A, "until your next upkeep" — delayed.at_step)
     until_object: str | None = None  # -- as long as (wave 37A) -- until_cast: the object (in exile) whose being cast ends the effect (delayed.spell_cast)
     counter: str | None = None  # while_counter: the kind of counter
     until_player: str | None = None  # next_turn: whose next turn; source_controlled: who must control the source
@@ -841,6 +845,7 @@ class PhaseLifetime(BaseModel):
     source: ObjectRef
     recipients: list[ObjectRef] = Field(default_factory=list)
     tap_on_return: bool = False  # Oubliette: tapped as it phases in
+    control: str | None = None  # -- wave 110D -- "for as long as you control this Saga": the player who must control the source
 
 
 class CostReveal(BaseModel):
@@ -1136,8 +1141,10 @@ class PaymentRecord(BaseModel):
     milled_facts: list[PaidCardFact] | None = None
     cast_controlled_subtypes: list[str] = Field(default_factory=list)  # Permanent subtype snapshot as casting finishes.
     cast_controlled_modified: bool = False  # -- xdamage (wave 100E) -- a modified creature (700.9) controlled as casting finished (Flame Discharge)
+    cast_modified_n110e: int = 0  # -- wave 110E -- how many modified creatures (700.9) the caster controlled as casting finished (Lethal Exploit)
     cast_revealed_subtypes: list[str] = Field(default_factory=list)  # Subtypes of cards revealed for this spell's cost.
     revealed: list[str] = Field(default_factory=list)  # -- static_other sweep (wave 17C) -- cards revealed from the hand to pay ("the revealed card's …")
+    beheld110a: dict[str, str] = Field(default_factory=dict)  # -- behold (wave 110A) -- card id -> object id of what the cost beheld (701.4a)
     exiled: list[str] = Field(default_factory=list)  # cards exiled to pay (from a graveyard, or the source)
     exiled_objects: list[str] = Field(default_factory=list)  # -- as long as (wave 37A) -- the objects they became in exile (400.7j: "this card" finds that one)
     exiled_was: list[str] = Field(default_factory=list)  # (wave 48B: and the objects they were, "the number of cards exiled this way" of an activation cost)
@@ -1152,6 +1159,7 @@ class PaymentRecord(BaseModel):
     tapped_objects: list[str] = Field(default_factory=list)  # (review 26C) the object ids they were: "the creature tapped this way" (608.2h)
     kicked: int = 0  # 702.33d: times its kicker cost was paid
     kicked_mask: int = 0  # -- keywords (wave 50H) -- 702.33f: of two kicker costs, which were paid (1: the first, 2: the second)
+    pick110e: str | None = Field(default=None, max_length=64)  # -- cast-time choice (wave 110E) -- the creature type chosen as the spell was cast
     gift_to: str | None = Field(default=None, max_length=64)  # -- gift (wave 23D) -- 702.174a: the opponent the gift was promised to
     alternative: str | None = None  # "evoke", "dash", "flashback", "madness", "face_down", "free", …
     prototyped: bool = False  # -- casting extras (wave 18E) -- 718.3: cast prototyped (the spell and the permanent have the alternative values)
@@ -1407,6 +1415,7 @@ class WorldInterval80(BaseModel):
 
 
 class RulesState(BaseModel):
+    began_lands110c: dict[str, int] = Field(default_factory=dict)  # (wave 110C) player -> untapped lands they controlled as their turn began (Power Surge)
     sticker_splits101: dict[str, str] = Field(default_factory=dict)  # Original permanent OID -> chosen physical component.
 
     world_epoch80: int = 0
@@ -1434,6 +1443,7 @@ class RulesState(BaseModel):
     spells_cast: dict[str, TurnCount] = Field(default_factory=dict)
     mana_cast: dict[str, TurnCount] = Field(default_factory=dict)  # -- wave 15B -- mana spent to cast spells this turn (700.14 expend)
     loyalty_used: dict[str, int] = Field(default_factory=dict)  # planeswalker -> turn it last used a loyalty ability
+    monarch_began110b: str | None = None  # -- wave 110B -- the monarch as the current turn began (Knights of the Black Rose)
     loyalty_second: dict[str, int] = Field(default_factory=dict)  # -- static_other sweep (wave 19A) -- planeswalker -> turn of its second use
     # -- activation costs (wave 4H) -- exerted permanents (701.43a): object id -> the player who exerted it; it doesn't
     # untap during that player's next untap step (app/rules/engine.start_next_turn)
@@ -1449,6 +1459,7 @@ class RulesState(BaseModel):
     ability_uses: dict[str, int] = Field(default_factory=dict)
     # -- soulbond (wave 24B) -- 702.95b: paired creatures, both directions: object id -> (partner's object id, the pairing's controller)
     pairs: dict[str, tuple[str, str]] = Field(default_factory=dict)
+    dread_gy110c: list[str] = Field(default_factory=list)  # -- manifest dread (wave 110C) -- 701.62a: the card each finished manifest dread put into the graveyard ("" none), read by its "Whenever you manifest dread" triggers
     # -- modal triggered/activated abilities (wave 1A) --
     # "Choose one that hasn't been chosen [this turn]": the modes already chosen for that ability of
     # that object (app/rules/modal_abilities.py) — "<object id>:<ability index>:game" (the game) or
@@ -1634,6 +1645,7 @@ class RulesState(BaseModel):
     block_split: dict[str, dict[str, int]] = Field(default_factory=dict)
     assign_unblocked: dict[str, bool] = Field(default_factory=dict)  # -- static_other sweep (wave 19A) -- attacker -> "as though it weren't blocked"
     declare_choosers: dict[str, dict[str, Any]] = Field(default_factory=dict)  # -- declaration choosers (wave 110A) -- "attack"/"block" -> {player, turn, combat}: who declares them, until end of turn/combat
+    assign_unblocked_turn: dict[str, int] = Field(default_factory=dict)  # -- wave 110A -- player -> turn number: "creatures you control assign combat damage as though they weren't blocked" this turn (510.1c)
     block_caps: dict[str, int] = Field(default_factory=dict)  # -- commander sweep (wave 49B) -- 509.1b: player -> "can't block with more than N creatures this combat" (Mirri), dropped at end of combat
     # -- combat (wave 5C) -- 500.8: the phases still to come after the current one when effects added some (the
     # last is the phase that would have come next), and how many combat phases began this turn
@@ -1675,6 +1687,7 @@ class RulesState(BaseModel):
     # -- trigger lines (wave 100A) -- object id -> the players its enters ability targeted as it went on the stack (Soul Scourge's "that player")
     linked_players100a: dict[str, list[str]] = Field(default_factory=dict)
     batch: int = 0  # last event batch number
+    exploited110j: list[tuple[str, str]] = Field(default_factory=list)  # -- wave 110J -- (exploiter object, creature it exploited), 702.110b: "if it exploited that creature"
     events: list[Event] = Field(default_factory=list)  # events since the engine last acted (this intent's, or manual ones)
     events_dropped: bool = False  # manual play produced more events than are kept
     actions: int = 0  # player actions (not passes) taken, for "pass until next action"
@@ -1709,6 +1722,9 @@ class RulesState(BaseModel):
     color_words71: dict[str, list[ColorWordEntry71]] = Field(default_factory=dict)
     chosen_color_pairs: dict[str, ChosenColorPairReceipt] = Field(default_factory=dict)
     chosen_players: dict[str, str] = Field(default_factory=dict)
+    # -- wave 110A -- player -> ``next_object`` when their last turn ended ("entered since your last turn ended", selectors)
+    chosen_objects: dict[str, str] = Field(default_factory=dict)  # -- wave 110A -- source card id -> the object it chose as it entered (wave110a_pick)
+    turn_end_objects: dict[str, int] = Field(default_factory=dict)
     # -- linked words (wave 33B) -- 607.2f: "As this enchantment enters, choose Khans or Dragons.": object id -> the word it chose (app/rules/chosen.py)
     chosen_words: dict[str, str] = Field(default_factory=dict)
     # How each spell was paid for (stack object id -> record); follows the spell onto the battlefield.
@@ -1939,6 +1955,8 @@ def emit(state: GameState, kind: EventKind, **fields: Any) -> None:
     if rules is None:
         return
     rules.events.append(Event(batch=rules.batch + 1, kind=kind, turn=state.turn.number, **fields))
+    if kind == "turned_face_up" and (up_log110f := turn_log_now(state)) is not None and fields.get("object_id"):
+        up_log110f.turned_up110f = list(dict.fromkeys([*up_log110f.turned_up110f, fields["object_id"]]))
     if kind == "fought" and (fight_log90 := turn_log_now(state)) is not None:
         fight_log90.fought90 = list(dict.fromkeys([*fight_log90.fought90, *(snap.object_id for snap in fields.get("fighters90", []))]))
     # CR 107.14, 608.2i: count removals during this turn, including costs; gains never offset them.
@@ -2172,6 +2190,8 @@ def _diff(state: GameState, rules: RulesState, before: Capture, manual: bool, ac
         if old_name == "exile" and new_name != "exile":
             rules.suspended = [cid for cid in rules.suspended if cid != card_id]
         if {old_name, new_name} == {"battlefield", "phased"}:
+            if new_name == "phased" and card is not None:  # -- phase out (wave 110B) -- "Whenever ~ phases out" (702.26d: no leave trigger, but this one)
+                emit(state, "designation", counter="phase_out", card=card_id, object_id=rules.object_id(card_id), player=card.controller)
             continue  # -- phasing (wave 13D) -- 702.26d: phasing is no zone change: same object, no leave / enter triggers
         if old_name == new_name == "battlefield":
             if card is not None:  # -- control events (wave 45C) -- 613.1b, 603.10d: its controller changed (``from_zone``: the player who lost control)
