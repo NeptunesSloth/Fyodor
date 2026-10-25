@@ -994,3 +994,39 @@ def test_hatchery_spider_reveals_and_caps_by_the_creature_cards_in_your_graveyar
     answer(s, [elves.id])
     assert zone(s, elves) == "p1:battlefield" and zone(s, finks) == "p1:library" and s.state.zones["p1:library"][-1] == finks.id
     check(s)
+
+
+# -- Skyclave Shade ----------------------------------------------------------------------------------------------------------------------------------
+def test_skyclave_shade_may_be_cast_from_the_graveyard_after_landfall(cards):
+    from app.game.errors import ActionError
+
+    s = build(cards, ["Skyclave Shade"])
+    shade = next(c for c in s.state.cards.values() if c.name == "Skyclave Shade")
+    act(s, "p1", type="move", card_ids=[shade.id], to={"zone": "graveyard"})
+    mana(s, B=1, C=1)
+    with pytest.raises(ActionError):
+        act(s, "p1", type="cast_spell", card_id=shade.id)
+    act(s, "p1", type="play_land", card_id=to_hand(s, "Forest").id)
+    answer(s)
+    act(s, "p1", type="cast_spell", card_id=shade.id)
+    answer(s)
+    assert zone(s, shade) == "p1:battlefield"
+    check(s)
+
+
+# -- Basri Ket -----------------------------------------------------------------------------------------------------------------------------------
+def test_basri_ket_makes_a_soldier_for_each_nontoken_attacker(cards):
+    from tests.test_rules_conditionals import token_of
+
+    s = build(cards, ["Basri Ket", "Grizzly Bears", "Coral Merfolk"])
+    bear, merfolk = put(s, "Grizzly Bears"), put(s, "Coral Merfolk")
+    spirit = token_of(s, "p1", "Spirit", "Token Creature — Spirit", "1/1")
+    to_phase(s, "main1", turn=3)
+    basri = cast(s, "Basri Ket")
+    act(s, "p1", type="activate_ability", card_id=basri.id, ability=1)
+    answer(s)
+    attack(s, [bear, merfolk, spirit])
+    soldiers = [c for c in s.state.cards.values() if c.name == "Soldier"]
+    assert len(soldiers) == 2 and all(c.tapped for c in soldiers)  # (two nontoken attackers; the Spirit token doesn't count)
+    assert life(s, "p2") == 40 - 2 - 2 - 1 - 2  # (the Soldiers entered attacking and dealt their damage)
+    check(s)
