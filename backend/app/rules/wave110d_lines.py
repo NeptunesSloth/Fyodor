@@ -7,6 +7,9 @@ from typing import Any
 
 # the Oracle line (the card's name as ~) -> the wording the grammar already reads, with the same meaning
 _AS: dict[str, str] = {
+    # Resplendent Marshal: 205.3m the creatures that share a creature type with the exiled card are picked by a primitive (patched in definition)
+    "When ~ enters or dies, you may exile another creature card from your graveyard. When you do, put a +1/+1 counter on each creature you control other than ~ that shares a creature type with the exiled card.":
+        "When ~ enters or dies, you may exile another creature card from your graveyard. When you do, put a +1/+1 counter on each creature you control other than ~.",
     # Growing Dread: 702.37e a permanent is turned face up by its controller (the special action or their effect), so "you turn" = "a permanent you control"
     "Whenever you turn a permanent face up, put a +1/+1 counter on it.":
         "Whenever a permanent you control is turned face up, put a +1/+1 counter on it.",
@@ -102,6 +105,9 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
     if d is not None and text.startswith("When ~ is turned face up, target opponent gains control of any number"):
         d["targets"][1] = {**d["targets"][1], "min": 0, "max": 250}  # (language.MAX_TARGETS)
         d["effects"][-1] = {"do": "draw_gained110d"}
+    if d is not None and text.startswith("When ~ enters or dies, you may exile another creature card"):
+        d["effects"][1]["lki"] = "pay0"  # (the reflexive ability's event: the card the cost exiled)
+        d["effects"][1]["ability"]["effects"][0] = {"do": "share_counters110d"}
     if d is not None and text.startswith("Return the top creature card of your graveyard"):
         d.pop("target")
         d["effects"][0]["who"] = "ref:top110d"
@@ -144,4 +150,21 @@ def top_creature(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
     return True
 
 
-PRIMITIVES = {"draw_gained110d": draw_gained, "top_creature110d": top_creature}
+def share_counters(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
+    """Resplendent Marshal: a +1/+1 counter on each other creature its controller controls that shares a creature type with the exiled card (205.3m,
+    as the card last was: 608.2h)."""
+    from app.rules import context, effects
+    from app.rules.creature_types import CREATURE_TYPES
+
+    found = context.info(plan, ctx, context.EVENT)
+    if found is None:
+        return True
+    types = found[1].subtypes & CREATURE_TYPES
+    ids = [c.id for c in plan.state.cards.values()
+           if c.zone == f"{ctx['controller']}:battlefield" and c.id != ctx.get("source_card") and "Creature" in plan.ch(c).types
+           and plan.ch(c).subtypes & types]
+    context.bind_objects(plan, ctx, "share110d", ids)
+    return effects.add_counters(plan, ctx, {"do": "add_counters", "who": "ref:share110d", "kind": "+1/+1", "n": 1})
+
+
+PRIMITIVES = {"share_counters110d": share_counters, "draw_gained110d": draw_gained, "top_creature110d": top_creature}
