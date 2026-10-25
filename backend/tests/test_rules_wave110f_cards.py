@@ -12,6 +12,8 @@
 * 118.1, 404.2, 701.19a: "Exile the top creature card of your graveyard: Regenerate this creature." (Zombie Scavengers).
 * 603.2c, 607.2a: "Whenever you discard one or more cards, exile them from your graveyard." + "put the cards exiled with it into their owner's hand" (Toluz).
 * 115.4, 120.3: "deals 4 damage to another target battle or opponent and 1 damage to up to one target creature" (Invasion of Regatha); 614.1a: "plus 2 instead" to a creature, battle, or opponent.
+* 508.1d, 509.1c: "Target creature attacks or blocks this turn if able."; 701.40g, 708.8: "You may turn a creature you control face up." (Hustle // Bustle).
+* 701.20a, 202.2d: "Reveal any number of cards in your hand. You gain 2 life for each green mana symbol in those cards' mana costs." (Phosphorescent Feast).
 * 602.5, 605.1a: "Creatures with flying can't attack or block, and their activated abilities with {T} in their costs can't be activated." (Katabatic Winds).
 """
 
@@ -69,10 +71,20 @@ EXTRA = [
     real('Test Disciples 110F', '{1}{R}', 2, 'Creature — Human Monk',
          "If a noncreature source you control would deal damage to a creature, battle, or opponent, it deals that much damage plus 2 instead.", ('1', '1'), 'R'),
     real('Test Burn 110F', '{R}', 1, 'Instant', "Test Burn 110F deals 2 damage to target player.", None, 'R'),
+    real('Hustle // Bustle', '{U/R} // {4}{R/G}{R/G}', 8, 'Instant // Sorcery',
+         "Target creature attacks or blocks this turn if able.\n//\nCreatures you control get +2/+2 and gain trample until end of turn. You may turn a creature you control face up.", None, 'RGU')
+    | {"layout": "split", "card_faces": [
+        {"name": "Hustle", "mana_cost": "{U/R}", "type_line": "Instant", "oracle_text": "Target creature attacks or blocks this turn if able."},
+        {"name": "Bustle", "mana_cost": "{4}{R/G}{R/G}", "type_line": "Sorcery",
+         "oracle_text": "Creatures you control get +2/+2 and gain trample until end of turn. You may turn a creature you control face up."}]},
+    real('Test Morpher 110F', '{2}{R}', 3, 'Creature — Goblin', 'Morph {R}', ('3', '2'), 'R'),
+    real('Phosphorescent Feast', '{2}{G}{G}{G}', 5, 'Sorcery',
+         "Chroma — Reveal any number of cards in your hand. You gain 2 life for each green mana symbol in those cards' mana costs.", None, 'G'),
+    real('Test Hybrid 110F', '{G/W}{G/W}', 2, 'Creature — Elf', '', ('1', '1'), 'GW'),
     real('Test Flyer', '{2}{U}', 3, 'Creature — Bird', 'Flying\n{T}: Draw a card.', ('1', '1'), 'U'),
 ]
 _BASE.extend(EXTRA)  # the shared fixture DB builder reads this list
-NAMES = ["Katabatic Winds", "Rivals' Duel", "Dead Ringers", "Cathedral Membrane", "Taunt", "Jabari's Influence", "Don & Leo, Problem Solvers", "Rapid Fire", "Time and Tide", "Abby, Merciless Soldier", "Zombie Scavengers", "Toluz, Clever Conductor", "Invasion of Regatha", "Test Disciples 110F"]
+NAMES = ["Katabatic Winds", "Rivals' Duel", "Dead Ringers", "Cathedral Membrane", "Taunt", "Jabari's Influence", "Don & Leo, Problem Solvers", "Rapid Fire", "Time and Tide", "Abby, Merciless Soldier", "Zombie Scavengers", "Toluz, Clever Conductor", "Invasion of Regatha", "Test Disciples 110F", "Hustle // Bustle", "Phosphorescent Feast"]
 
 
 @pytest.mark.parametrize("name", NAMES)
@@ -325,4 +337,76 @@ def test_disciples_adds_two_to_noncreature_damage_to_an_opponent(cards, target, 
     cast(s, "Test Burn 110F", [target])
     answer(s)
     assert life(s, target) == 40 - hit
+    check(s)
+
+
+def test_hustle_forces_its_target_to_attack_on_its_controllers_turn(cards):
+    s = build(cards, ["Hustle // Bustle", "Grizzly Bears"])
+    bear = put(s, "Grizzly Bears")
+    to_phase(s, "main1", turn=3)
+    mana(s, U=1)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Hustle // Bustle").id, face=0, targets=[bear.id])
+    answer(s)
+    to_phase(s, "declare_attackers")
+    with pytest.raises(ActionError):
+        act(s, "p1", type="declare_attackers", attackers=[])
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": bear.id, "target": "p2"}])
+    check(s)
+
+
+def test_hustle_forces_its_target_to_block_on_another_turn(cards):
+    s = build(cards, ["Hustle // Bustle", "Test Giant 110F"], ["Grizzly Bears"])
+    giant, bear = put(s, "Test Giant 110F"), put(s, "Grizzly Bears", "p2")
+    to_phase(s, "main1", turn=3)
+    mana(s, U=1)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Hustle // Bustle").id, face=0, targets=[bear.id])
+    answer(s)
+    attack(s, giant)
+    for _ in range(40):
+        d = s.state.rules.decision
+        if d is not None and d.kind == "declare_blockers":
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+    with pytest.raises(ActionError):
+        act(s, "p2", type="declare_blockers", blocks=[])
+    act(s, "p2", type="declare_blockers", blocks=[{"blocker_id": bear.id, "attacker_id": giant.id}])
+    check(s)
+
+
+@pytest.mark.parametrize("turn_up", [True, False])
+def test_bustle_pumps_and_may_turn_a_creature_face_up(cards, turn_up):
+    s = build(cards, ["Hustle // Bustle", "Test Morpher 110F", "Grizzly Bears"])
+    morph = to_hand(s, "Test Morpher 110F")
+    mana(s, C=3)
+    act(s, "p1", type="cast_spell", card_id=morph.id, face_down=True)
+    answer(s)
+    bear = put(s, "Grizzly Bears")
+    assert s.state.cards[morph.id].face_down
+    mana(s, R=2, G=2, C=2)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Hustle // Bustle").id, face=1)
+    for _ in range(30):
+        d = s.state.rules.decision
+        if d is None and not s.state.zones.get("stack"):
+            break
+        if d is None:
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[morph.id] if turn_up else [])
+    assert s.state.cards[morph.id].face_down is not turn_up
+    from tests.test_rules_wave100f_control import ch
+    assert ch(s, bear).pt == (4, 4) and "trample" in ch(s, bear).keywords
+    check(s)
+
+
+@pytest.mark.parametrize("reveal,gain", [(("Grizzly Bears", "Test Hybrid 110F", "Test Giant 110F"), 6), (("Test Giant 110F",), 0), ((), 0)])
+def test_phosphorescent_feast_counts_green_symbols_of_the_revealed_cards(cards, reveal, gain):
+    s = build(cards, ["Phosphorescent Feast", "Grizzly Bears", "Test Hybrid 110F", "Test Giant 110F"])
+    hand = {n: to_hand(s, n) for n in ("Grizzly Bears", "Test Hybrid 110F", "Test Giant 110F")}
+    mana(s, G=3, C=2)
+    cast(s, "Phosphorescent Feast")
+    d = s.state.rules.decision
+    assert d is not None and {o.id for o in d.options} == {c.id for c in hand.values()}  # (the Feast itself is on the stack)
+    answer(s, [hand[n].id for n in reveal])
+    assert life(s) == 40 + gain
+    assert all(c.id in s.state.zones["p1:hand"] for c in hand.values())  # (revealing moves nothing)
     check(s)

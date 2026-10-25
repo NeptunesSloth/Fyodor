@@ -97,7 +97,69 @@ def _regatha() -> Parsed:
     return effects, targets, optional
 
 
+def turn_up_choice(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Bustle: "You may turn a creature you control face up." Its controller picks one of their face-down creatures, or none (701.40g via facedown._turn_up)."""
+    from app.game.rules_state import DecisionOption
+    from app.rules.plan import decide
+
+    pid = ctx["controller"]
+    cards = [c for c in plan.state.cards.values() if c.face_down and c.controller == pid and c.zone.endswith(":battlefield")]
+    if not cards:
+        return True
+    decide(plan, player=pid, kind="choose_cards", prompt="Bustle: you may turn a creature you control face up",
+           options=[DecisionOption(id=c.id, label=c.name, card_id=c.id) for c in cards], min_choices=0, max_choices=1,
+           resume={"step": "turn_up_choice110f", "ctx": ctx})
+    return False
+
+
+def resume_turn_up(plan: Any, d: Any, chosen: list[str]) -> None:
+    from app.rules import effects, facedown
+
+    if chosen and facedown._turn_up(plan, chosen[0], d.player):
+        plan.note(f"{plan.name(d.player)} turns {plan.state.cards[chosen[0]].name} face up")
+    effects.continue_effects(plan, d.resume["ctx"])
+
+
+def reveal_chroma(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Phosphorescent Feast: reveal any number of cards from your hand (701.20a: shown to all, they stay in the hand), then gain 2 life for
+    each green mana symbol in their mana costs (a hybrid symbol with green counts, 202.2d)."""
+    from app.game.rules_state import DecisionOption
+    from app.rules.plan import decide
+
+    pid = ctx["controller"]
+    hand = list(plan.state.zones.get(f"{pid}:hand", []))
+    if not hand:
+        return True
+    decide(plan, player=pid, kind="choose_cards", prompt="Reveal any number of cards in your hand (2 life per green mana symbol in their costs)",
+           options=[DecisionOption(id=c, label=plan.state.cards[c].name, card_id=c) for c in hand], min_choices=0, max_choices=len(hand),
+           resume={"step": "reveal_chroma110f", "ctx": ctx})
+    return False
+
+
+def resume_reveal_chroma(plan: Any, d: Any, chosen: list[str]) -> None:
+    import re
+
+    from app.rules import effects
+
+    ctx = d.resume["ctx"]
+    hand = plan.state.zones.get(f"{d.player}:hand", [])
+    shown = [c for c in dict.fromkeys(chosen) if c in hand]
+    if shown:
+        plan.do({"type": "reveal", "card_ids": shown}, actor=d.player)
+        n = sum(1 for c in shown for sym in re.findall(r"\{([^}]*)\}", plan.ch(plan.state.cards[c]).mana_cost or "") if "G" in sym.split("/"))
+        ctx["effects"][ctx["next"]:ctx["next"]] = [{"do": "gain_life", "who": "you", "n": 2 * n}]
+    effects.continue_effects(plan, ctx)
+
+
+def _bustle() -> Parsed:
+    effects, targets, optional = _p("Creatures you control get +2/+2 and gain trample until end of turn.")
+    return [*effects, {"do": "turn_up_choice110f"}], targets, optional
+
+
 BUILDERS: dict[str, Callable[[], Parsed]] = {
+    "Reveal any number of cards in your hand. You gain 2 life for each green mana symbol in those cards' mana costs.":
+        lambda: ([{"do": "reveal_chroma110f"}], None, False),
+    "Creatures you control get +2/+2 and gain trample until end of turn. You may turn a creature you control face up.": _bustle,
     "it deals 4 damage to another target battle or opponent and 1 damage to up to one target creature.": _regatha,
     "exile them from your graveyard.": lambda: ([{"do": "exile_discarded110f", "exile": True}], None, False),  # ("exile": marks the linking ability, exiled_with._exiles)
     "Simultaneously, all phased-out creatures phase in and all creatures with phasing phase out.": _time_and_tide,
@@ -109,6 +171,8 @@ BUILDERS: dict[str, Callable[[], Parsed]] = {
 # Sentences the grammar reads in other words (608.2c). 509.1g: while a combat phase is going (the only time the "dies during combat" trigger fires),
 # "the creatures it blocked this combat" are the creatures blocked by it (block_events reads them off its last known information).
 REWRITES = {
+    # 506.4, 508.1d, 509.1c: only one of the two can apply in a given turn (it attacks on its controller's turn, blocks on another's).
+    "Target creature attacks or blocks this turn if able.": "Target creature attacks this turn if able. That creature blocks this turn if able.",
     "put the cards exiled with it into their owner's hand.": "return all cards exiled with it to their owners' hands.",  # Toluz (607.2a)
     # 601.2h, 107.3: "a number of tokens equal to the amount of mana spent" = X tokens, X the amount of mana spent to cast it.
     "create a number of 1/1 black Fungus Zombie creature tokens named Cordyceps Infected equal to the amount of mana spent to cast this spell.":
@@ -118,7 +182,8 @@ REWRITES = {
         "Gain control of target nonartifact, nonblack creature that attacked you this turn, then put a -1/-0 counter on it.",
     "it deals 6 damage to each creature it blocked this combat.": "~ deals 6 damage to each creature blocked by it.",
 }
-PRIMITIVES: dict[str, Any] = {"same_colors110f": same_colors, "phase_swap110f": phase_swap, "exile_discarded110f": exile_discarded}
+PRIMITIVES: dict[str, Any] = {"same_colors110f": same_colors, "phase_swap110f": phase_swap, "exile_discarded110f": exile_discarded, "turn_up_choice110f": turn_up_choice, "reveal_chroma110f": reveal_chroma}
+RESUME: dict[str, Any] = {"turn_up_choice110f": resume_turn_up, "reveal_chroma110f": resume_reveal_chroma}
 
 
 def parse(body: str) -> Parsed | None:

@@ -11,3 +11,7 @@
 - Fires of Mount Doom: 2nd ability 'When you play a card this way' reflexive on play of exiled card.
 - Thunderblade Charge: gy-trigger + pay then cast free from graveyard.
 - Fatal Lore / Bane: 'opponent chooses one' modal / 'target opponent may have you draw' foundations.
+- Ogre Enforcer: needs damage marked per source (no per-source tally on cards).
+- Oath of Kaya, Rigo: trigger once per attacked planeswalker/defender, not once per attack declaration (existing your_pw fires once); ruling unverified locally.
+- Taste of Paradise: multikicker rewrite would make it a "kicked" spell for other cards (wrong); needs a plain pay-N-times additional cost.
+- Fblthp (Impossibly Lost), Worms of the Earth, Overblaze, Melira, Parnesse, Mangara's Equity: batch-opponent damage trigger / second upkeep ability / doubling / poison cap / copy-by-opponent / chosen-color recipient: each a new foundation.
