@@ -5,6 +5,7 @@ text -> builder of its definition) and ``PRIMITIVES``. A wording not listed stay
 from __future__ import annotations
 
 import importlib
+import re
 from collections.abc import Callable
 from typing import Any
 
@@ -16,11 +17,25 @@ def _mods() -> list[Any]:
     return [importlib.import_module(f"app.rules.{m}") for m in MODULES]
 
 
+_LABEL = re.compile(r"^(?P<w>(?:[A-Z0-9][\w'’!?,.\-]*|a|an|the|of|and|or|in|on|to|for|with|at|from|by|as)(?: (?:[A-Z0-9][\w'’!?,.\-]*|a|an|the|of|and|or|in|on|to|for|with|at|from|by|as))*) — "
+                    r"(?P<rest>[A-Z].*)$")
+
+
+def strip_mode_label(text: str) -> str:
+    """207.2d: the name before the dash of a bulleted mode ("• Take the Elevator — Create three …") is a flavor word with no rules meaning."""
+    m = _LABEL.match(text)
+    return m["rest"] if m is not None and len(m["w"]) <= 48 and m["w"].lower() != "choose one" else text
+
+
 def parse(body: str) -> Parsed | None:
+    from app.rules import scripts
+
     for mod in _mods():
         build: Callable[[], Parsed] | None = getattr(mod, "BUILDERS", {}).get(body.strip())
         if build is not None:
             return build()
+        if (same := getattr(mod, "REWRITES", {}).get(body.strip())) is not None:  # the same sentences in words the grammar reads (608.2c)
+            return scripts.parse_effects(same)
     return None
 
 

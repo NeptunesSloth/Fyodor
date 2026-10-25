@@ -106,5 +106,210 @@
   ],
   "keywords": [],
   "produced_mana": "[\"G\"]"
+ },
+ {
+  "name": "Aerith Rescue Mission",
+  "layout": "normal",
+  "mana_cost": "{3}{W}",
+  "cmc": 4.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Choose one —\n• Take the Elevator — Create three 1/1 colorless Hero creature tokens.\n• Take 59 Flights of Stairs — Tap up to three target creatures. Put a stun counter on one of them. (If a permanent with a stun counter would become untapped, remove one from it instead.)",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "Take 59 Flights of Stairs",
+   "Take the Elevator"
+  ]
+ },
+ {
+  "name": "Sunder the Gateway",
+  "layout": "normal",
+  "mana_cost": "{1}{W}",
+  "cmc": 2.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Choose one —\n• Destroy target nontoken artifact or enchantment an opponent controls. Incubate 2. (Create an Incubator token with two +1/+1 counters on it and \"{2}: Transform this token.\" It transforms into a 0/0 Phyrexian artifact creature.)\n• Incubate 2, then transform an Incubator token you control.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "Incubate",
+   "Transform"
+  ]
+ },
+ {
+  "name": "Anoint with Affliction",
+  "layout": "normal",
+  "mana_cost": "{1}{B}",
+  "cmc": 2.0,
+  "type_line": "Instant",
+  "oracle_text": "Exile target creature if it has mana value 3 or less.\nCorrupted — Exile that creature instead if its controller has three or more poison counters.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Corrupted"
+  ]
+ },
+ {
+  "name": "Convert to Slime",
+  "layout": "normal",
+  "mana_cost": "{3}{B}{G}",
+  "cmc": 5.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Destroy up to one target artifact, up to one target creature, and up to one target enchantment.\nDelirium — Then if there are four or more card types among cards in your graveyard, create an X/X green Ooze creature token, where X is the total mana value of permanents destroyed this way.",
+  "colors": [
+   "B",
+   "G"
+  ],
+  "color_identity": [
+   "B",
+   "G"
+  ],
+  "keywords": [
+   "Delirium"
+  ]
+ },
+ {
+  "name": "What Must Be Done",
+  "layout": "normal",
+  "mana_cost": "{3}{W}{W}",
+  "cmc": 5.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Choose one —\n• Let the World Burn — Destroy all artifacts and creatures.\n• Release Juno — Return target historic permanent card from your graveyard to the battlefield. It enters with two additional +1/+1 counters on it if it's a creature. (Artifacts, legendaries, and Sagas are historic.)",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "Release Juno",
+   "Let the World Burn"
+  ]
+ },
+ {
+  "name": "Hypergenesis",
+  "layout": "normal",
+  "cmc": 0.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Suspend 3—{1}{G}{G}\nStarting with you, each player may put an artifact, creature, enchantment, or land card from their hand onto the battlefield. Repeat this process until no one puts a card onto the battlefield.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [
+   "Suspend"
+  ]
+ },
+ {
+  "name": "Eureka",
+  "layout": "normal",
+  "mana_cost": "{2}{G}{G}",
+  "cmc": 4.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Starting with you, each player may put a permanent card from their hand onto the battlefield. Repeat this process until no one puts a card onto the battlefield.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Cleansing Meditation",
+  "layout": "normal",
+  "mana_cost": "{1}{W}{W}",
+  "cmc": 3.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Destroy all enchantments.\nThreshold — If there are seven or more cards in your graveyard, instead destroy all enchantments, then return all cards in your graveyard destroyed this way to the battlefield.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "Threshold"
+  ]
+ },
+ {
+  "name": "Glen Elendra's Answer",
+  "layout": "normal",
+  "mana_cost": "{2}{U}{U}",
+  "cmc": 4.0,
+  "type_line": "Instant",
+  "oracle_text": "This spell can't be countered.\nCounter all spells your opponents control and all abilities your opponents control. Create a 1/1 blue and black Faerie creature token with flying for each spell and ability countered this way.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Hero of Bladehold",
+  "layout": "normal",
+  "mana_cost": "{2}{W}{W}",
+  "cmc": 4.0,
+  "type_line": "Creature — Human Knight",
+  "oracle_text": "Battle cry (Whenever this creature attacks, each other attacking creature gets +1/+0 until end of turn.)\nWhenever this creature attacks, create two 1/1 white Soldier creature tokens that are tapped and attacking.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "Battle Cry"
+  ],
+  "power": "3",
+  "toughness": "4"
+ },
+ {
+  "name": "Eternal Witness",
+  "layout": "normal",
+  "mana_cost": "{1}{G}{G}",
+  "cmc": 3.0,
+  "type_line": "Creature — Human Shaman",
+  "oracle_text": "When this creature enters, you may return target card from your graveyard to your hand.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [],
+  "power": "2",
+  "toughness": "1"
+ },
+ {
+  "name": "Hill Giant",
+  "layout": "normal",
+  "mana_cost": "{3}{R}",
+  "cmc": 4.0,
+  "type_line": "Creature — Giant",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [],
+  "power": "3",
+  "toughness": "3"
  }
 ]

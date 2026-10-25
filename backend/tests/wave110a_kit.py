@@ -20,7 +20,7 @@ from tests.test_rules_wave34b_activated import stops, to_phase
 from tests.wave9c_kit import build, card_named, check, life, mana, pt, put, to_hand, zone_of
 
 __all__ = ["real", "build", "card_named", "check", "life", "mana", "pt", "put", "to_hand", "zone_of", "until", "act", "answer", "cast", "gy",
-           "to_graveyard", "ch", "open_repo", "full_test", "STEPS", "goto", "pytest", "stops", "to_phase", "next_turn"]
+           "to_graveyard", "ch", "open_repo", "full_test", "STEPS", "fund", "goto", "pytest", "stops", "to_phase", "next_turn"]
 
 STEPS = ["main1", "begin_combat", "declare_attackers", "declare_blockers", "combat_damage", "end_combat", "main2", "end"]
 
@@ -48,13 +48,17 @@ def full_test(names):
 
 
 def answer(s, *picks, limit=80):
-    """Resolve everything; decisions are answered from ``picks`` in turn (a list: several options), else with their first options."""
+    """Resolve everything; decisions are answered from ``picks`` in turn (an option id, label or card id; a list: several), else with their first options."""
     picks = list(picks)
+
+    def find(d, token):
+        return next((o.id for o in d.options if token in (o.id, o.label, o.card_id)), token)
+
     for _ in range(limit):
         d = s.state.rules.decision
         if d is not None:
             pick = picks.pop(0) if picks else None
-            ids = pick if isinstance(pick, list) else [pick] if pick else [o.id for o in d.options][: max(1, d.min_choices)]
+            ids = [find(d, t) for t in pick] if isinstance(pick, list) else [find(d, pick)] if pick else [o.id for o in d.options][: max(1, d.min_choices)]
             act(s, d.player, type="choose", decision_id=d.id, option_ids=ids)
         elif s.state.zones.get("stack"):
             act(s, s.state.rules.priority, type="pass_priority")
@@ -63,8 +67,11 @@ def answer(s, *picks, limit=80):
     raise AssertionError("never settled")
 
 
-def cast(s, name, targets=(), pid="p1", **kw):
+def cast(s, name, targets=(), pid="p1", extra="", pay=True, **kw):
+    """Cast ``name`` from the hand (put there), its printed mana cost (and ``extra``, "{R}") first put in the pool."""
     c = to_hand(s, name, pid)
+    if pay:
+        fund(s, (s.cards.resolve(name).get("mana_cost") or "").replace(" // ", "") + extra, pid)
     act(s, pid, type="cast_spell", card_id=c.id, targets=list(targets), **kw)
     return c
 
@@ -93,3 +100,14 @@ def goto(s, phase, who="p1"):
 def next_turn(s):
     """To Alice's next main phase: what was put onto the table before has been there since the turn began (no summoning sickness)."""
     to_phase(s, "main1", turn=s.state.turn.number + (2 if s.state.turn.active_player == "p1" else 1))
+
+
+def fund(s, cost, pid="p1"):
+    """Put exactly the mana of ``cost`` ("{3}{W}", generic as colorless) in the player's pool."""
+    import re
+
+    pool = {}
+    for sym in re.findall(r"\{([^}]+)\}", cost):
+        key = "C" if sym.isdigit() else sym
+        pool[key] = pool.get(key, 0) + (int(sym) if sym.isdigit() else 1)
+    mana(s, pid, **pool)

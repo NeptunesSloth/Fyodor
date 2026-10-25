@@ -43,11 +43,32 @@ def _snow(add: bool) -> Callable[[], Parsed]:
 
     def build() -> Parsed:
         return ([{"do": "snow110a", "who": "target", "add": add}],
-                selectors.Selector(**({"not_supertypes": ("Snow",)} if add else {"supertypes": ("Snow",)})).key(), False)
+                (selectors.Selector(not_supertypes=("Snow",)) if add else selectors.Selector(supertypes=("Snow",))).key(), False)
     return build
 
 
+# Sentences the grammar reads in other words with the same meaning (the rewrite must mean the same: 608.2c).
+REWRITES = {
+    # (122.6: "enters with … additional counters" is the grammar's "if a creature enters this way, it enters with …" for the returned permanent card)
+    "Return target historic permanent card from your graveyard to the battlefield. It enters with two additional +1/+1 counters on it if it's a "
+    "creature.": "Return target historic permanent card from your graveyard to the battlefield. If a creature enters this way, it enters with two "
+                 "additional +1/+1 counters on it.",
+}
+
+
+def _choose_transform(kind: str) -> Parsed:
+    from app.rules import nontarget_creature_choices as pick
+
+    return [pick.choose(kind, **{"as": "choice_group"}), {"do": "transform", "who": "ref:choice_group"}], None, False
+
+
 BUILDERS: dict[str, Callable[[], Parsed]] = {
+    "Tap up to three target creatures. Put a stun counter on one of them.": lambda: (  # Aerith Rescue Mission: 122.1g, one of the targets (608.2d)
+        [*(tap := _p("Tap up to three target creatures."))[0], {"do": "bind110a", "who": "target:0", "as": "targets110a"},
+         {"do": "choose_one_of", "who": "ref:targets110a", "n": 1, "as": "one110a"},
+         {"do": "add_counters", "who": "ref:one110a", "kind": "stun", "n": 1}], tap[1], False),
+    "Incubate 2, then transform an Incubator token you control.": lambda: (  # Sunder the Gateway: 701.53a, then 701.28 the Incubator you choose
+        [*_p("Incubate 2.")[0], *_choose_transform("Incubator token you control")[0]], None, False),
     # Thermal Flux: 205.4 snow is a supertype, so layer 4 (613.1d), until end of turn (the duration of supertype100i is the effect's default)
     "Target nonsnow permanent becomes snow until end of turn.": _snow(True),
     "Target snow permanent isn't snow until end of turn.": _snow(False),
@@ -103,9 +124,9 @@ def snow(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
 
     cards = [c for c in effects._cards(plan, ctx, e["who"]) if plan.state.cards[c].zone.endswith(":battlefield")]
     if cards:
+        change: dict[str, Any] = {"add_supertypes": ["Snow"]} if e["add"] else {"remove_supertypes": ["Snow"]}
         layers.add_effect(plan, affected=[plan.oid(c) for c in cards], layer="4", source=ctx.get("source_object"), controller=ctx["controller"],
-                          label=f"{'snow' if e['add'] else 'not snow'} ({ctx.get('name', '')})",
-                          **({"add_supertypes": ["Snow"]} if e["add"] else {"remove_supertypes": ["Snow"]}))
+                          label=f"{'snow' if e['add'] else 'not snow'} ({ctx.get('name', '')})", **change)
     return True
 
 

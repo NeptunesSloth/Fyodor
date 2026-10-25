@@ -8667,7 +8667,9 @@ def modal_definition(lines: list[AbilityText], name: str = "") -> Definition | N
             return None
         # (-- most-played modal spells (wave 50I) -- a mode that is all "You may put a land card from your hand onto the battlefield." (Atarka's Command) is the
         # instruction's own choice, as for a one-line spell (_own_choice); "This spell deals X damage" is the spell itself)
-        parsed = _own_choice(parse_effects(self_text(ab.text[2:], name).replace("This spell deals ", "~ deals ")))
+        from app.rules import wave110a  # -- wave 110A -- 207.2d: "• Take the Elevator — …"
+
+        parsed = _own_choice(parse_effects(self_text(wave110a.strip_mode_label(ab.text[2:]), name).replace("This spell deals ", "~ deals ")))
         if parsed is None or parsed[2]:  # ("you may" inside a mode: not yet)
             return None
         effects, target, _ = parsed
