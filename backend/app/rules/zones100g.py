@@ -19,6 +19,9 @@ REWRITES = {
     # Ajani Fells the Godsire II: ", then" is the next instruction (608.2c)
     "Create a 2/1 white Cat Warrior creature token, then put a vigilance counter on a creature you control.":
         "Create a 2/1 white Cat Warrior creature token. Put a vigilance counter on a creature you control.",
+    # Kang Dynasty III: the count as it resolves (608.2h), then the second instruction (608.2c)
+    "Target creature you control gets +1/+1 until end of turn for each card in your hand and can't be blocked this turn.":
+        "Target creature you control gets +1/+1 until end of turn for each card in your hand. It can't be blocked this turn.",
     # Defossilize: the same creature explores twice (701.44a; the official ruling: it explores even if it has left the battlefield)
     "Return target creature card from your graveyard to the battlefield. That creature explores, then it explores again.":
         "Return target creature card from your graveyard to the battlefield. It explores. It explores.",
@@ -451,8 +454,78 @@ def resume_three_each(plan: Any, d: Any, chosen: list[str]) -> None:
         effects.continue_effects(plan, r["ctx"])
 
 
-PRIMITIVES = {"named100g": named, "three_each100g": three_each, "opponent_pick100g": opponent_pick, "self_exiled100g": self_exiled, "turn_up_linked100g": turn_up_linked, "return_total_power100g": return_total_power, "bottom_linked100g": bottom_linked, "choose_greatest100g": choose_greatest, "choose_event100g": choose_event, "loyalty_twice100g": loyalty_twice, "face_down_looked100g": face_down_looked, "top_or_bottom100g": top_or_bottom}
-RESUME = {"three_each100g": resume_three_each, "opponent_pick100g": resume_opponent_pick, "opponent_card100g": resume_opponent_card, "return_total_power100g": resume_return_total_power, "choose_greatest100g": resume_choose_greatest, "choose_event100g": resume_choose_event, "face_down_looked100g": resume_face_down_looked, "top_or_bottom100g": resume_top_or_bottom}
+def landwalk(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Giant Slug, Illusionary Presence, Barbarian Guides: "choose a [basic] land type" as it resolves (205.3i: subtypes only — no "Snow", the
+    official ruling), then "[snow] landwalk of the chosen type" (702.14a, c) until end of turn — the choice its controller's (the ruling: the
+    activator's, 603.7d)."""
+    from app.game.rules_state import DecisionOption
+    from app.rules.layers import LAND_TYPES
+    from app.rules.plan import decide
+
+    kinds = ["Plains", "Island", "Swamp", "Mountain", "Forest"] if e.get("basic") else sorted(LAND_TYPES - {"Urza's"})
+    decide(plan, player=ctx["controller"], kind="choose_one", prompt=f"{ctx.get('name') or 'It'}: choose a {'basic ' if e.get('basic') else ''}land type",
+           options=[DecisionOption(id=k, label=k) for k in kinds], min_choices=1, max_choices=1, resume={"step": "landwalk100g", "ctx": ctx, "e": e, "kinds": kinds})
+    return False
+
+
+def resume_landwalk(plan: Any, d: Any, chosen: list[str]) -> None:
+    from app.game.errors import ActionError
+    from app.rules import effects
+
+    r = d.resume
+    if len(chosen) != 1 or chosen[0] not in r["kinds"]:
+        raise ActionError("Choose one land type")
+    walk = f"{'snow ' if r['e'].get('snow') else ''}{chosen[0].lower()}walk"
+    if effects.grant(plan, r["ctx"], {"do": "grant", "who": r["e"]["who"], "keywords": [walk]}):
+        effects.continue_effects(plan, r["ctx"])
+
+
+def random_looked(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Getaway Barrel: "a random creature card from among them" — the table's pick among the revealed cards (public, 701.20a; nobody chooses,
+    random_choice's reading), logged; then moved as pick_looked moves a chosen one."""
+    import secrets
+
+    from app.rules import effects, selectors
+
+    _, looked = effects._looked(plan, ctx)
+    ctx["looked"] = looked
+    sel = selectors.from_key(e["sel"])
+    pool = sorted(c for c in looked if selectors.matches(plan, sel, plan.state.cards[c], plan.ch(plan.state.cards[c]), ctx["controller"],
+                                                         ctx.get("source_card")))
+    if not pool:
+        return True
+    pick = (plan.rng or secrets.SystemRandom()).choice(pool)
+    plan.note(f"{ctx.get('name') or 'It'}: chosen at random →", [pick], actor=ctx["controller"])
+    return bool(effects._picked(plan, ctx, e, [pick]))
+
+
+def cyber_linked(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Death in Heaven III: the creature cards exiled with the Saga (607.2a) still in exile, onto the battlefield face down under its controller's
+    control as 2/2 Cyberman artifact creatures (708.2a: the effect says what they are; the official rulings)."""
+    from app.rules import context, effects
+
+    found = [c for c in effects._cards(plan, ctx, e["who"]) if plan.state.cards[c].zone.endswith(":exile")
+             and "Creature" in plan.ch(plan.state.cards[c]).types]
+    context.bind_objects(plan, ctx, "cyber100g", found)
+    return bool(effects.return_card(plan, ctx, {"do": "return_card", "who": "ref:cyber100g", "to": "battlefield", "under": "you", "face_down": True,
+                                                "spec": "2/2 Cyberman artifact creature"}))
+
+
+def power_covers(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Vulpine Harvester: "if its mana value is less than or equal to their total power" — the attacking Phyrexians' powers as the ability
+    resolves, each as it last existed if it left (the official ruling: counted even if no longer attacking or a Phyrexian; 608.2h; a negative
+    total is 0, 107.1b); otherwise the return doesn't happen (608.2c)."""
+    from app.rules import context, effects, selectors
+
+    total = max(0, sum(selectors._stat(ch, "power") or 0 for _, ch in context.infos(plan, ctx, context.EVENT)))
+    cards = effects._cards(plan, ctx, e["who"])
+    if not cards or plan.ch(plan.state.cards[cards[0]]).mana_value > total:
+        ctx["next"] = len(ctx["effects"])
+    return True
+
+
+PRIMITIVES = {"named100g": named, "power_covers100g": power_covers, "random_looked100g": random_looked, "cyber_linked100g": cyber_linked, "landwalk100g": landwalk, "three_each100g": three_each, "opponent_pick100g": opponent_pick, "self_exiled100g": self_exiled, "turn_up_linked100g": turn_up_linked, "return_total_power100g": return_total_power, "bottom_linked100g": bottom_linked, "choose_greatest100g": choose_greatest, "choose_event100g": choose_event, "loyalty_twice100g": loyalty_twice, "face_down_looked100g": face_down_looked, "top_or_bottom100g": top_or_bottom}
+RESUME = {"landwalk100g": resume_landwalk, "three_each100g": resume_three_each, "opponent_pick100g": resume_opponent_pick, "opponent_card100g": resume_opponent_card, "return_total_power100g": resume_return_total_power, "choose_greatest100g": resume_choose_greatest, "choose_event100g": resume_choose_event, "face_down_looked100g": resume_face_down_looked, "top_or_bottom100g": resume_top_or_bottom}
 
 _BUILT = {
     "For each color, return up to one target card of that color from your graveyard to your hand. Exile ~.": _each_color("card", "Exile ~."),
@@ -479,6 +552,18 @@ def parse(body: str) -> Parsed | None:
         if p is None or [x["do"] for x in p[0]] != ["prevent_all"]:
             return None
         return [*p[0], {"do": "look_face_down", "who": _sel("face-down creature that's attacking or blocking")}], None, False
+    if body == ("For each opponent, tap up to one target creature that player controls. Goad those creatures. Until your next turn, whenever any "
+                "of those creatures deals combat damage to a player, draw a card."):  # (Kang Dynasty I, II: one watch on all the targets, 603.7c)
+        p = _plain("For each opponent, tap up to one target creature that player controls. Goad those creatures.")
+        w = _plain("Tap target creature. Until your next turn, whenever that creature deals combat damage to a player, draw a card.")
+        if p is None or w is None or [x["do"] for x in w[0]] != ["tap", "delayed", "deferred:draw"] or w[0][1].get("who") != "target":
+            return None
+        return [*p[0], {**w[0][1], "who": "target:0"}, w[0][2]], p[1], p[2]
+    if body == "Target player mills two cards, then exiles their graveyard.":  # (Death in Heaven I, II: the exile linked to III, 607.2a)
+        return _plain("Target player mills two cards. Exile that player's graveyard.")
+    if body == ("Put all creature cards exiled with ~ onto the battlefield face down under your control. They're 2/2 Cyberman "
+                "artifact creatures."):  # (Death in Heaven III)
+        return [{"do": "linked_cards", "as": "heaven100g"}, {"do": "cyber_linked100g", "who": "ref:heaven100g"}], None, False
     if body == ("Starting with you, each player votes for innocent or guilty. If guilty gets more votes, the owner of each card exiled with ~ puts "
                 "that card on the bottom of their library."):  # (Trial of a Time Lord IV: 701.38 vote, then the linked cards, 607.2a)
         p = _plain("Starting with you, each player votes for innocent or guilty. If guilty gets more votes, draw a card.")
@@ -654,6 +739,16 @@ def _token_text(text: str, *, name: str | None = None, add: bool = False) -> Any
     return fix
 
 
+def _walk(**flags: bool) -> Any:
+    """The native line's forestwalk grant made the chosen type's landwalk (zones100g.landwalk), deferred with it."""
+    def fix(d: dict[str, Any]) -> dict[str, Any] | None:
+        es = d["effects"]
+        i = next((i for i, e in enumerate(es) if e.get("do") in ("grant", "deferred:grant") and e.get("keywords") == ["forestwalk"]), None)
+        return None if i is None else {**d, "effects": [*es[:i], {"do": es[i]["do"].replace("grant", "landwalk100g"), "who": es[i]["who"], **flags},
+                                                         *es[i + 1:]]}
+    return fix
+
+
 _AS: dict[str, tuple[str, Any]] = {
     # Reef Worm: each token's dies trigger makes the next one (the inner quotes are the Whale's own ability)
     "When this creature dies, create a 3/3 blue Fish creature token with \"When this token dies, create a 6/6 blue Whale creature token with 'When this "
@@ -744,6 +839,28 @@ _AS: dict[str, tuple[str, Any]] = {
     "Whenever a creature blocking this creature dies, that creature's controller loses 1 life.":
         ("Whenever a blocking creature dies, that creature's controller loses 1 life.",
          lambda d: {**d, "cond": {**d["cond"], "sel": _with_extra(d["cond"]["sel"], BLOCKING_SOURCE)}} if (d.get("cond") or {}).get("event") == "die" else None),
+    # Giant Slug, Illusionary Presence, Barbarian Guides: the land type chosen as it resolves, then that landwalk (zones100g.landwalk)
+    "{5}: At the beginning of your next upkeep, choose a basic land type. This creature gains landwalk of the chosen type until the end of that "
+    "turn.": ("{5}: At the beginning of your next upkeep, this creature gains forestwalk until end of turn.", _walk(basic=True)),
+    "At the beginning of your upkeep, choose a land type. This creature gains landwalk of the chosen type until end of turn.":
+        ("At the beginning of your upkeep, this creature gains forestwalk until end of turn.", _walk()),
+    "{2}{R}, {T}: Choose a land type. Target creature you control gains snow landwalk of the chosen type until end of turn. Return that creature "
+    "to its owner's hand at the beginning of the next end step.": (
+        "{2}{R}, {T}: Target creature you control gains forestwalk until end of turn. Return that creature to its owner's hand at the beginning of "
+        "the next end step.", _walk(snow=True)),
+    # Getaway Barrel: the table's pick among the revealed creature cards (zones100g.random_looked)
+    "When this artifact is put into a graveyard from the battlefield, reveal the top thirteen cards of your library. Put a random creature card "
+    "from among them onto the battlefield. Put the rest on the bottom of your library in a random order.": (
+        "When this artifact is put into a graveyard from the battlefield, reveal the top thirteen cards of your library. Put a creature card from "
+        "among them onto the battlefield. Put the rest on the bottom of your library in a random order.",
+        lambda d: {**d, "effects": [{**e, "do": "random_looked100g"} if e.get("do") == "pick_looked" and not e.get("optional") else e
+                                    for e in d["effects"]]}),
+    # Vulpine Harvester: any artifact card is a legal target; the power check as it resolves (zones100g.power_covers)
+    "Whenever one or more Phyrexians you control attack, return target artifact card from your graveyard to the battlefield if its mana value "
+    "is less than or equal to their total power.": (
+        "Whenever one or more Phyrexians you control attack, return target artifact card from your graveyard to the battlefield.",
+        lambda d: {**d, "effects": [{"do": "power_covers100g", "who": "target"}, *d["effects"]]}
+        if [e.get("do") for e in d["effects"]] == ["return_card"] else None),
     "When this creature enters, sacrifice it unless you return a basic land card from your graveyard to your hand.":
         ("When this creature enters, sacrifice it unless you discard a card.", _harvest_wurm),
 }
