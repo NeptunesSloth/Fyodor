@@ -1250,6 +1250,31 @@ def _extreme(s: Selector, m: re.Match[str]) -> Selector:
 _SUFFIXES.insert(0, _SUFFIXES.pop())  # (before the controller suffix, whose "you control" would be taken for the whole phrase's: "… among creatures you control")
 
 
+def _left_together(plan: Plan, card: CardInstance, stat: str, want: str, unwanted: str) -> list[int | None]:
+    """603.10a / 700.4: a leaves-the-battlefield trigger looks back at the battlefield as it was just before the event, so
+    permanents that left with this one (a board wipe, one batch) still count. Their last known information, same controller."""
+    now = plan.state.cards.get(card.id)
+    if now is not None and now.zone.endswith(":battlefield"):
+        return []
+    from app.rules.triggers import _lki_characteristics
+
+    events = plan.rules.events
+
+    mine = next((e for e in reversed(events) if e.card == card.id and (e.from_zone or "").endswith(":battlefield")), None)
+    snap = plan.rules.lki.get(mine.object_id or "") if mine else None
+    if mine is None or snap is None:
+        return []
+    out: list[int | None] = []
+    for e in events:
+        other = plan.rules.lki.get(e.object_id or "")
+        if e.batch != mine.batch or e.card == card.id or other is None or not (e.from_zone or "").endswith(":battlefield") or other.controller != snap.controller:
+            continue
+        ch = _lki_characteristics(plan, other)
+        if (not want or set(want.split("|")) & ch.types) and not set(filter(None, unwanted.split("|"))) & ch.types:
+            out.append(_stat(ch, stat))
+    return out
+
+
 @_suffix(r"with the greatest power among creatures that player controls")  # -- extremes (wave 110I) -- Kraven the Hunter: of that object's own controller (reads greatest_own, 700.4 LKI)
 def _extreme_own(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, extras=(*s.extras, "greatest_own:power:Creature"))
@@ -2769,6 +2794,7 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
             rivals = [_stat(plan.ch(c), stat) for c in plan.state.cards.values()
                       if c.controller == card.controller and c.zone.endswith(":battlefield") and plan.in_game(c)
                       and (not want or set(want.split("|")) & plan.ch(c).types) and not set(filter(None, unwanted.split("|"))) & plan.ch(c).types]
+            rivals += _left_together(plan, card, stat, want, unwanted)  # -- extremes (wave 110I) -- 603.10a: creatures that left in the same event
             if mine is None or any(p is not None and (p < mine if extra.startswith("least") else p > mine) for p in rivals):
                 return False
         if (extra == "no_abilities" and ch.has_abilities) or (extra == "has_abilities" and not ch.has_abilities):  # (wave 42A)

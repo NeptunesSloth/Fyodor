@@ -137,3 +137,19 @@ def test_med_kit_radaway_clears_rad_counters_and_each_mode_is_used_once(cards):
     answer(s, "p2")
     assert s.state.players["p2"].resources.get("rad", 0) == 0 and s.state.cards[kit.id].zone.endswith("graveyard")
     check(s)
+
+
+def test_kraven_wipe_triggers_once_for_the_biggest_creature(cards):
+    """603.10a: a simultaneous wipe is judged on the battlefield as it was just before (700.4)."""
+    s = build(cards, ["Kraven the Hunter", "Day of Judgment"], ["Grizzly Bears", "Garruk's Horde"])
+    bears, horde = put(s, "Grizzly Bears", "p2"), put(s, "Garruk's Horde", "p2")
+    mana(s, G=2, C=2)
+    cast(s, "Kraven the Hunter")
+    answer(s)
+    hand = len(s.state.zones["p1:hand"])
+    mana(s, W=2, C=2)
+    cast(s, "Day of Judgment")
+    answer(s)
+    assert all(s.state.cards[c.id].zone.endswith("graveyard") for c in (bears, horde))
+    assert (hand, len(s.state.zones["p1:hand"])) == (0, 1)  # one draw: only the 7/7 had the greatest power (Kraven died too)
+    check(s)
