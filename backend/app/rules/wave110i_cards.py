@@ -32,8 +32,15 @@ _AS: dict[str, str] = {
 }
 
 
+def _until_leaves(d: Def) -> Def:
+    """The Moment: "It phases out until ~ leaves the battlefield" (610.3, 702.26a): the Oubliette lifetime packet, without its tap."""
+    return {**d, "effects": [{"do": "phase_until_target110c", "untapped110i": True} if x.get("do") == "phase_out" else x for x in d["effects"]]}
+
+
 # whole ability text -> (the wording the grammar reads, what to change in its definition)
 _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
+    "{2}, {T}: Untap target creature you control. It phases out until The Moment leaves the battlefield.":
+        ("{2}, {T}: Untap target creature you control. It phases out.", _until_leaves),
     "Whenever you clash, you may pay {1}. If you do, create a 3/1 red Elemental Shaman creature token. If you won, that token gains haste until end of turn.":
         ("Whenever you clash, you may pay {1}. If you do, create a 3/1 red Elemental Shaman creature token. That token gains haste until end of turn.", _won_last),
 }
