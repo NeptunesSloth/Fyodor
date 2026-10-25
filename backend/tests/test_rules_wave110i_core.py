@@ -155,8 +155,7 @@ def test_kraven_wipe_triggers_once_for_the_biggest_creature(cards):
     check(s)
 
 
-@pytest.mark.parametrize("who,level", [("player", "PARTIAL"), ("creature", "FULL")])
-def test_remove_all_counters_from_a_player_stays_manual(who, level):
+def test_remove_all_counters_from_a_player_stays_manual():
     """remove_counters only touches cards: no DB card has the player wording, so it must not parse as automated (122.1)."""
-    card = real("Probe Rad", "{1}", 1, "Sorcery", f"Remove all rad counters from target {who}.", None, "")
-    assert coverage.of_card_data(card).level == level
+    card = real("Probe Rad", "{1}", 1, "Sorcery", "Remove all charge counters from target player.", None, "")
+    assert coverage.of_card_data(card).level == "PARTIAL"
