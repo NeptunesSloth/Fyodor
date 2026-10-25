@@ -95,7 +95,7 @@ _DAMAGE_TO = {"": "any", " to a player": "player", " to a creature": "creature",
               " to you": "you", " to a player or planeswalker": "player_or_pw", " to a planeswalker": "planeswalker",
               " to one of your opponents": "opponent", " to enchanted player": "enchanted_player",
               " to enchanted planeswalker": "enchanted_planeswalker",
-              " to a player or battle": "player_or_battle",
+              " to a player or battle": "player_or_battle", " to an opponent or battle": "opponent_or_battle",  # (wave 110H: Bloodfeather Phoenix)
               # -- source damage (wave 11F) -- 603.2c: "to one or more players" is one trigger for the whole batch
               " to its owner": "its_owner",  # -- trigger other (wave 44B) -- 120.1: The Beast, "a creature deals combat damage to its owner" (the damage dealer's owner is the player)
               " to one or more players": "players", " to your opponents": "opponents",
@@ -1531,7 +1531,7 @@ def _object_event(c: str) -> Condition | None:
     if m and not (m["to"] == " to an opponent" and m["c"] != "noncombat " and not m["min"]) and \
             not (m["to"] == " to a player" and m["c"] == "combat " and not m["min"]) and (m["to"] or not m["min"]):  # (wave 39B: a threshold is read here: Deus of Calamity)
         to = _DAMAGE_TO[m["to"]]
-        who = _subject(m["s"], host=True, many=to in ("opponent", "player", "player_or_pw", "player_or_battle", "players",
+        who = _subject(m["s"], host=True, many=to in ("opponent", "opponent_or_battle", "player", "player_or_pw", "player_or_battle", "players",
                                                       "opponents", "you"))
         if who is None:
             return None
