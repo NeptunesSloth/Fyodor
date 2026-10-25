@@ -13,3 +13,8 @@
 - Manor Gargoyle: "indestructible as long as it has defender" reads the source's own layer-6 keywords while deriving them (613.8 dependency), needs a keyword-aware static condition.
 - Rumbling Ruin: selector compare has no "number of +1/+1 counters on creatures you control" right side, and the number must be fixed at resolution.
 - Corruption of Towashi: no "enters transformed" event in the engine.
+- Ray of Frost: promoted in s3 (line above is stale). The Oracle reads "As long as enchanted creature is red, it loses all abilities" with no colour change, so there is no self-reference; the colour is read in layer 5 before layer 6 (613.1e-f, 611.3a).
+- Arcum's Sleigh: "defending player" outside combat events is undefined in multiplayer (no ruling found).
+- Bone Shaman: "creatures dealt damage by this creature this turn can't be regenerated" needs a damage-linked regeneration shield.
+- Jester's Mask: searching another player's library for a count tied to a hand move; no foundation.
+- Simic Guildmage, Livio, Merseine, Rasputin, Crown of Convergence, Wiitigo: each needs a new foundation (see handoff_j).
