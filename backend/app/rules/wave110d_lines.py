@@ -37,6 +37,11 @@ _AS: dict[str, str] = {
     # "1,000" is the number 1000 (107.1)
     "When there are 1,000 or more time counters on ~, sacrifice it and each opponent loses 1,000 life.":
         "When there are 1000 or more time counters on this artifact, sacrifice it and each opponent loses 1000 life.",
+    # Tourach's / Thelon's Chant: the player who puts a land onto the battlefield is the one it enters under (400.7, 110.2); an exact text only
+    "Whenever a player puts a Forest onto the battlefield, ~ deals 3 damage to that player unless they put a -1/-1 counter on a creature they control.":
+        "Whenever a Forest enters, ~ deals 3 damage to its controller unless they put a -1/-1 counter on a creature they control.",
+    "Whenever a player puts a Swamp onto the battlefield, ~ deals 3 damage to that player unless the player puts a -1/-1 counter on a creature they control.":
+        "Whenever a Swamp enters, ~ deals 3 damage to its controller unless they put a -1/-1 counter on a creature they control.",
 }
 
 

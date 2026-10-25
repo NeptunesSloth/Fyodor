@@ -5409,7 +5409,7 @@ _PICK_NEG = re.compile(r"^if you (don't|do) put (?:the card|that card|it|them) (
 _PICK_DIDNT = re.compile(r"^if you didn't put (?:a|the|that) card into your hand this way, ")
 _IF_YOU_DO = re.compile(r"^if you (?:(?P<neg>don't)|do), (?P<rest>.+)$")
 _UNLESS = re.compile(r"^(?P<lead>.+?) unless (?P<who>you|that player|they|its controller|that creature's controller|that ability's controller|target opponent|target player|any player|any opponent) "
-                     r"(?P<act>(?:pays?|discards?|sacrifices?|returns?|exiles?|removes?|taps?|mills?) .+|has (?:~|this [a-z]+) deal \d+ damage to (?:them|you)"
+                     r"(?P<act>(?:pays?|discards?|sacrifices?|returns?|exiles?|removes?|taps?|mills?|puts?) .+|has (?:~|this [a-z]+) deal \d+ damage to (?:them|you)"
                      r"|has (?:~|this [a-z]+) deal (?:damage to (?:them|you) equal to .+|that much damage to (?:them|you)))$")  # (wave 27A: "has ~ deal 4 damage to them"; wave 1B: any cost the engine pays; wave 34D: sized)
 
 
@@ -5538,6 +5538,7 @@ def _unless_sentence(text: str, effects: list[dict[str, Any]], may: bool = False
         phrase = phrase[:-2] + "~"  # -- trigger tail (wave 15B) -- "sacrifice ~ unless you remove a +1/+1 counter from it": it is the source
     phrase = re.sub(r" or (pays?|discards?|sacrifices?|returns?|exiles?) ", lambda v: f" or {v[1].rstrip('s')} ", phrase)  # (wave 15C)
     if m["who"] != "you":
+        phrase = phrase.replace(" they control", " you control")  # (wave 110D) "put a -1/-1 counter on a creature they control"
         phrase = re.sub(r"\btheir\b(?! choice)", "your", phrase)  # (wave 26B) a cost is read as its payer's: "exiles a card from their graveyard"
     if re.search(r"\bit\b", phrase):
         return None
