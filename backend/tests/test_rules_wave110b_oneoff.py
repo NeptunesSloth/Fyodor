@@ -31,7 +31,7 @@ def cards(settings):
     yield from repository(settings)
 
 
-@pytest.mark.parametrize("name", ["Prince of Thralls", "Oath of Lim-Dûl", "Chaos Lord", "Divine Intervention", "Herald of Anafenza", "Guardian of New Benalia", "Aloe Alchemist", "Parapet Thrasher", "Bane of the Living", "Warbreak Trumpeter", "Kadena's Silencer", "Longhorn Sharpshooter", "Plague Reaver", "Quakebringer", "Suppressor Skyguard", "Shirei, Shizo's Caretaker", "Lich's Mastery", "The Chain Veil", "Campsite Cuisine", "Way of the Mind Sculptor", "Kitsune Ace"])
+@pytest.mark.parametrize("name", ["Prince of Thralls", "Oath of Lim-Dûl", "Chaos Lord", "Divine Intervention", "Herald of Anafenza", "Guardian of New Benalia", "Aloe Alchemist", "Parapet Thrasher", "Bane of the Living", "Warbreak Trumpeter", "Kadena's Silencer", "Longhorn Sharpshooter", "Plague Reaver", "Quakebringer", "Suppressor Skyguard", "Shirei, Shizo's Caretaker", "Lich's Mastery", "The Chain Veil", "Campsite Cuisine", "Way of the Mind Sculptor", "Kitsune Ace", "Knights of the Black Rose"])
 def test_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
@@ -491,7 +491,7 @@ def test_campsite_cuisine_sacrifices_foods_for_that_many_pumped_attackers(cards,
 @pytest.mark.parametrize("ability, draws", [(0, 0), (1, 2)])
 def test_way_of_the_mind_sculptor_draws_when_two_or_more_loyalty_counters_were_removed(cards, ability, draws):
     """Way of the Mind Sculptor: its Jace token (empower 5) −1 removes one counter (no card); −3 removes three (Way's card, plus the ability's own)."""
-    s = build(cards, ["Way of the Mind Sculptor", "Kitsune Ace"] + ["Forest"] * 6, [])
+    s = build(cards, ["Way of the Mind Sculptor", "Kitsune Ace", "Knights of the Black Rose"] + ["Forest"] * 6, [])
     mana(s, "p1", U=1, C=4)
     cast(s, "Way of the Mind Sculptor")
     drive(s)
@@ -527,4 +527,22 @@ def test_kitsune_ace_gives_the_attacking_vehicle_first_strike_or_untaps_itself(c
         assert s.state.cards[ace.id].tapped
     else:
         assert not s.state.cards[ace.id].tapped
+    check(s)
+
+
+@pytest.mark.parametrize("was_monarch", [True, False])
+def test_knights_of_the_black_rose_punish_a_new_monarch_only_if_you_began_the_turn_as_monarch(cards, was_monarch):
+    """Knights of the Black Rose: 725.1 the monarch as the turn began (not as it is now) gates the trigger (603.4)."""
+    from tests.test_rules_conditionals import to_turn
+
+    s = build(cards, ["Knights of the Black Rose"], ["Thorn of the Black Rose"])
+    put(s, "Knights of the Black Rose")
+    if was_monarch:
+        act(s, "p1", type="set_monarch", player="p1")
+    to_turn(s, 2, "main1")
+    mana(s, "p2", B=1, C=3)
+    cast(s, "Thorn of the Black Rose", pid="p2")
+    drive(s)
+    assert s.state.table.monarch == "p2"
+    assert (s.state.players["p1"].life, s.state.players["p2"].life) == ((42, 38) if was_monarch else (40, 40))
     check(s)

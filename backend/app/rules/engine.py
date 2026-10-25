@@ -650,6 +650,7 @@ def start_next_turn(plan: Plan) -> None:
     skipped: list[tuple[str, int]] = []  # 800.4k: a departed player's turn doesn't begin
     previous = (plan.active, plan.state.turn.number)
     plan.rules.previous_turn = previous
+    plan.rules.monarch_began110b = plan.state.table.monarch  # -- wave 110B -- 725: "if you were the monarch as the turn began"
     # -- refused grants/replacements (wave 3R2) -- 614.10: skipped turns (they never begin: nothing ends with
     # them, 500.4) and a skipped untap step (nothing untaps, 502.2's day / night check doesn't happen)
     skip_to = extra or effects.skips.next_active(plan, base)

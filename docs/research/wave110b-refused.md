@@ -10,3 +10,9 @@
 - Dragon Broodmother: a token with "devour 2" needs a devour choice at token creation (tokens skip replacements.entry_plan); foundation not built.
 - Autumn's Veil: "can't be countered by blue or black spells" needs the countering source in effects.counterable (many callers).
 - Contractual Safeguard: 'other' = other than which creature when several share the chosen counter kind is unruled; refused.
+- Oath of Kaya: unsure whether it triggers once per attacked planeswalker or per attack; engine "your_pw" is per batch.
+- Autumn's Veil: "can't be countered by blue or black spells" needs the countering spell's color in counter_object (no source color today).
+- Karplusan Minotaur, Bladegriff Prototype: a trigger's target chosen by an opponent (only activated abilities delegate targets today).
+- Hylda of the Icy Crown: no "you tap an untapped creature" event (tapper not tracked).
+- Twisted Sewer-Witch: per-Rat Role loop reruns on replacement ordering (would duplicate Roles).
+- Rigo, Streetwise Mentor: "attack a player or planeswalker" trigger count per defender unverified.

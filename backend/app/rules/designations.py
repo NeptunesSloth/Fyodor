@@ -57,6 +57,8 @@ def status(plan: Plan, you: str, kind: str) -> bool:
         return monarch is None
     if kind == "opponent_monarch":
         return monarch is not None and monarch != you
+    if kind == "monarch_began":  # -- wave 110B -- 725: "if you were the monarch as the turn began" (engine.start_next_turn takes the snapshot)
+        return plan.rules.monarch_began110b == you
     if kind == "not_monarch":
         return monarch != you
     if kind == "not_initiative":

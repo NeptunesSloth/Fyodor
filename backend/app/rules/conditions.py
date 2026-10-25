@@ -717,7 +717,7 @@ def _more_ifs(t: str) -> Condition | None:
 _HAS_COUNTERS = re.compile(r"(?P<who>you|an opponent) (?:has|have) (?:(?P<no>no)|(?P<a>a|an|one or more)|(?P<n>\w+) or more) "
                            r"(?P<kind>poison|experience|rad|energy) counters?")
 _COMPLETED = re.compile(r"you(?: (?P<neg>haven't|have not)|'ve| have) completed (?P<d>Lost Mine of Phandelver|Dungeon of the Mad Mage|Tomb of Annihilation|Undercity)")
-_DESIGNATIONS = {"there is no monarch": "no_monarch", "an opponent is the monarch": "opponent_monarch",
+_DESIGNATIONS = {"you were the monarch as the turn began": "monarch_began", "there is no monarch": "no_monarch", "an opponent is the monarch": "opponent_monarch",
                  "you're not the monarch": "not_monarch", "you aren't the monarch": "not_monarch",
                  "you don't have the initiative": "not_initiative", "you've completed a dungeon": "completed_dungeon",
                  "you have completed a dungeon": "completed_dungeon",
