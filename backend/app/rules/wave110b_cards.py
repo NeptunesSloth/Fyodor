@@ -114,7 +114,17 @@ def _warriors(d: Def) -> Def:
                              {"do": "deferred:deferred:sacrifice", "who": "ref:tok110b"}]}
 
 
+def _inheritance(d: Def) -> Def:
+    """Expedited Inheritance: the damaged creature's controller (not the enchantment's) chooses, exiles from their own library and plays those cards (a card's owner, 400.3)."""
+    exile, grant = d["effects"]
+    ask = {"do": "optional_payment", "who": "ref:event.controller", "ask": "exile that many cards from the top of your library", "cost": "", "bind": "pay110b"}
+    return {**d, "optional": False, "effects": [ask, {"do": "only_if", "cond": {"succeeded": "pay110b"}, "skip": 2},
+                                                {**exile, "player": "ref:event.controller"}, {**grant, "owner": True, "optional": True}]}
+
+
 _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
+    "Whenever a creature is dealt damage, its controller may exile that many cards from the top of their library. They may play those cards until the end of their next turn.":
+        ("Whenever a creature is dealt damage, you may exile that many cards from the top of your library. You may play those cards until the end of your next turn.", _inheritance),
     # Dalkovan Encampment (the sacrifice rides on each trigger's tokens)
     "{2}{W}, {T}: Whenever you attack this turn, create two 1/1 red Warrior creature tokens that are tapped and attacking. Sacrifice them at the beginning of the next end step.":
         ("{2}{W}, {T}: Whenever you attack this turn, create two 1/1 red Warrior creature tokens that are tapped and attacking.", _warriors),

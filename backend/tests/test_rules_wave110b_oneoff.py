@@ -32,7 +32,7 @@ def cards(settings):
     yield from repository(settings)
 
 
-@pytest.mark.parametrize("name", ["Prince of Thralls", "Oath of Lim-Dûl", "Chaos Lord", "Divine Intervention", "Herald of Anafenza", "Guardian of New Benalia", "Aloe Alchemist", "Parapet Thrasher", "Overclocked Electromancer", "Arashin War Beast", "Firemane Angel", "Goblin Plate Mail", "Wall of Dust", "Bane of the Living", "Warbreak Trumpeter", "Kadena's Silencer", "Longhorn Sharpshooter", "Plague Reaver", "Quakebringer", "Suppressor Skyguard", "Shirei, Shizo's Caretaker", "Lich's Mastery", "The Chain Veil", "Campsite Cuisine", "Way of the Mind Sculptor", "Kitsune Ace", "Knights of the Black Rose", "Dalkovan Encampment"])
+@pytest.mark.parametrize("name", ["Prince of Thralls", "Oath of Lim-Dûl", "Chaos Lord", "Divine Intervention", "Herald of Anafenza", "Guardian of New Benalia", "Aloe Alchemist", "Parapet Thrasher", "Overclocked Electromancer", "Arashin War Beast", "Firemane Angel", "Goblin Plate Mail", "Wall of Dust", "Bane of the Living", "Warbreak Trumpeter", "Kadena's Silencer", "Longhorn Sharpshooter", "Plague Reaver", "Quakebringer", "Suppressor Skyguard", "Shirei, Shizo's Caretaker", "Lich's Mastery", "The Chain Veil", "Campsite Cuisine", "Way of the Mind Sculptor", "Kitsune Ace", "Knights of the Black Rose", "Dalkovan Encampment", "Expedited Inheritance"])
 def test_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
@@ -646,4 +646,23 @@ def test_dalkovan_encampment_warriors_attack_and_are_sacrificed_at_end_step(card
 
     until(s, lambda s: s.state.turn.phase == "cleanup" or s.state.turn.number > 1)
     assert not [c for c in s.state.cards.values() if c.name == "Warrior" and c.zone == "p1:battlefield"]
+    check(s)
+
+
+@pytest.mark.parametrize("accept", [True, False])
+def test_expedited_inheritance_gives_the_damaged_creatures_controller_the_cards(cards, accept):
+    """Expedited Inheritance: 603.2 the damaged creature's controller (Bob) may exile that many cards from his library and may play them until the end of his next turn."""
+    s = build(cards, ["Expedited Inheritance", "Lightning Bolt"], ["Grizzly Bears", "Forest", "Forest", "Forest"])
+    put(s, "Expedited Inheritance")
+    bears = put(s, "Grizzly Bears", "p2")
+    mana(s, "p1", R=1)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Lightning Bolt").id, targets=[bears.id])
+    library = len(s.state.zones["p2:library"])
+    seen = []
+    drive(s, lambda d: seen.append(d.player) or [o.id for o in d.options if ("yes" in o.id.lower() or "pay" in o.id.lower() or "yes" in o.label.lower()) == accept][:1])
+    assert seen == ["p2"]
+    gone = library - len(s.state.zones["p2:library"])
+    assert gone == (3 if accept else 0)  # (Lightning Bolt: 3 damage)
+    assert len([c for c in s.state.cards.values() if c.zone == "p2:exile"]) == gone
+    assert len([p for p in s.state.rules.permissions if p.player == "p2"]) == gone
     check(s)
