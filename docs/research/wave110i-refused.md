@@ -21,3 +21,5 @@
 - Curse of Inertia / Become the Pilot / Awesome Presence: attacker-chosen target, conditional unblockable, block tax not modelled.
 - Shifty Doppelganger: delayed sacrifice then "return this card" (the exiled-as-cost source) not modelled.
 - Etched Slith: removing a counter from an opponent (player counter kinds) not modelled.
+- Arsenal Thresher: "reveal any number of other artifact cards" as it enters needs a second amplify-like entry choice (amplify.py is keyword-only); one card.
+- Stardew Valley, Necrotic Plague, Curse of Leeches, Arcee: another player's choice of recipient / opponent-chosen target / attach-on-transform / counted-targets cast trigger; not built.

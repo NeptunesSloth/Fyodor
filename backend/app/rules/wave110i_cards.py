@@ -81,6 +81,13 @@ def _target_hand(d: Def) -> Def:
     return {**d, "effects": [{**e, "cond": {**e["cond"], "as": "target"}} if e.get("do") == "only_if" else e for e in d["effects"]]}
 
 
+def _goad_while_saga(d: Def) -> Def:
+    """The War Games: the tokens each player created are goaded (by the Saga's controller, 701.15a) for as long as the Saga remains on the battlefield
+    (611.2b: a layer-6 effect that ends when it leaves)."""
+    first, *rest = d["effects"]
+    return {**d, "effects": [{**first, "as": "games110i"}, *rest, {"do": "goad_while110i", "who": "ref:games110i"}]}
+
+
 _POWER_LEAK = "At the beginning of the upkeep of enchanted {0}'s controller, that player may pay any amount of mana. This Aura deals 2 damage to that player. Prevent X of that damage, where X is the amount of mana that player paid this way."
 
 # whole ability text -> (the wording the grammar reads, what to change in its definition)
@@ -95,6 +102,8 @@ _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
         ("{1}{B}, {T}: Target opponent discards a card. Then if an opponent has no cards in hand, flip this creature.", _target_hand),
     "At the beginning of each opponent's upkeep, that player loses 1 life for each card fewer than three in their hand.":
         ("At the beginning of each opponent's upkeep, that player loses X life, where X is 3 minus the number of cards in their hand.", lambda d: d),
+    "I \u2014 Each player creates three tapped 1/1 white Warrior creature tokens. The tokens are goaded for as long as this Saga remains on the battlefield.":
+        ("I \u2014 Each player creates three tapped 1/1 white Warrior creature tokens.", _goad_while_saga),
     "Whenever an equipped creature you control other than Rhuk attacks or dies, you may attach all Equipment attached to that creature to Rhuk.":
         ("Whenever an equipped creature you control other than ~ attacks or dies, you may draw a card.", _attach_all),
     "When enchanted creature dies, return that card to its owner's hand. If that card is returned to its owner's hand this way, you may pay {U}{U}{U}. If you do, return this card to its owner's hand.":
@@ -177,6 +186,18 @@ SIDES: dict[str, list[Def]] = {
 }
 
 
+def goad_while(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    from app.rules import effects, keyword_actions, layers
+
+    cards = effects._cards(plan, ctx, e["who"])
+    if cards:
+        layers.add_effect(plan, affected=[plan.oid(c) for c in cards], layer="6", source=ctx.get("source_object"), controller=ctx["controller"],
+                          duration="permanent", imposes=(keyword_actions.GOADED + ctx["controller"],), label="Goaded while the Saga remains")
+        fx = plan.rules.effects[-1]
+        fx.duration, fx.source_card, fx.until_player = "source_on_battlefield", ctx.get("source_card"), ctx["controller"]
+    return True
+
+
 def bind_rest(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     """"Taps the rest": the creatures the acting player controls other than the one they chose."""
     from app.rules import context
@@ -196,7 +217,7 @@ def exile_library(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     return True
 
 
-PRIMITIVES = {"bind_rest110i": bind_rest, "exile_library110i": exile_library, "attach_all110i": attach_all, "lose_rad110i": lose_rad, "bounce_gate110i": bounce_gate}
+PRIMITIVES = {"goad_while110i": goad_while, "bind_rest110i": bind_rest, "exile_library110i": exile_library, "attach_all110i": attach_all, "lose_rad110i": lose_rad, "bounce_gate110i": bounce_gate}
 
 
 def definition(ability: Any, ch: Any) -> Def | None:
