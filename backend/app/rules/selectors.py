@@ -673,6 +673,11 @@ def _single_graveyard(s: Selector, m: re.Match[str]) -> Selector:
     return replace(_in_zone(s, "graveyard", None), extras=(*s.extras, "single_graveyard"))
 
 
+@_suffix(r"(?:that|they) (?:player )?owns? in exile")  # -- exile (wave 110H) -- "target face-up card they own in exile" (Time Reaper): the trigger's player (bind_that_player)
+def _that_players_exile(s: Selector, m: re.Match[str]) -> Selector:
+    return _in_zone(s, "exile", "that_player")
+
+
 @_suffix(r"(?:from|in) exile")
 def _exile(s: Selector, m: re.Match[str]) -> Selector:
     return _in_zone(s, "exile", None)

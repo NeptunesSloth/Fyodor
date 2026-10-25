@@ -2,6 +2,8 @@
 
 * The Crowd Goes Wild: "Support X" on a sorcery is up to X target creatures (701.41a), then the trample line (611.2a).
 * Crowd-Control Warden: the counters go on as it enters and again as it is turned face up, counting the other creatures then (614.1c, 708.11).
+* Specter of Mortality: any number of graveyard creature cards (chosen as it resolves) are exiled; each other creature gets -X/-X (608.2d, 603.12).
+* Time Reaper: only the damaged player's own face-up exiled card (not yours) goes to the bottom of their library; "if you do" gains 3 (608.2c, 406.3).
 * Rain of Gore: a spell or ability gain of its own controller becomes a loss (614.1a, 119.10); another player's gain from it stays.
 """
 from __future__ import annotations
@@ -24,6 +26,14 @@ EXTRA = [
          "As this creature enters or is turned face up, put X +1/+1 counters on it, where X is the number of other creatures you control.\n"
          "Disguise {3}{G/W}{G/W} (You may cast this card face down for {3} as a 2/2 creature with ward {2}. Turn it face up any time for its disguise "
          "cost.)", ("4", "4"), "GW"),
+    real("Specter of Mortality", "{3}{B}{B}", 5, "Creature \u2014 Specter",
+         "Flying\nWhen this creature enters, you may exile one or more creature cards from your graveyard. When you do, each other creature gets "
+         "-X/-X until end of turn, where X is the number of cards exiled this way.", ("3", "3"), "B"),
+    real("Runeclaw Bear", "{1}{G}", 2, "Creature \u2014 Bear", "", ("2", "2"), "G"),
+    real("Elvish Visionary", "{1}{G}", 2, "Creature \u2014 Elf Shaman", "", ("1", "1"), "G"),
+    real("Time Reaper", "{3}{B}{B}", 5, "Creature \u2014 Alien Horror",
+         "Flying, haste\nConsume Anomaly \u2014 Whenever this creature deals combat damage to a player, put target face-up card they own in exile on the "
+         "bottom of their library. If you do, you gain 3 life.", ("4", "4"), "B"),
     real("Hill Giant", "{3}{R}", 4, "Creature — Giant", "", ("3", "3"), "R"),
     real("Grizzly Bears", "{1}{G}", 2, "Creature — Bear", "", ("2", "2"), "G"),
 ]
@@ -124,4 +134,50 @@ def test_crowd_control_warden_turned_face_up(cards):
     act(s, "p1", type="turn_face_up", card_id=w.id)
     answer(s)
     assert not s.state.cards[w.id].face_down and _warden_counters(s, w) == 2
+    check(s)
+
+
+@pytest.mark.parametrize("n", [0, 1, 2])
+def test_specter_of_mortality(cards, n):
+    """X = the number exiled: the 1/1 dies for any n >= 1, the 3/3 shrinks by n, the Specter itself is untouched."""
+    s = build(cards, ["Specter of Mortality", "Hill Giant", "Elvish Visionary", "Grizzly Bears", "Runeclaw Bear"])
+    giant, elf = put(s, "Hill Giant"), put(s, "Elvish Visionary")
+    dead = [to_hand(s, "Grizzly Bears"), to_hand(s, "Runeclaw Bear")]
+    for c in dead:
+        act(s, "p1", type="move", card_ids=[c.id], to={"player": "p1", "zone": "graveyard"})
+    mana(s, B=2, C=3)
+    spec = cast(s, "Specter of Mortality")
+    answer(s, [c.id for c in dead[:n]])  # the trigger resolves: the choice of the cards to exile
+    zones = [s.state.cards[c.id].zone for c in dead]
+    assert zones == ["p1:exile"] * n + ["p1:graveyard"] * (2 - n)
+    assert (s.state.cards[elf.id].zone == "p1:battlefield") == (n == 0)
+    assert _ch(s, giant).pt == (3 - n, 3 - n) and _ch(s, spec).pt == (3, 3)
+    check(s)
+
+
+@pytest.mark.parametrize("exiled", [True, False])
+def test_time_reaper(cards, exiled):
+    """Their exiled card goes to the bottom of their library and you gain 3; your own exiled card is never a target; with none, no life."""
+    from tests.test_rules_conditionals import attack, until
+
+    s = build(cards, ["Time Reaper", "Hill Giant"], ["Grizzly Bears"])
+    reaper, mine = put(s, "Time Reaper"), to_hand(s, "Hill Giant")
+    act(s, "p1", type="move", card_ids=[mine.id], to={"player": "p1", "zone": "exile"})
+    theirs = to_hand(s, "Grizzly Bears", "p2")
+    if exiled:
+        act(s, "p2", type="move", card_ids=[theirs.id], to={"player": "p2", "zone": "exile"})
+    until(s, lambda s: s.state.turn.number == 3 and (d := s.state.rules.decision) is not None and d.kind == "declare_attackers")
+    attack(s, (s.state.cards[reaper.id], "p2"))
+    for _ in range(12):
+        d = s.state.rules.decision
+        if d is not None and d.kind == "declare_blockers":
+            act(s, d.player, type="declare_blockers", blocks=[])
+        elif d is not None or not s.state.zones.get("stack") and s.state.turn.phase != "combat":
+            break
+        else:
+            act(s, s.state.rules.priority, type="pass_priority")
+    answer(s)
+    assert life(s, "p2") == 36
+    assert s.state.cards[mine.id].zone == "p1:exile"
+    assert (s.state.cards[theirs.id].zone, life(s, "p1")) == (("p2:library", 43) if exiled else ("p2:hand", 40))
     check(s)

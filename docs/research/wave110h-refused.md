@@ -17,3 +17,4 @@
 - Rampaging Raptor: "battle that player protects" needs a protector-aware that_player selector (controller is not protector, 310.9).
 - Freyalise's Winds: wind-counter untap replacement vs stun on one permanent gives different outcomes (616.1 choice), no untap-order prompt.
 - Ertai's Meddling: delay counters + exile-until-upkeep + cast copy (suspend-like) foundation missing.
+- Spinning Darkness (top three black cards of graveyard as alt cost: needs graveyard_order machinery for a multi-card top cost)

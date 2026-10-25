@@ -174,7 +174,36 @@ def _support_x() -> Any:
     return scripts.parse_effects("Put a +1/+1 counter on each of up to X target creatures.")
 
 
+def _specter_mortality() -> Any:
+    """Specter of Mortality: chosen as it resolves (not targeted, 608.2d): any number of your graveyard creature cards are exiled, then each other creature
+    gets -X/-X for the number exiled. ponytail: the "When you do" reflexive (603.12) resolves inline; it has no targets, so only the stack timing is lost."""
+    from app.rules import scripts
+
+    native = scripts.parse_effects("Exile up to three target creature cards from your graveyard. Each other creature gets -X/-X until end of turn, "
+                                   "where X is the number of cards exiled this way.")
+    if native is None or [e.get("do") for e in native[0]] != ["exile", "pump"]:
+        return None
+    (_, pump), (spec,) = native[0], native[1]
+    return [{"do": "player_chooses", "who": "you", "sel": spec["what"], "n": 99, "label": "creature card", "upto": True, "optional": True, "as": "gco"},
+            {"do": "exile", "who": "ref:gco", "as": "e0"}, pump], None, False
+
+
+def _time_reaper() -> Any:
+    """Time Reaper: the damaged player's face-up exiled card goes to the bottom of its owner's library; "if you do" (the card reached the library), gain 3."""
+    from app.rules import scripts
+
+    native = scripts.parse_effects("Put target face-up card that player owns in exile on the bottom of its owner's library.")
+    if native is None or [e.get("do") for e in native[0]] != ["to_library"]:
+        return None
+    effects, target, flag = native
+    return [{**effects[0], "do": "bottom_did110h", "did": "pdid110h"}, {"do": "only_if", "cond": {"succeeded": "pdid110h"}, "skip": 1},
+            {"do": "gain_life", "who": "you", "n": 3}], target, flag
+
+
 BUILDERS = {
+    "put target face-up card they own in exile on the bottom of their library. If you do, you gain 3 life.": _time_reaper,
+    "you may exile one or more creature cards from your graveyard. When you do, each other creature gets -X/-X until end of turn, where X is the "
+    "number of cards exiled this way.": _specter_mortality,
     "Support X.": _support_x,
     "Choose up to X creatures and/or planeswalkers you control, where X is the number of times this spell was kicked. Those permanents phase out.":
         _firestorm,
@@ -263,5 +292,15 @@ def resume_scapegoat(plan: Any, d: Any, chosen: list[str]) -> None:
     effects.continue_effects(plan, ctx)
 
 
-PRIMITIVES = {"episode110h": episode, "scapegoat110h": scapegoat}
+def bottom_did(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
+    """to_library that records "if you do": the target reached its owner's library (608.2c)."""
+    from app.rules import context, effects
+
+    cards = effects._cards(plan, ctx, e["who"])
+    done = effects.PRIMITIVES["to_library"](plan, ctx, {**e, "do": "to_library"})
+    context.bind_payment(ctx, e["did"], any(plan.state.cards[c].zone.endswith(":library") for c in cards))
+    return done
+
+
+PRIMITIVES = {"bottom_did110h": bottom_did, "episode110h": episode, "scapegoat110h": scapegoat}
 RESUME = {"episode110h": resume_episode, "scapegoat110h": resume_scapegoat}
