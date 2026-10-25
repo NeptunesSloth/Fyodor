@@ -29,6 +29,9 @@ _AS: dict[str, str] = {
     "or equal to the number of rust counters on it. Artifacts destroyed this way can't be regenerated.":
         "At the beginning of your upkeep, put a rust counter on each artifact target opponent controls. Then destroy each artifact with mana value less "
     "than or equal to the number of rust counters on it. They can't be regenerated.",
+    # Dermoplasm: a card put onto the battlefield from the hand is face up anyway (708.2: only a face-down instruction makes it face down)
+    "When this creature is turned face up, you may put a creature card with a morph ability from your hand onto the battlefield face up. If you do, return this creature to its owner's hand.":
+        "When this creature is turned face up, you may put a creature card with a morph ability from your hand onto the battlefield. If you do, return this creature to its owner's hand.",
 }
 
 
