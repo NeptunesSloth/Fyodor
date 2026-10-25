@@ -12,6 +12,9 @@ _AS: dict[str, str] = {
     # Jeska, Thrice Reborn: a loyalty counter "for each time" = a number of counters equal to the number of times (122.6, 903.8)
     "~ enters with a loyalty counter on it for each time you've cast a commander from the command zone this game.":
         "~ enters with a number of loyalty counters on it equal to the number of times you've cast a commander from the command zone this game.",
+    # Heliod's Punishment: "It" is the enchanted creature, so one sentence with the same three parts (613.1f, 508.1c, 509.1b)
+    'Enchanted creature can\'t attack or block. It loses all abilities and has "{T}: Remove a task counter from ‹granter›. Then if it has no task counters on it, destroy ‹granter›."':
+        'Enchanted creature can\'t attack or block, loses all abilities, and has "{T}: Remove a task counter from ‹granter›. Then if it has no task counters on it, destroy ‹granter›."',
 }
 
 

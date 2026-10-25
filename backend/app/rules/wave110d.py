@@ -4,10 +4,10 @@ from __future__ import annotations
 
 from typing import Any
 
-from app.rules import wave110d_aura, wave110d_enter, wave110d_rules
+from app.rules import wave110d_aura, wave110d_enter, wave110d_granter, wave110d_rules
 
 TEMPLATES: list[Any] = [*wave110d_rules.TEMPLATES]
-PRIMITIVES: dict[str, Any] = {**wave110d_enter.PRIMITIVES, **wave110d_aura.PRIMITIVES}
+PRIMITIVES: dict[str, Any] = {**wave110d_enter.PRIMITIVES, **wave110d_aura.PRIMITIVES, **wave110d_granter.PRIMITIVES}
 RESUME: dict[str, Any] = {}
 
 

@@ -265,8 +265,12 @@ def rewrite(body: str) -> str:
     body = re.sub(r"^Choose (target [^.,]+)\. (At this turn's next end of combat, [^.]*?) it( this turn\.)$", r"\2 \1\3", body)
     # "create a white Aura enchantment token named Contract attached to target creature an opponent controls. The token has enchant creature and "Whenever enchanted creature attacks, …"" (Scriv,
     # the Obligator): the token roles.NAMED knows, with exactly those abilities
-    from app.rules import roles
+    from app.rules import (
+        roles,
+        wave110d_named,  # -- named Aura tokens (wave 110D) --
+    )
 
+    body = wave110d_named.rewrite(body)
     contract = roles.NAMED["Contract"][1]
     return body.replace('create a white Aura enchantment token named Contract attached to target creature an opponent controls. The token has enchant creature and "' + contract + '"',
                         "create a Contract Aura token attached to target creature an opponent controls.")
