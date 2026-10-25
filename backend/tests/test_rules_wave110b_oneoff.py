@@ -18,7 +18,7 @@ def cards(settings):
     yield from repository(settings)
 
 
-@pytest.mark.parametrize("name", ["Prince of Thralls", "Oath of Lim-Dûl", "Chaos Lord", "Divine Intervention", "Herald of Anafenza", "Guardian of New Benalia", "Aloe Alchemist", "Longhorn Sharpshooter"])
+@pytest.mark.parametrize("name", ["Prince of Thralls", "Oath of Lim-Dûl", "Chaos Lord", "Divine Intervention", "Herald of Anafenza", "Guardian of New Benalia", "Aloe Alchemist", "Parapet Thrasher", "Bane of the Living", "Warbreak Trumpeter", "Kadena's Silencer", "Longhorn Sharpshooter"])
 def test_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
@@ -153,4 +153,103 @@ def test_aloe_alchemist_pumps_a_creature_when_it_becomes_plotted(cards):
     _plot(s, "Aloe Alchemist", G=1, C=1)
     drive(s)
     assert pt(s, "Grizzly Bears") == (5, 4)
+    check(s)
+
+
+def test_faux_herald_non_outlast_ability_with_the_same_text_is_not_an_outlast_activation(cards):
+    """702.107a: only a keyword outlast ability (printed "Outlast {2}{W}") is "this creature's outlast ability"; the same words printed in full are not."""
+    s = build(cards, ["Faux Herald"], [])
+    faux = put(s, "Faux Herald")
+    s.state.rules.controlled_since[faux.id].turn = 0
+    mana(s, "p1", W=1, C=2)
+    act(s, "p1", type="activate_ability", card_id=faux.id, ability=0)
+    drive(s)
+    assert s.state.cards[faux.id].counters.get("+1/+1") == 1
+    assert not [c for c in s.state.cards.values() if c.name == "Warrior"]
+    check(s)
+
+
+def test_parapet_thrasher_dragon_damage_modes(cards):
+    """603.2c: "Whenever one or more Dragons you control deal combat damage to an opponent": "that opponent" is the player dealt damage."""
+    from tests.wave110b_kit import attack
+
+    s = build(cards, ["Parapet Thrasher"], ["Sol Ring"])
+    thrasher = put(s, "Parapet Thrasher")
+    ring = put(s, "Sol Ring", "p2")
+    attack(s, thrasher)
+    for _ in range(40):
+        d = s.state.rules.decision
+        if d is not None and d.kind != "declare_blockers":
+            break
+        if d is not None:
+            act(s, d.player, type="declare_blockers", blocks=[])
+        else:
+            act(s, s.state.rules.priority, type="pass_priority")
+    assert d is not None and d.kind != "declare_blockers"
+    act(s, d.player, type="choose", decision_id=d.id, option_ids=["0:0"])
+    drive(s)
+    assert s.state.cards[ring.id].zone == "p2:graveyard"
+    check(s)
+
+
+def _face_down(s, name, x_cost_mana):
+    """Cast ``name`` face down (morph, {3}) and return it."""
+    card = to_hand(s, name)
+    mana(s, "p1", **x_cost_mana)
+    act(s, "p1", type="cast_spell", card_id=card.id, face_down=True)
+    drive(s)
+    assert s.state.cards[card.id].face_down
+    return card
+
+
+@pytest.mark.parametrize("x", [0, 2])
+def test_bane_of_the_living_shrinks_all_creatures_by_the_x_paid(cards, x):
+    """107.3a, 702.37e: "Morph {X}{B}{B}": X is announced as it is turned face up; "-X/-X" in the turned-face-up trigger reads it."""
+    s = build(cards, ["Bane of the Living", "Grizzly Bears"], [])
+    bane = _face_down(s, "Bane of the Living", {"C": 3})
+    bears = put(s, "Grizzly Bears")
+    mana(s, "p1", B=2, C=x)
+    act(s, "p1", type="turn_face_up", card_id=bane.id, x_value=x)
+    drive(s)
+    assert not s.state.cards[bane.id].face_down
+    assert (s.state.cards[bears.id].zone == "p1:battlefield") == (x < 2)
+    check(s)
+
+
+@pytest.mark.parametrize("x", [0, 3])
+def test_warbreak_trumpeter_makes_x_goblins(cards, x):
+    """107.3a: "Morph {X}{X}{R}" pays X twice; "create X 1/1 red Goblin creature tokens" reads the X announced."""
+    s = build(cards, ["Warbreak Trumpeter"], [])
+    trumpeter = _face_down(s, "Warbreak Trumpeter", {"C": 3})
+    mana(s, "p1", R=1, C=2 * x)
+    act(s, "p1", type="turn_face_up", card_id=trumpeter.id, x_value=x)
+    drive(s)
+    assert len([c for c in s.state.cards.values() if c.name == "Goblin" and c.zone == "p1:battlefield"]) == x
+    check(s)
+
+
+def test_turning_up_an_x_morph_needs_x(cards):
+    """107.3a: the X of a morph cost is announced; leaving it out is refused."""
+    from app.game.errors import ActionError
+
+    s = build(cards, ["Warbreak Trumpeter"], [])
+    trumpeter = _face_down(s, "Warbreak Trumpeter", {"C": 3})
+    mana(s, "p1", R=1)
+    with pytest.raises(ActionError):
+        act(s, "p1", type="turn_face_up", card_id=trumpeter.id)
+
+
+def test_kadenas_silencer_counters_only_opponents_abilities(cards):
+    """701.6a: "counter all abilities your opponents control" leaves the abilities its own controller controls on the stack."""
+    s = build(cards, ["Kadena's Silencer", "Herald of Anafenza"], [])
+    silencer = _face_down(s, "Kadena's Silencer", {"C": 3})
+    herald = put(s, "Herald of Anafenza")
+    s.state.rules.controlled_since[herald.id].turn = 0
+    mana(s, "p1", W=1, C=2)
+    act(s, "p1", type="activate_ability", card_id=herald.id, ability=0)
+    mana(s, "p1", U=1, C=1)
+    act(s, "p1", type="turn_face_up", card_id=silencer.id)
+    drive(s)
+    assert not s.state.cards[silencer.id].face_down
+    assert s.state.cards[herald.id].counters.get("+1/+1") == 1  # its own ability still resolved
     check(s)

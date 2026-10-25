@@ -2455,7 +2455,7 @@ def targeted(plan: Plan, stack_id: str | None, controller: str, targets: list[An
 
 
 def activated(plan: Plan, card: CardInstance, oid: str, *, loyalty: bool = False, ability_id: str | None = None, text: str = "", cost_has_x: bool | None = None, cost_has_tap: bool | None = None,
-              payment: PaymentRecord | None = None, mana_ability: bool = False, actor: str | None = None) -> None:
+              payment: PaymentRecord | None = None, mana_ability: bool = False, actor: str | None = None, outlast: bool = False) -> None:
     """-- activation (wave 11F) -- 602.2: an activated ability (not a mana ability) was put on the stack by ``plan.actor``:
     "Whenever an opponent activates an ability of a creature …" (603.2). The source is the object that activated it,
     as it last existed if paying the cost moved it (603.10a, 608.2h)."""
@@ -2476,7 +2476,7 @@ def activated(plan: Plan, card: CardInstance, oid: str, *, loyalty: bool = False
     fact: Fact = ("activate", obj, och, actor,
                           {"oid": oid, "snap": snap, "actor": actor, "mana_ability": mana_ability, "amount": 1, "loyalty": loyalty, "activation_cost": activation_cost,
                            "ability_kind": "ninjutsu" if ninjutsu.is_ninjutsu(text) else controller_tutors.activation_kind(och, text),
-                           "outlast110b": re.fullmatch(r"(?:\{[^}]+\})+, \{T\}: Put a \+1/\+1 counter on this creature\. Activate only as a sorcery\.", text) is not None,
+                           "outlast110b": outlast and re.fullmatch(r"(?:\{[^}]+\})+, \{T\}: Put a \+1/\+1 counter on this creature\. Activate only as a sorcery\.", text) is not None,  # (702.107a: the keyword's own ability: AbilityText.special, or a granted one)
                            "word": (w[1].lower() if (w := re.match(r"(Exhaust|Boast|Power-up) — ", text)) else None),  # (wave 33C: its ability word)
                            "source_ref": ObjectRef(card=ability.id, object_id=plan.oid(ability), zone=ability.zone) if ability else None})
     _fire_generic(plan, [fact], -1, {})
@@ -2903,6 +2903,11 @@ def x_source(d: dict[str, Any], ch: Characteristics) -> str | None:
     if d.get("kind") != "triggered":
         return None
     cond = d.get("cond") or {}
+    if d.get("trigger") == "turned_face_up_self":  # -- face-down X (wave 110B) -- 107.3a: "Morph {X}{B}{B}" / "Disguise {X}{3}{W}": the X paid to turn it face up
+        from app.rules import casting
+
+        morph, disguise = casting.morph_cost(ch), casting.disguise_cost(ch)
+        return "faceup" if "{X}" in (morph[1] if morph else "") + (disguise or "") else None
     if d.get("trigger") == "cast_self":
         return "cast" if "{X}" in (ch.mana_cost or "") else None
     if cond.get("event") == "cast" and isinstance(cond.get("spell"), str):
@@ -2941,6 +2946,8 @@ def event_x(plan: Plan, t: PendingTrigger) -> int | None:
     if t.ability.get("x_event") and t.event is not None and t.event.amount is not None:  # -- cast-permission riders (wave 38C) -- the X a reflexive ability's payment named
         return int(t.event.amount)
     cond = t.ability.get("cond") or {}
+    if t.ability.get("trigger") == "turned_face_up_self":  # -- face-down X (wave 110B) -- the X paid as it was turned face up
+        return t.event.x if t.event is not None and t.event.kind == "turned_face_up" else None
     if t.ability.get("trigger") != "cast_self" and cond.get("event") not in ("cast", "cycle"):
         return None  # (cheap: only these triggers read their event's X; the characteristics are derived below)
     kind = x_source(t.ability, plan.ch(plan.state.cards[t.source_card])) if t.source_card in plan.state.cards else None

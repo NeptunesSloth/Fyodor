@@ -31,6 +31,7 @@ from app.game.rules_state import (
     SpliceText71,
     StackEntry,
     TargetRef,
+    TriggerEvent,
     TurnCount,
     cancelable,
     emit,
@@ -2633,7 +2634,7 @@ def face_up_ways(card: CardInstance, printed: Characteristics, *, state: GameSta
         ways["disguise"] = (disguise_costs.reduced(state, card, printed, info) if state is not None and info is not None else disguise, "disguise")
     if card.face_down_kind in ("manifest", "cloak") and printed.is_creature and printed.mana_cost:
         ways["mana_cost"] = (printed.mana_cost, "mana_cost")
-    return {w: v for w, v in ways.items() if "{X}" not in v[0]}
+    return ways  # (-- face-down X (wave 110B) -- a cost with X is paid with the X announced: turn_face_up)
 
 
 def pay_nonmana_cost(plan: Plan, a: A.TurnFaceUp, card: CardInstance, printed: Characteristics, text: str) -> bool:
@@ -2668,7 +2669,7 @@ def pay_nonmana_cost(plan: Plan, a: A.TurnFaceUp, card: CardInstance, printed: C
     return True
 
 
-def turned_up(plan: Plan, card: CardInstance) -> None:
+def turned_up(plan: Plan, card: CardInstance, x: int | None = None) -> None:
     """-- hidden exile (wave 18A) -- the permanent was just turned face up (by the special action or by an effect): its "When ~ is
     turned face up" and the table's "Whenever a permanent you control is turned face up" abilities trigger (702.37e: not
     "enters" abilities, 708.8)."""
@@ -2684,7 +2685,8 @@ def turned_up(plan: Plan, card: CardInstance) -> None:
     if not plan.manual(card):  # "When ~ is turned face up, …"
         for i, d in triggers.abilities(plan, face_up, "turned_face_up_self"):
             triggers._add(plan, controller=card.controller, source_card=card.id, source_object=plan.oid(card),
-                          name=face_up.name, index=i, definition=d)
+                          name=face_up.name, index=i, definition=d,
+                          event=TriggerEvent(kind="turned_face_up", objects=[ObjectRef(card=card.id, object_id=plan.oid(card), zone=card.zone)], x=x))  # (wave 110B: the X paid)
 
 
 def turn_face_up(plan: Plan, a: A.TurnFaceUp) -> None:
@@ -2720,15 +2722,21 @@ def turn_face_up(plan: Plan, a: A.TurnFaceUp) -> None:
         from app.rules import special_payment_tails
 
         cost = M.parse_cost(cost_text)
+        x110b = None
+        if cost.x:  # -- face-down X (wave 110B) -- 107.3a, 702.37e: "Morph {X}{B}{B}": X is announced as the cost is paid; the face-up trigger reads it (triggers.x_source)
+            if a.x_value is None:
+                raise ActionError("Choose a value for X")
+            x110b, cost = a.x_value, cost.with_x(a.x_value)
         payment_method = ('morph' if method == 'morph' else f'{card.face_down_kind}_mana' if method == 'mana_cost' else method)
-        purpose = Purpose(special="turn_up",payment_method=payment_method)
+        purpose = Purpose(special="turn_up",payment_method=payment_method, selected_cost_has_x=x110b is not None)
         own_pool = payment_mode(plan, plan.actor) == "self"
         if own_pool and not cost.is_free and not pool_covers(plan.state, plan.actor, cost, purpose, plan.info):
             raise ActionError(f"Tap your mana first: {cost.text()} isn't in your mana pool")
         if not own_pool and not can_pay(plan.state, plan.actor, cost, plan.info, purpose=purpose):
             raise ActionError(f"Not enough mana to pay {cost.text()}")
         special_payment_tails.pay(plan, "face_up", card, printed, cost, f"paid {cost.text()} to turn {printed.name} face up",
-                                  sources=[] if own_pool else a.sources, purpose=purpose, faceup_kind=kind)
+                                  sources=[] if own_pool else a.sources, purpose=purpose, faceup_kind=kind,
+                                  number=x110b or 0, original_cost=cost_text if x110b is not None else None)
         return
     from app.rules import chosen_forms95
 
@@ -6331,7 +6339,7 @@ def _post_activation(plan: Plan, data: _PostActivation, paid: M.Payment | None) 
     if ability_id:  # -- activation (wave 11F) -- 602.2: "Whenever a player activates an ability …"
         from app.rules.triggers import activated
 
-        activated(plan, card, oid, loyalty=ability.kind == "loyalty", ability_id=ability_id, text=ability.text)
+        activated(plan, card, oid, loyalty=ability.kind == "loyalty", ability_id=ability_id, text=ability.text, outlast=ability.special == "outlast" or ability.index >= 100)
     if ability.kind == "loyalty":
         if r.loyalty_used.get(oid) == plan.state.turn.number:
             r.loyalty_second[oid] = plan.state.turn.number  # -- static_other sweep (wave 19A) -- the second use (Oath of Teferi)

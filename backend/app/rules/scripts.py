@@ -1924,6 +1924,11 @@ def _counter(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     return [{"do": "counter", "who": "target"}], SELECTORS[m["sel"]]
 
 
+@effect(r"counter all abilities your opponents control")  # -- trigger other (wave 110B) -- Kadena's Silencer, 701.6a: the abilities on the stack, not the permanents
+def _counter_opponent_abilities(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    return [{"do": "counter", "who": "opponent_abilities110b"}], None
+
+
 @effect(r"counter each spell (?:you don't control|your opponents control)")
 def _counter_each(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     # -- cast keywords (wave 43D) -- 702.96a: "Counter target spell you don't control" read with "each" (Counterflux, overloaded): every spell on the stack
@@ -7814,8 +7819,12 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                                   lambda m: f"{m[1] or ''}draw {'a' if m[2] == 'an' else m[2]} {m[3]}", body)  # cards. If you do, …")
                 # -- other side (wave 6D) -- "… blocks a creature, destroy that creature. You gain life equal to that
                 # creature's toughness" / "… deals damage to a creature, …": the event's object (app/rules/other_side.py)
+                from app.rules import defending as _defending110
                 from app.rules import other_side
 
+                if cond is not None and (cond.get("event") == "deal_combat_damage_player" and cond.get("combat_recipient") == "opponent"
+                                         or _defending110.per_player_attack(cond)):  # -- trigger other (wave 110B) -- "…to an opponent, … that opponent controls": the player dealt damage / attacked
+                    body = re.sub(r"\bthat opponent\b", "that player", body)
                 if cond is not None and cond.get("event") == "deal_damage" and cond.get("to") == "planeswalker":
                     body = re.sub(r"\bthat planeswalker\b", "that permanent", body)  # -- trigger other (wave 44B) -- Zagras: the planeswalker dealt damage (other_side)
                 if cond is not None and other_side.wanted(cond) and cond.get("subject") == "host" and "that creature" not in body:
