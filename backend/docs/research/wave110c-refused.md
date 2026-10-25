@@ -3,3 +3,9 @@
 - Library of Leng: optional replacement on effect-caused discard only (not costs, not cleanup); no discard actor/replacement hook for it.
 - Fasting: optional skip of the draw step needs a mid-step decision; skips.take is synchronous.
 - Darigaaz Reincarnated: three egg counters via exile replacement (counter delta is fixed at 1) plus an upkeep trigger from exile; two foundations.
+- Heirloom Epic: convoke-style tapping for an activated ability's mana cost; payment machinery is spell-only.
+- Library of Leng: optional "may put on top instead" discard replacement limited to effect-caused discards; needs discard-cause plus optional zone candidate.
+- Pandemonium: the entering creature's controller (not the trigger controller) picks the target; no machinery for a foreign target chooser.
+- Mariposa Military Base: optional "enter tapped" replacement followed by "if you do"; single card, no optional enters-tapped foundation.
+- Omnath, Locus of All: unspent-mana-color replacement plus a reveal/colour-split mana trigger; both deep.
+- Soul Immolation: "blight X" additional cost with a variable cap; no variable blight cost.
