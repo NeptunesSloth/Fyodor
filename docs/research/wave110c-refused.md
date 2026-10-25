@@ -13,3 +13,7 @@
 - The Golden Throne: replacement of losing the game (all loss causes, SBA 704.5) not modelled.
 - Mariposa Military Base: optional "may have it enter tapped, if you do rad counters" entry choice needs a new entry-choice decision; only pay-life shock lands exist.
 - Soul Immolation: blight X additional cost (X bound by greatest toughness, counters on one creature chosen at payment) not modelled.
+- Imodane, the Pyrohammer: "deals damage to that creature" must be the one targeted creature; needs a damaged-object-is-target condition (foundation).
+- Chancellor of the Annex: per-opponent first-spell delayed cast trigger from the opening hand (opening_hand.py "not read").
+- Incinerator of the Guilty: collect evidence X with variable X (choose X, exile total MV) has no support.
+- Mariposa Military Base: optional enter-tapped choice with rad-counter rider; shock-land path is life-only (replacements.py ~177).

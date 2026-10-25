@@ -287,6 +287,14 @@ _PARTY = ("Whenever one or more of your opponents are attacked, up to one target
           "where X is the number of cards in your hand.")
 
 
+_ADVENTURER = {
+    "If a creature an opponent controls would die, instead exile it and put a hit counter on it.":
+        "If a creature an opponent controls would die, exile that card with a hit counter on it instead.",
+    "Whenever this creature attacks, if you've completed a dungeon, defending player loses 1 life for each card they own in exile with a hit counter on it.":
+        "Whenever this creature attacks, if you've completed a dungeon, defending player loses 1 life for each card in exile with a hit counter on it that defending player owns.",
+}
+
+
 def definition(ability: AbilityText, ch: Any) -> dict[str, Any] | None:
     if ability.text.replace("Ugin's Nexus", "~") == _NEXUS:  # 614.6, 500.7: the exile replaces the move; the extra turn is part of the same replacement (rider)
         from app.rules import scripts
@@ -314,6 +322,12 @@ def definition(ability: AbilityText, ch: Any) -> dict[str, Any] | None:
         from app.rules import scripts
 
         return scripts.define(replace(ability, text=_PARTY.replace("one or more of your opponents are attacked", "a player attacks one or more of your opponents")), ch)
+    if ability.text in _ADVENTURER:  # Ravenloft Adventurer: the same results in wordings the grammar reads (614.6 exile with a counter; 508.5 defending owner)
+        from dataclasses import replace
+
+        from app.rules import scripts
+
+        return scripts.define(replace(ability, text=_ADVENTURER[ability.text]), ch)
     if ability.text == _OOZE:  # Printlifter Ooze: the token isn't on the battlefield when the counters are counted (614.1c), so the grammar's after-count loses the token
         from dataclasses import replace
 

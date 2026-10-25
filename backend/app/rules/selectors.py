@@ -217,6 +217,12 @@ def _defending_controls(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, controller="defending")
 
 
+# -- defending owner (wave 110C) -- "card in exile … that defending player owns" (Ravenloft Adventurer)
+@_suffix(r"(?:that )?defending player owns")
+def _defending_owns(s: Selector, m: re.Match[str]) -> Selector:
+    return replace(s, owner="defending")
+
+
 @_suffix(r"(?:that )?enchanted player controls")
 def _enchanted_controls(s: Selector, m: re.Match[str]) -> Selector:
     # -- attached events (wave 16F) -- the player the source (a Curse) enchants, 702.5d
@@ -2311,6 +2317,8 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
         if src is None or src.attached_player is None or card.controller != src.attached_player:
             return False
     if sel.owner == "you" and card.owner != you:
+        return False
+    if sel.owner == "defending" and card.owner not in defending_players(plan, source, attacker):  # -- defending owner (wave 110C) --
         return False
     if sel.owner == "opponent" and card.owner == you:
         return False
