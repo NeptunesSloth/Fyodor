@@ -4,6 +4,8 @@
   creature an opponent controls with power less than or equal to the amassed Army's power. Untap that creature. It gains haste until end of turn."
 * 118.12, 603.2: "Whenever a player puts a Forest onto the battlefield, this enchantment deals 3 damage to that player unless they put a -1/-1 counter on
   a creature they control." (Tourach's Chant; Thelon's Chant with Swamp) — the land's controller pays or is dealt 3.
+* 118.12, 603.2: "At the beginning of the upkeep of enchanted creature's controller, that player may pay {3}. If they don't, this Aura deals 2 damage to that
+  player and you tap that creature." (Mind Whip) — paying ends it; not paying (or declining) is both consequences.
 """
 
 from __future__ import annotations
@@ -12,7 +14,7 @@ import pytest
 
 from tests.game_helpers import act
 from tests.wave9c_kit import build, life, to_hand
-from tests.wave110d_kit import card_db, check, full, mana, now, put, settle  # noqa: F401
+from tests.wave110d_kit import card_db, cast_on, check, full, mana, next_turn, now, put, put_new, settle  # noqa: F401
 
 
 def test_grishnakh_is_full():
@@ -84,4 +86,41 @@ def test_chant_ignores_other_land(cards):
     _land(s, "Swamp")
     settle(s)
     assert life(s, "p1") == 40
+    check(s)
+
+
+def test_mind_whip_is_full():
+    assert full("Mind Whip")
+
+
+def _whip(cards, lands):
+    s = build(cards, ["Mind Whip"], ["Grizzly Bears", *["Forest"] * 3])
+    bears = put(s, "Grizzly Bears", "p2")
+    for _ in range(lands):
+        put_new(s, "Forest", "p2")
+    cast_on(s, "Mind Whip", bears)
+    next_turn(s, until=lambda s: s.state.turn.number == 2 and s.state.rules.decision is not None and s.state.rules.decision.player == "p2")
+    return s, bears
+
+
+def test_mind_whip_unpaid_damages_and_taps(cards):
+    """118.12: the enchanted creature's controller declines {3} (only two lands): 2 damage to them and the creature is tapped."""
+    s = build(cards, ["Mind Whip"], ["Grizzly Bears", "Forest", "Forest"])
+    bears = put(s, "Grizzly Bears", "p2")
+    for _ in range(2):
+        put_new(s, "Forest", "p2")
+    cast_on(s, "Mind Whip", bears)
+    next_turn(s, until=lambda s: s.state.turn.number == 3)
+    assert life(s, "p2") == 38 and now(s, bears).tapped
+    check(s)
+
+
+@pytest.mark.parametrize("pay", [True, False])
+def test_mind_whip_choice(cards, pay):
+    """118.12: paying {3} ends it (no damage, no tap); declining is the same as not paying (2 damage and the tap)."""
+    s, bears = _whip(cards, 3)
+    d = s.state.rules.decision
+    act(s, "p2", type="choose", decision_id=d.id, option_ids=["pay" if pay else "decline"])
+    settle(s)
+    assert life(s, "p2") == (40 if pay else 38) and now(s, bears).tapped == (not pay)
     check(s)

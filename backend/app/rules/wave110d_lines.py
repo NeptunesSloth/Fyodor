@@ -42,6 +42,9 @@ _AS: dict[str, str] = {
         "Whenever a Forest enters, ~ deals 3 damage to its controller unless they put a -1/-1 counter on a creature they control.",
     "Whenever a player puts a Swamp onto the battlefield, ~ deals 3 damage to that player unless the player puts a -1/-1 counter on a creature they control.":
         "Whenever a Swamp enters, ~ deals 3 damage to its controller unless they put a -1/-1 counter on a creature they control.",
+    # Mind Whip: the same unless-payment (118.12); the tap is the second consequence of not paying (patched in below)
+    "At the beginning of the upkeep of enchanted creature's controller, that player may pay {3}. If they don't, ~ deals 2 damage to that player and you tap that creature.":
+        "At the beginning of the upkeep of enchanted creature's controller, ~ deals 2 damage to that player unless they pay {3}.",
 }
 
 
@@ -54,6 +57,9 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
     if d is not None and text.startswith("Whenever you untap one or more"):  # (own_untap: only the untap step of its controller, triggers.py)
         d = json.loads(json.dumps(d, default=str).replace('{"event_amount": 1}', '{"event_count": 1}'))
         d["cond"]["own_untap"] = True
+    if d is not None and text.endswith("and you tap that creature."):  # (Mind Whip: both consequences follow a failed payment)
+        d["effects"][1]["skip"] = 2
+        d["effects"].append({"do": "tap", "who": "host"})
     if d is not None and text.endswith("it enters tapped and attacking."):
         d["effects"][0]["tap_atk110d"] = "Enchantment"
     return d
