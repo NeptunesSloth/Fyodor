@@ -983,5 +983,38 @@
    "U"
   ],
   "keywords": []
+ },
+ {
+  "name": "Discovery // Dispersal",
+  "layout": "split",
+  "mana_cost": "{1}{U/B} // {3}{U}{B}",
+  "cmc": 7.0,
+  "type_line": "Sorcery // Instant",
+  "oracle_text": "Surveil 2, then draw a card. (To surveil 2, look at the top two cards of your library, then put any number of them into your graveyard and the rest on top of your library in any order.)\n//\nEach opponent returns a nonland permanent they control with the greatest mana value among permanents they control to its owner's hand, then discards a card.",
+  "colors": [
+   "B",
+   "U"
+  ],
+  "color_identity": [
+   "B",
+   "U"
+  ],
+  "keywords": [
+   "Surveil"
+  ],
+  "card_faces": [
+   {
+    "name": "Discovery",
+    "mana_cost": "{1}{U/B}",
+    "type_line": "Sorcery",
+    "oracle_text": "Surveil 2, then draw a card. (To surveil 2, look at the top two cards of your library, then put any number of them into your graveyard and the rest on top of your library in any order.)"
+   },
+   {
+    "name": "Dispersal",
+    "mana_cost": "{3}{U}{B}",
+    "type_line": "Instant",
+    "oracle_text": "Each opponent returns a nonland permanent they control with the greatest mana value among permanents they control to its owner's hand, then discards a card."
+   }
+  ]
  }
 ]

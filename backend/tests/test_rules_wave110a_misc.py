@@ -3,6 +3,8 @@
 * Cut Short - "Destroy target planeswalker that was activated this turn or tapped creature." (606: a loyalty ability of it was activated).
 * Bioshift - "Move any number of +1/+1 counters from target creature onto another target creature with the same controller." (115.7e-style
   relation: the second target is a creature its controller controls, bound from the first; 122.6 counters moved).
+* Discovery // Dispersal (Dispersal) - "Each opponent returns a nonland permanent they control with the greatest mana value among permanents they
+  control to its owner's hand, then discards a card." (701.21a-like choice by each opponent; 400.3 owner's hand; lands have mana value 0).
 """
 
 # ruff: noqa: F403, F405
@@ -13,7 +15,7 @@ import pytest
 from app.game.errors import ActionError
 from tests.wave110a_kit import *
 
-CUT, SHIFT = "Cut Short", "Bioshift"
+CUT, SHIFT, DISP = "Cut Short", "Bioshift", "Discovery // Dispersal"
 
 
 @pytest.fixture()
@@ -21,7 +23,7 @@ def cards(settings):
     yield from open_repo(settings)
 
 
-test_full = full_test([CUT, SHIFT])
+test_full = full_test([CUT, SHIFT, DISP])
 
 
 @pytest.mark.parametrize("used", [True, False])
@@ -73,3 +75,16 @@ def test_bioshift_same_controller_only(cards, theirs):
     answer(s)
     check(s)
     assert counters(s, a) + counters(s, b) == 3
+
+
+def test_dispersal_returns_their_most_expensive_nonland_permanent_then_discards(cards):
+    s = build(cards, [DISP], theirs=["Grizzly Bears", "Hill Giant", "Forest", "Mountain"])
+    bears, giant, forest = (put(s, n, "p2") for n in ("Grizzly Bears", "Hill Giant", "Forest"))
+    hand = len(s.state.zones["p2:hand"])
+    mana(s, U=1, B=1, C=3)
+    cast(s, DISP, pay=False, face=1)
+    answer(s)
+    assert zone_of(s, "Hill Giant", "p2") in ("p2:hand", "p2:graveyard")  # (returned, then possibly the card discarded)
+    assert zone_of(s, "Grizzly Bears", "p2") == "p2:battlefield" and s.state.cards[forest.id].zone == "p2:battlefield" and bears and giant
+    assert len(s.state.zones["p2:hand"]) == hand  # (Giant came back, one card discarded)
+    check(s)

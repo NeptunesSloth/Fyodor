@@ -183,6 +183,12 @@ REWRITES = {
     # (Bioshift: "with the same controller" = the controller of the first target, the "that player" of Mutiny's wording; player_relative._names_player)
     "Move any number of +1/+1 counters from target creature onto another target creature with the same controller.":
         "Move any number of +1/+1 counters from target creature onto another target creature that player controls.",
+    # (Dispersal: lands have mana value 0, so a nonland permanent has the greatest mana value among all permanents its controller controls exactly
+    # when it has it among their nonland ones; each opponent chooses, 701.21a-style, one after the other, then the discards)
+    "Each opponent returns a nonland permanent they control with the greatest mana value among permanents they control to its owner's hand, then "
+    "discards a card.":
+        "Each opponent chooses a nonland permanent with the greatest mana value among nonland permanents they control. Return it to its owner's hand. "
+        "Each opponent discards a card.",
 }
 
 
