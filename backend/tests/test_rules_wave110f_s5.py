@@ -35,6 +35,7 @@ EXTRA = [
          'Creatures you control enter as a copy of this creature.', ('6', '6'), 'G'),
     real('Dracoplasm', '{U}{R}', 2, 'Creature — Shapeshifter',
          "Flying\nAs this creature enters, sacrifice any number of creatures. This creature's power becomes the total power of those creatures and its toughness becomes their total toughness.\n{R}: This creature gets +1/+0 until end of turn.", ('0', '0'), 'RU'),
+    real('Clone', '{3}{U}', 4, 'Creature — Shapeshifter', 'You may have this creature enter as a copy of any creature on the battlefield.', ('0', '0'), 'U'),
     real('Test Giant 110F', '{3}{R}', 4, 'Creature — Giant', 'Vigilance', ('3', '3'), 'R'),
     real('Test Flash Bear 110F', '{1}{U}', 2, 'Creature — Bear', 'Flash', ('2', '2'), 'U'),
 ]
@@ -179,4 +180,28 @@ def test_dracoplasm_takes_the_total_power_and_toughness_of_what_it_sacrificed(ca
         assert s.state.cards[draco.id].zone == "p1:graveyard"
     else:
         assert ch(s, s.state.cards[draco.id]).pt == pt
+    check(s)
+
+
+@pytest.mark.parametrize("copy_bear", [True, False])
+def test_essence_with_clone_own_choice_applies_last_else_essence_copy_stays(cards, copy_bear):
+    """616.1: Clone's own "may enter as a copy" is applied last: copying the Bear wins; declining leaves the Essence copy (not plain Clone)."""
+    from app.rules.copying import NONE
+    from tests.test_rules_wave100f_control import ch
+
+    s = build(cards, ["Essence of the Wild", "Clone", "Grizzly Bears"], ["Grizzly Bears"], forests=20, islands=20)
+    put(s, "Essence of the Wild")
+    bear = put(s, "Grizzly Bears", pid="p2")
+    mana(s, U=1, C=3)
+    clone = cast(s, "Clone")
+    for _ in range(14):
+        d = s.state.rules.decision
+        if d is None:
+            if not s.state.zones.get("stack"):
+                break
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[bear.id if copy_bear else NONE])
+    got = ch(s, s.state.cards[clone.id])
+    assert (got.name, got.pt) == (("Grizzly Bears", (2, 2)) if copy_bear else ("Essence of the Wild", (6, 6)))
     check(s)
