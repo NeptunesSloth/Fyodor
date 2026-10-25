@@ -7,6 +7,9 @@ from typing import Any
 
 # the Oracle line (the card's name as ~) -> the wording the grammar already reads, with the same meaning
 _AS: dict[str, str] = {
+    # Last Night Together: the restriction is the extra combat's own tag (combat_rules.extra_phases "only110d", combat.attack_problem)
+    "Choose two target creatures. Untap them. Put two +1/+1 counters on each of them. They gain vigilance, indestructible, and haste until end of turn. After this main phase, there is an additional combat phase. Only the chosen creatures can attack during that combat phase.":  # noqa: E501
+        "Choose two target creatures. Untap them. Put two +1/+1 counters on each of them. They gain vigilance, indestructible, and haste until end of turn. After this main phase, there is an additional combat phase.",
     # Call for Aid: 701.21 "you can't sacrifice those creatures" = they can't be sacrificed (only you control them this turn, 611.2c); the attack ban is appended
     "Gain control of all creatures target opponent controls until end of turn. Untap those creatures. They gain haste until end of turn. You can't attack that player this turn. You can't sacrifice those creatures this turn.":  # noqa: E501
         "Gain control of all creatures target opponent controls until end of turn. Untap those creatures. They gain haste and \"This creature can't be sacrificed\" until end of turn.",
@@ -144,6 +147,8 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
     if d is not None and text.startswith("Gain control of all creatures target opponent controls until end of turn. Untap"):
         # 508.1c, 611.2c: every creature you control, also one that arrives later this turn, can't attack that player
         d["effects"].append({"do": "restrict", "who": 'controlled:you|sel:{"types":["Creature"]}', "rules": ["cant_attack_player:@that"], "player": "target"})
+    if d is not None and text.startswith("Choose two target creatures. Untap them. Put two +1/+1"):
+        d["effects"][-1]["only110d"] = "target:0"
     if d is not None and text.endswith("it enters tapped and attacking."):
         d["effects"][0]["tap_atk110d"] = "Enchantment"
     return d
