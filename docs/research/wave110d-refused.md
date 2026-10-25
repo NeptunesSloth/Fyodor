@@ -19,3 +19,10 @@
 - Fractured Powerstone: the planar die is not part of Commander play (no planar die machinery).
 - Geth's Summons: corrupted "for each opponent ... as you cast this spell" targets a graveyard per opponent; needs per-opponent targets counted at cast time.
 - Call for Aid: already refused (wave100): player-level "can't attack that player". Evangelize/Preacher/Arena: opponent's-choice target is announcement-only for activated abilities (delegated_target_announcements); spells/triggers not modeled.
+
+## Session 10
+- Font of Agonies: "you pay life" has no event; life is paid at ~10 sites (costs, Phyrexian mana, effects). Needs one choke point first.
+- Geth's Summons: corrupted line is "for each opponent who ... as you cast" with one target group per opponent; no per-opponent target-group foundation.
+- Gutter Grime: the token's quoted CDA counts counters on its creator by name; quoted token abilities have no link to the creating permanent.
+- Scrap Welder, Sidisi, Regent of the Mire: X is the mana value of a cost-sacrificed object but the target is chosen before the cost (601.2c vs 601.2h); needs a ruling-backed X-from-cost design.
+- Nuka-Nuke Launcher: watch lasting "until the end of defending player's next turn" bound to another player; the 50G watch machinery is controller-bound only.
