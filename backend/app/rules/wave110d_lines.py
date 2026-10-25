@@ -21,6 +21,9 @@ _AS: dict[str, str] = {
         'where X is its power. Sacrifice them at the beginning of the next end step."',
     # Unable to Scream: a creature that is not face down can't be turned face up anyway (708.2), so the condition changes nothing
     "As long as enchanted creature is face down, it can't be turned face up.": "Enchanted creature can't be turned face up.",
+    # Mjölnir: doubling all of a source's damage is "it deals double that damage instead" to any recipient (120.1, 614.1)
+    "Double all damage equipped creature would deal.":
+        "If equipped creature would deal damage to a permanent or player, it deals double that damage instead.",
 }
 
 

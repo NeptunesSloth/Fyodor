@@ -1020,6 +1020,13 @@ def _cast(c: str) -> Condition | None:
     # control of the player who copies it; it isn't cast. "copy": "or" also triggers on a copy, "only"
     # only on one (app/rules/triggers.py, the "spell_copied" event). Only the plain spell kinds: an
     # ordinal, a zone or a target condition is about casting (refused with a copy).
+    # -- trigger other (wave 110D) -- 601.2i, 707.10, 603.2c: "enchanted player casts a spell other than the first spell they cast each turn or copies a spell"
+    # (Curse of Shaken Faith): two events, each read on its own
+    if (nc := re.fullmatch(rf"{_P} casts a spell other than the first spell (?:they|you) cast each turn or copies a spell", c)) is not None:
+        halves = (_cast(f"{nc['p']} casts a spell other than your first spell each turn"), _cast(f"{nc['p']} copies a spell"))
+        if None in halves:
+            return None
+        return {"event": "either", "subject": "player", "player": _PLAYERS[nc["p"]], "conds": list(halves)}
     cm = re.fullmatch(rf"{_P} (?:(?P<both>casts? or cop(?:y|ies))|cop(?:y|ies)) (?P<spell>.+)", c)
     if cm is not None:
         verb = "casts" if cm["p"] in ("an opponent", "a player") else "cast"
