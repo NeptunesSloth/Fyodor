@@ -24,6 +24,7 @@ from tests.wave110j_kit import (  # noqa: F401
     check,
     full,
     mana,
+    move,
     now,
     put,
     put_new,
@@ -168,4 +169,24 @@ def test_love_on_the_battlefield_needs_exactly_two_attackers(cards, attackers, t
     assert all(("first strike" in ch(s, c).keywords) is triggers for c in crew)
     through_combat(s)
     assert all((now(s, c).counters.get("+1/+1") == 1) is triggers for c in crew)
+    check(s)
+
+
+def test_rootwater_matriarch_is_full():
+    assert full("Rootwater Matriarch")
+
+
+@pytest.mark.parametrize("enchanted", [True, False])
+def test_rootwater_matriarch_keeps_the_creature_only_while_it_is_enchanted(cards, enchanted):
+    """611.2b, 303.4: control lasts while an Aura is attached to the creature, and does nothing if it has none as the ability resolves."""
+    s = build(cards, ["Rootwater Matriarch", "Aspect of Wolf"], ["Grizzly Bears"])
+    matriarch, bears = put(s, "Rootwater Matriarch"), put_new(s, "Grizzly Bears", "p2")
+    ready(s, matriarch)
+    aura = cast_on(s, "Aspect of Wolf", bears) if enchanted else None
+    activate(s, matriarch, "{T}", targets=[bears.id])
+    assert (now(s, bears).controller == "p1") is enchanted
+    if enchanted:
+        move(s, aura, "graveyard")
+        act(s, "p1", type="pass_priority")  # (a table edit is looked at on the next intent)
+        assert now(s, bears).controller == "p2"
     check(s)

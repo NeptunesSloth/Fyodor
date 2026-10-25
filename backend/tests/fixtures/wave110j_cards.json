@@ -222,5 +222,22 @@
    "U"
   ],
   "keywords": []
+ },
+ {
+  "name": "Rootwater Matriarch",
+  "layout": "normal",
+  "mana_cost": "{2}{U}{U}",
+  "cmc": 4.0,
+  "type_line": "Creature — Merfolk",
+  "oracle_text": "{T}: Gain control of target creature for as long as that creature is enchanted.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [],
+  "power": "2",
+  "toughness": "3"
  }
 ]
