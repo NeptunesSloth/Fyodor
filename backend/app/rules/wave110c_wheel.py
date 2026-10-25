@@ -6,7 +6,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from app.game.rules_state import CardInstance
+    from app.game.state import CardInstance
     from app.rules.plan import Plan
     from app.rules.replacements import Cand
 
