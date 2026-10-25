@@ -1,0 +1,5 @@
+- Relentless Dead: target chosen when the trigger goes on the stack, before X is paid; "if you do ... mana value X" mismatch semantics not modelled (rewriting to "when you do" would change them).
+- Exquisite Archangel: "If you would lose the game, instead exile ..." needs a replacement at every loss site (same foundation as Golden Throne).
+- Library of Leng: optional replacement on effect-caused discard only (not costs, not cleanup); no discard actor/replacement hook for it.
+- Fasting: optional skip of the draw step needs a mid-step decision; skips.take is synchronous.
+- Darigaaz Reincarnated: three egg counters via exile replacement (counter delta is fixed at 1) plus an upkeep trigger from exile; two foundations.
