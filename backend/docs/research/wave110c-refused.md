@@ -9,3 +9,7 @@
 - Mariposa Military Base: optional "enter tapped" replacement followed by "if you do"; single card, no optional enters-tapped foundation.
 - Omnath, Locus of All: unspent-mana-color replacement plus a reveal/colour-split mana trigger; both deep.
 - Soul Immolation: "blight X" additional cost with a variable cap; no variable blight cost.
+- Rhino's Rampage: "When excess damage is dealt ... this way" reflexive after a fight (new target chosen on trigger); even the "If excess damage was dealt" form fails to parse with a second target.
+- Incinerator of the Guilty: "collect evidence X" needs a variable-amount evidence cost (CostComponent.amount fixed in ~6 places).
+- Ashiok, Nightmare Weaver: "-X: put creature card with MV X exiled with Ashiok" + "-10 exile all opponents' hands and graveyards": two gaps.
+- Pandemonium (entering creature's controller chooses target), Zabaz, Gluttonous Hellkite: already in earlier refused notes.

@@ -293,6 +293,7 @@ _SLIME = ("If a creature an opponent controls would die, instead exile it and pu
 _GATEWAY = ("Tap two untapped creatures you control: You may put a creature card from your hand that shares a creature type with each creature "
             "tapped this way onto the battlefield.")
 
+_KOZILEK = "When you cast this spell, up to two target players each manifest two cards from their hands. For each card manifested this way, you draw a card."
 _ANALYST = "Whenever you manifest dread, put a card you put into your graveyard this way into your hand."
 _SAW = ("Whenever equipped creature attacks, you may sacrifice a permanent other than that creature or this Equipment. If you do, draw a card.")
 
@@ -336,6 +337,13 @@ def definition(ability: AbilityText, ch: Any) -> dict[str, Any] | None:
         assert parsed is not None
         return {"kind": "replacement", "replacement": "exile_instead", "from": "battlefield", "effects": [],
                 "rider": {"effects": parsed[0], "reflexive": False}}
+    if ability.text == _KOZILEK:  # Kozilek, the Broken Reality
+        from dataclasses import replace
+
+        from app.rules import scripts
+
+        native = scripts.define(replace(ability, text="When you cast this spell, up to two target players each draw two cards."), ch)
+        return None if native is None else {**native, "effects": [{"do": "manifest_hands110c", "who": native["effects"][0]["who"]}]}
     if ability.text == _ANALYST:  # Paranormal Analyst
         from dataclasses import replace
 
@@ -569,8 +577,51 @@ def dread_return(plan: Any, ctx: Context, e: dict[str, Any]) -> bool:
     return True
 
 
-PRIMITIVES = {"dread_return110c": dread_return, "moved_reward110c": moved_reward, "corrupt_counter110c": corrupt_counter, "extra_land_x110c": extra_land_x, "enter_tapped_turn110c": enter_tapped_turn, "bargain_return110c": bargain_return, "power_gap110c": power_gap, "surveil_take110c": surveil_take, "surveil_take_end110c": surveil_take_end, "choose_branch110c": choose_branch, "temporary_counters110c": temporary_counters, "approach110c": approach, "exile_spell110c": exile_spell}
-RESUME = {"choose_branch110c": resume_branch}
+def manifest_hands(plan: Any, ctx: Context, e: dict[str, Any]) -> bool:
+    """Kozilek, the Broken Reality (701.40a, 101.4): each chosen player in APNAP order manifests up to two cards of their choice from their hand, then you draw a card for each."""
+    from app.rules.effects import _players
+
+    ctx["manifested"] = []
+    chosen = _players(plan, ctx, e["who"])
+    return _next_hand(plan, ctx, e, [(p, 2) for p in plan.apnap() if p in chosen])
+
+
+def _next_hand(plan: Any, ctx: Context, e: dict[str, Any], todo: list[tuple[str, int]]) -> bool:
+    from app.game.rules_state import DecisionOption
+    from app.game.state import zone_key
+    from app.rules.effects import PRIMITIVES as EFFECTS
+    from app.rules.plan import decide
+
+    while todo:
+        pid, left = todo[0]
+        hand = list(plan.state.zones.get(zone_key(pid, "hand"), []))
+        if left <= 0 or not hand:
+            todo = todo[1:]
+            continue
+        decide(plan, player=pid, kind="choose_cards", prompt=f"{ctx.get('name') or 'Manifest'}: choose a card from your hand to put onto the battlefield face down",
+               options=[DecisionOption(id=c, label=plan.state.cards[c].name or "Card", card_id=c) for c in hand], min_choices=1, max_choices=1,
+               resume={"step": "manifest_hands110c", "ctx": ctx, "e": e, "todo": [(pid, left - 1), *todo[1:]]})
+        return False
+    if ctx["manifested"]:
+        EFFECTS["draw"](plan, ctx, {"do": "draw", "who": "you", "n": len(ctx["manifested"])})
+    return True
+
+
+def resume_manifest_hands(plan: Any, d: Any, chosen: list[str]) -> None:
+    from app.game.state import zone_key
+    from app.rules import facedown
+    from app.rules.effects import continue_effects
+
+    ctx, e = d.resume["ctx"], d.resume["e"]
+    pick = next((c for c in chosen if c in plan.state.zones.get(zone_key(d.player, "hand"), [])), None)
+    if pick is not None:
+        facedown._manifested(plan, ctx, d.player, pick, "manifest")
+    if _next_hand(plan, ctx, e, [(str(t[0]), int(t[1])) for t in d.resume["todo"]]):
+        continue_effects(plan, ctx)
+
+
+PRIMITIVES = {"manifest_hands110c": manifest_hands, "dread_return110c": dread_return, "moved_reward110c": moved_reward, "corrupt_counter110c": corrupt_counter, "extra_land_x110c": extra_land_x, "enter_tapped_turn110c": enter_tapped_turn, "bargain_return110c": bargain_return, "power_gap110c": power_gap, "surveil_take110c": surveil_take, "surveil_take_end110c": surveil_take_end, "choose_branch110c": choose_branch, "temporary_counters110c": temporary_counters, "approach110c": approach, "exile_spell110c": exile_spell}
+RESUME = {"choose_branch110c": resume_branch, "manifest_hands110c": resume_manifest_hands}
 from app.rules import wave110c_mass  # noqa: E402
 
 PRIMITIVES.update(wave110c_mass.PRIMITIVES)
