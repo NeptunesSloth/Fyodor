@@ -34,7 +34,11 @@ _SPLITS = {"Clash with an opponent, then return target creature to its owner's h
            "Creatures of the creature type of your choice attack this turn if able.": "Choose a creature type. Creatures of the chosen type attack this turn if able.",
            # Bumi, Unleashed: "that combat phase" is the one just added (combat_rules: its own tag)
            "After this phase, there is an additional combat phase. Only land creatures can attack during that combat phase.":
-           "After this phase, there is an additional combat phase in which only land creatures can attack."}
+           "After this phase, there is an additional combat phase in which only land creatures can attack.",
+           # Relic Axe: the static's "instead" sentence in the form static_pairs reads (611.3a: two statics whose conditions exclude each other)
+           "Equipped creature gets +1/+1. If it's a Warrior, it gets +2/+1 instead.": "Equipped creature gets +1/+1. It gets +2/+1 instead as long as it's a Warrior.",
+           # Zurgo, Thunder's Decree: "this token" in the granted ability is the token itself, as "this permanent" (the object with the ability)
+           'Warrior tokens you control have "This token can\'t be sacrificed."': 'Warrior tokens you control have "This permanent can\'t be sacrificed."'}
 
 
 def normalize(text: str) -> str:

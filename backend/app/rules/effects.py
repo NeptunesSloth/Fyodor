@@ -3858,7 +3858,10 @@ def kicked_gate(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     """702.33e: "If this spell was kicked, …" (``kicked`` True) — and, for "… instead", the
     unkicked text (``kicked`` False): the next ``n`` effects happen only if the spell was (or
     wasn't) kicked; otherwise they're skipped."""
-    if values.kicked_holds(plan, ctx, e.get("with")) != bool(e["kicked"]):  # (-- keywords (wave 50H) -- "kicked with its {R} kicker": ``with``)
+    from app.rules import conditions
+
+    held = conditions.holds(plan, ctx, {"object": "self", "cast": {"optional": "teamwork"}}) if e.get("teamwork") else values.kicked_holds(plan, ctx, e.get("with"))
+    if held != bool(e["kicked"]):  # (-- keywords (wave 50H) -- "kicked with its {R} kicker": ``with``; wave 100K: ``teamwork``, 702.194b, its announcement)
         ctx["next"] += int(e["n"])
     return True
 

@@ -17,6 +17,8 @@
   combat phase, its ruling; 500.8).
 * "Sacrifice this creature: Until end of turn, if a nontoken creature would enter and it wasn't cast, exile it instead." (Mistcaller: tokens and
   cast creatures still enter, its rulings; 614.12, 611.2a).
+* "During your end step, Warrior tokens you control have "This token can't be sacrificed."" (Zurgo: the mobilized tokens survive their end step
+  sacrifice, 701.21a; any other step they can be).
 """
 
 from __future__ import annotations
@@ -65,6 +67,9 @@ EXTRA = [
          'additional combat phase. Only land creatures can attack during that combat phase.', ('5', '4'), 'GR'),
     real('Mistcaller', '{U}', 1, 'Creature — Merfolk Wizard',
          "Sacrifice this creature: Until end of turn, if a nontoken creature would enter and it wasn't cast, exile it instead.", ('1', '1'), 'U'),
+    real("Zurgo, Thunder's Decree", '{R}{W}{B}', 3, 'Legendary Creature — Orc Warrior',
+         'Mobilize 2 (Whenever this creature attacks, create two tapped and attacking 1/1 red Warrior creature tokens. Sacrifice them at the beginning of the '
+         'next end step.)\nDuring your end step, Warrior tokens you control have "This token can\'t be sacrificed."', ('2', '4'), 'BRW'),
 ]
 HELPERS = [real("Gideon's Lawkeeper", '{W}', 1, 'Creature — Human Soldier', '{W}, {T}: Tap target creature.', ('1', '1'), 'W'),
            real('Reanimate', '{B}', 1, 'Sorcery', "Put target creature card from a graveyard onto the battlefield under your control. You lose life equal to "
@@ -411,4 +416,21 @@ def test_mistcaller_exiles_uncast_nontoken_creatures_this_turn(cards):
     act(s, "p1", type="cast_spell", card_id=elves.id)
     settle(s)
     assert s.state.cards[elves.id].zone == "p1:battlefield"  # (a cast creature enters)
+    check(s)
+
+
+def test_zurgo_keeps_the_mobilized_warriors_through_your_end_step(cards):
+    s = build(cards, ["Zurgo, Thunder's Decree"])
+    zurgo = put(s, "Zurgo, Thunder's Decree")
+    s.state.rules.controlled_since[zurgo.id].turn = 0
+    until(s, lambda s: (d := s.state.rules.decision) is not None and d.kind == "declare_attackers")
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": zurgo.id, "target": "p2"}])
+    turn = s.state.turn.number
+    until(s, lambda s: s.state.turn.number == turn + 1 and s.state.turn.phase == "main1")
+
+    def warriors():
+        return [c for c in s.state.cards.values() if c.is_token and c.name == "Warrior" and c.zone == "p1:battlefield"]
+
+    assert len(warriors()) == 2  # (their "sacrifice at the beginning of the next end step" did nothing: 701.21a)
+    act(s, "p1", type="move", card_ids=[zurgo.id], to={"player": "p1", "zone": "graveyard"})
     check(s)
