@@ -167,7 +167,15 @@ def _firestorm() -> Any:
              "as": "gco"}, {"do": "phase_out", "who": "ref:gco"}], None, False
 
 
+def _support_x() -> Any:
+    """Support X (701.41a) on an instant/sorcery: "other" is every creature, so the X-sized group counter wording."""
+    from app.rules import scripts
+
+    return scripts.parse_effects("Put a +1/+1 counter on each of up to X target creatures.")
+
+
 BUILDERS = {
+    "Support X.": _support_x,
     "Choose up to X creatures and/or planeswalkers you control, where X is the number of times this spell was kicked. Those permanents phase out.":
         _firestorm,
     "~ deals X damage to any target. If ~ would deal damage to a creature, that damage can't be prevented or dealt instead to another permanent or "

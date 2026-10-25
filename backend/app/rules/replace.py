@@ -1605,6 +1605,8 @@ def _life_applies(plan: Plan, c: Candidate, ev: Event, sim: Sim) -> bool:
     who = c.match.get("who")
     if who == "you" and ev["player"] != c.controller or who == "opponent" and ev["player"] == c.controller:
         return False
+    if c.match.get("by_controller") and ev["key"] == ev["player"] and ev.get("actor") != ev["player"]:
+        return False  # -- life gain (wave 110H) -- Rain of Gore: a spell or ability gain of its controller (a lifelink key is its source card)
     cap = c.match.get("life_max")  # -- life modifiers (wave 28B) -- "while you have 5 or less life": as the gain would happen (119.10)
     return cap is None or plan.state.players[ev["player"]].life <= int(cap)  # (review 28B: one call's gains are simultaneous, 702.15e)
 
@@ -1653,12 +1655,12 @@ def _life_apply(plan: Plan, c: Candidate, ev: Event, sim: Sim) -> list[Event]:
 
 
 def plan_life(plan: Plan, gains: list[tuple[str, int, str]], *, answers: dict[str, str], ask: bool,
-              cands: list[Candidate] | None = None) -> tuple[list[tuple[Event, list[Event]]], Planner] | Ask:
+              cands: list[Candidate] | None = None, actor: str | None = None) -> tuple[list[tuple[Event, list[Event]]], Planner] | Ask:
     """Life gain events ([(player, n, key)], each its own event: 702.15e) through 616.1."""
     planner = Planner(plan, cands if cands is not None else candidates(plan, ("life", "life_loss")), answers, ask=ask)
     sim: Sim = {}  # (review 28B: the gains of one call happen at the same time, 702.15e: a condition reads the life total before them)
     order = plan.apnap()
-    evs: list[Event] = [{"kind": "life", "player": p, "n": int(n), "key": key, "applied": []} for p, n, key in gains]
+    evs: list[Event] = [{"kind": "life", "player": p, "n": int(n), "key": key, "applied": [], "actor": actor} for p, n, key in gains]
     evs.sort(key=lambda e: order.index(e["player"]) if e["player"] in order else len(order))
     finals: list[tuple[Event, list[Event]]] = []
     from app.rules import cant_gain  # -- refused grants/replacements (wave 3R2) --
@@ -1689,7 +1691,7 @@ def gain_life(plan: Plan, gains: list[tuple[str, int]], *, actor: str, then: dic
     """THE life-gain choke point (see the module docstring). False while a choice is open."""
     operation = _life_operation(plan, operation)
     answers = answers if answers is not None else _ctx_answers(ctx)
-    planned = plan_life(plan, [(p, n, p) for p, n in gains], answers=answers, ask=then is not None)
+    planned = plan_life(plan, [(p, n, p) for p, n in gains], answers=answers, ask=then is not None, actor=actor)
     if isinstance(planned, Ask):
         request = {"gains": [list(g) for g in gains], "actor": actor, "operation": operation}
         if _pause(plan, planned, answers, _resume_for(then, "life", request)):

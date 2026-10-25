@@ -9279,6 +9279,9 @@ def define_replacement(ability: AbilityText, text: str) -> Definition | None:
 
     if (face_up := counters52d.face_up_definition(text)) is not None:
         return face_up
+    if text.startswith("As ~ enters or is turned face up, put X +1/+1 counters on it, where X is "):  # -- counters (wave 110H) -- Crowd-Control Warden
+        base = define_replacement(ability, text.replace("As ~ enters or is turned face up, put X +1/+1 counters on it,", "~ enters with X +1/+1 counters on it,", 1))
+        return None if base is None or base.get("replacement") != "enters_with_counters" else {**base, "face_up110h": True}
     # -- refused grants/replacements (wave 3R2) -- "Damage can't be prevented." and friends (615.12)
     from app.rules import skips, source_shields
 
