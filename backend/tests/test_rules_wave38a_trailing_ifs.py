@@ -58,10 +58,10 @@ def test_the_trailing_and_intervening_if_cards_are_full(name):
 MANUAL = json.loads((Path(__file__).parent / "fixtures" / "wave38a_manual_cards.json").read_text("utf-8"))
 
 
-@pytest.mark.parametrize("name", [c["name"] for c in MANUAL if c["name"] != "Ashnod the Uncaring"])
+@pytest.mark.parametrize("name", [c["name"] for c in MANUAL if c["name"] not in ("Ashnod the Uncaring", "O-Kagachi, Vengeful Kami")])
 def test_the_intervening_ifs_that_are_not_read_stay_manual(name):
     """O-Kagachi (a player's last turn, not the turn before), Ramses (the Assassin as it attacked) are refused rather
-    than guessed. (Ashnod has native paid-sacrifice activation proofs in test_rules_activated_copy_family.py; Kazuul and Rayne moved to wave 44B: tests/test_rules_wave44b_trigger_other.py.)"""
+    than guessed. (Ashnod has native paid-sacrifice activation proofs in test_rules_activated_copy_family.py; Kazuul and Rayne moved to wave 44B: tests/test_rules_wave44b_trigger_other.py; O-Kagachi to wave 100A: tests/test_rules_wave100a_triggers.py.)"""
     from tests.test_rules_scripts import ch as characteristics
 
     c = next(c for c in MANUAL if c["name"] == name)
