@@ -8,6 +8,8 @@
 * 502.3, 603.2c, 107.1: "Whenever you untap one or more permanents during your untap step, put that many time counters on The Millennium Calendar." and
   "When there are 1,000 or more time counters on The Millennium Calendar, sacrifice it and each opponent loses 1,000 life." — one counter per permanent
   untapped; doubling past 1000 sacrifices it.
+* 603.2, 400.7: "Creatures you control have 'Whenever this creature becomes tapped for the first time during each of your turns, put a +1/+1 counter on it.'"
+  (Tale of Katara and Toph) — the first tap in the controller's turn counts, a second tap that turn does not.
 """
 
 from __future__ import annotations
@@ -23,6 +25,7 @@ from tests.wave110d_kit import (  # noqa: F401
     full,
     mana,
     next_turn,
+    now,
     put,
     refused,
     settle,
@@ -99,4 +102,27 @@ def test_millennium_calendar_counts_untapped_permanents_then_ends(cards):
     mana(s, C=2)
     activate(s, cal, "{2}, {T}: Double")
     assert s.state.cards[cal.id].zone == "p1:graveyard" and life(s, "p2") == 40 - 1000
+    check(s)
+
+
+def test_tale_of_katara_is_full():
+    assert full("Tale of Katara and Toph")
+
+
+def test_tale_of_katara_counts_the_first_tap_only(cards):
+    s = build(cards, ["Tale of Katara and Toph", "Grizzly Bears"])
+    put(s, "Tale of Katara and Toph")
+    bears = put(s, "Grizzly Bears")
+    s.state.rules.controlled_since[bears.id].turn = 0
+    next_turn(s)
+    next_turn(s)
+    to_phase(s, "declare_attackers", turn=3)
+    act(s, "p1", type="set_stops", own=["declare_attackers"], smart_pass=False)
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": bears.id, "target": "p2"}])
+    settle(s)
+    assert now(s, bears).counters == {"+1/+1": 1}
+    act(s, "p1", type="untap_all")
+    act(s, "p1", type="tap", card_ids=[bears.id])
+    settle(s)
+    assert now(s, bears).counters == {"+1/+1": 1}  # the second tap of the turn
     check(s)

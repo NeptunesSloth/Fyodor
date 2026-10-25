@@ -256,6 +256,9 @@ def _qualified(c: str) -> Condition | None:
     # "during your turn" is a separate qualifier of the event)
     obj_first = first and first_each and inner is not None and inner.get("subject") == "sel" and not inner.get("aggregate") \
         and inner.get("event") in ("tapped", "counters_put")
+    # -- this-turn state (wave 110D) -- also its own tap, in your turn ("Creatures you control have 'Whenever this creature becomes tapped for the first time during each of
+    # your turns, …'", Tale of Katara and Toph): the object's first tap of that turn (the "first" kept per object), which must fall in your turn ("during")
+    obj_first = obj_first or bool(first and not first_each and during == "you" and inner is not None and inner.get("subject") == "self" and inner.get("event") == "tapped")
     if inner is None or (first and not own_first and not obj_first and (inner.get("event") not in ("gain_life", "lose_life", "create_token", "discard")
                                                       or inner.get("subject") != "player"
                                                       or inner.get("player") not in (("opponent", "any") if during == "their" else ("you",)))):
