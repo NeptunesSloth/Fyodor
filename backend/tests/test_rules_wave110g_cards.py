@@ -9,6 +9,9 @@
 * Gemini Engine: 508.4 / 111.1 an attacking token with the attacker's power and toughness, sacrificed at end of combat.
 * Vizkopa Confessor: 119.4 the life paid sizes the reveal (701.20a); paying 0 reveals nothing.
 * Wall of Caltrops: 509.1g / 509.3b banding only when the attacker is blocked by another Wall and by nothing but Walls.
+* Henry Wu: 702.110b / 608.2h the Treasure needs the exploited non-Human creature to have had power 3 or greater; Humans give no card.
+* Wormfang Crab: 607.2a link; an opponent picks which of the controller's other permanents is exiled; it returns when the Crab leaves.
+* Wormfang Drake: 607.2a linked exile as the 'unless' payment; the exiled creature returns when the Drake leaves.
 * Serene Master: 701.12g exchanging two powers sets each to the other's previous value (613.4b), until end of combat.
 """
 from __future__ import annotations
@@ -77,10 +80,16 @@ EXTRA = [
          'Choose an opponent. You and that player each sacrifice a creature. Each player who sacrificed a creature this way draws two cards.\nChoose an opponent. Return a creature card from your graveyard to the battlefield, then that player returns a creature card from their graveyard to the battlefield.', None, 'B'),
     real('Sands of Time', '{4}', 4, 'Artifact',
          "Each player skips their untap step.\nAt the beginning of each player's upkeep, that player simultaneously untaps each tapped artifact, creature, and land they control and taps each untapped artifact, creature, and land they control.", None, ''),
+    real('Henry Wu, InGen Geneticist', '{1}{G}', 2, 'Legendary Creature — Human Scientist',
+         "Henry Wu and other Human creatures you control have exploit. (When a creature with exploit enters, you may sacrifice a creature.)\nWhenever a creature you control exploits a non-Human creature, draw a card. If the exploited creature had power 3 or greater, create a Treasure token.", ('2', '2'), 'G'),
+    real('Test Human', '{1}', 1, 'Creature — Human', '', ('1', '1'), ''),
+    real('Wormfang Crab', '{2}{U}', 3, 'Creature — Crab Horror', "This creature can't be blocked.\nWhen this creature enters, an opponent chooses a permanent you control other than this creature and exiles it.\nWhen this creature leaves the battlefield, return the exiled card to the battlefield under its owner's control.", ('3', '3'), 'U'),
+    real('Test Doom', '{1}', 1, 'Instant', 'Destroy target creature.', None, ''),
+    real('Wormfang Drake', '{1}{U}', 2, 'Creature — Drake Horror', 'Flying\nWhen this creature enters, sacrifice it unless you exile a creature you control other than this creature.\nWhen this creature leaves the battlefield, return the exiled card to the battlefield under its owner\'s control.', ('3', '3'), 'U'),
     real('Hill Giant', '{3}{R}', 4, 'Creature — Giant', '', ('3', '3'), 'R'),
     real('Divination', '{2}{U}', 3, 'Sorcery', 'Draw two cards.', None, 'U'),
 ]
-NAMES = [c["name"] for c in EXTRA if c["name"] not in ("Divination", "Hill Giant", "Test Wall", "Relentless Assault", "Test Vigil", "Test Convoke", "Test Shuffle", "Test Teamwork")]
+NAMES = [c["name"] for c in EXTRA if c["name"] not in ("Divination", "Hill Giant", "Test Wall", "Test Human", "Test Doom", "Relentless Assault", "Test Vigil", "Test Convoke", "Test Shuffle", "Test Teamwork")]
 
 
 @pytest.fixture()
@@ -539,4 +548,64 @@ def test_sands_of_time_swaps_tapped_and_untapped_on_the_upkeep_players_permanent
     tapped = lambda c: s.state.cards[c.id].tapped  # noqa: E731
     assert (tapped(bears), tapped(forest), tapped(sands)) == (False, True, True)  # Alice's upkeep swapped hers
     assert tapped(theirs)  # Bob's upkeep (turn 2) tapped his untapped Goblin; Alice's upkeep left it alone
+    check(s)
+
+
+@pytest.mark.parametrize(("victim", "cards_drawn", "treasure"), [("Hill Giant", 1, 1), ("Grizzly Bears", 1, 0), ("Test Human", 0, 0)])
+def test_henry_wu_treasure_needs_power_three_exploited_non_human(cards, victim, cards_drawn, treasure):
+    """Henry Wu (702.110b, 608.2h): draw for a non-Human exploited; Treasure only when its power was 3+."""
+    from tests.test_rules_wave12a_counters_keywords import answer
+
+    s = build(cards, ["Henry Wu, InGen Geneticist", "Test Human", victim, "Forest"])
+    put(s, "Henry Wu, InGen Geneticist")
+    sac = put(s, victim)
+    to_hand(s, "Test Human")
+    mana(s, C=1)
+    hand = len(s.state.zones["p1:hand"]) - 1
+    act(s, "p1", type="cast_spell", card_id=card_named(s, "Test Human").id)
+    answer(s, "yes", sac.id)
+    assert s.state.cards[sac.id].zone == "p1:graveyard"
+    assert len(s.state.zones["p1:hand"]) == hand + cards_drawn
+    assert sum(1 for c in s.state.cards.values() if c.is_token and c.name == "Treasure" and c.zone.endswith(":battlefield")) == treasure
+    check(s)
+
+
+def test_wormfang_crab_opponent_picks_and_the_card_returns_when_the_crab_leaves(cards):
+    """Wormfang Crab (607.2a): Bob chooses which of Alice's other permanents is exiled; it comes back when the Crab leaves."""
+    s = build(cards, ["Wormfang Crab", "Grizzly Bears", "Hill Giant", "Test Doom"])
+    bears, giant = put(s, "Grizzly Bears"), put(s, "Hill Giant")
+    mana(s, U=1, C=2)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Wormfang Crab").id)
+    from tests.test_rules_wave12a_counters_keywords import answer
+
+    while s.state.rules.decision is None:
+        act(s, s.state.rules.priority, type="pass_priority")
+    assert s.state.rules.decision.player == "p2"  # the opponent chooses, among Alice's permanents
+    answer(s, giant.id)
+    assert s.state.cards[giant.id].zone == "p1:exile" and s.state.cards[bears.id].zone == "p1:battlefield"
+    crab = card_named(s, "Wormfang Crab")
+    mana(s, C=1)
+    cast(s, "Test Doom", [crab.id])
+    assert s.state.cards[crab.id].zone == "p1:graveyard" and s.state.cards[giant.id].zone == "p1:battlefield"
+    check(s)
+
+
+@pytest.mark.parametrize("pay", [True, False])
+def test_wormfang_drake_exiles_another_creature_or_is_sacrificed(cards, pay):
+    """Wormfang Drake (702.. champion-style payment, 607.2a): exile another creature or sacrifice the Drake; the creature returns when the Drake leaves."""
+    from tests.test_rules_wave12a_counters_keywords import answer
+
+    s = build(cards, ["Wormfang Drake", "Grizzly Bears", "Test Doom"])
+    bears = put(s, "Grizzly Bears")
+    mana(s, U=1, C=1)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Wormfang Drake").id)
+    answer(s, *(["pay", bears.id] if pay else ["decline"]))
+    drake = card_named(s, "Wormfang Drake")
+    if not pay:
+        assert s.state.cards[drake.id].zone == "p1:graveyard" and s.state.cards[bears.id].zone == "p1:battlefield"
+        return check(s)
+    assert s.state.cards[drake.id].zone == "p1:battlefield" and s.state.cards[bears.id].zone == "p1:exile"
+    mana(s, C=1)
+    cast(s, "Test Doom", [drake.id])
+    assert s.state.cards[bears.id].zone == "p1:battlefield"
     check(s)

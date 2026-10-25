@@ -76,8 +76,22 @@ def opponent_protects(plan: Any, ctx: dict[str, Any], cond: Def) -> bool:
                for t in ctx.get("targets") or [] if t and (c := plan.state.cards.get(t["id"])) is not None)
 
 
+def exploited_big(plan: Any, ctx: dict[str, Any], cond: Def) -> bool:
+    """702.110b / 608.2h: the exploited creature, as it last existed, had power 3 or greater."""
+    from app.rules import context
+
+    got = context.info(plan, ctx, context.EVENT_OTHER)
+    return bool(got and got[1].pt and got[1].pt[0] >= 3)
+
+
 def holds(plan: Any, ctx: dict[str, Any], cond: Def) -> bool:
-    return bool({"walls_block": walls_block, "opp_protects": opponent_protects}[cond["w110g"]](plan, ctx, cond))
+    return bool({"walls_block": walls_block, "opp_protects": opponent_protects, "exploited_big": exploited_big}[cond["w110g"]](plan, ctx, cond))
+
+
+def _treasure_if_big(d: Def) -> Def:
+    """Henry Wu: the Treasure sentence is gated on the exploited creature's power."""
+    fx = d["effects"]
+    return {**d, "effects": [*fx[:-1], {"do": "only_if", "cond": {"w110g": "exploited_big"}, "skip": 1}, fx[-1]]}
 
 
 _INFERNAL = ("Choose an opponent. You and that player each sacrifice a creature. Each player who sacrificed a creature this way draws two cards.")
@@ -132,6 +146,9 @@ def _lowest_life_control(d: Def) -> Def:
 
 # whole ability text -> the wording the grammar reads for it
 _AS: dict[str, str] = {
+    # Wormfang Drake: "a creature you control other than this creature" is "another creature you control"
+    "When this creature enters, sacrifice it unless you exile a creature you control other than this creature.":
+        "When this creature enters, sacrifice it unless you exile another creature you control.",
     # Portcullis: "two or more other creatures" is three or more with the entering one; the card returns when the artifact leaves (610.3)
     "Whenever a creature enters, if there are two or more other creatures on the battlefield, exile that creature. Return that card to the battlefield "
     "under its owner's control when this artifact leaves the battlefield.":
@@ -204,6 +221,12 @@ _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
     "At the beginning of your upkeep, the player with the lowest life total gains control of this creature. If two or more players are tied for lowest life total, "
     "you choose one of them, and that player gains control of this creature.":
         ("At the beginning of your upkeep, you gain control of this creature.", _lowest_life_control),
+    # Henry Wu
+    "Whenever a creature you control exploits a non-Human creature, draw a card. If the exploited creature had power 3 or greater, create a Treasure token.":
+        ("Whenever a creature you control exploits a non-Human creature, draw a card. Create a Treasure token.", _treasure_if_big),
+    # Wormfang Crab
+    "When this creature enters, an opponent chooses a permanent you control other than this creature and exiles it.":
+        ("When this creature enters, exile another permanent you control.", lambda d: _opponent_exiles(d)),
     # Wall of Caltrops
     "Whenever this creature blocks a creature, if at least one other Wall creature is blocking that creature and no non-Wall creatures are blocking that creature, "
     "this creature gains banding until end of turn.":
@@ -225,6 +248,53 @@ def definition(ability: Any, ch: Any) -> Def | None:
         return None
     native = scripts.define(replace(ability, text=built[0]), ch)
     return None if native is None else built[1](native)
+
+
+def _opponent_exiles(d: Def) -> Def:
+    """Wormfang Crab: an opponent picks which of the controller's other permanents is exiled (607.2a link for "the exiled card")."""
+    # "exile" marks the exiling half for exiled_with._exiles
+    return {**d, "effects": [{"do": "opponent_exiles110g", "exile": True, "link": True}]}
+
+
+def _exile_chosen(plan: Any, ctx: dict[str, Any], chooser: str) -> bool:
+    from app.rules import effects, selectors
+
+    mine = [c for c in selectors.candidates(plan, selectors.from_key('sel:{"controller":"you","other":true}'), ctx["controller"], ctx.get("source_card"))
+            if plan.state.cards[c].controller == ctx["controller"] and plan.state.cards[c].zone.endswith(":battlefield")]
+    if len(mine) <= 1:
+        return effects.exile_cards(plan, ctx, {"link": True}, mine)
+    effects.decide(plan, player=chooser, kind="choose_cards", prompt="Choose a permanent to exile", min_choices=1, max_choices=1,
+                   options=[effects.DecisionOption(id=c, label=plan.state.cards[c].name or "Permanent", card_id=c) for c in mine],
+                   resume={"step": "opponent_exiles110g", "ctx": ctx, "mine": mine})
+    return False
+
+
+def opponent_exiles(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """An opponent chooses (101.4 / ruling: with several opponents the controller picks which one) a permanent the controller has besides the source."""
+    from app.rules import effects
+
+    opponents = [p for p in plan.apnap() if p != ctx["controller"] and p in plan.live()]
+    if len(opponents) > 1:
+        effects.decide(plan, player=ctx["controller"], kind="choose_one", prompt="Choose an opponent to pick the permanent",
+                       options=[effects.DecisionOption(id=p, label=plan.name(p)) for p in opponents], resume={"step": "opponent_exiles110g", "ctx": ctx, "opponents": opponents})
+        return False
+    return _exile_chosen(plan, ctx, opponents[0]) if opponents else True
+
+
+def resume_opponent_exiles(plan: Any, d: Any, chosen: list[str]) -> None:
+    from app.rules import effects
+
+    ctx = d.resume["ctx"]
+    if "opponents" in d.resume:
+        if chosen[0] not in d.resume["opponents"]:
+            raise ValueError("not an opponent")
+        done = _exile_chosen(plan, ctx, chosen[0])
+    else:
+        if chosen[0] not in d.resume["mine"]:
+            raise ValueError("not a candidate")
+        done = effects.exile_cards(plan, ctx, {"link": True}, [chosen[0]])
+    if done:
+        effects.continue_effects(plan, ctx)
 
 
 def lowest_life_control(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
@@ -287,5 +357,5 @@ def exchange_power(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
 
 
 PRIMITIVES: dict[str, Any] = {"exchange_power110g": exchange_power, "lowest_life_control110g": lowest_life_control,
-                           "sacrifice_pair110g": sacrifice_pair, "swap_tapped110g": swap_tapped}
-RESUME: dict[str, Any] = {"lowest_control110g": resume_lowest_control}
+                           "sacrifice_pair110g": sacrifice_pair, "swap_tapped110g": swap_tapped, "opponent_exiles110g": opponent_exiles}
+RESUME: dict[str, Any] = {"lowest_control110g": resume_lowest_control, "opponent_exiles110g": resume_opponent_exiles}
