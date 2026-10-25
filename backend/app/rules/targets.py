@@ -100,6 +100,10 @@ def can_target(plan: Plan, chooser: str, card: CardInstance, ch: Characteristics
     if protected_by_hexproof and not hexproof_targeting.ignores(plan, chooser, card=card, ch=ch):
         return False
     for rule in ch.imposed:  # -- cant (wave 16F) -- "can't be the target of black spells or abilities from black sources"
+        if rule == "untargetable_artifact_abilities106" and source is not None and source.is_ability and "Artifact" in source.types:
+            return False
+        if rule.startswith("only_aura106:") and source is not None and source.is_spell and "Aura" in source.subtypes:
+            return False
         if rule.startswith("untargetable_by_opponents_of:") and chooser != rule.split(":", 1)[1]:
             return False  # (-- review 20A -- the Aura's controller's opponents; no teams: every other player, 102.2)
         if rule.startswith("untargetable_spells") and source is not None and source.is_spell:  # -- cant (wave 49C) -- 115.2: no spell (of those colors) may target it; an ability still may

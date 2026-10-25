@@ -3313,7 +3313,7 @@ def optional_castable(state: GameState, player: str, card: CardInstance, info: C
         if offer.kind and cost_payment.problem(permissions._view(state, player, info),
                                                costs.AbilityCost(components=(cost_changes.keyword_component(offer),)), card, player):
             continue  # (-- static_other sweep (wave 17C) -- conspire / teamwork: the creatures to tap aren't there)
-        part = cost_changes.keyword_component(offer) if offer.kind in ("reduce", "bargain") else None  # -- cost reductions paid with objects (wave 47C) -- the most the objects it can take
+        part = cost_changes.keyword_component(offer) if offer.kind in ("reduce", "bargain") or (offer.kind == "evidence" and offer.n) else None  # -- cost reductions paid with objects (wave 47C) -- the most the objects it can take
         paid_offerings = offering_paid(state, player, card, ch, info) if offer.kind == "offering" else []
 
         def finish(cost: M.ManaCost, mana: Any = offer.mana, paid: Any = paid_offerings) -> list[M.ManaCost]:
@@ -3327,7 +3327,7 @@ def optional_castable(state: GameState, player: str, card: CardInstance, info: C
                                    alternative=M.parse_cost(grant.alt_mana) if grant is not None and grant.alt_mana else None,
                                    additional=(M.ManaCost(generic=grant.generic_extra),) if grant is not None and grant.generic_extra else (),
                                    reduce=part.reduces * (min(1, len(cost_payment.candidates(permissions._view(state, player, info), part, player, card)))
-                                                          if offer.kind == "bargain" else len(cost_payment.candidates(permissions._view(state, player, info), part, player, card)))
+                                                          if offer.kind in ("bargain", "evidence") else len(cost_payment.candidates(permissions._view(state, player, info), part, player, card)))
                                    if part is not None else 0, finalize=finish, selected_costs=selected_costs)
         except ActionError:
             continue

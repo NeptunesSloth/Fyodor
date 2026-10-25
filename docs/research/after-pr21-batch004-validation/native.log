@@ -1,0 +1,359 @@
+============================= test session starts ==============================
+platform linux -- Python 3.12.14, pytest-9.1.1, pluggy-1.7.0 -- /workspace/Fyodor/backend/.venv/bin/python3
+cachedir: .pytest_cache
+rootdir: /workspace/scratch/after-pr21/batch004/backend
+configfile: pyproject.toml
+plugins: anyio-4.15.1, xdist-3.8.0
+created: 4/4 workers
+4 workers [173 items]
+
+scheduling tests via LoadScheduling
+
+tests/test_rules_damage_death104.py::test_genuine_cold_pending_host_death104[Scythe of the Wretched]
+tests/test_rules_epic103.py::test_countered_epic_never_sets_prohibition_or_trigger103
+tests/test_rules_damage_death104.py::test_whole104[Vampiric Embrace]
+tests/test_rules_epic103.py::test_canonical103[Enduring Ideal]
+[gw1] [  0%] PASSED tests/test_rules_epic103.py::test_canonical103[Enduring Ideal]
+tests/test_rules_epic103.py::test_canonical103[Endless Swarm]
+[gw1] [  1%] PASSED tests/test_rules_epic103.py::test_canonical103[Endless Swarm]
+tests/test_rules_epic103.py::test_canonical103[Eternal Dominion]
+[gw1] [  1%] PASSED tests/test_rules_epic103.py::test_canonical103[Eternal Dominion]
+tests/test_rules_epic103.py::test_canonical103[Neverending Torment]
+[gw1] [  2%] PASSED tests/test_rules_epic103.py::test_canonical103[Neverending Torment]
+tests/test_rules_epic103.py::test_canonical103[Undying Flames]
+[gw1] [  2%] PASSED tests/test_rules_epic103.py::test_canonical103[Undying Flames]
+tests/test_rules_epic103.py::test_swarm_native_persistent_not_cast_and_source_shuffled103
+[gw3] [  3%] PASSED tests/test_rules_damage_death104.py::test_whole104[Vampiric Embrace]
+tests/test_rules_damage_death104.py::test_native_host_damage_death104[Scythe of the Wretched]
+[gw0] [  4%] PASSED tests/test_rules_epic103.py::test_countered_epic_never_sets_prohibition_or_trigger103
+tests/test_rules_epic103.py::test_client_cannot_forge_preserved_copy103
+[gw0] [  4%] PASSED tests/test_rules_epic103.py::test_client_cannot_forge_preserved_copy103
+tests/test_rules_epic103.py::test_cold_source_rekeyed_swarm103
+[gw1] [  5%] PASSED tests/test_rules_epic103.py::test_swarm_native_persistent_not_cast_and_source_shuffled103
+tests/test_rules_epic103.py::test_enduring_search_and_repeated_native_upkeep103
+[gw0] [  5%] PASSED tests/test_rules_epic103.py::test_cold_source_rekeyed_swarm103
+tests/test_rules_epic103.py::test_epic_native_spell_copy_replacement_and_magecraft103
+[gw3] [  6%] PASSED tests/test_rules_damage_death104.py::test_native_host_damage_death104[Scythe of the Wretched]
+tests/test_rules_damage_death104.py::test_native_host_damage_death104[Vampiric Embrace]
+[gw2] [  6%] PASSED tests/test_rules_damage_death104.py::test_genuine_cold_pending_host_death104[Scythe of the Wretched]
+tests/test_rules_damage_death104.py::test_genuine_cold_pending_host_death104[Vampiric Embrace]
+[gw1] [  7%] PASSED tests/test_rules_epic103.py::test_enduring_search_and_repeated_native_upkeep103
+tests/test_rules_epic103.py::test_dominion_search_private_original_controller103
+[gw1] [  8%] PASSED tests/test_rules_epic103.py::test_dominion_search_private_original_controller103
+tests/test_rules_epic103.py::test_torment_counts_hand_on_each_resolution_and_quantity_search103
+[gw0] [  8%] PASSED tests/test_rules_epic103.py::test_epic_native_spell_copy_replacement_and_magecraft103
+tests/test_rules_epic103.py::test_epic_original_memory_retargets_after_cold_pause103[False]
+[gw3] [  9%] PASSED tests/test_rules_damage_death104.py::test_native_host_damage_death104[Vampiric Embrace]
+tests/test_rules_damage_death104.py::test_native_wrong_source_no_trigger104[Scythe of the Wretched]
+[gw1] [  9%] PASSED tests/test_rules_epic103.py::test_torment_counts_hand_on_each_resolution_and_quantity_search103
+tests/test_rules_epic103.py::test_flames_native_damage_original_card_mana_value103
+[gw1] [ 10%] PASSED tests/test_rules_epic103.py::test_flames_native_damage_original_card_mana_value103
+tests/test_rules_vampire_returns105.py::test_blinked_source_cannot_claim_old_damage105[Seraph]
+[gw0] [ 10%] PASSED tests/test_rules_epic103.py::test_epic_original_memory_retargets_after_cold_pause103[False]
+tests/test_rules_epic103.py::test_epic_original_memory_retargets_after_cold_pause103[True]
+[gw2] [ 11%] PASSED tests/test_rules_damage_death104.py::test_genuine_cold_pending_host_death104[Vampiric Embrace]
+tests/test_rules_vampire_returns105.py::test_whole105[Krovikan Vampire]
+[gw2] [ 12%] PASSED tests/test_rules_vampire_returns105.py::test_whole105[Krovikan Vampire]
+tests/test_rules_vampire_returns105.py::test_whole105[Seraph]
+[gw2] [ 12%] PASSED tests/test_rules_vampire_returns105.py::test_whole105[Seraph]
+tests/test_rules_vampire_returns105.py::test_native_end_return_then_original_source_lost105[Krovikan Vampire]
+[gw0] [ 13%] PASSED tests/test_rules_epic103.py::test_epic_original_memory_retargets_after_cold_pause103[True]
+tests/test_rules_epic103.py::test_copy_of_original_epic_creates_its_own_perpetual_instance103
+[gw1] [ 13%] PASSED tests/test_rules_vampire_returns105.py::test_blinked_source_cannot_claim_old_damage105[Seraph]
+tests/test_rules_vampire_returns105.py::test_krovikan_additional_damaged_creature_dies_in_response105
+[gw0] [ 14%] PASSED tests/test_rules_epic103.py::test_copy_of_original_epic_creates_its_own_perpetual_instance103
+tests/test_rules_epic103.py::test_fizzled_flames_does_not_make_epic103
+[gw0] [ 15%] PASSED tests/test_rules_epic103.py::test_fizzled_flames_does_not_make_epic103
+tests/test_rules_epic103.py::test_foreign_owned_original_leaves_game_epic_memory_remains103
+[gw3] [ 15%] PASSED tests/test_rules_damage_death104.py::test_native_wrong_source_no_trigger104[Scythe of the Wretched]
+tests/test_rules_damage_death104.py::test_native_wrong_source_no_trigger104[Vampiric Embrace]
+[gw2] [ 16%] PASSED tests/test_rules_vampire_returns105.py::test_native_end_return_then_original_source_lost105[Krovikan Vampire]
+tests/test_rules_vampire_returns105.py::test_native_end_return_then_original_source_lost105[Seraph]
+[gw0] [ 16%] PASSED tests/test_rules_epic103.py::test_foreign_owned_original_leaves_game_epic_memory_remains103
+tests/test_rules_damage_death104.py::test_whole104[Scythe of the Wretched]
+[gw0] [ 17%] PASSED tests/test_rules_damage_death104.py::test_whole104[Scythe of the Wretched]
+tests/test_rules_sticker_riders102.py::test_no_new_sticker_no_reward_even_when_optional_placement_declined102[False-Wizards of the _____]
+[gw0] [ 17%] PASSED tests/test_rules_sticker_riders102.py::test_no_new_sticker_no_reward_even_when_optional_placement_declined102[False-Wizards of the _____]
+tests/test_rules_sticker_riders102.py::test_no_new_sticker_no_reward_even_when_optional_placement_declined102[False-_____ Bird Gets the Worm]
+[gw0] [ 18%] PASSED tests/test_rules_sticker_riders102.py::test_no_new_sticker_no_reward_even_when_optional_placement_declined102[False-_____ Bird Gets the Worm]
+tests/test_rules_sticker_riders102.py::test_no_new_sticker_no_reward_even_when_optional_placement_declined102[True-_____ Goblin]
+[gw0] [ 19%] PASSED tests/test_rules_sticker_riders102.py::test_no_new_sticker_no_reward_even_when_optional_placement_declined102[True-_____ Goblin]
+tests/test_rules_sticker_riders102.py::test_no_new_sticker_no_reward_even_when_optional_placement_declined102[True-_____-o-saurus]
+[gw0] [ 19%] PASSED tests/test_rules_sticker_riders102.py::test_no_new_sticker_no_reward_even_when_optional_placement_declined102[True-_____-o-saurus]
+tests/test_rules_sticker_riders102.py::test_no_new_sticker_no_reward_even_when_optional_placement_declined102[True-Wizards of the _____]
+[gw0] [ 20%] PASSED tests/test_rules_sticker_riders102.py::test_no_new_sticker_no_reward_even_when_optional_placement_declined102[True-Wizards of the _____]
+tests/test_rules_sticker_riders102.py::test_no_new_sticker_no_reward_even_when_optional_placement_declined102[True-_____ Bird Gets the Worm]
+[gw0] [ 20%] PASSED tests/test_rules_sticker_riders102.py::test_no_new_sticker_no_reward_even_when_optional_placement_declined102[True-_____ Bird Gets the Worm]
+tests/test_rules_sticker_riders102.py::test_wizards_looks_receipt_count_puts_one_in_hand_orders_rest_then_declining_on_blink_ignores_old_name102
+[gw1] [ 21%] PASSED tests/test_rules_vampire_returns105.py::test_krovikan_additional_damaged_creature_dies_in_response105
+tests/test_rules_vampire_returns105.py::test_original_graveyard_object_not_new_incarnation105[Krovikan Vampire]
+[gw0] [ 21%] PASSED tests/test_rules_sticker_riders102.py::test_wizards_looks_receipt_count_puts_one_in_hand_orders_rest_then_declining_on_blink_ignores_old_name102
+tests/test_rules_sticker_riders102.py::test_vowel_counters_use_native_replacement_after_count102
+[gw0] [ 22%] PASSED tests/test_rules_sticker_riders102.py::test_vowel_counters_use_native_replacement_after_count102
+tests/test_rules_sticker_riders102.py::test_genuine_cold_goblin_saved_name_position_keeps_new_sticker_receipt_and_mana102
+[gw0] [ 23%] PASSED tests/test_rules_sticker_riders102.py::test_genuine_cold_goblin_saved_name_position_keeps_new_sticker_receipt_and_mana102
+tests/test_rules_evidence_cost106.py::test_bite_down_on_crime_full
+[gw0] [ 23%] PASSED tests/test_rules_evidence_cost106.py::test_bite_down_on_crime_full
+tests/test_rules_evidence_cost106.py::test_evidence_reduction_is_two_once_regardless_of_how_many_cards_paid[1]
+[gw1] [ 24%] PASSED tests/test_rules_vampire_returns105.py::test_original_graveyard_object_not_new_incarnation105[Krovikan Vampire]
+tests/test_rules_vampire_returns105.py::test_original_graveyard_object_not_new_incarnation105[Seraph]
+[gw3] [ 24%] PASSED tests/test_rules_damage_death104.py::test_native_wrong_source_no_trigger104[Vampiric Embrace]
+tests/test_rules_damage_death104.py::test_detached_before_death_no_trigger104[Scythe of the Wretched]
+[gw2] [ 25%] PASSED tests/test_rules_vampire_returns105.py::test_native_end_return_then_original_source_lost105[Seraph]
+tests/test_rules_vampire_returns105.py::test_source_dies_before_return105[Krovikan Vampire]
+[gw1] [ 26%] PASSED tests/test_rules_vampire_returns105.py::test_original_graveyard_object_not_new_incarnation105[Seraph]
+tests/test_rules_vampire_returns105.py::test_genuine_cold_after_damage_death_before_end105[Krovikan Vampire]
+[gw3] [ 26%] PASSED tests/test_rules_damage_death104.py::test_detached_before_death_no_trigger104[Scythe of the Wretched]
+tests/test_rules_damage_death104.py::test_detached_before_death_no_trigger104[Vampiric Embrace]
+[gw0] [ 27%] PASSED tests/test_rules_evidence_cost106.py::test_evidence_reduction_is_two_once_regardless_of_how_many_cards_paid[1]
+tests/test_rules_evidence_cost106.py::test_evidence_reduction_is_two_once_regardless_of_how_many_cards_paid[3]
+[gw3] [ 27%] PASSED tests/test_rules_damage_death104.py::test_detached_before_death_no_trigger104[Vampiric Embrace]
+tests/test_rules_damage_death104.py::test_original_host_bound_at_death104[Scythe of the Wretched]
+[gw2] [ 28%] PASSED tests/test_rules_vampire_returns105.py::test_source_dies_before_return105[Krovikan Vampire]
+tests/test_rules_vampire_returns105.py::test_source_dies_before_return105[Seraph]
+[gw3] [ 28%] PASSED tests/test_rules_damage_death104.py::test_original_host_bound_at_death104[Scythe of the Wretched]
+tests/test_rules_damage_death104.py::test_original_host_bound_at_death104[Vampiric Embrace]
+[gw1] [ 29%] PASSED tests/test_rules_vampire_returns105.py::test_genuine_cold_after_damage_death_before_end105[Krovikan Vampire]
+tests/test_rules_vampire_returns105.py::test_genuine_cold_after_damage_death_before_end105[Seraph]
+[gw2] [ 30%] PASSED tests/test_rules_vampire_returns105.py::test_source_dies_before_return105[Seraph]
+tests/test_rules_vampire_returns105.py::test_seraph_foreign_at_return_regain_then_lose105
+[gw0] [ 30%] PASSED tests/test_rules_evidence_cost106.py::test_evidence_reduction_is_two_once_regardless_of_how_many_cards_paid[3]
+tests/test_rules_evidence_cost106.py::test_unpaid_evidence_has_full_printed_cost_and_no_exile
+[gw3] [ 31%] PASSED tests/test_rules_damage_death104.py::test_original_host_bound_at_death104[Vampiric Embrace]
+tests/test_rules_damage_death104.py::test_scythe_host_dies_simultaneously_with_victim104
+[gw1] [ 31%] PASSED tests/test_rules_vampire_returns105.py::test_genuine_cold_after_damage_death_before_end105[Seraph]
+tests/test_rules_vampire_returns105.py::test_seraph_simultaneous_death_still_creates_return105
+[gw2] [ 32%] PASSED tests/test_rules_vampire_returns105.py::test_seraph_foreign_at_return_regain_then_lose105
+tests/test_rules_vampire_returns105.py::test_blinked_source_cannot_claim_old_damage105[Krovikan Vampire]
+[gw3] [ 32%] PASSED tests/test_rules_damage_death104.py::test_scythe_host_dies_simultaneously_with_victim104
+tests/test_rules_last_draw_cost107.py::test_true_cold_legacy_missing_draw_history_does_not_invent_last_card
+[gw2] [ 33%] PASSED tests/test_rules_vampire_returns105.py::test_blinked_source_cannot_claim_old_damage105[Krovikan Vampire]
+tests/test_rules_sticker_riders102.py::test_whole_name_receipt_cards102[_____ Goblin]
+[gw2] [ 34%] PASSED tests/test_rules_sticker_riders102.py::test_whole_name_receipt_cards102[_____ Goblin]
+tests/test_rules_sticker_riders102.py::test_whole_name_receipt_cards102[_____-o-saurus]
+[gw2] [ 34%] PASSED tests/test_rules_sticker_riders102.py::test_whole_name_receipt_cards102[_____-o-saurus]
+tests/test_rules_sticker_riders102.py::test_whole_name_receipt_cards102[Wizards of the _____]
+[gw2] [ 35%] PASSED tests/test_rules_sticker_riders102.py::test_whole_name_receipt_cards102[Wizards of the _____]
+tests/test_rules_sticker_riders102.py::test_whole_name_receipt_cards102[_____ Bird Gets the Worm]
+[gw2] [ 35%] PASSED tests/test_rules_sticker_riders102.py::test_whole_name_receipt_cards102[_____ Bird Gets the Worm]
+tests/test_rules_sticker_riders102.py::test_actual_new_name_receipt_reward_counts_unique_vowels_y_and_two_word_sticker102[_____ Goblin-Trendy-2]
+[gw2] [ 36%] PASSED tests/test_rules_sticker_riders102.py::test_actual_new_name_receipt_reward_counts_unique_vowels_y_and_two_word_sticker102[_____ Goblin-Trendy-2]
+tests/test_rules_sticker_riders102.py::test_actual_new_name_receipt_reward_counts_unique_vowels_y_and_two_word_sticker102[_____-o-saurus-Hot Dog-1]
+[gw2] [ 36%] PASSED tests/test_rules_sticker_riders102.py::test_actual_new_name_receipt_reward_counts_unique_vowels_y_and_two_word_sticker102[_____-o-saurus-Hot Dog-1]
+tests/test_rules_sticker_riders102.py::test_actual_new_name_receipt_reward_counts_unique_vowels_y_and_two_word_sticker102[_____ Bird Gets the Worm-Minotaur-4]
+[gw2] [ 37%] PASSED tests/test_rules_sticker_riders102.py::test_actual_new_name_receipt_reward_counts_unique_vowels_y_and_two_word_sticker102[_____ Bird Gets the Worm-Minotaur-4]
+tests/test_rules_sticker_riders102.py::test_no_new_sticker_no_reward_even_when_optional_placement_declined102[False-_____ Goblin]
+[gw2] [ 38%] PASSED tests/test_rules_sticker_riders102.py::test_no_new_sticker_no_reward_even_when_optional_placement_declined102[False-_____ Goblin]
+tests/test_rules_sticker_riders102.py::test_no_new_sticker_no_reward_even_when_optional_placement_declined102[False-_____-o-saurus]
+[gw2] [ 38%] PASSED tests/test_rules_sticker_riders102.py::test_no_new_sticker_no_reward_even_when_optional_placement_declined102[False-_____-o-saurus]
+tests/test_rules_aura_restrictions106.py::test_consecrate_land_allows_destroy_spell_but_grants_indestructible106
+[gw0] [ 39%] PASSED tests/test_rules_evidence_cost106.py::test_unpaid_evidence_has_full_printed_cost_and_no_exile
+tests/test_rules_evidence_cost106.py::test_evidence_reduction_precedes_trinisphere_floor
+[gw3] [ 39%] PASSED tests/test_rules_last_draw_cost107.py::test_true_cold_legacy_missing_draw_history_does_not_invent_last_card
+tests/test_rules_aura_restrictions106.py::test_whole106[Artifact Ward]
+[gw3] [ 40%] PASSED tests/test_rules_aura_restrictions106.py::test_whole106[Artifact Ward]
+tests/test_rules_aura_restrictions106.py::test_whole106[Anti-Magic Aura]
+[gw3] [ 41%] PASSED tests/test_rules_aura_restrictions106.py::test_whole106[Anti-Magic Aura]
+tests/test_rules_aura_restrictions106.py::test_whole106[Consecrate Land]
+[gw3] [ 41%] PASSED tests/test_rules_aura_restrictions106.py::test_whole106[Consecrate Land]
+tests/test_rules_aura_restrictions106.py::test_artifact_source_ability_rejected_before_cost106
+[gw1] [ 42%] PASSED tests/test_rules_vampire_returns105.py::test_seraph_simultaneous_death_still_creates_return105
+tests/test_rules_vampire_returns105.py::test_genuine_cold_krovikan_legacy_successor_unknown105
+[gw2] [ 42%] PASSED tests/test_rules_aura_restrictions106.py::test_consecrate_land_allows_destroy_spell_but_grants_indestructible106
+tests/test_rules_aura_restrictions106.py::test_consecrate_land_rejects_other_aura_spell106
+[gw1] [ 43%] PASSED tests/test_rules_vampire_returns105.py::test_genuine_cold_krovikan_legacy_successor_unknown105
+tests/test_rules_vampire_returns105.py::test_loss_watcher_ignores_precreation_native_control_event105
+[gw0] [ 43%] PASSED tests/test_rules_evidence_cost106.py::test_evidence_reduction_precedes_trinisphere_floor
+tests/test_rules_evidence_cost106.py::test_insufficient_evidence_cannot_grant_discount_or_exile_partial_payment
+[gw1] [ 44%] PASSED tests/test_rules_vampire_returns105.py::test_loss_watcher_ignores_precreation_native_control_event105
+tests/test_rules_stickers101.py::test_owner_not_controller_can_put_on_stolen_permanent
+[gw1] [ 45%] PASSED tests/test_rules_stickers101.py::test_owner_not_controller_can_put_on_stolen_permanent
+tests/test_rules_stickers101.py::test_current_sticker_condition_follows_native_control_and_hidden_return[Croakid Amphibonaut-flying]
+[gw1] [ 45%] PASSED tests/test_rules_stickers101.py::test_current_sticker_condition_follows_native_control_and_hidden_return[Croakid Amphibonaut-flying]
+tests/test_rules_stickers101.py::test_current_sticker_condition_follows_native_control_and_hidden_return[Grabby Tabby-vigilance]
+[gw1] [ 46%] PASSED tests/test_rules_stickers101.py::test_current_sticker_condition_follows_native_control_and_hidden_return[Grabby Tabby-vigilance]
+tests/test_rules_stickers101.py::test_current_sticker_condition_follows_native_control_and_hidden_return[Scared Stiff-menace]
+[gw1] [ 46%] PASSED tests/test_rules_stickers101.py::test_current_sticker_condition_follows_native_control_and_hidden_return[Scared Stiff-menace]
+tests/test_rules_stickers101.py::test_current_sticker_condition_follows_native_control_and_hidden_return[Big Winner-trample]
+[gw1] [ 47%] PASSED tests/test_rules_stickers101.py::test_current_sticker_condition_follows_native_control_and_hidden_return[Big Winner-trample]
+tests/test_rules_stickers101.py::test_current_sticker_condition_follows_native_control_and_hidden_return[Sanguine Sipper-lifelink]
+[gw1] [ 47%] PASSED tests/test_rules_stickers101.py::test_current_sticker_condition_follows_native_control_and_hidden_return[Sanguine Sipper-lifelink]
+tests/test_rules_stickers101.py::test_pt_sticker_is_not_an_ability_and_interleaves_base_pt_and_counters
+[gw3] [ 48%] PASSED tests/test_rules_aura_restrictions106.py::test_artifact_source_ability_rejected_before_cost106
+tests/test_rules_aura_restrictions106.py::test_ability_granted_by_artifact_has_creature_source106
+[gw1] [ 49%] PASSED tests/test_rules_stickers101.py::test_pt_sticker_is_not_an_ability_and_interleaves_base_pt_and_counters
+tests/test_rules_stickers101.py::test_later_ability_sticker_follows_real_ability_loss_and_copy_does_not_inherit
+[gw1] [ 49%] PASSED tests/test_rules_stickers101.py::test_later_ability_sticker_follows_real_ability_loss_and_copy_does_not_inherit
+tests/test_rules_stickers101.py::test_name_sticker_timestamp_with_actual_name_setting_aura
+[gw1] [ 50%] PASSED tests/test_rules_stickers101.py::test_name_sticker_timestamp_with_actual_name_setting_aura
+tests/test_rules_stickers101.py::test_genuine_cold_ability_name_and_pt_markers_keep_public_and_clear_hidden
+[gw1] [ 50%] PASSED tests/test_rules_stickers101.py::test_genuine_cold_ability_name_and_pt_markers_keep_public_and_clear_hidden
+tests/test_rules_stickers101.py::test_actual_destroy_merged_owner_chooses_one_sticker_recipient_before_move
+[gw1] [ 51%] PASSED tests/test_rules_stickers101.py::test_actual_destroy_merged_owner_chooses_one_sticker_recipient_before_move
+tests/test_rules_stickers101.py::test_actual_sba_merged_sticker_recipient_choice_is_retained_after_cold
+[gw1] [ 52%] PASSED tests/test_rules_stickers101.py::test_actual_sba_merged_sticker_recipient_choice_is_retained_after_cold
+tests/test_rules_stickers101.py::test_sticker_static_ability_uses_its_timestamp_through_real_dress_down
+[gw1] [ 52%] PASSED tests/test_rules_stickers101.py::test_sticker_static_ability_uses_its_timestamp_through_real_dress_down
+tests/test_rules_stickers101.py::test_native_placement_receipt_freezes_actor_original_object_and_actual_types
+[gw1] [ 53%] PASSED tests/test_rules_stickers101.py::test_native_placement_receipt_freezes_actor_original_object_and_actual_types
+tests/test_rules_stickers101.py::test_sheet_import_section_and_permissive_manual_table_do_not_invent_authority
+[gw1] [ 53%] PASSED tests/test_rules_stickers101.py::test_sheet_import_section_and_permissive_manual_table_do_not_invent_authority
+tests/test_rules_stickers101.py::test_opponent_destroy_retains_original_destroyer_after_owner_sticker_choice
+[gw1] [ 54%] PASSED tests/test_rules_stickers101.py::test_opponent_destroy_retains_original_destroyer_after_owner_sticker_choice
+tests/test_rules_sticker_effects101.py::test_whole_canonical_candidates101[Command Performance]
+[gw1] [ 54%] PASSED tests/test_rules_sticker_effects101.py::test_whole_canonical_candidates101[Command Performance]
+tests/test_rules_sticker_effects101.py::test_whole_canonical_candidates101[Ticketomaton]
+[gw1] [ 55%] PASSED tests/test_rules_sticker_effects101.py::test_whole_canonical_candidates101[Ticketomaton]
+tests/test_rules_sticker_effects101.py::test_whole_canonical_candidates101[Finishing Move]
+[gw1] [ 56%] PASSED tests/test_rules_sticker_effects101.py::test_whole_canonical_candidates101[Finishing Move]
+tests/test_rules_sticker_effects101.py::test_whole_canonical_candidates101[Chicken Troupe]
+[gw1] [ 56%] PASSED tests/test_rules_sticker_effects101.py::test_whole_canonical_candidates101[Chicken Troupe]
+tests/test_rules_sticker_effects101.py::test_whole_canonical_candidates101[Prize Wall]
+[gw1] [ 57%] PASSED tests/test_rules_sticker_effects101.py::test_whole_canonical_candidates101[Prize Wall]
+tests/test_rules_sticker_effects101.py::test_whole_canonical_candidates101[Stiltstrider]
+[gw1] [ 57%] PASSED tests/test_rules_sticker_effects101.py::test_whole_canonical_candidates101[Stiltstrider]
+tests/test_rules_sticker_effects101.py::test_whole_canonical_candidates101[Glitterflitter]
+[gw1] [ 58%] PASSED tests/test_rules_sticker_effects101.py::test_whole_canonical_candidates101[Glitterflitter]
+tests/test_rules_sticker_effects101.py::test_whole_canonical_candidates101[Bioluminary]
+[gw1] [ 58%] PASSED tests/test_rules_sticker_effects101.py::test_whole_canonical_candidates101[Bioluminary]
+tests/test_rules_sticker_effects101.py::test_whole_canonical_candidates101[Baaallerina]
+[gw1] [ 59%] PASSED tests/test_rules_sticker_effects101.py::test_whole_canonical_candidates101[Baaallerina]
+tests/test_rules_sticker_effects101.py::test_whole_canonical_candidates101[Minotaur de Force]
+[gw1] [ 60%] PASSED tests/test_rules_sticker_effects101.py::test_whole_canonical_candidates101[Minotaur de Force]
+tests/test_rules_sticker_effects101.py::test_whole_canonical_candidates101[Aerialephant]
+[gw1] [ 60%] PASSED tests/test_rules_sticker_effects101.py::test_whole_canonical_candidates101[Aerialephant]
+tests/test_rules_sticker_effects101.py::test_whole_canonical_candidates101[Carnival Carnivore]
+[gw1] [ 61%] PASSED tests/test_rules_sticker_effects101.py::test_whole_canonical_candidates101[Carnival Carnivore]
+tests/test_rules_sticker_effects101.py::test_whole_canonical_candidates101[Robo-Pi\xf1ata]
+[gw1] [ 61%] PASSED tests/test_rules_sticker_effects101.py::test_whole_canonical_candidates101[Robo-Pi\xf1ata]
+tests/test_rules_sticker_effects101.py::test_whole_canonical_candidates101[Sword-Swallowing Seraph]
+[gw1] [ 62%] PASSED tests/test_rules_sticker_effects101.py::test_whole_canonical_candidates101[Sword-Swallowing Seraph]
+tests/test_rules_sticker_effects101.py::test_whole_canonical_candidates101[Proficient Pyrodancer]
+[gw1] [ 63%] PASSED tests/test_rules_sticker_effects101.py::test_whole_canonical_candidates101[Proficient Pyrodancer]
+tests/test_rules_sticker_effects101.py::test_whole_canonical_candidates101[Roxi, Publicist to the Stars]
+[gw1] [ 63%] PASSED tests/test_rules_sticker_effects101.py::test_whole_canonical_candidates101[Roxi, Publicist to the Stars]
+tests/test_rules_sticker_effects101.py::test_whole_canonical_candidates101[Costume Shop]
+[gw1] [ 64%] PASSED tests/test_rules_sticker_effects101.py::test_whole_canonical_candidates101[Costume Shop]
+tests/test_rules_sticker_effects101.py::test_actual_etb_tickets_then_optional_non_target_art_placement101[Ticketomaton]
+[gw2] [ 64%] PASSED tests/test_rules_aura_restrictions106.py::test_consecrate_land_rejects_other_aura_spell106
+tests/test_rules_aura_restrictions106.py::test_nontargeted_aura_entry_cannot_choose_protected_host106[Anti-Magic Aura]
+[gw1] [ 65%] PASSED tests/test_rules_sticker_effects101.py::test_actual_etb_tickets_then_optional_non_target_art_placement101[Ticketomaton]
+tests/test_rules_sticker_effects101.py::test_actual_etb_tickets_then_optional_non_target_art_placement101[Chicken Troupe]
+[gw1] [ 65%] PASSED tests/test_rules_sticker_effects101.py::test_actual_etb_tickets_then_optional_non_target_art_placement101[Chicken Troupe]
+tests/test_rules_sticker_effects101.py::test_actual_etb_tickets_then_optional_non_target_art_placement101[Stiltstrider]
+[gw1] [ 66%] PASSED tests/test_rules_sticker_effects101.py::test_actual_etb_tickets_then_optional_non_target_art_placement101[Stiltstrider]
+tests/test_rules_sticker_effects101.py::test_actual_etb_tickets_then_optional_non_target_art_placement101[Glitterflitter]
+[gw1] [ 67%] PASSED tests/test_rules_sticker_effects101.py::test_actual_etb_tickets_then_optional_non_target_art_placement101[Glitterflitter]
+tests/test_rules_sticker_effects101.py::test_actual_etb_tickets_then_optional_non_target_art_placement101[Minotaur de Force]
+[gw1] [ 67%] PASSED tests/test_rules_sticker_effects101.py::test_actual_etb_tickets_then_optional_non_target_art_placement101[Minotaur de Force]
+tests/test_rules_sticker_effects101.py::test_actual_etb_tickets_then_optional_non_target_art_placement101[Aerialephant]
+[gw1] [ 68%] PASSED tests/test_rules_sticker_effects101.py::test_actual_etb_tickets_then_optional_non_target_art_placement101[Aerialephant]
+tests/test_rules_sticker_effects101.py::test_actual_etb_tickets_then_optional_non_target_art_placement101[Carnival Carnivore]
+[gw1] [ 68%] PASSED tests/test_rules_sticker_effects101.py::test_actual_etb_tickets_then_optional_non_target_art_placement101[Carnival Carnivore]
+tests/test_rules_sticker_effects101.py::test_decline_and_no_sheet_preserve_actual_ticket_grant101
+[gw1] [ 69%] PASSED tests/test_rules_sticker_effects101.py::test_decline_and_no_sheet_preserve_actual_ticket_grant101
+tests/test_rules_sticker_effects101.py::test_paid_power_sticker_changes_finishing_move_damage_before_damage_resolves101
+[gw1] [ 69%] PASSED tests/test_rules_sticker_effects101.py::test_paid_power_sticker_changes_finishing_move_damage_before_damage_resolves101
+tests/test_rules_sticker_effects101.py::test_optional_sticker_filters_unaffordable_and_other_owner_objects101
+[gw1] [ 70%] PASSED tests/test_rules_sticker_effects101.py::test_optional_sticker_filters_unaffordable_and_other_owner_objects101
+tests/test_rules_sticker_effects101.py::test_actual_command_ticket_and_sticker_modes_share_one_resolution101
+[gw1] [ 71%] PASSED tests/test_rules_sticker_effects101.py::test_actual_command_ticket_and_sticker_modes_share_one_resolution101
+tests/test_rules_sticker_effects101.py::test_actual_roxi_distributes_two_art_stickers_and_cda_counts_both_objects101
+[gw0] [ 71%] PASSED tests/test_rules_evidence_cost106.py::test_insufficient_evidence_cannot_grant_discount_or_exile_partial_payment
+tests/test_rules_evidence_cost106.py::test_true_cold_pending_evidence_choice_preserves_fixed_discount
+[gw1] [ 72%] PASSED tests/test_rules_sticker_effects101.py::test_actual_roxi_distributes_two_art_stickers_and_cda_counts_both_objects101
+tests/test_rules_sticker_effects101.py::test_actual_kind_restricted_etb_and_native_activated_sticker_target101[Baaallerina-name]
+[gw3] [ 72%] PASSED tests/test_rules_aura_restrictions106.py::test_ability_granted_by_artifact_has_creature_source106
+tests/test_rules_aura_restrictions106.py::test_source_becoming_artifact_changes_target_legality106
+[gw1] [ 73%] PASSED tests/test_rules_sticker_effects101.py::test_actual_kind_restricted_etb_and_native_activated_sticker_target101[Baaallerina-name]
+tests/test_rules_sticker_effects101.py::test_actual_kind_restricted_etb_and_native_activated_sticker_target101[Sword-Swallowing Seraph-name]
+[gw1] [ 73%] PASSED tests/test_rules_sticker_effects101.py::test_actual_kind_restricted_etb_and_native_activated_sticker_target101[Sword-Swallowing Seraph-name]
+tests/test_rules_sticker_effects101.py::test_actual_kind_restricted_etb_and_native_activated_sticker_target101[Proficient Pyrodancer-art]
+[gw1] [ 74%] PASSED tests/test_rules_sticker_effects101.py::test_actual_kind_restricted_etb_and_native_activated_sticker_target101[Proficient Pyrodancer-art]
+tests/test_rules_sticker_effects101.py::test_actual_prize_wall_sorcery_activation_and_discrete_sticker_use101
+[gw2] [ 75%] PASSED tests/test_rules_aura_restrictions106.py::test_nontargeted_aura_entry_cannot_choose_protected_host106[Anti-Magic Aura]
+tests/test_rules_aura_restrictions106.py::test_nontargeted_aura_entry_cannot_choose_protected_host106[Consecrate Land]
+[gw1] [ 75%] PASSED tests/test_rules_sticker_effects101.py::test_actual_prize_wall_sorcery_activation_and_discrete_sticker_use101
+tests/test_rules_sticker_effects101.py::test_actual_bioluminary_combat_grants_two_tickets_before_choice101
+[gw3] [ 76%] PASSED tests/test_rules_aura_restrictions106.py::test_source_becoming_artifact_changes_target_legality106
+tests/test_rules_aura_restrictions106.py::test_anti_magic_rejects_spells_but_allows_creature_abilities106
+[gw1] [ 76%] PASSED tests/test_rules_sticker_effects101.py::test_actual_bioluminary_combat_grants_two_tickets_before_choice101
+tests/test_rules_sticker_effects101.py::test_actual_robo_pinata_death_modal_ticket_or_sticker101[0]
+[gw1] [ 77%] PASSED tests/test_rules_sticker_effects101.py::test_actual_robo_pinata_death_modal_ticket_or_sticker101[0]
+tests/test_rules_sticker_effects101.py::test_actual_robo_pinata_death_modal_ticket_or_sticker101[1]
+[gw1] [ 78%] PASSED tests/test_rules_sticker_effects101.py::test_actual_robo_pinata_death_modal_ticket_or_sticker101[1]
+tests/test_rules_sticker_effects101.py::test_owner_chooses_sticker_borrowed_current_controller_chooses_name_position101
+[gw2] [ 78%] PASSED tests/test_rules_aura_restrictions106.py::test_nontargeted_aura_entry_cannot_choose_protected_host106[Consecrate Land]
+tests/test_rules_aura_restrictions106.py::test_genuine_cold_static_aura_legality106[Anti-Magic Aura]
+[gw1] [ 79%] PASSED tests/test_rules_sticker_effects101.py::test_owner_chooses_sticker_borrowed_current_controller_chooses_name_position101
+tests/test_rules_sticker_effects101.py::test_borrower_concedes_during_name_choice_reoffers_current_controller_same_object101
+[gw0] [ 79%] PASSED tests/test_rules_evidence_cost106.py::test_true_cold_pending_evidence_choice_preserves_fixed_discount
+tests/test_rules_last_draw_cost107.py::test_jandors_ring_full
+[gw0] [ 80%] PASSED tests/test_rules_last_draw_cost107.py::test_jandors_ring_full
+tests/test_rules_last_draw_cost107.py::test_actual_group_draw_last_card_pays_and_ring_draws_replacement
+[gw3] [ 80%] PASSED tests/test_rules_aura_restrictions106.py::test_anti_magic_rejects_spells_but_allows_creature_abilities106
+tests/test_rules_aura_restrictions106.py::test_own_aura_remains_other_existing_aura_falls_off106[Anti-Magic Aura]
+[gw0] [ 81%] PASSED tests/test_rules_last_draw_cost107.py::test_actual_group_draw_last_card_pays_and_ring_draws_replacement
+tests/test_rules_last_draw_cost107.py::test_previous_drawn_card_is_not_last_even_while_both_remain_in_hand
+[gw0] [ 82%] PASSED tests/test_rules_last_draw_cost107.py::test_previous_drawn_card_is_not_last_even_while_both_remain_in_hand
+tests/test_rules_last_draw_cost107.py::test_last_card_leaving_hand_never_falls_back_or_accepts_returned_incarnation[False]
+[gw1] [ 82%] PASSED tests/test_rules_sticker_effects101.py::test_borrower_concedes_during_name_choice_reoffers_current_controller_same_object101
+tests/test_rules_sticker_effects101.py::test_genuine_cold_ticket_grant_card_then_paid_ability_sticker101
+[gw2] [ 83%] PASSED tests/test_rules_aura_restrictions106.py::test_genuine_cold_static_aura_legality106[Anti-Magic Aura]
+tests/test_rules_aura_restrictions106.py::test_genuine_cold_static_aura_legality106[Consecrate Land]
+[gw1] [ 83%] PASSED tests/test_rules_sticker_effects101.py::test_genuine_cold_ticket_grant_card_then_paid_ability_sticker101
+tests/test_rules_sticker_effects101.py::test_genuine_cold_borrowed_name_position_reassigns_after_controller_concedes101
+[gw0] [ 84%] PASSED tests/test_rules_last_draw_cost107.py::test_last_card_leaving_hand_never_falls_back_or_accepts_returned_incarnation[False]
+tests/test_rules_last_draw_cost107.py::test_last_card_leaving_hand_never_falls_back_or_accepts_returned_incarnation[True]
+[gw3] [ 84%] PASSED tests/test_rules_aura_restrictions106.py::test_own_aura_remains_other_existing_aura_falls_off106[Anti-Magic Aura]
+tests/test_rules_aura_restrictions106.py::test_own_aura_remains_other_existing_aura_falls_off106[Consecrate Land]
+[gw0] [ 85%] PASSED tests/test_rules_last_draw_cost107.py::test_last_card_leaving_hand_never_falls_back_or_accepts_returned_incarnation[True]
+tests/test_rules_last_draw_cost107.py::test_true_cold_last_drawn_discard_uses_exact_hand_object
+[gw0] [ 86%] PASSED tests/test_rules_last_draw_cost107.py::test_true_cold_last_drawn_discard_uses_exact_hand_object
+tests/test_rules_sticker_effects101.py::test_ticket_grant_uses_native_counter_prevention_and_multiplication101[Vorinclex, Monstrous Raider-2]
+[gw1] [ 86%] PASSED tests/test_rules_sticker_effects101.py::test_genuine_cold_borrowed_name_position_reassigns_after_controller_concedes101
+tests/test_rules_sticker_effects101.py::test_actual_open_then_roll_to_visit_costume_shop_offers_sticker101
+[gw2] [ 87%] PASSED tests/test_rules_aura_restrictions106.py::test_genuine_cold_static_aura_legality106[Consecrate Land]
+tests/test_rules_stickers101.py::test_constructed_sheets_are_three_distinct_public_and_offline
+[gw2] [ 87%] PASSED tests/test_rules_stickers101.py::test_constructed_sheets_are_three_distinct_public_and_offline
+tests/test_rules_stickers101.py::test_cost_and_discrete_availability_are_atomic_and_replayable
+[gw0] [ 88%] PASSED tests/test_rules_sticker_effects101.py::test_ticket_grant_uses_native_counter_prevention_and_multiplication101[Vorinclex, Monstrous Raider-2]
+tests/test_rules_copy_controllers105.py::test_whole105[Tempt with Mayhem]
+[gw0] [ 89%] PASSED tests/test_rules_copy_controllers105.py::test_whole105[Tempt with Mayhem]
+tests/test_rules_copy_controllers105.py::test_whole105[Psychic Rebuttal]
+[gw2] [ 89%] PASSED tests/test_rules_stickers101.py::test_cost_and_discrete_availability_are_atomic_and_replayable
+tests/test_rules_stickers101.py::test_public_exile_graveyard_retains_then_hidden_hand_returns_to_sheet
+[gw0] [ 90%] PASSED tests/test_rules_copy_controllers105.py::test_whole105[Psychic Rebuttal]
+tests/test_rules_copy_controllers105.py::test_tempt_each_copy_controller_and_actual_totals[False]
+[gw2] [ 90%] PASSED tests/test_rules_stickers101.py::test_public_exile_graveyard_retains_then_hidden_hand_returns_to_sheet
+tests/test_rules_copy_controllers105.py::test_tempt_each_copy_controller_and_actual_totals[True]
+[gw1] [ 91%] PASSED tests/test_rules_sticker_effects101.py::test_actual_open_then_roll_to_visit_costume_shop_offers_sticker101
+tests/test_rules_copy_controllers105.py::test_whole105[Meletis Charlatan]
+[gw1] [ 91%] PASSED tests/test_rules_copy_controllers105.py::test_whole105[Meletis Charlatan]
+tests/test_rules_copy_controllers105.py::test_rebuttal_only_actual_countered_and_mastery[False]
+[gw1] [ 92%] PASSED tests/test_rules_copy_controllers105.py::test_rebuttal_only_actual_countered_and_mastery[False]
+tests/test_rules_copy_controllers105.py::test_rebuttal_only_actual_countered_and_mastery[True]
+[gw3] [ 93%] PASSED tests/test_rules_aura_restrictions106.py::test_own_aura_remains_other_existing_aura_falls_off106[Consecrate Land]
+tests/test_rules_sticker_effects101.py::test_ticket_grant_uses_native_counter_prevention_and_multiplication101[Solemnity-0]
+[gw1] [ 93%] PASSED tests/test_rules_copy_controllers105.py::test_rebuttal_only_actual_countered_and_mastery[True]
+tests/test_rules_copy_controllers105.py::test_rebuttal_does_not_copy_uncounterable_spell
+[gw3] [ 94%] PASSED tests/test_rules_sticker_effects101.py::test_ticket_grant_uses_native_counter_prevention_and_multiplication101[Solemnity-0]
+tests/test_rules_copy_controllers105.py::test_tempt_native_copy_replacement_applies_once_to_whole_final_batch
+[gw1] [ 94%] PASSED tests/test_rules_copy_controllers105.py::test_rebuttal_does_not_copy_uncounterable_spell
+tests/test_rules_copy_controllers105.py::test_rebuttal_may_decline_after_actual_counter
+[gw2] [ 95%] PASSED tests/test_rules_copy_controllers105.py::test_tempt_each_copy_controller_and_actual_totals[True]
+tests/test_rules_copy_controllers105.py::test_charlatan_original_controller_draws_and_pays_once
+[gw1] [ 95%] PASSED tests/test_rules_copy_controllers105.py::test_rebuttal_may_decline_after_actual_counter
+tests/test_rules_copy_controllers105.py::test_cold_rebuttal_after_counter_before_optional_copy
+[gw0] [ 96%] PASSED tests/test_rules_copy_controllers105.py::test_tempt_each_copy_controller_and_actual_totals[False]
+tests/test_rules_copy_controllers105.py::test_tempt_next_opponent_sees_previous_copy_on_stack
+[gw1] [ 97%] PASSED tests/test_rules_copy_controllers105.py::test_cold_rebuttal_after_counter_before_optional_copy
+[gw3] [ 97%] PASSED tests/test_rules_copy_controllers105.py::test_tempt_native_copy_replacement_applies_once_to_whole_final_batch
+tests/test_rules_copy_controllers105.py::test_cold_tempt_previous_actual_copy_outcome_and_next_opponent
+[gw0] [ 98%] PASSED tests/test_rules_copy_controllers105.py::test_tempt_next_opponent_sees_previous_copy_on_stack
+[gw2] [ 98%] PASSED tests/test_rules_copy_controllers105.py::test_charlatan_original_controller_draws_and_pays_once
+tests/test_rules_copy_controllers105.py::test_tempt_accepted_offer_cannot_override_cannot_be_copied
+[gw2] [ 99%] PASSED tests/test_rules_copy_controllers105.py::test_tempt_accepted_offer_cannot_override_cannot_be_copied
+[gw3] [100%] PASSED tests/test_rules_copy_controllers105.py::test_cold_tempt_previous_actual_copy_outcome_and_next_opponent
+
+======================= 173 passed in 271.73s (0:04:31) ========================

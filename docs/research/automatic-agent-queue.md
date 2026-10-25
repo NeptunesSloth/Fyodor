@@ -1,6 +1,6 @@
 # Active1000-additional-card queue after PR21
 
-Merged-PR21 baseline:30,724 FULL /1,344 PARTIAL; new target26/1000 verified. DraftPR22 preserves progress. Prior checkpoint67 counts are historical; old held prototypes may now be subsumed by PR21 and must not be applied blindly.
+Merged-PR21 baseline:30,724 FULL /1,344 PARTIAL; new target100/1000 verified. DraftPR22 preserves progress. Prior checkpoint67 counts are historical; old held prototypes may now be subsumed by PR21 and must not be applied blindly.
 
 Six isolated streams automatically take next largest coherent unowned group after closure:
 

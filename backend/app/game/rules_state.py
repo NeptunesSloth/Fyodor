@@ -310,6 +310,7 @@ class ObjectSnapshot(BaseModel):
     Recorded *before* it left, never reconstructed from where it went."""
 
     object_id: str
+    stickers101: list[dict[str, Any]] = Field(default_factory=list)  # Original public sticker markers at departure.
     choices: dict[str, str] = Field(default_factory=dict)  # exact public choices before this incarnation left
     ring_bearer: bool = False  # designation captured before zone-change reconciliation
     suspected: bool | None = None  # Pre-move designation; missing in legacy snapshots.
@@ -440,6 +441,7 @@ class Event(BaseModel):
     loss_watchers: list[ObjectSnapshot] = Field(default_factory=list)
     attacking_player: str | None = None  # Combat damage-time attacking player; unknown in old saves.
     turn_start_life: int | None = None  # Losing player's actual life at this turn's native start.
+    sticker101: dict[str, Any] | None = None  # Native placement receipt, absent in old saves.
     prevention: dict[str, Any] | None = None  # Native committed prevention receipt; absent in old saves.
     played_snapshot: ObjectSnapshot | None = None  # Public land face as played, even if entering was diverted.
     step_phase: str | None = None
@@ -488,6 +490,7 @@ class Departure(BaseModel):
     card: str = Field(max_length=64)
     object_id: str = Field(max_length=80)  # the object as it last existed on the battlefield (its ``lki`` key)
     controller: str = Field(max_length=64)  # who controlled it as it left
+    new_object_id105: str | None = Field(default=None, max_length=80)  # Exact public successor; absent in legacy saves.
     to: str = Field(default="", max_length=20)  # the zone it went to: "graveyard", "exile", "hand", "library" …
     # its card types as it last existed (layers applied: an animated land, a crewed Vehicle), when
     # the rules engine moved it; None (moved by hand): its printed types from the last known information
@@ -1400,6 +1403,8 @@ class WorldInterval80(BaseModel):
 
 
 class RulesState(BaseModel):
+    sticker_splits101: dict[str, str] = Field(default_factory=dict)  # Original permanent OID -> chosen physical component.
+
     world_epoch80: int = 0
     world_intervals80: dict[str, WorldInterval80] = Field(default_factory=dict)
     combat_memory: CombatMemory | None = None  # None: unknown legacy previous combat.
@@ -1840,6 +1845,7 @@ def snapshot(state: GameState, card_id: str) -> ObjectSnapshot:
     return ObjectSnapshot(
         object_id=rules.object_id(card_id) if rules else card_id, card=card_id, printing=c.card_id, name=c.name,
         owner=c.owner, controller=c.controller, zone=c.zone, turn=state.turn.number, tapped=c.tapped, choices=dict(c.choices),
+        stickers101=[p.model_dump() for p in c.stickers101],
         face_down=c.face_down, face_down_kind=c.face_down_kind, face_down_as=c.face_down_as, face=c.face, is_token=c.is_token,
         token_power=token.power if token else None, token_toughness=token.toughness if token else None,
         token_type_line=token.type_line if token else None, token_colors=list(token.colors) if token else [],
@@ -2221,7 +2227,7 @@ def _diff(state: GameState, rules: RulesState, before: Capture, manual: bool, ac
         if old_name == "battlefield" and snap is not None:  # -- conditional / instead clauses (wave 1B) --
             log = turn_log_now(state)
             if log is not None:
-                log.left.append(Departure(card=card_id, object_id=old_oid, controller=snap.controller, to=new_name or "",
+                log.left.append(Departure(card=card_id, object_id=old_oid, controller=snap.controller, to=new_name or "", new_object_id105=new_oid if new_name == "graveyard" else None,
                                           types=before.types.get(card_id)))
         elif old_name == "graveyard" and (log := turn_log_now(state)) is not None:
             log.left_graveyard.append(old_zone.split(":")[0])  # (a zone key is "<owner>:graveyard")

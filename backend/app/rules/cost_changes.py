@@ -22,7 +22,7 @@ None and the line stays manual.
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING, Any
 
 from app.rules import card_names as _card_names  # -- chosen filters (wave 53B) --
@@ -796,6 +796,8 @@ DEFILER = re.compile(
 OWN_OPTIONAL = re.compile(r"^as an additional cost to cast this spell, you may (?P<cost>collect evidence \d+|behold an? [A-Z][a-z]+|reveal an? [A-Z][a-z]+ card from your hand|blight [1-5]|waterbend \{\d+\}|exile a creature card from your graveyard)\.?(?: \(.*\))?$")  # (-- blight (wave 51E) -- 701.68a)
 
 
+EVIDENCE_REDUCTION = re.compile(r"as an additional cost to cast this spell, you may collect evidence (?P<n>\d+)\. this spell costs \{(?P<cut>\d+)\} less to cast if evidence was collected\.?", re.IGNORECASE)
+
 def own_cost(text: str) -> Any:
     """The one cost part "Collect evidence 6" / "Behold a Dragon" is (None when the grammar can't pay it)."""
     from app.rules import costs as C
@@ -825,6 +827,11 @@ def optional_definition(t: str) -> dict[str, Any] | None:
         if more is None:
             return None
         return {"kind": "static", "static": "own_optional", "optional": "reduce", "cost": text, "n": int(any_cost["n"]), "effects": [], **({"change": more} if more else {})}
+    if (evidence := EVIDENCE_REDUCTION.fullmatch(t)) is not None:
+        text = f"Collect evidence {evidence['n']}"
+        if own_cost(text) is not None:
+            return {"kind":"static","static":"own_optional","optional":"evidence","cost":text,
+                    "n":int(evidence['cut']),"effects":[]}
     if (own := OWN_OPTIONAL.fullmatch(t)) is not None:
         text = own["cost"][0].upper() + own["cost"][1:]
         parsed = own_cost(text)
@@ -867,7 +874,8 @@ def keyword_component(o: Optional, x: int = 0) -> Any:
         either = tuple(Selector(controller="you", **kw).key() for kw in ({"types": ("Artifact",)}, {"types": ("Enchantment",)}, {"token": True}))
         return C.CostComponent(C.SACRIFICE, amount=1, selector=Selector(either=either).key(), text="Sacrifice an artifact, enchantment, or token", reduces=o.n)
     if o.kind in ("evidence", "behold", "blight", "reveal", "exile", "flash_tap", "waterbend103"):  # -- casting costs (wave 22F) --
-        return own_cost(o.text)
+        piece = own_cost(o.text)
+        return replace(piece, reduces=o.n) if o.kind == "evidence" and o.n and piece is not None else piece
     if o.kind == "offering":  # -- offering (wave 51H) -- 702.48a: "you may sacrifice a [quality] permanent"
         from app.rules import offering
 

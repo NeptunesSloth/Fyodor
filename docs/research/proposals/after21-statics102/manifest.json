@@ -41,5 +41,15 @@
       "base_sha256": null,
       "sha256": "5835da05383147aefecce6d1867d6b78bdc2526ddb5f2aa71b34e82c0bc96ee6"
     }
-  ]
+  ],
+  "names": [
+    "Rootwater Matriarch",
+    "Braided Net // Braided Quipu",
+    "Blade of Shared Souls",
+    "Assimilation Aegis",
+    "Zygon Infiltrator",
+    "Old Man of the Sea"
+  ],
+  "test_destination": "backend/tests/test_rules_lifespans102.py",
+  "fixture_destination": "backend/tests/fixtures/lifespans102_cards.json"
 }

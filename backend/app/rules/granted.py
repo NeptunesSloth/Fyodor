@@ -201,13 +201,22 @@ def layer6(ch: Characteristics, effects: list[ContinuousEffect], wipe: tuple[int
     (``wipe``: its ordering key, 613.7); ones after it grant again."""
     from app.rules.scripts import granted_ability
 
-    extra = []
+    extra: list[AbilityText] = []
     for e in effects:  # (``layers.affecting`` sorts by timestamp)
         if e.layer != "6" or not e.add_abilities or (wipe is not None and (e.object_seq, 1, e.timestamp) < wipe):
             continue
         from app.rules import quoted_prevention_loss47
 
         for k, text in enumerate(e.add_abilities[:MAX_GRANTED]):
+            if e.id.startswith('sticker101:'):
+                from app.rules.oracle import parse_abilities
+
+                # A sticker grants its printed abilities even when a resulting
+                # ability needs the ordinary manual-resolution path. Never drop it.
+                extra.extend(replace(a, index=index_of(e.timestamp, part))
+                             for part, a in enumerate(parse_abilities(with_final_stop(text))))
+                continue
+
             if quoted_prevention_loss47.lost(with_final_stop(text), ch.name, (e.object_seq, 1, e.timestamp), effects):
                 continue
             ab = granted_ability(line := with_final_stop(text)) or _enchant(line)
@@ -229,9 +238,9 @@ def last_existed(printed: Characteristics, now: Characteristics) -> tuple[Any, A
                       "intrinsic": a.intrinsic} for a in now.abilities]
     keywords = sorted(now.keywords) if now.keywords != printed.keywords else None
     traits = None
-    if (now.types, now.subtypes, now.supertypes, now.colors) != (printed.types, printed.subtypes, printed.supertypes, printed.colors):
+    if now.name != printed.name or (now.types, now.subtypes, now.supertypes, now.colors) != (printed.types, printed.subtypes, printed.supertypes, printed.colors):
         traits = {"types": sorted(now.types), "subtypes": sorted(now.subtypes), "supertypes": sorted(now.supertypes),
-                  "colors": sorted(now.colors)}
+                  "colors": sorted(now.colors), "name101": [now.name]}
     return abilities, keywords, traits
 
 
@@ -248,6 +257,6 @@ def as_last_existed(ch: Characteristics, snap: ObjectSnapshot) -> Characteristic
         ch = replace(ch, granted=now - printed, lost=printed - now)
     if snap.traits is not None:
         t = snap.traits
-        ch = replace(ch, types=frozenset(t["types"]), subtypes=frozenset(t["subtypes"]),
+        ch = replace(ch, name=(t.get("name101") or [ch.name])[0], types=frozenset(t["types"]), subtypes=frozenset(t["subtypes"]),
                      supertypes=frozenset(t["supertypes"]), colors=frozenset(t["colors"]))
     return ch

@@ -159,6 +159,31 @@ class AttackTarget(BaseModel):
     id: str
 
 
+class StickerDefinition101(BaseModel):
+    id: str
+    kind: Literal["name", "ability", "pt", "art"]
+    cost: int = Field(default=0, ge=0)
+    label: str
+    text: str = ""
+    power: int | None = None
+    toughness: int | None = None
+
+
+class StickerSheet101(BaseModel):
+    id: str
+    name: str
+    printing_id: str
+    stickers: list[StickerDefinition101]
+
+
+class StickerPlacement101(BaseModel):
+    sticker: StickerDefinition101
+    owner: str
+    position: int = 0
+    object_seq: int = 0
+    timestamp: int = 0
+
+
 class CardInstance(BaseModel):
     borrow_identity: str | None = None  # Server-private physical identity retained across privacy-only renumbering.
     id: str
@@ -200,6 +225,7 @@ class CardInstance(BaseModel):
     attacking: AttackTarget | None = None
     attacking_without_target: str | None = None  # 506.4c: former defender may block, but no object is attacked.
     attack_defender_lost: bool = False  # Last combat association was targetless, even after actual removal.
+    stickers101: list[StickerPlacement101] = Field(default_factory=list)
     entry_characteristics: EntryCharacteristics | None = None
     embalmed: bool = False  # Noncopiable creation provenance, available during entry.
 
@@ -284,6 +310,8 @@ class PlayerState(BaseModel):
     mulligans: int = 0
     deck_id: str | None = None
     deck_name: str | None = None
+    sticker_pool101: list[dict[str, str]] = Field(default_factory=list)  # All revealed pregame sheet references (123.2a).
+    sticker_sheets101: list[StickerSheet101] = Field(default_factory=list)  # The three public accessible sheets (123.2c).
     token_shortcuts: list[str] = Field(default_factory=list)  # card ids from the deck's Tokens section
     mana: dict[str, int] = Field(default_factory=dict)  # temporary mana pool: W U B R G C (and S for snow)
     mana_units: list[ManaUnit] = Field(default_factory=list)  # -- mana provenance (wave 18B) -- restricted / remembered mana

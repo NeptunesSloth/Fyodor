@@ -64,6 +64,8 @@ def parse(text: str, *, objects: bool = False) -> Condition | None:
     refers to ("it's a land card", "~ is tapped") — only for wording inside an ability's effects or
     trigger, which has those objects (statics and restrictions don't)."""
     t = text.strip().rstrip(",").replace("’", "'")
+    if t.lower() == 'you control a stickered permanent':
+        return {'stickered_you101': True}
     from app.rules import damage_retention83
 
     if (retention83 := damage_retention83.condition(t)) is not None:
@@ -1579,6 +1581,14 @@ def bind_objects(cond: Condition, who: str) -> Condition:
 
 
 def holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
+    if cond.get("damage_death105"):
+        from app.rules import vampire_returns105
+
+        return bool(vampire_returns105.departures(plan, ctx))
+    if cond.get('stickered_you101'):
+        pid = ctx['controller']
+        return any(c.stickers101 and c.controller == pid and c.zone.endswith(':battlefield') for c in plan.state.cards.values())
+
     if cond.get("axe_combat95"):
         from app.rules import combat_damage95
 

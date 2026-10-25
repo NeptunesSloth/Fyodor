@@ -1558,6 +1558,10 @@ def _settle_decision(plan: Plan, d: Decision, leaver: str) -> None:
         plan.rules.stack.pop(ctx["stack_id"], None)
         _after_resolution(plan)
         return
+    from app.rules import sticker_effects101
+
+    if sticker_effects101.replaced_choice(plan, d):
+        return
     if d.player != leaver:
         if d.kind == "declare_attackers" and r.decision is not None:
             r.decision = None
@@ -1879,3 +1883,14 @@ RESUME.update(_modal101.RESUME)
 from app.rules import combat_damage95 as _combat_damage95  # noqa: E402
 
 RESUME.update(_combat_damage95.RESUME)
+
+from app.rules import stickers101 as _stickers101  # noqa: E402
+
+RESUME.update(_stickers101.RESUME)
+
+from app.rules import sticker_effects101 as _sticker_effects101  # noqa: E402
+
+RESUME.update(_sticker_effects101.RESUME)
+
+from app.rules import vampire_returns105 as _vampire_returns105  # noqa: E402, I001
+RESUME.update(_vampire_returns105.RESUME)

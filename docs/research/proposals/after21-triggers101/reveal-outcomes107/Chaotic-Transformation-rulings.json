@@ -1,0 +1,20 @@
+{
+  "object": "list",
+  "has_more": false,
+  "data": [
+    {
+      "object": "ruling",
+      "oracle_id": "a754458d-55b5-44c2-98de-8bf26b82c1b1",
+      "source": "wotc",
+      "published_at": "2022-09-09",
+      "comment": "The target permanents are exiled all at the same time."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "a754458d-55b5-44c2-98de-8bf26b82c1b1",
+      "source": "wotc",
+      "published_at": "2022-09-09",
+      "comment": "If a player controls multiple permanents that were exiled this way, that player first chooses which target they\u2019re considering, then they reveal cards until they reveal a card that shares a type with that permanent as it last existed on the battlefield, then they put that card onto the battlefield and shuffle. They then repeat this process for the remaining targets they controlled."
+    }
+  ]
+}

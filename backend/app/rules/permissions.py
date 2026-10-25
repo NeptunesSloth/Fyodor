@@ -601,7 +601,7 @@ def define_static(text: str, kind: str, lines: tuple[str, ...] = ()) -> Definiti
         return {**cheaper, "uncounterable": True} if cheaper is not None and cheaper.get("static") == "cost_modifier" and cheaper.get("caster") == "you" else None
     # -- costs (wave 3$) -- "As an additional cost to cast this spell, sacrifice a creature." (601.2b): paid with the
     # rest of the cost as the spell is cast (casting.cast_spell); a wording the cost grammar can't pay stays manual
-    if cost_changes.OWN_OPTIONAL.fullmatch(t) or cost_changes.ANY_COST.fullmatch(t):  # -- casting costs (wave 22F) -- "you may collect evidence 6" / "you may behold a Dragon"; (wave 47C) "you may sacrifice any number of …"
+    if cost_changes.OWN_OPTIONAL.fullmatch(t) or cost_changes.ANY_COST.fullmatch(t) or cost_changes.EVIDENCE_REDUCTION.fullmatch(t):  # -- casting costs (wave 22F) -- "you may collect evidence 6" / "you may behold a Dragon"; (wave 47C) "you may sacrifice any number of …"
         return cost_changes.optional_definition(t)
     extra = costs.additional_cost_text(t)
     if extra is not None:

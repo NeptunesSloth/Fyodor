@@ -1,0 +1,55 @@
+{
+  "object": "list",
+  "has_more": false,
+  "data": [
+    {
+      "object": "ruling",
+      "oracle_id": "9fb7e7ca-ad2f-4677-859c-7a9adf8fb5fd",
+      "source": "wotc",
+      "published_at": "2025-04-04",
+      "comment": "You choose whether to make a copy as the demonstrate ability resolves. This happens before the original spell resolves. Your copy goes on the stack above the original spell."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "9fb7e7ca-ad2f-4677-859c-7a9adf8fb5fd",
+      "source": "wotc",
+      "published_at": "2025-04-04",
+      "comment": "If you copy a spell with demonstrate, you then immediately choose an opponent. If they copy the spell, it goes on top of the stack."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "9fb7e7ca-ad2f-4677-859c-7a9adf8fb5fd",
+      "source": "wotc",
+      "published_at": "2025-04-04",
+      "comment": "If the spell requires targets, you choose the target of the original spell as you cast it. If you create a copy of the spell, you may choose new targets for the copy as you create that copy. Similarly, the opponent you chose to create a copy may choose new targets for that copy as it\u2019s created. In other words, your opponent will know the targets of your original spell and your copy when choosing the new targets, if any, for their copy."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "9fb7e7ca-ad2f-4677-859c-7a9adf8fb5fd",
+      "source": "wotc",
+      "published_at": "2025-04-04",
+      "comment": "If you cast a spell with demonstrate and both you and an opponent copy it, the opponent\u2019s copy will resolve first, then your copy will resolve, and finally the original spell will resolve."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "9fb7e7ca-ad2f-4677-859c-7a9adf8fb5fd",
+      "source": "wotc",
+      "published_at": "2025-04-04",
+      "comment": "If you cast the spell and choose not to copy it, no opponent will get to copy it either."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "9fb7e7ca-ad2f-4677-859c-7a9adf8fb5fd",
+      "source": "wotc",
+      "published_at": "2025-04-04",
+      "comment": "If the destroyed permanent\u2019s controller chooses to cast the exiled card without paying its mana cost, they can\u2019t choose to cast it for any alternative costs. They can, however, pay additional costs, such as kicker costs. If the spell has any mandatory additional costs, those must be paid to cast the spell."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "9fb7e7ca-ad2f-4677-859c-7a9adf8fb5fd",
+      "source": "wotc",
+      "published_at": "2025-04-04",
+      "comment": "If the exiled card has {X} in its mana cost, the destroyed permanent\u2019s controller must choose 0 as the value of X when casting it without paying its mana cost."
+    }
+  ]
+}

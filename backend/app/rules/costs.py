@@ -374,6 +374,10 @@ def _component(part: str, card_name: str) -> CostComponent | None:
         card = selectors.Selector(card=True, zones=('hand',), zone_owner='you', supertypes=('Legendary',),
                                   extras=('samename_among:' + permanent,))
         return CostComponent(DISCARD, amount=1, selector=card.key(), text=part)
+    if part == "Discard the last card you drew this turn":
+        hand = selectors.Selector(card=True, zones=("hand",), zone_owner="you",
+                                  extras=("last_drawn_this_turn107",)).key()
+        return CostComponent(DISCARD, amount=1, selector=hand, text=part)
     if m := _DISCARD.match(part):
         if m["n"] == "another":
             return None

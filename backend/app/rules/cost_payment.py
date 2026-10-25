@@ -627,8 +627,9 @@ def _choose_any(plan: Plan, a: A.ActivateAbility | A.CastSpell | A.TurnFaceUp | 
 
 
 def reduction(cost: AbilityCost, chosen: dict[int, list[str]]) -> int:
-    """-- cost reductions paid with objects (wave 47C) -- 601.2f: the generic mana the objects chosen for the parts that reduce the total cost take off it."""
-    return sum(c.reduces * len(chosen.get(i, [])) for i, c in enumerate(cost.components))
+    """601.2f: per-object reductions, or one reduction for the completed evidence collection."""
+    return sum(c.reduces * (int(bool(chosen.get(i))) if c.kind == C.COLLECT_EVIDENCE else len(chosen.get(i, [])))
+               for i, c in enumerate(cost.components))
 
 
 def _choose_power(plan: Plan, a: A.ActivateAbility | A.CastSpell | A.TurnFaceUp | A.DeclareAttackers | A.DeclareBlockers, i: int, comp: CostComponent, cost: AbilityCost, card: CardInstance,

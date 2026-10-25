@@ -753,13 +753,15 @@ def _import_for_lobby(services: Services, body: LobbyDeckIn, local: bool) -> Sub
 
 def _bind_collection(services: Services, deck: SubmittedDeck, body: LobbyDeckIn, fmt: str,
                      existing: list[CollectionCard] | None = None) -> None:
-    entries = deck_service.resolve_entries([e for e in body.collection if e.section not in ("tokens", "maybeboard")], services.cards)
+    entries = deck_service.resolve_entries([e for e in body.collection if e.section not in ("tokens", "maybeboard", "stickers")], services.cards)
     data = services.cards.get_many([e.printing_id for e in entries if e.printing_id])
     owned: dict[str, CollectionCard] = {c.oracle_id: c.model_copy(deep=True) for c in existing or []} if "collection" not in body.model_fields_set else {}
     for entry in entries:
         cd = data.get(entry.printing_id or "")
         if cd is None or cd.get("is_token"):
             raise HTTPException(422, "The collection contains unresolved cards; import those decks again")
+        if cd.get("type_line") == "Stickers":
+            continue  # CR123.2: sheets are not outside-the-game cards.
         oid = cd["oracle_id"]
         if oid in owned:
             owned[oid].quantity += entry.quantity

@@ -1,0 +1,13 @@
+{
+  "object": "list",
+  "has_more": false,
+  "data": [
+    {
+      "object": "ruling",
+      "oracle_id": "1009f979-b1fa-4427-bf9e-2a533a4ca19b",
+      "source": "wotc",
+      "published_at": "2022-10-07",
+      "comment": "When determining what a name begins with, ignore all spaces and punctuation, including blank lines."
+    }
+  ]
+}

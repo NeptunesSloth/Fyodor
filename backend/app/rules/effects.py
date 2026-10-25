@@ -4061,6 +4061,10 @@ def run_body(plan: Plan, ctx: Context) -> bool:
 def _run_body(plan: Plan, ctx: Context) -> bool:
     while ctx["next"] < len(ctx["effects"]):  # (wave 19F: re-read each time: effects.repeat replaces the list)
         e = ctx["effects"][ctx["next"]]
+        from app.rules import stickers101
+
+        if stickers101.ask_first(plan, ctx, e):
+            return False
         if replacements.ask_903_9b_first(plan, ctx, e):
             return False  # 903.9b: a commander's owner chooses before it would be put into a hand or library
         ctx["next"] += 1
@@ -7020,3 +7024,18 @@ PRIMITIVES.update(_stack103.PRIMITIVES)
 from app.rules import next_copy104 as _next104  # noqa: E402
 
 PRIMITIVES.update(_next104.PRIMITIVES)
+
+from app.rules import sticker_effects101 as _sticker_effects101  # noqa: E402
+
+PRIMITIVES.update(_sticker_effects101.PRIMITIVES)
+from app.rules import epic103 as _epic103  # noqa: E402
+
+PRIMITIVES.update(_epic103.PRIMITIVES)
+
+
+from app.rules import vampire_returns105 as _vampire_returns105  # noqa: E402, I001
+PRIMITIVES.update(_vampire_returns105.PRIMITIVES)
+
+from app.rules import copy_controllers105 as _copy105  # noqa: E402
+
+PRIMITIVES.update(_copy105.PRIMITIVES)

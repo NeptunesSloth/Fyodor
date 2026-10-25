@@ -1,0 +1,229 @@
+============================= test session starts ==============================
+platform linux -- Python 3.12.14, pytest-9.1.1, pluggy-1.7.0 -- /workspace/Fyodor/backend/.venv/bin/python3
+cachedir: .pytest_cache
+rootdir: /workspace/scratch/after-pr21/batch004/backend
+configfile: pyproject.toml
+plugins: anyio-4.15.1, xdist-3.8.0
+created: 4/4 workers
+4 workers [108 items]
+
+scheduling tests via LoadScheduling
+
+tests/test_decks_api.py::test_parse_preview
+tests/test_deck_parser.py::test_parse_line_variants[4 x Lightning Bolt-4-Lightning Bolt-None-None]
+[gw3] [  0%] PASSED tests/test_deck_parser.py::test_parse_line_variants[4 x Lightning Bolt-4-Lightning Bolt-None-None]
+tests/test_deck_parser.py::test_parse_line_variants[Lightning Bolt x4-4-Lightning Bolt-None-None]
+[gw3] [  1%] PASSED tests/test_deck_parser.py::test_parse_line_variants[Lightning Bolt x4-4-Lightning Bolt-None-None]
+tests/test_deck_parser.py::test_parse_line_variants[1 Fire // Ice (MH2) 290-1-Fire // Ice-mh2-290]
+[gw3] [  2%] PASSED tests/test_deck_parser.py::test_parse_line_variants[1 Fire // Ice (MH2) 290-1-Fire // Ice-mh2-290]
+tests/test_deck_parser.py::test_parse_line_variants[1 Lightning Bolt (PLST) CLB-187-1-Lightning Bolt-plst-CLB-187]
+[gw3] [  3%] PASSED tests/test_deck_parser.py::test_parse_line_variants[1 Lightning Bolt (PLST) CLB-187-1-Lightning Bolt-plst-CLB-187]
+tests/test_deck_parser.py::test_parse_line_variants[1 Sol Ring (CMM) 410 *F*-1-Sol Ring-cmm-410]
+tests/test_deck_parser.py::test_parse_line_variants[1 Sol Ring-1-Sol Ring-None-None]
+[gw0] [  4%] PASSED tests/test_deck_parser.py::test_parse_line_variants[1 Sol Ring-1-Sol Ring-None-None]
+tests/test_deck_parser.py::test_parse_line_variants[1x Sol Ring-1-Sol Ring-None-None]
+[gw0] [  5%] PASSED tests/test_deck_parser.py::test_parse_line_variants[1x Sol Ring-1-Sol Ring-None-None]
+tests/test_deck_parser.py::test_parse_line_variants[1x Sol Ring (cmm) 410 [Ramp,Artifact] ^Have,#37d67a^-1-Sol Ring-cmm-410]
+[gw2] [  6%] PASSED tests/test_deck_parser.py::test_parse_line_variants[1x Sol Ring (cmm) 410 [Ramp,Artifact] ^Have,#37d67a^-1-Sol Ring-cmm-410]
+tests/test_deck_parser.py::test_parse_line_variants[1 Atraxa, Praetors' Voice-1-Atraxa, Praetors' Voice-None-None]
+[gw2] [  7%] PASSED tests/test_deck_parser.py::test_parse_line_variants[1 Atraxa, Praetors' Voice-1-Atraxa, Praetors' Voice-None-None]
+tests/test_deck_parser.py::test_parse_line_variants[Sol Ring-1-Sol Ring-None-None]
+tests/test_deck_parser.py::test_parse_line_variants[  2   Llanowar Elves  -2-Llanowar Elves-None-None]
+[gw0] [  8%] PASSED tests/test_deck_parser.py::test_parse_line_variants[Sol Ring-1-Sol Ring-None-None]
+tests/test_deck_parser.py::test_parse_line_variants[1 Sol Ring (CMM)-1-Sol Ring-cmm-None]
+[gw0] [  9%] PASSED tests/test_deck_parser.py::test_parse_line_variants[1 Sol Ring (CMM)-1-Sol Ring-cmm-None]
+tests/test_deck_parser.py::test_parse_line_variants[1 Sol Ring (CMM) 410-1-Sol Ring-cmm-410]
+[gw0] [ 10%] PASSED tests/test_deck_parser.py::test_parse_line_variants[1 Sol Ring (CMM) 410-1-Sol Ring-cmm-410]
+[gw2] [ 11%] PASSED tests/test_deck_parser.py::test_parse_line_variants[  2   Llanowar Elves  -2-Llanowar Elves-None-None]
+tests/test_deck_parser.py::test_single_bracket_token_is_left_to_the_resolver
+[gw3] [ 12%] PASSED tests/test_deck_parser.py::test_parse_line_variants[1 Sol Ring (CMM) 410 *F*-1-Sol Ring-cmm-410]
+tests/test_deck_parser.py::test_parse_line_variants[1x Sol Ring (cmm) 410 [Ramp]-1-Sol Ring-cmm-410]
+[gw3] [ 12%] PASSED tests/test_deck_parser.py::test_parse_line_variants[1x Sol Ring (cmm) 410 [Ramp]-1-Sol Ring-cmm-410]
+tests/test_deck_parser.py::test_arena_format_with_about_block
+[gw3] [ 13%] PASSED tests/test_deck_parser.py::test_arena_format_with_about_block
+tests/test_deck_parser.py::test_headers_with_colons_counts_and_comments
+[gw3] [ 14%] PASSED tests/test_deck_parser.py::test_headers_with_colons_counts_and_comments
+[gw2] [ 15%] PASSED tests/test_deck_parser.py::test_single_bracket_token_is_left_to_the_resolver
+tests/test_deck_parser.py::test_parse_line_flags
+[gw2] [ 16%] PASSED tests/test_deck_parser.py::test_parse_line_flags
+tests/test_deck_parser.py::test_mtggoldfish_blank_line_sideboard
+[gw3] [ 17%] PASSED tests/test_deck_parser.py::test_mtggoldfish_blank_line_sideboard
+tests/test_deck_parser.py::test_commander_detected_from_trailing_block
+[gw3] [ 18%] PASSED tests/test_deck_parser.py::test_commander_detected_from_trailing_block
+tests/test_deck_parser.py::test_commander_detected_from_leading_block
+tests/test_deck_parser.py::test_sections_moxfield_style
+[gw2] [ 19%] PASSED tests/test_deck_parser.py::test_sections_moxfield_style
+tests/test_rules_attachments.py::test_aura_with_an_illegal_target_goes_to_the_graveyard
+tests/test_deck_parser.py::test_parse_line_variants[10 Island-10-Island-None-None]
+[gw0] [ 20%] PASSED tests/test_deck_parser.py::test_parse_line_variants[10 Island-10-Island-None-None]
+tests/test_deck_parser.py::test_unreadable_lines_are_reported
+[gw0] [ 21%] PASSED tests/test_deck_parser.py::test_unreadable_lines_are_reported
+tests/test_deck_parser.py::test_size_limits
+[gw0] [ 22%] PASSED tests/test_deck_parser.py::test_size_limits
+[gw3] [ 23%] PASSED tests/test_deck_parser.py::test_commander_detected_from_leading_block
+tests/test_deck_parser.py::test_blank_lines_without_heuristic_match_stay_main
+[gw3] [ 24%] PASSED tests/test_deck_parser.py::test_blank_lines_without_heuristic_match_stay_main
+tests/test_rules_attachments.py::test_equip_only_as_a_sorcery
+tests/test_deck_parser.py::test_quantity_clamped
+[gw0] [ 25%] PASSED tests/test_deck_parser.py::test_quantity_clamped
+tests/test_deck_parser.py::test_export_round_trip
+[gw0] [ 25%] PASSED tests/test_deck_parser.py::test_export_round_trip
+tests/test_rules_attachments.py::test_aura_targets_as_cast_and_enters_attached
+[gw1] [ 26%] PASSED tests/test_decks_api.py::test_parse_preview
+tests/test_decks_api.py::test_create_get_update_duplicate_delete
+[gw1] [ 27%] PASSED tests/test_decks_api.py::test_create_get_update_duplicate_delete
+tests/test_decks_api.py::test_default_name_from_commander
+[gw1] [ 28%] PASSED tests/test_decks_api.py::test_default_name_from_commander
+tests/test_decks_api.py::test_import_append
+[gw1] [ 29%] PASSED tests/test_decks_api.py::test_import_append
+tests/test_decks_api.py::test_validation_rejects_bad_input
+[gw1] [ 30%] PASSED tests/test_decks_api.py::test_validation_rejects_bad_input
+tests/test_decks_api.py::test_names_are_sanitized
+[gw1] [ 31%] PASSED tests/test_decks_api.py::test_names_are_sanitized
+tests/test_rules_wave100l_attractions.py::test_the_cards_are_full[Coming Attraction]
+[gw0] [ 32%] PASSED tests/test_rules_attachments.py::test_aura_targets_as_cast_and_enters_attached
+tests/test_rules_attachments.py::test_aura_asks_for_a_target
+[gw3] [ 33%] PASSED tests/test_rules_attachments.py::test_equip_only_as_a_sorcery
+tests/test_rules_attachments.py::test_equipment_stays_when_its_creature_dies
+[gw0] [ 34%] PASSED tests/test_rules_attachments.py::test_aura_asks_for_a_target
+tests/test_rules_wave100l_attractions.py::test_the_cards_are_full[Step Right Up]
+[gw0] [ 35%] PASSED tests/test_rules_wave100l_attractions.py::test_the_cards_are_full[Step Right Up]
+tests/test_rules_wave100l_attractions.py::test_the_cards_are_full[Quick Fixer]
+[gw0] [ 36%] PASSED tests/test_rules_wave100l_attractions.py::test_the_cards_are_full[Quick Fixer]
+tests/test_rules_wave100l_attractions.py::test_the_cards_are_full[Draconian Gate-Bot]
+[gw0] [ 37%] PASSED tests/test_rules_wave100l_attractions.py::test_the_cards_are_full[Draconian Gate-Bot]
+tests/test_rules_wave100l_attractions.py::test_the_cards_are_full[Soul Swindler]
+[gw0] [ 37%] PASSED tests/test_rules_wave100l_attractions.py::test_the_cards_are_full[Soul Swindler]
+tests/test_rules_wave100l_attractions.py::test_the_cards_are_full[Line Cutter]
+[gw0] [ 38%] PASSED tests/test_rules_wave100l_attractions.py::test_the_cards_are_full[Line Cutter]
+tests/test_rules_wave100l_attractions.py::test_the_cards_are_full[Rad Rascal]
+[gw0] [ 39%] PASSED tests/test_rules_wave100l_attractions.py::test_the_cards_are_full[Rad Rascal]
+tests/test_rules_wave100l_attractions.py::test_the_cards_are_full[Spinnerette, Arachnobat]
+[gw0] [ 40%] PASSED tests/test_rules_wave100l_attractions.py::test_the_cards_are_full[Spinnerette, Arachnobat]
+tests/test_rules_wave100l_attractions.py::test_the_cards_are_full[Seasoned Buttoneer]
+[gw0] [ 41%] PASSED tests/test_rules_wave100l_attractions.py::test_the_cards_are_full[Seasoned Buttoneer]
+tests/test_rules_wave100l_attractions.py::test_the_cards_are_full[Dee Kay, Finder of the Lost]
+[gw0] [ 42%] PASSED tests/test_rules_wave100l_attractions.py::test_the_cards_are_full[Dee Kay, Finder of the Lost]
+tests/test_rules_wave100l_attractions.py::test_the_cards_are_full[Ticket Turbotubes]
+[gw0] [ 43%] PASSED tests/test_rules_wave100l_attractions.py::test_the_cards_are_full[Ticket Turbotubes]
+tests/test_rules_wave100l_attractions.py::test_the_cards_are_full[Motion Sickness]
+[gw0] [ 44%] PASSED tests/test_rules_wave100l_attractions.py::test_the_cards_are_full[Motion Sickness]
+tests/test_rules_wave100l_attractions.py::test_the_cards_are_full[Ride Guide]
+[gw0] [ 45%] PASSED tests/test_rules_wave100l_attractions.py::test_the_cards_are_full[Ride Guide]
+tests/test_rules_wave100l_attractions.py::test_the_cards_are_full[Blorbian Buddy]
+[gw0] [ 46%] PASSED tests/test_rules_wave100l_attractions.py::test_the_cards_are_full[Blorbian Buddy]
+tests/test_rules_wave100l_attractions.py::test_the_cards_are_full["Lifetime" Pass Holder]
+[gw1] [ 47%] PASSED tests/test_rules_wave100l_attractions.py::test_the_cards_are_full[Coming Attraction]
+tests/test_rules_wave100l_attractions.py::test_the_cards_are_full[Black Hole]
+[gw2] [ 48%] PASSED tests/test_rules_attachments.py::test_aura_with_an_illegal_target_goes_to_the_graveyard
+tests/test_rules_attachments.py::test_aura_obeys_hexproof
+[gw3] [ 49%] PASSED tests/test_rules_attachments.py::test_equipment_stays_when_its_creature_dies
+[gw0] [ 50%] PASSED tests/test_rules_wave100l_attractions.py::test_the_cards_are_full["Lifetime" Pass Holder]
+tests/test_rules_wave100l_attractions.py::test_the_cards_are_full[Pick-a-Beeble]
+tests/test_rules_attachments.py::test_coverage_of_auras_and_equipment
+[gw0] [ 50%] PASSED tests/test_rules_wave100l_attractions.py::test_the_cards_are_full[Pick-a-Beeble]
+tests/test_rules_wave100l_attractions.py::test_the_cards_are_full[Storybook Ride]
+[gw0] [ 51%] PASSED tests/test_rules_wave100l_attractions.py::test_the_cards_are_full[Storybook Ride]
+[gw1] [ 52%] PASSED tests/test_rules_wave100l_attractions.py::test_the_cards_are_full[Black Hole]
+tests/test_rules_wave100l_attractions.py::test_the_cards_are_full[Balloon Stand]
+tests/test_rules_wave100l_attractions.py::test_the_cards_are_full[Squirrel Squatters]
+[gw3] [ 53%] PASSED tests/test_rules_attachments.py::test_coverage_of_auras_and_equipment
+tests/test_rules_wave100l_attractions.py::test_the_cards_are_full[Deadbeat Attendant]
+[gw0] [ 54%] PASSED tests/test_rules_wave100l_attractions.py::test_the_cards_are_full[Balloon Stand]
+tests/test_rules_wave100l_attractions.py::test_the_cards_are_full[Bumper Cars]
+[gw2] [ 55%] PASSED tests/test_rules_attachments.py::test_aura_obeys_hexproof
+[gw0] [ 56%] PASSED tests/test_rules_wave100l_attractions.py::test_the_cards_are_full[Bumper Cars]
+tests/test_rules_attachments.py::test_pacifism_stops_attacks_and_blocks
+tests/test_rules_wave100l_attractions.py::test_the_cards_are_full[Clown Extruder]
+[gw0] [ 57%] PASSED tests/test_rules_wave100l_attractions.py::test_the_cards_are_full[Clown Extruder]
+tests/test_rules_wave100l_attractions.py::test_the_cards_are_full[Concession Stand]
+[gw1] [ 58%] PASSED tests/test_rules_wave100l_attractions.py::test_the_cards_are_full[Squirrel Squatters]
+tests/test_rules_wave100l_attractions.py::test_the_cards_are_full[The Most Dangerous Gamer]
+[gw0] [ 59%] PASSED tests/test_rules_wave100l_attractions.py::test_the_cards_are_full[Concession Stand]
+tests/test_rules_wave100l_attractions.py::test_the_cards_are_full[Foam Weapons Kiosk]
+[gw3] [ 60%] PASSED tests/test_rules_wave100l_attractions.py::test_the_cards_are_full[Deadbeat Attendant]
+tests/test_rules_wave100l_attractions.py::test_the_cards_are_full[Discourtesy Clerk]
+[gw0] [ 61%] PASSED tests/test_rules_wave100l_attractions.py::test_the_cards_are_full[Foam Weapons Kiosk]
+tests/test_rules_wave100l_attractions.py::test_the_cards_are_full[Fortune Teller]
+[gw1] [ 62%] PASSED tests/test_rules_wave100l_attractions.py::test_the_cards_are_full[The Most Dangerous Gamer]
+tests/test_rules_wave100l_attractions.py::test_the_cards_are_full[Petting Zookeeper]
+[gw0] [ 62%] PASSED tests/test_rules_wave100l_attractions.py::test_the_cards_are_full[Fortune Teller]
+tests/test_rules_wave100l_attractions.py::test_the_cards_are_full[Hall of Mirrors]
+[gw3] [ 63%] PASSED tests/test_rules_wave100l_attractions.py::test_the_cards_are_full[Discourtesy Clerk]
+tests/test_rules_wave100l_attractions.py::test_the_cards_are_full[Haunted House]
+[gw1] [ 64%] PASSED tests/test_rules_wave100l_attractions.py::test_the_cards_are_full[Petting Zookeeper]
+tests/test_rules_wave100l_attractions.py::test_the_cards_are_full[Complaints Clerk]
+[gw0] [ 65%] PASSED tests/test_rules_wave100l_attractions.py::test_the_cards_are_full[Hall of Mirrors]
+tests/test_rules_wave100l_attractions.py::test_the_cards_are_full[Merry-Go-Round]
+[gw1] [ 66%] PASSED tests/test_rules_wave100l_attractions.py::test_the_cards_are_full[Complaints Clerk]
+tests/test_rules_wave100l_attractions.py::test_the_cards_are_full[Spinny Ride]
+[gw3] [ 67%] PASSED tests/test_rules_wave100l_attractions.py::test_the_cards_are_full[Haunted House]
+tests/test_rules_wave100l_attractions.py::test_the_cards_are_full[Information Booth]
+[gw0] [ 68%] PASSED tests/test_rules_wave100l_attractions.py::test_the_cards_are_full[Merry-Go-Round]
+tests/test_rules_wave100l_attractions.py::test_the_cards_are_full[Roller Coaster]
+[gw1] [ 69%] PASSED tests/test_rules_wave100l_attractions.py::test_the_cards_are_full[Spinny Ride]
+tests/test_rules_wave100l_attractions.py::test_the_cards_are_full[Trash Bin]
+[gw3] [ 70%] PASSED tests/test_rules_wave100l_attractions.py::test_the_cards_are_full[Information Booth]
+tests/test_rules_wave100l_attractions.py::test_the_cards_are_full[Kiddie Coaster]
+[gw0] [ 71%] PASSED tests/test_rules_wave100l_attractions.py::test_the_cards_are_full[Roller Coaster]
+tests/test_rules_wave100l_attractions.py::test_the_cards_are_full[Costume Shop]
+[gw0] [ 72%] PASSED tests/test_rules_wave100l_attractions.py::test_the_cards_are_full[Costume Shop]
+[gw3] [ 73%] PASSED tests/test_rules_wave100l_attractions.py::test_the_cards_are_full[Kiddie Coaster]
+tests/test_rules_wave100l_attractions.py::test_phasing_until_a_roll_stays_manual[Ferris Wheel]
+tests/test_rules_wave100l_attractions.py::test_the_attraction_deck_is_hidden_and_opening_makes_the_card_public
+[gw1] [ 74%] PASSED tests/test_rules_wave100l_attractions.py::test_the_cards_are_full[Trash Bin]
+tests/test_rules_wave100l_attractions.py::test_the_attractions_section_is_read_written_and_checked
+[gw0] [ 75%] PASSED tests/test_rules_wave100l_attractions.py::test_phasing_until_a_roll_stays_manual[Ferris Wheel]
+tests/test_rules_wave100l_attractions.py::test_the_precombat_main_phase_rolls_to_visit[2-1-0-1]
+[gw1] [ 75%] PASSED tests/test_rules_wave100l_attractions.py::test_the_attractions_section_is_read_written_and_checked
+tests/test_rules_wave100l_attractions.py::test_the_precombat_main_phase_rolls_to_visit[5-0-1-0]
+[gw2] [ 76%] PASSED tests/test_rules_attachments.py::test_pacifism_stops_attacks_and_blocks
+tests/test_rules_attachments.py::test_aura_falls_off_when_its_creature_leaves
+[gw2] [ 77%] PASSED tests/test_rules_attachments.py::test_aura_falls_off_when_its_creature_leaves
+tests/test_rules_attachments.py::test_doesnt_untap_during_the_untap_step
+[gw3] [ 78%] PASSED tests/test_rules_wave100l_attractions.py::test_the_attraction_deck_is_hidden_and_opening_makes_the_card_public
+tests/test_rules_wave100l_attractions.py::test_open_two_and_an_empty_attraction_deck
+[gw2] [ 79%] PASSED tests/test_rules_attachments.py::test_doesnt_untap_during_the_untap_step
+tests/test_rules_attachments.py::test_equip_attaches_at_sorcery_speed
+[gw0] [ 80%] PASSED tests/test_rules_wave100l_attractions.py::test_the_precombat_main_phase_rolls_to_visit[2-1-0-1]
+tests/test_rules_wave100l_attractions.py::test_the_precombat_main_phase_rolls_to_visit[6-1-1-0]
+[gw1] [ 81%] PASSED tests/test_rules_wave100l_attractions.py::test_the_precombat_main_phase_rolls_to_visit[5-0-1-0]
+tests/test_rules_wave100l_attractions.py::test_the_precombat_main_phase_rolls_to_visit[3-0-0-0]
+[gw2] [ 82%] PASSED tests/test_rules_attachments.py::test_equip_attaches_at_sorcery_speed
+tests/test_rules_wave100l_attractions.py::test_a_destroyed_attraction_goes_to_its_owners_junkyard
+[gw3] [ 83%] PASSED tests/test_rules_wave100l_attractions.py::test_open_two_and_an_empty_attraction_deck
+tests/test_rules_wave100l_attractions.py::test_no_attraction_no_roll
+[gw2] [ 84%] PASSED tests/test_rules_wave100l_attractions.py::test_a_destroyed_attraction_goes_to_its_owners_junkyard
+tests/test_rules_wave100l_attractions.py::test_line_cutter_rolls_and_the_pass_holder_comes_back_on_a_six[5]
+[gw1] [ 85%] PASSED tests/test_rules_wave100l_attractions.py::test_the_precombat_main_phase_rolls_to_visit[3-0-0-0]
+tests/test_rules_wave100l_attractions.py::test_line_cutter_rolls_and_the_pass_holder_comes_back_on_a_six[6]
+[gw0] [ 86%] PASSED tests/test_rules_wave100l_attractions.py::test_the_precombat_main_phase_rolls_to_visit[6-1-1-0]
+tests/test_rules_wave100l_attractions.py::test_rest_in_peace_or_the_junkyard_its_owner_chooses
+[gw3] [ 87%] PASSED tests/test_rules_wave100l_attractions.py::test_no_attraction_no_roll
+tests/test_rules_wave100l_attractions.py::test_pick_a_beeble_claims_the_prize
+[gw0] [ 87%] PASSED tests/test_rules_wave100l_attractions.py::test_rest_in_peace_or_the_junkyard_its_owner_chooses
+tests/test_rules_wave100l_attractions.py::test_storybook_ride_exiles_by_the_visits_and_puts_the_rest_on_the_bottom
+[gw3] [ 88%] PASSED tests/test_rules_wave100l_attractions.py::test_pick_a_beeble_claims_the_prize
+tests/test_rules_wave100l_attractions.py::test_motion_sickness_follows_a_visit_to_a_tapped_creature
+[gw1] [ 89%] PASSED tests/test_rules_wave100l_attractions.py::test_line_cutter_rolls_and_the_pass_holder_comes_back_on_a_six[6]
+tests/test_rules_wave100l_attractions.py::test_visited_attractions_size_black_hole_and_make_soul_swindler_indestructible
+[gw2] [ 90%] PASSED tests/test_rules_wave100l_attractions.py::test_line_cutter_rolls_and_the_pass_holder_comes_back_on_a_six[5]
+tests/test_rules_wave100l_attractions.py::test_no_prize_below_six_luck_counters
+[gw0] [ 91%] PASSED tests/test_rules_wave100l_attractions.py::test_storybook_ride_exiles_by_the_visits_and_puts_the_rest_on_the_bottom
+tests/test_rules_wave100l_attractions.py::test_squirrel_squatters_attack_with_a_squirrel_per_visited_attraction
+[gw2] [ 92%] PASSED tests/test_rules_wave100l_attractions.py::test_no_prize_below_six_luck_counters
+tests/test_rules_wave100l_attractions.py::test_hall_of_mirrors_haunted_house_and_merry_go_round[3]
+[gw3] [ 93%] PASSED tests/test_rules_wave100l_attractions.py::test_motion_sickness_follows_a_visit_to_a_tapped_creature
+tests/test_rules_wave100l_attractions.py::test_every_attraction_is_visited_on_a_six
+[gw0] [ 94%] PASSED tests/test_rules_wave100l_attractions.py::test_squirrel_squatters_attack_with_a_squirrel_per_visited_attraction
+tests/test_rules_wave100l_attractions.py::test_hall_of_mirrors_haunted_house_and_merry_go_round[5]
+[gw1] [ 95%] PASSED tests/test_rules_wave100l_attractions.py::test_visited_attractions_size_black_hole_and_make_soul_swindler_indestructible
+tests/test_rules_wave100l_attractions.py::test_hall_of_mirrors_haunted_house_and_merry_go_round[2]
+[gw2] [ 96%] PASSED tests/test_rules_wave100l_attractions.py::test_hall_of_mirrors_haunted_house_and_merry_go_round[3]
+tests/test_rules_wave100l_attractions.py::test_you_get_a_ticket_counter
+[gw0] [ 97%] PASSED tests/test_rules_wave100l_attractions.py::test_hall_of_mirrors_haunted_house_and_merry_go_round[5]
+[gw2] [ 98%] PASSED tests/test_rules_wave100l_attractions.py::test_you_get_a_ticket_counter
+[gw1] [ 99%] PASSED tests/test_rules_wave100l_attractions.py::test_hall_of_mirrors_haunted_house_and_merry_go_round[2]
+[gw3] [100%] PASSED tests/test_rules_wave100l_attractions.py::test_every_attraction_is_visited_on_a_six
+
+============================= 108 passed in 33.77s =============================

@@ -10,10 +10,12 @@ from app.game.errors import ActionError
 from app.game.handlers import cards, marks, mulligan, objects, players, response, rules, solo, turn, zones
 from app.game.rules_state import capture, track, wither_put_by
 from app.game.state import GameState
+from app.rules import stickers101
 
 Handler = Callable[[GameState, Any], None]
 
 HANDLERS: dict[str, Handler] = {
+    "rules_sticker101": stickers101.apply_action,
     "draw": zones.draw,
     "move": zones.move,
     "set_position": zones.set_position,

@@ -1528,5 +1528,50 @@
     "original_sha256": "cf6f707ad0f74a36bbb17e6f063f1254d25f3bd077c19b6bc8a8bf79609c5525",
     "archived_sha256": "373c441ce2c1417e36e0e7b48c647167ba312a7d38b84e94569ca90fc059c902",
     "numstat_preserved": true
+  },
+  "docs/research/after-pr21-batch004-validation/additional-related.log": {
+    "original_sha256": "367646fa459f97cdc633e5e5dfa2bb91bbb1b7276fdfe933dfbd52ee8e488048",
+    "archived_sha256": "778de9ad6ea6a5092fb110ded684cef684cd59382d60b07ee592ab32fa6fb851",
+    "numstat_preserved": null
+  },
+  "docs/research/after-pr21-batch004-validation/frontend-types.log": {
+    "original_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "archived_sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+    "numstat_preserved": null
+  },
+  "docs/research/after-pr21-batch004-validation/native.log": {
+    "original_sha256": "5172a351d2e3c3121b3f7aa4d0c645043439ac410b06cba7ab99c9ecea3eb688",
+    "archived_sha256": "9d660a14951666a3ae078d3768b411d212b255f1c525258d4a348bebca6c2b2a",
+    "numstat_preserved": null
+  },
+  "docs/research/after-pr21-batch004-validation/related.log": {
+    "original_sha256": "09fd0079e8db23260a3e24df0828d53fa3d0b592daa9478aed153c9e9fa5cad9",
+    "archived_sha256": "40e5d53a21ae41ee723795d1e60a4622a7a6218f9afc990875aef6ed7cc2e417",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/after21-combat107/review.patch": {
+    "original_sha256": "f6460c65b3c6d7f37c9f219ba6a0e1e33e74f0a0d9a3be7068d218fb14b0121f",
+    "archived_sha256": "ec6f94b8dc6cb5c4899ccdaed25e5744403591402c746b1df5c610608116dd9b",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/after21-costs108/bull-native-first9.log": {
+    "original_sha256": "bae9198a04b33e111c27a16d917fe8c4bea60a0aaab2b54d9f868f8a42c56712",
+    "archived_sha256": "f4759c61ff406659ef1e1cbabadff55627915a47a2f19313de461935fca63204",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/after21-costs108/review.patch": {
+    "original_sha256": "084d1304d85bf09e6ba20fefbb2a51802ac6d938b88fc8cf5ecc2c6720b131f6",
+    "archived_sha256": "d03ee31697362d1191f95cc889790e4d94497be48014655107236654cb411e5c",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/after21-sticker-letter105/review.patch": {
+    "original_sha256": "02d592116de50a097d9918d5da23a0f7b32c327e2bbb23311f6af4bf1f2231b8",
+    "archived_sha256": "7f860bdb4e629fd2a3c68185bbd68945e540c9bc6fdc2404487756de3db7fb58",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/after21-sticker-names104/review.patch": {
+    "original_sha256": "2207e2d098221dc5d0f8a1faccb18d0f6b019ce03248f66d5e4abf95e999de93",
+    "archived_sha256": "768ce9786b2aed3ac94e09d79c7144299da61b0af9aa7aa9d78f8e4fafe4c5de",
+    "numstat_preserved": true
   }
 }

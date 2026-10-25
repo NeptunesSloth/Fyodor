@@ -1,0 +1,104 @@
+{
+  "canonical": [
+    {
+      "id": "cb9a7b7d-3d37-4bb6-ab48-1fec2bfb4fdc",
+      "oracle_id": "855e200e-5375-4aac-b1f7-5113162e7e14",
+      "name": "Tidal Control",
+      "layout": "normal",
+      "set_code": "all",
+      "set_name": "Alliances",
+      "collector_number": "40",
+      "rarity": "rare",
+      "mana_cost": "{1}{U}{U}",
+      "cmc": 3.0,
+      "type_line": "Enchantment",
+      "oracle_text": "Cumulative upkeep {2} (At the beginning of your upkeep, put an age counter on this permanent, then sacrifice it unless you pay its upkeep cost for each age counter on it.)\nPay 2 life or {2}: Counter target red or green spell. Any player may activate this ability.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null,
+      "defense": null,
+      "colors": [
+        "U"
+      ],
+      "color_identity": [
+        "U"
+      ],
+      "keywords": [
+        "Cumulative upkeep"
+      ],
+      "is_token": false,
+      "faces": [],
+      "double_faced": false,
+      "image_faces": 1,
+      "has_image": false,
+      "released_at": "1996-06-10",
+      "artist": "Randy Gallegos",
+      "commander_legal": "legal",
+      "related_tokens": [],
+      "related_cards": []
+    },
+    {
+      "id": "fd1f0b5f-5e0e-4da1-ab54-a62db5af3591",
+      "oracle_id": "10db57b4-f895-4514-b610-2252ba676353",
+      "name": "Bullseye, Death Dealer",
+      "layout": "normal",
+      "set_code": "msh",
+      "set_name": "Marvel Super Heroes",
+      "collector_number": "209",
+      "rarity": "uncommon",
+      "mana_cost": "{2}{B/R}",
+      "cmc": 3.0,
+      "type_line": "Legendary Creature \u2014 Human Assassin Villain",
+      "oracle_text": "When Bullseye enters, you may sacrifice an artifact or discard a nonland card. When you do, Bullseye deals 2 damage to any target.\n{3}, {T}, Sacrifice an artifact or discard a nonland card: Bullseye deals 2 damage to any target.",
+      "power": "2",
+      "toughness": "3",
+      "loyalty": null,
+      "defense": null,
+      "colors": [
+        "B",
+        "R"
+      ],
+      "color_identity": [
+        "B",
+        "R"
+      ],
+      "keywords": [],
+      "is_token": false,
+      "faces": [],
+      "double_faced": false,
+      "image_faces": 1,
+      "has_image": false,
+      "released_at": "2026-06-26",
+      "artist": "Bartek Fedyczak",
+      "commander_legal": "legal",
+      "related_tokens": [],
+      "related_cards": []
+    }
+  ],
+  "targeted_classification": [
+    {
+      "name": "Tidal Control",
+      "rank": 1000000000,
+      "level": "FULL",
+      "commander": false,
+      "lines": {
+        "supported": 2,
+        "parsed": 0,
+        "unparsed": 0
+      },
+      "missing": []
+    },
+    {
+      "name": "Bullseye, Death Dealer",
+      "rank": 1000000000,
+      "level": "FULL",
+      "commander": true,
+      "lines": {
+        "supported": 2,
+        "parsed": 0,
+        "unparsed": 0
+      },
+      "missing": []
+    }
+  ]
+}

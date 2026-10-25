@@ -2660,6 +2660,10 @@ def _sacrifice_count_sequence(body: str) -> tuple[list[dict[str, Any]], Any, boo
 
 
 def parse_effects(body: str, it: str | None = None, *, event_player: bool = False) -> tuple[list[dict[str, Any]], Any, bool] | None:
+    from app.rules import sticker_effects101
+
+    if (sticker101 := sticker_effects101.parse(body, it)) is not None:
+        return sticker101
     from app.rules import damage_values102
 
     if (damage102 := damage_values102.parse(body)) is not None:
@@ -5868,6 +5872,35 @@ def _first_time_gate(text: str) -> str:
 
 def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     """The engine definition of one ability, or None (manual)."""
+    from app.rules import sticker_riders102
+
+    if (rider102 := sticker_riders102.definition(ability, ch)) is not None:
+        return rider102
+    from app.rules import copy_controllers105
+
+    if (copy105 := copy_controllers105.definition(ability, ch)) is not None:
+        return copy105
+    from app.rules import vampire_returns105
+
+    if (found105 := vampire_returns105.definition(ability, ch)) is not None:
+        return found105
+    from app.rules import damage_death104
+
+    if (death104 := damage_death104.definition(ability, ch)) is not None:
+        return death104
+    from app.rules import damage_death104
+
+    if (death104 := damage_death104.definition(ability, ch)) is not None:
+        return death104
+    from app.rules import epic103
+
+    if (epic := epic103.definition(ability, ch)) is not None:
+        return epic
+    from app.rules import stickers101
+
+    if (stickers := stickers101.definition(ability, ch)) is not None:
+        return stickers
+
     from app.rules import next_copy104
 
     if (next104 := next_copy104.definition(ability, ch)) is not None:
@@ -8791,6 +8824,8 @@ def _spell_definition(ch: Characteristics) -> Definition | None:
         effects = [{"do": "ascend"}, *effects]  # -- keywords (wave 15E) -- 702.131a: the spell ability, first
     if ch.is_instant_or_sorcery and any(ab.kind == "keywords" and ab.keywords == ("cipher",) for ab in ch.abilities):
         effects = [*effects, {"do": "cipher"}]  # -- static_other sweep (wave 17C) -- 702.99a: encoded last (recursion.cipher)
+    if any(e["do"] == "epic_setup103" for e in effects):
+        effects = [{"do": "epic_snapshot103"}, *effects]
     effects, target = _finish_targets(effects, groups)
     minimum_x = max((defs[ab.index].get("x_min", 0) for ab in lines), default=0)
     as_cast = {defs[ab.index]['x_as_cast'] for ab in lines if defs[ab.index].get('x_as_cast') is not None}

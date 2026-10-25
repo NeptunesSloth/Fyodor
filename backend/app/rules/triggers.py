@@ -94,9 +94,12 @@ def abilities(plan: Plan, ch: Characteristics, trigger: str) -> list[tuple[int, 
 
 
 def _lki_characteristics(plan: Plan, snap: ObjectSnapshot) -> Characteristics:
+    from app.game.state import StickerPlacement101
+
     card = CardInstance(id=snap.card, card_id=snap.printing, name=snap.name, owner=snap.owner, controller=snap.controller,
                         zone=snap.zone, face=snap.face, face_down=snap.face_down, face_down_kind=snap.face_down_kind,
                         face_down_as=snap.face_down_as, is_token=snap.is_token,
+                        stickers101=[StickerPlacement101.model_validate(p) for p in snap.stickers101],
                         token=TokenDef(name=snap.name, text=snap.text, power=snap.token_power, toughness=snap.token_toughness,
                                       colors=snap.token_colors, type_line=snap.token_type_line or "Token Creature", mana_cost=snap.token_mana_cost)
                         if snap.is_token and not snap.printing else None,
@@ -409,6 +412,8 @@ def _snapshot_card(plan: Plan, snap: ObjectSnapshot) -> tuple[CardInstance, Char
 
     CR 603.10a includes battlefield and graveyard departure look-back events.
     """
+    from app.game.state import StickerPlacement101
+
     ch = _lki_characteristics(plan, snap)
     # (-- counters (wave 41A) -- 603.10a, 608.2h: "an attacking creature you control dies" (Death Tyrant, Kardur): it was attacking (and whom) / blocking / tapped as it
     # last existed — a selector that asks reads these of the dead object too)
@@ -417,6 +422,7 @@ def _snapshot_card(plan: Plan, snap: ObjectSnapshot) -> tuple[CardInstance, Char
     card = CardInstance(id=snap.card, card_id=snap.printing, name=snap.name, owner=snap.owner, controller=snap.controller,
                         zone=snap.zone, face=snap.face, face_down=snap.face_down, face_down_kind=snap.face_down_kind,
                         face_down_as=snap.face_down_as, is_token=snap.is_token,
+                        stickers101=[StickerPlacement101.model_validate(p) for p in snap.stickers101],
                         attached_to=snap.attached_to, attached_player=snap.attached_player, tapped=snap.tapped,
                         entry_characteristics=snap.entry_characteristics, attacking=attacking, attacking_without_target=snap.attacking_without_target, attack_defender_lost=snap.attack_defender_lost, blocking=snap.blocking_ids[0] if snap.blocking_ids else None,
                         blocking_more=snap.blocking_ids[1:], blocking_without_attacker=snap.blocking and not snap.blocking_ids,
@@ -770,6 +776,16 @@ def _cond_matches(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact:
 
     event, obj, och, player, info = fact
     you = watcher.controller
+    if event == "die" and cond.get("damaged_by_exact105"):
+        from app.rules import vampire_returns105
+
+        if not vampire_returns105.damage_match(plan, info.get("oid"), source_oid or plan.oid(watcher)):
+            return False
+    if event == 'die' and cond.get('damaged_by_host104'):
+        from app.rules import damage_death104
+
+        if not damage_death104.matches(plan, watcher, info.get('oid'), info, source_oid):
+            return False
     if event == 'deal_combat_damage_player' and cond.get('combat_recipient') == 'opponent' and info.get('recipient') == you:
         return False
     if cond.get('played_linked_name'):
@@ -1496,6 +1512,7 @@ def _fire_generic(plan: Plan, facts: list[Fact], batch: int, fired: Fired,
             continue
         whole = d["cond"]
         for fact in facts:
+            fact[4]['batch'] = batch
             # CR 603.6a, 603.10a/c/d: an entrant sees the post-event
             # table, but was absent for look-back events in its entry batch.
             # Conversely, an object leaving in this batch does not see the
@@ -1524,6 +1541,8 @@ def _fire_generic(plan: Plan, facts: list[Fact], batch: int, fired: Fired,
                 continue
             event = _event(plan, fact, batch)
             info = fact[4]
+            if cond.get('damaged_by_host104'):
+                event.other = info.get('damage_host104')
             if cond.get('cast_targets102'):
                 event.amount = len({(cid, oid) for cid, oid in info.get('targets') or []})
             if cond.get("excess"):  # -- trigger damage (wave 39B) -- 120.10: "that excess damage" / "the excess": the amount of this event is the excess (the batch's total, 603.2c)
