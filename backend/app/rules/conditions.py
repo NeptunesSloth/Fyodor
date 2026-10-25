@@ -985,6 +985,28 @@ def _attackers(m: re.Match[str]) -> Condition | None:
     return None if n is None else {"history": "attackers", "n": n}  # 508.1: creatures declared as attackers, any combat
 
 
+@_history_pattern(r"you(?:'ve| have)? activated a loyalty ability this turn")
+def _loyalty(m: re.Match[str]) -> Condition:
+    return {"history": "facts", "kind": "loyalty", "who": "you", "n": 1}  # -- turn state (wave 100H) -- 606.3: an activation you made (casting.py)
+
+
+@_history_pattern(r"you(?:'ve| have)? cycled (?P<n>\w+) or more cards this turn")
+def _cycled(m: re.Match[str]) -> Condition | None:
+    n = _num(m["n"])  # -- turn state (wave 100H) -- 702.29a: each cycling this turn, a card cycled twice counting twice (Spellpyre Phoenix ruling)
+    return None if n is None else {"history": "facts", "kind": "cycle", "who": "you", "n": n}
+
+
+@_history_pattern(r"you attacked with (?:an? (?P<one>[A-Z][\w']*)|(?P<n>\w+) or more (?P<many>[A-Z][\w']*)) this turn")
+def _attacked_kind(m: re.Match[str]) -> Condition | None:
+    """-- turn state (wave 100H) -- "you attacked with a Hero / three or more Merfolk this turn": creatures of the kind declared as attackers (508.1),
+    as they are or last existed (history._attacked_with)."""
+    n = _num(m["n"]) if m["n"] else 1
+    sel = selectors.parse(m["one"] or m["many"])
+    if n is None or sel is None or sel.player is not None or sel.card or sel.zones not in ((), ("battlefield",)):
+        return None
+    return {"history": "attacked_with", "sel": sel.key(), **({"n": n} if n > 1 else {})}
+
+
 @_history_pattern(r"you attacked with creatures with total power (?P<n>\w+) or greater this combat")
 def _attackers_power(m: re.Match[str]) -> Condition | None:
     n = _num(m["n"])  # -- trigger other (wave 25B) -- pack tactics: the creatures declared as attackers in this combat's declaration (508.1)
@@ -1560,6 +1582,10 @@ def holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
         from app.rules import counters100j
 
         return counters100j.holds(plan, ctx, cond)
+    if cond.get("frodo100h"):  # -- turn state (wave 100H) --
+        from app.rules import turnstate100h
+
+        return turnstate100h.holds(plan, ctx, cond)
     if any(str(k).endswith("100a") for k in cond):  # -- trigger lines (wave 100A) --
         from app.rules import triggers100a
 

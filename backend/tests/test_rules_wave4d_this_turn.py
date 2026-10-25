@@ -150,6 +150,8 @@ SPELL = 'sel:{"zones":["stack"]}'
      {"history": "departed", "sel": 'sel:{"subtypes":["Human"]}', "n": 1, "op": ">=", "died": True, "who": "you", "other": True}),
     ("a creature entered the battlefield under an opponent's control this turn",
      {"history": "entered", "sel": 'sel:{"types":["Creature"]}', "n": 1, "who": "opponent"}),
+    ("you attacked with two or more Merfolk this turn",  # (-- turn state (wave 100H) -- the declared attackers of that kind, history._attacked_with)
+     {"history": "attacked_with", "sel": 'sel:{"subtypes":["Merfolk"]}', "n": 2}),
 ])
 def test_wordings(text, expected):
     assert conditions.parse(text) == expected
@@ -157,7 +159,6 @@ def test_wordings(text, expected):
 
 @pytest.mark.parametrize("text", [
     "you've cast a spell with flying this turn",  # (keywords aren't recorded)
-    "you attacked with two or more Merfolk this turn",  # (only how many creatures)
     "an opponent has cast another spell this turn",
     "an opponent was the second player to cast a spell this turn",  # (wave 33D reads "it was the second spell you cast this turn": cast_nth)
 ])

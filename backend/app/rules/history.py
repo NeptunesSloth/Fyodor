@@ -278,6 +278,10 @@ def note_events(plan: Plan, events: list[Any], into: TurnLog | None = None) -> N
 
     first_event_receipts78.note_events(plan, events, log)
     for e in events:
+        if e.kind == "cycled" and not e.manual and e.player and e.turn == plan.state.turn.number:  # -- turn state (wave 100H) -- 702.29a: one cycling
+            if not any(f.kind == "cycle" and f.object_id == e.object_id for f in log.facts):  # (one fact per cycled object: a card cycled again is a new one, 400.7)
+                log.facts.append(TurnFact(kind="cycle", player=e.player, object_id=e.object_id))
+            continue
         if e.kind not in ("zone_change", "sacrificed", "damage", "counters", "milled", "land_played") or e.turn != plan.state.turn.number:
             continue
         for kind, obj, ch, player, info in _facts(plan, e, {"cast_from": {}}):
@@ -761,6 +765,11 @@ def _departed(plan: Plan, ctx: dict[str, Any], cond: dict[str, Any], log: TurnLo
         snap = plan.rules.lki.get(d.object_id)
         if snap is None or (cond.get("owner") == "you" and snap.owner != me):
             continue
+        if cond.get("modified100h"):  # -- turn state (wave 100H) -- "a modified creature died": 700.9 as it last existed (603.10a)
+            from app.rules.triggers import _was_modified
+
+            if not _was_modified(plan, snap):
+                continue
         _, ch = _snapshot_card(plan, snap)
         types = d.types if d.types is not None else ch.types
         if cond.get('not_name'):
@@ -796,7 +805,8 @@ def _attacked_with(plan: Plan, ctx: dict[str, Any], cond: dict[str, Any], log: A
     if cond.get("self"):
         return ctx.get("source_object") in ids
     sel = selectors.from_key(cond["sel"])
-    for oid in ids:
+    need = int(cond.get("n", 1))  # (-- turn state (wave 100H) -- "three or more Merfolk": that many of the kind)
+    for oid in dict.fromkeys(ids):  # (a creature that attacked in two combats is one creature)
         card = next((c for c in plan.state.cards.values() if c.zone.endswith(":battlefield") and plan.oid(c) == oid), None)
         if card is not None:
             ch = plan.ch(card)
@@ -805,7 +815,9 @@ def _attacked_with(plan: Plan, ctx: dict[str, Any], cond: dict[str, Any], log: A
         else:
             continue
         if selectors.matches(plan, sel, card, ch, ctx["controller"], None):
-            return True
+            need -= 1
+            if need <= 0:
+                return True
     return False
 
 

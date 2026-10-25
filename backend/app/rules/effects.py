@@ -6961,3 +6961,7 @@ from app.rules import counters100j as _counters100j  # noqa: E402
 
 PRIMITIVES.update(_counters100j.PRIMITIVES)
 RESUME.update(_counters100j.RESUME)
+# -- turn state (wave 100H) -- (app/rules/turnstate100h.py)
+from app.rules import turnstate100h as _turnstate100h  # noqa: E402
+
+PRIMITIVES.update(_turnstate100h.PRIMITIVES)

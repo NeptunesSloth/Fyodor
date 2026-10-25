@@ -60,7 +60,8 @@ TRIGGER_LIMIT_ONCE = "This ability triggers only once each turn."
 # gets to it (effects.record_action), and triggers._add reads that count as it would trigger.
 TRIGGER_LIMIT_DO_ONCE = "Do this only once each turn."
 TRIGGER_LIMIT_REFUSED: tuple[str, ...] = ()
-TRIGGER_LIMITS = {TRIGGER_LIMIT_ONCE: "once_each_turn", TRIGGER_LIMIT_DO_ONCE: "do_once"}
+TRIGGER_LIMITS = {TRIGGER_LIMIT_ONCE: "once_each_turn", TRIGGER_LIMIT_DO_ONCE: "do_once",
+                  "This ability triggers only once.": "once_game"}  # -- turn state (wave 100H) -- once for the object (a new object may again, 400.7)
 
 
 def limit_kind(sentence: str) -> str:

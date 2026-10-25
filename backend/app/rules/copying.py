@@ -1446,6 +1446,11 @@ def entering(plan: Plan, card: CardInstance, controller: str, answers: dict[str,
     d = enter_definition(plan, card)
     if d is None:
         return False
+    if d.get("raid100h"):  # -- turn state (wave 100H) -- "If you attacked this turn, you may have ~ enter as a copy …" (Protean Raider: 508.1, 614.12)
+        from app.rules import history
+
+        if controller not in history.log_for(plan).attacked:
+            return False
     what = str(d["what"])
     answer = (answers or {}).get(what)
     cached = _entering_effect(plan, card)
