@@ -14,7 +14,7 @@ MAX_DECK_TEXT = 200_000
 MAX_LINES = 2_000
 MAX_QUANTITY = 999
 
-SECTIONS = ("commander", "companion", "main", "sideboard", "maybeboard", "tokens")
+SECTIONS = ("commander", "companion", "main", "sideboard", "maybeboard", "tokens", "attractions")
 
 _HEADER_ALIASES = {
     "commander": "commander",
@@ -47,6 +47,8 @@ _HEADER_ALIASES = {
     "considering": "maybeboard",
     "tokens": "tokens",
     "token": "tokens",
+    "attractions": "attractions",  # -- Attractions (wave 100L) -- 717.2: the supplementary Attraction deck
+    "attraction deck": "attractions",
 }
 
 _QTY = re.compile(r"^(?P<qty>\d{1,4})\s*[xX]?\s+(?P<rest>.+)$")
@@ -150,6 +152,8 @@ def section_for_categories(
         return "commander"
     if any(c in SIDEBOARD_NAMES for c in lowered):
         return "sideboard"
+    if any(_HEADER_ALIASES.get(c) == "attractions" for c in lowered):  # -- Attractions (wave 100L) -- an "Attractions" category
+        return "attractions"
     if any(c in MAYBE_NAMES for c in lowered) or (lowered and lowered[0] in excluded):
         return "maybeboard"
     return "main"

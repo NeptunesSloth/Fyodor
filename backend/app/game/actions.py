@@ -22,7 +22,7 @@ Id = Annotated[str, Field(min_length=1, max_length=64, pattern=r"^[A-Za-z0-9:_\-
 IdList = Annotated[list[Id], Field(min_length=1, max_length=250)]
 ZoneName = Literal[
     "library", "hand", "battlefield", "graveyard", "exile", "command", "sideboard", "companion", "foretell", "setaside", "phased",
-    "stack",
+    "attractions", "stack",
 ]
 Coord = Annotated[float, Field(ge=-100000, le=100000)]
 # Target groups (601.2c): how many of ``targets`` belong to each group, in printed order; and the

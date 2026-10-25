@@ -1,6 +1,6 @@
-export type Section = "commander" | "companion" | "main" | "sideboard" | "maybeboard" | "tokens";
+export type Section = "commander" | "companion" | "main" | "sideboard" | "maybeboard" | "tokens" | "attractions";
 export type DeckFormat = "commander" | "constructed" | "sandbox";
-export const SECTIONS: Section[] = ["commander", "companion", "main", "sideboard", "maybeboard", "tokens"];
+export const SECTIONS: Section[] = ["commander", "companion", "main", "sideboard", "maybeboard", "tokens", "attractions"];
 export const SECTION_LABEL: Record<Section, string> = {
   commander: "Commander",
   companion: "Companion",
@@ -8,6 +8,7 @@ export const SECTION_LABEL: Record<Section, string> = {
   sideboard: "Sideboard",
   maybeboard: "Maybeboard",
   tokens: "Tokens",
+  attractions: "Attraction deck",
 };
 
 export type Finish = "nonfoil" | "foil" | "etched";

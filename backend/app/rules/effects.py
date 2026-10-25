@@ -6974,3 +6974,6 @@ RESUME.update(_instead100k.RESUME)
 from app.rules import aslongas100k as _aslongas100k  # noqa: E402, I001  -- as long as (wave 100K) --
 
 PRIMITIVES.update(_aslongas100k.PRIMITIVES)
+from app.rules import attractions100l as _attractions100l  # noqa: E402  -- Attractions (wave 100L) --
+
+PRIMITIVES.update(_attractions100l.PRIMITIVES)

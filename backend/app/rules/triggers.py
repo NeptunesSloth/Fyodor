@@ -1094,6 +1094,11 @@ def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: F
 
         if not dice.die_matches(cond, info):
             return False
+    if event == "roll_visit":  # -- Attractions (wave 100L) -- a visit ability: the result lit up on it (702.159a)
+        from app.rules import attractions100l
+
+        if not attractions100l.matches(plan, cond, watcher, info):
+            return False
     if event == "die" and cond.get("damaged_by_self") and not _damaged_by(plan, watcher, info.get("oid")):  # (wave 7C)
         return False
     if event in ("die", "enter") and cond.get("in_combat") and plan.state.turn.phase not in COMBAT_PHASES:  # (wave 16C: "dies during combat"; 30T: "enters")

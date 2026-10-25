@@ -361,6 +361,11 @@ def validate(deck: DeckIn, cards: CardRepository, card_data: dict[str, dict[str,
             warnings.append(Warning(level="error", message=f"Card not found in local database: {e.name}", card=e.name))
 
     playing = [e for e in deck.entries if e.section in ("main", "commander")]
+    # -- Attractions (wave 100L) -- 717.2a: a constructed Attraction deck holds ten or more Attraction cards, each with a different English name
+    attractions = [e for e in deck.entries if e.section == "attractions"]
+    if attractions and (count["attractions"] < 10 or count["attractions"] != len({e.name for e in attractions}) or any(
+            "Attraction" not in str((data.get(e.printing_id or "") or {}).get("type_line") or "") for e in attractions)):
+        warnings.append(Warning(level="warning", message="An Attraction deck needs ten or more Attraction cards with different names (717.2a)."))
     if deck.format == "commander":
         warnings += _commander_checks(deck, data, count, playing)
         warnings += _companion_checks(deck, data)

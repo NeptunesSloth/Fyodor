@@ -19,7 +19,8 @@ from app.game.state import (
 )
 
 PLAYER_COLORS = ("#d4a852", "#5fa8d3", "#c9677a", "#6fbf8f", "#a68bd6", "#d98c4a")
-SECTION_ZONES = {"commander": "command", "companion": "companion", "main": "library", "sideboard": "sideboard"}
+SECTION_ZONES = {"commander": "command", "companion": "companion", "main": "library", "sideboard": "sideboard",
+                 "attractions": "attractions"}  # -- Attractions (wave 100L) -- 717.2: the supplementary Attraction deck
 STARTING_LIFE = {"commander": 40, "constructed": 20, "sandbox": 20}
 _rng = secrets.SystemRandom()
 
@@ -75,7 +76,7 @@ def new_game(
             deck_name=setup.deck_name,
             token_shortcuts=[c.printing_id for c in setup.cards if c.section == "tokens" and c.printing_id][:30],
         )
-        for zone_name in ("library", "hand", "battlefield", "graveyard", "exile", "command", "sideboard", "companion", "foretell", "setaside", "phased"):
+        for zone_name in ("library", "hand", "battlefield", "graveyard", "exile", "command", "sideboard", "companion", "foretell", "setaside", "phased", "attractions"):
             zones[zone_key(pid, zone_name)] = []
         for entry in setup.cards:
             zone = SECTION_ZONES.get(entry.section)
@@ -106,6 +107,7 @@ def new_game(
         collections[pid] = [c for c in available.values() if c.quantity > 0]
         if shuffle:
             rng.shuffle(zones[zone_key(pid, "library")])
+            rng.shuffle(zones[zone_key(pid, "attractions")])  # (wave 100L) 103.3a
 
     first = seat_order[first_player % len(seat_order)] if first_player is not None else seat_order[0]
     state = GameState(

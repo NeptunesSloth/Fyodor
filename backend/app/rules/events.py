@@ -160,6 +160,11 @@ _DESIGNATION_EVENTS = [
     # -- most-played cards (wave 43B) -- 701.23: "Whenever an opponent searches their library" (Archivist of Oghma, Wan Shi Tong, Ob Nixilis, Unshackled): a search of
     # the searcher's OWN library (the rulings: not one of your search of an opponent's library, nor an opponent's of another player's)
     (re.compile(r"(?P<p>an opponent|a player) searches their library"), "search_library"),
+    # -- Attractions (wave 100L) -- 701.52, 701.51c, 702.159b (app/rules/attractions100l.py)
+    (re.compile(r"(?P<p>you) roll to visit your Attractions"), "roll_visit"),
+    (re.compile(r"(?P<p>you) visit an Attraction"), "visit_attraction"),
+    (re.compile(r"(?P<p>you) open an Attraction"), "open_attraction"),
+    (re.compile(r"(?P<p>you) claim the prize of an Attraction"), "claim_prize"),
 ]
 # "enchanted creature", "equipped creature" …: the permanent the source is attached to (303.4, 301.5)
 _HOSTS = ("enchanted creature", "equipped creature", "enchanted permanent", "enchanted land", "enchanted artifact")
