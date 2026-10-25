@@ -324,6 +324,9 @@ ABILITY_REWRITES = {
     # Xenagos, the Reveler: the same choice, "any number" (the exiled cards are public; 608.2d the controller chooses on resolution)
     "\u22126: Exile the top seven cards of your library. You may put any number of creature and/or land cards from among them onto the battlefield.":
         "\u22126: Exile the top seven cards of your library. Put a creature or land card exiled this way onto the battlefield.",
+    # Nacatl War-Pride: "exactly one" = at least one (509.1c requirement) and no more than one (509.1b restriction)
+    "~ must be blocked by exactly one creature if able.":
+        "~ must be blocked if able and can't be blocked by more than one creature.",
 }
 _ANY_NUMBER = {"\u22126: Exile the top seven cards of your library. You may put any number of creature and/or land cards from among them onto the battlefield."}
 
