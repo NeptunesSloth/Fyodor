@@ -78,6 +78,14 @@ def skyguard_holds(plan: Any, ctx: dict[str, Any]) -> bool:
     return any(p != atk and p != me and not plan.state.players[p].left and p not in attacked for p in plan.state.players)
 
 
+def _still_here(d: Def) -> Def:
+    """The delayed trigger has an intervening "if" this creature is still on the battlefield (603.4, 603.7)."""
+    hit = [e for e in d["effects"] if e["do"] == "delayed"]
+    assert len(hit) == 1
+    hit[0]["when"] = {**hit[0]["when"], "if": {"object": "self", "test": "on_battlefield"}}
+    return d
+
+
 # whole ability text -> (the wording the grammar reads, what to change in its definition)
 _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
     # Perch Protection: all three instructions are conditional on the promised gift (608.2c: one sentence)
@@ -106,6 +114,11 @@ _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
     "Whenever a player attacks you, if that player has another opponent who isn't being attacked, prevent all combat damage that would be dealt to you "
     "this combat.":
         ("Whenever a player attacks you, prevent all combat damage that would be dealt to you this turn.", _skyguard),
+    # Shirei: the delayed return happens only if Shirei is still on the battlefield when the next end step begins
+    "Whenever a creature with power 1 or less is put into your graveyard from the battlefield, you may return that card to the battlefield at the "
+    "beginning of the next end step if Shirei is still on the battlefield.":
+        ("Whenever a creature with power 1 or less is put into your graveyard from the battlefield, you may return that card to the battlefield at the "
+         "beginning of the next end step.", _still_here),
     # Divine Intervention: the effect states that the game is a draw (104.4c)
     "When you remove the last intervention counter from this enchantment, the game is a draw.":
         ("When the last intervention counter is removed from this enchantment, draw a card.",

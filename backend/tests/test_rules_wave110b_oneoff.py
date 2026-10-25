@@ -18,7 +18,7 @@ def cards(settings):
     yield from repository(settings)
 
 
-@pytest.mark.parametrize("name", ["Prince of Thralls", "Oath of Lim-Dûl", "Chaos Lord", "Divine Intervention", "Herald of Anafenza", "Guardian of New Benalia", "Aloe Alchemist", "Parapet Thrasher", "Bane of the Living", "Warbreak Trumpeter", "Kadena's Silencer", "Longhorn Sharpshooter", "Plague Reaver", "Quakebringer", "Suppressor Skyguard"])
+@pytest.mark.parametrize("name", ["Prince of Thralls", "Oath of Lim-Dûl", "Chaos Lord", "Divine Intervention", "Herald of Anafenza", "Guardian of New Benalia", "Aloe Alchemist", "Parapet Thrasher", "Bane of the Living", "Warbreak Trumpeter", "Kadena's Silencer", "Longhorn Sharpshooter", "Plague Reaver", "Quakebringer", "Suppressor Skyguard", "Shirei, Shizo's Caretaker"])
 def test_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
@@ -348,4 +348,26 @@ def test_suppressor_skyguard_prevents_combat_damage_only_when_another_opponent_i
             act(s, s.state.rules.priority, type="pass_priority")
     assert s.state.players["p2"].life == bob_life  # (Grizzly Bears deals 2)
     assert s.state.players["p3"].life == (37 if also_carol else 40)
+    check(s)
+
+
+@pytest.mark.parametrize("stays", [True, False])
+def test_shirei_returns_a_small_creature_at_the_next_end_step_only_if_shirei_is_still_there(cards, stays):
+    """Shirei, Shizo's Caretaker: 603.7 delayed return at the next end step; 603.4 intervening "if Shirei is still on the battlefield"."""
+    s = build(cards, ["Shirei, Shizo's Caretaker", "Llanowar Elves", "Lightning Bolt"], [])
+    shirei, elf = put(s, "Shirei, Shizo's Caretaker"), put(s, "Llanowar Elves")
+    mana(s, "p1", R=1)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Lightning Bolt").id, targets=[elf.id])
+    drive(s, lambda d: [next((o.id for o in d.options if o.label.startswith("Yes")), d.options[0].id)])
+    if not stays:
+        act(s, "p1", type="move", card_ids=[shirei.id], to={"player": "p1", "zone": "exile"})
+    for _ in range(80):
+        if s.state.turn.number == 2:
+            break
+        d = s.state.rules.decision
+        if d is not None:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[next((o.id for o in d.options if o.label.startswith("Yes")), d.options[0].id)])
+        else:
+            act(s, s.state.rules.priority, type="pass_priority")
+    assert s.state.cards[elf.id].zone == ("p1:battlefield" if stays else "p1:graveyard")
     check(s)
