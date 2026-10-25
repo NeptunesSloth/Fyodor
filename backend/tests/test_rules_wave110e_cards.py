@@ -562,3 +562,47 @@ def test_viral_spawning_has_flashback_only_while_an_opponent_is_corrupted(cards,
     assert s.state.cards[c.id].zone == "p1:exile"
     assert any(x.name.endswith("Beast Token") or "Beast" in x.name for x in s.state.cards.values() if x.zone == "p1:battlefield")
     check(s)
+
+
+@pytest.mark.parametrize("warped", [True, False])
+def test_close_encounter_may_choose_a_warped_card_in_exile_but_not_another_exiled_card(cards, warped):
+    """601.2b/702.185a: a warped creature card you own in exile is a legal choice (damage = its power, 608.2h); an exiled card that was not warped is not offered."""
+    import secrets
+
+    from app.game.rules_state import Permission
+
+    s = build(cards, ["Close Encounter", "Shivan Dragon", "Goblin Test"], ["Grizzly Bears"])
+    dragon, goblin, bears = (to_hand(s, "Shivan Dragon"), put(s, "Goblin Test"), put(s, "Grizzly Bears", "p2"))
+    act(s, "p1", type="move", card_ids=[dragon.id], to={"player": "p1", "zone": "exile"})
+    if warped:
+        s.state.rules.permissions.append(Permission(
+            id=secrets.token_hex(4), player="p1", cast=True, zone="any", object_id=dragon.id, card=dragon.id, until="permanent",
+            turn=s.state.turn.number, after_turn=s.state.turn.number, label="Shivan Dragon: cast it from exile (warped)"))
+    mana(s, R=1, C=1)
+    c = to_hand(s, "Close Encounter")
+    act(s, "p1", type="cast_spell", card_id=c.id, targets=[bears.id])
+    d = s.state.rules.decision
+    assert d is not None and d.player == "p1" and sorted(o.id for o in d.options) == sorted([goblin.id, dragon.id] if warped else [goblin.id])
+    if warped:
+        act(s, "p1", type="choose", decision_id=d.id, option_ids=[dragon.id])
+        answer(s)
+        assert s.state.cards[bears.id].zone == "p2:graveyard"  # 5 damage from the exiled Dragon's power
+        check(s)
+
+
+def test_callous_oppressor_with_two_opponents_the_controller_picks_who_names_the_type(cards):
+    """614.12a: "an opponent chooses" with 2+ opponents: the controller picks the opponent, then that opponent (not the others) names the type."""
+    from tests.test_rules_wave33d_turn_state import build3
+
+    s = build3(cards, ["Callous Oppressor"])
+    mana(s, U=2, C=1)
+    op = cast(s, "Callous Oppressor")
+    d = s.state.rules.decision
+    assert d is not None and d.player == "p1" and sorted(o.id for o in d.options) == ["p2", "p3"]
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=["p3"])
+    d = s.state.rules.decision
+    assert d is not None and d.player == "p3"
+    act(s, "p3", type="choose", decision_id=d.id, option_ids=["Goblin"])
+    answer(s)
+    assert "Goblin" in s.state.cards[op.id].choices.values()
+    check(s)
