@@ -16,7 +16,7 @@ from app.game import actions as A
 from app.game.errors import ActionError
 from app.game.rules_state import DecisionOption, note_block
 from app.game.state import CardInstance, GameState, zone_key
-from app.rules import banding, protection, replace, scripts, selectors
+from app.rules import banding, protection, replace, scripts, selectors, wave110a_choosers
 from app.rules import characteristics as chars
 from app.rules import mana as M
 from app.rules.casting import summoning_sick
@@ -348,7 +348,8 @@ def start_declare_attackers(plan: Plan) -> None:
     if not eligible or not targets:
         r.no_attackers = True
         return
-    decide(plan, player=ap, kind="declare_attackers", prompt="Declare attackers (or attack with nothing)",
+    who = wave110a_choosers.chooser(plan, "attack", ap)  # -- declaration choosers (wave 110A) --
+    decide(plan, player=ap, kind="declare_attackers", prompt="Declare attackers (or attack with nothing)", decider=who, blind=who is not None,
            options=[DecisionOption(id=f"a:{cid}", label=plan.state.cards[cid].name or "Creature", card_id=cid) for cid in eligible]
            + [DecisionOption(id=f"t:{t}", label=_label(plan.state, t), card_id=t if t in plan.state.cards else None)
               for t in targets],
@@ -801,7 +802,8 @@ def ask_next_blocker(plan: Plan) -> None:
         if not attackers or not blockers:
             r.blockers_pending.pop(0)
             continue
-        decide(plan, player=pid, kind="declare_blockers", prompt="Declare blockers (or block with nothing)",
+        who = wave110a_choosers.chooser(plan, "block", pid)  # -- declaration choosers (wave 110A) --
+        decide(plan, player=pid, kind="declare_blockers", prompt="Declare blockers (or block with nothing)", decider=who, blind=who is not None,
                options=[DecisionOption(id=f"b:{c.id}", label=c.name or "Creature", card_id=c.id) for c in blockers]
                + [DecisionOption(id=f"a:{c.id}", label=c.name or "Attacker", card_id=c.id) for c in attackers],
                min_choices=0, max_choices=len(blockers), resume={"step": "declare_blockers"})
@@ -1402,6 +1404,7 @@ def end_combat(plan: Plan) -> None:
     r.block_split = {}
     r.assign_unblocked = {}
     r.block_caps = {}  # (wave 49B) "this combat"
+    r.declare_choosers = {k: v for k, v in r.declare_choosers.items() if not v.get("combat")}  # (wave 110A)
     r.no_attackers = False
     r.combat_round = ""
 

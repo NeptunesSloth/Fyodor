@@ -130,15 +130,15 @@ def test_melee_ends_with_the_combat(cards):
     to_phase(s, "declare_blockers")
     act(s, "p1", type="declare_blockers", blocks=[{"blocker_id": wall.id, "attacker_id": a.id}])
     answer(s)
-    to_phase(s, "end_combat")
+    to_phase(s, "main2")
     assert not s.state.rules.declare_choosers
     check(s)
 
 
 def test_odric_chooses_the_blocks_when_attacking_with_four(cards):
-    s = build(cards, [ODRIC, "Grizzly Bears"], ["Hill Giant"])
+    s = build(cards, [ODRIC, "Grizzly Bears", "Hill Giant", "Llanowar Elves"], ["Hill Giant"])
     odric = put(s, ODRIC)
-    bears = [put(s, "Grizzly Bears") for _ in range(3)]
+    bears = [put(s, n) for n in ("Grizzly Bears", "Hill Giant", "Llanowar Elves")]
     wall = put(s, "Hill Giant", "p2")
     next_turn(s)
     stops(s)
@@ -153,9 +153,9 @@ def test_odric_chooses_the_blocks_when_attacking_with_four(cards):
 
 
 def test_odric_with_only_three_attackers_leaves_the_blocks_to_the_defender(cards):
-    s = build(cards, [ODRIC, "Grizzly Bears"], ["Hill Giant"])
+    s = build(cards, [ODRIC, "Grizzly Bears", "Hill Giant"], ["Hill Giant"])
     odric = put(s, ODRIC)
-    bears = [put(s, "Grizzly Bears") for _ in range(2)]
+    bears = [put(s, n) for n in ("Grizzly Bears", "Hill Giant")]
     put(s, "Hill Giant", "p2")
     next_turn(s)
     stops(s)
@@ -168,11 +168,13 @@ def test_odric_with_only_three_attackers_leaves_the_blocks_to_the_defender(cards
 
 def test_master_warcraft_cast_by_the_defender_declares_the_active_players_attackers(cards):
     """508.1a: the caster declares which creatures attack for the active player, who may not."""
-    s = build(cards, [WARCRAFT, "Grizzly Bears"], ["Grizzly Bears", WARCRAFT])
-    a, b = put(s, "Grizzly Bears"), put(s, "Grizzly Bears")
-    wall = put(s, "Grizzly Bears", "p2")
+    s = build(cards, ["Grizzly Bears", "Hill Giant", *["Forest"] * 8], ["Llanowar Elves", WARCRAFT, *["Island"] * 8])
+    a, b = put(s, "Grizzly Bears"), put(s, "Hill Giant")
+    put(s, "Llanowar Elves", "p2")
     next_turn(s)
-    goto(s, "begin_combat", "p2")
+    stops(s)
+    act(s, "p1", type="pass_priority")
+    assert s.state.turn.phase == "main1" and s.state.rules.priority == "p2"
     fund(s, "{2}{R}{R}", "p2")
     cast(s, WARCRAFT, pid="p2", pay=False)
     answer(s)

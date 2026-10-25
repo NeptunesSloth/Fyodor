@@ -43,7 +43,7 @@ def controlled_by(state: GameState, viewer: str) -> list[str]:
         return []
     d = r.decision
     return [p for p in state.seat_order if p != viewer and (
-        controller_of(state, p) == viewer or (d is not None and d.player == p and decider_of(state, d) == viewer))]
+        controller_of(state, p) == viewer or (d is not None and not d.blind and d.player == p and decider_of(state, d) == viewer))]
 
 
 def is_controlled(state: GameState, pid: str) -> bool:

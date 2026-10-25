@@ -142,8 +142,33 @@ def _choose_transform(kind: str) -> Parsed:
     return [pick.choose(kind, **{"as": "choice_group"}), {"do": "transform", "who": "ref:choice_group"}], None, False
 
 
+def _owner_too() -> Parsed:
+    """Pendant of Prosperity: the artifact's owner (108.3, wherever it is now) does the same as you (608.2c: each player's own hand)."""
+    mine = _p("Draw a card, then you may put a land card from your hand onto the battlefield.")[0]
+    draw, put = _p("Target player draws a card, then that player may put a land card from their hand onto the battlefield.")[0]
+    return [*mine, {**draw, "who": "source_owner"}, {**put, "who": "source_owner"}], None, False
+
+
 _ROUND = " Repeat this process until no one puts a card onto the battlefield."
+def _melee() -> Parsed:
+    """Melee: 509.3g, 506.4 — the watch is the grammar's "untap it and tap it" with the second step read as "remove it from combat"."""
+    effects, target, optional = _p("Whenever a creature attacks and isn't blocked this combat, untap it and tap it.")
+    assert effects[-1]["do"] == "deferred:tap"
+    return [*effects[:-1], {**effects[-1], "do": "deferred:remove_from_combat"}], target, optional
+
+
+def _chooser(kind: str, combat: bool = False) -> Callable[[], Parsed]:
+    return lambda: ([{"do": "declare_chooser110a", "kind": kind, "combat": combat}], None, False)
+
+
 BUILDERS: dict[str, Callable[[], Parsed]] = {
+    "Whenever a creature attacks and isn't blocked this combat, untap it and remove it from combat.": _melee,
+    "You choose which creatures attack this turn.": _chooser("attack"),  # Master Warcraft: 508.1a
+    "You choose which creatures block this turn and how those creatures block.": _chooser("block"),  # 509.1a
+    "You choose which creatures block this combat and how those creatures block.": _chooser("block", True),
+    "you choose which creatures block this combat and how those creatures block.": _chooser("block", True),  # Odric's trigger body (509.1a)
+    "Draw a card, then you may put a land card from your hand onto the battlefield. ~'s owner draws a card, then that player may put a land "
+    "card from their hand onto the battlefield.": _owner_too,
     "Destroy all enchantments. If there are seven or more cards in your graveyard, instead destroy all enchantments, then return all cards in your "
     "graveyard destroyed this way to the battlefield.": _meditation,
     "Starting with you, each player may put a permanent card from their hand onto the battlefield." + _ROUND: _repeat_put("a permanent"),

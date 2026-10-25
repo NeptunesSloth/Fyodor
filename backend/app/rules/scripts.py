@@ -8636,8 +8636,9 @@ def modal_header(text: str) -> tuple[int, int, bool, dict[str, Any] | None] | No
     if text in _MODAL_HEADERS:
         return (*_MODAL_HEADERS[text], None)
     if (m := _REPEAT_HEADER.match(text)) is not None:
-        # -- spells (wave 110A) -- "Choose up to four. You may choose the same mode more than once." (Moment of Reckoning): zero to four modes, 700.2d
-        return (0 if m["up"] else _NUMBERS[m["n"]]), _NUMBERS[m["n"]], True, None
+        # -- spells (wave 110A) -- "Choose up to four. You may choose the same mode more than once." (Moment of Reckoning): one to four modes, 700.2d.
+        # No CR rule or ruling lets a non-pawprint "up to" spell choose zero modes (700.2i is the pawprint form), so the minimum stays one.
+        return (1 if m["up"] else _NUMBERS[m["n"]]), _NUMBERS[m["n"]], True, None
     if (m := _INSTEAD_HEADER.match(text)) is None:
         return None
     from app.rules import conditions
@@ -9288,8 +9289,13 @@ def define_replacement(ability: AbilityText, text: str) -> Definition | None:
         return {"kind": "replacement", "replacement": "enters_tapped", "effects": []}
     if text == "~ enters prepared.":  # -- prepared (wave 13C) -- 722.3a: applied as it enters (replacements.after_entry)
         return {"kind": "replacement", "replacement": "enters_prepared", "effects": []}
-    from app.rules import language  # (a leaf module)
+    from app.rules import (
+        language,  # (a leaf module)
+        wave110a_control,  # -- entry control (wave 110A) --
+    )
 
+    if (ctl := wave110a_control.definition(text)) is not None:
+        return ctl
     chosen = language.enters_choice(text)  # "As ~ enters, choose a color." (614.1c, 614.12a)
     if chosen is not None:
         return chosen

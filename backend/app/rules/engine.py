@@ -1163,6 +1163,11 @@ def resolve_top_of_stack(plan: Plan) -> None:
         plan.rules.payments.pop(plan.oid(top_id), None)
         _after_resolution(plan)
         return
+    if entering:  # -- entry control (wave 110A) -- 110.2, 614.12: it enters under the opponent chosen
+        from app.rules import wave110a_control
+
+        wave110a_control.give(plan, top_id, ep.get("choices"))
+        controller = plan.state.cards[top_id].controller
     leave_stack(plan, top_id, controller, tapped=bool(ep["tapped"]))
     if entering:
         rooms.entered(plan, top_id)  # -- Rooms (wave 18G) -- 709.5d: the cast half's door is unlocked as it enters
