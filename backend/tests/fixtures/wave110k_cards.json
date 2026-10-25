@@ -34,5 +34,34 @@
 "G"
 ],
 "keywords": []
+},
+{
+"name": "Library of Lat-Nam",
+"layout": "normal",
+"mana_cost": "{4}{U}",
+"cmc": 5.0,
+"type_line": "Sorcery",
+"oracle_text": "An opponent chooses one —\n• You draw three cards at the beginning of the next turn's upkeep.\n• You search your library for a card, put that card into your hand, then shuffle.",
+"colors": [
+"U"
+],
+"color_identity": [
+"U"
+],
+"keywords": []
+},
+{
+"name": "Sol Ring",
+"layout": "normal",
+"mana_cost": "{1}",
+"cmc": 1.0,
+"type_line": "Artifact",
+"oracle_text": "{T}: Add {C}{C}.",
+"colors": [],
+"color_identity": [],
+"keywords": [],
+"produced_mana": [
+"C"
+]
 }
 ]
