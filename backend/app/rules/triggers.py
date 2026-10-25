@@ -281,6 +281,7 @@ def exploiting(plan: Plan, card_ids: list[str], exploiter: str, player: str) -> 
         card = plan.state.cards.get(cid)
         if card is not None and card.zone.endswith(":battlefield"):
             emit(plan.state, "exploited", object_id=plan.oid(card), card=cid, player=player, source=plan.oid(src), by_card=exploiter)
+            plan.rules.exploited110j.append((plan.oid(src), plan.oid(card)))
 
 
 def _discarded_instead(plan: Plan, e: Event) -> bool:
@@ -1146,6 +1147,15 @@ def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: F
         return False
     if cond.get("min_total_power") and sum((plan.ch(c).pt or (0, 0))[0] for c in _counted_attackers(plan, cond, watcher, info)) < cond["min_total_power"]:  # (wave 110D)
         return False
+    if (cap := cond.get("max_attackers110j")) and len(_counted_attackers(plan, cond, watcher, info)) > cap:  # -- wave 110J -- "exactly two creatures" (Love on the Battlefield)
+        return False
+    if cond.get("all110j"):  # -- wave 110J -- "Whenever all non-Wall creatures you control attack" (Mob Mentality): none of them stays home, 508.1
+        from app.rules import selectors as _sel
+
+        kind = _sel.from_key(cond["sel"])
+        if any(c.id not in (info.get("attacking") or []) for c in plan.state.cards.values() if c.zone.endswith(":battlefield")
+               and c.controller == watcher.controller and _sel.matches(plan, kind, c, plan.ch(c), watcher.controller, watcher.id)):
+            return False
     if event == "cast":
         if cond.get('cast_targets102') and not (info.get('targets') or []):
             return False

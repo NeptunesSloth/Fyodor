@@ -1,0 +1,122 @@
+"""-- wave 110J -- exact Oracle wordings of single cards, built from parts of wordings the grammar already reads.
+
+Each entry matches one whole ability's Oracle text exactly and nothing else; any other wording stays unsupported.
+"""
+from __future__ import annotations
+
+from collections.abc import Callable
+from dataclasses import replace
+from typing import Any
+
+Def = dict[str, Any]
+
+_FORESTS = "half the number of Forests you control"
+
+
+def _aspect(d: Def) -> Def:
+    """Aspect of Wolf: X (rounded down) is the power bonus, Y (rounded up) the toughness bonus; two sentences of one static (613.4c, 107.1a)."""
+    from app.rules import statics
+
+    toughness = statics.parse(f"Enchanted creature gets +0/+X, where X is {_FORESTS}, rounded up.")
+    return {**d, "p": 0, "t": 0, "also": [toughness]} if toughness and "each" in d else d
+
+
+# whole ability text -> (the wording the grammar reads, what to change in its definition)
+_BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
+    "Enchanted creature gets +X/+Y, where X is half the number of Forests you control, rounded down, and Y is half the number of Forests you control, rounded up.":
+        (f"Enchanted creature gets +X/+0, where X is {_FORESTS}, rounded down.", _aspect),
+}
+
+
+def definition(ability: Any, ch: Any) -> Def | None:
+    from app.rules import scripts
+
+    if (built := _BUILD.get(ability.text.strip())) is None:
+        return None
+    native = scripts.define(replace(ability, text=built[0]), ch)
+    return None if native is None else built[1](native)
+
+
+def _farmer(d: Def) -> Def:
+    """Orcish Farmer: the land stays a Swamp until its own controller's next untap step (611.2a, 502.3) — the controller of the land, not of the Farmer."""
+    until = [e for e in d["effects"] if e.get("do") == "until" and e.get("duration") == "next_turn"]
+    return {**d, "effects": [{**e, "controller110j": True} if e in until else e for e in d["effects"]]} if len(until) == 1 else d
+
+
+_BUILD["{T}: Target land becomes a Swamp until its controller's next untap step."] = (
+    "{T}: Target land becomes a Swamp until your next turn.", _farmer)
+
+
+def _cudgels(d: Def) -> Def:
+    """Bronze Cudgels: X is the number of times the ability has resolved this turn, this resolution included (history.counting_resolutions)."""
+    pumps = [e for e in d["effects"] if e.get("do") == "pump"]
+    return {**d, "effects": [{**e, "p": {"ref_amount": "resolution"}} if e in pumps else e for e in d["effects"]]} if len(pumps) == 1 else d
+
+
+_BUILD["{2}: Until end of turn, equipped creature gets +X/+0, where X is the number of times this ability has resolved this turn."] = (
+    "{2}: Until end of turn, equipped creature gets +1/+0.", _cudgels)
+
+
+def _all_attack(d: Def) -> Def:
+    """Mob Mentality: the trigger waits for every non-Wall creature its controller has to be attacking (triggers.py all110j)."""
+    return {**d, "cond": {**d["cond"], "all110j": True}} if d.get("cond", {}).get("event") == "you_attack" else d
+
+
+_BUILD["Whenever all non-Wall creatures you control attack, enchanted creature gets +X/+0 until end of turn, where X is the number of attacking creatures."] = (
+    "Whenever you attack with one or more non-Wall creatures, enchanted creature gets +X/+0 until end of turn, where X is the number of attacking creatures.",
+    _all_attack)
+
+
+_SPORES = ('Whenever this creature blocks a creature, put four fungus counters on that creature. The creature gains "This creature doesn\'t untap during your '
+           'untap step if it has a fungus counter on it" and "At the beginning of your upkeep, remove a fungus counter from this creature."')
+# two grants of one clause, read as two sentences (both last for good, 611.2a)
+_BUILD[_SPORES] = (
+    'Whenever this creature blocks a creature, put four fungus counters on that creature. That creature gains "This creature doesn\'t untap during your '
+    'untap step if it has a fungus counter on it." That creature gains "At the beginning of your upkeep, remove a fungus counter from this creature."',
+    lambda d: d)
+
+
+def _loki(d: Def) -> Def:
+    """Loki, God of Lies: "that creature" is the spell's single target (115.9c), not a target of the trigger; its control, untap and haste follow (611.2b)."""
+    from app.rules import token_copy_sources
+
+    sel = d.get("target", {}).get("what")
+    if not (sel and d.get("cond", {}).get("targets") == f"only_one:{sel}"):
+        return d
+    ref = f"ref:{token_copy_sources.CHOSEN}"
+    effects = [{**e, "who": ref} if e.get("who") == "target" else e for e in d["effects"]]
+    return {**{k: v for k, v in d.items() if k != "target"}, "effects": [{"do": "select_copy_spell_target", "selector": sel}, *effects]}
+
+
+_BUILD["Whenever you cast a spell that targets only a single creature, gain control of that creature until end of turn. If it's your turn, untap that creature and it gains haste until end of turn."] = (
+    "Whenever you cast a spell that targets only a single creature, gain control of target creature until end of turn. If it's your turn, untap that creature and it gains haste until end of turn.",
+    _loki)
+
+
+def _love(d: Def) -> Def:
+    """Love on the Battlefield: exactly two attackers (508.1, 603.2); the damage watch is for the two declared attackers (a creature put onto the battlefield attacking was not declared, 508.4)."""
+    from app.rules import selectors
+
+    base = selectors.parse("attacking creature")
+    declared = None if base is None else replace(base, extras=(*base.extras, "attacked_this_turn"))
+    watches = [e for e in d["effects"] if e.get("do") == "delayed" and e["when"]["cond"].get("sel")]
+    if declared is None or d["cond"].get("min_attackers") != 2 or len(watches) != 1:
+        raise ValueError("Love on the Battlefield: unexpected native shape")
+    watch = watches[0]
+    cond = {**watch["when"]["cond"], "sel": declared.key()}
+    return {**d, "cond": {**d["cond"], "max_attackers110j": 2},
+            "effects": [{**e, "when": {**e["when"], "cond": cond}} if e is watch else e for e in d["effects"]]}
+
+
+_BUILD["Whenever you attack with exactly two creatures, those creatures gain first strike until end of turn, then draw a card. Whenever either of those creatures deals combat damage to a player this combat, put a +1/+1 counter on it."] = (
+    "Whenever you attack with two or more creatures, attacking creatures gain first strike until end of turn, then draw a card. Whenever an attacking creature deals combat damage to a player this combat, put a +1/+1 counter on it.",
+    _love)
+
+
+def _scavenger(d: Def) -> Def:
+    """Silumgar Scavenger: the haste goes to the Scavenger only if it exploited the creature that died (702.110b; conditions.py exploited110j)."""
+    return {**d, "effects": [*d["effects"], {"do": "only_if", "cond": {"exploited110j": True}, "skip": 1}, {"do": "grant", "who": "self", "keywords": ["haste"]}]}
+
+
+_BUILD["Whenever another creature you control dies, put a +1/+1 counter on this creature. It gains haste until end of turn if it exploited that creature."] = (
+    "Whenever another creature you control dies, put a +1/+1 counter on this creature.", _scavenger)
