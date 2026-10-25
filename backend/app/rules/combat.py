@@ -21,6 +21,7 @@ from app.rules import characteristics as chars
 from app.rules import mana as M
 from app.rules.casting import summoning_sick
 from app.rules.characteristics import CardInfo, Characteristics
+from app.rules.layers import LAND_TYPES
 from app.rules.plan import Plan, decide, live_players
 from app.rules.sba import power, toughness
 from app.rules.statics import rule_arg, rule_selectors
@@ -277,7 +278,9 @@ LANDWALK = {"plainswalk": "Plains", "islandwalk": "Island", "swampwalk": "Swamp"
             # -- landwalk variants (wave 12B) -- 702.14a/c: the type, supertype and/or subtype the land has, or (nonbasic) lacks
             "snow landwalk": "Snow", "nonbasic landwalk": "nonbasic", "legendary landwalk": "Legendary",
             "artifact landwalk": "Artifact", **{f"snow {w}walk": f"Snow {w.capitalize()}"
-                                                for w in ("plains", "island", "swamp", "mountain", "forest")}}
+                                                for w in ("plains", "island", "swamp", "mountain", "forest")},
+            # -- zones (wave 100G) -- any land type's (205.3i), snow or not: "landwalk of the chosen type" (Illusionary Presence, Barbarian Guides)
+            **{f"{t.lower()}walk": t for t in LAND_TYPES}, **{f"snow {t.lower()}walk": f"Snow {t}" for t in LAND_TYPES}}
 
 
 def _controls_land(state: GameState, player: str, kind: str, info: CardInfo | None) -> bool:

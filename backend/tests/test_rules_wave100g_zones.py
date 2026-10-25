@@ -32,6 +32,9 @@ EXTRA = [
     real("Probe WU", "{W}{U}", 2, "Creature — Human", "", ("2", "2"), "WU"),
     real("Probe Twin", "{4}{G}", 5, "Creature — Beast", "", ("5", "5"), "G"),
     real("Probe Huge", "{6}{G}", 7, "Creature — Beast", "", ("7", "7"), "G"),
+    real("Probe Gate", "", 0, "Land — Gate", ""),
+    real("Probe Snow Lair", "", 0, "Snow Land — Lair", ""),
+    real("Probe Shatter", "{1}{R}", 2, "Instant", "Destroy target artifact.", None, "R"),
 ]
 
 
@@ -110,7 +113,8 @@ PROMOTED = ["Genju of the Realm", "Return of the Nightstalkers", "Vengeful Regro
             "Revealing Wind", "Trial of a Time Lord", "Vault 13: Dweller's Journey",
             "Summoner's Egg", "Esper Origins // Summon: Esper Maduin",
             "Nemesis Phoenix", "Tasigur, the Golden Fang", "The Three Seasons", "Veiled Ascension",
-            "Baneblade Scoundrel // Baneclaw Marauder"]
+            "Baneblade Scoundrel // Baneclaw Marauder", "Giant Slug", "Illusionary Presence", "Barbarian Guides",
+            "Getaway Barrel", "Death in Heaven", "Kang Dynasty"]
 
 
 @pytest.mark.parametrize("name", PROMOTED)
@@ -478,12 +482,12 @@ def test_hide_in_plain_sight_cloaks_two_and_bottoms_the_rest(cards):
     check(s)
 
 
-def attack(s, turn, attackers, pick=None, limit=300):
-    """Pass priority to the declare attackers decision of turn ``turn``, attack Bob with ``attackers`` and resolve the triggers."""
+def attack(s, turn, attackers, pick=None, limit=300, target="p2"):
+    """Pass priority to the declare attackers decision of turn ``turn``, attack Bob (``target``) with ``attackers`` and resolve the triggers."""
     for _ in range(limit):
         d = s.state.rules.decision
         if d is not None and d.kind == "declare_attackers" and s.state.turn.number == turn:
-            act(s, d.player, type="declare_attackers", attackers=[{"card_id": a.id, "target": "p2"} for a in attackers])
+            act(s, d.player, type="declare_attackers", attackers=[{"card_id": a.id, "target": target} for a in attackers])
             return run(s, pick)
         if d is not None and d.kind in ("declare_attackers", "declare_blockers"):
             act(s, d.player, type=d.kind, **({"attackers": []} if d.kind == "declare_attackers" else {"blocks": []}))
@@ -888,14 +892,14 @@ def test_esper_origins_from_a_graveyard_returns_transformed_with_finality(cards,
     check(s)
 
 
-def build3(cards, mine=()):
+def build3(cards, mine=(), theirs=()):
     """Alice, Bob and Carol (rules automation on), at Alice's precombat main phase."""
     from app.game.factory import PlayerSetup, new_game
     from app.game.session import GameSession
     from tests.game_helpers import deck, enable
 
     alice = deck(cards, "Krenko, Mob Boss", [*((1, n) for n in mine), (9, "Forest")])
-    others = [deck(cards, "Atraxa, Praetors' Voice", [(10, "Island")]) for _ in range(2)]
+    others = [deck(cards, "Atraxa, Praetors' Voice", [*((1, n) for n in theirs), (10, "Island")]) for _ in range(2)]
     s = GameSession(enable(new_game([PlayerSetup("Alice", cards=alice), PlayerSetup("Bob", cards=others[0]), PlayerSetup("Carol", cards=others[1])],
                                     shuffle=False)), cards=cards)
     act(s, "p1", type="pass_priority")
@@ -1007,4 +1011,144 @@ def test_baneclaw_marauder_a_dying_blocker_costs_its_controller_one_life(cards, 
     assert s.state.players["p2"].life == life - 1  # the Elves blocked another attacker: nothing for it
     if blocker == "Probe Big":
         assert where(s, wolf) == "p1:graveyard"  # (the two died at once: the trigger looks back in time, 603.10a)
+    check(s)
+
+
+def kws(s, c):
+    return Plan(s.state, "p1", s.cards, None).ch(s.state.cards[c.id]).keywords
+
+
+def test_giant_slug_chooses_a_basic_landwalk_at_the_next_upkeep(cards):
+    s = build(cards, ["Giant Slug"])
+    slug = put(s, "Giant Slug")
+    mana(s, C=5)
+    act(s, "p1", type="activate_ability", card_id=slug.id, ability=0)
+    run(s)
+    asked = []
+
+    def pick(d):
+        ids = [o.id for o in d.options]
+        if "Island" in ids:
+            asked.append((s.state.turn.number, ids))
+            return ["Island"]
+        return None
+
+    to_step(s, "main1", 3, pick=pick)
+    assert asked == [(3, ["Plains", "Island", "Swamp", "Mountain", "Forest"])]  # Alice's next upkeep, not Bob's
+    assert "islandwalk" in kws(s, slug)
+    to_step(s, "main1", 4)
+    assert "islandwalk" not in kws(s, slug)  # until the end of that turn
+    check(s)
+
+
+def test_illusionary_presence_any_land_type_landwalk(cards):
+    s = build(cards, ["Illusionary Presence", "Island"], ["Probe Gate", "Llanowar Elves"])
+    ip = put(s, "Illusionary Presence")
+    put(s, "Island")
+    put(s, "Probe Gate", "p2")
+    elves = put(s, "Llanowar Elves", "p2")
+    seen = []
+
+    def pick(d):
+        ids = [o.id for o in d.options]
+        if "pay" in ids:  # (cumulative upkeep {U})
+            return ["pay"]
+        if "Gate" in ids:
+            seen.append(ids)
+            return ["Gate"]
+        return None
+
+    to_step(s, "main1", 3, pick=pick)
+    assert len(seen) == 1 and len(seen[0]) == 17 and "Snow" not in seen[0]  # the land types (205.3i): no supertype
+    assert "gatewalk" in kws(s, ip)
+    attack(s, 3, [ip])
+    with pytest.raises(ActionError):
+        act(s, "p2", type="declare_blockers", blocks=[{"blocker_id": elves.id, "attacker_id": ip.id}])
+    check(s)
+
+
+def test_barbarian_guides_snow_landwalk_of_the_chosen_type_then_back_to_hand(cards):
+    s = build(cards, ["Barbarian Guides", "Grizzly Bears"], ["Probe Snow Lair", "Llanowar Elves"])
+    guides, bears = put(s, "Barbarian Guides"), put(s, "Grizzly Bears")
+    put(s, "Probe Snow Lair", "p2")
+    elves = put(s, "Llanowar Elves", "p2")
+    to_step(s, "main1", 3)
+    mana(s, R=1, C=2)
+    act(s, "p1", type="activate_ability", card_id=guides.id, ability=0, targets=[bears.id])
+    run(s, lambda d: ["Lair"] if "Lair" in [o.id for o in d.options] else None)
+    assert "snow lairwalk" in kws(s, bears)
+    attack(s, 3, [bears])
+    with pytest.raises(ActionError):
+        act(s, "p2", type="declare_blockers", blocks=[{"blocker_id": elves.id, "attacker_id": bears.id}])
+    act(s, "p2", type="declare_blockers", blocks=[])
+    to_step(s, "cleanup", 3)
+    assert where(s, bears) == "p1:hand"  # at the beginning of the next end step
+    check(s)
+
+
+def test_getaway_barrel_puts_a_random_revealed_creature_card_onto_the_battlefield(cards):
+    s = build(cards, ["Getaway Barrel", "Probe Shatter", "Grizzly Bears", "Llanowar Elves"])
+    barrel = put(s, "Getaway Barrel")
+    bears, elves = card_named(s, "Grizzly Bears"), card_named(s, "Llanowar Elves")
+    on_top(s, bears)
+    on_top(s, elves)
+    seen = cast_it(s, "Probe Shatter", targets=[barrel.id], R=1, C=1)
+    assert not [d for d in seen if d.kind == "choose_cards"]  # nobody chooses
+    up = [c for c in s.state.cards.values() if c.zone == "p1:battlefield" and c.name in ("Grizzly Bears", "Llanowar Elves")]
+    assert len(up) == 1
+    assert [s.state.cards[c].name for c in lib(s)].count("Grizzly Bears" if up[0].name == "Llanowar Elves" else "Llanowar Elves") == 1
+    check(s)
+
+
+def test_death_in_heaven_exiles_graveyards_then_brings_the_creatures_back_as_cybermen(cards):
+    s = build(cards, ["Death in Heaven"], ["Grizzly Bears", "Llanowar Elves"])
+    gy(s, card_named(s, "Llanowar Elves", "p2"), "p2")
+    on_top(s, card_named(s, "Grizzly Bears", "p2"), "p2")
+    cast_it(s, "Death in Heaven", B=1, C=3, pick=lambda d: ["p2"] if "p2" in [o.id for o in d.options] else None)  # chapter I: Bob mills the Bears and an Island, then exiles his graveyard
+    assert not s.state.zones.get("p2:graveyard")
+    assert sorted(s.state.cards[c].name for c in s.state.zones["p2:exile"]) == ["Grizzly Bears", "Island", "Llanowar Elves"]
+    act(s, "p1", type="set_counter", card_id=card_named(s, "Death in Heaven").id, kind="lore", value=2)  # (by hand: no chapter II)
+    to_main(s, 3)
+    down = [c for c in s.state.cards.values() if c.zone == "p1:battlefield" and c.face_down]
+    assert len(down) == 2 and all(c.owner == "p2" for c in down)
+    for c in down:
+        ch = Plan(s.state, "p1", s.cards, None).ch(c)
+        assert ch.types == {"Artifact", "Creature"} and ch.subtypes == {"Cyberman"} and ch.pt == (2, 2) and not ch.name
+    assert [s.state.cards[c].name for c in s.state.zones["p2:exile"]] == ["Island"]  # not a creature card
+    check(s)
+
+
+def test_kang_dynasty_goads_one_creature_of_each_opponent_and_draws_on_their_hits(cards):
+    s = build3(cards, ["Kang Dynasty"], ["Grizzly Bears"])
+    bears, other = put(s, "Grizzly Bears", "p2"), put(s, "Grizzly Bears", "p3")
+    cast_it(s, "Kang Dynasty", U=1, C=3, pick=lambda d: [c for c in (bears.id, other.id) if c in [o.id for o in d.options]] or None)
+    assert s.state.cards[bears.id].tapped and s.state.cards[other.id].tapped
+    from app.rules.keyword_actions import goaded_by
+
+    assert all(goaded_by(Plan(s.state, "p1", s.cards, None).ch(s.state.cards[c.id])) == {"p1"} for c in (bears, other))
+    hand = len(s.state.zones["p1:hand"])
+    attack(s, 2, [bears], target="p3")  # (goaded: it attacks a player other than Alice, 701.15b; Carol's creature is tapped: no blocks)
+    to_step(s, "main2", 2)
+    assert len(s.state.zones["p1:hand"]) == hand + 1  # Bob's goaded Bears dealt combat damage to Carol: Alice draws
+    check(s)
+
+
+def test_kang_dynasty_three_pumps_by_hand_size_and_cant_be_blocked(cards):
+    s = build(cards, ["Kang Dynasty", "Grizzly Bears"], ["Llanowar Elves"])
+    bears, elves = put(s, "Grizzly Bears"), put(s, "Llanowar Elves", "p2")
+    saga = put(s, "Kang Dynasty")
+    act(s, "p1", type="set_counter", card_id=saga.id, kind="lore", value=2)  # (by hand: no chapter I or II)
+    to_step(s, "main2", 2)
+
+    def pick(d):
+        return [bears.id] if bears.id in [o.id for o in d.options] else None
+
+    to_step(s, "main1", 3, pick=pick)
+    hand = len(s.state.zones["p1:hand"])
+    from tests.wave9c_kit import pt
+
+    assert pt(s, "Grizzly Bears") == (2 + hand, 2 + hand)
+    attack(s, 3, [bears])
+    with pytest.raises(ActionError):
+        act(s, "p2", type="declare_blockers", blocks=[{"blocker_id": elves.id, "attacker_id": bears.id}])
     check(s)
