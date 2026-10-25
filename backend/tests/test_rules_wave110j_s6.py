@@ -23,12 +23,14 @@ from tests.wave110j_kit import (  # noqa: F401
     mana,
     now,
     put_new,
+    settle,
+    to_hand,
 )
 
 GUILD = "Simic Guildmage"
 
 
-@pytest.mark.parametrize("name", [GUILD])
+@pytest.mark.parametrize("name", [GUILD, "Jester's Mask"])
 def test_the_cards_are_full(name):
     assert full(name)
 
@@ -89,4 +91,46 @@ def test_guildmage_aura_that_cant_enchant_the_new_permanent_stays_put(cards):
     mana(s, U=1, C=1)
     activate(s, g, "{1}{U}", targets=[kudzu.id, bears.id], target_counts=[1, 1])
     assert now(s, kudzu).attached_to == land.id  # 303.4i / 701.3b: Kudzu enchants lands only
+    check(s)
+
+
+def test_jesters_mask_lets_the_activator_pick_any_cards_to_replace_the_hand(cards):
+    """701.23a, 701.24: the opponent's hand goes on top of their library, the activator searches it for that many cards, they go to the hand, then a shuffle."""
+    from app.game.state import zone_key
+
+    s = build(cards, ["Jester's Mask"], ["Llanowar Elves", "Grizzly Bears", "Forest", "Island", "Forest"])
+    mask = put_new(s, "Jester's Mask")
+    hand = [to_hand(s, n, "p2") for n in ("Llanowar Elves", "Grizzly Bears")]
+    lib = list(s.state.zones[zone_key("p2", "library")])
+    mana(s, C=1)
+    act(s, "p1", type="activate_ability", card_id=mask.id, ability=ability(s, mask, "{1}"), targets=["p2"])
+    for _ in range(5):
+        if s.state.rules.decision is not None:
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+    d = s.state.rules.decision
+    assert d is not None and d.player == "p1"  # the activator searches (701.23a)
+    wanted = [c for c in lib if s.state.cards[c].name == "Island"][:1] + [c for c in lib if s.state.cards[c].name == "Forest"][:1]
+    settle(s, answers=[wanted])
+    assert sorted(s.state.zones[zone_key("p2", "hand")]) == sorted(wanted)
+    assert now(s, mask).zone.endswith(":graveyard")
+    assert len(s.state.zones[zone_key("p2", "library")]) == len(lib) + len(hand) - 2
+    check(s)
+
+
+def test_jesters_mask_with_an_empty_hand_searches_for_nothing(cards):
+    from app.game.state import zone_key
+
+    s = build(cards, ["Jester's Mask"], ["Forest", "Island"])
+    mask = put_new(s, "Jester's Mask")
+    mana(s, C=1)
+    act(s, "p1", type="activate_ability", card_id=mask.id, ability=ability(s, mask, "{1}"), targets=["p2"])
+    for _ in range(5):
+        if s.state.rules.decision is not None:
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+    d = s.state.rules.decision
+    assert d is not None and d.min_choices == 0  # a search for 0 cards is still a search (701.23b)
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[])
+    assert s.state.zones[zone_key("p2", "hand")] == []
     check(s)

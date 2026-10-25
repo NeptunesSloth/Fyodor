@@ -243,7 +243,25 @@ def mark(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
     return True
 
 
-PRIMITIVES = {"paid_cumulative110j": paid_cumulative, "ruin110j": ruin, "dragon110j": dragon, "mark110j": mark}
+def mask(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
+    """Jester's Mask: the target player puts their hand on top of their library (their order: the library is shuffled at the end, so it can't matter),
+    then the activator searches that library for that many cards (701.23a) and the player puts them into their hand, then shuffles (701.24)."""
+    from app.rules import effects, selectors
+    from app.game.state import zone_key
+
+    for pid in effects._players(plan, ctx, e["who"]):
+        hand = list(plan.state.zones.get(zone_key(pid, "hand"), []))
+        for cid in hand:
+            plan.do({"type": "move", "card_ids": [cid], "to": {"player": pid, "zone": "library"}, "position": "top"}, actor=pid)
+        sel = selectors.parse("card in your library")
+        assert sel is not None
+        search = {"do": "search", "who": "you", "library": "target", "sel": sel.key(), "label": "cards", "max": len(hand), "to": "hand"}
+        at = ctx["next"]
+        ctx["effects"] = [*ctx["effects"][:at], search, *ctx["effects"][at:]]
+    return True
+
+
+PRIMITIVES = {"mask110j": mask, "paid_cumulative110j": paid_cumulative, "ruin110j": ruin, "dragon110j": dragon, "mark110j": mark}
 
 
 # Razor Boomerang: "It" is the Equipment (the ruling: the Equipment deals the damage, 120.3), so name it; the grant binds the name to its granter
@@ -312,3 +330,11 @@ def _guildmage(d: Def) -> Def:
 
 _BUILD["{1}{U}: Attach target Aura attached to a permanent to another permanent with the same controller."] = (
     "{1}{U}: Attach target Aura attached to a permanent to target permanent.", _guildmage)
+
+
+def _mask(d: Def) -> Def:
+    return {**d, "effects": [{"do": "mask110j", "who": "target"}]}
+
+
+_BUILD["{1}, {T}, Sacrifice this artifact: Target opponent puts the cards from their hand on top of their library. Search that player's library for that many cards. That player puts those cards into their hand, then shuffles."] = (
+    "{1}, {T}, Sacrifice this artifact: Target opponent discards a card.", _mask)
