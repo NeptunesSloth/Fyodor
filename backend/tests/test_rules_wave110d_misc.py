@@ -13,8 +13,8 @@ from tests.game_helpers import act
 from tests.wave9c_kit import build, life
 from tests.wave110d_kit import (  # noqa: F401
     activate,
-    cast_on,
     card_db,
+    cast_on,
     ch,
     check,
     full,
