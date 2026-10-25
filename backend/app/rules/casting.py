@@ -1941,7 +1941,9 @@ def _note_cast(plan: Plan, record: PaymentRecord, zone: str, *, zone_player: str
         selectors,  # -- xdamage (wave 100E) -- "if you controlled a modified creature as you cast this spell" (601.2i)
     )
 
-    record.cast_controlled_modified = bool(selectors.candidates(plan, selectors.Selector(controller="you", types=("Creature",), extras=("modified",)), record.controller, None))
+    modified = selectors.candidates(plan, selectors.Selector(controller="you", types=("Creature",), extras=("modified",)), record.controller, None)
+    record.cast_controlled_modified = bool(modified)
+    record.cast_modified_n110e = len(modified)  # -- wave 110E -- the count, for "for each modified creature you controlled as you cast this spell"
     record.cast_revealed_subtypes = sorted({subtype for cid in record.revealed
         if (revealed_card := plan.state.cards.get(cid)) is not None
         for subtype in plan.ch(revealed_card).subtypes})

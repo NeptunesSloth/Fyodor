@@ -7086,3 +7086,7 @@ RESUME.update(_wave110b_cards.RESUME)
 
 from app.rules import wave110c_kusari as _wave110c_kusari  # noqa: E402, I001
 PRIMITIVES.update(_wave110c_kusari.PRIMITIVES)  # -- Kusari-Gama (wave 110C) --
+
+from app.rules import wave110e_cards as _wave110e  # noqa: E402, I001  -- wave 110E --
+
+PRIMITIVES.update(_wave110e.PRIMITIVES)
