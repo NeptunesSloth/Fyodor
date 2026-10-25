@@ -1,3 +1,5 @@
+New work starts from merged PR21 (main456c95d6), with a fresh500-additional-card target. [Active progress](research/after-pr21-progress.md). Post21 baseline audit is pending; checkpoint67 totals below are historical. Six agents are active again.
+
 Current-work wrap-up is saved in [PR #20](https://github.com/NeptunesSloth/Fyodor/pull/20). The six agents reached their usage limit; no automatic assignments remain active.
 
 ## CHECKPOINT67 VERIFIED — WRAP-UP
