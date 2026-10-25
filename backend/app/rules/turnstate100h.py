@@ -267,6 +267,17 @@ def _basri(d: Def) -> Def | None:
                              {**make, "n": {"event_amount": 1}}]}
 
 
+_REGENERATED = {"history": "facts", "kind": "regenerated", "self": True, "who": "any", "n": 1}
+
+
+def _starfish(d: Def) -> Def | None:
+    """Spiny Starfish: it used a regeneration shield this turn (intervening if, 603.4; ruling 2009-10-01), one token per regeneration counted as
+    it resolves."""
+    if _dos(d) != ["create_token"]:
+        return None
+    return {**d, "if": _REGENERATED, "effects": [{"do": "only_if", "cond": _REGENERATED, "skip": 1}, {**d["effects"][0], "do": "starfish100h"}]}
+
+
 def _goliath(d: Def) -> Def | None:
     """Goliath Hatchery (corrupted): the cards drawn are the chosen creature's total toxic value as it resolves (702.164b)."""
     if _dos(d) != ["only_if", "player_chooses", "draw"]:
@@ -373,6 +384,8 @@ _BUILD: dict[str, tuple[tuple[str, ...], Callable[..., Def | None]]] = {
           "hand.",), _shade),
     "−2: Whenever one or more nontoken creatures attack this turn, create that many 1/1 white Soldier creature tokens that are tapped and attacking.":
         (("−2: Whenever you attack this turn, create a 1/1 white Soldier creature token that's tapped and attacking.",), _basri),
+    "At the beginning of each end step, if ~ regenerated this turn, create a 0/1 blue Starfish creature token for each time it regenerated this turn.":
+        (("At the beginning of each end step, create a 0/1 blue Starfish creature token.",), _starfish),
     "If you attacked this turn, you may have ~ enter as a copy of any creature on the battlefield.":
         (("You may have ~ enter as a copy of any creature on the battlefield.",),
          lambda d: {**d, "raid100h": True} if d.get("replacement") == "enter_as_copy" else None),  # (Protean Raider: copying.entering reads it)
@@ -459,6 +472,9 @@ def definition(ability: Any, ch: Any) -> Def | None:
     if ability.kind == "static" and text == "As long as ~ entered this turn, you may activate her loyalty abilities any time you could cast an instant.":
         # The Wandering Emperor: 606.3's sorcery timing lifted (still once each turn) while the object entered this turn (cast_limits.loyalty_rule)
         return {"kind": "static", "static": "loyalty_rule", "who": "self", "instant": True, "entered100h": True, "effects": []}
+    if ability.kind == "static" and text == ("During your turn, as long as you haven't activated an exhaust ability this turn, you may activate exhaust "
+                                             "abilities as though they haven't been activated."):
+        return {"kind": "static", "static": "exhaust_again100h", "effects": []}  # (Elvish Refueler: restrictions._exhaust_again, 702.177b)
     if ability.kind == "spell" and text == _HELLBENT:  # (its "can't be countered" part: a static of the spell, judged when something would counter it)
         return {"kind": "static", "static": "self_uncounterable", "cond": _EMPTY_HAND, "effects": []}
     others = tuple(a for a in ch.abilities if scripts.self_text(a.text, ch.name) != _HELLBENT)
@@ -522,4 +538,11 @@ def shade(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return permissions.grant_play(plan, ctx, {"do": "grant_play", "who": context.PREFIX + "shade100h", "play": False, "cast": True, "until": "end_of_turn"})
 
 
-PRIMITIVES = {"council100h": council, "destiny100h": destiny, "toxic_draw100h": toxic_draw, "shade100h": shade}
+def starfish(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    from app.rules import effects, history
+
+    n = sum(1 for f in history.log_for(plan).facts if f.kind == "regenerated" and f.object_id == ctx.get("source_object"))
+    return effects.PRIMITIVES["create_token"](plan, ctx, {**e, "do": "create_token", "n": n}) if n else True
+
+
+PRIMITIVES = {"council100h": council, "destiny100h": destiny, "toxic_draw100h": toxic_draw, "shade100h": shade, "starfish100h": starfish}

@@ -28,7 +28,7 @@ DATA = json.loads((Path(__file__).parent / "fixtures" / "wave100h_cards.json").r
 KNOWN = {c["name"] for c in fixture_cards()}
 EXTRA = [card(c["name"], set_code="w100h", number=f"H{i:03d}", **{k: v for k, v in c.items() if k != "name"})
          for i, c in enumerate(DATA) if c["name"] not in KNOWN]
-HELPERS = {"Amateur Hero", "Instant Ramen", "Coral Merfolk", "Merfolk of the Pearl Trident", "Wind Drake", "Soul Warden", "Lonely Sandbar", "Secluded Steppe"}
+HELPERS = {"Amateur Hero", "Instant Ramen", "Coral Merfolk", "Merfolk of the Pearl Trident", "Wind Drake", "Soul Warden", "Lonely Sandbar", "Secluded Steppe", "Prowcatcher Specialist"}
 
 
 @pytest.fixture()
@@ -1029,4 +1029,45 @@ def test_basri_ket_makes_a_soldier_for_each_nontoken_attacker(cards):
     soldiers = [c for c in s.state.cards.values() if c.name == "Soldier"]
     assert len(soldiers) == 2 and all(c.tapped for c in soldiers)  # (two nontoken attackers; the Spirit token doesn't count)
     assert life(s, "p2") == 40 - 2 - 2 - 1 - 2  # (the Soldiers entered attacking and dealt their damage)
+    check(s)
+
+
+# -- Spiny Starfish ----------------------------------------------------------------------------------------------------------------------------------
+@pytest.mark.parametrize("times", [2, 0])
+def test_spiny_starfish_makes_a_starfish_for_each_regeneration(cards, times):
+    s = build(cards, ["Spiny Starfish", "Lightning Bolt"])
+    starfish = put(s, "Spiny Starfish")
+    for _ in range(times):
+        mana(s, U=1)
+        act(s, "p1", type="activate_ability", card_id=starfish.id, ability=0)
+        answer(s)
+        bolt(s, starfish.id)  # (lethal damage destroys it: the shield replaces that, 701.19a)
+        assert zone(s, starfish) == "p1:battlefield"
+    to_phase(s, "cleanup", turn=1)
+    assert sum(1 for c in s.state.cards.values() if c.name == "Starfish" and c.zone == "p1:battlefield") == times
+    check(s)
+
+
+# -- Elvish Refueler ----------------------------------------------------------------------------------------------------------------------------
+def test_elvish_refueler_reopens_one_exhaust_activation_each_of_your_turns(cards):
+    from app.game.errors import ActionError
+
+    s = build(cards, ["Elvish Refueler", "Prowcatcher Specialist"])
+    put(s, "Elvish Refueler")
+    prow = put(s, "Prowcatcher Specialist")
+    exhaust = next(a.index for a in ch(s, prow).abilities if a.text.startswith("Exhaust"))
+
+    def go():
+        mana(s, R=1, C=3)
+        act(s, "p1", type="activate_ability", card_id=prow.id, ability=exhaust)
+        answer(s)
+
+    go()
+    with pytest.raises(ActionError):
+        go()  # (Alice activated an exhaust ability this turn: 702.177b)
+    to_phase(s, "main1", turn=3)
+    go()  # (her turn, none activated yet this turn: as though it hadn't been activated)
+    with pytest.raises(ActionError):
+        go()
+    assert s.state.cards[prow.id].counters.get("+1/+1") == 4
     check(s)

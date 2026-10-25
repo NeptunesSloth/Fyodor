@@ -1138,5 +1138,63 @@
   ],
   "keywords": [],
   "loyalty": "3"
+ },
+ {
+  "name": "Spiny Starfish",
+  "layout": "normal",
+  "mana_cost": "{2}{U}",
+  "cmc": 3.0,
+  "type_line": "Creature — Starfish",
+  "oracle_text": "{U}: Regenerate this creature.\nAt the beginning of each end step, if this creature regenerated this turn, create a 0/1 blue Starfish creature token for each time it regenerated this turn.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "Regenerate"
+  ],
+  "power": "0",
+  "toughness": "1"
+ },
+ {
+  "name": "Elvish Refueler",
+  "layout": "normal",
+  "mana_cost": "{2}{G}",
+  "cmc": 3.0,
+  "type_line": "Creature — Elf Druid",
+  "oracle_text": "During your turn, as long as you haven't activated an exhaust ability this turn, you may activate exhaust abilities as though they haven't been activated.\nExhaust — {1}{G}: Put a +1/+1 counter on this creature. (Activate each exhaust ability only once.)",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [
+   "Exhaust"
+  ],
+  "power": "2",
+  "toughness": "3"
+ },
+ {
+  "name": "Prowcatcher Specialist",
+  "layout": "normal",
+  "mana_cost": "{1}{R}",
+  "cmc": 2.0,
+  "type_line": "Creature — Goblin Warrior",
+  "oracle_text": "Haste\nExhaust — {3}{R}: Put two +1/+1 counters on this creature. (Activate each exhaust ability only once.)",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Haste",
+   "Exhaust"
+  ],
+  "power": "2",
+  "toughness": "1"
  }
 ]
