@@ -29,7 +29,7 @@ from tests.wave110a_kit import (
     zone_of,
 )
 
-BERSERK, MANDATE = "Berserk", "Mandate of Peace"
+BERSERK, MANDATE, BAIT, FLUX = "Berserk", "Mandate of Peace", "Take the Bait", "Thermal Flux"
 
 
 @pytest.fixture()
@@ -37,7 +37,7 @@ def cards(settings):
     yield from open_repo(settings)
 
 
-test_full = full_test([BERSERK, MANDATE])
+test_full = full_test([BERSERK, MANDATE, BAIT, FLUX])
 
 
 def attack(s, c, target="p2"):
@@ -101,3 +101,48 @@ def test_mandate_of_peace_cant_be_cast_outside_combat(cards):
     mana(s, W=1, C=1)
     with pytest.raises(ActionError):
         cast(s, MANDATE)
+
+
+def bob_attacks(s, c, target):
+    to_phase(s, "declare_attackers", turn=2)
+    act(s, "p2", type="declare_attackers", attackers=[{"card_id": c.id, "target": target}])
+
+
+@pytest.mark.parametrize("at", ["player", "planeswalker"])
+def test_take_the_bait_prevents_combat_damage_to_you_and_your_planeswalkers_and_goads(cards, at):
+    """Prevent (615), untap (701.26), goad (701.15), an added combat phase (500.8)."""
+    s = build(cards, [BAIT, "Gideon Jura"], ["Grizzly Bears"])
+    gideon = put(s, "Gideon Jura")
+    act(s, "p1", type="counter", card_ids=[gideon.id], kind="loyalty", delta=6)
+    bears = put(s, "Grizzly Bears", "p2")
+    stops(s)
+    to_phase(s, "declare_attackers", turn=2)
+    act(s, "p2", type="declare_attackers", attackers=[{"card_id": bears.id, "target": "p1" if at == "player" else gideon.id}])
+    act(s, "p2", type="pass_priority")
+    mana(s, R=1, W=1, C=2)
+    cast(s, BAIT)
+    answer(s)
+    from app.rules.keyword_actions import goaded_by
+
+    assert not s.state.cards[bears.id].tapped and s.state.rules.extra_phases and "p1" in goaded_by(ch(s, bears))
+    to_phase(s, "end_combat")
+    assert life(s, "p1") == 40 and s.state.cards[gideon.id].counters.get("loyalty", 0) == 6
+    check(s)
+
+
+@pytest.mark.parametrize("mode, start_snow", [(0, False), (1, True)])
+def test_thermal_flux_makes_a_permanent_snow_or_not_until_end_of_turn_and_draws_next_upkeep(cards, mode, start_snow):
+    """205.4 (supertype), 613.1d (layer 4), 611.2a (until end of turn), 603.7 (the delayed draw at the next turn's upkeep)."""
+    s = build(cards, [FLUX, "Snow-Covered Forest"])
+    land = put(s, "Snow-Covered Forest") if start_snow else put(s, "Forest")
+    stops(s)
+    mana(s, U=1, C=1)
+    hand = len(s.state.zones["p1:hand"])
+    cast(s, FLUX, [land.id], modes=[mode])
+    answer(s)
+    assert ("Snow" in ch(s, land).supertypes) == (not start_snow)
+    to_phase(s, "upkeep", turn=2)
+    answer(s)
+    assert len(s.state.zones["p1:hand"]) == hand + 1  # (the delayed draw at the next turn's upkeep; the spell itself left the hand)
+    assert ("Snow" in ch(s, land).supertypes) == start_snow  # (back at the cleanup step)
+    check(s)

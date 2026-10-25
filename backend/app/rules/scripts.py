@@ -8660,6 +8660,8 @@ def modal_definition(lines: list[AbilityText], name: str = "") -> Definition | N
         return None
     lo, hi, repeat, instead = header
     modes: list[dict[str, Any]] = []
+    tail = [ab for i, ab in enumerate(lines[1:], 1) if not any(x.text.startswith("• ") for x in lines[i:])]  # -- wave 110A -- lines after the last mode (below)
+    lines = lines[:len(lines) - len(tail)]
     for ab in lines[1:]:
         if not ab.text.startswith("• "):
             return None
@@ -8682,7 +8684,13 @@ def modal_definition(lines: list[AbilityText], name: str = "") -> Definition | N
     modal: dict[str, Any] = {"min": lo, "max": min(hi, 99 if repeat else len(modes)), "repeat": repeat, "condition": None}
     if instead is not None:  # -- modal frames (wave 33B) --
         modal["instead"] = {**instead, "max": min(instead["max"], len(modes))}
-    return {"kind": "spell", "effects": [], "target": None, "modes": modes, "modal": modal}
+    after: list[dict[str, Any]] = []  # -- wave 110A -- 608.2c: a line printed after the modes is carried out after the chosen modes ("Draw a card at the beginning of the next turn's upkeep.")
+    for ab in tail:
+        got = parse_effects(self_text(ab.text, name))
+        if got is None or got[1] is not None or got[2]:
+            return None
+        after += rename_bindings(got[0], f"after{len(after)}_")
+    return {"kind": "spell", "effects": [], "target": None, "modes": modes, "modal": modal, **({"after": after} if after else {})}
 
 
 # -- keywords (wave 30E) -- 702.172a spree: "Choose one or more modes. As an additional cost to cast this spell, pay the costs associated with

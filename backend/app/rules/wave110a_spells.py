@@ -27,7 +27,32 @@ def _berserk() -> Parsed:
             {"do": "deferred:only_if", "cond": cond, "skip": 1}, destroy], target, optional
 
 
+def _take_the_bait() -> Parsed:
+    """Take the Bait: the prevention covers you and the planeswalkers you control (615.1; damage to a planeswalker, 120.3c), then the attackers untap and
+    are goaded (701.15), then the added combat phase (500.8)."""
+    from app.rules import selectors
+
+    prevent = _p("Prevent all combat damage that would be dealt to you and creatures you control this turn.")[0][0]
+    walkers = selectors.Selector(controller="you", types=("Planeswalker",)).key()
+    rest = _p("Untap all attacking creatures and goad them. After this phase, there is an additional combat phase.")[0]
+    return [{**prevent, "scope": {**prevent["scope"], "to_objects": walkers}}, *rest], None, False
+
+
+def _snow(add: bool) -> Callable[[], Parsed]:
+    from app.rules import selectors
+
+    def build() -> Parsed:
+        return ([{"do": "snow110a", "who": "target", "add": add}],
+                selectors.Selector(**({"not_supertypes": ("Snow",)} if add else {"supertypes": ("Snow",)})).key(), False)
+    return build
+
+
 BUILDERS: dict[str, Callable[[], Parsed]] = {
+    # Thermal Flux: 205.4 snow is a supertype, so layer 4 (613.1d), until end of turn (the duration of supertype100i is the effect's default)
+    "Target nonsnow permanent becomes snow until end of turn.": _snow(True),
+    "Target snow permanent isn't snow until end of turn.": _snow(False),
+    "Prevent all combat damage that would be dealt to you and planeswalkers you control this turn. Untap all attacking creatures and goad them. "
+    "After this phase, there is an additional combat phase.": _take_the_bait,
     "End the combat phase.": lambda: ([{"do": "end_combat_phase110a"}], None, False),  # (Mandate of Peace: 724.2)
     "Target creature gains trample and gets +X/+0 until end of turn, where X is its power. At the beginning of the next end step, destroy that "
     "creature if it attacked this turn.": _berserk,
@@ -72,4 +97,16 @@ def end_combat_phase(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return r.decision is None
 
 
-PRIMITIVES = {"bind110a": bind, "end_combat_phase110a": end_combat_phase}
+def snow(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Layer 4 (613.1d), until end of turn: the target permanent becomes snow or isn't snow (205.4, 611.2c: locked to the objects it began on)."""
+    from app.rules import effects, layers
+
+    cards = [c for c in effects._cards(plan, ctx, e["who"]) if plan.state.cards[c].zone.endswith(":battlefield")]
+    if cards:
+        layers.add_effect(plan, affected=[plan.oid(c) for c in cards], layer="4", source=ctx.get("source_object"), controller=ctx["controller"],
+                          label=f"{'snow' if e['add'] else 'not snow'} ({ctx.get('name', '')})",
+                          **({"add_supertypes": ["Snow"]} if e["add"] else {"remove_supertypes": ["Snow"]}))
+    return True
+
+
+PRIMITIVES = {"bind110a": bind, "end_combat_phase110a": end_combat_phase, "snow110a": snow}

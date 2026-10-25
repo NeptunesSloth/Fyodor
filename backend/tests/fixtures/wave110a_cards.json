@@ -43,5 +43,68 @@
    "R"
   ],
   "keywords": []
+ },
+ {
+  "name": "Take the Bait",
+  "layout": "normal",
+  "mana_cost": "{2}{R}{W}",
+  "cmc": 4.0,
+  "type_line": "Instant",
+  "oracle_text": "Cast this spell only during combat on an opponent's turn.\nPrevent all combat damage that would be dealt to you and planeswalkers you control this turn. Untap all attacking creatures and goad them. After this phase, there is an additional combat phase.",
+  "colors": [
+   "R",
+   "W"
+  ],
+  "color_identity": [
+   "R",
+   "W"
+  ],
+  "keywords": [
+   "Goad"
+  ]
+ },
+ {
+  "name": "Gideon Jura",
+  "layout": "normal",
+  "mana_cost": "{3}{W}{W}",
+  "cmc": 5.0,
+  "type_line": "Legendary Planeswalker — Gideon",
+  "oracle_text": "+2: During target opponent's next turn, creatures that player controls attack Gideon Jura if able.\n−2: Destroy target tapped creature.\n0: Until end of turn, Gideon Jura becomes a 6/6 Human Soldier creature that's still a planeswalker. Prevent all damage that would be dealt to him this turn.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [],
+  "loyalty": "6"
+ },
+ {
+  "name": "Thermal Flux",
+  "layout": "normal",
+  "mana_cost": "{U}",
+  "cmc": 1.0,
+  "type_line": "Instant",
+  "oracle_text": "Choose one —\n• Target nonsnow permanent becomes snow until end of turn.\n• Target snow permanent isn't snow until end of turn.\nDraw a card at the beginning of the next turn's upkeep.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Snow-Covered Forest",
+  "layout": "normal",
+  "cmc": 0.0,
+  "type_line": "Basic Snow Land — Forest",
+  "oracle_text": "({T}: Add {G}.)",
+  "colors": [],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [],
+  "produced_mana": "[\"G\"]"
  }
 ]
