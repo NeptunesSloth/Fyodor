@@ -59,11 +59,12 @@ def regenerate(plan: Plan, card: CardInstance, *, consume: bool = True, shield_i
 
 
 def umbra_armor(plan: Plan, card: CardInstance) -> CardInstance | None:
+    from app.rules import wave110a_grants
+
     """-- keywords (wave 15E) -- 702.89a: an Aura with umbra armor attached to the permanent (the oldest, when it has several:
     which replacement applies is its controller's choice, not asked here)."""
     for aura in plan.state.cards.values():
-        if aura.attached_to == card.id and aura.zone.endswith(":battlefield") and not plan.manual(aura) and any(
-                ab.kind == "keywords" and "umbra armor" in ab.keywords for ab in plan.ch(aura).abilities):
+        if aura.attached_to == card.id and wave110a_grants.has_umbra(plan, aura, card):  # (wave 110A: Umbra Mystic grants it)
             return aura
     return None
 

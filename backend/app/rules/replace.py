@@ -1002,6 +1002,8 @@ def _counters_applies(plan: Plan, c: Candidate, ev: Event, sim: Sim) -> bool:
     m = c.match
     if m.get("counter") and m["counter"] != ev["counter"]:
         return False
+    if m.get("bloodthirst110a") and not any(t == plan.state.turn.number for p, t in plan.rules.damaged.items() if p != c.controller):
+        return False  # -- bloodthirst grant (wave 110A) -- 702.54a: an opponent was dealt damage this turn
     if not _putter_ok(c, ev):
         return False
     if m.get("effect_only") and not ev.get("effect"):
