@@ -12,9 +12,18 @@ MONOLITH = ('{T}: Until end of turn, target creature gains "Whenever this creatu
             "That creature's controller may have this artifact deal 1 damage to it. Activate only as a sorcery.")
 
 
-def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
-    from app.rules import scripts
+DACK = "Whenever you cast a spell that targets one or more permanents, gain control of those permanents."
 
+
+def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
+    from app.rules import events, scripts
+
+    if ability.text == DACK:  # Dack Fayden's emblem (114.1): the cast event's targets (115.9b: departed ones are ignored), permanently
+        cond = events.parse_condition("you cast a spell that targets one or more permanents")
+        assert cond is not None
+        return {"kind": "triggered", "trigger": "event", "cond": cond, "optional": False, "target": None,
+                "effects": [{"do": "spell_permanents110d", "selector": cond["targets"], "as": "dack110d"},
+                            {"do": "gain_control", "who": "ref:dack110d", "to": "you"}]}
     if ability.text != MONOLITH:
         return None
     d = scripts.define(replace(ability, text=MONOLITH.replace(" That creature's controller may have this artifact deal 1 damage to it.", "")), ch)
@@ -49,5 +58,13 @@ def resume(plan: Any, d: Any, chosen: list[str]) -> None:
     effects.continue_effects(plan, d.resume["ctx"])
 
 
-PRIMITIVES: dict[str, Any] = {"may_hit110d": may_hit}
+def spell_permanents(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    from app.rules import context, token_copy_sources
+
+    refs = token_copy_sources.spell_targets(plan, ctx, e["selector"])
+    context.refs(ctx)[e["as"]] = {"kind": "objects", "objects": [r.model_dump(mode="json") for r in refs]}
+    return True
+
+
+PRIMITIVES: dict[str, Any] = {"may_hit110d": may_hit, "spell_permanents110d": spell_permanents}
 RESUME: dict[str, Any] = {"may_hit110d": resume}
