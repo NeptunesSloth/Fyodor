@@ -445,3 +445,44 @@ def test_war_historian_is_indestructible_only_once_it_attacked_a_battle(cards, b
     drive(s)
     assert ("indestructible" in ch(s, hist).keywords) is battle
     check(s)
+
+
+def test_wiitigo_cards_are_full():
+    assert full("Wiitigo") and full("Shape of the Wiitigo")
+
+
+def _block_scenario(cards, host_name, how):
+    """Bob's Bears attack Alice on turn 2; Alice's creature blocks it (or not, or Bob doesn't attack); returns the state, the creature."""
+    s = build(cards, [host_name, "Shape of the Wiitigo", "Wall of Stone"], ["Grizzly Bears"])
+    host = put_new(s, host_name if host_name != "Shape of the Wiitigo" else "Wall of Stone")
+    act(s, "p1", type="counter", card_ids=[host.id], kind="+1/+1", delta=3)
+    if host_name == "Shape of the Wiitigo":
+        mana(s, "p1", G=1, C=1)
+        cast_on(s, "Shape of the Wiitigo", host)
+    bears = put_new(s, "Grizzly Bears", "p2")
+    to_phase(s, "main1", turn=2)
+    if how != "none":
+        ready(s, bears)
+        while s.state.rules.decision is None:
+            act(s, s.state.rules.priority, type="pass_priority")
+        act(s, "p2", type="declare_attackers", attackers=[{"card_id": bears.id, "target": "p1"}])
+        while (d := s.state.rules.decision) is None or d.kind != "declare_blockers":
+            act(s, s.state.rules.priority, type="pass_priority")
+        blocks = [{"blocker_id": host.id, "attacker_id": bears.id}] if how == "block" else []
+        act(s, "p1", type="declare_blockers", blocks=blocks)
+    return s, host
+
+
+@pytest.mark.parametrize("host_name", ["Wiitigo", "Shape of the Wiitigo"])
+@pytest.mark.parametrize(("how", "delta"), [("block", 1), ("unblocked", -1), ("none", -1)])
+def test_wiitigo_counts_from_the_last_upkeep(cards, host_name, how, delta):
+    """503.1, 509.1g: +1/+1 counter at your upkeep if it blocked or was blocked (attacked or blocked: the Aura) since your last upkeep, else it loses one."""
+    s, host = _block_scenario(cards, host_name, how)
+    counters = now(s, host).counters["+1/+1"] + delta  # (Shape of the Wiitigo puts six on it as it enters)
+    to_phase(s, "upkeep", turn=3)
+    settle(s)
+    assert now(s, host).counters.get("+1/+1") == counters
+    to_phase(s, "upkeep", turn=5)  # (nothing happened since the turn-3 upkeep: it shrinks by one)
+    settle(s)
+    assert now(s, host).counters.get("+1/+1") == counters - 1
+    check(s)

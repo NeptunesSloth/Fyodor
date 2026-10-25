@@ -18,3 +18,11 @@
 - Bone Shaman: "creatures dealt damage by this creature this turn can't be regenerated" needs a damage-linked regeneration shield.
 - Jester's Mask: searching another player's library for a count tied to a hand move; no foundation.
 - Simic Guildmage, Livio, Merseine, Rasputin, Crown of Convergence, Wiitigo: each needs a new foundation (see handoff_j).
+- Wiitigo, Shape of the Wiitigo: promoted in s5 (stale line above): attack/block marks (Engaged110j choice) + previous own turn.
+- Manor Gargoyle: "indestructible as long as it has defender" depends on its own layer-6 result (613.8); static conditions are read without the affected object.
+- Corruption of Towashi: no "enters transformed" event (702.145b entry is a replacement, no zone-change fact carries it).
+- Rock Hydra: per-1 damage prevention capped by counters; no partial-prevention-by-counters op (Polukranos prevents all).
+- Animate Artifact: "isn't a creature, it's an artifact creature with P/T = mana value" (attached type + conditional base P/T) unread.
+- Shuriken: needs the host's Ninja type as it was unattached (LKI at cost time).
+- Echo Chamber, Magus of the Arena, Keeper of the Dead: "an opponent chooses target ..." / "as you activate" target conditions; no foundation in this branch.
+- Apocalypse Chime, Golgothian Sylex: "name originally printed in the X expansion" needs set membership data.

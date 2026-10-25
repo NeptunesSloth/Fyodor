@@ -629,6 +629,10 @@ def object_ids(plan: Plan, ctx: dict[str, Any], who: str) -> set[str]:
     if who == "self":
         oid = _source_object(plan, ctx)
         return {oid} if oid else set()
+    if who == "host":  # -- (wave 110J) -- the permanent the source is attached to (303.4, 301.5)
+        src = plan.state.cards.get(ctx.get("source_card", ""))
+        host = plan.state.cards.get(src.attached_to) if src is not None and src.attached_to else None
+        return {plan.oid(host)} if host is not None else set()
     if who == "event" or who.startswith("ref:"):
         return {r.object_id for r in context._object_refs(ctx, context.EVENT if who == "event" else who[4:], was=True)}
     if who == "target" or who.startswith("target:"):
@@ -673,6 +677,10 @@ def _object_history(plan: Plan, ctx: dict[str, Any], cond: dict[str, Any], log: 
                 log.declared.get(i) == plan.rules.combats or log.declared_blockers.get(i) == plan.rules.combats for i in ids)
         else:
             got = bool(ids & set(log.blockers)) or any(a in ids for attacking in log.attackers.values() for a in attacking)
+    elif what == "engaged110j":  # -- (wave 110J) -- attacked, blocked or became blocked since your last upkeep (Wiitigo)
+        from app.rules import wave110j_cards
+
+        got = wave110j_cards.engaged_since_upkeep(plan, ctx, ids)
     elif what == "attacked":  # -- attached (wave 100F) -- 508.1: declared as an attacker this turn (TurnLog.attackers)
         got = any(a in ids for attacking in log.attackers.values() for a in attacking)
     elif what == "damaged":

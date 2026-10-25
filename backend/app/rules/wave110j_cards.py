@@ -260,3 +260,31 @@ def note_battle_attacks(plan: Any, attackers: Any) -> None:
         t = plan.state.cards.get(x.target)
         if log is not None and t is not None and "Battle" in plan.ch(t).types and (o := plan.oid(plan.state.cards[x.card_id])) not in log.attacked_battle110j:
             log.attacked_battle110j.append(o)
+
+ENGAGED = "Engaged110j"
+
+
+def note_engaged(plan: Any, card_ids: Any) -> None:
+    """508.1, 509.1g: remember (on the object, 400.7) the turn it attacked, blocked or was blocked in, for "since your last upkeep"."""
+    for cid in dict.fromkeys(card_ids):
+        plan.do({"type": "set_choice", "card_id": cid, "key": ENGAGED, "value": str(plan.state.turn.number)}, actor=plan.actor)
+
+
+def engaged_since_upkeep(plan: Any, ctx: Any, ids: set[str]) -> bool:
+    """Did one of these objects attack, block or become blocked since its controller's last upkeep? That upkeep began in that controller's previous
+    own turn (events of that turn follow its upkeep step, 503.1); without a known previous turn, since the game began."""
+    done = plan.rules.completed_own_turns.get(ctx["controller"])
+    since = done.turn if done is not None else 0
+    return any(int(c.choices.get(ENGAGED, "-1")) >= since for c in plan.state.cards.values() if plan.oid(c) in ids)
+
+
+def _since_upkeep(d: Def) -> Def:
+    """Wiitigo, Shape of the Wiitigo: the "this turn" history read in the native wording is swapped for the since-last-upkeep one."""
+    gate = d["effects"][0]
+    return {**d, "effects": [{**gate, "cond": {**gate["cond"], "what": "engaged110j"}}, *d["effects"][1:]]}
+
+
+_UP = "At the beginning of your upkeep, put a +1/+1 counter on %s if it %s since your last upkeep. Otherwise, remove a +1/+1 counter from it."
+_NATIVE = "At the beginning of your upkeep, put a +1/+1 counter on %s if %s attacked or blocked this turn. Otherwise, remove a +1/+1 counter from %s."
+_BUILD[_UP % ("this creature", "has blocked or been blocked")] = (_NATIVE % ("~", "~", "~"), _since_upkeep)
+_BUILD[_UP % ("enchanted creature", "attacked or blocked")] = (_NATIVE % ("enchanted creature", "it", "it"), _since_upkeep)
