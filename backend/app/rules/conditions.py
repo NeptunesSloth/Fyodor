@@ -1597,6 +1597,10 @@ def bind_objects(cond: Condition, who: str) -> Condition:
 
 
 def holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
+    if "w110g" in cond:  # -- wave 110G --
+        from app.rules import wave110g_cards
+
+        return wave110g_cards.holds(plan, ctx, cond)
     if "w110a" in cond:  # -- wave 110A --
         from app.rules import wave110a
 

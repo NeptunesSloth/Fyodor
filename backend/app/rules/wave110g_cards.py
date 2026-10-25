@@ -39,6 +39,21 @@ def _pay_life_reveal(d: Def) -> Def:
     return {**d, "effects": [pay, {**reveal, "n": {"paid_x": "viz110g"}}, *rest]}
 
 
+def _walls_only(d: Def) -> Def:
+    return {**d, "if": {"w110g": "walls_block"}}
+
+
+def walls_block(plan: Any, ctx: dict[str, Any], cond: Def) -> bool:
+    """509.1g / 509.3b: another Wall blocks the attacker this creature blocks, and every creature blocking it is a Wall."""
+    attacker = ((ctx.get("event") or {}).get("other") or {}).get("card")
+    blockers = [c for c in plan.state.cards.values() if attacker and c.blocks(attacker)]
+    return any(c.id != ctx.get("source_card") for c in blockers) and all("Wall" in plan.ch(c).subtypes for c in blockers)
+
+
+def holds(plan: Any, ctx: dict[str, Any], cond: Def) -> bool:
+    return bool({"walls_block": walls_block}[cond["w110g"]](plan, ctx, cond))
+
+
 def _exchange_power(d: Def) -> Def:
     """701.12g: exchanging two powers makes a continuous effect setting each (613.4b) to the other's previous value."""
     return {**d, "effects": [{"do": "exchange_power110g", "duration": "end_of_combat"}]}
@@ -76,6 +91,10 @@ _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
     "When this creature enters, pay any amount of life. Target opponent reveals that many cards from their hand. You choose one of them and exile it.":
         ("When this creature enters, target opponent reveals a number of cards from their hand equal to the number of creatures you control. "
          "You choose one of them. Exile that card.", _pay_life_reveal),
+    # Wall of Caltrops
+    "Whenever this creature blocks a creature, if at least one other Wall creature is blocking that creature and no non-Wall creatures are blocking that creature, "
+    "this creature gains banding until end of turn.":
+        ("Whenever this creature blocks a creature, this creature gains banding until end of turn.", _walls_only),
     # Distended Mindbender: two sequential choices from the revealed hand (701.9)
     "When you cast this spell, target opponent reveals their hand. You choose from it a nonland card with mana value 3 or less and a card with mana value 4 or greater. "
     "That player discards those cards.":
