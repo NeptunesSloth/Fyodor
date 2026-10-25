@@ -1080,7 +1080,7 @@ def _predicate(predicate: str, x_value: values.Value | None = None, it: str | No
             grants.append("Protection from each color not in your commander's color identity")  # (layers writes the colors in: 903.4, the rulings 2020-11-10)
             continue
         if (chosen_line := {"protection from the chosen player": "Protection from the chosen player", "protection from the chosen color": "Protection from the chosen color", "protection from the chosen card type": "Protection from the chosen card type",
-                            "protection from creatures of the chosen type": "Protection from creatures of the chosen type"}.get(rest)) is not None:
+                            "protection from creatures of the chosen type": "Protection from creatures of the chosen type", "landwalk of the chosen type": "Landwalk of the chosen type"}.get(rest)) is not None:
             # -- attached events (wave 25D) -- the color the Aura's "As ~ enters, choose a color" recorded (wave 53B: or a card type, or a creature type, of the permanent's own choice)
             grants.append(chosen_line)  # (layers writes the answer in; chosen.chosen_value_ok: the one choice)
             continue

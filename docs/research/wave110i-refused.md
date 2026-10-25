@@ -14,3 +14,4 @@
 - Merieke Ri Berit: needs a persistent delayed trigger bound to the controlled creature (leaves/untaps); no such watch exists.
 - Fasting: "you may skip your draw step instead" needs an optional-skip decision at step start (skips.py has only unconditional skips).
 - Torrent of Lava, Dark Intimations, Aeon Engine, Hero of Bretagard, Aegis of the Legion, Grifter's Blade: stack-granted ability / Bolas-cast trigger / turn-order reversal / exile-from-hand batch / mentor event / equipment enters-attached choice: each a separate foundation.
+- Cuombajj Witches: second target chosen by an opponent for an any-target damage; delegated_target_announcements only supports one creature target on activated abilities.

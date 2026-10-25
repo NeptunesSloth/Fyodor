@@ -24,6 +24,9 @@ def _won_last(d: Def) -> Def:
 
 # whole ability text -> the wording the grammar reads for it
 _AS: dict[str, str] = {
+    # Bioessence Hydra: one trigger per planeswalker the counters go onto (the grammar reads the singular); the counters added are the same in total
+    "Whenever one or more loyalty counters are put on planeswalkers you control, put that many +1/+1 counters on this creature.":
+        "Whenever one or more loyalty counters are put on a planeswalker you control, put that many +1/+1 counters on this creature.",
     # Corrosion: "Artifacts destroyed this way" are the ones the destroy-each instruction destroyed ("They", 701.8c: can't be regenerated)
     "At the beginning of your upkeep, put a rust counter on each artifact target opponent controls. Then destroy each artifact with mana value less than "
     "or equal to the number of rust counters on it. Artifacts destroyed this way can't be regenerated.":

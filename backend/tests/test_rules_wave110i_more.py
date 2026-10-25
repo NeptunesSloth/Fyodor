@@ -10,8 +10,10 @@ from __future__ import annotations
 
 import pytest
 
+from app.game.errors import ActionError
 from app.rules import coverage
 from app.rules.plan import Plan
+from tests.fixtures.cards import card
 from tests.game_helpers import act, mana_pool
 from tests.test_rules_wave12a_counters_keywords import real
 from tests.test_rules_wave34b_activated import stops, to_phase
@@ -48,9 +50,17 @@ EXTRA = [
     real("Probe Revenant", "{2}{U}", 3, "Enchantment — Aura",
          "Enchant creature\nAs long as you control a Giant, you may cast this card from your graveyard by paying {U} rather than paying its mana cost. If you cast this card this way and it would be put into your graveyard, exile it instead.",
          None, "U"),
+    real("Traveler's Cloak", "{2}{U}", 3, "Enchantment — Aura",
+         "Enchant creature\nAs this Aura enters, choose a land type.\nWhen this Aura enters, draw a card.\nEnchanted creature has landwalk of the chosen type. (It can't be blocked as long as defending player controls a land of that type.)",
+         None, "U"),
+    real("Bioessence Hydra", "{2}{G}{G}", 4, "Creature — Hydra",
+         "Trample\nWhenever one or more loyalty counters are put on planeswalkers you control, put that many +1/+1 counters on this creature.",
+         ("1", "1"), "G"),
+    card("Probe Walker", set_code="tst", number="110I-W", mana_cost="{2}", cmc=2.0, type_line="Legendary Planeswalker — Probe", loyalty="3",
+         oracle_text="+1: You gain 1 life.\n\u22122: You gain 2 life.", colors=[], color_identity=[], keywords=[]),
     real("Naturalize", "{1}{G}", 2, "Instant", "Destroy target artifact or enchantment.", None, "G"),
 ]
-NAMES = ["The Moment", "Curse of Conformity", "Puppet Master", "Rhuk, Hexgold Nabber", "Errant Minion", "Power Leak", "Glimpse the Cosmos"]
+NAMES = ["The Moment", "Curse of Conformity", "Puppet Master", "Rhuk, Hexgold Nabber", "Errant Minion", "Power Leak", "Glimpse the Cosmos", "Traveler's Cloak", "Bioessence Hydra"]
 
 
 @pytest.fixture()
@@ -205,3 +215,49 @@ def test_exile_instead_alternative_is_not_offered_for_a_permanent_spell(cards):
     act(s, "p1", type="move", card_ids=[aura.id], to={"player": "p1", "zone": "graveyard"})
     put(s, "Probe Giant")
     assert not offers(s, aura)
+
+
+@pytest.mark.parametrize("land, blockable", [("Swamp", False), ("Forest", True)])
+def test_travelers_cloak_gives_landwalk_of_the_chosen_land_type(cards, land, blockable):
+    """702.14a: unblockable while the defending player controls a land of the chosen type; the Aura also draws a card as it enters."""
+    s = build(cards, ["Traveler's Cloak", "Grizzly Bears", "Forest"], ["Grizzly Bears", land])
+    bear, wall = put(s, "Grizzly Bears"), put(s, "Grizzly Bears", "p2")
+    put(s, land, "p2")
+    mana(s, U=1, C=2)
+    hand = len([c for c in s.state.cards.values() if c.zone == "p1:hand"])
+    cast(s, "Traveler's Cloak", [bear.id])
+    d = s.state.rules.decision
+    assert d is not None and any(o.label == "Swamp" or o.id == "Swamp" for o in d.options)
+    answer(s, next(o.id for o in d.options if "Swamp" in (o.id, o.label)))
+    assert len([c for c in s.state.cards.values() if c.zone == "p1:hand"]) == hand + 1  # (the Aura left the hand it was put in; one card drawn)
+    next_turn(s)
+    stops(s)
+    to_phase(s, "declare_attackers")
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": bear.id, "target": "p2"}])
+    to_phase(s, "declare_blockers")
+    block = {"type": "declare_blockers", "blocks": [{"blocker_id": wall.id, "attacker_id": bear.id}]}
+    if blockable:
+        act(s, "p2", **block)
+    else:
+        with pytest.raises(ActionError):
+            act(s, "p2", **block)
+    check(s)
+
+
+def test_bioessence_hydra_grows_by_the_loyalty_counters_put_on_planeswalkers(cards):
+    """122.6: entering with loyalty counters and a loyalty ability's cost both put counters on; removing them does not."""
+    s = build(cards, ["Bioessence Hydra", "Probe Walker"], [])
+    hydra = put(s, "Bioessence Hydra")
+    mana(s, C=2)
+    walker = cast(s, "Probe Walker")
+    answer(s)
+    counters = lambda: s.state.cards[hydra.id].counters.get("+1/+1", 0)  # noqa: E731
+    assert counters() == 3
+    act(s, "p1", type="activate_ability", card_id=walker.id, ability=0)
+    answer(s)
+    assert counters() == 4 and s.state.cards[walker.id].counters["loyalty"] == 4
+    next_turn(s)
+    act(s, "p1", type="activate_ability", card_id=walker.id, ability=1)
+    answer(s)
+    assert counters() == 4 and s.state.cards[walker.id].counters["loyalty"] == 2
+    check(s)
