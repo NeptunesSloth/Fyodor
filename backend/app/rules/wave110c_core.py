@@ -261,6 +261,10 @@ _NEXUS = "If ~ would be put into a graveyard from the battlefield, instead exile
 _CHANDRA = "+1: Surveil 1. If you put a noncreature, nonland card into your graveyard this way, put that card into your hand."
 
 
+_OOZE = ("Whenever this creature or another creature you control is turned face up, create a 0/0 green Ooze creature token with trample. "
+         "The token enters with X +1/+1 counters on it, where X is the number of other creatures you control.")
+
+
 def definition(ability: AbilityText, ch: Any) -> dict[str, Any] | None:
     if ability.text.replace("Ugin's Nexus", "~") == _NEXUS:  # 614.6, 500.7: the exile replaces the move; the extra turn is part of the same replacement (rider)
         from app.rules import scripts
@@ -282,6 +286,17 @@ def definition(ability: AbilityText, ch: Any) -> dict[str, Any] | None:
         from app.rules import scripts
 
         return scripts.define(replace(ability, text=ability.text.replace('" and it can\'t be blocked this turn.', '." It can\'t be blocked this turn.')), ch)
+    if ability.text == _OOZE:  # Printlifter Ooze: the token isn't on the battlefield when the counters are counted (614.1c), so the grammar's after-count loses the token
+        from dataclasses import replace
+
+        from app.rules import scripts
+
+        native = scripts.define(replace(ability, text=_OOZE.replace("The token enters with X +1/+1 counters on it", "Put X +1/+1 counters on it")), ch)
+        if native is None:
+            return None
+        put = native["effects"][1]
+        put["n"] = {"minus": [put["n"], 1]}
+        return native
     if ability.text in _MEATHOOK:
         from dataclasses import replace
 
