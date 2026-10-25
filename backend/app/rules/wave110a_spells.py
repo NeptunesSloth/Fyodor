@@ -256,6 +256,8 @@ BUILDERS: dict[str, Callable[[], Parsed]] = {
     "Incubate 2, then transform an Incubator token you control.": lambda: (  # Sunder the Gateway: 701.53a, then 701.28 the Incubator you choose
         [*_p("Incubate 2.")[0], *_choose_transform("Incubator token you control")[0]], None, False),
     # Thermal Flux: 205.4 snow is a supertype, so layer 4 (613.1d), until end of turn (the duration of supertype100i is the effect's default)
+    # Needle Drop: 115.4 any target (a player, creature, planeswalker or battle) that was dealt damage this turn (targets.legal_targets "any_hurt110a")
+    "~ deals 1 damage to any target that was dealt damage this turn.": lambda: (_p("~ deals 1 damage to any target.")[0], "any_hurt110a", False),
     "Target nonsnow permanent becomes snow until end of turn.": _snow(True),
     "Target snow permanent isn't snow until end of turn.": _snow(False),
     "Prevent all combat damage that would be dealt to you and planeswalkers you control this turn. Untap all attacking creatures and goad them. "
@@ -352,6 +354,14 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
             return None
         d["effects"][0].update(who="you", any=True, sel=sel.key(), label="creature with the lowest toughness among creatures you don't control")
         return d
+    if old == "Each opponent who cast a spell this turn can't attack with creatures.":  # Angelic Arbiter: 508.1c, the creatures of an opponent who has cast a spell
+        from app.rules import selectors
+
+        d = scripts.define(replace(ability, text="Creatures your opponents control can't attack."), ch)
+        return None if d is None else {**d, "who": selectors.Selector(types=("Creature",), controller="opponent", extras=("ctrl_cast110a",)).key()}
+    if old == "Each opponent who attacked with a creature this turn can't cast spells.":  # Angelic Arbiter: 601.3, an opponent who declared attackers this turn
+        d = scripts.define(replace(ability, text="Your opponents can't cast spells."), ch)
+        return None if d is None else {**d, "when": "attacked110a"}
     new = ABILITY_REWRITES.get(old)
     d = None if new is None else scripts.define(replace(ability, text=new), ch)
     if d is not None and old in _ANY_NUMBER:

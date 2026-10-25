@@ -11,7 +11,7 @@ import pytest
 from app.game.errors import ActionError
 from tests.wave110a_kit import *
 
-NACATL, HARSH, ELMINSTER = "Nacatl War-Pride", "Harsh Justice", "Elminster"
+NACATL, HARSH, ELMINSTER, DROP, ARBITER = "Nacatl War-Pride", "Harsh Justice", "Elminster", "Needle Drop", "Angelic Arbiter"
 
 
 @pytest.fixture()
@@ -19,7 +19,7 @@ def cards(settings):
     yield from open_repo(settings)
 
 
-test_full = full_test([NACATL, HARSH, ELMINSTER])
+test_full = full_test([NACATL, HARSH, ELMINSTER, DROP, ARBITER])
 
 
 def _attack(cards):
@@ -118,3 +118,56 @@ def test_elminster_scry_makes_the_next_instant_or_sorcery_cheaper_by_the_cards_l
     else:
         with pytest.raises(ActionError):
             cast(s, "Divination", pay=False)
+
+
+@pytest.mark.parametrize("victim", ["p2", "dragon"])
+@pytest.mark.parametrize("hurt", [True, False])
+def test_needle_drop_targets_only_what_was_dealt_damage_this_turn(cards, victim, hurt):
+    """115.4 / 120.3: any target (player or permanent) that was dealt damage this turn; then you draw a card."""
+    s = build(cards, [DROP, "Lightning Bolt"], ["Shivan Dragon"])
+    dragon = put(s, "Shivan Dragon", "p2")
+    tgt = "p2" if victim == "p2" else dragon.id
+    if hurt:
+        cast(s, "Lightning Bolt", [tgt])
+        answer(s)
+    hand = len(s.state.zones["p1:hand"])
+    if not hurt:
+        with pytest.raises(ActionError):
+            cast(s, DROP, [tgt])
+        return
+    cast(s, DROP, [tgt])
+    answer(s)
+    assert len(s.state.zones["p1:hand"]) == hand + 1
+    assert (life(s, "p2") == 36) if victim == "p2" else (s.state.cards[dragon.id].damage == 4)
+    check(s)
+
+
+def _arbiter(cards):
+    s = build(cards, ["Grizzly Bears", "Lightning Bolt"], [ARBITER])
+    bears = put(s, "Grizzly Bears")
+    put(s, ARBITER, "p2")
+    next_turn(s)
+    stops(s)
+    return s, bears
+
+
+def test_arbiter_stops_an_opponent_who_cast_a_spell_from_attacking(cards):
+    """508.1c: an opponent who cast a spell this turn can't attack with creatures."""
+    s, bears = _arbiter(cards)
+    cast(s, "Lightning Bolt", ["p2"])
+    answer(s)
+    to_phase(s, "declare_attackers")
+    d = s.state.rules.decision
+    assert d is None or d.kind != "declare_attackers"  # nothing can attack: no declaration is asked for
+    assert s.state.cards[bears.id].attacking is None
+
+
+def test_arbiter_lets_an_opponent_who_cast_nothing_attack_and_then_stops_their_spells(cards):
+    """601.3: an opponent who attacked with a creature this turn can't cast spells."""
+    s, bears = _arbiter(cards)
+    to_phase(s, "declare_attackers")
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": bears.id, "target": "p2"}])
+    answer(s)
+    with pytest.raises(ActionError, match="Angelic Arbiter"):
+        cast(s, "Lightning Bolt", ["p2"])
+    check(s)

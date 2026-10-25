@@ -179,6 +179,12 @@ def legal_targets(plan: Plan, selector: str, chooser: str, source: Characteristi
     if selector == "any_not_host100e":  # -- xdamage (wave 100E) -- "enchanted creature deals … to any other target" (Pain for All): any target but
         host = plan.state.cards[source_card].attached_to if source_card in plan.state.cards else None  # the creature the source is attached to (115.4)
         return [t for t in legal_targets(plan, "any", chooser, source, source_card, attacker, source_object=source_object) if t != host]
+    if selector == "any_hurt110a":  # -- spells (wave 110A) -- Needle Drop: any target that was dealt damage this turn (115.4; 120.3: a player, a permanent)
+        from app.rules import damage_history, history
+
+        hurt = {f.player for f in history.log_for(plan, False).facts if f.kind == "damage" and f.amount > 0 and f.player}
+        return [t for t in legal_targets(plan, "any", chooser, source, source_card, attacker, source_object=source_object)
+                if t in hurt or (t in plan.state.cards and damage_history.matches(plan, plan.state.cards[t], damage_history.WAS_DEALT, chooser))]
     if selector == "any_other":  # -- damage sized by a count (wave 34D) -- 115.4: "deals that much damage to any other target" (Black Panther): any target
         excluded = source_card if source_object is None or source_card in plan.state.cards and plan.oid(source_card) == source_object else None
         return [t for t in legal_targets(plan, "any", chooser, source, source_card, attacker, source_object=source_object) if t != excluded]

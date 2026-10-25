@@ -2549,6 +2549,11 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
                 return False
         if extra == "entered_since_my_turn" and not (card.zone.endswith(":battlefield") and plan.rules.objects.get(card.id, 0) > plan.rules.turn_end_objects.get(you, 0)):
             return False  # (wave 110A)
+        if extra == "ctrl_cast110a":  # -- wave 110A -- Angelic Arbiter: its controller has cast a spell this turn (601.2i)
+            from app.rules import history
+
+            if not any(n.player == card.controller for n in history.log_for(plan).casts):
+                return False
         if extra == "suspended":
             from app.rules import suspend_grants
 
