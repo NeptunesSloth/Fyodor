@@ -5,3 +5,9 @@
 - Dog Umbra: "this Aura has umbra armor" is not a grantable keyword (statics.GRANTABLE_KEYWORDS, abilities of a granted keyword not read by regeneration.umbra_armor).
 - Minthara, Merciless Soul: ward {X} dynamic needs ward_costs to know the controller's experience counters (ward_costs(ch) has no player).
 - Brutal Hordechief: needs wave 110A declare_choosers (not in this branch).
+- Shallow Grave, Corpse Dance: "top creature card of your graveyard" stays refused (graveyard order not arranged by the engine, language.py ~4050).
+- Manor Gargoyle, War Historian: static condition on its own keyword/attack history reads layered keywords it also grants (613.8 dependency), not modeled.
+- Ray of Frost: conditional "loses all abilities" needs a gated wipe judged after layer 5 colors (attached_types.wipes ignores gated statics).
+- Growing Dread: "Whenever you turn a permanent face up" is not "a permanent you control is turned face up" (turning an opponent's); event has no actor.
+- Mausoleum Turnkey, Evangelize, Cuombajj Witches: "of an opponent's choice" targets (opponent announces the target) not modeled.
+- Orcish Farmer: "until its controller's next untap step" duration not modeled ("until your next turn" differs).

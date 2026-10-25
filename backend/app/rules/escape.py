@@ -129,6 +129,7 @@ def offers(state: GameState, player: str, card: CardInstance, ch: Characteristic
 def escapes_with(text: str) -> str | None:
     """702.138c: "~ escapes with two +1/+1 counters on it." is "If ~ escaped, ~ enters with two +1/+1 counters on it.";
     the line rewritten so (``scripts.define_replacement``) reads it, or None."""
-    m = re.fullmatch(r"~ escapes with (?P<rest>(?:a|an|one|two|three|four|five|six|seven|eight|nine|ten) [^ ]+ counters? on it)\.?",
+    m = re.fullmatch(r"~ escapes with (?P<rest>(?:a|an|one|two|three|four|five|six|seven|eight|nine|ten) [^ ]+ counters? on it"
+                     r"|your choice of an? [^ ]+ counter or an? [^ ]+ counter on it)\.?",  # (-- wave 110D -- "your choice of …": Tizerus Charger, as "enters with your choice of")
                      text)
     return f"If ~ escaped, ~ enters with {m['rest']}." if m else None

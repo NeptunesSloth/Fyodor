@@ -20,7 +20,7 @@ import pytest
 
 from app.game.errors import ActionError
 from tests.game_helpers import act
-from tests.wave9c_kit import build, life, to_hand
+from tests.wave9c_kit import build, card_named, life, to_hand
 from tests.wave110d_kit import (  # noqa: F401
     ability,
     activate,
@@ -292,4 +292,29 @@ def test_crown_of_the_ages_moves_the_aura_to_another_creature(cards):
     act(s, "p1", type="choose", decision_id=d.id, option_ids=[abomination.id])
     settle(s)
     assert now(s, aura).attached_to == abomination.id and ch(s, bears).pt == (2, 2)
+    check(s)
+
+
+def test_tizerus_charger_is_full():
+    assert full("Tizerus Charger")
+
+
+@pytest.mark.parametrize("pick", ["+1/+1", "flying"])
+def test_tizerus_charger_escapes_with_the_chosen_counter(cards, pick):
+    """702.138c, 122.1: it escapes with your choice of a +1/+1 counter or a flying counter; cast from the hand it has neither."""
+    s = build(cards, ["Tizerus Charger", "Grizzly Bears", "Courser of Kruphix", "Twisted Abomination", "Holy Strength", "Pacifism"])
+    charger = card_named(s, "Tizerus Charger")
+    for name in ("Tizerus Charger", "Grizzly Bears", "Courser of Kruphix", "Twisted Abomination", "Holy Strength", "Pacifism"):
+        act(s, "p1", type="move", card_ids=[card_named(s, name).id], to={"player": "p1", "zone": "graveyard"})
+    mana(s, B=1, C=4)
+    act(s, "p1", type="cast_spell", card_id=charger.id)
+    for _ in range(10):
+        d = s.state.rules.decision
+        if d is not None:
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+    assert sorted(o.id for o in d.options) == ["+1/+1", "flying"]
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[pick])
+    settle(s)
+    assert now(s, charger).zone == "p1:battlefield" and now(s, charger).counters == {pick: 1}
     check(s)
