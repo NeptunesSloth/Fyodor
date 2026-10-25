@@ -1847,7 +1847,7 @@ def _watchers(plan: Plan, trigger: str) -> list[tuple[CardInstance, Characterist
         if not (card.zone.endswith(":battlefield") or designations.emblem_card(card)) or not plan.in_game(card) or plan.manual(card):
             continue  # (-- emblems (wave 13A) -- 114.4: an emblem's triggered abilities work from the command zone)
         ch = plan.ch(card)
-        out += [(card, ch, i, d) for i, d in abilities(plan, ch, trigger) if not graveyard_ability(d)]
+        out += [(card, ch, i, d) for i, d in abilities(plan, ch, trigger) if not graveyard_ability(d) or d.get("gy_bf110b")]  # (-- wave 110B -- Quakebringer: also from the battlefield)
     return out
 
 
@@ -1865,7 +1865,7 @@ def graveyard_ability(d: dict[str, Any]) -> bool:
     # (-- graveyard triggers (wave 19C) -- "At the beginning of your upkeep, if this card is in your graveyard, …": it works there only)
     # (-- multi (wave 100M) -- 113.6m: "you may exile this card from your graveyard" moves it out of the graveyard: Kozilek's Return)
     s = json.dumps(d, default=str)
-    return '"self_gy"' in s or '"Exile this card from your graveyard"' in s or arrives_in_graveyard(d) or d.get("if") == IN_GRAVEYARD
+    return '"self_gy"' in s or '"Exile this card from your graveyard"' in s or arrives_in_graveyard(d) or d.get("if") == IN_GRAVEYARD or bool(d.get("gy_bf110b"))
 
 
 IN_GRAVEYARD = {"object": "self", "test": "in_graveyard"}
@@ -2043,7 +2043,7 @@ def at_step(plan: Plan, trigger: str) -> None:
             continue
         ch = plan.ch(card)
         for i, d in abilities(plan, ch, trigger):
-            if graveyard_ability(d):
+            if graveyard_ability(d) and not d.get("gy_bf110b"):  # (-- wave 110B --)
                 continue  # (113.6m: it functions only in the graveyard)
             _add(plan, controller=card.controller, source_card=card.id, source_object=plan.oid(card), name=ch.name, index=i,
                  definition=d)

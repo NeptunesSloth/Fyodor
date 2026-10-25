@@ -55,6 +55,13 @@ def _reaver(d: Def) -> Def:
     return {**d, "effects": [{"do": "reaver110b"}]}
 
 
+def _quake(d: Def) -> Def:
+    """Quakebringer (113.6b-style zones): works on the battlefield, or from the graveyard while its controller controls a Giant (603.4 as it triggers)."""
+    here = {"object": "self", "test": "on_battlefield"}
+    cond = {"any": [here, d["if"]]}
+    return {**d, "if": cond, "gy_watch": True, "gy_bf110b": True, "effects": [{**e, "cond": cond} if e["do"] == "only_if" else e for e in d["effects"]]}
+
+
 # whole ability text -> (the wording the grammar reads, what to change in its definition)
 _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
     # Perch Protection: all three instructions are conditional on the promised gift (608.2c: one sentence)
@@ -74,6 +81,11 @@ _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
     "Discard two cards, Sacrifice this creature: Choose target opponent. Return this creature to the battlefield under that player's control at the "
     "beginning of their next upkeep.":
         ("Discard two cards, Sacrifice this creature: Target opponent gains 1 life.", _reaver),
+    # Quakebringer: the trigger works from the battlefield, or from the graveyard with a Giant under your control
+    "At the beginning of your upkeep, Quakebringer deals 2 damage to each opponent. This ability triggers only if Quakebringer is on the battlefield or "
+    "if Quakebringer is in your graveyard and you control a Giant.":
+        ("At the beginning of your upkeep, if this card is in your graveyard and you control a Giant, this creature deals 2 damage to each opponent.",
+         _quake),
     # Divine Intervention: the effect states that the game is a draw (104.4c)
     "When you remove the last intervention counter from this enchantment, the game is a draw.":
         ("When the last intervention counter is removed from this enchantment, draw a card.",

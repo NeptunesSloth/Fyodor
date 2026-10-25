@@ -18,7 +18,7 @@ def cards(settings):
     yield from repository(settings)
 
 
-@pytest.mark.parametrize("name", ["Prince of Thralls", "Oath of Lim-Dûl", "Chaos Lord", "Divine Intervention", "Herald of Anafenza", "Guardian of New Benalia", "Aloe Alchemist", "Parapet Thrasher", "Bane of the Living", "Warbreak Trumpeter", "Kadena's Silencer", "Longhorn Sharpshooter", "Plague Reaver"])
+@pytest.mark.parametrize("name", ["Prince of Thralls", "Oath of Lim-Dûl", "Chaos Lord", "Divine Intervention", "Herald of Anafenza", "Guardian of New Benalia", "Aloe Alchemist", "Parapet Thrasher", "Bane of the Living", "Warbreak Trumpeter", "Kadena's Silencer", "Longhorn Sharpshooter", "Plague Reaver", "Quakebringer"])
 def test_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
@@ -304,4 +304,20 @@ def test_plague_reaver_end_step_sacrifices_each_other_creature(cards):
     reaver, bears = put(s, "Plague Reaver"), put(s, "Grizzly Bears")
     until(s, lambda s: s.state.cards[bears.id].zone == "p1:graveyard")
     assert s.state.cards[reaver.id].zone == "p1:battlefield"
+    check(s)
+
+
+@pytest.mark.parametrize("zone, giant, dmg", [("battlefield", False, 2), ("graveyard", True, 2), ("graveyard", False, 0), ("hand", True, 0)])
+def test_quakebringer_triggers_on_the_battlefield_or_from_the_graveyard_with_a_giant(cards, zone, giant, dmg):
+    """Quakebringer: the upkeep trigger functions on the battlefield, or in its controller's graveyard while they control a Giant; once only."""
+    from tests.test_rules_conditionals import to_turn
+
+    s = build(cards, ["Quakebringer", "Hill Giant"], [])
+    q = put(s, "Quakebringer")
+    if giant:
+        put(s, "Hill Giant")
+    if zone != "battlefield":
+        act(s, "p1", type="move", card_ids=[q.id], to={"player": "p1", "zone": zone})
+    to_turn(s, 3, "main1")
+    assert s.state.players["p2"].life == 40 - dmg
     check(s)
