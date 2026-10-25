@@ -7,6 +7,9 @@ from typing import Any
 
 # the Oracle line (the card's name as ~) -> the wording the grammar already reads, with the same meaning
 _AS: dict[str, str] = {
+    # Common Cause: "they" are the nonartifact creatures the line names (statics._condition "share_color110d", 105.4: one color all of them have)
+    "Nonartifact creatures get +2/+2 as long as they all share a color.":
+        "Nonartifact creatures get +2/+2 as long as all nonartifact creatures share a color.",
     # Summoner's Grimoire (granted trigger): 508.4, 614.12 only an enchantment card enters tapped and attacking (put_from_hand.resume, tap_atk110d)
     "Whenever ~ attacks, you may put a creature card from your hand onto the battlefield. If that card is an enchantment card, it enters tapped and attacking.":
         "Whenever ~ attacks, you may put a creature card from your hand onto the battlefield.",

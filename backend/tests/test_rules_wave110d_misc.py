@@ -250,3 +250,20 @@ def test_etrata_exiles_counts_hit_counters_and_shuffles_in(cards, already):
     assert now(s, etrata).zone == "p1:library"
     assert bool(s.state.rules.lost.get("p2")) == (already == 2)
     check(s)
+
+
+def test_common_cause_is_full():
+    assert full("Common Cause")
+
+
+def test_common_cause_needs_one_color_all_nonartifact_creatures_share(cards):
+    """105.4, 611.3a: +2/+2 only while every nonartifact creature has a color in common (Sol Ring-style artifacts do not count)."""
+    s = build(cards, ["Common Cause", "Grizzly Bears", "Courser of Kruphix", "Twisted Abomination"])
+    put(s, "Common Cause")
+    bears, courser = put(s, "Grizzly Bears"), put(s, "Courser of Kruphix")
+    assert ch(s, bears).pt == (4, 4) and ch(s, courser).pt == (4, 6)  # (both green)
+    abomination = put(s, "Twisted Abomination")  # black: no color shared by all three
+    assert ch(s, bears).pt == (2, 2) and ch(s, abomination).pt == (5, 3)
+    act(s, "p1", type="move", card_ids=[abomination.id], to={"player": "p1", "zone": "graveyard"})
+    assert ch(s, bears).pt == (4, 4)
+    check(s)
