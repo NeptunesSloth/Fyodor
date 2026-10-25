@@ -23,6 +23,7 @@ def firebending(line: str) -> int | None:
 
 # whole ability text -> the wording the grammar reads for it
 _AS: dict[str, str] = {
+    "Exile Stunning Reversal.": "Exile ~.",
     # Desert Warfare: "that many" is the number of Deserts you control (the "five or more" test, 603.4, counts them); "They gain haste" is the tokens' own
     "At the beginning of combat on your turn, if you control five or more Deserts, create that many 1/1 red, green, and white Sand Warrior creature tokens. "
     "They gain haste.":
@@ -195,6 +196,9 @@ def return_next_end(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
 
 
 _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
+    # Stunning Reversal: 614.1a the next loss of the game this turn is replaced (wave110c_lose reads the shield)
+    "The next time you would lose the game this turn, instead draw seven cards and your life total becomes 1.":
+        ("Draw a card.", lambda d: {**d, "effects": [{"do": "lose_shield110b"}]}),
     "If a permanent you control would be put into a graveyard from the battlefield this turn, exile it instead. Return it to the battlefield under its "
     "owner's control at the beginning of the next end step.":
         ("If a creature you control would die this turn, exile it instead.", _intervention),
@@ -447,6 +451,15 @@ def no_attack_next(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
     return True
 
 
+def lose_shield(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    from app.game.rules_state import turn_log_now
+
+    log = turn_log_now(plan.state)
+    if log is not None:
+        log.lose_shield110b.append(f"{ctx['controller']}|{ctx['source_card']}")
+    return True
+
+
 RESUME: dict[str, Any] = {"exile_own110b": resume_exile_own, "rebound_hand110b": resume_rebound_hand}
 def gift_given(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     """702.174c: the gift was given (its instant or sorcery resolved, or its permanent's gift trigger resolved): "Whenever you give a gift"."""
@@ -456,4 +469,4 @@ def gift_given(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return True
 
 
-PRIMITIVES: dict[str, Any] = {"return_next_end110b": return_next_end, "gap_search110b": gap_search, "gift_given110b": gift_given, "ungoad110b": ungoad, "no_attack_next110b": no_attack_next, "draw_game110b": draw_game, "reaver110b": reaver, "veil110b": veil, "exile_own110b": exile_own}
+PRIMITIVES: dict[str, Any] = {"return_next_end110b": return_next_end, "gap_search110b": gap_search, "gift_given110b": gift_given, "ungoad110b": ungoad, "no_attack_next110b": no_attack_next, "draw_game110b": draw_game, "reaver110b": reaver, "veil110b": veil, "exile_own110b": exile_own, "lose_shield110b": lose_shield}

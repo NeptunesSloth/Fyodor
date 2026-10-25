@@ -1,5 +1,6 @@
 """Wave 110B session 12 (real Oracle text in tests/fixtures/wave110b_cards.json).
 
+* Stunning Reversal: 614.1a, 614.5 the next loss of the game this turn draws seven and sets life to 1; the card is exiled; used up after one loss.
 * Oblivious Bookworm: 708.2, 708.8 the end-step loot discards unless a permanent entered face down under your control this turn or you turned one face up this turn.
 """
 
@@ -18,7 +19,7 @@ def cards(settings):
     yield from repository(settings)
 
 
-@pytest.mark.parametrize("name", ["Oblivious Bookworm"])
+@pytest.mark.parametrize("name", ["Oblivious Bookworm", "Stunning Reversal"])
 def test_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
@@ -50,3 +51,36 @@ def test_oblivious_bookworm_discards_unless_face_down_history(cards, face_down, 
     drive(s)
     assert gy() - before == discards  # (the may-draw was taken in all three cases)
     check(s)
+
+
+def _lose(s):
+    act(s, "p1", type="set_life", player="p1", value=0)
+    act(s, "p1", type="pass_priority")  # (the next state-based check: a table edit is not an intent)
+    drive(s)
+
+
+def _reversal(cards):
+    s = build(cards, ["Stunning Reversal", "Forest"], [])
+    mana(s, "p1", B=1, C=3)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Stunning Reversal").id)
+    drive(s)
+    return s
+
+
+def test_stunning_reversal_replaces_the_first_loss_only(cards):
+    s = _reversal(cards)
+    card = card_named(s, "Stunning Reversal")
+    assert s.state.cards[card.id].zone == "p1:exile"
+    hand = len(s.state.zones["p1:hand"])
+    _lose(s)
+    assert s.state.players["p1"].life == 1 and len(s.state.zones["p1:hand"]) == hand + 7 and s.state.rules.winner is None
+    _lose(s)  # used up
+    assert s.state.rules.winner == "p2"
+    check(s)
+
+
+def test_stunning_reversal_ends_with_the_turn(cards):
+    s = _reversal(cards)
+    to_phase(s, "main1", turn=3)
+    _lose(s)
+    assert s.state.rules.winner == "p2"

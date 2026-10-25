@@ -1617,5 +1617,20 @@
   "keywords": [],
   "power": "2",
   "toughness": "3"
+ },
+ {
+  "name": "Stunning Reversal",
+  "layout": "normal",
+  "mana_cost": "{3}{B}",
+  "cmc": 4.0,
+  "type_line": "Instant",
+  "oracle_text": "The next time you would lose the game this turn, instead draw seven cards and your life total becomes 1.\nExile Stunning Reversal.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": []
  }
 ]

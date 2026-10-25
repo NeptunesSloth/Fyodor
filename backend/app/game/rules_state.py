@@ -625,6 +625,7 @@ class TurnLog(BaseModel):
     combat_damage95_known: bool | None = None  # Complete native current-turn damage history; None is legacy.
     fight_history90_known: bool | None = None  # Legacy missing current-turn fight history is unknown.
     fought90: list[str] = Field(default_factory=list)  # Original objects that actually fought this turn.
+    lose_shield110b: list[str] = Field(default_factory=list)  # "pid|card id" of "the next time you would lose the game this turn, instead ..." (Stunning Reversal).
     turned_up_by110b: list[str] = Field(default_factory=list)  # Players who turned a permanent face up this turn (Oblivious Bookworm).
     turned_up110f: list[str] = Field(default_factory=list)  # Objects turned face up this turn (708.8: the same object, "was turned face up this turn").
     search_history75_known: bool | None = None  # Legacy missing authority is unknown until the next native turn.
