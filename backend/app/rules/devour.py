@@ -26,7 +26,7 @@ WHAT = "devour"
 DONE = "done"
 _PIECE = re.compile(r"devour (?:(?P<q>land|artifact|food) )?(?P<n>\d+)")
 _QUALITY_WORD = {None: "creature", "land": "land", "artifact": "artifact", "food": "Food", "creature_pw": "creature or planeswalker",
-                 "nonland": "nonland permanent"}
+                 "nonland": "nonland permanent", "permanent": "permanent"}
 
 
 def pieces(line: str) -> list[tuple[str | None, int]]:
@@ -51,7 +51,9 @@ def supported(line: str) -> bool:
 # +1/+1 counter on it." The same choice, of at most one permanent, returned instead of sacrificed (the 2019-05-03 rulings: only one already there).
 _STATICS = {"As ~ enters, you may sacrifice any number of creatures and/or planeswalkers. If you do, it enters with twice that many +1/+1 counters on it.":
             ("creature_pw", 2),
-            "As ~ enters, you may return a nonland permanent you control to its owner's hand. If you do, ~ enters with a +1/+1 counter on it.": ("nonland", 1)}
+            "As ~ enters, you may return a nonland permanent you control to its owner's hand. If you do, ~ enters with a +1/+1 counter on it.": ("nonland", 1),
+            # -- (wave 110J) -- Shimatsu the Bloodcloaked: any number of permanents (zero allowed), one counter each (the same choice as devour 1)
+            "As ~ enters, sacrifice any number of permanents. ~ enters with that many +1/+1 counters on it.": ("permanent", 1)}
 RETURNS = "nonland"  # (the one quality returned to its owner's hand, at most one)
 
 
@@ -87,7 +89,7 @@ def _matches(plan: Plan, cid: str, quality: str | None) -> bool:
 
     ch = chars.of(plan.state.cards[cid], plan.info)
     return {None: ch.is_creature, "land": ch.is_land, "artifact": "Artifact" in ch.types,
-            "food": "Food" in ch.subtypes, "creature_pw": ch.is_creature or "Planeswalker" in ch.types, "nonland": not ch.is_land}[quality]
+            "food": "Food" in ch.subtypes, "creature_pw": ch.is_creature or "Planeswalker" in ch.types, "nonland": not ch.is_land, "permanent": True}[quality]
 
 
 def candidates(plan: Plan, card: CardInstance, controller: str, quality: str | None, taken: set[str]) -> list[str]:

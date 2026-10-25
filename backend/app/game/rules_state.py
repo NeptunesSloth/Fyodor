@@ -655,6 +655,7 @@ class TurnLog(BaseModel):
     blockers: list[str] = Field(default_factory=list)  # -- combat state (wave 27A) -- creatures (objects) declared as blockers this turn (509.1g)
     blocks: dict[str, list[str]] = Field(default_factory=dict)  # -- combat history (wave 31D) -- blocker (object) -> the attackers (objects) it blocked this turn
     attacked_who: dict[str, list[str]] = Field(default_factory=dict)  # -- static_other sweep (wave 19A) -- attacker object -> players it attacked
+    attacked_battle110j: list[str] = Field(default_factory=list)  # -- (wave 110J) -- attacker objects declared against a battle this turn (310.5)
     attack_counts: dict[str, int] = Field(default_factory=dict)  # -- commander sweep (wave 49B) -- attacker object -> the combats it was declared an attacker in this turn (Moraug)
     # -- trailing & intervening ifs (wave 38A) -- 508.1, 500.8: attacker object -> the combat phase (RulesState.combats) it was last declared as an
     # attacker in ("~ attacked this combat"); attacker object -> the combat phase it enlisted a creature in (702.154a: "it enlisted a creature this combat")

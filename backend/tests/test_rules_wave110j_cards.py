@@ -28,6 +28,7 @@ from tests.wave110j_kit import (  # noqa: F401
     cast_on,
     ch,
     check,
+    cost,
     full,
     mana,
     move,
@@ -383,4 +384,64 @@ def test_splintering_wind_token_deals_damage_to_you_and_your_creatures_when_it_l
     life = s.state.players["p1"].life
     cast_on(s, "Lightning Bolt", token)
     assert s.state.players["p1"].life == life - 1 and now(s, mine).zone.endswith(":graveyard")
+    check(s)
+
+
+def test_shimatsu_is_full():
+    assert full("Shimatsu the Bloodcloaked")
+
+
+@pytest.mark.parametrize("n", [0, 1, 2])
+def test_shimatsu_sacrifices_any_number_of_permanents_for_that_many_counters(cards, n):
+    """614.1c, 702.82a-style entry choice: as Shimatsu enters, sacrifice any number of permanents (zero allowed, lands too); one +1/+1 counter each."""
+    s = build(cards, ["Shimatsu the Bloodcloaked", "Grizzly Bears", "Forest"])
+    bears, forest = put_new(s, "Grizzly Bears"), put_new(s, "Forest")
+    picks = [bears.id, forest.id][:n]
+    c = to_hand(s, "Shimatsu the Bloodcloaked")
+    mana(s, "p1", **cost("Shimatsu the Bloodcloaked"))
+    act(s, "p1", type="cast_spell", card_id=c.id)
+    settle(s, answers=[*picks, "done"])
+    assert now(s, c).zone.endswith(":battlefield" if n else ":graveyard")  # (0/0 with no counters: 704.5f)
+    assert now(s, c).counters.get("+1/+1", 0) == n or not n
+    assert [now(s, x).zone.endswith(":graveyard") for x in (bears, forest)] == [i < n for i in range(2)]
+    check(s)
+
+
+def test_razor_boomerang_is_full():
+    assert full("Razor Boomerang")
+
+
+def test_razor_boomerang_unattaches_pings_and_returns_to_its_owners_hand(cards):
+    """602.2, 701.3b, 120.3: the equipped creature taps and the Equipment is unattached as a cost; the Equipment (the source) deals 1 damage, then goes to hand."""
+    s = build(cards, ["Razor Boomerang", "Grizzly Bears"])
+    bears, rb = put_new(s, "Grizzly Bears"), put_new(s, "Razor Boomerang")
+    ready(s, bears)
+    mana(s, "p1", C=2)
+    activate(s, rb, "Equip {2}", targets=[bears.id])
+    assert now(s, rb).attached_to == bears.id
+    before = s.state.players["p2"].life
+    activate(s, bears, "{T}, Unattach", targets=["p2"])
+    assert s.state.players["p2"].life == before - 1 and now(s, bears).tapped
+    assert now(s, rb).zone == "p1:hand"
+    check(s)
+
+
+def test_war_historian_is_full():
+    assert full("War Historian")
+
+
+@pytest.mark.parametrize("battle", [True, False])
+def test_war_historian_is_indestructible_only_once_it_attacked_a_battle(cards, battle):
+    """310.5, 508.1, 611.3a: indestructible for the turn once it was declared as an attacker against a battle; not when it attacked a player."""
+    from tests.test_rules_review34_head import SIEGE, bobs_attack, drive, seasoned
+
+    s = build(cards, [], [SIEGE, "War Historian"])
+    hist, siege = put(s, "War Historian", "p2"), put(s, SIEGE, "p2")
+    act(s, "p2", type="counter", card_ids=[siege.id], kind="defense", delta=4)
+    drive(s, lambda d: "p1" if "p1" in [o.id for o in d.options] else None)
+    seasoned(s, hist)
+    assert "indestructible" not in ch(s, hist).keywords
+    bobs_attack(s, [(hist, siege.id if battle else "p1")])
+    drive(s)
+    assert ("indestructible" in ch(s, hist).keywords) is battle
     check(s)

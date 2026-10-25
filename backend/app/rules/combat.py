@@ -551,6 +551,11 @@ def _finish_attackers(plan: Plan, payload: PaidAttackers, payment: M.Payment | N
         note_attack(plan.state, plan.actor,  # (wave 4D: the attacking objects)
                     [plan.oid(plan.state.cards[x.card_id]) for x in a.attackers],  # 508.1: "if you attacked this turn" (conditional clauses, wave 1B)
                     [x.target for x in a.attackers])
+        from app.rules import (
+            wave110j_cards,  # -- battles (wave 110J) -- "attacked a battle this turn" (War Historian)
+        )
+
+        wave110j_cards.note_battle_attacks(plan, a.attackers)
         # -- static wordings (wave 6E) -- 508.1g / 701.43d: "You may exert this creature as it attacks" (app/rules/exert.py)
         from app.rules import exert
 

@@ -244,3 +244,19 @@ def mark(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
 
 
 PRIMITIVES = {"paid_cumulative110j": paid_cumulative, "ruin110j": ruin, "dragon110j": dragon, "mark110j": mark}
+
+
+# Razor Boomerang: "It" is the Equipment (the ruling: the Equipment deals the damage, 120.3), so name it; the grant binds the name to its granter
+_BOOMERANG = 'Equipped creature has "{T}, Unattach Razor Boomerang: %s Return Razor Boomerang to its owner\'s hand."'
+_BUILD[_BOOMERANG % "It deals 1 damage to any target."] = (_BOOMERANG % "Razor Boomerang deals 1 damage to any target.", lambda d: d)
+
+
+def note_battle_attacks(plan: Any, attackers: Any) -> None:
+    """310.5, 508.1: remember the attackers declared against a battle (not a player, not a planeswalker) for "attacked a battle this turn"."""
+    from app.game.rules_state import turn_log_now
+
+    log = turn_log_now(plan.state)
+    for x in attackers:
+        t = plan.state.cards.get(x.target)
+        if log is not None and t is not None and "Battle" in plan.ch(t).types and (o := plan.oid(plan.state.cards[x.card_id])) not in log.attacked_battle110j:
+            log.attacked_battle110j.append(o)

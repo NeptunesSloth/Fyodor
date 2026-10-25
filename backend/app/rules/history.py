@@ -855,6 +855,7 @@ _WAVE_4D: dict[str, Any] = {
         f"{cond['key']}:t{plan.state.turn.number}", 0) >= int(cond["n"]),
     "attackers_power": lambda plan, ctx, cond, log: plan.rules.attack_power.get(ctx["controller"], 0) >= int(cond["n"]),
     "self_attacked": lambda plan, ctx, cond, log: _self_attacked(plan, ctx, cond, log),
+    "self_attacked_battle110j": lambda plan, ctx, cond, log: _source_object(plan, ctx) in log.attacked_battle110j,  # (wave 110J) 310.5
     "graveyard_cards": lambda plan, ctx, cond, log: _graveyard_cards(plan, ctx, cond, log),
     "rolled_result": _rolled_result,
     "rolled": lambda plan, ctx, cond, log: log.rolled.get(ctx["controller"], 0) >= int(cond["n"]),  # -- dice (wave 24B) --

@@ -395,7 +395,7 @@ def parse(text: str) -> Definition | None:
                     it_is = re.fullmatch(r"it(?:'s| is) (?P<d>.+)", cond_text)
                     if host and it_is:
                         cond_text = f"{host['w'].lower()} {host['n']} is {it_is['d']}"
-                    if cond_text in ("it attacked this turn", "it attacked or blocked this turn") and rest_text.startswith("~ "):  # -- as long as (wave 20B; 49C: Lurker) -- "it" is the source
+                    if cond_text in ("it attacked this turn", "it attacked or blocked this turn", "it attacked a battle this turn") and rest_text.startswith("~ "):  # -- as long as (wave 20B; 49C: Lurker) -- "it" is the source
                         cond_text = "~" + cond_text[2:]
                     # -- as long as (wave 35D) -- "it" / "they" in the condition is the object the sentence is about: the source ("~ has double
                     # strike as long as two or more Equipment are attached to it", "~ has hexproof as long as it hasn't dealt damage yet") or the
