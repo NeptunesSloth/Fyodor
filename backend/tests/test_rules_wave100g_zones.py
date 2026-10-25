@@ -108,7 +108,9 @@ PROMOTED = ["Genju of the Realm", "Return of the Nightstalkers", "Vengeful Regro
             "Zurgo and Ojutai", "Imperial Mask", "All Suns' Dawn", "Rogues' Gallery",
             "Woodcaller Automaton", "Time Lord Regeneration", "Waking the Trolls", "Moorland Rescuer", "Custodi Soulcaller",
             "Revealing Wind", "Trial of a Time Lord", "Vault 13: Dweller's Journey",
-            "Summoner's Egg", "Esper Origins // Summon: Esper Maduin"]
+            "Summoner's Egg", "Esper Origins // Summon: Esper Maduin",
+            "Nemesis Phoenix", "Tasigur, the Golden Fang", "The Three Seasons", "Veiled Ascension",
+            "Baneblade Scoundrel // Baneclaw Marauder"]
 
 
 @pytest.mark.parametrize("name", PROMOTED)
@@ -296,7 +298,6 @@ def test_lifeline_returns_a_dead_creature_at_the_next_end_step(cards, alone):
     assert where(s, elves) == "p2:graveyard"
     to_step(s, "main2", 1)
     run(s)
-    to_step(s, "cleanup", 1) if False else None
     to_step(s, "upkeep", 2)
     assert where(s, elves) == ("p2:graveyard" if alone else "p2:battlefield")  # under its owner's control
     check(s)
@@ -884,4 +885,126 @@ def test_esper_origins_from_a_graveyard_returns_transformed_with_finality(cards,
         assert c.zone == "p1:battlefield" and c.face == 1 and c.counters.get("finality") == 1
     else:
         assert c.zone == "p1:graveyard"
+    check(s)
+
+
+def build3(cards, mine=()):
+    """Alice, Bob and Carol (rules automation on), at Alice's precombat main phase."""
+    from app.game.factory import PlayerSetup, new_game
+    from app.game.session import GameSession
+    from tests.game_helpers import deck, enable
+
+    alice = deck(cards, "Krenko, Mob Boss", [*((1, n) for n in mine), (9, "Forest")])
+    others = [deck(cards, "Atraxa, Praetors' Voice", [(10, "Island")]) for _ in range(2)]
+    s = GameSession(enable(new_game([PlayerSetup("Alice", cards=alice), PlayerSetup("Bob", cards=others[0]), PlayerSetup("Carol", cards=others[1])],
+                                    shuffle=False)), cards=cards)
+    act(s, "p1", type="pass_priority")
+    return s
+
+
+@pytest.mark.parametrize("split", [False, True])
+def test_nemesis_phoenix_needs_two_opponents_attacked(cards, split):
+    s = build3(cards, ["Nemesis Phoenix", "Grizzly Bears", "Llanowar Elves"])
+    bears, elves = put(s, "Grizzly Bears"), put(s, "Llanowar Elves")
+    phoenix = gy(s, card_named(s, "Nemesis Phoenix"))
+    to_step(s, "main1", 4)
+    act(s, "p1", type="set_stops", own=["declare_attackers"], smart_pass=False)
+    for _ in range(20):
+        d = s.state.rules.decision
+        if d is not None and d.kind == "declare_attackers":
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": bears.id, "target": "p2"}, {"card_id": elves.id, "target": "p3" if split else "p2"}])
+    mana(s, R=1, C=2)
+    if not split:  # one opponent attacked: not allowed
+        with pytest.raises(ActionError):
+            act(s, "p1", type="activate_ability", card_id=phoenix.id, ability=1)
+        return
+    act(s, "p1", type="activate_ability", card_id=phoenix.id, ability=1)
+    run(s, lambda d: ["p3"] if "p3" in [o.id for o in d.options] else None)
+    c = s.state.cards[phoenix.id]
+    assert c.zone == "p1:battlefield" and c.tapped and c.attacking is not None
+    check(s)
+
+
+def test_tasigur_an_opponent_of_your_choice_picks_the_nonland_card(cards):
+    s = build3(cards, ["Tasigur, the Golden Fang", "Grizzly Bears", "Llanowar Elves"])
+    tasigur = put(s, "Tasigur, the Golden Fang")
+    bears, elves = gy(s, card_named(s, "Grizzly Bears")), gy(s, card_named(s, "Llanowar Elves"))
+    mana(s, G=2, C=2)
+    act(s, "p1", type="activate_ability", card_id=tasigur.id, ability=1)
+    asked = []
+
+    def pick(d):
+        ids = [o.id for o in d.options]
+        if "p3" in ids:
+            asked.append((d.player, "opponent"))
+            return ["p3"]
+        if elves.id in ids:
+            asked.append((d.player, "card"))
+            assert not [o for o in d.options if s.state.cards[o.id].name == "Forest"]  # nonland cards only
+            return [elves.id]
+        return None
+
+    run(s, pick)
+    assert asked == [("p1", "opponent"), ("p3", "card")]
+    assert where(s, elves) == "p1:hand" and where(s, bears) == "p1:graveyard"
+    check(s)
+
+
+def test_the_three_seasons_three_shuffles_three_cards_of_each_graveyard(cards):
+    s = build3(cards, ["The Three Seasons", "Grizzly Bears", "Llanowar Elves"])
+    bears, elves = gy(s, card_named(s, "Grizzly Bears")), gy(s, card_named(s, "Llanowar Elves"))
+    kept, *_ = [gy(s, c) for c in forests(s, 2)]
+    for c in [c for c in s.state.cards.values() if c.name == "Island" and c.zone == "p2:library"][:2]:
+        gy(s, c, "p2")
+    saga = put(s, "The Three Seasons")
+    act(s, "p1", type="set_counter", card_id=saga.id, kind="lore", value=2)  # (set by hand: no chapter I or II)
+    to_step(s, "main2", 3)
+    carol = lib(s, "p3")
+    asked = []
+
+    def pick(d):
+        ids = [o.id for o in d.options]
+        if bears.id in ids:
+            asked.append((d.player, len(ids)))
+            return [bears.id, elves.id, *(i for i in ids if i not in (bears.id, elves.id, kept.id))]
+        return None
+
+    to_step(s, "main1", 4, pick=pick)
+    assert asked == [("p1", 4)]  # only Alice's graveyard holds more than three cards
+    assert [s.state.cards[c].name for c in s.state.zones["p1:graveyard"]] == ["Forest", "The Three Seasons"] and where(s, kept) == "p1:graveyard"
+    assert not s.state.zones["p2:graveyard"] and len(lib(s, "p2")) == 9  # fewer than three: all of them (one card drawn)
+    assert lib(s, "p3") == carol  # nothing chosen in Carol's graveyard: no shuffle
+    check(s)
+
+
+def test_veiled_ascension_face_down_creatures_enter_with_a_flying_counter(cards):
+    s = build(cards, ["Veiled Ascension", "Grizzly Bears"])
+    put(s, "Veiled Ascension")
+    to_step(s, "draw", 3, pick=yes)  # Alice's upkeep: cloak the top card
+    cloaked = [c for c in s.state.cards.values() if c.zone == "p1:battlefield" and c.face_down]
+    assert len(cloaked) == 1 and cloaked[0].counters.get("flying") == 1
+    to_main(s, 3)
+    cast_it(s, "Grizzly Bears", G=1, C=1)
+    assert not s.state.cards[card_named(s, "Grizzly Bears").id].counters.get("flying")  # face up: none
+    check(s)
+
+
+@pytest.mark.parametrize("blocker", ["Grizzly Bears", "Probe Big"])
+def test_baneclaw_marauder_a_dying_blocker_costs_its_controller_one_life(cards, blocker):
+    s = build(cards, ["Baneblade Scoundrel // Baneclaw Marauder", "Grizzly Bears"], [blocker, "Llanowar Elves"])
+    wolf = put(s, "Baneblade Scoundrel // Baneclaw Marauder")
+    act(s, "p1", type="set_day_night", value="night")
+    act(s, "p1", type="set_face", card_id=wolf.id, face=1)  # (by hand: nightbound, 702.145)
+    bears, guard, other = put(s, "Grizzly Bears"), put(s, blocker, "p2"), put(s, "Llanowar Elves", "p2")
+    to_step(s, "main1", 3)
+    life = s.state.players["p2"].life
+    attack(s, 3, [wolf, bears])
+    act(s, "p2", type="declare_blockers", blocks=[{"blocker_id": guard.id, "attacker_id": wolf.id}, {"blocker_id": other.id, "attacker_id": bears.id}])
+    to_step(s, "main2", 3)
+    assert where(s, guard) == where(s, other) == "p2:graveyard"
+    assert s.state.players["p2"].life == life - 1  # the Elves blocked another attacker: nothing for it
+    if blocker == "Probe Big":
+        assert where(s, wolf) == "p1:graveyard"  # (the two died at once: the trigger looks back in time, 603.10a)
     check(s)

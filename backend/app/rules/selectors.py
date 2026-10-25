@@ -2483,7 +2483,7 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
         if extra.endswith("100g"):  # -- zones (wave 100G) -- "transformed permanent", "power different from its base power"
             from app.rules import zones100g
 
-            if not zones100g.extra_ok(plan, extra, card, ch):
+            if not zones100g.extra_ok(plan, extra, card, ch, source):
                 return False
         if extra.startswith(("not_sel100c:", "loyalty100c")):  # -- static spells (wave 100C) -- "each creature that isn't all colors", "… loyalty ability of a planeswalker"
             from app.rules import static_spell100c

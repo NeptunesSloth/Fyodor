@@ -893,5 +893,180 @@
     ]
    }
   ]
+ },
+ {
+  "name": "Nemesis Phoenix",
+  "layout": "normal",
+  "mana_cost": "{3}{R}{R}",
+  "cmc": 5.0,
+  "type_line": "Creature — Phoenix",
+  "oracle_text": "Flying\n{2}{R}: Return this card from your graveyard to the battlefield tapped and attacking. Activate only during the declare attackers step and only if you're attacking two or more opponents.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Flying"
+  ],
+  "power": "4",
+  "toughness": "2"
+ },
+ {
+  "name": "Tasigur, the Golden Fang",
+  "layout": "normal",
+  "mana_cost": "{5}{B}",
+  "cmc": 6.0,
+  "type_line": "Legendary Creature — Human Shaman",
+  "oracle_text": "Delve (Each card you exile from your graveyard while casting this spell pays for {1}.)\n{2}{G/U}{G/U}: Mill two cards, then return a nonland card of an opponent's choice from your graveyard to your hand.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B",
+   "G",
+   "U"
+  ],
+  "keywords": [
+   "Delve",
+   "Mill"
+  ],
+  "power": "4",
+  "toughness": "5"
+ },
+ {
+  "name": "The Three Seasons",
+  "layout": "saga",
+  "mana_cost": "{G}{U}",
+  "cmc": 2.0,
+  "type_line": "Enchantment — Saga",
+  "oracle_text": "(As this Saga enters and after your draw step, add a lore counter. Sacrifice after III.)\nI — Mill three cards.\nII — Return up to two target snow permanent cards from your graveyard to your hand.\nIII — Choose three cards in each graveyard. Their owners shuffle those cards into their libraries.",
+  "colors": [
+   "G",
+   "U"
+  ],
+  "color_identity": [
+   "G",
+   "U"
+  ],
+  "keywords": [
+   "Mill"
+  ]
+ },
+ {
+  "name": "Veiled Ascension",
+  "layout": "normal",
+  "mana_cost": "{3}{W}",
+  "cmc": 4.0,
+  "type_line": "Enchantment",
+  "oracle_text": "When this enchantment enters, put a flying counter on each face-down creature you control.\nFace-down creatures you control enter with a flying counter on them.\nAt the beginning of your upkeep, you may cloak the top card of your library.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "Cloak"
+  ]
+ },
+ {
+  "name": "Baneblade Scoundrel // Baneclaw Marauder",
+  "layout": "transform",
+  "mana_cost": "{3}{B} // ",
+  "cmc": 4.0,
+  "type_line": "Creature — Human Rogue Werewolf // Creature — Werewolf",
+  "oracle_text": "Whenever this creature becomes blocked, each creature blocking it gets -1/-1 until end of turn.\nDaybound (If a player casts no spells during their own turn, it becomes night next turn.)\n//\nWhenever this creature becomes blocked, each creature blocking it gets -1/-1 until end of turn.\nWhenever a creature blocking this creature dies, that creature's controller loses 1 life.\nNightbound (If a player casts at least two spells during their own turn, it becomes day next turn.)",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Transform",
+   "Daybound",
+   "Nightbound"
+  ],
+  "power": "4",
+  "toughness": "3",
+  "card_faces": [
+   {
+    "name": "Baneblade Scoundrel",
+    "mana_cost": "{3}{B}",
+    "type_line": "Creature — Human Rogue Werewolf",
+    "oracle_text": "Whenever this creature becomes blocked, each creature blocking it gets -1/-1 until end of turn.\nDaybound (If a player casts no spells during their own turn, it becomes night next turn.)",
+    "power": "4",
+    "toughness": "3",
+    "colors": [
+     "B"
+    ]
+   },
+   {
+    "name": "Baneclaw Marauder",
+    "mana_cost": "",
+    "type_line": "Creature — Werewolf",
+    "oracle_text": "Whenever this creature becomes blocked, each creature blocking it gets -1/-1 until end of turn.\nWhenever a creature blocking this creature dies, that creature's controller loses 1 life.\nNightbound (If a player casts at least two spells during their own turn, it becomes day next turn.)",
+    "power": "5",
+    "toughness": "4",
+    "colors": [
+     "B"
+    ]
+   }
+  ]
+ },
+ {
+  "name": "Giant Slug",
+  "layout": "normal",
+  "mana_cost": "{1}{B}",
+  "cmc": 2.0,
+  "type_line": "Creature — Slug",
+  "oracle_text": "{5}: At the beginning of your next upkeep, choose a basic land type. This creature gains landwalk of the chosen type until the end of that turn. (It can't be blocked as long as defending player controls a land of that type.)",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [],
+  "power": "1",
+  "toughness": "1"
+ },
+ {
+  "name": "Illusionary Presence",
+  "layout": "normal",
+  "mana_cost": "{1}{U}{U}",
+  "cmc": 3.0,
+  "type_line": "Creature — Illusion",
+  "oracle_text": "Cumulative upkeep {U} (At the beginning of your upkeep, put an age counter on this permanent, then sacrifice it unless you pay its upkeep cost for each age counter on it.)\nAt the beginning of your upkeep, choose a land type. This creature gains landwalk of the chosen type until end of turn. (It can't be blocked as long as defending player controls a land of that type.)",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "Cumulative upkeep"
+  ],
+  "power": "2",
+  "toughness": "2"
+ },
+ {
+  "name": "Barbarian Guides",
+  "layout": "normal",
+  "mana_cost": "{2}{R}",
+  "cmc": 3.0,
+  "type_line": "Creature — Human Barbarian",
+  "oracle_text": "{2}{R}, {T}: Choose a land type. Target creature you control gains snow landwalk of the chosen type until end of turn. Return that creature to its owner's hand at the beginning of the next end step. (It can't be blocked as long as defending player controls a snow land of that type.)",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [],
+  "power": "1",
+  "toughness": "2"
  }
 ]
