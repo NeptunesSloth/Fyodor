@@ -45,7 +45,7 @@ def test_cut_short_creature_only_if_tapped(cards, tapped):
     s = build(cards, [CUT, "Grizzly Bears"])
     bears = put(s, "Grizzly Bears")
     if tapped:
-        setattr(s.state.cards[bears.id], "tapped", True)
+        s.state.cards[bears.id].tapped = True
         cast(s, CUT, [bears.id])
         answer(s)
         assert zone_of(s, "Grizzly Bears") == "p1:graveyard"
@@ -70,6 +70,6 @@ def test_bioshift_same_controller_only(cards, theirs):
             cast(s, SHIFT, [a.id, b.id], pay=False, target_counts=[1, 1])
         return
     cast(s, SHIFT, [a.id, b.id], pay=False, target_counts=[1, 1])
-    d = answer(s)
+    answer(s)
     check(s)
     assert counters(s, a) + counters(s, b) == 3

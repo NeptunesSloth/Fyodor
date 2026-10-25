@@ -2540,9 +2540,8 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
             return False  # (wave 5H)
         if extra == "not_entered_this_turn" and _entered_now(plan, card, None):  # (wave 41A)
             return False
-        if extra == "loyalty_activated110a":  # -- wave 110A -- Cut Short
-            if plan.rules.loyalty_used.get(plan.rules.object_id(card.id)) != plan.state.turn.number:
-                return False
+        if extra == "loyalty_activated110a" and plan.rules.loyalty_used.get(plan.rules.object_id(card.id)) != plan.state.turn.number:
+            return False  # -- wave 110A -- Cut Short
         if extra == "could_produce_c":  # -- wave 110A -- 106.1: colorless mana; the card's own mana abilities (continuous effects don't add to "could produce")
             from app.rules import wave110a_grants
 
