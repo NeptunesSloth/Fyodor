@@ -102,3 +102,27 @@ def test_answer_counters_opposing_spells_and_abilities_a_faerie_for_each_counter
     assert len([c for c in s.state.zones["p1:battlefield"] if s.state.cards[c].name == "Faerie"]) == faeries
     assert life(s, "p2") == 37 and (life(s, "p1") == 40 or what == "uncounterable")
     check(s)
+
+
+SPLENDOR = "Sigarda's Splendor"
+
+test_full_splendor = full_test([SPLENDOR])
+
+
+def _hand(s):
+    return len(s.state.zones["p1:hand"])
+
+
+@pytest.mark.parametrize("after, draws", [(40, True), (41, True), (39, False)])
+def test_splendor_draws_only_if_life_is_at_least_the_life_noted_as_it_entered(cards, after, draws):
+    """614.12a: the life total (40) is noted as it enters; at the upkeep a card is drawn if life is greater than or equal to it, then the
+    life total is noted again (so a life total of 39 draws the turn after, when it is still 39)."""
+    s = build(cards, [SPLENDOR], forests=40, islands=40)
+    cast(s, SPLENDOR)
+    answer(s)
+    assert s.state.cards[card_named(s, SPLENDOR).id].choices["Noted life total"] == "40"
+    act(s, "p1", type="set_life", player="p1", value=after)
+    to_phase(s, "main1", turn=3)
+    assert _hand(s) == 1 + (1 if draws else 0)  # the draw step's card, and the upkeep trigger's
+    assert s.state.cards[card_named(s, SPLENDOR).id].choices["Noted life total"] == str(after)  # "Then note your life total"
+    check(s)

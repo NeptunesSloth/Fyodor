@@ -189,6 +189,23 @@ def _answer() -> Parsed:
     return [{"do": "counter_opponents110a", "make": _p("Create a 1/1 blue and black Faerie creature token with flying.")[0][0]}], None, False
 
 
+SPLENDOR = ("At the beginning of your upkeep, draw a card if your life total is greater than or equal to the last noted life total for ~. "
+            "Then note your life total.")
+
+
+def noted_draw(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Draw if the controller's life total is at least the one last noted for the source, then note it again (the source's own choice)."""
+    from app.rules import effects, wave110a_enter
+
+    card = plan.state.cards[ctx["source_card"]]
+    noted = card.choices.get(wave110a_enter.NOTE, "")
+    if noted and plan.state.players[ctx["controller"]].life >= int(noted):
+        effects.PRIMITIVES["draw"](plan, ctx, e["draw"])
+    if card.zone.endswith(":battlefield") and plan.oid(card) == ctx.get("source_object"):
+        wave110a_enter.note(plan, card)
+    return True
+
+
 def _decree() -> Parsed:
     """Decree of Annihilation: the three exiles in order (608.2c); "all cards from all hands" is every card in every hand (the hand zones, 400.1)."""
     first = _p("Exile all artifacts, creatures, and lands. Exile all cards from all graveyards.")[0]
@@ -470,6 +487,9 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
     if old == "Each opponent who controls more creatures than you can't cast creature spells. The same is true for artifacts and enchantments.":
         return {"kind": "static", "static": "cast_limit", "who": "opponents", "when": None, "filter": None, "from": None, "act": None, "max": None,
                 "more110a": ["Creature", "Artifact", "Enchantment"], "effects": []}  # Ward of Bones: 601.3, per type the opponent has more of
+    if old == SPLENDOR:  # Sigarda's Splendor: the upkeep trigger reads the life total noted as it entered (wave110a_enter), then notes again
+        d = scripts.define(replace(ability, text="At the beginning of your upkeep, draw a card."), ch)
+        return None if d is None else {**d, "effects": [{"do": "noted_draw110a", "draw": d["effects"][0]}]}
     if old == "Each opponent who controls more lands than you can't play lands.":  # Ward of Bones: 305.1, read by engine.play_land_problem
         return {"kind": "static", "static": "cant_play_lands", "effects": [], "more110a": ["Land"]}
     if old == "Each opponent who attacked with a creature this turn can't cast spells.":  # Angelic Arbiter: 601.3, an opponent who declared attackers this turn
@@ -514,4 +534,4 @@ def unblocked_turn(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
 
 
 PRIMITIVES = {"bind_sacrificed110a": bind_sacrificed, "unblocked_turn110a": unblocked_turn, "repeat_put110a": repeat_put, "note_put110a": note_put, "bind110a": bind, "end_combat_phase110a": end_combat_phase, "snow110a": snow,
-              "exiled_power_damage110a": exiled_power_damage, "exile_hands110a": exile_hands, "counter_opponents110a": counter_opponents}
+              "exiled_power_damage110a": exiled_power_damage, "exile_hands110a": exile_hands, "counter_opponents110a": counter_opponents, "noted_draw110a": noted_draw}
