@@ -18,6 +18,16 @@ def _won_last(d: Def) -> Def:
     return {**d, "effects": [*head, {"do": "only_if", "cond": {"clash_won100a": True}, "skip": 1}, last]}
 
 
+# whole ability text -> the wording the grammar reads for it
+_AS: dict[str, str] = {
+    # Corrosion: "Artifacts destroyed this way" are the ones the destroy-each instruction destroyed ("They", 701.8c: can't be regenerated)
+    "At the beginning of your upkeep, put a rust counter on each artifact target opponent controls. Then destroy each artifact with mana value less than "
+    "or equal to the number of rust counters on it. Artifacts destroyed this way can't be regenerated.":
+        "At the beginning of your upkeep, put a rust counter on each artifact target opponent controls. Then destroy each artifact with mana value less "
+    "than or equal to the number of rust counters on it. They can't be regenerated.",
+}
+
+
 # whole ability text -> (the wording the grammar reads, what to change in its definition)
 _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
     "Whenever you clash, you may pay {1}. If you do, create a 3/1 red Elemental Shaman creature token. If you won, that token gains haste until end of turn.":
@@ -28,7 +38,10 @@ _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
 def definition(ability: Any, ch: Any) -> Def | None:
     from app.rules import scripts
 
-    built = _BUILD.get(ability.text.strip())
+    text = ability.text.strip()
+    if (same := _AS.get(text)) is not None:
+        return scripts.define(replace(ability, text=same), ch)
+    built = _BUILD.get(text)
     if built is None:
         return None
     native = scripts.define(replace(ability, text=built[0]), ch)

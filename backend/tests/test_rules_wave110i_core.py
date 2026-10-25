@@ -3,6 +3,7 @@
 * Kraven the Hunter: dies trigger judged on the dead creature's controller's creatures (700.4, 603.10a).
 * Rebellion of the Flamekin: "if you won" reads the clash the trigger is about (701.30d).
 * Rebellion of the Flamekin: "if you won" reads the clash the trigger is about (701.30d).
+* Corrosion: a counter-count selector, "number of rust counters on it" (122.1) and no regeneration (701.8c, 701.19c).
 * Green Dragon: an end-of-turn watch on damage to creatures an opponent controls (603.7, 120.3).
 """
 
@@ -27,8 +28,12 @@ EXTRA = [
     real("Rebellion of the Flamekin", "{3}{R}", 4, "Enchantment",
          "Whenever you clash, you may pay {1}. If you do, create a 3/1 red Elemental Shaman creature token. If you won, that token gains haste until end of turn. (This ability triggers after the clash ends.)",
          None, "R"),
+    real("Corrosion", "{2}{B}{B}", 4, "Enchantment",
+         "Cumulative upkeep {1}\nAt the beginning of your upkeep, put a rust counter on each artifact target opponent controls. Then destroy each artifact with mana value less than or equal to the number of rust counters on it. Artifacts destroyed this way can't be regenerated.\nWhen this enchantment leaves the battlefield, remove all rust counters from all permanents.",
+         None, "B"),
 ]
 NAMES = [c["name"] for c in EXTRA]
+EXTRA += [real("Probe Trinket", "{1}", 1, "Artifact", "", None, ""), real("Probe Idol", "{3}", 3, "Artifact", "", None, "")]
 EXTRA += [real("Probe Clash", "{U}", 1, "Sorcery", "Clash with an opponent.", None, "U")]
 
 
@@ -93,4 +98,17 @@ def test_rebellion_of_the_flamekin_token_has_haste_only_if_you_won(cards, win):
     answer(s, limit=80)
     token = next(c for c in s.state.cards.values() if c.name == "Elemental Shaman")
     assert ("haste" in Plan(s.state, "p1", s.cards, None).ch(token).keywords) is win
+    check(s)
+
+
+def test_corrosion_rusts_then_destroys_artifacts_the_counters_reach(cards):
+    from tests.test_rules_wave30m_durations import to_phase
+
+    s = build(cards, ["Corrosion"], ["Probe Trinket", "Probe Idol"])
+    trinket, idol = put(s, "Probe Trinket", "p2"), put(s, "Probe Idol", "p2")
+    put(s, "Corrosion"), put(s, "Forest")  # (the cumulative upkeep {1})
+    to_phase(s, "upkeep", 3)
+    answer(s)
+    assert s.state.cards[trinket.id].zone.endswith("graveyard")  # mana value 1 <= 1 rust counter
+    assert s.state.cards[idol.id].zone.endswith("battlefield") and s.state.cards[idol.id].counters == {"rust": 1}
     check(s)

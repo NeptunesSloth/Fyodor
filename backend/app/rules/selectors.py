@@ -689,6 +689,7 @@ def _less_than_x(s: Selector, m: re.Match[str]) -> Selector:  # (107.3f: the X o
     return replace(s, compare=(*s.compare, ({"mana value": "mv", "power": "power", "toughness": "toughness"}[m["what"]], "<", X_VALUE)))
 
 
+OWN_COUNTERS = "own_counters:"  # -- counters (wave 110I) -- the counters of that kind on the object tested
 OWN_GRAVEYARD = "own_gy"  # -- most-played modal spells (wave 50I) -- the number of cards in the graveyard of the controller of the object tested
 
 
@@ -707,6 +708,11 @@ _SUFFIXES.insert(0, (re.compile(r"(?:,)? with (?P<what>power|toughness|mana valu
 @_suffix(r"with (?P<what>mana value|power|toughness) less than or equal to the number of cards in its controller's graveyard")  # (Drown in the Loch)
 def _own_graveyard(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, compare=(*s.compare, ({"mana value": "mv", "power": "power", "toughness": "toughness"}[m["what"]], "<=", OWN_GRAVEYARD)))
+
+
+@_suffix(r"with (?P<what>mana value|power|toughness) less than or equal to the number of (?P<kind>[a-z]+) counters on it")  # -- counters (wave 110I) -- Corrosion
+def _own_counters(s: Selector, m: re.Match[str]) -> Selector:
+    return replace(s, compare=(*s.compare, ({"mana value": "mv", "power": "power", "toughness": "toughness"}[m["what"]], "<=", OWN_COUNTERS + m["kind"])))
 
 
 @_suffix(r"with power or toughness (?P<n>\d+) or (?P<dir>less|greater)")  # (wave 15A: Tetsuko Umezawa — either one)
@@ -2391,6 +2397,8 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
             from app.rules import zones100g
 
             n = zones100g.attacked(plan, you)
+        elif isinstance(n, str) and n.startswith(OWN_COUNTERS):  # (wave 110I) 122.1: counters on the object, as it is when checked
+            n = card.counters.get(n[len(OWN_COUNTERS):], 0)
         elif n == OWN_GRAVEYARD:  # (wave 50I) its controller's graveyard, as it is when checked (608.2b: again as the spell resolves)
             n = len(plan.state.zones.get(f"{card.controller}:graveyard", []))
         elif isinstance(n, str) and n.startswith(COUNT_STAT):  # -- control change (wave 20E) --
