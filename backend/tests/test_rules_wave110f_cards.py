@@ -4,6 +4,7 @@
 * 608.2b, 105.2: "Destroy two target nonblack creatures unless either one is a color the other isn't. They can't be regenerated." (Dead Ringers).
 * 603.10a, 509.1g: "When this creature dies during combat, it deals 6 damage to each creature it blocked this combat." (Cathedral Membrane).
 * 611.2a, 508.1d: "During target player's next turn, creatures that player controls attack you if able." (Taunt).
+* 601.3, 506.3, 122.1: "Cast this spell only after combat." + control change of a creature that attacked you + -1/-0 counter (Jabari's Influence).
 * 602.5, 605.1a: "Creatures with flying can't attack or block, and their activated abilities with {T} in their costs can't be activated." (Katabatic Winds).
 """
 
@@ -38,10 +39,12 @@ EXTRA = [
          "({W/P} can be paid with either {W} or 2 life.)\nDefender\nWhen this creature dies during combat, it deals 6 damage to each creature it blocked this combat.", ('0', '3'), 'W'),
     real('Taunt', '{U}', 1, 'Instant',
          "During target player's next turn, creatures that player controls attack you if able.", None, 'U'),
+    real("Jabari's Influence", '{3}{U}{U}', 5, 'Instant',
+         "Cast this spell only after combat.\nGain control of target nonartifact, nonblack creature that attacked you this turn and put a -1/-0 counter on it.", None, 'U'),
     real('Test Flyer', '{2}{U}', 3, 'Creature — Bird', 'Flying\n{T}: Draw a card.', ('1', '1'), 'U'),
 ]
 _BASE.extend(EXTRA)  # the shared fixture DB builder reads this list
-NAMES = ["Katabatic Winds", "Rivals' Duel", "Dead Ringers", "Cathedral Membrane", "Taunt"]
+NAMES = ["Katabatic Winds", "Rivals' Duel", "Dead Ringers", "Cathedral Membrane", "Taunt", "Jabari's Influence"]
 
 
 @pytest.mark.parametrize("name", NAMES)
@@ -126,3 +129,25 @@ def test_taunt_forces_the_target_players_creatures_to_attack_next_turn(cards, ta
     else:
         act(s, "p2", type="declare_attackers", attackers=[])
     check(s)
+
+
+@pytest.mark.parametrize("phase,ok", [("declare_attackers", False), ("main2", True)])
+def test_jabaris_influence_after_combat_steals_the_attacker(cards, phase, ok):
+    s = build(cards, ["Grizzly Bears"], ["Jabari's Influence"])
+    bear = put(s, "Grizzly Bears")
+    attack(s, bear)
+    if ok:
+        for pid in ("p1", "p2"):
+            act(s, pid, type="set_prefs", response="on")  # (p2 must get priority in the second main phase)
+        to_phase(s, phase)
+        act(s, "p1", type="pass_priority")
+    mana(s, "p2", U=2, C=3)
+    if ok:
+        cast(s, "Jabari's Influence", [bear.id], pid="p2")
+        answer(s)
+        assert zone_of(s, "Grizzly Bears") == "p2:battlefield"
+        assert s.state.cards[bear.id].counters.get("-1/-0") == 1
+        check(s)
+    else:
+        with pytest.raises(ActionError):
+            cast(s, "Jabari's Influence", [bear.id], pid="p2")

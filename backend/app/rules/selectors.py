@@ -281,6 +281,11 @@ def _other_than_event(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, extras=(*s.extras, "not_event"))
 
 
+@_suffix(r"that attacked you this turn")  # -- cards (wave 110F) -- 508.1 / 506.3: declared as an attacker of the player (not a planeswalker), TurnLog.attacked_who
+def _attacked_you_this_turn(s: Selector, m: re.Match[str]) -> Selector:
+    return replace(s, extras=(*s.extras, "attacked_you_this_turn"))
+
+
 @_suffix(r"that attacked this turn")  # -- combat (wave 5C) -- declared as attackers this turn (508.1; 508.4: not put)
 def _attacked_this_turn(s: Selector, m: re.Match[str]) -> Selector:
     if re.search(r"\bcreatures(?: you control)?$", m.string[: m.start()]) is None:
@@ -2674,6 +2679,9 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
         if extra == "blocked" and card.id not in plan.rules.blocked:  # (wave 49A)
             return False
         if extra == "unblocked" and (card.id in plan.rules.blocked or not _blockers_declared(plan)):  # (wave 15E) a blocked attacker stays blocked; (wave 53C) 509.1h: it is unblocked once blockers are declared
+            return False
+        if extra == "attacked_you_this_turn" and (plan.state.rules is None or plan.state.rules.turn_log.turn != plan.state.turn.number
+                                                  or you not in plan.state.rules.turn_log.attacked_who.get(plan.state.rules.object_id(card.id), [])):  # (wave 110F)
             return False
         if extra == "attacked_this_turn" and not _attacked_this_turn_now(plan, card):  # -- combat (wave 5C) --
             return False
