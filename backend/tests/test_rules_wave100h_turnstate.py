@@ -1071,3 +1071,34 @@ def test_elvish_refueler_reopens_one_exhaust_activation_each_of_your_turns(cards
         go()
     assert s.state.cards[prow.id].counters.get("+1/+1") == 4
     check(s)
+
+
+# -- Bloodbraid Marauder -----------------------------------------------------------------------------------------------------------------------------
+@pytest.mark.parametrize("delirium", [True, False])
+def test_bloodbraid_marauder_cascades_with_delirium(cards, delirium):
+    s = build(cards, ["Bloodbraid Marauder", "Llanowar Elves", "Grizzly Bears", "Opt", "Sol Ring"])
+    if delirium:
+        bury(s, *DELIRIUM)
+    elves = next(c for c in s.state.cards.values() if c.name == "Llanowar Elves")
+    act(s, "p1", type="move", card_ids=[elves.id], to={"zone": "library"}, position="top")
+    marauder = cast(s, "Bloodbraid Marauder", pick=["yes", elves.id])
+    assert zone(s, marauder) == "p1:battlefield" and zone(s, elves) == ("p1:battlefield" if delirium else "p1:library")
+    check(s)
+
+
+# -- Sita Varma, Masked Racer -------------------------------------------------------------------------------------------------------------------
+@pytest.mark.parametrize("choose", [True, False])
+def test_sita_varma_counters_then_sets_the_others_base_power(cards, choose):
+    from app.game.errors import ActionError
+
+    s = build(cards, ["Sita Varma, Masked Racer", "Grizzly Bears"])
+    sita, bear = put(s, "Sita Varma, Masked Racer"), put(s, "Grizzly Bears")
+    power = ch(s, sita).pt[0]
+    mana(s, G=2, U=1, C=2)
+    act(s, "p1", type="activate_ability", card_id=sita.id, ability=0, x_value=2)
+    answer(s, ["yes" if choose else "no"])
+    assert ch(s, sita).pt[0] == power + 2 and ch(s, bear).pt == ((power + 2, power + 2) if choose else (2, 2))
+    mana(s, G=2, U=1)
+    with pytest.raises(ActionError):  # (exhaust: only once, 702.177a)
+        act(s, "p1", type="activate_ability", card_id=sita.id, ability=0, x_value=0)
+    check(s)

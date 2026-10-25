@@ -1196,5 +1196,45 @@
   ],
   "power": "2",
   "toughness": "1"
+ },
+ {
+  "name": "Bloodbraid Marauder",
+  "layout": "normal",
+  "mana_cost": "{1}{R}",
+  "cmc": 2.0,
+  "type_line": "Creature — Human Berserker",
+  "oracle_text": "This creature can't block.\nDelirium — This spell has cascade as long as there are four or more card types among cards in your graveyard. (When you cast this spell, exile cards from the top of your library until you exile a nonland card that costs less. You may cast it without paying its mana cost. Put the exiled cards on the bottom in a random order.)",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Delirium"
+  ],
+  "power": "3",
+  "toughness": "1"
+ },
+ {
+  "name": "Sita Varma, Masked Racer",
+  "layout": "normal",
+  "mana_cost": "{G}{U}",
+  "cmc": 2.0,
+  "type_line": "Legendary Creature — Human Rogue",
+  "oracle_text": "Exhaust — {X}{G}{G}{U}: Put X +1/+1 counters on Sita Varma. Then you may have the base power and toughness of each other creature you control become equal to Sita Varma's power until end of turn. (Activate each exhaust ability only once.)",
+  "colors": [
+   "G",
+   "U"
+  ],
+  "color_identity": [
+   "G",
+   "U"
+  ],
+  "keywords": [
+   "Exhaust"
+  ],
+  "power": "2",
+  "toughness": "3"
  }
 ]

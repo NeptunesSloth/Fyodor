@@ -278,6 +278,15 @@ def _starfish(d: Def) -> Def | None:
     return {**d, "if": _REGENERATED, "effects": [{"do": "only_if", "cond": _REGENERATED, "skip": 1}, {**d["effects"][0], "do": "starfish100h"}]}
 
 
+def _sita(counters: Def, base: Def) -> Def | None:
+    """Sita Varma, Masked Racer (exhaust): the counters, then optionally every other creature you control gets base power and toughness equal to
+    Sita's power then (one value for all, the creatures fixed as it resolves: 608.2h, 611.2c; layer 7b)."""
+    if _dos(counters) != ["add_counters"] or _dos(base) != ["become"]:
+        return None
+    return {**counters, "effects": [*counters["effects"], {"do": "may_rest", "skip": 1, "label": "Set the other creatures' base power and toughness"},
+                                    *base["effects"]]}
+
+
 def _goliath(d: Def) -> Def | None:
     """Goliath Hatchery (corrupted): the cards drawn are the chosen creature's total toxic value as it resolves (702.164b)."""
     if _dos(d) != ["only_if", "player_chooses", "draw"]:
@@ -386,6 +395,10 @@ _BUILD: dict[str, tuple[tuple[str, ...], Callable[..., Def | None]]] = {
         (("−2: Whenever you attack this turn, create a 1/1 white Soldier creature token that's tapped and attacking.",), _basri),
     "At the beginning of each end step, if ~ regenerated this turn, create a 0/1 blue Starfish creature token for each time it regenerated this turn.":
         (("At the beginning of each end step, create a 0/1 blue Starfish creature token.",), _starfish),
+    "{X}{G}{G}{U}: Put X +1/+1 counters on ~. Then you may each other creature you control has base power and toughness equal to ~'s power until "
+    "end of turn.":  # (scripts.self_text's rewrite of "have the base power and toughness of each other creature you control become equal to")
+        (("Exhaust — {X}{G}{G}{U}: Put X +1/+1 counters on ~.",
+          "Exhaust — {X}{G}{G}{U}: Each other creature you control has base power and toughness X/X until end of turn, where X is ~'s power."), _sita),
     "If you attacked this turn, you may have ~ enter as a copy of any creature on the battlefield.":
         (("You may have ~ enter as a copy of any creature on the battlefield.",),
          lambda d: {**d, "raid100h": True} if d.get("replacement") == "enter_as_copy" else None),  # (Protean Raider: copying.entering reads it)
@@ -453,6 +466,7 @@ _SPELL_BUILD: dict[str, tuple[str, Callable[[Def], Def | None]]] = {
 
 
 _HELLBENT = "If you have no cards in hand, this spell can't be countered and the damage can't be prevented."
+_DELIRIUM = {"value": {"distinct": "types", "among": 'sel:{"card":true,"zone_owner":"you","zones":["graveyard"]}'}, "op": ">=", "n": 4}
 _EMPTY_HAND = {"value": {"hand": "you"}, "op": "==", "n": 0}
 
 
@@ -475,6 +489,9 @@ def definition(ability: Any, ch: Any) -> Def | None:
     if ability.kind == "static" and text == ("During your turn, as long as you haven't activated an exhaust ability this turn, you may activate exhaust "
                                              "abilities as though they haven't been activated."):
         return {"kind": "static", "static": "exhaust_again100h", "effects": []}  # (Elvish Refueler: restrictions._exhaust_again, 702.177b)
+    if ability.kind == "static" and text == "This spell has cascade as long as there are four or more card types among cards in your graveyard.":
+        # Bloodbraid Marauder (delirium): judged as the spell becomes cast (ruling 2021-06-18), casting._granted_cascade reads it
+        return {"kind": "static", "static": "own_cascade100h", "cond": _DELIRIUM, "effects": []}
     if ability.kind == "spell" and text == _HELLBENT:  # (its "can't be countered" part: a static of the spell, judged when something would counter it)
         return {"kind": "static", "static": "self_uncounterable", "cond": _EMPTY_HAND, "effects": []}
     others = tuple(a for a in ch.abilities if scripts.self_text(a.text, ch.name) != _HELLBENT)
@@ -536,6 +553,14 @@ def shade(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
         return True  # (it left the graveyard, or is a new object there: no permission)
     context.bind_objects(plan, ctx, "shade100h", [card.id])
     return permissions.grant_play(plan, ctx, {"do": "grant_play", "who": context.PREFIX + "shade100h", "play": False, "cast": True, "until": "end_of_turn"})
+
+
+def own_cascade(plan: Any, card: Any, ch: Any) -> int:
+    """The instances of cascade a spell's own conditional static gives it as it is cast (702.85a)."""
+    from app.rules import conditions, scripts
+
+    ctx = {"controller": plan.actor, "source_card": card.id, "source_object": plan.oid(card)}
+    return sum(1 for d in scripts.definitions(ch).values() if d.get("static") == "own_cascade100h" and conditions.holds(plan, ctx, d["cond"]))
 
 
 def starfish(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
