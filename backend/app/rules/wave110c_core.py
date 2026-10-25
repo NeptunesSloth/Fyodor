@@ -93,7 +93,32 @@ def _scrap_mastery() -> Parsed:
                 "to the battlefield under their owners' control.")
 
 
+def _retether() -> Parsed:
+    """Retether: every Aura returns together (400.7); each is attached as it enters to a creature its controller chooses (303.4f, 303.4g), so an
+    Aura that can't enchant a creature (Enchant land) stays in the graveyard. The host is any creature, not only yours."""
+    from app.rules import selectors
+
+    effects, groups, optional = read("Return all Aura cards from your graveyard to the battlefield attached to a creature you control.")
+    effects[0]["host_choice"] = selectors.parse("creatures").key()  # type: ignore[union-attr]
+    return effects, groups, optional
+
+
+def _another_round() -> Parsed:
+    """Another Round: you choose any number of creatures you control as it resolves (608.2d, not targets), exile them and return them under their
+    owners' control (400.7); the whole process repeats X more times (608.2c: each repeat chooses again, among what is there now)."""
+    from app.rules import selectors, values
+
+    key = selectors.parse("creatures you control").key()  # type: ignore[union-attr]
+    step = [{"do": "player_chooses", "who": "you", "sel": key, "n": 250, "label": "creatures", "upto": True, "optional": True, "as": "gco"},
+            {"do": "exile", "who": "ref:gco", "as": "e0"},
+            {"do": "return_card", "who": "ref:e0", "to": "battlefield", "tapped": False, "under": "owner"}]
+    return [*step, {"do": "repeat", "n": values.parse_amount("X"), "span": 3}, *copy.deepcopy(step)], None, False
+
+
 BUILDERS: dict[str, Callable[[], Parsed]] = {
+    "Return each Aura card from your graveyard to the battlefield. Only creatures can be enchanted this way.": _retether,
+    "Exile any number of creatures you control, then return them to the battlefield under their owner's control. Then repeat this process X more times.":
+        _another_round,
     "Each player reveals a number of cards from the top of their library equal to the number of nonland permanents they control, puts all "
     "permanent cards they revealed this way onto the battlefield, and puts the rest into their graveyard.":
         lambda: ([{"do": "over_the_top110c"}], None, False),
