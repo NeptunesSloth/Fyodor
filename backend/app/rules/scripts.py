@@ -8856,6 +8856,9 @@ def _spell_definition(ch: Characteristics) -> Definition | None:
              and not (defs.get(ab.index, {}).get("static") == "permission" and defs[ab.index].get("self")
                       and (defs[ab.index].get("free") or defs[ab.index].get("zone") in ("graveyard", "exile")
                            or defs[ab.index].get("flash")))]  # (wave 17C: retrace, 702.81a; wave 22F: "cast this spell as though it had flash if …", 601.3d)
+    from app.rules import wave110e_cards  # -- wave 110E --
+
+    lines = wave110e_cards.modal_lines(lines)
     if lines and (pawed := pawprint_definition(lines, ch.name)) is not None:  # (-- most-played modal spells (wave 50I) -- the Seasons)
         return pawed if _event_refs_ok(pawed) else None
     if lines and modal_header(lines[0].text) is not None:  # (-- modal frames (wave 33B) -- after the lines about casting it: "Cast this spell only during combat.")

@@ -793,7 +793,7 @@ DEFILER = re.compile(
 # -- casting costs (wave 22F) -- 601.2b: "As an additional cost to cast this spell, you may collect evidence 6." (701.59a) / "… you may behold a
 # Dragon." (701.4a): the caster announces it with the other optional costs and pays it with the rest (601.2h); the spell's own "if evidence
 # was collected" / "if a Dragon was beheld" read the record of that choice (conditions._cast_how)
-OWN_OPTIONAL = re.compile(r"^as an additional cost to cast this spell, you may (?P<cost>collect evidence \d+|behold an? [A-Z][a-z]+|reveal an? [A-Z][a-z]+ card from your hand|blight [1-5]|sacrifice an artifact|waterbend \{\d+\}|exile a creature card from your graveyard)\.?(?: \(.*\))?$")  # (-- blight (wave 51E) -- 701.68a)
+OWN_OPTIONAL = re.compile(r"^as an additional cost to cast this spell, you may (?P<cost>collect evidence \d+|behold an? [A-Z][a-z]+(?: creature)?|reveal an? [A-Z][a-z]+ card from your hand|blight [1-5]|sacrifice an artifact|waterbend \{\d+\}|exile a creature card from your graveyard)\.?(?: \(.*\))?$")  # (-- blight (wave 51E) -- 701.68a)
 
 
 EVIDENCE_REDUCTION = re.compile(r"as an additional cost to cast this spell, you may collect evidence (?P<n>\d+)\. this spell costs \{(?P<cut>\d+)\} less to cast if evidence was collected\.?", re.IGNORECASE)
@@ -833,7 +833,7 @@ def optional_definition(t: str) -> dict[str, Any] | None:
             return {"kind":"static","static":"own_optional","optional":"evidence","cost":text,
                     "n":int(evidence['cut']),"effects":[]}
     if (own := OWN_OPTIONAL.fullmatch(t)) is not None:
-        text = own["cost"][0].upper() + own["cost"][1:]
+        text = (own["cost"][0].upper() + own["cost"][1:]).removesuffix(" creature")  # (wave 110E: "behold a Gamma creature" = behold a Gamma, 701.4a)
         parsed = own_cost(text)
         if parsed is None:
             return None

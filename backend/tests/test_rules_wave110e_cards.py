@@ -6,6 +6,11 @@
 * Blaze of Glory: 509.1c the target, which can block any number of creatures, must block each attacking creature it is able to.
 * Vivien's Stampede: 603.7 "at the beginning of the next main phase this turn" (the postcombat main phase, never a later turn's), counted when it resolves.
 * Spin into Myth: 701.29a fateseal 2 (look at the top two cards of an opponent's library, any to the bottom, the rest back on top in any order).
+* Due Respect: 614.1d/611.2c every permanent entering this turn (a cast creature, either player's) enters tapped; the next turn it doesn't.
+* Diminishing Returns: 701.24a shuffle, 121.2c/101.4 each player picks how many (0-7) to draw, then draws in APNAP order.
+* Wild Shape: 700.2 the shared sentence applies to the chosen mode; 205.1a becoming "a 1/3 Turtle" replaces the creature types, sets base P/T, 611.2a for the turn.
+* Hulk's Thunderclap: 701.4a/601.2b the optional "behold a Gamma creature" cost; 120.3 the first creature deals damage equal to its power; the destroy
+  instruction (608.2h-style "if the additional cost was paid") happens only when it was paid.
 """
 from __future__ import annotations
 
@@ -31,6 +36,15 @@ EXTRA = [
          "+1: Reveal the top card of your library. If it's a creature card, put it into your hand. Otherwise, put it on the bottom of your library.\n"
          "−2: Target creature you control deals damage equal to its power to another target creature.\n"
          "−7: Until end of turn, creatures you control gain \"You may have this creature assign its combat damage as though it weren't blocked.\"", None, "G"),
+    real("Due Respect", "{1}{W}", 2, "Instant", "Permanents enter tapped this turn.\nDraw a card.", None, "W"),
+    real("Diminishing Returns", "{2}{U}{U}", 4, "Sorcery", "Each player shuffles their hand and graveyard into their library. You exile the top ten cards of your library. "
+         "Then each player draws up to seven cards.", None, "U"),
+    real("Wild Shape", "{1}{G}", 2, "Instant", "Choose one. Until end of turn, target creature you control has that base power and toughness, becomes that creature type, and gains that ability.\n"
+         "• 1/3 Turtle with hexproof.\n• 1/5 Spider with reach.\n• 3/3 Elephant with trample.", None, "G"),
+    real("Hulk's Thunderclap", "{1}{R}", 2, "Instant",
+         "As an additional cost to cast this spell, you may behold a Gamma creature. (You may choose a Gamma creature you control or reveal a Gamma creature card from your hand.)\n"
+         "Target creature you control deals damage equal to its power to another target creature. If this spell's additional cost was paid, destroy target noncreature artifact or noncreature enchantment.", None, "R"),
+    real("Gamma Test", "{2}{G}", 3, "Creature — Mutant Gamma", "", ("3", "3"), "G"),
     real("Spin into Myth", "{3}{U}", 4, "Instant",
          "Put target creature on top of its owner's library, then fateseal 2. (To fateseal 2, look at the top two cards of an opponent's library, then put any number of them on the bottom of that player's library and the rest on top in any order.)", None, "U"),
 ]
@@ -336,5 +350,63 @@ def test_voltage_surge_deals_four_only_when_an_artifact_was_sacrificed(cards, pa
     act(s, "p1", type="cast_spell", card_id=spell.id, targets=[dragon.id], **extra)
     answer(s)
     assert s.state.cards[dragon.id].damage == (4 if paid else 2)
+    assert s.state.cards[rock.id].zone == ("p1:graveyard" if paid else "p1:battlefield")
+    check(s)
+
+
+@pytest.mark.parametrize("same_turn", [True, False])
+def test_due_respect_taps_permanents_entering_this_turn(cards, same_turn):
+    s = build(cards, ["Due Respect", "Grizzly Bears"], ["Grizzly Bears"])
+    mana(s, W=1, C=1)
+    cast(s, "Due Respect")
+    answer(s)
+    if not same_turn:
+        from tests.test_rules_wave30m_durations import to_phase
+
+        to_phase(s, "main1", turn=3)
+    mana(s, G=1, C=1)
+    bears = cast(s, "Grizzly Bears")
+    answer(s)
+    assert s.state.cards[bears.id].zone == "p1:battlefield" and s.state.cards[bears.id].tapped == same_turn
+    check(s)
+
+
+def test_diminishing_returns_each_player_chooses_how_many_to_draw(cards):
+    s = build(cards, ["Diminishing Returns", *["Grizzly Bears"] * 20], ["Giant Growth"] * 20)
+    for _ in range(2):
+        to_hand(s, "Giant Growth", "p2")
+    mana(s, U=2, C=2)
+    cast(s, "Diminishing Returns")
+    answer(s, "3", "7")  # p1 picks 3, p2 picks 7
+    hand = lambda p: sum(1 for c in s.state.cards.values() if c.zone == f"{p}:hand")  # noqa: E731
+    assert (hand("p1"), hand("p2")) == (3, 7)
+    assert sum(1 for c in s.state.cards.values() if c.zone == "p1:exile") == 10
+    check(s)
+
+
+@pytest.mark.parametrize(("mode", "power", "toughness", "kw", "kind"), [(0, 1, 3, "hexproof", "Turtle"), (1, 1, 5, "reach", "Spider"), (2, 3, 3, "trample", "Elephant")])
+def test_wild_shape_modes(cards, mode, power, toughness, kw, kind):
+    s = build(cards, ["Wild Shape", "Grizzly Bears"])
+    bears = put(s, "Grizzly Bears")
+    mana(s, G=1, C=1)
+    cast(s, "Wild Shape", [bears.id], modes=[mode])
+    answer(s)
+    from app.rules.plan import Plan
+
+    ch = Plan(s.state, "p1", s.cards, None).ch(s.state.cards[bears.id])
+    assert (ch.pt, kw in ch.keywords, set(ch.subtypes)) == ((power, toughness), True, {kind})
+    check(s)
+
+
+@pytest.mark.parametrize("paid", [True, False])
+def test_hulks_thunderclap_destroys_only_when_beheld(cards, paid):
+    s = build(cards, ["Hulk's Thunderclap", "Gamma Test", "Gy Rock"], ["Shivan Dragon"])
+    gamma, rock, dragon = put(s, "Gamma Test"), put(s, "Gy Rock"), put(s, "Shivan Dragon", "p2")
+    mana(s, R=1, C=1)
+    spell = to_hand(s, "Hulk's Thunderclap", "p1")
+    extra = {"optional_costs": [f"{spell.id}:behold"], "cost_choices": [{"component": 0, "cards": [gamma.id]}]} if paid else {}
+    act(s, "p1", type="cast_spell", card_id=spell.id, targets=[gamma.id, dragon.id, *([rock.id] if paid else [])], target_counts=[1, 1, 1] if paid else [1, 1], **extra)
+    answer(s)
+    assert s.state.cards[dragon.id].damage == 3
     assert s.state.cards[rock.id].zone == ("p1:graveyard" if paid else "p1:battlefield")
     check(s)
