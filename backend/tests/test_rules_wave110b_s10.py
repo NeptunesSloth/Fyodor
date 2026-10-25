@@ -119,3 +119,20 @@ def test_soulfire_grand_master_returns_only_the_next_spell_cast_from_hand(cards)
     assert s.state.players["p2"].life == 34
     assert s.state.cards[bolt.id].zone == "p1:graveyard"
     check(s)
+
+
+@pytest.mark.parametrize("pick, zone", [("hand", "p1:hand"), ("rebound", "p1:exile")])
+def test_soulfire_on_a_rebound_spell_controller_picks_616_1(cards, pick, zone):
+    """616.1: rebound and Soulfire's hand replacement both change where the resolving spell goes: its controller chooses."""
+    s = build(cards, ["Soulfire Grand Master", "Staggershock"], [])
+    master = put(s, "Soulfire Grand Master")
+    mana(s, "p1", U=1, R=1, C=2)
+    act(s, "p1", type="activate_ability", card_id=master.id, ability=2)
+    drive(s)
+    shock = to_hand(s, "Staggershock")
+    mana(s, "p1", R=1, C=2)
+    act(s, "p1", type="cast_spell", card_id=shock.id, targets=["p2"])
+    drive(s, lambda d: [pick] if {o.id for o in d.options} == {"rebound", "hand"} else None)
+    assert s.state.players["p2"].life == 38
+    assert s.state.cards[shock.id].zone == zone
+    check(s)

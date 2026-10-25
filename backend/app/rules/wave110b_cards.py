@@ -330,6 +330,34 @@ def resume_exile_own(plan: Any, d: Any, chosen: list[str]) -> None:
     effects.continue_effects(plan, ctx)
 
 
+def rebound_or_hand(plan: Any, card_id: str, controller: str) -> bool:
+    """614.1a, 616.1: a rebound spell that also goes to its owner's hand as it resolves (buyback, Soulfire Grand Master): two replacements of the same
+    event, so its controller picks one. True: the question is open (engine.leave_stack waits for it)."""
+    from app.game.rules_state import DecisionOption
+    from app.rules.plan import decide
+
+    if plan.oid(card_id) not in plan.rules.buyback or plan.oid(card_id) in plan.rules.flashback:
+        return False
+    decide(plan, player=controller, kind="choose_one", prompt="Rebound (exile it) or return it to your hand as it resolves?",
+           options=[DecisionOption(id="rebound", label="Exile it with rebound"), DecisionOption(id="hand", label="Put it into your hand")],
+           resume={"step": "rebound_hand110b", "card": card_id, "oid": plan.oid(card_id), "controller": controller})
+    return True
+
+
+def resume_rebound_hand(plan: Any, d: Any, chosen: list[str]) -> None:
+    from app.rules import engine
+
+    r = d.resume
+    card = plan.state.cards.get(r["card"])
+    if card is None or card.zone != "stack" or plan.oid(card) != r["oid"]:
+        return
+    plan.rules.buyback = [o for o in plan.rules.buyback if o != r["oid"]]
+    if chosen[0] == "hand":
+        plan.do({"type": "move", "card_ids": [card.id], "to": {"player": card.owner, "zone": "hand"}}, actor=r["controller"])
+    else:
+        engine.leave_stack(plan, card.id, r["controller"])
+
+
 def no_attack_next(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
     """Wall of Dust: 508.1c-style restriction "can't attack" (a continuous effect, 611.2) from the start of the creature's controller's next turn
     (declaration window "next_turn", engine.begin_window) to its end."""
@@ -342,7 +370,7 @@ def no_attack_next(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
     return True
 
 
-RESUME: dict[str, Any] = {"exile_own110b": resume_exile_own}
+RESUME: dict[str, Any] = {"exile_own110b": resume_exile_own, "rebound_hand110b": resume_rebound_hand}
 def gift_given(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     """702.174c: the gift was given (its instant or sorcery resolved, or its permanent's gift trigger resolved): "Whenever you give a gift"."""
     from app.game.rules_state import emit
