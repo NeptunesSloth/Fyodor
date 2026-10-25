@@ -6007,6 +6007,10 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
 
     if (card110b := wave110b_cards.definition(ability, ch)) is not None:
         return card110b
+    from app.rules import wave110e_cards  # -- wave 110E --
+
+    if (card110e := wave110e_cards.definition(ability, ch)) is not None:
+        return card110e
     from app.rules import multi100n  # -- multi (wave 100N) --
 
     if (whole100n := multi100n.definition(ability, ch)) is not None:
@@ -7684,7 +7688,7 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
         if (unblocked_group := group_unblocked.definition(text)) is not None:
             return unblocked_group
     # -- static_other sweep (wave 19A) -- 510.1c: "You may have this creature assign its combat damage as though it weren't blocked."
-    if ability.kind == "static" and re.fullmatch(r"You may have (?:~|this creature) assign (?:its|his|her|their) combat damage as though "
+    if ability.kind == "static" and re.fullmatch(r"You may have (?:~|this creature|this permanent) assign (?:its|his|her|their) combat damage as though "
                                                  r"(?:it|he|she|they|~) weren't blocked\.", text):
         return {"kind": "static", "static": "assign_unblocked", "effects": []}
     if text in COMBAT_STATICS and (ability.kind == "static" or
