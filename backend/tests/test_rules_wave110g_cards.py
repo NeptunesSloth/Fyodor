@@ -7,6 +7,7 @@
 * Distended Mindbender: 701.9 / 701.20a one discard per size class from the revealed hand, chosen by the caster.
 * Fugitive of the Judoon: 702.21a a token created with ward {2}; 118.3 the Human and the artifact are exiled together, then a Doctor is searched out.
 * Foul Emissary: 702.119a / 701.21a the Eldrazi Horror comes only when it was sacrificed as the emerge cost, not by an effect.
+* Blade of the Swarm: 702.185a the second mode puts an exiled card that has warp (any player's) on the bottom of its owner's library; a card without warp is no target.
 * Total War: 508.1 / 302.6 untapped non-Wall creatures that did not attack and were controlled since the turn began are destroyed.
 * Gemini Engine: 508.4 / 111.1 an attacking token with the attacker's power and toughness, sacrificed at end of combat.
 * Vizkopa Confessor: 119.4 the life paid sizes the reveal (701.20a); paying 0 reveals nothing.
@@ -69,6 +70,9 @@ EXTRA = [
     real('Test Doctor', '{G}', 1, 'Creature \u2014 Time Lord Doctor', '', ('1', '1'), 'G'),
     real('Foul Emissary', '{2}{G}', 3, 'Creature \u2014 Human Horror',
          'When this creature enters, look at the top four cards of your library. You may reveal a creature card from among them and put it into your hand. Put the rest on the bottom of your library in any order.\nWhen you sacrifice this creature while casting a spell with emerge, create a 3/2 colorless Eldrazi Horror creature token.', ('1', '1'), 'G'),
+    real('Blade of the Swarm', '{3}{B}', 4, 'Creature \u2014 Insect Assassin',
+         "When this creature enters, choose one \u2014\n\u2022 Put two +1/+1 counters on this creature.\n\u2022 Put target exiled card with warp on the bottom of its owner's library.", ('3', '1'), 'B'),
+    real('Test Warper', '{2}{R}', 3, 'Creature \u2014 Human', 'Warp {1}{R} (You may cast this card from your hand for its warp cost. Exile this creature at the beginning of the next end step, then you may cast it from exile on a later turn.)', ('3', '2'), 'R'),
     real('Total War', '{3}{R}', 4, 'Enchantment',
          "Whenever a player attacks with one or more creatures, destroy all untapped non-Wall creatures that player controls that didn't attack, except for creatures the player hasn't controlled continuously since the beginning of the turn.", None, 'R'),
     real('Gemini Engine', '{6}', 6, 'Artifact Creature — Construct',
@@ -885,4 +889,20 @@ def test_foul_emissary_makes_a_horror_only_when_sacrificed_to_emerge(cards, emer
     horrors = [c for c in s.state.cards.values() if c.name == "Eldrazi Horror" and c.zone == "p1:battlefield"]
     assert len(horrors) == (1 if emerge else 0)
     assert emerge or card_named(s, "Infernal Offering").zone == "p1:graveyard"  # it resolved: the Emissary was sacrificed there (and came back with mode 2)
+    check(s)
+
+
+@pytest.mark.parametrize("target", ["Test Warper", "Grizzly Bears"])
+def test_blade_of_the_swarm_bottoms_only_an_exiled_card_with_warp(cards, target):
+    """Blade of the Swarm (702.185a): mode two targets an exiled card with warp and puts it on the bottom of its owner's library."""
+    s = build(cards, ["Blade of the Swarm", target], [])
+    foe = card_named(s, target)
+    act(s, "p1", type="move", card_ids=[foe.id], to={"player": "p1", "zone": "exile"})
+    mana(s, "p1", B=1, C=3)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Blade of the Swarm").id)
+    _modes(s, "bottom")
+    zone = s.state.cards[foe.id].zone
+    assert zone == ("p1:library" if target == "Test Warper" else "p1:exile")
+    if target == "Test Warper":
+        assert s.state.zones["p1:library"][-1] == foe.id
     check(s)

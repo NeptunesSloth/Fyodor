@@ -124,6 +124,7 @@ def _treasure_if_big(d: Def) -> Def:
     return {**d, "effects": [*fx[:-1], {"do": "only_if", "cond": {"w110g": "exploited_big"}, "skip": 1}, fx[-1]]}
 
 
+_WARP_BOTTOM = "Put target exiled card with warp on the bottom of its owner's library."
 _JUDOON = ("You may exile a Human you control and an artifact you control. If you do, search your library for a Doctor card, put it onto the battlefield, "
            "then shuffle.")
 _INFERNAL = ("Choose an opponent. You and that player each sacrifice a creature. Each player who sacrificed a creature this way draws two cards.")
@@ -145,6 +146,8 @@ def parse(body: str) -> Any:
     """Etched Host Doombringer's mode: one target battle; the protector decides between removing and adding (310.4, 310.8)."""
     from app.rules import scripts
 
+    if body.strip() == _WARP_BOTTOM:  # Blade of the Swarm: an exiled card that has warp (702.185a), any exile
+        return scripts.parse_effects(_WARP_BOTTOM.replace("exiled card with warp", "card with warp in exile"))
     if body.strip() == _JUDOON:  # Fugitive of the Judoon III: both exiled together or nothing (paid as one cost, 118.3)
         return scripts.parse_effects(_JUDOON.replace("a Human you control and an artifact", "a Human you control and exile an artifact"))
     if body.strip() == _INFERNAL:  # Infernal Offering mode 1: the controller and the chosen opponent sacrifice together (101.4, 701.21a)

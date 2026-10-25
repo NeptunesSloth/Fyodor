@@ -868,7 +868,7 @@ def source_stat(plan: Plan, source: str | None, what: str) -> int | None:
 _WITH_KEYWORDS = (*KEYWORDS, "decayed", "infect", "wither", "fear", "shadow", "horsemanship", "intimidate", "skulk", "convoke",
                   "modular", "toxic", "mutate", "awaken", "cascade", "flanking",  # (wave 39A: "all attacking creatures with flanking", Telim'Tor)
                   "plainswalk", "islandwalk", "swampwalk", "mountainwalk", "forestwalk",
-                  "doctor's companion", "unearth")  # (wave 44B: "creature spell with doctor's companion", Rose Noble)  # (wave 26A: "creatures with plainswalk")  # (wave 21D: "a spell with cascade")  # (wave 20C: toxic/mutate/awaken; wave 19D: "each creature you control with modular": a printed keyword line; level up is rewritten into
+                  "doctor's companion", "unearth", "warp")  # (wave 44B: "creature spell with doctor's companion", Rose Noble)  # (wave 26A: "creatures with plainswalk")  # (wave 21D: "a spell with cascade")  # (wave 20C: toxic/mutate/awaken; wave 19D: "each creature you control with modular": a printed keyword line; level up is rewritten into
 # an activated ability and statics by app/rules/levelers.py, so it is no keyword of the object and stays unread)
 
 
