@@ -549,6 +549,11 @@ def _manual(plan: Plan, job: Job, prompt: str) -> None:
 
 def go_on(plan: Plan, job: Job) -> None:
     """The copies are on the stack: the resolving spell or ability goes on (608.2c)."""
+    if job.get("after100o") is not None:  # -- retarget (wave 100O) -- the next player's copy (Hive Mind)
+        from app.rules import retarget100o
+
+        retarget100o.after_copy(plan, job["after100o"])
+        return
     if job.get("after_each") is not None:
         parent = job["after_each"]
         if _each_run(plan, parent):
@@ -950,10 +955,10 @@ def copy_stack_object(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         marker_at += 1
     if e.get("choose_source_order"):
         job["choose_source_order"] = True
-    if not objects and who in ("event_spell", "event_ability") and _event_object_left(ctx, who):
+    if not objects and (who in ("event_spell", "event_ability") or who.startswith("ref:")) and _event_object_left(ctx, who):
         # -- spell copies (wave 31D) -- the spell or ability a trigger is about has left the stack and nothing is kept of it: never silently
         # no copy (707.10; the trigger copies it even if it was countered)
-        _manual(plan, job, f"{ctx.get('name') or 'Copy'}: the {'spell' if who == 'event_spell' else 'ability'} to copy left the stack, so its copy "
+        _manual(plan, job, f"{ctx.get('name') or 'Copy'}: the {'ability' if who == 'event_ability' else 'spell'} to copy left the stack, so its copy "
                            "isn't automated: make the copy by hand, then press Done")
         return False
     return run(plan, job)
@@ -962,6 +967,8 @@ def copy_stack_object(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 def _copy_sources(plan: Plan, ctx: Context, who: str) -> list[tuple[str, str]]:
     """-- spell copies (wave 31D) -- (card, object id) of what a copy instruction copies: what is on the stack, else the spell a cast trigger
     is about that left it, as it last existed there (``lki_spell``)."""
+    if who.startswith("ref:"):  # -- retarget (wave 100O) -- "the spell countered this way" (Psychic Rebuttal): one that left the stack, as it last was (608.2h)
+        return [(w["card"], w["object_id"]) for w in _countered(ctx, who) if lki_spell(plan, w["card"], w["object_id"])]
     on = _stack_objects(plan, ctx, who)
     if on or who not in ("event_spell", "event_ability"):
         return [(sid, plan.oid(sid)) for sid in on]
@@ -974,8 +981,19 @@ def _copy_sources(plan: Plan, ctx: Context, who: str) -> list[tuple[str, str]]:
     return [(r.card, r.object_id) for r in context._object_refs(ctx, context.EVENT) if r.zone == "stack" and lki_spell(plan, r.card, r.object_id)]
 
 
+def _countered(ctx: Context, who: str) -> list[dict[str, Any]]:
+    """-- retarget (wave 100O) -- the objects a "this way" binding was before they moved, only those that left the stack (a spell that can't be
+    countered stays: its ruling, no copy)."""
+    from app.rules import context
+
+    b = context.refs(ctx).get(who[4:]) or {}
+    return [w for w in b.get("was") or [] if w.get("zone") == "stack" and w not in (b.get("objects") or [])]
+
+
 def _event_object_left(ctx: Context, who: str) -> bool:
     """Was there a spell (a cast trigger's event) or an ability (an activation trigger's) that is no longer there to copy?"""
+    if who.startswith("ref:"):  # -- retarget (wave 100O) --
+        return bool(_countered(ctx, who))
     if who == "event_ability":
         return bool(((ctx.get("event") or {}).get("source") or {}).get("card"))
     from app.rules import context

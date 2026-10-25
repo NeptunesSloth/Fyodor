@@ -667,7 +667,10 @@ def define_static(text: str, kind: str, lines: tuple[str, ...] = ()) -> Definiti
             return None
         return {"kind": "static", "static": "self_cost", "n": int(m["n"]), "cond": cond, "effects": []}
     # -- cast without paying (wave 3C) --
-    if (conditional_counter := re.fullmatch(r"if (?P<c>you revealed an? [A-Z][a-z]+ card or controlled an? [A-Z][a-z]+ as you cast this spell), this spell can't be countered", t)) is not None:
+    # (-- multi (wave 100N) -- "Spell mastery — If there are two or more instant and/or sorcery cards in your graveyard, this spell can't be countered."
+    # (Exquisite Firecraft): judged as the countering spell or ability resolves, its 2021-03-19 ruling)
+    if (conditional_counter := re.fullmatch(r"if (?P<c>you revealed an? [A-Z][a-z]+ card or controlled an? [A-Z][a-z]+ as you cast this spell|"
+                                            r"there are two or more instant and/or sorcery cards in your graveyard), this spell can't be countered", t)) is not None:
         from app.rules import conditions
 
         cond = conditions.parse(conditional_counter["c"], objects=True)
