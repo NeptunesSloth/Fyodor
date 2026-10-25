@@ -21,3 +21,8 @@
 - Overburden: "that player" is the player who puts the creature onto the battlefield, not always its controller (e.g. a blinked creature returns under its owner's control); controller-based rewrite would be wrong.
 - Invasion of Fiora // Marchesa: "since your last turn" damage history is not logged across turns.
 - Curator of Sun's Creation: no "you discover" event or discover-value record.
+- Dragon Broodmother: a token with "devour 2" needs devour's entry choice in the token path (replace.token_choices), not just a token keyword; foundation not built.
+- Linvala, Shield of Sea Gate: temporary "its activated abilities can't be activated until your next turn" on a target has no effect primitive; "choose hexproof or indestructible" needs its own chooser.
+- Flameblade Angel: one trigger for damage to you or a permanent you control; batch granularity (one source damaging several recipients at once) unsettled.
+- Equal Treatment: "it deals 2 damage instead" sets damage to a fixed amount (also lowers bigger damage); no set-damage replacement.
+- Cards seen with "a player or planeswalker" attack triggers (once per attacked planeswalker, 508.3e) need per-planeswalker events: engine only has per-player.

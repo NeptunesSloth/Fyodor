@@ -1000,5 +1000,57 @@
   "keywords": [],
   "power": "5",
   "toughness": "5"
+ },
+ {
+  "name": "Jade Seedstones // Jadeheart Attendant",
+  "layout": "transform",
+  "mana_cost": "{3}{G} // ",
+  "cmc": 4.0,
+  "type_line": "Artifact // Artifact Creature — Golem",
+  "oracle_text": "When this artifact enters, distribute three +1/+1 counters among one, two, or three target creatures you control.\nCraft with creature {5}{G}{G} ({5}{G}{G}, Exile this artifact, Exile a creature you control or a creature card from your graveyard: Return this card transformed under its owner's control. Craft only as a sorcery.)\n//\nWhen this creature enters, you gain life equal to the mana value of the exiled card used to craft it.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [
+   "Craft",
+   "Transform"
+  ],
+  "card_faces": [
+   {
+    "name": "Jade Seedstones",
+    "mana_cost": "{3}{G}",
+    "type_line": "Artifact",
+    "oracle_text": "When this artifact enters, distribute three +1/+1 counters among one, two, or three target creatures you control.\nCraft with creature {5}{G}{G} ({5}{G}{G}, Exile this artifact, Exile a creature you control or a creature card from your graveyard: Return this card transformed under its owner's control. Craft only as a sorcery.)",
+    "colors": [
+     "G"
+    ],
+    "image_uris": {
+     "small": "https://cards.scryfall.io/small/front/b/b/bb95ffc2-ef35-49bf-8211-c5354d176051.jpg?1783913750",
+     "normal": "https://cards.scryfall.io/normal/front/b/b/bb95ffc2-ef35-49bf-8211-c5354d176051.jpg?1783913750",
+     "large": "https://cards.scryfall.io/large/front/b/b/bb95ffc2-ef35-49bf-8211-c5354d176051.jpg?1783913750",
+     "art_crop": "https://cards.scryfall.io/art_crop/front/b/b/bb95ffc2-ef35-49bf-8211-c5354d176051.jpg?1783913750"
+    }
+   },
+   {
+    "name": "Jadeheart Attendant",
+    "mana_cost": "",
+    "type_line": "Artifact Creature — Golem",
+    "oracle_text": "When this creature enters, you gain life equal to the mana value of the exiled card used to craft it.",
+    "power": "7",
+    "toughness": "7",
+    "colors": [
+     "G"
+    ],
+    "image_uris": {
+     "small": "https://cards.scryfall.io/small/back/b/b/bb95ffc2-ef35-49bf-8211-c5354d176051.jpg?1783913750",
+     "normal": "https://cards.scryfall.io/normal/back/b/b/bb95ffc2-ef35-49bf-8211-c5354d176051.jpg?1783913750",
+     "large": "https://cards.scryfall.io/large/back/b/b/bb95ffc2-ef35-49bf-8211-c5354d176051.jpg?1783913750",
+     "art_crop": "https://cards.scryfall.io/art_crop/back/b/b/bb95ffc2-ef35-49bf-8211-c5354d176051.jpg?1783913750"
+    }
+   }
+  ]
  }
 ]

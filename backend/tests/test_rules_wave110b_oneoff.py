@@ -32,7 +32,7 @@ def cards(settings):
     yield from repository(settings)
 
 
-@pytest.mark.parametrize("name", ["Prince of Thralls", "Oath of Lim-Dûl", "Chaos Lord", "Divine Intervention", "Herald of Anafenza", "Guardian of New Benalia", "Aloe Alchemist", "Parapet Thrasher", "Overclocked Electromancer", "Arashin War Beast", "Firemane Angel", "Goblin Plate Mail", "Wall of Dust", "Bane of the Living", "Warbreak Trumpeter", "Kadena's Silencer", "Longhorn Sharpshooter", "Plague Reaver", "Quakebringer", "Suppressor Skyguard", "Shirei, Shizo's Caretaker", "Lich's Mastery", "The Chain Veil", "Campsite Cuisine", "Way of the Mind Sculptor", "Kitsune Ace", "Knights of the Black Rose", "Dalkovan Encampment", "Expedited Inheritance", "Serene Sleuth", "Boros Battleshaper"])
+@pytest.mark.parametrize("name", ["Prince of Thralls", "Oath of Lim-Dûl", "Chaos Lord", "Divine Intervention", "Herald of Anafenza", "Guardian of New Benalia", "Aloe Alchemist", "Parapet Thrasher", "Overclocked Electromancer", "Arashin War Beast", "Firemane Angel", "Goblin Plate Mail", "Wall of Dust", "Bane of the Living", "Warbreak Trumpeter", "Kadena's Silencer", "Longhorn Sharpshooter", "Plague Reaver", "Quakebringer", "Suppressor Skyguard", "Shirei, Shizo's Caretaker", "Lich's Mastery", "The Chain Veil", "Campsite Cuisine", "Way of the Mind Sculptor", "Kitsune Ace", "Knights of the Black Rose", "Dalkovan Encampment", "Expedited Inheritance", "Serene Sleuth", "Boros Battleshaper", "Jade Seedstones // Jadeheart Attendant"])
 def test_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
@@ -709,4 +709,18 @@ def test_boros_battleshaper_forces_one_creature_to_attack_and_stops_another_bloc
     with pytest.raises(ActionError):
         act(s, "p2", type="declare_blockers", blocks=[{"blocker_id": giant.id, "attacker_id": bears.id}])  # (the Giant can't block)
     act(s, "p2", type="declare_blockers", blocks=[])
+    check(s)
+
+
+def test_jadeheart_attendant_gains_life_equal_to_the_crafted_cards_mana_value(cards):
+    """Jade Seedstones // Jadeheart Attendant: 702.167a the exiled creature card (Hill Giant, mana value 4) is the craft material; the back face gains that much life as it enters."""
+    s = build(cards, ["Jade Seedstones // Jadeheart Attendant", "Hill Giant"], [])
+    seeds = put(s, "Jade Seedstones // Jadeheart Attendant")
+    giant = to_hand(s, "Hill Giant")
+    act(s, "p1", type="move", card_ids=[giant.id], to={"player": "p1", "zone": "graveyard"})
+    mana(s, "p1", G=2, C=5)
+    act(s, "p1", type="activate_ability", card_id=seeds.id, ability=1, cost_choices=[{"component": 2, "cards": [giant.id]}])
+    drive(s)
+    assert s.state.cards[giant.id].zone == "p1:exile" and s.state.cards[seeds.id].face == 1
+    assert s.state.players["p1"].life == 44
     check(s)

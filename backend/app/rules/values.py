@@ -872,6 +872,12 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
         from app.rules import history
 
         return len({"Kindred" if t == "Tribal" else t for n in history.log_for(plan).casts if n.player == ctx["controller"] for t in n.types if t in CARD_TYPES})
+    if 'crafted_mv' in v:  # -- craft materials (wave 110B) -- "the mana value of the exiled card used to craft it" (Jade Seedstones)
+        from app.rules import mana_crafted_profiles
+
+        if (ctx.get('source_object') or '') not in plan.rules.crafted_materials:
+            raise NoChosenPlayer
+        return mana_crafted_profiles.mana_value(plan, ctx)
     if 'crafted_colors' in v:
         from app.rules import mana_crafted_profiles
 
