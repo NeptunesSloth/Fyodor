@@ -18,7 +18,7 @@ def cards(settings):
     yield from repository(settings)
 
 
-@pytest.mark.parametrize("name", ["Prince of Thralls", "Oath of Lim-Dûl", "Chaos Lord", "Divine Intervention", "Herald of Anafenza"])
+@pytest.mark.parametrize("name", ["Prince of Thralls", "Oath of Lim-Dûl", "Chaos Lord", "Divine Intervention", "Herald of Anafenza", "Guardian of New Benalia"])
 def test_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
@@ -103,4 +103,23 @@ def test_herald_of_anafenza_makes_a_warrior_for_its_own_outlast_only(cards):
     drive(s)
     warriors = [c for c in s.state.cards.values() if c.name == "Warrior" and c.zone == "p1:battlefield"]
     assert len(warriors) == 1 and s.state.cards[heralds[0]].counters.get("+1/+1") == 1
+    check(s)
+
+
+@pytest.mark.parametrize("enlists", [True, False])
+def test_guardian_of_new_benalia_scries_only_when_it_enlists(cards, enlists):
+    """Guardian of New Benalia: 702.154a "Whenever this creature enlists a creature, scry 2." (not when the enlist is declined)."""
+    from tests.wave110b_kit import attack
+
+    s = build(cards, ["Guardian of New Benalia", "Grizzly Bears"], [])
+    guardian = put(s, "Guardian of New Benalia")
+    bears = put(s, "Grizzly Bears")
+    s.state.rules.controlled_since[bears.id].turn = 0
+    attack(s, guardian)
+    d = s.state.rules.decision
+    assert d is not None and d.kind == "choose_cards"
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[bears.id] if enlists else [])
+    kinds = []
+    drive(s, lambda d: kinds.append(d.kind) or None)
+    assert ("choose_cards" in kinds) == enlists, kinds  # the scry's choice of cards for the top or bottom (701.22a)
     check(s)

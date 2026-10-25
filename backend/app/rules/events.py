@@ -1277,6 +1277,8 @@ def _object_event(c: str) -> Condition | None:
     becoming the target of a spell or ability (115.9, 603.2e), dealing damage (120.1)."""
     # -- crew & saddle (wave 23D) -- 702.122b / 702.171c: "Whenever ~ crews a Vehicle" / "~ saddles a Mount or crews a Vehicle during your
     # main phase" (a creature tapped to pay the cost; the Vehicle / Mount is the creature "on the other side"), 702.122e: "~ becomes crewed"
+    if c == "~ enlists a creature":  # -- (wave 110B) -- 702.154a: Guardian of New Benalia (enlist.finish)
+        return {"event": "enlisted110b", "subject": "self"}
     m = re.fullmatch(r"~ (?:(?P<s>saddles a Mount) or )?(?P<c>crews a Vehicle)(?P<d> during your main phase)?", c)
     if m:
         crew = {"event": "crew", "subject": "self", "other": selectors.Selector(types=("Artifact",), subtypes=("Vehicle",)).key()}
