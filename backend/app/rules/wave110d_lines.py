@@ -7,6 +7,11 @@ from typing import Any
 
 # the Oracle line (the card's name as ~) -> the wording the grammar already reads, with the same meaning
 _AS: dict[str, str] = {
+    # Oft-Nabbed Goat: 611.2 the activator gains control (the same "you" as the draw); the dies trigger counts the -1/-1 counters it last had (608.2h)
+    "{1}: Draw a card. Gain control of ~ and put a -1/-1 counter on it. Only your opponents may activate this ability and only as a sorcery.":
+        "{1}: Draw a card. Put a -1/-1 counter on ~. Gain control of ~. Only your opponents may activate this ability and only as a sorcery.",
+    "When ~ dies, if it had one or more -1/-1 counters on it, its owner draws that many cards and each other player loses that much life.":
+        "When ~ dies, if it had one or more -1/-1 counters on it, its owner draws X cards and each opponent loses X life, where X is the number of -1/-1 counters on it.",
     '{2}: If ~ isn\'t a creature, it becomes a 0/0 Construct Hero artifact creature with flying and "~ gets +1/+1 for each artifact you control" until end of turn.':
         "{2}: If ~ isn't a creature, it becomes a 0/0 Construct Hero artifact creature with flying until end of turn.",
     # Sorin, Ravenous Neonate: "a white permanent other than that creature or Sorin" (here ~) = other than Sorin (the native "another") and not the stolen creature (patched below)
@@ -83,6 +88,8 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
         d["effects"].append({"do": "tap", "who": "host"})
     if d is not None and text.startswith("{2}: If ~ isn't a creature, it becomes a 0/0 Construct Hero"):  # (Iron Man Armor: quoted static, 613.1f)
         d["effects"][-1]["abilities"] = ["This creature gets +1/+1 for each artifact you control."]
+    if d is not None and text.startswith("When ~ dies, if it had one or more -1/-1 counters on it, its owner draws"):  # (Oft-Nabbed Goat: other than the owner)
+        d["effects"][-1]["who"] = "each_other_than_source_owner110d"
     if d is not None and text.endswith("it enters tapped and attacking."):
         d["effects"][0]["tap_atk110d"] = "Enchantment"
     return d
