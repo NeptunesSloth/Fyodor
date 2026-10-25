@@ -216,7 +216,16 @@ def _gatekeeper() -> Parsed:
     return [*effects, {**gate, "cond": {"not": gate["cond"]}}, token], targets, optional
 
 
+def _sparkshaper() -> Parsed:
+    """Sparkshaper Visionary: any number (115.4, min 0) of your planeswalkers become 3/3 blue Bird creatures (205.1a: set types, so no longer
+    planeswalkers; 611.2a until end of turn; their loyalty abilities stay usable) with flying, hexproof and the scry trigger."""
+    effects, sel, optional = _p('Target planeswalker you control becomes a 3/3 blue Bird creature with flying and hexproof until end of turn. '
+                                'It gains "Whenever this creature deals combat damage to a player, scry 1" until end of turn.')
+    return [{**e, "who": "target:0"} for e in effects], [{"what": sel, "min": 0, "max": 250}], optional
+
+
 BUILDERS: dict[str, Callable[[], Parsed]] = {
+    'choose any number of target planeswalkers you control. Until end of turn, they become 3/3 blue Bird creatures with flying, hexproof, and "Whenever ~ deals combat damage to a player, scry 1."': _sparkshaper,
     "exile another target nonland permanent. If you controlled it, return it to the battlefield tapped. Otherwise, its controller creates a 2/2 white and blue Detective creature token.": _gatekeeper,
     "Choose target creature. Its owner shuffles it into their library, then investigates.": _blink,
     "this token isn't a creature until end of turn.": _not_creature,
