@@ -19,3 +19,9 @@
 - Zinnia, Valley's Voice / Hatchery Sliver / Ian Chesterton: granted offspring/replicate need a keyword on the spell's characteristics (costs.py kicker reads ch.abilities).
 - Desert Were-Worm: needs min_total_power attack condition (wave 110D branch), not in this branch.
 - Squandered Resources: mana types of the sacrificed land (LKI) not available to the mana-ability reader.
+- Uphill Battle: "played" excludes tokens and put-onto-battlefield creatures; "enter tapped" for opponents' creatures is not equal.
+- Leyline of Transformation: opening-hand play would pause the game start for the creature-type choice (opening_hand.py note).
+- V.A.T.S.: "equal toughness" relation on an "any number" group; language.py refuses relations for more than two targets (608.2b unsettled).
+- Spin into Myth: fateseal 2 (look at 2 of an opponent's library, order) has no primitive; only fateseal 1 exists (static_perm100d).
+- Zombie Scavengers: "top creature card of your graveyard" cost needs graveyard order handling beyond fixed_top_graveyard_cost46.
+- Frenzied Saddlebrute: haste-for-attacking limited to opponents/their planeswalkers; attack_as_haste rule has no target scope.
