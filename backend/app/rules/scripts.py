@@ -391,6 +391,7 @@ def self_text(text: str, name: str) -> str:
     # -- keywords (wave 30E) -- 702.166b: a bargained spell is read the same way (a bargain card has no kicker): casting.py records it as kicked
     out = re.sub(r"(?:^|(?<=\. ))If this spell was bargained, ", "If this spell was kicked, ", out)
     out = re.sub(r"\bif it was bargained, ", "if it was kicked, ", out)
+    out = re.sub(r", support X\b", ", put a +1/+1 counter on each of up to X other target creatures", out)  # -- support X (wave 110C) -- 701.41a, Blitzball Stadium
     # -- damage sized by a count (wave 20A) -- "Choose any target. Scry 3, then reveal the top card of your library. ~ deals damage equal to
     # that card's mana value to that permanent or player." (Riddle of Lightning): the target is declared as the spell is cast (115.1, 601.2c)
     # whatever the order of the text, so the damage sentence names "any target" itself

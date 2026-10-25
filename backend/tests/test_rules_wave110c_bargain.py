@@ -1,12 +1,15 @@
 """Wave 110C: Back for Seconds (702.166b bargain read as kicked; 608.2d the controller picks the one target put onto the battlefield instead),
+Blitzball Stadium (701.41a support X; 122.1 kinds of counters; 509.1b unblockable),
 Nahiri's Lithoforming (305.2 X extra land plays; 614.1d lands enter tapped this turn)."""
 
 from __future__ import annotations
 
 import pytest
 
+from app.game.errors import ActionError
 from app.rules import coverage
 from tests.game_helpers import act
+from tests.test_rules_wave30m_durations import to_phase
 from tests.wave110c_kit import answer, build, check, make_db, mana, put, real, to_hand
 
 EXTRA = [real("Back for Seconds", "{2}{B}", 3, "Sorcery",
@@ -15,6 +18,10 @@ EXTRA = [real("Back for Seconds", "{2}{B}", 3, "Sorcery",
               "mana value 4 or less onto the battlefield instead of putting it into your hand.", None, "B"),
          real("Nahiri's Lithoforming", "{X}{R}{R}", 2, "Sorcery",
               "Sacrifice X lands. For each land sacrificed this way, draw a card. You may play X additional lands this turn. Lands you control enter tapped this turn.", None, "R"),
+         real("Blitzball Stadium", "{X}{U}", 1, "Artifact",
+              "When this artifact enters, support X. (Put a +1/+1 counter on each of up to X target creatures.)\n"
+              "Go for the Goal! — {3}, {T}: Until end of turn, target creature gains \"Whenever this creature deals combat damage to a player, draw a card for each kind of counter on it\" "
+              "and it can't be blocked this turn.", None, "U"),
          real("Small Bear", "{1}{G}", 2, "Creature — Bear", "", ("2", "2"), "G"),
          real("Huge Bear", "{5}{G}", 6, "Creature — Bear", "", ("6", "6"), "G")]
 
@@ -24,7 +31,7 @@ def card_db(settings):
     return make_db(settings, EXTRA)
 
 
-@pytest.mark.parametrize("name", ["Back for Seconds", "Nahiri's Lithoforming"])
+@pytest.mark.parametrize("name", ["Back for Seconds", "Nahiri's Lithoforming", "Blitzball Stadium"])
 def test_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
@@ -83,4 +90,29 @@ def test_lithoforming_draws_per_land_sacrificed_then_extra_tapped_land_plays(car
         assert s.state.cards[cid].tapped
         played += 1
     assert played == 1 + x
+    check(s)
+
+
+def test_blitzball_support_x_then_unblockable_draws_per_kind_of_counter(cards):
+    """701.41a: X counters' worth of targets; 122.1: one card per kind of counter on the creature; 509.1b: it can't be blocked."""
+    s = build(cards, ["Blitzball Stadium", "Small Bear"], ["Huge Bear"])
+    bear, wall = put(s, "Small Bear"), put(s, "Huge Bear", pid="p2")
+    stadium = to_hand(s, "Blitzball Stadium")
+    mana(s, U=1, C=1)
+    act(s, "p1", type="cast_spell", card_id=stadium.id, targets=[bear.id], target_counts=[1], x_value=1, sources=[])
+    answer(s)
+    assert s.state.cards[bear.id].counters.get("+1/+1") == 1
+    act(s, "p1", type="counter", card_ids=[bear.id], kind="flying", delta=1)
+    to_phase(s, "main1", 3)
+    mana(s, C=3)
+    before = len(s.state.zones["p1:hand"])
+    act(s, "p1", type="activate_ability", card_id=stadium.id, ability=1, targets=[bear.id])
+    answer(s)
+    to_phase(s, "declare_attackers", 3)
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": bear.id, "target": "p2"}])
+    with pytest.raises(ActionError):
+        act(s, "p2", type="declare_blockers", blocks=[{"blocker_id": wall.id, "attacker_id": bear.id}])
+    act(s, "p2", type="declare_blockers", blocks=[])
+    answer(s)
+    assert len(s.state.zones["p1:hand"]) == before + 2
     check(s)

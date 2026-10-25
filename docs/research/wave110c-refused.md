@@ -8,3 +8,8 @@
 - Foretell X widening check (casting.FORETELL, alt_costs.X_KEYWORDS): only Starnheim Unleashed has X in a foretell cost in the DB; no other card flips.
 - Library of Leng, Nephalia Academy, Pulmonic Sliver: "may put on top of library instead of graveyard" needs an optional 616 candidate (zone_candidates is mandatory-only; madness and grouped_discard interplay).
 - Printlifter Ooze: token "enters with X counters" has no foundation; X counts creatures other than the source (the token must not count), put-after would count it.
+- Bring the Ending: "Corrupted — Counter that spell instead" is a separate spell line; line 1 would still ask the payment of a corrupted player (wrong; payment must not be offered).
+- Imodane, the Pyrohammer: needs "the damage dealt to that creature (the spell's only target)" distinguished from other damage by the same spell; no such event filter yet.
+- The Golden Throne: replacement of losing the game (all loss causes, SBA 704.5) not modelled.
+- Mariposa Military Base: optional "may have it enter tapped, if you do rad counters" entry choice needs a new entry-choice decision; only pay-life shock lands exist.
+- Soul Immolation: blight X additional cost (X bound by greatest toughness, counters on one creature chosen at payment) not modelled.

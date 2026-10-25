@@ -404,6 +404,9 @@ def _parse_count(phrase: str, *, it: str | None = None) -> Value | None:
         if m["kinds"]:  # 122.1: how many different kinds of counters there are among them
             return {"counter_kinds": 1, "of": key}
         return {"counters_among": m["kind"], "of": key}
+    if (m := re.fullmatch(r"(?:different )?kinds? of counters? on (?P<on>.+)", what)) is not None and _ON.get(m["on"].lower()) is not None:
+        on = _ON[m["on"].lower()]  # -- kinds of counters (wave 110C) -- 122.1: how many kinds of counters the one object has (Blitzball Stadium)
+        return {"counters": None, "kinds": True, "on": it if on == "it" else on}
     m = _COUNTERS_ON.match(what)
     if m:
         on = _ON.get(m["on"].lower())
@@ -1125,6 +1128,8 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
         if got is None:
             return 0
         counters = got[0].counters
+        if v.get("kinds"):
+            return sum(1 for n in counters.values() if n > 0)
         return counters.get(v["counters"], 0) if v["counters"] else sum(counters.values())
     raise ValueError(f"unknown value {v!r}")
 

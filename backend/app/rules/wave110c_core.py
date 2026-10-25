@@ -200,6 +200,9 @@ _MEATHOOK = {  # Meathook Massacre II: 400.7 the card returns as a new object "u
 }
 
 
+_STADIUM = {'{3}, {T}: Until end of turn, target creature gains "Whenever this creature deals combat damage to a player, draw a card for each kind of counter on it" and it can\'t be blocked this turn.'}
+
+
 _NEXUS = "If ~ would be put into a graveyard from the battlefield, instead exile it and take an extra turn after this one."
 
 
@@ -221,6 +224,12 @@ def definition(ability: AbilityText, ch: Any) -> dict[str, Any] | None:
 
         native = scripts.define(replace(ability, text="+1: Surveil 1."), ch)
         return None if native is None else {**native, "effects": [{"do": "surveil_take110c"}]}
+    if ability.text in _STADIUM:  # Blitzball Stadium: the grammar reads the two sentences ("It" is the same target)
+        from dataclasses import replace
+
+        from app.rules import scripts
+
+        return scripts.define(replace(ability, text=ability.text.replace('" and it can\'t be blocked this turn.', '." It can\'t be blocked this turn.')), ch)
     if ability.text in _MEATHOOK:
         from dataclasses import replace
 
