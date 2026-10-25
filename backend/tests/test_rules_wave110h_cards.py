@@ -11,6 +11,7 @@
 * Aetherplasm: a hand creature put onto the battlefield blocking the creature it blocked (509.4: never "blocked", enters_blocking).
 * Dire Blunderbuss (back of Dire Flail): "an artifact other than <granter>" excludes the Equipment itself, not the creature (607.1a, 603.12).
 * Dralnu, Lich Lord: damage to it is replaced by sacrificing that many permanents (614.6, 701.21).
+* Lava Burst: damage to a creature ignores Carom's redirection (614.9, 615.12); to a player it is plain damage.
 * Binding Negotiation: "Otherwise" after an optional choice (608.2c), a face-up exiled card to its owner's graveyard (406.3, 400.3).
 """
 from __future__ import annotations
@@ -72,6 +73,9 @@ EXTRA.append(real("Dralnu, Lich Lord", "{3}{U}{B}", 5, "Legendary Creature \u201
                   "If damage would be dealt to Dralnu, sacrifice that many permanents instead.\n{T}: Target instant or sorcery card in your graveyard "
                   "gains flashback until end of turn. The flashback cost is equal to its mana cost. (You may cast that card from your graveyard for "
                   "its flashback cost. Then exile it.)", ("3", "3"), "UB"))
+EXTRA.append(real("Lava Burst", "{X}{R}", 1, "Sorcery",
+                  "Lava Burst deals X damage to any target. If Lava Burst would deal damage to a creature, that damage can't be prevented or dealt "
+                  "instead to another permanent or player.", None, "R"))
 NAMES = [c["name"] for c in EXTRA]
 
 
@@ -398,4 +402,24 @@ def test_dralnu(cards):
     got = s.state.cards
     assert got[dr.id].zone.endswith("battlefield") and got[dr.id].damage == 0
     assert got[gi.id].zone.endswith("graveyard") and got[rock.id].zone.endswith("graveyard")
+    check(s)
+
+
+@pytest.mark.parametrize("spell", ["Lava Burst", "Lightning Bolt"])
+def test_lava_burst_not_redirected(cards, spell):
+    """Carom redirects 1 damage from the Giant to the Bears; Lava Burst's 3 damage to the Giant stays on the Giant, Bolt's does not."""
+    s = build(cards, ["Carom", "Lightning Bolt", "Lava Burst", "Hill Giant", "Grizzly Bears"])
+    giant, bears = (to_hand(s, n) for n in ("Hill Giant", "Grizzly Bears"))
+    for c in (giant, bears):
+        act(s, "p1", type="move", card_ids=[c.id], to={"player": "p1", "zone": "battlefield"})
+    mana(s, W=1, C=4, R=1)
+    cast(s, "Carom", [giant.id, bears.id], target_counts=[1, 1])
+    answer(s)
+    cast(s, spell, [giant.id], **({"x_value": 3} if spell == "Lava Burst" else {}))
+    answer(s)
+    got = s.state.cards
+    if spell == "Lava Burst":
+        assert got[giant.id].zone.endswith("graveyard") and got[bears.id].damage == 0  # all 3 landed on the 3/3 Giant
+    else:
+        assert (got[giant.id].damage, got[bears.id].damage) == (2, 1)
     check(s)

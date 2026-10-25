@@ -136,7 +136,19 @@ def _fold() -> Any:
             {"do": "only_if", "cond": madness, "skip": 2}, big, grab], target, flag
 
 
+def _lava_burst() -> Any:
+    """Lava Burst: the damage to a creature can't be prevented (615.12) or redirected (614.9): flags set per creature recipient in effects._deal."""
+    from app.rules import scripts
+
+    native = scripts.parse_effects("~ deals X damage to any target.")
+    if native is None or [e.get("do") for e in native[0]] != ["damage"]:
+        return None
+    return [{**native[0][0], "creature_firm110h": True}], native[1], native[2]
+
+
 BUILDERS = {
+    "~ deals X damage to any target. If ~ would deal damage to a creature, that damage can't be prevented or dealt instead to another permanent or "
+    "player.": _lava_burst,
     "Gain control of target creature if its toughness is 2 or less. If this spell's madness cost was paid, instead gain control of that creature if "
     "its toughness is X or less.": _fold,
     "Target player reveals their hand and the top card of their library. You choose a card revealed this way. That player puts the chosen card "
