@@ -11756,7 +11756,7 @@ _RECORDING.update({"gain_control": None, "exchange_control": None})
 
 
 @_first
-@effect(r"(?P<t>(?!.*, then )(?!.* (?:for as long as|until (?:the end of )?your next turn)\b)(?!.* at end of combat$)(?!.* unless )(?!.* if the number of permanents is even$)(?:(?:untap .+? and )?(?:you )?gain control of .+|.+? gains control of .+|exchange control of .+))")
+@effect(r"(?P<t>(?!.*, then )(?!.* if its (?:power|toughness) is \d+ or less$)(?!.* (?:for as long as|until (?:the end of )?your next turn)\b)(?!.* at end of combat$)(?!.* unless )(?!.* if the number of permanents is even$)(?:(?:untap .+? and )?(?:you )?gain control of .+|.+? gains control of .+|exchange control of .+))")
 def _control(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     from app.rules import language
 

@@ -4,6 +4,11 @@
 * Bewitching Leechcraft: the host's untap step swaps the untap for a +1/+1 counter; none left, it stays tapped (502.3, 614.1a).
 * Psychotic Episode: reveal hand and top card, you choose one revealed card, its owner puts it on the bottom (701.20a, 401.4).
 * Kosei, Penitent Warlord: a static grant needing three conditions at once (604.2, 611.3a): enchanted, equipped, a counter.
+* Immard, the Stormcleaver: put a counter or remove one (the removal starts the reflexive modal trigger, 603.12, 700.2).
+* Xenosquirrels: the roll-adjust foundation with a counter cost, one adjustment per die and no once-a-turn limit (706.2, 614.1).
+* Frantic Scapegoat: optional pick among the entering batch; suspecting it ends the Goat's own suspect (701.60a, 603.4).
+* Welcome to the Fold: "gain control ... if its toughness is N or less" (608.2b) with the madness X replacement bound (702.35, 107.3b).
+* Aetherplasm: a hand creature put onto the battlefield blocking the creature it blocked (509.4: never "blocked", enters_blocking).
 * Binding Negotiation: "Otherwise" after an optional choice (608.2c), a face-up exiled card to its owner's graveyard (406.3, 400.3).
 """
 from __future__ import annotations
@@ -13,7 +18,7 @@ import pytest
 from app.rules import coverage
 from tests.game_helpers import act
 from tests.test_rules_wave12a_counters_keywords import real
-from tests.wave9c_kit import build, card_named, check, mana, to_hand
+from tests.wave9c_kit import build, card_named, check, life, mana, to_hand
 
 EXTRA = [
     real("Binding Negotiation", "{1}{B}", 2, "Sorcery",
@@ -37,6 +42,26 @@ EXTRA += [
     real("Plain Halo", "{W}", 1, "Enchantment \u2014 Aura", "Enchant creature", None, "W"),
     real("Plain Blade", "{1}", 1, "Artifact \u2014 Equipment", "Equip {1}", None, ""),
 ]
+EXTRA.append(real("Immard, the Stormcleaver", "{1}{U}{R}{W}", 4, "Legendary Creature \u2014 Human Soldier",
+                  "Whenever Immard, the Stormcleaver enters or attacks, put a charge counter on it or remove one from it. When you remove a counter "
+                  "this way, choose one \u2014\n\u2022 Immard deals 4 damage to any target.\n\u2022 Immard gains lifelink and indestructible until end "
+                  "of turn.", ("4", "4"), "RUW"))
+EXTRA.append(real("Xenosquirrels", "{2}{R}{G}", 4, "Creature \u2014 Squirrel",
+                  "After you roll a die, you may remove a +1/+1 counter from this creature. If you do, increase or decrease the result by 1.",
+                  ("2", "2"), "RG"))
+EXTRA.append(real("Roll Probe", "{R}", 1, "Sorcery", "Roll a d6. You gain life equal to the result.", None, "R"))
+EXTRA.append(real("Frantic Scapegoat", "{R}", 1, "Creature \u2014 Goat",
+                  "Haste\nWhen this creature enters, suspect it. (It has menace and can't block.)\nWhenever one or more other creatures you control enter, "
+                  "if this creature is suspected, you may suspect one of the other creatures. If you do, this creature is no longer suspected.",
+                  ("1", "1"), "R"))
+EXTRA.append(real("Welcome to the Fold", "{2}{U}{U}", 4, "Sorcery",
+                  "Madness {X}{U}{U} (If you discard this card, discard it into exile. When you do, cast it for its madness cost or put it into your "
+                  "graveyard.)\nGain control of target creature if its toughness is 2 or less. If this spell's madness cost was paid, instead gain control "
+                  "of that creature if its toughness is X or less.", None, "U"))
+EXTRA.append(real("Discard Probe", "{B}", 1, "Sorcery", "Discard a card.", None, "B"))
+EXTRA.append(real("Aetherplasm", "{2}{U}{U}", 4, "Creature \u2014 Illusion",
+                  "Whenever this creature blocks a creature, you may return this creature to its owner's hand. If you do, you may put a creature card "
+                  "from your hand onto the battlefield blocking that creature.", ("1", "1"), "U"))
 NAMES = [c["name"] for c in EXTRA]
 
 
@@ -48,6 +73,16 @@ def card_db(settings):
     settings.ensure_dirs()
     build_database([*fixture_cards(), *EXTRA], settings.cards_db_path, meta={"bulk_type": "test"})
     return settings.cards_db_path
+
+
+@pytest.fixture(autouse=True)
+def _fresh_definitions():
+    """The staged-untap tests (test_rules_untap_attempts45) swap in their own Leechcraft grammar and only clear the definition cache on teardown."""
+    from app.rules import scripts
+
+    yield
+    scripts._cached.cache_clear()
+    scripts.granted_ability.cache_clear()
 
 
 @pytest.mark.parametrize("name", NAMES)
@@ -138,6 +173,23 @@ def test_bewitching_leechcraft(cards):
     check(s)
 
 
+def test_leechcraft_stun_wins(cards):
+    """Pins the approximation: stun (122.1d) takes the untap, the +1/+1 counter stays (616.1 would let the controller choose)."""
+    from tests.test_rules_conditionals import until
+
+    s = build(cards, ["Bewitching Leechcraft", "Grizzly Bears"])
+    bears = to_hand(s, "Grizzly Bears")
+    act(s, "p1", type="move", card_ids=[bears.id], to={"player": "p1", "zone": "battlefield"})
+    act(s, "p1", type="counter", card_ids=[bears.id], kind="+1/+1", delta=2)
+    mana(s, U=1, C=1)
+    cast(s, "Bewitching Leechcraft", [bears.id])
+    answer(s)
+    act(s, "p1", type="counter", card_ids=[bears.id], kind="stun", delta=1)
+    until(s, lambda s: s.state.turn.number == 3 and s.state.turn.phase == "main1")
+    got = s.state.cards[bears.id]
+    assert (got.tapped, got.counters.get("+1/+1", 0), got.counters.get("stun", 0)) == (True, 2, 0)
+
+
 @pytest.mark.parametrize("pick", ["hand", "top"])
 def test_psychotic_episode(cards, pick):
     """The chosen revealed card (hand or top of library) goes to the bottom of its owner's library; the other cards stay."""
@@ -178,4 +230,126 @@ def test_kosei_needs_all_three(cards):
             act(s, "p1", type="attach", card_ids=[halo.id if step == "halo" else blade.id], to=kosei.id)
         states.append(granted())
     assert states == [False, False, True]
+    check(s)
+
+
+def test_immard(cards):
+    """Enters with none to remove: gains one. Attacks: removes it and (reflexive) deals 4 on top of combat damage; next attack none to remove, gains one, no reflexive damage."""
+    from tests.test_rules_conditionals import attack, through_combat, until
+
+    s = build(cards, ["Immard, the Stormcleaver"])
+    mana(s, U=1, R=1, W=1, C=1)
+    imm = cast(s, "Immard, the Stormcleaver")
+    answer(s)
+    assert s.state.cards[imm.id].counters.get("charge") == 1
+    for turn, want, counters in ((3, 32, 0), (5, 28, 1)):
+        until(s, lambda s, t=turn: s.state.turn.number == t and (d := s.state.rules.decision) is not None and d.kind == "declare_attackers")
+        attack(s, (s.state.cards[imm.id], "p2"))
+        answer(s, "pay", "0:0", "p2")  # pay to remove, mode 1, Bob (turn 5: nothing to remove, so no question at all)
+        through_combat(s)
+        assert (s.state.cards[imm.id].counters.get("charge", 0), life(s, "p2")) == (counters, want), turn
+    check(s)
+
+
+def test_xenosquirrels(cards, monkeypatch):
+    """Each roll can be adjusted by removing a +1/+1 counter, repeatedly in one turn; the adjusted result is what the roll reads (706.2)."""
+    from tests.test_rules_random_consequences import answer as pick
+    from tests.test_rules_random_consequences import faces
+
+    s = build(cards, ["Xenosquirrels", "Roll Probe"])
+    sq = to_hand(s, "Xenosquirrels")
+    act(s, "p1", type="move", card_ids=[sq.id], to={"player": "p1", "zone": "battlefield"})
+    act(s, "p1", type="counter", card_ids=[sq.id], kind="+1/+1", delta=2)
+    faces(monkeypatch, [3, 4])
+    for direction in ("plus", "minus"):  # twice in one turn: no once-a-turn limit
+        mana(s, R=1)
+        cast(s, "Roll Probe")
+        d = s.state.rules.decision
+        pick(s, [next(o.id for o in d.options if o.id.startswith("roll_adjust42:"))])
+        for ids in (["pay"], ["0"], [direction]):
+            pick(s, ids)
+    assert s.state.cards[sq.id].counters.get("+1/+1", 0) == 0
+    assert life(s, "p1") == 40 + 4 + 3
+    check(s)
+
+
+@pytest.mark.parametrize("take", [True, False])
+def test_frantic_scapegoat(cards, take):
+    """Another creature entering while the Goat is suspected: suspect it instead (Goat no longer suspected), or decline and nothing changes."""
+    s = build(cards, ["Frantic Scapegoat", "Hill Giant"])
+    mana(s, R=1)
+    cast(s, "Frantic Scapegoat")
+    answer(s)
+    mana(s, R=1, C=3)
+    giant = cast(s, "Hill Giant")
+    d = None
+    for _ in range(10):
+        d = s.state.rules.decision
+        if d is not None and d.kind == "choose_cards" and "Suspect one" in d.prompt:
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+    assert d is not None and [o.id for o in d.options] == [giant.id]
+    act(s, d.player, type="choose", decision_id=d.id, option_ids=[giant.id] if take else [])
+    answer(s)
+    names = {c.name for c in s.state.cards.values() if any(m.name == "Suspected" for m in c.effects)}
+    assert names == ({"Hill Giant"} if take else {"Frantic Scapegoat"})
+    check(s)
+
+
+@pytest.mark.parametrize("madness,toughness,stolen", [(False, 2, True), (False, 3, False), (True, 3, True), (True, 4, False)])
+def test_welcome_to_the_fold(cards, madness, toughness, stolen):
+    """Hard cast: toughness 2 or less. Madness (discarded, X paid): toughness X or less (X = 3 here). A bigger creature stays put."""
+    from tests.test_rules_wave12a_counters_keywords import real as _real  # noqa: F401
+
+    s = build(cards, ["Welcome to the Fold", "Discard Probe"], ["Hill Giant", "Grizzly Bears"])
+    victim = card_named(s, "Grizzly Bears" if toughness == 2 else "Hill Giant", "p2")
+    act(s, "p2", type="move", card_ids=[victim.id], to={"player": "p2", "zone": "battlefield"})
+    if toughness == 4:
+        act(s, "p2", type="counter", card_ids=[victim.id], kind="+1/+1", delta=1)
+    if not madness:
+        mana(s, U=2, C=2)
+        cast(s, "Welcome to the Fold", [victim.id])
+        answer(s)
+    else:
+        to_hand(s, "Welcome to the Fold")
+        mana(s, B=1)
+        cast(s, "Discard Probe")
+        mana(s, U=2, C=3)
+        for pick in (["yes"], ["x:3"], [victim.id]):
+            d = s.state.rules.decision
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=pick)
+        answer(s)
+    assert (s.state.cards[victim.id].controller == "p1") == stolen
+    check(s)
+
+
+def test_aetherplasm(cards):
+    """Blocks, returns itself to hand, puts Hill Giant from hand blocking the same attacker (509.4)."""
+    from tests.test_rules_conditionals import until
+
+    s = build(cards, ["Hill Giant"], ["Aetherplasm", "Hill Giant"])
+    atk = card_named(s, "Hill Giant", "p1")
+    act(s, "p1", type="move", card_ids=[atk.id], to={"player": "p1", "zone": "battlefield"})
+    plasm = card_named(s, "Aetherplasm", "p2")
+    act(s, "p2", type="move", card_ids=[plasm.id], to={"player": "p2", "zone": "battlefield"})
+    big = card_named(s, "Hill Giant", "p2")
+    act(s, "p2", type="move", card_ids=[big.id], to={"player": "p2", "zone": "hand"})
+    until(s, lambda s: s.state.turn.number == 3 and (d := s.state.rules.decision) is not None and d.kind == "declare_attackers")
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": atk.id, "target": "p2"}])
+    for _ in range(12):
+        d = s.state.rules.decision
+        if d is not None and d.kind == "declare_blockers":
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+    act(s, "p2", type="declare_blockers", blocks=[{"blocker_id": plasm.id, "attacker_id": atk.id}])
+    for pick in ("pay", big.id):  # (the trigger resolves: pay, then choose the Giant; stop before combat damage)
+        for _ in range(3):
+            d = s.state.rules.decision
+            if d is None:
+                act(s, s.state.rules.priority, type="pass_priority")
+        d = s.state.rules.decision
+        act(s, d.player, type="choose", decision_id=d.id, option_ids=[pick])
+    assert s.state.cards[plasm.id].zone == "p2:hand"
+    # the new Giant blocked the attacking Giant (the Aetherplasm was out of combat): combat damage traded them, and Bob took none
+    assert (s.state.cards[big.id].zone, s.state.cards[atk.id].zone, life(s, "p2")) == ("p2:graveyard", "p1:graveyard", 40)
     check(s)

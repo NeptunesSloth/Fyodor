@@ -19,6 +19,29 @@ _KOSEI = ('As long as ~ is enchanted, equipped, and has a counter on it, ~ has "
           'cards and Kosei deals that much damage to each other opponent."')
 
 
+# Immard: "put a counter on it or remove one" as the equal choice "you may remove one; if you don't, put one on" (608.2d); the reflexive
+# trigger (603.12) still follows only the removal. ponytail: the put happens before the reflexive modes resolve; the modes don't read counters.
+_IMMARD = ("Whenever ~ enters or attacks, put a charge counter on it or remove one from it. When you remove a counter this way, choose one \u2014")
+
+
+def modal_header(ability: Any, ch: Any) -> Any:
+    """Immard's header (the modes are read by modal_abilities.definitions): the rewritten text, else the ability unchanged."""
+    from app.rules import scripts
+
+    if scripts.self_text(ability.text, ch.name) != _IMMARD:
+        return ability
+    return replace(ability, text=ability.text[:ability.text.index(", put a charge")] + ", you may remove a charge counter from it. If you don't, "
+                   "put a charge counter on it. When you do, choose one \u2014")
+
+
+_SCAPEGOAT = ("Whenever one or more other creatures you control enter, if this creature is suspected, you may suspect one of the other creatures. "
+              "If you do, this creature is no longer suspected.")
+
+
+_AETHER = ("Whenever ~ blocks a creature, you may return ~ to its owner's hand. If you do, you may put a creature card from your hand onto the "
+           "battlefield blocking that creature.")
+
+
 def untap_hold(plan: Any, player: str, keep: list[str]) -> list[str]:
     """Bewitching Leechcraft (502.3, 614.1a): a tapped host that would untap loses a +1/+1 counter instead and untaps; with none (or if the
     counter can't come off) it stays tapped. Returns the ids to keep tapped; hosts already kept tapped are not "going to untap"."""
@@ -29,6 +52,8 @@ def untap_hold(plan: Any, player: str, keep: list[str]) -> list[str]:
         if not d.get("untap_counter110h"):
             continue
         host = plan.state.cards.get(aura.attached_to or "")
+        # ponytail: a stunned host is in ``keep`` (engine.py), so stun always wins; CR 616.1 lets the host's controller order stun vs this
+        # replacement. Ceiling: stun counter lost, +1/+1 kept. Upgrade: route both through the replacement-order choice (pinned by test).
         if host is None or not host.tapped or host.controller != player or host.id in keep or host.id in held:
             continue
         if not counter_removal_results.remove(plan, host.id, "+1/+1", 1, by=player):
@@ -53,6 +78,14 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
             return None
         return {**native, "conditions": [*native["conditions"], {"static": "self", "test": "equipped"},
                                          {"static": "self_counter", "counter": None, "op": ">=", "n": 1}]}
+    if text == _SCAPEGOAT.replace("this creature", "~") or text == _SCAPEGOAT:
+        native = scripts.define(replace(ability, text="Whenever one or more other creatures you control enter, if this creature is suspected, draw a card."), ch)
+        return None if native is None else {**native, "effects": [{"do": "scapegoat110h"}]}
+    if text == _AETHER:
+        native = scripts.define(replace(ability, text=text.replace(" blocking that creature.", ".")), ch)
+        if native is None or native["effects"][-1].get("do") != "put_from_hand":
+            return None
+        return {**native, "effects": [*native["effects"][:-1], {**native["effects"][-1], "blocking": True}]}
     if text == _LEECH:  # the grant definition the staged untap model reads (tests/test_rules_untap_attempts45.py), marked: untap_hold carries it out
         return {"kind": "static", "static": "grant", "effects": [], "who": "attached", "attached_kind": "creature", "conditions": [], "p": 0, "t": 0,
                 "base": None, "keywords": [], "grants": [text.split('"')[1]], "rules": [], "untap_counter110h": True}
@@ -87,7 +120,24 @@ def _episode() -> Any:
     return [{"do": "episode110h", "who": "target"}], "player", False
 
 
+def _fold() -> Any:
+    """Welcome to the Fold: toughness 2 or less normally; with madness paid the bound is X, the madness cost's X (107.3b). Both are the one native
+    "gain control of target creature if its toughness is N or less" (608.2b: the target is checked as the spell resolves)."""
+    from app.rules import scripts
+
+    native = scripts.parse_effects("Gain control of target creature if its toughness is 2 or less.")
+    if native is None or len(native[0]) != 2:
+        return None
+    (gate, grab), target, flag = native[0], native[1], native[2]
+    madness = {"object": "self", "cast": {"alt": "madness"}}
+    big = {**gate, "cond": {**gate["cond"], "n": {"count_value": {"x": 1}}}}
+    return [{"do": "only_if", "cond": {"not": madness}, "skip": 2}, gate, grab,
+            {"do": "only_if", "cond": madness, "skip": 2}, big, grab], target, flag
+
+
 BUILDERS = {
+    "Gain control of target creature if its toughness is 2 or less. If this spell's madness cost was paid, instead gain control of that creature if "
+    "its toughness is X or less.": _fold,
     "Target player reveals their hand and the top card of their library. You choose a card revealed this way. That player puts the chosen card "
     "on the bottom of their library.": _episode,
     "The next 1 damage that would be dealt to target creature this turn is dealt to another target creature instead.": _carom,
@@ -138,5 +188,36 @@ def resume_episode(plan: Any, d: Any, chosen: list[str]) -> None:
     effects.continue_effects(plan, ctx)
 
 
-PRIMITIVES = {"episode110h": episode}
-RESUME = {"episode110h": resume_episode}
+# -- Frantic Scapegoat ---------------------------------------------------------------------------------
+def scapegoat(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
+    """701.60a, 603.4: you may suspect one of the other creatures that entered (this batch); if you do, this creature is no longer suspected."""
+    from app.game.rules_state import DecisionOption
+    from app.rules import context
+    from app.rules.plan import decide
+
+    me = ctx["source_card"]
+    pool = [c for c in dict.fromkeys([*context.objects(plan, ctx, context.EVENT_NEW), *context.objects(plan, ctx, context.EVENT)]) if c != me and plan.state.cards[c].zone.endswith(":battlefield")
+            and plan.state.cards[c].controller == ctx["controller"] and plan.ch(plan.state.cards[c]).is_creature]
+    if not pool:
+        return True
+    decide(plan, player=ctx["controller"], kind="choose_cards", prompt="Suspect one of the other creatures?",
+           options=[DecisionOption(id=c, label=plan.state.cards[c].name or "Creature", card_id=c) for c in pool],
+           min_choices=0, max_choices=1, resume={"step": "scapegoat110h", "ctx": ctx, "pool": pool})
+    return False
+
+
+def resume_scapegoat(plan: Any, d: Any, chosen: list[str]) -> None:
+    from app.rules import context, effects
+
+    ctx = d.resume["ctx"]
+    chosen = [c for c in chosen[:1] if c in d.resume["pool"] and c in plan.state.cards]
+    if chosen:
+        context.bind_objects(plan, ctx, "_scapegoat", chosen)
+        effects.PRIMITIVES["suspect"](plan, ctx, {"do": "suspect", "who": "ref:_scapegoat"})
+        if plan.oid(chosen[0]) in plan.rules.suspected:  # (not when it can't become suspected: no "if you do")
+            effects.PRIMITIVES["unsuspect100f"](plan, ctx, {"do": "unsuspect100f", "who": "self"})
+    effects.continue_effects(plan, ctx)
+
+
+PRIMITIVES = {"episode110h": episode, "scapegoat110h": scapegoat}
+RESUME = {"episode110h": resume_episode, "scapegoat110h": resume_scapegoat}
