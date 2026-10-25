@@ -93,6 +93,10 @@ def _lich(d: Def) -> Def:
 
 # whole ability text -> (the wording the grammar reads, what to change in its definition)
 _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
+    # The Chain Veil: each planeswalker you control may be activated one more time this turn (606.3 as though none were activated)
+    "{4}, {T}: For each planeswalker you control, you may activate one of its loyalty abilities once this turn as though none of its loyalty abilities "
+    "have been activated this turn.":
+        ("{4}, {T}: Draw a card.", lambda d: {**d, "effects": [{"do": "veil110b"}]}),
     # Perch Protection: all three instructions are conditional on the promised gift (608.2c: one sentence)
     "Create four 2/2 blue Bird creature tokens with flying. If the gift was promised, all permanents you control phase out, and until your next turn, "
     "your life total can't change and you gain protection from everything.":
@@ -179,6 +183,14 @@ def tiered(ch: Any, lines: list[Any]) -> Def | None:
     return {"kind": "spell", "effects": [], "target": None, "modes": modes, "modal": {"min": 1, "max": 1, "repeat": False, "condition": None}}
 
 
+def veil(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """The Chain Veil: every planeswalker its controller controls gets one more loyalty activation this turn (the "twice" allowance, cast_limits.loyalty_rule)."""
+    for c in plan.state.cards.values():
+        if c.controller == ctx["controller"] and c.zone.endswith(":battlefield") and "Planeswalker" in plan.ch(c).types:
+            plan.rules.once_per_turn[f"loyalty_veil110b:{c.id}"] = plan.state.turn.number
+    return True
+
+
 def draw_game(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     """104.4c: "the game is a draw" (a Commander game does not use the limited range of influence option, 104.4e)."""
     plan.rules.draw_reason = "An effect states that the game is a draw (104.4c)"
@@ -241,4 +253,4 @@ def resume_exile_own(plan: Any, d: Any, chosen: list[str]) -> None:
 
 
 RESUME: dict[str, Any] = {"exile_own110b": resume_exile_own}
-PRIMITIVES: dict[str, Any] = {"draw_game110b": draw_game, "reaver110b": reaver, "exile_own110b": exile_own}
+PRIMITIVES: dict[str, Any] = {"draw_game110b": draw_game, "reaver110b": reaver, "veil110b": veil, "exile_own110b": exile_own}

@@ -1012,6 +1012,11 @@ def _loyalty(m: re.Match[str]) -> Condition:
     return {"history": "facts", "kind": "loyalty", "who": "you", "n": 1}  # -- turn state (wave 100H) -- 606.3: an activation you made (casting.py)
 
 
+@_history_pattern(r"you didn't activate a loyalty ability of a planeswalker this turn")
+def _no_loyalty(m: re.Match[str]) -> Condition:
+    return {"not": {"history": "facts", "kind": "loyalty", "who": "you", "n": 1}}  # -- wave 110B -- The Chain Veil; 606.3 (only planeswalkers have them)
+
+
 @_history_pattern(r"you(?:'ve| have)? cycled (?P<n>\w+) or more cards this turn")
 def _cycled(m: re.Match[str]) -> Condition | None:
     n = _num(m["n"])  # -- turn state (wave 100H) -- 702.29a: each cycling this turn, a card cycled twice counting twice (Spellpyre Phoenix ruling)

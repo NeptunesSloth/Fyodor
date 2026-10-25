@@ -8,9 +8,10 @@ from __future__ import annotations
 
 import pytest
 
+from app.game.errors import ActionError
 from app.rules import coverage
 from tests.game_helpers import act
-from tests.wave110b_kit import build, ch, check, drive, mana, put, repository, to_hand
+from tests.wave110b_kit import build, card_named, cast, ch, check, drive, mana, put, repository, to_hand
 
 
 @pytest.fixture()
@@ -18,7 +19,7 @@ def cards(settings):
     yield from repository(settings)
 
 
-@pytest.mark.parametrize("name", ["Prince of Thralls", "Oath of Lim-Dûl", "Chaos Lord", "Divine Intervention", "Herald of Anafenza", "Guardian of New Benalia", "Aloe Alchemist", "Parapet Thrasher", "Bane of the Living", "Warbreak Trumpeter", "Kadena's Silencer", "Longhorn Sharpshooter", "Plague Reaver", "Quakebringer", "Suppressor Skyguard", "Shirei, Shizo's Caretaker", "Lich's Mastery"])
+@pytest.mark.parametrize("name", ["Prince of Thralls", "Oath of Lim-Dûl", "Chaos Lord", "Divine Intervention", "Herald of Anafenza", "Guardian of New Benalia", "Aloe Alchemist", "Parapet Thrasher", "Bane of the Living", "Warbreak Trumpeter", "Kadena's Silencer", "Longhorn Sharpshooter", "Plague Reaver", "Quakebringer", "Suppressor Skyguard", "Shirei, Shizo's Caretaker", "Lich's Mastery", "The Chain Veil"])
 def test_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
@@ -385,4 +386,50 @@ def test_lichs_mastery_exiles_one_card_per_life_lost_from_the_zone_chosen(cards,
     drive(s, lambda d: [next(o.id for o in d.options if o.id in forests and s.state.cards[o.id].zone != "p1:exile")])
     assert [s.state.cards[f].zone for f in forests] == ["p1:exile"] * 3
     assert s.state.cards[mastery.id].zone == "p1:battlefield"
+    check(s)
+
+
+def _veil_table(cards):
+    """Alice: The Chain Veil and a cast Jace Beleren (3 loyalty counters on entering, 614.12)."""
+    s = build(cards, ["The Chain Veil", "Jace Beleren"], [])
+    veil = put(s, "The Chain Veil")
+    mana(s, "p1", U=2, C=1)
+    cast(s, "Jace Beleren")
+    jace = card_named(s, "Jace Beleren")
+    return s, veil, jace
+
+
+def _veil_ability(s, veil):
+    return next(i for i, a in enumerate(ch(s, veil).abilities) if a.text.startswith("{4}"))
+
+
+def test_chain_veil_allows_a_second_loyalty_activation_of_each_planeswalker(cards):
+    """The Chain Veil: {4},{T} lets each planeswalker be activated once more this turn (606.3); one extra only."""
+    s, veil, jace = _veil_table(cards)
+    act(s, "p1", type="activate_ability", card_id=jace.id, ability=0)
+    drive(s)
+    with pytest.raises(ActionError):
+        act(s, "p1", type="activate_ability", card_id=jace.id, ability=0)
+    mana(s, "p1", C=4)
+    act(s, "p1", type="activate_ability", card_id=veil.id, ability=_veil_ability(s, veil))
+    drive(s)
+    act(s, "p1", type="activate_ability", card_id=jace.id, ability=0)
+    drive(s)
+    assert s.state.cards[jace.id].counters["loyalty"] == 3 + 2 + 2
+    with pytest.raises(ActionError):
+        act(s, "p1", type="activate_ability", card_id=jace.id, ability=0)
+    check(s)
+
+
+@pytest.mark.parametrize("activates", [False, True])
+def test_chain_veil_end_step_costs_2_life_unless_a_loyalty_ability_was_activated(cards, activates):
+    """The Chain Veil: "if you didn't activate a loyalty ability of a planeswalker this turn" (intervening if, 603.4)."""
+    from tests.test_rules_conditionals import the_end_step
+
+    s, veil, jace = _veil_table(cards)
+    if activates:
+        act(s, "p1", type="activate_ability", card_id=jace.id, ability=0)
+        drive(s)
+    the_end_step(s)
+    assert s.state.players["p1"].life == (40 if activates else 38)
     check(s)

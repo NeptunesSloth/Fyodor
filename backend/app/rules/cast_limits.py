@@ -981,6 +981,8 @@ def loyalty_rule(state: GameState, card: CardInstance, info: CardInfo | None, ke
     "instant" speed on any player's turn)? Its controller's "planeswalkers you control", or its own."""
     if key == "twice" and state.rules is not None and state.rules.once_per_turn.get(f"loyalty_twice100g:{card.controller}") == state.turn.number:
         return True  # -- zones (wave 100G) -- "… twice this turn rather than only once" (Urza Assembles the Titans III: zones100g.loyalty_twice)
+    if key == "twice" and state.rules is not None and state.rules.once_per_turn.get(f"loyalty_veil110b:{card.id}") == state.turn.number:
+        return True  # -- wave 110B -- The Chain Veil: one more activation of this planeswalker this turn (wave110b_cards.veil)
     if info is None:
         return False
     from app.rules.plan import Plan
