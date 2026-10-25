@@ -2806,6 +2806,8 @@ def bind_that_player(t: PendingTrigger) -> None:
     for key in ("controller", "zone_owner", "player_exclude", "attacking_player"):  # event-relative selector bindings
         marker = f'\\"{key}\\":\\"that_player\\"'
         raw = raw.replace(marker, f'\\"{key}\\":\\"player:{players[0]}\\"')
+    for kind in ("protected_by", "controlled_by"):  # (wave 110H) Rampaging Raptor: the player's battle (310.8) or planeswalker, in a nested selector key
+        raw = raw.replace(f"{kind}:that_player", f"{kind}:player:{players[0]}")
     t.ability = json.loads(raw)
     if keep:
         t.ability = {**t.ability, "effects": [keep.get(i, e) for i, e in enumerate(t.ability["effects"])]}

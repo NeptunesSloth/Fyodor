@@ -2,6 +2,7 @@
 
 * Bloodfeather Phoenix: damage to an opponent or a battle (120.3, 310.5) by an instant or sorcery you control; {R} returns it from the graveyard.
 * The Spot, Living Portal: put on the bottom of its owner's library; if it got there, the exiled cards return to their owners' hands (608.2c).
+* Rampaging Raptor: its damage goes to a planeswalker the damaged player controls or a battle that player protects (310.8, 120.3); not a battle another player protects.
 * Lamplight Phoenix: "exile it and collect evidence 4" is one optional cost (701.59a, 118.12); only if all of it is paid does the card return tapped.
 """
 from __future__ import annotations
@@ -12,7 +13,7 @@ from app.rules import coverage
 from tests.fixtures.cards import card
 from tests.game_helpers import act
 from tests.test_rules_wave12a_counters_keywords import real
-from tests.wave9c_kit import build, check, mana, put, to_hand
+from tests.wave9c_kit import build, check, life, mana, put, to_hand
 
 SIEGE = "Invasion of Pyrulea // Gargantuan Slabhorn"
 _FACES = [
@@ -31,6 +32,10 @@ EXTRA = [
     real("The Spot, Living Portal", "{2}{W}{U}{B}", 5, "Legendary Creature \u2014 Human Villain",
          "When The Spot enters, exile up to one other target nonland permanent and up to one target nonland permanent card from a graveyard.\n"
          "When The Spot dies, put him on the bottom of his owner's library. If you do, return the exiled cards to their owners' hands.", ("4", "4"), "WUB"),
+    real("Rampaging Raptor", "{2}{R}{R}", 4, "Creature \u2014 Dinosaur",
+         "Trample, haste\n{2}{R}: This creature gets +2/+0 until end of turn.\nWhenever this creature deals combat damage to an opponent, it deals that much damage to "
+         "target planeswalker that player controls or battle that player protects.", ("4", "4"), "R"),
+    {**real("Test Walker", "{3}", 3, "Legendary Planeswalker \u2014 Test", "", None, ""), "loyalty": "5"},
     real("Murder", "{1}{B}{B}", 3, "Instant", "Destroy target creature.", None, "B"),
     real("Lightning Bolt", "{R}", 1, "Instant", "Lightning Bolt deals 3 damage to any target.", None, "R"),
 
@@ -167,3 +172,72 @@ def test_the_spot_returns_the_exiled_cards_when_it_dies(cards):
     assert s.state.cards[spot.id].zone == "p1:library" and s.state.zones["p1:library"][-1] == spot.id
     assert s.state.cards[giant.id].zone == "p2:hand" and s.state.cards[mine.id].zone == "p1:hand"
     check(s)
+
+
+def _raptor(cards, siege_owner, walker=False):
+    s = build(cards, ["Rampaging Raptor", SIEGE], ["Test Walker", SIEGE])
+    raptor = put(s, "Rampaging Raptor")
+    battle = put(s, SIEGE, siege_owner)
+    act(s, siege_owner, type="counter", card_ids=[battle.id], kind="defense", delta=5)
+    from tests.test_rules_conditionals import settle
+    settle(s)
+    pw = put(s, "Test Walker", "p2")
+    act(s, "p2", type="set_counter", card_id=pw.id, kind="loyalty", value=5)
+    return s, raptor, battle, pw
+
+
+def _declare(s, raptor):
+    from tests.test_rules_wave100f_attached import to_phase
+
+    to_phase(s, "declare_attackers", turn=1)
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": raptor.id, "target": "p2"}])
+
+
+def _hit(s, raptor, pick):
+    _declare(s, raptor)
+    for _ in range(40):  # the trigger's target, then play on
+        d = s.state.rules.decision
+        if d is not None and d.kind == "declare_blockers":
+            act(s, d.player, type="declare_blockers", blocks=[])
+        elif d is not None:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[pick])
+        elif s.state.zones.get("stack") or s.state.turn.phase != "main2":
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            return
+
+
+def _counters(s, c, kind):
+    return s.state.cards[c.id].counters.get(kind, 0)
+
+
+def test_rampaging_raptor_hits_the_planeswalker(cards):
+    s, raptor, battle, pw = _raptor(cards, "p1")
+    _hit(s, raptor, pw.id)
+    assert _counters(s, pw, "loyalty") == 1 and life(s, "p2") == 36
+    check(s)
+
+
+def test_rampaging_raptor_hits_a_battle_its_target_protects(cards):
+    s, raptor, battle, pw = _raptor(cards, "p1")  # p1's Siege is protected by p2, the damaged player
+    _hit(s, raptor, battle.id)
+    assert _counters(s, battle, "defense") == 1
+    check(s)
+
+
+def test_rampaging_raptor_cannot_target_a_battle_the_other_player_controls_but_does_not_protect(cards):
+    s, raptor, battle, pw = _raptor(cards, "p2")  # p2's own Siege is protected by p1: not a legal target
+    from tests.test_rules_wave100f_attached import to_phase
+    to_phase(s, "declare_attackers", turn=1)
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": raptor.id, "target": "p2"}])
+    ids = []
+    for _ in range(40):
+        d = s.state.rules.decision
+        if d is not None and d.kind == "declare_blockers":
+            act(s, d.player, type="declare_blockers", blocks=[])
+        elif d is not None:
+            ids = [o.id for o in d.options]
+            break
+        else:
+            act(s, s.state.rules.priority, type="pass_priority")
+    assert pw.id in ids and battle.id not in ids
