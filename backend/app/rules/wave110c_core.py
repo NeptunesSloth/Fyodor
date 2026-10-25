@@ -154,7 +154,43 @@ def _lithoforming() -> Parsed:
     return [*effects, {"do": "extra_land_x110c", "n": values.parse_amount("X")}, {"do": "enter_tapped_turn110c", "sel": key}], groups, optional
 
 
+def _approach(name: str, first: str, find: str) -> Callable[[], Parsed]:
+    """The "Approach" cycle: 5 copies in the graveyard (this spell, resolving, plus four others named alike) fetch a creature (608.2c: an optional "may", then
+    "if you do"); the spell is exiled instead of going to the graveyard (614.1a, engine.leave_stack ``exile_if_graveyard``)."""
+    def build() -> Parsed:
+        then = [*read(f"Exile four other cards named {name} from your graveyard.")[0], *read(find)[0]]
+        return [*read(first)[0], {"do": "approach110c", "name": name, "then": then}], None, False
+    return build
+
+
+def approach(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """Offers the exile only when four other cards with the name are in the graveyard (the optional action must be possible)."""
+    mine = ctx["controller"] + ":graveyard"
+    me = plan.state.cards.get(ctx.get("source_card") or "")
+    if sum(1 for c in plan.state.zones.get(mine, []) if plan.state.cards[c].name == e["name"] and (me is None or c != me.id)) < 4:
+        return True
+    mark = [{"do": "exile_spell110c"}] if me is not None and me.zone == "stack" else []
+    ctx["effects"][ctx["next"]:ctx["next"]] = [{"do": "choose_branch110c", "who": "you", "options": [
+        {"label": f"Exile this spell and four other cards named {e['name']} from your graveyard", "effects": [*mark, *e["then"]]},
+        {"label": "Don't", "effects": []}]}]
+    return True
+
+
+def exile_spell(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    plan.rules.exile_if_graveyard.append(plan.oid(plan.state.cards[ctx["source_card"]]))
+    return True
+
+
 BUILDERS: dict[str, Callable[[], Parsed]] = {
+    "~ deals 3 damage to each opponent. You may exile this spell and four cards named Dragon's Approach from your graveyard. If you do, "
+    "search your library for a Dragon creature card, put it onto the battlefield, then shuffle.":
+        _approach("Dragon's Approach", "~ deals 3 damage to each opponent.", "Search your library for a Dragon creature card, put it onto the battlefield, then shuffle."),
+    "Draw two cards. Then you may exile this spell and four cards named Sphinx's Approach from your graveyard. If you do, search your library for a Sphinx "
+    "creature card, put it onto the battlefield, then shuffle.":
+        _approach("Sphinx's Approach", "Draw two cards.", "Search your library for a Sphinx creature card, put it onto the battlefield, then shuffle."),
+    # 100.2a: a deck-building rule on an instant or sorcery has no effect in the game
+    "A deck can have any number of cards named Dragon's Approach.": lambda: ([], None, False),
+    "A deck can have any number of cards named Sphinx's Approach.": lambda: ([], None, False),
     "Sacrifice X lands. For each land sacrificed this way, draw a card. You may play X additional lands this turn. Lands you control enter tapped this turn.":
         _lithoforming,
     "Return up to two target creature cards from your graveyard to your hand. If this spell was bargained, you may put one of those cards with mana value 4 "
@@ -351,7 +387,7 @@ def enter_tapped_turn(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     return True
 
 
-PRIMITIVES = {"extra_land_x110c": extra_land_x, "enter_tapped_turn110c": enter_tapped_turn, "bargain_return110c": bargain_return, "power_gap110c": power_gap, "surveil_take110c": surveil_take, "surveil_take_end110c": surveil_take_end, "choose_branch110c": choose_branch, "temporary_counters110c": temporary_counters}
+PRIMITIVES = {"extra_land_x110c": extra_land_x, "enter_tapped_turn110c": enter_tapped_turn, "bargain_return110c": bargain_return, "power_gap110c": power_gap, "surveil_take110c": surveil_take, "surveil_take_end110c": surveil_take_end, "choose_branch110c": choose_branch, "temporary_counters110c": temporary_counters, "approach110c": approach, "exile_spell110c": exile_spell}
 RESUME = {"choose_branch110c": resume_branch}
 from app.rules import wave110c_mass  # noqa: E402
 
