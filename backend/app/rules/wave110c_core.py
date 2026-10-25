@@ -265,6 +265,10 @@ _OOZE = ("Whenever this creature or another creature you control is turned face 
          "The token enters with X +1/+1 counters on it, where X is the number of other creatures you control.")
 
 
+_PARTY = ("Whenever one or more of your opponents are attacked, up to one target attacking creature gets +X/+X until end of turn, "
+          "where X is the number of cards in your hand.")
+
+
 def definition(ability: AbilityText, ch: Any) -> dict[str, Any] | None:
     if ability.text.replace("Ugin's Nexus", "~") == _NEXUS:  # 614.6, 500.7: the exile replaces the move; the extra turn is part of the same replacement (rider)
         from app.rules import scripts
@@ -286,6 +290,12 @@ def definition(ability: AbilityText, ch: Any) -> dict[str, Any] | None:
         from app.rules import scripts
 
         return scripts.define(replace(ability, text=ability.text.replace('" and it can\'t be blocked this turn.', '." It can\'t be blocked this turn.')), ch)
+    if ability.text == _PARTY:  # Party Dude level 3: any player's attack on one or more of your opponents (508.1, 506.3d), one trigger per declaration
+        from dataclasses import replace
+
+        from app.rules import scripts
+
+        return scripts.define(replace(ability, text=_PARTY.replace("one or more of your opponents are attacked", "a player attacks one or more of your opponents")), ch)
     if ability.text == _OOZE:  # Printlifter Ooze: the token isn't on the battlefield when the counters are counted (614.1c), so the grammar's after-count loses the token
         from dataclasses import replace
 
