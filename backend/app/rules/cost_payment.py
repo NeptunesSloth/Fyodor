@@ -169,8 +169,8 @@ def _candidates(plan: Plan, comp: CostComponent, player: str, source: CardInstan
             continue
         if cid == source.id and not zone.endswith(":battlefield"):
             continue  # -- costs (wave 3$) -- a spell's additional cost can't discard / exile the spell being cast (601.2a)
-        if not selectors.matches(plan, sel, card, plan.ch(card), player, source.id) and not (
-                alt is not None and selectors.matches(plan, alt, card, plan.ch(card), player, source.id)):
+        if not selectors.matches(plan, sel, card, plan.ch(card), player, source.id, plan.cost_attacker) and not (
+                alt is not None and selectors.matches(plan, alt, card, plan.ch(card), player, source.id, plan.cost_attacker)):
             continue
         if comp.named_self and plan.ch(card).name != plan.ch(source).name:  # (wave 4H: grandeur)
             continue

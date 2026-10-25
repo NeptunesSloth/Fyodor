@@ -298,7 +298,15 @@ _SAW = ("Whenever equipped creature attacks, you may sacrifice a permanent other
 _SURGE = ("At the beginning of each player's upkeep, this enchantment deals X damage to that player, where X is the number of untapped lands they controlled "
           "at the beginning of this turn.")
 
+_TILONALLI = ("Whenever this creature attacks, you may pay {X}{R}. If you do, create X 1/1 red Elemental creature tokens that are tapped and attacking. "
+              "At the beginning of the next end step, exile those tokens unless you have the city's blessing.")
+
 _ADVENTURER = {
+    # Venom: one "If you do" per instruction (both read the same payment): the draw first, then the put sees the drawn cards (608.2c)
+    "Whenever Venom attacks, you may sacrifice another creature. If you do, draw X cards, then you may put a permanent card with mana value X or less "
+    "from your hand onto the battlefield, where X is the sacrificed creature's mana value.":
+        "Whenever this creature attacks, you may sacrifice another creature. If you do, draw X cards, where X is the sacrificed creature's mana value. "
+        "If you do, you may put a permanent card with mana value X or less from your hand onto the battlefield, where X is the sacrificed creature's mana value.",
     "If a creature an opponent controls would die, instead exile it and put a hit counter on it.":
         "If a creature an opponent controls would die, exile that card with a hit counter on it instead.",
     "Whenever this creature attacks, if you've completed a dungeon, defending player loses 1 life for each card they own in exile with a hit counter on it.":
@@ -353,16 +361,10 @@ def definition(ability: AbilityText, ch: Any) -> dict[str, Any] | None:
     if ability.text == _SAW:  # Saw: "you may sacrifice" = sacrifice up to one; "another" excludes the Equipment, not_event the attacker (scripts._event_refs_ok refuses the wording itself for attack events)
         from dataclasses import replace
 
-        from app.rules import scripts, selectors
+        from app.rules import scripts
 
-        native = scripts.define(replace(ability, text=_SAW.replace(" other than that creature or this Equipment", "").replace("you may sacrifice a", "sacrifice another")), ch)
-        picks = [e for e in (native or {}).get("effects", []) if e.get("do") == "sacrifice_choice"]
-        if len(picks) != 1:
-            return None
-        picks[0]["upto"] = True
-        sel = selectors.from_key(picks[0]["sel"])
-        picks[0]["sel"] = replace(sel, extras=(*sel.extras, "not_event")).key()  # (selectors.py:2451, the attacking creature)
-        return native
+        # "another" excludes the Equipment, "other than that creature" the attacker (cost selector "not_event": cost_payment.Plan.cost_attacker)
+        return scripts.define(replace(ability, text=_SAW.replace("a permanent other than that creature or this Equipment", "another permanent other than that creature")), ch)
     if ability.text == _SURGE:  # Power Surge: damage read with a fixed number, whose value is the turn-start snapshot (values.py began_lands110c)
         from dataclasses import replace
 
@@ -373,6 +375,19 @@ def definition(ability: AbilityText, ch: Any) -> dict[str, Any] | None:
         if len(hits) != 1:
             return None
         hits[0]["n"] = {"began_lands110c": 1}
+        return native
+    if ability.text == _TILONALLI:  # Tilonalli's Summoner: the delayed exile checks the blessing as it resolves (it is "unless", not an intervening "if")
+        from dataclasses import replace
+
+        from app.rules import scripts
+
+        native = scripts.define(replace(ability, text=_TILONALLI.replace(" unless you have the city's blessing", "")), ch)
+        effects = (native or {}).get("effects", [])
+        at = next((i for i, e in enumerate(effects) if e.get("do") == "delayed"), None)
+        if at is None or effects[at]["n"] != 1:
+            return None
+        effects[at]["n"] = 2
+        effects.insert(at + 1, {"do": "deferred:only_if", "cond": {"not": {"status": "city_blessing"}}, "skip": 1})
         return native
     if ability.text in _ADVENTURER:  # Ravenloft Adventurer: the same results in wordings the grammar reads (614.6 exile with a counter; 508.5 defending owner)
         from dataclasses import replace

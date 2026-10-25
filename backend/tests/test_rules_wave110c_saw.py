@@ -1,4 +1,4 @@
-"""Wave 110C: Saw (603.1 attack trigger; the optional sacrifice can't take the attacker or the Equipment itself, "If you do" draws, 608.2c)."""
+"""Wave 110C: Saw (603.1 attack trigger; the optional payment's cost (cost_payment.Plan.cost_attacker) can't take the attacker or the Equipment itself, "If you do" draws, 608.2c)."""
 
 from __future__ import annotations
 
@@ -33,9 +33,9 @@ def test_sacrifice_other_permanent_draws(cards):
     to_phase(s, "declare_attackers", 3)
     hand = len(s.state.zones["p1:hand"])
     attack(s, (bears, "p2"))
-    d = s.state.rules.decision
-    assert {o.id for o in d.options} == {forest.id}  # neither the attacker nor the Equipment can be sacrificed
-    answer(s, [forest.id])
+    act(s, "p1", type="choose", decision_id=s.state.rules.decision.id, option_ids=["pay"])
+    assert s.state.rules.decision is None  # only the Forest can pay (neither the attacker nor the Equipment): no choice; before the fix the attacker was offered too
+    answer(s)
     assert s.state.cards[forest.id].zone == "p1:graveyard" and len(s.state.zones["p1:hand"]) == hand + 1
     assert s.state.cards[saw.id].zone == "p1:battlefield" and s.state.cards[bears.id].zone == "p1:battlefield"
     check(s)
@@ -50,6 +50,6 @@ def test_declining_draws_nothing(cards):
     to_phase(s, "declare_attackers", 3)
     hand = len(s.state.zones["p1:hand"])
     attack(s, (bears, "p2"))
-    answer(s, [])
+    answer(s, "decline")
     assert s.state.cards[forest.id].zone == "p1:battlefield" and len(s.state.zones["p1:hand"]) == hand
     check(s)
