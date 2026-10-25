@@ -1215,6 +1215,8 @@ def create_token(plan: Plan, ctx: Context, e: dict[str, Any], *, then: dict[str,
         from app.rules import this_way
 
         each = this_way.by_controller(plan, ctx, e["per_controller"])
+    if e.get("per_player"):  # -- if you do (wave 100B) -- "each player creates a number of … equal to the amount of mana they paid this way" (Liege of the Hollows)
+        each = {p: int(n) for p, n in e["per_player"].items()}
     # -- triggers (wave 5D) -- "create a 3/3 … token with deathtouch and a 3/3 … token with lifelink" (Wurmcoil Engine):
     # one instruction, so one batch of tokens entering together (701.7a, 603.2c)
     creation_atoms: list[str] | None = [] if each is not None else None
