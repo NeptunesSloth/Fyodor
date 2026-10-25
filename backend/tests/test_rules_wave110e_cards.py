@@ -64,6 +64,11 @@ EXTRA = [
          "Flying, trample\nBasic landcycling {2} ({2}, Discard this card: Search your library for a basic land card, reveal it, put it into your hand, then shuffle.)\n"
          "Escape—{4}{G}{U}, Exile a land you control, Exile five other cards from your graveyard. (You may cast this card from your graveyard for its escape cost.)",
          ("6", "6"), "GU"),
+    real("Nettling Imp", "{2}{B}", 3, "Creature — Imp",
+         "{T}: Choose target non-Wall creature the active player has controlled continuously since the beginning of the turn. That creature attacks this turn if able. Destroy it at the beginning of the next end step if it didn't attack this turn. Activate only during an opponent's turn, before attackers are declared.", ("1", "1"), "B"),
+    real("Norritt", "{3}{B}", 4, "Creature — Imp",
+         "{T}: Untap target blue creature.\n{T}: Choose target non-Wall creature the active player has controlled continuously since the beginning of the turn. That creature attacks this turn if able. Destroy it at the beginning of the next end step if it didn't attack this turn. Activate only before attackers are declared.", ("1", "1"), "B"),
+    real("Wall of Test", "{1}", 1, "Creature — Wall", "Defender", ("0", "4"), ""),
     real("Covenant of Minds", "{4}{U}", 5, "Sorcery",
          "Reveal the top three cards of your library. Target opponent may choose to put those cards into your hand. If they don't, put those cards into your graveyard and draw five cards.",
          None, "U"),
@@ -665,4 +670,105 @@ def test_lunar_hatchling_escape_also_exiles_a_land_you_control(cards, has_land):
     answer(s)
     assert s.state.cards[hatchling.id].zone == "p1:battlefield"
     assert len(s.state.zones["p1:exile"]) == 6 and sum(1 for x in s.state.cards.values() if x.zone == "p1:battlefield" and x.name == "Forest") == 0
+    check(s)
+
+
+def _imp_table(cards, imp, mine=()):
+    """The imp is under Alice's control since turn 1; Bob's Bears and Wall are on the battlefield at turn 3 (so they have been Bob's since turn 4 began)."""
+    from tests.test_rules_wave30m_durations import to_phase
+
+    s = build(cards, [imp, *mine], ["Grizzly Bears", "Wall of Test"], forests=30, islands=30)
+    i = put(s, imp)
+    to_phase(s, "main1", turn=3)
+    return s, i, put(s, "Grizzly Bears", "p2"), put(s, "Wall of Test", "p2")
+
+
+def _bobs_beginning_of_combat(s):
+    from tests.test_rules_wave30m_durations import stops, to_phase
+
+    stops(s, "begin_combat")
+    to_phase(s, "begin_combat", turn=4)
+    for _ in range(3):
+        if s.state.rules.priority == "p1":
+            return
+        act(s, s.state.rules.priority, type="pass_priority")
+
+
+def _to_phase_stop(s, phase, turn):
+    from tests.test_rules_conditionals import until
+
+    if phase == "declare_attackers":  # (stop at the question itself: the helper would answer it with no attackers)
+        for _ in range(40):
+            d = s.state.rules.decision
+            if d is not None and d.kind == "declare_attackers":
+                return
+            act(s, s.state.rules.priority, type="pass_priority")
+        raise AssertionError("no attackers were asked for")
+    until(s, lambda s: s.state.turn.number == turn and s.state.turn.phase == phase and s.state.rules.decision is None)
+
+
+@pytest.mark.parametrize("attacks", [True, False])
+def test_nettling_imp_forces_the_attack_and_destroys_the_creature_that_did_not(cards, attacks):
+    """508.1/603.7: the target must attack if able; the end-step trigger destroys it only if it didn't attack (a tapped creature is unable)."""
+    from app.game.errors import ActionError
+    from tests.test_rules_conditionals import settle
+
+    s, imp, bears, wall = _imp_table(cards, "Nettling Imp")
+    _bobs_beginning_of_combat(s)
+    act(s, "p1", type="activate_ability", card_id=imp.id, ability=0, targets=[bears.id])
+    settle(s)
+    if attacks:
+        _to_phase_stop(s, "declare_attackers", 4)
+        with pytest.raises(ActionError):
+            act(s, "p2", type="declare_attackers", attackers=[])
+        act(s, "p2", type="declare_attackers", attackers=[{"card_id": bears.id, "target": "p1"}])
+    else:
+        act(s, "p2", type="tap", card_ids=[bears.id])
+    _to_phase_stop(s, "cleanup" if False else "end", 4)
+    settle(s)
+    assert (s.state.cards[bears.id].zone == "p2:battlefield") == attacks
+    assert s.state.cards[wall.id].zone == "p2:battlefield"
+    check(s)
+
+
+def test_nettling_imp_targets_only_non_walls_the_active_player_controlled_since_the_turn_began(cards):
+    """Wall: not a legal target; a creature that entered this turn: not legal; the imp's own side (not the active player): not legal; own turn: not activatable."""
+    from app.game.errors import ActionError
+    from tests.test_rules_wave30m_durations import to_phase
+
+    s, imp, bears, wall = _imp_table(cards, "Nettling Imp", ["Grizzly Bears"])
+    mine = put(s, "Grizzly Bears")
+    _bobs_beginning_of_combat(s)
+    fresh = card_named(s, "Grizzly Bears", "p2")
+    for bad in (wall, mine):
+        with pytest.raises(ActionError):
+            act(s, "p1", type="activate_ability", card_id=imp.id, ability=0, targets=[bad.id])
+    assert fresh.id == bears.id
+    to_phase(s, "main1", turn=5)
+    with pytest.raises(ActionError):
+        act(s, "p1", type="activate_ability", card_id=imp.id, ability=0, targets=[mine.id])  # (it is Alice's own turn)
+
+
+@pytest.mark.parametrize("attacks", [True, False])
+def test_norritt_works_on_your_own_turn_too(cards, attacks):
+    """Norritt has no "during an opponent's turn": the active player may be its controller. Same attack requirement and end-step destroy."""
+    from tests.test_rules_conditionals import settle
+    from tests.test_rules_wave30m_durations import to_phase
+
+    s = build(cards, ["Norritt", "Grizzly Bears"], forests=30, islands=30)
+    n, bears = put(s, "Norritt"), put(s, "Grizzly Bears")
+    from tests.test_rules_wave30m_durations import stops
+
+    stops(s, "end")
+    to_phase(s, "main1", turn=3)
+    act(s, "p1", type="activate_ability", card_id=n.id, ability=1, targets=[bears.id])
+    settle(s)
+    if attacks:
+        _to_phase_stop(s, "declare_attackers", 3)
+        act(s, "p1", type="declare_attackers", attackers=[{"card_id": bears.id, "target": "p2"}])
+    else:
+        act(s, "p1", type="tap", card_ids=[bears.id])
+    _to_phase_stop(s, "end", 3)
+    settle(s)
+    assert (s.state.cards[bears.id].zone == "p1:battlefield") == attacks
     check(s)

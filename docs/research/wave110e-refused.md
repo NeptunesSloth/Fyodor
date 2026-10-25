@@ -9,3 +9,6 @@
 - Piracy: tapping lands you don't control for mana (no foundation). Grip of Amnesia: "exile all cards from graveyard" has no unless-cost form.
 - Sanctuary Blade: attach-time color choice would need the equip/attach path to pause for a decision (attachments.attach is synchronous); "last chosen" memory not built.
 - Archangel of Strife: per-player war/peace entering choice plus a selector over "players who chose X" not built (one card).
+- Maddening Imp, Oracle en-Vec: "each of those creatures that didn't attack" needs the set fixed at resolution (611.2c) and kept for the end-step trigger; no such record yet.
+- Uphill Battle: "played" (cast / land play) is not "enters under your opponents' control": tokens and reanimated creatures enter untapped; needs an entered-via-cast fact on the entry plan.
+- Necratog: cost "exile the top creature card of your graveyard" is no choice (the most recent one); the cost picker would let the player choose any creature card.

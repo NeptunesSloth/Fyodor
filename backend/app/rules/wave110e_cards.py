@@ -103,6 +103,10 @@ def definition(ability: Any, ch: Any) -> Def | None:
     from app.rules import scripts
 
     text = ability.text.strip()
+    from app.rules import wave110e_imps
+
+    if (imp := wave110e_imps.definition(ability, ch)) is not None:  # Nettling Imp, Norritt
+        return imp
     if text == _CORRUPTED_FB:  # 702.34a: the card's own conditional flashback, read by graveyard_grants.flashback_costs while it is in a graveyard
         from app.rules import conditions
 
