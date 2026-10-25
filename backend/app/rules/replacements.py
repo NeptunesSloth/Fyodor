@@ -1411,7 +1411,7 @@ def move_instead(plan: Plan, cid: str, outcome: str | Cand, actor: str | None, *
         return
     card = plan.state.cards[cid]
     owner = card.owner
-    if outcome in ("exile", "battlefield"):  # (review 23D: battlefield, a discard's "put it onto the battlefield instead")
+    if outcome in ("exile", "battlefield", "command"):  # (review 23D: battlefield, a discard's "put it onto the battlefield instead"; wave 100L: 717.6)
         plan.do({"type": "move", "card_ids": [cid], "to": {"player": owner, "zone": outcome}}, actor=actor)
         return
     where = outcome.split(":", 1)[1]

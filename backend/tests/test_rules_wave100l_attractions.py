@@ -219,6 +219,21 @@ def test_a_destroyed_attraction_goes_to_its_owners_junkyard(cards):
     check(s)
 
 
+def test_rest_in_peace_or_the_junkyard_its_owner_chooses(cards):
+    s = game(cards, ["Draconian Gate-Bot", "Rest in Peace"], their_attractions=["Kiddie Coaster"])
+    coaster = put(s, "Kiddie Coaster", "p2")
+    put(s, "Rest in Peace")
+    to_hand(s, "Draconian Gate-Bot")
+    mana(s, C=5)
+    cast(s, "Draconian Gate-Bot")
+    seen = play(s, want=("Destroy", coaster.id, "717.6"))
+    # 616.1: two replacements with different results (exile, the command zone): the affected object's controller chooses
+    asked = [options for _, prompt, options in seen if "Rest in Peace: Exile it" in {label for _, label in options}]
+    assert len(asked) == 1 and {o for o, _ in asked[0]} == {"exile", "command"} and s.state.cards[coaster.id].owner == "p2"
+    assert zone(s, "Kiddie Coaster", "p2") == "p2:command"
+    check(s)
+
+
 def bears(s, pid, n):
     from tests.test_rules_conditionals import creature
 
@@ -229,7 +244,9 @@ def bears(s, pid, n):
 @pytest.mark.parametrize("die", [6, 5])
 def test_line_cutter_rolls_and_the_pass_holder_comes_back_on_a_six(cards, monkeypatch, die):
     rolls(monkeypatch, die)
-    s = game(cards, ["Line Cutter", '"Lifetime" Pass Holder', "Lightning Bolt"], ["Information Booth", "Clown Extruder"])
+    s = game(cards, ["Line Cutter", '"Lifetime" Pass Holder', "Lightning Bolt"], ["Information Booth", "Clown Extruder"],
+             their_attractions=["Clown Extruder"])
+    put(s, "Clown Extruder", "p2")  # (Bob's: not visited by Alice's roll)
     holder = put(s, '"Lifetime" Pass Holder')
     to_hand(s, "Lightning Bolt")
     mana(s, R=1)
@@ -242,7 +259,7 @@ def test_line_cutter_rolls_and_the_pass_holder_comes_back_on_a_six(cards, monkey
     play(s, want=("yes",))
     back = s.state.cards[holder.id]
     assert (back.zone, back.tapped) == (("p1:battlefield", True) if die == 6 else ("p1:graveyard", False))  # (it enters tapped)
-    assert sum(1 for c in s.state.cards.values() if c.name == "Clown Robot") == 1  # 204d: 5 and 6 are lit
+    assert [c.controller for c in s.state.cards.values() if c.name == "Clown Robot"] == ["p1"]  # 204d: 5 and 6 are lit
     check(s)
 
 
