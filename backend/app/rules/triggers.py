@@ -2295,7 +2295,8 @@ def _cumulative_upkeep(plan: Plan) -> None:
                                   [{"do": "repeat", "n": age, "span": len(cost)}, *cost], sacrifice)
             _add(plan, controller=card.controller, source_card=card.id, source_object=plan.oid(card), name=ch.name,
                  index=5100 + k, definition={"kind": "triggered", "trigger": "upkeep_you", "optional": False, "target": None,
-                                             "effects": [{"do": "add_counters", "who": "self", "kind": "age", "n": 1}, *pay]})
+                                             "effects": [{"do": "add_counters", "who": "self", "kind": "age", "n": 1}, *pay,
+                                                         {"do": "paid_cumulative110j"}]})  # -- cumulative upkeep paid (wave 110J) --
 
 
 def _rebound(plan: Plan) -> None:

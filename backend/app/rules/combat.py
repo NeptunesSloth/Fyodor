@@ -553,6 +553,12 @@ def _finish_attackers(plan: Plan, payload: PaidAttackers, payment: M.Payment | N
         note_attack(plan.state, plan.actor,  # (wave 4D: the attacking objects)
                     [plan.oid(plan.state.cards[x.card_id]) for x in a.attackers],  # 508.1: "if you attacked this turn" (conditional clauses, wave 1B)
                     [x.target for x in a.attackers])
+        from app.rules import (
+            wave110j_cards,  # -- battles (wave 110J) -- "attacked a battle this turn" (War Historian)
+        )
+
+        wave110j_cards.note_battle_attacks(plan, a.attackers)
+        wave110j_cards.note_engaged(plan, [x.card_id for x in a.attackers])
         # -- static wordings (wave 6E) -- 508.1g / 701.43d: "You may exert this creature as it attacks" (app/rules/exert.py)
         from app.rules import exert
 
@@ -936,8 +942,12 @@ def _finish_blockers(plan: Plan, frame: PaidBlockers, payment: M.Payment | None)
     note_block(plan.state, [plan.oid(plan.state.cards[b]) for b in dict.fromkeys(x.blocker_id for x in blocks)],  # (wave 27A)
                [(plan.oid(plan.state.cards[x.blocker_id]), plan.oid(plan.state.cards[x.attacker_id])) for x in blocks])  # (wave 31D)
     if blocks:
-        from app.rules import triggers  # triggers → plan; imported late
+        from app.rules import (
+            triggers,  # triggers → plan; imported late
+            wave110j_cards,  # -- (wave 110J) -- blocked or was blocked, for "since your last upkeep"
+        )
 
+        wave110j_cards.note_engaged(plan, [x for d in blocks for x in (d.blocker_id, d.attacker_id)])
         triggers.blocked(plan, [plan.state.cards[d.blocker_id] for d in blocks],
                          [plan.state.cards[aid] for aid in per_attacker])
         triggers.flanking(plan, [(plan.state.cards[d.blocker_id], plan.state.cards[d.attacker_id]) for d in blocks])

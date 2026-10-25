@@ -373,6 +373,7 @@ MASTER_CHEF = ('Commander creatures you own have "This creature enters with an a
 
 
 DOG_UMBRA = "As long as another player controls enchanted creature, it can't attack or block. Otherwise, this Aura has umbra armor."
+EARTHBIND = "When this Aura enters, if enchanted creature has flying, this Aura deals 2 damage to that creature and this Aura gains \"Enchanted creature loses flying.\""
 
 
 def parse_abilities(oracle_text: str | None, *, spell: bool = False, pt: tuple[str | None, str | None] = (None, None)) -> list[AbilityText]:
@@ -412,6 +413,10 @@ def parse_abilities(oracle_text: str | None, *, spell: bool = False, pt: tuple[s
         if line == DOG_UMBRA:
             lines[i:i + 1] = ["As long as another player controls enchanted creature, it can't attack or block.",
                               "As long as you control enchanted creature, this Aura has umbra armor."]
+    # -- (wave 110J) -- Earthbind: "…and this Aura gains "Enchanted creature loses flying."" is the trigger plus a static that applies once it was gained
+    for i, line in enumerate(lines):
+        if line == EARTHBIND:
+            lines[i:i + 1] = [line, "As long as this Aura gained that ability, enchanted creature loses flying."]
     # -- keywords (wave 50H) -- 207.2d: a flavor word before an equip cost ("Machina — Equip {4}", Final Fantasy equipment) has no rules meaning
     for i, line in enumerate(lines):
         if not spell and " — Equip" in line and (w := word_prefix(line)) is not None and w[1].startswith("Equip") and _keywords_line(w[1]) == ("equip",):

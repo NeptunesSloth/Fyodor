@@ -6,29 +6,38 @@
 * 508.1, 603.2: Mob Mentality triggers only when every non-Wall creature its controller has is attacking (a Wall may stay home); +X/+0 counts the attackers.
 * 502.3, 611.2a: Mindbender Spores puts four fungus counters on the creature it blocks, which then stays tapped through its controller's untap step
   while it has one, and loses one at each of its controller's upkeeps.
+* 608.2c, 115.1: Cannibalize targets two creatures of one player; its caster picks which is exiled, the other gets two +1/+1 counters.
+* 613.1e-f: Ray of Frost removes all abilities only while the enchanted creature is red.
+* 303.4f, 704.3: Kudzu / Steam Vines destroy the land when it becomes tapped; its controller may then move the Aura to any land.
+* 702.24a, 603.2: Hibernation's End triggers each time its cumulative upkeep is paid, not when it is sacrificed.
 """
 
 from __future__ import annotations
 
 import pytest
 
+from app.game.errors import ActionError
 from tests.game_helpers import act
 from tests.wave9c_kit import build
 from tests.wave110b_kit import attack, through_combat
 from tests.wave110j_kit import (  # noqa: F401
     EXTRA,
+    ability,
     activate,
     card_db,
     cast_on,
     ch,
     check,
+    cost,
     full,
     mana,
     move,
     now,
     put,
     put_new,
+    refused,
     settle,
+    to_hand,
     to_phase,
 )
 
@@ -210,4 +219,270 @@ def test_silumgar_scavenger_gets_haste_only_for_the_creature_it_exploited(cards)
     assert "haste" not in ch(s, scavenger).keywords
     cast_on(s, "Lightning Bolt", other)
     assert now(s, scavenger).counters == {"+1/+1": 2} and "haste" not in ch(s, scavenger).keywords
+    check(s)
+
+
+@pytest.mark.parametrize("name", ["Cannibalize", "Ray of Frost", "Kudzu", "Steam Vines", "Hibernation's End"])
+def test_wave_two_cards_are_full(name):
+    assert full(name)
+
+
+def test_cannibalize_caster_exiles_one_and_the_other_grows(cards):
+    s = build(cards, ["Cannibalize", "Grizzly Bears", "Llanowar Elves"], ["Grizzly Bears", "Llanowar Elves"])
+    a, b = put_new(s, "Grizzly Bears", "p2"), put_new(s, "Llanowar Elves", "p2")
+    mana(s, B=1, C=1)
+    c = to_hand(s, "Cannibalize")
+    act(s, "p1", type="cast_spell", card_id=c.id, targets=[a.id, b.id], target_counts=[2])
+    d = s.state.rules.decision
+    assert d is not None and d.player == "p1"  # the caster chooses (608.2c)
+    settle(s, answers=[[a.id]])
+    assert now(s, a).zone.endswith(":exile") and now(s, b).counters == {"+1/+1": 2}
+    check(s)
+
+
+def test_cannibalize_refuses_creatures_of_two_players(cards):
+    s = build(cards, ["Cannibalize", "Grizzly Bears"], ["Grizzly Bears"])
+    a, b = put_new(s, "Grizzly Bears", "p1"), put_new(s, "Grizzly Bears", "p2")
+    mana(s, B=1, C=1)
+    c = to_hand(s, "Cannibalize")
+    with pytest.raises(ActionError):
+        act(s, "p1", type="cast_spell", card_id=c.id, targets=[a.id, b.id], target_counts=[2])
+
+
+@pytest.mark.parametrize(("who", "bare"), [("Mogg Fanatic", True), ("Llanowar Elves", False)])
+def test_ray_of_frost_only_strips_red_creatures(cards, who, bare):
+    s = build(cards, ["Ray of Frost", "Mogg Fanatic", "Llanowar Elves"])
+    c = put_new(s, who)
+    before = len(ch(s, c).abilities)
+    cast_on(s, "Ray of Frost", c)
+    assert (len(ch(s, c).abilities) == 0) is (bare and before > 0) and (bare or len(ch(s, c).abilities) == before)
+    check(s)
+
+
+@pytest.mark.parametrize("aura", ["Kudzu", "Steam Vines"])
+def test_land_aura_destroys_the_tapped_land_and_moves_to_a_land_of_its_controllers_choice(cards, aura):
+    s = build(cards, [aura, "Forest", "Mountain"], ["Forest"])
+    forest, mountain = put_new(s, "Forest"), put_new(s, "Mountain")
+    cast_on(s, aura, forest)
+    hp = s.state.players["p1"].life
+    act(s, "p1", type="activate_ability", card_id=forest.id, ability=ability(s, forest, "{T}"))
+    for _ in range(10):
+        if s.state.rules.decision is not None:
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+    d = s.state.rules.decision
+    assert d is not None and d.player == "p1" and mountain.id in {o.id for o in d.options}
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[mountain.id])
+    settle(s)
+    assert now(s, forest).zone.endswith(":graveyard")
+    aura_card = next(c for c in s.state.cards.values() if c.name == aura)
+    assert aura_card.attached_to == mountain.id
+    assert s.state.players["p1"].life == hp - (1 if aura == "Steam Vines" else 0)
+    check(s)
+
+
+def test_hibernations_end_searches_each_time_the_upkeep_is_paid_but_not_when_sacrificed(cards):
+    s = build(cards, ["Hibernation's End", "Llanowar Elves", "Forest", "Forest"])
+    end = put(s, "Hibernation's End")
+    put_new(s, "Forest")
+    for _ in range(300):
+        d = s.state.rules.decision
+        if d is not None and d.kind == "choose_one" and (d.resume or {}).get("step") == "pay_or_sacrifice":
+            break
+        if d is not None and d.kind in ("declare_attackers", "declare_blockers"):
+            act(s, d.player, type=d.kind, **({"attackers": []} if d.kind == "declare_attackers" else {"blocks": []}))
+        elif d is not None:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: max(1, d.min_choices)])
+        else:
+            act(s, s.state.rules.priority, type="pass_priority")
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=["pay"])
+    settle(s)  # the may-search: the first option is "yes"
+    assert now(s, end).counters == {"age": 1}
+    elves = [c for c in s.state.cards.values() if c.name == "Llanowar Elves"]
+    assert elves[0].zone.endswith(":battlefield")
+    check(s)
+
+
+def test_rumbling_ruin_is_full():
+    assert full("Rumbling Ruin")
+
+
+@pytest.mark.parametrize("counters", [0, 2, 3])
+def test_rumbling_ruin_stops_blockers_with_power_up_to_the_counters_counted(cards, counters):
+    """611.2c: the count is made as the trigger resolves; creatures with power at most that number can't block this turn."""
+    s = build(cards, ["Rumbling Ruin", "Llanowar Elves"], ["Mogg Fanatic", "Templar Knight"])
+    mine = put_new(s, "Llanowar Elves")
+    small, big = put_new(s, "Mogg Fanatic", "p2"), put_new(s, "Templar Knight", "p2")
+    sp, bp = int(ch(s, small).pt[0]), int(ch(s, big).pt[0])
+    assert sp < bp
+    if counters:
+        act(s, "p1", type="set_counter", card_id=mine.id, kind="+1/+1", value=counters)
+    cast_on(s, "Rumbling Ruin")
+    settle(s)
+    stopped = {c.id for c in (small, big) if int(ch(s, c).pt[0]) <= counters}
+    assert {c.id for c in (small, big) if "cant_block" in ch(s, c).imposed} == stopped
+    check(s)
+
+
+def test_kongmings_contraptions_is_full():
+    assert full("Kongming's Contraptions")
+
+
+@pytest.mark.parametrize("attacked", [True, False])
+def test_kongmings_contraptions_only_when_attacked_in_the_declare_attackers_step(cards, attacked):
+    """506.3, 602.5b: only in the declare attackers step and only while creatures attack its controller."""
+    s = build(cards, ["Templar Knight", "Kongming's Contraptions"], ["Kongming's Contraptions"])
+    knight = put_new(s, "Templar Knight")
+    kong = put_new(s, "Kongming's Contraptions", "p2" if attacked else "p1")
+    to_phase(s, "main1", turn=3)  # (past each controller's first turn: no summoning sickness for the {T} cost)
+    act(s, "p2", type="set_stops", own=[], others=["declare_attackers"], smart_pass=False)
+    act(s, "p1", type="set_stops", own=["declare_attackers"], others=[], smart_pass=False)
+    act(s, "p1", type="pass_priority")
+    while s.state.rules.decision is None:
+        act(s, s.state.rules.priority, type="pass_priority")
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": knight.id, "target": "p2"}])
+    assert s.state.turn.phase == "declare_attackers"
+    if attacked:
+        act(s, "p1", type="pass_priority")
+        activate(s, kong, "{T}:", pid="p2", targets=[knight.id])
+        assert now(s, knight).zone.endswith(":graveyard")  # (2 damage kills the 2/2)
+        check(s)
+    else:
+        refused(s, "attack", kong, "{T}:", targets=[knight.id])
+
+
+def test_earthbind_is_full():
+    assert full("Earthbind")
+
+
+@pytest.mark.parametrize("flier", [True, False])
+def test_earthbind_hurts_and_grounds_only_a_flier(cards, flier):
+    """611.3a, 400.7: the Aura deals 2 damage to a flying creature and gains the ability; a ground creature is left alone."""
+    name = "Serra Angel" if flier else "Templar Knight"
+    s = build(cards, ["Earthbind", name])
+    c = put_new(s, name)
+    assert ("flying" in ch(s, c).keywords) is flier
+    aura = cast_on(s, "Earthbind", c)
+    assert (now(s, c).damage == 2) is flier and "flying" not in ch(s, c).keywords
+    assert aura.zone.endswith(":battlefield")
+    check(s)
+
+
+def test_splintering_wind_is_full():
+    assert full("Splintering Wind")
+
+
+def test_splintering_wind_token_deals_damage_to_you_and_your_creatures_when_it_leaves(cards):
+    """603.7, 608.2h: when the Splinter leaves, it deals 1 damage to its creator and each creature they control; the 1 damage to the target came first."""
+    s = build(cards, ["Splintering Wind", "Llanowar Elves", "Lightning Bolt"], ["Llanowar Elves"])
+    wind, mine, theirs = put_new(s, "Splintering Wind"), put_new(s, "Llanowar Elves"), put_new(s, "Llanowar Elves", "p2")
+    mana(s, "p1", G=3)
+    activate(s, wind, "{2}{G}", targets=[theirs.id])
+    assert now(s, theirs).zone.endswith(":graveyard")
+    token = next(c for c in s.state.cards.values() if c.name == "Splinter" and c.zone.endswith(":battlefield"))
+    assert {"flying"} <= ch(s, token).keywords
+    life = s.state.players["p1"].life
+    cast_on(s, "Lightning Bolt", token)
+    assert s.state.players["p1"].life == life - 1 and now(s, mine).zone.endswith(":graveyard")
+    check(s)
+
+
+def test_shimatsu_is_full():
+    assert full("Shimatsu the Bloodcloaked")
+
+
+@pytest.mark.parametrize("n", [0, 1, 2])
+def test_shimatsu_sacrifices_any_number_of_permanents_for_that_many_counters(cards, n):
+    """614.1c, 702.82a-style entry choice: as Shimatsu enters, sacrifice any number of permanents (zero allowed, lands too); one +1/+1 counter each."""
+    s = build(cards, ["Shimatsu the Bloodcloaked", "Grizzly Bears", "Forest"])
+    bears, forest = put_new(s, "Grizzly Bears"), put_new(s, "Forest")
+    picks = [bears.id, forest.id][:n]
+    c = to_hand(s, "Shimatsu the Bloodcloaked")
+    mana(s, "p1", **cost("Shimatsu the Bloodcloaked"))
+    act(s, "p1", type="cast_spell", card_id=c.id)
+    settle(s, answers=[*picks, "done"])
+    assert now(s, c).zone.endswith(":battlefield" if n else ":graveyard")  # (0/0 with no counters: 704.5f)
+    assert now(s, c).counters.get("+1/+1", 0) == n or not n
+    assert [now(s, x).zone.endswith(":graveyard") for x in (bears, forest)] == [i < n for i in range(2)]
+    check(s)
+
+
+def test_razor_boomerang_is_full():
+    assert full("Razor Boomerang")
+
+
+def test_razor_boomerang_unattaches_pings_and_returns_to_its_owners_hand(cards):
+    """602.2, 701.3b, 120.3: the equipped creature taps and the Equipment is unattached as a cost; the Equipment (the source) deals 1 damage, then goes to hand."""
+    s = build(cards, ["Razor Boomerang", "Grizzly Bears"])
+    bears, rb = put_new(s, "Grizzly Bears"), put_new(s, "Razor Boomerang")
+    ready(s, bears)
+    mana(s, "p1", C=2)
+    activate(s, rb, "Equip {2}", targets=[bears.id])
+    assert now(s, rb).attached_to == bears.id
+    before = s.state.players["p2"].life
+    activate(s, bears, "{T}, Unattach", targets=["p2"])
+    assert s.state.players["p2"].life == before - 1 and now(s, bears).tapped
+    assert now(s, rb).zone == "p1:hand"
+    check(s)
+
+
+def test_war_historian_is_full():
+    assert full("War Historian")
+
+
+@pytest.mark.parametrize("battle", [True, False])
+def test_war_historian_is_indestructible_only_once_it_attacked_a_battle(cards, battle):
+    """310.5, 508.1, 611.3a: indestructible for the turn once it was declared as an attacker against a battle; not when it attacked a player."""
+    from tests.test_rules_review34_head import SIEGE, bobs_attack, drive, seasoned
+
+    s = build(cards, [], [SIEGE, "War Historian"])
+    hist, siege = put(s, "War Historian", "p2"), put(s, SIEGE, "p2")
+    act(s, "p2", type="counter", card_ids=[siege.id], kind="defense", delta=4)
+    drive(s, lambda d: "p1" if "p1" in [o.id for o in d.options] else None)
+    seasoned(s, hist)
+    assert "indestructible" not in ch(s, hist).keywords
+    bobs_attack(s, [(hist, siege.id if battle else "p1")])
+    drive(s)
+    assert ("indestructible" in ch(s, hist).keywords) is battle
+    check(s)
+
+
+def test_wiitigo_cards_are_full():
+    assert full("Wiitigo") and full("Shape of the Wiitigo")
+
+
+def _block_scenario(cards, host_name, how):
+    """Bob's Bears attack Alice on turn 2; Alice's creature blocks it (or not, or Bob doesn't attack); returns the state, the creature."""
+    s = build(cards, [host_name, "Shape of the Wiitigo", "Wall of Stone"], ["Grizzly Bears"])
+    host = put_new(s, host_name if host_name != "Shape of the Wiitigo" else "Wall of Stone")
+    act(s, "p1", type="counter", card_ids=[host.id], kind="+1/+1", delta=3)
+    if host_name == "Shape of the Wiitigo":
+        mana(s, "p1", G=1, C=1)
+        cast_on(s, "Shape of the Wiitigo", host)
+    bears = put_new(s, "Grizzly Bears", "p2")
+    to_phase(s, "main1", turn=2)
+    if how != "none":
+        ready(s, bears)
+        while s.state.rules.decision is None:
+            act(s, s.state.rules.priority, type="pass_priority")
+        act(s, "p2", type="declare_attackers", attackers=[{"card_id": bears.id, "target": "p1"}])
+        while (d := s.state.rules.decision) is None or d.kind != "declare_blockers":
+            act(s, s.state.rules.priority, type="pass_priority")
+        blocks = [{"blocker_id": host.id, "attacker_id": bears.id}] if how == "block" else []
+        act(s, "p1", type="declare_blockers", blocks=blocks)
+    return s, host
+
+
+@pytest.mark.parametrize("host_name", ["Wiitigo", "Shape of the Wiitigo"])
+@pytest.mark.parametrize(("how", "delta"), [("block", 1), ("unblocked", -1), ("none", -1)])
+def test_wiitigo_counts_from_the_last_upkeep(cards, host_name, how, delta):
+    """503.1, 509.1g: +1/+1 counter at your upkeep if it blocked or was blocked (attacked or blocked: the Aura) since your last upkeep, else it loses one."""
+    s, host = _block_scenario(cards, host_name, how)
+    counters = now(s, host).counters["+1/+1"] + delta  # (Shape of the Wiitigo puts six on it as it enters)
+    to_phase(s, "upkeep", turn=3)
+    settle(s)
+    assert now(s, host).counters.get("+1/+1") == counters
+    to_phase(s, "upkeep", turn=5)  # (nothing happened since the turn-3 upkeep: it shrinks by one)
+    settle(s)
+    assert now(s, host).counters.get("+1/+1") == counters - 1
     check(s)

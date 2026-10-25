@@ -14,8 +14,7 @@ import pytest
 from app.rules import coverage
 from tests.fixtures.cards import card
 from tests.game_helpers import act
-from tests.test_rules_wave34b_activated import activate, to_phase
-from tests.test_rules_wave34b_activated import attach
+from tests.test_rules_wave34b_activated import activate, attach, to_phase
 from tests.wave9c_kit import check, life, mana, put, to_hand
 from tests.wave52a_kit import build_n
 from tests.wave110a_kit import next_turn

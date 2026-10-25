@@ -10,7 +10,7 @@ import pytest
 from app.rules import coverage
 from tests.fixtures.cards import card
 from tests.game_helpers import act
-from tests.wave110c_kit import answer, build, ch, check, make_db, mana, put, real, to_graveyard
+from tests.wave110c_kit import answer, build, ch, check, make_db, mana, put, to_graveyard
 
 NAME = "Tarrian's Journal // The Tomb of Aclazotz"
 DATA = json.loads((Path(__file__).parent / "fixtures" / "wave110c_journal_cards.json").read_text("utf-8"))  # real DB row, both faces

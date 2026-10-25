@@ -960,6 +960,11 @@ def _self_attacked(m: re.Match[str]) -> Condition:
     return {"not": found} if m["neg"] else found
 
 
+@_history_pattern(r"~ attacked a battle this turn")
+def _self_attacked_battle(m: re.Match[str]) -> Condition:
+    return {"history": "self_attacked_battle110j", "object": "self"}  # (wave 110J) 310.5: it was declared against a battle this turn
+
+
 @_history_pattern(r"~ (?:didn't|did not) enter the battlefield this turn")
 def _self_not_entered(m: re.Match[str]) -> Condition:
     return {"not": {"history": "entered_self", "object": "self"}}  # ("object": what "it" after it names, 608.2c)
