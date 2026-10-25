@@ -1158,5 +1158,375 @@
     "original_sha256": "6caebbc8f8f8453ec05479070d6917f4650dd03695155d0b9a3267ea0157702e",
     "archived_sha256": "eb07e8e56d44e9df870f81ac764e7f67ba0fea5edba596a9dde303968ae95831",
     "numstat_preserved": null
+  },
+  "docs/research/after-pr21-batch003-validation/native.log": {
+    "original_sha256": "4a7cb2333d52f0ba8c04063df7bde983d08cce9fc1e6fc1f568b6cfc2d8bf9cb",
+    "archived_sha256": "d08f0ae88abb5081f3bf6965e9e54b8614dcf17348cde95236a6d348ffe6137c",
+    "numstat_preserved": null
+  },
+  "docs/research/after-pr21-batch003-validation/related.log": {
+    "original_sha256": "78f6b62b927eee5677132a8137421f8605d4c248ae5d493af1df3b7255a43406",
+    "archived_sha256": "8e7ade610a9fd425a261c48b3821befafa347ede40d6788ac4834e1be8e19da4",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/after21-combat103/native-final-affected3.log": {
+    "original_sha256": "21edc28ddd5a1a4e0f4131a528e31884bc133005d0f7216e544877cd2c051795",
+    "archived_sha256": "74007ff69b711ee4222c29aa50e59d4f5b603d5f949a163bfad014fe47fab580",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/after21-combat103/native-first.log": {
+    "original_sha256": "aaff38bea398131901e1e98fdf218609f83a14e8375614a22a10c82a4ccccb92",
+    "archived_sha256": "0361b470bc11cdf3c9aa7f63ec3b69d249b10a13831b077bfdf3d3f478c68da2",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/after21-combat103/native-fourth.log": {
+    "original_sha256": "85fdecd6c92f32c8d1961edd51dcb071d452f4c78f13bd0b4d3a9e92550b5a36",
+    "archived_sha256": "bc6649b438d95000767eaa262d4f60575f76166338545956484384ae7132cfa0",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/after21-combat103/native-second.log": {
+    "original_sha256": "58147d96aeb8247c48ff029749d357c79f7cfb3c486bbd081af08781770e4f2f",
+    "archived_sha256": "cb65ce1374326e5ae53c15f7c96539e0ba10612f3e23fa71c3318e927c72dca4",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/after21-combat103/native-third-affected14.log": {
+    "original_sha256": "654f7b3dd2307f712ac83bbd277e4d3d49c22d1d7ce340278aee2bd3dabf5775",
+    "archived_sha256": "64d26b2cce1d1d14ef90c6ab26bd88f6510babd4faa53763c04f88127f3a79e5",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/after21-combat103/review.patch": {
+    "original_sha256": "1197968df3c22134c38bc967a9be0bdbfd196dbccaef60ef4f0a31c5835ba5c1",
+    "archived_sha256": "e1956d35454c6eef0b1a784c2d44d12861f30efa5dc21c3b4f25c3fae421d38b",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/after21-combat104/review.patch": {
+    "original_sha256": "f2e307b38ac1e7a45e22d81f6def779b30959ef47e556afea235ca00b6b51f8e",
+    "archived_sha256": "f1df3802c55bc377d3c78220ed232a3258f14512dde8508d092164ae304e8bd5",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/after21-combat105/native-first7.log": {
+    "original_sha256": "f34e758d5755ab52ac0064810f495e0604fc395a20023ff12501dbd2f62b36a3",
+    "archived_sha256": "6caf276fe4492793cb14d9d014d7508cd62d5c4a7566e73490fbd7beb112e0b9",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/after21-combat105/review.patch": {
+    "original_sha256": "fce95f7d3239773d699e11e33dece183c82dc2ec544eeea5e3ae7594b7a28545",
+    "archived_sha256": "2beb114f1321f1c9298d3c5810a474e4ed7f534c2cb5689d333d611f981b4425",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/after21-combat106/review.patch": {
+    "original_sha256": "9da8aef8bf508b7cdfe0bfb5bfcd26572ca7b558c3ecfe89c7e2eaedc7b5f45e",
+    "archived_sha256": "5da5e79996b197e2396d6d49d0032524cf103edfdb5d68e4fee525ee57f0862d",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/after21-costs102/before-final-modifier1.log": {
+    "original_sha256": "b5730c54b6988064b23b1dc8c3638408034d66acf0a08155aa2111a1bd18aede",
+    "archived_sha256": "c3cee759887d6c92879707c60010f30bcd590af0142766f937417198c79d0e0b",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/after21-costs102/final-restoration-and-ward.log": {
+    "original_sha256": "7034e1e4149714fcfb0c6e22c6f333d2ca73d274ec89af05db349b9a12c74065",
+    "archived_sha256": "12f27630efd459197ea8d6b2b1643d94f32091d5ffd6ed29f8a14e89c96005fc",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/after21-costs102/native-extra-and-related.log": {
+    "original_sha256": "c601aefd6f820586208fd64180d20672574345c2a54fe50128d65cb75e805b18",
+    "archived_sha256": "950acddd66bee39283fbbb40cbb4a782d9fd508ca30204c1c528a0692bb8d4ab",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/after21-costs102/native-final-bodies-and-ward.log": {
+    "original_sha256": "9a036ffc53da5f304af55ed709f471289f7b29d33898c31cd8d1d94b03f8c79c",
+    "archived_sha256": "23e85954f9fb7ee1a5584f1de243a5969bf96a7eb791d7274f9dc5f068266a3e",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/after21-costs102/review.patch": {
+    "original_sha256": "a60a1d108f1b2e32ea2e6a417286901c1478dcdc66ba416a9d25ebf11fba5980",
+    "archived_sha256": "ffb334dd8900cd316248d4ad6f2a44040d0bc1179b65a7471c1098101b26c5bb",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/after21-costs103/cold-and-related4.log": {
+    "original_sha256": "b6fc2a6d17b4421871a6f154545659ee908cc1c5de03d586ed4c7edb7408927a",
+    "archived_sha256": "46af848ed13a41f50ef047ede33edcc859e0364c168b92705f5f6b4d463d3303",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/after21-costs103/cold-copy-final3.log": {
+    "original_sha256": "2b6a4078039dfbb11d341892e0c482c41743fc22176ac7df6ebb7d898bed7443",
+    "archived_sha256": "62104d6efe560222b2a826614da0b96c4068daf123ef3fca5b83085675034d06",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/after21-costs103/copy-native2.log": {
+    "original_sha256": "718488c0820d4fe0363e33a7bb7bce09f8b98c659234072d3f7777273d6a9d1a",
+    "archived_sha256": "b88548464f4b3e8291e8b4a40c4a0ca94a2fc3e257ffdc491df8275ac41e7e82",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/after21-costs103/review.patch": {
+    "original_sha256": "595d904ebb042591562e68999f0696f8bfa7ac65485968355b8e3f08c695f10f",
+    "archived_sha256": "13de91fa774f20b0c318d8620a9aa656beb5e5c08b79de84285d90c532041f61",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/after21-costs104/native-first4.log": {
+    "original_sha256": "e8b7c8a0e8c41c7ab18ca4685862c1d5b7002ddd4568d03e36548d59dc81336f",
+    "archived_sha256": "745e98aa970d32df4a7a0c387444f90c61e5c226c950b0e14089f226e3b17e16",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/after21-costs104/review.patch": {
+    "original_sha256": "afc760b844f63651d93117b37a7d8d78e3e5257cb8625b5ea02ff38862f79796",
+    "archived_sha256": "815142421050eb0d906df6336b24eabb0406d2a88d93e0f22a7387500429661d",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/after21-costs105/native-first6.log": {
+    "original_sha256": "90ac9a50a093115a3fb831fcd285f7438f26b1df1519e1a117cf790ce396e238",
+    "archived_sha256": "e8852d4354ce503962a8d919baa9bc7501250b07151306d4944b26c0901dda44",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/after21-costs105/review.patch": {
+    "original_sha256": "c091cfb57233fd642186034edaa54fbb9265445adcc2c7d143db6e1cd2d91b4d",
+    "archived_sha256": "f224121222c6282663794da1d7698d398e2bacb5439e1bdb9fa18bcf032687fc",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/after21-costs106/native-first7.log": {
+    "original_sha256": "c3d0eb1f8e938933e304c1bd82af5b2d2f23e8de7e01a518daee259cec66fbd6",
+    "archived_sha256": "a79960f8f09116133e4e00a6b3bb902469e47bd8307f65d9446dbcefd316b86a",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/after21-costs106/review.patch": {
+    "original_sha256": "f26680549f3d77353014bdb31c1e6415e2872a413dd7c3a932c989999d40e3cb",
+    "archived_sha256": "0ee875e38ffc26ccf7aede87539d172bff1b3e7346b97485e143eb3246319d75",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/after21-costs107/review.patch": {
+    "original_sha256": "8bf64e85ce3baea4846927c2686fbbfad3b97173172ee7399909546096e7332e",
+    "archived_sha256": "0d08ba90ed92be4a17992e1f087010239dc6ea704bc7ae0da17ac5ebf0446aab",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/after21-library102/native-first13.log": {
+    "original_sha256": "210e470ff8c6b8f6745f1423008cf2d277d158f18cc1666ea41662ebb666b219",
+    "archived_sha256": "1c06dca4b31ec7b21b42bc4eac653689608597c4815bd0030b2ec421d7d4d22e",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/after21-library102/native-fixed12.log": {
+    "original_sha256": "96cd8b19bdc1533a652ca3b31e0ff9cea3bb255ddff39c0602090536c00cd254",
+    "archived_sha256": "dd00420a0ae085ed88b553bd8a1f40b12c37535c799a6c952979417ff779debc",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/after21-library102/review.patch": {
+    "original_sha256": "ac6610ccafbef2fce86ba4493a2d020dcdddece61176317ee69d8a070bf2565b",
+    "archived_sha256": "52344acb9f528714daba194cb4cdc8565ed167ee3eaeb81e6f8e0ac4c047c0d4",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/after21-library103/boundaries.log": {
+    "original_sha256": "7f5332d20f1f1d3943a352cfdb900fee06d41f8e189759a9db6d3ba006b42d27",
+    "archived_sha256": "60953915c6435c337b9269ff21a244d2176b7c5d8b2c6f8c3df8d97a6d88206c",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/after21-library103/fifth.log": {
+    "original_sha256": "bd3df91ae42d1aa03a2dd9e00caf3ca514a5041aa966b14af736e3a7c3d27aeb",
+    "archived_sha256": "36d1fb3c12f03fd793e55063c13636b108a6af3e2f1b4e2002614f11751754b6",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/after21-library103/fourth.log": {
+    "original_sha256": "a9b5b6c8e20bb4d78ab2288a236c6d9ce8fab0d2550d43a6780fe08cc0b939cd",
+    "archived_sha256": "83b6194ecf85519693ae8d3cd6e14722ddff84e1f538d70e4d3b5bd7f76df6a6",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/after21-library103/last5b.log": {
+    "original_sha256": "164247944122320d9feae22c4275c094d3afdf0f03dbc49068e47663469b8408",
+    "archived_sha256": "00f508bfc772168c3ea78859f36e0c0ae16eca51d7d05f96749cba222ff58e56",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/after21-library103/native-final19.log": {
+    "original_sha256": "f92999ca7ddf8d6be8c3fb2bdde52e4e00427406e33dd2531e891f01a493ee55",
+    "archived_sha256": "61e2378635c630df6edea14da6ddfd1c1703184016244acf31372536f551cef7",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/after21-library103/review.patch": {
+    "original_sha256": "63cb86537459e5077b2e5edc4d8c4e64b64b814386fb1ea835aaa7f355124b00",
+    "archived_sha256": "72b780ed6894f4ef68221a816b87ab16bc9066e60b0c08ea0ca0115d38679579",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/after21-library103/sixth.log": {
+    "original_sha256": "6b09b7587e8eb8c7fdb2653c11c10097523e29cd3f054ec643baff071625f4ee",
+    "archived_sha256": "90e019dde6fac97ba34f445a914523f216778761e4280ed00bf81193dd890dd3",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/after21-library103/third.log": {
+    "original_sha256": "4e2d7261adff4723359a127ff9d54790ad48a79ee611be50a380919a408dc21c",
+    "archived_sha256": "41eba6ceb85f41ce7d4913e56481e4b7f399de004f414d6818d114370a286893",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/after21-library104/first.log": {
+    "original_sha256": "bb53271e54b53d3416bc24302410ecfaa1c19b5a75d169e832d94ca2cdb852a0",
+    "archived_sha256": "9ec28457e116a2c115520e182f047c75c85f66dbc6d17b7d429b61c1c49dd517",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/after21-library104/related-baseline2.log": {
+    "original_sha256": "b724fa889adbb97582970bdc9934e4948aad462a2eb9941e432a3bb389fc2f79",
+    "archived_sha256": "086056ed9185e69e9941e7d7cbf9355f609989a4bb09162e3fa9720400248007",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/after21-library104/related.log": {
+    "original_sha256": "c1c3a82bdaae2b2aed38e2935180e4ad6769deaba0db9ca22c27e3cc9d136b15",
+    "archived_sha256": "c4faf6fd6cabd0c5507042ca8a9afc8224ae24ade49ec5ea8ef3c91e421d4373",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/after21-library104/review.patch": {
+    "original_sha256": "02fce75fc048a8ab09fcac82a33e3de7e764c78db6ab58650aceb70588098b21",
+    "archived_sha256": "dfae895596011d1044c7a4e5bb36ad2953b99a832aa83d07b18a0a9f2b70c8eb",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/after21-statics101/implementation.patch": {
+    "original_sha256": "47a3f6afe7fd132b33c1f9049a655c44d9750cb5fa3317248ee7811f186abcbf",
+    "archived_sha256": "7490c86daf554f4c88070b3b54e2328586383b4aea02654a2fb5219141f2d373",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/after21-statics101/logs/frontend-types-fixed.log": {
+    "original_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "archived_sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/after21-statics101/logs/native-boundaries3-fixed.log": {
+    "original_sha256": "9fa2ce42cac5232ed1db793942ec7ad81dda10425451f7373acacd089b8c5176",
+    "archived_sha256": "87f898683d408672351a94aefde531d4b9bd3beb7811d5ae1329ce3081bfaa8f",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/after21-statics101/logs/native-boundaries4.log": {
+    "original_sha256": "c9ef02fe10fe80700986ce3b7953bdf672ad53ef5445ed1f0a4b6ec4942a60fc",
+    "archived_sha256": "ceca238595684b5383e267d2eb789aef954e5ea62824e776e12bf2ff3fe53df9",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/after21-statics101/logs/native-initial9.log": {
+    "original_sha256": "7657af2c5204dcd2226a1a5ed9383a31fc7d764b38185d038209f48f3d69a8da",
+    "archived_sha256": "5ed59024a8f496235555876d9f54e381ce3122a5b2d7ebdc00f62ebba59c485d",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/after21-statics101/logs/native-merged3.log": {
+    "original_sha256": "ba27d609a731caed7185e0758bcddf38753ff661d9b62fc3dab91c33bae7a10c",
+    "archived_sha256": "5715f93fc2c9c509158dcdaa118765e72eb28e019bbfde4c81669618ab15ce75",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/after21-statics101/logs/native-related-final.log": {
+    "original_sha256": "817aeb6588bc49647e585cb443956edaaebad155af2e9a71b426b657af5c1da2",
+    "archived_sha256": "bee06f8a6beeaf22aaa3e75c955827103a849f1e1b2f805db431f20274ec77bf",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/after21-statics101/logs/native-static-cache-fixed1.log": {
+    "original_sha256": "4b278df9a5b70d1386e0b34f08194b188f1db90e2c457ff9058ac6122c0abbcb",
+    "archived_sha256": "147ddd538ce1b0d6357bc341c43a24cf308e4e2fc274b29f4985d0de5f83ded5",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/after21-statics101/logs/native-static-receipt2.log": {
+    "original_sha256": "162634d538920f24d28d7a05f445ec319d687af487fe0a26ad5574437eaaf8f1",
+    "archived_sha256": "0ea62ef66fc58330655c7394c12aa54dd63378434bac647e431965744c316cec",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/after21-statics102/implementation.patch": {
+    "original_sha256": "3d8ef7559bf84d6730c61c2966064590ab999b3fe5082ae5f2dcd89c827abf08",
+    "archived_sha256": "f2bd5baa44c9b690160cc5f163a4b3af407b004f605f0dd40ec152a513a6364e",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/after21-statics102/logs/native-braided-fixture-fixed1.log": {
+    "original_sha256": "851a71155f380520ceab7e0bf11241fdc251bb365033eb1fd3e692f92690ac89",
+    "archived_sha256": "ad800194d28b46232bab1df88fa7a3c67494bd6c6e711be65221c742650d8bf4",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/after21-statics102/logs/native-braided-mana-fixed1.log": {
+    "original_sha256": "1aeb398f9e88003f2aee305246b61b6b2401c1700c7af4706de9c615a6d87d10",
+    "archived_sha256": "bfd1374770a537e884e22d9861aa0ed5bc38c4abb3f1deae2c49db955d6384ab",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/after21-statics102/logs/native-braided-real-entry1.log": {
+    "original_sha256": "2fba14ddffd24c322fa7164c4f9044c84615dade38255746e25d3dc1d576a095",
+    "archived_sha256": "a77a482b7a0ec2b64698f9b1ae8b84b5ae93f9491ac8237a4fef70e731768ca5",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/after21-statics102/logs/native-braided-refocus1.log": {
+    "original_sha256": "1a4e0ff8f69c900e975e6d22f20cb17e92626693714d471dc02aa5291da8c3e2",
+    "archived_sha256": "d953170d2a2bad71e029f0ea624ec2c116057f79ce840b3ae4f3f4b35fcaaec7",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/after21-statics102/logs/native-initial2.log": {
+    "original_sha256": "dc658e0f6bd05af51872ea733962ac165dad98e0e98df6adaf663ab8241c9698",
+    "archived_sha256": "31bc29519e7cd34a5535de9016887daee0ac4a42454cfad41f0f4c71d7e4850a",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/after21-statics102/logs/native-linked-cold-initial1.log": {
+    "original_sha256": "04b086740d777858bfa669901b347b4f449baa6fbbd42c88ebb47b5cc2c7f27e",
+    "archived_sha256": "57fd2b5b8dd0422be8c93c53e8f5921ad0b5621b372d29581b2daf6fca38a6dd",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/after21-sticker-effects101/native-corrected-activation-modal.log": {
+    "original_sha256": "c29f60ea2f3313e49f28564bf78c8a21eb890be01d06cd31d6ef7a30e4228f8e",
+    "archived_sha256": "3748187b2392ffd4c3c2a6d5f738709741eb41928d89a1c6b4242b9abf9e1dc0",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/after21-sticker-effects101/native-expanded.log": {
+    "original_sha256": "9627abe863aed288b90b1876d38bb340e720801d20c28e08998fa033fdcec07f",
+    "archived_sha256": "ccec091ecc6c41ea787a103fa7d8bd8a3cf6d5ee50d2a3fcf216769a28319ee0",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/after21-sticker-effects101/review.patch": {
+    "original_sha256": "579db5fa005ecd66a2bb1345e4323e5bddad647e1ab6aad1387e9226d0aef230",
+    "archived_sha256": "92186b506c0682f09be2809551018241c50047a9a37638add319494d617e69f3",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/after21-sticker-riders102/review.patch": {
+    "original_sha256": "002cb19ec8eef964a86372c790b9ed7c350dae048e4d5262c0fe6896766118b6",
+    "archived_sha256": "dcd40b0ab4f0440f7af72e7549eb1e8933888bf655effeaa0643ca9cfaf6b061",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/after21-sticker-triggers103/native-initial.log": {
+    "original_sha256": "29ce9ae379a735bd5942c018f964c40c77bdc75e2df5181c167d575cd759bf3d",
+    "archived_sha256": "b2ddacec738aa7f2e914f7da5346df658fc1457c7572325cbf08fd6c0b9bcdd3",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/after21-sticker-triggers103/review.patch": {
+    "original_sha256": "7285a981c8035b67b2033042c3bdec996344ede5c6776ccc03a2eb29d00dce23",
+    "archived_sha256": "8d75ca14835886e71f8c8d1c49a302466eefad9cedfc3c4f3544c9ff4ee84b95",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/after21-triggers101/copy-controllers105/review.patch": {
+    "original_sha256": "bbab1d0779961e9416bdc1299e2a2dca7936bfa02cd95d6b54c729d2cf2ad0ea",
+    "archived_sha256": "13ea830112b278b38709c6dbec2daa9f2cf61e5dd8952183f77f4cc3a84da0ce",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/after21-triggers101/next-copy104/native10-initial.log": {
+    "original_sha256": "b4bff45325fec7f77aedecb83a928791a7a1d7aa0dc1049eaf9e1e17cc40e207",
+    "archived_sha256": "59a1cca46ad6a86d4e17e9cab63e2330cd402d5b36b8d547fea8d77ba8b83cb6",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/after21-triggers101/next-copy104/review.patch": {
+    "original_sha256": "d04c2b63852c56ff4ac1440b1c4fef77f10c3c8cf512b1cba92f7c341d3492a5",
+    "archived_sha256": "f5c94194ff24186fce8738ef21c8a76e0970e04f26b8d8f29264a67358d7041d",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/after21-triggers101/sacrifice-outcomes106/review.patch": {
+    "original_sha256": "ad77f7e185ade68a7e5e6602441f782a825cedc1d1f15745ba7aa9c1035c9748",
+    "archived_sha256": "9c8098da00089490e8ffcca10ba5939ea708962bea42fa9335673e09143b85f1",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/after21-triggers101/stack-events102/final24-fixtures.log": {
+    "original_sha256": "97a23a701bda1963da6d6f710965ea5c25bb3a51d94e222b77c7309465182846",
+    "archived_sha256": "501529bed61b819e3052562e1afaf43b5a760b65dbcd8f2adaaaa2bb60011fd6",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/after21-triggers101/stack-events102/final24.log": {
+    "original_sha256": "48053cf5d4a4a996e57b11647fa6b5c027089b5980e1f8279079ff018709d644",
+    "archived_sha256": "1f91f066130e707c0431defa4568ffbf31911c0545dc45fe5e8354ff06a7bd8c",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/after21-triggers101/stack-events102/native17.log": {
+    "original_sha256": "664475307812aa371894ad16ecedfe4153defdfe1d73efe19d2d90c92569f0ca",
+    "archived_sha256": "f779d3032a6c4f6f7504d077eabb6b8b1772713bdafa40857077b4bdd1769be7",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/after21-triggers101/stack-events102/review.patch": {
+    "original_sha256": "b3d708a57ebac8ceb298a453124b24ceae3f2433b90a3d5bb3370e618f36d556",
+    "archived_sha256": "d55a7f523f9e77a4b0a2695e3889ffc4c7bf247d6b94a027f2235e3c0dafa241",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/after21-triggers101/stack-extension103/review.patch": {
+    "original_sha256": "cf6f707ad0f74a36bbb17e6f063f1254d25f3bd077c19b6bc8a8bf79609c5525",
+    "archived_sha256": "373c441ce2c1417e36e0e7b48c647167ba312a7d38b84e94569ca90fc059c902",
+    "numstat_preserved": true
   }
 }

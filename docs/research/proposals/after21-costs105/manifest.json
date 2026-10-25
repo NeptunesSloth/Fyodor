@@ -1,0 +1,28 @@
+{
+  "status": "CLOSED_ISOLATED_ROOT_INTEGRATION_REQUIRED",
+  "dependency": "after21-costs104",
+  "base_commit": "456c95d6aa3eaaa38583129be436ef57c1937a01",
+  "candidates": [
+    "Ion Storm"
+  ],
+  "expected_promotions": 1,
+  "source_files": [
+    "app/rules/costs.py",
+    "app/rules/cost_payment.py"
+  ],
+  "patch": "review.patch",
+  "runtime_source": "/workspace/scratch/costs105/backend",
+  "live_source_writes": false,
+  "native_unique": 6,
+  "cold": 1,
+  "mypy": 2,
+  "ruff": 3,
+  "test_destinations": [
+    "backend/tests/test_rules_counter_cost105.py"
+  ],
+  "fixture_destination": "backend/tests/fixtures/counter_cost105_cards.json",
+  "related": 4,
+  "native_evidence": {
+    "native-final6-related3.log": "10 PASS:6 native owned incl1 cold +4 variable counter-cost regression cases (filename number was estimated)"
+  }
+}

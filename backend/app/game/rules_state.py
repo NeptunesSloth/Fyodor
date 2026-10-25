@@ -613,6 +613,7 @@ class TurnLog(BaseModel):
     saves and undo reproduce it exactly. Only this turn's and the previous turn's logs are kept."""
 
     turn: int = 0
+    combat_damage95_known: bool | None = None  # Complete native current-turn damage history; None is legacy.
     fight_history90_known: bool | None = None  # Legacy missing current-turn fight history is unknown.
     fought90: list[str] = Field(default_factory=list)  # Original objects that actually fought this turn.
     search_history75_known: bool | None = None  # Legacy missing authority is unknown until the next native turn.
@@ -1029,13 +1030,14 @@ class StackMemory(BaseModel):
     evoked: bool = False
     dashed: bool = False
     ability_card: dict[str, Any] | None = None  # A ceased ability retains its copiable stack values (608.2h).
+    aura_target102: TargetRef | None = None  # Original Aura-spell target, including after the spell leaves.
 
 
 class CostContribution(BaseModel):
     """One mana symbol of a spell's total cost paid by something that isn't mana (CR 702.51a
     convoke, 702.126a improvise, 702.66a delve): which object, and which symbol it paid."""
 
-    kind: Literal["convoke", "improvise", "delve"]
+    kind: Literal["convoke", "improvise", "delve", "waterbend"]
     card: str = Field(max_length=64)
     object_id: str = Field(default="", max_length=80)  # the object as it was when used
     name: str = Field(default="", max_length=200)
@@ -1147,6 +1149,7 @@ class PaymentRecord(BaseModel):
     alternative: str | None = None  # "evoke", "dash", "flashback", "madness", "face_down", "free", …
     prototyped: bool = False  # -- casting extras (wave 18E) -- 718.3: cast prototyped (the spell and the permanent have the alternative values)
     additional: list[str] = Field(default_factory=list)  # "buyback", "kicker", …
+    waterbend_paid102: bool | None = None  # Actual paid action; None is unknown legacy data, copied independently of mana spent.
     x: int | None = None
     numeric_roll_cost: NumericRollCostReceipt | None = None
     # -- refused modal/conditional (wave 3R1) -- how the spell was cast, for "if you cast it [from your hand]",
@@ -1877,6 +1880,7 @@ def remember_stack(state: GameState, card_id: str, info: Any = None, *, was_stac
     info = info if info is not None else card.stack_info
     rules.stack_lki[oid] = StackMemory(card=card_id, turn=state.turn.number, entry=entry.model_copy(deep=True) if entry is not None else None,
                                        info=info.model_dump() if info is not None else {},
+                                       aura_target102=rules.aura_targets.get(card_id),
                                        evoked=card_id in rules.evoked, dashed=card_id in rules.dashed,
                                        ability_card=card.model_dump(mode="json") if card.ability is not None else None)
 
@@ -1976,7 +1980,7 @@ def turn_log_now(state: GameState) -> TurnLog | None:
             rules.completed_own_turns.clear()
             rules.own_turn_history_known.clear()
         rules.last_turn_log = log if log.turn == n - 1 else None
-        log = rules.turn_log = TurnLog(turn=n, active_player=state.turn.active_player, search_history75_known=True, fight_history90_known=True,
+        log = rules.turn_log = TurnLog(turn=n, active_player=state.turn.active_player, search_history75_known=True, fight_history90_known=True, combat_damage95_known=True,
                                       starting_life=dict(state.turn.starting_life) if state.turn.starting_life is not None else None)
     elif log.active_player is None:
         log.active_player = state.turn.active_player

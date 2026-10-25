@@ -1,0 +1,123 @@
+{
+  "Niv-Mizzet Reborn": {
+    "object": "list",
+    "has_more": false,
+    "data": [
+      {
+        "object": "ruling",
+        "oracle_id": "10764b35-5c6c-4161-8579-1124d5963a0e",
+        "source": "wotc",
+        "published_at": "2019-05-03",
+        "comment": "A \"color pair\" is exactly two colors. There are ten color pairs in Magic: white-blue, white-black, blue-black, blue-red, black-red, black-green, red-green, red-white, green-white, and green-blue."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "10764b35-5c6c-4161-8579-1124d5963a0e",
+        "source": "wotc",
+        "published_at": "2019-05-03",
+        "comment": "If the top ten cards of your library don't contain all ten color pairs, you choose as many cards as you can and put those cards into your hand."
+      }
+    ]
+  },
+  "Portent of Calamity": {
+    "object": "list",
+    "has_more": false,
+    "data": [
+      {
+        "object": "ruling",
+        "oracle_id": "0d49187a-1c37-4c3a-afc2-fac2bbc6b29a",
+        "source": "wotc",
+        "published_at": "2024-07-26",
+        "comment": "The card types that can appear on cards you reveal with Portent of Calamity are artifact, battle, creature, enchantment, instant, kindred, land, planeswalker, and sorcery. Legendary, basic, and snow are supertypes, not card types. Raccoon and Scout are subtypes, not card types."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "0d49187a-1c37-4c3a-afc2-fac2bbc6b29a",
+        "source": "wotc",
+        "published_at": "2024-07-26",
+        "comment": "You choose which spell to cast (if any) as Portent of Calamity resolves. If you choose to cast a spell this way, you do so as part of the resolution of Portent of Calamity. You can\u2019t wait to cast it later in the turn. Timing restrictions based on the card\u2019s types are ignored."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "0d49187a-1c37-4c3a-afc2-fac2bbc6b29a",
+        "source": "wotc",
+        "published_at": "2024-07-26",
+        "comment": "If you cast a spell \u201cwithout paying its mana cost,\u201d you can\u2019t choose to cast it for any alternative costs. You can, however, pay additional costs, such as kicker costs. If the card has any mandatory additional costs, those must be paid to cast the spell."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "0d49187a-1c37-4c3a-afc2-fac2bbc6b29a",
+        "source": "wotc",
+        "published_at": "2024-07-26",
+        "comment": "If the spell you cast has {X} in its mana cost, you must choose 0 as the value of X when casting it without paying its mana cost."
+      }
+    ]
+  },
+  "Selective Adaptation": {
+    "object": "list",
+    "has_more": false,
+    "data": [
+      {
+        "object": "ruling",
+        "oracle_id": "b68df6d7-d69e-446f-9b1b-7a6ca56efbec",
+        "source": "wotc",
+        "published_at": "2020-04-17",
+        "comment": "If a card has more than one of the listed keywords, you pick which keyword you\u2019re choosing it for. For example, if you choose a card with flying and first strike, you may choose it as the card with flying and choose another card with first strike, or you may choose it as the card with first strike and choose another card with flying."
+      }
+    ]
+  },
+  "Sanar, Innovative First-Year": {
+    "object": "list",
+    "has_more": false,
+    "data": [
+      {
+        "object": "ruling",
+        "oracle_id": "2676ba6d-e7a7-48cf-9c86-6e2a11f03096",
+        "source": "wotc",
+        "published_at": "2025-11-17",
+        "comment": "The value of X is calculated only once, as Sanar's ability resolves."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "2676ba6d-e7a7-48cf-9c86-6e2a11f03096",
+        "source": "wotc",
+        "published_at": "2025-11-17",
+        "comment": "Lands are normally colorless permanents, even if they tap for mana of a certain color."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "2676ba6d-e7a7-48cf-9c86-6e2a11f03096",
+        "source": "wotc",
+        "published_at": "2025-11-17",
+        "comment": "The colors are white, blue, black, red, and green. Colorless is not a color."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "2676ba6d-e7a7-48cf-9c86-6e2a11f03096",
+        "source": "wotc",
+        "published_at": "2025-11-17",
+        "comment": "You pay all costs and follow all timing rules for cards cast this way. For example, if an exiled card is a sorcery card, you may cast it only during your main phase while the stack is empty."
+      }
+    ]
+  },
+  "Hurkyl, Master Wizard": {
+    "object": "list",
+    "has_more": false,
+    "data": [
+      {
+        "object": "ruling",
+        "oracle_id": "957df9f4-73e9-4540-b838-52f65d0c62ee",
+        "source": "wotc",
+        "published_at": "2022-10-14",
+        "comment": "Hurkyl need not have been on the battlefield at the time the noncreature spells were cast for the ability to trigger or for the spells to be counted."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "957df9f4-73e9-4540-b838-52f65d0c62ee",
+        "source": "wotc",
+        "published_at": "2022-10-14",
+        "comment": "The card types that a noncreature spell can have are artifact, battle, enchantment, instant, kindred, planeswalker, and sorcery. Subtypes, like Human and Equipment, and supertypes, like snow and legendary, aren't card types."
+      }
+    ]
+  }
+}

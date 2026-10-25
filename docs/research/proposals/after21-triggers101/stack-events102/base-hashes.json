@@ -1,0 +1,8 @@
+{
+  "app/rules/scripts.py": "994d44b43943997695e002c01a306b6d443e9904116065bd5aaf2f1fa8e372d6",
+  "app/rules/effects.py": "6594ca089a4764afd0a36b81106fc6b865c74ebda958c20a2036c764ff8237da",
+  "app/rules/triggers.py": "011d4e79b0cc828d4cf3d4b1d04391fbd6388133be46375694edcaed98785d4d",
+  "app/rules/copying.py": "3ab24c3f479b24336656891ce4ff2651d075eb84fb7dc934d61921c00856193b",
+  "app/rules/engine.py": "9be5eb26a66a157fbc3cd372a7deace411ee98406bc2da3495c195ede487da9f",
+  "app/game/rules_state.py": "4735fc5da3a260cab7bea983bbc0b8bd7db2053d9fe6f3705d6dccb463720bc5"
+}

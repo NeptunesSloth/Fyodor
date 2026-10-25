@@ -1,0 +1,35 @@
+.....F
+=================================== FAILURES ===================================
+___ test_niv_exact_pairs_required_and_native_duplicate_category_rejection104 ___
+
+cards = <app.cards.repository.CardRepository object at 0x7f4d24f6ad20>
+
+    def test_niv_exact_pairs_required_and_native_duplicate_category_rejection104(cards):
+        s = setup(cards)
+>       ids = niv(s)
+              ^^^^^^
+
+tests/test_rules_reveal_categories104.py:72:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests/test_rules_reveal_categories104.py:63: in niv
+    ids = top(s, ['Coiling Oracle', 'Maraleaf Pixie', 'Baleful Strix', 'Knight of Autumn', 'Birds of Paradise',
+tests/test_rules_library_packets101.py:71: in top
+    ids = [put(s, n, 'hand').id for n in names]
+           ^^^^^^^^^^^^^^^^^
+tests/test_rules_designations.py:148: in put
+    c = find(s, name, pid)
+        ^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+s = <app.game.session.GameSession object at 0x7f4d24f8dbe0>, name = 'Island'
+pid = 'p1'
+
+    def find(s, name, pid="p1"):
+>       return next(c for c in s.state.cards.values() if c.name == name and c.owner == pid)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       StopIteration
+
+tests/test_rules_designations.py:144: StopIteration
+=========================== short test summary info ============================
+FAILED tests/test_rules_reveal_categories104.py::test_niv_exact_pairs_required_and_native_duplicate_category_rejection104
+!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!

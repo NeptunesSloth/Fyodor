@@ -1,0 +1,23 @@
+..............F
+=================================== FAILURES ===================================
+________ test_epic_original_memory_retargets_after_cold_pause103[False] ________
+
+cards = <app.cards.repository.CardRepository object at 0x7fa21c40b680>
+tmp_path = PosixPath('/tmp/pytest-epic103-sixth/test_epic_original_memory_reta0')
+cold_resume = False
+
+        assert len([t for t in s.state.rules.delayed if t.name == 'Endless Swarm']) == 1
+
+
+    @pytest.mark.parametrize('cold_resume', [False, True])
+    def test_epic_original_memory_retargets_after_cold_pause103(cards, tmp_path, cold_resume):
+        s = setup(cards)
+>       top(s, ['Lightning Bolt', 'Hill Giant'])
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AssertionError: assert 39 == 37
+E        +  where 39 = PlayerState(id='p2', name='Bob', color='#5fa8d3', life=39, life_history=[LifeChange(turn=1, before=40, after=39, seq=1...C': 50, 'W': 50, 'U': 50, 'B': 50, 'R': 50, 'G': 50}, mana_units=[], mana_seq=0, left=False, sleeve=None, playmat=None).life
+
+tests/test_rules_epic103.py:202: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_rules_epic103.py::test_epic_original_memory_retargets_after_cold_pause103[False]
+!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!

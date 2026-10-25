@@ -5868,6 +5868,38 @@ def _first_time_gate(text: str) -> str:
 
 def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     """The engine definition of one ability, or None (manual)."""
+    from app.rules import next_copy104
+
+    if (next104 := next_copy104.definition(ability, ch)) is not None:
+        return next104
+    from app.rules import stack_extension103
+
+    if (stack103 := stack_extension103.definition(ability, ch)) is not None:
+        return stack103
+    from app.rules import combat_damage95
+
+    if (combat95 := combat_damage95.definition(ability, ch)) is not None:
+        return combat95
+    from app.rules import waterbend104
+
+    if (water104 := waterbend104.definition(ability,ch)) is not None:
+        return water104
+    from app.rules import waterbend103
+
+    if (water103 := waterbend103.definition(ability,ch)) is not None:
+        return water103
+    from app.rules import waterbend102
+
+    if (water102 := waterbend102.definition(ability,ch)) is not None:
+        return water102
+    from app.rules import library_polymorph102
+
+    if (polymorph102 := library_polymorph102.definition(ability, ch)) is not None:
+        return polymorph102
+    from app.rules import stack_events102
+
+    if (stack102 := stack_events102.definition(ability, ch)) is not None:
+        return stack102
     from app.rules import library_packets101
 
     if (library101 := library_packets101.definition(ability, ch)) is not None:

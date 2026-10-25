@@ -1,0 +1,367 @@
+[
+  {
+    "id": "8f244716-78ab-46f5-b6e9-fc1e6db28052",
+    "oracle_id": "79a1783f-ea7e-4cdf-95f5-53b383d38c66",
+    "name": "Tevesh Szat, Doom of Fools",
+    "layout": "normal",
+    "set_code": "cmr",
+    "set_name": "Commander Legends",
+    "collector_number": "153",
+    "rarity": "mythic",
+    "mana_cost": "{4}{B}",
+    "cmc": 5.0,
+    "type_line": "Legendary Planeswalker \u2014 Szat",
+    "oracle_text": "+2: Create two 0/1 black Thrull creature tokens.\n+1: You may sacrifice another creature or planeswalker. If you do, draw two cards, then draw another card if the sacrificed permanent was a commander.\n\u221210: Gain control of all commanders. Put all commanders from the command zone onto the battlefield under your control.\nTevesh Szat, Doom of Fools can be your commander.\nPartner",
+    "power": null,
+    "toughness": null,
+    "loyalty": "4",
+    "defense": null,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [
+      "Partner"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2020-11-20",
+    "artist": "Livia Prima",
+    "commander_legal": "legal",
+    "related_tokens": [
+      {
+        "id": "b9f3042b-784c-4006-9bf1-60a323e60c5c",
+        "name": "Thrull",
+        "type_line": "Token Creature \u2014 Thrull"
+      }
+    ],
+    "related_cards": [
+      {
+        "id": "2f68b4de-271b-415f-ad8f-104981bb12ab",
+        "name": "Tevesh Szat, Doom of Fools",
+        "component": "combo_piece"
+      }
+    ]
+  },
+  {
+    "id": "f3455651-e643-445e-9489-51e4e24fca4c",
+    "oracle_id": "fe01c96b-eb78-4477-bec2-944b2a28c778",
+    "name": "Eddie Brock // Venom, Lethal Protector",
+    "layout": "modal_dfc",
+    "set_code": "spm",
+    "set_name": "Marvel's Spider-Man",
+    "collector_number": "55",
+    "rarity": "mythic",
+    "mana_cost": "{2}{B} // {3}{B}{R}{G}",
+    "cmc": 3.0,
+    "type_line": "Legendary Creature \u2014 Human Hero Villain // Legendary Creature \u2014 Symbiote Hero Villain",
+    "oracle_text": "When Eddie Brock enters, return target creature card with mana value 1 or less from your graveyard to the battlefield.\n{3}{B}{R}{G}: Transform Eddie Brock. Activate only as a sorcery.\n//\nMenace, trample, haste\nWhenever Venom attacks, you may sacrifice another creature. If you do, draw X cards, then you may put a permanent card with mana value X or less from your hand onto the battlefield, where X is the sacrificed creature's mana value.",
+    "power": "3",
+    "toughness": "3",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "B",
+      "G",
+      "R"
+    ],
+    "color_identity": [
+      "B",
+      "G",
+      "R"
+    ],
+    "keywords": [
+      "Transform",
+      "Haste",
+      "Trample",
+      "Menace"
+    ],
+    "is_token": false,
+    "faces": [
+      {
+        "name": "Eddie Brock",
+        "mana_cost": "{2}{B}",
+        "type_line": "Legendary Creature \u2014 Human Hero Villain",
+        "oracle_text": "When Eddie Brock enters, return target creature card with mana value 1 or less from your graveyard to the battlefield.\n{3}{B}{R}{G}: Transform Eddie Brock. Activate only as a sorcery.",
+        "power": "3",
+        "toughness": "3",
+        "loyalty": null,
+        "defense": null,
+        "colors": [
+          "B"
+        ],
+        "image_face": 0
+      },
+      {
+        "name": "Venom, Lethal Protector",
+        "mana_cost": "{3}{B}{R}{G}",
+        "type_line": "Legendary Creature \u2014 Symbiote Hero Villain",
+        "oracle_text": "Menace, trample, haste\nWhenever Venom attacks, you may sacrifice another creature. If you do, draw X cards, then you may put a permanent card with mana value X or less from your hand onto the battlefield, where X is the sacrificed creature's mana value.",
+        "power": "5",
+        "toughness": "5",
+        "loyalty": null,
+        "defense": null,
+        "colors": [
+          "B",
+          "G",
+          "R"
+        ],
+        "image_face": 1
+      }
+    ],
+    "double_faced": true,
+    "image_faces": 2,
+    "has_image": false,
+    "released_at": "2025-09-26",
+    "artist": "Greg Staples",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "603c3ef4-4ef1-4db8-9ed2-e2b0926269d5",
+    "oracle_id": "d88bfa98-6869-4d64-a9d2-07a308a67fe2",
+    "name": "Saw",
+    "layout": "normal",
+    "set_code": "dsk",
+    "set_name": "Duskmourn: House of Horror",
+    "collector_number": "254",
+    "rarity": "uncommon",
+    "mana_cost": "{2}",
+    "cmc": 2.0,
+    "type_line": "Artifact \u2014 Equipment",
+    "oracle_text": "Equipped creature gets +2/+0.\nWhenever equipped creature attacks, you may sacrifice a permanent other than that creature or this Equipment. If you do, draw a card.\nEquip {2} ({2}: Attach to target creature you control. Equip only as a sorcery.)",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": [
+      "Equip"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2024-09-27",
+    "artist": "Jarel Threat",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "06bb4bc1-6ef9-4015-9f5f-36f51dbac87e",
+    "oracle_id": "888e711a-1251-4704-8ef1-b4b98ec54b5a",
+    "name": "Nahiri's Lithoforming",
+    "layout": "normal",
+    "set_code": "znr",
+    "set_name": "Zendikar Rising",
+    "collector_number": "151",
+    "rarity": "rare",
+    "mana_cost": "{X}{R}{R}",
+    "cmc": 2.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Sacrifice X lands. For each land sacrificed this way, draw a card. You may play X additional lands this turn. Lands you control enter tapped this turn.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2020-09-25",
+    "artist": "Campbell White",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "81940498-a5bf-4bcd-b06d-8816887b2a2b",
+    "oracle_id": "8818bbf8-58ec-4070-a81a-c7ce248057ab",
+    "name": "Hew the Entwood",
+    "layout": "normal",
+    "set_code": "ltr",
+    "set_name": "The Lord of the Rings: Tales of Middle-earth",
+    "collector_number": "136",
+    "rarity": "mythic",
+    "mana_cost": "{3}{R}{R}",
+    "cmc": 5.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Sacrifice any number of lands. Reveal the top X cards of your library, where X is the number of lands sacrificed this way. Choose any number of artifact and/or land cards revealed this way. Put all nonland cards chosen this way onto the battlefield, then put all land cards chosen this way onto the battlefield tapped, then put the rest on the bottom of your library in a random order.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2023-06-23",
+    "artist": "Manuel Casta\u00f1\u00f3n",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "c0a36448-ca96-4c10-baf9-89c248c3510b",
+    "oracle_id": "1b2826ea-a3d5-4b8a-b362-0b0880d1cc48",
+    "name": "Hedron Rover",
+    "layout": "normal",
+    "set_code": "wwk",
+    "set_name": "Worldwake",
+    "collector_number": "125",
+    "rarity": "common",
+    "mana_cost": "{4}",
+    "cmc": 4.0,
+    "type_line": "Artifact Creature \u2014 Construct",
+    "oracle_text": "Landfall \u2014 Whenever a land you control enters, this creature gets +2/+2 until end of turn.",
+    "power": "2",
+    "toughness": "2",
+    "loyalty": null,
+    "defense": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": [
+      "Landfall"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2010-02-05",
+    "artist": "Jason Felix",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "d108c2b1-236e-4b8d-8445-d9749ccc4fea",
+    "oracle_id": "087f9ad7-e74f-40e2-8102-1ed2925d0418",
+    "name": "Rest in Peace",
+    "layout": "normal",
+    "set_code": "big",
+    "set_name": "The Big Score",
+    "collector_number": "4",
+    "rarity": "mythic",
+    "mana_cost": "{1}{W}",
+    "cmc": 2.0,
+    "type_line": "Enchantment",
+    "oracle_text": "When this enchantment enters, exile all graveyards.\nIf a card or token would be put into a graveyard from anywhere, exile it instead.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2024-04-19",
+    "artist": "Grady Frederick",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "92b22076-b04e-4d65-9d9c-d3e4c7a3cf1c",
+    "oracle_id": "c3b6e114-7bc8-4890-97d9-edbeea1f425f",
+    "name": "Assault Suit",
+    "layout": "normal",
+    "set_code": "cmm",
+    "set_name": "Commander Masters",
+    "collector_number": "369",
+    "rarity": "uncommon",
+    "mana_cost": "{4}",
+    "cmc": 4.0,
+    "type_line": "Artifact \u2014 Equipment",
+    "oracle_text": "Equipped creature gets +2/+2, has haste, can't attack you or planeswalkers you control, and can't be sacrificed.\nAt the beginning of each opponent's upkeep, you may have that player gain control of equipped creature until end of turn. If you do, untap it.\nEquip {3}",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": [
+      "Equip"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2023-08-04",
+    "artist": "James Paick",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "367ac07a-a30f-4ebf-8877-27cd9ebe2f71",
+    "oracle_id": "278e51fe-3cd9-4c82-bd81-2164771f8611",
+    "name": "Alms Collector",
+    "layout": "normal",
+    "set_code": "cmm",
+    "set_name": "Commander Masters",
+    "collector_number": "10",
+    "rarity": "rare",
+    "mana_cost": "{3}{W}",
+    "cmc": 4.0,
+    "type_line": "Creature \u2014 Cat Cleric",
+    "oracle_text": "Flash\nIf an opponent would draw two or more cards, instead you and that player each draw a card.",
+    "power": "3",
+    "toughness": "4",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [
+      "Flash"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2023-08-04",
+    "artist": "Bram Sels",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  }
+]

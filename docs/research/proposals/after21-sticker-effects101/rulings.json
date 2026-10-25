@@ -1,0 +1,638 @@
+{
+  "_____ Goblin": {
+    "object": "list",
+    "has_more": false,
+    "data": []
+  },
+  "Command Performance": {
+    "object": "list",
+    "has_more": false,
+    "data": [
+      {
+        "object": "ruling",
+        "oracle_id": "f6c079cd-69c2-4da4-ba41-91844a4d2f06",
+        "source": "wotc",
+        "published_at": "2022-10-07",
+        "comment": "No matter which two modes you choose, you always follow the instructions in the order they're written. You'll open an Attraction before rolling to visit them, if applicable, and similarly you'll get tickets before you may put a sticker on a nonland permanent you own."
+      }
+    ]
+  },
+  "Wicker Picker": {
+    "object": "list",
+    "has_more": false,
+    "data": [
+      {
+        "object": "ruling",
+        "oracle_id": "15a71d11-da00-4c1a-bf64-ec3f627ed6a3",
+        "source": "wotc",
+        "published_at": "2024-11-08",
+        "comment": "If a spell's kicker cost was paid, the spell is \"kicked.\""
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "15a71d11-da00-4c1a-bf64-ec3f627ed6a3",
+        "source": "wotc",
+        "published_at": "2024-11-08",
+        "comment": "The kicker ability doesn't let you pay a kicker cost more than once."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "15a71d11-da00-4c1a-bf64-ec3f627ed6a3",
+        "source": "wotc",
+        "published_at": "2024-11-08",
+        "comment": "If you put a permanent with a kicker ability onto the battlefield without casting it, you can't kick it."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "15a71d11-da00-4c1a-bf64-ec3f627ed6a3",
+        "source": "wotc",
+        "published_at": "2024-11-08",
+        "comment": "If you copy a kicked spell on the stack, the copy is also kicked. If the copied spell is a permanent spell, the token the copy of that spell becomes when it enters is also kicked."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "15a71d11-da00-4c1a-bf64-ec3f627ed6a3",
+        "source": "wotc",
+        "published_at": "2024-11-08",
+        "comment": "If a card or token enters as a copy of a permanent, the new permanent isn't kicked, even if the original was."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "15a71d11-da00-4c1a-bf64-ec3f627ed6a3",
+        "source": "wotc",
+        "published_at": "2024-11-08",
+        "comment": "To determine a spell's total cost, start with the mana cost (or an alternative cost if another card's effect allows you to pay one instead), add any cost increases (such as kicker), then apply any cost reductions. The spell's mana value remains unchanged, no matter what the total cost to cast it was."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "15a71d11-da00-4c1a-bf64-ec3f627ed6a3",
+        "source": "wotc",
+        "published_at": "2022-10-07",
+        "comment": "If you put a creature onto the battlefield without casting it, you can't sticker kick it."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "15a71d11-da00-4c1a-bf64-ec3f627ed6a3",
+        "source": "wotc",
+        "published_at": "2022-10-07",
+        "comment": "If you sticker kick a creature spell, you get {TK} and may choose a sticker to put on the creature spell."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "15a71d11-da00-4c1a-bf64-ec3f627ed6a3",
+        "source": "wotc",
+        "published_at": "2022-10-07",
+        "comment": "If a creature spell has kicker or multikicker and another ability that checks if it was kicked (such as Bog Badger or Phyrexian Missionary), that ability is linked to its own printed kicker or multikicker ability and will apply only if you paid its own kicker or multikicker cost. Sticker kicker won't turn on those effects. However, sticker kicker will work with cards that care about other spells being kicked, such as Elfhame Druid or Verazol, the Split Current."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "15a71d11-da00-4c1a-bf64-ec3f627ed6a3",
+        "source": "wotc",
+        "published_at": "2022-10-07",
+        "comment": "Sticker kicker is an optional additional cost that you may pay as you cast a creature spell."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "15a71d11-da00-4c1a-bf64-ec3f627ed6a3",
+        "source": "wotc",
+        "published_at": "2022-10-07",
+        "comment": "If you cast a creature spell you don't own, you may still choose to sticker kick it. If you do, you'll get the ticket counter, even though you can't put a sticker on a card you don't own."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "15a71d11-da00-4c1a-bf64-ec3f627ed6a3",
+        "source": "wotc",
+        "published_at": "2022-10-07",
+        "comment": "You get the ticket counter and the sticker is put on the creature spell just before it's considered cast. Any triggered abilities that trigger whenever you cast a spell with particular qualities will see the spell with the sticker applied."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "15a71d11-da00-4c1a-bf64-ec3f627ed6a3",
+        "source": "wotc",
+        "published_at": "2022-10-07",
+        "comment": "Conversely, you can't use sticker kicker to change a spell's name to get around effects that prohibit that spell from being cast (such as Meddling Mage)."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "15a71d11-da00-4c1a-bf64-ec3f627ed6a3",
+        "source": "wotc",
+        "published_at": "2022-10-07",
+        "comment": "Each Wicker Picker only lets you pay the sticker kicker cost once per spell. If you control multiple Wicker Pickers, then you can pay {1} for each of them, gaining {TK} and a sticker each time."
+      }
+    ]
+  },
+  "Ticketomaton": {
+    "object": "list",
+    "has_more": false,
+    "data": []
+  },
+  "Finishing Move": {
+    "object": "list",
+    "has_more": false,
+    "data": [
+      {
+        "object": "ruling",
+        "oracle_id": "d41dc3a5-58e4-444a-b388-5a32ccbed0eb",
+        "source": "wotc",
+        "published_at": "2022-10-07",
+        "comment": "You must choose a creature you control and a creature you don\u2019t control as targets to cast Finishing Move."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "d41dc3a5-58e4-444a-b388-5a32ccbed0eb",
+        "source": "wotc",
+        "published_at": "2022-10-07",
+        "comment": "The nonland permanent you put a sticker on, if any, isn\u2019t a target of the spell and is chosen as the spell resolves. It can be the creature that\u2019s about to deal damage, but it doesn\u2019t have to be."
+      }
+    ]
+  },
+  "Clandestine Chameleon": {
+    "object": "list",
+    "has_more": false,
+    "data": [
+      {
+        "object": "ruling",
+        "oracle_id": "886e00ab-c694-4839-b3fb-7a72048db4b2",
+        "source": "wotc",
+        "published_at": "2022-10-07",
+        "comment": "Although Clandestine Chameleon has the abilities of ability stickers on other permanents you own and cards in your graveyard, it is not stickered unless there\u2019s actually a sticker on it."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "886e00ab-c694-4839-b3fb-7a72048db4b2",
+        "source": "wotc",
+        "published_at": "2022-10-07",
+        "comment": "As ability stickers are added to other permanents you own or cards in your graveyard, Clandestine Chameleon will gain the corresponding abilities. Similarly, Clandestine Chameleon will lose abilities as those stickers are removed or those permanents and/or cards go to zones other than the battlefield or graveyard."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "886e00ab-c694-4839-b3fb-7a72048db4b2",
+        "source": "wotc",
+        "published_at": "2022-10-07",
+        "comment": "It doesn\u2019t matter if the permanent or card with the ability sticker has lost the ability due to another effect. As long as it still has the sticker on it, Clandestine Chameleon will have the ability of that sticker anyway."
+      }
+    ]
+  },
+  "Chicken Troupe": {
+    "object": "list",
+    "has_more": false,
+    "data": []
+  },
+  "Done for the Day": {
+    "object": "list",
+    "has_more": false,
+    "data": [
+      {
+        "object": "ruling",
+        "oracle_id": "2a248d6a-aa83-4e59-848b-46de8204b538",
+        "source": "wotc",
+        "published_at": "2022-10-07",
+        "comment": "Done for the Day\u2019s ability will trigger only if you control at least one of the three as your end step begins. If you don\u2019t, the ability won\u2019t trigger at all. If you do, the ability will check again as it tries to resolve. If you control none of the three at that time, the ability won\u2019t resolve and you\u2019ll get nothing. If you still control at least one, you\u2019ll get the ticket or the Treasure (if you want). Then if you control all three, you\u2019ll also have the chance to place a sticker."
+      }
+    ]
+  },
+  "Ambassador Blorpityblorpboop": {
+    "object": "list",
+    "has_more": false,
+    "data": [
+      {
+        "object": "ruling",
+        "oracle_id": "183a9488-e21f-448b-8b69-e53b56fa0a56",
+        "source": "wotc",
+        "published_at": "2022-10-07",
+        "comment": "Ambassador Blorpityblorpboop has received a minor update to clarify its function. Specifically, its ability causes its base power to match the total power of stickers you control, and its base toughness to match the total toughness of stickers you control. The updated wording appears above."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "183a9488-e21f-448b-8b69-e53b56fa0a56",
+        "source": "wotc",
+        "published_at": "2022-10-07",
+        "comment": "It doesn\u2019t matter if the stickers are on creatures. Any power and toughness stickers on noncreature permanents you control will also count."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "183a9488-e21f-448b-8b69-e53b56fa0a56",
+        "source": "wotc",
+        "published_at": "2022-10-07",
+        "comment": "Count only the powers and toughnesses of the stickers on permanents you control, not the actual powers and toughnesses of those permanents. For example, if a creature you control has a 4/4 sticker on it, but it also has three +1/+1 counters on it, it\u2019s a 7/7 creature, but Ambassador Blorpityblorpboop\u2019s base power and toughness would become 4/4."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "183a9488-e21f-448b-8b69-e53b56fa0a56",
+        "source": "wotc",
+        "published_at": "2022-10-07",
+        "comment": "Ambassador Blorpityblorpboop counts all power and toughness stickers on all permanents you control, even if those power and toughness stickers don\u2019t currently have any effect (possibly because you placed another power and toughness sticker on the same creature)."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "183a9488-e21f-448b-8b69-e53b56fa0a56",
+        "source": "wotc",
+        "published_at": "2022-10-07",
+        "comment": "If Ambassador Blorpityblorpboop has a power and toughness sticker on it, that sticker is included when calculating for the last ability."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "183a9488-e21f-448b-8b69-e53b56fa0a56",
+        "source": "wotc",
+        "published_at": "2022-10-07",
+        "comment": "Although Ambassador Blorpityblorpboop\u2019s last ability considers the power and toughness stickers of permanents you control, the card itself is not considered to be stickered unless there\u2019s actually a sticker on it."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "183a9488-e21f-448b-8b69-e53b56fa0a56",
+        "source": "wotc",
+        "published_at": "2022-10-07",
+        "comment": "The base power and toughness change doesn\u2019t end at end of turn; it lasts indefinitely, until Ambassador Blorpityblorpboop either leaves the battlefield or its base power and toughness changes again from another effect (for example, a power and toughness sticker being placed on it or its ability triggering again)."
+      }
+    ]
+  },
+  "Lineprancers": {
+    "object": "list",
+    "has_more": false,
+    "data": [
+      {
+        "object": "ruling",
+        "oracle_id": "71433aef-5a06-449e-93b1-9565cb0afd93",
+        "source": "wotc",
+        "published_at": "2022-10-07",
+        "comment": "Activating the last ability doesn\u2019t mean you have to attack with the target creature you control."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "71433aef-5a06-449e-93b1-9565cb0afd93",
+        "source": "wotc",
+        "published_at": "2022-10-07",
+        "comment": "If the creature you control does attack, and the creature you don\u2019t control can\u2019t block it for any reason (such as being tapped), then it doesn\u2019t block. If there\u2019s a cost associated with having it block the creature, its controller isn\u2019t forced to pay that cost, so it doesn\u2019t have to block in that case either. That creature is then free to block another creature or to not block at all."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "71433aef-5a06-449e-93b1-9565cb0afd93",
+        "source": "wotc",
+        "published_at": "2022-10-07",
+        "comment": "If a creature is required to block a creature with menace, another creature must also block that creature if able. If none can, the creature that\u2019s required to block can block another creature or not block at all."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "71433aef-5a06-449e-93b1-9565cb0afd93",
+        "source": "wotc",
+        "published_at": "2022-10-07",
+        "comment": "Creatures other than the first target creature may also block the second target creature."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "71433aef-5a06-449e-93b1-9565cb0afd93",
+        "source": "wotc",
+        "published_at": "2022-10-07",
+        "comment": "Once the activated ability resolves, the blocking requirement is set, even if the second target creature loses its power and toughness sticker before blockers are declared."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "71433aef-5a06-449e-93b1-9565cb0afd93",
+        "source": "wotc",
+        "published_at": "2022-10-07",
+        "comment": "If either target of the activated ability is illegal as the ability tries to resolve, it will have no effect. If both targets become illegal, the ability won\u2019t resolve at all."
+      }
+    ]
+  },
+  "Prize Wall": {
+    "object": "list",
+    "has_more": false,
+    "data": []
+  },
+  "Stiltstrider": {
+    "object": "list",
+    "has_more": false,
+    "data": []
+  },
+  "Last Voyage of the _____": {
+    "object": "list",
+    "has_more": false,
+    "data": [
+      {
+        "object": "ruling",
+        "oracle_id": "54ddf766-b528-488d-9b98-8a101bdb5de9",
+        "source": "wotc",
+        "published_at": "2022-10-07",
+        "comment": "This enchantment will become an Aura whether you put a name sticker on it or not. \"Last Voyage of the ________\" is kind of a disappointing name though."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "54ddf766-b528-488d-9b98-8a101bdb5de9",
+        "source": "wotc",
+        "published_at": "2022-10-07",
+        "comment": "If the Aura can't become attached to the creature (for example, if the creature has protection from black), the Aura will be placed into its owner's graveyard as a state-based action. The creature will remain on the battlefield."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "54ddf766-b528-488d-9b98-8a101bdb5de9",
+        "source": "wotc",
+        "published_at": "2022-10-07",
+        "comment": "Similarly, if the enchantment leaves the battlefield before its enters-the-battlefield ability resolves, you won't be able to put a name sticker on it. However, you will be able to return a creature card from your graveyard to the battlefield."
+      }
+    ]
+  },
+  "Glitterflitter": {
+    "object": "list",
+    "has_more": false,
+    "data": []
+  },
+  "Bioluminary": {
+    "object": "list",
+    "has_more": false,
+    "data": []
+  },
+  "Park Bleater": {
+    "object": "list",
+    "has_more": false,
+    "data": []
+  },
+  "_____-o-saurus": {
+    "object": "list",
+    "has_more": false,
+    "data": []
+  },
+  "Baaallerina": {
+    "object": "list",
+    "has_more": false,
+    "data": []
+  },
+  "Wizards of the _____": {
+    "object": "list",
+    "has_more": false,
+    "data": []
+  },
+  "Fight the _____ Fight": {
+    "object": "list",
+    "has_more": false,
+    "data": [
+      {
+        "object": "ruling",
+        "oracle_id": "5f589a11-1601-4a17-92d6-58e9dd9b00f2",
+        "source": "wotc",
+        "published_at": "2022-10-07",
+        "comment": "If you choose not to put a name sticker on this Aura as its enters-the-battlefield ability resolves, the reflexive trigger that causes the fight won\u2019t trigger. Putting a name sticker on this Aura after that point won\u2019t cause it to trigger."
+      }
+    ]
+  },
+  "Minotaur de Force": {
+    "object": "list",
+    "has_more": false,
+    "data": []
+  },
+  "_____ _____ Rocketship": {
+    "object": "list",
+    "has_more": false,
+    "data": [
+      {
+        "object": "ruling",
+        "oracle_id": "1009f979-b1fa-4427-bf9e-2a533a4ca19b",
+        "source": "wotc",
+        "published_at": "2022-10-07",
+        "comment": "When determining what a name begins with, ignore all spaces and punctuation, including blank lines."
+      }
+    ]
+  },
+  "Aerialephant": {
+    "object": "list",
+    "has_more": false,
+    "data": []
+  },
+  "Croakid Amphibonaut": {
+    "object": "list",
+    "has_more": false,
+    "data": [
+      {
+        "object": "ruling",
+        "oracle_id": "8b1796d2-5b19-48ab-8699-01f45d427498",
+        "source": "wotc",
+        "published_at": "2022-10-07",
+        "comment": "The stickered permanent could be Croakid Amphibonaut itself or another permanent you control."
+      }
+    ]
+  },
+  "Unlawful Entry": {
+    "object": "list",
+    "has_more": false,
+    "data": []
+  },
+  "Grabby Tabby": {
+    "object": "list",
+    "has_more": false,
+    "data": [
+      {
+        "object": "ruling",
+        "oracle_id": "67ee367c-e346-48b6-8694-01c8d5f020cb",
+        "source": "wotc",
+        "published_at": "2022-10-07",
+        "comment": "The stickered permanent could be Grabby Tabby itself or another permanent you control."
+      }
+    ]
+  },
+  "A Good Day to Pie": {
+    "object": "list",
+    "has_more": false,
+    "data": []
+  },
+  "Pin Collection": {
+    "object": "list",
+    "has_more": false,
+    "data": [
+      {
+        "object": "ruling",
+        "oracle_id": "69fedfbb-5d88-4fe0-81e1-1e97a56c6aca",
+        "source": "wotc",
+        "published_at": "2022-10-07",
+        "comment": "Pin Collection will also have the abilities of the ability stickers that are on it. If one of them is an activated ability, both the instance on Pin Collection and the instance the equipped creature has can be activated. If one of them is a triggered ability, each of the two instances (Pin Collection's and equipped creature's) will trigger separately."
+      }
+    ]
+  },
+  "Make a _____ Splash": {
+    "object": "list",
+    "has_more": false,
+    "data": [
+      {
+        "object": "ruling",
+        "oracle_id": "fe2601a4-cbd5-4866-92a2-5586f737c9af",
+        "source": "wotc",
+        "published_at": "2022-10-07",
+        "comment": "The last ability will trigger whenever you put any kind of sticker on this enchantment, not just name stickers, although only u\u2019s in name stickers will count toward the number of targets. Notably, u\u2019s in ability and art stickers won\u2019t count."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "fe2601a4-cbd5-4866-92a2-5586f737c9af",
+        "source": "wotc",
+        "published_at": "2022-10-07",
+        "comment": "Once the last ability triggers and targets are chosen, changing the number of u\u2019s in name stickers on this enchantment won\u2019t change the number of targets."
+      }
+    ]
+  },
+  "Scampire": {
+    "object": "list",
+    "has_more": false,
+    "data": []
+  },
+  "_____ _____ _____ Trespasser": {
+    "object": "list",
+    "has_more": false,
+    "data": [
+      {
+        "object": "ruling",
+        "oracle_id": "75854e14-5f15-443d-b342-b27fc3ab4b6e",
+        "source": "wotc",
+        "published_at": "2022-10-07",
+        "comment": "You can activate this creature\u2019s last ability even if it doesn\u2019t have any name stickers on it."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "75854e14-5f15-443d-b342-b27fc3ab4b6e",
+        "source": "wotc",
+        "published_at": "2022-10-07",
+        "comment": "Activating the last ability after blockers have been declared won\u2019t change or undo any blocks."
+      }
+    ]
+  },
+  "Carnival Carnivore": {
+    "object": "list",
+    "has_more": false,
+    "data": []
+  },
+  "Robo-Pi\u00f1ata": {
+    "object": "list",
+    "has_more": false,
+    "data": []
+  },
+  "Goblin Airbrusher": {
+    "object": "list",
+    "has_more": false,
+    "data": []
+  },
+  "Tusk and Whiskers": {
+    "object": "list",
+    "has_more": false,
+    "data": []
+  },
+  "Wee Champion": {
+    "object": "list",
+    "has_more": false,
+    "data": []
+  },
+  "Sword-Swallowing Seraph": {
+    "object": "list",
+    "has_more": false,
+    "data": []
+  },
+  "Wolf in _____ Clothing": {
+    "object": "list",
+    "has_more": false,
+    "data": [
+      {
+        "object": "ruling",
+        "oracle_id": "58c9454b-7027-48f4-9e17-310e27b916d1",
+        "source": "wotc",
+        "published_at": "2022-10-07",
+        "comment": "This creature\u2019s enters-the-battlefield ability goes on the stack without any targets. As it resolves, you may put a name sticker on this creature. Doing so causes the reflexive triggered ability to trigger. You choose the targets for that ability as it goes on the stack."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "58c9454b-7027-48f4-9e17-310e27b916d1",
+        "source": "wotc",
+        "published_at": "2022-10-07",
+        "comment": "Putting a name sticker on this creature later won\u2019t cause the reflexive triggered ability to trigger."
+      }
+    ]
+  },
+  "_____ Balls of Fire": {
+    "object": "list",
+    "has_more": false,
+    "data": [
+      {
+        "object": "ruling",
+        "oracle_id": "82c2a58b-0ee2-454b-9ddd-670c1e788166",
+        "source": "wotc",
+        "published_at": "2022-10-07",
+        "comment": "The last ability will trigger whenever you put any kind of sticker on this enchantment, not just name stickers, although only o\u2019s in name stickers will count towards the amount of damage dealt. Notably, o\u2019s in ability and art stickers won\u2019t count."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "82c2a58b-0ee2-454b-9ddd-670c1e788166",
+        "source": "wotc",
+        "published_at": "2022-10-07",
+        "comment": "Count the number of o\u2019s in name stickers on this enchantment as the last ability resolves to determine how much damage is dealt. If this enchantment is no longer on the battlefield at that time, use the number of o\u2019s its name stickers had when it was last on the battlefield."
+      }
+    ]
+  },
+  "Proficient Pyrodancer": {
+    "object": "list",
+    "has_more": false,
+    "data": []
+  },
+  "Roxi, Publicist to the Stars": {
+    "object": "list",
+    "has_more": false,
+    "data": [
+      {
+        "object": "ruling",
+        "oracle_id": "5e24a352-7c90-458b-9bb2-bd4bc22bc748",
+        "source": "wotc",
+        "published_at": "2022-10-07",
+        "comment": "The ability that defines Roxi's power functions in all zones, not just the battlefield. If Roxi is on the battlefield or in your graveyard and it has an art sticker, it counts toward the total."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "5e24a352-7c90-458b-9bb2-bd4bc22bc748",
+        "source": "wotc",
+        "published_at": "2022-10-07",
+        "comment": "Roxi's enters-the-battlefield ability allows you to put two art stickers on a single permanent you own or one art sticker on each of two permanents you own."
+      }
+    ]
+  },
+  "Scared Stiff": {
+    "object": "list",
+    "has_more": false,
+    "data": [
+      {
+        "object": "ruling",
+        "oracle_id": "4a5d8acd-a460-43b2-816a-70f61d7831af",
+        "source": "wotc",
+        "published_at": "2022-10-07",
+        "comment": "The stickered permanent could be Scared Stiff itself or another permanent you control."
+      }
+    ]
+  },
+  "_____ Bird Gets the Worm": {
+    "object": "list",
+    "has_more": false,
+    "data": []
+  },
+  "Big Winner": {
+    "object": "list",
+    "has_more": false,
+    "data": [
+      {
+        "object": "ruling",
+        "oracle_id": "b181f5f7-d857-4ed0-996c-bb65b37bfb1b",
+        "source": "wotc",
+        "published_at": "2022-10-07",
+        "comment": "The stickered permanent could be Big Winner itself or another permanent you control."
+      }
+    ]
+  },
+  "Sanguine Sipper": {
+    "object": "list",
+    "has_more": false,
+    "data": [
+      {
+        "object": "ruling",
+        "oracle_id": "ea787e29-5e24-4136-bdf6-bee338899e34",
+        "source": "wotc",
+        "published_at": "2022-10-07",
+        "comment": "The stickered permanent could be Sanguine Sipper itself or another permanent you control."
+      }
+    ]
+  },
+  "Costume Shop": {
+    "object": "list",
+    "has_more": false,
+    "data": []
+  }
+}

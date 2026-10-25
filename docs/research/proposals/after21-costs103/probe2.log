@@ -1,0 +1,15 @@
+Katara, Seeking Revenge
+As an additional cost to cast this spell, you may waterbend {2}. {'kind': 'static', 'static': 'own_optional', 'optional': 'waterbend103', 'cost': 'Waterbend {2}', 'effects': []}
+When Katara enters, draw a card. If its waterbend cost wasn't paid, discard a card. {'kind': 'triggered', 'trigger': 'enters_self', 'effects': [{'do': 'draw', 'who': 'you', 'n': 1}, {'do': 'only_if', 'cond': {'not': {'object': 'self', 'cast': {'waterbend_paid103': True}}}, 'skip': 1}, {'do': 'discard', 'who': 'you', 'n': 1}], 'optional': False, 'target': None}
+Katara gets +1/+1 for each Lesson card in your graveyard. {'kind': 'static', 'static': 'grant', 'effects': [], 'who': 'self', 'attached_kind': None, 'conditions': [], 'p': 0, 't': 0, 'base': None, 'keywords': [], 'grants': [], 'rules': [], 'each': {'p': 1, 't': 1, 'value': {'count': 'sel:{"card":true,"subtypes":["Lesson"],"zone_owner":"you","zones":["graveyard"]}'}}}
+Spirit Water Revival
+As an additional cost to cast this spell, you may waterbend {6}. {'kind': 'static', 'static': 'own_optional', 'optional': 'waterbend103', 'cost': 'Waterbend {6}', 'effects': []}
+Draw two cards. If its waterbend cost was paid, instead shuffle your graveyard into your library, draw seven cards, and you have no maximum hand size for the rest of the game. {'kind': 'spell', 'effects': [{'do': 'only_if', 'cond': {'not': {'object': 'self', 'cast': {'waterbend_paid103': True}}}, 'skip': 1, 'bind': 'cond0'}, {'do': 'draw', 'who': 'you', 'n': 2}, {'do': 'only_if', 'cond': {'flag': 'cond0', 'negate': True}, 'skip': 3}, {'do': 'shuffle_library', 'who': 'you', 'zones': ['graveyard']}, {'do': 'draw', 'who': 'you', 'n': 7}, {'do': 'no_max_hand'}], 'target': None}
+Exile Spirit Water Revival. {'kind': 'spell', 'effects': [{'do': 'exile', 'who': 'self'}], 'target': None}
+Ruinous Waterbending
+As an additional cost to cast this spell, you may waterbend {4}. {'kind': 'static', 'static': 'own_optional', 'optional': 'waterbend103', 'cost': 'Waterbend {4}', 'effects': []}
+All creatures get -2/-2 until end of turn. If its waterbend cost was paid, whenever a creature dies this turn, you gain 1 life. {'kind': 'spell', 'effects': [{'do': 'pump', 'who': 'sel:{"types":["Creature"]}', 'p': -2, 't': -2}, {'do': 'only_if', 'cond': {'object': 'self', 'cast': {'waterbend_paid103': True}}, 'skip': 2}, {'do': 'delayed', 'when': {'kind': 'watch', 'cond': {'event': 'die', 'subject': 'sel', 'sel': 'sel:{"types":["Creature"]}', 'aggregate': False}, 'text': 'a creature dies'}, 'n': 1, 'this_turn': True, 'once': False}, {'do': 'deferred:gain_life', 'who': 'you', 'n': 1}], 'target': None}
+Secret of Bloodbending
+As an additional cost to cast this spell, you may waterbend {10}. {'kind': 'static', 'static': 'own_optional', 'optional': 'waterbend103', 'cost': 'Waterbend {10}', 'effects': []}
+You control target opponent during their next combat phase. If its waterbend cost was paid, you control that player during their next turn instead. None
+Exile Secret of Bloodbending. {'kind': 'spell', 'effects': [{'do': 'exile', 'who': 'self'}], 'target': None}

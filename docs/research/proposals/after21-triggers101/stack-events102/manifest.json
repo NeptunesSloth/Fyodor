@@ -1,0 +1,32 @@
+{
+  "status": "CLOSED isolated candidate; root integration/catalog pending",
+  "names": [
+    "Hive Mind",
+    "Ivy, Gleeful Spellthief",
+    "Frontline Heroism",
+    "Volo, Guide to Monsters",
+    "Jaya's Phoenix",
+    "Voracious Bibliophile"
+  ],
+  "baseline": "456c95d6 merged PR21",
+  "owned_sources": [
+    "app/rules/stack_events102.py",
+    "app/rules/scripts.py",
+    "app/rules/effects.py",
+    "app/rules/triggers.py",
+    "app/rules/copying.py",
+    "app/rules/engine.py",
+    "app/game/rules_state.py"
+  ],
+  "native": "24 unique PASS:23 in final24-fixtures.log plus corrected Aura-cold1;3 genuine cold",
+  "typing": 7,
+  "ruff": 8,
+  "related": {
+    "passed": 154,
+    "skipped": 1,
+    "failed_preexisting": 1,
+    "baseline_proof": "baseline-restriction1.log identical test_restriction_grammar cumulative_upkeep expectation"
+  },
+  "test_destination": "backend/tests/test_rules_stack_events102.py",
+  "fixture_destination": "backend/tests/fixtures/stack_events102_cards.json"
+}

@@ -1089,6 +1089,10 @@ def resolve_top_of_stack(plan: Plan) -> None:
             and replacements.stack_entry_choice(plan, top, controller):
         return  # "As ~ enters, choose a color": chosen before it enters (614.12a); resolved again with the answer
     ch = plan.ch(top)  # -- copy system (wave 2F): as it will enter — entering as a copy, the copied text (707.5, 614.12)
+    if top_id in plan.rules.aura_targets:
+        from app.game.rules_state import remember_stack
+
+        remember_stack(plan.state, top_id)  # Retain Aura targets before normal resolution consumes its map.
     aura_target = plan.rules.aura_targets.pop(top_id, None)
     # An instant, sorcery or ability the engine didn't put on the stack (moved there by hand) has
     # no recorded targets or choices: its controller resolves it by hand. So has an Aura without one.
@@ -1871,3 +1875,7 @@ RESUME['graveyard_order_page94'] = graveyard_order.resume_page
 from app.rules import modal_clauses101 as _modal101  # noqa: E402
 
 RESUME.update(_modal101.RESUME)
+
+from app.rules import combat_damage95 as _combat_damage95  # noqa: E402
+
+RESUME.update(_combat_damage95.RESUME)

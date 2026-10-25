@@ -1,0 +1,69 @@
+{
+  "object": "list",
+  "has_more": false,
+  "data": [
+    {
+      "object": "ruling",
+      "oracle_id": "e2d21635-182f-4ebf-a6f5-d4c1fd7f9705",
+      "source": "wotc",
+      "published_at": "2025-04-04",
+      "comment": "After Flamehold Grappler\u2019s last ability resolves, the next spell you cast that turn will be copied whether or not it has targets."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "e2d21635-182f-4ebf-a6f5-d4c1fd7f9705",
+      "source": "wotc",
+      "published_at": "2025-04-04",
+      "comment": "The copy created by Flamehold Grappler\u2019s last ability resolves before the spell it\u2019s copying. It resolves even if the original spell is countered before the copy is created."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "e2d21635-182f-4ebf-a6f5-d4c1fd7f9705",
+      "source": "wotc",
+      "published_at": "2025-04-04",
+      "comment": "If the spell has any targets, the copy will have the same targets unless you choose new ones. You may change any number of the targets, including all of them or none of them. The new targets must be legal."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "e2d21635-182f-4ebf-a6f5-d4c1fd7f9705",
+      "source": "wotc",
+      "published_at": "2025-04-04",
+      "comment": "If the spell that\u2019s copied is modal (that is, it says \u201cChoose one \u2014\u201d or the like), the copy will have the same mode or modes. You can\u2019t choose different ones."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "e2d21635-182f-4ebf-a6f5-d4c1fd7f9705",
+      "source": "wotc",
+      "published_at": "2025-04-04",
+      "comment": "If the copied spell divides damage or distributes counters among a number of targets, the division and number of targets can\u2019t be changed. If you choose new targets, you must choose the same number of targets."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "e2d21635-182f-4ebf-a6f5-d4c1fd7f9705",
+      "source": "wotc",
+      "published_at": "2025-04-04",
+      "comment": "If the spell that\u2019s copied has an X whose value was determined as it was cast, the copy will have the same value of X."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "e2d21635-182f-4ebf-a6f5-d4c1fd7f9705",
+      "source": "wotc",
+      "published_at": "2025-04-04",
+      "comment": "You can\u2019t choose to pay any additional costs for the copy. However, effects based on any additional costs that were paid for the original spell are copied as though those same costs were paid for the copy too."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "e2d21635-182f-4ebf-a6f5-d4c1fd7f9705",
+      "source": "wotc",
+      "published_at": "2025-04-04",
+      "comment": "The copy is created on the stack, so it\u2019s not \u201ccast.\u201d Abilities that trigger when a player casts a spell won\u2019t trigger."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "e2d21635-182f-4ebf-a6f5-d4c1fd7f9705",
+      "source": "wotc",
+      "published_at": "2025-04-04",
+      "comment": "A resolving copy of a permanent spell becomes a token. That token isn\u2019t \u201ccreated\u201d and won\u2019t interact with abilities that care about tokens being created."
+    }
+  ]
+}

@@ -1,0 +1,248 @@
+--- /dev/null
++++ b/backend/app/rules/vampire_returns105.py
+@@ -0,0 +1,139 @@
++"""Original damage/death objects, deferred returns, and the original source's loss."""
++
++from __future__ import annotations
++
++from dataclasses import replace
++from typing import Any
++
++
++def loss_effects() -> list[dict[str, Any]]:
++    from app.rules import delayed
++
++    result = delayed.wrap_when(
++        [{"do": "sacrifice", "who": "ref:returned105"}],
++        {"kind": "event", "event": "lose_control", "open": True},
++        who="self",
++    )
++    # Seraph's official ruling: a source already controlled by someone else may
++    # later be regained and then lost. A departed original creates no watcher.
++    result[0]["watch_foreign105"] = True
++    return result
++
++
++def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
++    from app.rules import context, delayed, scripts
++
++    text = scripts.self_text(ability.text, ch.name)
++    krov = "At the beginning of each end step, if a creature dealt damage by ~ this turn died, put that card onto the battlefield under your control. Sacrifice it when you lose control of ~."
++    seraph = "Whenever a creature dealt damage by ~ this turn dies, put that card onto the battlefield under your control at the beginning of the next end step. Sacrifice the creature when you lose control of ~."
++    if text == krov:
++        native = scripts.define(replace(ability, text="At the beginning of each end step, draw a card."), ch)
++        assert native is not None
++        return {
++            **native,
++            "if": {"damage_death105": True},
++            "effects": [{"do": "return_damaged105"}, *loss_effects()],
++        }
++    if text == seraph:
++        native = scripts.define(
++            replace(ability, text="Whenever a creature dealt damage by ~ this turn dies, draw a card."), ch
++        )
++        assert native is not None
++        cond = {**native["cond"], "damaged_by_exact105": True}
++        cond.pop("damaged_by_self")
++        inner = [
++            {
++                "do": "return_card",
++                "who": context.EVENT_NEW,
++                "to": "battlefield",
++                "under": "you",
++                "as": "returned105",
++            },
++            *loss_effects(),
++        ]
++        return {
++            **native,
++            "cond": cond,
++            "effects": delayed.wrap_when(inner, {"kind": "step", "step": "end", "whose": "next"}),
++        }
++    return None
++
++
++def departures(plan: Any, ctx: dict[str, Any]) -> list[Any]:
++    from app.rules import history
++
++    log = history.log_for(plan)
++    victims = {
++        f.object_id
++        for f in log.facts
++        if f.kind == "damaged" and f.source == ctx.get("source_object") and f.amount > 0
++    }
++    return [
++        x
++        for x in log.left
++        if x.object_id in victims
++        and x.to == "graveyard"
++        and "Creature"
++        in (
++            x.types
++            if x.types is not None
++            else (plan.rules.lki[x.object_id].types if x.object_id in plan.rules.lki else [])
++        )
++    ]
++
++
++def return_damaged(plan: Any, ctx: dict[str, Any], effect: Any) -> bool:
++    from app.game.rules_state import DecisionOption
++    from app.rules import context
++    from app.rules.plan import decide
++
++    dead = departures(plan, ctx)
++    if any(
++        x.new_object_id105 is None
++        and not (plan.rules.lki.get(x.object_id) and plan.rules.lki[x.object_id].is_token)
++        for x in dead
++    ):
++        decide(
++            plan,
++            player=ctx["controller"],
++            kind="manual_resolution",
++            prompt="This older save does not identify the original cards in the graveyard. Resolve this return and its later sacrifice condition by hand, then press Done.",
++            options=[DecisionOption(id="done", label="Done")],
++            resume={"step": "vampire_returns105_legacy", "ctx": ctx},
++        )
++        return False
++    cards = [
++        x.card
++        for x in dead
++        if x.card in plan.state.cards
++        and plan.state.cards[x.card].zone.endswith(":graveyard")
++        and plan.oid(x.card) == x.new_object_id105
++    ]
++    context.bind_objects(plan, ctx, "dead105", cards)
++    ctx["effects"][ctx["next"] : ctx["next"]] = [
++        {"do": "return_card", "who": "ref:dead105", "to": "battlefield", "under": "you", "as": "returned105"}
++    ]
++    return True
++
++
++def resume(plan: Any, d: Any, chosen: list[str]) -> None:
++    from app.rules.effects import continue_effects
++
++    # The legacy return was deliberately done by hand. Do not infer a cohort for
++    # its loss watcher from the current battlefield.
++    ctx = d.resume["ctx"]
++    ctx["next"] = len(ctx["effects"])
++    continue_effects(plan, ctx)
++
++
++PRIMITIVES = {"return_damaged105": return_damaged}
++RESUME = {"vampire_returns105_legacy": resume}
++
++
++def damage_match(plan: Any, victim: str | None, source: str) -> bool:
++    from app.rules import history
++
++    return victim is not None and any(
++        f.kind == "damaged" and f.object_id == victim and f.source == source and f.amount > 0
++        for f in history.log_for(plan).facts
++    )
+--- a/backend/app/rules/scripts.py
++++ b/backend/app/rules/scripts.py
+@@ -5856,6 +5856,10 @@
+
+ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
+     """The engine definition of one ability, or None (manual)."""
++    from app.rules import vampire_returns105
++
++    if (found105 := vampire_returns105.definition(ability, ch)) is not None:
++        return found105
+     from app.rules import multi100m  # -- multi (wave 100M) --
+
+     if (lines100m := multi100m.definition(ability, ch)) is not None:
+--- a/backend/app/rules/triggers.py
++++ b/backend/app/rules/triggers.py
+@@ -768,6 +768,11 @@
+
+     event, obj, och, player, info = fact
+     you = watcher.controller
++    if event == "die" and cond.get("damaged_by_exact105"):
++        from app.rules import vampire_returns105
++
++        if not vampire_returns105.damage_match(plan, info.get("oid"), source_oid or plan.oid(watcher)):
++            return False
+     if event == 'deal_combat_damage_player' and cond.get('combat_recipient') == 'opponent' and info.get('recipient') == you:
+         return False
+     if cond.get('played_linked_name'):
+--- a/backend/app/rules/conditions.py
++++ b/backend/app/rules/conditions.py
+@@ -1579,6 +1579,10 @@
+
+
+ def holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
++    if cond.get("damage_death105"):
++        from app.rules import vampire_returns105
++
++        return bool(vampire_returns105.departures(plan, ctx))
+     if "damaged_creatures83" in cond:
+         from app.rules import damage_retention83
+
+--- a/backend/app/rules/effects.py
++++ b/backend/app/rules/effects.py
+@@ -6983,3 +6983,6 @@
+ from app.rules import otherchooser100p as _otherchooser100p  # noqa: E402  -- other choosers (wave 100P) --
+
+ PRIMITIVES.update(_otherchooser100p.PRIMITIVES)
++
++from app.rules import vampire_returns105 as _vampire_returns105  # noqa: E402, I001
++PRIMITIVES.update(_vampire_returns105.PRIMITIVES)
+--- a/backend/app/rules/engine.py
++++ b/backend/app/rules/engine.py
+@@ -1867,3 +1867,6 @@
+ RESUME.update(_zone_exchanges94.RESUME)
+
+ RESUME['graveyard_order_page94'] = graveyard_order.resume_page
++
++from app.rules import vampire_returns105 as _vampire_returns105  # noqa: E402, I001
++RESUME.update(_vampire_returns105.RESUME)
+--- a/backend/app/rules/delayed.py
++++ b/backend/app/rules/delayed.py
+@@ -211,13 +211,15 @@
+     deferred = [{**x, "since": plan.rules.next_object} if x["do"] == "transform" else x for x in deferred]
+     refs = {k: v for k, v in (ctx.get("refs") or {}).items()}
+     when = dict(e["when"])
++    if e.get("watch_foreign105"):
++        when["after_batch105"] = plan.rules.batch  # 603.7a: no event before this watcher existed.
+     if when["kind"] == "event" or (when["kind"] == "watch" and when.get("bound")):  # (-- turn-long triggers (wave 33A) -- a watch on one object)
+         from app.rules import context
+         from app.rules.effects import _cards
+
+         watched = dealt_cards(plan, ctx, e["dealt"], e.get("types")) if e.get("dealt") else _cards(plan, ctx, e["who"])  # (wave 35B)
+         watched = [c for c in watched if plan.state.cards[c].zone.endswith(":battlefield")]
+-        if when.get("event") == "lose_control":  # -- attached (wave 100F) -- only what its controller controls can be lost
++        if when.get("event") == "lose_control" and not e.get("watch_foreign105"):  # -- attached (wave 100F) -- only what its controller controls can be lost
+             from app.rules import attached100f
+
+             watched = attached100f.watching(plan, ctx, watched)
+@@ -430,7 +432,8 @@
+     from app.rules import attached100f
+
+     for t in [t for t in watching if t.when.get("event") == "lose_control"]:
+-        if (gone := attached100f.lost(plan, t, events)):
++        eligible = [e for e in events if e.batch > int(t.when.get("after_batch105", -1))]
++        if (gone := attached100f.lost(plan, t, eligible)):
+             fired.append(t)
+             _fire(plan, t, TriggerEvent(kind="lose_control", batch=events[-1].batch, count=1, objects=gone[:1]))
+     watching = [t for t in watching if t.when.get("event") != "lose_control"]
+--- a/backend/app/game/rules_state.py
++++ b/backend/app/game/rules_state.py
+@@ -488,6 +488,7 @@
+     card: str = Field(max_length=64)
+     object_id: str = Field(max_length=80)  # the object as it last existed on the battlefield (its ``lki`` key)
+     controller: str = Field(max_length=64)  # who controlled it as it left
++    new_object_id105: str | None = Field(default=None, max_length=80)  # Exact public successor; absent in legacy saves.
+     to: str = Field(default="", max_length=20)  # the zone it went to: "graveyard", "exile", "hand", "library" …
+     # its card types as it last existed (layers applied: an animated land, a crewed Vehicle), when
+     # the rules engine moved it; None (moved by hand): its printed types from the last known information
+@@ -2217,7 +2218,7 @@
+         if old_name == "battlefield" and snap is not None:  # -- conditional / instead clauses (wave 1B) --
+             log = turn_log_now(state)
+             if log is not None:
+-                log.left.append(Departure(card=card_id, object_id=old_oid, controller=snap.controller, to=new_name or "",
++                log.left.append(Departure(card=card_id, object_id=old_oid, controller=snap.controller, to=new_name or "", new_object_id105=new_oid if new_name == "graveyard" else None,
+                                           types=before.types.get(card_id)))
+         elif old_name == "graveyard" and (log := turn_log_now(state)) is not None:
+             log.left_graveyard.append(old_zone.split(":")[0])  # (a zone key is "<owner>:graveyard")

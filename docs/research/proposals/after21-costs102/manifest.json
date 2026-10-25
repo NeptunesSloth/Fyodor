@@ -1,0 +1,34 @@
+{
+  "status": "CLOSED_ISOLATED_ROOT_INTEGRATION_REQUIRED",
+  "dependency": "after21-costs101",
+  "base_commit": "456c95d6aa3eaaa38583129be436ef57c1937a01",
+  "candidates": [
+    "Benevolent River Spirit",
+    "Water Whip",
+    "Waterbender's Restoration",
+    "Katara, Water Tribe's Hope"
+  ],
+  "expected_promotions": 4,
+  "source_files": [
+    "app/rules/waterbend102.py",
+    "app/rules/costs.py",
+    "app/rules/cost_payment.py",
+    "app/game/rules_state.py",
+    "app/rules/events.py",
+    "app/rules/casting.py",
+    "app/rules/scripts.py"
+  ],
+  "patch": "review.patch",
+  "runtime_source": "/workspace/scratch/costs102/backend",
+  "live_source_writes": false,
+  "native_unique": 12,
+  "cold": 1,
+  "mypy": 7,
+  "ruff": 8,
+  "test_destinations": [
+    "backend/tests/test_rules_waterbend102.py"
+  ],
+  "fixture_destination": "backend/tests/fixtures/waterbend102_cards.json",
+  "related": 12,
+  "final_gate": "native-final12-related12.log: 24 PASS (12 owned +12 existing ward)"
+}

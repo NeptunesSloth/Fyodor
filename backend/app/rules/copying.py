@@ -410,6 +410,30 @@ def lki_spell(plan: Plan, card_id: str, oid: str) -> StackMemory | None:
     return mem
 
 
+
+def source_entry102(plan: Plan, card: CardInstance, oid: str) -> StackEntry | None:
+    """One native target view for scripted spells and entryless Aura spells, live or retained."""
+    from app.rules import attachments, stack_interaction
+
+    if plan.oid(card) == oid:
+        return stack_interaction.target_entry(plan, card.id)
+    mem = lki_spell(plan, card.id, oid)
+    if mem is None:
+        return None
+    if mem.entry is not None:
+        return mem.entry
+    snap = plan.rules.lki.get(oid)
+    if mem.aura_target102 is None or snap is None:
+        return None
+    from app.rules.triggers import _lki_characteristics
+
+    ch = _lki_characteristics(plan, snap)
+    selector = attachments.enchant_selector(ch)
+    if selector is None:
+        return None
+    return StackEntry(kind='spell', controller=snap.controller, source_card=card.id, source_object=oid,
+                      name=ch.name, targets=[mem.aura_target102], target_spec={'what': selector})
+
 def lki_ability(plan: Plan, card_id: str, oid: str) -> StackMemory | None:
     mem = plan.rules.stack_lki.get(oid)
     if mem is None or mem.card != card_id or mem.ability_card is None:
@@ -454,7 +478,7 @@ def run(plan: Plan, job: Job) -> bool:
                 _manual(plan, job, refused)
                 return False
             continue
-        entry = mem.entry if mem is not None else plan.rules.stack.get(card.id)
+        entry = source_entry102(plan, card, cur["oid"])
         from app.rules import spell_copy_replacements
 
         spell_copy_replacements.prepare(plan, job, cur, ability=card.ability is not None)
@@ -585,7 +609,10 @@ def uncopyable(plan: Plan, card: CardInstance, *, object_id: str | None = None) 
         plan.note(f"{ch.name or 'That spell'} can't be copied (113.6g)", [card.id], actor=plan.actor)
         return ""
     if "Aura" in ch.subtypes:
-        return f"Copying an Aura spell ({ch.name}) isn't automated: make the copy by hand, then press Done"
+        from app.rules import attachments
+
+        if attachments.enchant_selector(ch) is None:
+            return f"Copying this Aura's unrecognized enchant restriction ({ch.name}) isn't automated"
     if ch.doors is not None:  # -- Rooms (review 18G) -- 709.5d unlocks the half that was *cast*; a copy isn't cast (707.10): unsettled
         return f"Copying a Room spell ({ch.name}) isn't automated (709.5d): make the copy by hand, then press Done"
     if plan.oid(card) in plan.rules.mutating:  # -- merged permanents (wave 18D) -- the copy is a mutating spell too (707.10, 702.140)
@@ -609,7 +636,7 @@ def _copy_spell(plan: Plan, card: CardInstance, controller: str, excepts: list[C
     r = plan.rules
     orig_oid = oid or plan.oid(card)
     mem = lki_spell(plan, card.id, orig_oid) if orig_oid != plan.oid(card) else None  # it has left the stack: -- spell copies (wave 31D) --
-    entry = mem.entry if mem is not None else r.stack.get(card.id)
+    entry = source_entry102(plan, card, orig_oid)
     info = (StackInfo.model_validate(mem.info) if mem.info else None) if mem is not None else card.stack_info
     if mem is not None:  # (its copiable values as it was: a copy effect on it then, else its printing and face — 707.2)
         snap = r.lki[orig_oid]
@@ -842,6 +869,11 @@ def finalize(plan: Plan, copy_id: str, controller: str) -> None:
            or (t.id in plan.state.cards and publicly_visible(plan.state, plan.state.cards[t.id]))]
     plan.target_arrows(copy_id, ids, actor=controller)
     targeted(plan, copy_id, controller, entry.targets)
+    if 'Aura' in plan.ch(plan.state.cards[copy_id]).subtypes:
+        # The temporary target view is only for copy selection; normal Aura resolution
+        # continues through the existing enchant/attachment path, not an empty scripted spell.
+        plan.rules.aura_targets[copy_id] = entry.targets[0]
+        plan.rules.stack.pop(copy_id, None)
 
 
 # -- effect primitives ---------------------------------------------------------------------------------
@@ -1063,7 +1095,7 @@ def _each_run(plan: Plan, job: dict[str, Any]) -> bool:
             job["victims"].remove(victim)
         card = plan.state.cards.get(job["spell"])
         mem = lki_spell(plan, job["spell"], job["oid"]) if card is not None else None  # (wave 31D: a spell that left the stack, as it last was there)
-        entry = mem.entry if mem is not None else plan.rules.stack.get(job["spell"])
+        entry = source_entry102(plan, card, job["oid"]) if card is not None else None
         if card is None or entry is None or (mem is None and (card.zone != "stack" or plan.oid(card) != job["oid"])):
             break
         if victim == "__additional__":

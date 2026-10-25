@@ -1,0 +1,18 @@
+{
+  "app/rules/sacrifice_outcomes106.py": {
+    "base": null,
+    "proposed": "c331c0d6bfb89faeb77edd895c811d3c5416e0ff06c04092b7fe161e04cb1357"
+  },
+  "app/rules/scripts.py": {
+    "base": "7bdab125b320e548f6a6f47e753eb7c1bbb2a144d7768fc90005dfb5b72f7c76",
+    "proposed": "e17671b8de6fe4efb35695217125f7eacc366c118abdae6984ff12eb7eb390a2"
+  },
+  "app/rules/effects.py": {
+    "base": "b53b1d55551e7c1a083d1e9a5adf5acb3a0e4678f2c680760062d570cd88f8da",
+    "proposed": "22abe2de44a5b4552a21ecbf64757e5f2be34ac7a8f36902569a0b648bcac8db"
+  },
+  "app/rules/triggers.py": {
+    "base": "0d1385d2bf0b05c1911d77d1e09f9e7ebc7b2f7aaab71b6fc4e64f77a36d46a0",
+    "proposed": "eb4d5cdc8652d50a314270d013821357818df43c2a5ff87089aa832b7e257a15"
+  }
+}

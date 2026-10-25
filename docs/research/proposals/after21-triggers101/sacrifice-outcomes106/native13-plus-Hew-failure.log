@@ -1,0 +1,28 @@
+.............F                                                           [100%]
+=================================== FAILURES ===================================
+_______ test_hew_nonlands_enter_before_tapped_lands_and_zero_is_allowed ________
+
+cards = <app.cards.repository.CardRepository object at 0x7f0da8fc0590>
+
+    def test_hew_nonlands_enter_before_tapped_lands_and_zero_is_allowed(cards):
+        s=setup(cards)
+        first=put(s,'Forest')
+        second=put(s,'Forest')
+        rover=put(s,'Hedron Rover','hand')
+        land=next(c for c in s.state.cards.values() if c.owner=='p1' and c.name=='Forest' and c.id not in (first.id,second.id))
+        act(s,'p1',type='move',card_ids=[land.id],to={'player':'p1','zone':'library'},position='top')
+        act(s,'p1',type='move',card_ids=[rover.id],to={'player':'p1','zone':'library'},position='top')
+        cast(s,'Hew the Entwood')
+        settle(s)
+        pick(s,[first.id,second.id])
+        settle(s)
+        d=s.state.rules.decision
+        assert d is not None
+        chosen=[o.id for o in d.options]
+>       assert len(chosen)==2
+E       assert 0 == 2
+E        +  where 0 = len([])
+
+tests/test_rules_sacrifice_outcomes106.py:220: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_rules_sacrifice_outcomes106.py::test_hew_nonlands_enter_before_tapped_lands_and_zero_is_allowed

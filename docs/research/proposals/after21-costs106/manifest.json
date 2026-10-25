@@ -1,0 +1,30 @@
+{
+  "status": "CLOSED_ISOLATED_ROOT_INTEGRATION_REQUIRED",
+  "dependency": "after21-costs105",
+  "base_commit": "456c95d6aa3eaaa38583129be436ef57c1937a01",
+  "candidates": [
+    "Bite Down on Crime"
+  ],
+  "expected_promotions": 1,
+  "source_files": [
+    "app/rules/cost_changes.py",
+    "app/rules/permissions.py",
+    "app/rules/cost_payment.py",
+    "app/rules/casting.py"
+  ],
+  "patch": "review.patch",
+  "runtime_source": "/workspace/scratch/costs106/backend",
+  "live_source_writes": false,
+  "native_unique": 7,
+  "cold": 1,
+  "mypy": 4,
+  "ruff": 5,
+  "test_destinations": [
+    "backend/tests/test_rules_evidence_cost106.py"
+  ],
+  "fixture_destination": "backend/tests/fixtures/evidence_cost106_cards.json",
+  "related": 1,
+  "native_evidence": {
+    "native-final7-related1.log": "8 PASS:7 owned incl1 true cold +1 existing optional evidence regression"
+  }
+}

@@ -504,7 +504,8 @@ def _facts(plan: Plan, e: Event, window: dict[str, Any]) -> list[Fact]:
                 "mana_sources": list(paid.mana_sources) if paid is not None and paid.mana_known else [],
                 "mana_spent": dict(paid.mana_spent) if paid is not None and paid.mana_known else None,
                 "x": int(paid.x or 0) if paid is not None else int(entry.x or 0) if entry is not None else 0,
-                "targets": [(t.id, t.object_id) for t in (entry.targets if entry is not None else [])]}
+                "targets": [(t.id, t.object_id) for t in (entry.targets if entry is not None else
+                    [r.aura_targets[spell.id]] if spell.id in r.aura_targets else [])]}
         # -- unless pays (wave 4C) -- "their first noncreature spell each turn"
         from app.rules import unless_pays
 
@@ -527,7 +528,8 @@ def _facts(plan: Plan, e: Event, window: dict[str, Any]) -> list[Fact]:
         entry = r.stack.get(spell.id)
         return [("copy", spell, plan.ch(spell), e.player, {
             "oid": e.object_id, "actor": e.player,
-            "targets": [(t.id, t.object_id) for t in (entry.targets if entry is not None else [])]})]
+            "targets": [(t.id, t.object_id) for t in (entry.targets if entry is not None else
+                    [r.aura_targets[spell.id]] if spell.id in r.aura_targets else [])]})]
     if e.kind == "drew":
         return [("draw", None, None, e.player, {"amount": 1})]
     if e.kind == "case_solved":
@@ -1053,6 +1055,11 @@ def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: F
 
         if not activated_copy_effects.matches(cond['activation_cost'], info.get('activation_cost')):
             return False
+    if event == 'activate' and cond.get('only_self103'):
+        ref = info.get('source_ref')
+        entry = plan.rules.stack.get(ref.card) if ref is not None else None
+        if entry is None or not _targets_ok(plan, 'self_only', watcher, [(t.id, t.object_id) for t in entry.targets]):
+            return False
     if event == "activate" and cond.get("nonmana") and info.get("mana_ability"):
         return False
     if event == "activate" and ((cond.get("loyalty") and not info.get("loyalty")) or (
@@ -1107,6 +1114,13 @@ def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: F
     if n and len(_counted_attackers(plan, cond, watcher, info)) < n:
         return False
     if event == "cast":
+        if cond.get('cast_targets102') and not (info.get('targets') or []):
+            return False
+        if cond.get('disjoint_creatures102'):
+            from app.rules import stack_events102
+
+            if obj is None or not stack_events102.disjoint(plan, watcher, obj):
+                return False
         if cond.get("cast_foreign_owned") and (obj is None or obj.owner == info.get("actor")):
             return False
         if cond.get('card_only') and (obj is None or obj.is_token):
@@ -1510,6 +1524,8 @@ def _fire_generic(plan: Plan, facts: list[Fact], batch: int, fired: Fired,
                 continue
             event = _event(plan, fact, batch)
             info = fact[4]
+            if cond.get('cast_targets102'):
+                event.amount = len({(cid, oid) for cid, oid in info.get('targets') or []})
             if cond.get("excess"):  # -- trigger damage (wave 39B) -- 120.10: "that excess damage" / "the excess": the amount of this event is the excess (the batch's total, 603.2c)
                 event.amount = int(info.get("excess") or 0)
             if cond["event"] == "you_attack" and cond.get("min_attackers"):  # -- history (wave 22E; review) -- "those creatures", "that many":
@@ -1928,6 +1944,15 @@ def _cast_triggers(plan: Plan, spell_id: str, caster: str, batch: int = 0) -> No
     # a copy isn't cast, 707.10: no spell_cast event)
     if not plan.manual(spell) and spell.zone == "stack" and spell.controller == caster:
         for i, d in abilities(plan, sch, "cast_self"):
+            if d.get("cast_hand103"):
+                receipt = plan.rules.payments.get(plan.oid(spell))
+                if receipt is None or receipt.cast_from != "hand" or receipt.cast_from_player != caster:
+                    continue
+            if d.get("cast_initial103") is not None:
+                from app.rules import conditions
+
+                if not conditions.holds(plan, {"controller": caster, "source_card": spell.id, "source_object": plan.oid(spell)}, d["cast_initial103"]):
+                    continue
             _add(plan, controller=caster, source_card=spell.id, source_object=plan.oid(spell), name=sch.name, index=i,
                  definition=d, event=cast.model_copy(deep=True))
     from app.rules import mana_units

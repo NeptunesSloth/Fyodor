@@ -1,0 +1,128 @@
+bringing up nodes...
+bringing up nodes...
+
+F.F                                                                      [100%]
+=================================== FAILURES ===================================
+_ test_actual_spell_copy_inherits_waterbend_decision_even_without_cast_origin[False] _
+[gw0] linux -- Python 3.12.14 /workspace/Fyodor/backend/.venv/bin/python
+
+cards = <app.cards.repository.CardRepository object at 0x7f1be508cdd0>
+paid = False
+
+    @pytest.mark.parametrize("paid", [False, True])
+    def test_actual_spell_copy_inherits_waterbend_decision_even_without_cast_origin(cards, paid):
+        s = setup(cards)
+        ids = helpers(s, 6) if paid else []
+        before = len(s.state.zones["p1:hand"])
+        source = cast(s, NAMES[0], {"C": 1, "U": 2}, paid)
+        if paid:
+            pick(s, ids)
+        echo = take(s, "Reverberate")
+        wait_priority(s, "p1")
+        act(s, "p1", type="add_mana", player="p1", mana={"R": 2})
+>       act(s, "p1", type="cast_spell", card_id=echo.id, targets=[source.id], sources=[])
+
+tests/test_rules_waterbend103.py:153:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests/game_helpers.py:42: in act
+    return session.perform(actor, payload)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/game/session.py:61: in perform
+    resolved = resolve(self.state, action, actor=actor, cards=self.cards, trusted=trusted)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/game/resolve.py:76: in resolve
+    a.r = compile_intent(state, a, actor=actor, info=info, rng=rng)  # type: ignore[union-attr]
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/engine.py:164: in compile_intent
+    handler(plan, intent)
+app/rules/casting.py:3726: in cast_spell
+    picked_targets = choose_targets(plan, a, definition if aura is None else {"target": {"what": aura}}, ch.name or "it")
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/casting.py:807: in choose_targets
+    chosen = choose_target(plan, a, definition, what, exclude=exclude)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+plan = <app.rules.plan.Plan object at 0x7f1be5d76c00>
+a = CastSpell(actor='p1', ts=1792912364.1127412, r=None, mana_symbols=None, flashback_choice=None, type='cast_spell', card...ker=0, cost_choices=[], alt_cost=None, optional_costs=[], slot=None, via=None, optional_asked=False, life_symbols=None)
+definition = {'kind': 'spell', 'effects': [{'do': 'copy_spell', 'who': 'target'}, {'do': 'copy_new_targets', 'optional': True}], 'target': {'what': 'sel:{"types":["Sorcery","Instant"],"zones":["stack"]}'}}
+what = 'Reverberate', exclude = ()
+
+    def choose_target(plan: Plan, a: A.CastSpell | A.ActivateAbility, definition: dict[str, Any] | None,
+                      what: str, *, exclude: tuple[str, ...] = ()) -> list[TargetRef] | None:
+        """The target of an automated spell or ability: validated if given, else asked (privately).
+        Returns the chosen targets, or None while waiting for the choice."""
+        spec = definition.get("target") if definition else None
+        if not spec:
+            return []
+        legal = [t for t in legal_targets(plan, spec["what"], plan.actor, _target_source(plan, a), a.card_id)
+                 if t not in exclude]  # (wave 49C: a spell's targeting, 115.2)
+        if a.targets:
+            if len(a.targets) != 1 or a.targets[0] not in legal:
+>               raise ActionError("That isn't a legal target")
+E               app.game.errors.ActionError: That isn't a legal target
+
+app/rules/casting.py:767: ActionError
+_ test_actual_spell_copy_inherits_waterbend_decision_even_without_cast_origin[True] _
+[gw1] linux -- Python 3.12.14 /workspace/Fyodor/backend/.venv/bin/python
+
+cards = <app.cards.repository.CardRepository object at 0x7f1a346d5340>
+paid = True
+
+    @pytest.mark.parametrize("paid", [False, True])
+    def test_actual_spell_copy_inherits_waterbend_decision_even_without_cast_origin(cards, paid):
+        s = setup(cards)
+        ids = helpers(s, 6) if paid else []
+        before = len(s.state.zones["p1:hand"])
+        source = cast(s, NAMES[0], {"C": 1, "U": 2}, paid)
+        if paid:
+            pick(s, ids)
+        echo = take(s, "Reverberate")
+        wait_priority(s, "p1")
+        act(s, "p1", type="add_mana", player="p1", mana={"R": 2})
+>       act(s, "p1", type="cast_spell", card_id=echo.id, targets=[source.id], sources=[])
+
+tests/test_rules_waterbend103.py:153:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests/game_helpers.py:42: in act
+    return session.perform(actor, payload)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/game/session.py:61: in perform
+    resolved = resolve(self.state, action, actor=actor, cards=self.cards, trusted=trusted)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/game/resolve.py:76: in resolve
+    a.r = compile_intent(state, a, actor=actor, info=info, rng=rng)  # type: ignore[union-attr]
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/engine.py:164: in compile_intent
+    handler(plan, intent)
+app/rules/casting.py:3726: in cast_spell
+    picked_targets = choose_targets(plan, a, definition if aura is None else {"target": {"what": aura}}, ch.name or "it")
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/casting.py:807: in choose_targets
+    chosen = choose_target(plan, a, definition, what, exclude=exclude)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+plan = <app.rules.plan.Plan object at 0x7f1a2fe2d460>
+a = CastSpell(actor='p1', ts=1792912385.908721, r=None, mana_symbols=None, flashback_choice=None, type='cast_spell', card_...ker=0, cost_choices=[], alt_cost=None, optional_costs=[], slot=None, via=None, optional_asked=False, life_symbols=None)
+definition = {'kind': 'spell', 'effects': [{'do': 'copy_spell', 'who': 'target'}, {'do': 'copy_new_targets', 'optional': True}], 'target': {'what': 'sel:{"types":["Sorcery","Instant"],"zones":["stack"]}'}}
+what = 'Reverberate', exclude = ()
+
+    def choose_target(plan: Plan, a: A.CastSpell | A.ActivateAbility, definition: dict[str, Any] | None,
+                      what: str, *, exclude: tuple[str, ...] = ()) -> list[TargetRef] | None:
+        """The target of an automated spell or ability: validated if given, else asked (privately).
+        Returns the chosen targets, or None while waiting for the choice."""
+        spec = definition.get("target") if definition else None
+        if not spec:
+            return []
+        legal = [t for t in legal_targets(plan, spec["what"], plan.actor, _target_source(plan, a), a.card_id)
+                 if t not in exclude]  # (wave 49C: a spell's targeting, 115.2)
+        if a.targets:
+            if len(a.targets) != 1 or a.targets[0] not in legal:
+>               raise ActionError("That isn't a legal target")
+E               app.game.errors.ActionError: That isn't a legal target
+
+app/rules/casting.py:767: ActionError
+=========================== short test summary info ============================
+FAILED tests/test_rules_waterbend103.py::test_actual_spell_copy_inherits_waterbend_decision_even_without_cast_origin[False]
+FAILED tests/test_rules_waterbend103.py::test_actual_spell_copy_inherits_waterbend_decision_even_without_cast_origin[True]

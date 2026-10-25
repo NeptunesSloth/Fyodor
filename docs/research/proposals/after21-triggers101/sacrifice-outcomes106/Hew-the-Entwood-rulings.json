@@ -1,0 +1,20 @@
+{
+  "object": "list",
+  "has_more": false,
+  "data": [
+    {
+      "object": "ruling",
+      "oracle_id": "8818bbf8-58ec-4070-a81a-c7ce248057ab",
+      "source": "wotc",
+      "published_at": "2023-06-16",
+      "comment": "You sacrifice the lands as part of the resolution of Hew the Entwood. It isn't an additional cost. If Hew the Entwood is countered, you won't sacrifice any lands."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "8818bbf8-58ec-4070-a81a-c7ce248057ab",
+      "source": "wotc",
+      "published_at": "2023-06-16",
+      "comment": "Any abilities that trigger during the resolution of Hew the Entwood will wait to be put on the stack until everything is put on the battlefield and resolution is complete. The player whose turn it is puts their triggered abilities on the stack in any order, then each other player in turn order does the same. (The last ability put on the stack will be the first one to resolve.)"
+    }
+  ]
+}

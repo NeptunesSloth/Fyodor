@@ -1,0 +1,56 @@
+bringing up nodes...
+bringing up nodes...
+
+.............F.F........                                                 [100%]
+=================================== FAILURES ===================================
+_____________ test_hope_actual_prevented_combat_does_not_qualify95 _____________
+[gw1] linux -- Python 3.12.14 /workspace/Fyodor/backend/.venv/bin/python3
+
+cards = <app.cards.repository.CardRepository object at 0x7f916de27620>
+
+    def test_hope_actual_prevented_combat_does_not_qualify95(cards):
+        from tests.test_rules_wave4h_activation_costs import ability
+
+        s = setup95(cards)
+        hope = put(s, NAMES[0], "battlefield")
+        start(s)
+        to_phase(s, "declare_attackers", turn=4)
+        attack(s, (hope, "p2"))
+        to_phase(s, "declare_blockers", turn=4)
+        if s.state.rules.decision and s.state.rules.decision.kind == "declare_blockers":
+            block(s, "p2")
+        cast95(s, "Fog")
+        to_phase(s, "main2", turn=4)
+>       assert s.state.players["p2"].life == 40
+E       AssertionError: assert 39 == 40
+E        +  where 39 = PlayerState(id='p2', name='Bob', color='#5fa8d3', life=39, life_history=[LifeChange(turn=4, before=40, after=39, seq=9...id=None, deck_name=None, token_shortcuts=[], mana={}, mana_units=[], mana_seq=0, left=False, sleeve=None, playmat=None).life
+
+tests/test_rules_combat_history103.py:298: AssertionError
+________ test_beckett_two_pirates_double_strike_is_only_two_originals95 ________
+[gw1] linux -- Python 3.12.14 /workspace/Fyodor/backend/.venv/bin/python3
+
+cards = <app.cards.repository.CardRepository object at 0x7f916de27170>
+
+    def test_beckett_two_pirates_double_strike_is_only_two_originals95(cards):
+        s = setup95(cards)
+        pirates = [put(s, n, "battlefield") for n in ["Storm Fleet Sprinter", "Departed Deckhand"]]
+        target = put(s, "Sol Ring", "battlefield", pid="p2")
+        start(s)
+        to_phase(s, "declare_attackers", turn=4)
+        attack(s, *[(c, "p2") for c in pirates])
+        to_phase(s, "declare_blockers", turn=4)
+        if s.state.rules.decision and s.state.rules.decision.kind == "declare_blockers":
+            block(s, "p2")
+        cast95(s, "Double Cleave", [pirates[0].id])
+        to_phase(s, "main2", turn=4)
+>       assert (
+            sum(1 for f in s.state.rules.turn_log.facts if f.kind == "damage" and f.combat and f.player == "p2")
+            == 3
+        )
+E       assert 2 == 3
+E        +  where 2 = sum(<generator object test_beckett_two_pirates_double_strike_is_only_two_originals95.<locals>.<genexpr> at 0x7f916c07f9f0>)
+
+tests/test_rules_combat_history103.py:342: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_rules_combat_history103.py::test_hope_actual_prevented_combat_does_not_qualify95
+FAILED tests/test_rules_combat_history103.py::test_beckett_two_pirates_double_strike_is_only_two_originals95

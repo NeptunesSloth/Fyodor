@@ -1,3 +1,7 @@
+## POST-PR21 BATCH003 VERIFIED — CONTINUING
+
+**30,781 FULL / 1,287 PARTIAL**; **57/1000 new completions verified**, 943 remain. [PR22](https://github.com/NeptunesSloth/Fyodor/pull/22), [evidence](research/after-pr21-batch003-evidence.md). Native131, related86, core54, full mypy955, Ruff and exact catalog/definition diff pass on frozen source. Six agents continue; inherited PR21 work excluded. FULL is coverage classification.
+
 ## POST-PR21 BATCH002 VERIFIED — CONTINUING
 
 **30,750 FULL / 1,318 PARTIAL**; **26/1000 new completions verified**, 974 remain. [PR22](https://github.com/NeptunesSloth/Fyodor/pull/22), [evidence](research/after-pr21-batch002-evidence.md). Native89, related43, core54, full mypy947, Ruff and exact catalog/definition diff pass on frozen source. Six agents continue; inherited PR21 work excluded. FULL is coverage classification.

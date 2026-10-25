@@ -1,0 +1,22 @@
+{
+  "status": "CLOSED_ISOLATED_ROOT_AUDIT_REQUIRED",
+  "base_commit": "456c95d6aa3eaaa38583129be436ef57c1937a01",
+  "names": [
+    "Scythe of the Wretched",
+    "Vampiric Embrace"
+  ],
+  "expected_promotions": 2,
+  "owned_sources": [
+    "app/rules/damage_death104.py",
+    "app/rules/scripts.py",
+    "app/rules/triggers.py"
+  ],
+  "native": "13 unique/cold2:12 unified final PASS; final distinct-host fixture-only correction affected1 PASS in final-related-valid.log (69 combined).",
+  "mypy": "3 source files PASS",
+  "ruff": "4 source/test files PASS",
+  "related": "68 PASS plus native affected1 PASS in final-related-valid.log; earlier attempted selection named two missing files (exit5/no tests), retained truthfully.",
+  "test_destination": "backend/tests/test_rules_damage_death104.py",
+  "fixture_destination": "backend/tests/fixtures/damage_death104_cards.json",
+  "stage": "/workspace/scratch/combat104/backend",
+  "classifier_edits": 0
+}

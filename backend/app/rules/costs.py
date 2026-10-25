@@ -132,6 +132,7 @@ class CostComponent:
     amount_rule: Literal["opponents"] | None = None  # Bound when the actual activation total is determined.
     gain_scope: Literal["each_other_player"] | None = None  # Nominal life-gain cost paid to every other live player.
     source_with_choices: bool = False  # One graveyard-exile instruction includes its required source and selected others.
+    counter_options: tuple[str, ...] = ()  # A bounded choice of named counter kinds, not every counter.
 
     @property
     def chosen(self) -> bool:
@@ -325,6 +326,10 @@ def _component(part: str, card_name: str) -> CostComponent | None:
             return CostComponent(PAY_ENERGY, amount=0, x=True, text=part)
         n = m["symbols"].count("{E}") if m["symbols"] else _ENERGY_WORDS.get(m["n"].lower()) or (int(m["n"]) if m["n"].isdigit() else 0)
         return CostComponent(PAY_ENERGY, amount=n, text=part) if n else None
+    if part == "Remove a +1/+1 counter or a charge counter from a permanent you control":
+        return CostComponent(REMOVE_COUNTER, amount=1, counter=ANY_COUNTER,
+                             selector=_selector("permanent you control", zone="battlefield"),
+                             counter_options=("+1/+1", "charge"), text=part)
     if m := _REMOVE_ALL.match(part):  # -- activated sweep (wave 26C) -- 602.2b: not announced, it's all of them (casting sets X to that many)
         return CostComponent(REMOVE_COUNTER, amount=0, counter=m["kind"], x=True, every=True, text=part)
     if (m := _REMOVE.match(part)) and (not m.group("name") or m.group("name") == card_name):
@@ -522,7 +527,7 @@ _EVIDENCE = re.compile(r"^Collect evidence (?P<n>\d+)$")
 # "Exile an artifact from among permanents you control and/or cards in your graveyard" / "…two creatures…" / "…one or more Dinosaurs…"
 _CRAFT = re.compile(r"^Exile (?P<n>a|an|one|two|three|four|five|six|seven|\d+)(?P<more> or more)?(?: (?P<what>[^,]+?))? from among "
                     r"permanents you control and/or cards in your graveyard$")
-_WATERBEND = re.compile(r"^Waterbend \{(?P<n>\d+)\}$")
+_WATERBEND = re.compile(r"^Waterbend \{(?P<n>\d+|X)\}$")
 _SAC_OR = re.compile(r"^Sacrifice (?P<a>a|an|another) (?P<w1>[\w\-]+) or (?P<b>a|an|another) (?P<w2>[\w\-]+)$")  # (no article: refused)
 _GRANDEUR = re.compile(r"^Discard another card named (?P<name>~|[A-Z].+)$")  # (grandeur, an ability word: 207.2c)
 _HALF_LIFE = "Pay half your life rounded up"
@@ -672,10 +677,11 @@ def _one_4h(part: str, card_name: str) -> CostComponent | None:
 def wave4h_parts(part: str, card_name: str) -> list[CostComponent] | None:
     """The part as one or more components (two joined by "and": the second keeps the first's verb when it has none,
     "it" being the source), or None when any piece isn't read."""
-    if m := _WATERBEND.match(part):  # -- activated sweep (wave 17B) -- 701.67a (only a number: "Waterbend {X}" is not read)
-        key = _selector("untapped artifact or creature you control", zone="battlefield")
-        return [CostComponent(MANA, text=f"{{{m['n']}}}"),
-                CostComponent(WATERBEND, amount=int(m["n"]), selector=key, text=part)] if key and int(m["n"]) > 0 else None
+    if m := _WATERBEND.match(part):
+        from app.rules import waterbend102
+
+        piece=waterbend102.part(part)
+        return [CostComponent(MANA,text=f"{{{m['n']}}}"),piece] if piece is not None else None
     one = _one_4h(part, card_name)
     if one is not None:
         return [one]
@@ -941,6 +947,10 @@ def parse_additional_cost(text: str) -> AbilityCost | None:
     when the engine can't pay it by itself ("you may …", "… or …" alternatives, X, a cost with no
     chosen object): the spell then stays manual rather than being cast without its cost (601.2b)."""
     text = text.strip()
+    from app.rules import waterbend102
+
+    if (water := waterbend102.part(text)) is not None:
+        return AbilityCost(components=(water,))
     if text == 'put a -1/-1 counter on a creature you control':
         counter = _one_4h(text[:1].upper() + text[1:], '')
         return AbilityCost(components=(counter,)) if counter is not None and counter.selector is not None else None

@@ -2184,6 +2184,12 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
            for x in sel.extras):  # -- copy abilities (wave 19E) -- "… from an enchantment source"
         return False
     for extra in sel.extras:
+        if extra == 'combat_pirate_player95':
+            from app.rules import combat_damage95
+
+            if not combat_damage95.pirate_player(plan, card.controller):
+                return False
+            continue
         if extra.startswith('exclude_successor58:') and plan.oid(card) == extra.partition(':')[2]:
             return False
         if extra == 'controlled_since_turn_start69':

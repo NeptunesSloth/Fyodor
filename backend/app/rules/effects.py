@@ -7000,3 +7000,23 @@ RESUME.update(_library_packets101.RESUME)
 from app.rules import damage_values102 as _damage_values102  # noqa: E402
 
 PRIMITIVES.update(_damage_values102.PRIMITIVES)
+
+from app.rules import stack_events102 as _stack102  # noqa: E402
+
+PRIMITIVES.update(_stack102.PRIMITIVES)
+
+from app.rules import library_polymorph102 as _library_polymorph102  # noqa: E402
+
+PRIMITIVES.update(_library_polymorph102.PRIMITIVES)
+
+from app.rules import combat_damage95 as _combat_damage95  # noqa: E402
+
+PRIMITIVES.update(_combat_damage95.PRIMITIVES)
+
+from app.rules import stack_extension103 as _stack103  # noqa: E402
+
+PRIMITIVES.update(_stack103.PRIMITIVES)
+
+from app.rules import next_copy104 as _next104  # noqa: E402
+
+PRIMITIVES.update(_next104.PRIMITIVES)

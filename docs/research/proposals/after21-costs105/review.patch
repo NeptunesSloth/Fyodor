@@ -1,0 +1,65 @@
+--- a/backend/app/rules/costs.py
++++ b/backend/app/rules/costs.py
+@@ -132,6 +132,7 @@
+     amount_rule: Literal["opponents"] | None = None  # Bound when the actual activation total is determined.
+     gain_scope: Literal["each_other_player"] | None = None  # Nominal life-gain cost paid to every other live player.
+     source_with_choices: bool = False  # One graveyard-exile instruction includes its required source and selected others.
++    counter_options: tuple[str, ...] = ()  # A bounded choice of named counter kinds, not every counter.
+
+     @property
+     def chosen(self) -> bool:
+@@ -325,6 +326,10 @@
+             return CostComponent(PAY_ENERGY, amount=0, x=True, text=part)
+         n = m["symbols"].count("{E}") if m["symbols"] else _ENERGY_WORDS.get(m["n"].lower()) or (int(m["n"]) if m["n"].isdigit() else 0)
+         return CostComponent(PAY_ENERGY, amount=n, text=part) if n else None
++    if part == "Remove a +1/+1 counter or a charge counter from a permanent you control":
++        return CostComponent(REMOVE_COUNTER, amount=1, counter=ANY_COUNTER,
++                             selector=_selector("permanent you control", zone="battlefield"),
++                             counter_options=("+1/+1", "charge"), text=part)
+     if m := _REMOVE_ALL.match(part):  # -- activated sweep (wave 26C) -- 602.2b: not announced, it's all of them (casting sets X to that many)
+         return CostComponent(REMOVE_COUNTER, amount=0, counter=m["kind"], x=True, every=True, text=part)
+     if (m := _REMOVE.match(part)) and (not m.group("name") or m.group("name") == card_name):
+--- a/backend/app/rules/cost_payment.py
++++ b/backend/app/rules/cost_payment.py
+@@ -179,7 +179,7 @@
+
+             if prohibitions.cant_remove_counters(plan, cid, 'stun'):
+                 continue
+-        if comp.kind == C.REMOVE_COUNTER and removable_counters(plan, card, comp.counter) < (1 if comp.among else comp.amount):  # (any kind: wave 4H; among: 26C)
++        if comp.kind == C.REMOVE_COUNTER and removable_counters(plan, card, comp.counter, comp.counter_options) < (1 if comp.among else comp.amount):  # (any kind: wave 4H; among: 26C)
+             continue
+         if comp.kind == C.SACRIFICE:
+             from app.rules import prohibitions
+@@ -215,12 +215,12 @@
+     return card.counters.get(kind or "", 0)
+
+
+-def removable_counters(plan: Plan, card: CardInstance, kind: str | None) -> int:
++def removable_counters(plan: Plan, card: CardInstance, kind: str | None, options: tuple[str, ...] = ()) -> int:
+     """Only counters whose removal is possible can pay a cost (614.17b)."""
+     from app.rules import prohibitions
+
+     return sum(n for k, n in card.counters.items() if n > 0 and kind in (C.ANY_COUNTER, k)
+-               and not prohibitions.cant_remove_counters(plan, card.id, k))
++               and (not options or k in options) and not prohibitions.cant_remove_counters(plan, card.id, k))
+
+
+ def objects_needed(comp: CostComponent, x: int | None) -> int:
+@@ -694,6 +694,8 @@
+     holders = [card.id] if comp.selector is None else [
+         c for c in candidates(plan, comp, plan.actor, card) if c not in _reserved(cost, comp, card) and c not in used]
+     tokens = {token: pair for token, pair in counter_tokens(plan, holders).items() if token not in used}
++    if comp.counter_options:
++        tokens = {t: v for t, v in tokens.items() if v[1] in comp.counter_options}
+     need = max(0, getattr(a, "x_value", None) or 0) if comp.x else comp.amount
+     if comp.among:  # -- activated sweep (wave 26C) -- "from among creatures you control": each counter of that kind on any of them (122.1)
+         need = max(0, getattr(a, "x_value", None) or 0) if comp.x else comp.amount
+@@ -1037,6 +1039,8 @@
+         tokens = counter_map72 if counter_map72 is not None else counter_tokens(plan, list(dict.fromkeys(t.rsplit(":", 2)[0] for t in ids)))
+         removed: dict[tuple[str, str], int] = {}
+         for t in ids:
++            if comp.counter_options and tokens[t][1] not in comp.counter_options:
++                raise ActionError("That counter kind cannot pay this cost")
+             removed[tokens[t]] = removed.get(tokens[t], 0) + 1
+         for (cid, kind), n in removed.items():
+             from app.rules import counter_removal_results

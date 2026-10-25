@@ -1,0 +1,44 @@
+F
+=================================== FAILURES ===================================
+________ test_epic_original_memory_retargets_after_cold_pause103[False] ________
+
+cards = <app.cards.repository.CardRepository object at 0x7f7afaa0d160>
+tmp_path = PosixPath('/tmp/pytest-epic103-last5/test_epic_original_memory_reta0')
+cold_resume = False
+
+    @pytest.mark.parametrize('cold_resume', [False, True])
+    def test_epic_original_memory_retargets_after_cold_pause103(cards, tmp_path, cold_resume):
+        s = setup(cards)
+        top(s, ['Lightning Bolt', 'Hill Giant'])
+        cast(s, 'Undying Flames', targets=['p2'])
+        advance(s)
+        assert s.state.players['p2'].life == 39
+        to_phase(s, 'upkeep', 3)
+        advance(s, stop=lambda d: d.resume.get('step') == 'copy_target')
+        d = s.state.rules.decision
+        assert d is not None and d.resume.get('step') == 'copy_target'
+        copied = d.resume['copy']
+        assert all(x['do'] != 'epic_setup103' for x in s.state.rules.stack[copied].effects)
+        from app.rules.plan import Plan
+        assert not any(a.text == 'Epic' for a in Plan.view(s.state, 'p1', s.cards).ch(s.state.cards[copied]).abilities)
+        if cold_resume:
+            cold(s, tmp_path, {}, '''
+    d=s.state.rules.decision
+    assert d.resume['step'] == 'copy_target'
+    act(s,d.player,type='choose',decision_id=d.id,option_ids=['p1'])
+    advance(s)
+    assert s.state.players['p1'].life == 36
+    assert s.state.players['p2'].life == 39
+    assert len([t for t in s.state.rules.delayed if t.name == 'Undying Flames']) == 1
+    ''')
+        else:
+            act(s, d.player, type='choose', decision_id=d.id, option_ids=['p1'])
+            advance(s)
+>           assert s.state.players['p1'].life == 36 and s.state.players['p2'].life == 39
+E           AssertionError: assert (35 == 36)
+E            +  where 35 = PlayerState(id='p1', name='Alice', color='#d4a852', life=35, life_history=[LifeChange(turn=3, before=40, after=36, seq...id=None, deck_name=None, token_shortcuts=[], mana={}, mana_units=[], mana_seq=0, left=False, sleeve=None, playmat=None).life
+
+tests/test_rules_epic103.py:227: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_rules_epic103.py::test_epic_original_memory_retargets_after_cold_pause103[False]
+!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!

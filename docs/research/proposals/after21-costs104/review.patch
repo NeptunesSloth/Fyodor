@@ -1,0 +1,45 @@
+--- /dev/null
++++ b/backend/app/rules/waterbend104.py
+@@ -0,0 +1,29 @@
++"""Crashing Wave composes native targets with an untargeted resolving distribution."""
++
++from __future__ import annotations
++
++from typing import Any
++
++
++def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
++    if (
++        ch.name != "Crashing Wave"
++        or ability.text
++        != "Tap up to X target creatures, then distribute three stun counters among any number of tapped creatures your opponents control."
++    ):
++        return None
++    from dataclasses import replace
++
++    from app.rules import counter_distribution, scripts, selectors
++
++    native = scripts.define(replace(ability, text="Tap up to X target creatures."), ch)
++    recipients = selectors.parse("tapped creatures your opponents control")
++    if native is None or recipients is None:
++        return None
++    return {
++        **native,
++        "effects": [
++            *native["effects"],
++            {"do": counter_distribution.STEP, "who": recipients.key(), "n": 3, "kind": "stun"},
++        ],
++    }
+--- a/backend/app/rules/scripts.py
++++ b/backend/app/rules/scripts.py
+@@ -5856,6 +5856,10 @@
+
+ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
+     """The engine definition of one ability, or None (manual)."""
++    from app.rules import waterbend104
++
++    if (water104 := waterbend104.definition(ability,ch)) is not None:
++        return water104
+     from app.rules import waterbend103
+
+     if (water103 := waterbend103.definition(ability,ch)) is not None:

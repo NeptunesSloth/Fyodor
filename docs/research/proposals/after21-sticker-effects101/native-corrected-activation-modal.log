@@ -1,0 +1,31 @@
+.FF                                                                      [100%]
+=================================== FAILURES ===================================
+_________ test_actual_robo_pinata_death_modal_ticket_or_sticker101[0] __________
+tests/test_rules_sticker_effects101.py:323: in test_actual_robo_pinata_death_modal_ticket_or_sticker101
+    assert {o.id for o in d.options} == {"0", "1"}, [(o.id, o.label) for o in d.options]
+E   AssertionError: [('0:0', 'You get {TK}{TK}.'), ('1:0', 'You may put a sticker on a nonland permanent you own.')]
+E   assert {'0:0', '1:0'} == {'0', '1'}
+E
+E     Extra items in the left set:
+E     '1:0'
+E     '0:0'
+E     Extra items in the right set:
+E     '0'
+E     '1'
+E     Use -v to get more diff
+_________ test_actual_robo_pinata_death_modal_ticket_or_sticker101[1] __________
+tests/test_rules_sticker_effects101.py:323: in test_actual_robo_pinata_death_modal_ticket_or_sticker101
+    assert {o.id for o in d.options} == {"0", "1"}, [(o.id, o.label) for o in d.options]
+E   AssertionError: [('0:0', 'You get {TK}{TK}.'), ('1:0', 'You may put a sticker on a nonland permanent you own.')]
+E   assert {'0:0', '1:0'} == {'0', '1'}
+E
+E     Extra items in the left set:
+E     '1:0'
+E     '0:0'
+E     Extra items in the right set:
+E     '0'
+E     '1'
+E     Use -v to get more diff
+=========================== short test summary info ============================
+FAILED tests/test_rules_sticker_effects101.py::test_actual_robo_pinata_death_modal_ticket_or_sticker101[0]
+FAILED tests/test_rules_sticker_effects101.py::test_actual_robo_pinata_death_modal_ticket_or_sticker101[1]

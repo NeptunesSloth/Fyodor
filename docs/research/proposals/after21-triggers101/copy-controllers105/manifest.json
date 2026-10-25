@@ -1,0 +1,16 @@
+{
+  "names": [
+    "Tempt with Mayhem",
+    "Meletis Charlatan",
+    "Psychic Rebuttal"
+  ],
+  "expected_promotions": 3,
+  "status": "CLOSED agent STATUS/native/source hashes authoritative",
+  "native_unique": 15,
+  "genuine_cold": 2,
+  "mypy": 3,
+  "ruff": 4,
+  "related": 57,
+  "test_destination": "backend/tests/test_rules_copy_controllers105.py",
+  "fixture_destination": "backend/tests/fixtures/copy_controllers105_cards.json"
+}

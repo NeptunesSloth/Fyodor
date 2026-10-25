@@ -1,0 +1,74 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+____ test_braided_net_native_counter_cost_and_untap_end_without_restarting _____
+
+cards = <app.cards.repository.CardRepository object at 0x7f8ace68fb30>
+
+    def test_braided_net_native_counter_cost_and_untap_end_without_restarting(cards):
+        s = setup(cards)
+        source = put(s, "Braided Net // Braided Quipu", "battlefield")
+        ring = put(s, "Sol Ring", "battlefield", "p2")
+>       act(s, "p1", type="activate_ability", card_id=source.id, ability=1, targets=[ring.id])
+
+tests/test_rules_lifespans102.py:97:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests/game_helpers.py:42: in act
+    return session.perform(actor, payload)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/game/session.py:61: in perform
+    resolved = resolve(self.state, action, actor=actor, cards=self.cards, trusted=trusted)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/game/resolve.py:76: in resolve
+    a.r = compile_intent(state, a, actor=actor, info=info, rng=rng)  # type: ignore[union-attr]
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/engine.py:164: in compile_intent
+    handler(plan, intent)
+app/rules/casting.py:5484: in activate_ability
+    activate_to_stack(plan, card, ch, ability, a)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+plan = <app.rules.plan.Plan object at 0x7f8acefc4470>
+card = CardInstance(borrow_identity=None, id='e2ab5f0de15e', card_id='3c9e92a0-87d1-549c-9616-cb4481c94045', name='Braided Ne...ts=[], damage=0, choices={}, stack_info=None, exile_group=None, token_source=None, origin='library', test_object=False)
+ch = Characteristics(name='Braided Net', supertypes=frozenset(), types=frozenset({'Artifact'}), subtypes=frozenset(), mana_...=None, granted=frozenset(), lost=frozenset(), imposed=frozenset(), level=None, doors=None, word=None, flanking_count=0)
+ability = AbilityText(index=1, text="{T}, Remove a net counter from this artifact: Tap another target nonland permanent. Its act...=(), borrowed_scope=None, borrowed_color=None, activation_player=None, power_up_prepared=False, granted_mana_cost=None)
+a = ActivateAbility(actor='p1', ts=1792913072.3054533, r=None, type='activate_ability', card_id='e2ab5f0de15e', ability=1,..._choice=None, sources=None, convoke=False, improvise=False, delve=False, crew=None, cost_choices=[], life_symbols=None)
+definition = None, exclude_targets = (), keep_revealed = False
+
+    def activate_to_stack(plan: Plan, card: CardInstance, ch: Characteristics, ability: AbilityText,
+                          a: A.ActivateAbility, *, definition: dict[str, Any] | None = None,
+                          exclude_targets: tuple[str, ...] = (), keep_revealed: bool = False) -> None:
+        from app.rules import (
+            activation_alternatives,
+            colored_activation_costs83,
+            defined_activation_x,
+            modal_abilities,  # (a leaf module over this one)
+        )
+
+        colored_activation_costs83.require_known(plan, card, ability.text)
+        input_x = a.x_value
+        announced = activation_alternatives.announce(plan, a, card, ch, ability)
+        if announced is None:
+            return
+        ability = announced
+        if plan.locked_cost is None and (fixed := defined_activation_x.spec(ability, ch.name)) is not None:
+            x = defined_activation_x.evaluate(plan, card, fixed)
+            if a.x_value is not None and a.x_value != x:
+                raise ActionError(f"X is {x} for this ability; it isn't chosen (107.3c)")
+            a.x_value = x
+        cost = ability_cost(ch, ability, state=plan.state, card=card, info=plan.info, target="?", actor=plan.actor)  # (wave 46C: the best case until the targets are chosen, below)
+        if a.x_value is not None and any(c.kind == costs.PAY_LIFE and c.x for c in cost.components):
+            from dataclasses import replace as replace_cost
+
+            # 602.2b / 601.2b: the announced X sizes life before affordability/payment.
+            parts = tuple(replace_cost(c, amount=max(0, a.x_value)) if c.kind == costs.PAY_LIFE and c.x else c for c in cost.components)
+            cost = replace_cost(cost, components=parts, life=sum(c.amount for c in parts if c.kind == costs.PAY_LIFE))
+            plan.reserved_life = cost.life
+        plan.reserved_life = cost.life
+        problem = ability_problem(plan.state, plan.actor, card, ch, ability, cost, plan=plan)
+        if problem:
+>           raise ActionError(problem)
+E           app.game.errors.ActionError: Braided Net doesn't have 1 net counter
+
+app/rules/casting.py:6035: ActionError
+=========================== short test summary info ============================
+FAILED tests/test_rules_lifespans102.py::test_braided_net_native_counter_cost_and_untap_end_without_restarting

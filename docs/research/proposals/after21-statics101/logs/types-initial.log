@@ -1,0 +1,8 @@
+app/rules/granted.py:251: error: Argument "name" to "replace" of "Characteristics" has incompatible type "list[str] | str"; expected "str"  [arg-type]
+app/rules/layers.py:949: error: List comprehension has incompatible type List[tuple[tuple[int, int, int], None, dict[str, object]]]; expected List[tuple[tuple[float, int, int], None, TextChange71] | tuple[tuple[float, int, int], str, None]]  [misc]
+app/rules/layers.py:954: error: Unsupported operand types for in ("str" and "TextChange71")  [operator]
+app/rules/layers.py:957: error: Value of type "TextChange71" is not indexable  [index]
+app/game/factory.py:113: error: Incompatible types in assignment (expression has type "dict[str, CollectionCard]", variable has type "list[dict[str, Any]]")  [assignment]
+app/game/factory.py:116: error: "list[dict[str, Any]]" has no attribute "values"  [attr-defined]
+app/game/factory.py:120: error: "list[dict[str, Any]]" has no attribute "values"  [attr-defined]
+Found 7 errors in 3 files (checked 20 source files)

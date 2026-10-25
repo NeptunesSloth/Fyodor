@@ -1,3 +1,5 @@
+Latest verified: **57/1000 NEW after PR21**; **30,781 FULL / 1,287 PARTIAL**. [batch003 evidence](after-pr21-batch003-evidence.md). Six streams continue automatically. No further cards counted until frozen admission.
+
 Latest verified: **26/1000 NEW after PR21**; **30,750 FULL / 1,318 PARTIAL**. [batch002 evidence](after-pr21-batch002-evidence.md). Six streams continue automatically. No further cards counted until frozen admission.
 
 Publication policy: update PR22 at each100 newly verified completions (100,200,…,1000). Current first10 already saved; next milestone100.

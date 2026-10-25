@@ -1,0 +1,62 @@
+..................F
+=================================== FAILURES ===================================
+________ test_foreign_owned_original_leaves_game_epic_memory_remains103 ________
+
+cards = <app.cards.repository.CardRepository object at 0x7fdacb7788f0>
+tmp_path = PosixPath('/tmp/pytest-epic103-final/test_foreign_owned_original_le0')
+
+    def test_foreign_owned_original_leaves_game_epic_memory_remains103(cards, tmp_path):
+        s = setup(cards, three=True)
+        source = put(s, 'Endless Swarm', 'hand', 'p2')
+        original_id = source.id
+        act(s, 'p1', type='move', card_ids=[source.id], to={'player': 'p1', 'zone': 'hand'})
+        act(s, 'p1', type='cast_spell', card_id=source.id, sources=[])
+        advance(s)
+        assert len([t for t in s.state.rules.delayed if t.name == 'Endless Swarm']) == 1
+        act(s, 'p2', type='concede')
+        assert 'p2' in s.state.rules.conceded and s.state.cards[original_id].zone == 'p2:graveyard'
+>       cold(s, tmp_path, {}, '''
+    from tests.test_rules_epic103 import upkeep
+    before=sum(c.name == 'Snake' for c in s.state.cards.values())
+    upkeep(s)
+    assert sum(c.name == 'Snake' for c in s.state.cards.values()) > before
+    assert len([t for t in s.state.rules.delayed if t.name == 'Endless Swarm']) == 1
+    assert len(s.state.rules.cast_limits) == 1
+    ''')
+
+tests/test_rules_epic103.py:277:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+s = <app.game.session.GameSession object at 0x7fdaca370980>
+tmp_path = PosixPath('/tmp/pytest-epic103-final/test_foreign_owned_original_le0')
+extra = {}
+code = "\nfrom tests.test_rules_epic103 import upkeep\nbefore=sum(c.name == 'Snake' for c in s.state.cards.values())\nupkeep(...en([t for t in s.state.rules.delayed if t.name == 'Endless Swarm']) == 1\nassert len(s.state.rules.cast_limits) == 1\n"
+
+    def cold(s, tmp_path, extra, code):
+        path = tmp_path / 'saved101.json'
+        path.write_text(s.state.model_dump_json())
+        body = '''import json,sys
+    from pathlib import Path
+    from app.cards.repository import CardRepository
+    from app.cards.images import ImageStore
+    from app.game.session import GameSession
+    from app.game.state import GameState
+    from tests.game_helpers import act
+    from tests.test_rules_library_packets101 import advance
+    repo=CardRepository(Path(sys.argv[2]),ImageStore(Path(sys.argv[2]).parent/'images'))
+    s=GameSession(GameState.model_validate_json(Path(sys.argv[1]).read_text()),cards=repo)
+    extra=json.loads(sys.argv[3])
+    ''' + code + '\nrepo.close()\n'
+        r = subprocess.run([sys.executable, '-c', body, str(path), str(s.cards.db_path), json.dumps(extra)], capture_output=True, text=True, timeout=90)
+>       assert r.returncode == 0, r.stdout + r.stderr
+E       AssertionError: Traceback (most recent call last):
+E           File "<string>", line 16, in <module>
+E         AssertionError
+E
+E       assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['/workspace/Fyodor/backend/.venv/bin/python3', '-c', "import json,sys\nfrom pathlib import Path...e=1, stdout='', stderr='Traceback (most recent call last):\n  File "<string>", line 16, in <module>\nAssertionError\n').returncode
+
+tests/test_rules_library_packets101.py:114: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_rules_epic103.py::test_foreign_owned_original_leaves_game_epic_memory_remains103
+!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!

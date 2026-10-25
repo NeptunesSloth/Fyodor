@@ -1,0 +1,1239 @@
+[
+  {
+    "name": "_____ Goblin",
+    "rank": 6732,
+    "level": "PARTIAL",
+    "commander": false,
+    "lines": {
+      "supported": 0,
+      "parsed": 0,
+      "unparsed": 1
+    },
+    "missing": [
+      {
+        "id": "text:0",
+        "face": 0,
+        "text": "When this creature enters, you may put a name sticker on it. Add {R} for each unique vowel on that sticker.",
+        "family": "mana_rider",
+        "parsed": false,
+        "collateral": false,
+        "refusal": null
+      }
+    ]
+  },
+  {
+    "name": "Command Performance",
+    "rank": 13668,
+    "level": "PARTIAL",
+    "commander": false,
+    "lines": {
+      "supported": 0,
+      "parsed": 0,
+      "unparsed": 5
+    },
+    "missing": [
+      {
+        "id": "text:0",
+        "face": 0,
+        "text": "Choose two \u2014",
+        "family": "static_other",
+        "parsed": false,
+        "collateral": false,
+        "refusal": null
+      },
+      {
+        "id": "text:1",
+        "face": 0,
+        "text": "\u2022 Open an Attraction.",
+        "family": "static_other",
+        "parsed": false,
+        "collateral": false,
+        "refusal": null
+      },
+      {
+        "id": "text:2",
+        "face": 0,
+        "text": "\u2022 Roll to visit your Attractions.",
+        "family": "static_other",
+        "parsed": false,
+        "collateral": false,
+        "refusal": null
+      },
+      {
+        "id": "text:3",
+        "face": 0,
+        "text": "\u2022 You get {TK}{TK}.",
+        "family": "static_other",
+        "parsed": false,
+        "collateral": false,
+        "refusal": null
+      },
+      {
+        "id": "text:4",
+        "face": 0,
+        "text": "\u2022 You may put a sticker on a nonland permanent you own.",
+        "family": "static_other",
+        "parsed": false,
+        "collateral": false,
+        "refusal": null
+      }
+    ]
+  },
+  {
+    "name": "Wicker Picker",
+    "rank": 19995,
+    "level": "PARTIAL",
+    "commander": false,
+    "lines": {
+      "supported": 0,
+      "parsed": 0,
+      "unparsed": 1
+    },
+    "missing": [
+      {
+        "id": "text:0",
+        "face": 0,
+        "text": "Creature spells you cast have sticker kicker {1}.",
+        "family": "kicked_instead",
+        "parsed": false,
+        "collateral": false,
+        "refusal": null
+      }
+    ]
+  },
+  {
+    "name": "Ticketomaton",
+    "rank": 21522,
+    "level": "PARTIAL",
+    "commander": false,
+    "lines": {
+      "supported": 0,
+      "parsed": 0,
+      "unparsed": 1
+    },
+    "missing": [
+      {
+        "id": "text:0",
+        "face": 0,
+        "text": "When Ticketomaton enters, you get {TK}, then you may put a sticker on a nonland permanent you own.",
+        "family": "trigger_other",
+        "parsed": false,
+        "collateral": false,
+        "refusal": null
+      }
+    ]
+  },
+  {
+    "name": "Finishing Move",
+    "rank": 22063,
+    "level": "PARTIAL",
+    "commander": false,
+    "lines": {
+      "supported": 0,
+      "parsed": 0,
+      "unparsed": 1
+    },
+    "missing": [
+      {
+        "id": "text:0",
+        "face": 0,
+        "text": "You get {TK}{TK}, then you may put a sticker on a nonland permanent you own. Target creature you control deals damage equal to its power to target creature you don't control.",
+        "family": "damage_sized",
+        "parsed": false,
+        "collateral": false,
+        "refusal": null
+      }
+    ]
+  },
+  {
+    "name": "Clandestine Chameleon",
+    "rank": 22340,
+    "level": "PARTIAL",
+    "commander": false,
+    "lines": {
+      "supported": 0,
+      "parsed": 0,
+      "unparsed": 2
+    },
+    "missing": [
+      {
+        "id": "text:0",
+        "face": 0,
+        "text": "When Clandestine Chameleon enters, you get {TK}{TK}, then you may put a sticker on a nonland permanent you own.",
+        "family": "trigger_other",
+        "parsed": false,
+        "collateral": false,
+        "refusal": null
+      },
+      {
+        "id": "text:1",
+        "face": 0,
+        "text": "Clandestine Chameleon has all abilities of ability stickers on other permanents you own and cards in your graveyard.",
+        "family": "static_other",
+        "parsed": false,
+        "collateral": false,
+        "refusal": null
+      }
+    ]
+  },
+  {
+    "name": "Chicken Troupe",
+    "rank": 22416,
+    "level": "PARTIAL",
+    "commander": false,
+    "lines": {
+      "supported": 1,
+      "parsed": 0,
+      "unparsed": 1
+    },
+    "missing": [
+      {
+        "id": "text:1",
+        "face": 0,
+        "text": "When Chicken Troupe enters, you get {TK}, then you may put a sticker on a nonland permanent you own.",
+        "family": "trigger_other",
+        "parsed": false,
+        "collateral": false,
+        "refusal": null
+      }
+    ]
+  },
+  {
+    "name": "Done for the Day",
+    "rank": 22770,
+    "level": "PARTIAL",
+    "commander": false,
+    "lines": {
+      "supported": 0,
+      "parsed": 0,
+      "unparsed": 1
+    },
+    "missing": [
+      {
+        "id": "text:0",
+        "face": 0,
+        "text": "At the beginning of your end step, if you control an Employee, a Performer, or a Robot, you may get {TK} or create a Treasure token. If you control all three, you may put a sticker on a nonland permanent you own.",
+        "family": "trigger_other",
+        "parsed": false,
+        "collateral": false,
+        "refusal": null
+      }
+    ]
+  },
+  {
+    "name": "Ambassador Blorpityblorpboop",
+    "rank": 23408,
+    "level": "PARTIAL",
+    "commander": true,
+    "lines": {
+      "supported": 0,
+      "parsed": 0,
+      "unparsed": 2
+    },
+    "missing": [
+      {
+        "id": "text:0",
+        "face": 0,
+        "text": "When Ambassador Blorpityblorpboop enters, you get {TK}{TK}{TK}, then you may put a sticker on a nonland permanent you own.",
+        "family": "trigger_other",
+        "parsed": false,
+        "collateral": false,
+        "refusal": null
+      },
+      {
+        "id": "text:1",
+        "face": 0,
+        "text": "At the beginning of each combat, you may have Ambassador Blorpityblorpboop's base power become equal to the total power of all stickers on permanents you control and its base toughness become equal to those stickers' total toughness.",
+        "family": "trigger_other",
+        "parsed": false,
+        "collateral": false,
+        "refusal": null
+      }
+    ]
+  },
+  {
+    "name": "Lineprancers",
+    "rank": 23588,
+    "level": "PARTIAL",
+    "commander": false,
+    "lines": {
+      "supported": 0,
+      "parsed": 0,
+      "unparsed": 2
+    },
+    "missing": [
+      {
+        "id": "text:0",
+        "face": 0,
+        "text": "When Lineprancers enters, you get {TK}{TK}, then you may put a power and toughness sticker on a creature you own.",
+        "family": "trigger_other",
+        "parsed": false,
+        "collateral": false,
+        "refusal": null
+      },
+      {
+        "id": "text:1",
+        "face": 0,
+        "text": "{3}{G}: Target creature you don't control blocks target creature you control with a power and toughness sticker on it other than Lineprancers this turn if able.",
+        "family": "activated_other",
+        "parsed": false,
+        "collateral": false,
+        "refusal": null
+      }
+    ]
+  },
+  {
+    "name": "Prize Wall",
+    "rank": 23861,
+    "level": "PARTIAL",
+    "commander": false,
+    "lines": {
+      "supported": 2,
+      "parsed": 0,
+      "unparsed": 1
+    },
+    "missing": [
+      {
+        "id": "text:2",
+        "face": 0,
+        "text": "{4}{U}, {T}: You may put a sticker on a nonland permanent you own. Activate only as a sorcery.",
+        "family": "activated_other",
+        "parsed": false,
+        "collateral": false,
+        "refusal": null
+      }
+    ]
+  },
+  {
+    "name": "Stiltstrider",
+    "rank": 23996,
+    "level": "PARTIAL",
+    "commander": false,
+    "lines": {
+      "supported": 1,
+      "parsed": 0,
+      "unparsed": 1
+    },
+    "missing": [
+      {
+        "id": "text:1",
+        "face": 0,
+        "text": "When Stiltstrider enters, you get {TK}{TK}, then you may put a sticker on a nonland permanent you own.",
+        "family": "trigger_other",
+        "parsed": false,
+        "collateral": false,
+        "refusal": null
+      }
+    ]
+  },
+  {
+    "name": "Last Voyage of the _____",
+    "rank": 24227,
+    "level": "PARTIAL",
+    "commander": false,
+    "lines": {
+      "supported": 0,
+      "parsed": 0,
+      "unparsed": 3
+    },
+    "missing": [
+      {
+        "id": "text:0",
+        "face": 0,
+        "text": "When this enchantment enters, you may put a name sticker on it, then it becomes an Aura with enchant creature. Return a creature card from your graveyard to the battlefield and attach this Aura to it.",
+        "family": "reanimation",
+        "parsed": false,
+        "collateral": false,
+        "refusal": null
+      },
+      {
+        "id": "text:1",
+        "face": 0,
+        "text": "Enchanted creature gets +2/+0 for each name sticker on this Aura with seven or fewer letters.",
+        "family": "attached_events",
+        "parsed": false,
+        "collateral": false,
+        "refusal": null
+      },
+      {
+        "id": "text:2",
+        "face": 0,
+        "text": "When this Aura leaves the battlefield, sacrifice enchanted creature.",
+        "family": "attached_events",
+        "parsed": false,
+        "collateral": false,
+        "refusal": null
+      }
+    ]
+  },
+  {
+    "name": "Glitterflitter",
+    "rank": 24280,
+    "level": "PARTIAL",
+    "commander": false,
+    "lines": {
+      "supported": 1,
+      "parsed": 0,
+      "unparsed": 1
+    },
+    "missing": [
+      {
+        "id": "text:1",
+        "face": 0,
+        "text": "When Glitterflitter enters, you get {TK}, then you may put a sticker on a nonland permanent you own.",
+        "family": "trigger_other",
+        "parsed": false,
+        "collateral": false,
+        "refusal": null
+      }
+    ]
+  },
+  {
+    "name": "Bioluminary",
+    "rank": 24385,
+    "level": "PARTIAL",
+    "commander": false,
+    "lines": {
+      "supported": 0,
+      "parsed": 0,
+      "unparsed": 1
+    },
+    "missing": [
+      {
+        "id": "text:0",
+        "face": 0,
+        "text": "Whenever Bioluminary deals combat damage to a player, you get {TK}{TK}, then you may put a sticker on a nonland permanent you own.",
+        "family": "trigger_other",
+        "parsed": false,
+        "collateral": false,
+        "refusal": null
+      }
+    ]
+  },
+  {
+    "name": "Park Bleater",
+    "rank": 24931,
+    "level": "PARTIAL",
+    "commander": false,
+    "lines": {
+      "supported": 1,
+      "parsed": 0,
+      "unparsed": 1
+    },
+    "missing": [
+      {
+        "id": "text:1",
+        "face": 0,
+        "text": "{W}, {T}: You may put a sticker on a creature you own that entered this turn.",
+        "family": "activated_other",
+        "parsed": false,
+        "collateral": false,
+        "refusal": null
+      }
+    ]
+  },
+  {
+    "name": "_____-o-saurus",
+    "rank": 25060,
+    "level": "PARTIAL",
+    "commander": false,
+    "lines": {
+      "supported": 1,
+      "parsed": 0,
+      "unparsed": 1
+    },
+    "missing": [
+      {
+        "id": "text:1",
+        "face": 0,
+        "text": "When this creature enters, you may put a name sticker on it. Put a +1/+1 counter on it for each unique vowel on that sticker.",
+        "family": "counters",
+        "parsed": false,
+        "collateral": false,
+        "refusal": null
+      }
+    ]
+  },
+  {
+    "name": "Baaallerina",
+    "rank": 26091,
+    "level": "PARTIAL",
+    "commander": false,
+    "lines": {
+      "supported": 1,
+      "parsed": 0,
+      "unparsed": 2
+    },
+    "missing": [
+      {
+        "id": "text:1",
+        "face": 0,
+        "text": "When this creature enters, you may put a name sticker on a nonland permanent you own.",
+        "family": "trigger_other",
+        "parsed": false,
+        "collateral": false,
+        "refusal": null
+      },
+      {
+        "id": "text:2",
+        "face": 0,
+        "text": "{2}{U}: Another target creature with a name sticker on it gains flying until end of turn.",
+        "family": "activated_other",
+        "parsed": false,
+        "collateral": false,
+        "refusal": null
+      }
+    ]
+  },
+  {
+    "name": "Wizards of the _____",
+    "rank": 26190,
+    "level": "PARTIAL",
+    "commander": false,
+    "lines": {
+      "supported": 0,
+      "parsed": 0,
+      "unparsed": 1
+    },
+    "missing": [
+      {
+        "id": "text:0",
+        "face": 0,
+        "text": "When this creature enters, you may put a name sticker on it, then look at the top X cards of your library, where X is the number of unique vowels on that sticker. Put one of those cards into your hand and the rest on the bottom of your library in any order.",
+        "family": "look_top",
+        "parsed": false,
+        "collateral": false,
+        "refusal": null
+      }
+    ]
+  },
+  {
+    "name": "Fight the _____ Fight",
+    "rank": 26369,
+    "level": "PARTIAL",
+    "commander": false,
+    "lines": {
+      "supported": 1,
+      "parsed": 0,
+      "unparsed": 2
+    },
+    "missing": [
+      {
+        "id": "text:1",
+        "face": 0,
+        "text": "When this Aura enters, you may put a name sticker on it. When you do, enchanted creature fights up to one target creature you don't control.",
+        "family": "attached_events",
+        "parsed": false,
+        "collateral": false,
+        "refusal": null
+      },
+      {
+        "id": "text:2",
+        "face": 0,
+        "text": "Enchanted creature gets +0/+2 for each name sticker on this Aura with eight or more letters.",
+        "family": "attached_events",
+        "parsed": false,
+        "collateral": false,
+        "refusal": null
+      }
+    ]
+  },
+  {
+    "name": "Minotaur de Force",
+    "rank": 26591,
+    "level": "PARTIAL",
+    "commander": false,
+    "lines": {
+      "supported": 1,
+      "parsed": 0,
+      "unparsed": 1
+    },
+    "missing": [
+      {
+        "id": "text:1",
+        "face": 0,
+        "text": "When this creature enters, you get {TK}, then you may put a sticker on a nonland permanent you own.",
+        "family": "trigger_other",
+        "parsed": false,
+        "collateral": false,
+        "refusal": null
+      }
+    ]
+  },
+  {
+    "name": "_____ _____ Rocketship",
+    "rank": 26666,
+    "level": "PARTIAL",
+    "commander": false,
+    "lines": {
+      "supported": 2,
+      "parsed": 0,
+      "unparsed": 2
+    },
+    "missing": [
+      {
+        "id": "text:1",
+        "face": 0,
+        "text": "When this Vehicle enters, you may put up to two name stickers on it.",
+        "family": "trigger_other",
+        "parsed": false,
+        "collateral": false,
+        "refusal": null
+      },
+      {
+        "id": "text:2",
+        "face": 0,
+        "text": "Whenever this Vehicle attacks, choose a letter. This Vehicle gets +1/+1 until end of turn for each name sticker on it that begins with the chosen letter.",
+        "family": "trigger_other",
+        "parsed": false,
+        "collateral": false,
+        "refusal": null
+      }
+    ]
+  },
+  {
+    "name": "Aerialephant",
+    "rank": 26754,
+    "level": "PARTIAL",
+    "commander": false,
+    "lines": {
+      "supported": 1,
+      "parsed": 0,
+      "unparsed": 1
+    },
+    "missing": [
+      {
+        "id": "text:1",
+        "face": 0,
+        "text": "When Aerialephant enters, you get {TK}, then you may put a sticker on a nonland permanent you own.",
+        "family": "trigger_other",
+        "parsed": false,
+        "collateral": false,
+        "refusal": null
+      }
+    ]
+  },
+  {
+    "name": "Croakid Amphibonaut",
+    "rank": 26942,
+    "level": "PARTIAL",
+    "commander": false,
+    "lines": {
+      "supported": 0,
+      "parsed": 0,
+      "unparsed": 1
+    },
+    "missing": [
+      {
+        "id": "text:0",
+        "face": 0,
+        "text": "This creature has flying as long as you control a stickered permanent.",
+        "family": "as_long_as_static",
+        "parsed": false,
+        "collateral": false,
+        "refusal": null
+      }
+    ]
+  },
+  {
+    "name": "Unlawful Entry",
+    "rank": 27028,
+    "level": "PARTIAL",
+    "commander": false,
+    "lines": {
+      "supported": 0,
+      "parsed": 1,
+      "unparsed": 1
+    },
+    "missing": [
+      {
+        "id": "text:0",
+        "face": 0,
+        "text": "Target creature gets +1/+0 and gains flying until end of turn.",
+        "family": "static_other",
+        "parsed": true,
+        "collateral": true,
+        "refusal": null
+      },
+      {
+        "id": "text:1",
+        "face": 0,
+        "text": "Whenever you put an art sticker on a creature, you may return this card from your graveyard to your hand.",
+        "family": "reanimation",
+        "parsed": false,
+        "collateral": false,
+        "refusal": null
+      }
+    ]
+  },
+  {
+    "name": "Grabby Tabby",
+    "rank": 27121,
+    "level": "PARTIAL",
+    "commander": false,
+    "lines": {
+      "supported": 0,
+      "parsed": 0,
+      "unparsed": 1
+    },
+    "missing": [
+      {
+        "id": "text:0",
+        "face": 0,
+        "text": "This creature has vigilance as long as you control a stickered permanent.",
+        "family": "as_long_as_static",
+        "parsed": false,
+        "collateral": false,
+        "refusal": null
+      }
+    ]
+  },
+  {
+    "name": "A Good Day to Pie",
+    "rank": 27157,
+    "level": "PARTIAL",
+    "commander": false,
+    "lines": {
+      "supported": 0,
+      "parsed": 1,
+      "unparsed": 1
+    },
+    "missing": [
+      {
+        "id": "text:0",
+        "face": 0,
+        "text": "Tap up to two target creatures.",
+        "family": "static_other",
+        "parsed": true,
+        "collateral": true,
+        "refusal": null
+      },
+      {
+        "id": "text:1",
+        "face": 0,
+        "text": "Whenever you put a name sticker on a creature, you may return this card from your graveyard to your hand.",
+        "family": "reanimation",
+        "parsed": false,
+        "collateral": false,
+        "refusal": null
+      }
+    ]
+  },
+  {
+    "name": "Pin Collection",
+    "rank": 27229,
+    "level": "PARTIAL",
+    "commander": false,
+    "lines": {
+      "supported": 1,
+      "parsed": 0,
+      "unparsed": 2
+    },
+    "missing": [
+      {
+        "id": "text:0",
+        "face": 0,
+        "text": "When this Equipment enters, you may put an ability sticker with ticket cost X or less on it without paying that sticker's ticket cost.",
+        "family": "x_value",
+        "parsed": false,
+        "collateral": false,
+        "refusal": null
+      },
+      {
+        "id": "text:1",
+        "face": 0,
+        "text": "Equipped creature gets +1/+1 and has all abilities of ability stickers on this Equipment.",
+        "family": "attached_events",
+        "parsed": false,
+        "collateral": false,
+        "refusal": null
+      }
+    ]
+  },
+  {
+    "name": "Make a _____ Splash",
+    "rank": 27377,
+    "level": "PARTIAL",
+    "commander": false,
+    "lines": {
+      "supported": 1,
+      "parsed": 0,
+      "unparsed": 2
+    },
+    "missing": [
+      {
+        "id": "text:1",
+        "face": 0,
+        "text": "When this enchantment enters, you may put a name sticker on it.",
+        "family": "trigger_other",
+        "parsed": false,
+        "collateral": false,
+        "refusal": null
+      },
+      {
+        "id": "text:2",
+        "face": 0,
+        "text": "Whenever you put a sticker on this enchantment, tap up to X target creatures, where X is the number of u's in name stickers on this enchantment.",
+        "family": "x_value",
+        "parsed": false,
+        "collateral": false,
+        "refusal": null
+      }
+    ]
+  },
+  {
+    "name": "Scampire",
+    "rank": 27445,
+    "level": "PARTIAL",
+    "commander": false,
+    "lines": {
+      "supported": 0,
+      "parsed": 0,
+      "unparsed": 2
+    },
+    "missing": [
+      {
+        "id": "text:0",
+        "face": 0,
+        "text": "When Scampire enters, you get {TK}, then you may put a sticker on a creature card in your graveyard.",
+        "family": "trigger_other",
+        "parsed": false,
+        "collateral": false,
+        "refusal": null
+      },
+      {
+        "id": "text:1",
+        "face": 0,
+        "text": "{3}{B}: Return target creature card with a sticker on it from your graveyard to the battlefield. That creature gains haste. Exile it at the beginning of the next end step. Activate only as a sorcery.",
+        "family": "reanimation",
+        "parsed": false,
+        "collateral": false,
+        "refusal": null
+      }
+    ]
+  },
+  {
+    "name": "_____ _____ _____ Trespasser",
+    "rank": 27643,
+    "level": "PARTIAL",
+    "commander": false,
+    "lines": {
+      "supported": 0,
+      "parsed": 0,
+      "unparsed": 2
+    },
+    "missing": [
+      {
+        "id": "text:0",
+        "face": 0,
+        "text": "When this creature enters, you may put a name sticker on it.",
+        "family": "trigger_other",
+        "parsed": false,
+        "collateral": false,
+        "refusal": null
+      },
+      {
+        "id": "text:1",
+        "face": 0,
+        "text": "{3}{U}: This creature gets +1/+0 until end of turn for each name sticker on it. It can't be blocked this turn.",
+        "family": "activated_other",
+        "parsed": false,
+        "collateral": false,
+        "refusal": null
+      }
+    ]
+  },
+  {
+    "name": "Carnival Carnivore",
+    "rank": 27669,
+    "level": "PARTIAL",
+    "commander": false,
+    "lines": {
+      "supported": 1,
+      "parsed": 0,
+      "unparsed": 1
+    },
+    "missing": [
+      {
+        "id": "text:1",
+        "face": 0,
+        "text": "When Carnival Carnivore enters, you get {TK}, then you may put a sticker on a nonland permanent you own.",
+        "family": "trigger_other",
+        "parsed": false,
+        "collateral": false,
+        "refusal": null
+      }
+    ]
+  },
+  {
+    "name": "Robo-Pi\u00f1ata",
+    "rank": 28001,
+    "level": "PARTIAL",
+    "commander": false,
+    "lines": {
+      "supported": 0,
+      "parsed": 0,
+      "unparsed": 3
+    },
+    "missing": [
+      {
+        "id": "text:0",
+        "face": 0,
+        "text": "When Robo-Pi\u00f1ata dies, choose one \u2014",
+        "family": "death_trigger",
+        "parsed": false,
+        "collateral": false,
+        "refusal": null
+      },
+      {
+        "id": "text:1",
+        "face": 0,
+        "text": "\u2022 You get {TK}{TK}.",
+        "family": "static_other",
+        "parsed": false,
+        "collateral": false,
+        "refusal": null
+      },
+      {
+        "id": "text:2",
+        "face": 0,
+        "text": "\u2022 You may put a sticker on a nonland permanent you own.",
+        "family": "static_other",
+        "parsed": false,
+        "collateral": false,
+        "refusal": null
+      }
+    ]
+  },
+  {
+    "name": "Goblin Airbrusher",
+    "rank": 28143,
+    "level": "PARTIAL",
+    "commander": false,
+    "lines": {
+      "supported": 0,
+      "parsed": 0,
+      "unparsed": 1
+    },
+    "missing": [
+      {
+        "id": "text:0",
+        "face": 0,
+        "text": "Whenever you place a sticker, create a Treasure token. If it's an art sticker, instead create two Treasure tokens.",
+        "family": "instead",
+        "parsed": false,
+        "collateral": false,
+        "refusal": null
+      }
+    ]
+  },
+  {
+    "name": "Tusk and Whiskers",
+    "rank": 28675,
+    "level": "PARTIAL",
+    "commander": true,
+    "lines": {
+      "supported": 0,
+      "parsed": 0,
+      "unparsed": 2
+    },
+    "missing": [
+      {
+        "id": "text:0",
+        "face": 0,
+        "text": "Whenever you put an ability sticker on a creature, put a +1/+1 counter on that creature.",
+        "family": "counters",
+        "parsed": false,
+        "collateral": false,
+        "refusal": null
+      },
+      {
+        "id": "text:1",
+        "face": 0,
+        "text": "{2}{G}{W}, {T}: You get {TK}. You may put a sticker on a nonland permanent you own.",
+        "family": "activated_other",
+        "parsed": false,
+        "collateral": false,
+        "refusal": null
+      }
+    ]
+  },
+  {
+    "name": "Wee Champion",
+    "rank": 29735,
+    "level": "PARTIAL",
+    "commander": false,
+    "lines": {
+      "supported": 0,
+      "parsed": 0,
+      "unparsed": 1
+    },
+    "missing": [
+      {
+        "id": "text:0",
+        "face": 0,
+        "text": "Whenever you place a sticker, this creature gets +1/+1 until end of turn. If it's an art sticker, instead put a +1/+1 counter on this creature.",
+        "family": "instead",
+        "parsed": false,
+        "collateral": false,
+        "refusal": null
+      }
+    ]
+  },
+  {
+    "name": "Sword-Swallowing Seraph",
+    "rank": 29929,
+    "level": "PARTIAL",
+    "commander": false,
+    "lines": {
+      "supported": 2,
+      "parsed": 0,
+      "unparsed": 2
+    },
+    "missing": [
+      {
+        "id": "text:1",
+        "face": 0,
+        "text": "When this creature enters, you may put a name sticker on a nonland permanent you own.",
+        "family": "trigger_other",
+        "parsed": false,
+        "collateral": false,
+        "refusal": null
+      },
+      {
+        "id": "text:2",
+        "face": 0,
+        "text": "{1}{W}, {T}: Put a +1/+1 counter on another target creature with a name sticker on it. Activate only as a sorcery.",
+        "family": "counters",
+        "parsed": false,
+        "collateral": false,
+        "refusal": null
+      }
+    ]
+  },
+  {
+    "name": "Wolf in _____ Clothing",
+    "rank": 30066,
+    "level": "PARTIAL",
+    "commander": false,
+    "lines": {
+      "supported": 0,
+      "parsed": 0,
+      "unparsed": 1
+    },
+    "missing": [
+      {
+        "id": "text:0",
+        "face": 0,
+        "text": "When this creature enters, you may put a name sticker on it. When you do, up to X target creatures each get -1/-1 until end of turn, where X is the number of unique vowels on that sticker.",
+        "family": "x_value",
+        "parsed": false,
+        "collateral": false,
+        "refusal": null
+      }
+    ]
+  },
+  {
+    "name": "_____ Balls of Fire",
+    "rank": 30378,
+    "level": "PARTIAL",
+    "commander": false,
+    "lines": {
+      "supported": 0,
+      "parsed": 0,
+      "unparsed": 2
+    },
+    "missing": [
+      {
+        "id": "text:0",
+        "face": 0,
+        "text": "When this enchantment enters, you may put a name sticker on it.",
+        "family": "trigger_other",
+        "parsed": false,
+        "collateral": false,
+        "refusal": null
+      },
+      {
+        "id": "text:1",
+        "face": 0,
+        "text": "Whenever you put a sticker on this enchantment, it deals damage equal to the number of o's in name stickers on this enchantment to any target.",
+        "family": "damage_sized",
+        "parsed": false,
+        "collateral": false,
+        "refusal": null
+      }
+    ]
+  },
+  {
+    "name": "Proficient Pyrodancer",
+    "rank": 30608,
+    "level": "PARTIAL",
+    "commander": false,
+    "lines": {
+      "supported": 0,
+      "parsed": 0,
+      "unparsed": 2
+    },
+    "missing": [
+      {
+        "id": "text:0",
+        "face": 0,
+        "text": "When this creature enters, you may put an art sticker on a nonland permanent you own.",
+        "family": "trigger_other",
+        "parsed": false,
+        "collateral": false,
+        "refusal": null
+      },
+      {
+        "id": "text:1",
+        "face": 0,
+        "text": "{2}{R}: Another target creature with an art sticker on it gets +2/+0 and gains menace until end of turn.",
+        "family": "activated_other",
+        "parsed": false,
+        "collateral": false,
+        "refusal": null
+      }
+    ]
+  },
+  {
+    "name": "Roxi, Publicist to the Stars",
+    "rank": 30710,
+    "level": "PARTIAL",
+    "commander": true,
+    "lines": {
+      "supported": 1,
+      "parsed": 0,
+      "unparsed": 2
+    },
+    "missing": [
+      {
+        "id": "text:1",
+        "face": 0,
+        "text": "Roxi's power is equal to the number of permanents you control with an art sticker plus the number of cards in your graveyard with an art sticker.",
+        "family": "static_other",
+        "parsed": false,
+        "collateral": false,
+        "refusal": null
+      },
+      {
+        "id": "text:2",
+        "face": 0,
+        "text": "When Roxi enters, distribute up to two art stickers among one or two nonland permanents you own.",
+        "family": "trigger_other",
+        "parsed": false,
+        "collateral": false,
+        "refusal": null
+      }
+    ]
+  },
+  {
+    "name": "Scared Stiff",
+    "rank": 30720,
+    "level": "PARTIAL",
+    "commander": false,
+    "lines": {
+      "supported": 0,
+      "parsed": 0,
+      "unparsed": 1
+    },
+    "missing": [
+      {
+        "id": "text:0",
+        "face": 0,
+        "text": "This creature has menace as long as you control a stickered permanent.",
+        "family": "as_long_as_static",
+        "parsed": false,
+        "collateral": false,
+        "refusal": null
+      }
+    ]
+  },
+  {
+    "name": "_____ Bird Gets the Worm",
+    "rank": 30753,
+    "level": "PARTIAL",
+    "commander": false,
+    "lines": {
+      "supported": 1,
+      "parsed": 0,
+      "unparsed": 1
+    },
+    "missing": [
+      {
+        "id": "text:1",
+        "face": 0,
+        "text": "When this creature enters, you may put a name sticker on it. You gain X life, where X is the number of unique vowels on that sticker.",
+        "family": "x_value",
+        "parsed": false,
+        "collateral": false,
+        "refusal": null
+      }
+    ]
+  },
+  {
+    "name": "Big Winner",
+    "rank": 31060,
+    "level": "PARTIAL",
+    "commander": false,
+    "lines": {
+      "supported": 0,
+      "parsed": 0,
+      "unparsed": 1
+    },
+    "missing": [
+      {
+        "id": "text:0",
+        "face": 0,
+        "text": "This creature has trample as long as you control a stickered permanent.",
+        "family": "as_long_as_static",
+        "parsed": false,
+        "collateral": false,
+        "refusal": null
+      }
+    ]
+  },
+  {
+    "name": "Sanguine Sipper",
+    "rank": 31137,
+    "level": "PARTIAL",
+    "commander": false,
+    "lines": {
+      "supported": 0,
+      "parsed": 0,
+      "unparsed": 1
+    },
+    "missing": [
+      {
+        "id": "text:0",
+        "face": 0,
+        "text": "This creature has lifelink as long as you control a stickered permanent.",
+        "family": "as_long_as_static",
+        "parsed": false,
+        "collateral": false,
+        "refusal": null
+      }
+    ]
+  },
+  {
+    "name": "Costume Shop",
+    "rank": 32343,
+    "level": "PARTIAL",
+    "commander": false,
+    "lines": {
+      "supported": 0,
+      "parsed": 0,
+      "unparsed": 1
+    },
+    "missing": [
+      {
+        "id": "text:0",
+        "face": 0,
+        "text": "Visit \u2014 You may put a sticker on a nonland permanent you own.",
+        "family": "static_other",
+        "parsed": false,
+        "collateral": false,
+        "refusal": null
+      }
+    ]
+  }
+]

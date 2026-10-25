@@ -1,0 +1,28 @@
+.....F
+=================================== FAILURES ===================================
+_________ test_swarm_native_persistent_not_cast_and_source_shuffled103 _________
+
+cards = <app.cards.repository.CardRepository object at 0x7fd41c9ec500>
+
+    def test_swarm_native_persistent_not_cast_and_source_shuffled103(cards):
+        s = setup(cards)
+        c = cast(s, 'Endless Swarm')
+        n = len(s.state.zones['p1:hand'])
+        advance(s)
+        assert sum(x.name == 'Snake' for x in s.state.cards.values()) == n
+        assert len([x for x in s.state.rules.delayed if x.name == 'Endless Swarm']) == 1
+        bolt = put(s, 'Lightning Bolt', 'hand')
+        with pytest.raises(ActionError, match="can't cast"):
+            act(s, 'p1', type='cast_spell', card_id=bolt.id, sources=[], targets=['player:p2'])
+        act(s, 'p1', type='move', card_ids=[c.id], to={'player': 'p1', 'zone': 'library'})
+        act(s, 'p1', type='shuffle', player='p1', zone='library')
+>       assert c.id not in s.state.cards
+E       AssertionError: assert 'e152d041851b' not in {'e35505d6719e': CardInstance(borrow_identity=None, id='e35505d6719e', card_id='28dc1c23-b56b-5793-b50f-2b2fcb7ab099',... damage=0, choices={}, stack_info=None, exile_group=None, token_source=None, origin='library', test_object=False), ...}
+E        +  where 'e152d041851b' = CardInstance(borrow_identity=None, id='e152d041851b', card_id='ee19303e-80e5-53fa-9642-a23fadf592c0', name='Endless Sw...ts=[], damage=0, choices={}, stack_info=None, exile_group=None, token_source=None, origin='library', test_object=False).id
+E        +  and   {'e35505d6719e': CardInstance(borrow_identity=None, id='e35505d6719e', card_id='28dc1c23-b56b-5793-b50f-2b2fcb7ab099',... damage=0, choices={}, stack_info=None, exile_group=None, token_source=None, origin='library', test_object=False), ...} = GameState(format_version=1, id='e566e4743793a9ef', name='Game', format='commander', created_at=1792912551.808099, seq=...ee_cast_faces={}, exile_if_graveyard=[], bottom_if_graveyard=[], cast_enters={}, exile_resolves={}, counter_stamps={})).cards
+E        +    where GameState(format_version=1, id='e566e4743793a9ef', name='Game', format='commander', created_at=1792912551.808099, seq=...ee_cast_faces={}, exile_if_graveyard=[], bottom_if_graveyard=[], cast_enters={}, exile_resolves={}, counter_stamps={})) = <app.game.session.GameSession object at 0x7fd41d315af0>.state
+
+tests/test_rules_epic103.py:83: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_rules_epic103.py::test_swarm_native_persistent_not_cast_and_source_shuffled103
+!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!

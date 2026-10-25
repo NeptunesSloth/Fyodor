@@ -1,0 +1,27 @@
+{
+  "status": "CLOSED_ISOLATED_ROOT_AUDIT_REQUIRED",
+  "base_commit": "456c95d6aa3eaaa38583129be436ef57c1937a01",
+  "names": [
+    "Krovikan Vampire",
+    "Seraph"
+  ],
+  "expected_promotions": 2,
+  "owned_sources": [
+    "app/rules/vampire_returns105.py",
+    "app/rules/scripts.py",
+    "app/rules/triggers.py",
+    "app/rules/conditions.py",
+    "app/rules/effects.py",
+    "app/rules/engine.py",
+    "app/rules/delayed.py",
+    "app/game/rules_state.py"
+  ],
+  "native": "17 unique/cold3:16 unified PASS before narrow creation-batch gate; final affected4 PASS (both source-loss returns, foreign/regain/later-loss, new native Plan precreation-loss exclusion). No other branch changed.",
+  "mypy": "8 sources PASS before creation gate; affected delayed.py1 PASS after gate",
+  "ruff": "9 source/test files PASS before creation gate; affected delayed.py/test2 PASS after gate",
+  "related": "145 PASS before bounded105-only creation-batch gate; default existing watcher eligibility unchanged.",
+  "test_destination": "backend/tests/test_rules_vampire_returns105.py",
+  "fixture_destination": "backend/tests/fixtures/vampire_returns105_cards.json",
+  "stage": "/workspace/scratch/combat105/backend",
+  "classifier_edits": 0
+}

@@ -1,0 +1,155 @@
+{
+  "base": "456c95d6aa3eaaa38583129be436ef57c1937a01",
+  "files": [
+    {
+      "path": "backend/app/api/games.py",
+      "base_sha256": "e953ed1ecac4c70684e1bfa37a8456c5601de638512370fd96ed656badec1aeb",
+      "sha256": "c823c2b3aa3c6158275993e311d74a578d2d45454c8cf9956eeb5630fe67f30e"
+    },
+    {
+      "path": "backend/app/game/ops.py",
+      "base_sha256": "595bd67a2b760e01466993e0acf4e83a61e285354b27b4d86624d218fdd50b88",
+      "sha256": "412747e6b21171d070e9bde9c12d56bd4cd0e4184cea4206d3f6d271c5b4a3d8"
+    },
+    {
+      "path": "backend/app/game/views.py",
+      "base_sha256": "ad01a39a87e347f5ab20728d4d63a1cb53edaeab649fb03f6864d09f2db46009",
+      "sha256": "244f5ec7320e88f44024d79cc9658566283173b3490843cdc01ddcdcd36d5876"
+    },
+    {
+      "path": "backend/app/game/merging.py",
+      "base_sha256": "f59978518d1a416c9f78237db01490ed8f3c53f44fa1578fd0b79318957ef06d",
+      "sha256": "de4281bbf253ed986ea21154fca083a2a38a57a6e08e771e013519600830c292"
+    },
+    {
+      "path": "backend/app/game/actions.py",
+      "base_sha256": "f61859a6c404e3e97f8cc1b3e3cdeed55bfbf70c39c2d7b4e3ef6f336b0aff8d",
+      "sha256": "eb53dbee0272930d682eb36bb8f5d7dc436c7b11d93ad2f7b158829bc35a09f6"
+    },
+    {
+      "path": "backend/app/game/state.py",
+      "base_sha256": "87a73c3a81c6b677986aacc9601514fd517abc1d32271648a4fdbbf778767425",
+      "sha256": "a5533e20546406b2e55ade70d3268eb11c6914e2679bfa84450b577f97ebd5c8"
+    },
+    {
+      "path": "backend/app/game/factory.py",
+      "base_sha256": "45c7094d552749672dcf2ef04050b2eb77694651bc1ac8e800496812d98c264d",
+      "sha256": "cbe164ab76954c7f4c704c42818ad1af803853f8e95fabe1b0a287c82f7504c9"
+    },
+    {
+      "path": "backend/app/game/resolve.py",
+      "base_sha256": "d3b8c188642947bb9f65e43d29456b735ea5023aeb60774baa5d7cfc890b6870",
+      "sha256": "f9418d4e5cbd8ceeb2a7f6e73f3f0393b408cdf1e1493918100c44d7afca875c"
+    },
+    {
+      "path": "backend/app/game/engine.py",
+      "base_sha256": "c4d3ce37881f353e065a2802031e43d3b756c21b6ddf05c2f9bee68b02a80ee2",
+      "sha256": "0bc5392cacbe74d0f311c89671a95c2d4953783fca2058ea377103c3d637274a"
+    },
+    {
+      "path": "backend/app/game/rules_state.py",
+      "base_sha256": "4735fc5da3a260cab7bea983bbc0b8bd7db2053d9fe6f3705d6dccb463720bc5",
+      "sha256": "f4c8ab0c0271c8f49f91b3d83a010a3e0b08af718deb6954dd8279a4cf782194"
+    },
+    {
+      "path": "backend/app/rules/effects.py",
+      "base_sha256": "6594ca089a4764afd0a36b81106fc6b865c74ebda958c20a2036c764ff8237da",
+      "sha256": "381ea5887387d7de45179e2a3eeb0b361d1507f8f94f147db2e0729163c21bc9"
+    },
+    {
+      "path": "backend/app/rules/stickers101.py",
+      "base_sha256": null,
+      "sha256": "e8588571e330afc459ca46c89343ed1f7c987c497c2b5cc7756a53a75e45c8ef"
+    },
+    {
+      "path": "backend/app/rules/conditions.py",
+      "base_sha256": "c4a26905360eb1228fb5c5ee81a805e2c84561b151a6903364d033fbc79e154d",
+      "sha256": "2384978f6e40588cb3e8f4e9af1644a0a853967152f11c5cfb6fdfb6bfd1ccbf"
+    },
+    {
+      "path": "backend/app/rules/plan.py",
+      "base_sha256": "a8f4ae1a4858cc49e25dc53ca73ac0e54a13544afc07c631a120257900498797",
+      "sha256": "a58051582b4aba51a399c8a7151dbff46187f8206bc052290bf2f07f0b240104"
+    },
+    {
+      "path": "backend/app/rules/sba.py",
+      "base_sha256": "4f014bf48e0bef722fa14976e098076103788d7d9501190b0cae5fc3752988cf",
+      "sha256": "118371a98014d008a251306e0b5e842a9349edd61a4748c443d80fd37418a557"
+    },
+    {
+      "path": "backend/app/rules/sticker_sheets101.py",
+      "base_sha256": null,
+      "sha256": "6f95900d8bc85dfec03920e669d80be038115a48caffdf0e3976ea162e8709f8"
+    },
+    {
+      "path": "backend/app/rules/triggers.py",
+      "base_sha256": "011d4e79b0cc828d4cf3d4b1d04391fbd6388133be46375694edcaed98785d4d",
+      "sha256": "4ee0233dbf2815103b377c724b38157fe66bf7b1edbc638971b0ffb48cfd24ab"
+    },
+    {
+      "path": "backend/app/rules/values.py",
+      "base_sha256": "77a67fbad47c2fedc8857ed9bdc0db27e120ff317f7323a354160bcb89998682",
+      "sha256": "6f19fca08723cf9008e4a56cef5743243cebe3e857384365ec1b45193c05ee78"
+    },
+    {
+      "path": "backend/app/rules/scripts.py",
+      "base_sha256": "994d44b43943997695e002c01a306b6d443e9904116065bd5aaf2f1fa8e372d6",
+      "sha256": "5ed69235aa884e034a799fbfeef59003aea5342cc2fa0cd2a74db19b0a532dde"
+    },
+    {
+      "path": "backend/app/rules/granted.py",
+      "base_sha256": "a5bf73aed528d5952f39e749b4a2627f571c9334fd51e361d286deec66faba09",
+      "sha256": "e53ac2b15118ec54cbb53489475978948a46832f53a64d64cfc4e0cc3f69d0ae"
+    },
+    {
+      "path": "backend/app/rules/layers.py",
+      "base_sha256": "9ee4885bbcbff45d7cbc2be9da48669f197aeb33603331e20cbcfe4f374957a5",
+      "sha256": "67d0950915687a833371f4cf7d0bd3d2cbbc1faf21c4b3be94f56af90e62616e"
+    },
+    {
+      "path": "backend/app/rules/engine.py",
+      "base_sha256": "9be5eb26a66a157fbc3cd372a7deace411ee98406bc2da3495c195ede487da9f",
+      "sha256": "d468287c22cc5f3b2ddd5d23d6258c28b56bc39b31b502ece5a8bac9aa07b79e"
+    },
+    {
+      "path": "backend/app/rules/selectors.py",
+      "base_sha256": "ad99753d089450a05b9553ebd9cf34f9d41416902b59c16d7f5adae059b192dc",
+      "sha256": "546f075099dbca64d1e7b22293de20770df7ec7d8b7358e2db49fb9a97be0a2e"
+    },
+    {
+      "path": "backend/app/decks/parser.py",
+      "base_sha256": "ddaf17dc7871f52cb51b05ebd3d60ea15b341cd0d04774c212681ed3e4603441",
+      "sha256": "5061177fafaf13e23e3b6fffa590d5a80b89c263c1599b7f0a1cc42f5b52055b"
+    },
+    {
+      "path": "backend/app/decks/service.py",
+      "base_sha256": "13b3694fc213ee4acd5d4a90ec98a8c25e95b519430b872ee2872d533107af8e",
+      "sha256": "7de4fef51aba9ac7174a83007c11d800890e2a0f2ef96f9bd58621d0047381fa"
+    },
+    {
+      "path": "backend/app/decks/models.py",
+      "base_sha256": "5306700694482a67531a7113b9d95620fc5ad3152798b2fae80d836ff434adf8",
+      "sha256": "50ca93bfc1094640a69d1ac5e2c66c51169d880785ede306de145b3ee23275cd"
+    },
+    {
+      "path": "backend/app/game/handlers/zones.py",
+      "base_sha256": "97a1c552358d4ecca92576b166e1d2e3a1fcc413235b458e6a62f2be9db399d2",
+      "sha256": "7e18a27e242a5596e8146eac47a0c0ac67a2058e4104ce258efcdf3786b7dbed"
+    },
+    {
+      "path": "backend/tests/test_rules_stickers101.py",
+      "base_sha256": null,
+      "sha256": "9c9c7539eb27bf1a401d316fa7f0c0e2d8cf32c1965a5b837d0bedddc5e43176"
+    },
+    {
+      "path": "backend/tests/fixtures/stickers101_cards.json",
+      "base_sha256": null,
+      "sha256": "8d85f99008ad756a7857e8eda18d8d07eeabbbc444758a508ac6f2ac12886dfc"
+    },
+    {
+      "path": "frontend/src/types/decks.ts",
+      "base_sha256": "89e2b962b9ce28ac875ee1010c0a83da418062f61ea835ae1590bc9b8723be46",
+      "sha256": "e194acc81f04d4ed7c7d0a3b0ac1a2418b5ab85ad27bb8e646d135f2d730841e"
+    }
+  ]
+}

@@ -1,0 +1,66 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+____ test_braided_net_native_counter_cost_and_untap_end_without_restarting _____
+
+cards = <app.cards.repository.CardRepository object at 0x7f36b1e73e30>
+
+    def test_braided_net_native_counter_cost_and_untap_end_without_restarting(cards):
+        s = setup(cards)
+        to_phase(s, "main1")
+        source = cast(s, "Braided Net // Braided Quipu")
+        ring = put(s, "Sol Ring", "battlefield", "p2")
+        act(s, "p1", type="activate_ability", card_id=source.id, ability=1, targets=[ring.id])
+        settle(s)
+        assert s.state.cards[source.id].counters["net"] == 2
+        assert s.state.cards[ring.id].tapped
+        assert "cant_activate" in Plan.view(s.state, "p1", cards).ch(s.state.cards[ring.id]).imposed
+>       cast(s, "Refocus", ring.id)
+
+tests/test_rules_lifespans102.py:104:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests/test_rules_lifespans102.py:70: in cast
+    act(s, "p1", type="cast_spell", card_id=c.id, targets=[target] if target else [])
+tests/game_helpers.py:42: in act
+    return session.perform(actor, payload)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/game/session.py:61: in perform
+    resolved = resolve(self.state, action, actor=actor, cards=self.cards, trusted=trusted)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/game/resolve.py:76: in resolve
+    a.r = compile_intent(state, a, actor=actor, info=info, rng=rng)  # type: ignore[union-attr]
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/engine.py:164: in compile_intent
+    handler(plan, intent)
+app/rules/casting.py:3729: in cast_spell
+    picked_targets = choose_targets(plan, a, definition if aura is None else {"target": {"what": aura}}, ch.name or "it")
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/casting.py:810: in choose_targets
+    chosen = choose_target(plan, a, definition, what, exclude=exclude)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+plan = <app.rules.plan.Plan object at 0x7f36b2bc4b30>
+a = CastSpell(actor='p1', ts=1792913163.31118, r=None, mana_symbols=None, flashback_choice=None, type='cast_spell', card_i...ker=0, cost_choices=[], alt_cost=None, optional_costs=[], slot=None, via=None, optional_asked=False, life_symbols=None)
+definition = {'kind': 'spell', 'effects': [{'do': 'untap', 'who': 'target'}, {'do': 'draw', 'who': 'you', 'n': 1}], 'target': {'what': 'creature'}}
+what = 'Refocus', exclude = ()
+
+    def choose_target(plan: Plan, a: A.CastSpell | A.ActivateAbility, definition: dict[str, Any] | None,
+                      what: str, *, exclude: tuple[str, ...] = ()) -> list[TargetRef] | None:
+        """The target of an automated spell or ability: validated if given, else asked (privately).
+        Returns the chosen targets, or None while waiting for the choice."""
+        spec = definition.get("target") if definition else None
+        if not spec:
+            return []
+        legal = [t for t in legal_targets(plan, spec["what"], plan.actor, _target_source(plan, a), a.card_id)
+                 if t not in exclude]  # (wave 49C: a spell's targeting, 115.2)
+        from app.rules import flagbearer86
+
+        legal = flagbearer86.single(plan, legal)
+        if a.targets:
+            if len(a.targets) != 1 or a.targets[0] not in legal:
+>               raise ActionError("That isn't a legal target")
+E               app.game.errors.ActionError: That isn't a legal target
+
+app/rules/casting.py:770: ActionError
+=========================== short test summary info ============================
+FAILED tests/test_rules_lifespans102.py::test_braided_net_native_counter_cost_and_untap_end_without_restarting

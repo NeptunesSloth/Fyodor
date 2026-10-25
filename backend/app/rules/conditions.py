@@ -1579,6 +1579,10 @@ def bind_objects(cond: Condition, who: str) -> Condition:
 
 
 def holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
+    if cond.get("axe_combat95"):
+        from app.rules import combat_damage95
+
+        return combat_damage95.holds(plan, ctx)
     if "damaged_creatures83" in cond:
         from app.rules import damage_retention83
 
@@ -2091,6 +2095,10 @@ def _cast_how(t: str) -> Condition | None:
         return {"object": "self", "cast": {"revealed_or_controlled_subtype": dragon["type"].capitalize()}}
     if t in ("the gift was promised", "its gift cost was paid", "this spell's gift cost was paid"):  # -- gift (wave 23D) -- 702.174k: read as kicked
         return {"object": "self", "cast": {"kicked": True}}
+    if t == "its waterbend cost wasn't paid":
+        return {"not": {"object": "self", "cast": {"waterbend_paid103": True}}}
+    if t == "its waterbend cost was paid":
+        return {"object": "self", "cast": {"waterbend_paid103": True}}
     if t == "evidence was collected":  # -- casting costs (wave 22F) -- 701.59a: the spell's optional additional cost, announced as it was cast
         return {"object": "self", "cast": {"optional": "evidence"}}
     if t in ("this spell's additional cost was paid", "its additional cost was paid"):  # -- blight (wave 51E) -- 701.68a: the one optional additional cost a spell prints
@@ -2244,6 +2252,8 @@ def _cast_holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
         record = plan.rules.payments.get(ctx.get("source_object") or "")
     else:
         return False
+    if how.get("waterbend_paid103"):
+        return record is not None and record.waterbend_paid102 is True
     if record is None or record.cast_from is None:
         return False
     if ((subtype := how.get("revealed_or_controlled_subtype")) is not None

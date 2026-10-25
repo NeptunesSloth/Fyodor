@@ -1,0 +1,34 @@
+{
+  "object": "list",
+  "has_more": false,
+  "data": [
+    {
+      "object": "ruling",
+      "oracle_id": "888e711a-1251-4704-8ef1-b4b98ec54b5a",
+      "source": "wotc",
+      "published_at": "2020-09-25",
+      "comment": "You don't sacrifice lands until Nahiri's Lithoforming is resolving. Once you do so, players can't take actions until the spell has finished resolving."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "888e711a-1251-4704-8ef1-b4b98ec54b5a",
+      "source": "wotc",
+      "published_at": "2020-09-25",
+      "comment": "If X is greater than the number of lands you control, you sacrifice each land you control. The number of cards you draw is less than X, but you're allowed to play X additional lands."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "888e711a-1251-4704-8ef1-b4b98ec54b5a",
+      "source": "wotc",
+      "published_at": "2020-09-25",
+      "comment": "Nahiri's Lithoforming's permission to play lands is cumulative with other effects that allow you to play additional lands, such as that of Scale the Heights."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "888e711a-1251-4704-8ef1-b4b98ec54b5a",
+      "source": "wotc",
+      "published_at": "2020-09-25",
+      "comment": "If an effect says that a land enters tapped unless a condition is met or a cost is paid, that land enters tapped even if that condition is met or that cost is paid if it's affected by Nahiri's Lithoforming."
+    }
+  ]
+}

@@ -1,0 +1,362 @@
+[
+  {
+    "name": "Benevolent River Spirit",
+    "mana_cost": "{U}{U}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Spirit",
+    "oracle_text": "As an additional cost to cast this spell, waterbend {5}. (While paying a waterbend cost, you can tap your artifacts and creatures to help. Each one pays for {1}.)\nFlying, ward {2} (Whenever this creature becomes the target of a spell or ability an opponent controls, counter it unless that player pays {2}.)\nWhen this creature enters, scry 2.",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "power": "4",
+    "toughness": "5",
+    "keywords": [
+      "Scry",
+      "Flying",
+      "Ward",
+      "Waterbend"
+    ],
+    "commander_legal": "legal"
+  },
+  {
+    "name": "Water Whip",
+    "mana_cost": "{U}{U}",
+    "cmc": 2.0,
+    "type_line": "Sorcery \u2014 Lesson",
+    "oracle_text": "As an additional cost to cast this spell, waterbend {5}. (While paying a waterbend cost, you can tap your artifacts and creatures to help. Each one pays for {1}.)\nReturn up to two target creatures to their owners' hands. Draw two cards.",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "power": null,
+    "toughness": null,
+    "keywords": [
+      "Waterbend"
+    ],
+    "commander_legal": "legal"
+  },
+  {
+    "name": "Waterbender's Restoration",
+    "mana_cost": "{U}{U}",
+    "cmc": 2.0,
+    "type_line": "Instant \u2014 Lesson",
+    "oracle_text": "As an additional cost to cast this spell, waterbend {X}. (While paying a waterbend cost, you can tap your artifacts and creatures to help. Each one pays for {1}.)\nExile X target creatures you control. Return those cards to the battlefield under their owner's control at the beginning of the next end step.",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "power": null,
+    "toughness": null,
+    "keywords": [
+      "Waterbend"
+    ],
+    "commander_legal": "legal"
+  },
+  {
+    "name": "Katara, Water Tribe's Hope",
+    "mana_cost": "{2}{W}{U}{U}",
+    "cmc": 5.0,
+    "type_line": "Legendary Creature \u2014 Human Warrior Ally",
+    "oracle_text": "Vigilance\nWhen Katara enters, create a 1/1 white Ally creature token.\nWaterbend {X}: Creatures you control have base power and toughness X/X until end of turn. X can't be 0. Activate only during your turn. (While paying a waterbend cost, you can tap your artifacts and creatures to help. Each one pays for {1}.)",
+    "colors": [
+      "U",
+      "W"
+    ],
+    "color_identity": [
+      "U",
+      "W"
+    ],
+    "power": "3",
+    "toughness": "3",
+    "keywords": [
+      "Vigilance",
+      "Waterbend"
+    ],
+    "commander_legal": "legal"
+  },
+  {
+    "name": "Memnite",
+    "mana_cost": "{0}",
+    "cmc": 0.0,
+    "type_line": "Artifact Creature \u2014 Construct",
+    "oracle_text": "",
+    "colors": [],
+    "color_identity": [],
+    "power": "1",
+    "toughness": "1",
+    "keywords": [],
+    "commander_legal": "legal"
+  },
+  {
+    "name": "Ornithopter",
+    "mana_cost": "{0}",
+    "cmc": 0.0,
+    "type_line": "Artifact Creature \u2014 Thopter",
+    "oracle_text": "Flying",
+    "colors": [],
+    "color_identity": [],
+    "power": "0",
+    "toughness": "2",
+    "keywords": [
+      "Flying"
+    ],
+    "commander_legal": "legal"
+  },
+  {
+    "name": "Arcane Signet",
+    "mana_cost": "{2}",
+    "cmc": 2.0,
+    "type_line": "Artifact",
+    "oracle_text": "{T}: Add one mana of any color in your commander's color identity.",
+    "colors": [],
+    "color_identity": [],
+    "power": null,
+    "toughness": null,
+    "keywords": [],
+    "commander_legal": "legal"
+  },
+  {
+    "name": "Trinisphere",
+    "mana_cost": "{3}",
+    "cmc": 3.0,
+    "type_line": "Artifact",
+    "oracle_text": "As long as this artifact is untapped, each spell that would cost less than three mana to cast costs three mana to cast. (Additional mana in the cost may be paid with any color of mana or colorless mana. For example, a spell that would cost {1}{B} to cast costs {2}{B} to cast instead.)",
+    "colors": [],
+    "color_identity": [],
+    "power": null,
+    "toughness": null,
+    "keywords": [],
+    "commander_legal": "legal"
+  },
+  {
+    "name": "Heartless Summoning",
+    "mana_cost": "{1}{B}",
+    "cmc": 2.0,
+    "type_line": "Enchantment",
+    "oracle_text": "Creature spells you cast cost {2} less to cast.\nCreatures you control get -1/-1.",
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "power": null,
+    "toughness": null,
+    "keywords": [],
+    "commander_legal": "legal"
+  },
+  {
+    "name": "Sphere of Resistance",
+    "mana_cost": "{2}",
+    "cmc": 2.0,
+    "type_line": "Artifact",
+    "oracle_text": "Spells cost {1} more to cast.",
+    "colors": [],
+    "color_identity": [],
+    "power": null,
+    "toughness": null,
+    "keywords": [],
+    "commander_legal": "legal"
+  },
+  {
+    "name": "Island",
+    "mana_cost": "",
+    "cmc": 0.0,
+    "type_line": "Basic Land \u2014 Island",
+    "oracle_text": "({T}: Add {U}.)",
+    "colors": [],
+    "color_identity": [
+      "U"
+    ],
+    "power": null,
+    "toughness": null,
+    "keywords": [],
+    "commander_legal": "legal"
+  },
+  {
+    "name": "Grizzly Bears",
+    "mana_cost": "{1}{G}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Bear",
+    "oracle_text": "",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "power": "2",
+    "toughness": "2",
+    "keywords": [],
+    "commander_legal": "legal"
+  },
+  {
+    "name": "Sol Ring",
+    "mana_cost": "{1}",
+    "cmc": 1.0,
+    "type_line": "Artifact",
+    "oracle_text": "{T}: Add {C}{C}.",
+    "colors": [],
+    "color_identity": [],
+    "power": null,
+    "toughness": null,
+    "keywords": [],
+    "commander_legal": "legal"
+  },
+  {
+    "name": "Zirda, the Dawnwaker",
+    "mana_cost": "{1}{R/W}{R/W}",
+    "cmc": 3.0,
+    "type_line": "Legendary Creature \u2014 Elemental Fox",
+    "oracle_text": "Companion \u2014 Each permanent card in your starting deck has an activated ability. (If this card is your chosen companion, you may put it into your hand from outside the game for {3} as a sorcery.)\nAbilities you activate that aren't mana abilities cost {2} less to activate. This effect can't reduce the mana in that cost to less than one mana.\n{1}, {T}: Target creature can't block this turn.",
+    "colors": [
+      "R",
+      "W"
+    ],
+    "color_identity": [
+      "R",
+      "W"
+    ],
+    "power": "3",
+    "toughness": "3",
+    "keywords": [
+      "Companion"
+    ],
+    "commander_legal": "legal"
+  },
+  {
+    "name": "Spirit Water Revival",
+    "mana_cost": "{1}{U}{U}",
+    "cmc": 3.0,
+    "type_line": "Sorcery",
+    "oracle_text": "As an additional cost to cast this spell, you may waterbend {6}. (While paying a waterbend cost, you can tap your artifacts and creatures to help. Each one pays for {1}.)\nDraw two cards. If this spell's additional cost was paid, instead shuffle your graveyard into your library, draw seven cards, and you have no maximum hand size for the rest of the game.\nExile Spirit Water Revival.",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "power": null,
+    "toughness": null,
+    "keywords": [
+      "Waterbend"
+    ],
+    "commander_legal": "legal"
+  },
+  {
+    "name": "Ruinous Waterbending",
+    "mana_cost": "{1}{B}{B}",
+    "cmc": 3.0,
+    "type_line": "Sorcery \u2014 Lesson",
+    "oracle_text": "As an additional cost to cast this spell, you may waterbend {4}. (While paying a waterbend cost, you can tap your artifacts and creatures to help. Each one pays for {1}.)\nAll creatures get -2/-2 until end of turn. If this spell's additional cost was paid, whenever a creature dies this turn, you gain 1 life.",
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "power": null,
+    "toughness": null,
+    "keywords": [
+      "Waterbend"
+    ],
+    "commander_legal": "legal"
+  },
+  {
+    "name": "Katara, Seeking Revenge",
+    "mana_cost": "{3}{U/B}",
+    "cmc": 4.0,
+    "type_line": "Legendary Creature \u2014 Human Warrior Ally",
+    "oracle_text": "As an additional cost to cast this spell, you may waterbend {2}. (While paying a waterbend cost, you can tap your artifacts and creatures to help. Each one pays for {1}.)\nWhen Katara enters, draw a card, then discard a card unless her additional cost was paid.\nKatara gets +1/+1 for each Lesson card in your graveyard.",
+    "colors": [
+      "B",
+      "U"
+    ],
+    "color_identity": [
+      "B",
+      "U"
+    ],
+    "power": "3",
+    "toughness": "3",
+    "keywords": [
+      "Waterbend"
+    ],
+    "commander_legal": "legal"
+  },
+  {
+    "name": "Reverberate",
+    "mana_cost": "{R}{R}",
+    "cmc": 2,
+    "type_line": "Instant",
+    "oracle_text": "Copy target instant or sorcery spell. You may choose new targets for the copy.",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "commander_legal": "legal"
+  },
+  {
+    "name": "Crashing Wave",
+    "mana_cost": "{U}{U}",
+    "cmc": 2.0,
+    "type_line": "Sorcery",
+    "oracle_text": "As an additional cost to cast this spell, waterbend {X}. (While paying a waterbend cost, you can tap your artifacts and creatures to help. Each one pays for {1}.)\nTap up to X target creatures, then distribute three stun counters among any number of tapped creatures your opponents control. (If a permanent with a stun counter would become untapped, remove one from it instead.)",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "power": null,
+    "toughness": null,
+    "keywords": [
+      "Waterbend"
+    ],
+    "commander_legal": "legal"
+  },
+  {
+    "name": "Gladecover Scout",
+    "mana_cost": "{G}",
+    "cmc": 1.0,
+    "type_line": "Creature \u2014 Elf Scout",
+    "oracle_text": "Hexproof (This creature can't be the target of spells or abilities your opponents control.)",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "power": "1",
+    "toughness": "1",
+    "keywords": [
+      "Hexproof"
+    ],
+    "commander_legal": "legal"
+  },
+  {
+    "name": "Ion Storm",
+    "mana_cost": "{2}{R}",
+    "cmc": 3.0,
+    "type_line": "Enchantment",
+    "oracle_text": "{1}{R}, Remove a +1/+1 counter or a charge counter from a permanent you control: This enchantment deals 2 damage to any target.",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "power": null,
+    "toughness": null,
+    "keywords": [],
+    "commander_legal": "legal"
+  }
+]

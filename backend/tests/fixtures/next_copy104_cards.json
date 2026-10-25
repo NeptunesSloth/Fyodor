@@ -1,0 +1,114 @@
+[
+  {
+    "id": "0649cc35-80e6-403a-aef3-d8c1ee35f67b",
+    "oracle_id": "1d55a1c5-fd0b-44d2-9e7c-550052fef262",
+    "name": "Tzaangor Shaman",
+    "layout": "normal",
+    "set_code": "40k",
+    "set_name": "Warhammer 40,000 Commander",
+    "collector_number": "146\u2605",
+    "rarity": "rare",
+    "mana_cost": "{2}{U}{R}",
+    "cmc": 4.0,
+    "type_line": "Creature \u2014 Mutant Shaman",
+    "oracle_text": "Flying\nSorcerous Elixir \u2014 Whenever this creature deals combat damage to a player, copy the next instant or sorcery spell you cast this turn when you cast it. You may choose new targets for the copy.",
+    "power": "3",
+    "toughness": "3",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R",
+      "U"
+    ],
+    "color_identity": [
+      "R",
+      "U"
+    ],
+    "keywords": [
+      "Flying",
+      "Sorcerous Elixir"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2022-10-07",
+    "artist": "Wisnu Tan",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "1e14e677-9bfa-4bcc-9772-8e7758d7538a",
+    "oracle_id": "675de007-a71e-4036-8204-140c67871b7f",
+    "name": "Sea Gate Stormcaller",
+    "layout": "normal",
+    "set_code": "znr",
+    "set_name": "Zendikar Rising",
+    "collector_number": "77",
+    "rarity": "mythic",
+    "mana_cost": "{1}{U}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Human Wizard",
+    "oracle_text": "Kicker {4}{U}\nWhen this creature enters, copy the next instant or sorcery spell with mana value 2 or less you cast this turn when you cast it. If this creature was kicked, copy that spell twice instead. You may choose new targets for the copies.",
+    "power": "2",
+    "toughness": "1",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Kicker"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2020-09-25",
+    "artist": "Anna Steinbauer",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "1cb03593-9369-4c26-bfcc-8819648dc018",
+    "oracle_id": "9a664735-6e38-407f-9d2f-a6d279cd6309",
+    "name": "Repeated Reverberation",
+    "layout": "normal",
+    "set_code": "cmm",
+    "set_name": "Commander Masters",
+    "collector_number": "879",
+    "rarity": "rare",
+    "mana_cost": "{2}{R}{R}",
+    "cmc": 4.0,
+    "type_line": "Instant",
+    "oracle_text": "When you next cast an instant spell, cast a sorcery spell, or activate a loyalty ability this turn, copy that spell or ability twice. You may choose new targets for the copies.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2023-08-04",
+    "artist": "Izzy",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  }
+]

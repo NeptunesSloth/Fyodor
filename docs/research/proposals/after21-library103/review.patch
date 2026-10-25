@@ -1,0 +1,372 @@
+--- a/backend/app/game/actions.py
++++ b/backend/app/game/actions.py
+@@ -14,7 +14,7 @@
+ from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, field_validator, model_validator
+
+ from app.game.macros import MacroDef
+-from app.game.rules_state import EntryCharacteristics
++from app.game.rules_state import EntryCharacteristics, ObjectSnapshot
+ from app.game.state import PHASES, PLAYER_ZONES, STACK, AttackTarget, Playmat, TokenDef
+ from app.textutil import clean_text
+
+@@ -344,6 +344,8 @@
+     # -- spell copies (wave 31D) -- 707.10, 608.2h: a copy of a spell that has left the stack is made from how it last existed there (the object id
+     # it had): its name, printing and face are the snapshot's (public: it was a spell), whatever zone the card is in now
+     last_known: str | None = Field(default=None, max_length=80)
++    # Authoritative public spell values retained by a resolving effect (Epic, 702.50).
++    saved_stack: ObjectSnapshot | None = None
+     x: Coord | None = None
+     y: Coord | None = None
+     r: NewIds | None = None
+--- a/backend/app/game/resolve.py
++++ b/backend/app/game/resolve.py
+@@ -66,6 +66,8 @@
+         a.opening = None
+     if hasattr(a, "keep_ids") and not trusted:
+         a.keep_ids = False  # -- review (face-down ids) -- only the rules engine defers the renumbering (Plan.renumber_face_down)
++    if isinstance(a, A.CopyCard) and a.saved_stack is not None and not trusted:
++        raise ActionError("Only the rules engine can copy a preserved spell")
+     if isinstance(a, A.ResponseOpen):
+         raise ActionError("Response checks are opened by the server")
+     if a.type in A.SERVER_ONLY_TYPES and not trusted:
+--- a/backend/app/game/handlers/cards.py
++++ b/backend/app/game/handlers/cards.py
+@@ -180,44 +180,51 @@
+
+
+ def copy_card(state: GameState, a: A.CopyCard) -> None:
+-    src = ops.card(state, a.card_id)
++    src = state.cards.get(a.card_id) if a.saved_stack is not None else ops.card(state, a.card_id)
+     if a.r is None or len(a.r.ids) != a.count:
+         raise ActionError("unresolved copy")
+-    snap = None
+-    if a.last_known:  # -- spell copies (wave 31D) -- the spell as it last existed on the stack (a public object, 608.2h)
++    snap = a.saved_stack
++    if snap is not None:
++        if snap.card != a.card_id or snap.zone != STACK or snap.face_down or a.zone is not None:
++            raise ActionError("That preserved object is not a public spell")
++    elif a.last_known:
+         snap = state.rules.lki.get(a.last_known) if state.rules is not None else None
+-        if snap is None or snap.card != src.id or snap.zone != STACK or snap.is_token:
++        if snap is None or snap.card != a.card_id or snap.zone != STACK or snap.is_token:
+             raise ActionError("That spell has no last known information")
+-    elif ops.zone_name(src.zone) not in ("battlefield", STACK) and not publicly_visible(state, src):
++    elif src is not None and ops.zone_name(src.zone) not in ("battlefield", STACK) and not publicly_visible(state, src):
+         raise ActionError("Only public objects can be copied")
+     pid = ops.player(state, a.player, a.actor)
+-    on_stack = src.zone == STACK or snap is not None
++    on_stack = snap is not None or (src is not None and src.zone == STACK)
+     key = STACK if on_stack else zone_key(pid, "battlefield")
+-    if a.zone:  # -- cast a copy (wave 13C) -- 707.12: "created in the same zone the object is in"; 722.3c: in exile
++    if a.zone:
+         key = zone_key(pid, a.zone)
+     for i, new_id in enumerate(a.r.ids):
+         if new_id in state.cards:
+             raise ActionError("id collision")
+         c = CardInstance(
+             id=new_id,
+-            card_id=a.printing or (snap.printing if snap is not None else src.card_id),
+-            name=snap.name if snap is not None else src.name,
+-            owner=pid,
+-            controller=pid,
+-            zone=key,
+-            x=(a.x if a.x is not None else src.x + 24) + i * 18,
+-            y=(a.y if a.y is not None else src.y + 24) + i * 18,
+-            face=(snap.face if snap is not None else src.face) if a.face is None else a.face,
++            card_id=a.printing or (snap.printing if snap is not None else src.card_id if src else None),
++            name=snap.name if snap is not None else src.name if src else "",
++            owner=pid, controller=pid, zone=key,
++            x=(a.x if a.x is not None else (src.x if src else 0) + 24) + i * 18,
++            y=(a.y if a.y is not None else (src.y if src else 0) + 24) + i * 18,
++            face=(snap.face if snap is not None else src.face if src else 0) if a.face is None else a.face,
+             is_token=True,
+-            token=src.token.model_copy() if src.token else None,
+-            ability=src.ability.model_copy() if src.ability else None,
+-            copy_of=CopyInfo(source_id=src.id, source_name=snap.name if snap is not None else src.name, modifications=a.modifications),
++            token=src.token.model_copy() if src and src.token and a.saved_stack is None else None,
++            ability=src.ability.model_copy() if src and src.ability and a.saved_stack is None else None,
++            copy_of=CopyInfo(source_id=a.card_id, source_name=snap.name if snap is not None else src.name if src else "",
++                             modifications=a.modifications),
+             quantity=1,
+         )
+         state.cards[new_id] = c
+         state.zone(key).append(new_id)
+     n = f"{a.count} copies" if a.count != 1 else "a copy"
+-    log(state, a.actor, a.ts, [pname(state, a.actor), text(f" created {n} of "), text(snap.name) if snap is not None else ops.card_part(state, src)])
++    if snap is not None:
++        source_part = text(snap.name)
++    else:
++        assert src is not None
++        source_part = ops.card_part(state, src)
++    log(state, a.actor, a.ts, [pname(state, a.actor), text(f" created {n} of "), source_part])
+
+
+ def delete_card(state: GameState, a: A.DeleteCard) -> None:
+--- a/backend/app/rules/copying.py
++++ b/backend/app/rules/copying.py
+@@ -262,6 +262,8 @@
+ def _without_keywords(a: Any, dropped: set[str]) -> Any:
+     """-- token copies & attach on entry (wave 5J) -- a keyword line without these keywords (707.9d: a
+     characteristic-defining ability for a characteristic the copy effect sets isn't copied); "" if none is left."""
++    if "epic" in dropped and a.text == "Epic":
++        return replace(a, text="")
+     if a.kind != "keywords" or not dropped & set(a.keywords):
+         return a
+     from app.rules.oracle import strip_reminders
+@@ -455,9 +457,10 @@
+                         resume={"step": "copy_source_order", "job": job})
+             return False
+         cur = job["queue"][0]
+-        card = plan.state.cards.get(cur["object"])
+-        mem = None
+-        if card is None or card.zone != "stack" or plan.oid(card) != cur["oid"]:
++        saved = cur.get("saved_stack")
++        card = CardInstance.model_validate(saved["card"]) if saved is not None else plan.state.cards.get(cur["object"])
++        mem = StackMemory.model_validate(saved["memory"]) if saved is not None else None
++        if saved is None and (card is None or card.zone != "stack" or plan.oid(card) != cur["oid"]):
+             # 608.2h, 707.10: use the exact departed stack object, including abilities that have ceased to exist.
+             # An old save without its memory still requests manual resolution rather than silently losing the copy.
+             mem = lki_ability(plan, cur["object"], cur["oid"])
+@@ -471,14 +474,15 @@
+                 _next(job)
+                 _manual(plan, job, f"{job['label']}: {name} left the stack, so its copy isn't automated: make the copy by hand, then press Done")
+                 return False
+-        refused = uncopyable(plan, card, object_id=cur["oid"])
++        assert card is not None
++        refused = uncopyable(plan, card, object_id=cur["oid"]) if saved is None else None
+         if refused is not None:
+             _next(job)
+             if refused:
+                 _manual(plan, job, refused)
+                 return False
+             continue
+-        entry = source_entry102(plan, card, cur["oid"])
++        entry = mem.entry if saved is not None and mem is not None else source_entry102(plan, card, cur["oid"])
+         from app.rules import spell_copy_replacements
+
+         spell_copy_replacements.prepare(plan, job, cur, ability=card.ability is not None)
+@@ -493,7 +497,9 @@
+                                  DecisionOption(id="choose", label="Choose new targets for each copy")],
+                         resume={"step": "copy_mode", "job": job})
+             return False
+-        copy_id = make_copy(plan, card, job["controller"], [CopyExcept.model_validate(x) for x in job["excepts"]], cur["oid"])
++        excepts = [CopyExcept.model_validate(x) for x in job["excepts"]]
++        copy_id = (_copy_spell(plan, card, job["controller"], excepts, cur["oid"], saved=saved) if saved is not None else
++                   make_copy(plan, card, job["controller"], excepts, cur["oid"]))
+         if job.get("did") and job.get("ctx") is not None:
+             from app.rules import context
+
+@@ -630,23 +636,26 @@
+     return _copy_spell(plan, card, controller, excepts, oid)
+
+
+-def _copy_spell(plan: Plan, card: CardInstance, controller: str, excepts: list[CopyExcept], oid: str | None = None) -> str | None:
++def _copy_spell(plan: Plan, card: CardInstance, controller: str, excepts: list[CopyExcept], oid: str | None = None,
++                *, saved: dict[str, Any] | None = None) -> str | None:
+     from app.game.state import StackInfo
+
+     r = plan.rules
+     orig_oid = oid or plan.oid(card)
+-    mem = lki_spell(plan, card.id, orig_oid) if orig_oid != plan.oid(card) else None  # it has left the stack: -- spell copies (wave 31D) --
+-    entry = source_entry102(plan, card, orig_oid)
++    mem = StackMemory.model_validate(saved["memory"]) if saved is not None else lki_spell(plan, card.id, orig_oid) if orig_oid != plan.oid(card) else None  # it has left the stack: -- spell copies (wave 31D) --
++    entry = mem.entry if saved is not None and mem is not None else source_entry102(plan, card, orig_oid)
+     info = (StackInfo.model_validate(mem.info) if mem.info else None) if mem is not None else card.stack_info
+     if mem is not None:  # (its copiable values as it was: a copy effect on it then, else its printing and face — 707.2)
+-        snap = r.lki[orig_oid]
++        from app.game.rules_state import ObjectSnapshot
++
++        snap = ObjectSnapshot.model_validate(saved["snapshot"]) if saved is not None else r.lki[orig_oid]
+         base = snap.copy_recipe.model_copy(deep=True) if snap.copy_recipe is not None else CopyRecipe(printing=snap.printing, face=snap.face,
+                                                                                                       source=snap.name[:200])
+         record = r.payments.get(orig_oid)
+         recipe = with_excepts(base.model_copy(update={"prototyped": True}) if record is not None and record.prototyped else base, excepts)
+     else:
+         recipe = with_excepts(recipe_of(plan, card), excepts)
+-    created = plan.do({"type": "copy_card", "card_id": card.id, "player": controller, "count": 1, **({"last_known": orig_oid} if mem else {})},
++    created = plan.do({"type": "copy_card", "card_id": card.id, "player": controller, "count": 1, **({"saved_stack": saved["snapshot"]} if saved is not None else {"last_known": orig_oid} if mem else {})},
+                       actor=controller)
+     new_ids = getattr(created, "r", None)
+     if new_ids is None or not new_ids.ids:
+@@ -656,7 +665,7 @@
+     add_copy_effect(plan, [oid], recipe, controller)
+     if entry is not None:
+         r.stack[copy_id] = _entry_copy(entry, controller=controller, source=(copy_id, oid), orig=orig_oid)
+-    _payment_alias(plan, orig_oid, oid, copy_id, controller)
++    _payment_alias(plan, orig_oid, oid, copy_id, controller, saved=saved)
+     payload: dict[str, Any] = {"type": "set_stack_info", "card_id": copy_id,
+                                "tags": ["Copy", *(t for t in (info.tags if info else []) if t.startswith(("Kicked", "Evoked")))]}
+     if info is not None and info.x is not None:
+@@ -710,11 +719,14 @@
+     return out
+
+
+-def _payment_alias(plan: Plan, orig_oid: str, oid: str, copy_id: str, controller: str) -> None:
++def _payment_alias(plan: Plan, orig_oid: str, oid: str, copy_id: str, controller: str,
++                   *, saved: dict[str, Any] | None = None) -> None:
+     """707.10: an effect of the copy that refers to objects used to pay its costs uses the objects
+     that paid for the original (the sacrificed creature, the creatures that convoked it); mana
+     isn't an object and isn't copied (the Dawnglow Infusion example), nor is life."""
+-    record = plan.rules.payments.get(orig_oid)
++    from app.game.rules_state import PaymentRecord
++
++    record = PaymentRecord.model_validate(saved["payment"]) if saved is not None and saved.get("payment") else plan.rules.payments.get(orig_oid)
+     if record is not None:
+         plan.rules.payments[oid] = record.model_copy(
+             deep=True, update={"card": copy_id, "controller": controller, "mana_spent": {}, "resolved_x": None, "activation_life_paid": 0, "x_black_spent": 0, "mana_tags": [], "snow_spent": {}, "mana_sources": [], "mana_riders": [], "life": 0, "tapped": [],
+--- a/backend/app/rules/cast_limits.py
++++ b/backend/app/rules/cast_limits.py
+@@ -627,7 +627,7 @@
+         what = _spells_words(e.get("filter"), e.get("from"))
+         if e.get("act") == "loyalty":
+             what += " or activate loyalty abilities"
+-        when = "during their next turn" if e["until"] == "their_next100a" else "this turn" if e["until"] == "turn" else \
++        when = "for the rest of the game" if e["until"] == "game" else "during their next turn" if e["until"] == "their_next100a" else "this turn" if e["until"] == "turn" else \
+             ("until the end of " if e["until"] == "end_of_next_turn" else "until ") + plan.name(ctx["controller"]) + "’s next turn"
+         plan.note(f"{plan.name(pid)} can't cast {what} {when} ({label})", actor=ctx["controller"])
+     return True
+--- a/backend/app/rules/scripts.py
++++ b/backend/app/rules/scripts.py
+@@ -5860,6 +5860,10 @@
+
+ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
+     """The engine definition of one ability, or None (manual)."""
++    from app.rules import epic103
++
++    if (epic := epic103.definition(ability, ch)) is not None:
++        return epic
+     from app.rules import stack_events102
+
+     if (stack102 := stack_events102.definition(ability, ch)) is not None:
+@@ -8744,6 +8748,8 @@
+         effects = [{"do": "ascend"}, *effects]  # -- keywords (wave 15E) -- 702.131a: the spell ability, first
+     if ch.is_instant_or_sorcery and any(ab.kind == "keywords" and ab.keywords == ("cipher",) for ab in ch.abilities):
+         effects = [*effects, {"do": "cipher"}]  # -- static_other sweep (wave 17C) -- 702.99a: encoded last (recursion.cipher)
++    if any(e["do"] == "epic_setup103" for e in effects):
++        effects = [{"do": "epic_snapshot103"}, *effects]
+     effects, target = _finish_targets(effects, groups)
+     minimum_x = max((defs[ab.index].get("x_min", 0) for ab in lines), default=0)
+     as_cast = {defs[ab.index]['x_as_cast'] for ab in lines if defs[ab.index].get('x_as_cast') is not None}
+--- a/backend/app/rules/effects.py
++++ b/backend/app/rules/effects.py
+@@ -6993,6 +6993,10 @@
+
+ PRIMITIVES.update(_library_polymorph102.PRIMITIVES)
+
++from app.rules import epic103 as _epic103  # noqa: E402
++
++PRIMITIVES.update(_epic103.PRIMITIVES)
++
+ from app.rules import stack_events102 as _stack_events102  # noqa: E402
+
+ PRIMITIVES.update(_stack_events102.PRIMITIVES)
+--- /dev/null
++++ b/backend/app/rules/epic103.py
+@@ -0,0 +1,107 @@
++"""Epic's independent public spell memory and perpetual native upkeep copies (702.50)."""
++from __future__ import annotations
++
++import secrets
++from typing import Any
++
++NAMES = {'Enduring Ideal', 'Endless Swarm', 'Eternal Dominion', 'Neverending Torment', 'Undying Flames'}
++DOMINION = ("Search target opponent's library for an artifact, creature, enchantment, or land card. Put that card onto the "
++            'battlefield under your control. Then that player shuffles.')
++TORMENT = ("Search target player's library for X cards, where X is the number of cards in your hand, and exile them. "
++           'Then that player shuffles.')
++FLAMES = ('Exile cards from the top of your library until you exile a nonland card. ~ deals damage to any target equal '
++          "to that card's mana value.")
++
++
++def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
++    from app.rules import scripts, selectors
++
++    if ch.name not in NAMES:
++        return None
++    text = scripts.self_text(ability.text, ch.name)
++    if text == 'Epic':
++        return {'kind': 'spell', 'target': None, 'effects': [{'do': 'epic_setup103'}]}
++    if text not in (DOMINION, TORMENT, FLAMES):
++        return None
++    native = scripts.parse_effects(('Target opponent' if text == DOMINION else 'Target player') + ' draws a card.'
++                                  if text != FLAMES else '~ deals 1 damage to any target.')
++    assert native is not None
++    if text == DOMINION:
++        sel = selectors.parse('artifact, creature, enchantment, or land card')
++        assert sel is not None
++        body = [{'do': 'search', 'who': 'you', 'library': 'target', 'sel': sel.key(), 'to': 'battlefield',
++                 'reveal': False, 'label': 'artifact, creature, enchantment, or land card'}]
++    elif text == TORMENT:
++        body = [{'do': 'search', 'who': 'you', 'library': 'target', 'filter': 'any', 'max': {'hand': 'you'},
++                 'upto': False, 'to': 'exile', 'reveal': False}]
++    else:
++        sel = selectors.parse('nonland card')
++        assert sel is not None
++        body = [{'do': 'library_packet101', 'mode': 'exile', 'as': 'epic_packet103', 'hits': 'ref:epic_hit103',
++                 'sel': sel.key(), 'need': 1}, {'do': 'epic_flames103', 'who': 'ref:epic_hit103'}]
++    return {'kind': 'spell', **scripts.target_fields(native[1]), 'effects': body}
++
++
++def preserve(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
++    from app.game.rules_state import CopyExcept, StackMemory, snapshot
++    from app.rules import copying
++
++    source = plan.state.cards.get(ctx.get('stack_id') or ctx.get('source_card'))
++    if source is None or source.zone != 'stack':
++        return True
++    entry = plan.rules.stack.get(source.id)
++    if entry is None:
++        return True
++    snap = snapshot(plan.state, source.id)
++    # This is the public stack object now, not a lookup in a later hidden zone or prunable LKI.
++    snap.copy_recipe = copying.with_excepts(copying.recipe_of(plan, source), [CopyExcept(remove_keywords=['epic'])])
++    saved_entry = entry.model_copy(deep=True)
++    saved_entry.effects = [x for x in saved_entry.effects if x['do'] not in {'epic_setup103', 'epic_snapshot103'}]
++    memory = StackMemory(card=source.id, entry=saved_entry,
++                         info=source.stack_info.model_dump(mode='json') if source.stack_info else {},
++                         evoked=source.id in plan.rules.evoked, dashed=source.id in plan.rules.dashed)
++    payment = plan.rules.payments.get(snap.object_id)
++    saved = {'snapshot': snap.model_dump(mode='json'), 'memory': memory.model_dump(mode='json'),
++             'card': source.model_dump(mode='json'), 'payment': payment.model_dump(mode='json') if payment else None}
++    ctx['epic_saved103'] = saved
++    return True
++
++
++def setup(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
++    from app.game.rules_state import DelayedTrigger
++    from app.rules import cast_limits
++
++    saved = ctx.get('epic_saved103')
++    if saved is None:
++        return True
++    snap = saved['snapshot']
++    cast_limits.cast_limit(plan, ctx, {'who': 'you', 'until': 'game'})
++    plan.rules.delayed.append(DelayedTrigger(
++        id=secrets.token_hex(4), controller=ctx['controller'], source_card=snap['card'], source_object=snap['object_id'],
++        name=ctx.get('name') or snap['name'] or 'Epic', when={'kind': 'step', 'step': 'upkeep', 'whose': 'you'},
++        effects=[{'do': 'epic_copy103', 'saved_stack': saved}], turn=plan.state.turn.number,
++        step=plan.state.turn.phase, created_step=plan.rules.step_serial, once=False))
++    return True
++
++
++def copy(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
++    from app.rules import copying
++
++    saved = e['saved_stack']
++    snap = saved['snapshot']
++    job = copying.new_job(ctx, controller=ctx['controller'], objects=[(snap['card'], snap['object_id'], 1)],
++                          retarget=True, label=ctx.get('name') or 'Epic')
++    job['queue'][0]['saved_stack'] = saved
++    return copying.run(plan, job)
++
++
++def flames(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
++    from app.rules import effects
++
++    hits = effects._cards(plan, ctx, e['who'])
++    n = int(plan.ch(plan.state.cards[hits[0]]).mana_value) if hits else 0
++    ctx['effects'][ctx['next']:ctx['next']] = [{'do': 'damage', 'who': 'target', 'n': n}]
++    return True
++
++
++PRIMITIVES = {'epic_snapshot103': preserve, 'epic_setup103': setup, 'epic_copy103': copy, 'epic_flames103': flames}

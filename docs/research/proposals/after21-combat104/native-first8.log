@@ -1,0 +1,30 @@
+bringing up nodes...
+bringing up nodes...
+
+.....F..                                                                 [100%]
+=================================== FAILURES ===================================
+______________ test_native_host_damage_death104[Vampiric Embrace] ______________
+[gw1] linux -- Python 3.12.14 /workspace/Fyodor/backend/.venv/bin/python3
+
+cards = <app.cards.repository.CardRepository object at 0x7f4740ce8b00>
+name = 'Vampiric Embrace'
+
+    @pytest.mark.parametrize("name",NAMES)
+    def test_native_host_damage_death104(cards,name):
+        s,source,host=pair104(cards,name)
+        victim=put(s,"Llanowar Elves","battlefield",pid="p2")
+        shoot104(s,host,victim)
+        if name==NAMES[0]:
+            assert s.state.cards[victim.id].zone=="p1:battlefield"
+            assert s.state.cards[source.id].attached_to==victim.id
+        else:
+            assert s.state.cards[victim.id].zone=="p2:graveyard"
+>           assert s.state.cards[host.id].counters.get("+1/+1")==1
+E           AssertionError: assert None == 1
+E            +  where None = <built-in method get of dict object at 0x7f473fec5240>('+1/+1')
+E            +    where <built-in method get of dict object at 0x7f473fec5240> = {}.get
+E            +      where {} = CardInstance(borrow_identity=None, id='1e3db3d22666', card_id='966917fc-bf95-5f32-9205-0a0b9515cdac', name='Grizzly Be...ts=[], damage=0, choices={}, stack_info=None, exile_group=None, token_source=None, origin='library', test_object=False).counters
+
+tests/test_rules_damage_death104.py:133: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_rules_damage_death104.py::test_native_host_damage_death104[Vampiric Embrace]

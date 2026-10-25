@@ -1,0 +1,9 @@
+{
+  "app/rules/waterbend102.py": "f05ca48fe1c6253a30b3b82a1eb03c08dce5ae9112b3853a746609c05ecf9c80",
+  "app/rules/costs.py": "6143f74c311a01d7c45df5bb7be663e89af01d775a192efcf852bc77c58cd9ab",
+  "app/rules/cost_payment.py": "d4982870c1d6f5daefcd453194b962cb194fab90bb47340b4d584561132ecb17",
+  "app/game/rules_state.py": "db2884ecce789a247e6455cfc3c61c8644f4bc1a5447f37d96fc30a3cb8d695a",
+  "app/rules/events.py": "281224b9e7b4fb3240030db0ce36429f3d7c55990d77bf3be2e2207adca6ef4e",
+  "app/rules/casting.py": "703c4b2d1aa2d7a1fdec6218bfb8589e62bcf6a7e12557bb7c9386416ab0919b",
+  "app/rules/scripts.py": "8cee5d0a5d322f533b5e6279aee2424f9ad1a7a1ec82a1c85338dd197469b8e9"
+}

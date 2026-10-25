@@ -1,0 +1,13 @@
+{
+  "object": "list",
+  "has_more": false,
+  "data": [
+    {
+      "object": "ruling",
+      "oracle_id": "1d55a1c5-fd0b-44d2-9e7c-550052fef262",
+      "source": "wotc",
+      "published_at": "2022-10-07",
+      "comment": "If Tzaangor Shaman deals combat damage to a player more than one time in a turn, perhaps because it has gained double strike, its delayed triggered ability will trigger that many times when you cast your next instant or sorcery spell this turn."
+    }
+  ]
+}

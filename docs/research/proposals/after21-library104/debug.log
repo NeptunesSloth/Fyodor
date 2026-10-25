@@ -1,0 +1,17 @@
+F
+=================================== FAILURES ===================================
+___ test_niv_exact_pairs_required_and_native_duplicate_category_rejection104 ___
+
+cards = <app.cards.repository.CardRepository object at 0x7f944463e090>
+
+    def test_niv_exact_pairs_required_and_native_duplicate_category_rejection104(cards):
+        s = setup(cards)
+        ids = niv(s)
+        d = s.state.rules.decision
+>       assert d is not None and d.min_choices == d.max_choices == 3
+E       assert (None is not None)
+
+tests/test_rules_reveal_categories104.py:74: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_rules_reveal_categories104.py::test_niv_exact_pairs_required_and_native_duplicate_category_rejection104
+!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!

@@ -1,0 +1,133 @@
+--- /dev/null
++++ b/backend/app/rules/sticker_triggers103.py
+@@ -0,0 +1,83 @@
++"""Placement receipts trigger printed abilities without conflating tickets with placement."""
++
++from __future__ import annotations
++
++from dataclasses import replace
++from typing import Any
++
++TEXTS = {
++    "Whenever you place a sticker, create a Treasure token. If it's an art sticker, instead create two Treasure tokens.": "air",
++    "Whenever you place a sticker, ~ gets +1/+1 until end of turn. If it's an art sticker, instead put a +1/+1 counter on ~.": "wee",
++    "Whenever you put an ability sticker on a creature, put a +1/+1 counter on that creature.": "tusk",
++    "Whenever you put an art sticker on a creature, you may return this card from your graveyard to your hand.": "artgy",
++    "Whenever you put a name sticker on a creature, you may return this card from your graveyard to your hand.": "namegy",
++}
++
++
++def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
++    from app.rules import oracle, scripts
++
++    text = oracle.strip_reminders(scripts.self_text(ability.text, ch.name)).strip()
++    if text == "{2}{G}{W}, {T}: You get {TK}. You may put a sticker on a nonland permanent you own.":
++        return scripts.define(replace(ability, text=text.replace("{TK}. You may", "{TK}, then you may")), ch)
++    kind = TEXTS.get(text)
++    if kind is None:
++        return None
++    native = scripts.define(replace(ability, text="Whenever you gain life, draw a card."), ch)
++    assert native is not None
++    cond: dict[str, Any] = {"event": "put_sticker103", "subject": "player", "player": "you"}
++    if kind == "air":
++        parsed = scripts.parse_effects("Create a Treasure token.")
++        assert parsed is not None
++        effects = [{"do": "sticker_bonus103", "kind": "air", "token": parsed[0][0]["token"]}]
++    elif kind == "wee":
++        effects = [{"do": "sticker_bonus103"}]
++    elif kind == "tusk":
++        cond.update(sticker_kind103="ability", sticker_creature103=True)
++        effects = [{"do": "add_counters", "who": "event", "kind": "+1/+1", "n": 1}]
++    else:
++        cond.update(sticker_kind103="art" if kind == "artgy" else "name", sticker_creature103=True)
++        effects = [{"do": "return_card", "to": "hand", "who": "self_gy"}]
++    return {**native, "trigger": "event", "cond": cond, "effects": effects, "optional": kind.endswith("gy")}
++
++
++def facts(plan: Any, e: Any) -> list[Any]:
++    from app.rules import triggers
++
++    got = triggers._object_then(plan, e.card, e.object_id)
++    card, ch = got if got is not None else (None, None)
++    kind = (e.sticker101 or {}).get("kind")
++    return [
++        (
++            "put_sticker103",
++            card,
++            ch,
++            e.actor,
++            {
++                "oid": e.object_id,
++                "actor": e.actor,
++                "sticker_kind103": kind,
++                "sticker_creature103": "Creature" in e.types,
++                "amount": 2 if kind == "art" else 1,
++            },
++        )
++    ]
++
++
++def bonus(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> Any:
++    from app.rules import effects
++
++    art = (ctx.get("event") or {}).get("amount") == 2
++    if e.get("kind") == "air":
++        return effects.PRIMITIVES["create_token"](
++            plan, ctx, {"do": "create_token", "who": "you", "n": 2 if art else 1, "token": e["token"]}
++        )
++    step: dict[str, Any] = (
++        {"do": "add_counters", "who": "self", "kind": "+1/+1", "n": 1}
++        if art
++        else {"do": "pump", "who": "self", "p": 1, "t": 1}
++    )
++    return effects.PRIMITIVES[step["do"]](plan, ctx, step)
++
++
++PRIMITIVES = {"sticker_bonus103": bonus}
+--- a/backend/app/rules/scripts.py
++++ b/backend/app/rules/scripts.py
+@@ -5860,6 +5860,10 @@
+
+ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
+     """The engine definition of one ability, or None (manual)."""
++    from app.rules import sticker_triggers103
++
++    if (sticker103 := sticker_triggers103.definition(ability, ch)) is not None:
++        return sticker103
+     from app.rules import sticker_riders102
+
+     if (rider102 := sticker_riders102.definition(ability, ch)) is not None:
+--- a/backend/app/rules/effects.py
++++ b/backend/app/rules/effects.py
+@@ -6991,3 +6991,7 @@
+ from app.rules import sticker_effects101 as _sticker_effects101  # noqa: E402
+
+ PRIMITIVES.update(_sticker_effects101.PRIMITIVES)
++
++from app.rules import sticker_triggers103 as _sticker_triggers103  # noqa: E402
++
++PRIMITIVES.update(_sticker_triggers103.PRIMITIVES)
+--- a/backend/app/rules/triggers.py
++++ b/backend/app/rules/triggers.py
+@@ -624,6 +624,10 @@
+         if card is None or plan.oid(card) != e.object_id:
+             return []
+         return [('echo_paid76', card, plan.ch(card), e.player, {'oid': e.object_id})]
++    if e.kind == "designation" and (e.counter or "").startswith("sticker101:"):
++        from app.rules import sticker_triggers103
++
++        return sticker_triggers103.facts(plan, e)
+     if e.kind == "designation":  # -- counters & designations (wave 3E) --
+         from app.rules import designations
+
+@@ -813,6 +817,10 @@
+         elif cond["copy"] == "only":
+             return False
+     if want != event:
++        return False
++    if cond.get("sticker_kind103") and cond["sticker_kind103"] != info.get("sticker_kind103"):
++        return False
++    if cond.get("sticker_creature103") and not info.get("sticker_creature103"):
+         return False
+     if not _details_ok(plan, cond, watcher, fact):
+         return False

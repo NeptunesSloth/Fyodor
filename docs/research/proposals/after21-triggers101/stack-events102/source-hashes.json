@@ -1,0 +1,9 @@
+{
+  "app/rules/stack_events102.py": "e11f3543f430e1f24904b5d1444a1a26b882e026048c1af774efcbf653dd07c0",
+  "app/rules/scripts.py": "af87fbccd97fbb1f2b5193afc9015b4259d7c713c83eca9b6d69eecfde693da4",
+  "app/rules/effects.py": "11649b3698e8895546c7f8f95bb8a940b36eab1c8b67faca8d06157a11d0a1e8",
+  "app/rules/triggers.py": "e4de5ecf6cbee715cd36e6d8d79e56b9a51647cd3addfdac61d37223fce0a6ec",
+  "app/rules/copying.py": "219d7bef6f0ee5b423b8ff56a4a9ce1be649f50b141d908a0a1971ad7d105cd2",
+  "app/rules/engine.py": "83806b97fe9fd178744495d72626c7665a710b4fa3da2fb749b8380272407d1c",
+  "app/game/rules_state.py": "bf36fcbf06efaddc6e0f28cca06c72988e4ccad58b976087b4550e5c03fd2758"
+}

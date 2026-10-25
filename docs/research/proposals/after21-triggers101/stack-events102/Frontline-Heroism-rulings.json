@@ -1,0 +1,69 @@
+{
+  "object": "list",
+  "has_more": false,
+  "data": [
+    {
+      "object": "ruling",
+      "oracle_id": "4c340b82-22e1-445a-b236-82471b442031",
+      "source": "wotc",
+      "published_at": "2024-11-08",
+      "comment": "Frontline Heroism's last ability resolves before the spell that caused it to trigger. It resolves even if that spell is countered or otherwise leaves the stack without resolving."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "4c340b82-22e1-445a-b236-82471b442031",
+      "source": "wotc",
+      "published_at": "2024-11-08",
+      "comment": "If you cast a spell that has multiple targets but all of them are the same creature you control, Frontline Heroism's last ability will trigger. In that case, the copy's targets will all be the token created by the ability."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "4c340b82-22e1-445a-b236-82471b442031",
+      "source": "wotc",
+      "published_at": "2024-11-08",
+      "comment": "The copy created by Frontline Heroism's last ability is created on the stack, so it's not \"cast\". Abilities that trigger when a player casts a spell (like Frontline Heroism's own ability) won't trigger."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "4c340b82-22e1-445a-b236-82471b442031",
+      "source": "wotc",
+      "published_at": "2024-11-08",
+      "comment": "If the spell that's copied is modal (that is, it says \"Choose one \u2014\" or the like), the copy will have the same mode or modes. You can't choose different ones."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "4c340b82-22e1-445a-b236-82471b442031",
+      "source": "wotc",
+      "published_at": "2024-11-08",
+      "comment": "If the spell that's copied has an X whose value was determined as it was cast, the copy will have the same value of X."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "4c340b82-22e1-445a-b236-82471b442031",
+      "source": "wotc",
+      "published_at": "2024-11-08",
+      "comment": "You can't choose to pay any additional costs for the copy. However, effects based on any additional costs that were paid for the original spell are copied as though those same costs were paid for the copy too."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "4c340b82-22e1-445a-b236-82471b442031",
+      "source": "wotc",
+      "published_at": "2024-11-08",
+      "comment": "Any choices made when the spell resolves won't have been made yet when it's copied. Any such choices will be made separately when the copy resolves."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "4c340b82-22e1-445a-b236-82471b442031",
+      "source": "wotc",
+      "published_at": "2024-11-08",
+      "comment": "If a permanent spell is copied, the copy is put onto the battlefield as a token as the spell resolves rather than putting the copy of the spell onto the battlefield. The rules that apply to a permanent spell becoming a permanent apply to a copy of a spell becoming a token."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "4c340b82-22e1-445a-b236-82471b442031",
+      "source": "wotc",
+      "published_at": "2024-11-08",
+      "comment": "The token that a resolving copy of a permanent spell becomes isn't \"created\" and won't interact with abilities that care about tokens being created, such as the first ability of Doubling Season."
+    }
+  ]
+}

@@ -1,0 +1,129 @@
+..................F.F
+=================================== FAILURES ===================================
+_______ test_hive_nontarget_copies_each_controller_draws_their_own_cards _______
+
+cards = <app.cards.repository.CardRepository object at 0x7f4c46684920>
+
+    def test_hive_nontarget_copies_each_controller_draws_their_own_cards(cards):
+        s = setup(cards)
+        put(s, 'Hive Mind')
+>       cast(s, 'Divination', pid='p2')
+
+tests/test_rules_stack_events102.py:211:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests/test_rules_stack_events102.py:60: in cast
+    act(s, pid, type='cast_spell', card_id=c.id, sources=[], targets=list(targets), **extra)
+tests/game_helpers.py:42: in act
+    return session.perform(actor, payload)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/game/session.py:61: in perform
+    resolved = resolve(self.state, action, actor=actor, cards=self.cards, trusted=trusted)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/game/resolve.py:76: in resolve
+    a.r = compile_intent(state, a, actor=actor, info=info, rng=rng)  # type: ignore[union-attr]
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/engine.py:164: in compile_intent
+    handler(plan, intent)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+plan = <app.rules.plan.Plan object at 0x7f4c46801e80>
+a = CastSpell(actor='p2', ts=1792911414.084614, r=None, mana_symbols=None, flashback_choice=None, type='cast_spell', card_...ker=0, cost_choices=[], alt_cost=None, optional_costs=[], slot=None, via=None, optional_asked=False, life_symbols=None)
+
+    def cast_spell(plan: Plan, a: A.CastSpell) -> None:
+        require_no_decision(plan)
+        card = plan.state.cards.get(a.card_id)
+        if card is None:
+            raise ActionError("That card isn't here any more")
+        if card.zone == zone_key(plan.actor, "graveyard") and a.face is None and not a.fuse and not a.free:  # -- casting extras (wave 18E) -- 702.146a
+            from app.rules import disturb
+
+            if disturb.cast_face(plan.state, plan.actor, card, plan.info, a.alt_cost):
+                a.face = 1  # cast transformed: the spell is the back face (702.146b, 712.8c)
+        if a.face is None and a.alt_cost is not None and not a.fuse and not a.free and not plan.manual(card):  # -- commanders (wave 50C) -- 702.162a: cast converted = the back face is the spell (701.28a, 712.8c)
+            from app.rules import alt_costs as _converted
+
+            if any(o.key == a.alt_cost and o.tag == _converted.CONVERTED_TAG for o in _converted.converted_offers(plan.state, plan.actor, card, plan.info)):
+                a.face = 1
+        ch = chars.as_cast(card, plan.info, a.face, a.fuse)  # split cards / adventures: the half being cast
+        from app.rules import text_global_word71
+
+        global_text_prepared71 = bool(text_global_word71.global_changes(plan.state, card.model_copy(update={'zone': 'stack'}), plan.info))
+        ch = text_global_word71.prospective(plan.state, card, ch, plan.info)
+        from app.rules import paid_effect_costs
+
+        if paid_effect_costs.announce(plan, a, card, ch):
+            return
+        if a.fuse and (ch.name.count(" // ") != 1 or card.zone != zone_key(plan.actor, "hand")):  # -- static_other sweep (wave 16B) -- 702.102a
+            raise ActionError("Only a split card with fuse can be cast as both halves, from your hand")
+        if a.alt_cost is not None and (a.free or a.evoke or a.dash or a.awaken or a.face_down):  # -- cost changers (wave 4I) --
+            raise ActionError("Only one alternative cost can be applied to a spell (118.9a)")
+        if a.free and card.id in plan.rules.free_casts:  # suspend / cascade / rebound / madness: what the engine granted
+            cast_free(plan, card, ch, a)
+            return
+        if a.alt_cost is not None and not plan.manual(card):  # -- keywords (wave 15E) -- bestow 702.103b/d: cast as an Aura spell
+            from app.rules import alt_costs as _alt
+            from app.rules import bestow
+
+            kinds = {o.tag for o in _alt.offers(plan.state, plan.actor, card, ch, plan.info) if o.key == a.alt_cost}
+            if "overload" in kinds:  # -- casting extras (wave 18E) -- 702.96a: "target" is "each" (no targets, 702.96b)
+                from app.rules import overload
+
+                ch = overload.overlay(ch)
+            if "cleave" in kinds:  # -- keywords (wave 50H) -- 702.148a: the words in square brackets are removed
+                from app.rules import cleave
+
+                ch = cleave.overlay(ch)
+            bestowed_cast = "bestow" in kinds
+            sneaking = "sneak" in kinds  # -- keywords (wave 30I) -- 702.190a
+            mutating_cast = "mutate" in kinds  # -- merged permanents (wave 18D) -- 702.140a: a mutating creature spell, targeting a creature
+            if bestowed_cast:
+                ch = bestow.overlay(ch)
+        else:
+            bestowed_cast = mutating_cast = sneaking = False
+        if a.prototype:  # -- casting extras (wave 18E) -- 702.160a / 718.3a: only the alternative cost, power and toughness are used to cast it
+            from app.rules import prototype
+
+            if a.face_down or a.fuse or prototype.parse(ch) is None or plan.manual(card):
+                raise ActionError(f"{ch.name or 'That card'} has no prototype the engine can cast it with")
+            ch = prototype.overlay(ch)
+        face_down_kind = face_down_cast_kind(ch) if a.face_down else None  # -- keyword actions & face-down (wave 3F) --
+        if a.face_down:  # morph / disguise: a nameless 2/2 creature spell (disguise: with ward {2}) for {3}
+            if face_down_kind is None or card.zone != zone_key(plan.actor, "hand"):
+                raise ActionError("Only a card with morph or disguise can be cast face down from your hand")
+            ch = chars.face_down_characteristics(face_down_kind)
+            # -- granted casts (wave 29B) -- 707.2: a copy of a face-down spell is not face down
+            from app.rules import cast_limits as _limits
+
+            if not plan.manual(card) and _limits.granted_cascade(plan, card.id, ch, "hand", "storm"):
+                raise ActionError("A face-down spell that is given storm isn't automated (its copies are face-up 2/2 creature spells): cast it face up")
+        # 601.3d / 601.2g: mana abilities may remove a conditional timing source after this announcement was legal.
+        # Only a server-created payment resume can authorize its original object; new casts and new incarnations cannot.
+        timing_locked = plan.locked_cast_timing == plan.oid(card)
+        problem = cast_problem(plan.state, plan.actor, card, ch, info=plan.info, free=a.free, sneak=sneaking or timing_locked, announced=True, alternative_key=a.alt_cost, optional_keys=tuple(a.optional_costs))
+        if problem:
+>           raise ActionError(problem)
+E           app.game.errors.ActionError: Divination can only be cast during your turn
+
+app/rules/casting.py:3501: ActionError
+__ test_ivy_native_copy_replacement_additional_copy_can_keep_original_targets __
+
+cards = <app.cards.repository.CardRepository object at 0x7f4c46937ec0>
+
+    def test_ivy_native_copy_replacement_additional_copy_can_keep_original_targets(cards):
+        s = setup(cards)
+        ivy = put(s, 'Ivy, Gleeful Spellthief')
+        put(s, 'Twinning Staff')
+        bear = put(s, 'Grizzly Bears', pid='p2')
+        cast(s, 'Giant Growth', [bear.id], pid='p2')
+        finish(s, [ivy.id, '__additional__'])
+>       assert pt(s, ivy) == (5,4) and pt(s, bear) == (8,8)
+E       assert ((8, 7) == (5, 4)
+E
+E         At index 0 diff: 8 != 5
+E         Use -v to get more diff)
+
+tests/test_rules_stack_events102.py:246: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_rules_stack_events102.py::test_hive_nontarget_copies_each_controller_draws_their_own_cards
+FAILED tests/test_rules_stack_events102.py::test_ivy_native_copy_replacement_additional_copy_can_keep_original_targets
+!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 2 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!

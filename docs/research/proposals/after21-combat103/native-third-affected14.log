@@ -1,0 +1,359 @@
+============================= test session starts ==============================
+platform linux -- Python 3.12.14, pytest-9.1.1, pluggy-1.7.0 -- /workspace/Fyodor/backend/.venv/bin/python3
+cachedir: .pytest_cache
+rootdir: /workspace/scratch/combat103/backend
+configfile: pyproject.toml
+plugins: anyio-4.15.1, xdist-3.8.0
+created: 2/2 workers
+2 workers [14 items]
+
+scheduling tests via LoadScheduling
+
+tests/test_rules_combat_history103.py::test_beckett_actual_three_original_pirates_permanent_control95
+tests/test_rules_combat_history103.py::test_axe_actual_creature_combat_receipt_only_spares_equipped_source95[False]
+[gw1] [  7%] FAILED tests/test_rules_combat_history103.py::test_axe_actual_creature_combat_receipt_only_spares_equipped_source95[False]
+tests/test_rules_combat_history103.py::test_axe_combat_before_actual_equip_still_counts95
+[gw0] [ 14%] PASSED tests/test_rules_combat_history103.py::test_beckett_actual_three_original_pirates_permanent_control95
+tests/test_rules_combat_history103.py::test_axe_actual_creature_combat_receipt_only_spares_equipped_source95[True]
+[gw1] [ 21%] PASSED tests/test_rules_combat_history103.py::test_axe_combat_before_actual_equip_still_counts95
+tests/test_rules_combat_history103.py::test_axe_legacy_positive_actual_combat_receipt_remains_valid95
+[gw0] [ 28%] FAILED tests/test_rules_combat_history103.py::test_axe_actual_creature_combat_receipt_only_spares_equipped_source95[True]
+tests/test_rules_combat_history103.py::test_axe_legacy_unknown_negative_manual_then_next_native_turn_known95
+[gw1] [ 35%] FAILED tests/test_rules_combat_history103.py::test_axe_legacy_positive_actual_combat_receipt_remains_valid95
+tests/test_rules_combat_history103.py::test_hope_actual_prevented_combat_does_not_qualify95
+[gw0] [ 42%] FAILED tests/test_rules_combat_history103.py::test_axe_legacy_unknown_negative_manual_then_next_native_turn_known95
+tests/test_rules_combat_history103.py::test_beckett_two_pirates_double_strike_is_only_two_originals95
+[gw1] [ 50%] FAILED tests/test_rules_combat_history103.py::test_hope_actual_prevented_combat_does_not_qualify95
+tests/test_rules_combat_history103.py::test_beckett_frozen_pirates_count_after_actual_type_loss_and_departure95
+[gw0] [ 57%] FAILED tests/test_rules_combat_history103.py::test_beckett_two_pirates_double_strike_is_only_two_originals95
+tests/test_rules_combat_history103.py::test_genuine_cold_beckett_native_player_history_target_choice95
+[gw1] [ 64%] PASSED tests/test_rules_combat_history103.py::test_beckett_frozen_pirates_count_after_actual_type_loss_and_departure95
+tests/test_rules_combat_history103.py::test_genuine_cold_axe_legacy_manual_history_continuation95
+[gw0] [ 71%] PASSED tests/test_rules_combat_history103.py::test_genuine_cold_beckett_native_player_history_target_choice95
+tests/test_rules_combat_history103.py::test_axe_trigger_original_host_blink_excludes_new_incarnation95
+[gw1] [ 78%] FAILED tests/test_rules_combat_history103.py::test_genuine_cold_axe_legacy_manual_history_continuation95
+tests/test_rules_combat_history103.py::test_axe_source_left_after_trigger_uses_original_attachment_lki95
+[gw0] [ 85%] FAILED tests/test_rules_combat_history103.py::test_axe_trigger_original_host_blink_excludes_new_incarnation95
+tests/test_rules_combat_history103.py::test_whole_exact_combat_history95[Admiral Beckett Brass]
+[gw0] [ 92%] PASSED tests/test_rules_combat_history103.py::test_whole_exact_combat_history95[Admiral Beckett Brass]
+[gw1] [100%] FAILED tests/test_rules_combat_history103.py::test_axe_source_left_after_trigger_uses_original_attachment_lki95
+
+=================================== FAILURES ===================================
+_ test_axe_actual_creature_combat_receipt_only_spares_equipped_source95[False] _
+[gw1] linux -- Python 3.12.14 /workspace/Fyodor/backend/.venv/bin/python3
+
+cards = <app.cards.repository.CardRepository object at 0x7faed135d2b0>
+blocked = False
+
+    @pytest.mark.parametrize("blocked", [True, False])
+    def test_axe_actual_creature_combat_receipt_only_spares_equipped_source95(cards, blocked):
+        s, axe, bear = axe_pair95(cards)
+        wall = put(s, "Wall of Roots", "battlefield", pid="p2") if blocked else None
+>       combat95(s, [bear], [(wall, bear)] if wall else [])
+
+tests/test_rules_combat_history103.py:187:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests/test_rules_combat_history103.py:70: in combat95
+    attack(s, *[(c, "p2") for c in attackers])
+tests/test_rules_wave30p_combat.py:89: in attack
+    act(s, pid, type="declare_attackers", attackers=[{"card_id": c.id, "target": t} for c, t in pairs])
+tests/game_helpers.py:42: in act
+    return session.perform(actor, payload)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/game/session.py:61: in perform
+    resolved = resolve(self.state, action, actor=actor, cards=self.cards, trusted=trusted)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/game/resolve.py:76: in resolve
+    a.r = compile_intent(state, a, actor=actor, info=info, rng=rng)  # type: ignore[union-attr]
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/engine.py:164: in compile_intent
+    handler(plan, intent)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+plan = <app.rules.plan.Plan object at 0x7faed0b5f500>
+a = DeclareAttackers(actor='p1', ts=1792912201.1093488, r=None, type='declare_attackers', attackers=[AttackDeclaration(card_id='dcfababcb8be', target='p2')], bands=[], cost_choices=[], cost_order=[], sources=None)
+
+    def declare_attackers(plan: Plan, a: A.DeclareAttackers) -> None:
+        r = plan.rules
+        d = r.decision
+        # -- combat (wave 5C) -- the declaration again, once the attack cost's mana is in the pool (508.1h-j, casting._rerun)
+        locked: M.ManaCost | None = None
+        paying = d is None and plan.locked_cost is not None and plan.state.turn.phase == "declare_attackers" \
+            and plan.actor == plan.active and not r.no_attackers and not attackers_on(plan.state)
+        if paying:
+            locked = M.parse_cost(plan.locked_cost or "{0}")
+            plan.locked_cost = None
+            eligible = {cid for cid in plan.state.zones.get(zone_key(plan.active, "battlefield"), [])
+                        if attack_problem(plan.state, plan.state.cards[cid], plan.ch(plan.state.cards[cid])) is None}
+            targets = set(attack_targets(plan.state, plan.active, plan.info))
+        else:
+            if d is None or d.kind != "declare_attackers":
+>               raise ActionError("Attackers are declared at the start of the declare attackers step")
+E               app.game.errors.ActionError: Attackers are declared at the start of the declare attackers step
+
+app/rules/combat.py:374: ActionError
+_ test_axe_actual_creature_combat_receipt_only_spares_equipped_source95[True] __
+[gw0] linux -- Python 3.12.14 /workspace/Fyodor/backend/.venv/bin/python3
+
+cards = <app.cards.repository.CardRepository object at 0x7fb3578bcc20>
+blocked = True
+
+    @pytest.mark.parametrize("blocked", [True, False])
+    def test_axe_actual_creature_combat_receipt_only_spares_equipped_source95(cards, blocked):
+        s, axe, bear = axe_pair95(cards)
+        wall = put(s, "Wall of Roots", "battlefield", pid="p2") if blocked else None
+>       combat95(s, [bear], [(wall, bear)] if wall else [])
+
+tests/test_rules_combat_history103.py:187:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests/test_rules_combat_history103.py:70: in combat95
+    attack(s, *[(c, "p2") for c in attackers])
+tests/test_rules_wave30p_combat.py:89: in attack
+    act(s, pid, type="declare_attackers", attackers=[{"card_id": c.id, "target": t} for c, t in pairs])
+tests/game_helpers.py:42: in act
+    return session.perform(actor, payload)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/game/session.py:61: in perform
+    resolved = resolve(self.state, action, actor=actor, cards=self.cards, trusted=trusted)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/game/resolve.py:76: in resolve
+    a.r = compile_intent(state, a, actor=actor, info=info, rng=rng)  # type: ignore[union-attr]
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/engine.py:164: in compile_intent
+    handler(plan, intent)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+plan = <app.rules.plan.Plan object at 0x7fb356a38080>
+a = DeclareAttackers(actor='p1', ts=1792912210.4922166, r=None, type='declare_attackers', attackers=[AttackDeclaration(card_id='dd59e6fb5e47', target='p2')], bands=[], cost_choices=[], cost_order=[], sources=None)
+
+    def declare_attackers(plan: Plan, a: A.DeclareAttackers) -> None:
+        r = plan.rules
+        d = r.decision
+        # -- combat (wave 5C) -- the declaration again, once the attack cost's mana is in the pool (508.1h-j, casting._rerun)
+        locked: M.ManaCost | None = None
+        paying = d is None and plan.locked_cost is not None and plan.state.turn.phase == "declare_attackers" \
+            and plan.actor == plan.active and not r.no_attackers and not attackers_on(plan.state)
+        if paying:
+            locked = M.parse_cost(plan.locked_cost or "{0}")
+            plan.locked_cost = None
+            eligible = {cid for cid in plan.state.zones.get(zone_key(plan.active, "battlefield"), [])
+                        if attack_problem(plan.state, plan.state.cards[cid], plan.ch(plan.state.cards[cid])) is None}
+            targets = set(attack_targets(plan.state, plan.active, plan.info))
+        else:
+            if d is None or d.kind != "declare_attackers":
+>               raise ActionError("Attackers are declared at the start of the declare attackers step")
+E               app.game.errors.ActionError: Attackers are declared at the start of the declare attackers step
+
+app/rules/combat.py:374: ActionError
+________ test_axe_legacy_positive_actual_combat_receipt_remains_valid95 ________
+[gw1] linux -- Python 3.12.14 /workspace/Fyodor/backend/.venv/bin/python3
+
+cards = <app.cards.repository.CardRepository object at 0x7faed072af30>
+
+    def test_axe_legacy_positive_actual_combat_receipt_remains_valid95(cards):
+        s, axe, bear = axe_pair95(cards)
+        wall = put(s, "Wall of Roots", "battlefield", pid="p2")
+>       combat95(s, [bear], [(wall, bear)])
+
+tests/test_rules_combat_history103.py:244:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests/test_rules_combat_history103.py:70: in combat95
+    attack(s, *[(c, "p2") for c in attackers])
+tests/test_rules_wave30p_combat.py:89: in attack
+    act(s, pid, type="declare_attackers", attackers=[{"card_id": c.id, "target": t} for c, t in pairs])
+tests/game_helpers.py:42: in act
+    return session.perform(actor, payload)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/game/session.py:61: in perform
+    resolved = resolve(self.state, action, actor=actor, cards=self.cards, trusted=trusted)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/game/resolve.py:76: in resolve
+    a.r = compile_intent(state, a, actor=actor, info=info, rng=rng)  # type: ignore[union-attr]
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/engine.py:164: in compile_intent
+    handler(plan, intent)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+plan = <app.rules.plan.Plan object at 0x7faed072ac00>
+a = DeclareAttackers(actor='p1', ts=1792912215.450288, r=None, type='declare_attackers', attackers=[AttackDeclaration(card_id='c447180ba569', target='p2')], bands=[], cost_choices=[], cost_order=[], sources=None)
+
+    def declare_attackers(plan: Plan, a: A.DeclareAttackers) -> None:
+        r = plan.rules
+        d = r.decision
+        # -- combat (wave 5C) -- the declaration again, once the attack cost's mana is in the pool (508.1h-j, casting._rerun)
+        locked: M.ManaCost | None = None
+        paying = d is None and plan.locked_cost is not None and plan.state.turn.phase == "declare_attackers" \
+            and plan.actor == plan.active and not r.no_attackers and not attackers_on(plan.state)
+        if paying:
+            locked = M.parse_cost(plan.locked_cost or "{0}")
+            plan.locked_cost = None
+            eligible = {cid for cid in plan.state.zones.get(zone_key(plan.active, "battlefield"), [])
+                        if attack_problem(plan.state, plan.state.cards[cid], plan.ch(plan.state.cards[cid])) is None}
+            targets = set(attack_targets(plan.state, plan.active, plan.info))
+        else:
+            if d is None or d.kind != "declare_attackers":
+>               raise ActionError("Attackers are declared at the start of the declare attackers step")
+E               app.game.errors.ActionError: Attackers are declared at the start of the declare attackers step
+
+app/rules/combat.py:374: ActionError
+____ test_axe_legacy_unknown_negative_manual_then_next_native_turn_known95 _____
+[gw0] linux -- Python 3.12.14 /workspace/Fyodor/backend/.venv/bin/python3
+
+cards = <app.cards.repository.CardRepository object at 0x7fb3568cb200>
+
+    def test_axe_legacy_unknown_negative_manual_then_next_native_turn_known95(cards):
+        s, axe, bear = axe_pair95(cards)
+        forget_combat_provenance95(s)
+        to_phase(s, "end", turn=4)
+        settle(s)
+        d = s.state.rules.decision
+>       assert d and d.kind == "manual_resolution" and d.resume["step"] == "combat_damage95_legacy"
+E       assert (None)
+
+tests/test_rules_combat_history103.py:229: AssertionError
+_____________ test_hope_actual_prevented_combat_does_not_qualify95 _____________
+[gw1] linux -- Python 3.12.14 /workspace/Fyodor/backend/.venv/bin/python3
+
+cards = <app.cards.repository.CardRepository object at 0x7faed07a2360>
+
+    def test_hope_actual_prevented_combat_does_not_qualify95(cards):
+        from tests.test_rules_wave4h_activation_costs import ability
+
+        s = setup95(cards)
+        hope = put(s, NAMES[0], "battlefield")
+        start(s)
+        to_phase(s, "declare_attackers", turn=4)
+        attack(s, (hope, "p2"))
+        to_phase(s, "declare_blockers", turn=4)
+>       block(s, "p2")
+
+tests/test_rules_combat_history103.py:284:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests/test_rules_wave30p_combat.py:93: in block
+    act(s, pid, type="declare_blockers", blocks=[{"blocker_id": b.id, "attacker_id": a.id} for b, a in pairs])
+tests/game_helpers.py:42: in act
+    return session.perform(actor, payload)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/game/session.py:61: in perform
+    resolved = resolve(self.state, action, actor=actor, cards=self.cards, trusted=trusted)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/game/resolve.py:76: in resolve
+    a.r = compile_intent(state, a, actor=actor, info=info, rng=rng)  # type: ignore[union-attr]
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/engine.py:164: in compile_intent
+    handler(plan, intent)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+plan = <app.rules.plan.Plan object at 0x7faed0b48170>
+a = DeclareBlockers(actor='p2', ts=1792912221.0282316, r=None, type='declare_blockers', blocks=[], cost_choices=[], cost_order=[], sources=None)
+
+    def declare_blockers(plan: Plan, a: A.DeclareBlockers) -> None:
+        r = plan.rules
+        d = r.decision
+        if d is None or d.kind != "declare_blockers":
+>           raise ActionError("Blockers are declared at the start of the declare blockers step")
+E           app.game.errors.ActionError: Blockers are declared at the start of the declare blockers step
+
+app/rules/combat.py:815: ActionError
+________ test_beckett_two_pirates_double_strike_is_only_two_originals95 ________
+[gw0] linux -- Python 3.12.14 /workspace/Fyodor/backend/.venv/bin/python3
+
+cards = <app.cards.repository.CardRepository object at 0x7fb356768440>
+
+    def test_beckett_two_pirates_double_strike_is_only_two_originals95(cards):
+        s = setup95(cards)
+        pirates = [put(s, n, "battlefield") for n in ["Storm Fleet Sprinter", "Departed Deckhand"]]
+        target = put(s, "Sol Ring", "battlefield", pid="p2")
+        start(s)
+        to_phase(s, "declare_attackers", turn=4)
+        attack(s, *[(c, "p2") for c in pirates])
+        to_phase(s, "declare_blockers", turn=4)
+>       block(s, "p2")
+
+tests/test_rules_combat_history103.py:327:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests/test_rules_wave30p_combat.py:93: in block
+    act(s, pid, type="declare_blockers", blocks=[{"blocker_id": b.id, "attacker_id": a.id} for b, a in pairs])
+tests/game_helpers.py:42: in act
+    return session.perform(actor, payload)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/game/session.py:61: in perform
+    resolved = resolve(self.state, action, actor=actor, cards=self.cards, trusted=trusted)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/game/resolve.py:76: in resolve
+    a.r = compile_intent(state, a, actor=actor, info=info, rng=rng)  # type: ignore[union-attr]
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/engine.py:164: in compile_intent
+    handler(plan, intent)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+plan = <app.rules.plan.Plan object at 0x7fb3574044a0>
+a = DeclareBlockers(actor='p2', ts=1792912223.9740674, r=None, type='declare_blockers', blocks=[], cost_choices=[], cost_order=[], sources=None)
+
+    def declare_blockers(plan: Plan, a: A.DeclareBlockers) -> None:
+        r = plan.rules
+        d = r.decision
+        if d is None or d.kind != "declare_blockers":
+>           raise ActionError("Blockers are declared at the start of the declare blockers step")
+E           app.game.errors.ActionError: Blockers are declared at the start of the declare blockers step
+
+app/rules/combat.py:815: ActionError
+__________ test_genuine_cold_axe_legacy_manual_history_continuation95 __________
+[gw1] linux -- Python 3.12.14 /workspace/Fyodor/backend/.venv/bin/python3
+
+cards = <app.cards.repository.CardRepository object at 0x7faed044bbc0>
+tmp_path = PosixPath('/tmp/pytest-of-agent/pytest-365/popen-gw1/test_genuine_cold_axe_legacy_m0')
+
+    def test_genuine_cold_axe_legacy_manual_history_continuation95(cards, tmp_path):
+        s, axe, bear = axe_pair95(cards)
+        forget_combat_provenance95(s)
+        to_phase(s, "end", turn=4)
+        settle(s)
+>       assert s.state.rules.decision.resume["step"] == "combat_damage95_legacy"
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: 'NoneType' object has no attribute 'resume'
+
+tests/test_rules_combat_history103.py:434: AttributeError
+_______ test_axe_trigger_original_host_blink_excludes_new_incarnation95 ________
+[gw0] linux -- Python 3.12.14 /workspace/Fyodor/backend/.venv/bin/python3
+
+cards = <app.cards.repository.CardRepository object at 0x7fb357cef140>
+
+    def test_axe_trigger_original_host_blink_excludes_new_incarnation95(cards):
+        s, axe, bear = axe_pair95(cards)
+        to_phase(s, "end", turn=4)
+>       assert s.state.zones.get("stack")
+E       AssertionError: assert []
+E        +  where [] = <built-in method get of dict object at 0x7fb3565104c0>('stack')
+E        +    where <built-in method get of dict object at 0x7fb3565104c0> = {'p1:library': ['0714047165e7', '3fe92fc0af29', 'db47af21bf9b', '19adc80b5cfe', 'c590c508fa37', '2ea1059d0d22', ...], 'p1:hand': ['437b90094bb0', '7a91ccadc29f'], 'p1:battlefield': ['4ecbb2c06ca6'], 'p1:graveyard': ['da037a19c4c1'], ...}.get
+E        +      where {'p1:library': ['0714047165e7', '3fe92fc0af29', 'db47af21bf9b', '19adc80b5cfe', 'c590c508fa37', '2ea1059d0d22', ...], 'p1:hand': ['437b90094bb0', '7a91ccadc29f'], 'p1:battlefield': ['4ecbb2c06ca6'], 'p1:graveyard': ['da037a19c4c1'], ...} = GameState(format_version=1, id='9f6a4851ac7ad76b', name='Game', format='commander', created_at=1792912238.817255, seq=103, settings=GameSettings(starting_life=40, auto_untap=True, auto_commander_tax=True, clear_mana_on_step=False, auto_clear_combat=False, allow_test_objects=False, undo_policy='everyone', deck_privacy='commander_only', priority_helper='off', automation='full', automation_options=AutomationOptions(auto_mana_payment=True, auto_combat_damage=True, auto_sba=True, auto_priority_pass=True, auto_cleanup=True, auto_token_creation=True, auto_counters=True, auto_trigger_stacking=True, auto_shuffle=True, highlights='full'), mulligan=None), players={'p1': PlayerState(id='p1', name='Alice', color='#d4a852', life=40, life_history=[], resources={'poison': 0, 'energy': 0, 'experience': 0}, commander_damage={}, commander_tax={'cmd-p1-1': 0}, commander_casts={}, city_blessing=False, mulligans=0, deck_id=None, deck_name=None, token_shortcuts=[], mana={}, mana_units=[], mana_seq=0, left=False, sleeve=None, playmat=None), 'p2': PlayerState(id='p2', name='Bob', color='#5fa8d3', life=40, life_history=[], resources={'poison': 0, 'energy': 0, 'experience': 0}, commander_damage={}, command...: 40}, active_player='p3', attacked=[], gained={}, lost={}, energy_lost={}, drew={'p3': 1}, drawn={'p3': ['281646cc89a6.8']}, drawn_replaced={}, drawn_counted={}, drawn_applied={'281646cc89a6.8': []}, left=[], left_graveyard=[], entered_graveyard=[], entered=[], casts=[], facts=[], attackers={}, blockers=[], blocks={}, attacked_who={}, attack_counts={}, declared={}, declared_blockers={}, enlisted={}, resolved={}, rolled={}), completed_own_turns={'p1': CompletedOwnTurn(turn=1, attackers=[], attacked_players=[]), 'p2': CompletedOwnTurn(turn=2, attackers=[], attacked_players=[]), 'p3': CompletedOwnTurn(turn=3, attackers=[], attacked_players=[])}, own_turn_history_known=['p1', 'p2', 'p3'], own_turn_history_notice=False, cast_history_complete=True, named_casts_game={}, entry_life_losses={}, entry_life_origins=[], entry_life_notices=[], replace_step_key='4:draw', replace_step_draws={'p1': 1}, dungeons={}, completed_dungeons={}, enduring_story=[], ring_tempted={}, ring_bearers={}, combat_mana={}, kept_mana=[], cleanup_again=False, provenance=None, free_cast_then=None, free_cast_faces={}, exile_if_graveyard=[], bottom_if_graveyard=[], cast_enters={}, exile_resolves={}, counter_stamps={})).zones
+E        +        where GameState(format_version=1, id='9f6a4851ac7ad76b', name='Game', format='commander', created_at=1792912238.817255, seq=103, settings=GameSettings(starting_life=40, auto_untap=True, auto_commander_tax=True, clear_mana_on_step=False, auto_clear_combat=False, allow_test_objects=False, undo_policy='everyone', deck_privacy='commander_only', priority_helper='off', automation='full', automation_options=AutomationOptions(auto_mana_payment=True, auto_combat_damage=True, auto_sba=True, auto_priority_pass=True, auto_cleanup=True, auto_token_creation=True, auto_counters=True, auto_trigger_stacking=True, auto_shuffle=True, highlights='full'), mulligan=None), players={'p1': PlayerState(id='p1', name='Alice', color='#d4a852', life=40, life_history=[], resources={'poison': 0, 'energy': 0, 'experience': 0}, commander_damage={}, commander_tax={'cmd-p1-1': 0}, commander_casts={}, city_blessing=False, mulligans=0, deck_id=None, deck_name=None, token_shortcuts=[], mana={}, mana_units=[], mana_seq=0, left=False, sleeve=None, playmat=None), 'p2': PlayerState(id='p2', name='Bob', color='#5fa8d3', life=40, life_history=[], resources={'poison': 0, 'energy': 0, 'experience': 0}, commander_damage={}, command...: 40}, active_player='p3', attacked=[], gained={}, lost={}, energy_lost={}, drew={'p3': 1}, drawn={'p3': ['281646cc89a6.8']}, drawn_replaced={}, drawn_counted={}, drawn_applied={'281646cc89a6.8': []}, left=[], left_graveyard=[], entered_graveyard=[], entered=[], casts=[], facts=[], attackers={}, blockers=[], blocks={}, attacked_who={}, attack_counts={}, declared={}, declared_blockers={}, enlisted={}, resolved={}, rolled={}), completed_own_turns={'p1': CompletedOwnTurn(turn=1, attackers=[], attacked_players=[]), 'p2': CompletedOwnTurn(turn=2, attackers=[], attacked_players=[]), 'p3': CompletedOwnTurn(turn=3, attackers=[], attacked_players=[])}, own_turn_history_known=['p1', 'p2', 'p3'], own_turn_history_notice=False, cast_history_complete=True, named_casts_game={}, entry_life_losses={}, entry_life_origins=[], entry_life_notices=[], replace_step_key='4:draw', replace_step_draws={'p1': 1}, dungeons={}, completed_dungeons={}, enduring_story=[], ring_tempted={}, ring_bearers={}, combat_mana={}, kept_mana=[], cleanup_again=False, provenance=None, free_cast_then=None, free_cast_faces={}, exile_if_graveyard=[], bottom_if_graveyard=[], cast_enters={}, exile_resolves={}, counter_stamps={})) = <app.game.session.GameSession object at 0x7fb357ced880>.state
+
+tests/test_rules_combat_history103.py:445: AssertionError
+______ test_axe_source_left_after_trigger_uses_original_attachment_lki95 _______
+[gw1] linux -- Python 3.12.14 /workspace/Fyodor/backend/.venv/bin/python3
+
+cards = <app.cards.repository.CardRepository object at 0x7faed04c7fb0>
+
+    def test_axe_source_left_after_trigger_uses_original_attachment_lki95(cards):
+        s, axe, bear = axe_pair95(cards)
+        to_phase(s, "end", turn=4)
+>       assert s.state.zones.get("stack")
+E       AssertionError: assert []
+E        +  where [] = <built-in method get of dict object at 0x7faecfeae640>('stack')
+E        +    where <built-in method get of dict object at 0x7faecfeae640> = {'p1:library': ['4619b988471f', '0a1e7d4c14af', 'd4669a382a1e', '8529c85509b4', 'f243789914fb', '11045620acca', ...], 'p1:hand': ['e5e0f186f312', 'ecce1aa15b08'], 'p1:battlefield': ['da6467c0ffb3'], 'p1:graveyard': ['498ae393aa18'], ...}.get
+E        +      where {'p1:library': ['4619b988471f', '0a1e7d4c14af', 'd4669a382a1e', '8529c85509b4', 'f243789914fb', '11045620acca', ...], 'p1:hand': ['e5e0f186f312', 'ecce1aa15b08'], 'p1:battlefield': ['da6467c0ffb3'], 'p1:graveyard': ['498ae393aa18'], ...} = GameState(format_version=1, id='55fc087e603d87c0', name='Game', format='commander', created_at=1792912242.1053047, seq=103, settings=GameSettings(starting_life=40, auto_untap=True, auto_commander_tax=True, clear_mana_on_step=False, auto_clear_combat=False, allow_test_objects=False, undo_policy='everyone', deck_privacy='commander_only', priority_helper='off', automation='full', automation_options=AutomationOptions(auto_mana_payment=True, auto_combat_damage=True, auto_sba=True, auto_priority_pass=True, auto_cleanup=True, auto_token_creation=True, auto_counters=True, auto_trigger_stacking=True, auto_shuffle=True, highlights='full'), mulligan=None), players={'p1': PlayerState(id='p1', name='Alice', color='#d4a852', life=40, life_history=[], resources={'poison': 0, 'energy': 0, 'experience': 0}, commander_damage={}, commander_tax={'cmd-p1-1': 0}, commander_casts={}, city_blessing=False, mulligans=0, deck_id=None, deck_name=None, token_shortcuts=[], mana={}, mana_units=[], mana_seq=0, left=False, sleeve=None, playmat=None), 'p2': PlayerState(id='p2', name='Bob', color='#5fa8d3', life=40, life_history=[], resources={'poison': 0, 'energy': 0, 'experience': 0}, commander_damage={}, comman...: 40}, active_player='p3', attacked=[], gained={}, lost={}, energy_lost={}, drew={'p3': 1}, drawn={'p3': ['78067c31de6c.8']}, drawn_replaced={}, drawn_counted={}, drawn_applied={'78067c31de6c.8': []}, left=[], left_graveyard=[], entered_graveyard=[], entered=[], casts=[], facts=[], attackers={}, blockers=[], blocks={}, attacked_who={}, attack_counts={}, declared={}, declared_blockers={}, enlisted={}, resolved={}, rolled={}), completed_own_turns={'p1': CompletedOwnTurn(turn=1, attackers=[], attacked_players=[]), 'p2': CompletedOwnTurn(turn=2, attackers=[], attacked_players=[]), 'p3': CompletedOwnTurn(turn=3, attackers=[], attacked_players=[])}, own_turn_history_known=['p1', 'p2', 'p3'], own_turn_history_notice=False, cast_history_complete=True, named_casts_game={}, entry_life_losses={}, entry_life_origins=[], entry_life_notices=[], replace_step_key='4:draw', replace_step_draws={'p1': 1}, dungeons={}, completed_dungeons={}, enduring_story=[], ring_tempted={}, ring_bearers={}, combat_mana={}, kept_mana=[], cleanup_again=False, provenance=None, free_cast_then=None, free_cast_faces={}, exile_if_graveyard=[], bottom_if_graveyard=[], cast_enters={}, exile_resolves={}, counter_stamps={})).zones
+E        +        where GameState(format_version=1, id='55fc087e603d87c0', name='Game', format='commander', created_at=1792912242.1053047, seq=103, settings=GameSettings(starting_life=40, auto_untap=True, auto_commander_tax=True, clear_mana_on_step=False, auto_clear_combat=False, allow_test_objects=False, undo_policy='everyone', deck_privacy='commander_only', priority_helper='off', automation='full', automation_options=AutomationOptions(auto_mana_payment=True, auto_combat_damage=True, auto_sba=True, auto_priority_pass=True, auto_cleanup=True, auto_token_creation=True, auto_counters=True, auto_trigger_stacking=True, auto_shuffle=True, highlights='full'), mulligan=None), players={'p1': PlayerState(id='p1', name='Alice', color='#d4a852', life=40, life_history=[], resources={'poison': 0, 'energy': 0, 'experience': 0}, commander_damage={}, commander_tax={'cmd-p1-1': 0}, commander_casts={}, city_blessing=False, mulligans=0, deck_id=None, deck_name=None, token_shortcuts=[], mana={}, mana_units=[], mana_seq=0, left=False, sleeve=None, playmat=None), 'p2': PlayerState(id='p2', name='Bob', color='#5fa8d3', life=40, life_history=[], resources={'poison': 0, 'energy': 0, 'experience': 0}, commander_damage={}, comman...: 40}, active_player='p3', attacked=[], gained={}, lost={}, energy_lost={}, drew={'p3': 1}, drawn={'p3': ['78067c31de6c.8']}, drawn_replaced={}, drawn_counted={}, drawn_applied={'78067c31de6c.8': []}, left=[], left_graveyard=[], entered_graveyard=[], entered=[], casts=[], facts=[], attackers={}, blockers=[], blocks={}, attacked_who={}, attack_counts={}, declared={}, declared_blockers={}, enlisted={}, resolved={}, rolled={}), completed_own_turns={'p1': CompletedOwnTurn(turn=1, attackers=[], attacked_players=[]), 'p2': CompletedOwnTurn(turn=2, attackers=[], attacked_players=[]), 'p3': CompletedOwnTurn(turn=3, attackers=[], attacked_players=[])}, own_turn_history_known=['p1', 'p2', 'p3'], own_turn_history_notice=False, cast_history_complete=True, named_casts_game={}, entry_life_losses={}, entry_life_origins=[], entry_life_notices=[], replace_step_key='4:draw', replace_step_draws={'p1': 1}, dungeons={}, completed_dungeons={}, enduring_story=[], ring_tempted={}, ring_bearers={}, combat_mana={}, kept_mana=[], cleanup_again=False, provenance=None, free_cast_then=None, free_cast_faces={}, exile_if_graveyard=[], bottom_if_graveyard=[], cast_enters={}, exile_resolves={}, counter_stamps={})) = <app.game.session.GameSession object at 0x7faed04c68d0>.state
+
+tests/test_rules_combat_history103.py:455: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_rules_combat_history103.py::test_axe_actual_creature_combat_receipt_only_spares_equipped_source95[False]
+FAILED tests/test_rules_combat_history103.py::test_axe_actual_creature_combat_receipt_only_spares_equipped_source95[True]
+FAILED tests/test_rules_combat_history103.py::test_axe_legacy_positive_actual_combat_receipt_remains_valid95
+FAILED tests/test_rules_combat_history103.py::test_axe_legacy_unknown_negative_manual_then_next_native_turn_known95
+FAILED tests/test_rules_combat_history103.py::test_hope_actual_prevented_combat_does_not_qualify95
+FAILED tests/test_rules_combat_history103.py::test_beckett_two_pirates_double_strike_is_only_two_originals95
+FAILED tests/test_rules_combat_history103.py::test_genuine_cold_axe_legacy_manual_history_continuation95
+FAILED tests/test_rules_combat_history103.py::test_axe_trigger_original_host_blink_excludes_new_incarnation95
+FAILED tests/test_rules_combat_history103.py::test_axe_source_left_after_trigger_uses_original_attachment_lki95
+========================= 9 failed, 5 passed in 56.72s =========================

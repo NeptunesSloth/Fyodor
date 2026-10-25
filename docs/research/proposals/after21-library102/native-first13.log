@@ -1,0 +1,461 @@
+============================= test session starts ==============================
+platform linux -- Python 3.12.14, pytest-9.1.1, pluggy-1.7.0
+rootdir: /workspace/scratch/library102/backend
+configfile: pyproject.toml
+plugins: anyio-4.15.1, xdist-3.8.0
+collected 12 items
+
+tests/test_rules_library_polymorph102.py .....F..F.FF                    [100%]
+
+=================================== FAILURES ===================================
+_ test_divergent_same_controller_enters_sequentially_second_champion_sees_no_first102 _
+
+cards = <app.cards.repository.CardRepository object at 0x7f4be1c00290>
+
+    def test_divergent_same_controller_enters_sequentially_second_champion_sees_no_first102(cards):
+        s = setup(cards)
+        old = [c.id for c in s.state.cards.values() if c.owner == 'p1' and c.name == 'Walking Corpse'][:2]
+        act(s, 'p1', type='move', card_ids=old, to={'player': 'p1', 'zone': 'battlefield'})
+        # Shuffle after each creature, so retain only this ordered library for the first hit.
+        mine = top(s, ['Champion of the Perished', 'Diregraf Ghoul'])
+        rest = [c for c in s.state.zones['p1:library'] if c not in mine]
+        act(s, 'p1', type='move', card_ids=rest, to={'player': 'p1', 'zone': 'exile'})
+        cast(s, 'Divergent Transformations', targets=old, target_counts=[2])
+        advance(s)
+>       assert all(s.state.cards[c].zone == 'p1:battlefield' for c in mine)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_rules_library_polymorph102.py:65:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+.0 = <list_iterator object at 0x7f4be0e89630>
+
+>   assert all(s.state.cards[c].zone == 'p1:battlefield' for c in mine)
+               ^^^^^^^^^^^^^^^^
+E   KeyError: 'c7bb007b404b'
+
+tests/test_rules_library_polymorph102.py:65: KeyError
+_ test_creativity_counts_actual_destroyed_not_indestructible_and_rip_counts102 _
+
+cards = <app.cards.repository.CardRepository object at 0x7f4be040a540>
+
+    def test_creativity_counts_actual_destroyed_not_indestructible_and_rip_counts102(cards):
+        s = setup(cards)
+        a, b = put(s, 'Walking Corpse', 'battlefield'), put(s, 'Darksteel Ingot', 'battlefield')
+        cast(s, 'Rest in Peace');advance(s)
+        mine = top(s, ['Forest', 'Grizzly Bears', 'Hill Giant'])
+        cast(s, 'Indomitable Creativity', x_value=2, targets=[a.id, b.id], target_counts=[2])
+        advance(s)
+        assert s.state.cards[a.id].zone == 'p1:exile' and s.state.cards[b.id].zone == 'p1:battlefield'
+        assert s.state.cards[mine[1]].zone == 'p1:battlefield'
+>       assert s.state.cards[mine[2]].zone == 'p1:library'
+               ^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'f9e7e90ae1a6'
+
+tests/test_rules_library_polymorph102.py:102: KeyError
+______ test_synthetic_delayed_original_count_and_simultaneous_entries102 _______
+
+self = <app.game.session.GameSession object at 0x7f4be0ede750>, actor = 'p1'
+payload = {'type': 'cast_spell', 'card_id': '6066d2eeda8b', 'sources': []}
+trusted = False
+
+    def perform(self, actor: str, payload: dict[str, Any] | Action, *, trusted: bool = False) -> Action:
+        """Validate, resolve, apply and record one action. Raises ActionError / ValidationError.
+
+        ``trusted`` is only for actions the server builds itself (e.g. restoring a snapshot)."""
+        if actor not in self.state.players:
+            raise ActionError("Only seated players can act")
+        action = parse_action(payload) if isinstance(payload, dict) else payload
+        if not trusted and action.type not in CONTROLLED_MAY:
+            self._check_not_controlled(actor)
+        try:
+>           resolved = resolve(self.state, action, actor=actor, cards=self.cards, trusted=trusted)
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+app/game/session.py:61:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+app/game/resolve.py:76: in resolve
+    a.r = compile_intent(state, a, actor=actor, info=info, rng=rng)  # type: ignore[union-attr]
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/engine.py:164: in compile_intent
+    handler(plan, intent)
+app/rules/casting.py:3902: in cast_spell
+    _cast_payment(plan, payment_data, None)
+app/rules/casting.py:3963: in _cast_payment
+    pay_spell_then(plan, data.data.a, card, data.data.ch, data.cost,
+app/rules/casting.py:1910: in pay_spell_then
+    _pay_spell(plan, a, card, ch, cost, label, not_mana=not_mana, origin=origin, then=then, x_payment=x_payment, payment_context=payment_context)
+app/rules/casting.py:1770: in _pay_spell
+    pay_then(plan, player, rest, label, sources=a.sources, exclude=exclude, purpose=purpose,
+app/rules/casting.py:1579: in pay_then
+    pc.finish(plan, then, result)
+app/rules/payment_continuations.py:51: in finish
+    replace.run_then(plan, {**then, 'payment': payment_data(payment)})
+app/rules/replace.py:636: in run_then
+    fn(plan, then)
+app/rules/payment_continuations.py:63: in _resume
+    handler(plan, adapter.validate_python(then['payload']), payment_of(then.get('payment')))
+app/rules/casting.py:1897: in _spell_mana_paid
+    pc.finish(plan, after, gain_payment)
+app/rules/payment_continuations.py:51: in finish
+    replace.run_then(plan, {**then, 'payment': payment_data(payment)})
+app/rules/replace.py:636: in run_then
+    fn(plan, then)
+app/rules/payment_continuations.py:63: in _resume
+    handler(plan, adapter.validate_python(then['payload']), payment_of(then.get('payment')))
+app/rules/casting.py:4172: in _post_cast
+    advance(plan)  # triggers that cast caused are on the stack: 117.3c, 603.3)
+    ^^^^^^^^^^^^^
+app/rules/engine.py:488: in advance
+    resolve_top_of_stack(plan)
+app/rules/engine.py:1076: in resolve_top_of_stack
+    effects.begin_resolution(plan, top_id, entry)  # an automated spell or ability
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/effects.py:3935: in begin_resolution
+    _begin_resolution(plan, stack_id, entry)
+app/rules/effects.py:4022: in _begin_resolution
+    continue_effects(plan, ctx)
+app/rules/effects.py:4052: in continue_effects
+    _continue_effects(plan, ctx)
+app/rules/effects.py:4078: in _continue_effects
+    if not _run_body(plan, ctx):
+           ^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+plan = <app.rules.plan.Plan object at 0x7f4be0470680>
+ctx = {'controller': 'p1', 'source_card': '6066d2eeda8b', 'source_object': '6066d2eeda8b.12', 'name': 'Synthetic Destiny', ...}
+
+    def _run_body(plan: Plan, ctx: Context) -> bool:
+        while ctx["next"] < len(ctx["effects"]):  # (wave 19F: re-read each time: effects.repeat replaces the list)
+            e = ctx["effects"][ctx["next"]]
+            if replacements.ask_903_9b_first(plan, ctx, e):
+                return False  # 903.9b: a commander's owner chooses before it would be put into a hand or library
+            ctx["next"] += 1
+            if e.get("that"):  # -- player-relative selectors (wave 53A) -- "cards that player owns in exile": that player, as the instruction before left it
+                e = player_relative.bind_effect(plan, ctx, e)
+            if e.get("note_group"):  # -- counters (wave 5H) -- the permanents a count reads, for a later "those creatures"
+                context.bind_objects(plan, ctx, e["note_group"]["as"], _cards(plan, ctx, e["note_group"]["who"]))
+            e = block_events.bind(plan, ctx, e)  # -- block events (wave 53C) -- "creatures blocking it", "Auras attached to that creature": the object bound now
+>           if not PRIMITIVES[e["do"]](plan, ctx, e):
+                   ^^^^^^^^^^^^^^^^^^^
+E           KeyError: 'deferred:pick_looked'
+
+app/rules/effects.py:4072: KeyError
+
+The above exception was the direct cause of the following exception:
+
+cards = <app.cards.repository.CardRepository object at 0x7f4be0ede360>
+
+    def test_synthetic_delayed_original_count_and_simultaneous_entries102(cards):
+        s = setup(cards)
+        old = [c.id for c in s.state.cards.values() if c.owner == 'p1' and c.name == 'Walking Corpse'][:2]
+        act(s, 'p1', type='move', card_ids=old, to={'player': 'p1', 'zone': 'battlefield'})
+        mine = top(s, ['Lightning Bolt', 'Diregraf Ghoul', 'Island', 'Champion of the Perished'])
+>       cast(s, 'Synthetic Destiny');advance(s)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_rules_library_polymorph102.py:121:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests/test_rules_library_packets101.py:80: in cast
+    act(s, 'p1', type='cast_spell', card_id=source.id, sources=[], **kwargs)
+tests/game_helpers.py:42: in act
+    return session.perform(actor, payload)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <app.game.session.GameSession object at 0x7f4be0ede750>, actor = 'p1'
+payload = {'type': 'cast_spell', 'card_id': '6066d2eeda8b', 'sources': []}
+trusted = False
+
+    def perform(self, actor: str, payload: dict[str, Any] | Action, *, trusted: bool = False) -> Action:
+        """Validate, resolve, apply and record one action. Raises ActionError / ValidationError.
+
+        ``trusted`` is only for actions the server builds itself (e.g. restoring a snapshot)."""
+        if actor not in self.state.players:
+            raise ActionError("Only seated players can act")
+        action = parse_action(payload) if isinstance(payload, dict) else payload
+        if not trusted and action.type not in CONTROLLED_MAY:
+            self._check_not_controlled(actor)
+        try:
+            resolved = resolve(self.state, action, actor=actor, cards=self.cards, trusted=trusted)
+        except ActionError:
+            raise
+        except Exception as exc:
+            if action.type not in INTENT_TYPES and action.type != "configure":
+                raise
+            # A rules bug must never break game night: compiling works on a scratch copy, so
+            # nothing was applied. Remember the failure for EXPORT RULES SCENARIO.
+            log.exception("Rules engine failed on %s", action.type)
+            self.rules_failure = {
+                "intent": action.model_dump(mode="json", exclude={"r"}), "actor": actor, "seq": self.state.seq,
+                "error": f"{type(exc).__name__}: {exc}"[:500], "at": time.time(),
+            }
+>           raise AutomationError(
+                f"{AutomationError.PREFIX}: Fyodor couldn't carry out {action.type.replace('_', ' ')}. Nothing changed. "
+                "Resolve it manually with the table tools, pause automation, or export a rules scenario."
+            ) from exc
+E           app.game.errors.AutomationError: AUTOMATION ERROR: Fyodor couldn't carry out cast spell. Nothing changed. Resolve it manually with the table tools, pause automation, or export a rules scenario.
+
+app/game/session.py:74: AutomationError
+------------------------------ Captured log call -------------------------------
+ERROR    app.game.session:session.py:69 Rules engine failed on cast_spell
+Traceback (most recent call last):
+  File "/workspace/scratch/library102/backend/app/game/session.py", line 61, in perform
+    resolved = resolve(self.state, action, actor=actor, cards=self.cards, trusted=trusted)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/scratch/library102/backend/app/game/resolve.py", line 76, in resolve
+    a.r = compile_intent(state, a, actor=actor, info=info, rng=rng)  # type: ignore[union-attr]
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/scratch/library102/backend/app/rules/engine.py", line 164, in compile_intent
+    handler(plan, intent)
+  File "/workspace/scratch/library102/backend/app/rules/casting.py", line 3902, in cast_spell
+    _cast_payment(plan, payment_data, None)
+  File "/workspace/scratch/library102/backend/app/rules/casting.py", line 3963, in _cast_payment
+    pay_spell_then(plan, data.data.a, card, data.data.ch, data.cost,
+  File "/workspace/scratch/library102/backend/app/rules/casting.py", line 1910, in pay_spell_then
+    _pay_spell(plan, a, card, ch, cost, label, not_mana=not_mana, origin=origin, then=then, x_payment=x_payment, payment_context=payment_context)
+  File "/workspace/scratch/library102/backend/app/rules/casting.py", line 1770, in _pay_spell
+    pay_then(plan, player, rest, label, sources=a.sources, exclude=exclude, purpose=purpose,
+  File "/workspace/scratch/library102/backend/app/rules/casting.py", line 1579, in pay_then
+    pc.finish(plan, then, result)
+  File "/workspace/scratch/library102/backend/app/rules/payment_continuations.py", line 51, in finish
+    replace.run_then(plan, {**then, 'payment': payment_data(payment)})
+  File "/workspace/scratch/library102/backend/app/rules/replace.py", line 636, in run_then
+    fn(plan, then)
+  File "/workspace/scratch/library102/backend/app/rules/payment_continuations.py", line 63, in _resume
+    handler(plan, adapter.validate_python(then['payload']), payment_of(then.get('payment')))
+  File "/workspace/scratch/library102/backend/app/rules/casting.py", line 1897, in _spell_mana_paid
+    pc.finish(plan, after, gain_payment)
+  File "/workspace/scratch/library102/backend/app/rules/payment_continuations.py", line 51, in finish
+    replace.run_then(plan, {**then, 'payment': payment_data(payment)})
+  File "/workspace/scratch/library102/backend/app/rules/replace.py", line 636, in run_then
+    fn(plan, then)
+  File "/workspace/scratch/library102/backend/app/rules/payment_continuations.py", line 63, in _resume
+    handler(plan, adapter.validate_python(then['payload']), payment_of(then.get('payment')))
+  File "/workspace/scratch/library102/backend/app/rules/casting.py", line 4172, in _post_cast
+    advance(plan)  # triggers that cast caused are on the stack: 117.3c, 603.3)
+    ^^^^^^^^^^^^^
+  File "/workspace/scratch/library102/backend/app/rules/engine.py", line 488, in advance
+    resolve_top_of_stack(plan)
+  File "/workspace/scratch/library102/backend/app/rules/engine.py", line 1076, in resolve_top_of_stack
+    effects.begin_resolution(plan, top_id, entry)  # an automated spell or ability
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/scratch/library102/backend/app/rules/effects.py", line 3935, in begin_resolution
+    _begin_resolution(plan, stack_id, entry)
+  File "/workspace/scratch/library102/backend/app/rules/effects.py", line 4022, in _begin_resolution
+    continue_effects(plan, ctx)
+  File "/workspace/scratch/library102/backend/app/rules/effects.py", line 4052, in continue_effects
+    _continue_effects(plan, ctx)
+  File "/workspace/scratch/library102/backend/app/rules/effects.py", line 4078, in _continue_effects
+    if not _run_body(plan, ctx):
+           ^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/scratch/library102/backend/app/rules/effects.py", line 4072, in _run_body
+    if not PRIMITIVES[e["do"]](plan, ctx, e):
+           ~~~~~~~~~~^^^^^^^^^
+KeyError: 'deferred:pick_looked'
+___ test_genuine_cold_synthetic_delayed_snapshot_survives_before_trigger102 ____
+
+self = <app.game.session.GameSession object at 0x7f4bdfcd6510>, actor = 'p1'
+payload = {'type': 'cast_spell', 'card_id': '9caf4ead02da', 'sources': []}
+trusted = False
+
+    def perform(self, actor: str, payload: dict[str, Any] | Action, *, trusted: bool = False) -> Action:
+        """Validate, resolve, apply and record one action. Raises ActionError / ValidationError.
+
+        ``trusted`` is only for actions the server builds itself (e.g. restoring a snapshot)."""
+        if actor not in self.state.players:
+            raise ActionError("Only seated players can act")
+        action = parse_action(payload) if isinstance(payload, dict) else payload
+        if not trusted and action.type not in CONTROLLED_MAY:
+            self._check_not_controlled(actor)
+        try:
+>           resolved = resolve(self.state, action, actor=actor, cards=self.cards, trusted=trusted)
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+app/game/session.py:61:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+app/game/resolve.py:76: in resolve
+    a.r = compile_intent(state, a, actor=actor, info=info, rng=rng)  # type: ignore[union-attr]
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/engine.py:164: in compile_intent
+    handler(plan, intent)
+app/rules/casting.py:3902: in cast_spell
+    _cast_payment(plan, payment_data, None)
+app/rules/casting.py:3963: in _cast_payment
+    pay_spell_then(plan, data.data.a, card, data.data.ch, data.cost,
+app/rules/casting.py:1910: in pay_spell_then
+    _pay_spell(plan, a, card, ch, cost, label, not_mana=not_mana, origin=origin, then=then, x_payment=x_payment, payment_context=payment_context)
+app/rules/casting.py:1770: in _pay_spell
+    pay_then(plan, player, rest, label, sources=a.sources, exclude=exclude, purpose=purpose,
+app/rules/casting.py:1579: in pay_then
+    pc.finish(plan, then, result)
+app/rules/payment_continuations.py:51: in finish
+    replace.run_then(plan, {**then, 'payment': payment_data(payment)})
+app/rules/replace.py:636: in run_then
+    fn(plan, then)
+app/rules/payment_continuations.py:63: in _resume
+    handler(plan, adapter.validate_python(then['payload']), payment_of(then.get('payment')))
+app/rules/casting.py:1897: in _spell_mana_paid
+    pc.finish(plan, after, gain_payment)
+app/rules/payment_continuations.py:51: in finish
+    replace.run_then(plan, {**then, 'payment': payment_data(payment)})
+app/rules/replace.py:636: in run_then
+    fn(plan, then)
+app/rules/payment_continuations.py:63: in _resume
+    handler(plan, adapter.validate_python(then['payload']), payment_of(then.get('payment')))
+app/rules/casting.py:4172: in _post_cast
+    advance(plan)  # triggers that cast caused are on the stack: 117.3c, 603.3)
+    ^^^^^^^^^^^^^
+app/rules/engine.py:488: in advance
+    resolve_top_of_stack(plan)
+app/rules/engine.py:1076: in resolve_top_of_stack
+    effects.begin_resolution(plan, top_id, entry)  # an automated spell or ability
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/effects.py:3935: in begin_resolution
+    _begin_resolution(plan, stack_id, entry)
+app/rules/effects.py:4022: in _begin_resolution
+    continue_effects(plan, ctx)
+app/rules/effects.py:4052: in continue_effects
+    _continue_effects(plan, ctx)
+app/rules/effects.py:4078: in _continue_effects
+    if not _run_body(plan, ctx):
+           ^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+plan = <app.rules.plan.Plan object at 0x7f4be066f3e0>
+ctx = {'controller': 'p1', 'source_card': '9caf4ead02da', 'source_object': '9caf4ead02da.9', 'name': 'Synthetic Destiny', ...}
+
+    def _run_body(plan: Plan, ctx: Context) -> bool:
+        while ctx["next"] < len(ctx["effects"]):  # (wave 19F: re-read each time: effects.repeat replaces the list)
+            e = ctx["effects"][ctx["next"]]
+            if replacements.ask_903_9b_first(plan, ctx, e):
+                return False  # 903.9b: a commander's owner chooses before it would be put into a hand or library
+            ctx["next"] += 1
+            if e.get("that"):  # -- player-relative selectors (wave 53A) -- "cards that player owns in exile": that player, as the instruction before left it
+                e = player_relative.bind_effect(plan, ctx, e)
+            if e.get("note_group"):  # -- counters (wave 5H) -- the permanents a count reads, for a later "those creatures"
+                context.bind_objects(plan, ctx, e["note_group"]["as"], _cards(plan, ctx, e["note_group"]["who"]))
+            e = block_events.bind(plan, ctx, e)  # -- block events (wave 53C) -- "creatures blocking it", "Auras attached to that creature": the object bound now
+>           if not PRIMITIVES[e["do"]](plan, ctx, e):
+                   ^^^^^^^^^^^^^^^^^^^
+E           KeyError: 'deferred:pick_looked'
+
+app/rules/effects.py:4072: KeyError
+
+The above exception was the direct cause of the following exception:
+
+cards = <app.cards.repository.CardRepository object at 0x7f4bdfccfa10>
+tmp_path = PosixPath('/tmp/pytest-of-agent/pytest-325/test_genuine_cold_synthetic_de0')
+
+    def test_genuine_cold_synthetic_delayed_snapshot_survives_before_trigger102(cards, tmp_path):
+        s = setup(cards)
+        old = put(s, 'Walking Corpse', 'battlefield')
+        mine = top(s, ['Lightning Bolt', 'Grizzly Bears', 'Island'])
+>       cast(s, 'Synthetic Destiny');advance(s)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_rules_library_polymorph102.py:132:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests/test_rules_library_packets101.py:80: in cast
+    act(s, 'p1', type='cast_spell', card_id=source.id, sources=[], **kwargs)
+tests/game_helpers.py:42: in act
+    return session.perform(actor, payload)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <app.game.session.GameSession object at 0x7f4bdfcd6510>, actor = 'p1'
+payload = {'type': 'cast_spell', 'card_id': '9caf4ead02da', 'sources': []}
+trusted = False
+
+    def perform(self, actor: str, payload: dict[str, Any] | Action, *, trusted: bool = False) -> Action:
+        """Validate, resolve, apply and record one action. Raises ActionError / ValidationError.
+
+        ``trusted`` is only for actions the server builds itself (e.g. restoring a snapshot)."""
+        if actor not in self.state.players:
+            raise ActionError("Only seated players can act")
+        action = parse_action(payload) if isinstance(payload, dict) else payload
+        if not trusted and action.type not in CONTROLLED_MAY:
+            self._check_not_controlled(actor)
+        try:
+            resolved = resolve(self.state, action, actor=actor, cards=self.cards, trusted=trusted)
+        except ActionError:
+            raise
+        except Exception as exc:
+            if action.type not in INTENT_TYPES and action.type != "configure":
+                raise
+            # A rules bug must never break game night: compiling works on a scratch copy, so
+            # nothing was applied. Remember the failure for EXPORT RULES SCENARIO.
+            log.exception("Rules engine failed on %s", action.type)
+            self.rules_failure = {
+                "intent": action.model_dump(mode="json", exclude={"r"}), "actor": actor, "seq": self.state.seq,
+                "error": f"{type(exc).__name__}: {exc}"[:500], "at": time.time(),
+            }
+>           raise AutomationError(
+                f"{AutomationError.PREFIX}: Fyodor couldn't carry out {action.type.replace('_', ' ')}. Nothing changed. "
+                "Resolve it manually with the table tools, pause automation, or export a rules scenario."
+            ) from exc
+E           app.game.errors.AutomationError: AUTOMATION ERROR: Fyodor couldn't carry out cast spell. Nothing changed. Resolve it manually with the table tools, pause automation, or export a rules scenario.
+
+app/game/session.py:74: AutomationError
+------------------------------ Captured log call -------------------------------
+ERROR    app.game.session:session.py:69 Rules engine failed on cast_spell
+Traceback (most recent call last):
+  File "/workspace/scratch/library102/backend/app/game/session.py", line 61, in perform
+    resolved = resolve(self.state, action, actor=actor, cards=self.cards, trusted=trusted)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/scratch/library102/backend/app/game/resolve.py", line 76, in resolve
+    a.r = compile_intent(state, a, actor=actor, info=info, rng=rng)  # type: ignore[union-attr]
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/scratch/library102/backend/app/rules/engine.py", line 164, in compile_intent
+    handler(plan, intent)
+  File "/workspace/scratch/library102/backend/app/rules/casting.py", line 3902, in cast_spell
+    _cast_payment(plan, payment_data, None)
+  File "/workspace/scratch/library102/backend/app/rules/casting.py", line 3963, in _cast_payment
+    pay_spell_then(plan, data.data.a, card, data.data.ch, data.cost,
+  File "/workspace/scratch/library102/backend/app/rules/casting.py", line 1910, in pay_spell_then
+    _pay_spell(plan, a, card, ch, cost, label, not_mana=not_mana, origin=origin, then=then, x_payment=x_payment, payment_context=payment_context)
+  File "/workspace/scratch/library102/backend/app/rules/casting.py", line 1770, in _pay_spell
+    pay_then(plan, player, rest, label, sources=a.sources, exclude=exclude, purpose=purpose,
+  File "/workspace/scratch/library102/backend/app/rules/casting.py", line 1579, in pay_then
+    pc.finish(plan, then, result)
+  File "/workspace/scratch/library102/backend/app/rules/payment_continuations.py", line 51, in finish
+    replace.run_then(plan, {**then, 'payment': payment_data(payment)})
+  File "/workspace/scratch/library102/backend/app/rules/replace.py", line 636, in run_then
+    fn(plan, then)
+  File "/workspace/scratch/library102/backend/app/rules/payment_continuations.py", line 63, in _resume
+    handler(plan, adapter.validate_python(then['payload']), payment_of(then.get('payment')))
+  File "/workspace/scratch/library102/backend/app/rules/casting.py", line 1897, in _spell_mana_paid
+    pc.finish(plan, after, gain_payment)
+  File "/workspace/scratch/library102/backend/app/rules/payment_continuations.py", line 51, in finish
+    replace.run_then(plan, {**then, 'payment': payment_data(payment)})
+  File "/workspace/scratch/library102/backend/app/rules/replace.py", line 636, in run_then
+    fn(plan, then)
+  File "/workspace/scratch/library102/backend/app/rules/payment_continuations.py", line 63, in _resume
+    handler(plan, adapter.validate_python(then['payload']), payment_of(then.get('payment')))
+  File "/workspace/scratch/library102/backend/app/rules/casting.py", line 4172, in _post_cast
+    advance(plan)  # triggers that cast caused are on the stack: 117.3c, 603.3)
+    ^^^^^^^^^^^^^
+  File "/workspace/scratch/library102/backend/app/rules/engine.py", line 488, in advance
+    resolve_top_of_stack(plan)
+  File "/workspace/scratch/library102/backend/app/rules/engine.py", line 1076, in resolve_top_of_stack
+    effects.begin_resolution(plan, top_id, entry)  # an automated spell or ability
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/scratch/library102/backend/app/rules/effects.py", line 3935, in begin_resolution
+    _begin_resolution(plan, stack_id, entry)
+  File "/workspace/scratch/library102/backend/app/rules/effects.py", line 4022, in _begin_resolution
+    continue_effects(plan, ctx)
+  File "/workspace/scratch/library102/backend/app/rules/effects.py", line 4052, in continue_effects
+    _continue_effects(plan, ctx)
+  File "/workspace/scratch/library102/backend/app/rules/effects.py", line 4078, in _continue_effects
+    if not _run_body(plan, ctx):
+           ^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/scratch/library102/backend/app/rules/effects.py", line 4072, in _run_body
+    if not PRIMITIVES[e["do"]](plan, ctx, e):
+           ~~~~~~~~~~^^^^^^^^^
+KeyError: 'deferred:pick_looked'
+=========================== short test summary info ============================
+FAILED tests/test_rules_library_polymorph102.py::test_divergent_same_controller_enters_sequentially_second_champion_sees_no_first102
+FAILED tests/test_rules_library_polymorph102.py::test_creativity_counts_actual_destroyed_not_indestructible_and_rip_counts102
+FAILED tests/test_rules_library_polymorph102.py::test_synthetic_delayed_original_count_and_simultaneous_entries102
+FAILED tests/test_rules_library_polymorph102.py::test_genuine_cold_synthetic_delayed_snapshot_survives_before_trigger102
+========================= 4 failed, 8 passed in 9.36s ==========================
