@@ -196,7 +196,7 @@ def build_view(
     zones: dict[str, Any] = {}
     for key, ids in state.zones.items():
         owner, zone = split_zone(key)
-        if zone == "library":
+        if zone in ("library", "attractions"):  # (wave 100L: an Attraction deck is face down too, 717.2)
             # Libraries: a count plus only the cards this viewer can see right now (with positions).
             known = []
             for index, cid in enumerate(ids):

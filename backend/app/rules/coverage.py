@@ -302,6 +302,7 @@ SUPPORTED_KEYWORD_ACTIONS: set[str] = {
 }
 SUPPORTED_KEYWORD_ACTIONS.update({"clash", "detain", "suspect"})  # -- clash, detain, suspect (wave 12A) -- app/rules/clash.py, test_rules_wave12a_counters_keywords.py
 SUPPORTED_KEYWORD_ACTIONS.add("populate")  # -- token copies & attach on entry (wave 5J) -- test_rules_wave5j_token_copies.py
+SUPPORTED_KEYWORD_ACTIONS.update({"open an attraction", "roll to visit your attractions"})  # -- Attractions (wave 100L) -- test_rules_wave100l_attractions.py
 
 
 # -- refusals (agent T) ------------------------------------------------------------------------------

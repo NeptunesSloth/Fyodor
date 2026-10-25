@@ -20,13 +20,16 @@ from app.game.rules_state import AutomationLevel, AutomationOptions, EntryCharac
 ALL = "*"  # marker in ``revealed_to`` meaning "every player"
 
 PLAYER_ZONES = (
-    "library", "hand", "battlefield", "graveyard", "exile", "command", "sideboard", "companion", "foretell", "setaside", "phased"
+    "library", "hand", "battlefield", "graveyard", "exile", "command", "sideboard", "companion", "foretell", "setaside", "phased",
+    "attractions",
 )
 # "phased": phased-out permanents (702.26b, wave 13D) stay on the battlefield for the rules (no zone change, 702.26d) but sit in
 # this controller-keyed zone so every battlefield query skips them; public like the battlefield.
 PUBLIC_ZONES = frozenset({"battlefield", "phased", "graveyard", "exile", "command", "companion", "stack"})
 # "setaside": cards put aside face down during the pregame (e.g. rejected mulligan hands), owner-only.
-HIDDEN_ZONES = frozenset({"library", "hand", "sideboard", "foretell", "setaside"})
+# -- Attractions (wave 100L) -- "attractions": the face-down Attraction deck (717.2, a supplementary deck in the command zone): hidden from
+# everyone like a library (its count is public); its last card is the top. Old saves have no such zone (an empty deck).
+HIDDEN_ZONES = frozenset({"library", "hand", "sideboard", "foretell", "setaside", "attractions"})
 OWNER_VISIBLE_ZONES = frozenset({"hand", "sideboard", "foretell", "setaside"})
 STACK = "stack"
 
@@ -137,7 +140,7 @@ class MergedPart(BaseModel):
     copy_of: CopyInfo | None = None
     commander_key: str | None = None
     categories: list[str] = Field(default_factory=list)
-    origin: Literal["library", "command", "sideboard", "companion"] = "library"
+    origin: Literal["library", "command", "sideboard", "companion", "attractions"] = "library"
     test_object: bool = False
 
 
@@ -240,7 +243,7 @@ class CardInstance(BaseModel):
     exile_group: str | None = None  # "Prosper", "Oblivion Ring", "Foretell" … (organisational label)
     token_source: TokenSource | None = None
     # --- solo testing ---
-    origin: Literal["library", "command", "sideboard", "companion"] = "library"  # where Reset deck puts it back
+    origin: Literal["library", "command", "sideboard", "companion", "attractions"] = "library"  # where Reset deck puts it back
     test_object: bool = False  # spawned for testing: never part of the deck, removed by Reset deck
 
 

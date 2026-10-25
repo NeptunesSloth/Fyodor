@@ -1339,6 +1339,11 @@ def _drew_two(m: re.Match[str]) -> Condition:
     return {"history": "drew", "n": 2}
 
 
+@_history_pattern(r"you(?:'ve| have) visited an Attraction this turn")  # -- Attractions (wave 100L) -- 701.52a (attractions100l.visited)
+def _visited100l(m: re.Match[str]) -> Condition:
+    return {"value": {"turn_history": "visited100l"}, "op": ">=", "n": 1}
+
+
 @_history_pattern(r"(?:a|one or more) cards? (?:was|were) put into exile this turn")
 def _put_into_exile(m: re.Match[str]) -> Condition:
     return {"history": "facts", "kind": "exile", "who": "any", "n": 1}  # 400.1: a card (never a token or a copy) put into exile from another zone
@@ -1552,6 +1557,10 @@ def holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
         from app.rules import fight_receipts90
 
         return fight_receipts90.fought_creature(plan, ctx['controller'])
+    if "exiled100l" in cond:  # -- Attractions (wave 100L) -- Storybook Ride's "if any of those cards remain exiled"
+        from app.rules import attractions100l
+
+        return attractions100l.still_exiled(plan, ctx, cond)
     if cond.get("activated100i"):  # -- activated (wave 100I) --
         from app.rules import activated100i
 

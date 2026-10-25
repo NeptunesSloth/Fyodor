@@ -792,6 +792,10 @@ def on_step_start(plan: Plan) -> None:
         from app.rules import sagas
 
         sagas.precombat_main(plan)
+        # -- Attractions (wave 100L) -- 505.5: then the roll to visit (a turn-based action)
+        from app.rules import attractions100l
+
+        attractions100l.precombat_main(plan)
         from app.rules import (
             paradigm,  # -- keywords (wave 50H) -- 702.192a: the copies of the exiled paradigm cards
         )

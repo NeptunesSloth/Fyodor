@@ -1324,9 +1324,14 @@ def zone_candidates(plan: Plan, card: CardInstance, dest: str = "graveyard") -> 
         if any(d["kind"] == "replacement" and d.get("replacement") == "exile_instead" and d.get("from") == "leaves"
                for d in _definitions(plan, card).values()):
             out.append(Cand(card.name or "its own ability", "exile"))
+    # -- Attractions (wave 100L) -- 717.6: to the command zone (its junkyard) instead
+    from app.rules import attractions100l
+
+    if dest not in ("battlefield", "exile", "command") and attractions100l.astrotorium(plan, card):
+        out.append(Cand("its Astrotorium card back (717.6)", "command"))
     if dest != "graveyard":
         return out
-    leaves = bool(out)
+    leaves = any(c.outcome == "exile" for c in out)
     out += _graveyard_candidates(plan, card, frm)
     if leaves:  # (review 22C) 616.1e: a library result still leaves the battlefield, so "exile it if it would leave" applies after it
         out = [c for c in out if not c.outcome.startswith("library:")]  # anyway: no choice between them (a rider still is one)
@@ -1457,7 +1462,8 @@ def run_rider(plan: Plan, rider: dict[str, Any]) -> None:
 
 
 _OUTCOME_TEXT = {"exile": "Exile it", "battlefield": "Put it onto the battlefield","library:top": "Put it on top of its owner's library", "library:bottom":
-                 "Put it on the bottom of its owner's library", "library:shuffle": "Reveal it and shuffle it into its owner's library"}
+                 "Put it on the bottom of its owner's library", "library:shuffle": "Reveal it and shuffle it into its owner's library",
+                 "command": "Put it into its owner's command zone"}  # (wave 100L: 717.6)
 
 
 def offer_616(plan: Plan) -> bool:
@@ -1728,7 +1734,7 @@ def replace_move(plan: Plan, payload: dict[str, Any], actor: str | None) -> dict
     if replaced and all(zone == "battlefield" for _, zone, _ in replaced):  # (review 23D: Obstinate Baloth)
         text = "Put onto the battlefield instead"
     if replaced and all(zone == "command" for _, zone, _ in replaced):
-        text = "Put into the command zone instead (903.9b)"
+        text = f"Put into the command zone instead ({', '.join(whys)})"  # (903.9b; wave 100L: 717.6)
     ids = [cid for cid, _, _ in replaced] + [cid for cid, _ in madness]
     return {"type": "rules_log", "text": text, "card_ids": ids[:20]}  # (a log line names at most 20 cards)
 

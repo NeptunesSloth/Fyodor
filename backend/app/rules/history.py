@@ -868,6 +868,10 @@ def amount(plan: Plan, ctx: dict[str, Any], v: dict[str, Any]) -> int:
         return max(log.gained.get(me, 0), log.lost.get(me, 0))
     if kind == "drew":
         return log.drew.get(me, 0)
+    if kind == "visited100l":  # -- Attractions (wave 100L) -- each Attraction once (attractions100l.visited)
+        from app.rules import attractions100l
+
+        return attractions100l.visited(plan, me)
     if kind == "opp_drew_max":
         # Thought Sponge explicitly counts opponents who have left the game.
         return max((n for player, n in log.drew.items() if player != me), default=0)

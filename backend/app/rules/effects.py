@@ -6956,3 +6956,6 @@ RESUME.update(_triggers100a.RESUME)
 from app.rules import activated100i as _activated100i  # noqa: E402, I001
 
 PRIMITIVES.update(_activated100i.PRIMITIVES)
+from app.rules import attractions100l as _attractions100l  # noqa: E402  -- Attractions (wave 100L) --
+
+PRIMITIVES.update(_attractions100l.PRIMITIVES)

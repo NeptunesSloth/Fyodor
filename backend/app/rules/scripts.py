@@ -5849,6 +5849,10 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
 
     if (lines100a := triggers100a.definition(ability, ch)) is not None:
         return lines100a
+    from app.rules import attractions100l  # -- Attractions (wave 100L) -- "Visit — …", "Prize — …" (702.159)
+
+    if (visit100l := attractions100l.definition(ability, ch)) is not None:
+        return visit100l
     from app.rules import zones100g  # -- zones (wave 100G) -- whole-ability wordings (app/rules/zones100g.py)
 
     if (zones := zones100g.definition(ability, ch)) is not None:

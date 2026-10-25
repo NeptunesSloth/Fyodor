@@ -579,6 +579,8 @@ def _turn_amount(what: str) -> Value | None:
         return {"turn_history": "attackers", **({"who": "you"} if m["mine"] else {})}
     if _TURN_DREW.match(what):
         return {"turn_history": "drew"}
+    if re.fullmatch(r"(?:the number of )?Attractions? you(?:'ve| have) visited this turn", what):  # -- Attractions (wave 100L) -- 701.52a
+        return {"turn_history": "visited100l"}
     if _TURN_OPP_DREW.match(what):  # the cards your opponents (still in the game, 800.4a) drew this turn, all of them together (121.1)
         return {"turn_history": "opp_drew"}
     m = _TURN_EXILED.match(what)

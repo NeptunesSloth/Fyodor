@@ -4238,7 +4238,7 @@ def _exchange(phrase: str) -> tuple[Effects, Any] | None:
 # counter", "target player gets four rad counters", "you get {E}{E}" / "six {E}" / "that many {E}" / "an
 # amount of {E} equal to …" (107.14: {E} is one energy counter). Only the kinds whose rules the engine
 # models: poison (704.5c), energy (107.14), experience (122.1), rad (728: app/rules/designations.py).
-PLAYER_COUNTER_KINDS = ("poison", "energy", "experience", "rad")
+PLAYER_COUNTER_KINDS = ("poison", "energy", "experience", "rad", "ticket")  # (ticket: wave 100L, 107.17)
 _GETS = _SUBJ + r"gets? "
 _PC_KIND = r"(?P<kind>poison|experience|rad|energy)"
 _PC_FORMS = (
@@ -4246,6 +4246,7 @@ _PC_FORMS = (
     re.compile(_GETS + r"(?P<e>(?:\{E\})+)"),
     re.compile(_GETS + rf"(?P<n>{AMT}) \{{E\}}"),
     re.compile(_GETS + r"(?:an amount of \{E\}|a number of " + _PC_KIND + r" counters) equal to (?P<stat>.+)"),
+    re.compile(_GETS + r"(?P<tk>(?:\{TK\})+)"),  # -- Attractions (wave 100L) -- 107.17: {TK} is one ticket counter
 )
 
 
@@ -4260,12 +4261,12 @@ def player_counters(text: str, rider: Any) -> tuple[Effects, Any] | None:
         if m is None:
             continue
         who, target = _subject(m)
-        kind = m.groupdict().get("kind") or "energy"
+        kind = m.groupdict().get("kind") or ("ticket" if i == 4 else "energy")
         n: Any
-        if i == 1:  # "{E}{E}" (a count of symbols; "for each …" multiplies it)
+        if i in (1, 4):  # "{E}{E}" / "{TK}{TK}" (a count of symbols; "for each …" multiplies it)
             if rider is not None and rider[0] != "each":
                 raise _Fail
-            n = _apply(m["e"].count("{E}"), rider)
+            n = _apply(m["e"].count("{E}") if i == 1 else m["tk"].count("{TK}"), rider)
         elif i == 3:  # "an amount of {E} equal to its mana value"
             if rider is not None:
                 raise _Fail
@@ -4319,6 +4320,12 @@ def designation_instruction(text: str) -> tuple[Effects, Any] | None:
         return [{"do": "venture", "who": "you", "into": "undercity" if m["into"] == "Undercity" else "dungeon"}], None
     if _RING.fullmatch(text):
         return [{"do": "ring_tempts", "who": "you"}], None
+    if m := re.fullmatch(r"open (an|two) Attractions?", text):  # -- Attractions (wave 100L) -- 701.51, 701.52 (app/rules/attractions100l.py)
+        return [{"do": "open_attraction", "n": 1 if m[1] == "an" else 2}], None
+    if text == "roll to visit your Attractions":
+        from app.rules.attractions100l import ROLL
+
+        return [dict(e) for e in ROLL], None
     m = re.fullmatch(r"it becomes (?P<v>day|night)", text)  # 731.1
     if m:
         return [{"do": "day_night", "value": m["v"]}], None

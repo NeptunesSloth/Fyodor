@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field, field_validator
 
 from app.textutil import clean_text
 
-Section = Literal["commander", "companion", "main", "sideboard", "maybeboard", "tokens"]
+Section = Literal["commander", "companion", "main", "sideboard", "maybeboard", "tokens", "attractions"]
 DeckFormat = Literal["commander", "constructed", "sandbox"]
 Finish = Literal["nonfoil", "foil", "etched"]
 # How a printing was chosen for an entry (see docs/ARCHIDEKT_COMPATIBILITY.md §4).
