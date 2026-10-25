@@ -114,6 +114,16 @@ def note_put(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return True
 
 
+def _meditation() -> Parsed:
+    """Cleansing Meditation: threshold judged as it resolves (608.2c); instead the enchantment cards in your graveyard that were destroyed this way
+    (so yours: they go to their owner's graveyard, 400.3) return to the battlefield under your control."""
+    from app.rules import multi100n
+
+    base, target, optional = _p("Destroy all enchantments.")
+    alt = _p("Destroy all enchantments, then return all enchantment cards put into your graveyard this way to the battlefield.")[0]
+    return multi100n._instead(multi100n._cond("there are seven or more cards in your graveyard"), base, alt), target, optional
+
+
 # Sentences the grammar reads in other words with the same meaning (the rewrite must mean the same: 608.2c).
 REWRITES = {
     # (122.6: "enters with … additional counters" is the grammar's "if a creature enters this way, it enters with …" for the returned permanent card)
@@ -131,6 +141,8 @@ def _choose_transform(kind: str) -> Parsed:
 
 _ROUND = " Repeat this process until no one puts a card onto the battlefield."
 BUILDERS: dict[str, Callable[[], Parsed]] = {
+    "Destroy all enchantments. If there are seven or more cards in your graveyard, instead destroy all enchantments, then return all cards in your "
+    "graveyard destroyed this way to the battlefield.": _meditation,
     "Starting with you, each player may put a permanent card from their hand onto the battlefield." + _ROUND: _repeat_put("a permanent"),
     "Starting with you, each player may put an artifact, creature, enchantment, or land card from their hand onto the battlefield." + _ROUND:
         _repeat_put("an artifact, creature, enchantment, or land"),

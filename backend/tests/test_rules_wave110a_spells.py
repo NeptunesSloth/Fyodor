@@ -14,7 +14,7 @@ from app.game.errors import ActionError
 from tests.wave110a_kit import *
 
 BERSERK, MANDATE, BAIT, FLUX = "Berserk", "Mandate of Peace", "Take the Bait", "Thermal Flux"
-EUREKA, HYPERGENESIS = "Eureka", "Hypergenesis"
+EUREKA, HYPERGENESIS, MEDITATION = "Eureka", "Hypergenesis", "Cleansing Meditation"
 AERITH, SUNDER, WMBD, ANOINT, SLIME = "Aerith Rescue Mission", "Sunder the Gateway", "What Must Be Done", "Anoint with Affliction", "Convert to Slime"
 
 
@@ -23,7 +23,7 @@ def cards(settings):
     yield from open_repo(settings)
 
 
-test_full = full_test([BERSERK, MANDATE, BAIT, FLUX, AERITH, SUNDER, WMBD, ANOINT, SLIME, EUREKA, HYPERGENESIS])
+test_full = full_test([BERSERK, MANDATE, BAIT, FLUX, AERITH, SUNDER, WMBD, ANOINT, SLIME, EUREKA, HYPERGENESIS, MEDITATION])
 
 
 def attack(s, c, target="p2"):
@@ -245,4 +245,17 @@ def test_eureka_and_hypergenesis_repeat_the_round_until_a_whole_round_puts_nothi
     answer(s, "Grizzly Bears", "Hill Giant", "Sol Ring", [], [], [])
     assert zone_of(s, "Grizzly Bears") == zone_of(s, "Sol Ring") == "p1:battlefield" and zone_of(s, "Hill Giant", "p2") == "p2:battlefield"
     assert zone_of(s, "Gideon Jura") == "p1:hand"
+    check(s)
+
+
+@pytest.mark.parametrize("threshold", [False, True])
+def test_cleansing_meditation_threshold_returns_your_destroyed_enchantments(cards, threshold):
+    """Threshold is judged as it resolves; instead the destroyed enchantment cards in YOUR graveyard (your own, whoever controlled them) return."""
+    s = build(cards, [MEDITATION, "Sylvan Library"], ["Sylvan Library", "Grizzly Bears"])
+    mine, theirs = put(s, "Sylvan Library"), put(s, "Sylvan Library", "p2")
+    to_graveyard(s, 7 if threshold else 5)
+    cast(s, MEDITATION)
+    answer(s)
+    assert zone_of(s, "Sylvan Library") == ("p1:battlefield" if threshold else "p1:graveyard")
+    assert zone_of(s, "Sylvan Library", "p2") == "p2:graveyard"
     check(s)
