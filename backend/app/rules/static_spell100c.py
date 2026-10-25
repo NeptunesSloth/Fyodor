@@ -807,6 +807,13 @@ def _goldwardens_gambit() -> Parsed | None:
     return [*made[0], {"do": "each100c", "who": made[0][1]["who"], "then": {"do": "attach_choose", "n": 1, "kinds": ["Equipment"], "optional": True}}], None, False
 
 
+def _reckless_crew() -> Parsed | None:  # -- reckless crew (wave 110C) -- 701.3a, as Goldwarden's Gambit: one optional attachment per token
+    made = _plain("Create X 2/1 red Dwarf Berserker creature tokens, where X is the number of Vehicles you control plus the number of Equipment you control.")
+    if made is None or [e["do"] for e in made[0]] != ["create_token"]:
+        return None
+    return [{**made[0][0], "as": "crew110c"}, {"do": "each100c", "who": "ref:crew110c", "then": {"do": "attach_choose", "n": 1, "kinds": ["Equipment"], "optional": True}}], None, False
+
+
 def _memory_theft() -> Parsed | None:
     theft = _plain("Target opponent reveals their hand. You choose a nonland card from it. That player discards that card.")
     if theft is None:
@@ -822,6 +829,8 @@ BUILDERS: dict[str, Callable[[], Parsed | None]] = {
     "that player owns from exile into that player's graveyard.": _memory_theft,
     "Create five 2/2 red Rebel creature tokens. They gain haste until end of turn. For each of those tokens, you may attach an Equipment you control to it.":
         _goldwardens_gambit,
+    "Create X 2/1 red Dwarf Berserker creature tokens, where X is the number of Vehicles you control plus the number of Equipment you control. "
+    "For each of those tokens, you may attach an Equipment you control to it.": _reckless_crew,
     "Choose an order for artifacts, creatures, and lands. Each player sacrifices one permanent of their choice of the first type, sacrifices two of their "
     "choice of the second type, then sacrifices three of their choice of the third type.": _rite_of_ruin,
     "Target creature gets +2/+2 until end of turn. If that creature is attacking, you may attach any number of Equipment you control to it.":
