@@ -1840,5 +1840,35 @@
    "Surveil",
    "Solved"
   ]
+ },
+ {
+  "name": "Control Magic",
+  "layout": "normal",
+  "mana_cost": "{2}{U}{U}",
+  "cmc": 4.0,
+  "type_line": "Enchantment — Aura",
+  "oracle_text": "Enchant creature\nYou control enchanted creature.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "Enchant"
+  ]
+ },
+ {
+  "name": "Bronze Bombshell",
+  "layout": "normal",
+  "mana_cost": "{4}",
+  "cmc": 4.0,
+  "type_line": "Artifact Creature — Construct",
+  "oracle_text": "When a player other than this creature's owner controls it, that player sacrifices it. If the player does, this creature deals 7 damage to the player.",
+  "colors": [],
+  "color_identity": [],
+  "keywords": [],
+  "power": "4",
+  "toughness": "1"
  }
 ]

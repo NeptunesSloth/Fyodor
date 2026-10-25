@@ -205,3 +205,19 @@ def test_lose_replacements_616_1_choice(cards, pick):
     else:
         assert s.state.players["p1"].life == 40
     check(s)
+
+
+def test_bronze_bombshell_stolen_sacrifices_and_hurts_thief(cards):
+    """603.8 state trigger: a player other than the owner controls it, so that player sacrifices it and takes 7."""
+    s = build(cards, ["Bronze Bombshell"], ["Control Magic", "Island"])
+    bomb = put(s, "Bronze Bombshell")
+    assert s.state.cards[bomb.id].zone == "p1:battlefield"
+    drive(s)
+    assert s.state.cards[bomb.id].zone == "p1:battlefield" and s.state.players["p2"].life == 40  # (own controller: nothing)
+    to_phase(s, "main1", turn=2)
+    mana(s, "p2", U=2, C=2)
+    act(s, "p2", type="cast_spell", card_id=to_hand(s, "Control Magic", "p2").id, targets=[bomb.id])
+    drive(s)
+    assert s.state.cards[bomb.id].zone == "p1:graveyard"
+    assert s.state.players["p2"].life == 33 and s.state.players["p1"].life == 40
+    check(s)

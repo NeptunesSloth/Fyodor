@@ -87,6 +87,12 @@ def _skyguard(d: Def) -> Def:
             "effects": [{**e, "duration": "end_of_combat"} if e["do"] == "prevent_all" else e for e in d["effects"]]}
 
 
+def stolen_holds(plan: Any, ctx: dict[str, Any]) -> bool:
+    """Bronze Bombshell: its controller is not its owner (603.8, 108.3)."""
+    c = plan.state.cards[ctx["source_card"]]
+    return c.controller != c.owner
+
+
 def skyguard_holds(plan: Any, ctx: dict[str, Any]) -> bool:
     """Suppressor Skyguard: the attacking player (the active player, 508.1) has an opponent other than the Skyguard's controller who is not being
     attacked (508.3d: a player is attacked by a creature attacking them or a planeswalker or battle they control)."""
@@ -196,6 +202,9 @@ def return_next_end(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
 
 
 _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
+    # Bronze Bombshell: 603.8 state trigger "controlled by a player other than its owner" (stolen_holds); the thief is the trigger's controller
+    "When a player other than this creature's owner controls it, that player sacrifices it. If the player does, this creature deals 7 damage to the player.":
+        ("When you control no Islands, sacrifice this creature. If you do, ~ deals 7 damage to you.", lambda d: {**d, "state": {"stolen110b": True}}),
     # Rendmaw: 701.15a each token is goaded by Rendmaw's controller, "for the rest of the game" (token_copy_sources.permanent_goad, as Nettling Nuisance)
     "When Rendmaw enters and whenever you play a card with two or more card types, each player creates a tapped 2/2 black Bird creature token with flying. "
     "The tokens are goaded for the rest of the game.":
