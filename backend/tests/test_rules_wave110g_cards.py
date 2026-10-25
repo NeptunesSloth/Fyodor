@@ -5,6 +5,7 @@
 * Golgari Brownscale: 603.6 / 400.7 the card put into its owner's hand from the graveyard (dredge, 702.52a) triggers from the hand.
 * Invasion of the Giants: 603.12 'Then you may reveal a Giant card. When you do' is a reflexive trigger after the draw.
 * Distended Mindbender: 701.9 / 701.20a one discard per size class from the revealed hand, chosen by the caster.
+* Total War: 508.1 / 302.6 untapped non-Wall creatures that did not attack and were controlled since the turn began are destroyed.
 * Serene Master: 701.12g exchanging two powers sets each to the other's previous value (613.4b), until end of combat.
 """
 from __future__ import annotations
@@ -34,10 +35,13 @@ EXTRA = [
          '(As this Saga enters and after your draw step, add a lore counter. Sacrifice after III.)\nI — Scry 2.\nII — Draw a card. Then you may reveal a Giant card from your hand. When you do, this Saga deals 2 damage to target opponent or planeswalker.\nIII — The next Giant spell you cast this turn costs {2} less to cast.', None, 'RU'),
     real('Distended Mindbender', '{8}', 8, 'Creature — Eldrazi Insect',
          "Emerge {5}{B}{B} (You may cast this spell by sacrificing a creature and paying the emerge cost reduced by that creature's mana value.)\nWhen you cast this spell, target opponent reveals their hand. You choose from it a nonland card with mana value 3 or less and a card with mana value 4 or greater. That player discards those cards.", ('5', '5'), ''),
+    real('Total War', '{3}{R}', 4, 'Enchantment',
+         "Whenever a player attacks with one or more creatures, destroy all untapped non-Wall creatures that player controls that didn't attack, except for creatures the player hasn't controlled continuously since the beginning of the turn.", None, 'R'),
+    real('Test Wall', '{1}', 1, 'Creature — Wall', '', ('0', '4'), ''),
     real('Hill Giant', '{3}{R}', 4, 'Creature — Giant', '', ('3', '3'), 'R'),
     real('Divination', '{2}{U}', 3, 'Sorcery', 'Draw two cards.', None, 'U'),
 ]
-NAMES = [c["name"] for c in EXTRA if c["name"] not in ("Divination", "Hill Giant")]
+NAMES = [c["name"] for c in EXTRA if c["name"] not in ("Divination", "Hill Giant", "Test Wall")]
 
 
 @pytest.fixture()
@@ -191,4 +195,24 @@ def test_distended_mindbender_discards_one_cheap_nonland_and_one_expensive(cards
     # first nonland <=3 option and first >=4 option are discarded: Forest (land) and one of the cheap cards stay
     hand = [s.state.cards[c].name for c in s.state.zones["p2:hand"]]
     assert "Hill Giant" not in hand and "Forest" in hand and len(hand) == 2, hand
+    check(s)
+
+
+def test_total_war_destroys_idle_old_non_walls(cards):
+    s = build(cards, ["Grizzly Bears", "Llanowar Elves", "Test Wall", "Hill Giant", "Benalish Hero"], ["Total War", "Goblin"])
+    put(s, "Total War", "p2")
+    bob = put(s, "Goblin", "p2")
+    bears, elves, wall, giant = (put(s, n) for n in ("Grizzly Bears", "Llanowar Elves", "Test Wall", "Hill Giant"))
+    hero = put(s, "Benalish Hero")
+    act(s, "p1", type="tap", card_ids=[hero.id])
+    for c in (elves, wall, hero):
+        s.state.rules.controlled_since[c.id].turn = 0
+        s.state.rules.controlled_since[c.id].observed_from_turn = 0  # controlled since before this turn
+    attack(s, bears)
+    act(s, "p2", type="declare_blockers", blocks=[])
+    z = {c.name: c.zone for c in s.state.cards.values()}
+    assert z["Llanowar Elves"] == "p1:graveyard"  # idle, untapped, old
+    assert z["Test Wall"] == "p1:battlefield" and z["Hill Giant"] == "p1:battlefield"  # Wall; new this turn
+    assert z["Benalish Hero"] == "p1:battlefield" and z["Grizzly Bears"] == "p1:battlefield"  # tapped; attacker
+    assert s.state.cards[bob.id].zone == "p2:battlefield"
     check(s)

@@ -15,6 +15,16 @@ def _keep_revealed(d: Def) -> Def:
     return d
 
 
+def _controlled_since_turn_start(d: Def) -> Def:
+    """"Except for creatures the player hasn't controlled continuously since the beginning of the turn": only those controlled since then are destroyed."""
+    from app.rules import controller_turn_history69, selectors
+
+    eff = d["effects"][0]
+    head, _, key = eff["who"].partition("|sel:")
+    sel = selectors.from_key("sel:" + key)
+    return {**d, "effects": [{**eff, "who": f"{head}|" + replace(sel, extras=(*sel.extras, controller_turn_history69.EXTRA)).key()}]}
+
+
 def _exchange_power(d: Def) -> Def:
     """701.12g: exchanging two powers makes a continuous effect setting each (613.4b) to the other's previous value."""
     return {**d, "effects": [{"do": "exchange_power110g", "duration": "end_of_combat"}]}
@@ -38,6 +48,11 @@ _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
     # Serene Master
     "Whenever this creature blocks, exchange its power and the power of target creature it's blocking until end of combat.":
         ("Whenever this creature blocks, target creature it's blocking has base power 3 until end of combat.", _exchange_power),
+    # Total War: attack declaration (508.1); "didn't attack" is read as this turn's declaration
+    "Whenever a player attacks with one or more creatures, destroy all untapped non-Wall creatures that player controls that didn't attack, except for creatures "
+    "the player hasn't controlled continuously since the beginning of the turn.":
+        ("Whenever a player attacks with one or more creatures, destroy all untapped non-Wall creatures that player controls that didn't attack this turn.",
+         _controlled_since_turn_start),
     # Distended Mindbender: two sequential choices from the revealed hand (701.9)
     "When you cast this spell, target opponent reveals their hand. You choose from it a nonland card with mana value 3 or less and a card with mana value 4 or greater. "
     "That player discards those cards.":
