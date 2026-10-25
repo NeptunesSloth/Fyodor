@@ -40,7 +40,16 @@ def _binding_negotiation() -> Any:
     return [*effects, {"do": "only_if", "cond": {"not": {"succeeded": did}}, "skip": 1}, yard], target, flag
 
 
+def _carom() -> Any:
+    from app.rules import damage_redirection_effects as R
+
+    # 614.9: the redirection of the shared 3-damage recipe, one damage
+    return [{"do": R.STEP, "mode": "finite", "origin": "target:0", "destination": "target:1", "n": 1}], \
+        [{"what": R.key("creature")}, {"what": R.key("creature"), "distinct_from": [0]}], False
+
+
 BUILDERS = {
+    "The next 1 damage that would be dealt to target creature this turn is dealt to another target creature instead.": _carom,
     "Target opponent reveals their hand. You may choose a nonland card from it. If you do, they discard it. Otherwise, you may put a face-up "
     "exiled card they own into their graveyard.": _binding_negotiation,
 }

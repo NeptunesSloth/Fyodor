@@ -1,5 +1,6 @@
 """Wave 110H: one-card builds on real Oracle text (every scenario checks replay and a save/load round trip).
 
+* Carom: the shared "next N damage ... is dealt to another target" redirection with N = 1 (614.9), then its own draw line.
 * Binding Negotiation: "Otherwise" after an optional choice (608.2c), a face-up exiled card to its owner's graveyard (406.3, 400.3).
 """
 from __future__ import annotations
@@ -16,6 +17,9 @@ EXTRA = [
          "Target opponent reveals their hand. You may choose a nonland card from it. If you do, they discard it. Otherwise, you may put a "
          "face-up exiled card they own into their graveyard.", None, "B"),
 ]
+EXTRA.append(real("Carom", "{1}{W}", 2, "Instant", "The next 1 damage that would be dealt to target creature this turn is dealt to another target creature "
+                  "instead.\nDraw a card.", None, "W"))
+EXTRA.append(real("Hill Giant", "{3}{R}", 4, "Creature \u2014 Giant", "", ("3", "3"), "R"))
 NAMES = [c["name"] for c in EXTRA]
 
 
@@ -76,4 +80,21 @@ def test_binding_negotiation(cards, take):
     if not take:
         answer(s, exiled.id)
     assert s.state.cards[exiled.id].zone == ("p2:exile" if take else "p2:graveyard")
+    check(s)
+
+
+def test_carom(cards):
+    """1 of Bolt's 3 damage to the Giant goes to the Bears instead (Giant 2, Bears 1); Carom draws a card."""
+    s = build(cards, ["Carom", "Lightning Bolt", "Hill Giant", "Grizzly Bears"])
+    giant, bears = (to_hand(s, n) for n in ("Hill Giant", "Grizzly Bears"))
+    for c in (giant, bears):
+        act(s, "p1", type="move", card_ids=[c.id], to={"player": "p1", "zone": "battlefield"})
+    hand = len(s.state.zones["p1:hand"])
+    mana(s, W=1, C=1, R=1)
+    cast(s, "Carom", [giant.id, bears.id], target_counts=[1, 1])
+    answer(s)
+    assert len(s.state.zones["p1:hand"]) == hand + 1  # Carom cast from hand, one card drawn
+    cast(s, "Lightning Bolt", [giant.id])
+    answer(s)
+    assert (s.state.cards[giant.id].damage, s.state.cards[bears.id].damage) == (2, 1)
     check(s)
