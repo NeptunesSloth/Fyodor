@@ -118,6 +118,8 @@ def _treasure_if_big(d: Def) -> Def:
     return {**d, "effects": [*fx[:-1], {"do": "only_if", "cond": {"w110g": "exploited_big"}, "skip": 1}, fx[-1]]}
 
 
+_JUDOON = ("You may exile a Human you control and an artifact you control. If you do, search your library for a Doctor card, put it onto the battlefield, "
+           "then shuffle.")
 _INFERNAL = ("Choose an opponent. You and that player each sacrifice a creature. Each player who sacrificed a creature this way draws two cards.")
 _REANIMATE = ("Choose an opponent. Return a creature card from your graveyard to the battlefield, then that player returns a creature card from their graveyard "
               "to the battlefield.")
@@ -137,6 +139,8 @@ def parse(body: str) -> Any:
     """Etched Host Doombringer's mode: one target battle; the protector decides between removing and adding (310.4, 310.8)."""
     from app.rules import scripts
 
+    if body.strip() == _JUDOON:  # Fugitive of the Judoon III: both exiled together or nothing (paid as one cost, 118.3)
+        return scripts.parse_effects(_JUDOON.replace("a Human you control and an artifact", "a Human you control and exile an artifact"))
     if body.strip() == _INFERNAL:  # Infernal Offering mode 1: the controller and the chosen opponent sacrifice together (101.4, 701.21a)
         got = scripts.parse_effects("Choose an opponent. Each player sacrifices a creature. "
                                     "Each player who sacrificed a creature this way draws two cards.")

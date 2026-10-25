@@ -5,6 +5,7 @@
 * Golgari Brownscale: 603.6 / 400.7 the card put into its owner's hand from the graveyard (dredge, 702.52a) triggers from the hand.
 * Invasion of the Giants: 603.12 'Then you may reveal a Giant card. When you do' is a reflexive trigger after the draw.
 * Distended Mindbender: 701.9 / 701.20a one discard per size class from the revealed hand, chosen by the caster.
+* Fugitive of the Judoon: 702.21a a token created with ward {2}; 118.3 the Human and the artifact are exiled together, then a Doctor is searched out.
 * Total War: 508.1 / 302.6 untapped non-Wall creatures that did not attack and were controlled since the turn began are destroyed.
 * Gemini Engine: 508.4 / 111.1 an attacking token with the attacker's power and toughness, sacrificed at end of combat.
 * Vizkopa Confessor: 119.4 the life paid sizes the reveal (701.20a); paying 0 reveals nothing.
@@ -62,6 +63,9 @@ EXTRA = [
          '(As this Saga enters and after your draw step, add a lore counter. Sacrifice after III.)\nI — Scry 2.\nII — Draw a card. Then you may reveal a Giant card from your hand. When you do, this Saga deals 2 damage to target opponent or planeswalker.\nIII — The next Giant spell you cast this turn costs {2} less to cast.', None, 'RU'),
     real('Distended Mindbender', '{8}', 8, 'Creature — Eldrazi Insect',
          "Emerge {5}{B}{B} (You may cast this spell by sacrificing a creature and paying the emerge cost reduced by that creature's mana value.)\nWhen you cast this spell, target opponent reveals their hand. You choose from it a nonland card with mana value 3 or less and a card with mana value 4 or greater. That player discards those cards.", ('5', '5'), ''),
+    real('Fugitive of the Judoon', '{4}{G}', 5, 'Enchantment \u2014 Saga',
+         '(As this Saga enters and after your draw step, add a lore counter. Sacrifice after III.)\nI \u2014 Create a 1/1 white Human creature token with ward {2} and a 4/4 white Alien Rhino creature token.\nII \u2014 Investigate.\nIII \u2014 You may exile a Human you control and an artifact you control. If you do, search your library for a Doctor card, put it onto the battlefield, then shuffle.', None, 'G'),
+    real('Test Doctor', '{G}', 1, 'Creature \u2014 Time Lord Doctor', '', ('1', '1'), 'G'),
     real('Total War', '{3}{R}', 4, 'Enchantment',
          "Whenever a player attacks with one or more creatures, destroy all untapped non-Wall creatures that player controls that didn't attack, except for creatures the player hasn't controlled continuously since the beginning of the turn.", None, 'R'),
     real('Gemini Engine', '{6}', 6, 'Artifact Creature — Construct',
@@ -828,4 +832,35 @@ def test_beamsplitter_mage_rechecks_if_on_resolution(cards):
     assert s.state.cards[bears.id].zone == "p1:graveyard"
     assert s.state.rules.decision is None and not s.state.zones["stack"]
     assert s.state.cards[mage.id].damage == 1
+    check(s)
+
+
+@pytest.mark.parametrize("pay", [True, False])
+def test_fugitive_of_the_judoon_token_has_ward_and_chapter_three_exiles_both(cards, pay):
+    """Fugitive of the Judoon (702.21a, 118.3): the Human token has ward {2}; chapter III exiles the Human and a Clue together to fetch a Doctor."""
+    s = build(cards, ["Fugitive of the Judoon", *["Forest"] * 20, "Test Doctor"], [], forests=0, islands=40)  # (the Doctor stays deep in the library)
+    mana(s, "p1", G=1, C=4)
+    saga = to_hand(s, "Fugitive of the Judoon")
+    act(s, "p1", type="cast_spell", card_id=saga.id)
+    seen = False
+    for _ in range(400):
+        d = s.state.rules.decision
+        human = next((c for c in s.state.cards.values() if c.name == "Human" and c.zone == "p1:battlefield"), None)
+        if human is not None and not seen:
+            seen = True
+            assert any("ward" in k for k in ch(s, human).keywords)
+        if s.state.cards[saga.id].zone == "p1:graveyard" and d is None and not s.state.zones.get("stack"):
+            break  # sacrificed after chapter III
+        if d is not None and d.kind in ("declare_attackers", "declare_blockers"):
+            act(s, d.player, type=d.kind, **({"attackers": []} if d.kind == "declare_attackers" else {"blocks": []}))
+        elif d is not None:
+            ids = [o.id for o in d.options]
+            yes = "pay" if pay else "decline"
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[next((i for i in ids if i in (yes, "p2")), ids[0])])
+        else:
+            act(s, s.state.rules.priority, type="pass_priority")
+    assert seen
+    on = lambda n, z: [c for c in s.state.cards.values() if c.name == n and c.zone == z]  # noqa: E731
+    assert bool(on("Test Doctor", "p1:battlefield")) == pay
+    assert len(on("Human", "p1:battlefield")) == (0 if pay else 1) and len(on("Clue", "p1:battlefield")) == (0 if pay else 1)
     check(s)
