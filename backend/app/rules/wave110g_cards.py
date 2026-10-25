@@ -144,6 +144,10 @@ _REANIMATE = ("Choose an opponent. Return a creature card from your graveyard to
               "to the battlefield.")
 _BARGE = ("Target creature gains islandwalk until end of turn. When ~ leaves the battlefield this turn, destroy that creature. "
           "A creature destroyed this way can't be regenerated.")
+_MOONGLOVE = ("Target creature you control gets +1/+0 and gains deathtouch until end of turn. "
+              "Whenever a creature dealt damage by that creature dies this turn, its controller loses 2 life.")
+_EYE = ("The next time a source of your choice would deal damage to you this turn, instead that source deals that much damage to you and "
+        "~ deals that much damage to that source's controller.")
 _SWING = ("Choose target battle. If an opponent protects it, remove three defense counters from it. Otherwise, put three defense counters on it.")
 
 
@@ -181,6 +185,17 @@ def parse(body: str) -> Any:
             return None
         return [{"do": "grant", "who": "target", "keywords": ["islandwalk"]},
                 *bound._event("leave", "self", [{"do": "destroy", "who": "target"}, {"do": "no_regen"}])], [group], False
+    if body.strip() == _MOONGLOVE:  # Touch of Moonglove: a turn-long watch on every death; delayed.on_events keeps those the target damaged (120.3, 603.7c)
+        got = scripts.parse_effects("Target creature you control gets +1/+0 and gains deathtouch until end of turn.")
+        if got is None:
+            return None
+        effects, target, optional = got
+        return [*effects, {"do": "delayed", "when": {"kind": "event", "event": "die", "damager110g": True}, "n": 1, "who": "target", "this_turn": True,
+                           "once": False}, {"do": "deferred:lose_life", "who": "ref:event.controller", "n": 2}], target, optional
+    if body.strip() == _EYE:  # Eye for an Eye: a chosen source (609.7a); its damage to you is still dealt, then ~ deals that much to its controller (615.5-like rider)
+        return [{"do": "source_shield", "props": {}, "once": True, "to": "you", "observe110g": True,
+                 "rider": {"if": False, "aggregation": "batch", "effects": [{"do": "damage", "who": "ref:from_ctrl", "src": "self",
+                                                                             "n": {"ref_amount": "that_damage"}}]}}], None, False
     if body.strip() == _CULTIST:  # Kill-Suit Cultist: the target creature, chosen now
         from app.rules import language
 

@@ -115,6 +115,10 @@ EXTRA = [
     real('Mindstorm Crown', '{3}', 3, 'Artifact', 'At the beginning of your upkeep, draw a card if you had no cards in hand at the beginning of this turn. If you had a card in hand, this artifact deals 1 damage to you.', None, ''),
     real('Archaic\'s Agony', '{4}{R}', 5, 'Sorcery', 'Converge \u2014 Archaic\'s Agony deals X damage to target creature, where X is the number of colors of mana spent to cast this spell. Exile cards from the top of your library equal to the excess damage dealt to that creature this way. You may play those cards until the end of your next turn.', None, 'R'),
     real('Kill-Suit Cultist', '{B}', 1, 'Creature \u2014 Human Cleric', 'This creature attacks each combat if able.\n{B}, Sacrifice this creature: The next time damage would be dealt to target creature this turn, destroy that creature instead.', ('1', '1'), 'B'),
+    real('Touch of Moonglove', '{B}', 1, 'Instant',
+         "Target creature you control gets +1/+0 and gains deathtouch until end of turn. Whenever a creature dealt damage by that creature dies this turn, its controller loses 2 life. (Any amount of damage a creature with deathtouch deals to a creature is enough to destroy it.)", None, 'B'),
+    real('Eye for an Eye', '{W}{W}', 2, 'Instant',
+         "The next time a source of your choice would deal damage to you this turn, instead that source deals that much damage to you and Eye for an Eye deals that much damage to that source's controller.", None, 'W'),
     real('Test Zap', '{R}', 1, 'Instant', 'Test Zap deals 1 damage to target creature.', None, 'R'),
     real('Beamsplitter Mage', '{1}{R}', 2, 'Creature \u2014 Human Wizard', 'Whenever you cast an instant or sorcery spell that targets only this creature, if you control one or more other creatures that spell could target, choose one of those creatures. Copy that spell. The copy targets the chosen creature.', ('1', '3'), 'R'),
     real('Biblioplex Tomekeeper', '{4}', 4, 'Artifact Creature \u2014 Construct', 'When this creature enters, choose up to one \u2014\n\u2022 Target creature becomes prepared.\n\u2022 Target creature becomes unprepared.', ('3', '4'), ''),
@@ -926,4 +930,66 @@ def test_thought_prison_hurts_casters_of_spells_sharing_color_or_mana_value(card
     act(s, "p1", type="cast_spell", card_id=to_hand(s, spell).id)
     drive(s)
     assert s.state.players["p1"].life == life - hurt
+    check(s)
+
+
+def test_thought_prison_declined_reveal_exiles_nothing_and_never_hurts(cards):
+    """Thought Prison: "you may have target player reveal" declined (603.5): nothing exiled, so no spell shares anything with it."""
+    s = build(cards, ["Thought Prison", "Llanowar Elves"], ["Grizzly Bears"])
+    mana(s, "p1", C=5)
+    bears = to_hand(s, "Grizzly Bears", "p2")
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Thought Prison").id)
+    drive(s, lambda d: "p2" if "p2" in [o.id for o in d.options] else "no" if "no" in [o.id for o in d.options] else None)
+    assert s.state.cards[bears.id].zone == "p2:hand"
+    life = s.state.players["p1"].life
+    mana(s, "p1", G=1)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Llanowar Elves").id)
+    drive(s)
+    assert s.state.players["p1"].life == life
+    check(s)
+
+
+def test_touch_of_moonglove_blocker_dies_and_controller_loses_2(cards):
+    """Touch of Moonglove (120.3, 603.7c): the blocker Bears hit with deathtouch dies, its controller loses 2; a creature Bears never damaged does not."""
+    s = build(cards, ["Grizzly Bears", "Touch of Moonglove", "Test Zap"], ["Hill Giant", "Goblin"])
+    bears = put(s, "Grizzly Bears")
+    giant = put(s, "Hill Giant", "p2")
+    goblin = put(s, "Goblin", "p2")
+    mana(s, "p1", B=1)
+    cast(s, "Touch of Moonglove", [bears.id])
+    life = s.state.players["p2"].life
+    mana(s, "p1", R=1)
+    cast(s, "Test Zap", [goblin.id])
+    assert s.state.cards[goblin.id].zone == "p2:graveyard" and s.state.players["p2"].life == life
+    attack(s, bears)
+    through_combat(s, [(giant, bears)])
+    assert s.state.cards[giant.id].zone == "p2:graveyard"
+    assert s.state.players["p2"].life == life - 2
+    check(s)
+
+
+def test_eye_for_an_eye_deals_the_same_damage_to_the_sources_controller(cards):
+    """Eye for an Eye (609.7a, 614.1): Bob's Bolt is the chosen source; its 3 damage to Alice is still dealt and Eye deals 3 to Bob. A second Bolt is a different source."""
+    from tests.test_rules_wave35a_one_shot_shields import alice_responds, bobs_turn, bolt, choose, stops, until_asked
+
+    s = build(cards, ["Eye for an Eye"], ["Lightning Bolt", "Lightning Bolt"])
+    stops(s)
+    bobs_turn(s)
+    bolt(s, "p1")
+    mana(s, "p1", W=2)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Eye for an Eye").id)
+    until_asked(s)
+    choose(s, "Lightning Bolt")
+    for _ in range(12):
+        if not s.state.zones.get("stack") and s.state.rules.decision is None:
+            break
+        d = s.state.rules.decision
+        act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][:1]) if d else act(s, s.state.rules.priority, type="pass_priority")
+    assert (s.state.players["p1"].life, s.state.players["p2"].life) == (37, 37)
+    assert not s.state.rules.replacements
+    bolt(s, "p1")  # the shield is used up (615.8): the second Bolt hurts Alice alone
+    for _ in range(6):
+        if s.state.zones.get("stack"):
+            act(s, s.state.rules.priority, type="pass_priority")
+    assert (s.state.players["p1"].life, s.state.players["p2"].life) == (34, 37)
     check(s)
