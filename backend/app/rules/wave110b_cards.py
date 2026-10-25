@@ -103,6 +103,10 @@ def _lich(d: Def) -> Def:
 
 
 # whole ability text -> (the wording the grammar reads, what to change in its definition)
+def _electro(d: Def) -> Def:
+    return {**d, "effects": [d["effects"][0], {**d["effects"][1], "n": {"turn_history": "excess_obj110b", "object": "event"}}]}
+
+
 _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
     # Way of the Mind Sculptor: the activation event carries the loyalty counters its cost removed (606.4, 603.4)
     "Whenever you activate a loyalty ability, if you removed two or more loyalty counters to activate it, draw a card.":
@@ -149,6 +153,13 @@ _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
     "When you remove the last intervention counter from this enchantment, the game is a draw.":
         ("When the last intervention counter is removed from this enchantment, draw a card.",
          lambda d: {**d, "effects": [{"do": "draw_game110b"}]}),
+    # Overclocked Electromancer: X is all the excess damage that creature was dealt this turn (120.10), summed from the turn log
+    "Whenever this creature deals combat damage to a creature, if that creature was dealt excess damage this turn, you get X {E}, where X is that excess "
+    "damage.":
+        ("Whenever this creature deals combat damage to a creature, if that creature was dealt excess damage this turn, you get {E}{E}.", _electro),
+    # Firemane Angel: works from the graveyard (as Quakebringer) or on the battlefield (603.4 intervening "if")
+    "At the beginning of your upkeep, if Firemane Angel is in your graveyard or on the battlefield, you may gain 1 life.":
+        ("At the beginning of your upkeep, if this creature is in your graveyard, you may gain 1 life.", _quake),
     # Ozai: the mana a player would lose stays in the pool as red mana (614.1a, 500.4)
     "If you would lose unspent mana, that mana becomes red instead.":
         ("If you would lose unspent mana, that mana becomes colorless instead.", lambda d: {**d, "to": "R"}),

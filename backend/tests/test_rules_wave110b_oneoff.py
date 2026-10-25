@@ -31,7 +31,7 @@ def cards(settings):
     yield from repository(settings)
 
 
-@pytest.mark.parametrize("name", ["Prince of Thralls", "Oath of Lim-Dûl", "Chaos Lord", "Divine Intervention", "Herald of Anafenza", "Guardian of New Benalia", "Aloe Alchemist", "Parapet Thrasher", "Bane of the Living", "Warbreak Trumpeter", "Kadena's Silencer", "Longhorn Sharpshooter", "Plague Reaver", "Quakebringer", "Suppressor Skyguard", "Shirei, Shizo's Caretaker", "Lich's Mastery", "The Chain Veil", "Campsite Cuisine", "Way of the Mind Sculptor", "Kitsune Ace", "Knights of the Black Rose"])
+@pytest.mark.parametrize("name", ["Prince of Thralls", "Oath of Lim-Dûl", "Chaos Lord", "Divine Intervention", "Herald of Anafenza", "Guardian of New Benalia", "Aloe Alchemist", "Parapet Thrasher", "Overclocked Electromancer", "Arashin War Beast", "Firemane Angel", "Bane of the Living", "Warbreak Trumpeter", "Kadena's Silencer", "Longhorn Sharpshooter", "Plague Reaver", "Quakebringer", "Suppressor Skyguard", "Shirei, Shizo's Caretaker", "Lich's Mastery", "The Chain Veil", "Campsite Cuisine", "Way of the Mind Sculptor", "Kitsune Ace", "Knights of the Black Rose"])
 def test_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
@@ -545,4 +545,46 @@ def test_knights_of_the_black_rose_punish_a_new_monarch_only_if_you_began_the_tu
     drive(s)
     assert s.state.table.monarch == "p2"
     assert (s.state.players["p1"].life, s.state.players["p2"].life) == ((42, 38) if was_monarch else (40, 40))
+    check(s)
+
+
+@pytest.mark.parametrize("blocker, energy", [("Llanowar Elves", 3), ("Grizzly Bears", 2), ("Hill Giant", 1)])
+def test_overclocked_electromancer_gets_energy_equal_to_the_excess_damage(cards, blocker, energy):
+    """Overclocked Electromancer attacks as a 4/2 (doubled): 120.10 excess is 4 less the blocker's toughness."""
+    from tests.wave110b_kit import through_combat
+
+    s = build(cards, ["Overclocked Electromancer"], [blocker])
+    em, blk = put(s, "Overclocked Electromancer"), put(s, blocker, "p2")
+    before = s.state.players["p1"].resources.get("energy", 0)
+    attack(s, em)
+    through_combat(s, [(blk, em)])
+    assert s.state.players["p1"].resources.get("energy", 0) - before == energy
+    check(s)
+
+
+@pytest.mark.parametrize("blocked", [True, False])
+def test_arashin_war_beast_manifests_only_after_damaging_a_blocker(cards, blocked):
+    """Arashin War Beast: 603.2c one trigger when it deals combat damage to one or more creatures that are blocking; unblocked, no creature is hit."""
+    from tests.wave110b_kit import through_combat
+
+    s = build(cards, ["Arashin War Beast", "Forest"], ["Grizzly Bears"])
+    beast, bears = put(s, "Arashin War Beast"), put(s, "Grizzly Bears", "p2")
+    attack(s, beast)
+    through_combat(s, [(bears, beast)] if blocked else [])
+    face_down = [c for c in s.state.cards.values() if c.face_down and c.zone == "p1:battlefield"]
+    assert len(face_down) == (1 if blocked else 0)
+    check(s)
+
+
+@pytest.mark.parametrize("zone, life", [("battlefield", 41), ("graveyard", 41), ("hand", 40)])
+def test_firemane_angel_gains_life_in_the_graveyard_or_on_the_battlefield(cards, zone, life):
+    """Firemane Angel: the upkeep trigger functions on the battlefield or in its controller's graveyard (113.6b), not elsewhere; the gain is optional."""
+    from tests.test_rules_conditionals import to_turn
+
+    s = build(cards, ["Firemane Angel", *["Forest"] * 8], ["Forest"] * 8)
+    a = put(s, "Firemane Angel")
+    if zone != "battlefield":
+        act(s, "p1", type="move", card_ids=[a.id], to={"player": "p1", "zone": zone})
+    to_turn(s, 3, "main1")
+    assert s.state.players["p1"].life == life
     check(s)

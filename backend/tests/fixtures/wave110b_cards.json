@@ -818,5 +818,65 @@
   ],
   "power": "1",
   "toughness": "3"
+ },
+ {
+  "name": "Overclocked Electromancer",
+  "layout": "normal",
+  "mana_cost": "{2}{R}",
+  "cmc": 3.0,
+  "type_line": "Creature — Lizard Wizard",
+  "oracle_text": "At the beginning of combat on your turn, you may pay {E}{E}{E}. If you do, put a +1/+1 counter on this creature.\nWhenever this creature attacks, double its power until end of turn.\nWhenever this creature deals combat damage to a creature, if that creature was dealt excess damage this turn, you get X {E}, where X is that excess damage.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Double"
+  ],
+  "power": "2",
+  "toughness": "2"
+ },
+ {
+  "name": "Arashin War Beast",
+  "layout": "normal",
+  "mana_cost": "{5}{G}{G}",
+  "cmc": 7.0,
+  "type_line": "Creature — Beast",
+  "oracle_text": "Whenever this creature deals combat damage to one or more blocking creatures, manifest the top card of your library. (Put it onto the battlefield face down as a 2/2 creature. Turn it face up any time for its mana cost if it's a creature card.)",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [
+   "Manifest"
+  ],
+  "power": "6",
+  "toughness": "6"
+ },
+ {
+  "name": "Firemane Angel",
+  "layout": "normal",
+  "mana_cost": "{3}{R}{W}{W}",
+  "cmc": 6.0,
+  "type_line": "Creature — Angel",
+  "oracle_text": "Flying, first strike\nAt the beginning of your upkeep, if Firemane Angel is in your graveyard or on the battlefield, you may gain 1 life.\n{6}{R}{R}{W}{W}: Return this card from your graveyard to the battlefield. Activate only during your upkeep.",
+  "colors": [
+   "R",
+   "W"
+  ],
+  "color_identity": [
+   "R",
+   "W"
+  ],
+  "keywords": [
+   "Flying",
+   "First strike"
+  ],
+  "power": "4",
+  "toughness": "3"
  }
 ]

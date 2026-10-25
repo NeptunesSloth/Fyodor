@@ -98,7 +98,8 @@ _DAMAGE_TO = {"": "any", " to a player": "player", " to a creature": "creature",
               # -- source damage (wave 11F) -- 603.2c: "to one or more players" is one trigger for the whole batch
               " to its owner": "its_owner",  # -- trigger other (wave 44B) -- 120.1: The Beast, "a creature deals combat damage to its owner" (the damage dealer's owner is the player)
               " to one or more players": "players", " to your opponents": "opponents",
-              " to one or more of your opponents": "opponents", " to ~": "self", " to one or more creatures": "creatures"}
+              " to one or more of your opponents": "opponents", " to ~": "self", " to one or more creatures": "creatures",
+              " to one or more blocking creatures": "creatures"}  # (-- one-card wordings (wave 110B) -- Arashin War Beast: the cond's "blocking110b")
 _ONE_OR_MORE_TO = (" to one or more players", " to your opponents", " to one or more of your opponents")  # (wave 39B)
 _DAMAGE_TO_RE = "|".join(re.escape(k) for k in sorted(_DAMAGE_TO, key=len, reverse=True) if k)
 # 508.3a / 508.3b / 508.3e / 508.6: whom an attack was declared against
@@ -1492,6 +1493,6 @@ def _object_event(c: str) -> Condition | None:
             return None
         # (a "min" is the damage one source dealt one recipient in one event: 120.3; "to one or more creatures": 603.2c)
         return {**who, "event": "deal_damage", "to": to, **({"min": _count(m["min"])} if m["min"] else {}),
-                **({"aggregate": True} if to == "creatures" else {}),
+                **({"aggregate": True} if to == "creatures" else {}), **({"blocking110b": True} if "blocking" in m["to"] else {}),
                 "combat": {"combat ": True, "noncombat ": False}.get(m["c"] or "")}
     return None
