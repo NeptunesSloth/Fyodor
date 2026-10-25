@@ -23,7 +23,9 @@ def parse(body: str) -> tuple[list[dict[str, Any]], Any, bool] | None:
         # Oubliette (wave 110C): 702.26a/610.3; the tap rides on the packet and happens as it phases in (702.26d).
         from app.rules import scripts
 
-        _, target, optional = scripts.parse_effects('Target creature phases out.')
+        parsed = scripts.parse_effects('Target creature phases out.')
+        assert parsed is not None
+        _, target, optional = parsed
         return ([{'do': STEP_TARGET}], target, optional)
     if text != ('Untap all creatures, then those creatures phase out until this enchantment leaves the battlefield. '
                 'Put a time counter on this enchantment for each creature that phased out this way.'):
