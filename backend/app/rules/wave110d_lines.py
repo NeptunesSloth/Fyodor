@@ -7,6 +7,9 @@ from typing import Any
 
 # the Oracle line (the card's name as ~) -> the wording the grammar already reads, with the same meaning
 _AS: dict[str, str] = {
+    # Shallow Grave: 404.1 the top card of a graveyard is the last one put there; it is not a target (patched in definition)
+    "Return the top creature card of your graveyard to the battlefield. That creature gains haste until end of turn. Exile it at the beginning of the next end step.":
+        "Return target creature card from your graveyard to the battlefield. That creature gains haste until end of turn. Exile it at the beginning of the next end step.",
     # Coveted Falcon: 608.2b only the legal targets are given away; the draw below counts the ones the opponent now controls (any number: a group of 0-N, patched in definition)
     "When ~ is turned face up, target opponent gains control of any number of target permanents you control. Draw a card for each one they gained control of this way.":
         "When ~ is turned face up, target opponent gains control of target permanent you control. Draw a card.",
@@ -96,6 +99,10 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
     if d is not None and text.startswith("When ~ is turned face up, target opponent gains control of any number"):
         d["targets"][1] = {**d["targets"][1], "min": 0, "max": 250}  # (language.MAX_TARGETS)
         d["effects"][-1] = {"do": "draw_gained110d"}
+    if d is not None and text.startswith("Return the top creature card of your graveyard"):
+        d.pop("target")
+        d["effects"][0]["who"] = "ref:top110d"
+        d["effects"].insert(0, {"do": "top_creature110d", "bind": "top110d"})
     if d is not None and text.endswith("it enters tapped and attacking."):
         d["effects"][0]["tap_atk110d"] = "Enchantment"
     return d
@@ -124,4 +131,14 @@ def draw_gained(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
     return effects.draw(plan, ctx, {"do": "draw", "who": "you", "n": n}) if n else True
 
 
-PRIMITIVES = {"draw_gained110d": draw_gained}
+def top_creature(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
+    """Shallow Grave: bind the top creature card of its controller's graveyard (404.1; the last card put there), if any."""
+    from app.rules import context
+
+    pile = plan.state.zones[f"{ctx['controller']}:graveyard"]
+    top = [c for c in pile if "Creature" in plan.ch(plan.state.cards[c]).types][-1:]
+    context.bind_objects(plan, ctx, e["bind"], top)
+    return True
+
+
+PRIMITIVES = {"draw_gained110d": draw_gained, "top_creature110d": top_creature}
