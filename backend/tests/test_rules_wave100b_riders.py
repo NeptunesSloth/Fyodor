@@ -86,6 +86,8 @@ Every scenario checks the replay and a save and a load.
   (2010-08-15: all put onto the battlefield at once, the rest shuffled in).
 * Kethek, Crucible Goliath - "you may sacrifice another creature. If you do, reveal cards … until you reveal a nonlegendary creature card with lesser
   mana value" (lesser than the sacrificed creature's, as it last existed: 608.2h).
+* Worlds Within Worlds - "Each player may put any number of creature cards from their hand onto the battlefield. Then put all cards exiled this
+  way into their owners' hands." (the exiled cards, 400.7j).
 * Hellfire - "deals X plus 3 damage to you, where X is the number of creatures that died this way." (a destroyed token counts, a creature a
   replacement effect exiled instead doesn't: the 2009-10-01 rulings).
 """
@@ -119,7 +121,7 @@ REST, BRINGER, VAULT101 = "Long Rest", "Bringer of the Last Gift", "Vault 101: B
 INFERNO, FOXGLOVE, SPIRIT = "Inferno of the Star Mounts", "Mr. Foxglove", "Call the Spirit Dragons"
 HOLISTIC, WERNOG, LIEGE, PLAGUE = "Holistic Wisdom", "Wernog, Rider's Chaplain", "Liege of the Hollows", "Plague of Vermin"
 VAULT21, KAMAHL, OVERSIMPLIFY = "Vault 21: House Gambit", "Kamahl's Summons", "Oversimplify"
-POLYMORPH, KETHEK = "Mass Polymorph", "Kethek, Crucible Goliath"
+POLYMORPH, KETHEK, WORLDS = "Mass Polymorph", "Kethek, Crucible Goliath", "Worlds Within Worlds"
 BEARS, GIANT, RIP, ELVES = "Grizzly Bears", "Hill Giant", "Rest in Peace", "Llanowar Elves"
 
 
@@ -128,7 +130,7 @@ def cards(settings):
     yield from open_repo(settings)
 
 
-@pytest.mark.parametrize("name", [ROWEN, ETCHINGS, KERANOS, SUGARMAW, HELLFIRE, TERROR, KELLAN, EGO, SHRIEK, GORILLA, DESERTER, AEROSTAT, FOLD, SWIFT, RESEARCHER, KOYA, SURVIVORS, VANISH, DAKRA, DURIN, LATNAM, SURGE, LOCKE, HELLION, HULK, KALDHEIM, MANABOND, GUARDIAN, INVESTIGATORS, CLASH, SANCTUM, HEDRON, ATEMSIS, SPHINX, VOICE, GEAR, MIRROR, RUNES, RALLY, REST, BRINGER, VAULT101, INFERNO, FOXGLOVE, SPIRIT, HOLISTIC, WERNOG, LIEGE, PLAGUE, VAULT21, KAMAHL, OVERSIMPLIFY, POLYMORPH, KETHEK])
+@pytest.mark.parametrize("name", [ROWEN, ETCHINGS, KERANOS, SUGARMAW, HELLFIRE, TERROR, KELLAN, EGO, SHRIEK, GORILLA, DESERTER, AEROSTAT, FOLD, SWIFT, RESEARCHER, KOYA, SURVIVORS, VANISH, DAKRA, DURIN, LATNAM, SURGE, LOCKE, HELLION, HULK, KALDHEIM, MANABOND, GUARDIAN, INVESTIGATORS, CLASH, SANCTUM, HEDRON, ATEMSIS, SPHINX, VOICE, GEAR, MIRROR, RUNES, RALLY, REST, BRINGER, VAULT101, INFERNO, FOXGLOVE, SPIRIT, HOLISTIC, WERNOG, LIEGE, PLAGUE, VAULT21, KAMAHL, OVERSIMPLIFY, POLYMORPH, KETHEK, WORLDS])
 def test_the_cards_are_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL", name
 
@@ -1215,4 +1217,17 @@ def test_kethek_finds_a_creature_card_with_lesser_mana_value_than_the_sacrificed
     to_phase(s, "end")
     run(s, lambda d: [o.id for o in d.options if o.id == "pay" or getattr(o, "card_id", None) == giant.id][:1] or None)
     assert zone(s, giant) == "p1:graveyard" and zone(s, s.state.cards[elves]) == "p1:battlefield" and s.state.zones["p1:library"][-1] == dragon
+    check(s)
+
+
+def test_worlds_within_worlds_swaps_the_exiled_creatures_for_ones_from_hand(cards):
+    s = build_n(cards, [WORLDS, BEARS, "Hill Giant"], ["Llanowar Elves", "Fog Bank"])
+    bears, elves = put(s, BEARS), put(s, "Llanowar Elves", "p2")
+    giant, bank = to_hand(s, "Hill Giant"), to_hand(s, "Fog Bank", "p2")
+    spell = to_hand(s, WORLDS)
+    mana(s, G=1, U=1, C=5)
+    act(s, "p1", type="cast_spell", card_id=spell.id)
+    run(s, lambda d: [o.id for o in d.options if getattr(o, "card_id", None) in (giant.id, bank.id)] or None)
+    assert (zone(s, giant), zone(s, bank), zone(s, bears), zone(s, elves), zone(s, spell)) == (
+        "p1:battlefield", "p2:battlefield", "p1:hand", "p2:hand", "p1:exile")
     check(s)
