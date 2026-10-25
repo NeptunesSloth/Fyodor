@@ -1,0 +1,69 @@
+{
+  "object": "list",
+  "has_more": false,
+  "data": [
+    {
+      "object": "ruling",
+      "oracle_id": "cbf64c58-664f-431f-987e-08ae70d23f2b",
+      "source": "wotc",
+      "published_at": "2024-06-07",
+      "comment": "Starting with the next opponent in turn order (or the active player, if that player is one of your opponents), each opponent in turn order decides whether or not to copy the spell and, if they do, whether or not to choose new targets. Then, if that player did choose to copy the spell, the copy is put onto the stack. Finally, you copy that spell at least once (hopefully more, if the mayhem was tempting enough) and choose new targets for your copies if you wish. This means that your copies of the spell will resolve first, followed by the copies created by your opponents in the opposite order in which they were created."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "cbf64c58-664f-431f-987e-08ae70d23f2b",
+      "source": "wotc",
+      "published_at": "2024-06-07",
+      "comment": "In the case where the spell being copied grants one or more players extra turns, those extra turns are added one at a time. When the current turn ends, the most recently created turn will be taken first."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "cbf64c58-664f-431f-987e-08ae70d23f2b",
+      "source": "wotc",
+      "published_at": "2024-06-07",
+      "comment": "Each of the copies will have the same targets as the spell it's copying unless its controller chooses new ones. That player may change any number of the targets, including all of them or none of them. The new targets must be legal. If, for any target, they can't choose a new legal target, then it remains unchanged (even if the current target is illegal)."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "cbf64c58-664f-431f-987e-08ae70d23f2b",
+      "source": "wotc",
+      "published_at": "2024-06-07",
+      "comment": "The copies are created on the stack, so they're not \"cast.\" Creating a copy won't cause abilities that trigger when a player casts a spell to trigger."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "cbf64c58-664f-431f-987e-08ae70d23f2b",
+      "source": "wotc",
+      "published_at": "2024-06-07",
+      "comment": "If the spell that's copied is modal (that is, it says \"Choose one \u2014\" or the like), the copies will have the same mode or modes. You can't choose different ones."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "cbf64c58-664f-431f-987e-08ae70d23f2b",
+      "source": "wotc",
+      "published_at": "2024-06-07",
+      "comment": "If the spell that's copied has an X whose value was determined as it was cast, the copies will have the same value of X."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "cbf64c58-664f-431f-987e-08ae70d23f2b",
+      "source": "wotc",
+      "published_at": "2024-06-07",
+      "comment": "If the spell that's copied has damage divided as it was cast, the division can't be changed (although the targets receiving that damage still can). The same is true of spells that distribute counters."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "cbf64c58-664f-431f-987e-08ae70d23f2b",
+      "source": "wotc",
+      "published_at": "2024-06-07",
+      "comment": "The controller of a copy can't choose to pay any alternative or additional costs for the copy. However, effects based on any alternative or additional costs that were paid for the original spell are copied as though those same costs were paid for the copy."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "cbf64c58-664f-431f-987e-08ae70d23f2b",
+      "source": "wotc",
+      "published_at": "2024-06-07",
+      "comment": "Tempt with Mayhem can't target itself. There are limits, after all."
+    }
+  ]
+}

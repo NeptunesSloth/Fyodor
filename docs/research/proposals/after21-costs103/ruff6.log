@@ -1,0 +1,46 @@
+I001 [*] Import block is un-sorted or un-formatted
+    --> app/rules/casting.py:3810:5
+     |
+3808 |       # added before increases and reductions apply, so a reduction sees the kicked total; "spells that target …" cost
+3809 |       # changers read the targets chosen (wave 4I)
+3810 | /     from app.rules import cast_limits, spell_mana_floor, spell_symbol_choices
+3811 | |
+3812 | |     from app.rules import waterbend103
+     | |______________________________________^
+3813 |
+3814 |       additional.append(waterbend103.mana(optional))
+     |
+help: Organize imports
+     |
+3809 |     # changers read the targets chosen (wave 4I)
+     -     from app.rules import cast_limits, spell_mana_floor, spell_symbol_choices
+     -
+     -     from app.rules import waterbend103
+3810 +     from app.rules import cast_limits, spell_mana_floor, spell_symbol_choices, waterbend103
+3811 |
+     |
+
+I001 [*] Import block is un-sorted or un-formatted
+    --> app/rules/casting.py:5159:5
+     |
+5157 |       # alternative cost — {0}, or the madness cost
+5158 |       mode_costs = [M.parse_cost(definition["modes"][i]["cost"]) for i in picked if definition and definition["modes"][i].get("cost"…
+5159 | /     from app.rules import cast_limits, spell_mana_floor, spell_symbol_choices
+5160 | |
+5161 | |     from app.rules import waterbend103
+     | |______________________________________^
+5162 |
+5163 |       prepared: list[Any] = []
+     |
+help: Organize imports
+     |
+5158 |     mode_costs = [M.parse_cost(definition["modes"][i]["cost"]) for i in picked if definition and definition["modes"][i].get("cost")]  # (30E: spree, 118.9d)
+     -     from app.rules import cast_limits, spell_mana_floor, spell_symbol_choices
+     -
+     -     from app.rules import waterbend103
+5159 +     from app.rules import cast_limits, spell_mana_floor, spell_symbol_choices, waterbend103
+5160 |
+     |
+
+Found 2 errors.
+[*] 2 fixable with `--fix`.

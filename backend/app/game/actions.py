@@ -14,7 +14,7 @@ from typing import Annotated, Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, field_validator, model_validator
 
 from app.game.macros import MacroDef
-from app.game.rules_state import EntryCharacteristics
+from app.game.rules_state import EntryCharacteristics, ObjectSnapshot
 from app.game.state import PHASES, PLAYER_ZONES, STACK, AttackTarget, Playmat, TokenDef
 from app.textutil import clean_text
 
@@ -80,6 +80,7 @@ class Draw(Base):
 
 class Move(Base):
     type: Literal["move"] = "move"
+    sticker_recipients101: dict[str, str] | None = None  # Original merged component retaining stickers (123.5c).
     non_discard: bool = False  # Explicit non-discard hand moves (zone exchanges), retained by replay.
     card_ids: IdList
     to: ZoneRef
@@ -344,6 +345,8 @@ class CopyCard(Base):
     # -- spell copies (wave 31D) -- 707.10, 608.2h: a copy of a spell that has left the stack is made from how it last existed there (the object id
     # it had): its name, printing and face are the snapshot's (public: it was a spell), whatever zone the card is in now
     last_known: str | None = Field(default=None, max_length=80)
+    # Authoritative public spell values retained by a resolving effect (Epic, 702.50).
+    saved_stack: ObjectSnapshot | None = None
     x: Coord | None = None
     y: Coord | None = None
     r: NewIds | None = None
@@ -1345,6 +1348,16 @@ class DamageDealt(BaseModel):
     excess: int = Field(default=0, ge=0, le=100000)  # -- trigger damage (wave 39B) -- 120.10: the excess damage this batch dealt to the target (on its first event)
 
 
+class RulesSticker101(Base):
+    """Native sticker application; ticket payment and placement are one replayable step."""
+    type: Literal["rules_sticker101"] = "rules_sticker101"
+    card_id: Id
+    sticker_id: str
+    types101: list[str] = Field(default_factory=list)  # Resolved native pre-placement types.
+    position: int = Field(default=0, ge=0)
+    free: bool = False
+
+
 class RulesLog(Base):
     """Server-built only: a log line written by the rules engine ("Alice passed", "Turn 3 …")."""
 
@@ -1360,11 +1373,12 @@ INTENT_TYPES = frozenset(
      "choose", "concede", "set_stops", "set_prefs", "set_card_automation", "repeat_sequence", "turn_face_up", "unlock_door",
      "miracle_reveal", "end_effect", "pay_deferred"}
 )
-SERVER_ONLY_TYPES = frozenset({"rules_sync", "rules_log", "rules_mana", "rules_damage", "rules_life_changes", "renumber"})
+SERVER_ONLY_TYPES = frozenset({"rules_sync", "rules_log", "rules_mana", "rules_damage", "rules_life_changes", "renumber", "rules_sticker101"})
 
 
 Action = Annotated[
-    Draw
+    RulesSticker101
+    | Draw
     | Move
     | SetPosition
     | Shuffle

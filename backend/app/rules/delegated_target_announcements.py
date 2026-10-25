@@ -91,7 +91,12 @@ def _legal(plan: Plan, frame: Announcement, *, first: bool = False) -> list[str]
     _source(plan, frame)
     source = targets.source_of(plan, frame.source_card, object_id=frame.source_object)
     selector = scripts.target_groups(frame.definition)[0 if first else 1]['what'] if frame.mode == 'target_controller' else 'creature'
-    return targets.legal_targets(plan, selector, frame.actor, source, frame.source_card, source_object=frame.source_object)
+    legal = targets.legal_targets(plan, selector, frame.actor, source, frame.source_card, source_object=frame.source_object)
+    if first:
+        from app.rules import flagbearer86
+
+        legal = flagbearer86.single(plan, legal, actor=frame.actor)
+    return legal
 
 
 def announce(plan: Plan, action: A.CastSpell | A.ActivateAbility, definition_: dict[str, Any], what: str) -> Any:

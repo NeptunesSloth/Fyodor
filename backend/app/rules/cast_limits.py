@@ -627,7 +627,7 @@ def cast_limit(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         what = _spells_words(e.get("filter"), e.get("from"))
         if e.get("act") == "loyalty":
             what += " or activate loyalty abilities"
-        when = "during their next turn" if e["until"] == "their_next100a" else "this turn" if e["until"] == "turn" else \
+        when = "for the rest of the game" if e["until"] == "game" else "during their next turn" if e["until"] == "their_next100a" else "this turn" if e["until"] == "turn" else \
             ("until the end of " if e["until"] == "end_of_next_turn" else "until ") + plan.name(ctx["controller"]) + "’s next turn"
         plan.note(f"{plan.name(pid)} can't cast {what} {when} ({label})", actor=ctx["controller"])
     return True

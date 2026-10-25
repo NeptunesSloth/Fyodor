@@ -4061,6 +4061,10 @@ def run_body(plan: Plan, ctx: Context) -> bool:
 def _run_body(plan: Plan, ctx: Context) -> bool:
     while ctx["next"] < len(ctx["effects"]):  # (wave 19F: re-read each time: effects.repeat replaces the list)
         e = ctx["effects"][ctx["next"]]
+        from app.rules import stickers101
+
+        if stickers101.ask_first(plan, ctx, e):
+            return False
         if replacements.ask_903_9b_first(plan, ctx, e):
             return False  # 903.9b: a commander's owner chooses before it would be put into a hand or library
         ctx["next"] += 1
@@ -6983,10 +6987,55 @@ PRIMITIVES.update(_attractions100l.PRIMITIVES)
 from app.rules import otherchooser100p as _otherchooser100p  # noqa: E402  -- other choosers (wave 100P) --
 
 PRIMITIVES.update(_otherchooser100p.PRIMITIVES)
-from app.rules import multi100n as _multi100n  # noqa: E402, I001  -- multi (wave 100N) --
 
-PRIMITIVES.update(_multi100n.PRIMITIVES)
-from app.rules import retarget100o as _retarget100o  # noqa: E402  -- retarget (wave 100O) --
+from app.rules import modal_clauses101 as _modal101  # noqa: E402
 
-PRIMITIVES.update(_retarget100o.PRIMITIVES)
-RESUME.update(_retarget100o.RESUME)
+PRIMITIVES.update(_modal101.PRIMITIVES)
+
+from app.rules import upkeep_sacrifice101 as _upkeep101  # noqa: E402
+
+PRIMITIVES.update(_upkeep101.PRIMITIVES)
+
+from app.rules import library_packets101 as _library_packets101  # noqa: E402
+
+PRIMITIVES.update(_library_packets101.PRIMITIVES)
+RESUME.update(_library_packets101.RESUME)
+
+from app.rules import damage_values102 as _damage_values102  # noqa: E402
+
+PRIMITIVES.update(_damage_values102.PRIMITIVES)
+
+from app.rules import stack_events102 as _stack102  # noqa: E402
+
+PRIMITIVES.update(_stack102.PRIMITIVES)
+
+from app.rules import library_polymorph102 as _library_polymorph102  # noqa: E402
+
+PRIMITIVES.update(_library_polymorph102.PRIMITIVES)
+
+from app.rules import combat_damage95 as _combat_damage95  # noqa: E402
+
+PRIMITIVES.update(_combat_damage95.PRIMITIVES)
+
+from app.rules import stack_extension103 as _stack103  # noqa: E402
+
+PRIMITIVES.update(_stack103.PRIMITIVES)
+
+from app.rules import next_copy104 as _next104  # noqa: E402
+
+PRIMITIVES.update(_next104.PRIMITIVES)
+
+from app.rules import sticker_effects101 as _sticker_effects101  # noqa: E402
+
+PRIMITIVES.update(_sticker_effects101.PRIMITIVES)
+from app.rules import epic103 as _epic103  # noqa: E402
+
+PRIMITIVES.update(_epic103.PRIMITIVES)
+
+
+from app.rules import vampire_returns105 as _vampire_returns105  # noqa: E402, I001
+PRIMITIVES.update(_vampire_returns105.PRIMITIVES)
+
+from app.rules import copy_controllers105 as _copy105  # noqa: E402
+
+PRIMITIVES.update(_copy105.PRIMITIVES)

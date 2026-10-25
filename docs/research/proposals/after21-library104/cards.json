@@ -1,0 +1,191 @@
+[
+  {
+    "id": "efc37d65-cea5-411e-9234-bdae5fdfdc30",
+    "oracle_id": "10764b35-5c6c-4161-8579-1124d5963a0e",
+    "name": "Niv-Mizzet Reborn",
+    "layout": "normal",
+    "set_code": "rvr",
+    "set_name": "Ravnica Remastered",
+    "collector_number": "459",
+    "rarity": "mythic",
+    "mana_cost": "{W}{U}{B}{R}{G}",
+    "cmc": 5.0,
+    "type_line": "Legendary Creature \u2014 Dragon Avatar",
+    "oracle_text": "Flying\nWhen Niv-Mizzet enters, reveal the top ten cards of your library. For each color pair, choose a card that's exactly those colors from among them. Put the chosen cards into your hand and the rest on the bottom of your library in a random order.",
+    "power": "6",
+    "toughness": "6",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "B",
+      "G",
+      "R",
+      "U",
+      "W"
+    ],
+    "color_identity": [
+      "B",
+      "G",
+      "R",
+      "U",
+      "W"
+    ],
+    "keywords": [
+      "Flying"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2024-01-12",
+    "artist": "Raymond Swanland",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "8599e2dd-9164-4da3-814f-adccef3b9497",
+    "oracle_id": "0d49187a-1c37-4c3a-afc2-fac2bbc6b29a",
+    "name": "Portent of Calamity",
+    "layout": "normal",
+    "set_code": "blb",
+    "set_name": "Bloomburrow",
+    "collector_number": "66",
+    "rarity": "rare",
+    "mana_cost": "{X}{U}",
+    "cmc": 1.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Reveal the top X cards of your library. For each card type, you may exile a card of that type from among them. Put the rest into your graveyard. You may cast a spell from among the exiled cards without paying its mana cost if you exiled four or more cards this way. Then put the rest of the exiled cards into your hand.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2024-08-02",
+    "artist": "Sam Guay",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "adbd8ffa-c7d3-4ef6-b3a7-8a967b50ce49",
+    "oracle_id": "b68df6d7-d69e-446f-9b1b-7a6ca56efbec",
+    "name": "Selective Adaptation",
+    "layout": "normal",
+    "set_code": "c20",
+    "set_name": "Commander 2020",
+    "collector_number": "65",
+    "rarity": "rare",
+    "mana_cost": "{4}{G}{G}",
+    "cmc": 6.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Reveal the top seven cards of your library. Choose from among them a card with flying, a card with first strike, and so on for double strike, deathtouch, haste, hexproof, indestructible, lifelink, menace, reach, trample, and vigilance. Put one of the chosen cards onto the battlefield, the other chosen cards into your hand, and the rest into your graveyard.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2020-04-17",
+    "artist": "Tomasz Jedruszek",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "11215561-bbcd-4564-a2e4-a1d77d177a1d",
+    "oracle_id": "2676ba6d-e7a7-48cf-9c86-6e2a11f03096",
+    "name": "Sanar, Innovative First-Year",
+    "layout": "normal",
+    "set_code": "ecl",
+    "set_name": "Lorwyn Eclipsed",
+    "collector_number": "241",
+    "rarity": "rare",
+    "mana_cost": "{2}{U/R}{U/R}",
+    "cmc": 4.0,
+    "type_line": "Legendary Creature \u2014 Goblin Sorcerer",
+    "oracle_text": "Vivid \u2014 At the beginning of your first main phase, reveal cards from the top of your library until you reveal X nonland cards, where X is the number of colors among permanents you control. For each of those colors, you may exile a card of that color from among the revealed cards. Then shuffle. You may cast the exiled cards this turn.",
+    "power": "2",
+    "toughness": "4",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R",
+      "U"
+    ],
+    "color_identity": [
+      "R",
+      "U"
+    ],
+    "keywords": [
+      "Vivid"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2026-01-23",
+    "artist": "Steven Belledin",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "5fcee066-425f-4341-bde5-13a5bdf06f2a",
+    "oracle_id": "957df9f4-73e9-4540-b838-52f65d0c62ee",
+    "name": "Hurkyl, Master Wizard",
+    "layout": "normal",
+    "set_code": "bro",
+    "set_name": "The Brothers' War",
+    "collector_number": "51",
+    "rarity": "rare",
+    "mana_cost": "{1}{U}{U}",
+    "cmc": 3.0,
+    "type_line": "Legendary Creature \u2014 Human Wizard Advisor",
+    "oracle_text": "At the beginning of your end step, if you've cast a noncreature spell this turn, reveal the top five cards of your library. For each card type among noncreature spells you've cast this turn, you may put a card of that type from among the revealed cards into your hand. Put the rest on the bottom of your library in a random order.",
+    "power": "2",
+    "toughness": "4",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2022-11-18",
+    "artist": "Randy Vargas",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  }
+]

@@ -1,29 +1,28 @@
-Current work is saved in [PR #21](https://github.com/NeptunesSloth/Fyodor/pull/21) (wave 100). No agents are running.
+## POST-PR21 BATCH004 VERIFIED — CONTINUING
 
-## WAVE 100 — WRAP-UP
+**30,824 FULL / 1,244 PARTIAL**; **100/1000 new completions verified**, 900 remain. [PR22](https://github.com/NeptunesSloth/Fyodor/pull/22), [evidence](research/after-pr21-batch004-evidence.md). Native173, related53, core54, full mypy963, Ruff and exact catalog/definition diff pass on frozen source. Six agents continue; inherited PR21 work excluded. FULL is coverage classification.
 
-Latest catalog: **30,775 FULL / 1,293 PARTIAL** among 32,068 Commander-legal cards (from 29,945 / 2,123 at checkpoint67): **830 additions**,
-zero prior FULL regressions. FULL is engine coverage classification; all cards are not complete.
+## POST-PR21 BATCH003 VERIFIED — CONTINUING
 
-Sixteen parallel packages (waves 100A–100P), one module each (`app/rules/<area>100<letter>.py`) with small marked hooks in shared files and
-tests in `tests/test_rules_wave100<letter>_*.py`: trigger lines, "if you do" riders, spell effects, permanent statics, X/sized damage,
-Auras/Equipment/control, zones, turn state and ability words, activated abilities and costs, counters, "as long as"/"instead", Unfinity
-Attractions (Attraction deck zone and deck section, open/visit/roll to visit, the junkyard, tickets), multi-family cards, change/choose new
-targets, and other-player choices and votes.
+**30,781 FULL / 1,287 PARTIAL**; **57/1000 new completions verified**, 943 remain. [PR22](https://github.com/NeptunesSloth/Fyodor/pull/22), [evidence](research/after-pr21-batch003-evidence.md). Native131, related86, core54, full mypy955, Ruff and exact catalog/definition diff pass on frozen source. Six agents continue; inherited PR21 work excluded. FULL is coverage classification.
 
-Every merge was gated by Ruff, full mypy, the merged packages' tests plus related files, and a catalog-wide coverage + parsed-definition
-fingerprint diff (no prior FULL card may regress; every changed FULL definition was reviewed: Become Brutes, Karametra's Blessing,
-Hammerheim and Shipwreck Sifters, all equivalent or corrected). No fresh whole-suite run (31,914 tests take hours on the 4-CPU session
-machine). GitHub Actions jobs on `main` and the PR fail before any step runs (no runner assigned), so CI gives no signal.
+## POST-PR21 BATCH002 VERIFIED — CONTINUING
 
-Also fixed: Ruff on the whole backend, tests with hardcoded `/workspace/Fyodor` paths, several stale test expectations (legacy
-`players[].mana` reads, refusal lists naming cards that are now FULL), and a process-dependent `combat.LANDWALK` order.
+**30,750 FULL / 1,318 PARTIAL**; **26/1000 new completions verified**, 974 remain. [PR22](https://github.com/NeptunesSloth/Fyodor/pull/22), [evidence](research/after-pr21-batch002-evidence.md). Native89, related43, core54, full mypy947, Ruff and exact catalog/definition diff pass on frozen source. Six agents continue; inherited PR21 work excluded. FULL is coverage classification.
 
-Researched and refused cards, with the missing foundation or the unsettled ruling, are listed in
-[research/wave100-refused.md](research/wave100-refused.md). Stickers (~45 cards) are refused: the card data lacks the sheets' name and art
-stickers. Biggest remaining foundations: copy-with-exceptions and "for as long as" durations, opponent-chosen modes during casting (700.2e),
-enters-under-a-chosen-controller replacements, can't-untap/can't-transform/phasing locks, granted keywords (replicate, offspring, evoke),
-saga "Choose one" chapters, LKI of types (layers 4–5), and Avatar bending costs.
+## POST-PR21 BATCH001 VERIFIED — CONTINUING
+
+**30,734 FULL / 1,334 PARTIAL**; **10/1000 new completions verified**, 990 remain. [PR22](https://github.com/NeptunesSloth/Fyodor/pull/22), [evidence](research/after-pr21-batch001-evidence.md). Native62, related38, core54, full mypy944, Ruff and exact catalog/definition diff pass on frozen source. Six agents continue; inherited PR21 work excluded. FULL is coverage classification.
+
+New work continues from merged [PR21](https://github.com/NeptunesSloth/Fyodor/pull/21) in [draft PR22](https://github.com/NeptunesSloth/Fyodor/pull/22). Six agents are active; the new request is1000 additional completions beyond PR21.
+
+## POST-PR21 BASELINE VERIFIED — ACTIVE
+
+**30,724 FULL /1,344 PARTIAL**,32,068 Commander-legal cards. **0/1000 new completions verified.** Inherited PR21 work is excluded. FULL is engine coverage classification. Baseline941-module full typing/Ruff and54 core checks pass.
+
+[Progress](research/after-pr21-progress.md), [baseline record](research/after-pr21-baseline.json), [source hashes](research/after-pr21-baseline-source-hashes.json), [logs](research/after-pr21-baseline-validation). Older checkpoint sections below are historical.
+
+Current-work wrap-up is saved in [PR #20](https://github.com/NeptunesSloth/Fyodor/pull/20). The six agents reached their usage limit; no automatic assignments remain active.
 
 ## CHECKPOINT67 VERIFIED — WRAP-UP
 

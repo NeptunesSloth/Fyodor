@@ -1,0 +1,15 @@
+[
+  {
+    "name": "Jandor's Ring",
+    "mana_cost": "{6}",
+    "cmc": 6.0,
+    "type_line": "Artifact",
+    "oracle_text": "{2}, {T}, Discard the last card you drew this turn: Draw a card.",
+    "colors": [],
+    "color_identity": [],
+    "power": null,
+    "toughness": null,
+    "keywords": [],
+    "commander_legal": "legal"
+  }
+]

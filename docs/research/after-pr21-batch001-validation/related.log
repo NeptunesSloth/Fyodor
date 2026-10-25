@@ -1,0 +1,89 @@
+============================= test session starts ==============================
+platform linux -- Python 3.12.14, pytest-9.1.1, pluggy-1.7.0 -- /workspace/Fyodor/backend/.venv/bin/python3
+cachedir: .pytest_cache
+rootdir: /workspace/scratch/after-pr21/batch001/backend
+configfile: pyproject.toml
+plugins: anyio-4.15.1, xdist-3.8.0
+created: 4/4 workers
+4 workers [38 items]
+
+scheduling tests via LoadScheduling
+
+tests/test_rules_delegated_target_announcements.py::test_source_departure_returns_cancellation_only_to_original_activator
+tests/test_rules_delegated_target_announcements.py::test_opponent_chooses_another_players_creature_before_native_costs_and_stack
+tests/test_rules_delegated_target_announcements.py::test_opponent_cannot_cancel_pay_or_choose_for_a_different_opponent
+tests/test_rules_delegated_target_announcements.py::test_target_departure_during_announcement_returns_only_original_payer_cancellation
+[gw3] [  2%] PASSED tests/test_rules_delegated_target_announcements.py::test_target_departure_during_announcement_returns_only_original_payer_cancellation
+tests/test_rules_delegated_target_announcements.py::test_original_activation_legality_is_checked_again_before_any_costs
+[gw2] [  5%] PASSED tests/test_rules_delegated_target_announcements.py::test_source_departure_returns_cancellation_only_to_original_activator
+tests/test_rules_delegated_target_announcements.py::test_legality_uses_original_ability_controller_not_opponent_choosing_target
+[gw1] [  7%] PASSED tests/test_rules_delegated_target_announcements.py::test_opponent_cannot_cancel_pay_or_choose_for_a_different_opponent
+tests/test_rules_delegated_target_announcements.py::test_no_legal_creature_or_activator_supplied_target_is_rejected_before_costs
+[gw2] [ 10%] PASSED tests/test_rules_delegated_target_announcements.py::test_legality_uses_original_ability_controller_not_opponent_choosing_target
+tests/test_rules_delegated_target_announcements.py::test_resolved_target_is_bound_once_and_later_hexproof_or_new_incarnation_is_handled[True]
+[gw3] [ 13%] PASSED tests/test_rules_delegated_target_announcements.py::test_original_activation_legality_is_checked_again_before_any_costs
+tests/test_rules_delegated_target_announcements.py::test_unpayable_announcement_is_returned_to_original_payer_for_cancellation
+[gw1] [ 15%] PASSED tests/test_rules_delegated_target_announcements.py::test_no_legal_creature_or_activator_supplied_target_is_rejected_before_costs
+tests/test_rules_delegated_target_announcements.py::test_original_source_reserved_for_tap_cost_cannot_be_sacrificed_for_native_mana
+[gw3] [ 18%] PASSED tests/test_rules_delegated_target_announcements.py::test_unpayable_announcement_is_returned_to_original_payer_for_cancellation
+tests/test_rules_delegated_target_announcements.py::test_resolved_target_is_bound_once_and_later_hexproof_or_new_incarnation_is_handled[False]
+[gw1] [ 21%] PASSED tests/test_rules_delegated_target_announcements.py::test_original_source_reserved_for_tap_cost_cannot_be_sacrificed_for_native_mana
+tests/test_rules_delegated_target_announcements.py::test_delegated_announcement_resumes_in_genuinely_cold_process[opponent]
+[gw0] [ 23%] PASSED tests/test_rules_delegated_target_announcements.py::test_opponent_chooses_another_players_creature_before_native_costs_and_stack
+tests/test_rules_delegated_target_announcements.py::test_original_activator_can_cancel_before_delegation_without_costs
+[gw0] [ 26%] PASSED tests/test_rules_delegated_target_announcements.py::test_original_activator_can_cancel_before_delegation_without_costs
+tests/test_rules_activated_modal_groups.py::test_group_targets_and_private_bottom_order_are_saved
+[gw0] [ 28%] PASSED tests/test_rules_activated_modal_groups.py::test_group_targets_and_private_bottom_order_are_saved
+tests/test_rules_activated_modal_groups.py::test_group_zero_or_one_target_needs_no_order_decision[0]
+[gw2] [ 31%] PASSED tests/test_rules_delegated_target_announcements.py::test_resolved_target_is_bound_once_and_later_hexproof_or_new_incarnation_is_handled[True]
+tests/test_rules_delegated_target_announcements.py::test_delegated_target_can_leave_during_native_mana_payment_and_keeps_original_ref
+[gw0] [ 34%] PASSED tests/test_rules_activated_modal_groups.py::test_group_zero_or_one_target_needs_no_order_decision[0]
+tests/test_rules_activated_modal_groups.py::test_group_zero_or_one_target_needs_no_order_decision[1]
+[gw3] [ 36%] PASSED tests/test_rules_delegated_target_announcements.py::test_resolved_target_is_bound_once_and_later_hexproof_or_new_incarnation_is_handled[False]
+tests/test_rules_delegated_target_announcements.py::test_delegated_announcement_resumes_in_genuinely_cold_process[creature]
+[gw0] [ 39%] PASSED tests/test_rules_activated_modal_groups.py::test_group_zero_or_one_target_needs_no_order_decision[1]
+tests/test_rules_activated_modal_groups.py::test_cancelling_group_prompt_spends_nothing
+[gw0] [ 42%] PASSED tests/test_rules_activated_modal_groups.py::test_cancelling_group_prompt_spends_nothing
+tests/test_rules_activated_modal_groups.py::test_group_rejects_opponents_graveyard_before_payment
+[gw0] [ 44%] PASSED tests/test_rules_activated_modal_groups.py::test_group_rejects_opponents_graveyard_before_payment
+tests/test_rules_activated_modal_groups.py::test_group_rechecks_targets_and_only_orders_remaining_legal_cards
+[gw0] [ 47%] PASSED tests/test_rules_activated_modal_groups.py::test_group_rechecks_targets_and_only_orders_remaining_legal_cards
+tests/test_rules_activated_modal_groups.py::test_other_bow_modes_keep_single_target_slot_and_untargeted_effect
+[gw2] [ 50%] PASSED tests/test_rules_delegated_target_announcements.py::test_delegated_target_can_leave_during_native_mana_payment_and_keeps_original_ref
+tests/test_rules_activated_modal_groups.py::test_group_prompt_precedes_payment_and_can_choose_zero
+[gw2] [ 52%] PASSED tests/test_rules_activated_modal_groups.py::test_group_prompt_precedes_payment_and_can_choose_zero
+tests/test_rules_modal.py::test_modes_and_targets_given_up_front
+[gw2] [ 55%] PASSED tests/test_rules_modal.py::test_modes_and_targets_given_up_front
+tests/test_rules_modal.py::test_wrong_number_of_modes_or_repeats_are_refused
+[gw2] [ 57%] PASSED tests/test_rules_modal.py::test_wrong_number_of_modes_or_repeats_are_refused
+tests/test_rules_modal.py::test_a_mode_without_a_legal_target_cant_be_chosen
+[gw2] [ 60%] PASSED tests/test_rules_modal.py::test_a_mode_without_a_legal_target_cant_be_chosen
+tests/test_rules_modal.py::test_one_illegal_target_the_other_mode_still_happens
+[gw0] [ 63%] PASSED tests/test_rules_activated_modal_groups.py::test_other_bow_modes_keep_single_target_slot_and_untargeted_effect
+tests/test_rules_modal.py::test_modes_are_asked_then_each_modes_target
+[gw2] [ 65%] PASSED tests/test_rules_modal.py::test_one_illegal_target_the_other_mode_still_happens
+tests/test_rules_modal.py::test_all_targets_illegal_it_does_nothing
+[gw2] [ 68%] PASSED tests/test_rules_modal.py::test_all_targets_illegal_it_does_nothing
+tests/test_rules_modal.py::test_same_mode_more_than_once
+[gw0] [ 71%] PASSED tests/test_rules_modal.py::test_modes_are_asked_then_each_modes_target
+tests/test_rules_modal.py::test_commander_lets_you_choose_both
+[gw2] [ 73%] PASSED tests/test_rules_modal.py::test_same_mode_more_than_once
+tests/test_rules_modal.py::test_modal_spells_are_full
+[gw2] [ 76%] PASSED tests/test_rules_modal.py::test_modal_spells_are_full
+tests/test_rules_upkeep_costs.py::test_echo_paid
+[gw0] [ 78%] PASSED tests/test_rules_modal.py::test_commander_lets_you_choose_both
+tests/test_rules_upkeep_costs.py::test_echo_pay_keeps_it_and_is_asked_only_once
+[gw0] [ 81%] PASSED tests/test_rules_upkeep_costs.py::test_echo_pay_keeps_it_and_is_asked_only_once
+tests/test_rules_upkeep_costs.py::test_cumulative_upkeep_grows
+[gw2] [ 84%] PASSED tests/test_rules_upkeep_costs.py::test_echo_paid
+tests/test_rules_upkeep_costs.py::test_sacrifice_unless_you_pay_template
+[gw2] [ 86%] PASSED tests/test_rules_upkeep_costs.py::test_sacrifice_unless_you_pay_template
+[gw1] [ 89%] PASSED tests/test_rules_delegated_target_announcements.py::test_delegated_announcement_resumes_in_genuinely_cold_process[opponent]
+tests/test_rules_activated_modal_groups.py::test_bow_all_modes_are_full
+[gw1] [ 92%] PASSED tests/test_rules_activated_modal_groups.py::test_bow_all_modes_are_full
+[gw0] [ 94%] PASSED tests/test_rules_upkeep_costs.py::test_cumulative_upkeep_grows
+[gw3] [ 97%] PASSED tests/test_rules_delegated_target_announcements.py::test_delegated_announcement_resumes_in_genuinely_cold_process[creature]
+tests/test_rules_delegated_target_announcements.py::test_canonical_nova_pentacle_is_whole_card_full
+[gw3] [100%] PASSED tests/test_rules_delegated_target_announcements.py::test_canonical_nova_pentacle_is_whole_card_full
+
+============================= 38 passed in 11.96s ==============================

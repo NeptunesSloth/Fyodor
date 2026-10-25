@@ -1,0 +1,8 @@
+{
+  "app/rules/costs.py": "b517918c4b5b5cbbfbbdf3bb3be9d32cecaedf4f979d6a540557865d3178e7fd",
+  "app/rules/cost_payment.py": "6c1ce9e43ca384ac9f4efeb043290a8ac485ec97d25584a98add56e24fe7dbab",
+  "app/game/rules_state.py": "4735fc5da3a260cab7bea983bbc0b8bd7db2053d9fe6f3705d6dccb463720bc5",
+  "app/rules/events.py": "03cb893419fd5732a311dcbd7af2b1c8abd5f98bcaa472dbcbb6449db164c1a0",
+  "app/rules/casting.py": "97da74bd5ecf00e312806e87ae782b61d024b1e7bc33594eec36d3588d8e1663",
+  "app/rules/scripts.py": "58a321fa02484585462b6ab27f5ed0182e498cd2febba0152fe12edbe2e3563a"
+}

@@ -198,7 +198,7 @@ def statics(state: GameState, info: CardInfo) -> list[Static]:
     # (the face and flip state are part of the key: a transformed permanent has only its back
     # face's characteristics, 712.8e — its front face's statics are gone, 611.3a)
     key = tuple(sorted((cid, c.controller, c.face_down, c.face, c.flipped, c.card_id or c.name, c.token.text if c.token else "",
-                        r.card_mode(cid) if r else "", timestamp(state, cid), tuple(sorted(c.choices.items())),  # (wave 33B: linked words, 607.2f; wave 53B: and what else it chose as it entered, 614.12a: a type or a color written into its statics)
+                        r.card_mode(cid) if r else "", timestamp(state, cid), tuple(sorted(c.choices.items())), tuple(p.model_dump_json() for p in c.stickers101),  # (wave 33B: linked words, 607.2f; wave 53B: and what else it chose as it entered, 614.12a: a type or a color written into its statics)
                         copies.get(r.object_id(cid), (0, "")) if r else (0, ""))
                        for cid, c in state.cards.items() if c.zone.endswith(":battlefield")))
     # -- conditional statics (wave 4B) -- statics that function from a graveyard (113.6b): which cards are there
@@ -346,7 +346,10 @@ def _extend_statics(state: GameState, info: CardInfo, out: list[Static], wiped: 
     # Limit discovery to native layer-6 keyword/rule statics; introducing layer-4
     # dependencies here would require solving those grants as dependency nodes.
     if state.rules is not None:
-        for effect in state.rules.effects:
+        from app.rules import stickers101
+
+        sticker_effects101 = [e for cid, _controller in field for e in stickers101.continuous(state, state.cards[cid])]
+        for effect in [*state.rules.effects, *sticker_effects101]:
             if effect.layer != "6" or not effect.add_abilities:
                 continue
             key = (effect.object_seq, 1, effect.timestamp)
@@ -355,6 +358,15 @@ def _extend_statics(state: GameState, info: CardInfo, out: list[Static], wiped: 
                     continue
                 for text in effect.add_abilities:
                     inner = grammar.parse(scripts.self_text(text, ""))
+                    if effect.id.startswith('sticker101:') and inner is not None and inner.get('who') == 'self':
+                        source_effects = affecting(state, state.cards[cid], info)
+                        if any(e.layer == '6' and e.remove_abilities and (e.object_seq, 1, e.timestamp) > key for e in source_effects):
+                            continue
+                        # The canonical sticker static grants are layer6/7 only;
+                        # no type-changing dependency node is introduced here.
+                        if not inner.get('layer4') and not inner.get('base'):
+                            out.append(Static(cid, controller, inner, effect.object_seq, effect_key=key))
+                        continue
                     if inner is None or (inner.get("who") != "self" and not damage_retention83.resolved_static(inner)) or inner.get("layer4") or inner.get("base") or inner.get("p") or inner.get("t") or inner.get("grants"):
                         continue
                     if inner.get("keywords") or inner.get("rules"):
@@ -924,7 +936,7 @@ def source_text71(state: GameState, card: CardInstance, ch: Characteristics, inf
         return ch
     oid = state.rules.object_id(card.id)
     found = [e for e in state.rules.effects if e.layer == '3' and oid in e.affected]
-    if not any(e.text_change71 is not None for e in found) and not state.rules.color_words71:
+    if not any(e.text_change71 is not None for e in found) and not state.rules.color_words71 and not card.stickers101:
         return ch
     return name_changes(ch, found, [], info, state, card)
 
@@ -944,9 +956,18 @@ def name_changes(ch: Characteristics, effects: list[ContinuousEffect],
                if e.layer == '3' and e.text_change71 is not None]
     if state is not None and card is not None:
         changes += text_global_word71.global_changes(state, card, info)
-    ordered = [(stamp, name, None) for stamp, name in names] + [(stamp, None, change) for stamp, change in changes]
+    ordered: list[tuple[tuple[float, int, int], str | None, Any]] = [(stamp, name, None) for stamp, name in names] + [(stamp, None, change) for stamp, change in changes]
+    if card is not None:
+        ordered += [((p.object_seq, 1, p.timestamp), None, {'sticker101': p.sticker.text, 'position': p.position})
+                    for p in card.stickers101 if p.sticker.kind == 'name']
+
     for _, name, change in sorted(ordered, key=lambda item: item[0]):
         if change is not None:
+            if isinstance(change, dict) and 'sticker101' in change:
+                from app.rules import stickers101
+
+                ch = stickers101.name_change(ch, str(change['sticker101']), int(change['position']))
+                continue
             ch = text_word_changes71.apply(ch, change, getattr(info, 'name_at', None))
             continue
         if name is not None and name != ch.name:
@@ -999,7 +1020,9 @@ def _derive(state: GameState, card: CardInstance, ch: Characteristics, info: Car
                  object_counters=frozenset(k for k, n in card.counters.items() if n > 0),
                  object_ring_bearer=bool(state.rules and card.zone.endswith(":battlefield")
                                          and state.rules.ring_bearers.get(card.controller) == state.rules.object_id(card.id)))
-    effects = affecting(state, card, info)
+    from app.rules import stickers101
+
+    effects = affecting(state, card, info) + stickers101.continuous(state, card)
     each_amounts: dict[int, int] = {}
     attached45 = _attached45(state, card, info)  # -- attached events (wave 4L) -- "Enchanted creature is a … creature"
     ch = name_changes(ch, effects, attached45, info, state, card)
@@ -1041,6 +1064,8 @@ def _derive(state: GameState, card: CardInstance, ch: Characteristics, info: Car
                                            or any((d.get("layer4") or {}).get("set_land_types") for _, d in attached45 + group4))
         # -- end layers --
         ch = _layer5(ch, effects, attached45 + _own_layer5(state, card, info) + group5)  # -- ability words (wave 9C) --
+    if ch.is_creature or (not card.zone.endswith(':battlefield') and 'Vehicle' in ch.subtypes):
+        effects += stickers101.continuous(state, card, pt=True)
     from app.rules import attack_requirements
 
     imposed = {rule for e in effects for rule in e.imposes}  # "can't block this turn" …

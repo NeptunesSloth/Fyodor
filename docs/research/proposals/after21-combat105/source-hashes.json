@@ -1,0 +1,10 @@
+{
+  "app/rules/vampire_returns105.py": "82d8c63fcce2ab3ca22b4f86fae6bad2625a78b7b47ecd69d86f3b241ddb55ac",
+  "app/rules/scripts.py": "d3da61ca5c35e1ef0122c5280ca27fd9b7221fca6b1e9e94495cf3181f03e8bc",
+  "app/rules/triggers.py": "8c98bfdffa9c4a02bc84352909fd2a74c413bee27c2f09be5dadc4a5d184dafc",
+  "app/rules/conditions.py": "4f32f840a95a81a5d32b3e070ea5d1c166ec270926aeba292ea548c7dde9108a",
+  "app/rules/effects.py": "20e2adc930690dedcde9aae6bf6233a4c51554244b13767341bbd8a98fe1cd50",
+  "app/rules/engine.py": "53e54b871d13e4fcdcccd04af909f6baa58839725464d76a86de3cf29ede611a",
+  "app/rules/delayed.py": "112d4d5869fe469672ea0ff90917909f5acac995f51556a2c0cb49925d979ea5",
+  "app/game/rules_state.py": "e2c1968e6c0f6a448aaffd2f09b606f1ae824e97a92bfdafb4b3a5836c4da337"
+}

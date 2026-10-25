@@ -1,0 +1,30 @@
+bringing up nodes...
+bringing up nodes...
+
+.............F..                                                         [100%]
+=================================== FAILURES ===================================
+_________ test_liesa_life_tax_is_mandatory_and_myth_only_reduces_mana __________
+[gw0] linux -- Python 3.12.14 /workspace/Fyodor/backend/.venv/bin/python3
+
+cards = <app.cards.repository.CardRepository object at 0x7efd874e8f20>
+
+    def test_liesa_life_tax_is_mandatory_and_myth_only_reduces_mana(cards):
+        s = command_session(cards)
+        put(s, "Myth Unbound", "battlefield")
+        commander = next(c for c in s.state.cards.values() if c.owner == "p1" and c.commander_key)
+        act(s, "p1", type="add_mana", player="p1", mana={"C": 2, "W": 2, "B": 1})
+        wait_priority(s, "p1")
+        act(s, "p1", type="cast_spell", card_id=commander.id, sources=[])
+        settle(s)
+        into_command(s, commander)
+        wait_priority(s, "p1")
+        act(s, "p1", type="set_life", player="p1", value=1)
+        act(s, "p1", type="add_mana", player="p1", mana={"C": 20, "W": 2, "B": 1})
+        before = s.state.model_dump(mode="json")
+>       with pytest.raises(ActionError):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE ActionError
+
+tests/test_rules_cost_statics101_extra.py:108: Failed
+=========================== short test summary info ============================
+FAILED tests/test_rules_cost_statics101_extra.py::test_liesa_life_tax_is_mandatory_and_myth_only_reduces_mana

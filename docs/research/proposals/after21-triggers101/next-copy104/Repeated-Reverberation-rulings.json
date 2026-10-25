@@ -1,0 +1,69 @@
+{
+  "object": "list",
+  "has_more": false,
+  "data": [
+    {
+      "object": "ruling",
+      "oracle_id": "9a664735-6e38-407f-9d2f-a6d279cd6309",
+      "source": "wotc",
+      "published_at": "2019-07-12",
+      "comment": "If you cast one Repeated Reverberation after another, you\u2019ll copy the second Repeated Reverberation twice. Each resolves, creating three delayed triggered abilities. The next spell you cast or loyalty ability you activate after that will be copied six times. If that spell is also a Repeated Reverberation, the following spell or ability will be copied fourteen times. A fourth Repeated Reverberation will copy the next spell or ability thirty times. Reverberations repeated beyond that shall be left as an exercise for the reader."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "9a664735-6e38-407f-9d2f-a6d279cd6309",
+      "source": "wotc",
+      "published_at": "2019-07-12",
+      "comment": "Repeated Reverberation\u2019s ability will copy any instant or sorcery spell or loyalty ability, not just one with targets."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "9a664735-6e38-407f-9d2f-a6d279cd6309",
+      "source": "wotc",
+      "published_at": "2019-07-12",
+      "comment": "Copies are created even if the spell or ability that caused Repeated Reverberation\u2019s ability to trigger has been countered by the time that ability resolves. The copies resolve before the original spell or ability."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "9a664735-6e38-407f-9d2f-a6d279cd6309",
+      "source": "wotc",
+      "published_at": "2019-07-12",
+      "comment": "The copies will have the same targets as the spell or ability they\u2019re copying unless you choose new ones. You may change any number of the targets, including all of them or none of them. The new targets must be legal."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "9a664735-6e38-407f-9d2f-a6d279cd6309",
+      "source": "wotc",
+      "published_at": "2019-07-12",
+      "comment": "If the spell that\u2019s copied is modal (that is, it says \u201cChoose one \u2014\u201d or the like), the copies will have the same mode or modes. You can\u2019t choose different ones."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "9a664735-6e38-407f-9d2f-a6d279cd6309",
+      "source": "wotc",
+      "published_at": "2019-07-12",
+      "comment": "If the spell or ability that\u2019s copied has an X whose value was determined as it was cast, the copies will have the same value of X."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "9a664735-6e38-407f-9d2f-a6d279cd6309",
+      "source": "wotc",
+      "published_at": "2019-07-12",
+      "comment": "You can\u2019t choose to pay any additional costs for the copies. However, effects based on any additional costs that were paid for the original spell are copied as though those same costs were paid for the copies too."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "9a664735-6e38-407f-9d2f-a6d279cd6309",
+      "source": "wotc",
+      "published_at": "2019-07-12",
+      "comment": "The copies made by Repeated Reverberation\u2019s ability are created on the stack, so they\u2019re not \u201ccast\u201d or \u201cactivated.\u201d Abilities that trigger when a player casts a spell or activate an ability don\u2019t trigger."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "9a664735-6e38-407f-9d2f-a6d279cd6309",
+      "source": "wotc",
+      "published_at": "2019-07-12",
+      "comment": "Copying a loyalty ability doesn\u2019t add or remove loyalty counters from any object."
+    }
+  ]
+}

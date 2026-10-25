@@ -1,0 +1,22 @@
+..........F..                                                            [100%]
+=================================== FAILURES ===================================
+__ test_unpayable_ward_counters_spell_without_partial_payment[helpers2-True] ___
+
+cards = <app.cards.repository.CardRepository object at 0x7f38f7344f20>
+helpers = ['Grizzly Bears', 'Ornithopter', 'Memnite', 'Sol Ring'], tapped = True
+
+    @pytest.mark.parametrize('helpers,tapped', [([], False), (['Sol Ring', 'Grizzly Bears'], False),
+                                              (['Grizzly Bears', 'Ornithopter', 'Memnite', 'Sol Ring'], True)])
+    def test_unpayable_ward_counters_spell_without_partial_payment(cards, helpers, tapped):
+        from tests.test_rules_designations import roundtrip
+
+        s, source, objects, spell = setup(cards, helpers=helpers, tapped=tapped)
+>       assert s.state.rules.decision is None
+E       AssertionError: assert Decision(id='66c4fab0cb82', player='p2', kind='choose_one', prompt='The Unagi of Kyoshi Island: pay Waterbend {4}?', o...st_has_x': None}, 'cost': '{4}'}, display={'kind': 'optional_cost', 'cost': 'Waterbend {4}', 'pool': {}}, decider=None) is None
+E        +  where Decision(id='66c4fab0cb82', player='p2', kind='choose_one', prompt='The Unagi of Kyoshi Island: pay Waterbend {4}?', o...st_has_x': None}, 'cost': '{4}'}, display={'kind': 'optional_cost', 'cost': 'Waterbend {4}', 'pool': {}}, decider=None) = RulesState(world_epoch80=0, world_intervals80={}, combat_memory=CombatMemory(version=1, known_empty=['p1', 'p2', 'p3']...ree_cast_faces={}, exile_if_graveyard=[], bottom_if_graveyard=[], cast_enters={}, exile_resolves={}, counter_stamps={}).decision
+E        +    where RulesState(world_epoch80=0, world_intervals80={}, combat_memory=CombatMemory(version=1, known_empty=['p1', 'p2', 'p3']...ree_cast_faces={}, exile_if_graveyard=[], bottom_if_graveyard=[], cast_enters={}, exile_resolves={}, counter_stamps={}) = GameState(format_version=1, id='64106a05a3a075fd', name='Game', format='commander', created_at=1792912086.328036, seq=...ee_cast_faces={}, exile_if_graveyard=[], bottom_if_graveyard=[], cast_enters={}, exile_resolves={}, counter_stamps={})).rules
+E        +      where GameState(format_version=1, id='64106a05a3a075fd', name='Game', format='commander', created_at=1792912086.328036, seq=...ee_cast_faces={}, exile_if_graveyard=[], bottom_if_graveyard=[], cast_enters={}, exile_resolves={}, counter_stamps={})) = <app.game.session.GameSession object at 0x7f38f73462d0>.state
+
+tests/test_rules_waterbend_ward.py:128: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_rules_waterbend_ward.py::test_unpayable_ward_counters_spell_without_partial_payment[helpers2-True]

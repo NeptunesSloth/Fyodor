@@ -1,0 +1,13 @@
+============================= test session starts ==============================
+platform linux -- Python 3.12.14, pytest-9.1.1, pluggy-1.7.0
+rootdir: /workspace/scratch/library102/backend
+configfile: pyproject.toml
+plugins: anyio-4.15.1, xdist-3.8.0
+collected 58 items
+
+tests/test_rules_wave13e_reveal_until.py ......                          [ 10%]
+tests/test_rules_bound_delayed35.py .................................... [ 72%]
+                                                                         [ 72%]
+tests/test_rules_wave23b_delayed.py ................                     [100%]
+
+======================== 58 passed in 261.79s (0:04:21) ========================

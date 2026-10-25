@@ -1,0 +1,96 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+______ test_actual_panharmonicon_aegis_multiple_linked_cards_cold_chooser ______
+
+cards = <app.cards.repository.CardRepository object at 0x7f59f6ee3c50>
+tmp_path = PosixPath('/tmp/pytest-of-agent/pytest-427/test_actual_panharmonicon_aegi0')
+
+    def test_actual_panharmonicon_aegis_multiple_linked_cards_cold_chooser(cards, tmp_path):
+        import subprocess
+        import sys
+
+        s = setup(cards)
+        host = put(s, "Krenko, Mob Boss", "battlefield")
+        bear = put(s, "Grizzly Bears", "battlefield", "p2")
+        other = put(s, "Rootwater Matriarch", "battlefield")
+        put(s, "Panharmonicon", "battlefield")
+        to_phase(s, "main1")
+        aegis = cast(s, "Assimilation Aegis", finish=False)
+        picks = [bear.id, other.id]
+        for _ in range(70):
+            d = s.state.rules.decision
+            if d:
+                offered = {o.id for o in d.options}
+                if picks and picks[0] in offered:
+                    selected = [picks.pop(0)]
+                else:
+                    selected = [d.options[0].id] if d.min_choices else []
+>               act(s, d.player, type="choose", decision_id=d.id, option_ids=selected)
+
+tests/test_rules_lifespans102.py:190:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests/game_helpers.py:42: in act
+    return session.perform(actor, payload)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/game/session.py:61: in perform
+    resolved = resolve(self.state, action, actor=actor, cards=self.cards, trusted=trusted)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/game/resolve.py:76: in resolve
+    a.r = compile_intent(state, a, actor=actor, info=info, rng=rng)  # type: ignore[union-attr]
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/engine.py:164: in compile_intent
+    handler(plan, intent)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+plan = <app.rules.plan.Plan object at 0x7f59f3f6d5b0>
+a = Choose(actor='p1', ts=1792913431.4474266, r=None, type='choose', decision_id='737449952b65', option_ids=['31bd973f'], amounts=[], name=None, remember=None)
+
+    def choose(plan: Plan, a: A.Choose) -> None:
+        d = plan.rules.decision
+        if d is None or d.id != a.decision_id:
+            raise ActionError("That decision is no longer pending")
+        if d.kind in ("declare_attackers", "declare_blockers"):
+            raise ActionError(f"Answer this with {d.kind}")
+        if d.player != plan.actor:
+            raise ActionError(f"It's {plan.name(d.player)}'s decision")
+        chosen = list(a.option_ids)
+        valid = {o.id for o in d.options if o.group != "seen"}  # (wave 53B: the cards a player looked at, shown beside the options, are not answers)
+        if cancelable(d):
+            valid.add("cancel")  # (-- cancelling a cast (wave 24D) --)
+        from app.rules import card_names  # -- card names (wave 22B) -- 201.4: a typed name answers it
+
+        if card_names.is_free_text(d) and not (chosen == ["cancel"] and cancelable(d)):
+            if chosen or a.amounts:
+                raise ActionError("Type a card name")
+            chosen, valid = [card_names.answer(plan, d, a.name)], set()
+        elif a.name is not None:
+            raise ActionError("A name only answers a card-name choice")
+        if d.kind == "divide":  # 601.2d: an amount per option (target), at least 1 each, adding up to the total
+            total = int((d.resume or {}).get("total", 0))
+            least = int((d.resume or {}).get("least", 1))  # (-- multiple blocks (wave 13B) -- 510.1d: a share may be 0)
+            if chosen or len(a.amounts) != len(d.options) or any(n < least for n in a.amounts) or sum(a.amounts) != total:
+                raise ActionError(f"Divide {total} among the {len(d.options)} targets: at least {least} each, {total} in all")
+            need, free = (d.resume or {}).get("lethal") or [], (d.resume or {}).get("free")
+            if free is not None and a.amounts[free] > 0 and any(a.amounts[i] < k for i, k in enumerate(need)):
+                raise ActionError("Assign lethal damage to every blocker before assigning any to what it attacks (702.19b)")
+            chosen = [str(n) for n in a.amounts]
+        elif a.amounts:
+            raise ActionError("Amounts only answer a division")
+        elif card_names.is_free_text(d):
+            pass
+        elif len(set(chosen)) != len(chosen) or not set(chosen) <= valid:
+            raise ActionError("Choose from the options offered")
+        if d.kind == "reconcile":
+            groups = {o.id: o.group for o in d.options}
+            answered = [groups[c] for c in chosen]
+            if len(set(answered)) != len(answered) or set(answered) != set(groups.values()):
+                raise ActionError("Answer each question once")
+        cancelling = chosen == ["cancel"] and cancelable(d)  # (-- cancelling a cast (wave 24D) --)
+        if not cancelling and not d.min_choices <= len(chosen) <= d.max_choices:
+            n = d.min_choices if d.min_choices == d.max_choices else f"{d.min_choices}–{d.max_choices}"
+>           raise ActionError(f"Choose {n}")
+E           app.game.errors.ActionError: Choose 2
+
+app/rules/engine.py:1470: ActionError
+=========================== short test summary info ============================
+FAILED tests/test_rules_lifespans102.py::test_actual_panharmonicon_aegis_multiple_linked_cards_cold_chooser

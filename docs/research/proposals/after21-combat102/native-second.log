@@ -1,0 +1,807 @@
+============================= test session starts ==============================
+platform linux -- Python 3.12.14, pytest-9.1.1, pluggy-1.7.0 -- /workspace/Fyodor/backend/.venv/bin/python3
+cachedir: .pytest_cache
+rootdir: /workspace/scratch/combat102/backend
+configfile: pyproject.toml
+plugins: anyio-4.15.1, xdist-3.8.0
+created: 2/2 workers
+2 workers [21 items]
+
+scheduling tests via LoadScheduling
+
+tests/test_rules_damage_values102.py::test_actual_whole_definition102[Fireball]
+tests/test_rules_damage_values102.py::test_actual_whole_definition102[Vengeful Rebirth]
+[gw0] [  4%] PASSED tests/test_rules_damage_values102.py::test_actual_whole_definition102[Fireball]
+tests/test_rules_damage_values102.py::test_actual_whole_definition102[Mega Flare]
+[gw0] [  9%] PASSED tests/test_rules_damage_values102.py::test_actual_whole_definition102[Mega Flare]
+tests/test_rules_damage_values102.py::test_actual_whole_definition102[Piercing Exhale]
+[gw1] [ 14%] PASSED tests/test_rules_damage_values102.py::test_actual_whole_definition102[Vengeful Rebirth]
+tests/test_rules_damage_values102.py::test_actual_whole_definition102[Delirium]
+[gw0] [ 19%] PASSED tests/test_rules_damage_values102.py::test_actual_whole_definition102[Piercing Exhale]
+[gw1] [ 23%] PASSED tests/test_rules_damage_values102.py::test_actual_whole_definition102[Delirium]
+tests/test_rules_damage_values102.py::test_fireball_zero_targets_or_more_targets_than_x102[False]
+tests/test_rules_damage_values102.py::test_fireball_actual_cost_rounding_and_mixed_targets102
+[gw1] [ 28%] PASSED tests/test_rules_damage_values102.py::test_fireball_zero_targets_or_more_targets_than_x102[False]
+tests/test_rules_damage_values102.py::test_fireball_native_response_changes_divisor_at_resolution102
+[gw0] [ 33%] PASSED tests/test_rules_damage_values102.py::test_fireball_actual_cost_rounding_and_mixed_targets102
+tests/test_rules_damage_values102.py::test_fireball_zero_targets_or_more_targets_than_x102[True]
+[gw1] [ 38%] FAILED tests/test_rules_damage_values102.py::test_fireball_native_response_changes_divisor_at_resolution102
+tests/test_rules_damage_values102.py::test_mega_flare_kicked_prefix_once_then_native_simultaneous_damage102
+[gw0] [ 42%] PASSED tests/test_rules_damage_values102.py::test_fireball_zero_targets_or_more_targets_than_x102[True]
+tests/test_rules_damage_values102.py::test_mega_flare_targets_remain_bound_to_original_opponent102
+[gw1] [ 47%] PASSED tests/test_rules_damage_values102.py::test_mega_flare_kicked_prefix_once_then_native_simultaneous_damage102
+tests/test_rules_damage_values102.py::test_mega_flare_zero_targets_still_creates_one_kicked_dragon102
+[gw1] [ 52%] PASSED tests/test_rules_damage_values102.py::test_mega_flare_zero_targets_still_creates_one_kicked_dragon102
+tests/test_rules_damage_values102.py::test_rebirth_actual_return_mana_value_land_and_self_exile102[True]
+[gw1] [ 57%] FAILED tests/test_rules_damage_values102.py::test_rebirth_actual_return_mana_value_land_and_self_exile102[True]
+tests/test_rules_damage_values102.py::test_rebirth_missing_return_does_not_deal_damage_but_still_self_exiles102
+[gw0] [ 61%] FAILED tests/test_rules_damage_values102.py::test_mega_flare_targets_remain_bound_to_original_opponent102
+tests/test_rules_damage_values102.py::test_rebirth_actual_return_mana_value_land_and_self_exile102[False]
+[gw1] [ 66%] FAILED tests/test_rules_damage_values102.py::test_rebirth_missing_return_does_not_deal_damage_but_still_self_exiles102
+tests/test_rules_damage_values102.py::test_rebirth_illegal_damage_target_returns_card_and_self_exiles102
+[gw0] [ 71%] FAILED tests/test_rules_damage_values102.py::test_rebirth_actual_return_mana_value_land_and_self_exile102[False]
+tests/test_rules_damage_values102.py::test_delirium_native_active_player_target_tapped_target_and_noncombat102
+[gw1] [ 76%] FAILED tests/test_rules_damage_values102.py::test_rebirth_illegal_damage_target_returns_card_and_self_exiles102
+tests/test_rules_damage_values102.py::test_piercing_exhale_real_behold_optional_cost_and_surveil102[False]
+[gw1] [ 80%] PASSED tests/test_rules_damage_values102.py::test_piercing_exhale_real_behold_optional_cost_and_surveil102[False]
+tests/test_rules_damage_values102.py::test_genuine_cold_fireball_target_announcement_remembers_x_cost_and_division102
+[gw1] [ 85%] FAILED tests/test_rules_damage_values102.py::test_genuine_cold_fireball_target_announcement_remembers_x_cost_and_division102
+tests/test_rules_damage_values102.py::test_genuine_cold_mega_flare_partial_group_does_not_repeat_kicker_prefix102
+[gw0] [ 90%] FAILED tests/test_rules_damage_values102.py::test_delirium_native_active_player_target_tapped_target_and_noncombat102
+tests/test_rules_damage_values102.py::test_piercing_exhale_real_behold_optional_cost_and_surveil102[True]
+[gw0] [ 95%] FAILED tests/test_rules_damage_values102.py::test_piercing_exhale_real_behold_optional_cost_and_surveil102[True]
+[gw1] [100%] FAILED tests/test_rules_damage_values102.py::test_genuine_cold_mega_flare_partial_group_does_not_repeat_kicker_prefix102
+
+=================================== FAILURES ===================================
+________ test_fireball_native_response_changes_divisor_at_resolution102 ________
+[gw1] linux -- Python 3.12.14 /workspace/Fyodor/backend/.venv/bin/python3
+
+cards = <app.cards.repository.CardRepository object at 0x7f4df4382870>
+
+    def test_fireball_native_response_changes_divisor_at_resolution102(cards):
+        s=setup(cards)
+        bear=put(s,'Grizzly Bears','battlefield',pid='p2')
+        cast(s,'Fireball',x_value=7,targets=[bear.id,'p2','p3'],target_counts=[3],resolve=False)
+>       cast(s,'Lightning Bolt',targets=[bear.id])
+
+tests/test_rules_damage_values102.py:106:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests/test_rules_damage_values102.py:52: in cast
+    act(s,pid,type='cast_spell',card_id=source.id,sources=[],**kwargs)
+tests/game_helpers.py:42: in act
+    return session.perform(actor, payload)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/game/session.py:61: in perform
+    resolved = resolve(self.state, action, actor=actor, cards=self.cards, trusted=trusted)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/game/resolve.py:76: in resolve
+    a.r = compile_intent(state, a, actor=actor, info=info, rng=rng)  # type: ignore[union-attr]
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/engine.py:164: in compile_intent
+    handler(plan, intent)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+plan = <app.rules.plan.Plan object at 0x7f4deff98950>
+a = CastSpell(actor='p1', ts=1792910664.7535946, r=None, mana_symbols=None, flashback_choice=None, type='cast_spell', card...ker=0, cost_choices=[], alt_cost=None, optional_costs=[], slot=None, via=None, optional_asked=False, life_symbols=None)
+
+    def cast_spell(plan: Plan, a: A.CastSpell) -> None:
+        require_no_decision(plan)
+        card = plan.state.cards.get(a.card_id)
+        if card is None:
+            raise ActionError("That card isn't here any more")
+        if card.zone == zone_key(plan.actor, "graveyard") and a.face is None and not a.fuse and not a.free:  # -- casting extras (wave 18E) -- 702.146a
+            from app.rules import disturb
+
+            if disturb.cast_face(plan.state, plan.actor, card, plan.info, a.alt_cost):
+                a.face = 1  # cast transformed: the spell is the back face (702.146b, 712.8c)
+        if a.face is None and a.alt_cost is not None and not a.fuse and not a.free and not plan.manual(card):  # -- commanders (wave 50C) -- 702.162a: cast converted = the back face is the spell (701.28a, 712.8c)
+            from app.rules import alt_costs as _converted
+
+            if any(o.key == a.alt_cost and o.tag == _converted.CONVERTED_TAG for o in _converted.converted_offers(plan.state, plan.actor, card, plan.info)):
+                a.face = 1
+        ch = chars.as_cast(card, plan.info, a.face, a.fuse)  # split cards / adventures: the half being cast
+        from app.rules import text_global_word71
+
+        global_text_prepared71 = bool(text_global_word71.global_changes(plan.state, card.model_copy(update={'zone': 'stack'}), plan.info))
+        ch = text_global_word71.prospective(plan.state, card, ch, plan.info)
+        from app.rules import paid_effect_costs
+
+        if paid_effect_costs.announce(plan, a, card, ch):
+            return
+        if a.fuse and (ch.name.count(" // ") != 1 or card.zone != zone_key(plan.actor, "hand")):  # -- static_other sweep (wave 16B) -- 702.102a
+            raise ActionError("Only a split card with fuse can be cast as both halves, from your hand")
+        if a.alt_cost is not None and (a.free or a.evoke or a.dash or a.awaken or a.face_down):  # -- cost changers (wave 4I) --
+            raise ActionError("Only one alternative cost can be applied to a spell (118.9a)")
+        if a.free and card.id in plan.rules.free_casts:  # suspend / cascade / rebound / madness: what the engine granted
+            cast_free(plan, card, ch, a)
+            return
+        if a.alt_cost is not None and not plan.manual(card):  # -- keywords (wave 15E) -- bestow 702.103b/d: cast as an Aura spell
+            from app.rules import alt_costs as _alt
+            from app.rules import bestow
+
+            kinds = {o.tag for o in _alt.offers(plan.state, plan.actor, card, ch, plan.info) if o.key == a.alt_cost}
+            if "overload" in kinds:  # -- casting extras (wave 18E) -- 702.96a: "target" is "each" (no targets, 702.96b)
+                from app.rules import overload
+
+                ch = overload.overlay(ch)
+            if "cleave" in kinds:  # -- keywords (wave 50H) -- 702.148a: the words in square brackets are removed
+                from app.rules import cleave
+
+                ch = cleave.overlay(ch)
+            bestowed_cast = "bestow" in kinds
+            sneaking = "sneak" in kinds  # -- keywords (wave 30I) -- 702.190a
+            mutating_cast = "mutate" in kinds  # -- merged permanents (wave 18D) -- 702.140a: a mutating creature spell, targeting a creature
+            if bestowed_cast:
+                ch = bestow.overlay(ch)
+        else:
+            bestowed_cast = mutating_cast = sneaking = False
+        if a.prototype:  # -- casting extras (wave 18E) -- 702.160a / 718.3a: only the alternative cost, power and toughness are used to cast it
+            from app.rules import prototype
+
+            if a.face_down or a.fuse or prototype.parse(ch) is None or plan.manual(card):
+                raise ActionError(f"{ch.name or 'That card'} has no prototype the engine can cast it with")
+            ch = prototype.overlay(ch)
+        face_down_kind = face_down_cast_kind(ch) if a.face_down else None  # -- keyword actions & face-down (wave 3F) --
+        if a.face_down:  # morph / disguise: a nameless 2/2 creature spell (disguise: with ward {2}) for {3}
+            if face_down_kind is None or card.zone != zone_key(plan.actor, "hand"):
+                raise ActionError("Only a card with morph or disguise can be cast face down from your hand")
+            ch = chars.face_down_characteristics(face_down_kind)
+            # -- granted casts (wave 29B) -- 707.2: a copy of a face-down spell is not face down
+            from app.rules import cast_limits as _limits
+
+            if not plan.manual(card) and _limits.granted_cascade(plan, card.id, ch, "hand", "storm"):
+                raise ActionError("A face-down spell that is given storm isn't automated (its copies are face-up 2/2 creature spells): cast it face up")
+        # 601.3d / 601.2g: mana abilities may remove a conditional timing source after this announcement was legal.
+        # Only a server-created payment resume can authorize its original object; new casts and new incarnations cannot.
+        timing_locked = plan.locked_cast_timing == plan.oid(card)
+        problem = cast_problem(plan.state, plan.actor, card, ch, info=plan.info, free=a.free, sneak=sneaking or timing_locked, announced=True, alternative_key=a.alt_cost, optional_keys=tuple(a.optional_costs))
+        if problem:
+>           raise ActionError(problem)
+E           app.game.errors.ActionError: You don't have priority
+
+app/rules/casting.py:3501: ActionError
+______ test_rebirth_actual_return_mana_value_land_and_self_exile102[True] ______
+[gw1] linux -- Python 3.12.14 /workspace/Fyodor/backend/.venv/bin/python3
+
+cards = <app.cards.repository.CardRepository object at 0x7f4df4395a30>
+land = True
+
+    @pytest.mark.parametrize('land',[False,True])
+    def test_rebirth_actual_return_mana_value_land_and_self_exile102(cards,land):
+        s=setup(cards)
+        target=put(s,'Forest' if land else 'Earth Elemental','graveyard')
+>       source=cast(s,'Vengeful Rebirth',targets=[target.id,'p2'])
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_rules_damage_values102.py:141:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests/test_rules_damage_values102.py:52: in cast
+    act(s,pid,type='cast_spell',card_id=source.id,sources=[],**kwargs)
+tests/game_helpers.py:42: in act
+    return session.perform(actor, payload)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/game/session.py:61: in perform
+    resolved = resolve(self.state, action, actor=actor, cards=self.cards, trusted=trusted)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/game/resolve.py:76: in resolve
+    a.r = compile_intent(state, a, actor=actor, info=info, rng=rng)  # type: ignore[union-attr]
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/engine.py:164: in compile_intent
+    handler(plan, intent)
+app/rules/casting.py:3713: in cast_spell
+    picked_targets = choose_targets(plan, a, definition if aura is None else {"target": {"what": aura}}, ch.name or "it")
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/casting.py:816: in choose_targets
+    found = choose_groups(plan, specs, plan.actor, _target_source(plan, a), a.card_id, list(a.targets),  # (review 41: 115.2)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+plan = <app.rules.plan.Plan object at 0x7f4df4527b00>
+specs = [{'min': 1, 'max': 1, 'what': 'sel:{"card":true,"zone_owner":"you","zones":["graveyard"]}'}, {'min': 1, 'max': 1, 'what': 'any'}]
+chooser = 'p1'
+source = Characteristics(name='Vengeful Rebirth', supertypes=frozenset(), types=frozenset({'Sorcery'}), subtypes=frozenset(), m...ne, granted=frozenset(), lost=frozenset(), imposed=frozenset(), level=None, doors=None, word=None, flanking_count=None)
+source_card = '58be30ea2f7d', targets = ['008288137871', 'p2'], counts = []
+division = [], x = None, what = 'Vengeful Rebirth', exclude = ()
+attacker = None, source_object = None, event = None
+
+    def choose_groups(plan: Plan, specs: list[dict[str, Any]], chooser: str, source: Characteristics | None,
+                      source_card: str | None, targets: list[str], counts: list[int], division: list[int],
+                      x: int | None, what: str, exclude: tuple[str, ...] = (), attacker: str | None = None,
+                      source_object: str | None = None, event: dict[str, Any] | None = None) -> GroupChoice:
+        """Check the choices made so far for each target group, in printed order (601.2c): the
+        number of targets (``counts``: how many of ``targets`` are each group's), no object twice
+        for one word "target" (115.3; the same object may be chosen for another group unless it says
+        "another target"), each a legal target now; then each divided group's division (601.2d:
+        at least one each, adding up to the total; one target gets it all). Raises ActionError for a
+        wrong choice or when a group can't get enough legal targets; ``ask`` names the next missing
+        choice."""
+        from app.game.errors import ActionError
+
+        random_only = len(specs) == 1 and bool(specs[0].get("random"))  # -- random choices (wave 47B) -- "target … chosen at random": the table picks (601.2c; each
+        if random_only:  # legal target equally likely: Scab-Clan Giant ruling 2013-04-15); nobody is asked, and a choice sent along is not read
+            targets, counts = [], []
+        if len(counts) > len(specs) or sum(counts) != len(targets):
+>           raise ActionError(f"Those aren't the right number of targets for {what}")
+E           app.game.errors.ActionError: Those aren't the right number of targets for Vengeful Rebirth
+
+app/rules/targets.py:380: ActionError
+_________ test_mega_flare_targets_remain_bound_to_original_opponent102 _________
+[gw0] linux -- Python 3.12.14 /workspace/Fyodor/backend/.venv/bin/python3
+
+cards = <app.cards.repository.CardRepository object at 0x7f002fa48500>
+
+    def test_mega_flare_targets_remain_bound_to_original_opponent102(cards):
+        s=setup(cards)
+        a=put(s,'Rhox Brute','battlefield',pid='p2')
+        b=put(s,'Wall of Stone','battlefield',pid='p3')
+        put(s,'Earth Elemental','battlefield')
+        cast(s,'Mega Flare',targets=[a.id,b.id],target_counts=[1,1],resolve=False)
+>       cast(s,'Ray of Command',targets=[a.id])
+
+tests/test_rules_damage_values102.py:132:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests/test_rules_damage_values102.py:52: in cast
+    act(s,pid,type='cast_spell',card_id=source.id,sources=[],**kwargs)
+tests/game_helpers.py:42: in act
+    return session.perform(actor, payload)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/game/session.py:61: in perform
+    resolved = resolve(self.state, action, actor=actor, cards=self.cards, trusted=trusted)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/game/resolve.py:76: in resolve
+    a.r = compile_intent(state, a, actor=actor, info=info, rng=rng)  # type: ignore[union-attr]
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/engine.py:164: in compile_intent
+    handler(plan, intent)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+plan = <app.rules.plan.Plan object at 0x7f0034d57b30>
+a = CastSpell(actor='p1', ts=1792910666.2488382, r=None, mana_symbols=None, flashback_choice=None, type='cast_spell', card...ker=0, cost_choices=[], alt_cost=None, optional_costs=[], slot=None, via=None, optional_asked=False, life_symbols=None)
+
+    def cast_spell(plan: Plan, a: A.CastSpell) -> None:
+        require_no_decision(plan)
+        card = plan.state.cards.get(a.card_id)
+        if card is None:
+            raise ActionError("That card isn't here any more")
+        if card.zone == zone_key(plan.actor, "graveyard") and a.face is None and not a.fuse and not a.free:  # -- casting extras (wave 18E) -- 702.146a
+            from app.rules import disturb
+
+            if disturb.cast_face(plan.state, plan.actor, card, plan.info, a.alt_cost):
+                a.face = 1  # cast transformed: the spell is the back face (702.146b, 712.8c)
+        if a.face is None and a.alt_cost is not None and not a.fuse and not a.free and not plan.manual(card):  # -- commanders (wave 50C) -- 702.162a: cast converted = the back face is the spell (701.28a, 712.8c)
+            from app.rules import alt_costs as _converted
+
+            if any(o.key == a.alt_cost and o.tag == _converted.CONVERTED_TAG for o in _converted.converted_offers(plan.state, plan.actor, card, plan.info)):
+                a.face = 1
+        ch = chars.as_cast(card, plan.info, a.face, a.fuse)  # split cards / adventures: the half being cast
+        from app.rules import text_global_word71
+
+        global_text_prepared71 = bool(text_global_word71.global_changes(plan.state, card.model_copy(update={'zone': 'stack'}), plan.info))
+        ch = text_global_word71.prospective(plan.state, card, ch, plan.info)
+        from app.rules import paid_effect_costs
+
+        if paid_effect_costs.announce(plan, a, card, ch):
+            return
+        if a.fuse and (ch.name.count(" // ") != 1 or card.zone != zone_key(plan.actor, "hand")):  # -- static_other sweep (wave 16B) -- 702.102a
+            raise ActionError("Only a split card with fuse can be cast as both halves, from your hand")
+        if a.alt_cost is not None and (a.free or a.evoke or a.dash or a.awaken or a.face_down):  # -- cost changers (wave 4I) --
+            raise ActionError("Only one alternative cost can be applied to a spell (118.9a)")
+        if a.free and card.id in plan.rules.free_casts:  # suspend / cascade / rebound / madness: what the engine granted
+            cast_free(plan, card, ch, a)
+            return
+        if a.alt_cost is not None and not plan.manual(card):  # -- keywords (wave 15E) -- bestow 702.103b/d: cast as an Aura spell
+            from app.rules import alt_costs as _alt
+            from app.rules import bestow
+
+            kinds = {o.tag for o in _alt.offers(plan.state, plan.actor, card, ch, plan.info) if o.key == a.alt_cost}
+            if "overload" in kinds:  # -- casting extras (wave 18E) -- 702.96a: "target" is "each" (no targets, 702.96b)
+                from app.rules import overload
+
+                ch = overload.overlay(ch)
+            if "cleave" in kinds:  # -- keywords (wave 50H) -- 702.148a: the words in square brackets are removed
+                from app.rules import cleave
+
+                ch = cleave.overlay(ch)
+            bestowed_cast = "bestow" in kinds
+            sneaking = "sneak" in kinds  # -- keywords (wave 30I) -- 702.190a
+            mutating_cast = "mutate" in kinds  # -- merged permanents (wave 18D) -- 702.140a: a mutating creature spell, targeting a creature
+            if bestowed_cast:
+                ch = bestow.overlay(ch)
+        else:
+            bestowed_cast = mutating_cast = sneaking = False
+        if a.prototype:  # -- casting extras (wave 18E) -- 702.160a / 718.3a: only the alternative cost, power and toughness are used to cast it
+            from app.rules import prototype
+
+            if a.face_down or a.fuse or prototype.parse(ch) is None or plan.manual(card):
+                raise ActionError(f"{ch.name or 'That card'} has no prototype the engine can cast it with")
+            ch = prototype.overlay(ch)
+        face_down_kind = face_down_cast_kind(ch) if a.face_down else None  # -- keyword actions & face-down (wave 3F) --
+        if a.face_down:  # morph / disguise: a nameless 2/2 creature spell (disguise: with ward {2}) for {3}
+            if face_down_kind is None or card.zone != zone_key(plan.actor, "hand"):
+                raise ActionError("Only a card with morph or disguise can be cast face down from your hand")
+            ch = chars.face_down_characteristics(face_down_kind)
+            # -- granted casts (wave 29B) -- 707.2: a copy of a face-down spell is not face down
+            from app.rules import cast_limits as _limits
+
+            if not plan.manual(card) and _limits.granted_cascade(plan, card.id, ch, "hand", "storm"):
+                raise ActionError("A face-down spell that is given storm isn't automated (its copies are face-up 2/2 creature spells): cast it face up")
+        # 601.3d / 601.2g: mana abilities may remove a conditional timing source after this announcement was legal.
+        # Only a server-created payment resume can authorize its original object; new casts and new incarnations cannot.
+        timing_locked = plan.locked_cast_timing == plan.oid(card)
+        problem = cast_problem(plan.state, plan.actor, card, ch, info=plan.info, free=a.free, sneak=sneaking or timing_locked, announced=True, alternative_key=a.alt_cost, optional_keys=tuple(a.optional_costs))
+        if problem:
+>           raise ActionError(problem)
+E           app.game.errors.ActionError: You don't have priority
+
+app/rules/casting.py:3501: ActionError
+__ test_rebirth_missing_return_does_not_deal_damage_but_still_self_exiles102 ___
+[gw1] linux -- Python 3.12.14 /workspace/Fyodor/backend/.venv/bin/python3
+
+cards = <app.cards.repository.CardRepository object at 0x7f4df4394cb0>
+
+    def test_rebirth_missing_return_does_not_deal_damage_but_still_self_exiles102(cards):
+        s=setup(cards)
+        target=put(s,'Earth Elemental','graveyard')
+        crypt=put(s,"Tormod's Crypt",'battlefield')
+>       source=cast(s,'Vengeful Rebirth',targets=[target.id,'p2'],resolve=False)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_rules_damage_values102.py:151:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests/test_rules_damage_values102.py:52: in cast
+    act(s,pid,type='cast_spell',card_id=source.id,sources=[],**kwargs)
+tests/game_helpers.py:42: in act
+    return session.perform(actor, payload)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/game/session.py:61: in perform
+    resolved = resolve(self.state, action, actor=actor, cards=self.cards, trusted=trusted)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/game/resolve.py:76: in resolve
+    a.r = compile_intent(state, a, actor=actor, info=info, rng=rng)  # type: ignore[union-attr]
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/engine.py:164: in compile_intent
+    handler(plan, intent)
+app/rules/casting.py:3713: in cast_spell
+    picked_targets = choose_targets(plan, a, definition if aura is None else {"target": {"what": aura}}, ch.name or "it")
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/casting.py:816: in choose_targets
+    found = choose_groups(plan, specs, plan.actor, _target_source(plan, a), a.card_id, list(a.targets),  # (review 41: 115.2)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+plan = <app.rules.plan.Plan object at 0x7f4def6bacf0>
+specs = [{'min': 1, 'max': 1, 'what': 'sel:{"card":true,"zone_owner":"you","zones":["graveyard"]}'}, {'min': 1, 'max': 1, 'what': 'any'}]
+chooser = 'p1'
+source = Characteristics(name='Vengeful Rebirth', supertypes=frozenset(), types=frozenset({'Sorcery'}), subtypes=frozenset(), m...ne, granted=frozenset(), lost=frozenset(), imposed=frozenset(), level=None, doors=None, word=None, flanking_count=None)
+source_card = 'acfdf52136cb', targets = ['52762f03910c', 'p2'], counts = []
+division = [], x = None, what = 'Vengeful Rebirth', exclude = ()
+attacker = None, source_object = None, event = None
+
+    def choose_groups(plan: Plan, specs: list[dict[str, Any]], chooser: str, source: Characteristics | None,
+                      source_card: str | None, targets: list[str], counts: list[int], division: list[int],
+                      x: int | None, what: str, exclude: tuple[str, ...] = (), attacker: str | None = None,
+                      source_object: str | None = None, event: dict[str, Any] | None = None) -> GroupChoice:
+        """Check the choices made so far for each target group, in printed order (601.2c): the
+        number of targets (``counts``: how many of ``targets`` are each group's), no object twice
+        for one word "target" (115.3; the same object may be chosen for another group unless it says
+        "another target"), each a legal target now; then each divided group's division (601.2d:
+        at least one each, adding up to the total; one target gets it all). Raises ActionError for a
+        wrong choice or when a group can't get enough legal targets; ``ask`` names the next missing
+        choice."""
+        from app.game.errors import ActionError
+
+        random_only = len(specs) == 1 and bool(specs[0].get("random"))  # -- random choices (wave 47B) -- "target … chosen at random": the table picks (601.2c; each
+        if random_only:  # legal target equally likely: Scab-Clan Giant ruling 2013-04-15); nobody is asked, and a choice sent along is not read
+            targets, counts = [], []
+        if len(counts) > len(specs) or sum(counts) != len(targets):
+>           raise ActionError(f"Those aren't the right number of targets for {what}")
+E           app.game.errors.ActionError: Those aren't the right number of targets for Vengeful Rebirth
+
+app/rules/targets.py:380: ActionError
+_____ test_rebirth_actual_return_mana_value_land_and_self_exile102[False] ______
+[gw0] linux -- Python 3.12.14 /workspace/Fyodor/backend/.venv/bin/python3
+
+cards = <app.cards.repository.CardRepository object at 0x7f002fd20620>
+land = False
+
+    @pytest.mark.parametrize('land',[False,True])
+    def test_rebirth_actual_return_mana_value_land_and_self_exile102(cards,land):
+        s=setup(cards)
+        target=put(s,'Forest' if land else 'Earth Elemental','graveyard')
+>       source=cast(s,'Vengeful Rebirth',targets=[target.id,'p2'])
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_rules_damage_values102.py:141:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests/test_rules_damage_values102.py:52: in cast
+    act(s,pid,type='cast_spell',card_id=source.id,sources=[],**kwargs)
+tests/game_helpers.py:42: in act
+    return session.perform(actor, payload)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/game/session.py:61: in perform
+    resolved = resolve(self.state, action, actor=actor, cards=self.cards, trusted=trusted)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/game/resolve.py:76: in resolve
+    a.r = compile_intent(state, a, actor=actor, info=info, rng=rng)  # type: ignore[union-attr]
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/engine.py:164: in compile_intent
+    handler(plan, intent)
+app/rules/casting.py:3713: in cast_spell
+    picked_targets = choose_targets(plan, a, definition if aura is None else {"target": {"what": aura}}, ch.name or "it")
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/casting.py:816: in choose_targets
+    found = choose_groups(plan, specs, plan.actor, _target_source(plan, a), a.card_id, list(a.targets),  # (review 41: 115.2)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+plan = <app.rules.plan.Plan object at 0x7f0035da5b20>
+specs = [{'min': 1, 'max': 1, 'what': 'sel:{"card":true,"zone_owner":"you","zones":["graveyard"]}'}, {'min': 1, 'max': 1, 'what': 'any'}]
+chooser = 'p1'
+source = Characteristics(name='Vengeful Rebirth', supertypes=frozenset(), types=frozenset({'Sorcery'}), subtypes=frozenset(), m...ne, granted=frozenset(), lost=frozenset(), imposed=frozenset(), level=None, doors=None, word=None, flanking_count=None)
+source_card = 'd34141eaddef', targets = ['7051ea0f096d', 'p2'], counts = []
+division = [], x = None, what = 'Vengeful Rebirth', exclude = ()
+attacker = None, source_object = None, event = None
+
+    def choose_groups(plan: Plan, specs: list[dict[str, Any]], chooser: str, source: Characteristics | None,
+                      source_card: str | None, targets: list[str], counts: list[int], division: list[int],
+                      x: int | None, what: str, exclude: tuple[str, ...] = (), attacker: str | None = None,
+                      source_object: str | None = None, event: dict[str, Any] | None = None) -> GroupChoice:
+        """Check the choices made so far for each target group, in printed order (601.2c): the
+        number of targets (``counts``: how many of ``targets`` are each group's), no object twice
+        for one word "target" (115.3; the same object may be chosen for another group unless it says
+        "another target"), each a legal target now; then each divided group's division (601.2d:
+        at least one each, adding up to the total; one target gets it all). Raises ActionError for a
+        wrong choice or when a group can't get enough legal targets; ``ask`` names the next missing
+        choice."""
+        from app.game.errors import ActionError
+
+        random_only = len(specs) == 1 and bool(specs[0].get("random"))  # -- random choices (wave 47B) -- "target … chosen at random": the table picks (601.2c; each
+        if random_only:  # legal target equally likely: Scab-Clan Giant ruling 2013-04-15); nobody is asked, and a choice sent along is not read
+            targets, counts = [], []
+        if len(counts) > len(specs) or sum(counts) != len(targets):
+>           raise ActionError(f"Those aren't the right number of targets for {what}")
+E           app.game.errors.ActionError: Those aren't the right number of targets for Vengeful Rebirth
+
+app/rules/targets.py:380: ActionError
+______ test_rebirth_illegal_damage_target_returns_card_and_self_exiles102 ______
+[gw1] linux -- Python 3.12.14 /workspace/Fyodor/backend/.venv/bin/python3
+
+cards = <app.cards.repository.CardRepository object at 0x7f4df4395490>
+
+    def test_rebirth_illegal_damage_target_returns_card_and_self_exiles102(cards):
+        s=setup(cards)
+        target=put(s,'Earth Elemental','graveyard')
+        bear=put(s,'Grizzly Bears','battlefield',pid='p2')
+>       source=cast(s,'Vengeful Rebirth',targets=[target.id,bear.id],resolve=False)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_rules_damage_values102.py:161:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests/test_rules_damage_values102.py:52: in cast
+    act(s,pid,type='cast_spell',card_id=source.id,sources=[],**kwargs)
+tests/game_helpers.py:42: in act
+    return session.perform(actor, payload)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/game/session.py:61: in perform
+    resolved = resolve(self.state, action, actor=actor, cards=self.cards, trusted=trusted)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/game/resolve.py:76: in resolve
+    a.r = compile_intent(state, a, actor=actor, info=info, rng=rng)  # type: ignore[union-attr]
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/engine.py:164: in compile_intent
+    handler(plan, intent)
+app/rules/casting.py:3713: in cast_spell
+    picked_targets = choose_targets(plan, a, definition if aura is None else {"target": {"what": aura}}, ch.name or "it")
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/casting.py:816: in choose_targets
+    found = choose_groups(plan, specs, plan.actor, _target_source(plan, a), a.card_id, list(a.targets),  # (review 41: 115.2)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+plan = <app.rules.plan.Plan object at 0x7f4def3a6c60>
+specs = [{'min': 1, 'max': 1, 'what': 'sel:{"card":true,"zone_owner":"you","zones":["graveyard"]}'}, {'min': 1, 'max': 1, 'what': 'any'}]
+chooser = 'p1'
+source = Characteristics(name='Vengeful Rebirth', supertypes=frozenset(), types=frozenset({'Sorcery'}), subtypes=frozenset(), m...ne, granted=frozenset(), lost=frozenset(), imposed=frozenset(), level=None, doors=None, word=None, flanking_count=None)
+source_card = '913d6b31d758', targets = ['b6941e70de52', '1ac4b66275b0']
+counts = [], division = [], x = None, what = 'Vengeful Rebirth', exclude = ()
+attacker = None, source_object = None, event = None
+
+    def choose_groups(plan: Plan, specs: list[dict[str, Any]], chooser: str, source: Characteristics | None,
+                      source_card: str | None, targets: list[str], counts: list[int], division: list[int],
+                      x: int | None, what: str, exclude: tuple[str, ...] = (), attacker: str | None = None,
+                      source_object: str | None = None, event: dict[str, Any] | None = None) -> GroupChoice:
+        """Check the choices made so far for each target group, in printed order (601.2c): the
+        number of targets (``counts``: how many of ``targets`` are each group's), no object twice
+        for one word "target" (115.3; the same object may be chosen for another group unless it says
+        "another target"), each a legal target now; then each divided group's division (601.2d:
+        at least one each, adding up to the total; one target gets it all). Raises ActionError for a
+        wrong choice or when a group can't get enough legal targets; ``ask`` names the next missing
+        choice."""
+        from app.game.errors import ActionError
+
+        random_only = len(specs) == 1 and bool(specs[0].get("random"))  # -- random choices (wave 47B) -- "target … chosen at random": the table picks (601.2c; each
+        if random_only:  # legal target equally likely: Scab-Clan Giant ruling 2013-04-15); nobody is asked, and a choice sent along is not read
+            targets, counts = [], []
+        if len(counts) > len(specs) or sum(counts) != len(targets):
+>           raise ActionError(f"Those aren't the right number of targets for {what}")
+E           app.game.errors.ActionError: Those aren't the right number of targets for Vengeful Rebirth
+
+app/rules/targets.py:380: ActionError
+_ test_genuine_cold_fireball_target_announcement_remembers_x_cost_and_division102 _
+[gw1] linux -- Python 3.12.14 /workspace/Fyodor/backend/.venv/bin/python3
+
+cards = <app.cards.repository.CardRepository object at 0x7f4def130b30>
+tmp_path = PosixPath('/tmp/pytest-of-agent/pytest-300/popen-gw1/test_genuine_cold_fireball_tar0')
+
+    def test_genuine_cold_fireball_target_announcement_remembers_x_cost_and_division102(cards,tmp_path):
+        s=setup(cards)
+        bear=put(s,'Grizzly Bears','battlefield',pid='p2')
+        bolt=put(s,'Lightning Bolt','hand')
+        source=put(s,'Fireball','hand')
+>       act(s,'p1',type='cast_spell',card_id=source.id,x_value=7,target_counts=[3],sources=[])
+
+tests/test_rules_damage_values102.py:213:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests/game_helpers.py:42: in act
+    return session.perform(actor, payload)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/game/session.py:61: in perform
+    resolved = resolve(self.state, action, actor=actor, cards=self.cards, trusted=trusted)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/game/resolve.py:76: in resolve
+    a.r = compile_intent(state, a, actor=actor, info=info, rng=rng)  # type: ignore[union-attr]
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/engine.py:164: in compile_intent
+    handler(plan, intent)
+app/rules/casting.py:3713: in cast_spell
+    picked_targets = choose_targets(plan, a, definition if aura is None else {"target": {"what": aura}}, ch.name or "it")
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/casting.py:816: in choose_targets
+    found = choose_groups(plan, specs, plan.actor, _target_source(plan, a), a.card_id, list(a.targets),  # (review 41: 115.2)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+plan = <app.rules.plan.Plan object at 0x7f4def133530>
+specs = [{'min': 0, 'max': 250, 'what': 'any'}], chooser = 'p1'
+source = Characteristics(name='Fireball', supertypes=frozenset(), types=frozenset({'Sorcery'}), subtypes=frozenset(), mana_cost...ne, granted=frozenset(), lost=frozenset(), imposed=frozenset(), level=None, doors=None, word=None, flanking_count=None)
+source_card = '918acdb6064c', targets = [], counts = [3], division = [], x = 7
+what = 'Fireball', exclude = (), attacker = None, source_object = None
+event = None
+
+    def choose_groups(plan: Plan, specs: list[dict[str, Any]], chooser: str, source: Characteristics | None,
+                      source_card: str | None, targets: list[str], counts: list[int], division: list[int],
+                      x: int | None, what: str, exclude: tuple[str, ...] = (), attacker: str | None = None,
+                      source_object: str | None = None, event: dict[str, Any] | None = None) -> GroupChoice:
+        """Check the choices made so far for each target group, in printed order (601.2c): the
+        number of targets (``counts``: how many of ``targets`` are each group's), no object twice
+        for one word "target" (115.3; the same object may be chosen for another group unless it says
+        "another target"), each a legal target now; then each divided group's division (601.2d:
+        at least one each, adding up to the total; one target gets it all). Raises ActionError for a
+        wrong choice or when a group can't get enough legal targets; ``ask`` names the next missing
+        choice."""
+        from app.game.errors import ActionError
+
+        random_only = len(specs) == 1 and bool(specs[0].get("random"))  # -- random choices (wave 47B) -- "target … chosen at random": the table picks (601.2c; each
+        if random_only:  # legal target equally likely: Scab-Clan Giant ruling 2013-04-15); nobody is asked, and a choice sent along is not read
+            targets, counts = [], []
+        if len(counts) > len(specs) or sum(counts) != len(targets):
+>           raise ActionError(f"Those aren't the right number of targets for {what}")
+E           app.game.errors.ActionError: Those aren't the right number of targets for Fireball
+
+app/rules/targets.py:380: ActionError
+___ test_delirium_native_active_player_target_tapped_target_and_noncombat102 ___
+[gw0] linux -- Python 3.12.14 /workspace/Fyodor/backend/.venv/bin/python3
+
+cards = <app.cards.repository.CardRepository object at 0x7f002fb1d1f0>
+
+    def test_delirium_native_active_player_target_tapped_target_and_noncombat102(cards):
+        s=setup(cards)
+        own=put(s,'Earth Elemental','battlefield',pid='p2')
+        wrong=put(s,'Earth Elemental','battlefield',pid='p3')
+        spell=put(s,'Delirium','hand')
+        with pytest.raises(ActionError):
+            act(s,'p1',type='cast_spell',card_id=spell.id,targets=[own.id],sources=[])
+        to_phase(s,'main1',turn=2)
+        act(s,'p1',type='add_mana',player='p1',mana={'B':5,'R':5,'C':10})
+        before=s.state.model_dump(mode='json')
+        with pytest.raises(ActionError):
+            act(s,'p1',type='cast_spell',card_id=spell.id,targets=[wrong.id],sources=[])
+        assert s.state.model_dump(mode='json')==before
+        act(s,'p2',type='tap',card_ids=[own.id],tapped=True)
+>       act(s,'p1',type='cast_spell',card_id=spell.id,targets=[own.id],sources=[])
+
+tests/test_rules_damage_values102.py:180:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests/game_helpers.py:42: in act
+    return session.perform(actor, payload)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/game/session.py:61: in perform
+    resolved = resolve(self.state, action, actor=actor, cards=self.cards, trusted=trusted)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/game/resolve.py:76: in resolve
+    a.r = compile_intent(state, a, actor=actor, info=info, rng=rng)  # type: ignore[union-attr]
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/engine.py:164: in compile_intent
+    handler(plan, intent)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+plan = <app.rules.plan.Plan object at 0x7f0034ddc1d0>
+a = CastSpell(actor='p1', ts=1792910669.9366522, r=None, mana_symbols=None, flashback_choice=None, type='cast_spell', card...ker=0, cost_choices=[], alt_cost=None, optional_costs=[], slot=None, via=None, optional_asked=False, life_symbols=None)
+
+    def cast_spell(plan: Plan, a: A.CastSpell) -> None:
+        require_no_decision(plan)
+        card = plan.state.cards.get(a.card_id)
+        if card is None:
+            raise ActionError("That card isn't here any more")
+        if card.zone == zone_key(plan.actor, "graveyard") and a.face is None and not a.fuse and not a.free:  # -- casting extras (wave 18E) -- 702.146a
+            from app.rules import disturb
+
+            if disturb.cast_face(plan.state, plan.actor, card, plan.info, a.alt_cost):
+                a.face = 1  # cast transformed: the spell is the back face (702.146b, 712.8c)
+        if a.face is None and a.alt_cost is not None and not a.fuse and not a.free and not plan.manual(card):  # -- commanders (wave 50C) -- 702.162a: cast converted = the back face is the spell (701.28a, 712.8c)
+            from app.rules import alt_costs as _converted
+
+            if any(o.key == a.alt_cost and o.tag == _converted.CONVERTED_TAG for o in _converted.converted_offers(plan.state, plan.actor, card, plan.info)):
+                a.face = 1
+        ch = chars.as_cast(card, plan.info, a.face, a.fuse)  # split cards / adventures: the half being cast
+        from app.rules import text_global_word71
+
+        global_text_prepared71 = bool(text_global_word71.global_changes(plan.state, card.model_copy(update={'zone': 'stack'}), plan.info))
+        ch = text_global_word71.prospective(plan.state, card, ch, plan.info)
+        from app.rules import paid_effect_costs
+
+        if paid_effect_costs.announce(plan, a, card, ch):
+            return
+        if a.fuse and (ch.name.count(" // ") != 1 or card.zone != zone_key(plan.actor, "hand")):  # -- static_other sweep (wave 16B) -- 702.102a
+            raise ActionError("Only a split card with fuse can be cast as both halves, from your hand")
+        if a.alt_cost is not None and (a.free or a.evoke or a.dash or a.awaken or a.face_down):  # -- cost changers (wave 4I) --
+            raise ActionError("Only one alternative cost can be applied to a spell (118.9a)")
+        if a.free and card.id in plan.rules.free_casts:  # suspend / cascade / rebound / madness: what the engine granted
+            cast_free(plan, card, ch, a)
+            return
+        if a.alt_cost is not None and not plan.manual(card):  # -- keywords (wave 15E) -- bestow 702.103b/d: cast as an Aura spell
+            from app.rules import alt_costs as _alt
+            from app.rules import bestow
+
+            kinds = {o.tag for o in _alt.offers(plan.state, plan.actor, card, ch, plan.info) if o.key == a.alt_cost}
+            if "overload" in kinds:  # -- casting extras (wave 18E) -- 702.96a: "target" is "each" (no targets, 702.96b)
+                from app.rules import overload
+
+                ch = overload.overlay(ch)
+            if "cleave" in kinds:  # -- keywords (wave 50H) -- 702.148a: the words in square brackets are removed
+                from app.rules import cleave
+
+                ch = cleave.overlay(ch)
+            bestowed_cast = "bestow" in kinds
+            sneaking = "sneak" in kinds  # -- keywords (wave 30I) -- 702.190a
+            mutating_cast = "mutate" in kinds  # -- merged permanents (wave 18D) -- 702.140a: a mutating creature spell, targeting a creature
+            if bestowed_cast:
+                ch = bestow.overlay(ch)
+        else:
+            bestowed_cast = mutating_cast = sneaking = False
+        if a.prototype:  # -- casting extras (wave 18E) -- 702.160a / 718.3a: only the alternative cost, power and toughness are used to cast it
+            from app.rules import prototype
+
+            if a.face_down or a.fuse or prototype.parse(ch) is None or plan.manual(card):
+                raise ActionError(f"{ch.name or 'That card'} has no prototype the engine can cast it with")
+            ch = prototype.overlay(ch)
+        face_down_kind = face_down_cast_kind(ch) if a.face_down else None  # -- keyword actions & face-down (wave 3F) --
+        if a.face_down:  # morph / disguise: a nameless 2/2 creature spell (disguise: with ward {2}) for {3}
+            if face_down_kind is None or card.zone != zone_key(plan.actor, "hand"):
+                raise ActionError("Only a card with morph or disguise can be cast face down from your hand")
+            ch = chars.face_down_characteristics(face_down_kind)
+            # -- granted casts (wave 29B) -- 707.2: a copy of a face-down spell is not face down
+            from app.rules import cast_limits as _limits
+
+            if not plan.manual(card) and _limits.granted_cascade(plan, card.id, ch, "hand", "storm"):
+                raise ActionError("A face-down spell that is given storm isn't automated (its copies are face-up 2/2 creature spells): cast it face up")
+        # 601.3d / 601.2g: mana abilities may remove a conditional timing source after this announcement was legal.
+        # Only a server-created payment resume can authorize its original object; new casts and new incarnations cannot.
+        timing_locked = plan.locked_cast_timing == plan.oid(card)
+        problem = cast_problem(plan.state, plan.actor, card, ch, info=plan.info, free=a.free, sneak=sneaking or timing_locked, announced=True, alternative_key=a.alt_cost, optional_keys=tuple(a.optional_costs))
+        if problem:
+>           raise ActionError(problem)
+E           app.game.errors.ActionError: You don't have priority
+
+app/rules/casting.py:3501: ActionError
+_____ test_piercing_exhale_real_behold_optional_cost_and_surveil102[True] ______
+[gw0] linux -- Python 3.12.14 /workspace/Fyodor/backend/.venv/bin/python3
+
+cards = <app.cards.repository.CardRepository object at 0x7f0034430680>
+behold = True
+
+    @pytest.mark.parametrize('behold',[False,True])
+    def test_piercing_exhale_real_behold_optional_cost_and_surveil102(cards,behold):
+        s=setup(cards)
+        own=put(s,'Earth Elemental','battlefield')
+        victim=put(s,'Rhox Brute','battlefield',pid='p2')
+        dragon=put(s,'Shivan Dragon','hand')
+        source=put(s,'Piercing Exhale','hand')
+        extra={'optional_costs':[source.id+':behold'],'cost_choices':[{'component':0,'cards':[dragon.id]}]} if behold else {}
+        before=list(s.state.zones['p1:library'])
+        act(s,'p1',type='cast_spell',card_id=source.id,targets=[own.id,victim.id],target_counts=[1,1],sources=[],**extra)
+        settle(s)
+>       assert s.state.cards[victim.id].zone=='p2:graveyard'
+E       AssertionError: assert 'p2:battlefield' == 'p2:graveyard'
+E
+E         - p2:graveyard
+E         + p2:battlefield
+
+tests/test_rules_damage_values102.py:198: AssertionError
+_ test_genuine_cold_mega_flare_partial_group_does_not_repeat_kicker_prefix102 __
+[gw1] linux -- Python 3.12.14 /workspace/Fyodor/backend/.venv/bin/python3
+
+cards = <app.cards.repository.CardRepository object at 0x7f4def131d90>
+tmp_path = PosixPath('/tmp/pytest-of-agent/pytest-300/popen-gw1/test_genuine_cold_mega_flare_p0')
+
+    def test_genuine_cold_mega_flare_partial_group_does_not_repeat_kicker_prefix102(cards,tmp_path):
+        s=setup(cards)
+        a=put(s,'Rhox Brute','battlefield',pid='p2')
+        b=put(s,'Wall of Stone','battlefield',pid='p3')
+        ray=put(s,'Ray of Command','hand')
+        source=put(s,'Mega Flare','hand')
+        act(s,'p1',type='cast_spell',card_id=source.id,kicker=1,targets=[a.id],target_counts=[1],sources=[])
+        assert s.state.rules.decision
+>       cold(s,tmp_path,"""pick(s,[ids['b']])
+    act(s,'p1',type='cast_spell',card_id=ids['ray'],targets=[ids['a']],sources=[])
+    settle(s)
+    assert s.state.cards[ids['a']].controller=='p1' and s.state.cards[ids['a']].damage==0
+    assert s.state.cards[ids['b']].damage==6
+    assert len([c for c in s.state.cards.values() if c.zone=='p1:battlefield' and c.name=='Dragon'])==1
+    """,{'a':a.id,'b':b.id,'ray':ray.id})
+
+tests/test_rules_damage_values102.py:230:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+s = <app.game.session.GameSession object at 0x7f4def1358b0>
+tmp_path = PosixPath('/tmp/pytest-of-agent/pytest-300/popen-gw1/test_genuine_cold_mega_flare_p0')
+body = "pick(s,[ids['b']])\nact(s,'p1',type='cast_spell',card_id=ids['ray'],targets=[ids['a']],sources=[])\nsettle(s)\nassert...'b']].damage==6\nassert len([c for c in s.state.cards.values() if c.zone=='p1:battlefield' and c.name=='Dragon'])==1\n"
+ids = {'a': '6ca47615c3ef', 'b': '2d4521722db8', 'ray': '0ae72cd73b2f'}
+
+    def cold(s,tmp_path,body,ids):
+        import app
+        saved = tmp_path/'damage102.json'
+        saved.write_text(s.state.model_dump_json())
+        code = '''import json,sys
+    from pathlib import Path
+    from app.cards.images import ImageStore
+    from app.cards.repository import CardRepository
+    from app.game.session import GameSession
+    from app.game.state import GameState
+    from tests.game_helpers import act
+    from tests.test_rules_designations import pick,roundtrip
+    from tests.test_rules_library_look import settle
+    repo=CardRepository(Path(sys.argv[2]),ImageStore(Path(sys.argv[2]).parent/'images'))
+    s=GameSession(GameState.model_validate_json(Path(sys.argv[1]).read_text()),cards=repo)
+    ids=json.loads(sys.argv[3])
+    '''+body+'\nroundtrip(s)\nrepo.close()\n'
+        result = subprocess.run([sys.executable,'-c',code,str(saved),str(s.cards.db_path),json.dumps(ids)],cwd=Path(app.__file__).resolve().parents[1],capture_output=True,text=True,timeout=90)
+>       assert result.returncode==0,result.stdout+result.stderr
+E       AssertionError: Traceback (most recent call last):
+E           File "<string>", line 14, in <module>
+E           File "/workspace/scratch/combat102/backend/tests/game_helpers.py", line 42, in act
+E             return session.perform(actor, payload)
+E                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           File "/workspace/scratch/combat102/backend/app/game/session.py", line 61, in perform
+E             resolved = resolve(self.state, action, actor=actor, cards=self.cards, trusted=trusted)
+E                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           File "/workspace/scratch/combat102/backend/app/game/resolve.py", line 76, in resolve
+E             a.r = compile_intent(state, a, actor=actor, info=info, rng=rng)  # type: ignore[union-attr]
+E                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           File "/workspace/scratch/combat102/backend/app/rules/engine.py", line 164, in compile_intent
+E             handler(plan, intent)
+E           File "/workspace/scratch/combat102/backend/app/rules/casting.py", line 3501, in cast_spell
+E             raise ActionError(problem)
+E         app.game.errors.ActionError: You don't have priority
+E
+E       assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['/workspace/Fyodor/backend/.venv/bin/python3', '-c', "import json,sys\nfrom pathlib import Path\nfrom app.cards.images import ImageStore\nfrom app.cards.repository import CardRepository\nfrom app.game.session import GameSession\nfrom app.game.state import GameState\nfrom tests.game_helpers import act\nfrom tests.test_rules_designations import pick,roundtrip\nfrom tests.test_rules_library_look import settle\nrepo=CardRepository(Path(sys.argv[2]),ImageStore(Path(sys.argv[2]).parent/'images'))\ns=GameSession(GameState.model_validate_json(Path(sys.argv[1]).read_text()),cards=repo)\nids=json.loads(sys.argv[3])\npick(s,[ids['b']])\nact(s,'p1',type='cast_spell',card_id=ids['ray'],targets=[ids['a']],sources=[])\nsettle(s)\nassert s.state.cards[ids['a']].controller=='p1' and s.state.cards[ids['a']].damage==0\nassert s.state.cards[ids['b']].damage==6\nassert len([c for c in s.state.cards.values() if c.zone=='p1:battlefield' and c.name=='Dragon'])==1\n\nroundtrip(s)\nrepo.close()\n", '/tmp/pytest-of-agent/pytest-300/popen-gw1/test_genuine_cold_mega_flare_p0/damage102.json', '/tmp/pytest-of-agent/pytest-300/popen-gw1/test_genuine_cold_mega_flare_p0/data/cards.sqlite', '{"a": "6ca47615c3ef", "b": "2d4521722db8", "ray": "0ae72cd73b2f"}'], returncode=1, stdout='', stderr='Traceback (most recent call last):\n  File "<string>", line 14, in <module>\n  File "/workspace/scratch/combat102/backend/tests/game_helpers.py", line 42, in act\n    return session.perform(actor, payload)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File "/workspace/scratch/combat102/backend/app/game/session.py", line 61, in perform\n    resolved = resolve(self.state, action, actor=actor, cards=self.cards, trusted=trusted)\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File "/workspace/scratch/combat102/backend/app/game/resolve.py", line 76, in resolve\n    a.r = compile_intent(state, a, actor=actor, info=info, rng=rng)  # type: ignore[union-attr]\n          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File "/workspace/scratch/combat102/backend/app/rules/engine.py", line 164, in compile_intent\n    handler(plan, intent)\n  File "/workspace/scratch/combat102/backend/app/rules/casting.py", line 3501, in cast_spell\n    raise ActionError(problem)\napp.game.errors.ActionError: You don\'t have priority\n').returncode
+
+tests/test_rules_damage_values102.py:76: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_rules_damage_values102.py::test_fireball_native_response_changes_divisor_at_resolution102
+FAILED tests/test_rules_damage_values102.py::test_rebirth_actual_return_mana_value_land_and_self_exile102[True]
+FAILED tests/test_rules_damage_values102.py::test_mega_flare_targets_remain_bound_to_original_opponent102
+FAILED tests/test_rules_damage_values102.py::test_rebirth_missing_return_does_not_deal_damage_but_still_self_exiles102
+FAILED tests/test_rules_damage_values102.py::test_rebirth_actual_return_mana_value_land_and_self_exile102[False]
+FAILED tests/test_rules_damage_values102.py::test_rebirth_illegal_damage_target_returns_card_and_self_exiles102
+FAILED tests/test_rules_damage_values102.py::test_genuine_cold_fireball_target_announcement_remembers_x_cost_and_division102
+FAILED tests/test_rules_damage_values102.py::test_delirium_native_active_player_target_tapped_target_and_noncombat102
+FAILED tests/test_rules_damage_values102.py::test_piercing_exhale_real_behold_optional_cost_and_surveil102[True]
+FAILED tests/test_rules_damage_values102.py::test_genuine_cold_mega_flare_partial_group_does_not_repeat_kicker_prefix102
+======================== 10 failed, 11 passed in 11.29s ========================

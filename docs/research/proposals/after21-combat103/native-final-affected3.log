@@ -1,0 +1,70 @@
+bringing up nodes...
+bringing up nodes...
+
+..F                                                                      [100%]
+=================================== FAILURES ===================================
+_______ test_axe_native_reattach_in_response_sacrifices_current_host103 ________
+[gw0] linux -- Python 3.12.14 /workspace/Fyodor/backend/.venv/bin/python3
+
+cards = <app.cards.repository.CardRepository object at 0x7efd9413ec30>
+
+    def test_axe_native_reattach_in_response_sacrifices_current_host103(cards):
+        s,axe,bear=axe_pair95(cards)
+        other=put(s,"Llanowar Elves","battlefield")
+        to_phase(s,"end",turn=4)
+        assert s.state.zones.get("stack")
+>       cast95(s,"Magnetic Theft",[axe.id,other.id])
+
+tests/test_rules_combat_history103.py:522:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests/test_rules_combat_history103.py:93: in cast95
+    act(s, pid, type="cast_spell", card_id=source.id, targets=list(targets), **extra)
+tests/game_helpers.py:42: in act
+    return session.perform(actor, payload)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/game/session.py:61: in perform
+    resolved = resolve(self.state, action, actor=actor, cards=self.cards, trusted=trusted)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/game/resolve.py:76: in resolve
+    a.r = compile_intent(state, a, actor=actor, info=info, rng=rng)  # type: ignore[union-attr]
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/engine.py:164: in compile_intent
+    handler(plan, intent)
+app/rules/casting.py:3713: in cast_spell
+    picked_targets = choose_targets(plan, a, definition if aura is None else {"target": {"what": aura}}, ch.name or "it")
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/casting.py:816: in choose_targets
+    found = choose_groups(plan, specs, plan.actor, _target_source(plan, a), a.card_id, list(a.targets),  # (review 41: 115.2)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+plan = <app.rules.plan.Plan object at 0x7efd8c83f860>
+specs = [{'min': 1, 'max': 1, 'what': 'sel:{"subtypes":["Equipment"]}'}, {'min': 1, 'max': 1, 'what': 'sel:{"types":["Creature"]}'}]
+chooser = 'p1'
+source = Characteristics(name='Magnetic Theft', supertypes=frozenset(), types=frozenset({'Instant'}), subtypes=frozenset(), man...ne, granted=frozenset(), lost=frozenset(), imposed=frozenset(), level=None, doors=None, word=None, flanking_count=None)
+source_card = 'fb71399df7b6', targets = ['04438bff4229', '91540109c3bf']
+counts = [], division = [], x = None, what = 'Magnetic Theft', exclude = ()
+attacker = None, source_object = None, event = None
+
+    def choose_groups(plan: Plan, specs: list[dict[str, Any]], chooser: str, source: Characteristics | None,
+                      source_card: str | None, targets: list[str], counts: list[int], division: list[int],
+                      x: int | None, what: str, exclude: tuple[str, ...] = (), attacker: str | None = None,
+                      source_object: str | None = None, event: dict[str, Any] | None = None) -> GroupChoice:
+        """Check the choices made so far for each target group, in printed order (601.2c): the
+        number of targets (``counts``: how many of ``targets`` are each group's), no object twice
+        for one word "target" (115.3; the same object may be chosen for another group unless it says
+        "another target"), each a legal target now; then each divided group's division (601.2d:
+        at least one each, adding up to the total; one target gets it all). Raises ActionError for a
+        wrong choice or when a group can't get enough legal targets; ``ask`` names the next missing
+        choice."""
+        from app.game.errors import ActionError
+
+        random_only = len(specs) == 1 and bool(specs[0].get("random"))  # -- random choices (wave 47B) -- "target … chosen at random": the table picks (601.2c; each
+        if random_only:  # legal target equally likely: Scab-Clan Giant ruling 2013-04-15); nobody is asked, and a choice sent along is not read
+            targets, counts = [], []
+        if len(counts) > len(specs) or sum(counts) != len(targets):
+>           raise ActionError(f"Those aren't the right number of targets for {what}")
+E           app.game.errors.ActionError: Those aren't the right number of targets for Magnetic Theft
+
+app/rules/targets.py:380: ActionError
+=========================== short test summary info ============================
+FAILED tests/test_rules_combat_history103.py::test_axe_native_reattach_in_response_sacrifices_current_host103

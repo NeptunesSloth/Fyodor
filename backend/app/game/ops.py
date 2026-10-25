@@ -132,6 +132,7 @@ def move_card(
     face_down: bool | None = None,
     rest: str | None = None,
     keep_counters: bool = False,
+    sticker_recipient101: str | None = None,
 ) -> bool:
     """Move a card between zones, carrying knowledge along. Returns False if it ceased to exist. ``keep_counters``: -- counters (wave 51E) --
     its counters stay on it (Skullbriar's "Counters remain on ~ as it moves to any zone other than a player's hand or library")."""
@@ -141,9 +142,16 @@ def move_card(
         # -- merged permanents (wave 18D) -- 730.3, 712.21: one permanent leaves, each of its cards goes to the zone
         from app.game import merging
 
+        stickers = list(c.stickers101)
+        if dst_zone in ('library', 'hand', 'sideboard', 'foretell', 'setaside', 'attractions'):
+            stickers = []
+        if stickers and sticker_recipient101 not in {p.id for p in c.merged}:
+            raise ActionError('Choose which resulting card retains the merged permanent stickers before this public move')
         parts, pick = merging.break_up(state, c, dest)
+        c.stickers101 = stickers if pick.id == sticker_recipient101 else []
         moved = move_card(state, c, dest, index=index, position=position, x=x, y=y, face_down=face_down)
-        merging.place(state, parts, pick, dest, rest, index, position)
+        merging.place(state, parts, pick, dest, rest, index, position,
+                      stickers101=stickers, sticker_recipient101=sticker_recipient101)
         return moved
     if dest != STACK:
         owner, _ = split_zone(dest)
@@ -165,6 +173,10 @@ def move_card(
     if src_zone == STACK and state.rules is not None:
         oid = state.rules.object_id(c.id)
         state.rules.bottom_if_graveyard = [saved for saved in state.rules.bottom_if_graveyard if saved != oid]
+
+    # CR123.5: actual hidden-zone entry returns all stickers to their sheets.
+    if source != dest and dst_zone in ('library', 'hand', 'sideboard', 'foretell', 'setaside', 'attractions'):
+        c.stickers101 = []
 
     # (-- review (wave 14R) -- a phased-out permanent changing controller, 702.26d: the same object, as on the battlefield)
     same_object = src_zone == dst_zone and src_zone in ("battlefield", "phased")
@@ -325,7 +337,7 @@ def seen_move(source: str, dest: str, was_down: bool) -> bool:
 # of a token, of an ability on the stack or of mana in a pool is that old object; following it to the face-down card would name it)
 _KEEP: dict[type, frozenset[str]] = {
     CardInstance: frozenset({"borrow_identity", "name", "note", "counters", "effects", "choices", "stack_info", "exile_group", "face_down_as", "token",
-                             "token_source", "copy_of", "ability"}),
+                             "token_source", "copy_of", "ability", "stickers101"}),
     MergedPart: frozenset({"name", "token", "copy_of"}),
     Arrow: frozenset({"label"}),
     PlayerState: frozenset({"name", "deck_name", "resources", "mana_units"}),

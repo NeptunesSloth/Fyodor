@@ -1,0 +1,15 @@
+...FF.....                                                               [100%]
+=================================== FAILURES ===================================
+_ test_actual_trespasser_counts_stickers_not_words_and_unblockable_without_stickers104[True] _
+tests/test_rules_sticker_names104.py:79: in test_actual_trespasser_counts_stickers_not_words_and_unblockable_without_stickers104
+    assert "cant_be_blocked" in chars(s, s.state.cards[source.id]).rules
+                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: 'Characteristics' object has no attribute 'rules'
+_ test_actual_trespasser_counts_stickers_not_words_and_unblockable_without_stickers104[False] _
+tests/test_rules_sticker_names104.py:79: in test_actual_trespasser_counts_stickers_not_words_and_unblockable_without_stickers104
+    assert "cant_be_blocked" in chars(s, s.state.cards[source.id]).rules
+                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: 'Characteristics' object has no attribute 'rules'
+=========================== short test summary info ============================
+FAILED tests/test_rules_sticker_names104.py::test_actual_trespasser_counts_stickers_not_words_and_unblockable_without_stickers104[True]
+FAILED tests/test_rules_sticker_names104.py::test_actual_trespasser_counts_stickers_not_words_and_unblockable_without_stickers104[False]

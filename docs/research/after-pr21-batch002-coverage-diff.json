@@ -1,0 +1,30 @@
+{
+  "database_metadata_equal": true,
+  "card_name_set_equal": true,
+  "summary": {
+    "FULL": 30750,
+    "PARTIAL": 1318
+  },
+  "promotions": [
+    "Aurora Awakener",
+    "Auspicious Starrix",
+    "Delirium",
+    "Demonlord Belzenlok",
+    "Empty the Laboratory",
+    "Fireball",
+    "Illuna, Apex of Wishes",
+    "Improvisation Capstone",
+    "Kaervek's Torch",
+    "Liesa, Shroud of Dusk",
+    "Mega Flare",
+    "Myth Unbound",
+    "Piercing Exhale",
+    "Skyseer's Chariot",
+    "Vengeful Rebirth",
+    "Venture Forth"
+  ],
+  "regressions": [],
+  "unexpected": [],
+  "missing": [],
+  "changed_prior_full_definitions": {}
+}

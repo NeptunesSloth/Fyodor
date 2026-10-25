@@ -1,0 +1,350 @@
+bringing up nodes...
+bringing up nodes...
+
+.FFF.FF..                                                                [100%]
+=================================== FAILURES ===================================
+___ test_bullseye_alternative_keeps_common_mana_tap_and_chosen_verb[0-False] ___
+[gw0] linux -- Python 3.12.14 /workspace/Fyodor/backend/.venv/bin/python
+
+cards = <app.cards.repository.CardRepository object at 0x7f6381a96060>, side = 0
+tax = False
+
+    @pytest.mark.parametrize("tax", [False, True])
+    @pytest.mark.parametrize("side", [0, 1])
+    def test_bullseye_alternative_keeps_common_mana_tap_and_chosen_verb(cards, side, tax):
+        from tests.game_helpers import mana_pool
+
+        s, source, artifact, hand, land, body, index = prepare(cards, tax)
+        act(s, "p1", type="add_mana", player="p1", mana={"C": 5 if tax else 3})
+        activate(s, source, index, side, artifact.id if side == 0 else hand.id)
+        assert s.state.cards[source.id].tapped and not mana_pool(s, "p1")
+        assert s.state.cards[artifact.id].zone == ("p1:graveyard" if side == 0 else "p1:battlefield")
+>       assert s.state.cards[hand.id].zone == ("p1:hand" if side == 0 else "p1:graveyard")
+E       AssertionError: assert 'p1:battlefield' == 'p1:hand'
+E
+E         - p1:hand
+E         + p1:battlefield
+
+tests/test_rules_object_or_discard108.py:111: AssertionError
+___ test_bullseye_alternative_keeps_common_mana_tap_and_chosen_verb[0-True] ____
+[gw1] linux -- Python 3.12.14 /workspace/Fyodor/backend/.venv/bin/python
+
+cards = <app.cards.repository.CardRepository object at 0x7f4c965e4dd0>, side = 0
+tax = True
+
+    @pytest.mark.parametrize("tax", [False, True])
+    @pytest.mark.parametrize("side", [0, 1])
+    def test_bullseye_alternative_keeps_common_mana_tap_and_chosen_verb(cards, side, tax):
+        from tests.game_helpers import mana_pool
+
+        s, source, artifact, hand, land, body, index = prepare(cards, tax)
+        act(s, "p1", type="add_mana", player="p1", mana={"C": 5 if tax else 3})
+        activate(s, source, index, side, artifact.id if side == 0 else hand.id)
+        assert s.state.cards[source.id].tapped and not mana_pool(s, "p1")
+        assert s.state.cards[artifact.id].zone == ("p1:graveyard" if side == 0 else "p1:battlefield")
+>       assert s.state.cards[hand.id].zone == ("p1:hand" if side == 0 else "p1:graveyard")
+E       AssertionError: assert 'p1:battlefield' == 'p1:hand'
+E
+E         - p1:hand
+E         + p1:battlefield
+
+tests/test_rules_object_or_discard108.py:111: AssertionError
+___ test_bullseye_alternative_keeps_common_mana_tap_and_chosen_verb[1-True] ____
+[gw0] linux -- Python 3.12.14 /workspace/Fyodor/backend/.venv/bin/python
+
+cards = <app.cards.repository.CardRepository object at 0x7f63826da330>, side = 1
+tax = True
+
+    @pytest.mark.parametrize("tax", [False, True])
+    @pytest.mark.parametrize("side", [0, 1])
+    def test_bullseye_alternative_keeps_common_mana_tap_and_chosen_verb(cards, side, tax):
+        from tests.game_helpers import mana_pool
+
+        s, source, artifact, hand, land, body, index = prepare(cards, tax)
+        act(s, "p1", type="add_mana", player="p1", mana={"C": 5 if tax else 3})
+>       activate(s, source, index, side, artifact.id if side == 0 else hand.id)
+
+tests/test_rules_object_or_discard108.py:108:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests/test_rules_object_or_discard108.py:89: in activate
+    act(
+tests/game_helpers.py:42: in act
+    return session.perform(actor, payload)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/game/session.py:61: in perform
+    resolved = resolve(self.state, action, actor=actor, cards=self.cards, trusted=trusted)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/game/resolve.py:76: in resolve
+    a.r = compile_intent(state, a, actor=actor, info=info, rng=rng)  # type: ignore[union-attr]
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/engine.py:164: in compile_intent
+    handler(plan, intent)
+app/rules/casting.py:5497: in activate_ability
+    activate_to_stack(plan, card, ch, ability, a)
+app/rules/casting.py:6092: in activate_to_stack
+    cost_objects = cost_payment.choose(plan, a, cost, card, f"{ch.name}’s ability")  # (602.2b → 601.2h)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+plan = <app.rules.plan.Plan object at 0x7f638190ea20>
+a = ActivateAbility(actor='p1', ts=1792914102.3218389, r=None, type='activate_ability', card_id='0acdf19dbf83', ability=1,...ces=[CostChoice(component=20, cards=['either:1']), CostChoice(component=2, cards=['a9a2ce9a22de'])], life_symbols=None)
+cost = AbilityCost(numeric_roll_sides=None, mana='{5}', mana_allocation=None, tap=True, untap=False, sacrifice_self=False, li...nter_options=())), graveyard_only=False, exile_too=False, hand_only=False, command_only=False, life_x=False, either=())
+card = CardInstance(borrow_identity=None, id='0acdf19dbf83', card_id='d5ce967a-cd66-5584-b04c-01234bd736ca', name='Bullseye, ...ts=[], damage=0, choices={}, stack_info=None, exile_group=None, token_source=None, origin='library', test_object=False)
+what = 'Bullseye, Death Dealer’s ability', compatible_tap = False
+counter_first = False, component_excluded = None
+
+    def choose(plan: Plan, a: A.ActivateAbility | A.CastSpell | A.TurnFaceUp | A.DeclareAttackers | A.DeclareBlockers, cost: AbilityCost, card: CardInstance, what: str, *, compatible_tap: bool = False, counter_first: bool = False, component_excluded: dict[int, set[str]] | None = None) -> dict[int, list[str]] | None:
+        """The validated objects for every part of ``cost`` that needs a choice, by component index;
+        None while waiting for the payer's (private) choice. Each object pays for one part only."""
+        given: dict[int, list[str]] = {}
+        for c in a.cost_choices:
+            if c.component == C.EITHER_SLOT and isinstance(a, A.CastSpell | A.ActivateAbility):  # -- static wordings (wave 6E) -- (either_costs; wave 43D: equip)
+                continue
+            if c.component in given:
+                raise ActionError("Choose the objects for each part of the cost once")
+            given[c.component] = list(c.cards)
+        from app.rules import counter_cost_order70
+
+        counter_index = counter_cost_order70.index(cost) if counter_first else None
+        parts = dict(cost.choices)
+        if set(given) - set(parts):
+            raise ActionError("That ability's cost has no such part to choose for")
+        out: dict[int, list[str]] = {}
+        used: set[str] = set()
+        x = getattr(a, "x_value", None)  # (wave 4H: "Sacrifice X Treasures" — X announced as it's activated, 107.3a)
+        ordered = sorted(cost.choices, key=lambda item: item[0] != counter_index) if counter_index is not None else cost.choices
+        for i, comp in ordered:
+            part_used = used
+            if counter_index is not None and comp.kind == C.REMOVE_COUNTER:
+                part_used = {resource for j, resources in out.items() for resource in resources}
+            if comp.kind == C.OPPONENT_GAIN_LIFE:
+                from app.rules import opponent_gain_costs44
+
+                if not isinstance(a, A.CastSpell):
+                    raise ActionError('That opponent-gain cost is not supported for this action')
+                gained = opponent_gain_costs44.choose(plan, a, i, comp, card, given.get(i), what)
+                if gained is None:
+                    if counter_index is not None:
+                        counter_cost_order70.retain_choice72(plan, cost, out)
+                    return None
+                out[i] = gained
+                continue
+            if comp.kind == C.WATERBEND:  # -- activated sweep (wave 17B) -- up to N artifacts / creatures, each paying {1} (701.67a)
+                from dataclasses import replace
+
+                found = _choose_waterbend(plan, a, i, replace(comp,amount=(x or 0) if comp.x else comp.amount), cost, card, what, given.get(i), used)
+            elif comp.kind == "TAP_POWER":  # -- static_other sweep (wave 17C) -- one choice of creatures, validated as a whole
+                found = _choose_power(plan, a, i, comp, cost, card, what, given.get(i), used)
+            elif comp.kind == C.CRAFT:  # -- casting extras (wave 18E) -- the materials: one choice of at least ``amount`` objects
+                found = _choose_craft(plan, a, i, comp, cost, card, what, given.get(i), used)
+            elif comp.anyn:  # -- cost reductions paid with objects (wave 47C) -- any number, none too
+                found = _choose_any(plan, a, i, comp, cost, card, what, given.get(i), part_used)
+            if comp.kind in (C.WATERBEND, "TAP_POWER", C.CRAFT) or comp.anyn:
+                if found is None:
+                    if counter_index is not None:
+                        counter_cost_order70.retain_choice72(plan, cost, out)
+                    return None
+                out[i] = found
+                if counter_index is not None and comp.kind == C.REMOVE_COUNTER:
+                    used |= set(found) | {token.rsplit(":", 2)[0] for token in found}
+                continue
+            if comp.counter == C.ANY_COUNTER or comp.among or comp.kind in (C.COLLECT_EVIDENCE, C.FORAGE):  # -- activation costs (wave 4H) --
+                chooser = _choose_counters if comp.counter == C.ANY_COUNTER or comp.among else _choose_flexible
+                found = chooser(plan, a, i, comp, cost, card, what, given.get(i), part_used)
+                if found is None:
+                    if counter_index is not None:
+                        counter_cost_order70.retain_choice72(plan, cost, out)
+                    return None
+                out[i] = found
+                if counter_index is not None and comp.kind == C.REMOVE_COUNTER:
+                    used |= set(found) | {token.rsplit(":", 2)[0] for token in found}
+                continue
+            need = objects_needed(comp, x)
+            blocked = used
+            if compatible_tap:
+                blocked = {cid for j, ids in out.items() for cid in ids
+                           if not ({comp.kind, parts[j].kind} & {C.TAP_OTHER} and
+                                   {comp.kind, parts[j].kind} & {C.SACRIFICE, C.RETURN_PERMANENT})}
+            candidate_plan = plan
+            if counter_index is not None and counter_cost_order70.fixed_sacrifice(comp):
+                # Counter tokens and a sacrifice consume different resources. Other objects
+                # remain reserved; a holder cannot satisfy two sacrifice components.
+                candidate_plan = counter_cost_order70.preview(plan, cost, out)
+                removed_holders = {token.rsplit(':', 2)[0] for token in out[counter_index]}
+                other_claims = {cid for j, ids in out.items() if j != counter_index for cid in ids}
+                blocked = (used - removed_holders) | other_claims
+            usable = [c for c in candidates(candidate_plan, comp, plan.actor, card) if c not in _reserved(cost, comp, card)
+                      and c not in blocked and c not in (component_excluded or {}).get(i, set())]
+            if comp.all_objects:
+                required = required_all(candidate_plan, comp, plan.actor, card)
+                if set(required) - set(usable):
+                    raise ActionError(f"You can't pay “{comp.text}”")
+                need = len(required)
+            if i in given:
+                chosen = given[i]
+                if (len(chosen) > need if comp.up_to else len(chosen) != need) or len(set(chosen)) != len(chosen) \
+                        or any(c not in usable for c in chosen):
+>                   raise ActionError(f"Choose {'up to ' if comp.up_to else ''}{need} to pay “{comp.text}”"
+E                   app.game.errors.ActionError: Choose 1 to pay “Discard a nonland card”
+
+app/rules/cost_payment.py:543: ActionError
+___ test_bullseye_alternative_keeps_common_mana_tap_and_chosen_verb[1-False] ___
+[gw1] linux -- Python 3.12.14 /workspace/Fyodor/backend/.venv/bin/python
+
+cards = <app.cards.repository.CardRepository object at 0x7f4c9643aae0>, side = 1
+tax = False
+
+    @pytest.mark.parametrize("tax", [False, True])
+    @pytest.mark.parametrize("side", [0, 1])
+    def test_bullseye_alternative_keeps_common_mana_tap_and_chosen_verb(cards, side, tax):
+        from tests.game_helpers import mana_pool
+
+        s, source, artifact, hand, land, body, index = prepare(cards, tax)
+        act(s, "p1", type="add_mana", player="p1", mana={"C": 5 if tax else 3})
+>       activate(s, source, index, side, artifact.id if side == 0 else hand.id)
+
+tests/test_rules_object_or_discard108.py:108:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests/test_rules_object_or_discard108.py:89: in activate
+    act(
+tests/game_helpers.py:42: in act
+    return session.perform(actor, payload)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/game/session.py:61: in perform
+    resolved = resolve(self.state, action, actor=actor, cards=self.cards, trusted=trusted)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/game/resolve.py:76: in resolve
+    a.r = compile_intent(state, a, actor=actor, info=info, rng=rng)  # type: ignore[union-attr]
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/engine.py:164: in compile_intent
+    handler(plan, intent)
+app/rules/casting.py:5497: in activate_ability
+    activate_to_stack(plan, card, ch, ability, a)
+app/rules/casting.py:6092: in activate_to_stack
+    cost_objects = cost_payment.choose(plan, a, cost, card, f"{ch.name}’s ability")  # (602.2b → 601.2h)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+plan = <app.rules.plan.Plan object at 0x7f4c957e1dc0>
+a = ActivateAbility(actor='p1', ts=1792914117.7513683, r=None, type='activate_ability', card_id='702583f82561', ability=1,...ces=[CostChoice(component=20, cards=['either:1']), CostChoice(component=2, cards=['ca8d0a5d2104'])], life_symbols=None)
+cost = AbilityCost(numeric_roll_sides=None, mana='{3}', mana_allocation=None, tap=True, untap=False, sacrifice_self=False, li...nter_options=())), graveyard_only=False, exile_too=False, hand_only=False, command_only=False, life_x=False, either=())
+card = CardInstance(borrow_identity=None, id='702583f82561', card_id='d5ce967a-cd66-5584-b04c-01234bd736ca', name='Bullseye, ...ts=[], damage=0, choices={}, stack_info=None, exile_group=None, token_source=None, origin='library', test_object=False)
+what = 'Bullseye, Death Dealer’s ability', compatible_tap = False
+counter_first = False, component_excluded = None
+
+    def choose(plan: Plan, a: A.ActivateAbility | A.CastSpell | A.TurnFaceUp | A.DeclareAttackers | A.DeclareBlockers, cost: AbilityCost, card: CardInstance, what: str, *, compatible_tap: bool = False, counter_first: bool = False, component_excluded: dict[int, set[str]] | None = None) -> dict[int, list[str]] | None:
+        """The validated objects for every part of ``cost`` that needs a choice, by component index;
+        None while waiting for the payer's (private) choice. Each object pays for one part only."""
+        given: dict[int, list[str]] = {}
+        for c in a.cost_choices:
+            if c.component == C.EITHER_SLOT and isinstance(a, A.CastSpell | A.ActivateAbility):  # -- static wordings (wave 6E) -- (either_costs; wave 43D: equip)
+                continue
+            if c.component in given:
+                raise ActionError("Choose the objects for each part of the cost once")
+            given[c.component] = list(c.cards)
+        from app.rules import counter_cost_order70
+
+        counter_index = counter_cost_order70.index(cost) if counter_first else None
+        parts = dict(cost.choices)
+        if set(given) - set(parts):
+            raise ActionError("That ability's cost has no such part to choose for")
+        out: dict[int, list[str]] = {}
+        used: set[str] = set()
+        x = getattr(a, "x_value", None)  # (wave 4H: "Sacrifice X Treasures" — X announced as it's activated, 107.3a)
+        ordered = sorted(cost.choices, key=lambda item: item[0] != counter_index) if counter_index is not None else cost.choices
+        for i, comp in ordered:
+            part_used = used
+            if counter_index is not None and comp.kind == C.REMOVE_COUNTER:
+                part_used = {resource for j, resources in out.items() for resource in resources}
+            if comp.kind == C.OPPONENT_GAIN_LIFE:
+                from app.rules import opponent_gain_costs44
+
+                if not isinstance(a, A.CastSpell):
+                    raise ActionError('That opponent-gain cost is not supported for this action')
+                gained = opponent_gain_costs44.choose(plan, a, i, comp, card, given.get(i), what)
+                if gained is None:
+                    if counter_index is not None:
+                        counter_cost_order70.retain_choice72(plan, cost, out)
+                    return None
+                out[i] = gained
+                continue
+            if comp.kind == C.WATERBEND:  # -- activated sweep (wave 17B) -- up to N artifacts / creatures, each paying {1} (701.67a)
+                from dataclasses import replace
+
+                found = _choose_waterbend(plan, a, i, replace(comp,amount=(x or 0) if comp.x else comp.amount), cost, card, what, given.get(i), used)
+            elif comp.kind == "TAP_POWER":  # -- static_other sweep (wave 17C) -- one choice of creatures, validated as a whole
+                found = _choose_power(plan, a, i, comp, cost, card, what, given.get(i), used)
+            elif comp.kind == C.CRAFT:  # -- casting extras (wave 18E) -- the materials: one choice of at least ``amount`` objects
+                found = _choose_craft(plan, a, i, comp, cost, card, what, given.get(i), used)
+            elif comp.anyn:  # -- cost reductions paid with objects (wave 47C) -- any number, none too
+                found = _choose_any(plan, a, i, comp, cost, card, what, given.get(i), part_used)
+            if comp.kind in (C.WATERBEND, "TAP_POWER", C.CRAFT) or comp.anyn:
+                if found is None:
+                    if counter_index is not None:
+                        counter_cost_order70.retain_choice72(plan, cost, out)
+                    return None
+                out[i] = found
+                if counter_index is not None and comp.kind == C.REMOVE_COUNTER:
+                    used |= set(found) | {token.rsplit(":", 2)[0] for token in found}
+                continue
+            if comp.counter == C.ANY_COUNTER or comp.among or comp.kind in (C.COLLECT_EVIDENCE, C.FORAGE):  # -- activation costs (wave 4H) --
+                chooser = _choose_counters if comp.counter == C.ANY_COUNTER or comp.among else _choose_flexible
+                found = chooser(plan, a, i, comp, cost, card, what, given.get(i), part_used)
+                if found is None:
+                    if counter_index is not None:
+                        counter_cost_order70.retain_choice72(plan, cost, out)
+                    return None
+                out[i] = found
+                if counter_index is not None and comp.kind == C.REMOVE_COUNTER:
+                    used |= set(found) | {token.rsplit(":", 2)[0] for token in found}
+                continue
+            need = objects_needed(comp, x)
+            blocked = used
+            if compatible_tap:
+                blocked = {cid for j, ids in out.items() for cid in ids
+                           if not ({comp.kind, parts[j].kind} & {C.TAP_OTHER} and
+                                   {comp.kind, parts[j].kind} & {C.SACRIFICE, C.RETURN_PERMANENT})}
+            candidate_plan = plan
+            if counter_index is not None and counter_cost_order70.fixed_sacrifice(comp):
+                # Counter tokens and a sacrifice consume different resources. Other objects
+                # remain reserved; a holder cannot satisfy two sacrifice components.
+                candidate_plan = counter_cost_order70.preview(plan, cost, out)
+                removed_holders = {token.rsplit(':', 2)[0] for token in out[counter_index]}
+                other_claims = {cid for j, ids in out.items() if j != counter_index for cid in ids}
+                blocked = (used - removed_holders) | other_claims
+            usable = [c for c in candidates(candidate_plan, comp, plan.actor, card) if c not in _reserved(cost, comp, card)
+                      and c not in blocked and c not in (component_excluded or {}).get(i, set())]
+            if comp.all_objects:
+                required = required_all(candidate_plan, comp, plan.actor, card)
+                if set(required) - set(usable):
+                    raise ActionError(f"You can't pay “{comp.text}”")
+                need = len(required)
+            if i in given:
+                chosen = given[i]
+                if (len(chosen) > need if comp.up_to else len(chosen) != need) or len(set(chosen)) != len(chosen) \
+                        or any(c not in usable for c in chosen):
+>                   raise ActionError(f"Choose {'up to ' if comp.up_to else ''}{need} to pay “{comp.text}”"
+E                   app.game.errors.ActionError: Choose 1 to pay “Discard a nonland card”
+
+app/rules/cost_payment.py:543: ActionError
+_____ test_existing_optional_etb_alternative_remains_native_and_reflexive ______
+[gw0] linux -- Python 3.12.14 /workspace/Fyodor/backend/.venv/bin/python
+
+cards = <app.cards.repository.CardRepository object at 0x7f6382a44aa0>
+
+    def test_existing_optional_etb_alternative_remains_native_and_reflexive(cards):
+        s, source, artifact, hand, land, body, index = prepare(cards, etb_pay=True)
+        assert s.state.cards[artifact.id].zone == "p1:graveyard"
+>       assert s.state.cards[hand.id].zone == "p1:hand" and s.state.players["p2"].life == 38
+E       AssertionError: assert ('p1:battlefield' == 'p1:hand'
+E
+E         - p1:hand
+E         + p1:battlefield)
+
+tests/test_rules_object_or_discard108.py:144: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_rules_object_or_discard108.py::test_bullseye_alternative_keeps_common_mana_tap_and_chosen_verb[0-False]
+FAILED tests/test_rules_object_or_discard108.py::test_bullseye_alternative_keeps_common_mana_tap_and_chosen_verb[0-True]
+FAILED tests/test_rules_object_or_discard108.py::test_bullseye_alternative_keeps_common_mana_tap_and_chosen_verb[1-True]
+FAILED tests/test_rules_object_or_discard108.py::test_bullseye_alternative_keeps_common_mana_tap_and_chosen_verb[1-False]
+FAILED tests/test_rules_object_or_discard108.py::test_existing_optional_etb_alternative_remains_native_and_reflexive

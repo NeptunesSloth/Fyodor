@@ -1,0 +1,19 @@
+--- a/backend/app/rules/activation_alternatives.py
++++ b/backend/app/rules/activation_alternatives.py
+@@ -1,4 +1,4 @@
+-"""CR 118.3, 601.2b, 602.2b: announce a mana-or-energy activation cost.
++"""CR 118.3, 601.2b, 602.2b: announce complete alternative activation costs.
+
+ Each side is a complete cost. Taxes, reductions, timing and payment use the
+ ordinary activation path after choosing; no resources are paid at the prompt.
+@@ -21,6 +21,10 @@
+
+
+ def sides(text: str) -> list[str] | None:
++    if (objects := re.fullmatch(r"(?P<base>(?:[^,]+, )+)Sacrifice an artifact or discard a nonland card", text)) is not None:
++        return [objects["base"] + "Sacrifice an artifact", objects["base"] + "Discard a nonland card"]
++    if (life := re.fullmatch(r"(Pay \d+ life) or (" + _SYMBOLS + r")", text)) is not None:
++        return list(life.groups())
+     m = _EITHER.fullmatch(text)
+     if m is None:
+         return None

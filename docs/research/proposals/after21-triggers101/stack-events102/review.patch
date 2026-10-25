@@ -1,0 +1,321 @@
+--- /dev/null
++++ b/backend/app/rules/stack_events102.py
+@@ -0,0 +1,135 @@
++"""Cast target counts, creature-type exclusions, and original spell-copy destinations."""
++from __future__ import annotations
++
++from dataclasses import replace
++from typing import Any
++
++BIB = 'Whenever you cast a spell with one or more targets, draw that many cards.'
++VOLO = "Whenever you cast a creature spell that doesn't share a creature type with a creature you control or a creature card in your graveyard, copy that spell."
++HIVE = 'Whenever a player casts an instant or sorcery spell, each other player copies that spell. Each of those players may choose new targets for their copy.'
++IVY = 'Whenever a player casts a spell that targets only a single creature other than ~, you may copy that spell. The copy targets ~.'
++FRONT = 'Whenever you cast a spell that targets only a single creature you control, create a 1/1 red Soldier creature token with haste, then copy that spell. The copy targets that token.'
++PHOENIX = 'Whenever ~ deals combat damage to a player or planeswalker, copy the next loyalty ability you activate this turn when you activate it. You may choose new targets for the copy.'
++
++
++def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
++    from app.rules import scripts, selectors
++    from app.rules.oracle import strip_reminders
++
++    text = strip_reminders(scripts.self_text(ability.text, ch.name)).strip()
++    proxy = None
++    if text in (IVY, FRONT):
++        proxy = ('Whenever a player casts a spell that targets only a single creature, draw a card.' if text == IVY else
++                 'Whenever you cast a spell that targets only a single creature you control, draw a card.')
++    elif text == VOLO:
++        proxy = 'Whenever you cast a creature spell, copy it.'
++    elif text == HIVE:
++        proxy = 'Whenever a player casts an instant or sorcery spell, copy it.'
++    elif text == BIB:
++        proxy = 'Whenever you cast a spell that targets a creature, draw a card.'
++    elif text == PHOENIX:
++        proxy = 'Whenever ~ deals combat damage to a player or planeswalker, draw a card.'
++    if proxy is None:
++        return None
++    native = scripts.define(replace(ability, text=proxy), ch)
++    assert native is not None
++    if text == BIB:
++        cond = {**native['cond'], 'cast_targets102': True}
++        cond.pop('targets', None)
++        return {**native, 'cond': cond, 'effects': [{'do': 'bibliophile_draw102'}]}
++    if text == VOLO:
++        return {**native, 'cond': {**native['cond'], 'disjoint_creatures102': True}}
++    if text == HIVE:
++        return {**native, 'effects': [{'do': 'hive_copies102'}]}
++    if text == IVY:
++        cond = {**native['cond'], 'targets': 'only_one:' + selectors.Selector(types=('Creature',), other=True).key()}
++        return {**native, 'cond': cond, 'optional': True, 'effects': [{'do': 'fixed_copy102', 'who': 'self'}]}
++    if text == FRONT:
++        token = scripts.parse_effects('Create a 1/1 red Soldier creature token with haste.')
++        assert token is not None
++        return {**native, 'effects': [{**token[0][0], 'as': 'front_created102'},
++            {'do': 'return_choice', 'who': 'ref:front_created102', 'to': 'choose', 'n': 1, 'upto': False, 'as': 'front_target102'},
++            {'do': 'fixed_copy102', 'who': 'ref:front_target102'}]}
++    return {**native, 'effects': [{'do': 'jaya_watch102'}]}
++
++
++def disjoint(plan: Any, watcher: Any, spell: Any) -> bool:
++    from app.rules.creature_types import CREATURE_TYPES
++
++    kinds = plan.ch(spell).subtypes & CREATURE_TYPES
++    for c in plan.state.cards.values():
++        if (c.zone.endswith(':battlefield') and c.controller == watcher.controller) or c.zone == f'{watcher.controller}:graveyard':
++            ch = plan.ch(c)
++            if ch.is_creature and kinds.intersection(ch.subtypes):
++                return False
++    return True
++
++
++def hive_copies(plan: Any, ctx: Any, effect: Any) -> bool:
++    caster = next(iter((ctx.get('event') or {}).get('players') or []), None)
++    jobs = [sub for player in plan.apnap() if player != caster for sub in (
++        {'do': 'copy_spell', 'who': 'event_spell', 'by': 'player:' + player},
++        {'do': 'copy_new_targets', 'optional': True})]
++    ctx['effects'][ctx['next']:ctx['next']] = jobs
++    return True
++
++
++def fixed_copy(plan: Any, ctx: Any, effect: Any) -> bool:
++    from app.rules import copying, effects, spell_copy_replacements, targets
++
++    victims = effects._cards(plan, ctx, effect['who'])
++    found = next(iter(copying._copy_sources(plan, ctx, 'event_spell')), None)
++    if len(victims) != 1:
++        return True
++    if found is None:
++        return copying._manual_each(plan, ctx, ctx['controller'], None) if copying._event_object_left(ctx, 'event_spell') else True
++    victim = victims[0]
++    source, oid = found
++    card = plan.state.cards.get(source)
++    if card is None:
++        return True
++    entry = copying.source_entry102(plan, card, oid)
++    if entry is None:
++        return True
++    reason = copying.uncopyable(plan, card, object_id=oid)
++    if reason is not None:
++        return True if not reason else copying._manual_each(plan, ctx, ctx['controller'], card)
++    pos = copying.positions(entry)
++    if not pos:
++        return True
++    source_ch = targets.source_of(plan, entry.source_card, entry.kind == 'spell', object_id=entry.source_object)
++    for p in pos:
++        spec = copying._spec(entry, p)
++        if victim not in targets.legal_targets(plan, spec.get('what', 'any'), ctx['controller'], source_ch,
++                                              entry.source_card, source_object=entry.source_object):
++            return True
++    probe = copying._retargeted(entry, pos, [targets.ref(plan, victim)] * len(pos))
++    probe.controller = ctx['controller']
++    if copying._problem(plan, probe) is not None:
++        return True
++    job = {'ctx': ctx, 'spell': source, 'oid': oid, 'controller': ctx['controller'], 'victims': [victim],
++           'additional': spell_copy_replacements.additional(plan, ctx['controller'])}
++    return copying._each_run(plan, job)
++
++
++def bibliophile_draw(plan: Any, ctx: Any, effect: Any) -> bool:
++    from app.rules import effects
++
++    return effects.draw(plan, ctx, {'do': 'draw', 'who': 'you', 'n': int((ctx.get('event') or {}).get('amount') or 0)})
++
++
++def jaya_watch(plan: Any, ctx: Any, effect: Any) -> bool:
++    from app.rules import delayed, events
++
++    cond = events.parse_condition('you activate a loyalty ability')
++    assert cond is not None
++    head = {'kind': 'watch', 'cond': cond, 'text': 'you next activate a loyalty ability'}
++    out = delayed.wrap_when([{'do': 'copy_ability', 'who': 'event_ability'},
++                            {'do': 'copy_new_targets', 'optional': True}], head, this_turn=True)
++    out[0]['once'] = True
++    ctx['effects'][ctx['next']:ctx['next']] = out
++    return True
++
++
++PRIMITIVES = {'hive_copies102': hive_copies, 'fixed_copy102': fixed_copy,
++              'bibliophile_draw102': bibliophile_draw, 'jaya_watch102': jaya_watch}
+--- a/backend/app/rules/scripts.py
++++ b/backend/app/rules/scripts.py
+@@ -5856,6 +5856,10 @@
+
+ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
+     """The engine definition of one ability, or None (manual)."""
++    from app.rules import stack_events102
++
++    if (stack102 := stack_events102.definition(ability, ch)) is not None:
++        return stack102
+     from app.rules import multi100m  # -- multi (wave 100M) --
+
+     if (lines100m := multi100m.definition(ability, ch)) is not None:
+--- a/backend/app/rules/effects.py
++++ b/backend/app/rules/effects.py
+@@ -6983,3 +6983,7 @@
+ from app.rules import otherchooser100p as _otherchooser100p  # noqa: E402  -- other choosers (wave 100P) --
+
+ PRIMITIVES.update(_otherchooser100p.PRIMITIVES)
++
++from app.rules import stack_events102 as _stack102  # noqa: E402
++
++PRIMITIVES.update(_stack102.PRIMITIVES)
+--- a/backend/app/rules/triggers.py
++++ b/backend/app/rules/triggers.py
+@@ -504,7 +504,8 @@
+                 "mana_sources": list(paid.mana_sources) if paid is not None and paid.mana_known else [],
+                 "mana_spent": dict(paid.mana_spent) if paid is not None and paid.mana_known else None,
+                 "x": int(paid.x or 0) if paid is not None else int(entry.x or 0) if entry is not None else 0,
+-                "targets": [(t.id, t.object_id) for t in (entry.targets if entry is not None else [])]}
++                "targets": [(t.id, t.object_id) for t in (entry.targets if entry is not None else
++                    [r.aura_targets[spell.id]] if spell.id in r.aura_targets else [])]}
+         # -- unless pays (wave 4C) -- "their first noncreature spell each turn"
+         from app.rules import unless_pays
+
+@@ -527,7 +528,8 @@
+         entry = r.stack.get(spell.id)
+         return [("copy", spell, plan.ch(spell), e.player, {
+             "oid": e.object_id, "actor": e.player,
+-            "targets": [(t.id, t.object_id) for t in (entry.targets if entry is not None else [])]})]
++            "targets": [(t.id, t.object_id) for t in (entry.targets if entry is not None else
++                    [r.aura_targets[spell.id]] if spell.id in r.aura_targets else [])]})]
+     if e.kind == "drew":
+         return [("draw", None, None, e.player, {"amount": 1})]
+     if e.kind == "case_solved":
+@@ -1107,6 +1109,13 @@
+     if n and len(_counted_attackers(plan, cond, watcher, info)) < n:
+         return False
+     if event == "cast":
++        if cond.get('cast_targets102') and not (info.get('targets') or []):
++            return False
++        if cond.get('disjoint_creatures102'):
++            from app.rules import stack_events102
++
++            if obj is None or not stack_events102.disjoint(plan, watcher, obj):
++                return False
+         if cond.get("cast_foreign_owned") and (obj is None or obj.owner == info.get("actor")):
+             return False
+         if cond.get('card_only') and (obj is None or obj.is_token):
+@@ -1510,6 +1519,8 @@
+                 continue
+             event = _event(plan, fact, batch)
+             info = fact[4]
++            if cond.get('cast_targets102'):
++                event.amount = len({(cid, oid) for cid, oid in info.get('targets') or []})
+             if cond.get("excess"):  # -- trigger damage (wave 39B) -- 120.10: "that excess damage" / "the excess": the amount of this event is the excess (the batch's total, 603.2c)
+                 event.amount = int(info.get("excess") or 0)
+             if cond["event"] == "you_attack" and cond.get("min_attackers"):  # -- history (wave 22E; review) -- "those creatures", "that many":
+--- a/backend/app/rules/copying.py
++++ b/backend/app/rules/copying.py
+@@ -409,6 +409,30 @@
+         return None
+     return mem
+
++
++
++def source_entry102(plan: Plan, card: CardInstance, oid: str) -> StackEntry | None:
++    """One native target view for scripted spells and entryless Aura spells, live or retained."""
++    from app.rules import attachments, stack_interaction
++
++    if plan.oid(card) == oid:
++        return stack_interaction.target_entry(plan, card.id)
++    mem = lki_spell(plan, card.id, oid)
++    if mem is None:
++        return None
++    if mem.entry is not None:
++        return mem.entry
++    snap = plan.rules.lki.get(oid)
++    if mem.aura_target102 is None or snap is None:
++        return None
++    from app.rules.triggers import _lki_characteristics
++
++    ch = _lki_characteristics(plan, snap)
++    selector = attachments.enchant_selector(ch)
++    if selector is None:
++        return None
++    return StackEntry(kind='spell', controller=snap.controller, source_card=card.id, source_object=oid,
++                      name=ch.name, targets=[mem.aura_target102], target_spec={'what': selector})
+
+ def lki_ability(plan: Plan, card_id: str, oid: str) -> StackMemory | None:
+     mem = plan.rules.stack_lki.get(oid)
+@@ -454,7 +478,7 @@
+                 _manual(plan, job, refused)
+                 return False
+             continue
+-        entry = mem.entry if mem is not None else plan.rules.stack.get(card.id)
++        entry = source_entry102(plan, card, cur["oid"])
+         from app.rules import spell_copy_replacements
+
+         spell_copy_replacements.prepare(plan, job, cur, ability=card.ability is not None)
+@@ -585,7 +609,10 @@
+         plan.note(f"{ch.name or 'That spell'} can't be copied (113.6g)", [card.id], actor=plan.actor)
+         return ""
+     if "Aura" in ch.subtypes:
+-        return f"Copying an Aura spell ({ch.name}) isn't automated: make the copy by hand, then press Done"
++        from app.rules import attachments
++
++        if attachments.enchant_selector(ch) is None:
++            return f"Copying this Aura's unrecognized enchant restriction ({ch.name}) isn't automated"
+     if ch.doors is not None:  # -- Rooms (review 18G) -- 709.5d unlocks the half that was *cast*; a copy isn't cast (707.10): unsettled
+         return f"Copying a Room spell ({ch.name}) isn't automated (709.5d): make the copy by hand, then press Done"
+     if plan.oid(card) in plan.rules.mutating:  # -- merged permanents (wave 18D) -- the copy is a mutating spell too (707.10, 702.140)
+@@ -609,7 +636,7 @@
+     r = plan.rules
+     orig_oid = oid or plan.oid(card)
+     mem = lki_spell(plan, card.id, orig_oid) if orig_oid != plan.oid(card) else None  # it has left the stack: -- spell copies (wave 31D) --
+-    entry = mem.entry if mem is not None else r.stack.get(card.id)
++    entry = source_entry102(plan, card, orig_oid)
+     info = (StackInfo.model_validate(mem.info) if mem.info else None) if mem is not None else card.stack_info
+     if mem is not None:  # (its copiable values as it was: a copy effect on it then, else its printing and face — 707.2)
+         snap = r.lki[orig_oid]
+@@ -842,6 +869,11 @@
+            or (t.id in plan.state.cards and publicly_visible(plan.state, plan.state.cards[t.id]))]
+     plan.target_arrows(copy_id, ids, actor=controller)
+     targeted(plan, copy_id, controller, entry.targets)
++    if 'Aura' in plan.ch(plan.state.cards[copy_id]).subtypes:
++        # The temporary target view is only for copy selection; normal Aura resolution
++        # continues through the existing enchant/attachment path, not an empty scripted spell.
++        plan.rules.aura_targets[copy_id] = entry.targets[0]
++        plan.rules.stack.pop(copy_id, None)
+
+
+ # -- effect primitives ---------------------------------------------------------------------------------
+@@ -1063,7 +1095,7 @@
+             job["victims"].remove(victim)
+         card = plan.state.cards.get(job["spell"])
+         mem = lki_spell(plan, job["spell"], job["oid"]) if card is not None else None  # (wave 31D: a spell that left the stack, as it last was there)
+-        entry = mem.entry if mem is not None else plan.rules.stack.get(job["spell"])
++        entry = source_entry102(plan, card, job["oid"]) if card is not None else None
+         if card is None or entry is None or (mem is None and (card.zone != "stack" or plan.oid(card) != job["oid"])):
+             break
+         if victim == "__additional__":
+--- a/backend/app/rules/engine.py
++++ b/backend/app/rules/engine.py
+@@ -1089,6 +1089,10 @@
+             and replacements.stack_entry_choice(plan, top, controller):
+         return  # "As ~ enters, choose a color": chosen before it enters (614.12a); resolved again with the answer
+     ch = plan.ch(top)  # -- copy system (wave 2F): as it will enter — entering as a copy, the copied text (707.5, 614.12)
++    if top_id in plan.rules.aura_targets:
++        from app.game.rules_state import remember_stack
++
++        remember_stack(plan.state, top_id)  # Retain Aura targets before normal resolution consumes its map.
+     aura_target = plan.rules.aura_targets.pop(top_id, None)
+     # An instant, sorcery or ability the engine didn't put on the stack (moved there by hand) has
+     # no recorded targets or choices: its controller resolves it by hand. So has an Aura without one.
+--- a/backend/app/game/rules_state.py
++++ b/backend/app/game/rules_state.py
+@@ -1029,6 +1029,7 @@
+     evoked: bool = False
+     dashed: bool = False
+     ability_card: dict[str, Any] | None = None  # A ceased ability retains its copiable stack values (608.2h).
++    aura_target102: TargetRef | None = None  # Original Aura-spell target, including after the spell leaves.
+
+
+ class CostContribution(BaseModel):
+@@ -1877,6 +1878,7 @@
+     info = info if info is not None else card.stack_info
+     rules.stack_lki[oid] = StackMemory(card=card_id, turn=state.turn.number, entry=entry.model_copy(deep=True) if entry is not None else None,
+                                        info=info.model_dump() if info is not None else {},
++                                       aura_target102=rules.aura_targets.get(card_id),
+                                        evoked=card_id in rules.evoked, dashed=card_id in rules.dashed,
+                                        ability_card=card.model_dump(mode="json") if card.ability is not None else None)
+

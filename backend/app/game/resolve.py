@@ -66,6 +66,8 @@ def resolve(state: GameState, action: A.Action, *, actor: str, cards: CardInfo |
         a.opening = None
     if hasattr(a, "keep_ids") and not trusted:
         a.keep_ids = False  # -- review (face-down ids) -- only the rules engine defers the renumbering (Plan.renumber_face_down)
+    if isinstance(a, A.CopyCard) and a.saved_stack is not None and not trusted:
+        raise ActionError("Only the rules engine can copy a preserved spell")
     if isinstance(a, A.ResponseOpen):
         raise ActionError("Response checks are opened by the server")
     if a.type in A.SERVER_ONLY_TYPES and not trusted:
@@ -74,6 +76,14 @@ def resolve(state: GameState, action: A.Action, *, actor: str, cards: CardInfo |
         from app.rules.engine import compile_intent  # rules → game; imported late to stay acyclic
 
         a.r = compile_intent(state, a, actor=actor, info=info, rng=rng)  # type: ignore[union-attr]
+        return a
+    if isinstance(a, A.RulesSticker101):
+        from app.rules import characteristics, layers
+
+        current = state.cards.get(a.card_id)
+        if current is None:
+            raise ActionError('The sticker recipient is unavailable')
+        a.types101 = sorted(layers.derive(state, current, characteristics.of(current, info), info).types)
         return a
     if isinstance(a, A.Configure):
         from app.rules.reconcile import compile_reconcile, needs_reconcile  # rules → game; imported late

@@ -1,0 +1,76 @@
+{
+  "object": "list",
+  "has_more": false,
+  "data": [
+    {
+      "object": "ruling",
+      "oracle_id": "79a1783f-ea7e-4cdf-95f5-53b383d38c66",
+      "source": "wotc",
+      "published_at": "2020-11-10",
+      "comment": "For the second ability of Tevesh Szat, Doom of Fools, you choose whether to sacrifice anything and what to sacrifice as the ability resolves."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "79a1783f-ea7e-4cdf-95f5-53b383d38c66",
+      "source": "wotc",
+      "published_at": "2020-11-10",
+      "comment": "As the third ability is resolving, you'll gain control of all commanders that were already on the battlefield before the commanders from the command zone enter the battlefield under your control."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "79a1783f-ea7e-4cdf-95f5-53b383d38c66",
+      "source": "wotc",
+      "published_at": "2020-11-10",
+      "comment": "If you leave the game, each commander you gained control of is returned to its previous controller's control. Each commander that entered the battlefield under your control is exiled (from there, its owner may return it to the command zone)."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "79a1783f-ea7e-4cdf-95f5-53b383d38c66",
+      "source": "wotc",
+      "published_at": "2020-11-10",
+      "comment": "If your Commander deck has two commanders, you can only include cards whose own color identities are also found in your commanders' combined color identities. If Falthis and Kediss are your commanders, your deck may contain cards with black and/or red in their color identity, but not cards with green, white, or blue."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "79a1783f-ea7e-4cdf-95f5-53b383d38c66",
+      "source": "wotc",
+      "published_at": "2020-11-10",
+      "comment": "Both commanders start in the command zone, and the remaining 98 cards (or 58 cards in a Commander Draft game) of your deck are shuffled to become your library."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "79a1783f-ea7e-4cdf-95f5-53b383d38c66",
+      "source": "wotc",
+      "published_at": "2020-11-10",
+      "comment": "To have two commanders, both must have the partner ability as the game begins. Losing the ability during the game doesn't cause either to cease to be your commander."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "79a1783f-ea7e-4cdf-95f5-53b383d38c66",
+      "source": "wotc",
+      "published_at": "2020-11-10",
+      "comment": "Once the game begins, your two commanders are tracked separately. If you cast one, you won't have to pay an additional {2} the first time you cast the other. A player loses the game after having been dealt 21 damage from any one of them, not from both of them combined."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "79a1783f-ea7e-4cdf-95f5-53b383d38c66",
+      "source": "wotc",
+      "published_at": "2020-11-10",
+      "comment": "If something refers to your commander while you have two commanders, it refers to one of them of your choice. If you are instructed to perform an action on your commander (e.g. put it from the command zone into your hand due to Command Beacon), you choose one of your commanders at the time the effect happens."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "79a1783f-ea7e-4cdf-95f5-53b383d38c66",
+      "source": "wotc",
+      "published_at": "2020-11-10",
+      "comment": "An effect that checks whether you control your commander is satisfied if you control one or both of your two commanders."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "79a1783f-ea7e-4cdf-95f5-53b383d38c66",
+      "source": "wotc",
+      "published_at": "2020-11-10",
+      "comment": "You can choose two commanders with partner that are the same color or colors. In Commander Draft, you can even choose two of the same commander with partner if you drafted them. If you do this, make sure you keep the number of times you've cast each from the command zone clear for \"commander tax\" purposes."
+    }
+  ]
+}

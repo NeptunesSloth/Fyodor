@@ -1,0 +1,67 @@
+============================= test session starts ==============================
+platform linux -- Python 3.12.14, pytest-9.1.1, pluggy-1.7.0
+rootdir: /workspace/scratch/library101/backend
+configfile: pyproject.toml
+plugins: anyio-4.15.1, xdist-3.8.0
+collected 12 items / 10 deselected / 2 selected
+
+tests/test_rules_library_packets101.py .F                                [100%]
+
+=================================== FAILURES ===================================
+_ test_belzenlok_native_repeats_and_stops_low_mana_value_then_one_damage_event _
+
+cards = <app.cards.repository.CardRepository object at 0x7f36dd2121e0>
+
+    def test_belzenlok_native_repeats_and_stops_low_mana_value_then_one_damage_event(cards):
+        s = setup(cards)
+        ids = top(s, ['Forest', 'Aurora Awakener', 'Island', 'Hill Giant', 'Lightning Bolt', 'Walking Corpse'])
+        source = cast(s, 'Demonlord Belzenlok')
+        advance(s)
+        assert all(s.state.cards[cid].zone == 'p1:hand' for cid in [ids[1], ids[3], ids[4]])
+        assert all(s.state.cards[cid].zone == 'p1:exile' for cid in [ids[0], ids[2]])
+        assert s.state.cards[ids[5]].zone == 'p1:library'
+        assert s.state.players['p1'].life == 37
+        from app.rules import history
+>       damages = [f for f in history.log_for(Plan.view(s.state, 'p1', cards)).facts if f.kind == 'damage' and f.card == source.id]
+                                                                                                               ^^^^^^
+
+tests/test_rules_library_packets101.py:205:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = TurnFact(kind='damage', from_zone=None, player='p1', object_id='0257f310e490.15', types=[], subtypes=[], supertypes=[]...='p1', source_commander=False, source=None, actor=None, batch=11, discarded_results=None, excess=0, source_spell=False)
+item = 'card'
+
+    def __getattr__(self, item: str) -> Any:
+        private_attributes = object.__getattribute__(self, '__private_attributes__')
+        if item in private_attributes:
+            attribute = private_attributes[item]
+            if hasattr(attribute, '__get__'):
+                return attribute.__get__(self, type(self))  # type: ignore
+
+            try:
+                # Note: self.__pydantic_private__ cannot be None if self.__private_attributes__ has items
+                return self.__pydantic_private__[item]  # type: ignore
+            except KeyError as exc:
+                raise AttributeError(f'{type(self).__name__!r} object has no attribute {item!r}') from exc
+        else:
+            # `__pydantic_extra__` can fail to be set if the model is not yet fully initialized.
+            # See `BaseModel.__repr_args__` for more details
+            try:
+                pydantic_extra = object.__getattribute__(self, '__pydantic_extra__')
+            except AttributeError:
+                pydantic_extra = None
+
+            if pydantic_extra and item in pydantic_extra:
+                return pydantic_extra[item]
+            else:
+                if hasattr(self.__class__, item):
+                    return super().__getattribute__(item)  # Raises AttributeError if appropriate
+                else:
+                    # this is the current error
+>                   raise AttributeError(f'{type(self).__name__!r} object has no attribute {item!r}')
+E                   AttributeError: 'TurnFact' object has no attribute 'card'
+
+../../../Fyodor/backend/.venv/lib/python3.12/site-packages/pydantic/main.py:1105: AttributeError
+=========================== short test summary info ============================
+FAILED tests/test_rules_library_packets101.py::test_belzenlok_native_repeats_and_stops_low_mana_value_then_one_damage_event
+================== 1 failed, 1 passed, 10 deselected in 1.59s ==================

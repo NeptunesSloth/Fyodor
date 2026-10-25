@@ -1,0 +1,55 @@
+{
+  "base": "34f36cf9640817203be0f1c5dbe0adf01ab40718",
+  "files": [
+    {
+      "path": "backend/app/game/rules_state.py",
+      "base_sha256": "4735fc5da3a260cab7bea983bbc0b8bd7db2053d9fe6f3705d6dccb463720bc5",
+      "sha256": "30db909d7ddffd0ee60190c30273b104d68e4c772f60fbe14d4e14f0c806ddda"
+    },
+    {
+      "path": "backend/app/rules/scripts.py",
+      "base_sha256": "128cf1eb849fa39911e16908026d83fed6e04623f694b782cc588eb2c2df46a2",
+      "sha256": "bce6906befbc6c5321d41bf88c2a0e868f6f227692caed3ff70d77834e5bdd15"
+    },
+    {
+      "path": "backend/app/rules/effects.py",
+      "base_sha256": "53aa80bb08955ad5a2d1ddee0c3e66d2fe1f86c4f98365b8a2032a47c7eed7c1",
+      "sha256": "83eb5280e33e25dadd690e01eb95b4dce41780eb4952819fcffd3afd580506e9"
+    },
+    {
+      "path": "backend/app/rules/delayed.py",
+      "base_sha256": "e7585a26bdfd914ea826faaf9e1bf3e95a8104d4849161f75ece09c2ddb77f96",
+      "sha256": "057e9a79025901a0212cd595cfe6721a0fecca3a22a101d96c8b4a8c2c5b6e69"
+    },
+    {
+      "path": "backend/app/rules/triggers.py",
+      "base_sha256": "011d4e79b0cc828d4cf3d4b1d04391fbd6388133be46375694edcaed98785d4d",
+      "sha256": "6800a612f35b7bcf8a7c3be3cd3b56e2f8b83c240f4b94a1548ec28fae40d632"
+    },
+    {
+      "path": "backend/app/rules/lifespans102.py",
+      "base_sha256": null,
+      "sha256": "c70fd56cb259d5640c166c7426ad43712562b87f0a79f53a86bb7c58ac9a6497"
+    },
+    {
+      "path": "backend/tests/test_rules_lifespans102.py",
+      "base_sha256": null,
+      "sha256": "5f164f8e2f222862c1765830f9ae9b0003016c6f19c16cdbe50e7507ac44b756"
+    },
+    {
+      "path": "backend/tests/fixtures/lifespans102_cards.json",
+      "base_sha256": null,
+      "sha256": "5835da05383147aefecce6d1867d6b78bdc2526ddb5f2aa71b34e82c0bc96ee6"
+    }
+  ],
+  "names": [
+    "Rootwater Matriarch",
+    "Braided Net // Braided Quipu",
+    "Blade of Shared Souls",
+    "Assimilation Aegis",
+    "Zygon Infiltrator",
+    "Old Man of the Sea"
+  ],
+  "test_destination": "backend/tests/test_rules_lifespans102.py",
+  "fixture_destination": "backend/tests/fixtures/lifespans102_cards.json"
+}

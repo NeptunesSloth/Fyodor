@@ -1,0 +1,36 @@
+{
+  "status": "CLOSED_ISOLATED_ROOT_INTEGRATION_REQUIRED",
+  "dependency": "after21-costs102",
+  "base_commit": "456c95d6aa3eaaa38583129be436ef57c1937a01",
+  "candidates": [
+    "Spirit Water Revival",
+    "Ruinous Waterbending",
+    "Katara, Seeking Revenge"
+  ],
+  "expected_promotions": 3,
+  "source_files": [
+    "app/rules/waterbend103.py",
+    "app/rules/cost_changes.py",
+    "app/rules/conditions.py",
+    "app/rules/casting.py",
+    "app/rules/scripts.py"
+  ],
+  "patch": "review.patch",
+  "runtime_source": "/workspace/scratch/costs103/backend",
+  "live_source_writes": false,
+  "native_unique": 12,
+  "cold": 1,
+  "mypy": 5,
+  "ruff": 6,
+  "test_destinations": [
+    "backend/tests/test_rules_waterbend103.py"
+  ],
+  "fixture_destination": "backend/tests/fixtures/waterbend103_cards.json",
+  "related": 3,
+  "native_evidence": {
+    "native-final9.log": "9 PASS (3 classification +6 native outcome paths)",
+    "cold-and-related4.log": "3 related blight PASS; initial cold delta fixture error",
+    "cold-copy-final3.log": "1 true cold PASS;2 copy priority fixture errors",
+    "copy-opponent-native2.log": "2 PASS actual opponent Reverberate copies, paid and unpaid, no cast origin"
+  }
+}

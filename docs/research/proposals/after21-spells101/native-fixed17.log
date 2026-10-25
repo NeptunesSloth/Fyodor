@@ -1,0 +1,9 @@
+..............F                                                          [100%]
+=================================== FAILURES ===================================
+_ test_display_second_mode_blocks_opponent_blue_spell_allows_own_and_late_permanent101 _
+tests/test_rules_modal_clauses101.py:169: in test_display_second_mode_blocks_opponent_blue_spell_allows_own_and_late_permanent101
+    with pytest.raises(ActionError):
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   Failed: DID NOT RAISE ActionError
+=========================== short test summary info ============================
+FAILED tests/test_rules_modal_clauses101.py::test_display_second_mode_blocks_opponent_blue_spell_allows_own_and_late_permanent101

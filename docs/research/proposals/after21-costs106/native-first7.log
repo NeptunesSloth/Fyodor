@@ -1,0 +1,56 @@
+bringing up nodes...
+bringing up nodes...
+
+.FF....                                                                  [100%]
+=================================== FAILURES ===================================
+___ test_evidence_reduction_is_two_once_regardless_of_how_many_cards_paid[3] ___
+[gw1] linux -- Python 3.12.14 /workspace/Fyodor/backend/.venv/bin/python
+
+cards = <app.cards.repository.CardRepository object at 0x7f07df318d40>
+collection = 3
+
+    @pytest.mark.parametrize("collection", [1, 3])
+    def test_evidence_reduction_is_two_once_regardless_of_how_many_cards_paid(cards, collection):
+        from app.rules.plan import Plan
+
+        s, source, own, enemy, grave = prepare(cards, collection)
+        announce(s, source, own, enemy, grave, {"C": 1, "G": 1})
+        record = s.state.rules.payments[s.state.rules.object_id(source.id)]
+        assert record.total_cost == "{1}{G}" and record.mana_spent == {"C": 1, "G": 1}
+        assert all(s.state.cards[c].zone == "p1:exile" for c in grave)
+        settle(s)
+        assert s.state.cards[enemy.id].zone == "p2:graveyard"
+>       assert Plan.view(s.state, "p1", s.cards).ch(own).power == "4"
+E       AssertionError: assert '2' == '4'
+E
+E         - 4
+E         + 2
+
+tests/test_rules_evidence_cost106.py:93: AssertionError
+___ test_evidence_reduction_is_two_once_regardless_of_how_many_cards_paid[1] ___
+[gw0] linux -- Python 3.12.14 /workspace/Fyodor/backend/.venv/bin/python
+
+cards = <app.cards.repository.CardRepository object at 0x7f745efbe240>
+collection = 1
+
+    @pytest.mark.parametrize("collection", [1, 3])
+    def test_evidence_reduction_is_two_once_regardless_of_how_many_cards_paid(cards, collection):
+        from app.rules.plan import Plan
+
+        s, source, own, enemy, grave = prepare(cards, collection)
+        announce(s, source, own, enemy, grave, {"C": 1, "G": 1})
+        record = s.state.rules.payments[s.state.rules.object_id(source.id)]
+        assert record.total_cost == "{1}{G}" and record.mana_spent == {"C": 1, "G": 1}
+        assert all(s.state.cards[c].zone == "p1:exile" for c in grave)
+        settle(s)
+        assert s.state.cards[enemy.id].zone == "p2:graveyard"
+>       assert Plan.view(s.state, "p1", s.cards).ch(own).power == "4"
+E       AssertionError: assert '2' == '4'
+E
+E         - 4
+E         + 2
+
+tests/test_rules_evidence_cost106.py:93: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_rules_evidence_cost106.py::test_evidence_reduction_is_two_once_regardless_of_how_many_cards_paid[3]
+FAILED tests/test_rules_evidence_cost106.py::test_evidence_reduction_is_two_once_regardless_of_how_many_cards_paid[1]

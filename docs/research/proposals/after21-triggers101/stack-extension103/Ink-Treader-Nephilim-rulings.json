@@ -1,0 +1,27 @@
+{
+  "object": "list",
+  "has_more": false,
+  "data": [
+    {
+      "object": "ruling",
+      "oracle_id": "3846b499-59c8-4e77-b46a-1d697bcbded7",
+      "source": "wotc",
+      "published_at": "2006-02-01",
+      "comment": "Ink-Treader Nephilim's ability is mandatory and will create a copy targeting each possible creature whether you want it to or not. You control all the copies of the spell (even if you didn't control the original spell), so you choose the order to put them on the stack."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "3846b499-59c8-4e77-b46a-1d697bcbded7",
+      "source": "wotc",
+      "published_at": "2006-02-01",
+      "comment": "Even though you control the copies, the ability cares about who cast the original spell when determining which other creatures that spell could target. If the original spell has a targeting restriction that refers to \"an opponent,\" the copies will see that from the perspective of the original spell's controller. For example, if your opponent casts a spell that says \"Destroy target creature an opponent controls\" targeting your Ink-Treader Nephilim, its ability will create a copy for each other creature the original spell could target: the rest of your creatures. However, since you control the copies, all the copies won't resolve for having illegal targets."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "3846b499-59c8-4e77-b46a-1d697bcbded7",
+      "source": "wotc",
+      "published_at": "2006-02-01",
+      "comment": "Ink-Treader Nephilim's ability will trigger off a spell with multiple targets if all of those targets are Ink-Treader Nephilim. For example, Seeds of Strength cast with Ink-Treader Nephilim as each of the three targets will cause the ability to trigger."
+    }
+  ]
+}

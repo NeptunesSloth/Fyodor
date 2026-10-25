@@ -1,0 +1,663 @@
+============================= test session starts ==============================
+platform linux -- Python 3.12.14, pytest-9.1.1, pluggy-1.7.0 -- /workspace/Fyodor/backend/.venv/bin/python3
+cachedir: .pytest_cache
+rootdir: /workspace/scratch/combat102/backend
+configfile: pyproject.toml
+plugins: anyio-4.15.1, xdist-3.8.0
+created: 2/2 workers
+2 workers [21 items]
+
+scheduling tests via LoadScheduling
+
+tests/test_rules_damage_values102.py::test_actual_whole_definition102[Vengeful Rebirth]
+tests/test_rules_damage_values102.py::test_actual_whole_definition102[Fireball]
+[gw0] [  4%] PASSED tests/test_rules_damage_values102.py::test_actual_whole_definition102[Fireball]
+tests/test_rules_damage_values102.py::test_actual_whole_definition102[Mega Flare]
+[gw0] [  9%] PASSED tests/test_rules_damage_values102.py::test_actual_whole_definition102[Mega Flare]
+tests/test_rules_damage_values102.py::test_actual_whole_definition102[Piercing Exhale]
+[gw1] [ 14%] PASSED tests/test_rules_damage_values102.py::test_actual_whole_definition102[Vengeful Rebirth]
+tests/test_rules_damage_values102.py::test_actual_whole_definition102[Delirium]
+[gw1] [ 19%] PASSED tests/test_rules_damage_values102.py::test_actual_whole_definition102[Delirium]
+tests/test_rules_damage_values102.py::test_fireball_zero_targets_or_more_targets_than_x102[False]
+[gw0] [ 23%] PASSED tests/test_rules_damage_values102.py::test_actual_whole_definition102[Piercing Exhale]
+tests/test_rules_damage_values102.py::test_fireball_actual_cost_rounding_and_mixed_targets102
+[gw1] [ 28%] FAILED tests/test_rules_damage_values102.py::test_fireball_zero_targets_or_more_targets_than_x102[False]
+[gw0] [ 33%] FAILED tests/test_rules_damage_values102.py::test_fireball_actual_cost_rounding_and_mixed_targets102
+tests/test_rules_damage_values102.py::test_fireball_native_response_changes_divisor_at_resolution102
+tests/test_rules_damage_values102.py::test_fireball_zero_targets_or_more_targets_than_x102[True]
+[gw1] [ 38%] FAILED tests/test_rules_damage_values102.py::test_fireball_native_response_changes_divisor_at_resolution102
+[gw0] [ 42%] FAILED tests/test_rules_damage_values102.py::test_fireball_zero_targets_or_more_targets_than_x102[True]
+tests/test_rules_damage_values102.py::test_mega_flare_kicked_prefix_once_then_native_simultaneous_damage102
+tests/test_rules_damage_values102.py::test_mega_flare_targets_remain_bound_to_original_opponent102
+[gw0] [ 47%] FAILED tests/test_rules_damage_values102.py::test_mega_flare_targets_remain_bound_to_original_opponent102
+tests/test_rules_damage_values102.py::test_rebirth_actual_return_mana_value_land_and_self_exile102[False]
+[gw1] [ 52%] FAILED tests/test_rules_damage_values102.py::test_mega_flare_kicked_prefix_once_then_native_simultaneous_damage102
+tests/test_rules_damage_values102.py::test_mega_flare_zero_targets_still_creates_one_kicked_dragon102
+[gw0] [ 57%] FAILED tests/test_rules_damage_values102.py::test_rebirth_actual_return_mana_value_land_and_self_exile102[False]
+tests/test_rules_damage_values102.py::test_rebirth_actual_return_mana_value_land_and_self_exile102[True]
+[gw1] [ 61%] FAILED tests/test_rules_damage_values102.py::test_mega_flare_zero_targets_still_creates_one_kicked_dragon102
+tests/test_rules_damage_values102.py::test_rebirth_missing_return_does_not_deal_damage_but_still_self_exiles102
+[gw0] [ 66%] FAILED tests/test_rules_damage_values102.py::test_rebirth_actual_return_mana_value_land_and_self_exile102[True]
+[gw1] [ 71%] FAILED tests/test_rules_damage_values102.py::test_rebirth_missing_return_does_not_deal_damage_but_still_self_exiles102
+tests/test_rules_damage_values102.py::test_rebirth_illegal_damage_target_returns_card_and_self_exiles102
+tests/test_rules_damage_values102.py::test_delirium_native_active_player_target_tapped_target_and_noncombat102
+[gw1] [ 76%] FAILED tests/test_rules_damage_values102.py::test_delirium_native_active_player_target_tapped_target_and_noncombat102
+[gw0] [ 80%] FAILED tests/test_rules_damage_values102.py::test_rebirth_illegal_damage_target_returns_card_and_self_exiles102
+tests/test_rules_damage_values102.py::test_piercing_exhale_real_behold_optional_cost_and_surveil102[True]
+tests/test_rules_damage_values102.py::test_piercing_exhale_real_behold_optional_cost_and_surveil102[False]
+[gw0] [ 85%] FAILED tests/test_rules_damage_values102.py::test_piercing_exhale_real_behold_optional_cost_and_surveil102[False]
+[gw1] [ 90%] FAILED tests/test_rules_damage_values102.py::test_piercing_exhale_real_behold_optional_cost_and_surveil102[True]
+tests/test_rules_damage_values102.py::test_genuine_cold_mega_flare_partial_group_does_not_repeat_kicker_prefix102
+tests/test_rules_damage_values102.py::test_genuine_cold_fireball_target_announcement_remembers_x_cost_and_division102
+[gw0] [ 95%] FAILED tests/test_rules_damage_values102.py::test_genuine_cold_mega_flare_partial_group_does_not_repeat_kicker_prefix102
+[gw1] [100%] FAILED tests/test_rules_damage_values102.py::test_genuine_cold_fireball_target_announcement_remembers_x_cost_and_division102
+
+=================================== FAILURES ===================================
+_________ test_fireball_zero_targets_or_more_targets_than_x102[False] __________
+[gw1] linux -- Python 3.12.14 /workspace/Fyodor/backend/.venv/bin/python3
+
+cards = <app.cards.repository.CardRepository object at 0x7fa47aaf5f40>
+zero = False
+
+    @pytest.mark.parametrize('zero',[True,False])
+    def test_fireball_zero_targets_or_more_targets_than_x102(cards,zero):
+>       s=setup(cards)
+          ^^^^^^^^^^^^
+
+tests/test_rules_damage_values102.py:97:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests/test_rules_damage_values102.py:42: in setup
+    s = table(cards,names,names,names)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_rules_shared_damage_choices.py:40: in table
+    s = three(cards, a, b, c)
+        ^^^^^^^^^^^^^^^^^^^^^
+tests/test_rules_wave30m_durations.py:54: in three
+    decks = [deck(cards, "Krenko, Mob Boss", [*((1, n) for n in a), (20, "Forest")]),
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+cards = <app.cards.repository.CardRepository object at 0x7fa47aaf5f40>
+commander = 'Krenko, Mob Boss'
+spells = [(1, 'Fireball'), (1, 'Mega Flare'), (1, 'Vengeful Rebirth'), (1, 'Delirium'), (1, 'Piercing Exhale'), (1, 'Earth Elemental'), ...]
+
+    def deck(cards: CardRepository, commander: str, spells: list[tuple[int, str]]) -> list[DeckCard]:
+        cmd = cards.resolve(commander)
+        out = [DeckCard("commander", 1, cmd["name"], cmd["id"])]
+        for qty, name in spells:
+            card = cards.resolve(name)
+>           out.append(DeckCard("main", qty, card["name"], card["id"]))
+                                             ^^^^^^^^^^^^
+E           TypeError: 'NoneType' object is not subscriptable
+
+tests/game_helpers.py:16: TypeError
+___________ test_fireball_actual_cost_rounding_and_mixed_targets102 ____________
+[gw0] linux -- Python 3.12.14 /workspace/Fyodor/backend/.venv/bin/python3
+
+cards = <app.cards.repository.CardRepository object at 0x7fc8dbb04380>
+
+    def test_fireball_actual_cost_rounding_and_mixed_targets102(cards):
+>       s=setup(cards)
+          ^^^^^^^^^^^^
+
+tests/test_rules_damage_values102.py:85:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests/test_rules_damage_values102.py:42: in setup
+    s = table(cards,names,names,names)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_rules_shared_damage_choices.py:40: in table
+    s = three(cards, a, b, c)
+        ^^^^^^^^^^^^^^^^^^^^^
+tests/test_rules_wave30m_durations.py:54: in three
+    decks = [deck(cards, "Krenko, Mob Boss", [*((1, n) for n in a), (20, "Forest")]),
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+cards = <app.cards.repository.CardRepository object at 0x7fc8dbb04380>
+commander = 'Krenko, Mob Boss'
+spells = [(1, 'Fireball'), (1, 'Mega Flare'), (1, 'Vengeful Rebirth'), (1, 'Delirium'), (1, 'Piercing Exhale'), (1, 'Earth Elemental'), ...]
+
+    def deck(cards: CardRepository, commander: str, spells: list[tuple[int, str]]) -> list[DeckCard]:
+        cmd = cards.resolve(commander)
+        out = [DeckCard("commander", 1, cmd["name"], cmd["id"])]
+        for qty, name in spells:
+            card = cards.resolve(name)
+>           out.append(DeckCard("main", qty, card["name"], card["id"]))
+                                             ^^^^^^^^^^^^
+E           TypeError: 'NoneType' object is not subscriptable
+
+tests/game_helpers.py:16: TypeError
+________ test_fireball_native_response_changes_divisor_at_resolution102 ________
+[gw1] linux -- Python 3.12.14 /workspace/Fyodor/backend/.venv/bin/python3
+
+cards = <app.cards.repository.CardRepository object at 0x7fa47ada20c0>
+
+    def test_fireball_native_response_changes_divisor_at_resolution102(cards):
+>       s=setup(cards)
+          ^^^^^^^^^^^^
+
+tests/test_rules_damage_values102.py:104:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests/test_rules_damage_values102.py:42: in setup
+    s = table(cards,names,names,names)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_rules_shared_damage_choices.py:40: in table
+    s = three(cards, a, b, c)
+        ^^^^^^^^^^^^^^^^^^^^^
+tests/test_rules_wave30m_durations.py:54: in three
+    decks = [deck(cards, "Krenko, Mob Boss", [*((1, n) for n in a), (20, "Forest")]),
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+cards = <app.cards.repository.CardRepository object at 0x7fa47ada20c0>
+commander = 'Krenko, Mob Boss'
+spells = [(1, 'Fireball'), (1, 'Mega Flare'), (1, 'Vengeful Rebirth'), (1, 'Delirium'), (1, 'Piercing Exhale'), (1, 'Earth Elemental'), ...]
+
+    def deck(cards: CardRepository, commander: str, spells: list[tuple[int, str]]) -> list[DeckCard]:
+        cmd = cards.resolve(commander)
+        out = [DeckCard("commander", 1, cmd["name"], cmd["id"])]
+        for qty, name in spells:
+            card = cards.resolve(name)
+>           out.append(DeckCard("main", qty, card["name"], card["id"]))
+                                             ^^^^^^^^^^^^
+E           TypeError: 'NoneType' object is not subscriptable
+
+tests/game_helpers.py:16: TypeError
+__________ test_fireball_zero_targets_or_more_targets_than_x102[True] __________
+[gw0] linux -- Python 3.12.14 /workspace/Fyodor/backend/.venv/bin/python3
+
+cards = <app.cards.repository.CardRepository object at 0x7fc8dbb04f50>
+zero = True
+
+    @pytest.mark.parametrize('zero',[True,False])
+    def test_fireball_zero_targets_or_more_targets_than_x102(cards,zero):
+>       s=setup(cards)
+          ^^^^^^^^^^^^
+
+tests/test_rules_damage_values102.py:97:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests/test_rules_damage_values102.py:42: in setup
+    s = table(cards,names,names,names)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_rules_shared_damage_choices.py:40: in table
+    s = three(cards, a, b, c)
+        ^^^^^^^^^^^^^^^^^^^^^
+tests/test_rules_wave30m_durations.py:54: in three
+    decks = [deck(cards, "Krenko, Mob Boss", [*((1, n) for n in a), (20, "Forest")]),
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+cards = <app.cards.repository.CardRepository object at 0x7fc8dbb04f50>
+commander = 'Krenko, Mob Boss'
+spells = [(1, 'Fireball'), (1, 'Mega Flare'), (1, 'Vengeful Rebirth'), (1, 'Delirium'), (1, 'Piercing Exhale'), (1, 'Earth Elemental'), ...]
+
+    def deck(cards: CardRepository, commander: str, spells: list[tuple[int, str]]) -> list[DeckCard]:
+        cmd = cards.resolve(commander)
+        out = [DeckCard("commander", 1, cmd["name"], cmd["id"])]
+        for qty, name in spells:
+            card = cards.resolve(name)
+>           out.append(DeckCard("main", qty, card["name"], card["id"]))
+                                             ^^^^^^^^^^^^
+E           TypeError: 'NoneType' object is not subscriptable
+
+tests/game_helpers.py:16: TypeError
+_________ test_mega_flare_targets_remain_bound_to_original_opponent102 _________
+[gw0] linux -- Python 3.12.14 /workspace/Fyodor/backend/.venv/bin/python3
+
+cards = <app.cards.repository.CardRepository object at 0x7fc8dbaa94c0>
+
+    def test_mega_flare_targets_remain_bound_to_original_opponent102(cards):
+>       s=setup(cards)
+          ^^^^^^^^^^^^
+
+tests/test_rules_damage_values102.py:128:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests/test_rules_damage_values102.py:42: in setup
+    s = table(cards,names,names,names)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_rules_shared_damage_choices.py:40: in table
+    s = three(cards, a, b, c)
+        ^^^^^^^^^^^^^^^^^^^^^
+tests/test_rules_wave30m_durations.py:54: in three
+    decks = [deck(cards, "Krenko, Mob Boss", [*((1, n) for n in a), (20, "Forest")]),
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+cards = <app.cards.repository.CardRepository object at 0x7fc8dbaa94c0>
+commander = 'Krenko, Mob Boss'
+spells = [(1, 'Fireball'), (1, 'Mega Flare'), (1, 'Vengeful Rebirth'), (1, 'Delirium'), (1, 'Piercing Exhale'), (1, 'Earth Elemental'), ...]
+
+    def deck(cards: CardRepository, commander: str, spells: list[tuple[int, str]]) -> list[DeckCard]:
+        cmd = cards.resolve(commander)
+        out = [DeckCard("commander", 1, cmd["name"], cmd["id"])]
+        for qty, name in spells:
+            card = cards.resolve(name)
+>           out.append(DeckCard("main", qty, card["name"], card["id"]))
+                                             ^^^^^^^^^^^^
+E           TypeError: 'NoneType' object is not subscriptable
+
+tests/game_helpers.py:16: TypeError
+____ test_mega_flare_kicked_prefix_once_then_native_simultaneous_damage102 _____
+[gw1] linux -- Python 3.12.14 /workspace/Fyodor/backend/.venv/bin/python3
+
+cards = <app.cards.repository.CardRepository object at 0x7fa47ae38ec0>
+
+    def test_mega_flare_kicked_prefix_once_then_native_simultaneous_damage102(cards):
+>       s=setup(cards)
+          ^^^^^^^^^^^^
+
+tests/test_rules_damage_values102.py:112:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests/test_rules_damage_values102.py:42: in setup
+    s = table(cards,names,names,names)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_rules_shared_damage_choices.py:40: in table
+    s = three(cards, a, b, c)
+        ^^^^^^^^^^^^^^^^^^^^^
+tests/test_rules_wave30m_durations.py:54: in three
+    decks = [deck(cards, "Krenko, Mob Boss", [*((1, n) for n in a), (20, "Forest")]),
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+cards = <app.cards.repository.CardRepository object at 0x7fa47ae38ec0>
+commander = 'Krenko, Mob Boss'
+spells = [(1, 'Fireball'), (1, 'Mega Flare'), (1, 'Vengeful Rebirth'), (1, 'Delirium'), (1, 'Piercing Exhale'), (1, 'Earth Elemental'), ...]
+
+    def deck(cards: CardRepository, commander: str, spells: list[tuple[int, str]]) -> list[DeckCard]:
+        cmd = cards.resolve(commander)
+        out = [DeckCard("commander", 1, cmd["name"], cmd["id"])]
+        for qty, name in spells:
+            card = cards.resolve(name)
+>           out.append(DeckCard("main", qty, card["name"], card["id"]))
+                                             ^^^^^^^^^^^^
+E           TypeError: 'NoneType' object is not subscriptable
+
+tests/game_helpers.py:16: TypeError
+_____ test_rebirth_actual_return_mana_value_land_and_self_exile102[False] ______
+[gw0] linux -- Python 3.12.14 /workspace/Fyodor/backend/.venv/bin/python3
+
+cards = <app.cards.repository.CardRepository object at 0x7fc8dbae4dd0>
+land = False
+
+    @pytest.mark.parametrize('land',[False,True])
+    def test_rebirth_actual_return_mana_value_land_and_self_exile102(cards,land):
+>       s=setup(cards)
+          ^^^^^^^^^^^^
+
+tests/test_rules_damage_values102.py:140:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests/test_rules_damage_values102.py:42: in setup
+    s = table(cards,names,names,names)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_rules_shared_damage_choices.py:40: in table
+    s = three(cards, a, b, c)
+        ^^^^^^^^^^^^^^^^^^^^^
+tests/test_rules_wave30m_durations.py:54: in three
+    decks = [deck(cards, "Krenko, Mob Boss", [*((1, n) for n in a), (20, "Forest")]),
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+cards = <app.cards.repository.CardRepository object at 0x7fc8dbae4dd0>
+commander = 'Krenko, Mob Boss'
+spells = [(1, 'Fireball'), (1, 'Mega Flare'), (1, 'Vengeful Rebirth'), (1, 'Delirium'), (1, 'Piercing Exhale'), (1, 'Earth Elemental'), ...]
+
+    def deck(cards: CardRepository, commander: str, spells: list[tuple[int, str]]) -> list[DeckCard]:
+        cmd = cards.resolve(commander)
+        out = [DeckCard("commander", 1, cmd["name"], cmd["id"])]
+        for qty, name in spells:
+            card = cards.resolve(name)
+>           out.append(DeckCard("main", qty, card["name"], card["id"]))
+                                             ^^^^^^^^^^^^
+E           TypeError: 'NoneType' object is not subscriptable
+
+tests/game_helpers.py:16: TypeError
+_______ test_mega_flare_zero_targets_still_creates_one_kicked_dragon102 ________
+[gw1] linux -- Python 3.12.14 /workspace/Fyodor/backend/.venv/bin/python3
+
+cards = <app.cards.repository.CardRepository object at 0x7fa47ae3a660>
+
+    def test_mega_flare_zero_targets_still_creates_one_kicked_dragon102(cards):
+>       s=setup(cards)
+          ^^^^^^^^^^^^
+
+tests/test_rules_damage_values102.py:122:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests/test_rules_damage_values102.py:42: in setup
+    s = table(cards,names,names,names)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_rules_shared_damage_choices.py:40: in table
+    s = three(cards, a, b, c)
+        ^^^^^^^^^^^^^^^^^^^^^
+tests/test_rules_wave30m_durations.py:54: in three
+    decks = [deck(cards, "Krenko, Mob Boss", [*((1, n) for n in a), (20, "Forest")]),
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+cards = <app.cards.repository.CardRepository object at 0x7fa47ae3a660>
+commander = 'Krenko, Mob Boss'
+spells = [(1, 'Fireball'), (1, 'Mega Flare'), (1, 'Vengeful Rebirth'), (1, 'Delirium'), (1, 'Piercing Exhale'), (1, 'Earth Elemental'), ...]
+
+    def deck(cards: CardRepository, commander: str, spells: list[tuple[int, str]]) -> list[DeckCard]:
+        cmd = cards.resolve(commander)
+        out = [DeckCard("commander", 1, cmd["name"], cmd["id"])]
+        for qty, name in spells:
+            card = cards.resolve(name)
+>           out.append(DeckCard("main", qty, card["name"], card["id"]))
+                                             ^^^^^^^^^^^^
+E           TypeError: 'NoneType' object is not subscriptable
+
+tests/game_helpers.py:16: TypeError
+______ test_rebirth_actual_return_mana_value_land_and_self_exile102[True] ______
+[gw0] linux -- Python 3.12.14 /workspace/Fyodor/backend/.venv/bin/python3
+
+cards = <app.cards.repository.CardRepository object at 0x7fc8dbae4080>
+land = True
+
+    @pytest.mark.parametrize('land',[False,True])
+    def test_rebirth_actual_return_mana_value_land_and_self_exile102(cards,land):
+>       s=setup(cards)
+          ^^^^^^^^^^^^
+
+tests/test_rules_damage_values102.py:140:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests/test_rules_damage_values102.py:42: in setup
+    s = table(cards,names,names,names)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_rules_shared_damage_choices.py:40: in table
+    s = three(cards, a, b, c)
+        ^^^^^^^^^^^^^^^^^^^^^
+tests/test_rules_wave30m_durations.py:54: in three
+    decks = [deck(cards, "Krenko, Mob Boss", [*((1, n) for n in a), (20, "Forest")]),
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+cards = <app.cards.repository.CardRepository object at 0x7fc8dbae4080>
+commander = 'Krenko, Mob Boss'
+spells = [(1, 'Fireball'), (1, 'Mega Flare'), (1, 'Vengeful Rebirth'), (1, 'Delirium'), (1, 'Piercing Exhale'), (1, 'Earth Elemental'), ...]
+
+    def deck(cards: CardRepository, commander: str, spells: list[tuple[int, str]]) -> list[DeckCard]:
+        cmd = cards.resolve(commander)
+        out = [DeckCard("commander", 1, cmd["name"], cmd["id"])]
+        for qty, name in spells:
+            card = cards.resolve(name)
+>           out.append(DeckCard("main", qty, card["name"], card["id"]))
+                                             ^^^^^^^^^^^^
+E           TypeError: 'NoneType' object is not subscriptable
+
+tests/game_helpers.py:16: TypeError
+__ test_rebirth_missing_return_does_not_deal_damage_but_still_self_exiles102 ___
+[gw1] linux -- Python 3.12.14 /workspace/Fyodor/backend/.venv/bin/python3
+
+cards = <app.cards.repository.CardRepository object at 0x7fa47ae38fb0>
+
+    def test_rebirth_missing_return_does_not_deal_damage_but_still_self_exiles102(cards):
+>       s=setup(cards)
+          ^^^^^^^^^^^^
+
+tests/test_rules_damage_values102.py:149:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests/test_rules_damage_values102.py:42: in setup
+    s = table(cards,names,names,names)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_rules_shared_damage_choices.py:40: in table
+    s = three(cards, a, b, c)
+        ^^^^^^^^^^^^^^^^^^^^^
+tests/test_rules_wave30m_durations.py:54: in three
+    decks = [deck(cards, "Krenko, Mob Boss", [*((1, n) for n in a), (20, "Forest")]),
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+cards = <app.cards.repository.CardRepository object at 0x7fa47ae38fb0>
+commander = 'Krenko, Mob Boss'
+spells = [(1, 'Fireball'), (1, 'Mega Flare'), (1, 'Vengeful Rebirth'), (1, 'Delirium'), (1, 'Piercing Exhale'), (1, 'Earth Elemental'), ...]
+
+    def deck(cards: CardRepository, commander: str, spells: list[tuple[int, str]]) -> list[DeckCard]:
+        cmd = cards.resolve(commander)
+        out = [DeckCard("commander", 1, cmd["name"], cmd["id"])]
+        for qty, name in spells:
+            card = cards.resolve(name)
+>           out.append(DeckCard("main", qty, card["name"], card["id"]))
+                                             ^^^^^^^^^^^^
+E           TypeError: 'NoneType' object is not subscriptable
+
+tests/game_helpers.py:16: TypeError
+___ test_delirium_native_active_player_target_tapped_target_and_noncombat102 ___
+[gw1] linux -- Python 3.12.14 /workspace/Fyodor/backend/.venv/bin/python3
+
+cards = <app.cards.repository.CardRepository object at 0x7fa47ad8fcb0>
+
+    def test_delirium_native_active_player_target_tapped_target_and_noncombat102(cards):
+>       s=setup(cards)
+          ^^^^^^^^^^^^
+
+tests/test_rules_damage_values102.py:168:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests/test_rules_damage_values102.py:42: in setup
+    s = table(cards,names,names,names)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_rules_shared_damage_choices.py:40: in table
+    s = three(cards, a, b, c)
+        ^^^^^^^^^^^^^^^^^^^^^
+tests/test_rules_wave30m_durations.py:54: in three
+    decks = [deck(cards, "Krenko, Mob Boss", [*((1, n) for n in a), (20, "Forest")]),
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+cards = <app.cards.repository.CardRepository object at 0x7fa47ad8fcb0>
+commander = 'Krenko, Mob Boss'
+spells = [(1, 'Fireball'), (1, 'Mega Flare'), (1, 'Vengeful Rebirth'), (1, 'Delirium'), (1, 'Piercing Exhale'), (1, 'Earth Elemental'), ...]
+
+    def deck(cards: CardRepository, commander: str, spells: list[tuple[int, str]]) -> list[DeckCard]:
+        cmd = cards.resolve(commander)
+        out = [DeckCard("commander", 1, cmd["name"], cmd["id"])]
+        for qty, name in spells:
+            card = cards.resolve(name)
+>           out.append(DeckCard("main", qty, card["name"], card["id"]))
+                                             ^^^^^^^^^^^^
+E           TypeError: 'NoneType' object is not subscriptable
+
+tests/game_helpers.py:16: TypeError
+______ test_rebirth_illegal_damage_target_returns_card_and_self_exiles102 ______
+[gw0] linux -- Python 3.12.14 /workspace/Fyodor/backend/.venv/bin/python3
+
+cards = <app.cards.repository.CardRepository object at 0x7fc8dbae49b0>
+
+    def test_rebirth_illegal_damage_target_returns_card_and_self_exiles102(cards):
+>       s=setup(cards)
+          ^^^^^^^^^^^^
+
+tests/test_rules_damage_values102.py:159:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests/test_rules_damage_values102.py:42: in setup
+    s = table(cards,names,names,names)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_rules_shared_damage_choices.py:40: in table
+    s = three(cards, a, b, c)
+        ^^^^^^^^^^^^^^^^^^^^^
+tests/test_rules_wave30m_durations.py:54: in three
+    decks = [deck(cards, "Krenko, Mob Boss", [*((1, n) for n in a), (20, "Forest")]),
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+cards = <app.cards.repository.CardRepository object at 0x7fc8dbae49b0>
+commander = 'Krenko, Mob Boss'
+spells = [(1, 'Fireball'), (1, 'Mega Flare'), (1, 'Vengeful Rebirth'), (1, 'Delirium'), (1, 'Piercing Exhale'), (1, 'Earth Elemental'), ...]
+
+    def deck(cards: CardRepository, commander: str, spells: list[tuple[int, str]]) -> list[DeckCard]:
+        cmd = cards.resolve(commander)
+        out = [DeckCard("commander", 1, cmd["name"], cmd["id"])]
+        for qty, name in spells:
+            card = cards.resolve(name)
+>           out.append(DeckCard("main", qty, card["name"], card["id"]))
+                                             ^^^^^^^^^^^^
+E           TypeError: 'NoneType' object is not subscriptable
+
+tests/game_helpers.py:16: TypeError
+_____ test_piercing_exhale_real_behold_optional_cost_and_surveil102[False] _____
+[gw0] linux -- Python 3.12.14 /workspace/Fyodor/backend/.venv/bin/python3
+
+cards = <app.cards.repository.CardRepository object at 0x7fc8dbae48f0>
+behold = False
+
+    @pytest.mark.parametrize('behold',[False,True])
+    def test_piercing_exhale_real_behold_optional_cost_and_surveil102(cards,behold):
+>       s=setup(cards)
+          ^^^^^^^^^^^^
+
+tests/test_rules_damage_values102.py:190:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests/test_rules_damage_values102.py:42: in setup
+    s = table(cards,names,names,names)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_rules_shared_damage_choices.py:40: in table
+    s = three(cards, a, b, c)
+        ^^^^^^^^^^^^^^^^^^^^^
+tests/test_rules_wave30m_durations.py:54: in three
+    decks = [deck(cards, "Krenko, Mob Boss", [*((1, n) for n in a), (20, "Forest")]),
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+cards = <app.cards.repository.CardRepository object at 0x7fc8dbae48f0>
+commander = 'Krenko, Mob Boss'
+spells = [(1, 'Fireball'), (1, 'Mega Flare'), (1, 'Vengeful Rebirth'), (1, 'Delirium'), (1, 'Piercing Exhale'), (1, 'Earth Elemental'), ...]
+
+    def deck(cards: CardRepository, commander: str, spells: list[tuple[int, str]]) -> list[DeckCard]:
+        cmd = cards.resolve(commander)
+        out = [DeckCard("commander", 1, cmd["name"], cmd["id"])]
+        for qty, name in spells:
+            card = cards.resolve(name)
+>           out.append(DeckCard("main", qty, card["name"], card["id"]))
+                                             ^^^^^^^^^^^^
+E           TypeError: 'NoneType' object is not subscriptable
+
+tests/game_helpers.py:16: TypeError
+_____ test_piercing_exhale_real_behold_optional_cost_and_surveil102[True] ______
+[gw1] linux -- Python 3.12.14 /workspace/Fyodor/backend/.venv/bin/python3
+
+cards = <app.cards.repository.CardRepository object at 0x7fa47ad8f8c0>
+behold = True
+
+    @pytest.mark.parametrize('behold',[False,True])
+    def test_piercing_exhale_real_behold_optional_cost_and_surveil102(cards,behold):
+>       s=setup(cards)
+          ^^^^^^^^^^^^
+
+tests/test_rules_damage_values102.py:190:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests/test_rules_damage_values102.py:42: in setup
+    s = table(cards,names,names,names)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_rules_shared_damage_choices.py:40: in table
+    s = three(cards, a, b, c)
+        ^^^^^^^^^^^^^^^^^^^^^
+tests/test_rules_wave30m_durations.py:54: in three
+    decks = [deck(cards, "Krenko, Mob Boss", [*((1, n) for n in a), (20, "Forest")]),
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+cards = <app.cards.repository.CardRepository object at 0x7fa47ad8f8c0>
+commander = 'Krenko, Mob Boss'
+spells = [(1, 'Fireball'), (1, 'Mega Flare'), (1, 'Vengeful Rebirth'), (1, 'Delirium'), (1, 'Piercing Exhale'), (1, 'Earth Elemental'), ...]
+
+    def deck(cards: CardRepository, commander: str, spells: list[tuple[int, str]]) -> list[DeckCard]:
+        cmd = cards.resolve(commander)
+        out = [DeckCard("commander", 1, cmd["name"], cmd["id"])]
+        for qty, name in spells:
+            card = cards.resolve(name)
+>           out.append(DeckCard("main", qty, card["name"], card["id"]))
+                                             ^^^^^^^^^^^^
+E           TypeError: 'NoneType' object is not subscriptable
+
+tests/game_helpers.py:16: TypeError
+_ test_genuine_cold_mega_flare_partial_group_does_not_repeat_kicker_prefix102 __
+[gw0] linux -- Python 3.12.14 /workspace/Fyodor/backend/.venv/bin/python3
+
+cards = <app.cards.repository.CardRepository object at 0x7fc8dba6e1e0>
+tmp_path = PosixPath('/tmp/pytest-of-agent/pytest-296/popen-gw0/test_genuine_cold_mega_flare_p0')
+
+    def test_genuine_cold_mega_flare_partial_group_does_not_repeat_kicker_prefix102(cards,tmp_path):
+>       s=setup(cards)
+          ^^^^^^^^^^^^
+
+tests/test_rules_damage_values102.py:224:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests/test_rules_damage_values102.py:42: in setup
+    s = table(cards,names,names,names)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_rules_shared_damage_choices.py:40: in table
+    s = three(cards, a, b, c)
+        ^^^^^^^^^^^^^^^^^^^^^
+tests/test_rules_wave30m_durations.py:54: in three
+    decks = [deck(cards, "Krenko, Mob Boss", [*((1, n) for n in a), (20, "Forest")]),
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+cards = <app.cards.repository.CardRepository object at 0x7fc8dba6e1e0>
+commander = 'Krenko, Mob Boss'
+spells = [(1, 'Fireball'), (1, 'Mega Flare'), (1, 'Vengeful Rebirth'), (1, 'Delirium'), (1, 'Piercing Exhale'), (1, 'Earth Elemental'), ...]
+
+    def deck(cards: CardRepository, commander: str, spells: list[tuple[int, str]]) -> list[DeckCard]:
+        cmd = cards.resolve(commander)
+        out = [DeckCard("commander", 1, cmd["name"], cmd["id"])]
+        for qty, name in spells:
+            card = cards.resolve(name)
+>           out.append(DeckCard("main", qty, card["name"], card["id"]))
+                                             ^^^^^^^^^^^^
+E           TypeError: 'NoneType' object is not subscriptable
+
+tests/game_helpers.py:16: TypeError
+_ test_genuine_cold_fireball_target_announcement_remembers_x_cost_and_division102 _
+[gw1] linux -- Python 3.12.14 /workspace/Fyodor/backend/.venv/bin/python3
+
+cards = <app.cards.repository.CardRepository object at 0x7fa47ad95af0>
+tmp_path = PosixPath('/tmp/pytest-of-agent/pytest-296/popen-gw1/test_genuine_cold_fireball_tar0')
+
+    def test_genuine_cold_fireball_target_announcement_remembers_x_cost_and_division102(cards,tmp_path):
+>       s=setup(cards)
+          ^^^^^^^^^^^^
+
+tests/test_rules_damage_values102.py:210:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests/test_rules_damage_values102.py:42: in setup
+    s = table(cards,names,names,names)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_rules_shared_damage_choices.py:40: in table
+    s = three(cards, a, b, c)
+        ^^^^^^^^^^^^^^^^^^^^^
+tests/test_rules_wave30m_durations.py:54: in three
+    decks = [deck(cards, "Krenko, Mob Boss", [*((1, n) for n in a), (20, "Forest")]),
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+cards = <app.cards.repository.CardRepository object at 0x7fa47ad95af0>
+commander = 'Krenko, Mob Boss'
+spells = [(1, 'Fireball'), (1, 'Mega Flare'), (1, 'Vengeful Rebirth'), (1, 'Delirium'), (1, 'Piercing Exhale'), (1, 'Earth Elemental'), ...]
+
+    def deck(cards: CardRepository, commander: str, spells: list[tuple[int, str]]) -> list[DeckCard]:
+        cmd = cards.resolve(commander)
+        out = [DeckCard("commander", 1, cmd["name"], cmd["id"])]
+        for qty, name in spells:
+            card = cards.resolve(name)
+>           out.append(DeckCard("main", qty, card["name"], card["id"]))
+                                             ^^^^^^^^^^^^
+E           TypeError: 'NoneType' object is not subscriptable
+
+tests/game_helpers.py:16: TypeError
+=========================== short test summary info ============================
+FAILED tests/test_rules_damage_values102.py::test_fireball_zero_targets_or_more_targets_than_x102[False]
+FAILED tests/test_rules_damage_values102.py::test_fireball_actual_cost_rounding_and_mixed_targets102
+FAILED tests/test_rules_damage_values102.py::test_fireball_native_response_changes_divisor_at_resolution102
+FAILED tests/test_rules_damage_values102.py::test_fireball_zero_targets_or_more_targets_than_x102[True]
+FAILED tests/test_rules_damage_values102.py::test_mega_flare_targets_remain_bound_to_original_opponent102
+FAILED tests/test_rules_damage_values102.py::test_mega_flare_kicked_prefix_once_then_native_simultaneous_damage102
+FAILED tests/test_rules_damage_values102.py::test_rebirth_actual_return_mana_value_land_and_self_exile102[False]
+FAILED tests/test_rules_damage_values102.py::test_mega_flare_zero_targets_still_creates_one_kicked_dragon102
+FAILED tests/test_rules_damage_values102.py::test_rebirth_actual_return_mana_value_land_and_self_exile102[True]
+FAILED tests/test_rules_damage_values102.py::test_rebirth_missing_return_does_not_deal_damage_but_still_self_exiles102
+FAILED tests/test_rules_damage_values102.py::test_delirium_native_active_player_target_tapped_target_and_noncombat102
+FAILED tests/test_rules_damage_values102.py::test_rebirth_illegal_damage_target_returns_card_and_self_exiles102
+FAILED tests/test_rules_damage_values102.py::test_piercing_exhale_real_behold_optional_cost_and_surveil102[False]
+FAILED tests/test_rules_damage_values102.py::test_piercing_exhale_real_behold_optional_cost_and_surveil102[True]
+FAILED tests/test_rules_damage_values102.py::test_genuine_cold_mega_flare_partial_group_does_not_repeat_kicker_prefix102
+FAILED tests/test_rules_damage_values102.py::test_genuine_cold_fireball_target_announcement_remembers_x_cost_and_division102
+========================= 16 failed, 5 passed in 4.41s =========================

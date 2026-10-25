@@ -1,0 +1,10 @@
+{
+  "app/game/actions.py": "b8998908380dc221bcebc4287743ee1a06adaecaa7ff11aedd7ca3d20b4b7bb4",
+  "app/game/resolve.py": "62d37b7da6f4bfa3c201ffe73f75895893fd40128a87e6889058b9d5361facaa",
+  "app/game/handlers/cards.py": "0bcb696f5f1e951652b2659d48cd767a757e612358b833a165c890603db7a681",
+  "app/rules/copying.py": "a7ba02327e88f1a3b83616d28a4296da113ae15d93617907c6c542989f08765f",
+  "app/rules/cast_limits.py": "7d5b8a299656d4236509fd5e13fc623a8832edb30a2b032cb1bb425cd97503cd",
+  "app/rules/scripts.py": "0ba9ac5426a6c22e95bb168200891bf4b5036eda63e10c5d83c47cf999bc5ce5",
+  "app/rules/effects.py": "8a6df33e1176d27d04ff3ab3b7cc26c97c670580705b93b9c2ffee876bb523eb",
+  "app/rules/epic103.py": "7df0dc12f61c1a441f2480f6fae30ab3d43f8673265c9fe3d5e98f36729c3722"
+}

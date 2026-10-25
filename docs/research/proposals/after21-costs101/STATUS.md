@@ -1,0 +1,9 @@
+# Isolated four-card cost statics — root admission required
+
+Skyseer's Chariot, Myth Unbound, Liesa, Shroud of Dusk, Kaervek's Torch.18 unique native checks including2 genuine cold,29 related, mypy6 and Ruff8 pass. All full canonical repository cards classify FULL in the targeted probe; all four are PARTIAL in merged PR21 baseline. Root owns final catalog/whole-source gates; no live source writes.
+
+Source includes all functional shared hunks: true named-source mana tax parsing (removes guarded refusal only after actual manual/automatic/cold native payment proves existing centralized mana stage); per-commander history discount for any caster/all origins; real destination-command facts for Myth's anywhere trigger with current watcher semantics; mandatory Liesa commander-tax life replacement via native combined life payment and hint reserve; actual stack-only Torch cost static and exclusion from resolving spell assembly. Unrelated additional taxes remain mana, life reduction cannot substitute for mana, and generic cost reductions still apply normally.
+
+Official rulings confirm Myth's foreign caster/all-zone discount and no trigger when it leaves simultaneously with commander entry; Liesa life replacement mandatory, additional costs unaffected. All7 returned official ruling entries read. Skyseer and Torch endpoints returned no current ruling records; native CR cost/stack behavior is directly proved.
+
+Logs retain initial fixture mistakes and original before-refusal. native-final16 is NOT a clean16 run:15 passed, then the incorrectly scoped negative assertion was corrected and passed separately without runtime mutation. Two additional real Myth graveyard/command tests pass. Final18 unique native checks span those exact logs. Root may run both final test files together on its integrated snapshot. No full-suite claim.

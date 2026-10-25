@@ -1,0 +1,163 @@
+E701 Multiple statements on one line (colon)
+  --> tests/test_rules_waterbend102.py:27:31
+   |
+25 | def cards(settings):
+26 |     base={c['name']:c for c in fixture_cards()}
+27 |     for i,c in enumerate(DATA):base[c['name']]=card(c['name'],set_code='w02',number=str(i),**{k:v for k,v in c.items() if k!='name'})
+   |                               ^
+28 |     settings.ensure_dirs();build_database(base.values(),settings.cards_db_path)
+29 |     repo=CardRepository(settings.cards_db_path,ImageStore(settings.images_dir));yield repo;repo.close()
+   |
+
+E702 Multiple statements on one line (semicolon)
+  --> tests/test_rules_waterbend102.py:28:27
+   |
+26 |     base={c['name']:c for c in fixture_cards()}
+27 |     for i,c in enumerate(DATA):base[c['name']]=card(c['name'],set_code='w02',number=str(i),**{k:v for k,v in c.items() if k!='name'})
+28 |     settings.ensure_dirs();build_database(base.values(),settings.cards_db_path)
+   |                           ^
+29 |     repo=CardRepository(settings.cards_db_path,ImageStore(settings.images_dir));yield repo;repo.close()
+   |
+
+E702 Multiple statements on one line (semicolon)
+  --> tests/test_rules_waterbend102.py:29:80
+   |
+27 |     for i,c in enumerate(DATA):base[c['name']]=card(c['name'],set_code='w02',number=str(i),**{k:v for k,v in c.items() if k!='name'})
+28 |     settings.ensure_dirs();build_database(base.values(),settings.cards_db_path)
+29 |     repo=CardRepository(settings.cards_db_path,ImageStore(settings.images_dir));yield repo;repo.close()
+   |                                                                                ^
+
+E702 Multiple statements on one line (semicolon)
+  --> tests/test_rules_waterbend102.py:29:91
+   |
+27 |     for i,c in enumerate(DATA):base[c['name']]=card(c['name'],set_code='w02',number=str(i),**{k:v for k,v in c.items() if k!='name'})
+28 |     settings.ensure_dirs();build_database(base.values(),settings.cards_db_path)
+29 |     repo=CardRepository(settings.cards_db_path,ImageStore(settings.images_dir));yield repo;repo.close()
+   |                                                                                           ^
+
+E702 Multiple statements on one line (semicolon)
+  --> tests/test_rules_waterbend102.py:34:28
+   |
+32 | def setup(cards):
+33 |     ns=[c['name'] for c in DATA]*7
+34 |     s=table(cards,ns,ns,ns);to_phase(s,'main1',4);return s
+   |                            ^
+
+E702 Multiple statements on one line (semicolon)
+  --> tests/test_rules_waterbend102.py:34:50
+   |
+32 | def setup(cards):
+33 |     ns=[c['name'] for c in DATA]*7
+34 |     s=table(cards,ns,ns,ns);to_phase(s,'main1',4);return s
+   |                                                  ^
+
+E702 Multiple statements on one line (semicolon)
+  --> tests/test_rules_waterbend102.py:39:73
+   |
+37 | def take(s,name,zone='hand',pid='p1'):
+38 |     c=next(c for c in s.state.cards.values() if c.owner==pid and c.name==name and c.zone in [pid+':library',pid+':hand'])
+39 |     act(s,pid,type='move',card_ids=[c.id],to={'player':pid,'zone':zone});return s.state.cards[c.id]
+   |                                                                         ^
+
+E702 Multiple statements on one line (semicolon)
+  --> tests/test_rules_waterbend102.py:47:29
+   |
+46 | def pick(s,ids):
+47 |     d=s.state.rules.decision;assert d
+   |                             ^
+48 |     act(s,d.player,type='choose',decision_id=d.id,option_ids=ids)
+   |
+
+E702 Multiple statements on one line (semicolon)
+  --> tests/test_rules_waterbend102.py:52:19
+   |
+51 | def cast(s,name,pool,**kwargs):
+52 |     c=take(s,name);wait_priority(s,'p1')
+   |                   ^
+53 |     if pool:act(s,'p1',type='add_mana',player='p1',mana=pool)
+54 |     act(s,'p1',type='cast_spell',card_id=c.id,sources=[],**kwargs);return c
+   |
+
+E701 Multiple statements on one line (colon)
+  --> tests/test_rules_waterbend102.py:53:12
+   |
+51 | def cast(s,name,pool,**kwargs):
+52 |     c=take(s,name);wait_priority(s,'p1')
+53 |     if pool:act(s,'p1',type='add_mana',player='p1',mana=pool)
+   |            ^
+54 |     act(s,'p1',type='cast_spell',card_id=c.id,sources=[],**kwargs);return c
+   |
+
+E702 Multiple statements on one line (semicolon)
+  --> tests/test_rules_waterbend102.py:54:67
+   |
+52 |     c=take(s,name);wait_priority(s,'p1')
+53 |     if pool:act(s,'p1',type='add_mana',player='p1',mana=pool)
+54 |     act(s,'p1',type='cast_spell',card_id=c.id,sources=[],**kwargs);return c
+   |                                                                   ^
+
+E702 Multiple statements on one line (semicolon)
+  --> tests/test_rules_waterbend102.py:63:19
+   |
+62 | def test_actual_water_whip_taps_five_and_pays_both_printed_blue_mana(cards):
+63 |     s=setup(cards);ids=helpers(s)
+   |                   ^
+64 |     source=cast(s,'Water Whip',{'U':2},target_counts=[0])
+65 |     assert s.state.rules.decision.kind=='choose_cards'
+   |
+
+E702 Multiple statements on one line (semicolon)
+  --> tests/test_rules_waterbend102.py:73:14
+   |
+71 |     assert set(record.tapped_for_cost)==set(ids) and record.waterbend_paid102 is True
+72 |     assert all(s.state.cards[c].tapped for c in ids)
+73 |     settle(s);assert source.zone=='p1:graveyard';roundtrip(s)
+   |              ^
+
+E702 Multiple statements on one line (semicolon)
+  --> tests/test_rules_waterbend102.py:73:49
+   |
+71 |     assert set(record.tapped_for_cost)==set(ids) and record.waterbend_paid102 is True
+72 |     assert all(s.state.cards[c].tapped for c in ids)
+73 |     settle(s);assert source.zone=='p1:graveyard';roundtrip(s)
+   |                                                 ^
+
+E702 Multiple statements on one line (semicolon)
+  --> tests/test_rules_waterbend102.py:77:19
+   |
+76 | def test_actual_waterbend_mana_only_is_still_a_paid_waterbend(cards):
+77 |     s=setup(cards);source=cast(s,'Water Whip',{'C':5,'U':2},target_counts=[0])
+   |                   ^
+78 |     assert s.state.rules.decision is None
+79 |     record=s.state.rules.payments[s.state.rules.object_id(source.id)]
+   |
+
+E702 Multiple statements on one line (semicolon)
+  --> tests/test_rules_waterbend102.py:81:14
+   |
+79 |     record=s.state.rules.payments[s.state.rules.object_id(source.id)]
+80 |     assert record.mana_spent=={'C':5,'U':2} and record.waterbend_paid102 is True and not record.contributions
+81 |     settle(s);roundtrip(s)
+   |              ^
+
+E702 Multiple statements on one line (semicolon)
+  --> tests/test_rules_waterbend102.py:85:19
+   |
+84 | def test_katara_announced_x_can_be_fully_paid_by_tapping_newly_entered_creatures(cards):
+85 |     s=setup(cards);katara=cast(s,NAMES[3],{'C':2,'W':1,'U':2});settle(s)
+   |                   ^
+86 |     ids=helpers(s,3)
+87 |     wait_priority(s,'p1')
+   |
+
+E702 Multiple statements on one line (semicolon)
+  --> tests/test_rules_waterbend102.py:85:63
+   |
+84 | def test_katara_announced_x_can_be_fully_paid_by_tapping_newly_entered_creatures(cards):
+85 |     s=setup(cards);katara=cast(s,NAMES[3],{'C':2,'W':1,'U':2});settle(s)
+   |                                                               ^
+86 |     ids=helpers(s,3)
+87 |     wait_priority(s,'p1')
+   |
+
+Found 21 errors (3 fixed, 18 remaining).

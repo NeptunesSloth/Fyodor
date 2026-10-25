@@ -1,0 +1,54 @@
+......F...                                                               [100%]
+=================================== FAILURES ===================================
+________________ test_shaman_actual_combat_installs_copy_watch _________________
+
+cards = <app.cards.repository.CardRepository object at 0x7fedb3f44440>
+
+    def test_shaman_actual_combat_installs_copy_watch(cards):
+        from tests.test_rules_wave30p_combat import attack
+        s=setup(cards)
+        shaman=put(s,'Tzaangor Shaman')
+        to_phase(s,'declare_attackers',1)
+>       attack(s,(shaman,'p2'))
+
+tests/test_rules_next_copy104.py:115:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+../../triggers103/backend/tests/test_rules_wave30p_combat.py:89: in attack
+    act(s, pid, type="declare_attackers", attackers=[{"card_id": c.id, "target": t} for c, t in pairs])
+tests/game_helpers.py:42: in act
+    return session.perform(actor, payload)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/game/session.py:61: in perform
+    resolved = resolve(self.state, action, actor=actor, cards=self.cards, trusted=trusted)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/game/resolve.py:76: in resolve
+    a.r = compile_intent(state, a, actor=actor, info=info, rng=rng)  # type: ignore[union-attr]
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/engine.py:164: in compile_intent
+    handler(plan, intent)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+plan = <app.rules.plan.Plan object at 0x7fedb2d8a2a0>
+a = DeclareAttackers(actor='p1', ts=1792912735.9379387, r=None, type='declare_attackers', attackers=[AttackDeclaration(card_id='89bc19796836', target='p2')], bands=[], cost_choices=[], cost_order=[], sources=None)
+
+    def declare_attackers(plan: Plan, a: A.DeclareAttackers) -> None:
+        r = plan.rules
+        d = r.decision
+        # -- combat (wave 5C) -- the declaration again, once the attack cost's mana is in the pool (508.1h-j, casting._rerun)
+        locked: M.ManaCost | None = None
+        paying = d is None and plan.locked_cost is not None and plan.state.turn.phase == "declare_attackers" \
+            and plan.actor == plan.active and not r.no_attackers and not attackers_on(plan.state)
+        if paying:
+            locked = M.parse_cost(plan.locked_cost or "{0}")
+            plan.locked_cost = None
+            eligible = {cid for cid in plan.state.zones.get(zone_key(plan.active, "battlefield"), [])
+                        if attack_problem(plan.state, plan.state.cards[cid], plan.ch(plan.state.cards[cid])) is None}
+            targets = set(attack_targets(plan.state, plan.active, plan.info))
+        else:
+            if d is None or d.kind != "declare_attackers":
+>               raise ActionError("Attackers are declared at the start of the declare attackers step")
+E               app.game.errors.ActionError: Attackers are declared at the start of the declare attackers step
+
+app/rules/combat.py:374: ActionError
+=========================== short test summary info ============================
+FAILED tests/test_rules_next_copy104.py::test_shaman_actual_combat_installs_copy_watch

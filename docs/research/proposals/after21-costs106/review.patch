@@ -1,0 +1,87 @@
+--- a/backend/app/rules/cost_changes.py
++++ b/backend/app/rules/cost_changes.py
+@@ -22,7 +22,7 @@
+ from __future__ import annotations
+
+ import re
+-from dataclasses import dataclass
++from dataclasses import dataclass, replace
+ from typing import TYPE_CHECKING, Any
+
+ from app.rules import card_names as _card_names  # -- chosen filters (wave 53B) --
+@@ -796,6 +796,8 @@
+ OWN_OPTIONAL = re.compile(r"^as an additional cost to cast this spell, you may (?P<cost>collect evidence \d+|behold an? [A-Z][a-z]+|reveal an? [A-Z][a-z]+ card from your hand|blight [1-5]|waterbend \{\d+\}|exile a creature card from your graveyard)\.?(?: \(.*\))?$")  # (-- blight (wave 51E) -- 701.68a)
+
+
++EVIDENCE_REDUCTION = re.compile(r"as an additional cost to cast this spell, you may collect evidence (?P<n>\d+)\. this spell costs \{(?P<cut>\d+)\} less to cast if evidence was collected\.?", re.IGNORECASE)
++
+ def own_cost(text: str) -> Any:
+     """The one cost part "Collect evidence 6" / "Behold a Dragon" is (None when the grammar can't pay it)."""
+     from app.rules import costs as C
+@@ -825,6 +827,11 @@
+         if more is None:
+             return None
+         return {"kind": "static", "static": "own_optional", "optional": "reduce", "cost": text, "n": int(any_cost["n"]), "effects": [], **({"change": more} if more else {})}
++    if (evidence := EVIDENCE_REDUCTION.fullmatch(t)) is not None:
++        text = f"Collect evidence {evidence['n']}"
++        if own_cost(text) is not None:
++            return {"kind":"static","static":"own_optional","optional":"evidence","cost":text,
++                    "n":int(evidence['cut']),"effects":[]}
+     if (own := OWN_OPTIONAL.fullmatch(t)) is not None:
+         text = own["cost"][0].upper() + own["cost"][1:]
+         parsed = own_cost(text)
+@@ -867,7 +874,8 @@
+         either = tuple(Selector(controller="you", **kw).key() for kw in ({"types": ("Artifact",)}, {"types": ("Enchantment",)}, {"token": True}))
+         return C.CostComponent(C.SACRIFICE, amount=1, selector=Selector(either=either).key(), text="Sacrifice an artifact, enchantment, or token", reduces=o.n)
+     if o.kind in ("evidence", "behold", "blight", "reveal", "exile", "flash_tap", "waterbend103"):  # -- casting costs (wave 22F) --
+-        return own_cost(o.text)
++        piece = own_cost(o.text)
++        return replace(piece, reduces=o.n) if o.kind == "evidence" and o.n and piece is not None else piece
+     if o.kind == "offering":  # -- offering (wave 51H) -- 702.48a: "you may sacrifice a [quality] permanent"
+         from app.rules import offering
+
+--- a/backend/app/rules/permissions.py
++++ b/backend/app/rules/permissions.py
+@@ -601,7 +601,7 @@
+         return {**cheaper, "uncounterable": True} if cheaper is not None and cheaper.get("static") == "cost_modifier" and cheaper.get("caster") == "you" else None
+     # -- costs (wave 3$) -- "As an additional cost to cast this spell, sacrifice a creature." (601.2b): paid with the
+     # rest of the cost as the spell is cast (casting.cast_spell); a wording the cost grammar can't pay stays manual
+-    if cost_changes.OWN_OPTIONAL.fullmatch(t) or cost_changes.ANY_COST.fullmatch(t):  # -- casting costs (wave 22F) -- "you may collect evidence 6" / "you may behold a Dragon"; (wave 47C) "you may sacrifice any number of …"
++    if cost_changes.OWN_OPTIONAL.fullmatch(t) or cost_changes.ANY_COST.fullmatch(t) or cost_changes.EVIDENCE_REDUCTION.fullmatch(t):  # -- casting costs (wave 22F) -- "you may collect evidence 6" / "you may behold a Dragon"; (wave 47C) "you may sacrifice any number of …"
+         return cost_changes.optional_definition(t)
+     extra = costs.additional_cost_text(t)
+     if extra is not None:
+--- a/backend/app/rules/cost_payment.py
++++ b/backend/app/rules/cost_payment.py
+@@ -627,8 +627,9 @@
+
+
+ def reduction(cost: AbilityCost, chosen: dict[int, list[str]]) -> int:
+-    """-- cost reductions paid with objects (wave 47C) -- 601.2f: the generic mana the objects chosen for the parts that reduce the total cost take off it."""
+-    return sum(c.reduces * len(chosen.get(i, [])) for i, c in enumerate(cost.components))
++    """601.2f: per-object reductions, or one reduction for the completed evidence collection."""
++    return sum(c.reduces * (int(bool(chosen.get(i))) if c.kind == C.COLLECT_EVIDENCE else len(chosen.get(i, [])))
++               for i, c in enumerate(cost.components))
+
+
+ def _choose_power(plan: Plan, a: A.ActivateAbility | A.CastSpell | A.TurnFaceUp | A.DeclareAttackers | A.DeclareBlockers, i: int, comp: CostComponent, cost: AbilityCost, card: CardInstance,
+--- a/backend/app/rules/casting.py
++++ b/backend/app/rules/casting.py
+@@ -3297,7 +3297,7 @@
+         if offer.kind and cost_payment.problem(permissions._view(state, player, info),
+                                                costs.AbilityCost(components=(cost_changes.keyword_component(offer),)), card, player):
+             continue  # (-- static_other sweep (wave 17C) -- conspire / teamwork: the creatures to tap aren't there)
+-        part = cost_changes.keyword_component(offer) if offer.kind in ("reduce", "bargain") else None  # -- cost reductions paid with objects (wave 47C) -- the most the objects it can take
++        part = cost_changes.keyword_component(offer) if offer.kind in ("reduce", "bargain") or (offer.kind == "evidence" and offer.n) else None  # -- cost reductions paid with objects (wave 47C) -- the most the objects it can take
+         paid_offerings = offering_paid(state, player, card, ch, info) if offer.kind == "offering" else []
+
+         def finish(cost: M.ManaCost, mana: Any = offer.mana, paid: Any = paid_offerings) -> list[M.ManaCost]:
+@@ -3311,7 +3311,7 @@
+                                    alternative=M.parse_cost(grant.alt_mana) if grant is not None and grant.alt_mana else None,
+                                    additional=(M.ManaCost(generic=grant.generic_extra),) if grant is not None and grant.generic_extra else (),
+                                    reduce=part.reduces * (min(1, len(cost_payment.candidates(permissions._view(state, player, info), part, player, card)))
+-                                                          if offer.kind == "bargain" else len(cost_payment.candidates(permissions._view(state, player, info), part, player, card)))
++                                                          if offer.kind in ("bargain", "evidence") else len(cost_payment.candidates(permissions._view(state, player, info), part, player, card)))
+                                    if part is not None else 0, finalize=finish, selected_costs=selected_costs)
+         except ActionError:
+             continue

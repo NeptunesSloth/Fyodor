@@ -1,0 +1,62 @@
+.F                                                                       [100%]
+=================================== FAILURES ===================================
+____________ test_real_named_mana_source_needs_tax_before_producing ____________
+
+cards = <app.cards.repository.CardRepository object at 0x7f11f1ec93a0>
+
+    def test_real_named_mana_source_needs_tax_before_producing(cards):
+        s=setup(cards)
+        chariot(s)
+        ring=put(s,'Sol Ring','battlefield')
+        before=s.state.model_dump(mode='json')
+        with pytest.raises(ActionError):
+            activate(s,ring,sources=[])
+        assert s.state.model_dump(mode='json')==before
+        act(s,'p1',type='add_mana',player='p1',mana={'C':2})
+        activate(s,ring,sources=[])
+>       assert ring.tapped and mana_pool(s.state,'p1')=={'C':2}
+                               ^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_rules_cost_statics101.py:77:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests/game_helpers.py:85: in mana_pool
+    player = session.state.players[pid]
+             ^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = GameState(format_version=1, id='8d00d0f045d651cd', name='Game', format='commander', created_at=1792909939.772508, seq=...ee_cast_faces={}, exile_if_graveyard=[], bottom_if_graveyard=[], cast_enters={}, exile_resolves={}, counter_stamps={}))
+item = 'state'
+
+    def __getattr__(self, item: str) -> Any:
+        private_attributes = object.__getattribute__(self, '__private_attributes__')
+        if item in private_attributes:
+            attribute = private_attributes[item]
+            if hasattr(attribute, '__get__'):
+                return attribute.__get__(self, type(self))  # type: ignore
+
+            try:
+                # Note: self.__pydantic_private__ cannot be None if self.__private_attributes__ has items
+                return self.__pydantic_private__[item]  # type: ignore
+            except KeyError as exc:
+                raise AttributeError(f'{type(self).__name__!r} object has no attribute {item!r}') from exc
+        else:
+            # `__pydantic_extra__` can fail to be set if the model is not yet fully initialized.
+            # See `BaseModel.__repr_args__` for more details
+            try:
+                pydantic_extra = object.__getattribute__(self, '__pydantic_extra__')
+            except AttributeError:
+                pydantic_extra = None
+
+            if pydantic_extra and item in pydantic_extra:
+                return pydantic_extra[item]
+            else:
+                if hasattr(self.__class__, item):
+                    return super().__getattribute__(item)  # Raises AttributeError if appropriate
+                else:
+                    # this is the current error
+>                   raise AttributeError(f'{type(self).__name__!r} object has no attribute {item!r}')
+E                   AttributeError: 'GameState' object has no attribute 'state'
+
+../../../Fyodor/backend/.venv/lib/python3.12/site-packages/pydantic/main.py:1105: AttributeError
+=========================== short test summary info ============================
+FAILED tests/test_rules_cost_statics101.py::test_real_named_mana_source_needs_tax_before_producing

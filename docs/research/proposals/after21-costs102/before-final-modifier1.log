@@ -1,0 +1,27 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+________ test_waterbend_cannot_overpay_after_final_activation_reduction ________
+
+cards = <app.cards.repository.CardRepository object at 0x7f99a52295e0>
+
+    def test_waterbend_cannot_overpay_after_final_activation_reduction(cards):
+        from app.game.errors import ActionError
+
+        s = setup(cards)
+        katara = cast(s, NAMES[3], {"C": 2, "W": 1, "U": 2})
+        settle(s)
+        take(s, "Zirda, the Dawnwaker", "battlefield")
+        ids = helpers(s, 3)
+        wait_priority(s, "p1")
+        index = next(
+            a.index for a in Plan.view(s.state, "p1", s.cards).ch(katara).abilities if a.kind == "activated"
+        )
+        act(s, "p1", type="activate_ability", card_id=katara.id, ability=index, x_value=3, sources=[])
+        before = s.state.model_dump(mode="json")
+>       with pytest.raises(ActionError):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE ActionError
+
+tests/test_rules_waterbend102.py:143: Failed
+=========================== short test summary info ============================
+FAILED tests/test_rules_waterbend102.py::test_waterbend_cannot_overpay_after_final_activation_reduction

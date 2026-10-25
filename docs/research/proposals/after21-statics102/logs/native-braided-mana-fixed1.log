@@ -1,0 +1,42 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+____ test_braided_net_native_counter_cost_and_untap_end_without_restarting _____
+
+cards = <app.cards.repository.CardRepository object at 0x7f8d37fcfb30>
+
+    def test_braided_net_native_counter_cost_and_untap_end_without_restarting(cards):
+        s = setup(cards)
+        to_phase(s, "main1")
+        source = cast(s, "Braided Net // Braided Quipu")
+        ring = put(s, "Sol Ring", "battlefield", "p2")
+        act(s, "p1", type="activate_ability", card_id=source.id, ability=1, targets=[ring.id])
+        settle(s)
+        assert s.state.cards[source.id].counters["net"] == 2
+        assert s.state.cards[ring.id].tapped
+>       assert "cant_activate" in Plan.view(s.state, "p1", cards).ch(ring.id).imposed
+                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_rules_lifespans102.py:102:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+app/rules/plan.py:296: in ch
+    return derive(self.state, card, chars.of(card, self.info), self.info)
+                                    ^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/characteristics.py:455: in of
+    ch = provenance(card, _of_kept(card, info))
+                          ^^^^^^^^^^^^^^^^^^^^
+app/rules/characteristics.py:473: in _of_kept
+    ch = _of(card, info)
+         ^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+card = '1d9cf28e0f16'
+info = <app.cards.repository.CardRepository object at 0x7f8d37fcfb30>
+
+    def _of(card: CardInstance, info: CardInfo) -> Characteristics:
+>       if card.ability is not None:
+           ^^^^^^^^^^^^
+E       AttributeError: 'str' object has no attribute 'ability'
+
+app/rules/characteristics.py:503: AttributeError
+=========================== short test summary info ============================
+FAILED tests/test_rules_lifespans102.py::test_braided_net_native_counter_cost_and_untap_end_without_restarting

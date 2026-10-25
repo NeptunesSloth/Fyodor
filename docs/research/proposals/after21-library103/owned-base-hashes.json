@@ -1,0 +1,9 @@
+{
+  "app/game/actions.py": "f61859a6c404e3e97f8cc1b3e3cdeed55bfbf70c39c2d7b4e3ef6f336b0aff8d",
+  "app/game/resolve.py": "d3b8c188642947bb9f65e43d29456b735ea5023aeb60774baa5d7cfc890b6870",
+  "app/game/handlers/cards.py": "02d9a60037c9df558575cba0cee3dbb37b78b65978284c58c9878e448cfda883",
+  "app/rules/copying.py": "219d7bef6f0ee5b423b8ff56a4a9ce1be649f50b141d908a0a1971ad7d105cd2",
+  "app/rules/cast_limits.py": "34d151675b696977cbe4d18b2d0e129a737c4b53e04678e6812ca6c5b1286897",
+  "app/rules/scripts.py": "fe5f2fe902b5877ac47f494078f0a6d6a0ca6d0f73174ea91c8a2f37f99b8415",
+  "app/rules/effects.py": "67e0677423a8dafc80233e0e7c65d52722768339e8f70baad1dd79afda193aea"
+}

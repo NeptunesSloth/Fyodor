@@ -1,0 +1,8 @@
+[
+  "app/game/rules_state.py",
+  "app/rules/scripts.py",
+  "app/rules/effects.py",
+  "app/rules/delayed.py",
+  "app/rules/triggers.py",
+  "app/rules/lifespans102.py"
+]

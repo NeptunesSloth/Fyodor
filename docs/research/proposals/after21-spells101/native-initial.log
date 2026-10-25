@@ -1,0 +1,261 @@
+.....F.FF.FFF..                                                          [100%]
+=================================== FAILURES ===================================
+_ test_gix_first_mode_selects_at_resolution_counter_before_destroy_and_grant_expires101 _
+tests/test_rules_modal_clauses101.py:75: in test_gix_first_mode_selects_at_resolution_counter_before_destroy_and_grant_expires101
+    assert s.state.rules.decision is None
+E   AssertionError: assert Decision(id='91b1f33b9980', player='p1', kind='choose_cards', prompt='Choose up to one creature for counters and lifel...43f68aaf57d', 'object_id': 'e43f68aaf57d.2', 'zone': 'p2:battlefield', 'snapshot': None}}}, display=None, decider=None) is None
+E    +  where Decision(id='91b1f33b9980', player='p1', kind='choose_cards', prompt='Choose up to one creature for counters and lifel...43f68aaf57d', 'object_id': 'e43f68aaf57d.2', 'zone': 'p2:battlefield', 'snapshot': None}}}, display=None, decider=None) = RulesState(world_epoch80=0, world_intervals80={}, combat_memory=CombatMemory(version=1, known_empty=['p1', 'p2'], prev...ree_cast_faces={}, exile_if_graveyard=[], bottom_if_graveyard=[], cast_enters={}, exile_resolves={}, counter_stamps={}).decision
+E    +    where RulesState(world_epoch80=0, world_intervals80={}, combat_memory=CombatMemory(version=1, known_empty=['p1', 'p2'], prev...ree_cast_faces={}, exile_if_graveyard=[], bottom_if_graveyard=[], cast_enters={}, exile_resolves={}, counter_stamps={}) = GameState(format_version=1, id='2f5926c3135d9197', name='Game', format='commander', created_at=1792910153.4651985, seq...ee_cast_faces={}, exile_if_graveyard=[], bottom_if_graveyard=[], cast_enters={}, exile_resolves={}, counter_stamps={})).rules
+E    +      where GameState(format_version=1, id='2f5926c3135d9197', name='Game', format='commander', created_at=1792910153.4651985, seq...ee_cast_faces={}, exile_if_graveyard=[], bottom_if_graveyard=[], cast_enters={}, exile_resolves={}, counter_stamps={})) = <app.game.session.GameSession object at 0x7f02b9b1eab0>.state
+_ test_deadly_both_modes_native_suspected_target_and_optional_removal101[False] _
+app/rules/casting.py:1321: in _find_payment
+    return _solve_with_filters(cost, pool, marked + units, filters, life, input_spending=lambda due: _spending_cost(state, player, info, due))  # SAVE sources only when nothing else works
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/casting.py:1204: in _solve_with_filters
+    raise error
+app/rules/casting.py:1133: in _solve_with_filters
+    return M.solve(cost, pool, plain, life=life)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/mana.py:839: in solve
+    raise ManaError(f"Not enough mana to pay {cost.text()}")
+E   app.rules.mana.ManaError: Not enough mana to pay {1}{B}{R}
+
+The above exception was the direct cause of the following exception:
+tests/test_rules_modal_clauses101.py:108: in test_deadly_both_modes_native_suspected_target_and_optional_removal101
+    cast(s, 'Deadly Complication', modes=[0, 1], targets=[giant.id, bear.id], target_counts=[1, 1],
+tests/wave100c_kit.py:141: in cast
+    c = start_cast(s, name, pid, targets, target_counts, modes, kicker, **pool)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/wave100c_kit.py:136: in start_cast
+    act(s, pid, type="cast_spell", card_id=c.id, targets=list(targets), **kw)
+tests/game_helpers.py:42: in act
+    return session.perform(actor, payload)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/game/session.py:61: in perform
+    resolved = resolve(self.state, action, actor=actor, cards=self.cards, trusted=trusted)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/game/resolve.py:76: in resolve
+    a.r = compile_intent(state, a, actor=actor, info=info, rng=rng)  # type: ignore[union-attr]
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/engine.py:164: in compile_intent
+    handler(plan, intent)
+app/rules/casting.py:3902: in cast_spell
+    _cast_payment(plan, payment_data, None)
+app/rules/casting.py:3963: in _cast_payment
+    pay_spell_then(plan, data.data.a, card, data.data.ch, data.cost,
+app/rules/casting.py:1910: in pay_spell_then
+    _pay_spell(plan, a, card, ch, cost, label, not_mana=not_mana, origin=origin, then=then, x_payment=x_payment, payment_context=payment_context)
+app/rules/casting.py:1770: in _pay_spell
+    pay_then(plan, player, rest, label, sources=a.sources, exclude=exclude, purpose=purpose,
+app/rules/casting.py:1576: in pay_then
+    result = _pay(plan, player, cost, label, sources=sources, exclude=exclude, purpose=purpose,
+app/rules/casting.py:1588: in _pay
+    payment = find_payment(plan.state, player, cost, plan.info, sources=sources, exclude=exclude, purpose=purpose,
+app/rules/casting.py:1217: in find_payment
+    payment = _find_payment(state, player, _constrained(_spending_cost(state, player, info, life_for_mana(state, player, info, cost)), purpose), info, sources=sources, exclude=exclude,
+app/rules/casting.py:1323: in _find_payment
+    raise ActionError(f"{exc}. Tap mana yourself first, or use the table tools.") from exc
+E   app.game.errors.ActionError: Not enough mana to pay {1}{B}{R}. Tap mana yourself first, or use the table tools.
+_ test_deadly_both_modes_native_suspected_target_and_optional_removal101[True] _
+app/rules/casting.py:1321: in _find_payment
+    return _solve_with_filters(cost, pool, marked + units, filters, life, input_spending=lambda due: _spending_cost(state, player, info, due))  # SAVE sources only when nothing else works
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/casting.py:1204: in _solve_with_filters
+    raise error
+app/rules/casting.py:1133: in _solve_with_filters
+    return M.solve(cost, pool, plain, life=life)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/mana.py:839: in solve
+    raise ManaError(f"Not enough mana to pay {cost.text()}")
+E   app.rules.mana.ManaError: Not enough mana to pay {1}{B}{R}
+
+The above exception was the direct cause of the following exception:
+tests/test_rules_modal_clauses101.py:108: in test_deadly_both_modes_native_suspected_target_and_optional_removal101
+    cast(s, 'Deadly Complication', modes=[0, 1], targets=[giant.id, bear.id], target_counts=[1, 1],
+tests/wave100c_kit.py:141: in cast
+    c = start_cast(s, name, pid, targets, target_counts, modes, kicker, **pool)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/wave100c_kit.py:136: in start_cast
+    act(s, pid, type="cast_spell", card_id=c.id, targets=list(targets), **kw)
+tests/game_helpers.py:42: in act
+    return session.perform(actor, payload)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/game/session.py:61: in perform
+    resolved = resolve(self.state, action, actor=actor, cards=self.cards, trusted=trusted)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/game/resolve.py:76: in resolve
+    a.r = compile_intent(state, a, actor=actor, info=info, rng=rng)  # type: ignore[union-attr]
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/engine.py:164: in compile_intent
+    handler(plan, intent)
+app/rules/casting.py:3902: in cast_spell
+    _cast_payment(plan, payment_data, None)
+app/rules/casting.py:3963: in _cast_payment
+    pay_spell_then(plan, data.data.a, card, data.data.ch, data.cost,
+app/rules/casting.py:1910: in pay_spell_then
+    _pay_spell(plan, a, card, ch, cost, label, not_mana=not_mana, origin=origin, then=then, x_payment=x_payment, payment_context=payment_context)
+app/rules/casting.py:1770: in _pay_spell
+    pay_then(plan, player, rest, label, sources=a.sources, exclude=exclude, purpose=purpose,
+app/rules/casting.py:1576: in pay_then
+    result = _pay(plan, player, cost, label, sources=sources, exclude=exclude, purpose=purpose,
+app/rules/casting.py:1588: in _pay
+    payment = find_payment(plan.state, player, cost, plan.info, sources=sources, exclude=exclude, purpose=purpose,
+app/rules/casting.py:1217: in find_payment
+    payment = _find_payment(state, player, _constrained(_spending_cost(state, player, info, life_for_mana(state, player, info, cost)), purpose), info, sources=sources, exclude=exclude,
+app/rules/casting.py:1323: in _find_payment
+    raise ActionError(f"{exc}. Tap mana yourself first, or use the table tools.") from exc
+E   app.game.errors.ActionError: Not enough mana to pay {1}{B}{R}. Tap mana yourself first, or use the table tools.
+______ test_compel_planeswalker_damage_uses_loyalty_and_actual_source101 _______
+app/rules/casting.py:1321: in _find_payment
+    return _solve_with_filters(cost, pool, marked + units, filters, life, input_spending=lambda due: _spending_cost(state, player, info, due))  # SAVE sources only when nothing else works
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/casting.py:1204: in _solve_with_filters
+    raise error
+app/rules/casting.py:1133: in _solve_with_filters
+    return M.solve(cost, pool, plain, life=life)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/mana.py:839: in solve
+    raise ManaError(f"Not enough mana to pay {cost.text()}")
+E   app.rules.mana.ManaError: Not enough mana to pay {1}{G}
+
+The above exception was the direct cause of the following exception:
+tests/test_rules_modal_clauses101.py:130: in test_compel_planeswalker_damage_uses_loyalty_and_actual_source101
+    cast(s, 'Compel Brutality', modes=[1], targets=[jace.id, victim.id], target_counts=[1, 1], B=1, C=3)
+tests/wave100c_kit.py:141: in cast
+    c = start_cast(s, name, pid, targets, target_counts, modes, kicker, **pool)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/wave100c_kit.py:136: in start_cast
+    act(s, pid, type="cast_spell", card_id=c.id, targets=list(targets), **kw)
+tests/game_helpers.py:42: in act
+    return session.perform(actor, payload)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/game/session.py:61: in perform
+    resolved = resolve(self.state, action, actor=actor, cards=self.cards, trusted=trusted)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/game/resolve.py:76: in resolve
+    a.r = compile_intent(state, a, actor=actor, info=info, rng=rng)  # type: ignore[union-attr]
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/engine.py:164: in compile_intent
+    handler(plan, intent)
+app/rules/casting.py:3902: in cast_spell
+    _cast_payment(plan, payment_data, None)
+app/rules/casting.py:3963: in _cast_payment
+    pay_spell_then(plan, data.data.a, card, data.data.ch, data.cost,
+app/rules/casting.py:1910: in pay_spell_then
+    _pay_spell(plan, a, card, ch, cost, label, not_mana=not_mana, origin=origin, then=then, x_payment=x_payment, payment_context=payment_context)
+app/rules/casting.py:1770: in _pay_spell
+    pay_then(plan, player, rest, label, sources=a.sources, exclude=exclude, purpose=purpose,
+app/rules/casting.py:1576: in pay_then
+    result = _pay(plan, player, cost, label, sources=sources, exclude=exclude, purpose=purpose,
+app/rules/casting.py:1588: in _pay
+    payment = find_payment(plan.state, player, cost, plan.info, sources=sources, exclude=exclude, purpose=purpose,
+app/rules/casting.py:1217: in find_payment
+    payment = _find_payment(state, player, _constrained(_spending_cost(state, player, info, life_for_mana(state, player, info, cost)), purpose), info, sources=sources, exclude=exclude,
+app/rules/casting.py:1323: in _find_payment
+    raise ActionError(f"{exc}. Tap mana yourself first, or use the table tools.") from exc
+E   app.game.errors.ActionError: Not enough mana to pay {1}{G}. Tap mana yourself first, or use the table tools.
+_______ test_compel_first_mode_creature_deals_damage_to_planeswalker101 ________
+app/rules/casting.py:1321: in _find_payment
+    return _solve_with_filters(cost, pool, marked + units, filters, life, input_spending=lambda due: _spending_cost(state, player, info, due))  # SAVE sources only when nothing else works
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/casting.py:1204: in _solve_with_filters
+    raise error
+app/rules/casting.py:1133: in _solve_with_filters
+    return M.solve(cost, pool, plain, life=life)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/mana.py:839: in solve
+    raise ManaError(f"Not enough mana to pay {cost.text()}")
+E   app.rules.mana.ManaError: Not enough mana to pay {1}{G}
+
+The above exception was the direct cause of the following exception:
+tests/test_rules_modal_clauses101.py:138: in test_compel_first_mode_creature_deals_damage_to_planeswalker101
+    cast(s, 'Compel Brutality', modes=[0], targets=[bear.id, jace.id], target_counts=[1, 1], B=1, C=3)
+tests/wave100c_kit.py:141: in cast
+    c = start_cast(s, name, pid, targets, target_counts, modes, kicker, **pool)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/wave100c_kit.py:136: in start_cast
+    act(s, pid, type="cast_spell", card_id=c.id, targets=list(targets), **kw)
+tests/game_helpers.py:42: in act
+    return session.perform(actor, payload)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/game/session.py:61: in perform
+    resolved = resolve(self.state, action, actor=actor, cards=self.cards, trusted=trusted)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/game/resolve.py:76: in resolve
+    a.r = compile_intent(state, a, actor=actor, info=info, rng=rng)  # type: ignore[union-attr]
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/engine.py:164: in compile_intent
+    handler(plan, intent)
+app/rules/casting.py:3902: in cast_spell
+    _cast_payment(plan, payment_data, None)
+app/rules/casting.py:3963: in _cast_payment
+    pay_spell_then(plan, data.data.a, card, data.data.ch, data.cost,
+app/rules/casting.py:1910: in pay_spell_then
+    _pay_spell(plan, a, card, ch, cost, label, not_mana=not_mana, origin=origin, then=then, x_payment=x_payment, payment_context=payment_context)
+app/rules/casting.py:1770: in _pay_spell
+    pay_then(plan, player, rest, label, sources=a.sources, exclude=exclude, purpose=purpose,
+app/rules/casting.py:1576: in pay_then
+    result = _pay(plan, player, cost, label, sources=sources, exclude=exclude, purpose=purpose,
+app/rules/casting.py:1588: in _pay
+    payment = find_payment(plan.state, player, cost, plan.info, sources=sources, exclude=exclude, purpose=purpose,
+app/rules/casting.py:1217: in find_payment
+    payment = _find_payment(state, player, _constrained(_spending_cost(state, player, info, life_for_mana(state, player, info, cost)), purpose), info, sources=sources, exclude=exclude,
+app/rules/casting.py:1323: in _find_payment
+    raise ActionError(f"{exc}. Tap mana yourself first, or use the table tools.") from exc
+E   app.game.errors.ActionError: Not enough mana to pay {1}{G}. Tap mana yourself first, or use the table tools.
+______ test_compel_blue_planeswalker_source_protection_prevents_damage101 ______
+app/rules/casting.py:1321: in _find_payment
+    return _solve_with_filters(cost, pool, marked + units, filters, life, input_spending=lambda due: _spending_cost(state, player, info, due))  # SAVE sources only when nothing else works
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/casting.py:1204: in _solve_with_filters
+    raise error
+app/rules/casting.py:1133: in _solve_with_filters
+    return M.solve(cost, pool, plain, life=life)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/mana.py:839: in solve
+    raise ManaError(f"Not enough mana to pay {cost.text()}")
+E   app.rules.mana.ManaError: Not enough mana to pay {1}{G}
+
+The above exception was the direct cause of the following exception:
+tests/test_rules_modal_clauses101.py:146: in test_compel_blue_planeswalker_source_protection_prevents_damage101
+    cast(s, 'Compel Brutality', modes=[1], targets=[jace.id, ranger.id], target_counts=[1, 1], B=1, C=3)
+tests/wave100c_kit.py:141: in cast
+    c = start_cast(s, name, pid, targets, target_counts, modes, kicker, **pool)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/wave100c_kit.py:136: in start_cast
+    act(s, pid, type="cast_spell", card_id=c.id, targets=list(targets), **kw)
+tests/game_helpers.py:42: in act
+    return session.perform(actor, payload)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/game/session.py:61: in perform
+    resolved = resolve(self.state, action, actor=actor, cards=self.cards, trusted=trusted)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/game/resolve.py:76: in resolve
+    a.r = compile_intent(state, a, actor=actor, info=info, rng=rng)  # type: ignore[union-attr]
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/engine.py:164: in compile_intent
+    handler(plan, intent)
+app/rules/casting.py:3902: in cast_spell
+    _cast_payment(plan, payment_data, None)
+app/rules/casting.py:3963: in _cast_payment
+    pay_spell_then(plan, data.data.a, card, data.data.ch, data.cost,
+app/rules/casting.py:1910: in pay_spell_then
+    _pay_spell(plan, a, card, ch, cost, label, not_mana=not_mana, origin=origin, then=then, x_payment=x_payment, payment_context=payment_context)
+app/rules/casting.py:1770: in _pay_spell
+    pay_then(plan, player, rest, label, sources=a.sources, exclude=exclude, purpose=purpose,
+app/rules/casting.py:1576: in pay_then
+    result = _pay(plan, player, cost, label, sources=sources, exclude=exclude, purpose=purpose,
+app/rules/casting.py:1588: in _pay
+    payment = find_payment(plan.state, player, cost, plan.info, sources=sources, exclude=exclude, purpose=purpose,
+app/rules/casting.py:1217: in find_payment
+    payment = _find_payment(state, player, _constrained(_spending_cost(state, player, info, life_for_mana(state, player, info, cost)), purpose), info, sources=sources, exclude=exclude,
+app/rules/casting.py:1323: in _find_payment
+    raise ActionError(f"{exc}. Tap mana yourself first, or use the table tools.") from exc
+E   app.game.errors.ActionError: Not enough mana to pay {1}{G}. Tap mana yourself first, or use the table tools.
+=========================== short test summary info ============================
+FAILED tests/test_rules_modal_clauses101.py::test_gix_first_mode_selects_at_resolution_counter_before_destroy_and_grant_expires101
+FAILED tests/test_rules_modal_clauses101.py::test_deadly_both_modes_native_suspected_target_and_optional_removal101[False]
+FAILED tests/test_rules_modal_clauses101.py::test_deadly_both_modes_native_suspected_target_and_optional_removal101[True]
+FAILED tests/test_rules_modal_clauses101.py::test_compel_planeswalker_damage_uses_loyalty_and_actual_source101
+FAILED tests/test_rules_modal_clauses101.py::test_compel_first_mode_creature_deals_damage_to_planeswalker101
+FAILED tests/test_rules_modal_clauses101.py::test_compel_blue_planeswalker_source_protection_prevents_damage101

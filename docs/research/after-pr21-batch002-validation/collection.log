@@ -1,0 +1,6 @@
+tests/test_rules_cost_statics101.py: 11
+tests/test_rules_cost_statics101_extra.py: 7
+tests/test_rules_damage_values102.py: 25
+tests/test_rules_library_packets101.py: 23
+tests/test_rules_modal_clauses101.py: 23
+

@@ -1,0 +1,549 @@
+[
+  {
+    "id": "7dc7091e-0c98-434d-9190-dcab813d3e14",
+    "oracle_id": "d2045055-197c-436a-9874-199db5fe1c96",
+    "name": "Enduring Ideal",
+    "layout": "normal",
+    "set_code": "sok",
+    "set_name": "Saviors of Kamigawa",
+    "collector_number": "9",
+    "rarity": "rare",
+    "mana_cost": "{5}{W}{W}",
+    "cmc": 7.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Search your library for an enchantment card, put it onto the battlefield, then shuffle.\nEpic (For the rest of the game, you can't cast spells. At the beginning of each of your upkeeps, copy this spell except for its epic ability.)",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [
+      "Epic"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2005-06-03",
+    "artist": "Daren Bader",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "f64d9404-9685-495d-a591-63d6164a88a9",
+    "oracle_id": "c62a9e10-cfc6-48cc-a3f7-68d624182a5a",
+    "name": "Endless Swarm",
+    "layout": "normal",
+    "set_code": "sok",
+    "set_name": "Saviors of Kamigawa",
+    "collector_number": "129",
+    "rarity": "rare",
+    "mana_cost": "{5}{G}{G}{G}",
+    "cmc": 8.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Create a 1/1 green Snake creature token for each card in your hand.\nEpic (For the rest of the game, you can't cast spells. At the beginning of each of your upkeeps, copy this spell except for its epic ability.)",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [
+      "Epic"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2005-06-03",
+    "artist": "Jeremy Jarvis",
+    "commander_legal": "legal",
+    "related_tokens": [
+      {
+        "id": "4bfc751d-af71-49ff-a8b2-0d3a20eb136a",
+        "name": "Snake",
+        "type_line": "Token Creature \u2014 Snake"
+      }
+    ],
+    "related_cards": []
+  },
+  {
+    "id": "3067a9bd-991a-462d-862a-2518ae31c382",
+    "oracle_id": "ede2a435-bf9a-4f87-b579-259cfdebc13f",
+    "name": "Eternal Dominion",
+    "layout": "normal",
+    "set_code": "sok",
+    "set_name": "Saviors of Kamigawa",
+    "collector_number": "36",
+    "rarity": "rare",
+    "mana_cost": "{7}{U}{U}{U}",
+    "cmc": 10.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Search target opponent's library for an artifact, creature, enchantment, or land card. Put that card onto the battlefield under your control. Then that player shuffles.\nEpic (For the rest of the game, you can't cast spells. At the beginning of each of your upkeeps, copy this spell except for its epic ability. You may choose a new target for the copy.)",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Epic"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2005-06-03",
+    "artist": "Shishizaru",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "3f91f678-9d3a-4502-81a6-3e1676aa447a",
+    "oracle_id": "0f07d3d0-1f79-4d50-ab3e-f9dc5ef59482",
+    "name": "Neverending Torment",
+    "layout": "normal",
+    "set_code": "sok",
+    "set_name": "Saviors of Kamigawa",
+    "collector_number": "83",
+    "rarity": "rare",
+    "mana_cost": "{4}{B}{B}",
+    "cmc": 6.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Search target player's library for X cards, where X is the number of cards in your hand, and exile them. Then that player shuffles.\nEpic (For the rest of the game, you can't cast spells. At the beginning of each of your upkeeps, copy this spell except for its epic ability. You may choose a new target for the copy.)",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [
+      "Epic"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2005-06-03",
+    "artist": "Thomas Gianni",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "606206c7-1a8a-46f4-b368-cf18e02f3df8",
+    "oracle_id": "5db128ed-69c0-41f3-b8b4-fb7cefdb236c",
+    "name": "Undying Flames",
+    "layout": "normal",
+    "set_code": "sok",
+    "set_name": "Saviors of Kamigawa",
+    "collector_number": "119",
+    "rarity": "rare",
+    "mana_cost": "{4}{R}{R}",
+    "cmc": 6.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Exile cards from the top of your library until you exile a nonland card. Undying Flames deals damage to any target equal to that card's mana value.\nEpic (For the rest of the game, you can't cast spells. At the beginning of each of your upkeeps, copy this spell except for its epic ability. You may choose a new target for the copy.)",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [
+      "Epic"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2005-06-03",
+    "artist": "Tsutomu Kawade",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "5cdcc324-1427-453c-9940-c21f5d04c997",
+    "oracle_id": "3ca8113b-f5b8-41a7-aae6-ebb32554dfe3",
+    "name": "Twinning Staff",
+    "layout": "normal",
+    "set_code": "ncc",
+    "set_name": "New Capenna Commander",
+    "collector_number": "383",
+    "rarity": "rare",
+    "mana_cost": "{3}",
+    "cmc": 3.0,
+    "type_line": "Artifact",
+    "oracle_text": "If you would copy a spell one or more times, instead copy it that many times plus an additional time. You may choose new targets for the additional copy.\n{7}, {T}: Copy target instant or sorcery spell you control. You may choose new targets for the copy.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2022-04-29",
+    "artist": "Mike Bierek",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "053b59b4-a22c-4228-aadc-ae9da6bb465e",
+    "oracle_id": "fea95888-e16a-4209-9cd4-623f7f4d2f67",
+    "name": "Walking Corpse",
+    "layout": "normal",
+    "set_code": "m21",
+    "set_name": "Core Set 2021",
+    "collector_number": "128",
+    "rarity": "common",
+    "mana_cost": "{1}{B}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Zombie",
+    "oracle_text": "",
+    "power": "2",
+    "toughness": "2",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2020-07-03",
+    "artist": "Igor Kieryluk",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "409f9b88-f03e-40b6-9883-68c14c37c0de",
+    "oracle_id": "14c8f55d-d177-4c25-a931-ebeb9e6062a0",
+    "name": "Grizzly Bears",
+    "layout": "normal",
+    "set_code": "10e",
+    "set_name": "Tenth Edition",
+    "collector_number": "268",
+    "rarity": "common",
+    "mana_cost": "{1}{G}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Bear",
+    "oracle_text": "",
+    "power": "2",
+    "toughness": "2",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2007-07-13",
+    "artist": "D. J. Cleland-Hura",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "14c2be6a-9ca6-4d3a-8dd0-db4ea40799f8",
+    "oracle_id": "342199e0-15b6-4824-83da-25caef2592b3",
+    "name": "Hill Giant",
+    "layout": "normal",
+    "set_code": "10e",
+    "set_name": "Tenth Edition",
+    "collector_number": "212",
+    "rarity": "common",
+    "mana_cost": "{3}{R}",
+    "cmc": 4.0,
+    "type_line": "Creature \u2014 Giant",
+    "oracle_text": "",
+    "power": "3",
+    "toughness": "3",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2007-07-13",
+    "artist": "Kev Walker",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "d8662ebb-068b-41d2-b504-4b5854e4d4aa",
+    "oracle_id": "ed206651-3d9b-4546-8d45-0682817192fd",
+    "name": "Bear Cub",
+    "layout": "normal",
+    "set_code": "fdn",
+    "set_name": "Foundations",
+    "collector_number": "552",
+    "rarity": "common",
+    "mana_cost": "{1}{G}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Bear",
+    "oracle_text": "",
+    "power": "2",
+    "toughness": "2",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2024-11-15",
+    "artist": "Ron Spencer",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [
+      {
+        "id": "e6a0da1e-7af8-4fdf-ad0d-ebfc9c4a13cb",
+        "name": "Ursine Guide // Ranger's Merit",
+        "component": "combo_piece"
+      }
+    ]
+  },
+  {
+    "id": "f3d62dbd-63db-4ac9-950f-9852627f23f2",
+    "oracle_id": "cac55e46-b730-4569-b92c-a4b5922fc20c",
+    "name": "Time Spiral",
+    "layout": "normal",
+    "set_code": "usg",
+    "set_name": "Urza's Saga",
+    "collector_number": "103",
+    "rarity": "rare",
+    "mana_cost": "{4}{U}{U}",
+    "cmc": 6.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Exile Time Spiral. Each player shuffles their hand and graveyard into their library, then draws seven cards. You untap up to six lands.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "1998-10-12",
+    "artist": "Michael Sutfin",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "40b33b38-8591-4e0c-8f3a-0249da977821",
+    "oracle_id": "3407fe41-fdd3-4119-8f70-4bc4590a379f",
+    "name": "Negate",
+    "layout": "normal",
+    "set_code": "fdc",
+    "set_name": "Foundations Commander",
+    "collector_number": "70",
+    "rarity": "common",
+    "mana_cost": "{1}{U}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "Counter target noncreature spell.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2026-10-02",
+    "artist": "Magali Villeneuve",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "1cdd8e69-5a71-4933-914e-dfede7b1ac93",
+    "oracle_id": "01546b7d-a233-4176-8843-d732074dc5b6",
+    "name": "Doubling Season",
+    "layout": "normal",
+    "set_code": "cmm",
+    "set_name": "Commander Masters",
+    "collector_number": "283",
+    "rarity": "mythic",
+    "mana_cost": "{4}{G}",
+    "cmc": 5.0,
+    "type_line": "Enchantment",
+    "oracle_text": "If an effect would create one or more tokens under your control, it creates twice that many of those tokens instead.\nIf an effect would put one or more counters on a permanent you control, it puts twice that many of those counters on that permanent instead.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2023-08-04",
+    "artist": "Chuck Lukacs",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "5996feb4-02ac-45e8-a7f2-966cf74391dc",
+    "oracle_id": "a1f55890-31c5-4ed4-a2cd-7a4a9f05f8ca",
+    "name": "Reverberate",
+    "layout": "normal",
+    "set_code": "m13",
+    "set_name": "Magic 2013",
+    "collector_number": "145",
+    "rarity": "rare",
+    "mana_cost": "{R}{R}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "Copy target instant or sorcery spell. You may choose new targets for the copy.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2012-07-13",
+    "artist": "jD",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "7f80a11b-188b-464c-b00d-c9d1cfb8ddee",
+    "oracle_id": "696f554d-0485-48a5-9273-3f6fb7d16a5d",
+    "name": "Witherbloom Apprentice",
+    "layout": "normal",
+    "set_code": "stx",
+    "set_name": "Strixhaven: School of Mages",
+    "collector_number": "247",
+    "rarity": "uncommon",
+    "mana_cost": "{B}{G}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Human Druid",
+    "oracle_text": "Magecraft \u2014 Whenever you cast or copy an instant or sorcery spell, each opponent loses 1 life and you gain 1 life.",
+    "power": "2",
+    "toughness": "2",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "B",
+      "G"
+    ],
+    "color_identity": [
+      "B",
+      "G"
+    ],
+    "keywords": [
+      "Magecraft"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2021-04-23",
+    "artist": "Josh Hass",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  }
+]

@@ -1,0 +1,25 @@
+{
+  "base_commit": "456c95d6aa3eaaa38583129be436ef57c1937a01",
+  "groups": [
+    "after21-combat101",
+    "after21-spells101",
+    "after21-triggers101/upkeep-outcomes101"
+  ],
+  "expected": [
+    "Standard Bearer",
+    "Coalition Flag",
+    "Coalition Honor Guard",
+    "Gix's Command",
+    "Deadly Complication",
+    "Compel Brutality",
+    "Display of Dominance",
+    "Doom Foretold",
+    "Infernal Denizen",
+    "Cocoon"
+  ],
+  "native_files": [
+    "tests/test_rules_flagbearer86.py",
+    "tests/test_rules_modal_clauses101.py",
+    "tests/test_rules_upkeep_sacrifice101.py"
+  ]
+}

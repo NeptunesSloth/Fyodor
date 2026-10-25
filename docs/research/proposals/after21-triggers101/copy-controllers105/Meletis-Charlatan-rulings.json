@@ -1,0 +1,41 @@
+{
+  "object": "list",
+  "has_more": false,
+  "data": [
+    {
+      "object": "ruling",
+      "oracle_id": "11dfe74c-bc8e-4d58-b526-41ea5b409135",
+      "source": "wotc",
+      "published_at": "2013-09-15",
+      "comment": "Meletis Charlatan's ability can target any instant or sorcery spell, not just one with targets and not just one that you control."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "11dfe74c-bc8e-4d58-b526-41ea5b409135",
+      "source": "wotc",
+      "published_at": "2013-09-15",
+      "comment": "When the ability resolves, it creates a copy of the spell. The controller of the original spell controls the copy. That copy is created on the stack, so it's not \u201ccast.\u201d Abilities that trigger when a player casts a spell won't trigger. The copy will then resolve like a normal spell, after players get a chance to cast spells and activate abilities."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "11dfe74c-bc8e-4d58-b526-41ea5b409135",
+      "source": "wotc",
+      "published_at": "2013-09-15",
+      "comment": "The copy will have the same targets as the spell it's copying unless its controller chooses new ones. That player may change any number of the targets, including all of them or none of them. If, for one of the targets, that player can't choose a new legal target, then it remains unchanged (even if the current target is illegal)."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "11dfe74c-bc8e-4d58-b526-41ea5b409135",
+      "source": "wotc",
+      "published_at": "2013-09-15",
+      "comment": "If the spell being copied is modal (that is, it says \u201cChoose one \u2014\u201d or the like), the copy will have the same mode. Its controller can't choose a different one."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "11dfe74c-bc8e-4d58-b526-41ea5b409135",
+      "source": "wotc",
+      "published_at": "2013-09-15",
+      "comment": "If the spell being copied has an X whose value was determined as it was cast (like Curse of the Swine has), the copy has the same value of X."
+    }
+  ]
+}

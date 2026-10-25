@@ -1,0 +1,73 @@
+bringing up nodes...
+bringing up nodes...
+
+..F.                                                                     [100%]
+=================================== FAILURES ===================================
+________ test_true_cold_optional_waterbend_choice_resolves_paid_branch _________
+[gw0] linux -- Python 3.12.14 /workspace/Fyodor/backend/.venv/bin/python
+
+cards = <app.cards.repository.CardRepository object at 0x7fb035d052b0>
+tmp_path = PosixPath('/tmp/pytest-of-agent/pytest-371/popen-gw0/test_true_cold_optional_waterb0')
+
+    def test_true_cold_optional_waterbend_choice_resolves_paid_branch(cards, tmp_path):
+        from tests.test_rules_cost_statics101_extra import cold
+
+        s = setup(cards)
+        ids = helpers(s, 6)
+        source = cast(s, NAMES[0], {"C": 1, "U": 2}, True)
+        before = len(s.state.zones["p1:hand"])
+>       cold(
+            s,
+            tmp_path,
+            f"d=s.state.rules.decision\nact(s,d.player,type='choose',decision_id=d.id,option_ids={ids!r})\n"
+            f"r=s.state.rules.payments[s.state.rules.object_id({source.id!r})]\n"
+            "assert r.waterbend_paid102 is True and not r.kicked\nsettle(s)\n"
+            f"assert len(s.state.zones['p1:hand'])=={before + 7}\n"
+            "assert 'p1' in s.state.rules.no_max_hand\nroundtrip(s)",
+        )
+
+tests/test_rules_waterbend103.py:131:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+s = <app.game.session.GameSession object at 0x7fb0360c45f0>
+tmp_path = PosixPath('/tmp/pytest-of-agent/pytest-371/popen-gw0/test_true_cold_optional_waterb0')
+body = "d=s.state.rules.decision\nact(s,d.player,type='choose',decision_id=d.id,option_ids=['9fb366c21060', '703470616676', '... r.kicked\nsettle(s)\nassert len(s.state.zones['p1:hand'])==10\nassert 'p1' in s.state.rules.no_max_hand\nroundtrip(s)"
+
+    def cold(s, tmp_path, body):
+        saved = tmp_path / "cost101.json"
+        saved.write_text(s.state.model_dump_json())
+        code = (
+            """import sys
+    from pathlib import Path
+    from app.cards.images import ImageStore
+    from app.cards.repository import CardRepository
+    from app.game.session import GameSession
+    from app.game.state import GameState
+    from tests.game_helpers import act,mana_pool
+    from tests.test_rules_designations import settle,roundtrip
+    repo=CardRepository(Path(sys.argv[2]),ImageStore(Path(sys.argv[2]).parent/'images'))
+    s=GameSession(GameState.model_validate_json(Path(sys.argv[1]).read_text()),cards=repo)
+    """
+            + body
+            + "\nrepo.close()\n"
+        )
+        import app
+
+        result = subprocess.run(
+            [sys.executable, "-c", code, str(saved), str(s.cards.db_path)],
+            cwd=Path(app.__file__).resolve().parents[1],
+            capture_output=True,
+            text=True,
+            timeout=90,
+        )
+>       assert result.returncode == 0, result.stdout + result.stderr
+E       AssertionError: Traceback (most recent call last):
+E           File "<string>", line 16, in <module>
+E         AssertionError
+E
+E       assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['/workspace/Fyodor/backend/.venv/bin/python', '-c', "import sys\nfrom pathlib import Path\nfrom...e=1, stdout='', stderr='Traceback (most recent call last):\n  File "<string>", line 16, in <module>\nAssertionError\n').returncode
+
+tests/test_rules_cost_statics101_extra.py:45: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_rules_waterbend103.py::test_true_cold_optional_waterbend_choice_resolves_paid_branch

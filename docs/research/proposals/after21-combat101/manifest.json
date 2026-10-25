@@ -1,0 +1,34 @@
+{
+  "status": "CLOSED_ISOLATED_ROOT_AUDIT_REQUIRED",
+  "base_commit": "456c95d6aa3eaaa38583129be436ef57c1937a01",
+  "names": [
+    "Standard Bearer",
+    "Coalition Flag",
+    "Coalition Honor Guard"
+  ],
+  "expected_promotions": 3,
+  "owned_sources": [
+    "app/rules/flagbearer86.py",
+    "app/rules/casting.py",
+    "app/rules/targets.py",
+    "app/rules/delegated_target_announcements.py",
+    "app/rules/scripts.py"
+  ],
+  "native": {
+    "passed": 24,
+    "cold": 2,
+    "log": "flag-native24.log"
+  },
+  "related": {
+    "passed": 172,
+    "seconds": 56.05,
+    "log": "flag-related.log"
+  },
+  "mypy": "5 source files PASS",
+  "ruff": "6 source/test files PASS",
+  "source_stage": "/workspace/scratch/combat101/backend",
+  "test_destination": "backend/tests/test_rules_flagbearer86.py",
+  "fixture_destination": "backend/tests/fixtures/flagbearer86_cards.json",
+  "ancestry": "Old Flagbearer86 proposal adapted and fully revalidated on mergedPR21; new teamwork target applicability retained",
+  "runtime_classifier_changes": 0
+}

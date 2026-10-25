@@ -1,0 +1,123 @@
+[
+  {
+    "name": "Tidal Control",
+    "mana_cost": "{1}{U}{U}",
+    "cmc": 3.0,
+    "type_line": "Enchantment",
+    "oracle_text": "Cumulative upkeep {2} (At the beginning of your upkeep, put an age counter on this permanent, then sacrifice it unless you pay its upkeep cost for each age counter on it.)\nPay 2 life or {2}: Counter target red or green spell. Any player may activate this ability.",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "power": null,
+    "toughness": null,
+    "keywords": [
+      "Cumulative upkeep"
+    ],
+    "commander_legal": "legal"
+  },
+  {
+    "name": "Shock",
+    "mana_cost": "{R}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Shock deals 2 damage to any target.",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "power": null,
+    "toughness": null,
+    "keywords": [],
+    "commander_legal": "legal"
+  },
+  {
+    "name": "Opt",
+    "mana_cost": "{U}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Scry 1. (Look at the top card of your library. You may put that card on the bottom.)\nDraw a card.",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "power": null,
+    "toughness": null,
+    "keywords": [
+      "Scry"
+    ],
+    "commander_legal": "legal"
+  },
+  {
+    "name": "Suppression Field",
+    "mana_cost": "{1}{W}",
+    "cmc": 2.0,
+    "type_line": "Enchantment",
+    "oracle_text": "Activated abilities cost {2} more to activate unless they're mana abilities.",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "power": null,
+    "toughness": null,
+    "keywords": [],
+    "commander_legal": "legal"
+  },
+  {
+    "name": "Bullseye, Death Dealer",
+    "mana_cost": "{2}{B/R}",
+    "cmc": 3.0,
+    "type_line": "Legendary Creature \u2014 Human Assassin Villain",
+    "oracle_text": "When Bullseye enters, you may sacrifice an artifact or discard a nonland card. When you do, Bullseye deals 2 damage to any target.\n{3}, {T}, Sacrifice an artifact or discard a nonland card: Bullseye deals 2 damage to any target.",
+    "colors": [
+      "B",
+      "R"
+    ],
+    "color_identity": [
+      "B",
+      "R"
+    ],
+    "power": "2",
+    "toughness": "3",
+    "keywords": [],
+    "commander_legal": "legal"
+  },
+  {
+    "name": "Memnite",
+    "mana_cost": "{0}",
+    "cmc": 0.0,
+    "type_line": "Artifact Creature \u2014 Construct",
+    "oracle_text": "",
+    "colors": [],
+    "color_identity": [],
+    "power": "1",
+    "toughness": "1",
+    "keywords": [],
+    "commander_legal": "legal"
+  },
+  {
+    "name": "Grizzly Bears",
+    "mana_cost": "{1}{G}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Bear",
+    "oracle_text": "",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "power": "2",
+    "toughness": "2",
+    "keywords": [],
+    "commander_legal": "legal"
+  }
+]

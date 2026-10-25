@@ -1,0 +1,31 @@
+{
+  "candidate_names": [
+    "Divergent Transformations",
+    "Reality Scramble",
+    "Indomitable Creativity",
+    "Synthetic Destiny"
+  ],
+  "expected_promotions": 4,
+  "production_sources": [
+    "app/rules/library_polymorph102.py",
+    "app/rules/scripts.py",
+    "app/rules/effects.py"
+  ],
+  "native_pass": 16,
+  "genuine_cold": 3,
+  "mypy": "3 PASS",
+  "ruff": "4 PASS",
+  "related": "58 native existing reveal/delayed regressions PASS on unchanged final source",
+  "test_destination": "backend/tests/test_rules_library_polymorph102.py",
+  "fixture_destination": "backend/tests/fixtures/library_polymorph102_cards.json",
+  "test_dependency": "test_rules_library_packets101.advance/cast/cold from closed library101 package; original library101 fixture unchanged",
+  "runtime_dependency": "Only native mergedPR21 engine functions; no library101 production import",
+  "base": "Merged456c95d6 +closed library101 additive hooks; review.patch saved against immutable base-sources, never live files",
+  "held_unregistered": [
+    "Chaos Mutation",
+    "Neera, Wild Mage",
+    "Transforming Flourish"
+  ],
+  "status": "CLOSED exact4; root integration/catalog admission pending",
+  "patch_sha256": "ac6610ccafbef2fce86ba4493a2d020dcdddece61176317ee69d8a070bf2565b"
+}

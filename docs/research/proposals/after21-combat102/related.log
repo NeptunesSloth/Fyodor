@@ -1,0 +1,191 @@
+============================= test session starts ==============================
+platform linux -- Python 3.12.14, pytest-9.1.1, pluggy-1.7.0 -- /workspace/Fyodor/backend/.venv/bin/python3
+cachedir: .pytest_cache
+rootdir: /workspace/scratch/combat102/backend
+configfile: pyproject.toml
+plugins: anyio-4.15.1, xdist-3.8.0
+created: 2/2 workers
+2 workers [64 items]
+
+scheduling tests via LoadScheduling
+
+tests/test_rules_wave12c_amounts.py::test_coverage_full[Thunder of Hooves]
+tests/test_rules_wave12c_amounts.py::test_coverage_full[Kindle]
+[gw0] [  1%] PASSED tests/test_rules_wave12c_amounts.py::test_coverage_full[Kindle]
+tests/test_rules_wave12c_amounts.py::test_coverage_full[Feast of Flesh]
+[gw1] [  3%] PASSED tests/test_rules_wave12c_amounts.py::test_coverage_full[Thunder of Hooves]
+[gw0] [  4%] PASSED tests/test_rules_wave12c_amounts.py::test_coverage_full[Feast of Flesh]
+tests/test_rules_wave12c_amounts.py::test_coverage_full[Frenzied Gorespawn]
+tests/test_rules_wave12c_amounts.py::test_coverage_full[Cloudkill]
+[gw0] [  6%] PASSED tests/test_rules_wave12c_amounts.py::test_coverage_full[Cloudkill]
+tests/test_rules_wave12c_amounts.py::test_coverage_full[Momentous Fall]
+[gw1] [  7%] PASSED tests/test_rules_wave12c_amounts.py::test_coverage_full[Frenzied Gorespawn]
+tests/test_rules_wave12c_amounts.py::test_coverage_full[Molten Primordial]
+[gw0] [  9%] PASSED tests/test_rules_wave12c_amounts.py::test_coverage_full[Momentous Fall]
+tests/test_rules_wave12c_amounts.py::test_coverage_full[Sacrifice]
+[gw0] [ 10%] PASSED tests/test_rules_wave12c_amounts.py::test_coverage_full[Sacrifice]
+tests/test_rules_wave12c_amounts.py::test_coverage_full[Morbid Curiosity]
+[gw1] [ 12%] PASSED tests/test_rules_wave12c_amounts.py::test_coverage_full[Molten Primordial]
+tests/test_rules_wave12c_amounts.py::test_coverage_full[Plague Rats]
+[gw0] [ 14%] PASSED tests/test_rules_wave12c_amounts.py::test_coverage_full[Morbid Curiosity]
+tests/test_rules_wave12c_amounts.py::test_coverage_full[Haytham Kenway]
+[gw1] [ 15%] PASSED tests/test_rules_wave12c_amounts.py::test_coverage_full[Plague Rats]
+tests/test_rules_wave12c_amounts.py::test_coverage_full[Timberpack Wolf]
+[gw1] [ 17%] PASSED tests/test_rules_wave12c_amounts.py::test_coverage_full[Timberpack Wolf]
+tests/test_rules_wave12c_amounts.py::test_coverage_full[Pack Mastiff]
+[gw0] [ 18%] PASSED tests/test_rules_wave12c_amounts.py::test_coverage_full[Haytham Kenway]
+tests/test_rules_wave12c_amounts.py::test_coverage_full[Intelligence Bobblehead]
+[gw1] [ 20%] PASSED tests/test_rules_wave12c_amounts.py::test_coverage_full[Pack Mastiff]
+tests/test_rules_wave12c_amounts.py::test_coverage_full[Faerie Miscreant]
+[gw0] [ 21%] PASSED tests/test_rules_wave12c_amounts.py::test_coverage_full[Intelligence Bobblehead]
+tests/test_rules_wave12c_amounts.py::test_coverage_full[Demigod of Revenge]
+[gw0] [ 23%] PASSED tests/test_rules_wave12c_amounts.py::test_coverage_full[Demigod of Revenge]
+[gw1] [ 25%] PASSED tests/test_rules_wave12c_amounts.py::test_coverage_full[Faerie Miscreant]
+tests/test_rules_wave12c_amounts.py::test_coverage_full[Battlefield Medic]
+tests/test_rules_wave12c_amounts.py::test_coverage_full[Cleric of the Forward Order]
+[gw1] [ 26%] PASSED tests/test_rules_wave12c_amounts.py::test_coverage_full[Cleric of the Forward Order]
+tests/test_rules_wave12c_amounts.py::test_cloudkill_reads_the_commander_in_the_command_zone
+[gw0] [ 28%] PASSED tests/test_rules_wave12c_amounts.py::test_coverage_full[Battlefield Medic]
+tests/test_rules_wave12c_amounts.py::test_coverage_full[Burnt Offering]
+[gw0] [ 29%] PASSED tests/test_rules_wave12c_amounts.py::test_coverage_full[Burnt Offering]
+tests/test_rules_wave12c_amounts.py::test_coverage_full[Judgment Bolt]
+[gw0] [ 31%] PASSED tests/test_rules_wave12c_amounts.py::test_coverage_full[Judgment Bolt]
+tests/test_rules_wave12c_amounts.py::test_the_wording_is_exact
+[gw0] [ 32%] PASSED tests/test_rules_wave12c_amounts.py::test_the_wording_is_exact
+tests/test_rules_wave12c_amounts.py::test_kindle_counts_the_cards_with_its_own_name_in_all_graveyards
+[gw1] [ 34%] PASSED tests/test_rules_wave12c_amounts.py::test_cloudkill_reads_the_commander_in_the_command_zone
+tests/test_rules_wave12c_amounts.py::test_bobblehead_counts_bobbleheads_you_control
+[gw1] [ 35%] PASSED tests/test_rules_wave12c_amounts.py::test_bobblehead_counts_bobbleheads_you_control
+tests/test_rules_wave12c_amounts.py::test_momentous_fall_reads_the_sacrificed_creature_as_it_was
+[gw0] [ 37%] PASSED tests/test_rules_wave12c_amounts.py::test_kindle_counts_the_cards_with_its_own_name_in_all_graveyards
+tests/test_rules_wave12c_amounts.py::test_feast_of_flesh_uses_the_same_x_twice
+[gw1] [ 39%] PASSED tests/test_rules_wave12c_amounts.py::test_momentous_fall_reads_the_sacrificed_creature_as_it_was
+tests/test_rules_wave12c_amounts.py::test_sacrifice_adds_mana_equal_to_the_sacrificed_mana_value
+[gw0] [ 40%] PASSED tests/test_rules_wave12c_amounts.py::test_feast_of_flesh_uses_the_same_x_twice
+tests/test_rules_wave12c_amounts.py::test_an_opponent_without_a_creature_gets_no_target_and_up_to_one_may_be_skipped
+[gw1] [ 42%] FAILED tests/test_rules_wave12c_amounts.py::test_sacrifice_adds_mana_equal_to_the_sacrificed_mana_value
+tests/test_rules_wave12c_amounts.py::test_morbid_curiosity_draws_for_the_sacrificed_permanents_mana_value
+[gw1] [ 43%] PASSED tests/test_rules_wave12c_amounts.py::test_morbid_curiosity_draws_for_the_sacrificed_permanents_mana_value
+tests/test_rules_wave12c_amounts.py::test_haytham_kenway_exiles_one_creature_of_each_opponent
+[gw0] [ 45%] PASSED tests/test_rules_wave12c_amounts.py::test_an_opponent_without_a_creature_gets_no_target_and_up_to_one_may_be_skipped
+tests/test_rules_wave12c_amounts.py::test_per_opponent_is_read_only_for_a_triggered_ability_own_clause
+[gw0] [ 46%] PASSED tests/test_rules_wave12c_amounts.py::test_per_opponent_is_read_only_for_a_triggered_ability_own_clause
+tests/test_rules_wave12c_amounts.py::test_named_self_in_a_cda_a_static_and_a_group_ability
+[gw1] [ 48%] PASSED tests/test_rules_wave12c_amounts.py::test_haytham_kenway_exiles_one_creature_of_each_opponent
+tests/test_rules_wave12c_amounts.py::test_battlefield_medic_prevents_as_many_as_there_are_clerics
+[gw0] [ 50%] PASSED tests/test_rules_wave12c_amounts.py::test_named_self_in_a_cda_a_static_and_a_group_ability
+tests/test_rules_wave12c_amounts.py::test_named_self_in_enters_triggers
+[gw1] [ 51%] PASSED tests/test_rules_wave12c_amounts.py::test_battlefield_medic_prevents_as_many_as_there_are_clerics
+tests/test_rules_wave12c_amounts.py::test_burnt_offering_adds_mana_for_the_sacrificed_mana_value
+[gw1] [ 53%] FAILED tests/test_rules_wave12c_amounts.py::test_burnt_offering_adds_mana_for_the_sacrificed_mana_value
+tests/test_rules_wave12c_amounts.py::test_judgment_bolt_hits_the_creature_and_its_controller
+[gw1] [ 54%] PASSED tests/test_rules_wave12c_amounts.py::test_judgment_bolt_hits_the_creature_and_its_controller
+tests/test_rules_wave12c_amounts.py::test_an_x_left_inside_a_selector_stays_manual[Destroy each creature with mana value X or less and you gain X life, where X is the number of Zombies you control.]
+[gw1] [ 56%] PASSED tests/test_rules_wave12c_amounts.py::test_an_x_left_inside_a_selector_stays_manual[Destroy each creature with mana value X or less and you gain X life, where X is the number of Zombies you control.]
+tests/test_rules_wave12c_amounts.py::test_the_x_the_text_defines_in_an_effects_own_selector_is_read_live[Draw X cards and each creature with mana value X or less gains flying until end of turn, where X is the number of Zombies you control.]
+[gw1] [ 57%] PASSED tests/test_rules_wave12c_amounts.py::test_the_x_the_text_defines_in_an_effects_own_selector_is_read_live[Draw X cards and each creature with mana value X or less gains flying until end of turn, where X is the number of Zombies you control.]
+tests/test_rules_wave12c_amounts.py::test_the_x_the_text_defines_in_an_effects_own_selector_is_read_live[Destroy each creature with mana value X or less, where X is the number of Zombies you control.]
+[gw1] [ 59%] PASSED tests/test_rules_wave12c_amounts.py::test_the_x_the_text_defines_in_an_effects_own_selector_is_read_live[Destroy each creature with mana value X or less, where X is the number of Zombies you control.]
+tests/test_rules_wave23a_villainous.py::test_coverage_full[The Dalek Emperor]
+[gw1] [ 60%] PASSED tests/test_rules_wave23a_villainous.py::test_coverage_full[The Dalek Emperor]
+tests/test_rules_wave23a_villainous.py::test_coverage_full[Damocles Base, Sword of Kang]
+[gw1] [ 62%] PASSED tests/test_rules_wave23a_villainous.py::test_coverage_full[Damocles Base, Sword of Kang]
+tests/test_rules_wave23a_villainous.py::test_wording_is_two_options_for_the_one_who_faces_them
+[gw1] [ 64%] PASSED tests/test_rules_wave23a_villainous.py::test_wording_is_two_options_for_the_one_who_faces_them
+tests/test_rules_wave23a_villainous.py::test_each_opponent_chooses_in_turn_order_one_at_a_time
+[gw1] [ 65%] PASSED tests/test_rules_wave23a_villainous.py::test_each_opponent_chooses_in_turn_order_one_at_a_time
+tests/test_rules_wave23a_villainous.py::test_an_impossible_option_does_as_much_as_possible
+[gw0] [ 67%] PASSED tests/test_rules_wave12c_amounts.py::test_named_self_in_enters_triggers
+tests/test_rules_wave12c_amounts.py::test_demigod_of_revenge_cast_trigger_returns_the_others_from_the_graveyard
+[gw1] [ 68%] PASSED tests/test_rules_wave23a_villainous.py::test_an_impossible_option_does_as_much_as_possible
+tests/test_rules_wave23a_villainous.py::test_damocles_base_the_damaged_player_faces_the_choice[a]
+[gw0] [ 70%] PASSED tests/test_rules_wave12c_amounts.py::test_demigod_of_revenge_cast_trigger_returns_the_others_from_the_graveyard
+tests/test_rules_wave100e_divided.py::test_aurelias_fury_an_illegal_target_keeps_its_share_and_isnt_tapped
+[gw0] [ 71%] PASSED tests/test_rules_wave100e_divided.py::test_aurelias_fury_an_illegal_target_keeps_its_share_and_isnt_tapped
+tests/test_rules_wave100e_divided.py::test_huatli_divides_x_and_the_creatures_dealt_damage_cant_block
+[gw1] [ 73%] PASSED tests/test_rules_wave23a_villainous.py::test_damocles_base_the_damaged_player_faces_the_choice[a]
+tests/test_rules_wave23a_villainous.py::test_damocles_base_the_damaged_player_faces_the_choice[b]
+[gw0] [ 75%] PASSED tests/test_rules_wave100e_divided.py::test_huatli_divides_x_and_the_creatures_dealt_damage_cant_block
+tests/test_rules_wave100e_divided.py::test_huatli_a_creature_with_its_damage_prevented_can_still_block
+[gw0] [ 76%] PASSED tests/test_rules_wave100e_divided.py::test_huatli_a_creature_with_its_damage_prevented_can_still_block
+tests/test_rules_wave100e_divided.py::test_impact_resonance_x_is_the_most_one_source_dealt_one_thing_this_turn
+[gw1] [ 78%] PASSED tests/test_rules_wave23a_villainous.py::test_damocles_base_the_damaged_player_faces_the_choice[b]
+tests/test_rules_wave100e_divided.py::test_aurelias_fury_taps_the_creatures_and_silences_the_players_dealt_damage
+[gw0] [ 79%] PASSED tests/test_rules_wave100e_divided.py::test_impact_resonance_x_is_the_most_one_source_dealt_one_thing_this_turn
+tests/test_rules_wave100e_divided.py::test_impact_resonance_with_no_damage_this_turn_has_nothing_to_divide
+[gw0] [ 81%] PASSED tests/test_rules_wave100e_divided.py::test_impact_resonance_with_no_damage_this_turn_has_nothing_to_divide
+tests/test_rules_wave22d_this_way_objects.py::test_coverage_full[Pure Reflection]
+[gw0] [ 82%] PASSED tests/test_rules_wave22d_this_way_objects.py::test_coverage_full[Pure Reflection]
+tests/test_rules_wave22d_this_way_objects.py::test_coverage_full[Random Encounter]
+[gw0] [ 84%] PASSED tests/test_rules_wave22d_this_way_objects.py::test_coverage_full[Random Encounter]
+tests/test_rules_wave22d_this_way_objects.py::test_coverage_full[The Ancient One]
+[gw1] [ 85%] PASSED tests/test_rules_wave100e_divided.py::test_aurelias_fury_taps_the_creatures_and_silences_the_players_dealt_damage
+tests/test_rules_wave22d_this_way_objects.py::test_coverage_full[Necromantic Selection]
+[gw0] [ 87%] PASSED tests/test_rules_wave22d_this_way_objects.py::test_coverage_full[The Ancient One]
+[gw1] [ 89%] PASSED tests/test_rules_wave22d_this_way_objects.py::test_coverage_full[Necromantic Selection]
+tests/test_rules_wave22d_this_way_objects.py::test_pure_reflection_makes_an_x_x_token_for_the_player_who_cast_the_spell
+tests/test_rules_wave22d_this_way_objects.py::test_random_encounter_puts_each_creature_milled_this_way_onto_the_battlefield_and_returns_them_at_the_end_step
+[gw1] [ 90%] PASSED tests/test_rules_wave22d_this_way_objects.py::test_random_encounter_puts_each_creature_milled_this_way_onto_the_battlefield_and_returns_them_at_the_end_step
+tests/test_rules_wave22d_this_way_objects.py::test_the_ancient_one_mills_by_the_mana_value_of_the_card_discarded_this_way
+[gw0] [ 92%] PASSED tests/test_rules_wave22d_this_way_objects.py::test_pure_reflection_makes_an_x_x_token_for_the_player_who_cast_the_spell
+tests/test_rules_wave22d_this_way_objects.py::test_necromantic_selection_returns_one_of_the_creatures_it_destroyed
+[gw1] [ 93%] PASSED tests/test_rules_wave22d_this_way_objects.py::test_the_ancient_one_mills_by_the_mana_value_of_the_card_discarded_this_way
+tests/test_rules_wave22d_this_way_objects.py::test_more_coverage_full[Glacial Dragonhunt]
+[gw1] [ 95%] PASSED tests/test_rules_wave22d_this_way_objects.py::test_more_coverage_full[Glacial Dragonhunt]
+tests/test_rules_wave22d_this_way_objects.py::test_severance_priest_token_is_the_size_of_the_exiled_card
+[gw0] [ 96%] PASSED tests/test_rules_wave22d_this_way_objects.py::test_necromantic_selection_returns_one_of_the_creatures_it_destroyed
+tests/test_rules_wave22d_this_way_objects.py::test_more_coverage_full[Severance Priest]
+[gw0] [ 98%] PASSED tests/test_rules_wave22d_this_way_objects.py::test_more_coverage_full[Severance Priest]
+[gw1] [100%] PASSED tests/test_rules_wave22d_this_way_objects.py::test_severance_priest_token_is_the_size_of_the_exiled_card
+
+=================================== FAILURES ===================================
+_________ test_sacrifice_adds_mana_equal_to_the_sacrificed_mana_value __________
+[gw1] linux -- Python 3.12.14 /workspace/Fyodor/backend/.venv/bin/python3
+
+cards = <app.cards.repository.CardRepository object at 0x7f279cf254c0>
+
+    def test_sacrifice_adds_mana_equal_to_the_sacrificed_mana_value(cards):
+        s = build(cards, p1=("Sacrifice", "Grizzly Bears"))
+        put(s, "Grizzly Bears", "battlefield")
+        spell = find(s, "Sacrifice")
+        act(s, "p1", type="move", card_ids=[spell.id], to={"player": "p1", "zone": "hand"})
+        mana(s, B=1)
+        act(s, "p1", type="cast_spell", card_id=spell.id)
+        pass_until_stack_empty(s)
+>       assert s.state.players["p1"].mana.get("B") == 2  # Grizzly Bears: mana value 2
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AssertionError: assert None == 2
+E        +  where None = <built-in method get of dict object at 0x7f279c448180>('B')
+E        +    where <built-in method get of dict object at 0x7f279c448180> = {}.get
+E        +      where {} = PlayerState(id='p1', name='Alice', color='#d4a852', life=40, life_history=[], resources={'poison': 0, 'energy': 0, 'experience': 0}, commander_damage={}, commander_tax={'cmd-p1-1': 0}, commander_casts={}, city_blessing=False, mulligans=0, deck_id=None, deck_name=None, token_shortcuts=[], mana={}, mana_units=[ManaUnit(id=1, sym='B', src='24e2dd82901a.3', tags=['Instant'], only=None, note='', riders=[], generic_allowed=True, production_zone='stack'), ManaUnit(id=2, sym='B', src='24e2dd82901a.3', tags=['Instant'], only=None, note='', riders=[], generic_allowed=True, production_zone='stack')], mana_seq=2, left=False, sleeve=None, playmat=None).mana
+
+tests/test_rules_wave12c_amounts.py:165: AssertionError
+_________ test_burnt_offering_adds_mana_for_the_sacrificed_mana_value __________
+[gw1] linux -- Python 3.12.14 /workspace/Fyodor/backend/.venv/bin/python3
+
+cards = <app.cards.repository.CardRepository object at 0x7f279c133860>
+
+    def test_burnt_offering_adds_mana_for_the_sacrificed_mana_value(cards):
+        s = build(cards, p1=("Burnt Offering", "Grizzly Bears"))
+        put(s, "Grizzly Bears", "battlefield")
+        spell = find(s, "Burnt Offering")
+        act(s, "p1", type="move", card_ids=[spell.id], to={"player": "p1", "zone": "hand"})
+        mana(s, B=1)
+        act(s, "p1", type="cast_spell", card_id=spell.id)
+        pass_until_stack_empty(s)
+        d = decision(s)
+        assert d is not None and d.kind == "choose_one"  # two mana, each {B} or {R}
+        choose(s, ["B"])
+        choose(s, ["R"])
+        pass_until_stack_empty(s)
+>       assert s.state.players["p1"].mana.get("B") == 1 and s.state.players["p1"].mana.get("R") == 1
+E       AssertionError: assert (None == 1)
+E        +  where None = <built-in method get of dict object at 0x7f279c4e8580>('B')
+E        +    where <built-in method get of dict object at 0x7f279c4e8580> = {}.get
+E        +      where {} = PlayerState(id='p1', name='Alice', color='#d4a852', life=40, life_history=[], resources={'poison': 0, 'energy': 0, 'experience': 0}, commander_damage={}, commander_tax={'cmd-p1-1': 0}, commander_casts={}, city_blessing=False, mulligans=0, deck_id=None, deck_name=None, token_shortcuts=[], mana={}, mana_units=[ManaUnit(id=1, sym='B', src='ade5aba20e0a.3', tags=['Instant'], only=None, note='', riders=[], generic_allowed=True, production_zone='stack'), ManaUnit(id=2, sym='R', src='ade5aba20e0a.3', tags=['Instant'], only=None, note='', riders=[], generic_allowed=True, production_zone='stack')], mana_seq=2, left=False, sleeve=None, playmat=None).mana
+
+tests/test_rules_wave12c_amounts.py:336: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_rules_wave12c_amounts.py::test_sacrifice_adds_mana_equal_to_the_sacrificed_mana_value
+FAILED tests/test_rules_wave12c_amounts.py::test_burnt_offering_adds_mana_for_the_sacrificed_mana_value
+========================= 2 failed, 62 passed in 8.42s =========================

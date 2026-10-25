@@ -1,0 +1,28 @@
+{
+  "status": "CLOSED_ISOLATED_ROOT_INTEGRATION_REQUIRED",
+  "dependency": "after21-costs103",
+  "base_commit": "456c95d6aa3eaaa38583129be436ef57c1937a01",
+  "candidates": [
+    "Crashing Wave"
+  ],
+  "expected_promotions": 1,
+  "source_files": [
+    "app/rules/waterbend104.py",
+    "app/rules/scripts.py"
+  ],
+  "patch": "review.patch",
+  "runtime_source": "/workspace/scratch/costs104/backend",
+  "live_source_writes": false,
+  "native_unique": 4,
+  "cold": 1,
+  "mypy": 2,
+  "ruff": 3,
+  "test_destinations": [
+    "backend/tests/test_rules_waterbend104.py"
+  ],
+  "fixture_destination": "backend/tests/fixtures/waterbend104_cards.json",
+  "native_evidence": {
+    "native-first4.log": "2 PASS classification +true cold;2 fixture Finish errors",
+    "native-bodies-final2.log": "2 PASS corrected actual X0/untargeted hexproof + X2 tap/split-stun bodies"
+  }
+}

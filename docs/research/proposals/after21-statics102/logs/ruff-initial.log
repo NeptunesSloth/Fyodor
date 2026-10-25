@@ -1,0 +1,12 @@
+E402 Module level import not at top of file
+    --> app/rules/effects.py:6996:1
+     |
+6995 | # Resolved original-object relation durations (611.2b).
+6996 | from app.rules import lifespans102 as _lifespans102
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+6997 |
+6998 | PRIMITIVES.update(_lifespans102.PRIMITIVES)
+     |
+help: Move module level imports to top of file
+
+Found 1 error.

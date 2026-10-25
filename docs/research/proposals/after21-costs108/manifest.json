@@ -1,0 +1,34 @@
+{
+  "status": "CLOSED_ISOLATED_ROOT_INTEGRATION_REQUIRED",
+  "dependency": "after21-costs107",
+  "base_commit": "456c95d6aa3eaaa38583129be436ef57c1937a01",
+  "candidates": [
+    "Tidal Control",
+    "Bullseye, Death Dealer"
+  ],
+  "expected_promotions": 2,
+  "source_files": [
+    "app/rules/activation_alternatives.py"
+  ],
+  "patch": "review.patch",
+  "runtime_source": "/workspace/scratch/costs108/backend",
+  "live_source_writes": false,
+  "native_unique": 17,
+  "cold": 2,
+  "related": 3,
+  "mypy": 1,
+  "ruff": 3,
+  "test_destinations": [
+    "backend/tests/test_rules_life_or_mana108.py",
+    "backend/tests/test_rules_object_or_discard108.py"
+  ],
+  "fixture_destinations": [
+    "backend/tests/fixtures/life_or_mana108_cards.json",
+    "backend/tests/fixtures/object_or_discard108_cards.json"
+  ],
+  "native_evidence": {
+    "native-first8.log": "8 clean Tidal native PASS before additive Bullseye grammar",
+    "bull-native-first9.log": "4 PASS,5 fixture failures (same hand Bears moved to BF by later take)",
+    "bull-final9-tidal2-related3.log": "14 clean PASS =9 Bull +2 Tidal taxed sides rechecked +3 existing mana/energy alternative regressions"
+  }
+}

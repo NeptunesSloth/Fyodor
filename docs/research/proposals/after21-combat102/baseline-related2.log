@@ -1,0 +1,60 @@
+============================= test session starts ==============================
+platform linux -- Python 3.12.14, pytest-9.1.1, pluggy-1.7.0 -- /workspace/Fyodor/backend/.venv/bin/python3
+cachedir: .pytest_cache
+rootdir: /workspace/scratch/combat102/backend
+configfile: pyproject.toml
+plugins: anyio-4.15.1, xdist-3.8.0
+collecting ... collected 2 items
+
+tests/test_rules_wave12c_amounts.py::test_sacrifice_adds_mana_equal_to_the_sacrificed_mana_value FAILED [ 50%]
+tests/test_rules_wave12c_amounts.py::test_burnt_offering_adds_mana_for_the_sacrificed_mana_value FAILED [100%]
+
+=================================== FAILURES ===================================
+_________ test_sacrifice_adds_mana_equal_to_the_sacrificed_mana_value __________
+
+cards = <app.cards.repository.CardRepository object at 0x7fc23158be00>
+
+    def test_sacrifice_adds_mana_equal_to_the_sacrificed_mana_value(cards):
+        s = build(cards, p1=("Sacrifice", "Grizzly Bears"))
+        put(s, "Grizzly Bears", "battlefield")
+        spell = find(s, "Sacrifice")
+        act(s, "p1", type="move", card_ids=[spell.id], to={"player": "p1", "zone": "hand"})
+        mana(s, B=1)
+        act(s, "p1", type="cast_spell", card_id=spell.id)
+        pass_until_stack_empty(s)
+>       assert s.state.players["p1"].mana.get("B") == 2  # Grizzly Bears: mana value 2
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AssertionError: assert None == 2
+E        +  where None = <built-in method get of dict object at 0x7fc231b1bf40>('B')
+E        +    where <built-in method get of dict object at 0x7fc231b1bf40> = {}.get
+E        +      where {} = PlayerState(id='p1', name='Alice', color='#d4a852', life=40, life_history=[], resources={'poison': 0, 'energy': 0, 'experience': 0}, commander_damage={}, commander_tax={'cmd-p1-1': 0}, commander_casts={}, city_blessing=False, mulligans=0, deck_id=None, deck_name=None, token_shortcuts=[], mana={}, mana_units=[ManaUnit(id=1, sym='B', src='c870c1eeb627.3', tags=['Instant'], only=None, note='', riders=[], generic_allowed=True, production_zone='stack'), ManaUnit(id=2, sym='B', src='c870c1eeb627.3', tags=['Instant'], only=None, note='', riders=[], generic_allowed=True, production_zone='stack')], mana_seq=2, left=False, sleeve=None, playmat=None).mana
+
+tests/test_rules_wave12c_amounts.py:165: AssertionError
+_________ test_burnt_offering_adds_mana_for_the_sacrificed_mana_value __________
+
+cards = <app.cards.repository.CardRepository object at 0x7fc2316d4b00>
+
+    def test_burnt_offering_adds_mana_for_the_sacrificed_mana_value(cards):
+        s = build(cards, p1=("Burnt Offering", "Grizzly Bears"))
+        put(s, "Grizzly Bears", "battlefield")
+        spell = find(s, "Burnt Offering")
+        act(s, "p1", type="move", card_ids=[spell.id], to={"player": "p1", "zone": "hand"})
+        mana(s, B=1)
+        act(s, "p1", type="cast_spell", card_id=spell.id)
+        pass_until_stack_empty(s)
+        d = decision(s)
+        assert d is not None and d.kind == "choose_one"  # two mana, each {B} or {R}
+        choose(s, ["B"])
+        choose(s, ["R"])
+        pass_until_stack_empty(s)
+>       assert s.state.players["p1"].mana.get("B") == 1 and s.state.players["p1"].mana.get("R") == 1
+E       AssertionError: assert (None == 1)
+E        +  where None = <built-in method get of dict object at 0x7fc231b20240>('B')
+E        +    where <built-in method get of dict object at 0x7fc231b20240> = {}.get
+E        +      where {} = PlayerState(id='p1', name='Alice', color='#d4a852', life=40, life_history=[], resources={'poison': 0, 'energy': 0, 'experience': 0}, commander_damage={}, commander_tax={'cmd-p1-1': 0}, commander_casts={}, city_blessing=False, mulligans=0, deck_id=None, deck_name=None, token_shortcuts=[], mana={}, mana_units=[ManaUnit(id=1, sym='B', src='534f63746192.3', tags=['Instant'], only=None, note='', riders=[], generic_allowed=True, production_zone='stack'), ManaUnit(id=2, sym='R', src='534f63746192.3', tags=['Instant'], only=None, note='', riders=[], generic_allowed=True, production_zone='stack')], mana_seq=2, left=False, sleeve=None, playmat=None).mana
+
+tests/test_rules_wave12c_amounts.py:336: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_rules_wave12c_amounts.py::test_sacrifice_adds_mana_equal_to_the_sacrificed_mana_value
+FAILED tests/test_rules_wave12c_amounts.py::test_burnt_offering_adds_mana_for_the_sacrificed_mana_value
+============================== 2 failed in 1.33s ===============================

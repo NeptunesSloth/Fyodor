@@ -1,0 +1,4 @@
+tests/test_rules_flagbearer86.py: 24
+tests/test_rules_modal_clauses101.py: 20
+tests/test_rules_upkeep_sacrifice101.py: 18
+

@@ -1,0 +1,34 @@
+{
+  "object": "list",
+  "has_more": false,
+  "data": [
+    {
+      "object": "ruling",
+      "oracle_id": "c42ce2e9-4dfe-468a-8f41-49e187cb91d4",
+      "source": "wotc",
+      "published_at": "2018-07-13",
+      "comment": "You must target one of your permanents to sacrifice as well."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "c42ce2e9-4dfe-468a-8f41-49e187cb91d4",
+      "source": "wotc",
+      "published_at": "2018-07-13",
+      "comment": "Vaevictis's triggered ability resolves during the declare attackers step, before blockers are chosen. A creature targeted by its ability won't be around to block, and creatures put onto the battlefield with its ability may be able to do so."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "c42ce2e9-4dfe-468a-8f41-49e187cb91d4",
+      "source": "wotc",
+      "published_at": "2018-07-13",
+      "comment": "If any of the target permanents aren't sacrificed (most likely because one of them became an illegal target, such as by gaining hexproof), that permanent's controller won't reveal the top card of their library or put it onto the battlefield."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "c42ce2e9-4dfe-468a-8f41-49e187cb91d4",
+      "source": "wotc",
+      "published_at": "2018-07-13",
+      "comment": "If any player controls no permanents, Vaevictis's ability won't have sufficient legal targets, so it's removed from the stack without any effect."
+    }
+  ]
+}

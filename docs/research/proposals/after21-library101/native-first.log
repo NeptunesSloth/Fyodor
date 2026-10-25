@@ -1,0 +1,29 @@
+============================= test session starts ==============================
+platform linux -- Python 3.12.14, pytest-9.1.1, pluggy-1.7.0
+rootdir: /workspace/scratch/library101/backend
+configfile: pyproject.toml
+plugins: anyio-4.15.1, xdist-3.8.0
+collected 10 items
+
+tests/test_rules_library_packets101.py .......F..                        [100%]
+
+=================================== FAILURES ===================================
+__________ test_empty_lab_actual_paid_x_zombies_enter_simultaneously ___________
+
+cards = <app.cards.repository.CardRepository object at 0x7f5ae7a6a4b0>
+
+    def test_empty_lab_actual_paid_x_zombies_enter_simultaneously(cards):
+        s = setup(cards)
+        old = [put(s, 'Walking Corpse', 'battlefield').id for _ in range(2)]
+        ids = top(s, ['Lightning Bolt', 'Champion of the Perished', 'Island', 'Diregraf Ghoul', 'Forest'])
+        source = cast(s, 'Empty the Laboratory', x_value=2)
+        advance(s)
+        assert all(s.state.cards[c].zone == 'p1:graveyard' for c in old)
+>       assert all(s.state.cards[c].zone == 'p1:battlefield' for c in [ids[1], ids[3]])
+E       assert False
+E        +  where False = all(<generator object test_empty_lab_actual_paid_x_zombies_enter_simultaneously.<locals>.<genexpr> at 0x7f5ae7a9bb90>)
+
+tests/test_rules_library_packets101.py:160: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_rules_library_packets101.py::test_empty_lab_actual_paid_x_zombies_enter_simultaneously
+========================= 1 failed, 9 passed in 6.73s ==========================

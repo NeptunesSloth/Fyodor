@@ -1,0 +1,1241 @@
+[
+  {
+    "id": "a39ae1e4-d4dd-4691-af5a-5fa25ace4ebe",
+    "oracle_id": "8432df19-dbf4-457b-8c0b-1f4b3a0a37d2",
+    "name": "Auspicious Starrix",
+    "layout": "mutate",
+    "set_code": "iko",
+    "set_name": "Ikoria: Lair of Behemoths",
+    "collector_number": "144",
+    "rarity": "uncommon",
+    "mana_cost": "{4}{G}",
+    "cmc": 5.0,
+    "type_line": "Creature \u2014 Elk Beast",
+    "oracle_text": "Mutate {5}{G} (If you cast this spell for its mutate cost, put it over or under target non-Human creature you own. They mutate into the creature on top plus all abilities from under it.)\nWhenever this creature mutates, exile cards from the top of your library until you exile X permanent cards, where X is the number of times this creature has mutated. Put those permanent cards onto the battlefield.",
+    "power": "6",
+    "toughness": "6",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [
+      "Mutate"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2020-04-24",
+    "artist": "Lucas Graciano",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "0dfec692-66c8-4c90-8afa-095654011c3d",
+    "oracle_id": "08daa30f-7ce0-4a72-b539-fbb0c585fd73",
+    "name": "Illuna, Apex of Wishes",
+    "layout": "mutate",
+    "set_code": "dmc",
+    "set_name": "Dominaria United Commander",
+    "collector_number": "154",
+    "rarity": "mythic",
+    "mana_cost": "{2}{G}{U}{R}",
+    "cmc": 5.0,
+    "type_line": "Legendary Creature \u2014 Beast Elemental Dinosaur",
+    "oracle_text": "Mutate {3}{R/G}{U}{U} (If you cast this spell for its mutate cost, put it over or under target non-Human creature you own. They mutate into the creature on top plus all abilities from under it.)\nFlying, trample\nWhenever this creature mutates, exile cards from the top of your library until you exile a nonland permanent card. Put that card onto the battlefield or into your hand.",
+    "power": "6",
+    "toughness": "6",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G",
+      "R",
+      "U"
+    ],
+    "color_identity": [
+      "G",
+      "R",
+      "U"
+    ],
+    "keywords": [
+      "Flying",
+      "Mutate",
+      "Trample"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2022-09-09",
+    "artist": "Chris Rahn",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "191f6693-32d9-448d-8889-f98cf13c2277",
+    "oracle_id": "84f3736f-5b2a-40f9-8c3b-c18f8c637c22",
+    "name": "Empty the Laboratory",
+    "layout": "normal",
+    "set_code": "mic",
+    "set_name": "Midnight Hunt Commander",
+    "collector_number": "14",
+    "rarity": "rare",
+    "mana_cost": "{X}{U}{U}",
+    "cmc": 2.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Sacrifice X Zombies, then reveal cards from the top of your library until you reveal a number of Zombie creature cards equal to the number of Zombies sacrificed this way. Put those cards onto the battlefield and the rest on the bottom of your library in a random order.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2021-09-24",
+    "artist": "Tuan Duong Chu",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "a1b9933d-5c10-4fca-988e-3f00d7356231",
+    "oracle_id": "667ece0e-a474-4e11-8ac4-6c8fc354457c",
+    "name": "Demonlord Belzenlok",
+    "layout": "normal",
+    "set_code": "cmm",
+    "set_name": "Commander Masters",
+    "collector_number": "510",
+    "rarity": "rare",
+    "mana_cost": "{4}{B}{B}",
+    "cmc": 6.0,
+    "type_line": "Legendary Creature \u2014 Elder Demon",
+    "oracle_text": "Flying, trample\nWhen Demonlord Belzenlok enters, exile cards from the top of your library until you exile a nonland card, then put that card into your hand. If the card's mana value is 4 or greater, repeat this process. Demonlord Belzenlok deals 1 damage to you for each card put into your hand this way.",
+    "power": "6",
+    "toughness": "6",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [
+      "Flying",
+      "Trample"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2023-08-04",
+    "artist": "Tyler Jacobson",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "d01fe6e9-49ee-4708-833e-75cd5a9f167c",
+    "oracle_id": "fd4f0315-567a-4cc5-bc7e-88a9d2cee910",
+    "name": "Improvisation Capstone",
+    "layout": "normal",
+    "set_code": "sos",
+    "set_name": "Secrets of Strixhaven",
+    "collector_number": "120",
+    "rarity": "mythic",
+    "mana_cost": "{5}{R}{R}",
+    "cmc": 7.0,
+    "type_line": "Sorcery \u2014 Lesson",
+    "oracle_text": "Exile cards from the top of your library until you exile cards with total mana value 4 or greater. You may cast any number of spells from among them without paying their mana costs.\nParadigm (Then exile this spell. After you first resolve a spell with this name, you may cast a copy of it from exile without paying its mana cost at the beginning of each of your first main phases.)",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [
+      "Paradigm"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2026-04-24",
+    "artist": "Marta Nael",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "499bd497-4c72-4a61-88c8-abe2d379fe41",
+    "oracle_id": "88fb1dd1-60fb-4f51-ac4d-30b43156a474",
+    "name": "Neera, Wild Mage",
+    "layout": "normal",
+    "set_code": "clb",
+    "set_name": "Commander Legends: Battle for Baldur's Gate",
+    "collector_number": "434",
+    "rarity": "rare",
+    "mana_cost": "{4}{U}{R}",
+    "cmc": 6.0,
+    "type_line": "Legendary Creature \u2014 Human Elf Shaman",
+    "oracle_text": "Whenever you cast a spell, you may put it on the bottom of its owner's library. If you do, reveal cards from the top of your library until you reveal a nonland card. You may cast that card without paying its mana cost. Then put all revealed cards not cast this way on the bottom of your library in a random order. This ability triggers only once each turn.",
+    "power": "2",
+    "toughness": "7",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R",
+      "U"
+    ],
+    "color_identity": [
+      "R",
+      "U"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2022-06-10",
+    "artist": "Pedro Potier",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "bb4db814-3821-47ea-9e33-0e9f49128a36",
+    "oracle_id": "261f371f-bcda-4761-810f-3216608b31d8",
+    "name": "Venture Forth",
+    "layout": "normal",
+    "set_code": "clb",
+    "set_name": "Commander Legends: Battle for Baldur's Gate",
+    "collector_number": "683",
+    "rarity": "rare",
+    "mana_cost": "{3}{G}",
+    "cmc": 4.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Exile cards from the top of your library until you exile a land card. Put that card onto the battlefield and the rest on the bottom of your library in a random order. Exile Venture Forth with three time counters on it.\nSuspend 3\u2014{1}{G}",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [
+      "Suspend"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2022-06-10",
+    "artist": "Gaboleps",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "914fdddb-cf66-4631-94e7-ce682a99fcf8",
+    "oracle_id": "9fb7e7ca-ad2f-4677-859c-7a9adf8fb5fd",
+    "name": "Transforming Flourish",
+    "layout": "normal",
+    "set_code": "tdc",
+    "set_name": "Tarkir: Dragonstorm Commander",
+    "collector_number": "39",
+    "rarity": "rare",
+    "mana_cost": "{2}{R}",
+    "cmc": 3.0,
+    "type_line": "Instant",
+    "oracle_text": "Demonstrate (When you cast this spell, you may copy it. If you do, choose an opponent to also copy it. Players may choose new targets for their copies.)\nDestroy target artifact or creature you don't control. If that permanent is destroyed this way, its controller exiles cards from the top of their library until they exile a nonland card, then they may cast that card without paying its mana cost.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [
+      "Demonstrate"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2025-04-11",
+    "artist": "Xavier Ribeiro",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "913977c2-73f9-466b-bd01-827c1736e070",
+    "oracle_id": "cf9d13e2-bdcc-4c66-95ad-654ef795dbd3",
+    "name": "Aurora Awakener",
+    "layout": "normal",
+    "set_code": "ecl",
+    "set_name": "Lorwyn Eclipsed",
+    "collector_number": "165",
+    "rarity": "mythic",
+    "mana_cost": "{6}{G}",
+    "cmc": 7.0,
+    "type_line": "Creature \u2014 Giant Druid",
+    "oracle_text": "Trample\nVivid \u2014 When this creature enters, reveal cards from the top of your library until you reveal X permanent cards, where X is the number of colors among permanents you control. Put any number of those permanent cards onto the battlefield, then put the rest of the revealed cards on the bottom of your library in a random order.",
+    "power": "7",
+    "toughness": "7",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [
+      "Trample",
+      "Vivid"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2026-01-23",
+    "artist": "Paolo Parente",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "34337c23-5dad-4ea3-84e9-aae7e34b2b17",
+    "oracle_id": "afad2e76-4b53-4884-8f96-ba68b0808990",
+    "name": "Reality Scramble",
+    "layout": "normal",
+    "set_code": "c18",
+    "set_name": "Commander 2018",
+    "collector_number": "25",
+    "rarity": "rare",
+    "mana_cost": "{2}{R}{R}",
+    "cmc": 4.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Put target permanent you own on the bottom of your library. Reveal cards from the top of your library until you reveal a card that shares a card type with that permanent. Put that card onto the battlefield and the rest on the bottom of your library in a random order.\nRetrace (You may cast this card from your graveyard by discarding a land card in addition to paying its other costs.)",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [
+      "Retrace"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2018-08-10",
+    "artist": "Simon Dominic",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "59a06bf6-20c9-4b48-893c-7d0edbea8f97",
+    "oracle_id": "1a240953-26e0-429f-9663-dcfe5bc2c1c7",
+    "name": "Chaos Mutation",
+    "layout": "normal",
+    "set_code": "40k",
+    "set_name": "Warhammer 40,000 Commander",
+    "collector_number": "111\u2605",
+    "rarity": "rare",
+    "mana_cost": "{3}{U}{R}",
+    "cmc": 5.0,
+    "type_line": "Instant",
+    "oracle_text": "Exile any number of target creatures controlled by different players. For each creature exiled this way, its controller reveals cards from the top of their library until they reveal a creature card, puts that card onto the battlefield, then puts the rest on the bottom of their library in a random order.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R",
+      "U"
+    ],
+    "color_identity": [
+      "R",
+      "U"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2022-10-07",
+    "artist": "Lie Setiawan",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "a1cd7456-71dd-463f-98a2-2d6a9cfb7395",
+    "oracle_id": "f08e835a-7827-4fdc-8dcf-ae74507da052",
+    "name": "Divergent Transformations",
+    "layout": "normal",
+    "set_code": "cmm",
+    "set_name": "Commander Masters",
+    "collector_number": "216",
+    "rarity": "rare",
+    "mana_cost": "{6}{R}",
+    "cmc": 7.0,
+    "type_line": "Instant",
+    "oracle_text": "Undaunted (This spell costs {1} less to cast for each opponent.)\nExile two target creatures. For each of those creatures, its controller reveals cards from the top of their library until they reveal a creature card, puts that card onto the battlefield, then shuffles the rest into their library.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [
+      "Undaunted"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2023-08-04",
+    "artist": "Kev Walker",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "edd00e45-2ae1-4cd0-92a1-155c95f8dc72",
+    "oracle_id": "e2161ae2-e5d2-4a56-85d4-d2214c5b3e2e",
+    "name": "Indomitable Creativity",
+    "layout": "normal",
+    "set_code": "aer",
+    "set_name": "Aether Revolt",
+    "collector_number": "85",
+    "rarity": "mythic",
+    "mana_cost": "{X}{R}{R}{R}",
+    "cmc": 3.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Destroy X target artifacts and/or creatures. For each permanent destroyed this way, its controller reveals cards from the top of their library until an artifact or creature card is revealed and exiles that card. Those players put the exiled cards onto the battlefield, then shuffle.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2017-01-20",
+    "artist": "Deruchenko Alexander",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "78ab1d69-da01-424b-9d09-ef985aef4cbd",
+    "oracle_id": "640a7d2c-42c4-4ea7-bd5b-72f12a65785e",
+    "name": "Synthetic Destiny",
+    "layout": "normal",
+    "set_code": "frc",
+    "set_name": "Reality Fracture Commander",
+    "collector_number": "45",
+    "rarity": "rare",
+    "mana_cost": "{4}{U}{U}",
+    "cmc": 6.0,
+    "type_line": "Instant",
+    "oracle_text": "Exile all creatures you control. At the beginning of the next end step, reveal cards from the top of your library until you reveal that many creature cards, put all creature cards revealed this way onto the battlefield, then shuffle the rest of the revealed cards into your library.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2026-10-02",
+    "artist": "Dave Kendall",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "3ec5f005-d8fb-48b8-8ac5-74445cc83273",
+    "oracle_id": "ed7885bf-c557-4328-b1a4-54780b2315f4",
+    "name": "Cloudpiercer",
+    "layout": "mutate",
+    "set_code": "iko",
+    "set_name": "Ikoria: Lair of Behemoths",
+    "collector_number": "112",
+    "rarity": "common",
+    "mana_cost": "{4}{R}",
+    "cmc": 5.0,
+    "type_line": "Creature \u2014 Dinosaur",
+    "oracle_text": "Mutate {3}{R} (If you cast this spell for its mutate cost, put it over or under target non-Human creature you own. They mutate into the creature on top plus all abilities from under it.)\nReach\nWhenever this creature mutates, you may discard a card. If you do, draw a card.",
+    "power": "5",
+    "toughness": "4",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [
+      "Reach",
+      "Mutate"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2020-04-24",
+    "artist": "Dan Murayama Scott",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "053b59b4-a22c-4228-aadc-ae9da6bb465e",
+    "oracle_id": "fea95888-e16a-4209-9cd4-623f7f4d2f67",
+    "name": "Walking Corpse",
+    "layout": "normal",
+    "set_code": "m21",
+    "set_name": "Core Set 2021",
+    "collector_number": "128",
+    "rarity": "common",
+    "mana_cost": "{1}{B}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Zombie",
+    "oracle_text": "",
+    "power": "2",
+    "toughness": "2",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2020-07-03",
+    "artist": "Igor Kieryluk",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "d3bfa5bc-bcb9-4649-96b8-3cded84a25a2",
+    "oracle_id": "f3654fbd-16a5-4953-84ac-534e8421032f",
+    "name": "Champion of the Perished",
+    "layout": "normal",
+    "set_code": "fdc",
+    "set_name": "Foundations Commander",
+    "collector_number": "91",
+    "rarity": "rare",
+    "mana_cost": "{B}",
+    "cmc": 1.0,
+    "type_line": "Creature \u2014 Zombie",
+    "oracle_text": "Whenever another Zombie you control enters, put a +1/+1 counter on this creature.",
+    "power": "1",
+    "toughness": "1",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2026-10-02",
+    "artist": "Kekai Kotaki",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "4682012c-d7e0-4257-b538-3de497507464",
+    "oracle_id": "6048fc70-0dcc-4b54-977d-16e240225f82",
+    "name": "Diregraf Ghoul",
+    "layout": "normal",
+    "set_code": "fdn",
+    "set_name": "Foundations",
+    "collector_number": "171",
+    "rarity": "uncommon",
+    "mana_cost": "{B}",
+    "cmc": 1.0,
+    "type_line": "Creature \u2014 Zombie",
+    "oracle_text": "This creature enters tapped.",
+    "power": "2",
+    "toughness": "2",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2024-11-15",
+    "artist": "Dave Kendall",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "0a135e09-b534-4836-9a10-3a9a4a9f8c53",
+    "oracle_id": "753cb2b2-24ce-484f-a2d0-be6fd2c67ebd",
+    "name": "Grafdigger's Cage",
+    "layout": "normal",
+    "set_code": "m20",
+    "set_name": "Core Set 2020",
+    "collector_number": "227",
+    "rarity": "rare",
+    "mana_cost": "{1}",
+    "cmc": 1.0,
+    "type_line": "Artifact",
+    "oracle_text": "Creature cards in graveyards and libraries can't enter the battlefield.\nPlayers can't cast spells from graveyards or libraries.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2019-07-12",
+    "artist": "Daniel Ljunggren",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "d108c2b1-236e-4b8d-8445-d9749ccc4fea",
+    "oracle_id": "087f9ad7-e74f-40e2-8102-1ed2925d0418",
+    "name": "Rest in Peace",
+    "layout": "normal",
+    "set_code": "big",
+    "set_name": "The Big Score",
+    "collector_number": "4",
+    "rarity": "mythic",
+    "mana_cost": "{1}{W}",
+    "cmc": 2.0,
+    "type_line": "Enchantment",
+    "oracle_text": "When this enchantment enters, exile all graveyards.\nIf a card or token would be put into a graveyard from anywhere, exile it instead.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2024-04-19",
+    "artist": "Grady Frederick",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "09950456-09d6-4675-9995-0dc540ddb6e4",
+    "oracle_id": "00cb93a8-5d33-4c6a-9e2a-4b3560f76f3f",
+    "name": "Demonic Vigor",
+    "layout": "normal",
+    "set_code": "dom",
+    "set_name": "Dominaria",
+    "collector_number": "85",
+    "rarity": "common",
+    "mana_cost": "{B}",
+    "cmc": 1.0,
+    "type_line": "Enchantment \u2014 Aura",
+    "oracle_text": "Enchant creature\nEnchanted creature gets +1/+1.\nWhen enchanted creature dies, return that card to its owner's hand.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [
+      "Enchant"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2018-04-27",
+    "artist": "Zoltan Boros",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "409f9b88-f03e-40b6-9883-68c14c37c0de",
+    "oracle_id": "14c8f55d-d177-4c25-a931-ebeb9e6062a0",
+    "name": "Grizzly Bears",
+    "layout": "normal",
+    "set_code": "10e",
+    "set_name": "Tenth Edition",
+    "collector_number": "268",
+    "rarity": "common",
+    "mana_cost": "{1}{G}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Bear",
+    "oracle_text": "",
+    "power": "2",
+    "toughness": "2",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2007-07-13",
+    "artist": "D. J. Cleland-Hura",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "0852f9f3-d7ef-4d31-93e3-93bc7c5a4ec9",
+    "oracle_id": "4457ed35-7c10-48c8-9776-456485fdf070",
+    "name": "Lightning Bolt",
+    "layout": "normal",
+    "set_code": "fdc",
+    "set_name": "Foundations Commander",
+    "collector_number": "163",
+    "rarity": "uncommon",
+    "mana_cost": "{R}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Lightning Bolt deals 3 damage to any target.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2026-10-02",
+    "artist": "Christopher Moeller",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [
+      {
+        "id": "4f095067-cf24-4061-8626-dc68a66a0b36",
+        "name": "Toralf's Disciple",
+        "component": "combo_piece"
+      },
+      {
+        "id": "69b51576-532b-450e-a8bf-0482cac04618",
+        "name": "Thayan Evokers",
+        "component": "combo_piece"
+      },
+      {
+        "id": "618806ea-7ea8-4cfb-a8c1-c3defa34e7dd",
+        "name": "Indris, the Hydrostatic Surge",
+        "component": "combo_piece"
+      }
+    ]
+  },
+  {
+    "id": "14c2be6a-9ca6-4d3a-8dd0-db4ea40799f8",
+    "oracle_id": "342199e0-15b6-4824-83da-25caef2592b3",
+    "name": "Hill Giant",
+    "layout": "normal",
+    "set_code": "10e",
+    "set_name": "Tenth Edition",
+    "collector_number": "212",
+    "rarity": "common",
+    "mana_cost": "{3}{R}",
+    "cmc": 4.0,
+    "type_line": "Creature \u2014 Giant",
+    "oracle_text": "",
+    "power": "3",
+    "toughness": "3",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2007-07-13",
+    "artist": "Kev Walker",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "25e36841-3242-436b-8e82-9099063fa461",
+    "oracle_id": "b34bb2dc-c1af-4d77-b0b3-a0fb342a5fc6",
+    "name": "Forest",
+    "layout": "normal",
+    "set_code": "fra",
+    "set_name": "Reality Fracture",
+    "collector_number": "290",
+    "rarity": "common",
+    "mana_cost": "",
+    "cmc": 0.0,
+    "type_line": "Basic Land \u2014 Forest",
+    "oracle_text": "({T}: Add {G}.)",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2026-10-02",
+    "artist": "Chris Ostrowski",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [
+      {
+        "id": "a0d12fc5-c7bd-4734-9259-98fe65241f60",
+        "name": "Forest",
+        "component": "combo_piece"
+      },
+      {
+        "id": "aed8ae06-ae54-4a16-8830-6547164ce6ae",
+        "name": "Gilt-Leaf Alchemist",
+        "component": "combo_piece"
+      }
+    ]
+  },
+  {
+    "id": "1c1b233f-ade1-40c8-a91f-e9d8cc63179b",
+    "oracle_id": "b2c6aa39-2d2a-459c-a555-fb48ba993373",
+    "name": "Island",
+    "layout": "normal",
+    "set_code": "fra",
+    "set_name": "Reality Fracture",
+    "collector_number": "284",
+    "rarity": "common",
+    "mana_cost": "",
+    "cmc": 0.0,
+    "type_line": "Basic Land \u2014 Island",
+    "oracle_text": "({T}: Add {U}.)",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2026-10-02",
+    "artist": "Zack Stella",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "f279fcf1-e4f5-4873-9d73-8d62e0343b81",
+    "oracle_id": "a2529491-7389-4cfa-92d2-145eda779603",
+    "name": "Darksteel Ingot",
+    "layout": "normal",
+    "set_code": "otc",
+    "set_name": "Outlaws of Thunder Junction Commander",
+    "collector_number": "256",
+    "rarity": "uncommon",
+    "mana_cost": "{3}",
+    "cmc": 3.0,
+    "type_line": "Artifact",
+    "oracle_text": "Indestructible (Effects that say \"destroy\" don't destroy this artifact.)\n{T}: Add one mana of any color.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": [
+      "Indestructible"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2024-04-19",
+    "artist": "Martina Pilcerova",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [
+      {
+        "id": "0ea01eca-5ffc-4678-92f1-9c35fbf4a362",
+        "name": "Darksteel Hydra",
+        "component": "combo_piece"
+      }
+    ]
+  },
+  {
+    "id": "b9640cbf-b016-410e-9eff-e8924883517b",
+    "oracle_id": "fb868840-09fa-49b1-85cb-b08ad065e972",
+    "name": "Bitterblossom",
+    "layout": "normal",
+    "set_code": "2x2",
+    "set_name": "Double Masters 2022",
+    "collector_number": "69",
+    "rarity": "mythic",
+    "mana_cost": "{1}{B}",
+    "cmc": 2.0,
+    "type_line": "Kindred Enchantment \u2014 Faerie",
+    "oracle_text": "At the beginning of your upkeep, you lose 1 life and create a 1/1 black Faerie Rogue creature token with flying.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2022-07-08",
+    "artist": "Rebecca Guay",
+    "commander_legal": "legal",
+    "related_tokens": [
+      {
+        "id": "55998d0d-b169-4e1b-a9e2-a2ea75b4bbf0",
+        "name": "Faerie Rogue",
+        "type_line": "Token Creature \u2014 Faerie Rogue"
+      }
+    ],
+    "related_cards": [
+      {
+        "id": "bb0b3575-c7bd-411d-9aa4-3a986b7876a9",
+        "name": "Bitterblossom",
+        "component": "combo_piece"
+      }
+    ]
+  },
+  {
+    "id": "8f2fb3c6-af75-47a3-9f97-521872c32890",
+    "oracle_id": "2987c385-011a-4032-a516-a46d1e9dc9e8",
+    "name": "Crib Swap",
+    "layout": "normal",
+    "set_code": "ecl",
+    "set_name": "Lorwyn Eclipsed",
+    "collector_number": "11",
+    "rarity": "uncommon",
+    "mana_cost": "{2}{W}",
+    "cmc": 3.0,
+    "type_line": "Kindred Instant \u2014 Shapeshifter",
+    "oracle_text": "Changeling (This card is every creature type.)\nExile target creature. Its controller creates a 1/1 colorless Shapeshifter creature token with changeling.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [
+      "Changeling"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2026-01-23",
+    "artist": "Pete Venters",
+    "commander_legal": "legal",
+    "related_tokens": [
+      {
+        "id": "c2963ce1-f9d8-437a-9489-e0913a8b8d26",
+        "name": "Shapeshifter",
+        "type_line": "Token Creature \u2014 Shapeshifter"
+      }
+    ],
+    "related_cards": []
+  },
+  {
+    "id": "20ff4e7d-fa50-48d2-8ab6-6b86e3a05e86",
+    "oracle_id": "b2bd58ea-b2c6-47f1-b082-7969f093bbc6",
+    "name": "Animate Land",
+    "layout": "normal",
+    "set_code": "nem",
+    "set_name": "Nemesis",
+    "collector_number": "101",
+    "rarity": "uncommon",
+    "mana_cost": "{G}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Until end of turn, target land becomes a 3/3 creature that's still a land.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2000-02-14",
+    "artist": "Rebecca Guay",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "a1a9d323-fb40-411b-a0e7-64024bc6ba58",
+    "oracle_id": "9d08af23-9f4a-4097-9abc-3b17475ab744",
+    "name": "Act of Treason",
+    "layout": "normal",
+    "set_code": "rvr",
+    "set_name": "Ravnica Remastered",
+    "collector_number": "99",
+    "rarity": "common",
+    "mana_cost": "{2}{R}",
+    "cmc": 3.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Gain control of target creature until end of turn. Untap that creature. It gains haste until end of turn. (It can attack and {T} this turn.)",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2024-01-12",
+    "artist": "Scott Murphy",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "36959f2b-75b5-4d68-b193-ada980822fd9",
+    "oracle_id": "b1544f21-7e98-461b-aed5-e748b0168c52",
+    "name": "Swords to Plowshares",
+    "layout": "normal",
+    "set_code": "fdc",
+    "set_name": "Foundations Commander",
+    "collector_number": "53",
+    "rarity": "uncommon",
+    "mana_cost": "{W}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Exile target creature. Its controller gains life equal to its power.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2026-10-02",
+    "artist": "Jesper Ejsing",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "81d3e5c5-6531-48e7-9dd6-2db519dd61b1",
+    "oracle_id": "5b2364d7-a811-4595-a1b4-224c70555ffa",
+    "name": "Raise the Alarm",
+    "layout": "normal",
+    "set_code": "j25",
+    "set_name": "Foundations Jumpstart",
+    "collector_number": "101",
+    "rarity": "common",
+    "mana_cost": "{1}{W}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "Create two 1/1 white Soldier creature tokens.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2024-11-15",
+    "artist": "Slawomir Maniak",
+    "commander_legal": "legal",
+    "related_tokens": [
+      {
+        "id": "d093322e-a717-4e2d-8199-fa560792bcf6",
+        "name": "Soldier",
+        "type_line": "Token Creature \u2014 Soldier"
+      }
+    ],
+    "related_cards": []
+  }
+]

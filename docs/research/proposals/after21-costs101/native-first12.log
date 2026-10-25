@@ -1,0 +1,369 @@
+....F.F.F.                                                               [100%]
+=================================== FAILURES ===================================
+________________ test_other_cost_statics_full[Kaervek's Torch] _________________
+
+cards = <app.cards.repository.CardRepository object at 0x7fe25d949490>
+name = "Kaervek's Torch"
+
+    @pytest.mark.parametrize('name',["Myth Unbound",'Liesa, Shroud of Dusk',"Kaervek's Torch"])
+    def test_other_cost_statics_full(cards,name):
+>       assert coverage.of_card_data(cards.resolve(name)).level=='FULL'
+E       AssertionError: assert 'PARTIAL' == 'FULL'
+E
+E         - FULL
+E         + PARTIAL
+
+tests/test_rules_cost_statics101.py:116: AssertionError
+______________ test_nonnamed_mana_and_removed_chariot_are_untaxed ______________
+
+cards = <app.cards.repository.CardRepository object at 0x7fe25d65e570>
+
+    def test_nonnamed_mana_and_removed_chariot_are_untaxed(cards):
+        s=setup(cards)
+        c=chariot(s)
+        elf=put(s,'Llanowar Elves','battlefield')
+        to_phase(s,'main1',6)
+>       activate(s,elf,sources=[])
+
+tests/test_rules_cost_statics101.py:148:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests/test_rules_cost_statics101.py:60: in activate
+    return act(s,pid,type='activate_ability',card_id=source.id,ability=index,**kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/game_helpers.py:42: in act
+    return session.perform(actor, payload)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/game/session.py:61: in perform
+    resolved = resolve(self.state, action, actor=actor, cards=self.cards, trusted=trusted)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/game/resolve.py:76: in resolve
+    a.r = compile_intent(state, a, actor=actor, info=info, rng=rng)  # type: ignore[union-attr]
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/engine.py:164: in compile_intent
+    handler(plan, intent)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+plan = <app.rules.plan.Plan object at 0x7fe25d28b110>
+a = ActivateAbility(actor='p1', ts=1792910242.884236, r=None, type='activate_ability', card_id='05cf4a041d46', ability=0, ...na_choice=None, sources=[], convoke=False, improvise=False, delve=False, crew=None, cost_choices=[], life_symbols=None)
+
+    def activate_ability(plan: Plan, a: A.ActivateAbility) -> None:
+        if paying_now(plan):  # tapping mana while paying: only mana abilities
+            _mana_while_paying(plan, a)
+            return
+        if a.convoke or a.improvise or a.delve:  # only while paying for a spell with that keyword
+            kind = "convoke" if a.convoke else "improvise" if a.improvise else "delve"
+            raise ActionError(f"{kind.capitalize()} can only pay for the spell you're casting, while you pay for it")
+        require_no_decision(plan)
+        require_priority(plan)
+        card = plan.state.cards.get(a.card_id)
+        if card is None:
+            raise ActionError("That card isn't here any more")
+        if card.zone == zone_key(plan.actor, "hand"):
+            ch = plan.ch(card)
+            ability = next((ab for ab in ch.abilities if ab.index == a.ability), None)
+            if suspend_info(ch, a.ability) is None:  # -- cast limits (wave 5E) -- (suspend is a special action, 116.2f)
+                _activation_limit(plan, card, ch)
+            if ability is not None and ability.kind == "activated" and ability_cost(ch, ability).from_hand:
+                activate_to_stack(plan, card, ch, ability, a)  # -- ability words (wave 4F) -- channel (113.6m)
+                return
+            if ability is not None and ability.kind == "mana":  # -- mana riders (wave 5A) -- Simian Spirit Guide (605.3a)
+                from app.rules import mana_riders
+
+                mana_riders.activate_from_hand(plan, card, ch, ability)
+                plan.rules.passed = []
+                return
+            found = suspend_info(ch, a.ability)
+            if found is not None:
+                suspend(plan, card, ch, a, *found)
+            elif (plot_cost := keyword_cost(ch, "plot", PLOT, a.ability)) is not None and not plan.manual(card):
+                plot(plan, card, ch, a, plot_cost)
+            elif (keyword_cost(ch, "foretell", FORETELL, a.ability) is not None or (ability is not None and ability.granted_mana_cost is not None and ability.granted_mana_cost.keyword == "foretell")) and not plan.manual(card):
+                foretell(plan, card, ch, a)
+            elif (ninja := ninjutsu.cost_of(ch, a.ability)) is not None and not plan.manual(card):
+                on_stack = len(plan.state.zones.get(STACK, []))
+                activate_to_stack(plan, card, ch, ninjutsu.ability(ch, a.ability, ninja), a, definition=ninjutsu.DEFINITION, keep_revealed=True)
+                if len(plan.state.zones.get(STACK, [])) > on_stack and card.zone == zone_key(plan.actor, "hand") \
+                        and ALL not in card.revealed_to:  # -- keywords
+                    # (wave 15E) -- 702.49b: revealed until the ability leaves the stack (ninjutsu.enter hides it again)
+                    plan.do({"type": "reveal", "card_ids": [card.id]}, actor=plan.actor)
+            else:
+                cycle(plan, card, ch, a)
+            return
+        if card.zone == zone_key(plan.actor, "graveyard") and card.owner == plan.actor:
+            ch = plan.ch(card)
+            from app.rules import unearth_costs
+
+            unearth_cost = unearth_costs.of(ch, a.ability)
+            ability = next((ab for ab in ch.abilities if ab.index == a.ability), None)
+            if unearth_cost is None and ability is not None and ability.kind == 'mana':
+                parsed_gy = M.parse_mana_ability(ability.text, commander_identity(plan.state, plan.actor, plan.info), card_name=ch.name)
+                if parsed_gy is not None and parsed_gy.from_graveyard:
+                    _activation_limit(plan, card, ch, mana=True)
+                    problem = ability_problem(plan.state, plan.actor, card, ch, ability,
+                                              parse_ability_cost(parsed_gy.extra_cost, card_name=ch.name), plan=plan)
+                    if problem:
+                        raise ActionError(problem)
+                    _activate_choosing(plan, card, ch, parsed_gy, a)
+                    return
+            if unearth_cost is None and ability is not None and ability.kind == "activated" and \
+                    ability_cost(ch, ability).from_graveyard:  # 113.6m: "Exile this card from your graveyard: …"
+                _activation_limit(plan, card, ch)  # -- cast limits (wave 5E) --
+                activate_to_stack(plan, card, ch, ability, a)
+                return
+            if unearth_cost is None and (gk := graveyard_keywords.ability(ch, a.ability)) is not None and not plan.manual(card):
+                _activation_limit(plan, card, ch)  # -- keywords (wave 15E) -- embalm / eternalize: activated from the graveyard
+                activate_to_stack(plan, card, ch, gk, a, definition=scripts.define(gk, ch))
+                return
+            if unearth_cost is None:
+                raise ActionError("That card has no ability to use from your graveyard")
+            _activation_limit(plan, card, ch)  # -- cast limits (wave 5E) --
+            unearth(plan, card, ch, a, unearth_cost)
+            return
+        if card.zone == zone_key(plan.actor, "exile") and card.owner == plan.actor:  # -- activated other (wave 42C) -- 113.6m: "… from your graveyard or from exile"
+            ch = plan.ch(card)
+            ability = next((ab for ab in ch.abilities if ab.index == a.ability), None)
+            if ability is not None and ability.kind == "activated" and ability_cost(ch, ability).exile_too:
+                _activation_limit(plan, card, ch)
+                activate_to_stack(plan, card, ch, ability, a)
+                return
+            raise ActionError("That card has no ability to use from exile")
+        if card.zone == zone_key(plan.actor, "companion") and card.owner == plan.actor:  # -- companion (wave 38D) -- 116.2g
+            companion_action(plan, card, plan.ch(card), a)
+            return
+        if card.zone == zone_key(plan.actor, "command") and card.owner == plan.actor:  # -- activated from hand / command zone (wave 27D)
+            ch = plan.ch(card)
+            ability = next((ab for ab in ch.abilities if ab.index == a.ability), None)
+            if ability is not None and ability.kind == "activated" and ability_cost(ch, ability).command_only:  # 113.6m
+                _activation_limit(plan, card, ch)
+                activate_to_stack(plan, card, ch, ability, a)
+                return
+            if (ninja := ninjutsu.cost_of(ch, a.ability, command=True)) is not None and not plan.manual(card):  # -- commander ninjutsu (wave 50J) -- 702.49d
+                activate_to_stack(plan, card, ch, ninjutsu.ability(ch, a.ability, ninja), a, definition=ninjutsu.DEFINITION)
+                return
+            raise ActionError("That card has no ability to use from the command zone")
+        ch = plan.ch(card)
+        # -- activation wordings (wave 7B) -- 602.2: "Any player may activate this ability."
+        ab = next((x for x in ch.abilities if x.index == a.ability), None)
+        if not card.zone.endswith(":battlefield") or not (
+                actor_allowed(ab, ability_cost(ch, ab, state=plan.state, card=card, info=plan.info), card.controller, plan.actor, owner=card.owner)
+                if ab is not None else card.controller == plan.actor):
+            if ab is not None and opponents_only(ab) and card.controller == plan.actor:
+                raise ActionError("Only your opponents may activate this ability")
+            raise ActionError("You can only activate abilities of permanents you control")
+        if "cant_activate" in ch.imposed:  # an Aura: "its activated abilities can't be activated" (crew, equip too)
+            raise ActionError(f"{ch.name}’s activated abilities can't be activated")
+        ability = _find_ability(ch, a.ability)
+        if "cant_activate_nonmana" in ch.imposed and ability.kind != "mana":  # -- attached events (wave 16F) -- Faith's Fetters (605.1a)
+            raise ActionError(f"{ch.name}’s activated abilities can't be activated unless they're mana abilities")
+        if "cant_activate_tap" in ch.imposed and ab is not None and ability_cost(ch, ab, state=plan.state, card=card, info=plan.info).tap:  # -- attached (wave 100F) --
+            raise ActionError(f"{ch.name}’s activated abilities with {{T}} in their costs can't be activated")
+        _activation_limit(plan, card, ch, mana=ability.kind == "mana", loyalty=ability.kind == "loyalty")  # -- cast limits (wave 5E) --
+        n = crew_power(ch, a.ability) if not plan.manual(card) else None
+        if n is not None:
+            crew(plan, card, ch, a, n)
+            return
+        from app.rules import crew_saddle  # -- crew & saddle (wave 23D) --
+
+        n = crew_saddle.saddle_power(ch, a.ability) if not plan.manual(card) else None
+        if n is not None:
+            crew(plan, card, ch, a, n, "saddle")
+            return
+        equip = attachments.equip_cost(ch, a.ability) if not plan.manual(card) else None
+        if equip is not None:
+            equip_ability(plan, card, ch, a, equip)
+            return
+        if ability.kind in ("activated", "loyalty"):
+            activate_to_stack(plan, card, ch, ability, a)
+            return
+        if ability.kind != "mana":
+            raise ActionError(f"“{ability.text}” isn't an ability you activate")
+        parsed = dict(mana_abilities(plan.state, card, plan.info)).get(a.ability)
+        if parsed is None:
+            if M.parse_mana_ability(ability.text, commander_identity(plan.state, card.controller, plan.info), card_name=ch.name) is not None:
+                raise ActionError(f"{ch.name} can't use “{ability.text}” right now")
+            raise ActionError(f"Fyodor can't carry out “{ability.text}” yet. Use the table tools.")
+        if parsed.tap and not can_use_tap_abilities(plan.state, card, ch, plan.info):
+>           raise ActionError(f"{ch.name} is tapped" if card.tapped else f"{ch.name} has summoning sickness")
+E           app.game.errors.ActionError: Llanowar Elves has summoning sickness
+
+app/rules/casting.py:5489: ActionError
+__ test_myth_discount_uses_each_commanders_own_history_and_command_entry_draw __
+
+state = GameState(format_version=1, id='0e19e925c4e547e3', name='Game', format='commander', created_at=1792910245.453702, seq=...ee_cast_faces={}, exile_if_graveyard=[], bottom_if_graveyard=[], cast_enters={}, exile_resolves={}, counter_stamps={}))
+player = 'p1'
+cost = ManaCost(generic=3, colored=('R', 'R'), hybrid=(), phyrexian=(), x=0, unsupported=(), allocation=None)
+info = <app.cards.repository.CardRepository object at 0x7fe25dfc1bb0>
+sources = [], exclude = ()
+purpose = Purpose(spell=Characteristics(name='Krenko, Mob Boss', supertypes=frozenset({'Legendary'}), types=frozenset({'Creature...one, cost_colorless=False, allocation=None, selected_cost_has_x=False, producer_requirement=None, cycling_menu72=False)
+reserve = 0
+
+    def _find_payment(state: GameState, player: str, cost: M.ManaCost, info: CardInfo, *,
+                      sources: list[str] | None = None, exclude: tuple[str, ...] = (), purpose: Purpose | None = None,
+                      reserve: int = 0) -> M.Payment:
+        from app.rules import mana_units
+
+        everything = [s for s in mana_sources(state, player, info, purpose) if s.card_id not in exclude]
+        available = [s for s in everything if s.activation is None]
+        filters = [s for s in everything if s.activation is not None]
+        pool = dict(state.players[player].mana)
+        life = max(0, spendable_life(state, player, info) - reserve)  # (wave 22B: 119.4; wave 29C: less the life other costs of it pay)
+        units = mana_units.unit_sources(state, player, purpose)  # -- mana provenance (wave 18B) -- pool mana that remembers its source
+        if sources is not None:
+            chosen = [s for s in available if s.card_id in set(sources)]
+            chosen_filters = [s for s in filters if s.card_id in set(sources) and s.card_id not in {c.card_id for c in chosen}]
+            if len({s.card_id for s in chosen + chosen_filters}) != len(set(sources)):
+                raise ActionError("Pick untapped mana sources you control")
+            try:
+>               payment = _solve_with_filters(cost, pool, chosen + units, chosen_filters, life, input_spending=lambda due: _spending_cost(state, player, info, due))
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+app/rules/casting.py:1304:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+app/rules/casting.py:1204: in _solve_with_filters
+    raise error
+app/rules/casting.py:1133: in _solve_with_filters
+    return M.solve(cost, pool, plain, life=life)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+cost = ManaCost(generic=3, colored=('R', 'R'), hybrid=(), phyrexian=(), x=0, unsupported=(), allocation=None)
+pool = {'C': 1, 'R': 2}, sources = [], life = 40
+
+    def solve(cost: ManaCost, pool: dict[str, int], sources: list[Source], *, life: int = 0) -> Payment:
+        """Find a payment for ``cost`` (X already fixed). Raises ManaError if there is none."""
+        mixed_snow = any(source.producer_facts and any(
+            (fact is not None and 'Snow' in fact.tags) != source.snow
+            for profile in source.producer_facts for fact in profile) for source in sources)
+        snow_due = SNOW in cost.colored or any(SNOW in symbols for symbols in cost.hybrid)
+        helper_matching = (cost.allocation is not None and
+            any(row.helpers is not None and row.helpers != row.alternatives
+                for row in (*cost.allocation.symbols, *cost.allocation.phyrexian)) and
+            any(source.abilities and any(index < 0 for index in source.abilities) for source in sources))
+        if (helper_matching or (mixed_snow and snow_due)
+                or any(s.generic_allowed and not all(s.generic_allowed) for s in sources)
+                or (cost.allocation is not None and any(row.producer is not None
+                    for row in (*cost.allocation.symbols, *cost.allocation.phyrexian)))):
+            from app.rules import mana_allocation_masks
+
+            return mana_allocation_masks.solve(cost, pool,
+                [mana_allocation_masks.MaskedSource(s, s.generic_allowed) for s in sources], life=life).payment
+        if cost.unsupported:
+            raise ManaError(f"Can't pay {' '.join('{' + s + '}' for s in cost.unsupported)} automatically")
+        # (review 18B: mana already in the pool — mana_units' pseudo-sources, rank -1 — before anything is tapped, as the plain pool)
+        ordered = sorted(sources, key=lambda s: (s.rank >= 0, not s.preferred, s.flexibility, s.rank, -max(len(o) for o in s.options)))
+        base = [(c,) for c in cost.colored] + sorted(cost.hybrid, key=len)
+        # Phyrexian symbols with mana first, then one more with 2 life each time (107.4f: each symbol on its own; wave 18B: K'rrik too;
+        # review 18B: any k of them, so {W/P}{U/P} with only {W} pays 2 life, not 4)
+        from itertools import combinations
+
+        phy = cost.phyrexian
+        by_life = {tuple(sorted(phy[i] for i in ix)): ix for k in range(len(phy) + 1) for ix in combinations(range(len(phy)), k)}
+        attempts = [(base + [tuple(c.split("/")) for i, c in enumerate(phy) if i not in ix], 2 * len(ix)) for ix in by_life.values()]
+        for reqs, life_cost in attempts:
+            if life_cost and life_cost > life:  # 119.4 (wave 29C): the life total only has to be at least the payment — all of it may be paid
+                continue
+            found = _solve(reqs, cost.generic, pool, ordered)
+            if found is None:
+                continue
+            left, chosen = found
+            payment = Payment(life=life_cost)
+            for src, oi in chosen:
+                opt = src.options[oi]
+                payment.selected_options.append((src.card_id, oi))
+                if src.ability_options:
+                    payment.ability_options.append((src.card_id, src.ability_options[oi]))
+                payment.slots.append((src.card_id, opt))
+                payment.tapped.append(src.card_id)
+                if src.sacrifice:
+                    payment.sacrificed.append(src.card_id)
+                if src.abilities:
+                    payment.used.append((src.card_id, src.abilities[oi]))
+                for m in opt:
+                    payment.produced[m] = payment.produced.get(m, 0) + 1
+            total = {k: v for k, v in pool.items() if v > 0}
+            for k, v in payment.produced.items():
+                total[k] = total.get(k, 0) + v
+            payment.spent = {k: v - left.get(k, 0) for k, v in total.items() if v - left.get(k, 0) > 0}
+            return payment
+>       raise ManaError(f"Not enough mana to pay {cost.text()}")
+E       app.rules.mana.ManaError: Not enough mana to pay {3}{R}{R}
+
+app/rules/mana.py:839: ManaError
+
+The above exception was the direct cause of the following exception:
+
+cards = <app.cards.repository.CardRepository object at 0x7fe25dfc1bb0>
+
+    def test_myth_discount_uses_each_commanders_own_history_and_command_entry_draw(cards):
+        s=setup(cards)
+        myth=put(s,'Myth Unbound','battlefield')
+        commander=next(c for c in s.state.cards.values() if c.owner=='p1' and c.commander_key)
+        for count in range(3):
+            wait_priority(s,'p1')
+            act(s,'p1',type='add_mana',player='p1',mana={'C':max(0,2-count),'R':2})
+>           act(s,'p1',type='cast_spell',card_id=commander.id,sources=[])
+
+tests/test_rules_cost_statics101.py:183:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests/game_helpers.py:42: in act
+    return session.perform(actor, payload)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/game/session.py:61: in perform
+    resolved = resolve(self.state, action, actor=actor, cards=self.cards, trusted=trusted)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/game/resolve.py:76: in resolve
+    a.r = compile_intent(state, a, actor=actor, info=info, rng=rng)  # type: ignore[union-attr]
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/engine.py:164: in compile_intent
+    handler(plan, intent)
+app/rules/casting.py:3913: in cast_spell
+    _cast_payment(plan, payment_data, None)
+app/rules/casting.py:3974: in _cast_payment
+    pay_spell_then(plan, data.data.a, card, data.data.ch, data.cost,
+app/rules/casting.py:1910: in pay_spell_then
+    _pay_spell(plan, a, card, ch, cost, label, not_mana=not_mana, origin=origin, then=then, x_payment=x_payment, payment_context=payment_context)
+app/rules/casting.py:1770: in _pay_spell
+    pay_then(plan, player, rest, label, sources=a.sources, exclude=exclude, purpose=purpose,
+app/rules/casting.py:1576: in pay_then
+    result = _pay(plan, player, cost, label, sources=sources, exclude=exclude, purpose=purpose,
+app/rules/casting.py:1588: in _pay
+    payment = find_payment(plan.state, player, cost, plan.info, sources=sources, exclude=exclude, purpose=purpose,
+app/rules/casting.py:1217: in find_payment
+    payment = _find_payment(state, player, _constrained(_spending_cost(state, player, info, life_for_mana(state, player, info, cost)), purpose), info, sources=sources, exclude=exclude,
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+state = GameState(format_version=1, id='0e19e925c4e547e3', name='Game', format='commander', created_at=1792910245.453702, seq=...ee_cast_faces={}, exile_if_graveyard=[], bottom_if_graveyard=[], cast_enters={}, exile_resolves={}, counter_stamps={}))
+player = 'p1'
+cost = ManaCost(generic=3, colored=('R', 'R'), hybrid=(), phyrexian=(), x=0, unsupported=(), allocation=None)
+info = <app.cards.repository.CardRepository object at 0x7fe25dfc1bb0>
+sources = [], exclude = ()
+purpose = Purpose(spell=Characteristics(name='Krenko, Mob Boss', supertypes=frozenset({'Legendary'}), types=frozenset({'Creature...one, cost_colorless=False, allocation=None, selected_cost_has_x=False, producer_requirement=None, cycling_menu72=False)
+reserve = 0
+
+    def _find_payment(state: GameState, player: str, cost: M.ManaCost, info: CardInfo, *,
+                      sources: list[str] | None = None, exclude: tuple[str, ...] = (), purpose: Purpose | None = None,
+                      reserve: int = 0) -> M.Payment:
+        from app.rules import mana_units
+
+        everything = [s for s in mana_sources(state, player, info, purpose) if s.card_id not in exclude]
+        available = [s for s in everything if s.activation is None]
+        filters = [s for s in everything if s.activation is not None]
+        pool = dict(state.players[player].mana)
+        life = max(0, spendable_life(state, player, info) - reserve)  # (wave 22B: 119.4; wave 29C: less the life other costs of it pay)
+        units = mana_units.unit_sources(state, player, purpose)  # -- mana provenance (wave 18B) -- pool mana that remembers its source
+        if sources is not None:
+            chosen = [s for s in available if s.card_id in set(sources)]
+            chosen_filters = [s for s in filters if s.card_id in set(sources) and s.card_id not in {c.card_id for c in chosen}]
+            if len({s.card_id for s in chosen + chosen_filters}) != len(set(sources)):
+                raise ActionError("Pick untapped mana sources you control")
+            try:
+                payment = _solve_with_filters(cost, pool, chosen + units, chosen_filters, life, input_spending=lambda due: _spending_cost(state, player, info, due))
+            except M.ManaError as exc:
+>               raise ActionError(f"Those sources can't pay {cost.text()}") from exc
+E               app.game.errors.ActionError: Those sources can't pay {3}{R}{R}
+
+app/rules/casting.py:1306: ActionError
+=========================== short test summary info ============================
+FAILED tests/test_rules_cost_statics101.py::test_other_cost_statics_full[Kaervek's Torch]
+FAILED tests/test_rules_cost_statics101.py::test_nonnamed_mana_and_removed_chariot_are_untaxed
+FAILED tests/test_rules_cost_statics101.py::test_myth_discount_uses_each_commanders_own_history_and_command_entry_draw

@@ -1,0 +1,8 @@
+10	0	backend/app/game/rules_state.py
+13	1	backend/app/rules/scripts.py
+6	0	backend/app/rules/effects.py
+3	0	backend/app/rules/delayed.py
+3	0	backend/app/rules/triggers.py
+290	0	backend/app/rules/lifespans102.py
+355	0	backend/tests/test_rules_lifespans102.py
+548	0	backend/tests/fixtures/lifespans102_cards.json

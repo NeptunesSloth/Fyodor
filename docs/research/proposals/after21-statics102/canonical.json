@@ -1,0 +1,253 @@
+[
+  {
+    "name": "Rootwater Matriarch",
+    "layout": "normal",
+    "set_code": "10e",
+    "set_name": "Tenth Edition",
+    "collector_number": "103",
+    "rarity": "rare",
+    "mana_cost": "{2}{U}{U}",
+    "cmc": 4.0,
+    "type_line": "Creature \u2014 Merfolk",
+    "oracle_text": "{T}: Gain control of target creature for as long as that creature is enchanted.",
+    "power": "2",
+    "toughness": "3",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2007-07-13",
+    "artist": "Daren Bader",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "name": "Braided Net // Braided Quipu",
+    "layout": "transform",
+    "set_code": "lci",
+    "set_name": "The Lost Caverns of Ixalan",
+    "collector_number": "47",
+    "rarity": "rare",
+    "mana_cost": "{2}{U} // ",
+    "cmc": 3.0,
+    "type_line": "Artifact // Artifact",
+    "oracle_text": "This artifact enters with three net counters on it.\n{T}, Remove a net counter from this artifact: Tap another target nonland permanent. Its activated abilities can't be activated for as long as it remains tapped.\nCraft with artifact {1}{U}\n//\n{3}{U}, {T}: Draw a card for each artifact you control, then put this artifact into its owner's library third from the top.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Craft",
+      "Transform"
+    ],
+    "is_token": false,
+    "faces": [
+      {
+        "name": "Braided Net",
+        "mana_cost": "{2}{U}",
+        "type_line": "Artifact",
+        "oracle_text": "This artifact enters with three net counters on it.\n{T}, Remove a net counter from this artifact: Tap another target nonland permanent. Its activated abilities can't be activated for as long as it remains tapped.\nCraft with artifact {1}{U}",
+        "power": null,
+        "toughness": null,
+        "loyalty": null,
+        "defense": null,
+        "colors": [
+          "U"
+        ],
+        "image_face": 0
+      },
+      {
+        "name": "Braided Quipu",
+        "mana_cost": "",
+        "type_line": "Artifact",
+        "oracle_text": "{3}{U}, {T}: Draw a card for each artifact you control, then put this artifact into its owner's library third from the top.",
+        "power": null,
+        "toughness": null,
+        "loyalty": null,
+        "defense": null,
+        "colors": [
+          "U"
+        ],
+        "image_face": 1
+      }
+    ],
+    "double_faced": true,
+    "image_faces": 2,
+    "has_image": false,
+    "released_at": "2023-11-17",
+    "artist": "Diego Gisbert",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "name": "Blade of Shared Souls",
+    "layout": "normal",
+    "set_code": "one",
+    "set_name": "Phyrexia: All Will Be One",
+    "collector_number": "42",
+    "rarity": "rare",
+    "mana_cost": "{2}{U}",
+    "cmc": 3.0,
+    "type_line": "Artifact \u2014 Equipment",
+    "oracle_text": "For Mirrodin! (When this Equipment enters, create a 2/2 red Rebel creature token, then attach this to it.)\nWhenever this Equipment becomes attached to a creature, for as long as this Equipment remains attached to it, you may have that creature become a copy of another target creature you control.\nEquip {2}",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "For Mirrodin!",
+      "Equip"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2023-02-10",
+    "artist": "Volkan Ba\u01f5a",
+    "commander_legal": "legal",
+    "related_tokens": [
+      {
+        "id": "a41eb9df-d8b4-4697-a759-886faf16754d",
+        "name": "Rebel",
+        "type_line": "Token Creature \u2014 Rebel"
+      }
+    ],
+    "related_cards": [
+      {
+        "id": "e1e3aa37-80dc-4c5a-b118-788298ee3fd5",
+        "name": "Blade of Shared Souls",
+        "component": "combo_piece"
+      }
+    ]
+  },
+  {
+    "name": "Assimilation Aegis",
+    "layout": "normal",
+    "set_code": "otj",
+    "set_name": "Outlaws of Thunder Junction",
+    "collector_number": "192",
+    "rarity": "mythic",
+    "mana_cost": "{1}{W}{U}",
+    "cmc": 3.0,
+    "type_line": "Artifact \u2014 Equipment",
+    "oracle_text": "When this Equipment enters, exile up to one target creature until this Equipment leaves the battlefield.\nWhenever this Equipment becomes attached to a creature, for as long as this Equipment remains attached to it, that creature becomes a copy of a creature card exiled with this Equipment.\nEquip {2}",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U",
+      "W"
+    ],
+    "color_identity": [
+      "U",
+      "W"
+    ],
+    "keywords": [
+      "Equip"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2024-04-19",
+    "artist": "Matt Stewart",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "name": "Zygon Infiltrator",
+    "layout": "normal",
+    "set_code": "who",
+    "set_name": "Doctor Who",
+    "collector_number": "63",
+    "rarity": "uncommon",
+    "mana_cost": "{2}{U}",
+    "cmc": 3.0,
+    "type_line": "Creature \u2014 Alien Shapeshifter Soldier",
+    "oracle_text": "Body-print \u2014 {2}{U}: Tap another target creature and put a stun counter on it. This creature becomes a copy of that creature for as long as that creature remains tapped. Activate only as a sorcery. (If a permanent with a stun counter would become untapped, remove one from it instead.)",
+    "power": "3",
+    "toughness": "2",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Body-print"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2023-10-13",
+    "artist": "Simon Dominic",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "name": "Old Man of the Sea",
+    "layout": "normal",
+    "set_code": "arn",
+    "set_name": "Arabian Nights",
+    "collector_number": "18",
+    "rarity": "rare",
+    "mana_cost": "{1}{U}{U}",
+    "cmc": 3.0,
+    "type_line": "Creature \u2014 Djinn",
+    "oracle_text": "You may choose not to untap this creature during your untap step.\n{T}: Gain control of target creature with power less than or equal to this creature's power for as long as this creature remains tapped and that creature's power remains less than or equal to this creature's power.",
+    "power": "2",
+    "toughness": "3",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "1993-12-17",
+    "artist": "Susan Van Camp",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  }
+]

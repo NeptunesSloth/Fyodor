@@ -1,0 +1,7 @@
+{
+  "app/rules/scripts.py": "994d44b43943997695e002c01a306b6d443e9904116065bd5aaf2f1fa8e372d6",
+  "app/rules/casting.py": "6365534af95f5af43df039b2e92464c744144827a71dee8918ddb4d45ee44289",
+  "app/rules/cost_changes.py": "403772a5739660eeff79be7d23cc54c5487f62eca5879ae73202dc227882f540",
+  "app/rules/permissions.py": "778189463d6a626ebea7b597022a4066b2b2765770f096fd5fe998cab380dd8e",
+  "app/rules/triggers.py": "011d4e79b0cc828d4cf3d4b1d04391fbd6388133be46375694edcaed98785d4d"
+}

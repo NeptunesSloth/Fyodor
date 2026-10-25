@@ -1,0 +1,202 @@
+{
+  "canonical": [
+    {
+      "id": "96ed5b66-8e74-4a90-ad4e-c39d15993994",
+      "oracle_id": "92d28545-4403-4c24-8547-efab4dde6a53",
+      "name": "Skyseer's Chariot",
+      "layout": "normal",
+      "set_code": "dft",
+      "set_name": "Aetherdrift",
+      "collector_number": "28",
+      "rarity": "rare",
+      "mana_cost": "{1}{W}",
+      "cmc": 2.0,
+      "type_line": "Artifact \u2014 Vehicle",
+      "oracle_text": "Flying\nAs this Vehicle enters, choose a nonland card name.\nActivated abilities of sources with the chosen name cost {2} more to activate.\nCrew 2",
+      "power": "3",
+      "toughness": "3",
+      "loyalty": null,
+      "defense": null,
+      "colors": [
+        "W"
+      ],
+      "color_identity": [
+        "W"
+      ],
+      "keywords": [
+        "Flying",
+        "Crew"
+      ],
+      "is_token": false,
+      "faces": [],
+      "double_faced": false,
+      "image_faces": 1,
+      "has_image": false,
+      "released_at": "2025-02-14",
+      "artist": "Carl Critchlow",
+      "commander_legal": "legal",
+      "related_tokens": [],
+      "related_cards": []
+    },
+    {
+      "id": "b88ca71b-de1f-497c-b094-8fe954cf8223",
+      "oracle_id": "83e047ac-aaa9-4bd8-9ea0-49761d39139c",
+      "name": "Myth Unbound",
+      "layout": "normal",
+      "set_code": "c18",
+      "set_name": "Commander 2018",
+      "collector_number": "32",
+      "rarity": "rare",
+      "mana_cost": "{2}{G}",
+      "cmc": 3.0,
+      "type_line": "Enchantment",
+      "oracle_text": "Your commander costs {1} less to cast for each time it's been cast from the command zone this game.\nWhenever your commander is put into the command zone from anywhere, draw a card.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null,
+      "defense": null,
+      "colors": [
+        "G"
+      ],
+      "color_identity": [
+        "G"
+      ],
+      "keywords": [],
+      "is_token": false,
+      "faces": [],
+      "double_faced": false,
+      "image_faces": 1,
+      "has_image": false,
+      "released_at": "2018-08-10",
+      "artist": "Alexander Forssberg",
+      "commander_legal": "legal",
+      "related_tokens": [],
+      "related_cards": []
+    },
+    {
+      "id": "e32453a1-1fd9-4bda-aaa8-7c287e4c2587",
+      "oracle_id": "2270daaf-252d-40c4-bed5-bd46ae15f041",
+      "name": "Liesa, Shroud of Dusk",
+      "layout": "normal",
+      "set_code": "cmr",
+      "set_name": "Commander Legends",
+      "collector_number": "286",
+      "rarity": "rare",
+      "mana_cost": "{2}{W}{W}{B}",
+      "cmc": 5.0,
+      "type_line": "Legendary Creature \u2014 Angel",
+      "oracle_text": "Rather than pay {2} for each previous time you've cast this spell from the command zone this game, pay 2 life that many times.\nFlying, lifelink\nWhenever a player casts a spell, they lose 2 life.",
+      "power": "5",
+      "toughness": "5",
+      "loyalty": null,
+      "defense": null,
+      "colors": [
+        "B",
+        "W"
+      ],
+      "color_identity": [
+        "B",
+        "W"
+      ],
+      "keywords": [
+        "Flying",
+        "Lifelink"
+      ],
+      "is_token": false,
+      "faces": [],
+      "double_faced": false,
+      "image_faces": 1,
+      "has_image": false,
+      "released_at": "2020-11-20",
+      "artist": "Slawomir Maniak",
+      "commander_legal": "legal",
+      "related_tokens": [],
+      "related_cards": []
+    },
+    {
+      "id": "0a1624ab-e50e-48a3-acf7-457069914616",
+      "oracle_id": "c629feae-084c-452f-9c09-4b9716331498",
+      "name": "Kaervek's Torch",
+      "layout": "normal",
+      "set_code": "mir",
+      "set_name": "Mirage",
+      "collector_number": "185",
+      "rarity": "common",
+      "mana_cost": "{X}{R}",
+      "cmc": 1.0,
+      "type_line": "Sorcery",
+      "oracle_text": "As long as Kaervek's Torch is on the stack, spells that target it cost {2} more to cast.\nKaervek's Torch deals X damage to any target.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null,
+      "defense": null,
+      "colors": [
+        "R"
+      ],
+      "color_identity": [
+        "R"
+      ],
+      "keywords": [],
+      "is_token": false,
+      "faces": [],
+      "double_faced": false,
+      "image_faces": 1,
+      "has_image": false,
+      "released_at": "1996-10-08",
+      "artist": "John Coulthart",
+      "commander_legal": "legal",
+      "related_tokens": [],
+      "related_cards": []
+    }
+  ],
+  "targeted_classification": [
+    {
+      "name": "Skyseer's Chariot",
+      "rank": 1000000000,
+      "level": "FULL",
+      "commander": false,
+      "lines": {
+        "supported": 4,
+        "parsed": 0,
+        "unparsed": 0
+      },
+      "missing": []
+    },
+    {
+      "name": "Myth Unbound",
+      "rank": 1000000000,
+      "level": "FULL",
+      "commander": false,
+      "lines": {
+        "supported": 2,
+        "parsed": 0,
+        "unparsed": 0
+      },
+      "missing": []
+    },
+    {
+      "name": "Liesa, Shroud of Dusk",
+      "rank": 1000000000,
+      "level": "FULL",
+      "commander": true,
+      "lines": {
+        "supported": 4,
+        "parsed": 0,
+        "unparsed": 0
+      },
+      "missing": []
+    },
+    {
+      "name": "Kaervek's Torch",
+      "rank": 1000000000,
+      "level": "FULL",
+      "commander": false,
+      "lines": {
+        "supported": 2,
+        "parsed": 0,
+        "unparsed": 0
+      },
+      "missing": []
+    }
+  ]
+}

@@ -1,0 +1,55 @@
+{
+  "canonical": [
+    {
+      "id": "9fd02eb4-1ef5-4a14-89a8-b25e720e8016",
+      "oracle_id": "c8d3936f-4c08-4ffe-83c9-7ed26fb8f9cd",
+      "name": "Crashing Wave",
+      "layout": "normal",
+      "set_code": "tla",
+      "set_name": "Avatar: The Last Airbender",
+      "collector_number": "47",
+      "rarity": "uncommon",
+      "mana_cost": "{U}{U}",
+      "cmc": 2.0,
+      "type_line": "Sorcery",
+      "oracle_text": "As an additional cost to cast this spell, waterbend {X}. (While paying a waterbend cost, you can tap your artifacts and creatures to help. Each one pays for {1}.)\nTap up to X target creatures, then distribute three stun counters among any number of tapped creatures your opponents control. (If a permanent with a stun counter would become untapped, remove one from it instead.)",
+      "power": null,
+      "toughness": null,
+      "loyalty": null,
+      "defense": null,
+      "colors": [
+        "U"
+      ],
+      "color_identity": [
+        "U"
+      ],
+      "keywords": [
+        "Waterbend"
+      ],
+      "is_token": false,
+      "faces": [],
+      "double_faced": false,
+      "image_faces": 1,
+      "has_image": false,
+      "released_at": "2025-11-21",
+      "artist": "Mitori",
+      "commander_legal": "legal",
+      "related_tokens": [],
+      "related_cards": []
+    }
+  ],
+  "targeted_classification": [
+    {
+      "name": "Crashing Wave",
+      "rank": 1000000000,
+      "level": "FULL",
+      "commander": false,
+      "lines": {
+        "supported": 2,
+        "parsed": 0,
+        "unparsed": 0
+      },
+      "missing": []
+    }
+  ]
+}

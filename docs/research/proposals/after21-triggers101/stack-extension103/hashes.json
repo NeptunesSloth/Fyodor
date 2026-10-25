@@ -1,0 +1,22 @@
+{
+  "app/rules/stack_extension103.py": {
+    "base": null,
+    "proposed": "3b599475b0486b7f4bdd5294b16f1ca31251ed4cf7c1d57b6e3844ffd513f8cf"
+  },
+  "app/rules/scripts.py": {
+    "base": "af87fbccd97fbb1f2b5193afc9015b4259d7c713c83eca9b6d69eecfde693da4",
+    "proposed": "3267545a0fcd52d3abab1c9f2e2ee04a65e14975a53b448d2f9db3d9332adcad"
+  },
+  "app/rules/effects.py": {
+    "base": "11649b3698e8895546c7f8f95bb8a940b36eab1c8b67faca8d06157a11d0a1e8",
+    "proposed": "eed025edcef7077b4ac1ba7df802076e7c9395e1078d0eeddf55ab6cd32595f9"
+  },
+  "app/rules/triggers.py": {
+    "base": "e4de5ecf6cbee715cd36e6d8d79e56b9a51647cd3addfdac61d37223fce0a6ec",
+    "proposed": "0d1385d2bf0b05c1911d77d1e09f9e7ebc7b2f7aaab71b6fc4e64f77a36d46a0"
+  },
+  "app/rules/casting.py": {
+    "base": "6365534af95f5af43df039b2e92464c744144827a71dee8918ddb4d45ee44289",
+    "proposed": "8bccc8b2f1afb804a7c57196862c7360429166169cb9c24c48a63c455d35c5ec"
+  }
+}

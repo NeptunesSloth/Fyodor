@@ -1,0 +1,480 @@
+"""State-based actions (rule 704): checked before anyone gets priority, repeated until none apply.
+
+They run inside rules intents only. A manual change (say, adding damage by hand) is picked up
+the next time the engine acts, so the sandbox never fights the players mid-edit.
+"""
+
+from __future__ import annotations
+
+from app.game.rules_state import Decision, DecisionOption, ObjectSnapshot, copy_recipe_of, snapshot
+from app.game.state import CardInstance
+from app.rules import attachments, battles
+from app.rules.characteristics import Characteristics
+from app.rules.plan import Plan, decide, live_players
+
+POISON_LETHAL = 10
+COMMANDER_LETHAL = 21
+MAX_ROUNDS = 50
+
+
+def _num(value: str | None) -> int | None:
+    try:
+        return int(value) if value is not None else None
+    except ValueError:
+        return None  # "*" and friends: characteristic-defining abilities aren't computed yet
+
+
+def toughness(card: CardInstance, ch: Characteristics) -> int | None:
+    """Current toughness: from ``ch.pt`` when the layers were applied (``Plan.ch``), else printed + counters."""
+    if ch.pt is not None:
+        return ch.pt[1]
+    base = _num(ch.toughness)
+    if base is None:
+        return None
+    return base + card.counters.get("+1/+1", 0) - card.counters.get("-1/-1", 0)
+
+
+def power(card: CardInstance, ch: Characteristics) -> int | None:
+    if ch.pt is not None:
+        return ch.pt[0]
+    base = _num(ch.power)
+    if base is None:
+        return None
+    return base + card.counters.get("+1/+1", 0) - card.counters.get("-1/-1", 0)
+
+
+def check(plan: Plan) -> None:
+    """Perform state-based actions until none apply (or one needs a player's decision)."""
+    if plan.rules.draw_reason is not None:
+        return
+    for _ in range(MAX_ROUNDS):
+        if plan.rules.decision is not None or not _round(plan):
+            return
+
+
+class Found:
+    """The state-based actions that apply right now. They are performed simultaneously."""
+
+    def __init__(self) -> None:
+        self.losers: list[tuple[str, str]] = []
+        self.vanishing: list[CardInstance] = []  # tokens outside the battlefield (704.5d)
+        self.annihilate: list[tuple[CardInstance, int]] = []
+        self.dying: list[tuple[CardInstance, str]] = []
+        self.unattach: list[tuple[CardInstance, str]] = []
+        self.protect: list[tuple[CardInstance, list[str]]] = []  # 310.11: battles needing a new protector
+        self.unbestow: list[CardInstance] = []  # -- keywords (wave 15E) -- 702.103f
+
+    def visible(self) -> bool:
+        return bool(self.losers or self.annihilate or self.dying or self.unattach or self.unbestow)
+
+    def fingerprint(self) -> str:
+        return "|".join([*(f"L{p}" for p, _ in self.losers), *(f"D{c.id}:{why}" for c, why in self.dying),
+                         *(f"A{c.id}:{n}" for c, n in self.annihilate), *(f"U{c.id}" for c, _ in self.unattach)])
+
+    def summary(self, plan: Plan) -> str:
+        parts = [f"{plan.name(p)} loses ({why})" for p, why in self.losers]
+        parts += [f"{c.name} dies ({why})" for c, why in self.dying]
+        parts += [f"{c.name}: +1/+1 and -1/-1 counters cancel" for c, _ in self.annihilate]
+        parts += [f"{c.name} becomes unattached ({why})" for c, why in self.unattach]
+        return "; ".join(parts)
+
+
+def game_result_zero_life_ok(plan: Plan, pid: str) -> bool:
+    from app.rules import (
+        game_result,  # -- most-played cards III (wave 46C) -- "You don't lose the game for having 0 or less life." (704.5a)
+    )
+
+    return game_result.zero_life_ok(plan, pid)
+
+
+def find(plan: Plan) -> Found:
+    state = plan.state
+    r = plan.rules
+    out = Found()
+    # 704.5a–c, commander damage (903.10a), empty-library draws: players lose
+    for pid in live_players(state):
+        p = state.players[pid]
+        reason = None
+        if p.life <= 0 and not game_result_zero_life_ok(plan, pid):
+            reason = "0 or less life"
+        elif p.resources.get("poison", 0) >= POISON_LETHAL:
+            reason = f"{POISON_LETHAL} poison counters"
+        elif any(v >= COMMANDER_LETHAL for v in p.commander_damage.values()):
+            reason = f"{COMMANDER_LETHAL} combat damage from one commander"
+        elif pid in r.drew_from_empty:
+            reason = "drew from an empty library"
+        if reason:
+            from app.rules import (
+                game_result,  # -- game result statics (wave 10B) -- "You can't lose the game" (104.3)
+            )
+
+            if game_result.cannot_lose(plan, pid):
+                r.drew_from_empty = [p_ for p_ in r.drew_from_empty if p_ != pid]  # (704.5b: checked, nothing happened)
+                continue
+            out.losers.append((pid, reason))
+    from app.rules import keyword_actions
+    from app.rules.copying import ceases_to_exist
+
+    for card in list(state.cards.values()):
+        if card.is_token and not card.zone.endswith((":battlefield", ":phased")) and card.zone != "stack":  # (702.26d: tokens persist phased out)
+            if keyword_actions.prepared_permanent(state, card.id) is None:  # -- prepared (wave 13C) -- 722.3c: an exception to 704.5e
+                out.vanishing.append(card)
+            continue
+        if ceases_to_exist(plan, card):  # -- copy system (wave 2F): 704.5d (a token on the stack), 704.5e --
+            out.vanishing.append(card)
+            continue
+        if not card.zone.endswith(":battlefield") or not plan.in_game(card):
+            continue
+        ch = plan.ch(card)
+        plus, minus = card.counters.get("+1/+1", 0), card.counters.get("-1/-1", 0)
+        if plus and minus:
+            out.annihilate.append((card, min(plus, minus)))  # 704.5q
+        if ch.is_creature:
+            t = toughness(card, ch)
+            if t is not None and t <= 0:
+                out.dying.append((card, "0 toughness"))  # 704.5f (indestructible doesn't help)
+            elif t is not None and card.damage >= t and "indestructible" not in ch.keywords:
+                out.dying.append((card, "lethal damage"))  # 704.5g
+            elif card.id in r.deathtouched and (card.damage > 0 or card.counters.get("-1/-1", 0) > 0) \
+                    and "indestructible" not in ch.keywords:
+                out.dying.append((card, "damage from a deathtouch source"))  # 704.5h
+        if "Planeswalker" in ch.types and card.counters.get("loyalty", 0) <= 0 and not _kept_at_zero(plan, card):
+            out.dying.append((card, "no loyalty"))  # 704.5i
+        if battles.no_defense(plan, card, ch):
+            out.dying.append((card, "no defense"))  # 704.5v (a Siege once its defeat trigger left the stack), 704.5w
+        else:
+            options = battles.protector_problem(plan, card, ch)
+            if options == []:
+                out.dying.append((card, "no player can protect it"))  # 310.11
+            elif options:
+                out.protect.append((card, options))
+        _attachment(plan, card, ch, out)
+        if "Saga" in ch.subtypes:  # -- sagas & attached-object triggers (wave 3S): 714.4 --
+            from app.rules import sagas
+
+            if sagas.must_sacrifice(plan, card, ch):
+                out.dying.append((card, sagas.SACRIFICE_REASON))
+    # -- token & pump wordings (wave 6C) -- 704.5z: of one player's Roles on a permanent, only the newest stays
+    from app.rules import roles, world_durations80
+
+    existing_deaths80 = {c.id for c, _ in out.dying}
+    out.dying += [(c, 'World rule (704.5k)') for c in world_durations80.dying(plan) if c.id not in existing_deaths80]
+    out.dying = [(c, why) for c, why in out.dying if c.id not in plan.rules.pending_616]  # (-- zone replacements (wave 22C) -- held)
+    dying = {c.id for c, _ in out.dying}
+    out.dying += [(c, "a newer Role of its controller is attached to the same permanent (704.5z)")
+                  for c in roles.stale_roles(plan) if c.id not in dying]
+    return out
+
+
+def _attachment(plan: Plan, card: CardInstance, ch: Characteristics, out: Found) -> None:
+    """704.5m (Auras), 704.5n (Equipment/Fortifications), 704.5p (creatures and battles), judged by
+    the one attachment predicate (app/rules/attachments.py host_problem)."""
+    kind = attachments.attach_kind(ch)
+    host = card.attached_to or card.attached_player
+    if kind == "aura":
+        from app.rules import (
+            bestow,  # -- keywords (wave 15E) -- 702.103f: a bestowed Aura that is unattached or illegally attached
+        )
+
+        if bestow.is_bestowed(plan.state, card):  # stops being bestowed (a creature again) instead of going to the graveyard
+            problem = "its host is gone" if host is None else attachments.host_problem(plan, card, host, sba=True)
+            if problem is not None and problem != "unknown":
+                out.unbestow.append(card)
+            return
+        if host is None:
+            if any(attachments.host_problem(plan, card, cid, sba=True) is None for cid in attachments.enchanted_cards(plan, card)):
+                return  # -- reanimation Auras (wave 51F) -- 303.4a: it enchants a creature card in a graveyard (still one, still that object)
+            out.dying.append((card, "an Aura attached to nothing"))
+            return
+        problem = attachments.host_problem(plan, card, host, sba=True)
+        if problem is not None and problem != "unknown":  # (an unmapped enchant wording: never on a guess)
+            out.dying.append((card, f"an Aura attached illegally: {problem}"))
+        return
+    if host is None:
+        return
+    if ch.is_creature or "Battle" in ch.types:
+        out.unattach.append((card, "a creature or battle can't be attached"))
+    elif kind is not None:
+        problem = attachments.host_problem(plan, card, host)
+        if problem is not None:
+            out.unattach.append((card, problem))
+    # Other noncreature permanents "attached" on the table are usually cards tucked under a
+    # permanent by hand (a sandbox arrangement), so they are left alone (704.5p is partial).
+
+
+def _annihilation_departures(plan: Plan, found: Found) -> tuple[dict[str, ObjectSnapshot], dict[str, list[str]]]:
+    """704.7: departure LKI precedes every simultaneous SBA, including counter cancellation."""
+    cancelling = {c.id for c, _ in found.annihilate}
+    ids = [c.id for c, _ in found.dying if c.id in cancelling]
+    frozen = {plan.oid(cid): snapshot(plan.state, cid) for cid in ids}
+    types = {plan.oid(cid): sorted(plan.ch(plan.state.cards[cid]).types) for cid in ids}
+    derived = plan._battlefield_lki({'card_ids':ids})
+    for oid, snap in frozen.items():
+        snap.copy_recipe = copy_recipe_of(plan.rules, oid)
+        snap.attached = [c.id for c in plan.state.cards.values() if c.attached_to == snap.card]
+        snap.attached_objects = {c.id: plan.oid(c) for c in plan.state.cards.values() if c.attached_to == snap.card}
+        snap.attached_objects_known = True
+        if oid in derived:
+            pt, abilities, keywords, traits, base, goaded = derived[oid]
+            if pt is not None:
+                snap.power, snap.toughness = pt
+            if base is not None:
+                snap.base_power, snap.base_toughness = base
+            snap.abilities, snap.keywords, snap.traits = abilities, keywords, traits
+            snap.goaded = sorted(goaded)
+    return frozen, types
+
+
+def _round(plan: Plan, *, confirmed: bool = False) -> bool:
+    """One simultaneous check. Returns True if anything happened."""
+    state = plan.state
+    r = plan.rules
+    if r.pending_616:  # -- zone replacements (wave 22C) -- 616.1: a held card's controller chooses before anything else
+        from app.rules.replacements import offer_616
+
+        if offer_616(plan):
+            return True
+    found = find(plan)
+    from app.rules import regeneration_choices
+
+    destruction = [card.id for card, reason in found.dying if reason in ('lethal damage', 'damage from a deathtouch source')]
+    if not regeneration_choices.prepare(plan, destruction, can_regenerate=True, sba=True):
+        return True
+    # -- storied (wave 45D) -- 702.195a, any time: before a permanent that leaves in this very check (legend rule, 0 toughness) is gone (ruling 2026-06-29)
+    from app.rules import designations
+
+    storied = designations.storied_permanents(plan)
+    if found.vanishing:
+        for offset in range(0, len(found.vanishing), 250):
+            # 704.5d/e: a card-copy casting instruction can leave more copies
+            # than one table action's validated card-id capacity.
+            gone = found.vanishing[offset:offset + 250]
+            plan.do({"type": "delete_card", "card_ids": [c.id for c in gone], "force": True}, actor=gone[0].owner)
+    if found.visible() and not (confirmed or plan.options.auto_sba):
+        # ASSISTED: show what the rules say happens and let the table confirm (or handle it by
+        # hand). A declined set isn't asked about again until something changes.
+        fingerprint = found.fingerprint()
+        if r.sba_declined == fingerprint:
+            return bool(found.vanishing) or storied
+        decide(plan, player=plan.turn_player, kind="confirm", prompt=f"State-based actions: {found.summary(plan)}",
+               options=[DecisionOption(id="yes", label="Apply"), DecisionOption(id="no", label="Leave for now")],
+               resume={"step": "sba_confirm", "fingerprint": fingerprint})
+        return True
+    frozen_departures, frozen_types = _annihilation_departures(plan, found)
+    happened = bool(found.vanishing) or storied
+    # -- keywords (wave 15E) -- 702.131b: ascend, any time
+    happened = designations.ascend_permanents(plan) or happened
+    from app.rules import speed  # -- speed (wave 24B) -- 704.5aa
+
+    happened = speed.start_engines(plan) or happened
+    if found.losers:
+        from app.rules import life_game_history
+
+        life_game_history.loss_events(plan, [pid for pid, _ in found.losers])
+    for pid, reason in found.losers:
+        r.lost[pid] = reason
+        plan.note(f"{state.players[pid].name} loses the game ({reason})")
+        happened = True
+    for card, n in found.annihilate:
+        plan.do({"type": "counter", "card_ids": [card.id], "kind": "+1/+1", "delta": -n}, actor=card.controller)
+        plan.do({"type": "counter", "card_ids": [card.id], "kind": "-1/-1", "delta": -n}, actor=card.controller)
+        happened = True
+    if found.unattach:
+        plan.do({"type": "detach", "card_ids": [c.id for c, _ in found.unattach]}, actor=found.unattach[0][0].controller)
+        happened = True
+    if found.unbestow:  # -- keywords (wave 15E) -- 702.103f: unattached, and a creature again
+        from app.rules import bestow
+
+        for c in found.unbestow:
+            if c.attached_to or c.attached_player:
+                plan.do({"type": "detach", "card_ids": [c.id]}, actor=c.controller)
+            bestow.cease(plan, c, "it was unattached")
+        happened = True
+    if found.dying and r.destruction_replacements is not None:
+        survivors = set(regeneration_choices.protect(plan, destruction, plan.actor))
+        found.dying = [(card, reason) for card, reason in found.dying if card.id not in destruction or card.id in survivors]
+        regeneration_choices.finish(plan)
+        happened = True
+    if found.dying:  # -- keywords (wave 15E) -- 702.89a: lethal damage destroys; umbra armor replaces that
+        from app.rules import regeneration
+
+        kept = []
+        for card, reason in found.dying:
+            armor = regeneration.umbra_armor(plan, card) if reason in ("lethal damage", "damage from a deathtouch source") \
+                and not regeneration.shielded(plan, card) else None
+            if armor is not None:
+                regeneration.use_umbra_armor(plan, card, armor, card.controller)
+                happened = True
+            else:
+                kept.append((card, reason))
+        found.dying = kept
+    if found.dying and r.regen_shields:  # 701.19: lethal damage destroys; a shield replaces that
+        from app.rules import regeneration
+
+        kept = []
+        for card, reason in found.dying:
+            if reason in ("lethal damage", "damage from a deathtouch source") and regeneration.shielded(plan, card):
+                regeneration.regenerate(plan, card)
+                happened = True
+            else:
+                kept.append((card, reason))
+        found.dying = kept
+    if found.dying:
+        from app.rules import prohibitions, sagas
+
+        found.dying = [(card, why) for card, why in found.dying
+                       if why != sagas.SACRIFICE_REASON or not prohibitions.sacrifice_forbidden(plan, card)]
+    if found.dying:
+        from app.rules import stickers101
+
+        if stickers101.ask_sba(plan, [c.id for c, _reason in found.dying]):
+            return True
+    if found.dying:
+        # All of them die at once: one move, one event batch (704.3), with last known information.
+        for card, reason in found.dying:
+            plan.note(f"State-based action: {reason} →", [card.id])
+        dead = [card.id for card, _ in found.dying]
+        # -- sagas & attached-object triggers (wave 3S): 714.4 sacrifices (701.21a) --
+        from app.rules import sagas, triggers
+
+        triggers.sacrificing(plan, [card.id for card, why in found.dying if why == sagas.SACRIFICE_REASON])
+        plan.do({"type": "move", "card_ids": dead, "to": {"zone": "graveyard"}}, actor=found.dying[0][0].controller)
+        # Counter removal events still occurred above. Only the departing objects' LKI
+        # (and history's derived card types) must look back before that same SBA batch.
+        for oid, snap in frozen_departures.items():
+            if oid in r.lki and (snap.card not in state.cards or plan.oid(snap.card) != oid):
+                r.lki[oid] = snap
+                for departure in r.turn_log.left:
+                    if departure.object_id == oid:
+                        departure.types = frozen_types[oid]
+        r.deathtouched = [c for c in r.deathtouched if c not in dead]
+        happened = True
+    if found.losers:
+        from app.rules.leave import leave_game  # leave → plan; imported late to stay acyclic
+
+        for pid, _ in found.losers:
+            leave_game(plan, pid)
+        left = live_players(state)
+        # 104.2a: the last player left wins at once, overriding "can't win the game" (review of wave 10B)
+        if len(left) == 1 and r.winner is None:
+            r.winner = left[0]
+            plan.note(f"{state.players[left[0]].name} wins the game")
+    # -- counters & designations (wave 3E): 309.6 dungeons, 701.54a Ring-bearers --
+    from app.rules import designations
+
+    if designations.sba(plan):
+        happened = True
+
+    # 310.11: a battle with no protector (or one who can't be) gets one its controller chooses
+    for card, options in found.protect:
+        if card.id not in state.cards or not state.cards[card.id].zone.endswith(":battlefield"):
+            continue
+        if len(options) == 1:
+            battles.set_protector(plan, card, options[0])
+            happened = True
+        else:
+            battles.ask_protector(plan, card, options)
+            return True
+
+    # 704.5j legend rule: the controller chooses one to keep (one decision at a time)
+    legends: dict[tuple[str, str], list[CardInstance]] = {}
+    for card in state.cards.values():
+        if card.zone.endswith(":battlefield") and plan.in_game(card):
+            ch = plan.ch(card)
+            if "Legendary" in ch.supertypes and ch.name:
+                legends.setdefault((card.controller, ch.name), []).append(card)
+    for (controller, name), group in legends.items():
+        if len(group) > 1:  # -- legend rule (wave 10B) -- permanents the rule doesn't apply to aren't counted
+            from app.rules import legend_rule
+
+            skipped = legend_rule.exempt_cards(plan, group)
+            group = [c for c in group if c.id not in skipped]
+        if len(group) > 1:
+            decide(plan, player=controller, kind="choose_one",
+                   prompt=f"Legend rule: choose which {name} to keep (the others go to the graveyard)",
+                   options=[DecisionOption(id=c.id, label=f"{name} #{i + 1}", card_id=c.id) for i, c in enumerate(group)],
+                   resume={"step": "legend_rule", "cards": [c.id for c in group]})
+            return True
+
+    # 903.9b: a commander just put into its owner's hand or library may go to the command zone
+    # instead (app/rules/replacements.py: the move happened; the owner is asked before priority)
+    if r.pending_903_9b:
+        from app.rules.replacements import offer_903_9b  # replacements → plan; imported late
+
+        if offer_903_9b(plan):
+            return True
+    # 903.9a: a commander put into a graveyard or exile may go to the command zone instead — a
+    # state-based action, so it still applies after a replacement effect sent the commander to exile
+    # ("If ~ would die, exile it instead", Rest in Peace: app/rules/replacements.py). 903.9b (a
+    # commander that would go to its owner's hand or library) is a replacement effect and lives
+    # there too; it shares this prompt's memory key ("commander_zone:<key>") with the destination as
+    # its context, so "always" answers carry over.
+    for card in state.cards.values():
+        if not card.commander_key:
+            continue
+        zone = card.zone.split(":")[-1]
+        if zone in ("graveyard", "exile") and card.owner in live_players(state):
+            if r.commander_offered.get(card.id) != card.zone:
+                r.commander_offered[card.id] = card.zone
+                key, context = f"commander_zone:{card.commander_key}", zone
+                answer = remembered_answer(plan, card.owner, key, context)
+                if answer in ("yes", "no"):
+                    _commander_zone(plan, card, answer == "yes")
+                    return True
+                decide(plan, player=card.owner, kind="confirm",
+                       prompt=f"Move {card.name} to the command zone?",
+                       options=[DecisionOption(id="yes", label="Command zone"),
+                                DecisionOption(id="no", label=f"Leave it in {zone}")],
+                       resume={"step": "commander_zone", "card": card.id}, source=card,
+                       memory_key=key, memory_context=context)
+                return True
+        else:
+            r.commander_offered.pop(card.id, None)
+    if r.pending_gy_order:  # -- graveyard order (wave 40C) -- 404.3: the owner arranges cards put into a graveyard together, before priority
+        from app.rules import graveyard_order
+
+        if graveyard_order.offer(plan):
+            return True
+    return happened
+
+
+def remembered_answer(plan: Plan, player: str, key: str, context: str) -> str | None:
+    from app.rules.engine import remembered  # engine → sba; imported late
+
+    return remembered(plan, player, key, context)
+
+
+def resume_confirm(plan: Plan, d: Decision, chosen: list[str]) -> None:
+    assert d.resume is not None
+    if chosen[0] == "yes":
+        _round(plan, confirmed=True)
+    else:
+        plan.rules.sba_declined = str(d.resume.get("fingerprint", ""))
+        plan.note(f"{plan.name(d.player)} left the state-based actions for now")
+
+
+def _commander_zone(plan: Plan, card: CardInstance, yes: bool) -> None:
+    if yes:
+        plan.do({"type": "move", "card_ids": [card.id], "to": {"player": card.owner, "zone": "command"}},
+                actor=card.owner)
+
+
+def resume_legend_rule(plan: Plan, d: Decision, chosen: list[str]) -> None:
+    assert d.resume is not None
+    keep = chosen[0]
+    others = [cid for cid in d.resume["cards"] if cid != keep and cid in plan.state.cards]
+    if others:
+        plan.do({"type": "move", "card_ids": others, "to": {"zone": "graveyard"}}, actor=d.player)
+
+
+def resume_commander_zone(plan: Plan, d: Decision, chosen: list[str]) -> None:
+    assert d.resume is not None
+    card = plan.state.cards.get(d.resume["card"])
+    if card is not None:
+        _commander_zone(plan, card, chosen[0] == "yes")
+
+
+def _kept_at_zero(plan: Plan, card: CardInstance) -> bool:
+    from app.rules import static_perm100d  # -- static permanents (wave 100D) -- Sanctum Lurker
+
+    return static_perm100d.yours(plan, static_perm100d.ZERO_LOYALTY, card.controller) > 0

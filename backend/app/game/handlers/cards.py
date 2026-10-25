@@ -180,44 +180,51 @@ def create_token(state: GameState, a: A.CreateToken) -> None:
 
 
 def copy_card(state: GameState, a: A.CopyCard) -> None:
-    src = ops.card(state, a.card_id)
+    src = state.cards.get(a.card_id) if a.saved_stack is not None else ops.card(state, a.card_id)
     if a.r is None or len(a.r.ids) != a.count:
         raise ActionError("unresolved copy")
-    snap = None
-    if a.last_known:  # -- spell copies (wave 31D) -- the spell as it last existed on the stack (a public object, 608.2h)
+    snap = a.saved_stack
+    if snap is not None:
+        if snap.card != a.card_id or snap.zone != STACK or snap.face_down or a.zone is not None:
+            raise ActionError("That preserved object is not a public spell")
+    elif a.last_known:
         snap = state.rules.lki.get(a.last_known) if state.rules is not None else None
-        if snap is None or snap.card != src.id or snap.zone != STACK or snap.is_token:
+        if snap is None or snap.card != a.card_id or snap.zone != STACK or snap.is_token:
             raise ActionError("That spell has no last known information")
-    elif ops.zone_name(src.zone) not in ("battlefield", STACK) and not publicly_visible(state, src):
+    elif src is not None and ops.zone_name(src.zone) not in ("battlefield", STACK) and not publicly_visible(state, src):
         raise ActionError("Only public objects can be copied")
     pid = ops.player(state, a.player, a.actor)
-    on_stack = src.zone == STACK or snap is not None
+    on_stack = snap is not None or (src is not None and src.zone == STACK)
     key = STACK if on_stack else zone_key(pid, "battlefield")
-    if a.zone:  # -- cast a copy (wave 13C) -- 707.12: "created in the same zone the object is in"; 722.3c: in exile
+    if a.zone:
         key = zone_key(pid, a.zone)
     for i, new_id in enumerate(a.r.ids):
         if new_id in state.cards:
             raise ActionError("id collision")
         c = CardInstance(
             id=new_id,
-            card_id=a.printing or (snap.printing if snap is not None else src.card_id),
-            name=snap.name if snap is not None else src.name,
-            owner=pid,
-            controller=pid,
-            zone=key,
-            x=(a.x if a.x is not None else src.x + 24) + i * 18,
-            y=(a.y if a.y is not None else src.y + 24) + i * 18,
-            face=(snap.face if snap is not None else src.face) if a.face is None else a.face,
+            card_id=a.printing or (snap.printing if snap is not None else src.card_id if src else None),
+            name=snap.name if snap is not None else src.name if src else "",
+            owner=pid, controller=pid, zone=key,
+            x=(a.x if a.x is not None else (src.x if src else 0) + 24) + i * 18,
+            y=(a.y if a.y is not None else (src.y if src else 0) + 24) + i * 18,
+            face=(snap.face if snap is not None else src.face if src else 0) if a.face is None else a.face,
             is_token=True,
-            token=src.token.model_copy() if src.token else None,
-            ability=src.ability.model_copy() if src.ability else None,
-            copy_of=CopyInfo(source_id=src.id, source_name=snap.name if snap is not None else src.name, modifications=a.modifications),
+            token=src.token.model_copy() if src and src.token and a.saved_stack is None else None,
+            ability=src.ability.model_copy() if src and src.ability and a.saved_stack is None else None,
+            copy_of=CopyInfo(source_id=a.card_id, source_name=snap.name if snap is not None else src.name if src else "",
+                             modifications=a.modifications),
             quantity=1,
         )
         state.cards[new_id] = c
         state.zone(key).append(new_id)
     n = f"{a.count} copies" if a.count != 1 else "a copy"
-    log(state, a.actor, a.ts, [pname(state, a.actor), text(f" created {n} of "), text(snap.name) if snap is not None else ops.card_part(state, src)])
+    if snap is not None:
+        source_part = text(snap.name)
+    else:
+        assert src is not None
+        source_part = ops.card_part(state, src)
+    log(state, a.actor, a.ts, [pname(state, a.actor), text(f" created {n} of "), source_part])
 
 
 def delete_card(state: GameState, a: A.DeleteCard) -> None:

@@ -1,0 +1,11 @@
+tests/test_rules_aura_restrictions106.py: 15
+tests/test_rules_copy_controllers105.py: 15
+tests/test_rules_damage_death104.py: 13
+tests/test_rules_epic103.py: 19
+tests/test_rules_evidence_cost106.py: 7
+tests/test_rules_last_draw_cost107.py: 7
+tests/test_rules_sticker_effects101.py: 43
+tests/test_rules_sticker_riders102.py: 18
+tests/test_rules_stickers101.py: 19
+tests/test_rules_vampire_returns105.py: 17
+

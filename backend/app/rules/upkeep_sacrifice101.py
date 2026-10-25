@@ -1,0 +1,68 @@
+"""Mandatory upkeep attempts and consequences use actual native effect outcomes."""
+from __future__ import annotations
+
+from dataclasses import replace
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from app.rules.plan import Plan
+
+DOOM = ("At the beginning of each player's upkeep, that player sacrifices a nonland, nontoken permanent of their choice. "
+        "If that player can't, they discard a card, they lose 2 life, you draw a card, you gain 2 life, you create a 2/2 white "
+        "Knight creature token with vigilance, then you sacrifice ~.")
+DENIZEN = ("At the beginning of your upkeep, sacrifice two Swamps. If you can't, tap ~, and an opponent may gain control "
+           "of a creature you control of their choice for as long as ~ remains on the battlefield.")
+COCOON = ("At the beginning of your upkeep, remove a pupa counter from ~. If you can't, sacrifice it, put a +1/+1 counter "
+          "on enchanted creature, and that creature gains flying.")
+
+
+def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
+    from app.rules import scripts
+
+    text = scripts.self_text(ability.text, ch.name)
+    if text == DOOM:
+        native = scripts.define(replace(ability, text=("At the beginning of each player's upkeep, that player sacrifices "
+                                                       "a nonland, nontoken permanent.")), ch)
+        tail = scripts.parse_effects('That player discards a card. That player loses 2 life. You draw a card. You gain 2 life. '
+                                     'Create a 2/2 white Knight creature token with vigilance. Sacrifice ~.', event_player=True)
+        assert native is not None and tail is not None
+        sacrifice = {**native['effects'][0], 'as': 'doom_attempt101'}
+        gate = {'do': 'only_if', 'cond': {'value': {'this_way': 'sacrificed', 'of': None,
+                'ref_count': 'doom_attempt101'}, 'op': '==', 'n': 0}, 'skip': len(tail[0])}
+        return {**native, 'effects': [sacrifice, gate, *tail[0]]}
+    if text == DENIZEN:
+        native = scripts.define(replace(ability, text='At the beginning of your upkeep, sacrifice two Swamps.'), ch)
+        assert native is not None
+        return {**native, 'effects': [{**native['effects'][0], 'as': 'denizen_attempt101'},
+                {'do': 'only_if', 'cond': {'value': {'this_way': 'sacrificed', 'of': None,
+                 'ref_count': 'denizen_attempt101'}, 'op': '<', 'n': 2}, 'skip': 3},
+                {'do': 'tap', 'who': 'self'}, {'do': 'choose_opponent', 'as': 'denizen_opponent101'},
+                {'do': 'denizen_offer101'}]}
+    if text == COCOON:
+        native = scripts.define(replace(ability, text='At the beginning of your upkeep, remove a pupa counter from ~.'), ch)
+        tail = scripts.parse_effects('Sacrifice ~. Put a +1/+1 counter on enchanted creature. That creature gains flying.')
+        assert native is not None and tail is not None
+        return {**native, 'effects': [{**native['effects'][0], 'bind': 'cocoon_removed101'},
+                {'do': 'only_if', 'cond': {'value': {'ref_amount': 'cocoon_removed101'}, 'op': '==', 'n': 0},
+                 'skip': len(tail[0])}, *tail[0]]}
+    return None
+
+
+def denizen_offer(plan: Plan, ctx: dict[str, Any], effect: dict[str, Any]) -> bool:
+    from app.rules import context, delayed
+
+    # 611.2b: no control effect begins after the original source's duration ended.
+    if not delayed._source_ok(plan, 'source_on_battlefield', ctx.get('source_card'), ctx.get('source_object'), ctx['controller']):
+        return True
+    creatures = [c.id for c in plan.state.cards.values() if c.zone.endswith(':battlefield')
+                 and c.controller == ctx['controller'] and plan.ch(c).is_creature and plan.in_game(c)]
+    context.bind_objects(plan, ctx, 'denizen_pool101', creatures)
+    ctx['effects'][ctx['next']:ctx['next']] = [
+        {'do': 'return_choice', 'who': 'ref:denizen_pool101', 'chooser': 'ref:denizen_opponent101',
+         'n': 1, 'upto': True, 'to': 'choose', 'as': 'denizen_chosen101', 'label': 'creature to gain control of'},
+        {'do': 'until', 'duration': 'source_on_battlefield', 'n': 1},
+        {'do': 'gain_control', 'who': 'ref:denizen_chosen101', 'to': 'ref:denizen_opponent101', 'duration': 'permanent'}]
+    return True
+
+
+PRIMITIVES = {'denizen_offer101': denizen_offer}
