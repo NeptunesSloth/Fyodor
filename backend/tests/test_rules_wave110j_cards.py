@@ -149,3 +149,23 @@ def test_lithoform_blight_replaces_a_lands_types_and_abilities(cards):
     assert sorted(a.text for a in now_ch.abilities if "Add" in a.text) == ["{T}, Pay 1 life: Add one mana of any color.", "{T}: Add {C}."]
     assert len(s.state.zones["p1:hand"]) == hand + 1
     check(s)
+
+
+def test_love_on_the_battlefield_is_full():
+    assert full("Love on the Battlefield")
+
+
+@pytest.mark.parametrize(("attackers", "triggers"), [(1, False), (2, True), (3, False)])
+def test_love_on_the_battlefield_needs_exactly_two_attackers(cards, attackers, triggers):
+    """508.1, 603.2: exactly two attackers give first strike and a card; each unblocked one then grows by a +1/+1 counter when it hits a player."""
+    s = build(cards, ["Love on the Battlefield", "Grizzly Bears", "Templar Knight", "Llanowar Elves"])
+    put(s, "Love on the Battlefield")
+    crew = [put_new(s, n) for n in ("Grizzly Bears", "Templar Knight", "Llanowar Elves")][:attackers]
+    hand = len(s.state.zones["p1:hand"])
+    attack(s, *crew)
+    settle(s)
+    assert (len(s.state.zones["p1:hand"]) == hand + 1) is triggers
+    assert all(("first strike" in ch(s, c).keywords) is triggers for c in crew)
+    through_combat(s)
+    assert all((now(s, c).counters.get("+1/+1") == 1) is triggers for c in crew)
+    check(s)

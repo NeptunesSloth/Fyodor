@@ -1136,6 +1136,8 @@ def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: F
     n = cond.get("min_attackers")
     if n and len(_counted_attackers(plan, cond, watcher, info)) < n:
         return False
+    if (cap := cond.get("max_attackers110j")) and len(_counted_attackers(plan, cond, watcher, info)) > cap:  # -- wave 110J -- "exactly two creatures" (Love on the Battlefield)
+        return False
     if cond.get("all110j"):  # -- wave 110J -- "Whenever all non-Wall creatures you control attack" (Mob Mentality): none of them stays home, 508.1
         from app.rules import selectors as _sel
 

@@ -91,3 +91,23 @@ def _loki(d: Def) -> Def:
 _BUILD["Whenever you cast a spell that targets only a single creature, gain control of that creature until end of turn. If it's your turn, untap that creature and it gains haste until end of turn."] = (
     "Whenever you cast a spell that targets only a single creature, gain control of target creature until end of turn. If it's your turn, untap that creature and it gains haste until end of turn.",
     _loki)
+
+
+def _love(d: Def) -> Def:
+    """Love on the Battlefield: exactly two attackers (508.1, 603.2); the damage watch is for the two declared attackers (a creature put onto the battlefield attacking was not declared, 508.4)."""
+    from app.rules import selectors
+
+    base = selectors.parse("attacking creature")
+    declared = None if base is None else replace(base, extras=(*base.extras, "attacked_this_turn"))
+    watches = [e for e in d["effects"] if e.get("do") == "delayed" and e["when"]["cond"].get("sel")]
+    if declared is None or d["cond"].get("min_attackers") != 2 or len(watches) != 1:
+        raise ValueError("Love on the Battlefield: unexpected native shape")
+    watch = watches[0]
+    cond = {**watch["when"]["cond"], "sel": declared.key()}
+    return {**d, "cond": {**d["cond"], "max_attackers110j": 2},
+            "effects": [{**e, "when": {**e["when"], "cond": cond}} if e is watch else e for e in d["effects"]]}
+
+
+_BUILD["Whenever you attack with exactly two creatures, those creatures gain first strike until end of turn, then draw a card. Whenever either of those creatures deals combat damage to a player this combat, put a +1/+1 counter on it."] = (
+    "Whenever you attack with two or more creatures, attacking creatures gain first strike until end of turn, then draw a card. Whenever an attacking creature deals combat damage to a player this combat, put a +1/+1 counter on it.",
+    _love)
