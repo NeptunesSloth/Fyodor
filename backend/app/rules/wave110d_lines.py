@@ -115,6 +115,7 @@ _AS: dict[str, str] = {
 
 _KALDRA = "{1}: If you control Equipment named Helm of Kaldra, Sword of Kaldra, and Shield of Kaldra, create Kaldra, a legendary 4/4 colorless Avatar creature token. Attach those Equipment to it."
 _PYXIS = "{7}, {T}, Sacrifice ~: Each player turns face up all cards they own exiled with ~, then puts all permanent cards among them onto the battlefield."
+_GIFT = "As ~ is turned face up, you may attach it to a creature."
 _SAME_MV = "Whenever you cast a spell, your opponents can't cast spells with the same mana value as that spell until your next turn."
 
 
@@ -204,10 +205,12 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
         if d is not None:
             from app.rules import selectors
 
-            sel = selectors.parse("permanent card")
-            assert sel is not None
-            d["effects"] = [{"do": "turn_up_linked100g", "who": "exiled_with", "as": "pyxis110d"}, {**d["effects"][0], "who": "exiled_with:" + sel.key()}]
+            perm = selectors.parse("permanent card")
+            assert perm is not None
+            d["effects"] = [{"do": "turn_up_linked100g", "who": "exiled_with", "as": "pyxis110d"}, {**d["effects"][0], "who": "exiled_with:" + perm.key()}]
         return d
+    if text == _GIFT:
+        return {"kind": "replacement", "replacement": "turned_up_attach110d", "effects": []}
     if text == _SAME_MV:
         d = scripts.define(replace(ability, text="Whenever you cast a spell, you gain life equal to that spell's mana value."), ch)
         if d is not None:

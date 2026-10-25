@@ -70,6 +70,7 @@ SUPPORTED_REPLACEMENTS.add("enters_prepared")  # -- prepared (wave 13C) -- "~ en
 # app/rules/enter_cost.py, tests/test_rules_wave5g_if_you_do.py)
 SUPPORTED_REPLACEMENTS.add("enter_cost")
 SUPPORTED_REPLACEMENTS.add("enters_exile_unpaid")  # Own prospective payment-conditioned entry diversion.
+SUPPORTED_REPLACEMENTS.add("turned_up_attach110d")  # -- turned up (wave 110D) -- "As ~ is turned face up, you may attach it to a creature." (wave110d_misc.attach_up)
 SUPPORTED_REPLACEMENTS.add("turned_up_counters")  # -- counters (wave 52D) -- 708.11: "As ~ is turned face up, put five +1/+1 counters on it." (app/rules/counters52d.py)
 
 

@@ -2679,6 +2679,9 @@ def turned_up(plan: Plan, card: CardInstance, by: str | None = None) -> None:
     )
 
     counters52d.turned_up(plan, card)
+    from app.rules import wave110d_misc  # -- turned up (wave 110D) --
+
+    wave110d_misc.attach_up(plan, card)
     from app.rules import triggers  # (triggers imports this module)
 
     face_up = plan.ch(plan.state.cards[card.id])

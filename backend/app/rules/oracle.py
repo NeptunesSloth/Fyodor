@@ -370,6 +370,7 @@ MASTER_CHEF = ('Commander creatures you own have "This creature enters with an a
                '"Other creatures you control enter with an additional +1/+1 counter on them."')
 
 
+STAFF_ROOM = "Whenever a creature you control deals combat damage to a player, turn that creature face up or put a +1/+1 counter on it."
 DOG_UMBRA = "As long as another player controls enchanted creature, it can't attack or block. Otherwise, this Aura has umbra armor."
 
 
@@ -410,6 +411,11 @@ def parse_abilities(oracle_text: str | None, *, spell: bool = False, pt: tuple[s
         if line == DOG_UMBRA:
             lines[i:i + 1] = ["As long as another player controls enchanted creature, it can't attack or block.",
                               "As long as you control enchanted creature, this Aura has umbra armor."]
+    # -- lines (wave 110D) -- Staff Room: "A or B" is a choice of one of the two (700.2), a modal trigger
+    for i, line in enumerate(lines):
+        if line == STAFF_ROOM:
+            lines[i:i + 1] = ["Whenever a creature you control deals combat damage to a player, choose one —",
+                              "• Turn that creature face up.", "• Put a +1/+1 counter on that creature."]
     # -- keywords (wave 50H) -- 207.2d: a flavor word before an equip cost ("Machina — Equip {4}", Final Fantasy equipment) has no rules meaning
     for i, line in enumerate(lines):
         if not spell and " — Equip" in line and (w := word_prefix(line)) is not None and w[1].startswith("Equip") and _keywords_line(w[1]) == ("equip",):
