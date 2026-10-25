@@ -1,6 +1,7 @@
 """Wave 110B session 10: single cards read from an exact wording (real Oracle text in tests/fixtures/wave110b_cards.json).
 
 * Equal Treatment: 614.1a, 611.2a "any source would deal 1 or more damage ... this turn, 2 instead": 3 becomes 2, 1 becomes 2 (Flameblade ping), then draw.
+* Archfiend of Spite: 118.12a, 120.3 "loses that much life unless they sacrifice that many permanents": the damage dealt is the count, the source's controller chooses.
 * Flameblade Angel: 120.3 / 603.2 damage from an opponent's source to you or to a permanent you control triggers once; 603.7-free "may" 1 damage to that source's controller.
 """
 
@@ -18,7 +19,7 @@ def cards(settings):
     yield from repository(settings)
 
 
-@pytest.mark.parametrize("name", ["Flameblade Angel", "Equal Treatment"])
+@pytest.mark.parametrize("name", ["Flameblade Angel", "Equal Treatment", "Archfiend of Spite"])
 def test_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
@@ -55,4 +56,20 @@ def test_equal_treatment_sets_every_damage_to_2_this_turn(cards):
     drive(s)
     assert s.state.players["p1"].life == 38  # 3 -> 2
     assert s.state.players["p2"].life == 38  # Angel's 1 -> 2
+    check(s)
+
+
+@pytest.mark.parametrize("pays", [False, True])
+def test_archfiend_of_spite_makes_the_source_controller_lose_life_or_sacrifice_that_many(cards, pays):
+    s = build(cards, ["Archfiend of Spite"], ["Lightning Bolt", "Grizzly Bears", "Shivan Dragon", "Forest"])
+    archfiend = put(s, "Archfiend of Spite")
+    kept = [put(s, n, "p2") for n in ("Grizzly Bears", "Shivan Dragon", "Forest")]
+    act(s, "p2", type="set_prefs", response="on")
+    act(s, "p1", type="set_prefs", response="on")
+    mana(s, "p2", R=1)
+    s.state.rules.priority = "p2"
+    act(s, "p2", type="cast_spell", card_id=to_hand(s, "Lightning Bolt", "p2").id, targets=[archfiend.id])
+    drive(s, lambda d: [next((o.id for o in d.options if o.label.startswith("Pay") == pays), d.options[0].id)])
+    assert s.state.players["p2"].life == (40 if pays else 37)
+    assert [s.state.cards[c.id].zone for c in kept] == (["p2:graveyard"] * 3 if pays else ["p2:battlefield"] * 3)
     check(s)
