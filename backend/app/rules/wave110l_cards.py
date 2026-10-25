@@ -122,6 +122,31 @@ def resume_exile_mixed(plan: Plan, d: Any, chosen: list[str]) -> None:
         continue_effects(plan, r["ctx"])
 
 
+def _tyrannic(d: Def) -> Def:
+    """The First Tyrannic War chapter I: the put creature enters with counters when its mana cost contains {X} (put_from_hand reads "xlands110l")."""
+    puts = [e for e in d["effects"] if e.get("do") == "put_from_hand"]
+    return {**d, "effects": [{**e, "xlands110l": True} if e in puts else e for e in d["effects"]]} if len(puts) == 1 else d
+
+
+_BUILD["I — You may put a creature card from your hand onto the battlefield. If its mana cost contains {X}, it enters with a number of +1/+1 counters on it equal to the number of lands you control."] = (
+    "I — You may put a creature card from your hand onto the battlefield.", _tyrannic)
+
+
+def x_counters(plan: Plan, entries: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Each entering card whose printed mana cost has {X} (107.3) gets a +1/+1 counter per land its controller controls as it enters."""
+    from app.rules.effects import zone_key
+
+    out = []
+    for entry in entries:
+        card = plan.state.cards[entry["card"]]
+        if "{X}" in plan.ch(card).mana_cost:  # (counter_n 0 would read as one counter: with no land there are none to put)
+            lands = sum(1 for c in plan.state.zones.get(zone_key(entry["player"], "battlefield"), [])
+                        if "Land" in plan.ch(plan.state.cards[c]).types and plan.state.cards[c].controller == entry["player"])
+            entry = {**entry, "counter": "+1/+1", "counter_n": lands} if lands else entry
+        out.append(entry)
+    return out
+
+
 def pick_discard(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     """The owner reveals their hand; the chooser picks one card of it, which is discarded (an empty hand reveals nothing and discards nothing)."""
     from app.rules.effects import _players, decide, zone_key

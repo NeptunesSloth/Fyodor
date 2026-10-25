@@ -115,5 +115,39 @@
    "B"
   ],
   "keywords": []
+ },
+ {
+  "name": "The First Tyrannic War",
+  "layout": "saga",
+  "mana_cost": "{2}{G}{U}{R}",
+  "cmc": 5.0,
+  "type_line": "Enchantment — Saga",
+  "oracle_text": "(As this Saga enters and after your draw step, add a lore counter. Sacrifice after III.)\nI — You may put a creature card from your hand onto the battlefield. If its mana cost contains {X}, it enters with a number of +1/+1 counters on it equal to the number of lands you control.\nII, III — Double the number of each kind of counter on target creature you control.",
+  "colors": [
+   "G",
+   "R",
+   "U"
+  ],
+  "color_identity": [
+   "G",
+   "R",
+   "U"
+  ],
+  "keywords": [
+   "Double"
+  ]
+ },
+ {
+  "name": "Walking Ballista",
+  "layout": "normal",
+  "mana_cost": "{X}{X}",
+  "cmc": 0.0,
+  "type_line": "Artifact Creature — Construct",
+  "oracle_text": "This creature enters with X +1/+1 counters on it.\n{4}: Put a +1/+1 counter on this creature.\nRemove a +1/+1 counter from this creature: It deals 1 damage to any target.",
+  "colors": [],
+  "color_identity": [],
+  "keywords": [],
+  "power": "0",
+  "toughness": "0"
  }
 ]

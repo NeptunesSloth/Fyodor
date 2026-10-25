@@ -70,3 +70,26 @@ def test_bookworm_keeps_the_card_when_you_turned_a_permanent_face_up(cards):
     assert end_step(s) == 1
     check(s)
 
+
+
+WAR = "The First Tyrannic War"
+test_full_war = full_test([WAR])
+
+
+def counters(s, name):
+    return card_named(s, name).counters.get("+1/+1", 0)
+
+
+@pytest.mark.parametrize(("creature", "expect"), [("Walking Ballista", 3), ("Grizzly Bears", 0)])
+def test_first_tyrannic_war_counters_only_for_a_mana_cost_with_x(cards, creature, expect):
+    s = build(cards, [WAR, creature], forests=9)
+    for land in [c for c in s.state.cards.values() if c.name == "Forest" and c.owner == "p1"][:3]:  # three lands (the rest stay in the library)
+        act(s, "p1", type="move", card_ids=[land.id], to={"player": "p1", "zone": "battlefield"})
+    to_hand(s, creature)
+    cast(s, WAR)
+    while s.state.rules.decision is None and s.state.zones.get("stack"):
+        act(s, s.state.rules.priority, type="pass_priority")
+    answer(s, "Yes", creature)  # "you may", then the card
+    assert zone_of(s, creature) == "p1:battlefield"
+    assert counters(s, creature) == expect
+    check(s)
