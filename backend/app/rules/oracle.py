@@ -366,6 +366,10 @@ def split_sentences(body: str) -> list[str]:
     return [s for s in out if s]
 
 
+MASTER_CHEF = ('Commander creatures you own have "This creature enters with an additional +1/+1 counter on it" and '
+               '"Other creatures you control enter with an additional +1/+1 counter on them."')
+
+
 def parse_abilities(oracle_text: str | None, *, spell: bool = False, pt: tuple[str | None, str | None] = (None, None)) -> list[AbilityText]:
     """Split Oracle text into classified ability lines (reminder text removed).
 
@@ -391,6 +395,12 @@ def parse_abilities(oracle_text: str | None, *, spell: bool = False, pt: tuple[s
             lines[i:i + 1] = [f"When this permanent enters, sacrifice it unless you exile another {m[1]} you control.",
                               "When this permanent leaves the battlefield, return the exiled card to the battlefield under "
                               "its owner's control."]
+    # -- lines (wave 110D) -- Master Chef: 614.12 a commander creature entering is checked with the abilities it would have there (its own and Chef's
+    # grants), so the granted "This creature enters with ..." is "commander creatures you own enter with ...", then the second grant as its own ability
+    for i, line in enumerate(lines):
+        if line == MASTER_CHEF:
+            lines[i:i + 1] = ["Commander creatures you own enter with an additional +1/+1 counter on them.",
+                              'Commander creatures you own have "Other creatures you control enter with an additional +1/+1 counter on them."']
     # -- keywords (wave 50H) -- 207.2d: a flavor word before an equip cost ("Machina — Equip {4}", Final Fantasy equipment) has no rules meaning
     for i, line in enumerate(lines):
         if not spell and " — Equip" in line and (w := word_prefix(line)) is not None and w[1].startswith("Equip") and _keywords_line(w[1]) == ("equip",):
