@@ -343,6 +343,7 @@ class Offer:
     minimum_mana_value: int | None = None  # Validated against the selected face and announced X.
     cost_template: GrantedManaCost | None = None
     template_mana_has_x: bool | None = None  # Actual original cost, unknown in old offers.
+    exile_gy: bool = False  # -- wave 110I -- "If you cast this card this way and it would be put into your graveyard, exile it instead" (614.1a)
 
 
 def sneak_timing(state: GameState, player: str) -> bool:

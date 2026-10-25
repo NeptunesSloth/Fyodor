@@ -15,8 +15,8 @@ from app.rules.plan import Plan
 from tests.game_helpers import act, mana_pool
 from tests.test_rules_wave12a_counters_keywords import real
 from tests.test_rules_wave34b_activated import stops, to_phase
+from tests.wave9c_kit import card_named, life
 from tests.wave110a_kit import next_turn
-from tests.wave9c_kit import life
 from tests.wave110c_kit import answer, build, cast, check, make_db, mana, put, zone
 
 EXTRA = [
@@ -41,9 +41,16 @@ EXTRA = [
          "Enchant enchantment\nAt the beginning of the upkeep of enchanted enchantment's controller, that player may pay any amount of mana. This Aura deals 2 damage to that player. Prevent X of that damage, where X is the amount of mana that player paid this way.",
          None, "U"),
     real("Probe Rune", "{1}", 1, "Enchantment", "", None, ""),
+    real("Glimpse the Cosmos", "{2}{U}", 3, "Sorcery",
+         "Look at the top three cards of your library. Put one of them into your hand and the rest on the bottom of your library in any order.\nAs long as you control a Giant, you may cast this card from your graveyard by paying {U} rather than paying its mana cost. If you cast this card this way and it would be put into your graveyard, exile it instead.",
+         None, "U"),
+    real("Probe Giant", "{4}{R}", 5, "Creature — Giant", "", ("4", "3"), "R"),
+    real("Probe Revenant", "{2}{U}", 3, "Enchantment — Aura",
+         "Enchant creature\nAs long as you control a Giant, you may cast this card from your graveyard by paying {U} rather than paying its mana cost. If you cast this card this way and it would be put into your graveyard, exile it instead.",
+         None, "U"),
     real("Naturalize", "{1}{G}", 2, "Instant", "Destroy target artifact or enchantment.", None, "G"),
 ]
-NAMES = ["The Moment", "Curse of Conformity", "Puppet Master", "Rhuk, Hexgold Nabber", "Errant Minion", "Power Leak"]
+NAMES = ["The Moment", "Curse of Conformity", "Puppet Master", "Rhuk, Hexgold Nabber", "Errant Minion", "Power Leak", "Glimpse the Cosmos"]
 
 
 @pytest.fixture()
@@ -159,3 +166,42 @@ def test_errant_minion_and_power_leak_deal_2_minus_the_mana_paid(cards, aura, ho
     answer(s, f"x:{paid}" if paid else "decline")
     assert life(s, "p2") == 40 - max(0, 2 - paid) and life(s, "p1") == 40
     check(s)
+
+
+def test_glimpse_the_cosmos_from_hand_takes_one_of_three(cards):
+    s = build(cards, ["Glimpse the Cosmos", "Forest", "Island", "Swamp", "Mountain"], [])
+    top = [c for c in s.state.zones["p1:library"][:3]]
+    mana(s, U=1, C=2)
+    cast(s, "Glimpse the Cosmos")
+    answer(s)
+    assert sum(s.state.cards[c].zone == "p1:hand" for c in top) == 1 and zone(s, card_named(s, "Glimpse the Cosmos")) == "p1:graveyard"
+    check(s)
+
+
+@pytest.mark.parametrize("giant", [True, False])
+def test_glimpse_the_cosmos_from_graveyard_needs_a_giant_and_exiles(cards, giant):
+    """614.1a: cast from the graveyard for {U} only while you control a Giant, then exiled instead of going to the graveyard."""
+    from tests.wave110c_kit import offers
+
+    s = build(cards, ["Glimpse the Cosmos", "Probe Giant", "Forest", "Island", "Swamp", "Mountain"], [])
+    gl = put(s, "Glimpse the Cosmos")
+    act(s, "p1", type="move", card_ids=[gl.id], to={"player": "p1", "zone": "graveyard"})
+    if giant:
+        put(s, "Probe Giant")
+    assert bool(offers(s, gl)) is giant
+    if giant:
+        mana(s, U=1)
+        act(s, "p1", type="cast_spell", card_id=gl.id, alt_cost=offers(s, gl)[0].key)
+        answer(s)
+        assert zone(s, gl) == "p1:exile"
+        check(s)
+
+
+def test_exile_instead_alternative_is_not_offered_for_a_permanent_spell(cards):
+    from tests.wave110c_kit import offers
+
+    s = build(cards, ["Probe Revenant", "Probe Giant"], [])
+    aura = put(s, "Probe Revenant")
+    act(s, "p1", type="move", card_ids=[aura.id], to={"player": "p1", "zone": "graveyard"})
+    put(s, "Probe Giant")
+    assert not offers(s, aura)

@@ -693,7 +693,7 @@ def define_static(text: str, kind: str, lines: tuple[str, ...] = ()) -> Definiti
 
         if cast_limits.SELF_FLASH_IF.fullmatch(t) or cast_limits.HAS_FLASH_WHILE.fullmatch(t):
             return cast_limits.static_definition(text)
-        if t.startswith("escape—"):  # -- static_other (wave 52C) -- 702.138a: an instant's or sorcery's printed escape (Cling to Dust): functions from the graveyard
+        if t.startswith(("escape—", "as long as you control a")):  # -- static_other (wave 52C) -- 702.138a: an instant's or sorcery's printed escape (Cling to Dust): functions from the graveyard
             from app.rules import escape
 
             return escape.define_static(t)
@@ -842,7 +842,7 @@ def define_static(text: str, kind: str, lines: tuple[str, ...] = ()) -> Definiti
         return found_mayhem
     if re.search(r" in (?:your|each player's) (?:hand|graveyard)(?: that's [^.]*?)? (?:has|have) ", t) and (found_zone := zone_grants.define(t)) is not None:  # -- zone keyword grants (wave 25A)
         return found_zone
-    if t.lower().startswith(("escape—", "each ", "you may cast ~ from your graveyard by", "you may cast this c")) and (found_escape := escape.define_static(t)) is not None:
+    if t.lower().startswith(("escape—", "each ", "you may cast ~ from your graveyard by", "you may cast this c", "as long as you control a")) and (found_escape := escape.define_static(t)) is not None:
         return found_escape  # (702.138a: a printed escape cost, or "Each nonland card in your graveyard has escape. …")
     # -- end top of library (wave 5I) --
     if (m := LINKED_PLAY.fullmatch(t)) is not None:  # -- resolution memory (wave 22D) -- 607.2a: "cards exiled with ~" (app/rules/exiled_with.py)
