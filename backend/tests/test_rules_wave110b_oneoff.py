@@ -22,6 +22,7 @@ from tests.wave110b_kit import (
     mana,
     put,
     repository,
+    through_combat,
     to_hand,
 )
 
@@ -31,7 +32,7 @@ def cards(settings):
     yield from repository(settings)
 
 
-@pytest.mark.parametrize("name", ["Prince of Thralls", "Oath of Lim-Dûl", "Chaos Lord", "Divine Intervention", "Herald of Anafenza", "Guardian of New Benalia", "Aloe Alchemist", "Parapet Thrasher", "Overclocked Electromancer", "Arashin War Beast", "Firemane Angel", "Goblin Plate Mail", "Wall of Dust", "Bane of the Living", "Warbreak Trumpeter", "Kadena's Silencer", "Longhorn Sharpshooter", "Plague Reaver", "Quakebringer", "Suppressor Skyguard", "Shirei, Shizo's Caretaker", "Lich's Mastery", "The Chain Veil", "Campsite Cuisine", "Way of the Mind Sculptor", "Kitsune Ace", "Knights of the Black Rose"])
+@pytest.mark.parametrize("name", ["Prince of Thralls", "Oath of Lim-Dûl", "Chaos Lord", "Divine Intervention", "Herald of Anafenza", "Guardian of New Benalia", "Aloe Alchemist", "Parapet Thrasher", "Overclocked Electromancer", "Arashin War Beast", "Firemane Angel", "Goblin Plate Mail", "Wall of Dust", "Bane of the Living", "Warbreak Trumpeter", "Kadena's Silencer", "Longhorn Sharpshooter", "Plague Reaver", "Quakebringer", "Suppressor Skyguard", "Shirei, Shizo's Caretaker", "Lich's Mastery", "The Chain Veil", "Campsite Cuisine", "Way of the Mind Sculptor", "Kitsune Ace", "Knights of the Black Rose", "Dalkovan Encampment"])
 def test_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
@@ -627,4 +628,22 @@ def test_wall_of_dust_stops_the_blocked_creature_attacking_in_its_controllers_ne
         to_turn(s, 5, "main1")
         act(s, "p1", type="pass_priority")
         assert s.state.rules.decision is not None and s.state.rules.decision.kind == "declare_attackers"
+    check(s)
+
+
+def test_dalkovan_encampment_warriors_attack_and_are_sacrificed_at_end_step(cards):
+    """Dalkovan Encampment: 603.7 the turn-long trigger makes two tapped, attacking Warriors per attack; 701.21a they are sacrificed at the next end step."""
+    s = build(cards, ["Dalkovan Encampment", "Grizzly Bears"], [])
+    camp, bears = put(s, "Dalkovan Encampment"), put(s, "Grizzly Bears")
+    mana(s, "p1", W=1, C=2)
+    act(s, "p1", type="activate_ability", card_id=camp.id, ability=2)
+    drive(s)
+    attack(s, bears)
+    through_combat(s)
+    warriors = [c for c in s.state.cards.values() if c.name == "Warrior" and c.zone == "p1:battlefield"]
+    assert len(warriors) == 2 and all(w.tapped for w in warriors) and s.state.players["p2"].life == 40 - 2 - 2
+    from tests.test_rules_conditionals import until
+
+    until(s, lambda s: s.state.turn.phase == "cleanup" or s.state.turn.number > 1)
+    assert not [c for c in s.state.cards.values() if c.name == "Warrior" and c.zone == "p1:battlefield"]
     check(s)

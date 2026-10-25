@@ -107,7 +107,17 @@ def _electro(d: Def) -> Def:
     return {**d, "effects": [d["effects"][0], {**d["effects"][1], "n": {"turn_history": "excess_obj110b", "object": "event"}}]}
 
 
+def _warriors(d: Def) -> Def:
+    """Dalkovan Encampment: the tokens the turn-long trigger makes are sacrificed at the next end step (603.7: that delayed trigger is made when each fires)."""
+    watch, make = d["effects"]
+    return {**d, "effects": [{**watch, "n": 3}, {**make, "as": "tok110b"}, {"do": "deferred:delayed", "when": {"kind": "step", "step": "end", "whose": "next"}, "n": 1},
+                             {"do": "deferred:deferred:sacrifice", "who": "ref:tok110b"}]}
+
+
 _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
+    # Dalkovan Encampment (the sacrifice rides on each trigger's tokens)
+    "{2}{W}, {T}: Whenever you attack this turn, create two 1/1 red Warrior creature tokens that are tapped and attacking. Sacrifice them at the beginning of the next end step.":
+        ("{2}{W}, {T}: Whenever you attack this turn, create two 1/1 red Warrior creature tokens that are tapped and attacking.", _warriors),
     # Way of the Mind Sculptor: the activation event carries the loyalty counters its cost removed (606.4, 603.4)
     "Whenever you activate a loyalty ability, if you removed two or more loyalty counters to activate it, draw a card.":
         ("Whenever you activate a loyalty ability, draw a card.", lambda d: {**d, "cond": {**d["cond"], "loyalty_removed110b": 2}}),

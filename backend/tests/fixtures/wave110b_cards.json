@@ -917,5 +917,18 @@
   ],
   "power": "1",
   "toughness": "4"
+ },
+ {
+  "name": "Dalkovan Encampment",
+  "layout": "normal",
+  "mana_cost": "",
+  "cmc": 0.0,
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped unless you control a Swamp or a Mountain.\n{T}: Add {W}.\n{2}{W}, {T}: Whenever you attack this turn, create two 1/1 red Warrior creature tokens that are tapped and attacking. Sacrifice them at the beginning of the next end step.",
+  "colors": [],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": []
  }
 ]
