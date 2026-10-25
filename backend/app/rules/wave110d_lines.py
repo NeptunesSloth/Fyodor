@@ -52,6 +52,8 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
     from app.rules import scripts
 
     text = scripts.self_text(ability.text, ch.name)
+    if text == WARD_XP:
+        return {"kind": "static", "static": "ward_xp110d", "effects": []}
     native = _AS.get(text)
     d = None if native is None else scripts.define(replace(ability, text=native), ch)
     if d is not None and text.startswith("Whenever you untap one or more"):  # (own_untap: only the untap step of its controller, triggers.py)
@@ -63,3 +65,17 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
     if d is not None and text.endswith("it enters tapped and attacking."):
         d["effects"][0]["tap_atk110d"] = "Enchantment"
     return d
+
+
+# Minthara, Merciless Soul: ward {X} (702.21a) with X the experience counters its controller has as the ward ability triggers (122.1, 608.2h); read in
+# triggers.targeted. Zero counters is ward {0}: nothing to pay, so no trigger.
+WARD_XP = "~ has ward {X}, where X is the number of experience counters you have."
+
+
+def ward_xp(plan: Any, card: Any) -> list[str]:
+    from app.rules import permissions
+
+    if not any(src.id == card.id for src, _, _ in permissions._table_statics(plan.state, plan.info, {"ward_xp110d"})):
+        return []
+    n = int(plan.state.players[card.controller].resources.get("experience", 0))
+    return [f"{{{n}}}"] if n > 0 else []

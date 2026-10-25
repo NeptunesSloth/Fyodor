@@ -11,3 +11,7 @@
 - Growing Dread: "Whenever you turn a permanent face up" is not "a permanent you control is turned face up" (turning an opponent's); event has no actor.
 - Mausoleum Turnkey, Evangelize, Cuombajj Witches: "of an opponent's choice" targets (opponent announces the target) not modeled.
 - Orcish Farmer: "until its controller's next untap step" duration not modeled ("until your next turn" differs).
+- Manor Gargoyle: "has indestructible as long as it has defender" is a self-keyword dependency (613.8): the static condition would read the layer result it feeds; needs a dependency-aware layer pass.
+- Growing Dread: "Whenever you turn a permanent face up" names the turner, not the controller; no event carries the actor, a controller rewrite would guess.
+- Orcish Farmer: "until its controller's next untap step" is a new layer-effect duration; no foundation yet.
+- Aspect of Wolf: +X/+Y with two different counted values; layers.py "each" carries one value (needs a t_value field).

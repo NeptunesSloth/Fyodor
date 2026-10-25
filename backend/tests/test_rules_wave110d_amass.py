@@ -6,6 +6,8 @@
   a creature they control." (Tourach's Chant; Thelon's Chant with Swamp) — the land's controller pays or is dealt 3.
 * 118.12, 603.2: "At the beginning of the upkeep of enchanted creature's controller, that player may pay {3}. If they don't, this Aura deals 2 damage to that
   player and you tap that creature." (Mind Whip) — paying ends it; not paying (or declining) is both consequences.
+* 702.21a, 122.1: "Minthara has ward {X}, where X is the number of experience counters you have." — the opponent's spell is countered unless its
+  caster pays that many extra; with no experience counters nothing is asked.
 """
 
 from __future__ import annotations
@@ -123,4 +125,21 @@ def test_mind_whip_choice(cards, pay):
     act(s, "p2", type="choose", decision_id=d.id, option_ids=["pay" if pay else "decline"])
     settle(s)
     assert life(s, "p2") == (40 if pay else 38) and now(s, bears).tapped == (not pay)
+    check(s)
+
+
+def test_minthara_is_full():
+    assert full("Minthara, Merciless Soul")
+
+
+@pytest.mark.parametrize("xp,extra,hit", [(2, 0, False), (2, 2, True), (1, 0, False), (0, 0, True)])
+def test_minthara_ward_x_is_experience_counters(cards, xp, extra, hit):
+    """702.21a, 122.1: ward {X}, X = the controller's experience counters: a Lightning Bolt (R) resolves only if its caster pays X more."""
+    s = build(cards, ["Lightning Bolt"], ["Minthara, Merciless Soul"])
+    minthara = put(s, "Minthara, Merciless Soul", "p2")
+    act(s, "p2", type="set_resource", player="p2", key="experience", value=xp)
+    if extra:
+        mana(s, "p1", C=extra)
+    cast_on(s, "Lightning Bolt", minthara)
+    assert (now(s, minthara).zone == "p2:graveyard") == hit  # (3 damage kills it)
     check(s)

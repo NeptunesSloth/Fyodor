@@ -2434,7 +2434,12 @@ def targeted(plan: Plan, stack_id: str | None, controller: str, targets: list[An
 
         if "ward" in ch.keywords and hexproof_targeting.suppresses_ward(plan, card, ch):
             continue
-        for k, cost in enumerate(ward_costs(ch)):  # -- attached events (wave 4L) -- each instance (702.21a)
+        from app.rules import (
+            wave110d_lines,  # -- ward X (wave 110D) -- "ward {X}, where X is the number of experience counters you have" (Minthara)
+        )
+
+        extra = [] if hexproof_targeting.suppresses_ward(plan, card, ch) else wave110d_lines.ward_xp(plan, card)
+        for k, cost in enumerate([*ward_costs(ch), *extra]):  # -- attached events (wave 4L) -- each instance (702.21a)
             effects: list[dict[str, Any]] = [{"do": "counter_unless", "cost": cost, "object": stack_id}]
             if not WARD.fullmatch(f"ward {cost}"):  # (wave 15E; 17C: "{2}, Pay 2 life" is not mana alone) a non-mana ward cost: the targeting player may pay it, else it's countered
                 effects = _ward_payment(cost, f"player:{controller}", [{"do": "counter", "object": stack_id}])
