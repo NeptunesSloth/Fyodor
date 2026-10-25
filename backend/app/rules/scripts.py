@@ -2677,6 +2677,10 @@ def _sacrifice_count_sequence(body: str) -> tuple[list[dict[str, Any]], Any, boo
 
 
 def parse_effects(body: str, it: str | None = None, *, event_player: bool = False) -> tuple[list[dict[str, Any]], Any, bool] | None:
+    from app.rules import wave110g_cards  # -- exact wordings (wave 110G) --
+
+    if (body110g := wave110g_cards.parse(body)) is not None:
+        return body110g
     from app.rules import wave110c_core  # -- exact wordings (wave 110C) --
 
     if (body110c := wave110c_core.parse(body)) is not None:

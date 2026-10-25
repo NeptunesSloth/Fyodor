@@ -506,6 +506,7 @@ def _facts(plan: Plan, e: Event, window: dict[str, Any]) -> list[Fact]:
             x.endswith(":bargain") for x in paid.additional))))
         info = {"oid": plan.oid(spell), "actor": e.player, "nth": nth, "from": window["cast_from"].get(spell.id),  # 702.33d, 702.174k)
                 "opponent_turn": plan.active != e.player, "kicked": kicked,
+                "teamwork": paid is not None and any(x.endswith(":teamwork") for x in paid.additional),  # -- (wave 110G) -- 702.194b
                 "snow_spent": dict(paid.snow_spent) if paid is not None and paid.snow_spent is not None else None,
                 "mana_tags": [list(tags) for tags in paid.mana_tags] if paid is not None and paid.mana_known else None,
                 "mana_sources": list(paid.mana_sources) if paid is not None and paid.mana_known else [],
@@ -600,7 +601,7 @@ def _facts(plan: Plan, e: Event, window: dict[str, Any]) -> list[Fact]:
         was = _object_then(plan, e.card, e.object_id)
         if by is None or was is None:
             return []
-        return [("exploit", by[0], by[1], e.player, {"oid": e.source, "actor": e.player, "exploited": was, "amount": 1,
+        return [("exploit", by[0], by[1], e.player, {"oid": e.source, "actor": e.player, "exploited": was, "exploited_oid": e.object_id, "amount": 1,
                                                     "snap": None if _live(plan, by[0]) else r.lki.get(e.source or "")})]
     if e.kind == "counters" and e.amount > 0:  # 122.6: counters put on a permanent
         got = _object_then(plan, e.card, e.object_id)
@@ -1207,6 +1208,8 @@ def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: F
             return False
         if cond.get("kicked") and not info.get("kicked"):
             return False
+        if cond.get("teamwork") and not info.get("teamwork"):  # -- (wave 110G) -- "a spell using teamwork" (702.194b)
+            return False
         frm = _zone(info.get("from"))
         frm = "exile" if frm == "foretell" else frm  # (-- review 30 -- the foretell zone is exile, 702.143a, as casting.cast_spell records it)
         origin = info.get("from") or ""
@@ -1524,7 +1527,8 @@ def _event(plan: Plan, fact: Fact, batch: int) -> TriggerEvent:
                         # -- damage wordings (wave 6B) -- the creature on the other side of a block (509.3c-d)
                         other=_source_ref(plan, plan.oid(plan.state.cards[info["other"]]))
                         if kind in _PAIRED.values() and info.get("other") in plan.state.cards
-                        else _source_ref(plan, info.get("bearer")) if kind == "ring_tempts" else None,  # (wave 19B: the Ring-bearer chosen)
+                        else _source_ref(plan, info.get("exploited_oid")) if kind == "exploit" else  # -- exploit (wave 110G) -- the exploited creature, as it was
+                        _source_ref(plan, info.get("bearer")) if kind == "ring_tempts" else None,  # (wave 19B: the Ring-bearer chosen)
                         ballots=info.get("ballots") or [])  # (-- voting (wave 48D) --)
 
 

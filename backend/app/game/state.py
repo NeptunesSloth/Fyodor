@@ -327,6 +327,7 @@ class TurnState(BaseModel):
     active_player: str
     phase: str = "untap"
     starting_life: dict[str, int] | None = None  # Actual native boundary receipt; legacy absence stays unknown.
+    starting_hand: dict[str, int] | None = None  # -- wave 110G -- hand sizes as the turn began (Mindstorm Crown); older saves: unknown
 
 
 class Playmat(BaseModel):
