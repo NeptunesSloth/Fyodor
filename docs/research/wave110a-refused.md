@@ -13,3 +13,9 @@
 - Needle Drop: "any target that was dealt damage this turn" needs players dealt damage as a target filter.
 - Jabari's Influence: "attacked you this turn" needs per-creature attack targets in the turn log.
 - Viral Spawning: self graveyard flashback with poison condition (Corrupted) not in graveyard_grants.
+- Leyline of Transformation: "As this enchantment enters, choose a creature type" would pause the game start (opening_hand.py); plus type-adding to hand/library cards.
+- Hulking Metamorph: copy exception "power and toughness equal to this creature's" depends on prototype size; CopyExcept has no own-P/T source.
+- Frenzied Saddlebrute: haste only toward opponents; combat.attack_problem has no defender parameter.
+- Zinnia, Valley's Voice / Hatchery Sliver / Ian Chesterton: granted offspring/replicate need a keyword on the spell's characteristics (costs.py kicker reads ch.abilities).
+- Desert Were-Worm: needs min_total_power attack condition (wave 110D branch), not in this branch.
+- Squandered Resources: mana types of the sacrificed land (LKI) not available to the mana-ability reader.
