@@ -109,7 +109,7 @@ def _another_round() -> Parsed:
     from app.rules import selectors, values
 
     key = selectors.parse("creatures you control").key()  # type: ignore[union-attr]
-    step = [{"do": "player_chooses", "who": "you", "sel": key, "n": 250, "label": "creatures", "upto": True, "optional": True, "as": "gco"},
+    step: list[dict[str, Any]] = [{"do": "player_chooses", "who": "you", "sel": key, "n": 250, "label": "creatures", "upto": True, "optional": True, "as": "gco"},
             {"do": "exile", "who": "ref:gco", "as": "e0"},
             {"do": "return_card", "who": "ref:e0", "to": "battlefield", "tapped": False, "under": "owner"}]
     return [*step, {"do": "repeat", "n": values.parse_amount("X"), "span": 3}, *copy.deepcopy(step)], None, False
@@ -129,7 +129,21 @@ def _spry_and_mighty() -> Parsed:
             {"do": "grant", "who": "ref:gco", "keywords": ["trample"]}], None, False
 
 
+def _slime() -> Parsed:
+    """Slime Against Humanity: the counters are put after the token is created (122.1); X = 2 + the cards you own in your graveyard and in exile that are
+    Oozes or are named like this one. The two kinds can't overlap (Slime Against Humanity is a sorcery), so the four counts add up exactly."""
+    effects, groups, optional = read("Create a 0/0 green Ooze creature token with trample. Put X +1/+1 counters on it, where X is two plus the number of Ooze cards in your graveyard.")
+    counts = [read(f"Draw X cards, where X is the number of {what} {where}.")[0][0]["n"] for what in ("Ooze cards", "cards named Slime Against Humanity")
+              for where in ("in your graveyard", "you own in exile")]
+    effects[1]["n"] = {"plus": [2, *counts]}
+    return effects, groups, optional
+
+
 BUILDERS: dict[str, Callable[[], Parsed]] = {
+    # 100.2a: a deck-building rule on an instant or sorcery has no effect in the game (on a permanent statics.py reads the same line)
+    "A deck can have any number of cards named Slime Against Humanity.": lambda: ([], None, False),
+    "Create a 0/0 green Ooze creature token with trample. Put X +1/+1 counters on it, where X is two plus the total number of cards you own in exile "
+    "and in your graveyard that are Oozes or are named Slime Against Humanity.": _slime,
     "Choose exactly two creatures you control. You draw X cards and the chosen creatures get +X/+X and gain trample until end of turn, where X is "
     "the difference between the chosen creatures' powers.": _spry_and_mighty,
     "Return each Aura card from your graveyard to the battlefield. Only creatures can be enchanted this way.": _retether,

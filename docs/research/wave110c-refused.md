@@ -1,2 +1,10 @@
 - Scorched Ruins, Lotus Vale: enter_cost.py answers one object; "sacrifice two untapped lands instead" needs a multi-object entering answer (foundation not built).
 - SOLDIER Military Program: "each of up to two Soldiers you control" is a resolution-time choice, no non-target "up to N" pick primitive; targeting would be wrong.
+- Relentless Dead: X is chosen after the target is chosen; engine announces X before targets.
+- Party Dude: trigger condition about which opponents attacked is unclear in the Oracle wording; not guessed.
+- Mariposa: shock plumbing is life-specific and the choice is inverted; no safe rewrite.
+- Bring the Ending: condition on poison counters of the spell's controller has no condition reader.
+- Nahiri's Lithoforming: X extra land drops plus "enter tapped this turn" has no foundation.
+- Foretell X widening check (casting.FORETELL, alt_costs.X_KEYWORDS): only Starnheim Unleashed has X in a foretell cost in the DB; no other card flips.
+- Library of Leng, Nephalia Academy, Pulmonic Sliver: "may put on top of library instead of graveyard" needs an optional 616 candidate (zone_candidates is mandatory-only; madness and grouped_discard interplay).
+- Printlifter Ooze: token "enters with X counters" has no foundation; X counts creatures other than the source (the token must not count), put-after would count it.

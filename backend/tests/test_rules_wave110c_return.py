@@ -7,7 +7,7 @@ import pytest
 
 from app.rules import coverage
 from tests.game_helpers import act
-from tests.wave110c_kit import answer, build, cast, ch, check, make_db, mana, put, real, to_graveyard, zone
+from tests.wave110c_kit import answer, build, cast, ch, check, make_db, mana, put, real, zone
 
 EXTRA = [real("Retether", "{3}{W}", 4, "Sorcery",
               "Return each Aura card from your graveyard to the battlefield. Only creatures can be enchanted this way. (Aura cards that can't enchant a creature on the battlefield remain in your graveyard.)", None, "W"),
@@ -19,6 +19,9 @@ EXTRA = [real("Retether", "{3}{W}", 4, "Sorcery",
               "As an additional cost to cast this spell, pay X life.\nReturn each artifact and creature card with mana value X from your graveyard to the battlefield.", None, "W"),
          real("Spry and Mighty", "{2}{G}", 3, "Sorcery",
               "Choose exactly two creatures you control. You draw X cards and the chosen creatures get +X/+X and gain trample until end of turn, where X is the difference between the chosen creatures' powers.", None, "G"),
+         real("Slime Against Humanity", "{2}{G}", 3, "Sorcery",
+              "Create a 0/0 green Ooze creature token with trample. Put X +1/+1 counters on it, where X is two plus the total number of cards you own in exile and in your graveyard that are Oozes or are named Slime Against Humanity.\nA deck can have any number of cards named Slime Against Humanity.", None, "G"),
+         real("Test Ooze", "{1}{G}", 2, "Creature — Ooze", "", ("1", "1"), "G"),
          real("Test Rock", "{2}", 2, "Artifact", "", None),
          real("Test Gem", "{3}", 3, "Artifact", "", None),
          real("Small Bear", "{1}{G}", 2, "Creature — Bear", "", ("2", "2"), "G"),
@@ -30,7 +33,7 @@ def card_db(settings):
     return make_db(settings, EXTRA)
 
 
-@pytest.mark.parametrize("name", ["Retether", "Another Round", "Fix What's Broken", "Spry and Mighty"])
+@pytest.mark.parametrize("name", ["Retether", "Another Round", "Fix What's Broken", "Spry and Mighty", "Slime Against Humanity"])
 def test_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
@@ -108,4 +111,22 @@ def test_spry_and_mighty_draws_and_pumps_by_the_power_difference(cards):
     assert len(s.state.zones["p1:hand"]) == hand + 2  # (the spell comes into hand inside cast() and leaves it again)
     assert (ch(s, a).pt, ch(s, b).pt) == ((4, 4), (6, 6))
     assert "trample" in ch(s, a).keywords and "trample" in ch(s, b).keywords
+    check(s)
+
+
+def test_slime_against_humanity_counts_oozes_and_copies_in_graveyard_and_exile(cards):
+    """122.1: X = 2 + Oozes in graveyard and exile + cards named Slime Against Humanity (here 1 Ooze in the graveyard, 1 Ooze and 1 Slime in exile) = 5."""
+    s = build(cards, ["Slime Against Humanity", "Slime Against Humanity", "Test Ooze", "Test Ooze", "Small Bear"])
+    slime = [c for c in s.state.cards.values() if c.name == "Slime Against Humanity" and c.owner == "p1"]
+    oozes = [c for c in s.state.cards.values() if c.name == "Test Ooze" and c.owner == "p1"]
+    bear = next(c for c in s.state.cards.values() if c.name == "Small Bear" and c.owner == "p1")
+    act(s, "p1", type="move", card_ids=[oozes[0].id, bear.id], to={"player": "p1", "zone": "graveyard"})
+    act(s, "p1", type="move", card_ids=[oozes[1].id, slime[1].id], to={"player": "p1", "zone": "exile"})
+    mana(s, G=1, C=2)
+    c = slime[0]
+    act(s, "p1", type="move", card_ids=[c.id], to={"player": "p1", "zone": "hand"})
+    act(s, "p1", type="cast_spell", card_id=c.id, targets=[], sources=[])
+    answer(s)
+    token = next(t for t in s.state.cards.values() if t.name == "Ooze" and t.zone == "p1:battlefield")
+    assert token.counters.get("+1/+1") == 5
     check(s)
