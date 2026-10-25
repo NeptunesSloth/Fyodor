@@ -7,6 +7,7 @@ from typing import Any
 
 DANCERS = "When this creature enters, return an enchantment card from your graveyard to your hand or unlock a locked door of a Room you control."
 MARINA = "{T}: Lock or unlock a door of target Room you control. Activate only as a sorcery."
+KEYS = "{3}, {T}, Sacrifice this artifact: Lock or unlock a door of target Room you control. Activate only as a sorcery."
 _SIDE = {1: "left", 2: "right"}
 
 
@@ -18,8 +19,8 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
         if d is not None:
             d["effects"] = [{"do": "dancers110d"}]
         return d
-    if ability.text == MARINA:
-        d = scripts.define(replace(ability, text="{T}: Tap target Room you control. Activate only as a sorcery."), ch)
+    if ability.text in (MARINA, KEYS):  # (Keys to the House: the same effect behind {3}, {T}, Sacrifice this artifact)
+        d = scripts.define(replace(ability, text=ability.text.replace("Lock or unlock a door of", "Tap")), ch)
         if d is not None:
             d["effects"] = [{"do": "door110d", "src": "target"}]
         return d

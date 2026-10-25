@@ -37,7 +37,7 @@ def card_db(settings):
     return settings.cards_db_path
 
 
-@pytest.mark.parametrize("name", ["Ghostly Dancers", "Marina Vendrell"])
+@pytest.mark.parametrize("name", ["Ghostly Dancers", "Marina Vendrell", "Keys to the House"])
 def test_full(name):
     assert full(name)
 
@@ -107,4 +107,15 @@ def test_marina_unlocks_a_locked_door_with_its_trigger(cards):
     room = cast_room(s)
     marina(s, room, f"{room.id}|2")
     assert doors(s, room) == [1, 2] and len(spirits(s)) == 0
+    check(s)
+
+
+def test_keys_to_the_house_sacrifices_and_unlocks(cards):
+    s = build(cards, ["Keys to the House", GRAND])
+    room = cast_room(s)
+    keys = put_new(s, "Keys to the House")
+    mana(s, "p1", C=3)
+    act(s, "p1", type="activate_ability", card_id=keys.id, ability=ability(s, keys, "{3}, {T}, Sacrifice"), targets=[room.id])
+    settle(s, answers=[f"{room.id}|2"])
+    assert doors(s, room) == [1, 2] and s.state.cards[keys.id].zone == "p1:graveyard"
     check(s)
