@@ -84,6 +84,8 @@ Every scenario checks the replay and a save and a load.
   they last existed on the battlefield - 2021-04-16).
 * Mass Polymorph - "Exile all creatures you control, then reveal cards from the top of your library until you reveal that many creature cards."
   (2010-08-15: all put onto the battlefield at once, the rest shuffled in).
+* Kethek, Crucible Goliath - "you may sacrifice another creature. If you do, reveal cards … until you reveal a nonlegendary creature card with lesser
+  mana value" (lesser than the sacrificed creature's, as it last existed: 608.2h).
 * Hellfire - "deals X plus 3 damage to you, where X is the number of creatures that died this way." (a destroyed token counts, a creature a
   replacement effect exiled instead doesn't: the 2009-10-01 rulings).
 """
@@ -117,7 +119,7 @@ REST, BRINGER, VAULT101 = "Long Rest", "Bringer of the Last Gift", "Vault 101: B
 INFERNO, FOXGLOVE, SPIRIT = "Inferno of the Star Mounts", "Mr. Foxglove", "Call the Spirit Dragons"
 HOLISTIC, WERNOG, LIEGE, PLAGUE = "Holistic Wisdom", "Wernog, Rider's Chaplain", "Liege of the Hollows", "Plague of Vermin"
 VAULT21, KAMAHL, OVERSIMPLIFY = "Vault 21: House Gambit", "Kamahl's Summons", "Oversimplify"
-POLYMORPH = "Mass Polymorph"
+POLYMORPH, KETHEK = "Mass Polymorph", "Kethek, Crucible Goliath"
 BEARS, GIANT, RIP, ELVES = "Grizzly Bears", "Hill Giant", "Rest in Peace", "Llanowar Elves"
 
 
@@ -126,7 +128,7 @@ def cards(settings):
     yield from open_repo(settings)
 
 
-@pytest.mark.parametrize("name", [ROWEN, ETCHINGS, KERANOS, SUGARMAW, HELLFIRE, TERROR, KELLAN, EGO, SHRIEK, GORILLA, DESERTER, AEROSTAT, FOLD, SWIFT, RESEARCHER, KOYA, SURVIVORS, VANISH, DAKRA, DURIN, LATNAM, SURGE, LOCKE, HELLION, HULK, KALDHEIM, MANABOND, GUARDIAN, INVESTIGATORS, CLASH, SANCTUM, HEDRON, ATEMSIS, SPHINX, VOICE, GEAR, MIRROR, RUNES, RALLY, REST, BRINGER, VAULT101, INFERNO, FOXGLOVE, SPIRIT, HOLISTIC, WERNOG, LIEGE, PLAGUE, VAULT21, KAMAHL, OVERSIMPLIFY, POLYMORPH])
+@pytest.mark.parametrize("name", [ROWEN, ETCHINGS, KERANOS, SUGARMAW, HELLFIRE, TERROR, KELLAN, EGO, SHRIEK, GORILLA, DESERTER, AEROSTAT, FOLD, SWIFT, RESEARCHER, KOYA, SURVIVORS, VANISH, DAKRA, DURIN, LATNAM, SURGE, LOCKE, HELLION, HULK, KALDHEIM, MANABOND, GUARDIAN, INVESTIGATORS, CLASH, SANCTUM, HEDRON, ATEMSIS, SPHINX, VOICE, GEAR, MIRROR, RUNES, RALLY, REST, BRINGER, VAULT101, INFERNO, FOXGLOVE, SPIRIT, HOLISTIC, WERNOG, LIEGE, PLAGUE, VAULT21, KAMAHL, OVERSIMPLIFY, POLYMORPH, KETHEK])
 def test_the_cards_are_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL", name
 
@@ -1198,4 +1200,19 @@ def test_mass_polymorph_reveals_until_as_many_creature_cards_as_it_exiled(cards)
     run(s)
     mine = sorted(c.name for c in s.state.cards.values() if c.zone == "p1:battlefield" and c.name in ("Fog Bank", "Llanowar Elves", BEARS, "Hill Giant"))
     assert mine == ["Fog Bank", "Llanowar Elves"] and all(zone(s, c) == "p1:exile" for c in gone) and len(s.state.zones["p1:library"]) == library - 2
+    check(s)
+
+
+def test_kethek_finds_a_creature_card_with_lesser_mana_value_than_the_sacrificed_one(cards):
+    s = build_n(cards, [KETHEK, "Hill Giant", "Volcanic Dragon", "Llanowar Elves"])
+    put(s, KETHEK)
+    giant = put(s, "Hill Giant")
+    library = s.state.zones["p1:library"]
+    dragon, elves = (next(c for c in library if s.state.cards[c].name == n) for n in ("Volcanic Dragon", "Llanowar Elves"))
+    library.remove(dragon)
+    library.remove(elves)
+    library[:0] = [dragon, elves]  # (the Dragon's 6 isn't less than the Giant's 4)
+    to_phase(s, "end")
+    run(s, lambda d: [o.id for o in d.options if o.id == "pay" or getattr(o, "card_id", None) == giant.id][:1] or None)
+    assert zone(s, giant) == "p1:graveyard" and zone(s, s.state.cards[elves]) == "p1:battlefield" and s.state.zones["p1:library"][-1] == dragon
     check(s)

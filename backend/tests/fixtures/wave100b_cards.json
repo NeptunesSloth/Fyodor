@@ -1734,5 +1734,24 @@
    "U"
   ],
   "keywords": []
+ },
+ {
+  "name": "Kethek, Crucible Goliath",
+  "layout": "normal",
+  "mana_cost": "{2}{B}{R}",
+  "cmc": 4.0,
+  "type_line": "Legendary Creature — Phyrexian Beast",
+  "oracle_text": "At the beginning of your end step, you may sacrifice another creature. If you do, reveal cards from the top of your library until you reveal a nonlegendary creature card with lesser mana value, put it onto the battlefield, then put the rest on the bottom of your library in a random order.",
+  "colors": [
+   "B",
+   "R"
+  ],
+  "color_identity": [
+   "B",
+   "R"
+  ],
+  "keywords": [],
+  "power": "4",
+  "toughness": "4"
  }
 ]

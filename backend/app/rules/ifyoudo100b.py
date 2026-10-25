@@ -71,7 +71,7 @@ GY_EMPTY = "gy_empty100b"
 def parse(body: str, it: str | None, event_player: bool) -> Found | None:
     text = body.strip()
     for form in (_put_discarded, _hit_discard, _draw_if, _dealt_cant_block, _give_source, _exiled_mv, _connives, _empty_gy, _truce, _each_who_lost,
-                 _either, _plot_paid, _hand_exile, _dont_sacrifice, _put_mv_x, _fold, _swift, _untap_then, _may_attach, _vanish, _dakra, _durin, _latnam, _surge, _locke, _gy_exile, _manabond, _have_deal, _own_bounce, _clash, _reveal_win, _fishing, _runes, _rally, _long_rest, _bringer, _vault101, _becomes20, _foxglove, _spirit_dragons, _holistic, _wernog, _liege, _plague, _vault21, _kamahl, _oversimplify):
+                 _either, _plot_paid, _hand_exile, _dont_sacrifice, _put_mv_x, _fold, _swift, _untap_then, _may_attach, _vanish, _dakra, _durin, _latnam, _surge, _locke, _gy_exile, _manabond, _have_deal, _own_bounce, _clash, _reveal_win, _fishing, _runes, _rally, _long_rest, _bringer, _vault101, _becomes20, _foxglove, _spirit_dragons, _holistic, _wernog, _liege, _plague, _vault21, _kamahl, _oversimplify, _kethek):
         if (found := form(text, it, event_player)) is not None:
             return found
     for pattern, repl in _REWRITES:
@@ -1189,6 +1189,36 @@ def fractal(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return True
 
 
+# -- Kethek, Crucible Goliath: "you may sacrifice another creature. If you do, reveal cards from the top of your library until you reveal a nonlegendary
+# creature card with lesser mana value, put it onto the battlefield, then put the rest on the bottom of your library in a random order." Lesser than the
+# sacrificed creature's, as it last existed (608.2h; an {X} there is 0: the 2023-02-04 ruling).
+_KETHEK = ("you may sacrifice another creature. If you do, reveal cards from the top of your library until you reveal a nonlegendary creature card with lesser "
+           "mana value, put it onto the battlefield, then put the rest on the bottom of your library in a random order.")
+KETHEK = "kethek100b"
+
+
+def _kethek(text: str, it: str | None, event_player: bool) -> Found | None:
+    if text[:1].lower() + text[1:] != _KETHEK:
+        return None
+    pay = _effects("You may sacrifice another creature. If you do, draw a card.", it, event_player)
+    dig = _effects("Reveal cards from the top of your library until you reveal a nonlegendary creature card with mana value 0 or less. Put that card onto the "
+                   "battlefield and the rest on the bottom of your library in a random order.", it, event_player)
+    if pay is None or dig is None or [x.get("do") for x in pay[0]] != ["optional_payment", "only_if", "draw"] or len(dig[0]) != 3 or not dig[0][0].get("until"):
+        return None
+    return [*pay[0][:2], {"do": KETHEK, "paid": f"ref:{pay[0][0]['bind']}", "dig": dig[0]}], None, False
+
+
+def kethek(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    from app.rules import context, selectors
+
+    gone = context.info(plan, ctx, e["paid"].removeprefix("ref:"))
+    if gone is None:
+        return True
+    until = selectors.replace(selectors.from_key(e["dig"][0]["until"]), compare=(("mv", "<", int(gone[1].mana_value)),))
+    ctx["effects"][ctx["next"]:ctx["next"]] = [{**e["dig"][0], "until": until.key()}, *e["dig"][1:]]
+    return True
+
+
 # -- Reign of Terror: "Destroy all green creatures or all white creatures. They can't be regenerated. You lose 2 life for each creature that died
 # this way." 608.2d: the controller picks one as it resolves (and announces it, 101.4b); the rest of the text reads the one done.
 _EITHER = re.compile(r"^Destroy all (?P<a>[a-z]+ creatures) or all (?P<b>[a-z]+ creatures)\. (?P<rest>[^.]+\.(?: [^.]+\.)*)$")
@@ -1235,5 +1265,5 @@ def resume_either(plan: Any, d: Any, chosen: list[str]) -> None:
 PRIMITIVES = {GY_EMPTY: gy_empty, TRUCE: truce, TRUCE_ASK: truce_ask, TRUCE_DRAW: truce_draw, TRUCE_LIFE: truce_life, EITHER: either, COUNTERED: countered,
               SWIFT: swift, BACK: back_creature, TO_GRAVEYARDS: to_graveyards, HAND_GATE: hand_gate,
               SURGE: surge, PUT_EXILED: put_exiled, PUT_CHECK: put_check, OWN_EVERYWHERE: own_everywhere, HAND_VALUES: hand_values,
-              OTHERS: others_back, RALLY: rally, BECAME: became, SPIRIT: spirit, SPIRIT_WIN: spirit_win, SHARES: shares_type, LIEGE: liege, LIEGE_MAKE: liege_make, PLAGUE: plague, SAME_MV: same_mv, KAMAHL: kamahl, OVERSIMPLIFY: oversimplify, FRACTAL: fractal}
+              OTHERS: others_back, RALLY: rally, BECAME: became, SPIRIT: spirit, SPIRIT_WIN: spirit_win, SHARES: shares_type, LIEGE: liege, LIEGE_MAKE: liege_make, PLAGUE: plague, SAME_MV: same_mv, KAMAHL: kamahl, OVERSIMPLIFY: oversimplify, FRACTAL: fractal, KETHEK: kethek}
 RESUME = {TRUCE_ASK: resume_truce_ask, EITHER: resume_either, PUT_EXILED: resume_put_exiled, SPIRIT: resume_spirit}
