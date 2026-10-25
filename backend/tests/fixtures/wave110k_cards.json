@@ -63,5 +63,57 @@
 "produced_mana": [
 "C"
 ]
+},
+{
+"name": "Twisted Sewer-Witch",
+"layout": "normal",
+"mana_cost": "{3}{B}{B}",
+"cmc": 5.0,
+"type_line": "Creature — Human Warlock",
+"oracle_text": "When this creature enters, create a 1/1 black Rat creature token with \"This creature can't block.\" Then for each Rat you control, create a Wicked Role token attached to that Rat. (If you control another Role on it, put that one into the graveyard. Enchanted creature gets +1/+1. When this token is put into a graveyard, each opponent loses 1 life.)",
+"power": "3",
+"toughness": "4",
+"colors": [
+"B"
+],
+"color_identity": [
+"B"
+],
+"keywords": [
+"Role token"
+]
+},
+{
+"name": "Transforming Flourish",
+"layout": "normal",
+"mana_cost": "{2}{R}",
+"cmc": 3.0,
+"type_line": "Instant",
+"oracle_text": "Demonstrate (When you cast this spell, you may copy it. If you do, choose an opponent to also copy it. Players may choose new targets for their copies.)\nDestroy target artifact or creature you don't control. If that permanent is destroyed this way, its controller exiles cards from the top of their library until they exile a nonland card, then they may cast that card without paying its mana cost.",
+"colors": [
+"R"
+],
+"color_identity": [
+"R"
+],
+"keywords": [
+"Demonstrate"
+]
+},
+{
+"name": "Darksteel Colossus",
+"layout": "normal",
+"mana_cost": "{11}",
+"cmc": 11.0,
+"type_line": "Artifact Creature — Golem",
+"oracle_text": "Trample (This creature can deal excess combat damage to the player or planeswalker it's attacking.)\nIndestructible (Damage and effects that say \"destroy\" don't destroy this creature.)\nIf Darksteel Colossus would be put into a graveyard from anywhere, reveal Darksteel Colossus and shuffle it into its owner's library instead.",
+"power": "11",
+"toughness": "11",
+"colors": [],
+"color_identity": [],
+"keywords": [
+"Indestructible",
+"Trample"
+]
 }
 ]

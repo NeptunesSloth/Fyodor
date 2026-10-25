@@ -67,5 +67,78 @@ def resume_opponent_mode(plan: Any, d: Any, chosen: list[str]) -> None:
     effects.continue_effects(plan, ctx)
 
 
-PRIMITIVES = {"opponent_mode110k": opponent_mode}
+def as_controller(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """The next instructions are done by the controller the bound permanent last had (a player who left the game is gone: they are skipped, 800.4a)."""
+    from app.rules import effects
+
+    owners = effects._players(plan, ctx, e["who"])
+    if not owners:
+        ctx["next"] = min(len(ctx["effects"]), ctx["next"] + int(e["skip"]))
+        return True
+    ctx.setdefault("controllers", []).append(ctx["controller"])
+    ctx["controller"] = owners[0]
+    return True
+
+
+PRIMITIVES = {"opponent_mode110k": opponent_mode, "as_controller110k": as_controller}
 RESUME = {"opponent_mode110k": resume_opponent_mode}
+
+
+# -- spell bodies: the whole body -> (the wording the grammar reads, what to do with its effects) --
+_FLOURISH = ("Destroy target artifact or creature you don't control. If that permanent is destroyed this way, its controller exiles cards from the top of "
+             "their library until they exile a nonland card, then they may cast that card without paying its mana cost.")
+
+
+def _flourish(effects: list[Def]) -> list[Def] | None:
+    """Transforming Flourish: the last instruction of the native "… its controller gains 2 life" is the exile-and-cast, done by that player (608.2d, 118.9)."""
+    from app.rules import scripts
+
+    gain = scripts.parse_effects("Exile cards from the top of your library until you exile a nonland card, then you may cast that card without paying its mana cost.")
+    if gain is None or len(effects) != 3 or effects[2].get("do") != "gain_life" or effects[2].get("who") != "ref:e0.controller":
+        return None
+    rest = [{"do": "as_controller110k", "who": "ref:e0.controller", "skip": len(gain[0]) + 1}, *gain[0], {"do": "as_player_end"}]
+    return [effects[0], {**effects[1], "skip": len(rest)}, *rest]
+
+
+_BODIES: dict[str, tuple[str, Any]] = {
+    _FLOURISH: ("Destroy target artifact or creature you don't control. If that permanent is destroyed this way, its controller gains 2 life.", _flourish),
+}
+
+
+def parse(body: str) -> Any:
+    from app.rules import scripts
+
+    if (built := _BODIES.get(body.strip())) is None:
+        return None
+    native = scripts.parse_effects(built[0])
+    if native is None:
+        return None
+    effects = built[1](native[0])
+    return None if effects is None else (effects, native[1], native[2])
+
+
+# -- one-ability wordings: the whole ability text -> (the wording the grammar reads, what to change in its definition) --
+def _rat_roles(d: Def) -> Def:
+    """Twisted Sewer-Witch: a Wicked Role token for each Rat its controller has once the token exists, each attached to its own Rat (111.1, 303.7)."""
+    from app.rules import selectors
+
+    each = {"do": "each100c", "who": selectors.Selector(subtypes=("Rat",), controller="you").key(), "then": {"do": "create_role", "role": "Wicked"}}
+    return {**d, "effects": [*d["effects"], each]} if len(d["effects"]) == 1 and d["effects"][0].get("do") == "create_token" else d
+
+
+_BUILD: dict[str, tuple[str, Any]] = {
+    'When this creature enters, create a 1/1 black Rat creature token with "This creature can\'t block." Then for each Rat you control, create a Wicked '
+    'Role token attached to that Rat.':
+        ('When this creature enters, create a 1/1 black Rat creature token with "This creature can\'t block."', _rat_roles),
+}
+
+
+def definition(ability: Any, ch: Any) -> Def | None:
+    from dataclasses import replace
+
+    from app.rules import scripts
+
+    if (built := _BUILD.get(ability.text.strip())) is None:
+        return None
+    native = scripts.define(replace(ability, text=built[0]), ch)
+    return None if native is None else built[1](native)

@@ -2,6 +2,9 @@
 
 * 608.2d, 800.4: Library of Lat-Nam's mode is chosen on resolution by an opponent (the caster picks which one with several): three cards at the
   next turn's upkeep, or a tutor.
+* 111.1, 303.7, 608.2c: Twisted Sewer-Witch makes a Rat, then one Wicked Role for each Rat its controller has, each on its own Rat.
+* 608.2d, 118.9, 702.145: Transforming Flourish destroys a permanent you don't control; only if it was destroyed does its controller exile until a nonland
+  card and may cast it free.
 * 602.2b, 118.3: Bullseye, Death Dealer's activation cost is a choice announced with the activation: sacrifice an artifact or discard a nonland card.
 """
 
@@ -16,6 +19,8 @@ from tests.wave110k_kit import (  # noqa: F401
     EXTRA,
     activate,
     card_db,
+    cast_on,
+    ch,
     check,
     full,
     hand_new,
@@ -120,4 +125,81 @@ def test_library_of_lat_nam_controller_names_which_opponent_chooses(cards):
     assert d is not None and d.player == "p3" and [o.id for o in d.options] == ["0", "1"]
     act(s, "p3", type="choose", decision_id=d.id, option_ids=["1"])
     settle(s)
+    check(s)
+
+
+def test_twisted_sewer_witch_is_full():
+    assert full("Twisted Sewer-Witch")
+
+
+def _roles(s):
+    return [c for c in s.state.cards.values() if c.name == "Wicked" and c.zone.endswith(":battlefield")]
+
+
+def test_twisted_sewer_witch_gives_each_rat_a_wicked_role(cards):
+    s = build(cards, ["Twisted Sewer-Witch"])
+    cast_on(s, "Twisted Sewer-Witch")
+    rats = [c for c in s.state.cards.values() if c.name == "Rat" and c.zone.endswith(":battlefield")]
+    assert len(rats) == 1 and [r.attached_to for r in _roles(s)] == [rats[0].id]
+    assert int(ch(s, rats[0]).pt[0]) == 2  # 1/1 with Wicked's +1/+1
+    check(s)
+
+
+def test_second_witch_counts_the_rat_already_there_and_each_keeps_one_role(cards):
+    s = build(cards, ["Twisted Sewer-Witch", "Twisted Sewer-Witch"])
+    cast_on(s, "Twisted Sewer-Witch")
+    life_before = life(s, "p2")
+    cast_on(s, "Twisted Sewer-Witch")
+    rats = [c for c in s.state.cards.values() if c.name == "Rat" and c.zone.endswith(":battlefield")]
+    assert len(rats) == 2
+    # 303.7 / 111.10: a Role replaces another Role you control on the same permanent; the old Role goes to the graveyard and its owner's opponents lose 1 life
+    assert sorted(r.attached_to for r in _roles(s)) == sorted(r.id for r in rats)
+    assert life(s, "p2") == life_before - 1
+    check(s)
+
+
+def test_transforming_flourish_is_full():
+    assert full("Transforming Flourish")
+
+
+def _flourish(cards, target_name, foe_top):
+    from tests.wave110b_kit import top
+
+    s = build(cards, ["Transforming Flourish"], [target_name, *dict.fromkeys(foe_top)])
+    victim = put_new(s, target_name, "p2")
+    for name in foe_top:
+        top(s, name, "p2")
+    cast = to_hand(s, "Transforming Flourish")
+    mana(s, R=1, C=2)  # {2}{R}
+    act(s, "p1", type="cast_spell", card_id=cast.id, targets=[victim.id])
+    return s, victim
+
+
+def _finish(s):
+    for _ in range(40):
+        d = s.state.rules.decision
+        if d is not None:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: max(1, d.min_choices)] if d.kind != "choose_one" else [d.options[0].id])
+        elif s.state.zones.get("stack"):
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            return
+    raise AssertionError("never settled")
+
+
+def test_flourish_makes_the_controller_exile_to_a_nonland_card_and_cast_it_free(cards):
+    s, victim = _flourish(cards, "Grizzly Bears", ["Elvish Visionary", "Island"])  # listed bottom-up: an Island is on top of the Visionary
+    _finish(s)
+    assert now(s, victim).zone.endswith(":graveyard")
+    assert sorted(c.name for c in s.state.cards.values() if c.zone == "p2:exile") == ["Island"]
+    knight = [c for c in s.state.cards.values() if c.name == "Elvish Visionary" and c.zone.endswith(":battlefield")]
+    assert len(knight) == 1 and knight[0].controller == "p2"
+    check(s)
+
+
+def test_flourish_does_nothing_more_when_the_permanent_survives(cards):
+    s, victim = _flourish(cards, "Darksteel Colossus", ["Elvish Visionary"])
+    _finish(s)
+    assert now(s, victim).zone.endswith(":battlefield")
+    assert not [c for c in s.state.cards.values() if c.zone == "p2:exile"]
     check(s)
