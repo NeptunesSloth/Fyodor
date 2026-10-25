@@ -360,3 +360,41 @@ def _towashi(d: Def) -> Def:
 
 _BUILD["Whenever a permanent you control transforms or a permanent you control enters transformed, you may draw a card. Do this only once each turn."] = (
     "Whenever a permanent you control transforms, you may draw a card. Do this only once each turn.", _towashi)
+
+
+# All Hallow's Eve: the spell exiles itself with two scream counters (the instruction moves the resolving spell, so it isn't put into a graveyard, 608.2n);
+# each of its owner's upkeeps, while it is exiled with a scream counter (an ability of the exiled card, as for suspend), it loses one, and with none left
+# it goes to the graveyard and every graveyard's creatures return (the step trigger of an exiled card: triggers.at_step_generic, exiled_step)
+SCREAM = "scream"
+
+
+def scream_exile(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
+    card = plan.state.cards.get(ctx.get("source_card", ""))
+    if card is None or card.zone != "stack":
+        return True
+    plan.do({"type": "move", "card_ids": [card.id], "to": {"player": card.owner, "zone": "exile"}}, actor=ctx["controller"])
+    plan.do({"type": "counter", "card_ids": [card.id], "kind": SCREAM, "delta": 2}, actor=ctx["controller"])
+    return True
+
+
+def scream_tick(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
+    """Intervening "if" (603.4): checked again as it resolves; no counter, or no longer exiled: nothing happens."""
+    card = plan.state.cards.get(ctx.get("source_card", ""))
+    if card is None or not card.zone.endswith(":exile") or plan.oid(card) != ctx.get("source_object") or card.counters.get(SCREAM, 0) < 1:
+        ctx["next"] = len(ctx["effects"])
+        return True
+    plan.do({"type": "counter", "card_ids": [card.id], "kind": SCREAM, "delta": -1}, actor=ctx["controller"])
+    if plan.state.cards[card.id].counters.get(SCREAM, 0) > 0:
+        ctx["next"] = len(ctx["effects"])
+        return True
+    plan.do({"type": "move", "card_ids": [card.id], "to": {"player": card.owner, "zone": "graveyard"}}, actor=ctx["controller"])
+    return True
+
+
+PRIMITIVES.update({"scream_exile110j": scream_exile, "scream_tick110j": scream_tick})
+
+_BUILD["Exile All Hallow's Eve with two scream counters on it."] = ("Draw a card.", lambda d: {**d, "effects": [{"do": "scream_exile110j"}]})
+_BUILD["At the beginning of your upkeep, if this card is exiled with a scream counter on it, remove a scream counter from it. If there are no more scream counters on it, put it into your graveyard and each player returns all creature cards from their graveyard to the battlefield."] = (
+    "At the beginning of your upkeep, return all creature cards from all graveyards to the battlefield under their owners' control.",
+    lambda d: {**d, "trigger": "step:upkeep:you", "exiled_step": True, "if": {"value": {"counters": SCREAM, "on": "self"}, "op": ">=", "n": 1},
+               "effects": [{"do": "scream_tick110j"}, *d["effects"]]})

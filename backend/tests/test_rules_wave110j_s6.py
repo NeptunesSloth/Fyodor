@@ -214,3 +214,25 @@ def test_towashi_draws_only_once_each_turn(cards):
     activate(s, token, "{2}")
     assert s.state.cards[token.id].face == 1 and _draws(s) == after_first
     check(s)
+
+
+EVE = "All Hallow's Eve"
+
+
+def test_all_hallows_eve_ticks_down_on_its_owners_upkeeps_then_returns_every_creature(cards):
+    """608.2n, 603.4: the spell exiles itself with two scream counters; at each of its owner's upkeeps it loses one; with none left it goes to the
+    graveyard and every player's creature cards return from their graveyard to the battlefield."""
+    from tests.wave110j_kit import grave_new, to_phase
+
+    assert full(EVE)
+    s = build(cards, [EVE, "Grizzly Bears", "Llanowar Elves"], ["Grizzly Bears"])
+    mine, theirs = grave_new(s, "Grizzly Bears", "p1"), grave_new(s, "Grizzly Bears", "p2")
+    eve = cast_on(s, EVE)
+    assert eve.zone == "p1:exile" and eve.counters == {"scream": 2}
+    to_phase(s, "main1", turn=3)  # p1's next turn: one counter off (turn 2 was p2's upkeep: no tick)
+    assert now(s, eve).zone == "p1:exile" and now(s, eve).counters == {"scream": 1}
+    assert now(s, mine).zone.endswith(":graveyard")
+    to_phase(s, "main1", turn=5)
+    assert now(s, eve).zone == "p1:graveyard" and not now(s, eve).counters
+    assert now(s, mine).zone == "p1:battlefield" and now(s, theirs).zone == "p2:battlefield"  # each under its owner's control (400.3)
+    check(s)
