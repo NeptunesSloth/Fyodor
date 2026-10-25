@@ -58,6 +58,13 @@ EXTRA = [
          ("1", "1"), "G"),
     card("Probe Walker", set_code="tst", number="110I-W", mana_cost="{2}", cmc=2.0, type_line="Legendary Planeswalker — Probe", loyalty="3",
          oracle_text="+1: You gain 1 life.\n\u22122: You gain 2 life.", colors=[], color_identity=[], keywords=[]),
+    card("Probe Warden", set_code="tst", number="110I-X", mana_cost="{2}", cmc=2.0, type_line="Legendary Planeswalker — Probe", loyalty="3",
+         oracle_text="+1: You gain 1 life.\n\u22122: You gain 2 life.", colors=[], color_identity=[], keywords=[]),
+    real("Hardened Scales", "{G}", 1, "Enchantment",
+         "If one or more +1/+1 counters would be put on a creature you control, that many plus one +1/+1 counters are put on it instead.", None, "G"),
+    real("Tezzeret's Gambit", "{3}{U}", 4, "Sorcery", "Draw two cards, then proliferate.", None, "U"),
+    real("Angrath's Marauders", "{3}{R}{R}", 5, "Creature — Human Pirate",
+         "If a source you control would deal damage to a permanent or player, it deals double that damage instead.", ("4", "4"), "R"),
     real("Naturalize", "{1}{G}", 2, "Instant", "Destroy target artifact or enchantment.", None, "G"),
 ]
 NAMES = ["The Moment", "Curse of Conformity", "Puppet Master", "Rhuk, Hexgold Nabber", "Errant Minion", "Power Leak", "Glimpse the Cosmos", "Traveler's Cloak", "Bioessence Hydra"]
@@ -260,4 +267,43 @@ def test_bioessence_hydra_grows_by_the_loyalty_counters_put_on_planeswalkers(car
     act(s, "p1", type="activate_ability", card_id=walker.id, ability=1)
     answer(s)
     assert counters() == 4 and s.state.cards[walker.id].counters["loyalty"] == 2
+    check(s)
+
+
+def test_bioessence_hydra_one_trigger_per_batch_with_hardened_scales(cards):
+    """603.2c: one trigger for the proliferate that puts loyalty counters on two planeswalkers, summed (2); Hardened Scales adds one once (614.1)."""
+    s = build(cards, ["Bioessence Hydra", "Hardened Scales", "Probe Walker", "Probe Warden", "Tezzeret's Gambit"], [])
+    hydra = put(s, "Bioessence Hydra")
+    put(s, "Hardened Scales")
+    mana(s, C=4)
+    cast(s, "Probe Walker")
+    answer(s)
+    cast(s, "Probe Warden")
+    answer(s)
+    counters = lambda: s.state.cards[hydra.id].counters.get("+1/+1", 0)  # noqa: E731
+    assert counters() == 8  # 3 + 1 and 3 + 1 for two separate entries
+    mana(s, C=3, U=1)
+    cast(s, "Tezzeret's Gambit")
+    while s.state.rules.decision is None:
+        act(s, "p1", type="pass_priority")
+    d = s.state.rules.decision
+    answer(s, [o.id for o in d.options if "Probe" in o.label])  # not the Hydra itself
+    assert counters() == 11  # one trigger: 2 + 1, not (1 + 1) twice
+    check(s)
+
+
+@pytest.mark.parametrize("paid", [0, 1, 2, 3])
+def test_errant_minion_prevention_combines_with_doubling(cards, paid):
+    """615.7, 616.1: the shield prevents X of the (doubled) damage: 4 - X."""
+    s = build(cards, ["Errant Minion", "Angrath's Marauders"], ["Grizzly Bears", "Forest", "Island", "Swamp"])
+    put(s, "Angrath's Marauders")
+    target = put(s, "Grizzly Bears", "p2")
+    for land in ("Forest", "Island", "Swamp"):
+        put(s, land, "p2")
+    mana(s, U=3)
+    cast(s, "Errant Minion", [target.id])
+    answer(s)
+    to_phase(s, "upkeep", turn=2)
+    answer(s, f"x:{paid}" if paid else "decline")
+    assert life(s, "p2") == 40 - max(0, 4 - paid)
     check(s)

@@ -24,9 +24,6 @@ def _won_last(d: Def) -> Def:
 
 # whole ability text -> the wording the grammar reads for it
 _AS: dict[str, str] = {
-    # Bioessence Hydra: one trigger per planeswalker the counters go onto (the grammar reads the singular); the counters added are the same in total
-    "Whenever one or more loyalty counters are put on planeswalkers you control, put that many +1/+1 counters on this creature.":
-        "Whenever one or more loyalty counters are put on a planeswalker you control, put that many +1/+1 counters on this creature.",
     # Corrosion: "Artifacts destroyed this way" are the ones the destroy-each instruction destroyed ("They", 701.8c: can't be regenerated)
     "At the beginning of your upkeep, put a rust counter on each artifact target opponent controls. Then destroy each artifact with mana value less than "
     "or equal to the number of rust counters on it. Artifacts destroyed this way can't be regenerated.":
@@ -56,17 +53,25 @@ def _attach_all(d: Def) -> Def:
 
 
 def _prevent_paid(d: Def) -> Def:
-    """Errant Minion / Power Leak: the host's controller pays any amount of mana (118.3), then the Aura deals 2 minus that much (615.1: preventing X of the 2
-    leaves 2 - X, never below 0)."""
+    """Errant Minion / Power Leak: the host's controller pays any amount of mana (118.3), then a prevention shield for that much (615.7) is made on
+    them just before the Aura deals its 2, so damage-changing replacements (616.1) and the shield combine as the rules say."""
     (hit,) = d["effects"]
     pay = {"do": "optional_payment", "who": "event_player", "cost": "", "bind": "leak110i", "choose_x": {"max": None}}
-    return {**d, "effects": [pay, {**hit, "n": {"minus": [hit["n"], {"paid_x": "leak110i"}]}}]}
+    return {**d, "effects": [pay, {"do": "prevent", "who": "event_player", "n": {"paid_x": "leak110i"}}, hit]}
+
+
+def _batch(d: Def) -> Def:
+    """Bioessence Hydra: "one or more ... planeswalkers" is one trigger per batch of counter placements (603.2c) with their summed amount, not one per
+    planeswalker (a replacement like Hardened Scales would add to each separate trigger's counters)."""
+    return {**d, "cond": {**d["cond"], "aggregate": True}}
 
 
 _POWER_LEAK = "At the beginning of the upkeep of enchanted {0}'s controller, that player may pay any amount of mana. This Aura deals 2 damage to that player. Prevent X of that damage, where X is the amount of mana that player paid this way."
 
 # whole ability text -> (the wording the grammar reads, what to change in its definition)
 _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
+    "Whenever one or more loyalty counters are put on planeswalkers you control, put that many +1/+1 counters on this creature.":
+        ("Whenever one or more loyalty counters are put on a planeswalker you control, put that many +1/+1 counters on this creature.", _batch),
     **{_POWER_LEAK.format(k): (f"At the beginning of the upkeep of enchanted {k}'s controller, this Aura deals 2 damage to that player.", _prevent_paid)
        for k in ("creature", "enchantment")},
     "Whenever an equipped creature you control other than Rhuk attacks or dies, you may attach all Equipment attached to that creature to Rhuk.":
