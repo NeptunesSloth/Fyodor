@@ -38,6 +38,14 @@ def _take_the_bait() -> Parsed:
     return [{**prevent, "scope": {**prevent["scope"], "to_objects": walkers}}, *rest], None, False
 
 
+def _ronin() -> Parsed:
+    """The Last Ronin's Technique: tokens that enter tapped and attacking (508.4) when the sneak cost was paid, else plain tokens (702.190a)."""
+    cond = {"object": "self", "cast": {"alt": "sneak"}}
+    attacking = _p("Create three 1/1 white Ninja Turtle Spirit creature tokens that are tapped and attacking.")[0]
+    plain = _p("Create three 1/1 white Ninja Turtle Spirit creature tokens.")[0]
+    return [{"do": "only_if", "cond": cond, "skip": 1}, *attacking, {"do": "only_if", "cond": {"not": cond}, "skip": 1}, *plain], None, False
+
+
 def _snow(add: bool) -> Callable[[], Parsed]:
     from app.rules import selectors
 
@@ -280,6 +288,7 @@ def _beheld_power(text: str) -> Callable[[], Parsed]:
 
 
 BUILDERS: dict[str, Callable[[], Parsed]] = {
+    "Create three 1/1 white Ninja Turtle Spirit creature tokens. If this spell's sneak cost was paid, they enter tapped and attacking.": _ronin,
     "~ deals damage equal to the power of the creature you chose or the card you revealed to target creature.":
         _beheld_power("~ deals damage equal to the power of the sacrificed creature to target creature."),
     "~ deals 3 damage to target creature or planeswalker. If you revealed a Dragon card or chose a Dragon as you cast this spell, ~ deals damage "

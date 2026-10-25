@@ -2,6 +2,7 @@
 
 * Displaced Dinosaurs - 614.12 / 205.1b / 613.4b: a historic permanent you control becomes a 7/7 Dinosaur creature in addition as it enters.
 * Zariel, Archduke of Avernus - -6 emblem: 511.2 / 500.8 untap a creature and get an additional combat phase after the first combat only.
+* The Last Ronin's Technique - 702.190a sneak: the tokens enter tapped and attacking (508.4) only if the sneak cost was paid.
 """
 
 # ruff: noqa: F403, F405
@@ -11,6 +12,7 @@ from tests.wave110a_kit import *
 
 DINO = "Displaced Dinosaurs"
 ZARIEL = "Zariel, Archduke of Avernus"
+RONIN = "The Last Ronin's Technique"
 
 
 @pytest.fixture()
@@ -18,7 +20,7 @@ def cards(settings):
     yield from open_repo(settings)
 
 
-test_full = full_test([DINO, ZARIEL])
+test_full = full_test([DINO, ZARIEL, RONIN])
 
 
 def test_historic_artifact_enters_as_a_7_7_dinosaur_creature(cards):
@@ -81,4 +83,26 @@ def test_zariel_emblem_untaps_a_creature_and_adds_one_combat_phase_only(cards):
     to_phase(s, "declare_attackers")
     assert _combats(s, bears) == 2  # the first combat, then exactly one more: the added phase is not a "first combat phase"
     assert s.state.cards[bears.id].tapped  # it attacked in the second combat after the emblem untapped it
+    check(s)
+
+
+@pytest.mark.parametrize("sneak", [False, True])
+def test_last_ronin_tokens_attack_only_when_sneaked(cards, sneak):
+    from tests.test_rules_wave30i_sneak import attackers_declared, returned, sneak_of
+
+    s = build(cards, [RONIN, "Grizzly Bears"], ["Llanowar Elves"])
+    spell = to_hand(s, RONIN)
+    if sneak:
+        bear = put(s, "Grizzly Bears")
+        s.state.rules.controlled_since[bear.id].turn = 0
+        attackers_declared(s, [(bear, "p2")])
+        mana(s, W=1, C=1)
+        act(s, "p1", type="cast_spell", card_id=spell.id, alt_cost=sneak_of(s, cards, spell))
+        returned(s, bear)
+    else:
+        mana(s, W=1, C=3)
+        act(s, "p1", type="cast_spell", card_id=spell.id)
+    answer(s)
+    tokens = [c for c in s.state.cards.values() if c.is_token and c.zone == "p1:battlefield"]
+    assert len(tokens) == 3 and all(t.tapped == sneak and (t.attacking is not None) == sneak for t in tokens)
     check(s)
