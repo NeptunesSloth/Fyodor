@@ -123,6 +123,8 @@ def _inheritance(d: Def) -> Def:
 
 
 _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
+    "At the beginning of combat on your turn, investigate for each goaded creature you control. Then each creature you control is no longer goaded.":
+        ("At the beginning of combat on your turn, investigate for each goaded creature you control.", lambda d: {**d, "effects": [*d["effects"], {"do": "ungoad110b"}]}),
     "Whenever a creature is dealt damage, its controller may exile that many cards from the top of their library. They may play those cards until the end of their next turn.":
         ("Whenever a creature is dealt damage, you may exile that many cards from the top of your library. You may play those cards until the end of your next turn.", _inheritance),
     # Dalkovan Encampment (the sacrifice rides on each trigger's tokens)
@@ -244,6 +246,17 @@ def veil(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return True
 
 
+def ungoad(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Serene Sleuth: "each creature you control is no longer goaded" - 701.15b goaded is a designation lasting until the goader's next turn; it leaves them now."""
+    from app.rules import delayed, keyword_actions
+
+    mine = {plan.oid(c) for c in plan.state.cards.values() if c.zone.endswith(":battlefield") and c.controller == ctx["controller"]}
+    for effect in [x for x in plan.rules.effects if any(i.startswith(keyword_actions.GOADED) for i in x.imposes)]:
+        if mine & set(effect.affected):
+            delayed._drop(plan, effect, [o for o in effect.affected if o not in mine])
+    return True
+
+
 def draw_game(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     """104.4c: "the game is a draw" (a Commander game does not use the limited range of influence option, 104.4e)."""
     plan.rules.draw_reason = "An effect states that the game is a draw (104.4c)"
@@ -318,4 +331,4 @@ def no_attack_next(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
 
 
 RESUME: dict[str, Any] = {"exile_own110b": resume_exile_own}
-PRIMITIVES: dict[str, Any] = {"no_attack_next110b": no_attack_next, "draw_game110b": draw_game, "reaver110b": reaver, "veil110b": veil, "exile_own110b": exile_own}
+PRIMITIVES: dict[str, Any] = {"ungoad110b": ungoad, "no_attack_next110b": no_attack_next, "draw_game110b": draw_game, "reaver110b": reaver, "veil110b": veil, "exile_own110b": exile_own}

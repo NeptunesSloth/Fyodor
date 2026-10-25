@@ -32,7 +32,7 @@ def cards(settings):
     yield from repository(settings)
 
 
-@pytest.mark.parametrize("name", ["Prince of Thralls", "Oath of Lim-Dûl", "Chaos Lord", "Divine Intervention", "Herald of Anafenza", "Guardian of New Benalia", "Aloe Alchemist", "Parapet Thrasher", "Overclocked Electromancer", "Arashin War Beast", "Firemane Angel", "Goblin Plate Mail", "Wall of Dust", "Bane of the Living", "Warbreak Trumpeter", "Kadena's Silencer", "Longhorn Sharpshooter", "Plague Reaver", "Quakebringer", "Suppressor Skyguard", "Shirei, Shizo's Caretaker", "Lich's Mastery", "The Chain Veil", "Campsite Cuisine", "Way of the Mind Sculptor", "Kitsune Ace", "Knights of the Black Rose", "Dalkovan Encampment", "Expedited Inheritance"])
+@pytest.mark.parametrize("name", ["Prince of Thralls", "Oath of Lim-Dûl", "Chaos Lord", "Divine Intervention", "Herald of Anafenza", "Guardian of New Benalia", "Aloe Alchemist", "Parapet Thrasher", "Overclocked Electromancer", "Arashin War Beast", "Firemane Angel", "Goblin Plate Mail", "Wall of Dust", "Bane of the Living", "Warbreak Trumpeter", "Kadena's Silencer", "Longhorn Sharpshooter", "Plague Reaver", "Quakebringer", "Suppressor Skyguard", "Shirei, Shizo's Caretaker", "Lich's Mastery", "The Chain Veil", "Campsite Cuisine", "Way of the Mind Sculptor", "Kitsune Ace", "Knights of the Black Rose", "Dalkovan Encampment", "Expedited Inheritance", "Serene Sleuth"])
 def test_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
@@ -665,4 +665,22 @@ def test_expedited_inheritance_gives_the_damaged_creatures_controller_the_cards(
     assert gone == (3 if accept else 0)  # (Lightning Bolt: 3 damage)
     assert len([c for c in s.state.cards.values() if c.zone == "p2:exile"]) == gone
     assert len([p for p in s.state.rules.permissions if p.player == "p2"]) == gone
+    check(s)
+
+
+def test_serene_sleuth_investigates_for_each_goaded_creature_then_they_are_no_longer_goaded(cards):
+    """Serene Sleuth: 701.15b Bob goads Alice's creatures; at her beginning of combat she investigates for each (two), then none is goaded any more (a designation that ends)."""
+    from app.rules import keyword_actions
+    from tests.test_rules_conditionals import to_turn, until
+
+    s = build(cards, ["Serene Sleuth", "Grizzly Bears", *["Forest"] * 12], ["Disrupt Decorum", *["Forest"] * 12])
+    sleuth, bears = put(s, "Serene Sleuth"), put(s, "Grizzly Bears")
+    to_turn(s, 2, "main1")
+    mana(s, "p2", R=2, C=2)
+    cast(s, "Disrupt Decorum", pid="p2")
+    clues = lambda: len([c for c in s.state.cards.values() if c.name == "Clue" and c.zone == "p1:battlefield"])  # noqa: E731
+    goaded = lambda c: keyword_actions.goaded_by(ch(s, c))  # noqa: E731
+    assert goaded(sleuth) == {"p2"} and goaded(bears) == {"p2"}
+    until(s, lambda s: clues() > 0 or s.state.turn.number > 3)
+    assert clues() == 2 and not goaded(sleuth) and not goaded(bears)
     check(s)
