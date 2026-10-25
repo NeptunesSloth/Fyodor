@@ -11,6 +11,7 @@
 * 702.26a-d: "Simultaneously, all phased-out creatures phase in and all creatures with phasing phase out." (Time and Tide).
 * 118.1, 404.2, 701.19a: "Exile the top creature card of your graveyard: Regenerate this creature." (Zombie Scavengers).
 * 603.2c, 607.2a: "Whenever you discard one or more cards, exile them from your graveyard." + "put the cards exiled with it into their owner's hand" (Toluz).
+* 115.4, 120.3: "deals 4 damage to another target battle or opponent and 1 damage to up to one target creature" (Invasion of Regatha); 614.1a: "plus 2 instead" to a creature, battle, or opponent.
 * 602.5, 605.1a: "Creatures with flying can't attack or block, and their activated abilities with {T} in their costs can't be activated." (Katabatic Winds).
 """
 
@@ -31,7 +32,7 @@ from tests.test_rules_wave100n_multi import (
     card_db,  # noqa: F401  (fixture DB with EXTRA)
     cast,
 )
-from tests.wave9c_kit import build, check, mana, put, to_hand, zone_of
+from tests.wave9c_kit import build, check, life, mana, put, to_hand, zone_of
 
 EXTRA = [
     real('Katabatic Winds', '{2}{G}', 3, 'Enchantment',
@@ -61,10 +62,17 @@ EXTRA = [
          "Exile the top creature card of your graveyard: Regenerate this creature.", ('3', '3'), 'B'),
     real('Toluz, Clever Conductor', '{W/U}{U}{U/B}', 3, 'Legendary Creature — Human Rogue',
          "When Toluz enters, it connives. (Draw a card, then discard a card. If you discarded a nonland card, put a +1/+1 counter on this creature.)\nWhenever you discard one or more cards, exile them from your graveyard.\nWhen Toluz dies, put the cards exiled with it into their owner's hand.", ('3', '1'), 'WUB'),
+    real('Invasion of Regatha', '{2}{R}', 3, 'Battle — Siege',
+         "(As a Siege enters, choose an opponent to protect it. You and others can attack it. When it's defeated, exile it, then cast it transformed.)\nWhen this Siege enters, it deals 4 damage to another target battle or opponent and 1 damage to up to one target creature.", None, "R") | {"defense": "5"},
+    real('Test Siege 110F', '{2}{R}', 3, 'Battle — Siege',
+         "(As a Siege enters, choose an opponent to protect it. You and others can attack it. When it's defeated, exile it, then cast it transformed.)\nWhen this Siege enters, it deals 4 damage to another target battle or opponent and 1 damage to up to one target creature.", None, "R") | {"defense": "5"},
+    real('Test Disciples 110F', '{1}{R}', 2, 'Creature — Human Monk',
+         "If a noncreature source you control would deal damage to a creature, battle, or opponent, it deals that much damage plus 2 instead.", ('1', '1'), 'R'),
+    real('Test Burn 110F', '{R}', 1, 'Instant', "Test Burn 110F deals 2 damage to target player.", None, 'R'),
     real('Test Flyer', '{2}{U}', 3, 'Creature — Bird', 'Flying\n{T}: Draw a card.', ('1', '1'), 'U'),
 ]
 _BASE.extend(EXTRA)  # the shared fixture DB builder reads this list
-NAMES = ["Katabatic Winds", "Rivals' Duel", "Dead Ringers", "Cathedral Membrane", "Taunt", "Jabari's Influence", "Don & Leo, Problem Solvers", "Rapid Fire", "Time and Tide", "Abby, Merciless Soldier", "Zombie Scavengers", "Toluz, Clever Conductor"]
+NAMES = ["Katabatic Winds", "Rivals' Duel", "Dead Ringers", "Cathedral Membrane", "Taunt", "Jabari's Influence", "Don & Leo, Problem Solvers", "Rapid Fire", "Time and Tide", "Abby, Merciless Soldier", "Zombie Scavengers", "Toluz, Clever Conductor", "Invasion of Regatha", "Test Disciples 110F"]
 
 
 @pytest.mark.parametrize("name", NAMES)
@@ -283,4 +291,38 @@ def test_toluz_exiles_discards_and_returns_them_when_it_dies(cards):
     answer(s)
     assert zone_of(s, "Toluz, Clever Conductor") == "p1:graveyard"
     assert sorted(c.zone for c in s.state.cards.values() if c.name == "Grizzly Bears" and c.zone != "p1:library") == ["p1:hand", "p1:hand"]
+    check(s)
+
+
+def test_invasion_of_regatha_hits_an_opponent_and_a_creature_but_not_itself(cards):
+    s = build(cards, ["Invasion of Regatha", "Test Siege 110F"], ["Grizzly Bears"])
+    bear = put(s, "Grizzly Bears", "p2")
+    mana(s, R=2, C=4)
+    first = cast(s, "Invasion of Regatha")
+    answer(s)  # (the target: the opponent, then the Bears)
+    assert life(s, "p2") == 36 and s.state.cards[bear.id].damage == 1
+    second = cast(s, "Test Siege 110F")
+    for _ in range(30):  # (the protector choice first, then the trigger's targets)
+        d = s.state.rules.decision
+        if d is not None and first.id in {o.id for o in d.options}:
+            break
+        if d is None:
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[d.options[0].id])
+    assert {o.id for o in d.options} == {"p2", first.id} and second.id not in {o.id for o in d.options}  # 115.4: "another" battle
+    answer(s)
+    assert life(s, "p2") == 32
+    check(s)
+
+
+@pytest.mark.parametrize("target,hit", [("p2", 4), ("p1", 2)])
+def test_disciples_adds_two_to_noncreature_damage_to_an_opponent(cards, target, hit):
+    """614.1a: only damage to a creature, a battle or an opponent gets the +2; you are none of those."""
+    s = build(cards, ["Test Disciples 110F", "Test Burn 110F"])
+    put(s, "Test Disciples 110F")
+    mana(s, R=1)
+    cast(s, "Test Burn 110F", [target])
+    answer(s)
+    assert life(s, target) == 40 - hit
     check(s)

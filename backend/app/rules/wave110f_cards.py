@@ -90,7 +90,15 @@ def exile_discarded(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return effects.exile_cards(plan, ctx, {"link": True}, cards)
 
 
+def _regatha() -> Parsed:
+    """Invasion of Regatha: "another target battle or opponent" = target opponent or battle other than this Siege (115.4)."""
+    effects, targets, optional = _p("~ deals 4 damage to target opponent or battle and 1 damage to up to one target creature.")
+    targets[0]["what"] = "opponent_or_other_battle110f"
+    return effects, targets, optional
+
+
 BUILDERS: dict[str, Callable[[], Parsed]] = {
+    "it deals 4 damage to another target battle or opponent and 1 damage to up to one target creature.": _regatha,
     "exile them from your graveyard.": lambda: ([{"do": "exile_discarded110f", "exile": True}], None, False),  # ("exile": marks the linking ability, exiled_with._exiles)
     "Simultaneously, all phased-out creatures phase in and all creatures with phasing phase out.": _time_and_tide,
     "exile up to one target artifact you control and up to one target creature you control. Then return them to the battlefield under their owners' control.": _don_and_leo,
