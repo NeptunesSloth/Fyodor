@@ -100,6 +100,18 @@ def emerge_sacrifice(plan: Any, ctx: dict[str, Any], cond: Def) -> bool:
     return any(r.alternative == "emerge" and oid in r.sacrificed_objects for r in plan.rules.payments.values())
 
 
+def shares_with_exiled(plan: Any, ctx: dict[str, Any], cond: Def) -> bool:
+    """Thought Prison: the spell cast has a color or a mana value in common with the card this artifact exiled (105.2, 202.3)."""
+    from app.rules import context, exiled_with
+
+    exiled = exiled_with.cards(plan, ctx)
+    if not exiled:
+        return False
+    other = plan.ch(plan.state.cards[exiled[0]])
+    return any((mine := plan.ch(plan.state.cards[c])) and (set(mine.colors) & set(other.colors) or mine.mana_value == other.mana_value)
+               for c in context.objects(plan, ctx, context.EVENT))
+
+
 def hand_began_empty(plan: Any, ctx: dict[str, Any], cond: Def) -> bool:
     """The controller had no cards in hand as this turn began (an unknown receipt, turn one or an old save, reads the hand now)."""
     began = plan.state.turn.starting_hand
@@ -109,7 +121,7 @@ def hand_began_empty(plan: Any, ctx: dict[str, Any], cond: Def) -> bool:
 
 def holds(plan: Any, ctx: dict[str, Any], cond: Def) -> bool:
     return bool({"walls_block": walls_block, "opp_protects": opponent_protects, "exploited_big": exploited_big,
-                   "hand_began_empty": hand_began_empty, "other_targetable": other_targetable, "emerge_sacrifice": emerge_sacrifice}[cond["w110g"]](plan, ctx, cond))
+                   "hand_began_empty": hand_began_empty, "other_targetable": other_targetable, "emerge_sacrifice": emerge_sacrifice, "shares_with_exiled": shares_with_exiled}[cond["w110g"]](plan, ctx, cond))
 
 
 def _crown(d: Def) -> Def:
@@ -261,8 +273,21 @@ def _emerge_sacrifice(d: Def) -> Def:
     return {**d, "if": {"w110g": "emerge_sacrifice"}}  # 603.4: an intervening condition, it is a fact of the past when the trigger resolves
 
 
+def _may(d: Def) -> Def:
+    return {**d, "optional": True}  # "you may have …. If you do, …": the whole body hinges on the one choice
+
+
+def _shares(d: Def) -> Def:
+    return {**d, "if": {"w110g": "shares_with_exiled"}}
+
+
 # whole ability text -> (the wording the grammar reads, what to change in its definition)
 _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
+    # Thought Prison
+    "Imprint \u2014 When this artifact enters, you may have target player reveal their hand. If you do, choose a nonland card from it and exile that card.":
+        ("When this artifact enters, target player reveals their hand. You choose a nonland card from it. Exile that card.", _may),
+    "Whenever a player casts a spell that shares a color or mana value with the exiled card, this artifact deals 2 damage to that player.":
+        ("Whenever a player casts a spell, this artifact deals 2 damage to that player.", _shares),
     # Foul Emissary
     "When you sacrifice this creature while casting a spell with emerge, create a 3/2 colorless Eldrazi Horror creature token.":
         ("When you sacrifice this creature, create a 3/2 colorless Eldrazi Horror creature token.", _emerge_sacrifice),

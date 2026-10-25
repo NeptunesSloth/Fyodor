@@ -8,6 +8,7 @@
 * Fugitive of the Judoon: 702.21a a token created with ward {2}; 118.3 the Human and the artifact are exiled together, then a Doctor is searched out.
 * Foul Emissary: 702.119a / 701.21a the Eldrazi Horror comes only when it was sacrificed as the emerge cost, not by an effect.
 * Blade of the Swarm: 702.185a the second mode puts an exiled card that has warp (any player's) on the bottom of its owner's library; a card without warp is no target.
+* Thought Prison: 607.2a / 105.2 / 202.3 imprint; a spell sharing a color or mana value with the exiled card hurts its caster for 2 (a spell with neither does not).
 * Total War: 508.1 / 302.6 untapped non-Wall creatures that did not attack and were controlled since the turn began are destroyed.
 * Gemini Engine: 508.4 / 111.1 an attacking token with the attacker's power and toughness, sacrificed at end of combat.
 * Vizkopa Confessor: 119.4 the life paid sizes the reveal (701.20a); paying 0 reveals nothing.
@@ -73,6 +74,9 @@ EXTRA = [
     real('Blade of the Swarm', '{3}{B}', 4, 'Creature \u2014 Insect Assassin',
          "When this creature enters, choose one \u2014\n\u2022 Put two +1/+1 counters on this creature.\n\u2022 Put target exiled card with warp on the bottom of its owner's library.", ('3', '1'), 'B'),
     real('Test Warper', '{2}{R}', 3, 'Creature \u2014 Human', 'Warp {1}{R} (You may cast this card from your hand for its warp cost. Exile this creature at the beginning of the next end step, then you may cast it from exile on a later turn.)', ('3', '2'), 'R'),
+    real('Thought Prison', '{5}', 5, 'Artifact',
+         'Imprint \u2014 When this artifact enters, you may have target player reveal their hand. If you do, choose a nonland card from it and exile that card.\nWhenever a player casts a spell that shares a color or mana value with the exiled card, this artifact deals 2 damage to that player.', None),
+    real('Test Red Two', '{1}{R}', 2, 'Creature \u2014 Goblin', '', ('2', '2'), 'R'),
     real('Total War', '{3}{R}', 4, 'Enchantment',
          "Whenever a player attacks with one or more creatures, destroy all untapped non-Wall creatures that player controls that didn't attack, except for creatures the player hasn't controlled continuously since the beginning of the turn.", None, 'R'),
     real('Gemini Engine', '{6}', 6, 'Artifact Creature — Construct',
@@ -905,4 +909,21 @@ def test_blade_of_the_swarm_bottoms_only_an_exiled_card_with_warp(cards, target)
     assert zone == ("p1:library" if target == "Test Warper" else "p1:exile")
     if target == "Test Warper":
         assert s.state.zones["p1:library"][-1] == foe.id
+    check(s)
+
+
+@pytest.mark.parametrize("spell,hurt", [("Llanowar Elves", 2), ("Test Red Two", 2), ("Hill Giant", 0)])
+def test_thought_prison_hurts_casters_of_spells_sharing_color_or_mana_value(cards, spell, hurt):
+    """Thought Prison: the exiled Grizzly Bears (green, mana value 2) is shared by a green spell (Llanowar Elves) and by a mana value 2 one (Test Red Two), not by a red 4."""
+    s = build(cards, ["Thought Prison", spell], ["Grizzly Bears"])
+    mana(s, "p1", C=5)
+    bears = to_hand(s, "Grizzly Bears", "p2")
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Thought Prison").id)
+    drive(s, lambda d: "p2" if "p2" in [o.id for o in d.options] else bears.id if bears.id in [o.id for o in d.options] else "yes" if "yes" in [o.id for o in d.options] else None)
+    assert s.state.cards[bears.id].zone == "p2:exile"
+    life = s.state.players["p1"].life
+    mana(s, "p1", C=4, R=1, G=1)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, spell).id)
+    drive(s)
+    assert s.state.players["p1"].life == life - hurt
     check(s)
