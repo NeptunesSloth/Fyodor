@@ -19,7 +19,7 @@ from app.cards.images import ImageStore
 from app.cards.importer import build_database
 from app.cards.repository import CardRepository
 from app.rules import coverage
-from tests.fixtures.cards import fixture_cards
+from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act
 from tests.test_rules_review34_head import EXTRA as REVIEW34
 from tests.test_rules_review34_head import SIEGE, drive
@@ -27,7 +27,17 @@ from tests.test_rules_wave12a_counters_keywords import real
 from tests.wave9c_kit import build, card_named
 from tests.wave110b_kit import attack, cast, ch, check, mana, put, settle, through_combat, to_hand
 
+PYRULEA = "Invasion of Pyrulea // Gargantuan Slabhorn"
+_FACES = [
+    {"object": "card_face", "name": "Invasion of Pyrulea", "mana_cost": "{G}{U}", "type_line": "Battle \u2014 Siege", "defense": "4",
+     "oracle_text": "(As a Siege enters, choose an opponent to protect it. You and others can attack it. When it's defeated, exile it, then cast it transformed.)\nWhen this Siege enters, scry 3, then reveal the top card of your library. If it's a land or double-faced card, draw a card."},
+    {"object": "card_face", "name": "Gargantuan Slabhorn", "mana_cost": "", "type_line": "Creature \u2014 Beast", "power": "4", "toughness": "4",
+     "oracle_text": "Trample, ward {2}\nOther transformed permanents you control have trample and ward {2}."},
+]
 EXTRA = [
+    card(PYRULEA, set_code="tst", number="110G-P", layout="transform", mana_cost="{G}{U} // ", cmc=2.0, type_line="Battle \u2014 Siege // Creature \u2014 Beast",
+         colors=["G", "U"], color_identity=["G", "U"], card_faces=_FACES,
+         oracle_text="\n//\n".join(f["oracle_text"] for f in _FACES), keywords=["Transform", "Trample", "Ward", "Scry"]),
     real('Serene Master', '{1}{W}', 2, 'Creature — Human Monk',
          "Whenever this creature blocks, exchange its power and the power of target creature it's blocking until end of combat.", ('0', '2'), 'W'),
     real('Portcullis', '{4}', 4, 'Artifact',
@@ -61,6 +71,10 @@ EXTRA = [
     real('Test Wall', '{1}', 1, 'Creature — Wall', '', ('0', '4'), ''),
     real('Loxodon Peacekeeper', '{2}{W}{W}', 4, 'Creature — Elephant Soldier',
          'At the beginning of your upkeep, the player with the lowest life total gains control of this creature. If two or more players are tied for lowest life total, you choose one of them, and that player gains control of this creature.', ('4', '4'), 'W'),
+    real('War Barge', '{4}', 4, 'Artifact',
+         "{3}: Target creature gains islandwalk until end of turn. When this artifact leaves the battlefield this turn, destroy that creature. A creature destroyed this way can't be regenerated. (A creature with islandwalk can't be blocked as long as defending player controls an Island.)", None, ''),
+    real('Infernal Offering', '{4}{B}', 5, 'Sorcery',
+         'Choose an opponent. You and that player each sacrifice a creature. Each player who sacrificed a creature this way draws two cards.\nChoose an opponent. Return a creature card from your graveyard to the battlefield, then that player returns a creature card from their graveyard to the battlefield.', None, 'B'),
     real('Hill Giant', '{3}{R}', 4, 'Creature — Giant', '', ('3', '3'), 'R'),
     real('Divination', '{2}{U}', 3, 'Sorcery', 'Draw two cards.', None, 'U'),
 ]
@@ -435,4 +449,70 @@ def test_loxodon_peacekeeper_goes_to_the_lowest_life(cards, p1, p2, pick, owner)
             asked.append(d.player)
             act(s, d.player, type="choose", decision_id=d.id, option_ids=[pick or d.options[0].id])
     assert s.state.cards[peace.id].controller == owner and asked == (["p1"] if pick else [])
+    check(s)
+
+
+@pytest.mark.parametrize("leaves", [True, False])
+def test_war_barge_destroys_its_target_when_the_barge_leaves(cards, leaves):
+    """War Barge (603.7c): the delayed trigger is the artifact's; it destroys the creature the activation targeted, and only this turn."""
+    s = build(cards, ["War Barge", "Grizzly Bears", "Test Shatter Charm"], [])
+    barge = put(s, "War Barge")
+    bears = put(s, "Grizzly Bears")
+    mana(s, "p1", C=3)
+    act(s, "p1", type="activate_ability", card_id=barge.id, ability=0, targets=[bears.id], target_counts=[1])
+    settle(s)
+    assert "islandwalk" in ch(s, bears).keywords
+    if leaves:
+        mana(s, "p1", R=1)
+        cast(s, "Test Shatter Charm", [barge.id])
+    settle(s)
+    assert s.state.cards[bears.id].zone == ("p1:graveyard" if leaves else "p1:battlefield")
+    check(s)
+
+
+@pytest.mark.parametrize("theirs", [1, 0])
+def test_infernal_offering_both_sacrifice_draw_then_both_reanimate(cards, theirs):
+    """Infernal Offering (101.4, 701.21a): you and the chosen opponent sacrifice together; only a player who sacrificed draws two; then each returns a creature card."""
+    s = build(cards, ["Infernal Offering", "Grizzly Bears", "Llanowar Elves"], ["Goblin", "Benalish Hero"])
+    put(s, "Grizzly Bears")
+    if theirs:
+        put(s, "Goblin", "p2")
+    hand = {p: len(s.state.zones[f"{p}:hand"]) for p in ("p1", "p2")}
+    mana(s, "p1", B=1, C=4)
+    cast(s, "Infernal Offering")
+    drive(s)
+    gy = lambda p: sorted(s.state.cards[c].name for c in s.state.zones[f"{p}:graveyard"])  # noqa: E731
+    bf = lambda p: sorted(s.state.cards[c].name for c in s.state.zones[f"{p}:battlefield"] if "Creature" in ch(s, s.state.cards[c]).types)  # noqa: E731
+    assert bf("p1") == ["Grizzly Bears"] and gy("p1") == ["Infernal Offering"]  # the only creature card in the graveyard came back
+    assert len(s.state.zones["p1:hand"]) == hand["p1"] + 2
+    assert len(s.state.zones["p2:hand"]) == hand["p2"] + (2 if theirs else 0) and bf("p2") == (["Goblin"] if theirs else [])
+    check(s)
+
+
+DELVER = "Delver of Secrets // Insectile Aberration"
+
+
+def test_invasion_of_pyrulea_back_face_grants_trample_and_ward_to_other_transformed_permanents(cards):
+    """Gargantuan Slabhorn (701.27g): other transformed permanents you control have trample and ward {2}; not untransformed ones, nor an opponent's."""
+    s = build(cards, [PYRULEA, DELVER, "Grizzly Bears"], [DELVER])
+    slab = put(s, PYRULEA)
+    act(s, "p1", type="set_face", card_id=slab.id, face=1)
+    mine, plain, theirs = put(s, DELVER), put(s, "Grizzly Bears"), put(s, DELVER, "p2")
+    for c in (mine, theirs):
+        act(s, c.controller, type="set_face", card_id=c.id, face=1)
+    kw = lambda c: set(ch(s, c).keywords)  # noqa: E731
+    assert "trample" in kw(mine) and any("ward" in k for k in kw(mine))
+    assert "trample" not in kw(plain) and "trample" not in kw(theirs)
+    check(s)
+
+
+@pytest.mark.parametrize("top, draws", [("Forest", 1), (DELVER, 1), ("Grizzly Bears", 0)])
+def test_invasion_of_pyrulea_draws_for_a_land_or_double_faced_top_card(cards, top, draws):
+    """Invasion of Pyrulea (701.22, 701.20a): scry 3 then reveal the top card; a land or double-faced card draws a card."""
+    s = build(cards, [PYRULEA, top] if top != "Forest" else [PYRULEA], [], forests=9 if top == "Forest" else 0)
+    mana(s, "p1", G=1, U=1)
+    hand = len(s.state.zones["p1:hand"])
+    cast(s, PYRULEA)
+    drive(s, lambda d: "p2" if "p2" in [o.id for o in d.options] else None)
+    assert len(s.state.zones["p1:hand"]) == hand + draws, [s.state.cards[c].name for c in s.state.zones["p1:hand"]]
     check(s)

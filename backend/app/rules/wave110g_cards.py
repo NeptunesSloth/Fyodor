@@ -80,6 +80,11 @@ def holds(plan: Any, ctx: dict[str, Any], cond: Def) -> bool:
     return bool({"walls_block": walls_block, "opp_protects": opponent_protects}[cond["w110g"]](plan, ctx, cond))
 
 
+_INFERNAL = ("Choose an opponent. You and that player each sacrifice a creature. Each player who sacrificed a creature this way draws two cards.")
+_REANIMATE = ("Choose an opponent. Return a creature card from your graveyard to the battlefield, then that player returns a creature card from their graveyard "
+              "to the battlefield.")
+_BARGE = ("Target creature gains islandwalk until end of turn. When ~ leaves the battlefield this turn, destroy that creature. "
+          "A creature destroyed this way can't be regenerated.")
 _SWING = ("Choose target battle. If an opponent protects it, remove three defense counters from it. Otherwise, put three defense counters on it.")
 
 
@@ -87,6 +92,25 @@ def parse(body: str) -> Any:
     """Etched Host Doombringer's mode: one target battle; the protector decides between removing and adding (310.4, 310.8)."""
     from app.rules import scripts
 
+    if body.strip() == _INFERNAL:  # Infernal Offering mode 1: the controller and the chosen opponent sacrifice together (101.4, 701.21a)
+        got = scripts.parse_effects("Choose an opponent. Each player sacrifices a creature. "
+                                    "Each player who sacrificed a creature this way draws two cards.")
+        if got is None:
+            return None
+        (pick, sac, *rest), target, optional = got  # type: ignore[misc]
+        return [{**pick, "as": "e0"}, {**sac, "do": "sacrifice_pair110g", "who": "ref:e0"}, *rest], target, optional
+    if body.strip() == _REANIMATE:  # Infernal Offering mode 2: "then" is a sequence, as the grammar reads two sentences
+        return scripts.parse_effects("Choose an opponent. Return a creature card from your graveyard to the battlefield. "
+                                     "That player returns a creature card from their graveyard to the battlefield.")
+    if body.strip() == _BARGE:  # War Barge: the 'leaves' trigger belongs to the artifact (self), its effect to the ability's target (603.7c)
+        from app.rules import bound_delayed_effects as bound
+        from app.rules import language
+
+        group = language.target_group("target creature")
+        if group is None:
+            return None
+        return [{"do": "grant", "who": "target", "keywords": ["islandwalk"]},
+                *bound._event("leave", "self", [{"do": "destroy", "who": "target"}, {"do": "no_regen"}])], [group], False
     if body != _SWING:
         return None
     (remove,), target, optional = scripts.parse_effects("Remove three defense counters from target battle.")  # type: ignore[misc]
@@ -119,6 +143,22 @@ _AS: dict[str, str] = {
         "You choose one of them. That player discards that card.",
 }
 
+def _transformed(d: Def) -> Def:
+    """Invasion of Pyrulea (back face): the group is transformed permanents (701.27g), not creatures."""
+    from app.rules import selectors, zones100g
+
+    return {**d, "who": replace(selectors.from_key(d["who"]), types=(), extras=(zones100g.TRANSFORMED,)).key()}
+
+
+def _land_or_dfc(d: Def) -> Def:
+    """Invasion of Pyrulea: the revealed card is a land card or a double-faced card (711.1)."""
+    from app.rules import selectors
+
+    dfc = selectors.Selector(zones=(), card=True, extras=("double_faced_card",)).key()
+    fx = [{**e, "cond": {"any": [e["cond"], {**e["cond"], "is": dfc}]}} if e.get("do") == "only_if" else e for e in d["effects"]]
+    return {**d, "effects": fx}
+
+
 # whole ability text -> (the wording the grammar reads, what to change in its definition)
 _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
     # Serene Master
@@ -147,6 +187,10 @@ _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
     "When this creature enters, pay any amount of life. Target opponent reveals that many cards from their hand. You choose one of them and exile it.":
         ("When this creature enters, target opponent reveals a number of cards from their hand equal to the number of creatures you control. "
          "You choose one of them. Exile that card.", _pay_life_reveal),
+    "Other transformed permanents you control have trample and ward {2}.":
+        ("Other creatures you control have trample and ward {2}.", _transformed),
+    "When this Siege enters, scry 3, then reveal the top card of your library. If it's a land or double-faced card, draw a card.":
+        ("When this Siege enters, scry 3, then reveal the top card of your library. If it's a land card, draw a card.", _land_or_dfc),
     # Loxodon Peacekeeper
     "At the beginning of your upkeep, the player with the lowest life total gains control of this creature. If two or more players are tied for lowest life total, "
     "you choose one of them, and that player gains control of this creature.":
@@ -199,6 +243,14 @@ def resume_lowest_control(plan: Any, d: Any, chosen: list[str]) -> None:
         effects.continue_effects(plan, ctx)
 
 
+def sacrifice_pair(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """701.21a, 101.4: the controller and the player ``who`` names choose in APNAP order, then both sacrifice at once."""
+    from app.rules import effects
+
+    pair = {ctx["controller"], *effects._players(plan, ctx, e["who"])}
+    return effects._sacrifice_next(plan, ctx, e["sel"], 1, [p for p in plan.apnap() if p in pair], [], e.get("as"))  # type: ignore[no-any-return]
+
+
 def exchange_power(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     """Both powers are read before either is set (701.12g)."""
     from app.rules import effects, values
@@ -209,5 +261,6 @@ def exchange_power(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return effects.become(plan, ctx, {**base, "who": "target", "p": mine})
 
 
-PRIMITIVES: dict[str, Any] = {"exchange_power110g": exchange_power, "lowest_life_control110g": lowest_life_control}
+PRIMITIVES: dict[str, Any] = {"exchange_power110g": exchange_power, "lowest_life_control110g": lowest_life_control,
+                           "sacrifice_pair110g": sacrifice_pair}
 RESUME: dict[str, Any] = {"lowest_control110g": resume_lowest_control}
