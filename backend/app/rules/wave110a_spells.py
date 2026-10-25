@@ -38,6 +38,14 @@ def _take_the_bait() -> Parsed:
     return [{**prevent, "scope": {**prevent["scope"], "to_objects": walkers}}, *rest], None, False
 
 
+def _ronin() -> Parsed:
+    """The Last Ronin's Technique: tokens that enter tapped and attacking (508.4) when the sneak cost was paid, else plain tokens (702.190a)."""
+    cond = {"object": "self", "cast": {"alt": "sneak"}}
+    attacking = _p("Create three 1/1 white Ninja Turtle Spirit creature tokens that are tapped and attacking.")[0]
+    plain = _p("Create three 1/1 white Ninja Turtle Spirit creature tokens.")[0]
+    return [{"do": "only_if", "cond": cond, "skip": 1}, *attacking, {"do": "only_if", "cond": {"not": cond}, "skip": 1}, *plain], None, False
+
+
 def _snow(add: bool) -> Callable[[], Parsed]:
     from app.rules import selectors
 
@@ -217,7 +225,85 @@ def _chooser(kind: str, combat: bool = False) -> Callable[[], Parsed]:
     return lambda: ([{"do": "declare_chooser110a", "kind": kind, "combat": combat}], None, False)
 
 
+def _dovin() -> Parsed:
+    """Dovin Baan +1: the -3/-0 and "can't be activated" (602.5, mana abilities too) both last until your next turn (611.2b)."""
+    pump, target, optional = _p("Until your next turn, up to one target creature gets -3/-0.")
+    return [*pump, {"do": "restrict", "who": "target:0", "rules": ["cant_activate"], "duration": "next_turn"}], target, optional
+
+
+def _rescue() -> Parsed:
+    """Rescue from the Underworld: the target and the sacrificed card (as the cost left it in the graveyard, 400.7) are bound now (603.7c) and both
+    return at your next upkeep, only if still there (400.7)."""
+    effects, target, optional = _p("Return target creature card from your graveyard to the battlefield under your control at the beginning of your "
+                                   "next upkeep. Exile ~.")
+    delayed, back, rest = effects[0], effects[1], effects[2:]
+    return [{"do": "bind_sacrificed110a"}, delayed, {**back, "who": "union:target+ref:sacrificed110a"}, *rest], target, optional
+
+
+def bind_sacrificed(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Name the card the spell's cost sacrificed, as the object it is now in the graveyard (not as it last existed: a card that leaves isn't returned)."""
+    from app.rules import context, values
+
+    got = values._object(plan, ctx, "cost:sacrificed")
+    if got is not None and plan.state.cards[got[0].id].zone.endswith(":graveyard"):
+        context.bind_objects(plan, ctx, "sacrificed110a", [got[0].id])
+    return True
+
+
+def _cursed_each() -> Parsed:
+    from app.rules import selectors
+
+    return [{"do": "each100c", "who": selectors.Selector(types=("Creature",), controller="opponent").key(),
+             "then": {"do": "create_role", "role": "Cursed"}}], None, False
+
+
+def _plunge() -> Parsed:
+    """Plunge into Darkness: the amount of life is chosen as it resolves (119.4: at most your life total, 0 allowed), paid, and the same number of
+    cards are looked at (608.2c)."""
+    look = _p("Look at the top X cards of your library. Put one of those cards into your hand and exile the rest.")[0]
+    pay = {"do": "optional_payment", "who": "you", "cost": "", "bind": "plunge110a", "choose_x": {"max": None, "life": True}}
+    return [pay, {**look[0], "n": {"paid_x": "plunge110a"}}, *look[1:]], None, False
+
+
+def _continue_pilgrimage() -> Parsed:
+    """Yuna's Decision: "a creature card and/or a land card" is at most one of each (two optional puts); all of it depends on the sacrifice (608.2c)."""
+    effects, target, optional = _p("Sacrifice a creature. If you do, draw a card. You may put a creature card from your hand onto the battlefield. "
+                                   "You may put a land card from your hand onto the battlefield.")
+    effects[1]["skip"] = len(effects) - 2
+    return effects, target, optional
+
+
+def _beheld_power(text: str) -> Callable[[], Parsed]:
+    """Monstrous Emergence / Dragon's Fire: the beheld creature (701.4a: a creature card revealed from hand or a creature you control) stands for
+    "the sacrificed creature" of the parsed wording (values: cost:beheld110a)."""
+    def build() -> Parsed:
+        effects, target, optional = _p(text)
+        for e in effects:
+            if e.get("n") == {"power": "cost:sacrificed"}:
+                e["n"] = {"power": "cost:beheld110a"}
+        if effects[0].get("bind") == "cond0":  # Dragon's Fire: "If you control a Dragon" was parsed, the real condition is "a Dragon was beheld"
+            effects[0]["cond"] = {"not": {"object": "self", "cast": {"optional": "behold"}}}
+        return effects, target, optional
+    return build
+
+
 BUILDERS: dict[str, Callable[[], Parsed]] = {
+    "Create three 1/1 white Ninja Turtle Spirit creature tokens. If this spell's sneak cost was paid, they enter tapped and attacking.": _ronin,
+    "~ deals damage equal to the power of the creature you chose or the card you revealed to target creature.":
+        _beheld_power("~ deals damage equal to the power of the sacrificed creature to target creature."),
+    "~ deals 3 damage to target creature or planeswalker. If you revealed a Dragon card or chose a Dragon as you cast this spell, ~ deals damage "
+    "equal to the power of that card or creature instead.":
+        _beheld_power("~ deals 3 damage to target creature or planeswalker. If you control a Dragon, ~ deals damage equal to the power of the "
+                      "sacrificed creature to that permanent instead."),
+    "Sacrifice a creature. If you do, draw a card, then you may put a creature card and/or a land card from your hand onto the battlefield.":
+        _continue_pilgrimage,
+    # Asinine Antics: 303.7 / 111.1 one Cursed Role token per creature, each attached to its own creature (static_spell100c.each)
+    "For each creature your opponents control, create a Cursed Role token attached to that creature.": _cursed_each,
+    "Pay any amount of life, then look at that many cards from the top of your library. Put one of those cards into your hand and exile the rest.":
+        _plunge,
+    "Choose target creature card in your graveyard. Return that card and the sacrificed card to the battlefield under your control at the beginning "
+    "of your next upkeep. Exile ~.": _rescue,
+    "Until your next turn, up to one target creature gets -3/-0 and its activated abilities can't be activated.": _dovin,
     # Gideon of the Trials +1: 615.1 a prevention shield that lasts until the controller's next turn (the shield record's own duration)
     "Until your next turn, prevent all damage target permanent would deal.": lambda: (
         [{**(got := _p("Prevent all damage target permanent would deal this turn."))[0][0], "duration": "next_turn"}], got[1], got[2]),
@@ -329,6 +415,10 @@ ABILITY_REWRITES = {
     # Nacatl War-Pride: "exactly one" = at least one (509.1c requirement) and no more than one (509.1b restriction)
     "~ must be blocked by exactly one creature if able.":
         "~ must be blocked if able and can't be blocked by more than one creature.",
+    # Zariel's emblem: the end of the first combat phase (500.8, 511.2) is "at end of combat" while it is the first combat phase of the turn
+    "At the end of the first combat phase on your turn, untap target creature you control. After this phase, there is an additional combat phase.":
+        "At end of combat on your turn, if it's the first combat phase of the turn, untap target creature you control. "
+        "After this phase, there is an additional combat phase.",
 }
 _ANY_NUMBER = {"\u22126: Exile the top seven cards of your library. You may put any number of creature and/or land cards from among them onto the battlefield."}
 
@@ -359,9 +449,25 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
 
         d = scripts.define(replace(ability, text="Creatures your opponents control can't attack."), ch)
         return None if d is None else {**d, "who": selectors.Selector(types=("Creature",), controller="opponent", extras=("ctrl_cast110a",)).key()}
+    if old == "Each opponent who controls more creatures than you can't cast creature spells. The same is true for artifacts and enchantments.":
+        return {"kind": "static", "static": "cast_limit", "who": "opponents", "when": None, "filter": None, "from": None, "act": None, "max": None,
+                "more110a": ["Creature", "Artifact", "Enchantment"], "effects": []}  # Ward of Bones: 601.3, per type the opponent has more of
+    if old == "Each opponent who controls more lands than you can't play lands.":  # Ward of Bones: 305.1, read by engine.play_land_problem
+        return {"kind": "static", "static": "cant_play_lands", "effects": [], "more110a": ["Land"]}
     if old == "Each opponent who attacked with a creature this turn can't cast spells.":  # Angelic Arbiter: 601.3, an opponent who declared attackers this turn
         d = scripts.define(replace(ability, text="Your opponents can't cast spells."), ch)
         return None if d is None else {**d, "when": "attacked110a"}
+    if old == ("Whenever ~ deals combat damage to a player, you may pay {W}{U}{B}{R}{G} if that player has 10 or less life. When you do, that player loses the game."):
+        # Ezio: the life test is made on resolution only (it is no intervening "if", 603.4): the leading-"if" reading without its trigger-time test
+        d = scripts.define(replace(ability, text="Whenever ~ deals combat damage to a player, if that player has 10 or less life, you may pay {W}{U}{B}{R}{G}. "
+                                                 "When you do, that player loses the game."), ch)
+        if d is None or "if" not in d:
+            return None
+        d.pop("if")
+        for e in d["effects"]:
+            if e["do"] == "reflexive":
+                e["keep_event"] = True  # "that player" is still the one dealt the damage (603.12)
+        return d
     new = ABILITY_REWRITES.get(old)
     d = None if new is None else scripts.define(replace(ability, text=new), ch)
     if d is not None and old in _ANY_NUMBER:
@@ -371,10 +477,26 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
     return d
 
 
+def more_of(state: Any, info: Any, src: Any, d: dict[str, Any], player: str, types: Any = None) -> bool:
+    """Ward of Bones: ``player`` (an opponent of the source's controller) controls more permanents of one of the d["more110a"] types (limited to
+    ``types``, the types of the spell cast) than the source's controller does, counted now (601.3: when the spell is proposed)."""
+    from app.rules import characteristics as chars
+    from app.rules.layers import derive
+
+    if info is None or player == src.controller:
+        return False
+    count: dict[str, dict[str, int]] = {player: {}, src.controller: {}}
+    for c in state.cards.values():
+        if c.zone.endswith(":battlefield") and c.controller in count:
+            for t in derive(state, c, chars.of(c, info), info).types:
+                count[c.controller][t] = count[c.controller].get(t, 0) + 1
+    return any(count[player].get(t, 0) > count[src.controller].get(t, 0) for t in d["more110a"] if types is None or t in types)
+
+
 def unblocked_turn(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     plan.rules.assign_unblocked_turn[ctx["controller"]] = plan.state.turn.number
     return True
 
 
-PRIMITIVES = {"unblocked_turn110a": unblocked_turn, "repeat_put110a": repeat_put, "note_put110a": note_put, "bind110a": bind, "end_combat_phase110a": end_combat_phase, "snow110a": snow,
+PRIMITIVES = {"bind_sacrificed110a": bind_sacrificed, "unblocked_turn110a": unblocked_turn, "repeat_put110a": repeat_put, "note_put110a": note_put, "bind110a": bind, "end_combat_phase110a": end_combat_phase, "snow110a": snow,
               "exiled_power_damage110a": exiled_power_damage, "exile_hands110a": exile_hands}

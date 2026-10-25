@@ -1065,7 +1065,7 @@ def emblem_text_ok(text: str) -> bool:
         return False
     for d in scripts.definitions(ch).values():
         if d.get("kind") == "static":
-            if d.get('static') in ('spell_keyword', 'permission', 'loyalty_rule', 'cast_limit', 'cost_modifier'):
+            if d.get('static') in ('spell_keyword', 'permission', 'loyalty_rule', 'cast_limit', 'cost_modifier', 'untap_limit'):
                 continue
             if d.get("static") == "game_result":  # -- spells (wave 110A) -- Gideon of the Trials' emblem (game_result._stops reads emblems)
                 continue

@@ -522,6 +522,7 @@ def define_static(text: str, kind: str, lines: tuple[str, ...] = ()) -> Definiti
     the card's ability lines (a permission to cast from the top of the library is only usable
     when the card also reveals that card, or lets its owner look at it)."""
     t = _lower_first(text.strip().rstrip("."))
+    t = re.sub(r"(you may) reveal an? (\w+) card from your hand or choose an? \2 you control$", r"\1 behold a \2", t)  # 701.4a (wave 110A): Dragon's Fire
     linked_spend = ""
     if "exiled with ~" in t or "the exiled card" in t:
         if (linked_rider := re.search(r", and (?:you may spend mana as though it were mana of any (?P<kind>color|type) to cast (?:that spell|those spells)|(?P<type>mana of any type can be spent to cast (?:that spell|those spells)))$", t)) is not None:
@@ -643,6 +644,22 @@ def define_static(text: str, kind: str, lines: tuple[str, ...] = ()) -> Definiti
         from app.rules import wave110a_grants
 
         return wave110a_grants.grant_evoke(t)
+    if t.startswith("as a historic permanent you control enters, it becomes ") and kind == "static":  # -- entry types (wave 110A) -- Displaced Dinosaurs
+        from app.rules import wave110a_enter
+
+        return wave110a_enter.static(t)
+    if " have freerunning " in t and kind == "static":  # -- grants (wave 110A) -- Ezio Auditore da Firenze
+        from app.rules import wave110a_grants
+
+        return wave110a_grants.grant_freerunning(t)
+    if " has madness. " in t and kind == "static":  # -- grants (wave 110A) -- Falkenrath Gorger
+        from app.rules import wave110a_grants
+
+        return wave110a_grants.grant_madness(t)
+    if " has replicate. " in t and kind == "static":  # -- grants (wave 110A) -- Hatchery Sliver, Ian Chesterton
+        from app.rules import wave110a_grants
+
+        return wave110a_grants.grant_replicate(t)
     if " has web-slinging " in t and kind == "static":  # -- Marvel keywords (wave 25A) -- granted web-slinging (702.188a)
         from app.rules import alt_costs
 
@@ -1354,7 +1371,7 @@ def _all_table_statics(state: GameState, info: CardInfo) -> list[tuple[CardInsta
         ch = derive(state, card, chars.of(card, info), info)
         for index, d in scripts.definitions(ch).items():
             if d.get("kind") == "static":
-                if emblem and d.get('static') not in ('permission', 'cost_modifier'):
+                if emblem and d.get('static') not in ('permission', 'cost_modifier', 'untap_limit'):  # -- planeswalker statics (wave 110A) -- Dovin Baan's emblem
                     continue
                 if eminent and (d.get("change") or {}).get("cond") != triggers.COMMAND_OR_BATTLEFIELD:
                     continue

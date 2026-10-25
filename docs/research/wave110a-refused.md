@@ -16,7 +16,6 @@
 - Leyline of Transformation: "As this enchantment enters, choose a creature type" would pause the game start (opening_hand.py); plus type-adding to hand/library cards.
 - Hulking Metamorph: copy exception "power and toughness equal to this creature's" depends on prototype size; CopyExcept has no own-P/T source.
 - Frenzied Saddlebrute: haste only toward opponents; combat.attack_problem has no defender parameter.
-- Zinnia, Valley's Voice / Hatchery Sliver / Ian Chesterton: granted offspring/replicate need a keyword on the spell's characteristics (costs.py kicker reads ch.abilities).
 - Desert Were-Worm: needs min_total_power attack condition (wave 110D branch), not in this branch.
 - Squandered Resources: mana types of the sacrificed land (LKI) not available to the mana-ability reader.
 - Uphill Battle: "played" excludes tokens and put-onto-battlefield creatures; "enter tapped" for opponents' creatures is not equal.
@@ -31,3 +30,12 @@
 - Ward of Bones: three conditional spell bans plus a land-play ban; needs a "controls more X than you" player condition (cast_limits _when_ok now has a hook for it).
 - Konda's Banner: attach restriction plus two "shares a color/creature type with equipped creature" anthems; selector has no equipped-relative share.
 - Squandered Resources: LKI of the sacrificed land inside a mana ability (already refused in wave 100).
+- Leyline of Transformation: "As this enters, choose a creature type" from the opening hand needs a pending choice in the pregame (opening_hand.act raises if enter asks); foundation, skipped.
+- Tectonic Split: additional cost "sacrifice half the lands you control, rounded up" is a variable mandatory cost (no CostComponent amount from a count); skipped.
+- Frenzied Saddlebrute: haste "as attacking your opponents" needs the defender in combat.attack_problem (not passed); skipped.
+- Zinnia, Valley's Voice: granted offspring is read from the permanent's keywords at entry (keyword_triggers), not the spell's cast abilities; skipped.
+- Teferi, Who Slows the Sunset: emblem "untap during each opponent's untap step" and "draw during each opponent's draw step" are turn-based actions in the opponent's step; a trigger would give opponents a response window (wrong).
+- Tezzeret, Betrayer of Flesh: "first activated ability of an artifact you activate each turn" must count mana abilities too (which skip the casting path), so the cost cut would apply to the wrong ability.
+- Karn, Living Legacy: emblem with an activated ability ("Tap an untapped artifact you control: ...") is not run from the command zone (designations.emblem_text_ok allows no activated abilities); -1 pay any amount of mana unsupported.
+- See the Unwritten: ferocious "put two creature cards instead of one": whether exactly one may be put is undecided (earlier wave 100 note).
+- Officious Interrogation: "any number of target players" with a total-creature investigate count has no target group foundation.

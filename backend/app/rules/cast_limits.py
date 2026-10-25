@@ -717,7 +717,7 @@ _KINDS = ("cant_cycle", "hexproof_targeting", "cast_limit", "activate_as_haste",
           "cant_enter", "cant_counters", "cant_remove_counters", "cant_play_lands", "cant_pay", "cant_cause_sacrifice", "cant_search", "search_top", "draw_cap", "cant_target", "cant_play_gy_lands",  # (wave 22B: app/rules/prohibitions.py; 43B: Aven Mindcensor)
           "zone_grant",  # (wave 25A: app/rules/zone_grants.py)
           "life_lock",  # (wave 29D: app/rules/life_lock.py)
-          "rad_gain", "venture_limit", "first_alt")  # (wave 44C: app/rules/designations.py; 45B: Keen-Eared Sentry)
+          "rad_gain", "venture_limit", "first_alt", "spell_replicate110a")  # (wave 44C: app/rules/designations.py; 45B: Keen-Eared Sentry)
 
 
 def _scan(state: GameState, info: CardInfo) -> list[tuple[str, int, Definition]]:
@@ -821,6 +821,10 @@ def _cast_hit(state: GameState, player: str, card: CardInstance, ch: Characteris
     """Does this limit forbid ``player`` casting this card as this spell now (``resolving``: as something resolves; ``x``: the X announced)?"""
     if d.get("spells") is False:
         return False
+    if d.get("more110a"):  # -- wave 110A -- Ward of Bones: only while the player controls more permanents of the cast spell's type than the source's controller
+        from app.rules import wave110a_spells
+
+        return source in state.cards and wave110a_spells.more_of(state, info, state.cards[source], d, player, ch.types)
     if d.get('name_permanent'):
         return info is not None and _shares_permanent_name(state, info, ch)
     if d.get("exiled_with_name"):  # -- linked exile (wave 30H) --

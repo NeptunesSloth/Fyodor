@@ -845,7 +845,9 @@ def pay(plan: Plan, cost: AbilityCost, card: CardInstance, chosen: dict[int, lis
             from app.rules import payment_card_facts
 
             payment_card_facts.record(plan, record, "revealed", [card.id])
-        elif comp.kind in ("REVEAL_FROM_HAND", C.BEHOLD):  # -- static_other sweep (wave 17C) -- revealed to everyone (701.20a); a beheld permanent just is
+        elif comp.kind in ("REVEAL_FROM_HAND", C.BEHOLD):  # -- static_other sweep (wave 17C)
+            if comp.kind == C.BEHOLD:
+                record.beheld110a.update({c: plan.oid(plan.state.cards[c]) for c in ids})  # -- behold (wave 110A) -- "the power of the beheld creature" -- revealed to everyone (701.20a); a beheld permanent just is
             shown = [c for c in ids if plan.state.cards[c].zone.endswith(":hand")]
             if shown:
                 if comp.kind == 'REVEAL_FROM_HAND' and comp.x:

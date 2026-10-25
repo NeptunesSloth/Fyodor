@@ -3176,9 +3176,10 @@ def castable(state: GameState, player: str, card: CardInstance, info: CardInfo, 
         if extra is not None and additional_problem(permissions._view(state, player, info), extra, card, player):
             continue  # (wave 3$) the additional cost can't be paid: not offered
         grant = cast_grant(state, player, card, ch, info)
-        from app.rules import permission_spell_keywords
+        from app.rules import permission_spell_keywords, wave110a_grants
 
         ch = permission_spell_keywords.apply(ch, grant)
+        ch = wave110a_grants.with_replicate(state, player, card, ch, info)  # -- grants (wave 110A) --
         grant_extra = costs.parse_additional_cost(grant.extra) if grant is not None and grant.extra else None
         if grant_extra is not None and additional_problem(permissions._view(state, player, info), grant_extra, card, player):
             continue  # -- cast permissions (wave 30Q) -- the permission's own additional cost ("by sacrificing a land") can't be paid: not offered
@@ -3553,9 +3554,10 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
     if grant is not None and len(grant.among) > 1:
         permissions.ask_use(plan, a, card, ch, grant.among, "cast")  # (-- wave 30Q, 32D -- "choose one as you cast it" (Muldrotha); which limited permission: asked before anything is paid)
         return
-    from app.rules import permission_spell_keywords
+    from app.rules import permission_spell_keywords, wave110a_grants
 
     ch = permission_spell_keywords.apply(ch, grant)
+    ch = wave110a_grants.with_replicate(plan.state, plan.actor, card, ch, plan.info)  # -- grants (wave 110A) --
     free = grant is not None and grant.free  # "without paying its mana cost" (118.9): an alternative cost of {0}
     from app.rules import flashback_choices
 
