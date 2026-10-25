@@ -30,3 +30,7 @@
 - Dire Flail // Dire Blunderbuss: "other than Dire Blunderbuss" in a granted ability would read as "another" (excludes the wielder, not the Equipment).
 - Library of Leng, Nephalia Academy, Pulmonic Sliver: optional ("you may") graveyard replacement; Cand has no decline outcome and zone_candidates has 10+ consumers (grouped_discard, mill, cost_moves).
 - Relentless Dead (X pay): target chosen on the stack before X; reflexive rewrite would change timing. Chancellor of the Annex: per-opponent first-spell delayed trigger not modeled.
+- Toralf, God of Fury: "any target other than that permanent" (no selector for an excluded any-target) plus the Hammer's granted unattach/return ability.
+- Ob Nixilis of the Black Oath: emblem activated ability (sacrifice cost) is not run from the command zone (designations.emblem_text_ok allows statics/triggers only).
+- Heirloom Epic: "for each mana in this ability's activation cost, tap an untapped creature" (convoke for abilities) not modeled.
+- Mariposa Military Base: optional "enter tapped, if you do get rad counters" entry choice not modeled (replacements._entry_plan has only pay-life/tapped-unless forms).

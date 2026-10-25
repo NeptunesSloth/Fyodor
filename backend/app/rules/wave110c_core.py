@@ -337,6 +337,10 @@ def definition(ability: AbilityText, ch: Any) -> dict[str, Any] | None:
         assert parsed is not None
         return {"kind": "replacement", "replacement": "exile_instead", "from": "battlefield", "effects": [],
                 "rider": {"effects": parsed[0], "reflexive": False}}
+    from app.rules import wave110c_waste  # -- Eumidian Wastewaker (wave 110C) --
+
+    if (waste := wave110c_waste.definition(ability, ch)) is not None:
+        return waste
     if ability.text == _KOZILEK:  # Kozilek, the Broken Reality
         from dataclasses import replace
 
@@ -625,3 +629,7 @@ RESUME = {"choose_branch110c": resume_branch, "manifest_hands110c": resume_manif
 from app.rules import wave110c_mass  # noqa: E402
 
 PRIMITIVES.update(wave110c_mass.PRIMITIVES)
+from app.rules import wave110c_waste  # noqa: E402
+
+PRIMITIVES.update(wave110c_waste.PRIMITIVES)
+RESUME.update(wave110c_waste.RESUME)
