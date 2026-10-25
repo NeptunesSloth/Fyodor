@@ -1,6 +1,8 @@
 """Wave 110I: real Oracle text; every scenario checks the replay and a save and a load.
 
 * Kraven the Hunter: dies trigger judged on the dead creature's controller's creatures (700.4, 603.10a).
+* Rebellion of the Flamekin: "if you won" reads the clash the trigger is about (701.30d).
+* Rebellion of the Flamekin: "if you won" reads the clash the trigger is about (701.30d).
 * Green Dragon: an end-of-turn watch on damage to creatures an opponent controls (603.7, 120.3).
 """
 
@@ -9,9 +11,11 @@ from __future__ import annotations
 import pytest
 
 from app.rules import coverage
+from app.rules.plan import Plan
+from tests.game_helpers import act
 from tests.test_rules_wave12a_counters_keywords import real
 from tests.test_rules_wave100n_multi import answer, cast
-from tests.wave9c_kit import build, check, mana, put, card_named
+from tests.wave9c_kit import build, card_named, check, mana, put
 
 EXTRA = [
     real("Green Dragon", "{3}{G}{G}", 5, "Creature — Dragon",
@@ -20,8 +24,12 @@ EXTRA = [
     real("Kraven the Hunter", "{2}{G}{G}", 4, "Legendary Creature — Human Warrior",
          "Trample\nWhenever a creature an opponent controls with the greatest power among creatures that player controls dies, draw a card and put a +1/+1 counter on Kraven the Hunter.",
          ("3", "3"), "G"),
+    real("Rebellion of the Flamekin", "{3}{R}", 4, "Enchantment",
+         "Whenever you clash, you may pay {1}. If you do, create a 3/1 red Elemental Shaman creature token. If you won, that token gains haste until end of turn. (This ability triggers after the clash ends.)",
+         None, "R"),
 ]
 NAMES = [c["name"] for c in EXTRA]
+EXTRA += [real("Probe Clash", "{U}", 1, "Sorcery", "Clash with an opponent.", None, "U")]
 
 
 @pytest.fixture()
@@ -69,4 +77,20 @@ def test_kraven_draws_and_grows_only_when_the_greatest_power_creature_dies(cards
     assert s.state.cards[bears.id].zone.endswith("graveyard")
     kraven = card_named(s, "Kraven the Hunter")
     assert (len(s.state.zones["p1:hand"]) - hand + 1, kraven.counters) == ((1, {}) if bigger else (2, {"+1/+1": 1}))
+    check(s)
+
+
+@pytest.mark.parametrize("win", [True, False])
+def test_rebellion_of_the_flamekin_token_has_haste_only_if_you_won(cards, win):
+    s = build(cards, ["Rebellion of the Flamekin", "Probe Clash", "Grizzly Bears", "Opt"], ["Grizzly Bears"])
+    put(s, "Rebellion of the Flamekin")
+    mine, theirs = card_named(s, "Grizzly Bears"), card_named(s, "Grizzly Bears", "p2")
+    top = mine if win else card_named(s, "Opt")  # mana value 2 against Bob's 0 (an Island), or 1 against Bob's 2 (701.30d)
+    act(s, "p1", type="move", card_ids=[top.id], to={"zone": "library"}, position="top")
+    act(s, "p2", type="move", card_ids=[card_named(s, "Island", "p2").id if win else theirs.id], to={"zone": "library"}, position="top")
+    mana(s, U=1, C=1)
+    cast(s, "Probe Clash")
+    answer(s, limit=80)
+    token = next(c for c in s.state.cards.values() if c.name == "Elemental Shaman")
+    assert ("haste" in Plan(s.state, "p1", s.cards, None).ch(token).keywords) is win
     check(s)

@@ -6007,6 +6007,10 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
 
     if (card110b := wave110b_cards.definition(ability, ch)) is not None:
         return card110b
+    from app.rules import wave110i_cards  # -- cards (wave 110I) --
+
+    if (card110i := wave110i_cards.definition(ability, ch)) is not None:
+        return card110i
     from app.rules import multi100n  # -- multi (wave 100N) --
 
     if (whole100n := multi100n.definition(ability, ch)) is not None:
