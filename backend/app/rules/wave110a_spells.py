@@ -322,6 +322,9 @@ ABILITY_REWRITES = {
 _ANY_NUMBER = {"\u22126: Exile the top seven cards of your library. You may put any number of creature and/or land cards from among them onto the battlefield."}
 
 
+BOUNCE_CHAMBER = ("Whenever you roll to visit your Attractions, return a creature you don't control with the lowest toughness among creatures you don't control to its owner's hand.")
+
+
 def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
     from dataclasses import replace
 
@@ -330,6 +333,16 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
     old = scripts.self_text(ability.text, ch.name)
     if old == "The attacking player chooses how each creature blocks each combat.":  # Invasion Plans: 509.1a, read by wave110a_choosers.chooser
         return {"kind": "static", "static": "block_chooser110a", "effects": []}
+    if old == BOUNCE_CHAMBER:  # Bounce Chamber: the visitor (not each opponent) chooses among the tied lowest-toughness creatures it doesn't control
+        from app.rules import selectors
+
+        d = scripts.define(replace(ability, text="Whenever you roll to visit your Attractions, each opponent chooses a creature with the least toughness "
+                                                 "among creatures they control. Return it to its owner's hand."), ch)
+        sel = selectors.parse("creature you don't control with the lowest toughness among creatures you don't control")
+        if d is None or sel is None or d["effects"][0]["do"] != "player_chooses":
+            return None
+        d["effects"][0].update(who="you", any=True, sel=sel.key(), label="creature with the lowest toughness among creatures you don't control")
+        return d
     new = ABILITY_REWRITES.get(old)
     d = None if new is None else scripts.define(replace(ability, text=new), ch)
     if d is not None and old in _ANY_NUMBER:
