@@ -7082,3 +7082,4 @@ RESUME.update(_wave110d.RESUME)
 from app.rules import wave110g_cards as _wave110g_cards  # noqa: E402
 
 PRIMITIVES.update(_wave110g_cards.PRIMITIVES)
+RESUME.update(_wave110g_cards.RESUME)

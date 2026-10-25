@@ -101,6 +101,11 @@ def _exchange_power(d: Def) -> Def:
     return {**d, "effects": [{"do": "exchange_power110g", "duration": "end_of_combat"}]}
 
 
+def _lowest_life_control(d: Def) -> Def:
+    """Loxodon Peacekeeper: the player with the lowest life total gains control; the controller picks among ties."""
+    return {**d, "effects": [{"do": "lowest_life_control110g"}]}
+
+
 # whole ability text -> the wording the grammar reads for it
 _AS: dict[str, str] = {
     # Portcullis: "two or more other creatures" is three or more with the entering one; the card returns when the artifact leaves (610.3)
@@ -142,6 +147,10 @@ _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
     "When this creature enters, pay any amount of life. Target opponent reveals that many cards from their hand. You choose one of them and exile it.":
         ("When this creature enters, target opponent reveals a number of cards from their hand equal to the number of creatures you control. "
          "You choose one of them. Exile that card.", _pay_life_reveal),
+    # Loxodon Peacekeeper
+    "At the beginning of your upkeep, the player with the lowest life total gains control of this creature. If two or more players are tied for lowest life total, "
+    "you choose one of them, and that player gains control of this creature.":
+        ("At the beginning of your upkeep, you gain control of this creature.", _lowest_life_control),
     # Wall of Caltrops
     "Whenever this creature blocks a creature, if at least one other Wall creature is blocking that creature and no non-Wall creatures are blocking that creature, "
     "this creature gains banding until end of turn.":
@@ -165,6 +174,31 @@ def definition(ability: Any, ch: Any) -> Def | None:
     return None if native is None else built[1](native)
 
 
+def lowest_life_control(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Control goes to the lowest life total (119.1); on a tie the controller chooses one of the tied players (this card's text)."""
+    from app.rules import effects
+
+    live = list(plan.live())
+    low = min(plan.state.players[p].life for p in live)
+    tied = [p for p in live if plan.state.players[p].life == low]
+    if len(tied) > 1:
+        effects.decide(plan, player=ctx["controller"], kind="choose_one", prompt=f"{ctx.get('name') or 'It'}: choose a tied player to gain control",
+                       options=[effects.DecisionOption(id=p, label=plan.name(p)) for p in tied], resume={"step": "lowest_control110g", "ctx": ctx, "tied": tied})
+        return False
+    return effects.gain_control(plan, ctx, {"do": "gain_control", "who": "self", "to": f"player:{tied[0]}"})
+
+
+def resume_lowest_control(plan: Any, d: Any, chosen: list[str]) -> None:
+    from app.rules import effects
+
+    ctx = d.resume["ctx"]
+    if chosen[0] not in d.resume["tied"]:
+        raise ValueError("not a tied player")
+    plan.note(f"{plan.name(d.player)} chooses {plan.name(chosen[0])}")
+    if effects.gain_control(plan, ctx, {"do": "gain_control", "who": "self", "to": f"player:{chosen[0]}"}):
+        effects.continue_effects(plan, ctx)
+
+
 def exchange_power(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     """Both powers are read before either is set (701.12g)."""
     from app.rules import effects, values
@@ -175,4 +209,5 @@ def exchange_power(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return effects.become(plan, ctx, {**base, "who": "target", "p": mine})
 
 
-PRIMITIVES: dict[str, Any] = {"exchange_power110g": exchange_power}
+PRIMITIVES: dict[str, Any] = {"exchange_power110g": exchange_power, "lowest_life_control110g": lowest_life_control}
+RESUME: dict[str, Any] = {"lowest_control110g": resume_lowest_control}

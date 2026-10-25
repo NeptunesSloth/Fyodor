@@ -59,6 +59,8 @@ EXTRA = [
     real('Virtual Assistant', '{2}', 2, 'Artifact Creature — Robot', 'Defender\nWhenever you cast a spell using teamwork, create a 1/1 colorless Robot Hero artifact creature token with flying.', ('0', '3'), ''),
     real('Test Teamwork', '{1}', 1, 'Sorcery', 'Teamwork 1 (As an additional cost to cast this spell, you may tap any number of creatures you control with total power 1 or more.)\nYou gain 1 life.', None, ''),
     real('Test Wall', '{1}', 1, 'Creature — Wall', '', ('0', '4'), ''),
+    real('Loxodon Peacekeeper', '{2}{W}{W}', 4, 'Creature — Elephant Soldier',
+         'At the beginning of your upkeep, the player with the lowest life total gains control of this creature. If two or more players are tied for lowest life total, you choose one of them, and that player gains control of this creature.', ('4', '4'), 'W'),
     real('Hill Giant', '{3}{R}', 4, 'Creature — Giant', '', ('3', '3'), 'R'),
     real('Divination', '{2}{U}', 3, 'Sorcery', 'Draw two cards.', None, 'U'),
 ]
@@ -292,6 +294,17 @@ def test_psychogenic_probe_damages_whoever_shuffles(cards, target):
     check(s)
 
 
+def test_manual_table_shuffle_does_not_trigger_probe_or_panic(cards):
+    """701.24: only a spell or ability shuffle triggers Psychogenic Probe / Widespread Panic; a manual table Shuffle does not."""
+    s = build(cards, ["Psychogenic Probe", "Widespread Panic"], [])
+    put(s, "Psychogenic Probe")
+    put(s, "Widespread Panic")
+    act(s, "p1", type="shuffle", player="p1", zone="library")
+    settle(s)
+    assert s.state.rules.decision is None and s.state.players["p1"].life == 40
+    check(s)
+
+
 def test_widespread_panic_shuffler_puts_a_hand_card_on_top(cards):
     """Widespread Panic (701.24): the player whose library was shuffled (here Bob, via Test Shuffle) puts a hand card on top of it."""
     s = build(cards, ["Widespread Panic", "Test Shuffle"], ["Grizzly Bears"])
@@ -399,4 +412,27 @@ def test_wall_of_caltrops_banding_needs_walls_only(cards, extra, banding):
         if s.state.zones.get("stack"):
             act(s, s.state.rules.priority, type="pass_priority")
     assert ("banding" in ch(s, caltrops).keywords) is banding
+    check(s)
+
+
+@pytest.mark.parametrize("p1, p2, pick, owner", [(30, 10, None, "p2"), (10, 30, None, "p1"), (20, 20, "p2", "p2"), (20, 20, "p1", "p1")])
+def test_loxodon_peacekeeper_goes_to_the_lowest_life(cards, p1, p2, pick, owner):
+    """Loxodon Peacekeeper (119.1, 613.1b): the lowest life total gains control at the controller's upkeep; the controller chooses among ties."""
+    s = build(cards, ["Loxodon Peacekeeper"], [])
+    peace = put(s, "Loxodon Peacekeeper")
+    act(s, "p1", type="set_life", player="p1", value=p1)
+    act(s, "p2", type="set_life", player="p2", value=p2)
+    asked = []
+    for _ in range(60):  # on to Alice's turn 3 main phase; the upkeep trigger resolves on the way
+        if s.state.turn.number == 3 and s.state.turn.phase == "main1":
+            break
+        d = s.state.rules.decision
+        if d is None:
+            act(s, s.state.rules.priority, type="pass_priority")
+        elif d.kind == "declare_attackers":
+            act(s, d.player, type="declare_attackers", attackers=[])
+        else:
+            asked.append(d.player)
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[pick or d.options[0].id])
+    assert s.state.cards[peace.id].controller == owner and asked == (["p1"] if pick else [])
     check(s)
