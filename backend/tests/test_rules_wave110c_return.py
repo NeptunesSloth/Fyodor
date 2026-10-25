@@ -15,6 +15,10 @@ EXTRA = [real("Retether", "{3}{W}", 4, "Sorcery",
               "Exile any number of creatures you control, then return them to the battlefield under their owner's control. Then repeat this process X more times.", None, "W"),
          real("Pacifism", "{1}{W}", 2, "Enchantment — Aura", "Enchant creature\nEnchanted creature can't attack or block.", None, "W"),
          real("Wild Growth", "{G}", 1, "Enchantment — Aura", "Enchant land\nWhenever enchanted land is tapped for mana, its controller adds an additional {G}.", None, "G"),
+         real("Fix What's Broken", "{2}{W}{B}", 4, "Sorcery",
+              "As an additional cost to cast this spell, pay X life.\nReturn each artifact and creature card with mana value X from your graveyard to the battlefield.", None, "W"),
+         real("Test Rock", "{2}", 2, "Artifact", "", None),
+         real("Test Gem", "{3}", 3, "Artifact", "", None),
          real("Small Bear", "{1}{G}", 2, "Creature — Bear", "", ("2", "2"), "G"),
          real("Big Bear", "{3}{G}", 4, "Creature — Bear", "", ("4", "4"), "G")]
 
@@ -24,7 +28,7 @@ def card_db(settings):
     return make_db(settings, EXTRA)
 
 
-@pytest.mark.parametrize("name", ["Retether", "Another Round"])
+@pytest.mark.parametrize("name", ["Retether", "Another Round", "Fix What's Broken"])
 def test_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
@@ -72,4 +76,20 @@ def test_another_round_blinks_chosen_creatures_and_repeats(cards, x, picks, left
     # first pass: Small Bear (or nothing); the repeat, if any, blinks Big Bear
     answer(s, [a.id] if picks else [], *([[b.id]] if x else []))
     assert (counters(s, a), counters(s, b)) == left
+    check(s)
+
+
+def test_fix_whats_broken_pays_x_life_and_returns_only_cards_with_that_mana_value(cards):
+    """107.3a, 119.4: X announced as an additional cost (life paid); 202.3e: only artifact and creature cards of mana value X return."""
+    s = build(cards, ["Fix What's Broken", "Test Rock", "Test Gem", "Small Bear", "Big Bear"])
+    gone = [next(c for c in s.state.cards.values() if c.name == n and c.owner == "p1") for n in ("Test Rock", "Test Gem", "Small Bear", "Big Bear")]
+    act(s, "p1", type="move", card_ids=[c.id for c in gone], to={"player": "p1", "zone": "graveyard"})
+    mana(s, W=1, B=1, C=2)
+    before = s.state.players["p1"].life
+    c = next(c for c in s.state.cards.values() if c.name == "Fix What's Broken" and c.owner == "p1")
+    act(s, "p1", type="move", card_ids=[c.id], to={"player": "p1", "zone": "hand"})
+    act(s, "p1", type="cast_spell", card_id=c.id, targets=[], x_value=2, sources=[])
+    answer(s)
+    assert s.state.players["p1"].life == before - 2
+    assert [zone(s, x) for x in gone] == ["p1:battlefield", "p1:graveyard", "p1:battlefield", "p1:graveyard"]
     check(s)
