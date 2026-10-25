@@ -82,6 +82,8 @@ Every scenario checks the replay and a save and a load.
   token for each card they revealed this way." (101.4, 101.4a: chosen in APNAP order face down, shown together).
 * Oversimplify - "… puts a number of +1/+1 counters on it equal to the total power of creatures they controlled that were exiled this way." (as
   they last existed on the battlefield - 2021-04-16).
+* Mass Polymorph - "Exile all creatures you control, then reveal cards from the top of your library until you reveal that many creature cards."
+  (2010-08-15: all put onto the battlefield at once, the rest shuffled in).
 * Hellfire - "deals X plus 3 damage to you, where X is the number of creatures that died this way." (a destroyed token counts, a creature a
   replacement effect exiled instead doesn't: the 2009-10-01 rulings).
 """
@@ -115,6 +117,7 @@ REST, BRINGER, VAULT101 = "Long Rest", "Bringer of the Last Gift", "Vault 101: B
 INFERNO, FOXGLOVE, SPIRIT = "Inferno of the Star Mounts", "Mr. Foxglove", "Call the Spirit Dragons"
 HOLISTIC, WERNOG, LIEGE, PLAGUE = "Holistic Wisdom", "Wernog, Rider's Chaplain", "Liege of the Hollows", "Plague of Vermin"
 VAULT21, KAMAHL, OVERSIMPLIFY = "Vault 21: House Gambit", "Kamahl's Summons", "Oversimplify"
+POLYMORPH = "Mass Polymorph"
 BEARS, GIANT, RIP, ELVES = "Grizzly Bears", "Hill Giant", "Rest in Peace", "Llanowar Elves"
 
 
@@ -123,7 +126,7 @@ def cards(settings):
     yield from open_repo(settings)
 
 
-@pytest.mark.parametrize("name", [ROWEN, ETCHINGS, KERANOS, SUGARMAW, HELLFIRE, TERROR, KELLAN, EGO, SHRIEK, GORILLA, DESERTER, AEROSTAT, FOLD, SWIFT, RESEARCHER, KOYA, SURVIVORS, VANISH, DAKRA, DURIN, LATNAM, SURGE, LOCKE, HELLION, HULK, KALDHEIM, MANABOND, GUARDIAN, INVESTIGATORS, CLASH, SANCTUM, HEDRON, ATEMSIS, SPHINX, VOICE, GEAR, MIRROR, RUNES, RALLY, REST, BRINGER, VAULT101, INFERNO, FOXGLOVE, SPIRIT, HOLISTIC, WERNOG, LIEGE, PLAGUE, VAULT21, KAMAHL, OVERSIMPLIFY])
+@pytest.mark.parametrize("name", [ROWEN, ETCHINGS, KERANOS, SUGARMAW, HELLFIRE, TERROR, KELLAN, EGO, SHRIEK, GORILLA, DESERTER, AEROSTAT, FOLD, SWIFT, RESEARCHER, KOYA, SURVIVORS, VANISH, DAKRA, DURIN, LATNAM, SURGE, LOCKE, HELLION, HULK, KALDHEIM, MANABOND, GUARDIAN, INVESTIGATORS, CLASH, SANCTUM, HEDRON, ATEMSIS, SPHINX, VOICE, GEAR, MIRROR, RUNES, RALLY, REST, BRINGER, VAULT101, INFERNO, FOXGLOVE, SPIRIT, HOLISTIC, WERNOG, LIEGE, PLAGUE, VAULT21, KAMAHL, OVERSIMPLIFY, POLYMORPH])
 def test_the_cards_are_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL", name
 
@@ -1182,4 +1185,17 @@ def test_oversimplify_counts_each_players_exiled_power_as_it_last_existed(cards)
     run(s)
     fractals = {c.controller: c.counters.get("+1/+1") for c in s.state.cards.values() if c.zone.endswith(":battlefield") and c.name == "Fractal"}
     assert fractals == {"p1": 6, "p2": 1} and zone(s, bears) == "p1:exile"
+    check(s)
+
+
+def test_mass_polymorph_reveals_until_as_many_creature_cards_as_it_exiled(cards):
+    s = build_n(cards, [POLYMORPH, BEARS, "Hill Giant", "Llanowar Elves", "Fog Bank"])
+    gone = [put(s, BEARS), put(s, "Hill Giant")]
+    spell = to_hand(s, POLYMORPH)
+    library = len(s.state.zones["p1:library"])
+    mana(s, U=1, C=5)
+    act(s, "p1", type="cast_spell", card_id=spell.id)
+    run(s)
+    mine = sorted(c.name for c in s.state.cards.values() if c.zone == "p1:battlefield" and c.name in ("Fog Bank", "Llanowar Elves", BEARS, "Hill Giant"))
+    assert mine == ["Fog Bank", "Llanowar Elves"] and all(zone(s, c) == "p1:exile" for c in gone) and len(s.state.zones["p1:library"]) == library - 2
     check(s)

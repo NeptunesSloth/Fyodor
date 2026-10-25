@@ -56,6 +56,10 @@ _REWRITES = [
     # Azra Bladeseeker: 102.4, outside a game between teams "your team" is "you"; the one who discarded draws (118.12: a discard can't be begun and not made)
     (re.compile(r"^each player on your team may discard a card, then each player who discarded a card this way draws a card\.$"),
      "you may discard a card. If you do, draw a card."),
+    # Mass Polymorph: "that many" is the creatures exiled this way (a token too: it was exiled, 111.7); the 2010-08-15 rulings: the whole library when short, all at once
+    (re.compile(r"^(Exile all creatures you control), then reveal cards from the top of your library until you reveal that many creature cards\. (?=Put all creature "
+                r"cards revealed this way onto the battlefield, then shuffle the rest of the revealed cards into your library\.$)"),
+     r"\1. Reveal cards from the top of your library until you reveal X creature cards, where X is the number of creatures exiled this way. "),
 ]
 
 
