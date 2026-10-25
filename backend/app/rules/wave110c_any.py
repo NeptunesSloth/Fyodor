@@ -3,6 +3,8 @@ counters100j.demon); what follows happens once if any paid.
 
 * Transforming Flourish: "…its controller exiles cards from the top of their library until they exile a nonland card, then they may cast that card without paying
   its mana cost." The destroyed permanent's controller (not the spell's) is "you" for the cast (608.2g, 118.9; ``as_ref110c`` + tempting.as_player_end).
+* Vraska, the Silencer: "return that card to the battlefield tapped under your control. It's a Treasure artifact with "{T}, Sacrifice this artifact: Add one mana
+  of any color," and it loses all other card types." — set as it enters (611.2e, 205.1a), entry_characteristics.from_become; its creature subtypes go with the type (205.3d).
 * Reservoir Kraken: "…, if this creature is untapped, any opponent may tap an untapped creature they control. If they do, tap this creature and create a
   1/1 blue Fish creature token with "This token can't be blocked."" (the intervening "if" is checked on trigger and on resolution, 603.4)
 """
@@ -21,9 +23,27 @@ _KRAKEN_NATIVE = ("At the beginning of each combat, if this creature is untapped
                   "\"This token can't be blocked.\"")
 
 
+_VRASKA = ("Whenever a nontoken creature an opponent controls dies, you may pay {1}. If you do, return that card to the battlefield tapped under your control. "
+           "It's a Treasure artifact with \"{T}, Sacrifice this artifact: Add one mana of any color,\" and it loses all other card types.")
+
+
+def _vraska(ability: AbilityText, ch: Any) -> dict[str, Any] | None:
+    from app.rules import granted, scripts
+
+    native = scripts.define(replace(ability, text=_VRASKA.split(" It's a Treasure")[0]), ch)
+    if native is None or [e.get("do") for e in native["effects"]] != ["optional_payment", "only_if", "return_card"]:
+        return None
+    back = {**native["effects"][2], "as": "ret110c"}
+    become = {"do": "become", "who": "ref:ret110c", "types": ["Artifact"], "artifact_types": ["Treasure"], "creature_types": [], "duration": "permanent",
+              "entry_as": True, "abilities": [granted.quote("{T}, Sacrifice this artifact: Add one mana of any color")]}
+    return {**native, "effects": [*native["effects"][:2], back, become]}
+
+
 def definition(ability: AbilityText, ch: Any) -> dict[str, Any] | None:
     from app.rules import scripts
 
+    if ability.text == _VRASKA:
+        return _vraska(ability, ch)
     if ability.text.replace(ch.name or "~", "this creature") != _KRAKEN:
         return None
     native = scripts.define(replace(ability, text=_KRAKEN_NATIVE), ch)
