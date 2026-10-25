@@ -18,3 +18,4 @@
 - Sidisi, Regent of the Mire: X is the sacrificed creature's mana value but the target "mana value X plus 1" is chosen before the cost is paid (601.2c vs 601.2h); no announce-X-from-cost foundation.
 - Fractured Powerstone: the planar die is not part of Commander play (no planar die machinery).
 - Geth's Summons: corrupted "for each opponent ... as you cast this spell" targets a graveyard per opponent; needs per-opponent targets counted at cast time.
+- Call for Aid: already refused (wave100): player-level "can't attack that player". Evangelize/Preacher/Arena: opponent's-choice target is announcement-only for activated abilities (delegated_target_announcements); spells/triggers not modeled.
