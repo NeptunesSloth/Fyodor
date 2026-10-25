@@ -9,3 +9,4 @@
 - Unyielding Gatekeeper: "If you controlled it, return it tapped. Otherwise, its controller creates ..." fails only with return plus "its controller"; no safe reading yet.
 - Dragon Broodmother: a token with "devour 2" needs a devour choice at token creation (tokens skip replacements.entry_plan); foundation not built.
 - Autumn's Veil: "can't be countered by blue or black spells" needs the countering source in effects.counterable (many callers).
+- Contractual Safeguard: 'other' = other than which creature when several share the chosen counter kind is unruled; refused.

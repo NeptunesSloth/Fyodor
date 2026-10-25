@@ -7053,3 +7053,4 @@ PRIMITIVES.update(_copy105.PRIMITIVES)
 from app.rules import wave110b_cards as _wave110b_cards  # noqa: E402
 
 PRIMITIVES.update(_wave110b_cards.PRIMITIVES)
+RESUME.update(_wave110b_cards.RESUME)

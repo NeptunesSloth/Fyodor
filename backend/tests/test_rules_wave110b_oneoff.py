@@ -18,7 +18,7 @@ def cards(settings):
     yield from repository(settings)
 
 
-@pytest.mark.parametrize("name", ["Prince of Thralls", "Oath of Lim-Dûl", "Chaos Lord", "Divine Intervention", "Herald of Anafenza", "Guardian of New Benalia", "Aloe Alchemist", "Parapet Thrasher", "Bane of the Living", "Warbreak Trumpeter", "Kadena's Silencer", "Longhorn Sharpshooter", "Plague Reaver", "Quakebringer", "Suppressor Skyguard", "Shirei, Shizo's Caretaker"])
+@pytest.mark.parametrize("name", ["Prince of Thralls", "Oath of Lim-Dûl", "Chaos Lord", "Divine Intervention", "Herald of Anafenza", "Guardian of New Benalia", "Aloe Alchemist", "Parapet Thrasher", "Bane of the Living", "Warbreak Trumpeter", "Kadena's Silencer", "Longhorn Sharpshooter", "Plague Reaver", "Quakebringer", "Suppressor Skyguard", "Shirei, Shizo's Caretaker", "Lich's Mastery"])
 def test_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
@@ -370,4 +370,19 @@ def test_shirei_returns_a_small_creature_at_the_next_end_step_only_if_shirei_is_
         else:
             act(s, s.state.rules.priority, type="pass_priority")
     assert s.state.cards[elf.id].zone == ("p1:battlefield" if stays else "p1:graveyard")
+    check(s)
+
+
+@pytest.mark.parametrize("zone", ["hand", "graveyard", "battlefield"])
+def test_lichs_mastery_exiles_one_card_per_life_lost_from_the_zone_chosen(cards, zone):
+    """Lich's Mastery: 608.2c one exile for each 1 life lost (Lightning Bolt: 3), a permanent, or a card from hand or graveyard (608.2d, the owner chooses)."""
+    s = build(cards, ["Lich's Mastery", "Forest", "Forest", "Forest", "Lightning Bolt"], [])
+    mastery = put(s, "Lich's Mastery")
+    forests = [c.id for c in s.state.cards.values() if c.name == "Forest" and c.zone == "p1:library"][:3]
+    act(s, "p1", type="move", card_ids=forests, to={"player": "p1", "zone": zone})
+    mana(s, "p1", R=1)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Lightning Bolt").id, targets=["p1"])
+    drive(s, lambda d: [next(o.id for o in d.options if o.id in forests and s.state.cards[o.id].zone != "p1:exile")])
+    assert [s.state.cards[f].zone for f in forests] == ["p1:exile"] * 3
+    assert s.state.cards[mastery.id].zone == "p1:battlefield"
     check(s)

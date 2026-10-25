@@ -666,5 +666,22 @@
   "keywords": [],
   "power": "2",
   "toughness": "2"
+ },
+ {
+  "name": "Lich's Mastery",
+  "layout": "normal",
+  "mana_cost": "{3}{B}{B}{B}",
+  "cmc": 6.0,
+  "type_line": "Legendary Enchantment",
+  "oracle_text": "Hexproof\nYou can't lose the game.\nWhenever you gain life, draw that many cards.\nWhenever you lose life, for each 1 life you lost, exile a permanent you control or a card from your hand or graveyard.\nWhen Lich's Mastery leaves the battlefield, you lose the game.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Hexproof"
+  ]
  }
 ]

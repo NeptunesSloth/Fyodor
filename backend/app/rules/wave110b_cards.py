@@ -86,6 +86,11 @@ def _still_here(d: Def) -> Def:
     return d
 
 
+def _lich(d: Def) -> Def:
+    """Lich's Mastery: one exile per life lost (608.2c), of a permanent, a card in hand or a card in the graveyard."""
+    return {**d, "effects": [{"do": "repeat", "n": {"event_amount": 1}, "span": 1}, {"do": "exile_own110b"}]}
+
+
 # whole ability text -> (the wording the grammar reads, what to change in its definition)
 _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
     # Perch Protection: all three instructions are conditional on the promised gift (608.2c: one sentence)
@@ -119,6 +124,9 @@ _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
     "beginning of the next end step if Shirei is still on the battlefield.":
         ("Whenever a creature with power 1 or less is put into your graveyard from the battlefield, you may return that card to the battlefield at the "
          "beginning of the next end step.", _still_here),
+    # Lich's Mastery: for each 1 life you lost, exile a permanent you control or a card from your hand or graveyard
+    "Whenever you lose life, for each 1 life you lost, exile a permanent you control or a card from your hand or graveyard.":
+        ("Whenever you lose life, exile a permanent you control.", _lich),
     # Divine Intervention: the effect states that the game is a draw (104.4c)
     "When you remove the last intervention counter from this enchantment, the game is a draw.":
         ("When the last intervention counter is removed from this enchantment, draw a card.",
@@ -203,4 +211,34 @@ def reaver(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return True
 
 
-PRIMITIVES: dict[str, Any] = {"draw_game110b": draw_game, "reaver110b": reaver}
+def exile_own(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """"Exile a permanent you control or a card from your hand or graveyard": the controller picks one as it resolves (608.2d); none: nothing."""
+    from app.game.rules_state import DecisionOption
+    from app.rules.plan import decide
+
+    me = ctx["controller"]
+    mine = [c for c in plan.state.cards.values() if (c.zone == f"{me}:hand" or c.zone == f"{me}:graveyard" and c.owner == me)
+            or (c.zone.endswith(":battlefield") and c.controller == me)]
+    if not mine:
+        return True
+    decide(plan, player=me, kind="choose_cards", prompt=f"{ctx.get('name') or 'Exile'}: exile a permanent you control or a card from your hand or graveyard",
+           options=[DecisionOption(id=c.id, label=c.name or "Card", card_id=c.id) for c in mine], min_choices=1, max_choices=1,
+           resume={"step": "exile_own110b", "ctx": ctx})
+    return False
+
+
+def resume_exile_own(plan: Any, d: Any, chosen: list[str]) -> None:
+    from app.game.errors import ActionError
+    from app.rules import effects
+
+    ctx = d.resume["ctx"]
+    ok = {o.id for o in d.options}
+    if len(chosen) != 1 or chosen[0] not in ok:
+        raise ActionError("Choose one of the cards offered")
+    plan.note(f"{plan.name(d.player)} exiles {plan.state.cards[chosen[0]].name}", actor=d.player)
+    effects.exile_cards(plan, ctx, {}, chosen)
+    effects.continue_effects(plan, ctx)
+
+
+RESUME: dict[str, Any] = {"exile_own110b": resume_exile_own}
+PRIMITIVES: dict[str, Any] = {"draw_game110b": draw_game, "reaver110b": reaver, "exile_own110b": exile_own}
