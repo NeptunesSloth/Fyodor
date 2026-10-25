@@ -1,0 +1,32 @@
+EE
+==================================== ERRORS ====================================
+_____________ ERROR at setup of test_whole_cards101[Doom Foretold] _____________
+
+settings = Settings(data_dir=PosixPath('/tmp/pytest-of-agent/pytest-264/test_whole_cards101_Doom_Foret0/data'), host='127.0.0.1',...network=True, dev_tools=False, scryfall_api='https://api.scryfall.com', user_agent='Fyodor-MTG-Tabletop/0.1', extra={})
+
+    @pytest.fixture
+    def cards(settings):
+        base = {c['name']: c for c in fixture_cards()}
+        for i, c in enumerate(DATA):
+>           base[c['name']] = card(c['name'], set_code='u101', number=str(i), **{k: v for k, v in c.items() if k != 'name'})
+                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           TypeError: tests.fixtures.cards.card() got multiple values for keyword argument 'set_code'
+
+tests/test_rules_upkeep_sacrifice101.py:30: TypeError
+___________ ERROR at setup of test_whole_cards101[Infernal Denizen] ____________
+
+settings = Settings(data_dir=PosixPath('/tmp/pytest-of-agent/pytest-264/test_whole_cards101_Infernal_D0/data'), host='127.0.0.1',...network=True, dev_tools=False, scryfall_api='https://api.scryfall.com', user_agent='Fyodor-MTG-Tabletop/0.1', extra={})
+
+    @pytest.fixture
+    def cards(settings):
+        base = {c['name']: c for c in fixture_cards()}
+        for i, c in enumerate(DATA):
+>           base[c['name']] = card(c['name'], set_code='u101', number=str(i), **{k: v for k, v in c.items() if k != 'name'})
+                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           TypeError: tests.fixtures.cards.card() got multiple values for keyword argument 'set_code'
+
+tests/test_rules_upkeep_sacrifice101.py:30: TypeError
+=========================== short test summary info ============================
+ERROR tests/test_rules_upkeep_sacrifice101.py::test_whole_cards101[Doom Foretold]
+ERROR tests/test_rules_upkeep_sacrifice101.py::test_whole_cards101[Infernal Denizen]
+!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 2 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!

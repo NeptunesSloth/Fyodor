@@ -1,0 +1,27 @@
+{
+  "object": "list",
+  "has_more": false,
+  "data": [
+    {
+      "object": "ruling",
+      "oracle_id": "c6a67820-5066-462f-a621-1ecab8bf4f97",
+      "source": "wotc",
+      "published_at": "2023-07-28",
+      "comment": "Copying a loyalty ability doesn't add or remove loyalty counters from any object."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "c6a67820-5066-462f-a621-1ecab8bf4f97",
+      "source": "wotc",
+      "published_at": "2023-07-28",
+      "comment": "If the loyalty ability has -X in its cost, the copy uses the same value of X."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "c6a67820-5066-462f-a621-1ecab8bf4f97",
+      "source": "wotc",
+      "published_at": "2023-07-28",
+      "comment": "The copy of the loyalty ability resolves before the loyalty ability it's copying. It resolves even if that loyalty ability is countered."
+    }
+  ]
+}

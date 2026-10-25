@@ -1,0 +1,278 @@
+....FFFFF                                                                [100%]
+=================================== FAILURES ===================================
+_ test_current_sticker_condition_follows_native_control_and_hidden_return[Croakid Amphibonaut-flying] _
+
+cards = <app.cards.repository.CardRepository object at 0x7f6f0a5abf80>
+name = 'Croakid Amphibonaut', keyword = 'flying'
+
+    @pytest.mark.parametrize('name,keyword',NAMES.items())
+    def test_current_sticker_condition_follows_native_control_and_hidden_return(cards,name,keyword):
+        s=setup(cards);source=put(s,name,'battlefield');rock=put(s,'Sol Ring','battlefield')
+        assert coverage.of_card_data(cards.resolve(name)).level=='FULL'
+>       assert keyword not in view(s,source.id).keywords
+                              ^^^^^^^^^^^^^^^^^
+
+tests/test_rules_stickers101.py:119:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests/test_rules_stickers101.py:56: in view
+    return Plan.view(s.state,'p1',s.cards).ch(s.state.cards[cid])
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/plan.py:296: in ch
+    return derive(self.state, card, chars.of(card, self.info), self.info)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/layers.py:850: in derive
+    return _derive(state, card, ch, info)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/layers.py:1079: in _derive
+    hits, rules = _hits(view, table, card, _layer6(ch, [], effects, kwc), tkey)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/layers.py:529: in _hits
+    if solved or _conditions(view, st, tkey):  # (a solved static's conditions were read as it was solved)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/layers.py:470: in _conditions
+    hit = _COND_CACHE[key] = grammar.conditions_hold(view, d, source=view.state.cards[st.source], controller=st.controller)
+                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/statics.py:1513: in conditions_hold
+    return all(holds(plan, c, source=source, controller=controller) for c in d.get("conditions", ()))
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/statics.py:1513: in <genexpr>
+    return all(holds(plan, c, source=source, controller=controller) for c in d.get("conditions", ()))
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/statics.py:1500: in holds
+    return conditions.holds(plan, {"controller": controller, "source_card": source.id}, cond)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+plan = <app.rules.plan.Plan object at 0x7f6f09f4d580>
+ctx = {'controller': 'p1', 'source_card': 'fd57a2d429b4'}
+cond = {'stickered_you101': True}
+
+    def holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
+        if cond.get('stickered_you101'):
+>           pid = ctx.get('controller', plan.actor)
+                                        ^^^^^^^^^^
+E           AttributeError: 'Plan' object has no attribute 'actor'. Did you mean: 'after'?
+
+app/rules/conditions.py:1585: AttributeError
+_ test_current_sticker_condition_follows_native_control_and_hidden_return[Grabby Tabby-vigilance] _
+
+cards = <app.cards.repository.CardRepository object at 0x7f6f09f38dd0>
+name = 'Grabby Tabby', keyword = 'vigilance'
+
+    @pytest.mark.parametrize('name,keyword',NAMES.items())
+    def test_current_sticker_condition_follows_native_control_and_hidden_return(cards,name,keyword):
+        s=setup(cards);source=put(s,name,'battlefield');rock=put(s,'Sol Ring','battlefield')
+        assert coverage.of_card_data(cards.resolve(name)).level=='FULL'
+>       assert keyword not in view(s,source.id).keywords
+                              ^^^^^^^^^^^^^^^^^
+
+tests/test_rules_stickers101.py:119:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests/test_rules_stickers101.py:56: in view
+    return Plan.view(s.state,'p1',s.cards).ch(s.state.cards[cid])
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/plan.py:296: in ch
+    return derive(self.state, card, chars.of(card, self.info), self.info)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/layers.py:850: in derive
+    return _derive(state, card, ch, info)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/layers.py:1079: in _derive
+    hits, rules = _hits(view, table, card, _layer6(ch, [], effects, kwc), tkey)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/layers.py:529: in _hits
+    if solved or _conditions(view, st, tkey):  # (a solved static's conditions were read as it was solved)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/layers.py:470: in _conditions
+    hit = _COND_CACHE[key] = grammar.conditions_hold(view, d, source=view.state.cards[st.source], controller=st.controller)
+                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/statics.py:1513: in conditions_hold
+    return all(holds(plan, c, source=source, controller=controller) for c in d.get("conditions", ()))
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/statics.py:1513: in <genexpr>
+    return all(holds(plan, c, source=source, controller=controller) for c in d.get("conditions", ()))
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/statics.py:1500: in holds
+    return conditions.holds(plan, {"controller": controller, "source_card": source.id}, cond)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+plan = <app.rules.plan.Plan object at 0x7f6f09dd4530>
+ctx = {'controller': 'p1', 'source_card': 'c1f7f2d84a4d'}
+cond = {'stickered_you101': True}
+
+    def holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
+        if cond.get('stickered_you101'):
+>           pid = ctx.get('controller', plan.actor)
+                                        ^^^^^^^^^^
+E           AttributeError: 'Plan' object has no attribute 'actor'. Did you mean: 'after'?
+
+app/rules/conditions.py:1585: AttributeError
+_ test_current_sticker_condition_follows_native_control_and_hidden_return[Scared Stiff-menace] _
+
+cards = <app.cards.repository.CardRepository object at 0x7f6f09f39340>
+name = 'Scared Stiff', keyword = 'menace'
+
+    @pytest.mark.parametrize('name,keyword',NAMES.items())
+    def test_current_sticker_condition_follows_native_control_and_hidden_return(cards,name,keyword):
+        s=setup(cards);source=put(s,name,'battlefield');rock=put(s,'Sol Ring','battlefield')
+        assert coverage.of_card_data(cards.resolve(name)).level=='FULL'
+>       assert keyword not in view(s,source.id).keywords
+                              ^^^^^^^^^^^^^^^^^
+
+tests/test_rules_stickers101.py:119:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests/test_rules_stickers101.py:56: in view
+    return Plan.view(s.state,'p1',s.cards).ch(s.state.cards[cid])
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/plan.py:296: in ch
+    return derive(self.state, card, chars.of(card, self.info), self.info)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/layers.py:850: in derive
+    return _derive(state, card, ch, info)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/layers.py:1079: in _derive
+    hits, rules = _hits(view, table, card, _layer6(ch, [], effects, kwc), tkey)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/layers.py:529: in _hits
+    if solved or _conditions(view, st, tkey):  # (a solved static's conditions were read as it was solved)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/layers.py:470: in _conditions
+    hit = _COND_CACHE[key] = grammar.conditions_hold(view, d, source=view.state.cards[st.source], controller=st.controller)
+                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/statics.py:1513: in conditions_hold
+    return all(holds(plan, c, source=source, controller=controller) for c in d.get("conditions", ()))
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/statics.py:1513: in <genexpr>
+    return all(holds(plan, c, source=source, controller=controller) for c in d.get("conditions", ()))
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/statics.py:1500: in holds
+    return conditions.holds(plan, {"controller": controller, "source_card": source.id}, cond)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+plan = <app.rules.plan.Plan object at 0x7f6f0a977e00>
+ctx = {'controller': 'p1', 'source_card': '0b39efb352c5'}
+cond = {'stickered_you101': True}
+
+    def holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
+        if cond.get('stickered_you101'):
+>           pid = ctx.get('controller', plan.actor)
+                                        ^^^^^^^^^^
+E           AttributeError: 'Plan' object has no attribute 'actor'. Did you mean: 'after'?
+
+app/rules/conditions.py:1585: AttributeError
+_ test_current_sticker_condition_follows_native_control_and_hidden_return[Big Winner-trample] _
+
+cards = <app.cards.repository.CardRepository object at 0x7f6f09ddac30>
+name = 'Big Winner', keyword = 'trample'
+
+    @pytest.mark.parametrize('name,keyword',NAMES.items())
+    def test_current_sticker_condition_follows_native_control_and_hidden_return(cards,name,keyword):
+        s=setup(cards);source=put(s,name,'battlefield');rock=put(s,'Sol Ring','battlefield')
+        assert coverage.of_card_data(cards.resolve(name)).level=='FULL'
+>       assert keyword not in view(s,source.id).keywords
+                              ^^^^^^^^^^^^^^^^^
+
+tests/test_rules_stickers101.py:119:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests/test_rules_stickers101.py:56: in view
+    return Plan.view(s.state,'p1',s.cards).ch(s.state.cards[cid])
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/plan.py:296: in ch
+    return derive(self.state, card, chars.of(card, self.info), self.info)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/layers.py:850: in derive
+    return _derive(state, card, ch, info)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/layers.py:1079: in _derive
+    hits, rules = _hits(view, table, card, _layer6(ch, [], effects, kwc), tkey)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/layers.py:529: in _hits
+    if solved or _conditions(view, st, tkey):  # (a solved static's conditions were read as it was solved)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/layers.py:470: in _conditions
+    hit = _COND_CACHE[key] = grammar.conditions_hold(view, d, source=view.state.cards[st.source], controller=st.controller)
+                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/statics.py:1513: in conditions_hold
+    return all(holds(plan, c, source=source, controller=controller) for c in d.get("conditions", ()))
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/statics.py:1513: in <genexpr>
+    return all(holds(plan, c, source=source, controller=controller) for c in d.get("conditions", ()))
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/statics.py:1500: in holds
+    return conditions.holds(plan, {"controller": controller, "source_card": source.id}, cond)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+plan = <app.rules.plan.Plan object at 0x7f6f09f4cbf0>
+ctx = {'controller': 'p1', 'source_card': '192c3b5a727d'}
+cond = {'stickered_you101': True}
+
+    def holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
+        if cond.get('stickered_you101'):
+>           pid = ctx.get('controller', plan.actor)
+                                        ^^^^^^^^^^
+E           AttributeError: 'Plan' object has no attribute 'actor'. Did you mean: 'after'?
+
+app/rules/conditions.py:1585: AttributeError
+_ test_current_sticker_condition_follows_native_control_and_hidden_return[Sanguine Sipper-lifelink] _
+
+cards = <app.cards.repository.CardRepository object at 0x7f6f0a579910>
+name = 'Sanguine Sipper', keyword = 'lifelink'
+
+    @pytest.mark.parametrize('name,keyword',NAMES.items())
+    def test_current_sticker_condition_follows_native_control_and_hidden_return(cards,name,keyword):
+        s=setup(cards);source=put(s,name,'battlefield');rock=put(s,'Sol Ring','battlefield')
+        assert coverage.of_card_data(cards.resolve(name)).level=='FULL'
+>       assert keyword not in view(s,source.id).keywords
+                              ^^^^^^^^^^^^^^^^^
+
+tests/test_rules_stickers101.py:119:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests/test_rules_stickers101.py:56: in view
+    return Plan.view(s.state,'p1',s.cards).ch(s.state.cards[cid])
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/plan.py:296: in ch
+    return derive(self.state, card, chars.of(card, self.info), self.info)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/layers.py:850: in derive
+    return _derive(state, card, ch, info)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/layers.py:1079: in _derive
+    hits, rules = _hits(view, table, card, _layer6(ch, [], effects, kwc), tkey)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/layers.py:529: in _hits
+    if solved or _conditions(view, st, tkey):  # (a solved static's conditions were read as it was solved)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/layers.py:470: in _conditions
+    hit = _COND_CACHE[key] = grammar.conditions_hold(view, d, source=view.state.cards[st.source], controller=st.controller)
+                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/statics.py:1513: in conditions_hold
+    return all(holds(plan, c, source=source, controller=controller) for c in d.get("conditions", ()))
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/statics.py:1513: in <genexpr>
+    return all(holds(plan, c, source=source, controller=controller) for c in d.get("conditions", ()))
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/statics.py:1500: in holds
+    return conditions.holds(plan, {"controller": controller, "source_card": source.id}, cond)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+plan = <app.rules.plan.Plan object at 0x7f6f09de2de0>
+ctx = {'controller': 'p1', 'source_card': 'e8f3f413cc75'}
+cond = {'stickered_you101': True}
+
+    def holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
+        if cond.get('stickered_you101'):
+>           pid = ctx.get('controller', plan.actor)
+                                        ^^^^^^^^^^
+E           AttributeError: 'Plan' object has no attribute 'actor'. Did you mean: 'after'?
+
+app/rules/conditions.py:1585: AttributeError
+=========================== short test summary info ============================
+FAILED tests/test_rules_stickers101.py::test_current_sticker_condition_follows_native_control_and_hidden_return[Croakid Amphibonaut-flying]
+FAILED tests/test_rules_stickers101.py::test_current_sticker_condition_follows_native_control_and_hidden_return[Grabby Tabby-vigilance]
+FAILED tests/test_rules_stickers101.py::test_current_sticker_condition_follows_native_control_and_hidden_return[Scared Stiff-menace]
+FAILED tests/test_rules_stickers101.py::test_current_sticker_condition_follows_native_control_and_hidden_return[Big Winner-trample]
+FAILED tests/test_rules_stickers101.py::test_current_sticker_condition_follows_native_control_and_hidden_return[Sanguine Sipper-lifelink]

@@ -1,0 +1,44 @@
+..........F
+=================================== FAILURES ===================================
+___________ test_countered_epic_never_sets_prohibition_or_trigger103 ___________
+
+cards = <app.cards.repository.CardRepository object at 0x7f0836d269f0>
+
+    def test_countered_epic_never_sets_prohibition_or_trigger103(cards):
+        s = setup(cards)
+        c = cast(s, 'Endless Swarm')
+>       act(s, 'p1', type='pass_priority')
+
+tests/test_rules_epic103.py:143:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests/game_helpers.py:42: in act
+    return session.perform(actor, payload)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/game/session.py:61: in perform
+    resolved = resolve(self.state, action, actor=actor, cards=self.cards, trusted=trusted)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/game/resolve.py:78: in resolve
+    a.r = compile_intent(state, a, actor=actor, info=info, rng=rng)  # type: ignore[union-attr]
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/engine.py:164: in compile_intent
+    handler(plan, intent)
+app/rules/engine.py:511: in pass_priority
+    require_priority(plan)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+plan = <app.rules.plan.Plan object at 0x7f08374a9c40>
+
+    def require_priority(plan: Plan) -> None:
+        if plan.rules.draw_reason is not None:
+            raise ActionError("The game is over: draw")
+        if plan.rules.winner is not None:
+            raise ActionError(f"The game is over: {plan.name(plan.rules.winner)} won")
+        holder = plan.rules.priority
+        if holder != plan.actor:
+>           raise ActionError("You don't have priority" + (f" ({plan.name(holder)} does)" if holder else ""))
+E           app.game.errors.ActionError: You don't have priority (Bob does)
+
+app/rules/plan.py:380: ActionError
+=========================== short test summary info ============================
+FAILED tests/test_rules_epic103.py::test_countered_epic_never_sets_prohibition_or_trigger103
+!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!

@@ -1,0 +1,95 @@
+============================= test session starts ==============================
+platform linux -- Python 3.12.14, pytest-9.1.1, pluggy-1.7.0 -- /workspace/Fyodor/backend/.venv/bin/python3
+cachedir: .pytest_cache
+rootdir: /workspace/scratch/after-pr21/batch002/backend
+configfile: pyproject.toml
+plugins: anyio-4.15.1, xdist-3.8.0
+created: 4/4 workers
+4 workers [41 items]
+
+scheduling tests via LoadScheduling
+
+tests/test_rules_cost_statics101.py::test_nonnamed_mana_and_removed_chariot_are_untaxed
+tests/test_rules_cost_statics101.py::test_skyseer_is_full
+tests/test_rules_cost_statics101.py::test_other_cost_statics_full[Myth Unbound]
+tests/test_rules_cost_statics101.py::test_other_cost_statics_full[Kaervek's Torch]
+[gw1] [  2%] PASSED tests/test_rules_cost_statics101.py::test_skyseer_is_full
+[gw0] [  4%] PASSED tests/test_rules_cost_statics101.py::test_other_cost_statics_full[Myth Unbound]
+tests/test_rules_cost_statics101.py::test_real_named_mana_source_needs_tax_before_producing
+tests/test_rules_cost_statics101.py::test_other_cost_statics_full[Liesa, Shroud of Dusk]
+[gw3] [  7%] PASSED tests/test_rules_cost_statics101.py::test_other_cost_statics_full[Kaervek's Torch]
+tests/test_rules_cost_statics101.py::test_named_nonmana_ability_and_matching_opponent_mana_both_taxed
+[gw0] [  9%] PASSED tests/test_rules_cost_statics101.py::test_other_cost_statics_full[Liesa, Shroud of Dusk]
+tests/test_rules_cost_statics101_extra.py::test_actual_automatic_named_mana_tax_cannot_self_fund_but_pays_before_production
+[gw3] [ 12%] PASSED tests/test_rules_cost_statics101.py::test_named_nonmana_ability_and_matching_opponent_mana_both_taxed
+tests/test_rules_cost_statics101_extra.py::test_liesa_life_tax_is_mandatory_and_myth_only_reduces_mana
+[gw3] [ 14%] PASSED tests/test_rules_cost_statics101_extra.py::test_liesa_life_tax_is_mandatory_and_myth_only_reduces_mana
+tests/test_rules_cost_statics101_extra.py::test_true_cold_named_mana_ability_tax
+[gw1] [ 17%] PASSED tests/test_rules_cost_statics101.py::test_real_named_mana_source_needs_tax_before_producing
+tests/test_rules_cost_statics101.py::test_myth_discount_uses_each_commanders_own_history_and_command_entry_draw
+[gw3] [ 19%] PASSED tests/test_rules_cost_statics101_extra.py::test_true_cold_named_mana_ability_tax
+tests/test_rules_cost_statics101_extra.py::test_true_cold_command_count_and_life_cost
+[gw3] [ 21%] PASSED tests/test_rules_cost_statics101_extra.py::test_true_cold_command_count_and_life_cost
+tests/test_rules_cost_statics101_extra.py::test_myth_command_from_graveyard_uses_current_watcher_not_simultaneous_lki[False]
+[gw2] [ 24%] PASSED tests/test_rules_cost_statics101.py::test_nonnamed_mana_and_removed_chariot_are_untaxed
+tests/test_rules_cost_statics101.py::test_liesa_first_and_repeat_command_costs_pay_life_not_generic_tax
+[gw0] [ 26%] PASSED tests/test_rules_cost_statics101_extra.py::test_actual_automatic_named_mana_tax_cannot_self_fund_but_pays_before_production
+tests/test_rules_cost_statics101_extra.py::test_myth_discount_applies_in_hand_without_incrementing_command_cast_count
+[gw3] [ 29%] PASSED tests/test_rules_cost_statics101_extra.py::test_myth_command_from_graveyard_uses_current_watcher_not_simultaneous_lki[False]
+tests/test_rules_cost_statics101_extra.py::test_myth_command_from_graveyard_uses_current_watcher_not_simultaneous_lki[True]
+[gw1] [ 31%] PASSED tests/test_rules_cost_statics101.py::test_myth_discount_uses_each_commanders_own_history_and_command_entry_draw
+tests/test_rules_cost_statics101.py::test_actual_torch_stack_target_costs_two_more_and_failed_payment_is_atomic
+[gw2] [ 34%] PASSED tests/test_rules_cost_statics101.py::test_liesa_first_and_repeat_command_costs_pay_life_not_generic_tax
+tests/test_rules_library_packets101.py::test_whole_canonical_coverage101[Illuna, Apex of Wishes]
+[gw2] [ 36%] PASSED tests/test_rules_library_packets101.py::test_whole_canonical_coverage101[Illuna, Apex of Wishes]
+tests/test_rules_library_packets101.py::test_whole_canonical_coverage101[Aurora Awakener]
+[gw2] [ 39%] PASSED tests/test_rules_library_packets101.py::test_whole_canonical_coverage101[Aurora Awakener]
+tests/test_rules_library_packets101.py::test_whole_canonical_coverage101[Demonlord Belzenlok]
+[gw2] [ 41%] PASSED tests/test_rules_library_packets101.py::test_whole_canonical_coverage101[Demonlord Belzenlok]
+tests/test_rules_library_packets101.py::test_whole_canonical_coverage101[Venture Forth]
+[gw2] [ 43%] PASSED tests/test_rules_library_packets101.py::test_whole_canonical_coverage101[Venture Forth]
+tests/test_rules_library_packets101.py::test_whole_canonical_coverage101[Improvisation Capstone]
+[gw2] [ 46%] PASSED tests/test_rules_library_packets101.py::test_whole_canonical_coverage101[Improvisation Capstone]
+tests/test_rules_library_packets101.py::test_actual_starrix_mutations_count_original_history_and_leave_nonpermanents_exiled
+[gw2] [ 48%] PASSED tests/test_rules_library_packets101.py::test_actual_starrix_mutations_count_original_history_and_leave_nonpermanents_exiled
+tests/test_rules_library_packets101.py::test_actual_illuna_forced_destination_and_land_exclusion[hand]
+[gw2] [ 51%] PASSED tests/test_rules_library_packets101.py::test_actual_illuna_forced_destination_and_land_exclusion[hand]
+tests/test_rules_library_packets101.py::test_actual_illuna_forced_destination_and_land_exclusion[battlefield]
+[gw2] [ 53%] PASSED tests/test_rules_library_packets101.py::test_actual_illuna_forced_destination_and_land_exclusion[battlefield]
+tests/test_rules_library_packets101.py::test_empty_lab_actual_paid_x_zombies_enter_simultaneously
+[gw2] [ 56%] PASSED tests/test_rules_library_packets101.py::test_empty_lab_actual_paid_x_zombies_enter_simultaneously
+tests/test_rules_library_packets101.py::test_aurora_locks_colors_before_new_permanents_enter_and_optional_pick
+[gw2] [ 58%] PASSED tests/test_rules_library_packets101.py::test_aurora_locks_colors_before_new_permanents_enter_and_optional_pick
+tests/test_rules_library_packets101.py::test_true_cold_illuna_original_exile_destination
+[gw2] [ 60%] PASSED tests/test_rules_library_packets101.py::test_true_cold_illuna_original_exile_destination
+tests/test_rules_library_packets101.py::test_belzenlok_native_repeats_and_stops_low_mana_value_then_one_damage_event
+[gw2] [ 63%] PASSED tests/test_rules_library_packets101.py::test_belzenlok_native_repeats_and_stops_low_mana_value_then_one_damage_event
+tests/test_rules_library_packets101.py::test_venture_forth_actual_self_exile_and_printed_suspend_registration
+[gw2] [ 65%] PASSED tests/test_rules_library_packets101.py::test_venture_forth_actual_self_exile_and_printed_suspend_registration
+tests/test_rules_library_packets101.py::test_capstone_native_total_mana_value_and_multiple_free_creature_casts
+[gw2] [ 68%] PASSED tests/test_rules_library_packets101.py::test_capstone_native_total_mana_value_and_multiple_free_creature_casts
+tests/test_rules_library_packets101.py::test_empty_lab_uses_actual_sacrifices_when_fewer_than_announced_x
+[gw2] [ 70%] PASSED tests/test_rules_library_packets101.py::test_empty_lab_uses_actual_sacrifices_when_fewer_than_announced_x
+tests/test_rules_library_packets101.py::test_genuine_cold_aurora_original_revealed_choices_and_locked_count
+[gw3] [ 73%] PASSED tests/test_rules_cost_statics101_extra.py::test_myth_command_from_graveyard_uses_current_watcher_not_simultaneous_lki[True]
+tests/test_rules_library_packets101.py::test_whole_canonical_coverage101[Auspicious Starrix]
+[gw3] [ 75%] PASSED tests/test_rules_library_packets101.py::test_whole_canonical_coverage101[Auspicious Starrix]
+tests/test_rules_library_packets101.py::test_belzenlok_native_commander_to_hand_replacement101[yes]
+[gw2] [ 78%] PASSED tests/test_rules_library_packets101.py::test_genuine_cold_aurora_original_revealed_choices_and_locked_count
+tests/test_rules_library_packets101.py::test_genuine_cold_capstone_remembers_first_cast_and_offers_remaining_original
+[gw3] [ 80%] PASSED tests/test_rules_library_packets101.py::test_belzenlok_native_commander_to_hand_replacement101[yes]
+tests/test_rules_library_packets101.py::test_belzenlok_native_commander_to_hand_replacement101[no]
+[gw3] [ 82%] PASSED tests/test_rules_library_packets101.py::test_belzenlok_native_commander_to_hand_replacement101[no]
+tests/test_rules_library_packets101.py::test_genuine_cold_belzenlok_commander_before_hand_then_remaining_packet101[no]
+[gw0] [ 85%] PASSED tests/test_rules_cost_statics101_extra.py::test_myth_discount_applies_in_hand_without_incrementing_command_cast_count
+tests/test_rules_library_packets101.py::test_whole_canonical_coverage101[Empty the Laboratory]
+[gw0] [ 87%] PASSED tests/test_rules_library_packets101.py::test_whole_canonical_coverage101[Empty the Laboratory]
+[gw2] [ 90%] PASSED tests/test_rules_library_packets101.py::test_genuine_cold_capstone_remembers_first_cast_and_offers_remaining_original
+tests/test_rules_library_packets101.py::test_genuine_cold_belzenlok_commander_before_hand_then_remaining_packet101[yes]
+[gw1] [ 92%] PASSED tests/test_rules_cost_statics101.py::test_actual_torch_stack_target_costs_two_more_and_failed_payment_is_atomic
+tests/test_rules_cost_statics101.py::test_torch_resolves_only_its_damage_body_and_has_no_tax_after_leaving_stack
+[gw3] [ 95%] PASSED tests/test_rules_library_packets101.py::test_genuine_cold_belzenlok_commander_before_hand_then_remaining_packet101[no]
+[gw2] [ 97%] PASSED tests/test_rules_library_packets101.py::test_genuine_cold_belzenlok_commander_before_hand_then_remaining_packet101[yes]
+[gw1] [100%] PASSED tests/test_rules_cost_statics101.py::test_torch_resolves_only_its_damage_body_and_has_no_tax_after_leaving_stack
+
+======================== 41 passed in 100.38s (0:01:40) ========================

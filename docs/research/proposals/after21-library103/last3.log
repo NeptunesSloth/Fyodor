@@ -1,0 +1,24 @@
+..F
+=================================== FAILURES ===================================
+________ test_foreign_owned_original_leaves_game_epic_memory_remains103 ________
+
+cards = <app.cards.repository.CardRepository object at 0x7fd0e213ce30>
+tmp_path = PosixPath('/tmp/pytest-epic103-last3/test_foreign_owned_original_le0')
+
+    def test_foreign_owned_original_leaves_game_epic_memory_remains103(cards, tmp_path):
+        s = setup(cards, three=True)
+        source = put(s, 'Endless Swarm', 'hand', 'p2')
+        original_id = source.id
+        act(s, 'p1', type='move', card_ids=[source.id], to={'player': 'p1', 'zone': 'hand'})
+        act(s, 'p1', type='cast_spell', card_id=source.id, sources=[])
+        advance(s)
+        assert len([t for t in s.state.rules.delayed if t.name == 'Endless Swarm']) == 1
+        act(s, 'p2', type='concede')
+>       assert s.state.players['p2'].left and s.state.cards[original_id].zone == 'p2:graveyard'
+E       AssertionError: assert (False)
+E        +  where False = PlayerState(id='p2', name='Bob', color='#5fa8d3', life=40, life_history=[], resources={'poison': 0, 'energy': 0, 'expe...C': 50, 'W': 50, 'U': 50, 'B': 50, 'R': 50, 'G': 50}, mana_units=[], mana_seq=0, left=False, sleeve=None, playmat=None).left
+
+tests/test_rules_epic103.py:276: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_rules_epic103.py::test_foreign_owned_original_leaves_game_epic_memory_remains103
+!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!

@@ -1,0 +1,5 @@
+# Native complete activation alternatives
+
+Two canonical PR21 PARTIAL names now FULL: Tidal Control and Bullseye, Death Dealer. One native source leaf adds closed life-or-mana and common-prefix sacrifice-artifact-or-discard-nonland complete sides. Existing announce/price/target/payment engine applies both sides including independent taxes, common mana and tap, summoning sickness, actor choice, material ownership and atomic cancellation. No new schema, marker alias or payment bypass.
+
+17 unique native PASS (Tidal8 plus Bull9),2 genuine cold,3 existing mana/energy alternative regressions. Final combined14 PASS =Bull9 +Tidal2 taxed sides +related3. Bull’s existing optional ETB alternative/reflexive damage remains native (new activation grammar requires a common prefix). Initial Bull fixtures accidentally moved the selected hand Bears onto the battlefield while setting up a second Bears; corrected order, no payment runtime change. Final mypy1/Ruff3 PASS. Global canonical targeted probe2 FULL. No whole-suite claim.

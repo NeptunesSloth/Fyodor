@@ -1,0 +1,155 @@
+{
+  "canonical": [
+    {
+      "id": "0c019e76-c88e-4d1b-a546-0f4e462ef44a",
+      "oracle_id": "68979160-b5ce-4787-8a1e-1f40e614c3b0",
+      "name": "Spirit Water Revival",
+      "layout": "normal",
+      "set_code": "tla",
+      "set_name": "Avatar: The Last Airbender",
+      "collector_number": "73",
+      "rarity": "rare",
+      "mana_cost": "{1}{U}{U}",
+      "cmc": 3.0,
+      "type_line": "Sorcery",
+      "oracle_text": "As an additional cost to cast this spell, you may waterbend {6}. (While paying a waterbend cost, you can tap your artifacts and creatures to help. Each one pays for {1}.)\nDraw two cards. If this spell's additional cost was paid, instead shuffle your graveyard into your library, draw seven cards, and you have no maximum hand size for the rest of the game.\nExile Spirit Water Revival.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null,
+      "defense": null,
+      "colors": [
+        "U"
+      ],
+      "color_identity": [
+        "U"
+      ],
+      "keywords": [
+        "Waterbend"
+      ],
+      "is_token": false,
+      "faces": [],
+      "double_faced": false,
+      "image_faces": 1,
+      "has_image": false,
+      "released_at": "2025-11-21",
+      "artist": "Enishi",
+      "commander_legal": "legal",
+      "related_tokens": [],
+      "related_cards": []
+    },
+    {
+      "id": "53161747-c82b-41e8-90ea-7791ea262a85",
+      "oracle_id": "7d3a0216-871b-4c1b-adb1-de99b832f577",
+      "name": "Ruinous Waterbending",
+      "layout": "normal",
+      "set_code": "tla",
+      "set_name": "Avatar: The Last Airbender",
+      "collector_number": "118",
+      "rarity": "uncommon",
+      "mana_cost": "{1}{B}{B}",
+      "cmc": 3.0,
+      "type_line": "Sorcery \u2014 Lesson",
+      "oracle_text": "As an additional cost to cast this spell, you may waterbend {4}. (While paying a waterbend cost, you can tap your artifacts and creatures to help. Each one pays for {1}.)\nAll creatures get -2/-2 until end of turn. If this spell's additional cost was paid, whenever a creature dies this turn, you gain 1 life.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null,
+      "defense": null,
+      "colors": [
+        "B"
+      ],
+      "color_identity": [
+        "B"
+      ],
+      "keywords": [
+        "Waterbend"
+      ],
+      "is_token": false,
+      "faces": [],
+      "double_faced": false,
+      "image_faces": 1,
+      "has_image": false,
+      "released_at": "2025-11-21",
+      "artist": "Yuu Fujiki",
+      "commander_legal": "legal",
+      "related_tokens": [],
+      "related_cards": []
+    },
+    {
+      "id": "a1c3f58b-9323-44ea-93f0-64d5992c5674",
+      "oracle_id": "124cc815-0877-40f2-98c8-e7c4f8cd6598",
+      "name": "Katara, Seeking Revenge",
+      "layout": "normal",
+      "set_code": "tle",
+      "set_name": "Avatar: The Last Airbender Eternal",
+      "collector_number": "148",
+      "rarity": "uncommon",
+      "mana_cost": "{3}{U/B}",
+      "cmc": 4.0,
+      "type_line": "Legendary Creature \u2014 Human Warrior Ally",
+      "oracle_text": "As an additional cost to cast this spell, you may waterbend {2}. (While paying a waterbend cost, you can tap your artifacts and creatures to help. Each one pays for {1}.)\nWhen Katara enters, draw a card, then discard a card unless her additional cost was paid.\nKatara gets +1/+1 for each Lesson card in your graveyard.",
+      "power": "3",
+      "toughness": "3",
+      "loyalty": null,
+      "defense": null,
+      "colors": [
+        "B",
+        "U"
+      ],
+      "color_identity": [
+        "B",
+        "U"
+      ],
+      "keywords": [
+        "Waterbend"
+      ],
+      "is_token": false,
+      "faces": [],
+      "double_faced": false,
+      "image_faces": 1,
+      "has_image": false,
+      "released_at": "2025-11-21",
+      "artist": "Yoshioka",
+      "commander_legal": "legal",
+      "related_tokens": [],
+      "related_cards": []
+    }
+  ],
+  "targeted_classification": [
+    {
+      "name": "Spirit Water Revival",
+      "rank": 1000000000,
+      "level": "FULL",
+      "commander": false,
+      "lines": {
+        "supported": 3,
+        "parsed": 0,
+        "unparsed": 0
+      },
+      "missing": []
+    },
+    {
+      "name": "Ruinous Waterbending",
+      "rank": 1000000000,
+      "level": "FULL",
+      "commander": false,
+      "lines": {
+        "supported": 2,
+        "parsed": 0,
+        "unparsed": 0
+      },
+      "missing": []
+    },
+    {
+      "name": "Katara, Seeking Revenge",
+      "rank": 1000000000,
+      "level": "FULL",
+      "commander": true,
+      "lines": {
+        "supported": 3,
+        "parsed": 0,
+        "unparsed": 0
+      },
+      "missing": []
+    }
+  ]
+}

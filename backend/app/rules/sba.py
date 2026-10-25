@@ -325,6 +325,11 @@ def _round(plan: Plan, *, confirmed: bool = False) -> bool:
         found.dying = [(card, why) for card, why in found.dying
                        if why != sagas.SACRIFICE_REASON or not prohibitions.sacrifice_forbidden(plan, card)]
     if found.dying:
+        from app.rules import stickers101
+
+        if stickers101.ask_sba(plan, [c.id for c, _reason in found.dying]):
+            return True
+    if found.dying:
         # All of them die at once: one move, one event batch (704.3), with last known information.
         for card, reason in found.dying:
             plan.note(f"State-based action: {reason} →", [card.id])

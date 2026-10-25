@@ -1,0 +1,111 @@
+[
+  {
+    "id": "085cb059-6cab-4725-95fb-de484167a5d4",
+    "oracle_id": "cbf64c58-664f-431f-987e-08ae70d23f2b",
+    "name": "Tempt with Mayhem",
+    "layout": "normal",
+    "set_code": "m3c",
+    "set_name": "Modern Horizons 3 Commander",
+    "collector_number": "114",
+    "rarity": "rare",
+    "mana_cost": "{1}{R}{R}",
+    "cmc": 3.0,
+    "type_line": "Instant",
+    "oracle_text": "Tempting offer \u2014 Choose target instant or sorcery spell. Each opponent may copy that spell and may choose new targets for the copy they control. You copy that spell once plus an additional time for each opponent who copied the spell this way. You may choose new targets for the copies you control.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [
+      "Tempting offer"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2024-06-14",
+    "artist": "Deruchenko Alexander",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "bf22da0c-5bf5-4c81-9422-671ce17c8ffa",
+    "oracle_id": "11dfe74c-bc8e-4d58-b526-41ea5b409135",
+    "name": "Meletis Charlatan",
+    "layout": "normal",
+    "set_code": "ths",
+    "set_name": "Theros",
+    "collector_number": "54",
+    "rarity": "rare",
+    "mana_cost": "{2}{U}",
+    "cmc": 3.0,
+    "type_line": "Creature \u2014 Human Wizard",
+    "oracle_text": "{2}{U}, {T}: The controller of target instant or sorcery spell copies it. That player may choose new targets for the copy.",
+    "power": "2",
+    "toughness": "3",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2013-09-27",
+    "artist": "Jason A. Engle",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "67a105f8-0c01-4c09-a3bf-8c912b6dc741",
+    "oracle_id": "08dd393f-12d8-4801-882c-6d76009b4f12",
+    "name": "Psychic Rebuttal",
+    "layout": "normal",
+    "set_code": "ori",
+    "set_name": "Magic Origins",
+    "collector_number": "67",
+    "rarity": "uncommon",
+    "mana_cost": "{1}{U}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "Counter target instant or sorcery spell that targets you.\nSpell mastery \u2014 If there are two or more instant and/or sorcery cards in your graveyard, you may copy the spell countered this way. You may choose new targets for the copy.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Spell mastery"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2015-07-17",
+    "artist": "Todd Lockwood",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  }
+]

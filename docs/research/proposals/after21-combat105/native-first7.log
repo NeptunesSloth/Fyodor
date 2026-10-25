@@ -1,0 +1,1060 @@
+bringing up nodes...
+bringing up nodes...
+
+..F.FFF                                                                  [100%]
+=================================== FAILURES ===================================
+____ test_native_end_return_then_original_source_lost105[Krovikan Vampire] _____
+[gw0] linux -- Python 3.12.14 /workspace/Fyodor/backend/.venv/bin/python3
+
+cards = <app.cards.repository.CardRepository object at 0x7fb015c3a2a0>
+name = 'Krovikan Vampire'
+
+    @pytest.mark.parametrize("name", NAMES)
+    def test_native_end_return_then_original_source_lost105(cards, name):
+        s, source, victim = pair105(cards, name)
+        to_phase(s, "end", turn=4)
+        settle(s)
+        assert s.state.cards[victim.id].zone == "p1:battlefield"
+>       cast95(s, "Dominate", [source.id], pid="p2", x=7)
+
+tests/test_rules_vampire_returns105.py:131:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests/test_rules_vampire_returns105.py:93: in cast95
+    act(s, pid, type="cast_spell", card_id=source.id, targets=list(targets), **extra)
+tests/game_helpers.py:42: in act
+    return session.perform(actor, payload)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/game/session.py:57: in perform
+    action = parse_action(payload) if isinstance(payload, dict) else payload
+             ^^^^^^^^^^^^^^^^^^^^^
+app/game/actions.py:1492: in parse_action
+    return ACTION_ADAPTER.validate_python(data)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = TypeAdapter(Annotated[Union[Draw, Move, SetPosition, Shuffle, Mill, Mulligan, PutTopFaceDown, MulliganTake, MulliganKe...lesDamage, RulesLifeChanges, Renumber, RulesLog], FieldInfo(annotation=NoneType, required=True, discriminator='type')])
+object = {'type': 'cast_spell', 'card_id': '62254bee369f', 'targets': ['169218bd4e2a'], 'x': 7}
+strict = None, extra = None, from_attributes = None, context = None
+experimental_allow_partial = False, by_alias = None, by_name = None
+
+    def validate_python(
+        self,
+        object: Any,
+        /,
+        *,
+        strict: bool | None = None,
+        extra: ExtraValues | None = None,
+        from_attributes: bool | None = None,
+        context: Any | None = None,
+        experimental_allow_partial: bool | Literal['off', 'on', 'trailing-strings'] = False,
+        by_alias: bool | None = None,
+        by_name: bool | None = None,
+    ) -> T:
+        """Validate a Python object against the model.
+
+        A [`ValidationError`][pydantic_core.ValidationError] reports the rejected locations and values.
+        If you record validations with [Logfire](../integrations/logfire.md), the complete object and trace
+        context are retained alongside the error — `TypeAdapter` validations are captured the same way as
+        model validations (see [Troubleshooting validation errors](../errors/troubleshooting.md)).
+
+        Args:
+            object: The Python object to validate against the model.
+            strict: Whether to strictly check types.
+            extra: Whether to ignore, allow, or forbid extra data during model validation.
+                See the [`extra` configuration value][pydantic.ConfigDict.extra] for details.
+            from_attributes: Whether to extract data from object attributes.
+            context: Additional context to pass to the validator.
+            experimental_allow_partial: **Experimental** whether to enable
+                [partial validation](../concepts/experimental.md#partial-validation), e.g. to process streams.
+                * False / 'off': Default behavior, no partial validation.
+                * True / 'on': Enable partial validation.
+                * 'trailing-strings': Enable partial validation and allow trailing strings in the input.
+            by_alias: Whether to use the field's alias when validating against the provided input data.
+            by_name: Whether to use the field's name when validating against the provided input data.
+
+        !!! note
+            When using `TypeAdapter` with a Pydantic `dataclass`, the use of the `from_attributes`
+            argument is not supported.
+
+        Returns:
+            The validated object.
+        """
+        if by_alias is False and by_name is not True:
+            raise PydanticUserError(
+                'At least one of `by_alias` or `by_name` must be set to True.',
+                code='validate-by-alias-and-name-false',
+            )
+
+>       return self.validator.validate_python(
+            object,
+            strict=strict,
+            extra=extra,
+            from_attributes=from_attributes,
+            context=context,
+            allow_partial=experimental_allow_partial,
+            by_alias=by_alias,
+            by_name=by_name,
+        )
+E       pydantic_core._pydantic_core.ValidationError: 1 validation error for tagged-union[Draw,Move,SetPosition,Shuffle,Mill,Mulligan,PutTopFaceDown,MulliganTake,MulliganKeep,MulliganBottom,MulliganPowder,MulliganFinish,Reveal,Hide,LookTop,RevealTop,SearchStart,SearchEnd,EndView,Tap,UntapAll,PhaseShift,Counter,SetCounter,CreateToken,CopyCard,DeleteCard,Merge,Meld,SetFace,Flip,FaceDown,Note,SetController,ReturnToOwner,RestoreState,SpawnCard,ResetDeck,RestartGame,RunMacro,SetAppearance,SetTablePlaymat,function-after[_clean_strings(), AddEffect],RemoveEffect,SetDamage,function-after[_clean_strings(), SetChoice],function-after[_clean_strings(), SetStackInfo],function-after[_clean_strings(), SetExileGroup],function-after[_clean_strings(), CreateArrow],RemoveArrow,SetCopySource,Cleanup,RemovePlayer,SetCommander,Life,SetLife,Resource,SetResource,CommanderDamage,CommanderTax,SetMonarch,SetInitiative,SetDayNight,CityBlessing,RenamePlayer,Roll,Coin,Chat,Phase,NextTurn,Attack,Block,ClearCombat,CreateAbility,ResolveTop,ResponseOpen,ResponsePass,ResponseRespond,ResponseAutoPass,ResponseClose,Rotate,SetLock,SetProtect,Attach,Detach,Group,Ungroup,StackAdjust,SplitStack,ExpandStack,MergeTokens,AddMana,ClearMana,Configure,PlayLand,CastSpell,TurnFaceUp,UnlockDoor,EndEffect,PayDeferred,MiracleReveal,ActivateAbility,DeclareAttackers,DeclareBlockers,PassPriority,Choose,Concede,SetStops,SetPrefs,SetCardAutomation,RepeatSequence,RulesSync,RulesMana,RulesDamage,RulesLifeChanges,Renumber,RulesLog]
+E       cast_spell.x
+E         Extra inputs are not permitted [type=extra_forbidden, input_value=7, input_type=int]
+E           For further information visit https://errors.pydantic.dev/2.14/v/extra_forbidden
+
+../../../Fyodor/backend/.venv/lib/python3.12/site-packages/pydantic/type_adapter.py:410: ValidationError
+_________ test_native_end_return_then_original_source_lost105[Seraph] __________
+[gw0] linux -- Python 3.12.14 /workspace/Fyodor/backend/.venv/bin/python3
+
+self = <app.game.session.GameSession object at 0x7fb0154d7a70>, actor = 'p3'
+payload = {'type': 'pass_priority'}, trusted = False
+
+    def perform(self, actor: str, payload: dict[str, Any] | Action, *, trusted: bool = False) -> Action:
+        """Validate, resolve, apply and record one action. Raises ActionError / ValidationError.
+
+        ``trusted`` is only for actions the server builds itself (e.g. restoring a snapshot)."""
+        if actor not in self.state.players:
+            raise ActionError("Only seated players can act")
+        action = parse_action(payload) if isinstance(payload, dict) else payload
+        if not trusted and action.type not in CONTROLLED_MAY:
+            self._check_not_controlled(actor)
+        try:
+>           resolved = resolve(self.state, action, actor=actor, cards=self.cards, trusted=trusted)
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+app/game/session.py:61:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+app/game/resolve.py:76: in resolve
+    a.r = compile_intent(state, a, actor=actor, info=info, rng=rng)  # type: ignore[union-attr]
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/engine.py:164: in compile_intent
+    handler(plan, intent)
+app/rules/engine.py:520: in pass_priority
+    advance(plan)
+app/rules/engine.py:478: in advance
+    if triggers.flush(plan):  # triggered abilities go on the stack now (603.3)
+       ^^^^^^^^^^^^^^^^^^^^
+app/rules/triggers.py:2607: in flush
+    collect(plan)
+app/rules/triggers.py:321: in collect
+    _generic_events(plan, new)
+app/rules/triggers.py:1715: in _generic_events
+    _fire_generic(plan, facts, e.batch, fired, watchers, left)
+app/rules/triggers.py:1497: in _fire_generic
+    if not combat_player_scope43.printed_verdict(plan, whole, watcher, fact,
+app/rules/combat_player_scope43.py:137: in printed_verdict
+    return triggers._cond_matches(plan, condition, watcher, fact, source_oid=source_oid)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/triggers.py:811: in _cond_matches
+    if not _details_ok(plan, cond, watcher, fact):
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+plan = <app.rules.plan.Plan object at 0x7fb0163c32f0>
+cond = {'event': 'die', 'subject': 'sel', 'sel': 'sel:{"types":["Creature"]}', 'aggregate': False, ...}
+watcher = CardInstance(borrow_identity=None, id='2df20ddc3e95', card_id='12f2a826-aece-58d5-a060-c0d224657ae0', name='Seraph', o...ts=[], damage=0, choices={}, stack_info=None, exile_group=None, token_source=None, origin='library', test_object=False)
+fact = ('die', CardInstance(borrow_identity=None, id='4b5be848a5e2', card_id='37eb2dfc-ed3d-5bbc-8e60-97047b81162d', name='Ll... keywords=None, traits=None, copy_recipe=None, x=None, goaded=[]), 'new_oid': '4b5be848a5e2.10', 'to': 'p2:graveyard'})
+
+    def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: Fact) -> bool:
+        """The parts of a condition beyond its subject and event."""
+        if cond.get('target_source77'):
+            from app.rules import targeting_sources77
+
+            if not targeting_sources77.matches(plan, cond, fact):
+                return False
+        from app.rules import selectors
+
+        event, obj, och, player, info = fact
+        you = watcher.controller
+        if cond.get('during_step') and plan.state.turn.phase != cond['during_step']:
+            return False
+        if 'life_loss_exact' in cond and (event != 'lose_life' or info.get('amount') != cond['life_loss_exact']):
+            return False
+        if event == "attack" and cond.get("defender_lands_min"):
+            defender = obj.attacking.id if obj is not None and obj.attacking is not None and obj.attacking.kind == "player" else None
+            lands = sum(c.zone.endswith(":battlefield") and c.controller == defender and plan.ch(c).is_land for c in plan.state.cards.values())
+            if defender not in plan.live() or lands < cond["defender_lands_min"]:
+                return False
+        if cond.get("recipient_more_lands"):
+            recipient = info.get("recipient")
+            own_lands = sum(c.zone.endswith(":battlefield") and c.controller == you and plan.ch(c).is_land for c in plan.state.cards.values())
+            recipient_lands = sum(c.zone.endswith(":battlefield") and c.controller == recipient and plan.ch(c).is_land for c in plan.state.cards.values())
+            if recipient not in plan.live() or recipient_lands <= own_lands:
+                return False
+        if event == "exerted" and cond.get("by") == "you" and player != you:
+            return False
+        if cond.get("not_played") and info.get("played"):
+            return False
+        if cond.get("own_untap") and not (info.get("step_phase") == "untap" and info.get("active_player") == watcher.controller):
+            return False
+        if cond.get("aura_controller57"):
+            from app.rules import graveyard_return57
+
+            if not graveyard_return57.enchanted_before(you, info):
+                return False
+        if not _other_ok(plan, cond, watcher, info, obj):
+            return False
+        if cond.get("mana_source") == "self" and plan.oid(watcher) not in info.get("mana_sources", []):
+            return False
+        if cond.get("to") == "self" and info.get("other") != watcher.id:  # -- attachment events (wave 30S) -- "an Aura becomes attached to this creature"
+            return False
+        if cond.get("cause") == "opponent" and not (  # -- discard causes (wave 23D) -- 701.9: "a spell or ability an opponent controls causes you to
+                info.get("by") and info["by"] != player):  # discard": the discard was moved by a resolving effect of another player
+            return False
+        if cond.get("main_phase") and plan.state.turn.phase not in ("main1", "main2"):  # -- crew & saddle (wave 23D) -- "during your main phase"
+            return False
+        if cond.get("exploited") and not (  # -- keyword triggers (wave 23D) -- "exploits a nontoken creature": the one sacrificed, as it was (702.110b)
+                info.get("exploited") and selectors.matches(plan, selectors.from_key(cond["exploited"]), info["exploited"][0],
+                                                            info["exploited"][1], you, watcher.id)):
+            return False
+        if cond.get("into") and (info.get("face_name") or "").lower() != cond["into"].lower():  # -- transform (wave 16F) --
+            return False
+        if cond.get("into_sel") and not (obj is not None and och is not None and selectors.matches(  # -- transform (wave 26D) -- "transforms into a Phyrexian": its new face
+                plan, selectors.from_key(cond["into_sel"]), obj, och, you, watcher.id)):
+            return False
+        if cond.get("alone") and info.get("attackers") != 1:  # 506.5
+            return False
+        if cond.get("min_blockers") and info.get("blockers", 0) < cond["min_blockers"]:  # -- block events (wave 53C) -- 509.3c: "becomes blocked by two or more creatures"
+            return False
+        if cond.get("min_blocked") and info.get("blocked", 0) < cond["min_blocked"]:  # -- trigger lines (wave 100A) -- 509.3e: "blocks two or more creatures"
+            return False
+        if cond.get("while") is not None:  # "attacks while you control …", -- counters (wave 33C) -- "enters while this creature has a -1/-1 counter on it": part of the trigger event
+            from app.rules import conditions
+
+            if not conditions.holds(plan, {"controller": you, "source_card": watcher.id}, cond["while"]):
+                return False
+        if event in ("attack", "unblocked", "you_attack"):
+            if cond.get("self_or_owned_commander") and not any(
+                    cid == watcher.id or (plan.state.cards[cid].owner == you and plan.state.cards[cid].commander_key is not None)
+                    for cid in info.get("attacking", []) if cid in plan.state.cards):
+                return False
+            want = cond.get("defender")
+            # "whenever you attack" is once per combat; "whenever a player attacks you" once per player
+            # attacked (508.3d, 508.3e): each reads only its own fact
+            if event == "you_attack" and want == "opponent_any":  # -- trigger sweep (wave 27B) -- "a player attacks one or more of your opponents": once per attack (508.3d)
+                if "defended" in info or not any(d != watcher.controller for d in info.get("defended_direct", [])):
+                    return False
+            elif event == "you_attack" and bool(want) != ("defended" in info):
+                return False
+            if want and want != "opponent_any" and not _defender_ok(want, watcher, info, plan):
+                return False
+            if cond.get("first_each_turn") and not info.get("first"):
+                return False
+            if cond.get("defending_player") == "you":  # -- trigger other (wave 44B) -- 508.5: "if you're the defending player" (a battle you protect included)
+                from app.rules import defending
+
+                if obj is None or defending.defended(plan, obj) != you:
+                    return False
+        if event == 'dealt_damage' and cond.get('damage_source'):
+            ref = _source_ref(plan, info.get('source_oid'))
+            source = _object_then(plan, ref.card, ref.object_id) if ref is not None else None
+            if source is None or not selectors.matches(plan, selectors.from_key(cond['damage_source']),
+                                                       source[0], source[1], watcher.controller, watcher.id):
+                return False
+        if event == "dealt_damage" and cond.get("combat") is not None and bool(info.get("combat")) != cond["combat"]:
+            return False
+        if event == "dealt_damage" and cond.get("excess") and int(info.get("excess") or 0) <= 0:  # -- trigger damage (wave 39B) -- 120.10: it was dealt excess damage
+            return False
+        if cond.get("first_each_turn") and event in ("dealt_damage", "deal_combat_damage_player", "counters_put") and not _first_of(plan, cond, event, info):
+            return False  # (wave 39B)
+        if event in _FIRST_KINDS and cond.get("first_each_turn") and not info.get("first"):  # (wave 11C)
+            return False
+        if event == "tapped" and cond.get("first_each_turn") and not info.get("first"):  # (wave 42B)
+            return False
+        if event == "discard" and cond.get("first_each_turn") and not _first_discard(plan, cond, player, info):  # (wave 36A)
+            return False
+        if cond.get('treasure_paid'):
+            tags = (info.get('activation_cost') or {}).get('mana_tags') if event == 'activate' else info.get('mana_tags')
+            if not any('Treasure' in t for t in tags or []):
+                return False
+        if cond.get('snow_matches_spell') and (och is None or not any(
+                (info.get('snow_spent') or {}).get(color, 0) > 0 for color in och.colors)):
+            return False
+        if cond.get('cost_has_x') and (och is None or '{X}' not in (och.mana_cost or '')):
+            return False
+        if cond.get('activation_cost'):
+            from app.rules import activated_copy_effects
+
+            if not activated_copy_effects.matches(cond['activation_cost'], info.get('activation_cost')):
+                return False
+        if event == "activate" and cond.get("nonmana") and info.get("mana_ability"):
+            return False
+        if event == "activate" and ((cond.get("loyalty") and not info.get("loyalty")) or (
+                cond.get("own") and (obj is None or obj.controller != player))):  # -- activation (wave 11F) --
+            return False
+        if event == "activate" and cond.get("ability_kinds") and info.get("ability_kind") not in cond["ability_kinds"]:
+            return False
+        if event == "activate" and cond.get("ability_kind") != info.get("ability_kind") and cond.get("ability_kind"):
+            return False
+        if event == "activate" and cond.get("host_source") and (obj is None or not _hosted(plan, watcher, obj, info, event)):
+            return False
+        if event == "activate" and cond.get("word") and info.get("word") != cond["word"]:  # -- counters (wave 33C) -- "an exhaust / a boast / a power-up ability"
+            return False
+        if event == "activate" and cond.get("ability_targets"):  # -- stack interaction (wave 23B) -- "an ability that targets a creature or player"
+            ref = info.get("source_ref")
+            ability = plan.state.cards.get(ref.card) if ref is not None else None
+            if ability is None or not any(selectors.targets_match(plan, ability, x, you, watcher.id) for x in cond["ability_targets"]):
+                return False
+        if event == "become_level" and cond.get("level") != info.get("level"):  # -- Class (wave 16A) --
+            return False
+        if event == "unlock_door" and cond.get("door") != info.get("door"):  # -- Rooms (wave 18G) -- only the door that was unlocked
+            return False
+        if event in ("scry", "surveil") and cond.get("nth") and info.get("nth") != cond["nth"]:  # -- looks (wave 8B) --
+            return False
+        if event == "coin_flip" and cond.get("won") != info.get("won"):  # -- coin events (wave 45C) -- won or lost (705.2)
+            return False
+        if event == "tapped" and ((cond.get("tapper") == "you" and info.get("tapper") != you) or (cond.get("not_declared") and info.get("declared"))):
+            return False  # -- tap events (wave 45C) -- "you tap …" (the step's actor); "if it isn't being declared as an attacker" (508.1f)
+        if event == "control_change":
+            if cond.get("to") == "you":
+                if player != you or info.get("was") in (None, you):
+                    return False
+            elif player == you or info.get("was") != you:
+                return False
+        if event == "final_chapter" and cond.get("when") != info.get("when"):  # -- saga events (wave 45C) -- triggers or resolves (rules/sagas.py)
+            return False
+        if event == "roll_die":  # -- dice (wave 24B) -- the die's own result / size / place in the turn (app/rules/dice.py)
+            from app.rules import dice
+
+            if not dice.die_matches(cond, info):
+                return False
+        if event == "roll_visit":  # -- Attractions (wave 100L) -- a visit ability: the result lit up on it (702.159a)
+            from app.rules import attractions100l
+
+            if not attractions100l.matches(plan, cond, watcher, info):
+                return False
+        if event == "die" and cond.get("damaged_by_exact105"):
+            from app.rules import vampire_returns105
+
+>           if not vampire_returns105.damage_match(plan, info.get("oid"), source_oid or plan.oid(watcher)):
+                                                                          ^^^^^^^^^^
+E           NameError: name 'source_oid' is not defined
+
+app/rules/triggers.py:1105: NameError
+
+The above exception was the direct cause of the following exception:
+
+cards = <app.cards.repository.CardRepository object at 0x7fb015c33290>
+name = 'Seraph'
+
+    @pytest.mark.parametrize("name", NAMES)
+    def test_native_end_return_then_original_source_lost105(cards, name):
+>       s, source, victim = pair105(cards, name)
+                            ^^^^^^^^^^^^^^^^^^^^
+
+tests/test_rules_vampire_returns105.py:127:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests/test_rules_vampire_returns105.py:120: in pair105
+    settle(s)
+tests/test_rules_library_look.py:51: in settle
+    act(s,s.state.rules.priority,type='pass_priority')
+tests/game_helpers.py:42: in act
+    return session.perform(actor, payload)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <app.game.session.GameSession object at 0x7fb0154d7a70>, actor = 'p3'
+payload = {'type': 'pass_priority'}, trusted = False
+
+    def perform(self, actor: str, payload: dict[str, Any] | Action, *, trusted: bool = False) -> Action:
+        """Validate, resolve, apply and record one action. Raises ActionError / ValidationError.
+
+        ``trusted`` is only for actions the server builds itself (e.g. restoring a snapshot)."""
+        if actor not in self.state.players:
+            raise ActionError("Only seated players can act")
+        action = parse_action(payload) if isinstance(payload, dict) else payload
+        if not trusted and action.type not in CONTROLLED_MAY:
+            self._check_not_controlled(actor)
+        try:
+            resolved = resolve(self.state, action, actor=actor, cards=self.cards, trusted=trusted)
+        except ActionError:
+            raise
+        except Exception as exc:
+            if action.type not in INTENT_TYPES and action.type != "configure":
+                raise
+            # A rules bug must never break game night: compiling works on a scratch copy, so
+            # nothing was applied. Remember the failure for EXPORT RULES SCENARIO.
+            log.exception("Rules engine failed on %s", action.type)
+            self.rules_failure = {
+                "intent": action.model_dump(mode="json", exclude={"r"}), "actor": actor, "seq": self.state.seq,
+                "error": f"{type(exc).__name__}: {exc}"[:500], "at": time.time(),
+            }
+>           raise AutomationError(
+                f"{AutomationError.PREFIX}: Fyodor couldn't carry out {action.type.replace('_', ' ')}. Nothing changed. "
+                "Resolve it manually with the table tools, pause automation, or export a rules scenario."
+            ) from exc
+E           app.game.errors.AutomationError: AUTOMATION ERROR: Fyodor couldn't carry out pass priority. Nothing changed. Resolve it manually with the table tools, pause automation, or export a rules scenario.
+
+app/game/session.py:74: AutomationError
+------------------------------ Captured log call -------------------------------
+ERROR    app.game.session:session.py:69 Rules engine failed on pass_priority
+Traceback (most recent call last):
+  File "/workspace/scratch/combat105/backend/app/game/session.py", line 61, in perform
+    resolved = resolve(self.state, action, actor=actor, cards=self.cards, trusted=trusted)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/scratch/combat105/backend/app/game/resolve.py", line 76, in resolve
+    a.r = compile_intent(state, a, actor=actor, info=info, rng=rng)  # type: ignore[union-attr]
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/scratch/combat105/backend/app/rules/engine.py", line 164, in compile_intent
+    handler(plan, intent)
+  File "/workspace/scratch/combat105/backend/app/rules/engine.py", line 520, in pass_priority
+    advance(plan)
+  File "/workspace/scratch/combat105/backend/app/rules/engine.py", line 478, in advance
+    if triggers.flush(plan):  # triggered abilities go on the stack now (603.3)
+       ^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/scratch/combat105/backend/app/rules/triggers.py", line 2607, in flush
+    collect(plan)
+  File "/workspace/scratch/combat105/backend/app/rules/triggers.py", line 321, in collect
+    _generic_events(plan, new)
+  File "/workspace/scratch/combat105/backend/app/rules/triggers.py", line 1715, in _generic_events
+    _fire_generic(plan, facts, e.batch, fired, watchers, left)
+  File "/workspace/scratch/combat105/backend/app/rules/triggers.py", line 1497, in _fire_generic
+    if not combat_player_scope43.printed_verdict(plan, whole, watcher, fact,
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/scratch/combat105/backend/app/rules/combat_player_scope43.py", line 137, in printed_verdict
+    return triggers._cond_matches(plan, condition, watcher, fact, source_oid=source_oid)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/scratch/combat105/backend/app/rules/triggers.py", line 811, in _cond_matches
+    if not _details_ok(plan, cond, watcher, fact):
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/scratch/combat105/backend/app/rules/triggers.py", line 1105, in _details_ok
+    if not vampire_returns105.damage_match(plan, info.get("oid"), source_oid or plan.oid(watcher)):
+                                                                  ^^^^^^^^^^
+NameError: name 'source_oid' is not defined. Did you mean: 'source_of'?
+______________ test_seraph_foreign_at_return_regain_then_lose105 _______________
+[gw0] linux -- Python 3.12.14 /workspace/Fyodor/backend/.venv/bin/python3
+
+self = <app.game.session.GameSession object at 0x7fb015ecbe00>, actor = 'p3'
+payload = {'type': 'pass_priority'}, trusted = False
+
+    def perform(self, actor: str, payload: dict[str, Any] | Action, *, trusted: bool = False) -> Action:
+        """Validate, resolve, apply and record one action. Raises ActionError / ValidationError.
+
+        ``trusted`` is only for actions the server builds itself (e.g. restoring a snapshot)."""
+        if actor not in self.state.players:
+            raise ActionError("Only seated players can act")
+        action = parse_action(payload) if isinstance(payload, dict) else payload
+        if not trusted and action.type not in CONTROLLED_MAY:
+            self._check_not_controlled(actor)
+        try:
+>           resolved = resolve(self.state, action, actor=actor, cards=self.cards, trusted=trusted)
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+app/game/session.py:61:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+app/game/resolve.py:76: in resolve
+    a.r = compile_intent(state, a, actor=actor, info=info, rng=rng)  # type: ignore[union-attr]
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/engine.py:164: in compile_intent
+    handler(plan, intent)
+app/rules/engine.py:520: in pass_priority
+    advance(plan)
+app/rules/engine.py:478: in advance
+    if triggers.flush(plan):  # triggered abilities go on the stack now (603.3)
+       ^^^^^^^^^^^^^^^^^^^^
+app/rules/triggers.py:2607: in flush
+    collect(plan)
+app/rules/triggers.py:321: in collect
+    _generic_events(plan, new)
+app/rules/triggers.py:1715: in _generic_events
+    _fire_generic(plan, facts, e.batch, fired, watchers, left)
+app/rules/triggers.py:1497: in _fire_generic
+    if not combat_player_scope43.printed_verdict(plan, whole, watcher, fact,
+app/rules/combat_player_scope43.py:137: in printed_verdict
+    return triggers._cond_matches(plan, condition, watcher, fact, source_oid=source_oid)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/triggers.py:811: in _cond_matches
+    if not _details_ok(plan, cond, watcher, fact):
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+plan = <app.rules.plan.Plan object at 0x7fb015ec9fd0>
+cond = {'event': 'die', 'subject': 'sel', 'sel': 'sel:{"types":["Creature"]}', 'aggregate': False, ...}
+watcher = CardInstance(borrow_identity=None, id='f7533757faa0', card_id='12f2a826-aece-58d5-a060-c0d224657ae0', name='Seraph', o...ts=[], damage=0, choices={}, stack_info=None, exile_group=None, token_source=None, origin='library', test_object=False)
+fact = ('die', CardInstance(borrow_identity=None, id='19c1ea257ac1', card_id='37eb2dfc-ed3d-5bbc-8e60-97047b81162d', name='Ll... keywords=None, traits=None, copy_recipe=None, x=None, goaded=[]), 'new_oid': '19c1ea257ac1.10', 'to': 'p2:graveyard'})
+
+    def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: Fact) -> bool:
+        """The parts of a condition beyond its subject and event."""
+        if cond.get('target_source77'):
+            from app.rules import targeting_sources77
+
+            if not targeting_sources77.matches(plan, cond, fact):
+                return False
+        from app.rules import selectors
+
+        event, obj, och, player, info = fact
+        you = watcher.controller
+        if cond.get('during_step') and plan.state.turn.phase != cond['during_step']:
+            return False
+        if 'life_loss_exact' in cond and (event != 'lose_life' or info.get('amount') != cond['life_loss_exact']):
+            return False
+        if event == "attack" and cond.get("defender_lands_min"):
+            defender = obj.attacking.id if obj is not None and obj.attacking is not None and obj.attacking.kind == "player" else None
+            lands = sum(c.zone.endswith(":battlefield") and c.controller == defender and plan.ch(c).is_land for c in plan.state.cards.values())
+            if defender not in plan.live() or lands < cond["defender_lands_min"]:
+                return False
+        if cond.get("recipient_more_lands"):
+            recipient = info.get("recipient")
+            own_lands = sum(c.zone.endswith(":battlefield") and c.controller == you and plan.ch(c).is_land for c in plan.state.cards.values())
+            recipient_lands = sum(c.zone.endswith(":battlefield") and c.controller == recipient and plan.ch(c).is_land for c in plan.state.cards.values())
+            if recipient not in plan.live() or recipient_lands <= own_lands:
+                return False
+        if event == "exerted" and cond.get("by") == "you" and player != you:
+            return False
+        if cond.get("not_played") and info.get("played"):
+            return False
+        if cond.get("own_untap") and not (info.get("step_phase") == "untap" and info.get("active_player") == watcher.controller):
+            return False
+        if cond.get("aura_controller57"):
+            from app.rules import graveyard_return57
+
+            if not graveyard_return57.enchanted_before(you, info):
+                return False
+        if not _other_ok(plan, cond, watcher, info, obj):
+            return False
+        if cond.get("mana_source") == "self" and plan.oid(watcher) not in info.get("mana_sources", []):
+            return False
+        if cond.get("to") == "self" and info.get("other") != watcher.id:  # -- attachment events (wave 30S) -- "an Aura becomes attached to this creature"
+            return False
+        if cond.get("cause") == "opponent" and not (  # -- discard causes (wave 23D) -- 701.9: "a spell or ability an opponent controls causes you to
+                info.get("by") and info["by"] != player):  # discard": the discard was moved by a resolving effect of another player
+            return False
+        if cond.get("main_phase") and plan.state.turn.phase not in ("main1", "main2"):  # -- crew & saddle (wave 23D) -- "during your main phase"
+            return False
+        if cond.get("exploited") and not (  # -- keyword triggers (wave 23D) -- "exploits a nontoken creature": the one sacrificed, as it was (702.110b)
+                info.get("exploited") and selectors.matches(plan, selectors.from_key(cond["exploited"]), info["exploited"][0],
+                                                            info["exploited"][1], you, watcher.id)):
+            return False
+        if cond.get("into") and (info.get("face_name") or "").lower() != cond["into"].lower():  # -- transform (wave 16F) --
+            return False
+        if cond.get("into_sel") and not (obj is not None and och is not None and selectors.matches(  # -- transform (wave 26D) -- "transforms into a Phyrexian": its new face
+                plan, selectors.from_key(cond["into_sel"]), obj, och, you, watcher.id)):
+            return False
+        if cond.get("alone") and info.get("attackers") != 1:  # 506.5
+            return False
+        if cond.get("min_blockers") and info.get("blockers", 0) < cond["min_blockers"]:  # -- block events (wave 53C) -- 509.3c: "becomes blocked by two or more creatures"
+            return False
+        if cond.get("min_blocked") and info.get("blocked", 0) < cond["min_blocked"]:  # -- trigger lines (wave 100A) -- 509.3e: "blocks two or more creatures"
+            return False
+        if cond.get("while") is not None:  # "attacks while you control …", -- counters (wave 33C) -- "enters while this creature has a -1/-1 counter on it": part of the trigger event
+            from app.rules import conditions
+
+            if not conditions.holds(plan, {"controller": you, "source_card": watcher.id}, cond["while"]):
+                return False
+        if event in ("attack", "unblocked", "you_attack"):
+            if cond.get("self_or_owned_commander") and not any(
+                    cid == watcher.id or (plan.state.cards[cid].owner == you and plan.state.cards[cid].commander_key is not None)
+                    for cid in info.get("attacking", []) if cid in plan.state.cards):
+                return False
+            want = cond.get("defender")
+            # "whenever you attack" is once per combat; "whenever a player attacks you" once per player
+            # attacked (508.3d, 508.3e): each reads only its own fact
+            if event == "you_attack" and want == "opponent_any":  # -- trigger sweep (wave 27B) -- "a player attacks one or more of your opponents": once per attack (508.3d)
+                if "defended" in info or not any(d != watcher.controller for d in info.get("defended_direct", [])):
+                    return False
+            elif event == "you_attack" and bool(want) != ("defended" in info):
+                return False
+            if want and want != "opponent_any" and not _defender_ok(want, watcher, info, plan):
+                return False
+            if cond.get("first_each_turn") and not info.get("first"):
+                return False
+            if cond.get("defending_player") == "you":  # -- trigger other (wave 44B) -- 508.5: "if you're the defending player" (a battle you protect included)
+                from app.rules import defending
+
+                if obj is None or defending.defended(plan, obj) != you:
+                    return False
+        if event == 'dealt_damage' and cond.get('damage_source'):
+            ref = _source_ref(plan, info.get('source_oid'))
+            source = _object_then(plan, ref.card, ref.object_id) if ref is not None else None
+            if source is None or not selectors.matches(plan, selectors.from_key(cond['damage_source']),
+                                                       source[0], source[1], watcher.controller, watcher.id):
+                return False
+        if event == "dealt_damage" and cond.get("combat") is not None and bool(info.get("combat")) != cond["combat"]:
+            return False
+        if event == "dealt_damage" and cond.get("excess") and int(info.get("excess") or 0) <= 0:  # -- trigger damage (wave 39B) -- 120.10: it was dealt excess damage
+            return False
+        if cond.get("first_each_turn") and event in ("dealt_damage", "deal_combat_damage_player", "counters_put") and not _first_of(plan, cond, event, info):
+            return False  # (wave 39B)
+        if event in _FIRST_KINDS and cond.get("first_each_turn") and not info.get("first"):  # (wave 11C)
+            return False
+        if event == "tapped" and cond.get("first_each_turn") and not info.get("first"):  # (wave 42B)
+            return False
+        if event == "discard" and cond.get("first_each_turn") and not _first_discard(plan, cond, player, info):  # (wave 36A)
+            return False
+        if cond.get('treasure_paid'):
+            tags = (info.get('activation_cost') or {}).get('mana_tags') if event == 'activate' else info.get('mana_tags')
+            if not any('Treasure' in t for t in tags or []):
+                return False
+        if cond.get('snow_matches_spell') and (och is None or not any(
+                (info.get('snow_spent') or {}).get(color, 0) > 0 for color in och.colors)):
+            return False
+        if cond.get('cost_has_x') and (och is None or '{X}' not in (och.mana_cost or '')):
+            return False
+        if cond.get('activation_cost'):
+            from app.rules import activated_copy_effects
+
+            if not activated_copy_effects.matches(cond['activation_cost'], info.get('activation_cost')):
+                return False
+        if event == "activate" and cond.get("nonmana") and info.get("mana_ability"):
+            return False
+        if event == "activate" and ((cond.get("loyalty") and not info.get("loyalty")) or (
+                cond.get("own") and (obj is None or obj.controller != player))):  # -- activation (wave 11F) --
+            return False
+        if event == "activate" and cond.get("ability_kinds") and info.get("ability_kind") not in cond["ability_kinds"]:
+            return False
+        if event == "activate" and cond.get("ability_kind") != info.get("ability_kind") and cond.get("ability_kind"):
+            return False
+        if event == "activate" and cond.get("host_source") and (obj is None or not _hosted(plan, watcher, obj, info, event)):
+            return False
+        if event == "activate" and cond.get("word") and info.get("word") != cond["word"]:  # -- counters (wave 33C) -- "an exhaust / a boast / a power-up ability"
+            return False
+        if event == "activate" and cond.get("ability_targets"):  # -- stack interaction (wave 23B) -- "an ability that targets a creature or player"
+            ref = info.get("source_ref")
+            ability = plan.state.cards.get(ref.card) if ref is not None else None
+            if ability is None or not any(selectors.targets_match(plan, ability, x, you, watcher.id) for x in cond["ability_targets"]):
+                return False
+        if event == "become_level" and cond.get("level") != info.get("level"):  # -- Class (wave 16A) --
+            return False
+        if event == "unlock_door" and cond.get("door") != info.get("door"):  # -- Rooms (wave 18G) -- only the door that was unlocked
+            return False
+        if event in ("scry", "surveil") and cond.get("nth") and info.get("nth") != cond["nth"]:  # -- looks (wave 8B) --
+            return False
+        if event == "coin_flip" and cond.get("won") != info.get("won"):  # -- coin events (wave 45C) -- won or lost (705.2)
+            return False
+        if event == "tapped" and ((cond.get("tapper") == "you" and info.get("tapper") != you) or (cond.get("not_declared") and info.get("declared"))):
+            return False  # -- tap events (wave 45C) -- "you tap …" (the step's actor); "if it isn't being declared as an attacker" (508.1f)
+        if event == "control_change":
+            if cond.get("to") == "you":
+                if player != you or info.get("was") in (None, you):
+                    return False
+            elif player == you or info.get("was") != you:
+                return False
+        if event == "final_chapter" and cond.get("when") != info.get("when"):  # -- saga events (wave 45C) -- triggers or resolves (rules/sagas.py)
+            return False
+        if event == "roll_die":  # -- dice (wave 24B) -- the die's own result / size / place in the turn (app/rules/dice.py)
+            from app.rules import dice
+
+            if not dice.die_matches(cond, info):
+                return False
+        if event == "roll_visit":  # -- Attractions (wave 100L) -- a visit ability: the result lit up on it (702.159a)
+            from app.rules import attractions100l
+
+            if not attractions100l.matches(plan, cond, watcher, info):
+                return False
+        if event == "die" and cond.get("damaged_by_exact105"):
+            from app.rules import vampire_returns105
+
+>           if not vampire_returns105.damage_match(plan, info.get("oid"), source_oid or plan.oid(watcher)):
+                                                                          ^^^^^^^^^^
+E           NameError: name 'source_oid' is not defined
+
+app/rules/triggers.py:1105: NameError
+
+The above exception was the direct cause of the following exception:
+
+cards = <app.cards.repository.CardRepository object at 0x7fb015eca810>
+
+    def test_seraph_foreign_at_return_regain_then_lose105(cards):
+>       s, source, victim = pair105(cards, NAMES[1])
+                            ^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_rules_vampire_returns105.py:148:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests/test_rules_vampire_returns105.py:120: in pair105
+    settle(s)
+tests/test_rules_library_look.py:51: in settle
+    act(s,s.state.rules.priority,type='pass_priority')
+tests/game_helpers.py:42: in act
+    return session.perform(actor, payload)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <app.game.session.GameSession object at 0x7fb015ecbe00>, actor = 'p3'
+payload = {'type': 'pass_priority'}, trusted = False
+
+    def perform(self, actor: str, payload: dict[str, Any] | Action, *, trusted: bool = False) -> Action:
+        """Validate, resolve, apply and record one action. Raises ActionError / ValidationError.
+
+        ``trusted`` is only for actions the server builds itself (e.g. restoring a snapshot)."""
+        if actor not in self.state.players:
+            raise ActionError("Only seated players can act")
+        action = parse_action(payload) if isinstance(payload, dict) else payload
+        if not trusted and action.type not in CONTROLLED_MAY:
+            self._check_not_controlled(actor)
+        try:
+            resolved = resolve(self.state, action, actor=actor, cards=self.cards, trusted=trusted)
+        except ActionError:
+            raise
+        except Exception as exc:
+            if action.type not in INTENT_TYPES and action.type != "configure":
+                raise
+            # A rules bug must never break game night: compiling works on a scratch copy, so
+            # nothing was applied. Remember the failure for EXPORT RULES SCENARIO.
+            log.exception("Rules engine failed on %s", action.type)
+            self.rules_failure = {
+                "intent": action.model_dump(mode="json", exclude={"r"}), "actor": actor, "seq": self.state.seq,
+                "error": f"{type(exc).__name__}: {exc}"[:500], "at": time.time(),
+            }
+>           raise AutomationError(
+                f"{AutomationError.PREFIX}: Fyodor couldn't carry out {action.type.replace('_', ' ')}. Nothing changed. "
+                "Resolve it manually with the table tools, pause automation, or export a rules scenario."
+            ) from exc
+E           app.game.errors.AutomationError: AUTOMATION ERROR: Fyodor couldn't carry out pass priority. Nothing changed. Resolve it manually with the table tools, pause automation, or export a rules scenario.
+
+app/game/session.py:74: AutomationError
+------------------------------ Captured log call -------------------------------
+ERROR    app.game.session:session.py:69 Rules engine failed on pass_priority
+Traceback (most recent call last):
+  File "/workspace/scratch/combat105/backend/app/game/session.py", line 61, in perform
+    resolved = resolve(self.state, action, actor=actor, cards=self.cards, trusted=trusted)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/scratch/combat105/backend/app/game/resolve.py", line 76, in resolve
+    a.r = compile_intent(state, a, actor=actor, info=info, rng=rng)  # type: ignore[union-attr]
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/scratch/combat105/backend/app/rules/engine.py", line 164, in compile_intent
+    handler(plan, intent)
+  File "/workspace/scratch/combat105/backend/app/rules/engine.py", line 520, in pass_priority
+    advance(plan)
+  File "/workspace/scratch/combat105/backend/app/rules/engine.py", line 478, in advance
+    if triggers.flush(plan):  # triggered abilities go on the stack now (603.3)
+       ^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/scratch/combat105/backend/app/rules/triggers.py", line 2607, in flush
+    collect(plan)
+  File "/workspace/scratch/combat105/backend/app/rules/triggers.py", line 321, in collect
+    _generic_events(plan, new)
+  File "/workspace/scratch/combat105/backend/app/rules/triggers.py", line 1715, in _generic_events
+    _fire_generic(plan, facts, e.batch, fired, watchers, left)
+  File "/workspace/scratch/combat105/backend/app/rules/triggers.py", line 1497, in _fire_generic
+    if not combat_player_scope43.printed_verdict(plan, whole, watcher, fact,
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/scratch/combat105/backend/app/rules/combat_player_scope43.py", line 137, in printed_verdict
+    return triggers._cond_matches(plan, condition, watcher, fact, source_oid=source_oid)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/scratch/combat105/backend/app/rules/triggers.py", line 811, in _cond_matches
+    if not _details_ok(plan, cond, watcher, fact):
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/scratch/combat105/backend/app/rules/triggers.py", line 1105, in _details_ok
+    if not vampire_returns105.damage_match(plan, info.get("oid"), source_oid or plan.oid(watcher)):
+                                                                  ^^^^^^^^^^
+NameError: name 'source_oid' is not defined. Did you mean: 'source_of'?
+__________________ test_source_dies_before_return105[Seraph] ___________________
+[gw1] linux -- Python 3.12.14 /workspace/Fyodor/backend/.venv/bin/python3
+
+self = <app.game.session.GameSession object at 0x7fd720a23650>, actor = 'p3'
+payload = {'type': 'pass_priority'}, trusted = False
+
+    def perform(self, actor: str, payload: dict[str, Any] | Action, *, trusted: bool = False) -> Action:
+        """Validate, resolve, apply and record one action. Raises ActionError / ValidationError.
+
+        ``trusted`` is only for actions the server builds itself (e.g. restoring a snapshot)."""
+        if actor not in self.state.players:
+            raise ActionError("Only seated players can act")
+        action = parse_action(payload) if isinstance(payload, dict) else payload
+        if not trusted and action.type not in CONTROLLED_MAY:
+            self._check_not_controlled(actor)
+        try:
+>           resolved = resolve(self.state, action, actor=actor, cards=self.cards, trusted=trusted)
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+app/game/session.py:61:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+app/game/resolve.py:76: in resolve
+    a.r = compile_intent(state, a, actor=actor, info=info, rng=rng)  # type: ignore[union-attr]
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/engine.py:164: in compile_intent
+    handler(plan, intent)
+app/rules/engine.py:520: in pass_priority
+    advance(plan)
+app/rules/engine.py:478: in advance
+    if triggers.flush(plan):  # triggered abilities go on the stack now (603.3)
+       ^^^^^^^^^^^^^^^^^^^^
+app/rules/triggers.py:2607: in flush
+    collect(plan)
+app/rules/triggers.py:321: in collect
+    _generic_events(plan, new)
+app/rules/triggers.py:1715: in _generic_events
+    _fire_generic(plan, facts, e.batch, fired, watchers, left)
+app/rules/triggers.py:1497: in _fire_generic
+    if not combat_player_scope43.printed_verdict(plan, whole, watcher, fact,
+app/rules/combat_player_scope43.py:137: in printed_verdict
+    return triggers._cond_matches(plan, condition, watcher, fact, source_oid=source_oid)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/triggers.py:811: in _cond_matches
+    if not _details_ok(plan, cond, watcher, fact):
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+plan = <app.rules.plan.Plan object at 0x7fd720ab9670>
+cond = {'event': 'die', 'subject': 'sel', 'sel': 'sel:{"types":["Creature"]}', 'aggregate': False, ...}
+watcher = CardInstance(borrow_identity=None, id='740ad138b37a', card_id='12f2a826-aece-58d5-a060-c0d224657ae0', name='Seraph', o...ts=[], damage=0, choices={}, stack_info=None, exile_group=None, token_source=None, origin='library', test_object=False)
+fact = ('die', CardInstance(borrow_identity=None, id='79b1619d0cb1', card_id='37eb2dfc-ed3d-5bbc-8e60-97047b81162d', name='Ll... keywords=None, traits=None, copy_recipe=None, x=None, goaded=[]), 'new_oid': '79b1619d0cb1.10', 'to': 'p2:graveyard'})
+
+    def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: Fact) -> bool:
+        """The parts of a condition beyond its subject and event."""
+        if cond.get('target_source77'):
+            from app.rules import targeting_sources77
+
+            if not targeting_sources77.matches(plan, cond, fact):
+                return False
+        from app.rules import selectors
+
+        event, obj, och, player, info = fact
+        you = watcher.controller
+        if cond.get('during_step') and plan.state.turn.phase != cond['during_step']:
+            return False
+        if 'life_loss_exact' in cond and (event != 'lose_life' or info.get('amount') != cond['life_loss_exact']):
+            return False
+        if event == "attack" and cond.get("defender_lands_min"):
+            defender = obj.attacking.id if obj is not None and obj.attacking is not None and obj.attacking.kind == "player" else None
+            lands = sum(c.zone.endswith(":battlefield") and c.controller == defender and plan.ch(c).is_land for c in plan.state.cards.values())
+            if defender not in plan.live() or lands < cond["defender_lands_min"]:
+                return False
+        if cond.get("recipient_more_lands"):
+            recipient = info.get("recipient")
+            own_lands = sum(c.zone.endswith(":battlefield") and c.controller == you and plan.ch(c).is_land for c in plan.state.cards.values())
+            recipient_lands = sum(c.zone.endswith(":battlefield") and c.controller == recipient and plan.ch(c).is_land for c in plan.state.cards.values())
+            if recipient not in plan.live() or recipient_lands <= own_lands:
+                return False
+        if event == "exerted" and cond.get("by") == "you" and player != you:
+            return False
+        if cond.get("not_played") and info.get("played"):
+            return False
+        if cond.get("own_untap") and not (info.get("step_phase") == "untap" and info.get("active_player") == watcher.controller):
+            return False
+        if cond.get("aura_controller57"):
+            from app.rules import graveyard_return57
+
+            if not graveyard_return57.enchanted_before(you, info):
+                return False
+        if not _other_ok(plan, cond, watcher, info, obj):
+            return False
+        if cond.get("mana_source") == "self" and plan.oid(watcher) not in info.get("mana_sources", []):
+            return False
+        if cond.get("to") == "self" and info.get("other") != watcher.id:  # -- attachment events (wave 30S) -- "an Aura becomes attached to this creature"
+            return False
+        if cond.get("cause") == "opponent" and not (  # -- discard causes (wave 23D) -- 701.9: "a spell or ability an opponent controls causes you to
+                info.get("by") and info["by"] != player):  # discard": the discard was moved by a resolving effect of another player
+            return False
+        if cond.get("main_phase") and plan.state.turn.phase not in ("main1", "main2"):  # -- crew & saddle (wave 23D) -- "during your main phase"
+            return False
+        if cond.get("exploited") and not (  # -- keyword triggers (wave 23D) -- "exploits a nontoken creature": the one sacrificed, as it was (702.110b)
+                info.get("exploited") and selectors.matches(plan, selectors.from_key(cond["exploited"]), info["exploited"][0],
+                                                            info["exploited"][1], you, watcher.id)):
+            return False
+        if cond.get("into") and (info.get("face_name") or "").lower() != cond["into"].lower():  # -- transform (wave 16F) --
+            return False
+        if cond.get("into_sel") and not (obj is not None and och is not None and selectors.matches(  # -- transform (wave 26D) -- "transforms into a Phyrexian": its new face
+                plan, selectors.from_key(cond["into_sel"]), obj, och, you, watcher.id)):
+            return False
+        if cond.get("alone") and info.get("attackers") != 1:  # 506.5
+            return False
+        if cond.get("min_blockers") and info.get("blockers", 0) < cond["min_blockers"]:  # -- block events (wave 53C) -- 509.3c: "becomes blocked by two or more creatures"
+            return False
+        if cond.get("min_blocked") and info.get("blocked", 0) < cond["min_blocked"]:  # -- trigger lines (wave 100A) -- 509.3e: "blocks two or more creatures"
+            return False
+        if cond.get("while") is not None:  # "attacks while you control …", -- counters (wave 33C) -- "enters while this creature has a -1/-1 counter on it": part of the trigger event
+            from app.rules import conditions
+
+            if not conditions.holds(plan, {"controller": you, "source_card": watcher.id}, cond["while"]):
+                return False
+        if event in ("attack", "unblocked", "you_attack"):
+            if cond.get("self_or_owned_commander") and not any(
+                    cid == watcher.id or (plan.state.cards[cid].owner == you and plan.state.cards[cid].commander_key is not None)
+                    for cid in info.get("attacking", []) if cid in plan.state.cards):
+                return False
+            want = cond.get("defender")
+            # "whenever you attack" is once per combat; "whenever a player attacks you" once per player
+            # attacked (508.3d, 508.3e): each reads only its own fact
+            if event == "you_attack" and want == "opponent_any":  # -- trigger sweep (wave 27B) -- "a player attacks one or more of your opponents": once per attack (508.3d)
+                if "defended" in info or not any(d != watcher.controller for d in info.get("defended_direct", [])):
+                    return False
+            elif event == "you_attack" and bool(want) != ("defended" in info):
+                return False
+            if want and want != "opponent_any" and not _defender_ok(want, watcher, info, plan):
+                return False
+            if cond.get("first_each_turn") and not info.get("first"):
+                return False
+            if cond.get("defending_player") == "you":  # -- trigger other (wave 44B) -- 508.5: "if you're the defending player" (a battle you protect included)
+                from app.rules import defending
+
+                if obj is None or defending.defended(plan, obj) != you:
+                    return False
+        if event == 'dealt_damage' and cond.get('damage_source'):
+            ref = _source_ref(plan, info.get('source_oid'))
+            source = _object_then(plan, ref.card, ref.object_id) if ref is not None else None
+            if source is None or not selectors.matches(plan, selectors.from_key(cond['damage_source']),
+                                                       source[0], source[1], watcher.controller, watcher.id):
+                return False
+        if event == "dealt_damage" and cond.get("combat") is not None and bool(info.get("combat")) != cond["combat"]:
+            return False
+        if event == "dealt_damage" and cond.get("excess") and int(info.get("excess") or 0) <= 0:  # -- trigger damage (wave 39B) -- 120.10: it was dealt excess damage
+            return False
+        if cond.get("first_each_turn") and event in ("dealt_damage", "deal_combat_damage_player", "counters_put") and not _first_of(plan, cond, event, info):
+            return False  # (wave 39B)
+        if event in _FIRST_KINDS and cond.get("first_each_turn") and not info.get("first"):  # (wave 11C)
+            return False
+        if event == "tapped" and cond.get("first_each_turn") and not info.get("first"):  # (wave 42B)
+            return False
+        if event == "discard" and cond.get("first_each_turn") and not _first_discard(plan, cond, player, info):  # (wave 36A)
+            return False
+        if cond.get('treasure_paid'):
+            tags = (info.get('activation_cost') or {}).get('mana_tags') if event == 'activate' else info.get('mana_tags')
+            if not any('Treasure' in t for t in tags or []):
+                return False
+        if cond.get('snow_matches_spell') and (och is None or not any(
+                (info.get('snow_spent') or {}).get(color, 0) > 0 for color in och.colors)):
+            return False
+        if cond.get('cost_has_x') and (och is None or '{X}' not in (och.mana_cost or '')):
+            return False
+        if cond.get('activation_cost'):
+            from app.rules import activated_copy_effects
+
+            if not activated_copy_effects.matches(cond['activation_cost'], info.get('activation_cost')):
+                return False
+        if event == "activate" and cond.get("nonmana") and info.get("mana_ability"):
+            return False
+        if event == "activate" and ((cond.get("loyalty") and not info.get("loyalty")) or (
+                cond.get("own") and (obj is None or obj.controller != player))):  # -- activation (wave 11F) --
+            return False
+        if event == "activate" and cond.get("ability_kinds") and info.get("ability_kind") not in cond["ability_kinds"]:
+            return False
+        if event == "activate" and cond.get("ability_kind") != info.get("ability_kind") and cond.get("ability_kind"):
+            return False
+        if event == "activate" and cond.get("host_source") and (obj is None or not _hosted(plan, watcher, obj, info, event)):
+            return False
+        if event == "activate" and cond.get("word") and info.get("word") != cond["word"]:  # -- counters (wave 33C) -- "an exhaust / a boast / a power-up ability"
+            return False
+        if event == "activate" and cond.get("ability_targets"):  # -- stack interaction (wave 23B) -- "an ability that targets a creature or player"
+            ref = info.get("source_ref")
+            ability = plan.state.cards.get(ref.card) if ref is not None else None
+            if ability is None or not any(selectors.targets_match(plan, ability, x, you, watcher.id) for x in cond["ability_targets"]):
+                return False
+        if event == "become_level" and cond.get("level") != info.get("level"):  # -- Class (wave 16A) --
+            return False
+        if event == "unlock_door" and cond.get("door") != info.get("door"):  # -- Rooms (wave 18G) -- only the door that was unlocked
+            return False
+        if event in ("scry", "surveil") and cond.get("nth") and info.get("nth") != cond["nth"]:  # -- looks (wave 8B) --
+            return False
+        if event == "coin_flip" and cond.get("won") != info.get("won"):  # -- coin events (wave 45C) -- won or lost (705.2)
+            return False
+        if event == "tapped" and ((cond.get("tapper") == "you" and info.get("tapper") != you) or (cond.get("not_declared") and info.get("declared"))):
+            return False  # -- tap events (wave 45C) -- "you tap …" (the step's actor); "if it isn't being declared as an attacker" (508.1f)
+        if event == "control_change":
+            if cond.get("to") == "you":
+                if player != you or info.get("was") in (None, you):
+                    return False
+            elif player == you or info.get("was") != you:
+                return False
+        if event == "final_chapter" and cond.get("when") != info.get("when"):  # -- saga events (wave 45C) -- triggers or resolves (rules/sagas.py)
+            return False
+        if event == "roll_die":  # -- dice (wave 24B) -- the die's own result / size / place in the turn (app/rules/dice.py)
+            from app.rules import dice
+
+            if not dice.die_matches(cond, info):
+                return False
+        if event == "roll_visit":  # -- Attractions (wave 100L) -- a visit ability: the result lit up on it (702.159a)
+            from app.rules import attractions100l
+
+            if not attractions100l.matches(plan, cond, watcher, info):
+                return False
+        if event == "die" and cond.get("damaged_by_exact105"):
+            from app.rules import vampire_returns105
+
+>           if not vampire_returns105.damage_match(plan, info.get("oid"), source_oid or plan.oid(watcher)):
+                                                                          ^^^^^^^^^^
+E           NameError: name 'source_oid' is not defined
+
+app/rules/triggers.py:1105: NameError
+
+The above exception was the direct cause of the following exception:
+
+cards = <app.cards.repository.CardRepository object at 0x7fd72354a690>
+name = 'Seraph'
+
+    @pytest.mark.parametrize("name", NAMES)
+    def test_source_dies_before_return105(cards, name):
+>       s, source, victim = pair105(cards, name)
+                            ^^^^^^^^^^^^^^^^^^^^
+
+tests/test_rules_vampire_returns105.py:138:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests/test_rules_vampire_returns105.py:120: in pair105
+    settle(s)
+tests/test_rules_library_look.py:51: in settle
+    act(s,s.state.rules.priority,type='pass_priority')
+tests/game_helpers.py:42: in act
+    return session.perform(actor, payload)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <app.game.session.GameSession object at 0x7fd720a23650>, actor = 'p3'
+payload = {'type': 'pass_priority'}, trusted = False
+
+    def perform(self, actor: str, payload: dict[str, Any] | Action, *, trusted: bool = False) -> Action:
+        """Validate, resolve, apply and record one action. Raises ActionError / ValidationError.
+
+        ``trusted`` is only for actions the server builds itself (e.g. restoring a snapshot)."""
+        if actor not in self.state.players:
+            raise ActionError("Only seated players can act")
+        action = parse_action(payload) if isinstance(payload, dict) else payload
+        if not trusted and action.type not in CONTROLLED_MAY:
+            self._check_not_controlled(actor)
+        try:
+            resolved = resolve(self.state, action, actor=actor, cards=self.cards, trusted=trusted)
+        except ActionError:
+            raise
+        except Exception as exc:
+            if action.type not in INTENT_TYPES and action.type != "configure":
+                raise
+            # A rules bug must never break game night: compiling works on a scratch copy, so
+            # nothing was applied. Remember the failure for EXPORT RULES SCENARIO.
+            log.exception("Rules engine failed on %s", action.type)
+            self.rules_failure = {
+                "intent": action.model_dump(mode="json", exclude={"r"}), "actor": actor, "seq": self.state.seq,
+                "error": f"{type(exc).__name__}: {exc}"[:500], "at": time.time(),
+            }
+>           raise AutomationError(
+                f"{AutomationError.PREFIX}: Fyodor couldn't carry out {action.type.replace('_', ' ')}. Nothing changed. "
+                "Resolve it manually with the table tools, pause automation, or export a rules scenario."
+            ) from exc
+E           app.game.errors.AutomationError: AUTOMATION ERROR: Fyodor couldn't carry out pass priority. Nothing changed. Resolve it manually with the table tools, pause automation, or export a rules scenario.
+
+app/game/session.py:74: AutomationError
+------------------------------ Captured log call -------------------------------
+ERROR    app.game.session:session.py:69 Rules engine failed on pass_priority
+Traceback (most recent call last):
+  File "/workspace/scratch/combat105/backend/app/game/session.py", line 61, in perform
+    resolved = resolve(self.state, action, actor=actor, cards=self.cards, trusted=trusted)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/scratch/combat105/backend/app/game/resolve.py", line 76, in resolve
+    a.r = compile_intent(state, a, actor=actor, info=info, rng=rng)  # type: ignore[union-attr]
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/scratch/combat105/backend/app/rules/engine.py", line 164, in compile_intent
+    handler(plan, intent)
+  File "/workspace/scratch/combat105/backend/app/rules/engine.py", line 520, in pass_priority
+    advance(plan)
+  File "/workspace/scratch/combat105/backend/app/rules/engine.py", line 478, in advance
+    if triggers.flush(plan):  # triggered abilities go on the stack now (603.3)
+       ^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/scratch/combat105/backend/app/rules/triggers.py", line 2607, in flush
+    collect(plan)
+  File "/workspace/scratch/combat105/backend/app/rules/triggers.py", line 321, in collect
+    _generic_events(plan, new)
+  File "/workspace/scratch/combat105/backend/app/rules/triggers.py", line 1715, in _generic_events
+    _fire_generic(plan, facts, e.batch, fired, watchers, left)
+  File "/workspace/scratch/combat105/backend/app/rules/triggers.py", line 1497, in _fire_generic
+    if not combat_player_scope43.printed_verdict(plan, whole, watcher, fact,
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/scratch/combat105/backend/app/rules/combat_player_scope43.py", line 137, in printed_verdict
+    return triggers._cond_matches(plan, condition, watcher, fact, source_oid=source_oid)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/scratch/combat105/backend/app/rules/triggers.py", line 811, in _cond_matches
+    if not _details_ok(plan, cond, watcher, fact):
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/scratch/combat105/backend/app/rules/triggers.py", line 1105, in _details_ok
+    if not vampire_returns105.damage_match(plan, info.get("oid"), source_oid or plan.oid(watcher)):
+                                                                  ^^^^^^^^^^
+NameError: name 'source_oid' is not defined. Did you mean: 'source_of'?
+=========================== short test summary info ============================
+FAILED tests/test_rules_vampire_returns105.py::test_native_end_return_then_original_source_lost105[Krovikan Vampire]
+FAILED tests/test_rules_vampire_returns105.py::test_native_end_return_then_original_source_lost105[Seraph]
+FAILED tests/test_rules_vampire_returns105.py::test_seraph_foreign_at_return_regain_then_lose105
+FAILED tests/test_rules_vampire_returns105.py::test_source_dies_before_return105[Seraph]

@@ -1,0 +1,11 @@
+============================= test session starts ==============================
+platform linux -- Python 3.12.14, pytest-9.1.1, pluggy-1.7.0 -- /workspace/Fyodor/backend/.venv/bin/python3
+cachedir: .pytest_cache
+rootdir: /workspace/scratch/combat102/backend
+configfile: pyproject.toml
+plugins: anyio-4.15.1, xdist-3.8.0
+collecting ... collected 25 items / 24 deselected / 1 selected
+
+tests/test_rules_damage_values102.py::test_delirium_component_fixed_active_recipient_after_native_tap_control_change102 PASSED [100%]
+
+======================= 1 passed, 24 deselected in 2.61s =======================

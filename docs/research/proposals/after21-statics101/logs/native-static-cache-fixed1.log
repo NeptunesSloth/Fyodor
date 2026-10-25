@@ -1,0 +1,44 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+____ test_sticker_static_ability_uses_its_timestamp_through_real_dress_down ____
+
+cards = <app.cards.repository.CardRepository object at 0x7f66d135e0f0>
+
+    def test_sticker_static_ability_uses_its_timestamp_through_real_dress_down(cards):
+        s = setup(
+            cards, preferred=["Vampire Champion Fury", "Trained Blessed Mind", "Eldrazi Guacamole Tightrope"]
+        )
+        bear = put(s, "Grizzly Bears", "battlefield")
+        act(s, "p1", type="resource", key="ticket", delta=20)
+        put(s, "Forest", "hand")
+        hellbent = next(
+            x
+            for x in stickers101.available(Plan.view(s.state, "p1", cards), "p1", "ability")
+            if x["text"].startswith("Hellbent")
+        )
+        s.perform(
+            "p1", {"type": "rules_sticker101", "card_id": bear.id, "sticker_id": hellbent["id"]}, trusted=True
+        )
+        assert view(s, bear.id).pt == (2, 2)
+        hand = list(s.state.zones["p1:hand"])
+        act(s, "p1", type="move", card_ids=hand, to={"player": "p1", "zone": "graveyard"})
+        assert view(s, bear.id).pt == (5, 5)
+        cast(s, "Dress Down")
+        assert view(s, bear.id).pt == (2, 2)
+        threshold = next(
+            x
+            for x in stickers101.available(Plan.view(s.state, "p1", cards), "p1", "ability")
+            if x["text"].startswith("Threshold")
+        )
+        s.perform(
+            "p1", {"type": "rules_sticker101", "card_id": bear.id, "sticker_id": threshold["id"]}, trusted=True
+        )
+>       assert view(s, bear.id).pt == (6, 2) and "trample" in view(s, bear.id).keywords
+E       assert ((2, 2) == (6, 2)
+E
+E         At index 0 diff: 2 != 6
+E         Use -v to get more diff)
+
+tests/test_rules_stickers101.py:423: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_rules_stickers101.py::test_sticker_static_ability_uses_its_timestamp_through_real_dress_down

@@ -1,0 +1,22 @@
+{
+  "status": "CLOSED_ISOLATED_ROOT_AUDIT_REQUIRED",
+  "base_commit": "456c95d6aa3eaaa38583129be436ef57c1937a01",
+  "names": [
+    "Loki, God of Lies",
+    "Dack Fayden"
+  ],
+  "expected_promotions": 2,
+  "owned_sources": [
+    "app/rules/cast_target_control107.py",
+    "app/rules/scripts.py",
+    "app/rules/effects.py"
+  ],
+  "native": "13 unified PASS/cold2",
+  "mypy": "3 source files PASS",
+  "ruff": "4 source/test files PASS",
+  "related": "46 PASS: existing cast-target receipt/token copying and command-zone static emblems",
+  "test_destination": "backend/tests/test_rules_cast_target_control107.py",
+  "fixture_destination": "backend/tests/fixtures/cast_target_control107_cards.json",
+  "stage": "/workspace/scratch/combat107/backend",
+  "classifier_edits": 0
+}

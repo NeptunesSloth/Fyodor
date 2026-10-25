@@ -1,0 +1,60 @@
+F
+=================================== FAILURES ===================================
+______________________ test_cold_source_rekeyed_swarm103 _______________________
+
+cards = <app.cards.repository.CardRepository object at 0x7fb5caa7da90>
+tmp_path = PosixPath('/tmp/pytest-epic103-boundaries/test_cold_source_rekeyed_swarm0')
+
+    def test_cold_source_rekeyed_swarm103(cards, tmp_path):
+        s = setup(cards)
+        c = cast(s, 'Endless Swarm')
+        advance(s)
+        original_id = c.id
+        act(s, 'p1', type='move', card_ids=[c.id], to={'player': 'p1', 'zone': 'library'})
+        act(s, 'p1', type='shuffle', player='p1', zone='library')
+        assert original_id not in s.state.cards
+>       cold(s, tmp_path, {}, '''
+    from tests.test_rules_epic103 import upkeep
+    before = sum(c.name == 'Snake' for c in s.state.cards.values())
+    upkeep(s)
+    assert sum(c.name == 'Snake' for c in s.state.cards.values()) > before, (before, sum(c.name == 'Snake' for c in s.state.cards.values()), s.state.turn.model_dump(), [(t.name, t.when, t.once) for t in s.state.rules.delayed], s.state.rules.decision)
+    assert len([t for t in s.state.rules.delayed if t.name == 'Endless Swarm']) == 1
+    assert len(s.state.rules.cast_limits) == 1
+    ''')
+
+tests/test_rules_epic103.py:168:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+s = <app.game.session.GameSession object at 0x7fb5cb5bcb30>
+tmp_path = PosixPath('/tmp/pytest-epic103-boundaries/test_cold_source_rekeyed_swarm0')
+extra = {}
+code = "\nfrom tests.test_rules_epic103 import upkeep\nbefore = sum(c.name == 'Snake' for c in s.state.cards.values())\nupkee...en([t for t in s.state.rules.delayed if t.name == 'Endless Swarm']) == 1\nassert len(s.state.rules.cast_limits) == 1\n"
+
+    def cold(s, tmp_path, extra, code):
+        path = tmp_path / 'saved101.json'
+        path.write_text(s.state.model_dump_json())
+        body = '''import json,sys
+    from pathlib import Path
+    from app.cards.repository import CardRepository
+    from app.cards.images import ImageStore
+    from app.game.session import GameSession
+    from app.game.state import GameState
+    from tests.game_helpers import act
+    from tests.test_rules_library_packets101 import advance
+    repo=CardRepository(Path(sys.argv[2]),ImageStore(Path(sys.argv[2]).parent/'images'))
+    s=GameSession(GameState.model_validate_json(Path(sys.argv[1]).read_text()),cards=repo)
+    extra=json.loads(sys.argv[3])
+    ''' + code + '\nrepo.close()\n'
+        r = subprocess.run([sys.executable, '-c', body, str(path), str(s.cards.db_path), json.dumps(extra)], capture_output=True, text=True, timeout=90)
+>       assert r.returncode == 0, r.stdout + r.stderr
+E       AssertionError: Traceback (most recent call last):
+E           File "<string>", line 16, in <module>
+E         AssertionError: (0, 0, {'number': 3, 'active_player': 'p1', 'phase': 'upkeep', 'starting_life': {'p1': 40, 'p2': 40}}, [('Endless Swarm', {'kind': 'step', 'step': 'upkeep', 'whose': 'you'}, False)], None)
+E
+E       assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['/workspace/Fyodor/backend/.venv/bin/python3', '-c', "import json,sys\nfrom pathlib import Path..., \'p2\': 40}}, [(\'Endless Swarm\', {\'kind\': \'step\', \'step\': \'upkeep\', \'whose\': \'you\'}, False)], None)\n').returncode
+
+tests/test_rules_library_packets101.py:114: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_rules_epic103.py::test_cold_source_rekeyed_swarm103 - Asser...
+!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!

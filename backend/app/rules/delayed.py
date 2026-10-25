@@ -211,13 +211,15 @@ def create(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     deferred = [{**x, "since": plan.rules.next_object} if x["do"] == "transform" else x for x in deferred]
     refs = {k: v for k, v in (ctx.get("refs") or {}).items()}
     when = dict(e["when"])
+    if e.get("watch_foreign105"):
+        when["after_batch105"] = plan.rules.batch  # 603.7a: no event before this watcher existed.
     if when["kind"] == "event" or (when["kind"] == "watch" and when.get("bound")):  # (-- turn-long triggers (wave 33A) -- a watch on one object)
         from app.rules import context
         from app.rules.effects import _cards
 
         watched = dealt_cards(plan, ctx, e["dealt"], e.get("types")) if e.get("dealt") else _cards(plan, ctx, e["who"])  # (wave 35B)
         watched = [c for c in watched if plan.state.cards[c].zone.endswith(":battlefield")]
-        if when.get("event") == "lose_control":  # -- attached (wave 100F) -- only what its controller controls can be lost
+        if when.get("event") == "lose_control" and not e.get("watch_foreign105"):  # -- attached (wave 100F) -- only what its controller controls can be lost
             from app.rules import attached100f
 
             watched = attached100f.watching(plan, ctx, watched)
@@ -430,7 +432,8 @@ def on_events(plan: Plan, events: list[Event]) -> None:
     from app.rules import attached100f
 
     for t in [t for t in watching if t.when.get("event") == "lose_control"]:
-        if (gone := attached100f.lost(plan, t, events)):
+        eligible = [e for e in events if e.batch > int(t.when.get("after_batch105", -1))]
+        if (gone := attached100f.lost(plan, t, eligible)):
             fired.append(t)
             _fire(plan, t, TriggerEvent(kind="lose_control", batch=events[-1].batch, count=1, objects=gone[:1]))
     watching = [t for t in watching if t.when.get("event") != "lose_control"]

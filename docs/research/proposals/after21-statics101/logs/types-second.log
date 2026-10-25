@@ -1,0 +1,2 @@
+app/rules/granted.py:204: error: Need type annotation for "extra" (hint: "extra: list[<type>] = ...")  [var-annotated]
+Found 1 error in 1 file (checked 20 source files)

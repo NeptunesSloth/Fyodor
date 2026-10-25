@@ -1,0 +1,55 @@
+{
+  "canonical": [
+    {
+      "id": "29bbfe93-8225-444c-835b-33ffa006ef66",
+      "oracle_id": "ff387264-31da-4f6b-88c6-2843f56acbda",
+      "name": "Bite Down on Crime",
+      "layout": "normal",
+      "set_code": "mkm",
+      "set_name": "Murders at Karlov Manor",
+      "collector_number": "154",
+      "rarity": "common",
+      "mana_cost": "{3}{G}",
+      "cmc": 4.0,
+      "type_line": "Sorcery",
+      "oracle_text": "As an additional cost to cast this spell, you may collect evidence 6. This spell costs {2} less to cast if evidence was collected. (To collect evidence 6, exile cards with total mana value 6 or greater from your graveyard.)\nTarget creature you control gets +2/+0 until end of turn. It deals damage equal to its power to target creature you don't control.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null,
+      "defense": null,
+      "colors": [
+        "G"
+      ],
+      "color_identity": [
+        "G"
+      ],
+      "keywords": [
+        "Collect evidence"
+      ],
+      "is_token": false,
+      "faces": [],
+      "double_faced": false,
+      "image_faces": 1,
+      "has_image": false,
+      "released_at": "2024-02-09",
+      "artist": "Mike Bierek",
+      "commander_legal": "legal",
+      "related_tokens": [],
+      "related_cards": []
+    }
+  ],
+  "targeted_classification": [
+    {
+      "name": "Bite Down on Crime",
+      "rank": 1000000000,
+      "level": "FULL",
+      "commander": false,
+      "lines": {
+        "supported": 2,
+        "parsed": 0,
+        "unparsed": 0
+      },
+      "missing": []
+    }
+  ]
+}

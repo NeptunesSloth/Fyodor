@@ -1,0 +1,208 @@
+{
+  "Divergent Transformations": {
+    "object": "list",
+    "has_more": false,
+    "data": [
+      {
+        "object": "ruling",
+        "oracle_id": "f08e835a-7827-4fdc-8dcf-ae74507da052",
+        "source": "wotc",
+        "published_at": "2016-11-08",
+        "comment": "You can't cast Divergent Transformations without two target creatures. If a targeted creature becomes an illegal target for Divergent Transformations after it's been cast, its controller won't exile or replace that creature, but the other creature is still affected."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "f08e835a-7827-4fdc-8dcf-ae74507da052",
+        "source": "wotc",
+        "published_at": "2016-11-08",
+        "comment": "If two players' creatures are exiled this way, start with the player whose turn it is. If that player controlled a creature exiled this way, that player follows the process on Divergent Transformations to replace it. If not, proceed to the next player in turn order. Repeat until the players who controlled the exiled creatures have each replaced those creatures."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "f08e835a-7827-4fdc-8dcf-ae74507da052",
+        "source": "wotc",
+        "published_at": "2016-11-08",
+        "comment": "If one player's creatures are exiled this way, that player repeats this process twice."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "f08e835a-7827-4fdc-8dcf-ae74507da052",
+        "source": "wotc",
+        "published_at": "2016-11-08",
+        "comment": "The two creatures that are put onto the battlefield are put onto the battlefield sequentially. Triggered abilities of the second won't see the first enter the battlefield."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "f08e835a-7827-4fdc-8dcf-ae74507da052",
+        "source": "wotc",
+        "published_at": "2016-11-08",
+        "comment": "Any abilities that trigger during the resolution of Divergent Transformations will wait to be put onto the stack until Divergent Transformations finishes resolving. An ability that triggers on the first creature entering the battlefield may target the second creature and vice versa."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "f08e835a-7827-4fdc-8dcf-ae74507da052",
+        "source": "wotc",
+        "published_at": "2016-11-08",
+        "comment": "If the controller of a creature exiled this way has no creature cards left in their library, that player reveals the cards in their library, then shuffles it."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "f08e835a-7827-4fdc-8dcf-ae74507da052",
+        "source": "wotc",
+        "published_at": "2016-11-08",
+        "comment": "Causing an opponent to lose the game after you've announced that you're casting a spell with undaunted and determined its total cost won't cause you to have to pay more mana."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "f08e835a-7827-4fdc-8dcf-ae74507da052",
+        "source": "wotc",
+        "published_at": "2016-11-08",
+        "comment": "Effects that reduce what you pay to cast a spell don't affect its mana value."
+      }
+    ]
+  },
+  "Reality Scramble": {
+    "object": "list",
+    "has_more": false,
+    "data": [
+      {
+        "object": "ruling",
+        "oracle_id": "afad2e76-4b53-4884-8f96-ba68b0808990",
+        "source": "wotc",
+        "published_at": "2018-07-13",
+        "comment": "The target permanent\u2019s last known existence on the battlefield is checked to determine its types."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "afad2e76-4b53-4884-8f96-ba68b0808990",
+        "source": "wotc",
+        "published_at": "2018-07-13",
+        "comment": "Reality Scramble can target any permanent you own, including those another player controls. A token\u2019s owner is the player who created it."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "afad2e76-4b53-4884-8f96-ba68b0808990",
+        "source": "wotc",
+        "published_at": "2018-07-13",
+        "comment": "You\u2019ll stop as soon as you reveal a card that shares any card types with the target permanent. For example, if the target permanent is an artifact creature, you\u2019ll stop as soon as you reveal a card that\u2019s an artifact or a creature."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "afad2e76-4b53-4884-8f96-ba68b0808990",
+        "source": "wotc",
+        "published_at": "2018-07-13",
+        "comment": "In most cases, at least one card in your library (the card you put on the bottom of your library) will share a card type with the target permanent. However, in some unusual situations, no cards in your library share a card type with the permanent (perhaps because the permanent was a token or its types were changed). In that case, you\u2019ll reveal your entire library, put nothing onto the battlefield, and put the cards back in a random order."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "afad2e76-4b53-4884-8f96-ba68b0808990",
+        "source": "wotc",
+        "published_at": "2018-07-13",
+        "comment": "Casting a card by using its retrace ability works just like casting any other spell, with two exceptions: You\u2019re casting it from your graveyard rather than your hand, and you must discard a land card in addition to any other costs."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "afad2e76-4b53-4884-8f96-ba68b0808990",
+        "source": "wotc",
+        "published_at": "2018-07-13",
+        "comment": "Casting a card with retrace from your graveyard follows the normal timing rules for its card type."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "afad2e76-4b53-4884-8f96-ba68b0808990",
+        "source": "wotc",
+        "published_at": "2018-07-13",
+        "comment": "When a retrace card you cast from your graveyard resolves or is countered, it\u2019s put back into your graveyard. You may use the retrace ability to cast it again. If it\u2019s your turn, you may do so before any other player may take actions to try to remove it from your graveyard."
+      }
+    ]
+  },
+  "Indomitable Creativity": {
+    "object": "list",
+    "has_more": false,
+    "data": [
+      {
+        "object": "ruling",
+        "oracle_id": "e2161ae2-e5d2-4a56-85d4-d2214c5b3e2e",
+        "source": "wotc",
+        "published_at": "2017-02-09",
+        "comment": "If a player controls no permanents destroyed this way, that player reveals no cards from their library and doesn't shuffle it."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "e2161ae2-e5d2-4a56-85d4-d2214c5b3e2e",
+        "source": "wotc",
+        "published_at": "2017-02-09",
+        "comment": "If an artifact or creature is targeted but not destroyed (perhaps because it gained indestructible or became an illegal target), it doesn't count as one of the artifacts or creatures destroyed this way. An artifact or creature that's destroyed but put into a zone other than a graveyard (for example, due to the effect of Rest in Peace) does count."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "e2161ae2-e5d2-4a56-85d4-d2214c5b3e2e",
+        "source": "wotc",
+        "published_at": "2017-02-09",
+        "comment": "While revealing cards, a player stops as soon as they reveal a card that's an artifact or a creature (or both). That player doesn't choose one type."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "e2161ae2-e5d2-4a56-85d4-d2214c5b3e2e",
+        "source": "wotc",
+        "published_at": "2017-02-09",
+        "comment": "If a player's library no longer contains an artifact or creature card when instructed to reveal cards, that player reveals the entire library, exiles no cards, and then shuffles it."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "e2161ae2-e5d2-4a56-85d4-d2214c5b3e2e",
+        "source": "wotc",
+        "published_at": "2017-02-09",
+        "comment": "All of the exiled cards are put onto the battlefield at the same time."
+      }
+    ]
+  },
+  "Synthetic Destiny": {
+    "object": "list",
+    "has_more": false,
+    "data": [
+      {
+        "object": "ruling",
+        "oracle_id": "640a7d2c-42c4-4ea7-bd5b-72f12a65785e",
+        "source": "wotc",
+        "published_at": "2015-11-04",
+        "comment": "The creature cards will enter the battlefield simultaneously."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "640a7d2c-42c4-4ea7-bd5b-72f12a65785e",
+        "source": "wotc",
+        "published_at": "2015-11-04",
+        "comment": "The cards you exile will stay in exile. They're not part of the group you shuffle into your library."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "640a7d2c-42c4-4ea7-bd5b-72f12a65785e",
+        "source": "wotc",
+        "published_at": "2015-11-04",
+        "comment": "Creature tokens you exile this way will count toward the number of creature cards you put onto the battlefield."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "640a7d2c-42c4-4ea7-bd5b-72f12a65785e",
+        "source": "wotc",
+        "published_at": "2015-11-04",
+        "comment": "If you don't reveal any noncreature cards this way (perhaps because all the creature cards you needed were on top of your library), you still shuffle your library."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "640a7d2c-42c4-4ea7-bd5b-72f12a65785e",
+        "source": "wotc",
+        "published_at": "2015-11-04",
+        "comment": "If you exile your commander as Synthetic Destiny resolves, you may not put it into the command zone until after Synthetic Destiny is finished resolving. It will still count toward the number of creature cards you put onto the battlefield."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "640a7d2c-42c4-4ea7-bd5b-72f12a65785e",
+        "source": "wotc",
+        "published_at": "2015-11-04",
+        "comment": "If the number of creatures you exile is greater than the number of creature cards remaining in your library, you'll wind up revealing your entire library, putting all creature cards revealed that way onto the battlefield, then shuffling your library."
+      }
+    ]
+  }
+}

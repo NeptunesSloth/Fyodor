@@ -76,6 +76,19 @@ def new_game(
             deck_name=setup.deck_name,
             token_shortcuts=[c.printing_id for c in setup.cards if c.section == "tokens" and c.printing_id][:30],
         )
+        from app.game.state import StickerSheet101
+        from app.rules import sticker_sheets101
+
+        requested = [c for c in setup.cards if c.section == "stickers"]
+        if requested:
+            found = [sticker_sheets101.sheet(c.name, c.printing_id) for c in requested]
+            # Table starts are advisory, like main/Attraction deck legality. Invalid
+            # pools are warned by deck validation; unknown sheets grant no authority.
+            unique = {s['id']: s for s in found if s is not None}
+            sheets_available101 = list(unique.values())
+            state_players[pid].sticker_pool101 = [{k: s[k] for k in ('id', 'name', 'printing_id')} for s in sheets_available101]
+            rng.shuffle(sheets_available101)
+            state_players[pid].sticker_sheets101 = [StickerSheet101.model_validate(s) for s in sheets_available101[:3]]
         for zone_name in ("library", "hand", "battlefield", "graveyard", "exile", "command", "sideboard", "companion", "foretell", "setaside", "phased", "attractions"):
             zones[zone_key(pid, zone_name)] = []
         for entry in setup.cards:

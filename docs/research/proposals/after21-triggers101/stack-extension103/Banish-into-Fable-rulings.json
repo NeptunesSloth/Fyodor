@@ -1,0 +1,34 @@
+{
+  "object": "list",
+  "has_more": false,
+  "data": [
+    {
+      "object": "ruling",
+      "oracle_id": "1f18e63d-ab1f-426c-afd5-ce89433394ca",
+      "source": "wotc",
+      "published_at": "2019-10-04",
+      "comment": "The triggered ability that copies Banish into Fable resolves and creates copies of Banish into Fable even if Banish into Fable is countered. The ability and the copies resolve before Banish into Fable itself resolves."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "1f18e63d-ab1f-426c-afd5-ce89433394ca",
+      "source": "wotc",
+      "published_at": "2019-10-04",
+      "comment": "Whether you control an artifact and/or an enchantment is checked only as the triggered ability resolves."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "1f18e63d-ab1f-426c-afd5-ce89433394ca",
+      "source": "wotc",
+      "published_at": "2019-10-04",
+      "comment": "If you control one permanent that's an artifact and an enchantment, you'll copy Banish into Fable twice."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "1f18e63d-ab1f-426c-afd5-ce89433394ca",
+      "source": "wotc",
+      "published_at": "2019-10-04",
+      "comment": "If the target nonland permanent is an illegal target by the time Banish into Fable tries to resolve, the spell won't resolve. You won't create a Knight token."
+    }
+  ]
+}

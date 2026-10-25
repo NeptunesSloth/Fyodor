@@ -1,0 +1,99 @@
+============================= test session starts ==============================
+platform linux -- Python 3.12.14, pytest-9.1.1, pluggy-1.7.0 -- /workspace/Fyodor/backend/.venv/bin/python3
+cachedir: .pytest_cache
+rootdir: /workspace/scratch/after-pr21/batch002/backend
+configfile: pyproject.toml
+plugins: anyio-4.15.1, xdist-3.8.0
+created: 4/4 workers
+4 workers [43 items]
+
+scheduling tests via LoadScheduling
+
+tests/test_rules_wave12c_amounts.py::test_coverage_full[Kindle]
+tests/test_rules_wave12c_amounts.py::test_coverage_full[Sacrifice]
+tests/test_rules_wave12c_amounts.py::test_coverage_full[Haytham Kenway]
+tests/test_rules_wave12c_amounts.py::test_coverage_full[Cloudkill]
+[gw3] [  2%] PASSED tests/test_rules_wave12c_amounts.py::test_coverage_full[Sacrifice]
+tests/test_rules_wave12c_amounts.py::test_coverage_full[Morbid Curiosity]
+[gw3] [  4%] PASSED tests/test_rules_wave12c_amounts.py::test_coverage_full[Morbid Curiosity]
+tests/test_rules_wave12c_amounts.py::test_coverage_full[Thunder of Hooves]
+[gw0] [  6%] PASSED tests/test_rules_wave12c_amounts.py::test_coverage_full[Kindle]
+tests/test_rules_wave12c_amounts.py::test_coverage_full[Feast of Flesh]
+[gw0] [  9%] PASSED tests/test_rules_wave12c_amounts.py::test_coverage_full[Feast of Flesh]
+tests/test_rules_wave12c_amounts.py::test_coverage_full[Plague Rats]
+[gw3] [ 11%] PASSED tests/test_rules_wave12c_amounts.py::test_coverage_full[Thunder of Hooves]
+tests/test_rules_wave12c_amounts.py::test_coverage_full[Frenzied Gorespawn]
+[gw2] [ 13%] PASSED tests/test_rules_wave12c_amounts.py::test_coverage_full[Haytham Kenway]
+tests/test_rules_wave12c_amounts.py::test_coverage_full[Intelligence Bobblehead]
+[gw1] [ 16%] PASSED tests/test_rules_wave12c_amounts.py::test_coverage_full[Cloudkill]
+tests/test_rules_wave12c_amounts.py::test_coverage_full[Momentous Fall]
+[gw1] [ 18%] PASSED tests/test_rules_wave12c_amounts.py::test_coverage_full[Momentous Fall]
+tests/test_rules_wave12c_amounts.py::test_coverage_full[Demigod of Revenge]
+[gw2] [ 20%] PASSED tests/test_rules_wave12c_amounts.py::test_coverage_full[Intelligence Bobblehead]
+tests/test_rules_wave12c_amounts.py::test_coverage_full[Faerie Miscreant]
+[gw0] [ 23%] PASSED tests/test_rules_wave12c_amounts.py::test_coverage_full[Plague Rats]
+tests/test_rules_wave12c_amounts.py::test_coverage_full[Timberpack Wolf]
+[gw3] [ 25%] PASSED tests/test_rules_wave12c_amounts.py::test_coverage_full[Frenzied Gorespawn]
+tests/test_rules_wave12c_amounts.py::test_coverage_full[Molten Primordial]
+[gw2] [ 27%] PASSED tests/test_rules_wave12c_amounts.py::test_coverage_full[Faerie Miscreant]
+tests/test_rules_wave12c_amounts.py::test_coverage_full[Cleric of the Forward Order]
+[gw1] [ 30%] PASSED tests/test_rules_wave12c_amounts.py::test_coverage_full[Demigod of Revenge]
+tests/test_rules_wave12c_amounts.py::test_coverage_full[Battlefield Medic]
+[gw0] [ 32%] PASSED tests/test_rules_wave12c_amounts.py::test_coverage_full[Timberpack Wolf]
+tests/test_rules_wave12c_amounts.py::test_coverage_full[Pack Mastiff]
+[gw3] [ 34%] PASSED tests/test_rules_wave12c_amounts.py::test_coverage_full[Molten Primordial]
+tests/test_rules_wave12c_amounts.py::test_coverage_full[Burnt Offering]
+[gw2] [ 37%] PASSED tests/test_rules_wave12c_amounts.py::test_coverage_full[Cleric of the Forward Order]
+tests/test_rules_wave12c_amounts.py::test_the_wording_is_exact
+[gw1] [ 39%] PASSED tests/test_rules_wave12c_amounts.py::test_coverage_full[Battlefield Medic]
+tests/test_rules_wave12c_amounts.py::test_kindle_counts_the_cards_with_its_own_name_in_all_graveyards
+[gw3] [ 41%] PASSED tests/test_rules_wave12c_amounts.py::test_coverage_full[Burnt Offering]
+tests/test_rules_wave12c_amounts.py::test_coverage_full[Judgment Bolt]
+[gw0] [ 44%] PASSED tests/test_rules_wave12c_amounts.py::test_coverage_full[Pack Mastiff]
+tests/test_rules_wave12c_amounts.py::test_feast_of_flesh_uses_the_same_x_twice
+[gw3] [ 46%] PASSED tests/test_rules_wave12c_amounts.py::test_coverage_full[Judgment Bolt]
+tests/test_rules_wave12c_amounts.py::test_momentous_fall_reads_the_sacrificed_creature_as_it_was
+[gw2] [ 48%] PASSED tests/test_rules_wave12c_amounts.py::test_the_wording_is_exact
+tests/test_rules_wave12c_amounts.py::test_cloudkill_reads_the_commander_in_the_command_zone
+[gw2] [ 51%] PASSED tests/test_rules_wave12c_amounts.py::test_cloudkill_reads_the_commander_in_the_command_zone
+tests/test_rules_wave12c_amounts.py::test_haytham_kenway_exiles_one_creature_of_each_opponent
+[gw3] [ 53%] PASSED tests/test_rules_wave12c_amounts.py::test_momentous_fall_reads_the_sacrificed_creature_as_it_was
+tests/test_rules_wave12c_amounts.py::test_morbid_curiosity_draws_for_the_sacrificed_permanents_mana_value
+[gw0] [ 55%] PASSED tests/test_rules_wave12c_amounts.py::test_feast_of_flesh_uses_the_same_x_twice
+tests/test_rules_wave12c_amounts.py::test_sacrifice_adds_mana_equal_to_the_sacrificed_mana_value
+[gw1] [ 58%] PASSED tests/test_rules_wave12c_amounts.py::test_kindle_counts_the_cards_with_its_own_name_in_all_graveyards
+tests/test_rules_wave12c_amounts.py::test_bobblehead_counts_bobbleheads_you_control
+[gw1] [ 60%] PASSED tests/test_rules_wave12c_amounts.py::test_bobblehead_counts_bobbleheads_you_control
+tests/test_rules_wave12c_amounts.py::test_named_self_in_enters_triggers
+[gw3] [ 62%] PASSED tests/test_rules_wave12c_amounts.py::test_morbid_curiosity_draws_for_the_sacrificed_permanents_mana_value
+tests/test_rules_wave12c_amounts.py::test_per_opponent_is_read_only_for_a_triggered_ability_own_clause
+[gw0] [ 65%] PASSED tests/test_rules_wave12c_amounts.py::test_sacrifice_adds_mana_equal_to_the_sacrificed_mana_value
+tests/test_rules_wave12c_amounts.py::test_named_self_in_a_cda_a_static_and_a_group_ability
+[gw3] [ 67%] PASSED tests/test_rules_wave12c_amounts.py::test_per_opponent_is_read_only_for_a_triggered_ability_own_clause
+tests/test_rules_wave12c_amounts.py::test_battlefield_medic_prevents_as_many_as_there_are_clerics
+[gw3] [ 69%] PASSED tests/test_rules_wave12c_amounts.py::test_battlefield_medic_prevents_as_many_as_there_are_clerics
+tests/test_rules_wave12c_amounts.py::test_judgment_bolt_hits_the_creature_and_its_controller
+[gw2] [ 72%] PASSED tests/test_rules_wave12c_amounts.py::test_haytham_kenway_exiles_one_creature_of_each_opponent
+tests/test_rules_wave12c_amounts.py::test_an_opponent_without_a_creature_gets_no_target_and_up_to_one_may_be_skipped
+[gw0] [ 74%] PASSED tests/test_rules_wave12c_amounts.py::test_named_self_in_a_cda_a_static_and_a_group_ability
+tests/test_rules_wave12c_amounts.py::test_burnt_offering_adds_mana_for_the_sacrificed_mana_value
+[gw3] [ 76%] PASSED tests/test_rules_wave12c_amounts.py::test_judgment_bolt_hits_the_creature_and_its_controller
+tests/test_rules_wave12c_amounts.py::test_an_x_left_inside_a_selector_stays_manual[Destroy each creature with mana value X or less and you gain X life, where X is the number of Zombies you control.]
+[gw3] [ 79%] PASSED tests/test_rules_wave12c_amounts.py::test_an_x_left_inside_a_selector_stays_manual[Destroy each creature with mana value X or less and you gain X life, where X is the number of Zombies you control.]
+tests/test_rules_mana_activation_keywords53.py::test_unknown_old_and_ordinary_profiles_never_inherit_source_exhaust
+[gw0] [ 81%] PASSED tests/test_rules_wave12c_amounts.py::test_burnt_offering_adds_mana_for_the_sacrificed_mana_value
+tests/test_rules_wave12c_amounts.py::test_the_x_the_text_defines_in_an_effects_own_selector_is_read_live[Destroy each creature with mana value X or less, where X is the number of Zombies you control.]
+[gw0] [ 83%] PASSED tests/test_rules_wave12c_amounts.py::test_the_x_the_text_defines_in_an_effects_own_selector_is_read_live[Destroy each creature with mana value X or less, where X is the number of Zombies you control.]
+tests/test_rules_mana_activation_keywords53.py::test_actual_taxed_exhaust_mana_true_cold
+[gw2] [ 86%] PASSED tests/test_rules_wave12c_amounts.py::test_an_opponent_without_a_creature_gets_no_target_and_up_to_one_may_be_skipped
+tests/test_rules_wave12c_amounts.py::test_the_x_the_text_defines_in_an_effects_own_selector_is_read_live[Draw X cards and each creature with mana value X or less gains flying until end of turn, where X is the number of Zombies you control.]
+[gw2] [ 88%] PASSED tests/test_rules_wave12c_amounts.py::test_the_x_the_text_defines_in_an_effects_own_selector_is_read_live[Draw X cards and each creature with mana value X or less gains flying until end of turn, where X is the number of Zombies you control.]
+[gw1] [ 90%] PASSED tests/test_rules_wave12c_amounts.py::test_named_self_in_enters_triggers
+tests/test_rules_wave12c_amounts.py::test_demigod_of_revenge_cast_trigger_returns_the_others_from_the_graveyard
+[gw1] [ 93%] PASSED tests/test_rules_wave12c_amounts.py::test_demigod_of_revenge_cast_trigger_returns_the_others_from_the_graveyard
+[gw0] [ 95%] PASSED tests/test_rules_mana_activation_keywords53.py::test_actual_taxed_exhaust_mana_true_cold
+[gw3] [ 97%] PASSED tests/test_rules_mana_activation_keywords53.py::test_unknown_old_and_ordinary_profiles_never_inherit_source_exhaust
+tests/test_rules_mana_activation_keywords53.py::test_opponents_boom_does_not_reduce_selected_mana_exhaust
+[gw3] [100%] PASSED tests/test_rules_mana_activation_keywords53.py::test_opponents_boom_does_not_reduce_selected_mana_exhaust
+
+============================= 43 passed in 24.29s ==============================

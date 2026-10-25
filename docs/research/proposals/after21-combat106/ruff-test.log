@@ -1,0 +1,65 @@
+F821 Undefined name `ActionError`
+   --> tests/test_rules_aura_restrictions106.py:131:24
+    |
+129 |     mana(s,C=3)
+130 |     before=s.state.model_dump_json()
+131 |     with pytest.raises(ActionError):
+    |                        ^^^^^^^^^^^
+132 |         activate106(s,rod,"deals 1 damage",host)
+133 |     assert s.state.model_dump_json()==before
+    |
+
+F821 Undefined name `ActionError`
+   --> tests/test_rules_aura_restrictions106.py:167:24
+    |
+165 |     mana(s,G=1)
+166 |     before=s.state.model_dump_json()
+167 |     with pytest.raises(ActionError):
+    |                        ^^^^^^^^^^^
+168 |         act(s,"p1",type="cast_spell",card_id=growth.id,targets=[host.id])
+169 |     assert s.state.model_dump_json()==before
+    |
+
+F821 Undefined name `ActionError`
+   --> tests/test_rules_aura_restrictions106.py:195:24
+    |
+193 |     mana(s,G=1)
+194 |     before=s.state.model_dump_json()
+195 |     with pytest.raises(ActionError):
+    |                        ^^^^^^^^^^^
+196 |         act(s,"p1",type="cast_spell",card_id=spell.id,targets=[host.id])
+197 |     assert s.state.model_dump_json()==before
+    |
+
+F841 Local variable `spell` is assigned to but never used
+   --> tests/test_rules_aura_restrictions106.py:206:5
+    |
+204 |     # The other creature available to a creature Aura is a legal nonprotected choice;
+205 |     # land Aura has no alternative land on the battlefield.
+206 |     spell=cast95(s,"Replenish")
+    |     ^^^^^
+207 |     d=s.state.rules.decision
+208 |     if d is not None:
+    |
+help: Remove assignment to unused variable `spell`
+    |
+205 |     # land Aura has no alternative land on the battlefield.
+    -     spell=cast95(s,"Replenish")
+206 +     cast95(s,"Replenish")
+207 |     d=s.state.rules.decision
+    |
+note: This is an unsafe fix and may change runtime behavior
+
+F821 Undefined name `pick`
+   --> tests/test_rules_aura_restrictions106.py:210:9
+    |
+208 |     if d is not None:
+209 |         assert host.id not in {o.id for o in d.options}
+210 |         pick(s,[o.id for o in d.options][:d.min_choices])
+    |         ^^^^
+211 |         settle(s)
+212 |     assert s.state.cards[aura.id].attached_to==host.id
+    |
+
+Found 5 errors.
+1 unsafe fix available with `--fix --unsafe-fixes`.

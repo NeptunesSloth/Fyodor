@@ -1,0 +1,35 @@
+{
+  "id": "b63ac9a6-aaa5-4659-97d1-c5f6b0d5ccfe",
+  "oracle_id": "2f33aced-c737-4b3c-ba25-aff7b340c2d7",
+  "name": "Infernal Denizen",
+  "layout": "normal",
+  "set_code": "ice",
+  "set_name": "Ice Age",
+  "collector_number": "136",
+  "rarity": "rare",
+  "mana_cost": "{7}{B}",
+  "cmc": 8.0,
+  "type_line": "Creature \u2014 Demon",
+  "oracle_text": "At the beginning of your upkeep, sacrifice two Swamps. If you can't, tap this creature, and an opponent may gain control of a creature you control of their choice for as long as this creature remains on the battlefield.\n{T}: Gain control of target creature for as long as this creature remains on the battlefield.",
+  "power": "5",
+  "toughness": "7",
+  "loyalty": null,
+  "defense": null,
+  "colors": [
+    "B"
+  ],
+  "color_identity": [
+    "B"
+  ],
+  "keywords": [],
+  "is_token": false,
+  "faces": [],
+  "double_faced": false,
+  "image_faces": 1,
+  "has_image": false,
+  "released_at": "1995-06-03",
+  "artist": "Drew Tucker",
+  "commander_legal": "legal",
+  "related_tokens": [],
+  "related_cards": []
+}

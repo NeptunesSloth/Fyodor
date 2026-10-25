@@ -1,0 +1,62 @@
+{
+  "object": "list",
+  "has_more": false,
+  "data": [
+    {
+      "object": "ruling",
+      "oracle_id": "668fc293-1b8f-4870-9784-4ac660925e30",
+      "source": "wotc",
+      "published_at": "2011-01-01",
+      "comment": "The second ability triggers whenever a player casts an instant or sorcery spell that targets only one Golem and no other object or player. That Golem can be Precursor Golem itself, one of the Golem tokens it created, or any other Golem. It doesn't matter who controls the Golem."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "668fc293-1b8f-4870-9784-4ac660925e30",
+      "source": "wotc",
+      "published_at": "2011-01-01",
+      "comment": "If an instant or sorcery spell has multiple targets, but it's targeting the same Golem with all of them (such as Agony Warp targeting the same Golem twice), Precursor Golem's last ability will trigger."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "668fc293-1b8f-4870-9784-4ac660925e30",
+      "source": "wotc",
+      "published_at": "2011-01-01",
+      "comment": "Any Golem that couldn't be targeted by the original spell (due to shroud, protection abilities, targeting restrictions, or any other reason) is just ignored by Precursor Golem's second ability."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "668fc293-1b8f-4870-9784-4ac660925e30",
+      "source": "wotc",
+      "published_at": "2011-01-01",
+      "comment": "The controller of the spell that caused Precursor Golem's second ability to trigger also controls all the copies. That player chooses the order the copies are put onto the stack. The original spell will be on the stack beneath those copies and will resolve last."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "668fc293-1b8f-4870-9784-4ac660925e30",
+      "source": "wotc",
+      "published_at": "2011-01-01",
+      "comment": "The copies that Precursor Golem's second ability creates are created on the stack, so they're not \"cast.\" Abilities that trigger when a player casts a spell (like Precursor Golem's second ability itself) won't trigger."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "668fc293-1b8f-4870-9784-4ac660925e30",
+      "source": "wotc",
+      "published_at": "2011-01-01",
+      "comment": "If the spell that's copied is modal (that is, it says \"Choose one \u2014\" or the like), the copies will have the same mode. Their controller can't choose a different one."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "668fc293-1b8f-4870-9784-4ac660925e30",
+      "source": "wotc",
+      "published_at": "2011-01-01",
+      "comment": "If the spell that's copied has an X whose value was determined as it was cast (like Fireball does), the copies have the same value of X."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "668fc293-1b8f-4870-9784-4ac660925e30",
+      "source": "wotc",
+      "published_at": "2011-01-01",
+      "comment": "The controller of a copy can't choose to pay any additional costs for the copy. However, effects based on any additional costs that were paid for the original spell are copied as though those same costs were paid for the copy too."
+    }
+  ]
+}

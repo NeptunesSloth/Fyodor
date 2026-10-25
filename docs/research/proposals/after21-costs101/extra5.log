@@ -1,0 +1,297 @@
+F.F.F                                                                    [100%]
+=================================== FAILURES ===================================
+_ test_actual_automatic_named_mana_tax_cannot_self_fund_but_pays_before_production _
+
+cards = <app.cards.repository.CardRepository object at 0x7f10686fd430>
+
+
+    def test_actual_automatic_named_mana_tax_cannot_self_fund_but_pays_before_production(cards):
+        s=setup(cards);chariot(s,'Dreamstone Hedron')
+        hedron=put(s,'Dreamstone Hedron','battlefield')
+        bear=put(s,'Grizzly Bears','hand')
+        act(s,'p1',type='add_mana',player='p1',mana={'G':1})
+        before=s.state.model_dump(mode='json')
+        with pytest.raises(ActionError):
+            act(s,'p1',type='cast_spell',card_id=bear.id,sources=[hedron.id])
+        assert before==s.state.model_dump(mode='json') and not hedron.tapped
+        engine=put(s,'Wurmcoil Engine','hand')
+>       act(s,'p1',type='add_mana',player='p1',mana={'C':5})
+
+tests/test_rules_cost_statics101_extra.py:44:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests/game_helpers.py:42: in act
+    return session.perform(actor, payload)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/game/session.py:61: in perform
+    resolved = resolve(self.state, action, actor=actor, cards=self.cards, trusted=trusted)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/game/resolve.py:76: in resolve
+    a.r = compile_intent(state, a, actor=actor, info=info, rng=rng)  # type: ignore[union-attr]
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/engine.py:164: in compile_intent
+    handler(plan, intent)
+app/rules/casting.py:3913: in cast_spell
+    _cast_payment(plan, payment_data, None)
+app/rules/casting.py:3974: in _cast_payment
+    pay_spell_then(plan, data.data.a, card, data.data.ch, data.cost,
+app/rules/casting.py:1910: in pay_spell_then
+    _pay_spell(plan, a, card, ch, cost, label, not_mana=not_mana, origin=origin, then=then, x_payment=x_payment, payment_context=payment_context)
+app/rules/casting.py:1770: in _pay_spell
+    pay_then(plan, player, rest, label, sources=a.sources, exclude=exclude, purpose=purpose,
+app/rules/casting.py:1576: in pay_then
+    result = _pay(plan, player, cost, label, sources=sources, exclude=exclude, purpose=purpose,
+app/rules/casting.py:1588: in _pay
+    payment = find_payment(plan.state, player, cost, plan.info, sources=sources, exclude=exclude, purpose=purpose,
+app/rules/casting.py:1217: in find_payment
+    payment = _find_payment(state, player, _constrained(_spending_cost(state, player, info, life_for_mana(state, player, info, cost)), purpose), info, sources=sources, exclude=exclude,
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+state = GameState(format_version=1, id='17a7829f064f0448', name='Game', format='commander', created_at=1792910479.9105048, seq...ee_cast_faces={}, exile_if_graveyard=[], bottom_if_graveyard=[], cast_enters={}, exile_resolves={}, counter_stamps={}))
+player = 'p1'
+cost = ManaCost(generic=6, colored=(), hybrid=(), phyrexian=(), x=0, unsupported=(), allocation=None)
+info = <app.cards.repository.CardRepository object at 0x7f10686fd430>
+sources = ['a76e8da20499'], exclude = ()
+purpose = Purpose(spell=Characteristics(name='Wurmcoil Engine', supertypes=frozenset(), types=frozenset({'Creature', 'Artifact'}...one, cost_colorless=False, allocation=None, selected_cost_has_x=False, producer_requirement=None, cycling_menu72=False)
+reserve = 0
+
+    def _find_payment(state: GameState, player: str, cost: M.ManaCost, info: CardInfo, *,
+                      sources: list[str] | None = None, exclude: tuple[str, ...] = (), purpose: Purpose | None = None,
+                      reserve: int = 0) -> M.Payment:
+        from app.rules import mana_units
+
+        everything = [s for s in mana_sources(state, player, info, purpose) if s.card_id not in exclude]
+        available = [s for s in everything if s.activation is None]
+        filters = [s for s in everything if s.activation is not None]
+        pool = dict(state.players[player].mana)
+        life = max(0, spendable_life(state, player, info) - reserve)  # (wave 22B: 119.4; wave 29C: less the life other costs of it pay)
+        units = mana_units.unit_sources(state, player, purpose)  # -- mana provenance (wave 18B) -- pool mana that remembers its source
+        if sources is not None:
+            chosen = [s for s in available if s.card_id in set(sources)]
+            chosen_filters = [s for s in filters if s.card_id in set(sources) and s.card_id not in {c.card_id for c in chosen}]
+            if len({s.card_id for s in chosen + chosen_filters}) != len(set(sources)):
+                raise ActionError("Pick untapped mana sources you control")
+            try:
+                payment = _solve_with_filters(cost, pool, chosen + units, chosen_filters, life, input_spending=lambda due: _spending_cost(state, player, info, due))
+            except M.ManaError as exc:
+                raise ActionError(f"Those sources can't pay {cost.text()}") from exc
+            unused = set(sources) - set(payment.tapped)
+            if unused:
+                names = ", ".join(state.cards[c].name or "a source" for c in unused)
+>               raise ActionError(f"{names} isn't needed to pay {cost.text()}")
+E               app.game.errors.ActionError: Dreamstone Hedron isn't needed to pay {6}
+
+app/rules/casting.py:1310: ActionError
+_________ test_liesa_life_tax_is_mandatory_and_myth_only_reduces_mana __________
+
+cards = <app.cards.repository.CardRepository object at 0x7f1068f5a600>
+
+    def test_myth_discount_applies_in_hand_without_incrementing_command_cast_count(cards):
+        s = setup(cards)
+        put(s, "Myth Unbound", "battlefield")
+        commander = next(c for c in s.state.cards.values() if c.owner == "p1" and c.commander_key)
+>       act(s, "p1", type="add_mana", player="p1", mana={"C": 2, "R": 2})
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_rules_cost_statics101_extra.py:72:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests/game_helpers.py:42: in act
+    return session.perform(actor, payload)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/game/session.py:61: in perform
+    resolved = resolve(self.state, action, actor=actor, cards=self.cards, trusted=trusted)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/game/resolve.py:76: in resolve
+    a.r = compile_intent(state, a, actor=actor, info=info, rng=rng)  # type: ignore[union-attr]
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/engine.py:164: in compile_intent
+    handler(plan, intent)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+plan = <app.rules.plan.Plan object at 0x7f10694de3c0>
+a = CastSpell(actor='p1', ts=1792910500.7004707, r=None, mana_symbols=None, flashback_choice=None, type='cast_spell', card...ker=0, cost_choices=[], alt_cost=None, optional_costs=[], slot=None, via=None, optional_asked=False, life_symbols=None)
+
+    def cast_spell(plan: Plan, a: A.CastSpell) -> None:
+        require_no_decision(plan)
+        card = plan.state.cards.get(a.card_id)
+        if card is None:
+            raise ActionError("That card isn't here any more")
+        if card.zone == zone_key(plan.actor, "graveyard") and a.face is None and not a.fuse and not a.free:  # -- casting extras (wave 18E) -- 702.146a
+            from app.rules import disturb
+
+            if disturb.cast_face(plan.state, plan.actor, card, plan.info, a.alt_cost):
+                a.face = 1  # cast transformed: the spell is the back face (702.146b, 712.8c)
+        if a.face is None and a.alt_cost is not None and not a.fuse and not a.free and not plan.manual(card):  # -- commanders (wave 50C) -- 702.162a: cast converted = the back face is the spell (701.28a, 712.8c)
+            from app.rules import alt_costs as _converted
+
+            if any(o.key == a.alt_cost and o.tag == _converted.CONVERTED_TAG for o in _converted.converted_offers(plan.state, plan.actor, card, plan.info)):
+                a.face = 1
+        ch = chars.as_cast(card, plan.info, a.face, a.fuse)  # split cards / adventures: the half being cast
+        from app.rules import text_global_word71
+
+        global_text_prepared71 = bool(text_global_word71.global_changes(plan.state, card.model_copy(update={'zone': 'stack'}), plan.info))
+        ch = text_global_word71.prospective(plan.state, card, ch, plan.info)
+        from app.rules import paid_effect_costs
+
+        if paid_effect_costs.announce(plan, a, card, ch):
+            return
+        if a.fuse and (ch.name.count(" // ") != 1 or card.zone != zone_key(plan.actor, "hand")):  # -- static_other sweep (wave 16B) -- 702.102a
+            raise ActionError("Only a split card with fuse can be cast as both halves, from your hand")
+        if a.alt_cost is not None and (a.free or a.evoke or a.dash or a.awaken or a.face_down):  # -- cost changers (wave 4I) --
+            raise ActionError("Only one alternative cost can be applied to a spell (118.9a)")
+        if a.free and card.id in plan.rules.free_casts:  # suspend / cascade / rebound / madness: what the engine granted
+            cast_free(plan, card, ch, a)
+            return
+        if a.alt_cost is not None and not plan.manual(card):  # -- keywords (wave 15E) -- bestow 702.103b/d: cast as an Aura spell
+            from app.rules import alt_costs as _alt
+            from app.rules import bestow
+
+            kinds = {o.tag for o in _alt.offers(plan.state, plan.actor, card, ch, plan.info) if o.key == a.alt_cost}
+            if "overload" in kinds:  # -- casting extras (wave 18E) -- 702.96a: "target" is "each" (no targets, 702.96b)
+                from app.rules import overload
+
+                ch = overload.overlay(ch)
+            if "cleave" in kinds:  # -- keywords (wave 50H) -- 702.148a: the words in square brackets are removed
+                from app.rules import cleave
+
+                ch = cleave.overlay(ch)
+            bestowed_cast = "bestow" in kinds
+            sneaking = "sneak" in kinds  # -- keywords (wave 30I) -- 702.190a
+            mutating_cast = "mutate" in kinds  # -- merged permanents (wave 18D) -- 702.140a: a mutating creature spell, targeting a creature
+            if bestowed_cast:
+                ch = bestow.overlay(ch)
+        else:
+            bestowed_cast = mutating_cast = sneaking = False
+        if a.prototype:  # -- casting extras (wave 18E) -- 702.160a / 718.3a: only the alternative cost, power and toughness are used to cast it
+            from app.rules import prototype
+
+            if a.face_down or a.fuse or prototype.parse(ch) is None or plan.manual(card):
+                raise ActionError(f"{ch.name or 'That card'} has no prototype the engine can cast it with")
+            ch = prototype.overlay(ch)
+        face_down_kind = face_down_cast_kind(ch) if a.face_down else None  # -- keyword actions & face-down (wave 3F) --
+        if a.face_down:  # morph / disguise: a nameless 2/2 creature spell (disguise: with ward {2}) for {3}
+            if face_down_kind is None or card.zone != zone_key(plan.actor, "hand"):
+                raise ActionError("Only a card with morph or disguise can be cast face down from your hand")
+            ch = chars.face_down_characteristics(face_down_kind)
+            # -- granted casts (wave 29B) -- 707.2: a copy of a face-down spell is not face down
+            from app.rules import cast_limits as _limits
+
+            if not plan.manual(card) and _limits.granted_cascade(plan, card.id, ch, "hand", "storm"):
+                raise ActionError("A face-down spell that is given storm isn't automated (its copies are face-up 2/2 creature spells): cast it face up")
+        # 601.3d / 601.2g: mana abilities may remove a conditional timing source after this announcement was legal.
+        # Only a server-created payment resume can authorize its original object; new casts and new incarnations cannot.
+        timing_locked = plan.locked_cast_timing == plan.oid(card)
+        problem = cast_problem(plan.state, plan.actor, card, ch, info=plan.info, free=a.free, sneak=sneaking or timing_locked, announced=True, alternative_key=a.alt_cost, optional_keys=tuple(a.optional_costs))
+        if problem:
+>           raise ActionError(problem)
+E           app.game.errors.ActionError: You don't have priority
+
+app/rules/casting.py:3507: ActionError
+__________________ test_true_cold_command_count_and_life_cost __________________
+
+cards = <app.cards.repository.CardRepository object at 0x7f10680a2600>
+tmp_path = PosixPath('/tmp/pytest-of-agent/pytest-289/test_true_cold_command_count_a0')
+
+    put(s, "Myth Unbound", "battlefield")
+    commander = next(c for c in s.state.cards.values() if c.owner == "p1" and c.commander_key)
+    act(s, "p1", type="add_mana", player="p1", mana={"C": 2, "W": 2, "B": 1})
+    act(s, "p1", type="cast_spell", card_id=commander.id, sources=[])
+>   settle(s)
+
+tests/test_rules_cost_statics101_extra.py:97:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests/game_helpers.py:42: in act
+    return session.perform(actor, payload)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/game/session.py:61: in perform
+    resolved = resolve(self.state, action, actor=actor, cards=self.cards, trusted=trusted)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/game/resolve.py:76: in resolve
+    a.r = compile_intent(state, a, actor=actor, info=info, rng=rng)  # type: ignore[union-attr]
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/engine.py:164: in compile_intent
+    handler(plan, intent)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+plan = <app.rules.plan.Plan object at 0x7f1067f71370>
+a = CastSpell(actor='p1', ts=1792910511.4660718, r=None, mana_symbols=None, flashback_choice=None, type='cast_spell', card...ker=0, cost_choices=[], alt_cost=None, optional_costs=[], slot=None, via=None, optional_asked=False, life_symbols=None)
+
+    def cast_spell(plan: Plan, a: A.CastSpell) -> None:
+        require_no_decision(plan)
+        card = plan.state.cards.get(a.card_id)
+        if card is None:
+            raise ActionError("That card isn't here any more")
+        if card.zone == zone_key(plan.actor, "graveyard") and a.face is None and not a.fuse and not a.free:  # -- casting extras (wave 18E) -- 702.146a
+            from app.rules import disturb
+
+            if disturb.cast_face(plan.state, plan.actor, card, plan.info, a.alt_cost):
+                a.face = 1  # cast transformed: the spell is the back face (702.146b, 712.8c)
+        if a.face is None and a.alt_cost is not None and not a.fuse and not a.free and not plan.manual(card):  # -- commanders (wave 50C) -- 702.162a: cast converted = the back face is the spell (701.28a, 712.8c)
+            from app.rules import alt_costs as _converted
+
+            if any(o.key == a.alt_cost and o.tag == _converted.CONVERTED_TAG for o in _converted.converted_offers(plan.state, plan.actor, card, plan.info)):
+                a.face = 1
+        ch = chars.as_cast(card, plan.info, a.face, a.fuse)  # split cards / adventures: the half being cast
+        from app.rules import text_global_word71
+
+        global_text_prepared71 = bool(text_global_word71.global_changes(plan.state, card.model_copy(update={'zone': 'stack'}), plan.info))
+        ch = text_global_word71.prospective(plan.state, card, ch, plan.info)
+        from app.rules import paid_effect_costs
+
+        if paid_effect_costs.announce(plan, a, card, ch):
+            return
+        if a.fuse and (ch.name.count(" // ") != 1 or card.zone != zone_key(plan.actor, "hand")):  # -- static_other sweep (wave 16B) -- 702.102a
+            raise ActionError("Only a split card with fuse can be cast as both halves, from your hand")
+        if a.alt_cost is not None and (a.free or a.evoke or a.dash or a.awaken or a.face_down):  # -- cost changers (wave 4I) --
+            raise ActionError("Only one alternative cost can be applied to a spell (118.9a)")
+        if a.free and card.id in plan.rules.free_casts:  # suspend / cascade / rebound / madness: what the engine granted
+            cast_free(plan, card, ch, a)
+            return
+        if a.alt_cost is not None and not plan.manual(card):  # -- keywords (wave 15E) -- bestow 702.103b/d: cast as an Aura spell
+            from app.rules import alt_costs as _alt
+            from app.rules import bestow
+
+            kinds = {o.tag for o in _alt.offers(plan.state, plan.actor, card, ch, plan.info) if o.key == a.alt_cost}
+            if "overload" in kinds:  # -- casting extras (wave 18E) -- 702.96a: "target" is "each" (no targets, 702.96b)
+                from app.rules import overload
+
+                ch = overload.overlay(ch)
+            if "cleave" in kinds:  # -- keywords (wave 50H) -- 702.148a: the words in square brackets are removed
+                from app.rules import cleave
+
+                ch = cleave.overlay(ch)
+            bestowed_cast = "bestow" in kinds
+            sneaking = "sneak" in kinds  # -- keywords (wave 30I) -- 702.190a
+            mutating_cast = "mutate" in kinds  # -- merged permanents (wave 18D) -- 702.140a: a mutating creature spell, targeting a creature
+            if bestowed_cast:
+                ch = bestow.overlay(ch)
+        else:
+            bestowed_cast = mutating_cast = sneaking = False
+        if a.prototype:  # -- casting extras (wave 18E) -- 702.160a / 718.3a: only the alternative cost, power and toughness are used to cast it
+            from app.rules import prototype
+
+            if a.face_down or a.fuse or prototype.parse(ch) is None or plan.manual(card):
+                raise ActionError(f"{ch.name or 'That card'} has no prototype the engine can cast it with")
+            ch = prototype.overlay(ch)
+        face_down_kind = face_down_cast_kind(ch) if a.face_down else None  # -- keyword actions & face-down (wave 3F) --
+        if a.face_down:  # morph / disguise: a nameless 2/2 creature spell (disguise: with ward {2}) for {3}
+            if face_down_kind is None or card.zone != zone_key(plan.actor, "hand"):
+                raise ActionError("Only a card with morph or disguise can be cast face down from your hand")
+            ch = chars.face_down_characteristics(face_down_kind)
+            # -- granted casts (wave 29B) -- 707.2: a copy of a face-down spell is not face down
+            from app.rules import cast_limits as _limits
+
+            if not plan.manual(card) and _limits.granted_cascade(plan, card.id, ch, "hand", "storm"):
+                raise ActionError("A face-down spell that is given storm isn't automated (its copies are face-up 2/2 creature spells): cast it face up")
+        # 601.3d / 601.2g: mana abilities may remove a conditional timing source after this announcement was legal.
+        # Only a server-created payment resume can authorize its original object; new casts and new incarnations cannot.
+        timing_locked = plan.locked_cast_timing == plan.oid(card)
+        problem = cast_problem(plan.state, plan.actor, card, ch, info=plan.info, free=a.free, sneak=sneaking or timing_locked, announced=True, alternative_key=a.alt_cost, optional_keys=tuple(a.optional_costs))
+        if problem:
+>           raise ActionError(problem)
+E           app.game.errors.ActionError: You don't have priority
+
+app/rules/casting.py:3507: ActionError
+=========================== short test summary info ============================
+FAILED tests/test_rules_cost_statics101_extra.py::test_actual_automatic_named_mana_tax_cannot_self_fund_but_pays_before_production
+FAILED tests/test_rules_cost_statics101_extra.py::test_liesa_life_tax_is_mandatory_and_myth_only_reduces_mana
+FAILED tests/test_rules_cost_statics101_extra.py::test_true_cold_command_count_and_life_cost

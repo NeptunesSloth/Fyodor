@@ -1,0 +1,22 @@
+{
+  "names": [
+    "_____ Goblin",
+    "_____-o-saurus",
+    "Wizards of the _____",
+    "_____ Bird Gets the Worm"
+  ],
+  "promotion_candidates": 4,
+  "native": 18,
+  "genuine_cold": 1,
+  "owned_sources": [
+    "app/rules/sticker_riders102.py",
+    "app/rules/scripts.py",
+    "app/rules/values.py"
+  ],
+  "dependencies": [
+    "after21-statics101",
+    "after21-sticker-effects101"
+  ],
+  "test_destination": "backend/tests/test_rules_sticker_riders102.py",
+  "fixture_destination": "backend/tests/fixtures/sticker_effects101_cards.json"
+}

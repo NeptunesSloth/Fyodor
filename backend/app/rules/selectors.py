@@ -1433,6 +1433,8 @@ def _core(word: str) -> tuple[str, str] | None:
 
 def _prefix(s: Selector, word: str) -> Selector | None:
     low = word.lower()
+    if low == "stickered":
+        return replace(s, extras=(*s.extras, "sticker101:any"))
     if low in ("another", "other"):
         return replace(s, other=True)
     if low in ("tapped", "untapped"):
@@ -1628,6 +1630,11 @@ def _type_and(phrase: str) -> str:
 
 def parse(phrase: str) -> Selector | None:
     """A noun phrase without its determiner ("nonland permanent an opponent controls") → Selector."""
+    sticker = re.fullmatch(r'(?P<base>.+?) with (?:a|an) (?P<kind>name|art|ability|power and toughness) sticker(?: on (?:it|them))?', phrase.strip())
+    if sticker is not None:
+        base = parse(sticker['base'])
+        kind = 'pt' if sticker['kind'] == 'power and toughness' else sticker['kind']
+        return replace(base, extras=(*base.extras, 'sticker101:' + kind)) if base is not None else None
     if phrase.strip() in ('double-faced card', 'double-faced cards'):
         return Selector(zones=(), card=True, extras=('double_faced_card',))
     controlled_land = re.fullmatch(r"(?P<base>.+?) whose controller controls (?:a|an) (?P<land>Plains|Island|Swamp|Mountain|Forest)",phrase.strip())
@@ -2184,6 +2191,12 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
            for x in sel.extras):  # -- copy abilities (wave 19E) -- "… from an enchantment source"
         return False
     for extra in sel.extras:
+        if extra == 'combat_pirate_player95':
+            from app.rules import combat_damage95
+
+            if not combat_damage95.pirate_player(plan, card.controller):
+                return False
+            continue
         if extra.startswith('exclude_successor58:') and plan.oid(card) == extra.partition(':')[2]:
             return False
         if extra == 'controlled_since_turn_start69':
@@ -2232,6 +2245,8 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
     if sel.controller == "you" and card.controller != you:
         return False
     if sel.controller == "opponent" and card.controller == you:
+        return False
+    if sel.controller == "active" and card.controller != plan.active:
         return False
     if sel.controller is not None and (sel.controller in (THAT_PLAYER, DEFENDED) or (  # -- damage wordings (wave 6B) --
             sel.controller.startswith("player:") and card.controller != sel.controller[7:])):
@@ -2368,6 +2383,10 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
         if value is None or not isinstance(n, (int, float)) or not {"<=": value <= n, ">=": value >= n, "==": value == n, "<": value < n, ">": value > n}[op]:
             return False
     for extra in sel.extras:
+        if extra.startswith('sticker101:'):
+            kind = extra.split(':', 1)[1]
+            if not any(kind == 'any' or p.sticker.kind == kind for p in card.stickers101):
+                return False
         if extra.startswith('exchange_choices92:'):
             from app.rules import exchange_choices92
 
@@ -2625,6 +2644,8 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
             return False
         if extra in ("block_involved_this_turn", "blocked_by_source_this_turn") and not _block_history(plan, card, extra, source):  # -- wave 31D --
             return False
+        if extra == "last_drawn_this_turn107" and not last_drawn_now107(plan, card):
+            return False
         if extra == "drawn_this_turn" and not drawn_now(plan, card):  # -- drawn this turn (wave 18G) --
             return False
         if extra in ("was_dealt_damage", "dealt_damage", "dealt_damage_you", "dealt_damage_by_source", "dealt_combat_damage_you"):  # -- damage history (wave 6B) --
@@ -2732,6 +2753,14 @@ def drawn_now(plan: Plan, card: CardInstance) -> bool:
     if r is None or r.turn_log.turn != plan.state.turn.number or not card.zone.endswith(":hand"):
         return False
     return r.object_id(card.id) in r.turn_log.drawn.get(card.owner, ())
+
+
+def last_drawn_now107(plan: Plan, card: CardInstance) -> bool:
+    """The last actual hand object drawn, without falling back to an earlier survivor."""
+    if not drawn_now(plan, card):
+        return False
+    rules = plan.state.rules
+    return rules is not None and rules.turn_log.drawn[card.owner][-1] == rules.object_id(card.id)
 
 
 def _you_put_counters_now(plan: Plan, card: CardInstance, you: str | None, kind: str) -> bool:

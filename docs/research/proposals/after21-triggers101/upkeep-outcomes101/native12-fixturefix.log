@@ -1,0 +1,60 @@
+...FF
+=================================== FAILURES ===================================
+_ test_doom_mandatory_sacrifice_actual_outcome_not_graveyard_destination[False] _
+
+cards = <app.cards.repository.CardRepository object at 0x7f87d2215370>
+rip = False
+
+    @pytest.mark.parametrize('rip', [False, True])
+    def test_doom_mandatory_sacrifice_actual_outcome_not_graveyard_destination(cards, rip):
+        s = setup(cards)
+>       source = cast(s, 'Doom Foretold')
+                 ^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_rules_upkeep_sacrifice101.py:80:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests/test_rules_upkeep_sacrifice101.py:52: in cast
+    c = put(s, name, zone='hand')
+        ^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+s = <app.game.session.GameSession object at 0x7f87d2a435f0>
+name = 'Doom Foretold', pid = 'p1', zone = 'hand'
+
+    def put(s, name, pid='p1', zone='battlefield'):
+>       c = next(c for c in s.state.cards.values() if c.owner == pid and c.name == name and c.zone != f'{pid}:{zone}')
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       StopIteration
+
+tests/test_rules_upkeep_sacrifice101.py:46: StopIteration
+_ test_doom_mandatory_sacrifice_actual_outcome_not_graveyard_destination[True] _
+
+cards = <app.cards.repository.CardRepository object at 0x7f87d20e7080>
+rip = True
+
+    @pytest.mark.parametrize('rip', [False, True])
+    def test_doom_mandatory_sacrifice_actual_outcome_not_graveyard_destination(cards, rip):
+        s = setup(cards)
+>       source = cast(s, 'Doom Foretold')
+                 ^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_rules_upkeep_sacrifice101.py:80:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests/test_rules_upkeep_sacrifice101.py:52: in cast
+    c = put(s, name, zone='hand')
+        ^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+s = <app.game.session.GameSession object at 0x7f87d1ffd6a0>
+name = 'Doom Foretold', pid = 'p1', zone = 'hand'
+
+    def put(s, name, pid='p1', zone='battlefield'):
+>       c = next(c for c in s.state.cards.values() if c.owner == pid and c.name == name and c.zone != f'{pid}:{zone}')
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       StopIteration
+
+tests/test_rules_upkeep_sacrifice101.py:46: StopIteration
+=========================== short test summary info ============================
+FAILED tests/test_rules_upkeep_sacrifice101.py::test_doom_mandatory_sacrifice_actual_outcome_not_graveyard_destination[False]
+FAILED tests/test_rules_upkeep_sacrifice101.py::test_doom_mandatory_sacrifice_actual_outcome_not_graveyard_destination[True]
+!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 2 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!

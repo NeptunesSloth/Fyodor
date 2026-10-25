@@ -1,0 +1,160 @@
+--- /dev/null
++++ b/backend/app/rules/sacrifice_outcomes106.py
+@@ -0,0 +1,123 @@
++"""Optional resolving sacrifices and rewards from actual native sacrifice receipts."""
++from __future__ import annotations
++
++from dataclasses import replace
++from typing import Any
++
++BIND = 'sacrificed106'
++
++
++def count() -> dict[str, Any]:
++    return {'ref_count': BIND, 'this_way': 'sacrificed'}
++
++
++def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
++    from app.rules import scripts, selectors
++    from app.rules.oracle import strip_reminders
++
++    text = strip_reminders(scripts.self_text(ability.text, ch.name)).strip()
++    if text == '−10: Gain control of all commanders. Put all commanders from the command zone onto the battlefield under your control.':
++        d = scripts.define(replace(ability, text='−10: Draw a card.'), ch)
++        gain = scripts.parse_effects('Gain control of all commanders.')
++        assert d is not None and gain is not None
++        return {**d, 'effects': [*gain[0], {'do': 'return_card', 'who': selectors.Selector(card=True, commander=True, zones=('command',)).key(), 'to': 'battlefield', 'tapped': False, 'under': 'you'}]}
++    mode = None
++    proxy = 'Draw a card.'
++    if text == '+1: You may sacrifice another creature or planeswalker. If you do, draw two cards, then draw another card if the sacrificed permanent was a commander.':
++        mode, proxy = 'tevesh', '+1: Draw a card.'
++    elif text == 'Whenever ~ attacks, you may sacrifice another creature. If you do, draw X cards, then you may put a permanent card with mana value X or less from your hand onto the battlefield, where X is the sacrificed creature\'s mana value.':
++        mode, proxy = 'venom', 'Whenever ~ attacks, draw a card.'
++    elif text == 'Whenever equipped creature attacks, you may sacrifice a permanent other than that creature or ~. If you do, draw a card.':
++        mode, proxy = 'saw', 'Whenever equipped creature attacks, draw a card.'
++    elif text == 'Sacrifice X lands. For each land sacrificed this way, draw a card. You may play X additional lands this turn. Lands you control enter tapped this turn.':
++        mode = 'nahiri'
++    elif text == 'Sacrifice any number of lands. Reveal the top X cards of your library, where X is the number of lands sacrificed this way. Choose any number of artifact and/or land cards revealed this way. Put all nonland cards chosen this way onto the battlefield, then put all land cards chosen this way onto the battlefield tapped, then put the rest on the bottom of your library in a random order.':
++        mode = 'hew'
++    if mode is None:
++        return None
++    d = scripts.define(replace(ability, text=proxy), ch)
++    assert d is not None
++    if mode in ('tevesh', 'venom', 'saw'):
++        return {**d, 'effects': [{'do': 'sacrifice_offer106', 'mode': mode}]}
++    sac = scripts.parse_effects('Sacrifice X lands.' if mode == 'nahiri' else 'Sacrifice any number of lands.')
++    assert sac is not None
++    first = {**sac[0][0], 'as': BIND}
++    if mode == 'nahiri':
++        return {**d, 'effects': [first, {'do': 'draw', 'who': 'you', 'n': count()}, {'do': 'nahiri_tail106'}]}
++    sel = selectors.Selector(card=True, types=('Artifact', 'Land'), zones=('library',)).key()
++    return {**d, 'effects': [first, {'do': 'look_top', 'n': count(), 'player': 'you', 'reveal': True},
++        {'do': 'pick_looked', 'n': 1000000, 'optional': True, 'sel': sel, 'as': 'hew_selected106', 'to': 'choose'},
++        {'do': 'hew_enter106', 'who': 'ref:hew_selected106'}, {'do': 'rest_looked', 'to': 'bottom_random'}]}
++
++
++def offer(plan: Any, ctx: Any, effect: Any) -> bool:
++    from app.rules import context, prohibitions
++
++    mode = effect['mode']
++    excluded = {(ctx.get('source_card'), ctx.get('source_object'))}
++    if mode == 'saw':
++        excluded.update((x.get('card'), x.get('object_id')) for x in (ctx.get('event') or {}).get('objects') or [])
++    pool = []
++    for c in plan.state.cards.values():
++        if c.controller != ctx['controller'] or not c.zone.endswith(':battlefield') or (c.id, plan.oid(c)) in excluded:
++            continue
++        ch = plan.ch(c)
++        if mode == 'venom' and not ch.is_creature:
++            continue
++        if mode == 'tevesh' and not ch.types.intersection({'Creature', 'Planeswalker'}):
++            continue
++        if prohibitions.sacrifice_forbidden(plan, c) or prohibitions.cant_cause_sacrifice(plan, c.controller, ctx['controller']):
++            continue
++        pool.append(c.id)
++    context.bind_objects(plan, ctx, 'sacrifice_pool106', pool)
++    ctx['effects'][ctx['next']:ctx['next']] = [
++        {'do': 'return_choice', 'who': 'ref:sacrifice_pool106', 'to': 'choose', 'n': 1, 'upto': True, 'as': 'sacrifice_chosen106'},
++        {'do': 'sacrifice', 'who': 'ref:sacrifice_chosen106', 'as': BIND}, {'do': 'sacrifice_reward106', 'mode': mode}]
++    return True
++
++
++def reward(plan: Any, ctx: Any, effect: Any) -> bool:
++    from app.rules import selectors, this_way, values
++
++    if not this_way.count(plan, ctx, count()):
++        return True
++    mode = effect['mode']
++    if mode == 'venom':
++        n = values.evaluate(plan, ctx, {'sum': 'mana_value', 'of': 'ref:'+BIND})
++        ctx['effects'][ctx['next']:ctx['next']] = [
++            {'do': 'draw', 'who': 'you', 'n': n},
++            {'do': 'put_from_hand', 'sel': selectors.Selector(card=True, types=('Artifact','Creature','Enchantment','Land','Planeswalker','Battle'), zones=('hand',), zone_owner='you').key(), 'label': 'permanent', 'mv': ['<=', n], 'optional': True}]
++        return True
++    draws = [2, 1] if mode == 'tevesh' and this_way.count(plan, ctx, {**count(), 'of': selectors.Selector(commander=True).key()}) else [2] if mode == 'tevesh' else [1]
++    # Keep Tevesh’s two draw instructions distinct for draw replacements.
++    ctx['effects'][ctx['next']:ctx['next']] = [{'do': 'draw', 'who': 'you', 'n': n} for n in draws]
++    return True
++
++
++def nahiri_tail(plan: Any, ctx: Any, effect: Any) -> bool:
++    from app.rules import land_plays, selectors, values
++    from app.rules import replace as replacements
++
++    n = values.evaluate(plan, ctx, {'x': 1})
++    land_plays.extra_land(plan, ctx, {'n': n})
++    replacements.add_record(plan, event='enters_tapped', match={'selector': selectors.Selector(types=('Land',), controller='you').key()},
++                            op={'do': 'tap'}, controller=ctx['controller'], source=ctx.get('source_object'),
++                            source_card=ctx.get('source_card'), label=ctx.get('name') or "Nahiri's Lithoforming")
++    return True
++
++
++def hew_enter(plan: Any, ctx: Any, effect: Any) -> bool:
++    from app.rules import context, effects
++
++    cards = effects._cards(plan, ctx, effect['who'])
++    lands = [c for c in cards if 'Land' in plan.ch(plan.state.cards[c]).types]
++    context.bind_objects(plan, ctx, 'hew_lands106', lands)
++    context.bind_objects(plan, ctx, 'hew_nonlands106', [c for c in cards if c not in lands])
++    ctx['effects'][ctx['next']:ctx['next']] = [
++        {'do': 'return_card', 'who': 'ref:hew_nonlands106', 'to': 'battlefield', 'tapped': False, 'under': 'you'},
++        {'do': 'return_card', 'who': 'ref:hew_lands106', 'to': 'battlefield', 'tapped': True, 'under': 'you'}]
++    return True
++
++
++PRIMITIVES = {'sacrifice_offer106': offer, 'sacrifice_reward106': reward,
++              'nahiri_tail106': nahiri_tail, 'hew_enter106': hew_enter}
+--- a/backend/app/rules/scripts.py
++++ b/backend/app/rules/scripts.py
+@@ -5856,6 +5856,10 @@
+
+ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
+     """The engine definition of one ability, or None (manual)."""
++    from app.rules import sacrifice_outcomes106
++
++    if (sac106 := sacrifice_outcomes106.definition(ability, ch)) is not None:
++        return sac106
+     from app.rules import copy_controllers105
+
+     if (copy105 := copy_controllers105.definition(ability, ch)) is not None:
+--- a/backend/app/rules/effects.py
++++ b/backend/app/rules/effects.py
+@@ -6999,3 +6999,7 @@
+ from app.rules import copy_controllers105 as _copy105  # noqa: E402
+
+ PRIMITIVES.update(_copy105.PRIMITIVES)
++
++from app.rules import sacrifice_outcomes106 as _sac106  # noqa: E402
++
++PRIMITIVES.update(_sac106.PRIMITIVES)
+--- a/backend/app/rules/triggers.py
++++ b/backend/app/rules/triggers.py
+@@ -420,7 +420,7 @@
+                         attached_to=snap.attached_to, attached_player=snap.attached_player, tapped=snap.tapped,
+                         entry_characteristics=snap.entry_characteristics, attacking=attacking, attacking_without_target=snap.attacking_without_target, attack_defender_lost=snap.attack_defender_lost, blocking=snap.blocking_ids[0] if snap.blocking_ids else None,
+                         blocking_more=snap.blocking_ids[1:], blocking_without_attacker=snap.blocking and not snap.blocking_ids,
+-                        counters=dict(snap.counters))  # (wave 3S: "each page counter on this Aura", 608.2h)
++                        counters=dict(snap.counters), commander_key=snap.commander_key)  # (wave 3S: "each page counter on this Aura", 608.2h)
+     if snap.x is not None:  # -- stack interaction (wave 5B) -- a spell's X as it last existed on the stack (202.3e)
+         card.stack_info = StackInfo(x=snap.x)
+     return card, ch

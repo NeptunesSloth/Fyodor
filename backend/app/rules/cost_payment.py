@@ -179,7 +179,7 @@ def _candidates(plan: Plan, comp: CostComponent, player: str, source: CardInstan
 
             if prohibitions.cant_remove_counters(plan, cid, 'stun'):
                 continue
-        if comp.kind == C.REMOVE_COUNTER and removable_counters(plan, card, comp.counter) < (1 if comp.among else comp.amount):  # (any kind: wave 4H; among: 26C)
+        if comp.kind == C.REMOVE_COUNTER and removable_counters(plan, card, comp.counter, comp.counter_options) < (1 if comp.among else comp.amount):  # (any kind: wave 4H; among: 26C)
             continue
         if comp.kind == C.SACRIFICE:
             from app.rules import prohibitions
@@ -215,12 +215,12 @@ def counters_on(card: CardInstance, kind: str | None) -> int:
     return card.counters.get(kind or "", 0)
 
 
-def removable_counters(plan: Plan, card: CardInstance, kind: str | None) -> int:
+def removable_counters(plan: Plan, card: CardInstance, kind: str | None, options: tuple[str, ...] = ()) -> int:
     """Only counters whose removal is possible can pay a cost (614.17b)."""
     from app.rules import prohibitions
 
     return sum(n for k, n in card.counters.items() if n > 0 and kind in (C.ANY_COUNTER, k)
-               and not prohibitions.cant_remove_counters(plan, card.id, k))
+               and (not options or k in options) and not prohibitions.cant_remove_counters(plan, card.id, k))
 
 
 def objects_needed(comp: CostComponent, x: int | None) -> int:
@@ -486,7 +486,9 @@ def choose(plan: Plan, a: A.ActivateAbility | A.CastSpell | A.TurnFaceUp | A.Dec
             out[i] = gained
             continue
         if comp.kind == C.WATERBEND:  # -- activated sweep (wave 17B) -- up to N artifacts / creatures, each paying {1} (701.67a)
-            found = _choose_waterbend(plan, a, i, comp, cost, card, what, given.get(i), used)
+            from dataclasses import replace
+
+            found = _choose_waterbend(plan, a, i, replace(comp,amount=(x or 0) if comp.x else comp.amount), cost, card, what, given.get(i), used)
         elif comp.kind == "TAP_POWER":  # -- static_other sweep (wave 17C) -- one choice of creatures, validated as a whole
             found = _choose_power(plan, a, i, comp, cost, card, what, given.get(i), used)
         elif comp.kind == C.CRAFT:  # -- casting extras (wave 18E) -- the materials: one choice of at least ``amount`` objects
@@ -580,7 +582,7 @@ def _choose_waterbend(plan: Plan, a: A.ActivateAbility | A.CastSpell | A.TurnFac
             raise ActionError(f"Choose at most {comp.amount} untapped artifacts and creatures to pay for “{comp.text}”")
         used |= set(given)
         return list(given)
-    if not usable:
+    if not usable or comp.amount == 0:
         return []
     decide(plan, player=plan.actor, kind="choose_cards",
            prompt=f"{what}: tap up to {comp.amount} untapped artifacts and creatures you control, each paying for {{1}} of “{comp.text}”"
@@ -625,8 +627,9 @@ def _choose_any(plan: Plan, a: A.ActivateAbility | A.CastSpell | A.TurnFaceUp | 
 
 
 def reduction(cost: AbilityCost, chosen: dict[int, list[str]]) -> int:
-    """-- cost reductions paid with objects (wave 47C) -- 601.2f: the generic mana the objects chosen for the parts that reduce the total cost take off it."""
-    return sum(c.reduces * len(chosen.get(i, [])) for i, c in enumerate(cost.components))
+    """601.2f: per-object reductions, or one reduction for the completed evidence collection."""
+    return sum(c.reduces * (int(bool(chosen.get(i))) if c.kind == C.COLLECT_EVIDENCE else len(chosen.get(i, [])))
+               for i, c in enumerate(cost.components))
 
 
 def _choose_power(plan: Plan, a: A.ActivateAbility | A.CastSpell | A.TurnFaceUp | A.DeclareAttackers | A.DeclareBlockers, i: int, comp: CostComponent, cost: AbilityCost, card: CardInstance,
@@ -692,6 +695,8 @@ def _choose_counters(plan: Plan, a: A.ActivateAbility | A.CastSpell | A.TurnFace
     holders = [card.id] if comp.selector is None else [
         c for c in candidates(plan, comp, plan.actor, card) if c not in _reserved(cost, comp, card) and c not in used]
     tokens = {token: pair for token, pair in counter_tokens(plan, holders).items() if token not in used}
+    if comp.counter_options:
+        tokens = {t: v for t, v in tokens.items() if v[1] in comp.counter_options}
     need = max(0, getattr(a, "x_value", None) or 0) if comp.x else comp.amount
     if comp.among:  # -- activated sweep (wave 26C) -- "from among creatures you control": each counter of that kind on any of them (122.1)
         need = max(0, getattr(a, "x_value", None) or 0) if comp.x else comp.amount
@@ -966,10 +971,10 @@ def pay(plan: Plan, cost: AbilityCost, card: CardInstance, chosen: dict[int, lis
 
             payment_card_facts.record(plan, record, "exiled", top)
     for comp in cost.components:  # -- if you do (wave 26C) -- "Whenever you forage / collect evidence" (701.61, 701.59): the cost was paid
-        if comp.kind in (C.FORAGE, C.COLLECT_EVIDENCE):
+        if comp.kind in (C.FORAGE, C.COLLECT_EVIDENCE, C.WATERBEND):
             from app.game.rules_state import emit
 
-            emit(plan.state, "designation", counter="forage" if comp.kind == C.FORAGE else "collect_evidence", player=player)
+            emit(plan.state,"designation",counter={C.FORAGE:"forage",C.COLLECT_EVIDENCE:"collect_evidence",C.WATERBEND:"waterbend"}[comp.kind],player=player)
 
 
 def _flexible_options(plan: Plan, comp: CostComponent, card: CardInstance, player: str,
@@ -1035,6 +1040,8 @@ def _pay_new_part(plan: Plan, comp: CostComponent, card: CardInstance, ids: list
         tokens = counter_map72 if counter_map72 is not None else counter_tokens(plan, list(dict.fromkeys(t.rsplit(":", 2)[0] for t in ids)))
         removed: dict[tuple[str, str], int] = {}
         for t in ids:
+            if comp.counter_options and tokens[t][1] not in comp.counter_options:
+                raise ActionError("That counter kind cannot pay this cost")
             removed[tokens[t]] = removed.get(tokens[t], 0) + 1
         for (cid, kind), n in removed.items():
             from app.rules import counter_removal_results

@@ -1,0 +1,29 @@
+{
+  "status": "CLOSED pending root integration/catalog",
+  "names": [
+    "Goblin Airbrusher",
+    "Wee Champion",
+    "Tusk and Whiskers",
+    "Unlawful Entry",
+    "A Good Day to Pie"
+  ],
+  "promotion_candidates": 5,
+  "native": 16,
+  "genuine_cold": 1,
+  "related": 18,
+  "types": 4,
+  "ruff": 5,
+  "owned_sources": [
+    "app/rules/sticker_triggers103.py",
+    "app/rules/scripts.py",
+    "app/rules/effects.py",
+    "app/rules/triggers.py"
+  ],
+  "test_destination": "backend/tests/test_rules_sticker_triggers103.py",
+  "fixture_destination": "backend/tests/fixtures/sticker_effects101_cards.json",
+  "dependencies": [
+    "after21-statics101",
+    "after21-sticker-effects101",
+    "after21-sticker-riders102"
+  ]
+}

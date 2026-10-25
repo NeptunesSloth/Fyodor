@@ -1,0 +1,334 @@
+--- /dev/null
++++ b/backend/app/rules/waterbend102.py
+@@ -0,0 +1,110 @@
++"""CR701.67: pay only the waterbend portion with explicit, nonmana taps."""
++
++from __future__ import annotations
++
++import re
++from typing import Any
++
++_NUMBER = re.compile(r"^waterbend \{(\d+|X)\}$", re.IGNORECASE)
++_MANDATORY = re.compile(r"^As an additional cost to cast this spell, waterbend \{(\d+|X)\}\.", re.IGNORECASE)
++
++
++def part(text: str) -> Any:
++    from app.rules import costs as C
++
++    match = _NUMBER.fullmatch(text.strip())
++    if match is None:
++        return None
++    amount = match[1]
++    return C.CostComponent(
++        C.WATERBEND,
++        amount=0 if amount.upper() == "X" else int(amount),
++        selector=C._selector("untapped artifact or creature you control", zone="battlefield"),
++        x=amount.upper() == "X",
++        text=text,
++    )
++
++
++def mana(ch: Any) -> Any:
++    from app.rules import mana as M
++
++    symbols = "".join(
++        "{" + match[1] + "}"
++        for ability in ch.abilities
++        if (match := _MANDATORY.match(ability.text)) is not None
++    )
++    return M.parse_cost(symbols)
++
++
++def tapped(cost: Any, objects: dict[int, list[str]]) -> list[str]:
++    from app.rules import costs as C
++
++    return [
++        cid
++        for i, component in enumerate(cost.components if cost else ())
++        if component.kind == C.WATERBEND
++        for cid in objects.get(i, [])
++    ]
++
++
++def due(cost: Any, more: Any, objects: dict[int, list[str]]) -> Any:
++    from app.game.errors import ActionError
++
++    count = len(tapped(more, objects))
++    if count > cost.generic:
++        raise ActionError(
++            "Choose fewer waterbend taps: they cannot pay colored mana or exceed the final generic cost"
++        )
++    return cost.plus_generic(-count)
++
++
++def record(plan: Any, a: Any, more: Any, objects: dict[int, list[str]], payment: Any) -> None:
++    from app.game.rules_state import CostContribution
++    from app.rules import costs as C
++    from app.rules import mana as M
++
++    paid = any(c.kind == C.WATERBEND for c in more.components) if more else False
++    payment.waterbend_paid102 = paid
++    payment.x = a.x_value
++    ids = tapped(more, objects)
++    if ids:
++        payment.total_cost = M.parse_cost(payment.total_cost).plus_generic(len(ids)).text()
++        payment.contributions += [
++            CostContribution(
++                kind="waterbend",
++                card=cid,
++                object_id=plan.oid(cid),
++                name=plan.state.cards[cid].name or "",
++                pays="1",
++                card_types=sorted(plan.ch(plan.state.cards[cid]).types),
++            )
++            for cid in ids
++        ]
++
++
++def hint(state: Any, player: str, card: Any, ch: Any, info: Any, cost: Any) -> Any:
++    from app.rules import cost_payment
++    from app.rules.plan import Plan
++
++    view = Plan.view(state, player, info)
++    maximum = 0
++    for ability in ch.abilities:
++        if (match := _MANDATORY.match(ability.text)) is not None and match[1].isdigit():
++            component = part("Waterbend {" + match[1] + "}")
++            maximum += min(int(match[1]), len(cost_payment.candidates(view, component, player, card)))
++    return cost.plus_generic(-min(maximum, cost.generic))
++
++
++def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
++    # Put the nonzero-X declaration after the timing suffix so the native
++    # activated parser retains both independent restrictions.
++    if (ability.cost or "") != "Waterbend {X}":
++        return None
++    match = re.fullmatch(r"(.+) X can't be 0\. (Activate only [^.]+\.)", ability.text)
++    if match is None:
++        return None
++    from dataclasses import replace
++
++    from app.rules import scripts
++
++    return scripts.define(replace(ability, text=match[1] + " " + match[2] + " X can't be 0."), ch)
+--- a/backend/app/rules/costs.py
++++ b/backend/app/rules/costs.py
+@@ -522,7 +522,7 @@
+ # "Exile an artifact from among permanents you control and/or cards in your graveyard" / "…two creatures…" / "…one or more Dinosaurs…"
+ _CRAFT = re.compile(r"^Exile (?P<n>a|an|one|two|three|four|five|six|seven|\d+)(?P<more> or more)?(?: (?P<what>[^,]+?))? from among "
+                     r"permanents you control and/or cards in your graveyard$")
+-_WATERBEND = re.compile(r"^Waterbend \{(?P<n>\d+)\}$")
++_WATERBEND = re.compile(r"^Waterbend \{(?P<n>\d+|X)\}$")
+ _SAC_OR = re.compile(r"^Sacrifice (?P<a>a|an|another) (?P<w1>[\w\-]+) or (?P<b>a|an|another) (?P<w2>[\w\-]+)$")  # (no article: refused)
+ _GRANDEUR = re.compile(r"^Discard another card named (?P<name>~|[A-Z].+)$")  # (grandeur, an ability word: 207.2c)
+ _HALF_LIFE = "Pay half your life rounded up"
+@@ -672,10 +672,11 @@
+ def wave4h_parts(part: str, card_name: str) -> list[CostComponent] | None:
+     """The part as one or more components (two joined by "and": the second keeps the first's verb when it has none,
+     "it" being the source), or None when any piece isn't read."""
+-    if m := _WATERBEND.match(part):  # -- activated sweep (wave 17B) -- 701.67a (only a number: "Waterbend {X}" is not read)
+-        key = _selector("untapped artifact or creature you control", zone="battlefield")
+-        return [CostComponent(MANA, text=f"{{{m['n']}}}"),
+-                CostComponent(WATERBEND, amount=int(m["n"]), selector=key, text=part)] if key and int(m["n"]) > 0 else None
++    if m := _WATERBEND.match(part):
++        from app.rules import waterbend102
++
++        piece=waterbend102.part(part)
++        return [CostComponent(MANA,text=f"{{{m['n']}}}"),piece] if piece is not None else None
+     one = _one_4h(part, card_name)
+     if one is not None:
+         return [one]
+@@ -941,6 +942,10 @@
+     when the engine can't pay it by itself ("you may …", "… or …" alternatives, X, a cost with no
+     chosen object): the spell then stays manual rather than being cast without its cost (601.2b)."""
+     text = text.strip()
++    from app.rules import waterbend102
++
++    if (water := waterbend102.part(text)) is not None:
++        return AbilityCost(components=(water,))
+     if text == 'put a -1/-1 counter on a creature you control':
+         counter = _one_4h(text[:1].upper() + text[1:], '')
+         return AbilityCost(components=(counter,)) if counter is not None and counter.selector is not None else None
+--- a/backend/app/rules/cost_payment.py
++++ b/backend/app/rules/cost_payment.py
+@@ -486,7 +486,9 @@
+             out[i] = gained
+             continue
+         if comp.kind == C.WATERBEND:  # -- activated sweep (wave 17B) -- up to N artifacts / creatures, each paying {1} (701.67a)
+-            found = _choose_waterbend(plan, a, i, comp, cost, card, what, given.get(i), used)
++            from dataclasses import replace
++
++            found = _choose_waterbend(plan, a, i, replace(comp,amount=(x or 0) if comp.x else comp.amount), cost, card, what, given.get(i), used)
+         elif comp.kind == "TAP_POWER":  # -- static_other sweep (wave 17C) -- one choice of creatures, validated as a whole
+             found = _choose_power(plan, a, i, comp, cost, card, what, given.get(i), used)
+         elif comp.kind == C.CRAFT:  # -- casting extras (wave 18E) -- the materials: one choice of at least ``amount`` objects
+@@ -580,7 +582,7 @@
+             raise ActionError(f"Choose at most {comp.amount} untapped artifacts and creatures to pay for “{comp.text}”")
+         used |= set(given)
+         return list(given)
+-    if not usable:
++    if not usable or comp.amount == 0:
+         return []
+     decide(plan, player=plan.actor, kind="choose_cards",
+            prompt=f"{what}: tap up to {comp.amount} untapped artifacts and creatures you control, each paying for {{1}} of “{comp.text}”"
+@@ -966,10 +968,10 @@
+
+             payment_card_facts.record(plan, record, "exiled", top)
+     for comp in cost.components:  # -- if you do (wave 26C) -- "Whenever you forage / collect evidence" (701.61, 701.59): the cost was paid
+-        if comp.kind in (C.FORAGE, C.COLLECT_EVIDENCE):
++        if comp.kind in (C.FORAGE, C.COLLECT_EVIDENCE, C.WATERBEND):
+             from app.game.rules_state import emit
+
+-            emit(plan.state, "designation", counter="forage" if comp.kind == C.FORAGE else "collect_evidence", player=player)
++            emit(plan.state,"designation",counter={C.FORAGE:"forage",C.COLLECT_EVIDENCE:"collect_evidence",C.WATERBEND:"waterbend"}[comp.kind],player=player)
+
+
+ def _flexible_options(plan: Plan, comp: CostComponent, card: CardInstance, player: str,
+--- a/backend/app/game/rules_state.py
++++ b/backend/app/game/rules_state.py
+@@ -1035,7 +1035,7 @@
+     """One mana symbol of a spell's total cost paid by something that isn't mana (CR 702.51a
+     convoke, 702.126a improvise, 702.66a delve): which object, and which symbol it paid."""
+
+-    kind: Literal["convoke", "improvise", "delve"]
++    kind: Literal["convoke", "improvise", "delve", "waterbend"]
+     card: str = Field(max_length=64)
+     object_id: str = Field(default="", max_length=80)  # the object as it was when used
+     name: str = Field(default="", max_length=200)
+@@ -1147,6 +1147,7 @@
+     alternative: str | None = None  # "evoke", "dash", "flashback", "madness", "face_down", "free", …
+     prototyped: bool = False  # -- casting extras (wave 18E) -- 718.3: cast prototyped (the spell and the permanent have the alternative values)
+     additional: list[str] = Field(default_factory=list)  # "buyback", "kicker", …
++    waterbend_paid102: bool | None = None  # Actual paid action; None is unknown legacy data, copied independently of mana spent.
+     x: int | None = None
+     numeric_roll_cost: NumericRollCostReceipt | None = None
+     # -- refused modal/conditional (wave 3R1) -- how the spell was cast, for "if you cast it [from your hand]",
+--- a/backend/app/rules/events.py
++++ b/backend/app/rules/events.py
+@@ -155,6 +155,7 @@
+     (re.compile(r"(?P<p>you|an opponent|a player) commits? a crime"), "commit_crime"),  # -- crimes (wave 6D) -- 700.13
+     (re.compile(r"day becomes night or night becomes day"), "day_night"),
+     (re.compile(r"players finish voting"), "voted"),  # -- voting (wave 48D) -- 701.38 (triggers.voted)
++    (re.compile(r"(?P<p>you) waterbend"), "waterbend"),
+     (re.compile(r"(?P<p>you) forage"), "forage"),  # -- if you do (wave 26C) -- 701.61: the cost was paid (cost_payment.pay)
+     (re.compile(r"(?P<p>you) collect evidence"), "collect_evidence"),  # 701.59
+     # -- most-played cards (wave 43B) -- 701.23: "Whenever an opponent searches their library" (Archivist of Oghma, Wan Shi Tong, Ob Nixilis, Unshackled): a search of
+--- a/backend/app/rules/casting.py
++++ b/backend/app/rules/casting.py
+@@ -3017,6 +3017,10 @@
+     extras = list(additional)
+     if kicker:
+         extras.append(kicker_extra(ch, kicker, face_down=face_down))
++    from app.rules import waterbend102
++
++    if not face_down:
++        extras.append(waterbend102.mana(ch))
+     selected_cost_has_x = bool(raw_base.x or any(extra.x for extra in extras))
+     base = raw_base.with_x(x)
+     extras = [extra.with_x(x) for extra in extras]
+@@ -3184,7 +3188,10 @@
+                 for (way, life_due), cost_x in zip(cost_ways, selected_costs, strict=True):
+                     if grant is not None and grant.spend:
+                         way = M.spend_as(way, grant.spend)
+-                    if can_pay(state, player, way, info, purpose=Purpose(spell=ch, card=card.id, zone=card.zone, player=player,
++                    from app.rules import waterbend102
++
++                    hinted_way=waterbend102.hint(state,player,card,ch,info,way)
++                    if can_pay(state, player, hinted_way, info, purpose=Purpose(spell=ch, card=card.id, zone=card.zone, player=player,
+                                spell_object=_spell_reference(state, card), selected_cost_has_x=cost_x),
+                                reserve=(extra.life if extra is not None else 0) + (grant_extra.life if grant_extra is not None else 0) + (fb_more.life if fb_more is not None else 0) + life_due):
+                         return True
+@@ -3825,6 +3832,9 @@
+     cost = cost_changes.reduce_only(cost, tuple(o.mana for o in optional if o.mana))  # ("reduces only the amount of green mana")
+     if spell_mana_floor.minimum(plan.state, plan.info):
+         cost = spell_mana_floor.apply(plan.state, plan.info, cost)
++    from app.rules import waterbend102
++
++    cost = waterbend102.due(cost,add_cost,add_objects)
+     cost_colorless = 'C' in cost.colored
+     spend_mode = cast_limits.spend_mode(plan.state, plan.actor, card, ch, plan.info)
+     if spend_mode:
+@@ -3977,6 +3987,7 @@
+
+
+ def _post_cast(plan: Plan, data: _PostCast, payment: M.Payment | None) -> None:
++    from app.rules import waterbend102
+     from app.rules.engine import advance
+
+     record = data.record
+@@ -4044,6 +4055,7 @@
+
+         if grant is not None and counter_cost_order70.selected(grant.extra):
+             counter_cost_order70.guard(plan, add_cost, card, add_objects, data.counter_cost_origins70)
++        waterbend102.record(plan,a,add_cost,add_objects,record)
+         cost_payment.pay(plan, add_cost, card, add_objects, record)  # sacrifice, discard, exile, return, tap …
+         plan.reserved_life = 0  # (wave 29C: paid now; later payments of this intent are their own)
+     if a.splice:  # -- casting extras (wave 18E) -- 702.47a: the spliced cards are revealed (they stay in the hand)
+@@ -5158,6 +5170,9 @@
+     x_maximum = min(a.x_value or 0, cost.generic)
+     if spell_mana_floor.minimum(plan.state, plan.info):
+         cost = spell_mana_floor.apply(plan.state, plan.info, cost)
++    from app.rules import waterbend102
++
++    cost = waterbend102.due(cost,add_cost,add_objects)
+     cost_colorless = 'C' in cost.colored
+     spend_mode = cast_limits.spend_mode(plan.state, plan.actor, card, ch, plan.info)
+     if spend_mode:
+@@ -5227,6 +5242,7 @@
+
+
+ def _post_free_cast(plan: Plan, data: _PostFreeCast, payment: M.Payment | None) -> None:
++    from app.rules import waterbend102
+     record = data.record
+     assert record is not None
+     record.cast_greatest_power = data.cast_greatest_power
+@@ -5288,6 +5304,7 @@
+             from app.rules import replace as _replace_life  # (wave 28B: 119.4)
+             _replace_life.lose_life(plan, [(plan.actor, a.x_value)])
+             record.life += a.x_value
++        waterbend102.record(plan,a,add_cost,add_objects,record)
+         cost_payment.pay(plan, add_cost, card, add_objects, record)  # sacrifice, discard, exile …
+         plan.reserved_life = 0  # (wave 29C)
+     plan.do({"type": "set_stack_info", "card_id": card.id,
+@@ -5900,7 +5917,7 @@
+         for _, comp in cost.choices:  # -- activated sweep (wave 17B) -- waterbend: the untapped artifacts and creatures that could help
+             if comp.kind == "WATERBEND":
+                 helpers = len(cost_payment.candidates(Plan.view(state, player, info), comp, player, card))
+-                mana = mana.plus_generic(-min(comp.amount, helpers))
++                mana = mana.plus_generic(-min((x or 0) if comp.x else comp.amount, helpers))
+         if not can_pay(state, player, mana, info, exclude=(card.id,) if cost.tap else (),
+                        purpose=Purpose(ability_of=ch, selected_cost_has_x="{X}" in cost.mana, special=_special(ability), cost_colorless='{C}' in (ability.cost or ''))):
+             return f"Not enough mana to pay {mana.text()}"
+@@ -6074,9 +6091,6 @@
+     cost_objects = cost_payment.choose(plan, a, cost, card, f"{ch.name}’s ability")  # (602.2b → 601.2h)
+     if cost_objects is None:
+         return  # waiting for the payer's choice; nothing has been paid
+-    for i, comp in cost.choices:  # -- activated sweep (wave 17B) -- waterbend: each artifact / creature tapped pays for {1} (701.67a)
+-        if comp.kind == "WATERBEND":
+-            mana = mana.plus_generic(-len(cost_objects.get(i, [])))
+     not_mana = cost_payment.excluded(cost, card, cost_objects)  # (they can't also tap for mana)
+     due = mana.with_x(a.x_value or 0)
+     x_reductions: list[int] = []
+@@ -6087,6 +6101,9 @@
+         own = cost_changes.ability_delta(plan.state, card.controller, card, ch, ability.text, plan.info) if "This ability costs " in ability.text else 0
+         due = M.parse_cost(permissions.ability_mana(plan.state, plan.actor, card, ch, due.text(), plan.info, own, ability.text, target=chosen[0].id if chosen else None, capture=x_reductions, targets=tuple(t.id for t in chosen)))
+         due = _variable_ability_matching(plan.state, card, ch, ability, plan.info, due)
++    from app.rules import waterbend102
++
++    due = waterbend102.due(due, cost, cost_objects)
+     from app.rules import cast_limits, x_mana_restrictions
+
+     restriction_text = ability.text + (" " + " ".join(definition["modes"][i]["text"] for i in modal.modes) if modal is not None and definition is not None else "")
+--- a/backend/app/rules/scripts.py
++++ b/backend/app/rules/scripts.py
+@@ -5856,6 +5856,10 @@
+
+ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
+     """The engine definition of one ability, or None (manual)."""
++    from app.rules import waterbend102
++
++    if (water102 := waterbend102.definition(ability,ch)) is not None:
++        return water102
+     from app.rules import cost_statics101
+
+     if (native101 := cost_statics101.definition(ability, ch)) is not None:

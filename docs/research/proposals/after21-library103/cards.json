@@ -1,0 +1,193 @@
+[
+  {
+    "id": "7dc7091e-0c98-434d-9190-dcab813d3e14",
+    "oracle_id": "d2045055-197c-436a-9874-199db5fe1c96",
+    "name": "Enduring Ideal",
+    "layout": "normal",
+    "set_code": "sok",
+    "set_name": "Saviors of Kamigawa",
+    "collector_number": "9",
+    "rarity": "rare",
+    "mana_cost": "{5}{W}{W}",
+    "cmc": 7.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Search your library for an enchantment card, put it onto the battlefield, then shuffle.\nEpic (For the rest of the game, you can't cast spells. At the beginning of each of your upkeeps, copy this spell except for its epic ability.)",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [
+      "Epic"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2005-06-03",
+    "artist": "Daren Bader",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "f64d9404-9685-495d-a591-63d6164a88a9",
+    "oracle_id": "c62a9e10-cfc6-48cc-a3f7-68d624182a5a",
+    "name": "Endless Swarm",
+    "layout": "normal",
+    "set_code": "sok",
+    "set_name": "Saviors of Kamigawa",
+    "collector_number": "129",
+    "rarity": "rare",
+    "mana_cost": "{5}{G}{G}{G}",
+    "cmc": 8.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Create a 1/1 green Snake creature token for each card in your hand.\nEpic (For the rest of the game, you can't cast spells. At the beginning of each of your upkeeps, copy this spell except for its epic ability.)",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [
+      "Epic"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2005-06-03",
+    "artist": "Jeremy Jarvis",
+    "commander_legal": "legal",
+    "related_tokens": [
+      {
+        "id": "4bfc751d-af71-49ff-a8b2-0d3a20eb136a",
+        "name": "Snake",
+        "type_line": "Token Creature \u2014 Snake"
+      }
+    ],
+    "related_cards": []
+  },
+  {
+    "id": "3067a9bd-991a-462d-862a-2518ae31c382",
+    "oracle_id": "ede2a435-bf9a-4f87-b579-259cfdebc13f",
+    "name": "Eternal Dominion",
+    "layout": "normal",
+    "set_code": "sok",
+    "set_name": "Saviors of Kamigawa",
+    "collector_number": "36",
+    "rarity": "rare",
+    "mana_cost": "{7}{U}{U}{U}",
+    "cmc": 10.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Search target opponent's library for an artifact, creature, enchantment, or land card. Put that card onto the battlefield under your control. Then that player shuffles.\nEpic (For the rest of the game, you can't cast spells. At the beginning of each of your upkeeps, copy this spell except for its epic ability. You may choose a new target for the copy.)",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Epic"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2005-06-03",
+    "artist": "Shishizaru",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "3f91f678-9d3a-4502-81a6-3e1676aa447a",
+    "oracle_id": "0f07d3d0-1f79-4d50-ab3e-f9dc5ef59482",
+    "name": "Neverending Torment",
+    "layout": "normal",
+    "set_code": "sok",
+    "set_name": "Saviors of Kamigawa",
+    "collector_number": "83",
+    "rarity": "rare",
+    "mana_cost": "{4}{B}{B}",
+    "cmc": 6.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Search target player's library for X cards, where X is the number of cards in your hand, and exile them. Then that player shuffles.\nEpic (For the rest of the game, you can't cast spells. At the beginning of each of your upkeeps, copy this spell except for its epic ability. You may choose a new target for the copy.)",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [
+      "Epic"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2005-06-03",
+    "artist": "Thomas Gianni",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "606206c7-1a8a-46f4-b368-cf18e02f3df8",
+    "oracle_id": "5db128ed-69c0-41f3-b8b4-fb7cefdb236c",
+    "name": "Undying Flames",
+    "layout": "normal",
+    "set_code": "sok",
+    "set_name": "Saviors of Kamigawa",
+    "collector_number": "119",
+    "rarity": "rare",
+    "mana_cost": "{4}{R}{R}",
+    "cmc": 6.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Exile cards from the top of your library until you exile a nonland card. Undying Flames deals damage to any target equal to that card's mana value.\nEpic (For the rest of the game, you can't cast spells. At the beginning of each of your upkeeps, copy this spell except for its epic ability. You may choose a new target for the copy.)",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [
+      "Epic"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2005-06-03",
+    "artist": "Tsutomu Kawade",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  }
+]

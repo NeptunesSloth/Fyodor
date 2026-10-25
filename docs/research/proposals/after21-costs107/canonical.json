@@ -1,0 +1,49 @@
+{
+  "canonical": [
+    {
+      "id": "af9988fd-72a0-42dc-9f10-85edd3133977",
+      "oracle_id": "737db899-dcdb-48f9-8d30-cbbce3ae3434",
+      "name": "Jandor's Ring",
+      "layout": "normal",
+      "set_code": "sum",
+      "set_name": "Summer Magic / Edgar",
+      "collector_number": "256",
+      "rarity": "rare",
+      "mana_cost": "{6}",
+      "cmc": 6.0,
+      "type_line": "Artifact",
+      "oracle_text": "{2}, {T}, Discard the last card you drew this turn: Draw a card.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null,
+      "defense": null,
+      "colors": [],
+      "color_identity": [],
+      "keywords": [],
+      "is_token": false,
+      "faces": [],
+      "double_faced": false,
+      "image_faces": 1,
+      "has_image": false,
+      "released_at": "1994-06-21",
+      "artist": "Dan Frazier",
+      "commander_legal": "legal",
+      "related_tokens": [],
+      "related_cards": []
+    }
+  ],
+  "targeted_classification": [
+    {
+      "name": "Jandor's Ring",
+      "rank": 1000000000,
+      "level": "FULL",
+      "commander": false,
+      "lines": {
+        "supported": 1,
+        "parsed": 0,
+        "unparsed": 0
+      },
+      "missing": []
+    }
+  ]
+}

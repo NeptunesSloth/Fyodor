@@ -366,6 +366,10 @@ def validate(deck: DeckIn, cards: CardRepository, card_data: dict[str, dict[str,
     if attractions and (count["attractions"] < 10 or count["attractions"] != len({e.name for e in attractions}) or any(
             "Attraction" not in str((data.get(e.printing_id or "") or {}).get("type_line") or "") for e in attractions)):
         warnings.append(Warning(level="warning", message="An Attraction deck needs ten or more Attraction cards with different names (717.2a)."))
+    sticker_sheets = [e for e in deck.entries if e.section == "stickers"]
+    if sticker_sheets and (count['stickers'] < 10 or count['stickers'] != len({e.name for e in sticker_sheets})
+                           or any(str((data.get(e.printing_id or '') or {}).get('type_line')) != 'Stickers' for e in sticker_sheets)):
+        warnings.append(Warning(level='warning', message='Constructed sticker play needs at least ten distinct sticker sheets (123.2a).'))
     if deck.format == "commander":
         warnings += _commander_checks(deck, data, count, playing)
         warnings += _companion_checks(deck, data)

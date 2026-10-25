@@ -1,0 +1,20 @@
+{
+  "object": "list",
+  "has_more": false,
+  "data": [
+    {
+      "object": "ruling",
+      "oracle_id": "2f33aced-c737-4b3c-ba25-aff7b340c2d7",
+      "source": "wotc",
+      "published_at": "2004-10-04",
+      "comment": "You must sacrifice the Swamps if you can. You can\u2019t choose not to pay if you have them."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "2f33aced-c737-4b3c-ba25-aff7b340c2d7",
+      "source": "wotc",
+      "published_at": "2004-10-04",
+      "comment": "You should always have one creature for your opponent to take (i.e. the Denizen). If by chance you have no creature for your opponent to take, then they don\u2019t get one. Remember that taking a creature is optional so your opponent is not forced to take the Denizen."
+    }
+  ]
+}

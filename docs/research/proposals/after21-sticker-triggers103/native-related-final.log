@@ -1,0 +1,24 @@
+.....FF..F......................                                         [100%]
+=================================== FAILURES ===================================
+__________ test_real_placement_dispatches_airbrusher_and_wee103[True] __________
+tests/test_rules_sticker_triggers103.py:82: in test_real_placement_dispatches_airbrusher_and_wee103
+    assert int(chars(s, s.state.cards[wee.id]).power) == p + 1
+E   AssertionError: assert 0 == (0 + 1)
+E    +  where 0 = int('0')
+E    +    where '0' = Characteristics(name='Wee Champion', supertypes=frozenset(), types=frozenset({'Creature'}), subtypes=frozenset({'Minot...0, 1), granted=frozenset(), lost=frozenset(), imposed=frozenset(), level=None, doors=None, word=None, flanking_count=0).power
+E    +      where Characteristics(name='Wee Champion', supertypes=frozenset(), types=frozenset({'Creature'}), subtypes=frozenset({'Minot...0, 1), granted=frozenset(), lost=frozenset(), imposed=frozenset(), level=None, doors=None, word=None, flanking_count=0) = chars(<app.game.session.GameSession object at 0x7fbcfaec85c0>, CardInstance(borrow_identity=None, id='3212a91d7363', card_id='7338aa7e-09d0-485c-a223-9395ed9704e3', name='Wee Champi...ts=[], damage=0, choices={}, stack_info=None, exile_group=None, token_source=None, origin='library', test_object=False))
+_________ test_real_placement_dispatches_airbrusher_and_wee103[False] __________
+tests/test_rules_sticker_triggers103.py:82: in test_real_placement_dispatches_airbrusher_and_wee103
+    assert int(chars(s, s.state.cards[wee.id]).power) == p + 1
+E   AssertionError: assert 0 == (0 + 1)
+E    +  where 0 = int('0')
+E    +    where '0' = Characteristics(name='Wee Champion', supertypes=frozenset(), types=frozenset({'Creature'}), subtypes=frozenset({'Minot...0, 1), granted=frozenset(), lost=frozenset(), imposed=frozenset(), level=None, doors=None, word=None, flanking_count=0).power
+E    +      where Characteristics(name='Wee Champion', supertypes=frozenset(), types=frozenset({'Creature'}), subtypes=frozenset({'Minot...0, 1), granted=frozenset(), lost=frozenset(), imposed=frozenset(), level=None, doors=None, word=None, flanking_count=0) = chars(<app.game.session.GameSession object at 0x7fbcfa39a6c0>, CardInstance(borrow_identity=None, id='5b192880b450', card_id='7338aa7e-09d0-485c-a223-9395ed9704e3', name='Wee Champi...one)], damage=0, choices={}, stack_info=None, exile_group=None, token_source=None, origin='library', test_object=False))
+________ test_tusk_actual_tap_ticket_activation_and_ability_sticker103 _________
+tests/test_rules_sticker_triggers103.py:123: in test_tusk_actual_tap_ticket_activation_and_ability_sticker103
+    assert s.state.players["p1"].resources["ticket"] == 1
+E   assert 0 == 1
+=========================== short test summary info ============================
+FAILED tests/test_rules_sticker_triggers103.py::test_real_placement_dispatches_airbrusher_and_wee103[True]
+FAILED tests/test_rules_sticker_triggers103.py::test_real_placement_dispatches_airbrusher_and_wee103[False]
+FAILED tests/test_rules_sticker_triggers103.py::test_tusk_actual_tap_ticket_activation_and_ability_sticker103

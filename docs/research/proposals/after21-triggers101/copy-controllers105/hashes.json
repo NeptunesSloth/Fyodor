@@ -1,0 +1,14 @@
+{
+  "app/rules/copy_controllers105.py": {
+    "base": null,
+    "proposed": "dcba9b0dae87d1e45bd2cdb4920ccfa57327df0fccb249d63182de909b3ccbb1"
+  },
+  "app/rules/scripts.py": {
+    "base": "20263291e0f46406e47a5dce6c453b7aa46ca08e7c42b10bff121b9cdbb41d3a",
+    "proposed": "7bdab125b320e548f6a6f47e753eb7c1bbb2a144d7768fc90005dfb5b72f7c76"
+  },
+  "app/rules/effects.py": {
+    "base": "ea2e6d02063bdc8145df8ebe9f32b8234ec38c7ddfd8e8f112bca9333484e8ea",
+    "proposed": "b53b1d55551e7c1a083d1e9a5adf5acb3a0e4678f2c680760062d570cd88f8da"
+  }
+}

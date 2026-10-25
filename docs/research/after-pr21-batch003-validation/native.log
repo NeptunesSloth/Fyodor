@@ -1,0 +1,275 @@
+============================= test session starts ==============================
+platform linux -- Python 3.12.14, pytest-9.1.1, pluggy-1.7.0 -- /workspace/Fyodor/backend/.venv/bin/python3
+cachedir: .pytest_cache
+rootdir: /workspace/scratch/after-pr21/batch003/backend
+configfile: pyproject.toml
+plugins: anyio-4.15.1, xdist-3.8.0
+created: 4/4 workers
+4 workers [131 items]
+
+scheduling tests via LoadScheduling
+
+tests/test_rules_stack_events102.py::test_jaya_real_combat_then_next_loyalty_copy_does_not_pay_loyalty_twice
+tests/test_rules_library_polymorph102.py::test_canonical_whole102[Divergent Transformations]
+tests/test_rules_stack_events102.py::test_volo_actual_current_own_creature_types_all_zones[battlefield-p1]
+tests/test_rules_stack_events102.py::test_whole102[Hive Mind]
+[gw0] [  0%] PASSED tests/test_rules_stack_events102.py::test_whole102[Hive Mind]
+tests/test_rules_stack_events102.py::test_whole102[Ivy, Gleeful Spellthief]
+[gw3] [  1%] PASSED tests/test_rules_library_polymorph102.py::test_canonical_whole102[Divergent Transformations]
+tests/test_rules_library_polymorph102.py::test_canonical_whole102[Reality Scramble]
+[gw0] [  2%] PASSED tests/test_rules_stack_events102.py::test_whole102[Ivy, Gleeful Spellthief]
+[gw3] [  3%] PASSED tests/test_rules_library_polymorph102.py::test_canonical_whole102[Reality Scramble]
+tests/test_rules_library_polymorph102.py::test_canonical_whole102[Indomitable Creativity]
+tests/test_rules_stack_events102.py::test_whole102[Frontline Heroism]
+[gw3] [  3%] PASSED tests/test_rules_library_polymorph102.py::test_canonical_whole102[Indomitable Creativity]
+tests/test_rules_library_polymorph102.py::test_canonical_whole102[Synthetic Destiny]
+[gw3] [  4%] PASSED tests/test_rules_library_polymorph102.py::test_canonical_whole102[Synthetic Destiny]
+tests/test_rules_library_polymorph102.py::test_divergent_actual_two_libraries_and_original_controller102
+[gw0] [  5%] PASSED tests/test_rules_stack_events102.py::test_whole102[Frontline Heroism]
+tests/test_rules_stack_events102.py::test_whole102[Volo, Guide to Monsters]
+[gw0] [  6%] PASSED tests/test_rules_stack_events102.py::test_whole102[Volo, Guide to Monsters]
+tests/test_rules_stack_events102.py::test_whole102[Jaya's Phoenix]
+[gw0] [  6%] PASSED tests/test_rules_stack_events102.py::test_whole102[Jaya's Phoenix]
+tests/test_rules_stack_events102.py::test_whole102[Voracious Bibliophile]
+[gw0] [  7%] PASSED tests/test_rules_stack_events102.py::test_whole102[Voracious Bibliophile]
+tests/test_rules_stack_events102.py::test_bibliophile_counts_unique_creatures_or_player_targets[False]
+[gw3] [  8%] PASSED tests/test_rules_library_polymorph102.py::test_divergent_actual_two_libraries_and_original_controller102
+tests/test_rules_library_polymorph102.py::test_divergent_same_controller_enters_sequentially_second_champion_sees_no_first102
+[gw1] [  9%] PASSED tests/test_rules_stack_events102.py::test_volo_actual_current_own_creature_types_all_zones[battlefield-p1]
+tests/test_rules_stack_events102.py::test_volo_actual_current_own_creature_types_all_zones[graveyard-p1]
+[gw0] [  9%] PASSED tests/test_rules_stack_events102.py::test_bibliophile_counts_unique_creatures_or_player_targets[False]
+tests/test_rules_stack_events102.py::test_bibliophile_counts_unique_creatures_or_player_targets[True]
+[gw1] [ 10%] PASSED tests/test_rules_stack_events102.py::test_volo_actual_current_own_creature_types_all_zones[graveyard-p1]
+tests/test_rules_stack_events102.py::test_volo_actual_current_own_creature_types_all_zones[graveyard-p2]
+[gw3] [ 11%] PASSED tests/test_rules_library_polymorph102.py::test_divergent_same_controller_enters_sequentially_second_champion_sees_no_first102
+tests/test_rules_library_polymorph102.py::test_reality_scramble_uses_original_battlefield_types_not_card_in_library102
+[gw0] [ 12%] PASSED tests/test_rules_stack_events102.py::test_bibliophile_counts_unique_creatures_or_player_targets[True]
+tests/test_rules_library_polymorph102.py::test_genuine_cold_reality_commander_library_choice_precedes_reveal102[no]
+[gw3] [ 12%] PASSED tests/test_rules_library_polymorph102.py::test_reality_scramble_uses_original_battlefield_types_not_card_in_library102
+tests/test_rules_library_polymorph102.py::test_reality_kindred_instant_stops_but_cannot_enter_battlefield102
+[gw1] [ 13%] PASSED tests/test_rules_stack_events102.py::test_volo_actual_current_own_creature_types_all_zones[graveyard-p2]
+tests/test_rules_stack_events102.py::test_hive_each_other_player_native_copy_and_no_cast_recursion
+[gw3] [ 14%] PASSED tests/test_rules_library_polymorph102.py::test_reality_kindred_instant_stops_but_cannot_enter_battlefield102
+tests/test_rules_library_polymorph102.py::test_creativity_counts_actual_destroyed_not_indestructible_and_rip_counts102
+[gw2] [ 15%] PASSED tests/test_rules_stack_events102.py::test_jaya_real_combat_then_next_loyalty_copy_does_not_pay_loyalty_twice
+tests/test_rules_stack_events102.py::test_bibliophile_two_distinct_players_and_aura_target_count
+[gw1] [ 16%] PASSED tests/test_rules_stack_events102.py::test_hive_each_other_player_native_copy_and_no_cast_recursion
+tests/test_rules_stack_events102.py::test_ivy_native_other_player_spell_fixed_copy_even_if_original_countered[False]
+[gw3] [ 16%] PASSED tests/test_rules_library_polymorph102.py::test_creativity_counts_actual_destroyed_not_indestructible_and_rip_counts102
+tests/test_rules_library_polymorph102.py::test_creativity_all_gathered_creatures_enter_simultaneously102
+[gw2] [ 17%] PASSED tests/test_rules_stack_events102.py::test_bibliophile_two_distinct_players_and_aura_target_count
+tests/test_rules_stack_events102.py::test_hive_nontarget_copies_each_controller_draws_their_own_cards
+[gw1] [ 18%] PASSED tests/test_rules_stack_events102.py::test_ivy_native_other_player_spell_fixed_copy_even_if_original_countered[False]
+tests/test_rules_stack_events102.py::test_ivy_native_other_player_spell_fixed_copy_even_if_original_countered[True]
+[gw3] [ 19%] PASSED tests/test_rules_library_polymorph102.py::test_creativity_all_gathered_creatures_enter_simultaneously102
+tests/test_rules_library_polymorph102.py::test_synthetic_delayed_original_count_and_simultaneous_entries102
+[gw1] [ 19%] PASSED tests/test_rules_stack_events102.py::test_ivy_native_other_player_spell_fixed_copy_even_if_original_countered[True]
+tests/test_rules_stack_events102.py::test_ivy_illegal_copy_target_is_not_created
+[gw2] [ 20%] PASSED tests/test_rules_stack_events102.py::test_hive_nontarget_copies_each_controller_draws_their_own_cards
+tests/test_rules_stack_events102.py::test_frontline_doubled_tokens_choose_one_of_only_new_tokens_for_one_copy
+[gw1] [ 21%] PASSED tests/test_rules_stack_events102.py::test_ivy_illegal_copy_target_is_not_created
+tests/test_rules_stack_events102.py::test_frontline_created_token_is_fixed_copy_destination_and_aura_copy_is_token
+[gw0] [ 22%] PASSED tests/test_rules_library_polymorph102.py::test_genuine_cold_reality_commander_library_choice_precedes_reveal102[no]
+tests/test_rules_waterbend102.py::test_waterbend_candidates_full[Benevolent River Spirit]
+[gw0] [ 22%] PASSED tests/test_rules_waterbend102.py::test_waterbend_candidates_full[Benevolent River Spirit]
+tests/test_rules_waterbend102.py::test_waterbend_candidates_full[Water Whip]
+[gw0] [ 23%] PASSED tests/test_rules_waterbend102.py::test_waterbend_candidates_full[Water Whip]
+tests/test_rules_waterbend102.py::test_waterbend_candidates_full[Waterbender's Restoration]
+[gw0] [ 24%] PASSED tests/test_rules_waterbend102.py::test_waterbend_candidates_full[Waterbender's Restoration]
+tests/test_rules_waterbend102.py::test_waterbend_candidates_full[Katara, Water Tribe's Hope]
+[gw0] [ 25%] PASSED tests/test_rules_waterbend102.py::test_waterbend_candidates_full[Katara, Water Tribe's Hope]
+tests/test_rules_waterbend102.py::test_actual_water_whip_taps_five_and_pays_both_printed_blue_mana
+[gw3] [ 25%] PASSED tests/test_rules_library_polymorph102.py::test_synthetic_delayed_original_count_and_simultaneous_entries102
+tests/test_rules_library_polymorph102.py::test_genuine_cold_synthetic_delayed_snapshot_survives_before_trigger102
+[gw1] [ 26%] PASSED tests/test_rules_stack_events102.py::test_frontline_created_token_is_fixed_copy_destination_and_aura_copy_is_token
+tests/test_rules_waterbend102.py::test_katara_announced_x_can_be_fully_paid_by_tapping_newly_entered_creatures
+[gw2] [ 27%] PASSED tests/test_rules_stack_events102.py::test_frontline_doubled_tokens_choose_one_of_only_new_tokens_for_one_copy
+tests/test_rules_stack_events102.py::test_ivy_native_copy_replacement_additional_copy_can_keep_original_targets
+[gw2] [ 28%] PASSED tests/test_rules_stack_events102.py::test_ivy_native_copy_replacement_additional_copy_can_keep_original_targets
+tests/test_rules_stack_events102.py::test_genuine_cold_countered_aura_original_target_retained_and_copy_attaches_to_ivy
+[gw3] [ 29%] PASSED tests/test_rules_library_polymorph102.py::test_genuine_cold_synthetic_delayed_snapshot_survives_before_trigger102
+tests/test_rules_library_polymorph102.py::test_divergent_uses_current_controller_not_owner_after_actual_theft102
+[gw3] [ 29%] PASSED tests/test_rules_library_polymorph102.py::test_divergent_uses_current_controller_not_owner_after_actual_theft102
+tests/test_rules_library_polymorph102.py::test_synthetic_actual_tokens_cease_but_delayed_count_remains_two102
+[gw3] [ 30%] PASSED tests/test_rules_library_polymorph102.py::test_synthetic_actual_tokens_cease_but_delayed_count_remains_two102
+tests/test_rules_library_polymorph102.py::test_genuine_cold_reality_commander_library_choice_precedes_reveal102[yes]
+[gw2] [ 31%] PASSED tests/test_rules_stack_events102.py::test_genuine_cold_countered_aura_original_target_retained_and_copy_attaches_to_ivy
+tests/test_rules_stack_events102.py::test_genuine_cold_hive_each_other_controller_retargets_own_copy
+[gw0] [ 32%] PASSED tests/test_rules_waterbend102.py::test_actual_water_whip_taps_five_and_pays_both_printed_blue_mana
+tests/test_rules_waterbend102.py::test_actual_waterbend_mana_only_is_still_a_paid_waterbend
+[gw3] [ 32%] PASSED tests/test_rules_library_polymorph102.py::test_genuine_cold_reality_commander_library_choice_precedes_reveal102[yes]
+tests/test_rules_waterbend103.py::test_true_cold_optional_waterbend_choice_resolves_paid_branch
+[gw2] [ 33%] PASSED tests/test_rules_stack_events102.py::test_genuine_cold_hive_each_other_controller_retargets_own_copy
+tests/test_rules_stack_events102.py::test_genuine_cold_jaya_watches_next_loyalty_once_and_expires_this_turn
+[gw1] [ 34%] PASSED tests/test_rules_waterbend102.py::test_katara_announced_x_can_be_fully_paid_by_tapping_newly_entered_creatures
+tests/test_rules_waterbend102.py::test_waterbend_cannot_overpay_after_final_activation_reduction
+[gw2] [ 35%] PASSED tests/test_rules_stack_events102.py::test_genuine_cold_jaya_watches_next_loyalty_once_and_expires_this_turn
+tests/test_rules_combat_history103.py::test_whole_exact_combat_history95[Hope of Ghirapur]
+[gw2] [ 35%] PASSED tests/test_rules_combat_history103.py::test_whole_exact_combat_history95[Hope of Ghirapur]
+tests/test_rules_combat_history103.py::test_whole_exact_combat_history95[Admiral Beckett Brass]
+[gw2] [ 36%] PASSED tests/test_rules_combat_history103.py::test_whole_exact_combat_history95[Admiral Beckett Brass]
+tests/test_rules_combat_history103.py::test_whole_exact_combat_history95[Thirsting Axe]
+[gw2] [ 37%] PASSED tests/test_rules_combat_history103.py::test_whole_exact_combat_history95[Thirsting Axe]
+tests/test_rules_combat_history103.py::test_hope_actual_combat_sacrifice_original_source_and_cast_restriction95
+[gw0] [ 38%] PASSED tests/test_rules_waterbend102.py::test_actual_waterbend_mana_only_is_still_a_paid_waterbend
+tests/test_rules_waterbend103.py::test_spirit_water_revival_draws_two_or_shuffles_seven_and_no_hand_limit[False]
+[gw1] [ 38%] PASSED tests/test_rules_waterbend102.py::test_waterbend_cannot_overpay_after_final_activation_reduction
+tests/test_rules_waterbend102.py::test_variable_spell_blinks_exact_x_and_returns_next_end_step
+[gw2] [ 39%] PASSED tests/test_rules_combat_history103.py::test_hope_actual_combat_sacrifice_original_source_and_cast_restriction95
+tests/test_rules_combat_history103.py::test_hope_wrong_damaged_player_rejects_before_sacrifice95
+[gw0] [ 40%] PASSED tests/test_rules_waterbend103.py::test_spirit_water_revival_draws_two_or_shuffles_seven_and_no_hand_limit[False]
+tests/test_rules_waterbend103.py::test_spirit_water_revival_draws_two_or_shuffles_seven_and_no_hand_limit[True]
+[gw3] [ 41%] PASSED tests/test_rules_waterbend103.py::test_true_cold_optional_waterbend_choice_resolves_paid_branch
+tests/test_rules_waterbend103.py::test_actual_spell_copy_inherits_waterbend_decision_even_without_cast_origin[False]
+[gw2] [ 41%] PASSED tests/test_rules_combat_history103.py::test_hope_wrong_damaged_player_rejects_before_sacrifice95
+tests/test_rules_combat_history103.py::test_axe_known_empty_combat_history_sacrifices_equipped_creature95
+[gw0] [ 42%] PASSED tests/test_rules_waterbend103.py::test_spirit_water_revival_draws_two_or_shuffles_seven_and_no_hand_limit[True]
+tests/test_rules_waterbend103.py::test_ruinous_waterbend_death_watch_catches_same_spell_sba[False]
+[gw1] [ 43%] PASSED tests/test_rules_waterbend102.py::test_variable_spell_blinks_exact_x_and_returns_next_end_step
+tests/test_rules_waterbend102.py::test_spell_taps_do_not_pay_generic_tax_beyond_waterbend_amount
+[gw3] [ 44%] PASSED tests/test_rules_waterbend103.py::test_actual_spell_copy_inherits_waterbend_decision_even_without_cast_origin[False]
+tests/test_rules_waterbend103.py::test_actual_spell_copy_inherits_waterbend_decision_even_without_cast_origin[True]
+[gw2] [ 45%] PASSED tests/test_rules_combat_history103.py::test_axe_known_empty_combat_history_sacrifices_equipped_creature95
+tests/test_rules_combat_history103.py::test_beckett_actual_three_original_pirates_permanent_control95
+[gw0] [ 45%] PASSED tests/test_rules_waterbend103.py::test_ruinous_waterbend_death_watch_catches_same_spell_sba[False]
+tests/test_rules_waterbend103.py::test_ruinous_waterbend_death_watch_catches_same_spell_sba[True]
+[gw0] [ 46%] PASSED tests/test_rules_waterbend103.py::test_ruinous_waterbend_death_watch_catches_same_spell_sba[True]
+tests/test_rules_waterbend103.py::test_katara_declared_waterbend_changes_etb_discard_without_kicker[False]
+[gw1] [ 47%] PASSED tests/test_rules_waterbend102.py::test_spell_taps_do_not_pay_generic_tax_beyond_waterbend_amount
+tests/test_rules_waterbend102.py::test_true_cold_paused_waterbend_choice_preserves_receipt
+[gw2] [ 48%] PASSED tests/test_rules_combat_history103.py::test_beckett_actual_three_original_pirates_permanent_control95
+tests/test_rules_combat_history103.py::test_axe_actual_creature_combat_receipt_only_spares_equipped_source95[True]
+[gw3] [ 48%] PASSED tests/test_rules_waterbend103.py::test_actual_spell_copy_inherits_waterbend_decision_even_without_cast_origin[True]
+tests/test_rules_waterbend104.py::test_crashing_wave_full
+[gw3] [ 49%] PASSED tests/test_rules_waterbend104.py::test_crashing_wave_full
+tests/test_rules_waterbend104.py::test_crashing_wave_targets_then_distributes_untargeted_stun_including_hexproof
+[gw2] [ 50%] PASSED tests/test_rules_combat_history103.py::test_axe_actual_creature_combat_receipt_only_spares_equipped_source95[True]
+tests/test_rules_combat_history103.py::test_axe_actual_creature_combat_receipt_only_spares_equipped_source95[False]
+[gw1] [ 51%] PASSED tests/test_rules_waterbend102.py::test_true_cold_paused_waterbend_choice_preserves_receipt
+tests/test_rules_waterbend102.py::test_benevolent_spirit_cast_uses_waterbend_and_resolves_native_scry
+[gw0] [ 51%] PASSED tests/test_rules_waterbend103.py::test_katara_declared_waterbend_changes_etb_discard_without_kicker[False]
+tests/test_rules_waterbend103.py::test_katara_declared_waterbend_changes_etb_discard_without_kicker[True]
+[gw2] [ 52%] PASSED tests/test_rules_combat_history103.py::test_axe_actual_creature_combat_receipt_only_spares_equipped_source95[False]
+tests/test_rules_combat_history103.py::test_axe_combat_before_actual_equip_still_counts95
+[gw1] [ 53%] PASSED tests/test_rules_waterbend102.py::test_benevolent_spirit_cast_uses_waterbend_and_resolves_native_scry
+tests/test_rules_waterbend103.py::test_optional_waterbend_full[Spirit Water Revival]
+[gw1] [ 54%] PASSED tests/test_rules_waterbend103.py::test_optional_waterbend_full[Spirit Water Revival]
+tests/test_rules_waterbend103.py::test_optional_waterbend_full[Ruinous Waterbending]
+[gw1] [ 54%] PASSED tests/test_rules_waterbend103.py::test_optional_waterbend_full[Ruinous Waterbending]
+tests/test_rules_waterbend103.py::test_optional_waterbend_full[Katara, Seeking Revenge]
+[gw1] [ 55%] PASSED tests/test_rules_waterbend103.py::test_optional_waterbend_full[Katara, Seeking Revenge]
+tests/test_rules_combat_history103.py::test_genuine_cold_hope_original_source_sacrificed_cost95
+[gw3] [ 56%] PASSED tests/test_rules_waterbend104.py::test_crashing_wave_targets_then_distributes_untargeted_stun_including_hexproof
+tests/test_rules_waterbend104.py::test_zero_x_still_distributes_three_to_existing_tapped_opponent_creature
+[gw0] [ 57%] PASSED tests/test_rules_waterbend103.py::test_katara_declared_waterbend_changes_etb_discard_without_kicker[True]
+tests/test_rules_combat_history103.py::test_hope_actual_noncombat_longbow_damage_does_not_qualify95
+[gw1] [ 58%] PASSED tests/test_rules_combat_history103.py::test_genuine_cold_hope_original_source_sacrificed_cost95
+tests/test_rules_combat_history103.py::test_genuine_cold_beckett_native_player_history_target_choice95
+[gw0] [ 58%] PASSED tests/test_rules_combat_history103.py::test_hope_actual_noncombat_longbow_damage_does_not_qualify95
+tests/test_rules_combat_history103.py::test_hope_actual_prevented_combat_does_not_qualify95
+[gw2] [ 59%] PASSED tests/test_rules_combat_history103.py::test_axe_combat_before_actual_equip_still_counts95
+tests/test_rules_combat_history103.py::test_axe_legacy_unknown_negative_manual_then_next_native_turn_known95
+[gw0] [ 60%] PASSED tests/test_rules_combat_history103.py::test_hope_actual_prevented_combat_does_not_qualify95
+tests/test_rules_combat_history103.py::test_hope_actual_spell_response_is_not_countered_by_later_restriction95
+[gw1] [ 61%] PASSED tests/test_rules_combat_history103.py::test_genuine_cold_beckett_native_player_history_target_choice95
+tests/test_rules_combat_history103.py::test_genuine_cold_axe_legacy_manual_history_continuation95
+[gw3] [ 61%] PASSED tests/test_rules_waterbend104.py::test_zero_x_still_distributes_three_to_existing_tapped_opponent_creature
+tests/test_rules_waterbend104.py::test_true_cold_crashing_wave_distribution_keeps_unallocated_stun_choice
+[gw0] [ 62%] PASSED tests/test_rules_combat_history103.py::test_hope_actual_spell_response_is_not_countered_by_later_restriction95
+tests/test_rules_combat_history103.py::test_beckett_two_pirates_double_strike_is_only_two_originals95
+[gw1] [ 63%] PASSED tests/test_rules_combat_history103.py::test_genuine_cold_axe_legacy_manual_history_continuation95
+tests/test_rules_combat_history103.py::test_axe_trigger_original_host_blink_excludes_new_incarnation95
+[gw2] [ 64%] PASSED tests/test_rules_combat_history103.py::test_axe_legacy_unknown_negative_manual_then_next_native_turn_known95
+tests/test_rules_combat_history103.py::test_axe_legacy_positive_actual_combat_receipt_remains_valid95
+[gw1] [ 64%] PASSED tests/test_rules_combat_history103.py::test_axe_trigger_original_host_blink_excludes_new_incarnation95
+tests/test_rules_counter_cost105.py::test_ion_storm_full
+[gw1] [ 65%] PASSED tests/test_rules_counter_cost105.py::test_ion_storm_full
+tests/test_rules_counter_cost105.py::test_actual_ion_storm_pays_exact_allowed_counter_kind[charge]
+[gw3] [ 66%] PASSED tests/test_rules_waterbend104.py::test_true_cold_crashing_wave_distribution_keeps_unallocated_stun_choice
+tests/test_rules_combat_history103.py::test_axe_source_left_after_trigger_uses_original_attachment_lki95
+[gw0] [ 67%] PASSED tests/test_rules_combat_history103.py::test_beckett_two_pirates_double_strike_is_only_two_originals95
+tests/test_rules_combat_history103.py::test_beckett_frozen_pirates_count_after_actual_type_loss_and_departure95
+[gw2] [ 67%] PASSED tests/test_rules_combat_history103.py::test_axe_legacy_positive_actual_combat_receipt_remains_valid95
+tests/test_rules_counter_cost105.py::test_wrong_counter_kind_cannot_be_substituted_or_partially_pay
+[gw3] [ 68%] PASSED tests/test_rules_combat_history103.py::test_axe_source_left_after_trigger_uses_original_attachment_lki95
+tests/test_rules_combat_history103.py::test_hope_until_actual_next_turn_survives_native_meditate_skip95
+[gw1] [ 69%] PASSED tests/test_rules_counter_cost105.py::test_actual_ion_storm_pays_exact_allowed_counter_kind[charge]
+tests/test_rules_counter_cost105.py::test_actual_ion_storm_pays_exact_allowed_counter_kind[+1/+1]
+[gw0] [ 70%] PASSED tests/test_rules_combat_history103.py::test_beckett_frozen_pirates_count_after_actual_type_loss_and_departure95
+tests/test_rules_stack_extension103.py::test_initial_only_social
+[gw3] [ 70%] PASSED tests/test_rules_combat_history103.py::test_hope_until_actual_next_turn_survives_native_meditate_skip95
+tests/test_rules_combat_history103.py::test_hope_changed_controller_uses_original_damage_and_new_controller_duration95
+[gw0] [ 71%] PASSED tests/test_rules_stack_extension103.py::test_initial_only_social
+tests/test_rules_stack_extension103.py::test_no_initial_social
+[gw0] [ 72%] PASSED tests/test_rules_stack_extension103.py::test_no_initial_social
+tests/test_rules_stack_extension103.py::test_grappler_next_once
+[gw0] [ 73%] PASSED tests/test_rules_stack_extension103.py::test_grappler_next_once
+tests/test_rules_stack_extension103.py::test_whole103[Bill Potts]
+[gw0] [ 74%] PASSED tests/test_rules_stack_extension103.py::test_whole103[Bill Potts]
+tests/test_rules_stack_extension103.py::test_whole103[Flamehold Grappler]
+[gw0] [ 74%] PASSED tests/test_rules_stack_extension103.py::test_whole103[Flamehold Grappler]
+tests/test_rules_stack_extension103.py::test_whole103[Ancestral Communion]
+[gw0] [ 75%] PASSED tests/test_rules_stack_extension103.py::test_whole103[Ancestral Communion]
+tests/test_rules_stack_extension103.py::test_whole103[Social Snub]
+[gw0] [ 76%] PASSED tests/test_rules_stack_extension103.py::test_whole103[Social Snub]
+tests/test_rules_stack_extension103.py::test_whole103[Banish into Fable]
+[gw0] [ 77%] PASSED tests/test_rules_stack_extension103.py::test_whole103[Banish into Fable]
+tests/test_rules_stack_extension103.py::test_precursor_all_players_golems
+[gw0] [ 77%] PASSED tests/test_rules_stack_extension103.py::test_precursor_all_players_golems
+tests/test_rules_stack_extension103.py::test_ink_treader_all_creatures
+[gw0] [ 78%] PASSED tests/test_rules_stack_extension103.py::test_ink_treader_all_creatures
+tests/test_rules_stack_extension103.py::test_bill_cast_once
+[gw0] [ 79%] PASSED tests/test_rules_stack_extension103.py::test_bill_cast_once
+tests/test_rules_stack_extension103.py::test_communion_initial_only
+[gw3] [ 80%] PASSED tests/test_rules_combat_history103.py::test_hope_changed_controller_uses_original_damage_and_new_controller_duration95
+tests/test_rules_combat_history103.py::test_axe_native_reattach_in_response_sacrifices_current_host103
+[gw1] [ 80%] PASSED tests/test_rules_counter_cost105.py::test_actual_ion_storm_pays_exact_allowed_counter_kind[+1/+1]
+tests/test_rules_stack_extension103.py::test_whole103[Precursor Golem]
+[gw0] [ 81%] PASSED tests/test_rules_stack_extension103.py::test_communion_initial_only
+tests/test_rules_stack_extension103.py::test_banish_conditions_at_resolution
+[gw1] [ 82%] PASSED tests/test_rules_stack_extension103.py::test_whole103[Precursor Golem]
+tests/test_rules_stack_extension103.py::test_whole103[Ink-Treader Nephilim]
+[gw1] [ 83%] PASSED tests/test_rules_stack_extension103.py::test_whole103[Ink-Treader Nephilim]
+tests/test_rules_stack_extension103.py::test_cold_next_spell_watch
+[gw0] [ 83%] PASSED tests/test_rules_stack_extension103.py::test_banish_conditions_at_resolution
+tests/test_rules_stack_extension103.py::test_bill_actual_activation_once_shared_with_cast
+[gw2] [ 84%] PASSED tests/test_rules_counter_cost105.py::test_wrong_counter_kind_cannot_be_substituted_or_partially_pay
+tests/test_rules_counter_cost105.py::test_only_other_counter_types_do_not_allow_activation
+[gw1] [ 85%] PASSED tests/test_rules_stack_extension103.py::test_cold_next_spell_watch
+tests/test_rules_stack_extension103.py::test_cold_initial_social_trigger
+[gw0] [ 86%] PASSED tests/test_rules_stack_extension103.py::test_bill_actual_activation_once_shared_with_cast
+tests/test_rules_stack_extension103.py::test_banish_single_artifact_enchantment_copies_twice
+[gw3] [ 87%] PASSED tests/test_rules_combat_history103.py::test_axe_native_reattach_in_response_sacrifices_current_host103
+tests/test_rules_stack_extension103.py::test_nephilim_original_controller_eligibility_copy_controller_differs
+[gw0] [ 87%] PASSED tests/test_rules_stack_extension103.py::test_banish_single_artifact_enchantment_copies_twice
+tests/test_rules_stack_extension103.py::test_banish_cast_from_graveyard_does_not_trigger
+[gw0] [ 88%] PASSED tests/test_rules_stack_extension103.py::test_banish_cast_from_graveyard_does_not_trigger
+tests/test_rules_next_copy104.py::test_whole104[Sea Gate Stormcaller]
+[gw0] [ 89%] PASSED tests/test_rules_next_copy104.py::test_whole104[Sea Gate Stormcaller]
+tests/test_rules_next_copy104.py::test_whole104[Repeated Reverberation]
+[gw0] [ 90%] PASSED tests/test_rules_next_copy104.py::test_whole104[Repeated Reverberation]
+tests/test_rules_next_copy104.py::test_sea_gate_real_kicker_and_nonmatching_spells[False]
+[gw0] [ 90%] PASSED tests/test_rules_next_copy104.py::test_sea_gate_real_kicker_and_nonmatching_spells[False]
+tests/test_rules_next_copy104.py::test_sea_gate_real_kicker_and_nonmatching_spells[True]
+[gw1] [ 91%] PASSED tests/test_rules_stack_extension103.py::test_cold_initial_social_trigger
+tests/test_rules_stack_extension103.py::test_communion_no_commander_at_cast
+[gw1] [ 92%] PASSED tests/test_rules_stack_extension103.py::test_communion_no_commander_at_cast
+tests/test_rules_next_copy104.py::test_shaman_actual_combat_installs_copy_watch
+[gw0] [ 93%] PASSED tests/test_rules_next_copy104.py::test_sea_gate_real_kicker_and_nonmatching_spells[True]
+tests/test_rules_next_copy104.py::test_repeated_nontarget_draw_three_times
+[gw3] [ 93%] PASSED tests/test_rules_stack_extension103.py::test_nephilim_original_controller_eligibility_copy_controller_differs
+tests/test_rules_next_copy104.py::test_whole104[Tzaangor Shaman]
+[gw3] [ 94%] PASSED tests/test_rules_next_copy104.py::test_whole104[Tzaangor Shaman]
+tests/test_rules_next_copy104.py::test_cold_kicked_watch_and_countered_original
+[gw0] [ 95%] PASSED tests/test_rules_next_copy104.py::test_repeated_nontarget_draw_three_times
+tests/test_rules_next_copy104.py::test_cold_repeated_preserves_either_watch
+[gw3] [ 96%] PASSED tests/test_rules_next_copy104.py::test_cold_kicked_watch_and_countered_original
+[gw0] [ 96%] PASSED tests/test_rules_next_copy104.py::test_cold_repeated_preserves_either_watch
+[gw1] [ 97%] PASSED tests/test_rules_next_copy104.py::test_shaman_actual_combat_installs_copy_watch
+tests/test_rules_next_copy104.py::test_repeated_actual_loyalty_copies_do_not_pay_loyalty
+[gw1] [ 98%] PASSED tests/test_rules_next_copy104.py::test_repeated_actual_loyalty_copies_do_not_pay_loyalty
+[gw2] [ 99%] PASSED tests/test_rules_counter_cost105.py::test_only_other_counter_types_do_not_allow_activation
+tests/test_rules_counter_cost105.py::test_true_cold_selected_counter_kind_removes_only_that_counter
+[gw2] [100%] PASSED tests/test_rules_counter_cost105.py::test_true_cold_selected_counter_kind_removes_only_that_counter
+
+======================= 131 passed in 378.44s (0:06:18) ========================

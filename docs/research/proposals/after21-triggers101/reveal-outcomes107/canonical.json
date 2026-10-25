@@ -1,0 +1,187 @@
+[
+  {
+    "id": "59a06bf6-20c9-4b48-893c-7d0edbea8f97",
+    "oracle_id": "1a240953-26e0-429f-9663-dcfe5bc2c1c7",
+    "name": "Chaos Mutation",
+    "layout": "normal",
+    "set_code": "40k",
+    "set_name": "Warhammer 40,000 Commander",
+    "collector_number": "111\u2605",
+    "rarity": "rare",
+    "mana_cost": "{3}{U}{R}",
+    "cmc": 5.0,
+    "type_line": "Instant",
+    "oracle_text": "Exile any number of target creatures controlled by different players. For each creature exiled this way, its controller reveals cards from the top of their library until they reveal a creature card, puts that card onto the battlefield, then puts the rest on the bottom of their library in a random order.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R",
+      "U"
+    ],
+    "color_identity": [
+      "R",
+      "U"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2022-10-07",
+    "artist": "Lie Setiawan",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "914fdddb-cf66-4631-94e7-ce682a99fcf8",
+    "oracle_id": "9fb7e7ca-ad2f-4677-859c-7a9adf8fb5fd",
+    "name": "Transforming Flourish",
+    "layout": "normal",
+    "set_code": "tdc",
+    "set_name": "Tarkir: Dragonstorm Commander",
+    "collector_number": "39",
+    "rarity": "rare",
+    "mana_cost": "{2}{R}",
+    "cmc": 3.0,
+    "type_line": "Instant",
+    "oracle_text": "Demonstrate (When you cast this spell, you may copy it. If you do, choose an opponent to also copy it. Players may choose new targets for their copies.)\nDestroy target artifact or creature you don't control. If that permanent is destroyed this way, its controller exiles cards from the top of their library until they exile a nonland card, then they may cast that card without paying its mana cost.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [
+      "Demonstrate"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2025-04-11",
+    "artist": "Xavier Ribeiro",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "bdfb44f1-e366-437a-bde3-59bfdb362864",
+    "oracle_id": "a754458d-55b5-44c2-98de-8bf26b82c1b1",
+    "name": "Chaotic Transformation",
+    "layout": "normal",
+    "set_code": "dmu",
+    "set_name": "Dominaria United",
+    "collector_number": "117",
+    "rarity": "rare",
+    "mana_cost": "{5}{R}",
+    "cmc": 6.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Exile up to one target artifact, up to one target creature, up to one target enchantment, up to one target planeswalker, and/or up to one target land. For each permanent exiled this way, its controller reveals cards from the top of their library until they reveal a card that shares a card type with it, puts that card onto the battlefield, then shuffles.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2022-09-09",
+    "artist": "Joseph Meehan",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "01eb9702-55c5-41b2-8bef-63d33dafa599",
+    "oracle_id": "b82d8bdf-e292-490a-aee7-d830cc2c29df",
+    "name": "Over the Top",
+    "layout": "normal",
+    "set_code": "bro",
+    "set_name": "The Brothers' War",
+    "collector_number": "146",
+    "rarity": "rare",
+    "mana_cost": "{5}{R}{R}",
+    "cmc": 7.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Each player reveals a number of cards from the top of their library equal to the number of nonland permanents they control, puts all permanent cards they revealed this way onto the battlefield, and puts the rest into their graveyard.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2022-11-18",
+    "artist": "Cristi Balanescu",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "d19fdc00-21eb-48dc-966a-6b634dc5a2c4",
+    "oracle_id": "c42ce2e9-4dfe-468a-8f41-49e187cb91d4",
+    "name": "Vaevictis Asmadi, the Dire",
+    "layout": "normal",
+    "set_code": "m19",
+    "set_name": "Core Set 2019",
+    "collector_number": "225",
+    "rarity": "mythic",
+    "mana_cost": "{3}{B}{R}{G}",
+    "cmc": 6.0,
+    "type_line": "Legendary Creature \u2014 Elder Dragon",
+    "oracle_text": "Flying\nWhenever Vaevictis Asmadi attacks, for each player, choose target permanent that player controls. Those players sacrifice those permanents. Each player who sacrificed a permanent this way reveals the top card of their library, then puts it onto the battlefield if it's a permanent card.",
+    "power": "6",
+    "toughness": "6",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "B",
+      "G",
+      "R"
+    ],
+    "color_identity": [
+      "B",
+      "G",
+      "R"
+    ],
+    "keywords": [
+      "Flying"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2018-07-13",
+    "artist": "Steven Belledin",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  }
+]

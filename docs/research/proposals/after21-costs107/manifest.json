@@ -1,0 +1,27 @@
+{
+  "status": "CLOSED_ISOLATED_ROOT_INTEGRATION_REQUIRED",
+  "dependency": "after21-costs106",
+  "base_commit": "456c95d6aa3eaaa38583129be436ef57c1937a01",
+  "candidates": [
+    "Jandor's Ring"
+  ],
+  "expected_promotions": 1,
+  "source_files": [
+    "app/rules/costs.py",
+    "app/rules/selectors.py"
+  ],
+  "patch": "review.patch",
+  "runtime_source": "/workspace/scratch/costs107/backend",
+  "live_source_writes": false,
+  "native_unique": 7,
+  "cold": 2,
+  "mypy": 2,
+  "ruff": 3,
+  "test_destinations": [
+    "backend/tests/test_rules_last_draw_cost107.py"
+  ],
+  "fixture_destination": "backend/tests/fixtures/last_draw_cost107_cards.json",
+  "native_evidence": {
+    "native-first7.log": "7 PASS, includes2 true cold cases"
+  }
+}

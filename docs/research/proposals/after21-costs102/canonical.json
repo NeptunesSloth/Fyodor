@@ -1,0 +1,220 @@
+{
+  "canonical": [
+    {
+      "id": "7ffb79cd-d170-4047-89c8-6e85188f30da",
+      "oracle_id": "12d91743-1ccb-4f2b-b2a9-1c2b34f7c8eb",
+      "name": "Benevolent River Spirit",
+      "layout": "normal",
+      "set_code": "tla",
+      "set_name": "Avatar: The Last Airbender",
+      "collector_number": "45",
+      "rarity": "uncommon",
+      "mana_cost": "{U}{U}",
+      "cmc": 2.0,
+      "type_line": "Creature \u2014 Spirit",
+      "oracle_text": "As an additional cost to cast this spell, waterbend {5}. (While paying a waterbend cost, you can tap your artifacts and creatures to help. Each one pays for {1}.)\nFlying, ward {2} (Whenever this creature becomes the target of a spell or ability an opponent controls, counter it unless that player pays {2}.)\nWhen this creature enters, scry 2.",
+      "power": "4",
+      "toughness": "5",
+      "loyalty": null,
+      "defense": null,
+      "colors": [
+        "U"
+      ],
+      "color_identity": [
+        "U"
+      ],
+      "keywords": [
+        "Scry",
+        "Flying",
+        "Ward",
+        "Waterbend"
+      ],
+      "is_token": false,
+      "faces": [],
+      "double_faced": false,
+      "image_faces": 1,
+      "has_image": false,
+      "released_at": "2025-11-21",
+      "artist": "Mizutametori",
+      "commander_legal": "legal",
+      "related_tokens": [],
+      "related_cards": []
+    },
+    {
+      "id": "f8783863-699b-4362-a211-7db7ab8f36ad",
+      "oracle_id": "2015f455-988e-444c-93df-23fab179ef87",
+      "name": "Water Whip",
+      "layout": "normal",
+      "set_code": "tle",
+      "set_name": "Avatar: The Last Airbender Eternal",
+      "collector_number": "227",
+      "rarity": "rare",
+      "mana_cost": "{U}{U}",
+      "cmc": 2.0,
+      "type_line": "Sorcery \u2014 Lesson",
+      "oracle_text": "As an additional cost to cast this spell, waterbend {5}. (While paying a waterbend cost, you can tap your artifacts and creatures to help. Each one pays for {1}.)\nReturn up to two target creatures to their owners' hands. Draw two cards.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null,
+      "defense": null,
+      "colors": [
+        "U"
+      ],
+      "color_identity": [
+        "U"
+      ],
+      "keywords": [
+        "Waterbend"
+      ],
+      "is_token": false,
+      "faces": [],
+      "double_faced": false,
+      "image_faces": 1,
+      "has_image": false,
+      "released_at": "2025-11-21",
+      "artist": "Rose Benjamin",
+      "commander_legal": "legal",
+      "related_tokens": [],
+      "related_cards": []
+    },
+    {
+      "id": "6d895646-a677-44af-868f-6e5711cb3ae7",
+      "oracle_id": "285046f6-b3c4-4eb7-8712-9dffebabc762",
+      "name": "Waterbender's Restoration",
+      "layout": "normal",
+      "set_code": "tle",
+      "set_name": "Avatar: The Last Airbender Eternal",
+      "collector_number": "183",
+      "rarity": "rare",
+      "mana_cost": "{U}{U}",
+      "cmc": 2.0,
+      "type_line": "Instant \u2014 Lesson",
+      "oracle_text": "As an additional cost to cast this spell, waterbend {X}. (While paying a waterbend cost, you can tap your artifacts and creatures to help. Each one pays for {1}.)\nExile X target creatures you control. Return those cards to the battlefield under their owner's control at the beginning of the next end step.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null,
+      "defense": null,
+      "colors": [
+        "U"
+      ],
+      "color_identity": [
+        "U"
+      ],
+      "keywords": [
+        "Waterbend"
+      ],
+      "is_token": false,
+      "faces": [],
+      "double_faced": false,
+      "image_faces": 1,
+      "has_image": false,
+      "released_at": "2025-11-21",
+      "artist": "Phima",
+      "commander_legal": "legal",
+      "related_tokens": [],
+      "related_cards": []
+    },
+    {
+      "id": "9ec03308-59a2-417a-938f-bdda75080e43",
+      "oracle_id": "234fb291-0b62-4092-9071-81311c71bd53",
+      "name": "Katara, Water Tribe's Hope",
+      "layout": "normal",
+      "set_code": "tla",
+      "set_name": "Avatar: The Last Airbender",
+      "collector_number": "231",
+      "rarity": "rare",
+      "mana_cost": "{2}{W}{U}{U}",
+      "cmc": 5.0,
+      "type_line": "Legendary Creature \u2014 Human Warrior Ally",
+      "oracle_text": "Vigilance\nWhen Katara enters, create a 1/1 white Ally creature token.\nWaterbend {X}: Creatures you control have base power and toughness X/X until end of turn. X can't be 0. Activate only during your turn. (While paying a waterbend cost, you can tap your artifacts and creatures to help. Each one pays for {1}.)",
+      "power": "3",
+      "toughness": "3",
+      "loyalty": null,
+      "defense": null,
+      "colors": [
+        "U",
+        "W"
+      ],
+      "color_identity": [
+        "U",
+        "W"
+      ],
+      "keywords": [
+        "Vigilance",
+        "Waterbend"
+      ],
+      "is_token": false,
+      "faces": [],
+      "double_faced": false,
+      "image_faces": 1,
+      "has_image": false,
+      "released_at": "2025-11-21",
+      "artist": "Toraji",
+      "commander_legal": "legal",
+      "related_tokens": [
+        {
+          "id": "01439983-8394-4a0c-9e9e-92a3f1927fe3",
+          "name": "Ally",
+          "type_line": "Token Creature \u2014 Ally"
+        }
+      ],
+      "related_cards": [
+        {
+          "id": "95547532-c056-44a5-9d80-4f6b729b6e0c",
+          "name": "Katara, Water Tribe's Hope",
+          "component": "combo_piece"
+        }
+      ]
+    }
+  ],
+  "targeted_classification": [
+    {
+      "name": "Benevolent River Spirit",
+      "rank": 1000000000,
+      "level": "FULL",
+      "commander": false,
+      "lines": {
+        "supported": 4,
+        "parsed": 0,
+        "unparsed": 0
+      },
+      "missing": []
+    },
+    {
+      "name": "Water Whip",
+      "rank": 1000000000,
+      "level": "FULL",
+      "commander": false,
+      "lines": {
+        "supported": 2,
+        "parsed": 0,
+        "unparsed": 0
+      },
+      "missing": []
+    },
+    {
+      "name": "Waterbender's Restoration",
+      "rank": 1000000000,
+      "level": "FULL",
+      "commander": false,
+      "lines": {
+        "supported": 2,
+        "parsed": 0,
+        "unparsed": 0
+      },
+      "missing": []
+    },
+    {
+      "name": "Katara, Water Tribe's Hope",
+      "rank": 1000000000,
+      "level": "FULL",
+      "commander": true,
+      "lines": {
+        "supported": 3,
+        "parsed": 0,
+        "unparsed": 0
+      },
+      "missing": []
+    }
+  ]
+}

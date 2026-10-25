@@ -94,9 +94,12 @@ def abilities(plan: Plan, ch: Characteristics, trigger: str) -> list[tuple[int, 
 
 
 def _lki_characteristics(plan: Plan, snap: ObjectSnapshot) -> Characteristics:
+    from app.game.state import StickerPlacement101
+
     card = CardInstance(id=snap.card, card_id=snap.printing, name=snap.name, owner=snap.owner, controller=snap.controller,
                         zone=snap.zone, face=snap.face, face_down=snap.face_down, face_down_kind=snap.face_down_kind,
                         face_down_as=snap.face_down_as, is_token=snap.is_token,
+                        stickers101=[StickerPlacement101.model_validate(p) for p in snap.stickers101],
                         token=TokenDef(name=snap.name, text=snap.text, power=snap.token_power, toughness=snap.token_toughness,
                                       colors=snap.token_colors, type_line=snap.token_type_line or "Token Creature", mana_cost=snap.token_mana_cost)
                         if snap.is_token and not snap.printing else None,
@@ -409,6 +412,8 @@ def _snapshot_card(plan: Plan, snap: ObjectSnapshot) -> tuple[CardInstance, Char
 
     CR 603.10a includes battlefield and graveyard departure look-back events.
     """
+    from app.game.state import StickerPlacement101
+
     ch = _lki_characteristics(plan, snap)
     # (-- counters (wave 41A) -- 603.10a, 608.2h: "an attacking creature you control dies" (Death Tyrant, Kardur): it was attacking (and whom) / blocking / tapped as it
     # last existed — a selector that asks reads these of the dead object too)
@@ -417,6 +422,7 @@ def _snapshot_card(plan: Plan, snap: ObjectSnapshot) -> tuple[CardInstance, Char
     card = CardInstance(id=snap.card, card_id=snap.printing, name=snap.name, owner=snap.owner, controller=snap.controller,
                         zone=snap.zone, face=snap.face, face_down=snap.face_down, face_down_kind=snap.face_down_kind,
                         face_down_as=snap.face_down_as, is_token=snap.is_token,
+                        stickers101=[StickerPlacement101.model_validate(p) for p in snap.stickers101],
                         attached_to=snap.attached_to, attached_player=snap.attached_player, tapped=snap.tapped,
                         entry_characteristics=snap.entry_characteristics, attacking=attacking, attacking_without_target=snap.attacking_without_target, attack_defender_lost=snap.attack_defender_lost, blocking=snap.blocking_ids[0] if snap.blocking_ids else None,
                         blocking_more=snap.blocking_ids[1:], blocking_without_attacker=snap.blocking and not snap.blocking_ids,
@@ -504,7 +510,8 @@ def _facts(plan: Plan, e: Event, window: dict[str, Any]) -> list[Fact]:
                 "mana_sources": list(paid.mana_sources) if paid is not None and paid.mana_known else [],
                 "mana_spent": dict(paid.mana_spent) if paid is not None and paid.mana_known else None,
                 "x": int(paid.x or 0) if paid is not None else int(entry.x or 0) if entry is not None else 0,
-                "targets": [(t.id, t.object_id) for t in (entry.targets if entry is not None else [])]}
+                "targets": [(t.id, t.object_id) for t in (entry.targets if entry is not None else
+                    [r.aura_targets[spell.id]] if spell.id in r.aura_targets else [])]}
         # -- unless pays (wave 4C) -- "their first noncreature spell each turn"
         from app.rules import unless_pays
 
@@ -527,7 +534,8 @@ def _facts(plan: Plan, e: Event, window: dict[str, Any]) -> list[Fact]:
         entry = r.stack.get(spell.id)
         return [("copy", spell, plan.ch(spell), e.player, {
             "oid": e.object_id, "actor": e.player,
-            "targets": [(t.id, t.object_id) for t in (entry.targets if entry is not None else [])]})]
+            "targets": [(t.id, t.object_id) for t in (entry.targets if entry is not None else
+                    [r.aura_targets[spell.id]] if spell.id in r.aura_targets else [])]})]
     if e.kind == "drew":
         return [("draw", None, None, e.player, {"amount": 1})]
     if e.kind == "case_solved":
@@ -704,7 +712,7 @@ def _to_zone(plan: Plan, e: Event, frm: str) -> list[Fact]:
     """-- counters (wave 21D) -- a card put into exile or into a library from another zone: the new object there (603.6c: "from
     anywhere" doesn't look back), with the zone and the owner of the zone it came from. (A token never is a card there: 111.7.)"""
     to = _zone(e.to_zone)
-    if to not in ("exile", "library") or frm == to or not e.card or not e.new_object_id:
+    if to not in ("exile", "library", "command") or frm == to or not e.card or not e.new_object_id:
         return []
     got = _card_in(plan, e.card, e.to_zone)
     if got is None or got[0].is_token or plan.oid(got[0]) != e.new_object_id:
@@ -768,6 +776,16 @@ def _cond_matches(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact:
 
     event, obj, och, player, info = fact
     you = watcher.controller
+    if event == "die" and cond.get("damaged_by_exact105"):
+        from app.rules import vampire_returns105
+
+        if not vampire_returns105.damage_match(plan, info.get("oid"), source_oid or plan.oid(watcher)):
+            return False
+    if event == 'die' and cond.get('damaged_by_host104'):
+        from app.rules import damage_death104
+
+        if not damage_death104.matches(plan, watcher, info.get('oid'), info, source_oid):
+            return False
     if event == 'deal_combat_damage_player' and cond.get('combat_recipient') == 'opponent' and info.get('recipient') == you:
         return False
     if cond.get('played_linked_name'):
@@ -1053,6 +1071,11 @@ def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: F
 
         if not activated_copy_effects.matches(cond['activation_cost'], info.get('activation_cost')):
             return False
+    if event == 'activate' and cond.get('only_self103'):
+        ref = info.get('source_ref')
+        entry = plan.rules.stack.get(ref.card) if ref is not None else None
+        if entry is None or not _targets_ok(plan, 'self_only', watcher, [(t.id, t.object_id) for t in entry.targets]):
+            return False
     if event == "activate" and cond.get("nonmana") and info.get("mana_ability"):
         return False
     if event == "activate" and ((cond.get("loyalty") and not info.get("loyalty")) or (
@@ -1107,6 +1130,13 @@ def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: F
     if n and len(_counted_attackers(plan, cond, watcher, info)) < n:
         return False
     if event == "cast":
+        if cond.get('cast_targets102') and not (info.get('targets') or []):
+            return False
+        if cond.get('disjoint_creatures102'):
+            from app.rules import stack_events102
+
+            if obj is None or not stack_events102.disjoint(plan, watcher, obj):
+                return False
         if cond.get("cast_foreign_owned") and (obj is None or obj.owner == info.get("actor")):
             return False
         if cond.get('card_only') and (obj is None or obj.is_token):
@@ -1482,6 +1512,7 @@ def _fire_generic(plan: Plan, facts: list[Fact], batch: int, fired: Fired,
             continue
         whole = d["cond"]
         for fact in facts:
+            fact[4]['batch'] = batch
             # CR 603.6a, 603.10a/c/d: an entrant sees the post-event
             # table, but was absent for look-back events in its entry batch.
             # Conversely, an object leaving in this batch does not see the
@@ -1510,6 +1541,10 @@ def _fire_generic(plan: Plan, facts: list[Fact], batch: int, fired: Fired,
                 continue
             event = _event(plan, fact, batch)
             info = fact[4]
+            if cond.get('damaged_by_host104'):
+                event.other = info.get('damage_host104')
+            if cond.get('cast_targets102'):
+                event.amount = len({(cid, oid) for cid, oid in info.get('targets') or []})
             if cond.get("excess"):  # -- trigger damage (wave 39B) -- 120.10: "that excess damage" / "the excess": the amount of this event is the excess (the batch's total, 603.2c)
                 event.amount = int(info.get("excess") or 0)
             if cond["event"] == "you_attack" and cond.get("min_attackers"):  # -- history (wave 22E; review) -- "those creatures", "that many":
@@ -1928,6 +1963,15 @@ def _cast_triggers(plan: Plan, spell_id: str, caster: str, batch: int = 0) -> No
     # a copy isn't cast, 707.10: no spell_cast event)
     if not plan.manual(spell) and spell.zone == "stack" and spell.controller == caster:
         for i, d in abilities(plan, sch, "cast_self"):
+            if d.get("cast_hand103"):
+                receipt = plan.rules.payments.get(plan.oid(spell))
+                if receipt is None or receipt.cast_from != "hand" or receipt.cast_from_player != caster:
+                    continue
+            if d.get("cast_initial103") is not None:
+                from app.rules import conditions
+
+                if not conditions.holds(plan, {"controller": caster, "source_card": spell.id, "source_object": plan.oid(spell)}, d["cast_initial103"]):
+                    continue
             _add(plan, controller=caster, source_card=spell.id, source_object=plan.oid(spell), name=sch.name, index=i,
                  definition=d, event=cast.model_copy(deep=True))
     from app.rules import mana_units

@@ -1,0 +1,6 @@
+Source: data/rules/comprehensive_rules/2026-09-25/comprehensive_rules.txt
+SHA256: 8d860e451f20f38865b725b42d82feb714c725373dd8f3b32b8652b3eeb070ca  comprehensive_rules.txt
+
+603.10a Some zone-change triggers look back in time. These are leaves-the-battlefield abilities, abilities that trigger when a player sacrifices a permanent, abilities that trigger when a card leaves a graveyard, and abilities that trigger when an object that all players can see is put into a hand or library.
+
+608.2h If an effect requires information from the game (such as the number of creatures on the battlefield), the answer is determined only once, when the effect is applied. If the effect requires information from a specific object, including the source of the ability itself, the effect uses the current information of that object if it’s in the public zone it was expected to be in; if it’s no longer in that zone, or if the effect has moved it from a public zone to a hidden zone, the effect uses the object’s last known information. See rule 113.7a. If an ability states that an object does something, it’s the object as it exists—or as it most recently existed—that does it, not the ability.

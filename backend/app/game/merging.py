@@ -11,7 +11,7 @@ is made for each other card (a token component ceases to exist, 111.7). Nothing 
 from __future__ import annotations
 
 from app.game import ops
-from app.game.state import CardInstance, GameState, MergedPart
+from app.game.state import CardInstance, GameState, MergedPart, StickerPlacement101
 
 
 def part_of(c: CardInstance, part_id: str) -> MergedPart:
@@ -36,6 +36,7 @@ def merge(state: GameState, host: CardInstance, spell: CardInstance, over: bool,
     (it isn't an object entering the battlefield, 730.2b). Counters, damage, status and attachments stay with the permanent (730.2c)."""
     top = [part_of(spell, spell.id)]
     below = host.merged or [part_of(host, host_part_id)]
+    host.stickers101 = sorted([*host.stickers101, *spell.stickers101], key=lambda p: (p.object_seq, p.timestamp))
     host.merged = top + below if over else below + top
     ops.remove_from_zone(state, spell)
     del state.cards[spell.id]
@@ -45,6 +46,7 @@ def merge(state: GameState, host: CardInstance, spell: CardInstance, over: bool,
 def meld(state: GameState, first: CardInstance, second: CardInstance, result_id: str, result_name: str, first_part_id: str) -> None:
     """701.42a: two cards of a meld pair, put onto the battlefield with their back faces up and combined: one permanent represented
     by both (``first`` is its shell, wearing ``result``'s card: the combined back face)."""
+    first.stickers101 = sorted([*first.stickers101, *second.stickers101], key=lambda p: (p.object_seq, p.timestamp))
     first.merged = [part_of(first, first_part_id), part_of(second, second.id)]
     first.melded = True
     ops.remove_from_zone(state, second)
@@ -69,7 +71,7 @@ def break_up(state: GameState, c: CardInstance, dest: str) -> tuple[list[MergedP
 
 
 def place(state: GameState, parts: list[MergedPart], pick: MergedPart, dest: str, rest: str | None, index: int | None,
-          position: str | None) -> None:
+          position: str | None, *, stickers101: list[StickerPlacement101] | None = None, sticker_recipient101: str | None = None) -> None:
     """The other cards of a broken-up pile go where the permanent went (730.3: each component is put into the zone; a token component
     ceases to exist). Only a commander goes to the command zone (903.9c); the others go to ``rest`` (where the pile was headed:
     hand or library) or the graveyard. 730.3a: the owner may arrange them in any order, here the pile's (topmost on top)."""
@@ -81,5 +83,7 @@ def place(state: GameState, parts: list[MergedPart], pick: MergedPart, dest: str
         inst = CardInstance(id=part.id, card_id=part.card_id, name=part.name, owner=part.owner, controller=part.owner, zone="",
                             commander_key=part.commander_key, categories=list(part.categories), origin=part.origin,
                             test_object=part.test_object, copy_of=part.copy_of)
+        if part.id == sticker_recipient101 and zone in ('graveyard', 'exile', 'command', 'battlefield', 'stack'):
+            inst.stickers101 = list(stickers101 or [])
         state.cards[inst.id] = inst
         ops.insert(state, inst, f"{part.owner}:{zone}", index=index, position=position)

@@ -77,6 +77,7 @@ def move(state: GameState, a: A.Move) -> None:
         if c.zone.endswith(":command") and dest == STACK and c.commander_key:
             commander_casts.append(c)
         ops.move_card(state, c, dest, index=index, position=position, x=x, y=y, face_down=a.face_down, rest=a.rest_zone,
+                      sticker_recipient101=(a.sticker_recipients101 or {}).get(c.id),
                       keep_counters=c.id in (a.keep_counters or ()))
         if (a.entry_characteristics and c.id in a.entry_characteristics and c.id in state.cards
                 and c.zone.endswith(":battlefield") and not sources[c.id].endswith(":battlefield") and not c.is_token):

@@ -1,0 +1,82 @@
+--- /dev/null
++++ b/backend/app/rules/cast_target_control107.py
+@@ -0,0 +1,57 @@
++"""Untargeted control of original objects targeted by a spell as it was cast."""
++
++from __future__ import annotations
++
++from typing import Any
++
++LOKI = (
++    "Whenever you cast a spell that targets only a single creature, gain control of that creature until end of turn. "
++    "If it's your turn, untap that creature and it gains haste until end of turn."
++)
++DACK = "Whenever you cast a spell that targets one or more permanents, gain control of those permanents."
++
++
++def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
++    from app.rules import events, scripts
++
++    text = scripts.self_text(ability.text, ch.name)
++    if ability.kind != "triggered" or text not in (LOKI, DACK):
++        return None
++    single = text == LOKI
++    cond = events.parse_condition(
++        "you cast a spell that targets " + ("only a single creature" if single else "one or more permanents")
++    )
++    native = scripts.parse_effects(
++        "Gain control of target creature until end of turn. Untap that creature. It gains haste until end of turn."
++        if single
++        else "Gain control of target permanent."
++    )
++    assert cond is not None and native is not None
++    body = [{**e, "who": "ref:cast107"} for e in native[0]]
++    if single:
++        body.insert(1, {"do": "only_if", "cond": {"turn": "yours"}, "skip": 2})
++    return {
++        "kind": "triggered",
++        "trigger": "event",
++        "cond": cond,
++        "optional": False,
++        "target": None,
++        "effects": [{"do": "bind_cast_targets107"}, *body],
++    }
++
++
++def bind(plan: Any, ctx: dict[str, Any], effect: Any) -> bool:
++    from app.rules import context, token_copy_sources
++
++    # cast_targets is a receipt of the triggering cast, not the spell's targets
++    # after a later redirection. A permanent may gain shroud or change type.
++    ids = []
++    for ref in token_copy_sources.spell_targets(plan, ctx):
++        card = context._same(plan, ref)
++        if card is not None and card.zone.endswith(":battlefield"):
++            ids.append(card.id)
++    context.bind_objects(plan, ctx, "cast107", ids)
++    return True
++
++
++PRIMITIVES = {"bind_cast_targets107": bind}
+--- a/backend/app/rules/scripts.py
++++ b/backend/app/rules/scripts.py
+@@ -5856,6 +5856,10 @@
+
+ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
+     """The engine definition of one ability, or None (manual)."""
++    from app.rules import cast_target_control107
++
++    if (found107 := cast_target_control107.definition(ability, ch)) is not None:
++        return found107
+     from app.rules import multi100m  # -- multi (wave 100M) --
+
+     if (lines100m := multi100m.definition(ability, ch)) is not None:
+--- a/backend/app/rules/effects.py
++++ b/backend/app/rules/effects.py
+@@ -6983,3 +6983,6 @@
+ from app.rules import otherchooser100p as _otherchooser100p  # noqa: E402  -- other choosers (wave 100P) --
+
+ PRIMITIVES.update(_otherchooser100p.PRIMITIVES)
++
++from app.rules import cast_target_control107 as _cast_target_control107  # noqa: E402, I001
++PRIMITIVES.update(_cast_target_control107.PRIMITIVES)

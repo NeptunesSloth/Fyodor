@@ -1,0 +1,248 @@
+[
+  {
+    "id": "88d50518-5cfc-45de-a125-acabf97b8743",
+    "oracle_id": "f97e405d-4c24-4d4d-9e19-e349c073113c",
+    "name": "Hive Mind",
+    "layout": "normal",
+    "set_code": "m10",
+    "set_name": "Magic 2010",
+    "collector_number": "54",
+    "rarity": "rare",
+    "mana_cost": "{5}{U}",
+    "cmc": 6.0,
+    "type_line": "Enchantment",
+    "oracle_text": "Whenever a player casts an instant or sorcery spell, each other player copies that spell. Each of those players may choose new targets for their copy.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2009-07-17",
+    "artist": "Steve Argyle",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "45cba0d0-ca77-47c0-8f77-7beedb6c557b",
+    "oracle_id": "55ad6a6b-1c44-4397-86ae-dd9221892b22",
+    "name": "Ivy, Gleeful Spellthief",
+    "layout": "normal",
+    "set_code": "dmu",
+    "set_name": "Dominaria United",
+    "collector_number": "300",
+    "rarity": "rare",
+    "mana_cost": "{G}{U}",
+    "cmc": 2.0,
+    "type_line": "Legendary Creature \u2014 Faerie Rogue",
+    "oracle_text": "Flying\nWhenever a player casts a spell that targets only a single creature other than Ivy, you may copy that spell. The copy targets Ivy. (A copy of an Aura spell becomes a token.)",
+    "power": "2",
+    "toughness": "1",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G",
+      "U"
+    ],
+    "color_identity": [
+      "G",
+      "U"
+    ],
+    "keywords": [
+      "Flying"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2022-09-09",
+    "artist": "Eshpur",
+    "commander_legal": "legal",
+    "related_tokens": [
+      {
+        "id": "4b976756-e988-4211-95c2-0e3587118488",
+        "name": "Copy",
+        "type_line": "Token"
+      }
+    ],
+    "related_cards": [
+      {
+        "id": "9187f4ea-27f2-4f94-b783-6992087d64a4",
+        "name": "Ivy, Gleeful Spellthief",
+        "component": "combo_piece"
+      }
+    ]
+  },
+  {
+    "id": "e78eda51-255a-4421-9b6f-025a432e9df9",
+    "oracle_id": "4c340b82-22e1-445a-b236-82471b442031",
+    "name": "Frontline Heroism",
+    "layout": "normal",
+    "set_code": "j25",
+    "set_name": "Foundations Jumpstart",
+    "collector_number": "15",
+    "rarity": "rare",
+    "mana_cost": "{2}{R}",
+    "cmc": 3.0,
+    "type_line": "Enchantment",
+    "oracle_text": "When this enchantment enters, create a 1/1 red Soldier creature token with haste.\nWhenever you cast a spell that targets only a single creature you control, create a 1/1 red Soldier creature token with haste, then copy that spell. The copy targets that token.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2024-11-15",
+    "artist": "Fajareka Setiawan",
+    "commander_legal": "legal",
+    "related_tokens": [
+      {
+        "id": "dfb0ae06-9a02-4cd6-bc1d-423662d7a1bd",
+        "name": "Soldier",
+        "type_line": "Token Creature \u2014 Soldier"
+      }
+    ],
+    "related_cards": []
+  },
+  {
+    "id": "76f910f2-a7ed-4535-b554-d672ba49f38c",
+    "oracle_id": "f105960e-6609-4192-afc0-e243013b7cc1",
+    "name": "Volo, Guide to Monsters",
+    "layout": "normal",
+    "set_code": "afr",
+    "set_name": "Adventures in the Forgotten Realms",
+    "collector_number": "347",
+    "rarity": "rare",
+    "mana_cost": "{2}{G}{U}",
+    "cmc": 4.0,
+    "type_line": "Legendary Creature \u2014 Human Wizard",
+    "oracle_text": "Whenever you cast a creature spell that doesn't share a creature type with a creature you control or a creature card in your graveyard, copy that spell. (A copy of a creature spell becomes a token.)",
+    "power": "3",
+    "toughness": "2",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G",
+      "U"
+    ],
+    "color_identity": [
+      "G",
+      "U"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2021-07-23",
+    "artist": "Jeff Dee",
+    "commander_legal": "legal",
+    "related_tokens": [
+      {
+        "id": "4b976756-e988-4211-95c2-0e3587118488",
+        "name": "Copy",
+        "type_line": "Token"
+      }
+    ],
+    "related_cards": []
+  },
+  {
+    "id": "aca45c6b-8cce-44db-9f5b-fa66075db6f6",
+    "oracle_id": "c6a67820-5066-462f-a621-1ecab8bf4f97",
+    "name": "Jaya's Phoenix",
+    "layout": "normal",
+    "set_code": "cmm",
+    "set_name": "Commander Masters",
+    "collector_number": "738",
+    "rarity": "rare",
+    "mana_cost": "{4}{R}",
+    "cmc": 5.0,
+    "type_line": "Creature \u2014 Phoenix",
+    "oracle_text": "Flying, haste\nWhenever this creature deals combat damage to a player or planeswalker, copy the next loyalty ability you activate this turn when you activate it. You may choose new targets for the copy.\nWhenever you cast a planeswalker spell, you may return this card from your graveyard to the battlefield.",
+    "power": "3",
+    "toughness": "3",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [
+      "Flying",
+      "Haste"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2023-08-04",
+    "artist": "Justyna Dura",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "77d2c30b-3130-4d9d-bd3d-484fe6dc306d",
+    "oracle_id": "dcc323d6-ddae-4fd9-9c9e-466b07895d73",
+    "name": "Voracious Bibliophile",
+    "layout": "normal",
+    "set_code": "tdc",
+    "set_name": "Tarkir: Dragonstorm Commander",
+    "collector_number": "23",
+    "rarity": "rare",
+    "mana_cost": "{3}{U}",
+    "cmc": 4.0,
+    "type_line": "Creature \u2014 Dragon",
+    "oracle_text": "Flying, vigilance\nWhenever you cast a spell with one or more targets, draw that many cards.",
+    "power": "3",
+    "toughness": "3",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Flying",
+      "Vigilance"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2025-04-11",
+    "artist": "Camille Alquier",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  }
+]

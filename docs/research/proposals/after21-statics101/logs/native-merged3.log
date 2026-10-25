@@ -1,0 +1,24 @@
+..F                                                                      [100%]
+=================================== FAILURES ===================================
+____ test_actual_sba_merged_sticker_recipient_choice_is_retained_after_cold ____
+
+cards = <app.cards.repository.CardRepository object at 0x7f8d2aaae540>
+tmp_path = PosixPath('/tmp/pytest-of-agent/pytest-323/test_actual_sba_merged_sticker0')
+
+    def test_actual_sba_merged_sticker_recipient_choice_is_retained_after_cold(cards, tmp_path):
+        import subprocess
+        import sys
+
+        s = setup(cards)
+        host = merged(s)
+        cast(s, "Dismember", [host.id])
+        d = s.state.rules.decision
+>       assert d and d.resume["step"] == "sticker_split101" and d.resume["ctx"] is None
+E       AssertionError: assert (Decision(id='19e784d7529c', player='p1', kind='choose_one', prompt='Pay {1}{B/P}{B/P} for Dismember: mana or 2 life fo... None, 'optional_asked': False, 'life_symbols': None}, 'options': [[], ['B'], ['B', 'B']]}, display=None, decider=None) and 'phyrexian' == 'sticker_split101'
+E
+E         - sticker_split101
+E         + phyrexian)
+
+tests/test_rules_stickers101.py:353: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_rules_stickers101.py::test_actual_sba_merged_sticker_recipient_choice_is_retained_after_cold

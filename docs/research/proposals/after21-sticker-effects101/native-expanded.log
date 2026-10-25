@@ -1,0 +1,38 @@
+................................F.FF..                                   [100%]
+=================================== FAILURES ===================================
+____ test_actual_prize_wall_sorcery_activation_and_discrete_sticker_use101 _____
+tests/test_rules_sticker_effects101.py:283: in test_actual_prize_wall_sorcery_activation_and_discrete_sticker_use101
+    selected = place(s, bear.id, kind="name")
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_rules_sticker_effects101.py:142: in place
+    d = question(s)
+        ^^^^^^^^^^^
+tests/test_rules_sticker_effects101.py:113: in question
+    assert s.state.zones.get("stack")
+E   AssertionError: assert []
+E    +  where [] = <built-in method get of dict object at 0x7fbd4e88d840>('stack')
+E    +    where <built-in method get of dict object at 0x7fbd4e88d840> = {'p1:library': ['1f3cd2e1ebc9', 'e73a582bc445', '8bc59129876a', 'f62ea8507f0e', 'f3e57b958d23', 'a6fde1ff1ea7', ...], 'p1:hand': ['7aa032a78199'], 'p1:battlefield': ['123417826697', '04285ab4531a'], 'p1:graveyard': [], ...}.get
+E    +      where {'p1:library': ['1f3cd2e1ebc9', 'e73a582bc445', '8bc59129876a', 'f62ea8507f0e', 'f3e57b958d23', 'a6fde1ff1ea7', ...], 'p1:hand': ['7aa032a78199'], 'p1:battlefield': ['123417826697', '04285ab4531a'], 'p1:graveyard': [], ...} = GameState(format_version=1, id='c52a68ae694d6627', name='Game', format='commander', created_at=1792911894.1104796, seq...ee_cast_faces={}, exile_if_graveyard=[], bottom_if_graveyard=[], cast_enters={}, exile_resolves={}, counter_stamps={})).zones
+E    +        where GameState(format_version=1, id='c52a68ae694d6627', name='Game', format='commander', created_at=1792911894.1104796, seq...ee_cast_faces={}, exile_if_graveyard=[], bottom_if_graveyard=[], cast_enters={}, exile_resolves={}, counter_stamps={})) = <app.game.session.GameSession object at 0x7fbd4e96d160>.state
+_________ test_actual_robo_pinata_death_modal_ticket_or_sticker101[0] __________
+tests/test_rules_sticker_effects101.py:323: in test_actual_robo_pinata_death_modal_ticket_or_sticker101
+    assert d.kind == "choose_modes"
+E   AssertionError: assert 'choose_cards' == 'choose_modes'
+E
+E     - choose_modes
+E     ?        ^^ -
+E     + choose_cards
+E     ?        ^^^
+_________ test_actual_robo_pinata_death_modal_ticket_or_sticker101[1] __________
+tests/test_rules_sticker_effects101.py:323: in test_actual_robo_pinata_death_modal_ticket_or_sticker101
+    assert d.kind == "choose_modes"
+E   AssertionError: assert 'choose_cards' == 'choose_modes'
+E
+E     - choose_modes
+E     ?        ^^ -
+E     + choose_cards
+E     ?        ^^^
+=========================== short test summary info ============================
+FAILED tests/test_rules_sticker_effects101.py::test_actual_prize_wall_sorcery_activation_and_discrete_sticker_use101
+FAILED tests/test_rules_sticker_effects101.py::test_actual_robo_pinata_death_modal_ticket_or_sticker101[0]
+FAILED tests/test_rules_sticker_effects101.py::test_actual_robo_pinata_death_modal_ticket_or_sticker101[1]

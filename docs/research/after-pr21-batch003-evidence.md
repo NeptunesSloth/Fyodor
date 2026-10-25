@@ -1,0 +1,7 @@
+# batch003 verified
+
+Exactly 31 new legal promotions; **30,781 FULL / 1,287 PARTIAL**. Post-PR21 target **57/1000 verified** (943 remain). Inherited PR21 cards excluded; FULL is coverage classification.
+
+Frozen 955-module source: native131 PASS378.44s (one integrated run); related86 PASS159.48s; core54; full mypy and configured Ruff PASS. Metadata/name sets match baseline, no prior FULL regressions or changed definition fingerprints, no unexpected/missing promotions. No whole-suite claim.
+
+Groups: after21-triggers101/stack-events102, after21-library102, after21-costs102, after21-costs103, after21-costs104, after21-combat103, after21-costs105, after21-triggers101/stack-extension103, after21-triggers101/next-copy104. Names: Admiral Beckett Brass; Ancestral Communion; Banish into Fable; Benevolent River Spirit; Bill Potts; Crashing Wave; Divergent Transformations; Flamehold Grappler; Frontline Heroism; Hive Mind; Indomitable Creativity; Ink-Treader Nephilim; Ion Storm; Ivy, Gleeful Spellthief; Jaya's Phoenix; Katara, Seeking Revenge; Katara, Water Tribe's Hope; Precursor Golem; Reality Scramble; Repeated Reverberation; Ruinous Waterbending; Sea Gate Stormcaller; Social Snub; Spirit Water Revival; Synthetic Destiny; Thirsting Axe; Tzaangor Shaman; Volo, Guide to Monsters; Voracious Bibliophile; Water Whip; Waterbender's Restoration. Agent historical fixture failures remain labeled; this root native run passes on the actual integrated source. Further research remains uncounted.

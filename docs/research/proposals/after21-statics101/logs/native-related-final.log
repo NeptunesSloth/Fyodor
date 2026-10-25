@@ -1,0 +1,21 @@
+..............F......................................................... [ 42%]
+........................................................................ [ 85%]
+.........................                                                [100%]
+=================================== FAILURES ===================================
+____ test_actual_sba_merged_sticker_recipient_choice_is_retained_after_cold ____
+
+cards = <app.cards.repository.CardRepository object at 0x7fc3e4b9f110>
+tmp_path = PosixPath('/tmp/pytest-of-agent/pytest-379/test_actual_sba_merged_sticker0')
+
+    def test_actual_sba_merged_sticker_recipient_choice_is_retained_after_cold(cards, tmp_path):
+        import subprocess
+        import sys
+
+        s = setup(cards)
+        host = merged(s)
+>       cast(s, "Dismember", "Karmic Justice", "Song of the Dryads", [host.id])
+E       TypeError: cast() takes from 2 to 3 positional arguments but 5 were given
+
+tests/test_rules_stickers101.py:364: TypeError
+=========================== short test summary info ============================
+FAILED tests/test_rules_stickers101.py::test_actual_sba_merged_sticker_recipient_choice_is_retained_after_cold

@@ -1,0 +1,13 @@
+{
+  "object": "list",
+  "has_more": false,
+  "data": [
+    {
+      "object": "ruling",
+      "oracle_id": "1a240953-26e0-429f-9663-dcfe5bc2c1c7",
+      "source": "wotc",
+      "published_at": "2022-10-07",
+      "comment": "The phrase \"target creatures controlled by different players\" means that no two targets may be controlled by the same player."
+    }
+  ]
+}

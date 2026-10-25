@@ -1,0 +1,39 @@
+--- a/backend/app/rules/costs.py
++++ b/backend/app/rules/costs.py
+@@ -374,6 +374,10 @@
+         card = selectors.Selector(card=True, zones=('hand',), zone_owner='you', supertypes=('Legendary',),
+                                   extras=('samename_among:' + permanent,))
+         return CostComponent(DISCARD, amount=1, selector=card.key(), text=part)
++    if part == "Discard the last card you drew this turn":
++        hand = selectors.Selector(card=True, zones=("hand",), zone_owner="you",
++                                  extras=("last_drawn_this_turn107",)).key()
++        return CostComponent(DISCARD, amount=1, selector=hand, text=part)
+     if m := _DISCARD.match(part):
+         if m["n"] == "another":
+             return None
+--- a/backend/app/rules/selectors.py
++++ b/backend/app/rules/selectors.py
+@@ -2625,6 +2625,8 @@
+             return False
+         if extra in ("block_involved_this_turn", "blocked_by_source_this_turn") and not _block_history(plan, card, extra, source):  # -- wave 31D --
+             return False
++        if extra == "last_drawn_this_turn107" and not last_drawn_now107(plan, card):
++            return False
+         if extra == "drawn_this_turn" and not drawn_now(plan, card):  # -- drawn this turn (wave 18G) --
+             return False
+         if extra in ("was_dealt_damage", "dealt_damage", "dealt_damage_you", "dealt_damage_by_source", "dealt_combat_damage_you"):  # -- damage history (wave 6B) --
+@@ -2732,6 +2734,14 @@
+     if r is None or r.turn_log.turn != plan.state.turn.number or not card.zone.endswith(":hand"):
+         return False
+     return r.object_id(card.id) in r.turn_log.drawn.get(card.owner, ())
++
++
++def last_drawn_now107(plan: Plan, card: CardInstance) -> bool:
++    """The last actual hand object drawn, without falling back to an earlier survivor."""
++    if not drawn_now(plan, card):
++        return False
++    rules = plan.state.rules
++    return rules is not None and rules.turn_log.drawn[card.owner][-1] == rules.object_id(card.id)
+
+
+ def _you_put_counters_now(plan: Plan, card: CardInstance, you: str | None, kind: str) -> bool:

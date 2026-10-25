@@ -1,0 +1,950 @@
+============================= test session starts ==============================
+platform linux -- Python 3.12.14, pytest-9.1.1, pluggy-1.7.0 -- /workspace/Fyodor/backend/.venv/bin/python3
+cachedir: .pytest_cache
+rootdir: /workspace/scratch/combat103/backend
+configfile: pyproject.toml
+plugins: anyio-4.15.1, xdist-3.8.0
+created: 2/2 workers
+2 workers [24 items]
+
+scheduling tests via LoadScheduling
+
+tests/test_rules_combat_history103.py::test_hope_actual_combat_sacrifice_original_source_and_cast_restriction95
+tests/test_rules_combat_history103.py::test_whole_exact_combat_history95[Hope of Ghirapur]
+[gw0] [  4%] PASSED tests/test_rules_combat_history103.py::test_whole_exact_combat_history95[Hope of Ghirapur]
+tests/test_rules_combat_history103.py::test_whole_exact_combat_history95[Admiral Beckett Brass]
+[gw0] [  8%] PASSED tests/test_rules_combat_history103.py::test_whole_exact_combat_history95[Admiral Beckett Brass]
+tests/test_rules_combat_history103.py::test_whole_exact_combat_history95[Thirsting Axe]
+[gw0] [ 12%] PASSED tests/test_rules_combat_history103.py::test_whole_exact_combat_history95[Thirsting Axe]
+tests/test_rules_combat_history103.py::test_beckett_actual_three_original_pirates_permanent_control95
+[gw1] [ 16%] FAILED tests/test_rules_combat_history103.py::test_hope_actual_combat_sacrifice_original_source_and_cast_restriction95
+tests/test_rules_combat_history103.py::test_hope_wrong_damaged_player_rejects_before_sacrifice95
+[gw0] [ 20%] FAILED tests/test_rules_combat_history103.py::test_beckett_actual_three_original_pirates_permanent_control95
+tests/test_rules_combat_history103.py::test_axe_actual_creature_combat_receipt_only_spares_equipped_source95[True]
+[gw1] [ 25%] FAILED tests/test_rules_combat_history103.py::test_hope_wrong_damaged_player_rejects_before_sacrifice95
+tests/test_rules_combat_history103.py::test_axe_known_empty_combat_history_sacrifices_equipped_creature95
+[gw0] [ 29%] FAILED tests/test_rules_combat_history103.py::test_axe_actual_creature_combat_receipt_only_spares_equipped_source95[True]
+tests/test_rules_combat_history103.py::test_axe_actual_creature_combat_receipt_only_spares_equipped_source95[False]
+[gw1] [ 33%] PASSED tests/test_rules_combat_history103.py::test_axe_known_empty_combat_history_sacrifices_equipped_creature95
+tests/test_rules_combat_history103.py::test_axe_combat_before_actual_equip_still_counts95
+[gw0] [ 37%] FAILED tests/test_rules_combat_history103.py::test_axe_actual_creature_combat_receipt_only_spares_equipped_source95[False]
+tests/test_rules_combat_history103.py::test_axe_legacy_positive_actual_combat_receipt_remains_valid95
+[gw0] [ 41%] FAILED tests/test_rules_combat_history103.py::test_axe_legacy_positive_actual_combat_receipt_remains_valid95
+tests/test_rules_combat_history103.py::test_hope_actual_noncombat_longbow_damage_does_not_qualify95
+[gw1] [ 45%] FAILED tests/test_rules_combat_history103.py::test_axe_combat_before_actual_equip_still_counts95
+tests/test_rules_combat_history103.py::test_axe_legacy_unknown_negative_manual_then_next_native_turn_known95
+[gw0] [ 50%] PASSED tests/test_rules_combat_history103.py::test_hope_actual_noncombat_longbow_damage_does_not_qualify95
+tests/test_rules_combat_history103.py::test_hope_actual_prevented_combat_does_not_qualify95
+[gw0] [ 54%] FAILED tests/test_rules_combat_history103.py::test_hope_actual_prevented_combat_does_not_qualify95
+tests/test_rules_combat_history103.py::test_beckett_two_pirates_double_strike_is_only_two_originals95
+[gw1] [ 58%] FAILED tests/test_rules_combat_history103.py::test_axe_legacy_unknown_negative_manual_then_next_native_turn_known95
+tests/test_rules_combat_history103.py::test_hope_actual_spell_response_is_not_countered_by_later_restriction95
+[gw0] [ 62%] FAILED tests/test_rules_combat_history103.py::test_beckett_two_pirates_double_strike_is_only_two_originals95
+tests/test_rules_combat_history103.py::test_beckett_frozen_pirates_count_after_actual_type_loss_and_departure95
+[gw1] [ 66%] FAILED tests/test_rules_combat_history103.py::test_hope_actual_spell_response_is_not_countered_by_later_restriction95
+tests/test_rules_combat_history103.py::test_genuine_cold_hope_original_source_sacrificed_cost95
+[gw1] [ 70%] FAILED tests/test_rules_combat_history103.py::test_genuine_cold_hope_original_source_sacrificed_cost95
+tests/test_rules_combat_history103.py::test_genuine_cold_axe_legacy_manual_history_continuation95
+[gw0] [ 75%] FAILED tests/test_rules_combat_history103.py::test_beckett_frozen_pirates_count_after_actual_type_loss_and_departure95
+tests/test_rules_combat_history103.py::test_genuine_cold_beckett_native_player_history_target_choice95
+[gw1] [ 79%] FAILED tests/test_rules_combat_history103.py::test_genuine_cold_axe_legacy_manual_history_continuation95
+tests/test_rules_combat_history103.py::test_axe_trigger_original_host_blink_excludes_new_incarnation95
+[gw0] [ 83%] FAILED tests/test_rules_combat_history103.py::test_genuine_cold_beckett_native_player_history_target_choice95
+tests/test_rules_combat_history103.py::test_axe_source_left_after_trigger_uses_original_attachment_lki95
+[gw0] [ 87%] FAILED tests/test_rules_combat_history103.py::test_axe_source_left_after_trigger_uses_original_attachment_lki95
+tests/test_rules_combat_history103.py::test_hope_changed_controller_uses_original_damage_and_new_controller_duration95
+[gw1] [ 91%] FAILED tests/test_rules_combat_history103.py::test_axe_trigger_original_host_blink_excludes_new_incarnation95
+tests/test_rules_combat_history103.py::test_hope_until_actual_next_turn_survives_native_meditate_skip95
+[gw0] [ 95%] FAILED tests/test_rules_combat_history103.py::test_hope_changed_controller_uses_original_damage_and_new_controller_duration95
+[gw1] [100%] FAILED tests/test_rules_combat_history103.py::test_hope_until_actual_next_turn_survives_native_meditate_skip95
+
+=================================== FAILURES ===================================
+___ test_hope_actual_combat_sacrifice_original_source_and_cast_restriction95 ___
+[gw1] linux -- Python 3.12.14 /workspace/Fyodor/backend/.venv/bin/python3
+
+cards = <app.cards.repository.CardRepository object at 0x7f8b117bfe60>
+
+    def test_hope_actual_combat_sacrifice_original_source_and_cast_restriction95(cards):
+        from tests.test_rules_wave4h_activation_costs import ability
+
+>       s, hope = hope_damage95(cards)
+                  ^^^^^^^^^^^^^^^^^^^^
+
+tests/test_rules_combat_history103.py:94:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests/test_rules_combat_history103.py:86: in hope_damage95
+    combat95(s, [hope])
+tests/test_rules_combat_history103.py:64: in combat95
+    block(s, "p2", *blockers)
+tests/test_rules_wave30p_combat.py:93: in block
+    act(s, pid, type="declare_blockers", blocks=[{"blocker_id": b.id, "attacker_id": a.id} for b, a in pairs])
+tests/game_helpers.py:42: in act
+    return session.perform(actor, payload)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/game/session.py:61: in perform
+    resolved = resolve(self.state, action, actor=actor, cards=self.cards, trusted=trusted)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/game/resolve.py:76: in resolve
+    a.r = compile_intent(state, a, actor=actor, info=info, rng=rng)  # type: ignore[union-attr]
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/engine.py:164: in compile_intent
+    handler(plan, intent)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+plan = <app.rules.plan.Plan object at 0x7f8b116468a0>
+a = DeclareBlockers(actor='p2', ts=1792911806.4379494, r=None, type='declare_blockers', blocks=[], cost_choices=[], cost_order=[], sources=None)
+
+    def declare_blockers(plan: Plan, a: A.DeclareBlockers) -> None:
+        r = plan.rules
+        d = r.decision
+        if d is None or d.kind != "declare_blockers":
+>           raise ActionError("Blockers are declared at the start of the declare blockers step")
+E           app.game.errors.ActionError: Blockers are declared at the start of the declare blockers step
+
+app/rules/combat.py:815: ActionError
+________ test_beckett_actual_three_original_pirates_permanent_control95 ________
+[gw0] linux -- Python 3.12.14 /workspace/Fyodor/backend/.venv/bin/python3
+
+cards = <app.cards.repository.CardRepository object at 0x7f673aef4dd0>
+
+    def test_beckett_actual_three_original_pirates_permanent_control95(cards):
+        s = setup95(cards)
+        pirates = [
+            put(s, n, "battlefield") for n in ["Storm Fleet Sprinter", "Departed Deckhand", "Sailor of Means"]
+        ]
+        target = put(s, "Sol Ring", "battlefield", pid="p2")
+        start(s)
+>       combat95(s, pirates)
+
+tests/test_rules_combat_history103.py:153:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests/test_rules_combat_history103.py:64: in combat95
+    block(s, "p2", *blockers)
+tests/test_rules_wave30p_combat.py:93: in block
+    act(s, pid, type="declare_blockers", blocks=[{"blocker_id": b.id, "attacker_id": a.id} for b, a in pairs])
+tests/game_helpers.py:42: in act
+    return session.perform(actor, payload)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/game/session.py:61: in perform
+    resolved = resolve(self.state, action, actor=actor, cards=self.cards, trusted=trusted)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/game/resolve.py:76: in resolve
+    a.r = compile_intent(state, a, actor=actor, info=info, rng=rng)  # type: ignore[union-attr]
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/engine.py:164: in compile_intent
+    handler(plan, intent)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+plan = <app.rules.plan.Plan object at 0x7f673aecfaa0>
+a = DeclareBlockers(actor='p2', ts=1792911808.3123386, r=None, type='declare_blockers', blocks=[], cost_choices=[], cost_order=[], sources=None)
+
+    def declare_blockers(plan: Plan, a: A.DeclareBlockers) -> None:
+        r = plan.rules
+        d = r.decision
+        if d is None or d.kind != "declare_blockers":
+>           raise ActionError("Blockers are declared at the start of the declare blockers step")
+E           app.game.errors.ActionError: Blockers are declared at the start of the declare blockers step
+
+app/rules/combat.py:815: ActionError
+__________ test_hope_wrong_damaged_player_rejects_before_sacrifice95 ___________
+[gw1] linux -- Python 3.12.14 /workspace/Fyodor/backend/.venv/bin/python3
+
+cards = <app.cards.repository.CardRepository object at 0x7f8b10a5e4e0>
+
+    def test_hope_wrong_damaged_player_rejects_before_sacrifice95(cards):
+        from tests.test_rules_wave4h_activation_costs import ability
+
+>       s, hope = hope_damage95(cards)
+                  ^^^^^^^^^^^^^^^^^^^^
+
+tests/test_rules_combat_history103.py:121:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests/test_rules_combat_history103.py:86: in hope_damage95
+    combat95(s, [hope])
+tests/test_rules_combat_history103.py:64: in combat95
+    block(s, "p2", *blockers)
+tests/test_rules_wave30p_combat.py:93: in block
+    act(s, pid, type="declare_blockers", blocks=[{"blocker_id": b.id, "attacker_id": a.id} for b, a in pairs])
+tests/game_helpers.py:42: in act
+    return session.perform(actor, payload)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/game/session.py:61: in perform
+    resolved = resolve(self.state, action, actor=actor, cards=self.cards, trusted=trusted)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/game/resolve.py:76: in resolve
+    a.r = compile_intent(state, a, actor=actor, info=info, rng=rng)  # type: ignore[union-attr]
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/engine.py:164: in compile_intent
+    handler(plan, intent)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+plan = <app.rules.plan.Plan object at 0x7f8b10a9dcd0>
+a = DeclareBlockers(actor='p2', ts=1792911812.1649287, r=None, type='declare_blockers', blocks=[], cost_choices=[], cost_order=[], sources=None)
+
+    def declare_blockers(plan: Plan, a: A.DeclareBlockers) -> None:
+        r = plan.rules
+        d = r.decision
+        if d is None or d.kind != "declare_blockers":
+>           raise ActionError("Blockers are declared at the start of the declare blockers step")
+E           app.game.errors.ActionError: Blockers are declared at the start of the declare blockers step
+
+app/rules/combat.py:815: ActionError
+_ test_axe_actual_creature_combat_receipt_only_spares_equipped_source95[True] __
+[gw0] linux -- Python 3.12.14 /workspace/Fyodor/backend/.venv/bin/python3
+
+cards = <app.cards.repository.CardRepository object at 0x7f6739e6fc80>
+blocked = True
+
+    @pytest.mark.parametrize("blocked", [True, False])
+    def test_axe_actual_creature_combat_receipt_only_spares_equipped_source95(cards, blocked):
+        s, axe, bear = axe_pair95(cards)
+        wall = put(s, "Wall of Roots", "battlefield", pid="p2") if blocked else None
+>       combat95(s, [bear], [(wall, bear)] if wall else [])
+
+tests/test_rules_combat_history103.py:176:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests/test_rules_combat_history103.py:62: in combat95
+    attack(s, *[(c, "p2") for c in attackers])
+tests/test_rules_wave30p_combat.py:89: in attack
+    act(s, pid, type="declare_attackers", attackers=[{"card_id": c.id, "target": t} for c, t in pairs])
+tests/game_helpers.py:42: in act
+    return session.perform(actor, payload)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/game/session.py:61: in perform
+    resolved = resolve(self.state, action, actor=actor, cards=self.cards, trusted=trusted)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/game/resolve.py:76: in resolve
+    a.r = compile_intent(state, a, actor=actor, info=info, rng=rng)  # type: ignore[union-attr]
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/engine.py:164: in compile_intent
+    handler(plan, intent)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+plan = <app.rules.plan.Plan object at 0x7f673ab509b0>
+a = DeclareAttackers(actor='p1', ts=1792911814.162508, r=None, type='declare_attackers', attackers=[AttackDeclaration(card_id='d9d0c7b1dd6e', target='p2')], bands=[], cost_choices=[], cost_order=[], sources=None)
+
+    def declare_attackers(plan: Plan, a: A.DeclareAttackers) -> None:
+        r = plan.rules
+        d = r.decision
+        # -- combat (wave 5C) -- the declaration again, once the attack cost's mana is in the pool (508.1h-j, casting._rerun)
+        locked: M.ManaCost | None = None
+        paying = d is None and plan.locked_cost is not None and plan.state.turn.phase == "declare_attackers" \
+            and plan.actor == plan.active and not r.no_attackers and not attackers_on(plan.state)
+        if paying:
+            locked = M.parse_cost(plan.locked_cost or "{0}")
+            plan.locked_cost = None
+            eligible = {cid for cid in plan.state.zones.get(zone_key(plan.active, "battlefield"), [])
+                        if attack_problem(plan.state, plan.state.cards[cid], plan.ch(plan.state.cards[cid])) is None}
+            targets = set(attack_targets(plan.state, plan.active, plan.info))
+        else:
+            if d is None or d.kind != "declare_attackers":
+>               raise ActionError("Attackers are declared at the start of the declare attackers step")
+E               app.game.errors.ActionError: Attackers are declared at the start of the declare attackers step
+
+app/rules/combat.py:374: ActionError
+_ test_axe_actual_creature_combat_receipt_only_spares_equipped_source95[False] _
+[gw0] linux -- Python 3.12.14 /workspace/Fyodor/backend/.venv/bin/python3
+
+cards = <app.cards.repository.CardRepository object at 0x7f673af55af0>
+blocked = False
+
+    @pytest.mark.parametrize("blocked", [True, False])
+    def test_axe_actual_creature_combat_receipt_only_spares_equipped_source95(cards, blocked):
+        s, axe, bear = axe_pair95(cards)
+        wall = put(s, "Wall of Roots", "battlefield", pid="p2") if blocked else None
+>       combat95(s, [bear], [(wall, bear)] if wall else [])
+
+tests/test_rules_combat_history103.py:176:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests/test_rules_combat_history103.py:62: in combat95
+    attack(s, *[(c, "p2") for c in attackers])
+tests/test_rules_wave30p_combat.py:89: in attack
+    act(s, pid, type="declare_attackers", attackers=[{"card_id": c.id, "target": t} for c, t in pairs])
+tests/game_helpers.py:42: in act
+    return session.perform(actor, payload)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/game/session.py:61: in perform
+    resolved = resolve(self.state, action, actor=actor, cards=self.cards, trusted=trusted)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/game/resolve.py:76: in resolve
+    a.r = compile_intent(state, a, actor=actor, info=info, rng=rng)  # type: ignore[union-attr]
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/engine.py:164: in compile_intent
+    handler(plan, intent)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+plan = <app.rules.plan.Plan object at 0x7f673aedc590>
+a = DeclareAttackers(actor='p1', ts=1792911820.3438292, r=None, type='declare_attackers', attackers=[AttackDeclaration(card_id='5ea599e6bd6f', target='p2')], bands=[], cost_choices=[], cost_order=[], sources=None)
+
+    def declare_attackers(plan: Plan, a: A.DeclareAttackers) -> None:
+        r = plan.rules
+        d = r.decision
+        # -- combat (wave 5C) -- the declaration again, once the attack cost's mana is in the pool (508.1h-j, casting._rerun)
+        locked: M.ManaCost | None = None
+        paying = d is None and plan.locked_cost is not None and plan.state.turn.phase == "declare_attackers" \
+            and plan.actor == plan.active and not r.no_attackers and not attackers_on(plan.state)
+        if paying:
+            locked = M.parse_cost(plan.locked_cost or "{0}")
+            plan.locked_cost = None
+            eligible = {cid for cid in plan.state.zones.get(zone_key(plan.active, "battlefield"), [])
+                        if attack_problem(plan.state, plan.state.cards[cid], plan.ch(plan.state.cards[cid])) is None}
+            targets = set(attack_targets(plan.state, plan.active, plan.info))
+        else:
+            if d is None or d.kind != "declare_attackers":
+>               raise ActionError("Attackers are declared at the start of the declare attackers step")
+E               app.game.errors.ActionError: Attackers are declared at the start of the declare attackers step
+
+app/rules/combat.py:374: ActionError
+________ test_axe_legacy_positive_actual_combat_receipt_remains_valid95 ________
+[gw0] linux -- Python 3.12.14 /workspace/Fyodor/backend/.venv/bin/python3
+
+cards = <app.cards.repository.CardRepository object at 0x7f673b37a210>
+
+    def test_axe_legacy_positive_actual_combat_receipt_remains_valid95(cards):
+        s, axe, bear = axe_pair95(cards)
+        wall = put(s, "Wall of Roots", "battlefield", pid="p2")
+>       combat95(s, [bear], [(wall, bear)])
+
+tests/test_rules_combat_history103.py:233:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests/test_rules_combat_history103.py:62: in combat95
+    attack(s, *[(c, "p2") for c in attackers])
+tests/test_rules_wave30p_combat.py:89: in attack
+    act(s, pid, type="declare_attackers", attackers=[{"card_id": c.id, "target": t} for c, t in pairs])
+tests/game_helpers.py:42: in act
+    return session.perform(actor, payload)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/game/session.py:61: in perform
+    resolved = resolve(self.state, action, actor=actor, cards=self.cards, trusted=trusted)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/game/resolve.py:76: in resolve
+    a.r = compile_intent(state, a, actor=actor, info=info, rng=rng)  # type: ignore[union-attr]
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/engine.py:164: in compile_intent
+    handler(plan, intent)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+plan = <app.rules.plan.Plan object at 0x7f673a090b00>
+a = DeclareAttackers(actor='p1', ts=1792911827.6066287, r=None, type='declare_attackers', attackers=[AttackDeclaration(card_id='3760a0977824', target='p2')], bands=[], cost_choices=[], cost_order=[], sources=None)
+
+    def declare_attackers(plan: Plan, a: A.DeclareAttackers) -> None:
+        r = plan.rules
+        d = r.decision
+        # -- combat (wave 5C) -- the declaration again, once the attack cost's mana is in the pool (508.1h-j, casting._rerun)
+        locked: M.ManaCost | None = None
+        paying = d is None and plan.locked_cost is not None and plan.state.turn.phase == "declare_attackers" \
+            and plan.actor == plan.active and not r.no_attackers and not attackers_on(plan.state)
+        if paying:
+            locked = M.parse_cost(plan.locked_cost or "{0}")
+            plan.locked_cost = None
+            eligible = {cid for cid in plan.state.zones.get(zone_key(plan.active, "battlefield"), [])
+                        if attack_problem(plan.state, plan.state.cards[cid], plan.ch(plan.state.cards[cid])) is None}
+            targets = set(attack_targets(plan.state, plan.active, plan.info))
+        else:
+            if d is None or d.kind != "declare_attackers":
+>               raise ActionError("Attackers are declared at the start of the declare attackers step")
+E               app.game.errors.ActionError: Attackers are declared at the start of the declare attackers step
+
+app/rules/combat.py:374: ActionError
+______________ test_axe_combat_before_actual_equip_still_counts95 ______________
+[gw1] linux -- Python 3.12.14 /workspace/Fyodor/backend/.venv/bin/python3
+
+cards = <app.cards.repository.CardRepository object at 0x7f8b114d4080>
+
+    def test_axe_combat_before_actual_equip_still_counts95(cards):
+        from tests.test_rules_wave4h_activation_costs import ability
+
+        s = setup95(cards)
+        axe = put(s, NAMES[2], "battlefield")
+        bear = put(s, "Grizzly Bears", "battlefield")
+        wall = put(s, "Wall of Roots", "battlefield", pid="p2")
+        start(s)
+        combat95(s, [bear], [(wall, bear)])
+        mana(s, C=2)
+>       act(s, "p1", type="activate_ability", card_id=axe.id, ability=ability(s, axe, "Equip"), targets=[bear.id])
+
+tests/test_rules_combat_history103.py:195:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests/game_helpers.py:42: in act
+    return session.perform(actor, payload)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/game/session.py:61: in perform
+    resolved = resolve(self.state, action, actor=actor, cards=self.cards, trusted=trusted)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/game/resolve.py:76: in resolve
+    a.r = compile_intent(state, a, actor=actor, info=info, rng=rng)  # type: ignore[union-attr]
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/engine.py:164: in compile_intent
+    handler(plan, intent)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+plan = <app.rules.plan.Plan object at 0x7f8b10a3ec90>
+a = ActivateAbility(actor='p1', ts=1792911833.9258106, r=None, type='activate_ability', card_id='c65517741b4e', ability=0,..._choice=None, sources=None, convoke=False, improvise=False, delve=False, crew=None, cost_choices=[], life_symbols=None)
+
+    def activate_ability(plan: Plan, a: A.ActivateAbility) -> None:
+        if paying_now(plan):  # tapping mana while paying: only mana abilities
+            _mana_while_paying(plan, a)
+            return
+        if a.convoke or a.improvise or a.delve:  # only while paying for a spell with that keyword
+            kind = "convoke" if a.convoke else "improvise" if a.improvise else "delve"
+            raise ActionError(f"{kind.capitalize()} can only pay for the spell you're casting, while you pay for it")
+        require_no_decision(plan)
+        require_priority(plan)
+        card = plan.state.cards.get(a.card_id)
+        if card is None:
+            raise ActionError("That card isn't here any more")
+        if card.zone == zone_key(plan.actor, "hand"):
+            ch = plan.ch(card)
+            ability = next((ab for ab in ch.abilities if ab.index == a.ability), None)
+            if suspend_info(ch, a.ability) is None:  # -- cast limits (wave 5E) -- (suspend is a special action, 116.2f)
+                _activation_limit(plan, card, ch)
+            if ability is not None and ability.kind == "activated" and ability_cost(ch, ability).from_hand:
+                activate_to_stack(plan, card, ch, ability, a)  # -- ability words (wave 4F) -- channel (113.6m)
+                return
+            if ability is not None and ability.kind == "mana":  # -- mana riders (wave 5A) -- Simian Spirit Guide (605.3a)
+                from app.rules import mana_riders
+
+                mana_riders.activate_from_hand(plan, card, ch, ability)
+                plan.rules.passed = []
+                return
+            found = suspend_info(ch, a.ability)
+            if found is not None:
+                suspend(plan, card, ch, a, *found)
+            elif (plot_cost := keyword_cost(ch, "plot", PLOT, a.ability)) is not None and not plan.manual(card):
+                plot(plan, card, ch, a, plot_cost)
+            elif (keyword_cost(ch, "foretell", FORETELL, a.ability) is not None or (ability is not None and ability.granted_mana_cost is not None and ability.granted_mana_cost.keyword == "foretell")) and not plan.manual(card):
+                foretell(plan, card, ch, a)
+            elif (ninja := ninjutsu.cost_of(ch, a.ability)) is not None and not plan.manual(card):
+                on_stack = len(plan.state.zones.get(STACK, []))
+                activate_to_stack(plan, card, ch, ninjutsu.ability(ch, a.ability, ninja), a, definition=ninjutsu.DEFINITION, keep_revealed=True)
+                if len(plan.state.zones.get(STACK, [])) > on_stack and card.zone == zone_key(plan.actor, "hand") \
+                        and ALL not in card.revealed_to:  # -- keywords
+                    # (wave 15E) -- 702.49b: revealed until the ability leaves the stack (ninjutsu.enter hides it again)
+                    plan.do({"type": "reveal", "card_ids": [card.id]}, actor=plan.actor)
+            else:
+                cycle(plan, card, ch, a)
+            return
+        if card.zone == zone_key(plan.actor, "graveyard") and card.owner == plan.actor:
+            ch = plan.ch(card)
+            from app.rules import unearth_costs
+
+            unearth_cost = unearth_costs.of(ch, a.ability)
+            ability = next((ab for ab in ch.abilities if ab.index == a.ability), None)
+            if unearth_cost is None and ability is not None and ability.kind == 'mana':
+                parsed_gy = M.parse_mana_ability(ability.text, commander_identity(plan.state, plan.actor, plan.info), card_name=ch.name)
+                if parsed_gy is not None and parsed_gy.from_graveyard:
+                    _activation_limit(plan, card, ch, mana=True)
+                    problem = ability_problem(plan.state, plan.actor, card, ch, ability,
+                                              parse_ability_cost(parsed_gy.extra_cost, card_name=ch.name), plan=plan)
+                    if problem:
+                        raise ActionError(problem)
+                    _activate_choosing(plan, card, ch, parsed_gy, a)
+                    return
+            if unearth_cost is None and ability is not None and ability.kind == "activated" and \
+                    ability_cost(ch, ability).from_graveyard:  # 113.6m: "Exile this card from your graveyard: …"
+                _activation_limit(plan, card, ch)  # -- cast limits (wave 5E) --
+                activate_to_stack(plan, card, ch, ability, a)
+                return
+            if unearth_cost is None and (gk := graveyard_keywords.ability(ch, a.ability)) is not None and not plan.manual(card):
+                _activation_limit(plan, card, ch)  # -- keywords (wave 15E) -- embalm / eternalize: activated from the graveyard
+                activate_to_stack(plan, card, ch, gk, a, definition=scripts.define(gk, ch))
+                return
+            if unearth_cost is None:
+                raise ActionError("That card has no ability to use from your graveyard")
+            _activation_limit(plan, card, ch)  # -- cast limits (wave 5E) --
+            unearth(plan, card, ch, a, unearth_cost)
+            return
+        if card.zone == zone_key(plan.actor, "exile") and card.owner == plan.actor:  # -- activated other (wave 42C) -- 113.6m: "… from your graveyard or from exile"
+            ch = plan.ch(card)
+            ability = next((ab for ab in ch.abilities if ab.index == a.ability), None)
+            if ability is not None and ability.kind == "activated" and ability_cost(ch, ability).exile_too:
+                _activation_limit(plan, card, ch)
+                activate_to_stack(plan, card, ch, ability, a)
+                return
+            raise ActionError("That card has no ability to use from exile")
+        if card.zone == zone_key(plan.actor, "companion") and card.owner == plan.actor:  # -- companion (wave 38D) -- 116.2g
+            companion_action(plan, card, plan.ch(card), a)
+            return
+        if card.zone == zone_key(plan.actor, "command") and card.owner == plan.actor:  # -- activated from hand / command zone (wave 27D)
+            ch = plan.ch(card)
+            ability = next((ab for ab in ch.abilities if ab.index == a.ability), None)
+            if ability is not None and ability.kind == "activated" and ability_cost(ch, ability).command_only:  # 113.6m
+                _activation_limit(plan, card, ch)
+                activate_to_stack(plan, card, ch, ability, a)
+                return
+            if (ninja := ninjutsu.cost_of(ch, a.ability, command=True)) is not None and not plan.manual(card):  # -- commander ninjutsu (wave 50J) -- 702.49d
+                activate_to_stack(plan, card, ch, ninjutsu.ability(ch, a.ability, ninja), a, definition=ninjutsu.DEFINITION)
+                return
+            raise ActionError("That card has no ability to use from the command zone")
+        ch = plan.ch(card)
+        # -- activation wordings (wave 7B) -- 602.2: "Any player may activate this ability."
+        ab = next((x for x in ch.abilities if x.index == a.ability), None)
+        if not card.zone.endswith(":battlefield") or not (
+                actor_allowed(ab, ability_cost(ch, ab, state=plan.state, card=card, info=plan.info), card.controller, plan.actor, owner=card.owner)
+                if ab is not None else card.controller == plan.actor):
+            if ab is not None and opponents_only(ab) and card.controller == plan.actor:
+                raise ActionError("Only your opponents may activate this ability")
+            raise ActionError("You can only activate abilities of permanents you control")
+        if "cant_activate" in ch.imposed:  # an Aura: "its activated abilities can't be activated" (crew, equip too)
+            raise ActionError(f"{ch.name}’s activated abilities can't be activated")
+        ability = _find_ability(ch, a.ability)
+        if "cant_activate_nonmana" in ch.imposed and ability.kind != "mana":  # -- attached events (wave 16F) -- Faith's Fetters (605.1a)
+            raise ActionError(f"{ch.name}’s activated abilities can't be activated unless they're mana abilities")
+        if "cant_activate_tap" in ch.imposed and ab is not None and ability_cost(ch, ab, state=plan.state, card=card, info=plan.info).tap:  # -- attached (wave 100F) --
+            raise ActionError(f"{ch.name}’s activated abilities with {{T}} in their costs can't be activated")
+        _activation_limit(plan, card, ch, mana=ability.kind == "mana", loyalty=ability.kind == "loyalty")  # -- cast limits (wave 5E) --
+        n = crew_power(ch, a.ability) if not plan.manual(card) else None
+        if n is not None:
+            crew(plan, card, ch, a, n)
+            return
+        from app.rules import crew_saddle  # -- crew & saddle (wave 23D) --
+
+        n = crew_saddle.saddle_power(ch, a.ability) if not plan.manual(card) else None
+        if n is not None:
+            crew(plan, card, ch, a, n, "saddle")
+            return
+        equip = attachments.equip_cost(ch, a.ability) if not plan.manual(card) else None
+        if equip is not None:
+            equip_ability(plan, card, ch, a, equip)
+            return
+        if ability.kind in ("activated", "loyalty"):
+            activate_to_stack(plan, card, ch, ability, a)
+            return
+        if ability.kind != "mana":
+>           raise ActionError(f"“{ability.text}” isn't an ability you activate")
+E           app.game.errors.ActionError: “Equipped creature gets +4/+0.” isn't an ability you activate
+
+app/rules/casting.py:5471: ActionError
+_____________ test_hope_actual_prevented_combat_does_not_qualify95 _____________
+[gw0] linux -- Python 3.12.14 /workspace/Fyodor/backend/.venv/bin/python3
+
+cards = <app.cards.repository.CardRepository object at 0x7f673a236c00>
+
+    def test_hope_actual_prevented_combat_does_not_qualify95(cards):
+        from tests.test_rules_wave4h_activation_costs import ability
+
+        s = setup95(cards)
+        hope = put(s, NAMES[0], "battlefield")
+        start(s)
+        to_phase(s, "declare_attackers", turn=4)
+        attack(s, (hope, "p2"))
+        to_phase(s, "declare_blockers", turn=4)
+>       block(s, "p2")
+
+tests/test_rules_combat_history103.py:273:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests/test_rules_wave30p_combat.py:93: in block
+    act(s, pid, type="declare_blockers", blocks=[{"blocker_id": b.id, "attacker_id": a.id} for b, a in pairs])
+tests/game_helpers.py:42: in act
+    return session.perform(actor, payload)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/game/session.py:61: in perform
+    resolved = resolve(self.state, action, actor=actor, cards=self.cards, trusted=trusted)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/game/resolve.py:76: in resolve
+    a.r = compile_intent(state, a, actor=actor, info=info, rng=rng)  # type: ignore[union-attr]
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/engine.py:164: in compile_intent
+    handler(plan, intent)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+plan = <app.rules.plan.Plan object at 0x7f673b262ae0>
+a = DeclareBlockers(actor='p2', ts=1792911843.1215074, r=None, type='declare_blockers', blocks=[], cost_choices=[], cost_order=[], sources=None)
+
+    def declare_blockers(plan: Plan, a: A.DeclareBlockers) -> None:
+        r = plan.rules
+        d = r.decision
+        if d is None or d.kind != "declare_blockers":
+>           raise ActionError("Blockers are declared at the start of the declare blockers step")
+E           app.game.errors.ActionError: Blockers are declared at the start of the declare blockers step
+
+app/rules/combat.py:815: ActionError
+____ test_axe_legacy_unknown_negative_manual_then_next_native_turn_known95 _____
+[gw1] linux -- Python 3.12.14 /workspace/Fyodor/backend/.venv/bin/python3
+
+cards = <app.cards.repository.CardRepository object at 0x7f8b10ffe4b0>
+
+    def test_axe_legacy_unknown_negative_manual_then_next_native_turn_known95(cards):
+        s, axe, bear = axe_pair95(cards)
+        forget_combat_provenance95(s)
+        to_phase(s, "end", turn=4)
+        settle(s)
+        d = s.state.rules.decision
+>       assert d and d.kind == "manual_resolution" and d.resume["step"] == "combat_damage95_legacy"
+E       assert (None)
+
+tests/test_rules_combat_history103.py:218: AssertionError
+________ test_beckett_two_pirates_double_strike_is_only_two_originals95 ________
+[gw0] linux -- Python 3.12.14 /workspace/Fyodor/backend/.venv/bin/python3
+
+cards = <app.cards.repository.CardRepository object at 0x7f673a066ba0>
+
+    def test_beckett_two_pirates_double_strike_is_only_two_originals95(cards):
+        s = setup95(cards)
+        pirates = [put(s, n, "battlefield") for n in ["Storm Fleet Sprinter", "Departed Deckhand"]]
+        target = put(s, "Sol Ring", "battlefield", pid="p2")
+        start(s)
+        to_phase(s, "declare_attackers", turn=4)
+        attack(s, *[(c, "p2") for c in pirates])
+        to_phase(s, "declare_blockers", turn=4)
+>       block(s, "p2")
+
+tests/test_rules_combat_history103.py:316:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests/test_rules_wave30p_combat.py:93: in block
+    act(s, pid, type="declare_blockers", blocks=[{"blocker_id": b.id, "attacker_id": a.id} for b, a in pairs])
+tests/game_helpers.py:42: in act
+    return session.perform(actor, payload)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/game/session.py:61: in perform
+    resolved = resolve(self.state, action, actor=actor, cards=self.cards, trusted=trusted)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/game/resolve.py:76: in resolve
+    a.r = compile_intent(state, a, actor=actor, info=info, rng=rng)  # type: ignore[union-attr]
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/engine.py:164: in compile_intent
+    handler(plan, intent)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+plan = <app.rules.plan.Plan object at 0x7f67399bb320>
+a = DeclareBlockers(actor='p2', ts=1792911851.9417548, r=None, type='declare_blockers', blocks=[], cost_choices=[], cost_order=[], sources=None)
+
+    def declare_blockers(plan: Plan, a: A.DeclareBlockers) -> None:
+        r = plan.rules
+        d = r.decision
+        if d is None or d.kind != "declare_blockers":
+>           raise ActionError("Blockers are declared at the start of the declare blockers step")
+E           app.game.errors.ActionError: Blockers are declared at the start of the declare blockers step
+
+app/rules/combat.py:815: ActionError
+___ test_hope_actual_spell_response_is_not_countered_by_later_restriction95 ____
+[gw1] linux -- Python 3.12.14 /workspace/Fyodor/backend/.venv/bin/python3
+
+cards = <app.cards.repository.CardRepository object at 0x7f8b101bb140>
+
+    def test_hope_actual_spell_response_is_not_countered_by_later_restriction95(cards):
+        from tests.test_rules_wave4h_activation_costs import ability
+
+>       s, hope = hope_damage95(cards)
+                  ^^^^^^^^^^^^^^^^^^^^
+
+tests/test_rules_combat_history103.py:293:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests/test_rules_combat_history103.py:86: in hope_damage95
+    combat95(s, [hope])
+tests/test_rules_combat_history103.py:64: in combat95
+    block(s, "p2", *blockers)
+tests/test_rules_wave30p_combat.py:93: in block
+    act(s, pid, type="declare_blockers", blocks=[{"blocker_id": b.id, "attacker_id": a.id} for b, a in pairs])
+tests/game_helpers.py:42: in act
+    return session.perform(actor, payload)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/game/session.py:61: in perform
+    resolved = resolve(self.state, action, actor=actor, cards=self.cards, trusted=trusted)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/game/resolve.py:76: in resolve
+    a.r = compile_intent(state, a, actor=actor, info=info, rng=rng)  # type: ignore[union-attr]
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/engine.py:164: in compile_intent
+    handler(plan, intent)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+plan = <app.rules.plan.Plan object at 0x7f8b11668e60>
+a = DeclareBlockers(actor='p2', ts=1792911855.9439821, r=None, type='declare_blockers', blocks=[], cost_choices=[], cost_order=[], sources=None)
+
+    def declare_blockers(plan: Plan, a: A.DeclareBlockers) -> None:
+        r = plan.rules
+        d = r.decision
+        if d is None or d.kind != "declare_blockers":
+>           raise ActionError("Blockers are declared at the start of the declare blockers step")
+E           app.game.errors.ActionError: Blockers are declared at the start of the declare blockers step
+
+app/rules/combat.py:815: ActionError
+___________ test_genuine_cold_hope_original_source_sacrificed_cost95 ___________
+[gw1] linux -- Python 3.12.14 /workspace/Fyodor/backend/.venv/bin/python3
+
+cards = <app.cards.repository.CardRepository object at 0x7f8b10a3ec60>
+tmp_path = PosixPath('/tmp/pytest-of-agent/pytest-347/popen-gw1/test_genuine_cold_hope_origina0')
+
+    def test_genuine_cold_hope_original_source_sacrificed_cost95(cards, tmp_path):
+        from tests.test_rules_wave4h_activation_costs import ability
+
+>       s, hope = hope_damage95(cards)
+                  ^^^^^^^^^^^^^^^^^^^^
+
+tests/test_rules_combat_history103.py:386:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests/test_rules_combat_history103.py:86: in hope_damage95
+    combat95(s, [hope])
+tests/test_rules_combat_history103.py:64: in combat95
+    block(s, "p2", *blockers)
+tests/test_rules_wave30p_combat.py:93: in block
+    act(s, pid, type="declare_blockers", blocks=[{"blocker_id": b.id, "attacker_id": a.id} for b, a in pairs])
+tests/game_helpers.py:42: in act
+    return session.perform(actor, payload)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/game/session.py:61: in perform
+    resolved = resolve(self.state, action, actor=actor, cards=self.cards, trusted=trusted)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/game/resolve.py:76: in resolve
+    a.r = compile_intent(state, a, actor=actor, info=info, rng=rng)  # type: ignore[union-attr]
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/engine.py:164: in compile_intent
+    handler(plan, intent)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+plan = <app.rules.plan.Plan object at 0x7f8b11ae1e50>
+a = DeclareBlockers(actor='p2', ts=1792911870.7453792, r=None, type='declare_blockers', blocks=[], cost_choices=[], cost_order=[], sources=None)
+
+    def declare_blockers(plan: Plan, a: A.DeclareBlockers) -> None:
+        r = plan.rules
+        d = r.decision
+        if d is None or d.kind != "declare_blockers":
+>           raise ActionError("Blockers are declared at the start of the declare blockers step")
+E           app.game.errors.ActionError: Blockers are declared at the start of the declare blockers step
+
+app/rules/combat.py:815: ActionError
+___ test_beckett_frozen_pirates_count_after_actual_type_loss_and_departure95 ___
+[gw0] linux -- Python 3.12.14 /workspace/Fyodor/backend/.venv/bin/python3
+
+cards = <app.cards.repository.CardRepository object at 0x7f673ab18b30>
+
+    def test_beckett_frozen_pirates_count_after_actual_type_loss_and_departure95(cards):
+        s = setup95(cards)
+        pirates = [
+            put(s, n, "battlefield") for n in ["Storm Fleet Sprinter", "Departed Deckhand", "Sailor of Means"]
+        ]
+        target = put(s, "Sol Ring", "battlefield", pid="p2")
+        start(s)
+>       combat95(s, pirates)
+
+tests/test_rules_combat_history103.py:336:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests/test_rules_combat_history103.py:64: in combat95
+    block(s, "p2", *blockers)
+tests/test_rules_wave30p_combat.py:93: in block
+    act(s, pid, type="declare_blockers", blocks=[{"blocker_id": b.id, "attacker_id": a.id} for b, a in pairs])
+tests/game_helpers.py:42: in act
+    return session.perform(actor, payload)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/game/session.py:61: in perform
+    resolved = resolve(self.state, action, actor=actor, cards=self.cards, trusted=trusted)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/game/resolve.py:76: in resolve
+    a.r = compile_intent(state, a, actor=actor, info=info, rng=rng)  # type: ignore[union-attr]
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/engine.py:164: in compile_intent
+    handler(plan, intent)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+plan = <app.rules.plan.Plan object at 0x7f673ab18d10>
+a = DeclareBlockers(actor='p2', ts=1792911870.9194868, r=None, type='declare_blockers', blocks=[], cost_choices=[], cost_order=[], sources=None)
+
+    def declare_blockers(plan: Plan, a: A.DeclareBlockers) -> None:
+        r = plan.rules
+        d = r.decision
+        if d is None or d.kind != "declare_blockers":
+>           raise ActionError("Blockers are declared at the start of the declare blockers step")
+E           app.game.errors.ActionError: Blockers are declared at the start of the declare blockers step
+
+app/rules/combat.py:815: ActionError
+__________ test_genuine_cold_axe_legacy_manual_history_continuation95 __________
+[gw1] linux -- Python 3.12.14 /workspace/Fyodor/backend/.venv/bin/python3
+
+cards = <app.cards.repository.CardRepository object at 0x7f8b11bc3e00>
+tmp_path = PosixPath('/tmp/pytest-of-agent/pytest-347/popen-gw1/test_genuine_cold_axe_legacy_m0')
+
+    def test_genuine_cold_axe_legacy_manual_history_continuation95(cards, tmp_path):
+        s, axe, bear = axe_pair95(cards)
+        forget_combat_provenance95(s)
+        to_phase(s, "end", turn=4)
+        settle(s)
+>       assert s.state.rules.decision.resume["step"] == "combat_damage95_legacy"
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: 'NoneType' object has no attribute 'resume'
+
+tests/test_rules_combat_history103.py:423: AttributeError
+_______ test_genuine_cold_beckett_native_player_history_target_choice95 ________
+[gw0] linux -- Python 3.12.14 /workspace/Fyodor/backend/.venv/bin/python3
+
+cards = <app.cards.repository.CardRepository object at 0x7f673b260740>
+tmp_path = PosixPath('/tmp/pytest-of-agent/pytest-347/popen-gw0/test_genuine_cold_beckett_nati0')
+
+    def test_genuine_cold_beckett_native_player_history_target_choice95(cards, tmp_path):
+        s = setup95(cards)
+        pirates = [
+            put(s, n, "battlefield") for n in ["Storm Fleet Sprinter", "Departed Deckhand", "Sailor of Means"]
+        ]
+        target = put(s, "Sol Ring", "battlefield", pid="p2")
+        start(s)
+>       combat95(s, pirates)
+
+tests/test_rules_combat_history103.py:406:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests/test_rules_combat_history103.py:64: in combat95
+    block(s, "p2", *blockers)
+tests/test_rules_wave30p_combat.py:93: in block
+    act(s, pid, type="declare_blockers", blocks=[{"blocker_id": b.id, "attacker_id": a.id} for b, a in pairs])
+tests/game_helpers.py:42: in act
+    return session.perform(actor, payload)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/game/session.py:61: in perform
+    resolved = resolve(self.state, action, actor=actor, cards=self.cards, trusted=trusted)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/game/resolve.py:76: in resolve
+    a.r = compile_intent(state, a, actor=actor, info=info, rng=rng)  # type: ignore[union-attr]
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/engine.py:164: in compile_intent
+    handler(plan, intent)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+plan = <app.rules.plan.Plan object at 0x7f673a279b20>
+a = DeclareBlockers(actor='p2', ts=1792911890.803199, r=None, type='declare_blockers', blocks=[], cost_choices=[], cost_order=[], sources=None)
+
+    def declare_blockers(plan: Plan, a: A.DeclareBlockers) -> None:
+        r = plan.rules
+        d = r.decision
+        if d is None or d.kind != "declare_blockers":
+>           raise ActionError("Blockers are declared at the start of the declare blockers step")
+E           app.game.errors.ActionError: Blockers are declared at the start of the declare blockers step
+
+app/rules/combat.py:815: ActionError
+______ test_axe_source_left_after_trigger_uses_original_attachment_lki95 _______
+[gw0] linux -- Python 3.12.14 /workspace/Fyodor/backend/.venv/bin/python3
+
+cards = <app.cards.repository.CardRepository object at 0x7f67399a2780>
+
+    def test_axe_source_left_after_trigger_uses_original_attachment_lki95(cards):
+        s, axe, bear = axe_pair95(cards)
+        to_phase(s, "end", turn=4)
+>       assert s.state.zones.get("stack")
+E       AssertionError: assert []
+E        +  where [] = <built-in method get of dict object at 0x7f67393840c0>('stack')
+E        +    where <built-in method get of dict object at 0x7f67393840c0> = {'p1:library': ['cb45c8a6a33e', '9d0b81e5f23d', '6bb97841363e', '383d34fe498c', 'ba6ffb27bb6c', '36a230b572e1', ...], 'p1:hand': ['c9e5d8753bb6', 'df15c905ae0a'], 'p1:battlefield': ['3fb470f35e93'], 'p1:graveyard': ['6e8f5034450f'], ...}.get
+E        +      where {'p1:library': ['cb45c8a6a33e', '9d0b81e5f23d', '6bb97841363e', '383d34fe498c', 'ba6ffb27bb6c', '36a230b572e1', ...], 'p1:hand': ['c9e5d8753bb6', 'df15c905ae0a'], 'p1:battlefield': ['3fb470f35e93'], 'p1:graveyard': ['6e8f5034450f'], ...} = GameState(format_version=1, id='fa2d6b2c02cdc6f9', name='Game', format='commander', created_at=1792911891.2081933, seq=98, settings=GameSettings(starting_life=40, auto_untap=True, auto_commander_tax=True, clear_mana_on_step=False, auto_clear_combat=False, allow_test_objects=False, undo_policy='everyone', deck_privacy='commander_only', priority_helper='off', automation='full', automation_options=AutomationOptions(auto_mana_payment=True, auto_combat_damage=True, auto_sba=True, auto_priority_pass=True, auto_cleanup=True, auto_token_creation=True, auto_counters=True, auto_trigger_stacking=True, auto_shuffle=True, highlights='full'), mulligan=None), players={'p1': PlayerState(id='p1', name='Alice', color='#d4a852', life=40, life_history=[], resources={'poison': 0, 'energy': 0, 'experience': 0}, commander_damage={}, commander_tax={'cmd-p1-1': 0}, commander_casts={}, city_blessing=False, mulligans=0, deck_id=None, deck_name=None, token_shortcuts=[], mana={}, mana_units=[], mana_seq=0, left=False, sleeve=None, playmat=None), 'p2': PlayerState(id='p2', name='Bob', color='#5fa8d3', life=40, life_history=[], resources={'poison': 0, 'energy': 0, 'experience': 0}, commander_damage={}, command...: 40}, active_player='p3', attacked=[], gained={}, lost={}, energy_lost={}, drew={'p3': 1}, drawn={'p3': ['58d61ce0af22.8']}, drawn_replaced={}, drawn_counted={}, drawn_applied={'58d61ce0af22.8': []}, left=[], left_graveyard=[], entered_graveyard=[], entered=[], casts=[], facts=[], attackers={}, blockers=[], blocks={}, attacked_who={}, attack_counts={}, declared={}, declared_blockers={}, enlisted={}, resolved={}, rolled={}), completed_own_turns={'p1': CompletedOwnTurn(turn=1, attackers=[], attacked_players=[]), 'p2': CompletedOwnTurn(turn=2, attackers=[], attacked_players=[]), 'p3': CompletedOwnTurn(turn=3, attackers=[], attacked_players=[])}, own_turn_history_known=['p1', 'p2', 'p3'], own_turn_history_notice=False, cast_history_complete=True, named_casts_game={}, entry_life_losses={}, entry_life_origins=[], entry_life_notices=[], replace_step_key='4:draw', replace_step_draws={'p1': 1}, dungeons={}, completed_dungeons={}, enduring_story=[], ring_tempted={}, ring_bearers={}, combat_mana={}, kept_mana=[], cleanup_again=False, provenance=None, free_cast_then=None, free_cast_faces={}, exile_if_graveyard=[], bottom_if_graveyard=[], cast_enters={}, exile_resolves={}, counter_stamps={})).zones
+E        +        where GameState(format_version=1, id='fa2d6b2c02cdc6f9', name='Game', format='commander', created_at=1792911891.2081933, seq=98, settings=GameSettings(starting_life=40, auto_untap=True, auto_commander_tax=True, clear_mana_on_step=False, auto_clear_combat=False, allow_test_objects=False, undo_policy='everyone', deck_privacy='commander_only', priority_helper='off', automation='full', automation_options=AutomationOptions(auto_mana_payment=True, auto_combat_damage=True, auto_sba=True, auto_priority_pass=True, auto_cleanup=True, auto_token_creation=True, auto_counters=True, auto_trigger_stacking=True, auto_shuffle=True, highlights='full'), mulligan=None), players={'p1': PlayerState(id='p1', name='Alice', color='#d4a852', life=40, life_history=[], resources={'poison': 0, 'energy': 0, 'experience': 0}, commander_damage={}, commander_tax={'cmd-p1-1': 0}, commander_casts={}, city_blessing=False, mulligans=0, deck_id=None, deck_name=None, token_shortcuts=[], mana={}, mana_units=[], mana_seq=0, left=False, sleeve=None, playmat=None), 'p2': PlayerState(id='p2', name='Bob', color='#5fa8d3', life=40, life_history=[], resources={'poison': 0, 'energy': 0, 'experience': 0}, commander_damage={}, command...: 40}, active_player='p3', attacked=[], gained={}, lost={}, energy_lost={}, drew={'p3': 1}, drawn={'p3': ['58d61ce0af22.8']}, drawn_replaced={}, drawn_counted={}, drawn_applied={'58d61ce0af22.8': []}, left=[], left_graveyard=[], entered_graveyard=[], entered=[], casts=[], facts=[], attackers={}, blockers=[], blocks={}, attacked_who={}, attack_counts={}, declared={}, declared_blockers={}, enlisted={}, resolved={}, rolled={}), completed_own_turns={'p1': CompletedOwnTurn(turn=1, attackers=[], attacked_players=[]), 'p2': CompletedOwnTurn(turn=2, attackers=[], attacked_players=[]), 'p3': CompletedOwnTurn(turn=3, attackers=[], attacked_players=[])}, own_turn_history_known=['p1', 'p2', 'p3'], own_turn_history_notice=False, cast_history_complete=True, named_casts_game={}, entry_life_losses={}, entry_life_origins=[], entry_life_notices=[], replace_step_key='4:draw', replace_step_draws={'p1': 1}, dungeons={}, completed_dungeons={}, enduring_story=[], ring_tempted={}, ring_bearers={}, combat_mana={}, kept_mana=[], cleanup_again=False, provenance=None, free_cast_then=None, free_cast_faces={}, exile_if_graveyard=[], bottom_if_graveyard=[], cast_enters={}, exile_resolves={}, counter_stamps={})) = <app.game.session.GameSession object at 0x7f67399a1e20>.state
+
+tests/test_rules_combat_history103.py:444: AssertionError
+_______ test_axe_trigger_original_host_blink_excludes_new_incarnation95 ________
+[gw1] linux -- Python 3.12.14 /workspace/Fyodor/backend/.venv/bin/python3
+
+cards = <app.cards.repository.CardRepository object at 0x7f8b11b48350>
+
+    def test_axe_trigger_original_host_blink_excludes_new_incarnation95(cards):
+        s, axe, bear = axe_pair95(cards)
+        to_phase(s, "end", turn=4)
+>       assert s.state.zones.get("stack")
+E       AssertionError: assert []
+E        +  where [] = <built-in method get of dict object at 0x7f8b0e649540>('stack')
+E        +    where <built-in method get of dict object at 0x7f8b0e649540> = {'p1:library': ['cebf042f7fd9', '603dbd225bb0', 'b8f5811ca17d', 'ae1ee45ae9b5', 'c27ca926bc9c', '1bd487d3003e', ...], 'p1:hand': ['b3d133b93f33', 'a83dde44b1a4'], 'p1:battlefield': ['5c3f84ffeed3'], 'p1:graveyard': ['9c2cd727bbaa'], ...}.get
+E        +      where {'p1:library': ['cebf042f7fd9', '603dbd225bb0', 'b8f5811ca17d', 'ae1ee45ae9b5', 'c27ca926bc9c', '1bd487d3003e', ...], 'p1:hand': ['b3d133b93f33', 'a83dde44b1a4'], 'p1:battlefield': ['5c3f84ffeed3'], 'p1:graveyard': ['9c2cd727bbaa'], ...} = GameState(format_version=1, id='c0e22f25d480c65c', name='Game', format='commander', created_at=1792911887.4528153, seq=98, settings=GameSettings(starting_life=40, auto_untap=True, auto_commander_tax=True, clear_mana_on_step=False, auto_clear_combat=False, allow_test_objects=False, undo_policy='everyone', deck_privacy='commander_only', priority_helper='off', automation='full', automation_options=AutomationOptions(auto_mana_payment=True, auto_combat_damage=True, auto_sba=True, auto_priority_pass=True, auto_cleanup=True, auto_token_creation=True, auto_counters=True, auto_trigger_stacking=True, auto_shuffle=True, highlights='full'), mulligan=None), players={'p1': PlayerState(id='p1', name='Alice', color='#d4a852', life=40, life_history=[], resources={'poison': 0, 'energy': 0, 'experience': 0}, commander_damage={}, commander_tax={'cmd-p1-1': 0}, commander_casts={}, city_blessing=False, mulligans=0, deck_id=None, deck_name=None, token_shortcuts=[], mana={}, mana_units=[], mana_seq=0, left=False, sleeve=None, playmat=None), 'p2': PlayerState(id='p2', name='Bob', color='#5fa8d3', life=40, life_history=[], resources={'poison': 0, 'energy': 0, 'experience': 0}, commander_damage={}, command...: 40}, active_player='p3', attacked=[], gained={}, lost={}, energy_lost={}, drew={'p3': 1}, drawn={'p3': ['3421d51ca0b4.8']}, drawn_replaced={}, drawn_counted={}, drawn_applied={'3421d51ca0b4.8': []}, left=[], left_graveyard=[], entered_graveyard=[], entered=[], casts=[], facts=[], attackers={}, blockers=[], blocks={}, attacked_who={}, attack_counts={}, declared={}, declared_blockers={}, enlisted={}, resolved={}, rolled={}), completed_own_turns={'p1': CompletedOwnTurn(turn=1, attackers=[], attacked_players=[]), 'p2': CompletedOwnTurn(turn=2, attackers=[], attacked_players=[]), 'p3': CompletedOwnTurn(turn=3, attackers=[], attacked_players=[])}, own_turn_history_known=['p1', 'p2', 'p3'], own_turn_history_notice=False, cast_history_complete=True, named_casts_game={}, entry_life_losses={}, entry_life_origins=[], entry_life_notices=[], replace_step_key='4:draw', replace_step_draws={'p1': 1}, dungeons={}, completed_dungeons={}, enduring_story=[], ring_tempted={}, ring_bearers={}, combat_mana={}, kept_mana=[], cleanup_again=False, provenance=None, free_cast_then=None, free_cast_faces={}, exile_if_graveyard=[], bottom_if_graveyard=[], cast_enters={}, exile_resolves={}, counter_stamps={})).zones
+E        +        where GameState(format_version=1, id='c0e22f25d480c65c', name='Game', format='commander', created_at=1792911887.4528153, seq=98, settings=GameSettings(starting_life=40, auto_untap=True, auto_commander_tax=True, clear_mana_on_step=False, auto_clear_combat=False, allow_test_objects=False, undo_policy='everyone', deck_privacy='commander_only', priority_helper='off', automation='full', automation_options=AutomationOptions(auto_mana_payment=True, auto_combat_damage=True, auto_sba=True, auto_priority_pass=True, auto_cleanup=True, auto_token_creation=True, auto_counters=True, auto_trigger_stacking=True, auto_shuffle=True, highlights='full'), mulligan=None), players={'p1': PlayerState(id='p1', name='Alice', color='#d4a852', life=40, life_history=[], resources={'poison': 0, 'energy': 0, 'experience': 0}, commander_damage={}, commander_tax={'cmd-p1-1': 0}, commander_casts={}, city_blessing=False, mulligans=0, deck_id=None, deck_name=None, token_shortcuts=[], mana={}, mana_units=[], mana_seq=0, left=False, sleeve=None, playmat=None), 'p2': PlayerState(id='p2', name='Bob', color='#5fa8d3', life=40, life_history=[], resources={'poison': 0, 'energy': 0, 'experience': 0}, commander_damage={}, command...: 40}, active_player='p3', attacked=[], gained={}, lost={}, energy_lost={}, drew={'p3': 1}, drawn={'p3': ['3421d51ca0b4.8']}, drawn_replaced={}, drawn_counted={}, drawn_applied={'3421d51ca0b4.8': []}, left=[], left_graveyard=[], entered_graveyard=[], entered=[], casts=[], facts=[], attackers={}, blockers=[], blocks={}, attacked_who={}, attack_counts={}, declared={}, declared_blockers={}, enlisted={}, resolved={}, rolled={}), completed_own_turns={'p1': CompletedOwnTurn(turn=1, attackers=[], attacked_players=[]), 'p2': CompletedOwnTurn(turn=2, attackers=[], attacked_players=[]), 'p3': CompletedOwnTurn(turn=3, attackers=[], attacked_players=[])}, own_turn_history_known=['p1', 'p2', 'p3'], own_turn_history_notice=False, cast_history_complete=True, named_casts_game={}, entry_life_losses={}, entry_life_origins=[], entry_life_notices=[], replace_step_key='4:draw', replace_step_draws={'p1': 1}, dungeons={}, completed_dungeons={}, enduring_story=[], ring_tempted={}, ring_bearers={}, combat_mana={}, kept_mana=[], cleanup_again=False, provenance=None, free_cast_then=None, free_cast_faces={}, exile_if_graveyard=[], bottom_if_graveyard=[], cast_enters={}, exile_resolves={}, counter_stamps={})) = <app.game.session.GameSession object at 0x7f8b117aaf00>.state
+
+tests/test_rules_combat_history103.py:434: AssertionError
+_ test_hope_changed_controller_uses_original_damage_and_new_controller_duration95 _
+[gw0] linux -- Python 3.12.14 /workspace/Fyodor/backend/.venv/bin/python3
+
+cards = <app.cards.repository.CardRepository object at 0x7f67399b9160>
+
+    def test_hope_changed_controller_uses_original_damage_and_new_controller_duration95(cards):
+        from tests.test_rules_wave4h_activation_costs import ability
+
+>       s, hope = hope_damage95(cards)
+                  ^^^^^^^^^^^^^^^^^^^^
+
+tests/test_rules_combat_history103.py:473:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests/test_rules_combat_history103.py:86: in hope_damage95
+    combat95(s, [hope])
+tests/test_rules_combat_history103.py:64: in combat95
+    block(s, "p2", *blockers)
+tests/test_rules_wave30p_combat.py:93: in block
+    act(s, pid, type="declare_blockers", blocks=[{"blocker_id": b.id, "attacker_id": a.id} for b, a in pairs])
+tests/game_helpers.py:42: in act
+    return session.perform(actor, payload)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/game/session.py:61: in perform
+    resolved = resolve(self.state, action, actor=actor, cards=self.cards, trusted=trusted)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/game/resolve.py:76: in resolve
+    a.r = compile_intent(state, a, actor=actor, info=info, rng=rng)  # type: ignore[union-attr]
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/engine.py:164: in compile_intent
+    handler(plan, intent)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+plan = <app.rules.plan.Plan object at 0x7f673b5372f0>
+a = DeclareBlockers(actor='p2', ts=1792911907.2208939, r=None, type='declare_blockers', blocks=[], cost_choices=[], cost_order=[], sources=None)
+
+    def declare_blockers(plan: Plan, a: A.DeclareBlockers) -> None:
+        r = plan.rules
+        d = r.decision
+        if d is None or d.kind != "declare_blockers":
+>           raise ActionError("Blockers are declared at the start of the declare blockers step")
+E           app.game.errors.ActionError: Blockers are declared at the start of the declare blockers step
+
+app/rules/combat.py:815: ActionError
+_______ test_hope_until_actual_next_turn_survives_native_meditate_skip95 _______
+[gw1] linux -- Python 3.12.14 /workspace/Fyodor/backend/.venv/bin/python3
+
+cards = <app.cards.repository.CardRepository object at 0x7f8b11b4ab10>
+
+    def test_hope_until_actual_next_turn_survives_native_meditate_skip95(cards):
+        from tests.test_rules_wave4h_activation_costs import ability
+
+>       s, hope = hope_damage95(cards)
+                  ^^^^^^^^^^^^^^^^^^^^
+
+tests/test_rules_combat_history103.py:452:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests/test_rules_combat_history103.py:86: in hope_damage95
+    combat95(s, [hope])
+tests/test_rules_combat_history103.py:64: in combat95
+    block(s, "p2", *blockers)
+tests/test_rules_wave30p_combat.py:93: in block
+    act(s, pid, type="declare_blockers", blocks=[{"blocker_id": b.id, "attacker_id": a.id} for b, a in pairs])
+tests/game_helpers.py:42: in act
+    return session.perform(actor, payload)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/game/session.py:61: in perform
+    resolved = resolve(self.state, action, actor=actor, cards=self.cards, trusted=trusted)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/game/resolve.py:76: in resolve
+    a.r = compile_intent(state, a, actor=actor, info=info, rng=rng)  # type: ignore[union-attr]
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/engine.py:164: in compile_intent
+    handler(plan, intent)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+plan = <app.rules.plan.Plan object at 0x7f8b10a823c0>
+a = DeclareBlockers(actor='p2', ts=1792911913.0655758, r=None, type='declare_blockers', blocks=[], cost_choices=[], cost_order=[], sources=None)
+
+    def declare_blockers(plan: Plan, a: A.DeclareBlockers) -> None:
+        r = plan.rules
+        d = r.decision
+        if d is None or d.kind != "declare_blockers":
+>           raise ActionError("Blockers are declared at the start of the declare blockers step")
+E           app.game.errors.ActionError: Blockers are declared at the start of the declare blockers step
+
+app/rules/combat.py:815: ActionError
+=========================== short test summary info ============================
+FAILED tests/test_rules_combat_history103.py::test_hope_actual_combat_sacrifice_original_source_and_cast_restriction95
+FAILED tests/test_rules_combat_history103.py::test_beckett_actual_three_original_pirates_permanent_control95
+FAILED tests/test_rules_combat_history103.py::test_hope_wrong_damaged_player_rejects_before_sacrifice95
+FAILED tests/test_rules_combat_history103.py::test_axe_actual_creature_combat_receipt_only_spares_equipped_source95[True]
+FAILED tests/test_rules_combat_history103.py::test_axe_actual_creature_combat_receipt_only_spares_equipped_source95[False]
+FAILED tests/test_rules_combat_history103.py::test_axe_legacy_positive_actual_combat_receipt_remains_valid95
+FAILED tests/test_rules_combat_history103.py::test_axe_combat_before_actual_equip_still_counts95
+FAILED tests/test_rules_combat_history103.py::test_hope_actual_prevented_combat_does_not_qualify95
+FAILED tests/test_rules_combat_history103.py::test_axe_legacy_unknown_negative_manual_then_next_native_turn_known95
+FAILED tests/test_rules_combat_history103.py::test_beckett_two_pirates_double_strike_is_only_two_originals95
+FAILED tests/test_rules_combat_history103.py::test_hope_actual_spell_response_is_not_countered_by_later_restriction95
+FAILED tests/test_rules_combat_history103.py::test_genuine_cold_hope_original_source_sacrificed_cost95
+FAILED tests/test_rules_combat_history103.py::test_beckett_frozen_pirates_count_after_actual_type_loss_and_departure95
+FAILED tests/test_rules_combat_history103.py::test_genuine_cold_axe_legacy_manual_history_continuation95
+FAILED tests/test_rules_combat_history103.py::test_genuine_cold_beckett_native_player_history_target_choice95
+FAILED tests/test_rules_combat_history103.py::test_axe_source_left_after_trigger_uses_original_attachment_lki95
+FAILED tests/test_rules_combat_history103.py::test_axe_trigger_original_host_blink_excludes_new_incarnation95
+FAILED tests/test_rules_combat_history103.py::test_hope_changed_controller_uses_original_damage_and_new_controller_duration95
+FAILED tests/test_rules_combat_history103.py::test_hope_until_actual_next_turn_survives_native_meditate_skip95
+=================== 19 failed, 5 passed in 116.49s (0:01:56) ===================

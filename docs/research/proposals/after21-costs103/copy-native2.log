@@ -1,0 +1,54 @@
+bringing up nodes...
+bringing up nodes...
+
+FF                                                                       [100%]
+=================================== FAILURES ===================================
+_ test_actual_spell_copy_inherits_waterbend_decision_even_without_cast_origin[False] _
+[gw0] linux -- Python 3.12.14 /workspace/Fyodor/backend/.venv/bin/python
+
+cards = <app.cards.repository.CardRepository object at 0x7f440b37d2b0>
+paid = False
+
+    @pytest.mark.parametrize("paid", [False, True])
+    def test_actual_spell_copy_inherits_waterbend_decision_even_without_cast_origin(cards, paid):
+        s = setup(cards)
+        ids = helpers(s, 6) if paid else []
+        before = len(s.state.zones["p1:hand"])
+        echo = take(s, "Reverberate")
+        source = cast(s, NAMES[0], {"C": 1, "U": 2}, paid)
+        if paid:
+            pick(s, ids)
+        assert source.id in s.state.zones["stack"]
+>       assert s.state.rules.priority == "p1"
+E       AssertionError: assert 'p2' == 'p1'
+E
+E         - p1
+E         + p2
+
+tests/test_rules_waterbend103.py:152: AssertionError
+_ test_actual_spell_copy_inherits_waterbend_decision_even_without_cast_origin[True] _
+[gw1] linux -- Python 3.12.14 /workspace/Fyodor/backend/.venv/bin/python
+
+cards = <app.cards.repository.CardRepository object at 0x7f059596cdd0>
+paid = True
+
+    @pytest.mark.parametrize("paid", [False, True])
+    def test_actual_spell_copy_inherits_waterbend_decision_even_without_cast_origin(cards, paid):
+        s = setup(cards)
+        ids = helpers(s, 6) if paid else []
+        before = len(s.state.zones["p1:hand"])
+        echo = take(s, "Reverberate")
+        source = cast(s, NAMES[0], {"C": 1, "U": 2}, paid)
+        if paid:
+            pick(s, ids)
+        assert source.id in s.state.zones["stack"]
+>       assert s.state.rules.priority == "p1"
+E       AssertionError: assert 'p2' == 'p1'
+E
+E         - p1
+E         + p2
+
+tests/test_rules_waterbend103.py:152: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_rules_waterbend103.py::test_actual_spell_copy_inherits_waterbend_decision_even_without_cast_origin[False]
+FAILED tests/test_rules_waterbend103.py::test_actual_spell_copy_inherits_waterbend_decision_even_without_cast_origin[True]

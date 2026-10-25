@@ -1,0 +1,46 @@
+............................................FF...                        [100%]
+=================================== FAILURES ===================================
+_______ test_chandra_grants_one_instant_or_sorcery_across_all_five_cards _______
+
+cards = <app.cards.repository.CardRepository object at 0x7f1c0acc9a00>
+
+    def test_chandra_grants_one_instant_or_sorcery_across_all_five_cards(cards):
+        s, _, exiled = chandra_exile(cards)
+        act(s, 'p1', type='add_mana', player='p1', mana={'C': 1, 'B': 1, 'G': 2})
+        with pytest.raises(ActionError):
+            act(s, 'p1', type='cast_spell', card_id=exiled['Sol Ring'])
+        with pytest.raises(ActionError):
+            act(s, 'p1', type='play_land', card_id=exiled['Forest'])
+        act(s, 'p1', type='cast_spell', card_id=exiled['Dark Ritual'])
+        settle(s)
+        # Chandra's existing first-spell trigger copies the Ritual; copies aren't cast.
+>       assert s.state.players['p1'].mana.get('B', 0) == 6
+E       AssertionError: assert 0 == 6
+E        +  where 0 = <built-in method get of dict object at 0x7f1c0a58d080>('B', 0)
+E        +    where <built-in method get of dict object at 0x7f1c0a58d080> = {'C': 1, 'G': 2}.get
+E        +      where {'C': 1, 'G': 2} = PlayerState(id='p1', name='Alice', color='#d4a852', life=40, life_history=[], resources={'poison': 0, 'energy': 0, 'ex...note='', riders=[], generic_allowed=True, production_zone='stack')], mana_seq=6, left=False, sleeve=None, playmat=None).mana
+
+tests/test_rules_among_cast_permissions.py:144: AssertionError
+___ test_chandra_permission_lasts_through_the_next_turn_and_expires_after_it ___
+
+cards = <app.cards.repository.CardRepository object at 0x7f1c0ac2a510>
+
+    def test_chandra_permission_lasts_through_the_next_turn_and_expires_after_it(cards):
+        from app.rules import casting
+        from tests.test_rules_wave34b_activated import to_phase
+
+        s, _, exiled = chandra_exile(cards)
+        to_phase(s, 'main1', turn=3)
+        act(s, 'p1', type='add_mana', player='p1', mana={'B': 1})
+        act(s, 'p1', type='cast_spell', card_id=exiled['Dark Ritual'])
+        settle(s)
+>       assert s.state.players['p1'].mana.get('B', 0) == 6
+E       AssertionError: assert 0 == 6
+E        +  where 0 = <built-in method get of dict object at 0x7f1c0adca100>('B', 0)
+E        +    where <built-in method get of dict object at 0x7f1c0adca100> = {}.get
+E        +      where {} = PlayerState(id='p1', name='Alice', color='#d4a852', life=40, life_history=[], resources={'poison': 0, 'energy': 0, 'ex...note='', riders=[], generic_allowed=True, production_zone='stack')], mana_seq=6, left=False, sleeve=None, playmat=None).mana
+
+tests/test_rules_among_cast_permissions.py:161: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_rules_among_cast_permissions.py::test_chandra_grants_one_instant_or_sorcery_across_all_five_cards
+FAILED tests/test_rules_among_cast_permissions.py::test_chandra_permission_lasts_through_the_next_turn_and_expires_after_it

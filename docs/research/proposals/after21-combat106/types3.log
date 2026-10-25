@@ -1,0 +1,2 @@
+app/rules/targets.py:103: error: "Characteristics" has no attribute "is_artifact"  [attr-defined]
+Found 1 error in 1 file (checked 3 source files)

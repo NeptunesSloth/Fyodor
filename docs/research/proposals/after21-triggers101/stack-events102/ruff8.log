@@ -1,0 +1,21 @@
+F841 Local variable `mem` is assigned to but never used
+  --> app/rules/stack_events102.py:89:5
+   |
+87 |     if card is None:
+88 |         return True
+89 |     mem = copying.lki_spell(plan, source, oid)
+   |     ^^^
+90 |     entry = copying.source_entry102(plan, card, oid)
+91 |     if entry is None:
+   |
+help: Remove assignment to unused variable `mem`
+   |
+88 |         return True
+   -     mem = copying.lki_spell(plan, source, oid)
+89 +     copying.lki_spell(plan, source, oid)
+90 |     entry = copying.source_entry102(plan, card, oid)
+   |
+note: This is an unsafe fix and may change runtime behavior
+
+Found 1 error.
+1 unsafe fix available with `--fix --unsafe-fixes`.

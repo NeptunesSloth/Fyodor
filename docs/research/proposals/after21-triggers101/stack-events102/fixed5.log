@@ -1,0 +1,21 @@
+......F.                                                                 [100%]
+=================================== FAILURES ===================================
+_ test_frontline_created_token_is_fixed_copy_destination_and_aura_copy_is_token _
+
+cards = <app.cards.repository.CardRepository object at 0x7f0870ee3e00>
+
+    def test_frontline_created_token_is_fixed_copy_destination_and_aura_copy_is_token(cards):
+        s = setup(cards)
+        cast(s, 'Frontline Heroism')
+        finish(s)
+        bear = put(s, 'Grizzly Bears')
+        source = cast(s, 'Rancor', [bear.id])
+        finish(s)
+        soldiers = [c for c in s.state.cards.values() if c.name == 'Soldier' and c.zone == 'p1:battlefield']
+>       assert len(soldiers) == 2
+E       AssertionError: assert 1 == 2
+E        +  where 1 = len([CardInstance(borrow_identity=None, id='89bda28035ed', card_id=None, name='Soldier', owner='p1', controller='p1', zone...ne, token_source=TokenSource(source_id='b59c340c0d9c', name='Frontline Heroism'), origin='library', test_object=False)])
+
+tests/test_rules_stack_events102.py:160: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_rules_stack_events102.py::test_frontline_created_token_is_fixed_copy_destination_and_aura_copy_is_token

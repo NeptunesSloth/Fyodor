@@ -1,0 +1,391 @@
+[
+  {
+    "name": "Skyseer's Chariot",
+    "mana_cost": "{1}{W}",
+    "cmc": 2.0,
+    "type_line": "Artifact \u2014 Vehicle",
+    "oracle_text": "Flying\nAs this Vehicle enters, choose a nonland card name.\nActivated abilities of sources with the chosen name cost {2} more to activate.\nCrew 2",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "power": "3",
+    "toughness": "3",
+    "keywords": [
+      "Flying",
+      "Crew"
+    ],
+    "commander_legal": "legal"
+  },
+  {
+    "name": "Myth Unbound",
+    "mana_cost": "{2}{G}",
+    "cmc": 3.0,
+    "type_line": "Enchantment",
+    "oracle_text": "Your commander costs {1} less to cast for each time it's been cast from the command zone this game.\nWhenever your commander is put into the command zone from anywhere, draw a card.",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "power": null,
+    "toughness": null,
+    "keywords": [],
+    "commander_legal": "legal"
+  },
+  {
+    "name": "Liesa, Shroud of Dusk",
+    "mana_cost": "{2}{W}{W}{B}",
+    "cmc": 5.0,
+    "type_line": "Legendary Creature \u2014 Angel",
+    "oracle_text": "Rather than pay {2} for each previous time you've cast this spell from the command zone this game, pay 2 life that many times.\nFlying, lifelink\nWhenever a player casts a spell, they lose 2 life.",
+    "colors": [
+      "B",
+      "W"
+    ],
+    "color_identity": [
+      "B",
+      "W"
+    ],
+    "power": "5",
+    "toughness": "5",
+    "keywords": [
+      "Flying",
+      "Lifelink"
+    ],
+    "commander_legal": "legal"
+  },
+  {
+    "name": "Kaervek's Torch",
+    "mana_cost": "{X}{R}",
+    "cmc": 1.0,
+    "type_line": "Sorcery",
+    "oracle_text": "As long as Kaervek's Torch is on the stack, spells that target it cost {2} more to cast.\nKaervek's Torch deals X damage to any target.",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "power": null,
+    "toughness": null,
+    "keywords": [],
+    "commander_legal": "legal"
+  },
+  {
+    "name": "Sol Ring",
+    "mana_cost": "{1}",
+    "cmc": 1.0,
+    "type_line": "Artifact",
+    "oracle_text": "{T}: Add {C}{C}.",
+    "colors": [],
+    "color_identity": [],
+    "power": null,
+    "toughness": null,
+    "keywords": [],
+    "commander_legal": "legal"
+  },
+  {
+    "name": "Sensei's Divining Top",
+    "mana_cost": "{1}",
+    "cmc": 1.0,
+    "type_line": "Artifact",
+    "oracle_text": "{1}: Look at the top three cards of your library, then put them back in any order.\n{T}: Draw a card, then put this artifact on top of its owner's library.",
+    "colors": [],
+    "color_identity": [],
+    "power": null,
+    "toughness": null,
+    "keywords": [],
+    "commander_legal": "legal"
+  },
+  {
+    "name": "Llanowar Elves",
+    "mana_cost": "{G}",
+    "cmc": 1.0,
+    "type_line": "Creature \u2014 Elf Druid",
+    "oracle_text": "{T}: Add {G}.",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "power": "1",
+    "toughness": "1",
+    "keywords": [],
+    "commander_legal": "legal"
+  },
+  {
+    "name": "Ashnod's Altar",
+    "mana_cost": "{3}",
+    "cmc": 3.0,
+    "type_line": "Artifact",
+    "oracle_text": "Sacrifice a creature: Add {C}{C}.",
+    "colors": [],
+    "color_identity": [],
+    "power": null,
+    "toughness": null,
+    "keywords": [],
+    "commander_legal": "legal"
+  },
+  {
+    "name": "Disenchant",
+    "mana_cost": "{1}{W}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "Destroy target artifact or enchantment.",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "power": null,
+    "toughness": null,
+    "keywords": [],
+    "commander_legal": "legal"
+  },
+  {
+    "name": "Grizzly Bears",
+    "mana_cost": "{1}{G}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Bear",
+    "oracle_text": "",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "power": "2",
+    "toughness": "2",
+    "keywords": [],
+    "commander_legal": "legal"
+  },
+  {
+    "name": "Forest",
+    "mana_cost": "",
+    "cmc": 0.0,
+    "type_line": "Basic Land \u2014 Forest",
+    "oracle_text": "({T}: Add {G}.)",
+    "colors": [],
+    "color_identity": [
+      "G"
+    ],
+    "power": null,
+    "toughness": null,
+    "keywords": [],
+    "commander_legal": "legal"
+  },
+  {
+    "name": "Memnite",
+    "mana_cost": "{0}",
+    "cmc": 0.0,
+    "type_line": "Artifact Creature \u2014 Construct",
+    "oracle_text": "",
+    "colors": [],
+    "color_identity": [],
+    "power": "1",
+    "toughness": "1",
+    "keywords": [],
+    "commander_legal": "legal"
+  },
+  {
+    "name": "Fellwar Stone",
+    "mana_cost": "{2}",
+    "cmc": 2.0,
+    "type_line": "Artifact",
+    "oracle_text": "{T}: Add one mana of any color that a land an opponent controls could produce.",
+    "colors": [],
+    "color_identity": [],
+    "power": null,
+    "toughness": null,
+    "keywords": [],
+    "commander_legal": "legal"
+  },
+  {
+    "name": "March of the Machines",
+    "mana_cost": "{3}{U}",
+    "cmc": 4.0,
+    "type_line": "Enchantment",
+    "oracle_text": "Each noncreature artifact is an artifact creature with power and toughness each equal to its mana value. (Equipment that's a creature can't equip a creature.)",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "power": null,
+    "toughness": null,
+    "keywords": [],
+    "commander_legal": "legal"
+  },
+  {
+    "name": "Murder",
+    "mana_cost": "{1}{B}{B}",
+    "cmc": 3.0,
+    "type_line": "Instant",
+    "oracle_text": "Destroy target creature.",
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "power": null,
+    "toughness": null,
+    "keywords": [],
+    "commander_legal": "legal"
+  },
+  {
+    "name": "Unsummon",
+    "mana_cost": "{U}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Return target creature to its owner's hand.",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "power": null,
+    "toughness": null,
+    "keywords": [],
+    "commander_legal": "legal"
+  },
+  {
+    "name": "Counterspell",
+    "mana_cost": "{U}{U}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "Counter target spell.",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "power": null,
+    "toughness": null,
+    "keywords": [],
+    "commander_legal": "legal"
+  },
+  {
+    "name": "Platinum Emperion",
+    "mana_cost": "{8}",
+    "cmc": 8.0,
+    "type_line": "Artifact Creature \u2014 Golem",
+    "oracle_text": "Your life total can't change. (You can't gain or lose life. You can't pay any amount of life except 0.)",
+    "colors": [],
+    "color_identity": [],
+    "power": "8",
+    "toughness": "8",
+    "keywords": [],
+    "commander_legal": "legal"
+  },
+  {
+    "name": "Angel of Jubilation",
+    "mana_cost": "{1}{W}{W}{W}",
+    "cmc": 4.0,
+    "type_line": "Creature \u2014 Angel",
+    "oracle_text": "Flying\nOther nonblack creatures you control get +1/+1.\nPlayers can't pay life or sacrifice creatures to cast spells or activate abilities.",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "power": "3",
+    "toughness": "3",
+    "keywords": [
+      "Flying"
+    ],
+    "commander_legal": "legal"
+  },
+  {
+    "name": "Reverberate",
+    "mana_cost": "{R}{R}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "Copy target instant or sorcery spell. You may choose new targets for the copy.",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "power": null,
+    "toughness": null,
+    "keywords": [],
+    "commander_legal": "legal"
+  },
+  {
+    "name": "Double Negative",
+    "mana_cost": "{U}{U}{R}",
+    "cmc": 3.0,
+    "type_line": "Instant",
+    "oracle_text": "Counter up to two target spells.",
+    "colors": [
+      "R",
+      "U"
+    ],
+    "color_identity": [
+      "R",
+      "U"
+    ],
+    "power": null,
+    "toughness": null,
+    "keywords": [],
+    "commander_legal": "legal"
+  },
+  {
+    "name": "Dreamstone Hedron",
+    "mana_cost": "{6}",
+    "cmc": 6.0,
+    "type_line": "Artifact",
+    "oracle_text": "{T}: Add {C}{C}{C}.\n{3}, {T}, Sacrifice this artifact: Draw three cards.",
+    "colors": [],
+    "color_identity": [],
+    "power": null,
+    "toughness": null,
+    "keywords": [],
+    "commander_legal": "legal"
+  },
+  {
+    "name": "Wurmcoil Engine",
+    "mana_cost": "{6}",
+    "cmc": 6.0,
+    "type_line": "Artifact Creature \u2014 Phyrexian Wurm",
+    "oracle_text": "Deathtouch, lifelink\nWhen this creature dies, create a 3/3 colorless Phyrexian Wurm artifact creature token with deathtouch and a 3/3 colorless Phyrexian Wurm artifact creature token with lifelink.",
+    "colors": [],
+    "color_identity": [],
+    "power": "6",
+    "toughness": "6",
+    "keywords": [
+      "Lifelink",
+      "Deathtouch"
+    ],
+    "commander_legal": "legal"
+  },
+  {
+    "name": "Planar Cleansing",
+    "mana_cost": "{3}{W}{W}{W}",
+    "cmc": 6.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Destroy all nonland permanents.",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "power": null,
+    "toughness": null,
+    "keywords": [],
+    "commander_legal": "legal"
+  }
+]

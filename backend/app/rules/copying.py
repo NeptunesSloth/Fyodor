@@ -262,6 +262,8 @@ def _apply(ch: Characteristics, ex: CopyExcept) -> Characteristics:
 def _without_keywords(a: Any, dropped: set[str]) -> Any:
     """-- token copies & attach on entry (wave 5J) -- a keyword line without these keywords (707.9d: a
     characteristic-defining ability for a characteristic the copy effect sets isn't copied); "" if none is left."""
+    if "epic" in dropped and a.text == "Epic":
+        return replace(a, text="")
     if a.kind != "keywords" or not dropped & set(a.keywords):
         return a
     from app.rules.oracle import strip_reminders
@@ -410,6 +412,30 @@ def lki_spell(plan: Plan, card_id: str, oid: str) -> StackMemory | None:
     return mem
 
 
+
+def source_entry102(plan: Plan, card: CardInstance, oid: str) -> StackEntry | None:
+    """One native target view for scripted spells and entryless Aura spells, live or retained."""
+    from app.rules import attachments, stack_interaction
+
+    if plan.oid(card) == oid:
+        return stack_interaction.target_entry(plan, card.id)
+    mem = lki_spell(plan, card.id, oid)
+    if mem is None:
+        return None
+    if mem.entry is not None:
+        return mem.entry
+    snap = plan.rules.lki.get(oid)
+    if mem.aura_target102 is None or snap is None:
+        return None
+    from app.rules.triggers import _lki_characteristics
+
+    ch = _lki_characteristics(plan, snap)
+    selector = attachments.enchant_selector(ch)
+    if selector is None:
+        return None
+    return StackEntry(kind='spell', controller=snap.controller, source_card=card.id, source_object=oid,
+                      name=ch.name, targets=[mem.aura_target102], target_spec={'what': selector})
+
 def lki_ability(plan: Plan, card_id: str, oid: str) -> StackMemory | None:
     mem = plan.rules.stack_lki.get(oid)
     if mem is None or mem.card != card_id or mem.ability_card is None:
@@ -431,9 +457,10 @@ def run(plan: Plan, job: Job) -> bool:
                         resume={"step": "copy_source_order", "job": job})
             return False
         cur = job["queue"][0]
-        card = plan.state.cards.get(cur["object"])
-        mem = None
-        if card is None or card.zone != "stack" or plan.oid(card) != cur["oid"]:
+        saved = cur.get("saved_stack")
+        card = CardInstance.model_validate(saved["card"]) if saved is not None else plan.state.cards.get(cur["object"])
+        mem = StackMemory.model_validate(saved["memory"]) if saved is not None else None
+        if saved is None and (card is None or card.zone != "stack" or plan.oid(card) != cur["oid"]):
             # 608.2h, 707.10: use the exact departed stack object, including abilities that have ceased to exist.
             # An old save without its memory still requests manual resolution rather than silently losing the copy.
             mem = lki_ability(plan, cur["object"], cur["oid"])
@@ -447,14 +474,15 @@ def run(plan: Plan, job: Job) -> bool:
                 _next(job)
                 _manual(plan, job, f"{job['label']}: {name} left the stack, so its copy isn't automated: make the copy by hand, then press Done")
                 return False
-        refused = uncopyable(plan, card, object_id=cur["oid"])
+        assert card is not None
+        refused = uncopyable(plan, card, object_id=cur["oid"]) if saved is None else None
         if refused is not None:
             _next(job)
             if refused:
                 _manual(plan, job, refused)
                 return False
             continue
-        entry = mem.entry if mem is not None else plan.rules.stack.get(card.id)
+        entry = mem.entry if saved is not None and mem is not None else source_entry102(plan, card, cur["oid"])
         from app.rules import spell_copy_replacements
 
         spell_copy_replacements.prepare(plan, job, cur, ability=card.ability is not None)
@@ -469,7 +497,9 @@ def run(plan: Plan, job: Job) -> bool:
                                  DecisionOption(id="choose", label="Choose new targets for each copy")],
                         resume={"step": "copy_mode", "job": job})
             return False
-        copy_id = make_copy(plan, card, job["controller"], [CopyExcept.model_validate(x) for x in job["excepts"]], cur["oid"])
+        excepts = [CopyExcept.model_validate(x) for x in job["excepts"]]
+        copy_id = (_copy_spell(plan, card, job["controller"], excepts, cur["oid"], saved=saved) if saved is not None else
+                   make_copy(plan, card, job["controller"], excepts, cur["oid"]))
         if job.get("did") and job.get("ctx") is not None:
             from app.rules import context
 
@@ -585,7 +615,10 @@ def uncopyable(plan: Plan, card: CardInstance, *, object_id: str | None = None) 
         plan.note(f"{ch.name or 'That spell'} can't be copied (113.6g)", [card.id], actor=plan.actor)
         return ""
     if "Aura" in ch.subtypes:
-        return f"Copying an Aura spell ({ch.name}) isn't automated: make the copy by hand, then press Done"
+        from app.rules import attachments
+
+        if attachments.enchant_selector(ch) is None:
+            return f"Copying this Aura's unrecognized enchant restriction ({ch.name}) isn't automated"
     if ch.doors is not None:  # -- Rooms (review 18G) -- 709.5d unlocks the half that was *cast*; a copy isn't cast (707.10): unsettled
         return f"Copying a Room spell ({ch.name}) isn't automated (709.5d): make the copy by hand, then press Done"
     if plan.oid(card) in plan.rules.mutating:  # -- merged permanents (wave 18D) -- the copy is a mutating spell too (707.10, 702.140)
@@ -603,23 +636,26 @@ def make_copy(plan: Plan, card: CardInstance, controller: str, excepts: list[Cop
     return _copy_spell(plan, card, controller, excepts, oid)
 
 
-def _copy_spell(plan: Plan, card: CardInstance, controller: str, excepts: list[CopyExcept], oid: str | None = None) -> str | None:
+def _copy_spell(plan: Plan, card: CardInstance, controller: str, excepts: list[CopyExcept], oid: str | None = None,
+                *, saved: dict[str, Any] | None = None) -> str | None:
     from app.game.state import StackInfo
 
     r = plan.rules
     orig_oid = oid or plan.oid(card)
-    mem = lki_spell(plan, card.id, orig_oid) if orig_oid != plan.oid(card) else None  # it has left the stack: -- spell copies (wave 31D) --
-    entry = mem.entry if mem is not None else r.stack.get(card.id)
+    mem = StackMemory.model_validate(saved["memory"]) if saved is not None else lki_spell(plan, card.id, orig_oid) if orig_oid != plan.oid(card) else None  # it has left the stack: -- spell copies (wave 31D) --
+    entry = mem.entry if saved is not None and mem is not None else source_entry102(plan, card, orig_oid)
     info = (StackInfo.model_validate(mem.info) if mem.info else None) if mem is not None else card.stack_info
     if mem is not None:  # (its copiable values as it was: a copy effect on it then, else its printing and face — 707.2)
-        snap = r.lki[orig_oid]
+        from app.game.rules_state import ObjectSnapshot
+
+        snap = ObjectSnapshot.model_validate(saved["snapshot"]) if saved is not None else r.lki[orig_oid]
         base = snap.copy_recipe.model_copy(deep=True) if snap.copy_recipe is not None else CopyRecipe(printing=snap.printing, face=snap.face,
                                                                                                       source=snap.name[:200])
         record = r.payments.get(orig_oid)
         recipe = with_excepts(base.model_copy(update={"prototyped": True}) if record is not None and record.prototyped else base, excepts)
     else:
         recipe = with_excepts(recipe_of(plan, card), excepts)
-    created = plan.do({"type": "copy_card", "card_id": card.id, "player": controller, "count": 1, **({"last_known": orig_oid} if mem else {})},
+    created = plan.do({"type": "copy_card", "card_id": card.id, "player": controller, "count": 1, **({"saved_stack": saved["snapshot"]} if saved is not None else {"last_known": orig_oid} if mem else {})},
                       actor=controller)
     new_ids = getattr(created, "r", None)
     if new_ids is None or not new_ids.ids:
@@ -629,7 +665,7 @@ def _copy_spell(plan: Plan, card: CardInstance, controller: str, excepts: list[C
     add_copy_effect(plan, [oid], recipe, controller)
     if entry is not None:
         r.stack[copy_id] = _entry_copy(entry, controller=controller, source=(copy_id, oid), orig=orig_oid)
-    _payment_alias(plan, orig_oid, oid, copy_id, controller)
+    _payment_alias(plan, orig_oid, oid, copy_id, controller, saved=saved)
     payload: dict[str, Any] = {"type": "set_stack_info", "card_id": copy_id,
                                "tags": ["Copy", *(t for t in (info.tags if info else []) if t.startswith(("Kicked", "Evoked")))]}
     if info is not None and info.x is not None:
@@ -683,11 +719,14 @@ def _entry_copy(entry: StackEntry, *, controller: str, source: tuple[str, str] |
     return out
 
 
-def _payment_alias(plan: Plan, orig_oid: str, oid: str, copy_id: str, controller: str) -> None:
+def _payment_alias(plan: Plan, orig_oid: str, oid: str, copy_id: str, controller: str,
+                   *, saved: dict[str, Any] | None = None) -> None:
     """707.10: an effect of the copy that refers to objects used to pay its costs uses the objects
     that paid for the original (the sacrificed creature, the creatures that convoked it); mana
     isn't an object and isn't copied (the Dawnglow Infusion example), nor is life."""
-    record = plan.rules.payments.get(orig_oid)
+    from app.game.rules_state import PaymentRecord
+
+    record = PaymentRecord.model_validate(saved["payment"]) if saved is not None and saved.get("payment") else plan.rules.payments.get(orig_oid)
     if record is not None:
         plan.rules.payments[oid] = record.model_copy(
             deep=True, update={"card": copy_id, "controller": controller, "mana_spent": {}, "resolved_x": None, "activation_life_paid": 0, "x_black_spent": 0, "mana_tags": [], "snow_spent": {}, "mana_sources": [], "mana_riders": [], "life": 0, "tapped": [],
@@ -842,6 +881,11 @@ def finalize(plan: Plan, copy_id: str, controller: str) -> None:
            or (t.id in plan.state.cards and publicly_visible(plan.state, plan.state.cards[t.id]))]
     plan.target_arrows(copy_id, ids, actor=controller)
     targeted(plan, copy_id, controller, entry.targets)
+    if 'Aura' in plan.ch(plan.state.cards[copy_id]).subtypes:
+        # The temporary target view is only for copy selection; normal Aura resolution
+        # continues through the existing enchant/attachment path, not an empty scripted spell.
+        plan.rules.aura_targets[copy_id] = entry.targets[0]
+        plan.rules.stack.pop(copy_id, None)
 
 
 # -- effect primitives ---------------------------------------------------------------------------------
@@ -1063,7 +1107,7 @@ def _each_run(plan: Plan, job: dict[str, Any]) -> bool:
             job["victims"].remove(victim)
         card = plan.state.cards.get(job["spell"])
         mem = lki_spell(plan, job["spell"], job["oid"]) if card is not None else None  # (wave 31D: a spell that left the stack, as it last was there)
-        entry = mem.entry if mem is not None else plan.rules.stack.get(job["spell"])
+        entry = source_entry102(plan, card, job["oid"]) if card is not None else None
         if card is None or entry is None or (mem is None and (card.zone != "stack" or plan.oid(card) != job["oid"])):
             break
         if victim == "__additional__":

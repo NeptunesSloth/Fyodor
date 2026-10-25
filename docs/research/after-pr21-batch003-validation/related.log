@@ -1,0 +1,185 @@
+============================= test session starts ==============================
+platform linux -- Python 3.12.14, pytest-9.1.1, pluggy-1.7.0 -- /workspace/Fyodor/backend/.venv/bin/python3
+cachedir: .pytest_cache
+rootdir: /workspace/scratch/after-pr21/batch003/backend
+configfile: pyproject.toml
+plugins: anyio-4.15.1, xdist-3.8.0
+created: 4/4 workers
+4 workers [86 items]
+
+scheduling tests via LoadScheduling
+
+tests/test_rules_activated_copy_family.py::test_dynaheir_grants_only_activation_haste_to_other_new_creatures
+tests/test_rules_activated_copy_family.py::test_pit_automaton_prepares_exhaust_copy_preserving_x
+tests/test_rules_activated_copy_family.py::test_full[Ashnod the Uncaring]
+tests/test_rules_activated_copy_family.py::test_ashnod_copies_actual_sacrifice_activation_without_paying_cost_twice[False]
+[gw0] [  1%] PASSED tests/test_rules_activated_copy_family.py::test_full[Ashnod the Uncaring]
+tests/test_rules_activated_copy_family.py::test_full[Verrak, Warped Sengir]
+[gw0] [  2%] PASSED tests/test_rules_activated_copy_family.py::test_full[Verrak, Warped Sengir]
+tests/test_rules_activated_copy_family.py::test_full[Pit Automaton]
+[gw0] [  3%] PASSED tests/test_rules_activated_copy_family.py::test_full[Pit Automaton]
+tests/test_rules_activated_copy_family.py::test_full[Dynaheir, Invoker Adept]
+[gw0] [  4%] PASSED tests/test_rules_activated_copy_family.py::test_full[Dynaheir, Invoker Adept]
+tests/test_rules_activated_copy_family.py::test_full[Magus Lucea Kane]
+[gw0] [  5%] PASSED tests/test_rules_activated_copy_family.py::test_full[Magus Lucea Kane]
+tests/test_rules_activated_copy_family.py::test_dynaheir_saved_watch_outlives_source_and_expires_this_turn
+[gw0] [  6%] PASSED tests/test_rules_activated_copy_family.py::test_dynaheir_saved_watch_outlives_source_and_expires_this_turn
+tests/test_rules_activated_copy_family.py::test_magus_watch_cleanup_expiry
+[gw3] [  8%] PASSED tests/test_rules_activated_copy_family.py::test_dynaheir_grants_only_activation_haste_to_other_new_creatures
+tests/test_rules_activated_copy_family.py::test_magus_single_union_watch_consumed_by_x_activation_not_again_by_x_spell
+[gw2] [  9%] PASSED tests/test_rules_activated_copy_family.py::test_ashnod_copies_actual_sacrifice_activation_without_paying_cost_twice[False]
+tests/test_rules_activated_copy_family.py::test_ashnod_copies_actual_sacrifice_activation_without_paying_cost_twice[True]
+[gw1] [ 10%] PASSED tests/test_rules_activated_copy_family.py::test_pit_automaton_prepares_exhaust_copy_preserving_x
+tests/test_rules_activated_copy_family.py::test_magus_mana_ability_does_not_use_stack_and_copies_x_spell_without_spending_its_mana
+[gw3] [ 11%] PASSED tests/test_rules_activated_copy_family.py::test_magus_single_union_watch_consumed_by_x_activation_not_again_by_x_spell
+tests/test_rules_activated_copy_family.py::test_magus_does_not_consume_watch_on_no_x_then_copies_x_zero
+[gw0] [ 12%] PASSED tests/test_rules_activated_copy_family.py::test_magus_watch_cleanup_expiry
+tests/test_rules_activated_copy_family.py::test_magus_saved_copy_retargets_without_changing_original_or_paying_exhaust_again
+[gw2] [ 13%] PASSED tests/test_rules_activated_copy_family.py::test_ashnod_copies_actual_sacrifice_activation_without_paying_cost_twice[True]
+tests/test_rules_activated_copy_family.py::test_verrak_actual_greed_pays_original_direct_life_again[False]
+[gw1] [ 15%] PASSED tests/test_rules_activated_copy_family.py::test_magus_mana_ability_does_not_use_stack_and_copies_x_spell_without_spending_its_mana
+tests/test_rules_activated_copy_family.py::test_verrak_excludes_upstream_mana_confluence_life_from_greed_repayment
+[gw3] [ 16%] PASSED tests/test_rules_activated_copy_family.py::test_magus_does_not_consume_watch_on_no_x_then_copies_x_zero
+tests/test_rules_activated_copy_family.py::test_verrak_saved_trigger_keeps_direct_life_after_original_ability_countered
+[gw0] [ 17%] PASSED tests/test_rules_activated_copy_family.py::test_magus_saved_copy_retargets_without_changing_original_or_paying_exhaust_again
+tests/test_rules_activated_copy_family.py::test_magus_copies_countered_original_x_spell_from_native_lki
+[gw2] [ 18%] PASSED tests/test_rules_activated_copy_family.py::test_verrak_actual_greed_pays_original_direct_life_again[False]
+tests/test_rules_activated_copy_family.py::test_verrak_actual_greed_pays_original_direct_life_again[True]
+[gw1] [ 19%] PASSED tests/test_rules_activated_copy_family.py::test_verrak_excludes_upstream_mana_confluence_life_from_greed_repayment
+tests/test_rules_activated_copy_family.py::test_verrak_does_not_trigger_on_life_paid_only_for_input_mana
+[gw3] [ 20%] PASSED tests/test_rules_activated_copy_family.py::test_verrak_saved_trigger_keeps_direct_life_after_original_ability_countered
+tests/test_rules_activated_copy_family.py::test_pit_watch_ignores_ordinary_activation_and_outlives_source
+[gw2] [ 22%] PASSED tests/test_rules_activated_copy_family.py::test_verrak_actual_greed_pays_original_direct_life_again[True]
+tests/test_rules_activated_copy_family.py::test_dynaheir_four_actual_mana_copies_azure_mage
+[gw0] [ 23%] PASSED tests/test_rules_activated_copy_family.py::test_magus_copies_countered_original_x_spell_from_native_lki
+tests/test_rules_activated_copy_family.py::test_verrak_cannot_repay_direct_life_after_platinum_emperion_enters
+[gw1] [ 24%] PASSED tests/test_rules_activated_copy_family.py::test_verrak_does_not_trigger_on_life_paid_only_for_input_mana
+tests/test_rules_activated_copy_family.py::test_dynaheir_reduced_cost_does_not_consume_watch_then_full_cost_does
+[gw3] [ 25%] PASSED tests/test_rules_activated_copy_family.py::test_pit_watch_ignores_ordinary_activation_and_outlives_source
+tests/test_rules_activated_copy_family.py::test_ashnod_copies_burnished_hart_after_its_source_was_sacrificed
+[gw2] [ 26%] PASSED tests/test_rules_activated_copy_family.py::test_dynaheir_four_actual_mana_copies_azure_mage
+tests/test_rules_activated_copy_family.py::test_ashnod_does_not_count_lotus_petal_sacrificed_for_input_mana
+[gw0] [ 27%] PASSED tests/test_rules_activated_copy_family.py::test_verrak_cannot_repay_direct_life_after_platinum_emperion_enters
+tests/test_rules_spell_copy_replacements.py::test_each_own_modifier_adds_once_and_opponents_modifiers_do_not_apply[2-0]
+[gw0] [ 29%] PASSED tests/test_rules_spell_copy_replacements.py::test_each_own_modifier_adds_once_and_opponents_modifiers_do_not_apply[2-0]
+tests/test_rules_spell_copy_replacements.py::test_storm_is_one_copy_event_and_zero_copies_are_not_replaced[0]
+[gw0] [ 30%] PASSED tests/test_rules_spell_copy_replacements.py::test_storm_is_one_copy_event_and_zero_copies_are_not_replaced[0]
+tests/test_rules_spell_copy_replacements.py::test_storm_is_one_copy_event_and_zero_copies_are_not_replaced[1]
+[gw0] [ 31%] PASSED tests/test_rules_spell_copy_replacements.py::test_storm_is_one_copy_event_and_zero_copies_are_not_replaced[1]
+tests/test_rules_spell_copy_replacements.py::test_storm_is_one_copy_event_and_zero_copies_are_not_replaced[3]
+[gw1] [ 32%] PASSED tests/test_rules_activated_copy_family.py::test_dynaheir_reduced_cost_does_not_consume_watch_then_full_cost_does
+tests/test_rules_spell_copy_replacements.py::test_extra_copy_can_be_put_before_or_after_the_original[order0]
+[gw1] [ 33%] PASSED tests/test_rules_spell_copy_replacements.py::test_extra_copy_can_be_put_before_or_after_the_original[order0]
+tests/test_rules_spell_copy_replacements.py::test_extra_copy_can_be_put_before_or_after_the_original[order1]
+[gw1] [ 34%] PASSED tests/test_rules_spell_copy_replacements.py::test_extra_copy_can_be_put_before_or_after_the_original[order1]
+tests/test_rules_spell_copy_replacements.py::test_zada_original_copies_are_constrained_but_additional_copy_may_target_a_player[order0]
+[gw0] [ 36%] PASSED tests/test_rules_spell_copy_replacements.py::test_storm_is_one_copy_event_and_zero_copies_are_not_replaced[3]
+tests/test_rules_spell_copy_replacements.py::test_activated_copy_ability_itself_benefits_from_the_static
+[gw2] [ 37%] PASSED tests/test_rules_activated_copy_family.py::test_ashnod_does_not_count_lotus_petal_sacrificed_for_input_mana
+tests/test_rules_activated_copy_family.py::test_special_cycling_callback_resumes_after_injected_low_level_mana_draw
+[gw3] [ 38%] PASSED tests/test_rules_activated_copy_family.py::test_ashnod_copies_burnished_hart_after_its_source_was_sacrificed
+tests/test_rules_activated_copy_family.py::test_dynaheir_does_not_grant_attack_haste_to_other_new_creatures
+[gw1] [ 39%] PASSED tests/test_rules_spell_copy_replacements.py::test_zada_original_copies_are_constrained_but_additional_copy_may_target_a_player[order0]
+tests/test_rules_spell_copy_replacements.py::test_zada_original_copies_are_constrained_but_additional_copy_may_target_a_player[order1]
+[gw0] [ 40%] PASSED tests/test_rules_spell_copy_replacements.py::test_activated_copy_ability_itself_benefits_from_the_static
+tests/test_rules_spell_copy_replacements.py::test_zada_original_copies_are_constrained_but_additional_copy_may_target_a_player[order2]
+[gw1] [ 41%] PASSED tests/test_rules_spell_copy_replacements.py::test_zada_original_copies_are_constrained_but_additional_copy_may_target_a_player[order1]
+tests/test_rules_spell_copy_replacements.py::test_copying_a_permanent_spell_creates_additional_token_permanent
+[gw1] [ 43%] PASSED tests/test_rules_spell_copy_replacements.py::test_copying_a_permanent_spell_creates_additional_token_permanent
+tests/test_rules_spell_copy_replacements.py::test_modifier_must_still_be_present_when_copy_event_occurs
+[gw0] [ 44%] PASSED tests/test_rules_spell_copy_replacements.py::test_zada_original_copies_are_constrained_but_additional_copy_may_target_a_player[order2]
+tests/test_rules_spell_copy_replacements.py::test_zada_with_no_other_eligible_creatures_makes_no_additional_copy
+[gw1] [ 45%] PASSED tests/test_rules_spell_copy_replacements.py::test_modifier_must_still_be_present_when_copy_event_occurs
+tests/test_rules_spell_copy_replacements.py::test_scepter_copies_a_card_and_casts_it_without_extra_spell_copy
+[gw0] [ 46%] PASSED tests/test_rules_spell_copy_replacements.py::test_zada_with_no_other_eligible_creatures_makes_no_additional_copy
+tests/test_rules_spell_copy_replacements.py::test_casualty_x_additional_permanent_spell_copy_keeps_loyalty_exception
+[gw1] [ 47%] PASSED tests/test_rules_spell_copy_replacements.py::test_scepter_copies_a_card_and_casts_it_without_extra_spell_copy
+tests/test_rules_spell_copy_replacements.py::test_additional_copy_can_be_inserted_between_storm_copies
+[gw0] [ 48%] PASSED tests/test_rules_spell_copy_replacements.py::test_casualty_x_additional_permanent_spell_copy_keeps_loyalty_exception
+tests/test_rules_spell_copy_replacements.py::test_copying_an_ability_does_not_add_another_ability_copy
+[gw1] [ 50%] PASSED tests/test_rules_spell_copy_replacements.py::test_additional_copy_can_be_inserted_between_storm_copies
+tests/test_rules_spell_copy_replacements.py::test_countered_storm_spell_is_copied_from_last_known_values_with_an_additional_copy
+[gw1] [ 51%] PASSED tests/test_rules_spell_copy_replacements.py::test_countered_storm_spell_is_copied_from_last_known_values_with_an_additional_copy
+tests/test_rules_spell_copy_replacements.py::test_mirrorwing_uses_the_spell_casters_staff_not_the_trigger_controllers[1-0]
+[gw3] [ 52%] PASSED tests/test_rules_activated_copy_family.py::test_dynaheir_does_not_grant_attack_haste_to_other_new_creatures
+tests/test_rules_activated_copy_family.py::test_dynaheir_other_exclusion_does_not_replace_its_own_intrinsic_haste
+[gw0] [ 53%] PASSED tests/test_rules_spell_copy_replacements.py::test_copying_an_ability_does_not_add_another_ability_copy
+tests/test_rules_spell_copy_replacements.py::test_mirrorwing_uses_the_spell_casters_staff_not_the_trigger_controllers[0-1]
+[gw1] [ 54%] PASSED tests/test_rules_spell_copy_replacements.py::test_mirrorwing_uses_the_spell_casters_staff_not_the_trigger_controllers[1-0]
+tests/test_rules_variable_counter_costs.py::test_variable_counter_cost_cards_are_full[Geistflame Reservoir]
+[gw1] [ 55%] PASSED tests/test_rules_variable_counter_costs.py::test_variable_counter_cost_cards_are_full[Geistflame Reservoir]
+tests/test_rules_variable_counter_costs.py::test_variable_counter_cost_cards_are_full[Rasputin, the Oneiromancer]
+[gw1] [ 56%] PASSED tests/test_rules_variable_counter_costs.py::test_variable_counter_cost_cards_are_full[Rasputin, the Oneiromancer]
+tests/test_rules_variable_counter_costs.py::test_variable_counter_cost_cards_are_full[Simic Manipulator]
+[gw1] [ 58%] PASSED tests/test_rules_variable_counter_costs.py::test_variable_counter_cost_cards_are_full[Simic Manipulator]
+tests/test_rules_variable_counter_costs.py::test_variable_counter_cost_cards_are_full[Ooze Flux]
+[gw1] [ 59%] PASSED tests/test_rules_variable_counter_costs.py::test_variable_counter_cost_cards_are_full[Ooze Flux]
+tests/test_rules_variable_counter_costs.py::test_variable_counter_cost_cards_are_full[Loot, the Pathfinder]
+[gw1] [ 60%] PASSED tests/test_rules_variable_counter_costs.py::test_variable_counter_cost_cards_are_full[Loot, the Pathfinder]
+tests/test_rules_variable_counter_costs.py::test_variable_counter_cost_cards_are_full[The Filigree Sylex]
+[gw1] [ 61%] PASSED tests/test_rules_variable_counter_costs.py::test_variable_counter_cost_cards_are_full[The Filigree Sylex]
+tests/test_rules_variable_counter_costs.py::test_ant_man_announces_and_pays_the_counter_number_then_creates_that_many_tokens[0]
+[gw0] [ 62%] PASSED tests/test_rules_spell_copy_replacements.py::test_mirrorwing_uses_the_spell_casters_staff_not_the_trigger_controllers[0-1]
+tests/test_rules_variable_counter_costs.py::test_variable_counter_cost_cards_are_full[The Astonishing Ant-Man]
+[gw0] [ 63%] PASSED tests/test_rules_variable_counter_costs.py::test_variable_counter_cost_cards_are_full[The Astonishing Ant-Man]
+tests/test_rules_variable_counter_costs.py::test_ant_man_announces_and_pays_the_counter_number_then_creates_that_many_tokens[3]
+[gw1] [ 65%] PASSED tests/test_rules_variable_counter_costs.py::test_ant_man_announces_and_pays_the_counter_number_then_creates_that_many_tokens[0]
+tests/test_rules_variable_counter_costs.py::test_ant_man_announces_and_pays_the_counter_number_then_creates_that_many_tokens[2]
+[gw0] [ 66%] PASSED tests/test_rules_variable_counter_costs.py::test_ant_man_announces_and_pays_the_counter_number_then_creates_that_many_tokens[3]
+tests/test_rules_variable_counter_costs.py::test_ant_man_cannot_remove_more_counters_than_it_has
+[gw1] [ 67%] PASSED tests/test_rules_variable_counter_costs.py::test_ant_man_announces_and_pays_the_counter_number_then_creates_that_many_tokens[2]
+tests/test_rules_variable_counter_costs.py::test_reservoir_uses_counters_paid_even_after_source_leaves[0]
+[gw0] [ 68%] PASSED tests/test_rules_variable_counter_costs.py::test_ant_man_cannot_remove_more_counters_than_it_has
+tests/test_rules_variable_counter_costs.py::test_reservoir_uses_counters_paid_even_after_source_leaves[2]
+[gw1] [ 69%] PASSED tests/test_rules_variable_counter_costs.py::test_reservoir_uses_counters_paid_even_after_source_leaves[0]
+tests/test_rules_variable_counter_costs.py::test_one_or_more_rejects_zero_without_paying_any_cost
+[gw0] [ 70%] PASSED tests/test_rules_variable_counter_costs.py::test_reservoir_uses_counters_paid_even_after_source_leaves[2]
+tests/test_rules_variable_counter_costs.py::test_ooze_flux_removes_the_announced_total_across_multiple_creatures
+[gw1] [ 72%] PASSED tests/test_rules_variable_counter_costs.py::test_one_or_more_rejects_zero_without_paying_any_cost
+tests/test_rules_variable_counter_costs.py::test_manipulator_targets_use_announced_payment_and_recheck_power_on_resolution[False]
+[gw0] [ 73%] PASSED tests/test_rules_variable_counter_costs.py::test_ooze_flux_removes_the_announced_total_across_multiple_creatures
+tests/test_rules_variable_counter_costs.py::test_manipulator_targets_use_announced_payment_and_recheck_power_on_resolution[True]
+[gw3] [ 74%] PASSED tests/test_rules_activated_copy_family.py::test_dynaheir_other_exclusion_does_not_replace_its_own_intrinsic_haste
+tests/test_rules_activated_copy_family.py::test_x_cycling_uses_actual_receipt_and_copies_only_draw_not_cycle_event[Magus Lucea Kane]
+[gw1] [ 75%] PASSED tests/test_rules_variable_counter_costs.py::test_manipulator_targets_use_announced_payment_and_recheck_power_on_resolution[False]
+tests/test_rules_variable_counter_costs.py::test_ooze_flux_hints_require_at_least_one_counter
+[gw1] [ 76%] PASSED tests/test_rules_variable_counter_costs.py::test_ooze_flux_hints_require_at_least_one_counter
+tests/test_rules_variable_counter_costs.py::test_named_mana_counter_cost_requires_the_actual_source_name
+[gw1] [ 77%] PASSED tests/test_rules_variable_counter_costs.py::test_named_mana_counter_cost_requires_the_actual_source_name
+tests/test_rules_variable_counter_costs.py::test_ooze_flux_refuses_a_total_larger_than_all_available_counters
+[gw1] [ 79%] PASSED tests/test_rules_variable_counter_costs.py::test_ooze_flux_refuses_a_total_larger_than_all_available_counters
+tests/test_rules_variable_counter_costs.py::test_zero_is_a_legal_any_number_payment_even_without_counters
+[gw0] [ 80%] PASSED tests/test_rules_variable_counter_costs.py::test_manipulator_targets_use_announced_payment_and_recheck_power_on_resolution[True]
+tests/test_rules_variable_counter_costs.py::test_rasputin_named_self_cost_produces_the_chosen_amount_without_the_stack
+[gw1] [ 81%] PASSED tests/test_rules_variable_counter_costs.py::test_zero_is_a_legal_any_number_payment_even_without_counters
+tests/test_rules_variable_counter_costs.py::test_independent_variable_costs_remain_unsupported
+[gw1] [ 82%] PASSED tests/test_rules_variable_counter_costs.py::test_independent_variable_costs_remain_unsupported
+tests/test_rules_variable_counter_costs.py::test_loots_mana_exhaust_pays_green_and_each_ability_has_its_own_limit
+[gw1] [ 83%] PASSED tests/test_rules_variable_counter_costs.py::test_loots_mana_exhaust_pays_green_and_each_ability_has_its_own_limit
+tests/test_rules_variable_counter_costs.py::test_loots_mana_exhaust_becomes_usable_again_as_a_new_object
+[gw1] [ 84%] PASSED tests/test_rules_variable_counter_costs.py::test_loots_mana_exhaust_becomes_usable_again_as_a_new_object
+tests/test_rules_variable_counter_costs.py::test_sylex_can_remove_oil_before_sacrificing_the_same_source[0]
+[gw1] [ 86%] PASSED tests/test_rules_variable_counter_costs.py::test_sylex_can_remove_oil_before_sacrificing_the_same_source[0]
+tests/test_rules_variable_counter_costs.py::test_sylex_can_remove_oil_before_sacrificing_the_same_source[4]
+[gw1] [ 87%] PASSED tests/test_rules_variable_counter_costs.py::test_sylex_can_remove_oil_before_sacrificing_the_same_source[4]
+tests/test_rules_variable_counter_costs.py::test_sylex_can_remove_oil_before_sacrificing_the_same_source[10]
+[gw1] [ 88%] PASSED tests/test_rules_variable_counter_costs.py::test_sylex_can_remove_oil_before_sacrificing_the_same_source[10]
+tests/test_rules_variable_counter_costs.py::test_sylex_refuses_nine_counters_without_tapping_or_sacrificing
+[gw2] [ 89%] PASSED tests/test_rules_activated_copy_family.py::test_special_cycling_callback_resumes_after_injected_low_level_mana_draw
+tests/test_rules_spell_copy_replacements.py::test_full
+[gw2] [ 90%] PASSED tests/test_rules_spell_copy_replacements.py::test_full
+tests/test_rules_spell_copy_replacements.py::test_each_own_modifier_adds_once_and_opponents_modifiers_do_not_apply[0-1]
+[gw1] [ 91%] PASSED tests/test_rules_variable_counter_costs.py::test_sylex_refuses_nine_counters_without_tapping_or_sacrificing
+[gw2] [ 93%] PASSED tests/test_rules_spell_copy_replacements.py::test_each_own_modifier_adds_once_and_opponents_modifiers_do_not_apply[0-1]
+tests/test_rules_spell_copy_replacements.py::test_each_own_modifier_adds_once_and_opponents_modifiers_do_not_apply[1-0]
+[gw2] [ 94%] PASSED tests/test_rules_spell_copy_replacements.py::test_each_own_modifier_adds_once_and_opponents_modifiers_do_not_apply[1-0]
+[gw0] [ 95%] PASSED tests/test_rules_variable_counter_costs.py::test_rasputin_named_self_cost_produces_the_chosen_amount_without_the_stack
+tests/test_rules_variable_counter_costs.py::test_counter_reference_must_match_the_counter_paid
+[gw0] [ 96%] PASSED tests/test_rules_variable_counter_costs.py::test_counter_reference_must_match_the_counter_paid
+[gw3] [ 97%] PASSED tests/test_rules_activated_copy_family.py::test_x_cycling_uses_actual_receipt_and_copies_only_draw_not_cycle_event[Magus Lucea Kane]
+tests/test_rules_activated_copy_family.py::test_x_cycling_uses_actual_receipt_and_copies_only_draw_not_cycle_event[Dynaheir, Invoker Adept]
+[gw3] [ 98%] PASSED tests/test_rules_activated_copy_family.py::test_x_cycling_uses_actual_receipt_and_copies_only_draw_not_cycle_event[Dynaheir, Invoker Adept]
+tests/test_rules_activated_copy_family.py::test_magus_ignores_x_in_card_mana_cost_when_activated_cycling_cost_has_no_x
+[gw3] [100%] PASSED tests/test_rules_activated_copy_family.py::test_magus_ignores_x_in_card_mana_cost_when_activated_cycling_cost_has_no_x
+
+======================== 86 passed in 159.48s (0:02:39) ========================

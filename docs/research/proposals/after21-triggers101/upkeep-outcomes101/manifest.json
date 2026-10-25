@@ -1,0 +1,21 @@
+{
+  "names": [
+    "Doom Foretold",
+    "Infernal Denizen",
+    "Cocoon"
+  ],
+  "baseline": "456c95d6 merged PR21",
+  "owned_sources": [
+    "app/rules/upkeep_sacrifice101.py",
+    "app/rules/scripts.py",
+    "app/rules/effects.py"
+  ],
+  "native": 18,
+  "genuine_cold": 3,
+  "typing": 3,
+  "ruff": 4,
+  "related": 33,
+  "test_destination": "backend/tests/test_rules_upkeep_sacrifice101.py",
+  "fixture_destination": "backend/tests/fixtures/upkeep_sacrifice101_cards.json",
+  "status": "CLOSED root integration/catalog required"
+}

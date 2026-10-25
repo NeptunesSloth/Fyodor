@@ -1,0 +1,19 @@
+..F..                                                                    [100%]
+=================================== FAILURES ===================================
+________________ test_other_cost_statics_full[Kaervek's Torch] _________________
+
+cards = <app.cards.repository.CardRepository object at 0x7f04e1772630>
+name = "Kaervek's Torch"
+
+    @pytest.mark.parametrize('name',["Myth Unbound",'Liesa, Shroud of Dusk',"Kaervek's Torch"])
+    def test_other_cost_statics_full(cards,name):
+>       assert coverage.of_card_data(cards.resolve(name)).level=='FULL', (cards.resolve(name), coverage.of_card_data(cards.resolve(name)))
+E       AssertionError: ({'id': 'fa2187ca-d751-5cfe-9036-cc24c877ebb8', 'oracle_id': '8851577e-8a29-5280-bf43-7117e7395496', 'name': "Kaervek'...), Feature(id='text:1', label="Kaervek's Torch deals X damage to any target.", supported=False)), review_needed=False))
+E       assert 'PARTIAL' == 'FULL'
+E
+E         - FULL
+E         + PARTIAL
+
+tests/test_rules_cost_statics101.py:116: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_rules_cost_statics101.py::test_other_cost_statics_full[Kaervek's Torch]

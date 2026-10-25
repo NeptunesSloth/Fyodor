@@ -1,3 +1,27 @@
+## POST-PR21 BATCH004 VERIFIED — CONTINUING
+
+**30,824 FULL / 1,244 PARTIAL**; **100/1000 new completions verified**, 900 remain. [PR22](https://github.com/NeptunesSloth/Fyodor/pull/22), [evidence](research/after-pr21-batch004-evidence.md). Native173, related53, core54, full mypy963, Ruff and exact catalog/definition diff pass on frozen source. Six agents continue; inherited PR21 work excluded. FULL is coverage classification.
+
+## POST-PR21 BATCH003 VERIFIED — CONTINUING
+
+**30,781 FULL / 1,287 PARTIAL**; **57/1000 new completions verified**, 943 remain. [PR22](https://github.com/NeptunesSloth/Fyodor/pull/22), [evidence](research/after-pr21-batch003-evidence.md). Native131, related86, core54, full mypy955, Ruff and exact catalog/definition diff pass on frozen source. Six agents continue; inherited PR21 work excluded. FULL is coverage classification.
+
+## POST-PR21 BATCH002 VERIFIED — CONTINUING
+
+**30,750 FULL / 1,318 PARTIAL**; **26/1000 new completions verified**, 974 remain. [PR22](https://github.com/NeptunesSloth/Fyodor/pull/22), [evidence](research/after-pr21-batch002-evidence.md). Native89, related43, core54, full mypy947, Ruff and exact catalog/definition diff pass on frozen source. Six agents continue; inherited PR21 work excluded. FULL is coverage classification.
+
+## POST-PR21 BATCH001 VERIFIED — CONTINUING
+
+**30,734 FULL / 1,334 PARTIAL**; **10/1000 new completions verified**, 990 remain. [PR22](https://github.com/NeptunesSloth/Fyodor/pull/22), [evidence](research/after-pr21-batch001-evidence.md). Native62, related38, core54, full mypy944, Ruff and exact catalog/definition diff pass on frozen source. Six agents continue; inherited PR21 work excluded. FULL is coverage classification.
+
+New work continues from merged [PR21](https://github.com/NeptunesSloth/Fyodor/pull/21) in [draft PR22](https://github.com/NeptunesSloth/Fyodor/pull/22). Six agents are active; the new request is1000 additional completions beyond PR21.
+
+## POST-PR21 BASELINE VERIFIED — ACTIVE
+
+**30,724 FULL /1,344 PARTIAL**,32,068 Commander-legal cards. **0/1000 new completions verified.** Inherited PR21 work is excluded. FULL is engine coverage classification. Baseline941-module full typing/Ruff and54 core checks pass.
+
+[Progress](research/after-pr21-progress.md), [baseline record](research/after-pr21-baseline.json), [source hashes](research/after-pr21-baseline-source-hashes.json), [logs](research/after-pr21-baseline-validation). Older checkpoint sections below are historical.
+
 Current-work wrap-up is saved in [PR #20](https://github.com/NeptunesSloth/Fyodor/pull/20). The six agents reached their usage limit; no automatic assignments remain active.
 
 ## CHECKPOINT67 VERIFIED — WRAP-UP

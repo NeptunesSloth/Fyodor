@@ -1,0 +1,39 @@
+{
+  "status": "CLOSED root integration/catalog required",
+  "names": [
+    "Command Performance",
+    "Ticketomaton",
+    "Finishing Move",
+    "Chicken Troupe",
+    "Prize Wall",
+    "Stiltstrider",
+    "Glitterflitter",
+    "Bioluminary",
+    "Baaallerina",
+    "Minotaur de Force",
+    "Aerialephant",
+    "Carnival Carnivore",
+    "Robo-Pi\u00f1ata",
+    "Sword-Swallowing Seraph",
+    "Proficient Pyrodancer",
+    "Roxi, Publicist to the Stars",
+    "Costume Shop"
+  ],
+  "promotion_candidates": 17,
+  "dependency": "after21-statics101 core27 source hashes identical",
+  "native": 43,
+  "genuine_cold": 2,
+  "related": 63,
+  "types": 4,
+  "ruff": 6,
+  "test_destination": "backend/tests/test_rules_sticker_effects101.py",
+  "fixture_destination": "backend/tests/fixtures/sticker_effects101_cards.json",
+  "owned_sources": [
+    "app/rules/sticker_effects101.py",
+    "app/rules/scripts.py",
+    "app/rules/effects.py",
+    "app/rules/engine.py"
+  ],
+  "legacy_test_change": "Only Costume Shop removed from previous manual expectation; Ferris Wheel remains partial. Positive actual native open/roll/visit test added.",
+  "limitations": "Core includes explicit merged/melded sacrifice-as-cost manual guard, not silent guesses; unsupported actual sheet abilities remain visible/manual. Park Bleater separately held for saved history. No universal46 claim."
+}

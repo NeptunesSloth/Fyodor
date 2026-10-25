@@ -1,0 +1,27 @@
+============================= test session starts ==============================
+platform linux -- Python 3.12.14, pytest-9.1.1, pluggy-1.7.0
+rootdir: /workspace/scratch/library101/backend
+configfile: pyproject.toml
+plugins: anyio-4.15.1, xdist-3.8.0
+collected 16 items / 8 deselected / 8 selected
+
+tests/test_rules_library_packets101.py .......F                          [100%]
+
+=================================== FAILURES ===================================
+____ test_capstone_native_total_mana_value_and_multiple_free_creature_casts ____
+
+cards = <app.cards.repository.CardRepository object at 0x7fe00d574170>
+
+    def test_capstone_native_total_mana_value_and_multiple_free_creature_casts(cards):
+        s = setup(cards)
+        ids = top(s, ['Forest', 'Grizzly Bears', 'Walking Corpse', 'Hill Giant'])
+        source = cast(s, 'Improvisation Capstone')
+        advance(s, stop=lambda d: d.resume.get('step') == 'free_cast')
+        d = s.state.rules.decision
+>       assert d is not None and {o.card_id for o in d.options if o.card_id} == set(ids[1:3])
+E       assert (None is not None)
+
+tests/test_rules_library_packets101.py:228: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_rules_library_packets101.py::test_capstone_native_total_mana_value_and_multiple_free_creature_casts
+================== 1 failed, 7 passed, 8 deselected in 4.95s ===================

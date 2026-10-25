@@ -1,0 +1,9 @@
+# batch004 verified
+
+Exactly 43 new legal promotions; **30,824 FULL / 1,244 PARTIAL**. Post-PR21 target **100/1000 verified** (900 remain). Inherited PR21 cards excluded; FULL is coverage classification.
+
+Frozen 963-module source: native173 PASS271.73s (one integrated run); related53 PASS14.60s; core54; full mypy and configured Ruff PASS. Metadata/name sets match baseline, no prior FULL regressions or changed definition fingerprints, no unexpected/missing promotions. No whole-suite claim.
+
+Groups: after21-library103, after21-combat104, after21-combat105, after21-sticker-riders102, after21-costs106, after21-costs107, after21-combat106, after21-statics101, after21-sticker-effects101, after21-triggers101/copy-controllers105. Names: Aerialephant; Anti-Magic Aura; Artifact Ward; Baaallerina; Big Winner; Bioluminary; Bite Down on Crime; Carnival Carnivore; Chicken Troupe; Command Performance; Consecrate Land; Costume Shop; Croakid Amphibonaut; Endless Swarm; Enduring Ideal; Eternal Dominion; Finishing Move; Glitterflitter; Grabby Tabby; Jandor's Ring; Krovikan Vampire; Meletis Charlatan; Minotaur de Force; Neverending Torment; Prize Wall; Proficient Pyrodancer; Psychic Rebuttal; Robo-Piñata; Roxi, Publicist to the Stars; Sanguine Sipper; Scared Stiff; Scythe of the Wretched; Seraph; Stiltstrider; Sword-Swallowing Seraph; Tempt with Mayhem; Ticketomaton; Undying Flames; Vampiric Embrace; Wizards of the _____; _____ Bird Gets the Worm; _____ Goblin; _____-o-saurus. Agent historical fixture failures remain labeled; this root native run passes on the actual integrated source. Further research remains uncounted.
+
+Additional integrated deck/API/parser, attachment and Attraction regression gate:108 PASS. Frontend TypeScript build PASS. Legacy Costume Shop manual-expectation test updated to native sticker automation; Ferris Wheel remains separately manual.

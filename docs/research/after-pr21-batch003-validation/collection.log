@@ -1,0 +1,10 @@
+tests/test_rules_combat_history103.py: 25
+tests/test_rules_counter_cost105.py: 6
+tests/test_rules_library_polymorph102.py: 16
+tests/test_rules_next_copy104.py: 10
+tests/test_rules_stack_events102.py: 24
+tests/test_rules_stack_extension103.py: 22
+tests/test_rules_waterbend102.py: 12
+tests/test_rules_waterbend103.py: 12
+tests/test_rules_waterbend104.py: 4
+

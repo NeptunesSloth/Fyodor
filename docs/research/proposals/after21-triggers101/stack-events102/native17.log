@@ -1,0 +1,54 @@
+............FF
+=================================== FAILURES ===================================
+_ test_ivy_native_other_player_spell_fixed_copy_even_if_original_countered[False] _
+
+cards = <app.cards.repository.CardRepository object at 0x7f2d6cd4e720>
+countered = False
+
+    @pytest.mark.parametrize('countered', [False, True])
+    def test_ivy_native_other_player_spell_fixed_copy_even_if_original_countered(cards, countered):
+        s = setup(cards)
+        ivy = put(s, 'Ivy, Gleeful Spellthief')
+        bear = put(s, 'Grizzly Bears', pid='p2')
+        source = cast(s, 'Giant Growth', [bear.id], pid='p2')
+        if countered:
+            cast(s, 'Counterspell', [source.id], pid='p3')
+            while len(s.state.zones.get('stack', [])) > 1:
+                assert s.state.rules.decision is None
+                act(s, s.state.rules.priority, type='pass_priority')
+        finish(s)
+>       assert pt(s, ivy) == (5,5)
+E       assert (5, 4) == (5, 5)
+E
+E         At index 1 diff: 4 != 5
+E         Use -v to get more diff
+
+tests/test_rules_stack_events102.py:137: AssertionError
+_ test_ivy_native_other_player_spell_fixed_copy_even_if_original_countered[True] _
+
+cards = <app.cards.repository.CardRepository object at 0x7f2d6cd199a0>
+countered = True
+
+    @pytest.mark.parametrize('countered', [False, True])
+    def test_ivy_native_other_player_spell_fixed_copy_even_if_original_countered(cards, countered):
+        s = setup(cards)
+        ivy = put(s, 'Ivy, Gleeful Spellthief')
+        bear = put(s, 'Grizzly Bears', pid='p2')
+        source = cast(s, 'Giant Growth', [bear.id], pid='p2')
+        if countered:
+            cast(s, 'Counterspell', [source.id], pid='p3')
+            while len(s.state.zones.get('stack', [])) > 1:
+                assert s.state.rules.decision is None
+                act(s, s.state.rules.priority, type='pass_priority')
+        finish(s)
+>       assert pt(s, ivy) == (5,5)
+E       assert (5, 4) == (5, 5)
+E
+E         At index 1 diff: 4 != 5
+E         Use -v to get more diff
+
+tests/test_rules_stack_events102.py:137: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_rules_stack_events102.py::test_ivy_native_other_player_spell_fixed_copy_even_if_original_countered[False]
+FAILED tests/test_rules_stack_events102.py::test_ivy_native_other_player_spell_fixed_copy_even_if_original_countered[True]
+!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 2 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!

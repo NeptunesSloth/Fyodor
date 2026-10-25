@@ -1,0 +1,1307 @@
+--- a/backend/app/game/rules_state.py
++++ b/backend/app/game/rules_state.py
+@@ -690,12 +690,22 @@ class TextChange71(BaseModel):
+     all_colors: bool = False
+
+
++class DurationBound102(BaseModel):
++    """611.2b: original objects whose ongoing relation bounds a resolved effect."""
++
++    kind: Literal["enchanted", "tapped", "attached", "source_tapped_power"]
++    target_object: str
++    source_card: str | None = None
++    source_object: str | None = None
++
++
+ class ContinuousEffect(BaseModel):
+     """A continuous effect from a resolved spell or ability (CR 611.2c): the objects it affects are
+     fixed when it begins. See ``app.rules.layers``."""
+
+     id: str
+     affected: list[str] = Field(default_factory=list)  # rules object ids
++    duration_bound102: DurationBound102 | None = None
+     ability_zone: Literal['exile', 'graveyard'] | None = None  # Exact-object layer-6 ability grants explicitly functioning in exile.
+     declaration_window: Literal["next_turn", "next_combat"] | None = None
+     declaration_player: str | None = None  # fixed when a resolved requirement names its controller’s next phase/turn
+--- a/backend/app/rules/scripts.py
++++ b/backend/app/rules/scripts.py
+@@ -2660,6 +2660,10 @@ def _sacrifice_count_sequence(body: str) -> tuple[list[dict[str, Any]], Any, boo
+
+
+ def parse_effects(body: str, it: str | None = None, *, event_player: bool = False) -> tuple[list[dict[str, Any]], Any, bool] | None:
++    from app.rules import lifespans102
++
++    if (bound102 := lifespans102.parse(body)) is not None:
++        return bound102
+     from app.rules import modal_clauses101
+
+     if (modal101 := modal_clauses101.parse(body)) is not None:
+@@ -5860,6 +5864,10 @@ def _first_time_gate(text: str) -> str:
+
+ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
+     """The engine definition of one ability, or None (manual)."""
++    from app.rules import lifespans102
++
++    if (lifespan102 := lifespans102.definition(ability, ch)) is not None:
++        return lifespan102
+     from app.rules import upkeep_sacrifice101
+
+     if (upkeep101 := upkeep_sacrifice101.definition(ability, ch)) is not None:
+@@ -7134,6 +7142,10 @@ def _blight(text: str) -> str:
+
+ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
+     """The engine definition of one ability, or None (manual)."""
++    from app.rules import lifespans102
++
++    if (lifespan102 := lifespans102.definition(ability, ch)) is not None:
++        return lifespan102
+     from app.rules import exile_counter_access85
+
+     if (counter85 := exile_counter_access85.definition(ability, ch)) is not None:
+@@ -8211,7 +8223,7 @@ def _event_refs_ok(d: Definition) -> bool:
+             and '\\"evt:' in json.dumps({**d, "effects": [e for i, e in enumerate(d.get("effects") or []) if i not in (_delayed.object_deferred(d.get("effects") or []) | entry_receipt56.object_deferred(d.get("effects") or []))]}):
+         # (wave 28D: the spell a cast trigger is about; -- turn-long triggers (wave 35B) -- or the one object a "When that creature dies this turn" trigger is about)
+         return False  # -- reanimation (wave 16F) -- "lesser mana value": than the one object the event is about
+-    if "not_event" in raw and not (ev is not None and ev["event"] in ("targeted", "unblocked")):  # -- stack interaction (wave 23B) -- "other than that creature":
++    if "not_event" in raw and not (ev is not None and (ev["event"] in ("targeted", "unblocked") or ev["event"] == "attached" and d.get("attached_other102"))):  # -- stack interaction (wave 23B) -- "other than that creature":
+         return False  # the object a "becomes the target" event is about (selectors.attacker_of); nothing else names one here
+     if '"event_attacking"' in raw and not (ev is not None and ev["event"] == "you_attack" and ev.get("min_attackers")):
+         return False  # -- trailing & intervening ifs (wave 38A) -- "those creatures": the attackers an "attacks with creatures" trigger counted (its event's objects)
+--- a/backend/app/rules/effects.py
++++ b/backend/app/rules/effects.py
+@@ -6991,3 +6991,9 @@ PRIMITIVES.update(_modal101.PRIMITIVES)
+ from app.rules import upkeep_sacrifice101 as _upkeep101  # noqa: E402
+
+ PRIMITIVES.update(_upkeep101.PRIMITIVES)
++
++# Resolved original-object relation durations (611.2b).
++from app.rules import lifespans102 as _lifespans102  # noqa: E402
++
++PRIMITIVES.update(_lifespans102.PRIMITIVES)
++RESUME.update(_lifespans102.RESUME)
+--- a/backend/app/rules/delayed.py
++++ b/backend/app/rules/delayed.py
+@@ -649,6 +649,9 @@ def expire(plan: Plan) -> None:
+         if _source_ok(plan, 'source_on_battlefield', r.source_card, r.source_object, None)]
+     phase_lifetimes43.expire(plan)
+     timed_damage_replacements.expire_source_records(plan)
++    from app.rules import lifespans102
++
++    lifespans102.expire(plan)
+     r = plan.rules
+     ended = [e for e in r.effects if e.duration.startswith("source_")
+              and not _source_ok(plan, e.duration, e.source_card, e.source, e.until_player)]
+--- a/backend/app/rules/triggers.py
++++ b/backend/app/rules/triggers.py
+@@ -207,6 +207,9 @@ def _add(plan: Plan, *, controller: str, source_card: str, source_object: str, n
+     from app.rules import attached_kindred_look
+
+     definition = attached_kindred_look.capture(plan, definition, source_object)
++    from app.rules import lifespans102
++
++    definition = lifespans102.capture(definition, event)
+     pending = PendingTrigger(id=secrets.token_hex(4), controller=controller, source_card=source_card,
+                              source_object=source_object, name=name, ability=definition, key=f"{name}:{index}",
+                              event=event)
+--- /dev/null
++++ b/backend/app/rules/lifespans102.py
+@@ -0,0 +1,290 @@
++"""Original-object relation durations, CR 611.2b and 702.26f (2026-09-25)."""
++
++from __future__ import annotations
++
++from typing import TYPE_CHECKING, Any
++
++from app.game.rules_state import DurationBound102
++
++if TYPE_CHECKING:
++    from app.rules.plan import Plan
++
++
++def parse(body: str) -> tuple[list[dict[str, Any]], Any, bool] | None:
++    from app.rules import scripts
++
++    body = body.strip()
++    suffix = " for as long as that creature is enchanted"
++    if body.rstrip(".").endswith(suffix):
++        base = body.rstrip(".")[: -len(suffix)]
++        if base == "Gain control of target creature":
++            got = scripts.parse_effects(base + ".")
++            if got is not None:
++                es, target, multiple = got
++                return (
++                    [{"do": "bound102", "kind": "enchanted", "who": "target", "n": len(es)}, *es],
++                    target,
++                    multiple,
++                )
++    if body.rstrip(".") == (
++        "Tap another target nonland permanent. Its activated abilities can't be activated "
++        "for as long as it remains tapped"
++    ):
++        got = scripts.parse_effects("Tap another target nonland permanent.")
++        if got is not None:
++            es, target, multiple = got
++            return (
++                [
++                    *es,
++                    {"do": "bound102", "kind": "tapped", "who": "target", "n": 1},
++                    {"do": "restrict", "who": "target", "rules": ["cant_activate"], "duration": "permanent"},
++                ],
++                target,
++                multiple,
++            )
++    if body.rstrip(".") == (
++        "Tap another target creature and put a stun counter on it. "
++        "~ becomes a copy of that creature for as long as that creature remains tapped"
++    ):
++        got = scripts.parse_effects("Tap another target creature and put a stun counter on it.")
++        if got is not None:
++            es, target, multiple = got
++            return (
++                [
++                    *es,
++                    {"do": "bound102", "kind": "tapped", "who": "target", "n": 1},
++                    {"do": "become_copy", "who": "self", "with": "target", "duration": "permanent"},
++                ],
++                target,
++                multiple,
++            )
++    if body.rstrip(".") == (
++        "Gain control of target creature with power less than or equal to ~'s power "
++        "for as long as ~ remains tapped and that creature's power remains less than or equal to ~'s power"
++    ):
++        got = scripts.parse_effects(
++            "Gain control of target creature with power less than or equal to ~'s power."
++        )
++        if got is not None:
++            es, target, multiple = got
++            return (
++                [{"do": "bound102", "kind": "source_tapped_power", "who": "target", "n": len(es)}, *es],
++                target,
++                multiple,
++            )
++    return None
++
++
++def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
++    from app.rules import scripts, selectors
++
++    text = scripts.self_text(ability.text, ch.name)
++    if text == (
++        "Whenever ~ becomes attached to a creature, for as long as ~ remains attached to it, "
++        "you may have that creature become a copy of another target creature you control."
++    ):
++        return {
++            "kind": "triggered",
++            "trigger": "event",
++            "optional": True,
++            "attached_other102": True,
++            "cond": {
++                "subject": "self",
++                "event": "attached",
++                "other": selectors.Selector(types=("Creature",)).key(),
++            },
++            "target": {
++                "what": selectors.Selector(types=("Creature",), controller="you", extras=("not_event",)).key()
++            },
++            "effects": [
++                {"do": "bound102", "kind": "attached", "who": "event", "n": 1},
++                {"do": "become_copy", "who": "event", "with": "target", "duration": "permanent"},
++            ],
++        }
++    if text == (
++        "Whenever ~ becomes attached to a creature, for as long as ~ remains attached to it, "
++        "that creature becomes a copy of a creature card exiled with ~."
++    ):
++        from app.rules import exiled_with
++
++        return exiled_with.link(
++            {
++                "kind": "triggered",
++                "trigger": "event",
++                "optional": False,
++                "cond": {
++                    "subject": "self",
++                    "event": "attached",
++                    "other": selectors.Selector(types=("Creature",)).key(),
++                },
++                "target": None,
++                "effects": [
++                    {"do": "pick_linked_copy102", "who": "exiled_with"},
++                    {"do": "bound102", "kind": "attached", "who": "event", "n": 1},
++                    {
++                        "do": "become_copy",
++                        "who": "event",
++                        "with": "ref:linked_copy102",
++                        "duration": "permanent",
++                    },
++                ],
++            },
++            ability,
++            ch,
++        )
++    return None
++
++
++def capture(definition: dict[str, Any], event: Any) -> dict[str, Any]:
++    """Freeze another relative to the original recipient, not its reusable physical ID."""
++    from app.rules import selectors
++
++    if (
++        not definition.get("attached_other102")
++        or event is None
++        or event.kind != "attached"
++        or len(event.objects) != 1
++    ):
++        return definition
++    target = definition["target"]
++    sel = selectors.from_key(target["what"])
++    extras = tuple(
++        "not_oid:" + event.objects[0].object_id if value == "not_event" else value for value in sel.extras
++    )
++    return {**definition, "target": {**target, "what": selectors.replace(sel, extras=extras).key()}}
++
++
++def holds(plan: Plan, bound: DurationBound102) -> bool:
++    target = next((c for c in plan.state.cards.values() if plan.oid(c) == bound.target_object), None)
++    if target is None or not target.zone.endswith(":battlefield") or not plan.in_game(target):
++        return False
++    if bound.kind == "tapped":
++        return target.tapped
++    if bound.kind == "enchanted":
++        return any(
++            c.attached_to == target.id
++            and c.zone.endswith(":battlefield")
++            and plan.in_game(c)
++            and "Aura" in plan.ch(c).subtypes
++            for c in plan.state.cards.values()
++        )
++    source = plan.state.cards.get(bound.source_card or "")
++    if (
++        source is None
++        or not source.zone.endswith(":battlefield")
++        or not plan.in_game(source)
++        or plan.oid(source) != bound.source_object
++    ):
++        return False
++    if bound.kind == "attached":
++        return source.attached_to == target.id
++    a, b = plan.ch(target).pt, plan.ch(source).pt
++    return source.tapped and (a[0] if a is not None else 0) <= (b[0] if b is not None else 0)  # 107.2, 208.3
++
++
++def apply(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
++    from app.rules import delayed, effects
++
++    start, n = ctx["next"], int(e["n"])
++    inner = ctx["effects"][start : start + n]
++    ctx["next"] = start + n
++    cards = effects._cards(plan, ctx, e["who"])
++    if len(cards) != 1:
++        return True
++    bound = DurationBound102(
++        kind=e["kind"],
++        target_object=plan.oid(cards[0]),
++        source_card=ctx.get("source_card"),
++        source_object=ctx.get("source_object"),
++    )
++    if not holds(plan, bound):
++        return True
++    mark = plan.rules.timestamp
++    before = {cid: {m.id for m in c.effects} for cid, c in plan.state.cards.items()}
++    for instruction in inner:
++        if not effects.PRIMITIVES[instruction["do"]](plan, ctx, instruction):
++            raise AssertionError("Bound durations only wrap synchronous native primitives")
++    written = delayed._relabel(plan, before, "for as long as the recorded condition holds")
++    for made in plan.rules.effects:
++        if made.timestamp > mark:
++            made.duration = "permanent"
++            made.duration_bound102 = bound.model_copy(deep=True)
++            made.markers = [
++                mid for cid, mids in written.items() if plan.oid(cid) in made.affected for mid in mids
++            ]
++    return True
++
++
++def expire(plan: Plan) -> None:
++    from app.rules import delayed
++
++    ended = [
++        e
++        for e in plan.rules.effects
++        if e.duration_bound102 is not None and not holds(plan, e.duration_bound102)
++    ]
++    if ended:
++        delayed._end(plan, ended)
++
++
++def pick_linked(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
++    from app.game.rules_state import DecisionOption
++    from app.rules import context, effects
++    from app.rules.plan import decide
++
++    who = effects._cards(plan, ctx, "event")
++    bound = DurationBound102(
++        kind="attached",
++        target_object=plan.oid(who[0]) if len(who) == 1 else "",
++        source_card=ctx.get("source_card"),
++        source_object=ctx.get("source_object"),
++    )
++    context.bind_objects(plan, ctx, "linked_copy102", [])
++    if not holds(plan, bound):
++        return True
++    cards = [
++        cid
++        for cid in effects._cards(plan, ctx, e["who"])
++        if plan.state.cards[cid].zone.endswith(":exile")
++        and "Creature" in plan.ch(plan.state.cards[cid]).types
++        and not plan.state.cards[cid].token
++    ]
++    if len(cards) <= 1:
++        context.bind_objects(plan, ctx, "linked_copy102", cards)
++        return True
++    decide(
++        plan,
++        player=ctx["controller"],
++        kind="choose_one",
++        prompt=f"{ctx.get('name') or 'Equipment'}: choose a linked creature card to copy",
++        options=[
++            DecisionOption(id=cid, card_id=cid, label=plan.ch(plan.state.cards[cid]).name) for cid in cards
++        ],
++        resume={
++            "step": "linked_copy102",
++            "ctx": ctx,
++            "bound": bound.model_dump(),
++            "options": {cid: plan.oid(cid) for cid in cards},
++        },
++    )
++    return False
++
++
++def resume_linked(plan: Plan, d: Any, chosen: list[str]) -> None:
++    from app.rules import context, effects
++
++    data, ctx = d.resume, d.resume["ctx"]
++    card = plan.state.cards.get(chosen[0]) if len(chosen) == 1 else None
++    if (
++        card is not None
++        and data["options"].get(card.id) == plan.oid(card)
++        and card.zone.endswith(":exile")
++        and "Creature" in plan.ch(card).types
++        and holds(plan, DurationBound102.model_validate(data["bound"]))
++    ):
++        context.bind_objects(plan, ctx, "linked_copy102", [card.id])
++    effects.continue_effects(plan, ctx)
++
++
++PRIMITIVES = {"bound102": apply, "pick_linked_copy102": pick_linked}
++RESUME = {"linked_copy102": resume_linked}
+--- /dev/null
++++ b/backend/tests/test_rules_lifespans102.py
+@@ -0,0 +1,355 @@
++"""Native exact-object condition lifetimes, not restarting once a condition fails."""
++
++from __future__ import annotations
++
++import json
++from pathlib import Path
++
++import pytest
++
++from app.cards.images import ImageStore
++from app.cards.importer import build_database
++from app.cards.repository import CardRepository
++from app.game.factory import PlayerSetup, new_game
++from app.game.session import GameSession
++from app.rules import coverage
++from app.rules.plan import Plan
++from tests.fixtures.cards import card, fixture_cards
++from tests.game_helpers import act, deck, enable
++from tests.test_rules_bandmate_references import wait_priority
++from tests.test_rules_designations import put, roundtrip
++from tests.test_rules_wave30m_durations import settle, to_phase
++
++
++@pytest.fixture
++def cards(settings):
++    rows = {c["name"]: c for c in fixture_cards()}
++    for i, c in enumerate(
++        json.loads((Path(__file__).parent / "fixtures/lifespans102_cards.json").read_text())
++    ):
++        c = {**c, "card_faces": c.get("faces", [])}
++        rows[c["name"]] = card(
++            c["name"],
++            set_code="ls102",
++            number=str(i),
++            **{k: v for k, v in c.items() if k not in ("name", "set_code", "number")},
++        )
++    settings.ensure_dirs()
++    build_database(rows.values(), settings.cards_db_path)
++    r = CardRepository(settings.cards_db_path, ImageStore(settings.images_dir))
++    yield r
++    r.close()
++
++
++def setup(cards):
++    a = deck(
++        cards,
++        "Krenko, Mob Boss",
++        [
++            (20, "Forest"),
++            (1, "Rootwater Matriarch"),
++            (1, "Braided Net // Braided Quipu"),
++            (1, "Rancor"),
++            (1, "Disenchant"),
++            (2, "Unbender Tine"),
++            (1, "Zygon Infiltrator"),
++            (1, "Old Man of the Sea"),
++            (1, "Giant Growth"),
++            (1, "Reality Ripple"),
++            (1, "Song of the Dryads"),
++            (1, "Blade of Shared Souls"),
++            (1, "Assimilation Aegis"),
++            (1, "Panharmonicon"),
++        ],
++    )
++    b = deck(cards, "Atraxa, Praetors' Voice", [(20, "Island"), (1, "Grizzly Bears"), (1, "Sol Ring")])
++    s = GameSession(
++        enable(new_game([PlayerSetup("Alice", cards=a), PlayerSetup("Bob", cards=b)], shuffle=False)),
++        cards=cards,
++    )
++    act(s, "p1", type="pass_priority")
++    return s
++
++
++def cast(s, name, target=None, *, finish=True):
++    c = put(s, name, "hand")
++    wait_priority(s, "p1")
++    act(s, "p1", type="add_mana", player="p1", mana={"C": 20, "W": 20, "G": 20, "U": 20})
++    act(s, "p1", type="cast_spell", card_id=c.id, targets=[target] if target else [])
++    if finish:
++        settle(s)
++    return c
++
++
++def test_matriarch_control_ends_when_last_aura_leaves_and_never_restarts(cards):
++    s = setup(cards)
++    source = put(s, "Rootwater Matriarch", "battlefield")
++    bear = put(s, "Grizzly Bears", "battlefield", "p2")
++    to_phase(s, "main1", turn=3)
++    aura = cast(s, "Rancor", bear.id)
++    act(s, "p1", type="activate_ability", card_id=source.id, ability=0, targets=[bear.id])
++    settle(s)
++    assert s.state.cards[bear.id].controller == "p1"
++    assert any(e.duration_bound102 for e in s.state.rules.effects)
++    cast(s, "Disenchant", aura.id)
++    assert s.state.cards[bear.id].controller == "p2"
++    assert not any(e.duration_bound102 for e in s.state.rules.effects)
++    cast(s, "Rancor", bear.id)
++    assert s.state.cards[bear.id].controller == "p2"
++    assert coverage.of_card_data(cards.resolve("Rootwater Matriarch")).level == "FULL"
++    roundtrip(s)
++
++
++def test_braided_net_native_counter_cost_and_untap_end_without_restarting(cards):
++    s = setup(cards)
++    to_phase(s, "main1")
++    source = cast(s, "Braided Net // Braided Quipu")
++    ring = put(s, "Sol Ring", "battlefield", "p2")
++    act(s, "p1", type="activate_ability", card_id=source.id, ability=1, targets=[ring.id])
++    settle(s)
++    assert s.state.cards[source.id].counters["net"] == 2
++    assert s.state.cards[ring.id].tapped
++    assert "cant_activate" in Plan.view(s.state, "p1", cards).ch(s.state.cards[ring.id]).imposed
++    tine = put(s, "Unbender Tine", "battlefield")
++    act(s, "p1", type="activate_ability", card_id=tine.id, ability=0, targets=[ring.id])
++    settle(s)
++    assert "cant_activate" not in Plan.view(s.state, "p1", cards).ch(s.state.cards[ring.id]).imposed
++    act(s, "p2", type="tap", card_ids=[ring.id], tapped=True)
++    assert "cant_activate" not in Plan.view(s.state, "p1", cards).ch(s.state.cards[ring.id]).imposed
++    assert coverage.of_card_data(cards.resolve("Braided Net // Braided Quipu")).level == "FULL"
++    roundtrip(s)
++
++
++def test_actual_blade_for_mirrodin_excludes_original_recipient_then_native_equip_ends_copy(cards):
++    s = setup(cards)
++    original = put(s, "Rootwater Matriarch", "battlefield")
++    to_phase(s, "main1")
++    blade = cast(s, "Blade of Shared Souls", finish=False)
++    for _ in range(30):
++        if s.state.rules.decision:
++            break
++        act(s, s.state.rules.priority, type="pass_priority")
++    d = s.state.rules.decision
++    assert d is not None
++    host = s.state.cards[s.state.cards[blade.id].attached_to]
++    assert host.name == "Rebel"
++    assert host.id not in [o.id for o in d.options]
++    assert any(o.id == original.id or o.card_id == original.id for o in d.options)
++    pick = next(o.id for o in d.options if o.id == original.id or o.card_id == original.id)
++    act(s, d.player, type="choose", decision_id=d.id, option_ids=[pick])
++    settle(s)
++    assert Plan.view(s.state, "p1", cards).ch(s.state.cards[host.id]).name == "Rootwater Matriarch"
++    act(s, "p1", type="add_mana", player="p1", mana={"C": 10})
++    act(s, "p1", type="activate_ability", card_id=blade.id, ability=2, targets=[original.id])
++    settle(s)
++    assert s.state.cards[blade.id].attached_to == original.id
++    assert Plan.view(s.state, "p1", cards).ch(s.state.cards[host.id]).name == "Rebel"
++    assert coverage.of_card_data(cards.resolve("Blade of Shared Souls")).level == "FULL"
++    roundtrip(s)
++
++
++def test_actual_aegis_linked_exile_copy_native_re_equip_and_source_destroy(cards):
++    s = setup(cards)
++    host = put(s, "Rootwater Matriarch", "battlefield")
++    bear = put(s, "Grizzly Bears", "battlefield", "p2")
++    second = put(s, "Krenko, Mob Boss", "battlefield")
++    to_phase(s, "main1")
++    aegis = cast(s, "Assimilation Aegis", finish=False)
++    settle(s, prefer=(bear.id,))
++    assert s.state.cards[bear.id].zone == "p2:exile"
++    act(s, "p1", type="add_mana", player="p1", mana={"C": 20})
++    act(s, "p1", type="activate_ability", card_id=aegis.id, ability=2, targets=[host.id])
++    settle(s)
++    assert Plan.view(s.state, "p1", cards).ch(s.state.cards[host.id]).name == "Grizzly Bears"
++    act(s, "p1", type="activate_ability", card_id=aegis.id, ability=2, targets=[second.id])
++    settle(s)
++    assert Plan.view(s.state, "p1", cards).ch(s.state.cards[host.id]).name == "Rootwater Matriarch"
++    assert Plan.view(s.state, "p1", cards).ch(s.state.cards[second.id]).name == "Grizzly Bears"
++    cast(s, "Disenchant", aegis.id)
++    assert s.state.cards[bear.id].zone == "p2:battlefield"
++    assert Plan.view(s.state, "p1", cards).ch(s.state.cards[second.id]).name == "Krenko, Mob Boss"
++    assert coverage.of_card_data(cards.resolve("Assimilation Aegis")).level == "FULL"
++    roundtrip(s)
++
++
++@pytest.mark.parametrize("changed", ["none", "card", "host"])
++def test_actual_panharmonicon_aegis_multiple_linked_cards_cold_chooser(cards, tmp_path, changed):
++    import subprocess
++    import sys
++
++    s = setup(cards)
++    host = put(s, "Krenko, Mob Boss", "battlefield")
++    bear = put(s, "Grizzly Bears", "battlefield", "p2")
++    other = put(s, "Rootwater Matriarch", "battlefield")
++    put(s, "Panharmonicon", "battlefield")
++    to_phase(s, "main1")
++    aegis = cast(s, "Assimilation Aegis", finish=False)
++    picks = [bear.id, other.id]
++    for _ in range(70):
++        d = s.state.rules.decision
++        if d:
++            offered = {o.id for o in d.options}
++            if picks and picks[0] in offered:
++                selected = [picks.pop(0)]
++            else:
++                selected = [o.id for o in d.options][: d.min_choices]
++            act(s, d.player, type="choose", decision_id=d.id, option_ids=selected)
++        elif s.state.zones.get("stack"):
++            act(s, s.state.rules.priority, type="pass_priority")
++        else:
++            break
++    assert not picks
++    assert s.state.cards[bear.id].zone == "p2:exile" and s.state.cards[other.id].zone == "p1:exile"
++    act(s, "p1", type="add_mana", player="p1", mana={"C": 20})
++    act(s, "p1", type="activate_ability", card_id=aegis.id, ability=2, targets=[host.id])
++    for _ in range(30):
++        if s.state.rules.decision:
++            break
++        act(s, s.state.rules.priority, type="pass_priority")
++    d = s.state.rules.decision
++    assert d and d.resume["step"] == "linked_copy102"
++    assert {o.id for o in d.options} == {bear.id, other.id}
++    saved = tmp_path / "linked-copy.json"
++    saved.write_text(s.state.model_dump_json())
++    code = """import sys
++from pathlib import Path
++from app.cards.images import ImageStore
++from app.cards.repository import CardRepository
++from app.game.session import GameSession
++from app.game.state import GameState
++from app.rules.plan import Plan
++from tests.game_helpers import act
++from tests.test_rules_wave30m_durations import settle
++repo=CardRepository(Path(sys.argv[2]),ImageStore(Path(sys.argv[2]).parent/'images'))
++s=GameSession(GameState.model_validate_json(Path(sys.argv[1]).read_text()),cards=repo)
++d=s.state.rules.decision
++if sys.argv[5]!='none':
++ cid=sys.argv[3] if sys.argv[5]=='card' else sys.argv[4]
++ act(s,'p1',type='move',card_ids=[cid],to={'player':'p1','zone':'hand'})
++ act(s,'p1',type='move',card_ids=[cid],to={'player':'p1','zone':'exile' if sys.argv[5]=='card' else 'battlefield'})
++act(s,d.player,type='choose',decision_id=d.id,option_ids=[sys.argv[3]])
++settle(s)
++assert Plan.view(s.state,'p1',repo).ch(s.state.cards[sys.argv[4]]).name==('Rootwater Matriarch' if sys.argv[5]=='none' else 'Krenko, Mob Boss')
++assert bool([e for e in s.state.rules.effects if e.duration_bound102])==(sys.argv[5]=='none')
++assert s.history.rebuild().model_dump(mode='json')==s.state.model_dump(mode='json')
++repo.close()
++"""
++    result = subprocess.run(
++        [sys.executable, "-c", code, str(saved), str(cards.db_path), other.id, host.id, changed],
++        capture_output=True,
++        text=True,
++        timeout=90,
++    )
++    assert result.returncode == 0, result.stdout + result.stderr
++    act(s, d.player, type="choose", decision_id=d.id, option_ids=[bear.id])
++    settle(s)
++    assert Plan.view(s.state, "p1", cards).ch(s.state.cards[host.id]).name == "Grizzly Bears"
++    roundtrip(s)
++
++
++def test_zygon_target_stun_prevents_first_untap_then_copy_duration_ends_cold(cards, tmp_path):
++    import subprocess
++    import sys
++
++    s = setup(cards)
++    source = put(s, "Zygon Infiltrator", "battlefield")
++    bear = put(s, "Grizzly Bears", "battlefield", "p2")
++    tines = [c.id for c in s.state.cards.values() if c.name == "Unbender Tine"]
++    for cid in tines:
++        act(s, "p1", type="move", card_ids=[cid], to={"player": "p1", "zone": "battlefield"})
++    to_phase(s, "main1")
++    act(s, "p1", type="add_mana", player="p1", mana={"C": 10, "U": 10})
++    act(s, "p1", type="activate_ability", card_id=source.id, ability=0, targets=[bear.id])
++    settle(s)
++    assert Plan.view(s.state, "p1", cards).ch(s.state.cards[source.id]).name == "Grizzly Bears"
++    assert s.state.cards[bear.id].tapped and s.state.cards[bear.id].counters["stun"] == 1
++    saved = tmp_path / "zygon-copy.json"
++    saved.write_text(s.state.model_dump_json())
++    code = """import sys
++from pathlib import Path
++from app.cards.images import ImageStore
++from app.cards.repository import CardRepository
++from app.game.session import GameSession
++from app.game.state import GameState
++from app.rules.plan import Plan
++from tests.game_helpers import act
++from tests.test_rules_wave30m_durations import settle
++repo=CardRepository(Path(sys.argv[2]),ImageStore(Path(sys.argv[2]).parent/'images'))
++s=GameSession(GameState.model_validate_json(Path(sys.argv[1]).read_text()),cards=repo)
++for i,tine in enumerate(sys.argv[5:]):
++ act(s,'p1',type='activate_ability',card_id=tine,ability=0,targets=[sys.argv[4]])
++ settle(s)
++ assert Plan.view(s.state,'p1',repo).ch(s.state.cards[sys.argv[3]]).name==('Grizzly Bears' if i==0 else 'Zygon Infiltrator')
++assert not any(e.duration_bound102 for e in s.state.rules.effects)
++assert s.history.rebuild().model_dump(mode='json')==s.state.model_dump(mode='json')
++repo.close()
++"""
++    result = subprocess.run(
++        [sys.executable, "-c", code, str(saved), str(cards.db_path), source.id, bear.id, *tines],
++        capture_output=True,
++        text=True,
++        timeout=90,
++    )
++    assert result.returncode == 0, result.stdout + result.stderr
++    for i, tine in enumerate(tines):
++        act(s, "p1", type="activate_ability", card_id=tine, ability=0, targets=[bear.id])
++        settle(s)
++        assert Plan.view(s.state, "p1", cards).ch(s.state.cards[source.id]).name == (
++            "Grizzly Bears" if i == 0 else "Zygon Infiltrator"
++        )
++    assert coverage.of_card_data(cards.resolve("Zygon Infiltrator")).level == "FULL"
++    roundtrip(s)
++
++
++def test_old_man_current_power_threshold_ends_control_without_restarting(cards):
++    s = setup(cards)
++    source = put(s, "Old Man of the Sea", "battlefield")
++    bear = put(s, "Grizzly Bears", "battlefield", "p2")
++    to_phase(s, "main1", turn=3)
++    act(s, "p1", type="activate_ability", card_id=source.id, ability=1, targets=[bear.id])
++    settle(s)
++    assert s.state.cards[bear.id].controller == "p1" and s.state.cards[source.id].tapped
++    cast(s, "Giant Growth", bear.id)
++    assert s.state.cards[bear.id].controller == "p2"
++    assert not any(e.duration_bound102 for e in s.state.rules.effects)
++    to_phase(s, "main1", turn=4)
++    assert Plan.view(s.state, "p1", cards).ch(s.state.cards[bear.id]).pt == (2, 2)
++    assert s.state.cards[source.id].tapped
++    assert s.state.cards[bear.id].controller == "p2"
++    assert coverage.of_card_data(cards.resolve("Old Man of the Sea")).level == "FULL"
++    roundtrip(s)
++
++
++def test_old_man_source_phasing_ends_tracked_duration_per_702_26f(cards):
++    s = setup(cards)
++    source = put(s, "Old Man of the Sea", "battlefield")
++    bear = put(s, "Grizzly Bears", "battlefield", "p2")
++    to_phase(s, "main1", turn=3)
++    act(s, "p1", type="activate_ability", card_id=source.id, ability=1, targets=[bear.id])
++    settle(s)
++    assert s.state.cards[bear.id].controller == "p1"
++    cast(s, "Reality Ripple", source.id)
++    assert s.state.cards[source.id].zone.endswith(":phased")
++    assert s.state.cards[bear.id].controller == "p2"
++    assert not any(e.duration_bound102 for e in s.state.rules.effects)
++    roundtrip(s)
++
++
++@pytest.mark.parametrize("changed", ["source", "target"])
++def test_old_man_uses_zero_for_power_of_noncreature_per_107_2(cards, changed):
++    s = setup(cards)
++    source = put(s, "Old Man of the Sea", "battlefield")
++    bear = put(s, "Grizzly Bears", "battlefield", "p2")
++    tine = put(s, "Unbender Tine", "battlefield")
++    to_phase(s, "main1", turn=3)
++    act(s, "p1", type="activate_ability", card_id=source.id, ability=1, targets=[bear.id])
++    settle(s)
++    cast(s, "Song of the Dryads", source.id if changed == "source" else bear.id)
++    assert s.state.cards[bear.id].controller == ("p2" if changed == "source" else "p1")
++    if changed == "target":
++        assert Plan.view(s.state, "p1", cards).ch(s.state.cards[bear.id]).pt is None
++        act(s, "p1", type="activate_ability", card_id=tine.id, ability=0, targets=[source.id])
++        settle(s)
++        assert s.state.cards[bear.id].controller == "p2"
++    assert not any(e.duration_bound102 for e in s.state.rules.effects)
++    roundtrip(s)
+--- /dev/null
++++ b/backend/tests/fixtures/lifespans102_cards.json
+@@ -0,0 +1,548 @@
++[
++  {
++    "name": "Rootwater Matriarch",
++    "layout": "normal",
++    "set_code": "10e",
++    "set_name": "Tenth Edition",
++    "collector_number": "103",
++    "rarity": "rare",
++    "mana_cost": "{2}{U}{U}",
++    "cmc": 4.0,
++    "type_line": "Creature \u2014 Merfolk",
++    "oracle_text": "{T}: Gain control of target creature for as long as that creature is enchanted.",
++    "power": "2",
++    "toughness": "3",
++    "loyalty": null,
++    "defense": null,
++    "colors": [
++      "U"
++    ],
++    "color_identity": [
++      "U"
++    ],
++    "keywords": [],
++    "is_token": false,
++    "faces": [],
++    "double_faced": false,
++    "image_faces": 1,
++    "has_image": false,
++    "released_at": "2007-07-13",
++    "artist": "Daren Bader",
++    "commander_legal": "legal",
++    "related_tokens": [],
++    "related_cards": []
++  },
++  {
++    "name": "Braided Net // Braided Quipu",
++    "layout": "transform",
++    "set_code": "lci",
++    "set_name": "The Lost Caverns of Ixalan",
++    "collector_number": "47",
++    "rarity": "rare",
++    "mana_cost": "{2}{U} // ",
++    "cmc": 3.0,
++    "type_line": "Artifact // Artifact",
++    "oracle_text": "This artifact enters with three net counters on it.\n{T}, Remove a net counter from this artifact: Tap another target nonland permanent. Its activated abilities can't be activated for as long as it remains tapped.\nCraft with artifact {1}{U}\n//\n{3}{U}, {T}: Draw a card for each artifact you control, then put this artifact into its owner's library third from the top.",
++    "power": null,
++    "toughness": null,
++    "loyalty": null,
++    "defense": null,
++    "colors": [
++      "U"
++    ],
++    "color_identity": [
++      "U"
++    ],
++    "keywords": [
++      "Craft",
++      "Transform"
++    ],
++    "is_token": false,
++    "faces": [
++      {
++        "name": "Braided Net",
++        "mana_cost": "{2}{U}",
++        "type_line": "Artifact",
++        "oracle_text": "This artifact enters with three net counters on it.\n{T}, Remove a net counter from this artifact: Tap another target nonland permanent. Its activated abilities can't be activated for as long as it remains tapped.\nCraft with artifact {1}{U}",
++        "power": null,
++        "toughness": null,
++        "loyalty": null,
++        "defense": null,
++        "colors": [
++          "U"
++        ],
++        "image_face": 0
++      },
++      {
++        "name": "Braided Quipu",
++        "mana_cost": "",
++        "type_line": "Artifact",
++        "oracle_text": "{3}{U}, {T}: Draw a card for each artifact you control, then put this artifact into its owner's library third from the top.",
++        "power": null,
++        "toughness": null,
++        "loyalty": null,
++        "defense": null,
++        "colors": [
++          "U"
++        ],
++        "image_face": 1
++      }
++    ],
++    "double_faced": true,
++    "image_faces": 2,
++    "has_image": false,
++    "released_at": "2023-11-17",
++    "artist": "Diego Gisbert",
++    "commander_legal": "legal",
++    "related_tokens": [],
++    "related_cards": []
++  },
++  {
++    "name": "Rancor",
++    "layout": "normal",
++    "set_code": "2x2",
++    "set_name": "Double Masters 2022",
++    "collector_number": "156",
++    "rarity": "uncommon",
++    "mana_cost": "{G}",
++    "cmc": 1.0,
++    "type_line": "Enchantment \u2014 Aura",
++    "oracle_text": "Enchant creature\nEnchanted creature gets +2/+0 and has trample.\nWhen this Aura is put into a graveyard from the battlefield, return it to its owner's hand.",
++    "power": null,
++    "toughness": null,
++    "loyalty": null,
++    "defense": null,
++    "colors": [
++      "G"
++    ],
++    "color_identity": [
++      "G"
++    ],
++    "keywords": [
++      "Enchant"
++    ],
++    "is_token": false,
++    "faces": [],
++    "double_faced": false,
++    "image_faces": 1,
++    "has_image": false,
++    "released_at": "2022-07-08",
++    "artist": "Kev Walker",
++    "commander_legal": "legal",
++    "related_tokens": [],
++    "related_cards": []
++  },
++  {
++    "name": "Disenchant",
++    "layout": "normal",
++    "set_code": "fdn",
++    "set_name": "Foundations",
++    "collector_number": "572",
++    "rarity": "common",
++    "mana_cost": "{1}{W}",
++    "cmc": 2.0,
++    "type_line": "Instant",
++    "oracle_text": "Destroy target artifact or enchantment.",
++    "power": null,
++    "toughness": null,
++    "loyalty": null,
++    "defense": null,
++    "colors": [
++      "W"
++    ],
++    "color_identity": [
++      "W"
++    ],
++    "keywords": [],
++    "is_token": false,
++    "faces": [],
++    "double_faced": false,
++    "image_faces": 1,
++    "has_image": false,
++    "released_at": "2024-11-15",
++    "artist": "Richard Kane Ferguson",
++    "commander_legal": "legal",
++    "related_tokens": [],
++    "related_cards": []
++  },
++  {
++    "name": "Grizzly Bears",
++    "layout": "normal",
++    "set_code": "10e",
++    "set_name": "Tenth Edition",
++    "collector_number": "268",
++    "rarity": "common",
++    "mana_cost": "{1}{G}",
++    "cmc": 2.0,
++    "type_line": "Creature \u2014 Bear",
++    "oracle_text": "",
++    "power": "2",
++    "toughness": "2",
++    "loyalty": null,
++    "defense": null,
++    "colors": [
++      "G"
++    ],
++    "color_identity": [
++      "G"
++    ],
++    "keywords": [],
++    "is_token": false,
++    "faces": [],
++    "double_faced": false,
++    "image_faces": 1,
++    "has_image": false,
++    "released_at": "2007-07-13",
++    "artist": "D. J. Cleland-Hura",
++    "commander_legal": "legal",
++    "related_tokens": [],
++    "related_cards": []
++  },
++  {
++    "name": "Sol Ring",
++    "layout": "normal",
++    "set_code": "fdc",
++    "set_name": "Foundations Commander",
++    "collector_number": "286",
++    "rarity": "uncommon",
++    "mana_cost": "{1}",
++    "cmc": 1.0,
++    "type_line": "Artifact",
++    "oracle_text": "{T}: Add {C}{C}.",
++    "power": null,
++    "toughness": null,
++    "loyalty": null,
++    "defense": null,
++    "colors": [],
++    "color_identity": [],
++    "keywords": [],
++    "is_token": false,
++    "faces": [],
++    "double_faced": false,
++    "image_faces": 1,
++    "has_image": false,
++    "released_at": "2026-10-02",
++    "artist": "Mike Bierek",
++    "commander_legal": "legal",
++    "related_tokens": [],
++    "related_cards": []
++  },
++  {
++    "name": "Unbender Tine",
++    "layout": "normal",
++    "set_code": "arc",
++    "set_name": "Archenemy",
++    "collector_number": "97",
++    "rarity": "uncommon",
++    "mana_cost": "{2}{W}{U}",
++    "cmc": 4.0,
++    "type_line": "Artifact",
++    "oracle_text": "{T}: Untap another target permanent.",
++    "power": null,
++    "toughness": null,
++    "loyalty": null,
++    "defense": null,
++    "colors": [
++      "U",
++      "W"
++    ],
++    "color_identity": [
++      "U",
++      "W"
++    ],
++    "keywords": [],
++    "is_token": false,
++    "faces": [],
++    "double_faced": false,
++    "image_faces": 1,
++    "has_image": false,
++    "released_at": "2010-06-18",
++    "artist": "Greg Hildebrandt",
++    "commander_legal": "legal",
++    "related_tokens": [],
++    "related_cards": []
++  },
++  {
++    "name": "Blade of Shared Souls",
++    "layout": "normal",
++    "set_code": "one",
++    "set_name": "Phyrexia: All Will Be One",
++    "collector_number": "42",
++    "rarity": "rare",
++    "mana_cost": "{2}{U}",
++    "cmc": 3.0,
++    "type_line": "Artifact \u2014 Equipment",
++    "oracle_text": "For Mirrodin! (When this Equipment enters, create a 2/2 red Rebel creature token, then attach this to it.)\nWhenever this Equipment becomes attached to a creature, for as long as this Equipment remains attached to it, you may have that creature become a copy of another target creature you control.\nEquip {2}",
++    "power": null,
++    "toughness": null,
++    "loyalty": null,
++    "defense": null,
++    "colors": [
++      "U"
++    ],
++    "color_identity": [
++      "U"
++    ],
++    "keywords": [
++      "For Mirrodin!",
++      "Equip"
++    ],
++    "is_token": false,
++    "faces": [],
++    "double_faced": false,
++    "image_faces": 1,
++    "has_image": false,
++    "released_at": "2023-02-10",
++    "artist": "Volkan Ba\u01f5a",
++    "commander_legal": "legal",
++    "related_tokens": [
++      {
++        "id": "a41eb9df-d8b4-4697-a759-886faf16754d",
++        "name": "Rebel",
++        "type_line": "Token Creature \u2014 Rebel"
++      }
++    ],
++    "related_cards": [
++      {
++        "id": "e1e3aa37-80dc-4c5a-b118-788298ee3fd5",
++        "name": "Blade of Shared Souls",
++        "component": "combo_piece"
++      }
++    ]
++  },
++  {
++    "name": "Assimilation Aegis",
++    "layout": "normal",
++    "set_code": "otj",
++    "set_name": "Outlaws of Thunder Junction",
++    "collector_number": "192",
++    "rarity": "mythic",
++    "mana_cost": "{1}{W}{U}",
++    "cmc": 3.0,
++    "type_line": "Artifact \u2014 Equipment",
++    "oracle_text": "When this Equipment enters, exile up to one target creature until this Equipment leaves the battlefield.\nWhenever this Equipment becomes attached to a creature, for as long as this Equipment remains attached to it, that creature becomes a copy of a creature card exiled with this Equipment.\nEquip {2}",
++    "power": null,
++    "toughness": null,
++    "loyalty": null,
++    "defense": null,
++    "colors": [
++      "U",
++      "W"
++    ],
++    "color_identity": [
++      "U",
++      "W"
++    ],
++    "keywords": [
++      "Equip"
++    ],
++    "is_token": false,
++    "faces": [],
++    "double_faced": false,
++    "image_faces": 1,
++    "has_image": false,
++    "released_at": "2024-04-19",
++    "artist": "Matt Stewart",
++    "commander_legal": "legal",
++    "related_tokens": [],
++    "related_cards": []
++  },
++  {
++    "name": "Panharmonicon",
++    "layout": "normal",
++    "set_code": "drc",
++    "set_name": "Aetherdrift Commander",
++    "collector_number": "135",
++    "rarity": "rare",
++    "mana_cost": "{4}",
++    "cmc": 4.0,
++    "type_line": "Artifact",
++    "oracle_text": "If an artifact or creature entering causes a triggered ability of a permanent you control to trigger, that ability triggers an additional time.",
++    "power": null,
++    "toughness": null,
++    "loyalty": null,
++    "defense": null,
++    "colors": [],
++    "color_identity": [],
++    "keywords": [],
++    "is_token": false,
++    "faces": [],
++    "double_faced": false,
++    "image_faces": 1,
++    "has_image": false,
++    "released_at": "2025-02-14",
++    "artist": "Volkan Ba\u01f5a",
++    "commander_legal": "legal",
++    "related_tokens": [],
++    "related_cards": []
++  },
++  {
++    "name": "Zygon Infiltrator",
++    "layout": "normal",
++    "set_code": "who",
++    "set_name": "Doctor Who",
++    "collector_number": "63",
++    "rarity": "uncommon",
++    "mana_cost": "{2}{U}",
++    "cmc": 3.0,
++    "type_line": "Creature \u2014 Alien Shapeshifter Soldier",
++    "oracle_text": "Body-print \u2014 {2}{U}: Tap another target creature and put a stun counter on it. This creature becomes a copy of that creature for as long as that creature remains tapped. Activate only as a sorcery. (If a permanent with a stun counter would become untapped, remove one from it instead.)",
++    "power": "3",
++    "toughness": "2",
++    "loyalty": null,
++    "defense": null,
++    "colors": [
++      "U"
++    ],
++    "color_identity": [
++      "U"
++    ],
++    "keywords": [
++      "Body-print"
++    ],
++    "is_token": false,
++    "faces": [],
++    "double_faced": false,
++    "image_faces": 1,
++    "has_image": false,
++    "released_at": "2023-10-13",
++    "artist": "Simon Dominic",
++    "commander_legal": "legal",
++    "related_tokens": [],
++    "related_cards": []
++  },
++  {
++    "name": "Old Man of the Sea",
++    "layout": "normal",
++    "set_code": "arn",
++    "set_name": "Arabian Nights",
++    "collector_number": "18",
++    "rarity": "rare",
++    "mana_cost": "{1}{U}{U}",
++    "cmc": 3.0,
++    "type_line": "Creature \u2014 Djinn",
++    "oracle_text": "You may choose not to untap this creature during your untap step.\n{T}: Gain control of target creature with power less than or equal to this creature's power for as long as this creature remains tapped and that creature's power remains less than or equal to this creature's power.",
++    "power": "2",
++    "toughness": "3",
++    "loyalty": null,
++    "defense": null,
++    "colors": [
++      "U"
++    ],
++    "color_identity": [
++      "U"
++    ],
++    "keywords": [],
++    "is_token": false,
++    "faces": [],
++    "double_faced": false,
++    "image_faces": 1,
++    "has_image": false,
++    "released_at": "1993-12-17",
++    "artist": "Susan Van Camp",
++    "commander_legal": "legal",
++    "related_tokens": [],
++    "related_cards": []
++  },
++  {
++    "name": "Giant Growth",
++    "layout": "normal",
++    "set_code": "fdn",
++    "set_name": "Foundations",
++    "collector_number": "223",
++    "rarity": "common",
++    "mana_cost": "{G}",
++    "cmc": 1.0,
++    "type_line": "Instant",
++    "oracle_text": "Target creature gets +3/+3 until end of turn.",
++    "power": null,
++    "toughness": null,
++    "loyalty": null,
++    "defense": null,
++    "colors": [
++      "G"
++    ],
++    "color_identity": [
++      "G"
++    ],
++    "keywords": [],
++    "is_token": false,
++    "faces": [],
++    "double_faced": false,
++    "image_faces": 1,
++    "has_image": false,
++    "released_at": "2024-11-15",
++    "artist": "Matt Cavotta",
++    "commander_legal": "legal",
++    "related_tokens": [],
++    "related_cards": []
++  },
++  {
++    "name": "Reality Ripple",
++    "layout": "normal",
++    "set_code": "mir",
++    "set_name": "Mirage",
++    "collector_number": "87",
++    "rarity": "common",
++    "mana_cost": "{1}{U}",
++    "cmc": 2.0,
++    "type_line": "Instant",
++    "oracle_text": "Target artifact, creature, or land phases out. (While it's phased out, it's treated as though it doesn't exist. It phases in before its controller untaps during their next untap step.)",
++    "power": null,
++    "toughness": null,
++    "loyalty": null,
++    "defense": null,
++    "colors": [
++      "U"
++    ],
++    "color_identity": [
++      "U"
++    ],
++    "keywords": [],
++    "is_token": false,
++    "faces": [],
++    "double_faced": false,
++    "image_faces": 1,
++    "has_image": false,
++    "released_at": "1996-10-08",
++    "artist": "Alan Rabinowitz",
++    "commander_legal": "legal",
++    "related_tokens": [],
++    "related_cards": []
++  },
++  {
++    "name": "Song of the Dryads",
++    "layout": "normal",
++    "set_code": "cmm",
++    "set_name": "Commander Masters",
++    "collector_number": "324",
++    "rarity": "rare",
++    "mana_cost": "{2}{G}",
++    "cmc": 3.0,
++    "type_line": "Enchantment \u2014 Aura",
++    "oracle_text": "Enchant permanent\nEnchanted permanent is a colorless Forest land.",
++    "power": null,
++    "toughness": null,
++    "loyalty": null,
++    "defense": null,
++    "colors": [
++      "G"
++    ],
++    "color_identity": [
++      "G"
++    ],
++    "keywords": [
++      "Enchant"
++    ],
++    "is_token": false,
++    "faces": [],
++    "double_faced": false,
++    "image_faces": 1,
++    "has_image": false,
++    "released_at": "2023-08-04",
++    "artist": "Lars Grant-West",
++    "commander_legal": "legal",
++    "related_tokens": [],
++    "related_cards": []
++  }
++]

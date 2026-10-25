@@ -106,6 +106,8 @@ def card_view(state: GameState, c: CardInstance, viewer: str) -> dict[str, Any]:
             view["choices"] = dict(c.choices)
     if c.test_object and not view.get("hidden"):
         view["test_object"] = True
+    if c.stickers101 and c.zone.split(':')[-1] in ('battlefield', 'graveyard', 'exile', 'command', 'stack', 'phased'):
+        view['stickers101'] = [s.model_dump() for s in c.stickers101]
     if c.token_source is not None and not view.get("hidden"):
         view["token_source"] = c.token_source.model_dump()
     if c.face_down and c.face_down_kind:

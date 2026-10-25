@@ -1,0 +1,11 @@
+============================= test session starts ==============================
+platform linux -- Python 3.12.14, pytest-9.1.1, pluggy-1.7.0 -- /workspace/Fyodor/backend/.venv/bin/python3
+cachedir: .pytest_cache
+rootdir: /workspace/scratch/combat102/backend
+configfile: pyproject.toml
+plugins: anyio-4.15.1, xdist-3.8.0
+collecting ... collected 24 items / 23 deselected / 1 selected
+
+tests/test_rules_damage_values102.py::test_mega_flare_one_native_simultaneous_damage_lifelink_event102 PASSED [100%]
+
+======================= 1 passed, 23 deselected in 2.31s =======================

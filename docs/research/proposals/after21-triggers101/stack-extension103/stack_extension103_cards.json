@@ -1,0 +1,368 @@
+[
+  {
+    "id": "13d8e349-e843-4460-92dc-5f4cbc9c1e92",
+    "oracle_id": "668fc293-1b8f-4870-9784-4ac660925e30",
+    "name": "Precursor Golem",
+    "layout": "normal",
+    "set_code": "brr",
+    "set_name": "The Brothers' War Retro Artifacts",
+    "collector_number": "105z",
+    "rarity": "rare",
+    "mana_cost": "{5}",
+    "cmc": 5.0,
+    "type_line": "Artifact Creature \u2014 Golem",
+    "oracle_text": "When this creature enters, create two 3/3 colorless Golem artifact creature tokens.\nWhenever a player casts an instant or sorcery spell that targets only a single Golem, that player copies that spell for each other Golem that spell could target. Each copy targets a different one of those Golems.",
+    "power": "3",
+    "toughness": "3",
+    "loyalty": null,
+    "defense": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2022-11-18",
+    "artist": "Lars Grant-West",
+    "commander_legal": "legal",
+    "related_tokens": [
+      {
+        "id": "bc1c56b2-69f3-42d9-81f4-3dbd40dd8f5d",
+        "name": "Golem",
+        "type_line": "Token Artifact Creature \u2014 Golem"
+      }
+    ],
+    "related_cards": []
+  },
+  {
+    "id": "d29bb432-1ca6-4305-b6d3-d7afe06c6c69",
+    "oracle_id": "3846b499-59c8-4e77-b46a-1d697bcbded7",
+    "name": "Ink-Treader Nephilim",
+    "layout": "normal",
+    "set_code": "gpt",
+    "set_name": "Guildpact",
+    "collector_number": "117",
+    "rarity": "rare",
+    "mana_cost": "{R}{G}{W}{U}",
+    "cmc": 4.0,
+    "type_line": "Creature \u2014 Nephilim",
+    "oracle_text": "Whenever a player casts an instant or sorcery spell, if that spell targets only this creature, copy the spell for each other creature that spell could target. Each copy targets a different one of those creatures.",
+    "power": "3",
+    "toughness": "3",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G",
+      "R",
+      "U",
+      "W"
+    ],
+    "color_identity": [
+      "G",
+      "R",
+      "U",
+      "W"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2006-02-03",
+    "artist": "Christopher Moeller",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "74185710-3877-4080-b1d2-014fabbc7186",
+    "oracle_id": "0ebe67ed-8a71-4bbc-8e58-cebbd7b2d83f",
+    "name": "Bill Potts",
+    "layout": "normal",
+    "set_code": "who",
+    "set_name": "Doctor Who",
+    "collector_number": "76",
+    "rarity": "rare",
+    "mana_cost": "{3}{R}",
+    "cmc": 4.0,
+    "type_line": "Legendary Creature \u2014 Human",
+    "oracle_text": "Whenever you cast an instant or sorcery spell that targets only Bill Potts or activate an ability that targets only Bill Potts, copy that spell or ability. You may choose new targets for the copy. This ability triggers only once each turn.\nDoctor's companion (You can have two commanders if the other is the Doctor.)",
+    "power": "2",
+    "toughness": "4",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [
+      "Doctor's companion"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2023-10-13",
+    "artist": "Kieran Yanner",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "cc8443a6-282f-4218-9dc8-144b5570d891",
+    "oracle_id": "e2d21635-182f-4ebf-a6f5-d4c1fd7f9705",
+    "name": "Flamehold Grappler",
+    "layout": "normal",
+    "set_code": "tdm",
+    "set_name": "Tarkir: Dragonstorm",
+    "collector_number": "185",
+    "rarity": "rare",
+    "mana_cost": "{U}{R}{W}",
+    "cmc": 3.0,
+    "type_line": "Creature \u2014 Human Monk",
+    "oracle_text": "First strike\nWhen this creature enters, copy the next spell you cast this turn when you cast it. You may choose new targets for the copy. (A copy of a permanent spell becomes a token.)",
+    "power": "3",
+    "toughness": "3",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R",
+      "U",
+      "W"
+    ],
+    "color_identity": [
+      "R",
+      "U",
+      "W"
+    ],
+    "keywords": [
+      "First strike"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2025-04-11",
+    "artist": "Wayne Wu",
+    "commander_legal": "legal",
+    "related_tokens": [
+      {
+        "id": "45364163-62b7-4641-b2c9-c2e46d61335c",
+        "name": "Copy",
+        "type_line": "Token"
+      }
+    ],
+    "related_cards": [
+      {
+        "id": "60667979-40c1-4144-a3f8-0115fb77341d",
+        "name": "Flamehold Grappler",
+        "component": "combo_piece"
+      }
+    ]
+  },
+  {
+    "id": "ad4224f8-ee83-4833-99a1-71e3ecbe9718",
+    "oracle_id": "a45bb088-16fd-4d91-8fd6-3c52f1c24748",
+    "name": "Ancestral Communion",
+    "layout": "normal",
+    "set_code": "msc",
+    "set_name": "Marvel Super Heroes Commander",
+    "collector_number": "64",
+    "rarity": "rare",
+    "mana_cost": "{1}{G}",
+    "cmc": 2.0,
+    "type_line": "Sorcery",
+    "oracle_text": "When you cast this spell while you control your commander, copy this spell. You may choose a new target for the copy.\nReturn target permanent card from your graveyard to your hand.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2026-06-26",
+    "artist": "Nereida",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "a04b6900-0436-4920-a0d4-c0186d605ae3",
+    "oracle_id": "b284913e-3530-4a7e-8c75-efb18788dad0",
+    "name": "Social Snub",
+    "layout": "normal",
+    "set_code": "sos",
+    "set_name": "Secrets of Strixhaven",
+    "collector_number": "228",
+    "rarity": "uncommon",
+    "mana_cost": "{1}{W}{B}",
+    "cmc": 3.0,
+    "type_line": "Sorcery",
+    "oracle_text": "When you cast this spell while you control a creature, you may copy this spell.\nEach player sacrifices a creature of their choice. Each opponent loses 1 life and you gain 1 life.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "B",
+      "W"
+    ],
+    "color_identity": [
+      "B",
+      "W"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2026-04-24",
+    "artist": "Raluca Marinescu",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "2b5e4c5d-7d1d-4426-8351-35c12e29d9c3",
+    "oracle_id": "1f18e63d-ab1f-426c-afd5-ce89433394ca",
+    "name": "Banish into Fable",
+    "layout": "normal",
+    "set_code": "eld",
+    "set_name": "Throne of Eldraine",
+    "collector_number": "325",
+    "rarity": "rare",
+    "mana_cost": "{4}{W}{U}",
+    "cmc": 6.0,
+    "type_line": "Instant",
+    "oracle_text": "When you cast this spell from your hand, copy it if you control an artifact, then copy it if you control an enchantment. You may choose new targets for the copies.\nReturn target nonland permanent to its owner's hand. You create a 2/2 white Knight creature token with vigilance.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U",
+      "W"
+    ],
+    "color_identity": [
+      "U",
+      "W"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2019-10-04",
+    "artist": "Colin Boyer",
+    "commander_legal": "legal",
+    "related_tokens": [
+      {
+        "id": "703e7ecf-3d73-40c1-8cfe-0758778817cf",
+        "name": "Knight",
+        "type_line": "Token Creature \u2014 Knight"
+      }
+    ],
+    "related_cards": []
+  },
+  {
+    "name": "Prodigal Pyromancer",
+    "layout": "normal",
+    "mana_cost": "{2}{R}",
+    "cmc": 3.0,
+    "type_line": "Creature \u2014 Human Wizard",
+    "oracle_text": "{T}: This creature deals 1 damage to any target.",
+    "power": "1",
+    "toughness": "1",
+    "loyalty": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Public Execution",
+    "layout": "normal",
+    "mana_cost": "{5}{B}",
+    "cmc": 6.0,
+    "type_line": "Instant",
+    "oracle_text": "Destroy target creature an opponent controls. Each other creature that player controls gets -2/-0 until end of turn.",
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Bident of Thassa",
+    "oracle_text": "Whenever a creature you control deals combat damage to a player, you may draw a card.\n{1}{U}, {T}: Creatures your opponents control attack this turn if able.",
+    "mana_cost": "{2}{U}{U}",
+    "type_line": "Legendary Enchantment Artifact",
+    "layout": "normal",
+    "cmc": 4.0,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": []
+  },
+  {
+    "id": "6d3e3c3a-d351-4d91-8884-312d4b6f540d",
+    "oracle_id": "322f0459-f394-44f0-977b-55fd0cbe0712",
+    "name": "Yawgmoth's Will",
+    "layout": "normal",
+    "set_code": "usg",
+    "set_name": "Urza's Saga",
+    "collector_number": "171",
+    "rarity": "rare",
+    "mana_cost": "{2}{B}",
+    "cmc": 3.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Until end of turn, you may play lands and cast spells from your graveyard.\nIf a card would be put into your graveyard from anywhere this turn, exile that card instead.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "1998-10-12",
+    "artist": "Ron Spencer",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  }
+]

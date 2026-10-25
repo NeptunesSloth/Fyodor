@@ -1,0 +1,134 @@
+[
+  {
+    "name": "Assimilation Aegis",
+    "rank": 9895,
+    "level": "PARTIAL",
+    "commander": false,
+    "lines": {
+      "supported": 2,
+      "parsed": 0,
+      "unparsed": 1
+    },
+    "missing": [
+      {
+        "id": "text:1",
+        "face": 0,
+        "text": "Whenever this Equipment becomes attached to a creature, for as long as this Equipment remains attached to it, that creature becomes a copy of a creature card exiled with this Equipment.",
+        "family": "as_long_as_static",
+        "parsed": false,
+        "collateral": false,
+        "refusal": null
+      }
+    ]
+  },
+  {
+    "name": "Blade of Shared Souls",
+    "rank": 12357,
+    "level": "PARTIAL",
+    "commander": false,
+    "lines": {
+      "supported": 2,
+      "parsed": 0,
+      "unparsed": 1
+    },
+    "missing": [
+      {
+        "id": "text:1",
+        "face": 0,
+        "text": "Whenever this Equipment becomes attached to a creature, for as long as this Equipment remains attached to it, you may have that creature become a copy of another target creature you control.",
+        "family": "as_long_as_static",
+        "parsed": false,
+        "collateral": false,
+        "refusal": null
+      }
+    ]
+  },
+  {
+    "name": "Braided Net // Braided Quipu",
+    "rank": 12662,
+    "level": "PARTIAL",
+    "commander": false,
+    "lines": {
+      "supported": 3,
+      "parsed": 0,
+      "unparsed": 1
+    },
+    "missing": [
+      {
+        "id": "text:1",
+        "face": 0,
+        "text": "{T}, Remove a net counter from this artifact: Tap another target nonland permanent. Its activated abilities can't be activated for as long as it remains tapped.",
+        "family": "as_long_as_static",
+        "parsed": false,
+        "collateral": false,
+        "refusal": null
+      }
+    ]
+  },
+  {
+    "name": "Zygon Infiltrator",
+    "rank": 15541,
+    "level": "PARTIAL",
+    "commander": false,
+    "lines": {
+      "supported": 0,
+      "parsed": 0,
+      "unparsed": 1
+    },
+    "missing": [
+      {
+        "id": "text:0",
+        "face": 0,
+        "text": "Body-print \u2014 {2}{U}: Tap another target creature and put a stun counter on it. This creature becomes a copy of that creature for as long as that creature remains tapped. Activate only as a sorcery.",
+        "family": "as_long_as_static",
+        "parsed": false,
+        "collateral": false,
+        "refusal": null
+      }
+    ]
+  },
+  {
+    "name": "Rootwater Matriarch",
+    "rank": 24363,
+    "level": "PARTIAL",
+    "commander": false,
+    "lines": {
+      "supported": 0,
+      "parsed": 0,
+      "unparsed": 1
+    },
+    "missing": [
+      {
+        "id": "text:0",
+        "face": 0,
+        "text": "{T}: Gain control of target creature for as long as that creature is enchanted.",
+        "family": "as_long_as_static",
+        "parsed": false,
+        "collateral": false,
+        "refusal": null
+      }
+    ]
+  },
+  {
+    "name": "Old Man of the Sea",
+    "rank": 26118,
+    "level": "PARTIAL",
+    "commander": false,
+    "lines": {
+      "supported": 1,
+      "parsed": 0,
+      "unparsed": 1
+    },
+    "missing": [
+      {
+        "id": "text:1",
+        "face": 0,
+        "text": "{T}: Gain control of target creature with power less than or equal to this creature's power for as long as this creature remains tapped and that creature's power remains less than or equal to this creature's power.",
+        "family": "as_long_as_static",
+        "parsed": false,
+        "collateral": false,
+        "refusal": null
+      }
+    ]
+  }
+]

@@ -1,0 +1,9 @@
+.F                                                                       [100%]
+=================================== FAILURES ===================================
+_________ test_actual_robo_pinata_death_modal_ticket_or_sticker101[1] __________
+tests/test_rules_sticker_effects101.py:345: in test_actual_robo_pinata_death_modal_ticket_or_sticker101
+    pick(s, [next(o.id for o in d.options if o.id.rsplit(":",1)[-1] == mode)])
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   StopIteration
+=========================== short test summary info ============================
+FAILED tests/test_rules_sticker_effects101.py::test_actual_robo_pinata_death_modal_ticket_or_sticker101[1]

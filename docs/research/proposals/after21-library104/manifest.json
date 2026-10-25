@@ -1,0 +1,27 @@
+{
+  "candidate_names": [
+    "Niv-Mizzet Reborn",
+    "Portent of Calamity",
+    "Selective Adaptation",
+    "Sanar, Innovative First-Year",
+    "Hurkyl, Master Wizard"
+  ],
+  "expected_promotions": 5,
+  "production_sources": [
+    "app/rules/reveal_categories104.py",
+    "app/rules/scripts.py",
+    "app/rules/effects.py"
+  ],
+  "native_pass": 22,
+  "genuine_cold": 5,
+  "mypy": "3 PASS",
+  "ruff": "4 PASS",
+  "related": "47 PASS; 2 pre-existing Chandra legacy .mana dictionary assertions also fail on immutable pre-categories Epic103 stage (related-baseline2.log). Native tagged mana resides in mana_units. No clean49 claim.",
+  "test_destination": "backend/tests/test_rules_reveal_categories104.py",
+  "fixture_destination": "backend/tests/fixtures/reveal_categories104_cards.json",
+  "test_dependency": "library101 advance/cast/cold/top helpers and native phase/table fixtures",
+  "runtime_dependency": "closed library101 finite library_packet101; otherwise existing native look/pick distinct-kind, queued returns, permissions and history",
+  "base": "Frozen library103 +closed earlier library packets and stack-events102; all diffs against saved immutable base-sources, not live backend. New leaf has no Epic runtime dependency.",
+  "status": "CLOSED exact5; root integration/catalog admission pending",
+  "patch_sha256": "02fce75fc048a8ab09fcac82a33e3de7e764c78db6ab58650aceb70588098b21"
+}

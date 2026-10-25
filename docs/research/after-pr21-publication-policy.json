@@ -1,0 +1,7 @@
+{
+  "target": 1000,
+  "publish_every_verified": 100,
+  "next_publish_at": 200,
+  "last_published_verified": 100,
+  "pr": 22
+}

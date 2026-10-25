@@ -1,0 +1,570 @@
+[
+  {
+    "id": "df45a43e-a5b7-4fd4-873b-7b3c021be198",
+    "oracle_id": "aa7714b0-2bfb-458a-8ebf-37ec2c53383e",
+    "name": "Fireball",
+    "layout": "normal",
+    "set_code": "clb",
+    "set_name": "Commander Legends: Battle for Baldur's Gate",
+    "collector_number": "175",
+    "rarity": "uncommon",
+    "mana_cost": "{X}{R}",
+    "cmc": 1.0,
+    "type_line": "Sorcery",
+    "oracle_text": "This spell costs {1} more to cast for each target beyond the first.\nFireball deals X damage divided evenly, rounded down, among any number of targets.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2022-06-10",
+    "artist": "Xavier Ribeiro",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "daecaf9c-f327-435a-963b-a4631b6cca5c",
+    "oracle_id": "891c6ca5-d238-4ac2-8df4-c6dc9a807562",
+    "name": "Mega Flare",
+    "layout": "normal",
+    "set_code": "fic",
+    "set_name": "Final Fantasy Commander",
+    "collector_number": "456",
+    "rarity": "rare",
+    "mana_cost": "{2}{R}",
+    "cmc": 3.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Kicker {3}{R}{R}\nIf this spell was kicked, create a 6/6 red Dragon creature token with flying.\nFor each opponent, choose up to one target creature that player controls. Mega Flare deals damage equal to the greatest power among creatures you control to each of the chosen creatures.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [
+      "Kicker"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2025-12-05",
+    "artist": "Erion Makuo",
+    "commander_legal": "legal",
+    "related_tokens": [
+      {
+        "id": "7c66280f-287b-4294-9984-32484de2568a",
+        "name": "Dragon",
+        "type_line": "Token Creature \u2014 Dragon"
+      }
+    ],
+    "related_cards": []
+  },
+  {
+    "id": "b03bb160-8113-409a-a130-2b3fdc476e6a",
+    "oracle_id": "522297b1-493a-4c62-a82a-3017c44183e8",
+    "name": "Vengeful Rebirth",
+    "layout": "normal",
+    "set_code": "uma",
+    "set_name": "Ultimate Masters",
+    "collector_number": "209",
+    "rarity": "uncommon",
+    "mana_cost": "{4}{R}{G}",
+    "cmc": 6.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Return target card from your graveyard to your hand. If you return a nonland card to your hand this way, Vengeful Rebirth deals damage equal to that card's mana value to any target.\nExile Vengeful Rebirth.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G",
+      "R"
+    ],
+    "color_identity": [
+      "G",
+      "R"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2018-12-07",
+    "artist": "Seb McKinnon",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "c52981ea-1173-4f4b-a929-705a11c6e381",
+    "oracle_id": "a00e5eb6-b916-4cd6-8ff2-c02f4929abc7",
+    "name": "Delirium",
+    "layout": "normal",
+    "set_code": "mir",
+    "set_name": "Mirage",
+    "collector_number": "260",
+    "rarity": "uncommon",
+    "mana_cost": "{1}{B}{R}",
+    "cmc": 3.0,
+    "type_line": "Instant",
+    "oracle_text": "Cast this spell only during an opponent's turn.\nTap target creature that player controls. That creature deals damage equal to its power to the player. Prevent all combat damage that would be dealt to and dealt by the creature this turn.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "B",
+      "R"
+    ],
+    "color_identity": [
+      "B",
+      "R"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "1996-10-08",
+    "artist": "Terese Nielsen",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "b2a0deb9-5bc3-42d5-9e1e-5f463d176aef",
+    "oracle_id": "ea96fe35-88ed-432b-a495-08e787d23d0b",
+    "name": "Piercing Exhale",
+    "layout": "normal",
+    "set_code": "tdm",
+    "set_name": "Tarkir: Dragonstorm",
+    "collector_number": "151",
+    "rarity": "common",
+    "mana_cost": "{1}{G}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "As an additional cost to cast this spell, you may behold a Dragon. (You may choose a Dragon you control or reveal a Dragon card from your hand.)\nTarget creature you control deals damage equal to its power to target creature or planeswalker. If a Dragon was beheld, surveil 2.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [
+      "Surveil",
+      "Behold"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2025-04-11",
+    "artist": "Jorge Jacinto",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "659eeb25-b79b-4229-9d84-e28f6a636958",
+    "oracle_id": "3c97c311-7ad5-47ec-b421-f6c3bfbda9fb",
+    "name": "Earth Elemental",
+    "layout": "normal",
+    "set_code": "bbd",
+    "set_name": "Battlebond",
+    "collector_number": "174",
+    "rarity": "common",
+    "mana_cost": "{3}{R}{R}",
+    "cmc": 5.0,
+    "type_line": "Creature \u2014 Elemental",
+    "oracle_text": "",
+    "power": "4",
+    "toughness": "5",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2018-06-08",
+    "artist": "Anthony S. Waters",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "382fba19-78d3-4aa3-9508-c7c1f13e0b33",
+    "oracle_id": "c497c4f2-62c5-44fc-b485-f8d40868d8dc",
+    "name": "Rhox Brute",
+    "layout": "normal",
+    "set_code": "bbd",
+    "set_name": "Battlebond",
+    "collector_number": "227",
+    "rarity": "common",
+    "mana_cost": "{2}{R}{G}",
+    "cmc": 4.0,
+    "type_line": "Creature \u2014 Rhino Warrior",
+    "oracle_text": "",
+    "power": "4",
+    "toughness": "4",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G",
+      "R"
+    ],
+    "color_identity": [
+      "G",
+      "R"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2018-06-08",
+    "artist": "Raymond Swanland",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "718da336-ad97-41a6-86bd-4f124e2cc716",
+    "oracle_id": "cd4cadb4-3156-49bd-b36e-12ba5c85938b",
+    "name": "Wall of Stone",
+    "layout": "normal",
+    "set_code": "8ed",
+    "set_name": "Eighth Edition",
+    "collector_number": "232",
+    "rarity": "uncommon",
+    "mana_cost": "{1}{R}{R}",
+    "cmc": 3.0,
+    "type_line": "Creature \u2014 Wall",
+    "oracle_text": "Defender (This creature can't attack.)",
+    "power": "0",
+    "toughness": "8",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [
+      "Defender"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2003-07-28",
+    "artist": "Rob Alexander",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "702c4781-670b-49ae-b511-90ed119841b0",
+    "oracle_id": "711eea87-0fa3-46e0-a42b-fa5a86455f04",
+    "name": "Shivan Dragon",
+    "layout": "normal",
+    "set_code": "fdn",
+    "set_name": "Foundations",
+    "collector_number": "763",
+    "rarity": "uncommon",
+    "mana_cost": "{4}{R}{R}",
+    "cmc": 6.0,
+    "type_line": "Creature \u2014 Dragon",
+    "oracle_text": "Flying\n{R}: This creature gets +1/+0 until end of turn.",
+    "power": "5",
+    "toughness": "5",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [
+      "Flying"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2026-04-24",
+    "artist": "Donato Giancola",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [
+      {
+        "id": "2a43b352-d84b-4714-bbcd-3ad282c8aa9d",
+        "name": "Sarkhan, Wanderer to Shiv",
+        "component": "combo_piece"
+      }
+    ]
+  },
+  {
+    "id": "0852f9f3-d7ef-4d31-93e3-93bc7c5a4ec9",
+    "oracle_id": "4457ed35-7c10-48c8-9776-456485fdf070",
+    "name": "Lightning Bolt",
+    "layout": "normal",
+    "set_code": "fdc",
+    "set_name": "Foundations Commander",
+    "collector_number": "163",
+    "rarity": "uncommon",
+    "mana_cost": "{R}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Lightning Bolt deals 3 damage to any target.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2026-10-02",
+    "artist": "Christopher Moeller",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [
+      {
+        "id": "4f095067-cf24-4061-8626-dc68a66a0b36",
+        "name": "Toralf's Disciple",
+        "component": "combo_piece"
+      },
+      {
+        "id": "69b51576-532b-450e-a8bf-0482cac04618",
+        "name": "Thayan Evokers",
+        "component": "combo_piece"
+      },
+      {
+        "id": "618806ea-7ea8-4cfb-a8c1-c3defa34e7dd",
+        "name": "Indris, the Hydrostatic Surge",
+        "component": "combo_piece"
+      }
+    ]
+  },
+  {
+    "id": "7ca8a427-5c20-4650-bbb5-9895e4f2c009",
+    "oracle_id": "adf41d29-403d-4936-9689-3148d103e700",
+    "name": "Ray of Command",
+    "layout": "normal",
+    "set_code": "ddm",
+    "set_name": "Duel Decks: Jace vs. Vraska",
+    "collector_number": "29",
+    "rarity": "common",
+    "mana_cost": "{3}{U}",
+    "cmc": 4.0,
+    "type_line": "Instant",
+    "oracle_text": "Untap target creature an opponent controls and gain control of it until end of turn. That creature gains haste until end of turn. When you lose control of the creature, tap it.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2014-03-14",
+    "artist": "Andrew Robinson",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "752bf493-5839-47e8-95f2-6d8201907428",
+    "oracle_id": "1573f7f9-672c-421a-b1ac-3d0d8aea59ca",
+    "name": "Tormod's Crypt",
+    "layout": "normal",
+    "set_code": "dmr",
+    "set_name": "Dominaria Remastered",
+    "collector_number": "235",
+    "rarity": "uncommon",
+    "mana_cost": "{0}",
+    "cmc": 0.0,
+    "type_line": "Artifact",
+    "oracle_text": "{T}, Sacrifice this artifact: Exile target player's graveyard.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2023-01-13",
+    "artist": "Lars Grant-West",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "0dca4f46-0aad-484f-b4ea-ed61a4fc1a89",
+    "oracle_id": "a6605c50-558e-417c-8c75-6c45b06d6e13",
+    "name": "Cerulean Wisps",
+    "layout": "normal",
+    "set_code": "shm",
+    "set_name": "Shadowmoor",
+    "collector_number": "31",
+    "rarity": "common",
+    "mana_cost": "{U}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Target creature becomes blue until end of turn. Untap that creature.\nDraw a card.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2008-05-02",
+    "artist": "Jim Nelson",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "fc3a4e7d-6667-4c2f-b6b4-484f401b0455",
+    "oracle_id": "e65769f4-50ae-482b-933b-ac5cf3843f2a",
+    "name": "Soulfire Grand Master",
+    "layout": "normal",
+    "set_code": "frf",
+    "set_name": "Fate Reforged",
+    "collector_number": "27",
+    "rarity": "mythic",
+    "mana_cost": "{1}{W}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Human Monk",
+    "oracle_text": "Lifelink\nInstant and sorcery spells you control have lifelink.\n{2}{U/R}{U/R}: The next time you cast an instant or sorcery spell from your hand this turn, put that card into your hand instead of into your graveyard as it resolves.",
+    "power": "2",
+    "toughness": "2",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "R",
+      "U",
+      "W"
+    ],
+    "keywords": [
+      "Lifelink"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2015-01-23",
+    "artist": "Johannes Voss",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "222c1a68-e34c-4103-b1be-17d4ceaef6ce",
+    "oracle_id": "95e94dea-5ac0-4d6f-adec-ca147aee861f",
+    "name": "Ajani's Pridemate",
+    "layout": "normal",
+    "set_code": "fdn",
+    "set_name": "Foundations",
+    "collector_number": "135",
+    "rarity": "uncommon",
+    "mana_cost": "{1}{W}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Cat Soldier",
+    "oracle_text": "Whenever you gain life, put a +1/+1 counter on this creature.",
+    "power": "2",
+    "toughness": "2",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2024-11-15",
+    "artist": "Kevin Sidharta",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  }
+]

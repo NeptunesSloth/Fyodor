@@ -1,0 +1,6 @@
+{
+  "app/rules/cost_changes.py": "b0331e9bbd1e99ac85e800acfa31f77ccf94b06ef065384408248b923c6a9bce",
+  "app/rules/permissions.py": "3debcf0ba984d714150b231ea7ac6d6ad723f5048f3421f165bc411b3179c2bc",
+  "app/rules/cost_payment.py": "b9bea5d6c6d9985255d50621fe501a28d5d291149e456dcc7b659f00c7e4f85e",
+  "app/rules/casting.py": "dfad83ee3ae72fd2ea6c7b75d109336c2c39927ba706c8f813b8be066349ef68"
+}

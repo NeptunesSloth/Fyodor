@@ -1,0 +1,21 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+___________________________ test_restriction_grammar ___________________________
+
+    def test_restriction_grammar():
+        q = M.parse_spend("Spend this mana only to cast creature spells or activate abilities of creatures")
+        assert q is not None and q.startswith("q:")
+        assert M.parse_spend("Spend this mana only to cast Vampire, Cleric, and/or Demon spells") is not None
+        assert M.parse_spend("Spend this mana only to cast a Time Lord or Alien spell or activate an ability of a Time Lord or Alien")
+        # refused: what the payer can't check
+        # (wave 17B: where the spell is cast from and kicked are checked now: test_rules_wave17b_activated.py)
+        for text in ("Spend this mana only to cast spells from the top of your library", "Spend this mana only to pay cumulative upkeep costs",
+                     "Spend this mana only to cast spells from your graveyard or exile"):
+>           assert M.parse_spend(text) is None
+E           assert 'q:{"special": ["cumulative_upkeep"]}' is None
+E            +  where 'q:{"special": ["cumulative_upkeep"]}' = <function parse_spend at 0x7f0acacddd00>('Spend this mana only to pay cumulative upkeep costs')
+E            +    where <function parse_spend at 0x7f0acacddd00> = M.parse_spend
+
+tests/test_rules_refused_copy_mana.py:310: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_rules_refused_copy_mana.py::test_restriction_grammar - asse...

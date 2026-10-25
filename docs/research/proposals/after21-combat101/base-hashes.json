@@ -1,0 +1,6 @@
+{
+  "app/rules/casting.py": "6365534af95f5af43df039b2e92464c744144827a71dee8918ddb4d45ee44289",
+  "app/rules/targets.py": "a461ca5c871cf49f880b6f04540234433323e989b32c0f3241fdd18294ce832e",
+  "app/rules/delegated_target_announcements.py": "30a1515213470e427a9172a0ecbe937d8bab029bcba5f18f68befdc28003e499",
+  "app/rules/scripts.py": "994d44b43943997695e002c01a306b6d443e9904116065bd5aaf2f1fa8e372d6"
+}

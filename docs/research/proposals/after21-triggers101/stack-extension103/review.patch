@@ -1,0 +1,202 @@
+--- /dev/null
++++ b/backend/app/rules/stack_extension103.py
+@@ -0,0 +1,119 @@
++"""Initial cast conditions and next-spell copy watches."""
++from __future__ import annotations
++
++from dataclasses import replace
++from typing import Any
++
++
++def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
++    from app.rules import conditions, scripts
++    from app.rules.oracle import strip_reminders
++
++    text = strip_reminders(scripts.self_text(ability.text, ch.name)).strip()
++    if text == 'Whenever you cast an instant or sorcery spell that targets only ~ or activate an ability that targets only ~, copy that spell or ability. You may choose new targets for the copy. This ability triggers only once each turn.':
++        from app.rules import events
++
++        d = scripts.define(replace(ability, text='Whenever you cast an instant or sorcery spell that targets only ~, copy that spell. You may choose new targets for the copy. This ability triggers only once each turn.'), ch)
++        assert d is not None
++        activate = events.parse_condition('you activate an ability')
++        assert activate is not None
++        return {**d, 'cond': {'event': 'either', 'conds': [d['cond'], {**activate, 'only_self103': True}]},
++                'effects': [{'do': 'copy_event_stack'}, {'do': 'copy_new_targets', 'optional': True}]}
++    precursor = 'Whenever a player casts an instant or sorcery spell that targets only a single Golem, that player copies that spell for each other Golem that spell could target. Each copy targets a different one of those Golems.'
++    ink = 'Whenever a player casts an instant or sorcery spell, if that spell targets only ~, copy the spell for each other creature that spell could target. Each copy targets a different one of those creatures.'
++    if text in (precursor, ink):
++        from app.rules import selectors
++
++        d = scripts.define(replace(ability, text='Whenever a player casts an instant or sorcery spell, copy it.'), ch)
++        assert d is not None
++        target = 'only_one:' + selectors.Selector(subtypes=('Golem',)).key() if text == precursor else 'self_only'
++        return {**d, 'cond': {**d['cond'], 'targets': target},
++                'effects': [{'do': 'spread_copy103', 'golem': text == precursor}]}
++    initial = {
++        'When you cast this spell while you control your commander, copy this spell. You may choose a new target for the copy.': 'you control your commander',
++        'When you cast this spell while you control a creature, you may copy this spell.': 'you control a creature',
++    }
++    if text in initial:
++        d = scripts.define(replace(ability, text='When you cast this spell, copy it. You may choose new targets for the copy.'), ch)
++        assert d is not None
++        cond = conditions.parse(initial[text])
++        assert cond is not None
++        return {**d, 'cast_initial103': cond, 'optional': 'may copy' in text,
++                'effects': d['effects'] if 'new target' in text else [{'do': 'copy_spell', 'who': 'event_spell'}]}
++    if text == 'When you cast this spell from your hand, copy it if you control an artifact, then copy it if you control an enchantment. You may choose new targets for the copies.':
++        d = scripts.define(replace(ability, text='When you cast this spell, copy it. You may choose new targets for the copy.'), ch)
++        assert d is not None
++        out = []
++        for kind in ('artifact', 'enchantment'):
++            cond = conditions.parse('you control an ' + kind)
++            assert cond is not None
++            out.extend([{'do': 'only_if', 'cond': cond, 'skip': 2}, *d['effects']])
++        return {**d, 'cast_hand103': True, 'effects': out}
++    if text == 'When ~ enters, copy the next spell you cast this turn when you cast it. You may choose new targets for the copy.':
++        d = scripts.define(replace(ability, text='When ~ enters, draw a card.'), ch)
++        assert d is not None
++        return {**d, 'effects': [{'do': 'next_spell103'}]}
++    return None
++
++
++def next_spell(plan: Any, ctx: Any, effect: Any) -> bool:
++    from app.rules import delayed, events
++
++    cond = events.parse_condition('you cast a spell')
++    assert cond is not None
++    out = delayed.wrap_when([{'do': 'copy_spell', 'who': 'event_spell'},
++                             {'do': 'copy_new_targets', 'optional': True}],
++                            {'kind': 'watch', 'cond': cond, 'text': 'you next cast a spell'}, this_turn=True)
++    out[0]['once'] = True
++    ctx['effects'][ctx['next']:ctx['next']] = out
++    return True
++
++
++def spread_copy(plan: Any, ctx: Any, effect: Any) -> bool:
++    from app.rules import copying, spell_copy_replacements, targets
++
++    found = next(iter(copying._copy_sources(plan, ctx, 'event_spell')), None)
++    if found is None:
++        return copying._manual_each(plan, ctx, ctx['controller'], None) if copying._event_object_left(ctx, 'event_spell') else True
++    source, oid = found
++    card = plan.state.cards.get(source)
++    if card is None:
++        return True
++    entry = copying.source_entry102(plan, card, oid)
++    if entry is None:
++        return True
++    positions = copying.positions(entry)
++    old = {(t.id, t.object_id) for t in entry.targets}
++    if not effect['golem'] and old != {(ctx['source_card'], ctx['source_object'])}:
++        return True  # The Nephilim's intervening condition is checked again (603.4).
++    reason = copying.uncopyable(plan, card, object_id=oid)
++    if reason is not None:
++        return True if not reason else copying._manual_each(plan, ctx, ctx['controller'], card)
++    if not positions:
++        return True
++    # 115.9d: eligibility uses the ORIGINAL spell controller, including Nephilim
++    # copies that subsequently have a different controller and illegal targets.
++    caster = entry.controller
++    controller = ((ctx.get('event') or {}).get('players') or [caster])[0] if effect['golem'] else ctx['controller']
++    source_ch = targets.source_of(plan, source, True, object_id=oid)
++    victims = []
++    for c in plan.state.cards.values():
++        if not c.zone.endswith(':battlefield') or (c.id, plan.oid(c)) in old:
++            continue
++        ch = plan.ch(c)
++        if ('Golem' not in ch.subtypes) if effect['golem'] else not ch.is_creature:
++            continue
++        if any(c.id not in targets.legal_targets(plan, copying._spec(entry, p).get('what', 'any'), caster,
++                                                source_ch, source, source_object=oid) for p in positions):
++            continue
++        probe = copying._retargeted(entry, positions, [targets.ref(plan, c.id)] * len(positions))
++        probe.controller = caster
++        if copying._problem(plan, probe) is None:
++            victims.append(c.id)
++    if not victims:
++        return True
++    return copying._each_run(plan, {'ctx': ctx, 'spell': source, 'oid': oid, 'controller': controller,
++                                    'victims': victims, 'additional': spell_copy_replacements.additional(plan, controller)})
++
++
++PRIMITIVES = {'next_spell103': next_spell, 'spread_copy103': spread_copy}
+--- a/backend/app/rules/scripts.py
++++ b/backend/app/rules/scripts.py
+@@ -5856,6 +5856,10 @@
+
+ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
+     """The engine definition of one ability, or None (manual)."""
++    from app.rules import stack_extension103
++
++    if (stack103 := stack_extension103.definition(ability, ch)) is not None:
++        return stack103
+     from app.rules import stack_events102
+
+     if (stack102 := stack_events102.definition(ability, ch)) is not None:
+--- a/backend/app/rules/effects.py
++++ b/backend/app/rules/effects.py
+@@ -6987,3 +6987,7 @@
+ from app.rules import stack_events102 as _stack102  # noqa: E402
+
+ PRIMITIVES.update(_stack102.PRIMITIVES)
++
++from app.rules import stack_extension103 as _stack103  # noqa: E402
++
++PRIMITIVES.update(_stack103.PRIMITIVES)
+--- a/backend/app/rules/triggers.py
++++ b/backend/app/rules/triggers.py
+@@ -1055,6 +1055,11 @@
+
+         if not activated_copy_effects.matches(cond['activation_cost'], info.get('activation_cost')):
+             return False
++    if event == 'activate' and cond.get('only_self103'):
++        ref = info.get('source_ref')
++        entry = plan.rules.stack.get(ref.card) if ref is not None else None
++        if entry is None or not _targets_ok(plan, 'self_only', watcher, [(t.id, t.object_id) for t in entry.targets]):
++            return False
+     if event == "activate" and cond.get("nonmana") and info.get("mana_ability"):
+         return False
+     if event == "activate" and ((cond.get("loyalty") and not info.get("loyalty")) or (
+@@ -1939,6 +1944,15 @@
+     # a copy isn't cast, 707.10: no spell_cast event)
+     if not plan.manual(spell) and spell.zone == "stack" and spell.controller == caster:
+         for i, d in abilities(plan, sch, "cast_self"):
++            if d.get("cast_hand103"):
++                receipt = plan.rules.payments.get(plan.oid(spell))
++                if receipt is None or receipt.cast_from != "hand" or receipt.cast_from_player != caster:
++                    continue
++            if d.get("cast_initial103") is not None:
++                from app.rules import conditions
++
++                if not conditions.holds(plan, {"controller": caster, "source_card": spell.id, "source_object": plan.oid(spell)}, d["cast_initial103"]):
++                    continue
+             _add(plan, controller=caster, source_card=spell.id, source_object=plan.oid(spell), name=sch.name, index=i,
+                  definition=d, event=cast.model_copy(deep=True))
+     from app.rules import mana_units
+--- a/backend/app/rules/casting.py
++++ b/backend/app/rules/casting.py
+@@ -3882,6 +3882,7 @@
+     data = _PostCast(a, add_cost, add_objects, alt_offer, aura, bargained, bestowed_cast, card, card_was_in_hand, cast_zone, ch, chosen, commander_cast, definition, entwined, escaping, flashback, foretold, free, from_oid, from_where, gift_to, grant, harmonized, jumped, kicked, mutating_cast, optional, picked, picked_targets, sac_at_cleanup, slot_specs, slots)
+     if add_cost is not None and grant is not None and counter_cost_order70.selected(grant.extra):
+         data.counter_cost_origins70 = origins70
++    data.origin_player103 = origin.split(":", 1)[0] if ":" in origin else None
+     data.cast_greatest_power = cast_greatest_power
+     from app.rules import card_names
+
+@@ -3943,6 +3944,7 @@
+     splice_text71: SpliceText71 | None = None
+     cast_greatest_power: int | None = None
+     counter_cost_origins70: list[ObjectRef] | None = None
++    origin_player103: str | None = None  # Physical origin owner, captured before moving to the stack.
+
+
+ @dataclass
+@@ -4054,7 +4056,7 @@
+     record.kicked_mask = kick_mask(ch, a.kicker)  # (-- keywords (wave 50H) -- "kicked with its {R} kicker", 702.33f)
+     record.kicked = kicked or int(a.awaken) or int(gift_to is not None or bargained)  # 702.33d (-- static_other sweep (wave 16B) -- awaken: the line is read as
+     record.gift_to = gift_to  # "If this spell was kicked"; wave 23D: a promised gift, 702.174k, likewise)
+-    _note_cast(plan, record, cast_zone, zone_player=from_where.split(":", 1)[0] if ":" in from_where else None)  # -- refused modal/conditional (wave 3R1) --
++    _note_cast(plan, record, cast_zone, zone_player=data.origin_player103)  # -- refused modal/conditional (wave 3R1) --
+     record.spliced_names = data.spliced_names
+     record.splice_text71 = data.splice_text71
+     record.flash_sac = sac_at_cleanup

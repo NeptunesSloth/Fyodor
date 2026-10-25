@@ -1,0 +1,136 @@
+"""Revealed-card category assignments use the native distinct-kind picker and zone continuations."""
+from __future__ import annotations
+
+from dataclasses import replace
+from itertools import combinations
+from typing import Any
+
+NIV = ("When Niv-Mizzet enters, reveal the top ten cards of your library. For each color pair, choose a card that's exactly "
+       'those colors from among them. Put the chosen cards into your hand and the rest on the bottom of your library in a random order.')
+PORTENT = ('Reveal the top X cards of your library. For each card type, you may exile a card of that type from among them. Put the '
+           'rest into your graveyard. You may cast a spell from among the exiled cards without paying its mana cost if you exiled '
+           'four or more cards this way. Then put the rest of the exiled cards into your hand.')
+SELECTIVE = ('Reveal the top seven cards of your library. Choose from among them a card with flying, a card with first strike, and '
+             'so on for double strike, deathtouch, haste, hexproof, indestructible, lifelink, menace, reach, trample, and vigilance. '
+             'Put one of the chosen cards onto the battlefield, the other chosen cards into your hand, and the rest into your graveyard.')
+SANAR = ('At the beginning of your first main phase, reveal cards from the top of your library until you reveal X nonland cards, '
+         'where X is the number of colors among permanents you control. For each of those colors, you may exile a card of that '
+         'color from among the revealed cards. Then shuffle. You may cast the exiled cards this turn.')
+HURKYL = ("At the beginning of your end step, if you've cast a noncreature spell this turn, reveal the top five cards of your library. "
+          "For each card type among noncreature spells you've cast this turn, you may put a card of that type from among the revealed "
+          'cards into your hand. Put the rest on the bottom of your library in a random order.')
+TYPES = ('Artifact', 'Battle', 'Creature', 'Enchantment', 'Instant', 'Kindred', 'Land', 'Planeswalker', 'Sorcery')
+KEYWORDS = ('flying', 'first strike', 'double strike', 'deathtouch', 'haste', 'hexproof', 'indestructible', 'lifelink', 'menace',
+            'reach', 'trample', 'vigilance')
+
+
+def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
+    from app.rules import scripts, selectors
+
+    text = scripts.self_text(ability.text, ch.name)
+    # The rules' short-name substitution may leave Niv-Mizzet as printed in this line.
+    niv = text.replace('When ~ enters,', 'When Niv-Mizzet enters,')
+    mode = 'niv' if niv == NIV else 'portent' if text == PORTENT else 'selective' if text == SELECTIVE else \
+        'sanar' if text == SANAR else 'hurkyl' if text == HURKYL else None
+    if mode is None:
+        return None
+    native: dict[str, Any] = {'kind': 'spell', 'target': None, 'effects': []}
+    if mode in ('niv', 'sanar', 'hurkyl'):
+        proxy = ('When this creature enters, draw a card.' if mode == 'niv' else
+                 'At the beginning of your first main phase, draw a card.' if mode == 'sanar' else
+                 "At the beginning of your end step, if you've cast a noncreature spell this turn, draw a card.")
+        trigger = scripts.define(replace(ability, text=proxy), ch)
+        assert trigger is not None
+        native = trigger
+    lead = [{'do': 'look_top', 'n': {'x': 1} if mode == 'portent' else 10 if mode == 'niv' else 7 if mode == 'selective' else 5,
+             'reveal': True, 'exact_look': True}]
+    if mode == 'sanar':
+        sel = selectors.parse('nonland card')
+        assert sel is not None
+        lead = [{'do': 'category_colors104'}, {'do': 'library_packet101', 'mode': 'reveal', 'sel': sel.key(), 'colors': True}]
+    body = [*lead, {'do': 'category_pick104', 'mode': mode, 'as': 'selected104'}]
+    if mode in ('niv', 'hurkyl'):
+        body += [{'do': 'return_card', 'who': 'ref:selected104', 'to': 'hand'}, {'do': 'rest_looked', 'to': 'bottom_random'}]
+    elif mode == 'selective':
+        body += [{'do': 'return_choice', 'who': 'ref:selected104', 'n': 1, 'to': 'choose', 'as': 'chosen_bf104'},
+                 {'do': 'category_split104', 'who': 'ref:selected104', 'picked': 'ref:chosen_bf104', 'rest': 'ref:others104'},
+                 {'do': 'rest_looked', 'to': 'graveyard'}]
+    else:
+        body += [{'do': 'return_card', 'who': 'ref:selected104', 'to': 'exile', 'as': 'exiled104'}]
+        if mode == 'sanar':
+            body += [{'do': 'shuffle_library', 'who': 'you'},
+                     {'do': 'grant_play', 'who': 'ref:exiled104', 'cast': True, 'play': False, 'until': 'end_of_turn', 'optional': True}]
+        else:
+            body += [{'do': 'rest_looked', 'to': 'graveyard'}, {'do': 'category_cast104', 'who': 'ref:exiled104'},
+                     {'do': 'return_card', 'who': 'ref:exiled104', 'to': 'hand'}]
+    return {**native, 'effects': body}
+
+
+def colors(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    ctx['category_colors104'] = sorted({color for c in plan.state.cards.values()
+                                       if c.controller == ctx['controller'] and c.zone.endswith(':battlefield')
+                                       for color in plan.ch(c).colors})
+    return True
+
+
+def pick(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    from app.rules import effects, looking, selectors
+
+    mode = e['mode']
+    base = selectors.Selector(zones=('library',), card=True)
+    if mode == 'niv':
+        sels = [replace(base, extras=('two_colors', 'all_colors:' + ''.join(pair))).key() for pair in combinations('WUBRG', 2)]
+    elif mode == 'selective':
+        sels = [replace(base, with_keywords=(k,)).key() if k != 'hexproof' else
+                replace(base, either=(replace(base, with_keywords=('hexproof',)).key(),
+                                     replace(base, with_keywords=('hexproof from',)).key())).key() for k in KEYWORDS]
+    elif mode == 'sanar':
+        sels = [replace(base, colors=(c,)).key() for c in ctx.get('category_colors104', [])]
+    else:
+        kinds = set(TYPES)
+        if mode == 'hurkyl':
+            kinds = {t for n in plan.rules.turn_log.casts if n.player == ctx['controller'] and 'Creature' not in n.types for t in n.types}
+        sels = [replace(base, types=(t,)).key() for t in TYPES if t in kinds]
+    pool = effects._looked(plan, ctx)[1]
+    matched: dict[int, str] = {}
+
+    def augment(cid: str, seen: set[int]) -> bool:
+        for k in looking.kinds_of(plan, ctx['controller'], cid, sels):
+            if k in seen:
+                continue
+            seen.add(k)
+            if k not in matched or augment(matched[k], seen):
+                matched[k] = cid
+                return True
+        return False
+
+    for cid in pool:
+        augment(cid, set())
+    # Required choices fill all distinct available categories; optional ones may take any feasible subset.
+    ctx['effects'][ctx['next']:ctx['next']] = [{'do': 'pick_looked', 'n': len(matched), 'sels': sels,
+        'optional': mode not in ('niv', 'selective'), 'to': 'choose', 'as': e['as']}]
+    return True
+
+
+def split(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    from app.rules import context, effects
+
+    chosen = effects._cards(plan, ctx, e['picked'])
+    others = [c for c in effects._cards(plan, ctx, e['who']) if c not in chosen]
+    context.bind_objects(plan, ctx, e['rest'].removeprefix('ref:'), others)
+    native = ([{'do': 'return_card', 'who': e['picked'], 'to': 'battlefield', 'under': 'you'}]
+              if chosen and plan.ch(plan.state.cards[chosen[0]]).is_permanent_card else [])
+    ctx['effects'][ctx['next']:ctx['next']] = [*native, {'do': 'return_card', 'who': e['rest'], 'to': 'hand'}]
+    return True
+
+
+def cast(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    from app.rules import effects, permissions
+
+    if len(effects._cards(plan, ctx, e['who'])) < 4:
+        return True
+    return permissions.free_cast(plan, ctx, {'do': 'free_cast', 'zone': 'that', 'who': e['who'], 'filter': None,
+                                            'optional': True, 'mv': None, 'n': 1})
+
+
+PRIMITIVES = {'category_colors104': colors, 'category_pick104': pick, 'category_split104': split, 'category_cast104': cast}

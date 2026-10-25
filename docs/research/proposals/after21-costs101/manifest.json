@@ -1,0 +1,39 @@
+{
+  "status": "CLOSED_ISOLATED_ROOT_INTEGRATION_REQUIRED",
+  "base_commit": "456c95d6aa3eaaa38583129be436ef57c1937a01",
+  "candidates": [
+    "Skyseer's Chariot",
+    "Myth Unbound",
+    "Liesa, Shroud of Dusk",
+    "Kaervek's Torch"
+  ],
+  "expected_promotions": 4,
+  "source_files": [
+    "app/rules/cost_statics101.py",
+    "app/rules/scripts.py",
+    "app/rules/casting.py",
+    "app/rules/cost_changes.py",
+    "app/rules/permissions.py",
+    "app/rules/triggers.py"
+  ],
+  "patch": "review.patch",
+  "native_unique": 18,
+  "cold": 2,
+  "native_evidence": {
+    "native-final11.log": "11 PASS on functional source; later extra fixture support only",
+    "native-final16.log": "15 PASS +1 negative test accidentally asserted raises only around wait_priority; test indentation fixed, runtime unchanged",
+    "final-liesa1.log": "corrected actual insufficient-life/mandatory-life/Myth interaction1 PASS",
+    "myth-native2.log": "actual GY-to-command2 PASS, includes simultaneous Myths departure no-trigger official ruling"
+  },
+  "related": 29,
+  "related_command": "pytest -q -n2 tests/test_rules_table_activation_modifiers52_boundaries.py tests/test_rules_mana_activation_keywords53.py tests/test_rules_wave53b_chosen_filters.py -k 'step4 or tax or boom or power_artifact or convergence or unknown_old or opponent'",
+  "mypy": 6,
+  "ruff": 8,
+  "test_destinations": [
+    "backend/tests/test_rules_cost_statics101.py",
+    "backend/tests/test_rules_cost_statics101_extra.py"
+  ],
+  "fixture_destination": "backend/tests/fixtures/cost_statics101_cards.json",
+  "runtime_source": "/workspace/scratch/costs101/backend",
+  "live_source_writes": false
+}

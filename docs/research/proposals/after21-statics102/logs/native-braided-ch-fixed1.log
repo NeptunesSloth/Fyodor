@@ -1,0 +1,29 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+____ test_braided_net_native_counter_cost_and_untap_end_without_restarting _____
+
+cards = <app.cards.repository.CardRepository object at 0x7f37353952b0>
+
+    def test_braided_net_native_counter_cost_and_untap_end_without_restarting(cards):
+        s = setup(cards)
+        to_phase(s, "main1")
+        source = cast(s, "Braided Net // Braided Quipu")
+        ring = put(s, "Sol Ring", "battlefield", "p2")
+        act(s, "p1", type="activate_ability", card_id=source.id, ability=1, targets=[ring.id])
+        settle(s)
+        assert s.state.cards[source.id].counters["net"] == 2
+        assert s.state.cards[ring.id].tapped
+        assert "cant_activate" in Plan.view(s.state, "p1", cards).ch(s.state.cards[ring.id]).imposed
+        act(s, "p2", type="tap", card_ids=[ring.id], tapped=False)
+>       assert "cant_activate" not in Plan.view(s.state, "p1", cards).ch(s.state.cards[ring.id]).imposed
+E       AssertionError: assert 'cant_activate' not in frozenset({'cant_activate'})
+E        +  where frozenset({'cant_activate'}) = Characteristics(name='Sol Ring', supertypes=frozenset(), types=frozenset({'Artifact'}), subtypes=frozenset(), mana_cos...ozenset(), lost=frozenset(), imposed=frozenset({'cant_activate'}), level=None, doors=None, word=None, flanking_count=0).imposed
+E        +    where Characteristics(name='Sol Ring', supertypes=frozenset(), types=frozenset({'Artifact'}), subtypes=frozenset(), mana_cos...ozenset(), lost=frozenset(), imposed=frozenset({'cant_activate'}), level=None, doors=None, word=None, flanking_count=0) = ch(CardInstance(borrow_identity=None, id='56c927c8b296', card_id='a8e62a38-6d6e-537b-8f04-c019a8176cbc', name='Sol Ring',...one)], damage=0, choices={}, stack_info=None, exile_group=None, token_source=None, origin='library', test_object=False))
+E        +      where ch = <app.rules.plan.Plan object at 0x7f37360ce900>.ch
+E        +        where <app.rules.plan.Plan object at 0x7f37360ce900> = view(GameState(format_version=1, id='ca4e81613b94086f', name='Game', format='commander', created_at=1792913122.5994456, seq...ee_cast_faces={}, exile_if_graveyard=[], bottom_if_graveyard=[], cast_enters={}, exile_resolves={}, counter_stamps={})), 'p1', <app.cards.repository.CardRepository object at 0x7f37353952b0>)
+E        +          where view = Plan.view
+E        +          and   GameState(format_version=1, id='ca4e81613b94086f', name='Game', format='commander', created_at=1792913122.5994456, seq...ee_cast_faces={}, exile_if_graveyard=[], bottom_if_graveyard=[], cast_enters={}, exile_resolves={}, counter_stamps={})) = <app.game.session.GameSession object at 0x7f37355a38c0>.state
+
+tests/test_rules_lifespans102.py:104: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_rules_lifespans102.py::test_braided_net_native_counter_cost_and_untap_end_without_restarting

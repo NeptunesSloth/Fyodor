@@ -1,0 +1,104 @@
+{
+  "object": "list",
+  "has_more": false,
+  "data": [
+    {
+      "object": "ruling",
+      "oracle_id": "675de007-a71e-4036-8204-140c67871b7f",
+      "source": "wotc",
+      "published_at": "2024-11-08",
+      "comment": "If a spell's kicker cost was paid, the spell is \"kicked.\""
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "675de007-a71e-4036-8204-140c67871b7f",
+      "source": "wotc",
+      "published_at": "2024-11-08",
+      "comment": "The kicker ability doesn't let you pay a kicker cost more than once."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "675de007-a71e-4036-8204-140c67871b7f",
+      "source": "wotc",
+      "published_at": "2024-11-08",
+      "comment": "If you put a permanent with a kicker ability onto the battlefield without casting it, you can't kick it."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "675de007-a71e-4036-8204-140c67871b7f",
+      "source": "wotc",
+      "published_at": "2024-11-08",
+      "comment": "If you copy a kicked spell on the stack, the copy is also kicked. If the copied spell is a permanent spell, the token the copy of that spell becomes when it enters is also kicked."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "675de007-a71e-4036-8204-140c67871b7f",
+      "source": "wotc",
+      "published_at": "2024-11-08",
+      "comment": "If a card or token enters as a copy of a permanent, the new permanent isn't kicked, even if the original was."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "675de007-a71e-4036-8204-140c67871b7f",
+      "source": "wotc",
+      "published_at": "2024-11-08",
+      "comment": "To determine a spell's total cost, start with the mana cost (or an alternative cost if another card's effect allows you to pay one instead), add any cost increases (such as kicker), then apply any cost reductions. The spell's mana value remains unchanged, no matter what the total cost to cast it was."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "675de007-a71e-4036-8204-140c67871b7f",
+      "source": "wotc",
+      "published_at": "2020-09-25",
+      "comment": "You can't choose to pay any additional costs for the copy. However, effects based on any additional costs that were paid for the original spell are copied as though those same costs were paid for the copy too. Notably, if the spell you copy was kicked, the copy or copies will also be kicked."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "675de007-a71e-4036-8204-140c67871b7f",
+      "source": "wotc",
+      "published_at": "2020-09-25",
+      "comment": "Sea Gate Stormcaller's delayed triggered ability will copy any instant or sorcery spell, not just one with targets."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "675de007-a71e-4036-8204-140c67871b7f",
+      "source": "wotc",
+      "published_at": "2020-09-25",
+      "comment": "The copy is created on the stack, so it's not \"cast.\" Abilities that trigger when a player casts a spell won't trigger."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "675de007-a71e-4036-8204-140c67871b7f",
+      "source": "wotc",
+      "published_at": "2020-09-25",
+      "comment": "A copy is created even if Sea Gate Stormcaller leaves the battlefield before its delayed triggered ability is created."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "675de007-a71e-4036-8204-140c67871b7f",
+      "source": "wotc",
+      "published_at": "2020-09-25",
+      "comment": "A copy is created even if the spell that caused Sea Gate Stormcaller's delayed triggered ability to trigger has been countered by the time that ability resolves. The copy resolves before the original spell."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "675de007-a71e-4036-8204-140c67871b7f",
+      "source": "wotc",
+      "published_at": "2020-09-25",
+      "comment": "The copy will have the same targets as the spell it's copying unless you choose new ones. You may change any number of the targets, including all of them or none of them. The new targets must be legal."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "675de007-a71e-4036-8204-140c67871b7f",
+      "source": "wotc",
+      "published_at": "2020-09-25",
+      "comment": "If the spell that's copied is modal (that is, it says \"Choose one \u2014\" or the like), the copy will have the same mode or modes. You can't choose different ones."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "675de007-a71e-4036-8204-140c67871b7f",
+      "source": "wotc",
+      "published_at": "2020-09-25",
+      "comment": "For spells with {X} in their mana costs, use the value chosen for X to determine the spell's mana value. If it's copied, the copy has the same value of X."
+    }
+  ]
+}

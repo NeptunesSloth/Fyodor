@@ -1,0 +1,23 @@
+{
+  "status": "CLOSED_ISOLATED_ROOT_AUDIT_REQUIRED",
+  "base_commit": "456c95d6aa3eaaa38583129be436ef57c1937a01",
+  "names": [
+    "Artifact Ward",
+    "Anti-Magic Aura",
+    "Consecrate Land"
+  ],
+  "expected_promotions": 3,
+  "owned_sources": [
+    "app/rules/statics.py",
+    "app/rules/targets.py",
+    "app/rules/attachments.py"
+  ],
+  "native": "15 unified PASS/cold2 in native-first16.log (original filename anticipated16; actual15 tests)",
+  "mypy": "3 source files PASS",
+  "ruff": "4 source/test files PASS",
+  "related": "108 PASS: source/LKI protection qualities, targeting/attachment protection, native spell-only targeting restrictions.",
+  "test_destination": "backend/tests/test_rules_aura_restrictions106.py",
+  "fixture_destination": "backend/tests/fixtures/aura_restrictions106_cards.json",
+  "stage": "/workspace/scratch/combat106/backend",
+  "classifier_edits": 0
+}

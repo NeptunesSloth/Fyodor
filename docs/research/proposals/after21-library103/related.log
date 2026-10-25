@@ -1,0 +1,72 @@
+................................FF...................................... [ 56%]
+.......................................................                  [100%]
+=================================== FAILURES ===================================
+_ test_unread_wordings_stay_manual[Creature \u2014 Efreet-Whenever this creature attacks or blocks, flip a coin at end of combat. If you lose the flip, an opponent gains control of this creature.] _
+
+type_line = 'Creature — Efreet'
+text = 'Whenever this creature attacks or blocks, flip a coin at end of combat. If you lose the flip, an opponent gains control of this creature.'
+
+    @pytest.mark.parametrize(("type_line", "text"), [
+        # X is the spell's, announced as it was cast: read in a cast trigger? Not yet (Photon Blast Barrage, Hydroid Krasis' half X)
+        ("Instant", "When you cast this spell, copy it X times. You may choose new targets for the copies."),
+        # a count of kinds of counters among permanents (Storm of Forms): no such amount
+        ("Instant", "When you cast this spell, copy it for each kind of counter among permanents you control. You may choose new targets for the copies."),
+        # two conditional copies, then one sentence about all the copies (Banish into Fable)
+        ("Instant", "When you cast this spell from your hand, copy it if you control an artifact, then copy it if you control an enchantment. "
+                    "You may choose new targets for the copies."),
+        # "before it" names the spell a cast trigger is about: nothing else has one
+        ("Creature — Human", "Whenever a creature enters, draw a card for each other instant and sorcery spell you've cast before it this turn."),
+        # "it" in a spell outside a cast trigger names nothing (no earlier target)
+        ("Instant", "Draw a card. Copy that spell."),
+        # a delayed trigger that must flip, then judge the flip, then give an opponent (their choice) the creature (Fickle Efreet)
+        ("Creature — Efreet", "Whenever this creature attacks or blocks, flip a coin at end of combat. If you lose the flip, an opponent gains control of "
+                              "this creature."),
+        # two objects returned to different owners (Contempt); (Basalt Golem's delayed sacrifice answered by "If the player does": read since wave 53C,
+        # tests/test_rules_wave53c_block_events.py)
+        ("Enchantment — Aura", "Enchant creature\nWhen enchanted creature attacks, return it and this Aura to their owners' hands at end of combat."),
+    ])
+    def test_unread_wordings_stay_manual(type_line, text):
+        ch_ = characteristics("Probe", type_line, text, spell="Instant" in type_line)
+>       assert coverage.of_characteristics(ch_).level != "FULL"
+E       AssertionError: assert 'FULL' != 'FULL'
+E        +  where 'FULL' = Coverage(level='FULL', name='Probe', oracle_id=None, features=(Feature(id='cast:spell', label='Cast it (timing, costs,...d of combat. If you lose the flip, an opponent gains control of this creature.', supported=True)), review_needed=False).level
+E        +    where Coverage(level='FULL', name='Probe', oracle_id=None, features=(Feature(id='cast:spell', label='Cast it (timing, costs,...d of combat. If you lose the flip, an opponent gains control of this creature.', supported=True)), review_needed=False) = <function of_characteristics at 0x7f5834ffa8e0>(Characteristics(name='Probe', supertypes=frozenset(), types=frozenset({'Creature'}), subtypes=frozenset({'Efreet'}), m...ne, granted=frozenset(), lost=frozenset(), imposed=frozenset(), level=None, doors=None, word=None, flanking_count=None))
+E        +      where <function of_characteristics at 0x7f5834ffa8e0> = coverage.of_characteristics
+
+tests/test_rules_wave31d_spell_copies.py:526: AssertionError
+_ test_unread_wordings_stay_manual[Enchantment \u2014 Aura-Enchant creature\nWhen enchanted creature attacks, return it and this Aura to their owners' hands at end of combat.] _
+
+type_line = 'Enchantment — Aura'
+text = "Enchant creature\nWhen enchanted creature attacks, return it and this Aura to their owners' hands at end of combat."
+
+    @pytest.mark.parametrize(("type_line", "text"), [
+        # X is the spell's, announced as it was cast: read in a cast trigger? Not yet (Photon Blast Barrage, Hydroid Krasis' half X)
+        ("Instant", "When you cast this spell, copy it X times. You may choose new targets for the copies."),
+        # a count of kinds of counters among permanents (Storm of Forms): no such amount
+        ("Instant", "When you cast this spell, copy it for each kind of counter among permanents you control. You may choose new targets for the copies."),
+        # two conditional copies, then one sentence about all the copies (Banish into Fable)
+        ("Instant", "When you cast this spell from your hand, copy it if you control an artifact, then copy it if you control an enchantment. "
+                    "You may choose new targets for the copies."),
+        # "before it" names the spell a cast trigger is about: nothing else has one
+        ("Creature — Human", "Whenever a creature enters, draw a card for each other instant and sorcery spell you've cast before it this turn."),
+        # "it" in a spell outside a cast trigger names nothing (no earlier target)
+        ("Instant", "Draw a card. Copy that spell."),
+        # a delayed trigger that must flip, then judge the flip, then give an opponent (their choice) the creature (Fickle Efreet)
+        ("Creature — Efreet", "Whenever this creature attacks or blocks, flip a coin at end of combat. If you lose the flip, an opponent gains control of "
+                              "this creature."),
+        # two objects returned to different owners (Contempt); (Basalt Golem's delayed sacrifice answered by "If the player does": read since wave 53C,
+        # tests/test_rules_wave53c_block_events.py)
+        ("Enchantment — Aura", "Enchant creature\nWhen enchanted creature attacks, return it and this Aura to their owners' hands at end of combat."),
+    ])
+    def test_unread_wordings_stay_manual(type_line, text):
+        ch_ = characteristics("Probe", type_line, text, spell="Instant" in type_line)
+>       assert coverage.of_characteristics(ch_).level != "FULL"
+E       assert 'FULL' != 'FULL'
+E        +  where 'FULL' = Coverage(level='FULL', name='Probe', oracle_id=None, features=(Feature(id='cast:spell', label='Cast it (timing, costs,...ture attacks, return it and this Aura to their owners' hands at end of combat.", supported=True)), review_needed=False).level
+E        +    where Coverage(level='FULL', name='Probe', oracle_id=None, features=(Feature(id='cast:spell', label='Cast it (timing, costs,...ture attacks, return it and this Aura to their owners' hands at end of combat.", supported=True)), review_needed=False) = <function of_characteristics at 0x7f5834ffa8e0>(Characteristics(name='Probe', supertypes=frozenset(), types=frozenset({'Enchantment'}), subtypes=frozenset({'Aura'}), ...ne, granted=frozenset(), lost=frozenset(), imposed=frozenset(), level=None, doors=None, word=None, flanking_count=None))
+E        +      where <function of_characteristics at 0x7f5834ffa8e0> = coverage.of_characteristics
+
+tests/test_rules_wave31d_spell_copies.py:526: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_rules_wave31d_spell_copies.py::test_unread_wordings_stay_manual[Creature \u2014 Efreet-Whenever this creature attacks or blocks, flip a coin at end of combat. If you lose the flip, an opponent gains control of this creature.]
+FAILED tests/test_rules_wave31d_spell_copies.py::test_unread_wordings_stay_manual[Enchantment \u2014 Aura-Enchant creature\nWhen enchanted creature attacks, return it and this Aura to their owners' hands at end of combat.]

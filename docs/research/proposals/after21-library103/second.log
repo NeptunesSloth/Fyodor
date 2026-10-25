@@ -1,0 +1,31 @@
+.....F
+=================================== FAILURES ===================================
+_________ test_swarm_native_persistent_not_cast_and_source_shuffled103 _________
+
+cards = <app.cards.repository.CardRepository object at 0x7fc33a32bf20>
+
+    def test_swarm_native_persistent_not_cast_and_source_shuffled103(cards):
+        s = setup(cards)
+        c = cast(s, 'Endless Swarm')
+        n = len(s.state.zones['p1:hand'])
+        advance(s)
+        assert sum(x.name == 'Snake' for x in s.state.cards.values()) == n
+        assert len([x for x in s.state.rules.delayed if x.name == 'Endless Swarm']) == 1
+        bolt = put(s, 'Lightning Bolt', 'hand')
+        with pytest.raises(ActionError, match="can't cast"):
+            act(s, 'p1', type='cast_spell', card_id=bolt.id, sources=[], targets=['player:p2'])
+        original_id = c.id
+        act(s, 'p1', type='move', card_ids=[c.id], to={'player': 'p1', 'zone': 'library'})
+        act(s, 'p1', type='shuffle', player='p1', zone='library')
+        assert original_id not in s.state.cards
+        upkeep(s)
+        assert len([x for x in s.state.rules.delayed if x.name == 'Endless Swarm']) == 1
+        assert sum(x.name == 'Snake' for x in s.state.cards.values()) == n + len(s.state.zones['p1:hand'])
+>       copies = [f for f in s.state.rules.turn_log if f.kind == 'spell_copied']
+                                                       ^^^^^^
+E       AttributeError: 'tuple' object has no attribute 'kind'
+
+tests/test_rules_epic103.py:88: AttributeError
+=========================== short test summary info ============================
+FAILED tests/test_rules_epic103.py::test_swarm_native_persistent_not_cast_and_source_shuffled103
+!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!

@@ -77,6 +77,7 @@ class Plan:
         self.put_via: str | None = None  # -- trigger other (wave 51E) -- the object whose effect is putting cards onto the battlefield now (Entry.via)
         self.moved: dict[str, bool] = {}  # card -> did one of its moves this intent make it a card others have seen (ops.seen_move)
 
+    probe_stickers101: list[tuple[str, str, list[str]]] | None = None
     world_depth80: int = 0
     world_candidates80: tuple[tuple, tuple[str, ...]] | None = None
 
@@ -133,8 +134,9 @@ class Plan:
             payload = {**payload, "keep_ids": True}  # (renumber_face_down)
         if payload.get("type") == "rules_sync" and self.renumber_face_down():
             payload = {**payload, "rules": self.rules.model_dump(mode="json")}  # (the ids changed)
-        from app.rules import payment_card_facts
+        from app.rules import payment_card_facts, stickers101
 
+        payload = stickers101.prepare_move(self, payload)
         payment_card_facts.freeze_departures(self, payload)
         action = A.parse_action(payload)
         resolved = resolve(self.state, action, actor=actor or self.actor, cards=self.info, rng=self.rng, trusted=True, shuffle_retained=self.shuffle_retained)

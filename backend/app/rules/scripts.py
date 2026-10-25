@@ -2660,6 +2660,22 @@ def _sacrifice_count_sequence(body: str) -> tuple[list[dict[str, Any]], Any, boo
 
 
 def parse_effects(body: str, it: str | None = None, *, event_player: bool = False) -> tuple[list[dict[str, Any]], Any, bool] | None:
+    from app.rules import sticker_effects101
+
+    if (sticker101 := sticker_effects101.parse(body, it)) is not None:
+        return sticker101
+    from app.rules import damage_values102
+
+    if (damage102 := damage_values102.parse(body)) is not None:
+        return damage102
+    from app.rules import library_packets101
+
+    if (library101 := library_packets101.parse(body)) is not None:
+        return library101
+    from app.rules import modal_clauses101
+
+    if (modal101 := modal_clauses101.parse(body)) is not None:
+        return modal101
     from app.rules import zones100g  # -- zones (wave 100G) -- exact wordings (app/rules/zones100g.py)
 
     if (zones := zones100g.parse(body)) is not None:
@@ -5856,6 +5872,83 @@ def _first_time_gate(text: str) -> str:
 
 def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     """The engine definition of one ability, or None (manual)."""
+    from app.rules import sticker_riders102
+
+    if (rider102 := sticker_riders102.definition(ability, ch)) is not None:
+        return rider102
+    from app.rules import copy_controllers105
+
+    if (copy105 := copy_controllers105.definition(ability, ch)) is not None:
+        return copy105
+    from app.rules import vampire_returns105
+
+    if (found105 := vampire_returns105.definition(ability, ch)) is not None:
+        return found105
+    from app.rules import damage_death104
+
+    if (death104 := damage_death104.definition(ability, ch)) is not None:
+        return death104
+    from app.rules import damage_death104
+
+    if (death104 := damage_death104.definition(ability, ch)) is not None:
+        return death104
+    from app.rules import epic103
+
+    if (epic := epic103.definition(ability, ch)) is not None:
+        return epic
+    from app.rules import stickers101
+
+    if (stickers := stickers101.definition(ability, ch)) is not None:
+        return stickers
+
+    from app.rules import next_copy104
+
+    if (next104 := next_copy104.definition(ability, ch)) is not None:
+        return next104
+    from app.rules import stack_extension103
+
+    if (stack103 := stack_extension103.definition(ability, ch)) is not None:
+        return stack103
+    from app.rules import combat_damage95
+
+    if (combat95 := combat_damage95.definition(ability, ch)) is not None:
+        return combat95
+    from app.rules import waterbend104
+
+    if (water104 := waterbend104.definition(ability,ch)) is not None:
+        return water104
+    from app.rules import waterbend103
+
+    if (water103 := waterbend103.definition(ability,ch)) is not None:
+        return water103
+    from app.rules import waterbend102
+
+    if (water102 := waterbend102.definition(ability,ch)) is not None:
+        return water102
+    from app.rules import library_polymorph102
+
+    if (polymorph102 := library_polymorph102.definition(ability, ch)) is not None:
+        return polymorph102
+    from app.rules import stack_events102
+
+    if (stack102 := stack_events102.definition(ability, ch)) is not None:
+        return stack102
+    from app.rules import library_packets101
+
+    if (library101 := library_packets101.definition(ability, ch)) is not None:
+        return library101
+    from app.rules import cost_statics101
+
+    if (native101 := cost_statics101.definition(ability, ch)) is not None:
+        return native101
+    from app.rules import upkeep_sacrifice101
+
+    if (upkeep101 := upkeep_sacrifice101.definition(ability, ch)) is not None:
+        return upkeep101
+    from app.rules import flagbearer86
+
+    if (flag86 := flagbearer86.definition(ability, ch)) is not None:
+        return flag86
     from app.rules import multi100m  # -- multi (wave 100M) --
 
     if (lines100m := multi100m.definition(ability, ch)) is not None:
@@ -8656,6 +8749,7 @@ def _spell_definition(ch: Characteristics) -> Definition | None:
     # (wave 3C: nor "If you control a commander, you may cast this spell without paying its mana cost"; 3$: additional costs)
     lines = [ab for ab in ch.abilities if ab.kind != "keywords" and not _from_hand_ability(ab) and not graveyard_only_ability(defs.get(ab.index))
              and not defs.get(ab.index, {}).get("exiled_step")
+             and not defs.get(ab.index, {}).get("stack_target101")  # Native stack-only cost rule, not a resolving spell instruction.
              and not own_graveyard_activation(defs.get(ab.index))
              and not own_card_event_ability(defs.get(ab.index))  # (wave 36A: cycling / discard triggers of the card itself)
              and defs.get(ab.index, {}).get("trigger") != "cast_self"  # -- spell copies (wave 31D) -- 601.2i: "When you cast this spell, …" triggers
@@ -8688,6 +8782,8 @@ def _spell_definition(ch: Characteristics) -> Definition | None:
         offset = len(groups)
         index = list(range(offset, offset + len(own)))
         for g in own:
+            if g.get("opponent_group") and effects:
+                g["from"] = g.get("from", 0) + len(effects)
             if g.get("distinct_from"):
                 g["distinct_from"] = [offset + d for d in g["distinct_from"]]
             if g.get("graveyard_of") is not None:  # (wave 46B)
@@ -8728,6 +8824,8 @@ def _spell_definition(ch: Characteristics) -> Definition | None:
         effects = [{"do": "ascend"}, *effects]  # -- keywords (wave 15E) -- 702.131a: the spell ability, first
     if ch.is_instant_or_sorcery and any(ab.kind == "keywords" and ab.keywords == ("cipher",) for ab in ch.abilities):
         effects = [*effects, {"do": "cipher"}]  # -- static_other sweep (wave 17C) -- 702.99a: encoded last (recursion.cipher)
+    if any(e["do"] == "epic_setup103" for e in effects):
+        effects = [{"do": "epic_snapshot103"}, *effects]
     effects, target = _finish_targets(effects, groups)
     minimum_x = max((defs[ab.index].get("x_min", 0) for ab in lines), default=0)
     as_cast = {defs[ab.index]['x_as_cast'] for ab in lines if defs[ab.index].get('x_as_cast') is not None}

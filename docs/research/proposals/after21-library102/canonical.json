@@ -1,0 +1,146 @@
+[
+  {
+    "id": "34337c23-5dad-4ea3-84e9-aae7e34b2b17",
+    "oracle_id": "afad2e76-4b53-4884-8f96-ba68b0808990",
+    "name": "Reality Scramble",
+    "layout": "normal",
+    "set_code": "c18",
+    "set_name": "Commander 2018",
+    "collector_number": "25",
+    "rarity": "rare",
+    "mana_cost": "{2}{R}{R}",
+    "cmc": 4.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Put target permanent you own on the bottom of your library. Reveal cards from the top of your library until you reveal a card that shares a card type with that permanent. Put that card onto the battlefield and the rest on the bottom of your library in a random order.\nRetrace (You may cast this card from your graveyard by discarding a land card in addition to paying its other costs.)",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [
+      "Retrace"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2018-08-10",
+    "artist": "Simon Dominic",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "a1cd7456-71dd-463f-98a2-2d6a9cfb7395",
+    "oracle_id": "f08e835a-7827-4fdc-8dcf-ae74507da052",
+    "name": "Divergent Transformations",
+    "layout": "normal",
+    "set_code": "cmm",
+    "set_name": "Commander Masters",
+    "collector_number": "216",
+    "rarity": "rare",
+    "mana_cost": "{6}{R}",
+    "cmc": 7.0,
+    "type_line": "Instant",
+    "oracle_text": "Undaunted (This spell costs {1} less to cast for each opponent.)\nExile two target creatures. For each of those creatures, its controller reveals cards from the top of their library until they reveal a creature card, puts that card onto the battlefield, then shuffles the rest into their library.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [
+      "Undaunted"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2023-08-04",
+    "artist": "Kev Walker",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "edd00e45-2ae1-4cd0-92a1-155c95f8dc72",
+    "oracle_id": "e2161ae2-e5d2-4a56-85d4-d2214c5b3e2e",
+    "name": "Indomitable Creativity",
+    "layout": "normal",
+    "set_code": "aer",
+    "set_name": "Aether Revolt",
+    "collector_number": "85",
+    "rarity": "mythic",
+    "mana_cost": "{X}{R}{R}{R}",
+    "cmc": 3.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Destroy X target artifacts and/or creatures. For each permanent destroyed this way, its controller reveals cards from the top of their library until an artifact or creature card is revealed and exiles that card. Those players put the exiled cards onto the battlefield, then shuffle.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2017-01-20",
+    "artist": "Deruchenko Alexander",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "78ab1d69-da01-424b-9d09-ef985aef4cbd",
+    "oracle_id": "640a7d2c-42c4-4ea7-bd5b-72f12a65785e",
+    "name": "Synthetic Destiny",
+    "layout": "normal",
+    "set_code": "frc",
+    "set_name": "Reality Fracture Commander",
+    "collector_number": "45",
+    "rarity": "rare",
+    "mana_cost": "{4}{U}{U}",
+    "cmc": 6.0,
+    "type_line": "Instant",
+    "oracle_text": "Exile all creatures you control. At the beginning of the next end step, reveal cards from the top of your library until you reveal that many creature cards, put all creature cards revealed this way onto the battlefield, then shuffle the rest of the revealed cards into your library.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2026-10-02",
+    "artist": "Dave Kendall",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  }
+]

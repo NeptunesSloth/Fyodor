@@ -1,0 +1,11 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+_ test_actual_concession_restores_controller_without_changing_gix_chosen_object101 _
+tests/test_rules_modal_clauses101.py:372: in test_actual_concession_restores_controller_without_changing_gix_chosen_object101
+    assert s.state.cards[bear.id].zone=='p3:battlefield'
+E   AssertionError: assert 'p3:graveyard' == 'p3:battlefield'
+E
+E     - p3:battlefield
+E     + p3:graveyard
+=========================== short test summary info ============================
+FAILED tests/test_rules_modal_clauses101.py::test_actual_concession_restores_controller_without_changing_gix_chosen_object101

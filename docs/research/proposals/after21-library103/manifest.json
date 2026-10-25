@@ -1,0 +1,35 @@
+{
+  "candidate_names": [
+    "Enduring Ideal",
+    "Endless Swarm",
+    "Eternal Dominion",
+    "Neverending Torment",
+    "Undying Flames"
+  ],
+  "expected_promotions": 5,
+  "production_sources": [
+    "app/game/actions.py",
+    "app/game/resolve.py",
+    "app/game/handlers/cards.py",
+    "app/rules/copying.py",
+    "app/rules/cast_limits.py",
+    "app/rules/scripts.py",
+    "app/rules/effects.py",
+    "app/rules/epic103.py"
+  ],
+  "native_pass": 19,
+  "genuine_cold": 3,
+  "mypy": "8 PASS",
+  "ruff": "9 PASS",
+  "related": "125 PASS, 2 existing expected-manual assertions fail; same generic Probe wordings already FULL on immutable pre-Epic stage library102; baseline-probe.log proves this. No claim of clean127.",
+  "test_destination": "backend/tests/test_rules_epic103.py",
+  "fixture_destination": "backend/tests/fixtures/epic103_cards.json",
+  "test_dependency": "test_rules_library_packets101.advance/cast/cold/top plus native standard fixtures and phase helpers",
+  "runtime_dependencies": [
+    "closed library101 native finite packet for Undying Flames",
+    "closed stack-events102 source_entry102/Aura copying foundation preserved"
+  ],
+  "base": "Merged456c +closed library101/library102 hooks +closed stack-events102 composed additive hooks; saved immutable base-sources. No mutable live base diff.",
+  "status": "CLOSED exact5; root integration/catalog admission pending",
+  "patch_sha256": "63cb86537459e5077b2e5edc4d8c4e64b64b814386fb1ea835aaa7f355124b00"
+}

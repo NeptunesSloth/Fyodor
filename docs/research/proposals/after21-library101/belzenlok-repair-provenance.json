@@ -1,0 +1,19 @@
+{
+  "changed_existing_functions": [
+    "belzenlok"
+  ],
+  "added_functions": [
+    "_belzenlok_finish",
+    "_belzenlok_next",
+    "belzenlok_after",
+    "belzenlok_hit"
+  ],
+  "other_existing_function_bodies_equal": true,
+  "new_primitive_registrations": [
+    "belzenlok_hit101",
+    "belzenlok_after101"
+  ],
+  "original19_native": "17 unchanged function-path cases remain; old2 Belzenlok cases are rerun in affected4",
+  "affected4": "old coverage+repeat cases and2 new warm commander choices PASS",
+  "cold2": "2 new genuine cold commander paths PASS"
+}

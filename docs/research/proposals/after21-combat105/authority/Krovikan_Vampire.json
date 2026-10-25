@@ -1,0 +1,173 @@
+{
+  "card": {
+    "object": "card",
+    "id": "fa1e779a-7075-49f0-b62e-936ad554d036",
+    "oracle_id": "8fa93c01-f9ea-4d48-a040-418d1ca6be19",
+    "multiverse_ids": [
+      184647
+    ],
+    "mtgo_id": 30494,
+    "mtgo_foil_id": 30495,
+    "name": "Krovikan Vampire",
+    "lang": "en",
+    "released_at": "2008-09-22",
+    "uri": "https://api.scryfall.com/cards/fa1e779a-7075-49f0-b62e-936ad554d036",
+    "scryfall_uri": "https://scryfall.com/card/me2/102/krovikan-vampire?utm_source=api",
+    "layout": "normal",
+    "highres_image": true,
+    "image_status": "highres_scan",
+    "image_updated_at": "2026-07-13T11:36:59Z",
+    "image_uris": {
+      "small": "https://cards.scryfall.io/small/front/f/a/fa1e779a-7075-49f0-b62e-936ad554d036.jpg?1783942619",
+      "normal": "https://cards.scryfall.io/normal/front/f/a/fa1e779a-7075-49f0-b62e-936ad554d036.jpg?1783942619",
+      "large": "https://cards.scryfall.io/large/front/f/a/fa1e779a-7075-49f0-b62e-936ad554d036.jpg?1783942619",
+      "png": "https://cards.scryfall.io/png/front/f/a/fa1e779a-7075-49f0-b62e-936ad554d036.png?1783942619",
+      "art_crop": "https://cards.scryfall.io/art_crop/front/f/a/fa1e779a-7075-49f0-b62e-936ad554d036.jpg?1783942619",
+      "border_crop": "https://cards.scryfall.io/border_crop/front/f/a/fa1e779a-7075-49f0-b62e-936ad554d036.jpg?1783942619",
+      "thumb": "https://cards.scryfall.io/thumb/front/f/a/fa1e779a-7075-49f0-b62e-936ad554d036.webp?1783942619",
+      "grid": "https://cards.scryfall.io/grid/front/f/a/fa1e779a-7075-49f0-b62e-936ad554d036.webp?1783942619",
+      "display": "https://cards.scryfall.io/display/front/f/a/fa1e779a-7075-49f0-b62e-936ad554d036.webp?1783942619",
+      "art": "https://cards.scryfall.io/art/front/f/a/fa1e779a-7075-49f0-b62e-936ad554d036.webp?1783942619",
+      "crop": "https://cards.scryfall.io/crop/front/f/a/fa1e779a-7075-49f0-b62e-936ad554d036.webp?1783942619",
+      "jpeg": "https://cards.scryfall.io/normal/front/f/a/fa1e779a-7075-49f0-b62e-936ad554d036.jpg?1783942619"
+    },
+    "mana_cost": "{3}{B}{B}",
+    "cmc": 5.0,
+    "type_line": "Creature \u2014 Vampire",
+    "oracle_text": "At the beginning of each end step, if a creature dealt damage by this creature this turn died, put that card onto the battlefield under your control. Sacrifice it when you lose control of this creature.",
+    "power": "3",
+    "toughness": "3",
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [],
+    "legalities": {
+      "standard": "not_legal",
+      "future": "not_legal",
+      "historic": "not_legal",
+      "timeless": "not_legal",
+      "gladiator": "not_legal",
+      "pioneer": "not_legal",
+      "modern": "not_legal",
+      "legacy": "legal",
+      "pauper": "not_legal",
+      "vintage": "legal",
+      "penny": "not_legal",
+      "commander": "legal",
+      "oathbreaker": "legal",
+      "standardbrawl": "not_legal",
+      "brawl": "not_legal",
+      "competitivebrawl": "not_legal",
+      "alchemy": "not_legal",
+      "paupercommander": "not_legal",
+      "duel": "legal",
+      "oldschool": "not_legal",
+      "premodern": "legal",
+      "predh": "legal",
+      "tlr": "not_legal"
+    },
+    "games": [
+      "mtgo"
+    ],
+    "reserved": false,
+    "game_changer": false,
+    "foil": true,
+    "nonfoil": true,
+    "finishes": [
+      "nonfoil",
+      "foil"
+    ],
+    "oversized": false,
+    "promo": false,
+    "reprint": true,
+    "variation": false,
+    "set_id": "7d51a13b-dcd2-4ec2-b3a7-c89288e00b4e",
+    "set": "me2",
+    "set_name": "Masters Edition II",
+    "set_type": "masters",
+    "set_uri": "https://api.scryfall.com/sets/7d51a13b-dcd2-4ec2-b3a7-c89288e00b4e",
+    "set_search_uri": "https://api.scryfall.com/cards/search?order=set&q=e%3Ame2&unique=prints",
+    "scryfall_set_uri": "https://scryfall.com/sets/me2?utm_source=api",
+    "rulings_uri": "https://api.scryfall.com/cards/fa1e779a-7075-49f0-b62e-936ad554d036/rulings",
+    "prints_search_uri": "https://api.scryfall.com/cards/search?order=released&q=oracleid%3A8fa93c01-f9ea-4d48-a040-418d1ca6be19&unique=prints",
+    "collector_number": "102",
+    "digital": true,
+    "rarity": "uncommon",
+    "card_back_id": "0aeebaf5-8c7d-4636-9e82-8c27447861f7",
+    "artist": "Quinton Hoover",
+    "artist_ids": [
+      "1a2db619-92a5-431a-822b-101cdcc5bd5d"
+    ],
+    "illustration_id": "f1b7cf7f-9b8e-4ef4-b937-8e1641a9ee00",
+    "border_color": "black",
+    "frame": "1997",
+    "full_art": false,
+    "textless": false,
+    "booster": true,
+    "story_spotlight": false,
+    "edhrec_rank": 28253,
+    "prices": {
+      "usd": null,
+      "usd_foil": null,
+      "usd_etched": null,
+      "eur": null,
+      "eur_foil": null,
+      "tix": "0.05"
+    },
+    "related_uris": {
+      "gatherer": "https://gatherer.wizards.com/Pages/Card/Details.aspx?multiverseid=184647&printed=false",
+      "tcgplayer_infinite_articles": "https://partner.tcgplayer.com/c/4931599/1830156/21018?subId1=api&trafcat=tcgplayer.com%2Fsearch%2Farticles&u=https%3A%2F%2Fwww.tcgplayer.com%2Fsearch%2Farticles%3FproductLineName%3Dmagic%26q%3DKrovikan%2BVampire",
+      "tcgplayer_infinite_decks": "https://partner.tcgplayer.com/c/4931599/1830156/21018?subId1=api&trafcat=tcgplayer.com%2Fsearch%2Fdecks&u=https%3A%2F%2Fwww.tcgplayer.com%2Fsearch%2Fdecks%3FproductLineName%3Dmagic%26q%3DKrovikan%2BVampire",
+      "edhrec": "https://edhrec.com/route/?cc=Krovikan+Vampire"
+    },
+    "purchase_uris": {
+      "tcgplayer": "https://partner.tcgplayer.com/c/4931599/1830156/21018?subId1=api&u=https%3A%2F%2Fwww.tcgplayer.com%2Fsearch%2Fmagic%2Fproduct%3FproductLineName%3Dmagic%26q%3DKrovikan%2BVampire%26view%3Dgrid",
+      "cardmarket": "https://www.cardmarket.com/en/Magic/Products/Search?referrer=scryfall&searchString=Krovikan+Vampire&utm_campaign=card_prices&utm_medium=text&utm_source=scryfall",
+      "cardhoarder": "https://www.cardhoarder.com/cards/30494?affiliate_id=scryfall&ref=card-profile&utm_campaign=affiliate&utm_medium=card&utm_source=scryfall"
+    }
+  },
+  "rulings": {
+    "object": "list",
+    "has_more": false,
+    "data": [
+      {
+        "object": "ruling",
+        "oracle_id": "8fa93c01-f9ea-4d48-a040-418d1ca6be19",
+        "source": "wotc",
+        "published_at": "2008-10-01",
+        "comment": "If a creature that Krovikan Vampire dealt damage to that turn dies in response to the triggered ability, that creature card will be put onto the battlefield. Note that an appropriate creature must have died prior to the beginning of the end step in order for the ability to trigger in the first place."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "8fa93c01-f9ea-4d48-a040-418d1ca6be19",
+        "source": "wotc",
+        "published_at": "2008-08-01",
+        "comment": "Whoever controls Krovikan Vampire when the ability triggers will return the applicable cards to the battlefield under their control. It doesn\u2019t matter who controlled it at the time the damage was dealt."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "8fa93c01-f9ea-4d48-a040-418d1ca6be19",
+        "source": "wotc",
+        "published_at": "2008-08-01",
+        "comment": "If Krovikan Vampire isn\u2019t on the battlefield at the beginning of the end step, its ability won\u2019t trigger. No cards will be returned to the battlefield, even if Krovikan Vampire dealt damage to some creatures that died that turn."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "8fa93c01-f9ea-4d48-a040-418d1ca6be19",
+        "source": "wotc",
+        "published_at": "2004-10-04",
+        "comment": "At the beginning of each end step, the game checks all creatures that died that turn to see if Krovikan Vampire had dealt damage to them during the turn. It doesn\u2019t matter whether the damage was combat damage, and it doesn\u2019t matter whether the damage was what caused the creatures to die."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "8fa93c01-f9ea-4d48-a040-418d1ca6be19",
+        "source": "wotc",
+        "published_at": "2004-10-04",
+        "comment": "If a creature Krovikan Vampire dealt damage to dies, then leaves the graveyard by some means, the game loses track of it. Krovikan Vampire\u2019s ability won\u2019t be able to return it to the battlefield, even if it\u2019s put back into the graveyard before the end step."
+      }
+    ]
+  }
+}

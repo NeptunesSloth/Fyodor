@@ -1,0 +1,28 @@
+bringing up nodes...
+bringing up nodes...
+
+.........F...                                                            [100%]
+=================================== FAILURES ===================================
+____________ test_original_host_bound_at_death104[Vampiric Embrace] ____________
+[gw0] linux -- Python 3.12.14 /workspace/Fyodor/backend/.venv/bin/python3
+
+cards = <app.cards.repository.CardRepository object at 0x7f436ebbda60>
+name = 'Vampiric Embrace'
+
+    act(
+        s,
+        "p1",
+        type="activate_ability",
+        card_id=host.id,
+        ability=ability(s, host, "{T}:"),
+        targets=[victim.id],
+    )
+    for _ in range(20):
+        if any(e.kind == "trigger" and e.source_card == source.id for e in s.state.rules.stack.values()):
+>           return
+E           AssertionError: assert not {'+1/+1': 1}
+E            +  where {'+1/+1': 1} = CardInstance(borrow_identity=None, id='75093a3596f2', card_id='966917fc-bf95-5f32-9205-0a0b9515cdac', name='Grizzly Be...ts=[], damage=0, choices={}, stack_info=None, exile_group=None, token_source=None, origin='library', test_object=False).counters
+
+tests/test_rules_damage_death104.py:178: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_rules_damage_death104.py::test_original_host_bound_at_death104[Vampiric Embrace]

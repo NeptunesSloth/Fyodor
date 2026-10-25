@@ -1,0 +1,225 @@
+E701 Multiple statements on one line (colon)
+   --> tests/test_rules_cost_statics101.py:125:36
+    |
+123 |     top=put(s,"Sensei's Divining Top",'battlefield')
+124 |     act(s,'p1',type='add_mana',player='p1',mana={'C':2})
+125 |     with pytest.raises(ActionError):activate(s,top,sources=[])
+    |                                    ^
+126 |     act(s,'p1',type='add_mana',player='p1',mana={'C':1})
+127 |     activate(s,top,sources=[])
+    |
+
+E701 Multiple statements on one line (colon)
+   --> tests/test_rules_cost_statics101.py:138:36
+    |
+136 |     ring=put(s,'Sol Ring','battlefield','p2')
+137 |     wait_priority(s,'p2')
+138 |     with pytest.raises(ActionError):activate(s,ring,'p2',sources=[])
+    |                                    ^
+139 |     act(s,'p2',type='add_mana',player='p2',mana={'C':2})
+140 |     activate(s,ring,'p2',sources=[])
+    |
+
+E702 Multiple statements on one line (semicolon)
+  --> tests/test_rules_cost_statics101_extra.py:17:34
+   |
+16 | def cold(s,tmp_path,body):
+17 |     saved=tmp_path/'cost101.json';saved.write_text(s.state.model_dump_json())
+   |                                  ^
+18 |     code='''import sys
+19 | from pathlib import Path
+   |
+
+E702 Multiple statements on one line (semicolon)
+  --> tests/test_rules_cost_statics101_extra.py:35:19
+   |
+34 | def test_actual_automatic_named_mana_tax_cannot_self_fund_but_pays_before_production(cards):
+35 |     s=setup(cards);chariot(s,'Dreamstone Hedron')
+   |                   ^
+36 |     hedron=put(s,'Dreamstone Hedron','battlefield')
+37 |     bear=put(s,'Grizzly Bears','hand')
+   |
+
+E702 Multiple statements on one line (semicolon)
+  --> tests/test_rules_cost_statics101_extra.py:49:14
+   |
+47 |     record=s.state.rules.payments[s.state.rules.object_id(engine.id)]
+48 |     assert record.mana_spent=={'C':6}
+49 |     settle(s);assert engine.zone=='p1:battlefield';roundtrip(s)
+   |              ^
+
+E702 Multiple statements on one line (semicolon)
+  --> tests/test_rules_cost_statics101_extra.py:49:51
+   |
+47 |     record=s.state.rules.payments[s.state.rules.object_id(engine.id)]
+48 |     assert record.mana_spent=={'C':6}
+49 |     settle(s);assert engine.zone=='p1:battlefield';roundtrip(s)
+   |                                                   ^
+
+E702 Multiple statements on one line (semicolon)
+  --> tests/test_rules_cost_statics101_extra.py:53:19
+   |
+52 | def test_myth_discount_applies_in_hand_without_incrementing_command_cast_count(cards):
+53 |     s=setup(cards);put(s,'Myth Unbound','battlefield')
+   |                   ^
+54 |     commander=next(c for c in s.state.cards.values() if c.owner=='p1' and c.commander_key)
+55 |     act(s,'p1',type='add_mana',player='p1',mana={'C':2,'R':2})
+   |
+
+E702 Multiple statements on one line (semicolon)
+  --> tests/test_rules_cost_statics101_extra.py:56:66
+   |
+54 |     commander=next(c for c in s.state.cards.values() if c.owner=='p1' and c.commander_key)
+55 |     act(s,'p1',type='add_mana',player='p1',mana={'C':2,'R':2})
+56 |     act(s,'p1',type='cast_spell',card_id=commander.id,sources=[]);settle(s)
+   |                                                                  ^
+57 |     cast(s,'Unsummon',{'U':1},[commander.id],pid='p2');settle(s)
+58 |     d=s.state.rules.decision;assert d
+   |
+
+E702 Multiple statements on one line (semicolon)
+  --> tests/test_rules_cost_statics101_extra.py:57:55
+   |
+55 |     act(s,'p1',type='add_mana',player='p1',mana={'C':2,'R':2})
+56 |     act(s,'p1',type='cast_spell',card_id=commander.id,sources=[]);settle(s)
+57 |     cast(s,'Unsummon',{'U':1},[commander.id],pid='p2');settle(s)
+   |                                                       ^
+58 |     d=s.state.rules.decision;assert d
+59 |     option=next(o.id for o in d.options if 'hand' in o.label.lower() or o.id=='no')
+   |
+
+E702 Multiple statements on one line (semicolon)
+  --> tests/test_rules_cost_statics101_extra.py:58:29
+   |
+56 |     act(s,'p1',type='cast_spell',card_id=commander.id,sources=[]);settle(s)
+57 |     cast(s,'Unsummon',{'U':1},[commander.id],pid='p2');settle(s)
+58 |     d=s.state.rules.decision;assert d
+   |                             ^
+59 |     option=next(o.id for o in d.options if 'hand' in o.label.lower() or o.id=='no')
+60 |     act(s,'p1',type='choose',decision_id=d.id,option_ids=[option]);settle(s)
+   |
+
+E702 Multiple statements on one line (semicolon)
+  --> tests/test_rules_cost_statics101_extra.py:60:67
+   |
+58 |     d=s.state.rules.decision;assert d
+59 |     option=next(o.id for o in d.options if 'hand' in o.label.lower() or o.id=='no')
+60 |     act(s,'p1',type='choose',decision_id=d.id,option_ids=[option]);settle(s)
+   |                                                                   ^
+61 |     assert commander.zone=='p1:hand'
+62 |     wait_priority(s,'p1')
+   |
+
+E702 Multiple statements on one line (semicolon)
+  --> tests/test_rules_cost_statics101_extra.py:66:14
+   |
+64 |     act(s,'p1',type='cast_spell',card_id=commander.id,sources=[])
+65 |     assert mana_pool(s,'p1')=={} and s.state.players['p1'].commander_casts[commander.commander_key]==1
+66 |     settle(s);roundtrip(s)
+   |              ^
+
+E702 Multiple statements on one line (semicolon)
+  --> tests/test_rules_cost_statics101_extra.py:70:29
+   |
+69 | def test_liesa_life_tax_is_mandatory_and_myth_only_reduces_mana(cards):
+70 |     s=command_session(cards);put(s,'Myth Unbound','battlefield')
+   |                             ^
+71 |     commander=next(c for c in s.state.cards.values() if c.owner=='p1' and c.commander_key)
+72 |     act(s,'p1',type='add_mana',player='p1',mana={'C':2,'W':2,'B':1})
+   |
+
+E702 Multiple statements on one line (semicolon)
+  --> tests/test_rules_cost_statics101_extra.py:73:66
+   |
+71 |     commander=next(c for c in s.state.cards.values() if c.owner=='p1' and c.commander_key)
+72 |     act(s,'p1',type='add_mana',player='p1',mana={'C':2,'W':2,'B':1})
+73 |     act(s,'p1',type='cast_spell',card_id=commander.id,sources=[]);settle(s);into_command(s,commander)
+   |                                                                  ^
+74 |     wait_priority(s,'p1');act(s,'p1',type='set_life',player='p1',life=1)
+75 |     act(s,'p1',type='add_mana',player='p1',mana={'C':20,'W':2,'B':1})
+   |
+
+E702 Multiple statements on one line (semicolon)
+  --> tests/test_rules_cost_statics101_extra.py:73:76
+   |
+71 |     commander=next(c for c in s.state.cards.values() if c.owner=='p1' and c.commander_key)
+72 |     act(s,'p1',type='add_mana',player='p1',mana={'C':2,'W':2,'B':1})
+73 |     act(s,'p1',type='cast_spell',card_id=commander.id,sources=[]);settle(s);into_command(s,commander)
+   |                                                                            ^
+74 |     wait_priority(s,'p1');act(s,'p1',type='set_life',player='p1',life=1)
+75 |     act(s,'p1',type='add_mana',player='p1',mana={'C':20,'W':2,'B':1})
+   |
+
+E702 Multiple statements on one line (semicolon)
+  --> tests/test_rules_cost_statics101_extra.py:74:26
+   |
+72 |     act(s,'p1',type='add_mana',player='p1',mana={'C':2,'W':2,'B':1})
+73 |     act(s,'p1',type='cast_spell',card_id=commander.id,sources=[]);settle(s);into_command(s,commander)
+74 |     wait_priority(s,'p1');act(s,'p1',type='set_life',player='p1',life=1)
+   |                          ^
+75 |     act(s,'p1',type='add_mana',player='p1',mana={'C':20,'W':2,'B':1})
+76 |     before=s.state.model_dump(mode='json')
+   |
+
+E701 Multiple statements on one line (colon)
+  --> tests/test_rules_cost_statics101_extra.py:77:36
+   |
+75 |     act(s,'p1',type='add_mana',player='p1',mana={'C':20,'W':2,'B':1})
+76 |     before=s.state.model_dump(mode='json')
+77 |     with pytest.raises(ActionError):act(s,'p1',type='cast_spell',card_id=commander.id,sources=[])
+   |                                    ^
+78 |     assert before==s.state.model_dump(mode='json')
+79 |     act(s,'p1',type='set_life',player='p1',life=10)
+   |
+
+E702 Multiple statements on one line (semicolon)
+  --> tests/test_rules_cost_statics101_extra.py:84:14
+   |
+82 |     assert record.life==2 and record.mana_spent=={'C':1,'W':2,'B':1}
+83 |     assert s.state.players['p1'].life==8
+84 |     settle(s);roundtrip(s)
+   |              ^
+
+E702 Multiple statements on one line (semicolon)
+  --> tests/test_rules_cost_statics101_extra.py:88:19
+   |
+87 | def test_true_cold_named_mana_ability_tax(cards,tmp_path):
+88 |     s=setup(cards);chariot(s)
+   |                   ^
+89 |     ring=put(s,'Sol Ring','battlefield')
+90 |     act(s,'p1',type='add_mana',player='p1',mana={'C':2})
+   |
+
+E702 Multiple statements on one line (semicolon)
+   --> tests/test_rules_cost_statics101_extra.py:98:66
+    |
+ 96 |     commander=next(c for c in s.state.cards.values() if c.owner=='p1' and c.commander_key)
+ 97 |     act(s,'p1',type='add_mana',player='p1',mana={'C':2,'W':2,'B':1})
+ 98 |     act(s,'p1',type='cast_spell',card_id=commander.id,sources=[]);settle(s);into_command(s,commander)
+    |                                                                  ^
+ 99 |     wait_priority(s,'p1');act(s,'p1',type='add_mana',player='p1',mana={'C':2,'W':2,'B':1})
+100 |     cold(s,tmp_path,f"act(s,'p1',type='cast_spell',card_id={commander.id!r},sources=[])\nassert s.state.players['p1'].life==38\nasser…
+    |
+
+E702 Multiple statements on one line (semicolon)
+   --> tests/test_rules_cost_statics101_extra.py:98:76
+    |
+ 96 |     commander=next(c for c in s.state.cards.values() if c.owner=='p1' and c.commander_key)
+ 97 |     act(s,'p1',type='add_mana',player='p1',mana={'C':2,'W':2,'B':1})
+ 98 |     act(s,'p1',type='cast_spell',card_id=commander.id,sources=[]);settle(s);into_command(s,commander)
+    |                                                                            ^
+ 99 |     wait_priority(s,'p1');act(s,'p1',type='add_mana',player='p1',mana={'C':2,'W':2,'B':1})
+100 |     cold(s,tmp_path,f"act(s,'p1',type='cast_spell',card_id={commander.id!r},sources=[])\nassert s.state.players['p1'].life==38\nasser…
+    |
+
+E702 Multiple statements on one line (semicolon)
+   --> tests/test_rules_cost_statics101_extra.py:99:26
+    |
+ 97 |     act(s,'p1',type='add_mana',player='p1',mana={'C':2,'W':2,'B':1})
+ 98 |     act(s,'p1',type='cast_spell',card_id=commander.id,sources=[]);settle(s);into_command(s,commander)
+ 99 |     wait_priority(s,'p1');act(s,'p1',type='add_mana',player='p1',mana={'C':2,'W':2,'B':1})
+    |                          ^
+100 |     cold(s,tmp_path,f"act(s,'p1',type='cast_spell',card_id={commander.id!r},sources=[])\nassert s.state.players['p1'].life==38\nasser…
+    |
+
+Found 23 errors (1 fixed, 22 remaining).

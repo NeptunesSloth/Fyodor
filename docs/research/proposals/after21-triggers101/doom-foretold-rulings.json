@@ -1,0 +1,41 @@
+{
+  "object": "list",
+  "has_more": false,
+  "data": [
+    {
+      "object": "ruling",
+      "oracle_id": "e2baf24c-7055-431d-8e96-ba5ff2ef91e1",
+      "source": "wotc",
+      "published_at": "2019-10-04",
+      "comment": "If Doom Foretold leaves the battlefield or changes control while its ability is on the stack, its effect still happens. You just won't be able to sacrifice it if instructed to do so."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "e2baf24c-7055-431d-8e96-ba5ff2ef91e1",
+      "source": "wotc",
+      "published_at": "2019-10-04",
+      "comment": "If the player is unable to sacrifice a permanent and is unable to discard a card, they still lose 2 life, and the rest of Doom Foretold's effects happen."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "e2baf24c-7055-431d-8e96-ba5ff2ef91e1",
+      "source": "wotc",
+      "published_at": "2019-10-04",
+      "comment": "If the player can sacrifice a nonland, nontoken permanent, that player must do so. They can't choose to rush toward their doom."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "e2baf24c-7055-431d-8e96-ba5ff2ef91e1",
+      "source": "wotc",
+      "published_at": "2019-10-04",
+      "comment": "During your upkeep, you can sacrifice Doom Foretold for its own ability."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "e2baf24c-7055-431d-8e96-ba5ff2ef91e1",
+      "source": "wotc",
+      "published_at": "2019-10-04",
+      "comment": "In a Two-Headed Giant game, Doom Foretold's ability triggers twice during a team's upkeep. In any order you'd like, each of those players has to sacrifice a permanent. The full consequences happen if that player can't, even if you sacrifice Doom Foretold as the first triggered ability is resolving."
+    }
+  ]
+}

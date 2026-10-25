@@ -1209,6 +1209,10 @@ RULES.update({"can attack as though it had haste": ("attack_as_haste",), "can on
 
 def _rule(piece: str) -> list[str] | None:
     """One predicate piece that imposes a rule → the rule names, or None (not a rule)."""
+    if piece == "can't be the target of abilities from artifact sources":
+        return ["untargetable_artifact_abilities106"]
+    if piece == "can't be enchanted by other Auras":
+        return ["only_aura106:@src"]
     plain = RULES.get(piece)
     if plain is not None:
         return list(plain)

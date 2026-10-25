@@ -1,0 +1,8 @@
+{
+  "app/rules/cost_statics101.py": "3b092ebbb5dd321aaa2fe6b1e1633c10e29a2b187051ae0d9d2ac02addfe8da7",
+  "app/rules/scripts.py": "58a321fa02484585462b6ab27f5ed0182e498cd2febba0152fe12edbe2e3563a",
+  "app/rules/casting.py": "97da74bd5ecf00e312806e87ae782b61d024b1e7bc33594eec36d3588d8e1663",
+  "app/rules/cost_changes.py": "6cff3c57be08f0cbba37ffc22cae81bcf53ce7cd3b7eb27fa5cd621cbeeb00f9",
+  "app/rules/permissions.py": "fc4dfe4d93c0326fa6d113c9acd3548901b08d9ed147100c2faf6e98105c3ba8",
+  "app/rules/triggers.py": "502ad7eb70d8deaa41d65e2474171fa58fe482e4eab028bcdbb2dbe667a878e2"
+}

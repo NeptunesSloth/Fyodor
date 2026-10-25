@@ -1,0 +1,105 @@
+F.                                                                       [100%]
+=================================== FAILURES ===================================
+_________ test_liesa_life_tax_is_mandatory_and_myth_only_reduces_mana __________
+
+cards = <app.cards.repository.CardRepository object at 0x7f0b69b865a0>
+
+    def test_liesa_life_tax_is_mandatory_and_myth_only_reduces_mana(cards):
+        s = command_session(cards)
+        put(s, "Myth Unbound", "battlefield")
+        commander = next(c for c in s.state.cards.values() if c.owner == "p1" and c.commander_key)
+        act(s, "p1", type="add_mana", player="p1", mana={"C": 2, "W": 2, "B": 1})
+        wait_priority(s, "p1")
+        act(s, "p1", type="cast_spell", card_id=commander.id, sources=[])
+        settle(s)
+        into_command(s, commander)
+        wait_priority(s, "p1")
+>       act(s, "p1", type="set_life", player="p1", life=1)
+
+tests/test_rules_cost_statics101_extra.py:105:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests/game_helpers.py:42: in act
+    return session.perform(actor, payload)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/game/session.py:57: in perform
+    action = parse_action(payload) if isinstance(payload, dict) else payload
+             ^^^^^^^^^^^^^^^^^^^^^
+app/game/actions.py:1492: in parse_action
+    return ACTION_ADAPTER.validate_python(data)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = TypeAdapter(Annotated[Union[Draw, Move, SetPosition, Shuffle, Mill, Mulligan, PutTopFaceDown, MulliganTake, MulliganKe...lesDamage, RulesLifeChanges, Renumber, RulesLog], FieldInfo(annotation=NoneType, required=True, discriminator='type')])
+object = {'type': 'set_life', 'player': 'p1', 'life': 1}, strict = None
+extra = None, from_attributes = None, context = None
+experimental_allow_partial = False, by_alias = None, by_name = None
+
+    def validate_python(
+        self,
+        object: Any,
+        /,
+        *,
+        strict: bool | None = None,
+        extra: ExtraValues | None = None,
+        from_attributes: bool | None = None,
+        context: Any | None = None,
+        experimental_allow_partial: bool | Literal['off', 'on', 'trailing-strings'] = False,
+        by_alias: bool | None = None,
+        by_name: bool | None = None,
+    ) -> T:
+        """Validate a Python object against the model.
+
+        A [`ValidationError`][pydantic_core.ValidationError] reports the rejected locations and values.
+        If you record validations with [Logfire](../integrations/logfire.md), the complete object and trace
+        context are retained alongside the error — `TypeAdapter` validations are captured the same way as
+        model validations (see [Troubleshooting validation errors](../errors/troubleshooting.md)).
+
+        Args:
+            object: The Python object to validate against the model.
+            strict: Whether to strictly check types.
+            extra: Whether to ignore, allow, or forbid extra data during model validation.
+                See the [`extra` configuration value][pydantic.ConfigDict.extra] for details.
+            from_attributes: Whether to extract data from object attributes.
+            context: Additional context to pass to the validator.
+            experimental_allow_partial: **Experimental** whether to enable
+                [partial validation](../concepts/experimental.md#partial-validation), e.g. to process streams.
+                * False / 'off': Default behavior, no partial validation.
+                * True / 'on': Enable partial validation.
+                * 'trailing-strings': Enable partial validation and allow trailing strings in the input.
+            by_alias: Whether to use the field's alias when validating against the provided input data.
+            by_name: Whether to use the field's name when validating against the provided input data.
+
+        !!! note
+            When using `TypeAdapter` with a Pydantic `dataclass`, the use of the `from_attributes`
+            argument is not supported.
+
+        Returns:
+            The validated object.
+        """
+        if by_alias is False and by_name is not True:
+            raise PydanticUserError(
+                'At least one of `by_alias` or `by_name` must be set to True.',
+                code='validate-by-alias-and-name-false',
+            )
+
+>       return self.validator.validate_python(
+            object,
+            strict=strict,
+            extra=extra,
+            from_attributes=from_attributes,
+            context=context,
+            allow_partial=experimental_allow_partial,
+            by_alias=by_alias,
+            by_name=by_name,
+        )
+E       pydantic_core._pydantic_core.ValidationError: 2 validation errors for tagged-union[Draw,Move,SetPosition,Shuffle,Mill,Mulligan,PutTopFaceDown,MulliganTake,MulliganKeep,MulliganBottom,MulliganPowder,MulliganFinish,Reveal,Hide,LookTop,RevealTop,SearchStart,SearchEnd,EndView,Tap,UntapAll,PhaseShift,Counter,SetCounter,CreateToken,CopyCard,DeleteCard,Merge,Meld,SetFace,Flip,FaceDown,Note,SetController,ReturnToOwner,RestoreState,SpawnCard,ResetDeck,RestartGame,RunMacro,SetAppearance,SetTablePlaymat,function-after[_clean_strings(), AddEffect],RemoveEffect,SetDamage,function-after[_clean_strings(), SetChoice],function-after[_clean_strings(), SetStackInfo],function-after[_clean_strings(), SetExileGroup],function-after[_clean_strings(), CreateArrow],RemoveArrow,SetCopySource,Cleanup,RemovePlayer,SetCommander,Life,SetLife,Resource,SetResource,CommanderDamage,CommanderTax,SetMonarch,SetInitiative,SetDayNight,CityBlessing,RenamePlayer,Roll,Coin,Chat,Phase,NextTurn,Attack,Block,ClearCombat,CreateAbility,ResolveTop,ResponseOpen,ResponsePass,ResponseRespond,ResponseAutoPass,ResponseClose,Rotate,SetLock,SetProtect,Attach,Detach,Group,Ungroup,StackAdjust,SplitStack,ExpandStack,MergeTokens,AddMana,ClearMana,Configure,PlayLand,CastSpell,TurnFaceUp,UnlockDoor,EndEffect,PayDeferred,MiracleReveal,ActivateAbility,DeclareAttackers,DeclareBlockers,PassPriority,Choose,Concede,SetStops,SetPrefs,SetCardAutomation,RepeatSequence,RulesSync,RulesMana,RulesDamage,RulesLifeChanges,Renumber,RulesLog]
+E       set_life.value
+E         Field required [type=missing, input_value={'type': 'set_life', 'player': 'p1', 'life': 1}, input_type=dict]
+E           For further information visit https://errors.pydantic.dev/2.14/v/missing
+E       set_life.life
+E         Extra inputs are not permitted [type=extra_forbidden, input_value=1, input_type=int]
+E           For further information visit https://errors.pydantic.dev/2.14/v/extra_forbidden
+
+../../../Fyodor/backend/.venv/lib/python3.12/site-packages/pydantic/type_adapter.py:410: ValidationError
+=========================== short test summary info ============================
+FAILED tests/test_rules_cost_statics101_extra.py::test_liesa_life_tax_is_mandatory_and_myth_only_reduces_mana
