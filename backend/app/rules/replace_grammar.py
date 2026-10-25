@@ -660,7 +660,7 @@ def _damage_plain(text: str) -> Definition | None:
         text = "If ~ would deal damage to a permanent or player, it deals double that damage instead."
     if (d := _damage_to(text)) is not None:
         return d
-    m = _DAMAGE.match(text)
+    m = _DAMAGE.match(text.replace("to a creature, battle, or opponent,", "to an opponent or a creature or battle,"))  # (wave 110F: Disciples of the Inferno; the comma list would split the match)
     if not m:
         return None
     src = _source(m["src"])

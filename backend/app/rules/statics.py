@@ -1210,7 +1210,9 @@ RULES.update(wave110d_rules.RULES)
 RULES.update({"can attack as though it had haste": ("attack_as_haste",), "can only attack alone": ("declaration_group:attack:alone",),
               "can't become suspected": ("cant_be_suspected",),  # (701.60: keyword_actions.suspect, the one way a creature becomes suspected — Airtight Alibi)
               # 602.5: "… and its activated abilities with {T} in their costs can't be activated." (Serra Bestiary): mana abilities too (605.1a), not crew (702.122a: no {T})
-              "can't attack or block, and its activated abilities with {T} in their costs can't be activated": ("cant_attack_or_block", "cant_activate_tap")})
+              "can't attack or block, and its activated abilities with {T} in their costs can't be activated": ("cant_attack_or_block", "cant_activate_tap"),
+              # -- group (wave 110F) -- the same for a group subject (Katabatic Winds)
+              "can't attack or block, and their activated abilities with {T} in their costs can't be activated": ("cant_attack_or_block", "cant_activate_tap")})
 
 
 def _rule(piece: str) -> list[str] | None:

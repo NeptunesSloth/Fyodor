@@ -857,8 +857,12 @@ def fight(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     A creature fighting itself deals damage equal to twice its power to itself (701.14c)."""
     if e.get("bind_excess"):
         context.bind_amount(ctx, e["bind_excess"], 0)
-    a = _cards(plan, ctx, e["who"].replace("pair:", "target:"))  # (wave 26D: "pair:N" = the ability's Nth chosen group, app/rules/fight_pair.py)
-    b = _cards(plan, ctx, e["with"].replace("pair:", "target:"))
+    if e.get("twin110f"):  # -- wave 110F -- the two creatures of one chosen group fight each other (Rivals' Duel)
+        both = _cards(plan, ctx, e["who"])
+        a, b = (both[:1], both[1:]) if len(both) == 2 else ([], [])
+    else:
+        a = _cards(plan, ctx, e["who"].replace("pair:", "target:"))  # (wave 26D: "pair:N" = the ability's Nth chosen group, app/rules/fight_pair.py)
+        b = _cards(plan, ctx, e["with"].replace("pair:", "target:"))
     _remember(plan, ctx, e, a)
     if len(a) != 1 or len(b) != 1:
         plan.note(f"{ctx.get('name') or 'It'}: no fight (one of the creatures is gone or wasn't chosen)", actor=ctx["controller"])
@@ -7090,3 +7094,5 @@ PRIMITIVES.update(_wave110c_kusari.PRIMITIVES)  # -- Kusari-Gama (wave 110C) --
 from app.rules import wave110e_cards as _wave110e  # noqa: E402, I001  -- wave 110E --
 
 PRIMITIVES.update(_wave110e.PRIMITIVES)
+from app.rules import wave110f_cards as _wave110f_cards  # noqa: E402, I001  -- cards (wave 110F) --
+PRIMITIVES.update(_wave110f_cards.PRIMITIVES)

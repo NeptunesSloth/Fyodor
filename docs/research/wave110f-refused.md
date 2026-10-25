@@ -1,0 +1,13 @@
+# Wave 110F refused / deferred
+- Zombie Scavengers: "top creature card of your graveyard" cost needs graveyard-order cost machinery (fixed_top_graveyard_cost46) generalised.
+- Oath of Kaya, Rigo: "attacks a planeswalker/player ... with creatures" once-per-what unclear (no rulings in repo).
+- Gather Specimens: control-changing entry replacement must cover every entry path (spell, token, move).
+- Peace Talks: two-turn global duration plus player targeting prohibition (activated only, not triggered).
+- Ogre Enforcer: damage is not tracked per source.
+- Circling Vultures: discard is a special action, not an activated ability.
+- Medomai's Prophecy, Vengeful Pharaoh, Homura (flip), Faces of the Past: multi-piece foundations.
+- Steamcore Scholar: 'unless you discard an instant or sorcery card or a creature card with flying': optional_payment.parse refuses CostComponent.alt (activation_only); needs alt-aware optional discard.
+- Profaner of the Dead: 'toughness less than the exploited creature's toughness': exploit event objects = exploiter, evt: stat binds wrong object.
+- Fires of Mount Doom: 2nd ability 'When you play a card this way' reflexive on play of exiled card.
+- Thunderblade Charge: gy-trigger + pay then cast free from graveyard.
+- Fatal Lore / Bane: 'opponent chooses one' modal / 'target opponent may have you draw' foundations.

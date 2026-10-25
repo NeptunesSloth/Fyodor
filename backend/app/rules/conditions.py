@@ -265,7 +265,7 @@ _COUNT_COUNTERS = re.compile(r"(?P<who>it|~|that creature|that permanent) (?:has
 # last existed, 608.2h — granted ones included). Keyword abilities only; "protection" (which quality?) isn't read.
 _HAS_KEYWORD = re.compile(rf"(?P<who>it|~|that (?:creature|permanent|card)|{_HOST_WORDS}) (?:has|had|(?P<neg>doesn't have|didn't have)) (?P<kw>decayed|flying|reach|haste|trample|deathtouch|"
                           r"lifelink|menace|vigilance|first strike|double strike|hexproof|indestructible|defender|infect|"
-                          r"toxic|wither|flash|madness|flashback|shroud|cycling)")
+                          r"toxic|wither|flash|madness|flashback|shroud|cycling|rampage)")  # (wave 110F: Rapid Fire)
 
 
 def _stat_object(who: str) -> str:
