@@ -139,7 +139,18 @@ def _slime() -> Parsed:
     return effects, groups, optional
 
 
+def _back_for_seconds() -> Parsed:
+    """Back for Seconds: bargained (702.166b, read as kicked) the controller may put one chosen target with mana value 4 or less onto the battlefield (608.2d)."""
+    effects, groups, optional = read("Return up to two target creature cards from your graveyard to your hand.")
+    return [{"do": "kicked_gate", "kicked": False, "n": 1}, *effects, {"do": "kicked_gate", "kicked": True, "n": 1}, {"do": "bargain_return110c"}], groups, optional
+
+
 BUILDERS: dict[str, Callable[[], Parsed]] = {
+    "Return up to two target creature cards from your graveyard to your hand. If this spell was bargained, you may put one of those cards with mana value 4 "
+    "or less onto the battlefield instead of putting it into your hand.": _back_for_seconds,
+    # (scripts.py reads "bargained" as "kicked", 702.166b, before the body gets here)
+    "Return up to two target creature cards from your graveyard to your hand. If this spell was kicked, you may put one of those cards with mana value 4 "
+    "or less onto the battlefield instead of putting it into your hand.": _back_for_seconds,
     # 100.2a: a deck-building rule on an instant or sorcery has no effect in the game (on a permanent statics.py reads the same line)
     "A deck can have any number of cards named Slime Against Humanity.": lambda: ([], None, False),
     "Create a 0/0 green Ooze creature token with trample. Put X +1/+1 counters on it, where X is two plus the total number of cards you own in exile "
@@ -285,7 +296,27 @@ def power_gap(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     return True
 
 
-PRIMITIVES = {"power_gap110c": power_gap, "surveil_take110c": surveil_take, "surveil_take_end110c": surveil_take_end, "choose_branch110c": choose_branch, "temporary_counters110c": temporary_counters}
+def bargain_return(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """Offers each target card (still in the graveyard, mana value 4 or less) as the one to put onto the battlefield; the other targets go to hand."""
+    from app.rules import context
+    from app.rules.effects import _cards
+    from app.rules.stack_interaction import mana_value
+
+    ids = [c for c in _cards(plan, ctx, "target:0") if plan.state.cards[c].zone.endswith(":graveyard")]
+    context.bind_objects(plan, ctx, "_bt110c", ids)
+    options: list[dict[str, Any]] = [{"label": "Return them to your hand", "effects": [{"do": "return_card", "who": "ref:_bt110c", "to": "hand", "under": "you"}]}]
+    for i in ids:
+        if mana_value(plan.state.cards[i], plan.ch(plan.state.cards[i])) <= 4:
+            context.bind_objects(plan, ctx, f"_bo110c{i}", [i])
+            context.bind_objects(plan, ctx, f"_br110c{i}", [x for x in ids if x != i])
+            options.append({"label": f"Battlefield: {plan.state.cards[i].name}", "effects": [
+                {"do": "return_card", "who": f"ref:_bo110c{i}", "to": "battlefield", "tapped": False, "under": "you"},
+                {"do": "return_card", "who": f"ref:_br110c{i}", "to": "hand", "under": "you"}]})
+    ctx["effects"][ctx["next"]:ctx["next"]] = [{"do": "choose_branch110c", "who": "you", "options": options}] if ids else []
+    return True
+
+
+PRIMITIVES = {"bargain_return110c": bargain_return, "power_gap110c": power_gap, "surveil_take110c": surveil_take, "surveil_take_end110c": surveil_take_end, "choose_branch110c": choose_branch, "temporary_counters110c": temporary_counters}
 RESUME = {"choose_branch110c": resume_branch}
 from app.rules import wave110c_mass  # noqa: E402
 
