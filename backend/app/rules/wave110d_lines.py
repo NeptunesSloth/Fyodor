@@ -124,6 +124,32 @@ def same_mv_limit(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
     return cast_limits.cast_limit(plan, ctx, {"who": "each_opponent", "until": "next_turn", "filter": key})
 
 
+_SURVEIL = "At the beginning of enchanted player's upkeep, any number of target players other than that player each draw cards equal to the number of Curses attached to that player."
+
+
+def draw_per_curse(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
+    """Curse of Surveillance: each target player draws a card per Curse attached to the enchanted player (303.4, 702.5d), counted as it resolves (608.2h)."""
+    from app.rules import effects
+
+    host = effects._players(plan, ctx, "event_player")
+    n = sum(c.zone.endswith(":battlefield") and c.attached_player in host and "Curse" in plan.ch(c).subtypes for c in plan.state.cards.values())
+    return all(effects.draw(plan, ctx, {"do": "draw", "who": f"player:{p}", "n": n}) for p in effects._players(plan, ctx, "target:0")) if n else True
+
+
+_ATTACKS_ME = "+2: Up to one target creature an opponent controls attacks ~ during its controller's next turn if able."
+
+
+def attack_me_next_turn(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
+    """Gideon, Battle-Forged: 508.1d, 508.1c requirement on the target for its controller's next turn (like attack_destinations.attack_window)."""
+    from app.rules import effects, layers
+
+    for cid in effects._cards(plan, ctx, "target:0"):
+        layers.add_effect(plan, affected=[plan.oid(cid)], layer="6", source=ctx.get("source_object"), controller=ctx["controller"], duration="permanent",
+                          imposes=(f"attack_object:{ctx.get('source_object')}",), declaration_window="next_turn", declaration_player=plan.state.cards[cid].controller)
+    return True
+
+
+_KYTHEON = "At end of combat, if ~ and at least two other creatures attacked this combat, exile ~, then return it to the battlefield transformed under its owner's control."
 _CANT_DRAW = " If you can't, draw a card."
 
 
@@ -141,6 +167,24 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
     if text == WARD_XP:
         return {"kind": "static", "static": "ward_xp110d", "effects": []}
     native = _AS.get(text)
+    if text == _KYTHEON:  # the conditional parse loses the exile binding ("return him" would find nothing): define it plain, then add the intervening if (603.4)
+        d = scripts.define(replace(ability, text="At end of combat, exile ~, then return it to the battlefield transformed under its owner's control."), ch)
+        if d is not None:
+            d["if"] = {"history": "self_attacked", "object": "self", "combat": True, "others": 2}  # (508.1, 500.8: conditions "and at least two other creatures")
+        return d
+    if text == _ATTACKS_ME:
+        d = scripts.define(replace(ability, text="+2: Up to one target creature an opponent controls gains flying until end of turn."), ch)
+        if d is not None:
+            d["effects"] = [{"do": "attack_me110d"}]
+        return d
+    if text == _SURVEIL:
+        d = scripts.define(replace(ability, text="At the beginning of enchanted player's upkeep, any number of target players each draw a card."), ch)
+        if d is not None:
+            from app.rules import selectors
+
+            d["targets"][0]["what"] = selectors.Selector(player="any", player_exclude=selectors.THAT_PLAYER).key()
+            d["effects"] = [{"do": "draw_per_curse110d"}]
+        return d
     if text == _SAME_MV:
         d = scripts.define(replace(ability, text="Whenever you cast a spell, you gain life equal to that spell's mana value."), ch)
         if d is not None:
@@ -263,7 +307,7 @@ def attach_event_player(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
     return True
 
 
-PRIMITIVES = {"same_mv_limit110d": same_mv_limit, "draw_if_none110d": draw_if_none, "attach_event_player110d": attach_event_player, "share_counters110d": share_counters, "draw_gained110d": draw_gained, "top_creature110d": top_creature}
+PRIMITIVES = {"attack_me110d": attack_me_next_turn, "draw_per_curse110d": draw_per_curse, "same_mv_limit110d": same_mv_limit, "draw_if_none110d": draw_if_none, "attach_event_player110d": attach_event_player, "share_counters110d": share_counters, "draw_gained110d": draw_gained, "top_creature110d": top_creature}
 
 
 def holds(plan: Any, ctx: dict[str, Any], cond: dict[str, Any]) -> bool:

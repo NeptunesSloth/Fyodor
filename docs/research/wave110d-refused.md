@@ -41,3 +41,11 @@
 - Welcome to . . . // Jurassic Park, Kitesail Larcenist: "for each opponent/player ... up to one target" is a variable number of target groups.
 - Jeweled Amulet: noted mana type of an activation cost needs per-source memory of the mana spent plus a mana ability reading it.
 - Tyvar the Bellicose: "whenever a mana ability of this creature resolves" has no event (mana abilities skip the stack).
+
+## Session 13
+- Font of Agonies: "Whenever you pay life" has no event; life is paid in cost_payment, Phyrexian mana, optional payments and effects (no single choke point).
+- Twilight Diviner: "one or more other creatures ... enter" + "entered or were cast from a graveyard" + copy of one of them + once per turn; base batch copy wording unread.
+- Experimental Lab // Staff Room: "turn that creature face up or put a +1/+1 counter" needs a non-modal either/or choice primitive.
+- Gift of Doom: "As this Aura is turned face up, you may attach it" needs a decision inside casting.turned_up and an SBA hold until attached.
+- Reap, Geth's Summons: X / per-opponent counts "as you cast this spell" need cast-time snapshots.
+- Panglacial Wurm: casting from the library mid-search has no hook in search resolution.
