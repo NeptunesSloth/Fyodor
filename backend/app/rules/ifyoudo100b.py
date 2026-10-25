@@ -67,7 +67,7 @@ GY_EMPTY = "gy_empty100b"
 def parse(body: str, it: str | None, event_player: bool) -> Found | None:
     text = body.strip()
     for form in (_put_discarded, _hit_discard, _draw_if, _dealt_cant_block, _give_source, _exiled_mv, _connives, _empty_gy, _truce, _each_who_lost,
-                 _either, _plot_paid, _hand_exile, _dont_sacrifice, _put_mv_x, _fold, _swift, _untap_then, _may_attach, _vanish, _dakra, _durin, _latnam, _surge, _locke, _gy_exile, _manabond, _have_deal, _own_bounce, _clash, _reveal_win, _fishing, _runes, _rally, _long_rest, _bringer, _vault101, _becomes20, _foxglove, _spirit_dragons, _holistic):
+                 _either, _plot_paid, _hand_exile, _dont_sacrifice, _put_mv_x, _fold, _swift, _untap_then, _may_attach, _vanish, _dakra, _durin, _latnam, _surge, _locke, _gy_exile, _manabond, _have_deal, _own_bounce, _clash, _reveal_win, _fishing, _runes, _rally, _long_rest, _bringer, _vault101, _becomes20, _foxglove, _spirit_dragons, _holistic, _wernog, _liege):
         if (found := form(text, it, event_player)) is not None:
             return found
     for pattern, repl in _REWRITES:
@@ -1006,6 +1006,51 @@ def shares_type(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return True
 
 
+# -- Wernog, Rider's Chaplain: "each opponent may investigate. Each opponent who doesn't loses 1 life. You investigate X times, where X is one plus the
+# number of opponents who investigated this way." 101.4: each answers in turn order (each_may's private yes or no), then each who did investigates;
+# you investigate once, and once more for each one who did (X investigations, 701.16a: each one at a time).
+_WERNOG = ("each opponent may investigate. Each opponent who doesn't loses 1 life. You investigate X times, where X is one plus the number of opponents who "
+           "investigated this way.")
+
+
+def _wernog(text: str, it: str | None, event_player: bool) -> Found | None:
+    if text != _WERNOG:
+        return None
+    ask = _effects("each opponent may investigate. For each opponent who does, you investigate.", "self", True)
+    lose, mine = _effects("That player loses 1 life.", "self", True), _effects("You investigate.", "self", True)
+    if ask is None or lose is None or mine is None or len(ask[0]) != 1 or ask[0][0].get("do") != "each_may" or not ask[0][0].get("then_opp"):
+        return None
+    return [{**ask[0][0], "effects": lose[0]}, *mine[0]], None, False
+
+
+# -- Liege of the Hollows: "each player may pay any amount of mana. Then each player creates a number of 1/1 green Squirrel creature tokens equal to the
+# amount of mana they paid this way." The 2008-04-01 ruling: the active player first, then each other in turn order (101.4), then all the tokens at
+# once (one batch). Each payment as join forces pays it (join_forces.py: any amount, 118.3).
+_LIEGE = ("each player may pay any amount of mana. Then each player creates a number of 1/1 green Squirrel creature tokens equal to the amount of mana they "
+          "paid this way.")
+LIEGE, LIEGE_MAKE = "liege100b", "liege_make100b"
+
+
+def _liege(text: str, it: str | None, event_player: bool) -> Found | None:
+    token = _effects("Create a 1/1 green Squirrel creature token.", it, event_player) if text == _LIEGE else None
+    return ([{"do": LIEGE, "token": token[0][0]}], None, False) if token is not None and len(token[0]) == 1 else None
+
+
+def liege(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    order = [p for p in plan.apnap() if p in plan.live()]
+    pays = [{"do": "optional_payment", "who": f"player:{p}", "cost": "", "bind": f"{LIEGE}{i}", "choose_x": {"max": None}} for i, p in enumerate(order)]
+    ctx["effects"][ctx["next"]:ctx["next"]] = [*pays, {"do": LIEGE_MAKE, "token": e["token"], "paid": {p: f"{LIEGE}{i}" for i, p in enumerate(order)}}]
+    return True
+
+
+def liege_make(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    from app.rules import paid_x
+
+    counts = {p: paid_x.amount(ctx, b) for p, b in e["paid"].items() if p in plan.live()}
+    ctx["effects"][ctx["next"]:ctx["next"]] = [{**e["token"], "per_player": counts}] if any(counts.values()) else []
+    return True
+
+
 # -- Reign of Terror: "Destroy all green creatures or all white creatures. They can't be regenerated. You lose 2 life for each creature that died
 # this way." 608.2d: the controller picks one as it resolves (and announces it, 101.4b); the rest of the text reads the one done.
 _EITHER = re.compile(r"^Destroy all (?P<a>[a-z]+ creatures) or all (?P<b>[a-z]+ creatures)\. (?P<rest>[^.]+\.(?: [^.]+\.)*)$")
@@ -1052,5 +1097,5 @@ def resume_either(plan: Any, d: Any, chosen: list[str]) -> None:
 PRIMITIVES = {GY_EMPTY: gy_empty, TRUCE: truce, TRUCE_ASK: truce_ask, TRUCE_DRAW: truce_draw, TRUCE_LIFE: truce_life, EITHER: either, COUNTERED: countered,
               SWIFT: swift, BACK: back_creature, TO_GRAVEYARDS: to_graveyards, HAND_GATE: hand_gate,
               SURGE: surge, PUT_EXILED: put_exiled, PUT_CHECK: put_check, OWN_EVERYWHERE: own_everywhere, HAND_VALUES: hand_values,
-              OTHERS: others_back, RALLY: rally, BECAME: became, SPIRIT: spirit, SPIRIT_WIN: spirit_win, SHARES: shares_type}
+              OTHERS: others_back, RALLY: rally, BECAME: became, SPIRIT: spirit, SPIRIT_WIN: spirit_win, SHARES: shares_type, LIEGE: liege, LIEGE_MAKE: liege_make}
 RESUME = {TRUCE_ASK: resume_truce_ask, EITHER: resume_either, PUT_EXILED: resume_put_exiled, SPIRIT: resume_spirit}

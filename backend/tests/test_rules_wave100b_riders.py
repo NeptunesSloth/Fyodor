@@ -71,6 +71,10 @@ Every scenario checks the replay and a save and a load.
 * Call the Spirit Dragons - "for each color, put a +1/+1 counter on a Dragon you control of that color. If you put +1/+1 counters on five
   Dragons this way, you win the game." (five different Dragons - 2025-04-04).
 * Holistic Wisdom - "Return target card from your graveyard to your hand if it shares a card type with the card exiled this way." (the cost's)
+* Wernog, Rider's Chaplain - "each opponent may investigate. Each opponent who doesn't loses 1 life. You investigate X times, where X is one
+  plus the number of opponents who investigated this way." (101.4).
+* Liege of the Hollows - "each player may pay any amount of mana. Then each player creates a number of 1/1 green Squirrel creature tokens
+  equal to the amount of mana they paid this way." (active player first, the tokens at once - 2008-04-01).
 * Hellfire - "deals X plus 3 damage to you, where X is the number of creatures that died this way." (a destroyed token counts, a creature a
   replacement effect exiled instead doesn't: the 2009-10-01 rulings).
 """
@@ -102,7 +106,7 @@ HEDRON, ATEMSIS, SPHINX, VOICE = "Hedron Alignment", "Atemsis, All-Seeing", "Res
 GEAR, MIRROR, RUNES, RALLY = "Fishing Gear", "Moonring Mirror", "Read the Runes", "Rally the Horde"
 REST, BRINGER, VAULT101 = "Long Rest", "Bringer of the Last Gift", "Vault 101: Birthday Party"
 INFERNO, FOXGLOVE, SPIRIT = "Inferno of the Star Mounts", "Mr. Foxglove", "Call the Spirit Dragons"
-HOLISTIC = "Holistic Wisdom"
+HOLISTIC, WERNOG, LIEGE = "Holistic Wisdom", "Wernog, Rider's Chaplain", "Liege of the Hollows"
 BEARS, GIANT, RIP, ELVES = "Grizzly Bears", "Hill Giant", "Rest in Peace", "Llanowar Elves"
 
 
@@ -111,7 +115,7 @@ def cards(settings):
     yield from open_repo(settings)
 
 
-@pytest.mark.parametrize("name", [ROWEN, ETCHINGS, KERANOS, SUGARMAW, HELLFIRE, TERROR, KELLAN, EGO, SHRIEK, GORILLA, DESERTER, AEROSTAT, FOLD, SWIFT, RESEARCHER, KOYA, SURVIVORS, VANISH, DAKRA, DURIN, LATNAM, SURGE, LOCKE, HELLION, HULK, KALDHEIM, MANABOND, GUARDIAN, INVESTIGATORS, CLASH, SANCTUM, HEDRON, ATEMSIS, SPHINX, VOICE, GEAR, MIRROR, RUNES, RALLY, REST, BRINGER, VAULT101, INFERNO, FOXGLOVE, SPIRIT, HOLISTIC])
+@pytest.mark.parametrize("name", [ROWEN, ETCHINGS, KERANOS, SUGARMAW, HELLFIRE, TERROR, KELLAN, EGO, SHRIEK, GORILLA, DESERTER, AEROSTAT, FOLD, SWIFT, RESEARCHER, KOYA, SURVIVORS, VANISH, DAKRA, DURIN, LATNAM, SURGE, LOCKE, HELLION, HULK, KALDHEIM, MANABOND, GUARDIAN, INVESTIGATORS, CLASH, SANCTUM, HEDRON, ATEMSIS, SPHINX, VOICE, GEAR, MIRROR, RUNES, RALLY, REST, BRINGER, VAULT101, INFERNO, FOXGLOVE, SPIRIT, HOLISTIC, WERNOG, LIEGE])
 def test_the_cards_are_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL", name
 
@@ -1068,4 +1072,40 @@ def test_holistic_wisdom_returns_a_card_sharing_a_type_with_the_exiled_one(cards
     run(s, pick(giant.id))
     assert zone(s, giant) == "p1:exile"
     assert zone(s, target) == ("p1:hand" if shared else "p1:graveyard")
+    check(s)
+
+
+# -- Wernog, Rider's Chaplain ---------------------------------------------------------------------------------------------------------
+@pytest.mark.parametrize("bob_does", [True, False])
+def test_wernog_lets_opponents_investigate_or_lose_life(cards, bob_does):
+    s = build_n(cards, [WERNOG])
+    wernog = to_hand(s, WERNOG)
+    mana(s, W=1, B=1)
+    act(s, "p1", type="cast_spell", card_id=wernog.id)
+    bob = life(s, "p2")
+    asked: list[str] = []
+    run(s, lambda d: asked.append(d.player) or ["yes" if bob_does else "no"] if any(o.id == "yes" for o in d.options) else None)
+    clues = {p: len([c for c in s.state.cards.values() if c.zone == f"{p}:battlefield" and c.name == "Clue"]) for p in ("p1", "p2")}
+    assert asked == ["p2"] and clues == ({"p1": 2, "p2": 1} if bob_does else {"p1": 1, "p2": 0})
+    assert life(s, "p2") == bob - (0 if bob_does else 1)
+    check(s)
+
+
+# -- Liege of the Hollows -------------------------------------------------------------------------------------------------------------
+def test_liege_of_the_hollows_gives_each_player_squirrels_for_their_mana(cards):
+    s = build_n(cards, [LIEGE, "Murder"])
+    liege, murder = put(s, LIEGE), to_hand(s, "Murder")
+    mana(s, B=2, C=3)
+    mana(s, "p2", C=1)
+    act(s, "p1", type="cast_spell", card_id=murder.id, targets=[liege.id])
+    order: list[str] = []
+
+    def answer(d):
+        if not any(o.id.startswith("x:") or o.id == "decline" for o in d.options):
+            return None
+        order.append(d.player)
+        return ["x:2" if d.player == "p1" else "x:1"]
+    run(s, answer)
+    squirrels = {p: len([c for c in s.state.cards.values() if c.zone == f"{p}:battlefield" and c.name == "Squirrel"]) for p in ("p1", "p2")}
+    assert zone(s, liege) == "p1:graveyard" and order == ["p1", "p2"] and squirrels == {"p1": 2, "p2": 1}
     check(s)
