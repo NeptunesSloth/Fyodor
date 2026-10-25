@@ -23,9 +23,10 @@ if TYPE_CHECKING:
     from app.rules.plan import Plan
 
 WHAT = "devour"
+STATS = "stats110f"  # (wave 110F) the quality of Dracoplasm: creatures, totals of their power and toughness
 DONE = "done"
 _PIECE = re.compile(r"devour (?:(?P<q>land|artifact|food) )?(?P<n>\d+)")
-_QUALITY_WORD = {None: "creature", "land": "land", "artifact": "artifact", "food": "Food", "creature_pw": "creature or planeswalker",
+_QUALITY_WORD = {None: "creature", "stats110f": "creature", "land": "land", "artifact": "artifact", "food": "Food", "creature_pw": "creature or planeswalker",
                  "nonland": "nonland permanent"}
 
 
@@ -51,7 +52,9 @@ def supported(line: str) -> bool:
 # +1/+1 counter on it." The same choice, of at most one permanent, returned instead of sacrificed (the 2019-05-03 rulings: only one already there).
 _STATICS = {"As ~ enters, you may sacrifice any number of creatures and/or planeswalkers. If you do, it enters with twice that many +1/+1 counters on it.":
             ("creature_pw", 2),
-            "As ~ enters, you may return a nonland permanent you control to its owner's hand. If you do, ~ enters with a +1/+1 counter on it.": ("nonland", 1)}
+            "As ~ enters, you may return a nonland permanent you control to its owner's hand. If you do, ~ enters with a +1/+1 counter on it.": ("nonland", 1),
+            # -- stats (wave 110F) -- Dracoplasm: sacrifice any number of creatures (no counters); its base P/T become their totals, set as it enters (:func:`apply_totals`)
+            "As ~ enters, sacrifice any number of creatures. ~'s power becomes the total power of those creatures and its toughness becomes their total toughness.": (STATS, 0)}
 RETURNS = "nonland"  # (the one quality returned to its owner's hand, at most one)
 
 
@@ -86,7 +89,7 @@ def _matches(plan: Plan, cid: str, quality: str | None) -> bool:
     from app.rules import characteristics as chars
 
     ch = chars.of(plan.state.cards[cid], plan.info)
-    return {None: ch.is_creature, "land": ch.is_land, "artifact": "Artifact" in ch.types,
+    return {None: ch.is_creature, STATS: ch.is_creature, "land": ch.is_land, "artifact": "Artifact" in ch.types,
             "food": "Food" in ch.subtypes, "creature_pw": ch.is_creature or "Planeswalker" in ch.types, "nonland": not ch.is_land}[quality]
 
 
@@ -137,6 +140,8 @@ def prompt(plan: Plan, card: CardInstance, controller: str, choice: dict[str, An
     options.append(DecisionOption(id=DONE, label=f"Done: {verb} {len(already)}" if already else f"Don't {verb} any"))
     if quality == RETURNS:
         return f"{card.name}: as it enters, return a {word} you control to its owner's hand?", options
+    if quality == STATS:
+        return f"{card.name}: as it enters, sacrifice creatures? ({len(already)} chosen)", options
     return (f"{card.name}: devour {n or 'X'} — as it enters, sacrifice {word}s? ({len(already)} chosen)", options)
 
 
@@ -149,6 +154,7 @@ def sacrifice(plan: Plan, ep: dict[str, Any], controller: str) -> None:
 
     live = [c for c in ids if c in plan.state.cards and plan.state.cards[c].zone.endswith(":battlefield")
             and plan.state.cards[c].controller == controller]
+    totals = [sum(int((plan.ch(plan.state.cards[c]).pt or (0, 0))[i] or 0) for c in live) for i in (0, 1)]  # (wave 110F: Dracoplasm's totals, as they were)
     was = {c: plan.oid(c) for c in live}  # (wave 48B: the answer then names the objects they were, 702.82b: "the Goblins it devoured" reads them as they last existed)
     if ep.get("devour_return"):  # (Rescuer Sphinx: to its owner's hand, 400.3)
         plan.do({"type": "move", "card_ids": live, "to": {"zone": "hand"}}, actor=controller)
@@ -156,6 +162,7 @@ def sacrifice(plan: Plan, ep: dict[str, Any], controller: str) -> None:
         _sacrifice_cards(plan, live, controller)
     gone = [was[c] for c in live if c not in plan.state.cards or not plan.state.cards[c].zone.endswith(":battlefield")]
     ep.setdefault("choices", {})[WHAT] = ",".join(gone) + ("," if gone else "") + DONE
+    ep["choices"][TOTALS] = f"{totals[0]},{totals[1]}"
     if gone:
         plan.note(f"{plan.name(controller)} {'returns' if ep.get('devour_return') else 'devours'} {len(gone)} as it enters", [o.rsplit(".", 1)[0] for o in gone])
 
@@ -163,4 +170,20 @@ def sacrifice(plan: Plan, ep: dict[str, Any], controller: str) -> None:
 def counters(ch: Any, choices: dict[str, str] | None) -> int:
     found = spec(ch)
     n = len(picked((choices or {}).get(WHAT)))
-    return (found[1] or n) * n if found is not None else 0  # (Thromok: N 0, X is how many were sacrificed)
+    return (found[1] or n) * n if found is not None and found[0] != STATS else 0  # (Thromok: N 0, X is how many were sacrificed)
+
+
+TOTALS = "devour_pt110f"
+
+
+def apply_totals(plan: Plan, card: CardInstance, ch: Any, choices: dict[str, str] | None) -> None:
+    """Dracoplasm: "~'s power becomes the total power of those creatures and its toughness becomes their total toughness" -- a base P/T effect
+    (613.4b, layer 7b) with the amounts fixed as it entered (the creatures as they were when sacrificed, 608.2h); no sacrifice: 0/0."""
+    found = spec(ch)
+    if found is None or found[0] != STATS:
+        return
+    from app.rules import layers
+
+    power, toughness = (int(x) for x in ((choices or {}).get(TOTALS) or "0,0").split(","))
+    layers.add_effect(plan, affected=[plan.oid(card)], layer="7b", source=None, controller=card.controller, power=power, toughness=toughness,
+                      duration="permanent", label=f"Base power and toughness {power}/{toughness} ({card.name})")

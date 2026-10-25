@@ -1037,6 +1037,7 @@ def after_entry(plan: Plan, card_id: str, controller: str, *, x: int | None = No
     if riot.gains_haste(ch, choices):
         layers.add_effect(plan, affected=[plan.oid(card)], layer="6", source=None, controller=controller,
                           add_keywords=("haste",), duration="permanent", label="Haste (riot)")
+    devour.apply_totals(plan, card, ch, choices)  # -- stats (wave 110F) -- Dracoplasm
     from app.rules import tribute  # -- keywords (wave 50H) -- 702.104b: "if tribute wasn't paid" reads this
 
     if tribute.counters(ch, choices):

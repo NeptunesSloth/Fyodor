@@ -4,6 +4,7 @@
 * 701.13a, 603.10, 110.2: "exile another target nonland permanent. If you controlled it, return it to the battlefield tapped. Otherwise, its controller creates a ... Detective" (Unyielding Gatekeeper).
 * 115.4, 205.1a, 611.2a: "choose any number of target planeswalkers you control. Until end of turn, they become 3/3 blue Bird creatures with flying, hexproof, and ..." (Sparkshaper Visionary).
 * 614.1c, 707.9: "Creatures you control enter as a copy of this creature." (Essence of the Wild).
+* 702.82a, 613.4b: "As this creature enters, sacrifice any number of creatures. This creature's power becomes the total power of those creatures ..." (Dracoplasm).
 * 205.1b, 611.2a: token "Whenever an opponent casts a creature spell, this token isn't a creature until end of turn." (Blink chapters II, IV).
 """
 
@@ -32,10 +33,13 @@ EXTRA = [
     {**real('Test Walker 110F', '{2}{U}', 3, 'Legendary Planeswalker — Test', '+1: You gain 1 life.', None, 'U'), 'loyalty': '3'},
     real('Essence of the Wild', '{3}{G}{G}{G}', 6, 'Creature — Avatar',
          'Creatures you control enter as a copy of this creature.', ('6', '6'), 'G'),
+    real('Dracoplasm', '{U}{R}', 2, 'Creature — Shapeshifter',
+         "Flying\nAs this creature enters, sacrifice any number of creatures. This creature's power becomes the total power of those creatures and its toughness becomes their total toughness.\n{R}: This creature gets +1/+0 until end of turn.", ('0', '0'), 'RU'),
+    real('Test Giant 110F', '{3}{R}', 4, 'Creature — Giant', 'Vigilance', ('3', '3'), 'R'),
     real('Test Flash Bear 110F', '{1}{U}', 2, 'Creature — Bear', 'Flash', ('2', '2'), 'U'),
 ]
 _BASE.extend(EXTRA)
-NAMES = ["Blink", "Unyielding Gatekeeper", "Sparkshaper Visionary", "Essence of the Wild"]
+NAMES = ["Blink", "Unyielding Gatekeeper", "Sparkshaper Visionary", "Essence of the Wild", "Dracoplasm"]
 
 
 @pytest.mark.parametrize("name", NAMES)
@@ -150,4 +154,29 @@ def test_essence_makes_only_its_controllers_creatures_enter_as_copies(cards, pid
     got = ch(s, s.state.cards[bear.id])
     assert s.state.cards[bear.id].zone == f"{pid}:battlefield"
     assert (got.name, got.pt) == (("Essence of the Wild", (6, 6)) if copied else ("Grizzly Bears", (2, 2)))
+    check(s)
+
+
+@pytest.mark.parametrize("sacrifice,pt", [(("Grizzly Bears", "Test Giant 110F"), (5, 5)), (("Test Giant 110F",), (3, 3)), ((), None)])
+def test_dracoplasm_takes_the_total_power_and_toughness_of_what_it_sacrificed(cards, sacrifice, pt):
+    """The totals are fixed as it enters (2/2 + 3/3 = 5/5); sacrificing nothing leaves 0/0, which dies (704.5f)."""
+    from tests.test_rules_wave100f_control import ch
+
+    s = build(cards, ["Dracoplasm", "Grizzly Bears", "Test Giant 110F"])
+    fodder = {n: put(s, n) for n in ("Grizzly Bears", "Test Giant 110F")}
+    mana(s, U=1, R=1)
+    draco = cast(s, "Dracoplasm")
+    todo = [fodder[n].id for n in sacrifice]
+    for _ in range(10):
+        d = s.state.rules.decision
+        if d is None:
+            break
+        act(s, d.player, type="choose", decision_id=d.id, option_ids=[todo.pop(0) if todo else "done"])
+    _resolve(s)
+    for n, c in fodder.items():
+        assert s.state.cards[c.id].zone == ("p1:graveyard" if n in sacrifice else "p1:battlefield")
+    if pt is None:
+        assert s.state.cards[draco.id].zone == "p1:graveyard"
+    else:
+        assert ch(s, s.state.cards[draco.id]).pt == pt
     check(s)
