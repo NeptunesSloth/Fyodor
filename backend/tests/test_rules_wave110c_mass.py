@@ -7,9 +7,9 @@
 from __future__ import annotations
 
 import pytest
-from tests.game_helpers import act
 
 from app.rules import coverage
+from tests.game_helpers import act
 from tests.wave110c_kit import answer, build, card_named, cast, check, make_db, mana, put, real, zone
 
 EXTRA = [

@@ -1824,7 +1824,7 @@ def counterable(plan: Plan, stack_id: str) -> bool:
 
 
 def counter_object(plan: Plan, stack_id: str, actor: str, to: str | None = None, *, exile: bool = False,
-                   by: str | None = None) -> None:
+                   by: str | None = None, types: list[str] | None = None) -> None:
     """701.6: a countered spell goes to its owner's graveyard (a flashback spell into exile); a
     countered ability simply stops existing. ``exile``: "If that spell is countered this way, exile
     it instead of putting it into its owner's graveyard" (608.2c; wave 4C).
@@ -1859,6 +1859,9 @@ def counter_object(plan: Plan, stack_id: str, actor: str, to: str | None = None,
         plan.do({"type": "move", "card_ids": [stack_id], "to": {"player": card.owner, "zone": "exile"}}, actor=actor)
     elif to == "exile":  # (wave 4A)
         plan.do({"type": "move", "card_ids": [stack_id], "to": {"player": card.owner, "zone": "exile"}}, actor=actor)
+    elif to == "battlefield_you" and by is not None and types and any(t in plan.ch(card).types for t in types):
+        # -- counter outcomes (wave 110C) -- Desertion: an artifact or creature spell is put onto the battlefield under the counterer's control (608.2c, 701.6a)
+        plan.do({"type": "move", "card_ids": [stack_id], "to": {"player": by, "zone": "battlefield"}}, actor=actor)
     elif to == "hand":  # -- zone replacements (wave 37B) -- "put it into its owner's hand instead of into that player's graveyard" (Remand)
         plan.do({"type": "move", "card_ids": [stack_id], "to": {"player": card.owner, "zone": "hand"}}, actor=actor)
     elif to in ("top", "bottom"):  # (wave 4A)
@@ -1915,7 +1918,7 @@ def counter(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     before = _remember(plan, ctx, e, sids)  # -- stack interaction (wave 5B) -- "its controller": 608.2h
     perms = _ability_sources(plan, sids, e) if e.get("perm_as") else {}
     for sid in sids:
-        counter_object(plan, sid, ctx["controller"], e.get("to"), exile=bool(e.get("exile")), by=ctx["controller"])  # (exile: 4C; to: 4A)
+        counter_object(plan, sid, ctx["controller"], e.get("to"), exile=bool(e.get("exile")), by=ctx["controller"], types=e.get("types"))  # (exile: 4C; to: 4A)
     if e.get("perm_as"):  # -- stack interaction (wave 23B) -- "If a permanent's ability is countered this way, … that permanent": the sources
         context.bind_objects(plan, ctx, e["perm_as"], [c for sid, c in perms.items() if sid not in plan.rules.stack])  # of the abilities that were
     _moved(plan, ctx, e, before)  # (wave 5B)
