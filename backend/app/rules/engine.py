@@ -1334,6 +1334,10 @@ def land_play_problem(state: GameState, player: str, card: CardInstance, ch: Cha
     if info is not None and card.zone.endswith(":graveyard") and (barred := next(
             (src for src, _ in cast_limits._statics(state, info, "cant_play_gy_lands") if src.controller != player), None)) is not None:
         return f"{barred.name or 'A permanent'}: you can't play land cards from graveyards"  # -- cant restrictions (wave 50G) -- Tomik, Distinguished Advokist
+    from app.rules import wave110n_cards  # -- (wave 110N) -- Rock Jockey: 305.1
+
+    if (why := wave110n_cards.land_problem(state, player, info)) is not None:
+        return why
     if (why := cast_limits.land_problem(state, player, ch, info)) is not None:
         return why  # -- chosen filters (wave 53B) -- Conjurer's Ban: a land with the chosen name can't be played until a turn
     if check_priority and (r.priority != player or r.decision is not None):

@@ -29,9 +29,16 @@ _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
 }
 
 
+ROCK_CAST, ROCK_LANDS = "rock_cast110n", "rock_lands110n"
+_FLAGS = {"You can't cast Rock Jockey if you've played a land this turn.": ROCK_CAST,
+          "You can't play lands if this creature was cast this turn.": ROCK_LANDS}
+
+
 def definition(ability: Any, ch: Any) -> Def | None:
     from app.rules import scripts
 
+    if (flag := _FLAGS.get(ability.text.strip())) is not None:
+        return {"kind": "static", "static": flag, "effects": []}
     if (built := _BUILD.get(ability.text.strip())) is None:
         return None
     native = scripts.define(replace(ability, text=built[0]), ch)
@@ -109,6 +116,34 @@ def ignores_shroud(plan: Any, chooser: str, card: Any) -> bool:
 
     return any(d["player"] == chooser and d["card"] == card.id and d["oid"] == plan.oid(card)
                for x in plan.rules.cast_limits if (d := x.get("shroud_ignore110n")) and cast_limits._record_live(plan.state, x))
+
+
+def cast_problem(state: Any, player: str, ch: Any) -> str | None:
+    """Rock Jockey: 601.3, the spell can't be cast once its caster has played a land this turn (305.1: played, not put onto the battlefield)."""
+    from app.rules import scripts
+
+    r = state.rules
+    if r is None or not any(d.get("static") == ROCK_CAST for d in scripts.definitions(ch).values()):
+        return None
+    return f"{ch.name or 'It'} can't be cast if you've played a land this turn" if r.lands_this_turn(player, state.turn.number) else None
+
+
+def land_problem(state: Any, player: str, info: Any) -> str | None:
+    """Rock Jockey: 305.1, no land may be played by its controller while it is on the battlefield and was cast this turn (its spell left a cast
+    record that names the permanent it became, 400.7)."""
+    from app.rules import static_perm100d
+    from app.rules.plan import Plan
+
+    r = state.rules
+    log = r.turn_log if r is not None else None
+    if info is None or log is None or log.turn != state.turn.number:
+        return None
+    plan = Plan.view(state, player, info)
+    for c in state.cards.values():
+        if c.zone == f"{player}:battlefield" and c.controller == player and plan.in_game(c) and static_perm100d._statics(plan, c, ROCK_LANDS) \
+                and any(n.became == plan.oid(c) for n in log.casts):
+            return f"{c.name}: you can't play lands, it was cast this turn"
+    return None
 
 
 PRIMITIVES: dict[str, Any] = {"decree110n": decree, "willow110n": willow}
