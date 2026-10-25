@@ -246,8 +246,8 @@ def mark(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
 def mask(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
     """Jester's Mask: the target player puts their hand on top of their library (their order: the library is shuffled at the end, so it can't matter),
     then the activator searches that library for that many cards (701.23a) and the player puts them into their hand, then shuffles (701.24)."""
-    from app.rules import effects, selectors
     from app.game.state import zone_key
+    from app.rules import effects, selectors
 
     for pid in effects._players(plan, ctx, e["who"]):
         hand = list(plan.state.zones.get(zone_key(pid, "hand"), []))
@@ -338,3 +338,25 @@ def _mask(d: Def) -> Def:
 
 _BUILD["{1}, {T}, Sacrifice this artifact: Target opponent puts the cards from their hand on top of their library. Search that player's library for that many cards. That player puts those cards into their hand, then shuffles."] = (
     "{1}, {T}, Sacrifice this artifact: Target opponent discards a card.", _mask)
+
+
+def entered_transformed(plan: Any, info: dict[str, Any]) -> bool:
+    """712.14a, 702.145b: the permanent of an "enter" fact came onto the battlefield back face up. A transformation (701.28) leaves a "transformed" event
+    on its object; a daybound permanent that was flipped as it entered (702.145b) leaves none, so it counts as entering transformed."""
+    oid, log = info.get("oid"), plan.rules.turn_log
+    entry = next((x for x in reversed(log.entered) if x.object_id == oid), None) if oid and log is not None else None
+    card = plan.state.cards.get(entry.card) if entry is not None else None
+    return (card is not None and card.zone.endswith(":battlefield") and plan.oid(card) == oid and card.face == 1
+            and not any(e.kind == "designation" and e.counter == "transformed" and e.object_id == oid for e in plan.rules.events))
+
+
+def _towashi(d: Def) -> Def:
+    from app.rules import events
+
+    entered = events._parse("a permanent you control enters transformed")
+    assert entered is not None
+    return {**d, "cond": {"event": "either", "conds": [d["cond"], entered]}}
+
+
+_BUILD["Whenever a permanent you control transforms or a permanent you control enters transformed, you may draw a card. Do this only once each turn."] = (
+    "Whenever a permanent you control transforms, you may draw a card. Do this only once each turn.", _towashi)

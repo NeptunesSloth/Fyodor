@@ -134,3 +134,83 @@ def test_jesters_mask_with_an_empty_hand_searches_for_nothing(cards):
     act(s, "p1", type="choose", decision_id=d.id, option_ids=[])
     assert s.state.zones[zone_key("p2", "hand")] == []
     check(s)
+
+
+TOWASHI, CATHAR = "Corruption of Towashi", "Brutal Cathar // Moonrage Brute"
+
+
+def _draws(s):
+    from app.game.state import zone_key
+
+    return len(s.state.zones[zone_key("p1", "hand")])
+
+
+def _flip_night(s):
+    act(s, "p1", type="set_day_night", value="night")
+
+
+def test_towashi_is_full():
+    assert full(TOWASHI)
+
+
+def _towashi_world(cards):
+    s = build(cards, [TOWASHI, CATHAR, "Grizzly Bears", "Forest", "Forest", "Forest"], ["Grizzly Bears"])
+    return s
+
+
+def test_towashi_draws_when_a_permanent_you_control_transforms(cards):
+    """701.28: the Incubator token turning into a Phyrexian creature is a permanent of yours transforming; the draw is optional."""
+    s = _towashi_world(cards)
+    cast_on(s, TOWASHI)
+    token = next(c for c in s.state.cards.values() if c.name == "Incubator" and c.zone == "p1:battlefield")
+    before = _draws(s)
+    mana(s, C=2)
+    activate(s, token, "{2}")
+    assert token.id and s.state.cards[token.id].face == 1
+    assert _draws(s) == before + 1
+    check(s)
+
+
+def test_towashi_draws_when_a_permanent_enters_transformed(cards):
+    """702.145b, 712.14a: a daybound permanent cast at night enters transformed (no transformation happens), which Towashi sees."""
+    s = _towashi_world(cards)
+    put_new(s, TOWASHI)
+    _flip_night(s)
+    c = to_hand(s, CATHAR)
+    before = _draws(s)
+    mana(s, W=1, C=2)
+    act(s, "p1", type="cast_spell", card_id=c.id)
+    settle(s)
+    assert now(s, c).face == 1 and _draws(s) == before - 1 + 1  # cast (-1 hand), then the draw (+1)
+    check(s)
+
+
+def test_towashi_ignores_a_permanent_that_enters_front_face_up(cards):
+    s = _towashi_world(cards)
+    put_new(s, TOWASHI)
+    c = to_hand(s, CATHAR)
+    before = _draws(s)
+    mana(s, W=1, C=2)
+    act(s, "p1", type="cast_spell", card_id=c.id)
+    settle(s)
+    assert now(s, c).face == 0 and _draws(s) == before - 1
+    check(s)
+
+
+def test_towashi_draws_only_once_each_turn(cards):
+    """603.2h: "Do this only once each turn": the second event of the same turn draws nothing."""
+    s = _towashi_world(cards)
+    cast_on(s, TOWASHI)
+    token = next(c for c in s.state.cards.values() if c.name == "Incubator" and c.zone == "p1:battlefield")
+    _flip_night(s)
+    c = to_hand(s, CATHAR)
+    start = _draws(s)
+    mana(s, W=1, C=2)
+    act(s, "p1", type="cast_spell", card_id=c.id)
+    settle(s)
+    after_first = _draws(s)
+    assert after_first == start  # cast (-1), first draw (+1)
+    mana(s, C=2)
+    activate(s, token, "{2}")
+    assert s.state.cards[token.id].face == 1 and _draws(s) == after_first
+    check(s)
