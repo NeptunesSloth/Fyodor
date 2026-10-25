@@ -7,3 +7,5 @@
 - Absorb Identity: no effect making a group of Shapeshifters become copies.
 - Caller of the Hunt, Close Encounter, Sanctuary Blade: a choice made at cast/attach time must persist on the permanent (no cast-time choose-type cost, no last-chosen attach record).
 - Piracy: tapping lands you don't control for mana (no foundation). Grip of Amnesia: "exile all cards from graveyard" has no unless-cost form.
+- Sanctuary Blade: attach-time color choice would need the equip/attach path to pause for a decision (attachments.attach is synchronous); "last chosen" memory not built.
+- Archangel of Strife: per-player war/peace entering choice plus a selector over "players who chose X" not built (one card).

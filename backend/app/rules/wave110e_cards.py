@@ -43,6 +43,7 @@ _BEATDOWN_REST = ("Delirium — If there are four or more card types among cards
                   "The creature you control deals damage equal to its power to the creature an opponent controls.")
 
 
+_CORRUPTED_FB = "Corrupted — As long as an opponent has three or more poison counters and this card is in your graveyard, it has flashback {2}{G}."
 _CLOSE_LINE2 = "Close Encounter deals damage equal to the power of the chosen creature or card to target creature."
 _RETURNS = ("Each player shuffles their hand and graveyard into their library. You exile the top ten cards of your library. "
             "Then each player draws up to seven cards.")
@@ -102,6 +103,11 @@ def definition(ability: Any, ch: Any) -> Def | None:
     from app.rules import scripts
 
     text = ability.text.strip()
+    if text == _CORRUPTED_FB:  # 702.34a: the card's own conditional flashback, read by graveyard_grants.flashback_costs while it is in a graveyard
+        from app.rules import conditions
+
+        cond = conditions.parse("an opponent has three or more poison counters")
+        return None if cond is None else {"kind": "static", "static": "gy_flashback110e", "cond": cond, "cost": "{2}{G}", "effects": []}
     if text == _CLOSE_LINE2:  # 120.3, 608.2h: the power of what was chosen as it was cast, as it is now or last was
         native = scripts.define(replace(ability, text="Close Encounter deals 1 damage to target creature."), ch)
         if native is None or len(native["effects"]) != 1 or native["effects"][0].get("do") != "damage":

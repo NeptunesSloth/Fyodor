@@ -57,6 +57,13 @@ EXTRA = [
     real("Close Encounter", "{1}{R}", 2, "Instant",
          "As an additional cost to cast this spell, choose a creature you control or a warped creature card you own in exile.\n"
          "Close Encounter deals damage equal to the power of the chosen creature or card to target creature.", None, "R"),
+    real("Covenant of Minds", "{4}{U}", 5, "Sorcery",
+         "Reveal the top three cards of your library. Target opponent may choose to put those cards into your hand. If they don't, put those cards into your graveyard and draw five cards.",
+         None, "U"),
+    real("Viral Spawning", "{2}{G}", 3, "Sorcery",
+         "Create a 3/3 green Phyrexian Beast creature token with toxic 1. (Players dealt combat damage by it also get a poison counter.)\n"
+         "Corrupted — As long as an opponent has three or more poison counters and this card is in your graveyard, it has flashback {2}{G}. "
+         "(You may cast this card from your graveyard for its flashback cost. Then exile it.)", None, "G"),
     real("Goblin Test", "{R}", 1, "Creature — Goblin", "", ("1", "1"), "R"),
     real("Spin into Myth", "{3}{U}", 4, "Instant",
          "Put target creature on top of its owner's library, then fateseal 2. (To fateseal 2, look at the top two cards of an opponent's library, then put any number of them on the bottom of that player's library and the rest on top in any order.)", None, "U"),
@@ -507,4 +514,51 @@ def test_close_encounter_uses_the_power_of_the_creature_chosen_as_cast(cards, ch
     act(s, "p1", type="choose", decision_id=d.id, option_ids=[dragon.id if chosen == "Shivan Dragon" else goblin.id])
     answer(s)
     assert (s.state.cards[bears.id].zone == "p2:graveyard") == dies
+    check(s)
+
+
+@pytest.mark.parametrize("opponent_agrees", [True, False])
+def test_covenant_of_minds_the_opponent_decides_where_the_revealed_cards_go(cards, opponent_agrees):
+    """608.2d: the target opponent alone answers; yes: the three revealed cards go to your hand; no: they go to your graveyard and you draw five."""
+    s = build(cards, ["Covenant of Minds", *["Grizzly Bears"] * 12])
+    spell = to_hand(s, "Covenant of Minds")
+    top = list(s.state.zones["p1:library"][:3])  # the top of the library is index 0
+    hand0, gy0 = len(s.state.zones["p1:hand"]) - 1, len(s.state.zones.get("p1:graveyard", []))
+    mana(s, U=1, C=4)
+    act(s, "p1", type="cast_spell", card_id=spell.id, targets=["p2"])
+    d = s.state.rules.decision
+    for _ in range(5):
+        if d is not None and d.player == "p2":
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+        d = s.state.rules.decision
+    assert d is not None and d.player == "p2"  # the opponent, not the caster, answers
+    act(s, "p2", type="choose", decision_id=d.id, option_ids=["pay" if opponent_agrees else "decline"])
+    answer(s)
+    hand, gy = s.state.zones["p1:hand"], s.state.zones.get("p1:graveyard", [])
+    if opponent_agrees:
+        assert all(c in hand for c in top) and len(hand) == hand0 + 3
+    else:
+        assert all(c in gy for c in top) and len(gy) == gy0 + 4 and len(hand) == hand0 + 5  # + the sorcery itself
+    check(s)
+
+
+@pytest.mark.parametrize("poison", [3, 2])
+def test_viral_spawning_has_flashback_only_while_an_opponent_is_corrupted(cards, poison):
+    """702.34a/122.1f: from the graveyard it can be cast for {2}{G} only with an opponent at 3+ poison counters; then it is exiled instead of going back."""
+    from app.game.errors import ActionError
+
+    s = build(cards, ["Viral Spawning"])
+    c = to_hand(s, "Viral Spawning")
+    act(s, "p1", type="move", card_ids=[c.id], to={"player": "p1", "zone": "graveyard"})
+    act(s, "p2", type="set_resource", player="p2", key="poison", value=poison)
+    mana(s, G=1, C=2)
+    if poison < 3:
+        with pytest.raises(ActionError):
+            act(s, "p1", type="cast_spell", card_id=c.id)
+        return
+    act(s, "p1", type="cast_spell", card_id=c.id)
+    answer(s)
+    assert s.state.cards[c.id].zone == "p1:exile"
+    assert any(x.name.endswith("Beast Token") or "Beast" in x.name for x in s.state.cards.values() if x.zone == "p1:battlefield")
     check(s)

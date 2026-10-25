@@ -150,6 +150,15 @@ def flashback_costs(state: GameState, card: CardInstance, ch: Characteristics, i
             if src.controller == card.owner and (not d["your_turn"] or state.turn.active_player == card.owner) and selectors.matches(
                     Plan.view(state, card.owner, info), selectors.from_key(d["sel"]), card, ch, card.owner):
                 found.append(str(d.get("cost") or "mana_cost"))
+    from app.rules import (  # -- wave 110E -- the card's own "as long as … and this card is in your graveyard, it has flashback"
+        conditions,
+        scripts,
+    )
+
+    for d in scripts.definitions(ch).values():
+        if d.get("static") == "gy_flashback110e" and card.zone == f"{card.owner}:graveyard" \
+                and conditions.holds(Plan.view(state, card.owner, info), {"controller": card.owner, "source_card": card.id}, d["cond"]):
+            found.append(str(d["cost"]))
     oid = r.object_id(card.id)
     found.extend(str(g["flashback"]) for g in r.graveyard_grants
                  if g.get("oid") == oid and g.get("turn") == state.turn.number and g.get("flashback"))
