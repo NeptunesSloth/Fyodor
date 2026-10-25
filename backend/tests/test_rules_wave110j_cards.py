@@ -299,3 +299,24 @@ def test_hibernations_end_searches_each_time_the_upkeep_is_paid_but_not_when_sac
     elves = [c for c in s.state.cards.values() if c.name == "Llanowar Elves"]
     assert elves[0].zone.endswith(":battlefield")
     check(s)
+
+
+def test_rumbling_ruin_is_full():
+    assert full("Rumbling Ruin")
+
+
+@pytest.mark.parametrize("counters", [0, 2, 3])
+def test_rumbling_ruin_stops_blockers_with_power_up_to_the_counters_counted(cards, counters):
+    """611.2c: the count is made as the trigger resolves; creatures with power at most that number can't block this turn."""
+    s = build(cards, ["Rumbling Ruin", "Llanowar Elves"], ["Mogg Fanatic", "Templar Knight"])
+    mine = put_new(s, "Llanowar Elves")
+    small, big = put_new(s, "Mogg Fanatic", "p2"), put_new(s, "Templar Knight", "p2")
+    sp, bp = int(ch(s, small).pt[0]), int(ch(s, big).pt[0])
+    assert sp < bp
+    if counters:
+        act(s, "p1", type="set_counter", card_id=mine.id, kind="+1/+1", value=counters)
+    cast_on(s, "Rumbling Ruin")
+    settle(s)
+    stopped = {c.id for c in (small, big) if int(ch(s, c).pt[0]) <= counters}
+    assert {c.id for c in (small, big) if "cant_block" in ch(s, c).imposed} == stopped
+    check(s)

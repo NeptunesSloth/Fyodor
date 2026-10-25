@@ -163,4 +163,48 @@ def paid_cumulative(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
     return True
 
 
-PRIMITIVES = {"paid_cumulative110j": paid_cumulative}
+def _ruin(d: Def) -> Def:
+    """Rumbling Ruin: the "can't block" group is read with a power bound counted as the trigger resolves (611.2c: rule effect, group not locked)."""
+    return {**d, "effects": [{**e, "do": "ruin110j"} if e.get("do") == "restrict" else e for e in d["effects"]]}
+
+
+_BUILD["When this creature enters, count the number of +1/+1 counters on creatures you control. Creatures your opponents control with power less than or equal to that number can't block this turn."] = (
+    "When this creature enters, creatures your opponents control with power 0 or less can't block this turn.", _ruin)
+
+
+def ruin(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
+    from app.rules import effects, selectors, values
+
+    n = values.evaluate(plan, ctx, {"counters_among": "+1/+1", "of": selectors.Selector(types=("Creature",), controller="you").key()})
+    who = e["who"].replace('["power","<=",0]', f'["power","<=",{n}]')
+    return bool(effects.restrict(plan, ctx, {**e, "do": "restrict", "who": who}))
+
+
+def _dragon(d: Def) -> Def:
+    """Quicksilver Dragon: any spell may be targeted; only as the ability resolves is it checked that the spell's only target is this creature."""
+    return {**d, "target": {**d["target"], "what": d["target"]["what"].replace('"extras":["single_target"],', "")},
+            "effects": [{**e, "do": "dragon110j"} for e in d["effects"]]}
+
+
+_BUILD["{U}: If target spell has only one target and that target is this creature, change that spell's target to another creature."] = (
+    "{U}: Change the target of target spell with a single target. The new target must be a creature.", _dragon)
+
+
+def dragon(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
+    """115.9c, 115.7a: with one different target that is this creature, it becomes another legal creature (the new target differs from the old one)."""
+    from app.rules import selectors, stack_interaction
+
+    for sid in effects_stack_targets(plan, ctx, e):
+        card = plan.state.cards.get(sid)
+        if card is not None and selectors.targets_only(plan, card, "self", ctx["controller"], ctx.get("source_card")):
+            return bool(stack_interaction.change_target(plan, ctx, {**e, "do": "change_target"}))
+    return True
+
+
+def effects_stack_targets(plan: Any, ctx: Any, e: dict[str, Any]) -> list[str]:
+    from app.rules.effects import _stack_targets
+
+    return list(_stack_targets(plan, ctx, e))
+
+
+PRIMITIVES = {"paid_cumulative110j": paid_cumulative, "ruin110j": ruin, "dragon110j": dragon}
