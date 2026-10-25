@@ -157,8 +157,9 @@ def target_group(phrase: str) -> dict[str, Any] | None:
         rest = dm["a"] + (dm["b"] or "")
     rm = _SHARES.fullmatch(rest) or _CONTROLLERS.fullmatch(rest)  # -- group relations (wave 51A) -- "two target creatures that share a creature type" / "… controlled by different players" (601.2c)
     if rm is not None:
-        if (m["n"] or m["upto"] or m["range"]) not in ("two", "2", "one or two"):
+        if (m["n"] or m["upto"] or m["range"]) not in ("two", "2", "one or two") and not (m["any"] and "k" not in rm.groupdict()):
             raise _Fail  # ponytail: pairs only; for more targets, what a relation that stops holding on resolution makes illegal (608.2b) is unsettled
+            # (wave 110B: but "any number of target … with different controllers": each target is judged on its own on resolution, 608.2b — the relation is a limit of the announcement)
         rest = rm["a"] + (rm["b"] or "")
     what, constraints = ("any", {}) if rest == "targets" else _group_constraints(_target_key(rest))
     if total is not None:
@@ -209,7 +210,7 @@ _TOTAL = re.compile(r"(?P<a>.+?) with total (?P<stat>mana value|power) (?P<n>\d+
 _TOTAL_STATS = {"mana value": "mana_value", "power": "power"}
 _DIFFERENT = re.compile(r"(?P<a>.+?) with different (?P<k>names|mana values)(?P<b> .+)?")  # (wave 3R4)
 _SHARES = re.compile(r"(?P<a>.+?) that share an? (?P<k>creature|card|permanent) type(?P<b> .+)?")  # (wave 51A) 205.2, 205.3m
-_CONTROLLERS = re.compile(r"(?P<a>.+?) controlled by different players(?P<b> .+)?")  # (wave 51A)
+_CONTROLLERS = re.compile(r"(?P<a>.+?) (?:controlled by different players|with different controllers)(?P<b> .+)?")  # (wave 51A; 110B: Cloud's Limit Break)
 
 
 def _group_constraints(key: str) -> tuple[str, dict[str, Any]]:

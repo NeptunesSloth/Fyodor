@@ -75,4 +75,30 @@ def definition(ability: Any, ch: Any) -> Def | None:
     return None
 
 
+_VINCENT = ('Until end of turn, target creature you control gains "When this creature dies, return it to the battlefield tapped under its owner\'s '
+            'control" and has the chosen base power and toughness.')
+_TIER = re.compile(r"• (?P<label>[^—{}]+) — (?P<cost>(?:\{[^}]+\})+) — (?P<p>\d+)/(?P<t>\d+)\.")
+
+
+def tiered(ch: Any, lines: list[Any]) -> Def | None:
+    """Vincent's Limit Break (702.183a): the line above the tiers is the spell, each tier gives the base power and toughness it names (613.4b)."""
+    from app.rules import scripts
+
+    found = [_TIER.fullmatch(ab.text) for ab in lines[1:]]
+    if len(lines) != 4 or lines[0].text != _VINCENT or None in found:
+        return None
+    modes = []
+    for ab, m in zip(lines[1:], found, strict=True):
+        assert m is not None
+        parts = [scripts.define(replace(lines[0], text=t), ch) for t in (
+            'Until end of turn, target creature you control gains "When this creature dies, return it to the battlefield tapped under its owner\'s control."',
+            f"Until end of turn, target creature you control has base power and toughness {m['p']}/{m['t']}.")]
+        if None in parts or [d["target"] for d in parts if d] != [parts[0]["target"]] * 2:  # type: ignore[index]
+            return None
+        assert parts[0] is not None and parts[1] is not None
+        modes.append({"text": f"{m['label']} — {m['cost']} — {m['p']}/{m['t']}.", "effects": [*parts[0]["effects"], *parts[1]["effects"]],
+                      "target": parts[0]["target"], "cost": m["cost"]})
+    return {"kind": "spell", "effects": [], "target": None, "modes": modes, "modal": {"min": 1, "max": 1, "repeat": False, "condition": None}}
+
+
 PRIMITIVES: dict[str, Any] = {}

@@ -87,3 +87,10 @@ def drive(s, answer=None, limit=80):
         else:
             return
     raise AssertionError("never settled")
+
+
+def pt(s, name, pid="p1"):
+    from app.rules import sba
+
+    c = card_named(s, name, pid)
+    return sba.power(s.state.cards[c.id], ch(s, c)), sba.toughness(s.state.cards[c.id], ch(s, c))

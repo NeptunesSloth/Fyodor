@@ -8691,6 +8691,10 @@ _SPREE_MODE = re.compile(r"^(?:\+ |• (?P<label>[^—{}]+) — )(?P<cost>(?:\{[
 
 def spree_definition(ch: Characteristics, lines: list[AbilityText]) -> Definition | None:
     tiered = any(ab.keywords == ("tiered",) for ab in ch.abilities if ab.kind == "keywords")
+    from app.rules import wave110b_cards  # -- wave 110B --
+
+    if tiered and (own110b := wave110b_cards.tiered(ch, lines)) is not None:
+        return own110b
     found = [_SPREE_MODE.fullmatch(ab.text) for ab in lines]
     if any(m is None or bool(m["label"]) != tiered for m in found) or len(lines) < 2:
         return None
