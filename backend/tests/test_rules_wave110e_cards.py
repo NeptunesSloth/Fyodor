@@ -218,13 +218,26 @@ BEATDOWN = real("Beastie Beatdown", "{2}{G}", 3, "Sorcery",
 AVENGE = real("Avenge", "{4}{W}{W}", 6, "Sorcery",
               "This spell costs {2} less to cast if a player attacked you during their last turn.\n"
               "Destroy all creatures. You gain 1 life for each creature destroyed this way.", None, "W")
-EXTRA.extend([CHOKING, LETHAL, BEATDOWN, AVENGE, real("Gy Rock", "{1}", 1, "Artifact", "", None)])
-NAMES.extend(["Choking Vines", "Lethal Exploit", "Beastie Beatdown", "Avenge"])
+SURGE = real("Voltage Surge", "{1}{R}", 2, "Instant",
+             "As an additional cost to cast this spell, you may sacrifice an artifact.\n"
+             "Voltage Surge deals 2 damage to target creature or planeswalker. If this spell's additional cost was paid, Voltage Surge deals 4 damage instead.", None, "R")
+EXTRA.extend([CHOKING, LETHAL, BEATDOWN, AVENGE, SURGE, real("Gy Rock", "{1}", 1, "Artifact", "", None)])
+NAMES.extend(["Choking Vines", "Lethal Exploit", "Beastie Beatdown", "Avenge", "Voltage Surge"])
 
 
 def test_choking_vines_blocks_unblocked_attackers_and_pings_each(cards):
     """509.1h/509.3c: targets become blocked (no damage to the player); 120.3: 1 damage to each of them."""
-    from tests.wave53c_kit import combat_step, creature, in_play, pool, priority_to, sandbox, settle, swing, to_postcombat
+    from tests.wave53c_kit import (
+        combat_step,
+        creature,
+        in_play,
+        pool,
+        priority_to,
+        sandbox,
+        settle,
+        swing,
+        to_postcombat,
+    )
 
     s = sandbox(cards, "Choking Vines")
     a = creature(s, "p1", "Aaa", "5/5", text="Whenever this creature becomes blocked, you gain 1 life.")
@@ -308,4 +321,20 @@ def test_avenge_is_cheaper_after_a_player_attacked_you_in_their_last_turn(cards,
     cast(s, "Avenge")
     answer(s)
     assert s.state.cards[bears.id].zone == "p2:graveyard" and s.state.players["p1"].life == life + 1  # 1 life per creature destroyed
+    check(s)
+
+
+@pytest.mark.parametrize("paid", [True, False])
+def test_voltage_surge_deals_four_only_when_an_artifact_was_sacrificed(cards, paid):
+    """601.2b/601.2h: the optional additional cost is announced and paid as it is cast; "instead" (608.2h) swaps 2 for 4 damage."""
+    s = build(cards, ["Voltage Surge", "Gy Rock"], ["Shivan Dragon"])
+    rock = put(s, "Gy Rock")
+    dragon = put(s, "Shivan Dragon", "p2")
+    mana(s, R=1, C=1)
+    spell = to_hand(s, "Voltage Surge", "p1")
+    extra = {"optional_costs": [f"{spell.id}:sacrifice110e"], "cost_choices": [{"component": 0, "cards": [rock.id]}]} if paid else {}
+    act(s, "p1", type="cast_spell", card_id=spell.id, targets=[dragon.id], **extra)
+    answer(s)
+    assert s.state.cards[dragon.id].damage == (4 if paid else 2)
+    assert s.state.cards[rock.id].zone == ("p1:graveyard" if paid else "p1:battlefield")
     check(s)

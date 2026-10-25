@@ -41,6 +41,9 @@ _BEATDOWN_REST = ("Delirium — If there are four or more card types among cards
                   "The creature you control deals damage equal to its power to the creature an opponent controls.")
 
 
+_SURGE = "Voltage Surge deals 2 damage to target creature or planeswalker. If this spell's additional cost was paid, Voltage Surge deals 4 damage instead."
+
+
 def bind_targets(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     """601.2c/115.9b: the creatures the cast spell targets (still on the battlefield), as one named group for "those creatures"."""
     from app.rules import context, token_copy_sources
@@ -92,6 +95,11 @@ def definition(ability: Any, ch: Any) -> Def | None:
         return {**deal, "effects": [*counters, *deal["effects"]]}
     if text in _BEATDOWN_REST:
         return {"kind": "spell", "effects": []}
+    if text == _SURGE:  # 601.2b: the optional sacrifice is the "additional cost"; read "if it was kicked" with that cost as the gate
+        native = scripts.define(replace(ability, text="Voltage Surge deals 2 damage to target creature or planeswalker. If it was kicked, Voltage Surge deals 4 damage instead."), ch)
+        if native is None:
+            return None
+        return {**native, "effects": [{**e, "optional": "sacrifice110e"} if e["do"] == "kicked_gate" else e for e in native["effects"]]}
     swap = _SWAP.get(ability.text.strip())
     if swap is not None:
         native = scripts.define(replace(ability, text=swap[0]), ch)

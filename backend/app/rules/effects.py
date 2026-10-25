@@ -3909,7 +3909,8 @@ def kicked_gate(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     wasn't) kicked; otherwise they're skipped."""
     from app.rules import conditions
 
-    held = conditions.holds(plan, ctx, {"object": "self", "cast": {"optional": "teamwork"}}) if e.get("teamwork") else values.kicked_holds(plan, ctx, e.get("with"))
+    held = conditions.holds(plan, ctx, {"object": "self", "cast": {"optional": "teamwork"}}) if e.get("teamwork") else conditions.holds(
+        plan, ctx, {"object": "self", "cast": {"optional": e["optional"]}}) if e.get("optional") else values.kicked_holds(plan, ctx, e.get("with"))
     if held != bool(e["kicked"]):  # (-- keywords (wave 50H) -- "kicked with its {R} kicker": ``with``; wave 100K: ``teamwork``, 702.194b, its announcement)
         ctx["next"] += int(e["n"])
     return True

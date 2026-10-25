@@ -793,7 +793,7 @@ DEFILER = re.compile(
 # -- casting costs (wave 22F) -- 601.2b: "As an additional cost to cast this spell, you may collect evidence 6." (701.59a) / "… you may behold a
 # Dragon." (701.4a): the caster announces it with the other optional costs and pays it with the rest (601.2h); the spell's own "if evidence
 # was collected" / "if a Dragon was beheld" read the record of that choice (conditions._cast_how)
-OWN_OPTIONAL = re.compile(r"^as an additional cost to cast this spell, you may (?P<cost>collect evidence \d+|behold an? [A-Z][a-z]+|reveal an? [A-Z][a-z]+ card from your hand|blight [1-5]|waterbend \{\d+\}|exile a creature card from your graveyard)\.?(?: \(.*\))?$")  # (-- blight (wave 51E) -- 701.68a)
+OWN_OPTIONAL = re.compile(r"^as an additional cost to cast this spell, you may (?P<cost>collect evidence \d+|behold an? [A-Z][a-z]+|reveal an? [A-Z][a-z]+ card from your hand|blight [1-5]|sacrifice an artifact|waterbend \{\d+\}|exile a creature card from your graveyard)\.?(?: \(.*\))?$")  # (-- blight (wave 51E) -- 701.68a)
 
 
 EVIDENCE_REDUCTION = re.compile(r"as an additional cost to cast this spell, you may collect evidence (?P<n>\d+)\. this spell costs \{(?P<cut>\d+)\} less to cast if evidence was collected\.?", re.IGNORECASE)
@@ -837,7 +837,7 @@ def optional_definition(t: str) -> dict[str, Any] | None:
         parsed = own_cost(text)
         if parsed is None:
             return None
-        kind = {"Collect": "evidence", "Behold": "behold", "Blight": "blight", "Reveal": "reveal", "Exile": "exile", "Waterbend": "waterbend103"}[text.split()[0]]
+        kind = {"Collect": "evidence", "Behold": "behold", "Blight": "blight", "Reveal": "reveal", "Exile": "exile", "Sacrifice": "sacrifice110e", "Waterbend": "waterbend103"}[text.split()[0]]
         return {"kind": "static", "static": "own_optional", "optional": kind, "cost": text, "effects": []}
     m = DEFILER.fullmatch(t)
     if m is None or m["color"].lower() != m["color2"].lower() or _COLORS[m["color"].lower()] != m["sym"]:
@@ -873,7 +873,7 @@ def keyword_component(o: Optional, x: int = 0) -> Any:
     if o.kind == "bargain":  # -- keywords (wave 30E) -- 702.166a: "you may sacrifice an artifact, enchantment, or token" (you control, 701.21a)
         either = tuple(Selector(controller="you", **kw).key() for kw in ({"types": ("Artifact",)}, {"types": ("Enchantment",)}, {"token": True}))
         return C.CostComponent(C.SACRIFICE, amount=1, selector=Selector(either=either).key(), text="Sacrifice an artifact, enchantment, or token", reduces=o.n)
-    if o.kind in ("evidence", "behold", "blight", "reveal", "exile", "flash_tap", "waterbend103"):  # -- casting costs (wave 22F) --
+    if o.kind in ("evidence", "behold", "blight", "reveal", "exile", "flash_tap", "waterbend103", "sacrifice110e"):  # -- casting costs (wave 22F) --
         piece = own_cost(o.text)
         return replace(piece, reduces=o.n) if o.kind == "evidence" and o.n and piece is not None else piece
     if o.kind == "offering":  # -- offering (wave 51H) -- 702.48a: "you may sacrifice a [quality] permanent"
