@@ -67,6 +67,8 @@ def _clause(clause: str) -> dict[str, Any] | None:
                 "whose": None, "first_combat": True}  # (first_combat: wave 7R, see problem)
     if clause == "during an opponent's turn after their upkeep step":
         return {"kind": "step", "phases": list(PHASES[PHASES.index("upkeep") + 1:]), "whose": "opponent"}
+    if clause == "after combat":  # (wave 110F) Jabari's Influence: 500.1 the phases after the combat phase (main2, end); 506.8 any combat's end
+        return {"kind": "step", "phases": list(PHASES[PHASES.index("end_combat") + 1:]), "whose": None}
     if clause == "during an opponent's upkeep":
         return {"kind": "step", "phases": ["upkeep"], "whose": "opponent"}
     if clause == "if you've been attacked this step":

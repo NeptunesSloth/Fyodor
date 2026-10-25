@@ -36,7 +36,7 @@ from typing import Any
 from app.game.errors import ActionError
 from app.game.rules_state import DecisionOption, ObjectRef, PaymentRecord
 from app.game.state import CardInstance
-from app.rules import context, cost_payment, mana_units, optional_counter55
+from app.rules import context, cost_payment, mana_units, optional_counter55, selectors
 from app.rules import costs as C
 from app.rules import mana as M
 from app.rules.costs import AbilityCost
@@ -63,11 +63,12 @@ _MANA_ONLY = re.compile(r"^(\{[^}]+\})+$")
 def _blight_like(comp: C.CostComponent) -> bool:
     """A "put N counters on a creature you control" part (blight): one chosen permanent of the payer's — or "discard
     your hand" (every card in it; ``paid_x`` records how many, for "draw that many cards"); -- champion (wave 12B) -- or one chosen
-    permanent exiled (702.72a); -- keywords (wave 43C) -- or a counter put on the source itself ("Cumulative upkeep—Put a -1/-1 counter on this
+    permanent exiled (702.72a); -- cards (wave 110F) -- or a discard of either of two descriptions ("an instant or sorcery card or a creature card with flying"); -- keywords (wave 43C) -- or a counter put on the source itself ("Cumulative upkeep—Put a -1/-1 counter on this
     creature": not on the battlefield, it can't be paid, cost_payment._new_part_problem)."""
     return comp.kind in (C.FORAGE, C.COLLECT_EVIDENCE, C.WATERBEND) or (comp.kind == C.PUT_COUNTER and comp.alt is None and not comp.x) \
         or comp.kind == C.DISCARD_HAND or comp.kind == C.MILL \
         or (comp.kind == C.EXILE and comp.selector is not None and comp.amount == 1) \
+        or (comp.kind == C.DISCARD and comp.alt is not None and comp.selector is not None) \
         or (comp.kind == C.SACRIFICE and comp.alt is not None and comp.selector is not None)  # (wave 8C: mill 701.17b; "another creature or an artifact")
 
 
@@ -230,14 +231,14 @@ def problem(plan: Plan, ctx: Context, cost: AbilityCost, payer: str, chosen: dic
             or (prohibitions.cant_cause_discard(plan, payer, ctx["controller"]) if parts & {C.DISCARD, C.DISCARD_HAND} else None)):
         return f"{why}: {plan.name(payer)} can't be made to sacrifice or discard by it"
     was, plan.resolution_cost = plan.resolution_cost, True  # (a cost paid as it resolves: Angel of Jubilation doesn't reach it)
-    excluded_before = plan.excluded
+    excluded_before, plan.cost_attacker = plan.excluded, selectors.attacker_of(ctx.get("event"))  # (wave 110C: "other than that creature")
     if ctx.get('resolution_cost_exclusions'):
         plan.excluded = plan.excluded | _taken(plan, ctx, payer)
     try:
         return _problem(plan, ctx, cost, payer, chosen, cost_has_x=cost_has_x)
     finally:
         plan.resolution_cost = was
-        plan.excluded = excluded_before
+        plan.excluded, plan.cost_attacker = excluded_before, None
 
 
 def _problem(plan: Plan, ctx: Context, cost: AbilityCost, payer: str, chosen: dict[int, list[str]] | None,
@@ -610,12 +611,12 @@ def _choose_next(plan: Plan, ctx: Context, opt: dict[str, Any], cost: AbilityCos
                    resume=_resume(ctx, opt, cost, component=i, amount=None, hand=True, flexible=True),
                    source=plan.state.cards.get(ctx.get("source_card") or ""))
             return False
-        was, plan.resolution_cost = plan.resolution_cost, True  # (review 22B)
+        was, plan.resolution_cost, plan.cost_attacker = plan.resolution_cost, True, selectors.attacker_of(ctx.get("event"))  # (review 22B)
         try:
             usable = [c for c in cost_payment.candidates(plan, comp, payer, source)
                       if c not in cost_payment._reserved(cost, comp, source) and c not in used]
         finally:
-            plan.resolution_cost = was
+            plan.resolution_cost, plan.cost_attacker = was, None
         if comp.kind == C.WATERBEND:
             if not usable:
                 opt["chosen"][str(i)] = []

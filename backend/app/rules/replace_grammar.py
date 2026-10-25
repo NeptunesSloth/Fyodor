@@ -281,6 +281,9 @@ _LIFE = re.compile(r"^If (?P<who>you|an opponent|a player) would gain life(?P<ca
 
 
 def _life(text: str) -> Definition | None:
+    if text == "If a spell or ability would cause its controller to gain life, that player loses that much life instead.":
+        # -- life gain (wave 110H) -- Rain of Gore: only a gain its source's controller gets (lifelink's source is a permanent: 702.15)
+        return _static("life", {"who": "any", "by_controller": True}, {"do": "lose"})
     m = _LIFE.match(text)
     if not m:
         return None
@@ -664,7 +667,7 @@ def _damage_plain(text: str) -> Definition | None:
         text = "If ~ would deal damage to a permanent or player, it deals double that damage instead."
     if (d := _damage_to(text)) is not None:
         return d
-    m = _DAMAGE.match(text)
+    m = _DAMAGE.match(text.replace("to a creature, battle, or opponent,", "to an opponent or a creature or battle,"))  # (wave 110F: Disciples of the Inferno; the comma list would split the match)
     if not m:
         return None
     src = _source(m["src"])
@@ -762,6 +765,11 @@ _ENTER_EXTRA = re.compile(
 
 
 def _enter_extra(text: str) -> Definition | None:
+    if text == "Each other colorless creature you control has bloodthirst 2.":  # -- bloodthirst grant (wave 110A) -- 702.54a, as counters
+        d = _enter_extra("Each other colorless creature you control enters with two additional +1/+1 counters on it.")
+        if d is not None:
+            d["match"]["bloodthirst110a"] = True  # replace._counters_applies: only if an opponent was dealt damage this turn
+        return d
     # Thunderous Velocipede: both branches describe one entry replacement,
     # whose amount uses the entering permanent's characteristics (614.12).
     threshold = re.fullmatch(

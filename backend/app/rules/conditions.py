@@ -64,6 +64,12 @@ def parse(text: str, *, objects: bool = False) -> Condition | None:
     refers to ("it's a land card", "~ is tapped") — only for wording inside an ability's effects or
     trigger, which has those objects (statics and restrictions don't)."""
     t = text.strip().rstrip(",").replace("’", "'")
+    from app.rules import wave110c_history  # -- turn history (wave 110C) --
+
+    if (hist110c := wave110c_history.condition(t)) is not None:
+        return hist110c
+    if t == "a player attacked you during their last turn":  # -- wave 110E -- previous_own_turns
+        return {"w110e": "attacked_last_turn"}
     if t.lower() == 'you control a stickered permanent':
         return {'stickered_you101': True}
     from app.rules import damage_retention83
@@ -260,7 +266,7 @@ _COUNT_COUNTERS = re.compile(r"(?P<who>it|~|that creature|that permanent) (?:has
 # last existed, 608.2h — granted ones included). Keyword abilities only; "protection" (which quality?) isn't read.
 _HAS_KEYWORD = re.compile(rf"(?P<who>it|~|that (?:creature|permanent|card)|{_HOST_WORDS}) (?:has|had|(?P<neg>doesn't have|didn't have)) (?P<kw>decayed|flying|reach|haste|trample|deathtouch|"
                           r"lifelink|menace|vigilance|first strike|double strike|hexproof|indestructible|defender|infect|"
-                          r"toxic|wither|flash|madness|flashback|shroud|cycling)")
+                          r"toxic|wither|flash|madness|flashback|shroud|cycling|rampage)")  # (wave 110F: Rapid Fire)
 
 
 def _stat_object(who: str) -> str:
@@ -954,6 +960,11 @@ def _self_attacked(m: re.Match[str]) -> Condition:
     return {"not": found} if m["neg"] else found
 
 
+@_history_pattern(r"~ attacked a battle this turn")
+def _self_attacked_battle(m: re.Match[str]) -> Condition:
+    return {"history": "self_attacked_battle110j", "object": "self"}  # (wave 110J) 310.5: it was declared against a battle this turn
+
+
 @_history_pattern(r"~ (?:didn't|did not) enter the battlefield this turn")
 def _self_not_entered(m: re.Match[str]) -> Condition:
     return {"not": {"history": "entered_self", "object": "self"}}  # ("object": what "it" after it names, 608.2c)
@@ -1599,6 +1610,18 @@ def bind_objects(cond: Condition, who: str) -> Condition:
 
 
 def holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
+    if "w110e" in cond:  # -- wave 110E -- 508.1: another player's last completed turn (previous_own_turns); unknown history (old save) = no
+        from app.rules import previous_own_turns
+
+        return previous_own_turns.eligible_player(plan.state, ctx["controller"])
+    if "w110g" in cond:  # -- wave 110G --
+        from app.rules import wave110g_cards
+
+        return wave110g_cards.holds(plan, ctx, cond)
+    if "w110a" in cond:  # -- wave 110A --
+        from app.rules import wave110a
+
+        return wave110a.holds(plan, ctx, cond)
     if cond.get("damage_death105"):
         from app.rules import vampire_returns105
 
@@ -1631,6 +1654,10 @@ def holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
         from app.rules import counters100j
 
         return counters100j.holds(plan, ctx, cond)
+    if "ring110d" in cond:  # -- lines (wave 110D) -- the Ring has tempted you N or more times
+        from app.rules import wave110d_lines
+
+        return wave110d_lines.holds(plan, ctx, cond)
     if cond.get("frodo100h") or cond.get("flurry100h"):  # -- turn state (wave 100H) --
         from app.rules import turnstate100h
 
@@ -1671,6 +1698,9 @@ def holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
         from app.rules import name_relation_continuations
 
         return name_relation_continuations.event_linked_name(plan, ctx)
+    if cond.get("exploited110j"):  # -- wave 110J -- the creature the trigger is about was exploited by this source (702.110b)
+        refs = (ctx.get("event") or {}).get("objects") or []
+        return bool(refs) and (ctx.get("source_object"), refs[0]["object_id"]) in plan.rules.exploited110j
     if 'copy_spell_targets' in cond:
         from app.rules import token_copy_sources
 
@@ -1947,6 +1977,10 @@ def _object_holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
     that object where it was, else as it last existed (608.2h); an object that can't be found
     fails the test (608.2b: a part that needs the information can't be carried out)."""
     who = cond["object"]
+    if "cast_alt110a" in cond:  # -- wave 110A -- "if that creature was cast for its warp cost": the record its spell left (engine.py:1044)
+        found = values._object(plan, ctx, who)
+        record = None if found is None else plan.rules.payments.get(plan.oid(found[0]))
+        return record is not None and record.alternative == cond["cast_alt110a"]
     if "controlled_by" in cond:  # -- static_other sweep (wave 17C) -- the controller it had: as it is, or as it last existed (608.2h)
         found = values._object(plan, ctx, who)
         return found is not None and (found[0].controller == ctx["controller"]) != bool(cond.get("negate"))

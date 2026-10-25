@@ -331,6 +331,8 @@ def ref(phrase: str) -> tuple[str, str, dict[str, Any] | None]:
         return "self", "", None
     if p in ("it", "that creature", "that permanent", "that card", "that token", "that artifact"):  # (wave 20E: "Untap that artifact")
         return "it", "", None  # a pronoun: resolved against its antecedent (scripts.resolve_it)
+    if p == "the chosen creature":  # -- chosen objects (wave 110A) -- the creature the source chose as it entered (wave110a_pick)
+        return "each", selectors.parse("chosen creature").key(), None  # type: ignore[union-attr]
     if p == OTHER_SIDE:  # -- damage wordings (wave 6B) -- (scripts._define writes it for a block trigger's "that creature")
         return "each", "ref:event_other", None
     if p == "that land":  # -- recursion & tutors (wave 4M) -- "… put it onto the battlefield tapped, then shuffle. Then if
@@ -1991,7 +1993,7 @@ def _parse(text: str) -> tuple[Effects, Any]:
             return [{"do": "spell_self_move", "to": "exile", "counters": {"time": n}}], None
     # -- end counters (wave 7C) --
     m = re.fullmatch(r"(?P<o>.+?) phases? out", text)  # -- phasing (wave 13D) -- 702.26b: "Target creature phases out."
-    if m and not re.search(r"\b(?:until|unless|if|when|whenever|at|and|then|can't|for as long as)\b", m["o"]):
+    if m and not re.search(r"\b(?:until|unless|if|when|whenever|at|and(?!/or)|then|can't|for as long as)\b", m["o"]):
         kind, key, group = ref(m["o"])
         if kind == "players":
             raise _Fail
@@ -2344,8 +2346,8 @@ def _parse(text: str) -> tuple[Effects, Any]:
     m = re.fullmatch(rf"remove (?P<n>{AMT}|all) (?P<k>[+-]\d+/[+-]\d+|[a-z]+) counters? from (?P<o>.+)", text)
     if m:
         kind, key, group = ref(m["o"])
-        if kind == "players" or (m["n"] == "all" and rider is not None):
-            raise _Fail
+        if kind == "players" or (m["n"] == "all" and rider is not None) or re.search(r"\b(?:players?|opponents?)\b", m["o"]):
+            raise _Fail  # (wave 110I: remove_counters only reads cards; a player's counters would silently do nothing)
         # (wave 17D: "remove all -1/-1 counters from it" - as many as there are, 122.8)
         n = 10**6 if m["n"] == "all" else _apply(_amount(m["n"]), rider)
         return [{"do": "remove_counters", "who": _who(kind, key), "kind": m["k"], "n": n}], _one(group)
@@ -3096,7 +3098,7 @@ CHOOSE_VALUE = rf"choose (?:(?:a|an) )?(?P<what>color|creature type|basic land t
 CARD_TYPE_FIVE = "artifact, creature, enchantment, instant, or sorcery"  # -- commanders (wave 47A) -- Cloud Key: the five card types it offers
 TYPE_LIST = r"[A-Z][a-z]+(?:, [A-Z][a-z]+)+, or [A-Z][a-z]+"  # -- chosen type (wave 51C) -- "choose Elemental, Elf, Faerie, Giant, Goblin, Kithkin, Merfolk, or Treefolk" (Eclipsed Realms, Dawn-Blessed Pennant)
 _BASIC_PAIR = "(?:Plains|Island|Swamp|Mountain|Forest) or (?:Plains|Island|Swamp|Mountain|Forest)"  # -- chosen filters (wave 53B) -- "choose Island or Swamp" (Roots of Life): a basic land type, only those two
-ENTERS_CHOICE = re.compile(rf"^As ~ enters, choose (?:(?:a|an) )?(?P<what>color|creature type|basic land type|land type|opponent|player|odd or even|card type(?: other than creature or land)?|{CARD_TYPE_FIVE}|number between 1 and 10|two abilities from among first strike, vigilance, and lifelink|{TYPE_LIST}|{_chosen.TYPE_CHOICE}|{_chosen.NUMBER_CHOICE}|color and a creature type|color and an opponent|two basic land types|two colors|{_BASIC_PAIR}|{_chosen.PAIRS})\.$")  # (wave 47A: card type, Umori and Stenn; Cloud Key; wave 51C: a short list of creature types)
+ENTERS_CHOICE = re.compile(rf"^As ~ enters, (?:choose (?:(?:a|an) )?|(?P<opp>an opponent chooses )(?:a )?(?=creature type\.$))(?P<what>color|creature type|basic land type|land type|opponent|player|odd or even|card type(?: other than creature or land)?|{CARD_TYPE_FIVE}|number between 1 and 10|two abilities from among first strike, vigilance, and lifelink|{TYPE_LIST}|{_chosen.TYPE_CHOICE}|{_chosen.NUMBER_CHOICE}|color and a creature type|color and an opponent|two basic land types|two colors|{_BASIC_PAIR}|{_chosen.PAIRS})\.$")  # (wave 47A: card type, Umori and Stenn; Cloud Key; wave 51C: a short list of creature types)
 
 
 # -- choose own (wave 32A) -- "Then you may choose a token you control." (Brudiclad), "Choose a Giant creature you control. It deals damage equal to its
@@ -3369,6 +3371,9 @@ def enters_choice(text: str) -> dict[str, Any] | None:
     m = ENTERS_CHOICE.match(text)
     if m is None:
         return None
+    if m["opp"]:  # -- opponent chooses (wave 110E) -- 614.12a: an opponent answers "As ~ enters, an opponent chooses a creature type." (Callous Oppressor); replacements.named_choices
+        return {"kind": "replacement", "replacement": "enters_choice",
+                "effects": [{"do": "choose_value", "who": "you", "what": "creature type", "remember": True, "opp110e": True}]}
     if re.fullmatch(_BASIC_PAIR, m["what"]):  # (wave 53B: the answer is a basic land type; the two words are its options)
         return {"kind": "replacement", "replacement": "enters_choice",
                 "effects": [{"do": "choose_value", "who": "you", "what": "basic land type", "options": m["what"].split(" or "), "remember": True}]}

@@ -6,10 +6,13 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 _NIGHT = 'After you roll a die, you may pay 1 life. If you do, increase or decrease the result by 1. Do this only once each turn.'
+# -- Xenosquirrels (wave 110H) -- the same adjustment paid with a counter and offered once per die rolled (no once-a-turn limit)
+_XENO = 'After you roll a die, you may remove a +1/+1 counter from this creature. If you do, increase or decrease the result by 1.'
+_COST = {_NIGHT: ('Pay 1 life', True), _XENO: ('Remove a +1/+1 counter from it', False)}  # text -> (cost, once each turn)
 
 
 def definition(text: str) -> dict[str, Any] | None:
-    return {'kind': 'static', 'static': 'roll_adjust', 'effects': []} if text == _NIGHT else None
+    return {'kind': 'static', 'static': 'roll_adjust', 'effects': [], 'life': text == _NIGHT} if text in _COST else None  # (wave 110H) 'life': planar-die gap
 
 
 class Adjustment(BaseModel):
@@ -33,6 +36,7 @@ class NumericFrame(BaseModel):
     skipped: list[str] = Field(default_factory=list)
     printed_done: bool = False
     selected: Adjustment | None = None
+    used: dict[str, list[int]] = Field(default_factory=dict)  # (wave 110H) the dice each repeatable source adjusted
     die_index: int | None = None
     published: bool = False
 
@@ -48,9 +52,13 @@ def valid_source(plan: Any, source: Adjustment, controller: str) -> bool:
         return False
     ch = plan.ch(card)
     skipped = conditional_lines(ch)
-    return any(ab.index == source.ability and ab.index not in skipped and ab.text == _NIGHT
+    return any(ab.index == source.ability and ab.index not in skipped and ab.text in _COST
                and not abilities_of.manual(ab) and (abilities_of.link_scope(ab) or '') == source.scope
                for ab in ch.abilities)
+
+
+def _cost(plan: Any, source: Adjustment) -> tuple[str, bool]:
+    return next(_COST[ab.text] for ab in plan.ch(plan.state.cards[source.card]).abilities if ab.index == source.ability)
 
 
 def has_adjustment(plan: Any, controller: str) -> bool:
@@ -60,7 +68,7 @@ def has_adjustment(plan: Any, controller: str) -> bool:
         if card.controller != controller or not card.zone.endswith(':battlefield'):
             continue
         for ab in plan.ch(card).abilities:
-            if ab.text == _NIGHT:
+            if ab.text in _COST:
                 source = Adjustment(card=card.id, oid=plan.oid(card), ability=ab.index, scope=abilities_of.link_scope(ab) or '')
                 if valid_source(plan, source, controller):
                     return True
@@ -79,7 +87,7 @@ def start(plan: Any, ctx: dict[str, Any], effect: dict[str, Any], naturals: list
         if not plan.in_game(card) or not card.zone.endswith(':battlefield') or card.controller != ctx['controller']:
             continue
         for ab in plan.ch(card).abilities:
-            if ab.text == _NIGHT:
+            if ab.text in _COST:
                 source = Adjustment(card=card.id, oid=plan.oid(card), ability=ab.index, scope=abilities_of.link_scope(ab) or '')
                 if valid_source(plan, source, ctx['controller']):
                     sources.append(source)
@@ -108,9 +116,10 @@ def offer(plan: Any, frame: NumericFrame) -> bool:
     assert not frame.published
     available = [source for source in frame.sources if valid_source(plan, source, frame.ctx['controller'])
                  and source.key() not in frame.skipped
-                 and plan.rules.once_per_turn.get(source.key()) != plan.state.turn.number]
+                 and plan.rules.once_per_turn.get(source.key()) != plan.state.turn.number
+                 and len(frame.used.get(source.key(), [])) < len(frame.results)]
     if available:
-        options = [DecisionOption(id=source.key(), label='Pay 1 life to adjust one result (Night Shift of the Living Dead)') for source in available]
+        options = [DecisionOption(id=source.key(), label=f'{_cost(plan, source)[0]} to adjust one result ({plan.state.cards[source.card].name})') for source in available]
         if frame.effect.get('mod') and not frame.printed_done:
             options.append(DecisionOption(id='printed', label='Apply the printed die modifier'))
         options.append(DecisionOption(id='done', label='Finish without further optional adjustments'))
@@ -155,9 +164,9 @@ def resume(plan: Any, decision: Any, chosen: list[str]) -> None:
                 return
             frame.selected = source
             payment_ctx = {**frame.ctx, 'source_card': source.card, 'source_object': source.oid,
-                           'name': 'Night Shift of the Living Dead', 'refs': {}, 'next': 0,
+                           'name': plan.state.cards[source.card].name, 'refs': {}, 'next': 0,
                            'body_done': {'do': 'noop'},
-                           'effects': [{'do': 'optional_payment', 'who': 'you', 'cost': 'Pay 1 life', 'bind': 'roll42_paid'},
+                           'effects': [{'do': 'optional_payment', 'who': 'you', 'cost': _cost(plan, source)[0], 'bind': 'roll42_paid'},
                                        {'do': 'numeric_roll42_paid', 'frame': frame.model_dump()}]}
             effects.continue_effects(plan, payment_ctx)
     elif phase == 'die':
@@ -165,6 +174,7 @@ def resume(plan: Any, decision: Any, chosen: list[str]) -> None:
             _after(plan, frame)
             return
         frame.die_index = int(chosen[0])
+        frame.used.setdefault(frame.selected.key(), []).append(frame.die_index)
         assert 0 <= frame.die_index < len(frame.results)
         decide(plan, player=frame.ctx['controller'], kind='choose_one', prompt='Increase or decrease that result?',
                options=[DecisionOption(id='plus', label='Increase by 1'), DecisionOption(id='minus', label='Decrease by 1')],
@@ -189,9 +199,11 @@ def paid(plan: Any, payment_ctx: dict[str, Any], effect: dict[str, Any]) -> bool
         frame.skipped.append(frame.selected.key())
         _after(plan, frame)
         return True
-    plan.rules.once_per_turn[frame.selected.key()] = plan.state.turn.number
+    if _cost(plan, frame.selected)[1]:
+        plan.rules.once_per_turn[frame.selected.key()] = plan.state.turn.number
     decide(plan, player=frame.ctx['controller'], kind='choose_one', prompt='Choose the die result to adjust',
-           options=[DecisionOption(id=str(i), label=f'Die {i + 1}: {n}') for i, n in enumerate(frame.results)],
+           options=[DecisionOption(id=str(i), label=f'Die {i + 1}: {n}') for i, n in enumerate(frame.results)
+                    if i not in frame.used.get(frame.selected.key(), [])],
            resume={'step': 'numeric_roll42', 'phase': 'die', 'frame': frame.model_dump()})
     return True
 

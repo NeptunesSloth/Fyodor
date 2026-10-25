@@ -760,7 +760,7 @@ def features_of(ch: Characteristics) -> list[Feature]:
         gaps |= {g for g in [counters_designations_gap(whole)] if g is not None}
     for gap in sorted(gaps):
         add("engine:dungeon", gap[0].upper() + gap[1:], False)
-    if any(d.get("kind") == "static" and d.get("static") == "roll_adjust" for d in defs.values()):
+    if any(d.get("kind") == "static" and d.get("static") == "roll_adjust" and d.get("life", True) for d in defs.values()):  # (wave 110H: a counter cost has no life to pay)
         # Night Shift's numeric rules are complete. Its accepted-use life payment
         # on a symbolic planar die still requires the native planar-roll model.
         add("engine:planar_roll_payment", "Planar-die life payment and accepted-use accounting", False)
@@ -846,4 +846,8 @@ def x_selector_ok(ch: Characteristics, d: dict[str, Any]) -> bool:
         from app.rules import triggers
 
         return triggers.x_source(d, ch) is not None
-    return d.get("kind") == "spell" and "{X}" in (ch.mana_cost or "")
+    # -- additional cost X (wave 110C) -- 107.3a, 601.2b: "As an additional cost to cast this spell, pay X life." announces the X too (Fix What's Broken)
+    from app.rules.costs import spell_additional_cost
+
+    extra = spell_additional_cost(ch.abilities)
+    return d.get("kind") == "spell" and ("{X}" in (ch.mana_cost or "") or (extra is not None and (extra.life_x or any(c.counters_x for c in extra.components))))

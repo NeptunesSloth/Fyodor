@@ -391,6 +391,10 @@ def extra_phases(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
             when={"kind": "step", "step": "begin_combat", "whose": "next", "tag": tag}, effects=e["then"], turn=plan.state.turn.number, step=phase,
             until_turn=plan.state.turn.number))
     count = int(e.get("count", 1))
+    if e.get("only110d"):  # -- extra combat (wave 110D) -- 500.8: "Only the chosen creatures can attack during that combat phase": their object ids
+        from app.rules import effects
+
+        tag = "only:" + ",".join(plan.oid(c) for c in effects._cards(plan, ctx, e["only110d"]))
     tag = "only_land" if e.get("only_land") else tag  # (wave 100K: the combat's own tag, read by combat.attack_problem)
     added = ["begin_combat" + (f"@{tag}" if tag else "")] * count + (["main2"] if e.get("main") else [])
     r.extra_phases = added + (list(r.extra_phases) or [_NATURAL[current]])

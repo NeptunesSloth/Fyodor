@@ -65,6 +65,10 @@ def static_definition(text: str) -> dict[str, Any] | None:
         return {'kind': 'static', 'static': 'untap_category89',
                 'conditions': [{'static': 'self', 'test': 'untapped'}], 'effects': []}
     m = _LIMIT.match(text.strip())
+    if m is None and (opp := re.fullmatch(r"Your opponents can't untap more than (two) permanents during their untap steps\.", text.strip())):
+        # -- planeswalker statics (wave 110A) -- Dovin Baan's emblem: 502.3 as above, for the emblem controller's opponents only
+        return {"kind": "static", "static": "untap_limit", "sel": selectors.Selector().key(), "n": _NUMBERS[opp[1]], "scope89": "opponents",
+                "effects": [], "conditions": []}
     sel = selectors.parse(f"{m['w']}s") if m else None
     if m is None or sel is None:
         return None
@@ -80,7 +84,7 @@ def limited(plan: Plan, player: str, keep: list[str]) -> list[list[Any]]:
     categories: list[list[Any]] = []
     for src, _, d in permissions._table_statics(plan.state, plan.info, {"untap_limit", "untap_category89"}):
         if not statics.conditions_hold(plan, d, source=src, controller=src.controller) \
-                or (d.get('scope89') == 'you' and player != src.controller):
+                or (d.get('scope89') == 'you' and player != src.controller) or (d.get('scope89') == 'opponents' and player == src.controller):
             continue
         if d['static'] == 'untap_category89':
             ids = [c.id for c in plan.state.cards.values() if c.tapped and c.controller == player

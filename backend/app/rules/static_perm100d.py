@@ -140,6 +140,8 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
         return {"kind": "static", "static": LIFE_ENTRY, "cap": _LIFE_LINES[text], "effects": []}
     if text in _AS_ENTERS:
         return {"kind": "static", "static": AS_ENTERS, "do": _AS_ENTERS[text], "effects": []}
+    if text == "~ can be attached only to a legendary creature." and "Equipment" in ch.subtypes:  # -- wave 110A -- Konda's Banner (301.5c, 704.5n)
+        return {"kind": "static", "static": ATTACH_ONLY, "stat": "legendary", "min": 0, "effects": []}
     if (m := _ATTACH_ONLY.fullmatch(text)) is not None and "Equipment" in ch.subtypes:
         return {"kind": "static", "static": ATTACH_ONLY, "stat": m["stat"], "min": int(m["n"]), "effects": []}
     if (rule := _rule_static(text, ch)) is not None:
@@ -337,6 +339,10 @@ def equip_problem(plan: Plan, source: CardInstance, host: CardInstance) -> str |
         return f"{host.name or 'that creature'} can't be equipped"
     for d in _statics(plan, source, ATTACH_ONLY):
         hch = plan.ch(host)
+        if d["stat"] == "legendary":  # (-- wave 110A -- "can be attached only to a legendary creature")
+            if "Legendary" not in hch.supertypes:
+                return "it can be attached only to a legendary creature"
+            continue
         value = sba.power(host, hch) if d["stat"] == "power" else sba.toughness(host, hch)
         if value is not None and value < int(d["min"]):  # (a value the engine can't read: never moved off on a guess)
             return f"it can be attached only to a creature with {d['stat']} {d['min']} or greater"
@@ -528,6 +534,10 @@ def any_static(plan: Plan, kind: str) -> bool:
 
 
 def face_up_barred(plan: Plan, card: CardInstance) -> str | None:
+    from app.rules import wave110d_rules  # -- rules (wave 110D) -- "can't be turned face up"
+
+    if (own := wave110d_rules.face_up_barred(plan, card)) is not None:
+        return own
     you = plan.state.turn.active_player
     src = next((c for c in _sources(plan, NO_FACE_UP) if c.controller == you != card.controller), None)
     return None if src is None else f"{src.name or 'A permanent'}: permanents its controller's opponents control can't be turned face up during their turn"

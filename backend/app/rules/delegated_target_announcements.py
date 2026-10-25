@@ -23,7 +23,15 @@ CREATURE = 'delegated_target_creature'
 TEXT = "{3}, {T}: The next time a source of your choice would deal damage to you this turn, that damage is dealt to target creature of an opponent's choice instead."
 
 
+PREACHER = "{T}: For as long as this creature remains tapped, gain control of target creature of an opponent's choice they control."
+
+
 def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
+    if ability.kind == 'activated' and ability.text == PREACHER:  # -- delegated (wave 110D) -- the chosen opponent picks among THEIR creatures
+        from app.rules import scripts
+
+        d = scripts.define(replace(ability, text="{T}: For as long as this creature remains tapped, gain control of target creature."), ch)
+        return {**d, 'delegated_target': 'opponent', 'delegated_controls110d': True} if d else None
     if ability.kind != 'activated' or ability.text != TEXT:
         return None
     return {'kind': 'activated', 'cost': ability.cost, 'target': {'what': 'creature'},
@@ -92,6 +100,8 @@ def _legal(plan: Plan, frame: Announcement, *, first: bool = False) -> list[str]
     source = targets.source_of(plan, frame.source_card, object_id=frame.source_object)
     selector = scripts.target_groups(frame.definition)[0 if first else 1]['what'] if frame.mode == 'target_controller' else 'creature'
     legal = targets.legal_targets(plan, selector, frame.actor, source, frame.source_card, source_object=frame.source_object)
+    if frame.definition.get('delegated_controls110d') and frame.opponent:
+        legal = [c for c in legal if plan.state.cards[c].controller == frame.opponent]
     if first:
         from app.rules import flagbearer86
 

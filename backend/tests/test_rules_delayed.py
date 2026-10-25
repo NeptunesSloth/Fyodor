@@ -108,13 +108,18 @@ def test_pronouns_inside_a_deferred_effect_bind_to_the_earlier_instruction():
 
 @pytest.mark.parametrize("text", [
     "Destroy it at the beginning of the next end step if it didn't attack this turn.",  # Norritt: a condition on the deferred effect
-    "Exile target creature. Until your next turn, whenever a creature becomes tapped, destroy it.",  # an "each" duration
     "Target creature gets +2/+2 until your next turn. Draw a card for as long as ~ remains tapped.",  # not a continuous effect
     "When a creature dealt damage this way dies this turn, create a 1/1 black Skeleton creature token.",  # Skeletonize: several objects
     "At the beginning of the next end step, sacrifice it.",  # nothing earlier for "it" to be
 ])
 def test_refusals(text):
     assert parsed(text) is None
+
+
+def test_tapped_watch_destroys_the_tapped_creature():
+    """Wave 110A: tapping makes no new object (701.26a), so "it" is the creature that became tapped (Don't Move)."""
+    got = parsed("Exile target creature. Until your next turn, whenever a creature becomes tapped, destroy it.")
+    assert got is not None and got[-1] == {"do": "deferred:destroy", "who": "event"}
 
 
 # -- "at the beginning of the next end step": the object as bound (603.7c) ----------------------

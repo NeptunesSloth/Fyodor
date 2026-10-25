@@ -159,6 +159,8 @@ def clause(text: str) -> tuple[list[dict[str, Any]], None] | None:
             from app.rules import cost_changes
 
             amount = cost_changes._value(re.sub(r" as this ability resolves$", "", cost["v"]))
+            if cost["v"] == "the number of cards looked at while scrying this way":  # -- spells (wave 110A) -- Elminster: the scry trigger's amount (701.22d)
+                amount = {"event_amount": 1}
             if not isinstance(amount, dict):
                 amount = None
         if not ok or amount is None or (cost["n"] != "X") != (cost["v"] is None):

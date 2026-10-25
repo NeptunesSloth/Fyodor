@@ -304,7 +304,7 @@ def facts(plan: Plan, e: Event) -> list[Any]:
         return [("clash", None, None, e.player, {"amount": e.amount})]
     if e.counter in ("roll_visit", "visit", "open_attraction", "claim_prize") and e.player:  # -- Attractions (wave 100L) -- (attractions100l.py)
         return [({"visit": "visit_attraction"}.get(e.counter, e.counter), None, None, e.player, {"amount": e.amount, "oid": e.object_id})]
-    if e.counter in ("forage", "collect_evidence") and e.player:  # -- if you do (wave 26C) -- 701.61, 701.59 (cost_payment.pay)
+    if e.counter in ("forage", "collect_evidence", "manifest_dread") and e.player:  # -- if you do (wave 26C) -- 701.61, 701.59 (cost_payment.pay)
         return [(e.counter, None, None, e.player, {})]
     if e.counter == "connive" and e.card in plan.state.cards:  # -- trigger tail (wave 15B) -- 701.50a: the conniving permanent
         card = plan.state.cards[e.card]
@@ -987,7 +987,11 @@ def day_night_sync(plan: Plan, became: bool = False) -> bool:
     r = plan.rules
     entering = {e.new_object_id for e in r.events if e.kind == "zone_change" and e.batch > r.trigger_batch
                 and (e.to_zone or "").endswith(":battlefield")} if to == 1 and not (changed or became) else set()
-    for c in flip:
+    from app.rules import (
+        wave110d_rules,  # -- rules (wave 110D) -- 701.28f: a permanent that can't transform stays as it is
+    )
+
+    for c in [c for c in flip if not wave110d_rules.has_rule(plan, c, wave110d_rules.CANT_TRANSFORM)]:
         plan.do({"type": "set_face", "card_id": c.id, "face": to, "faces": 2}, actor=c.controller)
         # -- transform (wave 26D) -- 701.27, 702.145c/f: the flip is a transformation like any other: "transforms into X" and "a permanent transforms" triggers
         from app.game.rules_state import emit
@@ -1061,7 +1065,9 @@ def emblem_text_ok(text: str) -> bool:
         return False
     for d in scripts.definitions(ch).values():
         if d.get("kind") == "static":
-            if d.get('static') in ('spell_keyword', 'permission', 'loyalty_rule', 'cast_limit', 'cost_modifier'):
+            if d.get('static') in ('spell_keyword', 'permission', 'loyalty_rule', 'cast_limit', 'cost_modifier', 'untap_limit'):
+                continue
+            if d.get("static") == "game_result":  # -- spells (wave 110A) -- Gideon of the Trials' emblem (game_result._stops reads emblems)
                 continue
             if d.get("static") == "no_max_hand":  # -- ability words (wave 20C) -- "You have no maximum hand size." (hand_size.maximum reads emblems)
                 continue

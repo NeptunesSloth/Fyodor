@@ -1068,6 +1068,25 @@ PRIMITIVES = {"as_their100e": as_their, "pick_any100e": pick_any, "count_dealt10
               "bind_controlled100e": bind_controlled, "host_bite100e": host_bite, "beneath_top100e": beneath_top, "double_times100e": double_times, "keep_keyword100e": keep_keyword, "keep_dealt100e": keep_dealt}
 
 
+# -- amass reflexive (wave 110D) --
+@_text("Amass Orcs 2. When you do, until end of turn, gain control of target nonlegendary creature an opponent controls with power less than or "
+       "equal to the amassed Army's power. Untap that creature. It gains haste until end of turn.")
+def _grishnakh() -> Parsed:
+    """Grishnakh: 701.47c the amassed Army is the reflexive ability's event object (as it last existed, 608.2h); its power caps the target's
+    power as the ability goes on the stack (115.1, selectors EVENT_STAT)."""
+    from dataclasses import replace
+
+    from app.rules import selectors
+
+    effects, target, optional = _amass_reflexive("Orc", 2, "Gain control of target nonlegendary creature an opponent controls until end of turn. "
+                                                  "Untap that creature. It gains haste until end of turn.")
+    ab = _reflexive(effects)["ability"]
+    t = ab["target"]
+    sel = selectors.from_key(t["what"])
+    t["what"] = replace(sel, compare=(*sel.compare, ("power", "<=", selectors.EVENT_STAT + "power"))).key()
+    return effects, target, optional
+
+
 def parse(body: str) -> Parsed | None:
     build = _TEXTS.get(body.strip().casefold())
     return build() if build is not None else None
