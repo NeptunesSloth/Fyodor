@@ -2051,6 +2051,17 @@ def _parse(text: str) -> tuple[Effects, Any]:
         if kind == "players":
             raise _Fail
         return [{"do": "restrict", "who": _who(kind, key), "rules": RESTRICTIONS[m["r"]], **for_combat}], _one(group)
+    # -- multi (wave 100N) -- 115.2: "Permanents you control can't be the targets of blue or black spells your opponents control this turn." (Display of
+    # Dominance): statics' rule, for the turn; a rule-changing effect, so its group isn't locked in (611.2c)
+    m = re.fullmatch(r"(?P<o>permanents you control) (?P<r>can't be the targets of (?:white|blue|black|red|green) or (?:white|blue|black|red|green) spells your "
+                     r"opponents control) this turn", text)
+    if m:
+        from app.rules.statics import _rule
+
+        kind, key, group = ref(m["o"])
+        if kind == "players" or not (rules := _rule(m["r"])):
+            raise _Fail
+        return [{"do": "restrict", "who": _who(kind, key), "rules": rules}], _one(group)
     # -- prohibitions (wave 22B) -- 602.5: "Its activated abilities can't be activated this turn." (Koma, Deadlock Trap): the rule "cant_activate"
     # (mana abilities too, as for detain), on the object the sentence is about, until end of turn
     m = re.fullmatch(r"(?P<o>it|that creature|that permanent)'s activated abilities can't be activated this turn|"

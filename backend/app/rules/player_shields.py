@@ -39,7 +39,7 @@ Context = dict[str, Any]
 Definition = dict[str, Any]
 
 _STATIC = re.compile(r"^you(?P<rest>(?:, [A-Za-z][A-Za-z' ]*?)*,? and (?:other )?[A-Za-z][A-Za-z' ]*?)? (?:have|has) (?P<kw>hexproof|shroud)$")
-_EFFECT = re.compile(r"^(?P<all>players|you)(?P<also> and permanents you control)? gain (?P<what>hexproof from (?P<h>.+?)|hexproof|shroud|protection from (?P<q>.+?)) "
+_EFFECT = re.compile(r"^(?P<all>players|you)(?P<also> and (?:each permanent|permanents) you control)? gain (?P<what>hexproof from (?P<h>.+?)|hexproof|shroud|protection from (?P<q>.+?)) "
                      r"(?P<when>until end of turn|until your next turn)$")
 _CHOICE = "the color of your choice"
 
@@ -118,6 +118,13 @@ def _effect(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     elif q is None:
         out.append({"do": "player_shield", "shield": m["what"], "until": until})
     elif q == _CHOICE:
+        if m["also"] and until == "turn":  # -- multi (wave 100N) -- "you and each permanent you control gain protection from the color of your choice until end of
+            # turn" (Faith's Shield): one color for all (its 2011-01-22 ruling), the permanents you control as it resolves (611.2c)
+            from app.rules import selectors
+
+            sel = selectors.parse("permanents you control")
+            assert sel is not None
+            return [{"do": "player_shield_choice", "until": until, "also": sel.key()}], None
         out.append({"do": "player_shield_choice", "until": until})
     else:
         from app.rules import protection
@@ -194,6 +201,10 @@ def resume_choice(plan: Plan, d: Any, chosen: list[str]) -> None:
         raise ActionError("Choose one of the colors")
     plan.note(f"{plan.name(d.player)} chooses {value.lower()}", actor=d.player)
     _add(plan, ctx, "protection", value.lower(), e["until"])
+    if e.get("also"):  # (wave 100N)
+        from app.rules.effects import grant
+
+        grant(plan, ctx, {"do": "grant", "who": e["also"], "keywords": [], "abilities": [f"Protection from {value.lower()}"]})
     continue_effects(plan, ctx)
 
 

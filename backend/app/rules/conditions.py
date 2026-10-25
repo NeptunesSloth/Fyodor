@@ -123,6 +123,9 @@ def parse(text: str, *, objects: bool = False) -> Condition | None:
         t = re.sub(r"^(?:it's|it is) attacking a battle$", "it's a creature that's attacking a battle", t)  # (Rampaging Geoderm)
         t = re.sub(r"^it has unearth$", "it's a permanent with unearth", t)  # (Meticulous Excavation: an unearth ability, 702.84a)
         t = re.sub(r"^it's an? (\w+) creature or (?:an? )?(\w+) creature$", r"it's a \1 creature or it's a \2 creature", t)
+        # -- multi (wave 100N) -- "It deals 5 damage instead if that target is white and/or blue." (Lithomantic Barrage): the replaced instruction's target
+        t = re.sub(r"^that target is (white|blue|black|red|green) and/or (white|blue|black|red|green)$", r"it's \1 or \2", t)
+        t = re.sub(r"^that target is ", "it's ", t)
     found = _parse_one(t, objects)
     if found is None:
         found = _as_cond(t) if objects else None  # -- intervening ifs (wave 11F) -- (an ability's own event: not statics)
@@ -769,6 +772,12 @@ def _history_pattern(pattern: str):  # type: ignore[no-untyped-def]
         _HISTORY_PATTERNS.append((re.compile(pattern), fn))
         return fn
     return register
+
+
+@_history_pattern(r"you've been dealt damage by (?P<n>two|three|four|five) or more creatures this turn")
+def _damaged_by_creatures(m: re.Match[str]) -> Condition | None:
+    # -- multi (wave 100N) -- Inferno Trap: different creatures (as they were as each dealt it), any damage, anyone's (its 2009-10-01 rulings)
+    return {"history": "damage_by_creatures100n", "n": _num(m["n"])}
 
 
 @_history_pattern(r"a player was dealt combat damage this turn by a source you controlled that shared a creature type with this spell")

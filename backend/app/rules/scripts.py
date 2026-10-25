@@ -2664,6 +2664,10 @@ def parse_effects(body: str, it: str | None = None, *, event_player: bool = Fals
 
     if (zones := zones100g.parse(body)) is not None:
         return zones
+    from app.rules import multi100n  # -- multi (wave 100N) --
+
+    if (body100n := multi100n.parse(body)) is not None:
+        return body100n
     from app.rules import turnstate100h  # -- turn state (wave 100H) -- exact bodies read as a native wording
 
     if (same100h := turnstate100h.SAME.get(body)) is not None:
@@ -4552,7 +4556,7 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
     body = re.sub(r"(chooses [^.]*? they control)\. Destroy the rest\.", r"\1, then the rest are destroyed.", body)  # (wave 11D)
     body = re.sub(r"(reveals [^.]*?cards from their hand(?: equal to [^.]+?)?)(?:\. | and )[Yy]ou choose (one|two|three) of them\.",  # -- hand disruption (wave 52C) -- the revealed cards are "it" for the choice (language.CHOOSE_FROM_HAND)
                   lambda m: f"{m[1]}. You choose {'a card' if m[2] == 'one' else m[2] + ' cards'} from it.", body)
-    body = re.sub(r"( sacrifices (?:a|an|one) [A-Za-z -]+?) of their choice (with [a-z ]+)(?=[.,])", r"\1 \2 of their choice", body)
+    body = re.sub(r"( sacrifices (?:a|an|one) [A-Za-z -]+?) of their choice (with [a-z0-9 ]+)(?=[.,])", r"\1 \2 of their choice", body)  # (wave 100N: "with mana value 3 or less", Exile into Darkness)
     body = re.sub(r"( sacrifices (?:a|an|one) [A-Za-z -]+?) of their choice that's (blocking [a-z ]+)(?=[.,])", r"\1 \2 of their choice", body)  # -- block events (wave 53C) -- "sacrifices a creature of their choice that's blocking it" (Labyrinth Raptor)  # -- static_other (wave 52C) -- "sacrifices a creature of their choice with flying" (Clip Wings): the same edict, the tail where it is read
     # -- per-player choices (wave 30K) -- "For each player, you choose … an artifact, a creature, … Then each player sacrifices all other nonland
     # permanents they control." (Tragic Arrogance): one instruction (language.CHOOSE_FOR_EACH)
@@ -4744,6 +4748,14 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
             paid_entry_condition = paid_entry_conditions.parse(f"{paid_entry['symbols']} was spent to cast this spell", objects=True)
             assert paid_entry_condition is not None
             effects[-1] = {**effects[-1], 'counter': '+1/+1', 'counter_condition': paid_entry_condition}
+            continue
+        if effects and effects[-1].get('do') == 'return_card' and effects[-1].get('to') == 'battlefield' and not effects[-1].get('counter') \
+                and text == 'if there are two or more instant and/or sorcery cards in your graveyard, that creature enters with two additional +1/+1 counters on it':
+            # -- multi (wave 100N) -- Necromantic Summons (spell mastery): judged as the spell resolves (its 2015-06-22 ruling); 122.6
+            from app.rules import conditions as mastery_conditions
+
+            effects[-1] = {**effects[-1], 'counter': '+1/+1', 'counter_n': 2,
+                           'counter_condition': mastery_conditions.parse('there are two or more instant and/or sorcery cards in your graveyard')}
             continue
         if effects and effects[-1].get('do') == 'return_card' and effects[-1].get('to') == 'battlefield' and text == 'each of them enters with an additional -1/-1 counter on it':
             effects[-1] = {**effects[-1], 'counter': '-1/-1'}
@@ -5856,6 +5868,10 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
 
     if (lines100j := counters100j.definition(ability, ch)) is not None:
         return lines100j
+    from app.rules import multi100n  # -- multi (wave 100N) --
+
+    if (whole100n := multi100n.definition(ability, ch)) is not None:
+        return whole100n
     from app.rules import turnstate100h  # -- turn state (wave 100H) --
 
     if (turn100h := turnstate100h.definition(ability, ch)) is not None:
@@ -8308,15 +8324,25 @@ def _merge_instead_lines(ch: Characteristics, out: dict[int, Definition]) -> Non
         from app.rules import combat_prevention_variants47
 
         exact_winds = prev.text == combat_prevention_variants47.WIND_BASE and own == combat_prevention_variants47.WIND_ALT
-        if own == ab.text or not (own.startswith("If ") or re.search(r"\binstead\b", own) or target_rider) or (" would " in own and not exact_winds):
+        if own == ab.text or not (own.startswith(("If ", "Then if ")) or re.search(r"\binstead\b", own) or target_rider) or (" would " in own and not exact_winds):  # (wave 100N: "Coven — Then if …", Might of the Old Ways)
             continue  # (only an ability-word line, as printed: "<ability word> — … instead if …"; -- ability-word riders (wave 30U) -- or a rider
             # "Infusion — If you gained life this turn, that creature's controller loses 3 life.": its "that creature" is the line above's;
             # a conditional "That creature [also] gains …" rider likewise uses the preceding target (CR 207.2c, 608.2c).
-        merged = define(replace(prev, text=f"{prev.text} {own}"), ch)
-        if merged is None or merged.get("kind") != "spell" or not _event_refs_ok(merged):
+        run = [prev]  # -- multi (wave 100N) -- "Target creature gets -4/-0 …" / "Draw a card." / "Addendum — If …, tap that creature …" (Code of
+        while run[0].index - 1 in out and out[run[0].index - 1].get("kind") == "spell" and not out[run[0].index - 1].get("merged_into") \
+                and any(a.index == run[0].index - 1 and a.kind == "spell" for a in lines):  # Constraint): its "that creature" is a line further up
+            run.insert(0, next(a for a in lines if a.index == run[0].index - 1))
+        merged = None
+        for first in ([prev], run)[:len(run)]:  # (the line above alone first)
+            got = define(replace(first[0], text=" ".join([*(a.text for a in first), own])), ch)
+            if got is not None and got.get("kind") == "spell" and _event_refs_ok(got):
+                merged = got
+                break
+        if merged is None:
             continue
-        out[prev.index] = merged
-        out[ab.index] = {"kind": "spell", "effects": [], "target": None, "merged_into": prev.index}
+        out[first[0].index] = merged
+        for a in [*first[1:], ab]:
+            out[a.index] = {"kind": "spell", "effects": [], "target": None, "merged_into": first[0].index}
 # -- end refused copy/mana (wave 3R3) --
 
 

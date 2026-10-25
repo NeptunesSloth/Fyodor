@@ -1062,6 +1062,19 @@ def edict_kinds(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
 
     who = effects._players(plan, ctx, e["who"])
     turns = [(p, k) for p in plan.apnap() if p in who for k in e["sels"]]
+    if e.get("distinct") and len(e["sels"]) == 2:  # -- multi (wave 100N) -- one of each if able (To the Slaughter's 2016-04-08 ruling): the only
+        # permanent of the second kind can't be taken as the first while another of the first kind is there
+        from app.rules import selectors
+
+        kinds = list(e["sels"])
+        first = kinds[0]
+        for i, (p, _) in enumerate(turns[::2]):
+            a, b = (effects._controlled(plan, k, p, ctx.get("source_card")) for k in kinds)
+            if len(b) == 1 and b[0] in a and len(a) > 1:
+                sel = selectors.from_key(first)
+                key = selectors.replace(sel, extras=(*sel.extras, f"not_oid:{plan.oid(b[0])}")).key()
+                turns[2 * i] = (p, key)
+                e = {**e, "sels": [*e["sels"], key], "labels": [*e["labels"], e["labels"][0]]}
     return effects._choose_next(plan, ctx, e, turns, [], "edict")
 
 
