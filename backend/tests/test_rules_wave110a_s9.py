@@ -151,3 +151,43 @@ def test_rescue_returns_the_target_and_the_sacrificed_card_at_your_next_upkeep(c
     assert zone_of(s, "Hill Giant") == "p1:battlefield"
     assert zone_of(s, "Grizzly Bears") == ("p1:hand" if leaves else "p1:battlefield")
     check(s)
+
+
+PLUNGE = "Plunge into Darkness"
+test_full_plunge = full_test([PLUNGE])
+
+
+def test_plunge_mode_one_sacrifices_any_number_of_creatures_for_3_life_each(cards):
+    """701.21a / 608.2c: two creatures sacrificed this way gain 6 life (any number, so the choice is the controller's)."""
+    s = build(cards, [PLUNGE, "Grizzly Bears", "Hill Giant"], forests=40)
+    put(s, "Grizzly Bears")
+    put(s, "Hill Giant")
+    cast(s, PLUNGE, modes=[0])
+    answer(s, [c.id for c in (card_named(s, "Grizzly Bears"), card_named(s, "Hill Giant"))])
+    assert life(s) == 46 and zone_of(s, "Grizzly Bears") == "p1:graveyard" and zone_of(s, "Hill Giant") == "p1:graveyard"
+    check(s)
+
+
+def test_plunge_mode_two_pays_life_then_looks_at_that_many_cards_keeps_one_exiles_the_rest(cards):
+    """119.4: pay 3 life; look at the top three cards, one to hand, the other two exiled (608.2c)."""
+    s = build(cards, [PLUNGE], forests=40)
+    to_hand(s, PLUNGE)
+    top = list(s.state.zones["p1:library"][:3])
+    cast(s, PLUNGE, modes=[1])
+    answer(s, "x:3", top[0])
+    assert life(s) == 37
+    assert s.state.cards[top[0]].zone == "p1:hand" and [s.state.cards[c].zone for c in top[1:]] == ["p1:exile"] * 2
+    check(s)
+
+
+def test_plunge_entwined_does_both_modes_in_order(cards):
+    """702.42a: entwine {B} chooses both modes, followed in printed order: sacrifice a creature (+3), then pay 2 life and look at two cards."""
+    s = build(cards, [PLUNGE, "Grizzly Bears"], forests=40)
+    bears = put(s, "Grizzly Bears")
+    to_hand(s, PLUNGE)
+    top = list(s.state.zones["p1:library"][:2])
+    cast(s, PLUNGE, extra="{B}", kicker=1)
+    answer(s, [bears.id], "x:2", top[0])
+    assert life(s) == 41 and zone_of(s, "Grizzly Bears") == "p1:graveyard" and s.state.cards[top[0]].zone == "p1:hand"
+    assert s.state.cards[top[1]].zone == "p1:exile"
+    check(s)

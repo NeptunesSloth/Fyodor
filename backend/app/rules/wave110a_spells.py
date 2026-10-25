@@ -242,7 +242,17 @@ def bind_sacrificed(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return True
 
 
+def _plunge() -> Parsed:
+    """Plunge into Darkness: the amount of life is chosen as it resolves (119.4: at most your life total, 0 allowed), paid, and the same number of
+    cards are looked at (608.2c)."""
+    look = _p("Look at the top X cards of your library. Put one of those cards into your hand and exile the rest.")[0]
+    pay = {"do": "optional_payment", "who": "you", "cost": "", "bind": "plunge110a", "choose_x": {"max": None, "life": True}}
+    return [pay, {**look[0], "n": {"paid_x": "plunge110a"}}, *look[1:]], None, False
+
+
 BUILDERS: dict[str, Callable[[], Parsed]] = {
+    "Pay any amount of life, then look at that many cards from the top of your library. Put one of those cards into your hand and exile the rest.":
+        _plunge,
     "Choose target creature card in your graveyard. Return that card and the sacrificed card to the battlefield under your control at the beginning "
     "of your next upkeep. Exile ~.": _rescue,
     "Until your next turn, up to one target creature gets -3/-0 and its activated abilities can't be activated.": _dovin,
