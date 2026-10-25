@@ -915,7 +915,7 @@ def modal_effects(definition: dict[str, Any], picked: list[int], grouped: bool) 
         n = len(mode.get("groups") or ([mode["target"]] if mode["target"] else []))
         out += scripts._renumber(mode["effects"], list(range(offset, offset + n))) if n else mode["effects"]
         offset += n
-    return out
+    return out + list(definition.get("after") or ())  # -- wave 110A -- lines printed after the modes (scripts.modal_definition)
 
 
 def choose_modes(plan: Plan, a: A.CastSpell | A.ActivateAbility, definition: dict[str, Any], what: str,

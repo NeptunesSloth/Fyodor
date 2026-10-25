@@ -263,6 +263,8 @@ def named_choices(plan: Plan, controller: str, defs: list[dict[str, Any]], answe
                 continue
             if what == card_names.LOOK and what not in answers and (only := card_names.sole_opponent(plan, controller)):
                 answers[what] = only  # -- card names (wave 22B) -- one opponent: no question
+            if d.get("control") and what not in answers and (only := card_names.sole_opponent(plan, controller)):
+                answers[what] = only  # -- entry control (wave 110A) -- one opponent: no question
             if what in answers:
                 out.setdefault("choices", {})[what] = answers[what]
             elif "choice" not in out:
@@ -1001,6 +1003,9 @@ def after_entry(plan: Plan, card_id: str, controller: str, *, x: int | None = No
 
                 chosen.record(plan, card_id, value)
     if not preview:
+        from app.rules import wave110a_control  # -- entry control (wave 110A) --
+
+        wave110a_control.give(plan, card_id, choices)
         from app.rules import chosen_color_pairs45
 
         chosen_color_pairs45.record_entry(plan, card_id, choices)

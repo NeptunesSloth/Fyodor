@@ -1590,6 +1590,10 @@ def bind_objects(cond: Condition, who: str) -> Condition:
 
 
 def holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
+    if "w110a" in cond:  # -- wave 110A --
+        from app.rules import wave110a
+
+        return wave110a.holds(plan, ctx, cond)
     if cond.get("damage_death105"):
         from app.rules import vampire_returns105
 

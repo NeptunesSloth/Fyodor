@@ -2684,6 +2684,10 @@ def parse_effects(body: str, it: str | None = None, *, event_player: bool = Fals
 
     if (other100p := otherchooser100p.parse(body)) is not None:
         return other100p
+    from app.rules import wave110a  # -- wave 110A --
+
+    if (body110a := wave110a.parse(body)) is not None:
+        return body110a
     from app.rules import multi100n  # -- multi (wave 100N) --
 
     if (body100n := multi100n.parse(body)) is not None:
@@ -5971,6 +5975,10 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
 
     if (lines100j := counters100j.definition(ability, ch)) is not None:
         return lines100j
+    from app.rules import wave110a  # -- wave 110A --
+
+    if (whole110a := wave110a.definition(ability, ch)) is not None:
+        return whole110a
     from app.rules import multi100n  # -- multi (wave 100N) --
 
     if (whole100n := multi100n.definition(ability, ch)) is not None:
@@ -8618,7 +8626,7 @@ _MODAL_HEADERS = {
 # [as you cast this spell], [you may] choose both / two / one or more instead." (an ability word may lead: "Delirium — "), the condition checked
 # as the spell is cast (casting.choose_modes). Read: the two announced facts of a cast (kicked, teamwork 702.194b) and conditions about the table.
 _NUMBERS = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5}
-_REPEAT_HEADER = re.compile(r"^Choose (?P<n>three|four|five)\. You may choose the same mode more than once\.$")
+_REPEAT_HEADER = re.compile(r"^Choose (?P<up>up to )?(?P<n>three|four|five)\. You may choose the same mode more than once\.$")
 _INSTEAD_HEADER = re.compile(r"^(?:[A-Z][a-z]+(?: \d+)? — )?Choose one\. If (?P<c>.+?)(?: as you cast this spell)?, (?P<may>you may )?"
                              r"choose (?P<k>both|two|one or more|any number) instead\.$")
 
@@ -8628,7 +8636,9 @@ def modal_header(text: str) -> tuple[int, int, bool, dict[str, Any] | None] | No
     if text in _MODAL_HEADERS:
         return (*_MODAL_HEADERS[text], None)
     if (m := _REPEAT_HEADER.match(text)) is not None:
-        return _NUMBERS[m["n"]], _NUMBERS[m["n"]], True, None
+        # -- spells (wave 110A) -- "Choose up to four. You may choose the same mode more than once." (Moment of Reckoning): one to four modes, 700.2d.
+        # No CR rule or ruling lets a non-pawprint "up to" spell choose zero modes (700.2i is the pawprint form), so the minimum stays one.
+        return (1 if m["up"] else _NUMBERS[m["n"]]), _NUMBERS[m["n"]], True, None
     if (m := _INSTEAD_HEADER.match(text)) is None:
         return None
     from app.rules import conditions
@@ -8652,12 +8662,16 @@ def modal_definition(lines: list[AbilityText], name: str = "") -> Definition | N
         return None
     lo, hi, repeat, instead = header
     modes: list[dict[str, Any]] = []
+    tail = [ab for i, ab in enumerate(lines[1:], 1) if not any(x.text.startswith("• ") for x in lines[i:])]  # -- wave 110A -- lines after the last mode (below)
+    lines = lines[:len(lines) - len(tail)]
     for ab in lines[1:]:
         if not ab.text.startswith("• "):
             return None
         # (-- most-played modal spells (wave 50I) -- a mode that is all "You may put a land card from your hand onto the battlefield." (Atarka's Command) is the
         # instruction's own choice, as for a one-line spell (_own_choice); "This spell deals X damage" is the spell itself)
-        parsed = _own_choice(parse_effects(self_text(ab.text[2:], name).replace("This spell deals ", "~ deals ")))
+        from app.rules import wave110a  # -- wave 110A -- 207.2d: "• Take the Elevator — …"
+
+        parsed = _own_choice(parse_effects(self_text(wave110a.strip_mode_label(ab.text[2:]), name).replace("This spell deals ", "~ deals ")))
         if parsed is None or parsed[2]:  # ("you may" inside a mode: not yet)
             return None
         effects, target, _ = parsed
@@ -8674,7 +8688,13 @@ def modal_definition(lines: list[AbilityText], name: str = "") -> Definition | N
     modal: dict[str, Any] = {"min": lo, "max": min(hi, 99 if repeat else len(modes)), "repeat": repeat, "condition": None}
     if instead is not None:  # -- modal frames (wave 33B) --
         modal["instead"] = {**instead, "max": min(instead["max"], len(modes))}
-    return {"kind": "spell", "effects": [], "target": None, "modes": modes, "modal": modal}
+    after: list[dict[str, Any]] = []  # -- wave 110A -- 608.2c: a line printed after the modes is carried out after the chosen modes ("Draw a card at the beginning of the next turn's upkeep.")
+    for ab in tail:
+        got = parse_effects(self_text(ab.text, name))
+        if got is None or got[1] is not None or got[2]:
+            return None
+        after += rename_bindings(got[0], f"after{len(after)}_")
+    return {"kind": "spell", "effects": [], "target": None, "modes": modes, "modal": modal, **({"after": after} if after else {})}
 
 
 # -- keywords (wave 30E) -- 702.172a spree: "Choose one or more modes. As an additional cost to cast this spell, pay the costs associated with
@@ -9269,8 +9289,13 @@ def define_replacement(ability: AbilityText, text: str) -> Definition | None:
         return {"kind": "replacement", "replacement": "enters_tapped", "effects": []}
     if text == "~ enters prepared.":  # -- prepared (wave 13C) -- 722.3a: applied as it enters (replacements.after_entry)
         return {"kind": "replacement", "replacement": "enters_prepared", "effects": []}
-    from app.rules import language  # (a leaf module)
+    from app.rules import (
+        language,  # (a leaf module)
+        wave110a_control,  # -- entry control (wave 110A) --
+    )
 
+    if (ctl := wave110a_control.definition(text)) is not None:
+        return ctl
     chosen = language.enters_choice(text)  # "As ~ enters, choose a color." (614.1c, 614.12a)
     if chosen is not None:
         return chosen

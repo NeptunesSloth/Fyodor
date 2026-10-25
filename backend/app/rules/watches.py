@@ -111,7 +111,7 @@ def build(cond: dict[str, Any] | None, clause: str, *, once: bool, text: str, bo
             return None
     # (-- turn-long triggers (wave 33A) -- "that player" is the player the event was about: who was dealt the damage, 603.7c)
     effects = delayed.inner_for_event([{**e, "who": "event_player"} if e.get("who") == "that_player" else e for e in inner[0]])
-    if effects is not None and cond["event"] == "dealt_damage":
+    if effects is not None and cond["event"] in ("dealt_damage", "tapped"):  # (-- spells (wave 110A) -- tapping makes no new object either, 701.26a)
         # Damage creates no new incarnation. A following move names its recipient.
         effects = [{**e, "who": "event"} if e.get("who") == "event.new" else e for e in effects]
     if effects is None or any(e.get("do") in delayed.UNDEFERRABLE for e in effects) \

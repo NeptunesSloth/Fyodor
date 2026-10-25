@@ -1,0 +1,8 @@
+- Needle Drop: "any target that was dealt damage this turn" needs player damage history as a target filter (damage_history.matches is object-only).
+- Squandered Resources: mana type depends on the land sacrificed as a hand-chosen cost (cost_payment would need to hand its LKI to the mana ability).
+- Hellish Rebuke: granted trigger with "You lose 2 life" where "you" must stay the spell's caster, not the permanent's controller.
+- Dragon's Fire: optional additional cost "reveal a Dragon or choose a Dragon" with the revealed/chosen object's power read later.
+- Uphill Battle: "Creatures played by your opponents enter tapped" needs a cast-by-opponent condition on entry (not "controlled by").
+- Asinine Antics: "flash if you pay {2} more" has no foundation (conditional extra cost at cast time).
+- Xantcha, Sleeper Agent: "Any player may activate this ability" (activation by non-controllers) and "can't attack its owner or planeswalkers its owner controls" are not read; the enters-under-an-opponent part is done (wave110a_control).
+- Berserker's Frenzy: "Roll two d20 and ignore the lower roll" with a result table and "Choose any number of creatures. They block this turn if able." are not read (the "You choose which creatures block" mode is done).

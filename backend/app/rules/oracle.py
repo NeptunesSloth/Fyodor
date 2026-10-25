@@ -237,7 +237,7 @@ def word_prefix(line: str) -> tuple[str, str] | None:
     return None
 
 
-_WATCH_LINE = re.compile(r"^(?:At the beginning of each combat this turn, |Whenever .+? this turn, |When you next cast .+? this turn, "
+_WATCH_LINE = re.compile(r"^(?:At the beginning of each combat this turn, |Whenever .+? this (?:turn|combat), |When you next cast .+? this turn, "
                          r"|When (?:target|that) [^,]+? (?:dies|leaves the battlefield) this turn, "
                          r"|At the beginning of (?:the next|your next|the next turn's|that player's next|its owner's next|their next) [^,]+, )")  # (wave 23B: the Pacts' own paragraph, 603.7)  # -- turn watches (wave 7D; 16D: "When target creature dies this turn,") --
 

@@ -77,6 +77,8 @@ class Decision(BaseModel):
     display: dict[str, Any] | None = None
     # -- controlling another player (wave 18H) -- 723.5: the player who makes this choice for ``player`` (None: they do)
     decider: str | None = None
+    # -- declaration choosers (wave 110A) -- the decider only makes this choice: it sees nothing of ``player`` beyond the table (not 723.4)
+    blind: bool = False
 
 
 class PlayerControl(BaseModel):
@@ -1629,6 +1631,7 @@ class RulesState(BaseModel):
     # blocked by / blocks (creature card -> target card or player -> damage), answered before the round is dealt and dropped once it is
     block_split: dict[str, dict[str, int]] = Field(default_factory=dict)
     assign_unblocked: dict[str, bool] = Field(default_factory=dict)  # -- static_other sweep (wave 19A) -- attacker -> "as though it weren't blocked"
+    declare_choosers: dict[str, dict[str, Any]] = Field(default_factory=dict)  # -- declaration choosers (wave 110A) -- "attack"/"block" -> {player, turn, combat}: who declares them, until end of turn/combat
     block_caps: dict[str, int] = Field(default_factory=dict)  # -- commander sweep (wave 49B) -- 509.1b: player -> "can't block with more than N creatures this combat" (Mirri), dropped at end of combat
     # -- combat (wave 5C) -- 500.8: the phases still to come after the current one when effects added some (the
     # last is the phase that would have come next), and how many combat phases began this turn
