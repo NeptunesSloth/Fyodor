@@ -51,3 +51,34 @@ def could_produce(plan: Any, card: Any, ch: Any, symbol: str) -> bool:
         if parsed is not None and any(symbol in opt for opt in parsed.options):
             return True
     return False
+
+
+# 702.56a: "Each Sliver spell you cast has replicate. The replicate cost is equal to its mana cost." (Hatchery Sliver, Ian Chesterton)
+_REPLICATE = re.compile(r"^each (?P<sel>[A-Za-z]+) spells? you cast has replicate\. the replicate cost is equal to its mana cost$", re.I)
+
+
+def grant_replicate(t: str) -> dict[str, Any] | None:
+    from app.rules.permissions import spell_filter
+
+    m = _REPLICATE.fullmatch(t.strip().rstrip("."))
+    if m is None or (key := spell_filter(m["sel"])) is None:
+        return None
+    return {"kind": "static", "static": "spell_replicate110a", "filter": key, "effects": []}
+
+
+def with_replicate(state: Any, player: str, card: Any, ch: Any, info: Any) -> Any:
+    """The spell as cast, with the replicate ability its caster's statics give it (602.. kicker_cost then reads it like a printed one)."""
+    from dataclasses import replace
+
+    from app.rules import cast_limits
+    from app.rules.oracle import parse_abilities
+    from app.rules.permissions import spell_matches
+
+    if not ch.mana_cost or "replicate" in ch.keywords or "{X}" in ch.mana_cost:
+        return ch
+    if not any(src.controller == player and spell_matches(state, player, card, ch, d["filter"], info, src.id)
+               for src, d in cast_limits._statics(state, info, "spell_replicate110a")):
+        return ch
+    extra = parse_abilities(f"Replicate {ch.mana_cost}.")
+    at = max([a.index for a in ch.abilities], default=99) + 1
+    return replace(ch, abilities=(*ch.abilities, *(replace(a, index=at + i) for i, a in enumerate(extra))))

@@ -16,7 +16,6 @@
 - Leyline of Transformation: "As this enchantment enters, choose a creature type" would pause the game start (opening_hand.py); plus type-adding to hand/library cards.
 - Hulking Metamorph: copy exception "power and toughness equal to this creature's" depends on prototype size; CopyExcept has no own-P/T source.
 - Frenzied Saddlebrute: haste only toward opponents; combat.attack_problem has no defender parameter.
-- Zinnia, Valley's Voice / Hatchery Sliver / Ian Chesterton: granted offspring/replicate need a keyword on the spell's characteristics (costs.py kicker reads ch.abilities).
 - Desert Were-Worm: needs min_total_power attack condition (wave 110D branch), not in this branch.
 - Squandered Resources: mana types of the sacrificed land (LKI) not available to the mana-ability reader.
 - Uphill Battle: "played" excludes tokens and put-onto-battlefield creatures; "enter tapped" for opponents' creatures is not equal.
@@ -34,4 +33,4 @@
 - Leyline of Transformation: "As this enters, choose a creature type" from the opening hand needs a pending choice in the pregame (opening_hand.act raises if enter asks); foundation, skipped.
 - Tectonic Split: additional cost "sacrifice half the lands you control, rounded up" is a variable mandatory cost (no CostComponent amount from a count); skipped.
 - Frenzied Saddlebrute: haste "as attacking your opponents" needs the defender in combat.attack_problem (not passed); skipped.
-- Hatchery Sliver, Ian Chesterton (and Djinn Illuminatus, Threefold Signal): granted replicate needs kicker machinery (casting.kicker_cost reads ch.abilities) fed from a layer grant on spells in hand; foundation, skipped.
+- Zinnia, Valley's Voice: granted offspring is read from the permanent's keywords at entry (keyword_triggers), not the spell's cast abilities; skipped.

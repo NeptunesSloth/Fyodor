@@ -643,6 +643,10 @@ def define_static(text: str, kind: str, lines: tuple[str, ...] = ()) -> Definiti
         from app.rules import wave110a_grants
 
         return wave110a_grants.grant_evoke(t)
+    if " has replicate. " in t and kind == "static":  # -- grants (wave 110A) -- Hatchery Sliver, Ian Chesterton
+        from app.rules import wave110a_grants
+
+        return wave110a_grants.grant_replicate(t)
     if " has web-slinging " in t and kind == "static":  # -- Marvel keywords (wave 25A) -- granted web-slinging (702.188a)
         from app.rules import alt_costs
 
