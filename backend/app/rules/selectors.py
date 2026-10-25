@@ -252,6 +252,11 @@ def _other_than_host(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, extras=(*s.extras, "not_host_of_source"))
 
 
+@_suffix(r"other than ‹granter(?:#(?P<oid>[^›]+))?›")  # -- granter (wave 110H) -- 607.1a: "an artifact other than Dire Blunderbuss" in its grant
+def _other_than_granter(s: Selector, m: re.Match[str]) -> Selector:
+    return replace(s, extras=(*s.extras, "not_oid:" + (m["oid"] or "")))
+
+
 @_suffix(r"other than ~")
 def _other_than_self(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, other=True)
@@ -690,6 +695,11 @@ def _single_graveyard(s: Selector, m: re.Match[str]) -> Selector:
     from the same one (400.1: a player's graveyard is theirs — the same owner). The constraint
     is on the group of targets, not on one card: language.target_group moves it to the group."""
     return replace(_in_zone(s, "graveyard", None), extras=(*s.extras, "single_graveyard"))
+
+
+@_suffix(r"(?:that|they) (?:player )?owns? in exile")  # -- exile (wave 110H) -- "target face-up card they own in exile" (Time Reaper): the trigger's player (bind_that_player)
+def _that_players_exile(s: Selector, m: re.Match[str]) -> Selector:
+    return _in_zone(s, "exile", "that_player")
 
 
 @_suffix(r"(?:from|in) exile")

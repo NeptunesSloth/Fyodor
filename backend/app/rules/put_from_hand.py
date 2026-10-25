@@ -199,6 +199,9 @@ def resume(plan: Plan, d: Any, chosen: list[str]) -> None:
     if entries and not attachments.enter(plan, entries, ctx):
         return  # (an Aura chooses what it enchants; the resolution goes on from there)
     effects._moved(plan, ctx, e, before)
+    if e.get("blocking") and cards:  # -- Aetherplasm (wave 110H) -- 509.4: "… onto the battlefield blocking that creature" (the trigger's blocked creature)
+        context.bind_objects(plan, ctx, "_pfh_block", cards)
+        effects.PRIMITIVES["enter_blocking"](plan, ctx, {"who": "ref:_pfh_block", "blocked": "event"})
     if atk:  # -- trigger tail (wave 15B) -- 508.4 (the choice of whom, if any, goes on from token_attack)
         from app.rules import looking
 

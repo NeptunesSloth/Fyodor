@@ -104,7 +104,10 @@ def definitions(ab: AbilityText, ch: Characteristics) -> dict[int, Definition]:
     whose modes are all read: the ability itself (``modes`` and ``modal``) and a ``kind: "mode"`` stub
     for each of its bulleted lines (so they count as part of it). {} if it isn't one, or if any part
     isn't understood — the whole ability is then manual."""
-    from app.rules import scripts  # (scripts reads an ability here: a leaf module over it)
+    from app.rules import (
+        scripts,  # (scripts reads an ability here: a leaf module over it)
+        wave110h_cards,
+    )
 
     if ab.kind == "static" and "Saga" in ch.subtypes and ab.text.rstrip().endswith("—"):  # -- sagas (wave 110F) -- 714.2b: "I, II — Choose one —" is a triggered chapter ability with modes
         from dataclasses import replace as _replace
@@ -112,6 +115,7 @@ def definitions(ab: AbilityText, ch: Characteristics) -> dict[int, Definition]:
         from app.rules import sagas
 
         return definitions(_replace(ab, kind="triggered"), ch) if sagas.chapters_of(ab.text) else {}
+    ab = wave110h_cards.modal_header(ab, ch)  # -- Immard (wave 110H) --
     if ab.kind == "triggered" and ", you may choose two" in ab.text:
         # -- commanders (wave 50C) -- "you may choose two" (Shadrix Silverquill ruling 2021-04-16): exactly zero modes or two modes, never one (700.2d)
         from dataclasses import replace
@@ -356,7 +360,11 @@ def _reflexive_definitions(ab: AbilityText, ch: Characteristics, outer: str, m: 
     modal = {"min": lo, "max": hi, "repeat": False, "condition": None, "memory": None, "index": ab.index, "form": "triggered"}
     ability = {"kind": "triggered", "trigger": "reflexive", "effects": [], "target": None, "optional": False,
                "modes": modes, "modal": modal}
-    out: dict[int, Definition] = {ab.index: {**d, "effects": [*d["effects"][:-1], {**d["effects"][-1], "ability": ability}]}}
+    reflex = {**d["effects"][-1], "ability": ability}
+    first = d["effects"][0]
+    if first.get("do") == "optional_payment" and len(d["effects"]) > 3 and d["effects"][-3].get("cond") == {"succeeded": first["bind"], "negate": True}:
+        reflex["cond"] = {"succeeded": first["bind"]}  # -- Immard (wave 110H) -- "If you don't, X. When you do, …": "you do" is the payment, not X (603.12)
+    out: dict[int, Definition] = {ab.index: {**d, "effects": [*d["effects"][:-1], reflex]}}
     for bullet in bullets:
         out[bullet.index] = {"kind": "mode", "of": ab.index, "form": "triggered", "memory": None, "effects": []}
     return out

@@ -281,6 +281,9 @@ _LIFE = re.compile(r"^If (?P<who>you|an opponent|a player) would gain life(?P<ca
 
 
 def _life(text: str) -> Definition | None:
+    if text == "If a spell or ability would cause its controller to gain life, that player loses that much life instead.":
+        # -- life gain (wave 110H) -- Rain of Gore: only a gain its source's controller gets (lifelink's source is a permanent: 702.15)
+        return _static("life", {"who": "any", "by_controller": True}, {"do": "lose"})
     m = _LIFE.match(text)
     if not m:
         return None

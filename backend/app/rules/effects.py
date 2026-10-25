@@ -665,6 +665,8 @@ def _deal(plan: Plan, ctx: Context, hits: list[tuple[_Source, str, int]], e: dic
               "kw": sorted(src.keywords & _DAMAGE_KEYWORDS), "lkey": src.key,
               # -- refused grants/replacements (wave 3R2) -- "The damage can't be prevented." (615.12)
               **({"unpreventable": True} if e is not None and e.get("unpreventable") else {})}
+        if e is not None and e.get("creature_firm110h") and key in plan.state.cards and "Creature" in plan.ch(plan.state.cards[key]).types:
+            ev.update(unpreventable=True, unredirectable110h=True)  # -- Lava Burst (wave 110H) -- 615.12, 614.9
         kept.append(ev)
     rerun = replace.rerun_then(ctx, e)
     answers = dict(ctx.get(replace.ANSWERS) or {})
