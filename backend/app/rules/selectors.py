@@ -1244,6 +1244,14 @@ def _extreme(s: Selector, m: re.Match[str]) -> Selector:
 _SUFFIXES.insert(0, _SUFFIXES.pop())  # (before the controller suffix, whose "you control" would be taken for the whole phrase's: "… among creatures you control")
 
 
+@_suffix(r"with the greatest power among creatures that player controls")  # -- extremes (wave 110I) -- Kraven the Hunter: of that object's own controller (reads greatest_own, 700.4 LKI)
+def _extreme_own(s: Selector, m: re.Match[str]) -> Selector:
+    return replace(s, extras=(*s.extras, "greatest_own:power:Creature"))
+
+
+_SUFFIXES.insert(0, _SUFFIXES.pop())
+
+
 @_suffix(r"(?:with|that has) (?:the chosen|that) name")  # -- card names (wave 22B) -- 709.4a: one of its names is the chosen name
 def _of_chosen_name(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, extras=(*s.extras, "chosen_name"))
