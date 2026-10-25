@@ -41,6 +41,9 @@ _AS: dict[str, str] = {
     # Sage of the Skies: "this spell" is the spell the cast trigger is about (707.10, 707.10f: a copy of a permanent spell becomes a token)
     "When you cast this spell, if you've cast another spell this turn, copy this spell.":
         "When you cast this spell, if you've cast another spell this turn, copy it.",
+    # TARDIS: outside a Planechase game planeswalking does nothing (701.31a; ruling 2023-10-13)
+    "Whenever ~ attacks, if you control a Time Lord, the next spell you cast this turn has cascade and you may planeswalk.":
+        "Whenever ~ attacks, if you control a Time Lord, the next spell you cast this turn has cascade.",
     # The Lunar Whale: to play a card is to play it as a land or cast it as a spell (305.1, 601)
     "As long as ~ attacked this turn, you may play the top card of your library.":
         "As long as ~ attacked this turn, you may play lands and cast spells from the top of your library.",
@@ -130,6 +133,22 @@ def _treasurer(treasure: Def, pay: Def) -> Def | None:
         return None
     first = {"do": "only_if", "cond": {"any": [{**_RESOLVED, "n": 1}, {**_RESOLVED, "n": 2}]}, "skip": 1, "bind": "cond0"}
     return {**pay, "effects": [first, treasure["effects"][1], {"do": "only_if", "cond": {"flag": "cond0", "negate": True}, "skip": 2}, *pay["effects"]]}
+
+
+def _zimone(dread: Def, up: Def) -> Def | None:
+    """Zimone, Mystery Unraveler: manifest dread on the first resolution this turn; otherwise turn a face-down permanent you control face up (only a
+    face-down one can be, 708.2b; no cost paid: an effect, not the special action of 116.2b)."""
+    if _dos(dread) != ["only_if", "manifest"] or _dos(up) != ["turn_face_up"] or not up.get("optional"):
+        return None
+    return {**dread, "effects": [{**dread["effects"][0], "bind": "cond0"}, dread["effects"][1],
+                                 {"do": "only_if", "cond": {"flag": "cond0", "negate": True}, "skip": 1}, {**up["effects"][0], "optional": True}]}
+
+
+def _flurry(copy: Def, draw: Def) -> Def | None:
+    if _dos(copy) != ["copy_spell", "copy_new_targets"] or _dos(draw) != ["draw"]:
+        return None
+    return {**copy, "effects": [{"do": "only_if", "cond": {"flurry100h": True}, "skip": 2, "bind": "cond0"}, *copy["effects"],
+                                {"do": "only_if", "cond": {"flag": "cond0", "negate": True}, "skip": 1}, *draw["effects"]]}
 
 
 def _ashling(counter: Def, blast: Def) -> Def | None:
@@ -278,6 +297,22 @@ def _starfish(d: Def) -> Def | None:
     return {**d, "if": _REGENERATED, "effects": [{"do": "only_if", "cond": _REGENERATED, "skip": 1}, {**d["effects"][0], "do": "starfish100h"}]}
 
 
+def _sita(counters: Def, base: Def) -> Def | None:
+    """Sita Varma, Masked Racer (exhaust): the counters, then optionally every other creature you control gets base power and toughness equal to
+    Sita's power then (one value for all, the creatures fixed as it resolves: 608.2h, 611.2c; layer 7b)."""
+    if _dos(counters) != ["add_counters"] or _dos(base) != ["become"]:
+        return None
+    return {**counters, "effects": [*counters["effects"], {"do": "may_rest", "skip": 1, "label": "Set the other creatures' base power and toughness"},
+                                    *base["effects"]]}
+
+
+def _elder(d: Def) -> Def | None:
+    """Leaf-Crowned Elder (kinship): the revealed card is played from the library as the ability resolves (rulings 2008-04-01)."""
+    if _dos(d) != ["look_top", "free_cast"]:
+        return None
+    return {**d, "effects": [{"do": "kinship", "flag": "kinship"}, {"do": "only_if", "cond": {"flag": "kinship"}, "skip": 1}, d["effects"][1]]}
+
+
 def _goliath(d: Def) -> Def | None:
     """Goliath Hatchery (corrupted): the cards drawn are the chosen creature's total toxic value as it resolves (702.164b)."""
     if _dos(d) != ["only_if", "player_chooses", "draw"]:
@@ -386,6 +421,10 @@ _BUILD: dict[str, tuple[tuple[str, ...], Callable[..., Def | None]]] = {
         (("−2: Whenever you attack this turn, create a 1/1 white Soldier creature token that's tapped and attacking.",), _basri),
     "At the beginning of each end step, if ~ regenerated this turn, create a 0/1 blue Starfish creature token for each time it regenerated this turn.":
         (("At the beginning of each end step, create a 0/1 blue Starfish creature token.",), _starfish),
+    "{X}{G}{G}{U}: Put X +1/+1 counters on ~. Then you may each other creature you control has base power and toughness equal to ~'s power until "
+    "end of turn.":  # (scripts.self_text's rewrite of "have the base power and toughness of each other creature you control become equal to")
+        (("Exhaust — {X}{G}{G}{U}: Put X +1/+1 counters on ~.",
+          "Exhaust — {X}{G}{G}{U}: Each other creature you control has base power and toughness X/X until end of turn, where X is ~'s power."), _sita),
     "If you attacked this turn, you may have ~ enter as a copy of any creature on the battlefield.":
         (("You may have ~ enter as a copy of any creature on the battlefield.",),
          lambda d: {**d, "raid100h": True} if d.get("replacement") == "enter_as_copy" else None),  # (Protean Raider: copying.entering reads it)
@@ -393,6 +432,23 @@ _BUILD: dict[str, tuple[tuple[str, ...], Callable[..., Def | None]]] = {
     "total toxic value.":
         (("At the beginning of your upkeep, if an opponent has three or more poison counters, choose a creature you control, then draw cards equal to "
           "its power.",), _goliath),
+    "Whenever a land you control enters, manifest dread if this is the first time this ability has resolved this turn. Otherwise, you may turn a "
+    "permanent you control face up.":
+        (("Whenever a land you control enters, manifest dread if this is the first time this ability has resolved this turn.",
+          "Whenever a land you control enters, you may turn a face-down permanent you control face up."), _zimone),
+    # Shiko and Narset, Unified (flurry): the copy is made only if the spell targets a permanent or player as this resolves, and then it must be
+    # (ruling 2025-04-04); otherwise a card is drawn
+    "Whenever you cast your second spell each turn, copy that spell if it targets a permanent or player, and you may choose new targets for the copy. "
+    "If you don't copy a spell this way, draw a card.":
+        (("Whenever you cast your second spell each turn, copy that spell. You may choose new targets for the copy.",
+          "Whenever you cast your second spell each turn, draw a card."), _flurry),
+    # Yidris, Maelstrom Wielder: every spell its controller casts from hand for the rest of the turn gains cascade, once per resolution, even after
+    # Yidris leaves (rulings 2016-11-08; casting._granted_cascade reads the turn facts)
+    "Whenever ~ deals combat damage to a player, as you cast spells from your hand this turn, they gain cascade.":
+        (("Whenever ~ deals combat damage to a player, draw a card.",), lambda d: {**d, "effects": [{"do": "yidris100h"}]} if _dos(d) == ["draw"] else None),
+    "At the beginning of your upkeep, you may look at the top card of your library. If it shares a creature type with ~, you may reveal it. If you "
+    "do, you may play that card without paying its mana cost.":
+        (("At the beginning of your upkeep, reveal the top card of your library. You may play that card without paying its mana cost.",), _elder),
     "At the beginning of your end step, if you control a creature with a +1/+1 counter on it that attacked this turn, draw a card.":
         (("At the beginning of your end step, if you control a creature with a +1/+1 counter on it, draw a card.",), _resolve),
     "At the beginning of each end step, draw a card if you've cast a spell from a graveyard or activated an ability of a card in a graveyard this turn.":
@@ -453,6 +509,7 @@ _SPELL_BUILD: dict[str, tuple[str, Callable[[Def], Def | None]]] = {
 
 
 _HELLBENT = "If you have no cards in hand, this spell can't be countered and the damage can't be prevented."
+_DELIRIUM = {"value": {"distinct": "types", "among": 'sel:{"card":true,"zone_owner":"you","zones":["graveyard"]}'}, "op": ">=", "n": 4}
 _EMPTY_HAND = {"value": {"hand": "you"}, "op": "==", "n": 0}
 
 
@@ -465,6 +522,10 @@ def _demonfire(d: Def) -> Def | None:
                              {"do": "only_if", "cond": {"flag": "cond0", "negate": True}, "skip": 1}, hit, exile]}
 
 
+_GODDRIC = ('As long as two or more nonland permanents entered the battlefield under your control this turn, ~{} base power and toughness 4/4, '
+            'flying, and "{{R}}: Dragons you control get +1/+0 until end of turn."')
+
+
 def definition(ability: Any, ch: Any) -> Def | None:
     from app.rules import scripts
 
@@ -475,6 +536,19 @@ def definition(ability: Any, ch: Any) -> Def | None:
     if ability.kind == "static" and text == ("During your turn, as long as you haven't activated an exhaust ability this turn, you may activate exhaust "
                                              "abilities as though they haven't been activated."):
         return {"kind": "static", "static": "exhaust_again100h", "effects": []}  # (Elvish Refueler: restrictions._exhaust_again, 702.177b)
+    if ability.kind == "static" and text == "This spell has cascade as long as there are four or more card types among cards in your graveyard.":
+        # Bloodbraid Marauder (delirium): judged as the spell becomes cast (ruling 2021-06-18), casting._granted_cascade reads it
+        return {"kind": "static", "static": "own_cascade100h", "cond": _DELIRIUM, "effects": []}
+    if ability.kind == "static" and text == _GODDRIC.format(' is a Dragon with'):
+        # Goddric, Cloaked Reveler (celebration): "is a Dragon" sets its creature types (205.1a; layer 4, as During your turn, ~ is a Bear …)
+        native = scripts.define(replace(ability, text=_GODDRIC.format(' has')), ch)
+        return None if native is None else {**native, "layered": True, "layer4": {"set_creature_types": ["Dragon"]}}
+    if ability.kind == "static" and text == "For each basic land type among lands you control, ~ has landwalk of that type.":
+        # (Magnigoth Treefolk, domain: one landwalk grant per type, 702.14c; 305.6)
+        from app.rules import compound_static_grants90 as grants
+
+        return grants._bundle([grants._part(f"~ has {land.lower()}walk as long as you control a{'n' * (land == 'Island')} {land}.")
+                               for land in ("Plains", "Island", "Swamp", "Mountain", "Forest")])
     if ability.kind == "spell" and text == _HELLBENT:  # (its "can't be countered" part: a static of the spell, judged when something would counter it)
         return {"kind": "static", "static": "self_uncounterable", "cond": _EMPTY_HAND, "effects": []}
     others = tuple(a for a in ch.abilities if scripts.self_text(a.text, ch.name) != _HELLBENT)
@@ -495,8 +569,20 @@ def definition(ability: Any, ch: Any) -> Def | None:
 
 
 def holds(plan: Any, ctx: dict[str, Any], cond: dict[str, Any]) -> bool:
-    """Frodo: the source is its controller's Ring-bearer (701.54a) and the Ring has tempted them two or more times (701.54c)."""
-    from app.rules import designations
+    """Frodo: the source is its controller's Ring-bearer (701.54a) and the Ring has tempted them two or more times (701.54c).
+    Flurry (Shiko and Narset): the spell the trigger is about targets a permanent or a player now (115.9b: a target still on the battlefield as
+    the same object, or a player still in the game)."""
+    from app.rules import copying, designations
+
+    if cond.get("flurry100h"):
+        for sid, oid in copying._copy_sources(plan, ctx, "event_spell"):
+            mem = copying.lki_spell(plan, sid, oid)
+            entry = mem.entry if mem is not None else plan.rules.stack.get(sid)
+            for t in entry.targets if entry is not None else []:
+                c = plan.state.cards.get(t.id)
+                if t.id in plan.live() or (c is not None and c.zone.endswith(":battlefield") and (t.object_id is None or plan.oid(c) == t.object_id)):
+                    return True
+        return False
 
     card = plan.state.cards.get(ctx.get("source_card") or "")
     return bool(card is not None and plan.oid(card) == ctx.get("source_object") and designations.ring_bearer_of(plan.state, card)
@@ -538,6 +624,25 @@ def shade(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return permissions.grant_play(plan, ctx, {"do": "grant_play", "who": context.PREFIX + "shade100h", "play": False, "cast": True, "until": "end_of_turn"})
 
 
+def own_cascade(plan: Any, card: Any, ch: Any, cast_from: str | None = None) -> int:
+    """The instances of cascade a spell's own conditional static gives it as it is cast (702.85a), and one for each Yidris resolution this turn
+    when it is cast from its caster's hand."""
+    from app.rules import conditions, history, scripts
+
+    ctx = {"controller": plan.actor, "source_card": card.id, "source_object": plan.oid(card)}
+    hand = sum(1 for f in history.log_for(plan).facts if f.kind == "hand_cascade100h" and f.player == plan.actor) if cast_from == "hand" else 0
+    return hand + sum(1 for d in scripts.definitions(ch).values() if d.get("static") == "own_cascade100h" and conditions.holds(plan, ctx, d["cond"]))
+
+
+def yidris(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    from app.game.rules_state import TurnFact, turn_log_now
+
+    if (log := turn_log_now(plan.state)) is not None:
+        log.facts.append(TurnFact(kind="hand_cascade100h", player=ctx["controller"]))
+    plan.note(f"{ctx.get('name') or 'Yidris'}: spells {plan.name(ctx['controller'])} casts from hand this turn gain cascade", actor=ctx["controller"])
+    return True
+
+
 def starfish(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     from app.rules import effects, history
 
@@ -545,4 +650,4 @@ def starfish(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return effects.PRIMITIVES["create_token"](plan, ctx, {**e, "do": "create_token", "n": n}) if n else True
 
 
-PRIMITIVES = {"council100h": council, "destiny100h": destiny, "toxic_draw100h": toxic_draw, "shade100h": shade, "starfish100h": starfish}
+PRIMITIVES = {"yidris100h": yidris, "council100h": council, "destiny100h": destiny, "toxic_draw100h": toxic_draw, "shade100h": shade, "starfish100h": starfish}

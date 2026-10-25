@@ -1196,5 +1196,174 @@
   ],
   "power": "2",
   "toughness": "1"
+ },
+ {
+  "name": "Bloodbraid Marauder",
+  "layout": "normal",
+  "mana_cost": "{1}{R}",
+  "cmc": 2.0,
+  "type_line": "Creature — Human Berserker",
+  "oracle_text": "This creature can't block.\nDelirium — This spell has cascade as long as there are four or more card types among cards in your graveyard. (When you cast this spell, exile cards from the top of your library until you exile a nonland card that costs less. You may cast it without paying its mana cost. Put the exiled cards on the bottom in a random order.)",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Delirium"
+  ],
+  "power": "3",
+  "toughness": "1"
+ },
+ {
+  "name": "Sita Varma, Masked Racer",
+  "layout": "normal",
+  "mana_cost": "{G}{U}",
+  "cmc": 2.0,
+  "type_line": "Legendary Creature — Human Rogue",
+  "oracle_text": "Exhaust — {X}{G}{G}{U}: Put X +1/+1 counters on Sita Varma. Then you may have the base power and toughness of each other creature you control become equal to Sita Varma's power until end of turn. (Activate each exhaust ability only once.)",
+  "colors": [
+   "G",
+   "U"
+  ],
+  "color_identity": [
+   "G",
+   "U"
+  ],
+  "keywords": [
+   "Exhaust"
+  ],
+  "power": "2",
+  "toughness": "3"
+ },
+ {
+  "name": "Magnigoth Treefolk",
+  "layout": "normal",
+  "mana_cost": "{4}{G}",
+  "cmc": 5.0,
+  "type_line": "Creature — Treefolk",
+  "oracle_text": "Domain — For each basic land type among lands you control, this creature has landwalk of that type. (It can't be blocked as long as defending player controls a land of that type.)",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [
+   "Domain"
+  ],
+  "power": "2",
+  "toughness": "6"
+ },
+ {
+  "name": "Goddric, Cloaked Reveler",
+  "layout": "normal",
+  "mana_cost": "{1}{R}{R}",
+  "cmc": 3.0,
+  "type_line": "Legendary Creature — Human Noble",
+  "oracle_text": "Haste\nCelebration — As long as two or more nonland permanents entered the battlefield under your control this turn, Goddric is a Dragon with base power and toughness 4/4, flying, and \"{R}: Dragons you control get +1/+0 until end of turn.\" (He loses all other creature types.)",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Flying",
+   "Celebration",
+   "Haste"
+  ],
+  "power": "3",
+  "toughness": "3"
+ },
+ {
+  "name": "Zimone, Mystery Unraveler",
+  "layout": "normal",
+  "mana_cost": "{2}{G}{U}",
+  "cmc": 4.0,
+  "type_line": "Legendary Creature — Human Wizard",
+  "oracle_text": "Landfall — Whenever a land you control enters, manifest dread if this is the first time this ability has resolved this turn. Otherwise, you may turn a permanent you control face up. (To manifest dread, look at the top two cards of your library. Put one onto the battlefield face down as a 2/2 creature and the other into your graveyard. Turn it face up any time for its mana cost if it's a creature card.)",
+  "colors": [
+   "G",
+   "U"
+  ],
+  "color_identity": [
+   "G",
+   "U"
+  ],
+  "keywords": [
+   "Manifest",
+   "Manifest dread",
+   "Landfall"
+  ],
+  "power": "3",
+  "toughness": "3"
+ },
+ {
+  "name": "TARDIS",
+  "layout": "normal",
+  "mana_cost": "{2}",
+  "cmc": 2.0,
+  "type_line": "Artifact — Vehicle",
+  "oracle_text": "Flying\nWhenever this Vehicle attacks, if you control a Time Lord, the next spell you cast this turn has cascade and you may planeswalk.\nCrew 2 (Tap any number of creatures you control with total power 2 or more: This Vehicle becomes an artifact creature until end of turn.)",
+  "colors": [],
+  "color_identity": [],
+  "keywords": [
+   "Flying",
+   "Crew"
+  ],
+  "power": "2",
+  "toughness": "4"
+ },
+ {
+  "name": "Yidris, Maelstrom Wielder",
+  "layout": "normal",
+  "mana_cost": "{U}{B}{R}{G}",
+  "cmc": 4.0,
+  "type_line": "Legendary Creature — Ogre Wizard",
+  "oracle_text": "Trample\nWhenever Yidris deals combat damage to a player, as you cast spells from your hand this turn, they gain cascade. (When you cast the spell, exile cards from the top of your library until you exile a nonland card that costs less. You may cast it without paying its mana cost. Put the exiled cards on the bottom in a random order.)",
+  "colors": [
+   "B",
+   "G",
+   "R",
+   "U"
+  ],
+  "color_identity": [
+   "B",
+   "G",
+   "R",
+   "U"
+  ],
+  "keywords": [
+   "Trample"
+  ],
+  "power": "5",
+  "toughness": "4"
+ },
+ {
+  "name": "Shiko and Narset, Unified",
+  "layout": "normal",
+  "mana_cost": "{1}{U}{R}{W}",
+  "cmc": 4.0,
+  "type_line": "Legendary Creature — Human Spirit Dragon",
+  "oracle_text": "Flying, vigilance\nFlurry — Whenever you cast your second spell each turn, copy that spell if it targets a permanent or player, and you may choose new targets for the copy. If you don't copy a spell this way, draw a card.",
+  "colors": [
+   "R",
+   "U",
+   "W"
+  ],
+  "color_identity": [
+   "R",
+   "U",
+   "W"
+  ],
+  "keywords": [
+   "Flying",
+   "Flurry",
+   "Vigilance"
+  ],
+  "power": "4",
+  "toughness": "4"
  }
 ]

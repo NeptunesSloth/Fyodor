@@ -1071,3 +1071,116 @@ def test_elvish_refueler_reopens_one_exhaust_activation_each_of_your_turns(cards
         go()
     assert s.state.cards[prow.id].counters.get("+1/+1") == 4
     check(s)
+
+
+# -- Bloodbraid Marauder -----------------------------------------------------------------------------------------------------------------------------
+@pytest.mark.parametrize("delirium", [True, False])
+def test_bloodbraid_marauder_cascades_with_delirium(cards, delirium):
+    s = build(cards, ["Bloodbraid Marauder", "Llanowar Elves", "Grizzly Bears", "Opt", "Sol Ring"])
+    if delirium:
+        bury(s, *DELIRIUM)
+    elves = next(c for c in s.state.cards.values() if c.name == "Llanowar Elves")
+    act(s, "p1", type="move", card_ids=[elves.id], to={"zone": "library"}, position="top")
+    marauder = cast(s, "Bloodbraid Marauder", pick=["yes", elves.id])
+    assert zone(s, marauder) == "p1:battlefield" and zone(s, elves) == ("p1:battlefield" if delirium else "p1:library")
+    check(s)
+
+
+# -- Sita Varma, Masked Racer -------------------------------------------------------------------------------------------------------------------
+@pytest.mark.parametrize("choose", [True, False])
+def test_sita_varma_counters_then_sets_the_others_base_power(cards, choose):
+    from app.game.errors import ActionError
+
+    s = build(cards, ["Sita Varma, Masked Racer", "Grizzly Bears"])
+    sita, bear = put(s, "Sita Varma, Masked Racer"), put(s, "Grizzly Bears")
+    power = ch(s, sita).pt[0]
+    mana(s, G=2, U=1, C=2)
+    act(s, "p1", type="activate_ability", card_id=sita.id, ability=0, x_value=2)
+    answer(s, ["yes" if choose else "no"])
+    assert ch(s, sita).pt[0] == power + 2 and ch(s, bear).pt == ((power + 2, power + 2) if choose else (2, 2))
+    mana(s, G=2, U=1)
+    with pytest.raises(ActionError):  # (exhaust: only once, 702.177a)
+        act(s, "p1", type="activate_ability", card_id=sita.id, ability=0, x_value=0)
+    check(s)
+
+
+# -- Magnigoth Treefolk -----------------------------------------------------------------------------------------------------------------------------
+def test_magnigoth_treefolk_has_the_landwalk_of_each_basic_type_you_control(cards):
+    s = build(cards, ["Magnigoth Treefolk", "Island", "Forest"])
+    tree = put(s, "Magnigoth Treefolk")
+    assert not {k for k in ch(s, tree).keywords if k.endswith("walk")}
+    put(s, "Island")
+    assert {k for k in ch(s, tree).keywords if k.endswith("walk")} == {"islandwalk"}
+    put(s, "Forest")
+    assert {k for k in ch(s, tree).keywords if k.endswith("walk")} == {"islandwalk", "forestwalk"}
+    check(s)
+
+
+# -- Goddric, Cloaked Reveler -----------------------------------------------------------------------------------------------------------------------
+def test_goddric_is_a_dragon_after_two_nonland_permanents_entered(cards):
+    s = build(cards, ["Goddric, Cloaked Reveler", "Grizzly Bears", "Forest"])
+    god = put(s, "Goddric, Cloaked Reveler")  # (one nonland permanent entered)
+    put(s, "Forest")
+    assert "Dragon" not in ch(s, god).subtypes and "flying" not in ch(s, god).keywords and ch(s, god).pt != (4, 4)
+    cast(s, "Grizzly Bears")
+    got = ch(s, god)
+    assert got.subtypes == {"Dragon"} and got.pt == (4, 4) and "flying" in got.keywords and "haste" in got.keywords
+    pump = next(a.index for a in got.abilities if a.text.startswith("{R}: Dragons"))
+    mana(s, R=1)
+    act(s, "p1", type="activate_ability", card_id=god.id, ability=pump)
+    answer(s)
+    assert ch(s, god).pt == (5, 4)  # (it is a Dragon itself)
+    check(s)
+
+
+# -- Zimone, Mystery Unraveler ----------------------------------------------------------------------------------------------------------------------
+def test_zimone_manifests_dread_first_then_turns_a_permanent_face_up(cards):
+    s = build(cards, ["Zimone, Mystery Unraveler", "Forest", "Rampant Growth", "Grizzly Bears", "Llanowar Elves"])
+    put(s, "Zimone, Mystery Unraveler")
+    for name in ("Grizzly Bears", "Llanowar Elves"):
+        c = next(c for c in s.state.cards.values() if c.name == name)
+        act(s, "p1", type="move", card_ids=[c.id], to={"zone": "library"}, position="top")
+    act(s, "p1", type="play_land", card_id=to_hand(s, "Forest").id)
+    answer(s)
+    down = [c for c in s.state.cards.values() if c.face_down and c.zone == "p1:battlefield"]
+    assert len(down) == 1
+    cast(s, "Rampant Growth")
+    answer(s)
+    assert not s.state.cards[down[0].id].face_down
+    assert not [c for c in s.state.cards.values() if c.face_down and c.zone == "p1:battlefield"]  # (no second manifest)
+    check(s)
+
+
+# -- Yidris, Maelstrom Wielder ----------------------------------------------------------------------------------------------------------------------
+@pytest.mark.parametrize("hit", [True, False])
+def test_yidris_gives_spells_cast_from_hand_cascade_after_combat_damage(cards, hit):
+    s = build(cards, ["Yidris, Maelstrom Wielder", "Grizzly Bears", "Llanowar Elves"])
+    yidris = put(s, "Yidris, Maelstrom Wielder")
+    attack(s, [yidris] if hit else [])
+    elves = next(c for c in s.state.cards.values() if c.name == "Llanowar Elves")
+    act(s, "p1", type="move", card_ids=[elves.id], to={"zone": "library"}, position="top")
+    act(s, "p1", type="move", card_ids=[yidris.id], to={"zone": "graveyard"})  # (it needn't stay: ruling 2016-11-08)
+    bears = cast(s, "Grizzly Bears", pick=["yes", elves.id])
+    assert zone(s, bears) == "p1:battlefield" and zone(s, elves) == ("p1:battlefield" if hit else "p1:library")
+    check(s)
+
+
+# -- Shiko and Narset, Unified ----------------------------------------------------------------------------------------------------------------------
+def test_shiko_and_narset_copy_a_second_spell_that_targets_a_player(cards):
+    s = build(cards, ["Shiko and Narset, Unified", "Opt", "Lightning Bolt"])
+    put(s, "Shiko and Narset, Unified")
+    cast(s, "Opt")
+    before = hand(s)
+    bolt(s, "p2")
+    assert life(s, "p2") == 34 and hand(s) == before  # (the copy and the Bolt; no draw)
+    check(s)
+
+
+def test_shiko_and_narset_draw_when_the_second_spell_targets_nothing(cards):
+    s = build(cards, ["Shiko and Narset, Unified", "Opt", "Lightning Bolt"])
+    put(s, "Shiko and Narset, Unified")
+    bolt(s, "p2")
+    before = hand(s)
+    cast(s, "Opt")
+    assert life(s, "p2") == 37 and hand(s) == before + 2  # (Opt's draw and the flurry draw; cast() puts Opt in hand first)
+    check(s)

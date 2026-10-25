@@ -4643,9 +4643,9 @@ def crew(plan: Plan, card: CardInstance, ch: Characteristics, a: A.ActivateAbili
 
 # -- static statics (wave 10B) -- cascade a permanent gives the spell as it's cast (cast_limits.granted_cascade)
 def _granted_cascade(plan: Plan, card: CardInstance, ch: Characteristics, cast_from: str | None) -> int:
-    from app.rules import cast_limits
+    from app.rules import cast_limits, turnstate100h
 
-    return cast_limits.granted_cascade(plan, card.id, ch, cast_from)
+    return cast_limits.granted_cascade(plan, card.id, ch, cast_from) + turnstate100h.own_cascade(plan, card, ch, cast_from)  # (wave 100H: Bloodbraid Marauder, Yidris)
 
 
 def _cascade_triggers(plan: Plan, card: CardInstance, ch: Characteristics, extra: int = 0) -> None:
