@@ -1651,5 +1651,40 @@
   "keywords": [],
   "power": "2",
   "toughness": "5"
+ },
+ {
+  "name": "Unidentified Hovership",
+  "layout": "normal",
+  "mana_cost": "{1}{W}{W}",
+  "cmc": 3.0,
+  "type_line": "Artifact — Vehicle",
+  "oracle_text": "Flying\nWhen this Vehicle enters, exile up to one target creature with toughness 5 or less.\nWhen this Vehicle leaves the battlefield, the exiled card's owner manifests dread.\nCrew 1",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "Flying",
+   "Crew"
+  ],
+  "power": "2",
+  "toughness": "2"
+ },
+ {
+  "name": "Shatter",
+  "layout": "normal",
+  "mana_cost": "{1}{R}",
+  "cmc": 2.0,
+  "type_line": "Instant",
+  "oracle_text": "Destroy target artifact.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": []
  }
 ]

@@ -2,6 +2,7 @@
 
 * Stunning Reversal: 614.1a, 614.5 the next loss of the game this turn draws seven and sets life to 1; the card is exiled; used up after one loss.
 * Genku: 700.2, a mode not yet chosen this turn (modal memory) makes one of three tokens per nontoken permanent leaving.
+* Unidentified Hovership: 607.2a, 701.62a the exiled card's owner (not the Vehicle's controller) manifests dread when the Vehicle leaves.
 * Oblivious Bookworm: 708.2, 708.8 the end-step loot discards unless a permanent entered face down under your control this turn or you turned one face up this turn.
 """
 
@@ -20,7 +21,7 @@ def cards(settings):
     yield from repository(settings)
 
 
-@pytest.mark.parametrize("name", ["Oblivious Bookworm", "Stunning Reversal", "Genku, Future Shaper"])
+@pytest.mark.parametrize("name", ["Oblivious Bookworm", "Stunning Reversal", "Genku, Future Shaper", "Unidentified Hovership"])
 def test_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
@@ -102,4 +103,19 @@ def test_genku_makes_each_token_once_per_turn_and_ignores_tokens(cards):
         seen.append(toks)
     assert [len(t) for t in seen] == [1, 2, 3, 3]  # (the fourth leaving finds every mode chosen)
     assert sorted(seen[-1]) == ["Fox", "Moonfolk", "Rat"]
+    check(s)
+
+
+def test_unidentified_hovership_gives_the_owner_of_the_exiled_card_a_manifest(cards):
+    s = build(cards, ["Unidentified Hovership", "Shatter"], ["Grizzly Bears", "Forest", "Forest", "Forest"])
+    bears = put(s, "Grizzly Bears", "p2")
+    mana(s, "p1", W=2, C=1)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Unidentified Hovership").id)
+    drive(s, lambda d: [bears.id] if bears.id in [o.id for o in d.options] else None)
+    assert s.state.cards[bears.id].zone == "p2:exile"
+    mana(s, "p1", R=1, C=1)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Shatter").id, targets=[card_named(s, "Unidentified Hovership").id])
+    drive(s)
+    down = [c for c in s.state.cards.values() if c.zone.endswith(":battlefield") and c.face_down]
+    assert [c.controller for c in down] == ["p2"]
     check(s)
