@@ -26,3 +26,8 @@
 - Gutter Grime: the token's quoted CDA counts counters on its creator by name; quoted token abilities have no link to the creating permanent.
 - Scrap Welder, Sidisi, Regent of the Mire: X is the mana value of a cost-sacrificed object but the target is chosen before the cost (601.2c vs 601.2h); needs a ruling-backed X-from-cost design.
 - Nuka-Nuke Launcher: watch lasting "until the end of defending player's next turn" bound to another player; the 50G watch machinery is controller-bound only.
+- Font of Agonies: "Whenever you pay life" needs a life-paid event at ~10 cost sites (cost_payment, casting x6, optional_payment, Phyrexian mana).
+- Nuka-Nuke Launcher: per-player watch lasting through the defending player's next turn (turn-bounded "whenever they cast") not modelled.
+- Gift of Doom: "As this Aura is turned face up, you may attach it" needs a pre-SBA attach decision inside the turn-up special action.
+- Quicksilver Elemental: borrowed activated abilities + "spend blue mana as any color" for its abilities (two foundations).
+- Archnemesis: "attack enchanted player" event for an Aura on a player not modelled.
