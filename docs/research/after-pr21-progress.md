@@ -1,9 +1,7 @@
-# Additional500-card automation work after PR21
+#500 additional cards after merged PR21 — active
 
-User requests at least500 NEW card completions after merged PR21. Starting runtime commit:456c95d6aa3eaaa38583129be436ef57c1937a01 (main). Branch:codex/card-automation-after-pr21. All work already merged in PR21 is baseline, never counted as new.
+Baseline is exact merged commit456c95d6aa3eaaa38583129be436ef57c1937a01 (PR21),941 modules. **30,724 FULL /1,344 PARTIAL** among32,068 Commander-legal cards. New request starts at **0/500 additional verified**. Reaching500 requires at least31,224 FULL against this unchanged catalog. FULL is engine coverage classification.
 
-Fresh baseline catalog audit is running on immutable941-module merged source. Prior CURRENT_STATE checkpoint67 counts are historical and must not be mistaken for post21 totals. Native full typing/core checks and configured Ruff are being verified; Ruff app/tools passes. Baseline artifacts are persisted under /workspace/scratch/after-pr21/baseline until admitted evidence is saved here.
+The inherited779 promotions from PR21 are NOT new progress. Historical checkpoint67 counts below CURRENT_STATE are not the current baseline. [Baseline record](after-pr21-baseline.json), [hashes](after-pr21-baseline-source-hashes.json), [logs](after-pr21-baseline-validation). Baseline full mypy941, configured Ruff and54 core checks pass. Any historical regressions are recorded explicitly in the baseline record.
 
-Current new verified count:0/500. Six isolated agents own costs/activations, library/graveyard/exile, combat/control/targeting, triggered/upkeep outcomes, statics/entry/counters/stickers, and spell/modal/minigame families. Root alone integrates, audits, commits and pushes. Agent proposals require actual gameplay/cold proofs, canonical exact Commander legality, owned source hunks and typing/Ruff/related evidence. No classifier-only support declarations. Closed proposals remain uncounted until final frozen catalog/regression admission.
-
-Automatic scheduling continues to each next largest coherent unowned group after closure. This is active work, not a completed500 claim.
+[Draft PR22](https://github.com/NeptunesSloth/Fyodor/pull/22), branch codex/card-automation-after-pr21. Six isolated streams own costs/activation, library/graveyard/exile, combat/control/targeting, triggers/upkeep, statics/entry/stickers, and spells/modal/minigames. Root integrates frozen owned patches, native/cold/related proofs, typing/Ruff and exact catalog diffs. Closed agent candidates are uncounted until root admission. Automatic next-largest coherent scheduling continues; the500 goal is not complete.

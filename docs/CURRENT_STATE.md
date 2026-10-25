@@ -1,4 +1,10 @@
-New work starts from merged PR21 (main456c95d6), with a fresh500-additional-card target. [Active progress](research/after-pr21-progress.md). Post21 baseline audit is pending; checkpoint67 totals below are historical. Six agents are active again.
+New work continues from merged [PR21](https://github.com/NeptunesSloth/Fyodor/pull/21) in [draft PR22](https://github.com/NeptunesSloth/Fyodor/pull/22). Six agents are active; the new request is500 additional completions beyond PR21.
+
+## POST-PR21 BASELINE VERIFIED — ACTIVE
+
+**30,724 FULL /1,344 PARTIAL**,32,068 Commander-legal cards. **0/500 new completions verified.** Inherited PR21 work is excluded. FULL is engine coverage classification. Baseline941-module full typing/Ruff and54 core checks pass.
+
+[Progress](research/after-pr21-progress.md), [baseline record](research/after-pr21-baseline.json), [source hashes](research/after-pr21-baseline-source-hashes.json), [logs](research/after-pr21-baseline-validation). Older checkpoint sections below are historical.
 
 Current-work wrap-up is saved in [PR #20](https://github.com/NeptunesSloth/Fyodor/pull/20). The six agents reached their usage limit; no automatic assignments remain active.
 

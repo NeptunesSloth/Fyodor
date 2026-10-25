@@ -1,0 +1,367 @@
+{
+ "cards": 32068,
+ "levels": {
+  "FULL": 30724,
+  "PARTIAL": 1344
+ },
+ "commanders": 3502,
+ "commanders_full": 3242,
+ "lines": {
+  "supported": 59858,
+  "parsed": 126,
+  "unparsed": 1756
+ },
+ "lines_pct": {
+  "supported": 96.95,
+  "parsed": 0.2,
+  "unparsed": 2.84
+ },
+ "classified_pct": 97.16,
+ "collateral_lines": 124,
+ "non_full_by_blocking_lines": {
+  "1": 1033,
+  "2": 233,
+  "3": 57,
+  "4": 16,
+  "5": 5
+ },
+ "single_family": [
+  {
+   "family": "static_other",
+   "cards": 171,
+   "commanders": 14
+  },
+  {
+   "family": "trigger_other",
+   "cards": 160,
+   "commanders": 35
+  },
+  {
+   "family": "if_you_do",
+   "cards": 147,
+   "commanders": 36
+  },
+  {
+   "family": "activated_other",
+   "cards": 61,
+   "commanders": 9
+  },
+  {
+   "family": "this_turn_state",
+   "cards": 60,
+   "commanders": 8
+  },
+  {
+   "family": "attached_events",
+   "cards": 60,
+   "commanders": 3
+  },
+  {
+   "family": "counters",
+   "cards": 57,
+   "commanders": 17
+  },
+  {
+   "family": "as_long_as_static",
+   "cards": 49,
+   "commanders": 8
+  },
+  {
+   "family": "x_value",
+   "cards": 45,
+   "commanders": 8
+  },
+  {
+   "family": "instead",
+   "cards": 43,
+   "commanders": 7
+  },
+  {
+   "family": "damage_sized",
+   "cards": 28,
+   "commanders": 5
+  },
+  {
+   "family": "ability_word",
+   "cards": 25,
+   "commanders": 3
+  },
+  {
+   "family": "reanimation",
+   "cards": 18,
+   "commanders": 1
+  },
+  {
+   "family": "cost_alt",
+   "cards": 16,
+   "commanders": 4
+  },
+  {
+   "family": "free_cast",
+   "cards": 14,
+   "commanders": 4
+  },
+  {
+   "family": "death_trigger",
+   "cards": 13,
+   "commanders": 3
+  },
+  {
+   "family": "activation_cost",
+   "cards": 12,
+   "commanders": 6
+  },
+  {
+   "family": "control_change",
+   "cards": 11,
+   "commanders": 4
+  },
+  {
+   "family": "attack_restriction",
+   "cards": 9,
+   "commanders": 1
+  },
+  {
+   "family": "saga",
+   "cards": 8,
+   "commanders": 1
+  },
+  {
+   "family": "cost_changer",
+   "cards": 8,
+   "commanders": 4
+  },
+  {
+   "family": "token_copy",
+   "cards": 7,
+   "commanders": 1
+  },
+  {
+   "family": "transform",
+   "cards": 7,
+   "commanders": 2
+  },
+  {
+   "family": "chosen_type",
+   "cards": 7,
+   "commanders": 4
+  },
+  {
+   "family": "face_down",
+   "cards": 6,
+   "commanders": 3
+  },
+  {
+   "family": "copy_keywords",
+   "cards": 6,
+   "commanders": 2
+  },
+  {
+   "family": "enter_as_copy_other",
+   "cards": 5,
+   "commanders": 1
+  },
+  {
+   "family": "cost_self_reduction",
+   "cards": 5,
+   "commanders": 1
+  },
+  {
+   "family": "tutor",
+   "cards": 5,
+   "commanders": 0
+  },
+  {
+   "family": "unless_pays",
+   "cards": 4,
+   "commanders": 0
+  },
+  {
+   "family": "counter_rider",
+   "cards": 4,
+   "commanders": 0
+  },
+  {
+   "family": "player_counters",
+   "cards": 3,
+   "commanders": 2
+  },
+  {
+   "family": "look_top",
+   "cards": 3,
+   "commanders": 2
+  },
+  {
+   "family": "attach_on_entry",
+   "cards": 2,
+   "commanders": 0
+  },
+  {
+   "family": "cant_restrictions",
+   "cards": 2,
+   "commanders": 0
+  },
+  {
+   "family": "enters_untapped_or_tapped",
+   "cards": 1,
+   "commanders": 0
+  },
+  {
+   "family": "mana_rider",
+   "cards": 1,
+   "commanders": 0
+  },
+  {
+   "family": "cast_restriction",
+   "cards": 1,
+   "commanders": 0
+  },
+  {
+   "family": "feature:engine",
+   "cards": 1,
+   "commanders": 0
+  },
+  {
+   "family": "protection_choice",
+   "cards": 1,
+   "commanders": 0
+  },
+  {
+   "family": "kicked_instead",
+   "cards": 1,
+   "commanders": 0
+  },
+  {
+   "family": "keyword:cumulative upkeep",
+   "cards": 1,
+   "commanders": 0
+  },
+  {
+   "family": "keyword:splice",
+   "cards": 1,
+   "commanders": 0
+  }
+ ],
+ "multi_family_top": [
+  {
+   "families": "static_other + trigger_other",
+   "cards": 24
+  },
+  {
+   "families": "damage_sized + static_other",
+   "cards": 10
+  },
+  {
+   "families": "chosen_type + static_other",
+   "cards": 9
+  },
+  {
+   "families": "activated_other + trigger_other",
+   "cards": 9
+  },
+  {
+   "families": "if_you_do + static_other",
+   "cards": 8
+  },
+  {
+   "families": "activated_other + static_other",
+   "cards": 6
+  },
+  {
+   "families": "instead + static_other",
+   "cards": 6
+  },
+  {
+   "families": "static_other + x_value",
+   "cards": 6
+  },
+  {
+   "families": "attached_events + static_other",
+   "cards": 5
+  },
+  {
+   "families": "as_long_as_static + trigger_other",
+   "cards": 5
+  },
+  {
+   "families": "counters + x_value",
+   "cards": 4
+  },
+  {
+   "families": "counters + static_other + trigger_other",
+   "cards": 4
+  },
+  {
+   "families": "as_long_as_static + static_other",
+   "cards": 4
+  },
+  {
+   "families": "reanimation + static_other",
+   "cards": 4
+  },
+  {
+   "families": "trigger_other + x_value",
+   "cards": 4
+  },
+  {
+   "families": "static_other + this_turn_state",
+   "cards": 4
+  },
+  {
+   "families": "counters + instead",
+   "cards": 3
+  },
+  {
+   "families": "activation_cost + trigger_other",
+   "cards": 3
+  },
+  {
+   "families": "keyword:cumulative upkeep + trigger_other",
+   "cards": 3
+  },
+  {
+   "families": "counters + static_other",
+   "cards": 3
+  },
+  {
+   "families": "static_other + transform",
+   "cards": 3
+  },
+  {
+   "families": "control_change + if_you_do",
+   "cards": 2
+  },
+  {
+   "families": "attached_events + keyword:equip",
+   "cards": 2
+  },
+  {
+   "families": "keyword:tiered + static_other",
+   "cards": 2
+  },
+  {
+   "families": "if_you_do + instead + static_other",
+   "cards": 2
+  },
+  {
+   "families": "counters + trigger_other",
+   "cards": 2
+  },
+  {
+   "families": "free_cast + static_other",
+   "cards": 2
+  },
+  {
+   "families": "free_cast + trigger_other",
+   "cards": 2
+  },
+  {
+   "families": "if_you_do + saga",
+   "cards": 2
+  },
+  {
+   "families": "keyword:morph + x_value",
+   "cards": 2
+  }
+ ]
+}
