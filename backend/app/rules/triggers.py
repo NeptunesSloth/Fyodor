@@ -1928,10 +1928,11 @@ def _cast_triggers(plan: Plan, spell_id: str, caster: str, batch: int = 0) -> No
     # a copy isn't cast, 707.10: no spell_cast event)
     if not plan.manual(spell) and spell.zone == "stack" and spell.controller == caster:
         for i, d in abilities(plan, sch, "cast_self"):
-            from app.rules import conditions
+            if d.get("while") is not None:  # -- retarget (wave 100O); multi (wave 100N) -- "When you cast this spell while you control your commander": judged as it triggers only
+                from app.rules import conditions
 
-            if d.get("while") is not None and not conditions.holds(plan, {"controller": caster, "source_card": spell.id}, d["while"]):
-                continue  # -- multi (wave 100N) -- "When you cast this spell while you control …": part of the trigger event, as it is cast
+                if not conditions.holds(plan, {"controller": caster, "source_card": spell.id, "source_object": plan.oid(spell)}, d["while"]):
+                    continue
             _add(plan, controller=caster, source_card=spell.id, source_object=plan.oid(spell), name=sch.name, index=i,
                  definition=d, event=cast.model_copy(deep=True))
     from app.rules import mana_units
