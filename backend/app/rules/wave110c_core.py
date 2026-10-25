@@ -26,6 +26,15 @@ def read(text: str) -> Parsed:
     return copy.deepcopy(got)
 
 
+def _soldiers() -> Parsed:
+    """SOLDIER Military Program: chosen as it resolves, not targeted (608.2d, 115.1): up to two Soldiers you control, a +1/+1 counter on each (122.1)."""
+    from app.rules import selectors
+
+    key = selectors.parse("Soldier").key()  # type: ignore[union-attr]
+    return [{"do": "player_chooses", "who": "you", "sel": key, "n": 2, "label": "Soldier", "upto": True, "optional": True, "as": "gco"},
+            {"do": "add_counters", "who": "ref:gco", "kind": "+1/+1", "n": 1}], None, False
+
+
 def _catastrophe() -> Parsed:
     """Catastrophe: the choice of lands or creatures is made as it resolves (608.2d); only the creatures' destruction can't be regenerated (701.19c)."""
     lands = read("Destroy all lands.")[0]
@@ -96,6 +105,9 @@ BUILDERS: dict[str, Callable[[], Parsed]] = {
     "you draw X cards.": _ingenious_mastery,
     "If the {2}{W}{W} cost was paid, an opponent chooses up to two nonland permanents they control and returns them to their owner's hand.":
         _devastating_mastery,
+    "Each opponent sacrifices a creature they control with the greatest power.":  # (Szat's Will: the wording the grammar reads is "…with the greatest power among creatures they control.")
+        lambda: read("Each opponent sacrifices a creature with the greatest power among creatures they control."),
+    "Put a +1/+1 counter on each of up to two Soldiers you control.": _soldiers,
     "Destroy all lands or all creatures. Creatures destroyed this way can't be regenerated.": _catastrophe,
 }
 
@@ -105,7 +117,19 @@ def parse(body: str) -> Parsed | None:
     return build() if build is not None else None
 
 
+_MEATHOOK = {  # Meathook Massacre II: 400.7 the card returns as a new object "under your control" (the grammar reads the "to the battlefield" wording)
+    "Whenever a creature you control dies, you may pay 3 life. If you do, return that card under your control with a finality counter on it.",
+    "Whenever a creature an opponent controls dies, they may pay 3 life. If they don't, return that card under your control with a finality counter on it.",
+}
+
+
 def definition(ability: AbilityText, ch: Any) -> dict[str, Any] | None:
+    if ability.text in _MEATHOOK:
+        from dataclasses import replace
+
+        from app.rules import scripts
+
+        return scripts.define(replace(ability, text=ability.text.replace("return that card under", "return that card to the battlefield under")), ch)
     return None
 
 

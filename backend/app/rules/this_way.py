@@ -60,6 +60,8 @@ _GREATEST = re.compile(r"^the greatest number of cards a player (?P<verb>discard
 _TOTAL = re.compile(r"^the total (?P<stat>power|toughness) of the (?P<verb>sacrificed|tapped) (?P<what>.+)$")
 _TOTAL_GOADED = re.compile(r"^the total (?P<stat>power|toughness) of (?P<what>.+?) goaded this way$")  # -- goad (wave 50J) -- Havoc Eater
 _TOTAL_SACRIFICED = re.compile(r"^the total (?P<stat>power|toughness) of the (?P<what>creatures) sacrificed this way$")  # -- if you do (wave 100B) -- Reign of the Pit: each as it last existed (608.2h)
+# -- this way (wave 110C) -- "the greatest power among creature cards exiled this way" (Szat's Will): the best of the cards the exile moved, as each last existed (608.2h)
+_GREATEST_EXILED = re.compile(r"^the greatest (?P<stat>power|toughness) among (?P<what>.+?) exiled this way$")
 
 
 def parse(phrase: str) -> dict[str, Any] | None:
@@ -73,6 +75,8 @@ def parse(phrase: str) -> dict[str, Any] | None:
         return {"this_way": "goaded", "of": sel.key(), "stat": tg["stat"]}
     if (ts := _TOTAL_SACRIFICED.match(p)) is not None and (sel := selectors.parse(ts["what"])) is not None and sel.player is None:
         return {"this_way": "sacrificed", "of": sel.key(), "stat": ts["stat"]}
+    if (ge := _GREATEST_EXILED.match(p)) is not None and (sel := selectors.parse(ge["what"])) is not None and sel.player is None:
+        return {"this_way": "exiled", "of": sel.key(), "stat": ge["stat"], "agg": "max"}
     most = _GREATEST.match(p)
     if most is not None:  # Windfall: "the greatest number of cards a player discarded this way" (each player's own)
         return {"this_way": most["verb"], "of": None, "max_by": "owner"}
@@ -376,6 +380,8 @@ def count(plan: Plan, ctx: dict[str, Any], v: dict[str, Any]) -> int:
 
         got = [_still_there(plan, was) or (_snapshot_card(plan, snap) if (snap := context.snapshot(plan, ObjectRef.model_validate(was))) else None) for _, was in found]
         stat = sba.power if v["stat"] == "power" else sba.toughness  # (wave 100B: its power with every layer and counter applied, 613.4c — not the printed number)
+        if v.get("agg") == "max":
+            return max([0, *(stat(g[0], g[1]) or 0 for g in got if g)])
         return max(0, sum(stat(g[0], g[1]) or 0 for g in got if g))  # (107.1b: a total below 0 is 0)
     if v.get("distinct"):  # "card types among cards discarded this way": the different types the cards have where they went (205.2a)
         from app.rules import values

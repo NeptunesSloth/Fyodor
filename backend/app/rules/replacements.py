@@ -562,7 +562,7 @@ def choice_prompt(plan: Plan, card: CardInstance, controller: str, choice: dict[
     from app.rules import enter_cost
 
     if enter_cost.is_choice(what):  # -- entering for a cost (wave 5G) -- private: the cards in their hand
-        return enter_cost.prompt(plan, card, controller, set(choice.get("reserved") or ()))
+        return enter_cost.prompt(plan, card, controller, set(choice.get("reserved") or ()), choice.get("picked"))
     from app.rules import devour  # -- keyword mechanics (wave 9D) --
 
     if devour.is_choice(what):
@@ -595,7 +595,13 @@ def _answer(entry_or_answers: dict[str, Any], choice: dict[str, Any], chosen: st
     """Record an answer: a shock land's ``pay_life``, or a named choice under ``choices``."""
     if "life" in choice:
         return {**entry_or_answers, "pay_life": chosen == "pay"}
-    from app.rules import devour  # -- keyword mechanics (wave 9D) -- devour's picks pile up
+    from app.rules import (
+        devour,  # -- keyword mechanics (wave 9D) -- devour's picks pile up
+        enter_cost,  # -- entering for a cost (wave 110C) -- so do the several objects of "sacrifice two untapped lands"
+    )
+
+    if choice["what"] == enter_cost.WHAT:
+        chosen = enter_cost.merge((entry_or_answers.get("choices") or {}).get(choice["what"]), chosen)
 
     if devour.is_choice(choice["what"]):
         chosen = devour.merge((entry_or_answers.get("choices") or {}).get(choice["what"]), chosen)
@@ -717,6 +723,10 @@ def _picked(plan: Plan, d: Any, chosen: str) -> str:
         devour,  # -- keyword mechanics (wave 9D) --
     )
 
+    if d.resume["what"] == "enter_cost":  # -- entering for a cost (wave 110C) --
+        from app.rules import enter_cost
+
+        return enter_cost.merge(plan.rules.entry_choices.get(d.resume["card"], {}).get(enter_cost.WHAT), chosen)
     if amplify.is_choice(d.resume["what"]):
         return amplify.merge(plan.rules.entry_choices.get(d.resume["card"], {}).get(amplify.WHAT), chosen)
     if not devour.is_choice(d.resume["what"]):
