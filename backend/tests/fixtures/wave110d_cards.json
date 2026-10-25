@@ -6642,5 +6642,35 @@
 "B"
 ],
 "keywords": []
+},
+{
+"name": "Lightning Bolt",
+"layout": "normal",
+"mana_cost": "{R}",
+"cmc": 1.0,
+"type_line": "Instant",
+"oracle_text": "Lightning Bolt deals 3 damage to any target.",
+"colors": [
+"R"
+],
+"color_identity": [
+"R"
+],
+"keywords": []
+},
+{
+"name": "Reverberate",
+"layout": "normal",
+"mana_cost": "{R}{R}",
+"cmc": 2.0,
+"type_line": "Instant",
+"oracle_text": "Copy target instant or sorcery spell. You may choose new targets for the copy.",
+"colors": [
+"R"
+],
+"color_identity": [
+"R"
+],
+"keywords": []
 }
 ]

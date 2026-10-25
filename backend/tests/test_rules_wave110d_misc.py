@@ -74,6 +74,24 @@ def test_shaken_faith_hurts_from_the_second_spell(cards):
     check(s)
 
 
+def test_shaken_faith_hurts_when_the_enchanted_player_copies_a_spell(cards):
+    s = build(cards, ["Curse of Shaken Faith", "Lightning Bolt", "Reverberate"])
+    cast_on(s, "Curse of Shaken Faith", "p1")
+    next_turn(s)
+    next_turn(s)
+    act(s, "p1", type="set_prefs", hold_priority=True)
+    bolt = to_hand(s, "Lightning Bolt")
+    mana(s, R=1)
+    act(s, "p1", type="cast_spell", card_id=bolt.id, targets=["p2"])  # the first spell of the turn: free
+    assert life(s, "p1") == 40
+    rev = to_hand(s, "Reverberate")
+    mana(s, R=2)
+    act(s, "p1", type="cast_spell", card_id=rev.id, targets=[bolt.id])  # the second spell: 2; its copy of Bolt: 2 more
+    settle(s)
+    assert life(s, "p1") == 36 and life(s, "p2") == 34  # 40 - 2 (cast) - 2 (copy); 40 - 3 - 3
+    check(s)
+
+
 def test_overwhelming_splendor_is_full():
     assert full("Overwhelming Splendor")
 
