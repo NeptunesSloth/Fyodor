@@ -9206,6 +9206,10 @@ def define_replacement(ability: AbilityText, text: str) -> Definition | None:
         return kicked_entry
     if text == 'If ~ would be destroyed, regenerate it.':
         return {'kind': 'static', 'static': 'regenerate_instead', 'effects': []}
+    from app.rules import wave110c_aura  # -- aura guard (wave 110C) --
+
+    if (guard := wave110c_aura.definition(ability)) is not None:
+        return guard
     # -- cant restrictions (wave 46A) -- "~ enters with six +1/+1 counters on it. It escapes with twelve +1/+1 counters on it instead." (Polukranos, Unchained):
     # the usual amount, and the escaped one that replaces it (614.1c, 702.138b); replacements.counter_amount reads "escaped_n"
     if (esc := re.fullmatch(r"(~ enters with (?P<n>\w+) (?P<k>[+-]\d+/[+-]\d+) counters on it)\. It escapes with (?P<e>\w+) (?P=k) counters on it instead\.", text)) is not None \
