@@ -837,6 +837,7 @@ class PhaseLifetime(BaseModel):
 
     source: ObjectRef
     recipients: list[ObjectRef] = Field(default_factory=list)
+    control: str | None = None  # -- wave 110D -- "for as long as you control this Saga": the player who must control the source
 
 
 class CostReveal(BaseModel):

@@ -12,12 +12,18 @@ MONOLITH = ('{T}: Until end of turn, target creature gains "Whenever this creatu
             "That creature's controller may have this artifact deal 1 damage to it. Activate only as a sorcery.")
 
 
+ZHALFIR = "I, II — Another target nonland permanent phases out. It can't phase in for as long as you control this Saga."
 DACK = "Whenever you cast a spell that targets one or more permanents, gain control of those permanents."
 
 
 def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
     from app.rules import events, scripts
 
+    if ability.text == ZHALFIR:  # 702.26a, 610.3: phased out, held out for as long as its controller controls the Saga
+        d = scripts.define(replace(ability, text="I, II — Another target nonland permanent phases out."), ch)
+        if d is not None:
+            d["effects"] = [{"do": "phase_hold110d", "who": "target"}]
+        return d
     if ability.text == DACK:  # Dack Fayden's emblem (114.1): the cast event's targets (115.9b: departed ones are ignored), permanently
         cond = events.parse_condition("you cast a spell that targets one or more permanents")
         assert cond is not None
@@ -66,7 +72,17 @@ def spell_permanents(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return True
 
 
-PRIMITIVES: dict[str, Any] = {"may_hit110d": may_hit, "spell_permanents110d": spell_permanents}
+def phase_hold(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    from app.game.rules_state import ObjectRef
+    from app.rules import effects, phase_lifetimes43
+
+    ids = [c for c in effects._cards(plan, ctx, e["who"]) if plan.state.cards[c].zone.endswith(":battlefield")]
+    source = ObjectRef(card=ctx["source_card"], object_id=ctx["source_object"])
+    phase_lifetimes43.phase_out(plan, source, ids, ctx["controller"], control=ctx["controller"])
+    return True
+
+
+PRIMITIVES: dict[str, Any] = {"phase_hold110d": phase_hold, "may_hit110d": may_hit, "spell_permanents110d": spell_permanents}
 RESUME: dict[str, Any] = {"may_hit110d": resume}
 
 

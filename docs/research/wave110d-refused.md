@@ -34,3 +34,10 @@
 - Geth's Summons: Corrupted adds one target per opponent with 3+ poison as cast (variable target count by cast-time state).
 - Evangelize / Mausoleum Turnkey / Arena: delegated target announcement exists only for activated abilities; spells, triggers and a mixed own+opponent-choice pair need new foundations.
 - Ghostly Dancers / Marina Vendrell: no "unlock/lock a door" effect primitive yet (rooms.unlock exists; needs door choice decision).
+
+## Session 12
+- Ultima, Origin of Oblivion: "loses all land types and abilities" for a counter-bound duration has no land-type-removal layer effect (305.7 foundation).
+- Mechtitan Core: cost "Exile this Vehicle and four other artifact creatures and/or Vehicles" plus exiled-with return of all but itself; four unread parts.
+- Welcome to . . . // Jurassic Park, Kitesail Larcenist: "for each opponent/player ... up to one target" is a variable number of target groups.
+- Jeweled Amulet: noted mana type of an activation cost needs per-source memory of the mana spent plus a mana ability reading it.
+- Tyvar the Bellicose: "whenever a mana ability of this creature resolves" has no event (mana abilities skip the stack).
