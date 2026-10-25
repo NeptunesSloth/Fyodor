@@ -14,7 +14,6 @@ from tests.test_rules_wave12a_counters_keywords import real
 from tests.wave9c_kit import build, life, to_hand
 from tests.wave110d_kit import EXTRA, activate, card_db, ch, check, full, mana, put, settle, to_phase  # noqa: F401
 
-
 VECNA = real("Vecna", "{3}", 3, "Legendary Creature — Zombie", "", ("1", "1"), "B")
 
 
