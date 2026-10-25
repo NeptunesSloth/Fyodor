@@ -52,8 +52,9 @@ def untap_hold(plan: Any, player: str, keep: list[str]) -> list[str]:
         if not d.get("untap_counter110h"):
             continue
         host = plan.state.cards.get(aura.attached_to or "")
-        # ponytail: a stunned host is in ``keep`` (engine.py), so stun always wins; CR 616.1 lets the host's controller order stun vs this
-        # replacement. Ceiling: stun counter lost, +1/+1 kept. Upgrade: route both through the replacement-order choice (pinned by test).
+        # 616.1/614.5: stun first -> stun counter lost, +1/+1 kept. Leechcraft first -> +1/+1 lost, then the modified untap event still meets the
+        # stun replacement -> stun counter lost, stays tapped. Same outcome minus a +1/+1 counter, so the host controller's choice is always
+        # stun first; no prompt needed (a stunned host is in ``keep`` already).
         if host is None or not host.tapped or host.controller != player or host.id in keep or host.id in held:
             continue
         if not counter_removal_results.remove(plan, host.id, "+1/+1", 1, by=player):

@@ -246,6 +246,11 @@ def _other_than_host(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, extras=(*s.extras, "not_host_of_source"))
 
 
+@_suffix(r"other than ‹granter(?:#(?P<oid>[^›]+))?›")  # -- granter (wave 110H) -- 607.1a: "an artifact other than Dire Blunderbuss" in its grant
+def _other_than_granter(s: Selector, m: re.Match[str]) -> Selector:
+    return replace(s, extras=(*s.extras, "not_oid:" + (m["oid"] or "")))
+
+
 @_suffix(r"other than ~")
 def _other_than_self(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, other=True)

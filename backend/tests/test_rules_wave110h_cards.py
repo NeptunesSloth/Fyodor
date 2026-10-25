@@ -9,6 +9,8 @@
 * Frantic Scapegoat: optional pick among the entering batch; suspecting it ends the Goat's own suspect (701.60a, 603.4).
 * Welcome to the Fold: "gain control ... if its toughness is N or less" (608.2b) with the madness X replacement bound (702.35, 107.3b).
 * Aetherplasm: a hand creature put onto the battlefield blocking the creature it blocked (509.4: never "blocked", enters_blocking).
+* Dire Blunderbuss (back of Dire Flail): "an artifact other than <granter>" excludes the Equipment itself, not the creature (607.1a, 603.12).
+* Dralnu, Lich Lord: damage to it is replaced by sacrificing that many permanents (614.6, 701.21).
 * Binding Negotiation: "Otherwise" after an optional choice (608.2c), a face-up exiled card to its owner's graveyard (406.3, 400.3).
 """
 from __future__ import annotations
@@ -62,6 +64,14 @@ EXTRA.append(real("Discard Probe", "{B}", 1, "Sorcery", "Discard a card.", None,
 EXTRA.append(real("Aetherplasm", "{2}{U}{U}", 4, "Creature \u2014 Illusion",
                   "Whenever this creature blocks a creature, you may return this creature to its owner's hand. If you do, you may put a creature card "
                   "from your hand onto the battlefield blocking that creature.", ("1", "1"), "U"))
+EXTRA.append(real("Dire Blunderbuss", "{3}{R}{R}", 5, "Artifact \u2014 Equipment",
+                  "Equipped creature gets +3/+0 and has \"Whenever this creature attacks, you may sacrifice an artifact other than Dire Blunderbuss. "
+                  "When you do, this creature deals damage equal to its power to target creature.\"\nEquip {1}", None, "R"))
+EXTRA.append(real("Spare Rock", "{1}", 1, "Artifact", "", None))
+EXTRA.append(real("Dralnu, Lich Lord", "{3}{U}{B}", 5, "Legendary Creature \u2014 Zombie Wizard",
+                  "If damage would be dealt to Dralnu, sacrifice that many permanents instead.\n{T}: Target instant or sorcery card in your graveyard "
+                  "gains flashback until end of turn. The flashback cost is equal to its mana cost. (You may cast that card from your graveyard for "
+                  "its flashback cost. Then exile it.)", ("3", "3"), "UB"))
 NAMES = [c["name"] for c in EXTRA]
 
 
@@ -174,7 +184,7 @@ def test_bewitching_leechcraft(cards):
 
 
 def test_leechcraft_stun_wins(cards):
-    """Pins the approximation: stun (122.1d) takes the untap, the +1/+1 counter stays (616.1 would let the controller choose)."""
+    """616.1/614.5: the controller may order stun (122.1d) and Leechcraft; Leechcraft first still ends tapped with the stun counter gone AND a +1/+1 counter lost, so stun first (counter kept) is the only sensible pick."""
     from tests.test_rules_conditionals import until
 
     s = build(cards, ["Bewitching Leechcraft", "Grizzly Bears"])
@@ -352,4 +362,40 @@ def test_aetherplasm(cards):
     assert s.state.cards[plasm.id].zone == "p2:hand"
     # the new Giant blocked the attacking Giant (the Aetherplasm was out of combat): combat damage traded them, and Bob took none
     assert (s.state.cards[big.id].zone, s.state.cards[atk.id].zone, life(s, "p2")) == ("p2:graveyard", "p1:graveyard", 40)
+    check(s)
+
+
+def test_dire_blunderbuss(cards):
+    """The attack trigger may sacrifice only an artifact other than the Equipment; the reflexive hit deals damage equal to the equipped power (3+3)."""
+    from tests.test_rules_conditionals import attack, through_combat, until
+
+    s = build(cards, ["Dire Blunderbuss", "Hill Giant", "Spare Rock"], ["Grizzly Bears"])
+    gi, gun, rock = (to_hand(s, n) for n in ("Hill Giant", "Dire Blunderbuss", "Spare Rock"))
+    bears = card_named(s, "Grizzly Bears", "p2")
+    for c in (gi, gun, rock):
+        act(s, "p1", type="move", card_ids=[c.id], to={"player": "p1", "zone": "battlefield"})
+    act(s, "p2", type="move", card_ids=[bears.id], to={"player": "p2", "zone": "battlefield"})
+    act(s, "p1", type="attach", card_ids=[gun.id], to=gi.id)
+    until(s, lambda s: s.state.turn.number == 3 and (d := s.state.rules.decision) is not None and d.kind == "declare_attackers")
+    attack(s, (s.state.cards[gi.id], "p2"))
+    act(s, "p1", type="choose", decision_id=s.state.rules.decision.id, option_ids=["pay"])
+    answer(s, bears.id)  # the Rock is the only legal sacrifice (the Equipment is excluded), so it is paid without a question
+    through_combat(s)
+    assert s.state.cards[rock.id].zone.endswith("graveyard") and s.state.cards[bears.id].zone.endswith("graveyard")
+    assert s.state.cards[gun.id].zone.endswith("battlefield")
+    check(s)
+
+
+def test_dralnu(cards):
+    """Bolt (3) on Dralnu: no damage is dealt, its controller sacrifices three permanents of their choice instead."""
+    s = build(cards, ["Dralnu, Lich Lord", "Hill Giant", "Spare Rock", "Plain Blade", "Lightning Bolt"])
+    dr, gi, rock, blade = (to_hand(s, n) for n in ("Dralnu, Lich Lord", "Hill Giant", "Spare Rock", "Plain Blade"))
+    for c in (dr, gi, rock, blade):
+        act(s, "p1", type="move", card_ids=[c.id], to={"player": "p1", "zone": "battlefield"})
+    mana(s, R=1)
+    cast(s, "Lightning Bolt", [dr.id])
+    answer(s, [gi.id, rock.id, blade.id])
+    got = s.state.cards
+    assert got[dr.id].zone.endswith("battlefield") and got[dr.id].damage == 0
+    assert got[gi.id].zone.endswith("graveyard") and got[rock.id].zone.endswith("graveyard")
     check(s)
