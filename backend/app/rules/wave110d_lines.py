@@ -7,6 +7,9 @@ from typing import Any
 
 # the Oracle line (the card's name as ~) -> the wording the grammar already reads, with the same meaning
 _AS: dict[str, str] = {
+    # Call for Aid: 701.21 "you can't sacrifice those creatures" = they can't be sacrificed (only you control them this turn, 611.2c); the attack ban is appended
+    "Gain control of all creatures target opponent controls until end of turn. Untap those creatures. They gain haste until end of turn. You can't attack that player this turn. You can't sacrifice those creatures this turn.":  # noqa: E501
+        "Gain control of all creatures target opponent controls until end of turn. Untap those creatures. They gain haste and \"This creature can't be sacrificed\" until end of turn.",
     # Resplendent Marshal: 205.3m the creatures that share a creature type with the exiled card are picked by a primitive (patched in definition)
     "When ~ enters or dies, you may exile another creature card from your graveyard. When you do, put a +1/+1 counter on each creature you control other than ~ that shares a creature type with the exiled card.":
         "When ~ enters or dies, you may exile another creature card from your graveyard. When you do, put a +1/+1 counter on each creature you control other than ~.",
@@ -138,6 +141,9 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
                         {"do": "only_if", "cond": {"not": {"ring110d": 4}}, "skip": 1}, {"do": "ring_tempts", "who": "you"}]
     if d is not None and text.startswith("Whenever equipped creature attacks, put a +1/+1 counter on that creature and each other"):
         d["effects"].append({"do": "share_counters110d"})
+    if d is not None and text.startswith("Gain control of all creatures target opponent controls until end of turn. Untap"):
+        # 508.1c, 611.2c: every creature you control, also one that arrives later this turn, can't attack that player
+        d["effects"].append({"do": "restrict", "who": 'controlled:you|sel:{"types":["Creature"]}', "rules": ["cant_attack_player:@that"], "player": "target"})
     if d is not None and text.endswith("it enters tapped and attacking."):
         d["effects"][0]["tap_atk110d"] = "Enchantment"
     return d
