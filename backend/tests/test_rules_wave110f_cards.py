@@ -7,6 +7,7 @@
 * 601.3, 506.3, 122.1: "Cast this spell only after combat." + control change of a creature that attacked you + -1/-0 counter (Jabari's Influence).
 * 400.7, 603.1: "At the beginning of your end step, exile up to one target artifact ... and up to one target creature ... Then return them ..." (Don & Leo).
 * 702.23a, 613.1f, 702.7b: "Target creature gains first strike ... If it doesn't have rampage, that creature gains rampage 2 until end of turn." (Rapid Fire).
+* 702.26a-d: "Simultaneously, all phased-out creatures phase in and all creatures with phasing phase out." (Time and Tide).
 * 602.5, 605.1a: "Creatures with flying can't attack or block, and their activated abilities with {T} in their costs can't be activated." (Katabatic Winds).
 """
 
@@ -47,10 +48,14 @@ EXTRA = [
          "Vigilance\nAt the beginning of your end step, exile up to one target artifact you control and up to one target creature you control. Then return them to the battlefield under their owners' control.", ('4', '6'), 'WU'),
     real('Rapid Fire', '{3}{W}', 4, 'Instant',
          "Cast this spell only before blockers are declared.\nTarget creature gains first strike until end of turn. If it doesn't have rampage, that creature gains rampage 2 until end of turn. (Whenever the creature becomes blocked, it gets +2/+2 until end of turn for each creature blocking it beyond the first.)", None, 'W'),
+    real('Time and Tide', '{U}{U}', 2, 'Instant',
+         "Simultaneously, all phased-out creatures phase in and all creatures with phasing phase out.", None, 'U'),
+    real('Test Fade 110F', '{U}', 1, 'Instant', "Target creature phases out.", None, 'U'),
+    real('Test Phaser 110F', '{1}{U}', 2, 'Creature — Spirit', 'Phasing', ('2', '2'), 'U'),
     real('Test Flyer', '{2}{U}', 3, 'Creature — Bird', 'Flying\n{T}: Draw a card.', ('1', '1'), 'U'),
 ]
 _BASE.extend(EXTRA)  # the shared fixture DB builder reads this list
-NAMES = ["Katabatic Winds", "Rivals' Duel", "Dead Ringers", "Cathedral Membrane", "Taunt", "Jabari's Influence", "Don & Leo, Problem Solvers", "Rapid Fire"]
+NAMES = ["Katabatic Winds", "Rivals' Duel", "Dead Ringers", "Cathedral Membrane", "Taunt", "Jabari's Influence", "Don & Leo, Problem Solvers", "Rapid Fire", "Time and Tide"]
 
 
 @pytest.mark.parametrize("name", NAMES)
@@ -186,4 +191,17 @@ def test_rapid_fire_grants_rampage_and_first_strike(cards):
     from tests.test_rules_wave100f_control import ch
     assert "first strike" in ch(s, bear).keywords
     assert ch(s, bear).pt == (4, 4)  # 2/2 + 2/2 for the second blocker (702.23a)
+    check(s)
+
+
+def test_time_and_tide_swaps_phased_out_and_phasing_creatures(cards):
+    s = build(cards, ["Time and Tide", "Test Fade 110F", "Test Phaser 110F", "Grizzly Bears"])
+    phaser, bear = put(s, "Test Phaser 110F"), put(s, "Grizzly Bears")
+    mana(s, U=3)
+    cast(s, "Test Fade 110F", [bear.id])
+    answer(s)
+    assert zone_of(s, "Grizzly Bears") == "p1:phased"
+    cast(s, "Time and Tide")
+    answer(s)
+    assert zone_of(s, "Grizzly Bears") == "p1:battlefield" and zone_of(s, "Test Phaser 110F") == "p1:phased"
     check(s)

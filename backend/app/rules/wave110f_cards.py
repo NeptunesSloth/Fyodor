@@ -58,7 +58,32 @@ def _don_and_leo() -> Parsed:
     return [*effects, {**back, "who": "ref:e0"}, {**back, "who": "ref:e1"}], targets, optional
 
 
+def phase_swap(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Time and Tide: 702.26a-d: at once, every phased-out creature phases in (702.26g: not one that is phased out indirectly, it comes with its
+    host) and every phased-in creature with phasing phases out. The phasing set is read before anything moves, so a creature that just phased in stays."""
+    from app.game.rules_state import emit
+    from app.game.state import zone_key
+
+    state = plan.state
+    out = [c for p in state.players for c in state.zones.get(zone_key(p, "battlefield"), [])
+           if "Creature" in plan.ch(state.cards[c]).types and "phasing" in plan.ch(state.cards[c]).keywords]
+    back = [c for p in state.players for c in state.zones.get(zone_key(p, "phased"), [])
+            if not state.cards[c].phased_indirect and "Creature" in plan.ch(state.cards[c]).types]
+    for c in back:  # (as phasing.untap_step: "whenever ~ phases in" watchers)
+        emit(state, "designation", counter="phase_in", card=c, object_id=plan.oid(c), player=state.cards[c].controller)
+    if back:
+        plan.do({"type": "phase_shift", "card_ids": back, "out": False}, actor=ctx["controller"])
+    if out:
+        plan.do({"type": "phase_shift", "card_ids": out, "out": True}, actor=ctx["controller"])
+    return True
+
+
+def _time_and_tide() -> Parsed:
+    return [{"do": "phase_swap110f"}], None, False
+
+
 BUILDERS: dict[str, Callable[[], Parsed]] = {
+    "Simultaneously, all phased-out creatures phase in and all creatures with phasing phase out.": _time_and_tide,
     "exile up to one target artifact you control and up to one target creature you control. Then return them to the battlefield under their owners' control.": _don_and_leo,
     "During target player's next turn, creatures that player controls attack you if able.": _taunt,
     "Destroy two target nonblack creatures unless either one is a color the other isn't. They can't be regenerated.": _dead_ringers,
@@ -72,7 +97,7 @@ REWRITES = {
         "Gain control of target nonartifact, nonblack creature that attacked you this turn, then put a -1/-0 counter on it.",
     "it deals 6 damage to each creature it blocked this combat.": "~ deals 6 damage to each creature blocked by it.",
 }
-PRIMITIVES: dict[str, Any] = {"same_colors110f": same_colors}
+PRIMITIVES: dict[str, Any] = {"same_colors110f": same_colors, "phase_swap110f": phase_swap}
 
 
 def parse(body: str) -> Parsed | None:
