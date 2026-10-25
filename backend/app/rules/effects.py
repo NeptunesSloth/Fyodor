@@ -1065,13 +1065,13 @@ def _destroy_cards(plan: Plan, ctx: Context, e: dict[str, Any], cards: list[str]
     if doomed:
         gone = {c: plan.oid(c) for c in doomed}
         plan.do({"type": "move", "card_ids": doomed, "to": {"zone": "graveyard"}}, actor=ctx["controller"])
-        _destroyed(plan, gone)
+        _destroyed(plan, gone, ctx["controller"])
     _moved(plan, ctx, e, before)
     regeneration_choices.finish(plan)
     return True
 
 
-def _destroyed(plan: Plan, gone: dict[str, str]) -> None:
+def _destroyed(plan: Plan, gone: dict[str, str], by: str | None = None) -> None:
     """-- destroy events (wave 45C) -- 701.8a-b: these permanents (card -> the object it was) were destroyed: an effect's "destroy" that put them into their
     owner's graveyard (a replacement that sent one elsewhere, or a regeneration or an indestructible permanent, didn't destroy it). The event joins the
     batch of the move, so a permanent that left with them sees it (603.10a). ponytail: the state-based destruction (704.5g-h) isn't recorded, so the
@@ -1079,6 +1079,10 @@ def _destroyed(plan: Plan, gone: dict[str, str]) -> None:
     from app.game.rules_state import Event
 
     r = plan.rules
+    if by is not None:  # -- turn history (wave 110C) -- who destroyed them (Cobra Trap)
+        from app.rules import wave110c_history
+
+        wave110c_history.note_destroyed(plan, {c: o for c, o in gone.items() if (k := plan.state.cards.get(c)) is None or k.zone.endswith(":graveyard")}, by)
     for cid, oid in gone.items():
         card = plan.state.cards.get(cid)
         if card is None or card.zone.endswith(":graveyard"):  # (a token is gone from the graveyard once there: 111.7)
@@ -1161,6 +1165,8 @@ def surveil(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 def _look(plan: Plan, ctx: Context, e: dict[str, Any], where: str) -> bool:
     pid = ctx["controller"]
     if e.get("who") == "target" and (named := _players(plan, ctx, "target")):  # -- most-played modal spells (wave 50I) -- "Target player scries 3": that player looks
+        pid = named[0]
+    elif str(e.get("who")).startswith("ref:") and (named := _players(plan, ctx, e["who"])):  # -- wave 110C -- "an opponent … and they scry 2": the player an earlier instruction chose
         pid = named[0]
     n = _amount(plan, ctx, e["n"])
     if where == "graveyard" and n > 0:  # -- static permanents (wave 100D) -- Enhanced Surveillance
@@ -1846,6 +1852,9 @@ def counter_object(plan: Plan, stack_id: str, actor: str, to: str | None = None,
         )
 
         emit(plan.state, "designation", counter="counters_spell", player=by)
+        from app.rules import wave110c_history  # -- turn history (wave 110C) -- Summoning Trap
+
+        wave110c_history.note_countered(plan, card, by)
     if oid in r.flashback or exile:
         r.flashback = [o for o in r.flashback if o != oid]
         plan.do({"type": "move", "card_ids": [stack_id], "to": {"player": card.owner, "zone": "exile"}}, actor=actor)
@@ -2223,7 +2232,7 @@ def destroy_all(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     if doomed:
         gone = {c: plan.oid(c) for c in doomed}
         plan.do({"type": "move", "card_ids": doomed, "to": {"zone": "graveyard"}}, actor=ctx["controller"])
-        _destroyed(plan, gone)
+        _destroyed(plan, gone, ctx["controller"])
     _moved(plan, ctx, e, before)
     regeneration_choices.finish(plan)
     return True

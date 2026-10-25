@@ -58,3 +58,20 @@ def zone(s, c):
 
 def ch(s, c):
     return Plan(s.state, "p1", s.cards, None).ch(s.state.cards[c.id])
+
+
+def offers(s, c, pid="p1"):
+    """The alternative costs ``pid`` could cast the card for now (alt_costs.offers)."""
+    from app.rules import alt_costs
+    from app.rules import characteristics as chars
+
+    return alt_costs.offers(s.state, pid, s.state.cards[c.id], chars.of(s.state.cards[c.id], s.cards), s.cards)
+
+
+def pass_until_decision(s, limit=40):
+    """Pass priority until a decision is open (or the stack is empty)."""
+    for _ in range(limit):
+        if s.state.rules.decision is not None or not s.state.zones.get("stack"):
+            return s.state.rules.decision
+        act(s, s.state.rules.priority, type="pass_priority")
+    raise AssertionError("no settle")

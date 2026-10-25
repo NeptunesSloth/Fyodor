@@ -91,6 +91,10 @@ def graveyard_entries(plan: Plan, player: str, *, last: bool = False) -> int:
 def holds(plan: Plan, ctx: dict[str, Any], cond: dict[str, Any]) -> bool:
     """Is this ``{"history": …}`` condition true for the ability's controller right now?"""
     kind = cond["history"]
+    if kind.endswith("110c"):  # -- turn history (wave 110C) --
+        from app.rules import wave110c_history
+
+        return wave110c_history.holds(plan, ctx, cond, log_for(plan, bool(cond.get("last"))))
     if kind == 'control_acquired69':
         from app.rules import controller_turn_history69
 

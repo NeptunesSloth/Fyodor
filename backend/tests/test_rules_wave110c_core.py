@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 
 from app.rules import coverage
-from tests.wave110c_kit import answer, build, card_named, cast, check, ch, make_db, mana, put, real, zone
+from tests.wave110c_kit import answer, build, cast, check, make_db, mana, put, real, zone
 
 EXTRA = [
     real('Catastrophe', '{4}{W}{W}', 6, 'Sorcery',
