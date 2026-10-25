@@ -87,6 +87,24 @@ def _skyguard(d: Def) -> Def:
             "effects": [{**e, "duration": "end_of_combat"} if e["do"] == "prevent_all" else e for e in d["effects"]]}
 
 
+def uncounter_by(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Autumn's Veil: until the turn ends, spells ``ctx["controller"]`` controls can't be countered by spells of these colors."""
+    r, turn = plan.rules, plan.state.turn.number
+    r.results = [x for x in r.results if x["turn"] == turn]
+    r.results.append({"player": ctx["controller"], "what": "uncounterable_by", "turn": turn, "colors": e["colors"]})
+    return True
+
+
+def shielded(plan: Any, card: Any, source: str) -> bool:
+    """Is ``card`` (on the stack) protected from being countered by ``source``, a spell of a listed color (Autumn's Veil)?"""
+    src = plan.state.cards.get(source)
+    if src is None or src.zone != "stack" or src.ability is not None:
+        return False
+    turn, colors = plan.state.turn.number, set(plan.ch(src).colors)
+    return any(x.get("what") == "uncounterable_by" and x["turn"] == turn and x["player"] == card.controller and colors & set(x["colors"])
+               for x in plan.rules.results)
+
+
 def stolen_holds(plan: Any, ctx: dict[str, Any]) -> bool:
     """Bronze Bombshell: its controller is not its owner (603.8, 108.3)."""
     c = plan.state.cards[ctx["source_card"]]
@@ -202,6 +220,10 @@ def return_next_end(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
 
 
 _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
+    # Autumn's Veil: 101.2, 701.6 its controller's spells can't be countered by blue or black spells this turn (shielded), plus the targeting half
+    "Spells you control can't be countered by blue or black spells this turn, and creatures you control can't be the targets of blue or black spells this turn.":
+        ("Creatures you control can't be the targets of blue or black spells this turn.",
+         lambda d: {**d, "effects": [{"do": "uncounter_by110b", "colors": "UB"}, *d["effects"]]}),
     # Bronze Bombshell: 603.8 state trigger "controlled by a player other than its owner" (stolen_holds); the thief is the trigger's controller
     "When a player other than this creature's owner controls it, that player sacrifices it. If the player does, this creature deals 7 damage to the player.":
         ("When you control no Islands, sacrifice this creature. If you do, ~ deals 7 damage to you.", lambda d: {**d, "state": {"stolen110b": True}}),
@@ -503,4 +525,4 @@ def gift_given(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return True
 
 
-PRIMITIVES: dict[str, Any] = {"return_next_end110b": return_next_end, "gap_search110b": gap_search, "gift_given110b": gift_given, "ungoad110b": ungoad, "no_attack_next110b": no_attack_next, "draw_game110b": draw_game, "reaver110b": reaver, "veil110b": veil, "exile_own110b": exile_own, "lose_shield110b": lose_shield}
+PRIMITIVES: dict[str, Any] = {"return_next_end110b": return_next_end, "gap_search110b": gap_search, "gift_given110b": gift_given, "ungoad110b": ungoad, "no_attack_next110b": no_attack_next, "draw_game110b": draw_game, "reaver110b": reaver, "veil110b": veil, "uncounter_by110b": uncounter_by, "exile_own110b": exile_own, "lose_shield110b": lose_shield}

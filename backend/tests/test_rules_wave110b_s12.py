@@ -15,7 +15,7 @@ import pytest
 from app.rules import coverage
 from tests.game_helpers import act
 from tests.test_rules_wave30m_durations import to_phase
-from tests.wave110b_kit import build, card_named, ch, check, drive, mana, put, repository, to_hand
+from tests.wave110b_kit import build, card_named, cast, ch, check, drive, mana, put, repository, to_hand, zone_of
 
 
 @pytest.fixture()
@@ -221,3 +221,32 @@ def test_bronze_bombshell_stolen_sacrifices_and_hurts_thief(cards):
     assert s.state.cards[bomb.id].zone == "p1:graveyard"
     assert s.state.players["p2"].life == 33 and s.state.players["p1"].life == 40
     check(s)
+
+
+@pytest.mark.parametrize("veil, counter", [(True, "Counterspell"), (False, "Counterspell"), (True, "Mana Leak"), (False, "Mana Leak")])
+def test_autumns_veil_blue_spells_cant_counter_your_spells(cards, veil, counter):
+    """101.2, 701.6: this turn your spells can't be countered by blue or black spells (hard and soft counters alike)."""
+    s = build(cards, ["Autumn's Veil", "Grizzly Bears"], [counter])
+    act(s, "p1", type="configure", automation_options={"auto_priority_pass": False})
+    if veil:
+        mana(s, "p1", G=1)
+        cast(s, "Autumn's Veil")
+    mana(s, "p1", G=1, C=1)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Grizzly Bears").id)
+    mana(s, "p2", U=2, C=1)
+    act(s, "p2", type="cast_spell", card_id=to_hand(s, counter, "p2").id, targets=[card_named(s, "Grizzly Bears").id])
+    drive(s, lambda d: ["decline"] if any(o.id == "decline" for o in d.options) else None)
+    assert zone_of(s, "Grizzly Bears") == ("p1:battlefield" if veil else "p1:graveyard")
+    check(s)
+
+
+def test_autumns_veil_blue_spells_cant_target_your_creatures(cards):
+    """115.2: creatures you control can't be the targets of blue or black spells this turn; a red spell still can."""
+    s = build(cards, ["Autumn's Veil", "Grizzly Bears"], ["Unsummon", "Lightning Bolt"])
+    bears = put(s, "Grizzly Bears")
+    mana(s, "p1", G=1)
+    cast(s, "Autumn's Veil")
+    mana(s, "p2", U=1)
+    with pytest.raises(Exception):
+        cast(s, "Unsummon", [bears.id], pid="p2")
+    assert zone_of(s, "Grizzly Bears") == "p1:battlefield"
