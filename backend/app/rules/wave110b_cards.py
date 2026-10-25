@@ -142,7 +142,29 @@ def _mirror(d: Def) -> Def:
     return {**d, "effects": [{**gate, "skip": 2}, back, {**exile, "link": True}], "accumulating_link": True}
 
 
+def _sponsor(d: Def) -> Def:
+    """Scholarship Sponsor: the search of "each player who controls fewer lands than you" (a native reading) is sized per player by ``gap_search110b``."""
+    where, search = d["effects"]
+    assert where["do"] == "players_where" and search["do"] == "search"
+    return {**d, "effects": [{"do": "gap_search110b", "search": {k: v for k, v in search.items() if k not in ("who", "max")}}]}
+
+
+def gap_search(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Scholarship Sponsor: each player (in turn order, 101.4) who controls fewer lands than the player who controls the most searches for up to as many
+    basic lands as the difference (701.23), put onto the battlefield tapped; counted once, before any search (608.2c)."""
+    lands = {p: sum(1 for c in plan.state.cards.values() if c.controller == p and c.zone.endswith(":battlefield") and "Land" in plan.ch(c).types)
+             for p in plan.apnap() if not plan.state.players[p].left}
+    most = max(lands.values(), default=0)
+    at = ctx["next"]
+    ctx["effects"][at:at] = [{**e["search"], "who": f"player:{p}", "max": most - lands[p]} for p in plan.apnap() if p in lands and lands[p] < most]
+    return True
+
+
 _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
+    "When this creature enters, each player who controls fewer lands than the player who controls the most lands searches their library for a number of "
+    "basic land cards less than or equal to the difference, puts those cards onto the battlefield tapped, then shuffles.":
+        ("When this creature enters, each player who controls fewer lands than you searches their library for up to two basic land cards, puts them onto "
+         "the battlefield tapped, then shuffles.", _sponsor),
     "Whenever a creature enters, if it was cast, exile it, then return all other permanent cards exiled with this artifact to the battlefield under "
     "their owners' control.": ("Whenever a creature enters, if it was cast, exile it.", _mirror),
     "At the beginning of each combat, up to one target creature attacks or blocks this combat if able and up to one target creature can't attack or block this combat.":
@@ -397,4 +419,4 @@ def gift_given(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return True
 
 
-PRIMITIVES: dict[str, Any] = {"gift_given110b": gift_given, "ungoad110b": ungoad, "no_attack_next110b": no_attack_next, "draw_game110b": draw_game, "reaver110b": reaver, "veil110b": veil, "exile_own110b": exile_own}
+PRIMITIVES: dict[str, Any] = {"gap_search110b": gap_search, "gift_given110b": gift_given, "ungoad110b": ungoad, "no_attack_next110b": no_attack_next, "draw_game110b": draw_game, "reaver110b": reaver, "veil110b": veil, "exile_own110b": exile_own}

@@ -1391,5 +1391,22 @@
   "colors": [],
   "color_identity": [],
   "keywords": []
+ },
+ {
+  "name": "Scholarship Sponsor",
+  "layout": "normal",
+  "mana_cost": "{3}{W}",
+  "cmc": 4.0,
+  "type_line": "Creature — Human Advisor",
+  "oracle_text": "When this creature enters, each player who controls fewer lands than the player who controls the most lands searches their library for a number of basic land cards less than or equal to the difference, puts those cards onto the battlefield tapped, then shuffles.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [],
+  "power": "3",
+  "toughness": "3"
  }
 ]
