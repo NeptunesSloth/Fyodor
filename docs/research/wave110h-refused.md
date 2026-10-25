@@ -18,3 +18,4 @@
 - Freyalise's Winds: wind-counter untap replacement vs stun on one permanent gives different outcomes (616.1 choice), no untap-order prompt.
 - Ertai's Meddling: delay counters + exile-until-upkeep + cast copy (suspend-like) foundation missing.
 - Spinning Darkness (top three black cards of graveyard as alt cost: needs graveyard_order machinery for a multi-card top cost)
+- Hankyu: granted quote names its Equipment; counter cost "Remove all aim counters from <granter>" needs a cost on the granter object, and "This creature deals" fails _granter_view (_OTHER_SELF).

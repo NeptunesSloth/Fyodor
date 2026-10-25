@@ -34,6 +34,7 @@ def modal_header(ability: Any, ch: Any) -> Any:
                    "put a charge counter on it. When you do, choose one \u2014")
 
 
+_PHOENIX = "When ~ dies, you may exile it and collect evidence 4. If you do, return this card to the battlefield tapped."
 _SCAPEGOAT = ("Whenever one or more other creatures you control enter, if this creature is suspected, you may suspect one of the other creatures. "
               "If you do, this creature is no longer suspected.")
 
@@ -99,6 +100,11 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
         if native is None or native["effects"][-1].get("do") != "put_from_hand":
             return None
         return {**native, "effects": [*native["effects"][:-1], {**native["effects"][-1], "blocking": True}]}
+    if text == _PHOENIX:  # the card exiled as the cost is a new object (400.7); the return takes that exiled object (the cost's "pay0x" binding)
+        native = scripts.define(replace(ability, text=text.replace("return this card", "return it")), ch)  # (the grammar's own reading)
+        if native is None or native["effects"][-1].get("who") != "event.new":
+            return None
+        return {**native, "effects": [*native["effects"][:-1], {**native["effects"][-1], "who": "ref:pay0x"}]}
     if text == _LEECH:  # the grant definition the staged untap model reads (tests/test_rules_untap_attempts45.py), marked: untap_hold carries it out
         return {"kind": "static", "static": "grant", "effects": [], "who": "attached", "attached_kind": "creature", "conditions": [], "p": 0, "t": 0,
                 "base": None, "keywords": [], "grants": [text.split('"')[1]], "rules": [], "untap_counter110h": True}
