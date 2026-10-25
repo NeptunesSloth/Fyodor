@@ -187,6 +187,9 @@ def parse_condition(cond: str) -> Condition | None:
     if cond.endswith(" without being played"):
         base = parse_condition(cond.removesuffix(" without being played"))
         return {**base, "not_played": True} if base is not None and base.get("event") == "enter" else None
+    if (single := re.fullmatch(r"(?P<s>an? .+? spell you control) that targets only a single creature (?P<d>deals (?:combat )?damage) to that creature", cond)) is not None:
+        base = parse_condition(f"{single['s']} {single['d']} to a creature")  # -- trigger damage (wave 110C) -- Imodane: 115.9c, the one target it damages
+        return {**base, "single110c": True} if base is not None and base.get("event") == "deal_damage" else None
     if cond == "~ becomes untapped during your untap step":
         return {"event": "untapped", "subject": "self", "own_untap": True}
     cond = re.sub(r"\benchanted (?:Plains|Island|Swamp|Mountain|Forest)\b", "enchanted land", cond)

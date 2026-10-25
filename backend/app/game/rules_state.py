@@ -473,6 +473,7 @@ class Event(BaseModel):
     natural: int = 0
     nth: int = 0
     sides: int = 0
+    source_targets: list[str] | None = None  # -- trigger damage (wave 110C) -- a ``damage`` event: the targets of the spell dealing it (115.9c), None for any other source
     excess: int = 0  # -- trigger damage (wave 39B) -- a ``damage`` event: the excess damage (120.10) the batch dealt to the permanent, on its first event
 
 

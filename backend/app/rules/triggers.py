@@ -748,6 +748,7 @@ def _damage_facts(plan: Plan, e: Event) -> list[Fact]:
     dealt_info = {**base, "combat": e.combat, "recipient": e.player, "recipient_creature": recipient_is_creature,
                   "recipient_planeswalker": recipient_is_walker, "recipient_battle": recipient_is_battle,
                   "recipient_subtypes": list(got[1].subtypes) if got is not None else []}  # (wave 15B)
+    dealt_info["single110c"] = got is not None and e.source_targets is not None and set(e.source_targets) == {got[0].id}  # -- trigger damage (wave 110C) -- Imodane: the spell's only target
     dealt_info["recipient_blocking110c"] = got is not None and got[0].is_blocking  # -- blocking recipient (wave 110C) -- Kusari-Gama
     if got is not None:  # -- other side (wave 6D) -- "deals damage to a creature, destroy that creature" (other_side.py)
         dealt_info.update(other=got[0].id, other_oid=e.object_id)
@@ -1264,6 +1265,8 @@ def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: F
             if not info.get("recipient_planeswalker") or not (current or (before is not None and watcher.id in before.attached)):
                 return False
         if cond.get("blocking110c") and not info.get("recipient_blocking110c"):
+            return False
+        if cond.get("single110c") and not info.get("single110c"):
             return False
         recipient = info.get("recipient")
         if (to == "player" and recipient is None) or (to == "you" and recipient != you) or \

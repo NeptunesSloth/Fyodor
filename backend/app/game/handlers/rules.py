@@ -119,8 +119,11 @@ def rules_damage(state: GameState, a: A.RulesDamage) -> None:
     # Damage is an event of its own (not "change life"): a player dealt damage also loses that
     # much life, a creature gets marked damage, a planeswalker loses loyalty. All of one step's
     # damage is dealt simultaneously (one event batch).
+    stack = state.rules.stack if state.rules is not None else {}
     for d in a.dealt:
-        emit(state, "damage", object_id=d.target_object, card=d.target if d.target in state.cards else None,
+        spell = next((c for c in state.zones.get("stack", []) if c in stack and state.rules is not None and state.rules.object_id(c) == d.source), None)
+        emit(state, "damage", source_targets=[t.id for t in stack[spell].targets] if spell is not None else None,
+             object_id=d.target_object, card=d.target if d.target in state.cards else None,
              player=d.target if d.target in state.players else None, source=d.source, amount=d.amount, combat=a.combat,
              excess=d.excess, actor=d.source_controller, attacking_player=d.attacking_player if a.combat else None)
         if a.combat and d.amount > 0 and d.target in state.players and state.rules is not None:
