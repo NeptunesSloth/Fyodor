@@ -121,6 +121,8 @@ EXTRA = [
          "The next time a source of your choice would deal damage to you this turn, instead that source deals that much damage to you and Eye for an Eye deals that much damage to that source's controller.", None, 'W'),
     real('Phyrexian Ingester', '{6}{U}', 7, 'Creature \u2014 Phyrexian Beast',
          "Imprint \u2014 When this creature enters, you may exile target nontoken creature.\nThis creature gets +X/+Y, where X is the exiled creature card's power and Y is its toughness.", ('3', '3'), 'U'),
+    real('The Fallen', '{1}{B}{B}{B}', 4, 'Creature \u2014 Zombie',
+         'At the beginning of your upkeep, this creature deals 1 damage to each opponent and planeswalker it has dealt damage to this game.', ('2', '3'), 'B'),
     real('Test Zap', '{R}', 1, 'Instant', 'Test Zap deals 1 damage to target creature.', None, 'R'),
     real('Beamsplitter Mage', '{1}{R}', 2, 'Creature \u2014 Human Wizard', 'Whenever you cast an instant or sorcery spell that targets only this creature, if you control one or more other creatures that spell could target, choose one of those creatures. Copy that spell. The copy targets the chosen creature.', ('1', '3'), 'R'),
     real('Biblioplex Tomekeeper', '{4}', 4, 'Artifact Creature \u2014 Construct', 'When this creature enters, choose up to one \u2014\n\u2022 Target creature becomes prepared.\n\u2022 Target creature becomes unprepared.', ('3', '4'), ''),
@@ -1024,4 +1026,24 @@ def test_phyrexian_ingester_gets_the_imprinted_creatures_power_and_toughness(car
     ing = next(c for c in s.state.cards.values() if c.name == "Phyrexian Ingester")
     assert (s.state.cards[giant.id].zone == "p2:exile") is exile
     assert ch(s, ing).pt == ((6, 6) if exile else (3, 3))
+    check(s)
+
+
+@pytest.mark.parametrize("target, p2_life, walker_loyalty", [("p2", 37, None), ("walker", 40, 3), ("blocked", 40, None)])
+def test_the_fallen_pings_only_what_it_has_dealt_damage_to_this_game(cards, target, p2_life, walker_loyalty):
+    """The Fallen (120.3, 400.7): hit Bob -> pinged on every later upkeep; hit a planeswalker -> that walker pinged (2 combat + 1 = loyalty 0 from 3); blocked by a creature -> nobody pinged."""
+    from tests.test_rules_conditionals import until
+
+    s = build(cards, ["The Fallen"], ["Hill Giant", "Test Walker Card"])
+    fallen = put(s, "The Fallen")
+    walker = put(s, "Test Walker Card", "p2") if target == "walker" else None
+    if walker is not None:
+        act(s, "p2", type="counter", card_ids=[walker.id], kind="loyalty", delta=3)
+    giant = put(s, "Hill Giant", "p2") if target == "blocked" else None
+    attack(s, fallen, target=walker.id if walker is not None else "p2")
+    through_combat(s, [(giant, fallen)] if giant is not None else None)
+    until(s, lambda s: s.state.turn.number == 3 and s.state.turn.phase == "main1" and s.state.rules.decision is None)
+    assert s.state.players["p2"].life == p2_life
+    if walker is not None:
+        assert s.state.cards[walker.id].zone == "p2:graveyard"  # 3 - 2 combat - 1 from the upkeep ping = 0
     check(s)

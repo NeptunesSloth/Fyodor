@@ -309,7 +309,16 @@ def _imprint_pt(d: Def) -> Def:
     return {**part("power", 1, 0), "also": [part("toughness", 0, 1)]}
 
 
+def _fallen(d: Def) -> Def:
+    """The Fallen: 1 damage at once to the opponents and planeswalkers recorded in RulesState.dealt_to110g for this object (120.3, 400.7)."""
+    return {**d, "effects": [{"do": "fallen110g"}, {"do": "damage", "who": "ref:fallen_p", "n": 1, "with_next": True},
+                             {"do": "damage", "who": "ref:fallen_c", "n": 1}]}
+
+
 _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
+    # The Fallen
+    "At the beginning of your upkeep, this creature deals 1 damage to each opponent and planeswalker it has dealt damage to this game.":
+        ("At the beginning of your upkeep, this creature deals 1 damage to each opponent.", _fallen),
     # Phyrexian Ingester
     "This creature gets +X/+Y, where X is the exiled creature card's power and Y is its toughness.":
         ("This creature gets +X/+X, where X is the number of creatures you control.", _imprint_pt),
@@ -455,6 +464,17 @@ def unattach_enchanted(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> boo
     return True
 
 
+def fallen(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Bind the opponents (still in the game) and the planeswalkers (still those objects) this object has dealt damage to this game."""
+    from app.rules import context
+
+    dealt = plan.rules.dealt_to110g.get(ctx.get("source_object") or "", [])
+    context.bind_players(ctx, "fallen_p", [p for p in plan.live() if p in dealt and p != ctx["controller"]])
+    context.bind_objects(plan, ctx, "fallen_c", [c.id for c in plan.state.cards.values()
+                                                 if plan.oid(c) in dealt and c.zone.endswith(":battlefield") and "Planeswalker" in plan.ch(c).types])
+    return True
+
+
 def lowest_life_control(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     """Control goes to the lowest life total (119.1); on a tie the controller chooses one of the tied players (this card's text)."""
     from app.rules import effects
@@ -527,7 +547,7 @@ def destroy_instead(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return True
 
 
-PRIMITIVES: dict[str, Any] = {"destroy_instead110g": destroy_instead, "exchange_power110g": exchange_power, "lowest_life_control110g": lowest_life_control,
+PRIMITIVES: dict[str, Any] = {"fallen110g": fallen, "destroy_instead110g": destroy_instead, "exchange_power110g": exchange_power, "lowest_life_control110g": lowest_life_control,
                            "sacrifice_pair110g": sacrifice_pair, "swap_tapped110g": swap_tapped, "opponent_exiles110g": opponent_exiles,
                               "unattach_enchanted110g": unattach_enchanted}
 RESUME: dict[str, Any] = {"lowest_control110g": resume_lowest_control, "opponent_exiles110g": resume_opponent_exiles}
