@@ -1815,7 +1815,9 @@ def graveyard_ability(d: dict[str, Any]) -> bool:
     import json
 
     # (-- graveyard triggers (wave 19C) -- "At the beginning of your upkeep, if this card is in your graveyard, …": it works there only)
-    return '"self_gy"' in json.dumps(d, default=str) or arrives_in_graveyard(d) or d.get("if") == IN_GRAVEYARD
+    # (-- multi (wave 100M) -- 113.6m: "you may exile this card from your graveyard" moves it out of the graveyard: Kozilek's Return)
+    s = json.dumps(d, default=str)
+    return '"self_gy"' in s or '"Exile this card from your graveyard"' in s or arrives_in_graveyard(d) or d.get("if") == IN_GRAVEYARD
 
 
 IN_GRAVEYARD = {"object": "self", "test": "in_graveyard"}

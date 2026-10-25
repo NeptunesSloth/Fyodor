@@ -208,6 +208,10 @@ def amount(plan: Plan, ctx: dict[str, Any], v: dict[str, Any]) -> int:
     if kind == "life_paid":  # (the amount recorded as it entered; none outside the battlefield)
         card = plan.state.cards.get(ctx.get("source_card") or "")
         return int((card.choices.get("Life paid") or 0) if card is not None and card.zone.endswith(":battlefield") else 0)
+    if kind == "life_paid_lki":  # -- multi (wave 100M) -- Phyrexian Processor's ability: its source as it is, or as it last existed (608.2h)
+        card, oid = plan.state.cards.get(ctx.get("source_card") or ""), ctx.get("source_object") or ""
+        here = card is not None and plan.oid(card) == oid and card.zone.endswith(":battlefield")
+        return int(((card.choices if here and card is not None else snap.choices if (snap := plan.rules.lki.get(oid)) else {}).get("Life paid")) or 0)
     if kind == "hand_and_foretold":  # 702.143a: a foretold card is exiled face down, in its owner's foretell area of exile
         return len(plan.state.zones.get(zone_key(you, "hand"), [])) + sum(
             1 for c in plan.state.zones.get(zone_key(you, "foretell"), []) if plan.state.cards[c].owner == you)
