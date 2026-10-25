@@ -261,6 +261,9 @@ def _qualified(c: str) -> Condition | None:
     # "during your turn" is a separate qualifier of the event)
     obj_first = first and first_each and inner is not None and inner.get("subject") == "sel" and not inner.get("aggregate") \
         and inner.get("event") in ("tapped", "counters_put")
+    # -- this-turn state (wave 110D) -- also its own tap, in your turn ("Creatures you control have 'Whenever this creature becomes tapped for the first time during each of
+    # your turns, …'", Tale of Katara and Toph): the object's first tap of that turn (the "first" kept per object), which must fall in your turn ("during")
+    obj_first = obj_first or bool(first and not first_each and during == "you" and inner is not None and inner.get("subject") == "self" and inner.get("event") == "tapped")
     if inner is None or (first and not own_first and not obj_first and (inner.get("event") not in ("gain_life", "lose_life", "create_token", "discard")
                                                       or inner.get("subject") != "player"
                                                       or inner.get("player") not in (("opponent", "any") if during == "their" else ("you",)))):
@@ -334,6 +337,14 @@ def _parse(c: str) -> Condition | None:
                 **({"exiled": True} if removal["exiled"] else {}), **({"by": "you"} if active_removed else {})}
     if re.fullmatch(r"the creature (?:it|this card|~) haunts dies", c):  # -- keywords (wave 50H) -- 702.55b-c: a haunt card in exile (triggers._cond_matches)
         return {"event": "die", "subject": "haunted"}
+    # -- activation (wave 110D) -- Neerdiv: a spell cast from your graveyard, or an ability (602.2) of a card as it last was in your graveyard (603.10a: eternalize and
+    # embalm exile it as a cost); each half is its own event (603.2c)
+    if c == "you cast a spell from your graveyard or activate an ability of a card in your graveyard":
+        cast = _parse("you cast a spell from your graveyard")
+        if cast is None or cast.get("aggregate"):
+            return None
+        return {"event": "either", "subject": "player", "player": "you", "conds": [cast, {"event": "activate", "subject": "player", "player": "you", "nonmana": True,
+                                                                                         "loyalty": False, "gy110d": True}]}
     # -- either with a batch half (wave 49D) -- "Whenever an opponent discards a card or mills one or more cards" (Lo and Li, Royal Advisors): one player's two
     # actions, each its own event (603.2c); the "one or more" half is once per batch of its own (triggers.py reads the half that matched)
     m = re.fullmatch(r"(?P<p>you|an opponent|a player) (?P<a>[a-z]+ an? [^,]+?) or (?P<b>[a-z]+ one or more [^,]+)", c)
@@ -936,6 +947,10 @@ def _combat(c: str) -> Condition | None:
                 "defender": "enchanted_player" if m["p"].startswith("enchanted") else "you"}
     # 508.3c / 508.3d: "you attack with one or more creatures", "you attack with three or more
     # creatures", "an opponent attacks with creatures" (the creatures declared as attackers)
+    # -- trigger other (wave 110D) -- 508.1, 603.2c: "you attack with creatures with total power 6 or greater" (Ugin's Mastery): the declared attackers' powers added up
+    if (tp := re.fullmatch(r"you attack with creatures with total power (?P<n>\d+) or greater", c)) is not None:
+        return {"event": "you_attack", "subject": "player", "player": "you", "min_attackers": 1, "min_total_power": int(tp["n"]),
+                "sel": selectors.Selector(types=("Creature",)).key()}
     m = re.fullmatch(rf"{_P} attacks? with (?:(?P<n>\w+) or more )?(?P<o>.+)", c)
     if m:
         sel = selectors.parse(m["o"])
@@ -1025,6 +1040,13 @@ def _cast(c: str) -> Condition | None:
     # control of the player who copies it; it isn't cast. "copy": "or" also triggers on a copy, "only"
     # only on one (app/rules/triggers.py, the "spell_copied" event). Only the plain spell kinds: an
     # ordinal, a zone or a target condition is about casting (refused with a copy).
+    # -- trigger other (wave 110D) -- 601.2i, 707.10, 603.2c: "enchanted player casts a spell other than the first spell they cast each turn or copies a spell"
+    # (Curse of Shaken Faith): two events, each read on its own
+    if (nc := re.fullmatch(rf"{_P} casts a spell other than the first spell (?:they|you) cast each turn or copies a spell", c)) is not None:
+        halves = (_cast(f"{nc['p']} casts a spell other than your first spell each turn"), _cast(f"{nc['p']} copies a spell"))
+        if None in halves:
+            return None
+        return {"event": "either", "subject": "player", "player": _PLAYERS[nc["p"]], "conds": list(halves)}
     cm = re.fullmatch(rf"{_P} (?:(?P<both>casts? or cop(?:y|ies))|cop(?:y|ies)) (?P<spell>.+)", c)
     if cm is not None:
         verb = "casts" if cm["p"] in ("an opponent", "a player") else "cast"

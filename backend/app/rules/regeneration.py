@@ -69,6 +69,9 @@ def umbra_armor(plan: Plan, card: CardInstance) -> CardInstance | None:
         if aura.attached_to == card.id and aura.zone.endswith(":battlefield") and not plan.manual(aura) and (any(
                 ab.kind == "keywords" and "umbra armor" in ab.keywords for ab in plan.ch(aura).abilities)
                 or wave110c_aura.guards(plan, aura)):  # -- aura guard (wave 110C) --
+        if aura.attached_to == card.id and aura.zone.endswith(":battlefield") and not plan.manual(aura) and (
+                "umbra armor" in plan.ch(aura).keywords  # (wave 110D: granted, Dog Umbra)
+                or any(ab.kind == "keywords" and "umbra armor" in ab.keywords for ab in plan.ch(aura).abilities)):
             return aura
     return None
 

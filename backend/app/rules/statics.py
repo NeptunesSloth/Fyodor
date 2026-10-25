@@ -89,6 +89,7 @@ GRANTABLE_KEYWORDS: frozenset[str] = frozenset({
     "plainswalk", "islandwalk", "swampwalk", "mountainwalk", "forestwalk", "desertwalk",
     "snow landwalk", "nonbasic landwalk", "legendary landwalk", "artifact landwalk", "snow plainswalk", "snow islandwalk", "snow swampwalk", "snow mountainwalk", "snow forestwalk",  # (wave 12B: 702.14c variants)
     "shadow", "horsemanship", "fear", "intimidate", "skulk", "wither", "infect",
+    "umbra armor",  # (wave 110D: Dog Umbra; 702.89a read from the Aura's characteristics, regeneration.umbra_armor)
 })
 
 # -- static wordings (wave 6E) -- triggered keywords a static may grant (613.1f): granted as the keyword line itself, an
@@ -1411,6 +1412,8 @@ def _condition(text: str) -> dict[str, Any] | None:
         n = _num(m["n1"] or m["n2"])
         return {"static": "graveyard", "op": ">=", "n": n} if n is not None else None
     # -- as long as (wave 20B) -- "there are fewer than eight cards in your graveyard" (Warring Triad); "it has two or fewer oil counters on it"
+    if c == "all nonartifact creatures share a color":  # -- (wave 110D) -- Common Cause (wave110d_lines._AS): 105.4, read live from the layered colors
+        return {"static": "share_color110d"}
     m = re.fullmatch(r"there are fewer than (?P<n>\w+) cards in your graveyard", c)
     if m:
         n = _num(m["n"])
@@ -1499,6 +1502,12 @@ def holds(plan: Plan, cond: dict[str, Any], *, source: CardInstance, controller:
         kinds = [cond["counter"]] if cond["counter"] else list(source.counters)
         total = sum(source.counters.get(k, 0) for k in kinds)
         return total >= cond["n"] and (cond.get("max") is None or total <= cond["max"])  # (max: wave 9D, 711.2a)
+    if kind == "share_color110d":  # (wave 110D) every nonartifact creature on the battlefield has one color in common; a colorless one breaks it
+        shared = None
+        for c in plan.state.cards.values():
+            if c.zone.endswith(":battlefield") and (ch := plan.ch(c)).is_creature and "Artifact" not in ch.types:
+                shared = set(ch.colors) if shared is None else shared & set(ch.colors)
+        return shared is None or bool(shared)
     if kind == "graveyard":
         size = len(plan.state.zones.get(f"{controller}:graveyard", []))
         return size < cond["n"] if cond["op"] == "<" else size >= cond["n"]  # (-- as long as (wave 20B) -- "fewer than")

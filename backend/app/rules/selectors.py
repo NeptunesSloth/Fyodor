@@ -282,6 +282,14 @@ def _not_attacking(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, extras=(*s.extras, "not_attacking"))
 
 
+@_suffix(r"controlled by a player who controls (?P<n>\w+) or fewer lands")  # -- statics (wave 110D) -- Sheltering Prayers: each one's own controller's land count
+def _owner_few_lands(s: Selector, m: re.Match[str]) -> Selector:
+    n = _NUMBERS.get(m["n"].lower())
+    if n is None:
+        raise ValueError("a number word")
+    return replace(s, extras=(*s.extras, f"ctrl_lands_le:{n}"))
+
+
 @_suffix(r"other than that (?:creature|permanent)")  # -- stack interaction (wave 23B) -- Pawpatch Recruit: not the object the trigger's event is about
 def _other_than_event(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, extras=(*s.extras, "not_event"))
@@ -609,6 +617,11 @@ def _thats_not(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, extras=(*s.extras, "not_" + w))
 
 
+@_suffix(r"you own but don't control")  # -- lines (wave 110D) -- 108.3 / 110.2: you own it, another player controls it (Coveted Falcon)
+def _own_not_control(s: Selector, m: re.Match[str]) -> Selector:
+    return replace(s, controller="opponent", owner="you")
+
+
 @_suffix(r"you own")
 def _you_own(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, owner="you")
@@ -810,6 +823,12 @@ def _compare_event(s: Selector, m: re.Match[str]) -> Selector:
     # Riveteers Ascendancy): less than the object the trigger is about (the creature that died / was sacrificed), as it last
     # existed (608.2h); triggers.bind_event_stat swaps in the number as the ability goes on the stack (an unbound one matches nothing)
     return replace(s, compare=(*s.compare, (_REF_STAT[m["what"]], "<=" if m["eq"] else "<", EVENT_STAT + _REF_STAT[m["what"]])))
+
+
+@_suffix(r"with mana value (?P<op>less than or equal to|less than) the number of counters on that creature")
+def _compare_event_counters(s: Selector, m: re.Match[str]) -> Selector:
+    # -- lines (wave 110D) -- Puca's Covenant: the counters the creature the trigger is about had as it last existed (608.2h), bound in triggers.bind_event_stat
+    return replace(s, compare=(*s.compare, ("mv", _REF_OPS[m["op"]], EVENT_STAT + "counters")))
 
 
 @_suffix(r"with that spell's mana value")  # (-- event spells (wave 36A) -- the same comparison, worded short: Infernal Kirin, Celestial Kirin)
@@ -2505,6 +2524,9 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
                 c.attached_to == card.id and "Aura" in plan.ch(c).subtypes and c.controller == card.controller
                 for c in plan.state.cards.values())):
             return False
+        if extra.startswith("ctrl_lands_le:") and sum(1 for c in plan.state.cards.values() if c.zone == f"{card.controller}:battlefield"
+                                                     and "Land" in plan.ch(c).types) > int(extra[14:]):
+            return False  # (wave 110D)
         if extra == "not_commander" and card.commander_key is not None:
             return False  # (wave 51G)
         if extra in _NOT_EXTRAS and matches(plan, Selector(zones=sel.zones, card=sel.card, extras=(extra[4:],)), card, ch, you, source):

@@ -297,6 +297,9 @@ def static_definition(text: str) -> Definition | None:
             return None
         return {"kind": "static", "static": "cast_limit", "who": "each", "when": None, "filter": key, "from": None,
                 "act": None, "max": None, "effects": []}
+    if t == "enchanted player can't activate abilities that aren't mana abilities or loyalty abilities":  # -- cant restrictions (wave 110D) -- 602.5, 605.1a, 606 (Overwhelming Splendor)
+        return {"kind": "static", "static": "cast_limit", "who": "enchanted", "when": None, "filter": None, "from": None, "act": "nonmana_noloyalty",
+                "max": None, "spells": False, "effects": []}
     m = STATIC_NAMED.fullmatch(t)
     if m:
         return {"kind": "static", "static": "cast_limit", "who": "each", "when": None, "filter": None, "from": None,
@@ -931,6 +934,8 @@ def _act_hit(state: GameState, player: str, card: CardInstance, ch: Characterist
         return on_field and bool({"Artifact", "Creature", "Enchantment"} & set(ch.types))
     if act == "nonmana":
         return not mana
+    if act == "nonmana_noloyalty":  # (wave 110D)
+        return not mana and not loyalty
     if act == "graveyard":
         return card.zone.endswith(":graveyard")
     if act == "loyalty":

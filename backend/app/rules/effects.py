@@ -155,6 +155,9 @@ def _players(plan: Plan, ctx: Context, who: str) -> list[str]:
             snap = plan.rules.lki.get(ctx.get("source_object") or "")
             pid = snap.controller if snap is not None else None
         return [pid] if pid is not None and pid in plan.live() else []
+    if who == "each_other_than_source_owner110d":  # -- lines (wave 110D) -- "each other player" next to "its owner" (Oft-Nabbed Goat): everyone but the source card's owner (108.3)
+        src = plan.state.cards.get(ctx.get("source_card") or "") or plan.rules.lki.get(ctx.get("source_object") or "")
+        return [p for p in plan.live() if src is None or p != src.owner]
     if who == "source_owner":  # -- review 33 -- "~'s owner": the source card's owner, wherever it is now (108.3; a card shuffled into a
         src = plan.state.cards.get(ctx.get("source_card") or "") or plan.rules.lki.get(ctx.get("source_object") or "")  # library is known
         return [src.owner] if src is not None and src.owner in plan.live() else []  # there by no id: as it last existed, 608.2h)

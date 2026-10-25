@@ -1,3 +1,28 @@
 - Razor Boomerang: "{T}, Unattach Razor Boomerang: It deals 1 damage to any target." - who "It" is (the Equipment or the creature) is not settled by a ruling in the repo; the granter machinery would pick the Equipment. Refused until a ruling is found.
 - Smoke Spirits' Aid: "For each of up to X target creatures, create ... attached to that creature" needs a per-target fan-out for token creation (no such primitive; "up to X" targets with a Role/Aura token each).
 - Shuriken: "That creature's controller gains control of Shuriken unless it was unattached from a Ninja" needs the unattach-source history in the granted ability.
+- Font of Agonies: "you pay life" has no event; life is paid in cost parts, effects and Phyrexian mana, each would need an emit (foundation, not one card).
+- Dog Umbra: "this Aura has umbra armor" is not a grantable keyword (statics.GRANTABLE_KEYWORDS, abilities of a granted keyword not read by regeneration.umbra_armor).
+- Minthara, Merciless Soul: ward {X} dynamic needs ward_costs to know the controller's experience counters (ward_costs(ch) has no player).
+- Brutal Hordechief: needs wave 110A declare_choosers (not in this branch).
+- Shallow Grave, Corpse Dance: "top creature card of your graveyard" stays refused (graveyard order not arranged by the engine, language.py ~4050).
+- Manor Gargoyle, War Historian: static condition on its own keyword/attack history reads layered keywords it also grants (613.8 dependency), not modeled.
+- Ray of Frost: conditional "loses all abilities" needs a gated wipe judged after layer 5 colors (attached_types.wipes ignores gated statics).
+- Growing Dread: "Whenever you turn a permanent face up" is not "a permanent you control is turned face up" (turning an opponent's); event has no actor.
+- Mausoleum Turnkey, Evangelize, Cuombajj Witches: "of an opponent's choice" targets (opponent announces the target) not modeled.
+- Orcish Farmer: "until its controller's next untap step" duration not modeled ("until your next turn" differs).
+- Manor Gargoyle: "has indestructible as long as it has defender" is a self-keyword dependency (613.8): the static condition would read the layer result it feeds; needs a dependency-aware layer pass.
+- Growing Dread: "Whenever you turn a permanent face up" names the turner, not the controller; no event carries the actor, a controller rewrite would guess.
+- Orcish Farmer: "until its controller's next untap step" is a new layer-effect duration; no foundation yet.
+- Aspect of Wolf: +X/+Y with two different counted values; layers.py "each" carries one value (needs a t_value field).
+- Sidisi, Regent of the Mire: X is the sacrificed creature's mana value but the target "mana value X plus 1" is chosen before the cost is paid (601.2c vs 601.2h); no announce-X-from-cost foundation.
+- Fractured Powerstone: the planar die is not part of Commander play (no planar die machinery).
+- Geth's Summons: corrupted "for each opponent ... as you cast this spell" targets a graveyard per opponent; needs per-opponent targets counted at cast time.
+- Call for Aid: already refused (wave100): player-level "can't attack that player". Evangelize/Preacher/Arena: opponent's-choice target is announcement-only for activated abilities (delegated_target_announcements); spells/triggers not modeled.
+
+## Session 10
+- Font of Agonies: "you pay life" has no event; life is paid at ~10 sites (costs, Phyrexian mana, effects). Needs one choke point first.
+- Geth's Summons: corrupted line is "for each opponent who ... as you cast" with one target group per opponent; no per-opponent target-group foundation.
+- Gutter Grime: the token's quoted CDA counts counters on its creator by name; quoted token abilities have no link to the creating permanent.
+- Scrap Welder, Sidisi, Regent of the Mire: X is the mana value of a cost-sacrificed object but the target is chosen before the cost (601.2c vs 601.2h); needs a ruling-backed X-from-cost design.
+- Nuka-Nuke Launcher: watch lasting "until the end of defending player's next turn" bound to another player; the 50G watch machinery is controller-bound only.

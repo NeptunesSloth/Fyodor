@@ -107,6 +107,7 @@ DURATIONS: dict[str, str] = {
     # -- trigger lines (wave 100A) -- 611.2a: "until your next upkeep" (Erhnam Djinn, Gabriel Angelfire) ends as that player's next upkeep step begins
     # (Gabriel's ruling: it still has the ability through the untap step, not in the upkeep); ``at_step``, and 800.4m for a player who left
     "until your next upkeep": "next_upkeep",
+    "for as long as they're the monarch": "monarch_player",  # -- durations (wave 110D) -- 611.2b, 725.2: the target's controller (Garland, Royal Kidnapper)
 }
 # -- quoted grants (wave 2D) -- "for as long as that creature has a bounty counter on it" (Mathas): the
 # duration names a kind of counter ("while_counter:<kind>"): the effect lasts while the object it affects
@@ -117,7 +118,8 @@ LABELS = {"next_turn": "until your next turn", "end_of_next_turn": "until the en
           "source_controlled": "for as long as you control ~", "source_tapped": "for as long as ~ remains tapped",
           "until_cast": "until this card is cast from exile",
           "source_controlled_tapped": "for as long as you control ~ and ~ remains tapped",
-          "while_counter": "for as long as it has a counter on it", "next_upkeep": "until your next upkeep"}
+          "while_counter": "for as long as it has a counter on it", "next_upkeep": "until your next upkeep",
+          "monarch_player": "for as long as they're the monarch"}
 MARKER = "until end of turn"  # the table marker text app/rules/effects._mark writes
 
 
@@ -481,6 +483,12 @@ def cleanup(plan: Plan) -> None:
 
 
 # -- durations (611.2) -------------------------------------------------------------------------------
+def _effects_cards(plan: Plan, ctx: Context, who: str) -> list[str]:
+    from app.rules import effects
+
+    return effects._cards(plan, ctx, who)
+
+
 def apply_duration(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     """The ``until`` primitive: carry out the next ``n`` effects, then give the continuous effects
     they created this duration instead of "until end of turn". If a "for as long as" duration
@@ -501,6 +509,12 @@ def apply_duration(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         return True
     r = plan.rules
     mark = r.timestamp
+    monarch = None
+    if duration == "monarch_player":  # (wave 110D) the target's controller before it changes hands: the one who must stay the monarch
+        monarch = next((plan.state.cards[c].controller for c in _effects_cards(plan, ctx, "target")), None)
+        if monarch is None or monarch != plan.state.table.monarch:
+            plan.note(f"{ctx.get('name') or 'The effect'} does nothing: its duration has already ended")
+            return True
     before = {cid: {m.id for m in c.effects} for cid, c in plan.state.cards.items()}
     for x in inner:
         if not PRIMITIVES[x["do"]](plan, ctx, x):
@@ -522,7 +536,7 @@ def apply_duration(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         if effect.timestamp > mark:
             effect.duration = duration
             effect.until_object = until_object
-            effect.until_player = ctx["controller"]
+            effect.until_player = monarch or ctx["controller"]
             effect.turn = plan.state.turn.number
             if counter:
                 effect.counter = counter
@@ -655,6 +669,7 @@ def expire(plan: Plan) -> None:
     r = plan.rules
     ended = [e for e in r.effects if e.duration.startswith("source_")
              and not _source_ok(plan, e.duration, e.source_card, e.source, e.until_player)]
+    ended += [e for e in r.effects if e.duration == "monarch_player" and plan.state.table.monarch != e.until_player]  # (wave 110D)
     for e in r.effects:  # -- quoted grants (wave 2D) -- "for as long as it has a … counter on it": per object
         if e.duration == "while_counter":
             lost_last = {ev.object_id for ev in r.events if ev.kind == "counters" and ev.counter == e.counter

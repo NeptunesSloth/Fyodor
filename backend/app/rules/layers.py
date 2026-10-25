@@ -369,7 +369,7 @@ def _extend_statics(state: GameState, info: CardInfo, out: list[Static], wiped: 
                         continue
                     if inner is None or (inner.get("who") != "self" and not damage_retention83.resolved_static(inner)) or inner.get("layer4") or inner.get("base") or inner.get("p") or inner.get("t") or inner.get("grants"):
                         continue
-                    if inner.get("keywords") or inner.get("rules"):
+                    if inner.get("keywords") or inner.get("rules") or inner.get("each"):  # (each: "gets +1/+1 for each ..." granted by a resolved effect, 613.4c; wave 110D)
                         out.append(Static(cid, controller, inner, effect.object_seq, effect_key=key))
     out.sort(key=lambda st: st.key)
     return out

@@ -191,6 +191,12 @@ def _desc(m: re.Match[str], extra: dict[str, Any]) -> bool | list[int]:
             extra["set_colors"] = colors
         extra["_animate"] = True
         return [int(m["p"]), int(m["t"])]
+    if m["add"] and m["p"] and creature and artifact and subs and colors is None and not legendary:
+        # -- Unable to Scream (wave 110D) -- "is a Toy artifact creature with base power and toughness 0/2 in addition to its other types": the
+        # subtype and the artifact type are added (205.1b), the base P/T is set (613.4b); a creature stays what it was
+        layer4.setdefault("add_types", []).append("Artifact")
+        layer4.setdefault("add_subtypes", []).extend(subs)
+        return [int(m["p"]), int(m["t"])]
     if m["add"]:
         # "is an Angel in addition to its other types"; "is an artifact in addition to its other types" (205.1b);
         # "is a black Zombie in addition to its other colors and types" (105.3: a color added)
