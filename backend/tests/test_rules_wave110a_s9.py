@@ -128,3 +128,26 @@ def test_ward_of_bones_bars_land_plays_only_while_the_opponent_has_more_lands(ca
         act(s, "p2", type="play_land", card_id=f.id)
         assert zone_of(s, "Island", "p2") == "p2:battlefield"
     check(s)
+
+
+RESCUE = "Rescue from the Underworld"
+test_full_rescue = full_test([RESCUE])
+
+
+@pytest.mark.parametrize("leaves", [False, True])
+def test_rescue_returns_the_target_and_the_sacrificed_card_at_your_next_upkeep(cards, leaves):
+    """603.7c: both are bound when it resolves; 400.7: a sacrificed card that left the graveyard before the upkeep isn't returned. It is exiled."""
+    s = build(cards, [RESCUE, "Grizzly Bears", "Hill Giant"], forests=40, islands=40)
+    bears = put(s, "Grizzly Bears")
+    giant = put(s, "Hill Giant")
+    act(s, "p1", type="move", card_ids=[giant.id], to={"player": "p1", "zone": "graveyard"})
+    cast(s, RESCUE, [giant.id])
+    answer(s)
+    assert zone_of(s, "Grizzly Bears") == "p1:graveyard" and zone_of(s, RESCUE) == "p1:exile"
+    if leaves:
+        act(s, "p1", type="move", card_ids=[bears.id], to={"player": "p1", "zone": "hand"})
+    to_phase(s, "main1", turn=s.state.turn.number + 2)
+    answer(s)
+    assert zone_of(s, "Hill Giant") == "p1:battlefield"
+    assert zone_of(s, "Grizzly Bears") == ("p1:hand" if leaves else "p1:battlefield")
+    check(s)

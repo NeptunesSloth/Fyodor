@@ -223,7 +223,28 @@ def _dovin() -> Parsed:
     return [*pump, {"do": "restrict", "who": "target:0", "rules": ["cant_activate"], "duration": "next_turn"}], target, optional
 
 
+def _rescue() -> Parsed:
+    """Rescue from the Underworld: the target and the sacrificed card (as the cost left it in the graveyard, 400.7) are bound now (603.7c) and both
+    return at your next upkeep, only if still there (400.7)."""
+    effects, target, optional = _p("Return target creature card from your graveyard to the battlefield under your control at the beginning of your "
+                                   "next upkeep. Exile ~.")
+    delayed, back, rest = effects[0], effects[1], effects[2:]
+    return [{"do": "bind_sacrificed110a"}, delayed, {**back, "who": "union:target+ref:sacrificed110a"}, *rest], target, optional
+
+
+def bind_sacrificed(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Name the card the spell's cost sacrificed, as the object it is now in the graveyard (not as it last existed: a card that leaves isn't returned)."""
+    from app.rules import context, values
+
+    got = values._object(plan, ctx, "cost:sacrificed")
+    if got is not None and plan.state.cards[got[0].id].zone.endswith(":graveyard"):
+        context.bind_objects(plan, ctx, "sacrificed110a", [got[0].id])
+    return True
+
+
 BUILDERS: dict[str, Callable[[], Parsed]] = {
+    "Choose target creature card in your graveyard. Return that card and the sacrificed card to the battlefield under your control at the beginning "
+    "of your next upkeep. Exile ~.": _rescue,
     "Until your next turn, up to one target creature gets -3/-0 and its activated abilities can't be activated.": _dovin,
     # Gideon of the Trials +1: 615.1 a prevention shield that lasts until the controller's next turn (the shield record's own duration)
     "Until your next turn, prevent all damage target permanent would deal.": lambda: (
@@ -404,5 +425,5 @@ def unblocked_turn(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return True
 
 
-PRIMITIVES = {"unblocked_turn110a": unblocked_turn, "repeat_put110a": repeat_put, "note_put110a": note_put, "bind110a": bind, "end_combat_phase110a": end_combat_phase, "snow110a": snow,
+PRIMITIVES = {"bind_sacrificed110a": bind_sacrificed, "unblocked_turn110a": unblocked_turn, "repeat_put110a": repeat_put, "note_put110a": note_put, "bind110a": bind, "end_combat_phase110a": end_combat_phase, "snow110a": snow,
               "exiled_power_damage110a": exiled_power_damage, "exile_hands110a": exile_hands}
