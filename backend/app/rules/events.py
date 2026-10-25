@@ -105,7 +105,7 @@ _DAMAGE_TO = {"": "any", " to a player": "player", " to a creature": "creature",
 _ONE_OR_MORE_TO = (" to one or more players", " to your opponents", " to one or more of your opponents")  # (wave 39B)
 _DAMAGE_TO_RE = "|".join(re.escape(k) for k in sorted(_DAMAGE_TO, key=len, reverse=True) if k)
 # 508.3a / 508.3b / 508.3e / 508.6: whom an attack was declared against
-_DEFENDERS = {"one or more planeswalkers you control": "your_pw", "you": "you", "you or a planeswalker you control": "you_or_pw", "a player": "player",
+_DEFENDERS = {"one or more planeswalkers you control": "your_pw", "a planeswalker you control": "each_pw",  # (wave 110F: Oath of Kaya, once per planeswalker attacked, 508.3a) "you": "you", "you or a planeswalker you control": "you_or_pw", "a player": "player",
               "you and/or one or more planeswalkers you control": "you_or_pw",  # (-- as long as (wave 37A) -- 508.3e: Cunning Rhetoric; once per player attacked)
               "one of your opponents": "opponent", "an opponent": "opponent",  # -- trigger other (wave 110B) -- "attack an opponent" = one of your opponents (508.3a)
               "one or more of your opponents": "opponent_any",

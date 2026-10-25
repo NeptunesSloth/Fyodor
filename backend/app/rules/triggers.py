@@ -1045,6 +1045,8 @@ def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: F
                 return False
         elif event == "you_attack" and bool(want) != ("defended" in info):
             return False
+        if event == "you_attack" and ("pw" in info) != (want == "each_pw"):  # -- trigger lines (wave 110F) -- 508.3a: one fact per planeswalker attacked
+            return False
         if want and want != "opponent_any" and not _defender_ok(want, watcher, info, plan):
             return False
         if cond.get("first_each_turn") and not info.get("first"):
@@ -1333,6 +1335,8 @@ def _defender_ok(want: str, watcher: CardInstance, info: dict[str, Any], plan: P
         return bool(info.get("battle"))
     if defended is None or (info.get("battle") and want in ("you_or_pw", "opponent_or_pw")):
         return False  # (-- review 34 -- 310.5, 508.5: a creature attacking a battle attacks no player and no planeswalker, Gahiji / Frontier Warmonger)
+    if want == "each_pw":
+        return defended == you
     if want == "your_pw":
         if plan is None or defended != you:
             return False
@@ -1468,7 +1472,7 @@ def _counted_attackers(plan: Plan, cond: dict[str, Any], watcher: CardInstance, 
     named, not ~ for "other", and of the kind named. (Review 22E: "those creatures" / "that many" are these, not every attacker.)"""
     from app.rules import selectors
 
-    direct = cond.get("defender") not in (None, "you_or_pw")  # (only the creatures attacking that player)
+    direct = cond.get("defender") not in (None, "you_or_pw", "each_pw")  # (only the creatures attacking that player; wave 110F: each_pw counts the creatures at that planeswalker)
     attackers = [plan.state.cards[c] for c in info.get("attacking_direct" if direct and "attacking_direct" in info
                                                        else "attacking") or [] if c in plan.state.cards]
     if cond.get("others_only"):  # (wave 11C) "~ and at least one other Warrior attack": not counting ~
@@ -1848,6 +1852,13 @@ def generic_combat(plan: Plan, event: str, cards: list[CardInstance],
             g["all"].append(c.id)
             if direct:
                 g["direct"].append(c.id)
+        for c in cards:  # -- trigger lines (wave 110F) -- 508.3a: "attacks a planeswalker you control": once for each planeswalker attacked
+            # 603.2c: an ability can trigger repeatedly if one event (one attack declaration) contains multiple occurrences, so one fact per planeswalker.
+            pw = plan.state.cards.get(c.attacking.id) if c.attacking is not None and c.attacking.kind != "player" else None
+            if pw is not None and "Planeswalker" in plan.ch(pw).types and not any(f[4].get("pw") == pw.id for f in facts):
+                ids = [x.id for x in cards if x.attacking is not None and x.attacking.id == pw.id]
+                facts.append(("you_attack", None, None, cards[0].controller, {"defended": pw.controller, "attacker": cards[0].controller, "direct": False,
+                                                                               "attackers": len(ids), "attacking": ids, "attacking_direct": [], "pw": pw.id}))
         for defended, g in groups.items():
             facts.append(("you_attack", None, None, cards[0].controller,
                           {"defended": defended, "attacker": cards[0].controller, "direct": bool(g["direct"]), "attackers": len(g["all"]),

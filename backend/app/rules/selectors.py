@@ -938,6 +938,16 @@ def _without_mana_ability(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, extras=(*s.extras, "no_mana_ability"))
 
 
+@_suffix(r"(?:that )?(?:was|were) turned face up this turn")  # -- cards (wave 110F) -- 708.8: Kaust, Eyes of the Glade
+def _turned_up_this_turn(s: Selector, m: re.Match[str]) -> Selector:
+    return replace(s, extras=(*s.extras, "turned_up_this_turn"))
+
+
+@_suffix(r"with an activated ability that isn't a mana ability")  # -- cards (wave 110F) -- 602.1, 605.1a: Ravager Wurm
+def _with_nonmana_ability(s: Selector, m: re.Match[str]) -> Selector:
+    return replace(s, extras=(*s.extras, "nonmana_ability"))
+
+
 @_suffix(r"(?:that )?has an activated ability with \{T\} in its cost")  # -- activated other (wave 52D) -- Magewright's Stone: 602.1, a mana ability is an activated ability too (605.1a)
 def _with_tap_ability(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, extras=(*s.extras, "tap_ability"))
@@ -2450,6 +2460,13 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
                                                 for a in ch.abilities):  # -- counters (wave 100J) -- "with level up": 702.87a, as levelers.rewrite writes it
         return False
     if "phyrexian_cost100e" in sel.extras and "/P}" not in (ch.mana_cost or ""):  # -- xdamage (wave 100E) -- "a spell with {H} in its mana cost" (Rage Extractor): a Phyrexian mana symbol of any color (107.4f)
+        return False
+    if "turned_up_this_turn" in sel.extras:  # (wave 110F)
+        from app.rules.history import log_for
+
+        if plan.oid(card) not in log_for(plan, False).turned_up110f:
+            return False
+    if "nonmana_ability" in sel.extras and not any(a.kind == "activated" for a in ch.abilities):  # (wave 110F)
         return False
     if "tap_ability" in sel.extras and not any(a.kind in ("activated", "mana") and "{T}" in (a.cost or "") for a in ch.abilities):  # (wave 52D)
         return False

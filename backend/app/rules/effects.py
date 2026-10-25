@@ -7122,3 +7122,4 @@ PRIMITIVES.update(_wave110e_opp.PRIMITIVES)
 from app.rules import wave110e_imps as _wave110e_imps  # noqa: E402  -- Nettling Imp (wave 110E)
 
 PRIMITIVES.update(_wave110e_imps.PRIMITIVES)
+RESUME.update(_wave110f_cards.RESUME)

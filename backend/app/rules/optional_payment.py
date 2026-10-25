@@ -63,11 +63,12 @@ _MANA_ONLY = re.compile(r"^(\{[^}]+\})+$")
 def _blight_like(comp: C.CostComponent) -> bool:
     """A "put N counters on a creature you control" part (blight): one chosen permanent of the payer's — or "discard
     your hand" (every card in it; ``paid_x`` records how many, for "draw that many cards"); -- champion (wave 12B) -- or one chosen
-    permanent exiled (702.72a); -- keywords (wave 43C) -- or a counter put on the source itself ("Cumulative upkeep—Put a -1/-1 counter on this
+    permanent exiled (702.72a); -- cards (wave 110F) -- or a discard of either of two descriptions ("an instant or sorcery card or a creature card with flying"); -- keywords (wave 43C) -- or a counter put on the source itself ("Cumulative upkeep—Put a -1/-1 counter on this
     creature": not on the battlefield, it can't be paid, cost_payment._new_part_problem)."""
     return comp.kind in (C.FORAGE, C.COLLECT_EVIDENCE, C.WATERBEND) or (comp.kind == C.PUT_COUNTER and comp.alt is None and not comp.x) \
         or comp.kind == C.DISCARD_HAND or comp.kind == C.MILL \
         or (comp.kind == C.EXILE and comp.selector is not None and comp.amount == 1) \
+        or (comp.kind == C.DISCARD and comp.alt is not None and comp.selector is not None) \
         or (comp.kind == C.SACRIFICE and comp.alt is not None and comp.selector is not None)  # (wave 8C: mill 701.17b; "another creature or an artifact")
 
 

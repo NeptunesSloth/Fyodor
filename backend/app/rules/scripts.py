@@ -5941,6 +5941,10 @@ def _first_time_gate(text: str) -> str:
 
 def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     """The engine definition of one ability, or None (manual)."""
+    from app.rules import wave110f_cards  # -- whole abilities (wave 110F) --
+
+    if (whole110f := wave110f_cards.definition(ability, ch)) is not None:
+        return whole110f
     from app.rules import wave110c_core  # -- whole abilities (wave 110C) --
 
     if (whole110c := wave110c_core.definition(ability, ch)) is not None:
@@ -8477,7 +8481,7 @@ def _cached(ch: Characteristics) -> dict[int, Definition]:
         if out.get(ab.index, {}).get("kind") == "mode":
             continue  # (a mode line of the modal ability above it)
         d = define(ab, ch)
-        if d is None and ab.kind in ("triggered", "activated", "loyalty"):
+        if d is None and (ab.kind in ("triggered", "activated", "loyalty") or (ab.kind == "static" and "Saga" in ch.subtypes and ab.text.rstrip().endswith("—"))):  # (wave 110F: a modal Saga chapter)
             # -- modal triggered/activated abilities (wave 1A): "…, choose one —" and its bulleted modes,
             # read by app/rules/modal_abilities.py (the header's definition and one stub per mode line)
             from app.rules import modal_abilities

@@ -106,6 +106,12 @@ def definitions(ab: AbilityText, ch: Characteristics) -> dict[int, Definition]:
     isn't understood — the whole ability is then manual."""
     from app.rules import scripts  # (scripts reads an ability here: a leaf module over it)
 
+    if ab.kind == "static" and "Saga" in ch.subtypes and ab.text.rstrip().endswith("—"):  # -- sagas (wave 110F) -- 714.2b: "I, II — Choose one —" is a triggered chapter ability with modes
+        from dataclasses import replace as _replace
+
+        from app.rules import sagas
+
+        return definitions(_replace(ab, kind="triggered"), ch) if sagas.chapters_of(ab.text) else {}
     if ab.kind == "triggered" and ", you may choose two" in ab.text:
         # -- commanders (wave 50C) -- "you may choose two" (Shadrix Silverquill ruling 2021-04-16): exactly zero modes or two modes, never one (700.2d)
         from dataclasses import replace
@@ -298,7 +304,9 @@ def _header_ok(ab: AbilityText, prefix: str, end: str, rest: str) -> bool:
     one —" (an activated ability may add its "Activate only …" sentences after "Choose one.", a
     triggered ability its limit)."""
     if ab.kind == "triggered":
-        if not prefix.endswith(", ") or ". " in prefix:
+        from app.rules import sagas
+
+        if not (prefix.endswith(", ") or sagas.chapters_of(f"{prefix}x")) or ". " in prefix:
             return False  # (a line with another sentence before it is a reflexive trigger, 603.12, or the like)
         return rest == "" if end == " —" else rest == "" or rest in restrictions.TRIGGER_LIMITS
     if ab.kind in ("activated", "loyalty") and ab.cost:

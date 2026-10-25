@@ -1,0 +1,4 @@
+- Yixlid Jailer: "Cards in graveyards lose all abilities" needs ability loss honored by every graveyard path (flashback, escape, gy triggers, embalm).
+- Heat Wave: "pays 1 life for each blocking creature" is a life block tax conditioned on the attacker's controller; nonmana_combat_costs has no pay-life part.
+- Cephalid Snitch: "loses protection from black" removes one piece of a protection line; layers drop whole keywords, protection.qualities reads ability text.
+- Catch // Release: five-type simultaneous sacrifice per player (distinct permanents, 101.4) needs its own primitive; sequential sacrifices would be wrong.

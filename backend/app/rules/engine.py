@@ -85,8 +85,8 @@ from app.rules import (
     spell_grants,  # -- spell grants (wave 28C) --
     triggers,
     untap_choice,  # -- untap choice (wave 7F) --
-    wave110h_cards,  # -- untap hold (wave 110H) --
     wave110e_opp,  # -- cast-time choice (wave 110E) --
+    wave110h_cards,  # -- untap hold (wave 110H) --
 )
 from app.rules import morph_costs78 as _morph_costs78  # noqa: F401
 
