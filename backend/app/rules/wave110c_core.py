@@ -69,7 +69,16 @@ def _devastating_mastery() -> Parsed:
     return [{"do": "only_if", "cond": _paid("{2}{W}{W}"), "skip": 3}, opponent, pick, chosen[1]], None, False
 
 
+def _bounty_of_the_hunt() -> Parsed:
+    """Bounty of the Hunt: the counters actually put on each creature (122.6: a replacement may change the number) come off again at the beginning
+    of the next cleanup step (514.3a), as a delayed triggered ability per creature (603.7)."""
+    effects, groups, optional = read("Distribute three +1/+1 counters among one, two, or three target creatures.")
+    return [{**effects[0], "receipt": "bounty110c"}, {"do": "temporary_counters110c", "receipt": "bounty110c"}], groups, optional
+
+
 BUILDERS: dict[str, Callable[[], Parsed]] = {
+    "Distribute three +1/+1 counters among one, two, or three target creatures. For each +1/+1 counter you put on a creature this way, remove a "
+    "+1/+1 counter from that creature at the beginning of the next cleanup step.": _bounty_of_the_hunt,
     "If the {2}{U} cost was paid, you draw three cards, then an opponent creates two Treasure tokens and they scry 2. If that cost wasn't paid, "
     "you draw X cards.": _ingenious_mastery,
     "If the {2}{W}{W} cost was paid, an opponent chooses up to two nonland permanents they control and returns them to their owner's hand.":
@@ -115,5 +124,21 @@ def resume_branch(plan: Plan, d: Any, chosen: list[str]) -> None:
     continue_effects(plan, ctx)
 
 
-PRIMITIVES = {"choose_branch110c": choose_branch}
+def temporary_counters(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """One delayed "remove that many of those counters from that creature" per creature that got counters, each bound to the object it was (603.7c)."""
+    from app.rules import context, counter_receipts
+
+    steps: list[dict[str, Any]] = []
+    for i, entry in enumerate(counter_receipts.placements(ctx, e["receipt"])):
+        card = context._same(plan, entry.destination)
+        if entry.amount <= 0 or card is None or not card.zone.endswith(":battlefield"):
+            continue
+        context.bind_objects(plan, ctx, f"_temp110c{i}", [card.id])
+        steps += [{"do": "delayed", "when": {"kind": "step", "step": "cleanup", "whose": "next"}, "n": 1},
+                  {"do": "deferred:remove_counters", "who": f"ref:_temp110c{i}", "kind": entry.kind, "n": entry.amount}]
+    ctx["effects"][ctx["next"]:ctx["next"]] = steps
+    return True
+
+
+PRIMITIVES = {"choose_branch110c": choose_branch, "temporary_counters110c": temporary_counters}
 RESUME = {"choose_branch110c": resume_branch}

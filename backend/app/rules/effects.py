@@ -1164,9 +1164,8 @@ def surveil(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
 def _look(plan: Plan, ctx: Context, e: dict[str, Any], where: str) -> bool:
     pid = ctx["controller"]
-    if e.get("who") == "target" and (named := _players(plan, ctx, "target")):  # -- most-played modal spells (wave 50I) -- "Target player scries 3": that player looks
-        pid = named[0]
-    elif str(e.get("who")).startswith("ref:") and (named := _players(plan, ctx, e["who"])):  # -- wave 110C -- "an opponent … and they scry 2": the player an earlier instruction chose
+    # (-- most-played modal spells (wave 50I) -- "Target player scries 3": that player looks; wave 110C: "an opponent … and they scry 2", the player an earlier instruction chose)
+    if (e.get("who") == "target" or str(e.get("who")).startswith("ref:")) and (named := _players(plan, ctx, e["who"])):
         pid = named[0]
     n = _amount(plan, ctx, e["n"])
     if where == "graveyard" and n > 0:  # -- static permanents (wave 100D) -- Enhanced Surveillance

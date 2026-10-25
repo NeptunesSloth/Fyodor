@@ -1,5 +1,6 @@
 """Wave 110C alternative costs: the Masteries' "if the cost was paid" lines (118.9, 608.2c).
 
+* Bounty of the Hunt: the counters put on each creature come off again at the beginning of the next cleanup step (514.3a, 603.7).
 * Ingenious Mastery, Devastating Mastery: the paid branch reads the cast record (one alternative cost: 118.9a); "an opponent" is chosen by the
   spell's controller as it resolves (the cycle's 2021-04-16 ruling).
 """
@@ -10,13 +11,28 @@ import pytest
 
 from app.rules import coverage
 from tests.game_helpers import act
-from tests.wave110c_kit import answer, build, cast, check, make_db, mana, offers, put, real, to_hand, zone
+from tests.wave110c_kit import (
+    STEPS,
+    answer,
+    build,
+    cast,
+    check,
+    make_db,
+    mana,
+    offers,
+    put,
+    real,
+    to_hand,
+    zone,
+)
 
 EXTRA = [
     real('Ingenious Mastery', '{X}{2}{U}', 3, 'Sorcery',
          "You may pay {2}{U} rather than pay this spell's mana cost.\nIf the {2}{U} cost was paid, you draw three cards, then an opponent creates two Treasure tokens and they scry 2. If that cost wasn't paid, you draw X cards.", None, 'U'),
     real('Devastating Mastery', '{2}{W}{W}{W}{W}', 6, 'Sorcery',
          "You may pay {2}{W}{W} rather than pay this spell's mana cost.\nIf the {2}{W}{W} cost was paid, an opponent chooses up to two nonland permanents they control and returns them to their owner's hand.\nDestroy all nonland permanents.", None, 'W'),
+    real('Bounty of the Hunt', '{3}{G}{G}', 5, 'Instant',
+         "You may exile a green card from your hand rather than pay this spell's mana cost.\nDistribute three +1/+1 counters among one, two, or three target creatures. For each +1/+1 counter you put on a creature this way, remove a +1/+1 counter from that creature at the beginning of the next cleanup step.", None, 'G'),
 ]
 NAMES = [c["name"] for c in EXTRA]
 
@@ -93,4 +109,25 @@ def test_devastating_mastery_opponent_returns_two_then_everything_else_is_destro
         assert [zone(s, c) for c in theirs] == ["p2:hand", "p2:hand", "p2:graveyard"]
     else:
         assert [zone(s, c) for c in theirs] == ["p2:graveyard"] * 3
+    check(s)
+
+
+def test_bounty_of_the_hunt_counters_come_off_at_the_next_cleanup_step(cards):
+    """Bounty of the Hunt: exile a green card instead of the mana cost (118.9); 2 and 1 counters now, each removed again at cleanup (514.3a)."""
+    from tests.test_rules_conditionals import until
+
+    s = build(cards, ["Bounty of the Hunt", "Grizzly Bears", "Kami of Ancient Law", "Giant Growth"])
+    bears, kami = put(s, "Grizzly Bears"), put(s, "Kami of Ancient Law")
+    bounty, growth = to_hand(s, "Bounty of the Hunt"), to_hand(s, "Giant Growth")
+    (offer,) = offers(s, bounty)
+    act(s, "p1", type="cast_spell", card_id=bounty.id, targets=[bears.id, kami.id], target_counts=[2], division=[2, 1], alt_cost=offer.key)
+    answer(s, growth.id)
+    assert zone(s, growth) == "p1:exile"
+    assert s.state.cards[bears.id].counters.get("+1/+1") == 2 and s.state.cards[kami.id].counters.get("+1/+1") == 1
+    turn = s.state.turn.number
+    act(s, "p1", type="set_stops", own=STEPS, others=STEPS, smart_pass=False)
+    until(s, lambda s: s.state.turn.phase == "end" and s.state.rules.priority == "p1")
+    assert s.state.cards[bears.id].counters.get("+1/+1") == 2  # (still there in the end step: it is the cleanup step that takes them)
+    until(s, lambda s: s.state.turn.number > turn)
+    assert s.state.cards[bears.id].counters.get("+1/+1", 0) == 0 and s.state.cards[kami.id].counters.get("+1/+1", 0) == 0
     check(s)
