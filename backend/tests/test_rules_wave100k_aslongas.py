@@ -19,6 +19,10 @@
   cast creatures still enter, its rulings; 614.12, 611.2a).
 * "During your end step, Warrior tokens you control have "This token can't be sacrificed."" (Zurgo: the mobilized tokens survive their end step
   sacrifice, 701.21a; any other step they can be).
+* A token created with two quoted abilities (Pursued Whale's Pirate: "This token can't block" and "Creatures you control attack each combat if
+  able.", 111.4, 508.1d, its ruling); the same grammar: Ozox's Jumblebones, Relic Robber's Goblin Construct.
+* "As this creature enters, you may reveal a Dragon card from your hand. If you do or if you control a Dragon, this creature enters with a +1/+1
+  counter on it." (Dragon's Disciple, 614.1c, 614.12a: asked in private; one counter even with both, its ruling).
 """
 
 from __future__ import annotations
@@ -70,10 +74,24 @@ EXTRA = [
     real("Zurgo, Thunder's Decree", '{R}{W}{B}', 3, 'Legendary Creature — Orc Warrior',
          'Mobilize 2 (Whenever this creature attacks, create two tapped and attacking 1/1 red Warrior creature tokens. Sacrifice them at the beginning of the '
          'next end step.)\nDuring your end step, Warrior tokens you control have "This token can\'t be sacrificed."', ('2', '4'), 'BRW'),
+    real('Pursued Whale', '{5}{U}{U}', 7, 'Creature — Whale',
+         'When this creature enters, each opponent creates a 1/1 red Pirate creature token with "This token can\'t block" and "Creatures you control attack '
+         'each combat if able."\nSpells your opponents cast that target this creature cost {3} more to cast.', ('8', '8'), 'U'),
+    real("Dragon's Disciple", '{1}{W}', 2, 'Creature — Human Monk',
+         'As this creature enters, you may reveal a Dragon card from your hand. If you do or if you control a Dragon, this creature enters with a +1/+1 '
+         'counter on it.\nDragons you control have ward {1}. (Whenever a Dragon you control becomes the target of a spell or ability an opponent controls, '
+         'counter it unless that player pays {1}.)', ('1', '3'), 'W'),
+    real('Ozox, the Clattering King', '{2}{B}', 3, 'Legendary Creature — Skeleton Noble',
+         'Ozox can\'t block.\nWhen Ozox dies, create Jumblebones, a legendary 2/1 black Skeleton creature token with "Jumblebones can\'t block" and "When '
+         'Jumblebones leaves the battlefield, return target card named Ozox, the Clattering King from your graveyard to your hand."', ('3', '2'), 'B'),
+    real('Relic Robber', '{2}{R}', 3, 'Creature — Goblin Rogue',
+         'Haste\nWhenever this creature deals combat damage to a player, that player creates a 0/1 colorless Goblin Construct artifact creature token with '
+         '"This token can\'t block" and "At the beginning of your upkeep, this token deals 1 damage to you."', ('2', '2'), 'R'),
 ]
 HELPERS = [real("Gideon's Lawkeeper", '{W}', 1, 'Creature — Human Soldier', '{W}, {T}: Tap target creature.', ('1', '1'), 'W'),
            real('Reanimate', '{B}', 1, 'Sorcery', "Put target creature card from a graveyard onto the battlefield under your control. You lose life equal to "
-                "that card's mana value.", None, 'B')]
+                "that card's mana value.", None, 'B'),
+           real('Shivan Dragon', '{4}{R}{R}', 6, 'Creature — Dragon', 'Flying\n{R}: This creature gets +1/+0 until end of turn.', ('5', '5'), 'R')]
 NAMES = [c["name"] for c in EXTRA]
 STEPS = ["main1", "begin_combat", "declare_attackers", "declare_blockers", "combat_damage", "end_combat", "main2", "end"]
 
@@ -433,4 +451,85 @@ def test_zurgo_keeps_the_mobilized_warriors_through_your_end_step(cards):
 
     assert len(warriors()) == 2  # (their "sacrifice at the beginning of the next end step" did nothing: 701.21a)
     act(s, "p1", type="move", card_ids=[zurgo.id], to={"player": "p1", "zone": "graveyard"})
+    check(s)
+
+
+def test_pursued_whale_gives_each_opponent_a_pirate_that_makes_them_attack(cards):
+    s = build(cards, ["Pursued Whale"], ["Grizzly Bears"])
+    bears = put(s, "Grizzly Bears", "p2")
+    s.state.rules.controlled_since[bears.id].turn = 0
+    mana(s, U=2, C=5)
+    whale = to_hand(s, "Pursued Whale")
+    act(s, "p1", type="cast_spell", card_id=whale.id)
+    settle(s)
+    pirate = next(c for c in s.state.cards.values() if c.is_token and c.name == "Pirate")
+    assert pirate.controller == "p2"
+    for pid in ("p1", "p2"):
+        act(s, pid, type="set_stops", own=STEPS, others=STEPS, smart_pass=False)
+    s.state.rules.controlled_since[whale.id].turn = 0
+    until(s, lambda s: (d := s.state.rules.decision) is not None and d.kind == "declare_attackers" and d.player == "p1")
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": whale.id, "target": "p2"}])
+    until(s, lambda s: (d := s.state.rules.decision) is not None and d.kind == "declare_blockers")
+    with pytest.raises(ActionError):  # ("This token can't block")
+        act(s, "p2", type="declare_blockers", blocks=[{"blocker_id": pirate.id, "attacker_id": whale.id}])
+    act(s, "p2", type="declare_blockers", blocks=[{"blocker_id": bears.id, "attacker_id": whale.id}])  # (the Bears may)
+    until(s, lambda s: (d := s.state.rules.decision) is not None and d.kind == "declare_attackers" and d.player == "p2")
+    with pytest.raises(ActionError):  # (the Pirate's ability: every creature Bob controls, 508.1d)
+        act(s, "p2", type="declare_attackers", attackers=[])
+    bob_declares(s, [pirate])
+    check(s)
+
+
+@pytest.mark.parametrize("hand, controls, reveal, counters", [
+    (False, False, None, 0), (True, False, "none", 0), (True, False, "dragon", 1), (False, True, None, 1), (True, True, None, 1)])
+def test_dragons_disciple_counter_for_a_revealed_or_controlled_dragon(cards, hand, controls, reveal, counters):
+    s = build(cards, ["Dragon's Disciple", "Shivan Dragon", "Shivan Dragon", "Grizzly Bears"])
+    first, second = [c for c in s.state.cards.values() if c.name == "Shivan Dragon"]
+    if controls:
+        act(s, "p1", type="move", card_ids=[first.id], to={"player": "p1", "zone": "battlefield"})
+    if hand:
+        act(s, "p1", type="move", card_ids=[second.id], to={"zone": "hand"})
+    to_hand(s, "Grizzly Bears")  # (another card in hand: asked even with no Dragon there, hidden information)
+    disciple = to_hand(s, "Dragon's Disciple")
+    mana(s, W=1, C=1)
+    act(s, "p1", type="cast_spell", card_id=disciple.id)
+    until(s, lambda s: s.state.rules.decision is not None or s.state.cards[disciple.id].zone == "p1:battlefield")
+    d = s.state.rules.decision
+    assert (d is not None) == (not controls)  # (you control one: nothing to ask)
+    if d is not None:
+        ids = [o.id for o in d.options]
+        assert (second.id in ids) == hand and "none" in ids
+        act(s, "p1", type="choose", decision_id=d.id, option_ids=[second.id if reveal == "dragon" else "none"])
+    settle(s)
+    assert s.state.cards[disciple.id].zone == "p1:battlefield" and not s.state.cards[disciple.id].tapped
+    assert s.state.cards[disciple.id].counters.get("+1/+1", 0) == counters
+    check(s)
+
+
+def test_ozox_jumblebones_returns_ozox_when_it_leaves(cards):
+    s = build(cards, ["Ozox, the Clattering King"])
+    ozox = put(s, "Ozox, the Clattering King")
+    act(s, "p1", type="set_damage", card_ids=[ozox.id], value=2)  # (it dies: 704.5g)
+
+    def bones():
+        return next((c for c in s.state.cards.values() if c.is_token and c.name == "Jumblebones" and c.zone == "p1:battlefield"), None)
+
+    until(s, lambda s: bones() is not None and not s.state.zones.get("stack"))
+    assert s.state.cards[ozox.id].zone == "p1:graveyard"
+    act(s, "p1", type="set_damage", card_ids=[bones().id], value=1)
+    until(s, lambda s: s.state.cards[ozox.id].zone == "p1:hand")
+    check(s)
+
+
+def test_relic_robbers_construct_pings_its_controller_each_upkeep(cards):
+    s = build(cards, ["Relic Robber"])
+    robber = put(s, "Relic Robber")
+    for pid in ("p1", "p2"):
+        act(s, pid, type="set_stops", own=STEPS, others=STEPS, smart_pass=False)
+    until(s, lambda s: (d := s.state.rules.decision) is not None and d.kind == "declare_attackers" and d.player == "p1")
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": robber.id, "target": "p2"}])  # (haste)
+    turn = s.state.turn.number
+    until(s, lambda s: s.state.turn.number == turn + 1 and s.state.turn.phase == "main1" and not s.state.zones.get("stack"))
+    construct = next(c for c in s.state.cards.values() if c.is_token and c.name == "Goblin Construct")
+    assert construct.controller == "p2" and s.state.players["p2"].life == 40 - 2 - 1  # (combat damage, then Bob's upkeep)
     check(s)

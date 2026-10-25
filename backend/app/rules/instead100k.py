@@ -47,6 +47,14 @@ def normalize(text: str) -> str:
     return text
 
 
+# Graveyard → exile statics read as the others (replacements._static_exile_all), the object as it is in the zone it leaves (their rulings):
+# Sanctifier en-Vec (any black or red object, tokens too), Anafenza, the Foremost (a nontoken creature / creature card an opponent owns)
+EXILE = {"If a black or red permanent, spell, or card not on the battlefield would be put into a graveyard, exile it instead.":
+         {"kind": "static", "static": "exile_instead", "effects": [], "from": "anywhere", "graveyard_of": "any", "who": "colors:B|R"},
+         "If a nontoken creature an opponent owns would die or a creature card not on the battlefield would be put into an opponent's graveyard, exile that card instead.":
+         {"kind": "static", "static": "exile_instead", "effects": [], "from": "anywhere", "graveyard_of": "opponent", "who": "types:Creature"}}
+
+
 def whole_loot(base: list[dict[str, Any]], alt: list[dict[str, Any]]) -> bool:
     """"draw a card, then discard a card. If you have a full party, instead draw three cards." (The Destined Thief): the draw
     takes the place of the whole sentence (its 2025-10-02 ruling: "you won't discard at all")."""

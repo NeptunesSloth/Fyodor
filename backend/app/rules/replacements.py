@@ -383,6 +383,10 @@ def entering_counters(plan: Plan, card: CardInstance, controller: str, ch: Any, 
             counters["+1/+1"] = counters.get("+1/+1", 0) + tribute.counters(ch, choices)
         if devour.counters(ch, choices):
             counters["+1/+1"] = counters.get("+1/+1", 0) + devour.counters(ch, choices)
+        from app.rules import reveal_lands  # (wave 100K: Dragon's Disciple)
+
+        if reveal_lands.counters(ch, choices):
+            counters["+1/+1"] = counters.get("+1/+1", 0) + reveal_lands.counters(ch, choices)
         for ab in ch.abilities:  # -- keyword mechanics (wave 9D) -- 702.44a sunburst: a +1/+1 counter (a creature, ignoring
             if ab.kind == "keywords" and "sunburst" in ab.keywords:  # type-changing effects) or a charge counter for each
                 from app.rules import (
@@ -1222,6 +1226,9 @@ def _static_exile_all(plan: Plan, card: CardInstance) -> list[tuple[CardInstance
                     continue
             elif who.startswith("types:"):  # -- instead (wave 20B) -- "an instant or sorcery card": a card (not a token) with one of the types
                 if card.is_token or not set(who[6:].split("|")) & plan.ch(card).types:
+                    continue
+            elif who.startswith("colors:"):  # (wave 100K) Sanctifier en-Vec: any object of those colors, tokens too
+                if not set(who[7:].split("|")) & plan.ch(card).colors:
                     continue
             elif who not in ("any", "card"):
                 if frm != "battlefield":
