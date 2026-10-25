@@ -123,6 +123,8 @@ EXTRA = [
          "Imprint \u2014 When this creature enters, you may exile target nontoken creature.\nThis creature gets +X/+Y, where X is the exiled creature card's power and Y is its toughness.", ('3', '3'), 'U'),
     real('The Fallen', '{1}{B}{B}{B}', 4, 'Creature \u2014 Zombie',
          'At the beginning of your upkeep, this creature deals 1 damage to each opponent and planeswalker it has dealt damage to this game.', ('2', '3'), 'B'),
+    real('Gelatinous Cube', '{2}{B}{B}', 4, 'Creature \u2014 Ooze',
+         "Engulf \u2014 When this creature enters, exile target non-Ooze creature an opponent controls until this creature leaves the battlefield.\nDissolve \u2014 {X}{B}: Put target creature card with mana value X exiled with this creature into its owner's graveyard.", ('4', '3'), 'B'),
     real('Test Zap', '{R}', 1, 'Instant', 'Test Zap deals 1 damage to target creature.', None, 'R'),
     real('Beamsplitter Mage', '{1}{R}', 2, 'Creature \u2014 Human Wizard', 'Whenever you cast an instant or sorcery spell that targets only this creature, if you control one or more other creatures that spell could target, choose one of those creatures. Copy that spell. The copy targets the chosen creature.', ('1', '3'), 'R'),
     real('Biblioplex Tomekeeper', '{4}', 4, 'Artifact Creature \u2014 Construct', 'When this creature enters, choose up to one \u2014\n\u2022 Target creature becomes prepared.\n\u2022 Target creature becomes unprepared.', ('3', '4'), ''),
@@ -1046,4 +1048,34 @@ def test_the_fallen_pings_only_what_it_has_dealt_damage_to_this_game(cards, targ
     assert s.state.players["p2"].life == p2_life
     if walker is not None:
         assert s.state.cards[walker.id].zone == "p2:graveyard"  # 3 - 2 combat - 1 from the upkeep ping = 0
+    check(s)
+
+
+@pytest.mark.parametrize("x, ok", [(4, True), (3, False)])
+def test_gelatinous_cube_dissolve_needs_the_exiled_creature_with_mana_value_x(cards, x, ok):
+    """Gelatinous Cube (607.2a): Hill Giant (mana value 4) exiled by the Engulf is a legal Dissolve target only for X=4; it goes to its owner's graveyard."""
+    s = build(cards, ["Gelatinous Cube"], ["Hill Giant"])
+    giant = put(s, "Hill Giant", "p2")
+    mana(s, "p1", B=2, C=2)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Gelatinous Cube").id)
+    for _ in range(10):
+        d = s.state.rules.decision
+        if d is not None:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[next((o.id for o in d.options if o.label == "Hill Giant"), d.options[0].id)])
+        elif s.state.zones.get("stack"):
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            break
+    assert s.state.cards[giant.id].zone == "p2:exile"
+    cube = next(c for c in s.state.cards.values() if c.name == "Gelatinous Cube")
+    mana(s, "p1", B=1, C=x)
+    if not ok:
+        with pytest.raises(Exception):
+            act(s, "p1", type="activate_ability", card_id=cube.id, ability=1, x_value=x, targets=[giant.id], target_counts=[1])
+        return
+    act(s, "p1", type="activate_ability", card_id=cube.id, ability=1, x_value=x, targets=[giant.id], target_counts=[1])
+    for _ in range(4):
+        if s.state.zones.get("stack"):
+            act(s, s.state.rules.priority, type="pass_priority")
+    assert s.state.cards[giant.id].zone == "p2:graveyard"
     check(s)

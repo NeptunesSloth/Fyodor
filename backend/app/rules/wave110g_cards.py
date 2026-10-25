@@ -397,9 +397,20 @@ _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
 }
 
 
-def definition(ability: Any, ch: Any) -> Def | None:
-    from app.rules import scripts
+_ENGULF = "When this creature enters, exile target non-Ooze creature an opponent controls until this creature leaves the battlefield."
+_DISSOLVE = "{X}{B}: Put target creature card with mana value X exiled with this creature into its owner's graveyard."
 
+
+def definition(ability: Any, ch: Any) -> Def | None:
+    from app.rules import scripts, selectors
+
+    if ability.text.strip() == "Engulf \u2014 " + _ENGULF:  # Gelatinous Cube: the exile is the linked half Dissolve refers to (607.2a)
+        native = scripts.define(replace(ability, text=_ENGULF), ch)
+        return None if native is None else {**native, "effects": [{**x, "link": True} for x in native["effects"]]}
+    if ability.text.strip().split("\u2014 ", 1)[-1] == _DISSOLVE:  # Gelatinous Cube: the linked-exile target of Hearse-style "{X}{W}: put target card with mana value X exiled with ~ ..." (607.2a)
+        sel = selectors.Selector(card=True, zones=("exile",), types=("Creature",), compare=(("mv", "==", selectors.X_VALUE),)).key()
+        return {"kind": "activated", "cost": ability.cost, "effects": [{"do": "return_card", "who": "target", "to": "graveyard", "under": "owner"}],
+                "target": {"what": "exiled_with:" + sel}}
     if (same := _AS.get(ability.text.strip())) is not None:
         return scripts.define(replace(ability, text=same), ch)
     if (built := _BUILD.get(ability.text.strip())) is None:
