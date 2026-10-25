@@ -257,7 +257,17 @@ def _plunge() -> Parsed:
     return [pay, {**look[0], "n": {"paid_x": "plunge110a"}}, *look[1:]], None, False
 
 
+def _continue_pilgrimage() -> Parsed:
+    """Yuna's Decision: "a creature card and/or a land card" is at most one of each (two optional puts); all of it depends on the sacrifice (608.2c)."""
+    effects, target, optional = _p("Sacrifice a creature. If you do, draw a card. You may put a creature card from your hand onto the battlefield. "
+                                   "You may put a land card from your hand onto the battlefield.")
+    effects[1]["skip"] = len(effects) - 2
+    return effects, target, optional
+
+
 BUILDERS: dict[str, Callable[[], Parsed]] = {
+    "Sacrifice a creature. If you do, draw a card, then you may put a creature card and/or a land card from your hand onto the battlefield.":
+        _continue_pilgrimage,
     # Asinine Antics: 303.7 / 111.1 one Cursed Role token per creature, each attached to its own creature (static_spell100c.each)
     "For each creature your opponents control, create a Cursed Role token attached to that creature.": _cursed_each,
     "Pay any amount of life, then look at that many cards from the top of your library. Put one of those cards into your hand and exile the rest.":
