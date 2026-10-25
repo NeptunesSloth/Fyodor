@@ -1353,6 +1353,19 @@ def _object(plan: Plan, ctx: dict[str, Any], who: str) -> tuple[Any, Any] | None
         if len(ids) != 1 or len(oids) != 1:
             return None
         refs = [(ids[0], oids[0])]
+    if who == "cost:beheld110a":  # -- behold (wave 110A) -- the one object a cost beheld (701.4a): as it is, or as it last existed
+        sid = ctx.get("stack_id") or ctx.get("source_card")
+        record = plan.rules.payments.get(plan.rules.object_id(sid)) if sid else None
+        held = list(record.beheld110a.items()) if record is not None else []
+        if len(held) != 1:
+            return None
+        card = plan.state.cards.get(held[0][0])
+        if card is not None and plan.oid(card) == held[0][1]:
+            return card, plan.ch(card)
+        snap = plan.rules.lki.get(held[0][1])
+        from app.rules.triggers import _snapshot_card
+
+        return _snapshot_card(plan, snap) if snap is not None else None
     if who == "cost:revealed":  # -- static_other sweep (wave 17C) -- "the revealed card's mana value": the one card a spell's cost revealed
         sid = ctx.get("stack_id") or ctx.get("source_card")
         record = plan.rules.payments.get(plan.rules.object_id(sid)) if sid else None

@@ -522,6 +522,7 @@ def define_static(text: str, kind: str, lines: tuple[str, ...] = ()) -> Definiti
     the card's ability lines (a permission to cast from the top of the library is only usable
     when the card also reveals that card, or lets its owner look at it)."""
     t = _lower_first(text.strip().rstrip("."))
+    t = re.sub(r"(you may) reveal an? (\w+) card from your hand or choose an? \2 you control$", r"\1 behold a \2", t)  # 701.4a (wave 110A): Dragon's Fire
     linked_spend = ""
     if "exiled with ~" in t or "the exiled card" in t:
         if (linked_rider := re.search(r", and (?:you may spend mana as though it were mana of any (?P<kind>color|type) to cast (?:that spell|those spells)|(?P<type>mana of any type can be spent to cast (?:that spell|those spells)))$", t)) is not None:

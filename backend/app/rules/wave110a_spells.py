@@ -265,7 +265,27 @@ def _continue_pilgrimage() -> Parsed:
     return effects, target, optional
 
 
+def _beheld_power(text: str) -> Callable[[], Parsed]:
+    """Monstrous Emergence / Dragon's Fire: the beheld creature (701.4a: a creature card revealed from hand or a creature you control) stands for
+    "the sacrificed creature" of the parsed wording (values: cost:beheld110a)."""
+    def build() -> Parsed:
+        effects, target, optional = _p(text)
+        for e in effects:
+            if e.get("n") == {"power": "cost:sacrificed"}:
+                e["n"] = {"power": "cost:beheld110a"}
+        if effects[0].get("bind") == "cond0":  # Dragon's Fire: "If you control a Dragon" was parsed, the real condition is "a Dragon was beheld"
+            effects[0]["cond"] = {"not": {"object": "self", "cast": {"optional": "behold"}}}
+        return effects, target, optional
+    return build
+
+
 BUILDERS: dict[str, Callable[[], Parsed]] = {
+    "~ deals damage equal to the power of the creature you chose or the card you revealed to target creature.":
+        _beheld_power("~ deals damage equal to the power of the sacrificed creature to target creature."),
+    "~ deals 3 damage to target creature or planeswalker. If you revealed a Dragon card or chose a Dragon as you cast this spell, ~ deals damage "
+    "equal to the power of that card or creature instead.":
+        _beheld_power("~ deals 3 damage to target creature or planeswalker. If you control a Dragon, ~ deals damage equal to the power of the "
+                      "sacrificed creature to that permanent instead."),
     "Sacrifice a creature. If you do, draw a card, then you may put a creature card and/or a land card from your hand onto the battlefield.":
         _continue_pilgrimage,
     # Asinine Antics: 303.7 / 111.1 one Cursed Role token per creature, each attached to its own creature (static_spell100c.each)

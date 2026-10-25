@@ -1136,6 +1136,7 @@ class PaymentRecord(BaseModel):
     cast_controlled_modified: bool = False  # -- xdamage (wave 100E) -- a modified creature (700.9) controlled as casting finished (Flame Discharge)
     cast_revealed_subtypes: list[str] = Field(default_factory=list)  # Subtypes of cards revealed for this spell's cost.
     revealed: list[str] = Field(default_factory=list)  # -- static_other sweep (wave 17C) -- cards revealed from the hand to pay ("the revealed card's …")
+    beheld110a: dict[str, str] = Field(default_factory=dict)  # -- behold (wave 110A) -- card id -> object id of what the cost beheld (701.4a)
     exiled: list[str] = Field(default_factory=list)  # cards exiled to pay (from a graveyard, or the source)
     exiled_objects: list[str] = Field(default_factory=list)  # -- as long as (wave 37A) -- the objects they became in exile (400.7j: "this card" finds that one)
     exiled_was: list[str] = Field(default_factory=list)  # (wave 48B: and the objects they were, "the number of cards exiled this way" of an activation cost)

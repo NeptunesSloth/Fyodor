@@ -869,6 +869,8 @@ _BEHOLD_COST = re.compile(r"^Behold (?:(?P<one>a|an)|(?P<n>two|three|four|five))
 
 def _extra_part(part: str) -> CostComponent | None:
     """-- static_other sweep (wave 17C) -- one of the parts above that a spell's additional cost may also be made of."""
+    if part == "Choose a creature you control or reveal a creature card from your hand":  # 701.4a (wave 110A): Monstrous Emergence
+        return _extra_part("Behold a Creature")
     if m := _REVEAL_HAND_COST.match(part):
         key = _selector(m["what"], zone="hand")
         return CostComponent("REVEAL_FROM_HAND", selector=key, text=part) if key else None
