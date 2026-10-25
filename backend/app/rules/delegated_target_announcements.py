@@ -45,6 +45,14 @@ EVANGELIZE = "Gain control of target creature of an opponent's choice they contr
 ARENA = "{3}, {T}: Tap target creature you control and target creature of an opponent's choice they control. Those creatures fight each other."
 TURNKEY = "When this creature enters, return target creature card of an opponent's choice from your graveyard to your hand."
 OWN = 'own_opponent110d'
+ECHO = ("{4}, {T}: An opponent chooses target creature they control. Create a token that's a copy of that creature. That token gains haste until end of turn. "
+        "Exile the token at the beginning of the next end step. Activate only as a sorcery.")
+PAIRS = {  # Cuombajj Witches, Diaochan Artful Beauty: "<effect> target X ... <effect> target X of an opponent's choice" (any legal object)
+    "{T}: This creature deals 1 damage to any target and 1 damage to any target of an opponent's choice.":
+        "{T}: This creature deals 1 damage to any target and 1 damage to any target.",
+    "{T}: Destroy target creature of your choice, then destroy target creature of an opponent's choice. Activate only during your turn, before attackers are declared.":
+        "{T}: Destroy target creature, then destroy target creature. Activate only during your turn, before attackers are declared.",
+}
 
 
 def _opp_definition(ability: Any, ch: Any) -> dict[str, Any] | None:
@@ -62,6 +70,13 @@ def _opp_definition(ability: Any, ch: Any) -> dict[str, Any] | None:
             return None
         return {**d, 'effects': [*d['effects'], {'do': 'fight', 'who': 'target:0', 'with': 'target:1'}],
                 'delegated_target': OWN, 'delegated_controls110d': True}
+    if ability.kind == 'activated' and text == ECHO:  # "An opponent chooses target creature they control": the same announcement (115.1)
+        d = scripts.define(replace(ability, text=ECHO.replace("An opponent chooses target creature they control. Create a token that's a copy of that creature.",
+                                                              "Create a token that's a copy of target creature.")), ch)
+        return {**d, 'delegated_target': 'opponent', 'delegated_controls110d': True} if d else None
+    if ability.kind == 'activated' and text in PAIRS:  # your own first target, then the chosen opponent's pick among all legal ones
+        d = scripts.define(replace(ability, text=PAIRS[text]), ch)
+        return {**d, 'delegated_target': OWN} if d else None
     if ability.kind == 'triggered' and text == TURNKEY:
         d = scripts.define(replace(ability, text="When this creature enters, return target creature card from your graveyard to your hand."), ch)
         return {**d, 'target_choice': 'opponent110d'} if d else None
@@ -177,7 +192,7 @@ def announce(plan: Plan, action: A.CastSpell | A.ActivateAbility, definition_: d
             from app.rules import casting
 
             decide(plan, player=frame.actor, kind='choose_one', prompt=f'Choose the first target for {what}',
-                   options=[DecisionOption(id=cid, label=casting.target_label(plan, cid), card_id=cid)
+                   options=[DecisionOption(id=cid, label=casting.target_label(plan, cid), card_id=cid if cid in plan.state.cards else None)
                             for cid in _legal(plan, frame, first=True)], resume=_resume(OPPONENT, frame))
         return None
     opponents = [pid for pid in plan.live() if pid != frame.actor]
@@ -218,7 +233,7 @@ def _creature_choice(plan: Plan, frame: Announcement) -> None:
         if frame.first is not None:
             cid = frame.first['id']
             if (cid not in _legal(plan, frame, first=True)
-                    or plan.oid(cid) != frame.first.get('object_id')):
+                    or (frame.first.get('object_id') and plan.oid(cid) != frame.first.get('object_id'))):
                 raise ActionError('The original first target is no longer legal')
     except ActionError as exc:
         _invalid(plan, frame, str(exc))
@@ -228,7 +243,7 @@ def _creature_choice(plan: Plan, frame: Announcement) -> None:
         return
     assert frame.opponent is not None
     decide(plan, player=frame.opponent, kind='choose_one', prompt=f'Choose a creature target for {frame.name}',
-           options=[DecisionOption(id=cid, label=casting.target_label(plan, cid), card_id=cid) for cid in legal],
+           options=[DecisionOption(id=cid, label=casting.target_label(plan, cid), card_id=cid if cid in plan.state.cards else None) for cid in legal],
            resume=_resume(CREATURE, frame))
 
 
@@ -276,7 +291,7 @@ def resume_creature(plan: Plan, decision: Any, chosen: list[str]) -> None:
         card, ch, ability = _source(plan, frame)
         legal = _legal(plan, frame)
         if frame.first is not None and (frame.first['id'] not in _legal(plan, frame, first=True)
-                                       or plan.oid(frame.first['id']) != frame.first.get('object_id')):
+                                       or (frame.first.get('object_id') and plan.oid(frame.first['id']) != frame.first.get('object_id'))):
             raise ActionError('The original first target is no longer legal')
     except ActionError as exc:
         _invalid(plan, frame, str(exc))
