@@ -366,6 +366,12 @@ def _named_noncreature(m: re.Match[str], *, n_word: str | None, plain: bool) -> 
     lines = [k.capitalize() for k in keywords[0]]
     for q in quotes:
         q = q.rstrip(",")
+        nested = re.fullmatch(r"(Equipped creature has) '([^'\"]+)'", q) if "Equipment" in subs else None
+        if nested:  # -- trigger other (wave 110B) -- Toggo's Rock: 'Equipped creature has '{1}, {T}, Sacrifice Rock: …'' is the Equipment's own granted ability ("Sacrifice Rock" is the token)
+            if _quoted_text(f'{nested[1]} "{nested[2].replace(f"Sacrifice {name}", "Sacrifice this Equipment")}."') is None:
+                return None  # (read with the token's own name as "this Equipment"; the token's text keeps its name, which the token's card text turns into its granter, 607.1a)
+            lines.append(f'{nested[1]} "{nested[2]}."')
+            continue
         line = _quoted_text(q.replace("this token", f"this {kind}")) if "this token" in q else _quoted_text(q)
         if line is None or ('"' in line):
             return None

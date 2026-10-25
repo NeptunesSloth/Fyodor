@@ -4,6 +4,7 @@
 * Desert Warfare: 603.2c a Desert sacrificed or put into your graveyard from your hand or library returns at your next end step (400.7: that card);
   at the beginning of your combat with five or more Deserts, a hasty Sand Warrior for each.
 * Cosmic Intervention: 614.1a, 611.2a a permanent you control put into a graveyard from the battlefield this turn is exiled instead and returns at the next end step.
+* Toggo, Goblin Weaponsmith: 111.4, 702.6, 613.1f the Rock token's "Equipped creature has '… Sacrifice Rock: …'" is the Equipment's own granted ability (the creature deals the damage).
 * Mirror of Life Trapping: 607.2a linked exile; a cast creature is exiled as it enters and every other permanent card exiled with it returns (400.7).
 """
 
@@ -14,7 +15,7 @@ import pytest
 from app.rules import coverage
 from tests.game_helpers import act
 from tests.test_rules_wave30m_durations import to_phase
-from tests.wave110b_kit import build, card_named, check, drive, mana, put, repository, to_hand
+from tests.wave110b_kit import build, card_named, ch, check, drive, mana, put, repository, to_hand
 
 
 @pytest.fixture()
@@ -22,7 +23,7 @@ def cards(settings):
     yield from repository(settings)
 
 
-@pytest.mark.parametrize("name", ["Mirror of Life Trapping", "Scholarship Sponsor", "Desert Warfare", "Cosmic Intervention"])
+@pytest.mark.parametrize("name", ["Mirror of Life Trapping", "Scholarship Sponsor", "Desert Warfare", "Cosmic Intervention", "Toggo, Goblin Weaponsmith"])
 def test_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
@@ -139,4 +140,25 @@ def test_cosmic_intervention_exiles_only_your_permanents_and_returns_them(cards,
     to_phase(s, "main1", turn=2)
     drive(s)
     assert s.state.cards[bears.id].zone == zone_after
+    check(s)
+
+
+def test_toggo_makes_a_rock_that_lets_the_equipped_creature_deal_2_damage(cards):
+    """The granted {1},{T}, Sacrifice Rock ability is the creature's, so its lifelink gains the life."""
+    s = build(cards, ["Toggo, Goblin Weaponsmith", "Vampire Nighthawk", "Forest"], [])
+    put(s, "Toggo, Goblin Weaponsmith")
+    hawk = put(s, "Vampire Nighthawk")
+    to_phase(s, "main1", turn=3)
+    act(s, "p1", type="play_land", card_id=to_hand(s, "Forest").id)
+    drive(s)
+    rock = next(c for c in s.state.cards.values() if c.name == "Rock" and c.zone == "p1:battlefield")
+    mana(s, "p1", C=1)
+    act(s, "p1", type="activate_ability", card_id=rock.id, ability=1, targets=[hawk.id])  # (Equip {1})
+    drive(s)
+    life = s.state.players["p1"].life
+    mana(s, "p1", C=1)
+    act(s, "p1", type="activate_ability", card_id=hawk.id, ability=next(a.index for a in ch(s, hawk).abilities if a.kind == "activated"), targets=["p2"])
+    drive(s)
+    assert s.state.players["p2"].life == 38 and s.state.players["p1"].life == life + 2
+    assert rock.id not in s.state.cards  # (sacrificed: the token ceased to exist)
     check(s)

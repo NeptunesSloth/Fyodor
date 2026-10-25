@@ -40,3 +40,6 @@
 - Saruman of Many Colors: ward discard three types + milled-this-way reflexive exile.
 - Hylda of the Icy Crown: "tap an untapped creature" singular event vs batch.
 - Stunning Reversal: needs wave 110c lose-game replacement (not in this branch).
+- Firesong and Sunspeaker: life gain events carry no source spell (color of the spell that caused the gain unknown).
+- Tombstone Stairwell: "for each creature card in their graveyard" per player + named tokens + "tokens created with this enchantment" destroy: three gaps.
+- Temporal Extortion: "any player may pay half their life ... counter" cast trigger not read (even "any player may pay N life, counter this spell").
