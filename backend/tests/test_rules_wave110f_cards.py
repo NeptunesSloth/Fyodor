@@ -9,6 +9,8 @@
 * 702.23a, 613.1f, 702.7b: "Target creature gains first strike ... If it doesn't have rampage, that creature gains rampage 2 until end of turn." (Rapid Fire).
 * 601.2h, 107.3: "create a number of ... tokens ... equal to the amount of mana spent to cast it" (Abby, Merciless Soldier).
 * 702.26a-d: "Simultaneously, all phased-out creatures phase in and all creatures with phasing phase out." (Time and Tide).
+* 118.1, 404.2, 701.19a: "Exile the top creature card of your graveyard: Regenerate this creature." (Zombie Scavengers).
+* 603.2c, 607.2a: "Whenever you discard one or more cards, exile them from your graveyard." + "put the cards exiled with it into their owner's hand" (Toluz).
 * 602.5, 605.1a: "Creatures with flying can't attack or block, and their activated abilities with {T} in their costs can't be activated." (Katabatic Winds).
 """
 
@@ -55,10 +57,14 @@ EXTRA = [
     real('Test Phaser 110F', '{1}{U}', 2, 'Creature — Spirit', 'Phasing', ('2', '2'), 'U'),
     real('Abby, Merciless Soldier', '{1}{R}{G}', 3, 'Legendary Creature — Human Survivor',
          "When you cast this spell, create a number of 1/1 black Fungus Zombie creature tokens named Cordyceps Infected equal to the amount of mana spent to cast it.\nAbby enters under the control of an opponent of your choice.\nPartner\u2014Survivors (You can have two commanders if both have this ability.)", ('4', '4'), 'RG'),
+    real('Zombie Scavengers', '{3}{B}', 4, 'Creature — Zombie',
+         "Exile the top creature card of your graveyard: Regenerate this creature.", ('3', '3'), 'B'),
+    real('Toluz, Clever Conductor', '{W/U}{U}{U/B}', 3, 'Legendary Creature — Human Rogue',
+         "When Toluz enters, it connives. (Draw a card, then discard a card. If you discarded a nonland card, put a +1/+1 counter on this creature.)\nWhenever you discard one or more cards, exile them from your graveyard.\nWhen Toluz dies, put the cards exiled with it into their owner's hand.", ('3', '1'), 'WUB'),
     real('Test Flyer', '{2}{U}', 3, 'Creature — Bird', 'Flying\n{T}: Draw a card.', ('1', '1'), 'U'),
 ]
 _BASE.extend(EXTRA)  # the shared fixture DB builder reads this list
-NAMES = ["Katabatic Winds", "Rivals' Duel", "Dead Ringers", "Cathedral Membrane", "Taunt", "Jabari's Influence", "Don & Leo, Problem Solvers", "Rapid Fire", "Time and Tide", "Abby, Merciless Soldier"]
+NAMES = ["Katabatic Winds", "Rivals' Duel", "Dead Ringers", "Cathedral Membrane", "Taunt", "Jabari's Influence", "Don & Leo, Problem Solvers", "Rapid Fire", "Time and Tide", "Abby, Merciless Soldier", "Zombie Scavengers", "Toluz, Clever Conductor"]
 
 
 @pytest.mark.parametrize("name", NAMES)
@@ -197,6 +203,25 @@ def test_rapid_fire_grants_rampage_and_first_strike(cards):
     check(s)
 
 
+def test_rapid_fire_twice_grants_rampage_once(cards):
+    """702.23c: a second Rapid Fire sees the granted rampage, so only one rampage 2 trigger happens."""
+    s = build(cards, ["Rapid Fire", "Rapid Fire", "Grizzly Bears"], ["Llanowar Elves", "Test Giant 110F"])
+    bear = put(s, "Grizzly Bears")
+    elf, giant = put(s, "Llanowar Elves", "p2"), put(s, "Test Giant 110F", "p2")
+    to_phase(s, "main1", turn=3)
+    mana(s, W=2, C=6)
+    for _ in range(2):
+        cast(s, "Rapid Fire", [bear.id])
+        answer(s)
+    attack(s, bear)
+    block(s, (elf, bear), (giant, bear))
+    while s.state.zones.get("stack"):
+        act(s, s.state.rules.priority, type="pass_priority")
+    from tests.test_rules_wave100f_control import ch
+    assert ch(s, bear).pt == (4, 4)  # one rampage 2, not two
+    check(s)
+
+
 def test_time_and_tide_swaps_phased_out_and_phasing_creatures(cards):
     s = build(cards, ["Time and Tide", "Test Fade 110F", "Test Phaser 110F", "Grizzly Bears"])
     put(s, "Test Phaser 110F")
@@ -219,4 +244,43 @@ def test_abby_makes_a_token_per_mana_spent_and_enters_under_an_opponent(cards):
     tokens = [c for c in s.state.cards.values() if c.name == "Cordyceps Infected" and c.zone == "p1:battlefield"]
     assert len(tokens) == 3
     assert zone_of(s, "Abby, Merciless Soldier") == "p2:battlefield"
+    check(s)
+
+
+def test_zombie_scavengers_exiles_only_the_top_creature_card_to_regenerate(cards):
+    from tests.test_rules_wave100n_multi import to_graveyard
+    s = build(cards, ["Zombie Scavengers", "Grizzly Bears", "Llanowar Elves", "Forest"])
+    zs = put(s, "Zombie Scavengers")
+    to_graveyard(s, 1, "Grizzly Bears")
+    to_graveyard(s, 1, "Forest")
+    to_graveyard(s, 1, "Llanowar Elves")
+    to_graveyard(s, 1, "Forest")
+    from tests.test_rules_wave100f_control import ch
+    ab = next(x for x in ch(s, zs).abilities if x.text.startswith("Exile the top"))
+    act(s, "p1", type="activate_ability", card_id=zs.id, ability=ab.index)
+    d = s.state.rules.decision
+    bears, elves = (next(o.id for o in d.options if o.label == n) for n in ("Grizzly Bears", "Llanowar Elves"))
+    with pytest.raises(ActionError):  # (404.2: the Bears are not the top creature card)
+        act(s, d.player, type="choose", decision_id=d.id, option_ids=[bears])
+    act(s, d.player, type="choose", decision_id=d.id, option_ids=[elves])
+    answer(s)
+    assert zone_of(s, "Llanowar Elves") == "p1:exile" and zone_of(s, "Grizzly Bears") == "p1:graveyard"
+    assert s.state.rules.regen_shields.get(s.state.rules.object_id(zs.id)) == 1  # 701.19a: one shield
+    check(s)
+
+
+def test_toluz_exiles_discards_and_returns_them_when_it_dies(cards):
+    s = build(cards, ["Toluz, Clever Conductor", "Grizzly Bears", "Grizzly Bears", "Rivals' Duel"], ["Test Giant 110F"])
+    giant = put(s, "Test Giant 110F", "p2")
+    bears = to_hand(s, "Grizzly Bears")
+    mana(s, W=1, U=1, B=1)
+    cast(s, "Toluz, Clever Conductor")
+    answer(s, bears.id)  # (connive: draw, then discard the Bears)
+    toluz = next(c for c in s.state.cards.values() if c.name.startswith("Toluz"))
+    assert zone_of(s, "Grizzly Bears") == "p1:exile"  # (the discard trigger exiled it from the graveyard)
+    mana(s, R=1, C=3)
+    cast(s, "Rivals' Duel", [toluz.id, giant.id], target_counts=[2])  # (Toluz 3/1 dies fighting the 3/3 Giant)
+    answer(s)
+    assert zone_of(s, "Toluz, Clever Conductor") == "p1:graveyard"
+    assert sorted(c.zone for c in s.state.cards.values() if c.name == "Grizzly Bears" and c.zone != "p1:library") == ["p1:hand", "p1:hand"]
     check(s)

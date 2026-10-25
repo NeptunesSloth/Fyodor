@@ -82,7 +82,16 @@ def _time_and_tide() -> Parsed:
     return [{"do": "phase_swap110f"}], None, False
 
 
+def exile_discarded(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Toluz: exile the discarded cards still in your graveyard, linked to the source (607.2a); one trigger per batch (603.2c)."""
+    from app.rules import context, effects
+
+    cards = [c for c in context.objects(plan, ctx, "event.new") if plan.state.cards[c].zone == ctx["controller"] + ":graveyard"]
+    return effects.exile_cards(plan, ctx, {"link": True}, cards)
+
+
 BUILDERS: dict[str, Callable[[], Parsed]] = {
+    "exile them from your graveyard.": lambda: ([{"do": "exile_discarded110f", "exile": True}], None, False),  # ("exile": marks the linking ability, exiled_with._exiles)
     "Simultaneously, all phased-out creatures phase in and all creatures with phasing phase out.": _time_and_tide,
     "exile up to one target artifact you control and up to one target creature you control. Then return them to the battlefield under their owners' control.": _don_and_leo,
     "During target player's next turn, creatures that player controls attack you if able.": _taunt,
@@ -92,6 +101,7 @@ BUILDERS: dict[str, Callable[[], Parsed]] = {
 # Sentences the grammar reads in other words (608.2c). 509.1g: while a combat phase is going (the only time the "dies during combat" trigger fires),
 # "the creatures it blocked this combat" are the creatures blocked by it (block_events reads them off its last known information).
 REWRITES = {
+    "put the cards exiled with it into their owner's hand.": "return all cards exiled with it to their owners' hands.",  # Toluz (607.2a)
     # 601.2h, 107.3: "a number of tokens equal to the amount of mana spent" = X tokens, X the amount of mana spent to cast it.
     "create a number of 1/1 black Fungus Zombie creature tokens named Cordyceps Infected equal to the amount of mana spent to cast this spell.":
         "create X 1/1 black Fungus Zombie creature tokens named Cordyceps Infected, where X is the amount of mana spent to cast this spell.",
@@ -100,7 +110,7 @@ REWRITES = {
         "Gain control of target nonartifact, nonblack creature that attacked you this turn, then put a -1/-0 counter on it.",
     "it deals 6 damage to each creature it blocked this combat.": "~ deals 6 damage to each creature blocked by it.",
 }
-PRIMITIVES: dict[str, Any] = {"same_colors110f": same_colors, "phase_swap110f": phase_swap}
+PRIMITIVES: dict[str, Any] = {"same_colors110f": same_colors, "phase_swap110f": phase_swap, "exile_discarded110f": exile_discarded}
 
 
 def parse(body: str) -> Parsed | None:
