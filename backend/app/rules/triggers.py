@@ -2789,6 +2789,12 @@ def _put(plan: Plan, t: PendingTrigger, target: str | None = None, picks: dict[s
                     plan.note(f"{t.name}'s ability has no unique player to choose its target and is removed")
                     return True
                 choice_player = event_players[0]
+            if t.ability.get("target_choice") == "defending100j":  # -- counters (wave 100J) -- "of defending player's choice" (Erithizon: 508.5)
+                if t.event is None or t.event.defended not in plan.live():
+                    r.pending_triggers = [p for p in r.pending_triggers if p.id != t.id]
+                    plan.note(f"{t.name}'s ability has no defending player to choose its target and is removed")
+                    return True
+                choice_player = t.event.defended
             decide(plan, player=choice_player, kind="choose_one", prompt=f"{t.name}: choose a target",
                    options=[DecisionOption(id=x, label=label(plan, x), card_id=x if x in plan.state.cards else None) for x in legal],
                    resume={"step": "trigger_target", "trigger": t.id})

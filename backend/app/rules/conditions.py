@@ -1556,6 +1556,10 @@ def holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
         from app.rules import activated100i
 
         return activated100i.holds(plan, ctx, cond)
+    if any(str(k).endswith("100j") for k in cond):  # -- counters (wave 100J) --
+        from app.rules import counters100j
+
+        return counters100j.holds(plan, ctx, cond)
     if any(str(k).endswith("100a") for k in cond):  # -- trigger lines (wave 100A) --
         from app.rules import triggers100a
 

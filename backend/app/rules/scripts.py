@@ -5845,6 +5845,10 @@ def _first_time_gate(text: str) -> str:
 
 def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     """The engine definition of one ability, or None (manual)."""
+    from app.rules import counters100j  # -- counters (wave 100J) --
+
+    if (lines100j := counters100j.definition(ability, ch)) is not None:
+        return lines100j
     from app.rules import triggers100a  # -- trigger lines (wave 100A) --
 
     if (lines100a := triggers100a.definition(ability, ch)) is not None:
@@ -8142,7 +8146,7 @@ def _event_refs_ok(d: Definition) -> bool:
     if '"of": "roll"' in raw and not (ev is not None and ev["event"] == "roll_die"):
         return False  # -- dice (wave 24B) -- "if the roll was 4 or higher": the one die a roll trigger is about
     if '"of": "event"' in raw and not (ev is not None and (ev["event"] == "you_attack" and ev.get("min_attackers") or ev["event"] == "attack" and ev.get("aggregate")
-                                                          or ev["event"] == "die" and ev.get("aggregate"))):  # (-- trigger other (wave 52B) -- or the creatures a "one or more … die" batch counted, as they last existed: The Skullspore Nexus)
+                                                          or ev["event"] in ("die", "leave_graveyard") and ev.get("aggregate"))):  # (-- trigger other (wave 52B) -- or the creatures a "one or more … die" batch counted, as they last existed: The Skullspore Nexus; -- counters (wave 100J) -- the cards a "one or more cards leave your graveyard" batch moved: Amzu)
         return False  # -- event batches (wave 34C) -- "the greatest power among them": the attackers a "one or more" attack trigger counted
     if '"died": 1' in raw and not (ev is not None and ev["event"] == "die" and not ev.get("aggregate")):
         return False  # -- value grammar (wave 23C) -- "the power of the creature that died": the one creature a "dies" trigger is about

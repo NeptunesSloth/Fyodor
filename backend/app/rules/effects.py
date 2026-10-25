@@ -6956,3 +6956,8 @@ RESUME.update(_triggers100a.RESUME)
 from app.rules import activated100i as _activated100i  # noqa: E402, I001
 
 PRIMITIVES.update(_activated100i.PRIMITIVES)
+# -- counters (wave 100J) -- (app/rules/counters100j.py)
+from app.rules import counters100j as _counters100j  # noqa: E402
+
+PRIMITIVES.update(_counters100j.PRIMITIVES)
+RESUME.update(_counters100j.RESUME)
