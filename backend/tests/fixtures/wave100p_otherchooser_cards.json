@@ -1,0 +1,187 @@
+[
+ {
+  "name": "Path of the Animist",
+  "layout": "normal",
+  "mana_cost": "{3}{G}",
+  "cmc": 4.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Search your library for up to two basic land cards, put them onto the battlefield tapped, then shuffle.\nWill of the Planeswalkers — Starting with you, each player votes for planeswalk or chaos. If planeswalk gets more votes, planeswalk. If chaos gets more votes or the vote is tied, chaos ensues.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [
+   "Will of the Planeswalkers"
+  ]
+ },
+ {
+  "name": "Path of the Enigma",
+  "layout": "normal",
+  "mana_cost": "{4}{U}",
+  "cmc": 5.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Target player draws four cards.\nWill of the Planeswalkers — Starting with you, each player votes for planeswalk or chaos. If planeswalk gets more votes, planeswalk. If chaos gets more votes or the vote is tied, chaos ensues.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "Will of the Planeswalkers"
+  ]
+ },
+ {
+  "name": "Path of the Ghosthunter",
+  "layout": "normal",
+  "mana_cost": "{X}{1}{W}",
+  "cmc": 2.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Create X 1/1 white Spirit creature tokens with flying.\nWill of the Planeswalkers — Starting with you, each player votes for planeswalk or chaos. If planeswalk gets more votes, planeswalk. If chaos gets more votes or the vote is tied, chaos ensues.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "Will of the Planeswalkers"
+  ]
+ },
+ {
+  "name": "Path of the Pyromancer",
+  "layout": "normal",
+  "mana_cost": "{4}{R}",
+  "cmc": 5.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Discard all the cards in your hand. Add {R} for each card discarded this way, then draw that many cards plus one.\nWill of the Planeswalkers — Starting with you, each player votes for planeswalk or chaos. If planeswalk gets more votes, planeswalk. If chaos gets more votes or the vote is tied, chaos ensues.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Will of the Planeswalkers"
+  ]
+ },
+ {
+  "name": "Path of the Schemer",
+  "layout": "normal",
+  "mana_cost": "{4}{B}",
+  "cmc": 5.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Each player mills two cards. Then you put a creature card from a graveyard onto the battlefield under your control. It's an artifact in addition to its other types.\nWill of the Planeswalkers — Starting with you, each player votes for planeswalk or chaos. If planeswalk gets more votes, planeswalk. If chaos gets more votes or the vote is tied, chaos ensues.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Will of the Planeswalkers",
+   "Mill"
+  ]
+ },
+ {
+  "name": "Oath of Druids",
+  "layout": "normal",
+  "mana_cost": "{1}{G}",
+  "cmc": 2.0,
+  "type_line": "Enchantment",
+  "oracle_text": "At the beginning of each player's upkeep, that player chooses target player who controls more creatures than they do and is their opponent. The first player may reveal cards from the top of their library until they reveal a creature card. If the first player does, that player puts that card onto the battlefield and all other cards revealed this way into their graveyard.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Oath of Lieges",
+  "layout": "normal",
+  "mana_cost": "{1}{W}",
+  "cmc": 2.0,
+  "type_line": "Enchantment",
+  "oracle_text": "At the beginning of each player's upkeep, that player chooses target player who controls more lands than they do and is their opponent. The first player may search their library for a basic land card, put that card onto the battlefield, then shuffle.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Travel Through Caradhras",
+  "layout": "normal",
+  "mana_cost": "{5}{G}",
+  "cmc": 6.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Council's dilemma — Starting with you, each player votes for Redhorn Pass or Mines of Moria. For each Redhorn Pass vote, search your library for a basic land card and put it onto the battlefield tapped. If you search your library this way, shuffle. For each Mines of Moria vote, return a card from your graveyard to your hand.\nExile Travel Through Caradhras.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [
+   "Council's dilemma"
+  ]
+ },
+ {
+  "name": "Fateful Tempest",
+  "layout": "normal",
+  "mana_cost": "{2}{R}",
+  "cmc": 3.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Council's dilemma — Starting with you, each player votes for past or present. You mill a card for each past vote, then Fateful Tempest deals damage to each opponent equal to the total mana value of cards milled this way. Exile the top card of your library for each present vote. Until the end of your next turn, you may play the exiled cards.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Council's dilemma",
+   "Mill"
+  ]
+ },
+ {
+  "name": "Selvala's Stampede",
+  "layout": "normal",
+  "mana_cost": "{4}{G}{G}",
+  "cmc": 6.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Council's dilemma — Starting with you, each player votes for wild or free. Reveal cards from the top of your library until you reveal a creature card for each wild vote. Put those creature cards onto the battlefield, then shuffle the rest into your library. You may put a permanent card from your hand onto the battlefield for each free vote.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [
+   "Council's dilemma"
+  ]
+ },
+ {
+  "name": "Expropriate",
+  "layout": "normal",
+  "mana_cost": "{7}{U}{U}",
+  "cmc": 9.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Council's dilemma — Starting with you, each player votes for time or money. For each time vote, take an extra turn after this one. For each money vote, choose a permanent owned by the voter and gain control of it. Exile Expropriate.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "Council's dilemma"
+  ]
+ }
+]
