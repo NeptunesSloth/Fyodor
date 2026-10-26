@@ -1,0 +1,41 @@
+[
+ {
+  "name": "Invasion of Arcavios // Invocation of the Founders",
+  "layout": "transform",
+  "mana_cost": "{3}{U}{U} // ",
+  "cmc": 5.0,
+  "type_line": "Battle — Siege // Enchantment",
+  "oracle_text": "(As a Siege enters, choose an opponent to protect it. You and others can attack it. When it's defeated, exile it, then cast it transformed.)\nWhen this Siege enters, search your library, graveyard, and/or outside the game for an instant or sorcery card you own, reveal it, and put it into your hand. If you search your library this way, shuffle.\n//\nWhenever you cast an instant or sorcery spell from your hand, you may copy that spell. You may choose new targets for the copy.",
+  "defense": "7",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "Transform"
+  ],
+  "card_faces": [
+   {
+    "name": "Invasion of Arcavios",
+    "mana_cost": "{3}{U}{U}",
+    "type_line": "Battle — Siege",
+    "oracle_text": "(As a Siege enters, choose an opponent to protect it. You and others can attack it. When it's defeated, exile it, then cast it transformed.)\nWhen this Siege enters, search your library, graveyard, and/or outside the game for an instant or sorcery card you own, reveal it, and put it into your hand. If you search your library this way, shuffle.",
+    "defense": "7",
+    "colors": [
+     "U"
+    ]
+   },
+   {
+    "name": "Invocation of the Founders",
+    "mana_cost": "",
+    "type_line": "Enchantment",
+    "oracle_text": "Whenever you cast an instant or sorcery spell from your hand, you may copy that spell. You may choose new targets for the copy.",
+    "colors": [
+     "U"
+    ]
+   }
+  ]
+ }
+]

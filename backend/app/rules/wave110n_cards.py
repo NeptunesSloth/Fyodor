@@ -174,6 +174,13 @@ def sword_rest(plan: Any, ctx: Any, e: Def) -> bool:
     return True
 
 
+# 903.11: no card can be brought into a Commander game from outside it, so "outside the game" adds nothing to the library and graveyard
+_BUILD["When this Siege enters, search your library, graveyard, and/or outside the game for an instant or sorcery card you own, reveal it, and put it into your hand. "
+       "If you search your library this way, shuffle."] = (
+    "When this Siege enters, search your library and/or graveyard for an instant or sorcery card you own, reveal it, and put it into your hand. "
+    "If you search your library this way, shuffle.", lambda d: d)
+
+
 def _thief(d: Def) -> Def:
     """Thief of Existence: the spell gains the leaves-the-battlefield trigger only if the exile happened, and keeps it as the permanent it becomes (400.7a)."""
     from app.rules import scripts
