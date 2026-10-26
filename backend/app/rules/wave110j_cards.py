@@ -1152,3 +1152,28 @@ def ignore(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
 
 
 PRIMITIVES["ignore110j"] = ignore
+
+
+# -- Last Voyage of the _____ (wave 110J) -- rulings 2022-10-07: it becomes an Aura whether or not a sticker was put on (205.1, permanent: 611.2a), enchant creature; if it can't
+# be attached to the returned creature (protection) it goes to the graveyard as a state-based action (704.5m) and the creature stays. 303.4: attach_to is the engine's
+# "attach this Aura to it". Its +2/+0 counts the name stickers on this Aura with seven or fewer letters (values.py "sticker_short110j").
+_VOYAGE = ("When this enchantment enters, you may put a name sticker on it, then it becomes an Aura with enchant creature. Return a creature card from your graveyard to the "
+           "battlefield and attach this Aura to it.")
+
+
+def _voyage(d: Def) -> Def:
+    fx = d["effects"]
+    return {**d, "effects": [fx[0], {"do": "become", "who": "self", "types": [], "add_creature_types": ["Aura"], "abilities": ["Enchant creature"], "duration": "permanent"}, *fx[1:]]}
+
+
+_BUILD[_VOYAGE] = ("When this enchantment enters, you may put a name sticker on it. Return a creature card from your graveyard to the battlefield and attach this Aura to it.", _voyage)
+_BUILD["Enchanted creature gets +2/+0 for each name sticker on this Aura with seven or fewer letters."] = (
+    "Enchanted creature gets +2/+0 for each counter on this Aura.", lambda d: {**d, "each": {**d["each"], "value": {"sticker_short110j": True}}})
+_BUILD["When this Aura leaves the battlefield, sacrifice enchanted creature."] = (
+    "When this Aura leaves the battlefield, enchanted creature's controller sacrifices it.", lambda d: d)
+
+
+def short_stickers(plan: Any, ctx: Any) -> int:
+    """Name stickers (kind "name") on the source whose text has seven or fewer letters (spaces and punctuation are not letters)."""
+    card = plan.state.cards.get(ctx.get("source_card") or "")
+    return 0 if card is None else sum(1 for p in card.stickers101 if p.sticker.kind == "name" and sum(ch.isalpha() for ch in p.sticker.text) <= 7)
