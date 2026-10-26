@@ -3538,9 +3538,9 @@ def _parse_effects_plain(body: str, it: str | None = None, *, event_player: bool
         return protected_airbend
     if (spell_airbend := airbend.spell_target(body)) is not None:  # -- airbend (wave 110B) --
         return spell_airbend
-    from app.rules import wave110b_dack, wave110b_hama, wave110b_lich
+    from app.rules import wave110b_dack, wave110b_hama, wave110b_lich, wave110b_stangg
 
-    if (hama := wave110b_hama.parse(body) or wave110b_dack.parse(body)) is not None:  # -- Hama, Dack Fayden (wave 110B) --
+    if (hama := wave110b_hama.parse(body) or wave110b_dack.parse(body) or wave110b_stangg.parse(body)) is not None:  # -- Hama, Dack Fayden, Stangg (wave 110B) --
         return hama
     if (lich := wave110b_lich.parse(body)) is not None:  # -- Havengul Lich (wave 110B) --
         return lich
@@ -8540,7 +8540,7 @@ def _event_refs_ok(d: Definition) -> bool:
 
     # (-- reanimation (wave 51B) -- Scrap Trawler: "Whenever this creature dies or another artifact you control is put into a graveyard …, … with lesser mana value": each of the
     # events of an "or" trigger is about one object (603.2c, the ruling: it triggers for each artifact), and so is the source's own death, its last-known snapshot)
-    if '\\"evt:' in raw and d.get("trigger") not in ("attacks_self", "dies_self") and not (
+    if '\\"evt:' in raw.replace('\\"evt:damage110b\\"', '') and d.get("trigger") not in ("attacks_self", "dies_self") and not (
             one_object(ev) or (ev is not None and ev["event"] == "either" and all(one_object(c) for c in ev["conds"]))) \
             and '\\"evt:' in json.dumps({**d, "effects": [e for i, e in enumerate(d.get("effects") or []) if e.get("do") not in ("reflexive", "excess_reflex110h") and i not in (_delayed.object_deferred(d.get("effects") or []) | entry_receipt56.object_deferred(d.get("effects") or []))]}):
         # (wave 28D: the spell a cast trigger is about; -- turn-long triggers (wave 35B) -- or the one object a "When that creature dies this turn" trigger is about)
@@ -9044,6 +9044,10 @@ def _spell_definition(ch: Characteristics) -> Definition | None:
 
     if (spell110i := wave110i_cards.spell(ch, text_lines)) is not None:
         return spell110i
+    from app.rules import wave110b_final  # -- final pass (wave 110B) --
+
+    if (spell110b := wave110b_final.spell(ch, text_lines)) is not None:
+        return spell110b
     defs = definitions(ch)
     # ("This spell costs {1} less to cast for each …": part of the total cost, not of what it does)
     # (wave 3C: nor "If you control a commander, you may cast this spell without paying its mana cost"; 3$: additional costs)
@@ -9054,7 +9058,7 @@ def _spell_definition(ch: Characteristics) -> Definition | None:
              and not own_card_event_ability(defs.get(ab.index))  # (wave 36A: cycling / discard triggers of the card itself)
              and defs.get(ab.index, {}).get("trigger") != "cast_self"  # -- spell copies (wave 31D) -- 601.2i: "When you cast this spell, …" triggers
              and defs.get(ab.index, {}).get("replacement") != "shuffle_instead"  # -- zone replacements (wave 51C) -- Nexus of Fate: where the spell card goes (614.1), not what it does
-             and defs.get(ab.index, {}).get("static") not in ("self_cost", "additional_cost", "alt_cost", "cast_restriction", "own_optional", "x_cap", "escape", "draft_only", "cant_be_copied", "self_uncounterable", "x_mana_restriction", "own_spell_kicked_keyword59", "color_cda100c", "gy_flashback110e", "gy_cost", "opening_hand")  # (escape: wave 52C, 702.138a; draft_only: wave 52C; x_cap: wave 51C; own_optional: wave 22F; alt_cost: wave 4I; cast_restriction: wave 7A)
+             and defs.get(ab.index, {}).get("static") not in ("self_cost", "additional_cost", "alt_cost", "cast_restriction", "own_optional", "x_cap", "escape", "draft_only", "cant_be_copied", "self_uncounterable", "x_mana_restriction", "own_spell_kicked_keyword59", "color_cda100c", "gy_flashback110e", "gy_cost", "opening_hand", "stack_grant110b")  # (escape: wave 52C, 702.138a; draft_only: wave 52C; x_cap: wave 51C; own_optional: wave 22F; alt_cost: wave 4I; cast_restriction: wave 7A)
              and not (defs.get(ab.index, {}).get("static") == "permission" and defs[ab.index].get("self")
                       and (defs[ab.index].get("free") or defs[ab.index].get("zone") in ("graveyard", "exile")
                            or defs[ab.index].get("flash")))]  # (wave 17C: retrace, 702.81a; wave 22F: "cast this spell as though it had flash if …", 601.3d)

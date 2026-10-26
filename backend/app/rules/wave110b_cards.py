@@ -397,6 +397,10 @@ def exile_bottom(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
 
 
 _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
+    # Braided Net: 611.2b the lock lasts for as long as that permanent remains tapped (delayed.expire, duration "object_tapped110m"; the restriction is on that object, 400.7)
+    "{T}, Remove a net counter from this artifact: Tap another target nonland permanent. Its activated abilities can't be activated for as long as it remains tapped.":
+        ("{T}, Remove a net counter from this artifact: Tap another target nonland permanent. Its activated abilities can't be activated this turn.",
+         lambda d: {**d, "effects": [{**e, "duration": "object_tapped110m"} if e.get("do") == "restrict" else e for e in d["effects"]]}),
     # Fractured Powerstone: 901.3 the planar die is Planechase game material and 706.7 only a Planechase game rolls it; ruling 2012-06-01: in other games the
     # roll "will have no effect" (no die is rolled, so no roll trigger, no Night Shift payment: ruling 2022-10-07 speaks only of a Planechase game)
     "{T}: Roll the planar die. Activate only as a sorcery.":
@@ -676,6 +680,23 @@ def definition(ability: Any, ch: Any) -> Def | None:
         return _angel()
     if text == _LINVALA:
         return _linvala(ability, ch)
+    from app.rules import wave110b_tahngarth  # -- Tahngarth (wave 110B) --
+
+    if (tahngarth := wave110b_tahngarth.definition(ability, ch)) is not None:
+        return tahngarth
+    if text == "Exile a creature card from your graveyard and pay its mana cost: Create a token that's a copy of that card. Activate only as a sorcery.":
+        from app.rules import selectors
+
+        # Back from the Brink: the choosable cards are the creature cards in the graveyard, each with that ability (zone_grants.apply, keyword "brink110b")
+        sel = selectors.parse("creature card in your graveyard")
+        assert sel is not None
+        return {"kind": "static", "static": "zone_grant", "filter": sel.key(), "keyword": "brink110b", "cost": None, "reduce": 0, "effects": []}
+    if text == "Clandestine Chameleon has all abilities of ability stickers on other permanents you own and cards in your graveyard.":
+        return {"kind": "static", "static": "sticker_abilities110b", "effects": []}  # the abilities come from stickers101.continuous (613.1f)
+    from app.rules import wave110b_final  # -- final pass (wave 110B) --
+
+    if (final := wave110b_final.definition(ability, ch)) is not None:
+        return final
     if (same := _AS.get(text)) is not None:
         return scripts.define(replace(ability, text=same), ch)
     if (built := _BUILD.get(text)) is not None:

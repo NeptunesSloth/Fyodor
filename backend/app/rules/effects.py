@@ -1063,10 +1063,12 @@ def restrict(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
                 made.until_player, made.turn = pid, plan.state.turn.number
                 plan.note(f"{plan.name(pid)}: {', '.join(_restriction_label(plan, r) for r in e['rules'])} during their next turn", actor=ctx["controller"])
     elif cards or group:
-        layers.add_effect(plan, affected=[] if group else [plan.oid(c) for c in cards], layer="6",
+        made = layers.add_effect(plan, affected=[] if group else [plan.oid(c) for c in cards], layer="6",
                           source=ctx.get("source_object"), controller=ctx["controller"], imposes=tuple(e["rules"]),
                           label=", ".join(_restriction_label(plan, r) for r in e["rules"]), who=who if group else None, source_card=ctx.get("source_card"),
                           duration=duration)
+        if duration == "object_tapped110m" and len(cards) == 1:  # -- (wave 110B) -- Braided Net: "for as long as it remains tapped" (611.2b), delayed.expire
+            made.until_object = plan.oid(cards[0])
     if cards and duration != "their_turn":  # (-- attack restrictions (wave 32B) -- a player's next turn: no marker on the creatures there now, the group is the player's)
         _mark(plan, cards, ", ".join(_restriction_label(plan, r) for r in e["rules"]),
               text={"end_of_turn": "until end of turn", "end_of_combat": "this combat"}.get(duration, "as long as it's on the battlefield"))
@@ -7353,6 +7355,13 @@ from app.rules import wave110b_dack as _wave110b_dack  # noqa: E402, I001
 
 PRIMITIVES.update(_wave110b_dack.PRIMITIVES)
 RESUME.update(_wave110b_dack.RESUME)
+from app.rules import wave110b_tahngarth as _wave110b_tahngarth  # noqa: E402, I001
+
+PRIMITIVES.update(_wave110b_tahngarth.PRIMITIVES)
+RESUME.update(_wave110b_tahngarth.RESUME)
+from app.rules import wave110b_stangg as _wave110b_stangg  # noqa: E402, I001
+
+PRIMITIVES.update(_wave110b_stangg.PRIMITIVES)
 from app.rules import wave110c_xanathar as _wave110c_xanathar  # noqa: E402, I001  -- (wave 110C) --
 
 PRIMITIVES.update(_wave110c_xanathar.PRIMITIVES)
@@ -7370,3 +7379,7 @@ PRIMITIVES.update(_wave110c_koh.PRIMITIVES)
 RESUME.update(_wave110c_koh.RESUME)
 CHOICE_LABELS["planeswalker type"] = "Chosen planeswalker type"  # -- (wave 110A) -- Deification
 CHOICE_LABELS["card type shared among two exiled cards used to craft it"] = "Chosen card type"  # -- (wave 110A) -- Eye of Ojer Taq
+from app.rules import wave110b_final as _wave110b_final  # noqa: E402, I001
+
+PRIMITIVES.update(_wave110b_final.PRIMITIVES)
+RESUME.update(_wave110b_final.RESUME)

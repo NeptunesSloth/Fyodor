@@ -319,6 +319,8 @@ def _life(text: str) -> Definition | None:
             return _static("life", match, {"do": "mul", "n": 2})
         if rest == "you gain three times that much life":
             return _static("life", match, {"do": "mul", "n": 3})
+        if rest == "draw that many cards":  # -- (wave 110B) -- Nefarious Lich: the gain never happens (614.6); that many cards are drawn (replace._life_apply: a "draw_n110b" event)
+            return _static("life", match, {"do": "draw_instead110b"})
         m2 = re.fullmatch(r"you gain that much life plus (?P<n>\d+|one|two|three)", rest)
         if m2:
             n = _num(m2["n"])

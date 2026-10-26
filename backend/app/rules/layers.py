@@ -1230,6 +1230,10 @@ def _derive(state: GameState, card: CardInstance, ch: Characteristics, info: Car
     if lent:
         ch = replace(ch, abilities=ch.abilities + lent)
     ch = _granted_by_effects(ch, effects, wipe)
+    if on_field and state.zones.get("stack"):  # -- (wave 110B) -- Torrent of Lava: the ability it gives every creature while it is on the stack
+        from app.rules import wave110b_final
+
+        ch = wave110b_final.stack_grants(state, card, ch)
     if (wipe is None or (timestamp(state, card.id), 0, 0) > wipe) and state.rules is not None and state.rules.payments:  # -- grants (wave 110A) -- offspring given to the spell as it was cast stays on the permanent (a wipe earlier than the permanent's timestamp does not remove it, a later one does, 613.7)
         rec = state.rules.payments.get(state.rules.object_id(card.id))
         if rec is not None and rec.granted_offspring110a:
@@ -1250,6 +1254,10 @@ def _derive(state: GameState, card: CardInstance, ch: Characteristics, info: Car
         )
 
         ch = zone_grants.apply(state, card, ch, info)
+        if state.rules.guardian110b and card.zone.endswith(":graveyard"):  # -- (wave 110B) -- Guardian Angel: this turn's payment offered from its owner's graveyard
+            from app.rules import wave110b_final
+
+            ch = wave110b_final.guardian_overlay(state, card, ch)
         from app.rules import dynamic_zone_keyword_costs56
 
         ch = dynamic_zone_keyword_costs56.apply(state, card, ch, info)

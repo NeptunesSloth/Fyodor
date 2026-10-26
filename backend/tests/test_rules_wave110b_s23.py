@@ -20,11 +20,13 @@ from tests.wave110b_kit import (
     mana,
     put,
     repository,
+    through_combat,
     to_hand,
     top,
 )
 
 HAMA = "Hama, the Bloodbender"
+TAHNGARTH = "Tahngarth, First Mate"
 
 
 @pytest.fixture()
@@ -32,7 +34,7 @@ def cards(settings):
     yield from repository(settings)
 
 
-@pytest.mark.parametrize("name", [HAMA, "Susan Foreman", "Dack Fayden, Helping Hand"])  # Susan: 701.31a, 901.3 planeswalking is Planechase-only; no planar deck in Commander
+@pytest.mark.parametrize("name", [HAMA, "Susan Foreman", "Dack Fayden, Helping Hand", "The Fourteenth Doctor", TAHNGARTH, "Stangg, Echo Warrior"])  # Susan: 701.31a, 901.3 planeswalking is Planechase-only; no planar deck in Commander
 def test_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
@@ -182,4 +184,116 @@ def test_fourteenth_doctor_copies_a_doctor_milled_by_its_own_cast_trigger(cards,
     assert s.state.cards[me.id].zone == "p1:battlefield"
     c = ch(s, me)
     assert (c.name == DONALD) == copy_it and ("haste" in c.keywords) == copy_it
+    check(s)
+
+
+
+
+def bob_attacks(cards, tapped, attacks, pick=None, accept=True):
+    """3 players: Alice has Tahngarth, Bob attacks with Bears/Elves at ``attacks`` ({"Grizzly Bears": "p1", ...}); returns the table after Alice's trigger resolved."""
+    from app.game.factory import PlayerSetup, new_game
+    from app.game.session import GameSession
+    from tests.game_helpers import deck, enable
+
+    mine = deck(cards, "Krenko, Mob Boss", [(1, TAHNGARTH), (20, "Forest")])
+    theirs = deck(cards, "Atraxa, Praetors' Voice", [(1, "Grizzly Bears"), (1, "Llanowar Elves"), (20, "Island")])
+    third = deck(cards, "Krenko, Mob Boss", [(20, "Forest")])
+    s = GameSession(enable(new_game([PlayerSetup("Alice", cards=mine), PlayerSetup("Bob", cards=theirs), PlayerSetup("Carol", cards=third)], shuffle=False)), cards=cards)
+    act(s, "p1", type="pass_priority")
+    act(s, "p1", type="set_stops", own=[], others=["declare_attackers"], smart_pass=False)  # Alice gets priority in Bob's declare attackers step
+    tahn = put(s, TAHNGARTH)
+    if tapped:
+        act(s, "p1", type="tap", card_ids=[tahn.id], tapped=True)
+    mine_bob = [put(s, n, "p2") for n in attacks]
+    for c in mine_bob:
+        s.state.rules.controlled_since[c.id].turn = 0
+    for _ in range(80):  # on to Bob's declare attackers
+        d = s.state.rules.decision
+        if d is not None and d.kind == "declare_attackers" and d.player == "p2":
+            break
+        if d is not None:
+            act(s, d.player, type=d.kind, **({"attackers": []} if d.kind == "declare_attackers" else {"blocks": []})) if d.kind in ("declare_attackers", "declare_blockers") \
+                else act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][:1])
+        else:
+            act(s, s.state.rules.priority, type="pass_priority")
+    act(s, "p2", type="declare_attackers", attackers=[{"card_id": c.id, "target": attacks[c.name]} for c in mine_bob])
+    asked = []
+
+    def answer(d):
+        asked.append((d.player, d.kind, d.prompt))
+        if d.kind == "choose_one" and "attacking for it to attack" in d.prompt:
+            return [pick] if pick else None
+        return None if accept else [o.id for o in d.options][-1:]
+
+    for _ in range(40):  # the trigger and its choices, up to the blockers' declaration
+        d = s.state.rules.decision
+        if d is not None and d.kind == "declare_blockers":
+            break
+        if d is not None:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=answer(d) or [o.id for o in d.options][: max(1, d.min_choices)])
+        elif s.state.zones.get("stack"):
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            break
+    return s, tahn, asked
+
+
+@pytest.mark.parametrize("pick", ["p1", "p3"])
+def test_tahngarth_goes_to_the_attacker_and_attacks_a_chosen_defender(cards, pick):
+    """508.4: control until end of combat (613.1b); the new controller chooses among what they attack (Alice or Carol); it was never declared, and control returns."""
+    s, tahn, asked = bob_attacks(cards, True, {"Grizzly Bears": "p1", "Llanowar Elves": "p3"}, pick=pick)
+    assert [a[:2] for a in asked] == [("p1", "confirm"), ("p2", "choose_one")]
+    c = s.state.cards[tahn.id]
+    assert c.controller == "p2" and c.attacking is not None and c.attacking.id == pick and c.tapped
+    through_combat(s)
+    assert s.state.cards[tahn.id].controller == "p1"
+    check(s)
+
+
+def test_tahngarth_declined_or_untapped_does_nothing(cards):
+    s, tahn, asked = bob_attacks(cards, True, {"Grizzly Bears": "p1"}, accept=False)
+    c = s.state.cards[tahn.id]
+    assert [a[:2] for a in asked] == [("p1", "confirm")] and c.controller == "p1" and c.attacking is None
+    s, tahn, asked = bob_attacks(cards, False, {"Grizzly Bears": "p1"})
+    assert asked == [] and s.state.cards[tahn.id].controller == "p1"
+
+
+def test_tahngarth_only_attacked_player_is_chosen_without_asking(cards):
+    s, tahn, asked = bob_attacks(cards, True, {"Grizzly Bears": "p1"})
+    assert [a[:2] for a in asked] == [("p1", "confirm")] and s.state.cards[tahn.id].attacking.id == "p1"
+
+
+STANGG = "Stangg, Echo Warrior"
+
+
+@pytest.mark.parametrize("attached", [(), ("Bonesplitter", "Holy Strength")])
+def test_stangg_twin_enters_attacking_with_copies_of_its_equipment_and_auras_then_all_are_sacrificed(cards, attached):
+    """508.4 the Twin attacks undeclared; each Aura and Equipment on Stangg is copied by a token attached to the Twin; all those tokens are sacrificed at the next end step."""
+    s = build(cards, [STANGG, *attached], [], forests=30)
+    stangg = put(s, STANGG)
+    for name in attached:
+        c = put(s, name)
+        act(s, "p1", type="attach", card_ids=[c.id], to=stangg.id)
+    s.state.rules.controlled_since[stangg.id].turn = 0
+    act(s, "p1", type="set_stops", own=["declare_attackers", "end"], smart_pass=False)
+    for _ in range(10):
+        if s.state.rules.decision is not None and s.state.rules.decision.kind == "declare_attackers":
+            break
+        act(s, "p1", type="pass_priority")
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": stangg.id, "target": "p2"}])
+    drive(s)
+    tokens = [c for c in s.state.cards.values() if c.is_token and c.zone == "p1:battlefield"]
+    twin = next(c for c in tokens if c.name == "Stangg Twin")
+    assert twin.tapped and twin.attacking is not None and twin.attacking.id == "p2"
+    copies = sorted(c.name for c in tokens if c is not twin)
+    assert copies == sorted(attached)
+    assert all(c.attached_to == twin.id for c in tokens if c is not twin)
+    assert all(c.attached_to == stangg.id for c in s.state.cards.values() if c.name in attached and not c.is_token)
+    through_combat(s)
+    for _ in range(30):  # on to the end step: every token created this way is sacrificed
+        if s.state.turn.phase == "end" and not s.state.zones.get("stack"):
+            break
+        d = s.state.rules.decision
+        act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][:1]) if d else act(s, s.state.rules.priority, type="pass_priority")
+    assert not [c for c in s.state.cards.values() if c.is_token and c.zone == "p1:battlefield"]
     check(s)

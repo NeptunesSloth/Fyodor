@@ -195,11 +195,11 @@ def set_position(state: GameState, a: A.SetPosition) -> None:
                 ids.insert(ids.index(c.id), child.id)
 
 
-def draw_cards(state: GameState, pid: str, count: int) -> list[CardInstance]:
+def draw_cards(state: GameState, pid: str, count: int, from_bottom: bool = False) -> list[CardInstance]:
     lib = state.zone(zone_key(pid, "library"))
     if not lib:
         raise ActionError(f"{state.players[pid].name}'s library is empty")
-    drawn = [state.cards[cid] for cid in lib[:count]]
+    drawn = [state.cards[cid] for cid in (reversed(lib[-count:]) if from_bottom else lib[:count])]
     for c in drawn:
         ops.move_card(state, c, zone_key(pid, "hand"))
         emit(state, "drew", player=pid, card=c.id)  # 121.2: each card is its own draw
@@ -208,7 +208,7 @@ def draw_cards(state: GameState, pid: str, count: int) -> list[CardInstance]:
 
 def draw(state: GameState, a: A.Draw) -> None:
     pid = ops.player(state, a.player, a.actor)
-    drawn = draw_cards(state, pid, a.count)
+    drawn = draw_cards(state, pid, a.count, a.from_bottom)
     n = len(drawn)
     parts = [pname(state, pid), text(" drew " + ("a card" if n == 1 else f"{n} cards"))]
     if n < a.count:

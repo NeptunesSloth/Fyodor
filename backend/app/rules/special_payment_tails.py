@@ -15,7 +15,7 @@ from app.rules.plan import Plan
 if TYPE_CHECKING:
     from app.rules.casting import Purpose
 
-Kind = Literal['transmute', 'cycling', 'suspend', 'plot', 'foretell', 'companion', 'face_up']
+Kind = Literal['transmute', 'cycling', 'suspend', 'plot', 'foretell', 'companion', 'face_up', 'guardian110b']
 
 
 @dataclass
@@ -51,6 +51,11 @@ def _paid(plan: Plan, frame: SpecialPayment, payment: M.Payment | None) -> None:
 
     card = plan.state.cards.get(frame.card.id) or frame.card
     kind, ch = frame.kind, frame.ch
+    if kind == 'guardian110b':  # -- (wave 110B) -- Guardian Angel: "you may pay {1} any time you could cast an instant" (no stack)
+        from app.rules import wave110b_final
+
+        wave110b_final.guardian_paid(plan, card, frame.effects)
+        return
     if kind in ('transmute', 'cycling'):
         if kind == 'cycling':
             casting._activated(plan, 'cycling')

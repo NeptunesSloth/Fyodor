@@ -343,6 +343,12 @@ def entering_counters(plan: Plan, card: CardInstance, controller: str, ch: Any, 
     spell was cast with, 107.3), a planeswalker's loyalty (306.5b), bloodthirst (702.54) and what
     the effect putting it there adds (persist / undying)."""
     counters: dict[str, int] = {k: n for k, n in (extra or {}).items() if n > 0}
+    from app.rules import (
+        wave110b_final,  # -- (wave 110B) -- Thief of Blood: a +1/+1 counter for each counter on the permanents it will remove
+    )
+
+    if (thief := wave110b_final.thief_total(plan, card, ch, newcomers)) > 0:
+        counters["+1/+1"] = counters.get("+1/+1", 0) + thief
     if "Planeswalker" in ch.types:  # 306.5b: intrinsic, however it enters (even a card taken out of automation)
         # (a printed loyalty of X is the X its spell was cast with, 107.3; 0 when it wasn't cast)
         loyalty = int(ch.loyalty) if ch.loyalty and ch.loyalty.isdigit() else int(x or 0) if ch.loyalty == "X" else 0
@@ -1148,6 +1154,12 @@ def _after_entry(plan: Plan, card_id: str, controller: str, *, x: int | None = N
 
     mana_units.entered(plan, card, controller)  # -- mana provenance (wave 18B) -- 106.6: "it gains haste"
     counters = {} if prepared is not None else entering_counters(plan, card, controller, ch, x=x, extra=extra_counters, choices=choices, newcomers=newcomers)
+    if not preview:
+        from app.rules import (
+            wave110b_final,  # -- (wave 110B) -- Thief of Blood: the counters come off the permanents as it enters (counted above)
+        )
+
+        wave110b_final.thief_remove(plan, card, ch, controller, newcomers)
     puts = [(card_id, kind, n) for kind, n in counters.items() if n > 0]
     from app.rules import replace
 

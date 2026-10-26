@@ -148,7 +148,7 @@ def change(
     # Refuse an unhandled extension before consuming records or changing life.
     for _, out in finals:
         for event in out:
-            if event["kind"] not in ("life", "life_loss", "nothing"):
+            if event["kind"] not in ("life", "life_loss", "nothing", "draw_n110b"):  # (wave 110B: Nefarious Lich draws instead of gaining)
                 raise ValueError(f"Unsupported life replacement result: {event['kind']}")
     replace.left_to_players(plan, planner)
     for record in plan.rules.replacements:
@@ -175,6 +175,10 @@ def change(
             {"type": "rules_life_changes", "changes": changes, "group": request["operation"]},
             actor=request["actor"],
         )
+    for _, out in finals:  # -- (wave 110B) -- Nefarious Lich: the cards drawn instead of a gain (after the rest of the batch)
+        for event in out:
+            if event["kind"] == "draw_n110b" and int(event.get("n") or 0) > 0:
+                replace.draw_cards(plan, [event["player"]], int(event["n"]))
     _after(plan, request, ctx, losses, exchanged=True)
     return True
 
