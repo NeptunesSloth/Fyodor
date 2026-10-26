@@ -7169,3 +7169,7 @@ from app.rules import wave110o_cards as _wave110o  # noqa: E402, I001  -- (wave 
 
 PRIMITIVES.update(_wave110o.PRIMITIVES)
 RESUME.update(_wave110o.RESUME)
+from app.rules import wave110e_pets as _wave110e_pets  # noqa: E402, I001  -- Exotic Pets (wave 110E) --
+
+PRIMITIVES.update(_wave110e_pets.PRIMITIVES)
+RESUME.update(_wave110e_pets.RESUME)

@@ -108,7 +108,7 @@ def spend_as(cost: ManaCost, mode: str) -> ManaCost:
     from app.rules import mana_allocation_masks
 
     transformed = _spend_as(cost, mode)
-    if mode not in ('type', 'color', 'colorless_color', 'white_red'):
+    if mode not in ('type', 'color', 'colorless_color', 'white_red', 'white_any'):
         return transformed
     return replace(transformed, allocation=mana_allocation_masks.requirements(cost, mode))
 
@@ -120,6 +120,13 @@ def _spend_as(cost: ManaCost, mode: str) -> ManaCost:
                         tuple(tuple(dict.fromkeys((*h, 'W'))) if 'R' in h else h for h in cost.hybrid),
                         tuple('/'.join(dict.fromkeys((*c.split('/'), 'W'))) if 'R' in c.split('/') else c
                               for c in cost.phyrexian), cost.x, cost.unsupported)
+    if mode == 'white_any':  # -- wave 110E -- Celestial Dawn: white mana pays any color; other mana is only colorless, so it can't pay a colored symbol but pays {C} (609.4b)
+        def white(sym: str) -> str:
+            return '/'.join(dict.fromkeys('W' if k in COLORS else k for k in sym.split('/')))
+        others = tuple(c for c in COLORS if c != 'W')  # (any non-white mana is colorless mana: it pays {C})
+        return ManaCost(cost.generic, tuple(white(c) for c in cost.colored if c != 'C'),
+                        (('C', *others),) * cost.colored.count('C') + tuple(tuple(dict.fromkeys('W' if k in COLORS else k for k in h)) for h in cost.hybrid),
+                        tuple(white(c) for c in cost.phyrexian), cost.x, cost.unsupported)
     if mode == 'colorless_color':
         # Only actual C may substitute for a colored requirement. Allocation and
         # provenance retain the actual mana type, including restricted units.

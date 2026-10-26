@@ -18,10 +18,16 @@ SIP = real("Test Sip", "{U}", 1, "Instant", "You gain 1 life.", None, "U")
 BOLT = real("Test Tonic", "{1}{G}", 2, "Sorcery", "You gain 1 life.", None, "G")
 ARBORIA = real("Arboria", "{2}{G}", 3, "World Enchantment",
                "Creatures can't attack a player unless that player cast a spell or put a nontoken permanent onto the battlefield during their last turn.", None, "G")
-base.EXTRA.extend([ARBORIA, BATTLE, BEAR, DJINN, SIP, BOLT])
+DAWN = real("Celestial Dawn", "{1}{W}{W}", 3, "Enchantment",
+            "Lands you control are Plains.\nNonland permanents you control are white. The same is true for spells you control and nonland cards you own that aren't on the battlefield.\n"
+            "You may spend white mana as though it were mana of any color. You may spend other mana only as though it were colorless mana.", None, "W")
+PETS = real("Exotic Pets", "{2}{U}", 3, "Sorcery",
+            'Create two 1/1 blue Fish creature tokens with "This token can\'t be blocked." Then for each kind of counter among creatures you control, '
+            "put a counter of that kind on either of those tokens.", None, "U")
+base.EXTRA.extend([PETS, DAWN, ARBORIA, BATTLE, BEAR, DJINN, SIP, BOLT])
 
 
-@pytest.mark.parametrize("name", [c["name"] for c in (BATTLE, DJINN, ARBORIA)])
+@pytest.mark.parametrize("name", [c["name"] for c in (BATTLE, DJINN, ARBORIA, DAWN, PETS)])
 def test_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
@@ -131,3 +137,76 @@ def test_arboria_a_player_with_no_turn_yet_cannot_be_attacked(cards):
     bear = put(s, "Test Bear")
     plan = Plan(s.state, "p1", s.cards, None)
     assert combat.attack_forbidden(plan, plan.ch(s.state.cards[bear.id]), "p2") is True
+
+
+@pytest.mark.parametrize(
+    ("text", "pool", "expected"),
+    [
+        ("{G}", {"W": 1}, True), ("{G}", {"G": 1}, False), ("{1}{G}", {"G": 1, "W": 1}, True), ("{1}{G}", {"G": 2}, False),
+        ("{U}{B}", {"W": 2}, True), ("{U}{B}", {"W": 1, "U": 1}, False), ("{C}", {"G": 1}, True), ("{C}", {"W": 1}, False),
+        ("{R/G}", {"W": 1}, True), ("{R/G}", {"R": 1}, False), ("{2/B}", {"U": 2}, True), ("{G}{G}", {"W": 1, "G": 1}, False),
+    ],
+)
+def test_celestial_dawn_white_pays_any_color_and_other_mana_only_generic(text, pool, expected):
+    """609.4b: white mana is spent as mana of any color; other mana only as colorless (it pays generic and {C}, never a colored symbol)."""
+    from app.rules import mana as M
+
+    try:
+        M.solve(M.spend_as(M.parse_cost(text), "white_any"), pool, [])
+    except M.ManaError:
+        assert not expected
+    else:
+        assert expected
+
+
+def test_celestial_dawn_in_a_real_cast_white_pays_green(cards):
+    """Test Bear {1}{G} cast with W+W from the pool while Celestial Dawn is out (its lands are Plains, so only white is around)."""
+    from tests.game_helpers import act
+
+    s = build(cards, ["Celestial Dawn", "Test Bear"])
+    put(s, "Celestial Dawn")
+    mana(s, W=2)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Test Bear").id)
+    answer(s)
+    assert s.state.cards[card_named(s, "Test Bear").id].zone == "p1:battlefield"
+    check(s)
+
+
+@pytest.mark.parametrize("picks", [(0, 1), (1, 1), (0, 0)])
+def test_exotic_pets_puts_one_counter_of_each_kind_on_either_token(cards, picks):
+    """122.1: kinds among your creatures are counted as the spell resolves (+1/+1 and flying here, two creatures with +1/+1 count once); each kind goes on a token you choose."""
+    from tests.game_helpers import act
+    from tests.test_rules_conditionals import creature
+
+    s = build(cards, ["Exotic Pets"])
+    for i in range(2):
+        c = creature(s, "p1", f"Host{i}", "1/1")
+        act(s, "p1", type="set_counter", card_id=c.id, kind="+1/+1", value=1)
+    act(s, "p1", type="set_counter", card_id=c.id, kind="flying", value=1)
+    mana(s, U=1, C=2)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Exotic Pets").id)
+    asked, chosen = 0, []
+    while s.state.zones.get("stack") or s.state.rules.decision is not None:
+        d = s.state.rules.decision
+        if d is None:
+            act(s, s.state.rules.priority, type="pass_priority")
+            continue
+        assert len(d.options) == 2
+        chosen.append(d.options[picks[asked]].id)
+        act(s, d.player, type="choose", decision_id=d.id, option_ids=[chosen[-1]])
+        asked += 1
+    fish = [c for c in s.state.cards.values() if c.name == "Fish" and c.zone == "p1:battlefield"]
+    assert asked == 2 and len(fish) == 2
+    assert s.state.cards[chosen[0]].counters.get("+1/+1") == 1 and s.state.cards[chosen[1]].counters.get("flying") == 1  # (sorted kinds: +1/+1 first)
+    check(s)
+
+
+def test_exotic_pets_without_counters_just_makes_the_tokens(cards):
+    from tests.game_helpers import act
+
+    s = build(cards, ["Exotic Pets"])
+    mana(s, U=1, C=2)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Exotic Pets").id)
+    answer(s)
+    assert sum(1 for c in s.state.cards.values() if c.name == "Fish" and c.zone == "p1:battlefield") == 2
+    check(s)

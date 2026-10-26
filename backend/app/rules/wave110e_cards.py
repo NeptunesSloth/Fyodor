@@ -256,6 +256,10 @@ def definition(ability: Any, ch: Any) -> Def | None:
 
     if (imp := wave110e_imps.definition(ability, ch)) is not None:  # Nettling Imp, Norritt
         return imp
+    from app.rules import wave110e_pets
+
+    if (pets := wave110e_pets.definition(ability, ch)) is not None:  # Exotic Pets
+        return pets
     if text == "Creatures can't attack a player unless that player cast a spell or put a nontoken permanent onto the battlefield during their last turn.":  # 508.1c, combat._defender_fact
         native = scripts.define(replace(ability, text="Creatures can't attack."), ch)
         return None if native is None or native.get("rules") != ["cant_attack"] else {**native, "rules": ["cant_attack_unless_def:acted110e"]}
