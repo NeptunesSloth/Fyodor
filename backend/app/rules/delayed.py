@@ -698,6 +698,17 @@ def expire(plan: Plan) -> None:
                 ended.append(e)
             elif len(kept) < len(e.affected):
                 _drop(plan, e, kept)
+    from app.rules import (
+        wave110k_cards,  # -- wave 110K -- Old Man of the Sea: "for as long as ~ remains tapped and that creature's power remains … ~'s power"
+    )
+
+    for e in r.effects:
+        if e.duration == "source_tapped_power110k":
+            kept = wave110k_cards.old_man_kept(plan, e)
+            if not kept:
+                ended.append(e)
+            elif len(kept) < len(e.affected):
+                _drop(plan, e, kept)
     if ended:
         _end(plan, ended)
     from app.rules import permissions

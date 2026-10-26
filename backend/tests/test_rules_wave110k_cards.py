@@ -11,6 +11,7 @@
 * 701.19c, 614.8: Bone Shaman's granted ability makes a creature it dealt damage to this turn unable to be regenerated, so a regeneration shield
   doesn't save it; without the ability the shield does.
 * 113.6m: Skyblade's Boon returns itself to its owner's hand from the battlefield (the Aura leaves its creature) or from its owner's graveyard, and from nowhere else.
+* 611.2b: Old Man of the Sea keeps a creature (power at most his) while he stays tapped and its power stays at most his; he may skip untapping (502.3).
 * 602.2b, 118.3: Bullseye, Death Dealer's activation cost is a choice announced with the activation: sacrifice an artifact or discard a nonland card.
 """
 
@@ -33,6 +34,7 @@ from tests.wave110k_kit import (  # noqa: F401
     full,
     hand_new,
     mana,
+    move,
     now,
     put_new,
     refused,
@@ -419,4 +421,62 @@ def test_swinging_ship_adds_a_combat_in_which_the_attackers_untap(ship_cards, mo
     life_before = life(s, "p2")
     assert _attack_all_combats(s, bear) == attacks
     assert life(s, "p2") == life_before - 2 * attacks
+    check(s)
+
+
+# -- Old Man of the Sea --
+def test_old_man_of_the_sea_is_full():
+    assert full("Old Man of the Sea")
+
+
+def _old_man(cards):
+    s = build(cards, ["Old Man of the Sea", "Giant Growth"], ["Grizzly Bears", "Twisted Abomination"])
+    man = put_new(s, "Old Man of the Sea")
+    s.state.rules.controlled_since[man.id].turn = 0
+    return s, man, put_new(s, "Grizzly Bears", "p2"), put_new(s, "Twisted Abomination", "p2")
+
+
+def test_old_man_takes_a_creature_with_no_more_power_and_not_a_bigger_one(cards):
+    s, man, bears, giant = _old_man(cards)
+    refused(s, "legal target", man, "{T}", targets=[giant.id])
+    activate(s, man, "{T}", targets=[bears.id])
+    assert now(s, bears).controller == "p1" and now(s, man).tapped
+    check(s)
+
+
+@pytest.mark.parametrize("keep_tapped", [True, False])
+def test_old_man_keeps_it_through_untap_steps_he_skips(cards, keep_tapped):
+    s, man, bears, _ = _old_man(cards)
+    activate(s, man, "{T}", targets=[bears.id])
+    for _ in range(300):
+        d = s.state.rules.decision
+        if s.state.turn.number == 3 and d is not None and d.kind != "declare_attackers":
+            break
+        if d is not None and d.kind in ("declare_attackers", "declare_blockers"):
+            act(s, d.player, type=d.kind, **({"attackers": []} if d.kind == "declare_attackers" else {"blocks": []}))
+        elif d is not None:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: max(1, d.min_choices)])
+        else:
+            act(s, s.state.rules.priority, type="pass_priority")
+    assert [o.id for o in d.options] == [man.id]  # 502.3: "You may choose not to untap" — kept tapped, it keeps the creature
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[man.id] if keep_tapped else [])
+    to_phase(s, "main1", turn=3)
+    assert now(s, bears).controller == ("p1" if keep_tapped else "p2")
+    check(s)
+
+
+def test_old_man_loses_it_when_its_power_grows_past_his(cards):
+    s, man, bears, _ = _old_man(cards)
+    activate(s, man, "{T}", targets=[bears.id])
+    assert now(s, bears).controller == "p1"
+    cast_on(s, "Giant Growth", bears)  # +3/+3: 5 power against his 2
+    assert now(s, bears).controller == "p2"
+    check(s)
+
+
+def test_old_man_loses_it_when_he_leaves(cards):
+    s, man, bears, _ = _old_man(cards)
+    activate(s, man, "{T}", targets=[bears.id])
+    move(s, man, "graveyard")
+    assert now(s, bears).controller == "p2"
     check(s)

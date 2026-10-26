@@ -237,5 +237,22 @@
 "keywords": [
 "Enchant"
 ]
+},
+{
+"name": "Old Man of the Sea",
+"layout": "normal",
+"mana_cost": "{1}{U}{U}",
+"cmc": 3.0,
+"type_line": "Creature — Djinn",
+"oracle_text": "You may choose not to untap this creature during your untap step.\n{T}: Gain control of target creature with power less than or equal to this creature's power for as long as this creature remains tapped and that creature's power remains less than or equal to this creature's power.",
+"power": "2",
+"toughness": "3",
+"colors": [
+"U"
+],
+"color_identity": [
+"U"
+],
+"keywords": []
 }
 ]

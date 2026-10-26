@@ -138,6 +138,11 @@ def return_self_hand(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return True
 
 
+# the label delayed.apply_duration writes on the table marker
+from app.rules import delayed as _delayed  # noqa: E402
+
+_delayed.LABELS["source_tapped_power110k"] = "for as long as ~ remains tapped and its power is at most ~'s"
+
 PRIMITIVES = {"extra_combat_after_first110k": extra_combat_after_first, "return_self_hand110k": return_self_hand, "opponent_mode110k": opponent_mode, "as_controller110k": as_controller, "phase_out_hold110k": phase_out_hold}
 RESUME = {"opponent_mode110k": resume_opponent_mode}
 
@@ -211,6 +216,16 @@ def parse(body: str) -> Any:
 
 
 # -- one-ability wordings: the whole ability text -> (the wording the grammar reads, what to change in its definition) --
+def _old_man(d: Def) -> Def:
+    """Old Man of the Sea: control lasts while the source stays tapped AND the creature's power stays at most the source's (611.2b; delayed.expire)."""
+    from app.rules import scripts
+
+    held = scripts.parse_effects("Gain control of target creature for as long as ~ remains tapped.")
+    if held is None or len(held[0]) != 2 or held[0][0].get("duration") != "source_tapped" or d.get("effects") != [{"do": "gain_control", "who": "target"}]:
+        return d
+    return {**d, "effects": [{**held[0][0], "duration": "source_tapped_power110k"}, held[0][1]]}
+
+
 def _rat_roles(d: Def) -> Def:
     """Twisted Sewer-Witch: a Wicked Role token for each Rat its controller has once the token exists, each attached to its own Rat (111.1, 303.7)."""
     from app.rules import selectors
@@ -220,6 +235,9 @@ def _rat_roles(d: Def) -> Def:
 
 
 _BUILD: dict[str, tuple[str, Any]] = {
+    "{T}: Gain control of target creature with power less than or equal to this creature's power for as long as this creature remains tapped and that "
+    "creature's power remains less than or equal to this creature's power.":
+        ("{T}: Gain control of target creature with power less than or equal to ~'s power.", _old_man),
     'When this creature enters, create a 1/1 black Rat creature token with "This creature can\'t block." Then for each Rat you control, create a Wicked '
     'Role token attached to that Rat.':
         ('When this creature enters, create a 1/1 black Rat creature token with "This creature can\'t block."', _rat_roles),
@@ -259,3 +277,20 @@ def damaged_unregenerable(plan: Any, card: Any) -> bool:
         (src := plan.state.cards.get(s.rsplit(".", 1)[0])) is not None and src.zone.endswith(":battlefield") and plan.oid(src) == s
         and "no_regen_damaged110k" in {d.get("static") for d in scripts.definitions(plan.ch(src)).values()}
         for s in sources if s)
+
+
+def old_man_kept(plan: Any, effect: Any) -> list[str]:
+    """The objects Old Man of the Sea's control effect still holds: none once the source left or untapped (611.2b); else those whose power is still at
+    most the source's (checked after every table change)."""
+    from app.rules import sba
+
+    src = plan.state.cards.get(effect.source_card or "")
+    if src is None or not src.zone.endswith(":battlefield") or plan.oid(src) != effect.source or not src.tapped or not plan.in_game(src):
+        return []
+    limit = sba.power(src, plan.ch(src))
+    kept = []
+    for oid in effect.affected:
+        held = next((c for c in plan.state.cards.values() if c.zone.endswith(":battlefield") and plan.oid(c) == oid), None)
+        if held is not None and (sba.power(held, plan.ch(held)) or 0) <= (limit or 0):
+            kept.append(oid)
+    return kept
