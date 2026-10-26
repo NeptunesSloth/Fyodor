@@ -26,7 +26,7 @@ function skyDome(top: string, bottom: string): THREE.Mesh {
     fog: false,
     uniforms: { top: { value: new THREE.Color(top) }, bottom: { value: new THREE.Color(bottom) } },
     vertexShader: "varying vec3 vPos; void main(){ vPos = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }",
-    fragmentShader: "uniform vec3 top; uniform vec3 bottom; varying vec3 vPos; void main(){ float h = clamp(normalize(vPos).y * 1.4 + 0.35, 0.0, 1.0); gl_FragColor = vec4(mix(bottom, top, h), 1.0); }",
+    fragmentShader: "uniform vec3 top; uniform vec3 bottom; varying vec3 vPos; void main(){ float h = clamp(normalize(vPos).y * 1.4 + 0.35, 0.0, 1.0); gl_FragColor = vec4(mix(bottom, top, h) * 0.35, 1.0);\n#include <tonemapping_fragment>\n#include <colorspace_fragment>\n}",
   });
   return new THREE.Mesh(geo, mat);
 }
@@ -85,22 +85,24 @@ export function buildEnvironment(p: PlaneTheme, size: TableSize, quality: "low" 
   group.add(skyDome(e.skyTop, e.skyBottom));
 
   // ---- lights
-  const hemi = new THREE.HemisphereLight(e.ambient, e.surfaceGrain, e.ambientIntensity * 4);
+  // fill stays low: the key light, the pool and the environment reflections give the shape
+  const hemi = new THREE.HemisphereLight(e.ambient, e.surfaceGrain, e.ambientIntensity * 1.8);
   group.add(hemi);
-  const key = new THREE.DirectionalLight(e.key, e.keyIntensity * 2.4);
-  key.position.set(-8, 30, 14);
+  const key = new THREE.DirectionalLight(e.key, e.keyIntensity * 2.2);
+  key.position.set(-7, 28, 12);
   key.target.position.set(0, 0, 0);
   if (quality !== "low") {
     key.castShadow = true;
     key.shadow.mapSize.set(quality === "high" ? 2048 : 1024, quality === "high" ? 2048 : 1024);
-    const r = Math.max(halfW, halfD) + 2;
-    Object.assign(key.shadow.camera, { left: -r, right: r, top: r, bottom: -r, near: 5, far: 70 });
-    key.shadow.bias = -0.0004;
-    key.shadow.normalBias = 0.02;
+    // the shadow camera covers the table top only, so cards get crisp contact shadows
+    const r = Math.max(halfW, halfD) + 0.5;
+    Object.assign(key.shadow.camera, { left: -r, right: r, top: r, bottom: -r, near: 10, far: 60 });
+    key.shadow.bias = -0.0002;
+    key.shadow.normalBias = 0.01;
   }
   group.add(key, key.target);
   // a warm pool of light over the play area, in the plane's glow colour
-  const pool = new THREE.PointLight(e.glow, 60 * e.glowIntensity, Math.max(halfW, halfD) * 2.4, 1.6);
+  const pool = new THREE.PointLight(e.glow, 75 * e.glowIntensity, Math.max(halfW, halfD) * 2.2, 1.6);
   pool.position.set(0, 14, 2);
   group.add(pool);
   const rim = new THREE.DirectionalLight(e.rim, e.rimIntensity * 1.5);
@@ -134,7 +136,7 @@ export function buildEnvironment(p: PlaneTheme, size: TableSize, quality: "low" 
     leg.position.set(sx * (halfW - 2.5), (floorY + tableY - 1) / 2, sz * (halfD - 2.5));
     group.add(leg);
   }
-  const floor = new THREE.Mesh(track(new THREE.CircleGeometry(120, 48)), track(new THREE.MeshStandardMaterial({ color: e.surfaceGrain, roughness: 1 })));
+  const floor = new THREE.Mesh(track(new THREE.CircleGeometry(120, 48)), track(new THREE.MeshStandardMaterial({ color: new THREE.Color(e.surfaceGrain).multiplyScalar(0.35), roughness: 1 })));
   floor.rotation.x = -Math.PI / 2;
   floor.position.y = floorY;
   floor.receiveShadow = quality === "high";

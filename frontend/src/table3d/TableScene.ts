@@ -22,12 +22,15 @@ import { pickClick } from "../game/Overlays";
 import { answerByClick, legalClass } from "../game/rules/RulesHud";
 import { libraryMenu, pileMenu, PILE_LABEL } from "../game/ZonePile";
 import type { PlaneTheme } from "../theme/planes";
+import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
 import { buildEnvironment, type Environment } from "./environment";
+import { arrowTime, makeArrow } from "./arrows";
+import { createPost, type Post } from "./post";
 import {
   CARD_H, CARD_W, MAT_D, MAT_W, PILES, STRIP_X, localToVirtual, onBattlefield, pileAt, seats, tableSize, toLocal, toWorld,
   virtualToLocal, type PileZone, type Seat,
 } from "./layout";
-import { backCanvas, canvasTexture, labelCanvas, matTexture, slotTexture, textCardCanvas } from "./textures";
+import { backCanvas, canvasTexture, labelCanvas, matTexture, setMaxAnisotropy, slotTexture, textCardCanvas } from "./textures";
 
 export type Quality = "low" | "medium" | "high";
 export type CameraPreset = "seat" | "overview" | { focus: string };
@@ -138,6 +141,10 @@ export class TableScene {
   /** Every card's body (its thickness and shadow) in one draw call. */
   private bodies: THREE.InstancedMesh;
   private arrows = new THREE.Group();
+  private arrowKey = "";
+  /** Soft studio reflections for metal, lacquer and card gloss (a prefiltered room, no download). */
+  private envMap: THREE.Texture;
+  private post: Post | null = null;
 
   constructor(container: HTMLElement, plane: PlaneTheme, quality: Quality) {
     this.plane = plane;
@@ -146,13 +153,23 @@ export class TableScene {
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, quality === "high" ? 2 : quality === "medium" ? 1.5 : 1));
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 1.35;
+    this.renderer.toneMappingExposure = 1.0;
     this.renderer.shadowMap.enabled = quality !== "low";
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     this.canvas = this.renderer.domElement;
     this.canvas.className = "table3d-canvas";
     this.canvas.dataset.drop3d = "";
     container.appendChild(this.canvas);
+    this.renderer.info.autoReset = false; // count every pass of a frame, not just the last
+    setMaxAnisotropy(this.renderer.capabilities.getMaxAnisotropy());
+    const pmrem = new THREE.PMREMGenerator(this.renderer);
+    const room = new RoomEnvironment();
+    this.envMap = pmrem.fromScene(room, 0.04).texture;
+    room.dispose();
+    pmrem.dispose();
+    this.scene.environment = this.envMap;
+    this.scene.environmentIntensity = 0.3;
+    if (quality === "high") this.post = createPost(this.renderer, this.scene, this.camera);
     const body = new THREE.ExtrudeGeometry(roundedRect(CARD_W, CARD_H, 0.05), { depth: THICK, bevelEnabled: false, curveSegments: 6 });
     body.rotateX(-Math.PI / 2);
     this.cardBodyGeo = body;
@@ -185,6 +202,7 @@ export class TableScene {
 
   resize(w: number, h: number): void {
     this.renderer.setSize(w, h, false);
+    this.post?.setSize(w, h);
     this.camera.aspect = w / Math.max(1, h);
     this.camera.updateProjectionMatrix();
     this.updateCameraGoal();
@@ -263,6 +281,8 @@ export class TableScene {
     this.cardBodyGeo.dispose();
     this.glowGeo.dispose();
     this.bodyMat.dispose();
+    this.post?.dispose();
+    this.envMap.dispose();
     this.renderer.dispose();
     this.canvas.remove();
   }
@@ -271,8 +291,10 @@ export class TableScene {
 
   private applyFog(): void {
     const e = this.plane.env;
-    this.scene.fog = new THREE.Fog(e.fog, 34, 110 - e.fogDensity * 600);
-    this.scene.background = new THREE.Color(e.skyBottom);
+    // the room falls away into near-darkness so the lit table reads first
+    const fog = new THREE.Color(e.fog).multiplyScalar(0.3);
+    this.scene.fog = new THREE.Fog(fog, 30, 95 - e.fogDensity * 600);
+    this.scene.background = new THREE.Color(e.skyBottom).multiplyScalar(0.35);
   }
 
   private clearTable(): void {
@@ -364,7 +386,7 @@ export class TableScene {
       for (const [k, m] of this.materials) if (m.map === tex) { m.map = fallback(); m.needsUpdate = true; void k; }
     });
     tex.colorSpace = THREE.SRGBColorSpace;
-    tex.anisotropy = 8;
+    tex.anisotropy = this.renderer.capabilities.getMaxAnisotropy();
     this.textures.set(url, tex);
     return tex;
   }
@@ -554,38 +576,27 @@ export class TableScene {
     this.syncArrows(view);
   }
 
-  /** Attack, block and targeting arrows: arcs over the table from source to target. */
+  /**
+   * Attack, block and targeting arrows: a lit shaft arcing over the table with a dark outline (so
+   * it reads over pale cards) and a broad arrowhead. Rebuilt only when an arrow changes.
+   */
   private syncArrows(view: GameView): void {
-    for (const child of [...this.arrows.children]) {
-      this.arrows.remove(child);
-      const m = child as THREE.Mesh;
-      m.geometry.dispose();
-      (m.material as THREE.Material).dispose();
-    }
-    const at = (id: string): THREE.Vector3 | null => {
+    const at = (id: string, from?: THREE.Vector3): THREE.Vector3 | null => {
       const c = this.cards.get(id);
       if (c) return c.target.clone().setY(c.target.y + 0.05);
       const seat = this.seatList.find((s) => s.player === id);
       if (!seat) return null;
-      const [wx, wz] = toWorld(seat, 0, MAT_D / 2 + 0.6);
-      return new THREE.Vector3(wx, 0.1, wz);
+      // a player: the edge of their battlefield that faces the table centre (never under the hand),
+      // opposite the source so several attackers land side by side
+      const lx = from ? Math.max(-MAT_W / 2 + 0.6, Math.min(MAT_W / 2 - 0.6, toLocal(seat, from.x, from.z)[0])) : 0;
+      const [wx, wz] = toWorld(seat, lx, -MAT_D / 2 + 0.45);
+      return new THREE.Vector3(wx, 0.05, wz);
     };
+    const wanted: [THREE.Vector3, THREE.Vector3, string][] = [];
     const add = (from: string, to: string, color: string) => {
       const a = at(from);
-      const b = at(to);
-      if (!a || !b || a.distanceTo(b) < 0.3) return;
-      const mid = a.clone().lerp(b, 0.5);
-      mid.y += 1.2 + a.distanceTo(b) * 0.12;
-      const curve = new THREE.QuadraticBezierCurve3(a, mid, b);
-      const mat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.85, depthWrite: false });
-      const tube = new THREE.Mesh(new THREE.TubeGeometry(curve, 28, 0.035, 6), mat);
-      tube.renderOrder = 5;
-      const head = new THREE.Mesh(new THREE.ConeGeometry(0.14, 0.36, 10), mat.clone());
-      const end = curve.getPoint(1);
-      const dir = curve.getTangent(1).normalize();
-      head.position.copy(end).addScaledVector(dir, -0.12);
-      head.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
-      this.arrows.add(tube, head);
+      const b = a && at(to, a);
+      if (a && b && a.distanceTo(b) >= 0.3) wanted.push([a, b, color]);
     };
     for (const c of Object.values(view.cards)) {
       if (c.attacking) add(c.id, c.attacking.id, "#e0463c");
@@ -595,7 +606,22 @@ export class TableScene {
       const color = ar.kind === "attack" ? "#e0463c" : ar.kind === "block" ? "#5fa8ff" : ar.kind === "target" ? this.plane.ui.select : this.plane.ui.accent;
       for (const t of ar.targets) add(ar.source, t, color);
     }
-    this.stats.arrows = this.arrows.children.length / 2;
+    const key = wanted.map(([a, b, c]) => `${a.x.toFixed(2)},${a.y.toFixed(2)},${a.z.toFixed(2)}>${b.x.toFixed(2)},${b.z.toFixed(2)}${c}`).join("|");
+    this.stats.arrows = wanted.length;
+    if (key === this.arrowKey) return;
+    this.arrowKey = key;
+    for (const child of [...this.arrows.children]) {
+      this.arrows.remove(child);
+      const m = child as THREE.Mesh;
+      m.geometry.dispose();
+      (m.material as THREE.Material).dispose();
+    }
+    const flow = !document.body.classList.contains("reduced-motion");
+    for (const [a, b, color] of wanted) {
+      const mid = a.clone().lerp(b, 0.5);
+      mid.y += 0.9 + a.distanceTo(b) * 0.1;
+      this.arrows.add(makeArrow(new THREE.QuadraticBezierCurve3(a, mid, b), { color, flow }));
+    }
   }
 
   private syncHandFan(seat: Seat, count: number): void {
@@ -877,7 +903,10 @@ export class TableScene {
     this.camera.position.copy(this.camPos);
     this.camera.lookAt(this.camLook);
     this.env?.update(t);
-    this.renderer.render(this.scene, this.camera);
+    arrowTime.value = t;
+    this.renderer.info.reset();
+    if (this.post) this.post.render();
+    else this.renderer.render(this.scene, this.camera);
     this.frameTime += performance.now() - started;
     this.frames++;
     if (t - this.fpsAt >= 1) {

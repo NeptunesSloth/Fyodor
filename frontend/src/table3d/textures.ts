@@ -25,10 +25,16 @@ function canvas(w: number, h: number): [HTMLCanvasElement, CanvasRenderingContex
   return [c, c.getContext("2d")!];
 }
 
+let maxAnisotropy = 8;
+/** The renderer's real limit (set once the WebGL context exists). */
+export function setMaxAnisotropy(n: number): void {
+  maxAnisotropy = Math.max(1, n);
+}
+
 function texture(c: HTMLCanvasElement, repeat = 1): THREE.CanvasTexture {
   const t = new THREE.CanvasTexture(c);
   t.colorSpace = THREE.SRGBColorSpace;
-  t.anisotropy = 8;
+  t.anisotropy = maxAnisotropy;
   if (repeat !== 1) {
     t.wrapS = t.wrapT = THREE.RepeatWrapping;
     t.repeat.set(repeat, repeat);
