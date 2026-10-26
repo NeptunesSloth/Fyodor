@@ -52,6 +52,8 @@ interface GameStore {
   /** Local hot-seat: which seat actions are attributed to. */
   actingAs: string | null;
   selection: string[];
+  /** The card whose action was just refused, flashed on the table for a moment. */
+  errorCard: { id: string; at: number } | null;
   hover: string | null;
   inspect: string | null;
   browser: BrowserState | null;
@@ -87,6 +89,9 @@ interface GameStore {
 }
 
 /** Actions that place a card, which Alt-dropping can also do by hand (past the rules intents). */
+/** Which help topic a refused action opens on (the Help dialog's search). */
+const HELP_TOPIC: Record<string, string> = { cast: "cast", cast_spell: "cast", play_land: "land", attack: "attack", declare_attackers: "attack", block: "block", activate: "stack", pass_priority: "priority", resolve_top: "stack", move: "drag", tap: "tap" };
+
 const PLACING = new Set(["play_land", "cast", "cast_spell", "move", "put_from_hand"]);
 
 /**
@@ -100,6 +105,10 @@ export function recoveryHint(message: string, actionType = ""): string {
   if (/when you have priority|priority/.test(m)) return "Wait until the turn dial says Your priority.";
   if (/can't pay|cannot pay|not enough mana|mana pool|don't pay/.test(m)) return "Tap lands or other sources for mana, then try again.";
   if (/legal target|isn't a legal target/.test(m)) return "Pick one of the highlighted targets.";
+  if (/isn't here any more|different object now|no longer/.test(m)) return "The table changed before your action arrived: look again and retry.";
+  if (/is tapped/.test(m) && !PLACING.has(actionType)) return "Untap it first (T on the card).";
+  if (/stack is empty/.test(m)) return "Nothing is waiting to resolve.";
+  if (/library is empty/.test(m)) return "The plaque's player panel shows each library's size.";
   if (PLACING.has(actionType) && /summoning sickness|is tapped|can't enchant|no legal|can only|isn't|not on the battlefield|not legal|illegal/.test(m)) {
     return "To do it anyway, hold Alt as you drop the card to place it by hand.";
   }
@@ -135,6 +144,7 @@ export const useGame = create<GameStore>((set, get) => ({
   conn: null,
   actingAs: null,
   selection: [],
+  errorCard: null,
   hover: null,
   inspect: null,
   browser: null,
@@ -206,7 +216,14 @@ export const useGame = create<GameStore>((set, get) => ({
       set({ pendingPositions: {} });
       const message = e instanceof Error ? e.message : String(e);
       if (message.startsWith("AUTOMATION ERROR")) set({ automationError: message });
-      else toast(`${message.replace(/\.?$/, ".")} Nothing changed. ${recoveryHint(message, String((action as { type?: unknown }).type ?? ""))}`.trim(), "error");
+      else {
+        const type = String((action as { type?: unknown }).type ?? "");
+        toast(`${message.replace(/\.?$/, ".")} Nothing changed. ${recoveryHint(message, type)}`.trim(), "error", { label: "Help", run: () => get().openDialog("help", HELP_TOPIC[type] ?? "") });
+        // mark the card involved on the table, not only in the corner
+        const a = action as { card_id?: unknown; card_ids?: unknown; id?: unknown };
+        const card = typeof a.card_id === "string" ? a.card_id : Array.isArray(a.card_ids) && typeof a.card_ids[0] === "string" ? a.card_ids[0] : null;
+        if (card) set({ errorCard: { id: card, at: Date.now() } });
+      }
       return false;
     }
   },

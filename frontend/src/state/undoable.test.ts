@@ -25,6 +25,9 @@ describe("recovery hints for refused actions", () => {
     expect(recoveryHint("Not enough mana to pay {2}{U}")).toMatch(/mana/);
     expect(recoveryHint("That isn't a legal target")).toMatch(/highlighted targets/);
     expect(recoveryHint("Llanowar Elves has summoning sickness", "move")).toMatch(/hold Alt/);
+    expect(recoveryHint("That card isn't here any more")).toMatch(/table changed/);
+    expect(recoveryHint("Sol Ring is tapped", "activate")).toMatch(/Untap it first/);
+    expect(recoveryHint("Sol Ring is tapped", "move")).toMatch(/hold Alt/);
   });
 
   it("stays quiet when the message already guides, or Alt can't help", () => {

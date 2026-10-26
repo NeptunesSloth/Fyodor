@@ -36,6 +36,9 @@ import {
 } from "./layout";
 import { backCanvas, canvasTexture, cardOverlayCanvas, contactShadowTexture, type CardOverlay, matTexture, setMaxAnisotropy, slotTexture, textCardCanvas } from "./textures";
 
+/** How long a refused action's card stays marked. */
+export const ERROR_MS = 1800;
+
 export type Quality = "low" | "medium" | "high";
 export type CameraPreset = "seat" | "overview" | { focus: string } | { card: string };
 
@@ -186,6 +189,8 @@ export class TableScene {
   private yaw = 0;
   private drag: { ids: string[]; anchor: string; start: [number, number]; grab: THREE.Vector3; offsets: Map<string, THREE.Vector3>; active: boolean } | null = null;
   private orbit: { x: number; yaw: number } | null = null;
+  /** Box selection: dragging on the bare table draws a rectangle (as on the 2D table). */
+  private marquee: { x0: number; y0: number; add: boolean; el: HTMLDivElement } | null = null;
   private hovered: string | null = null;
   /** The store's selection, for the selected-card lift. */
   private selectedIds = new Set<string>();
@@ -752,6 +757,10 @@ export class TableScene {
     }
     if (need.length) requestCards(need);
     this.stats.cards = this.cards.size;
+    // a refused action's card glows red for a moment (static: no motion to reduce)
+    const err = store.errorCard;
+    const errObj = err && Date.now() - err.at < ERROR_MS ? this.cards.get(err.id) : undefined;
+    if (errObj) this.setGlow(errObj, "#ff5a4a", 1);
     this.syncArrows(view);
   }
 
@@ -996,6 +1005,14 @@ export class TableScene {
     if (!hit?.card) {
       if (!hit && !e.shiftKey) store.clearSelection();
       if (hit?.pile && hit.player) this.clickPile(hit.player, hit.pile, e);
+      if (!hit && !store.pick) {
+        const el = document.createElement("div");
+        el.className = "marquee";
+        el.hidden = true;
+        this.canvas.parentElement?.append(el);
+        this.marquee = { x0: e.clientX, y0: e.clientY, add: e.shiftKey, el };
+        this.canvas.setPointerCapture(e.pointerId);
+      }
       return;
     }
     const id = hit.card;
@@ -1034,6 +1051,16 @@ export class TableScene {
       this.updateCameraGoal();
       return;
     }
+    const m = this.marquee;
+    if (m) {
+      const r = this.canvas.getBoundingClientRect();
+      Object.assign(m.el.style, {
+        left: `${Math.min(m.x0, e.clientX) - r.left}px`, top: `${Math.min(m.y0, e.clientY) - r.top}px`,
+        width: `${Math.abs(e.clientX - m.x0)}px`, height: `${Math.abs(e.clientY - m.y0)}px`,
+      });
+      m.el.hidden = false;
+      return;
+    }
     const d = this.drag;
     if (d) {
       if (!d.active && Math.hypot(e.clientX - d.start[0], e.clientY - d.start[1]) < 5) return;
@@ -1055,6 +1082,18 @@ export class TableScene {
   private onUp(e: PointerEvent): void {
     if (this.orbit) {
       this.orbit = null;
+      return;
+    }
+    const m = this.marquee;
+    if (m) {
+      this.marquee = null;
+      m.el.remove();
+      const r = this.canvas.getBoundingClientRect();
+      const [x0, x1] = [Math.min(m.x0, e.clientX) - r.left, Math.max(m.x0, e.clientX) - r.left];
+      const [y0, y1] = [Math.min(m.y0, e.clientY) - r.top, Math.max(m.y0, e.clientY) - r.top];
+      if (x1 - x0 < 4 && y1 - y0 < 4) return;
+      const ids = this.battlefieldRects(r.width, r.height).filter((b) => b.left < x1 && b.right > x0 && b.top < y1 && b.bottom > y0).map((b) => b.id);
+      useGame.getState().select(ids, m.add ? "add" : "replace");
       return;
     }
     const d = this.drag;

@@ -11,7 +11,7 @@ import { setDropResolver3D } from "../game/dnd";
 import { LETHAL_COMMANDER, LETHAL_POISON, PlayerPanel } from "../game/PlayerPanel";
 import { plane } from "../theme/planes";
 import { isVisible, type GameView } from "../types/game";
-import { TableScene, type CameraPreset, type Quality } from "./TableScene";
+import { ERROR_MS, TableScene, type CameraPreset, type Quality } from "./TableScene";
 import { startAmbience } from "./ambience";
 import "./table3d.css";
 
@@ -60,7 +60,8 @@ export function Table3D({ me }: { me: string }) {
     };
     sync();
     const unGame = useGame.subscribe((s, prev) => {
-      if (s.view !== prev.view || s.selection !== prev.selection || s.pendingPositions !== prev.pendingPositions) sync();
+      if (s.view !== prev.view || s.selection !== prev.selection || s.pendingPositions !== prev.pendingPositions || s.errorCard !== prev.errorCard) sync();
+      if (s.errorCard && s.errorCard !== prev.errorCard) setTimeout(sync, ERROR_MS + 50);
     });
     const unCards = useCardCache.subscribe((s, prev) => {
       if (s.cards !== prev.cards) sync();
@@ -186,6 +187,7 @@ export function Table3D({ me }: { me: string }) {
         ))}
       </div>
       <CoachTips />
+      <MomentTips me={me} />
       <div className="t3d-cams frame" role="toolbar" aria-label="Camera">
         <button className={preset === "seat" ? "on" : ""} onClick={() => setPreset("seat")} title="Look from your seat (1)">Seat <kbd className="cam-key">1</kbd></button>
         {others.map((pid, i) => (
@@ -244,6 +246,51 @@ function CoachTips() {
         <div className="t3d-coach-actions">
           {step < TIPS.length - 1 && <button className="tt-btn" onClick={() => setStep(step + 1)}>Next tip</button>}
           <button className="tt-btn ghost" onClick={done}>{step < TIPS.length - 1 ? "Skip tips" : "Got it"}</button>
+        </div>
+      </div>
+    </aside>
+  );
+}
+
+const MOMENTS = {
+  combat: { title: "Combat", text: "Drag your creatures toward a player or their plaque to attack, or right-click a creature for Attack. The dial's button moves on to blocks." },
+  priority: { title: "Something is on the stack", text: "You can respond: cast an instant or use an ability now, and it resolves first. Otherwise press Pass (P) and the top of the stack resolves." },
+  target: { title: "Choose a target", text: "Glowing cards and plaques are legal choices: click one. Esc cancels." },
+} as const;
+type Moment = keyof typeof MOMENTS;
+const MOMENT_KEY = "fyodor.tips.seen";
+
+/** A short tip the first time each moment comes up (after the first-turn tips); each shows once on this device. */
+function MomentTips({ me }: { me: string }) {
+  const [seen, setSeen] = useState<string[]>(() => {
+    try { return JSON.parse(localStorage.getItem(MOMENT_KEY) ?? "[]") as string[]; } catch { return Object.keys(MOMENTS); }
+  });
+  const moment = useGame((s): Moment | null => {
+    const v = s.view;
+    if (!v) return null;
+    const d = v.rules?.decision;
+    if (s.pick || (d && d.player === me && d.kind === "choose_cards")) return "target";
+    if (v.rules?.priority === me && v.stack.length) return "priority";
+    if (v.turn.active_player === me && (v.turn.phase === "begin_combat" || v.turn.phase === "declare_attackers")) return "combat";
+    return null;
+  });
+  const save = (list: string[]) => {
+    setSeen(list);
+    try { localStorage.setItem(MOMENT_KEY, JSON.stringify(list)); } catch { /* private mode */ }
+  };
+  const firstTurn = useGame((s) => (s.view?.turn.number ?? 1) <= 1);
+  let coaching = false;
+  try { coaching = firstTurn && localStorage.getItem(COACH_KEY) !== "done"; } catch { /* private mode */ }
+  if (!moment || coaching || seen.includes(moment) || seen.includes("off")) return null;
+  const tip = MOMENTS[moment];
+  return (
+    <aside className="t3d-coach plaque-wrap" aria-label="Tip" aria-live="polite">
+      <div className="plaque t3d-coach-body">
+        <p className="t3d-coach-title">{tip.title}</p>
+        <p className="t3d-coach-text">{tip.text}</p>
+        <div className="t3d-coach-actions">
+          <button className="tt-btn" onClick={() => save([...seen, moment])}>Got it</button>
+          <button className="tt-btn ghost" onClick={() => save([...seen, "off"])}>No more tips</button>
         </div>
       </div>
     </aside>
