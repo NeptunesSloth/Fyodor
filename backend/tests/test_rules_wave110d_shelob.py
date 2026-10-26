@@ -14,11 +14,11 @@ NAME = "Shelob, Child of Ungoliant"
 FOOD = "{2}, {T}, Sacrifice this token: You gain 3 life"
 
 
-def _fight(cards, attacker):
-    s = build(cards, [NAME, "Grizzly Bears"], ["Grizzly Bears"])
+def _fight(cards, attacker, blocker="Grizzly Bears"):
+    s = build(cards, [NAME, "Grizzly Bears"], [blocker])
     shelob = put_new(s, NAME)
     mine = put_new(s, "Grizzly Bears")
-    theirs = put_new(s, "Grizzly Bears", "p2")
+    theirs = put_new(s, blocker, "p2")
     first = shelob if attacker == "shelob" else mine
     to_phase(s, "declare_attackers", turn=3)
     act(s, "p1", type="declare_attackers", attackers=[{"card_id": first.id, "target": "p2"}])
@@ -55,4 +55,12 @@ def test_creature_a_spider_damaged_returns_as_food(cards):
 def test_creature_not_damaged_by_a_spider_gives_nothing(cards):
     s, theirs = _fight(cards, "bears")
     assert s.state.cards[theirs.id].zone == "p2:graveyard" and not _tokens(s)
+    check(s)
+
+
+def test_creature_damaged_by_an_opponents_spider_gives_nothing(cards):
+    """Oracle: "a Spider you controlled": the opponent's Spider (Giant Spider, p2) does not count."""
+    s, theirs = _fight(cards, "bears", "Giant Spider")
+    assert s.state.cards[theirs.id].zone == "p2:battlefield"
+    assert any(c.zone == "p1:graveyard" and c.name == "Grizzly Bears" for c in s.state.cards.values()) and not _tokens(s)
     check(s)

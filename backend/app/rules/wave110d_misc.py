@@ -36,6 +36,10 @@ KITESAIL = ("When this creature enters, for each player, choose up to one other 
 SHELOB = ("Whenever another creature dealt damage this turn by a Spider you controlled dies, create a token that's a copy of that creature, except it's a Food artifact "
           'with "{2}, {T}, Sacrifice this token: You gain 3 life," and it loses all other card types.')
 WEAVER = "{X}{1}{B}: Put target creature card with mana value X exiled with Shelob onto the battlefield tapped under your control."
+MYSTERY = "When this land transforms into Havengul Mystery, return target creature card from your graveyard to the battlefield."
+MYSTERY2 = "When the creature put onto the battlefield with Havengul Mystery leaves the battlefield, transform Havengul Mystery."
+TOVOLAR = ("At the beginning of your upkeep, if you control three or more Wolves and/or Werewolves, it becomes night. "
+           "Then transform any number of Human Werewolves you control.")
 DACK = "Whenever you cast a spell that targets one or more permanents, gain control of those permanents."
 
 
@@ -130,6 +134,19 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
         sel = selectors.Selector(card=True, zones=("exile",), types=("Creature",), compare=(("mv", "==", selectors.X_VALUE),)).key()
         return {"kind": "activated", "cost": ability.cost, "effects": [{"do": "return_card", "who": "target", "to": "battlefield", "tapped": True, "under": "you"}],
                 "target": {"what": "exiled_with:" + sel}}
+    if ability.text == MYSTERY:  # 603.7a the delayed trigger watches the creature this very ability returned (400.7); 712.3 the Mystery transforms back
+        return scripts.define(replace(ability, text=MYSTERY[:-1] + ". When that creature leaves the battlefield, transform this land."), ch)
+    if ability.text == MYSTERY2:  # linked to the ability above (607.2a): that one creates the delayed trigger, this line only describes it
+        return {"kind": "static", "static": "linked110d", "effects": []}
+    if ability.text == TOVOLAR:  # 731.1 night; the transform is a choice on resolution, not a target (601.2c), so hexproof Werewolves can be picked (any number: 701.28)
+        from app.rules import selectors
+
+        d = scripts.define(replace(ability, text=TOVOLAR.split(" Then")[0]), ch)
+        if d is not None:
+            pick = {"do": "player_chooses", "who": "you", "sel": selectors.parse("Human Werewolves you control").key(), "n": 99, "upto": True, "optional": True,
+                    "label": "Human Werewolves", "as": "tovolar110d"}
+            d["effects"] = [{**d["effects"][0], "skip": 3}, *d["effects"][1:], pick, {"do": "transform", "who": "ref:tovolar110d"}]
+        return d
     if ability.text == DACK:  # Dack Fayden's emblem (114.1): the cast event's targets (115.9b: departed ones are ignored), permanently
         cond = events.parse_condition("you cast a spell that targets one or more permanents")
         assert cond is not None

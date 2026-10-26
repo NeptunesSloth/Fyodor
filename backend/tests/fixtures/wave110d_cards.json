@@ -6896,5 +6896,96 @@
 "B"
 ],
 "keywords": []
+},
+{
+"name": "Giant Spider",
+"layout": "normal",
+"mana_cost": "{3}{G}",
+"cmc": 4.0,
+"type_line": "Creature \u2014 Spider",
+"oracle_text": "Reach (This creature can block creatures with flying.)",
+"power": "2",
+"toughness": "4",
+"colors": [
+"G"
+],
+"color_identity": [
+"G"
+],
+"keywords": [
+"Reach"
+]
+},
+{
+"name": "Thraben Inspector",
+"layout": "normal",
+"mana_cost": "{W}",
+"cmc": 1.0,
+"type_line": "Creature \u2014 Human Soldier",
+"oracle_text": "When this creature enters, investigate. (Create a Clue token. It's an artifact with \"{2}, Sacrifice this token: Draw a card.\")",
+"power": "1",
+"toughness": "2",
+"colors": [
+"W"
+],
+"color_identity": [
+"W"
+],
+"keywords": []
+},
+{
+"name": "Villagers of Estwald // Howlpack of Estwald",
+"layout": "transform",
+"mana_cost": "{2}{G} // ",
+"cmc": 3.0,
+"type_line": "Creature — Human Werewolf // Creature — Werewolf",
+"oracle_text": "At the beginning of each upkeep, if no spells were cast last turn, transform this creature.\n//\nAt the beginning of each upkeep, if a player cast two or more spells last turn, transform this creature.",
+"colors": [
+"G"
+],
+"color_identity": [
+"G"
+],
+"keywords": [
+"Transform"
+],
+"power": "2",
+"toughness": "3",
+"card_faces": [
+{
+"name": "Villagers of Estwald",
+"mana_cost": "{2}{G}",
+"type_line": "Creature — Human Werewolf",
+"oracle_text": "At the beginning of each upkeep, if no spells were cast last turn, transform this creature.",
+"power": "2",
+"toughness": "3",
+"colors": [
+"G"
+],
+"image_uris": {
+"small": "https://cards.scryfall.io/small/front/3/1/319b65f6-a6e6-45ea-9837-bc5831f54205.jpg?1783908089",
+"normal": "https://cards.scryfall.io/normal/front/3/1/319b65f6-a6e6-45ea-9837-bc5831f54205.jpg?1783908089",
+"large": "https://cards.scryfall.io/large/front/3/1/319b65f6-a6e6-45ea-9837-bc5831f54205.jpg?1783908089",
+"art_crop": "https://cards.scryfall.io/art_crop/front/3/1/319b65f6-a6e6-45ea-9837-bc5831f54205.jpg?1783908089"
+}
+},
+{
+"name": "Howlpack of Estwald",
+"mana_cost": "",
+"type_line": "Creature — Werewolf",
+"oracle_text": "At the beginning of each upkeep, if a player cast two or more spells last turn, transform this creature.",
+"power": "4",
+"toughness": "6",
+"colors": [
+"G"
+],
+"image_uris": {
+"small": "https://cards.scryfall.io/small/back/3/1/319b65f6-a6e6-45ea-9837-bc5831f54205.jpg?1783908089",
+"normal": "https://cards.scryfall.io/normal/back/3/1/319b65f6-a6e6-45ea-9837-bc5831f54205.jpg?1783908089",
+"large": "https://cards.scryfall.io/large/back/3/1/319b65f6-a6e6-45ea-9837-bc5831f54205.jpg?1783908089",
+"art_crop": "https://cards.scryfall.io/art_crop/back/3/1/319b65f6-a6e6-45ea-9837-bc5831f54205.jpg?1783908089"
+}
+}
+]
 }
 ]
