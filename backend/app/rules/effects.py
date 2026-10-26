@@ -4885,7 +4885,7 @@ def become(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
                                           remove_abilities=bool(e.get("lose_abilities"))).id)
         if p is not None or t is not None:
             made.append(layers.add_effect(plan, layer="7b", **common, power=p, toughness=t).id)
-        if duration == "next_turn":  # "until your next turn": whose, and from which turn (app/rules/delayed.py)
+        if duration in ("next_turn", "end_of_next_upkeep110g"):  # "until your next turn": whose, and from which turn (app/rules/delayed.py)
             for effect in plan.rules.effects:
                 if effect.id in made:
                     effect.until_player, effect.turn = ctx["controller"], plan.state.turn.number

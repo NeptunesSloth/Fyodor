@@ -343,6 +343,10 @@ def _alone(d: Def) -> Def:  # Thijarian Witness: the plain "if it was attacking"
     return {**d, "if": test, "effects": [{**x, "cond": test} if x.get("do") == "only_if" else x for x in d["effects"]]}
 
 
+def _halfdane(d: Def) -> Def:
+    return {**d, "effects": [{"do": "halfdane110g"}]}
+
+
 def _idol_enter(d: Def) -> Def:
     return {**d, "effects": [{"do": "exile_gy_until110g"}]}
 
@@ -389,6 +393,9 @@ _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
     # Thijarian Witness
     "Bear Witness \u2014 Whenever another creature dies, if it was attacking or blocking alone, exile it and investigate.":
         ("Whenever another creature dies, if it was attacking, exile it and investigate.", _alone),
+    # Halfdane
+    "At the beginning of your upkeep, Halfdane's base power and toughness become equal to the power and toughness of target creature other than Halfdane until the end of your next upkeep.":
+        ("At the beginning of your upkeep, tap target creature other than this creature.", _halfdane),
     # Season of the Witch
     "At the beginning of the end step, destroy all untapped creatures that didn't attack this turn, except for creatures that couldn't attack.":
         ("At the beginning of the end step, destroy all untapped creatures that didn't attack this turn.", _could_attack),
@@ -722,6 +729,15 @@ def idol_cast(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return insert(ctx, [{"do": "grant_play", "who": "ref:idol110g", "from_exile": True, "play": False, "cast": True, "until": "end_of_turn", "free": True}])
 
 
+def halfdane(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """608.2h: the target's power and toughness are read once, as this resolves; they become Halfdane's base power and toughness (613.4b)
+    until the end of its controller's next upkeep."""
+    from app.rules import effects, values
+
+    p, t = (values.evaluate(plan, ctx, {stat: "target"}) for stat in ("power", "toughness"))
+    return effects.become(plan, ctx, {"do": "become", "who": "self", "types": [], "p": p, "t": t, "duration": "end_of_next_upkeep110g"})
+
+
 def firm_creature(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     """615.12 / 614.9: damage that would be dealt to the creature this turn can be neither prevented nor dealt instead to another permanent or player."""
     import secrets
@@ -747,7 +763,7 @@ def destroy_instead(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return True
 
 
-PRIMITIVES: dict[str, Any] = {"exile_gy_until110g": exile_gy_until, "idol_cast110g": idol_cast, "bind_exiled110g": bind_exiled, "firm_creature110g": firm_creature, "elkin110g": elkin, "suncleanser110g": suncleanser, "fallen110g": fallen, "destroy_instead110g": destroy_instead, "exchange_power110g": exchange_power, "lowest_life_control110g": lowest_life_control,
+PRIMITIVES: dict[str, Any] = {"halfdane110g": halfdane, "exile_gy_until110g": exile_gy_until, "idol_cast110g": idol_cast, "bind_exiled110g": bind_exiled, "firm_creature110g": firm_creature, "elkin110g": elkin, "suncleanser110g": suncleanser, "fallen110g": fallen, "destroy_instead110g": destroy_instead, "exchange_power110g": exchange_power, "lowest_life_control110g": lowest_life_control,
                            "sacrifice_pair110g": sacrifice_pair, "swap_tapped110g": swap_tapped, "opponent_exiles110g": opponent_exiles,
                               "unattach_enchanted110g": unattach_enchanted}
 RESUME: dict[str, Any] = {"lowest_control110g": resume_lowest_control, "opponent_exiles110g": resume_opponent_exiles}

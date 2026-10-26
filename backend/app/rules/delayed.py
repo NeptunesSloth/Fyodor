@@ -411,6 +411,9 @@ def at_step(plan: Plan, phase: str) -> None:
             from app.rules import layers
 
             layers.control_sync(plan)
+    over = [e for e in r.effects if e.duration == "end_of_next_upkeep110g" and e.until_player == plan.active and plan.state.turn.number > e.turn]
+    if phase == "draw" and over:  # -- wave 110G -- Halfdane: "until the end of your next upkeep" ends as the draw step begins (611.2a, 501.1)
+        _end(plan, over)
     due = [t for t in r.delayed if _step_due(plan, t, phase)]
     due_ids = {t.id for t in due}
     live_ids = {t.id for t in r.delayed}

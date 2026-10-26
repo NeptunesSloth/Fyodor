@@ -6,6 +6,7 @@
 * Idol of Endurance: 610.3 creature cards with mana value 3 or less leave your graveyard until it leaves (and go back there); 118.9 one may be cast free this turn.
 * Season of the Witch: 508.1 / 502.4 at the end step untapped creatures that could attack but did not are destroyed; summoning-sick ones and the other player's are safe.
 * Thijarian Witness: 506.5 / 603.10a a creature that died attacking alone or blocking alone is exiled and investigates; not when another creature was attacking (blocking) too.
+* Halfdane: 608.2h / 611.2a the target's power and toughness are read once at resolution and are Halfdane's base values until the end of its controller's next upkeep.
 """
 from __future__ import annotations
 
@@ -19,7 +20,7 @@ from tests.fixtures.cards import fixture_cards
 from tests.game_helpers import act
 from tests.test_rules_wave12a_counters_keywords import real
 from tests.wave9c_kit import build, card_named
-from tests.wave110b_kit import attack, cast, check, mana, put, through_combat
+from tests.wave110b_kit import attack, cast, check, mana, pt, put, through_combat
 
 EXTRA = [
     real("Sacred Ground", "{1}{W}", 2, "Enchantment", "Whenever a spell or ability an opponent controls causes a land to be put into your graveyard from the battlefield, return that card to the battlefield.", None, "W"),
@@ -47,6 +48,8 @@ EXTRA += [
     real("Idol of Endurance", "{2}{W}", 3, "Artifact", "When this artifact enters, exile all creature cards with mana value 3 or less from your graveyard until this artifact leaves the battlefield.\n"
          "{1}{W}, {T}: Until end of turn, you may cast a creature spell from among cards exiled with this artifact without paying its mana cost.", None, "W"),
 ]
+EXTRA.append(real("Halfdane", "{1}{W}{U}{B}", 4, "Legendary Creature \u2014 Shapeshifter", "At the beginning of your upkeep, Halfdane's base power and toughness become equal to the power and "
+                  "toughness of target creature other than Halfdane until the end of your next upkeep.", ("3", "3"), "WUB"))
 NAMES = [c["name"] for c in EXTRA if c["name"] not in ("Stone Rain", "Carom", "Hill Giant", "Murder", "Swords to Plowshares", "Shatter")]
 
 
@@ -220,4 +223,23 @@ def test_thijarian_witness_exiles_the_lone_attacker_or_blocker_that_dies(cards, 
     gone = [c.name for c in s.state.cards.values() if c.zone.endswith(":exile")]
     assert sorted(gone) == sorted(exiled)
     assert sum(1 for c in s.state.cards.values() if c.name == "Clue" and c.zone == "p1:battlefield") == clues
+    check(s)
+
+
+def test_halfdane_copies_the_targets_size_at_upkeep_until_the_end_of_its_next_upkeep(cards):
+    """Halfdane: 3/3 becomes the 1/1 target's size at the turn-3 upkeep, still when that target changes later, and 3/3 again after the turn-5 upkeep ends (no target left)."""
+    from tests.test_rules_conditionals import until
+
+    s = build(cards, ["Halfdane", "Hill Giant", "Grizzly Bears"], forests=12, islands=12)
+    put(s, "Halfdane")
+    giant = put(s, "Hill Giant")
+    s.state.cards[giant.id].counters["+1/+1"] = 2  # a 5/5 now
+    until(s, lambda s: s.state.turn.number == 3 and s.state.turn.phase == "main1" and s.state.rules.decision is None)
+    assert pt(s, "Halfdane") == (5, 5)
+    s.state.cards[giant.id].counters["+1/+1"] = 0  # the target shrinks: Halfdane keeps what was read (608.2h)
+    answer(s)
+    assert pt(s, "Halfdane") == (5, 5)
+    act(s, "p1", type="move", card_ids=[giant.id], to={"zone": "graveyard"})
+    until(s, lambda s: s.state.turn.number == 5 and s.state.turn.phase == "main1" and s.state.rules.decision is None)
+    assert pt(s, "Halfdane") == (3, 3)
     check(s)
