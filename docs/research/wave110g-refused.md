@@ -37,3 +37,13 @@
 
 - Pygmy Hippo (s13) built after all: forced ordered mana-ability activation by the defender (wave110g_cards.hippo). Ceiling: a land mana ability with a private or object-choosing cost makes the instruction hand-played (logged, nothing happens).- Kodama of the Center Tree: soulshift X where X is the number of Spirits you control; whether X is counted as the trigger is put on the stack (Kodama gone) or at resolution is unsettled in the engine's notes and the CR gives no rule for a defined X on a keyword's trigger; stays manual.
 - Hama, the Bloodbender: needs a cast permission from exile with an alternative waterbend {X} cost (X = its mana value), for as long as you control Hama and only on your turn, plus a non-targeted choice from "that player's graveyard"; none of the three is built yet (foundation work, not a rules gap).
+
+## Session 15 (L leftovers)
+- Primitive Justice: "pay {1}{R} and/or {1}{G} any number of times" needs two separate multikicker counts (targets = 1 + both counts, life = G count); casting records one kicker count; foundation not built.
+- Avacyn's Judgment: madness {X}{R} with the divided total switching to X when the madness cost was paid; divide total fixed at cast from a paid X; foundation not built.
+- Lightning Storm: any player may activate an ability of a spell on the stack and re-choose its target; foundation not built.
+- Guardian Angel: "until end of turn, you may pay {1} any time you could cast an instant" is a temporary player-level repeatable ability; foundation not built.
+- Defensive Formation: the defending player assigns combat damage of each attacker (510.1a/510.1c change); combat assignment foundation not built.
+- Damping Engine, Lost in Thought: a player's option "to ignore this effect until end of turn" (sacrifice / exile cost, timing of the option has no rule: not a special action, not an activated ability); no ruling read, unsettled.
+- Kodama of the Center Tree: SETTLED and built (ruling 2005-02-01: soulshift X counts the state immediately before it died, Kodama included).
+- Bamboozling Beeble with Wyll-style roll-extra effects on the same roll: order (616.1) not built; logged for manual play.

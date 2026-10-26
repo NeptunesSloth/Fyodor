@@ -10,9 +10,9 @@ from app.cards.repository import CardRepository
 from app.rules import coverage
 from tests.fixtures.cards import fixture_cards
 from tests.game_helpers import act
-from tests.test_rules_wave100f_attached import next_turn
-from tests.test_rules_wave12a_counters_keywords import real
 from tests.test_rules_effects import pass_until_stack_empty
+from tests.test_rules_wave12a_counters_keywords import real
+from tests.test_rules_wave100f_attached import next_turn
 from tests.wave9c_kit import build, card_named, check, mana, put, to_hand
 
 KODAMA = ("Kodama of the Center Tree's power and toughness are each equal to the number of Spirits you control.\n"
@@ -204,15 +204,16 @@ def test_bamboozling_beeble_adds_a_die_and_its_controller_ignores_one(cards, mon
     """Bamboozling Beeble (614.1a, 706.6): the target player's next roll is one die bigger and the Beeble's controller drops one roll; equal rolls leave no choice."""
     from tests.test_rules_wave12a_counters_keywords import rolls
 
-    s = build(cards, ["Bamboozling Beeble"], ["Test Roll"])
+    s = build(cards, ["Bamboozling Beeble", "Test Roll"], [])
     beeble = put(s, "Bamboozling Beeble")
-    s.state.cards[beeble.id].entered_turn = 0 if hasattr(s.state.cards[beeble.id], "entered_turn") else None
+    next_turn(s)
+    next_turn(s)  # (Alice's turn 3: the Beeble has been hers since the turn began)
     mana(s, C=1)
-    act(s, "p1", type="activate_ability", card_id=beeble.id, ability=1, targets=["p2"])
+    act(s, "p1", type="activate_ability", card_id=beeble.id, ability=1, targets=["p1"])
     pass_until_stack_empty(s)
-    mana(s, "p2", U=1)
+    mana(s, U=1)
     rolls(monkeypatch, *rolled)
-    act(s, "p2", type="cast_spell", card_id=to_hand(s, "Test Roll", "p2").id)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Test Roll").id)
     for _ in range(8):
         if (d := s.state.rules.decision) is not None:
             break
@@ -223,5 +224,5 @@ def test_bamboozling_beeble_adds_a_die_and_its_controller_ignores_one(cards, mon
         assert d.player == "p1" and "ignore" in d.prompt
         act(s, "p1", type="choose", decision_id=d.id, option_ids=[ignore])
     pass_until_stack_empty(s)
-    assert s.state.players["p2"].life == 40 + (life - 40 if False else 0) or True
+    assert s.state.players["p1"].life == life
     check(s)
