@@ -293,6 +293,8 @@ def _lenders(plan: Plan, st: Static) -> list[CardInstance]:
         top = state.zones.get(f"{st.controller}:library", [])[:1]
         lenders = [state.cards[c] for c in top if sel is not None and
                    selectors.matches(plan, sel, state.cards[c], plan.ch(state.cards[c]), st.controller, st.source)]
+    elif d.get("objects"):  # -- (wave 110D) -- a resolved effect's fixed lender (611.2c: the object chosen as it resolved), while it is still that battlefield object
+        lenders = [c for c in state.cards.values() if c.zone.endswith(":battlefield") and r.object_id(c.id) in d["objects"]]
     elif d.get("crafted"):  # -- (wave 110D) -- "the exiled cards used to craft it" (702.167c, The Enigma Jewel): the materials still the exiled objects
         found = [state.cards[ref.card] for ref in r.crafted_materials.get(r.object_id(st.source), []) if ref.card in state.cards
                  and state.cards[ref.card].zone.endswith(":exile") and r.object_id(ref.card) == ref.object_id]

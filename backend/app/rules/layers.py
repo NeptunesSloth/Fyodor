@@ -352,11 +352,16 @@ def _extend_statics(state: GameState, info: CardInfo, out: list[Static], wiped: 
         sticker_effects101 = [e for cid, _controller in field for e in stickers101.continuous(state, state.cards[cid])]
         entry_effects110m = [e for cid, _controller in field for e in entry_characteristics.effects(state, state.cards[cid])]  # (wave 110M) abilities an entry form gives (611.2e)
         for effect in [*state.rules.effects, *sticker_effects101, *entry_effects110m]:
-            if effect.layer != "6" or not effect.add_abilities:
+            if effect.layer != "6" or not (effect.add_abilities or effect.lend110d):
                 continue
             key = (effect.object_seq, 1, effect.timestamp)
             for cid, controller in field:
                 if state.rules.object_id(cid) not in effect.affected or (cid in wiped and key <= wiped[cid]):
+                    continue
+                if effect.lend110d:  # -- (wave 110D) -- 113.10, 613.1f: a resolved "gains all activated abilities of <that object>" (abilities_of lends them, each effect its own 607.5 link scope)
+                    out.append(Static(cid, controller, {"kind": "static", "static": "grant", "effects": [], "who": "self", "attached_kind": None, "conditions": [], "p": 0, "t": 0,
+                                                        "base": None, "keywords": [], "grants": [], "rules": [],
+                                                        "abilities_of": {"sel": None, "linked": False, "no_mana": False, "objects": [effect.lend110d]}}, effect.object_seq, effect_key=key))
                     continue
                 for text in effect.add_abilities:
                     inner = grammar.parse(scripts.self_text(text, ""))

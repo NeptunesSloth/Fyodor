@@ -3,6 +3,8 @@
 * 602.2, 118.3: the cost exiles the Vehicle and four OTHER artifact creatures and/or Vehicles (a Vehicle that is not crewed counts), all or nothing.
 * The Enigma Jewel // Locus of Enlightenment: craft with four or more nonlands that have activated abilities (602.1, 605.1a: a mana ability counts), then the
   transformed permanent has each activated ability of the exiled materials (113.10), each usable only once each turn (602.5b).
+* Quicksilver Elemental: "{U}: This creature gains all activated abilities of target creature until end of turn" (113.10, 613.1f; 611.2c fixes the object) and
+  "You may spend blue mana as though it were mana of any color to pay the activation costs of this creature's abilities" (609.4b): blue pays {B}, red does not.
 * 607.2a: the cards exiled for the cost are the ones "exiled with" the Core, except the Core itself; 603.7: when the token leaves, they return tapped under their owners' control.
 """
 
@@ -136,3 +138,48 @@ def test_a_card_without_an_activated_ability_cannot_be_a_material(cards):
     mana(s, C=8, U=1)
     refused(s, "Choose|pay|enough|isn.t|aren.t|legal", jewel, CRAFT, cost_choices=[{"component": 2, "cards": [c.id for c in got]}])
     assert now(s, jewel).face == 0
+
+
+QS = "Quicksilver Elemental"
+BOLT = real("Jewel Drainer", "{1}", 1, "Creature — Cleric", "{B}{B}: You gain 2 life.", ("1", "1"), "B")
+EXTRA.append(BOLT)
+
+
+def quicksilver(cards, lender="Jewel Drainer"):
+    s = build(cards, [QS, lender], [lender])
+    qs, src = put(s, QS), put(s, lender)
+    mana(s, U=1)
+    activate(s, qs, "{U}: This creature gains all activated abilities", targets=[src.id])
+    return s, qs, src
+
+
+def test_quicksilver_is_full():
+    assert full(QS)
+
+
+def test_quicksilver_gains_the_ability_and_pays_black_with_blue(cards):
+    s, qs, _ = quicksilver(cards)
+    before = life(s, "p1")
+    mana(s, U=2)
+    activate(s, qs, "{B}{B}: You gain 2 life.")  # blue mana as though it were black
+    assert life(s, "p1") == before + 2
+    check(s)
+
+
+def test_red_mana_does_not_pay_for_it(cards):
+    s, qs, _ = quicksilver(cards)
+    mana(s, R=2)
+    refused(s, "mana|pay|afford|enough", qs, "{B}{B}: You gain 2 life.")
+
+
+def test_the_abilities_are_gone_after_the_turn(cards):
+    s, qs, _ = quicksilver(cards)
+    next_turn(s)
+    next_turn(s)
+    assert not any(a.text.startswith("{B}{B}") for a in ch(s, now(s, qs)).abilities)
+
+
+def test_a_creature_without_the_ability_is_not_lent_it(cards):
+    s = build(cards, [QS, "Grizzly Bears"])
+    qs = put(s, QS)
+    assert not any(a.text.startswith("{B}{B}") for a in ch(s, qs).abilities)
