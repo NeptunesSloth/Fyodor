@@ -10,6 +10,9 @@ _MASTER = ("Whenever a nontoken artifact creature you control dies, you may exil
            "opponents. That player faces a villainous choice — They lose 4 life, or you create a token that's a copy of that card.")
 
 
+_ANIMATE = "As long as enchanted artifact isn't a creature, it's an artifact creature with power and toughness each equal to its mana value."
+
+
 def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
     from app.rules import scripts
     from app.rules.token_copy_outcomes import ORIGINAL
@@ -20,6 +23,11 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
         if probe is None or probe["kind"] != "triggered":
             return {}
         return {**probe, "effects": [{**probe["effects"][0], "as": ORIGINAL}, {"do": "master110f"}]}
+    if ability.kind == "static" and text == _ANIMATE:  # 613.1d, 613.4b: the type is added whatever the host is; its P/T only when it was no creature (2008-08-01 ruling)
+        probe = scripts.define(replace(ability, text="Enchanted artifact has flying."), ch)
+        if probe is None or probe.get("who") != "attached":
+            return {}
+        return {**probe, "keywords": [], "layered": True, "base_mv": True, "animate_mv110f": True, "layer4": {"add_types": ["Artifact", "Creature"]}}
     return None
 
 

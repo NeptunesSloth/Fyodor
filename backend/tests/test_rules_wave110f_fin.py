@@ -12,10 +12,11 @@ from tests.game_helpers import act
 from tests.test_rules_wave12a_counters_keywords import real
 from tests.test_rules_wave100n_multi import EXTRA as _BASE
 from tests.test_rules_wave100n_multi import (
+    answer,
     card_db,  # noqa: F401  (fixture DB with EXTRA)
     cast,
 )
-from tests.wave9c_kit import build, check, life, mana, put
+from tests.wave9c_kit import build, card_named, check, life, mana, put
 
 _MASTER = ("Make Them Pay — Whenever a nontoken artifact creature you control dies, you may exile it. If you do, choose an opponent with the most life among your "
            "opponents. That player faces a villainous choice — They lose 4 life, or you create a token that's a copy of that card.")
@@ -79,4 +80,50 @@ def test_declined_keeps_the_card(cards):
     _answer(s, _step(s), "no")
     assert _step(s) is None
     assert s.state.cards[golem.id].zone == "p1:graveyard" and life(s, "p2") == 40
+    check(s)
+
+
+_ANIMATE = "Enchant artifact\nAs long as enchanted artifact isn't a creature, it's an artifact creature with power and toughness each equal to its mana value."
+EXTRA2 = [
+    real("Animate Artifact", "{3}{U}", 4, "Enchantment — Aura", _ANIMATE, None, "U"),
+    real("Test Rock 110FF", "{3}", 3, "Artifact", "", None, ""),
+    real("Test Big Golem 110FF", "{5}", 5, "Artifact Creature — Golem", "", ("2", "3"), ""),
+]
+_BASE.extend(EXTRA2)
+
+
+def test_animate_full(cards):
+    assert coverage.of_card_data(cards.resolve("Animate Artifact")).level == "FULL"
+
+
+def _stats(s, c):
+    from app.rules import sba
+    from app.rules.plan import Plan
+
+    card = s.state.cards[c.id]
+    ch = Plan(s.state, "p1", s.cards, None).ch(card)
+    return ch.is_creature, sba.power(card, ch), sba.toughness(card, ch)
+
+
+@pytest.mark.parametrize("host,expect", [("Test Rock 110FF", (True, 3, 3)), ("Test Big Golem 110FF", (True, 2, 3))])
+def test_animate_artifact(cards, host, expect):
+    """613.1d, 613.4b: a noncreature artifact becomes an artifact creature with P/T = its mana value; one that already is a creature keeps its own P/T (2008-08-01 ruling)."""
+    s = build(cards, ["Animate Artifact", host])
+    rock = put(s, host)
+    mana(s, "p1", U=1, C=3)
+    cast(s, "Animate Artifact", [rock.id])
+    answer(s)
+    assert _stats(s, rock) == expect
+    check(s)
+
+
+def test_animate_artifact_leaves(cards):
+    s = build(cards, ["Animate Artifact", "Test Rock 110FF", "Test Smite 110FF"])
+    rock = put(s, "Test Rock 110FF")
+    mana(s, "p1", U=1, C=3)
+    cast(s, "Animate Artifact", [rock.id])
+    answer(s)
+    aura = card_named(s, "Animate Artifact")
+    act(s, "p1", type="move", card_ids=[aura.id], to={"player": "p1", "zone": "graveyard"})
+    assert _stats(s, rock)[0] is False
     check(s)

@@ -1075,11 +1075,20 @@ def _derive(state: GameState, card: CardInstance, ch: Characteristics, info: Car
     from app.rules.layer_dependency_graph import StaticTable
 
     table = statics(state, info) if info is not None and state.rules is not None and card.zone.endswith(":battlefield") else None
+    pre_creature110f = False
     outside_self: list[dict[str, Any]] = []
     linked4: list[tuple[float, dict[str, Any]]] = []
     if isinstance(table, StaticTable) and card.id in table.layer4_orders:
         linked4 = [(float(node.key[0]), node.definition) for node in table.layer4_orders[card.id]
                    if node.definition is not None and 'linked_traits_values' in node.definition]
+        if any((nd.definition or {}).get("animate_mv110f") for nd in table.layer4_orders[card.id]):  # -- Animate Artifact (wave 110F) -- creature before its own effect?
+            from app.rules.layer_dependency_graph import apply_type_node
+
+            pre = ch
+            for node110f in table.layer4_orders[card.id]:
+                if not (node110f.definition or {}).get("animate_mv110f"):
+                    pre = apply_type_node(node110f, pre)[0]
+            pre_creature110f = pre.is_creature
         ch = table.layer4(card.id, ch)
         ch = table.layer5(card.id, ch)
     else:
@@ -1102,6 +1111,8 @@ def _derive(state: GameState, card: CardInstance, ch: Characteristics, info: Car
         group4, group5 = group_layers.entries(state, card, outside_types, info)
         # A group effect on creature cards depends on the self effect making this
         # a creature (613.8): it must see that type even if its source is older.
+        if any(d.get("animate_mv110f") for _, d in own4):  # -- Animate Artifact (wave 110F) -- creature before its own effect?
+            pre_creature110f = _layer4(outside_types, effects, [x for x in own4 + group4 if not x[1].get("animate_mv110f")]).is_creature
         ch = _layer4(outside_types, effects, own4 + group4)  # layer 4: type-changing (animation, agent A2: also layer 5 below)
         ch = type_statics.with_gained_mana(before4, ch, any(e.layer == "4" and e.set_land_types is not None for e in effects)
                                            or any((d.get("layer4") or {}).get("set_land_types") for _, d in attached45 + group4))
@@ -1290,7 +1301,8 @@ def _derive(state: GameState, card: CardInstance, ch: Characteristics, info: Car
         if st.definition.get("base"):
             setters.append(((st.seq, 0, 0), st.definition["base"][0], st.definition["base"][1]))
         elif st.definition.get("base_mv"):  # -- layers (wave 22A) -- "base power and toughness each equal to its mana value" (Opalescence)
-            setters.append(((st.seq, 0, 0), int(ch.mana_value), int(ch.mana_value)))
+            if not (pre_creature110f and st.definition.get("animate_mv110f")):  # (wave 110F: Animate Artifact, only while it wasn't a creature)
+                setters.append(((st.seq, 0, 0), int(ch.mana_value), int(ch.mana_value)))
         elif st.definition.get("base_counters110j"):  # -- (wave 110J) -- Spark Rupture: "power and toughness each equal to the number of loyalty counters on it" (613.4b)
             n110j = card.counters.get(st.definition["base_counters110j"], 0)
             setters.append(((st.seq, 0, 0), n110j, n110j))
