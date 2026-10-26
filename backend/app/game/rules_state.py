@@ -920,6 +920,7 @@ class TriggerEvent(BaseModel):
     attacked: ObjectRef | None = None
     # -- voting (wave 48D) -- 701.38: "Whenever players finish voting": the [voter, choice] of every vote of the voting that finished, as cast
     ballots: list[list[str]] = Field(default_factory=list)
+    sticker: str | None = None  # -- cards (wave 110I) -- the kind of a placed sticker ("art", "name", …): Wee Champion's "if it's an art sticker"
 
 
 class RegenerationShield(BaseModel):

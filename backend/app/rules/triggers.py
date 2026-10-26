@@ -1546,7 +1546,7 @@ def _event(plan: Plan, fact: Fact, batch: int) -> TriggerEvent:
                         if kind in _PAIRED.values() and info.get("other") in plan.state.cards
                         else _source_ref(plan, info.get("exploited_oid")) if kind == "exploit" else  # -- exploit (wave 110G) -- the exploited creature, as it was
                         _source_ref(plan, info.get("bearer")) if kind == "ring_tempts" else None,  # (wave 19B: the Ring-bearer chosen)
-                        ballots=info.get("ballots") or [])  # (-- voting (wave 48D) --)
+                        ballots=info.get("ballots") or [], sticker=info.get("sticker"))  # (-- voting (wave 48D) --)
 
 
 def _attack_object(plan: Plan, kind: str, obj: CardInstance | None) -> ObjectRef | None:

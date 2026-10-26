@@ -843,6 +843,31 @@ _WHISTLE = ("{3}, {T}: Choose target non-Wall creature the active player has con
             "this turn. Activate only before attackers are declared.")
 
 
+_WEE = ("Whenever you place a sticker, this creature gets +1/+1 until end of turn. If it's an art sticker, instead put a +1/+1 counter on this creature.")
+_AIRBRUSHER = "Whenever you place a sticker, create a Treasure token. If it's an art sticker, instead create two Treasure tokens."
+
+
+def holds(plan: Plan, ctx: Context, cond: dict[str, Any]) -> bool:
+    """Wee Champion / Goblin Airbrusher: the placed sticker (the trigger event's kind) is an art sticker (123.2)."""
+    return (ctx.get("event") or {}).get("sticker") == cond["w110i"]
+
+
+def sticker_instead(ability: Any, ch: Any) -> Def | None:
+    """"Whenever you place a sticker, X. If it's an art sticker, instead Y." (608.2c): the condition is judged once, then exactly one of X and Y."""
+    from app.rules import multi100n, scripts
+
+    trig, alt = (_WEE_PARTS if ability.text.strip() == _WEE else _AIR_PARTS)
+    d = scripts.define(replace(ability, text=f"Whenever you place a sticker, {trig}."), ch)
+    more = scripts.parse_effects(f"{alt}.")
+    if d is None or more is None or len(d["effects"]) != len(more[0]):
+        return None
+    return {**d, "effects": multi100n._instead({"w110i": "art"}, d["effects"], more[0])}
+
+
+_WEE_PARTS = ("this creature gets +1/+1 until end of turn", "Put a +1/+1 counter on this creature")
+_AIR_PARTS = ("create a Treasure token", "Create two Treasure tokens")
+
+
 def whistle(ability: Any, ch: Any) -> Def | None:
     """Arcum's Whistle (118.12a, 508.1d, 603.4): Nettling Imp's targeted forced attack plus end-step destroy (wave110e_imps), all behind the active player's optional {X}
     payment (X the creature's mana value); paid, nothing happens."""
@@ -867,6 +892,8 @@ def definition(ability: Any, ch: Any) -> Def | None:
     text = ability.text.strip()
     if text == _WHISTLE:
         return whistle(ability, ch)
+    if text in (_WEE, _AIRBRUSHER):
+        return sticker_instead(ability, ch)
     if text == _PHOENIX:
         return {"kind": "replacement", "replacement": "hand_instead110i", "from": "battlefield", "effects": []}
     if text == "As this permanent transforms into Curse of Leeches, attach it to a player.":
