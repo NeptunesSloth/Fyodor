@@ -1282,7 +1282,119 @@ _BUILD[_VOLUTE] = ("Whenever you cast a sorcery spell, you gain 1 life.", lambda
     {"do": "volute_attach110g"}]})
 
 
-PRIMITIVES: dict[str, Any] = {"volute_bind110g": volute_bind, "volute_attach110g": volute_attach, "river110g": river, "equipoise110g": equipoise, "glamer110g": glamer, "gy_pairs110g": gy_pairs, "reattach110g": reattach, "speed_cut110g": speed_cut, "exile_split110g": exile_split, "halfdane110g": halfdane, "exile_gy_until110g": exile_gy_until, "idol_cast110g": idol_cast, "bind_exiled110g": bind_exiled, "firm_creature110g": firm_creature, "elkin110g": elkin, "suncleanser110g": suncleanser, "fallen110g": fallen, "destroy_instead110g": destroy_instead, "exchange_power110g": exchange_power, "lowest_life_control110g": lowest_life_control,
+_HIPPO = ("Whenever this creature attacks and isn't blocked, you may have defending player activate a mana ability of each land they control and lose all unspent mana. "
+          "If you do, this creature assigns no combat damage this turn and at the beginning of your next main phase this turn, you add an amount of {C} equal to the amount "
+          "of mana that player lost this way.")
+
+
+def _land_combos(plan: Any, pid: str, done: list[str]) -> tuple[list[tuple[str, int, int]], bool]:
+    """The (land, mana ability, option) the player can activate right now, one per option, for lands they haven't activated yet (605.3a); and whether a land has a mana
+    ability the engine can't activate for them (a private or object-choosing cost: by hand)."""
+    from app.rules import casting
+
+    combos, unsupported = [], False
+    for cid in plan.state.zones.get(f"{pid}:battlefield", []):
+        card = plan.state.cards[cid]
+        ch = plan.ch(card)
+        if card.controller != pid or not ch.is_land or cid in done:
+            continue
+        usable = casting.can_use_tap_abilities(plan.state, card, ch, plan.info)
+        for idx, ab in casting.mana_abilities(plan.state, card, plan.info):
+            if ab.reveal_hand is not None or ab.chooses or ab.self_counter is not None or (ab.count or "").startswith("removed:"):
+                unsupported = True
+                continue
+            if ab.tap and not usable:
+                continue
+            cost = casting.mana_activation_cost(plan.state, card, ch, ab, plan.info)
+            if not cost.is_free and not casting.pool_covers(plan.state, pid, cost, None, plan.info):
+                continue  # the mana for its cost must already be in the pool (the player may have activated another land first)
+            combos += [(cid, idx, oi) for oi, opt in enumerate(ab.options) if opt]
+    return combos, unsupported
+
+
+def _activate_land(plan: Any, pid: str, cid: str, idx: int, oi: int) -> None:
+    from app.rules import casting
+    from app.rules.casting import Purpose
+
+    card = plan.state.cards[cid]
+    ab = dict(casting.mana_abilities(plan.state, card, plan.info))[idx]
+    ch = plan.ch(card)
+    cost = casting.mana_activation_cost(plan.state, card, ch, ab, plan.info)
+    if cost.is_free:
+        casting.produce(plan, card, ab, ab.options[oi], idx, option_index=oi)
+        return
+    extra = casting.parse_ability_cost(ab.extra_cost, card_name=ch.name)  # the cost is paid from the pool only (the other lands are this player's to activate in their own order)
+    paid = casting.pay(plan, pid, cost, f"paid {cost.text()} to activate {ch.name}", sources=[], exclude=(cid,), purpose=Purpose(ability_of=ch, player=pid))
+    casting._produce_body(plan, card, ab, ab.options[oi], idx, extra, None, input_payment=paid, option_index=oi)
+
+
+def hippo(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Pygmy Hippo (605.3a, 106.4): the defending player activates a mana ability of each land they control, in the order they choose, then loses all unspent mana; the
+    mana actually lost (a "becomes colorless instead" keeps it) is what the controller adds later. A land whose mana ability can't be activated by the engine
+    (a private or object-choosing cost) makes this a hand-played instruction: nothing happens."""
+    from app.rules import effects
+
+    pid = next(iter(effects._players(plan, ctx, "defending_player")), None)
+    if pid is None:
+        return True
+    st: dict[str, Any] = {"pid": pid, "done": [], "before": 0}
+    if _land_combos(plan, pid, [])[1]:
+        plan.note("Pygmy Hippo: a land has a mana ability to activate by hand (not automated)", [])
+        ctx["next"] = len(ctx["effects"])
+        return True
+    return _hippo_step(plan, ctx, st)
+
+
+def _hippo_step(plan: Any, ctx: dict[str, Any], st: dict[str, Any]) -> bool:
+    from app.rules import casting, effects, group_choice
+    from app.rules import mana as M
+
+    pid = st["pid"]
+    while True:
+        combos, _ = _land_combos(plan, pid, st["done"])
+        if not combos:
+            break
+        lands = list(dict.fromkeys(c[0] for c in combos))
+        if len(combos) == len(lands) and all(plan.ch(plan.state.cards[c[0]]).is_land and dict(casting.mana_abilities(plan.state, plan.state.cards[c[0]], plan.info))[c[1]].extra_cost == "" for c in combos):
+            pick = combos[0]  # every land has one free way: the order can't matter, so no question
+        else:
+            effects.decide(plan, player=pid, kind="choose_one", prompt="Activate a mana ability of a land you control (you must activate one of each land)",
+                           options=[effects.DecisionOption(id=f"{c[0]}:{c[1]}:{c[2]}", label=f"{plan.state.cards[c[0]].name}: add {M.symbols(casting._count(dict(casting.mana_abilities(plan.state, plan.state.cards[c[0]], plan.info))[c[1]].options[c[2]]))}",
+                                                       card_id=c[0]) for c in combos],
+                           resume={"step": "hippo110g", "ctx": ctx, "st": st, "combos": [list(c) for c in combos]})
+            return False
+        st["done"].append(pick[0])
+        _activate_land(plan, pid, *pick)
+    def pool() -> int:  # every unspent mana, restricted or not
+        return sum(plan.state.players[pid].mana.values()) + len(plan.state.players[pid].mana_units)
+
+    before = pool()
+    group_choice.lose_mana(plan, ctx, {"who": f"player:{pid}"})
+    lost = before - pool()
+    ctx.setdefault("refs", {})["lost110g"] = {"n": lost}
+    return True
+
+
+def resume_hippo(plan: Any, d: Any, chosen: list[str]) -> None:
+    from app.rules import effects
+
+    r = d.resume
+    cid, idx, oi = chosen[0].split(":")
+    if [cid, int(idx), int(oi)] not in r["combos"]:
+        raise ValueError("not a legal activation")
+    r["st"]["done"].append(cid)
+    _activate_land(plan, r["st"]["pid"], cid, int(idx), int(oi))
+    if _hippo_step(plan, r["ctx"], r["st"]):
+        effects.continue_effects(plan, r["ctx"])
+
+
+_BUILD[_HIPPO] = ("Whenever this creature attacks and isn't blocked, you may draw a card.", lambda d: {**d, "effects": [
+    {"do": "hippo110g"}, {"do": "restrict", "who": "self", "rules": ["assign_none"]},
+    {"do": "delayed", "when": {"kind": "step", "step": "main", "whose": "you"}, "n": 1},
+    {"do": "deferred:add_mana", "sym": "C", "n": {"ref_amount": "lost110g"}}]})
+
+
+PRIMITIVES: dict[str, Any] = {"hippo110g": hippo, "volute_bind110g": volute_bind, "volute_attach110g": volute_attach, "river110g": river, "equipoise110g": equipoise, "glamer110g": glamer, "gy_pairs110g": gy_pairs, "reattach110g": reattach, "speed_cut110g": speed_cut, "exile_split110g": exile_split, "halfdane110g": halfdane, "exile_gy_until110g": exile_gy_until, "idol_cast110g": idol_cast, "bind_exiled110g": bind_exiled, "firm_creature110g": firm_creature, "elkin110g": elkin, "suncleanser110g": suncleanser, "fallen110g": fallen, "destroy_instead110g": destroy_instead, "exchange_power110g": exchange_power, "lowest_life_control110g": lowest_life_control,
                            "sacrifice_pair110g": sacrifice_pair, "swap_tapped110g": swap_tapped, "opponent_exiles110g": opponent_exiles,
                               "unattach_enchanted110g": unattach_enchanted}
-RESUME: dict[str, Any] = {"river110g": resume_river, "river_label110g": resume_river_label, "equipoise110g": resume_equipoise, "glamer110g": resume_glamer, "gy_pairs110g": resume_gy_pairs, "reattach110g": resume_reattach, "lowest_control110g": resume_lowest_control, "opponent_exiles110g": resume_opponent_exiles}
+RESUME: dict[str, Any] = {"hippo110g": resume_hippo, "river110g": resume_river, "river_label110g": resume_river_label, "equipoise110g": resume_equipoise, "glamer110g": resume_glamer, "gy_pairs110g": resume_gy_pairs, "reattach110g": resume_reattach, "lowest_control110g": resume_lowest_control, "opponent_exiles110g": resume_opponent_exiles}
