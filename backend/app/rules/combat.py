@@ -82,6 +82,10 @@ def block_problem(state: GameState, blocker: CardInstance, bch: Characteristics,
         return f"{bch.name} has decayed: it can't block"
     if "cant_be_blocked" in scripts.statics(ach):
         return f"{ach.name} can't be blocked"
+    from app.rules import wave110j_final  # -- Space Beleren (wave 110J) --
+
+    if (sector := wave110j_final.sector_block_problem(state, blocker, attacker)) is not None:
+        return sector
     # rules of the attacker about its blockers (evasion, 509.1b: flying is one of them) and of the
     # blocker about what it may block (app/rules/statics.py has the vocabulary), each evaluated
     # against the other creature in the block

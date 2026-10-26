@@ -6393,6 +6393,11 @@ def activate_to_stack(plan: Plan, card: CardInstance, ch: Characteristics, abili
         raise ActionError(f"{ch.name}: X can't be {a.x_value or 0}")
     if exclude_targets and set(a.targets) & set(exclude_targets):
         raise ActionError(f"{ch.name} can't target itself")
+    if definition is not None and definition.get("cost_mv_x110j"):  # -- Captain America (wave 110J) -- the Equipment is chosen before the division it sizes (601.2b, 601.2d)
+        from app.rules import wave110j_final
+
+        if not wave110j_final.captain_precost(plan, a, cost, card, f"{ch.name}’s ability"):
+            return
     modal: modal_abilities.Announced | None = None
     if definition is not None and definition.get("modes"):  # -- modal abilities (wave 1A): 602.2b → 601.2b-c --
         modal = modal_abilities.announce(plan, a, card, definition, ability.index, oid, f"{ch.name}’s ability")

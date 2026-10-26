@@ -23,6 +23,14 @@
   enchant it enter attached; an Aura that could not enchant it (enchant land) is not offered.
 * Kasmina, Enigma Sage: 613.1f another planeswalker you control also has Kasmina's loyalty abilities, paid with its own loyalty and used once a turn (606.3); the -8 search
   takes an instant or sorcery card sharing a color with the planeswalker that has the ability (ruling 2020-04-17).
+* Dermotaxi: 614.12a the imprint exiles a creature card from any graveyard as it enters (linked, 607.2); the tap-two ability makes it a copy of that card until end
+  of turn with the extra Vehicle artifact types (707.9a, 611.2a); with nothing exiled it does nothing (ruling 2018-04-27).
+* Alpine Moon: 613.1d / 613.1f lands an opponent controls with the chosen name lose all land types and abilities and gain "{T}: Add one mana of any color"; a land
+  you control, or with another name, is unaffected; supertypes stay (ruling 2019-01-25).
+* Space Beleren: space sculptor as a state-based action (opponents assign first; assignments lost with the last sculptor); +1 blocks only within a sector, -1 counters on
+  and -5 destroys every creature in the chosen sector (rulings 2022-10-07).
+* Captain America, First Avenger: 601.2d / 118.3 the Equipment unattached as the Throw cost sizes the damage, so it is chosen first; the damage is its mana value divided
+  among one to three targets; "... Catch" attaches an Equipment at the beginning of combat.
 * Phylactery Lich: 614.12a / 614.1c the artifact is chosen as it enters (no target, ruling 2013-04-15), the counter goes on it; with no artifact
   nothing happens and the state trigger (603.8) sacrifices the Lich; another phylactery counter anywhere keeps it.
 """
@@ -815,4 +823,248 @@ def test_kasmina_minus_eight_on_jace_searches_for_a_blue_card_not_a_red_one(card
     settle(s)
     assert now(s, jace).zone.endswith(":graveyard")  # (8 loyalty spent: Jace is put into the graveyard, 704.5i)
     assert now(s, s.state.cards[ids["Brainstorm"]]).zone.endswith((":graveyard", ":exile"))
+    check(s)
+
+
+DERM = "Dermotaxi"
+
+
+def _dermotaxi(cards, graveyard):
+    from tests.wave110j_kit import grave_new
+
+    s = build(cards, [DERM, ELVES, ELVES], [BEARS, "Hill Giant"], forests=30, islands=30)
+    e1, e2 = put_new(s, ELVES), put_new(s, ELVES)
+    gy = [grave_new(s, n, "p2") for n in graveyard]
+    to_phase(s, "main1", turn=3)
+    return s, gy, (e1, e2)
+
+
+def test_dermotaxi_full(cards):
+    from app.rules import coverage
+
+    assert coverage.of_card_data(cards.resolve(DERM)).level == "FULL"
+
+
+def test_dermotaxi_exiles_a_creature_card_and_becomes_a_copy_of_it(cards):
+    from tests.wave110j_kit import ability, ch, mana
+
+    s, (bears, giant), (e1, e2) = _dermotaxi(cards, [BEARS, "Hill Giant"])
+    mana(s, "p1", C=2)
+    spell = to_hand(s, DERM)
+    act(s, "p1", type="cast_spell", card_id=spell.id)
+    settle(s, answers=[giant.id])
+    assert now(s, giant).zone.endswith(":exile") and now(s, bears).zone.endswith(":graveyard")
+    derm = now(s, spell)
+    act(s, "p1", type="activate_ability", card_id=derm.id, ability=ability(s, derm, "Tap two untapped creatures"))
+    settle(s)
+    c = ch(s, derm)
+    assert c.name == "Hill Giant" and c.pt == (3, 3) and {"Artifact", "Creature"} <= set(c.types) and "Vehicle" in c.subtypes
+    assert now(s, e1).tapped and now(s, e2).tapped
+    check(s)
+
+
+def test_dermotaxi_with_no_creature_card_in_a_graveyard_imprints_nothing(cards):
+    from tests.wave110j_kit import ability, ch, mana
+
+    s, _, (e1, e2) = _dermotaxi(cards, [])
+    mana(s, "p1", C=2)
+    spell = to_hand(s, DERM)
+    act(s, "p1", type="cast_spell", card_id=spell.id)
+    settle(s)
+    derm = now(s, spell)
+    assert derm.zone.endswith(":battlefield")
+    act(s, "p1", type="activate_ability", card_id=derm.id, ability=ability(s, derm, "Tap two untapped creatures"))
+    settle(s)
+    assert ch(s, derm).name == DERM and "Creature" not in ch(s, derm).types
+    check(s)
+
+
+MOON, TOMB = "Alpine Moon", "Overgrown Tomb"
+
+
+def _moon(cards):
+    from tests.wave110j_kit import mana
+
+    s = build(cards, [MOON, TOMB], [TOMB, "Command Tower"], forests=30, islands=30)
+    mine, theirs, other = put_new(s, TOMB), put_new(s, TOMB, "p2"), put_new(s, "Command Tower", "p2")
+    mana(s, "p1", R=1)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, MOON).id)
+    d = s.state.rules.decision
+    act(s, "p1", type="choose", decision_id=d.id, name=TOMB)
+    settle(s)
+    return s, mine, theirs, other
+
+
+def test_alpine_moon_full(cards):
+    from app.rules import coverage
+
+    assert coverage.of_card_data(cards.resolve(MOON)).level == "FULL"
+
+
+def test_alpine_moon_rewrites_only_the_opponents_land_with_the_chosen_name(cards):
+    from tests.wave110j_kit import ch
+
+    s, mine, theirs, other = _moon(cards)
+    t = ch(s, theirs)
+    assert {"Forest", "Swamp"}.isdisjoint(t.subtypes) and "Land" in t.types
+    assert [a.text for a in t.abilities if a.kind == "mana"] == ["{T}: Add one mana of any color."]
+    assert {"Forest", "Swamp"} <= set(ch(s, mine).subtypes)  # (your own copy is not affected)
+    assert ch(s, other).abilities and ch(s, other).abilities[0].text != "{T}: Add one mana of any color."  # (another name)
+    check(s)
+
+
+BELEREN = "Space Beleren"
+
+
+def _sectors(s, mapping):
+    """Answer the space sculptor assignments (the creature each decision is about: its resume card), returning who was asked in order."""
+    asked = []
+    for _ in range(20):
+        d = s.state.rules.decision
+        if d is None or d.resume is None or d.resume.get("step") != "sector110j":
+            break
+        asked.append(d.player)
+        act(s, d.player, type="choose", decision_id=d.id, option_ids=[mapping[d.resume["card"]]])
+    return asked
+
+
+def _beleren(cards):
+    s = build(cards, [BELEREN, BEARS, BEARS], [BEARS, "Hill Giant"], forests=30, islands=30)
+    bel = put_new(s, BELEREN)
+    act(s, "p1", type="counter", card_ids=[bel.id], kind="loyalty", delta=6)
+    mine, mine2 = [c for c in s.state.cards.values() if c.name == BEARS and c.owner == "p1"][:2]
+    theirs, giant = card_named(s, BEARS, "p2"), card_named(s, "Hill Giant", "p2")
+    for c in (mine, mine2, theirs, giant):
+        act(s, c.owner, type="move", card_ids=[c.id], to={"player": c.owner, "zone": "battlefield"})
+    act(s, "p1", type="pass_priority")  # (state-based actions are checked: the assignments are asked)
+    return s, bel, mine, mine2, theirs, giant
+
+
+def test_beleren_full(cards):
+    from app.rules import coverage
+
+    assert coverage.of_card_data(cards.resolve(BELEREN)).level == "FULL"
+
+
+def test_space_sculptor_assigns_opponents_first_and_the_sector_is_public(cards):
+    s, bel, mine, mine2, theirs, giant = _beleren(cards)
+    asked = _sectors(s, {mine.id: "alpha", mine2.id: "beta", theirs.id: "alpha", giant.id: "gamma"})
+    assert asked == ["p2", "p2", "p1", "p1"]  # p2 controls no space sculptor permanent: it assigns first
+    assert [now(s, c).choices.get("Sector") for c in (mine, mine2, theirs, giant)] == ["alpha", "beta", "alpha", "gamma"]
+    check(s)
+
+
+def test_sectors_are_lost_when_the_last_space_sculptor_leaves(cards):
+    s, bel, mine, mine2, theirs, giant = _beleren(cards)
+    _sectors(s, {mine.id: "alpha", mine2.id: "alpha", theirs.id: "alpha", giant.id: "alpha"})
+    act(s, "p1", type="move", card_ids=[bel.id], to={"zone": "graveyard"})
+    act(s, "p1", type="pass_priority")
+    assert not any(now(s, c).choices.get("Sector") for c in (mine, mine2, theirs, giant))
+    check(s)
+
+
+def test_beleren_minus_one_and_minus_five_act_on_the_chosen_sector_only(cards):
+    from tests.wave110j_kit import ability
+
+    s, bel, mine, mine2, theirs, giant = _beleren(cards)
+    _sectors(s, {mine.id: "alpha", mine2.id: "beta", theirs.id: "alpha", giant.id: "gamma"})
+    to_phase(s, "main1", turn=3)
+    act(s, "p1", type="activate_ability", card_id=bel.id, ability=ability(s, bel, "−1"))
+    d = s.state.rules.decision
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=["alpha"])
+    settle(s)
+    assert [now(s, c).counters.get("+1/+1") for c in (mine, mine2, theirs, giant)] == [1, None, 1, None]
+    check(s)
+
+
+def test_beleren_minus_five_destroys_every_creature_in_the_sector(cards):
+    from tests.wave110j_kit import ability
+
+    s, bel, mine, mine2, theirs, giant = _beleren(cards)
+    act(s, "p1", type="counter", card_ids=[bel.id], kind="loyalty", delta=2)  # (8: enough for -5)
+    _sectors(s, {mine.id: "alpha", mine2.id: "beta", theirs.id: "alpha", giant.id: "gamma"})
+    to_phase(s, "main1", turn=3)
+    act(s, "p1", type="activate_ability", card_id=bel.id, ability=ability(s, bel, "−5"))
+    d = s.state.rules.decision
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=["alpha"])
+    settle(s)
+    assert [now(s, c).zone.endswith(":graveyard") for c in (mine, mine2, theirs, giant)] == [True, False, True, False]
+    check(s)
+
+
+def test_beleren_plus_one_lets_only_creatures_in_the_same_sector_block(cards):
+    from tests.wave110j_kit import ability
+
+    s, bel, mine, mine2, theirs, giant = _beleren(cards)
+    _sectors(s, {mine.id: "alpha", mine2.id: "beta", theirs.id: "alpha", giant.id: "beta"})
+    to_phase(s, "main1", turn=3)
+    act(s, "p1", type="activate_ability", card_id=bel.id, ability=ability(s, bel, "+1"))
+    settle(s)
+    to_phase(s, "declare_attackers", turn=3)
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": mine.id, "target": "p2"}])
+    for _ in range(20):
+        d = s.state.rules.decision
+        if d is not None and d.kind == "declare_blockers":
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+    with pytest.raises(ActionError, match="sector"):
+        act(s, "p2", type="declare_blockers", blocks=[{"blocker_id": giant.id, "attacker_id": mine.id}])  # Hill Giant is in beta, Bears in alpha
+    act(s, "p2", type="declare_blockers", blocks=[{"blocker_id": theirs.id, "attacker_id": mine.id}])  # same sector: allowed
+    check(s)
+
+
+CAP, BONE, SWORD = "Captain America, First Avenger", "Bonesplitter", "Sword of Feast and Famine"
+
+
+def _captain(cards, equipment):
+    s = build(cards, [CAP, *equipment], ["Hill Giant"], forests=30, islands=30)
+    cap, giant = put_new(s, CAP), put_new(s, "Hill Giant", "p2")
+    eq = []
+    for n in equipment:
+        e = put_new(s, n)
+        act(s, "p1", type="attach", card_ids=[e.id], to=cap.id)
+        eq.append(e)
+    to_phase(s, "main1", turn=3)
+    return s, cap, giant, eq
+
+
+def test_captain_full(cards):
+    from app.rules import coverage
+
+    assert coverage.of_card_data(cards.resolve(CAP)).level == "FULL"
+
+
+def test_captain_throw_unattaches_the_equipment_and_deals_its_mana_value_divided(cards):
+    from tests.wave110j_kit import ability, mana
+
+    s, cap, giant, (sword,) = _captain(cards, [SWORD])  # mana value 3
+    mana(s, "p1", C=3)
+    act(s, "p1", type="activate_ability", card_id=cap.id, ability=ability(s, cap, "Throw"), targets=["p2", giant.id], division=[2, 1])
+    settle(s)
+    assert life(s, "p2") == 38 and now(s, giant).damage == 1
+    assert now(s, sword).zone.endswith(":battlefield") and now(s, sword).attached_to is None
+    check(s)
+
+
+def test_captain_with_two_equipment_asks_which_one_is_unattached_first(cards):
+    from tests.wave110j_kit import ability, mana
+
+    s, cap, giant, (bone, sword) = _captain(cards, [BONE, SWORD])  # mana values 1 and 3
+    mana(s, "p1", C=3)
+    act(s, "p1", type="activate_ability", card_id=cap.id, ability=ability(s, cap, "Throw"), targets=["p2"])
+    d = s.state.rules.decision
+    assert d is not None and {o.card_id for o in d.options} == {bone.id, sword.id}
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[bone.id])
+    settle(s)
+    assert life(s, "p2") == 39 and now(s, bone).attached_to is None and now(s, sword).attached_to == cap.id
+    check(s)
+
+
+def test_captain_catch_attaches_an_equipment_at_the_beginning_of_combat(cards):
+    s = build(cards, [CAP, BONE], [], forests=30, islands=30)
+    cap, bone = put_new(s, CAP), put_new(s, BONE)
+    to_phase(s, "main1", turn=3)
+    to_phase(s, "begin_combat", turn=3)
+    settle(s)
+    assert now(s, bone).attached_to == cap.id
     check(s)

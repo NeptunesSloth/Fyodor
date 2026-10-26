@@ -7144,6 +7144,14 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
         return bruna
     if (kasmina := wave110j_final.kasmina_definition(ability, ch)) is not None:
         return kasmina
+    if (dermotaxi := wave110j_final.dermotaxi_definition(ability, ch)) is not None:
+        return dermotaxi
+    if (alpine := wave110j_final.alpine_definition(ability, ch)) is not None:
+        return alpine
+    if (beleren := wave110j_final.belerens(ability, ch)) is not None:
+        return beleren
+    if (captain := wave110j_final.captain_definition(ability, ch)) is not None:
+        return captain
     if (conditional_prevention := conditional_prevention_effects.definition(ability, ch)) is not None:
         return conditional_prevention
 

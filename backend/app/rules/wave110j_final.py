@@ -383,5 +383,179 @@ def kasmina_definition(ability: Any, ch: Any) -> dict[str, Any] | None:
     return statics.parse(f"Each other planeswalker you control has {quoted}.")
 
 
-PRIMITIVES = {"bruna_put110j": bruna_put, "inniaz110j": inniaz, "piracy110j": piracy, "mentored110j": mentored, "sacrificed110j": sacrificed, "ogre_watch110j": ogre_watch, "ogre_drop110j": ogre_drop, "garth110j": garth}
-RESUME = {"bruna110j": resume_bruna, "garth110j": resume_garth, "inniaz110j": resume_inniaz}
+# -- Dermotaxi -- "Tap two untapped creatures you control: Until end of turn, this Vehicle becomes a copy of the exiled card, except it's a Vehicle artifact in addition to its
+# other types." Rulings 2018-04-27: the imprint is a replacement effect (the exile happens as it enters, no responses); the second ability uses only the card exiled by the
+# first, and does nothing with no exiled card; it isn't crewing. 707.2 / 707.9a the exception, layer 1 (611.2a: until end of turn).
+DERMOTAXI = ("Tap two untapped creatures you control: Until end of turn, this Vehicle becomes a copy of the exiled card, except it's a Vehicle artifact in addition to its other "
+             "types.")
+
+
+def dermotaxi_definition(ability: Any, ch: Any) -> dict[str, Any] | None:
+    from dataclasses import replace
+
+    from app.rules import scripts
+
+    if ability.kind != "activated" or ability.text != DERMOTAXI:
+        return None
+    base = scripts.define(replace(ability, text=DERMOTAXI.replace("the exiled card", "target creature")), ch)
+    if base is None or [e.get("do") for e in base["effects"]] != ["become_copy"]:
+        return None
+    return {**base, "target": None, "effects": [{**base["effects"][0], "with": "exiled_with"}]}
+
+
+# -- Alpine Moon -- "Lands your opponents control with the chosen name lose all land types and abilities, and they gain "{T}: Add one mana of any color."" Rulings 2019-01-25:
+# only land types and abilities change (supertypes and other card types stay); it removes the land's enters-the-battlefield and as-it-enters abilities before they apply
+# (a layer-6 removal, 613.1f, 614.12: the permanent as it would exist on the battlefield). The name is the one chosen as the enchantment entered (614.12a).
+ALPINE = 'Lands your opponents control with the chosen name lose all land types and abilities, and they gain "{T}: Add one mana of any color."'
+
+
+def alpine_definition(ability: Any, ch: Any) -> dict[str, Any] | None:
+    from app.rules import selectors
+
+    if ability.kind != "static" or ability.text != ALPINE:
+        return None
+    sel = selectors.parse("lands your opponents control with the chosen name")
+    if sel is None:
+        return None
+    return {"kind": "static", "static": "grant", "effects": [], "who": sel.key(), "attached_kind": None, "conditions": [], "p": 0, "t": 0, "base": None, "keywords": [],
+            "grants": ["{T}: Add one mana of any color."], "rules": [], "lose_all": True, "layer4": {"set_land_types": []}}
+
+
+# -- Space Beleren -- "Space sculptor (Space Beleren divides the battlefield into alpha, beta, and gamma sectors. If a creature isn't assigned to a sector, its controller assigns it to
+# one. Opponents assign first.)" Rulings 2022-10-07: any time creatures on the battlefield aren't assigned to a sector, their controllers assign them as a state-based action,
+# first the players who control no permanent with space sculptor in turn order, then those who do; all assignments are lost once no such permanent is on the battlefield;
+# a creature that changes controllers keeps its sector (the same object); a copy doesn't copy it; the sector for the last two abilities is chosen as the ability resolves.
+# The sector is the public choice "Sector" written on the creature (a zone change makes a new object that has none, 400.7).
+SECTORS = ("alpha", "beta", "gamma")
+SECTOR_KEY = "Sector"
+SPACE = "space sculptor"
+BEL_PLUS = "+1: Creatures in each sector can be blocked this turn only by creatures in the same sector."
+BEL_MINUS = "−1: Put a +1/+1 counter on each creature in the sector of your choice."
+BEL_ULT = "−5: Destroy all creatures in the sector of your choice."
+
+
+def sculptors(plan: Plan) -> list[Any]:
+    return [c for c in plan.state.cards.values() if c.zone.endswith(":battlefield") and not c.face_down and plan.in_game(c) and SPACE in plan.ch(c).keywords]
+
+
+def sector_sba(plan: Plan) -> bool:
+    """The state-based action: lose every assignment with no space sculptor, else ask who is next for the first unassigned creature (True: a decision is open)."""
+    from app.game.rules_state import DecisionOption
+    from app.rules.plan import decide
+
+    sculpt = sculptors(plan)
+    creatures = [c for c in plan.state.cards.values() if c.zone.endswith(":battlefield") and plan.in_game(c) and plan.ch(c).is_creature]
+    if not sculpt:
+        for c in plan.state.cards.values():
+            if SECTOR_KEY in c.choices:
+                plan.do({"type": "set_choice", "card_id": c.id, "key": SECTOR_KEY, "value": None}, actor=c.controller)
+        return False
+    holders = {c.controller for c in sculpt}
+    order = [p for p in plan.apnap() if p not in holders] + [p for p in plan.apnap() if p in holders]
+    for pid in order:
+        mine = [c for c in creatures if c.controller == pid and SECTOR_KEY not in c.choices]
+        if mine:
+            decide(plan, player=pid, kind="choose_one", prompt=f"Space sculptor: assign {mine[0].name} to a sector",
+                   options=[DecisionOption(id=s, label=s.capitalize()) for s in SECTORS], resume={"step": "sector110j", "card": mine[0].id})
+            return True
+    return False
+
+
+def resume_sector(plan: Plan, d: Any, chosen: list[str]) -> None:
+    card = plan.state.cards.get(d.resume["card"])
+    if card is not None and card.zone.endswith(":battlefield") and SECTOR_KEY not in card.choices:
+        plan.do({"type": "set_choice", "card_id": card.id, "key": SECTOR_KEY, "value": chosen[0]}, actor=d.player)
+
+
+def sector_block_problem(state: Any, blocker: Any, attacker: Any) -> str | None:
+    """+1 (this turn): a creature can be blocked only by a creature in its own sector."""
+    rules = state.rules
+    if rules is None or rules.once_per_turn.get("sector_blocks110j") != state.turn.number:
+        return None
+    if blocker.choices.get(SECTOR_KEY) != attacker.choices.get(SECTOR_KEY):
+        return f"{attacker.name} can be blocked only by creatures in its sector this turn"
+    return None
+
+
+def belerens(ability: Any, ch: Any) -> dict[str, Any] | None:
+    from dataclasses import replace
+
+    from app.rules import scripts
+
+    if ability.kind != "loyalty" or ability.text not in (BEL_PLUS, BEL_MINUS, BEL_ULT):
+        return None
+    base = scripts.define(replace(ability, text=ability.text.split(":")[0] + ": You gain 1 life."), ch)
+    if base is None or [e.get("do") for e in base["effects"]] != ["gain_life"]:
+        return None
+    mode = {BEL_PLUS: "blocks", BEL_MINUS: "counters", BEL_ULT: "destroy"}[ability.text]
+    return {**base, "effects": [{"do": "sector110j", "mode": mode}]}
+
+
+def sector_effect(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    from app.game.rules_state import DecisionOption
+    from app.rules.plan import decide
+
+    if e["mode"] == "blocks":
+        plan.rules.once_per_turn["sector_blocks110j"] = plan.state.turn.number
+        plan.note("Until end of turn, creatures can be blocked only by creatures in their own sector", actor=ctx["controller"])
+        return True
+    decide(plan, player=ctx["controller"], kind="choose_one", prompt="Choose a sector",
+           options=[DecisionOption(id=s, label=s.capitalize()) for s in SECTORS], resume={"step": "sector_pick110j", "ctx": ctx, "mode": e["mode"]})
+    return False
+
+
+def resume_sector_pick(plan: Plan, d: Any, chosen: list[str]) -> None:
+    from app.rules import context, effects
+
+    ctx = d.resume["ctx"]
+    ids = [c.id for c in plan.state.cards.values() if c.zone.endswith(":battlefield") and plan.in_game(c) and plan.ch(c).is_creature and c.choices.get(SECTOR_KEY) == chosen[0]]
+    context.bind_objects(plan, ctx, "sector110j", ids)
+    queue = [{"do": "add_counters", "who": "ref:sector110j", "kind": "+1/+1", "n": 1}] if d.resume["mode"] == "counters" else [{"do": "destroy", "who": "ref:sector110j"}]
+    if ids:
+        ctx["effects"][ctx["next"]:ctx["next"]] = queue
+    effects.continue_effects(plan, ctx)
+
+
+# -- Captain America, First Avenger (Throw) -- "{3}, Unattach an Equipment from Captain America: He deals damage equal to that Equipment's mana value divided as you choose among
+# one, two, or three targets." CR 601.2d (602.2b) the division is announced before the cost is paid (601.2h), so the total has to be known first: the Equipment is chosen
+# before the targets and the division, as 601.2b does for a variable defined by a choice made later ("that player makes that choice before announcing the value of that
+# variable"), and the cost then pays with that same Equipment (118.3); the damage is its mana value as it was when unattached. Scryfall lists no ruling for this card.
+CAPTAIN = ("Throw ... — {3}, Unattach an Equipment from Captain America: He deals damage equal to that Equipment's mana value divided as you choose among one, two, or three "
+           "targets.")
+
+
+def captain_definition(ability: Any, ch: Any) -> dict[str, Any] | None:
+    from dataclasses import replace
+
+    from app.rules import scripts
+
+    if ability.kind != "activated" or ability.text != CAPTAIN:
+        return None
+    base = scripts.define(replace(ability, text="{3}: ~ deals X damage divided as you choose among one, two, or three targets.", cost="{3}"), ch)
+    if base is None or [e.get("do") for e in base["effects"]] != ["damage"]:
+        return None
+    return {**base, "cost": ability.cost, "cost_mv_x110j": True}
+
+
+def captain_precost(plan: Plan, a: Any, cost: Any, card: Any, label: str) -> bool:
+    """False while the Equipment is being chosen; else ``a.x_value`` is its mana value and the choice is kept for the payment."""
+    from app.game.actions import CostChoice
+    from app.game.errors import ActionError
+    from app.rules import cost_payment, costs
+
+    chosen = cost_payment.choose(plan, a, cost, card, label)
+    if chosen is None:
+        return False
+    for i, comp in cost.choices:
+        if comp.kind == costs.UNATTACH and comp.selector is not None and chosen.get(i):
+            mv = int(plan.ch(plan.state.cards[chosen[i][0]]).mana_value)
+            if mv < 1:
+                raise ActionError("That Equipment has mana value 0: no target could receive at least 1 damage (601.2d)")
+            a.x_value = mv
+            if not any(c.component == i for c in a.cost_choices):
+                a.cost_choices = [*a.cost_choices, CostChoice(component=i, cards=list(chosen[i]))]
+    return True
+
+
+PRIMITIVES = {"sector110j": sector_effect, "bruna_put110j": bruna_put, "inniaz110j": inniaz, "piracy110j": piracy, "mentored110j": mentored, "sacrificed110j": sacrificed, "ogre_watch110j": ogre_watch, "ogre_drop110j": ogre_drop, "garth110j": garth}
+RESUME = {"sector110j": resume_sector, "sector_pick110j": resume_sector_pick, "bruna110j": resume_bruna, "garth110j": resume_garth, "inniaz110j": resume_inniaz}
