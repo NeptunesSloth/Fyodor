@@ -70,6 +70,8 @@ def parse(text: str, *, objects: bool = False) -> Condition | None:
         return hist110c
     if t == "you were dealt damage this turn by a red instant or sorcery spell":  # -- wave 110L -- Suffocation (history.holds "spelldmg110l")
         return {"history": "spelldmg110l"}
+    if t == "defending player controls no snow lands":  # -- (wave 110O) -- Kjeldoran Guard: 508.5a, the ability's controller chooses among the defending players
+        return {"w110o": "defender_no_snow"}
     if t == "a player attacked you during their last turn":  # -- wave 110E -- previous_own_turns
         return {"w110e": "attacked_last_turn"}
     if t.lower() == 'you control a stickered permanent':

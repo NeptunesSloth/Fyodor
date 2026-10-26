@@ -5656,6 +5656,13 @@ def activate_ability(plan: Plan, a: A.ActivateAbility) -> None:
             _activation_limit(plan, card, ch)
             activate_to_stack(plan, card, ch, ability, a)
             return
+        from app.rules import (
+            designations,  # -- (wave 110O) -- 114.1, 602.2: an emblem's activated ability is activated from the command zone by its owner
+        )
+
+        if ability is not None and ability.kind == "activated" and designations.emblem_card(card) and not plan.manual(card):
+            activate_to_stack(plan, card, ch, ability, a)
+            return
         if (ninja := ninjutsu.cost_of(ch, a.ability, command=True)) is not None and not plan.manual(card):  # -- commander ninjutsu (wave 50J) -- 702.49d
             activate_to_stack(plan, card, ch, ninjutsu.ability(ch, a.ability, ninja), a, definition=ninjutsu.DEFINITION)
             return

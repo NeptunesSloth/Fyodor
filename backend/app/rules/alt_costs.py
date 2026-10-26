@@ -72,6 +72,11 @@ def _part(text: str, x_ok: bool = False) -> C.CostComponent | str | None:
         if not C._MANA_ONLY.match(mana) or ("X" in mana and not x_ok):
             return None
         return mana
+    if part == "Exile the top three black cards of your graveyard":  # -- (wave 110O) -- Spinning Darkness: no choice, the top three black cards are exiled (118.9, 404.1)
+        from app.rules import selectors
+
+        return C.CostComponent(C.EXILE_FROM_GRAVEYARD, amount=3, text=text, selector=selectors.Selector(
+            card=True, zones=("graveyard",), zone_owner="you", colors=("B",), extras=("top110o:3",)).key())
     m = _EXILE_HAND.fullmatch(part)
     if m:
         key = C._selector(m["what"], zone="hand")

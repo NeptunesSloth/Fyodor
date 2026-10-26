@@ -119,6 +119,15 @@ def definitions(ab: AbilityText, ch: Characteristics) -> dict[int, Definition]:
 
     if (gy110f := wave110f_gy.definitions(ab, ch)) is not None:
         return gy110f
+
+    from app.rules import wave110o_cards  # -- (wave 110O) --
+
+    if (swap110o := wave110o_cards.modal_swap(ab, ch)) is not None:
+        found110o = definitions(ab, swap110o[0])
+        head = found110o.get(ab.index)
+        if head is not None and len(head.get("modes") or []) > swap110o[1]:
+            head["modes"][swap110o[1]] = {**head["modes"][swap110o[1]], "effects": swap110o[2]}
+        return found110o
     ab = wave110h_cards.modal_header(ab, ch)  # -- Immard (wave 110H) --
     if ab.kind == "triggered" and ", you may choose two" in ab.text:
         # -- commanders (wave 50C) -- "you may choose two" (Shadrix Silverquill ruling 2021-04-16): exactly zero modes or two modes, never one (700.2d)

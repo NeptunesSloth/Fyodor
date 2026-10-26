@@ -2998,6 +2998,17 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
             # CR 712.1 includes meld cards. Image availability is not a card characteristic.
             if card.face_down or not data or data.get('layout') not in DOUBLE_FACED_LAYOUTS:
                 return False
+        if extra == "arn_name110o":  # -- (wave 110O) -- City in a Bottle: a name originally printed in the Arabian Nights expansion (either half of a split card)
+            from app.rules import wave110o_cards
+
+            if not wave110o_cards.named_arn(ch.name):
+                return False
+        if extra.startswith("top110o:"):  # -- (wave 110O) -- 404.1: one of the top N cards (of those the rest of the selector matches) of the graveyard it is in, the last put there first
+            base = replace(sel, extras=tuple(x for x in sel.extras if x != extra))
+            pile = [cid for cid in reversed(plan.state.zones.get(card.zone, [])) if card.zone.endswith(":graveyard")
+                    and matches(plan, base, plan.state.cards[cid], plan.ch(plan.state.cards[cid]), you, source)][:int(extra.partition(":")[2])]
+            if card.id not in pile:
+                return False
         if extra == "top_graveyard110o" and (not card.zone.endswith(":graveyard") or plan.state.zones[card.zone][-1:] != [card.id]):  # -- (wave 110O) -- 404.1: the last card put there
             return False
         if extra == "has_adventure":  # (wave 25B) the printing is an adventurer card, whichever half it is as it is cast
