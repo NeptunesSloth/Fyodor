@@ -1749,6 +1749,7 @@ class RulesState(BaseModel):
     # -- wave 110A -- player -> ``next_object`` when their last turn ended ("entered since your last turn ended", selectors)
     chosen_objects: dict[str, str] = Field(default_factory=dict)  # -- wave 110A -- source card id -> the object it chose as it entered (wave110a_pick)
     turn_end_objects: dict[str, int] = Field(default_factory=dict)
+    hit110b: list[str] = Field(default_factory=list)  # -- wave 110B -- players dealt combat damage since their last turn ended (Marchesa, Resolute Monarch)
     # -- linked words (wave 33B) -- 607.2f: "As this enchantment enters, choose Khans or Dragons.": object id -> the word it chose (app/rules/chosen.py)
     chosen_words: dict[str, str] = Field(default_factory=dict)
     # How each spell was paid for (stack object id -> record); follows the spell onto the battlefield.

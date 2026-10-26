@@ -301,6 +301,13 @@ def _towershell(d: Def) -> Def:
 
 
 _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
+    # Marchesa, Resolute Monarch: 603.4 intervening "if" over Rules.hit110b (kept across turns: other players' turns come between)
+    "At the beginning of your upkeep, if you haven't been dealt combat damage since your last turn, you draw a card and you lose 1 life.":
+        ("At the beginning of your upkeep, you draw a card and you lose 1 life.", lambda d: {**d, "if": {"history": "unhit110b"}}),
+    # Behemoth of Vault 0: 118.12 the energy paid is the target's mana value; the destruction follows the payment (the target is the dies trigger's own)
+    "When this creature dies, you may pay an amount of {E} equal to target nonland permanent's mana value. When you do, destroy that permanent.":
+        ("When this creature dies, you may pay {E}. If you do, destroy target nonland permanent.",
+         lambda d: {**d, "effects": [{**d["effects"][0], "cost": "", "energy_n": {"mana_value": "target"}}, *d["effects"][1:]]}),
     "{T}: The next time target creature adapts this turn, it adapts as though it had no +1/+1 counters on it.":
         ("{T}: Target creature gains haste until end of turn.", lambda d: {**d, "effects": [{"do": "adapt_free110b", "who": "target"}]}),
     "Whenever one or more creatures an opponent controls deal combat damage to one or more of your opponents, you and the controller of those creatures each draw a card.":
@@ -508,6 +515,15 @@ def _angel() -> Def:
             "match": {"combat": True, "source": {"self": True}, "to": {"objects": {"sel": selectors.Selector(types=("Creature",)).key()}}},
             "op": {"do": "prevent_all", "prevention": True, "rider": {"aggregation": "batch", "effects": [{"do": "to_library", "who": "ref:to", "place": "shuffle"}]}},
             "effects": []}
+
+
+def note_hits(plan: Any) -> None:
+    """Turn end: players dealt combat damage this turn join the list; the player whose turn ends starts over (Marchesa: "since your last turn")."""
+    log = plan.rules.turn_log
+    hit = plan.rules.hit110b
+    hit.extend(p for p in dict.fromkeys(f.player for f in (log.facts if log is not None else ()) if f.kind == "damage" and f.combat and f.amount > 0) if p not in hit)
+    if plan.active in hit:
+        hit.remove(plan.active)
 
 
 def definition(ability: Any, ch: Any) -> Def | None:

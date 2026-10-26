@@ -873,6 +873,7 @@ def _rolled_result(plan: Plan, ctx: dict[str, Any], cond: dict[str, Any], log: T
 _WAVE_4D: dict[str, Any] = {
     "tokens": lambda plan, ctx, cond, log: _facts_holds(plan, ctx, {**cond, "kind": "token"}, log),
     "attackers": lambda plan, ctx, cond, log: len(log.attackers.get(ctx["controller"], [])) >= int(cond.get("n", 1)),
+    "unhit110b": lambda plan, ctx, cond, log: ctx["controller"] not in plan.rules.hit110b,  # (wave 110B)
     "attacked_by110b": lambda plan, ctx, cond, log: _attacked_by(plan, ctx, cond, log),  # (wave 110B)
     "attacked_with": lambda plan, ctx, cond, log: _attacked_with(plan, ctx, cond, log),  # (wave 51E)
     "cast": _cast,
