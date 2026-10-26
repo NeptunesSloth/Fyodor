@@ -67,6 +67,8 @@ _CAP_COMPONENT = 1  # the cost's parts: {3}, then the Equipment
 def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
     if ability.text == PARNESSE:
         return parnesse_definition(ability, ch)
+    if (magar_def := magar_definition(ability, ch)) is not None:
+        return magar_def
     if ability.kind != "activated" or ability.text != CAPTAIN:
         return None
     return {"kind": "activated", "cost": "{3}, Unattach an Equipment from ~", "effects": [{"do": "damage", "who": "target:0", "n": {"divided": 0}}],
@@ -184,3 +186,67 @@ def resume_parnesse(plan: Plan, d: Any, chosen: list[str]) -> None:
 
 PRIMITIVES["parnesse110j"] = parnesse
 RESUME["parnesse110j"] = resume_parnesse
+
+
+# -- Magar of the Magic Strings -- the target instant or sorcery card goes onto the battlefield face down as a 3/3 creature with two abilities
+# (characteristics.MAGAR_SPEC, 708.2a), and its name is noted on that object (a public choice: copies of the face-down creature don't have it, so
+# their trigger makes nothing, ruling 2022-10-07). On combat damage to a player, the copy is made from the noted name's card as it last existed in
+# the graveyard (707.14; its Oracle characteristics), and may be cast without paying its mana cost. The exile replacement keeps a blinked one in
+# exile (an instant or sorcery card can't enter the battlefield face up, ruling 2022-10-07); an effect turning it face up only reveals it (facedown._turn_up).
+MAGAR = ("{1}{B}{R}: Note the name of target instant or sorcery card in your graveyard and put it onto the battlefield face down. It's a 3/3 creature with "
+         "\"Whenever this creature deals combat damage to a player, you may create a copy of the card with the noted name. You may cast the copy without paying its mana cost\" "
+         "and \"If this creature would leave the battlefield, exile it instead of putting it anywhere else.\"")
+MAGAR_KEY = "Noted name"
+
+
+def magar_definition(ability: Any, ch: Any) -> dict[str, Any] | None:
+    from dataclasses import replace
+
+    from app.rules import card_copy_sources, characteristics, scripts
+
+    if ability.kind == "activated" and ability.text == MAGAR:
+        native = scripts.define(replace(ability, text="{1}{B}{R}: Return target instant or sorcery card from your graveyard to your hand."), ch)
+        return {**native, "effects": [{"do": "magar110j"}]} if native is not None else None
+    if ability.kind == "triggered" and ability.text == characteristics.MAGAR_TEXT.split("\n")[0]:
+        native = scripts.define(replace(ability, text="Whenever this creature deals combat damage to a player, draw a card."), ch)
+        # "you may create a copy": the copy is always made and the cast is the choice (a copy not cast ceases to exist, 707.10a: the same outcome)
+        return {**native, "effects": [{"do": "magar_copy110j"}, card_copy_sources.copy_cast()[1]]} if native is not None else None
+    return None
+
+
+def magar(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    from app.rules import characteristics, effects, facedown
+
+    for cid in effects._cards(plan, ctx, "target"):
+        card = plan.state.cards[cid]
+        if not card.zone.endswith(":graveyard"):
+            continue
+        name = plan.ch(card).name
+        pid = ctx["controller"]
+        if facedown.put_face_down(plan, cid, pid, "generic", actor=pid, spec=characteristics.MAGAR_SPEC):
+            plan.do({"type": "set_choice", "card_id": cid, "key": MAGAR_KEY, "value": name}, actor=pid)
+            plan.note(f"{plan.name(pid)} notes the name {name}", actor=pid)
+    return True
+
+
+def magar_copy(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    from app.rules import card_copy_sources, effects
+
+    card = plan.state.cards.get(ctx.get("source_card") or "")
+    oid = ctx.get("source_object")
+    snap = plan.rules.lki.get(oid or "")
+    choices = card.choices if card is not None and plan.oid(card) == oid else snap.choices if snap is not None else {}
+    name = choices.get(MAGAR_KEY)
+    found = getattr(plan.info, "resolve", lambda n: None)(name) if name else None
+    made: list[str] = []
+    if card is not None and found is not None:  # (707.14: the card's characteristics as it last existed in the graveyard: its Oracle card)
+        created = plan.do({"type": "copy_card", "card_id": card.id, "player": ctx["controller"], "count": 1, "zone": "exile", "printing": found["id"], "name": name},
+                          actor=ctx["controller"])
+        made = list(getattr(getattr(created, "r", None), "ids", []))
+    else:
+        plan.note("No name was noted for this creature: no copy is created")  # (a copy of the face-down creature, ruling 2022-10-07)
+    effects._remember(plan, ctx, {"as": card_copy_sources.COPIES}, made)
+    return True
+
+
+PRIMITIVES.update({"magar110j": magar, "magar_copy110j": magar_copy})

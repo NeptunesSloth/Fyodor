@@ -555,3 +555,112 @@ def test_parnesse_counters_an_opponents_targeting_spell_unless_they_pay_4_life(c
     assert life(s, "p2") == (36 if pays else 40) and s.state.cards[parnesse.id].damage == (2 if pays else 0)
     assert s.state.cards[shock.id].zone == "p2:graveyard"  # resolved, or countered
     check(s)
+
+
+# -- Magar of the Magic Strings --
+MAGAR = real("Magar of the Magic Strings", "{1}{B}{R}", 3, "Legendary Creature — Minotaur Performer",
+             "{1}{B}{R}: Note the name of target instant or sorcery card in your graveyard and put it onto the battlefield face down. It's a 3/3 creature with "
+             "\"Whenever this creature deals combat damage to a player, you may create a copy of the card with the noted name. You may cast the copy without paying its mana cost\" "
+             "and \"If this creature would leave the battlefield, exile it instead of putting it anywhere else.\"", ("3", "3"), "BR")
+MURDER = real("Murder", "{1}{B}{B}", 3, "Instant", "Destroy target creature.", None, "B")
+CLOUDSHIFT = real("Cloudshift", "{W}", 1, "Instant", "Exile target creature you control, then return that card to the battlefield under your control.", None, "W")
+CLONE = real("Clone", "{3}{U}", 4, "Creature — Shapeshifter", "You may have this creature enter as a copy of any creature on the battlefield.", ("0", "0"), "U")
+IXIDOR = real("Ixidor, Reality Sculptor", "{3}{U}{U}", 5, "Legendary Creature — Human Wizard", "Face-down creatures get +1/+1.\n{2}{U}: Turn target face-down creature face up.", ("3", "4"), "U")
+base.EXTRA.extend([MAGAR, MURDER, CLOUDSHIFT, CLONE, IXIDOR])
+
+
+def test_magar_full(cards):
+    assert coverage.of_card_data(cards.resolve("Magar of the Magic Strings")).level == "FULL"
+
+
+def _magar(cards, *more):
+    s = build(cards, ["Magar of the Magic Strings", "Shock", *more])
+    magar = put(s, "Magar of the Magic Strings")
+    shock = card_named(s, "Shock")
+    act(s, "p1", type="move", card_ids=[shock.id], to={"player": "p1", "zone": "graveyard"})
+    mana(s, B=1, R=1, C=1)
+    act(s, "p1", type="activate_ability", card_id=magar.id, ability=0, targets=[shock.id])
+    answer(s)
+    return s, magar, shock
+
+
+def _attack(s, attacker, pick):
+    from tests.wave110j_kit import to_phase
+
+    to_phase(s, "declare_attackers", turn=3)
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": attacker.id, "target": "p2"}])
+    return _drive(s, pick)
+
+
+def test_magar_puts_the_card_face_down_as_a_3_3_with_the_noted_name(cards):
+    s, magar, shock = _magar(cards)
+    c = s.state.cards[shock.id]
+    ch = _plan(s).ch(c)
+    assert c.zone == "p1:battlefield" and c.face_down and ch.name == "" and (ch.power, ch.toughness) == ("3", "3") and not ch.colors and ch.mana_value == 0
+    assert c.choices == {"Noted name": "Shock"}
+    check(s)
+
+
+@pytest.mark.parametrize("cast_it", [True, False])
+def test_magar_combat_damage_casts_a_copy_of_the_noted_card_for_free(cards, cast_it):
+    s, magar, shock = _magar(cards)
+
+    def pick(d):
+        if d.prompt.startswith("Choose a spell to cast"):
+            return [d.options[0].id] if cast_it else []
+        if d.prompt == "Choose a target for Shock":
+            return ["p2"]
+        return None
+    seen = _attack(s, s.state.cards[shock.id], pick)
+    assert any(prompt.startswith("Choose a spell to cast") for _, prompt, _ in seen)
+    assert life(s, "p2") == (35 if cast_it else 37)  # 3 combat damage, then the copy's 2 (no mana paid)
+    assert s.state.cards[shock.id].zone == "p1:battlefield" and s.state.cards[shock.id].face_down
+    assert not any(c.name == "Shock" and c.id != shock.id and c.zone != "p1:library" for c in s.state.cards.values() if c.owner == "p1")  # the copy ceased to exist
+    check(s)
+
+
+def test_magar_copy_of_the_face_down_creature_has_no_noted_name(cards):
+    s, magar, shock = _magar(cards, "Clone")
+    mana(s, U=1, C=3)
+    clone = cast_card(s, "Clone")
+    _drive(s, lambda d: [shock.id] if "choose a creature to copy" in d.prompt else None)
+    ch = _plan(s).ch(s.state.cards[clone.id])
+    assert (ch.power, ch.toughness) == ("3", "3") and len(ch.abilities) == 2 and not s.state.cards[clone.id].choices
+    seen = _attack(s, s.state.cards[clone.id], lambda d: None)
+    assert life(s, "p2") == 37 and not any(prompt.startswith("Choose a spell to cast") for _, prompt, _ in seen)  # nothing is copied
+    check(s)
+
+
+@pytest.mark.parametrize("how", ["Murder", "Cloudshift"])
+def test_magar_face_down_card_leaving_is_exiled_and_stays_there(cards, how):
+    s, magar, shock = _magar(cards, how)
+    mana(s, B=2, C=1, W=1)
+    cast_card(s, how, [shock.id])
+    answer(s)
+    assert s.state.cards[shock.id].zone == "p1:exile"  # exiled instead; a blinked instant card stays in exile
+    check(s)
+
+
+def test_magar_turning_it_face_up_only_reveals_it(cards):
+    s, magar, shock = _magar(cards, "Ixidor, Reality Sculptor")
+    ixidor = put(s, "Ixidor, Reality Sculptor")
+    s.state.rules.controlled_since[ixidor.id].turn = 0
+    mana(s, U=1, C=2)
+    act(s, "p1", type="activate_ability", card_id=ixidor.id, ability=1, targets=[shock.id])
+    answer(s)
+    c = s.state.cards[shock.id]
+    assert c.zone == "p1:battlefield" and c.face_down  # revealed, stays face down (ruling 2022-10-07)
+    check(s)
+
+
+def test_clone_copies_a_face_down_creature_as_a_nameless_2_2(cards):
+    """707.2 (its example: Clone copying a face-down Grinning Demon), 708.2a: nothing of the hidden card is copied."""
+    s = build(cards, ["Clone", "Shivan Dragon"])
+    dragon = put(s, "Shivan Dragon")
+    act(s, "p1", type="face_down", card_ids=[dragon.id], face_down=True)
+    mana(s, U=1, C=3)
+    clone = cast_card(s, "Clone")
+    _drive(s, lambda d: [dragon.id] if "choose a creature to copy" in d.prompt else None)
+    ch = _plan(s).ch(s.state.cards[clone.id])
+    assert not s.state.cards[clone.id].face_down and ch.name == "" and (ch.power, ch.toughness) == ("2", "2") and not ch.abilities and not ch.colors
+    check(s)

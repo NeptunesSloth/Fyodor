@@ -186,7 +186,7 @@ def _turn_up(plan: Plan, card_id: str, actor: str) -> bool:
     if card is None or not card.face_down or not card.zone.endswith(":battlefield") or static_perm100d.face_up_barred(plan, card):
         return False
     printed = chars.of(card.model_copy(update={"face_down": False}), plan.info)
-    if card.face_down_kind in ("manifest", "cloak") and printed.is_instant_or_sorcery:
+    if (card.face_down_kind in ("manifest", "cloak") or card.face_down_as == chars.MAGAR_SPEC) and printed.is_instant_or_sorcery:  # (wave 110J: Magar's ruling 2022-10-07)
         plan.do({"type": "reveal", "card_ids": [card_id]}, actor=actor)
         plan.do({"type": "hide", "card_ids": [card_id]}, actor=actor)
         return False
