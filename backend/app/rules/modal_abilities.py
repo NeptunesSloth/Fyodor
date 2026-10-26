@@ -115,6 +115,10 @@ def definitions(ab: AbilityText, ch: Characteristics) -> dict[int, Definition]:
         from app.rules import sagas
 
         return definitions(_replace(ab, kind="triggered"), ch) if sagas.chapters_of(ab.text) else {}
+    from app.rules import wave110f_fin  # -- Riku of Many Paths (wave 110F) --
+
+    if (riku110f := wave110f_fin.modal_header(ab, ch, definitions)) is not None:
+        return riku110f
     from app.rules import wave110f_gy  # -- Cemetery Desecrator (wave 110F) --
 
     if (gy110f := wave110f_gy.definitions(ab, ch)) is not None:

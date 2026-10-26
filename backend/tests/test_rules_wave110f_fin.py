@@ -473,3 +473,87 @@ def test_jarkeld_leaves_a_creature_blocking_both(cards):
     answer(s)
     assert _blocks(s, bl[0], atk[0]) and _blocks(s, bl[0], atk[1]) and _blocks(s, bl[1], atk[0]) and not _blocks(s, bl[1], atk[1])
     check(s)
+
+
+_RIKU = ("Whenever you cast a modal spell, choose up to X, where X is the number of times you chose a mode for that spell —\n"
+         "• Exile the top card of your library. Until the end of your next turn, you may play it.\n"
+         "• Put a +1/+1 counter on Riku. It gains trample until end of turn.\n"
+         "• Create a 1/1 blue Bird creature token with flying.")
+_CONFLUENCE = ("Choose three. You may choose the same mode more than once.\n• Fiery Confluence deals 1 damage to each creature.\n"
+               "• Fiery Confluence deals 2 damage to each opponent.\n• Destroy target artifact.")
+_BASE.extend([
+    real("Riku of Many Paths", "{G}{U}{R}", 3, "Legendary Creature — Human Wizard", _RIKU, ("3", "3"), "GRU"),
+    real("Fiery Confluence", "{2}{R}{R}", 4, "Sorcery", _CONFLUENCE, None, "R"),
+    real("Test Charm 110FR", "{R}", 1, "Instant", "Choose two —\n• Test Charm 110FR deals 1 damage to target player.\n• You gain 1 life.\n• Draw a card.", None, "R"),
+    real("Test Bolt 110FR", "{R}", 1, "Instant", "Test Bolt 110FR deals 1 damage to target player.", None, "R"),
+])
+
+
+def test_riku_full(cards):
+    assert coverage.of_card_data(cards.resolve("Riku of Many Paths")).level == "FULL"
+
+
+def _riku_cast(cards, spell):
+    s = build(cards, ["Riku of Many Paths", spell], [])
+    put(s, "Riku of Many Paths")
+    mana(s, "p1", R=4)
+    return s
+
+
+def _cast_modes(s, name, modes, targets=()):
+    from tests.wave9c_kit import to_hand
+
+    c = to_hand(s, name)
+    act(s, "p1", type="cast_spell", card_id=c.id, modes=modes, **({"targets": list(targets)} if targets else {}))
+
+
+def _riku_trigger(s, picks):
+    """Pass priority until Riku's trigger asks for its modes; choose ``picks`` (indexes)."""
+    for _ in range(10):
+        d = s.state.rules.decision
+        if d is not None:
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+    assert d is not None and d.player == "p1" and d.kind == "choose_cards", d
+    assert d.max_choices >= len(picks)
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[f"{i}:0" for i in picks])
+    return d
+
+
+def test_riku_x_is_the_number_of_modes_chosen_for_the_spell(cards):
+    """700.2: Test Charm (choose two): X = 2, so Riku's trigger may choose up to two modes: a counter and a Bird."""
+    s = _riku_cast(cards, "Test Charm 110FR")
+    _cast_modes(s, "Test Charm 110FR", [1, 2])
+    d = _riku_trigger(s, [1, 2])
+    assert d.max_choices == 2
+    answer(s, "p2")
+    riku = card_named(s, "Riku of Many Paths")
+    assert s.state.cards[riku.id].counters.get("+1/+1") == 1
+    assert any(c.is_token and c.name == "Bird" and c.zone == "p1:battlefield" for c in s.state.cards.values())
+    check(s)
+
+
+def test_riku_counts_a_repeated_mode_each_time(cards):
+    """2024-04-12 ruling: Fiery Confluence's same mode three times is X = 3, so all three of Riku's modes may be chosen (each at most once)."""
+    s = _riku_cast(cards, "Fiery Confluence")
+    _cast_modes(s, "Fiery Confluence", [1, 1, 1])
+    d = _riku_trigger(s, [0, 1, 2])
+    assert d.max_choices == 3
+    answer(s, "p2")
+    assert life(s, "p2") == 40 - 6
+    check(s)
+
+
+def test_riku_ignores_a_spell_that_is_not_modal(cards):
+    s = _riku_cast(cards, "Test Bolt 110FR")
+    from tests.wave9c_kit import to_hand
+
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Test Bolt 110FR").id, targets=["p2"])
+    for _ in range(6):
+        d = s.state.rules.decision
+        assert d is None or d.kind != "choose_cards"
+        if not s.state.zones.get("stack"):
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+    assert life(s, "p2") == 39
+    check(s)

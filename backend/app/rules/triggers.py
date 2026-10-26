@@ -3241,6 +3241,10 @@ def alania_first(plan: Plan, watcher: CardInstance, player: str | None, info: di
 def event_x(plan: Plan, t: PendingTrigger) -> int | None:
     """The X of the object a triggered ability triggered on (x_source): the spell cast (its payment record: 601.2h, 107.3e) or the cycling
     cost's announced X (107.3a). None when this trigger doesn't take its X from its event."""
+    if t.ability.get("x_modes110f"):  # -- wave 110F -- Riku of Many Paths: X is the number of times a mode was chosen for the spell cast (700.2)
+        from app.rules import wave110f_fin
+
+        return wave110f_fin.modes_chosen(plan, t.event)
     if t.ability.get("x_event") and t.event is not None and t.event.amount is not None:  # -- cast-permission riders (wave 38C) -- the X a reflexive ability's payment named
         return int(t.event.amount)
     cond = t.ability.get("cond") or {}

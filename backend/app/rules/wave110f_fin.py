@@ -328,3 +328,44 @@ def resume_master(plan: Any, d: Any, chosen: list[str]) -> None:
 
 PRIMITIVES = {"master110f": master, "link_cost110f": link_cost, "seventh110f": seventh, "link_put110f": link_put, "servitude110f": servitude, "jarkeld110f": jarkeld, "tahngarth110f": tahngarth}
 RESUME = {"master110f": resume_master, "seventh110f": resume_seventh, "seventh110f_guess": resume_seventh_guess, "tahngarth110f": resume_tahngarth}
+
+
+# -- Riku of Many Paths: "Whenever you cast a modal spell, choose up to X, where X is the number of times you chose a mode for that spell —" (700.2, 2024-04-12 rulings) --
+_RIKU = "Whenever you cast a modal spell, choose up to X, where X is the number of times you chose a mode for that spell \u2014"
+
+
+def modal_header(ab: Any, ch: Any, definitions: Any) -> dict[int, Any] | None:
+    """The modal triggered ability read as "Whenever you cast a spell, choose up to X —" (X as it goes on the stack, 700.2b: ``triggers.event_x`` reads the modes
+    chosen for the cast spell), the spell restricted to modal spells (``modal_spell``); its modes can't repeat (2024-04-12 ruling)."""
+    from app.rules import scripts, selectors
+
+    if ab.kind != "triggered" or scripts.self_text(ab.text, ch.name) != _RIKU:
+        return None
+    found = definitions(replace(ab, text="Whenever you cast a noncreature spell with mana value 3 or less, choose up to X \u2014"), ch)  # (the wording that reads as a cast event)
+    head = found.get(ab.index)
+    if head is None or (head.get("cond") or {}).get("event") != "cast":
+        return {}
+    head["cond"] = {**head["cond"], "spell": selectors.Selector(zones=("stack",), extras=("modal110f",)).key()}
+    head["x_modes110f"] = True
+    return found
+
+
+def modal_spell(plan: Any, ch: Any) -> bool:
+    """700.2: a spell with two or more modes to choose among (modes chosen as it is cast)."""
+    from app.rules import scripts
+
+    d = scripts.spell_definition(ch)
+    return d is not None and bool(d.get("modal")) and len(d.get("modes") or []) >= 2
+
+
+def modes_chosen(plan: Any, event: Any) -> int | None:
+    """The number of times a mode was chosen for the cast spell (a mode chosen twice counts twice, 2024-04-12 ruling); modes an opponent chose are none of yours (700.2e).
+    As the trigger goes on the stack the spell is still there (700.2b)."""
+    if event is None or event.kind != "cast" or not event.objects:
+        return None
+    ref = event.objects[0]
+    card = plan.state.cards.get(ref.card)
+    entry = plan.rules.stack.get(ref.card)
+    if card is None or card.zone != "stack" or plan.oid(card) != ref.object_id or entry is None or ref.card in plan.rules.modes110f:
+        return 0
+    return len(entry.modes)
