@@ -400,6 +400,10 @@ def exile_bottom(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
 
 
 _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
+    # Fractured Powerstone: 901.3 the planar die is Planechase game material and 706.7 only a Planechase game rolls it; ruling 2012-06-01: in other games the
+    # roll "will have no effect" (no die is rolled, so no roll trigger, no Night Shift payment: ruling 2022-10-07 speaks only of a Planechase game)
+    "{T}: Roll the planar die. Activate only as a sorcery.":
+        ("{T}: Draw a card. Activate only as a sorcery.", lambda d: {**d, "effects": [{"do": "planechase_only"}]}),
     "Whenever you choose to put one or more cards on the bottom of your library while scrying, exile that many cards from the bottom of your library.":
         ("Whenever you scry, draw a card.", _anchor),
     "When Niv-Mizzet enters, reveal the top ten cards of your library. For each color pair, choose a card that's exactly those colors from among them. Put the chosen cards into your hand and the rest on the bottom of your library in a random order.":

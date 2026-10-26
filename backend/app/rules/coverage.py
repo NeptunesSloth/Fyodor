@@ -764,7 +764,7 @@ def features_of(ch: Characteristics) -> list[Feature]:
         gaps |= {g for g in [counters_designations_gap(whole)] if g is not None}
     for gap in sorted(gaps):
         add("engine:dungeon", gap[0].upper() + gap[1:], False)
-    # (wave 110B) Night Shift of the Living Dead: its life payment on a planar-die roll needs no model: Commander has no planar die (CR 901 is Planechase; same reading as 'chaos ensues' in wave110n_cards)
+    # Night Shift of the Living Dead: a planar-die roll happens only in Planechase (706.7, 901.3); Fractured Powerstone rolls nothing in Commander (ruling 2012-06-01)
     return out
 
 

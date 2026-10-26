@@ -33,7 +33,7 @@ def cards(settings):
     yield from repository(settings)
 
 
-@pytest.mark.parametrize("name", [AANG, AVATAR, "Havengul Lich", "The Rise of Sozin // Fire Lord Sozin", "Flameblade Angel"])
+@pytest.mark.parametrize("name", [AANG, AVATAR, "Havengul Lich", "The Rise of Sozin // Fire Lord Sozin", "Flameblade Angel", "Fractured Powerstone", "Night Shift of the Living Dead"])
 def test_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
@@ -197,3 +197,16 @@ def test_fire_lord_sozin_total_mana_value_over_x_is_refused(cards):
     d = s.state.rules.decision
     with pytest.raises(ActionError):
         act(s, "p1", type="choose", decision_id=d.id, option_ids=[o.id for o in d.options])
+
+
+def test_fractured_powerstone_rolls_nothing_in_commander_so_night_shift_stays_idle(cards):
+    """901.3/706.7 the planar die is Planechase material; ruling 2012-06-01 the roll has no effect elsewhere: no die rolled, no payment, no trigger."""
+    s = build(cards, ["Fractured Powerstone", "Night Shift of the Living Dead"], [], forests=30, islands=40)
+    stone = put(s, "Fractured Powerstone")
+    put(s, "Night Shift of the Living Dead")
+    before = life(s, "p1")
+    act(s, "p1", type="activate_ability", card_id=stone.id, ability=1)
+    drive(s)
+    assert s.state.rules.decision is None and life(s, "p1") == before
+    assert s.state.cards[stone.id].tapped  # the cost was paid, nothing else happened
+    check(s)

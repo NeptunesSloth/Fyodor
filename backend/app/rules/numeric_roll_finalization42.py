@@ -15,7 +15,7 @@ _COST = {_NIGHT: ('Pay 1 life', True), _XENO: ('Remove a +1/+1 counter from it',
 
 
 def definition(text: str) -> dict[str, Any] | None:
-    return {'kind': 'static', 'static': 'roll_adjust', 'effects': [], 'life': text == _NIGHT} if text in _COST else None  # (wave 110H) 'life': planar-die gap
+    return {'kind': 'static', 'static': 'roll_adjust', 'effects': []} if text in _COST else None
 
 
 class Adjustment(BaseModel):

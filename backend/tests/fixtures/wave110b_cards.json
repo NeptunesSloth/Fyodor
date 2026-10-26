@@ -2969,5 +2969,18 @@
   "keywords": [],
   "power": null,
   "toughness": null
+ },
+ {
+  "name": "Fractured Powerstone",
+  "layout": "normal",
+  "mana_cost": "{2}",
+  "cmc": 2.0,
+  "type_line": "Artifact",
+  "oracle_text": "{T}: Add {C}.\n{T}: Roll the planar die. Activate only as a sorcery.",
+  "colors": [],
+  "color_identity": [],
+  "keywords": [],
+  "power": null,
+  "toughness": null
  }
 ]
