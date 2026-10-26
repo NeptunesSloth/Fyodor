@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import secrets
 from dataclasses import replace
 from typing import TYPE_CHECKING, Any
 
@@ -48,9 +49,14 @@ CHAPTERS = {
 }
 
 
+PROCTOR = "Whenever a permanent entering causes a triggered ability to trigger, counter that ability unless its controller pays {2}."
+
+
 def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
     from app.rules import scripts
 
+    if ability.kind == "triggered" and scripts.self_text(ability.text, ch.name) == PROCTOR:  # read by :func:`proctor_triggers`, not by an event pass
+        return {"kind": "static", "static": "proctor110c", "effects": []}
     text = ability.text.replace(ch.name or "~", "this creature")
     if text == "If you would lose unspent mana, that mana becomes black instead.":  # 614.1a, 500.4: like Ozai's red (wave110b_cards)
         d = scripts.define(replace(ability, text="If you would lose unspent mana, that mana becomes colorless instead."), ch)
@@ -323,6 +329,34 @@ def resume_prodder(plan: Plan, d: Any, chosen: list[str]) -> None:
         effects.continue_effects(plan, r["ctx"])
 
 
+def proctor_triggers(plan: Plan, pending: Any, cause: Any) -> None:
+    """Strict Proctor: an entering permanent caused ``pending`` (and its 603.2d copies) to trigger; each Proctor on the battlefield triggers at the same time for
+    each (603.2, 603.3b: all go on the stack together, their controllers order them; a Proctor's ability put below the one it counters finds nothing to counter)."""
+    from app.game.rules_state import PendingTrigger
+    from app.rules import scripts, trigger_multipliers
+
+    if cause is None or cause.kind != "enter":
+        return
+    for c in plan.state.cards.values():
+        if not c.zone.endswith(":battlefield") or not plan.in_game(c) or plan.manual(c) or c.face_down:
+            continue
+        if not any(d.get("static") == "proctor110c" for d in scripts.definitions(plan.ch(c)).values()):
+            continue
+        for p in [pending, *trigger_multipliers._extras(plan).get(pending.id, ([], 0))[0]]:
+            plan.rules.proctor_links110c.setdefault(p.id, "")
+            plan.rules.pending_triggers.append(PendingTrigger(
+                id=secrets.token_hex(4), controller=c.controller, source_card=c.id, source_object=plan.oid(c), name=c.name,
+                ability={"kind": "triggered", "effects": [{"do": "proctor110c", "link": p.id}]}, key=f"proctor110c:{p.id}", event=cause))
+
+
+def proctor(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Counter that ability unless its controller pays {2} (701.6a; 118.12): nothing if it already left the stack."""
+    from app.rules import effects
+
+    sid = plan.rules.proctor_links110c.get(e["link"])
+    return True if not sid else effects.counter_unless(plan, ctx, {"object": sid, "cost": "{2}"})
+
+
 def prodder_done(plan: Plan, d: Any, chosen: list[str]) -> None:
     from app.rules import effects
 
@@ -338,4 +372,4 @@ def attached_if(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
 
 
 RESUME = {"prodder110c": resume_prodder, "prodder_manual110c": prodder_done, "omnath110c": resume_omnath, "evidence_x110c": resume_evidence_x}
-PRIMITIVES = {"attached_if110c": attached_if, "prodder110c": prodder, "omnath110c": omnath, "evidence_x110c": evidence_x, "revealed_x110c": revealed_x, "glyph110c": glyph, "shuttle110c": shuttle, "shuttle_attack110c": shuttle_attack}
+PRIMITIVES = {"proctor110c": proctor, "attached_if110c": attached_if, "prodder110c": prodder, "omnath110c": omnath, "evidence_x110c": evidence_x, "revealed_x110c": revealed_x, "glyph110c": glyph, "shuttle110c": shuttle, "shuttle_attack110c": shuttle_attack}
