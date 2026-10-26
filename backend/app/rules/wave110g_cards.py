@@ -178,6 +178,7 @@ _AGONY = re.compile(r"(~ deals X damage to target creature, where X is the numbe
                     r"of your library equal to the excess damage dealt to that creature this way\. You may play those cards until the end of your next turn\.")
 
 
+_BOE = "You may cast a spell with suspend from your hand. If you do, pay its suspend cost rather than its mana cost."
 _DRAIN = "Target player activates a mana ability of each land they control. Then that player loses all unspent mana and you add the mana lost this way."
 
 
@@ -185,6 +186,8 @@ def parse(body: str) -> Any:
     """Etched Host Doombringer's mode: one target battle; the protector decides between removing and adding (310.4, 310.8)."""
     from app.rules import scripts
 
+    if body.strip() == _BOE:  # The Face of Boe: a cast from hand with the suspend cost as the alternative cost (118.9, 702.62a)
+        return [{"do": "boe110g"}], None, False
     if body.strip() == _DRAIN:  # Drain Power: the Pygmy Hippo machinery on a target player, the lost mana added at once (605.3a, 106.4)
         from app.rules import language
 
@@ -1338,6 +1341,53 @@ def _activate_land(plan: Any, pid: str, cid: str, idx: int, oi: int) -> None:
     casting._produce_body(plan, card, ab, ab.options[oi], idx, extra, None, input_payment=paid, option_index=oi)
 
 
+def _suspend_costs(plan: Any, pid: str) -> dict[str, str]:
+    """The cards in the player's hand with a suspend ability, each with its suspend cost (the first instance, 702.62a)."""
+    from app.rules import casting
+
+    out: dict[str, str] = {}
+    for cid in plan.state.zones.get(f"{pid}:hand", []):
+        ch = plan.ch(plan.state.cards[cid])
+        found = next((i for ab in ch.abilities if ab.kind == "keywords" and "suspend" in ab.keywords and (i := casting.suspend_info(ch, ab.index)) is not None), None)
+        if found is not None:
+            out[cid] = found[1]
+    return out
+
+
+def boe(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """The Face of Boe (118.9): the controller may cast one spell with suspend from their hand, paying its suspend cost instead of its mana cost.
+    The pick is a decision; the cast is the engine's alternative-cost free cast (miracle machinery: free_casts + alt_costs)."""
+    from app.game.rules_state import DecisionOption
+    from app.rules.plan import decide
+
+    pid = ctx["controller"]
+    costs = _suspend_costs(plan, pid)
+    if not costs:
+        plan.note("The Face of Boe: no card with suspend in hand")
+        return True
+    decide(plan, player=pid, kind="choose_one", prompt="Cast a spell with suspend from your hand, paying its suspend cost?",
+           options=[*(DecisionOption(id=c, label=f"{plan.state.cards[c].name} ({t})", card_id=c) for c, t in costs.items()), DecisionOption(id="no", label="Don't cast")],
+           resume={"step": "boe110g", "ctx": ctx})
+    return False
+
+
+def resume_boe(plan: Any, d: Any, chosen: list[str]) -> None:
+    from types import SimpleNamespace
+
+    from app.rules import effects
+
+    r = d.resume
+    cost = _suspend_costs(plan, d.player).get(chosen[0])
+    if chosen[0] != "no" and cost is None:
+        raise ValueError("not a card with suspend in your hand")
+    if cost is None:
+        effects.continue_effects(plan, r["ctx"])
+        return
+    plan.rules.free_casts.append(chosen[0])
+    plan.rules.alt_costs[chosen[0]] = cost
+    effects.resume_suspend_cast(plan, SimpleNamespace(resume={"card": chosen[0], "ctx": r["ctx"], "decline": None}, player=d.player), ["yes"])
+
+
 def hippo(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     """Pygmy Hippo (605.3a, 106.4): the defending player activates a mana ability of each land they control, in the order they choose, then loses all unspent mana; the
     mana actually lost (a "becomes colorless instead" keeps it) is what the controller adds later. A land whose mana ability can't be activated by the engine
@@ -1407,7 +1457,7 @@ _BUILD[_HIPPO] = ("Whenever this creature attacks and isn't blocked, you may dra
     {"do": "deferred:add_mana", "sym": "C", "n": {"ref_amount": "lost110g"}}]})
 
 
-PRIMITIVES: dict[str, Any] = {"hippo110g": hippo, "volute_bind110g": volute_bind, "volute_attach110g": volute_attach, "river110g": river, "equipoise110g": equipoise, "glamer110g": glamer, "gy_pairs110g": gy_pairs, "reattach110g": reattach, "speed_cut110g": speed_cut, "exile_split110g": exile_split, "halfdane110g": halfdane, "exile_gy_until110g": exile_gy_until, "idol_cast110g": idol_cast, "bind_exiled110g": bind_exiled, "firm_creature110g": firm_creature, "elkin110g": elkin, "suncleanser110g": suncleanser, "fallen110g": fallen, "destroy_instead110g": destroy_instead, "exchange_power110g": exchange_power, "lowest_life_control110g": lowest_life_control,
+PRIMITIVES: dict[str, Any] = {"boe110g": boe, "hippo110g": hippo, "volute_bind110g": volute_bind, "volute_attach110g": volute_attach, "river110g": river, "equipoise110g": equipoise, "glamer110g": glamer, "gy_pairs110g": gy_pairs, "reattach110g": reattach, "speed_cut110g": speed_cut, "exile_split110g": exile_split, "halfdane110g": halfdane, "exile_gy_until110g": exile_gy_until, "idol_cast110g": idol_cast, "bind_exiled110g": bind_exiled, "firm_creature110g": firm_creature, "elkin110g": elkin, "suncleanser110g": suncleanser, "fallen110g": fallen, "destroy_instead110g": destroy_instead, "exchange_power110g": exchange_power, "lowest_life_control110g": lowest_life_control,
                            "sacrifice_pair110g": sacrifice_pair, "swap_tapped110g": swap_tapped, "opponent_exiles110g": opponent_exiles,
                               "unattach_enchanted110g": unattach_enchanted}
-RESUME: dict[str, Any] = {"hippo110g": resume_hippo, "river110g": resume_river, "river_label110g": resume_river_label, "equipoise110g": resume_equipoise, "glamer110g": resume_glamer, "gy_pairs110g": resume_gy_pairs, "reattach110g": resume_reattach, "lowest_control110g": resume_lowest_control, "opponent_exiles110g": resume_opponent_exiles}
+RESUME: dict[str, Any] = {"boe110g": resume_boe, "hippo110g": resume_hippo, "river110g": resume_river, "river_label110g": resume_river_label, "equipoise110g": resume_equipoise, "glamer110g": resume_glamer, "gy_pairs110g": resume_gy_pairs, "reattach110g": resume_reattach, "lowest_control110g": resume_lowest_control, "opponent_exiles110g": resume_opponent_exiles}

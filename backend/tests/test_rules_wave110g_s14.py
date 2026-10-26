@@ -22,6 +22,8 @@ SEA = ("(As this Saga enters and after your draw step, add a lore counter. Sacri
        "(It can't be blocked as long as defending player controls an Island.)\nIII — Until end of turn, whenever a Salamander deals combat damage to a player, "
        "it deals that much damage to target creature that player controls.")
 EXTRA = [
+    real("The Face of Boe", "{1}{U}{R}{W}", 4, "Legendary Creature \u2014 Alien Advisor", "{T}: You may cast a spell with suspend from your hand. If you do, pay its suspend cost rather than its mana cost. Activate only as a sorcery.", ("0", "4"), "URW"),
+    real("Rift Bolt", "{2}{R}", 3, "Sorcery", "Rift Bolt deals 3 damage to any target.\nSuspend 1\u2014{R} (Rather than cast this card from your hand, you may pay {R} and exile it with a time counter on it. At the beginning of your upkeep, remove a time counter. When the last is removed, you may cast it without paying its mana cost.)", None, "R"),
     real("The Sea Devils", "{2}{U}{U}", 4, "Enchantment \u2014 Saga", SEA, None, "U"),
     real("Test Wall", "{2}", 2, "Creature \u2014 Wall", "", ("0", "9"), ""),
     real("Drain Power", "{U}{U}", 2, "Sorcery", DRAIN, None, "U"),
@@ -164,4 +166,45 @@ def test_the_sea_devils_chapter_three_salamanders_hit_a_creature_of_the_damaged_
             act(s, s.state.rules.priority, type="pass_priority")
     assert s.state.players["p2"].life == 40 - 6
     assert s.state.cards[wall.id].damage == 4
+    check(s)
+
+
+def _boe(cards, pick, pool):
+    s = build(cards, ["The Face of Boe", "Rift Bolt", "Test Tonic"], [])
+    boe = put(s, "The Face of Boe")
+    s.state.rules.controlled_since[boe.id].turn = 0
+    to_hand(s, "Rift Bolt"), to_hand(s, "Test Tonic")
+    mana(s, **pool)
+    act(s, "p1", type="activate_ability", card_id=boe.id, ability=0)
+    return s, boe
+
+
+def _finish(s, pick):
+    for _ in range(40):
+        d = s.state.rules.decision
+        if d is not None:
+            ids = [o.id for o in d.options]
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[next((i for i in ids if i in pick), ids[0])])
+        elif s.state.zones.get("stack"):
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            return
+
+
+def test_face_of_boe_casts_rift_bolt_for_its_suspend_cost(cards):
+    """118.9 / 702.62a: only the card with suspend is offered (Test Tonic is not); Rift Bolt is cast for {R} (not {2}{R}) and hits Bob for 3."""
+    s, boe = _boe(cards, "x", {"R": 1})
+    d = s.state.rules.decision
+    names = sorted(s.state.cards[o.id].name for o in d.options if o.id != "no")
+    assert names == ["Rift Bolt"]
+    _finish(s, ("p2", card_named(s, "Rift Bolt").id))
+    assert s.state.players["p2"].life == 37
+    assert s.state.cards[boe.id].tapped
+    check(s)
+
+
+def test_face_of_boe_can_decline(cards):
+    s, boe = _boe(cards, "x", {"R": 1})
+    _finish(s, ("no",))
+    assert s.state.players["p2"].life == 40 and s.state.cards[card_named(s, "Rift Bolt").id].zone == "p1:hand"
     check(s)
