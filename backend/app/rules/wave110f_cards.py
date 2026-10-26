@@ -368,7 +368,108 @@ def _snitch() -> Parsed:
     return [{**effects[0], "remove": ["protection from black"]}], targets, optional
 
 
+def vapors(plan: Any, ctx: dict[str, Any], e: dict[str, Any], st: dict[str, Any] | None = None) -> bool:
+    """Noxious Vapors: each player (APNAP, 101.4) reveals their hand (701.20a) and chooses one card of each color from it; every other nonland card is
+    discarded at once (a color with a single card in hand has nothing to choose; colorless nonland cards are of no color, so never chosen). Whether one multicolored
+    card (105.2b) can serve as the chosen card of each of its colors has no CR rule or ruling in the local data: a hand with one is resolved by hand (manual_resolution)."""
+    from app.game.rules_state import DecisionOption
+    from app.rules import effects
+    from app.rules.plan import decide
+
+    if st is None and any(len(plan.ch(plan.state.cards[x]).colors) > 1 and "Land" not in plan.ch(plan.state.cards[x]).types
+                          for p in plan.apnap() for x in plan.state.zones.get(f"{p}:hand", [])):
+        decide(plan, player=ctx["controller"], kind="manual_resolution", prompt="A hand holds a multicolored card; the rules do not settle how Noxious Vapors treats it. "
+               "Each player reveals their hand, chooses one card of each color from it and discards the other nonland cards by hand, then press Done.",
+               options=[DecisionOption(id="done", label="Done")], resume={"step": "manual110f", "ctx": ctx})
+        return False
+    st = st or {"todo": list(plan.apnap()), "keep": [], "colors": None, "toss": []}
+    while st["todo"]:
+        pid = st["todo"][0]
+        hand = list(plan.state.zones.get(f"{pid}:hand", []))
+        if st["colors"] is None:
+            if hand:
+                plan.do({"type": "reveal", "card_ids": hand}, actor=pid)
+            st["colors"] = [c for c in "WUBRG" if any(c in plan.ch(plan.state.cards[x]).colors for x in hand)]
+        while st["colors"]:
+            color = st["colors"][0]
+            of_color = [x for x in hand if color in plan.ch(plan.state.cards[x]).colors]
+            if len(of_color) > 1:
+                decide(plan, player=pid, kind="choose_one", prompt=f"Choose one card of color {color} from your hand",
+                       options=[DecisionOption(id=x, label=plan.state.cards[x].name, card_id=x) for x in of_color],
+                       resume={"step": "vapors110f", "ctx": ctx, "e": e, "st": st})
+                return False
+            st["keep"] += of_color
+            st["colors"].pop(0)
+        st["toss"] += [x for x in hand if x not in st["keep"] and "Land" not in plan.ch(plan.state.cards[x]).types]
+        st["todo"].pop(0)
+        st["colors"] = None
+    return effects._discard_next(plan, ctx, 0, [], st["toss"], None)
+
+
+def resume_cmd_color(plan: Any, d: Any, chosen: list[str]) -> None:
+    from app.rules import wave110f_cmd
+
+    wave110f_cmd.resume(plan, d, chosen)
+
+
+def resume_manual(plan: Any, d: Any, chosen: list[str]) -> None:
+    from app.rules import effects
+
+    effects.continue_effects(plan, d.resume["ctx"])
+
+
+def resume_vapors(plan: Any, d: Any, chosen: list[str]) -> None:
+    from app.rules import effects
+
+    st = d.resume["st"]
+    st["keep"].append(chosen[0])
+    st["colors"].pop(0)
+    if vapors(plan, d.resume["ctx"], d.resume["e"], st):
+        effects.continue_effects(plan, d.resume["ctx"])
+
+
+_LANDS = '{"types":["Land"]}'
+
+
+def worms(plan: Any, ctx: dict[str, Any], e: dict[str, Any], st: dict[str, Any] | None = None) -> bool:
+    """Worms of the Earth: "any player may sacrifice two lands of their choice or have this enchantment deal 5 damage to that player. If a player does either,
+    destroy this enchantment." 101.4 / 118.12: every player answers in turn order (APNAP) before anything happens (the ruling style of Clackbridge Troll), then the
+    sacrifices and damage are done, and the enchantment is destroyed once if anyone did either."""
+    from app.game.rules_state import DecisionOption
+    from app.rules.plan import decide
+
+    st = st or {"todo": list(plan.apnap()), "sac": [], "hit": []}
+    while st["todo"]:
+        pid = st["todo"][0]
+        lands = [c for c in plan.state.zones.get(f"{pid}:battlefield", []) if "Land" in plan.ch(plan.state.cards[c]).types]
+        options = ([DecisionOption(id="sac", label="Sacrifice two lands")] if len(lands) >= 2 else []) + [
+            DecisionOption(id="hit", label="Have it deal 5 damage to you"), DecisionOption(id="no", label="Do nothing")]
+        decide(plan, player=pid, kind="choose_one", prompt="Worms of the Earth: sacrifice two lands or take 5 damage to destroy it?", options=options,
+               resume={"step": "worms110f", "ctx": ctx, "e": e, "st": st})
+        return False
+    todo = [{"do": "sacrifice_choice", "who": f"player:{p}", "sel": "sel:" + _LANDS, "n": 2} for p in st["sac"]]
+    todo += [{"do": "damage", "who": f"player:{p}", "n": 5} for p in st["hit"]]
+    if todo:
+        todo.append({"do": "destroy", "who": "self"})
+    ctx["effects"][ctx["next"]:ctx["next"]] = todo
+    return True
+
+
+def resume_worms(plan: Any, d: Any, chosen: list[str]) -> None:
+    from app.rules import effects
+
+    st = d.resume["st"]
+    st["todo"].pop(0)
+    if chosen[0] in ("sac", "hit"):
+        st[chosen[0]].append(d.player)
+    if worms(plan, d.resume["ctx"], d.resume["e"], st):
+        effects.continue_effects(plan, d.resume["ctx"])
+
+
 BUILDERS: dict[str, Callable[[], Parsed | None]] = {
+    "This turn and next turn, creatures can't attack, and players and permanents can't be the targets of spells or activated abilities.": lambda: ([{"do": "peace_talks110f"}], None, False),
+    "any player may sacrifice two lands of their choice or have ~ deal 5 damage to that player. If a player does either, destroy ~.": lambda: ([{"do": "worms110f"}], None, False),
+    "Each player reveals their hand, chooses one card of each color from it, then discards all other nonland cards.": lambda: ([{"do": "vapors110f"}], None, False),
     "Each player sacrifices an artifact, a creature, an enchantment, a land, and a planeswalker of their choice.": _release,
     "it deals 2 damage to target creature an opponent controls. Destroy all Equipment attached to that creature.": _fires,
     "Destroy up to two target creatures the chosen player controls. They can't be regenerated. The chosen player draws up to three cards.": lambda: _lore(),
@@ -407,8 +508,8 @@ REWRITES = {
     "Destroy target attacking creature, then put this card on top of your library.": "Destroy target attacking creature. Put ~ on top of your library.",  # Vengeful Pharaoh
                 "it deals 6 damage to each creature it blocked this combat.": "~ deals 6 damage to each creature blocked by it.",
 }
-PRIMITIVES: dict[str, Any] = {"barrier_direction110f": barrier_direction, "remove_enchantments110f": remove_enchantments, "same_colors110f": same_colors, "phase_swap110f": phase_swap, "exile_discarded110f": exile_discarded, "turn_up_choice110f": turn_up_choice, "reveal_chroma110f": reveal_chroma, "unlock110f": unlock}
-RESUME: dict[str, Any] = {"turn_up_choice110f": resume_turn_up, "reveal_chroma110f": resume_reveal_chroma, "unlock110f": resume_unlock}
+PRIMITIVES: dict[str, Any] = {"barrier_direction110f": barrier_direction, "remove_enchantments110f": remove_enchantments, "same_colors110f": same_colors, "phase_swap110f": phase_swap, "exile_discarded110f": exile_discarded, "turn_up_choice110f": turn_up_choice, "reveal_chroma110f": reveal_chroma, "unlock110f": unlock, "vapors110f": vapors, "worms110f": worms}
+RESUME: dict[str, Any] = {"cmd_color110f": resume_cmd_color, "vapors110f": resume_vapors, "manual110f": resume_manual, "worms110f": resume_worms, "turn_up_choice110f": resume_turn_up, "reveal_chroma110f": resume_reveal_chroma, "unlock110f": resume_unlock}
 
 
 # 905.2 / 103.6: nothing is drafted in Commander, so these cards never have a card, note or chosen color (app/rules/draft_only.py).
@@ -416,6 +517,7 @@ RESUME: dict[str, Any] = {"turn_up_choice110f": resume_turn_up, "reveal_chroma11
 DRAFT_NOTHING = {
     "copy a card you exiled with cards named Arcane Savant. You may cast the copy without paying its mana cost.",
     "Create a token that's a copy of a card you exiled with cards named Caller of the Untamed. X is the mana value of that card.",
+    "you may search your hand and/or library for a card with a name noted as you drafted cards named Aether Searcher. You may cast it without paying its mana cost. If you search your library this way, shuffle.",  # (wave 110I)
     "Choose a card at random you exiled with cards named Volatile Chimera. ~ becomes a copy of that card, except it has this ability.",
 }
 GARBAGE_FIRE = "~ deals damage to target creature equal to the highest number you noted for cards named Garbage Fire."  # target kept, nothing was noted
@@ -561,13 +663,50 @@ _STICKER_BACK = "Whenever you put {k} sticker on a creature, you may return this
 _FIRES = "{2}{R}: Exile the top card of your library. You may play that card this turn. When you play a card this way, ~ deals 2 damage to each player."
 
 
+_MALIK = "When ~ enters, you and target opponent each secretly choose a creature that player controls. Then those choices are revealed, and that player sacrifices those creatures."
+_DROP = "Whenever you roll to visit your Attractions, target creature gains flying until end of turn, or until any player rolls a 1, whichever comes first."
+_DANCE = {
+    "When ~ leaves the battlefield, exile the token.": "When ~ leaves the battlefield, exile target creature.",
+    "When the token leaves the battlefield, sacrifice ~.": "Whenever a creature leaves the battlefield, sacrifice ~.",
+}
+
+
 def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
     """Essence of the Wild: the static is read at entry (copying.entering -> :func:`copy_on_entry`), it has no effect of its own."""
     from dataclasses import replace
 
-    from app.rules import scripts
+    from app.rules import scripts, wave110f_cmd, wave110f_sac
 
+    if (cmd110f := wave110f_cmd.definition(ability, ch)) is not None:  # Faceless One, The Prismatic Piper
+        return cmd110f
+    if (sac110f := wave110f_sac.definition(ability, ch)) is not None:  # Brutal Suppression, Drought
+        return sac110f
     text = scripts.self_text(ability.text, ch.name)
+    if ability.kind == "triggered" and text == _MALIK:  # 101.4c, 701.21a: both choose in secret, revealed together; that player sacrifices them (Malik's second ability sees it)
+        from app.rules import group_choice
+
+        native = scripts.define(replace(ability, text="When ~ enters, target opponent sacrifices a creature."), ch)
+        if native is None or (key := group_choice._key("creature")) is None:
+            return None
+        return {**native, "effects": [
+            {"do": "gc_choose", "who": ["you", "target"], "what": "object", "secret": True, "as": "gc", "kinds": [
+                {"sel": key, "mine": False, "by": "you", "of": "target", "say": "a creature target opponent controls"},
+                {"sel": key, "mine": True, "by": "target", "of": "target", "say": "a creature you control"}]},
+            {"do": "sacrifice", "who": "ref:gc:chosen", "by": "controller"}]}
+    if ability.kind == "triggered" and text == _DROP:  # 611.2a: flying lasts until end of turn or until any player rolls a 1 (706.2), whichever is first
+        native = scripts.define(replace(ability, text=_DROP.replace(", or until any player rolls a 1, whichever comes first", "")), ch)
+        if native is None or [x["do"] for x in native["effects"]] != ["grant"]:
+            return None
+        return {**native, "effects": [{"do": "until", "n": 1, "duration": "roll1_110f"}, *native["effects"]]}
+    if ability.kind == "triggered" and text in _DANCE:  # Dance of Many: "the token" is the token its own enters ability created (111.2, 603.10a)
+        native = scripts.define(replace(ability, text=_DANCE[text]), ch)
+        if native is None:
+            return None
+        if text.startswith("When the token"):
+            from app.rules import selectors
+
+            return {**native, "cond": {**native["cond"], "sel": selectors.Selector(token=True, extras=("made_by_source110f",)).key()}}
+        return {**native, "target": None, "effects": [{"do": "made110h", "as": "made110h"}, {**native["effects"][0], "who": "ref:made110h"}]}
     if ability.kind == "triggered" and text == "When ~ enters and at the beginning of your upkeep, choose left or right.":
         native = scripts.define(replace(ability, text="When ~ enters and at the beginning of your upkeep, draw a card."), ch)
         if native is not None:  # Mystic Barrier: both triggers, the same choice
@@ -762,3 +901,8 @@ def damage_colors(plan: Any, ch: Any) -> Any:
 PRIMITIVES["draw_up_to110f"] = draw_up_to
 PRIMITIVES["edict_match110f"] = edict_match
 RESUME.update({"draw_up_to110f": resume_draw_up_to, "chooser110f": resume_chooser, "cast_modes_opp110f": resume_modes})
+
+from app.rules import wave110f_gy as _wave110f_gy  # noqa: E402  -- Cemetery Desecrator (wave 110F) --
+
+PRIMITIVES.update(_wave110f_gy.PRIMITIVES)
+RESUME.update(_wave110f_gy.RESUME)

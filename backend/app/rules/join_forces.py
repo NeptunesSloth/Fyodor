@@ -25,7 +25,7 @@ BIND = "jf"  # the binding the total is recorded under ("the total amount of man
 
 def join_forces(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     live = set(plan.live())
-    seats = plan.state.seat_order
+    seats = plan.state.turn_order()
     start = seats.index(ctx["controller"]) if ctx["controller"] in seats else 0
     order = [p for i in range(len(seats)) if (p := seats[(start + i) % len(seats)]) in live]
     bind = e["bind"]

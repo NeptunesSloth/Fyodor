@@ -1,15 +1,12 @@
-# Wave 110M refusals
-- Aeon Engine: "Reverse the game's turn order" — the engine's only turn order is `seat_order`, which is also seating (left/right, draft, votes); reversing it would corrupt those. Needs a separate direction flag read by every turn-advance site.
-- Wall of Shadows: "can't be the target of spells that can target only Walls" — legality of a target is decided without the targeting spell's own target description (`targets.can_target` gets no selector); would need that plumbed through every targeting path.
-- Snowblind: "Y is equal to X or to enchanted creature's toughness minus 1, whichever is smaller" — its own -X/-Y changes the toughness it reads (layer 7c self-reference); the ruling on which toughness counts is not settled here, so refuse.
-- Veiled Crocodile: a state trigger ("When a player has no cards in hand, if this permanent is an enchantment") whose result leaves the condition true; no ruling on its re-triggering was found, and re-triggering forever is the engine's likely outcome.
-- Firesong and Sunspeaker: "causes you to gain life" needs the source spell of each life gain (lifelink and direct); life-gain events carry no source.
-- Marshland Bloodcaster: the "next spell you cast this turn" alternative cost (life equal to its mana value) is not modelled by the alt-cost machinery.
-- North Star: "mana of any type" for one spell this turn; spend-as-though grants are per color or whole-turn only here.
-- Panglacial Wurm: casting a card from the library while searching it is a special action inside another effect; not modelled.
-- Old-Growth Troll: returns as an Aura that chooses a land as it enters from the graveyard and grants two abilities; no machinery for a creature returning as an Aura with granted abilities.
-- Estrid, the Masked / Smoke Spirits' Aid: Aura tokens named and attached on creation with a granted ability or umbra armor; no token Aura machinery.
-- Kefnet, Eisenhorn: "You may reveal the first card you draw each turn as you draw it" is an optional static choice inside a draw; the draw flush cannot pause for it.
-- Tawnos's Coffin: returns the exiled card with its noted counters and then its Auras attached; counters and attachments are not recorded per exiled card.
-- Others in the list (Goblin Game, Bend or Break, Centaur of Attention, Rip, Kylox, Nihiloor, Hurkyl, Magar, Timothar (an "It gains" triggered ability on a token just created), Baron Zemo, Desdemona, Alaundo, Sen Triplets, Grell Philosopher, Grip of Chaos, Invasion of New Phyrexia, March from Velis Vel, Myra, Zygon Infiltrator, Ludevic, Rocketship, Balduvian Shaman, Golgothian Sylex, Shaman's Trance, Panglacial Wurm) were not attempted this wave: each needs its own new machinery (hidden simultaneous choices, stored dice, text changing, set membership data, cast-from-other-zone permissions, ...).
-- Limitation (not a refusal): Kaervek's Spite sacrifices every permanent as a cost, so the automatic payment never taps a land it then sacrifices; tap the lands for mana first (tested).
+# Wave 110M — cards left PARTIAL (73/79 of cloud_m.txt are FULL)
+
+One line each: what is missing and why it was not guessed.
+
+- Snowblind: Y = min(X, "enchanted creature's toughness minus 1"). CR 613 does not settle whether that toughness is read before or after the other layer-7 effects (including this one's own -X); no ruling in `data/rules`. Refused rather than guess.
+- Shaman's Trance: "as though those cards were in your graveyard" must make flashback/escape/Underworld Breach-style graveyard permissions (and "from your graveyard" restrictions) treat another player's graveyard as yours. The engine keys every graveyard permission to the holder's own graveyard; making that substitution global is not done, and a partial version would mis-handle those permissions.
+- Panglacial Wurm: casting a card from the library in the middle of a search needs a priority/cast window inside resolving search (CR 701.23 plus 117.1 mid-resolution casting, ruling 2018-xx "cast it while the search resolves"). The resolution loop has no such pause; not faked.
+- North Star: "for one spell this turn" needs an opt-in marker chosen at cast time that is applied to that spell's payment only; the cast flow has no per-spell payment-rule choice. Not built; mana-as-any-type stays manual.
+- Grell Philosopher: gains all activated abilities of another permanent for a turn and lets blue mana pay for them in any color; the ability copy plus spend-as-any-color for borrowed abilities is not built.
+- Magar of the Magic Strings: face-down permanent with a noted card name, plus copy-and-cast of the noted name from a later combat-damage trigger; the noted-name store across a face-down object is not built.
+
+Known limits of promoted cards: Bloodcaster's life offers do not cover X spells.

@@ -264,6 +264,13 @@ def named_choices(plan: Plan, controller: str, defs: list[dict[str, Any]], answe
             what = e.get("what")
             if e.get("do") != "choose_value" or not what:
                 continue
+            if what == "warpeace110e":  # -- war or peace (wave 110E) -- one question per player
+                from app.rules import wave110e_opp
+
+                wave110e_opp.war_choices(plan, controller, answers, out)
+                continue
+            if what == "secret110e" and what not in answers and (only := card_names.sole_opponent(plan, controller)):
+                answers[what] = only  # -- entry secret choice (wave 110E) -- one opponent: no question
             if what == card_names.LOOK and what not in answers and (only := card_names.sole_opponent(plan, controller)):
                 answers[what] = only  # -- card names (wave 22B) -- one opponent: no question
             if d.get("control") and what not in answers and (only := card_names.sole_opponent(plan, controller)):
@@ -569,6 +576,10 @@ def choice_prompt(plan: Plan, card: CardInstance, controller: str, choice: dict[
 
     if what == wave110e_opp.WHO:  # (wave 110E)
         return wave110e_opp.prompt(plan, card, controller)
+    if what.startswith(wave110e_opp.WAR + ":"):  # (wave 110E)
+        return wave110e_opp.war_prompt(plan, card, what)
+    if what == wave110e_opp.SECRET:  # (wave 110E)
+        return wave110e_opp.secret_prompt(plan, card, controller)
     from app.rules import chosen_forms95
 
     if what.startswith(chosen_forms95.PREFIX):
@@ -905,6 +916,9 @@ def move_together(plan: Plan, entries: list[Entry], *, simultaneous: dict[str, A
     together = [c.id for _, c, _ in planned]  # (wave 5H: 614.12)
     for entry, card, ep in planned:
         _after_move(plan, entry, card.id, ep, together)
+    from app.rules import wave110e_once  # -- one-shot entry counters (wave 110E) --
+
+    wave110e_once.spend(plan, together)
 
 
 def _after_move(plan: Plan, entry: Entry, card_id: str, ep: dict[str, Any], together: list[str] | None = None,
@@ -1009,7 +1023,17 @@ def _counter_amount(plan: Plan, card_id: str, controller: str, d: dict[str, Any]
     return amount
 
 
-def after_entry(plan: Plan, card_id: str, controller: str, *, x: int | None = None,
+def after_entry(plan: Plan, card_id: str, controller: str, *, x: int | None = None, **kw: Any) -> tuple[Any, Any] | None:
+    """``_after_entry``, then (-- wave 110E --, 614.1c) a lone entry (no ``newcomers`` batch: its caller spends) uses up the one-shot entry effects."""
+    result = _after_entry(plan, card_id, controller, x=x, **kw)
+    if kw.get("newcomers") is None and not kw.get("preview"):
+        from app.rules import wave110e_once
+
+        wave110e_once.spend(plan, [card_id])
+    return result
+
+
+def _after_entry(plan: Plan, card_id: str, controller: str, *, x: int | None = None,
                 extra_counters: dict[str, int] | None = None, choices: dict[str, str] | None = None,
                 newcomers: list[str] | None = None, bare: bool = False,
                 prepared: tuple[Any, Any] | None = None, preview: bool = False) -> tuple[Any, Any] | None:
@@ -1048,6 +1072,8 @@ def after_entry(plan: Plan, card_id: str, controller: str, *, x: int | None = No
             if not value or (what not in CHOICE_LABELS and not card_names.is_choice(what)):
                 continue
             shown = plan.name(value) if what in ("opponent", "player") and value in plan.state.players else value
+            if what == card_names.SECOND:  # -- two names (wave 110F) -- Null Chamber: the opponent's name joins the first
+                shown = card_names.SEP.join(x for x in (plan.state.cards[card_id].choices.get(card_names.LABEL), shown) if x)
             plan.do({"type": "set_choice", "card_id": card_id, "key": card_names.LABEL if card_names.is_choice(what) else CHOICE_LABELS[what], "value": shown}, actor=controller)
             if what in ("opponent", "player") and value in plan.state.players:  # -- chosen player (wave 4J) --
                 from app.rules import chosen
@@ -1057,12 +1083,24 @@ def after_entry(plan: Plan, card_id: str, controller: str, *, x: int | None = No
         from app.rules import wave110a_control  # -- entry control (wave 110A) --
 
         wave110a_control.give(plan, card_id, choices)
+        from app.rules import wave110e_opp  # -- entry secret choice (wave 110E) --
+
+        wave110e_opp.secret_record(plan, card_id, controller, choices)
+        wave110e_opp.war_record(plan, card_id, choices)
+        from app.rules import wave110e_note  # -- noted values (wave 110E) --
+
+        wave110e_note.entered(plan, card_id)
         from app.rules import wave110c_rad  # -- optional entering choice (wave 110C) --
 
         wave110c_rad.apply(plan, card_id, controller, choices)
         from app.rules import wave110a_pick  # -- chosen objects (wave 110A) --
 
         wave110a_pick.record(plan, card_id, choices)
+        from app.rules import (
+            wave110o_cards,  # -- (wave 110O) -- the card picked as it entered is exiled with it
+        )
+
+        wave110o_cards.entered(plan, card_id, controller, choices)
         from app.rules import chosen_color_pairs45
 
         chosen_color_pairs45.record_entry(plan, card_id, choices)
@@ -1603,7 +1641,7 @@ def offer_616(plan: Plan) -> bool:
             continue
         chooser = card.controller if _from_zone(card) in ("battlefield", "stack") else card.owner  # (a spell has a controller too: 110.2, 616.1)
         decide(plan, player=chooser, kind="choose_one",
-               prompt=f"{card.name or 'A card'} would be put into a graveyard: which replacement effect applies first? (616.1)",
+               prompt=f"{card.name or 'A card'} would {'enter the battlefield' if p.get('entry110h') else 'be put into a graveyard'}: which replacement effect applies first? (616.1)",
                options=[DecisionOption(id=o, label=f"{src}: {p['texts'][o]}",
                                        card_id=(((p.get('cands') or {}).get(o) or {}).get('rider') or {}).get('source') or None)
                         for o, src in p["options"].items()],
@@ -1628,6 +1666,9 @@ def resume_616(plan: Plan, d: Any, chosen: list[str]) -> None:
         next((c for c in zone_candidates(plan, card, p["dest"]) if c.sig == chosen[0]), None)
     if cand is None:  # (nothing applies any more: the event goes on as it was, its replacements looked at again)
         plan.do({"type": "move", "card_ids": [cid], "to": {"player": card.owner, "zone": p["dest"]}}, actor=card.controller)
+        _finish_616_then(plan, cid, d.resume.get('then'), commander_key)
+        return
+    if p.get("entry110h") and cand.outcome == "exile" and card.zone.endswith(":exile"):  # -- cards (wave 110H) -- it stays in exile: no zone change (Don't Blink)
         _finish_616_then(plan, cid, d.resume.get('then'), commander_key)
         return
     if cand.used:  # (a spell cast "without paying …": its one-shot "exile it instead" is used up, 614.5)
@@ -1733,6 +1774,8 @@ def replace_move(plan: Plan, payload: dict[str, Any], actor: str | None) -> dict
         from app.rules import creature_entry_redirect
 
         payload = creature_entry_redirect.move(plan, payload)
+        if payload.get("type") != "move":
+            return payload  # (110H: every card was shuffled in instead)
     if kind == "mill":
         return _replace_mill(plan, payload, actor)
     if kind != "move":

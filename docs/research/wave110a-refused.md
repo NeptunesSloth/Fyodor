@@ -33,13 +33,11 @@
 - Leyline of Transformation: "As this enters, choose a creature type" from the opening hand needs a pending choice in the pregame (opening_hand.act raises if enter asks); foundation, skipped.
 - Tectonic Split: additional cost "sacrifice half the lands you control, rounded up" is a variable mandatory cost (no CostComponent amount from a count); skipped.
 - Frenzied Saddlebrute: haste "as attacking your opponents" needs the defender in combat.attack_problem (not passed); skipped.
-- Zinnia, Valley's Voice: granted offspring is read from the permanent's keywords at entry (keyword_triggers), not the spell's cast abilities; skipped.
 - Teferi, Who Slows the Sunset: emblem "untap during each opponent's untap step" and "draw during each opponent's draw step" are turn-based actions in the opponent's step; a trigger would give opponents a response window (wrong).
 - Tezzeret, Betrayer of Flesh: "first activated ability of an artifact you activate each turn" must count mana abilities too (which skip the casting path), so the cost cut would apply to the wrong ability.
 - Karn, Living Legacy: emblem with an activated ability ("Tap an untapped artifact you control: ...") is not run from the command zone (designations.emblem_text_ok allows no activated abilities); -1 pay any amount of mana unsupported.
 - See the Unwritten: ferocious "put two creature cards instead of one": whether exactly one may be put is undecided (earlier wave 100 note).
 - Officious Interrogation: "any number of target players" with a total-creature investigate count has no target group foundation.
-- Zinnia, Valley's Voice: granted offspring "as you cast them"; whether the resulting permanent keeps the offspring ETB trigger is unsettled (702.175a).
 - Volcanic Offering: "target ... of an opponent's choice" on a spell; delegated_target_announcements handles activated abilities only.
 - Berserker's Frenzy: roll two d20 ignore the lower + cast timing + two choosers; too many new pieces.
 - Wheel of Potential: "pay any amount of {E}" then X-sized each-player exile/draw not read by the grammar.
@@ -53,3 +51,10 @@
 - Leonin Arbiter: "any player may pay {2} ... ignore this effect": no CR rule or ruling in the repo for when the payment may be made.
 - Teferi, Celestial Reunion, You Look Upon the Tarrasque: now built (wave 110A s16): Teferi emblem = turn-based statics in the engine (wave110a_teferi), Reunion = cast-time type + two-object behold, Tarrasque = lure rule with a caster-relative selector extra.
 - Psychic Paper (wave 110A s16): "As this Equipment becomes attached, choose a name and a type" needs a pause inside attachments.attach (21 callers, none resumable) and an "equipped creature's name and creature type are the last chosen" dynamic layer 3/4 static; deferred, a foundation not a ruling gap. Volcanic Offering: agent D.
+- See the Unwritten: ferocious "you may put two creature cards ... instead" - unsettled whether exactly one may be put (no CR rule or ruling at hand); not automated.
+- Leonin Arbiter: "Any player may pay {2} for that player to ignore this effect": timing and per-player payment are not defined by a CR rule or ruling at hand.
+- The Master, Multiplied: "triggered abilities can't cause you to sacrifice or exile creature tokens" needs a triggered-source flag in ctx at ~15 sacrifice/exile sites (prohibitions.cant_cause_sacrifice callers).
+
+- Secret of Bloodbending: needs control of a player for one combat phase only (game/control.py is per turn) plus an optional waterbend additional cost; the later wave builds both together.
+- Metamorphic Alteration: "enchanted creature is a copy of the chosen creature" needs a live (not frozen) layer-1 copy static tied to the Aura plus "choose a creature" on entry; no CR ruling needed, foundation missing.
+- Fblthp, Lost on the Range: plot from the top of the library needs a granted plot ability on a library card and the plot special action from that zone (casting.activate_ability handles hand only).

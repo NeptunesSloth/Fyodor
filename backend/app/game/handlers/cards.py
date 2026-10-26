@@ -147,7 +147,7 @@ def create_token(state: GameState, a: A.CreateToken) -> None:
     if a.source_id:
         src = ops.card(state, a.source_id)
         if ops.visible_to_all_players(state, src):
-            source = TokenSource(source_id=src.id, name=src.name)
+            source = TokenSource(source_id=src.id, name=src.name, object_id=a.source_object)
     base_x = a.x if a.x is not None else 20.0
     base_y = a.y if a.y is not None else 220.0
     for i, new_id in enumerate(a.r.ids):

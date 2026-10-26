@@ -478,7 +478,7 @@ _EXTRA = re.compile(r"(?:after this (?:(?P<main>main )|(?P<combat>combat ))?phas
                     r"|there(?: is|'s) an additional combat phase after this (?:(?P<main2>main )|(?P<combat2>combat ))?phase)"  # (wave 49B: "there's", Moraug)
                     r"(?P<and>,? followed by an additional main phase)?(?: \[at the beginning of that combat, (?P<then>untap all creatures[^\]]*)\])?")
 _EXTRA_THEN = re.compile(r"(?P<x>(?:[Aa]fter this (?:main |combat )?phase, there is|[Tt]here(?: is|'s)) an additional combat phase"
-                         r"(?: after this (?:main |combat )?phase)?)\. At the beginning of that combat, (?P<u>untap all creatures[^.]*)\.")
+                         r"(?: after this (?:main |combat )?phase)?(?:,? followed by an additional main phase)?)\. At the beginning of that combat, (?P<u>untap all creatures[^.]*)\.")
 
 
 def merge_extra(body: str) -> str:
@@ -916,6 +916,7 @@ def enter_blocking(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
             protected = target is not None and (target.id == token.controller or (
                 target.id in plan.state.cards and plan.state.cards[target.id].controller == token.controller))  # (a planeswalker's controller; a battle's protector: not read)
             if attacker.zone.endswith(":battlefield") and token.zone.endswith(":battlefield") and protected and plan.ch(token).is_creature:
+                was_free = token.blocking is None
                 plan.do({"type": "block", "card_id": cid, "attacker_id": att_id, "also": token.blocking is not None}, actor=ctx["controller"])
                 # -- block triggers (wave 110E) -- 509.3c an unblocked attacker becomes blocked; 509.3d "becomes blocked by a creature" for this token (not 509.3b "blocks")
                 from app.rules import block_events, triggers
@@ -924,6 +925,8 @@ def enter_blocking(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
                 if fresh:
                     plan.rules.blocked = [*plan.rules.blocked, att_id]
                 triggers.generic_combat(plan, "blocked", [attacker] if fresh else [], [(attacker, token)])
+                if e.get("effect"):  # -- wave 110J -- 509.3a/b: an effect makes a creature block (not put onto the battlefield blocking): "blocks" triggers, once per combat if it wasn't blocking
+                    triggers.generic_combat(plan, "block", [token] if was_free else [], [(token, attacker)])
                 plan.note(f"{token.name} enters blocking {plan.ch(attacker).name}", [cid, att_id], actor=ctx["controller"])
     return True
 

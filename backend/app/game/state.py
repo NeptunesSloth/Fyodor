@@ -108,6 +108,7 @@ class StackInfo(BaseModel):
 class TokenSource(BaseModel):
     source_id: str | None = None
     name: str
+    object_id: str | None = None  # -- cards (wave 110H) -- 400.7: the rules object that made it (a blinked source is a new object)
 
 
 class Arrow(BaseModel):
@@ -514,6 +515,10 @@ class GameState(BaseModel):
 
     def player_ids(self) -> list[str]:
         return list(self.seat_order)
+
+    def turn_order(self) -> list[str]:
+        """(wave 110M) The players in turn order: the seats in order, or backwards once Aeon Engine reversed the turn order (the seats themselves don't move)."""
+        return self.seat_order[::-1] if self.rules is not None and self.rules.turn_reversed110m else list(self.seat_order)
 
     def searching(self, viewer: str) -> str | None:
         """Zone key ``viewer`` is currently searching, if any."""

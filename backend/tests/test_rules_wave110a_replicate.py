@@ -6,7 +6,7 @@ from __future__ import annotations
 from app.game.errors import ActionError
 from tests.wave110a_kit import *
 
-NAMES = ["Hatchery Sliver", "Ian Chesterton"]
+NAMES = ["Hatchery Sliver", "Ian Chesterton", "Zinnia, Valley's Voice"]
 
 
 @pytest.fixture()
@@ -50,3 +50,43 @@ def test_ian_chesterton_gives_sagas_replicate(cards):
     next_turn(s)
     assert _count(s, "Welcome to Sweettooth") == 2
     check(s)
+
+
+def _pt(s, c):
+    from app.rules import sba
+    from app.rules.plan import Plan
+
+    ch = Plan(s.state, "p1", s.cards, None).ch(c)
+    return sba.power(c, ch), sba.toughness(c, ch)
+
+
+def test_zinnia_offspring_unpaid_makes_no_token(cards):
+    s = build(cards, ["Zinnia, Valley's Voice", "Grizzly Bears"])
+    put(s, "Zinnia, Valley's Voice")
+    c = to_hand(s, "Grizzly Bears")
+    fund(s, "{1}{G}")
+    act(s, "p1", type="cast_spell", card_id=c.id)
+    answer(s)
+    assert len([x for x in s.state.cards.values() if x.name == "Grizzly Bears" and x.zone == "p1:battlefield"]) == 1
+    check(s)
+
+
+def test_zinnia_gives_creature_spells_offspring(cards):
+    s = build(cards, ["Zinnia, Valley's Voice", "Grizzly Bears", "Lightning Bolt"])
+    put(s, "Zinnia, Valley's Voice")  # 702.175a: "Creature spells you cast gain offspring {2} as you cast them."
+    c = to_hand(s, "Grizzly Bears")
+    fund(s, "{1}{G}{2}")
+    act(s, "p1", type="cast_spell", card_id=c.id, kicker=1)
+    answer(s)
+    toks = [x for x in s.state.cards.values() if x.name == "Grizzly Bears" and x.zone == "p1:battlefield"]
+    assert len(toks) == 2 and sorted(_pt(s, x) for x in toks) == [(1, 1), (2, 2)]
+    check(s)
+
+
+def test_zinnia_offspring_not_for_noncreature(cards):
+    s = build(cards, ["Zinnia, Valley's Voice", "Lightning Bolt"])
+    put(s, "Zinnia, Valley's Voice")
+    c = to_hand(s, "Lightning Bolt")
+    fund(s, "{R}{2}")
+    with pytest.raises(ActionError):
+        act(s, "p1", type="cast_spell", card_id=c.id, targets=["p2"], kicker=1)

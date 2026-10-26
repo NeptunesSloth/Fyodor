@@ -55,6 +55,7 @@ class Plan:
     # -- review 22B -- a cost paid as a spell or ability resolves (118.12: "unless …", "you may …"), not one to cast or activate: "Players can't
     # pay life or sacrifice creatures to cast spells or activate abilities" doesn't reach it (Angel of Jubilation ruling 2012-05-01)
     resolution_cost: bool = False
+    peace_exempt110f: bool = False  # -- wave 110F -- True while a triggered ability's targets are chosen or a chosen target is rechecked (Peace Talks bars only choosing targets for spells and activated abilities)
     # -- life payments (wave 29C) -- 119.4: the life a spell's additional costs ("pay X life") will also pay: Phyrexian mana can be paid with
     # life only up to what is left of the life total after it (casting.find_payment ``reserve``)
     reserved_life: int = 0
@@ -79,6 +80,7 @@ class Plan:
         self.discarding = False  # -- optional replacements (wave 110C) -- an effect's discard move is being made
         self.cycling_card: str | None = None  # CR 702.29c: the card being discarded to pay cycling
         self.put_via: str | None = None  # -- trigger other (wave 51E) -- the object whose effect is putting cards onto the battlefield now (Entry.via)
+        self.craft110b = False  # -- wave 110B -- a craft ability's cost is being paid (stamps zone changes)
         self.cause110g: str | None = None  # -- wave 110G -- controller of the spell or ability being resolved (stamps zone changes)
         self.moved: dict[str, bool] = {}  # card -> did one of its moves this intent make it a card others have seen (ops.seen_move)
 
@@ -171,6 +173,7 @@ class Plan:
                     was, self.began[cid] = self.began.get(cid, False), down_public(c)
                     self.moved[cid] = self.moved.get(cid, False) or seen_move(zone, c.zone, was)
         self.rules.cause110g = self.cause110g
+        self.rules.craft110b = self.craft110b
         track(self.state, before, actor=resolved.actor or None, group=getattr(resolved, "group", 0),
               put_by=wither_put_by(resolved), declared=getattr(resolved, "declared", False),
               non_discard=bool(getattr(resolved, "non_discard", False)))  # (5H, 7C, 17D; 45C: the attack declaration's tap)
@@ -350,14 +353,14 @@ class Plan:
 
     def apnap(self) -> list[str]:
         """Live players in APNAP order (101.4): the active player, then the others in turn order."""
-        order = self.state.seat_order
+        order = self.state.turn_order()
         live = set(self.live())
         start = order.index(self.active) if self.active in order else 0
         return [p for i in range(len(order)) if (p := order[(start + i) % len(order)]) in live]
 
     def after(self, player: str) -> str:
         """The next live player after ``player`` in turn order."""
-        order = self.state.seat_order
+        order = self.state.turn_order()
         live = set(self.live())
         start = order.index(player) if player in order else -1
         for i in range(1, len(order) + 1):

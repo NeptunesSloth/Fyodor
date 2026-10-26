@@ -43,6 +43,7 @@ BORROWED = 2_000_000  # above every other number an ability of an object is know
 STRIDE = 32  # legacy direct slots; additional/recursive abilities use provenance IDs
 
 _SOURCE = re.compile(r"^all activated abilities of (?P<src>.+?)(?P<nomana> except mana abilities)?$")
+LOYALTY_ALL = "all loyalty abilities of all other planeswalkers on the battlefield"  # -- wave 110A -- Nicol Bolas, Dragon-God
 _LINKED = re.compile(r"^(?:all |the )?(?P<what>(?:[\w\-]+ )*cards?) exiled with (?:it|this \w+|~)$")
 _EXILED_CARD = re.compile(r"^the exiled card$")
 # a lender's ability that refers to what another of its abilities did (607.2, 607.5), or names a card: lent, but manual (``manual``)
@@ -67,6 +68,8 @@ def top_definition(text: str, ch: Characteristics) -> dict[str, Any] | None:
 
 def parse(rest: str) -> dict[str, Any] | None:
     """The predicate "all activated abilities of <objects>" → {"sel": selector key | None, "linked": bool, "no_mana": bool}."""
+    if rest == LOYALTY_ALL:  # loyalty abilities are lent like activated ones (113.10); each use counts for the borrower (606.3)
+        return {"sel": selectors.parse("planeswalker").key(), "linked": False, "no_mana": True, "loyalty": True}  # type: ignore[union-attr]
     m = _SOURCE.match(rest)
     if m is None:
         return None
@@ -248,7 +251,7 @@ def modal_definition(ability: AbilityText, ch: Characteristics) -> dict[str, Any
     return scope_definition({**d, 'modal': {**d['modal'], 'index': ability.index}}, ability)
 
 
-def _lent(plan: Plan, lender: CardInstance, no_mana: bool, triggered: bool = False) -> list[AbilityText]:
+def _lent(plan: Plan, lender: CardInstance, no_mana: bool, loyalty: bool = False, triggered: bool = False) -> list[AbilityText]:
     from app.rules import scripts
 
     ch = plan.ch(lender)
@@ -262,7 +265,7 @@ def _lent(plan: Plan, lender: CardInstance, no_mana: bool, triggered: bool = Fal
     out: list[AbilityText] = []
     for i, ab in enumerate(ch.abilities):
         keyword = ab.kind == "keywords" and len(ab.keywords) == 1 and ab.keywords[0] in _ACTIVATED_KEYWORDS
-        if not (ab.kind == "activated" or (ab.kind == "mana" and not no_mana) or keyword or (triggered and ab.kind == "triggered")):  # (wave 110C: Koh, "activated and triggered")
+        if loyalty != (ab.kind == "loyalty") or not (ab.kind in ("activated", "loyalty") or (ab.kind == "mana" and not no_mana) or keyword or (triggered and ab.kind == "triggered")):  # (wave 110C: Koh, "activated and triggered")
             continue
         found = parse_abilities(ab.text if keyword else own(ab.text))
         if not found or found[0].kind != ab.kind or any(not x.text.startswith('• ') for x in found[1:]):
@@ -394,7 +397,7 @@ def _graph(plan: Plan) -> dict[tuple[str, int], list[AbilityText]]:
             d = st.definition['abilities_of']
             lines = []
             for lender in lenders:
-                lent = _keyword_lines(views, lender, d['keywords']) if d.get('keywords') else _lent(views, lender, d['no_mana'], bool(d.get('triggered')))
+                lent = _keyword_lines(views, lender, d['keywords']) if d.get('keywords') else _lent(views, lender, d['no_mana'], bool(d.get('loyalty')), bool(d.get('triggered')))
                 for k, ab in enumerate(lent):
                     origin = (_origin_oid(plan, cid), key, _origin_oid(plan, lender.id), *(ab.borrowed_origin or (str(ab.index),)))
                     # Preserve the original direct-slot representation where it cannot
