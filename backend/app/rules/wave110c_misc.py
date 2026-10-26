@@ -63,6 +63,9 @@ SYMBIOTE = ("{2}{U/B}, Exile this card from your graveyard: Put a +1/+1 counter 
 SYMBIOTE_OTHER = ("Whenever this creature deals combat damage to a player, look at that many cards from the top of your library. Put one of them into your hand and the rest into "
                   "your graveyard.")
 
+ULALEK = ("Whenever you cast an Eldrazi spell, you may pay {C}{C}. If you do, copy all spells you control, then copy all other activated and triggered abilities you control. "
+          "You may choose new targets for the copies.")
+
 PROCTOR = "Whenever a permanent entering causes a triggered ability to trigger, counter that ability unless its controller pays {2}."
 
 
@@ -131,6 +134,12 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
         return {**native, "effects": [tap, hit, {"do": "wildhunt110c", "wolves": "ref:wild110c"}]}
     if text.removeprefix("Find New Host — ") == SYMBIOTE:  # the card's other abilities are its one combat damage trigger; an effect that adds abilities without a duration lasts (611.2a)
         return scripts.define(replace(ability, text=f'{SYMBIOTE.replace("this card's other abilities", chr(34) + SYMBIOTE_OTHER + chr(34))}'), ch)
+    if text.split(" (Mana abilities")[0] == ULALEK:  # 707.10: every spell, then every other ability, of the controller's on the stack; new targets for each copy (707.10c)
+        native = scripts.define(replace(ability, text="Whenever you cast an Eldrazi spell, you may pay {C}{C}. If you do, copy that spell. You may choose new targets for the copy."), ch)
+        fx = (native or {}).get("effects") or []
+        if native is None or [e.get("do") for e in fx] != ["optional_payment", "only_if", "copy_spell", "copy_new_targets"]:
+            return None
+        return {**native, "effects": [fx[0], fx[1], {"do": "ulalek110c"}]}
     if text == NEERA:  # the "you may ... if you do" gate is read as a {0} payment; the spell moves first (it is not countered, 701.6a), else nothing follows (608.2c)
         native = scripts.define(replace(ability, text=NEERA.replace("put it on the bottom of its owner's library", "pay {0}")), ch)
         event = scripts.define(replace(ability, text="Whenever you cast a spell, you may pay {0}. If you do, copy that spell. This ability triggers only once each turn."), ch)  # (the form that keeps the spell: "that spell")
@@ -506,6 +515,25 @@ def resume_wildhunt(plan: Plan, d: Any, chosen: list[str]) -> None:
         effects.continue_effects(plan, r["ctx"])
 
 
+def ulalek(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Ulalek: copy every spell the controller controls on the stack (copies of spells are spells too), then every other ability they control there (not this one, 707.10);
+    each copy may get new targets. A spell or ability that can't be copied is skipped (113.6g); one the engine can't copy is handed to manual play."""
+    from app.rules import copying
+
+    me = ctx["controller"]
+    mine = [sid for sid in plan.state.zones.get("stack", []) if plan.state.cards[sid].controller == me and sid != ctx.get("stack_id")]  # (a permanent spell has no stack entry)
+    objects = []
+    for sid in sorted(mine, key=lambda sid: plan.state.cards[sid].ability is not None):  # (spells first, each group in stack order)
+        reason = copying.uncopyable(plan, plan.state.cards[sid])
+        if reason:
+            return copying._manual_each(plan, ctx, me, plan.state.cards[sid])
+        if reason is None:
+            objects.append((sid, plan.oid(sid), 1))
+    if not objects:
+        return True
+    return copying.run(plan, copying.new_job(ctx, controller=me, objects=objects, retarget=True, label=ctx.get("name") or "Copy"))
+
+
 def proctor(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     """Counter that ability unless its controller pays {2} (701.6a; 118.12): nothing if it already left the stack."""
     from app.rules import effects
@@ -551,4 +579,4 @@ def attached_if(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
 
 
 RESUME = {"prodder110c": resume_prodder, "prodder_manual110c": prodder_done, "omnath110c": resume_omnath, "evidence_x110c": resume_evidence_x, "wildhunt110c": resume_wildhunt}
-PRIMITIVES = {"shuffle_dead110c": shuffle_dead, "yidaro110c": yidaro, "proctor110c": proctor, "vaevictis110c": vaevictis, "wildhunt110c": wildhunt, "spell_bottom110c": spell_bottom, "attached_if110c": attached_if, "prodder110c": prodder, "omnath110c": omnath, "evidence_x110c": evidence_x, "revealed_x110c": revealed_x, "glyph110c": glyph, "shuttle110c": shuttle, "shuttle_attack110c": shuttle_attack}
+PRIMITIVES = {"shuffle_dead110c": shuffle_dead, "yidaro110c": yidaro, "proctor110c": proctor, "vaevictis110c": vaevictis, "ulalek110c": ulalek, "wildhunt110c": wildhunt, "spell_bottom110c": spell_bottom, "attached_if110c": attached_if, "prodder110c": prodder, "omnath110c": omnath, "evidence_x110c": evidence_x, "revealed_x110c": revealed_x, "glyph110c": glyph, "shuttle110c": shuttle, "shuttle_attack110c": shuttle_attack}
