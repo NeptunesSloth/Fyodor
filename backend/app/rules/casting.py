@@ -3805,7 +3805,7 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
     optional, gift_to, bargained = announced
     # -- costs (wave 3$) -- 601.2b: an additional cost ("sacrifice a creature", "discard a card", "pay 2 life") is
     # announced with the rest; 601.2h pays it all at once, so nothing moves until every part is chosen and payable
-    add_cost = None if plan.manual(card) or a.face_down else costs.spell_additional_cost(ch.abilities)
+    add_cost = None if plan.manual(card) or a.face_down else target_evidence(plan, costs.spell_additional_cost(ch.abilities), chosen)  # (wave 110G)
     if either is not None:  # -- static wordings (wave 6E) -- the announced side's non-mana parts
         add_cost = either if either.components else None
     alt_at = len(add_cost.components) if add_cost is not None else 0
@@ -4462,6 +4462,17 @@ CREW = re.compile(r"^crew (?P<n>\d+)$", re.IGNORECASE)
 
 
 SUSPEND = re.compile(r"^suspend (?P<n>\d+|x)\s*[—-]\s*(?P<cost>(?:\{[^}]+\})+)(?:\. x can't be 0)?$", re.IGNORECASE)  # (-- keywords (wave 50H) -- "Suspend X—{X}{3}{U}. X can't be 0.")
+
+
+def target_evidence(plan: Plan, add_cost: AbilityCost | None, chosen: Any) -> AbilityCost | None:
+    """-- cards (wave 110G) -- Urgent Necropsy, 601.2b / 701.59a: "collect evidence X, where X is the total mana value of the permanents this spell targets"
+    is fixed once the targets are chosen (601.2c); X = 0 asks nothing."""
+    if add_cost is None or not any(c.targets_mv110g for c in add_cost.components):
+        return add_cost
+    total = sum(plan.ch(plan.state.cards[t.id]).mana_value for t in chosen if t.id in plan.state.cards)
+    n = int(total)
+    parts = tuple(replace(c, amount=n, text=f"Collect evidence {n}", targets_mv110g=False) for c in add_cost.components if c.targets_mv110g)
+    return replace(add_cost, components=tuple(c for c in add_cost.components if not c.targets_mv110g) + tuple(c for c in parts if c.amount > 0))
 
 
 def suspend_info(ch: Characteristics, index: int) -> tuple[int | None, str] | None:
@@ -5237,7 +5248,7 @@ def cast_free(plan: Plan, card: CardInstance, ch: Characteristics, a: A.CastSpel
         alt, alternative_parts = effect_cast_costs.textual_alternative(alt)
     # 118.9d / 601.2b: a spell's own additional cost ("As an additional cost to cast this spell,
     # sacrifice a creature": Fling cast by cascade) is still paid — chosen now, paid with the rest
-    add_cost = None if plan.manual(card) else costs.spell_additional_cost(ch.abilities)
+    add_cost = None if plan.manual(card) else target_evidence(plan, costs.spell_additional_cost(ch.abilities), chosen)  # (wave 110G)
     if either is not None:  # -- static wordings (wave 6E) --
         add_cost = either if either.components else None
     if alternative_parts is not None:

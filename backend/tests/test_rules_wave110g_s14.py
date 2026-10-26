@@ -7,6 +7,7 @@ import pytest
 from app.cards.images import ImageStore
 from app.cards.importer import build_database
 from app.cards.repository import CardRepository
+from app.game.errors import ActionError
 from app.game.factory import PlayerSetup, new_game
 from app.game.session import GameSession
 from app.rules import coverage
@@ -22,6 +23,7 @@ SEA = ("(As this Saga enters and after your draw step, add a lore counter. Sacri
        "(It can't be blocked as long as defending player controls an Island.)\nIII — Until end of turn, whenever a Salamander deals combat damage to a player, "
        "it deals that much damage to target creature that player controls.")
 EXTRA = [
+    real("Urgent Necropsy", "{2}{B}{G}", 4, "Instant", "As an additional cost to cast this spell, collect evidence X, where X is the total mana value of the permanents this spell targets.\nDestroy up to one target artifact, up to one target creature, up to one target enchantment, and up to one target planeswalker.", None, "BG"),
     real("Next of Kin", "{2}{G}", 3, "Enchantment \u2014 Aura", "Enchant creature\nWhen enchanted creature dies, you may put a creature card you own with lesser mana value from your hand or from the command zone onto the battlefield. If you do, return this card to the battlefield attached to that creature at the beginning of the next end step.", None, "G"),
     real("Test Big", "{4}{G}", 5, "Creature \u2014 Beast", "", ("1", "1"), "G"),
     real("Test Elf", "{G}", 1, "Creature \u2014 Elf", "", ("1", "1"), "G"),
@@ -325,4 +327,40 @@ def test_next_of_kin_nothing_cheaper_means_no_card_and_no_aura_return(cards):
             act(s, s.state.rules.priority, type="pass_priority")
     assert s.state.cards[kin.id].zone == "p1:graveyard"
     assert s.state.cards[card_named(s, "Krenko, Mob Boss").id].zone != "p1:battlefield"
+    check(s)
+
+
+def _necropsy(cards, in_graveyard):
+    s = build(cards, ["Urgent Necropsy", *in_graveyard], ["Test Giant"])
+    giant = put(s, "Test Giant", "p2")
+    for n in in_graveyard:
+        act(s, "p1", type="move", card_ids=[card_named(s, n).id], to={"player": "p1", "zone": "graveyard"})
+    nec = to_hand(s, "Urgent Necropsy")
+    mana(s, B=1, G=1, C=2)
+    return s, nec, giant
+
+
+def test_urgent_necropsy_evidence_is_the_total_mana_value_of_its_targets(cards):
+    """701.59a / 601.2b: the Giant (mana value 3) needs evidence 3: two 1-mana cards are not enough; adding a 5-mana card is, and only the chosen cards are exiled."""
+    s, nec, giant = _necropsy(cards, ["Test Elf", "Test Small"])
+    with pytest.raises(ActionError):
+        act(s, "p1", type="cast_spell", card_id=nec.id, targets=[giant.id], target_counts=[0, 1, 0, 0])
+    s, nec, giant = _necropsy(cards, ["Test Elf", "Test Small", "Test Big"])
+    act(s, "p1", type="cast_spell", card_id=nec.id, targets=[giant.id], target_counts=[0, 1, 0, 0])
+    d = s.state.rules.decision
+    assert d is not None and d.kind == "choose_cards"
+    big = card_named(s, "Test Big")
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[big.id])
+    _drain(s)
+    assert s.state.cards[big.id].zone == "p1:exile" and s.state.cards[card_named(s, "Test Elf").id].zone == "p1:graveyard"
+    assert s.state.cards[giant.id].zone == "p2:graveyard"
+    check(s)
+
+
+def test_urgent_necropsy_without_targets_costs_no_evidence(cards):
+    """X is 0 with no targets: nothing to exile, nothing in the graveyard needed."""
+    s, nec, giant = _necropsy(cards, [])
+    act(s, "p1", type="cast_spell", card_id=nec.id, targets=[], target_counts=[0, 0, 0, 0])
+    _drain(s)
+    assert s.state.cards[giant.id].zone == "p2:battlefield"
     check(s)
