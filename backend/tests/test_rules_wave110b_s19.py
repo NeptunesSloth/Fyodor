@@ -13,7 +13,19 @@ import pytest
 from app.rules import coverage
 from tests.game_helpers import act
 from tests.test_rules_wave30m_durations import to_phase
-from tests.wave110b_kit import build, card_named, cast, check, drive, life, mana, put, repository, to_hand, zone_of
+from tests.wave110b_kit import (
+    build,
+    card_named,
+    cast,
+    check,
+    drive,
+    life,
+    mana,
+    put,
+    repository,
+    to_hand,
+    zone_of,
+)
 
 IDOL = "Idol of the Deep King // Sovereign's Macuahuitl"
 
@@ -23,7 +35,7 @@ def cards(settings):
     yield from repository(settings)
 
 
-@pytest.mark.parametrize("name", ["Genesis of the Daleks", "Dr. Eggman", "Market Gnome"])
+@pytest.mark.parametrize("name", ["Genesis of the Daleks", "Dr. Eggman", "Market Gnome", "Osseous Sticktwister"])
 def test_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
@@ -105,3 +117,35 @@ def test_market_gnome_only_when_exiled_for_a_craft_cost(cards, craft):
     assert zone_of(s, "Market Gnome") == "p1:exile"
     assert (life(s, "p1") == life0 + 1) is craft and (sum(1 for c in s.state.cards.values() if c.zone == "p1:hand") == hand0 + 1) is craft
     check(s)
+
+
+@pytest.mark.parametrize(("pick", "sacrificed", "discarded", "bob_life"), [("sacrifice", True, False, 40), ("discard", False, True, 40), ("neither", False, False, 38)])
+def test_osseous_sticktwister_each_opponent_sacrifices_discards_or_takes_damage(cards, pick, sacrificed, discarded, bob_life):
+    s = build(cards, ["Osseous Sticktwister", "Grizzly Bears", "Murder", "Smuggler's Copter"], ["Grizzly Bears", "Murder"], forests=30, islands=40)
+    put(s, "Osseous Sticktwister")
+    for name in ("Grizzly Bears", "Murder", "Smuggler's Copter", "Forest"):  # creature, instant, artifact, land: four card types (delirium)
+        act(s, "p1", type="move", card_ids=[card_named(s, name).id], to={"player": "p1", "zone": "graveyard"})
+    put(s, "Grizzly Bears", "p2")
+    to_hand(s, "Murder", "p2")
+    to_phase(s, "main2", turn=1)
+    for _ in range(6):
+        if s.state.rules.decision is not None:
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+    want = {"sacrifice": "pay:0", "discard": "pay:1", "neither": "decline"}[pick]
+    drive(s, lambda d: [want] if want in [o.id for o in d.options] else None)  # (a sacrificed permanent is the only one: chosen for them)
+    assert (zone_of(s, "Grizzly Bears", "p2") == "p2:graveyard") is sacrificed
+    assert (zone_of(s, "Murder", "p2") == "p2:graveyard") is discarded
+    assert life(s, "p2") == bob_life  # 2 damage = its power (608.2h), only to an opponent who did neither
+    check(s)
+
+
+def test_osseous_sticktwister_needs_delirium(cards):
+    s = build(cards, ["Osseous Sticktwister", "Grizzly Bears", "Murder", "Smuggler's Copter"], ["Grizzly Bears"], forests=30, islands=40)
+    put(s, "Osseous Sticktwister")
+    for name in ("Grizzly Bears", "Murder", "Smuggler's Copter"):  # three card types only
+        act(s, "p1", type="move", card_ids=[card_named(s, name).id], to={"player": "p1", "zone": "graveyard"})
+    to_phase(s, "main2", turn=1)
+    for _ in range(6):
+        act(s, s.state.rules.priority, type="pass_priority")
+    assert s.state.rules.decision is None and life(s, "p2") == 40

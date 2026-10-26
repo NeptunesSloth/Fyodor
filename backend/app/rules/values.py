@@ -596,7 +596,7 @@ def _turn_amount(what: str) -> Value | None:
         # for exile, controlled by an opponent as it left (608.2i: as it last existed there)
         sel = selectors.parse(m["sel"])
         return None if sel is None else {"turn_history": "died", "sel": sel.key(), "to": "exile", "who": "opponent"}
-    if (m := re.fullmatch(r"(?:the )?total power of (.+? (?:that )?died this turn)", what)) and (v := _turn_amount("the number of " + m[1])):  # -- wave 110B -- 608.2h: their power as they last existed
+    if (m := re.fullmatch(r"(?:the )?total power of (.+? (?:that )?died this turn)", what)) and isinstance(v := _turn_amount("the number of " + m[1]), dict):  # -- wave 110B -- 608.2h: their power as they last existed
         return {**v, "power110b": True} if v.get("turn_history") == "died" else None
     m = _TURN_DIED.match(what)
     if m:  # 700.4; as they last existed on the battlefield (608.2i)

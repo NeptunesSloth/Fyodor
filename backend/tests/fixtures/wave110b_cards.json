@@ -2525,5 +2525,25 @@
   ],
   "power": null,
   "toughness": null
+ },
+ {
+  "name": "Osseous Sticktwister",
+  "layout": "normal",
+  "mana_cost": "{1}{B}",
+  "cmc": 2.0,
+  "type_line": "Artifact Creature — Scarecrow",
+  "oracle_text": "Lifelink\nDelirium — At the beginning of your end step, if there are four or more card types among cards in your graveyard, each opponent may sacrifice a nonland permanent of their choice or discard a card. Then this creature deals damage equal to its power to each opponent who didn't sacrifice a permanent or discard a card this way.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Delirium",
+   "Lifelink"
+  ],
+  "power": "2",
+  "toughness": "2"
  }
 ]
