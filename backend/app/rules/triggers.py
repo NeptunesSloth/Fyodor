@@ -3121,7 +3121,8 @@ def resume_opponent(plan: Plan, d: Any, chosen: list[str]) -> None:
     """-- delegated (wave 110D) -- the controller named the opponent who picks the target of "of an opponent's choice"."""
     t = next((p for p in plan.rules.pending_triggers if p.id == d.resume["trigger"]), None)
     if t is not None and chosen[0] in plan.live() and chosen[0] != t.controller:
-        put(plan, t, picks={"opp110d": chosen[0]})
+        if not put(plan, t, picks={"opp110d": chosen[0]}):  # (the opponent's own decision is open: flush would ask the controller again)
+            return
     flush(plan)
 
 
