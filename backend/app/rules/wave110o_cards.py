@@ -94,9 +94,9 @@ def parse(body: str) -> Any:
 
     if body.strip() == _REMEMBRANCE.replace("Serene Remembrance", "~"):  # 701.24a: the spell and the cards are shuffled in, each owner's library shuffled
         own = scripts.parse_effects("Shuffle ~ into its owner's library.")
-        cards = scripts.parse_effects("Shuffle up to three target cards from a single graveyard into their owner's library.")
-        assert own and cards
-        return [*own[0], *cards[0]], cards[1], False
+        pile = scripts.parse_effects("Shuffle up to three target cards from a single graveyard into their owner's library.")
+        assert own and pile
+        return [*own[0], *pile[0]], pile[1], False
     return scripts.parse_effects(same) if (same := REWRITES.get(body.strip())) is not None else None
 
 
