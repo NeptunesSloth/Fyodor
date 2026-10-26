@@ -2200,6 +2200,8 @@ def _cast_how(t: str) -> Condition | None:
         return {"object": "self", "cast": {"revealed_or_controlled_subtype": dragon["type"].capitalize()}}
     if t in ("the gift was promised", "its gift cost was paid", "this spell's gift cost was paid"):  # -- gift (wave 23D) -- 702.174k: read as kicked
         return {"object": "self", "cast": {"kicked": True}}
+    if t == "you've done all four this turn":  # -- (wave 110B) -- Avatar Aang: waterbent, earthbent, firebent and airbent (wave110b_bend.py)
+        return {"all": [{"history": "facts", "kind": f"bend110b_{k}", "who": "you", "n": 1} for k in ("water", "earth", "fire", "air")]}
     if t == "its waterbend cost wasn't paid":
         return {"not": {"object": "self", "cast": {"waterbend_paid103": True}}}
     if t == "its waterbend cost was paid":

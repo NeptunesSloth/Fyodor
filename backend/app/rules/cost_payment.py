@@ -1027,6 +1027,8 @@ def _pay(plan: Plan, cost: AbilityCost, card: CardInstance, chosen: dict[int, li
             from app.game.rules_state import emit
 
             emit(plan.state,"designation",counter={C.FORAGE:"forage",C.COLLECT_EVIDENCE:"collect_evidence",C.WATERBEND:"waterbend"}[comp.kind],player=player)
+            if comp.kind == C.WATERBEND:
+                emit(plan.state, "designation", counter="bend110b:water", player=player)  # (wave 110B) 701.67c
 
 
 def _flexible_options(plan: Plan, comp: CostComponent, card: CardInstance, player: str,

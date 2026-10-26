@@ -3533,6 +3533,8 @@ def _parse_effects_plain(body: str, it: str | None = None, *, event_player: bool
         return creator_change
     if (protected_airbend := airbend.complement(body)) is not None:
         return protected_airbend
+    if (spell_airbend := airbend.spell_target(body)) is not None:  # -- airbend (wave 110B) --
+        return spell_airbend
     if (attached_copy := attached_copy_fallback.parse(body)) is not None:
         return attached_copy
     if (after_discover := discover_followup.parse(body)) is not None:
@@ -8345,7 +8347,7 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
 _AMOUNT_EVENTS = {"damage_prevented", "gain_life", "lose_life", "pay_life", "dealt_damage", "deal_damage_opponent", "deal_combat_damage_player",
                   "deal_damage", "counters_put", "counters_removed", "discard", "sacrifice", "create_token", "cycle", "leave_graveyard",
                   "player_counters", "mill", "attack", "scry", "to_graveyard", "to_exile", "to_library", "exiled_perm110i",
-                  "roll_die", "discover", "scry_bottom110b"}  # (wave 110B: The Temporal Anchor)  # (wave 24B: the die's result, "put that many +1/+1 counters")  # (wave 21D: cards put there; player_counters: wave 3E, "you get that many {E}"; scry: wave 19C, the cards looked at)
+                  "roll_die", "discover", "scry_bottom110b", "bend110b"}  # (wave 110B: The Temporal Anchor)  # (wave 24B: the die's result, "put that many +1/+1 counters")  # (wave 21D: cards put there; player_counters: wave 3E, "you get that many {E}"; scry: wave 19C, the cards looked at)
 
 
 _PLAYER_EVENTS = {"deal_combat_damage_player", "deal_damage_opponent"}  # events with a player dealt damage

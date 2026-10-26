@@ -349,7 +349,7 @@ REFUSED: tuple[tuple[re.Pattern[str], str], ...] = (
 # -- keyword actions & face-down (wave 3F) -- refused on purpose, with the missing piece named
 REFUSED += (
     # (-- trigger other (wave 25B) -- airbending a permanent is read now: app/rules/airbend.py; a spell's exile from the stack isn't)
-    (re.compile(r"\bairbend[^.]*\bspells?\b", re.I), "airbending a spell: exiling it from the stack with that permission isn't modelled"),
+    (re.compile(r"\bairbend(?! up to one other target creature or spell\.)[^.]*\bspells?\b", re.I), "airbending a spell: exiling it from the stack with that permission isn't modelled"),
     # (review 25B: "Choose up to one target creature, then airbend all other creatures": "other" is other than the chosen one, not the source;
     # scripts._clause refuses it)
     (re.compile(r"\bchoose [^.]*\btargets?\b[^.]*, then \w+ all other\b", re.I),

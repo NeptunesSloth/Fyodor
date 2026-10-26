@@ -310,6 +310,8 @@ def facts(plan: Plan, e: Event) -> list[Any]:
         return [("clash", None, None, e.player, {"amount": e.amount})]
     if e.counter in ("roll_visit", "visit", "open_attraction", "claim_prize") and e.player:  # -- Attractions (wave 100L) -- (attractions100l.py)
         return [({"visit": "visit_attraction"}.get(e.counter, e.counter), None, None, e.player, {"amount": e.amount, "oid": e.object_id})]
+    if (e.counter or "").startswith("bend110b:") and e.player:  # -- (wave 110B) -- 701.65b, 701.66b, 701.67c, 702.189b (wave110b_bend.py)
+        return [("bend110b", None, None, e.player, {})]
     if e.counter == "discover" and e.player:  # -- discover (wave 110B) -- 701.57: ``amount`` is the value N
         return [("discover", None, None, e.player, {"amount": e.amount})]
     if e.counter in ("forage", "collect_evidence", "manifest_dread") and e.player:  # -- if you do (wave 26C) -- 701.61, 701.59 (cost_payment.pay)

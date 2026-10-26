@@ -2028,6 +2028,8 @@ def emit(state: GameState, kind: EventKind, **fields: Any) -> None:
         up_log110f.turned_up_by110b = list(dict.fromkeys([*up_log110f.turned_up_by110b, fields.get("actor") or ""]))
     if kind == "turned_face_up" and (up_log110l := turn_log_now(state)) is not None and fields.get("actor"):  # -- (wave 110L) -- who turned it face up (702.37e)
         up_log110l.facts.append(TurnFact(kind="turned_up110l", player=fields["actor"], object_id=fields.get("object_id")))
+    if kind == "designation" and str(fields.get("counter") or "").startswith("bend110b:") and (bend_log := turn_log_now(state)) is not None:
+        bend_log.facts.append(TurnFact(kind=fields["counter"].replace(":", "_"), player=fields["player"]))  # -- (wave 110B) -- wave110b_bend.py
     if kind == "fought" and (fight_log90 := turn_log_now(state)) is not None:
         fight_log90.fought90 = list(dict.fromkeys([*fight_log90.fought90, *(snap.object_id for snap in fields.get("fighters90", []))]))
     # CR 107.14, 608.2i: count removals during this turn, including costs; gains never offset them.

@@ -535,6 +535,9 @@ def earthbend(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     if not lands:
         return True
     oids = [plan.oid(c) for c in lands]
+    from app.rules import wave110b_bend
+
+    wave110b_bend.note(plan, pid, "earth")  # (wave 110B) 701.66b: when the delayed trigger is created
     name = ctx.get("name") or "Earthbend"
     layers.add_effect(plan, affected=oids, layer="4", source=ctx.get("source_object"), controller=pid, add_types=("Creature",),
                       duration="permanent", label=f"0/0 land creature with haste (earthbend, {name})")
@@ -568,6 +571,9 @@ COMBAT_STEPS = ("begin_combat", "declare_attackers", "declare_blockers", "combat
 
 def firebend(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     pid = ctx["controller"]
+    from app.rules import wave110b_bend
+
+    wave110b_bend.note(plan, pid, "fire")  # (wave 110B) 702.189b: a firebending ability resolves
     n = effects._amount(plan, ctx, e.get("n", 0))
     if n <= 0 or plan.state.turn.phase not in (*COMBAT_STEPS, "end_combat"):
         return True  # (an attack trigger resolves during combat; outside it there is nothing to keep)
