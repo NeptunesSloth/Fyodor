@@ -53,6 +53,9 @@ NEERA = ("Whenever you cast a spell, you may put it on the bottom of its owner's
          "You may cast that card without paying its mana cost. Then put all revealed cards not cast this way on the bottom of your library in a random order. "
          "This ability triggers only once each turn.")
 
+VAEVICTIS = ("Whenever ~ attacks, for each player, choose target permanent that player controls. Those players sacrifice those permanents. Each player who sacrificed a permanent "
+             "this way reveals the top card of their library, then puts it onto the battlefield if it's a permanent card.")
+
 PROCTOR = "Whenever a permanent entering causes a triggered ability to trigger, counter that ability unless its controller pays {2}."
 
 
@@ -106,6 +109,11 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
     if text == "If you would lose unspent mana, that mana becomes black instead.":  # 614.1a, 500.4: like Ozai's red (wave110b_cards)
         d = scripts.define(replace(ability, text="If you would lose unspent mana, that mana becomes colorless instead."), ch)
         return None if d is None else {**d, "to": "B"}
+    if scripts.self_text(ability.text, ch.name) == VAEVICTIS:  # 115.1 a group per player (per_opponent), the rest once after all of them (opponent_aggregate)
+        native = scripts.define(replace(ability, text="Whenever ~ attacks, for each player, choose target permanent that player controls. Destroy those permanents."), ch)
+        if native is None or [e.get("do") for e in native["effects"]] != ["choose_targets", "destroy"]:
+            return None
+        return {**native, "effects": [native["effects"][0], {"do": "vaevictis110c", "opponent_aggregate": True}]}
     if text == NEERA:  # the "you may ... if you do" gate is read as a {0} payment; the spell moves first (it is not countered, 701.6a), else nothing follows (608.2c)
         native = scripts.define(replace(ability, text=NEERA.replace("put it on the bottom of its owner's library", "pay {0}")), ch)
         event = scripts.define(replace(ability, text="Whenever you cast a spell, you may pay {0}. If you do, copy that spell. This ability triggers only once each turn."), ch)  # (the form that keeps the spell: "that spell")
@@ -423,6 +431,29 @@ def spell_bottom(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return True
 
 
+def vaevictis(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Vaevictis Asmadi: the chosen permanents are sacrificed together (701.21a, by their controllers); each player who sacrificed one reveals their top card (701.20a), and those
+    that are permanent cards enter together (614.12a). A permanent that left or is no longer a legal target is not sacrificed (608.2b)."""
+    from app.rules import attachments, effects
+
+    cards = [c for c in effects._cards(plan, ctx, "all_targets") if plan.state.cards[c].zone.endswith(":battlefield")]
+    who = {c: plan.state.cards[c].controller for c in cards}
+    effects._sacrifice_cards(plan, cards, ctx["controller"], ctx)
+    gone = {who[c] for c in cards if not plan.state.cards[c].zone.endswith(":battlefield")}
+    entries = []
+    me = ctx["controller"]
+    for pid in (p for p in plan.apnap() if p in gone):
+        ctx["controller"] = pid
+        try:
+            effects.look_top(plan, ctx, {"n": 1, "player": "you", "reveal": True, "exact_look": True})
+        finally:
+            ctx["controller"] = me
+        top = ctx.get("looked") or []
+        if top and plan.ch(plan.state.cards[top[0]]).types & {"Artifact", "Battle", "Creature", "Enchantment", "Land", "Planeswalker"}:
+            entries.append({"card": top[0], "player": pid, "actor": pid})
+    return attachments.enter(plan, entries, ctx) if entries else True
+
+
 def proctor(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     """Counter that ability unless its controller pays {2} (701.6a; 118.12): nothing if it already left the stack."""
     from app.rules import effects
@@ -468,4 +499,4 @@ def attached_if(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
 
 
 RESUME = {"prodder110c": resume_prodder, "prodder_manual110c": prodder_done, "omnath110c": resume_omnath, "evidence_x110c": resume_evidence_x}
-PRIMITIVES = {"shuffle_dead110c": shuffle_dead, "yidaro110c": yidaro, "proctor110c": proctor, "spell_bottom110c": spell_bottom, "attached_if110c": attached_if, "prodder110c": prodder, "omnath110c": omnath, "evidence_x110c": evidence_x, "revealed_x110c": revealed_x, "glyph110c": glyph, "shuttle110c": shuttle, "shuttle_attack110c": shuttle_attack}
+PRIMITIVES = {"shuffle_dead110c": shuffle_dead, "yidaro110c": yidaro, "proctor110c": proctor, "vaevictis110c": vaevictis, "spell_bottom110c": spell_bottom, "attached_if110c": attached_if, "prodder110c": prodder, "omnath110c": omnath, "evidence_x110c": evidence_x, "revealed_x110c": revealed_x, "glyph110c": glyph, "shuttle110c": shuttle, "shuttle_attack110c": shuttle_attack}
