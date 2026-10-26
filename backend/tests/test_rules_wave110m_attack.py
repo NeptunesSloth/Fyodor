@@ -202,7 +202,7 @@ def test_kylox_sacrifices_for_cards_and_casts_the_instants_and_sorceries_among_t
     s = build(cards, [KYLOX, "Grizzly Bears", "Llanowar Elves", "Lightning Bolt", "Murder", "Hill Giant", "Mother of Runes"], ["Elite Vanguard"], forests=20)
     kylox, bears, elves = put(s, KYLOX), put(s, "Grizzly Bears"), put(s, "Llanowar Elves")
     ready(s, KYLOX, "Grizzly Bears", "Llanowar Elves")
-    vanguard = put(s, "Elite Vanguard", "p2")
+    put(s, "Elite Vanguard", "p2")
     ids = {n: card_named(s, n).id for n in ("Lightning Bolt", "Murder", "Hill Giant")}
     for n in ("Hill Giant", "Murder", "Lightning Bolt"):  # the top three cards of the library (Bears 2 + Elves 1 = 3 power)
         act(s, "p1", type="move", card_ids=[ids[n]], to={"player": "p1", "zone": "library"}, position="top")
