@@ -196,6 +196,26 @@ _BUILD["When this Siege enters, search your library, graveyard, and/or outside t
     "If you search your library this way, shuffle.", lambda d: d)
 
 
+def _robber(d: Def) -> Def:
+    """Robber of the Rich: the card may be cast only during a turn its caster attacked with a Rogue (the permission's ``when``, as the grammar reads it for
+    "During any turn you attacked with a Rogue, you may cast that card"), spending mana as any color."""
+    from app.rules import scripts
+
+    when = scripts.parse_effects("Exile the top card of defending player's library. During any turn you attacked with a Rogue, you may cast that card.")
+    grants = [e for e in d["effects"] if e.get("do") == "grant_play"]
+    if when is None or len(grants) != 1 or "when" not in when[0][1]:
+        return d
+    # (the defending player is named as the grammar names it for "the top card of defending player's library")
+    return {**d, "effects": [{**e, "when": when[0][1]["when"]} if e is grants[0] else {**e, "player": "defending_player"} if e.get("do") == "exile_top" else e
+                             for e in d["effects"]]}
+
+
+_BUILD["Whenever this creature attacks, if defending player has more cards in hand than you, exile the top card of their library. During any turn you attacked with a Rogue, "
+       "you may cast that card and you may spend mana as though it were mana of any color to cast that spell."] = (
+    "Whenever this creature attacks, if defending player has more cards in hand than you, exile the top card of their library. You may cast that card for as long as it "
+    "remains exiled, and you may spend mana as though it were mana of any color to cast that spell.", _robber)
+
+
 def _thief(d: Def) -> Def:
     """Thief of Existence: the spell gains the leaves-the-battlefield trigger only if the exile happened, and keeps it as the permanent it becomes (400.7a)."""
     from app.rules import scripts
