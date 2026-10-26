@@ -5,7 +5,6 @@ Each entry matches one whole ability's Oracle text exactly and nothing else; any
 from __future__ import annotations
 
 import re
-
 from collections.abc import Callable
 from dataclasses import replace
 from typing import Any
@@ -33,7 +32,7 @@ _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
 
 
 _CAP = re.compile(r"(?P<name>\w+) can't have more than (?P<n>one|two|three|four|five|six|seven|eight|nine|ten) (?P<kind>[a-z]+) counters on it\.?")
-_NUMS = {w: i for i, w in enumerate("zero one two three four five six seven eight nine ten".split())}
+_NUMS = {w: i for i, w in enumerate(["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten"])}
 
 
 def capped(plan: Any, card_id: str, kind: str, n: int) -> int:
@@ -44,6 +43,16 @@ def capped(plan: Any, card_id: str, kind: str, n: int) -> int:
         if src.id == card_id and d["counter"] == kind:
             n = max(0, min(n, d["n"] - plan.state.cards[card_id].counters.get(kind, 0)))
     return n
+
+
+def counter_key(c: Any, ev: dict[str, Any]) -> str:
+    return f"counters110j:{c.id}:{ev['target']}"
+
+
+def counters_left(plan: Any, sim: dict[str, Any], c: Any, ev: dict[str, Any]) -> int:
+    """Rock Hydra: the counters still on the recipient that this damage batch hasn't used to prevent damage yet (the table changes after the batch, 615.5)."""
+    card = plan.state.cards.get(ev["target"])
+    return int(sim.get("shields", {}).get(counter_key(c, ev), card.counters.get(c.op["counter"], 0) if card is not None else 0))
 
 
 def holds(plan: Any, ctx: dict[str, Any], cond: Def) -> bool:
@@ -68,6 +77,16 @@ def _farmer(d: Def) -> Def:
     return {**d, "effects": [{**e, "controller110j": True} if e in until else e for e in d["effects"]]} if len(until) == 1 else d
 
 
+def _hydra(d: Def) -> Def:
+    """Rock Hydra: for each 1 damage, a counter is removed and that 1 damage prevented — only as much is prevented as there are counters (op prevent_counters110j)."""
+    op = d.get("op") or {}
+    if d.get("event") != "damage" or op.get("do") != "prevent_all" or not op.get("rider"):
+        raise ValueError("Rock Hydra: unexpected native shape")
+    return {**d, "op": {**op, "do": "prevent_counters110j", "counter": "+1/+1"}}
+
+
+_BUILD["For each 1 damage that would be dealt to this creature, if it has a +1/+1 counter on it, remove a +1/+1 counter from it and prevent that 1 damage."] = (
+    "If this creature would be dealt damage while it has a +1/+1 counter on it, prevent that damage and remove that many +1/+1 counters from it.", _hydra)
 _BUILD["At the beginning of your upkeep, if Rasputin started the turn untapped, put a dream counter on it."] = (
     "At the beginning of your upkeep, put a dream counter on this creature.", lambda d: {**d, "if": {"w110j": "began_untapped"}})
 _BUILD["{T}: Target land becomes a Swamp until its controller's next untap step."] = (

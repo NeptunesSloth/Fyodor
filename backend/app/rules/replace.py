@@ -1172,7 +1172,9 @@ def do_counters(plan: Plan, planned: CounterPlan, *, by: str, receipt: list[Coun
     """The planned counters as table actions: the same kind and number for several objects is one
     step (one event batch), as without replacement effects."""
     left_to_players(plan, planned.planner)
-    from app.rules import wave110j_cards  # -- (wave 110J) -- "can't have more than N X counters" (Rasputin Dreamweaver)
+    from app.rules import (
+        wave110j_cards,  # -- (wave 110J) -- "can't have more than N X counters" (Rasputin Dreamweaver)
+    )
 
     groups: dict[tuple[str, str, int], list[str]] = {}
     group = plan.rules.batch + 1
@@ -2127,6 +2129,10 @@ def _damage_applies(plan: Plan, c: Candidate, ev: Event, sim: Sim) -> bool:
         if c.op.get("limit") is not None and (int(c.op["limit"]) <= 0 or
                 (sim.get("shields", {}).get(f"redir:{c.id}", c.op["limit"]) <= 0 and not c.op.get("allocate"))):
             return False  # (-- prevention riders (wave 17A) -- "the next 1 damage": used up)
+    from app.rules import wave110j_cards  # -- (wave 110J) --
+
+    if c.op["do"] == "prevent_counters110j" and wave110j_cards.counters_left(plan, sim, c, ev) <= 0:
+        return False  # -- (wave 110J) -- Rock Hydra: no counter left to remove
     if c.op["do"] == "finite_prevention":
         left = sim.get("shields", {}).get(_finite_prevention_key(c, ev), c.op["limit"])
         if int(c.op["limit"]) <= 0 or (left <= 0 and not c.op.get("allocate")):
@@ -2168,6 +2174,8 @@ def _damage_apply(plan: Plan, c: Candidate, ev: Event, sim: Sim) -> list[Event]:
         used = sim.setdefault("shield_counter_used", [])
         if op["shield_counter"] not in used:
             used.append(op["shield_counter"])
+    from app.rules import wave110j_cards  # -- (wave 110J) --
+
     n = int(ev["amount"])
     kind = op["do"]
     if ev.get("unpreventable") and op.get("prevention"):
@@ -2194,6 +2202,10 @@ def _damage_apply(plan: Plan, c: Candidate, ev: Event, sim: Sim) -> list[Event]:
         n = min(n, int(op["n"]))
     elif kind == "prevent_all" or kind == "body":  # (-- damage bodies (wave 35C) -- a replaced damage is never dealt, 614.6)
         n = 0
+    elif kind == "prevent_counters110j":  # -- (wave 110J) -- 615.5, 615.7-like: each 1 damage is prevented while a counter is left to remove
+        used = min(wave110j_cards.counters_left(plan, sim, c, ev), n)
+        sim.setdefault("shields", {})[wave110j_cards.counter_key(c, ev)] = wave110j_cards.counters_left(plan, sim, c, ev) - used
+        n -= used
     elif kind == "finite_prevention":
         from app.rules import single_recipient_redirection
 

@@ -10,7 +10,7 @@ import pytest
 
 from tests.game_helpers import act
 from tests.wave9c_kit import build
-from tests.wave110j_kit import EXTRA, card_db, check, full, now, put_new, to_phase  # noqa: F401
+from tests.wave110j_kit import EXTRA, card_db, check, full, mana, now, put_new, settle, to_hand, to_phase  # noqa: F401
 
 RASPUTIN = "Rasputin Dreamweaver"
 
@@ -32,3 +32,69 @@ def test_rasputin_upkeep_counter(cards, before, tap_on_turn_2, after):
     assert now(s, r).counters.get("dream", 0) == after and not now(s, r).tapped
     check(s)
 
+
+
+HYDRA = "Rock Hydra"
+
+
+def test_hydra_is_full():
+    assert full(HYDRA)
+
+
+def _hydra(cards, x):
+    s = build(cards, [HYDRA, "Lightning Bolt", "Forest"])
+    mana(s, R=2 + x)
+    c = to_hand(s, HYDRA)
+    act(s, "p1", type="cast_spell", card_id=c.id, x_value=x)
+    settle(s)
+    return s, c
+
+
+@pytest.mark.parametrize(("x", "left", "alive", "marked"), [(5, 2, True, 0), (3, 0, False, 0)])
+def test_hydra_prevents_each_damage_while_a_counter_is_left(cards, x, left, alive, marked):
+    """615.5: 3 damage from a Bolt — a counter removed and 1 damage prevented for each, as long as counters remain."""
+    s, c = _hydra(cards, x)
+    assert now(s, c).counters.get("+1/+1") == x
+    bolt = to_hand(s, "Lightning Bolt")
+    mana(s, R=1)
+    act(s, "p1", type="cast_spell", card_id=bolt.id, targets=[c.id])
+    settle(s)
+    h = now(s, c)
+    assert (h.zone == "p1:battlefield") is alive
+    if alive:
+        assert h.counters.get("+1/+1", 0) == left and h.damage == marked
+    check(s)
+
+
+def test_hydra_counters_carry_over_between_damage_events(cards):
+    """Two Bolts: 5 counters -> 2 -> the second (3 damage, 2 counters) strips the rest and the 0/0 Hydra dies (704.5f)."""
+    s = build(cards, [HYDRA, "Lightning Bolt", "Lightning Bolt", "Forest"])
+    mana(s, R=9)
+    c = to_hand(s, HYDRA)
+    act(s, "p1", type="cast_spell", card_id=c.id, x_value=5)
+    settle(s)
+    for left in (2, None):
+        bolt = to_hand(s, "Lightning Bolt")
+        act(s, "p1", type="cast_spell", card_id=bolt.id, targets=[c.id])
+        settle(s)
+        assert (now(s, c).counters.get("+1/+1") == left) if left else now(s, c).zone == "p1:graveyard"
+    check(s)
+
+
+@pytest.mark.parametrize(("pick", "counters"), [(0, 2), (1, 3)])
+def test_hydra_and_its_own_shield_are_ordered_by_its_controller(cards, pick, counters):
+    """616.1: the {R} shield and the Hydra's counters both apply to a Bolt — the controller picks which goes first (5 counters: 5-3 or 5-2)."""
+    from tests.wave110j_kit import activate
+
+    s = build(cards, [HYDRA, "Lightning Bolt", "Forest"])
+    mana(s, R=9)
+    c = to_hand(s, HYDRA)
+    act(s, "p1", type="cast_spell", card_id=c.id, x_value=5)
+    settle(s)
+    activate(s, now(s, c), "{R}:")
+    settle(s)
+    bolt = to_hand(s, "Lightning Bolt")
+    act(s, "p1", type="cast_spell", card_id=bolt.id, targets=[c.id])
+    settle(s, answers=[[s.state.rules.decision.options[pick].id] if s.state.rules.decision else None])
+    assert now(s, c).counters == {"+1/+1": counters} and now(s, c).damage == 0
+    check(s)

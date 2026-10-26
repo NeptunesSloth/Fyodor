@@ -849,5 +849,22 @@
   "keywords": [],
   "power": "4",
   "toughness": "1"
+ },
+ {
+  "name": "Rock Hydra",
+  "layout": "normal",
+  "mana_cost": "{X}{R}{R}",
+  "cmc": 2.0,
+  "type_line": "Creature — Hydra",
+  "oracle_text": "This creature enters with X +1/+1 counters on it.\nFor each 1 damage that would be dealt to this creature, if it has a +1/+1 counter on it, remove a +1/+1 counter from it and prevent that 1 damage.\n{R}: Prevent the next 1 damage that would be dealt to this creature this turn.\n{R}{R}{R}: Put a +1/+1 counter on this creature. Activate only during your upkeep.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [],
+  "power": "0",
+  "toughness": "0"
  }
 ]
