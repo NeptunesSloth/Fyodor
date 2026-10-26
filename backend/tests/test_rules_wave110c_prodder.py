@@ -38,8 +38,17 @@ def test_opponents_choose_in_turn_order(cards, answers):
         d = s.state.rules.decision
         assert d is not None and d.player == who
         act(s, who, type="choose", decision_id=d.id, option_ids=["yes" if who in answers else "no"])
-    while s.state.rules.stack or s.state.rules.decision:
+    while (s.state.rules.stack or s.state.rules.decision) and not (s.state.rules.decision and s.state.rules.decision.kind == "manual_resolution"):
         act(s, s.state.rules.priority, type="pass_priority")
     assert s.state.cards[drop.id].zone == ("p1:graveyard" if answers else "p1:hand")
+    if len(answers) == 2:  # unsettled: both said yes, the damage is handed to manual play
+        d = s.state.rules.decision
+        assert d is not None and d.kind == "manual_resolution" and d.player == "p1"
+        assert (life(s, "p2"), life(s, "p3")) == (40, 40)
+        act(s, "p1", type="choose", decision_id=d.id, option_ids=["done"])
+        while s.state.rules.stack or s.state.rules.decision:
+            act(s, s.state.rules.priority, type="pass_priority")
+        assert s.state.cards[drop.id].zone == "p1:graveyard"
+        return
     assert (life(s, "p2"), life(s, "p3")) == tuple(40 - 5 * (p in answers) for p in ("p2", "p3"))
     check(s)

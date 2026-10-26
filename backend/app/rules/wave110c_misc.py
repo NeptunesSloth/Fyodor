@@ -293,13 +293,19 @@ def _prodder_ask(plan: Plan, ctx: dict[str, Any], cid: str, rest: list[str], yes
         return True
     mv = int(plan.ch(plan.state.cards[cid]).mana_value)
     plan.do({"type": "move", "card_ids": [cid], "to": {"player": pid, "zone": "graveyard"}}, actor=pid)
+    if mv > 0 and len(yes) > 1:
+        # No CR rule or official ruling settles "that player" when several opponents say yes (608.2e only orders the choices): refuse, hand the damage to manual play.
+        decide(plan, player=pid, kind="manual_resolution", options=[DecisionOption(id="done", label="Done")],
+               prompt=f"Sin Prodder: {', '.join(plan.name(p) for p in yes)} each chose yes. Deal {mv} damage by hand as you rule, then press Done.",
+               resume={"step": "prodder_manual110c", "ctx": ctx})
+        return False
     if mv > 0:
         ctx["effects"][ctx["next"]:ctx["next"]] = [{"do": "damage", "who": f"player:{p}", "n": mv} for p in yes]
     return True
 
 
 def prodder(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
-    """Sin Prodder: 701.20a (reveal), 608.2d (the opponents choose in turn order), 120.3 (the damage is Sin Prodder's)."""
+    """Sin Prodder: 701.20a (reveal), 608.2e (the opponents choose in turn order), 120.3 (the damage is Sin Prodder's)."""
     pid = ctx["controller"]
     lib = plan.state.zones.get(f"{pid}:library", [])
     if not lib:
@@ -317,6 +323,12 @@ def resume_prodder(plan: Plan, d: Any, chosen: list[str]) -> None:
         effects.continue_effects(plan, r["ctx"])
 
 
+def prodder_done(plan: Plan, d: Any, chosen: list[str]) -> None:
+    from app.rules import effects
+
+    effects.continue_effects(plan, d.resume["ctx"])
+
+
 def attached_if(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     """Skip the next ``skip`` instructions unless the source Aura is attached to a permanent (it moved there, 303.4)."""
     src = plan.state.cards.get(ctx.get("source_card") or "")
@@ -325,5 +337,5 @@ def attached_if(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return True
 
 
-RESUME = {"prodder110c": resume_prodder, "omnath110c": resume_omnath, "evidence_x110c": resume_evidence_x}
+RESUME = {"prodder110c": resume_prodder, "prodder_manual110c": prodder_done, "omnath110c": resume_omnath, "evidence_x110c": resume_evidence_x}
 PRIMITIVES = {"attached_if110c": attached_if, "prodder110c": prodder, "omnath110c": omnath, "evidence_x110c": evidence_x, "revealed_x110c": revealed_x, "glyph110c": glyph, "shuttle110c": shuttle, "shuttle_attack110c": shuttle_attack}
