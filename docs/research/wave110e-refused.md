@@ -17,3 +17,4 @@
 - Celestial Dawn: "spend other mana only as though colorless" restricts payment for all mana; payment engine has no per-type conversion limit.
 - Ms. Marvel, Kamala Khan: granted static sets base power to a live count (7b, continuous); base-power effects here are read once.
 - Arboria: needs a per-player "cast a spell / put a nontoken permanent onto the battlefield last turn" history (previous_own_turns tracks attacks only).
+- s7 revisit: Sanctuary Blade (attach-time color choice, last-chosen memory), Radiate (copy per other legal target), Clara Oswald (pre-game color choice), Monitor Monitor (dice rerolls 706.2b), Teferi's Reproach, Ms. Marvel, Celestial Dawn, Arboria still need the foundations named above; not built this session.
