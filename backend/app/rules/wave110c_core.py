@@ -355,7 +355,13 @@ def definition(ability: AbilityText, ch: Any) -> dict[str, Any] | None:
 
     if (anyopp := wave110c_any.definition(ability, ch)) is not None:
         return anyopp
-    from app.rules import wave110c_valki, wave110c_xanathar  # -- Xanathar, Valki (wave 110C) --
+    from app.rules import wave110c_cosima, wave110c_koh, wave110c_valki, wave110c_xanathar  # -- Xanathar, Valki, Cosima, Koh (wave 110C) --
+
+    if (koh := wave110c_koh.definition(ability, ch)) is not None:
+        return koh
+
+    if (cosima := wave110c_cosima.definition(ability, ch)) is not None:
+        return cosima
 
     if (valki := wave110c_valki.definition(ability, ch)) is not None:
         return valki

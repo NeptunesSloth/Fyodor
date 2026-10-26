@@ -248,7 +248,7 @@ def modal_definition(ability: AbilityText, ch: Characteristics) -> dict[str, Any
     return scope_definition({**d, 'modal': {**d['modal'], 'index': ability.index}}, ability)
 
 
-def _lent(plan: Plan, lender: CardInstance, no_mana: bool) -> list[AbilityText]:
+def _lent(plan: Plan, lender: CardInstance, no_mana: bool, triggered: bool = False) -> list[AbilityText]:
     from app.rules import scripts
 
     ch = plan.ch(lender)
@@ -262,7 +262,7 @@ def _lent(plan: Plan, lender: CardInstance, no_mana: bool) -> list[AbilityText]:
     out: list[AbilityText] = []
     for i, ab in enumerate(ch.abilities):
         keyword = ab.kind == "keywords" and len(ab.keywords) == 1 and ab.keywords[0] in _ACTIVATED_KEYWORDS
-        if not (ab.kind == "activated" or (ab.kind == "mana" and not no_mana) or keyword):
+        if not (ab.kind == "activated" or (ab.kind == "mana" and not no_mana) or keyword or (triggered and ab.kind == "triggered")):  # (wave 110C: Koh, "activated and triggered")
             continue
         found = parse_abilities(ab.text if keyword else own(ab.text))
         if not found or found[0].kind != ab.kind or any(not x.text.startswith('• ') for x in found[1:]):
@@ -284,6 +284,10 @@ def _lenders(plan: Plan, st: Static) -> list[CardInstance]:
     if r is None:
         return []
     sel = selectors.from_key(d["sel"]) if d["sel"] else None
+    if d.get("chosen110c"):  # -- wave 110C -- Koh: "the last chosen card", the object recorded as Koh's choice (400.7: a card that left exile is another object)
+        from app.rules import wave110c_koh
+
+        return [state.cards[c] for c in wave110c_koh.last_chosen(state, st.source)]
     if d.get("top"):
         # Re-read after every change of top card. A library position is not an
         # object reference that can stay bound to the former card (401.5, 611.3a).
@@ -390,7 +394,7 @@ def _graph(plan: Plan) -> dict[tuple[str, int], list[AbilityText]]:
             d = st.definition['abilities_of']
             lines = []
             for lender in lenders:
-                lent = _keyword_lines(views, lender, d['keywords']) if d.get('keywords') else _lent(views, lender, d['no_mana'])
+                lent = _keyword_lines(views, lender, d['keywords']) if d.get('keywords') else _lent(views, lender, d['no_mana'], bool(d.get('triggered')))
                 for k, ab in enumerate(lent):
                     origin = (_origin_oid(plan, cid), key, _origin_oid(plan, lender.id), *(ab.borrowed_origin or (str(ab.index),)))
                     # Preserve the original direct-slot representation where it cannot

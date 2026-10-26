@@ -7256,3 +7256,11 @@ from app.rules import wave110c_valki as _wave110c_valki  # noqa: E402, I001  -- 
 
 PRIMITIVES.update(_wave110c_valki.PRIMITIVES)
 RESUME.update(_wave110c_valki.RESUME)
+from app.rules import wave110c_cosima as _wave110c_cosima  # noqa: E402, I001  -- (wave 110C) --
+
+PRIMITIVES.update(_wave110c_cosima.PRIMITIVES)
+RESUME.update(_wave110c_cosima.RESUME)
+from app.rules import wave110c_koh as _wave110c_koh  # noqa: E402, I001  -- (wave 110C) --
+
+PRIMITIVES.update(_wave110c_koh.PRIMITIVES)
+RESUME.update(_wave110c_koh.RESUME)
