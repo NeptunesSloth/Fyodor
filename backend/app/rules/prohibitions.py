@@ -228,6 +228,11 @@ def cant_search(plan: Plan, searcher: str, by: str, library: str | None = None) 
     for src, d in _statics(plan, "cant_search"):
         mine = src.controller == searcher
         caused = d["who"] == "caused" and not mine and searcher == by and library in (None, searcher)
+        if d.get("ignore110a"):  # -- wave 110A -- Leonin Arbiter: a player who paid {2} this turn ignores this one
+            from app.rules import wave110a_arbiter
+
+            if wave110a_arbiter.ignoring(plan, searcher, src):
+                continue
         if d["who"] == "each" or (d["who"] == "opponents" and not mine) or caused:
             return _label(src)
     turn = plan.state.turn.number

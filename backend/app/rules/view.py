@@ -194,6 +194,12 @@ def stats(state: GameState, viewer: str, info: CardInfo) -> dict[str, dict[str, 
                 entry["halves"] = [{"name": h.name, "mana_cost": h.mana_cost} for h in (chars.half_from_data(data, i) for i in (0, 1))]
         if end := licids.ending(state, card, viewer):  # -- licids (wave 50A) -- 116.2c: the cost of the special action that ends the viewer's effect on it
             entry["end_cost"] = end[0].end_cost
+        from app.rules import (
+            wave110a_arbiter,  # -- wave 110A -- Leonin Arbiter: any player may pay {2} (shown until they have)
+        )
+
+        if card.zone.endswith(":battlefield") and wave110a_arbiter.has(now) and "end_cost" not in entry:
+            entry["end_cost"] = wave110a_arbiter.COST
         if not now.is_creature:
             if entry:
                 out[cid] = entry
