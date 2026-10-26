@@ -359,7 +359,23 @@ def resume_slicer(plan: Any, d: Any, chosen: list[str]) -> None:
     effects.continue_effects(plan, ctx)
 
 
+def _niv(d: Def) -> Def:
+    """Niv-Mizzet Reborn: one pick per color pair, a card of exactly those two colors (105.2) among the revealed cards; no card of a pair, no pick (608.2d)."""
+    from itertools import combinations
+
+    from app.rules import selectors
+
+    two = selectors.parse("card that's exactly two colors")
+    assert two is not None
+    pick = next(e for e in d["effects"] if e.get("do") == "pick_looked")
+    picks = [{**pick, "sel": selectors.replace(two, not_colors=tuple(c for c in "WUBRG" if c not in pair)).key()}
+             for pair in combinations("WUBRG", 2)]
+    return {**d, "effects": [x for e in d["effects"] for x in (picks if e is pick else [e])]}
+
+
 _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
+    "When Niv-Mizzet enters, reveal the top ten cards of your library. For each color pair, choose a card that's exactly those colors from among them. Put the chosen cards into your hand and the rest on the bottom of your library in a random order.":
+        ("When Niv-Mizzet enters, reveal the top ten cards of your library. Put a creature card from among them into your hand and the rest on the bottom of your library in a random order.", _niv),
     # Slicer, Hired Muscle: 613.1b/e control until end of turn, 701.39 goad, 701.21 sacrifice barred, 701.28 convert (a transform); the "may" is asked first, then one of two branches
     "At the beginning of each opponent's upkeep, you may have that player gain control of Slicer until end of turn. If you do, untap Slicer, goad it, and it can't be sacrificed this turn. If you don't, convert it.":
         ("At the beginning of each opponent's upkeep, that player gains control of this creature until end of turn.", lambda d: _slicer(d)),

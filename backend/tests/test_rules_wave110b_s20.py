@@ -102,3 +102,20 @@ def test_slicer_opponent_upkeep_give_control_or_convert(cards, give):
     else:
         assert c.controller == "p1" and c.face == 1  # (701.28: converted = transformed)
     check(s)
+
+
+def test_niv_mizzet_reborn_one_card_of_exactly_each_color_pair(cards):
+    """105.2, 608.2d: of the ten revealed cards one card of exactly each color pair is chosen (a pair with several candidates is the player's choice, none no pick; a mono-colored or
+    three-color card is never chosen); the chosen cards go to hand, the rest to the bottom of the library."""
+    from tests.wave110b_kit import top
+
+    s = build(cards, ["Niv-Mizzet Reborn", "Supreme Verdict", "Genku, Future Shaper", "Fire // Ice", "Bloodbraid Elf", "Kess, Dissident Mage", "Lightning Bolt"], [], forests=30, islands=40)
+    ten = ["Supreme Verdict", "Genku, Future Shaper", "Fire // Ice", "Bloodbraid Elf", "Kess, Dissident Mage", "Lightning Bolt"]
+    for n in ten:
+        top(s, n)
+    mana(s, U=3, R=3, G=3, W=3, B=3, C=3)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Niv-Mizzet Reborn").id)
+    drive(s, lambda d: [o.id for o in d.options if o.card_id and s.state.cards[o.card_id].name == "Supreme Verdict"] or None)
+    hand = sorted(s.state.cards[c].name for c in s.state.zones["p1:hand"])
+    assert hand == ["Bloodbraid Elf", "Fire // Ice", "Supreme Verdict"]
+    check(s)
