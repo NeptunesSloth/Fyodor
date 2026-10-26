@@ -335,18 +335,19 @@ def _extend_statics(state: GameState, info: CardInfo, out: list[Static], wiped: 
         for text in st.definition.get("grants", ()):
             # (wave 42A) 702.98a: a granted "Unleash" brings its second half, the static "can't block as long as it has a +1/+1 counter" (the first, the counter, is
             # chosen as it enters: riot.py); the same static the printed keyword is (scripts.define)
-            inner = grammar.parse("~ can't block as long as it has a +1/+1 counter on it." if text.rstrip(".").lower() == "unleash" else scripts.self_text(text.replace("‹mv›", "0"), ""))
+            inner = grammar.parse("~ can't block as long as it has a +1/+1 counter on it." if text.rstrip(".").lower() == "unleash" else scripts.self_text(text.replace("‹mv›", "1"), ""))
             if inner is None:
                 continue
             for cid, controller in field:
-                if "‹mv›" in text:  # -- Bludgeon Brawl (wave 110J) -- the recipient's own mana value
-                    inner = grammar.parse(scripts.self_text(text.replace("‹mv›", str(int(copiable(state, state.cards[cid], info).mana_value))), ""))
-                    if inner is None:
-                        continue
+                mine: dict[str, Any] | None = inner
+                if "‹mv›" in text:  # -- Bludgeon Brawl (wave 110J) -- the recipient's own mana value (the "1" above only tests the wording: "+0/+0" parses to nothing)
+                    mine = grammar.parse(scripts.self_text(text.replace("‹mv›", str(int(copiable(state, state.cards[cid], info).mana_value))), ""))
+                if mine is None:
+                    continue
                 seq = max(st.seq, timestamp(state, cid))
                 if cid in wiped and (seq, 0, 0) <= wiped[cid]:
                     continue  # -- attached events (wave 4L) -- granted before it lost all abilities (613.7)
-                out.append(Static(cid, controller, inner, seq, gate=(st.source, st.definition)))
+                out.append(Static(cid, controller, mine, seq, gate=(st.source, st.definition)))
     # Resolved quoted self statics use the granting effect's exact timestamp.
     # Limit discovery to native layer-6 keyword/rule statics; introducing layer-4
     # dependencies here would require solving those grants as dependency nodes.

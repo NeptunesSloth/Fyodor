@@ -41,3 +41,9 @@
 - Bludgeon Brawl: per-artifact layer-4 Equipment subtype plus a per-artifact "Equip {X}" and "Equipped creature gets +X/+0" grant with X = that artifact's mana value; statics grant fixed texts, no per-object grant foundation; dependency with "becomes a creature" (2011-06-01 ruling).
 - Volrath's Shapeshifter: dynamic text-changing effect (2008-08-01 ruling) following the top card of the graveyard; copy recipes are stored per object, not derived from a changing zone.
 - Guardian Beast: unchanged (see above).
+
+## Session 13 (promoted: Guardian Beast, Spy Kit, Bludgeon Brawl, Volrath's Shapeshifter; the earlier lines about them are stale)
+- Spy Kit: CR 612.7 settles it ("all names of nonlegendary creature cards", Oracle reference). Built as a name_test on Characteristics (card_names.has_name asks the card DB); `names_of`/`share` (201.2 comparisons) do not see the extra names, only legendary-rule-irrelevant name checks matter (named-card effects).
+- Volrath's Shapeshifter: CR 612.6 settles it (layer 3 full text); derived in copying.layer1, followed live by the graveyard.
+- Bludgeon Brawl: per-recipient "‹mv›" placeholder in grants (layers.py).
+- Guardian Beast: rules cant_be_enchanted110j / cant_gain_control110j (attachments, targets, effects._control_effect).

@@ -339,3 +339,33 @@ def test_bludgeon_brawl_makes_each_artifact_an_equipment_with_its_own_mana_value
     check(s)
     act(s, "p1", type="move", card_ids=[brawl.id], to={"zone": "graveyard"})  # it leaves: no more Equipment, the +X/+0 ends
     assert "Equipment" not in ch(s, now(s, dyn)).subtypes and ch(s, now(s, bears)).pt == (2, 2)
+
+
+VS = "Volrath's Shapeshifter"
+
+
+def test_volrath_shapeshifter_full(cards):
+    from app.rules import coverage
+
+    assert coverage.of_card_data(cards.resolve(VS)).level == "FULL"
+
+
+def test_volrath_shapeshifter_takes_the_full_text_of_the_top_creature_card(cards):
+    """612.6 + 613.1c: name, mana cost, color, types, P/T and abilities of the top creature card (and {2}: Discard a card); a noncreature on top, or none, leaves it as printed."""
+    from tests.wave9c_kit import mana
+    from tests.wave110j_kit import activate, ch, grave_new, hand_new
+
+    s = build(cards, [VS, "Prodigal Sorcerer", "Sol Ring", "Grizzly Bears"], [], forests=30, islands=30)
+    vs = put_new(s, VS)
+    assert (ch(s, now(s, vs)).name, ch(s, now(s, vs)).pt) == (VS, (0, 1))
+    grave_new(s, "Prodigal Sorcerer")
+    now_ch = ch(s, now(s, vs))
+    assert (now_ch.name, now_ch.pt, now_ch.mana_cost) == ("Prodigal Sorcerer", (1, 1), "{2}{U}") and {"Human", "Wizard"} <= set(now_ch.subtypes)
+    assert any(a.text.startswith("{T}: ") for a in now_ch.abilities) and any(a.text == "{2}: Discard a card." for a in now_ch.abilities)
+    hand_new(s, "Grizzly Bears")  # "{2}: Discard a card." puts the card it discards on top, so the Shapeshifter follows it
+    mana(s, "p1", C=2)
+    activate(s, vs, "{2}: Discard a card.")
+    assert (ch(s, now(s, vs)).name, ch(s, now(s, vs)).pt) == ("Grizzly Bears", (2, 2))
+    grave_new(s, "Sol Ring")  # a noncreature card is now on top: as printed
+    assert ch(s, now(s, vs)).name == VS
+    check(s)

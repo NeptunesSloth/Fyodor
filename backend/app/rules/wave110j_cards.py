@@ -109,6 +109,8 @@ def definition(ability: Any, ch: Any) -> Def | None:
                                    rules=[combat_conditional_requirements67.PREFIX + "@src:magnet110j"])
     if ability.text.strip() == _TAKKLE_GAIN:  # Takklemaggot's granted ability: the chosen player is the one recorded as it returned (read by triggers._whose_step)
         return {"kind": "triggered", "trigger": "step:upkeep:chosen_player", "effects": [{"do": "damage", "who": "event_player", "n": 1}], "optional": False, "target": None}
+    if ability.text.strip().startswith(_VS_START):  # its effect is derived in copying.layer1 (full_text); the ability itself changes nothing else
+        return {"kind": "static", "static": "full_text110j", "effects": []}
     if ability.text.strip() == _EQUINOX:
         return {"kind": "activated", "cost": "{T}", "effects": [{"do": "equinox110j"}], "target": {"what": "spell"}}
     if (curse := _CURSE_RE.fullmatch(ability.text.strip())) is not None:
@@ -1269,3 +1271,28 @@ def nonlegendary_creature_name(info: Any, name: str | None) -> bool:
         return False
     types = str(face.get("type_line") or "").replace("\u2014", " ").split()
     return "Creature" in types and "Legendary" not in types
+
+
+# -- Volrath's Shapeshifter (wave 110J) -- 612.6: "the full text" of the top creature card of its controller's graveyard (404.2: the last one) replaces the object's name, mana cost,
+# color, types, power, toughness and abilities (layer 3, 613.1c; read here with the copiable values so its triggers and statics follow); it also has "{2}: Discard a card."
+# (which is how its player changes the top card). The effect is worked out afresh whenever characteristics are (611.3a), so it follows the graveyard (the statics cache
+# is keyed by the graveyards); a Clone copying it copies the printed card (612.6 is not a copy effect).
+_VS_START = "As long as the top card of your graveyard is a creature card, this creature has the full text"
+_VS_DISCARD = "{2}: Discard a card."
+
+
+def full_text(state: Any, card: Any, ch: Any, info: Any) -> Any:
+    from app.rules import characteristics as chars
+    from app.rules.scripts import granted_ability
+
+    pile = state.zones.get(f"{card.controller}:graveyard") or []
+    top = state.cards.get(pile[-1]) if pile and info is not None else None
+    if top is None or top.token is not None:
+        return ch
+    theirs = chars.of(top, info)
+    extra = granted_ability(_VS_DISCARD)
+    if not theirs.is_creature or extra is None:
+        return ch
+    return replace(ch, name=theirs.name, supertypes=theirs.supertypes, types=theirs.types, subtypes=theirs.subtypes, mana_cost=theirs.mana_cost, mana_value=theirs.mana_value,
+                   colors=theirs.colors, power=theirs.power, toughness=theirs.toughness, loyalty=theirs.loyalty, defense=theirs.defense, oracle_id=theirs.oracle_id,
+                   oracle_text=theirs.oracle_text + "\n" + _VS_DISCARD, abilities=(*theirs.abilities, replace(extra, index=98)))
