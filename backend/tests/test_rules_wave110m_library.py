@@ -260,3 +260,53 @@ def test_fortify_is_sorcery_speed_and_needs_a_land_you_control(cards):
     to_turn_of(s, "p2")
     with pytest.raises(ActionError):
         act(s, "p1", type="activate_ability", card_id=garrison.id, ability=2, targets=[forest.id])
+
+
+# -- Booby Trap ------------------------------------------------------------------------------------------------------------------------------
+TRAP = "Booby Trap"
+test_trap_full = full_test([TRAP])
+
+
+def trap_table(cards, drawn="Llanowar Elves"):
+    from app.rules import card_names
+
+    s = build(cards, [TRAP, "Llanowar Elves"], ["Llanowar Elves", "Grizzly Bears"], forests=20)
+    trap = to_hand(s, TRAP)
+    fund(s, "{6}")
+    act(s, "p1", type="cast_spell", card_id=trap.id)
+    for _ in range(30):
+        d = s.state.rules.decision
+        if d is None and not s.state.zones.get("stack"):
+            break
+        if d is None:
+            act(s, s.state.rules.priority, type="pass_priority")
+        elif card_names.is_free_text(d):
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[], name="Llanowar Elves")
+        else:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[d.options[0].id])
+    assert s.state.cards[trap.id].zone == "p1:battlefield" and s.state.cards[trap.id].choices
+    top = card_named(s, drawn, "p2")
+    act(s, "p2", type="move", card_ids=[top.id], to={"player": "p2", "zone": "library"}, position="top")
+    return s, trap, top
+
+
+@pytest.mark.parametrize("drawn,explodes", [("Llanowar Elves", True), ("Grizzly Bears", False)])
+def test_booby_trap_reveals_each_card_the_chosen_player_draws_and_blows_up_on_the_named_one(cards, drawn, explodes):
+    s, trap, top = trap_table(cards, drawn)
+    before = life(s, "p2")
+    to_turn_of(s, "p2")
+    answer(s)
+    assert top.id in s.state.zones["p2:hand"]
+    assert any("reveals" in "".join(str(getattr(p, "t", p)) for p in e.parts) for e in s.state.log[-40:])
+    assert (s.state.cards[trap.id].zone == "p1:graveyard", life(s, "p2")) == ((True, before - 10) if explodes else (False, before))
+    check(s)
+
+
+def test_booby_trap_ignores_the_named_card_drawn_by_a_player_who_was_not_chosen(cards):
+    s, trap, top = trap_table(cards)
+    mine = card_named(s, "Llanowar Elves", "p1")
+    act(s, "p1", type="move", card_ids=[mine.id], to={"player": "p1", "zone": "library"}, position="top")
+    act(s, "p1", type="draw", player="p1", count=1)
+    answer(s)
+    assert mine.id in s.state.zones["p1:hand"] and s.state.cards[trap.id].zone == "p1:battlefield" and life(s, "p1") == 40
+    check(s)

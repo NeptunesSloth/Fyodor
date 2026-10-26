@@ -24,6 +24,30 @@ ATK_TAX = "block_tax_atk110m"
 _PRESENCE = "Enchanted creature can't be blocked unless defending player pays {3} for each creature they control that's blocking it."
 
 
+def on_draw(plan: Any, pid: str, drawn: list[str]) -> None:
+    """Booby Trap: the chosen player reveals each card they draw (701.20a, as it is drawn); each card with the chosen name makes the trap's ability trigger (603.2)."""
+    from app.game.rules_state import TriggerEvent
+    from app.rules import card_names, chosen, context, scripts
+    from app.rules.triggers import _add
+
+    traps = [(src, i, d) for src in plan.state.cards.values() if src.zone.endswith(":battlefield") and plan.in_game(src) and not plan.manual(src)
+             for i, d in scripts.definitions(plan.ch(src)).items() if d.get("static") == BOOBY_RULE and chosen.player_of(plan, src.id) == pid]
+    if not traps or not drawn:
+        return
+    plan.do({"type": "reveal", "card_ids": list(drawn)}, actor=pid)
+    for cid in drawn:
+        card = plan.state.cards[cid]
+        plan.note(f"{plan.name(pid)} reveals {card.name or 'a card'}, a card they drew", [cid], actor=pid)
+        for src, _, _ in traps:
+            if not card_names.matches(plan, src.id, plan.ch(card)):
+                continue
+            trigger = next(((i, d) for i, d in scripts.definitions(plan.ch(src)).items() if (d.get("cond") or {}).get("hooked110m")), None)
+            if trigger is not None:
+                ref = context.ref_of(plan, cid)
+                _add(plan, controller=src.controller, source_card=src.id, source_object=plan.oid(src), name=src.name, index=trigger[0],
+                     definition=trigger[1], event=TriggerEvent(kind="draw", players=[pid], objects=[ref] if ref else []))
+
+
 def attacker_tax(ch: Any) -> str:
     """Awesome Presence: the mana the defending player pays for each creature that blocks this attacker (509.1d, 509.1f), or "" (the enchanted creature's rule)."""
     return "".join(r.split(":", 1)[1] for r in sorted(ch.imposed) if r.startswith(f"{ATK_TAX}:"))
@@ -39,6 +63,10 @@ def definition(ability: Any, ch: Any) -> Def | None:
 
     if ability.kind == "static" and ability.text.strip() == _PRESENCE:
         return statics._definition("attached", "creature", [], rules=[f"{ATK_TAX}:{{3}}"])
+    if ability.text.strip() == _BOOBY_ENTER:  # both choices are made as it enters (614.12a) and stay public on the permanent
+        first = scripts.define(replace(ability, text="As this artifact enters, choose an opponent."), ch)
+        second = scripts.define(replace(ability, text="As this artifact enters, choose a card name other than a basic land card name."), ch)
+        return None if first is None or second is None else {**first, "effects": [*first["effects"], *second["effects"]]}
     if (built := _BUILD.get(ability.text.strip())) is None:
         return None
     native = scripts.define(replace(ability, text=built[0]), ch)
@@ -336,6 +364,19 @@ def unblocked_rule(ch: Any) -> bool:
 _BUILD["Fortified land has indestructible."] = ("Enchanted land has indestructible.", lambda d: d)
 _BUILD["Whenever fortified land becomes tapped, target creature gets +1/+1 until end of turn."] = (
     "Whenever enchanted land becomes tapped, target creature gets +1/+1 until end of turn.", lambda d: d)
+
+BOOBY_RULE = "chosen_draw_reveal110m"
+_BOOBY_ENTER = "As this artifact enters, choose an opponent and a card name other than a basic land card name."
+_BOOBY_REVEAL = "The chosen player reveals each card they draw."
+_BOOBY_TRIGGER = ("When the chosen player draws a card with the chosen name, sacrifice this artifact. If you do, this artifact deals 10 damage to that player.")
+
+
+def _booby_trigger(d: Def) -> Def:
+    return {**d, "cond": {**d["cond"], "hooked110m": True}}  # (a draw event for the "that player" it reads; on_draw adds the trigger, never the generic match)
+
+
+_BUILD[_BOOBY_TRIGGER] = ("Whenever a player draws a card, sacrifice this artifact. If you do, this artifact deals 10 damage to that player.", _booby_trigger)
+_BUILD[_BOOBY_REVEAL] = ("Players have no maximum hand size.", lambda d: {"kind": "static", "static": BOOBY_RULE, "effects": []})
 
 _FACES = ("Whenever a creature dies, tap all untapped creatures that share a creature type with it or untap all tapped creatures that share a creature type with it.")
 _BUILD[_FACES] = ("Whenever a creature dies, draw a card.", lambda d: {**d, "effects": [{"do": "faces110m"}]})

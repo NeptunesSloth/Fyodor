@@ -778,6 +778,8 @@ _PAIRED = {"block": "block_pair", "blocked": "blocked_pair"}
 
 
 def _cond_matches(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: Fact, *, source_oid: str | None = None) -> bool:
+    if cond.get("hooked110m"):  # -- (wave 110M) -- Booby Trap: added by wave110m_cards.on_draw as the card is drawn, never by the generic event match
+        return False
     if cond.get('first_source80'):
         from app.rules import first_crew_saddle80
 

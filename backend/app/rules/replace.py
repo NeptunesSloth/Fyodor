@@ -1536,6 +1536,9 @@ def do_draws(plan: Plan, actions: list[tuple[Event, list[Event]]], after: dict[s
             from app.rules import first_reveal100b
 
             first_reveal100b.on_draw(plan, pid, top)  # -- if you do (wave 100B) -- "Reveal the first card you draw each turn" (Rowen)
+            from app.rules import wave110m_cards
+
+            wave110m_cards.on_draw(plan, pid, top)  # -- (wave 110M) -- Booby Trap: the chosen player reveals each card drawn
             key = _draw_step_key(plan)
             if r.replace_step_key != key:
                 r.replace_step_key, r.replace_step_draws = key, {}
