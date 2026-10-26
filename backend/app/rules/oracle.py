@@ -423,6 +423,10 @@ def parse_abilities(oracle_text: str | None, *, spell: bool = False, pt: tuple[s
     for i, line in enumerate(lines):
         if line == EARTHBIND:
             lines[i:i + 1] = [line, "As long as this Aura gained that ability, enchanted creature loses flying."]
+    # -- keywords (wave 110E) -- 702.65a: "Aura swap [cost]" means "[Cost]: You may exchange this permanent with an Aura card in your hand."
+    for i, line in enumerate(lines):
+        if (m := re.fullmatch(r"Aura swap ((?:\{[^}]+\})+)(?: \(.*\))?", line)) is not None:
+            lines[i] = f"{m[1]}: You may exchange this permanent with an Aura card in your hand."
     # -- lines (wave 110G) -- Ertai's Familiar: phasing out is not leaving (702.26d), so "phases out or leaves the battlefield" is two triggers that never share an event
     for i, line in enumerate(lines):
         if line == "When this creature phases out or leaves the battlefield, mill three cards.":

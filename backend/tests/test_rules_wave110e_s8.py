@@ -7,8 +7,8 @@ import tests.test_rules_wave110e_cards as base
 import tests.test_rules_wave110e_s7  # noqa: F401  (registers the cards)
 from app.rules import coverage
 from tests.game_helpers import act
-from tests.test_rules_wave110e_cards import card_db  # noqa: F401  (the fixture)
 from tests.test_rules_wave12a_counters_keywords import real
+from tests.test_rules_wave110e_cards import card_db  # noqa: F401  (the fixture)
 
 SHRIEK = real("Fell Beast's Shriek", "{U}{R}", 2, "Sorcery",
               "Each opponent chooses a creature they control. Tap and goad the chosen creatures. (Until your next turn, those creatures attack each combat if able "
@@ -26,10 +26,14 @@ AMBUSH = real("Auditore Ambush", "{2}{U}{B}", 4, "Sorcery",
 EZIO = real("Ezio, Blade of Vengeance", "{3}{U}{B}", 5, "Legendary Creature — Human Assassin",
             "Deathtouch (Any amount of damage this deals to a creature is enough to destroy it.)\nWhenever an Assassin you control deals combat damage to a player, draw a card.",
             ("5", "5"), "UB")
-base.EXTRA.extend([SHRIEK, SIP, CULPRIT, DISGUISER, AMBUSH, EZIO])
+WINGS = real("Arcanum Wings", "{1}{U}", 2, "Enchantment — Aura",
+             "Enchant creature\nEnchanted creature has flying.\nAura swap {2}{U} ({2}{U}: Exchange this Aura with an Aura card in your hand.)", None, "U")
+BOON = real("Test Boon", "{1}{G}", 2, "Enchantment — Aura", "Enchant creature\nEnchanted creature gets +2/+2.", None, "G")
+RELIC = real("Test Relic Aura", "{1}{G}", 2, "Enchantment — Aura", "Enchant artifact\nEnchanted artifact gets +2/+2.", None, "G")
+base.EXTRA.extend([WINGS, BOON, RELIC, SHRIEK, SIP, CULPRIT, DISGUISER, AMBUSH, EZIO])
 
 
-@pytest.mark.parametrize("name", [c["name"] for c in (SHRIEK, CULPRIT, AMBUSH)])
+@pytest.mark.parametrize("name", [c["name"] for c in (SHRIEK, CULPRIT, AMBUSH, WINGS)])
 def test_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
@@ -159,4 +163,50 @@ def test_auditore_ambush_the_target_player_searches_their_own_zones_for_ezio(car
     assert shuffled == (zone == "library")
     if zone == "graveyard":
         assert s.state.zones[f"{searcher}:library"] == before  # (no library search, no shuffle)
+    check(s)
+
+
+def _swap(cards, hand, answer_with):
+    from tests.test_rules_conditionals import creature
+    from tests.wave9c_kit import build, mana, put, to_hand
+
+    s = build(cards, ["Arcanum Wings", *hand])
+    bear = creature(s, "p1", "Bear", "2/2")
+    wings = put(s, "Arcanum Wings")
+    aura = [to_hand(s, n) for n in hand]
+    mana(s, U=1, C=2)
+    return s, bear, wings, aura
+
+
+def _activate_swap(s, wings, pick):
+    from app.rules.plan import Plan
+
+    ch = Plan(s.state, "p1", s.cards, None).ch(s.state.cards[wings.id])
+    index = next(a.index for a in ch.abilities if a.text.startswith("{2}{U}:"))
+    act(s, "p1", type="activate_ability", card_id=wings.id, ability=index)
+    for _ in range(10):
+        d = s.state.rules.decision
+        if d is None and s.state.zones.get("stack"):
+            act(s, s.state.rules.priority, type="pass_priority")
+            continue
+        if d is None:
+            break
+        ids = [o.id for o in d.options]
+        act(s, d.player, type="choose", decision_id=d.id, option_ids=[i for i in ids if i in pick][:1] or ids[:1])
+
+
+@pytest.mark.parametrize("hand", [["Test Boon"], ["Test Relic Aura"], []])
+def test_aura_swap_exchanges_this_aura_with_an_aura_card_in_hand(cards, hand):
+    """702.65a: the Aura card from hand enters (choosing what it enchants, 303.4f) and this Aura returns to hand; 702.65b/303.4g: an Aura that can't enter means no exchange."""
+    from tests.wave9c_kit import check
+
+    s, bear, wings, aura = _swap(cards, hand, None)
+    act(s, "p1", type="attach", card_ids=[wings.id], to=bear.id)
+    _activate_swap(s, wings, {bear.id})
+    swapped = hand == ["Test Boon"]
+    assert s.state.cards[wings.id].zone == ("p1:hand" if swapped else "p1:battlefield")
+    if swapped:
+        assert s.state.cards[aura[0].id].zone == "p1:battlefield" and s.state.cards[aura[0].id].attached_to == bear.id
+    elif aura:
+        assert s.state.cards[aura[0].id].zone == "p1:hand"
     check(s)

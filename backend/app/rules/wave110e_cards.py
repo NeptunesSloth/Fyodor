@@ -33,6 +33,7 @@ _REWRITE: dict[str, str] = {
 _CULPRIT = "Exile any number of face-up creatures you control with disguise in a face-down pile, shuffle that pile, then cloak them."
 _AMBUSH = ("Target player searches their library and/or graveyard for a card named Ezio, Blade of Vengeance, reveals it, and puts it into their hand. "
            "If they search their library this way, they shuffle.")
+_SWAP_BODY = "You may exchange this permanent with an Aura card in your hand."
 _BOLAS = 'sel:{"controller":"you","subtypes":["Bolas"],"types":["Planeswalker"]}'
 # whole ability text -> (the wording the grammar reads for the targets, the effects that replace the parsed ones; "target:0" = the first target group)
 _SWAP: dict[str, tuple[str, list[Def]]] = {
@@ -218,7 +219,25 @@ def mirror_match(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return True
 
 
-PRIMITIVES = {"mirror_match110e": mirror_match, "decoy110e": decoy, "head_games110e": head_games, "spell_targets110e": bind_targets, "modified_cast110e": bind_modified, "enter_tapped110e": enter_tapped_turn}
+def aura_swap_gate(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """702.65b: if either half can't be completed the ability does nothing: with the Aura gone, no Aura is put onto the battlefield."""
+    from app.rules import effects
+
+    if not effects._cards(plan, ctx, "self"):
+        ctx["next"] = min(len(ctx["effects"]), ctx["next"] + int(e["skip"]))
+    return True
+
+
+def aura_swap_return(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """702.65a: the Aura from the hand came onto the battlefield (303.4g: one with nothing to enchant stays in the hand), so this one goes to its owner's hand."""
+    from app.rules import effects
+
+    if any(plan.state.cards[c].zone.endswith(":battlefield") for c in effects._cards(plan, ctx, e["of"])):
+        effects.bounce(plan, ctx, {"who": "self"})
+    return True
+
+
+PRIMITIVES = {"aura_swap_gate110e": aura_swap_gate, "aura_swap_return110e": aura_swap_return, "mirror_match110e": mirror_match, "decoy110e": decoy, "head_games110e": head_games, "spell_targets110e": bind_targets, "modified_cast110e": bind_modified, "enter_tapped110e": enter_tapped_turn}
 
 _FLYERS = "Creatures with flying can't attack you or block creatures you control."
 _BLAZE = ("Target creature defending player controls can block any number of creatures this turn. "
@@ -311,4 +330,11 @@ def parse(body: str) -> tuple[list[dict[str, Any]], Any, bool] | None:
         own = scripts.parse_effects(_AMBUSH.replace("Target player searches their", "Search your").replace("reveals it, and puts it into their hand", "reveal it, and put it into your hand")
                                     .replace("If they search their library this way, they shuffle", "If you search your library this way, shuffle"))
         return None if own is None or len(own[0]) != 1 or own[0][0].get("do") != "search" else ([{**own[0][0], "who": "target"}], "player", False)
+    if body.strip() in (_SWAP_BODY, _SWAP_BODY.replace("this permanent", "~")):  # 702.65a: put the Aura card onto the battlefield (it chooses what it enchants, 303.4f), then this one returns to hand
+        from app.rules import scripts
+
+        put = scripts.parse_effects("You may put an Aura card from your hand onto the battlefield.")
+        if put is None or put[0][0].get("do") != "put_from_hand":
+            return None
+        return [{"do": "aura_swap_gate110e", "skip": 2}, {**put[0][0], "optional": True, "as": "sw110e"}, {"do": "aura_swap_return110e", "of": "ref:sw110e"}], None, False
     return None
