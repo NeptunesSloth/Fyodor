@@ -25,6 +25,8 @@ def requirements(cost: M.ManaCost, mode: str | None = None) -> RequirementPlan:
             return tuple(dict.fromkeys(x for c in symbols for x in (('C', 'U', 'B', 'R', 'G') if c == 'C' else ('W',) if c in M.COLORS else (c,))))
         if mode in ('white_color', 'blue_color') and any(c in M.COLORS for c in symbols):
             return tuple(dict.fromkeys((*symbols, 'W' if mode == 'white_color' else 'U')))
+        if mode == 'snow_color' and any(c in M.COLORS for c in symbols):
+            return tuple(dict.fromkeys((*symbols, M.SNOW)))
         if mode == 'colorless_color' and any(c in M.COLORS for c in symbols):
             return tuple(dict.fromkeys((*symbols, 'C')))
         if mode in ('type', 'color'):

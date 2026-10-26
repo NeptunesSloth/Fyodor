@@ -1436,6 +1436,11 @@ def deal_combat_damage(plan: Plan, rnd: Round, shield_order: list[str] | None = 
     replacement effects, 120.4c). False: a choice is open — which effect applies first (616.1) or
     which source's damage a shield prevents (615.7); the round is dealt again with the answers
     (``shield_order``, ``answers``: replace.resume_site)."""
+    from app.rules import (
+        wave110i_cards,  # -- cards (wave 110I) -- Illusionary Mask: a creature it cast face down is turned face up instead of assigning combat damage
+    )
+
+    wave110i_cards.mask_flip(plan, [c.id for c in plan.state.cards.values() if c.face_down and c.zone.endswith(":battlefield") and (c.is_attacking or c.is_blocking) and _deals(plan.ch(c), rnd)])
     dmg = compute_combat_damage(plan, rnd)
     events = combat_damage_events(plan, dmg)
     out = replace.damage_outcome(plan, events, answers=dict(answers or {}), order=shield_order, ask=True)

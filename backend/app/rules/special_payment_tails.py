@@ -103,6 +103,7 @@ def _paid(plan: Plan, frame: SpecialPayment, payment: M.Payment | None) -> None:
         casting.become_plotted(plan, card.id)
     elif kind == 'foretell':
         plan.rules.foretold[card.id] = plan.state.turn.number
+        plan.rules.foretell_action_turn[plan.actor] = plan.state.turn.number  # (wave 110I: Ranar)
         if frame.granted_mana_cost is not None:
             plan.rules.foretell_templates[card.id] = ForetellCostReceipt(plan.oid(card), frame.granted_mana_cost)
         emit(plan.state, "foretold", object_id=plan.oid(card), card=card.id, player=plan.actor)

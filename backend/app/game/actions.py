@@ -105,6 +105,7 @@ class Move(Base):
     entry_characteristics: dict[Id, EntryCharacteristics] | None = None
     # -- transform (wave 11A) -- 712.14a: the double-faced cards among them that enter the battlefield transformed (back face up)
     back_ids: list[Id] | None = Field(default=None, max_length=250)
+    flipped_ids: list[Id] | None = Field(default=None, max_length=250)  # -- flip (wave 110I) -- 710: the flip cards among them that enter the battlefield flipped
     # -- merged permanents (wave 18D) -- 903.9c: a merged or melded commander put into the command zone instead of its owner's hand or
     # library: the zone ("hand" / "library") every card of it that isn't a commander goes to
     rest_zone: Literal["hand", "library"] | None = None

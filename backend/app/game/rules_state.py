@@ -829,6 +829,7 @@ class ContinuousEffect(BaseModel):
     remove_abilities: bool = False
     add_abilities: list[str] = Field(default_factory=list)
     activation_player: str | None = None  # None retains the normal controller permission (602.2).
+    spend_blue110i: bool = False  # (wave 110I) the abilities it grants may be activated with blue mana as though any color (Grell Philosopher)
     # -- licids (wave 50A) -- 613.1f: "loses this ability" (one printed ability, by its index); 116.2c: "You may pay {W} to end this effect" - the
     # special action's cost (``end_cost``, for ``controller``) ends every effect of the same resolution (``end_group``: the first one's timestamp)
     lose_index: list[int] = Field(default_factory=list)
@@ -1308,6 +1309,7 @@ class Permission(BaseModel):
     # cost, 118.9), for as long as it remains exiled (the permission follows the object, 400.7h)
     alt_mana: str = ""
     generic_extra: int = 0  # Generic mana increase for casting with this permission.
+    tax_untargeted110i: int = 0  # -- wave 110I -- Mavinda: generic mana added when the spell doesn't target a creature the caster controls (601.2f, after the targets)
     generic_less: int = 0  # (wave 110G) generic mana reduction for casting with it (Urianger Augurelt)
     extra: str = ""  # Mandatory additional nonmana cost of this permission.
     # -- cost reductions paid with objects (wave 47C) -- "You may play up to two of those cards": the permissions of one instruction share ``group``, and ``left`` more
@@ -1701,6 +1703,7 @@ class RulesState(BaseModel):
     # -- hidden exile (wave 18A) -- 702.143d: a foretell cost an effect gave a foretold card ("its mana cost reduced by {2}")
     foretell_costs: dict[str, str] = Field(default_factory=dict)
     foretell_templates: dict[str, ForetellCostReceipt] = Field(default_factory=dict)
+    foretell_action_turn: dict[str, int] = Field(default_factory=dict)  # -- wave 110I -- player -> the last turn they took the foretell special action (Ranar: the first one each turn)
     foretold: dict[str, int] = Field(default_factory=dict)  # -- hidden exile (wave 18A) -- 702.143d: card -> the turn it became foretold
     free_casts: list[str] = Field(default_factory=list)
     madness_declined: dict[str, MadnessFollowup] = Field(default_factory=dict)
@@ -1718,6 +1721,8 @@ class RulesState(BaseModel):
     prepared: dict[str, str] = Field(default_factory=dict)  # -- prepared (wave 13C, 722.3) -- permanent's rules object -> its copy in exile
     tomb110o: dict[str, dict[str, list[str]]] = Field(default_factory=dict)  # -- (wave 110O) -- Cyclopean Tomb's object id -> {"put": lands (object ids) it put a mire counter onto, "removed": those it removed from}
     notes110o: dict[str, list[str]] = Field(default_factory=dict)  # -- (wave 110O) -- object id -> the creature types noted for it (Volo's Journal)
+    gy_alias110i: dict[str, int] = Field(default_factory=dict)  # -- wave 110I -- Shaman's Trance: player -> the turn other players' graveyards count as theirs for casting and playing
+    gy_ban110i: dict[str, int] = Field(default_factory=dict)  # -- wave 110I -- Shaman's Trance: player -> the turn they can't play lands or cast spells from their graveyard
     collection110o: dict[str, str] = Field(default_factory=dict)  # -- (wave 110O) -- object id of a card exiled with a collection counter -> the controller of the ability that exiled it (Evelyn)
     wipe_shields110o: dict[str, int] = Field(default_factory=dict)  # -- (wave 110O) -- 614.1a: object id -> "next time it would be destroyed this turn, remove all damage marked on it instead" (Pyramids)
     prepare_spells110o: list[str] = Field(default_factory=list)  # -- (wave 110O) -- 722.3d: the exiled copies that were cast ("a prepared spell")

@@ -156,7 +156,7 @@ def _candidates(plan: Plan, comp: CostComponent, player: str, source: CardInstan
         pool = [c for pid in plan.state.players if pid != player for c in plan.state.zones.get(zone_key(pid, "exile"), [])]
         return [c for c in pool if (x := plan.state.cards.get(c)) is not None and not x.face_down and x.owner != player
                 and selectors.matches(plan, sel, x, plan.ch(x), player, source.id)]
-    opponent_counters = comp.kind == C.PUT_COUNTER and sel.controller == "opponent"
+    opponent_counters = comp.kind in (C.PUT_COUNTER, C.UNTAP_OTHER) and sel.controller == "opponent"  # (wave 110I: untap an opponent's land, Benthic Explorers)
     pool = ([cid for pid in plan.live() for cid in plan.state.zones.get(zone_key(pid, "battlefield"), [])]
             if opponent_counters else plan.state.zones.get(zone, []))
     from app.rules import wave110d_costs  # -- costs (wave 110D) -- "from a graveyard": every graveyard
@@ -983,7 +983,9 @@ def _pay(plan: Plan, cost: AbilityCost, card: CardInstance, chosen: dict[int, li
             if stack_exile:
                 payment_card_facts.record(plan, record, "exiled", ids)
             was = [plan.oid(c) for c in ids]  # (wave 48B)
-            if ids:  # (wave 25D: "exile X cards from your graveyard" with X = 0)
+            if ids and comp.to_bottom110i:  # -- costs (wave 110I) -- 401.4: one move, in the order chosen, to the bottom of the owner's library
+                plan.do({"type": "move", "card_ids": ids, "to": {"zone": "library"}, "position": "bottom"})
+            elif ids:  # (wave 25D: "exile X cards from your graveyard" with X = 0)
                 plan.do({"type": "move", "card_ids": ids, "to": {"zone": "exile"}})
             record.exiled += ids
             record.exiled_was += was

@@ -2608,6 +2608,7 @@ def ward_costs(ch: Any) -> list[str]:
 def ward_pieces(line: str) -> list[str]:
     """-- static wordings (wave 6E) -- the ward pieces of a keyword line ("Flying, ward {2}" → ["ward {2}"])."""
     out: list[str] = []
+    line = re.sub(r"(?i)(ward—discard an? [a-z]+), ([a-z]+), or ([a-z]+ card)", r"\1 or \2 or \3", line)  # -- (wave 110I) -- Saruman: a list of three card types is one cost
     for p in (p.strip() for p in re.split(r"[,;]\s*", line.strip().rstrip("."))):
         if out and out[-1].lower().startswith("ward—") and re.match(r"(?i)(?:pay|sacrifice|discard|exile|tap|return|put|remove|reveal|mill|\{)", p):
             out[-1] += ", " + p  # -- static_other sweep (wave 17C) -- "Ward—{2}, Pay 2 life.": one cost of two parts
@@ -3004,7 +3005,7 @@ def bind_event_stat(plan: Plan, t: PendingTrigger) -> None:
     other_is_type = bool(t.ability.get('target_other_is_type'))
     if (f'\\"{EVENT_STAT}' not in raw and not other_is_type) or t.event is None or len(t.event.objects) != 1:
         return
-    if t.event.kind != "reflexive" and '"do": "reflexive"' in raw:  # -- amass reflexive (wave 110D) -- its nested ability binds its own event (the amassed Army)
+    if t.event.kind != "reflexive" and '"do": "reflexive"' in raw and not t.ability.get("bind_nested110i"):  # (wave 110I: Saruman, the cast spell's value goes into the nested reflexive's target) -- amass reflexive (wave 110D) -- its nested ability binds its own event (the amassed Army)
         return
     ref = t.event.objects[0]
     snap = ref.snapshot or plan.rules.lki.get(ref.object_id)

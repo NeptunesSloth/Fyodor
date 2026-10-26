@@ -415,7 +415,241 @@ def _letters(letter: str) -> Callable[[Def], Def]:
     return fix
 
 
+def _flipped(d: Def) -> Def:
+    """Homura: 710.2, 110.5 the returned object enters flipped (``flipped`` on the return; it enters under the trigger controller's control, 110.2a)."""
+    return {**d, "effects": [{**e, "flipped": True} if e.get("do") == "return_card" else e for e in d["effects"]]}
+
+
+def _milled(d: Def) -> Def:
+    """Saruman: "each opponent mills two cards. When one or more cards are milled this way, …" (603.12 reflexive trigger, only if a card was milled): the mill binds what it milled,
+    ``milled_any110i`` turns that into the reflexive condition (replacing the paid-cost stand-in of the native wording)."""
+    pay, reflexive, *rest = d["effects"]
+    assert pay["do"] == "optional_payment" and reflexive["do"] == "reflexive"
+    return {**d, "bind_nested110i": True, "effects": [{"do": "mill", "who": "each_opponent", "n": 2, "as": "milled110i"}, {"do": "milled_any110i"},
+                             {**reflexive, "cond": {"succeeded": "milled_any110i"}}, *rest]}
+
+
+def milled_any(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    from app.rules import context
+
+    context.bind_payment(ctx, "milled_any110i", bool(context.refs(ctx).get("milled110i", {}).get("objects")))
+    return True
+
+
+def _or_lose(d: Def) -> Def:
+    """Lich: "If you can't, you lose the game." — you can't sacrifice that many (the shortage is counted before anything is sacrificed, then as many as possible go: 609.3)."""
+    sac = next(e for e in d["effects"] if e.get("do") == "sacrifice_choice")
+    return {**d, "effects": [{"do": "short110i", "sel": sac["sel"], "n": sac["n"]}, *d["effects"], {"do": "lose_if_short110i"}]}
+
+
+def short(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    from app.rules import effects, prohibitions, selectors
+
+    mine = [c for c in selectors.candidates(plan, selectors.from_key(e["sel"]), ctx["controller"], ctx.get("source_card"), selectors.attacker_of(ctx.get("event")))
+            if plan.state.cards[c].controller == ctx["controller"] and plan.state.cards[c].zone.endswith(":battlefield")
+            and not prohibitions.sacrifice_forbidden(plan, plan.state.cards[c])]
+    ctx["short110i"] = len(mine) < effects._amount(plan, ctx, e["n"])
+    return True
+
+
+def lose_if_short(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    from app.rules import effects
+
+    return effects.PRIMITIVES["lose_game"](plan, ctx, {"do": "lose_game", "who": "you"}) if ctx.get("short110i") else True
+
+
+def _that_much(d: Def) -> Def:
+    """Jetfire: "adds that much {C}" -- X, the number of counters removed as the cost (the native wording adds one {C}); the restriction and the convert follow as the grammar reads them."""
+    return {**d, "effects": [{"do": "add_mana", "sym": "C", "n": {"x": 1}, "who": "target"} if e.get("do") == "add_mana" else e for e in d["effects"]]}
+
+
+def _leori(d: Def) -> Def:
+    """Leori: the combat damage trigger asks for a planeswalker type (205.3j); the rest is made once it is known (``resume_leori``)."""
+    return {**d, "effects": [{"do": "leori110i"}]}
+
+
+def leori(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    from app.game.rules_state import DecisionOption
+    from app.rules import selectors
+    from app.rules.plan import decide
+
+    decide(plan, player=ctx["controller"], kind="choose_one", prompt="Choose a planeswalker type",
+           options=[DecisionOption(id=t, label=t) for t in sorted(selectors.PLANESWALKER_TYPES)], resume={"step": "leori110i", "ctx": ctx})
+    return False
+
+
+def resume_leori(plan: Plan, d: Any, chosen: list[str]) -> None:
+    """Until end of turn, whenever you activate an ability of a planeswalker of that type, copy that ability (707.10) and choose new targets for the copies (the delayed trigger, 603.7)."""
+    from app.rules import effects, selectors
+
+    ctx = d.resume["ctx"]
+    sel = selectors.Selector(types=("Planeswalker",), subtypes=(chosen[0],))
+    at = ctx["next"]
+    ctx["effects"][at:at] = [
+        {"do": "delayed", "when": {"kind": "watch", "cond": {"event": "activate", "subject": "player", "player": "you", "nonmana": True, "loyalty": False, "obj": sel.key()},
+                                   "text": f"you activate an ability of a {chosen[0]} planeswalker"}, "n": 2, "this_turn": True, "once": False},
+        {"do": "deferred:copy_ability", "who": "event_ability"}, {"do": "deferred:copy_new_targets", "optional": True}]
+    effects.continue_effects(plan, ctx)
+
+
+def _borrow(to: str, spend_blue: bool = False) -> Callable[[Def], Def]:
+    """Quicksilver Elemental, Grell Philosopher: the native "tap target ..." becomes "``to`` gains all activated abilities of the target until end of turn"."""
+    def build(d: Def) -> Def:
+        return {**d, "effects": [{"do": "borrow110i", "to": to, "spend_blue110i": spend_blue} if e.get("do") == "tap" else e for e in d["effects"]]}
+    return build
+
+
+def borrow(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """113.10, 611.2a, 613.1f: at resolution, each receiver gains copies of every activated ability the target has (rulings 2004-10-04, 2022-06-10: only activated abilities, written for "this permanent"),
+    one layer-6 effect until end of turn; a lender that already left the battlefield lends nothing."""
+    from app.rules import abilities_of, effects
+
+    texts: list[str] = []
+    for lender in effects._cards(plan, ctx, "target"):
+        card = plan.state.cards[lender]
+        if card.zone.endswith(":battlefield"):
+            texts += [ab.text for ab in abilities_of._lent(plan, card, False)]
+    return effects.PRIMITIVES["grant"](plan, ctx, {"do": "grant", "who": e["to"], "abilities": texts, "spend_blue110i": e.get("spend_blue110i", False)}) if texts else True
+
+
+_PANGLACIAL = "While you're searching your library, you may cast this card from your library."
+
+
+def wurms(plan: Plan, pid: str) -> list[str]:
+    """Cards in ``pid``'s library with Panglacial Wurm's ability (rulings 2006-07-15: only while searching your own library)."""
+    from app.game.state import zone_key
+
+    return [c for c in plan.state.zones.get(zone_key(pid, "library"), []) if any(a.text == _PANGLACIAL for a in plan.ch(plan.state.cards[c]).abilities)]
+
+
+def pang_options(plan: Plan, e: dict[str, Any], pid: str) -> list[Any]:
+    """601.3, 608.2g: one extra option per such card in the library, in the search's own decision (a separate window would show the other players whether a Wurm is in the library). Nothing when the search can't
+    happen, or when the Wurm was already offered for this search."""
+    from app.game.rules_state import DecisionOption
+    from app.rules import prohibitions
+
+    if e.get("pang110i") or prohibitions.cant_search(plan, pid, pid) is not None:
+        return []
+    return [DecisionOption(id=f"pang110i:{c}", label=f"Cast {plan.ch(plan.state.cards[c]).name} from your library first (the search then goes on)") for c in wurms(plan, pid)]
+
+
+def pang_resume(plan: Plan, d: Any, chosen: list[str]) -> bool:
+    """The Wurm option chosen (alone): cast it before any card is found (ruling 2006-07-15: the spell waits on the stack above the resolving search), then the search is asked again. True when handled."""
+    from app.game.errors import ActionError
+    from app.rules import effects
+
+    pick = [c for c in chosen if c.startswith("pang110i:")]
+    if not pick:
+        return False
+    if len(chosen) != 1:
+        raise ActionError("Cast the card from your library, or choose the cards to find, not both")
+    ctx, e = d.resume["ctx"], d.resume["e"]
+    at = ctx["next"]
+    ctx["effects"][at:at] = [{"do": "free_cast", "zone": "panglacial110i", "paid": True, "optional": True, "n": 1, "mv": None, "filter": None}, {**e, "pang110i": True}]
+    effects.continue_effects(plan, ctx)
+    return True
+
+
+def pang_forced(d: Any, chosen: list[str]) -> None:
+    """The search's own bounds, widened by the Wurm option, apply to the cards found."""
+    from app.game.errors import ActionError
+
+    least, greatest = d.resume.get("pang_least"), d.resume.get("pang_greatest")
+    if least is not None and not least <= len(chosen) <= greatest:
+        raise ActionError(f"Choose {least} to {greatest} cards" if least != greatest else f"Choose {least} cards")
+
+
+def _mask(d: Def) -> Def:
+    return {**d, "target": None, "effects": [{"do": "mask110i"}]}
+
+
+def mask(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """Illusionary Mask: 608.2d the controller may choose a creature card in their hand whose mana cost could be paid by some amount of, or all of, the mana spent on {X} (the ability's whole payment, 107.3k),
+    then casts it face down as a 2/2 creature spell without paying its mana cost (708.4, 608.2g)."""
+    from app.game.rules_state import DecisionOption
+    from app.game.state import zone_key
+    from app.rules import mana as M
+    from app.rules.plan import decide
+
+    pid = ctx["controller"]
+    record = plan.rules.payments.get(plan.oid(ctx["stack_id"])) if ctx.get("stack_id") in plan.state.cards else None
+    if record is None or not record.mana_known:
+        return True
+    spent = {k: v for k, v in record.mana_spent.items() if v}
+    options = []
+    for cid in plan.state.zones.get(zone_key(pid, "hand"), []):
+        ch = plan.ch(plan.state.cards[cid])
+        if not ch.is_creature or plan.manual(plan.state.cards[cid]):
+            continue
+        try:
+            M.solve(M.parse_cost(ch.mana_cost).with_x(0), dict(spent), [])  # 107.3h: an {X} of a card's cost is 0; only mana (no life) pays
+        except M.ManaError:
+            continue
+        options.append(DecisionOption(id=cid, label=ch.name or "Card", card_id=cid))
+    if not options:
+        return True
+    decide(plan, player=pid, kind="choose_cards", prompt="Illusionary Mask: choose a creature card to cast face down (or none)", options=options, min_choices=0, max_choices=1,
+           resume={"step": "mask110i", "ctx": ctx})
+    return False
+
+
+def resume_mask(plan: Plan, d: Any, chosen: list[str]) -> None:
+    from app.game import actions as A
+    from app.rules import effects
+    from app.rules.casting import cast_spell
+
+    ctx = d.resume["ctx"]
+    if not chosen:
+        effects.continue_effects(plan, ctx)
+        return
+    e = {"n": 1, "face_down110i": True}
+    plan.rules.free_casts.append(chosen[0])
+    plan.rules.free_cast_then = {"card": chosen[0], "ctx": ctx, "e": e, "suspend_object": None}
+    prev, plan.actor = plan.actor, d.player
+    try:
+        cast_spell(plan, A.CastSpell(card_id=chosen[0], free=True))
+    finally:
+        plan.actor = prev
+
+
+def mask_flip(plan: Plan, card_ids: Any) -> None:
+    """Illusionary Mask (replacement, 614.1, 701.40g-style turning face up): the creature its spell became, while it hasn't been turned face up, is turned face up instead of assigning or dealing damage,
+    being dealt damage or becoming tapped -- called before those events (plan.do: tap / mana taps, replace._commit_damage, combat.deal_combat_damage)."""
+    from app.rules import facedown
+
+    for cid in dict.fromkeys(card_ids):
+        card = plan.state.cards.get(cid)
+        if card is None or not card.face_down or not card.zone.endswith(":battlefield"):
+            continue
+        record = plan.rules.payments.get(plan.oid(card))
+        if record is not None and record.alternative == "mask110i" and facedown._turn_up(plan, cid, card.controller):
+            plan.note(f"{plan.name(card.controller)}'s face-down creature is turned face up (Illusionary Mask)", [cid])
+
+
+def _taxed(d: Def) -> Def:
+    """Mavinda: the permission carries the {8} increase, charged once the cast spell's targets are known."""
+    return {**d, "effects": [{**e, "tax_untargeted110i": 8} if e.get("do") == "grant_play" else e for e in d["effects"]]}
+
+
 _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
+    "{X}: You may choose a creature card in your hand whose mana cost could be paid by some amount of, or all of, the mana you spent on {X}. If you do, you may cast that card face down as a 2/2 "
+    "creature spell without paying its mana cost. If the creature that spell becomes as it resolves has not been turned face up and would assign or deal damage, be dealt damage, or become tapped, "
+    "instead it's turned face up and assigns or deals damage, is dealt damage, or becomes tapped. Activate only as a sorcery.":
+        ("{X}: Tap target creature. Activate only as a sorcery.", _mask),
+    "Whenever Leori deals combat damage to a player, choose a planeswalker type. Until end of turn, whenever you activate an ability of a planeswalker of that type, copy that ability. "
+    "You may choose new targets for the copies.": ("Whenever this creature deals combat damage to a player, you gain 1 life.", _leori),
+    "{0}: You may cast target instant or sorcery card from your graveyard this turn. If that spell doesn't target a creature you control, it costs {8} more to cast this way. "
+    "If that spell would be put into your graveyard, exile it instead. Activate only once each turn.":
+        ("{0}: You may cast target instant or sorcery card from your graveyard this turn. If that spell would be put into your graveyard, exile it instead. Activate only once each turn.", _taxed),
+    "Remove one or more +1/+1 counters from among artifacts you control: Target player adds that much {C}. This mana can't be spent to cast nonartifact spells. Convert Jetfire.":
+        ("Remove one or more +1/+1 counters from among artifacts you control: Target player adds {C}. This mana can't be spent to cast nonartifact spells. Convert this creature.", _that_much),
+    "Whenever you cast your second spell each turn, each opponent mills two cards. When one or more cards are milled this way, exile target enchantment, instant, or sorcery card with equal or "
+    "lesser mana value than that spell from an opponent's graveyard. Copy the exiled card. You may cast the copy without paying its mana cost.":
+        ("Whenever you cast your second spell each turn, you may pay {1}. When you do, exile target enchantment, instant, or sorcery card with mana value less than or equal to that spell's mana value "
+         "from an opponent's graveyard. Copy it. You may cast the copy without paying its mana cost.", _milled),
+    "Whenever you're dealt damage, sacrifice that many nontoken permanents. If you can't, you lose the game.":
+        ("Whenever you're dealt damage, sacrifice that many nontoken permanents.", _or_lose),
+    "When Homura dies, return it to the battlefield flipped.": ("When ~ dies, return this card to the battlefield under your control.", _flipped),
     "Whenever you put a sticker on this enchantment, it deals damage equal to the number of o's in name stickers on this enchantment to any target.":
         ("Whenever you put a sticker on this enchantment, this enchantment deals 2 damage to any target.", _letters("o")),
     "Whenever you put a sticker on this enchantment, tap up to X target creatures, where X is the number of u's in name stickers on this enchantment.":
@@ -503,8 +737,34 @@ _RADAWAY = "Target player loses all rad counters. Sacrifice ~."
 _DREDGING = "Return up to three target creature cards of the creature type of your choice from your graveyard to your hand."
 
 
+_TRANCE = ("Other players can't play lands or cast spells from their graveyards this turn. You may play lands and cast spells from other players' graveyards this turn "
+           "as though those cards were in your graveyard.")
+
+
+def trance(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """Shaman's Trance: 101.2 the other players (at resolution) can't play lands or cast spells from their graveyards this turn; this player may play lands and cast spells from other players' graveyards this
+    turn, and what applies to their own graveyard applies to those cards (``permissions.gy_aliased``: flashback and the like work, ruling 2004-10-04)."""
+    import secrets
+
+    from app.game.rules_state import Permission
+    from app.rules import selectors
+
+    pid, r, turn = ctx["controller"], plan.rules, plan.state.turn.number
+    for other in plan.live():
+        if other != pid:
+            r.gy_ban110i[other] = turn
+    r.gy_alias110i[pid] = turn
+    sel = selectors.Selector(card=True, zones=("graveyard",), zone_owner="opponent")
+    r.permissions.append(Permission(id=secrets.token_hex(4), player=pid, play=True, cast=True, zone="graveyard", zone_owner="any", card_filter=sel.key(), until="end_of_turn", turn=turn,
+                                    label=f"{ctx.get('name') or 'An effect'}: play lands and cast spells from other players' graveyards"))
+    return True
+
+
 def parse(body: str) -> Any:
     from app.rules import scripts
+
+    if body.strip() == _TRANCE:
+        return [{"do": "trance110i"}], None, False
 
     if body.strip() == _RADAWAY:
         parsed = scripts.parse_effects("Target player gets 1 rad counters. Sacrifice ~.")
@@ -522,6 +782,8 @@ def parse(body: str) -> Any:
         return [{"do": "tunnel110i"}], None, False
     if body.strip() == _DAWN:
         return [{"do": "false_dawn110i"}], None, False
+    if body.strip() == _CHANNEL:  # -- cards (wave 110I) -- Yavimaya Bloomsage's Channel
+        return [{"do": "channel110i"}], None, False
     if body.strip() == _MEDOMAI:  # 603.7: chapter III creates a delayed trigger for this turn (Scryfall ruling 2018-04-27: with no name chosen it can never trigger)
         parsed = scripts.parse_effects("Whenever you cast a spell with the chosen name this turn, draw two cards.")
         assert parsed is not None
@@ -735,6 +997,13 @@ def destroy_mark(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
 
 PRIMITIVES = {"specter110i": specter, "raiding110i": raiding, "bind_self110i": bind_self, "bauble110i": bauble, "bind_first110i": bind_first, "destroy_mark110i": destroy_mark, "goad_while110i": goad_while, "bind_rest110i": bind_rest, "exile_library110i": exile_library, "attach_all110i": attach_all, "lose_rad110i": lose_rad, "bounce_gate110i": bounce_gate}
+PRIMITIVES["milled_any110i"] = milled_any
+PRIMITIVES["mask110i"] = mask
+PRIMITIVES["trance110i"] = trance
+PRIMITIVES["borrow110i"] = borrow
+PRIMITIVES["leori110i"] = leori
+PRIMITIVES["short110i"] = short
+PRIMITIVES["lose_if_short110i"] = lose_if_short
 
 
 def ask_skip(plan: Plan, done: list[str]) -> bool:
@@ -902,6 +1171,45 @@ def dawn_mana(plan: Plan, controller: str, mana: list[str]) -> list[str]:
     return ["W" if c in "WUBRG" else c for c in mana]
 
 
+_CHANNEL = "Until end of turn, any time you could activate a mana ability, you may pay 1 life. If you do, add {C}."
+
+
+CHANNEL_ID = "player:channel110i"  # the pseudo object id ``ActivateAbility.card_id`` names: a player-level mana ability, not a card's
+
+
+def channel(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """Channel (605.3a, 106.12): until end of turn the controller has a mana ability "pay 1 life: add {C}" (a player-level ability, activated with
+    ``CHANNEL_ID``: ``channel_activate``) usable whenever they could activate a mana ability, also while paying a cost."""
+    from app.rules import tap_mana
+
+    return tap_mana.until_eot(plan, ctx, {"def": {"kind": "static", "static": "channel110i", "effects": []}})
+
+
+PRIMITIVES["channel110i"] = channel
+
+
+def channel_activate(plan: Plan) -> None:
+    """Pay 1 life (119.4, 118.3: needs 1 life; replacements apply, 118.11) and add {C} to the pool through the ordinary ``rules_mana`` step (106.4):
+    plain pool mana, so it floats, counts as mana spent and pays {C}, X and ability costs like any other."""
+    from app.game.errors import ActionError
+    from app.rules import prohibitions
+    from app.rules import replace as replace_
+
+    who = plan.actor
+    if not channel_active(plan.state, who):
+        raise ActionError("You have no such mana ability")
+    if prohibitions.life_banned(plan.state, plan.info, mana_ability=True):
+        raise ActionError("You can't pay life")
+    if plan.state.players[who].life < 1:
+        raise ActionError("You don't have 1 life to pay")
+    replace_.lose_life(plan, [(who, 1)], actor=who, paid=True)
+    plan.do({"type": "rules_mana", "player": who, "tap": [], "sacrifice": [], "delta": {"C": 1}, "life": 0, "label": "paid 1 life: added {C}"}, actor=who)
+
+
+def channel_active(state: Any, player: str) -> bool:
+    return _dawn(state, player, "channel110i")
+
+
 def spending_active(state: Any, player: str) -> bool:
     return _dawn(state, player, "spend_white110i")
 
@@ -950,7 +1258,7 @@ def resume_transform_attach(plan: Plan, d: Any, chosen: list[str]) -> None:
     attachments.attach(plan, d.resume["card"], chosen[0], d.player)
 
 
-RESUME = {"tunnel110i": resume_tunnel, "transform_attach110i": resume_transform_attach, "bauble110i": resume_bauble, "skip_may110i": resume_skip, "specter110i": resume_specter, "specter_top110i": resume_specter_top, "raiding_tap110i": resume_raiding_tap, "raiding_plains110i": resume_raiding_plains}
+RESUME = {"mask110i": resume_mask, "leori110i": resume_leori, "tunnel110i": resume_tunnel, "transform_attach110i": resume_transform_attach, "bauble110i": resume_bauble, "skip_may110i": resume_skip, "specter110i": resume_specter, "specter_top110i": resume_specter_top, "raiding_tap110i": resume_raiding_tap, "raiding_plains110i": resume_raiding_plains}
 
 
 _WHISTLE = ("{3}, {T}: Choose target non-Wall creature the active player has controlled continuously since the beginning of the turn. That player may pay {X}, where X is "
@@ -1111,6 +1419,24 @@ def flicker_auras(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 PRIMITIVES.update({"flicker_exile110i": flicker_exile, "flicker_return110i": flicker_return, "flicker_auras110i": flicker_auras})
 
 
+_DRAUGR = ("You may cast spells from among cards in exile your opponents own with ice counters on them, and you may spend mana from snow sources as though it were mana of any color to cast those spells.")
+_HALDAN = ("You may play lands and cast noncreature spells from among cards you exiled that have fetch counters on them, and you may spend mana as though it were mana of any color to cast those spells.")
+_PAKO = ("Whenever Pako attacks, exile the top card of each player's library and put a fetch counter on each of them. Put a +1/+1 counter on Pako for each noncreature card exiled this way.")
+
+
+def collect_fetch(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """Pako: the cards its ability exiled are remembered as exiled by an ability its controller controlled (Haldan: "cards you exiled", 406.3)."""
+    from app.rules import context
+
+    for cid in context.objects(plan, ctx, "e0"):
+        if plan.state.cards[cid].zone.endswith(":exile"):
+            plan.rules.collection110o[plan.oid(cid)] = ctx["controller"]
+    return True
+
+
+PRIMITIVES["collect_fetch110i"] = collect_fetch
+
+
 def definition(ability: Any, ch: Any) -> Def | None:
     from app.rules import scripts
 
@@ -1139,6 +1465,21 @@ def definition(ability: Any, ch: Any) -> Def | None:
     if text == _FLICKER:
         native = scripts.define(replace(ability, text="{2}{W}{W}: Draw a card."), ch)
         return None if native is None else {**native, "effects": [{"do": "flicker_exile110i"}]}
+    if text == _PANGLACIAL:  # a static ability read at search time (pang_options), whatever the zone: only this card in the library has it
+        return {"kind": "static", "static": "panglacial110i", "effects": []}
+    if text == _DRAUGR:  # 601.3 (cast from exile), 609.4b: only spells; mana from snow sources as though any color (mana.spend_as "snow_color")
+        return {"kind": "static", "static": "permission", "zone": "exile", "filter": None, "self": False, "play": False, "cast": True, "once": False, "flash": False,
+                "foreign": True, "exile_counter": "ice", "spend": "snow_color", "effects": []}
+    if text == _HALDAN:  # 601.3, 305.1; only cards exiled by an ability its controller controlled (Pako's, collect_fetch110i); noncreature spells, any land
+        from app.rules import permissions
+
+        return {"kind": "static", "static": "permission", "zone": "exile", "filter": permissions.spell_filter("noncreature"), "self": False, "play": True, "cast": True, "once": False,
+                "flash": False, "exile_counter": "fetch", "exiled_by110o": True, "spend": "color", "effects": []}
+    if text == _PAKO:
+        native = scripts.define(replace(ability, text=_PAKO.replace("Pako", "this creature")), ch)
+        if native is None or [e["do"] for e in native["effects"]][:2] != ["exile_top", "add_counters"]:
+            return None
+        return {**native, "effects": [native["effects"][0], native["effects"][1], {"do": "collect_fetch110i"}, *native["effects"][2:]]}
     if text == "If a Rigger you control would assemble a Contraption, it assembles two Contraptions instead.":
         # 701.45a: assembling is an Unstable mechanic outside these rules; no player has a Contraption deck in a Commander game, so nothing can be assembled and this never applies
         return {"kind": "static", "static": "no_assemble110i", "effects": []}

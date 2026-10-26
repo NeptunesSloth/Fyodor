@@ -88,6 +88,8 @@ def move(state: GameState, a: A.Move) -> None:
             c.tapped = True
         if a.back_ids and c.id in a.back_ids and ops.zone_name(dest) == "battlefield" and c.id in state.cards:
             c.face = 1  # -- transform (wave 11A) -- 712.14a
+        if a.flipped_ids and c.id in a.flipped_ids and ops.zone_name(dest) == "battlefield" and c.id in state.cards:
+            c.flipped = True  # -- flip (wave 110I) -- 710.2: the alternative characteristics apply once it is on the battlefield
         if c.face_down and a.face_down:
             c.face_down_kind = a.face_down_kind or ("exile" if ops.zone_name(dest) == "exile" else "generic")
             c.face_down_as = a.face_down_as  # (-- hidden exile (wave 18A) -- 708.2a)

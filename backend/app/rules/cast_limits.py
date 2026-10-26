@@ -547,6 +547,8 @@ def cycling_problem(state: GameState, info: CardInfo | None) -> str | None:
 def land_problem(state: GameState, player: str, ch: Characteristics, info: CardInfo | None = None, zone: str = '') -> str | None:
     """Why a stored limit forbids ``player`` playing this land now (305.1), or None: "lands with the chosen name can't be played" until a turn (the name is the bound ``name:`` of its spell selector)."""
     r = state.rules
+    if r is not None and zone == zone_key(player, "graveyard") and r.gy_ban110i.get(player) == state.turn.number:  # -- wave 110I -- Shaman's Trance
+        return "Shaman's Trance: you can't play lands from your graveyard this turn"
     if info is not None and 'Basic' not in ch.supertypes:
         for src, d in _statics(state, info, 'cast_limit'):
             if d.get('nonbasic_lands') and _shares_permanent_name(state, info, ch):
@@ -921,6 +923,8 @@ def cast_problem(state: GameState, player: str, card: CardInstance, ch: Characte
     r = state.rules
     if r is None:
         return None
+    if card.zone == zone_key(player, "graveyard") and r.gy_ban110i.get(player) == state.turn.number:  # -- wave 110I -- Shaman's Trance: 101.2, "can't cast spells from their graveyards this turn"
+        return "Shaman's Trance: you can't cast spells from your graveyard this turn"
     from app.rules import source_spell_discounts64
 
     if (unknown_source := source_spell_discounts64.cast_problem(state, player, ch, info)) is not None:
@@ -929,9 +933,10 @@ def cast_problem(state: GameState, player: str, card: CardInstance, ch: Characte
 
     if (why := split_second.problem(state, info, "cast other spells", card.id)) is not None:
         return why
+    from app.rules import permissions as _permissions
     from app.rules import scripts
 
-    if card.zone != zone_key(player, "graveyard") and any(d.get("only") for d in scripts.definitions(ch).values()):
+    if card.zone != zone_key(player, "graveyard") and not _permissions.gy_aliased(state, player, card) and any(d.get("only") for d in scripts.definitions(ch).values()):
         return f"{ch.name or 'It'} can be cast only from your graveyard"  # -- review 43 -- Haakon's "but not from anywhere else" (101.2) also holds as something resolves (cascade; 2006-07-15 ruling)
     from app.rules import static_perm100d  # -- static permanents (wave 100D) -- Serra Avenger
 

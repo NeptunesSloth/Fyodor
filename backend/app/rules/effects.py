@@ -979,7 +979,8 @@ def grant(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
                           controller=ctx["controller"], add_keywords=tuple(keywords), remove_keywords=tuple(removed),
                           imposes=tuple("cant_have_keyword:" + k for k in e.get("deny", ())),
                           duration=duration, label=f"{', '.join(words)} {when}", add_abilities=abilities,
-                          activation_player=ctx["controller"] if e.get("activation_player") == "you" else None)
+                          activation_player=ctx["controller"] if e.get("activation_player") == "you" else None,
+                          spend_blue110i=bool(e.get("spend_blue110i")))  # (wave 110I: Grell Philosopher)
         marker = ", ".join([*(k.capitalize() for k in keywords), *(f"No {k}" for k in removed),
                             *(f'Gains "{a}"' for a in abilities)])
         _mark(plan, cards, marker, value="Ability" if abilities and not (keywords or removed) else None,
@@ -2522,10 +2523,15 @@ def _ask_search(plan: Plan, ctx: Context, e: dict[str, Any], pid: str, part: int
     if e.get('qualified_packet') and not {'library', 'hand'}.intersection(zones) and not e.get('upto'):
         forced = True  # A search entirely in public zones must find the specified quantity if available.
     whose = f"{plan.name(owner)}'s" if owner != pid else "your"
+    least, greatest = min(most, len(options)) if forced else 0, min(most, len(options))
+    pang_bounds: dict[str, int] = {}
+    if part == 0 and not picked and "library" in zones and owner == pid and (pang := _wave110i_cards.pang_options(plan, e, pid)):  # -- cards (wave 110I) -- Panglacial Wurm: one extra option of this same decision
+        pang_bounds = {"pang_least": least, "pang_greatest": greatest}  # (checked again in resume_search; no extra decision, so the others see the same pause with or without a Wurm)
+        options, least, greatest = [*options, *pang], 0, greatest + 1
     decide(plan, player=pid, kind="choose_cards", prompt=f"Search {whose} {' and '.join(zones)} ({what})",
-           options=options, min_choices=min(most, len(options)) if forced else 0, max_choices=min(most, len(options)),
+           options=options, min_choices=least, max_choices=greatest,
            decider=search_group["decider"] if search_group is not None else _player_control.search_controller(plan, pid) if "library" in zones and owner == pid else None,  # (-- wave 18H -- 723.2: Opposition Agent; review 26A: only while they search their own library)
-           resume={"step": "search", "ctx": ctx, "e": e, "part": part, "picked": picked})
+           resume={"step": "search", "ctx": ctx, "e": e, "part": part, "picked": picked, **pang_bounds})
     return False
 
 
@@ -2535,6 +2541,9 @@ _PLACES = {"hand": "into your hand", "battlefield": "onto the battlefield", "bat
 
 def resume_search(plan: Plan, d: Any, chosen: list[str]) -> None:
     ctx, e = d.resume["ctx"], d.resume["e"]
+    if _wave110i_cards.pang_resume(plan, d, chosen):  # -- cards (wave 110I) -- Panglacial Wurm
+        return
+    _wave110i_cards.pang_forced(d, chosen)
     if e.get("distinct_names"):  # -- refused zones/sized (wave 3R4) -- "… cards with different names" (201.2)
         names = [(plan.state.cards[c].name or "").lower() for c in chosen if c in plan.state.cards]
         if len(set(names)) != len(names):
@@ -2942,6 +2951,7 @@ def _return_cards(plan: Plan, ctx: Context, e: dict[str, Any], cards: list[str])
                 **({"tapped_if_land": True} if e.get("tapped_if_land") else {}),
                 **({"host_choice": e["host_choice"]} if e.get("host_choice") else {}),
                 **({"transformed": True} if e.get("transformed") else {}),  # (-- transform, wave 11A -- 712.14a)
+                **({"flipped": True} if e.get("flipped") else {}),  # (wave 110I: 710)
                 **({"counter": e["counter"], **({"counter_if": e["counter_if"]} if e.get("counter_if") else {})} if e.get("counter") and entry_counter_applies else {}),
                 **({"conditional_counters": e["conditional_counters"]} if e.get("conditional_counters") else {}),
                 **({"counter_n": e["counter_n"]} if e.get("counter_n") else {})} for cid in cards]  # (counters it enters with, 122.6; n: wave 4M; counter_if: wave 44A)

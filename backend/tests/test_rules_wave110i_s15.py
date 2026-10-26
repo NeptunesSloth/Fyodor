@@ -16,7 +16,7 @@ from tests.test_rules_wave12a_counters_keywords import real
 from tests.test_rules_wave110e_cards import card_db  # noqa: F401  (the fixture)
 from tests.test_rules_wave110e_s11 import _three
 from tests.test_rules_wave110i_s14 import BEAR, GIANT  # noqa: F401  (registers the helper creatures)
-from tests.wave9c_kit import build, check, life, mana, put
+from tests.wave9c_kit import build, check, life, mana, put, to_hand
 from tests.wave110j_kit import now
 
 BRACELET = real("The Dominion Bracelet", "{2}", 2, "Legendary Artifact — Equipment",
@@ -119,4 +119,99 @@ def test_megatron_redirects_the_excess_and_converts_only_then(cards, artifact, e
     assert (s.state.cards[wolf.id].zone.endswith(":graveyard")) == (artifact is not None)
     assert life(s, "p2") == 40 - excess - (7 if converts else 4)  # (then unblocked combat damage: the 7/5 front face after converting, else the 4/5 Vehicle)
     assert (now(s, megatron).face == 0) == converts
+    check(s)
+
+
+# -- Yavimaya Bloomsage // Channel --------------------------------------------------------------------------------------------------------------------------------------------------------
+_CHANNEL = "Until end of turn, any time you could activate a mana ability, you may pay 1 life. If you do, add {C}."
+_BLOOM_FRONT = ("At the beginning of your end step, put a +1/+1 counter on target creature you control. Then if that creature has power 7 or greater, this creature becomes prepared. "
+                "(While it's prepared, you may cast a copy of its spell. Doing so unprepares it.)")
+
+
+def test_bloomsage_full(cards):
+    from pathlib import Path
+
+    from tools.commander_coverage import rows
+
+    d = next(d for d in rows(Path("/home/user/Fyodor/data/cards.sqlite"))[0] if d["name"] == "Yavimaya Bloomsage // Channel")
+    assert _CHANNEL in d["oracle_text"] and coverage.of_card_data(d).level == "FULL"
+
+
+base.EXTRA.append(real("Channel110I", "{G}{G}", 2, "Sorcery", _CHANNEL, None, "G"))
+
+
+def _cast(s, name, pid="p1"):
+    from tests.wave9c_kit import to_hand
+
+    act(s, pid, type="cast_spell", card_id=to_hand(s, name, pid).id)
+    for _ in range(10):
+        if not s.state.zones.get("stack") and s.state.rules.decision is None:
+            break
+        d = s.state.rules.decision
+        if d is not None:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: max(1, d.min_choices)])
+        else:
+            act(s, s.state.rules.priority, type="pass_priority")
+
+
+def _anvil_table(cards, channel):
+    s = _three(cards, ["Channel110I", "Anvil110I", "Colorless110I", "XSpell110I"])
+    if channel:
+        mana(s, G=2)
+        _cast(s, "Channel110I")
+    return s
+
+
+def _tap_life(s, n=1, pid="p1"):
+    for _ in range(n):
+        act(s, pid, type="activate_ability", card_id="player:channel110i", ability=0)
+
+
+def _spent(s, name):
+    return next(v for v in s.state.rules.payments.values() if s.state.cards[v.card].name == name).mana_spent
+
+
+base.EXTRA.extend([real("Colorless110I", "{C}", 1, "Artifact", "", None, ""), real("XSpell110I", "{X}", 0, "Sorcery", "You gain X life.", None, "")])
+
+
+def test_channel_is_a_mana_ability_not_a_discount(cards):
+    """605.3a: without Channel no such ability; with it each activation pays 1 life and floats {C} (106.4), which then pays the {3} cost (601.2h)."""
+    s = _anvil_table(cards, False)
+    with pytest.raises(ActionError):
+        _tap_life(s)
+    s = _anvil_table(cards, True)
+    mana(s, C=1)
+    life = s.state.players["p1"].life
+    with pytest.raises(ActionError):  # {1} of mana is still not {3}: life is not a payment on its own
+        act(s, "p1", type="cast_spell", card_id=to_hand(s, "Anvil110I").id)
+    _tap_life(s, 2)
+    assert s.state.players["p1"].life == life - 2 and s.state.players["p1"].mana["C"] == 3
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Anvil110I").id)
+    assert s.state.players["p1"].life == life - 2 and _spent(s, "Anvil110I") == {"C": 3}  # all three are mana spent
+    check(s)
+
+
+def test_channel_mana_pays_a_colorless_cost_and_x_and_only_its_controller(cards):
+    s = _anvil_table(cards, True)
+    life = s.state.players["p1"].life
+    _tap_life(s)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Colorless110I").id)  # {C} needs colorless mana: the Channel mana is {C}
+    assert _spent(s, "Colorless110I") == {"C": 1}
+    while s.state.zones.get("stack"):
+        act(s, s.state.rules.priority, type="pass_priority")
+    _tap_life(s, 2)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "XSpell110I").id, x_value=2)
+    assert s.state.players["p1"].life == life - 3 + 2 and not s.state.players["p1"].mana.get("C")  # 3 life paid, X = 2 gained
+    with pytest.raises(ActionError):
+        act(s, "p2", type="activate_ability", card_id="player:channel110i", ability=0)
+    check(s)
+
+
+def test_channel_mana_empties_and_auto_payment_still_works(cards):
+    s = _anvil_table(cards, True)
+    mana(s, C=3)
+    life = s.state.players["p1"].life
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Anvil110I").id)  # ordinary mana pays; no life is spent unprompted
+    assert s.state.players["p1"].life == life
+    assert "channel110i" in str(s.state.rules.tap_mana)
     check(s)

@@ -147,7 +147,7 @@ def _choice_cost_ok(extra: Any) -> bool:
         c.kind in (C.MANA, C.TAP, C.PAY_LIFE, C.EXERT, C.UNTAP, C.FORAGE, C.DISCARD_HAND, C.COLLECT_EVIDENCE, C.RETURN_PERMANENT, "EXILE_FROM_HAND")  # (wave 17B: exert, {Q}, forage: paid by hand; 26C: discard your hand)
         or ((not c.activation_only or c.kind == C.EXILE or (c.x and c.kind in (C.TAP_OTHER, C.SACRIFICE))) and (  # (X: Hazel of the Rootbloom)
             (c.kind in (C.SACRIFICE, C.REMOVE_COUNTER, C.EXILE_FROM_GRAVEYARD) and c.selector is None)
-            or (c.selector is not None and c.kind in (C.SACRIFICE, C.DISCARD, C.TAP_OTHER, C.EXILE_FROM_GRAVEYARD, C.EXILE)
+            or (c.selector is not None and c.kind in (C.SACRIFICE, C.DISCARD, C.TAP_OTHER, C.EXILE_FROM_GRAVEYARD, C.EXILE, C.UNTAP_OTHER)
                 and not c.random)))  # (activation_only: wave 4H, 605)
         for c in extra.components)
 
@@ -265,7 +265,7 @@ def _resolve_options(state: GameState, card: CardInstance, ab: M.ManaAbility, in
         return ab.instead  # -- refused copy/mana (wave 3R3): Urza's Tower with the Mine and the Power-Plant --
     from app.rules import removed_mana  # -- if you do (wave 6F) -- one option per number removed
 
-    if (ab.count or "").startswith("xcost:") or ab.count in ("sacrificed_mv", "sacrificed_land_types", "exiled_mv_plus_one", "paid_sacrifice_count"):
+    if (ab.count or "").startswith("xcost:") or ab.count in ("sacrificed_mv", "sacrificed_land_types", "untapped_land_types", "exiled_mv_plus_one", "paid_sacrifice_count"):
         return ab.options  # (wave 17B: the mana depends on the X announced as it's activated: _activate_choosing)
     if (removed := removed_mana.parts(ab.count)) is not None:
         return removed_mana.options(card.counters.get(removed[0], 0), ab.count or "", ab.options[0])
@@ -2587,8 +2587,8 @@ def flashback_extra(ch: Characteristics) -> AbilityCost | None:
 def from_graveyard(card: CardInstance, player: str, ch: Characteristics, state: GameState | None = None, info: CardInfo | None = None) -> bool:
     """Casting with flashback: from your own graveyard, when it has a (mana) flashback cost — its
     own, or (wave 3R2, ``state``) one an effect gave it this turn (app/rules/graveyard_grants.py)."""
-    if card.zone != zone_key(player, "graveyard") or card.owner != player:
-        return False
+    if (card.zone != zone_key(player, "graveyard") or card.owner != player) and not (state is not None and permissions.gy_aliased(state, player, card)):
+        return False  # (wave 110I: Shaman's Trance)
     from app.rules import group_layers
 
     if group_layers.graveyard_wiped(state, card, ch, info) if state is not None else False:  # -- wave 110F -- Yixlid Jailer: no flashback or aftermath from a graveyard (613.1f)
@@ -3973,6 +3973,11 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
     from app.rules import wave110c_chorus
 
     wave110c_chorus.check(plan.state, a, card, ch, plan.info, plan.actor)  # -- Chorus of the Conclave (wave 110C) --
+    if grant is not None and grant.tax_untargeted110i:  # -- wave 110I -- Mavinda: 601.2f, "If that spell doesn't target a creature you control, it costs {8} more to cast this way"
+        from app.rules import first_target_activation_cost58
+
+        if not first_target_activation_cost58.qualifies(plan.state, plan.actor, tuple(t.id for t in chosen), plan.info):
+            additional.append(M.ManaCost(generic=grant.tax_untargeted110i))
     prepared: list[Any] = []
     cost = spell_cost(plan.state, card, ch, a.x_value or 0, plan.info, player=plan.actor, alternative=(alternative if alternative is not None else M.parse_cost(ch.mana_cost) if grant is not None and grant.how == "resolving" else None),
                       free=free, kicker=a.kicker, chorus=a.chorus, additional=tuple(additional), face_down=a.face_down, targets=tuple(t.id for t in chosen),
@@ -4668,7 +4673,8 @@ def foretell(plan: Plan, card: CardInstance, ch: Characteristics, a: A.ActivateA
     chargers = static_perm100d.yours(plan, static_perm100d.FORETELL, plan.actor)
     if plan.state.turn.active_player != plan.actor and not chargers:
         raise ActionError("You can foretell a card only during your turn (702.143a)")
-    cost = M.parse_cost(f"{{{max(0, 2 - chargers)}}}")
+    first = plan.rules.foretell_action_turn.get(plan.actor) != plan.state.turn.number  # -- wave 110I -- Ranar: the first card you foretell each turn costs {0}
+    cost = M.parse_cost("{0}" if first and static_perm100d.yours(plan, static_perm100d.RANAR, plan.actor) else f"{{{max(0, 2 - chargers)}}}")
     if payment_step(plan, a, cost, f"foretelling {ch.name}", purpose=Purpose(special="foretell")):  # (review 19: 116.2h, not a cast)
         return
     from app.rules import special_payment_tails
@@ -5315,6 +5321,9 @@ def cast_free(plan: Plan, card: CardInstance, ch: Characteristics, a: A.CastSpel
     from app.rules import effect_cast_costs
 
     required_effect = pending.get('e', {}) if pending is not None and pending.get('card') == card.id else {}
+    face_down110i = bool(required_effect.get("face_down110i"))  # -- wave 110I -- Illusionary Mask: "cast that card face down as a 2/2 creature spell without paying its mana cost" (708.4: only the face-down spell's characteristics count)
+    if face_down110i:
+        ch = chars.face_down_characteristics(None)
     required_alternative = effect_cast_costs.kind(required_effect)
     if required_alternative and (a.alt_cost is not None or a.evoke or a.dash or a.awaken or a.face_down):
         raise ActionError('Only one alternative cost can be applied to a spell')
@@ -5593,7 +5602,11 @@ def _post_free_cast(plan: Plan, data: _PostFreeCast, payment: M.Payment | None) 
     if a.x_value is None and M.parse_cost(ch.mana_cost).x:
         a.x_value = 0  # X is 0 when a spell is cast without paying its mana cost (107.3b)
     from_oid = plan.oid(card)  # (-- as long as (wave 37A) --)
-    plan.do({"type": "move", "card_ids": [card.id], "to": {"zone": "stack"}})
+    if ch.face_down and (r.free_cast_then or {}).get("e", {}).get("face_down110i"):  # (wave 110I: 708.4, turned face down before it is put on the stack)
+        plan.do({"type": "move", "card_ids": [card.id], "to": {"zone": "stack"}, "face_down": True, "face_down_kind": "generic"})
+        record.alternative = "mask110i"
+    else:
+        plan.do({"type": "move", "card_ids": [card.id], "to": {"zone": "stack"}})
     if a.face and plan.state.cards[card.id].face != a.face:  # -- play now (wave 28A) -- 712.11b, 709.3b: the half / back face being cast
         plan.do({"type": "set_face", "card_id": card.id, "face": a.face})
     if add_cost is not None:  # (601.2h: with the rest of the total cost)
@@ -5688,6 +5701,12 @@ def activate_ability(plan: Plan, a: A.ActivateAbility) -> None:
         raise ActionError(f"{kind.capitalize()} can only pay for the spell you're casting, while you pay for it")
     require_no_decision(plan)
     require_priority(plan)
+    from app.rules import wave110i_cards
+
+    if a.card_id == wave110i_cards.CHANNEL_ID:  # -- cards (wave 110I) -- Channel's player-level mana ability (605.3a)
+        wave110i_cards.channel_activate(plan)
+        plan.rules.passed = []
+        return
     card = plan.state.cards.get(a.card_id)
     if card is None:
         raise ActionError("That card isn't here any more")
@@ -6045,7 +6064,7 @@ def _variable_ability_matching(state: GameState, card: CardInstance, ch: Charact
     from app.rules import cast_limits, mana_allocation_masks
 
     mode = cast_limits.ability_spend_mode(state, card.controller, card, ch, info) or (
-        'color' if state.rules is not None and ability.borrowed_color == state.rules.object_id(card.id) else None)
+        'color' if state.rules is not None and ability.borrowed_color == state.rules.object_id(card.id) else 'blue_color' if ability.spend_blue110i else None)
     if mode:
         cost = M.spend_as(cost, mode)
     if SPEND_CHOSEN in ability.text:
@@ -6127,7 +6146,8 @@ def ability_cost(ch: Characteristics, ability: AbilityText, *, state: GameState 
 
         variable = bool(ability_mana_cost(cost).x)
         if cost.mana and not variable and (mode := (cast_limits.ability_spend_mode(state, card.controller, card, ch, info) or
-                                  ("color" if state.rules is not None and getattr(ability, "borrowed_color", None) == state.rules.object_id(card.id) else None))):
+                                  ("color" if state.rules is not None and getattr(ability, "borrowed_color", None) == state.rules.object_id(card.id)
+                                   else "blue_color" if ability.spend_blue110i else None))):
             transformed = M.spend_as(ability_mana_cost(cost), mode)
             cost = replace(cost, mana=transformed.text(), mana_allocation=transformed.allocation)
         if SPEND_CHOSEN in ability.text and cost.mana and not variable:  # -- most-played cards (wave 51F) -- "Spend only mana of the chosen color to activate this ability" (Throne of Eldraine, 106.6)
@@ -7026,6 +7046,21 @@ def _activate_choosing(plan: Plan, card: CardInstance, ch: Characteristics, pars
     if parsed.count == "sacrificed_mv":  # -- activated sweep (wave 17B) -- the mana value of what the cost sacrifices (608.2h)
         sacrificed = [c for i, comp in cost.choices if comp.kind == C.SACRIFICE for c in objects.get(i, [])]
         options = (parsed.options[0] * int(sum(plan.ch(plan.state.cards[c]).mana_value for c in sacrificed)),)
+    if parsed.count == "untapped_land_types":  # -- mana (wave 110I) -- Benthic Explorers, 106.7: the types of mana the untapped land's mana abilities could add (their effects only: not costs, not riders, ruling 2009-10-01)
+        from app.rules import mana_replace
+
+        lands = [plan.state.cards[c] for i, comp in cost.choices if comp.kind == C.UNTAP_OTHER for c in objects.get(i, [])]
+        found_types: set[str] = set()
+        for land in lands:
+            raw = [(i, pm) for i, ab in enumerate(plan.ch(land).abilities) if ab.kind == "mana"
+                   and (pm := M.parse_mana_ability(ab.text, commander_identity(plan.state, land.controller, plan.info), card_name=plan.ch(land).name))]
+            replaced = mana_replace.extend(plan.state, land, plan.info, raw)  # 106.7: replacement effects count (unchanged when none applies)
+            if len(replaced) < len(raw):  # 106.7 "any possible order": two replacements or restricted mana aren't worked out; offer the unreplaced types, the players check by hand
+                plan.note(f"A mana replacement effect applies to {plan.ch(land).name}'s mana in a way that isn't worked out: check by hand what it could produce")
+                replaced = raw
+            for _, pm in replaced:
+                found_types |= {m for o in pm.options for m in o if m in M.ALL_MANA}
+        options = tuple((m,) for m in M.ALL_MANA if m in found_types) or ((),)
     if parsed.count == "sacrificed_land_types":  # -- mana (wave 110A) -- 106.7: types the sacrificed land's own mana abilities could add (last known information)
         lands = [plan.state.cards[c] for i, comp in cost.choices if comp.kind == C.SACRIFICE for c in objects.get(i, [])]
         found: set[str] = set()
