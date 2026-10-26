@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from app.game.state import GameState
+from app.game.state import COMBAT_PHASES, GameState
 
 
 def _live(state: GameState, pid: str) -> bool:
@@ -24,6 +24,10 @@ def controller_of(state: GameState, pid: str) -> str:
     r = state.rules
     if r is not None:
         for c in reversed(r.player_control):
+            if c.combat:  # -- wave 110A -- 723.1: their next combat phase, whenever it comes (it ends with the phase, player_control.combat_ended)
+                if c.status == "pending" and c.controlled == pid == state.turn.active_player and state.turn.phase in COMBAT_PHASES and _live(state, c.controller):
+                    return c.controller
+                continue
             if c.status == "active" and c.controlled == pid == state.turn.active_player and c.turn == state.turn.number \
                     and _live(state, c.controller):
                 return c.controller

@@ -584,6 +584,7 @@ def next_step(plan: Plan) -> None:
         combat_damage(plan, "second", "done")  # the regular damage step after first strike
         return
     if phase == "end_combat":
+        player_control.combat_ended(plan)  # -- wave 110A -- Secret of Bloodbending: control of their combat phase ends with it
         combat.end_combat(plan)
     inserted = r.extra_steps.pop(0) if r.extra_steps else None
     finish_phase = inserted == "phase"

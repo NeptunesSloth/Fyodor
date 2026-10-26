@@ -87,8 +87,9 @@ class PlayerControl(BaseModel):
 
     controlled: str
     controller: str
-    status: Literal["pending", "active"] = "pending"
+    status: Literal["pending", "active", "done"] = "pending"
     turn: int = 0  # the turn number it became active on (723.1: it ends with that turn)
+    combat: bool = False  # -- wave 110A -- Secret of Bloodbending: only the controlled player's next combat phase (723.1 "phase"); "done" once it ended
     extra_after: int = 0  # Emrakul: "After that turn, that player takes an extra turn" (kept when 723.1a overwrites)
     label: str = ""
 
