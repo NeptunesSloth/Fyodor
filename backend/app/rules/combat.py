@@ -786,7 +786,7 @@ def start_declare_blockers(plan: Plan) -> None:
     r = plan.rules
     r.blocked = []
     attacked = {blocking_defender(plan.state, c) for c in attackers_on(plan.state)}
-    order = plan.state.seat_order
+    order = plan.state.turn_order()
     start = order.index(plan.active)
     r.blockers_pending = [p for p in order[start + 1:] + order[:start] if p in attacked and p in plan.live()]
     ask_next_blocker(plan)

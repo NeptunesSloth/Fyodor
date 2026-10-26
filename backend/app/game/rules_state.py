@@ -1416,6 +1416,7 @@ class WorldInterval80(BaseModel):
 
 
 class RulesState(BaseModel):
+    turn_reversed110m: bool = False  # (wave 110M) Aeon Engine: the turn order runs against the seat order
     coffin_counters110m: dict[str, dict[str, int]] = Field(default_factory=dict)  # (wave 110M) Tawnos's Coffin: exiled creature rules object -> the counters noted on it
     alaundo110m: list[str] = Field(default_factory=list)  # (wave 110M) rules objects of exiled cards carrying Alaundo's granted "last time counter" trigger
     eot_haste110m: list[str] = Field(default_factory=list)  # (wave 110M) creature spells cast from exile that gain haste until end of turn as they enter
@@ -2131,7 +2132,7 @@ def _entry_order(state: GameState, before: Capture) -> list[tuple[str, str]]:
     they enter a zone). 613.7m: objects entering the battlefield simultaneously are timestamped in
     APNAP order — the active player's first (among them, in the order the step lists them), then
     each other player's in turn order; everything else keeps the table's order."""
-    seats = state.seat_order
+    seats = state.turn_order()
     start = seats.index(state.turn.active_player) if state.turn.active_player in seats else 0
     apnap = {p: (i - start) % len(seats) for i, p in enumerate(seats)} if seats else {}
 

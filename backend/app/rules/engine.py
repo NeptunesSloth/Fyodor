@@ -725,7 +725,7 @@ def extra_untap_step(plan: Plan) -> None:
     stunned = effects.keyword_actions.stunned(plan, [c.id for c in plan.state.cards.values() if c.tapped and c.id not in keep]) if stay is None else []
     keep = list(dict.fromkeys([*keep, *stunned]))
     keep += wave110h_cards.untap_hold(plan, pid, keep) if stay is None else []  # -- untap hold (wave 110H) --
-    previous = plan.rules.previous_turn or (plan.state.seat_order[(plan.state.seat_order.index(pid) - 1) % len(plan.state.seat_order)], max(0, plan.state.turn.number - 1))
+    previous = plan.rules.previous_turn or (plan.state.turn_order()[(plan.state.turn_order().index(pid) - 1) % len(plan.state.seat_order)], max(0, plan.state.turn.number - 1))
     finish = {"stunned": stunned, "previous": list(previous), "skipped": [], "plain": stay is None, "keep": keep, "same_turn": True}
     if untap_choice.ask(plan, asked, finish, limited):
         return

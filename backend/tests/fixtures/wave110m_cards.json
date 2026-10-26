@@ -1389,5 +1389,35 @@
 ],
 "power": "3",
 "toughness": "2"
+},
+{
+"name": "Old-Growth Troll",
+"layout": "normal",
+"mana_cost": "{G}{G}{G}",
+"cmc": 3.0,
+"type_line": "Creature — Troll Warrior",
+"oracle_text": "Trample\nWhen Old-Growth Troll dies, if it was a creature, return it to the battlefield. It's an Aura enchantment with enchant Forest you control and \"Enchanted Forest has '{T}: Add {G}{G}' and '{1}, {T}, Sacrifice this land: Create a tapped 4/4 green Troll Warrior creature token with trample.'\"",
+"colors": [
+"G"
+],
+"color_identity": [
+"G"
+],
+"keywords": [
+"Trample"
+],
+"power": "4",
+"toughness": "4"
+},
+{
+"name": "Aeon Engine",
+"layout": "normal",
+"mana_cost": "{5}",
+"cmc": 5.0,
+"type_line": "Artifact",
+"oracle_text": "This artifact enters tapped.\n{T}, Exile this artifact: Reverse the game's turn order. (For example, if play had proceeded clockwise around the table, it now goes counterclockwise.)",
+"colors": [],
+"color_identity": [],
+"keywords": []
 }
 ]

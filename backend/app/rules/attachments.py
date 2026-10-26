@@ -301,11 +301,11 @@ def host_problem(plan: Plan, source: CardInstance, host: str, controller: str | 
     return None if hch.is_land else "a Fortification can only fortify a land"
 
 
-def legal_hosts(plan: Plan, source: CardInstance, controller: str | None = None) -> list[str]:
+def legal_hosts(plan: Plan, source: CardInstance, controller: str | None = None, face: Characteristics | None = None) -> list[str]:
     """Everything ``source`` could be attached to right now (no targeting involved)."""
-    out = [p for p in plan.live() if host_problem(plan, source, p, controller) is None]
+    out = [p for p in plan.live() if host_problem(plan, source, p, controller, face=face) is None]
     for c in plan.state.cards.values():
-        if c.zone.endswith((":battlefield", ":graveyard")) and c.id != source.id and host_problem(plan, source, c.id, controller) is None:  # (wave 51F: a graveyard)
+        if c.zone.endswith((":battlefield", ":graveyard")) and c.id != source.id and host_problem(plan, source, c.id, controller, face=face) is None:  # (wave 51F: a graveyard)
             out.append(c.id)
     return out
 
@@ -392,11 +392,11 @@ def enter(plan: Plan, entries: list[dict[str, Any]], ctx: dict[str, Any] | None,
         if {"Instant", "Sorcery"}.intersection(plan.ch(probe).types):
             entry["stays"] = True
             continue
-        as_face = entering_face(plan, card, entry)
+        as_face = entering_face(plan, card, entry) or _entry_aura_face(plan, card, entry)
         kind = attach_kind(as_face or (plan.ch(card) if copying.entering_as_copy(plan, card) else chars.of(card, plan.info)))
         if (kind != "aura" and not (entry.get("host_choice") and kind == "equipment")) or entry.get("host"):
             continue
-        hosts = _entry_hosts(plan, card, entry)
+        hosts = _entry_hosts(plan, card, entry, as_face)
         if not hosts and kind == "equipment":
             continue  # 301.5e: Equipment enters unattached when no legal creature exists.
         if not hosts:
@@ -426,8 +426,19 @@ def enter(plan: Plan, entries: list[dict[str, Any]], ctx: dict[str, Any] | None,
     return True
 
 
-def _entry_hosts(plan: Plan, card: CardInstance, entry: dict[str, Any]) -> list[str]:
-    hosts = _hosts_on_entering(plan, card, entry["player"])
+def _entry_aura_face(plan: Plan, card: CardInstance, entry: dict[str, Any]) -> Characteristics | None:
+    """(wave 110M) It enters as an Aura by a noncopiable entry form (611.2e: Old-Growth Troll returning "as an Aura enchantment"): its characteristics as it will enter, judged and given its host so."""
+    from app.rules import entry_characteristics
+
+    if not entry.get("entry_characteristics"):
+        return None
+    probe = entry_characteristics.probe(card, entry["entry_characteristics"]).model_copy(update={"zone": zone_key(entry["player"], "battlefield"), "controller": entry["player"]})
+    face = plan.ch(probe)
+    return face if attach_kind(face) == "aura" else None
+
+
+def _entry_hosts(plan: Plan, card: CardInstance, entry: dict[str, Any], face: Characteristics | None = None) -> list[str]:
+    hosts = _hosts_on_entering(plan, card, entry["player"], face)
     if entry.get("host_choice"):
         from app.rules import selectors
 
@@ -436,10 +447,10 @@ def _entry_hosts(plan: Plan, card: CardInstance, entry: dict[str, Any]) -> list[
     return hosts
 
 
-def _hosts_on_entering(plan: Plan, card: CardInstance, controller: str) -> list[str]:
+def _hosts_on_entering(plan: Plan, card: CardInstance, controller: str, face: Characteristics | None = None) -> list[str]:
     """What an Aura entering under ``controller`` could enchant (the permanents already on the
     battlefield: not one entering with it)."""
-    return legal_hosts(plan, card, controller)
+    return legal_hosts(plan, card, controller, face)
 
 
 def resume_aura_enters(plan: Plan, d: Any, chosen: list[str]) -> None:
@@ -450,7 +461,7 @@ def resume_aura_enters(plan: Plan, d: Any, chosen: list[str]) -> None:
     ctx, shuffle = d.resume.get("ctx"), d.resume.get("shuffle")
     card = plan.state.cards.get(entries[i]["card"])
     if card is not None:
-        if chosen[0] not in _entry_hosts(plan, card, entries[i]):
+        if chosen[0] not in _entry_hosts(plan, card, entries[i], entering_face(plan, card, entries[i]) or _entry_aura_face(plan, card, entries[i])):
             from app.game.errors import ActionError
 
             raise ActionError("It can't enchant that")

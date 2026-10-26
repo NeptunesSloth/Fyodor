@@ -721,6 +721,36 @@ _BUILD[_ZYGON] = (_ZYGON_NATIVE, lambda d: json.loads(json.dumps(d).replace('"du
 _BUILD["Body-print — " + _ZYGON] = _BUILD[_ZYGON]
 
 
+_TROLL = ("When Old-Growth Troll dies, if it was a creature, return it to the battlefield. It's an Aura enchantment with enchant Forest you control and \"Enchanted Forest has "
+          "'{T}: Add {G}{G}' and '{1}, {T}, Sacrifice this land: Create a tapped 4/4 green Troll Warrior creature token with trample.'\"")
+_TROLL_NATIVE = "When this creature dies, if it was a creature, return it to the battlefield under its owner's control. It's an enchantment."
+
+
+def _troll(d: Def) -> Def:
+    """Old-Growth Troll: it returns as an Aura enchantment (611.2e: as it enters, noncopiable; not a creature) that enchants a Forest its owner chooses as it enters (303.4g), with the granted
+    mana ability and the sacrifice ability on that land. "Enchanted Forest" is read as the enchanted land: the Aura can only enchant a Forest, and falls off when it stops being one (704.5m)."""
+    check, back, _ = d["effects"]
+    back = {**back, "entry_characteristics": {"set_types": ["Enchantment"], "add_subtypes": ["Aura"], "add_abilities": [
+        "Enchant Forest you control",
+        'Enchanted land has "{T}: Add {G}{G}" and "{1}, {T}, Sacrifice this land: Create a tapped 4/4 green Troll Warrior creature token with trample."']}}
+    return {**d, "effects": [{**check, "skip": 1}, back]}
+
+
+_BUILD[_TROLL] = (_TROLL_NATIVE, _troll)
+_BUILD[_TROLL.replace("Old-Growth Troll", "~")] = _BUILD[_TROLL]
+
+
+_AEON = "{T}, Exile this artifact: Reverse the game's turn order."
+_BUILD[_AEON] = ("{T}, Exile this artifact: You gain 1 life.", lambda d: {**d, "effects": [{"do": "reverse_turn_order110m"}]})
+
+
+def reverse_turn_order(plan: Any, ctx: Def, e: Def) -> bool:
+    """Aeon Engine: the turn order runs the other way from now on (priority, APNAP, the next turn, choices "in turn order"); the seats stay where they are, and with two players nothing changes."""
+    plan.rules.turn_reversed110m = not plan.rules.turn_reversed110m
+    plan.note(f"The turn order is reversed ({' → '.join(plan.name(p) for p in plan.state.turn_order())})")
+    return True
+
+
 _MEDDLE = "If target spell has only one target and that target is a creature, change that spell's target to another creature."
 
 
@@ -1378,4 +1408,4 @@ def resume_damnations_keep(plan: Any, d: Any, chosen: list[str]) -> None:
 
 RESUME: dict[str, Any] = {"alaundo110m": resume_alaundo, "rocket110m": resume_rocket, "nihiloor110m": resume_nihiloor, "reroll_pick110m": resume_reroll_pick, "march110m": resume_march, "sphinx_search110m": resume_sphinx_search, "sphinx_put110m": resume_sphinx_put, "ashiok110m": resume_ashiok, "gurzigost110m": resume_gurzigost, "cover_up110m": resume_cover_up, "faces110m": resume_faces, "damnations110m": resume_damnations, "damnations110m_lose": resume_damnations_lose,
                           "damnations110m_keep": resume_damnations_keep}
-PRIMITIVES: dict[str, Any] = {"coffin_exile110m": coffin_exile, "coffin_creature110m": coffin_creature, "coffin_auras110m": coffin_auras, "alaundo_exile110m": alaundo_exile, "alaundo_tail110m": alaundo_tail, "bat_link110m": bat_link, "bat_return110m": bat_return, "rocket110m": rocket, "goblin110m": goblin, "grip110m": grip, "smoke110m": smoke, "nihiloor110m": nihiloor, "sylex110m": sylex, "store_dice110m": store_dice, "reroll_pick110m": reroll_pick, "reroll_roll110m": reroll_roll, "top_to_bottom110m": top_to_bottom, "faces110m": faces, "lose_shield110m": lose_shield, "escape_grant110m": escape_grant, "march110m": march, "tap_count110m": tap_count, "sphinx_search110m": sphinx_search, "sphinx_put110m": sphinx_put, "gandalf110m": gandalf, "bind_target_player110m": bind_target_player, "ashiok110m": ashiok, "ashiok_ult110m": ashiok_ult, "hunted110m": hunted, "gurzigost110m": gurzigost, "cover_up110m": cover_up, "damnations110m": damnations}
+PRIMITIVES: dict[str, Any] = {"reverse_turn_order110m": reverse_turn_order, "coffin_exile110m": coffin_exile, "coffin_creature110m": coffin_creature, "coffin_auras110m": coffin_auras, "alaundo_exile110m": alaundo_exile, "alaundo_tail110m": alaundo_tail, "bat_link110m": bat_link, "bat_return110m": bat_return, "rocket110m": rocket, "goblin110m": goblin, "grip110m": grip, "smoke110m": smoke, "nihiloor110m": nihiloor, "sylex110m": sylex, "store_dice110m": store_dice, "reroll_pick110m": reroll_pick, "reroll_roll110m": reroll_roll, "top_to_bottom110m": top_to_bottom, "faces110m": faces, "lose_shield110m": lose_shield, "escape_grant110m": escape_grant, "march110m": march, "tap_count110m": tap_count, "sphinx_search110m": sphinx_search, "sphinx_put110m": sphinx_put, "gandalf110m": gandalf, "bind_target_player110m": bind_target_player, "ashiok110m": ashiok, "ashiok_ult110m": ashiok_ult, "hunted110m": hunted, "gurzigost110m": gurzigost, "cover_up110m": cover_up, "damnations110m": damnations}

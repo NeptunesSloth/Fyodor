@@ -229,3 +229,47 @@ def test_the_copy_ends_when_the_creature_leaves_the_battlefield(cards):
     answer(s)
     assert zone_of(s, "Hill Giant", "p2") == "p2:graveyard" and ch(s, s.state.cards[zygon.id]).name == ZYGON
     check(s)
+
+
+# -- Old-Growth Troll --------------------------------------------------------------------------------------------------------------------------
+TROLL = "Old-Growth Troll"
+test_troll_full = full_test([TROLL])
+
+
+def troll_dies(cards, forests_in_play=1):
+    s = build(cards, [TROLL, "Murder"], ["Elite Vanguard"], forests=20)
+    troll = put(s, TROLL)
+    lands = [c for c in s.state.cards.values() if c.name == "Forest" and c.owner == "p1" and c.zone == "p1:library"][:forests_in_play]
+    for c in lands:
+        act(s, "p1", type="move", card_ids=[c.id], to={"player": "p1", "zone": "battlefield"})
+    cast(s, "Murder", [troll.id])
+    answer(s)
+    return s, troll, lands
+
+
+def test_the_troll_returns_as_an_aura_enchanting_a_forest_and_is_no_longer_a_creature(cards):
+    s, troll, lands = troll_dies(cards)
+    back = s.state.cards[troll.id]
+    assert back.zone == "p1:battlefield" and back.attached_to == lands[0].id
+    c = ch(s, back)
+    assert "Creature" not in c.types and "Enchantment" in c.types and "Aura" in c.subtypes
+    check(s)
+
+
+def test_the_enchanted_forest_taps_for_two_green_and_can_be_sacrificed_for_a_troll_warrior(cards):
+    s, troll, lands = troll_dies(cards)
+    texts = [a.text for a in ch(s, s.state.cards[lands[0].id]).abilities]
+    assert any(t.startswith("{T}: Add {G}{G}") for t in texts) and any("Sacrifice" in t and "Troll Warrior" in t for t in texts)
+    index = next(a.index for a in ch(s, s.state.cards[lands[0].id]).abilities if "Sacrifice" in a.text)
+    mana(s, C=1)
+    act(s, "p1", type="activate_ability", card_id=lands[0].id, ability=index)
+    answer(s)
+    warriors = [c for c in s.state.cards.values() if c.is_token and c.name == "Troll Warrior" and c.zone == "p1:battlefield"]
+    assert len(warriors) == 1 and warriors[0].tapped and ch(s, warriors[0]).pt == (4, 4)
+    check(s)
+
+
+def test_with_no_forest_to_enchant_the_aura_stays_in_the_graveyard(cards):
+    s, troll, lands = troll_dies(cards, forests_in_play=0)
+    assert s.state.cards[troll.id].zone == "p1:graveyard"
+    check(s)
