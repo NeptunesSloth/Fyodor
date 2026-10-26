@@ -13,6 +13,7 @@ import pytest
 
 from app.game.errors import ActionError
 from app.rules import coverage
+from tests.test_rules_wave7c_counters import add, counters
 from tests.test_rules_wave12a_counters_keywords import real
 from tests.test_rules_wave34b_activated import activate
 from tests.test_rules_wave100n_multi import EXTRA as _BASE
@@ -21,7 +22,6 @@ from tests.test_rules_wave100n_multi import (
     card_db,  # noqa: F401  (fixture DB with EXTRA)
     cast,
 )
-from tests.test_rules_wave7c_counters import add, counters
 from tests.wave9c_kit import build, check, life, mana, put
 from tests.wave36a_kit import ready
 

@@ -32,7 +32,7 @@ def _tap(s, *cards):
 def test_plus_untaps_mine_taps_theirs_and_gains_life(cards):
     s = build(cards, [TEFERI, "Grizzly Bears", "Sundial Rock"], ["Sundial Rock", "Llanowar Elves"])
     t, bears, mine_rock = put(s, TEFERI), put(s, "Grizzly Bears"), put(s, "Sundial Rock")
-    foe_rock, foe_elf = put(s, "Sundial Rock", "p2"), put(s, "Llanowar Elves", "p2")
+    put(s, "Sundial Rock", "p2"), put(s, "Llanowar Elves", "p2")
     forest = next(c for c in s.state.cards.values() if c.name == "Forest" and c.owner == "p1")
     act(s, "p1", type="move", card_ids=[forest.id], to={"player": "p1", "zone": "battlefield"})
     _tap(s, bears, forest)

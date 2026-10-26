@@ -169,7 +169,7 @@ def test_done_for_the_day_modes(cards, opt, ticket, treasure):
     s = setup(cards)
     put(s, "Done for the Day", "battlefield")
     put(s, "Test Robot", "battlefield")
-    d = _end_step(s)
+    _end_step(s)
     _choose(s, opt)
     resolve(s)
     assert tickets(s) == ticket
