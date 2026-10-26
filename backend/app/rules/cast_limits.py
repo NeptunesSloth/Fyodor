@@ -725,6 +725,8 @@ _KINDS = ("cant_cycle", "hexproof_targeting", "cast_limit", "activate_as_haste",
           "life_lock",  # (wave 29D: app/rules/life_lock.py)
           "rad_gain", "venture_limit", "first_alt", "spell_replicate110a", "counter_cap110j", "trigger_token_shield110a")  # (wave 44C: app/rules/designations.py; 45B: Keen-Eared Sentry)
 
+_KINDS = (*_KINDS, "power_lethal110a")  # -- wave 110A -- Zilortha (wave110a_zilortha)
+
 
 def _scan(state: GameState, info: CardInfo) -> list[tuple[str, int, Definition]]:
     from app.rules import read_pass

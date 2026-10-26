@@ -1243,7 +1243,9 @@ def compute_combat_damage(plan: Plan, rnd: Round, pending: list[tuple[CardInstan
 
     def lethal(b: CardInstance, source: Characteristics, cap: int) -> int:
         """702.2c / 702.19b: the damage that is lethal to ``b``, counting damage already marked and what is assigned so far."""
-        t = toughness(b, plan.ch(b))
+        from app.rules import wave110a_zilortha  # -- wave 110A -- Zilortha: power stands in for toughness
+
+        t = wave110a_zilortha.basis(plan, b, plan.ch(b), toughness(b, plan.ch(b)))
         if "deathtouch" in source.keywords:
             return 1
         return cap if t is None else max(0, t - b.damage - out.creatures.get(b.id, 0) - out.wither.get(b.id, 0))

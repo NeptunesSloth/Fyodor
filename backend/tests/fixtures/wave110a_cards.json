@@ -2429,5 +2429,43 @@
    "B"
   ],
   "keywords": []
+ },
+ {
+  "name": "Wall of Blossoms",
+  "layout": "normal",
+  "mana_cost": "{1}{G}",
+  "cmc": 2.0,
+  "type_line": "Creature — Plant Wall",
+  "oracle_text": "Defender\nWhen this creature enters, draw a card.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [
+   "Defender"
+  ],
+  "power": "0",
+  "toughness": "4"
+ },
+ {
+  "name": "Goblin Heelcutter",
+  "layout": "normal",
+  "mana_cost": "{3}{R}",
+  "cmc": 4.0,
+  "type_line": "Creature — Goblin Berserker",
+  "oracle_text": "Whenever this creature attacks, target creature can't block this turn.\nDash {2}{R} (You may cast this spell for its dash cost. If you do, it gains haste, and it's returned from the battlefield to its owner's hand at the beginning of the next end step.)",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Dash"
+  ],
+  "power": "3",
+  "toughness": "2"
  }
 ]

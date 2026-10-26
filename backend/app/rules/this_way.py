@@ -603,7 +603,11 @@ def excess_by_target(plan: Plan, events: list[dict[str, Any]], *, note: bool = T
         ch = plan.ch(card)
         over = []
         if ch.is_creature and ch.pt is not None:
-            left = max(0, ch.pt[1] - card.damage)
+            from app.rules import (
+                wave110a_zilortha,  # -- wave 110A -- Zilortha: the excess over lethal damage (120.10) counts power
+            )
+
+            left = max(0, (wave110a_zilortha.basis(plan, card, ch, ch.pt[1]) or 0) - card.damage)
             # only deathtouch sources: 120.4a, each source's damage beyond 1 (all of it if lethal damage is already marked)
             over.append((n if left == 0 else n - dt_hits[cid]) if dt.get(cid) == n else n - left)
         if "Planeswalker" in ch.types:
