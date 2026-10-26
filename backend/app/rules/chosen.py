@@ -151,7 +151,7 @@ def chosen_value_ok(d: dict[str, Any], ch: Characteristics) -> bool:
     if d.get("modes"):  # -- chosen filters (wave 53B) -- 700.2: each mode is its own run of instructions (a choice made in a mode serves that mode only)
         rest = {k: v for k, v in d.items() if k != "modes"}
         return chosen_value_ok(rest, ch) and all(chosen_value_ok({"kind": d.get("kind"), **m}, ch) for m in d["modes"])
-    if d.get("chosen_type") and _enters_choices(ch).count("basic land type" if d["chosen_type"] == "land" else "creature type") != 1:
+    if d.get("chosen_type") and _enters_choices(ch).count("basic land type" if d["chosen_type"] == "land" or "Land" in ch.types else "creature type") != 1:  # (wave 110A: Thran Portal)
         return False  # (wave 11E: "~ is the chosen type in addition to its other types" needs that one choice)
 
     if d.get("chosen_color") and _enters_choices(ch).count("color") != 1:

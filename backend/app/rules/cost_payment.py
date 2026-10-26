@@ -227,6 +227,11 @@ def removable_counters(plan: Plan, card: CardInstance, kind: str | None, options
                and (not options or k in options) and not prohibitions.cant_remove_counters(plan, card.id, k))
 
 
+def needed(plan: Plan, comp: CostComponent, x: int | None, player: str, source: CardInstance) -> int:
+    """objects_needed, plus 'half the ... rounded up' (wave 110A): read from the board now."""
+    return (len(required_all(plan, comp, player, source)) + 1) // 2 if comp.half else objects_needed(comp, x)
+
+
 def objects_needed(comp: CostComponent, x: int | None) -> int:
     """The objects a chosen part takes: X of them for "Sacrifice X Treasures" (107.3a), else comp.objects."""
     if comp.kind == C.REMOVE_COUNTER and comp.selector is not None and not comp.among:
@@ -437,7 +442,7 @@ def problem(plan: Plan, cost: AbilityCost, card: CardInstance, player: str, x: i
             if comp.all_objects:
                 if set(required_all(plan, comp, player, card)) - set(usable):
                     return f"You can't pay “{comp.text}”" + withheld(plan, comp, player, card)
-            elif not _names_payable(plan, comp, usable, objects_needed(comp, x)) and not comp.up_to:  # (X / one permanent for its counters: wave 4H)
+            elif not _names_payable(plan, comp, usable, needed(plan, comp, x, player, card)) and not comp.up_to:  # (X / one permanent for its counters: wave 4H)
                 return f"You can't pay “{comp.text}”" + withheld(plan, comp, player, card)
     # -- cast keywords (wave 43D) -- a part paid more than once (a kicker / squad / replicate cost paid twice, escalate's) takes its energy and its
     # objects once for each time (118.3: no partial payments); each object pays one part only (choose)
@@ -446,7 +451,7 @@ def problem(plan: Plan, cost: AbilityCost, card: CardInstance, player: str, x: i
         return f"You don't have {energy_total} energy to pay"
     same: dict[tuple[str, str | None], list[CostComponent]] = {}
     for comp in cost.components:
-        if comp.selector is not None and not comp.up_to and not comp.all_objects and comp.kind in (C.SACRIFICE, C.DISCARD, C.EXILE_FROM_GRAVEYARD, C.RETURN_PERMANENT,
+        if comp.selector is not None and not comp.up_to and not comp.all_objects and not comp.half and comp.kind in (C.SACRIFICE, C.DISCARD, C.EXILE_FROM_GRAVEYARD, C.RETURN_PERMANENT,
                                                                          C.TAP_OTHER):
             same.setdefault((comp.kind, comp.selector), []).append(comp)
     for group in same.values():
@@ -531,7 +536,7 @@ def choose(plan: Plan, a: A.ActivateAbility | A.CastSpell | A.TurnFaceUp | A.Dec
             if counter_index is not None and comp.kind == C.REMOVE_COUNTER:
                 used |= set(found) | {token.rsplit(":", 2)[0] for token in found}
             continue
-        need = objects_needed(comp, x)
+        need = needed(plan, comp, x, plan.actor, card)
         blocked = used
         if compatible_tap:
             blocked = {cid for j, ids in out.items() for cid in ids

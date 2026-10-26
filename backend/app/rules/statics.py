@@ -219,6 +219,8 @@ def parse(text: str) -> Definition | None:
         return {**_definition("self", None, []), "set_colors": ["@color"]}
     if body == '~ is the chosen type':
         return {'kind': 'static', 'static': 'chosen_land_type', 'effects': [], 'chosen_type': 'land'}
+    if body == "Mana abilities of ~ cost an additional 1 life to activate":  # -- mana ability life (wave 110A) -- applied by layers._with_rules (wave110a_portal)
+        return _definition("self", None, [])
     if body == "~ is the chosen type in addition to its other types":
         return {**_definition("self", None, []), "remove_types": [], "add_subtypes": [], "chosen_type": True}
     # -- untap choice (wave 7F) -- 502.3: asked in the untap step (app/rules/untap_choice.py)

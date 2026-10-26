@@ -6740,6 +6740,11 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     if (selected_keyword := selected_keyword_costs65.definition(ability, ch)) is not None:
         return selected_keyword
 
+    from app.rules import wave110a_activation  # -- activation cost (wave 110A) --
+
+    if (first_artifact := wave110a_activation.definition(ability, ch)) is not None:
+        return first_artifact
+
     from app.rules import first_target_activation_cost58
 
     if (first_target_cost := first_target_activation_cost58.definition(ability, ch)) is not None:

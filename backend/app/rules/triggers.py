@@ -2564,6 +2564,9 @@ def activated(plan: Plan, card: CardInstance, oid: str, *, loyalty: bool = False
     ability = plan.state.cards.get(ability_id or "")  # (wave 18F: the activated ability itself, for "copy that ability")
     record = payment if payment is not None else plan.rules.payments.get(plan.oid(ability)) if ability is not None else None
     actor = actor or plan.actor
+    from app.rules import wave110a_activation  # -- activation cost (wave 110A) --
+
+    wave110a_activation.note(plan, och, actor, oid)
     activation_cost = {'has_tap': record.activation_cost_has_tap if record is not None and record.activation_cost_has_tap is not None else cost_has_tap,
                        'mana_tags': [list(tags) for tags in record.mana_tags] if record is not None and record.mana_known else None,
                        'mana': dict(record.mana_spent) if record is not None and record.mana_known else None,

@@ -133,6 +133,7 @@ class CostComponent:
     gain_scope: Literal["each_other_player"] | None = None  # Nominal life-gain cost paid to every other live player.
     source_with_choices: bool = False  # One graveyard-exile instruction includes its required source and selected others.
     counter_options: tuple[str, ...] = ()  # A bounded choice of named counter kinds, not every counter.
+    half: bool = False  # -- wave 110A -- 'sacrifice half the lands you control, rounded up': the count is read from the board as the cost is paid
     counters_x: bool = False  # -- blight X (wave 110C) -- 701.68a: the announced X is the number of counters put on the one creature chosen
 
     @property
@@ -289,6 +290,10 @@ def _component(part: str, card_name: str) -> CostComponent | None:
 
     if (own110d := wave110d_costs.component(part, card_name)) is not None:
         return own110d
+    from app.rules import wave110a_activation  # -- costs (wave 110A) --
+
+    if (own110a := wave110a_activation.component(part)) is not None:
+        return own110a
     if m := re.fullmatch(r"Sacrifice all (?P<what>.+)", part):
         key = _selector(m["what"], zone="battlefield")
         return CostComponent(SACRIFICE, selector=key, all_objects=True, text=part) if key else None
@@ -971,6 +976,10 @@ def parse_additional_cost(text: str) -> AbilityCost | None:
 
     if (water := waterbend102.part(text)) is not None:
         return AbilityCost(components=(water,))
+    from app.rules import wave110a_activation  # -- costs (wave 110A) --
+
+    if (half110a := wave110a_activation.component(text)) is not None:
+        return AbilityCost(components=(half110a,))
     if text == 'put a -1/-1 counter on a creature you control':
         counter = _one_4h(text[:1].upper() + text[1:], '')
         return AbilityCost(components=(counter,)) if counter is not None and counter.selector is not None else None

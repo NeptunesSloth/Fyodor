@@ -1354,7 +1354,7 @@ def _own_layer4_statics(state: GameState, card: CardInstance, info: CardInfo | N
     _T.l4.add(card.id)
     try:
         # (wave 11E: "is the chosen type in addition to its other types" adds the type chosen as it entered, 614.12a)
-        return [(st.seq, {**st.definition, "add_subtypes": [t for t in [card.choices.get("Chosen creature type", "").strip()] if t]}
+        return [(st.seq, {**st.definition, "add_subtypes": [t for t in [(card.choices.get("Chosen basic land type" if "Land" in ch.types else "Chosen creature type") or "").strip()] if t]}
                  if st.definition.get("chosen_type") else st.definition) for st in table
                 if grammar.conditions_hold(view, st.definition, source=card, controller=st.controller)]
     finally:
@@ -1506,6 +1506,9 @@ def _with_rules(state: GameState, card: CardInstance, ch: Characteristics, info:
     steps.", an Aura's "Enchanted creature … attacks each combat if able."). Statics are read after
     layer 7, so a subject like "creatures with power 4 or greater" sees the current power
     (613.8-style dependency, as far as this engine models it)."""
+    from app.rules import wave110a_portal  # -- mana ability life (wave 110A) --
+
+    ch = wave110a_portal.apply(ch)
     if info is not None and card.zone.endswith(":battlefield") and state.rules is not None and _T.depth == 0:
         from app.rules import attack_requirements
         from app.rules import statics as grammar

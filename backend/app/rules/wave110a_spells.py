@@ -530,6 +530,11 @@ def snow(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
 
 # Whole abilities the grammar reads in other words (same meaning).
 ABILITY_REWRITES = {
+    # Estrid, the Masked: the Mask Aura token (roles.NAMED), enchant permanent + umbra armor
+    "\u22121: Create a white Aura enchantment token named Mask attached to another target permanent. The token has enchant permanent and umbra armor.":
+        "\u22121: Create a Mask Aura token attached to another target permanent.",
+    "\u22127: Mill seven cards. Return all non-Aura enchantment cards from your graveyard to the battlefield, then do the same for Aura cards.":
+        "\u22127: Mill seven cards. Return all non-Aura enchantment cards from your graveyard to the battlefield. Return all Aura cards from your graveyard to the battlefield.",
     # Storm Cauldron: a land tapped for mana is tapped by a player (106.12a); a stack trigger, it adds no mana (so not a mana ability, 605.1b)
     "Whenever a land is tapped for mana, return it to its owner's hand.":
         "Whenever a player taps a land for mana, return that land to its owner's hand.",

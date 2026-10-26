@@ -1894,6 +1894,11 @@ def ability_mana(state: GameState, player: str, card: CardInstance, ch: Characte
             chosen = targets if targets is not None else ((target,) if target and target != '?' else ())
             if not target_cost_conditions62.available(state, player, src, d['target_rule62'], chosen, info, preview=target == '?'):
                 continue
+        if d.get("first_artifact110a"):  # -- activation cost (wave 110A) --
+            from app.rules import wave110a_activation
+
+            if not wave110a_activation.available(state, player, _view(state, player, info).ch(card)):
+                continue
         if d.get("first_controlled_creature_target58"):
             from app.rules import first_target_activation_cost58
 
