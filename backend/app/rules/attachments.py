@@ -315,17 +315,10 @@ def enchanted_cards(plan: Plan, source: CardInstance) -> list[str]:
             and plan.oid(cid) == oid and plan.state.cards[cid].zone.endswith(":graveyard")]
 
 
-def attach(plan: Plan, source: str, host: str, actor: str, chosen110e: bool = False) -> bool:
+def attach(plan: Plan, source: str, host: str, actor: str) -> bool:
     """701.3a-b: attach ``source`` to ``host`` if it can be; otherwise it doesn't move."""
     card = plan.state.cards.get(source)
     if card is None or host_problem(plan, card, host) is not None:
-        return False
-    from app.rules import (
-        wave110e_blade,  # -- becomes attached, choose (wave 110E) -- only the equip ability asks for the color (wave110e_blade)
-    )
-
-    if not chosen110e and wave110e_blade.needs(plan, source):
-        plan.note(f"{card.name} must choose a color as it becomes attached: only equip does that; move it by hand", [source])
         return False
     if host in plan.state.cards and plan.state.cards[host].zone.endswith(":graveyard"):  # -- reanimation Auras (wave 51F) -- 303.4a: it enchants a card in a graveyard
         plan.rules.aura_links[plan.oid(card)] = [plan.oid(host)]

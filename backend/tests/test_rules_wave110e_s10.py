@@ -39,7 +39,7 @@ PUMP = real("Test Pump", "{G}", 1, "Instant", "Target creature gets +1/+1 until 
 base.EXTRA.extend([MARVEL, PUMP, REPROACH, BEAR, DRAIN, BLADE, MONITOR, ROLL, IMP, WALL, VEC, SLOTH])
 
 
-@pytest.mark.parametrize("name", ["Teferi's Reproach", "Sanctuary Blade", "Monitor Monitor", "Maddening Imp", "Oracle en-Vec", "Ms. Marvel, Kamala Khan"])
+@pytest.mark.parametrize("name", ["Teferi's Reproach", "Monitor Monitor", "Maddening Imp", "Oracle en-Vec", "Ms. Marvel, Kamala Khan"])
 def test_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
@@ -63,34 +63,15 @@ def test_teferis_reproach_shields_the_opponent_until_their_next_turn(cards):
     check(s)
 
 
-def _keywords(s, card):
-    from app.rules.plan import Plan
-
-    ch = Plan(s.state, "p1", s.cards, None).ch(s.state.cards[card.id])
-    return {k.lower() for k in ch.keywords} | {a.text.lower() for a in ch.abilities}
-
-
-def _equip(s, blade, bear, color):
+def test_sanctuary_blade_is_manual_and_attaches_by_any_path(cards):
+    """701.3a: "as it becomes attached, choose a color" applies to every way of attaching, so the card stays PARTIAL; no attach path is refused."""
+    assert coverage.of_card_data(cards.resolve("Sanctuary Blade")).level != "FULL"
+    s = build(cards, ["Sanctuary Blade", "Test Bear"])
+    blade, bear = put(s, "Sanctuary Blade"), put(s, "Test Bear")
     mana(s, C=3)
     act(s, "p1", type="activate_ability", card_id=blade.id, ability=2, targets=[bear.id])
-    answer(s, *([color] if color else []))
-
-
-def test_sanctuary_blade_chooses_a_color_each_time_it_becomes_attached(cards):
-    """701.3a: the controller chooses as it becomes attached (equip); the grant uses the last chosen color: +2/+0 and protection from it."""
-    s = build(cards, ["Sanctuary Blade", "Test Bear", "Test Bear"])
-    blade, bear = put(s, "Sanctuary Blade"), put(s, "Test Bear")
-    _equip(s, blade, bear, "Red")
-    assert s.state.cards[bear.id].attached_to is None and s.state.cards[blade.id].attached_to == bear.id
-    assert pt(s, "Test Bear") == (4, 2) and "protection from red" in _keywords(s, bear)
-    check(s)
-    bear2 = card_named(s, "Test Bear")
-    other = next(c for c in s.state.cards.values() if c.name == "Test Bear" and c.id != bear.id and c.owner == "p1")
-    put_bear = act(s, "p1", type="move", card_ids=[other.id], to={"player": "p1", "zone": "battlefield"})  # noqa: F841
-    _equip(s, blade, other, "Green")
-    assert s.state.cards[blade.id].attached_to == other.id
-    assert "protection from green" in _keywords(s, other) and "protection from red" not in _keywords(s, other)
-    assert "protection from red" not in _keywords(s, bear2) or bear2.id == other.id
+    answer(s)
+    assert s.state.cards[blade.id].attached_to == bear.id
     check(s)
 
 
