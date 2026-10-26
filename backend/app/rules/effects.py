@@ -4981,7 +4981,7 @@ def become(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
 
 _MARKER_TEXT = {"end_of_turn": "until end of turn", "next_turn": delayed.LABELS["next_turn"], "end_of_combat": "this combat",
-                "creature_cast110m": delayed.LABELS["creature_cast110m"]}  # (wave 110M)  # (wave 49C: end_of_combat)
+                "creature_cast110m": delayed.LABELS["creature_cast110m"], "roll1_110f": delayed.LABELS["roll1_110f"]}  # (wave 110M)  # (wave 49C: end_of_combat)
 _COLOR_WORDS = {"W": "white", "U": "blue", "B": "black", "R": "red", "G": "green"}
 
 

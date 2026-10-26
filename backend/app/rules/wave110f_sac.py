@@ -9,7 +9,7 @@ import re
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from app.game.state import CardInstance, GameState
+    from app.game.state import GameState
     from app.rules.characteristics import CardInfo, Characteristics
     from app.rules.costs import AbilityCost
 

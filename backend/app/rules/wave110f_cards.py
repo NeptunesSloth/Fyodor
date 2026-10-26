@@ -659,6 +659,14 @@ _STICKER_BACK = "Whenever you put {k} sticker on a creature, you may return this
 _FIRES = "{2}{R}: Exile the top card of your library. You may play that card this turn. When you play a card this way, ~ deals 2 damage to each player."
 
 
+_MALIK = "When ~ enters, you and target opponent each secretly choose a creature that player controls. Then those choices are revealed, and that player sacrifices those creatures."
+_DROP = "Whenever you roll to visit your Attractions, target creature gains flying until end of turn, or until any player rolls a 1, whichever comes first."
+_DANCE = {
+    "When ~ leaves the battlefield, exile the token.": "When ~ leaves the battlefield, exile target creature.",
+    "When the token leaves the battlefield, sacrifice ~.": "Whenever a creature leaves the battlefield, sacrifice ~.",
+}
+
+
 def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
     """Essence of the Wild: the static is read at entry (copying.entering -> :func:`copy_on_entry`), it has no effect of its own."""
     from dataclasses import replace
@@ -670,6 +678,31 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
     if (sac110f := wave110f_sac.definition(ability, ch)) is not None:  # Brutal Suppression, Drought
         return sac110f
     text = scripts.self_text(ability.text, ch.name)
+    if ability.kind == "triggered" and text == _MALIK:  # 101.4c, 701.21a: both choose in secret, revealed together; that player sacrifices them (Malik's second ability sees it)
+        from app.rules import group_choice
+
+        native = scripts.define(replace(ability, text="When ~ enters, target opponent sacrifices a creature."), ch)
+        if native is None or (key := group_choice._key("creature")) is None:
+            return None
+        return {**native, "effects": [
+            {"do": "gc_choose", "who": ["you", "target"], "what": "object", "secret": True, "as": "gc", "kinds": [
+                {"sel": key, "mine": False, "by": "you", "of": "target", "say": "a creature target opponent controls"},
+                {"sel": key, "mine": True, "by": "target", "of": "target", "say": "a creature you control"}]},
+            {"do": "sacrifice", "who": "ref:gc:chosen", "by": "controller"}]}
+    if ability.kind == "triggered" and text == _DROP:  # 611.2a: flying lasts until end of turn or until any player rolls a 1 (706.2), whichever is first
+        native = scripts.define(replace(ability, text=_DROP.replace(", or until any player rolls a 1, whichever comes first", "")), ch)
+        if native is None or [x["do"] for x in native["effects"]] != ["grant"]:
+            return None
+        return {**native, "effects": [{"do": "until", "n": 1, "duration": "roll1_110f"}, *native["effects"]]}
+    if ability.kind == "triggered" and text in _DANCE:  # Dance of Many: "the token" is the token its own enters ability created (111.2, 603.10a)
+        native = scripts.define(replace(ability, text=_DANCE[text]), ch)
+        if native is None:
+            return None
+        if text.startswith("When the token"):
+            from app.rules import selectors
+
+            return {**native, "cond": {**native["cond"], "sel": selectors.Selector(token=True, extras=("made_by_source110f",)).key()}}
+        return {**native, "target": None, "effects": [{"do": "made110h", "as": "made110h"}, {**native["effects"][0], "who": "ref:made110h"}]}
     if ability.kind == "triggered" and text == "When ~ enters and at the beginning of your upkeep, choose left or right.":
         native = scripts.define(replace(ability, text="When ~ enters and at the beginning of your upkeep, draw a card."), ch)
         if native is not None:  # Mystic Barrier: both triggers, the same choice

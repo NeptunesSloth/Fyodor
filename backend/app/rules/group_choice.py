@@ -87,6 +87,12 @@ def _options(plan: Plan, ctx: Context, e: dict[str, Any], pid: str = "", k: int 
 
         kind = e["kinds"][k]
         found = selectors.candidates(plan, selectors.from_key(kind["sel"]), pid, ctx.get("source_card"))
+        if kind.get("of"):  # -- wave 110F -- "a creature that player controls": only the permanents those players control (Malik)
+            from app.rules.effects import _players
+
+            owners = _players(plan, ctx, kind["of"])
+            return [DecisionOption(id=c, label=plan.state.cards[c].name or "Permanent", card_id=c)
+                    for c in found if plan.state.cards[c].zone.endswith(":battlefield") and plan.state.cards[c].controller in owners]
         return [DecisionOption(id=c, label=(plan.state.cards[c].name or "Permanent") + ("" if kind["mine"] else f" — {plan.name(plan.state.cards[c].controller)}"), card_id=c)
                 for c in found if plan.state.cards[c].zone.endswith(":battlefield") and (plan.state.cards[c].controller == pid) == kind["mine"]]
     if e["what"] == "hand":  # a card in the chooser's hand: only they see it (101.4a)
@@ -120,7 +126,9 @@ def choose(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         at = order.index(first) if first in order else 0
         order = order[at:] + order[:at]
     # a turn is a player and the kind of thing they choose (one choice for each kind, in the order written: 101.4c)
-    turns = [[p, k] for p in order for k in range(len(e.get("kinds") or [None]))]
+    kinds = e.get("kinds") or [None]
+    # (-- wave 110F -- a kind with ``by`` is chosen only by those players: Malik, Grim Manipulator, "you and target opponent each secretly choose a creature that player controls")
+    turns = [[p, k] for p in order for k in range(len(kinds)) if not (kinds[k] or {}).get("by") or p in _players(plan, ctx, kinds[k]["by"])]
     ctx.setdefault("gc", {})[e["as"]] = {"order": order, "turns": turns, "i": 0, "ballots": [], "secret": bool(e.get("secret"))}
     return _ask(plan, ctx, e)
 

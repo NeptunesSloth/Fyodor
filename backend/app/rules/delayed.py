@@ -123,7 +123,8 @@ LABELS = {"next_turn": "until your next turn", "end_of_next_turn": "until the en
           "source_controlled_tapped": "for as long as you control ~ and ~ remains tapped",
           "while_counter": "for as long as it has a counter on it", "while_enchanted": "for as long as that creature is enchanted", "next_upkeep": "until your next upkeep",
           "monarch_player": "for as long as they're the monarch",
-          "creature_cast110m": "until a player casts a creature spell"}  # -- (wave 110M) -- ends as any player casts a creature spell (601.2i): wave110m_cards.spell_cast
+          "creature_cast110m": "until a player casts a creature spell",
+          "roll1_110f": "until end of turn or until any player rolls a 1"}  # -- (wave 110M) -- ends as any player casts a creature spell (601.2i): wave110m_cards.spell_cast
 MARKER = "until end of turn"  # the table marker text app/rules/effects._mark writes
 
 
@@ -588,6 +589,12 @@ def apply_duration(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     if counter:
         expire(plan)  # 611.2b: a counter the objects don't have as the effect begins — it does nothing
     return True
+
+
+def roll_one110f(plan: Plan) -> None:
+    """-- wave 110F -- a player rolled a 1: the effects lasting "until end of turn, or until any player rolls a 1" end (Drop Tower)."""
+    if ended := [e for e in plan.rules.effects if e.duration == "roll1_110f"]:
+        _end(plan, ended)
 
 
 def spell_cast(plan: Plan, from_object: str | None) -> None:

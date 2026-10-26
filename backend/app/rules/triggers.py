@@ -63,7 +63,15 @@ from app.game.rules_state import (
     emit,
     track,
 )
-from app.game.state import COMBAT_PHASES, AttackTarget, CardInstance, MergedPart, StackInfo, TokenDef
+from app.game.state import (
+    COMBAT_PHASES,
+    AttackTarget,
+    CardInstance,
+    MergedPart,
+    StackInfo,
+    TokenDef,
+    TokenSource,
+)
 from app.rules import characteristics as chars
 from app.rules import delayed, designations, layers, scripts, selectors
 from app.rules.characteristics import Characteristics
@@ -427,6 +435,7 @@ def _snapshot_card(plan: Plan, snap: ObjectSnapshot) -> tuple[CardInstance, Char
     card = CardInstance(id=snap.card, card_id=snap.printing, name=snap.name, owner=snap.owner, controller=snap.controller,
                         zone=snap.zone, face=snap.face, face_down=snap.face_down, face_down_kind=snap.face_down_kind,
                         face_down_as=snap.face_down_as, is_token=snap.is_token,
+                        token_source=TokenSource(source_id=snap.token_source_id, name="") if snap.token_source_id else None,  # (wave 110F)
                         stickers101=[StickerPlacement101.model_validate(p) for p in snap.stickers101],
                         attached_to=snap.attached_to, attached_player=snap.attached_player, tapped=snap.tapped,
                         entry_characteristics=snap.entry_characteristics, attacking=attacking, attacking_without_target=snap.attacking_without_target, attack_defender_lost=snap.attack_defender_lost, blocking=snap.blocking_ids[0] if snap.blocking_ids else None,
