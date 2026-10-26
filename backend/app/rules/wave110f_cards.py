@@ -466,7 +466,21 @@ def resume_worms(plan: Any, d: Any, chosen: list[str]) -> None:
         effects.continue_effects(plan, d.resume["ctx"])
 
 
+def _glyph() -> Parsed | None:
+    """Glyph of Reincarnation: the graveyard of the creature's controller when it last became blocked by that Wall (509.1g turn log), one creature card for each
+    creature that died this way (the same "this way" count as "draw a card for each creature that died this way")."""
+    from app.rules import scripts
+
+    found = scripts.parse_effects("Destroy all creatures that were blocked by target Wall this turn. They can't be regenerated. For each creature that died this way, draw a card.")
+    if found is None:
+        return None
+    effects, target, optional = found
+    return [*effects[:-1], {"do": "glyph110f", "n": effects[-1]["n"]}], target, optional
+
+
 BUILDERS: dict[str, Callable[[], Parsed | None]] = {
+    "Destroy all creatures that were blocked by target Wall this turn. They can't be regenerated. For each creature that died this way, put a creature card from the graveyard of the "
+    "player who controlled that creature the last time it became blocked by that Wall onto the battlefield under its owner's control.": _glyph,
     "This turn and next turn, creatures can't attack, and players and permanents can't be the targets of spells or activated abilities.": lambda: ([{"do": "peace_talks110f"}], None, False),
     "any player may sacrifice two lands of their choice or have ~ deal 5 damage to that player. If a player does either, destroy ~.": lambda: ([{"do": "worms110f"}], None, False),
     "Each player reveals their hand, chooses one card of each color from it, then discards all other nonland cards.": lambda: ([{"do": "vapors110f"}], None, False),
@@ -926,3 +940,23 @@ def ferris(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
 
 
 PRIMITIVES["ferris110f"] = ferris
+
+
+def glyph(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Glyph of Reincarnation: for each creature that died this way, its caster puts a creature card from the graveyard of the player who controlled that creature the last time
+    it became blocked by the target Wall onto the battlefield under its owner's control (a graveyard is chosen from per creature; the cards come back one after another)."""
+    from app.rules import history, this_way
+
+    wall = ((ctx.get("targets") or [{}])[0]).get("object_id")
+    ctrl = history.log_for(plan).block_ctrl110f
+    out = []
+    for _, was in this_way._matched(plan, ctx, e["n"]):
+        who = ctrl.get(f"{wall}>{was['object_id']}")
+        if who is not None:
+            out.append({"do": "return_choice", "to": "battlefield", "tapped": False, "under": "owner", "n": 1, "upto": False, "random": False, "label": "creature card",
+                        "sel": 'sel:{"card":true,"types":["Creature"],"zone_owner":"player:' + who + '","zones":["graveyard"]}'})
+    ctx["effects"][ctx["next"]:ctx["next"]] = out
+    return True
+
+
+PRIMITIVES["glyph110f"] = glyph

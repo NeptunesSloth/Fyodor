@@ -674,6 +674,7 @@ class TurnLog(BaseModel):
     facts: list[TurnFact] = Field(default_factory=list)  # tokens created, discards, sacrifices, damage to players …
     attackers: dict[str, list[str]] = Field(default_factory=dict)  # player -> creatures (objects) declared as attackers
     blockers: list[str] = Field(default_factory=list)  # -- combat state (wave 27A) -- creatures (objects) declared as blockers this turn (509.1g)
+    block_ctrl110f: dict[str, str] = Field(default_factory=dict)  # -- wave 110F -- "blocker>attacker" objects -> the attacker's controller the last time it became blocked by that blocker (Glyph of Reincarnation)
     blocks: dict[str, list[str]] = Field(default_factory=dict)  # -- combat history (wave 31D) -- blocker (object) -> the attackers (objects) it blocked this turn
     attacked_at110c: dict[str, list[str]] = Field(default_factory=dict)  # -- wave 110C -- defending player (or a planeswalker's controller) -> players who attacked them this turn
     attacked_who: dict[str, list[str]] = Field(default_factory=dict)  # -- static_other sweep (wave 19A) -- attacker object -> players it attacked
@@ -2135,6 +2136,8 @@ def note_block(state: GameState, blockers: list[str], pairs: list[tuple[str, str
             seen = log.blocks.setdefault(blocker, [])
             if attacker not in seen:
                 seen.append(attacker)
+            if state.rules is not None and (att := next((c for c in state.cards.values() if state.rules.object_id(c.id) == attacker), None)) is not None:
+                log.block_ctrl110f[f"{blocker}>{attacker}"] = att.controller  # -- wave 110F -- the controller each time it becomes blocked: the last one stays
 
 
 def wither_put_by(action: Any) -> dict[tuple[str, str], dict[str, int]] | None:

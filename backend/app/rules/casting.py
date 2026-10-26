@@ -448,6 +448,12 @@ def mana_abilities(state: GameState, card: CardInstance, info: CardInfo) -> list
         if parsed.once_per_turn and r is not None and \
                 r.once_per_turn.get(f"{r.object_id(card.id)}:{ab.index}") == state.turn.number:
             continue
+        from app.rules import (
+            wave110f_sac,  # -- additional costs (wave 110F) -- 605.3a, 118.8: Drought / Brutal Suppression add sacrifices to the mana ability's cost
+        )
+
+        if (tax110f := wave110f_sac.tax_text(state, info, card, ch, ab.text.partition(":")[0])):
+            parsed = replace(parsed, extra_cost=", ".join(x for x in (parsed.extra_cost, tax110f) if x), chooses=True)
         if parsed.sacrifice_self or parsed.extra_cost:  # -- prohibitions (wave 22B) -- "Players can't pay life or sacrifice creatures …" (119.4)
             from app.rules import prohibitions
 
@@ -4341,13 +4347,20 @@ def transmute(plan: Plan, card: CardInstance, ch: Characteristics, a: A.Activate
     turn = plan.state.turn
     if turn.active_player != plan.actor or turn.phase not in ("main1", "main2") or plan.state.zones.get("stack"):
         raise ActionError("Transmute only as a sorcery: in your main phase while the stack is empty")  # 702.53a, 307.5
+    mv = int(ch.mana_value)
+    effects = [{"do": "search", "who": "you", "sel": 'sel:{"card":true,"zone_owner":"you","zones":["library"]}',
+                "label": f"card with mana value {mv}", "max": 1, "to": "hand", "reveal": True, "upto": False, "mv": ["==", mv]}]
+    from app.rules import wave110f_sac
+
+    if wave110f_sac.ability_tax(plan.state, plan.info, card, ch, cost_text) is not None:  # -- additional costs (wave 110F) -- 118.8: taxed, so the generic route pays it
+        activate_to_stack(plan, card, ch, AbilityText(index=a.ability, kind="activated", cost=f"{cost_text}, Discard this card",
+                          text=f"Transmute — {cost_text}, Discard this card: Search your library for a card with the same mana value as this card. Activate only as a sorcery."),
+                          a, definition={"kind": "activated", "effects": effects})
+        return
     mana = M.parse_cost(permissions.ability_mana(plan.state, plan.actor, card, ch, cost_text, plan.info))
     mana = _locked(plan, mana)  # -- review (wave 4R) -- 602.2b → 601.2f: locked in, as for other activations
     if payment_step(plan, a, mana, f"transmuting {ch.name}", purpose=Purpose(ability_of=ch)):
         return
-    mv = int(ch.mana_value)  # the discarded card's (608.2h: as it last existed in the hand; a mana value doesn't change there)
-    effects = [{"do": "search", "who": "you", "sel": 'sel:{"card":true,"zone_owner":"you","zones":["library"]}',
-                "label": f"card with mana value {mv}", "max": 1, "to": "hand", "reveal": True, "upto": False, "mv": ["==", mv]}]
     ability_id = _new_ability(plan, card, f"Search your library for a card with mana value {mv}, reveal it, put it into "
                                           f"your hand, then shuffle.")
     from app.rules import special_payment_tails
@@ -4355,6 +4368,13 @@ def transmute(plan: Plan, card: CardInstance, ch: Characteristics, a: A.Activate
     special_payment_tails.pay(plan, "transmute", card, ch, mana, f"paid {mana.text()} to transmute {ch.name}",
                               sources=a.sources, purpose=Purpose(ability_of=ch), ability_id=ability_id, effects=effects)
 # -- end refused zones/sized (wave 3R4) --
+
+
+def _untaxed_mana_only(plan: Plan, card: CardInstance, ch: Characteristics, cost_text: str) -> bool:
+    """-- additional costs (wave 110F) -- a mana-only cycling cost pays by itself unless Drought / Brutal Suppression taxes it (118.8): then it goes the generic way."""
+    from app.rules import cycling_costs, wave110f_sac
+
+    return cycling_costs.mana_only(cost_text) and wave110f_sac.ability_tax(plan.state, plan.info, card, ch, cost_text) is None
 
 
 def cycle(plan: Plan, card: CardInstance, ch: Characteristics, a: A.ActivateAbility) -> None:
@@ -4397,7 +4417,7 @@ def cycle(plan: Plan, card: CardInstance, ch: Characteristics, a: A.ActivateAbil
             mana_text = side
     from app.rules import cycling_costs
 
-    if not cycling_costs.mana_only(mana_text):
+    if not _untaxed_mana_only(plan, card, ch, mana_text):
         ability = AbilityText(index=a.ability, kind="activated", cost=f"{mana_text}, Discard this card",
                               text=f"Cycling — {mana_text}, Discard this card: Draw a card.")
         activate_to_stack(plan, card, ch, ability, a,
@@ -5888,8 +5908,13 @@ def ability_cost(ch: Characteristics, ability: AbilityText, *, state: GameState 
         # -- costs (wave 3$) -- "Activated abilities of creatures you control cost {2} less to activate" (601.2f)
         # (wave 4I: a cost with no mana in it can be increased too: "{T}: …" taxed {2} is "{2}, {T}: …")
         # -- cost changers (wave 4I) -- and the ability's own "This ability costs {1} less to activate for each …" (602.2b)
-        from app.rules import cost_changes  # (a leaf over this module)
+        from app.rules import (
+            cost_changes,  # (a leaf over this module)
+            wave110f_sac,  # -- additional costs (wave 110F) -- Brutal Suppression, Drought (118.8)
+        )
 
+        if (sac110f := wave110f_sac.ability_tax(state, info, card, ch, ability.cost or "")) is not None:
+            cost = replace(cost, components=(*cost.components, *sac110f.components))
         if ability.text.startswith("Power-up — ") and not ability.power_up_prepared:  # 702.193a
             from app.rules import power_up
 
@@ -6150,9 +6175,8 @@ def _equip_side(plan: Plan, card: CardInstance, ch: Characteristics, a: A.Activa
         if not 0 <= i < len(sides):
             raise ActionError("Choose one of the costs of the equip ability")
         return sides[i]
-    from app.rules import cycling_costs
 
-    if cycling and all(cycling_costs.mana_only(side) for side in sides):
+    if cycling and all(_untaxed_mana_only(plan, card, ch, side) for side in sides):
         paid = []
         problems = [None if can_pay(plan.state, plan.actor, M.parse_cost(permissions.ability_mana(plan.state, plan.actor, card, ch, side, plan.info, ability_text="cycling")).with_x(0), plan.info,
                                     purpose=Purpose(ability_of=ch, selected_cost_has_x="{X}" in side)) else "Not enough mana" for side in sides]
