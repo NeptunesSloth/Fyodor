@@ -2383,5 +2383,22 @@
   ],
   "power": "4",
   "toughness": "4"
+ },
+ {
+  "name": "Emrakul, the World Anew",
+  "layout": "normal",
+  "mana_cost": "{12}",
+  "cmc": 12.0,
+  "type_line": "Legendary Creature — Eldrazi",
+  "oracle_text": "When you cast this spell, gain control of all creatures target player controls.\nFlying, protection from spells and from permanents that were cast this turn\nWhen Emrakul leaves the battlefield, sacrifice all creatures you control.\nMadness—Pay six {C}.",
+  "colors": [],
+  "color_identity": [],
+  "keywords": [
+   "Flying",
+   "Madness",
+   "Protection"
+  ],
+  "power": "12",
+  "toughness": "12"
  }
 ]

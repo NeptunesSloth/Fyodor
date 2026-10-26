@@ -45,6 +45,10 @@ def _one(word: str, recipient: Characteristics | None = None) -> Quality | None:
         return lambda ch: len(ch.colors) == 1
     if word in ("each color", "all colors"):
         return lambda ch: bool(ch.colors)
+    if word == "spells":  # -- (wave 110B) -- 702.16: spells on the stack, as sources of damage and of targeting (Emrakul, the World Anew)
+        return lambda ch: ch.is_spell
+    if word == "permanents that were cast this turn":
+        return lambda ch: ch.object_cast_this_turn
     if word == "everything":
         return lambda ch: True
     if player_match := re.fullmatch(r'player[: ]([\w-]+)', word):

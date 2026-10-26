@@ -5,6 +5,8 @@
 * Tombstone Stairwell: 603.2, 608.2h each upkeep every player makes a Tombspawn per creature card in their own graveyard (all counted first); those tokens die at
   the end step, or when the Stairwell leaves the battlefield, and nothing else does.
 * Firkraag, Cunning Instigator: 508.1d a creature declared as an attacker with a requirement on it (goaded) "had to attack this combat"; one that was free to stay home did not.
+* Emrakul, the World Anew: 702.16 protection from spells (damage, targeting) and from permanents that were cast this turn (not ones put onto the battlefield);
+  702.35 Madness—Pay six {C} (six colorless mana: a discard offers the cast for exactly that).
 * Behemoth of Vault 0: 107.14, 118.12 the energy paid equals the target's mana value; paid in full (or not at all), the target is destroyed.
 """
 
@@ -29,6 +31,7 @@ from tests.wave110b_kit import (
     put,
     repository,
     through_combat,
+    to_hand,
     zone_of,
 )
 
@@ -138,4 +141,53 @@ def test_firkraag_counts_creatures_that_had_to_attack(cards, goaded, counters):
     through_combat(s)
     drive(s)
     assert pt(s, "Firkraag, Cunning Instigator")[0] - base[0] == counters
+    check(s)
+
+
+def test_emrakul_has_protection_from_spells_and_permanents_cast_this_turn(cards):
+    from app.game.errors import ActionError
+    from app.rules import protection
+
+    s = build(cards, ["Emrakul, the World Anew"], ["Murder", "Grizzly Bears", "Llanowar Elves"], forests=30)
+    emrakul = put(s, "Emrakul, the World Anew")
+    elves = put(s, "Llanowar Elves", "p2")  # (put onto the battlefield, not cast)
+    to_phase(s, "main1", turn=2)
+    mana(s, "p2", G=2)
+    cast(s, "Grizzly Bears", pid="p2")
+    bears = card_named(s, "Grizzly Bears", "p2")
+    assert protection.protected_from(ch(s, emrakul), ch(s, bears))
+    assert not protection.protected_from(ch(s, emrakul), ch(s, elves))
+    mana(s, "p2", B=3)
+    with pytest.raises(ActionError):
+        cast(s, "Murder", [emrakul.id], pid="p2")  # a spell can't target it
+    to_phase(s, "main1", turn=4)  # next turn the Bears were not cast "this turn"
+    assert not protection.protected_from(ch(s, emrakul), ch(s, bears))
+    check(s)
+
+
+def test_emrakul_madness_is_six_colorless_mana(cards):
+    s = build(cards, ["Emrakul, the World Anew", "Sol Ring", "Sol Ring", "Sol Ring"], ["Grizzly Bears"], forests=30)
+    rings = [c for c in s.state.zones["p1:library"] if s.state.cards[c].name == "Sol Ring"]
+    for c in rings:
+        act(s, "p1", type="move", card_ids=[c], to={"player": "p1", "zone": "battlefield"})
+    emrakul = to_hand(s, "Emrakul, the World Anew")
+    put(s, "Grizzly Bears", "p2")
+    for c in list(s.state.zones["p1:library"])[:7]:
+        act(s, "p1", type="move", card_ids=[c], to={"player": "p1", "zone": "hand"})
+    seen = []
+
+    def answer(d):
+        seen.append(d.prompt)
+        if d.kind == "choose_cards":
+            return [next(o.id for o in d.options if o.card_id == emrakul.id)]
+        if "Madness" in d.prompt:
+            return [o.id for o in d.options if o.label.startswith("Cast")]
+        if d.kind == "choose_targets" or "arget" in d.prompt:
+            return [o.id for o in d.options if o.id == "p2"] or None
+        return None
+
+    to_phase(s, "cleanup", turn=1)
+    drive(s, answer)
+    assert any("{C}{C}{C}{C}{C}{C}" in p for p in seen)
+    assert zone_of(s, "Emrakul, the World Anew") == "p1:battlefield"
     check(s)

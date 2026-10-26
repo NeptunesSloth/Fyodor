@@ -14,7 +14,8 @@ _PATTERN = re.compile(r'^madness(?: |—)(?P<cost>(?:\{[^}]+\})+(?:, Pay \d+ lif
 def line(text: str) -> str | None:
     from app.rules.effect_cast_costs import textual_alternative
 
-    match = _PATTERN.fullmatch(text.strip().rstrip('.'))
+    text = re.sub(r"(?i)^madness—pay six \{C\}$", "Madness—{C}{C}{C}{C}{C}{C}", text.strip().rstrip("."))  # (-- wave 110B -- Emrakul, the World Anew: six colorless mana)
+    match = _PATTERN.fullmatch(text)
     if match is None:
         return None
     text = match['cost']
