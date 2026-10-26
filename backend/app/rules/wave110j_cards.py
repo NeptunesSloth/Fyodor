@@ -724,3 +724,9 @@ def _shuriken(oid: str | None, ability: Any, ch: Any) -> Def | None:
         return None
     take = {"do": "gain_control", "who": f"obj:{oid or ''}", "to": "target_player_or_controller"}
     return {**native, "effects": [*native["effects"], {"do": "only_if", "cond": {"not": {"w110j": "unattached_ninja"}}, "skip": 1}, take]}
+
+
+# Bomb Squad: 603.8 state trigger per creature (state_triggers._each); "that creature" is the event object
+_BUILD["Whenever a creature has four or more fuse counters on it, remove all fuse counters from it and destroy it. That creature deals 4 damage to its controller."] = (
+    "Whenever a creature attacks, remove all fuse counters from it and destroy it. That creature deals 4 damage to its controller.",
+    lambda d: {**d, "trigger": "state", "cond": None, "state": {"each110j": ["fuse", 4]}})
