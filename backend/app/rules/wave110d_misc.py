@@ -35,6 +35,7 @@ KITESAIL = ("When this creature enters, for each player, choose up to one other 
             'remains on the battlefield, the chosen permanents become Treasure artifacts with "{T}, Sacrifice this artifact: Add one mana of any color" and lose all other abilities.')
 SHELOB = ("Whenever another creature dealt damage this turn by a Spider you controlled dies, create a token that's a copy of that creature, except it's a Food artifact "
           'with "{2}, {T}, Sacrifice this token: You gain 3 life," and it loses all other card types.')
+WEAVER = "{X}{1}{B}: Put target creature card with mana value X exiled with Shelob onto the battlefield tapped under your control."
 DACK = "Whenever you cast a spell that targets one or more permanents, gain control of those permanents."
 
 
@@ -123,6 +124,12 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
         return d
     if ability.text == SHELOB:  # 707.9b the copy is a Food artifact only (the quoted comma belongs to the sentence, not the ability); 700.4 look back (events.py)
         return scripts.define(replace(ability, text=SHELOB.replace("life,\"", "life\"")), ch)
+    if ability.text == WEAVER:  # 607.2a the linked exile; 107.3a X is announced first (as wave110g_cards Dissolve); 110.2 the returned card is a new object
+        from app.rules import selectors
+
+        sel = selectors.Selector(card=True, zones=("exile",), types=("Creature",), compare=(("mv", "==", selectors.X_VALUE),)).key()
+        return {"kind": "activated", "cost": ability.cost, "effects": [{"do": "return_card", "who": "target", "to": "battlefield", "tapped": True, "under": "you"}],
+                "target": {"what": "exiled_with:" + sel}}
     if ability.text == DACK:  # Dack Fayden's emblem (114.1): the cast event's targets (115.9b: departed ones are ignored), permanently
         cond = events.parse_condition("you cast a spell that targets one or more permanents")
         assert cond is not None
