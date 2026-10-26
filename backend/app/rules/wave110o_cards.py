@@ -116,6 +116,20 @@ _SECRET = ("When ~ enters, exile up to one target creature other than enchanted 
            "a copy of that creature until ~ leaves the battlefield.")
 _MILEVA = ("{2}{W}, Collect evidence 4: If ~ is a Detective, it becomes a legendary creature named Mileva, the Stalwart, it has base power and toughness 5/5, and it "
            "gains \"Other creatures you control have indestructible.\"")
+# Names originally printed in the Arabian Nights expansion (their first printing, 1993-12-17; the card database's ARN names without Mountain, first printed in Alpha)
+ARABIAN_NIGHTS = frozenset({
+    "Abu Ja'far", 'Aladdin', "Aladdin's Lamp", "Aladdin's Ring", 'Ali Baba', 'Ali from Cairo', 'Army of Allah', 'Bazaar of Baghdad', 'Bird Maiden',
+    'Bottle of Suleiman', 'Brass Man', 'Camel', 'City in a Bottle', 'City of Brass', 'Cuombajj Witches', 'Cyclone', 'Dancing Scimitar', 'Dandân',
+    'Desert', 'Desert Nomads', 'Desert Twister', 'Diamond Valley', 'Drop of Honey', 'Ebony Horse', 'El-Hajjâj', 'Elephant Graveyard', 'Erg Raiders',
+    'Erhnam Djinn', 'Eye for an Eye', 'Fishliver Oil', 'Flying Carpet', 'Flying Men', 'Ghazbán Ogre', 'Giant Tortoise', 'Guardian Beast',
+    'Hasran Ogress', 'Hurr Jackal', 'Ifh-Bíff Efreet', 'Island Fish Jasconius', 'Island of Wak-Wak', "Jandor's Ring", "Jandor's Saddlebags",
+    'Jeweled Bird', 'Jihad', 'Junún Efreet', 'Juzám Djinn', 'Khabál Ghoul', 'King Suleiman', 'Kird Ape', 'Library of Alexandria',
+    'Magnetic Mountain', 'Merchant Ship', 'Metamorphosis', 'Mijae Djinn', 'Moorish Cavalry', 'Nafs Asp', 'Oasis', 'Old Man of the Sea', 'Oubliette',
+    'Piety', 'Pyramids', 'Repentant Blacksmith', "Ring of Ma'rûf", 'Rukh Egg', 'Sandals of Abdallah', 'Sandstorm', 'Serendib Djinn',
+    'Serendib Efreet', 'Shahrazad', 'Sindbad', 'Singing Tree', 'Sorceress Queen', 'Stone-Throwing Devils', 'Unstable Mutation', 'War Elephant',
+    'Wyluli Wolf', 'Ydwen Efreet',
+})
+
 EXILE_WHAT = "exile110o"
 _LORE_ENTER = "As ~ enters, exile an instant or sorcery card from your graveyard."
 _LORE_CDA = "~'s power and toughness are each equal to the exiled card's mana value."
@@ -123,6 +137,9 @@ _LORE_TRIGGER = ("Whenever ~ deals combat damage, you may sacrifice it. If you d
 _EVELYN_TRIGGER = "Whenever ~ or another Vampire you control enters, exile the top card of each player's library with a collection counter on it."
 _EVELYN_PERMISSION = ("Once each turn, you may play a card from exile with a collection counter on it if it was exiled by an ability you controlled, and you may spend mana as "
                       "though it were mana of any color to cast it.")
+_CITY_STATIC = "Players can't cast spells or play lands with a name originally printed in the Arabian Nights expansion."
+_CITY_TRIGGER = ("Whenever one or more other nontoken permanents with a name originally printed in the Arabian Nights expansion are on the battlefield, their controllers "
+                 "sacrifice them.")
 _ARMOR_PREVENT = "Prevent all damage that would be dealt to enchanted creature by sources of the last chosen color."
 _ARMOR_COUNTER = "{X}: Put a sleight counter on ~ and choose a color. X is the number of sleight counters on ~."
 _PYRAMIDS_MODE = "• The next time target land would be destroyed this turn, remove all damage marked on it instead."
@@ -249,6 +266,13 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
     if ability.kind == "static" and text == _EVELYN_PERMISSION:  # 601.3, 305.1: once each turn (any turn), one such card; mana of any color for the cast (609.4b)
         return {"kind": "static", "static": "permission", "zone": "exile", "filter": None, "self": False, "play": True, "cast": True, "once": True, "once_any": True,
                 "flash": False, "spend": "color", "exile_counter": "collection", "exiled_by110o": True, "effects": []}
+    if ability.kind == "static" and text == _CITY_STATIC:  # 101.2: a prohibition (spells and lands) by name, for names in the fixed set
+        from app.rules import selectors
+
+        return {"kind": "static", "static": "cast_limit", "who": "each", "when": None, "from": None, "act": None, "max": None, "effects": [], "arn_lands110o": True,
+                "filter": selectors.Selector(zones=("stack",), extras=("arn_name110o",)).key()}
+    if ability.kind in ("triggered", "static") and text == _CITY_TRIGGER:  # 603.8: a state trigger; 701.21: their controllers sacrifice them
+        return {"kind": "triggered", "trigger": "state", "optional": False, "target": None, "state": {"w110o": "arn_permanents"}, "effects": [{"do": "arn_sacrifice110o"}]}
     if ability.kind == "activated" and text == _KALDRA:  # 603.4-style "if" judged as it resolves (608.2c); every Equipment so named is attached
         from app.rules import conditions, selectors
 
@@ -395,12 +419,18 @@ def resume_type_emblem(plan: Plan, d: Any, chosen: list[str]) -> None:
 
 def holds(plan: Plan, ctx: Context, cond: dict[str, Any]) -> bool:
     """Evil's Thrall: you control a Villain whose mana value is greater than the target creature's (the target as it is now, 608.2b)."""
-    from app.rules import effects, stack_interaction
+    from app.rules import effects, selectors, stack_interaction
 
     if cond["w110o"] == "land_upkeep":  # Herald of Leshrac: a land the controller does not control for each age counter (each is gained once)
         src = plan.state.cards.get(ctx.get("source_card") or "")
         age = src.counters.get("age", 0) if src is not None else 0
         return len(_others_lands(plan, ctx["controller"])) >= age
+    if cond["w110o"] == "defender_no_snow":  # a defending player now: one an attacking creature attacks or whose planeswalker one attacks (508.5); the choice among them is the controller's (508.5a)
+        defenders = {d for c in plan.state.cards.values() if c.attacking is not None and (d := selectors._defender(plan, c.attacking))}
+        return any(not any("Snow" in plan.ch(x).supertypes and "Land" in plan.ch(x).types for x in plan.state.cards.values()
+                           if x.zone.endswith(":battlefield") and x.controller == p) for p in defenders)
+    if cond["w110o"] == "arn_permanents":
+        return bool(arn_permanents(plan, ctx))
     if cond["w110o"] == "guessed":
         return False  # Spire Phantasm: no draft, no guess, so no correct guess (905.2b: the information is noted during the draft)
     if cond["w110o"] == "portent_four":
@@ -832,6 +862,26 @@ def collect(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return True
 
 
+def named_arn(name: str | None) -> bool:
+    return any(part in ARABIAN_NIGHTS for part in (name or "").split(" // "))
+
+
+def arn_permanents(plan: Any, ctx: dict[str, Any]) -> list[str]:
+    return [c.id for c in plan.state.cards.values() if c.zone.endswith(":battlefield") and not c.is_token and c.id != ctx.get("source_card")
+            and plan.in_game(c) and named_arn(plan.ch(c).name)]
+
+
+def arn_sacrifice(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """701.21a: each controller sacrifices their own (they are sacrificed together)."""
+    from app.rules import context
+
+    found = arn_permanents(plan, ctx)
+    if found:
+        context.bind_objects(plan, ctx, "arn110o", found)
+        ctx["effects"][ctx["next"]:ctx["next"]] = [{"do": "sacrifice", "who": "ref:arn110o", "by": "controller"}]
+    return True
+
+
 def wipe_shield(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     """614.1a: a shield for this turn on each target land (the object, 400.7): the next time it would be destroyed, the damage marked on it is removed instead."""
     from app.rules import effects
@@ -878,7 +928,7 @@ def cleansing(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return False
 
 
-PRIMITIVES: dict[str, Any] = {"collect110o": collect, "lore_bind110o": lore_bind, "secret_copy110o": secret_copy, "echo_offer110o": echo_offer, "wipe_shield110o": wipe_shield, "tidal110o": tidal, "tidal_grant110o": tidal_grant, "heroic110o": heroic, "cleansing110o": cleansing, "type_emblem110o": type_emblem, "redistribute110o": redistribute,
+PRIMITIVES: dict[str, Any] = {"arn_sacrifice110o": arn_sacrifice, "collect110o": collect, "lore_bind110o": lore_bind, "secret_copy110o": secret_copy, "echo_offer110o": echo_offer, "wipe_shield110o": wipe_shield, "tidal110o": tidal, "tidal_grant110o": tidal_grant, "heroic110o": heroic, "cleansing110o": cleansing, "type_emblem110o": type_emblem, "redistribute110o": redistribute,
               "helm_test110o": helm_test, "helm_again110o": helm_again, "helm_pick110o": helm_pick, "portent_hand110o": portent_hand, "rinoa_pick110o": rinoa_pick, "lazav110o": lazav, "profaner110o": profaner, "gain_land110o": gain_land}
 RESUME: dict[str, Any] = {"echo_offer110o": resume_echo_offer, "type_emblem110o": resume_type_emblem, "redistribute_players110o": resume_redistribute_players,
                           "redistribute_give110o": resume_redistribute_give, "helm_pick110o": resume_helm_pick, "rinoa_pick110o": resume_rinoa_pick, "lazav110o": resume_lazav, "lazav_copy110o": resume_lazav_copy, "gain_land110o": resume_gain_land}

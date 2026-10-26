@@ -68,6 +68,8 @@ def parse(text: str, *, objects: bool = False) -> Condition | None:
 
     if (hist110c := wave110c_history.condition(t)) is not None:
         return hist110c
+    if t == "defending player controls no snow lands":  # -- (wave 110O) -- Kjeldoran Guard: 508.5a, the ability's controller chooses among the defending players
+        return {"w110o": "defender_no_snow"}
     if t == "a player attacked you during their last turn":  # -- wave 110E -- previous_own_turns
         return {"w110e": "attacked_last_turn"}
     if t.lower() == 'you control a stickered permanent':

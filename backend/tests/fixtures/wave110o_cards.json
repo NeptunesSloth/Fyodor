@@ -2066,5 +2066,29 @@
    "G"
   ],
   "keywords": []
+ },
+ {
+  "name": "Snow-Covered Forest",
+  "layout": "normal",
+  "mana_cost": "",
+  "cmc": 0.0,
+  "type_line": "Basic Snow Land — Forest",
+  "oracle_text": "({T}: Add {G}.)",
+  "colors": [],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Oasis",
+  "layout": "normal",
+  "mana_cost": "",
+  "cmc": 0.0,
+  "type_line": "Land",
+  "oracle_text": "{T}: Prevent the next 1 damage that would be dealt to target creature this turn.",
+  "colors": [],
+  "color_identity": [],
+  "keywords": []
  }
 ]

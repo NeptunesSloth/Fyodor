@@ -546,6 +546,11 @@ def land_problem(state: GameState, player: str, ch: Characteristics, info: CardI
         for src, d in _statics(state, info, 'cast_limit'):
             if d.get('nonbasic_lands') and _shares_permanent_name(state, info, ch):
                 return f"{src.name}: you can't play a nonbasic land with the same name as a nontoken permanent"
+            if d.get('arn_lands110o'):  # -- (wave 110O) -- City in a Bottle: 305.1
+                from app.rules import wave110o_cards
+
+                if wave110o_cards.named_arn(ch.name):
+                    return f"{src.name}: you can't play {ch.name}"
     for x in r.cast_limits if r is not None else ():
         if x.get("lands") and x.get("player") == player and _record_live(state, x):
             if not x.get("filter"):

@@ -16,6 +16,8 @@
 * 613.1d, 613.1c, 613.1f, 613.4b: Tenth District Hero becomes a legendary 5/5 named Mileva, the Stalwart (only if it is a Detective), giving other creatures its controller controls indestructible.
 * 614.12a, 607.2a, 604.3: Living Lore exiles an instant or sorcery card from the graveyard as it enters, is as big as its mana value, and may be sacrificed after combat damage to cast the exiled card free.
 * 122.1, 601.3, 609.4b: Evelyn, the Covetous exiles the top card of each library with a collection counter; once each turn a card so exiled by your ability may be played, with mana of any color.
+* 508.5a, 602.5: Kjeldoran Guard works during combat only if a defending player (the controller picks one of them) controls no snow lands; the creature leaving sacrifices it.
+* 101.2, 305.1, 603.8: City in a Bottle stops spells and lands with Arabian Nights names, and their controllers sacrifice the other such permanents.
 """
 
 from __future__ import annotations
@@ -46,6 +48,7 @@ from tests.wave110o_kit import (  # noqa: F401
     now,
     put,
     put_new,
+    refused,
     settle,
     to_hand,
     to_phase,
@@ -54,7 +57,7 @@ from tests.wave110o_kit import (  # noqa: F401
 UNDERGROWTH = "Undergrowth"
 
 
-@pytest.mark.parametrize("name", [UNDERGROWTH, "Pure Intentions", "Nahiri's Sacrifice", "Cleansing", "Mysterio, Master of Illusion", "Heroic Sacrifice", "Spinning Darkness", "Tidal Flats", "Pyramids", "Soul Echo", "Ob Nixilis of the Black Oath", "Secret Invasion", "Chromatic Armor", "Tenth District Hero", "Living Lore", "Evelyn, the Covetous"])
+@pytest.mark.parametrize("name", [UNDERGROWTH, "Pure Intentions", "Nahiri's Sacrifice", "Cleansing", "Mysterio, Master of Illusion", "Heroic Sacrifice", "Spinning Darkness", "Tidal Flats", "Pyramids", "Soul Echo", "Ob Nixilis of the Black Oath", "Secret Invasion", "Chromatic Armor", "Tenth District Hero", "Living Lore", "Evelyn, the Covetous", "Kjeldoran Guard", "City in a Bottle"])
 def test_the_cards_are_full(name):
     assert full(name)
 
@@ -817,4 +820,85 @@ def test_evelyn_only_plays_cards_exiled_by_an_ability_you_controlled(cards):
     with pytest.raises(ActionError):
         act(s, "p1", type="cast_spell", card_id=loose.id, targets=["p2"])
     assert s.state.model_dump(mode="json") == before
+    check(s)
+
+
+GUARD = "Kjeldoran Guard"
+
+
+def guard_table(cards, snow=False):
+    """Bob attacks Alice with a Grizzly Bears; Alice has the Guard (ready) and a Llanowar Elves, and priority in the declare attackers step."""
+    s = build(cards, [GUARD, "Llanowar Elves", "Snow-Covered Forest"], ["Grizzly Bears", "Lightning Bolt"])
+    guard, elves = put(s, GUARD), put(s, "Llanowar Elves")
+    if snow:
+        put(s, "Snow-Covered Forest")
+    bears = put(s, "Grizzly Bears", "p2")
+    stops(s)
+    s.state.rules.controlled_since[guard.id].turn = 0
+    s.state.rules.controlled_since[bears.id].turn = 0
+    while s.state.rules.decision is None or s.state.rules.decision.kind != "declare_attackers" or s.state.rules.decision.player != "p2":
+        d = s.state.rules.decision
+        if d is not None:
+            act(s, d.player, type=d.kind, **({"attackers": []} if d.kind == "declare_attackers" else {"blocks": []}))
+        else:
+            act(s, s.state.rules.priority, type="pass_priority")
+    return s, guard, elves, bears
+
+
+def attack_alice(s, bears):
+    act(s, "p2", type="declare_attackers", attackers=[{"card_id": bears.id, "target": "p1"}])
+    while s.state.rules.priority != "p1":
+        act(s, s.state.rules.priority, type="pass_priority")
+
+
+def test_kjeldoran_guard_works_only_during_combat_and_only_if_a_defending_player_has_no_snow_lands(cards):
+    s, guard, elves, bears = guard_table(cards)
+    attack_alice(s, bears)
+    activate(s, guard, "{T}", targets=[elves.id])
+    assert ch(s, elves).pt == (2, 2) and now(s, guard).tapped
+    bolt(s, elves.id)
+    assert now(s, elves).zone == "p1:graveyard" and now(s, guard).zone == "p1:graveyard"  # (it left the battlefield this turn: the Guard is sacrificed)
+    check(s)
+
+
+def test_kjeldoran_guard_cannot_be_activated_outside_combat(cards):
+    s = build(cards, [GUARD, "Llanowar Elves"], [])
+    guard, elves = put(s, GUARD), put(s, "Llanowar Elves")
+    refused(s, "combat", guard, "{T}", targets=[elves.id])  # (602.5: the main phase is no part of combat)
+    check(s)
+
+
+def test_kjeldoran_guard_cannot_be_activated_when_the_defending_player_controls_a_snow_land(cards):
+    s, guard, elves, bears = guard_table(cards, snow=True)
+    attack_alice(s, bears)
+    refused(s, "snow|only if", guard, "{T}", targets=[elves.id])
+    check(s)
+
+
+CITY = "City in a Bottle"
+
+
+def test_city_in_a_bottle_stops_arabian_nights_spells_and_lands_but_nothing_else(cards):
+    s = build(cards, [CITY, "Pyramids", "Oasis", "Grizzly Bears", "Forest"], [])
+    put(s, CITY)
+    pyr, oasis = to_hand(s, "Pyramids"), to_hand(s, "Oasis")
+    mana(s, "p1", C=6)
+    before = s.state.model_dump(mode="json")
+    with pytest.raises(ActionError):
+        act(s, "p1", type="cast_spell", card_id=pyr.id)  # (a name originally printed in Arabian Nights: 101.2)
+    with pytest.raises(ActionError):
+        act(s, "p1", type="play_land", card_id=oasis.id)
+    assert s.state.model_dump(mode="json") == before
+    cast_on(s, "Grizzly Bears")  # (any other card is fine)
+    assert any(c.name == "Grizzly Bears" and c.zone == "p1:battlefield" for c in s.state.cards.values())
+    check(s)
+
+
+def test_city_in_a_bottle_makes_the_controllers_sacrifice_every_other_arabian_nights_permanent(cards):
+    s = build(cards, [CITY, "Pyramids", "Grizzly Bears"], ["Oasis"])
+    city, pyr = put(s, CITY), put(s, "Pyramids")
+    oasis = put(s, "Oasis", "p2")
+    bears = cast_on(s, "Grizzly Bears")  # (a state trigger is looked at after the table changes: here, a spell resolving)
+    assert now(s, pyr).zone == "p1:graveyard" and now(s, oasis).zone == "p2:graveyard"  # (their controllers sacrifice them, 603.8)
+    assert now(s, city).zone == "p1:battlefield" and now(s, bears).zone == "p1:battlefield"  # (City in a Bottle itself is "other" for it: it stays)
     check(s)
