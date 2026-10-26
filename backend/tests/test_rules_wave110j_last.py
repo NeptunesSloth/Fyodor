@@ -17,7 +17,7 @@ from tests.game_helpers import act
 from tests.test_rules_wave12a_counters_keywords import real
 from tests.test_rules_wave110e_cards import answer, card_db  # noqa: F401  (the fixture)
 from tests.test_rules_wave110e_cards import cast as cast_card
-from tests.wave9c_kit import build, check, life, mana, pt, put
+from tests.wave9c_kit import build, card_named, check, life, mana, pt, put
 
 QUICK = real("Quicksilver Elemental", "{3}{U}{U}", 5, "Creature — Elemental",
              "{U}: This creature gains all activated abilities of target creature until end of turn. (If any of the abilities use that creature's name, use this creature's name instead.)\n"
@@ -438,4 +438,120 @@ def test_foundry_refused_when_no_exact_total_exists(cards):
         act(s, "p1", type="activate_ability", card_id=foundry.id, ability=1, x_value=3, targets=[_gy_card(s, "Gizmo3a").id],
             cost_choices=[{"component": 2, "cards": [a.id]}])
     assert all(s.state.cards[c.id].zone == "p1:battlefield" for c in (foundry, a, b)) and s.state.cards[foundry.id].tapped is False
+    check(s)
+
+
+# -- Parnesse, the Subtle Brush --
+PARNESSE = real("Parnesse, the Subtle Brush", "{2}{U}{B}{R}", 5, "Legendary Creature — Vampire Wizard",
+                "Whenever you or a permanent you control becomes the target of a spell or ability an opponent controls, counter that spell or ability unless that player pays 4 life.\n"
+                "Whenever you copy a spell, up to one target opponent may also copy that spell. They may choose new targets for that copy.", ("4", "4"), "UBR")
+SHOCK = real("Shock", "{R}", 1, "Instant", "Shock deals 2 damage to any target.", None, "R")
+TWINCAST = real("Twincast", "{U}{U}", 2, "Instant", "Copy target instant or sorcery spell. You may choose new targets for the copy.", None, "U")
+base.EXTRA.extend([PARNESSE, SHOCK, TWINCAST])
+
+
+@pytest.mark.parametrize("name", ["Parnesse, the Subtle Brush"])
+def test_parnesse_full(cards, name):
+    assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
+
+
+def _drive(s, pick, limit=60):
+    """Resolve everything; ``pick(d)`` answers a decision (a list of option ids), or None for its first options."""
+    seen = []
+    for _ in range(limit):
+        d = s.state.rules.decision
+        if d is not None:
+            seen.append((d.player, d.prompt, [(o.id, o.label) for o in d.options]))
+            got = pick(d)
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=got if got is not None else [o.id for o in d.options][: max(1, d.min_choices)])
+        elif s.state.zones.get("stack"):
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            return seen
+    raise AssertionError(seen)
+
+
+def _parnesse(cards):
+    s = build(cards, ["Parnesse, the Subtle Brush", "Shock", "Twincast"], ["Grizzly Bears", "Shock"])
+    put(s, "Parnesse, the Subtle Brush")
+    bears = put(s, "Grizzly Bears", "p2")
+    for p in ("p1", "p2"):
+        act(s, p, type="set_prefs", hold_priority=True)
+    return s, bears
+
+
+def _copy_own_shock(s, pick):
+    mana(s, R=1, U=2)
+    shock = cast_card(s, "Shock", ["p2"])
+    cast_card(s, "Twincast", [shock.id])
+    return _drive(s, pick)
+
+
+@pytest.mark.parametrize("choice", ["yes", "no", "no_target"])
+def test_parnesse_opponent_may_copy_the_copied_spell_with_new_targets(cards, choice):
+    s, bears = _parnesse(cards)
+
+    def pick(d):
+        if "target for Parnesse" in d.prompt:
+            return [] if choice == "no_target" else ["p2"]
+        if d.prompt.startswith("Parnesse: copy"):
+            return [choice]
+        if d.player == "p2" and "keep its target" in d.prompt:
+            return [bears.id]  # 707.10c: a new target for the opponent's copy
+        return None
+    seen = _copy_own_shock(s, pick)
+    asked = [p for p, prompt, _ in seen if prompt.startswith("Parnesse: copy")]
+    assert asked == ([] if choice == "no_target" else ["p2"])
+    assert life(s, "p2") == 36  # the Shock and your copy
+    assert s.state.cards[bears.id].zone == ("p2:graveyard" if choice == "yes" else "p2:battlefield")
+    check(s)
+
+
+def test_parnesse_copies_the_spell_as_it_last_was_after_it_left_the_stack(cards):
+    s, bears = _parnesse(cards)
+    left = []
+
+    def pick(d):
+        if left and d.prompt.startswith("Parnesse: copy"):
+            shock = left.pop()
+            assert s.state.cards[shock.id].zone == "p1:graveyard"
+            return ["yes"]
+        if "target for Parnesse" in d.prompt:
+            return ["p2"]
+        if d.player == "p2" and "keep its target" in d.prompt:
+            return [bears.id]
+        return None
+    mana(s, R=1, U=2)
+    shock = cast_card(s, "Shock", ["p2"])
+    cast_card(s, "Twincast", [shock.id])
+    for _ in range(30):  # Twincast resolves: the copy and Parnesse's trigger go on the stack
+        d = s.state.rules.decision
+        if d is not None and "target for Parnesse" in d.prompt:
+            act(s, "p1", type="choose", decision_id=d.id, option_ids=["p2"])
+            break
+        if d is not None:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[d.options[0].id])
+        else:
+            act(s, s.state.rules.priority, type="pass_priority")
+    act(s, "p1", type="move", card_ids=[shock.id], to={"player": "p1", "zone": "graveyard"})  # the copied Shock leaves the stack
+    left.append(shock)
+    _drive(s, pick)
+    assert not left and s.state.cards[bears.id].zone == "p2:graveyard"  # copied as it last existed (608.2h, 707.10)
+    assert life(s, "p2") == 38  # only your copy hit Bob (the original left)
+    check(s)
+
+
+@pytest.mark.parametrize("pays", [True, False])
+def test_parnesse_counters_an_opponents_targeting_spell_unless_they_pay_4_life(cards, pays):
+    from tests.test_rules_wave100g_zones import to_step
+
+    s, _ = _parnesse(cards)
+    parnesse = card_named(s, "Parnesse, the Subtle Brush")
+    to_step(s, "main1", 2)
+    mana(s, "p2", R=1)
+    shock = cast_card(s, "Shock", [parnesse.id], pid="p2")
+    seen = _drive(s, lambda d: ["pay" if pays else "decline"] if d.prompt.endswith("pay 4 life?") else None)
+    assert [p for p, prompt, _ in seen] == ["p2"]
+    assert life(s, "p2") == (36 if pays else 40) and s.state.cards[parnesse.id].damage == (2 if pays else 0)
+    assert s.state.cards[shock.id].zone == "p2:graveyard"  # resolved, or countered
     check(s)

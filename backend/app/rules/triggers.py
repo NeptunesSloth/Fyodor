@@ -576,7 +576,7 @@ def _facts(plan: Plan, e: Event, window: dict[str, Any]) -> list[Fact]:
             return []
         entry = r.stack.get(spell.id)
         return [("copy", spell, plan.ch(spell), e.player, {
-            "oid": e.object_id, "actor": e.player,
+            "oid": e.object_id, "actor": e.player, "orig_oid110j": e.source,  # (wave 110J: the spell that was copied, Parnesse)
             "targets": [(t.id, t.object_id) for t in (entry.targets if entry is not None else
                     [r.aura_targets[spell.id]] if spell.id in r.aura_targets else [])]})]
     if e.kind == "drew":
@@ -1733,6 +1733,8 @@ def _fire_generic(plan: Plan, facts: list[Fact], batch: int, fired: Fired,
 
                 event.other = _source_ref(plan, info.get("other_oid"))
                 event.defended = defending.defended(plan, fact[1])
+            if cond.get("orig110j"):  # -- last cards (wave 110J) -- Parnesse: "that spell" is the spell copied, as it is or last was on the stack (608.2h)
+                event.other = _source_ref(plan, info.get("orig_oid110j"))
             if cond.get('cast_targets102'):
                 event.amount = len({(cid, oid) for cid, oid in info.get('targets') or []})
             if cond.get("excess"):  # -- trigger damage (wave 39B) -- 120.10: "that excess damage" / "the excess": the amount of this event is the excess (the batch's total, 603.2c)

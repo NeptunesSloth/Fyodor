@@ -14,7 +14,7 @@
 - Ogre Enforcer: needs damage marked per source (no per-source tally on cards).
 - Oath of Kaya, Rigo: trigger once per attacked planeswalker/defender, not once per attack declaration (existing your_pw fires once); ruling unverified locally.
 - Taste of Paradise: multikicker rewrite would make it a "kicked" spell for other cards (wrong); needs a plain pay-N-times additional cost.
-- Fblthp (Impossibly Lost), Worms of the Earth, Overblaze, Melira, Parnesse, Mangara's Equity: batch-opponent damage trigger / second upkeep ability / doubling / poison cap / copy-by-opponent / chosen-color recipient: each a new foundation.
+- Fblthp (Impossibly Lost), Worms of the Earth, Overblaze, Melira, Mangara's Equity: batch-opponent damage trigger / second upkeep ability / doubling / poison cap / chosen-color recipient: each a new foundation. (Parnesse: built in wave 110J.)
 - Thunderblade Charge: graveyard trigger "if this card is in your graveyard, you may pay ... cast it without paying" needs graveyard batch-damage trigger and free cast from graveyard.
 - Gather Specimens: replaces every creature entry (reanimation, put-onto, tokens) under an opponent; no single entry hook.
 - Dance of Many: "the token" link needs a trigger on a specific linked object leaving (no created-with leave watcher).

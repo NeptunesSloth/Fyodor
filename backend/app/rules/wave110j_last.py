@@ -65,6 +65,8 @@ _CAP_COMPONENT = 1  # the cost's parts: {3}, then the Equipment
 
 
 def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
+    if ability.text == PARNESSE:
+        return parnesse_definition(ability, ch)
     if ability.kind != "activated" or ability.text != CAPTAIN:
         return None
     return {"kind": "activated", "cost": "{3}, Unattach an Equipment from ~", "effects": [{"do": "damage", "who": "target:0", "n": {"divided": 0}}],
@@ -131,3 +133,54 @@ def resume_cap(plan: Plan, d: Any, chosen: list[str]) -> None:
 
 
 RESUME["cap110j"] = resume_cap
+
+
+# -- Parnesse, the Subtle Brush -- "Whenever you copy a spell, up to one target opponent may also copy that spell": "that spell" is the spell you
+# copied (the trigger's event carries it, triggers.py "orig110j"). If it has left the stack by then, it is copied as it last existed there: 608.2h
+# (an effect needing information from an object no longer in the expected public zone uses its last known information) with 707.10 (the copy has
+# its characteristics and every choice made for it); the engine's copying.lki_spell does this for the Storm cycle too. 707.10c: new targets may be chosen.
+PARNESSE = "Whenever you copy a spell, up to one target opponent may also copy that spell. They may choose new targets for that copy."
+
+
+def parnesse_definition(ability: Any, ch: Any) -> dict[str, Any] | None:
+    from dataclasses import replace
+
+    from app.rules import scripts
+
+    if ability.kind != "triggered" or ability.text != PARNESSE:
+        return None
+    native = scripts.define(replace(ability, text="Whenever you copy a spell, you gain 1 life."), ch)
+    if native is None:
+        return None
+    return {**native, "cond": {**native["cond"], "orig110j": True}, "target": None, "targets": [{"what": "opponent", "min": 0, "max": 1}],
+            "effects": [{"do": "parnesse110j"}]}
+
+
+def parnesse(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    from app.rules import effects
+
+    opponents = effects._players(plan, ctx, "target:0")
+    other = (ctx.get("event") or {}).get("other")
+    if not opponents or not other:
+        return True
+    decide(plan, player=opponents[0], kind="choose_one", prompt="Parnesse: copy that spell? (you may choose new targets for the copy)",
+           options=[DecisionOption(id="yes", label="Copy it"), DecisionOption(id="no", label="Don't")],
+           resume={"step": "parnesse110j", "ctx": ctx, "card": other["card"], "oid": other["object_id"]})
+    return False
+
+
+def resume_parnesse(plan: Plan, d: Any, chosen: list[str]) -> None:
+    from app.rules import copying, effects
+
+    ctx = d.resume["ctx"]
+    if chosen == ["yes"]:
+        job = copying.new_job(ctx, controller=d.player, objects=[(d.resume["card"], d.resume["oid"], 1)], retarget=True, label="Parnesse")
+        if not copying.run(plan, job):
+            return
+    elif chosen != ["no"]:
+        raise ActionError("Choose yes or no")
+    effects.continue_effects(plan, ctx)
+
+
+PRIMITIVES["parnesse110j"] = parnesse
+RESUME["parnesse110j"] = resume_parnesse
