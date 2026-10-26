@@ -989,7 +989,7 @@ def pay(plan: Plan, cost: AbilityCost, card: CardInstance, chosen: dict[int, lis
 
             payment_card_facts.record(plan, record, "exiled", top)
     for comp in cost.components:  # -- if you do (wave 26C) -- "Whenever you forage / collect evidence" (701.61, 701.59): the cost was paid
-        if comp.kind in (C.FORAGE, C.COLLECT_EVIDENCE, C.WATERBEND):
+        if comp.kind in (C.FORAGE, C.COLLECT_EVIDENCE, C.WATERBEND) and not comp.text.startswith("Exile any number"):  # (wave 110C: The Capitoline Triad exiles, it doesn't collect evidence)
             from app.game.rules_state import emit
 
             emit(plan.state,"designation",counter={C.FORAGE:"forage",C.COLLECT_EVIDENCE:"collect_evidence",C.WATERBEND:"waterbend"}[comp.kind],player=player)
@@ -1001,6 +1001,9 @@ def _flexible_options(plan: Plan, comp: CostComponent, card: CardInstance, playe
     at all (701.59b: total mana value N or more in the graveyard; 701.61a: three graveyard cards or a Food)."""
     gy = [c for c in plan.state.zones.get(zone_key(player, "graveyard"), []) if c != card.id and c not in used]
     if comp.kind == C.COLLECT_EVIDENCE:
+        if comp.selector and comp.text.startswith("Exile any number"):  # (wave 110C) only the cards of that kind
+            sel = selectors.from_key(comp.selector)
+            gy = [c for c in gy if selectors.matches(plan, sel, plan.state.cards[c], plan.ch(plan.state.cards[c]), player, card.id)]
         return gy, sum(plan.ch(plan.state.cards[c]).mana_value for c in gy) >= comp.amount
     food = selectors.from_key(C._selector("Food", zone="battlefield") or "")
     foods = [c for c in plan.state.zones.get(zone_key(player, "battlefield"), [])

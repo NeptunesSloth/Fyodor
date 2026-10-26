@@ -536,6 +536,9 @@ _EXILE_CHOSEN = re.compile(rf"^Exile {_N} (?P<what>[^,]+ you control)$")
 _EXILE_TO_GY = re.compile(r"^Put (?:(?P<one>a) card an opponent owns from exile into that player's graveyard"
                           r"|(?P<n>two|three) cards your opponents own from exile into their owners' graveyards)$")  # (wave 15C)
 _EVIDENCE = re.compile(r"^Collect evidence (?P<n>\d+)$")
+# -- exile for total mana value (wave 110C) -- "Exile any number of historic cards from your graveyard with total mana value 30 or greater" (The Capitoline Triad):
+# the collect-evidence payment (701.59a) on a kind of card, and not collecting evidence (cost_payment skips the designation)
+_EXILE_TOTAL = re.compile(r"^Exile any number of (?P<what>[a-z]+) cards from your graveyard with total mana value (?P<n>\d+) or greater$")
 # "Exile an artifact from among permanents you control and/or cards in your graveyard" / "…two creatures…" / "…one or more Dinosaurs…"
 _CRAFT = re.compile(r"^Exile (?P<n>a|an|one|two|three|four|five|six|seven|\d+)(?P<more> or more)?(?: (?P<what>[^,]+?))? from among "
                     r"permanents you control and/or cards in your graveyard$")
@@ -666,6 +669,9 @@ def _one_4h(part: str, card_name: str) -> CostComponent | None:
         return _craft_part(m, part)
     if m := _EVIDENCE.match(part):  # 701.59a
         key = _selector("cards from your graveyard", zone="graveyard")
+        return CostComponent(COLLECT_EVIDENCE, amount=int(m["n"]), selector=key, text=part) if key and int(m["n"]) > 0 else None
+    if m := _EXILE_TOTAL.match(part):  # (wave 110C)
+        key = _selector(f"{m['what']} cards from your graveyard", zone="graveyard")
         return CostComponent(COLLECT_EVIDENCE, amount=int(m["n"]), selector=key, text=part) if key and int(m["n"]) > 0 else None
     if part == "Forage":  # 701.61a
         return CostComponent(FORAGE, amount=3, text=part)
