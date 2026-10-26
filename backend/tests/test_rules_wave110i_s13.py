@@ -2,6 +2,7 @@
 
 * Fleshwrither: Transfigure {2}{B}{B} (702.71a): sacrifice, search for a creature with the same mana value as the sacrificed creature (608.2h last known information).
 * Necrotic Plague: when the enchanted creature dies, ITS controller (603.3d) chooses a creature one of their opponents controls; the Aura returns from its owner's graveyard attached to it (303.4g).
+* Flickerform: the creature and its Auras leave together (no 704.5m graveyard trip); at the next end step the creature returns under its owner's control, then (only if it did) the other cards return attached to it (303.4i).
 * Monastery Raid: freerunning {X}{R} (702.173a; X in an alternative cost, 107.3a); "if this spell's freerunning cost was paid, exile the top X cards instead".
 """
 
@@ -34,6 +35,10 @@ EXTRA = [
          "When enchanted creature dies, its controller chooses target creature one of their opponents controls. Return this card from its owner's graveyard to the battlefield attached to that creature.",
          None, "B"),
     real("Ox110I", "{1}{G}", 2, "Creature \u2014 Ox", "", ("2", "2"), "G"),
+    real("Flickerform", "{1}{W}", 2, "Enchantment \u2014 Aura",
+         "Enchant creature\n{2}{W}{W}: Exile enchanted creature and all Auras attached to it. At the beginning of the next end step, return that card to the battlefield under its owner's control. "
+         "If you do, return the other cards exiled this way to the battlefield under their owners' control attached to that creature.", None, "W"),
+    real("Ward110I", "{W}", 1, "Enchantment \u2014 Aura", "Enchant creature\nEnchanted creature gets +1/+1.", None, "W"),
     real("Wolf110I", "{3}{G}", 4, "Creature \u2014 Wolf", "", ("4", "4"), "G"),
     real("Cub110I", "{1}{G}", 2, "Creature \u2014 Wolf", "", ("2", "2"), "G"),
 ]
@@ -104,4 +109,26 @@ def test_necrotic_plague_dying_creatures_controller_chooses_among_their_opponent
     answer(s)
     assert zone_of(s, "Ox110I", "p2") == "p2:graveyard" and zone_of(s, "Necrotic Plague") == "p1:battlefield"
     assert s.state.cards[c.id].attached_to == wolf.id
+    check(s)
+
+
+def test_flickerform_exiles_creature_and_auras_then_returns_them_attached(cards):
+    """Wolf with Flickerform and Ward110I: all three are exiled at once; at the end step the Wolf returns and both Auras come back on it."""
+    s = build(cards, ["Flickerform", "Ward110I", "Wolf110I"])
+    wolf = put(s, "Wolf110I")
+    for name in ("Ward110I", "Flickerform"):
+        c = to_hand(s, name)
+        mana(s, W=1, C=1)
+        act(s, "p1", type="cast_spell", card_id=c.id, targets=[wolf.id])
+        answer(s)
+        assert s.state.cards[c.id].attached_to == wolf.id
+    fl = card_named(s, "Flickerform")
+    mana(s, W=2, C=2)
+    act(s, "p1", type="activate_ability", card_id=fl.id, ability=1)
+    answer(s)
+    assert {zone_of(s, n) for n in ("Wolf110I", "Flickerform", "Ward110I")} == {"p1:exile"}
+    until(s, lambda s: s.state.turn.number >= 2)  # (through the end step of turn 1)
+    answer(s)
+    assert {zone_of(s, n) for n in ("Wolf110I", "Flickerform", "Ward110I")} == {"p1:battlefield"}
+    assert {s.state.cards[card_named(s, n).id].attached_to for n in ("Flickerform", "Ward110I")} == {card_named(s, "Wolf110I").id}
     check(s)

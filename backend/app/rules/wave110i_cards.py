@@ -969,10 +969,53 @@ def whistle(ability: Any, ch: Any) -> Def | None:
     return {**base, "effects": effects, "target": {**base["target"], "what": sel.key()}}
 
 
+_FLICKER = ("{2}{W}{W}: Exile enchanted creature and all Auras attached to it. At the beginning of the next end step, return that card to the battlefield under its owner's control. "
+            "If you do, return the other cards exiled this way to the battlefield under their owners' control attached to that creature.")
+
+
+def flicker_exile(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """Flickerform: the creature and every Aura on it leave together (one move, so the Auras are not put into graveyards by 704.5m first)."""
+    from app.rules import context, delayed, effects
+
+    hosts = effects._cards(plan, ctx, "host")
+    if not hosts:
+        return True
+    auras = [c.id for c in plan.state.cards.values() if c.attached_to == hosts[0] and c.zone.endswith(":battlefield") and "Aura" in plan.ch(c).subtypes]
+    plan.do({"type": "move", "card_ids": [*hosts, *auras], "to": {"zone": "exile"}}, actor=ctx["controller"])
+    context.bind_objects(plan, ctx, "flick_h110i", [c for c in hosts if plan.state.cards[c].zone.endswith(":exile")])
+    context.bind_objects(plan, ctx, "flick_a110i", [c for c in auras if plan.state.cards[c].zone.endswith(":exile")])
+    ctx["effects"][ctx["next"]:ctx["next"]] = delayed.wrap_when([{"do": "flicker_return110i"}], delayed.WHEN["the next end step"])
+    return True
+
+
+def flicker_return(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+
+    back = {"do": "return_card", "to": "battlefield", "tapped": False, "under": "owner"}
+    ctx["effects"][ctx["next"]:ctx["next"]] = [{**back, "who": "ref:flick_h110i", "as": "flick_new110i"}, {"do": "flicker_auras110i"}]
+    return True
+
+
+def flicker_auras(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    from app.rules import context
+
+    new = [c for c in context.objects(plan, ctx, "flick_new110i") if plan.state.cards[c].zone.endswith(":battlefield")]
+    auras = [c for c in context.objects(plan, ctx, "flick_a110i") if plan.state.cards[c].zone.endswith(":exile")]
+    if new and auras:
+        context.bind_objects(plan, ctx, "flick_a110i", auras)
+        ctx["effects"][ctx["next"]:ctx["next"]] = [{"do": "return_card", "to": "battlefield", "tapped": False, "under": "owner", "who": "ref:flick_a110i", "host": "ref:flick_new110i"}]
+    return True
+
+
+PRIMITIVES.update({"flicker_exile110i": flicker_exile, "flicker_return110i": flicker_return, "flicker_auras110i": flicker_auras})
+
+
 def definition(ability: Any, ch: Any) -> Def | None:
     from app.rules import scripts
 
     text = ability.text.strip()
+    if text == _FLICKER:
+        native = scripts.define(replace(ability, text="{2}{W}{W}: Draw a card."), ch)
+        return None if native is None else {**native, "effects": [{"do": "flicker_exile110i"}]}
     if text == "If a Rigger you control would assemble a Contraption, it assembles two Contraptions instead.":
         # 701.45a: assembling is an Unstable mechanic outside these rules; no player has a Contraption deck in a Commander game, so nothing can be assembled and this never applies
         return {"kind": "static", "static": "no_assemble110i", "effects": []}
