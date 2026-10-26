@@ -277,7 +277,34 @@ def _outmaneuver() -> Any:
     return None if base is None else ([{"do": "assign_unblocked110h", "who": "target:0"}], base[1], base[2])
 
 
+def _unleash() -> Any:
+    from app.rules import scripts
+
+    got = scripts.parse_effects("Destroy target artifact or enchantment an opponent controls with mana value less than or equal to that amount of excess damage.")
+    if got is None:
+        return None
+    ability = {"kind": "triggered", "trigger": "reflexive", "effects": got[0], "optional": False, **scripts.target_fields(got[1])}
+    return [{"do": "damage", "who": "target:0", "n": 7, "bind_excess": "excess_dealt"}, {"do": "excess_reflex110h", "ability": ability}], \
+        [{"what": "creature_or_planeswalker", "min": 1, "max": 1}], False
+
+
+def excess_reflex(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
+    """603.12, 120.10: "When it deals excess damage this way, ..." triggers once if there was excess; the trigger's amount is that excess, and its target
+    (chosen when it goes on the stack, 603.3d) is bounded by it."""
+    from app.game.rules_state import TriggerEvent
+    from app.rules import context
+    from app.rules.triggers import _add
+
+    excess = max((int(b.get("n") or 0) for k, b in context.refs(ctx).items() if k.endswith("excess_dealt")), default=0)  # (bound under a prefixed name)
+    if excess >= 1:
+        _add(plan, controller=ctx["controller"], source_card=ctx.get("source_card") or "", source_object=ctx.get("source_object") or "",
+             name=str(ctx.get("name") or ""), index=7300, definition=e["ability"], event=TriggerEvent(kind="reflexive", amount=excess))
+    return True
+
+
 BUILDERS = {
+    "~ deals 7 damage to target creature or planeswalker. When it deals excess damage this way, destroy target artifact or enchantment an opponent controls "
+    "with mana value less than or equal to that amount of excess damage.": _unleash,
     "X target blocked creatures assign their combat damage this turn as though they weren't blocked.": _outmaneuver,
     "put target face-up card they own in exile on the bottom of their library. If you do, you gain 3 life.": _time_reaper,
     "you may exile one or more creature cards from your graveyard. When you do, each other creature gets -X/-X until end of turn, where X is the "
@@ -415,5 +442,5 @@ def made(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
     return True
 
 
-PRIMITIVES = {"assign_unblocked110h": assign_unblocked, "made110h": made, "limo_back110h": limo_back, "bottom_did110h": bottom_did, "episode110h": episode, "scapegoat110h": scapegoat}
+PRIMITIVES = {"assign_unblocked110h": assign_unblocked, "made110h": made, "limo_back110h": limo_back, "bottom_did110h": bottom_did, "episode110h": episode, "scapegoat110h": scapegoat, "excess_reflex110h": excess_reflex}
 RESUME = {"episode110h": resume_episode, "scapegoat110h": resume_scapegoat}

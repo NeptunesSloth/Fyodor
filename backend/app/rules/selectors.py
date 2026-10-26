@@ -859,6 +859,12 @@ def _compare_event_counters(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, compare=(*s.compare, ("mv", _REF_OPS[m["op"]], EVENT_STAT + "counters")))
 
 
+@_suffix(r"with mana value less than or equal to that amount of excess damage")
+def _compare_event_excess(s: Selector, m: re.Match[str]) -> Selector:
+    # -- one-card wordings (wave 110H) -- Unleash the Inferno: the excess damage (120.10) its reflexive trigger carries as its amount (triggers.bind_event_stat)
+    return replace(s, compare=(*s.compare, ("mv", "<=", EVENT_STAT + "amount")))
+
+
 @_suffix(r"with that spell's mana value")  # (-- event spells (wave 36A) -- the same comparison, worded short: Infernal Kirin, Celestial Kirin)
 @_suffix(r"with mana value equal to that spell's mana value")
 def _compare_event_spell(s: Selector, m: re.Match[str]) -> Selector:
