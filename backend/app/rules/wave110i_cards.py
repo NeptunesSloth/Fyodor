@@ -24,6 +24,11 @@ def _won_last(d: Def) -> Def:
 
 # whole ability text -> the wording the grammar reads for it
 _AS: dict[str, str] = {
+    # Nick Fury: the DFC transform is independent of the rest going to the bottom (701.27c, 608.2c); said last, the grammar reads "you may transform it" as the final choice
+    "Power-up \u2014 {W}{U}{B}{R}{G}: Put two +1/+1 counters on Nick Fury, then look at the top seven cards of your library. You may put a Hero, Equipment, or Vehicle "
+    "card from among them onto the battlefield. If it's a double-faced card, you may transform it. Put the rest on the bottom of your library in a random order.":
+        "Power-up \u2014 {W}{U}{B}{R}{G}: Put two +1/+1 counters on Nick Fury, then look at the top seven cards of your library. You may put a Hero, Equipment, or Vehicle "
+        "card from among them onto the battlefield. Put the rest on the bottom of your library in a random order. If it's a double-faced card, you may transform it.",
     # Corrosion: "Artifacts destroyed this way" are the ones the destroy-each instruction destroyed ("They", 701.8c: can't be regenerated)
     "At the beginning of your upkeep, put a rust counter on each artifact target opponent controls. Then destroy each artifact with mana value less than "
     "or equal to the number of rust counters on it. Artifacts destroyed this way can't be regenerated.":
