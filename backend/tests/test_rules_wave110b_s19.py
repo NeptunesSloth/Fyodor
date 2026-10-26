@@ -36,7 +36,7 @@ def cards(settings):
     yield from repository(settings)
 
 
-@pytest.mark.parametrize("name", ["Genesis of the Daleks", "Dr. Eggman", "Market Gnome", "Osseous Sticktwister", "Jace, Multiverse Architect"])
+@pytest.mark.parametrize("name", ["The Creation of Avacyn", "Genesis of the Daleks", "Dr. Eggman", "Market Gnome", "Osseous Sticktwister", "Jace, Multiverse Architect"])
 def test_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
@@ -188,4 +188,32 @@ def test_jace_multiverse_architect_taxes_attacks_on_jaces_only(cards, lands, pay
             act(s, "p2", type="declare_attackers", attackers=[{"card_id": bears.id, "target": jace.id}])
     act(s, "p2", type="declare_attackers", attackers=[{"card_id": bears.id, "target": jace.id if pays else "p1"}])
     assert s.state.cards[bears.id].attacking.id == (jace.id if pays else "p1")
+    check(s)
+
+
+def avacyn_game(cards, fetch):
+    """Alice casts the Saga on turn 1: chapter I searches for ``fetch``; chapter II (turn 3) turns it up; chapter III (turn 5) puts it onto the battlefield or into her hand."""
+    s = build(cards, ["The Creation of Avacyn", fetch], [], forests=30, islands=40)
+    mana(s, B=2, C=1)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "The Creation of Avacyn").id)
+    drive(s, lambda d: [o.id for o in d.options if o.card_id and s.state.cards[o.card_id].name == fetch] or None)
+    return s
+
+
+@pytest.mark.parametrize(("fetch", "life_lost", "choice", "zone"), [("Shivan Dragon", 6, "battlefield", "p1:battlefield"), ("Shivan Dragon", 6, "hand", "p1:hand"),
+                                                                    ("Murder", 0, None, "p1:hand")])
+def test_creation_of_avacyn(cards, fetch, life_lost, choice, zone):
+    s = avacyn_game(cards, fetch)
+    card = card_named(s, fetch)
+    assert s.state.cards[card.id].zone == "p1:exile" and s.state.cards[card.id].face_down
+    to_phase(s, "main1", turn=3)
+    drive(s)
+    assert not s.state.cards[card.id].face_down and life(s, "p1") == 40 - life_lost  # chapter II
+    to_phase(s, "main1", turn=5)
+    for _ in range(10):
+        d = s.state.rules.decision
+        if d is None:
+            break
+        act(s, d.player, type="choose", decision_id=d.id, option_ids=[choice])
+    assert zone_of(s, fetch) == zone
     check(s)

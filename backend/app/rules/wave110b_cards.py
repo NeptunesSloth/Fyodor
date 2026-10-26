@@ -656,6 +656,10 @@ _HEROIC = ("Choose target creature you control. Until end of turn, all damage th
            "When that creature dies this turn, put its counters on up to one target creature you control and draw a card.")
 
 
+_AVACYN = {"Turn the exiled card face up. If it's a creature card, you lose life equal to its mana value.": "avacyn_up110b",
+           "You may put the exiled card onto the battlefield if it's a creature card. If you don't put it onto the battlefield, put it into its owner's hand.": "avacyn_out110b"}
+
+
 def parse(body: str) -> Any:
     """Heroic Sacrifice: the chosen creature gets the death trigger until end of turn (611.2a, 603.7: the same as "when that creature dies this turn"); the damage
     to you and your creatures is redirected to it (614.9) while it is on the battlefield."""
@@ -666,6 +670,8 @@ def parse(body: str) -> Any:
         return None if got is None else ([{"do": "second_main110b", "effects": got[0]}], got[1], got[2])
     if (mirror := wave110b_mirror.parse(body)) is not None:  # Mystic Reflection
         return mirror
+    if body.strip() in _AVACYN:  # The Creation of Avacyn, chapters II and III
+        return [{"do": _AVACYN[body.strip()]}], None, False
     if body.strip() != _HEROIC:
         return None
     got = scripts.parse_effects('Target creature you control gains "When this creature dies, put its counters on up to one target creature you control and draw a card" until end of turn.')
@@ -891,4 +897,54 @@ def mana_web(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return True
 
 
-PRIMITIVES: dict[str, Any] = {"destroy_created110b": destroy_created, "adapt_free110b": adapt_free, "second_main110b": second_main, "nelly_draw110b": nelly_draw, "lolth_loss110b": lolth_loss, "mana_web110b": mana_web, "faramir_set110b": faramir_set, "faramir_end110b": faramir_end, "redirect110b": redirect, "kaito110b": kaito, "return_next_end110b": return_next_end, "gap_search110b": gap_search, "gift_given110b": gift_given, "ungoad110b": ungoad, "no_attack_next110b": no_attack_next, "draw_game110b": draw_game, "reaver110b": reaver, "veil110b": veil, "uncounter_by110b": uncounter_by, "exile_own110b": exile_own, "lose_shield110b": lose_shield}
+def _linked(plan: Any, ctx: dict[str, Any]) -> Any:
+    from app.rules import effects
+
+    return next((plan.state.cards[c] for c in effects._cards(plan, ctx, "exiled_with") if plan.state.cards[c].zone.endswith(":exile")), None)
+
+
+def avacyn_up(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """The Creation of Avacyn II: the card exiled face down is turned face up (it is public in exile, 406.3); a creature card costs its controller life equal to its
+    mana value (119.3, 608.2h)."""
+    card = _linked(plan, ctx)
+    if card is None:
+        return True
+    if card.face_down:
+        plan.do({"type": "face_down", "card_ids": [card.id], "face_down": False}, actor=ctx["controller"])
+    c = plan.state.cards[card.id]
+    if "Creature" in plan.ch(c).types:
+        ctx["effects"][ctx["next"]:ctx["next"]] = [{"do": "lose_life", "who": "you", "n": int(plan.ch(c).mana_value)}]
+    return True
+
+
+def avacyn_out(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """The Creation of Avacyn III: a creature card may be put onto the battlefield; what isn't put there (any other card, or a creature card they decline) goes to its
+    owner's hand."""
+    from app.game.rules_state import DecisionOption
+    from app.rules import effects
+    from app.rules.plan import decide
+
+    card = _linked(plan, ctx)
+    if card is None:
+        return True
+    if "Creature" not in plan.ch(card).types:
+        return effects.PRIMITIVES["return_card"](plan, ctx, {"do": "return_card", "who": "exiled_with", "to": "hand"})
+    decide(plan, player=ctx["controller"], kind="choose_one", prompt=f"{ctx.get('name') or 'The Creation of Avacyn'}: put {card.name} onto the battlefield?",
+           options=[DecisionOption(id="battlefield", label="Put it onto the battlefield"), DecisionOption(id="hand", label="Put it into its owner's hand")],
+           resume={"step": "avacyn_out110b", "ctx": ctx})
+    return False
+
+
+def resume_avacyn_out(plan: Any, d: Any, chosen: list[str]) -> None:
+    from app.rules import effects
+
+    ctx = d.resume["ctx"]
+    step = {"do": "return_card", "who": "exiled_with", "to": chosen[0], **({"tapped": False, "under": "you"} if chosen[0] == "battlefield" else {})}
+    effects.PRIMITIVES["return_card"](plan, ctx, step)
+    effects.continue_effects(plan, ctx)
+
+
+RESUME["avacyn_out110b"] = resume_avacyn_out
+
+
+PRIMITIVES: dict[str, Any] = {"avacyn_up110b": avacyn_up, "avacyn_out110b": avacyn_out, "destroy_created110b": destroy_created, "adapt_free110b": adapt_free, "second_main110b": second_main, "nelly_draw110b": nelly_draw, "lolth_loss110b": lolth_loss, "mana_web110b": mana_web, "faramir_set110b": faramir_set, "faramir_end110b": faramir_end, "redirect110b": redirect, "kaito110b": kaito, "return_next_end110b": return_next_end, "gap_search110b": gap_search, "gift_given110b": gift_given, "ungoad110b": ungoad, "no_attack_next110b": no_attack_next, "draw_game110b": draw_game, "reaver110b": reaver, "veil110b": veil, "uncounter_by110b": uncounter_by, "exile_own110b": exile_own, "lose_shield110b": lose_shield}
