@@ -15,6 +15,8 @@ GLYPH = ("When this artifact enters, if you cast it, for each player, choose a c
          "chosen this way.")
 SIEGE = ("When this Siege enters, reveal any number of Dragon cards from your hand. When you do, this Siege deals X plus 2 damage to any other target, where X is the "
          "number of cards revealed this way. (X can be 0.)")
+INCINERATOR = ("Whenever this creature deals combat damage to a player, you may collect evidence X. When you do, this creature deals X damage to each creature and "
+               "planeswalker that player controls. (To collect evidence X, exile cards with total mana value X or greater from your graveyard.)")
 SAND = ("Flying\nWhenever an opponent casts a spell during their turn, they can't attack you or planeswalkers you control this turn.\n"
         "Each opponent who attacked you or a planeswalker you control this turn can't cast spells.")
 EXTRA = [real("Midnight Crusader Shuttle", "{4}", 4, "Artifact — Vehicle", SHUTTLE, ("3", "4"), ""),
@@ -25,6 +27,9 @@ EXTRA = [real("Midnight Crusader Shuttle", "{4}", 4, "Artifact — Vehicle", SHU
          real("Invasion of Tarkir", "{2}{R}", 3, "Battle — Siege", SIEGE, None, "R"),
          real("Test Dragon", "{4}{R}", 5, "Creature — Dragon", "Flying", ("4", "4"), "R"),
          real("Other Dragon", "{4}{R}", 5, "Creature — Dragon", "Flying", ("4", "4"), "R"),
+         real("Incinerator of the Guilty", "{2}{B}{R}{G}", 5, "Creature — Dragon", "Flying, trample\n" + INCINERATOR, ("6", "6"), "BRG"),
+         real("Pyre One", "{R}", 1, "Sorcery", "", None, "R"), real("Pyre Two", "{1}{R}", 2, "Sorcery", "", None, "R"),
+         real("Pyre Three", "{2}{R}", 3, "Sorcery", "", None, "R"),
          real("Lone Wolf", "{G}", 1, "Creature — Wolf", "", ("1", "1"), "G")]
 
 
@@ -162,3 +167,52 @@ def test_siege_reveals_dragons_then_deals_x_plus_2(cards, n):
     assert s.state.players["p2"].life == 40 - (n + 2)
     assert all(s.state.cards[x.id].zone == "p1:hand" for x in dragons)  # revealing doesn't move a card
     check(s)
+
+
+def _evidence(cards):
+    s = build(cards, ["Incinerator of the Guilty", "Grizzly Bears", "Pyre One", "Pyre Two", "Pyre Three", *["Forest"] * 8], ["Grizzly Bears", "Hill Giant", *["Forest"] * 8])
+    inc, mine = put(s, "Incinerator of the Guilty"), put(s, "Grizzly Bears")
+    theirs = [put(s, "Grizzly Bears", "p2"), put(s, "Hill Giant", "p2")]
+    pyres = {n: to_hand(s, n) for n in ("Pyre One", "Pyre Two", "Pyre Three")}
+    act(s, "p1", type="move", card_ids=[c.id for c in pyres.values()], to={"player": "p1", "zone": "graveyard"})
+    to_phase(s, "declare_attackers", 3)
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": inc.id, "target": "p2"}])
+    act(s, "p2", type="declare_blockers", blocks=[])
+    return s, mine, theirs, pyres
+
+
+def _asked(s, kind):
+    for _ in range(30):
+        d = s.state.rules.decision
+        if d is not None and d.kind == kind:
+            return d
+        if d is not None:
+            raise AssertionError(d.prompt)
+        act(s, s.state.rules.priority, type="pass_priority")
+    raise AssertionError("never asked")
+
+
+@pytest.mark.parametrize(("x", "use"), [(3, ["Pyre Three"]), (2, ["Pyre Three"]), (3, ["Pyre One", "Pyre Two"]), (1, ["Pyre Two"])])
+def test_incinerator_collects_evidence_x_then_hits_each_creature_of_that_player(cards, x, use):
+    """701.59a: cards with total mana value X or greater; the reflexive ability deals X to each creature that player controls (not mine)."""
+    s, mine, (bear, giant), pyres = _evidence(cards)
+    d = _asked(s, "choose_one")
+    assert f"x:{x}" in [o.id for o in d.options] and "x:7" not in [o.id for o in d.options]  # at most the graveyard's total (6)
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[f"x:{x}"])
+    d = s.state.rules.decision
+    with pytest.raises(ActionError):  # too little (701.59a)
+        act(s, "p1", type="choose", decision_id=d.id, option_ids=[pyres["Pyre One"].id] if x > 1 else [])
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[pyres[n].id for n in use])
+    answer(s)
+    assert all(s.state.cards[pyres[n].id].zone == "p1:exile" for n in use)
+    assert s.state.cards[bear.id].zone.endswith("graveyard") == (x >= 2) and s.state.cards[giant.id].zone.endswith("graveyard") == (x >= 3)
+    assert s.state.cards[mine.id].zone == "p1:battlefield"
+    check(s)
+
+
+def test_incinerator_may_decline(cards):
+    s, mine, (bear, giant), pyres = _evidence(cards)
+    d = _asked(s, "choose_one")
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=["decline"] if "decline" in [o.id for o in d.options] else [d.options[-1].id])
+    answer(s)
+    assert s.state.cards[bear.id].zone == "p2:battlefield" and all(s.state.cards[c.id].zone == "p1:graveyard" for c in pyres.values())

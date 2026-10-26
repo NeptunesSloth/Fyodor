@@ -28,6 +28,10 @@ SIEGE = ("When this Siege enters, reveal any number of Dragon cards from your ha
          "number of cards revealed this way.")
 
 
+INCINERATOR = ("Whenever this creature deals combat damage to a player, you may collect evidence X. When you do, this creature deals X damage to each creature and "
+               "planeswalker that player controls.")
+
+
 def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
     from app.rules import scripts
 
@@ -74,6 +78,12 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
             return None
         count = {"do": "revealed_x110c", "bind": fx[0]["bind"], "n": reveal[0][1]["n"]}
         return {**native, "effects": [reveal[0][0], count, {**fx[1], "cond": {"succeeded": fx[0]["bind"]}}]}
+    if text == INCINERATOR:  # 107.3f: X chosen as it resolves; 701.59a: cards with total mana value X or greater (the payment-X reflexive, paid by exiling)
+        native = scripts.define(replace(ability, text=INCINERATOR.replace("collect evidence X", "pay {X}")), ch)
+        fx = (native or {}).get("effects") or []
+        if native is None or [e.get("do") for e in fx] != ["optional_payment", "reflexive"]:
+            return None
+        return {**native, "effects": [{"do": "evidence_x110c", "bind": fx[0]["bind"]}, *fx[1:]]}
     if text != HELLION:
         return None
     native = scripts.define(replace(ability, text="When this creature enters, ~ deals 3 damage to you and target creature. The damage can't be prevented."), ch)
@@ -141,4 +151,55 @@ def revealed_x(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return True
 
 
-PRIMITIVES = {"revealed_x110c": revealed_x, "glyph110c": glyph, "shuttle110c": shuttle, "shuttle_attack110c": shuttle_attack}
+def evidence_x(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """"You may collect evidence X": X is chosen as this resolves (107.3f), then cards with total mana value X or greater are exiled from the graveyard (701.59a)."""
+    from app.game.rules_state import DecisionOption
+    from app.rules import optional_payment, paid_x
+    from app.rules.plan import decide
+
+    pid = ctx["controller"]
+    total = sum(plan.ch(plan.state.cards[c]).mana_value for c in plan.state.zones.get(f"{pid}:graveyard", []))
+    options = [DecisionOption(id=f"{paid_x.CHOOSE}{n}", label=f"Collect evidence {n}") for n in range(int(total) + 1)]
+    options.append(DecisionOption(id=optional_payment.DECLINE, label="Don't collect evidence"))
+    decide(plan, player=pid, kind="choose_one", prompt=f"{ctx.get('name') or 'It'}: collect evidence X? Choose X", options=options,
+           resume={"step": "evidence_x110c", "ctx": ctx, "e": e}, source=plan.state.cards.get(ctx.get("source_card") or ""))
+    return False
+
+
+def resume_evidence_x(plan: Plan, d: Any, chosen: list[str]) -> None:
+    from app.game.errors import ActionError
+    from app.game.rules_state import DecisionOption, emit
+    from app.rules import effects, optional_payment, paid_x
+    from app.rules.plan import decide
+
+    ctx, e = d.resume["ctx"], d.resume["e"]
+    pid = ctx["controller"]
+    if "cards" in d.resume:  # the second question: which cards
+        x, picked = d.resume["x"], list(dict.fromkeys(chosen))
+        if sum(plan.ch(plan.state.cards[c]).mana_value for c in picked) < x or not set(picked) <= set(d.resume["cards"]):
+            raise ActionError(f"Choose cards with total mana value {x} or more")
+        if picked:
+            plan.do({"type": "move", "card_ids": picked, "to": {"zone": "exile"}}, actor=pid)
+        emit(plan.state, "designation", counter="collect_evidence", player=pid)
+        paid_x._record(ctx, e["bind"], True, x)
+        effects.continue_effects(plan, ctx)
+        return
+    if chosen[0] == optional_payment.DECLINE:
+        paid_x._record(ctx, e["bind"], False, 0)
+        effects.continue_effects(plan, ctx)
+        return
+    x = int(chosen[0][len(paid_x.CHOOSE):])
+    if x == 0:
+        emit(plan.state, "designation", counter="collect_evidence", player=pid)
+        paid_x._record(ctx, e["bind"], True, 0)
+        effects.continue_effects(plan, ctx)
+        return
+    gy = list(plan.state.zones.get(f"{pid}:graveyard", []))
+    decide(plan, player=pid, kind="choose_cards", prompt=f"Exile cards with total mana value {x} or more from your graveyard",
+           options=[DecisionOption(id=c, label=f"{plan.state.cards[c].name or 'Card'} (mana value {plan.ch(plan.state.cards[c]).mana_value:g})", card_id=c) for c in gy],
+           min_choices=1, max_choices=len(gy), resume={"step": "evidence_x110c", "ctx": ctx, "e": e, "x": x, "cards": gy},
+           source=plan.state.cards.get(ctx.get("source_card") or ""))
+
+
+RESUME = {"evidence_x110c": resume_evidence_x}
+PRIMITIVES = {"evidence_x110c": evidence_x, "revealed_x110c": revealed_x, "glyph110c": glyph, "shuttle110c": shuttle, "shuttle_attack110c": shuttle_attack}
