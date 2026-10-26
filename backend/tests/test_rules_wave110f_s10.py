@@ -2,6 +2,7 @@
 
 * 702.33c: "As an additional cost to cast this spell, you may pay {1}{G} any number of times." + "3 life plus an additional 3 life for each additional {1}{G} you paid" (Taste of Paradise).
 * 704.3, 701.8a, 603.7c: "deals 2 damage to target creature an opponent controls. Destroy all Equipment attached to that creature." + "{2}{R}: Exile the top card of your library. You may play that card this turn. When you play a card this way, ~ deals 2 damage to each player." (Fires of Mount Doom).
+* 120.1, 603.4, 603.2: "Whenever combat damage is dealt to you or a planeswalker you control, if this card is in your graveyard, destroy target attacking creature, then put this card on top of your library." (Vengeful Pharaoh).
 * 601.2, 609.4b: "you may cast a creature spell from that player's graveyard this turn, and you may spend mana as though it were mana of any color" (Whispersteel Dagger).
 """
 
@@ -21,6 +22,8 @@ from tests.test_rules_wave100n_multi import (
 )
 from tests.test_rules_wave100n_multi import cast
 from tests.test_rules_wave34b_activated import activate
+from tests.test_rules_wave36a_trigger_words import loyal
+from tests.test_rules_wave100f_attached import to_phase
 from tests.wave9c_kit import build, check, life, mana, put
 
 EXTRA = [
@@ -30,11 +33,13 @@ EXTRA = [
          "As an additional cost to cast this spell, you may pay {1}{G} any number of times.\nYou gain 3 life plus an additional 3 life for each additional {1}{G} you paid.", None, 'G'),
     real('Fires of Mount Doom', '{2}{R}', 3, 'Enchantment',
          "When Fires of Mount Doom enters, it deals 2 damage to target creature an opponent controls. Destroy all Equipment attached to that creature.\n{2}{R}: Exile the top card of your library. You may play that card this turn. When you play a card this way, Fires of Mount Doom deals 2 damage to each player.", None, 'R'),
+    real('Vengeful Pharaoh', '{2}{B}{B}', 4, 'Creature — Zombie',
+         "Deathtouch\nWhenever combat damage is dealt to you or a planeswalker you control, if this card is in your graveyard, destroy target attacking creature, then put this card on top of your library.", ('5', '4'), 'B'),
 ]
 _BASE.extend(EXTRA)
 
 
-@pytest.mark.parametrize("name", ["Whispersteel Dagger", "Taste of Paradise", "Fires of Mount Doom"])
+@pytest.mark.parametrize("name", ["Whispersteel Dagger", "Taste of Paradise", "Fires of Mount Doom", "Vengeful Pharaoh"])
 def test_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
@@ -104,4 +109,37 @@ def test_fires_activation_hurts_each_player_only_when_the_exiled_card_is_played(
         act(s, "p1", type="play_land", card_id=exiled[0].id)
         answer(s)
     assert (life(s, "p1"), life(s, "p2")) == ((38, 38) if play else (40, 40))
+    check(s)
+
+
+@pytest.mark.parametrize("where,hits", [("p1:graveyard", True), ("p1:hand", False)])
+def test_pharaoh_from_the_graveyard_destroys_the_attacker_and_returns_to_the_library_top(cards, where, hits):
+    """603.4: only a Pharaoh that is in the graveyard triggers; it destroys the attacker, then goes on top of its owner's library."""
+    s = build(cards, ["Vengeful Pharaoh"], ["Grizzly Bears"])
+    pharaoh = to_zone(s, "Vengeful Pharaoh", where)
+    bear = put(s, "Grizzly Bears", "p2")
+    to_phase(s, "declare_attackers", turn=2)
+    act(s, "p2", type="declare_attackers", attackers=[{"card_id": bear.id, "target": "p1"}])
+    answer(s)
+    assert (s.state.cards[bear.id].zone, s.state.cards[pharaoh.id].zone) == (("p2:graveyard", "p1:library") if hits else ("p2:battlefield", where))
+    if hits:
+        assert s.state.zones["p1:library"][0] == pharaoh.id
+    check(s)
+
+
+def to_zone(s, name, where):
+    c = next(c for c in s.state.cards.values() if c.name == name and c.owner == "p1")
+    act(s, "p1", type="move", card_ids=[c.id], to={"player": "p1", "zone": where.split(":")[1]})
+    return c
+
+
+def test_pharaoh_also_triggers_when_a_planeswalker_you_control_is_dealt_combat_damage(cards):
+    """120.3c: combat damage to your planeswalker counts."""
+    s = build(cards, ["Vengeful Pharaoh", "Gideon Jura"], ["Grizzly Bears"])
+    pharaoh, jace = to_zone(s, "Vengeful Pharaoh", "p1:graveyard"), loyal(s, "Gideon Jura")
+    bear = put(s, "Grizzly Bears", "p2")
+    to_phase(s, "declare_attackers", turn=2)
+    act(s, "p2", type="declare_attackers", attackers=[{"card_id": bear.id, "target": jace.id}])
+    answer(s)
+    assert (s.state.cards[bear.id].zone, s.state.cards[pharaoh.id].zone) == ("p2:graveyard", "p1:library")
     check(s)

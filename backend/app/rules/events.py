@@ -1371,6 +1371,11 @@ def _object_event(c: str) -> Condition | None:
             return {"event": "either", "subject": "mixed", "conds": [sacrificed, destroyed]}
     # -- damage events (wave 45C) -- 120.1: "Whenever combat damage is dealt to you" (Risona) is "you're dealt combat damage": the player dealt it, once for
     # the simultaneous damage of the batch (603.2c)
+    if c == "combat damage is dealt to you or a planeswalker you control":  # -- (wave 110F) -- Vengeful Pharaoh: one event per recipient dealt damage (120.1, 603.2)
+        walker = _object_event("a planeswalker you control is dealt combat damage")
+        you = _object_event("combat damage is dealt to you")
+        if walker is not None and you is not None:
+            return {"event": "either", "subject": "mixed", "conds": [you, walker]}
     m = re.fullmatch(r"(?P<c>combat |noncombat )?damage is dealt to (?P<p>you|an opponent|a player)", c)
     if m:
         return {"subject": "player", "player": _PLAYERS[m["p"]], "event": "dealt_damage", "combat": {"combat ": True, "noncombat ": False}.get(m["c"] or "")}
