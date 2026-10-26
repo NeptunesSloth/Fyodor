@@ -798,6 +798,10 @@ def _cond_matches(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact:
 
         if not vampire_returns105.damage_match(plan, info.get("oid"), source_oid or plan.oid(watcher)):
             return False
+    if event == "die" and cond.get("damaged_by_kind110d"):  # 120.3, 700.4: this turn a permanent of that subtype, under the watcher's controller, dealt it damage
+        if not any(f.kind == "damaged" and f.amount > 0 and f.object_id == info.get("oid") and f.source_controller == you
+                   and cond["damaged_by_kind110d"] in (f.source_subtypes or ()) for f in plan.rules.turn_log.facts):
+            return False
     if event == 'die' and cond.get('damaged_by_host104'):
         from app.rules import damage_death104
 

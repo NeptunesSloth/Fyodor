@@ -33,6 +33,8 @@ DIVINER = ("Whenever one or more other creatures you control enter, if they ente
 JIN3 = ("III — You may cast any number of spells from your hand without paying their mana costs. Exile this Saga, then return it to the battlefield.")
 KITESAIL = ("When this creature enters, for each player, choose up to one other target artifact or creature that player controls. For as long as this creature "
             'remains on the battlefield, the chosen permanents become Treasure artifacts with "{T}, Sacrifice this artifact: Add one mana of any color" and lose all other abilities.')
+SHELOB = ("Whenever another creature dealt damage this turn by a Spider you controlled dies, create a token that's a copy of that creature, except it's a Food artifact "
+          'with "{2}, {T}, Sacrifice this token: You gain 3 life," and it loses all other card types.')
 DACK = "Whenever you cast a spell that targets one or more permanents, gain control of those permanents."
 
 
@@ -119,6 +121,8 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
             d["effects"] = [{**x, "types": ["Artifact"], "artifact_types": ["Treasure"], "abilities": ["{T}, Sacrifice this artifact: Add one mana of any color"]}
                             if x.get("do") == "become" else x for x in d["effects"]]
         return d
+    if ability.text == SHELOB:  # 707.9b the copy is a Food artifact only (the quoted comma belongs to the sentence, not the ability); 700.4 look back (events.py)
+        return scripts.define(replace(ability, text=SHELOB.replace("life,\"", "life\"")), ch)
     if ability.text == DACK:  # Dack Fayden's emblem (114.1): the cast event's targets (115.9b: departed ones are ignored), permanently
         cond = events.parse_condition("you cast a spell that targets one or more permanents")
         assert cond is not None
