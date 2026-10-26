@@ -10,8 +10,8 @@ from app.rules.sticker_sheets101 import SHEETS
 from tests.game_helpers import act, deck, enable
 from tests.test_rules_designations import find, put
 from tests.test_rules_sticker_effects101 import FixedSheetRng, cast, pick, question
-from tests.test_rules_wave110i_s11b import EXTRA, _settle, cards  # noqa: F401
 from tests.test_rules_wave12a_counters_keywords import real
+from tests.test_rules_wave110i_s11b import EXTRA, _settle, cards  # noqa: F401
 from tests.wave9c_kit import check
 from tests.wave100c_kit import to_phase
 

@@ -10,7 +10,7 @@ import pytest
 from app.game.state import StickerDefinition101, StickerPlacement101
 from app.rules import coverage
 from tests.game_helpers import act
-from tests.wave110b_kit import build, card_named, ch, check, put, repository
+from tests.wave110b_kit import build, card_named, ch, put, repository
 
 
 @pytest.fixture()
