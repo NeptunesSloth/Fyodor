@@ -265,6 +265,17 @@ def _zimone() -> Any:
     return [base[0][0], {"do": "zimone110h"}, base[0][2]], base[1], base[2]
 
 
+def _snare() -> Any:
+    """Selective Snare: X targets of one creature type, chosen as it is cast (601.2c). ponytail: read as "X target creatures that share a creature type" (the same
+    legal target sets at cast; on resolution the targets must still share some type, not specifically the chosen one)."""
+    from app.rules import scripts
+
+    got = scripts.parse_effects("Return X target creatures to their owners' hands.")
+    if got is None or len(got[1]) != 1:
+        return None
+    return got[0], [{**got[1][0], "shares": "creature_type"}], got[2]
+
+
 def _episode() -> Any:
     return [{"do": "episode110h", "who": "target"}], "player", False
 
@@ -511,6 +522,7 @@ def excess_reflex(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
 
 
 BUILDERS = {
+    "Return X target creatures of the creature type of your choice to their owner's hand.": _snare,
     "Look at the top five cards of your library. You may reveal up to two creature and/or land cards from among them, then put the rest on the bottom of your "
     "library in a random order. Put all land cards revealed this way onto the battlefield tapped and put all creature cards revealed this way into your hand.": _zimone,
     "For each permanent type, return up to one card of that type from your graveyard to the battlefield. You lose 3 life for each card returned this way. "
