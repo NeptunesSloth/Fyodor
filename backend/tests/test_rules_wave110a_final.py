@@ -9,7 +9,7 @@ from app.game.errors import ActionError
 from tests.test_rules_wave30p_combat import three
 from tests.wave110a_kit import *
 
-NAMES = ["Ice Cave", "Damping Engine", "Chaotic Transformation", "Grime Gorger", "Uldaros Theorix", "Dark Intimations", "Exterminator Magmarch"]
+NAMES = ["Ice Cave", "Damping Engine", "Chaotic Transformation", "Grime Gorger", "Uldaros Theorix", "Dark Intimations", "Exterminator Magmarch", "Threefold Signal", "Deification"]
 
 
 @pytest.fixture()
@@ -366,4 +366,78 @@ def test_magmarch_ignores_a_spell_that_targets_a_player_or_two_things(cards):
     cast(s, "Shock", targets=["p2"], pay=False)  # a player: not a nonland permanent
     answer(s)
     assert s.state.cards[birds.id].zone == "p3:battlefield" and life(s, "p2") == 38
+    check(s)
+
+
+def test_threefold_signal_gives_replicate_three_to_spells_of_exactly_three_colors(cards):
+    """702.56a, ruling 2022-04-29: Woolly Thoctar (red, green and white) cast with one replicate payment of {3} makes one copy, a token; Grizzly Bears (one color) gets none."""
+    s = build(cards, ["Threefold Signal", "Woolly Thoctar", "Grizzly Bears"])
+    put(s, "Threefold Signal")
+    c = to_hand(s, "Woolly Thoctar")
+    fund(s, "{R}{G}{W}{3}")
+    act(s, "p1", type="cast_spell", card_id=c.id, kicker=1)
+    answer(s)
+    assert sum(1 for x in s.state.cards.values() if x.name == "Woolly Thoctar" and x.zone == "p1:battlefield") == 2
+    b = to_hand(s, "Grizzly Bears")
+    fund(s, "{1}{G}{3}")
+    with pytest.raises(ActionError):
+        act(s, "p1", type="cast_spell", card_id=b.id, kicker=1)
+    check(s)
+
+
+def _deification(cards, chosen="Jace", creature=True, loyalty=2):
+    s = build(cards, ["Deification", "Jace Beleren", "Karn Liberated", "Llanowar Elves", "Shock"], ["Shock"])
+    cast(s, "Deification")
+    answer(s, chosen)
+    for n in ("Jace Beleren", "Karn Liberated"):
+        w = put(s, n)
+        act(s, "p1", type="set_counter", card_id=w.id, kind="loyalty", value=loyalty)
+    if creature:
+        put(s, "Llanowar Elves")
+    return s, card_named(s, "Jace Beleren"), card_named(s, "Karn Liberated")
+
+
+def _shock(s, target, pid="p1"):
+    fund(s, "{R}", pid)
+    cast(s, "Shock", targets=[target.id], pid=pid, pay=False)
+    answer(s)
+
+
+def test_deification_records_the_chosen_type_and_all_but_one_loyalty_counter_is_removed(cards):
+    """Deification: Alice chooses Jace; with a creature, Shock (2) at her Jace Beleren (2 loyalty) leaves it at 1 (the damage is still dealt)."""
+    s, jace, karn = _deification(cards)
+    assert card_named(s, "Deification").choices.get("Chosen planeswalker type") == "Jace"
+    _shock(s, jace)
+    assert s.state.cards[jace.id].zone == "p1:battlefield" and _loyalty(s, jace) == 1
+    check(s)
+
+
+@pytest.mark.parametrize(("chosen", "creature"), [("Jace", False), ("Chandra", True)])
+def test_deification_does_not_apply_without_a_creature_or_for_another_type(cards, chosen, creature):
+    s, jace, karn = _deification(cards, chosen, creature)
+    _shock(s, jace)
+    assert s.state.cards[jace.id].zone == "p1:graveyard"
+    check(s)
+
+
+def test_deification_normal_damage_that_leaves_loyalty_is_unchanged(cards):
+    s, jace, karn = _deification(cards, loyalty=5)
+    _shock(s, jace)
+    assert _loyalty(s, jace) == 3
+    check(s)
+
+
+def test_deification_gives_chosen_type_planeswalkers_hexproof(cards):
+    """Bob can't target Alice's Jace Beleren with Shock (hexproof) but can target her Karn (not the chosen type)."""
+    s, jace, karn = _deification(cards, loyalty=4)
+    act(s, "p2", type="set_stops", own=STEPS, others=STEPS, smart_pass=False)
+    act(s, "p1", type="pass_priority")  # (Bob gets priority in Alice's main phase)
+    assert s.state.rules.priority == "p2"
+    fund(s, "{R}", "p2")
+    c = to_hand(s, "Shock", "p2")
+    with pytest.raises(ActionError, match="legal|target"):
+        act(s, "p2", type="cast_spell", card_id=c.id, targets=[jace.id])
+    act(s, "p2", type="cast_spell", card_id=c.id, targets=[karn.id])
+    answer(s)
+    assert _loyalty(s, karn) == 2
     check(s)

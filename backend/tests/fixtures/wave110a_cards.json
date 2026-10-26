@@ -2724,5 +2724,54 @@
   "keywords": [],
   "power": "0",
   "toughness": "0"
+ },
+ {
+  "name": "Threefold Signal",
+  "layout": "normal",
+  "mana_cost": "{3}",
+  "cmc": 3.0,
+  "type_line": "Artifact",
+  "oracle_text": "When this artifact enters, scry 3.\nEach spell you cast that's exactly three colors has replicate {3}. (When you cast it, copy it for each time you paid its replicate cost. You may choose new targets for the copies. A copy of a permanent spell becomes a token.)",
+  "colors": [],
+  "color_identity": [],
+  "keywords": [
+   "Scry"
+  ]
+ },
+ {
+  "name": "Woolly Thoctar",
+  "layout": "normal",
+  "mana_cost": "{R}{G}{W}",
+  "cmc": 3.0,
+  "type_line": "Creature — Beast",
+  "oracle_text": "",
+  "colors": [
+   "G",
+   "R",
+   "W"
+  ],
+  "color_identity": [
+   "G",
+   "R",
+   "W"
+  ],
+  "keywords": [],
+  "power": "5",
+  "toughness": "4"
+ },
+ {
+  "name": "Deification",
+  "layout": "normal",
+  "mana_cost": "{1}{W}",
+  "cmc": 2.0,
+  "type_line": "Enchantment",
+  "oracle_text": "As this enchantment enters, choose a planeswalker type.\nPlaneswalkers you control of the chosen type have hexproof.\nAs long as you control a creature, if damage dealt to a planeswalker you control of the chosen type would result in all loyalty counters on it being removed, instead all but one of those counters are removed.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": []
  }
 ]

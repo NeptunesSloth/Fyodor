@@ -24,6 +24,12 @@ INTIMATIONS_SPELL = ("Each opponent sacrifices a creature or planeswalker of the
 INTIMATIONS_CAST = ("When you cast a Bolas planeswalker spell, exile this card from your graveyard. That planeswalker enters with an additional loyalty counter on it.")
 MAGMARCH = ("Whenever you cast an instant or sorcery spell that targets only a single nonland permanent an opponent controls, if another opponent controls one or more "
             "nonland permanents that spell could target, choose one of those permanents. Copy that spell. The copy targets the chosen permanent.")
+THREEFOLD = "Each spell you cast that's exactly three colors has replicate {3}."
+DEIF_CHOICE = "As ~ enters, choose a planeswalker type."
+DEIF_HEXPROOF = "Planeswalkers you control of the chosen type have hexproof."
+DEIF_LOYALTY = ("As long as you control a creature, if damage dealt to a planeswalker you control of the chosen type would result in all loyalty counters on it being removed, "
+                "instead all but one of those counters are removed.")
+PW_LABEL = "Chosen planeswalker type"
 ICE_CAVE = "Whenever a player casts a spell, any other player may pay that spell's mana cost. If a player does, counter the spell."
 
 
@@ -31,6 +37,23 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
     from app.rules import scripts
 
     text = scripts.self_text(ability.text, ch.name)
+    if text == DEIF_CHOICE:  # 614.12a: the choice is made before it enters, recorded on it like a chosen creature type
+        return {"kind": "replacement", "replacement": "enters_choice", "effects": [{"do": "choose_value", "who": "you", "what": "planeswalker type", "remember": True}]}
+    if text == DEIF_HEXPROOF:  # 205.3j: the chosen planeswalker type, read by selectors.matches ("chosen_pw110a")
+        from app.rules import selectors
+
+        d = scripts.define(replace(ability, text="Other creatures you control have hexproof."), ch)
+        if d is None or d.get("static") != "grant":
+            return None
+        return {**d, "who": selectors.Selector(types=("Planeswalker",), controller="you", extras=("chosen_pw110a",)).key()}
+    if text == DEIF_LOYALTY:  # read by replace.apply_damage (deification)
+        return {"kind": "static", "static": "deification110a", "effects": []}
+    if text == THREEFOLD:  # 702.56a, ruling 2022-04-29: the same grant as Hatchery Sliver's (wave110a_grants.with_replicate) for spells of exactly three colors (105.1)
+        from app.rules import selectors
+
+        sel = selectors.parse("spell")
+        return None if sel is None else {"kind": "static", "static": "spell_replicate110a", "kw": "Replicate {3}", "effects": [],
+                                         "filter": replace(sel, compare=(("color_count", "==", 3),)).key()}
     if text == MAGMARCH:  # the intervening "if" is read as it triggers (cond other_opp110a, triggers.py) and as it resolves (the primitive)
         d = scripts.define(replace(ability, text="Whenever you cast an instant or sorcery spell that targets only a single nonland permanent an opponent controls, "
                                                  "copy that spell. You may choose new targets for the copy."), ch)
@@ -210,6 +233,41 @@ def entering_loyalty(plan: Plan, card: CardInstance) -> int:
 
     rec = mana_units.record_of(plan, card)
     return 0 if rec is None else sum(1 for r in rec.mana_riders if r["kind"] == "loyalty110a")
+
+
+def pw_options(plan: Plan) -> list[str]:
+    """205.3j: every planeswalker type (the known ones and any a planeswalker in this game has)."""
+    from app.rules import selectors
+
+    found = set(selectors.PLANESWALKER_TYPES)
+    for c in plan.state.cards.values():
+        if "Planeswalker" in plan.ch(c).types:
+            found |= plan.ch(c).subtypes
+    return sorted(found)
+
+
+def chosen_pw(plan: Plan, card: CardInstance, ch: Any, source: str | None) -> bool:
+    src = plan.state.cards.get(source or "")
+    kind = src.choices.get(PW_LABEL) if src is not None else None
+    return bool(kind) and kind in ch.subtypes
+
+
+def deification(plan: Plan, walkers: dict[str, int]) -> None:
+    """Deification (rulings 2023-05-12): damage is still dealt (lifelink and the like happen); only the loyalty removal changes, from all counters to all but one, for a
+    planeswalker its controller has of the chosen type while they control a creature."""
+    from app.rules import scripts
+
+    for key, n in walkers.items():
+        card = plan.state.cards.get(key)
+        have = card.counters.get("loyalty", 0) if card is not None else 0
+        if card is None or not have or n < have:
+            continue
+        ch = plan.ch(card)
+        if any(src.controller == card.controller and src.zone.endswith(":battlefield") and chosen_pw(plan, card, ch, src.id)
+               and any(d.get("static") == "deification110a" for d in scripts.definitions(plan.ch(src)).values())
+               and any(c.controller == card.controller and c.zone.endswith(":battlefield") and plan.ch(c).is_creature for c in plan.state.cards.values())
+               for src in plan.state.cards.values()):
+            walkers[key] = have - 1
 
 
 def _assignable(plan: Plan, cards: list[str]) -> bool:

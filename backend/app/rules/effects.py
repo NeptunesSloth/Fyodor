@@ -4717,6 +4717,10 @@ def _choice_options(plan: Plan, ctx: Context, what: str) -> list[DecisionOption]
         return copying.entry_options(plan, ctx["controller"], what, ctx.get("source_card"))  # (wave 5F: the entering card)
     if what == "creature type":
         return [DecisionOption(id=t, label=t) for t in sorted(CREATURE_TYPES)]
+    if what == "planeswalker type":  # -- (wave 110A) -- Deification (205.3j)
+        from app.rules import wave110a_final
+
+        return [DecisionOption(id=t, label=t) for t in wave110a_final.pw_options(plan)]
     if what == "number":  # -- chosen filters (wave 53B) -- 107.1b-c: any number, offered up to NUMBER_TOP; the instruction's own range narrows it (``options``)
         from app.rules import chosen as _chosen
 
@@ -7360,3 +7364,4 @@ from app.rules import wave110c_koh as _wave110c_koh  # noqa: E402, I001  -- (wav
 
 PRIMITIVES.update(_wave110c_koh.PRIMITIVES)
 RESUME.update(_wave110c_koh.RESUME)
+CHOICE_LABELS["planeswalker type"] = "Chosen planeswalker type"  # -- (wave 110A) -- Deification
