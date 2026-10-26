@@ -378,6 +378,25 @@ def _booby_trigger(d: Def) -> Def:
 _BUILD[_BOOBY_TRIGGER] = ("Whenever a player draws a card, sacrifice this artifact. If you do, this artifact deals 10 damage to that player.", _booby_trigger)
 _BUILD[_BOOBY_REVEAL] = ("Players have no maximum hand size.", lambda d: {"kind": "static", "static": BOOBY_RULE, "effects": []})
 
+_KAYLA = ("{4}, {T}: Discard all the cards in your hand, then draw that many cards. You may choose an artifact or creature card with mana value 1 you discarded this way, "
+          "then do the same for artifact or creature cards with mana values 2 and 3. Return those cards to the battlefield. Activate only as a sorcery.")
+
+
+def _kayla(d: Def) -> Def:
+    """Queen Kayla bin-Kroog: up to one discarded artifact or creature card for each of the mana values 1, 2 and 3 — up to three cards with different mana values from
+    those 1 to 3 — returned together (so one event, 603.2c); the discarded cards are public (404.2)."""
+    from app.rules import selectors
+
+    discard, draw, _, back = d["effects"]
+    refs, _, sel_key = back["who"].partition("|")
+    sel = selectors.from_key(sel_key)
+    wide = replace(sel, compare=(("mv", ">=", 1), ("mv", "<=", 3))).key()
+    return {**d, "effects": [discard, draw, {**back, "who": f"{refs}|{wide}", "n": 3, "upto": True, "different": "mana value"}]}
+
+
+_BUILD[_KAYLA] = ("{4}, {T}: Discard your hand, then draw that many cards. You may return an artifact or creature card with mana value 1 discarded this way to the battlefield. "
+                  "Activate only as a sorcery.", _kayla)
+
 _FACES = ("Whenever a creature dies, tap all untapped creatures that share a creature type with it or untap all tapped creatures that share a creature type with it.")
 _BUILD[_FACES] = ("Whenever a creature dies, draw a card.", lambda d: {**d, "effects": [{"do": "faces110m"}]})
 

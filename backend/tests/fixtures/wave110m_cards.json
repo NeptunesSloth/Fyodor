@@ -610,5 +610,35 @@
 "colors": [],
 "color_identity": [],
 "keywords": []
+},
+{
+"name": "Queen Kayla bin-Kroog",
+"layout": "normal",
+"mana_cost": "{1}{R}{W}",
+"cmc": 3.0,
+"type_line": "Legendary Creature — Human Noble",
+"oracle_text": "{4}, {T}: Discard all the cards in your hand, then draw that many cards. You may choose an artifact or creature card with mana value 1 you discarded this way, then do the same for artifact or creature cards with mana values 2 and 3. Return those cards to the battlefield. Activate only as a sorcery.",
+"colors": [
+"R",
+"W"
+],
+"color_identity": [
+"R",
+"W"
+],
+"keywords": [],
+"power": "2",
+"toughness": "3"
+},
+{
+"name": "Mind Stone",
+"layout": "normal",
+"mana_cost": "{2}",
+"cmc": 2.0,
+"type_line": "Artifact",
+"oracle_text": "{T}: Add {C}.\n{1}, {T}, Sacrifice this artifact: Draw a card.",
+"colors": [],
+"color_identity": [],
+"keywords": []
 }
 ]

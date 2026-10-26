@@ -9,6 +9,8 @@ from __future__ import annotations
 
 import pytest
 
+from app.game.errors import ActionError
+
 from tests.wave36a_kit import ready, to_turn_of
 from tests.wave110m_kit import *
 
@@ -309,4 +311,38 @@ def test_booby_trap_ignores_the_named_card_drawn_by_a_player_who_was_not_chosen(
     act(s, "p1", type="draw", player="p1", count=1)
     answer(s)
     assert mine.id in s.state.zones["p1:hand"] and s.state.cards[trap.id].zone == "p1:battlefield" and life(s, "p1") == 40
+    check(s)
+
+
+# -- Queen Kayla bin-Kroog -------------------------------------------------------------------------------------------------------------------
+KAYLA = "Queen Kayla bin-Kroog"
+test_kayla_full = full_test([KAYLA])
+
+
+def kayla_table(cards):
+    names = ["Llanowar Elves", "Mother of Runes", "Grizzly Bears", "Hill Giant", "Sol Ring", "Mind Stone"]
+    s = build(cards, [KAYLA, *names], forests=20)
+    kayla = put(s, KAYLA)
+    ready(s, KAYLA)
+    hand = [to_hand(s, n) for n in names]
+    fund(s, "{4}")
+    act(s, "p1", type="activate_ability", card_id=kayla.id, ability=0)
+    return s, kayla, {c.name: c.id for c in hand}
+
+
+def test_kayla_discards_the_hand_draws_that_many_and_returns_one_card_for_each_mana_value(cards):
+    s, kayla, ids = kayla_table(cards)
+    for _ in range(10):
+        d = s.state.rules.decision
+        if d is not None:
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+    assert d is not None and {o.id for o in d.options} == {ids[n] for n in ("Llanowar Elves", "Mother of Runes", "Grizzly Bears", "Sol Ring", "Mind Stone")}  # (not Hill Giant: mana value 4)
+    with pytest.raises(ActionError):
+        act(s, "p1", type="choose", decision_id=d.id, option_ids=[ids["Llanowar Elves"], ids["Mother of Runes"]])  # two with mana value 1
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[ids["Llanowar Elves"], ids["Grizzly Bears"]])
+    answer(s)
+    assert s.state.cards[ids["Llanowar Elves"]].zone == "p1:battlefield" and s.state.cards[ids["Grizzly Bears"]].zone == "p1:battlefield"
+    assert all(s.state.cards[ids[n]].zone == "p1:graveyard" for n in ("Mother of Runes", "Hill Giant", "Sol Ring", "Mind Stone"))
+    assert len(s.state.zones["p1:hand"]) == 6  # (drew as many as were discarded)
     check(s)
