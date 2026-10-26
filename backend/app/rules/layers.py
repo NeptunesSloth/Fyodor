@@ -1021,6 +1021,10 @@ def _derive(state: GameState, card: CardInstance, ch: Characteristics, info: Car
     from app.rules.characteristics import provenance
 
     ch = provenance(card, ch)
+    if state.rules is not None and state.rules.commander_color110f:  # -- wave 110F -- Faceless One: a characteristic-defining color (604.3)
+        from app.rules import wave110f_cmd
+
+        ch = wave110f_cmd.color(state, card, ch)
     ch = replace(ch, on_battlefield=card.zone.endswith(":battlefield"),
                  object_counters=frozenset(k for k, n in card.counters.items() if n > 0),
                  object_ring_bearer=bool(state.rules and card.zone.endswith(":battlefield")

@@ -406,6 +406,12 @@ def vapors(plan: Any, ctx: dict[str, Any], e: dict[str, Any], st: dict[str, Any]
     return effects._discard_next(plan, ctx, 0, [], st["toss"], None)
 
 
+def resume_cmd_color(plan: Any, d: Any, chosen: list[str]) -> None:
+    from app.rules import wave110f_cmd
+
+    wave110f_cmd.resume(plan, d, chosen)
+
+
 def resume_manual(plan: Any, d: Any, chosen: list[str]) -> None:
     from app.rules import effects
 
@@ -503,7 +509,7 @@ REWRITES = {
                 "it deals 6 damage to each creature it blocked this combat.": "~ deals 6 damage to each creature blocked by it.",
 }
 PRIMITIVES: dict[str, Any] = {"barrier_direction110f": barrier_direction, "remove_enchantments110f": remove_enchantments, "same_colors110f": same_colors, "phase_swap110f": phase_swap, "exile_discarded110f": exile_discarded, "turn_up_choice110f": turn_up_choice, "reveal_chroma110f": reveal_chroma, "unlock110f": unlock, "vapors110f": vapors, "worms110f": worms}
-RESUME: dict[str, Any] = {"vapors110f": resume_vapors, "manual110f": resume_manual, "worms110f": resume_worms, "turn_up_choice110f": resume_turn_up, "reveal_chroma110f": resume_reveal_chroma, "unlock110f": resume_unlock}
+RESUME: dict[str, Any] = {"cmd_color110f": resume_cmd_color, "vapors110f": resume_vapors, "manual110f": resume_manual, "worms110f": resume_worms, "turn_up_choice110f": resume_turn_up, "reveal_chroma110f": resume_reveal_chroma, "unlock110f": resume_unlock}
 
 
 # 905.2 / 103.6: nothing is drafted in Commander, so these cards never have a card, note or chosen color (app/rules/draft_only.py).
@@ -657,8 +663,10 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
     """Essence of the Wild: the static is read at entry (copying.entering -> :func:`copy_on_entry`), it has no effect of its own."""
     from dataclasses import replace
 
-    from app.rules import scripts, wave110f_sac
+    from app.rules import scripts, wave110f_cmd, wave110f_sac
 
+    if (cmd110f := wave110f_cmd.definition(ability, ch)) is not None:  # Faceless One, The Prismatic Piper
+        return cmd110f
     if (sac110f := wave110f_sac.definition(ability, ch)) is not None:  # Brutal Suppression, Drought
         return sac110f
     text = scripts.self_text(ability.text, ch.name)
@@ -856,3 +864,8 @@ def damage_colors(plan: Any, ch: Any) -> Any:
 PRIMITIVES["draw_up_to110f"] = draw_up_to
 PRIMITIVES["edict_match110f"] = edict_match
 RESUME.update({"draw_up_to110f": resume_draw_up_to, "chooser110f": resume_chooser, "cast_modes_opp110f": resume_modes})
+
+from app.rules import wave110f_gy as _wave110f_gy  # noqa: E402  -- Cemetery Desecrator (wave 110F) --
+
+PRIMITIVES.update(_wave110f_gy.PRIMITIVES)
+RESUME.update(_wave110f_gy.RESUME)

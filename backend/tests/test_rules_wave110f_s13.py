@@ -21,7 +21,7 @@ from tests.test_rules_wave100n_multi import (
     card_db,  # noqa: F401  (fixture DB with EXTRA)
     cast,
 )
-from tests.wave9c_kit import build, check, life, mana, put, to_hand
+from tests.wave9c_kit import build, check, life, mana, pt, put, to_hand
 from tests.wave36a_kit import ready
 
 _BRUTAL = 'Activated abilities of nontoken Rebels cost an additional "Sacrifice a land" to activate.'
@@ -43,7 +43,16 @@ _ADD = [
     real('Test Swamp Mana 110F', '{1}', 1, 'Artifact', "{B}, {T}: Add {B}{B}.", None, ''),
 ]
 _BASE.extend(_ADD)
-NAMES = ["Brutal Suppression", "Drought"]
+_DESECRATOR = ("Menace\nWhen this creature enters or dies, exile another card from a graveyard. When you do, choose one \u2014\n"
+               "\u2022 Remove X counters from target permanent, where X is the mana value of the exiled card.\n"
+               "\u2022 Target creature an opponent controls gets -X/-X until end of turn, where X is the mana value of the exiled card.")
+_BASE.extend([
+    real('Cemetery Desecrator', '{4}{B}{B}', 6, 'Creature \u2014 Zombie', _DESECRATOR, ('4', '4'), 'B'),
+    real('Test Three 110F', '{2}{G}', 3, 'Creature \u2014 Elf', '', ('1', '1'), 'G'),
+    real('Test Doom 110F', '{B}', 1, 'Instant', 'Destroy target creature.', None, 'B'),
+    real('Test Big 110F', '{3}', 3, 'Creature \u2014 Golem', '', ('5', '5'), ''),
+])
+NAMES = ["Brutal Suppression", "Drought", "Cemetery Desecrator"]
 
 
 @pytest.mark.parametrize("name", NAMES)
@@ -146,3 +155,89 @@ def test_drought_mana_ability_and_cycling_with_black_symbols_are_refused(cards):
     with pytest.raises(ActionError, match="Drought"):
         act(s, "p1", type="activate_ability", card_id=cyc.id, ability=ability_index(s, cyc, "Cycling"))
     assert _zone(s, cyc) == "p1:hand"
+
+
+
+def _desecrate(cards, mine=(), theirs=()):
+    s = build(cards, ["Cemetery Desecrator", "Test Three 110F", *mine], ["Test Three 110F", "Test Big 110F", *theirs])
+    mana(s, B=2, C=4)
+    return s
+
+
+def _gy(s, name, pid):
+    c = next(c for c in s.state.cards.values() if c.name == name and c.owner == pid)
+    act(s, pid, type="move", card_ids=[c.id], to={"player": pid, "zone": "graveyard"})
+    return c
+
+
+def _next(s):
+    """Pass priority until a decision is asked (returned)."""
+    for _ in range(20):
+        if s.state.rules.decision is not None:
+            return s.state.rules.decision
+        act(s, s.state.rules.priority, type="pass_priority")
+    raise AssertionError("no decision")
+
+
+def _pick(s, label=None, card=None):
+    d = _next(s)
+    ids = [o.id for o in d.options if (label is None or label in o.label) and (card is None or o.card_id == card)][:1]
+    assert ids, [o.label for o in d.options]
+    act(s, d.player, type="choose", decision_id=d.id, option_ids=ids)
+
+
+def _power(s, c):
+    return pt(s, c.name, c.owner)
+
+
+def test_desecrator_enters_exile_then_minus_x(cards):
+    """603.12, 608.2h: X is the exiled card's mana value (3): the chosen opposing creature gets -3/-3; the exiled card is in exile."""
+    s = _desecrate(cards)
+    gone = _gy(s, "Test Three 110F", "p2")
+    big = put(s, "Test Big 110F", "p2")
+    cast(s, "Cemetery Desecrator")
+    _pick(s, "-X/-X")
+    _pick(s, card=big.id)
+    answer(s)
+    assert _zone(s, gone) == "p2:exile" and _power(s, big) == (2, 2)  # 5/5 with -3/-3
+    check(s)
+
+
+def test_desecrator_remove_x_counters_and_the_pick_among_graveyards(cards):
+    """Two cards in graveyards: the controller picks (608.2d); X = 3 counters come off the chosen permanent (two of five stay), the other card stays."""
+    s = _desecrate(cards, mine=("Test Big 110F",))
+    three, big_gy = _gy(s, "Test Three 110F", "p1"), _gy(s, "Test Big 110F", "p2")
+    stay = put(s, "Test Big 110F", "p1")
+    act(s, "p1", type="set_counter", card_id=stay.id, kind="+1/+1", value=5)
+    cast(s, "Cemetery Desecrator")
+    _pick(s, card=three.id)  # which graveyard card
+    _pick(s, "Remove X")
+    _pick(s, card=stay.id)
+    answer(s)
+    assert _zone(s, three) == "p1:exile" and _zone(s, big_gy) == "p2:graveyard"
+    assert s.state.cards[stay.id].counters.get("+1/+1") == 2
+    check(s)
+
+
+def test_desecrator_nothing_to_exile_means_no_reflexive_trigger(cards):
+    s = _desecrate(cards)
+    cast(s, "Cemetery Desecrator")
+    answer(s)
+    assert s.state.rules.decision is None and not s.state.zones.get("stack")
+    check(s)
+
+
+def test_desecrator_dies_exiles_another_card_never_itself(cards):
+    s = build(cards, ["Cemetery Desecrator", "Test Three 110F", "Test Doom 110F"], ["Test Three 110F", "Test Big 110F"])
+    mana(s, B=4, C=4)
+    big = put(s, "Test Big 110F", "p2")
+    des = put(s, "Cemetery Desecrator")
+    answer(s)  # its enters trigger finds no other card
+    gone = _gy(s, "Test Three 110F", "p2")
+    cast(s, "Test Doom 110F", [des.id])
+    _pick(s, card=gone.id)  # the Doom is in a graveyard too; the Desecrator itself is no choice (it is "another card")
+    _pick(s, "-X/-X")
+    _pick(s, card=big.id)
+    answer(s)
+    assert _zone(s, gone) == "p2:exile" and _zone(s, des) == "p1:graveyard" and _power(s, big) == (2, 2)
+    check(s)

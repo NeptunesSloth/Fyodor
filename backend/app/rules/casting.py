@@ -77,7 +77,9 @@ MAIN_PHASES = ("main1", "main2")
 def commander_identity(state: GameState, player: str, info: CardInfo) -> tuple[str, ...]:
     def work() -> tuple[str, ...]:
         commanders = [info.get(c.card_id) for c in state.cards.values() if c.owner == player and c.commander_key and c.card_id]
-        return cmdr.deck_identity([d for d in commanders if d])  # the same identity the deck checks use
+        from app.rules import wave110f_cmd  # -- wave 110F -- 903.4: a commander's chosen color (Faceless One)
+
+        return wave110f_cmd.identity(state, player, cmdr.deck_identity([d for d in commanders if d]))  # the same identity the deck checks use
 
     return read_pass.once(state, info, ("commander_identity", player), work)  # (wave 29A: once per read-only pass)
 
