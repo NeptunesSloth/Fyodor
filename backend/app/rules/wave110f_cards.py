@@ -52,6 +52,44 @@ def _fires() -> Parsed:
     return json.loads(json.dumps(effects).replace("att@pron", "att@target")), targets, optional
 
 
+_TYPES = ("Artifact", "Creature", "Enchantment", "Land", "Planeswalker")
+
+
+def _release() -> Parsed:
+    """Release: one permanent of each type, of their choice (101.4: APNAP, each knowing the earlier choices), all sacrificed at once (701.21a). One permanent can be
+    sacrificed only once, so it fills one kind (the Structural Collapse reading); a player must fill as many kinds as they can (matching, below)."""
+    from app.rules import selectors
+
+    kinds = [selectors.Selector(types=(k,)).key() for k in _TYPES]
+    return [{"do": "edict_match110f", "who": "each_player", "sels": kinds, "labels": [k.lower() for k in _TYPES], "n": 1, "sel": kinds[0], "label": "permanent"}], None, False
+
+
+def edict_match(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
+    from app.rules import effects
+
+    who = effects._players(plan, ctx, e["who"])
+    return effects._choose_next(plan, ctx, {**e, "matching110f": True}, [(p, k) for p in plan.apnap() if p in who for k in e["sels"]], [], "edict")
+
+
+def _most(sets: list[set[str]]) -> int:
+    """The most distinct objects that can fill the kinds (one each): sets[i] are the objects fit for kind i."""
+    if not sets:
+        return 0
+    first, rest = sets[0], sets[1:]
+    return max([_most(rest), *(1 + _most([s - {c} for s in rest]) for c in first)])
+
+
+def matching(plan: Any, ctx: Any, e: dict[str, Any], pid: str, mine: list[str], picked: list[str], later: list[str]) -> list[str]:
+    """effects._choose_next (edict_match110f): the permanents that still let this player fill as many kinds as they can (an object fills one kind only)."""
+    from app.rules import effects
+
+    taken = set(picked)
+    now = {c for c in mine if c not in taken}
+    after = [set(effects._controlled(plan, k, pid, ctx.get("source_card"))) - taken for k in later]
+    best = _most([now, *after])
+    return [c for c in mine if c in now and 1 + _most([s - {c} for s in after]) == best]
+
+
 def _taunt() -> Parsed:
     """Taunt: for the target player's next turn (611.2a, restrict ``their_turn``), their creatures, those arriving later too (611.2c), attack the
     controller if able (508.1d; ``attack_player``, as encore's tokens)."""
@@ -289,6 +327,7 @@ def _snitch() -> Parsed:
 
 
 BUILDERS: dict[str, Callable[[], Parsed | None]] = {
+    "Each player sacrifices an artifact, a creature, an enchantment, a land, and a planeswalker of their choice.": _release,
     "it deals 2 damage to target creature an opponent controls. Destroy all Equipment attached to that creature.": _fires,
     "Destroy up to two target creatures the chosen player controls. They can't be regenerated. The chosen player draws up to three cards.": lambda: _lore(),
     "Target creature loses protection from black until end of turn.": _snitch,
@@ -642,4 +681,5 @@ def damage_colors(plan: Any, ch: Any) -> Any:
 
 
 PRIMITIVES["draw_up_to110f"] = draw_up_to
+PRIMITIVES["edict_match110f"] = edict_match
 RESUME.update({"draw_up_to110f": resume_draw_up_to, "chooser110f": resume_chooser, "cast_modes_opp110f": resume_modes})

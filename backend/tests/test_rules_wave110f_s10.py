@@ -3,6 +3,7 @@
 * 702.33c: "As an additional cost to cast this spell, you may pay {1}{G} any number of times." + "3 life plus an additional 3 life for each additional {1}{G} you paid" (Taste of Paradise).
 * 704.3, 701.8a, 603.7c: "deals 2 damage to target creature an opponent controls. Destroy all Equipment attached to that creature." + "{2}{R}: Exile the top card of your library. You may play that card this turn. When you play a card this way, ~ deals 2 damage to each player." (Fires of Mount Doom).
 * 120.1, 603.4, 603.2: "Whenever combat damage is dealt to you or a planeswalker you control, if this card is in your graveyard, destroy target attacking creature, then put this card on top of your library." (Vengeful Pharaoh).
+* 101.4, 701.21a: "Each player sacrifices an artifact, a creature, an enchantment, a land, and a planeswalker of their choice." (Release of Catch // Release): one permanent fills one kind only; a player fills as many kinds as they can.
 * 601.2, 609.4b: "you may cast a creature spell from that player's graveyard this turn, and you may spend mana as though it were mana of any color" (Whispersteel Dagger).
 """
 
@@ -35,11 +36,21 @@ EXTRA = [
          "When Fires of Mount Doom enters, it deals 2 damage to target creature an opponent controls. Destroy all Equipment attached to that creature.\n{2}{R}: Exile the top card of your library. You may play that card this turn. When you play a card this way, Fires of Mount Doom deals 2 damage to each player.", None, 'R'),
     real('Vengeful Pharaoh', '{2}{B}{B}', 4, 'Creature — Zombie',
          "Deathtouch\nWhenever combat damage is dealt to you or a planeswalker you control, if this card is in your graveyard, destroy target attacking creature, then put this card on top of your library.", ('5', '4'), 'B'),
+    real('Test Golem 110F', '{4}', 4, 'Artifact Creature — Golem', '', ('2', '2'), ''),
+    real('Test Relic 110F', '{1}', 1, 'Artifact', '', None, ''),
+    real('Catch // Release', '{1}{U}{R} // {4}{R}{W}', 6, 'Sorcery // Sorcery',
+         "Gain control of target permanent until end of turn. Untap it. It gains haste until end of turn.\nFuse (You may cast one or both halves of this card from your hand.)\n//\n"
+         "Each player sacrifices an artifact, a creature, an enchantment, a land, and a planeswalker of their choice.\nFuse (You may cast one or both halves of this card from your hand.)", None, 'RUW')
+    | {"layout": "split", "card_faces": [
+        {"name": "Catch", "mana_cost": "{1}{U}{R}", "type_line": "Sorcery",
+         "oracle_text": "Gain control of target permanent until end of turn. Untap it. It gains haste until end of turn.\nFuse (You may cast one or both halves of this card from your hand)."},
+        {"name": "Release", "mana_cost": "{4}{R}{W}", "type_line": "Sorcery",
+         "oracle_text": "Each player sacrifices an artifact, a creature, an enchantment, a land, and a planeswalker of their choice.\nFuse (You may cast one or both halves of this card from your hand)."}]},
 ]
 _BASE.extend(EXTRA)
 
 
-@pytest.mark.parametrize("name", ["Whispersteel Dagger", "Taste of Paradise", "Fires of Mount Doom", "Vengeful Pharaoh"])
+@pytest.mark.parametrize("name", ["Whispersteel Dagger", "Taste of Paradise", "Fires of Mount Doom", "Vengeful Pharaoh", "Catch // Release"])
 def test_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
@@ -142,4 +153,34 @@ def test_pharaoh_also_triggers_when_a_planeswalker_you_control_is_dealt_combat_d
     act(s, "p2", type="declare_attackers", attackers=[{"card_id": bear.id, "target": jace.id}])
     answer(s)
     assert (s.state.cards[bear.id].zone, s.state.cards[pharaoh.id].zone) == ("p2:graveyard", "p1:library")
+    check(s)
+
+
+def _release(s):
+    mana(s, "p1", R=1, W=1, C=4)
+    cast(s, "Catch // Release", face=1)
+    answer(s)
+
+
+def test_release_each_player_sacrifices_one_permanent_per_type_they_have(cards):
+    """701.21a: Alice's Bear and Forest go, her Relic... she has none; Bob's Relic and Golem both go (the Golem fills "creature" since the Relic can fill "artifact")."""
+    s = build(cards, ["Catch // Release", "Grizzly Bears", "Grizzly Bears"], ["Test Golem 110F", "Test Relic 110F"], forests=20)
+    first = put(s, "Grizzly Bears")
+    second = next(c for c in s.state.cards.values() if c.name == "Grizzly Bears" and c.owner == "p1" and c.zone == "p1:library")
+    act(s, "p1", type="move", card_ids=[second.id], to={"player": "p1", "zone": "battlefield"})
+    bears = [first, second]
+    forest, golem, relic = put(s, "Forest"), put(s, "Test Golem 110F", "p2"), put(s, "Test Relic 110F", "p2")
+    _release(s)
+    z = lambda c: s.state.cards[c.id].zone  # noqa: E731
+    assert (z(golem), z(relic), z(forest)) == ("p2:graveyard", "p2:graveyard", "p1:graveyard")
+    assert sorted(z(b) for b in bears) == ["p1:battlefield", "p1:graveyard"]
+    check(s)
+
+
+def test_release_lone_artifact_creature_is_sacrificed_once(cards):
+    """701.21a: an artifact creature fills only one kind: with a second creature, that one goes too."""
+    s = build(cards, ["Catch // Release"], ["Test Golem 110F", "Grizzly Bears"], forests=20)
+    golem, bear = put(s, "Test Golem 110F", "p2"), put(s, "Grizzly Bears", "p2")
+    _release(s)
+    assert (s.state.cards[golem.id].zone, s.state.cards[bear.id].zone) == ("p2:graveyard", "p2:graveyard")
     check(s)
