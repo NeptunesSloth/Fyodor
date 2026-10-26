@@ -96,6 +96,9 @@ def _hew() -> Any:
             {"do": "rest_looked", "to": "bottom_random"}], None, False
 
 
+_VISION = ("Choose a land type and a basic land type. Each land of the first chosen type becomes the second chosen type until end of turn.")
+
+
 def parse(body: str) -> Any:
     """Exact spell bodies: the parts the grammar reads, joined with the card's own step."""
     from app.rules import scripts
@@ -106,6 +109,8 @@ def parse(body: str) -> Any:
         if parsed is not None and len(parsed[0]) == 2 and parsed[0][0].get("do") == "counter":
             effects, target, optional = parsed
             return [{**effects[0], "do": "decree110n"}, effects[1]], target, optional
+    if body.strip() == _VISION:
+        return [{"do": "vision110n"}], None, False
     if body.strip() == _HEW:
         return _hew()
     if body.strip() == _SWORD:
@@ -413,6 +418,43 @@ def _flayer(ability: Any, ch: Any) -> Def | None:
     return {**parts[0], "also": parts[1:]}
 
 
+def vision(plan: Any, ctx: Any, e: Def) -> bool:
+    """Vision Charm, mode 2: the controller names a land type (205.3i) and a basic land type; every land of the first type on the battlefield as this resolves
+    (611.2c: the set is fixed now) is set to the second type until end of turn (305.7: it loses its old land types and what its rules text gave it)."""
+    from app.game.rules_state import DecisionOption
+    from app.rules.effects import CHOICE_OPTIONS
+    from app.rules.plan import decide
+
+    decide(plan, player=ctx["controller"], kind="choose_one", prompt=f"{ctx.get('name') or 'It'}: choose a land type",
+           options=[DecisionOption(id=t, label=t) for t in CHOICE_OPTIONS["land type"]], resume={"step": "vision110n", "ctx": ctx, "stage": 1})
+    return False
+
+
+def resume_vision(plan: Any, d: Any, chosen: list[str]) -> None:
+    from app.game.rules_state import DecisionOption
+    from app.rules import context, effects
+    from app.rules.effects import CHOICE_OPTIONS
+    from app.rules.plan import decide
+
+    ctx = d.resume["ctx"]
+    if d.resume["stage"] == 1:
+        if chosen[0] not in CHOICE_OPTIONS["land type"]:
+            raise ValueError("not an offered land type")
+        ctx["vision110n"] = chosen[0]
+        plan.note(f"{plan.name(d.player)} chooses {chosen[0]} (land type)", actor=d.player)
+        decide(plan, player=d.player, kind="choose_one", prompt=f"{ctx.get('name') or 'It'}: choose a basic land type",
+               options=[DecisionOption(id=t, label=t) for t in CHOICE_OPTIONS["basic land type"]], resume={"step": "vision110n", "ctx": ctx, "stage": 2})
+        return
+    if chosen[0] not in CHOICE_OPTIONS["basic land type"]:
+        raise ValueError("not an offered basic land type")
+    plan.note(f"{plan.name(d.player)} chooses {chosen[0]} (basic land type)", actor=d.player)
+    lands = [c.id for c in plan.state.cards.values() if c.zone.endswith(":battlefield") and plan.in_game(c) and ctx["vision110n"] in plan.ch(c).subtypes
+             and plan.ch(c).is_land]
+    context.bind_objects(plan, ctx, "vision110n", lands)
+    if effects.become(plan, ctx, {"do": "become", "who": "ref:vision110n", "types": [], "land_types": [chosen[0]], "duration": "end_of_turn"}):
+        effects.continue_effects(plan, ctx)
+
+
 def _willow(d: Def) -> Def:
     return {**d, "effects": [{"do": "willow110n", "who": "target"}]}
 
@@ -471,6 +513,6 @@ def land_problem(state: Any, player: str, info: Any) -> str | None:
     return None
 
 
-PRIMITIVES: dict[str, Any] = {"decree110n": decree, "willow110n": willow, "cu_exile110n": cu_exile, "spirit110n": spirit, "swarm_pre110n": swarm_pre, "swarm_post110n": swarm_post, "eriette110n": eriette, "sword110n": sword, "sword_note110n": sword_note,
+PRIMITIVES: dict[str, Any] = {"decree110n": decree, "willow110n": willow, "vision110n": vision, "cu_exile110n": cu_exile, "spirit110n": spirit, "swarm_pre110n": swarm_pre, "swarm_post110n": swarm_post, "eriette110n": eriette, "sword110n": sword, "sword_note110n": sword_note,
                               "sword_hand110n": sword_hand, "sword_rest110n": sword_rest}
-RESUME: dict[str, Any] = {"spirit110n": resume_spirit, "cu_exile110n": resume_cu_exile}
+RESUME: dict[str, Any] = {"vision110n": resume_vision, "spirit110n": resume_spirit, "cu_exile110n": resume_cu_exile}
