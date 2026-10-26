@@ -40,6 +40,13 @@ PRODDER = ("At the beginning of your upkeep, reveal the top card of your library
 BREATH = ("When enchanted creature deals combat damage to a player, sacrifice it and attach this Aura to a creature you control. If you do, untap all creatures you "
           "control and after this phase, there is an additional combat phase.")
 
+# Elesh Norn // The Argent Etchings' chapters (714.2b: the exile-return gives the front face back, a new object, 400.7; "(front face up)" is reminder text; "except for" = none of those)
+CHAPTERS = {
+    "Incubate 2 five times, then transform all Incubator tokens you control.": "Incubate 2. " * 5 + "Transform all Incubator tokens you control.",
+    "Destroy all other permanents except for artifacts, lands, and Phyrexians. Exile ~, then return it to the battlefield.":
+        "Destroy all other nonland, nonartifact, non-Phyrexian permanents. Exile ~, then return it to the battlefield under its owner's control.",
+}
+
 
 def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
     from app.rules import scripts
