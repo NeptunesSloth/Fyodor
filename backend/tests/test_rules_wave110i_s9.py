@@ -14,10 +14,16 @@ from tests.test_rules_wave12a_counters_keywords import real
 from tests.test_rules_wave34b_activated import attack, next_turn, stops, to_phase
 from tests.wave110c_kit import make_db
 
+FOUNTAIN = ("At the beginning of each player's upkeep, that player puts a flood counter on target non-Island land they control of their choice. "
+            "That land is an Island for as long as it has a flood counter on it.\n"
+            "At the beginning of each end step, if all lands on the battlefield are Islands, remove all flood counters from them.")
+
+
 EXTRA = [real("Awesome Presence", "{U}", 1, "Enchantment \u2014 Aura", "Enchant creature\nEnchanted creature can't be blocked unless defending player pays {3} for each creature they control that's blocking it.", None, "U"),
          real("Hill Giant", "{3}{R}", 4, "Creature \u2014 Giant", "", ("3", "3"), "R"),
          real("Providence", "{5}{W}{W}", 7, "Sorcery", "You may reveal this card from your opening hand. If you do, at the beginning of the first upkeep, your life total becomes 26.\nYour life total becomes 26.", None, "W"),
          real("Stardew Valley", "", 0, "Land", "{T}: Add {C}.\n{2}, {T}, Tap an untapped creature you control: Create a Food token.\n{3}, {T}: Choose target permanent you control. Draw a card, then another player of your choice may gain control of that permanent. Activate only as a sorcery.", None, ""),
+         real("Quicksilver Fountain", "{3}", 3, "Artifact", FOUNTAIN, None, ""),
          real("Hipparion", "{1}{G}", 2, "Creature \u2014 Horse", "This creature can't block creatures with power 3 or greater unless you pay {1}.", ("1", "3"), "G")]
 
 
@@ -100,4 +106,28 @@ def test_stardew_valley(cards, take):
             break
     assert len(s.state.zones["p1:hand"]) == hand + 1
     assert s.state.cards[giant.id].controller == ("p2" if take else "p1")
+    check(s)
+
+
+@pytest.mark.parametrize("forests", [1, 2])
+def test_quicksilver_fountain(cards, forests):
+    """603.3d: the player whose upkeep it is puts a flood counter on a non-Island land they control; it is an Island while it has one (305.7, 611.2b).
+    At the end step, if every land is an Island, the counters go (intervening if, 603.4); with a Forest left they stay."""
+    from tests.wave9c_kit import build, check
+    from tests.wave9c_kit import put as put_perm
+    from tests.wave100c_kit import to_phase as to_ph
+    from tests.wave110c_kit import ch
+
+    s = build(cards, ["Quicksilver Fountain"])
+    put_perm(s, "Quicksilver Fountain")
+    lands = [c for c in s.state.zones["p1:library"] if s.state.cards[c].name == "Forest"][:forests]
+    act(s, "p1", type="move", card_ids=lands, to={"player": "p1", "zone": "battlefield"})
+    isle = next(c for c in s.state.zones["p2:library"] if s.state.cards[c].name == "Island")
+    act(s, "p2", type="move", card_ids=[isle], to={"player": "p2", "zone": "battlefield"})
+    to_ph(s, "upkeep", turn=3)
+    to_ph(s, "main1", turn=3)
+    marked = [c for c in lands if s.state.cards[c].counters.get("flood")]
+    assert len(marked) == 1 and "Island" in ch(s, s.state.cards[marked[0]]).subtypes
+    to_ph(s, "main1", turn=4)
+    assert bool(s.state.cards[marked[0]].counters.get("flood")) == (forests == 2)
     check(s)
