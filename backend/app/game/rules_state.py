@@ -634,6 +634,9 @@ class TurnLog(BaseModel):
     combat_damage95_known: bool | None = None  # Complete native current-turn damage history; None is legacy.
     fight_history90_known: bool | None = None  # Legacy missing current-turn fight history is unknown.
     fought90: list[str] = Field(default_factory=list)  # Original objects that actually fought this turn.
+    mirror110b: list[str] = Field(default_factory=list)  # Chosen creatures of Mystic Reflection waiting for "the next time one or more creatures or planeswalkers enter this turn".
+    mirror_open110b: str = ""  # "<rules.batch>|<chosen id>": the effect being used by the entry event of that batch (previews of each card see the same one).
+    mirror_late110b: list[str] = Field(default_factory=list)  # "card id|chosen id": used up, applied after the card's own "may enter as a copy" declined.
     lose_shield110b: list[str] = Field(default_factory=list)  # "pid|card id" of "the next time you would lose the game this turn, instead ..." (Stunning Reversal).
     turned_up_by110b: list[str] = Field(default_factory=list)  # Players who turned a permanent face up this turn (Oblivious Bookworm).
     turned_up110f: list[str] = Field(default_factory=list)  # Objects turned face up this turn (708.8: the same object, "was turned face up this turn").

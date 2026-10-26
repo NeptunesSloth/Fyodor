@@ -505,8 +505,10 @@ _HEROIC = ("Choose target creature you control. Until end of turn, all damage th
 def parse(body: str) -> Any:
     """Heroic Sacrifice: the chosen creature gets the death trigger until end of turn (611.2a, 603.7: the same as "when that creature dies this turn"); the damage
     to you and your creatures is redirected to it (614.9) while it is on the battlefield."""
-    from app.rules import scripts
+    from app.rules import scripts, wave110b_mirror
 
+    if (mirror := wave110b_mirror.parse(body)) is not None:  # Mystic Reflection
+        return mirror
     if body.strip() != _HEROIC:
         return None
     got = scripts.parse_effects('Target creature you control gains "When this creature dies, put its counters on up to one target creature you control and draw a card" until end of turn.')

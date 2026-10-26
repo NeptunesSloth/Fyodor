@@ -7215,3 +7215,6 @@ from app.rules import wave110e_pets as _wave110e_pets  # noqa: E402, I001  -- Ex
 
 PRIMITIVES.update(_wave110e_pets.PRIMITIVES)
 RESUME.update(_wave110e_pets.RESUME)
+from app.rules import wave110b_mirror as _wave110b_mirror  # noqa: E402, I001  -- (wave 110B) --
+
+PRIMITIVES.update(_wave110b_mirror.PRIMITIVES)

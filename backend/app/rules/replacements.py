@@ -799,6 +799,11 @@ def move_together(plan: Plan, entries: list[Entry], *, simultaneous: dict[str, A
     event (122.6, 306.5b). Extras recorded on the entry by the effect that puts it there — a
     persist / undying counter, unearth's haste and "exile it instead" — are applied after."""
     planned: list[tuple[Entry, CardInstance, dict[str, Any]]] = []
+    from app.rules import (
+        wave110b_mirror,  # -- Mystic Reflection (wave 110B) -- one entry event: all of it copies
+    )
+
+    wave110b_mirror.apply(plan, [(c, e["player"]) for e in entries if (c := plan.state.cards.get(e["card"])) is not None])
     for entry in entries:
         card = plan.state.cards.get(entry["card"])
         if card is None or any(card.id == c.id for _, c, _ in planned):
