@@ -1073,6 +1073,9 @@ def _after_entry(plan: Plan, card_id: str, controller: str, *, x: int | None = N
         from app.rules import wave110e_opp  # -- entry secret choice (wave 110E) --
 
         wave110e_opp.secret_record(plan, card_id, controller, choices)
+        from app.rules import numeric_entry_roll42  # -- entry dice as base power and toughness (wave 110E) --
+
+        numeric_entry_roll42.after_entry(plan, card_id, choices)
         wave110e_opp.war_record(plan, card_id, choices)
         from app.rules import wave110e_note  # -- noted values (wave 110E) --
 

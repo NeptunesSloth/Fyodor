@@ -351,3 +351,119 @@ def test_blaster_modular_is_for_nontoken_permanents_only(cards):
     token = next(c for c in s.state.cards.values() if c.is_token and c.controller == "p1" and c.zone == "p1:battlefield")
     assert token.counters.get("+1/+1", 0) == 0
     check(s)
+
+
+# -- Vedalken Squirrel-Whacker ---------------------------------------------------------------------------------------------------------------------------
+SQUIRREL = real("Vedalken Squirrel-Whacker", "{3}{U}", 4, "Creature — Vedalken Guest",
+                "As this creature enters, roll a six-sided die twice. Its base power becomes the first result and its base toughness becomes the second result.\n"
+                "If you would roll one or more six-sided dice, instead roll them and you may exchange one result with this creature's base power or base toughness.",
+                ("*", "*"), "U")
+ROLL6 = real("Zed Roll", "{B}", 1, "Sorcery", "Roll a six-sided die. You gain life equal to the result.", None, "B")
+ROLL20 = real("Zed Roll Big", "{B}", 1, "Sorcery", "Roll a d20. You gain life equal to the result.", None, "B")
+base.EXTRA.extend([SQUIRREL, ROLL6, ROLL20])
+SQ = "Vedalken Squirrel-Whacker"
+
+
+def _cast_squirrel(cards, monkeypatch, dice, copies=1):
+    from tests.test_rules_random_consequences import faces
+
+    s = build(cards, [SQ] * copies + ["Zed Roll", "Zed Roll Big"])
+    faces(monkeypatch, dice)
+    mana(s, U=1, C=3)
+    cast(s, SQ)
+    answer_all(s)
+    return s
+
+
+def test_squirrel_whacker_full(cards):
+    assert coverage.of_card_data(cards.resolve(SQ)).level == "FULL"
+
+
+@pytest.mark.parametrize(("dice", "stats"), [([4, 2], (4, 2)), ([6, 6], (6, 6))])
+def test_squirrel_whacker_dice_are_its_base_power_and_toughness(cards, monkeypatch, dice, stats):
+    """614.12a / 208.4b: rolled as it enters; first result its base power, second its base toughness (it is on the battlefield, not dead as a 0/0)."""
+    s = _cast_squirrel(cards, monkeypatch, dice)
+    card = card_named(s, SQ)
+    assert card.zone == "p1:battlefield" and _ch(s, card.id).pt == stats and _ch(s, card.id).base_pt == stats
+    check(s)
+
+
+def _roll_and_exchange(s, monkeypatch, die, pick_stat):
+    from tests.test_rules_random_consequences import faces
+
+    faces(monkeypatch, [die])
+    mana(s, B=1)
+    before = s.state.players["p1"].life
+    cast(s, "Zed Roll")
+    d = s.state.rules.decision
+    assert d is not None and d.options[0].id.startswith("roll_adjust42:")
+    if pick_stat is None:
+        act(s, "p1", type="choose", decision_id=d.id, option_ids=["done"])
+    else:
+        act(s, "p1", type="choose", decision_id=d.id, option_ids=[d.options[0].id])
+        d = s.state.rules.decision
+        act(s, "p1", type="choose", decision_id=d.id, option_ids=["0"])
+        act(s, "p1", type="choose", decision_id=s.state.rules.decision.id, option_ids=[pick_stat])
+    answer_all(s)
+    return s.state.players["p1"].life - before
+
+
+@pytest.mark.parametrize(("stat", "gain", "stats"), [("power", 4, (5, 2)), ("toughness", 2, (4, 5)), (None, 5, (4, 2))])
+def test_squirrel_whacker_exchanges_a_result_with_its_base_power_or_toughness(cards, monkeypatch, stat, gain, stats):
+    """614.1a / 706.2: the roll's result is exchanged with the base value (a 5 against base power 4 or toughness 2); declining changes nothing."""
+    s = _cast_squirrel(cards, monkeypatch, [4, 2])
+    assert _roll_and_exchange(s, monkeypatch, 5, stat) == gain
+    assert _ch(s, card_named(s, SQ).id).pt == stats
+    check(s)
+
+
+def test_squirrel_whacker_is_not_offered_for_other_dice(cards, monkeypatch):
+    """"six-sided dice" only: a d20 roll is not adjusted."""
+    from tests.test_rules_random_consequences import faces
+
+    s = _cast_squirrel(cards, monkeypatch, [4, 2])
+    faces(monkeypatch, [17])
+    mana(s, B=1)
+    cast(s, "Zed Roll Big")
+    assert s.state.rules.decision is None and s.state.players["p1"].life == 40 + 17
+    check(s)
+
+
+def test_squirrel_whacker_does_not_adjust_its_own_entering_roll(cards, monkeypatch):
+    """It is not on the battlefield while it rolls (614.12a): no exchange is offered for its own two dice."""
+    from tests.test_rules_random_consequences import faces
+
+    s = build(cards, [SQ, "Zed Roll"])
+    faces(monkeypatch, [3, 5])
+    mana(s, U=1, C=3)
+    cast(s, SQ)
+    d = s.state.rules.decision
+    assert d is None or not d.options[0].id.startswith("roll_adjust42:")
+    answer_all(s)
+    assert _ch(s, card_named(s, SQ).id).pt == (3, 5)
+
+
+def test_squirrel_whacker_on_the_battlefield_adjusts_the_roll_of_a_second_one_entering(cards, monkeypatch):
+    """The first one is on the battlefield while the second rolls: its exchange applies to the second's dice (614.1a) before they become the second's base values."""
+    from tests.test_rules_random_consequences import faces
+
+    s = _cast_squirrel(cards, monkeypatch, [4, 2], copies=2)
+    first = card_named(s, SQ)
+    faces(monkeypatch, [6, 1])
+    mana(s, U=1, C=3)
+    second = next(c for c in s.state.cards.values() if c.name == SQ and c.owner == "p1" and c.id != first.id)
+    act(s, "p1", type="move", card_ids=[second.id], to={"zone": "hand"})
+    act(s, "p1", type="cast_spell", card_id=second.id)
+    d = s.state.rules.decision
+    for _ in range(6):
+        if d is not None and d.options[0].id.startswith("roll_adjust42:"):
+            break
+        act(s, s.state.rules.priority, type="pass_priority") if d is None else act(s, d.player, type="choose", decision_id=d.id, option_ids=[d.options[0].id])
+        d = s.state.rules.decision
+    assert d is not None and d.options[0].id.startswith("roll_adjust42:")
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[d.options[0].id])
+    act(s, "p1", type="choose", decision_id=s.state.rules.decision.id, option_ids=["0"])
+    act(s, "p1", type="choose", decision_id=s.state.rules.decision.id, option_ids=["power"])
+    answer_all(s)
+    assert _ch(s, first.id).pt == (6, 2) and _ch(s, second.id).pt == (4, 1)
+    check(s)
