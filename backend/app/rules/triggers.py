@@ -2268,6 +2268,8 @@ def keyword_cost(line: str, word: str) -> tuple[str, Any] | None:
         return None
     from app.rules import optional_payment
 
+    if word == "cumulative upkeep" and m["phrase"] == "Put two cards from a single graveyard on the bottom of their owner's library":  # -- wave 110G -- Jötun Grunt
+        return "gy_pairs110g", None
     if (cost := optional_payment.cost_text(_phrase(m["phrase"]))) is not None:
         return "cost", cost
     done = effect_cost(m["phrase"]) if word == "cumulative upkeep" else None  # (no echo cost is an instruction: not read)
@@ -2309,6 +2311,8 @@ def _cumulative_upkeep(plan: Plan) -> None:
         for k, (kind, cost) in enumerate(cumulative_costs(ch)):
             if kind == "mana":
                 pay = [{"do": "pay_or_sacrifice", "cost": cost, "per": "age"}]
+            elif kind == "gy_pairs110g":  # -- wave 110G -- 702.24a: the cost once for each age counter, all or nothing (118.3)
+                pay = [{"do": "gy_pairs110g", "n": age, "bind": "pay0"}, {"do": "only_if", "cond": {"succeeded": "pay0", "negate": True}, "skip": 1}, *sacrifice]
             elif kind == "cost":
                 pay = [{"do": "optional_payment", "who": "you", "cost": cost, "times": age, "bind": "pay0"},
                        {"do": "only_if", "cond": {"succeeded": "pay0", "negate": True}, "skip": 1}, *sacrifice]

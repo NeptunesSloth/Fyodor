@@ -519,6 +519,76 @@ def _reattach(d: Def) -> Def:
     return {**d, "effects": [{"do": "reattach110g", "src": "target:0"}], "targets": d["targets"][:1]}
 
 
+def _pairs_left(plan: Any) -> list[str]:
+    return [p for p in plan.live() if len(plan.state.zones.get(f"{p}:graveyard", [])) >= 2]
+
+
+def gy_pairs(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Jötun Grunt: the cumulative upkeep cost "Put two cards from a single graveyard on the bottom of their owner's library", once per age counter. It is
+    paid in full or not at all (118.3): offered only if n separate pairs exist, each from one graveyard."""
+    from app.rules import context, effects, values
+
+    n = int(values.evaluate(plan, ctx, e["n"]))
+    if sum(len(plan.state.zones.get(f"{p}:graveyard", [])) // 2 for p in plan.live()) < n:
+        plan.note(f"{plan.name(ctx['controller'])} can't pay {ctx.get('name') or 'it'}: not enough cards in graveyards")
+        context.bind_payment(ctx, e["bind"], False)
+        return True
+    effects.decide(plan, player=ctx["controller"], kind="choose_one", prompt=f"{ctx.get('name') or 'It'}: put two cards from a single graveyard on the bottom, {n} time(s)?",
+                   options=[effects.DecisionOption(id="pay", label="Pay"), effects.DecisionOption(id="decline", label="Don't pay")],
+                   resume={"step": "gy_pairs110g", "ctx": ctx, "bind": e["bind"], "left": n, "stage": "ask"})
+    return False
+
+
+def _pair_round(plan: Any, ctx: dict[str, Any], bind: str, left: int) -> None:
+    from app.rules import context, effects
+
+    if left == 0:
+        context.bind_payment(ctx, bind, True)
+        effects.continue_effects(plan, ctx)
+        return
+    owners = _pairs_left(plan)
+    me = ctx["controller"]
+    if len(owners) > 1:
+        effects.decide(plan, player=me, kind="choose_one", prompt="Choose a graveyard to put two cards from",
+                       options=[effects.DecisionOption(id=p, label=f"{plan.name(p)}'s graveyard") for p in owners],
+                       resume={"step": "gy_pairs110g", "ctx": ctx, "bind": bind, "left": left, "stage": "yard", "owners": owners})
+        return
+    _pick_pair(plan, ctx, bind, left, owners[0])
+
+
+def _pick_pair(plan: Any, ctx: dict[str, Any], bind: str, left: int, owner: str) -> None:
+    from app.rules import effects
+
+    cards = plan.state.zones.get(f"{owner}:graveyard", [])
+    effects.decide(plan, player=ctx["controller"], kind="choose_cards", prompt="Choose two cards to put on the bottom of their owner's library", min_choices=2, max_choices=2,
+                   options=[effects.DecisionOption(id=c, label=plan.state.cards[c].name or "Card", card_id=c) for c in cards],
+                   resume={"step": "gy_pairs110g", "ctx": ctx, "bind": bind, "left": left, "stage": "cards", "owner": owner})
+
+
+def resume_gy_pairs(plan: Any, d: Any, chosen: list[str]) -> None:
+    from app.rules import context, effects
+
+    r = d.resume
+    ctx, bind, left = r["ctx"], r["bind"], r["left"]
+    if r["stage"] == "ask":
+        if chosen[0] != "pay":
+            context.bind_payment(ctx, bind, False)
+            effects.continue_effects(plan, ctx)
+            return
+        _pair_round(plan, ctx, bind, left)
+    elif r["stage"] == "yard":
+        if chosen[0] not in r["owners"]:
+            raise ValueError("not a graveyard with two cards")
+        _pick_pair(plan, ctx, bind, left, chosen[0])
+    else:
+        yard = plan.state.zones.get(f"{r['owner']}:graveyard", [])
+        if len(set(chosen)) != 2 or any(c not in yard for c in chosen):
+            raise ValueError("choose two cards from that graveyard")
+        # 401.4: the owner may arrange the two; ponytail: the engine's recorded random order (effects.bottom_at_random), not a choice
+        effects.bottom_at_random(plan, r["owner"], list(chosen), actor=ctx["controller"])
+        _pair_round(plan, ctx, bind, left - 1)
+
+
 def reattach(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     from app.rules import attachments, effects
 
@@ -953,7 +1023,7 @@ def destroy_instead(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return True
 
 
-PRIMITIVES: dict[str, Any] = {"reattach110g": reattach, "speed_cut110g": speed_cut, "exile_split110g": exile_split, "halfdane110g": halfdane, "exile_gy_until110g": exile_gy_until, "idol_cast110g": idol_cast, "bind_exiled110g": bind_exiled, "firm_creature110g": firm_creature, "elkin110g": elkin, "suncleanser110g": suncleanser, "fallen110g": fallen, "destroy_instead110g": destroy_instead, "exchange_power110g": exchange_power, "lowest_life_control110g": lowest_life_control,
+PRIMITIVES: dict[str, Any] = {"gy_pairs110g": gy_pairs, "reattach110g": reattach, "speed_cut110g": speed_cut, "exile_split110g": exile_split, "halfdane110g": halfdane, "exile_gy_until110g": exile_gy_until, "idol_cast110g": idol_cast, "bind_exiled110g": bind_exiled, "firm_creature110g": firm_creature, "elkin110g": elkin, "suncleanser110g": suncleanser, "fallen110g": fallen, "destroy_instead110g": destroy_instead, "exchange_power110g": exchange_power, "lowest_life_control110g": lowest_life_control,
                            "sacrifice_pair110g": sacrifice_pair, "swap_tapped110g": swap_tapped, "opponent_exiles110g": opponent_exiles,
                               "unattach_enchanted110g": unattach_enchanted}
-RESUME: dict[str, Any] = {"reattach110g": resume_reattach, "lowest_control110g": resume_lowest_control, "opponent_exiles110g": resume_opponent_exiles}
+RESUME: dict[str, Any] = {"gy_pairs110g": resume_gy_pairs, "reattach110g": resume_reattach, "lowest_control110g": resume_lowest_control, "opponent_exiles110g": resume_opponent_exiles}

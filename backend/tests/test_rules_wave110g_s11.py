@@ -32,9 +32,10 @@ EXTRA = [
     real("Test Performer", "{1}", 1, "Creature — Human Performer", "", ("1", "1")),
     real("Test Robot", "{1}", 1, "Artifact Creature — Robot", "", ("1", "1")),
     real("Mist of Stagnation", "{2}{U}{U}", 4, "Enchantment", "Permanents don't untap during their controllers' untap steps.\nAt the beginning of each player's upkeep, that player chooses a permanent for each card in their graveyard, then untaps those permanents.", None, "U"),
+    real("J\u00f6tun Grunt", "{1}{W}", 2, "Creature \u2014 Giant Soldier", "Cumulative upkeep\u2014Put two cards from a single graveyard on the bottom of their owner's library. (At the beginning of your upkeep, put an age counter on this permanent, then sacrifice it unless you pay its upkeep cost for each age counter on it.)", ("4", "4"), "W"),
     real("Kicker Bear", "{1}{G}", 2, "Creature — Bear", "Kicker {1}", ("2", "2"), "G"),
 ]
-NAMES = ["Wicker Picker", "Done for the Day", "Ambassador Blorpityblorpboop", "Mist of Stagnation"]
+NAMES = ["Wicker Picker", "Done for the Day", "Ambassador Blorpityblorpboop", "Mist of Stagnation", "J\u00f6tun Grunt"]
 LIST = [n["name"] for n in EXTRA] + ["Grizzly Bears", "Lightning Bolt"]
 
 
@@ -228,4 +229,71 @@ def test_mist_of_stagnation_untaps_one_permanent_per_graveyard_card(cards, dead)
     pick(s, [bears[0].id, bears[2].id])
     settle(s)
     assert [s.state.cards[b.id].tapped for b in bears] == [False, True, False]
+    check(s)
+
+
+def _grunt_upkeep(s, mine, theirs, age=0):
+    """Grunt on the battlefield with ``mine`` / ``theirs`` Forest/Island cards in the graveyards, on to Alice's turn-3 upkeep decision."""
+    grunt = put(s, "J\u00f6tun Grunt", "battlefield")
+    if age:
+        act(s, "p1", type="counter", card_ids=[grunt.id], kind="age", delta=age)
+    for pid, n, name in (("p1", mine, "Forest"), ("p2", theirs, "Island")):
+        ids = [c.id for c in s.state.cards.values() if c.name == name and c.zone == f"{pid}:library"][:n]
+        if ids:
+            act(s, pid, type="move", card_ids=ids, to={"player": pid, "zone": "graveyard"})
+    for _ in range(40):
+        if s.state.rules.decision is not None or (s.state.turn.number == 3 and s.state.turn.phase == "main1"):
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+    return grunt
+
+
+def _answer(s, ids):
+    d = s.state.rules.decision
+    act(s, d.player, type="choose", decision_id=d.id, option_ids=ids)
+
+
+def test_jotun_grunt_pays_two_cards_from_one_graveyard_to_the_bottom(cards):
+    """702.24a: pay the cost for the age counter: two cards of a single graveyard (their owner's) go to the bottom of that library."""
+    s = setup(cards)
+    grunt = _grunt_upkeep(s, 3, 2)
+    d = s.state.rules.decision
+    assert d.player == "p1" and "put two cards" in d.prompt
+    _answer(s, ["pay"])
+    d = s.state.rules.decision
+    assert sorted(o.id for o in d.options) == ["p1", "p2"]  # both graveyards hold two or more cards
+    _answer(s, ["p2"])
+    gy = list(s.state.zones["p2:graveyard"])
+    _answer(s, gy)
+    settle(s)
+    assert s.state.zones["p2:graveyard"] == [] and s.state.zones["p2:library"][-2:] and set(s.state.zones["p2:library"][-2:]) == set(gy)
+    assert s.state.cards[grunt.id].zone == "p1:battlefield" and s.state.cards[grunt.id].counters["age"] == 1
+    check(s)
+
+
+def test_jotun_grunt_declined_is_sacrificed(cards):
+    s = setup(cards)
+    grunt = _grunt_upkeep(s, 2, 0)
+    _answer(s, ["decline"])
+    settle(s)
+    assert s.state.cards[grunt.id].zone == "p1:graveyard" and len(s.state.zones["p1:graveyard"]) == 3
+    check(s)
+
+
+@pytest.mark.parametrize("mine, theirs, age, paid", [(0, 0, 0, False), (1, 1, 0, False), (3, 0, 1, False), (4, 0, 1, True)])
+def test_jotun_grunt_all_or_nothing(cards, mine, theirs, age, paid):
+    """118.3: no partial payment: with 2 age counters (one is added at upkeep) it needs two separate pairs (one graveyard may supply both); cards that cannot pay mean sacrifice with no question."""
+    s = setup(cards)
+    grunt = _grunt_upkeep(s, mine, theirs, age)
+    if not paid:
+        assert s.state.rules.decision is None or "put two cards" not in s.state.rules.decision.prompt
+        assert s.state.cards[grunt.id].zone == "p1:graveyard"
+        return
+    _answer(s, ["pay"])
+    for _ in range(2):  # one graveyard only: no graveyard question
+        d = s.state.rules.decision
+        assert d.max_choices == 2
+        _answer(s, [o.id for o in d.options][:2])
+    settle(s)
+    assert s.state.cards[grunt.id].zone == "p1:battlefield" and s.state.zones["p1:graveyard"] == []
     check(s)
