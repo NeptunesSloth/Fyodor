@@ -37,6 +37,7 @@ _ENERGY = re.compile(r"^Pay (?:(?P<symbols>(?:\{E\})+)|(?P<n>\w+) \{E\})$")
 _REMOVE = re.compile(
     r"^Remove (?P<n>a|an|one|two|three|four|five|six|seven|eight|fifty|\d+) (?P<kind>[\w+/\-]+) counters? from (this \w+|it|~|(?P<name>.+))$"
 )
+_REMOVE_ALL_GRANTER = re.compile(rf"^Remove all (?P<kind>[\w+/\-]+) counters from (?P<g>{selectors.GRANTER})$")  # (wave 110H) Hankyu: the granting Equipment's
 _REMOVE_ALL = re.compile(rf"^Remove all (?P<kind>[\w+/\-]+) counters from {_SELF}$")  # (the source's own: ~ / this permanent)
 _N = r"(?P<n>a|an|another|one|two|three|four|five|six|seven|eight|nine|ten|thirteen|fifteen|\d+)"  # (seven …: wave 4H; fifteen: 17B)
 _SAC_CHOSEN = re.compile(rf"^Sacrifice {_N} (?P<what>.+)$")
@@ -348,6 +349,8 @@ def _component(part: str, card_name: str) -> CostComponent | None:
         return CostComponent(REMOVE_COUNTER, amount=1, counter=ANY_COUNTER,
                              selector=_selector("permanent you control", zone="battlefield"),
                              counter_options=("+1/+1", "charge"), text=part)
+    if m := _REMOVE_ALL_GRANTER.match(part):  # -- granter counters (wave 110H) -- 602.2b: all of them, the granter being the one choice made for you (as _GRANTER_COST)
+        return CostComponent(REMOVE_COUNTER, amount=0, counter=m["kind"], selector=selectors.parse(m["g"]).key(), x=True, every=True, text=part)  # type: ignore[union-attr]
     if m := _REMOVE_ALL.match(part):  # -- activated sweep (wave 26C) -- 602.2b: not announced, it's all of them (casting sets X to that many)
         return CostComponent(REMOVE_COUNTER, amount=0, counter=m["kind"], x=True, every=True, text=part)
     if (m := _REMOVE.match(part)) and (not m.group("name") or m.group("name") == card_name):

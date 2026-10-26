@@ -6279,7 +6279,7 @@ def activate_to_stack(plan: Plan, card: CardInstance, ch: Characteristics, abili
     if (mana.x or cost.loyalty_x or cost.energy_x or cost.x_chosen) and a.x_value is None:  # (wave 3E: "Pay X {E}"; x_chosen: wave 4H)
         raise ActionError("Choose a value for X")
     if (every := next((c for c in cost.components if c.every), None)) is not None:
-        a.x_value = cost_payment.counters_on(card, every.counter)  # -- activated sweep (wave 26C) -- "Remove all oil counters": all there are now (602.2b)
+        a.x_value = sum(cost_payment.counters_on(plan.state.cards[c], every.counter) for c in cost_payment.candidates(plan, every, plan.actor, card)) if every.selector else cost_payment.counters_on(card, every.counter)  # (wave 110H: a granter's)  # -- activated sweep (wave 26C) -- "Remove all oil counters": all there are now (602.2b)
     from app.rules import static_perm100d  # -- static permanents (wave 100D) -- Carth the Lion: [+1] more
 
     plus = static_perm100d.loyalty_plus(plan.state, plan.info, plan.actor) if cost.loyalty is not None or cost.loyalty_x else 0

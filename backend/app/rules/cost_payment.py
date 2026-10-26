@@ -925,7 +925,8 @@ def _pay(plan: Plan, cost: AbilityCost, card: CardInstance, chosen: dict[int, li
             from app.rules import counter_removal_results
 
             for cid in ids:
-                if counter_removal_results.remove(plan, cid, comp.counter or "", comp.amount, by=player) != comp.amount:
+                n = (record.x or 0) if comp.every else comp.amount  # (wave 110H: "Remove all aim counters from <granter>", 602.2b)
+                if n and counter_removal_results.remove(plan, cid, comp.counter or "", n, by=player) != n:
                     raise ActionError("The selected counters cannot pay this cost")
         elif comp.kind == C.UNATTACH:  # -- granted from object (wave 18F) -- 701.3d: the granting Equipment stays on the battlefield
             record.unattached_ninja110j = any(h is not None and "Ninja" in plan.ch(h).subtypes  # -- (wave 110J) -- Shuriken: what it was unattached from

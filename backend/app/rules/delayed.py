@@ -454,6 +454,13 @@ def on_events(plan: Plan, events: list[Event]) -> None:
     watching = [t for t in r.delayed if t.when.get("kind") == "event"]
     if not watching:
         return
+    from app.rules import wave110h_cards
+
+    entered = wave110h_cards.exiled_enter(plan, events)  # -- exiled cards entering (wave 110H) -- Lagrella
+    r.delayed = [t for t in r.delayed if t.id not in entered]
+    watching = [t for t in watching if t.when["event"] != "enter_exiled110h"]
+    if not watching:
+        return
     fired: list[DelayedTrigger] = []
     # -- attached (wave 100F) -- "When you lose control of the creature, …": another player gains control of it, or it leaves (603.10d; attached100f)
     from app.rules import attached100f
