@@ -168,10 +168,18 @@ def draw_if_none(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
     return bool(effects._cards(plan, ctx, "ref:" + e["ref"])) or effects.draw(plan, ctx, {"do": "draw", "who": "you", "n": 1})
 
 
+_HORDE = "{3}{R/W}{R/W}: Creatures your opponents control block this turn if able, and you choose how those creatures block."
+
+
 def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
     from app.rules import scripts
 
     text = scripts.self_text(ability.text, ch.name)
+    if text == _HORDE:  # Brutal Hordechief: "block if able" changes no characteristic, so it is not locked (611.2c): it binds every creature opponents control at blocks, so the whole declaration (509.1a) is yours
+        d = scripts.define(replace(ability, text="{3}{R/W}{R/W}: Creatures your opponents control block this turn if able."), ch)
+        if d is not None:
+            d["effects"].append({"do": "declare_chooser110a", "kind": "block", "combat": False})
+        return d
     if text == WARD_XP:
         return {"kind": "static", "static": "ward_xp110d", "effects": []}
     native = _AS.get(text)
