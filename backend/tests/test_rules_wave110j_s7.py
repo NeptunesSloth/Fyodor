@@ -11,6 +11,7 @@ import pytest
 from app.game.errors import ActionError
 from tests.game_helpers import act
 from tests.wave9c_kit import build
+from tests.wave110b_kit import attack, through_combat
 from tests.wave110j_kit import (  # noqa: F401
     EXTRA,
     ability,
@@ -158,6 +159,56 @@ def test_escaped_shapeshifter_ignores_its_own_side_and_its_namesake(cards):
     assert "flying" not in ch(s, mine).keywords
     theirs = _opp_creature(s, "Escaped Shapeshifter")
     assert "flying" in ch(s, theirs).keywords and "flying" not in ch(s, mine).keywords
+    check(s)
+
+
+def _scheme(cards, top, spell="Grizzly Bears"):
+    """p1 has Swindler's Scheme and ``top`` on top of the library; p2 casts ``spell`` from the hand in their own turn; every prompt answered yes/first."""
+    s = build(cards, ["Swindler's Scheme", top], [spell])
+    put_new(s, "Swindler's Scheme")
+    act(s, "p1", type="move", card_ids=[fresh(s, top).id], to={"zone": "library"}, position="top")
+    to_phase(s, "main1", turn=2)
+    c = to_hand(s, spell, "p2")
+    mana(s, "p2", **cost(spell))
+    act(s, "p2", type="cast_spell", card_id=c.id)
+    settle(s)
+    return s, c
+
+
+def test_swindler_scheme_counters_a_spell_sharing_a_type_and_the_caster_may_cast_the_top_card(cards):
+    """205.2, 701.6, 118.9: a creature on top meets a creature spell: it is countered and its caster casts the revealed Knight for free."""
+    s, bears = _scheme(cards, "Templar Knight")
+    knight = next(c for c in s.state.cards.values() if c.name == "Templar Knight")
+    assert bears.id in s.state.zones["p2:graveyard"] and knight.zone == "p2:battlefield" and knight.controller == "p2"
+    check(s)
+
+
+def test_swindler_scheme_does_nothing_without_a_shared_type(cards):
+    s, bears = _scheme(cards, "Lightning Bolt")
+    assert s.state.cards[bears.id].zone == "p2:battlefield" and s.state.cards[next(c.id for c in s.state.cards.values() if c.name == "Lightning Bolt")].zone.endswith(":library")
+    check(s)
+
+
+@pytest.mark.parametrize(("cast", "countered"), [("Grizzly Bears", True), ("Templar Knight", False)])
+def test_grimoire_thief_counters_only_spells_named_like_its_exiled_cards(cards, cast, countered):
+    """607.2a, 701.6: sacrificing it turns the cards it exiled face up and counters every spell with one of those names."""
+    s = build(cards, ["Grimoire Thief"], ["Grizzly Bears", "Grizzly Bears", "Templar Knight"])
+    thief = put_new(s, "Grimoire Thief")
+    bears = fresh(s, "Grizzly Bears", "p2")
+    act(s, "p2", type="move", card_ids=[bears.id], to={"zone": "library"}, position="top")
+    attack(s, thief)
+    through_combat(s)
+    assert now(s, bears).zone == "p2:exile" and now(s, bears).face_down
+    to_phase(s, "main1", turn=4)
+    spell = to_hand(s, cast, "p2")
+    mana(s, "p2", **cost(cast))
+    act(s, "p2", type="cast_spell", card_id=spell.id)
+    mana(s, "p1", U=1)
+    act(s, "p2", type="pass_priority")
+    act(s, "p1", type="activate_ability", card_id=thief.id, ability=ability(s, thief, "{U}"))
+    settle(s)
+    assert (now(s, spell).zone == "p2:graveyard") is countered and (now(s, spell).zone == "p2:battlefield") is not countered
+    assert not now(s, bears).face_down and now(s, bears).zone == "p2:exile"
     check(s)
 
 

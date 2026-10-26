@@ -54,8 +54,28 @@ def counters_left(plan: Any, sim: dict[str, Any], c: Any, ev: dict[str, Any]) ->
     return int(sim.get("shields", {}).get(counter_key(c, ev), card.counters.get(c.op["counter"], 0) if card is not None else 0))
 
 
+def caster(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> str:
+    """Swindler's Scheme: "that opponent may cast the revealed card" — whoever cast the spell that triggered it (permissions.free_cast)."""
+    if e.get("caster") == "event":
+        found = values_object(plan, ctx)
+        if found is not None:
+            return str(found[0].controller)
+    return str(ctx["controller"])
+
+
+def values_object(plan: Any, ctx: dict[str, Any]) -> tuple[Any, Any] | None:
+    from app.rules import values
+
+    return values._object(plan, ctx, "event")
+
+
 def holds(plan: Any, ctx: dict[str, Any], cond: Def) -> bool:
-    """Rasputin Dreamweaver: the source was untapped on the battlefield as this turn began (500.1, before the untap step)."""
+    """Rasputin Dreamweaver: the source was untapped on the battlefield as this turn began (500.1, before the untap step). Swindler's Scheme: see below."""
+    if cond.get("w110j") == "shares_event_type":  # Swindler's Scheme: 205.2, the revealed card and the spell that triggered it
+        from app.rules import values
+
+        card, spell = values._object(plan, ctx, cond["object"]), values._object(plan, ctx, "event")
+        return card is not None and spell is not None and bool(set(card[1].types) & set(spell[1].types))
     return ctx.get("source_object") in plan.rules.began_untapped110j
 
 
@@ -550,3 +570,41 @@ def _shapeshifter() -> Def:
     colors = {"W": "white", "U": "blue", "B": "black", "R": "red", "G": "green"}
     return {**first, "also": [part(when="first strike", keywords=["first strike"]), part(when="trample", keywords=["trample"]),
                               *(part(when=f"protection:{c}", grants=[f"Protection from {n}"]) for c, n in colors.items())]}
+
+
+_BUILD["Whenever an opponent casts a spell from their hand, you may reveal the top card of your library. If it shares a card type with that spell, counter that spell and that opponent may cast the revealed card without paying its mana cost."] = (
+    "Whenever an opponent casts a spell from their hand, you may reveal the top card of your library. If it's a creature card, counter that spell.", lambda d: _scheme(d))
+
+
+def _scheme(d: Def) -> Def:
+    """Swindler's Scheme: the revealed card shares a card type with the spell (205.2, conditions "w110j": shares_event_type); the opponent who cast it may then
+    cast the revealed card for free (permissions.free_cast caster "event")."""
+    fx = d["effects"]
+    gate = next((i for i, e in enumerate(fx) if e.get("do") == "only_if"), None)
+    if gate is None or fx[gate]["cond"].get("object") != "ref:e0" or fx[gate]["skip"] != 1 or gate + 2 != len(fx):
+        raise ValueError("Swindler's Scheme: unexpected native shape")
+    cond = {"w110j": "shares_event_type", "object": "ref:e0"}
+    fx[gate]["cond"] = cond
+    fx += [{"do": "only_if", "cond": cond, "skip": 1},
+           {"do": "free_cast", "zone": "looked", "filter": None, "mv": None, "optional": True, "caster": "event"}]
+    return d
+
+
+_BUILD["{U}, Sacrifice this creature: Turn all cards exiled with this creature face up. Counter all spells with those names."] = (
+    "{U}, Sacrifice this creature: Draw a card.",
+    lambda d: {**d, "effects": [{"do": "turn_up_linked100g", "who": "exiled_with", "as": "grimoire110j"}, {"do": "counter_names110j", "who": "exiled_with"}]})
+
+
+def counter_names(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Grimoire Thief: 701.6 counter every spell (any controller) with the name of a card exiled with this creature (607.2a; the cards are face up now)."""
+    from app.rules import effects
+
+    names = {plan.state.cards[c].name for c in effects._cards(plan, ctx, e["who"]) if plan.state.cards[c].zone.endswith(":exile")}
+    for sid in list(plan.rules.stack):
+        card = plan.state.cards.get(sid)
+        if card is not None and card.ability is None and card.name in names:
+            effects.counter_object(plan, sid, ctx["controller"], source=ctx.get("source_card"))
+    return True
+
+
+PRIMITIVES["counter_names110j"] = counter_names

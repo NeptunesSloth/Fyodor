@@ -2190,6 +2190,10 @@ def free_cast(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     from app.rules.effects import decide
 
     pid = ctx["controller"]
+    if e.get("caster"):  # -- (wave 110J) -- Swindler's Scheme: "that opponent may cast the revealed card"
+        from app.rules import wave110j_cards
+
+        pid = wave110j_cards.caster(plan, ctx, e)
     done = ctx.setdefault("free_cast_done", [])
     if not e.get("all") and sum(1 for c in done if c not in (ctx.get("free_cast_before") or [])) >= int(e.get("n", 1)):
         return _free_cast_over(ctx, e)
