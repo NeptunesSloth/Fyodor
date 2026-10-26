@@ -205,6 +205,16 @@ def parse(body: str) -> Any:
         group = language.target_group("target player")
         return None if group is None else ([{"do": "hippo110g", "who": "target", "add_now": True}], [group], False)
 
+    if body.strip() == _UNIFORM:  # Stolen Uniform: the Equipment is "that Equipment" of the lose-control trigger (not the creature the grammar's pronoun picks); targets in Oracle order
+        got = scripts.parse_effects("Gain control of target Equipment until end of turn. Attach it to target creature you control. When you lose control of that Equipment, unattach it.")
+        if got is None:
+            return None
+        effects, groups, _ = got
+        gain, attach, delay, unattach = effects
+        eqp = "target:1"  # (the Equipment is the second target, as the Oracle text orders them)
+        return ([{**gain, "who": eqp}, {**attach, "src": eqp, "who": "target:0"},
+                 {**delay, "who": eqp, "when": {**delay["when"], "yours110g": True}}, {**unattach, "who": eqp, "yours110g": True}],
+                [groups[1], groups[0]], False)
     if body.strip() == _WARP_BOTTOM:  # Blade of the Swarm: an exiled card that has warp (702.185a), any exile
         return scripts.parse_effects(_WARP_BOTTOM.replace("exiled card with warp", "card with warp in exile"))
     if body.strip() == _JUDOON:  # Fugitive of the Judoon III: both exiled together or nothing (paid as one cost, 118.3)
@@ -291,6 +301,8 @@ def _lowest_life_control(d: Def) -> Def:
     return {**d, "effects": [{"do": "lowest_life_control110g"}]}
 
 
+_UNIFORM = ("Choose target creature you control and target Equipment. Gain control of that Equipment until end of turn. Attach it to the chosen creature. "
+            "When you lose control of that Equipment this turn, if it's attached to a creature you control, unattach it.")
 # whole ability text -> the wording the grammar reads for it
 _AS: dict[str, str] = {
     # Elemental Expressionist: one clause granting two quoted abilities is two grants of the same target; "is put into exile" of a granted ability is

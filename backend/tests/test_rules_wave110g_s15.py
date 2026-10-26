@@ -10,8 +10,10 @@ from app.cards.repository import CardRepository
 from app.rules import coverage
 from tests.fixtures.cards import fixture_cards
 from tests.game_helpers import act
+from tests.test_rules_wave100f_attached import next_turn
 from tests.test_rules_wave12a_counters_keywords import real
-from tests.wave9c_kit import build, card_named, check, put
+from tests.test_rules_effects import pass_until_stack_empty
+from tests.wave9c_kit import build, card_named, check, mana, put, to_hand
 
 KODAMA = ("Kodama of the Center Tree's power and toughness are each equal to the number of Spirits you control.\n"
           "Kodama of the Center Tree has soulshift X, where X is the number of Spirits you control. (When this creature dies, you may return target Spirit "
@@ -23,6 +25,8 @@ EXTRA = [real("Kodama of the Center Tree", "{4}{G}", 5, "Legendary Creature — 
          real("Fraying Line", "{3}", 3, "Artifact", "When this artifact enters, put a rope counter on target creature you control.\nAt the beginning of each player's upkeep, "
               "that player may pay {2}. If they do, they put a rope counter on a creature they control. Otherwise, exile this artifact and each creature without a rope "
               "counter on it, then remove all rope counters from all creatures.", None, ""),
+         real("Stolen Uniform", "{U}", 1, "Instant", "Choose target creature you control and target Equipment. Gain control of that Equipment until end of turn. Attach it to the chosen creature. When you lose control of that Equipment this turn, if it's attached to a creature you control, unattach it.", None, "U"),
+         real("Bonesplitter", "{1}", 1, "Artifact \u2014 Equipment", "Equipped creature gets +2/+0.\nEquip {1}", None, ""),
          real("Test Giant", "{4}", 4, "Creature — Spirit", "", ("4", "4"), "")]
 
 
@@ -106,4 +110,23 @@ def test_fraying_line(cards, pay):
     else:
         assert line.zone == "p1:exile" and z[mine.id].endswith("battlefield") and z[bears.id].endswith("exile") and z[gem.id].endswith("exile")
         assert not s.state.cards[mine.id].counters.get("rope")
+    check(s)
+
+
+@pytest.mark.parametrize("moved", [False, True])
+def test_stolen_uniform(cards, moved):
+    """Stolen Uniform (701.3a, 603.4, 603.7c): the Equipment is Alice's for the turn and on her creature; losing it unattaches it only if it is on one of her creatures."""
+    s = build(cards, ["Stolen Uniform", "Test Wisp"], ["Bonesplitter", "Test Kami"])
+    mine, bear, rod = put(s, "Test Wisp"), put(s, "Test Kami", "p2"), put(s, "Bonesplitter", "p2")
+    act(s, "p2", type="attach", card_ids=[rod.id], to=bear.id)
+    spell = to_hand(s, "Stolen Uniform")
+    mana(s, U=1)
+    act(s, "p1", type="cast_spell", card_id=spell.id, targets=[mine.id, rod.id], target_counts=[1, 1])
+    pass_until_stack_empty(s)
+    assert s.state.cards[rod.id].controller == "p1" and s.state.cards[rod.id].attached_to == mine.id
+    if moved:
+        act(s, "p1", type="attach", card_ids=[rod.id], to=bear.id)  # (onto Bob's creature: not one of Alice's)
+    next_turn(s)
+    back = s.state.cards[rod.id]
+    assert back.controller == "p2" and back.attached_to == (bear.id if moved else None)
     check(s)
