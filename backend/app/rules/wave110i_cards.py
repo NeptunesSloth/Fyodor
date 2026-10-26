@@ -178,6 +178,48 @@ def _evershrike(d: Def) -> Def:
                              {"do": "only_if", "cond": {"succeeded": "aura110i", "negate": True}, "skip": 1}, {"do": "exile", "who": "ref:ever110i"}]}
 
 
+def _specter(d: Def) -> Def:
+    """Tainted Specter: "discards a card unless they put a card from their hand on top of their library" is the target player's choice (``specter``); the damage
+    is only for a discard (118.12 style "unless": what they chose, here the discard itself)."""
+    discard, *damage = d["effects"]
+    return {**d, "effects": [{"do": "specter110i", "who": discard["who"]}, {"do": "only_if", "cond": {"succeeded": "disc110i"}, "skip": len(damage)}, *damage]}
+
+
+def specter(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    from app.game.rules_state import DecisionOption
+    from app.rules import effects
+    from app.rules.plan import decide
+
+    who = [p for p in effects._players(plan, ctx, e["who"]) if p in plan.live()]
+    if not who or not plan.state.zones.get(f"{who[0]}:hand"):
+        return True  # no player or nothing to put or discard: neither happens
+    decide(plan, player=who[0], kind="choose_one", prompt="Put a card from your hand on top of your library, or discard a card?",
+           options=[DecisionOption(id="top", label="Put a card from my hand on top of my library"), DecisionOption(id="discard", label="Discard a card")],
+           resume={"step": "specter110i", "ctx": ctx, "pid": who[0]})
+    return False
+
+
+def resume_specter(plan: Plan, d: Any, chosen: list[str]) -> None:
+    from app.game.rules_state import DecisionOption
+    from app.rules import effects
+    from app.rules.plan import decide
+
+    ctx, pid = d.resume["ctx"], d.resume["pid"]
+    if chosen == ["top"]:
+        hand = list(plan.state.zones.get(f"{pid}:hand", []))
+        decide(plan, player=pid, kind="choose_cards", prompt="Put a card from your hand on top of your library", min_choices=1, max_choices=1,
+               options=[DecisionOption(id=c, label=plan.state.cards[c].name or "Card", card_id=c) for c in hand], resume={"step": "specter_top110i", "ctx": ctx})
+    elif effects.PRIMITIVES["discard"](plan, ctx, {"do": "discard", "who": f"player:{pid}", "n": 1, "did": "disc110i"}):
+        effects.continue_effects(plan, ctx)
+
+
+def resume_specter_top(plan: Plan, d: Any, chosen: list[str]) -> None:
+    from app.rules import effects
+
+    plan.do({"type": "move", "card_ids": chosen, "to": {"player": d.player, "zone": "library"}, "position": "top"}, actor=d.player)
+    effects.continue_effects(plan, d.resume["ctx"])
+
+
 def _raiding(d: Def) -> Def:
     """Raiding Party: the whole effect is one primitive (``raiding``): each player's tap choice, then their Plains choice, then the destruction."""
     return {**d, "effects": [{"do": "raiding110i"}]}
@@ -312,6 +354,9 @@ _BAUBLE = ("{1}, {T}, Sacrifice this artifact: Put up to four target basic land 
 _VAT = ("{1}, {T}, Sacrifice another artifact: Reveal the top eight cards of your library. Put up to two noncreature artifact cards with total mana value "
         "less than or equal to the sacrificed artifact's mana value from among them onto the battlefield and the rest on the bottom of your library in a random order.")
 _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
+    "{1}{B}{B}, {T}: Target player discards a card unless they put a card from their hand on top of their library. If that player discards a card this way, "
+    "this creature deals 1 damage to each creature and each player. Activate only as a sorcery.":
+        ("{1}{B}{B}, {T}: Target player discards a card. This creature deals 1 damage to each creature and each player. Activate only as a sorcery.", _specter),
     "Sacrifice an Orc: Each player may tap any number of untapped white creatures they control. For each creature tapped this way, that player chooses up to two Plains. "
     "Then destroy all Plains that weren't chosen this way by any player.": ("Sacrifice an Orc: Destroy all Plains.", _raiding),
     "{X}{W/B}{W/B}: Return this card from your graveyard to the battlefield. You may put an Aura card with mana value X or less from your hand onto the battlefield "
@@ -502,7 +547,7 @@ def destroy_mark(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     return True
 
 
-PRIMITIVES = {"raiding110i": raiding, "bind_self110i": bind_self, "bauble110i": bauble, "bind_first110i": bind_first, "destroy_mark110i": destroy_mark, "goad_while110i": goad_while, "bind_rest110i": bind_rest, "exile_library110i": exile_library, "attach_all110i": attach_all, "lose_rad110i": lose_rad, "bounce_gate110i": bounce_gate}
+PRIMITIVES = {"specter110i": specter, "raiding110i": raiding, "bind_self110i": bind_self, "bauble110i": bauble, "bind_first110i": bind_first, "destroy_mark110i": destroy_mark, "goad_while110i": goad_while, "bind_rest110i": bind_rest, "exile_library110i": exile_library, "attach_all110i": attach_all, "lose_rad110i": lose_rad, "bounce_gate110i": bounce_gate}
 
 
 def ask_skip(plan: Plan, done: list[str]) -> bool:
@@ -540,7 +585,7 @@ def resume_skip(plan: Plan, d: Any, chosen: list[str]) -> None:
     engine.on_step_start(plan)
 
 
-RESUME = {"skip_may110i": resume_skip, "raiding_tap110i": resume_raiding_tap, "raiding_plains110i": resume_raiding_plains}
+RESUME = {"skip_may110i": resume_skip, "specter110i": resume_specter, "specter_top110i": resume_specter_top, "raiding_tap110i": resume_raiding_tap, "raiding_plains110i": resume_raiding_plains}
 
 
 def definition(ability: Any, ch: Any) -> Def | None:

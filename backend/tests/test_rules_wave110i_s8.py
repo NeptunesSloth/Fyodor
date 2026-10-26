@@ -4,6 +4,7 @@
 * Shifty Doppelganger: the creature put onto the battlefield is sacrificed at the next end step; if it was, this card returns from exile (118.12).
 * Evershrike: returns from the graveyard; an Aura (mana value X or less) from hand enters attached to it (303.4f), else it is exiled (118.12).
 * Raiding Party: each player (turn order, 101.4) taps white creatures and chooses up to two Plains per creature; unchosen Plains are destroyed.
+* Tainted Specter: the target player chooses to put a card from hand on top of the library or to discard; the damage only follows a discard.
 * Arsenal Thresher: reveals other artifact cards from hand as it enters (701.20a), a +1/+1 counter for each (614.12); the cards stay in hand.
 """
 
@@ -15,7 +16,7 @@ from app.rules import coverage
 from tests.game_helpers import act
 from tests.test_rules_wave12a_counters_keywords import real
 from tests.test_rules_wave34b_activated import activate
-from tests.wave9c_kit import build, card_named, mana, pt, put, to_hand
+from tests.wave9c_kit import build, card_named, life, mana, pt, put, to_hand
 from tests.wave110a_kit import answer
 from tests.wave110c_kit import check, make_db
 
@@ -29,7 +30,10 @@ EVER = ("Flying\nThis creature gets +2/+2 for each Aura attached to it.\n{X}{W/B
 PARTY = ("This enchantment can't be the target of white spells or abilities from white sources.\n"
          "Sacrifice an Orc: Each player may tap any number of untapped white creatures they control. For each creature tapped this way, that player chooses up to two Plains. "
          "Then destroy all Plains that weren't chosen this way by any player.")
-EXTRA = [real("Plains", "", 0, "Basic Land \u2014 Plains", "({T}: Add {W}.)", None, ""),
+SPECTER = ("Flying\n{1}{B}{B}, {T}: Target player discards a card unless they put a card from their hand on top of their library. If that player discards a card this way, "
+           "this creature deals 1 damage to each creature and each player. Activate only as a sorcery.")
+EXTRA = [real("Tainted Specter", "{3}{B}", 4, "Creature \u2014 Specter", SPECTER, ("2", "3"), "B"),
+         real("Plains", "", 0, "Basic Land \u2014 Plains", "({T}: Add {W}.)", None, ""),
          real("Raiding Party", "{2}{R}", 3, "Enchantment", PARTY, None, "R"),
          real("Probe Orc", "{1}{R}", 2, "Creature \u2014 Orc", "", ("2", "2"), "R"),
          real("Probe Knight", "{1}{W}", 2, "Creature \u2014 Human Knight", "", ("2", "2"), "W"),
@@ -52,7 +56,7 @@ def card_db(settings):
     return make_db(settings, EXTRA)
 
 
-@pytest.mark.parametrize("name", ["Arsenal Thresher", "Arcee", "Probe Pair", "Shifty Doppelganger", "Evershrike", "Raiding Party"])
+@pytest.mark.parametrize("name", ["Arsenal Thresher", "Arcee", "Probe Pair", "Shifty Doppelganger", "Evershrike", "Raiding Party", "Tainted Specter"])
 def test_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
@@ -195,4 +199,43 @@ def test_raiding_party_nobody_taps_destroys_every_plains(cards):
     s, ids, orc, party = _party(cards, [("k1", "Probe Knight"), ("a", "Plains")], [("d", "Plains")], [[]])  # (the opponent has no white creature: asked nothing)
     assert s.state.cards[ids["a"].id].zone == "p1:graveyard" and s.state.cards[ids["d"].id].zone == "p2:graveyard"
     assert not s.state.cards[ids["k1"].id].tapped
+    check(s)
+
+
+@pytest.mark.parametrize("choice", ["top", "discard", "empty hand"])
+def test_tainted_specter_discard_or_put_on_top(cards, choice):
+    from tests.wave100c_kit import to_phase
+
+    s = build(cards, ["Tainted Specter"])
+    spec = put(s, "Tainted Specter")
+    to_phase(s, "main1", turn=3)
+    hand = list(s.state.zones["p2:hand"])
+    if choice == "empty hand":
+        act(s, "p2", type="move", card_ids=hand, to={"player": "p2", "zone": "graveyard"})
+    lib_top = s.state.zones["p2:library"][0]
+    lives = [life(s, "p1"), life(s, "p2")]
+    mana(s, B=2, C=1)
+    activate(s, "p1", spec, "Target player", targets=["p2"])
+    if choice == "empty hand":
+        answer(s)
+    else:
+        d = None
+        for _ in range(6):
+            d = s.state.rules.decision
+            if d is not None:
+                break
+            act(s, s.state.rules.priority, type="pass_priority")
+        assert d.player == "p2" and {o.id for o in d.options} == {"top", "discard"}
+        act(s, "p2", type="choose", decision_id=d.id, option_ids=[choice])
+        answer(s, hand[0])
+    top = s.state.zones["p2:library"][0]
+    if choice == "top":
+        assert top == hand[0] and [life(s, "p1"), life(s, "p2")] == lives and s.state.cards[spec.id].damage == 0
+    else:
+        assert top == lib_top
+        if choice == "discard":
+            assert s.state.cards[hand[0]].zone == "p2:graveyard"
+            assert [life(s, "p1"), life(s, "p2")] == [lives[0] - 1, lives[1] - 1] and s.state.cards[spec.id].damage == 1
+        else:
+            assert [life(s, "p1"), life(s, "p2")] == lives
     check(s)

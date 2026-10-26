@@ -30,4 +30,15 @@
 
 ## Session 7: foundations built, these earlier refusals are now FULL
 - Hipparion (block tax by attacker power, combat_rules.pair_tax), Fasting (optional draw-step skip, wave110i_cards.ask_skip), Smelting Vat (total_mv as a value), Lodestone Bauble (one graveyard, owner draws), Noctis (delayed trigger at declare attackers step, 507.1/508.8), Balduvian Fallen / Heart of Bogardan (cumulative upkeep paid / unpaid), Sheltered Valley (devour-style mandatory same-name sacrifice).
-- Judgement call, Lodestone Bauble: with zero targets there is no "that player", so nobody draws (no CR rule or ruling found either way).
+- Lodestone Bauble: zero targets leave "that player" undefined (no CR rule or ruling found): the ability needs at least one target (115.6 allows zero, so this is a deliberate restriction; the player can resolve it by hand).
+
+## Session 8
+Moved to FULL: Arsenal Thresher (devour.py REV), Arcee (cast_targets110i value), Shifty Doppelganger, Evershrike, Raiding Party, Tainted Specter (wave110i_cards.py).
+- Spoils of War: "an opponent's graveyard" (which opponent, multiplayer) is unsettled, and X is both cost and text-defined (107.3c).
+- Torrent of Lava: abilities granted to every creature only while the spell is on the stack; no stack-presence static.
+- Hero of Bretagard: needs "exiled by a spell or ability you control" as an event source, joined to a hand-exile batch.
+- Stardew Valley: "another player of your choice may gain control": who decides the "may" is unsettled.
+- Quicksilver Fountain: "target ... land they control of their choice": who picks the target is unsettled.
+- Aphetto Dredging: when the creature type is chosen (before or after targets) is unsettled.
+- Frankenstein's Monster: +2/+0 and +0/+2 counters, and "put into the graveyard instead of the battlefield", are not modelled.
+- Firestorm Phoenix, Providence, False Dawn, Reflecting Mirror (X defined by the target spell's mana value), Curse of Leeches (attach on transform), Tunnel of Love: foundations missing.
