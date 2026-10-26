@@ -1478,6 +1478,9 @@ def holds(plan: Plan, cond: dict[str, Any], *, source: CardInstance, controller:
         return combat_soulbond_partner70.holds(plan, source)
     if kind == "marked110j":  # -- (wave 110J) -- "this Aura gains …" (Earthbind): set as that ability resolved, for this object only (400.7)
         return source.choices.get("Gained ability") == "Yes"
+    if kind == "ignored110j":  # -- Volrath's Curse (wave 110J) -- its enchanted creature's controller paid to ignore it this turn
+        host = plan.state.cards.get(source.attached_to or "")
+        return host is not None and plan.rules.once_per_turn.get(f"ignore110j:{plan.oid(host)}") == plan.state.turn.number
     if kind == "your_turn":
         return plan.state.turn.active_player == controller
     if kind == "your_end_step":  # (wave 100K)

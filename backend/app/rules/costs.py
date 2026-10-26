@@ -439,6 +439,7 @@ def parse_ability_cost(cost: str, *, card_name: str = "", loyalty: bool = False,
     from app.rules import wave110d_costs  # -- costs (wave 110D) --
 
     cost = wave110d_costs.rewrite(cost)
+    cost = cost.replace(", Choose flying, first strike, trample, or shadow", "")  # -- wave 110J -- Phyrexian Splicer: the choice is the ability's mode (wave110j_cards._splicer)
     if loyalty:
         raw = cost.strip().replace("−", "-")
         if raw.upper() == "-X":

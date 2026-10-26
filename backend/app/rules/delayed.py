@@ -383,6 +383,11 @@ def _step_due(plan: Plan, t: DelayedTrigger, phase: str) -> bool:
     if w.get("tag") is not None:  # -- commander sweep (wave 49B) -- "At the beginning of that combat" (Moraug): the one combat phase it was made with, wherever it falls in the turn (500.8)
         return w.get("kind") == "step" and w.get("step") == phase and plan.rules.combat_tag == w["tag"] and (
             t.until_turn is None or plan.state.turn.number <= t.until_turn)
+    if any(e.get("do") == "oyster_tick110j" for e in t.effects):  # -- wave 110J -- Giant Oyster: only while it remains tapped
+        from app.rules import wave110j_cards
+
+        if not wave110j_cards.oyster_live(plan, t.effects[0]["oyster"]):
+            return False
     main = w.get("step") == "main" and phase in ("main1", "main2")  # -- stack interaction (wave 5B) -- (505.1)
     if w.get("kind") != "step" or (w.get("step") != phase and not main):
         return False
@@ -405,6 +410,10 @@ def _step_due(plan: Plan, t: DelayedTrigger, phase: str) -> bool:
         return plan.active == t.controller and (later_turn or same_turn_before)
     if whose in ("owner", "payer"):
         return plan.active == w.get("player") and (later_turn or same_turn_before)
+    if whose == "each110j":  # -- wave 110J -- Dimensional Breach: every player's upkeep, for as long as any of the exiled cards remain exiled (603.7b, 611.2b)
+        from app.rules import wave110j_cards
+
+        return (later_turn or same_turn_before) and wave110j_cards.breach_live(plan, t)
     return later_turn  # "the next turn's upkeep"
 
 
@@ -763,6 +772,9 @@ def expire(plan: Plan) -> None:
     from app.rules import permissions
 
     permissions.expire_source(plan)  # -- durations (wave 30M) -- "You may play that card for as long as you control ~" (a stored permission)
+    from app.rules import wave110j_cards
+
+    wave110j_cards.oyster_sweep(plan)  # -- wave 110J -- Giant Oyster: "When this creature leaves the battlefield or becomes untapped, …"
 
 
 def _held(plan: Plan, ctx: Context, inner: list[dict[str, Any]]) -> list[str]:

@@ -907,7 +907,8 @@ def modal_groups(definition: dict[str, Any], picked: list[int]) -> list[dict[str
         base = len(out)  # (-- shuffle target cards (wave 46B) -- a mode's "graveyard_of" names a group of its own, numbered from its first)
         out += [{**g, "graveyard_of": g["graveyard_of"] + base} if g.get("graveyard_of") is not None else
                 {**g, "of": g["of"] + base} if g.get("of") is not None else g  # (-- player-relative selectors (wave 53A) --)
-                for g in m.get("groups") or ([{"what": m["target"]["what"]}] if m["target"] else [])]
+                for g in [{**g, "distinct_from": [d + base for d in g["distinct_from"]]} if g.get("distinct_from") else g  # (-- wave 110J -- "another target …" of a later mode)
+                          for g in m.get("groups") or ([{"what": m["target"]["what"]}] if m["target"] else [])]]
     return out
 
 
@@ -5668,9 +5669,9 @@ def activate_ability(plan: Plan, a: A.ActivateAbility) -> None:
         if ab is not None and opponents_only(ab) and card.controller == plan.actor:
             raise ActionError("Only your opponents may activate this ability")
         raise ActionError("You can only activate abilities of permanents you control")
-    if "cant_activate" in ch.imposed:  # an Aura: "its activated abilities can't be activated" (crew, equip too)
-        raise ActionError(f"{ch.name}’s activated abilities can't be activated")
     ability = _find_ability(ch, a.ability)
+    if "cant_activate" in ch.imposed and not (ability is not None and ability.text.startswith("Sacrifice a permanent: Ignore Volrath's Curse")):  # an Aura: "its activated abilities can't be activated" (crew, equip too; -- wave 110J -- except Volrath's Curse's own way out)
+        raise ActionError(f"{ch.name}’s activated abilities can't be activated")
     if "cant_activate_nonmana" in ch.imposed and ability.kind != "mana":  # -- attached events (wave 16F) -- Faith's Fetters (605.1a)
         raise ActionError(f"{ch.name}’s activated abilities can't be activated unless they're mana abilities")
     if "cant_activate_tap" in ch.imposed and ab is not None and ability_cost(ch, ab, state=plan.state, card=card, info=plan.info).tap:  # -- attached (wave 100F) --
@@ -6062,7 +6063,7 @@ def ability_problem(state: GameState, player: str, card: CardInstance, ch: Chara
         return "You can only activate abilities of permanents you control"
     if cost.unsupported:
         return f"Pay “{', '.join(cost.unsupported)}” by hand with the table tools"
-    if "cant_activate" in ch.imposed or ("cant_activate_nonmana" in ch.imposed and ability.kind != "mana") or ("cant_activate_tap" in ch.imposed and cost.tap):  # (wave 100F: {T})
+    if ("cant_activate" in ch.imposed and not ability.text.startswith("Sacrifice a permanent: Ignore Volrath's Curse")) or ("cant_activate_nonmana" in ch.imposed and ability.kind != "mana") or ("cant_activate_tap" in ch.imposed and cost.tap):  # (wave 100F: {T})
         return f"{ch.name}’s activated abilities can't be activated"
     # -- cast limits (wave 5E) -- (602.5)
     from app.rules import cast_limits
