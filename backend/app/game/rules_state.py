@@ -404,6 +404,7 @@ EventKind = Literal[
     "player_counters",  # poison, energy, experience, rad, tickets … (amount signed)
     "tapped",
     "untapped",
+    "trained",  # -- trains (wave 110G) -- 702.149c: a resolving training ability put +1/+1 counters on ``card``
     "evolved",  # An evolve keyword ability actually put one or more +1/+1 counters.
     "exerted",  # 701.43: the player exerted this permanent
     "spell_cast",  # a player cast a spell (the object is the spell on the stack)
@@ -481,6 +482,7 @@ class Event(BaseModel):
     sides: int = 0
     source_targets: list[str] | None = None  # -- trigger damage (wave 110C) -- a ``damage`` event: the targets of the spell dealing it (115.9c), None for any other source
     pair110c: str | None = None  # -- soulbond (wave 110C) -- a ``damage`` event: the object paired with the damaged one when it was dealt (603.2: judged as the event happens)
+    cause110g: str | None = None  # -- wave 110G -- a zone change: controller of the resolving spell or ability that moved it (SBA and rules: None)
     excess: int = 0  # -- trigger damage (wave 39B) -- a ``damage`` event: the excess damage (120.10) the batch dealt to the permanent, on its first event
 
 
@@ -758,7 +760,7 @@ class ContinuousEffect(BaseModel):
     counter_since_batch: int = 0  # while-counter durations ignore earlier zero-counter events
     duration: Literal["end_of_turn", "permanent", "next_turn", "end_of_next_turn", "source_on_battlefield", "source_controlled",
                       "source_tapped", "source_controlled_tapped", "while_counter", "end_of_combat", "until_cast", "while_enchanted",
-                      "next_upkeep", "monarch_player", "attached110n"] = "end_of_turn"  # (next_upkeep: wave 100A, "until your next upkeep" — delayed.at_step)
+                      "next_upkeep", "monarch_player", "end_of_next_upkeep110g", "attached110n"] = "end_of_turn"  # (next_upkeep: wave 100A, "until your next upkeep" — delayed.at_step)
     until_object: str | None = None  # -- as long as (wave 37A) -- until_cast: the object (in exile) whose being cast ends the effect (delayed.spell_cast)
     counter: str | None = None  # while_counter: the kind of counter
     until_player: str | None = None  # next_turn: whose next turn; source_controlled: who must control the source
@@ -922,6 +924,7 @@ class TriggerEvent(BaseModel):
     attacked: ObjectRef | None = None
     # -- voting (wave 48D) -- 701.38: "Whenever players finish voting": the [voter, choice] of every vote of the voting that finished, as cast
     ballots: list[list[str]] = Field(default_factory=list)
+    combat_alone110g: str | None = None  # -- wave 110G -- a permanent that left: "attacking" / "blocking" when it was the only creature doing so (506.5), else None
 
 
 class RegenerationShield(BaseModel):
@@ -1660,6 +1663,8 @@ class RulesState(BaseModel):
     # Combat bookkeeping; the attack/block markers on the table are the visible truth.
     blocked: list[str] = Field(default_factory=list)  # attackers that became blocked (stay blocked)
     attacking_bands: list[list[str]] = Field(default_factory=list)  # CR 702.22: object IDs, fixed on declaration; pruned on leaving combat.
+    could_attack110g: list[str] = Field(default_factory=list)  # -- wave 110G -- objects that could be declared as attackers this turn (Season of the Witch), with the turn below
+    could_attack_turn110g: int = 0
     no_attackers: bool = False  # nobody attacked: skip blockers and damage (rule 508.8)
     blockers_pending: list[str] = Field(default_factory=list)  # defending players still to declare
     combat_round: Literal["", "first", "done"] = ""
@@ -1772,6 +1777,7 @@ class RulesState(BaseModel):
     cast_history_complete: bool | None = None  # True only when automation observed the trusted fresh-game boundary.
     named_casts_game: dict[str, dict[str, int]] = Field(default_factory=dict)  # public names when actually cast, per player, across turns
     entry_life_losses: dict[str, int] = Field(default_factory=dict)  # exact source incarnation / entry ability -> actual life lost
+    cause110g: str | None = None  # transient: the controller of the effect whose step is being applied (Plan.do sets it)
     entry_life_origins: list[str] = Field(default_factory=list)  # automatic entries observed with entry-life bookkeeping available
     entry_life_notices: list[str] = Field(default_factory=list)  # legacy source/ability keys already reported as unknown
     # -- replacement effects stage 2 (wave 2E; app/rules/replace.py) --
@@ -1983,6 +1989,8 @@ def emit(state: GameState, kind: EventKind, **fields: Any) -> None:
     rules = state.rules
     if rules is None:
         return
+    if kind == "zone_change" and rules.cause110g is not None:
+        fields.setdefault("cause110g", rules.cause110g)
     rules.events.append(Event(batch=rules.batch + 1, kind=kind, turn=state.turn.number, **fields))
     if kind == "turned_face_up" and (up_log110f := turn_log_now(state)) is not None and fields.get("object_id"):
         up_log110f.turned_up110f = list(dict.fromkeys([*up_log110f.turned_up110f, fields["object_id"]]))

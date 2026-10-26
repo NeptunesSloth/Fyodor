@@ -155,6 +155,8 @@ def _definition(piece: str) -> str | None:
             return None
         if kw == 'evolve':
             d = {**d, 'effects': [{'do': 'evolve_outcome', 'stage': 'mark'}, *d['effects'], {'do': 'evolve_outcome', 'stage': 'finish'}]}
+        if kw == "training":  # -- trains (wave 110G) -- 702.149c: "trains" = the resolving training ability put counters on it
+            d = {**d, 'effects': [{'do': 'evolve_outcome', 'stage': 'mark'}, *d['effects'], {'do': 'evolve_outcome', 'stage': 'finish', 'event': 'trained'}]}
         if kw == "exploit":  # (702.110b: the sacrifice is what "exploits a creature")
             d = {**d, "effects": [{**x, "exploit": True} for x in d["effects"]]}
         if kw == "hideaway":  # -- hideaway (wave 29D) -- 607.2a: the card exiled is the one the permanent's other abilities call "the exiled card"

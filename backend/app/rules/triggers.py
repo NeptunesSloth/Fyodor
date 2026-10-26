@@ -590,7 +590,7 @@ def _facts(plan: Plan, e: Event, window: dict[str, Any]) -> list[Fact]:
             return []
         return [("crew" if e.kind == "crew_tapped" else "saddle", got[0], got[1], e.player,
                  {"oid": e.object_id, "actor": e.player, "other": e.by_card, "other_oid": e.source})]
-    if e.kind in ("crewed", "saddled", "evolved"):  # 702.122e: its crew ability resolved; 702.171b: it became saddled
+    if e.kind in ("crewed", "saddled", "evolved", "trained"):  # 702.122e: its crew ability resolved; 702.171b: it became saddled
         got = _object_then(plan, e.card, e.object_id)
         return [(e.kind, got[0], got[1], e.player, {"oid": e.object_id, "actor": e.player, "crew_count80": e.crew_count80})] if got is not None else []
     if e.kind in ("attached", "unattached"):  # -- attachment events (wave 30S) -- 603.2e, 701.3d, 603.10c: the Aura / Equipment (as it last existed
@@ -696,7 +696,8 @@ def _zone_facts(plan: Plan, e: Event) -> list[Fact]:
         if snap is None:  # (-- review (wave 18D) -- a card of a merged permanent that left: put there, not a permanent leaving, 730.3)
             return _to_graveyard(plan, e, frm) if e.object_id is None else []
         card, ch = _snapshot_card(plan, snap)
-        info: dict[str, Any] = {"oid": e.object_id, "snap": snap, "new_oid": e.new_object_id, "to": e.to_zone}
+        info: dict[str, Any] = {"oid": e.object_id, "snap": snap, "new_oid": e.new_object_id, "to": e.to_zone, "cause110g": e.cause110g,
+                                "alone110g": __import__("app.rules.wave110g_cards", fromlist=["x"]).combat_alone(plan, e, snap)}
         out.append(("leave", card, ch, snap.controller, info))
         if to == "graveyard" or (e.to_zone is None and snap.is_token):  # 700.4
             out.append(("die", card, ch, snap.controller, info))
@@ -1309,6 +1310,8 @@ def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: F
     # -- graveyard owner (wave 6D) -- "put into your / an opponent's graveyard": its owner's graveyard (400.3)
     if event == "die" and cond.get("gy_owner") and (obj is None or (obj.owner == you) != (cond["gy_owner"] == "you")):
         return False
+    if event == "die" and cond.get("cause_opp110g") and info.get("cause110g") in (None, you):  # -- wave 110G -- "a spell or ability an opponent controls causes" (SBA: no cause)
+        return False
     if event in ("counters_put", "counters_removed", "player_counters") and cond.get("by") == "you" and info.get("actor") != you:  # -- counters (wave 5H) --
         return False  # ("Whenever you put one or more +1/+1 counters on …": the player who put them, 122.6a)
     if event == "counters_put" and cond.get("by") == "opponent" and (info.get("actor") in (None, you)):  # (wave 7C)
@@ -1557,7 +1560,7 @@ def _event(plan: Plan, fact: Fact, batch: int) -> TriggerEvent:
                         if kind in _PAIRED.values() and info.get("other") in plan.state.cards
                         else _source_ref(plan, info.get("exploited_oid")) if kind == "exploit" else  # -- exploit (wave 110G) -- the exploited creature, as it was
                         _source_ref(plan, info.get("bearer")) if kind == "ring_tempts" else None,  # (wave 19B: the Ring-bearer chosen)
-                        ballots=info.get("ballots") or [])  # (-- voting (wave 48D) --)
+                        ballots=info.get("ballots") or [], combat_alone110g=info.get("alone110g"))  # (-- voting (wave 48D) --)
 
 
 def _attack_object(plan: Plan, kind: str, obj: CardInstance | None) -> ObjectRef | None:
@@ -2278,6 +2281,8 @@ def keyword_cost(line: str, word: str) -> tuple[str, Any] | None:
         return None
     from app.rules import optional_payment
 
+    if word == "cumulative upkeep" and m["phrase"] == "Put two cards from a single graveyard on the bottom of their owner's library":  # -- wave 110G -- Jötun Grunt
+        return "gy_pairs110g", None
     if (cost := optional_payment.cost_text(_phrase(m["phrase"]))) is not None:
         return "cost", cost
     done = effect_cost(m["phrase"]) if word == "cumulative upkeep" else None  # (no echo cost is an instruction: not read)
@@ -2321,6 +2326,8 @@ def _cumulative_upkeep(plan: Plan) -> None:
         for k, (kind, cost) in enumerate(cumulative_costs(ch)):
             if kind == "mana":
                 pay = [{"do": "pay_or_sacrifice", "cost": cost, "per": "age"}]
+            elif kind == "gy_pairs110g":  # -- wave 110G -- 702.24a: the cost once for each age counter, all or nothing (118.3)
+                pay = [{"do": "gy_pairs110g", "n": age, "bind": "pay0"}, {"do": "only_if", "cond": {"succeeded": "pay0", "negate": True}, "skip": 1}, *sacrifice]
             elif kind == "cost":
                 pay = [{"do": "optional_payment", "who": "you", "cost": cost, "times": age, "bind": "pay0"},
                        {"do": "only_if", "cond": {"succeeded": "pay0", "negate": True}, "skip": 1}, *sacrifice]

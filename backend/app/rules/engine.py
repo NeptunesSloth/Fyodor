@@ -1519,7 +1519,11 @@ def choose(plan: Plan, a: A.Choose) -> None:
     step = (d.resume or {}).get("step")
     zero_modes = (d.resume or {}).get("zero_modes_object")
     plan.locked_zero_modes = zero_modes if isinstance(zero_modes, str) else None
-    RESUME[str(step)](plan, d, chosen)
+    plan.cause110g = ((d.resume or {}).get("ctx") or {}).get("controller")  # -- wave 110G -- the answered effect's controller stamps its moves
+    try:
+        RESUME[str(step)](plan, d, chosen)
+    finally:
+        plan.cause110g = None
     if plan.rules.payment_outer is not None:  # -- nested payment choices (wave 28D) -- back to the payment the choice was nested in
         casting.resume_outer(plan)
     permissions.free_cast_abandoned(plan)  # -- free-cast cleanup (wave 30A) -- a cancelled free cast ends before play goes on: advance would resolve the

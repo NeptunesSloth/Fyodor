@@ -2100,7 +2100,9 @@ def _damage_applies(plan: Plan, c: Candidate, ev: Event, sim: Sim) -> bool:
     if (c.prevention or c.legacy is not None) and ev.get("unpreventable") and not (
             (c.op.get("rider") and c.id.startswith("s:")) or c.op.get("consume_unpreventable")):  # (-- prevention riders (wave 17A) -- a static's additional effect
         return False  # still takes place, 615.12; a record's or shield's riders all count the damage prevented: none)
-    if ev.get("unredirectable110h") and c.op.get("do") == "redirect":  # -- Lava Burst (wave 110H) -- 614.9: that damage can't be dealt instead to another
+    from app.rules import source_shields
+
+    if (ev.get("unredirectable110h") or source_shields.cant_redirect110g(plan, ev)) and c.op.get("do") == "redirect":  # -- Lava Burst (wave 110H) -- 614.9: that damage can't be dealt instead to another
         return False
     if c.op.get("once") and not c.op.get("batch") and f"once:{c.id}" in sim.get("shields", {}):  # (wave 35A: ``batch``, see Planner.applies)
         return False

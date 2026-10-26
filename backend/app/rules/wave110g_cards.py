@@ -119,9 +119,25 @@ def hand_began_empty(plan: Any, ctx: dict[str, Any], cond: Def) -> bool:
     return (began[you] if began is not None and you in began else len(plan.state.zones.get(f"{you}:hand", []))) == 0
 
 
+def combat_alone(plan: Any, e: Any, snap: Any) -> str | None:
+    """506.5: a creature that left was attacking (blocking) alone when no other creature, on the battlefield or leaving with it, was attacking (blocking)."""
+    for attr in ("attacking", "blocking"):
+        if getattr(snap, attr, False) and not any(
+                c.id != snap.card and c.zone.endswith(":battlefield") and (c.is_attacking if attr == "attacking" else c.is_blocking) for c in plan.state.cards.values()) \
+                and not any(x.kind == "zone_change" and x.batch == e.batch and x.object_id and x.object_id != e.object_id
+                            and getattr(plan.rules.lki.get(x.object_id), attr, False) for x in plan.rules.events):
+            return attr
+    return None
+
+
+def alone_in_combat(plan: Any, ctx: dict[str, Any], cond: Def) -> bool:
+    ev = ctx.get("event")
+    return (ev.get("combat_alone110g") if isinstance(ev, dict) else getattr(ev, "combat_alone110g", None)) is not None
+
+
 def holds(plan: Any, ctx: dict[str, Any], cond: Def) -> bool:
     return bool({"walls_block": walls_block, "opp_protects": opponent_protects, "exploited_big": exploited_big,
-                   "hand_began_empty": hand_began_empty, "other_targetable": other_targetable, "emerge_sacrifice": emerge_sacrifice, "shares_with_exiled": shares_with_exiled}[cond["w110g"]](plan, ctx, cond))
+                   "hand_began_empty": hand_began_empty, "other_targetable": other_targetable, "emerge_sacrifice": emerge_sacrifice, "shares_with_exiled": shares_with_exiled, "alone_in_combat": alone_in_combat}[cond["w110g"]](plan, ctx, cond))
 
 
 def _crown(d: Def) -> Def:
@@ -253,6 +269,14 @@ def _lowest_life_control(d: Def) -> Def:
 
 # whole ability text -> the wording the grammar reads for it
 _AS: dict[str, str] = {
+    # Elemental Expressionist: one clause granting two quoted abilities is two grants of the same target; "is put into exile" of a granted ability is
+    # exile from the battlefield (the grant ends when the creature leaves, 400.7; the replacement exiles it from there)
+    "Magecraft \u2014 Whenever you cast or copy an instant or sorcery spell, choose target creature you control. Until end of turn, it gains \"If this creature would leave the battlefield, exile it instead of putting it anywhere else\" and \"When this creature is put into exile, create a 4/4 blue and red Elemental creature token.\"":
+        "Magecraft \u2014 Whenever you cast or copy an instant or sorcery spell, choose target creature you control. Until end of turn, it gains \"If this creature would leave the battlefield, exile it instead of putting it anywhere else.\" Until end of turn, it gains \"When this creature is put into exile from the battlefield, create a 4/4 blue and red Elemental creature token.\"",
+    # Savior of Ollenbock: a creature on the battlefield or a creature card in a graveyard is "creature or creature card in a graveyard";
+    # "the exiled cards" return to the battlefield (607.2a link, 610.3)
+    "When this creature leaves the battlefield, put the exiled cards onto the battlefield under their owners' control.":
+        "When this creature leaves the battlefield, return the exiled cards to the battlefield under their owners' control.",
     # Carry Away: the Aura only enchants Equipment, so "enchanted permanent" is the enchanted Equipment
     "You control enchanted Equipment.": "You control enchanted permanent.",
     # Wormfang Drake: "a creature you control other than this creature" is "another creature you control"
@@ -309,6 +333,40 @@ def _shares(d: Def) -> Def:
     return {**d, "if": {"w110g": "shares_with_exiled"}}
 
 
+def _firm(d: Def) -> Def:
+    return {**d, "effects": [d["effects"][0], {"do": "firm_creature110g", "who": "target"}, *d["effects"][1:]]}  # Whippoorwill: after the regeneration clause
+
+
+def _tatsumasa(d: Def) -> Def:
+    es = d["effects"]  # token, "when it dies", return: the exiled Equipment (bound as it is in exile) comes back, not the token
+    return {**d, "effects": [{"do": "bind_exiled110g", "as": "tatsumasa"}, es[0], es[1], {**es[2], "who": "ref:tatsumasa", "under": "owner"}]}
+
+
+def _could_attack(d: Def) -> Def:  # Season of the Witch: "except for creatures that couldn't attack" keeps only those that could have been declared
+    return {**d, "effects": [{**x, "who": x["who"].replace('"didnt_attack_this_turn"', '"could_attack110g","didnt_attack_this_turn"')} for x in d["effects"]]}
+
+
+def _alone(d: Def) -> Def:  # Thijarian Witness: the plain "if it was attacking" test, swapped for the 506.5 fact kept with the event
+    test = {"w110g": "alone_in_combat"}
+    return {**d, "if": test, "effects": [{**x, "cond": test} if x.get("do") == "only_if" else x for x in d["effects"]]}
+
+
+def _halfdane(d: Def) -> Def:
+    return {**d, "effects": [{"do": "halfdane110g"}]}
+
+
+def _idol_enter(d: Def) -> Def:
+    return {**d, "effects": [{"do": "exile_gy_until110g"}]}
+
+
+def _idol_cast(d: Def) -> Def:
+    return {**d, "effects": [{"do": "idol_cast110g"}]}
+
+
+def _opponent_cause(d: Def) -> Def:
+    return {**d, "cond": {**d["cond"], "cause_opp110g": True}}  # Sacred Ground: the move came out of an opponent's resolving spell or ability
+
+
 # whole ability text -> (the wording the grammar reads, what to change in its definition)
 def _imprint_pt(d: Def) -> Def:
     """Phyrexian Ingester: +X/+Y from the imprinted creature card, two statics of one line (613.4c; 607.2a link); no card exiled adds 0."""
@@ -339,7 +397,278 @@ def _no_phase_out(d: Def) -> Def:
     return {**d, "effects": [{**x, "rules": ["cant_phase_out"]} if x.get("do") == "restrict" else x for x in d["effects"]]}
 
 
+def _battlefield_or_graveyard(d: Def) -> Def:
+    """Savior of Ollenbock: the one target is another creature on the battlefield or a creature card in a graveyard (115.1)."""
+    from app.rules import selectors
+    from app.rules.conditional_copy_sources import key
+
+    sel = selectors.Selector(zones=("battlefield", "graveyard"), either=(key("another creature"), key("creature card in a graveyard"))).key()
+    return {**d, "targets": [{**d["targets"][0], "what": sel}]}
+
+
+def _hand_or_creature(d: Def) -> Def:
+    """Cloak and Dagger, Entwined: reveal the hand, then you may exile a nonland card from it OR the chosen creature until it leaves (610.3)."""
+    from app.rules import selectors
+
+    sel = selectors.Selector(card=True, not_types=("Land",), zones=()).key()
+    return {**d, "effects": [d["effects"][0], {"do": "choose_from_hand", "who": "you", "sel": sel, "n": 1, "label": "nonland card or creature", "optional": True,
+                                               "extra110g": "target:1", "as": "e1"}, {"do": "exile_split110g", "who": "ref:e1"}]}
+
+
+def exile_split(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """610.3c: exile until the source leaves; a card from a hand goes back to the hand, a permanent back to the battlefield."""
+    from app.rules import effects
+
+    if not effects._cards(plan, ctx, "self"):
+        return True
+    cards = effects._cards(plan, ctx, e["who"])
+    for origin in (":hand", ":battlefield"):
+        found = [c for c in cards if plan.state.cards[c].zone.endswith(origin)]
+        if found:
+            effects._exile_until_cards(plan, ctx, {"hand_origin": origin == ":hand"}, found)
+    return True
+
+
+def _land_or_color(land: str, color: str) -> Callable[[Def], Def]:
+    """Nature's Wrath: "<Land> or <color> permanent" is a union selector, both for what enters and for what the controller sacrifices."""
+    def build(d: Def) -> Def:
+        from app.rules import selectors
+        from app.rules.conditional_copy_sources import key
+
+        sel = selectors.Selector(either=(key(land), key(f"{color} permanent"))).key()
+        return {**d, "cond": {**d["cond"], "sel": sel}, "effects": [{**x, "sel": sel} for x in d["effects"]]}
+    return build
+
+
+def speed_cut(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Spikeshell Harrier: if that opponent's speed is greater than each other player's speed, it drops by 1, never below 1 (702.179f: no speed reads as 0)."""
+    from app.rules import effects, speed
+
+    for pid in effects._players(plan, ctx, e["who"]):
+        if all(speed.of(plan, pid) > speed.of(plan, o) for o in plan.live() if o != pid) and speed.of(plan, pid) > 1:
+            plan.do({"type": "set_resource", "player": pid, "key": speed.KEY, "value": speed.of(plan, pid) - 1}, actor=ctx["controller"])
+    return True
+
+
+_STICKER_KICKER = "Creature spells you cast have sticker kicker {1}."
+_KICKERS = {"kicker", "multikicker", "squad", "replicate", "offspring", "entwine"}
+
+
+def sticker_kicker(state: Any, player: str, card: Any, ch: Any, info: Any) -> Any:
+    """702.33h: a creature spell its caster casts has "Kicker {1}" (Wicker Picker); casting.py then gives the ticket and sticker.
+    ponytail: a spell with a kicker of its own is not given a second one (two kickers stay unsupported, 702.33b)."""
+    if not ch.is_creature or any(_KICKERS & set(a.keywords) for a in ch.abilities):
+        return ch
+    from app.rules import cast_limits
+    from app.rules.characteristics import AbilityText
+    from app.rules.permissions import spell_matches
+
+    if not any(src.controller == player and d["keyword"] == "sticker_kicker110g" and spell_matches(state, player, card, ch, d["filter"], info, src.id)
+               for src, d in cast_limits._statics(state, info, "spell_helper")):
+        return ch
+    extra = AbilityText(index=1 + max((a.index for a in ch.abilities), default=99), text="Kicker {1}", kind="keywords", keywords=("kicker",), special="sticker_kicker110g")
+    return replace(ch, abilities=(*ch.abilities, extra))
+
+
+def sticker_kicker_effects() -> list[dict[str, Any]]:
+    """702.33h: "you get a ticket counter and you may put a sticker on this spell" (the spell is the source)."""
+    return [{"do": "player_counter", "who": "you", "counter": "ticket", "n": 1}, {"do": "put_sticker101", "kind": None, "n": 1, "as": "placed101", "who": "ref:spell110g"}]
+
+
+def _sticker_pt(d: Def) -> Def:
+    """Ambassador Blorpityblorpboop: base P/T become the stickers' totals; no duration, so it lasts (611.2a); a sticker's P/T is its own number (123.?)."""
+    e = {**d["effects"][0], "p": {"sticker_pt110g": "power"}, "t": {"sticker_pt110g": "toughness"}, "duration": "permanent"}
+    return {**d, "effects": [e], "optional": True}
+
+
+def _subtype_count(name: str) -> Def:
+    return {"value": {"count": f'sel:{{"controller":"you","subtypes":["{name}"]}}'}, "op": ">=", "n": 1}
+
+
+def _done_for_the_day(d: Def) -> Def:
+    """Done for the Day: intervening if (603.4) any of three types; "you may" get {TK} or Treasure = choose up to one mode (700.2); the sticker clause
+    checks "all three" on resolution (608.2c)."""
+    kinds = ("Employee", "Performer", "Robot")
+    get = next(e for e in d["effects"] if e["do"] == "player_counter")
+    treasure = {"do": "create_token", "who": "you", "n": 1, "token": {"name": "Treasure", "power": None, "toughness": None, "colors": [],
+                "type_line": "Token Artifact \u2014 Treasure", "text": "{T}, Sacrifice this token: Add one mana of any color."}}
+    put = {"do": "put_sticker101", "kind": None, "n": 1, "as": "placed101", "sel": 'sel:{"not_types":["Land"],"owner":"you"}'}
+    return {**d, "optional": False, "if": {"any": [_subtype_count(k) for k in kinds]}, "effects": [], "target": None,
+            "modes": [{"text": "You get {TK}.", "effects": [get], "target": None}, {"text": "Create a Treasure token.", "effects": [treasure], "target": None},
+                      {"text": "Do neither.", "effects": [], "target": None}],  # "you may": declining still lets the next sentence happen
+            "modal": {"min": 1, "max": 1, "repeat": False, "condition": None, "memory": None, "index": 0, "form": "triggered"},
+            "after": [{"do": "only_if", "cond": {"all": [_subtype_count(k) for k in kinds]}, "skip": 1}, put]}
+
+
+def _mist(d: Def) -> Def:
+    """Mist of Stagnation: choosing a permanent per graveyard card then untapping them = untapping up to that many tapped permanents (an untapped one gains nothing)."""
+    from app.rules import selectors
+
+    draw = d["effects"][0]
+    return {**d, "effects": [{"do": "untap_choice", "who": draw["who"], "n": draw["n"], "kind": "permanent", "sel": selectors.Selector().key()}]}
+
+
+def _two_auras(d: Def) -> Def:
+    """Kitsune Mystic: "enchanted by two or more Auras" = two attached Auras (303.4)."""
+    cond = {**d["if"], "attached_n": 2}
+    return {**d, "if": cond, "effects": [{**e, "cond": cond} if e["do"] == "only_if" else e for e in d["effects"]]}
+
+
+def _reattach(d: Def) -> Def:
+    """Autumn-Tail: only the Aura is a target; the creature it moves to is chosen on resolution (115.1) among those it can legally enchant (701.3b)."""
+    return {**d, "effects": [{"do": "reattach110g", "src": "target:0"}], "targets": d["targets"][:1]}
+
+
+def _pairs_left(plan: Any) -> list[str]:
+    return [p for p in plan.live() if len(plan.state.zones.get(f"{p}:graveyard", [])) >= 2]
+
+
+def gy_pairs(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Jötun Grunt: the cumulative upkeep cost "Put two cards from a single graveyard on the bottom of their owner's library", once per age counter. It is
+    paid in full or not at all (118.3): offered only if n separate pairs exist, each from one graveyard."""
+    from app.rules import context, effects, values
+
+    n = int(values.evaluate(plan, ctx, e["n"]))
+    if sum(len(plan.state.zones.get(f"{p}:graveyard", [])) // 2 for p in plan.live()) < n:
+        plan.note(f"{plan.name(ctx['controller'])} can't pay {ctx.get('name') or 'it'}: not enough cards in graveyards")
+        context.bind_payment(ctx, e["bind"], False)
+        return True
+    effects.decide(plan, player=ctx["controller"], kind="choose_one", prompt=f"{ctx.get('name') or 'It'}: put two cards from a single graveyard on the bottom, {n} time(s)?",
+                   options=[effects.DecisionOption(id="pay", label="Pay"), effects.DecisionOption(id="decline", label="Don't pay")],
+                   resume={"step": "gy_pairs110g", "ctx": ctx, "bind": e["bind"], "left": n, "stage": "ask"})
+    return False
+
+
+def _pair_round(plan: Any, ctx: dict[str, Any], bind: str, left: int) -> None:
+    from app.rules import context, effects
+
+    if left == 0:
+        context.bind_payment(ctx, bind, True)
+        effects.continue_effects(plan, ctx)
+        return
+    owners = _pairs_left(plan)
+    me = ctx["controller"]
+    if len(owners) > 1:
+        effects.decide(plan, player=me, kind="choose_one", prompt="Choose a graveyard to put two cards from",
+                       options=[effects.DecisionOption(id=p, label=f"{plan.name(p)}'s graveyard") for p in owners],
+                       resume={"step": "gy_pairs110g", "ctx": ctx, "bind": bind, "left": left, "stage": "yard", "owners": owners})
+        return
+    _pick_pair(plan, ctx, bind, left, owners[0])
+
+
+def _pick_pair(plan: Any, ctx: dict[str, Any], bind: str, left: int, owner: str) -> None:
+    from app.rules import effects
+
+    cards = plan.state.zones.get(f"{owner}:graveyard", [])
+    effects.decide(plan, player=ctx["controller"], kind="choose_cards", prompt="Choose two cards to put on the bottom of their owner's library", min_choices=2, max_choices=2,
+                   options=[effects.DecisionOption(id=c, label=plan.state.cards[c].name or "Card", card_id=c) for c in cards],
+                   resume={"step": "gy_pairs110g", "ctx": ctx, "bind": bind, "left": left, "stage": "cards", "owner": owner})
+
+
+def resume_gy_pairs(plan: Any, d: Any, chosen: list[str]) -> None:
+    from app.rules import context, effects
+
+    r = d.resume
+    ctx, bind, left = r["ctx"], r["bind"], r["left"]
+    if r["stage"] == "ask":
+        if chosen[0] != "pay":
+            context.bind_payment(ctx, bind, False)
+            effects.continue_effects(plan, ctx)
+            return
+        _pair_round(plan, ctx, bind, left)
+    elif r["stage"] == "yard":
+        if chosen[0] not in r["owners"]:
+            raise ValueError("not a graveyard with two cards")
+        _pick_pair(plan, ctx, bind, left, chosen[0])
+    else:
+        yard = plan.state.zones.get(f"{r['owner']}:graveyard", [])
+        if len(set(chosen)) != 2 or any(c not in yard for c in chosen):
+            raise ValueError("choose two cards from that graveyard")
+        # 401.4: the owner may arrange the two; ponytail: the engine's recorded random order (effects.bottom_at_random), not a choice
+        effects.bottom_at_random(plan, r["owner"], list(chosen), actor=ctx["controller"])
+        _pair_round(plan, ctx, bind, left - 1)
+
+
+def reattach(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    from app.rules import attachments, effects
+
+    aura = next(iter(effects._cards(plan, ctx, e["src"])), None)
+    card = plan.state.cards.get(aura or "")
+    if card is None or not card.attached_to:
+        return True
+    old = card.attached_to
+    hosts = [h for h in attachments.legal_hosts(plan, card, ctx["controller"])
+             if h != old and h in plan.state.cards and plan.state.cards[h].zone.endswith(":battlefield") and plan.ch(plan.state.cards[h]).is_creature]
+    if len(hosts) <= 1:
+        return not hosts or _attach_to(plan, ctx, card.id, hosts[0])
+    effects.decide(plan, player=ctx["controller"], kind="choose_one", prompt=f"{ctx.get('name') or 'Aura'}: choose a creature to attach {card.name} to",
+                   options=[effects.DecisionOption(id=h, label=plan.state.cards[h].name or "Creature", card_id=h) for h in hosts],
+                   resume={"step": "reattach110g", "ctx": ctx, "aura": aura, "hosts": hosts})
+    return False
+
+
+def _attach_to(plan: Any, ctx: dict[str, Any], aura: str, host: str) -> bool:
+    from app.rules import attachments
+
+    attachments.attach(plan, aura, host, ctx["controller"])
+    return True
+
+
+def resume_reattach(plan: Any, d: Any, chosen: list[str]) -> None:
+    from app.rules import effects
+
+    if chosen[0] not in d.resume["hosts"]:
+        raise ValueError("not a candidate")
+    _attach_to(plan, d.resume["ctx"], d.resume["aura"], chosen[0])
+    effects.continue_effects(plan, d.resume["ctx"])
+
+
 _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
+    "At the beginning of the end step, if this creature is enchanted by two or more Auras, flip it.":
+        ("At the beginning of the end step, if this creature is enchanted, flip this creature.", _two_auras),
+    "{1}: Attach target Aura attached to a creature to another creature.":
+        ("{1}: Attach target Aura attached to a creature to target creature.", _reattach),
+    "At the beginning of each player's upkeep, that player chooses a permanent for each card in their graveyard, then untaps those permanents.":
+        ("At the beginning of each player's upkeep, that player draws a card for each card in their graveyard.", _mist),
+    "At the beginning of your end step, if you control an Employee, a Performer, or a Robot, you may get {TK} or create a Treasure token. If you control all three, you may put a sticker on a nonland permanent you own.":
+        ("At the beginning of your end step, if you control a Robot, you may get {TK}.", _done_for_the_day),
+    "At the beginning of each combat, you may have Ambassador Blorpityblorpboop's base power become equal to the total power of all stickers on permanents you control and its base toughness become equal to those stickers' total toughness.":
+        ("At the beginning of each combat, this creature has base power and toughness 3/3 until end of turn.", _sticker_pt),
+    "When this creature enters, return target creature or Vehicle an opponent controls to its owner's hand. If that opponent's speed is greater than each other player's speed, reduce that opponent's speed by 1. This effect can't reduce their speed below 1.":
+        ("When this creature enters, return target creature or Vehicle an opponent controls to its owner's hand. Its controller loses 1 life.",
+         lambda d: {**d, "effects": [d["effects"][0], {"do": "speed_cut110g", "who": "ref:e0.controller"}]}),
+    "Whenever a player puts an Island or blue permanent onto the battlefield, that player sacrifices an Island or blue permanent of their choice.":
+        ("Whenever a blue permanent enters, its controller sacrifices a blue permanent of their choice.", _land_or_color("Island", "blue")),
+    "Whenever a player puts a Swamp or black permanent onto the battlefield, that player sacrifices a Swamp or black permanent of their choice.":
+        ("Whenever a black permanent enters, its controller sacrifices a black permanent of their choice.", _land_or_color("Swamp", "black")),
+    "When Cloak and Dagger enter, choose target opponent and up to one target creature they control. They reveal their hand. You may exile a nonland card from their hand or the chosen creature until Cloak and Dagger leave the battlefield.":
+        ("When this creature enters, target opponent reveals their hand. You may exile up to one target creature that player controls until this creature leaves the battlefield.", _hand_or_creature),
+    "Whenever this creature trains, exile up to one other target creature from the battlefield or creature card from a graveyard.":
+        ("Whenever this creature trains, exile up to one other target creature.", _battlefield_or_graveyard),
+    # Thijarian Witness
+    "Bear Witness \u2014 Whenever another creature dies, if it was attacking or blocking alone, exile it and investigate.":
+        ("Whenever another creature dies, if it was attacking, exile it and investigate.", _alone),
+    # Halfdane
+    "At the beginning of your upkeep, Halfdane's base power and toughness become equal to the power and toughness of target creature other than Halfdane until the end of your next upkeep.":
+        ("At the beginning of your upkeep, tap target creature other than this creature.", _halfdane),
+    # Season of the Witch
+    "At the beginning of the end step, destroy all untapped creatures that didn't attack this turn, except for creatures that couldn't attack.":
+        ("At the beginning of the end step, destroy all untapped creatures that didn't attack this turn.", _could_attack),
+    # Idol of Endurance
+    "When this artifact enters, exile all creature cards with mana value 3 or less from your graveyard until this artifact leaves the battlefield.":
+        ("When this artifact enters, draw a card.", _idol_enter),
+    "{1}{W}, {T}: Until end of turn, you may cast a creature spell from among cards exiled with this artifact without paying its mana cost.":
+        ("{1}{W}, {T}: Draw a card.", _idol_cast),
+    # Tatsumasa, the Dragon's Fang
+    "{6}, Exile Tatsumasa: Create a 5/5 blue Dragon Spirit creature token with flying. Return Tatsumasa to the battlefield under its owner's control when that token dies.":
+        ("{6}, Exile this artifact: Create a 5/5 blue Dragon Spirit creature token with flying. When that token dies, return it to the battlefield.", _tatsumasa),
+    # Whippoorwill
+    "{G}{G}, {T}: Target creature can't be regenerated this turn. Damage that would be dealt to that creature this turn can't be prevented or dealt instead to "
+    "another permanent or player. When the creature dies this turn, exile the creature.":
+        ("{G}{G}, {T}: Target creature can't be regenerated this turn. When that creature dies this turn, exile it.", _firm),
+    # Sacred Ground
+    "Whenever a spell or ability an opponent controls causes a land to be put into your graveyard from the battlefield, return that card to the battlefield.":
+        ("Whenever a land is put into your graveyard from the battlefield, return that card to the battlefield.", _opponent_cause),
     # Ertai's Familiar
     "{U}: Until your next upkeep, this creature can't phase out.": ("{U}: Until your next upkeep, this creature can't attack.", _no_phase_out),
     # Elkin Lair
@@ -433,6 +762,11 @@ _DISSOLVE = "{X}{B}: Put target creature card with mana value X exiled with this
 
 def definition(ability: Any, ch: Any) -> Def | None:
     from app.rules import scripts, selectors
+
+    if ability.text.strip() == _STICKER_KICKER:  # Wicker Picker: the grant itself is read by sticker_kicker via cast_limits' spell_helper table
+        from app.rules import cast_limits
+
+        return {"kind": "static", "static": "spell_helper", "keyword": "sticker_kicker110g", "filter": cast_limits._filter("Creature")[1], "effects": []}
 
     if ability.text.strip() == "Engulf \u2014 " + _ENGULF:  # Gelatinous Cube: the exile is the linked half Dissolve refers to (607.2a)
         native = scripts.define(replace(ability, text=_ENGULF), ch)
@@ -617,6 +951,65 @@ def exchange_power(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return effects.become(plan, ctx, {**base, "who": "target", "p": mine})
 
 
+def bind_exiled(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """The source, exiled as a cost, as that new object in exile (400.7): a later 'return it' only finds it while it is still there (610.3-style)."""
+    from app.rules import context
+
+    src = plan.state.cards.get(ctx.get("source_card") or "")
+    context.bind_objects(plan, ctx, e["as"], [src.id] if src is not None and src.zone.endswith(":exile") else [])
+    return True
+
+
+def exile_gy_until(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """610.3 / 607.2a: your creature cards with mana value 3 or less leave the graveyard together, linked to this source; they go back there when it leaves."""
+    from app.rules import effects, exiled_with, selectors
+
+    src = effects._cards(plan, ctx, "self")
+    if not src:  # 610.3b: the artifact is already gone
+        return True
+    sel = selectors.Selector(card=True, zones=("graveyard",), types=("Creature",), compare=(("mv", "<=", 3),))
+    you = ctx["controller"]
+    cards = [c for c in plan.state.zones.get(f"{you}:graveyard", []) if selectors.matches(plan, sel, plan.state.cards[c], plan.ch(plan.state.cards[c]), you, ctx.get("source_card"))]
+    if cards:
+        plan.do({"type": "move", "card_ids": cards, "to": {"zone": "exile"}}, actor=you)
+        exiled = [c for c in cards if plan.state.cards[c].zone.endswith(":exile")]
+        oids = [plan.oid(c) for c in exiled]
+        plan.rules.linked_exile[ctx["source_object"]] = [*plan.rules.linked_exile.get(ctx["source_object"], []), *oids]
+        plan.rules.linked_exile_from.update({oid: "graveyard" for oid in oids})
+        exiled_with.record(plan, ctx, exiled)
+    return True
+
+
+def idol_cast(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Until end of turn the controller may cast any creature card exiled with this artifact for free (normal timing, 118.9)."""
+    from app.rules import context, exiled_with
+    from app.rules.exile_packet_continuations import insert
+
+    context.bind_objects(plan, ctx, "idol110g", exiled_with.cards(plan, ctx))
+    return insert(ctx, [{"do": "grant_play", "who": "ref:idol110g", "from_exile": True, "play": False, "cast": True, "until": "end_of_turn", "free": True}])
+
+
+def halfdane(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """608.2h: the target's power and toughness are read once, as this resolves; they become Halfdane's base power and toughness (613.4b)
+    until the end of its controller's next upkeep."""
+    from app.rules import effects, values
+
+    p, t = (values.evaluate(plan, ctx, {stat: "target"}) for stat in ("power", "toughness"))
+    return effects.become(plan, ctx, {"do": "become", "who": "self", "types": [], "p": p, "t": t, "duration": "end_of_next_upkeep110g"})
+
+
+def firm_creature(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """615.12 / 614.9: damage that would be dealt to the creature this turn can be neither prevented nor dealt instead to another permanent or player."""
+    import secrets
+
+    from app.rules.effects import _cards
+
+    for cid in _cards(plan, ctx, e["who"]):
+        plan.rules.replacements.append({"id": secrets.token_hex(4), "kind": "unpreventable", "turn": plan.state.turn.number, "controller": ctx["controller"],
+                                        "source": ctx.get("source_object"), "scope": {}, "to110g": plan.oid(cid), "noredirect110g": True})
+    return True
+
+
 def destroy_instead(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     """614.1a / 615.8: the next damage to the target this turn is replaced (never dealt, 614.6) by destroying it; used up by that one time (a body, as Phytohydra's)."""
     from app.rules import replace as rep
@@ -630,7 +1023,7 @@ def destroy_instead(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return True
 
 
-PRIMITIVES: dict[str, Any] = {"elkin110g": elkin, "suncleanser110g": suncleanser, "fallen110g": fallen, "destroy_instead110g": destroy_instead, "exchange_power110g": exchange_power, "lowest_life_control110g": lowest_life_control,
+PRIMITIVES: dict[str, Any] = {"gy_pairs110g": gy_pairs, "reattach110g": reattach, "speed_cut110g": speed_cut, "exile_split110g": exile_split, "halfdane110g": halfdane, "exile_gy_until110g": exile_gy_until, "idol_cast110g": idol_cast, "bind_exiled110g": bind_exiled, "firm_creature110g": firm_creature, "elkin110g": elkin, "suncleanser110g": suncleanser, "fallen110g": fallen, "destroy_instead110g": destroy_instead, "exchange_power110g": exchange_power, "lowest_life_control110g": lowest_life_control,
                            "sacrifice_pair110g": sacrifice_pair, "swap_tapped110g": swap_tapped, "opponent_exiles110g": opponent_exiles,
                               "unattach_enchanted110g": unattach_enchanted}
-RESUME: dict[str, Any] = {"lowest_control110g": resume_lowest_control, "opponent_exiles110g": resume_opponent_exiles}
+RESUME: dict[str, Any] = {"gy_pairs110g": resume_gy_pairs, "reattach110g": resume_reattach, "lowest_control110g": resume_lowest_control, "opponent_exiles110g": resume_opponent_exiles}

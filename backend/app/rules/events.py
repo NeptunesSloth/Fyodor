@@ -331,6 +331,8 @@ def _parse(c: str) -> Condition | None:
         return {"event": "shuffle", "subject": "player", "player": "opponent"}
     if c == "you attack a player with one or more equipped creatures":
         return _parse("one or more equipped creatures you control attack a player")
+    if c == '~ trains':  # -- trains (wave 110G) -- 702.149c
+        return {'event': 'trained', 'subject': 'self'}
     if c == '~ evolves':
         return {'event': 'evolved', 'subject': 'self'}
     if c == "you exert a creature":

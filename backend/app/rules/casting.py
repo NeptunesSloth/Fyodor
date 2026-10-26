@@ -2503,6 +2503,10 @@ def flashback_parts(text: str) -> tuple[str, AbilityCost | None] | None:
     m = FLASHBACK_MORE.fullmatch(t)
     if m is None:
         return None
+    if m["rest"] == "Remove X loyalty counters from among planeswalkers you control. If you cast this spell this way, X can't be 0":
+        # -- loyalty X flashback (wave 110G) -- 118.3: the X loyalty counters come off any of your planeswalkers; X >= 1 (cost_payment: "more" with amount 1)
+        part = costs._one_4h("Remove X loyalty counters from among planeswalkers you control", "")
+        return (m["mana"] or "{0}", AbilityCost(components=(replace(part, amount=1, more=True),))) if part is not None else None
     parts = [alt_costs._part(p.strip()) or _sized_part(p.strip()) for p in m["rest"].split(", ")]  # (wave 43D: "Sacrifice X Mountains", "Behold three Elementals")
     if any(p is None or isinstance(p, str) for p in parts) or sum(1 for p in parts if getattr(p, "x", False)) > 1:
         return None
@@ -3165,6 +3169,8 @@ def life_x_problem(plan: Plan, extra: AbilityCost, a: Any, player: str) -> str |
     spell is cast (601.2b, 107.3a) and can't be more than the caster's life (119.4; 119.4b: 0 always can be paid)."""
     if extra.x_chosen and a.x_value is None:  # -- X sized by a count (wave 25D) -- "discard X cards": the announced X sizes the cost (107.3a, 601.2b)
         return "Choose a value for X (the number of objects to pay)"
+    if any(c.text.startswith("Remove X loyalty") and c.more and (a.x_value or 0) < c.amount for c in extra.components):  # -- loyalty X flashback (wave 110G) -- "X can't be 0"
+        return "X can't be 0 when you pay this cost"
     if any(c.counters_x for c in extra.components) and a.x_value:  # -- blight X (wave 110C) -- "X can't be greater than the greatest toughness among creatures you control" (601.2b)
         from app.rules import values as _values
 
@@ -3205,10 +3211,11 @@ def castable(state: GameState, player: str, card: CardInstance, info: CardInfo, 
         if extra is not None and additional_problem(permissions._view(state, player, info), extra, card, player):
             continue  # (wave 3$) the additional cost can't be paid: not offered
         grant = cast_grant(state, player, card, ch, info)
-        from app.rules import permission_spell_keywords, wave110a_grants
+        from app.rules import permission_spell_keywords, wave110a_grants, wave110g_cards
 
         ch = permission_spell_keywords.apply(ch, grant)
         ch = wave110a_grants.with_replicate(state, player, card, ch, info)  # -- grants (wave 110A) --
+        ch = wave110g_cards.sticker_kicker(state, player, card, ch, info)  # -- sticker kicker (wave 110G) --
         grant_extra = costs.parse_additional_cost(grant.extra) if grant is not None and grant.extra else None
         if grant_extra is not None and additional_problem(permissions._view(state, player, info), grant_extra, card, player):
             continue  # -- cast permissions (wave 30Q) -- the permission's own additional cost ("by sacrificing a land") can't be paid: not offered
@@ -3583,10 +3590,11 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
     if grant is not None and len(grant.among) > 1:
         permissions.ask_use(plan, a, card, ch, grant.among, "cast")  # (-- wave 30Q, 32D -- "choose one as you cast it" (Muldrotha); which limited permission: asked before anything is paid)
         return
-    from app.rules import permission_spell_keywords, wave110a_grants
+    from app.rules import permission_spell_keywords, wave110a_grants, wave110g_cards
 
     ch = permission_spell_keywords.apply(ch, grant)
     ch = wave110a_grants.with_replicate(plan.state, plan.actor, card, ch, plan.info)  # -- grants (wave 110A) --
+    ch = wave110g_cards.sticker_kicker(plan.state, plan.actor, card, ch, plan.info)  # -- sticker kicker (wave 110G) --
     free = grant is not None and grant.free  # "without paying its mana cost" (118.9): an alternative cost of {0}
     from app.rules import flashback_choices
 
@@ -4249,6 +4257,15 @@ def _post_cast(plan: Plan, data: _PostCast, payment: M.Payment | None) -> None:
         from app.rules.triggers import targeted
 
         targeted(plan, card.id, plan.actor, chosen)
+    if a.kicker and any(ab.special == "sticker_kicker110g" for ab in ch.abilities):  # -- sticker kicker (wave 110G) -- 702.33h: paid as part of casting
+        from app.rules import context as _cx110g
+        from app.rules import effects as _fx110g
+        from app.rules import wave110g_cards
+
+        kctx = {"controller": plan.actor, "source_card": card.id, "source_object": plan.oid(card), "name": ch.name,
+                "effects": wave110g_cards.sticker_kicker_effects(), "next": 0, "body_done": {"do": "noop"}}
+        _cx110g.bind_objects(plan, kctx, "spell110g", [card.id])
+        _fx110g.run_body(plan, kctx)
     turn = plan.state.turn.number
     r.spells_cast[plan.actor] = TurnCount(turn=turn, count=r.spells_this_turn(plan.actor, turn) + 1)
     history.note_cast(plan, card)  # -- this-turn history (wave 4D) --

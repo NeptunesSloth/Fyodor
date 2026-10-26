@@ -2197,7 +2197,7 @@ def linked_entries(plan: Plan, source: str) -> list[dict[str, Any]]:
         card = plan.state.cards[cid]
         back = plan.rules.linked_exile_from.pop(ref, None)  # -- resolution memory (wave 22D) -- 610.3: back to the hand it came from
         if card.zone.endswith(":exile") and card.owner in live:
-            entries.append({"card": cid, "player": card.owner, "actor": card.owner, **({"to": "hand"} if back == "hand" else {})})
+            entries.append({"card": cid, "player": card.owner, "actor": card.owner, **({"to": back} if back in ("hand", "graveyard") else {})})  # (back: wave 110G, Idol of Endurance, the graveyard)
     return entries
 
 
@@ -4111,6 +4111,14 @@ def run_body(plan: Plan, ctx: Context) -> bool:
 
 
 def _run_body(plan: Plan, ctx: Context) -> bool:
+    before110g, plan.cause110g = plan.cause110g, ctx.get("controller")  # -- wave 110G -- stamps the zone changes this body causes
+    try:
+        return _run_effects(plan, ctx)
+    finally:
+        plan.cause110g = before110g
+
+
+def _run_effects(plan: Plan, ctx: Context) -> bool:
     while ctx["next"] < len(ctx["effects"]):  # (wave 19F: re-read each time: effects.repeat replaces the list)
         e = ctx["effects"][ctx["next"]]
         from app.rules import stickers101
@@ -4497,6 +4505,8 @@ def _hand_options(plan: Plan, ctx: Context, e: dict[str, Any]) -> tuple[list[str
         owners = sorted({plan.state.cards[c].owner for c in pool})
         options += [c for o in owners for c in plan.state.zones.get(zone_key(o, "graveyard"), [])
                     if selectors.matches(plan, gsel, plan.state.cards[c], chars.of(plan.state.cards[c], plan.info), pid)]
+    if e.get("extra110g"):  # -- wave 110G -- Cloak and Dagger: "… a nonland card from their hand or the chosen creature": a battlefield object joins the options
+        options += [c for c in _cards(plan, ctx, e["extra110g"]) if plan.state.cards[c].zone.endswith(":battlefield")]
     return pool, options
 
 
@@ -4534,7 +4544,7 @@ def _after_hand_choice(plan: Plan, ctx: Context, chosen: list[str]) -> bool:
 
 def resume_choose_from_hand(plan: Plan, d: Any, chosen: list[str]) -> None:
     ctx, e = d.resume["ctx"], d.resume["e"]
-    chosen = [c for c in chosen if c in plan.state.cards and plan.state.cards[c].zone.endswith((":hand", ":graveyard"))]
+    chosen = [c for c in chosen if c in plan.state.cards and plan.state.cards[c].zone.endswith((":hand", ":graveyard", ":battlefield" if e.get("extra110g") else ":hand"))]
     if chosen:
         plan.note(f"{plan.name(d.player)} chooses {_labels(plan, chosen)}", chosen, actor=d.player)
     _remember(plan, ctx, e, chosen)  # "that card" / "those cards": the chosen cards, in that hand
@@ -4909,7 +4919,7 @@ def become(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
                                           remove_abilities=bool(e.get("lose_abilities"))).id)
         if p is not None or t is not None:
             made.append(layers.add_effect(plan, layer="7b", **common, power=p, toughness=t).id)
-        if duration == "next_turn":  # "until your next turn": whose, and from which turn (app/rules/delayed.py)
+        if duration in ("next_turn", "end_of_next_upkeep110g"):  # "until your next turn": whose, and from which turn (app/rules/delayed.py)
             for effect in plan.rules.effects:
                 if effect.id in made:
                     effect.until_player, effect.turn = ctx["controller"], plan.state.turn.number
