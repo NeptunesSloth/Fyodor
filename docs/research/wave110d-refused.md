@@ -28,7 +28,7 @@
 - Font of Agonies: "Whenever you pay life" needs a life-paid event at ~10 cost sites (cost_payment, casting x6, optional_payment, Phyrexian mana).
 - Nuka-Nuke Launcher: per-player watch lasting through the defending player's next turn (turn-bounded "whenever they cast") not modelled.
 - Gift of Doom: "As this Aura is turned face up, you may attach it" needs a pre-SBA attach decision inside the turn-up special action.
-- Quicksilver Elemental: borrowed activated abilities + "spend blue mana as any color" for its abilities (two foundations).
+- Quicksilver Elemental: built in wave 110J (last cards): abilities collected at resolution (611.2c; rulings 2004-10-04 "collecting abilities" / 2022-06-10), tests/test_rules_wave110j_last.py.
 - Archnemesis: "attack enchanted player" event for an Aura on a player not modelled.
 - Geth's Summons: Corrupted adds one target per opponent with 3+ poison as cast (variable target count by cast-time state).
 - Evangelize / Mausoleum Turnkey / Arena: delegated target announcement exists only for activated abilities; spells, triggers and a mixed own+opponent-choice pair need new foundations.
@@ -65,4 +65,4 @@
 - The War Doctor: "put into exile from anywhere" has no event (only leave-battlefield exile); needs a generic any-zone exile event (foundation).
 - Wall of Stolen Identity: "enter as a copy ... When you do, tap the copied creature and it doesn't untap" needs a reflexive rider that references the copied permanent (copying.py entry has no after-copy hook).
 - Volcanic Offering re-promoted s22: 2014-11-07 ruling (opponents chosen on cast, same or different, may repeat target).
-- Quicksilver Elemental: whether abilities the lender gains later are also gained is unsettled (611.2c fixes affected objects only; no CR rule or ruling on the lent ability set, 2004 rulings silent). Demoted to PARTIAL; lend code removed.
+- Quicksilver Elemental: built in wave 110J (last cards): abilities collected at resolution (611.2c; rulings 2004-10-04 "collecting abilities" / 2022-06-10), tests/test_rules_wave110j_last.py.
