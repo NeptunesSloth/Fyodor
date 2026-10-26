@@ -532,9 +532,9 @@ def parse_abilities(oracle_text: str | None, *, spell: bool = False, pt: tuple[s
         # -- wave 110F -- Circling Vultures: 116.2e special action (casting.VULTURES handles it: no stack); the line is only a marker so the card reads as an ability
         if line == "You may discard this card any time you could cast an instant.":
             line = "Discard this card: You gain 0 life."
-        # -- wave 110F -- Taste of Paradise: "you may pay {1}{G} any number of times" is multikicker's cost (702.33c), read as that keyword
+        # -- wave 110F -- Taste of Paradise: "you may pay {1}{G} any number of times" repeats like multikicker (702.33c) but is not kicker: the keyword line is flagged "any number of times"
         if m := re.fullmatch(r"As an additional cost to cast this spell, you may pay ((?:\{[^}]+\})+) any number of times\.", line):
-            line = f"Multikicker {m[1]}"
+            line = f"Multikicker {m[1]} any number of times"
         # -- static_other sweep (wave 19A) -- "Traxos enters tapped and doesn't untap during your untap step.": two abilities, "enters tapped"
         # (614.1d) and the static "doesn't untap" (502.3), the second one added after the printed lines as Reconfigure's are
         if (um := re.fullmatch(r"(.+?) enters tapped and (doesn't untap during your untap step)\.", line)) and not spell:

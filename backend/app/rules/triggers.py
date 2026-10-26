@@ -511,7 +511,7 @@ def _facts(plan: Plan, e: Event, window: dict[str, Any]) -> list[Fact]:
         # (-- cast keywords (wave 43D) -- a permanent spell has no stack entry: its payment record says how often it was kicked)
         kicks = entry.kicked if entry is not None else paid.kicked if paid is not None else 0
         kicked = bool(kicks and not (paid is not None and (paid.gift_to or paid.alternative == "awaken" or any(  # (30E: bargain)
-            x.endswith(":bargain") for x in paid.additional))))
+            x.endswith(":bargain") or x == "anytimes" for x in paid.additional))))
         info = {"oid": plan.oid(spell), "actor": e.player, "nth": nth, "from": window["cast_from"].get(spell.id),  # 702.33d, 702.174k)
                 "opponent_turn": plan.active != e.player, "kicked": kicked,
                 "teamwork": paid is not None and any(x.endswith(":teamwork") for x in paid.additional),  # -- (wave 110G) -- 702.194b

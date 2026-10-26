@@ -737,7 +737,7 @@ def _self_text(part: str, card_name: str) -> str:
 # -- kicker (702.33) -------------------------------------------------------------------------
 # -- keywords (wave 15E) -- squad (702.157: "you may pay [cost] any number of times"), replicate (702.56: the same) and offspring
 # (702.175: once) are optional additional mana costs paid as kicker is (``CastSpell.kicker`` times): the engine's count is theirs
-_KICKER = re.compile(r"^(?:(?P<multi>multi)?kicker|(?P<many>squad|replicate)|(?P<once>offspring)|(?P<entwine>entwine)) (?P<cost>(?:\{[^}]+\})+)$",
+_KICKER = re.compile(r"^(?:(?P<multi>multi)?kicker|(?P<many>squad|replicate)|(?P<once>offspring)|(?P<entwine>entwine)) (?P<cost>(?:\{[^}]+\})+)(?P<anytimes> any number of times)?$",
                      re.IGNORECASE)
 # -- keywords (wave 50H) -- 702.33b: "Kicker {A} and/or {B}" is "Kicker {A}, kicker {B}": two kicker costs, each paid at most once (Invasion's Battlemages)
 _KICKER2 = re.compile(r"^kicker (?P<a>(?:\{[^}]+\})+) and/or (?P<b>(?:\{[^}]+\})+)$", re.IGNORECASE)
@@ -805,7 +805,7 @@ def positive_kicker_x(line: str) -> str | None:
         return None
     match = _KICKER.fullmatch(text[:-len(suffix)])
     return match["cost"] if match is not None and match["cost"].upper().count("{X}") == 1 and not any(
-        match[k] for k in ("multi", "many", "once", "entwine")) and _MANA_ONLY.match(match["cost"]) else None
+        match[k] for k in ("multi", "many", "once", "entwine", "anytimes")) and _MANA_ONLY.match(match["cost"]) else None
 
 
 def kicker_line(line: str) -> bool:
@@ -830,6 +830,7 @@ class Kicker:
     extra: str = ""  # (an entwine cost that isn't mana: "sacrifice two lands", paid with the additional costs)
     text: str = ""  # -- free-cast optional costs (wave 41D) -- the keyword line ("Kicker {R}", "Squad {2}"): the label of the question
     second: str = ""  # -- keywords (wave 50H) -- 702.33b: "Kicker {A} and/or {B}": B, the second kicker cost. Then the cast's ``kicker`` is a mask (1: A, 2: B, 3: both)
+    anytimes: bool = False  # -- (wave 110F) -- Taste of Paradise: "you may pay {1}{G} any number of times" repeats like multikicker but isn't kicker (702.33c): the spell is not "kicked"
     minimum_x: int = 0  # Only the actual selected keyword may constrain its announced X.
 
     def paid(self, times: int) -> int:
@@ -868,7 +869,7 @@ def kicker_cost(abilities: Iterable[AbilityText]) -> Kicker | None:
         m = _KICKER.fullmatch(ab.text.strip().rstrip("."))
         if m is None or not kicker_line(ab.text):
             return None
-        found.append(Kicker(m["cost"], multi=bool(m["multi"] or m["many"]), entwine=bool(m["entwine"]), text=ab.text.strip().rstrip(".")))
+        found.append(Kicker(m["cost"], multi=bool(m["multi"] or m["many"]), entwine=bool(m["entwine"]), anytimes=bool(m["anytimes"]), text=ab.text.strip().rstrip(".")))
     return found[0] if len(found) == 1 else None
 
 
