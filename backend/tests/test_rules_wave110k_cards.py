@@ -19,6 +19,7 @@ from __future__ import annotations
 import pytest
 
 from app.game.errors import ActionError
+from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act
 from tests.wave9c_kit import build, life
 from tests.wave47b_kit import build3
@@ -341,3 +342,81 @@ def move_to_graveyard(s, name, pid="p1"):
     c = to_hand(s, name, pid)
     act(s, pid, type="move", card_ids=[c.id], to={"zone": "graveyard"})
     return c
+
+
+# -- Swinging Ship (Unfinity 231a, lit 2 and 6; the Attraction's own printing sets what lights it) --
+SHIP = card("Swinging Ship", set_code="unf", number="231a", mana_cost="", cmc=0, type_line="Artifact — Attraction",
+            oracle_text="Visit — After the first combat phase this turn, there's an additional combat phase. At the beginning of that combat, untap all "
+                        "creatures that attacked this turn.", colors=[], color_identity=[], keywords=[])
+
+
+@pytest.fixture()
+def ship_cards(settings):
+    from app.cards.images import ImageStore
+    from app.cards.importer import build_database
+    from app.cards.repository import CardRepository
+
+    settings.ensure_dirs()
+    build_database([*fixture_cards(), SHIP], settings.cards_db_path, meta={"bulk_type": "test"})
+    repo = CardRepository(settings.cards_db_path, ImageStore(settings.images_dir))
+    yield repo
+    repo.close()
+
+
+def test_swinging_ship_is_full(ship_cards):
+    from app.rules import coverage
+
+    assert coverage.of_card_data(ship_cards.resolve("Swinging Ship")).level == "FULL"
+
+
+def _ship_turn(cards, monkeypatch, die):
+    """Alice's turn 3 with the Ship and a 2/2 attacker: the visit roll comes up ``die``; stops at the first declaration of attackers (or main 1 when none)."""
+    from tests.test_rules_conditionals import creature
+    from tests.test_rules_wave12a_counters_keywords import rolls
+    from tests.test_rules_wave100l_attractions import game
+    from tests.wave9c_kit import put
+
+    rolls(monkeypatch, die)
+    s = game(cards, [], ["Swinging Ship"])
+    put(s, "Swinging Ship")
+    bear = creature(s, "p1", "Attacker", "2/2")
+    for _ in range(400):
+        d = s.state.rules.decision
+        if s.state.turn.number == 3 and d is not None and d.kind == "declare_attackers":
+            return s, bear
+        if d is not None and d.kind in ("declare_attackers", "declare_blockers"):
+            act(s, d.player, type=d.kind, **({"attackers": []} if d.kind == "declare_attackers" else {"blocks": []}))
+        elif d is not None:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: max(1, d.min_choices)])
+        else:
+            act(s, s.state.rules.priority, type="pass_priority")
+    raise AssertionError("never reached Alice's attack")
+
+
+def _attack_all_combats(s, bear):
+    """Alice attacks with ``bear`` in every combat phase she gets; returns how many combats it attacked in."""
+    attacks = 0
+    for _ in range(200):
+        d = s.state.rules.decision
+        if d is not None and d.kind == "declare_attackers" and d.player == "p1":
+            alive = now(s, bear).zone == "p1:battlefield" and not now(s, bear).tapped
+            act(s, "p1", type="declare_attackers", attackers=[{"card_id": bear.id, "target": "p2"}] if alive else [])
+            attacks += alive
+        elif d is not None and d.kind == "declare_blockers":
+            act(s, d.player, type="declare_blockers", blocks=[])
+        elif d is not None:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: max(1, d.min_choices)])
+        elif s.state.turn.number == 3 and s.state.turn.phase == "main2" and not s.state.zones.get("stack"):
+            break
+        else:
+            act(s, s.state.rules.priority, type="pass_priority")
+    return attacks
+
+
+@pytest.mark.parametrize(("die", "attacks"), [(6, 2), (2, 2), (5, 1)])
+def test_swinging_ship_adds_a_combat_in_which_the_attackers_untap(ship_cards, monkeypatch, die, attacks):
+    s, bear = _ship_turn(ship_cards, monkeypatch, die)
+    life_before = life(s, "p2")
+    assert _attack_all_combats(s, bear) == attacks
+    assert life(s, "p2") == life_before - 2 * attacks
+    check(s)

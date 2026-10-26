@@ -106,6 +106,24 @@ def phase_out_hold(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return True
 
 
+def extra_combat_after_first(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """500.8: an additional combat phase after the first combat phase of this turn. Before it (the precombat main phase, nothing else queued) the natural
+    combat stays first and the added one follows it; during it, the phase is added directly after it; once it is over there is no phase to add it
+    after, so nothing happens."""
+    from app.rules import combat_rules
+
+    r, phase = plan.rules, plan.state.turn.phase
+    added = {"do": "extra_phases", "after": "phase", "then": e["then"]}
+    if phase == "main1" and r.combats == 0 and not r.extra_phases:
+        combat_rules.extra_phases(plan, ctx, added)
+        r.extra_phases = [r.extra_phases[1], r.extra_phases[0]]  # [the natural first combat, the added one]
+    elif phase in combat_rules._COMBAT and r.combats == 1:
+        combat_rules.extra_phases(plan, ctx, added)
+    else:
+        plan.note(f"{ctx.get('name') or 'It'}: there is no first combat phase to add an additional combat phase after (500.8)")
+    return True
+
+
 def return_self_hand(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     """"Return ~ to its owner's hand" from the battlefield (bounce) or from the graveyard (the same object, 400.7: if it moved since, nothing)."""
     from app.rules import effects
@@ -120,7 +138,7 @@ def return_self_hand(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return True
 
 
-PRIMITIVES = {"return_self_hand110k": return_self_hand, "opponent_mode110k": opponent_mode, "as_controller110k": as_controller, "phase_out_hold110k": phase_out_hold}
+PRIMITIVES = {"extra_combat_after_first110k": extra_combat_after_first, "return_self_hand110k": return_self_hand, "opponent_mode110k": opponent_mode, "as_controller110k": as_controller, "phase_out_hold110k": phase_out_hold}
 RESUME = {"opponent_mode110k": resume_opponent_mode}
 
 
@@ -142,6 +160,8 @@ def _flourish(effects: list[Def]) -> list[Def] | None:
 
 _ICE = "Destroy target land that is snow or could produce {C}."
 _ICE_EACH = "Destroy each land that is snow or could produce {C}."  # (overload, 702.96a: "target" read as "each")
+_SHIP = ("After the first combat phase this turn, there's an additional combat phase. At the beginning of that combat, untap all creatures that attacked "
+         "this turn.")
 _TEFERI = "Each creature target opponent controls phases out. Until the end of your next turn, they can't phase in."
 
 
@@ -150,6 +170,13 @@ def _teferi(effects: list[Def]) -> list[Def] | None:
     if len(effects) != 1 or effects[0].get("do") != "phase_out":
         return None
     return [{**effects[0], "do": "phase_out_hold110k"}]
+
+
+def _ship(effects: list[Def]) -> list[Def] | None:
+    """Swinging Ship's visit: an extra combat after the first combat phase, with its delayed untap (500.8, 603.7)."""
+    if len(effects) != 1 or effects[0].get("do") != "untap":
+        return None
+    return [{"do": "extra_combat_after_first110k", "then": effects}]
 
 
 def _snow_or_colorless() -> str:
@@ -161,6 +188,7 @@ def _snow_or_colorless() -> str:
 
 
 _BODIES: dict[str, tuple[str, Any]] = {
+    _SHIP: ("Untap all creatures that attacked this turn.", _ship),
     _TEFERI: ("Each creature target opponent controls phases out.", _teferi),
     _ICE_EACH: ("Destroy each land.", lambda effects: [{**effects[0], "who": _snow_or_colorless()}] if len(effects) == 1 else None),
     _ICE: ("Destroy target land.", lambda effects: effects),
@@ -171,13 +199,14 @@ _BODIES: dict[str, tuple[str, Any]] = {
 def parse(body: str) -> Any:
     from app.rules import scripts
 
-    if (built := _BODIES.get(body.strip())) is None:
+    body = body.strip()
+    if (built := _BODIES.get(body[:1].upper() + body[1:])) is None:  # (a trigger's effect text starts in lower case)
         return None
     native = scripts.parse_effects(built[0])
     if native is None:
         return None
     effects = built[1](native[0])
-    target = _snow_or_colorless() if body.strip() == _ICE else native[1]
+    target = _snow_or_colorless() if body[:1].upper() + body[1:] == _ICE else native[1]
     return None if effects is None else (effects, target, native[2])
 
 
