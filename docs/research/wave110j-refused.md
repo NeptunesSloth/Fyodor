@@ -32,3 +32,6 @@
 - Bomb Squad: PROMOTED in s10 (stale lines above). Per-creature 603.8 state trigger (state_triggers._each); several creatures at four at once trigger once each (analogy: each creature is its own state, "that creature" binds it; no official ruling found).
 - Equinox (s10): "if it would destroy a land you control" needs a look-ahead into the countered spell's effects and targets (forms: target land, all lands, modes, replacement); no ruling listing the cases, so a partial reading would guess.
 - Guardian Beast (s10): needs "can't be enchanted" for all Auras and a "can't gain control" prohibition on every control-change path; neither exists.
+- Paliano, the High City (s11): no draft precedes a game so no color is chosen (905.2b) and the mana ability adds nothing, but coverage needs mana.parse_mana_ability to return a ManaAbility; options=() is not handled by auto-payment. Foundation: zero-option ManaAbility. Not refused on rules.
+- Volrath's Shapeshifter (s11): "full text of that card" needs borrowing triggered/static abilities too (abilities_of lends activated only). Foundation work, not a rules gap.
+- Bludgeon Brawl (s11): needs per-object granted Equipment type + "equip {X}" + "+X/+0" with X = the artifact's own mana value (layers grants are static text). Foundation work.
