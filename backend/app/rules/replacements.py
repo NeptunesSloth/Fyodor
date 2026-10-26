@@ -467,6 +467,12 @@ def entering_counters(plan: Plan, card: CardInstance, controller: str, ch: Any, 
 
     if n := mana_units.entering_counters(plan, card):  # (the spell's payment record follows the permanent: as in ``entered``)
         counters["+1/+1"] = counters.get("+1/+1", 0) + n
+    from app.rules import (
+        wave110a_final,  # -- wave 110A -- Dark Intimations: "enters with an additional loyalty counter"
+    )
+
+    if n := wave110a_final.entering_loyalty(plan, card):
+        counters["loyalty"] = counters.get("loyalty", 0) + n
     from app.rules import casting_timing_permissions
 
     for kind, n in casting_timing_permissions.entering_counters(plan, card, controller, ch).items():

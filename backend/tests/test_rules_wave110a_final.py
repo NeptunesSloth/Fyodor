@@ -8,7 +8,7 @@ import pytest
 from app.game.errors import ActionError
 from tests.wave110a_kit import *
 
-NAMES = ["Ice Cave", "Damping Engine", "Chaotic Transformation", "Grime Gorger", "Uldaros Theorix"]
+NAMES = ["Ice Cave", "Damping Engine", "Chaotic Transformation", "Grime Gorger", "Uldaros Theorix", "Dark Intimations"]
 
 
 @pytest.fixture()
@@ -257,4 +257,52 @@ def test_uldaros_theorix_without_being_cast_does_nothing(cards):
     put(s, "Uldaros Theorix")
     answer(s)
     assert s.state.cards[ids["Sol Ring"]].zone == "p1:graveyard"
+    check(s)
+
+
+def _loyalty(s, c):
+    return s.state.cards[c.id].counters.get("loyalty", 0)
+
+
+def test_dark_intimations_each_opponent_sacrifices_and_discards_then_you_return_and_draw(cards):
+    """Dark Intimations: Bob sacrifices his creature or planeswalker (his choice) then discards; Alice returns a creature or planeswalker card to hand, then draws."""
+    s = build(cards, ["Dark Intimations", "Wall of Omens", "Sol Ring"], ["Llanowar Elves", "Shock", "Nicol Bolas, Dragon-God"])
+    _alice_graveyard(s, "Wall of Omens")
+    elves = put(s, "Llanowar Elves", "p2")
+    bolas = put(s, "Nicol Bolas, Dragon-God", "p2")
+    act(s, "p2", type="set_counter", card_id=bolas.id, kind="loyalty", value=5)
+    to_hand(s, "Shock", "p2")
+    hand = len(s.state.zones["p1:hand"])
+    cast(s, "Dark Intimations")
+    answer(s, bolas.id)
+    assert s.state.cards[bolas.id].zone == "p2:graveyard" and s.state.cards[elves.id].zone == "p2:battlefield"
+    assert card_named(s, "Shock", "p2").zone == "p2:graveyard"
+    assert card_named(s, "Wall of Omens").zone == "p1:hand"
+    assert len(s.state.zones["p1:hand"]) == hand + 2  # the returned creature card and the drawn card
+    check(s)
+
+
+@pytest.mark.parametrize(("name", "cost", "loyalty"), [("Nicol Bolas, Dragon-God", "{U}{B}{B}{B}{R}", 5), ("Karn Liberated", "{7}", 6)])
+def test_dark_intimations_in_the_graveyard_gives_a_bolas_planeswalker_spell_an_extra_loyalty(cards, name, cost, loyalty):
+    """113.6m / 614.1c: only a Bolas planeswalker spell exiles it from the graveyard and enters with one more loyalty counter (Dragon-God 4 -> 5; Karn stays 6)."""
+    s = build(cards, ["Dark Intimations", name])
+    _alice_graveyard(s, "Dark Intimations")
+    cast(s, name)
+    answer(s)
+    walker = card_named(s, name)
+    bolas = name.startswith("Nicol")
+    assert s.state.cards[walker.id].zone == "p1:battlefield" and _loyalty(s, walker) == loyalty
+    assert card_named(s, "Dark Intimations").zone == ("p1:exile" if bolas else "p1:graveyard")
+    check(s)
+
+
+def test_two_dark_intimations_give_two_extra_loyalty_counters(cards):
+    """Ruling 2017-02-09: each one in the graveyard is exiled and the planeswalker gets that many additional counters."""
+    s = build(cards, ["Dark Intimations", "Dark Intimations", "Nicol Bolas, Dragon-God"])
+    for c in [c for c in s.state.cards.values() if c.name == "Dark Intimations"]:
+        act(s, "p1", type="move", card_ids=[c.id], to={"player": "p1", "zone": "graveyard"})
+    cast(s, "Nicol Bolas, Dragon-God")
+    answer(s)
+    assert _loyalty(s, card_named(s, "Nicol Bolas, Dragon-God")) == 6
+    assert all(c.zone == "p1:exile" for c in s.state.cards.values() if c.name == "Dark Intimations")
     check(s)

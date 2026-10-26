@@ -19,6 +19,9 @@ TYPES = frozenset({"Artifact", "Creature", "Enchantment"})
 GORGER = ("Whenever ~ attacks, exile up to one card of each card type from defending player's graveyard. Put a +1/+1 counter on ~ for each card exiled this way.")
 ULDAROS = ("When ~ enters, if you cast ~, exile up to one target nonland card of each card type from your graveyard. Copy those cards. "
            "You may cast any number of spells with total mana value 6 or less from among the copies without paying their mana costs.")
+INTIMATIONS_SPELL = ("Each opponent sacrifices a creature or planeswalker of their choice, then discards a card. "
+                     "You return a creature or planeswalker card from your graveyard to your hand, then draw a card.")
+INTIMATIONS_CAST = ("When you cast a Bolas planeswalker spell, exile this card from your graveyard. That planeswalker enters with an additional loyalty counter on it.")
 ICE_CAVE = "Whenever a player casts a spell, any other player may pay that spell's mana cost. If a player does, counter the spell."
 
 
@@ -26,6 +29,11 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
     from app.rules import scripts
 
     text = scripts.self_text(ability.text, ch.name)
+    if text == INTIMATIONS_CAST:  # 113.6m: it works from the graveyard (the "self_gy" exile); 614.1c: the Bolas planeswalker spell gets one more loyalty counter as it enters
+        d = scripts.define(replace(ability, text="When you cast a Bolas planeswalker spell, return this card from your graveyard to your hand."), ch)
+        if d is None or [e["do"] for e in d["effects"]] != ["return_card"]:
+            return None
+        return {**d, "effects": [{"do": "exile", "who": "self_gy"}, {"do": "loyalty_rider110a", "who": "event_spell"}]}
     if text == GORGER:  # one card of each card type: a single choice, checked as one card per type (the primitive below)
         d = scripts.define(replace(ability, text="Whenever this creature attacks, exile all cards from defending player's graveyard. "
                                                  "Put a +1/+1 counter on this creature for each card exiled this way."), ch)
@@ -116,6 +124,21 @@ def resume_sacrifice(plan: Plan, d: Any, chosen: list[str]) -> None:
     plan.rules.passed = []
 
 
+def loyalty_rider(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """The planeswalker spell the cast trigger is about gets one more loyalty counter as it enters (the creature riders' record, cast_riders.spell_rider)."""
+    from app.rules import cast_riders
+
+    return cast_riders.spell_rider(plan, ctx, {"do": "spell_rider", "who": "event_spell", "riders": [{"kind": "loyalty110a"}]})
+
+
+def entering_loyalty(plan: Plan, card: CardInstance) -> int:
+    """Additional loyalty counters a planeswalker spell was given as it was cast (Dark Intimations, 614.1c): one per rider on its payment record."""
+    from app.rules import mana_units
+
+    rec = mana_units.record_of(plan, card)
+    return 0 if rec is None else sum(1 for r in rec.mana_riders if r["kind"] == "loyalty110a")
+
+
 def _assignable(plan: Plan, cards: list[str]) -> bool:
     """One card of each card type: every card is given a card type it has, no type twice (a card with two types serves for one of them)."""
     from app.rules.characteristics import CARD_TYPES
@@ -188,5 +211,6 @@ def resume_order(plan: Plan, d: Any, chosen: list[str]) -> None:
     continue_effects(plan, ctx)
 
 
-PRIMITIVES: dict[str, Any] = {"exile_one_per_type110a": one_per_type}
+REWRITES = {INTIMATIONS_SPELL: INTIMATIONS_SPELL.replace("You return", "Return")}  # (the grammar has no "you return"; 101.4 / the 2017-02-09 ruling: opponents choose in turn order, all at once)
+PRIMITIVES: dict[str, Any] = {"loyalty_rider110a": loyalty_rider, "exile_one_per_type110a": one_per_type}
 RESUME: dict[str, Any] = {"damping110a": resume_sacrifice, "chaotic_order110a": resume_order, "exile_one_per_type110a": resume_one_per_type}
