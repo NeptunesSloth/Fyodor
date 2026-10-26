@@ -154,6 +154,9 @@ def step_clause(clause: str) -> dict[str, Any] | None:
     if clause == "before the combat damage step":
         return {"kind": "step", "phases": ["untap", "upkeep", "draw", "main1", *_BEFORE_DAMAGE], "whose": None,
                 "text": "before the combat damage step", "first_combat": True}  # (wave 7R: 506.8d, 506.8g)
+    if clause == "before blockers are declared":  # (wave 110I) Acidic Dagger, ruling 2013-09-20: before the declare blockers step of the turn's first combat phase (506.8d)
+        return {"kind": "step", "phases": ["untap", "upkeep", "draw", "main1", "begin_combat", "declare_attackers"], "whose": None,
+                "text": "before blockers are declared", "first_combat": True}
     if clause == "during combat after blockers are declared":
         return {"kind": "step", "phases": ["declare_blockers", "combat_damage", "end_combat"], "whose": None,
                 "text": "during combat after blockers are declared", "needs_blockers": True}  # (needs_blockers: wave 7R)

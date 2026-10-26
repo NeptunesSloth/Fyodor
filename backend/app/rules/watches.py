@@ -286,6 +286,14 @@ def deferred_event_effects(effects: list[dict[str, Any]]) -> set[int]:
     return out
 
 
+def _event_for(plan: Plan, cond: dict[str, Any], fact: Any, batch: int) -> Any:
+    """The trigger event of a watch's fact; with ``other_side110i`` (Acidic Dagger: "destroy that creature" = the creature dealt the damage) the creature on the other side (other_side.py)."""
+    from app.rules import other_side, triggers
+
+    event = triggers._event(plan, fact, batch)
+    return other_side.event(plan, fact[4], event) if cond.get("other_side110i") else event
+
+
 def on_facts(plan: Plan, facts: list[Any], batch: int, fired_once: dict[Any, Any] | None = None) -> None:
     """One event's facts: the watches created before it that it matches trigger (603.7). ``fired_once``: what already triggered in
     these events ("one or more" triggers once per batch, and per player dealt the damage, 603.2c)."""
@@ -341,9 +349,9 @@ def on_facts(plan: Plan, facts: list[Any], batch: int, fired_once: dict[Any, Any
 
                             trigger_multipliers.joined(plan, pending)
                         continue
-                    fired_once[key] = delayed._fire(plan, t, triggers._event(plan, fact, batch))
+                    fired_once[key] = delayed._fire(plan, t, _event_for(plan, cond, fact, batch))
                 else:
-                    delayed._fire(plan, t, triggers._event(plan, fact, batch))
+                    delayed._fire(plan, t, _event_for(plan, cond, fact, batch))
                 if t.once:
                     fired.append(t)
                     break

@@ -1264,6 +1264,11 @@ def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: F
             if sum(1 for n in history.log_for(plan).casts if n.player == player
                    and history.note_matches(kind, n.types, n.subtypes, n.supertypes, n.colors, n.mv, x_cost=n.x_cost)) != 1:
                 return False
+        if cond.get("first_named110i"):  # -- cards (wave 110I) -- Medomai's Prophecy: no earlier spell with the chosen name cast by this player this turn
+            from app.rules import wave110i_cards
+
+            if not wave110i_cards.first_named(plan, watcher.id, player):
+                return False
         if cond.get("alania110b") and not alania_first(plan, watcher, player, info):  # -- wave 110B -- Alania: the first instant, sorcery or Otter (other than it) cast this turn
             return False
         if cond.get("nth_note"):  # -- triggers (wave 30J) -- 601.2i: this spell is the Nth of its kind (and place) this player cast this turn
@@ -1310,6 +1315,11 @@ def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: F
             entry = plan.rules.stack.get(ref.card) if ref is not None else None
             src = plan.state.cards.get(entry.source_card or "") if entry is not None else None
             if entry is None or src is None or entry.controller != you or entry.kind == "spell" or src.name != cond["land_named110g"] or "Land" not in plan.ch(src).types:
+                return False
+        if cond.get("only_self110i"):  # -- cards (wave 110I) -- Agrus Kos, Eternal Soldier: "an ability that targets only it" (115.9b), as the ability was put on the stack
+            ref = info.get("source_ref")
+            entry = plan.rules.stack.get(ref.card) if ref is not None else None
+            if entry is None or not _targets_ok(plan, "self_only", watcher, [(t.id, t.object_id) for t in entry.targets]):
                 return False
         if cond.get("ability_only") and info.get("spell"):  # -- stack interaction (wave 23B) -- "becomes the target of an ability"
             return False
@@ -1404,6 +1414,7 @@ def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: F
                 (to == "opponent" and (recipient is None or recipient == you)) or \
                 (to == "creature" and not info.get("recipient_creature")) or \
                 (cond.get("to_types") and not set(cond["to_types"]) & set(info.get("recipient_subtypes") or ())) or \
+                (cond.get("to_not_types110i") and set(cond["to_not_types110i"]) & set(info.get("recipient_subtypes") or ())) or \
                 (to == "planeswalker" and not info.get("recipient_planeswalker")) or \
                 (to == "player_or_pw" and recipient is None and not info.get("recipient_planeswalker")) or \
                 (to == "player_or_battle" and recipient is None and not info.get("recipient_battle")) or \
@@ -3133,6 +3144,9 @@ def _put_trigger(plan: Plan, t: PendingTrigger, target: str | None = None, picks
                    resume={"step": "trigger_target", "trigger": t.id})
             return False
         targets = [ref(plan, target)]
+    if t.ability.get("target_choice") == "host_controller110i" and t.event is not None and len(t.event.objects) == 1 \
+            and t.event.objects[0].snapshot is not None:  # -- cards (wave 110I) -- remember the chooser for the 608.2b recheck
+        extra = {**extra, "chooser110i": t.event.objects[0].snapshot.controller}
     r.pending_triggers = [p for p in r.pending_triggers if p.id != t.id]
     source = t.source_card if t.source_card in plan.state.cards else None
     text = t.name + "’s ability" if t.name else "Triggered ability"

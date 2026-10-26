@@ -812,7 +812,11 @@ def _damage_hits(plan: Plan, ctx: Context, e: dict[str, Any]) -> list[tuple[_Sou
     if e.get("dealt_as"):  # -- replacement effects stage 2 (wave 2E): "dealt damage this way" --
         ctx.setdefault(DEALT_KEY, {})[e["dealt_as"]] = []
     if e.get("excess"):  # -- refused zones/sized (wave 3R4) -- "excess damage is dealt to that creature's controller instead"
-        return _excess_hits(plan, src, [(src, key, amount(key)) for key in [*cards, *players]], e["excess"])
+        base = [(src, key, amount(key)) for key in [*cards, *players]]
+        hits = _excess_hits(plan, src, base, e["excess"])
+        if e.get("excess_flag"):  # -- Megatron (wave 110I) -- 120.4a: whether the damage event was modified (some of it redirected), for "and you convert ~"
+            context.bind_flag(ctx, e["excess_flag"], [(k, n) for _, k, n in hits] != [(k, n) for _, k, n in base])
+        return hits
     return [(src, key, amount(key)) for key in [*cards, *players]]
 
 
@@ -4102,6 +4106,8 @@ def _begin_resolution(plan: Plan, stack_id: str, entry: StackEntry) -> None:
     if spec and entry.targets:
         src = source_of(plan, entry.source_card, entry.kind == "spell", object_id=entry.source_object)  # (wave 49C: 115.2)
         legal = [t for t in entry.targets if still_legal(plan, spec["what"], entry.controller, t, src, entry.source_card, attacker, source_object=entry.source_object)]
+        if entry.chooser110i:  # -- cards (wave 110I) -- Necrotic Plague: "creature one of their opponents controls" is the chooser's (608.2b)
+            legal = [t for t in legal if t.id not in plan.state.cards or plan.state.cards[t.id].controller != entry.chooser110i]
         if not legal:
             plan.note(f"{entry.name or 'It'} does nothing: its target is no longer legal")
             finish(plan, ctx, countered=True)

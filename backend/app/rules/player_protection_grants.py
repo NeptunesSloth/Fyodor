@@ -29,7 +29,11 @@ def parse(body: str) -> tuple[list[dict[str, Any]], Any, bool] | None:
 def grant(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     from app.rules import effects, layers, player_shields
 
-    players = effects._players(plan, ctx, e['players'])
+    if e['players'] == 'secret110i':  # -- cards (wave 110I) -- Guardian Archon: the player its controller secretly chose as it entered (group_choice.secret_choices)
+        entry = plan.rules.secret_choices.get(str(ctx.get('source_object') or ''))
+        players = [entry[1]] if entry and entry[0] == ctx['controller'] and entry[1] in plan.live() else []
+    else:
+        players = effects._players(plan, ctx, e['players'])
     cards = ([c.id for c in plan.state.cards.values() if c.zone.endswith(':battlefield')
               and c.controller == ctx['controller'] and 'Planeswalker' in plan.ch(c).types]
              if e['who'] == 'planeswalkers_you_control' else effects._cards(plan, ctx, e['who']))

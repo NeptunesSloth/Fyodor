@@ -522,7 +522,92 @@ def parse(body: str) -> Any:
         return [{"do": "tunnel110i"}], None, False
     if body.strip() == _DAWN:
         return [{"do": "false_dawn110i"}], None, False
+    if body.strip() == _MEDOMAI:  # 603.7: chapter III creates a delayed trigger for this turn (Scryfall ruling 2018-04-27: with no name chosen it can never trigger)
+        parsed = scripts.parse_effects("Whenever you cast a spell with the chosen name this turn, draw two cards.")
+        assert parsed is not None
+        effects, target, optional = parsed
+        effects[0]["when"]["cond"]["first_named110i"] = True
+        effects[0]["once"] = True
+        return effects, target, optional
     return scripts.parse_effects(same) if (same := REWRITES.get(body.strip())) is not None else None
+
+
+_SPOILS = ["X is the number of artifact and/or creature cards in an opponent's graveyard as you cast this spell.",
+           "Distribute X +1/+1 counters among any number of target creatures."]
+
+
+def spell(ch: Any, lines: list[Any]) -> Def | None:
+    """Whole-spell wordings: Spoils of War's X sentence defines the divided total (107.3c) counted as it is cast (601.2d)."""
+    from app.rules import scripts
+
+    if [x.text for x in lines] == [_GLYPH]:
+        return glyph(ch)
+    if [x.text for x in lines] != _SPOILS:
+        return None
+    parsed = scripts.parse_effects("Distribute X +1/+1 counters among any number of target creatures, where X is the number of creature cards in your graveyard.")
+    assert parsed is not None
+    effects, targets, _ = parsed
+    targets[0]["divide"]["value"] = {"opp_gy110i": ["Artifact", "Creature"]}
+    return {"kind": "spell", "whole110k": True, "effects": effects, **scripts.target_fields(targets)}  # (whole110k: coverage reads both lines as this one definition)
+
+
+_GLYPH = ("Put X glyph counters on target creature that target Wall blocked this turn, where X is the power of that blocked creature. The creature gains "
+          "\"This creature doesn't untap during your untap step if it has a glyph counter on it\" and \"At the beginning of your upkeep, remove a glyph counter from "
+          "this creature.\"")
+
+
+def glyph(ch: Any) -> Def | None:
+    """Glyph of Delusion: counters equal to the power of the blocked creature (read as it resolves, 608.2h LKI), the creature gains the two granted lines for good."""
+    from app.rules import language, scripts
+
+    parsed = scripts.parse_effects("Put a glyph counter on target creature. That creature gains \"This creature doesn't untap during your untap step if it has a glyph counter on it.\" "
+                                   "That creature gains \"At the beginning of your upkeep, remove a glyph counter from this creature.\"")
+    creature, wall = language.target_group("target creature"), language.target_group("target Wall")
+    if parsed is None or creature is None or wall is None:
+        return None
+    effects = [{**e, "n": {"power": "target"}} if e.get("do") == "add_counters" else e for e in parsed[0]]
+    groups = [{**creature, "blocked_by110i": 1, "role110i": "blocked"}, {**wall, "blocked_by110i": 0, "role110i": "wall"}]
+    return {"kind": "spell", "whole110k": True, "effects": effects, **scripts.target_fields(groups)}
+
+
+def block_options(plan: Plan, spec: dict[str, Any], options: list[str], groups: list[list[str]]) -> list[str]:
+    """Glyph of Delusion's two linked groups (``role110i`` "blocked" / "wall", ``blocked_by110i`` the other group's index): a Wall and a creature it blocked this turn
+    (509.1g; ruling 2004-10-04: any creature it was assigned to block or blocked through bands or a switched block, all in the turn's block history)."""
+    r = plan.state.rules
+    if r is None or r.turn_log.turn != plan.state.turn.number:
+        return []
+    pairs = [(blocker.rsplit(".", 1)[0], attackers) for blocker, attackers in r.turn_log.blocks.items()]
+    other = groups[spec["blocked_by110i"]][0] if spec["blocked_by110i"] < len(groups) and groups[spec["blocked_by110i"]] else None
+    if spec["role110i"] == "wall":
+        return [t for t in options if any(w == t and (other is None or r.object_id(other) in att) for w, att in pairs)]
+    walls = {w for w, att in pairs if plan.state.cards.get(w) is not None and "Wall" in plan.ch(plan.state.cards[w]).subtypes}
+    return [t for t in options if any(w in walls and (other is None or w == other) and r.object_id(t) in att for w, att in pairs)]
+
+
+def opp_gy_total(plan: Plan, you: str, types: list[str], x: int | None) -> int:
+    """Spoils of War, ruling 2008-08-01: you choose an opponent as you cast it and X ({X}{B}, 107.3c) is the number of those cards in that player's graveyard: the announced X
+    names the opponent (as for Bargaining Table); any other X is refused."""
+    from app.game.errors import ActionError
+
+    counts = {p: sum(1 for c in plan.state.zones.get(f"{p}:graveyard", []) if set(types) & set(plan.ch(plan.state.cards[c]).types)) for p in plan.live() if p != you}
+    if (x or 0) in counts.values() or not counts:
+        return int(x or 0)
+    raise ActionError(f"X must be the number of artifact and/or creature cards in an opponent's graveyard: {sorted(set(counts.values()))}")
+
+
+_MEDOMAI = "When you cast a spell with the chosen name for the first time this turn, draw two cards."
+
+
+def first_named(plan: Plan, source: str, player: str | None) -> bool:
+    """The spell just cast is the only one by ``player`` this turn with the Saga's chosen name (601.2i: the log already holds it)."""
+    from app.cards.names import normalize_name
+    from app.rules import card_names, history
+
+    name = card_names.chosen(plan, source)
+    if not name:
+        return False
+    want = normalize_name(name)
+    return sum(1 for n in history.log_for(plan).casts if n.player == player and want in {normalize_name(x) for x in n.names or []}) == 1
 
 
 def lose_rad(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
@@ -969,6 +1054,12 @@ def whistle(ability: Any, ch: Any) -> Def | None:
     return {**base, "effects": effects, "target": {**base["target"], "what": sel.key()}}
 
 
+_PERFORMER = ("When this creature enters, if you cast it from your hand, choose target spell or ability that targets only a single permanent or player. Copy that spell or "
+              "ability for each other permanent or player the spell or ability could target. Each copy targets a different one of those permanents and players.")
+_AGRUS = ("Whenever Agrus Kos becomes the target of an ability that targets only it, you may pay {1}{R/W}. If you do, copy that ability for each other creature you control "
+          "that ability could target. Each copy targets a different one of those creatures.")
+_DAGGER = ("{4}, {T}: Whenever target creature deals combat damage to a non-Wall creature this turn, destroy that non-Wall creature. "
+           "When the targeted creature leaves the battlefield this turn, sacrifice this artifact. Activate only before blockers are declared.")
 _COFFIN = ("{2}{B}, {T}: Put target creature card from a graveyard onto the battlefield under your control. "
            "When this creature becomes untapped or you lose control of this creature, exile that creature.")
 
@@ -1024,6 +1115,24 @@ def definition(ability: Any, ch: Any) -> Def | None:
     from app.rules import scripts
 
     text = ability.text.strip()
+    if text == _PERFORMER:  # 707.10d/e: a copy of the spell or ability for each other permanent or player it could target (the Radiate spread, wave110e_once.radiate)
+        native = scripts.define(replace(ability, text="When ~ enters, if you cast it from your hand, copy target spell or ability that targets only a single permanent or player."), ch)
+        return None if native is None else {**native, "effects": [{"do": "radiate110e"}]}
+    if text == _AGRUS:
+        native = scripts.define(replace(ability, text="Whenever ~ becomes the target of an ability, you may pay {1}{R/W}. If you do, draw a card."), ch)
+        if native is None:
+            return None
+        return {**native, "cond": {**native["cond"], "only_self110i": True},
+                "effects": [{"do": "spread_copy103", "golem": False, "ability110i": True} if e.get("do") == "draw" else e for e in native["effects"]]}
+    if text == _DAGGER:  # 603.7 delayed triggers on the target; the "non-Wall" recipient is a condition of the damage trigger; timing: first combat phase only (ruling 2013-09-20, 506.8d)
+        native = scripts.define(replace(ability, text=_DAGGER.replace("a non-Wall creature", "a creature").replace("that non-Wall creature", "that creature").replace(
+            "the targeted creature", "that creature").replace("this artifact", "~")), ch)
+        watch = next((e for e in (native or {}).get("effects", []) if e.get("do") == "delayed" and e["when"].get("kind") == "watch"), None)
+        if native is None or watch is None:
+            return None
+        watch["when"]["cond"]["to_not_types110i"] = ["Wall"]
+        watch["when"]["cond"]["other_side110i"] = True  # "that non-Wall creature" (the event's object) is the creature dealt the damage, not the one that dealt it
+        return native
     if text == _COFFIN:
         native = scripts.define(replace(ability, text="{2}{B}, {T}: Put target creature card from a graveyard onto the battlefield under your control."), ch)
         return None if native is None else _coffin(native)
