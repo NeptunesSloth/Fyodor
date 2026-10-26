@@ -63,6 +63,8 @@ def definition(ability: Any, ch: Any) -> Def | None:
 
     if ability.kind == "static" and ability.text.strip() == _PRESENCE:
         return statics._definition("attached", "creature", [], rules=[f"{ATK_TAX}:{{3}}"])
+    if ability.text.strip() == _ADVERSARY:
+        return _adversary_definition(ability, ch)
     if ability.text.strip() == _BOOBY_ENTER:  # both choices are made as it enters (614.12a) and stay public on the permanent
         first = scripts.define(replace(ability, text="As this artifact enters, choose an opponent."), ch)
         second = scripts.define(replace(ability, text="As this artifact enters, choose a card name other than a basic land card name."), ch)
@@ -396,6 +398,27 @@ def _kayla(d: Def) -> Def:
 
 _BUILD[_KAYLA] = ("{4}, {T}: Discard your hand, then draw that many cards. You may return an artifact or creature card with mana value 1 discarded this way to the battlefield. "
                   "Activate only as a sorcery.", _kayla)
+
+_ADVERSARY = ("When this creature enters, you may pay {1}{G} any number of times. When you pay this cost one or more times, put that many +1/+1 counters on this creature, then "
+              "up to that many target lands you control become 3/3 Wolf creatures with haste that are still lands.")
+
+
+def _adversary_definition(ability: Any, ch: Any) -> Def | None:
+    """Primal Adversary: the two reflexive results read separately (the counters, the lands) are one ability — counters first, then the lands (603.12), both sized by the payments."""
+    from app.rules import scripts
+
+    head = "When this creature enters, you may pay {1}{G} any number of times. When you pay this cost one or more times, "
+    counters = scripts.define(replace(ability, text=head + "put that many +1/+1 counters on this creature."), ch)
+    lands = scripts.define(replace(ability, text=head + "up to that many target lands you control become 3/3 Wolf creatures with haste that are still lands."), ch)
+    if counters is None or lands is None:
+        return None
+    first = next((e for e in counters["effects"] if e.get("do") == "reflexive"), None)
+    second = next((e for e in lands["effects"] if e.get("do") == "reflexive"), None)
+    if first is None or second is None:
+        return None
+    merged = {**second, "ability": {**second["ability"], "effects": [*first["ability"]["effects"], *second["ability"]["effects"]]}}
+    return {**lands, "effects": [merged if e is second else e for e in lands["effects"]]}
+
 
 _FACES = ("Whenever a creature dies, tap all untapped creatures that share a creature type with it or untap all tapped creatures that share a creature type with it.")
 _BUILD[_FACES] = ("Whenever a creature dies, draw a card.", lambda d: {**d, "effects": [{"do": "faces110m"}]})

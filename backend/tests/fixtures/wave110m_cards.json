@@ -640,5 +640,24 @@
 "colors": [],
 "color_identity": [],
 "keywords": []
+},
+{
+"name": "Primal Adversary",
+"layout": "normal",
+"mana_cost": "{2}{G}",
+"cmc": 3.0,
+"type_line": "Creature — Wolf",
+"oracle_text": "Trample\nWhen this creature enters, you may pay {1}{G} any number of times. When you pay this cost one or more times, put that many +1/+1 counters on this creature, then up to that many target lands you control become 3/3 Wolf creatures with haste that are still lands.",
+"colors": [
+"G"
+],
+"color_identity": [
+"G"
+],
+"keywords": [
+"Trample"
+],
+"power": "4",
+"toughness": "3"
 }
 ]

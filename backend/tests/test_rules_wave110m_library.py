@@ -346,3 +346,36 @@ def test_kayla_discards_the_hand_draws_that_many_and_returns_one_card_for_each_m
     assert all(s.state.cards[ids[n]].zone == "p1:graveyard" for n in ("Mother of Runes", "Hill Giant", "Sol Ring", "Mind Stone"))
     assert len(s.state.zones["p1:hand"]) == 6  # (drew as many as were discarded)
     check(s)
+
+
+# -- Primal Adversary ------------------------------------------------------------------------------------------------------------------------
+ADVERSARY = "Primal Adversary"
+test_adversary_full = full_test([ADVERSARY])
+
+
+@pytest.mark.parametrize("times", [0, 1, 2])
+def test_primal_adversary_pays_n_times_for_n_counters_and_n_wolf_lands(cards, times):
+    """603.12, 107.3f: the counters and the "up to that many" lands (chosen as the reflexive ability goes on the stack) follow the times paid."""
+    s = build(cards, [ADVERSARY], forests=20)
+    lands = [c for c in s.state.cards.values() if c.name == "Forest" and c.owner == "p1" and c.zone == "p1:library"][:3]  # (three different Forests)
+    act(s, "p1", type="move", card_ids=[c.id for c in lands], to={"player": "p1", "zone": "battlefield"})
+    mana(s, G=14)
+    adv = cast(s, ADVERSARY, pay=False)
+    while s.state.rules.decision is None and s.state.zones.get("stack"):
+        act(s, s.state.rules.priority, type="pass_priority")
+    d = s.state.rules.decision
+    assert "how many times" in d.prompt
+    act(s, d.player, type="choose", decision_id=d.id, option_ids=[f"x:{times}" if times else "decline"])
+    for _ in range(40):
+        d = s.state.rules.decision
+        if d is not None:
+            ids = [o.id for o in d.options if o.card_id in {x.id for x in lands}][:times]
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=ids or [d.options[0].id])
+        elif s.state.zones.get("stack"):
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            break
+    assert s.state.cards[adv.id].counters.get("+1/+1", 0) == times
+    wolves = [x for x in lands if "Creature" in ch(s, x).types]
+    assert len(wolves) == times and all(ch(s, x).pt == (3, 3) and "Land" in ch(s, x).types and "haste" in ch(s, x).keywords and "Wolf" in ch(s, x).subtypes for x in wolves)
+    check(s)
