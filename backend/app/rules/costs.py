@@ -31,7 +31,7 @@ if TYPE_CHECKING:
 _MANA_ONLY = re.compile(r"^(\{(?:\d+|[WUBRGCXS]|[WUBRG2]/[WUBRGP]|[WUBRG]/[WUBRG]/P)\})+$")
 _SELF = r"(?:this \w+|it|~)"
 _SAC_SELF = re.compile(r"^Sacrifice (this \w+|it|~|(?P<name>.+))$")
-_GRANTER_COST = re.compile(rf"^(?P<verb>Sacrifice|Unattach|Tap) (?P<g>{selectors.GRANTER})$")  # (wave 18F) the object a quoted grant came from
+_GRANTER_COST = re.compile(rf"^(?P<verb>Sacrifice|Unattach|Tap|Exile) (?P<g>{selectors.GRANTER})$")  # (wave 18F) the object a quoted grant came from
 _LIFE = re.compile(r"^Pay (?P<n>\d+) life$")
 _ENERGY = re.compile(r"^Pay (?:(?P<symbols>(?:\{E\})+)|(?P<n>\w+) \{E\})$")
 _REMOVE = re.compile(
@@ -329,6 +329,8 @@ def _component(part: str, card_name: str) -> CostComponent | None:
         assert sel is not None
         if m["verb"] == "Tap":  # (an untapped one: 118.3)
             return CostComponent(TAP_OTHER, selector=replace(sel, tapped=False).key(), text=part)
+        if m["verb"] == "Exile":  # -- granted from object (wave 110I) -- The Dominion Bracelet: "Exile <granter>" exiles the Equipment from the battlefield (118.3)
+            return CostComponent(EXILE, selector=replace(sel, zones=("battlefield",)).key(), text=part)
         return CostComponent(SACRIFICE if m["verb"] == "Sacrifice" else UNATTACH, selector=sel.key(), text=part)
     if m := _HOST_COST.match(part):  # (the verb's own rules: only an untapped permanent is tapped, 701.26a; only your own is sacrificed, 701.21a: cost_payment)
         sel = selectors.Selector(extras=("host_of_source",), tapped=False if m["verb"] == "Tap" else None)
