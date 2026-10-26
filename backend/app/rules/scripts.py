@@ -9010,6 +9010,10 @@ def _spell_definition(ch: Characteristics) -> Definition | None:
 
     if (spell110k := wave110k_cards.spell(ch, text_lines)) is not None:
         return spell110k
+    from app.rules import wave110i_cards  # -- cards (wave 110I) --
+
+    if (spell110i := wave110i_cards.spell(ch, text_lines)) is not None:
+        return spell110i
     defs = definitions(ch)
     # ("This spell costs {1} less to cast for each …": part of the total cost, not of what it does)
     # (wave 3C: nor "If you control a commander, you may cast this spell without paying its mana cost"; 3$: additional costs)

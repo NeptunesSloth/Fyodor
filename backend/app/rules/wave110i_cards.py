@@ -532,6 +532,34 @@ def parse(body: str) -> Any:
     return scripts.parse_effects(same) if (same := REWRITES.get(body.strip())) is not None else None
 
 
+_SPOILS = ["X is the number of artifact and/or creature cards in an opponent's graveyard as you cast this spell.",
+           "Distribute X +1/+1 counters among any number of target creatures."]
+
+
+def spell(ch: Any, lines: list[Any]) -> Def | None:
+    """Whole-spell wordings: Spoils of War's X sentence defines the divided total (107.3c) counted as it is cast (601.2d)."""
+    from app.rules import scripts
+
+    if [x.text for x in lines] != _SPOILS:
+        return None
+    parsed = scripts.parse_effects("Distribute X +1/+1 counters among any number of target creatures, where X is the number of creature cards in your graveyard.")
+    assert parsed is not None
+    effects, targets, _ = parsed
+    targets[0]["divide"]["value"] = {"opp_gy110i": ["Artifact", "Creature"]}
+    return {"kind": "spell", "whole110k": True, "effects": effects, **scripts.target_fields(targets)}  # (whole110k: coverage reads both lines as this one definition)
+
+
+def opp_gy_total(plan: Plan, you: str, types: list[str], x: int | None) -> int:
+    """Spoils of War, ruling 2008-08-01: you choose an opponent as you cast it and X ({X}{B}, 107.3c) is the number of those cards in that player's graveyard: the announced X
+    names the opponent (as for Bargaining Table); any other X is refused."""
+    from app.game.errors import ActionError
+
+    counts = {p: sum(1 for c in plan.state.zones.get(f"{p}:graveyard", []) if set(types) & set(plan.ch(plan.state.cards[c]).types)) for p in plan.live() if p != you}
+    if (x or 0) in counts.values() or not counts:
+        return int(x or 0)
+    raise ActionError(f"X must be the number of artifact and/or creature cards in an opponent's graveyard: {sorted(set(counts.values()))}")
+
+
 _MEDOMAI = "When you cast a spell with the chosen name for the first time this turn, draw two cards."
 
 

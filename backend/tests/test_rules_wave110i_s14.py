@@ -1,6 +1,7 @@
 """Wave 110I session 14.
 
 * Wayta, Trainer Prodigy: "a creature you control being dealt damage" makes the triggers of that damage trigger an additional time (603.2d; the fight's cost drops by {2} when both targets are creatures you control (601.2f).
+* Spoils of War: {X}{B}; X is the number of artifact and/or creature cards in the opponent chosen as it is cast (ruling 2008-08-01): the announced X names the opponent.
 * Guardian Archon: "Reveal the player you chose" (the entry secret choice, 614.12a) gives you and a permanent you control protection from that player (702.16k) until end of turn; once only.
 """
 from __future__ import annotations
@@ -107,3 +108,37 @@ def test_wayta_fight_costs_two_less_with_two_of_your_creatures_and_doubles_the_d
 def test_wayta_fight_against_an_opposing_creature_cannot_be_paid_with_the_discount(cards):
     with pytest.raises(ActionError):
         _fight(cards, "theirs", 1)
+
+
+SPOILS = real("Spoils of War", "{X}{B}", 1, "Sorcery",
+              "X is the number of artifact and/or creature cards in an opponent's graveyard as you cast this spell.\nDistribute X +1/+1 counters among any number of target creatures.", None, "B")
+base.EXTRA.append(SPOILS)
+
+
+def test_spoils_full(cards):
+    assert coverage.of_card_data(cards.resolve("Spoils of War")).level == "FULL"
+
+
+def _spoils(cards, x):
+    """Bob's graveyard holds one creature card, Carol's two (Bear, Giant) and a Bolt: X may be 1 or 2, naming the opponent."""
+    s = _three(cards, ["Spoils of War", "Test Bear"], carols=("Test Bear", "Test Giant", "Test Bolt"))
+    for name, pid in (("Test Giant", "p2"), ("Test Bear", "p3"), ("Test Giant", "p3"), ("Test Bolt", "p3")):
+        act(s, pid, type="move", card_ids=[card_named(s, name, pid).id], to={"player": pid, "zone": "graveyard"})
+    bear = put(s, "Test Bear")
+    mana(s, B=1, C=x)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Spoils of War").id, targets=[bear.id], target_counts=[1], x_value=x)
+    answer(s)
+    return s, bear
+
+
+@pytest.mark.parametrize("x", [1, 2])
+def test_spoils_counters_equal_the_chosen_opponents_cards(cards, x):
+    s, bear = _spoils(cards, x)
+    assert s.state.cards[bear.id].counters.get("+1/+1") == x
+    check(s)
+
+
+@pytest.mark.parametrize("x", [0, 3])
+def test_spoils_x_must_name_an_opponent(cards, x):
+    with pytest.raises(ActionError):
+        _spoils(cards, x)

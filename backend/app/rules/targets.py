@@ -377,6 +377,10 @@ def divide_x(plan: Plan, spec: dict[str, Any], chooser: str, source_card: str | 
     Stone): the total is the count as the spell is cast or the ability put on the stack (601.2d: the division is announced then; 608.2d: "the amount and
     division were determined as the spell or ability was put onto the stack"), the cast X otherwise."""
     value = (spec.get("divide") or {}).get("value")
+    if isinstance(value, dict) and "opp_gy110i" in value:  # -- cards (wave 110I) -- Spoils of War: the opponent chosen as it is cast (ruling 2008-08-01)
+        from app.rules import wave110i_cards
+
+        return wave110i_cards.opp_gy_total(plan, chooser, value["opp_gy110i"], x)
     return x if value is None else where_x(plan, {"x_value": value}, chooser, source_card, source_object, event)
 
 
