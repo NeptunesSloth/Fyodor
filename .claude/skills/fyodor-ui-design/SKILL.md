@@ -16,6 +16,7 @@ interface.**
   players), purpose, constraints, principles.
 - `docs/UI_REDESIGN_BRIEF.md` — the full redesign brief: visual direction, every system, phases A–E,
   screenshot checklist, success criteria, the "Don't" list.
+- `docs/GAME_UI_MOTION_RESEARCH.md` — motion tokens, card choreography, AI-slop ban list, sound/type rules.
 - Feature plans it points to: `docs/3D_DIRECTION.md` (renderer, §7a end-of-game scenes and post-game flow),
   `docs/GAME_NIGHT_FLOW.md`, `docs/ELIMINATION_HUB.md`, `docs/TABLETOP_QOL_MILESTONE.md`,
   `docs/AUTOMATION_UX.md`.
@@ -52,6 +53,10 @@ build the neutral table first.
 1. Inspect the current UI **running** (`/run` or the e2e server; screenshot at 1920×1080, 2560×1440,
    laptop). Never design from JSX alone.
 2. **`frontend-design`** decides and implements the solution (primary creative skill).
+   **Any motion** (hover, drag, card travel, stack, banners, 3D tweens): build it with **`animate`** and review it
+   with **`review-animations`**, using the tokens, spring presets, card choreography table and ban list in
+   `docs/GAME_UI_MOTION_RESEARCH.md`. Game state never waits on animation; a global speed multiplier and
+   click/Space-to-skip apply to every animation; one rAF owner (the three.js loop).
 3. **`impeccable`** critiques the implemented UI (`/impeccable critique|audit|polish <target>`); fix concrete
    findings that fit the tabletop direction. `PRODUCT.md` is its context; run `/impeccable document` to
    record `DESIGN.md` before large changes.
