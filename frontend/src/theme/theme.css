@@ -162,6 +162,9 @@ body { font-family: var(--font-ui); background: var(--bg); }
 .act-btn.green { background: var(--ok-grad); border-color: #7fd08f; color: #fff; }
 .act-btn.red { background: var(--danger-grad); border-color: #d06a60; color: #fff; }
 
+/* one focus ring for the whole game screen: priority-ice, offset clear of brass edges */
+.game-screen :is(button, [role="button"], select, a, summary):focus-visible { outline: 2px solid var(--select); outline-offset: 2px; }
+
 /*
  * A plaque: blackened metal with a chamfered brass edge, the material of every overlay that sits
  * on the table (seat plaques, the turn dial, the stack chain, the inspector).

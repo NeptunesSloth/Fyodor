@@ -60,6 +60,8 @@ async function board(page: Page, perSeat: number, extras: boolean) {
     await act({ type: "move", card_ids: [hand[0]], to: { zone: "stack" } });
     await act({ type: "move", card_ids: [hand[1]], to: { zone: "stack" } });
     await act({ type: "draw", player: "p1", count: 5 }); // a full hand for the fan
+    // a spell on the stack targeting one of my creatures: its beam must leave the standing card from its top
+    await act({ type: "create_arrow", source: hand[1], targets: [a[4]], kind: "target" });
   }
   await page.goto(`/#/game/${gameId}`);
   await expect(page.getByTestId("table-3d")).toBeVisible();

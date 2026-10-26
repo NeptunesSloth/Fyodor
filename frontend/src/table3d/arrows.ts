@@ -101,7 +101,9 @@ function crosses(a: THREE.Vector3, b: THREE.Vector3, box: GroundBox): boolean {
  */
 export function routeAround(a: THREE.Vector3, b: THREE.Vector3, box: GroundBox | null): THREE.Curve<THREE.Vector3> {
   const dist = a.distanceTo(b);
-  const lift = Math.max(a.y, b.y) + 1.1 + dist * 0.14;
+  // beams that start or end high (a stack card's edge) arc gently; table-to-table beams arc high
+  const raised = Math.max(a.y, b.y) > 0.5;
+  const lift = Math.max(a.y, b.y) + (raised ? 0.35 + dist * 0.05 : 1.1 + dist * 0.14);
   const at = (t: number, side: THREE.Vector3, d: number) =>
     new THREE.Vector3(a.x + (b.x - a.x) * t + side.x * d, lift, a.z + (b.z - a.z) * t + side.z * d);
   const straight = (side: THREE.Vector3, d: number) => new THREE.CubicBezierCurve3(a, at(1 / 3, side, d), at(2 / 3, side, d), b);

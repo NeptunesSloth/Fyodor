@@ -103,7 +103,7 @@ body.dragging, body.dragging * { cursor: grabbing !important; user-select: none;
 .hand-cards { display: flex; align-items: flex-end; height: 100%; --overlap: clamp(0px, calc((var(--n) - 8) * 9px), 78px); }
 .hand-card {
   width: 104px; flex: none; margin-left: calc(-1 * var(--overlap)); cursor: grab; position: relative; touch-action: none;
-  transition: transform 0.12s ease-out, margin 0.12s; border-radius: 5%; box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+  transition: transform var(--dur-hover, 0.12s) var(--ease-out, ease-out); border-radius: 5%; box-shadow: 0 4px 10px rgba(0,0,0,0.5);
 }
 .hand-card:first-child { margin-left: 0; }
 .hand-card:hover { transform: translateY(-26px) scale(1.12); z-index: 50; }

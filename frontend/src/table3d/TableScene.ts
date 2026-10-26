@@ -216,7 +216,7 @@ export class TableScene {
   private arrowKey = "";
   /** Where the stack's standing cards are (beams route around it), and each stack card's beam anchor. */
   private stackBox: GroundBox | null = null;
-  private stackAnchors = new Map<string, THREE.Vector3>();
+  private stackAnchors = new Map<string, { far: THREE.Vector3; near: THREE.Vector3 }>();
   /** Soft studio reflections for metal, lacquer and card gloss (a prefiltered room, no download). */
   private envMap: THREE.Texture;
   private post: Post | null = null;
@@ -698,7 +698,12 @@ export class TableScene {
       grow(wx, wz, (CARD_H / 2) * scale + 0.45);
       // beams to or from a stack card leave from its raised top edge, never from inside it
       const half = (CARD_H / 2) * scale;
-      this.stackAnchors.set(id, new THREE.Vector3(wx - Math.sin(myRot) * half * Math.cos(tilt), y + half * Math.sin(tilt) + 0.08, wz - Math.cos(myRot) * half * Math.cos(tilt)));
+      const along = half * Math.cos(tilt);
+      const rise = half * Math.sin(tilt);
+      this.stackAnchors.set(id, {
+        far: new THREE.Vector3(wx - Math.sin(myRot) * along, y + rise + 0.08, wz - Math.cos(myRot) * along),
+        near: new THREE.Vector3(wx + Math.sin(myRot) * along, Math.max(0.1, y - rise - 0.05), wz + Math.cos(myRot) * along),
+      });
       c.tilt = tilt;
       this.setOverlay(c, { keywords: [], counters: [], chain: { no: i + 1, next: top } });
       this.setGlow(c, selection.has(id) ? this.plane.ui.select : top ? this.plane.ui.accent : null, top ? 0.6 : 0.5);
@@ -721,8 +726,6 @@ export class TableScene {
    */
   private syncArrows(view: GameView): void {
     const at = (id: string, from?: THREE.Vector3): THREE.Vector3 | null => {
-      const anchor = this.stackAnchors.get(id);
-      if (anchor) return anchor.clone();
       const c = this.cards.get(id);
       if (c) return c.target.clone().setY(c.target.y + 0.05);
       const seat = this.seatList.find((s) => s.player === id);
@@ -734,10 +737,20 @@ export class TableScene {
       return new THREE.Vector3(wx, 0.3, wz);
     };
     const wanted: [THREE.Vector3, THREE.Vector3, string][] = [];
+    // a stack card's beam leaves from the edge that faces its other end, so it never crosses the face
+    const edge = (id: string, toward: THREE.Vector3): THREE.Vector3 | null => {
+      const e = this.stackAnchors.get(id);
+      if (!e) return null;
+      const d = (p: THREE.Vector3) => Math.hypot(p.x - toward.x, p.z - toward.z);
+      return (d(e.near) < d(e.far) ? e.near : e.far).clone();
+    };
     const add = (from: string, to: string, color: string) => {
-      const a = at(from);
-      const b = a && at(to, a);
-      if (a && b && a.distanceTo(b) >= 0.3) wanted.push([a, b, color]);
+      const a0 = at(from);
+      const b0 = a0 && at(to, a0);
+      if (!a0 || !b0) return;
+      const a = edge(from, b0) ?? a0;
+      const b = edge(to, a) ?? b0;
+      if (a.distanceTo(b) >= 0.3) wanted.push([a, b, color]);
     };
     for (const c of Object.values(view.cards)) {
       if (c.attacking) add(c.id, c.attacking.id, ATTACK_RED);
