@@ -246,6 +246,17 @@ def _carom() -> Any:
         [{"what": R.key("creature")}, {"what": R.key("creature"), "distinct_from": [0]}], False
 
 
+def _zimone() -> Any:
+    """Zimone's Experiment: look at five, reveal up to two creature and/or land cards, the rest to the bottom at random; lands enter tapped, creatures go to hand."""
+    from app.rules import scripts
+
+    base = scripts.parse_effects("Look at the top five cards of your library. You may reveal a creature or land card from among them and put it into your hand. "
+                                 "Put the rest on the bottom of your library in a random order.")
+    if base is None or [e["do"] for e in base[0]] != ["look_top", "pick_looked", "rest_looked"] or base[0][2].get("to") != "bottom_random":
+        return None
+    return [base[0][0], {"do": "zimone110h"}, base[0][2]], base[1], base[2]
+
+
 def _episode() -> Any:
     return [{"do": "episode110h", "who": "target"}], "player", False
 
@@ -390,6 +401,37 @@ def squall_check(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
     return True
 
 
+def zimone(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
+    """Zimone's Experiment: you may reveal up to two creature and/or land cards among the looked-at ones (701.20a)."""
+    from app.game.rules_state import DecisionOption
+    from app.rules import effects
+    from app.rules.plan import decide
+
+    _, looked = effects._looked(plan, ctx)
+    pool = [c for c in looked if (t := plan.ch(plan.state.cards[c]).types) and ("Creature" in t or "Land" in t)]
+    if not pool:
+        return True
+    decide(plan, player=ctx["controller"], kind="choose_cards", prompt="Reveal up to two creature and/or land cards",
+           options=[DecisionOption(id=c, label=plan.state.cards[c].name or "Card", card_id=c) for c in pool],
+           min_choices=0, max_choices=min(2, len(pool)), resume={"step": "zimone110h", "ctx": ctx, "pool": pool})
+    return False
+
+
+def resume_zimone(plan: Any, d: Any, chosen: list[str]) -> None:
+    """Revealed together; then every revealed land enters tapped and every other revealed creature goes to hand (a land creature is a land card: it enters)."""
+    from app.rules import effects
+
+    ctx = d.resume["ctx"]
+    picked = [c for c in dict.fromkeys(chosen) if c in d.resume["pool"] and c in plan.state.cards][:2]
+    if picked:
+        plan.do({"type": "reveal", "card_ids": picked}, actor=ctx["controller"])
+        lands = [c for c in picked if "Land" in plan.ch(plan.state.cards[c]).types]
+        for cards, to in ((lands, "battlefield_tapped"), ([c for c in picked if c not in lands], "hand")):
+            if cards and not effects._picked(plan, ctx, {"do": "pick_looked", "to": to}, cards):
+                return
+    effects.continue_effects(plan, ctx)
+
+
 def egg_tick(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
     """Darigaaz Reincarnated: still the same exiled object with an egg counter? Remove one; at zero return it to the battlefield under its owner's control."""
     from app.rules import effects
@@ -418,6 +460,8 @@ def excess_reflex(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
 
 
 BUILDERS = {
+    "Look at the top five cards of your library. You may reveal up to two creature and/or land cards from among them, then put the rest on the bottom of your "
+    "library in a random order. Put all land cards revealed this way onto the battlefield tapped and put all creature cards revealed this way into your hand.": _zimone,
     "For each permanent type, return up to one card of that type from your graveyard to the battlefield. You lose 3 life for each card returned this way. "
     "Exile ~.": _revival,
     "~ deals 7 damage to target creature or planeswalker. When it deals excess damage this way, destroy target artifact or enchantment an opponent controls "
@@ -559,5 +603,5 @@ def made(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
     return True
 
 
-PRIMITIVES = {"assign_unblocked110h": assign_unblocked, "made110h": made, "limo_back110h": limo_back, "bottom_did110h": bottom_did, "episode110h": episode, "scapegoat110h": scapegoat, "excess_reflex110h": excess_reflex, "sword110h": sword, "egg_tick110h": egg_tick, "squall_check110h": squall_check, "exile_counters110h": exile_counters}
-RESUME = {"episode110h": resume_episode, "scapegoat110h": resume_scapegoat}
+PRIMITIVES = {"assign_unblocked110h": assign_unblocked, "made110h": made, "limo_back110h": limo_back, "bottom_did110h": bottom_did, "episode110h": episode, "scapegoat110h": scapegoat, "excess_reflex110h": excess_reflex, "sword110h": sword, "egg_tick110h": egg_tick, "squall_check110h": squall_check, "zimone110h": zimone, "exile_counters110h": exile_counters}
+RESUME = {"zimone110h": resume_zimone, "episode110h": resume_episode, "scapegoat110h": resume_scapegoat}

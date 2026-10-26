@@ -1,6 +1,7 @@
 """Wave 110H session 8: one-card builds on real Oracle text (each scenario checks replay and a save/load round trip).
 
 * Squall, Gunblade Duelist: an attack on an opponent by a creature whose power or toughness equals the chosen number deals Squall's power to the defending player (603.4).
+* Zimone's Experiment: reveal up to two creature and/or land cards of the top five; lands enter tapped, creatures go to hand, the rest go to the bottom (701.20a).
 * Heart of Kiran: one loyalty counter from a planeswalker you control may pay the crew cost instead of tapping creatures (702.122a, 122.1); no creature is tapped.
 * Darigaaz Reincarnated: dying is replaced by exile with three egg counters (614.1a, 122.1); at each of its owner's upkeeps one comes off (603.4), and with none left it returns (400.7).
 """
@@ -26,6 +27,11 @@ EXTRA = [
     real("Squall, Gunblade Duelist", "{R}{W}{B}", 3, "Legendary Creature \u2014 Human Mercenary",
          "First strike\nAs Squall enters, choose a number.\nWhenever one or more creatures attack one of your opponents, if any of those creatures have power or toughness "
          "equal to the chosen number, Squall deals damage equal to its power to defending player.", ("3", "2"), "RWB"),
+    real("Zimone's Experiment", "{3}{G}", 4, "Sorcery",
+         "Look at the top five cards of your library. You may reveal up to two creature and/or land cards from among them, then put the rest on the bottom of your library in a "
+         "random order. Put all land cards revealed this way onto the battlefield tapped and put all creature cards revealed this way into your hand.", None, "G"),
+    real("Grizzly Bears", "{1}{G}", 2, "Creature \u2014 Bear", "", ("2", "2"), "G"),
+    real("Sol Ring", "{1}", 1, "Artifact", "{T}: Add {C}{C}.", None, ""),
     real("Murder", "{1}{B}{B}", 3, "Instant", "Destroy target creature.", None, "B"),
 ]
 NAMES = [c["name"] for c in EXTRA]
@@ -122,4 +128,28 @@ def test_squall_hits_when_an_attacker_has_the_chosen_power_or_toughness(cards, c
     to_step(s, "declare_attackers", turn=3)
     act(s, "p1", type="declare_attackers", attackers=[{"card_id": squall.id, "target": "p2"}])
     assert life(s, "p2") == (34 if hit else 37)
+    check(s)
+
+
+def _zimone(cards, picks):
+    s = build(cards, ["Zimone's Experiment", "Grizzly Bears", "Hill Giant", "Sol Ring"])
+    forests = [c for c in s.state.cards.values() if c.owner == "p1" and c.name == "Forest" and c.zone == "p1:library"][:2]
+    for cid in (forests[1].id, card_named(s, "Sol Ring").id, card_named(s, "Hill Giant").id, forests[0].id, card_named(s, "Grizzly Bears").id):
+        act(s, "p1", type="move", card_ids=[cid], to={"zone": "library"}, position="top")  # top five: Bears, Forest, Giant, Ring, Forest
+    mana(s, G=4)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Zimone's Experiment").id)
+    answer(s, [{"bears": card_named(s, "Grizzly Bears").id, "forest": forests[0].id, "giant": card_named(s, "Hill Giant").id, "ring": card_named(s, "Sol Ring").id}[p]
+               for p in picks])
+    return s, forests
+
+
+@pytest.mark.parametrize("picks", [["bears", "forest"], ["forest"], [], ["bears"]])
+def test_zimone_lands_enter_tapped_creatures_go_to_hand_the_rest_to_the_bottom(cards, picks):
+    s, forests = _zimone(cards, picks)
+    bears, giant, ring = (card_named(s, n) for n in ("Grizzly Bears", "Hill Giant", "Sol Ring"))
+    assert bears.zone == ("p1:hand" if "bears" in picks else "p1:library")
+    assert (s.state.cards[forests[0].id].zone, s.state.cards[forests[0].id].tapped) == (("p1:battlefield", True) if "forest" in picks else ("p1:library", False))
+    assert giant.zone == ring.zone == "p1:library"  # (never picked here: in the library at the bottom)
+    lib = s.state.zones["p1:library"]
+    assert all(c in lib[-5:] for c in (giant.id, ring.id))  # on the bottom with the other unrevealed cards
     check(s)
