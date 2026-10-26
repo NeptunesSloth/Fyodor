@@ -360,12 +360,12 @@ def lki(plan: Plan, snap: Any, ch: Characteristics) -> Characteristics:
 
 def add_copy_effect(plan: Plan, affected: list[str], recipe: CopyRecipe, controller: str, *,
                     duration: Literal["end_of_turn", "permanent", "next_turn"] = "permanent", source: str | None = None,
-                    entry_source: CopyEntrySource | None = None) -> None:
+                    entry_source: CopyEntrySource | None = None, label: str | None = None) -> None:
     """A layer-1 copy effect (613.2a) on these objects, timestamped now (613.7)."""
     from app.rules import layers
 
     made = layers.add_effect(plan, affected=affected, layer="1", source=source, controller=controller, duration=duration,
-                             label=f"Copy of {recipe.source}" if recipe.source else "Copy", copy_recipe=recipe, copy_entry_source=entry_source)
+                             label=label or (f"Copy of {recipe.source}" if recipe.source else "Copy"), copy_recipe=recipe, copy_entry_source=entry_source)
     from app.rules import text_global_word71
 
     text_global_word71.record_acquisition(plan, affected, made.id)
@@ -1598,7 +1598,8 @@ def _entering(plan: Plan, card: CardInstance, controller: str, answers: dict[str
     # (on the object as it is now; it follows the card to the object it becomes as it enters,
     # whatever its number: rules_state._diff — never a predicted id, 400.7)
     duration: Literal["end_of_turn", "permanent"] = "end_of_turn" if d.get("duration") == "end_of_turn" else "permanent"
-    add_copy_effect(plan, [plan.oid(card)], recipe, controller, source=ENTERING + card.id, duration=duration, entry_source=source_snapshot)
+    add_copy_effect(plan, [plan.oid(card)], recipe, controller, source=ENTERING + card.id, duration=duration, entry_source=source_snapshot,
+                    label=UNTIL_DOWN if d.get("vesuvan110c") else None)
     if d.get("mimeo110c"):  # -- (wave 110C) -- The Mimeoplasm: both cards leave the graveyards as it enters
         out["exile110c"] = answer.split("|")
         out.setdefault("choices", {})[what] = answer
@@ -2201,6 +2202,33 @@ MIMEO_TEXT = ("As ~ enters, you may exile two creature cards from graveyards. If
 MIMEO_WHAT = "two creature cards in graveyards" + TO_COPY
 
 
+# -- Vesuvan Shapeshifter (wave 110C) -- 708.2: "until this creature is turned face down" ends this copy effect (the handler of the face_down step drops it, by this label)
+UNTIL_DOWN = "Copy until turned face down"
+
+
+def turned_up_copy(plan: Plan, card: CardInstance) -> None:
+    """Vesuvan Shapeshifter: "As this creature ... is turned face up, you may choose another creature on the battlefield": the controller chooses, then it becomes a copy."""
+    d = enter_definition(plan, card)
+    if d is None or not d.get("vesuvan110c"):
+        return
+    options = entry_options(plan, card.controller, str(d["what"]), card.id)
+    if len(options) > 1:
+        plan_decide(plan, player=card.controller, kind="choose_one", prompt=f"{card.name}: as it is turned face up, choose another creature to copy", options=options,
+                    resume={"step": "vesuvan_up110c", "card": card.id, "object": plan.oid(card)}, source=card)
+
+
+def resume_turned_up_copy(plan: Plan, d: Any, chosen: list[str]) -> None:
+    card, r = plan.state.cards.get(d.resume["card"]), d.resume
+    if card is None or plan.oid(card) != r["object"] or card.face_down or chosen[0] == NONE:
+        return
+    dfn = enter_definition(plan, card)
+    source = plan.state.cards.get(chosen[0])
+    if dfn is None or source is None or chosen[0] not in entry_candidates(plan, card.controller, str(dfn["what"]), card.id):
+        return
+    excepts = [CopyExcept.model_validate(x) for x in dfn.get("excepts") or []]
+    add_copy_effect(plan, [plan.oid(card)], with_excepts(recipe_of(plan, source), excepts), card.controller, source=ENTERING + card.id, label=UNTIL_DOWN)
+
+
 def mimeo_pairs(plan: Plan, controller: str, card_id: str | None) -> list[tuple[str, str]]:
     from app.rules import selectors
 
@@ -2308,5 +2336,5 @@ PRIMITIVES = {"copy_spell": copy_stack_object, "copy_ability": copy_stack_object
               "copy_each": copy_each, "copy_each_marker": new_targets_marker,
               "token_copy": token_copy, "become_copy": become_copy, "copy_cards": copy_cards,
               "demonstrate_copy": demonstrate_copy, "demonstrate_opponent": demonstrate_opponent}
-RESUME = {"copy_source_order": resume_source_order, "card_copy_continue": resume_card_copy_continue, "copy_each": resume_each, "copy_mode": resume_mode, "copy_order": resume_copy_order, "copy_target": resume_target, "copy_manual": resume_manual,
+RESUME = {"vesuvan_up110c": resume_turned_up_copy, "copy_source_order": resume_source_order, "card_copy_continue": resume_card_copy_continue, "copy_each": resume_each, "copy_mode": resume_mode, "copy_order": resume_copy_order, "copy_target": resume_target, "copy_manual": resume_manual,
           "demonstrate": resume_demonstrate}

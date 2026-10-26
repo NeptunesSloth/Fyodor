@@ -2705,6 +2705,11 @@ def turned_up(plan: Plan, card: CardInstance, x: int | None = None, by: str | No
     )
 
     counters52d.turned_up(plan, card)
+    from app.rules import (
+        copying,  # -- Vesuvan Shapeshifter (wave 110C) -- "As this creature is turned face up, you may choose another creature"
+    )
+
+    copying.turned_up_copy(plan, card)
     from app.rules import wave110d_misc  # -- turned up (wave 110D) --
 
     wave110d_misc.attach_up(plan, card)
