@@ -136,3 +136,4 @@ def test_a_card_without_an_activated_ability_cannot_be_a_material(cards):
     mana(s, C=8, U=1)
     refused(s, "Choose|pay|enough|isn.t|aren.t|legal", jewel, CRAFT, cost_choices=[{"component": 2, "cards": [c.id for c in got]}])
     assert now(s, jewel).face == 0
+

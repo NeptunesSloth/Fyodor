@@ -127,6 +127,7 @@ _SELF_ABILITY_SPEND = re.compile(
     r"^(?:you may spend mana as though it were mana of any color to pay the activation costs of "
     r"(?:~|this artifact|this creature|this permanent)'s abilities"
     r"|mana of any type can be spent to activate (?:~|this artifact|this creature|this permanent)'s abilities)$")
+_BLUE_SELF_SPEND = "you may spend blue mana as though it were mana of any color to pay the activation costs of this creature's abilities"  # -- wave 110D -- Quicksilver Elemental (609.4b)
 _LAND_PLAY_LIMIT = re.compile(r"^(?P<lead>until end of turn, )?(?P<who>target player|target opponent|you|players|each opponent) "
                               r"can't play lands(?P<this> this turn)?$")
 STATIC_HASTE = "you may activate abilities of creatures you control as though those creatures had haste"
@@ -411,6 +412,8 @@ def static_definition(text: str) -> Definition | None:
     if _SELF_ABILITY_SPEND.fullmatch(t):
         return {"kind": "static", "static": "spend_as", "mode": "type" if t.startswith("mana") else "color",
                 "abilities": "self", "filter": None, "no_spells": True, "effects": []}
+    if t.replace("~", "this creature") == _BLUE_SELF_SPEND:
+        return {"kind": "static", "static": "spend_as", "mode": "blue_color", "abilities": "self", "filter": None, "no_spells": True, "effects": []}
     m = STATIC_SPEND.fullmatch(t)
     if m:
         ok, key = _filter(m["sel"])
@@ -1074,7 +1077,7 @@ def ability_spend_mode(state: GameState, player: str, card: CardInstance, ch: Ch
              and (d["abilities"] == "all" or d["abilities"] == "self" and card.id == src.id
                   or card.controller == src.controller and (d["abilities"] == "unowned" and card.owner != card.controller
                                                            or d["abilities"] == "creatures" and ch.is_creature))}
-    return "type" if "type" in modes else "color" if modes else None
+    return "type" if "type" in modes else "color" if modes - {"blue_color"} else "blue_color" if modes else None
 
 
 def as_though_haste(state: GameState, card: CardInstance, info: CardInfo | None) -> bool:
