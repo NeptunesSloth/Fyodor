@@ -111,6 +111,18 @@ def stolen_holds(plan: Any, ctx: dict[str, Any]) -> bool:
     return c.controller != c.owner
 
 
+def nelly_draw(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Nelly Borca: you and the controller of the creatures that dealt the damage (as they last existed, 608.2h) each draw a card."""
+    from app.rules import context, effects
+
+    mine = ctx["controller"]
+    others = [c.controller for c, _ in context.infos(plan, ctx, context.EVENT) if c.controller != mine]
+    for pid in dict.fromkeys([mine, *others]):
+        if pid in plan.live():
+            effects.PRIMITIVES["draw"](plan, ctx, {"do": "draw", "who": f"player:{pid}", "n": 1})
+    return True
+
+
 def lolth_lost(plan: Any, ctx: dict[str, Any]) -> int:
     """Life the damaged player (the event's player) has lost this turn, combat damage just dealt included (119.3)."""
     from app.rules import history
@@ -247,6 +259,9 @@ def _towershell(d: Def) -> Def:
 
 
 _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
+    "Whenever one or more creatures an opponent controls deal combat damage to one or more of your opponents, you and the controller of those creatures each draw a card.":
+        ("Whenever one or more creatures an opponent controls deal combat damage to one or more of your opponents, you draw a card.",
+         lambda d: {**d, "effects": [{"do": "nelly_draw110b"}]}),
     # Lolth's emblem (-8): 603.4 intervening "if" (conditions "lolth110b"), the loss is the difference to 8 (119.3: life lost counts all of this turn's)
     "Whenever an opponent is dealt combat damage by one or more creatures you control, if that player lost less than 8 life this turn, they lose life equal to the difference.":
         ("Whenever one or more creatures you control deal combat damage to an opponent, that player loses 1 life.",
@@ -757,4 +772,4 @@ def mana_web(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return True
 
 
-PRIMITIVES: dict[str, Any] = {"lolth_loss110b": lolth_loss, "mana_web110b": mana_web, "faramir_set110b": faramir_set, "faramir_end110b": faramir_end, "redirect110b": redirect, "kaito110b": kaito, "return_next_end110b": return_next_end, "gap_search110b": gap_search, "gift_given110b": gift_given, "ungoad110b": ungoad, "no_attack_next110b": no_attack_next, "draw_game110b": draw_game, "reaver110b": reaver, "veil110b": veil, "uncounter_by110b": uncounter_by, "exile_own110b": exile_own, "lose_shield110b": lose_shield}
+PRIMITIVES: dict[str, Any] = {"nelly_draw110b": nelly_draw, "lolth_loss110b": lolth_loss, "mana_web110b": mana_web, "faramir_set110b": faramir_set, "faramir_end110b": faramir_end, "redirect110b": redirect, "kaito110b": kaito, "return_next_end110b": return_next_end, "gap_search110b": gap_search, "gift_given110b": gift_given, "ungoad110b": ungoad, "no_attack_next110b": no_attack_next, "draw_game110b": draw_game, "reaver110b": reaver, "veil110b": veil, "uncounter_by110b": uncounter_by, "exile_own110b": exile_own, "lose_shield110b": lose_shield}

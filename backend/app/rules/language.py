@@ -4497,6 +4497,8 @@ def keyword_forms(text: str) -> tuple[Effects, Any] | None:
         return [{"do": "suspect", "who": _who(kind, key)}], _one(group)
     if not text.startswith("goad ") or not has_primitive("goad"):
         return None
+    if text == "goad all suspected creatures":  # -- wave 110B -- Nelly Borca: every creature with the suspected designation (701.60), whoever controls it
+        return [{"do": "goad", "who": "self", "suspected": True}], None
     m = _GOAD_PLAYER.fullmatch(text)
     if m:
         if m["p"] == "that player":
