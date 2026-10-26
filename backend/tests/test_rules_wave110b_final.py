@@ -73,7 +73,7 @@ def test_chameleon_ignores_its_own_and_others_unaffected(cards):
 BRINK = "Back from the Brink"
 
 
-@pytest.mark.parametrize("name", [BRINK, "Braided Net // Braided Quipu", "Lukka, Coppercoat Outcast", "Throne of the Grim Captain // The Grim Captain", "Soundwave, Sonic Spy // Soundwave, Superior Captain", "Thief of Blood", "Torrent of Lava", "River Song"])
+@pytest.mark.parametrize("name", [BRINK, "Braided Net // Braided Quipu", "Lukka, Coppercoat Outcast", "Throne of the Grim Captain // The Grim Captain", "Soundwave, Sonic Spy // Soundwave, Superior Captain", "Thief of Blood", "Torrent of Lava", "River Song", "Sanar, Innovative First-Year"])
 def test_brink_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
@@ -430,4 +430,51 @@ def test_river_song_spoilers_counter_and_damage_when_an_opponent_scries_surveils
             act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: max(1, d.min_choices)])
     song = card_named(s, RIVER)
     assert s.state.cards[song.id].counters.get("+1/+1") == 1 and life(s, "p2") == 40 - 3
+    check(s)
+
+
+SANAR = "Sanar, Innovative First-Year"
+
+
+def test_sanar_vivid_exiles_one_revealed_card_per_color_and_lets_them_be_cast(cards):
+    """701.20, 608.2d, 614.12: reveal until X nonland cards (X = colors among your permanents: Sanar's two and the Bears' green = 3); for each of those colors you may exile
+    one revealed card of that color; then shuffle; the exiled cards may be cast this turn (Bolt is red, Divination blue, no green card was revealed)."""
+
+    s = build(cards, [SANAR, "Grizzly Bears", "Lightning Bolt", "Hill Giant", "Divination"], [])
+    put(s, SANAR)
+    put(s, "Grizzly Bears")
+    for n in ("Divination", "Hill Giant", "Lightning Bolt"):
+        top(s, n)
+    forests = [c for c in s.state.cards.values() if c.name == "Forest" and c.owner == "p1" and c.zone == "p1:library"][:2]
+    for f in forests:  # (the first is drawn for the turn, the second is revealed and not a nonland card)
+        act(s, "p1", type="move", card_ids=[f.id], to={"zone": "library"}, position="top")
+    asked: list[str] = []
+
+    def pick(d):
+        asked.append(d.prompt)
+        names = {o.id: s.state.cards[o.card_id].name for o in d.options}
+        want = {"blue": "Divination", "red": "Lightning Bolt"}.get(next((w for w in ("white", "blue", "black", "red", "green") if f"exile a {w} card" in d.prompt), ""), "")
+        return [i for i, n in names.items() if n == want][:1] if want else []
+
+    for _ in range(80):
+        d = s.state.rules.decision
+        if s.state.turn.number == 3 and s.state.turn.phase == "main1" and d is None and not s.state.zones.get("stack"):
+            break
+        if d is None:
+            act(s, s.state.rules.priority, type="pass_priority")
+        elif d.kind in ("declare_attackers", "declare_blockers"):
+            act(s, d.player, type=d.kind, **({"attackers": []} if d.kind == "declare_attackers" else {"blocks": []}))
+        elif "Vivid" in d.prompt:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=pick(d))
+        else:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: max(1, d.min_choices)])
+    assert [w for a in asked for w in ("blue", "red", "green") if f"exile a {w} card" in a] == ["blue", "red", "green"]  # (white and black are not among the permanents' colors)
+    bolt, div = card_named(s, "Lightning Bolt"), card_named(s, "Divination")
+    assert s.state.cards[bolt.id].zone == "p1:exile" and s.state.cards[div.id].zone == "p1:exile" and s.state.cards[card_named(s, "Hill Giant").id].zone == "p1:library"
+    mana(s, U=1, R=1, C=2)
+    act(s, "p1", type="cast_spell", card_id=bolt.id, targets=["p2"])
+    settle(s)
+    act(s, "p1", type="cast_spell", card_id=div.id)
+    settle(s)
+    assert life(s, "p2") == 37 and s.state.cards[div.id].zone == "p1:graveyard"
     check(s)

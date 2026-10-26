@@ -43,6 +43,31 @@ _BUILD: dict[str, tuple[str, Any]] = {
 }
 
 
+_SANAR = ("Vivid \u2014 At the beginning of your first main phase, reveal cards from the top of your library until you reveal X nonland cards, where X is the number of colors among "
+          "permanents you control. For each of those colors, you may exile a card of that color from among the revealed cards. Then shuffle. You may cast the exiled cards this turn.")
+_COLORS = (("W", "white"), ("U", "blue"), ("B", "black"), ("R", "red"), ("G", "green"))
+
+
+def _sanar(d: Def) -> Def:
+    """For each color among your permanents (read as the picks are made: nothing changes in between), one optional pick of a revealed card of that color (a card of two colors may
+    be taken for either, not both: it leaves the revealed cards, 608.2d); the cards exiled may be cast this turn."""
+    from app.rules import conditions, selectors
+
+    dig, pick, shuffle, grant = d["effects"]
+    out: list[Def] = [dig]
+    for i, (_letter, word) in enumerate(_COLORS):
+        cond = conditions.parse(f"you control a {word} permanent")
+        sel = selectors.parse(f"{word} card")
+        assert cond is not None and sel is not None
+        out += [{"do": "only_if", "cond": cond, "skip": 1}, {**pick, "sel": sel.key(), "as": f"vivid{i}", "prompt": f"Vivid: exile a {word} card from among the revealed cards?"}]
+    out.append(shuffle)
+    out += [{**grant, "who": f"ref:vivid{i}"} for i in range(len(_COLORS))]
+    return {**d, "effects": out}
+
+
+_BUILD[_SANAR] = ("At the beginning of your first main phase, reveal cards from the top of your library until you reveal X nonland cards, where X is the number of colors among permanents you "
+                  "control. You may exile one of them. Then shuffle. You may cast the exiled card this turn.", _sanar)
+
 _RIVER_DRAW = "Meet in Reverse \u2014 You draw cards from the bottom of your library rather than the top."
 _RIVER_SPOILERS = ("Spoilers \u2014 Whenever an opponent scries, surveils, or searches their library, put a +1/+1 counter on River Song. "
                    "Then River Song deals damage to that player equal to its power.")
