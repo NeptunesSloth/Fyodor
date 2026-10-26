@@ -185,7 +185,9 @@ def wall_entered(plan: Any, card: Any, new_oid: str) -> None:
     from app.rules import copying, trigger_multipliers, triggers
 
     d = copying.enter_definition(plan, card)
-    eff = copying._entering_effect(plan, card) if d is not None and d.get("reflex110d") else None
+    if d is None or not d.get("reflex110d"):
+        return
+    eff = copying._entering_effect(plan, card)
     src = eff.copy_entry_source if eff is not None else None
     if src is None or (c := plan.state.cards.get(src.card)) is None or not c.zone.endswith(":battlefield") or plan.oid(c) != src.object_id:
         return
