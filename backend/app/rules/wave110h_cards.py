@@ -149,7 +149,7 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
         native = scripts.define(replace(ability, text="Whenever ~ attacks, attacking creatures you control gain indestructible until end of turn. If you control three or more attacking creatures, transform ~."), ch)
         attackers = selectors.parse("attacking creatures you control")
         eff = native["effects"] if native else []
-        if attackers is None or len(eff) < 2 or eff[-2].get("do") != "only_if":
+        if native is None or attackers is None or len(eff) < 2 or eff[-2].get("do") != "only_if":
             return None
         cond = {"value": {"sum": "power", "of": attackers.key()}, "op": ">=", "n": 8}  # ("those creatures" are the attackers the first sentence just affected)
         return {**native, "effects": [*eff[:-2], {**eff[-2], "cond": cond}, eff[-1]]}

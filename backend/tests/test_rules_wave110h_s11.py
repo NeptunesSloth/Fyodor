@@ -11,8 +11,8 @@ from app.rules import coverage
 from tests.fixtures.cards import card
 from tests.game_helpers import act
 from tests.test_rules_wave12a_counters_keywords import real
-from tests.wave9c_kit import build, check, mana, put, to_hand
-from tests.wave110b_kit import attack, through_combat
+from tests.wave9c_kit import build, check, put, to_hand
+from tests.wave110b_kit import attack
 from tests.wave110j_kit import ch, now
 
 FRONT = ("More Than Meets the Eye {2}{R}{G}{W} (You may cast this card converted for {2}{R}{G}{W}.)\nWard {2}\nWhenever Ultra Magnus attacks, you may put an "

@@ -51,7 +51,7 @@ def test_the_emblem_text_is_checked():
     assert designations.emblem_text_ok("Creatures you control get +3/+3 and have trample.")
     assert not designations.emblem_text_ok("Artifacts you control have 'Vigil'.")  # not a grammar match
     assert designations.emblem_text_ok("{1}{B}, Sacrifice a creature: You gain X life and draw X cards, where X is the sacrificed creature's power.")  # (wave 110O: activated from the command zone)
-    assert not designations.emblem_text_ok("Tap an untapped artifact you control: Draw a card.")
+    assert not designations.emblem_text_ok("{2}: Draw a card.")  # (an emblem cost the engine does not pay from the command zone)
     assert designations.emblem_text_ok("You have no maximum hand size.")  # (wave 20C: hand_size.maximum reads emblems, 114.4)
     assert scripts.parse_effects('You get an emblem with "Creatures you control get +1/+1 until I say so."') is None
 
@@ -261,7 +261,7 @@ def planeswalker(name, text):
     # two quoted abilities, each read (wave 26A); refused: a text the grammar can't read / an activated ability / a rule the command zone isn't read for
     ("Tamiyo, the Moon Sage", '−8: You get an emblem with "You have no maximum hand size" and "Whenever a card is put into your graveyard from '
      'anywhere, you may return it to your hand."', "FULL"),
-    ("Two-Ability Refusal", '−8: You get an emblem with "You have no maximum hand size" and "Tap an untapped artifact you control: Draw a card."',
+    ("Two-Ability Refusal", '−8: You get an emblem with "You have no maximum hand size" and "{2}: Draw a card."',
      "PARTIAL"),
     ("Ob Nixilis of the Black Oath", "−8: You get an emblem with \"{1}{B}, Sacrifice a creature: You gain X life and draw X cards, where X is "
      "the sacrificed creature's power.\"", "FULL"),  # (wave 110O: activated from the command zone)

@@ -103,6 +103,7 @@ def test_volrath_curse_stops_attacks_and_activations(cards):
         if s.state.turn.phase not in ("main1", "beginning_of_combat", "declare_attackers"):
             break
     import pytest
+
     from app.game.errors import ActionError
 
     with pytest.raises(ActionError):
