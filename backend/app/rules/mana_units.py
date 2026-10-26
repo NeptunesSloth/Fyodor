@@ -121,6 +121,7 @@ def settle(plan: Plan, player: str, payment: M.Payment) -> dict[str, Any]:
                               generic_allowed=u.generic_allowed, production_zone=u.production_zone))
             continue
         card = state.cards[cid]
+        payment.made110d[cid] = tuple(opt)
         ab = dict(mana_abilities(state, card, plan.info)).get(used.get(cid, -1))
         only = ab.spend_only if ab else None
         riders = rider_specs(ab, plan.ch(card).name)

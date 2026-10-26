@@ -8,8 +8,7 @@ import copy
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
-from app.rules import wave110c_any, wave110c_misc
-from app.rules.wave110c_any import _FLOURISH
+from app.rules import wave110c_last, wave110c_misc
 
 if TYPE_CHECKING:
     from app.rules.oracle import AbilityText
@@ -216,6 +215,8 @@ def corrupt_counter(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
 
 BUILDERS: dict[str, Callable[[], Parsed]] = {
+    wave110c_last.TRESPASSER: wave110c_last.trespasser,  # -- Trespasser (wave 110C) --
+    wave110c_last.TRESPASSER.replace("This creature", "~"): wave110c_last.trespasser,
     wave110c_misc.FINALE_TEXT: wave110c_misc.finale_of_promise,  # -- Finale of Promise (wave 110C) --
     wave110c_misc.WARP_WORLD: wave110c_misc.warp_world,  # -- Warp World (wave 110C) --
     "Move all +1/+1 counters from target land you control onto target creature. If one or more +1/+1 counters are moved this way, you gain that much life and draw a card.":
@@ -261,7 +262,6 @@ BUILDERS: dict[str, Callable[[], Parsed]] = {
         lambda: read("Each opponent sacrifices a creature with the greatest power among creatures they control."),
     "Put a +1/+1 counter on each of up to two Soldiers you control.": _soldiers,
     "Destroy all lands or all creatures. Creatures destroyed this way can't be regenerated.": _catastrophe,
-    _FLOURISH: wave110c_any.flourish,
 }
 
 
@@ -326,6 +326,9 @@ _ADVENTURER = {
 def definition(ability: AbilityText, ch: Any) -> dict[str, Any] | None:
     from app.rules import wave110c_kusari, wave110c_lose, wave110c_tevesh
 
+    if (last := wave110c_last.definition(ability, ch)) is not None:  # Torrent Elemental
+        return last
+
     if (kusari := wave110c_kusari.definition(ability, ch)) is not None:  # Kusari-Gama
         return kusari
     if (tevesh := wave110c_tevesh.definition(ability, ch)) is not None:  # Tevesh Szat, Doom of Fools
@@ -355,6 +358,24 @@ def definition(ability: AbilityText, ch: Any) -> dict[str, Any] | None:
 
     if (anyopp := wave110c_any.definition(ability, ch)) is not None:
         return anyopp
+    from app.rules import (  # -- Xanathar, Valki, Cosima, Koh (wave 110C) --
+        wave110c_cosima,
+        wave110c_koh,
+        wave110c_valki,
+        wave110c_xanathar,
+    )
+
+    if (koh := wave110c_koh.definition(ability, ch)) is not None:
+        return koh
+
+    if (cosima := wave110c_cosima.definition(ability, ch)) is not None:
+        return cosima
+
+    if (valki := wave110c_valki.definition(ability, ch)) is not None:
+        return valki
+
+    if (xan := wave110c_xanathar.definition(ability, ch)) is not None:
+        return xan
     from app.rules import wave110c_waste  # -- Eumidian Wastewaker (wave 110C) --
 
     if (waste := wave110c_waste.definition(ability, ch)) is not None:

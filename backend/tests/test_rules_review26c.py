@@ -14,6 +14,7 @@ from __future__ import annotations
 import pytest
 
 from app.game.errors import ActionError
+from app.rules.mana_units import visible_pool
 from tests.game_helpers import act
 from tests.test_rules_conditionals import creature, pick, until_asked
 from tests.test_rules_wave12a_counters_keywords import answer
@@ -44,7 +45,7 @@ def test_lions_eye_diamond_cannot_be_activated_while_paying_for_a_spell(cards):
     with pytest.raises(ActionError):
         act(s, "p1", type="activate_ability", card_id=led.id, ability=0, mana_choice="G")
     assert zone_of(s, "Lion's Eye Diamond") == "p1:battlefield" and zone_of(s, "Rent Is Due") == "p1:hand"
-    assert s.state.players["p1"].mana.get("G", 0) == 0
+    assert visible_pool(s.state, "p1").get("G", 0) == 0
     check(s)
 
 
@@ -59,7 +60,7 @@ def test_a_sacrifice_mana_ability_pays_its_cost_while_paying(cards):  # (wave 28
     act(s, "p1", type="cast_spell", card_id=spell.id)
     act(s, "p1", type="activate_ability", card_id=altar.id, ability=0)
     assert bear.id not in s.state.cards  # (the creature was sacrificed as the cost: not free mana)
-    assert s.state.players["p1"].mana.get("C", 0) == 2
+    assert visible_pool(s.state, "p1").get("C", 0) == 2
     check(s)
 
 
@@ -70,7 +71,7 @@ def test_lions_eye_diamond_with_priority_discards_the_hand(cards):
     to_hand(s, "Rent Is Due")
     activate(s, "Lion's Eye Diamond", "Discard your hand")
     pick(s, "4")  # (G)
-    assert hand_size(s) == 0 and s.state.players["p1"].mana.get("G") == 3
+    assert hand_size(s) == 0 and visible_pool(s.state, "p1").get("G") == 3
     check(s)
 
 

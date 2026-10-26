@@ -18,6 +18,10 @@
 * 122.1, 601.3, 609.4b: Evelyn, the Covetous exiles the top card of each library with a collection counter; once each turn a card so exiled by your ability may be played, with mana of any color.
 * 508.5a, 602.5: Kjeldoran Guard works during combat only if a defending player (the controller picks one of them) controls no snow lands; the creature leaving sacrifices it.
 * 101.2, 305.1, 603.8: City in a Bottle stops spells and lands with Arabian Nights names, and their controllers sacrifice the other such permanents.
+* 603.7, 122.1, 611.2b: Cyclopean Tomb makes Swamps with mire counters and, once gone, takes the counters back one land each upkeep.
+* Volo, Itinerant Scholar: Volo's Journal notes a creature type of each creature spell cast (one not yet noted for it), and Volo draws a card for each.
+* 701.3b, 115.1: Enchantment Alteration attaches the targeted Aura to another permanent of the type it is on (chosen as it resolves).
+* 107.3a, 107.3f, 601.2d: Numa pays {X}{X} (two mana for each X) and divides X +1/+1 counters among any number of target Elves.
 """
 
 from __future__ import annotations
@@ -57,7 +61,7 @@ from tests.wave110o_kit import (  # noqa: F401
 UNDERGROWTH = "Undergrowth"
 
 
-@pytest.mark.parametrize("name", [UNDERGROWTH, "Pure Intentions", "Nahiri's Sacrifice", "Cleansing", "Mysterio, Master of Illusion", "Heroic Sacrifice", "Spinning Darkness", "Tidal Flats", "Pyramids", "Soul Echo", "Ob Nixilis of the Black Oath", "Secret Invasion", "Chromatic Armor", "Tenth District Hero", "Living Lore", "Evelyn, the Covetous", "Kjeldoran Guard", "City in a Bottle"])
+@pytest.mark.parametrize("name", [UNDERGROWTH, "Pure Intentions", "Nahiri's Sacrifice", "Cleansing", "Mysterio, Master of Illusion", "Heroic Sacrifice", "Spinning Darkness", "Tidal Flats", "Pyramids", "Soul Echo", "Ob Nixilis of the Black Oath", "Secret Invasion", "Chromatic Armor", "Tenth District Hero", "Living Lore", "Evelyn, the Covetous", "Kjeldoran Guard", "City in a Bottle", "Volo, Itinerant Scholar", "Cyclopean Tomb", "Enchantment Alteration", "Numa, Joraga Chieftain", "Disciple of Caelus Nin", "Bronzehide Lion"])
 def test_the_cards_are_full(name):
     assert full(name)
 
@@ -901,4 +905,223 @@ def test_city_in_a_bottle_makes_the_controllers_sacrifice_every_other_arabian_ni
     bears = cast_on(s, "Grizzly Bears")  # (a state trigger is looked at after the table changes: here, a spell resolving)
     assert now(s, pyr).zone == "p1:graveyard" and now(s, oasis).zone == "p2:graveyard"  # (their controllers sacrifice them, 603.8)
     assert now(s, city).zone == "p1:battlefield" and now(s, bears).zone == "p1:battlefield"  # (City in a Bottle itself is "other" for it: it stays)
+    check(s)
+
+
+VOLO = "Volo, Itinerant Scholar"
+
+
+def test_volo_journal_notes_one_unnoted_creature_type_of_each_creature_spell_and_draws_for_them(cards):
+    s = build(cards, [VOLO, "Grizzly Bears", "Llanowar Elves", "Mesa Pegasus", "Forest"], [])
+    volo = cast_on(s, VOLO)
+    journal = next(c for c in s.state.cards.values() if c.name == "Volo's Journal")
+    assert journal.is_token and "hexproof" in ch(s, journal).keywords
+    cast_on(s, "Grizzly Bears")
+    assert s.state.rules.notes110o.get(s.state.rules.object_id(journal.id)) == ["Bear"]  # (a one-type creature: noted without a question)
+    cast_on(s, "Llanowar Elves")  # (Elf Druid: the controller picks, here the first offered)
+    assert len(s.state.rules.notes110o[s.state.rules.object_id(journal.id)]) == 2
+    cast_on(s, "Mesa Pegasus")  # (Pegasus: a third type)
+    assert len(s.state.rules.notes110o[s.state.rules.object_id(journal.id)]) == 3
+    s.state.rules.controlled_since[volo.id].turn = 0
+    hand = len(s.state.zones["p1:hand"])
+    mana(s, "p1", C=2)
+    act(s, "p1", type="activate_ability", card_id=volo.id, ability=ability(s, volo, "{2}"), targets=[journal.id])
+    settle(s)
+    assert len(s.state.zones["p1:hand"]) == hand + 3  # (a card for each creature type noted)
+    check(s)
+
+
+TOMB = "Cyclopean Tomb"
+
+
+def swamps(s, lands):
+    return ["Swamp" in ch(s, land).subtypes for land in lands]
+
+
+def test_cyclopean_tomb_makes_swamps_and_after_it_is_gone_takes_the_counters_back_one_land_a_turn(cards):
+    s = build(cards, [TOMB, "Naturalize"], [], forests=9)
+    tomb = put(s, TOMB)
+    lands = [put_new(s, "Forest"), put_new(s, "Forest")]
+    stops(s)
+    for upkeep, land in ((3, lands[0]), (5, lands[1])):
+        to_phase(s, "upkeep", turn=upkeep)
+        mana(s, "p1", C=2)
+        act(s, "p1", type="activate_ability", card_id=tomb.id, ability=ability(s, tomb, "{2}"), targets=[land.id])
+        settle(s)
+        assert now(s, land).counters.get("mire") == 1 and "Swamp" in ch(s, land).subtypes  # (a Swamp for as long as it has a mire counter on it)
+    cast_on(s, "Naturalize", tomb)  # (still Alice's upkeep of turn 5: the Tomb is put into a graveyard)
+    assert now(s, tomb).zone == "p1:graveyard" and swamps(s, lands) == [True, True]
+    to_phase(s, "upkeep", turn=7)
+    settle(s, answers=[lands[1].id])  # (she picks the second land: all its counters go; the first is still a Swamp)
+    assert swamps(s, lands) == [True, False] and now(s, lands[1]).counters.get("mire", 0) == 0
+    to_phase(s, "upkeep", turn=9)
+    settle(s)  # (only the first is left to choose, no question)
+    assert swamps(s, lands) == [False, False] and now(s, lands[0]).counters.get("mire", 0) == 0
+    to_phase(s, "upkeep", turn=11)
+    settle(s)  # (nothing left to take counters from: the delayed ability goes on without effect)
+    check(s)
+
+
+ALTERATION = "Enchantment Alteration"
+
+
+def test_enchantment_alteration_moves_an_aura_to_another_permanent_of_the_type_it_is_on(cards):
+    s = build(cards, [ALTERATION, "Pacifism", "Llanowar Elves", "Wild Growth", "Forest"], ["Grizzly Bears"])
+    bears, elves = put(s, "Grizzly Bears", "p2"), put(s, "Llanowar Elves")
+    pacifism = cast_on(s, "Pacifism", bears)
+    assert now(s, pacifism).attached_to == bears.id
+    cast_on(s, ALTERATION, pacifism)  # (the only other creature is the Elves: no question)
+    assert now(s, pacifism).attached_to == elves.id
+    forest = put_new(s, "Forest")
+    growth = cast_on(s, "Wild Growth", forest)
+    assert now(s, growth).attached_to == forest.id
+    other, third = put_new(s, "Forest"), put_new(s, "Forest")
+    spell = to_hand(s, ALTERATION)
+    mana(s, "p1", U=1)
+    act(s, "p1", type="cast_spell", card_id=spell.id, targets=[growth.id])
+    settle(s, answers=[other.id])  # (two lands to choose from: the caster picks)
+    assert now(s, growth).attached_to == other.id and third.id != other.id
+    assert now(s, pacifism).attached_to == elves.id  # (the creature Aura was not touched)
+    check(s)
+
+
+NUMA = "Numa, Joraga Chieftain"
+
+
+def numa_table(cards):
+    s = build(cards, [NUMA, "Llanowar Elves"], [])
+    numa, elves = put(s, NUMA), put(s, "Llanowar Elves")
+    stops(s)
+    to_phase(s, "begin_combat", turn=1)
+    return s, numa, elves
+
+
+def numa_pay(s, x, targets=(), division=None):
+    mana(s, "p1", C=2 * max(x, 1))
+    for _ in range(30):
+        d = s.state.rules.decision
+        if d is None:
+            if not s.state.zones.get("stack"):
+                return
+            act(s, s.state.rules.priority, type="pass_priority")
+        elif d.kind == "choose_one":
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[f"x:{x}" if x >= 0 else "decline"])
+        elif d.kind == "choose_cards":
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[t.id for t in targets])
+        elif d.kind == "divide":
+            act(s, d.player, type="choose", decision_id=d.id, amounts=list(division))
+        else:
+            raise AssertionError(d.kind)
+
+
+def test_numa_pays_two_mana_for_each_x_and_divides_x_counters_among_elves(cards):
+    s, numa, elves = numa_table(cards)
+    numa_pay(s, 3, targets=[numa, elves], division=[2, 1])
+    assert now(s, numa).counters.get("+1/+1") == 2 and now(s, elves).counters.get("+1/+1") == 1  # (X = 3, paid {6})
+    check(s)
+
+
+def test_numa_with_x_zero_or_declined_puts_no_counters(cards):
+    s, numa, elves = numa_table(cards)
+    numa_pay(s, -1)
+    assert not now(s, numa).counters and not now(s, elves).counters
+    check(s)
+
+
+DISCIPLE = "Disciple of Caelus Nin"
+
+
+def disciple_table(cards):
+    s = build(cards, [DISCIPLE, "Murder"], [], forests=12, islands=12)
+    mine = [put_new(s, "Forest") for _ in range(7)]
+    theirs = [put_new(s, "Island", "p2") for _ in range(7)]
+    return s, mine, theirs
+
+
+def zones(s, cards):
+    return [c.zone for c in (now(s, x) for x in cards)]
+
+
+def test_disciple_of_caelus_nin_lets_each_player_keep_five_permanents_and_phases_out_the_rest(cards):
+    s, mine, theirs = disciple_table(cards)
+    spell = to_hand(s, DISCIPLE)
+    mana(s, "p1", **cost(DISCIPLE))
+    act(s, "p1", type="cast_spell", card_id=spell.id)
+    asked = []
+    for _ in range(40):
+        d = s.state.rules.decision
+        if d is not None:
+            asked.append(d.player)
+            keep = (mine if d.player == "p1" else theirs)[:5]
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[k.id for k in keep])
+        elif s.state.zones.get("stack"):
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            break
+    assert asked == ["p1", "p2"]  # (101.4: starting with its controller)
+    assert zones(s, mine) == ["p1:battlefield"] * 5 + ["p1:phased"] * 2 and zones(s, theirs) == ["p2:battlefield"] * 5 + ["p2:phased"] * 2
+    assert now(s, spell).zone == "p1:battlefield"  # (the Disciple itself is not among "all other permanents")
+    check(s)
+
+
+def test_disciple_of_caelus_nin_keeps_permanents_from_phasing_in_while_it_is_on_the_battlefield(cards):
+    s, mine, theirs = disciple_table(cards)
+    spell = to_hand(s, DISCIPLE)
+    mana(s, "p1", **cost(DISCIPLE))
+    act(s, "p1", type="cast_spell", card_id=spell.id)
+    for _ in range(40):
+        d = s.state.rules.decision
+        if d is not None:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[k.id for k in (mine if d.player == "p1" else theirs)[:5]])
+        elif s.state.zones.get("stack"):
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            break
+    next_turn(s)
+    next_turn(s)  # (both players' untap steps have come)
+    assert zones(s, mine)[5:] == ["p1:phased"] * 2 and zones(s, theirs)[5:] == ["p2:phased"] * 2
+    cast_on(s, "Murder", spell)  # (the Disciple dies; the permanents phase in at their controllers' next untap steps, 702.26a)
+    assert now(s, spell).zone == "p1:graveyard"
+    next_turn(s)
+    next_turn(s)
+    assert zones(s, mine) == ["p1:battlefield"] * 7 and zones(s, theirs) == ["p2:battlefield"] * 7
+    check(s)
+
+
+LION = "Bronzehide Lion"
+
+
+def lion_dies(cards, mine=("Grizzly Bears",), theirs=(), answers=()):
+    s = build(cards, [LION, "Murder", *mine], list(theirs))
+    lion = put(s, LION)
+    others = [put(s, n) for n in mine]
+    foes = [put(s, n, "p2") for n in theirs]
+    spell = to_hand(s, "Murder")
+    mana(s, "p1", **cost("Murder"))
+    act(s, "p1", type="cast_spell", card_id=spell.id, targets=[lion.id])
+    settle(s, answers=list(answers))
+    return s, lion, others, foes
+
+
+def test_bronzehide_lion_returns_as_an_aura_on_a_creature_its_controller_controls(cards):
+    s, lion, (bears,), (foe,) = lion_dies(cards, theirs=("Llanowar Elves",))
+    back = next(c for c in s.state.cards.values() if c.name == LION and c.zone == "p1:battlefield")
+    chars = ch(s, back)
+    assert chars.types == {"Enchantment"} and "Aura" in chars.subtypes and "Creature" not in chars.types  # (an Aura, not a creature, 611.2e)
+    assert now(s, back).attached_to == bears.id  # (the only creature "you control": the opponent's Elves are no legal host)
+    abilities = [a.text for a in chars.abilities]
+    assert any(t.startswith("{G}{W}: Enchanted creature gains indestructible") for t in abilities) and not any("This creature gains" in t for t in abilities)
+    mana(s, "p1", G=1, W=1)
+    activate(s, back, "{G}{W}")
+    assert "indestructible" in ch(s, bears).keywords
+    check(s)
+
+
+def test_bronzehide_lion_with_two_creatures_asks_what_it_enchants_and_with_none_stays_dead(cards):
+    s, lion, (bears, elves), _ = lion_dies(cards, mine=("Grizzly Bears", "Llanowar Elves"))
+    back = next(c for c in s.state.cards.values() if c.name == LION and c.zone == "p1:battlefield")
+    assert now(s, back).attached_to in (bears.id, elves.id)
+    s2, lion2, _, _ = lion_dies(cards, mine=())
+    assert now(s2, lion2).zone == "p1:graveyard"  # (303.4g: nothing to enchant, it can't return)
+    check(s2)
     check(s)

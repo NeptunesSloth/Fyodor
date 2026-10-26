@@ -19,6 +19,7 @@ from typing import Any
 from pydantic import TypeAdapter
 
 from app.game import actions as A
+from app.game.control import lands_only
 from app.game.errors import ActionError
 from app.game.rules_state import (
     CostContribution,
@@ -448,6 +449,12 @@ def mana_abilities(state: GameState, card: CardInstance, info: CardInfo) -> list
         if parsed.once_per_turn and r is not None and \
                 r.once_per_turn.get(f"{r.object_id(card.id)}:{ab.index}") == state.turn.number:
             continue
+        from app.rules import (
+            wave110f_sac,  # -- additional costs (wave 110F) -- 605.3a, 118.8: Drought / Brutal Suppression add sacrifices to the mana ability's cost
+        )
+
+        if (tax110f := wave110f_sac.tax_text(state, info, card, ch, ab.text.partition(":")[0])):
+            parsed = replace(parsed, extra_cost=", ".join(x for x in (parsed.extra_cost, tax110f) if x), chooses=True)
         if parsed.sacrifice_self or parsed.extra_cost:  # -- prohibitions (wave 22B) -- "Players can't pay life or sacrifice creatures …" (119.4)
             from app.rules import prohibitions
 
@@ -581,6 +588,8 @@ def mana_sources(state: GameState, player: str, info: CardInfo, purpose: Purpose
         if card.controller != player:
             continue
         ch = chars.of(card, info)
+        if not ch.is_land and lands_only(state, player):  # -- Word of Command (wave 110E) -- only lands' mana abilities
+            continue
         usable_tap = can_use_tap_abilities(state, card, ch, info)
         # (wave 3E) an ability paying energy is activated by hand only: several sources sharing one
         # energy total aren't something the solver can split (118.3: no partial payment)
@@ -820,9 +829,10 @@ def choose_targets(plan: Plan, a: A.CastSpell | A.ActivateAbility, definition: d
     if isinstance(a, A.CastSpell):  # -- kicked / instead (wave 4G) -- 601.2c / 702.33g: targets tied to the kicker
         from app.rules import kicked_instead
 
-        specs = kicked_instead.applicable(specs, a.kicker or int(a.awaken) or int(f"{a.card_id}:gift" in a.optional_costs) or int(f"{a.card_id}:bargain" in a.optional_costs)
+        specs = kicked_instead.applicable(specs, kick_count(plan.ch(plan.state.cards[a.card_id]), a.kicker) or int(a.awaken) or int(f"{a.card_id}:gift" in a.optional_costs) or int(f"{a.card_id}:bargain" in a.optional_costs)
                                           or int(f"{a.card_id}:teamwork" in a.optional_costs)
-                                          or int(any(f"{a.card_id}:{g['optional']}" in a.optional_costs for g in specs if "optional" in g)))  # (wave 110E: Hulk's Thunderclap)  # (awaken: wave 16B; bargain: 30E; teamwork: wave 100K, aslongas100k.TEAMWORK;
+                                          or int(any(f"{a.card_id}:{g['optional']}" in a.optional_costs for g in specs if "optional" in g))
+                                          or int(a.free and a.card_id in plan.rules.alt_costs and a.card_id not in plan.rules.miracled))  # (wave 110G: madness, Avacyn's Judgment)  # (wave 110E: Hulk's Thunderclap)  # (awaken: wave 16B; bargain: 30E; teamwork: wave 100K, aslongas100k.TEAMWORK;
         # gift: wave 23D, 702.174m: the targets only a promised spell chooses)
     from app.rules import flagbearer86
 
@@ -1703,8 +1713,8 @@ def _pay(plan: Plan, player: str, cost: M.ManaCost, label: str, *, sources: list
         return payment if pc.payment_riders(plan, frame) else _PAYMENT_WAITING
     for card, index, ability in extras:
         # -- mana riders (wave 5A) -- counter "tap": tapped for mana (106.12a: an ability with {T} in its cost)
-        emit(plan.state, "mana_added", object_id=oids[card.id], card=card.id, player=player, amount=len(dict(payment.slots).get(card.id, ())),  # (110D: what it produced)
-             counter="tap" if ability.tap else None, mana_colors110i=[c for c in dict.fromkeys(dict(payment.slots).get(card.id, ())) if c in "WUBRG"])
+        emit(plan.state, "mana_added", object_id=oids[card.id], card=card.id, player=player, amount=len(payment.made110d.get(card.id, ())),  # (110D: what it produced, read where settle puts it in the pool)
+             counter="tap" if ability.tap else None, mana_colors110i=[c for c in dict.fromkeys(payment.made110d.get(card.id, ())) if c in "WUBRG"])
         after_mana_ability(plan, card, index, ability, player, source_object=oids[card.id])
     payment.life = life
     return payment
@@ -2708,6 +2718,11 @@ def turned_up(plan: Plan, card: CardInstance, x: int | None = None, by: str | No
     )
 
     counters52d.turned_up(plan, card)
+    from app.rules import (
+        copying,  # -- Vesuvan Shapeshifter (wave 110C) -- "As this creature is turned face up, you may choose another creature"
+    )
+
+    copying.turned_up_copy(plan, card)
     from app.rules import wave110d_misc  # -- turned up (wave 110D) --
 
     wave110d_misc.attach_up(plan, card)
@@ -3148,7 +3163,7 @@ def spell_cost_ways(state: GameState, card: CardInstance, ch: Characteristics, *
         for final in finalize(cost) if finalize is not None else [cost]:
             x_maximum = min(kwargs.get('x', 0), final.generic)
             final = spell_mana_floor.apply(state, info, final) if floor else final
-            final = M.spend_as(final, mode) if floor and mode else final
+            final = M.spend_as(final, mode) if mode else final  # (609.4b: Oath of Nissa, with or without a floor)
             from app.rules import cost_statics101
 
             out.append((final, life + cost_statics101.commander_life(state, card, ch)))
@@ -3224,10 +3239,11 @@ def castable(state: GameState, player: str, card: CardInstance, info: CardInfo, 
         if extra is not None and additional_problem(permissions._view(state, player, info), extra, card, player):
             continue  # (wave 3$) the additional cost can't be paid: not offered
         grant = cast_grant(state, player, card, ch, info)
-        from app.rules import permission_spell_keywords, wave110a_grants, wave110g_cards
+        from app.rules import permission_spell_keywords, wave110a_grants, wave110c_chorus, wave110g_cards
 
         ch = permission_spell_keywords.apply(ch, grant)
         ch = wave110a_grants.with_replicate(state, player, card, ch, info)  # -- grants (wave 110A) --
+        ch = wave110c_chorus.grant(state, player, card, ch, info)  # -- Chorus of the Conclave (wave 110C) --
         ch = wave110g_cards.sticker_kicker(state, player, card, ch, info)  # -- sticker kicker (wave 110G) --
         grant_extra = costs.parse_additional_cost(grant.extra) if grant is not None and grant.extra else None
         if grant_extra is not None and additional_problem(permissions._view(state, player, info), grant_extra, card, player):
@@ -3257,7 +3273,7 @@ def castable(state: GameState, player: str, card: CardInstance, info: CardInfo, 
                 selected_costs: list[bool | None] = []
                 cost_ways = spell_cost_ways(state, card, ch, info=info, player=player, free=grant is not None and grant.free,
                                                     alternative=M.parse_cost(grant.alt_mana) if grant is not None and grant.alt_mana else None,
-                                                    flashback_choice=fb_index, targets=_hint_targets(ch),
+                                                    flashback_choice=fb_index, targets=_hint_targets(ch), reduce=grant.generic_less if grant is not None else 0,  # (wave 110G)
                                                     additional=tuple(([mode_cost] if mode_cost is not None else []) +
                                                                      ([M.ManaCost(generic=grant.generic_extra)] if grant is not None and grant.generic_extra else [])), finalize=finish,
                                                     selected_costs=selected_costs)
@@ -3344,6 +3360,7 @@ def alt_castable(state: GameState, player: str, card: CardInstance, info: CardIn
         selected_costs: list[bool | None] = []
         ways = spell_cost_ways(state, card, ch, info=info, player=player, alternative=alt_costs.bind_template(offer, x=0).alt.mana_cost,
                                additional=(M.ManaCost(generic=grant.generic_extra),) if grant is not None and grant.generic_extra else (),
+                               reduce=grant.generic_less if grant is not None else 0,  # (wave 110G)
                                targets=_hint_targets(ch), selected_costs=selected_costs)
         if any(can_pay(state, player, cost, info, purpose=Purpose(spell=ch, card=card.id, zone=card.zone, player=player,
                                                                 spell_object=_spell_reference(state, card),
@@ -3390,7 +3407,8 @@ def optional_castable(state: GameState, player: str, card: CardInstance, info: C
                                    additional=(M.ManaCost(generic=grant.generic_extra),) if grant is not None and grant.generic_extra else (),
                                    reduce=part.reduces * (min(1, len(cost_payment.candidates(permissions._view(state, player, info), part, player, card)))
                                                           if offer.kind in ("bargain", "evidence") else len(cost_payment.candidates(permissions._view(state, player, info), part, player, card)))
-                                   if part is not None else 0, finalize=finish, selected_costs=selected_costs)
+                                   + (grant.generic_less if grant is not None else 0) if part is not None else (grant.generic_less if grant is not None else 0),  # (wave 110G: Urianger)
+                                   finalize=finish, selected_costs=selected_costs)
         except ActionError:
             continue
         if any(can_pay(state, player, way, info, purpose=Purpose(spell=ch, card=card.id, zone=card.zone, player=player,
@@ -3605,10 +3623,11 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
     if grant is not None and len(grant.among) > 1:
         permissions.ask_use(plan, a, card, ch, grant.among, "cast")  # (-- wave 30Q, 32D -- "choose one as you cast it" (Muldrotha); which limited permission: asked before anything is paid)
         return
-    from app.rules import permission_spell_keywords, wave110a_grants, wave110g_cards
+    from app.rules import permission_spell_keywords, wave110a_grants, wave110c_chorus, wave110g_cards
 
     ch = permission_spell_keywords.apply(ch, grant)
     ch = wave110a_grants.with_replicate(plan.state, plan.actor, card, ch, plan.info)  # -- grants (wave 110A) --
+    ch = wave110c_chorus.grant(plan.state, plan.actor, card, ch, plan.info)  # -- Chorus of the Conclave (wave 110C) --
     ch = wave110g_cards.sticker_kicker(plan.state, plan.actor, card, ch, plan.info)  # -- sticker kicker (wave 110G) --
     if wave110g_cards.sticker_kicker_manual(plan.state, plan.actor, card, ch, plan.info):
         plan.note(f"{ch.name} has its own kicker and Wicker Picker's sticker kicker (702.33c): the sticker kicker is manual play; pay {{1}}, take a ticket counter and place a sticker by hand", [card.id])
@@ -3917,7 +3936,7 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
     prepared: list[Any] = []
     cost = spell_cost(plan.state, card, ch, a.x_value or 0, plan.info, player=plan.actor, alternative=(alternative if alternative is not None else M.parse_cost(ch.mana_cost) if grant is not None and grant.how == "resolving" else None),
                       free=free, kicker=a.kicker, additional=tuple(additional), face_down=a.face_down, targets=tuple(t.id for t in chosen),
-                      reduce=emerge_reduction + (cost_payment.reduction(add_cost, add_objects) if add_cost is not None else 0),
+                      reduce=emerge_reduction + (cost_payment.reduction(add_cost, add_objects) if add_cost is not None else 0) + (grant.generic_less if grant is not None else 0),  # (wave 110G: Urianger)
                       flashback_choice=a.flashback_choice, mana_symbols=a.mana_symbols, capture=prepared, announced_kicker77=True)  # (wave 47C: "you may sacrifice any number of …")
     if alt_offer is not None and alt_offer.template_mana_has_x is not None:
         prepared[-1] = replace(prepared[-1], selected_cost_has_x=bool(alt_offer.template_mana_has_x or prepared[-1].selected_cost_has_x))
@@ -4182,10 +4201,11 @@ def _post_cast(plan: Plan, data: _PostCast, payment: M.Payment | None) -> None:
     record.additional = (["buyback"] if a.buyback else []) + (["entwine"] if entwined else ["kicker"] + (["anytimes"] if (ak := kicker_cost(ch.abilities)) is not None and ak.anytimes else []) if a.kicker else []) \
         + [f"optional:{o.source}" for o in optional]  # (wave 4I: Defiler of Vigor's life)
     record.prototyped = a.prototype  # -- casting extras (wave 18E) -- 718.3b
-    from app.rules import wave110a_grants
+    from app.rules import wave110a_grants, wave110c_chorus
 
     record.granted_offspring110a = wave110a_grants.granted_offspring(ch)  # -- grants (wave 110A) --
     record.kicked_mask = kick_mask(ch, a.kicker)  # (-- keywords (wave 50H) -- "kicked with its {R} kicker", 702.33f)
+    record.mana_riders = [*record.mana_riders, *wave110c_chorus.riders(ch, kick_count(ch, a.kicker))]  # -- Chorus of the Conclave (wave 110C) --
     record.kicked = kicked or int(a.awaken) or int(gift_to is not None or bargained)  # 702.33d (-- static_other sweep (wave 16B) -- awaken: the line is read as
     record.pick110e = a.pick110e  # (wave 110E)
     record.gift_to = gift_to  # "If this spell was kicked"; wave 23D: a promised gift, 702.174k, likewise)
@@ -4368,13 +4388,20 @@ def transmute(plan: Plan, card: CardInstance, ch: Characteristics, a: A.Activate
     turn = plan.state.turn
     if turn.active_player != plan.actor or turn.phase not in ("main1", "main2") or plan.state.zones.get("stack"):
         raise ActionError("Transmute only as a sorcery: in your main phase while the stack is empty")  # 702.53a, 307.5
+    mv = int(ch.mana_value)
+    effects = [{"do": "search", "who": "you", "sel": 'sel:{"card":true,"zone_owner":"you","zones":["library"]}',
+                "label": f"card with mana value {mv}", "max": 1, "to": "hand", "reveal": True, "upto": False, "mv": ["==", mv]}]
+    from app.rules import wave110f_sac
+
+    if wave110f_sac.ability_tax(plan.state, plan.info, card, ch, cost_text) is not None:  # -- additional costs (wave 110F) -- 118.8: taxed, so the generic route pays it
+        activate_to_stack(plan, card, ch, AbilityText(index=a.ability, kind="activated", cost=f"{cost_text}, Discard this card",
+                          text=f"Transmute — {cost_text}, Discard this card: Search your library for a card with the same mana value as this card. Activate only as a sorcery."),
+                          a, definition={"kind": "activated", "effects": effects})
+        return
     mana = M.parse_cost(permissions.ability_mana(plan.state, plan.actor, card, ch, cost_text, plan.info))
     mana = _locked(plan, mana)  # -- review (wave 4R) -- 602.2b → 601.2f: locked in, as for other activations
     if payment_step(plan, a, mana, f"transmuting {ch.name}", purpose=Purpose(ability_of=ch)):
         return
-    mv = int(ch.mana_value)  # the discarded card's (608.2h: as it last existed in the hand; a mana value doesn't change there)
-    effects = [{"do": "search", "who": "you", "sel": 'sel:{"card":true,"zone_owner":"you","zones":["library"]}',
-                "label": f"card with mana value {mv}", "max": 1, "to": "hand", "reveal": True, "upto": False, "mv": ["==", mv]}]
     ability_id = _new_ability(plan, card, f"Search your library for a card with mana value {mv}, reveal it, put it into "
                                           f"your hand, then shuffle.")
     from app.rules import special_payment_tails
@@ -4382,6 +4409,13 @@ def transmute(plan: Plan, card: CardInstance, ch: Characteristics, a: A.Activate
     special_payment_tails.pay(plan, "transmute", card, ch, mana, f"paid {mana.text()} to transmute {ch.name}",
                               sources=a.sources, purpose=Purpose(ability_of=ch), ability_id=ability_id, effects=effects)
 # -- end refused zones/sized (wave 3R4) --
+
+
+def _untaxed_mana_only(plan: Plan, card: CardInstance, ch: Characteristics, cost_text: str) -> bool:
+    """-- additional costs (wave 110F) -- a mana-only cycling cost pays by itself unless Drought / Brutal Suppression taxes it (118.8): then it goes the generic way."""
+    from app.rules import cycling_costs, wave110f_sac
+
+    return cycling_costs.mana_only(cost_text) and wave110f_sac.ability_tax(plan.state, plan.info, card, ch, cost_text) is None
 
 
 def cycle(plan: Plan, card: CardInstance, ch: Characteristics, a: A.ActivateAbility) -> None:
@@ -4423,12 +4457,13 @@ def cycle(plan: Plan, card: CardInstance, ch: Characteristics, a: A.ActivateAbil
                 return
             mana_text = side
     from app.rules import cycling_costs
+    from app.rules import wave110h_cards as _w110h
 
-    if not cycling_costs.mana_only(mana_text):
+    if not _untaxed_mana_only(plan, card, ch, mana_text):
         ability = AbilityText(index=a.ability, kind="activated", cost=f"{mana_text}, Discard this card",
                               text=f"Cycling — {mana_text}, Discard this card: Draw a card.")
         activate_to_stack(plan, card, ch, ability, a,
-                          definition={"kind": "activated", "effects": cycling_costs.effects(kind), "cycling": True})
+                          definition={"kind": "activated", "effects": _w110h.cycling_effects(plan, cycling_costs.effects(kind)), "cycling": True})
         return
     # 702.29a: cycling is an activated ability — "Abilities you activate that aren't mana abilities cost {1} less"
     # applies to it (602.2b -> 601.2f; app/rules/permissions.py ability_mana)
@@ -4443,7 +4478,7 @@ def cycle(plan: Plan, card: CardInstance, ch: Characteristics, a: A.ActivateAbil
         effects = cycling_costs.effects(kind)
         text = f"Search your library for a {kind} card, reveal it, put it into your hand, then shuffle."
     else:
-        effects = [{"do": "draw", "who": "you", "n": 1}]
+        effects = _w110h.cycling_effects(plan, [{"do": "draw", "who": "you", "n": 1}])  # -- cycling draw (wave 110H) -- Unpredictable Cyclone
         text = "Draw a card."
     ability_id = _new_ability(plan, card, text)
     from app.rules import special_payment_tails
@@ -4665,6 +4700,9 @@ DASH = re.compile(r"^dash (?P<cost>(?:\{[^}]+\})+)$", re.IGNORECASE)
 AWAKEN = re.compile(r"^awaken (?P<n>\d+)—(?P<cost>(?:\{[^}]+\})+)$", re.IGNORECASE)  # (wave 16B) 702.113a
 
 
+_PAIR_OFFERS = tuple(r + 32 * g for r in range(4) for g in range(4) if r + g)  # (wave 110G) the combinations offered for two any-number costs
+
+
 def kick_count(ch: Characteristics, times: int) -> int:
     """-- keywords (wave 50H) -- 702.33d: how many times the cast's ``kicker`` kicks it (the bits of a mask of two kicker costs, else the count)."""
     kick = kicker_cost(ch.abilities) if times else None
@@ -4684,6 +4722,12 @@ def kicker_extra(ch: Characteristics, times: int, *, face_down: bool = False) ->
     kick = None if face_down else kicker_cost(ch.abilities)  # (a face-down spell has no abilities, 708.2)
     if kick is None:
         raise ActionError(f"{ch.name or 'That spell'} has no kicker cost Fyodor can pay: kick it by hand with the table tools")
+    if kick.second and kick.multi:  # -- wave 110G -- Primitive Justice: each of the two costs paid any number of times (costs.pair_counts)
+        first, second = costs.pair_counts(times)
+        if second > 30 or not first + second:
+            raise ActionError(f"{ch.name} can pay each of its two costs 0 to 30 times, at least one")
+        a_cost, b_cost = M.parse_cost(kick.cost), M.parse_cost(kick.second)
+        return M.ManaCost(a_cost.generic * first + b_cost.generic * second, a_cost.colored * first + b_cost.colored * second)
     if kick.second:  # -- keywords (wave 50H) -- 702.33b: ``times`` is a mask of the two costs, each paid at most once
         if not 1 <= times <= 3:
             raise ActionError(f"{ch.name} has two kicker costs: pay the first (1), the second (2) or both (3)")
@@ -4998,7 +5042,7 @@ def free_optional_offers(plan: Plan, card: CardInstance, ch: Characteristics) ->
         alt, alternative_parts = effect_cast_costs.textual_alternative(alt)
     out: list[tuple[str, str]] = []
     if (kick := kicker_cost(ch.abilities)) is not None and not kick.entwine:  # (702.42a: entwine by hand)
-        for n in range(1, 4 if kick.second else FREE_KICKS + 1 if kick.multi else 2):  # (wave 50H: the masks of two costs)
+        for n in (_PAIR_OFFERS if kick.second and kick.multi else range(1, 4 if kick.second else FREE_KICKS + 1 if kick.multi else 2)):  # (wave 50H: the masks of two costs)
             try:
                 selected_costs: list[bool | None] = []
                 ways = spell_cost_ways(plan.state, card, ch, info=plan.info, player=plan.actor, free=alt is None,
@@ -5016,9 +5060,10 @@ def free_optional_offers(plan: Plan, card: CardInstance, ch: Characteristics) ->
             if (more := kicker_parts(ch, n)) is not None and not any(c.kind in _HAND_PARTS for c in more.components) \
                     and additional_problem(plan, more, card, plan.actor):
                 break  # (-- cast keywords (wave 43D) -- a "Kicker—Sacrifice a land." with nothing to sacrifice; a part paid from the hand is always offered: no omission tells)
-            out.append((f"kicker:{n}", f"Kicker {(kick.cost, kick.second, kick.cost + ' and ' + kick.second)[n - 1]}" if kick.second
+            out.append((f"kicker:{n}", (f"{kick.cost} ×{costs.pair_counts(n)[0]} and {kick.second} ×{costs.pair_counts(n)[1]}" if kick.multi
+                                        else f"Kicker {(kick.cost, kick.second, kick.cost + ' and ' + kick.second)[n - 1]}") if kick.second
                         else kick.text if n == 1 else f"{kick.text}, paid {n} times"))
-    if kick is not None and kick.multi:
+    if kick is not None and kick.multi and not kick.second:
         out.append(("kicker:other", "Multikicker: another count (0–1000)"))
     for o in cost_changes.optional_offers(plan.state, plan.actor, card, ch, plan.info):
         if not o.kind or o.kind == "offering":  # (-- offering (wave 51H) -- 702.48a: a reduction of a cost that is {0} here, and no timing to change)
@@ -5190,6 +5235,9 @@ def cast_free(plan: Plan, card: CardInstance, ch: Characteristics, a: A.CastSpel
 
     global_text_prepared71 = bool(text_global_word71.global_changes(plan.state, card.model_copy(update={'zone': 'stack'}), plan.info))
     ch = text_global_word71.prospective(plan.state, card, ch, plan.info)
+    from app.rules import wave110c_chorus
+
+    ch = wave110c_chorus.grant(plan.state, plan.actor, card, ch, plan.info)  # -- Chorus of the Conclave (wave 110C) -- 118.9d: a free cast may still pay it
     r = plan.rules
     if card.id not in r.free_casts or card.zone == STACK or ch.is_land:
         raise ActionError("You can't cast that without paying its mana cost now")
@@ -5237,6 +5285,8 @@ def cast_free(plan: Plan, card: CardInstance, ch: Characteristics, a: A.CastSpel
         return
     if announce_free_x(plan, a, card, ch):  # -- cast keywords (wave 43D) -- 107.3a: "Kicker {X}" kicked on a free cast, a miracle cost with {X}: X is announced with it
         return
+    if a.x_value is None and M.parse_cost(ch.mana_cost).x:
+        a.x_value = 0  # 107.3b: nothing announced it, so X is 0 (before targets that count X are chosen)
     if a.kicker and (minimum_kick := kicker_cost(ch.abilities)) is not None and (a.x_value or 0) < minimum_kick.minimum_x:
         raise ActionError(f"{ch.name}: kicker X must be at least {minimum_kick.minimum_x}")
     if M.parse_cost(ch.mana_cost).x and (limited := cast_limits.cast_problem(plan.state, plan.actor, card, ch, plan.info, resolving=True, announced=a.x_value or 0)):
@@ -5452,6 +5502,9 @@ def _post_free_cast(plan: Plan, data: _PostFreeCast, payment: M.Payment | None) 
     r.alt_costs.pop(card.id, None)
     record.additional = (["kicker"] if a.kicker else []) + [f"optional:{o.source}" for o in optional]  # -- free-cast optional costs (wave 41D) --
     record.kicked_mask = kick_mask(ch, a.kicker)  # (-- keywords (wave 50H) --)
+    from app.rules import wave110c_chorus
+
+    record.mana_riders = [*record.mana_riders, *wave110c_chorus.riders(ch, kick_count(ch, a.kicker))]  # -- Chorus of the Conclave (wave 110C) --
     record.kicked = kick_count(ch, a.kicker) or int(gift_to is not None or bargained)  # (702.33d; a promised gift and a bargain read as kicked, as with the cost: 702.174k, 702.166)
     record.gift_to = gift_to
     record.pick110e = a.pick110e  # (wave 110E)
@@ -5643,6 +5696,12 @@ def activate_ability(plan: Plan, a: A.ActivateAbility) -> None:
     if card.zone == zone_key(plan.actor, "companion") and card.owner == plan.actor:  # -- companion (wave 38D) -- 116.2g
         companion_action(plan, card, plan.ch(card), a)
         return
+    if card.zone == zone_key(plan.actor, "library") and card.owner == plan.actor:  # -- plot (wave 110A) -- Fblthp: the special action (116.2k) from the top of the library
+        ch = plan.ch(card)
+        if (plot_cost := keyword_cost(ch, "plot", PLOT, a.ability)) is None or plan.manual(card):
+            raise ActionError("That card has no ability to use from your library")
+        plot(plan, card, ch, a, plot_cost)
+        return
     if card.zone == zone_key(plan.actor, "command") and card.owner == plan.actor:  # -- activated from hand / command zone (wave 27D)
         ch = plan.ch(card)
         ability = next((ab for ab in ch.abilities if ab.index == a.ability), None)
@@ -5670,6 +5729,9 @@ def activate_ability(plan: Plan, a: A.ActivateAbility) -> None:
     ch = plan.ch(card)
     # -- activation wordings (wave 7B) -- 602.2: "Any player may activate this ability."
     ab = next((x for x in ch.abilities if x.index == a.ability), None)
+    if card.zone == "stack" and ab is not None and ab.kind == "activated" and ab.text.endswith("is on the stack."):  # -- wave 110G -- Lightning Storm: 113.6 an ability that works on the stack, any player may activate it (602.2)
+        activate_to_stack(plan, card, ch, ab, a)
+        return
     if not card.zone.endswith(":battlefield") or not (
             actor_allowed(ab, ability_cost(ch, ab, state=plan.state, card=card, info=plan.info), card.controller, plan.actor, owner=card.owner)
             if ab is not None else card.controller == plan.actor):
@@ -5677,7 +5739,7 @@ def activate_ability(plan: Plan, a: A.ActivateAbility) -> None:
             raise ActionError("Only your opponents may activate this ability")
         raise ActionError("You can only activate abilities of permanents you control")
     ability = _find_ability(ch, a.ability)
-    if "cant_activate" in ch.imposed and not (ability is not None and ability.text.startswith("Sacrifice a permanent: Ignore Volrath's Curse")):  # an Aura: "its activated abilities can't be activated" (crew, equip too; -- wave 110J -- except Volrath's Curse's own way out)
+    if "cant_activate" in ch.imposed and not (ability is not None and ability.text.startswith("Sacrifice a permanent: Ignore ‹granter")):  # an Aura: "its activated abilities can't be activated" (crew, equip too; -- wave 110J -- except Volrath's Curse's own way out)
         raise ActionError(f"{ch.name}’s activated abilities can't be activated")
     if "cant_activate_nonmana" in ch.imposed and ability.kind != "mana":  # -- attached events (wave 16F) -- Faith's Fetters (605.1a)
         raise ActionError(f"{ch.name}’s activated abilities can't be activated unless they're mana abilities")
@@ -5916,18 +5978,29 @@ def _variable_ability_matching(state: GameState, card: CardInstance, ch: Charact
     return cost
 
 
+def _free_power_up(state: GameState | None, card: CardInstance | None, ability: AbilityText, info: CardInfo | None, actor: str | None) -> bool:
+    """118.9, 602.2b: a static lets the actor pay {0} rather than the power-up cost of their first power-up activation this turn."""
+    if state is None or card is None or info is None or state.rules is None or not ability.text.startswith("Power-up — "):
+        return False
+    from app.rules import cast_limits
+
+    who = actor or card.controller
+    return cast_limits.first_alt(state, who, "power_up", info, first=state.rules.once_per_turn.get(f"activated:{who}:power_up") != state.turn.number)
+
+
 def ability_cost(ch: Characteristics, ability: AbilityText, *, state: GameState | None = None,
                  card: CardInstance | None = None, info: CardInfo | None = None, target: str | None = None,
                  targets: tuple[str, ...] | None = None, actor: str | None = None) -> AbilityCost:
     from app.rules import activation_alternatives, hybrid_power_up71
 
-    if (branches71 := hybrid_power_up71.alternatives(state, card, ch, ability)) is not None:
+    free_power_up = _free_power_up(state, card, ability, info, actor)  # -- power-up (wave 110G) -- Advancing the Spirit: {0} rather than the power-up cost
+    if not free_power_up and (branches71 := hybrid_power_up71.alternatives(state, card, ch, ability)) is not None:
         return AbilityCost(either=tuple(ability_cost(ch, branch, state=state, card=card, info=info, target=target, targets=targets, actor=actor)
                                        for branch in branches71))
     if (sides := activation_alternatives.sides(ability.cost or "")) is not None:
         return AbilityCost(either=tuple(ability_cost(ch, activation_alternatives.with_cost(ability, side),
                            state=state, card=card, info=info, target=target, targets=targets, actor=actor) for side in sides))
-    cost = parse_ability_cost(ability.cost or "", card_name=ch.name, loyalty=ability.kind == "loyalty")
+    cost = parse_ability_cost("" if free_power_up else ability.cost or "", card_name=ch.name, loyalty=ability.kind == "loyalty")
     if state is not None and card is not None and any(c.amount_rule == "opponents" for c in cost.components):
         from app.rules.plan import live_players
 
@@ -5950,8 +6023,13 @@ def ability_cost(ch: Characteristics, ability: AbilityText, *, state: GameState 
         # -- costs (wave 3$) -- "Activated abilities of creatures you control cost {2} less to activate" (601.2f)
         # (wave 4I: a cost with no mana in it can be increased too: "{T}: …" taxed {2} is "{2}, {T}: …")
         # -- cost changers (wave 4I) -- and the ability's own "This ability costs {1} less to activate for each …" (602.2b)
-        from app.rules import cost_changes  # (a leaf over this module)
+        from app.rules import (
+            cost_changes,  # (a leaf over this module)
+            wave110f_sac,  # -- additional costs (wave 110F) -- Brutal Suppression, Drought (118.8)
+        )
 
+        if (sac110f := wave110f_sac.ability_tax(state, info, card, ch, ability.cost or "")) is not None:
+            cost = replace(cost, components=(*cost.components, *sac110f.components))
         if ability.text.startswith("Power-up — ") and not ability.power_up_prepared:  # 702.193a
             from app.rules import power_up
 
@@ -5990,6 +6068,8 @@ def ability_cost(ch: Characteristics, ability: AbilityText, *, state: GameState 
                                                                  or "Activate only if this card is in your graveyard" in ability.text):
         cost = replace(cost, graveyard_only=True,  # (review 20E: Glory's "Activate only if this card is in your graveyard.", 113.6m)
                        exile_too=_GRAVEYARD_OR_EXILE.match(ability.text.split(":", 1)[1].strip().replace(ch.name, "~")) is not None)  # (wave 42C)
+    if ability.kind == "activated" and ": Put this card from exile onto the battlefield" in ability.text:  # -- exile-only (wave 110C) -- 113.6m, Torrent Elemental
+        cost = replace(cost, graveyard_only=True, exile_too=True, exile_only110c=True)
     if ability.kind == "activated" and ability.text.endswith(f"Activate only if {ch.name} is on the battlefield or in your graveyard."):
         cost = replace(cost, graveyard_only=True, battlefield_too110k=True)  # -- (wave 110K) -- Skyblade's Boon: either zone, 113.6m
     if ability.kind == "activated" and "Activate only if this card is suspended." in ability.text:
@@ -6056,21 +6136,22 @@ def ability_problem(state: GameState, player: str, card: CardInstance, ch: Chara
         if card.zone != zone_key(player, "battlefield") and (card.zone != zone_key(player, "graveyard") or card.owner != player):
             return "That ability can only be activated while it is on the battlefield or in your graveyard"
     elif cost.from_graveyard:  # 113.6m: its cost moves it out of your graveyard, so it works only there
-        if card.zone not in ((zone_key(player, "graveyard"), zone_key(player, "exile")) if cost.exile_too else (zone_key(player, "graveyard"),)) \
+        if card.zone not in ((zone_key(player, "exile"),) if cost.exile_only110c else (zone_key(player, "graveyard"), zone_key(player, "exile")) if cost.exile_too else (zone_key(player, "graveyard"),)) \
                 or card.owner != player:  # (-- activated other (wave 42C) -- or from exile, where the text says so)
             return "That ability can only be activated from your graveyard" + (" or from exile" if cost.exile_too else "")
     elif ninjutsu.is_ninjutsu(ability.text):  # -- keywords (wave 15E) -- 702.49a: from the hand, once blockers are declared
         why = ninjutsu.problem(state, player, card)
         if why:
             return why
-    elif not (card.zone.endswith(":battlefield") or (card.zone.endswith(":command") and card.token is not None and card.token.type_line == "Emblem")) \
+    elif not (card.zone.endswith(":battlefield") or (card.zone.endswith(":command") and card.token is not None and card.token.type_line == "Emblem")
+              or (card.zone == "stack" and ability.text.endswith("is on the stack."))) \
             or not actor_allowed(ability, cost, card.controller, player, owner=card.owner):  # (wave 7B; wave 110A: an emblem, 114.4)
         if opponents_only(ability) and card.controller == player:
             return "Only your opponents may activate this ability"
         return "You can only activate abilities of permanents you control"
     if cost.unsupported:
         return f"Pay “{', '.join(cost.unsupported)}” by hand with the table tools"
-    if ("cant_activate" in ch.imposed and not ability.text.startswith("Sacrifice a permanent: Ignore Volrath's Curse")) or ("cant_activate_nonmana" in ch.imposed and ability.kind != "mana") or ("cant_activate_tap" in ch.imposed and cost.tap):  # (wave 100F: {T})
+    if ("cant_activate" in ch.imposed and not ability.text.startswith("Sacrifice a permanent: Ignore ‹granter")) or ("cant_activate_nonmana" in ch.imposed and ability.kind != "mana") or ("cant_activate_tap" in ch.imposed and cost.tap):  # (wave 100F: {T})
         return f"{ch.name}’s activated abilities can't be activated"
     # -- cast limits (wave 5E) -- (602.5)
     from app.rules import cast_limits
@@ -6214,9 +6295,8 @@ def _equip_side(plan: Plan, card: CardInstance, ch: Characteristics, a: A.Activa
         if not 0 <= i < len(sides):
             raise ActionError("Choose one of the costs of the equip ability")
         return sides[i]
-    from app.rules import cycling_costs
 
-    if cycling and all(cycling_costs.mana_only(side) for side in sides):
+    if cycling and all(_untaxed_mana_only(plan, card, ch, side) for side in sides):
         paid = []
         problems = [None if can_pay(plan.state, plan.actor, M.parse_cost(permissions.ability_mana(plan.state, plan.actor, card, ch, side, plan.info, ability_text="cycling")).with_x(0), plan.info,
                                     purpose=Purpose(ability_of=ch, selected_cost_has_x="{X}" in side)) else "Not enough mana" for side in sides]
@@ -6279,7 +6359,7 @@ def activate_to_stack(plan: Plan, card: CardInstance, ch: Characteristics, abili
     if (mana.x or cost.loyalty_x or cost.energy_x or cost.x_chosen) and a.x_value is None:  # (wave 3E: "Pay X {E}"; x_chosen: wave 4H)
         raise ActionError("Choose a value for X")
     if (every := next((c for c in cost.components if c.every), None)) is not None:
-        a.x_value = cost_payment.counters_on(card, every.counter)  # -- activated sweep (wave 26C) -- "Remove all oil counters": all there are now (602.2b)
+        a.x_value = sum(cost_payment.counters_on(plan.state.cards[c], every.counter) for c in cost_payment.candidates(plan, every, plan.actor, card)) if every.selector else cost_payment.counters_on(card, every.counter)  # (wave 110H: a granter's)  # -- activated sweep (wave 26C) -- "Remove all oil counters": all there are now (602.2b)
     from app.rules import static_perm100d  # -- static permanents (wave 100D) -- Carth the Lion: [+1] more
 
     plus = static_perm100d.loyalty_plus(plan.state, plan.info, plan.actor) if cost.loyalty is not None or cost.loyalty_x else 0
@@ -6536,6 +6616,8 @@ def _post_activation(plan: Plan, data: _PostActivation, paid: M.Payment | None) 
     first_target_activation_cost58.record(plan, data.targets_controlled_creature)
     if ability.special == "equip":  # -- first activation (wave 48D) --
         _activated(plan, "equip")
+    elif ability.text.startswith("Power-up — "):  # (wave 110G) Advancing the Spirit
+        _activated(plan, "power_up")
     if ability_id:  # -- activation (wave 11F) -- 602.2: "Whenever a player activates an ability …"
         from app.rules.triggers import activated
 
@@ -6625,6 +6707,15 @@ def activatable(state: GameState, player: str, info: CardInfo, *, check_priority
             ch = chars.of(state.cards[cid], info)
             out += [{"card_id": cid, "ability": ab.index, "x": True} for ab in ch.abilities
                     if (found := hand_ability(ch, ab.index)) is not None and M.parse_cost(found[1]).x or (sus := suspend_info(ch, ab.index)) is not None and sus[0] is None]  # (wave 50H: Suspend X)
+    top = state.zones.get(zone_key(player, "library"), [])[:1]  # -- plot (wave 110A) -- Fblthp: the top card's granted plot (116.2k), sorcery timing as casting.plot
+    if top and state.turn.active_player == player and state.turn.phase in MAIN_PHASES and not state.zones.get(STACK) \
+            and (not check_priority or (state.rules is not None and state.rules.priority == player and state.rules.decision is None)):
+        from app.rules.layers import derive
+
+        lib = state.cards[top[0]]
+        lch = derive(state, lib, chars.of(lib, info), info)
+        out += [{"card_id": lib.id, "ability": ab.index} for ab in lch.abilities
+                if (plot_cost := keyword_cost(lch, "plot", PLOT, ab.index)) is not None and can_pay(state, player, M.parse_cost(plot_cost), info, purpose=Purpose())]
     for cid in state.zones.get(zone_key(player, "graveyard"), []):  # 113.6m: "Exile this card from your graveyard: …"
         card = state.cards[cid]
         ch = chars.of(card, info)
@@ -6827,6 +6918,8 @@ def _activate_choosing(plan: Plan, card: CardInstance, ch: Characteristics, pars
     from app.rules import costs as C
     from app.rules import removed_mana
 
+    if not ch.is_land and lands_only(plan.state, plan.actor):  # -- Word of Command (wave 110E) --
+        raise ActionError(f"{ch.name} isn't a land: only lands' mana abilities can be activated while you're being controlled")
     limits = restrictions.parse(_own_text(_find_ability(ch, a.ability).text, ch.name)) or []
     if why := restrictions.problem(plan.state, plan.actor, card, a.ability, limits, plan, ch.name):
         raise ActionError(why)

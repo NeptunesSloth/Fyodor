@@ -80,11 +80,16 @@ def test_look_with_a_computed_count():
     "put two cards from your hand on top of your library in any order",  # (which two: not read)
     "put a card from your hand on the bottom of your library",
     "look at the top card of each player's library, then put them back in any order",  # (who orders whose)
-    "put all creature cards from your graveyard on top of your library",
     "mill cards until you mill a land card",
 ])
 def test_unknown_library_wordings_stay_manual(text):
     assert parse_sentence(text) is None
+
+
+def test_several_cards_to_the_top_are_ordered_by_their_owner():
+    # (read since: to_library asks the owner for the order of several cards, 401.4)
+    effects, _ = parse_sentence("put all creature cards from your graveyard on top of your library")
+    assert effects[0]["do"] == "to_library" and effects[0]["place"] == "top" and "chooser" not in effects[0]
 
 
 # -- helpers --------------------------------------------------------------------------------

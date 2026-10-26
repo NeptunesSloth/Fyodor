@@ -247,12 +247,24 @@ def roll(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     extra = roll_extras(plan, pid) if n > 0 else 0  # 614.1a: "would roll one or more dice"
     ignore_by = None
     if n > 0 and (held := next((s for s in plan.rules.roll_shields110g if s["player"] == pid and s["turn"] == plan.state.turn.number), None)) is not None:
-        if extra:  # two replacements of one roll (616.1) are not ordered here: the shield stays, the players adjust by hand
-            plan.note(f"{plan.name(pid)} has two effects on this roll (Bamboozling Beeble and a roll-extra effect): apply the Beeble's by hand")
-        else:  # -- (wave 110G) -- Bamboozling Beeble: one more die, and the Beeble's controller picks one of the rolls to ignore (706.6)
-            plan.rules.roll_shields110g.remove(held)
-            ignore_by, n = held["by"], n + 1
+        plan.rules.roll_shields110g.remove(held)  # -- (wave 110G) -- Bamboozling Beeble: one more die, and the Beeble's controller picks one of the rolls to ignore (706.6)
+        if extra:  # 616.1: two replacements of one roll: the affected player chooses which applies first
+            decide(plan, player=pid, kind="choose_one", prompt="Two effects change this roll: choose which applies first",
+                   options=[DecisionOption(id="beeble", label="Bamboozling Beeble first"), DecisionOption(id="extra", label="Roll one more die, ignore the lowest first")],
+                   resume={"step": "roll_order110g", "ctx": ctx, "effect": e, "n": n, "extra": extra, "by": held["by"]})
+            return False
+        ignore_by, n = held["by"], n + 1
     return _roll_group(plan, ctx, e, n, extra, [], ignore_by)
+
+
+def resume_order(plan: Plan, d: Any, chosen: list[str]) -> None:
+    from app.rules import effects
+
+    r = d.resume
+    if chosen not in (["beeble"], ["extra"]):
+        raise ActionError("Choose which effect applies first")
+    if _roll_group(plan, r["ctx"], r["effect"], r["n"] + 1, r["extra"], [], r["by"], chosen == ["beeble"]):
+        effects.continue_effects(plan, r["ctx"])
 
 
 def shield_effect(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
@@ -266,7 +278,8 @@ def shield_effect(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     return True
 
 
-def _roll_group(plan: Plan, ctx: Context, e: dict[str, Any], n: int, extra: int, results: list[int], ignore_by: str | None = None) -> bool:
+def _roll_group(plan: Plan, ctx: Context, e: dict[str, Any], n: int, extra: int, results: list[int], ignore_by: str | None = None,
+                beeble_first: bool = False) -> bool:
 
     pid = ctx["controller"]
     chunks = 0
@@ -274,24 +287,32 @@ def _roll_group(plan: Plan, ctx: Context, e: dict[str, Any], n: int, extra: int,
         if chunks >= ROLL_CHUNKS:
             decide(plan, player=pid, kind="choose_one", prompt="Continue resolving the dice group (no priority or state-based actions).",
                    options=[DecisionOption(id="continue", label="Continue resolving")],
-                   resume={"step": "roll_group_continue", "ctx": ctx, "effect": e, "n": n, "extra": extra, "results": results, "ignore_by": ignore_by})
+                   resume={"step": "roll_group_continue", "ctx": ctx, "effect": e, "n": n, "extra": extra, "results": results, "ignore_by": ignore_by,
+                           "beeble_first": beeble_first})
             return False
         chunks += 1
         step = min(100, n + extra - len(results))
         done = plan.do({"type": "roll", "sides": e["sides"], "count": step}, actor=pid)
         results += list(done.r.results)  # type: ignore[union-attr]
-    for lowest in sorted(results)[:extra]:  # 706.6: an ignored roll never happened (tied lowest rolls are the same number: no choice to make)
-        results.remove(lowest)
-    if extra:
-        plan.note(f"{plan.name(pid)} ignores the lowest {'roll' if extra == 1 else f'{extra} rolls'}")
+    if not (beeble_first and ignore_by is not None):
+        _ignore_lowest(plan, ctx, extra, results)
     if ignore_by is not None and len(set(results)) > 1:  # (equal rolls are the same number: no choice to make)
         decide(plan, player=ignore_by, kind="choose_one", prompt=f"{ctx.get('name') or 'Roll'}: choose one roll to ignore",
                options=[DecisionOption(id=str(i), label=str(r)) for i, r in enumerate(results)],
-               resume={"step": "roll_ignore110g", "ctx": ctx, "effect": e, "results": results})
+               resume={"step": "roll_ignore110g", "ctx": ctx, "effect": e, "results": results, "lowest_after": extra if beeble_first else 0})
         return False
     if ignore_by is not None:
         results.pop()
+        if beeble_first:
+            _ignore_lowest(plan, ctx, extra, results)
     return _roll_tail(plan, ctx, e, results)
+
+
+def _ignore_lowest(plan: Plan, ctx: Context, extra: int, results: list[int]) -> None:
+    for lowest in sorted(results)[:extra]:  # 706.6: an ignored roll never happened (tied lowest rolls are the same number: no choice to make)
+        results.remove(lowest)
+    if extra:
+        plan.note(f"{plan.name(ctx['controller'])} ignores the lowest {'roll' if extra == 1 else f'{extra} rolls'}")
 
 
 def _roll_tail(plan: Plan, ctx: Context, e: dict[str, Any], results: list[int]) -> bool:
@@ -374,6 +395,8 @@ def resume_ignore(plan: Plan, d: Any, chosen: list[str]) -> None:
     if len(chosen) != 1 or not chosen[0].isdigit() or int(chosen[0]) >= len(results):
         raise ActionError("Choose one of the rolls")
     plan.note(f"{plan.name(d.player)} ignores the roll of {results.pop(int(chosen[0]))}")
+    if r.get("lowest_after"):
+        _ignore_lowest(plan, r["ctx"], r["lowest_after"], results)
     if _roll_tail(plan, r["ctx"], r["effect"], results):
         effects.continue_effects(plan, r["ctx"])
 
@@ -402,6 +425,6 @@ def resume_group(plan: Plan, d: Any, chosen: list[str]) -> None:
     if r.get("phase") == "emit":
         done = _emit_group(plan, r["ctx"], r["effect"], r["results"], r["naturals"], r["base"], r["start"])
     else:
-        done = _roll_group(plan, r["ctx"], r["effect"], r["n"], r["extra"], r["results"], r.get("ignore_by"))
+        done = _roll_group(plan, r["ctx"], r["effect"], r["n"], r["extra"], r["results"], r.get("ignore_by"), r.get("beeble_first", False))
     if done:
         effects.continue_effects(plan, r["ctx"])

@@ -25,16 +25,16 @@ def names(plan: Plan, ctx: Context, spec: Any) -> set[str]:
     found: list[str] = []
     if spec == "event":
         got = context.info(plan, ctx, context.EVENT)
-        found = card_names.names_of(got[1]) if got is not None else []
+        found = card_names.reference_names(got[1]) if got is not None else []
     elif spec == "target":
         for t in target_refs(ctx, "target"):
             card = plan.state.cards.get(t["id"])
             if card is not None and plan.oid(card) == t.get("object_id"):
-                found.extend(card_names.names_of(plan.ch(card)))
+                found.extend(card_names.reference_names(plan.ch(card)))
             elif (snap := plan.rules.lki.get(t.get("object_id") or "")) is not None:
                 found.extend(n.strip() for n in snap.name.split(" // ") if n.strip())
     elif isinstance(spec, dict):
         sel = selectors.from_key(spec["sel"])
         found = [n for c in selectors.candidates(plan, sel, ctx["controller"], ctx.get("source_card"))
-                 for n in card_names.names_of(plan.ch(plan.state.cards[c]))]
+                 for n in card_names.reference_names(plan.ch(plan.state.cards[c]))]
     return {n.lower() for n in found if n}

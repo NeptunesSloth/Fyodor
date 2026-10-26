@@ -12,6 +12,12 @@ MONOLITH = ('{T}: Until end of turn, target creature gains "Whenever this creatu
             "That creature's controller may have this artifact deal 1 damage to it. Activate only as a sorcery.")
 
 
+GOLLUM = ("Whenever ~ attacks, look at the top two cards of your library, put them back in any order, then choose land or nonland. An opponent guesses whether "
+          "the top card of your library is the chosen kind. Reveal that card. If they guessed right, remove ~ from combat. Otherwise, you draw a card and ~ can't be blocked this turn.")
+FUMBLE = "Return target creature to its owner's hand. Gain control of all Auras and Equipment that were attached to it, then attach them to another creature."
+GETH1 = "Return up to one target creature card from your graveyard to the battlefield."
+GETH2 = ("Corrupted — For each opponent who has three or more poison counters as you cast this spell, put up to one target creature card from that player's "
+         "graveyard onto the battlefield under your control.")
 ZHALFIR = "I, II — Another target nonland permanent phases out. It can't phase in for as long as you control this Saga."
 PARK = "I — For each opponent, up to one target noncreature artifact they control becomes a 0/4 Wall artifact creature with defender for as long as you control this Saga."
 PURSUIT = ("When this enchantment enters, suspect target creature an opponent controls. As long as this enchantment remains on the battlefield, "
@@ -154,6 +160,28 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
                     "label": "Human Werewolves", "as": "tovolar110d"}
             d["effects"] = [{**d["effects"][0], "skip": 3}, *d["effects"][1:], pick, {"do": "transform", "who": "ref:tovolar110d"}]
         return d
+    if scripts.self_text(ability.text, ch.name) == GOLLUM:  # Gollum, Scheming Guide: 701.20 look, 608.2d the guesser (an opponent the controller picks) does not see the card until it is revealed
+        look = scripts.define(replace(ability, text="Whenever ~ attacks, look at the top two cards of your library, then put them back in any order."), ch)
+        gone = scripts.define(replace(ability, text="Whenever ~ attacks, remove ~ from combat."), ch)
+        paid = scripts.define(replace(ability, text="Whenever ~ attacks, draw a card. ~ can't be blocked this turn."), ch)
+        if look is None or gone is None or paid is None:
+            return None
+        return {**look, "effects": [*look["effects"], {"do": "gollum110d"},
+                                    {"do": "only_if", "cond": {"succeeded": "right110d"}, "skip": len(gone["effects"])}, *gone["effects"],
+                                    {"do": "only_if", "cond": {"succeeded": "wrong110d"}, "skip": len(paid["effects"])}, *paid["effects"]]}
+    if ability.text in (GETH1, GETH2):  # Geth's Summons: one group for you and one for each opponent with 3+ poison as it is cast (601.2c, per_opponent "poison110d");
+        # your own line is that group's first member (a card of yours returns under your control), so the first line itself does nothing
+        if ability.text == GETH1:
+            return {"kind": "spell", "effects": [], "target": None}
+        d = scripts.define(replace(ability, text="For each player, put up to one target creature card from that player's graveyard onto the battlefield under your control."), ch)
+        if d is not None:
+            d["targets"][0]["opponent_group"] = "poison110d"
+        return d
+    if ability.text == FUMBLE:  # Fumble: 608.2c the attachments are read before the creature leaves (608.2h), 303.4 / 301.5 then each goes onto the one creature it can legally be on
+        d = scripts.define(replace(ability, text="Return target creature to its owner's hand."), ch)
+        if d is not None:
+            d["effects"] = [{"do": "fumble_pre110d", "bind": "fumble110d"}, *d["effects"], {"do": "gain_control", "who": "ref:fumble110d", "to": "you"}, {"do": "fumble_attach110d", "bind": "fumble110d"}]
+        return d
     if ability.text == PREDICAMENTS:  # 608.2d the controller picks in secret, the damaged player answers; a wrong guess lets the controller cast it free (118.9)
         d = scripts.define(replace(ability, text=PREDICAMENTS.split(",")[0] + ", draw a card."), ch)
         if d is not None:
@@ -277,6 +305,109 @@ def predicaments(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return False
 
 
+def fumble_pre(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    from app.rules import context, effects
+
+    target = effects._cards(plan, ctx, "target")
+    context.bind_objects(plan, ctx, e["bind"], [c.id for c in plan.state.cards.values() if target and c.attached_to == target[0]
+                                                  and {"Aura", "Equipment"} & set(plan.ch(c).subtypes)])
+    ctx["fumble_from110d"] = target[0] if target else None
+    return True
+
+
+def fumble_attach(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    from app.game.rules_state import DecisionOption
+    from app.rules import effects
+    from app.rules.targets import label
+
+    if not effects._cards(plan, ctx, "ref:" + e["bind"]):
+        return True
+    pool = [c.id for c in plan.state.cards.values() if c.zone.endswith(":battlefield") and plan.ch(c).is_creature and c.id != ctx.get("fumble_from110d")]
+    if not pool:
+        return True
+    effects.decide(plan, player=ctx["controller"], kind="choose_cards", prompt=f"{ctx.get('name') or 'Attach'}: attach them to which other creature?",
+                   options=[DecisionOption(id=c, label=label(plan, c), card_id=c) for c in pool], min_choices=1, max_choices=1,
+                   resume={"step": "fumble110d", "ctx": ctx, "bind": e["bind"]})
+    return False
+
+
+def resume_fumble(plan: Any, d: Any, chosen: list[str]) -> None:
+    from app.game.errors import ActionError
+    from app.rules import attachments, effects
+
+    ctx = d.resume["ctx"]
+    if len(chosen) != 1 or plan.state.cards[chosen[0]].zone.endswith(":battlefield") is False:
+        raise ActionError("Choose a creature")
+    for cid in effects._cards(plan, ctx, "ref:" + d.resume["bind"]):  # 303.4 an Aura that can't enchant it stays where it is (and falls off, 704.5m)
+        if plan.state.cards[cid].zone.endswith(":battlefield") and attachments.host_problem(plan, plan.state.cards[cid], chosen[0]) is None:
+            attachments.attach(plan, cid, chosen[0], d.player)
+    effects.continue_effects(plan, ctx)
+
+
+def gollum(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    from app.game.rules_state import DecisionOption
+    from app.rules import context, effects
+
+    me = ctx["controller"]
+    context.bind_payment(ctx, "right110d", False)
+    context.bind_payment(ctx, "wrong110d", False)
+    opponents = [p for p in plan.live() if p != me]
+    if not plan.state.zones.get(f"{me}:library") or not opponents:
+        return True  # (no top card to guess about: neither outcome applies)
+    effects.decide(plan, player=me, kind="choose_one", prompt=f"{ctx.get('name') or 'Gollum'}: choose land or nonland",
+                   options=[DecisionOption(id="land", label="Land"), DecisionOption(id="nonland", label="Nonland")],
+                   resume={"step": "gollum110d", "ctx": ctx})
+    return False
+
+
+def resume_gollum(plan: Any, d: Any, chosen: list[str]) -> None:
+    from app.game.errors import ActionError
+    from app.game.rules_state import DecisionOption
+    from app.rules import effects
+
+    ctx, me = d.resume["ctx"], d.player
+    if len(chosen) != 1:
+        raise ActionError("Choose one")
+    kind = d.resume.get("kind")
+    if kind is None:  # the controller's land/nonland choice; "an opponent" is the one they pick (several opponents)
+        opponents = [p for p in plan.live() if p != me]
+        kind = chosen[0]
+        if kind not in ("land", "nonland"):
+            raise ActionError("Choose land or nonland")
+        if len(opponents) > 1:
+            effects.decide(plan, player=me, kind="choose_one", prompt=f"{ctx.get('name') or 'Gollum'}: choose an opponent to guess",
+                           options=[DecisionOption(id=p, label=plan.name(p)) for p in opponents],
+                           resume={"step": "gollum110d", "ctx": ctx, "kind": kind})
+            return
+        guesser = opponents[0]
+    else:  # the controller picked the opponent
+        guesser = chosen[0]
+        if guesser not in plan.live() or guesser == me:
+            raise ActionError("Choose an opponent")
+    effects.decide(plan, player=guesser, kind="choose_one", prompt=f"{ctx.get('name') or 'Gollum'}: is the top card of their library a {kind} card?",
+                   options=[DecisionOption(id="yes", label="Yes"), DecisionOption(id="no", label="No")],
+                   resume={"step": "gollum110d_guess", "ctx": ctx, "kind": kind})
+
+
+def resume_gollum_guess(plan: Any, d: Any, chosen: list[str]) -> None:
+    from app.game.errors import ActionError
+    from app.rules import characteristics as chars
+    from app.rules import context, effects
+
+    if len(chosen) != 1 or chosen[0] not in ("yes", "no"):
+        raise ActionError("Choose yes or no")
+    ctx, me = d.resume["ctx"], d.resume["ctx"]["controller"]
+    top = plan.state.zones.get(f"{me}:library", [])
+    if top:
+        plan.do({"type": "reveal_top", "player": me, "count": 1}, actor=me)  # 701.20a: revealed after the guess
+        is_land = chars.of(plan.state.cards[top[0]], plan.info).is_land
+        right = (is_land == (d.resume["kind"] == "land")) == (chosen[0] == "yes")
+        plan.note(f"{plan.name(d.player)} guessed {'right' if right else 'wrong'}", actor=d.player)
+        context.bind_payment(ctx, "right110d", right)
+        context.bind_payment(ctx, "wrong110d", not right)
+    effects.continue_effects(plan, ctx)
+
+
 def resume_predicaments(plan: Any, d: Any, chosen: list[str]) -> None:
     from app.game.errors import ActionError
     from app.game.rules_state import DecisionOption
@@ -306,8 +437,8 @@ def resume_guess(plan: Any, d: Any, chosen: list[str]) -> None:
     effects.continue_effects(plan, d.resume["ctx"])
 
 
-PRIMITIVES: dict[str, Any] = {"predicaments110d": predicaments, "phase_hold110d": phase_hold, "may_hit110d": may_hit, "spell_permanents110d": spell_permanents}
-RESUME: dict[str, Any] = {"predicaments110d": resume_predicaments, "predicaments110d_guess": resume_guess, "may_hit110d": resume, GIFT_UP: resume_attach}
+PRIMITIVES: dict[str, Any] = {"fumble_pre110d": fumble_pre, "fumble_attach110d": fumble_attach, "gollum110d": gollum, "predicaments110d": predicaments, "phase_hold110d": phase_hold, "may_hit110d": may_hit, "spell_permanents110d": spell_permanents}
+RESUME: dict[str, Any] = {"fumble110d": resume_fumble, "gollum110d": resume_gollum, "gollum110d_guess": resume_gollum_guess, "predicaments110d": resume_predicaments, "predicaments110d_guess": resume_guess, "may_hit110d": resume, GIFT_UP: resume_attach}
 
 
 CALL = "Choose up to two. Return those cards from your graveyard to your hand."

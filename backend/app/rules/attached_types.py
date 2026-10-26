@@ -270,9 +270,14 @@ def layer45(state: GameState, card: CardInstance, table: list[Static]) -> list[t
     """The type- and color-changing statics of what is attached to ``card`` (timestamp, definition): applied to it
     whatever it is right now (Frogify ruling: an Aura on a permanent that is a creature only for a while keeps it a
     creature)."""
-    return [(st.seq, st.definition) for st in table
+    from app.rules import (
+        wave110a_paper,  # -- wave 110A -- Psychic Paper: the name and creature type its Equipment last chose
+    )
+
+    return [(st.seq, wave110a_paper.layer45_definition(state, st.source, st.definition) if st.definition.get("paper110a") else st.definition) for st in table
             if st.gate is None and st.definition.get("who") == "attached"
-            and (st.definition.get("layer4") or "set_colors" in st.definition or "add_colors" in st.definition or "set_name" in st.definition)
+            and (st.definition.get("layer4") or "set_colors" in st.definition or "add_colors" in st.definition or "set_name" in st.definition
+                 or st.definition.get("paper110a"))
             and state.cards[st.source].attached_to == card.id]
 
 

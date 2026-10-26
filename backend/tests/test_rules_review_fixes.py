@@ -18,7 +18,8 @@ def test_multi_sentence_intervening_if_gates_the_whole_ability(cards):
     # 603.4: false as it would trigger → it doesn't trigger at all (no life from the 2nd sentence)
     s = build(cards)
     token(s, "p1", "Goblin Friend")
-    act(s, "p1", type="create_token", player="p1", token={"name": "Gob", "type_line": "Token Creature — Goblin"})
+    act(s, "p1", type="create_token", player="p1", token={"name": "Gob", "type_line": "Token Creature — Goblin",
+                                                          "power": "1", "toughness": "1"})  # (a 0/0 would die, 704.5f)
     token(s, "p1", "Warden", text="Whenever another creature you control enters, if you control no Goblins, "
                                   "draw a card. You gain 5 life.")
     src = token(s, "p1", "Recruiter", text="{1}: Create a 1/1 white Soldier creature token.")

@@ -33,6 +33,9 @@ def parse(text: str, identity: tuple[str, ...], name: str) -> M.ManaAbility | No
     from app.rules import mana as M
     from app.rules import scripts
     own=scripts.self_text(text,name) if name else text
+    if own == '{1}, {T}: Each player adds {B}{R}{G}.':  # -- Yurlok (wave 110J) -- the controller's own mana is the base ability's, the others' are native effects
+        base = M.parse_mana_ability('{1}, {T}: Add {B}{R}{G}.', identity, card_name=name)
+        return None if base is None else replace(base, immediate_effects=({'do': 'yurlok110j'},))
     if (benefit := beneficiary_spec(own)) is not None:
         cost, output, n = benefit
         base = M.parse_mana_ability(cost + ': Add {C}.', identity, card_name=name)

@@ -100,11 +100,13 @@ def prepare(plan: Plan, cards: list[str], *, can_regenerate: bool, sba: bool = F
     if frame is None:
         from app.rules import regeneration_riders
 
-        auto = [cid for cid in cards if automatic(plan, cid) or regeneration_riders.shields(plan, plan.oid(cid))
-                or plan.rules.wipe_shields110o.get(plan.oid(cid), 0) > 0]  # (wave 110O: Pyramids' shield)
+        every = {cid: options(plan, cid, can_regenerate=can_regenerate, effect=not sba) for cid in cards if cid in plan.state.cards}
+        # (also a creature with two umbra armors and nothing else: its controller picks which applies, 616.1)
+        auto = [cid for cid in every if automatic(plan, cid) or regeneration_riders.shields(plan, plan.oid(cid))
+                or plan.rules.wipe_shields110o.get(plan.oid(cid), 0) > 0 or len(every[cid]) > 1]  # (wave 110O: Pyramids' shield)
         if not auto:
             return True
-        candidates = {cid: options(plan, cid, can_regenerate=can_regenerate, effect=not sba) for cid in auto}
+        candidates = {cid: every[cid] for cid in auto}
         saved = dict(ctx) if ctx is not None else None
         if saved is not None:
             saved['next'] = max(0, saved['next'] - 1)

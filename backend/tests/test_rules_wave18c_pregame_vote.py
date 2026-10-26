@@ -24,6 +24,7 @@ from app.game.rules_state import AUTOMATION_PRESETS, start_rules
 from app.game.session import GameSession
 from app.game.state import GameSettings, GameState
 from app.game.visibility import SPECTATOR
+from app.rules.mana_units import visible_pool
 from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act, deck, engine_pays
 from tests.test_rules_conditionals import build, to_hand
@@ -226,7 +227,7 @@ def test_chancellor_of_the_tangle_adds_mana_in_their_first_main_phase(cards):
     for _ in range(3):
         if s.state.zones.get("stack"):
             act(s, s.state.rules.priority, type="pass_priority")
-    assert s.state.turn.phase == "main1" and s.state.players["p1"].mana.get("G") == 1
+    assert s.state.turn.phase == "main1" and visible_pool(s.state, "p1").get("G") == 1
     assert s.state.rules.delayed == []
     roundtrip(s)
 

@@ -32,9 +32,6 @@ _AS: dict[str, str] = {
     "They gain haste.":
         "At the beginning of combat on your turn, if you control five or more Deserts, create a 1/1 red, green, and white Sand Warrior creature token with "
         "haste for each Desert you control.",
-    # Saproling Infestation: 702.33d a player "kicks" a spell as they cast it kicked
-    "Whenever a player kicks a spell, you create a 1/1 green Saproling creature token.":
-        "Whenever a player casts a kicked spell, you create a 1/1 green Saproling creature token.",
     # Kitsune Ace: an attacking Vehicle is a creature (301.7), so "that Vehicle" is "that creature"
     "Whenever a Vehicle you control attacks, That Vehicle gains first strike until end of turn.":
         "Whenever a Vehicle you control attacks, that creature gains first strike until end of turn.",
@@ -448,6 +445,11 @@ _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
     "Whenever a player loses the game, if they were attacked this turn by an Assassin you controlled, you win the game.":
         ("Whenever a player loses the game, put five +1/+1 counters on ~.",
          lambda d: {**d, "if": {"history": "attacked_by110b", "sel": 'sel:{"subtypes":["Assassin"]}'}, "effects": [{"do": "win_game", "who": "you"}]}),
+    # Saproling Infestation: 702.33d a player "kicks" a spell as they cast it kicked; a spell kicked several times (multikicker, two kicker costs)
+    # is that many kicks, so it triggers once per kick (603.2c)
+    "Whenever a player kicks a spell, you create a 1/1 green Saproling creature token.":
+        ("Whenever a player casts a kicked spell, you create a 1/1 green Saproling creature token.",
+         lambda d: {**d, "cond": {**d["cond"], "per_kicker": True}}),
     # Alania: the intervening "if" is a fact about the turn's casts (triggers.alania_first), judged as the spell is cast (603.4); the rest reads natively
     "Whenever you cast a spell, if it's the first instant spell, the first sorcery spell, or the first Otter spell other than Alania you've cast this turn, "
     "you may have target opponent draw a card. If you do, copy that spell. You may choose new targets for the copy.":
@@ -689,26 +691,6 @@ def definition(ability: Any, ch: Any) -> Def | None:
 _VINCENT = ('Until end of turn, target creature you control gains "When this creature dies, return it to the battlefield tapped under its owner\'s '
             'control" and has the chosen base power and toughness.')
 _TIER = re.compile(r"• (?P<label>[^—{}]+) — (?P<cost>(?:\{[^}]+\})+) — (?P<p>\d+)/(?P<t>\d+)\.")
-
-
-# Genku: the header's "those characteristics" are each bullet's own token (700.2, "hasn't been chosen this turn" is modal_abilities' memory)
-_GENKU = ("Whenever another nontoken permanent you control leaves the battlefield, choose one that hasn't been chosen this turn. Create a creature token with those characteristics.",
-          ["• 2/2 white Fox with vigilance.", "• 1/2 blue Moonfolk with flying.", "• 1/1 black Rat with lifelink."],
-          ["Create a 2/2 white Fox creature token with vigilance.", "Create a 1/2 blue Moonfolk creature token with flying.",
-           "Create a 1/1 black Rat creature token with lifelink."])
-
-
-def merge_lines(ch: Any, out: dict[int, Any]) -> None:
-    from app.rules import modal_abilities
-
-    head, rows, creates = _GENKU
-    for offset, ab in enumerate(ch.abilities):
-        if ab.text != head or [r.text for r in ch.abilities[offset + 1 : offset + 4]] != rows:
-            continue
-        new = {ab.index: replace(ab, text=head.split(", choose")[0] + ", choose one that hasn't been chosen this turn —")}
-        new.update({r.index: replace(r, text="• " + t) for r, t in zip(ch.abilities[offset + 1 : offset + 4], creates, strict=True)})
-        rewritten = replace(ch, abilities=tuple(new.get(a.index, a) for a in ch.abilities))
-        out.update(modal_abilities.definitions(new[ab.index], rewritten) or {})
 
 
 def tiered(ch: Any, lines: list[Any]) -> Def | None:

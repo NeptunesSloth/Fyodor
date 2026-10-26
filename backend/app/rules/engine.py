@@ -88,7 +88,9 @@ from app.rules import (
     wave110a_teferi,  # -- wave 110A --
     wave110e_clara,  # -- pregame color (wave 110E) --
     wave110e_opp,  # -- cast-time choice (wave 110E) --
+    wave110f_camo,  # -- Camouflage (wave 110F) --
     wave110f_cards,  # -- combat damage division (wave 110F) --
+    wave110g_spires,  # -- wave 110G --
     wave110h_cards,  # -- untap hold (wave 110H) --
 )
 from app.rules import morph_costs78 as _morph_costs78  # noqa: F401
@@ -327,7 +329,7 @@ def _until_met(plan: Plan, a: A.RepeatSequence) -> bool:
     if player is None:
         raise ActionError("Unknown player")
     if u.kind == "mana":
-        return sum(player.mana.values()) >= u.value
+        return sum(player.mana.values()) + len(player.mana_units) >= u.value  # (remembered mana is in the pool too)
     if u.kind == "tokens":
         return sum(c.quantity for c in state.cards.values()
                    if c.is_token and c.controller == pid and c.zone.endswith(":battlefield")) >= u.value
@@ -549,6 +551,14 @@ def _mark_step(plan: Plan) -> None:
 
 def empty_pools(plan: Plan) -> None:
     """Mana empties from every pool at the end of each step and phase (rule 500.4)."""
+    from app.rules import wave110j_cards  # -- Yurlok (wave 110J) --
+
+    before = wave110j_cards.pools(plan)
+    _empty_pools(plan)
+    wave110j_cards.mana_lost(plan, before)
+
+
+def _empty_pools(plan: Plan) -> None:
     kept = effects.keyword_actions.combat_mana_kept(plan)  # -- wave 3F -- firebending: kept until end of combat
     from app.rules import kept_mana  # -- refused copy/mana (wave 3R3): 106.4 "you don't lose this mana" --
 
@@ -584,6 +594,7 @@ def next_step(plan: Plan) -> None:
         combat_damage(plan, "second", "done")  # the regular damage step after first strike
         return
     if phase == "end_combat":
+        player_control.combat_ended(plan)  # -- wave 110A -- Secret of Bloodbending: control of their combat phase ends with it
         combat.end_combat(plan)
     inserted = r.extra_steps.pop(0) if r.extra_steps else None
     finish_phase = inserted == "phase"
@@ -1194,6 +1205,11 @@ def resolve_top_of_stack(plan: Plan) -> None:
     from app.rules import devour  # -- keyword mechanics (wave 9D) -- 702.82a
 
     devour.sacrifice(plan, ep, controller)
+    from app.rules import (
+        copying as _copying,  # -- (wave 110C) -- The Mimeoplasm: the two graveyard cards are exiled as it enters
+    )
+
+    _copying.exile_pair(plan, ep, controller)
     from app.rules import static_perm100d  # -- static permanents (wave 100D) -- 614.12: done as it enters
 
     static_perm100d.as_enters(plan, top_id, ep, controller)
@@ -1876,10 +1892,12 @@ RESUME: dict[str, Callable[[Plan, Decision, list[str]], None]] = {
     "opening_hand": opening_hand.resume,  # -- opening hand (wave 18C) -- 103.6
     "opening_exile": opening_hand.resume_exile,
     "clara110e": wave110e_clara.resume,  # -- pregame color (wave 110E)
+    "spires110g": wave110g_spires.resume,  # -- wave 110G --
     "exert_attackers": exert.resume,  # -- static wordings (wave 6E) -- 508.1g
     "enlist": enlist.resume,  # -- casting extras (wave 18E) -- 702.154a
     "assist": assist.resume,  # -- casting extras (wave 18E) -- 702.132a
     "pick110e": wave110e_opp.resume,  # -- cast-time choice (wave 110E)
+    "camo110f": wave110f_camo.resume,  # -- Camouflage (wave 110F)
     "giant110f": wave110f_cards.resume_giant,  # -- combat damage division (wave 110F)
     "gift": gift.resume,  # -- gift (wave 23D) -- 702.174a
     "free_multikicker": casting.resume_free_multikicker,

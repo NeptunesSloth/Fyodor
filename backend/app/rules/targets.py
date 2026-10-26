@@ -108,6 +108,8 @@ def can_target(plan: Plan, chooser: str, card: CardInstance, ch: Characteristics
     for rule in ch.imposed:  # -- cant (wave 16F) -- "can't be the target of black spells or abilities from black sources"
         if rule == "untargetable_artifact_abilities106" and source is not None and source.is_ability and "Artifact" in source.types:
             return False
+        if rule == "cant_be_enchanted110j" and source is not None and source.is_spell and "Aura" in source.subtypes:  # -- Guardian Beast (wave 110J) --
+            return False
         if (rule.startswith("only_aura106:") or rule == "no_aura110h") and source is not None and source.is_spell and "Aura" in source.subtypes:  # (110H: Tetravite "can't be enchanted", 303.4)
             return False
         if rule.startswith("untargetable_by_opponents_of:") and chooser != rule.split(":", 1)[1]:
@@ -377,6 +379,10 @@ def divide_x(plan: Plan, spec: dict[str, Any], chooser: str, source_card: str | 
     Stone): the total is the count as the spell is cast or the ability put on the stack (601.2d: the division is announced then; 608.2d: "the amount and
     division were determined as the spell or ability was put onto the stack"), the cast X otherwise."""
     value = (spec.get("divide") or {}).get("value")
+    if isinstance(value, dict) and "opp_gy110i" in value:  # -- cards (wave 110I) -- Spoils of War: the opponent chosen as it is cast (ruling 2008-08-01)
+        from app.rules import wave110i_cards
+
+        return wave110i_cards.opp_gy_total(plan, chooser, value["opp_gy110i"], x)
     return x if value is None else where_x(plan, {"x_value": value}, chooser, source_card, source_object, event)
 
 
@@ -430,6 +436,8 @@ def choose_groups(plan: Plan, specs: list[dict[str, Any]], chooser: str, source:
     random_only = len(specs) == 1 and bool(specs[0].get("random"))  # -- random choices (wave 47B) -- "target … chosen at random": the table picks (601.2c; each
     if random_only:  # legal target equally likely: Scab-Clan Giant ruling 2013-04-15); nobody is asked, and a choice sent along is not read
         targets, counts = [], []
+    if not counts and targets and len(specs) == 1:
+        counts = [len(targets)]  # (one group: every target chosen is that group's)
     if len(counts) > len(specs) or sum(counts) != len(targets):
         raise ActionError(f"Those aren't the right number of targets for {what}")
     out = GroupChoice(counts=list(counts))
@@ -440,6 +448,10 @@ def choose_groups(plan: Plan, specs: list[dict[str, Any]], chooser: str, source:
                    if t not in exclude and t not in banned]  # (-- player-relative selectors (wave 53A) -- "target creature that player controls": that player from the earlier group)
         if (owner := spec.get("graveyard_of")) is not None and owner < len(out.groups):  # -- shuffle target cards (wave 46B) -- "target cards from their graveyard":
             options = [t for t in options if plan.state.cards[t].owner in out.groups[owner]]  # the graveyard of the player chosen for that group
+        if spec.get("blocked_by110i") is not None:  # -- cards (wave 110I) -- Glyph of Delusion: "target creature that target Wall blocked this turn" (509.1g block history)
+            from app.rules import wave110i_cards
+
+            options = wave110i_cards.block_options(plan, spec, options, out.groups)
         from app.rules import permanent_exchanges
 
         options = permanent_exchanges.viable_first(plan, specs, g, options,

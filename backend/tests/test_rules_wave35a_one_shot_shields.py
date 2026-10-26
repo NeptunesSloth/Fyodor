@@ -106,7 +106,7 @@ def test_the_one_shot_shield_cards_are_full(name):
 @pytest.mark.parametrize("text", [
     # an opponent chooses the creature / all but one / a reflexive trigger / two recipients
     # (wave 39A: "Any player may pay {1}. If no one does, …" (Rhystic Circle) is read now: tests/test_rules_wave39a_edicts.py)
-    "{3}, {T}: The next time a source of your choice would deal damage to you this turn, that damage is dealt to target creature of an opponent's choice instead.",
+    # ("… target creature of an opponent's choice instead" is read since: delegated_target_announcements, test_rules_delegated_target_announcements.py)
     "The next time a source of your choice would deal damage to you this turn, prevent that damage. When damage is prevented this way, ~ deals that much damage to that source's controller and you draw that many cards.",
     "The next time a source of your choice would deal damage to you and/or creatures you control this turn, prevent that damage.",
     # a prevention of damage to a recipient with no source named stays manual (only a redirection to a target is read)

@@ -689,6 +689,10 @@ def define_static(text: str, kind: str, lines: tuple[str, ...] = ()) -> Definiti
         found_alt = alt_costs.define(t)
         if found_alt is not None and (kind == "static" or not found_alt.get("table")):
             return found_alt
+    if kind == "static" and t.startswith("as an additional cost to cast creature spells, you may pay any amount"):  # -- Chorus of the Conclave (wave 110C) --
+        from app.rules import wave110c_chorus
+
+        return wave110c_chorus.definition(t)
     if kind == "static" and t.startswith("as an additional cost to cast "):  # Defiler of Vigor (cost_changes.py)
         return cost_changes.optional_definition(t)
     # -- end cost changers (wave 4I) --
@@ -1303,6 +1307,7 @@ class Grant:
     once_key: str | None = None  # a static "once during each of your turns" ability's key
     sorcery: bool = False  # -- keywords (wave 15E) -- plot 702.170d: only in your main phase with an empty stack, whatever it is
     generic_extra: int = 0  # Additional generic mana charged by this permission.
+    generic_less: int = 0  # (wave 110G) generic mana this permission takes off the total cost (Urianger Augurelt), a cost reduction (601.2f, 118.7a)
     extra: str = ""  # -- cost alt (wave 16F) -- an additional cost the permission names ("discard a card"), paid with the rest (601.2b)
     graveyard_destination: str = ""  # Selected cast authority: library_bottom replaces this spell going to any graveyard.
     exile_gy: str = ""  # -- cast from graveyard (wave 19C) -- 614.1a: "all" | "is" (instants and sorceries only): "If a spell cast this way would be put into your graveyard, exile it instead"
@@ -1453,6 +1458,10 @@ def grants(state: GameState, player: str, card: CardInstance, ch: Characteristic
         if p.object_id is not None:
             if p.object_id != oid or (p.top110j and where != "library_top"):  # (-- wave 110J -- Temporal Aperture: only while it is the top card)
                 continue  # a new object since (400.7): the permission was for the one it was
+        elif p.library_of is not None:  # -- Xanathar (wave 110C) -- the top card of another player's library
+            lib = state.zones.get(zone_key(p.library_of, "library")) or []
+            if not lib or lib[0] != card.id:
+                continue
         elif p.zone != "any" and p.zone != where and not (
                 p.zone in ("graveyard", "exile") and p.zone_owner == "any" and card.zone.endswith(":" + p.zone)) and not (
                 p.hand_of110m and p.zone == "hand" and card.zone == zone_key(p.hand_of110m, "hand")):  # (wave 110M) another player's hand
@@ -1466,7 +1475,7 @@ def grants(state: GameState, player: str, card: CardInstance, ch: Characteristic
             continue  # -- chosen filters (wave 53B) -- "the next spell of the kind": a spell of the kind was cast since (601.2i)
         zone_ok = p.object_id is not None or p.zone != "any"  # (a flash-only permission grants no zone)
         out.append(Grant("permission", p.label, zone_ok=zone_ok, free=p.free, life_mv=p.life_mv, spell_keywords=tuple(p.spell_keywords), flash=p.flash, permission=p.id, spend=p.spend, use_trigger=p.use_trigger, graveyard_destination=p.graveyard_destination,
-                         choice_key=p.id, generic_extra=p.generic_extra,
+                         choice_key=p.id, generic_extra=p.generic_extra, generic_less=p.generic_less,
                          sorcery=p.sorcery, alt_mana=p.alt_mana, enters=p.enters, extra=p.extra,  # (wave 51D: "If you do, it enters tapped", Jorn)
                          exile_gy=p.exile_gy if not p.exile_own or card.owner == player else ""))  # (wave 25C)
     if verb == "cast" and where in ("graveyard", "exile") and card.owner == player and not card.face_down:
@@ -1530,7 +1539,7 @@ def grants(state: GameState, player: str, card: CardInstance, ch: Characteristic
         if d.get("linked"):  # -- resolution memory (wave 22D) -- only a card still the object this permanent's ability exiled (400.7, 607.2a)
             from app.rules import exiled_with
 
-            linked_ctx: dict[str, Any] = {"source_object": r.object_id(src.id)}
+            linked_ctx: dict[str, Any] = {"source_object": src.choices.get("Linked to", "") if d.get("linked_to110c") else r.object_id(src.id)}  # (wave 110C: Tibalt's emblem)
             for linked_effect in d.get("effects") or []:
                 if linked_effect.get("do") == "borrowed_link_scope":
                     linked_ctx["borrowed_link_scope"] = linked_effect["scope"]
@@ -1857,6 +1866,9 @@ def total_cost(state: GameState, player: str, card: CardInstance, ch: Characteri
             else:
                 reduction -= m.delta
         reduction += self_reduction(state, player, card, ch, info)
+        from app.rules import wave110e_uvilda
+
+        reduction += wave110e_uvilda.less(state, card)  # -- wave 110E -- a resolving cast "costs {4} less to cast this way" (Uvilda)
         own = cost_changes.own_changes(state, player, card, ch, info, _definitions(ch), targets)
         increase += own.increase
         reduction += own.reduction
@@ -2050,7 +2062,7 @@ def grant_play(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
                 continue  # (-- Marvel keywords (wave 25A) -- "for as long as it remains exiled": a spell that wasn't countered, a card replaced elsewhere: no permission)
             holder = card.owner if e.get("owner") else pid  # ("its owner may cast it")
             r.permissions.append(Permission(id=secrets.token_hex(4), player=holder, play=e["play"], cast=e["cast"], zone="any",
-                                            object_id=plan.oid(card), card=cid, generic_extra=int(e.get("generic_extra", 0)) + (int(e.get("generic_extra_opponents", 0)) if holder != pid else 0), until=e["until"], turn=turn, granted_step=r.step_serial, stop_on_linked_exile=stop_on_linked_exile, free=bool(e.get("free")), life_mv=bool(e.get("life_mv")), spend=e.get("spend", ""),
+                                            object_id=plan.oid(card), card=cid, generic_less=int(e.get("generic_less", 0)), generic_extra=int(e.get("generic_extra", 0)) + (int(e.get("generic_extra_opponents", 0)) if holder != pid else 0), until=e["until"], turn=turn, granted_step=r.step_serial, stop_on_linked_exile=stop_on_linked_exile, free=bool(e.get("free")), life_mv=bool(e.get("life_mv")), spend=e.get("spend", ""),
                                             filter=e.get("filter"), spell_keywords=e.get('spell_keywords', []), until_player=e.get("until_player"), after_turn=int(e.get("after_turn", 0)),
                                             exile_gy=e.get("exile_gy", ""), exile_own=bool(e.get("exile_own")), graveyard_destination=e.get("graveyard_destination", ""), enters=e.get("enters"),  # (wave 25C; wave 51D: enters)
                                             use_trigger=permission_use_triggers43.stored_receipt(plan, ctx, e.get("use_trigger")),
@@ -2225,6 +2237,10 @@ def free_cast(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
         from app.rules import wave110j_cards
 
         pid = wave110j_cards.caster(plan, ctx, e)
+        if e["caster"] == "target110e":  # -- Word of Command (wave 110E) -- the targeted opponent plays the card
+            from app.rules import wave110e_word
+
+            pid = wave110e_word.caster(ctx)
     done = ctx.setdefault("free_cast_done", [])
     if not e.get("all") and sum(1 for c in done if c not in (ctx.get("free_cast_before") or [])) >= int(e.get("n", 1)):
         return _free_cast_over(ctx, e)
@@ -2289,6 +2305,11 @@ def free_cast(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
             prospective71 = text_global_word71.prospective(plan.state, card, chars.as_cast(card, plan.info, face), plan.info)
             if casting.free_cast_problem(plan, pid, card, prospective71, paid=bool(e.get("paid")), x=0 if e.get("effect_mana_cost") is not None else None) is not None:  # (the half cast_spell casts)
                 continue
+            if e.get("caster") == "target110e":  # -- Word of Command (wave 110E) -- "if able": a card the lands can't pay for isn't played
+                from app.rules import wave110e_word
+
+                if not wave110e_word.payable(plan, pid, card, ch):
+                    continue
             if e.get('effect_alternative'):
                 from app.rules import effect_cast_costs
 
@@ -2358,14 +2379,14 @@ def play_faces(plan: Plan, card: CardInstance) -> list[tuple[int | None, Charact
     return out
 
 
-def play_land_now(plan: Plan, ctx: dict[str, Any], e: dict[str, Any], cid: str, face: int | None) -> None:
+def play_land_now(plan: Plan, ctx: dict[str, Any], e: dict[str, Any], cid: str, face: int | None, player: str | None = None) -> None:
     """305.1 / 608.2g: the card is played as a land by the effect (not cast: it never uses the stack). It counts against the land plays of the
     turn (305.2a) from the moment it is played; the entering choices (a shock land's life, "as it enters, choose …": 614.12a) are asked as
     for any permanent put onto the battlefield, then the resolution goes on (replacements.resume_entry_choice)."""
     from app.game.rules_state import TurnCount
     from app.rules import attachments, effects
 
-    pid = ctx["controller"]
+    pid = player or ctx["controller"]
     card = plan.state.cards[cid]
     r, turn = plan.rules, plan.state.turn.number
     r.lands_played[pid] = TurnCount(turn=turn, count=r.lands_this_turn(pid, turn) + 1)
@@ -2492,7 +2513,7 @@ def resume_free_cast(plan: Plan, d: Any, chosen: list[str]) -> None:
             effects.continue_effects(plan, ctx)
         return
     if e.get("play") and chars.as_cast(plan.state.cards[cid], plan.info, face).is_land:
-        play_land_now(plan, ctx, e, cid, face)
+        play_land_now(plan, ctx, e, cid, face, d.player)
         return
     r.free_casts.append(cid)
     r.free_cast_then = {"card": cid, "ctx": ctx, "e": e, "suspend_object": None, **({"face": face} if face else {})}  # (face: review 28A, casting.cast_free checks it)

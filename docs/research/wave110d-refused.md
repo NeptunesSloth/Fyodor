@@ -4,7 +4,6 @@
 - Font of Agonies: "you pay life" has no event; life is paid in cost parts, effects and Phyrexian mana, each would need an emit (foundation, not one card).
 - Dog Umbra: "this Aura has umbra armor" is not a grantable keyword (statics.GRANTABLE_KEYWORDS, abilities of a granted keyword not read by regeneration.umbra_armor).
 - Minthara, Merciless Soul: ward {X} dynamic needs ward_costs to know the controller's experience counters (ward_costs(ch) has no player).
-- Brutal Hordechief: needs wave 110A declare_choosers (not in this branch).
 - Shallow Grave, Corpse Dance: "top creature card of your graveyard" stays refused (graveyard order not arranged by the engine, language.py ~4050).
 - Manor Gargoyle, War Historian: static condition on its own keyword/attack history reads layered keywords it also grants (613.8 dependency), not modeled.
 - Ray of Frost: conditional "loses all abilities" needs a gated wipe judged after layer 5 colors (attached_types.wipes ignores gated statics).
@@ -63,6 +62,6 @@
 - Fabrication Foundry: needs a variable-count exact-total exile cost ("one or more other artifacts with total mana value X", X announced). Foundation work (new cost kind beside COLLECT_EVIDENCE in cost_payment/casting/mana), not unsettled rules. Next session.
 - Volcanic Offering: four targets, two of them "of an opponent's choice" (spell with own+opponent pairs, 601.2c; per-pair opponent choice unsettled for several opponents). Extend delegated_target_announcements OWN mode to spells with groups.
 - s16 update: Volcanic Offering (own + opponent's-choice groups, wave110d_volc), Jeweled Amulet and Ice Cauldron (noted mana, wave110d_noted) are built, no longer refused. Per-group opponent choice with several opponents is read as "the caster picks the opponent for each group" (no ruling found that forces one opponent for both; same-opponent play is a subset).
-- Volcanic Offering: "target ... of an opponent's choice" with several opponents: no CR rule or ruling in data/rules says which opponent chooses each target (the only CR text, the example under 801.5b, covers "an opponent chooses one" modes, not targets). Demoted to PARTIAL; wave110d_volc.LINES emptied, foundation kept inert.
 - The War Doctor: "put into exile from anywhere" has no event (only leave-battlefield exile); needs a generic any-zone exile event (foundation).
 - Wall of Stolen Identity: "enter as a copy ... When you do, tap the copied creature and it doesn't untap" needs a reflexive rider that references the copied permanent (copying.py entry has no after-copy hook).
+- Volcanic Offering re-promoted s22: 2014-11-07 ruling (opponents chosen on cast, same or different, may repeat target).

@@ -20,6 +20,8 @@ if TYPE_CHECKING:
 WHAT = "pick110a"
 TEXTS = {"As ~ enters, choose another creature you control.": "other creature you control",
          "As ~ enters, choose a creature.": "creature",  # Metamorphic Alteration (wave110a_chosen)
+         "As ~ enters, you may exchange his text box and another creature's.": "other creature",  # Deadpool, Trading Card (wave110a_swap): exchanged as it enters
+         "As ~ enters, you may choose a nonland permanent.": "nonland permanent",  # Scheming Fence: the choice may be none (114/614.12a: "you may")
          # -- enters attached (wave 110I) -- 303.4f / 301.5: chosen as it enters, so it enters attached to it
          "As ~ enters, choose a creature you control it could be attached to. If you do, it enters attached to that creature.": "creature you control"}
 LABEL = "Chosen creature"
@@ -39,7 +41,8 @@ def definition(text: str) -> dict[str, Any] | None:
     sel = selectors.parse(phrase)
     assert sel is not None, phrase
     return {"kind": "replacement", "replacement": "enters_choice",
-            "effects": [{"do": "choose_value", "who": "you", "what": WHAT, "pick110a": sel.key(), **({"attach110i": True} if "attached" in text else {})}]}
+            "effects": [{"do": "choose_value", "who": "you", "what": WHAT, "pick110a": sel.key(), **({"attach110i": True} if "attached" in text else {}),
+                         **({"opt110a": True} if " may " in text else {})}]}
 
 
 def prompt(plan: Plan, card: CardInstance, controller: str, choice: dict[str, Any]) -> tuple[str, list[DecisionOption]]:
@@ -60,8 +63,10 @@ def prompt(plan: Plan, card: CardInstance, controller: str, choice: dict[str, An
     if choice.get("what") == "exile110o":  # -- (wave 110O) -- Living Lore
         return (f"{plan.ch(card).name or card.name}: as it enters, exile an instant or sorcery card from your graveyard",
                 [DecisionOption(id=c, label=plan.state.cards[c].name or "Card", card_id=c) for c in ids])
-    return (f"{plan.ch(card).name or card.name}: as it enters, choose {'another' if sel.other else 'a'} creature{' you control' if sel.controller else ''}",
-            [DecisionOption(id=c, label=plan.state.cards[c].name or "Creature", card_id=c) for c in ids])
+    what = "nonland permanent" if sel.not_types else "creature"
+    none = [DecisionOption(id="none", label="None")] if choice.get("opt110a") else []
+    return (f"{plan.ch(card).name or card.name}: as it enters, {'you may ' if none else ''}choose {'another' if sel.other else 'a'} {what}{' you control' if sel.controller else ''}",
+            [DecisionOption(id=c, label=plan.state.cards[c].name or "Creature", card_id=c) for c in ids] + none)
 
 
 def record(plan: Plan, card_id: str, choices: dict[str, str] | None) -> None:
@@ -83,6 +88,11 @@ def record(plan: Plan, card_id: str, choices: dict[str, str] | None) -> None:
         plan.do({"type": "set_choice", "card_id": card_id, "key": PAIR_LABEL, "value": " and ".join(plan.name(p) for p in value.split(","))},
                 actor=plan.state.cards[card_id].controller)
         return
+    if value in plan.state.cards and any(ab.text == "As Deadpool enters, you may exchange his text box and another creature's." for ab in plan.ch(plan.state.cards[card_id]).abilities):
+        from app.rules import wave110a_swap  # 612.5: exchange the text boxes now, as it enters
+
+        wave110a_swap.exchange(plan, card_id, value, plan.state.cards[card_id].controller, plan.oid(card_id))
+        return
     if value in plan.state.cards:
         rules.chosen_objects[card_id] = plan.oid(plan.state.cards[value])
         plan.do({"type": "set_choice", "card_id": card_id, "key": LABEL, "value": plan.state.cards[value].name}, actor=plan.state.cards[card_id].controller)
@@ -95,8 +105,15 @@ def record(plan: Plan, card_id: str, choices: dict[str, str] | None) -> None:
 
 
 def is_picked(plan: Plan, card: CardInstance, source: str | None) -> bool:
-    """Is ``card`` the permanent the source chose as it entered?"""
-    return source is not None and card.zone.endswith(":battlefield") and plan.rules.chosen_objects.get(source) == plan.oid(card)
+    """Is ``card`` the permanent the source chose as it entered? Once the chosen object has left, a leaves trigger's look-back copy of it
+    (603.10a, 608.2h) is still the chosen one (the recorded last known information of that object id)."""
+    if source is None:
+        return False
+    chosen = plan.rules.chosen_objects.get(source)
+    if chosen == plan.oid(card) and card.zone.endswith(":battlefield"):
+        return True
+    snap = plan.rules.lki.get(chosen or "")
+    return snap is not None and snap.card == card.id and card.zone == snap.zone and plan.oid(card) != chosen
 
 
 def pair(plan: Plan, card_id: str) -> list[str]:

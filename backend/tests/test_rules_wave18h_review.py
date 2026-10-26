@@ -258,5 +258,7 @@ def test_opposition_agent_controls_a_name_search_of_ones_own_library(cards):
     act(s, "p1", type="choose", decision_id=d.id, option_ids=[in_gy.id, in_library.id])
     drive(s, lambda s: not s.state.zones.get("stack") and s.state.rules.decision is None)
     assert s.state.cards[in_gy.id].zone == "p2:exile" and s.state.cards[in_library.id].zone == "p2:exile"
-    assert [p.card for p in s.state.rules.permissions if p.player == "p1"] == [in_library.id]  # only what was in the library
+    # "While an opponent is searching their library, they exile each card they find": one search of graveyard, hand and library together,
+    # so every card found in it (name_search.finish)
+    assert sorted(p.card for p in s.state.rules.permissions if p.player == "p1") == sorted([in_gy.id, in_library.id])
     roundtrip(s)

@@ -139,7 +139,7 @@ def test_current_damage_source_controller_differs_from_activated_ability_control
     act(s, 'p1', type='set_controller', card_ids=[pinger.id], player='p2')
     settle(s)
     assert s.state.cards[source.id].zone == 'p1:battlefield' and s.state.cards[source.id].damage == 0
-    assert any('Protection prevents' in str(entry) for entry in s.state.log)
+    assert protection_noted(s)
     roundtrip(s)
 
 
@@ -308,7 +308,7 @@ def test_departed_stolen_damage_source_uses_last_known_controller_not_graveyard_
     assert s.state.cards[source.id].zone == 'p1:battlefield' and s.state.cards[source.id].damage == 0
     assert s.state.cards[goblin.id].zone == 'p2:graveyard'
     assert s.state.players['p1'].life == 39
-    assert any('Protection prevents' in str(entry) for entry in s.state.log)
+    assert protection_noted(s)
     roundtrip(s)
 
 
@@ -374,7 +374,7 @@ def test_copied_discard_damage_ability_uses_uncontrolled_card_owner_for_preventi
     answer(s, ['p1'])
     assert s.state.cards[tactics.id].zone == 'p2:graveyard'
     assert s.state.players['p1'].life == 40 and s.state.players['p3'].life == 36
-    assert any('Protection prevents' in str(entry) for entry in s.state.log)
+    assert protection_noted(s)
     roundtrip(s)
 
 
@@ -470,3 +470,8 @@ def test_combat_damage_obeys_player_protection_and_cannot_be_prevented(cards, un
     assert s.state.cards[attacker.id].zone == 'p2:graveyard'
     assert s.state.cards[source.id].zone == ('p1:graveyard' if unpreventable else 'p1:battlefield')
     roundtrip(s)
+
+
+def protection_noted(s):
+    """The log says protection prevented the damage (615.1, 702.16e): "N damage to X prevented (Y: protection)"."""
+    return any("prevented (" in str(entry) and ": protection)" in str(entry) for entry in s.state.log)

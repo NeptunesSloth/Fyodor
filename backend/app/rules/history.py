@@ -819,10 +819,9 @@ def _departed(plan: Plan, ctx: dict[str, Any], cond: dict[str, Any], log: TurnLo
         _, ch = _snapshot_card(plan, snap)
         types = d.types if d.types is not None else ch.types
         if cond.get('not_name'):
-            from app.cards.names import normalize_name
             from app.rules import card_names
 
-            if normalize_name(cond['not_name']) in {normalize_name(name) for name in card_names.names_of(ch)}:
+            if card_names.has_name(ch, cond['not_name']):  # (Spy Kit, wave 110J: has_name is name_test-aware)
                 continue
         if cond.get("not_named") and named_like(plan, ctx, ch):
             continue
