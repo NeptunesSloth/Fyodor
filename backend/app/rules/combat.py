@@ -31,7 +31,7 @@ Round = Literal["only", "first", "second"]
 
 
 # -- legality -------------------------------------------------------------------------
-def attack_problem(state: GameState, card: CardInstance, ch: Characteristics) -> str | None:
+def attack_problem(state: GameState, card: CardInstance, ch: Characteristics, info: CardInfo | None = None) -> str | None:
     if not card.zone.endswith(":battlefield") or not ch.is_creature:
         return "Only creatures on the battlefield can attack"
     if card.controller != state.turn.active_player:
@@ -56,7 +56,12 @@ def attack_problem(state: GameState, card: CardInstance, ch: Characteristics) ->
     if state.rules is not None and any(e[0] == state.turn.number and e[1] == card.controller and state.rules.object_id(card.id) not in e[2] for e in state.rules.attack_piles):
         return f"{ch.name} is not in the pile chosen (700.3)"  # -- piles (wave 53D) -- Fight or Flight
     if "haste" not in ch.keywords and "attack_as_haste" not in rules and summoning_sick(state, card):  # (wave 100F: "can attack as though it had haste", 302.6)
-        return f"{ch.name} has summoning sickness"
+        from app.rules import (
+            wave110k_cards,  # -- (wave 110K) -- Frenzied Saddlebrute: haste against some players only (the target is checked as it is declared)
+        )
+
+        if info is None or not wave110k_cards.sick_may_attack(state, card, info):
+            return f"{ch.name} has summoning sickness"
     return None
 
 
@@ -345,7 +350,7 @@ def start_declare_attackers(plan: Plan) -> None:
     r.combat_round = ""
     ap = plan.active
     eligible = [cid for cid in plan.state.zones.get(zone_key(ap, "battlefield"), [])
-                if attack_problem(plan.state, plan.state.cards[cid], plan.ch(plan.state.cards[cid])) is None]
+                if attack_problem(plan.state, plan.state.cards[cid], plan.ch(plan.state.cards[cid]), plan.info) is None]
     targets = attack_targets(plan.state, ap, plan.info)
     if not eligible or not targets:
         r.no_attackers = True
@@ -370,7 +375,7 @@ def declare_attackers(plan: Plan, a: A.DeclareAttackers) -> None:
         locked = M.parse_cost(plan.locked_cost or "{0}")
         plan.locked_cost = None
         eligible = {cid for cid in plan.state.zones.get(zone_key(plan.active, "battlefield"), [])
-                    if attack_problem(plan.state, plan.state.cards[cid], plan.ch(plan.state.cards[cid])) is None}
+                    if attack_problem(plan.state, plan.state.cards[cid], plan.ch(plan.state.cards[cid]), plan.info) is None}
         targets = set(attack_targets(plan.state, plan.active, plan.info))
     else:
         if d is None or d.kind != "declare_attackers":
@@ -385,13 +390,17 @@ def declare_attackers(plan: Plan, a: A.DeclareAttackers) -> None:
         card = plan.state.cards.get(decl.card_id)
         if decl.card_id not in eligible or card is None:
             raise ActionError("That creature can't attack now")
-        problem = attack_problem(plan.state, card, plan.ch(card))
+        problem = attack_problem(plan.state, card, plan.ch(card), plan.info)
         if problem:
             raise ActionError(problem)
         if decl.target not in targets or decl.target not in current_targets:
             raise ActionError(f"{card.name} can't attack that")
         if attack_forbidden(plan, plan.ch(card), decl.target):  # -- attached events (wave 4L) -- (508.1c)
             raise ActionError(f"{card.name} can't attack {_label(plan.state, decl.target)}")
+        from app.rules import wave110k_cards  # -- (wave 110K) -- Frenzied Saddlebrute
+
+        if not wave110k_cards.sick_target_ok(plan, card, plan.ch(card), decl.target):
+            raise ActionError(f"{card.name} has summoning sickness and can't attack that")
         if "attack_needs_island" in scripts.statics(plan.ch(card)):
             defender = decl.target if decl.target in plan.state.players else \
                 defender_of(plan.state, A.AttackTarget(kind="card", id=decl.target))
@@ -431,7 +440,7 @@ def declare_attackers(plan: Plan, a: A.DeclareAttackers) -> None:
         for cid in eligible - seen:
             card = plan.state.cards.get(cid)
             if card is not None and "must_attack" in scripts.statics(plan.ch(card)) and \
-                    attack_problem(plan.state, card, plan.ch(card)) is None and \
+                    attack_problem(plan.state, card, plan.ch(card), plan.info) is None and \
                     any(not _closed(plan, plan.ch(card), t, card) for t in targets):  # (wave 4L: 508.1d; wave 5C: costs)
                 raise ActionError(f"{card.name} attacks each combat if able")
         goad_problem = goad_requirements(plan, eligible, targets, {x.card_id: x.target for x in a.attackers})
@@ -611,7 +620,7 @@ def _required_places(plan: Plan, eligible: set[str], targets: set[str], declared
         from app.rules import attack_requirements
 
         if not (attack_requirements.counts(ch) or goaded_by(ch)) \
-                or attack_problem(plan.state, card, ch):
+                or attack_problem(plan.state, card, ch, plan.info):
             continue
         if "cant_attack_alone" in st and len(eligible) == 1:
             continue
@@ -645,7 +654,7 @@ def goad_requirements(plan: Plan, eligible: set[str], targets: set[str], declare
         wants = combat_rules.attack_players(ch) & live  # -- casting extras (wave 18E) -- encore: attacks that player if able
         from app.rules import attack_requirements
 
-        if not (goaders or others_only or wants or attack_requirements.counts(ch)) or attack_problem(plan.state, card, ch) is not None:
+        if not (goaders or others_only or wants or attack_requirements.counts(ch)) or attack_problem(plan.state, card, ch, plan.info) is not None:
             continue
         st = scripts.statics(ch)
         if "cant_attack_alone" in st and len(eligible) == 1:

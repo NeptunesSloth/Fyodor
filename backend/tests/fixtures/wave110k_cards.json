@@ -254,5 +254,24 @@
 "U"
 ],
 "keywords": []
+},
+{
+"name": "Frenzied Saddlebrute",
+"layout": "normal",
+"mana_cost": "{4}{R}",
+"cmc": 5.0,
+"type_line": "Creature — Orc Warrior",
+"oracle_text": "Haste\nAll creatures can attack your opponents and planeswalkers your opponents control as though those creatures had haste.",
+"power": "5",
+"toughness": "4",
+"colors": [
+"R"
+],
+"color_identity": [
+"R"
+],
+"keywords": [
+"Haste"
+]
 }
 ]

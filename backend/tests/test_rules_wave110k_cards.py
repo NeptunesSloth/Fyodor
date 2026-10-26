@@ -12,6 +12,7 @@
   doesn't save it; without the ability the shield does.
 * 113.6m: Skyblade's Boon returns itself to its owner's hand from the battlefield (the Aura leaves its creature) or from its owner's graveyard, and from nowhere else.
 * 611.2b: Old Man of the Sea keeps a creature (power at most his) while he stays tapped and its power stays at most his; he may skip untapping (502.3).
+* 302.6, 508.1: Frenzied Saddlebrute lets every summoning-sick creature attack the opponents of its controller (and their planeswalkers), no one else.
 * 602.2b, 118.3: Bullseye, Death Dealer's activation cost is a choice announced with the activation: sacrifice an artifact or discard a nonland card.
 """
 
@@ -22,7 +23,7 @@ import pytest
 from app.game.errors import ActionError
 from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act
-from tests.wave9c_kit import build, life
+from tests.wave9c_kit import build, life, put
 from tests.wave47b_kit import build3
 from tests.wave110k_kit import (  # noqa: F401
     EXTRA,
@@ -479,4 +480,70 @@ def test_old_man_loses_it_when_he_leaves(cards):
     activate(s, man, "{T}", targets=[bears.id])
     move(s, man, "graveyard")
     assert now(s, bears).controller == "p2"
+    check(s)
+
+
+# -- Frenzied Saddlebrute --
+def test_frenzied_saddlebrute_is_full():
+    assert full("Frenzied Saddlebrute")
+
+
+def _to_attackers(s, pid):
+    for _ in range(40):
+        d = s.state.rules.decision
+        if d is not None and d.kind == "declare_attackers" and d.player == pid:
+            return d
+        act(s, s.state.rules.priority, type="pass_priority") if d is None else act(
+            s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: max(1, d.min_choices)])
+    raise AssertionError("no attack declaration")
+
+
+def test_saddlebrute_lets_every_new_creature_attack_its_controllers_opponents(cards):
+    s = build3(cards, ["Frenzied Saddlebrute", "Grizzly Bears"], ["Grizzly Bears"])
+    put(s, "Frenzied Saddlebrute")
+    mine = put(s, "Grizzly Bears")  # just entered: summoning-sick
+    _to_attackers(s, "p1")
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": mine.id, "target": "p2"}])
+    check(s)
+
+
+def test_a_sick_creature_cant_attack_without_the_saddlebrute(cards):
+    s = build3(cards, ["Grizzly Bears"])
+    put(s, "Grizzly Bears")
+    act(s, "p1", type="pass_priority")  # on from the first main phase: no creature can attack, so there is no declaration
+    assert s.state.turn.number == 1 and s.state.rules.decision is None and s.state.turn.phase != "declare_attackers"
+    check(s)
+
+
+@pytest.mark.parametrize(("target", "legal"), [("p3", True), ("p1", False)])
+def test_an_opponents_sick_creature_attacks_only_the_saddlebrutes_other_opponents(cards, target, legal):
+    s = build3(cards, ["Frenzied Saddlebrute"], ["Grizzly Bears"])
+    put(s, "Frenzied Saddlebrute")
+    to_phase(s, "main1", turn=2)
+    sick = put(s, "Grizzly Bears", "p2")
+    _to_attackers(s, "p2")
+    declare = {"card_id": sick.id, "target": target}
+    if legal:
+        act(s, "p2", type="declare_attackers", attackers=[declare])
+    else:
+        with pytest.raises(ActionError):
+            act(s, "p2", type="declare_attackers", attackers=[declare])
+    check(s)
+
+
+@pytest.mark.parametrize(("walker_of", "legal"), [("p3", True), ("p1", False)])
+def test_an_opponents_sick_creature_attacks_the_saddlebrute_opponents_planeswalkers_only(cards, walker_of, legal):
+    s = build3(cards, ["Frenzied Saddlebrute", "Teferi, Timeless Voyager"], ["Grizzly Bears"], ["Teferi, Timeless Voyager"])
+    put(s, "Frenzied Saddlebrute")
+    walker = put(s, "Teferi, Timeless Voyager", walker_of)
+    act(s, walker_of, type="counter", card_ids=[walker.id], kind="loyalty", delta=4)  # (a card moved in has no loyalty counters: 704.5i)
+    to_phase(s, "main1", turn=2)
+    sick = put(s, "Grizzly Bears", "p2")
+    _to_attackers(s, "p2")
+    declare = {"card_id": sick.id, "target": walker.id}
+    if legal:
+        act(s, "p2", type="declare_attackers", attackers=[declare])
+    else:
+        with pytest.raises(ActionError):
+            act(s, "p2", type="declare_attackers", attackers=[declare])
     check(s)

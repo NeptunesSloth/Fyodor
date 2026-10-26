@@ -244,6 +244,7 @@ _BUILD: dict[str, tuple[str, Any]] = {
 }
 
 
+_SADDLEBRUTE = "All creatures can attack your opponents and planeswalkers your opponents control as though those creatures had haste."
 _NO_REGEN_DAMAGED = "Creatures dealt damage by this creature this turn can't be regenerated this turn."
 
 
@@ -252,6 +253,8 @@ def definition(ability: Any, ch: Any) -> Def | None:
 
     from app.rules import scripts
 
+    if ability.text.strip() == _SADDLEBRUTE:  # read by combat.attack_problem / declare_attackers through sick_may_attack and sick_target_ok
+        return {"kind": "static", "static": "saddlebrute110k", "effects": []}
     if ability.text.strip() == f"{{2}}{{W}}: Return {ch.name} to its owner's hand. Activate only if {ch.name} is on the battlefield or in your graveyard." \
             and ch.name == "Skyblade's Boon":
         # costs.battlefield_too110k (casting.ability_cost, ability_problem): either zone; the effect moves it from whichever it is in
@@ -294,3 +297,37 @@ def old_man_kept(plan: Any, effect: Any) -> list[str]:
         if held is not None and (sba.power(held, plan.ch(held)) or 0) <= (limit or 0):
             kept.append(oid)
     return kept
+
+
+def _saddlebrutes(state: Any, info: Any) -> list[str]:
+    """The controllers of battlefield permanents with Frenzied Saddlebrute's static."""
+    from app.rules import characteristics as chars
+    from app.rules import scripts
+
+    return [c.controller for c in state.cards.values() if c.zone.endswith(":battlefield") and not c.phased_indirect
+            and any(d.get("static") == "saddlebrute110k" for d in scripts.definitions(chars.of(c, info)).values())]
+
+
+def sick_may_attack(state: Any, card: Any, info: Any) -> bool:
+    """302.6, 508.1: a summoning-sick creature is still declared as an attacker when a Saddlebrute's controller has an opponent it could attack (the
+    declared target is then checked by sick_target_ok)."""
+    from app.rules.plan import live_players
+
+    players = live_players(state)
+    return any(p != card.controller and p != boss for boss in _saddlebrutes(state, info) for p in players)
+
+
+def sick_target_ok(plan: Any, card: Any, ch: Any, target: str) -> bool:
+    """A creature without haste (and not summoning-sick) attacks anything; a sick one only a player who is an opponent of a Saddlebrute's controller, or a
+    planeswalker such an opponent controls."""
+    from app.rules.casting import summoning_sick
+
+    if "haste" in ch.keywords or not summoning_sick(plan.state, card):
+        return True
+    from app.rules import scripts
+
+    if "attack_as_haste" in scripts.statics(ch):
+        return True
+    owner = target if target in plan.state.players else plan.state.cards[target].controller if target in plan.state.cards \
+        and "Planeswalker" in plan.ch(plan.state.cards[target]).types else None
+    return owner is not None and any(owner != boss for boss in _saddlebrutes(plan.state, plan.info))
