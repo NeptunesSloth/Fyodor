@@ -1866,6 +1866,9 @@ effects.replace.THEN["draw_step"] = lambda plan, then: triggers.at_step_generic(
 from app.rules import delegated_target_announcements as _delegated_target_announcements  # noqa: E402
 
 RESUME.update(_delegated_target_announcements.RESUME)
+from app.rules import wave110d_volc as _wave110d_volc  # noqa: E402
+
+RESUME.update(_wave110d_volc.RESUME)
 
 from app.rules import numeric_roll_finalization42 as _numeric_roll_finalization42  # noqa: E402, I001
 
