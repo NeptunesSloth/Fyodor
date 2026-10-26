@@ -47,6 +47,9 @@ EXTRA = [
          "oracle_text": "Gain control of target permanent until end of turn. Untap it. It gains haste until end of turn.\nFuse (You may cast one or both halves of this card from your hand)."},
         {"name": "Release", "mana_cost": "{4}{R}{W}", "type_line": "Sorcery",
          "oracle_text": "Each player sacrifices an artifact, a creature, an enchantment, a land, and a planeswalker of their choice.\nFuse (You may cast one or both halves of this card from your hand)."}]},
+    real('Hallar, the Firefletcher', '{1}{R}{G}', 3, 'Legendary Creature — Elf Archer',
+         "Trample\nWhenever you cast a spell, if that spell was kicked, put a +1/+1 counter on Hallar, then Hallar deals damage equal to the number of +1/+1 counters on it to each opponent.", ('3', '3'), 'RG'),
+    real('Test Kicker 110F', '{G}', 1, 'Sorcery', "Kicker {1}\nYou gain 1 life.", None, 'G'),
     real('Heat Wave', '{1}{R}{R}', 3, 'Enchantment',
          "Cumulative upkeep {R} (At the beginning of your upkeep, put an age counter on this permanent, then sacrifice it unless you pay its upkeep cost for each age counter on it.)\nBlue creatures can't block creatures you control.\nNonblue creatures can't block creatures you control unless their controller pays 1 life for each blocking creature they control.", None, 'R'),
 ]
@@ -208,3 +211,37 @@ def test_heat_wave_makes_each_nonblue_blocker_cost_one_life(cards, wave, blocker
     answer(s)
     assert life(s, "p2") == 40 - (blockers if wave else 0)
     check(s)
+
+
+@pytest.mark.parametrize("spell,kicker,damage", [("Taste of Paradise", 2, 0), ("Test Kicker 110F", 1, 1)])
+def test_paying_any_number_of_times_is_not_kicked(cards, spell, kicker, damage):
+    """702.33c vs 702.33d: Taste's repeated payment is not kicker, so Hallar's "if that spell was kicked" is false; a real kicked spell triggers it."""
+    s = build(cards, ["Hallar, the Firefletcher", spell])
+    put(s, "Hallar, the Firefletcher")
+    mana(s, "p1", G=2 + kicker, C=2 + kicker)
+    cast(s, spell, kicker=kicker)
+    answer(s)
+    assert life(s, "p2") == 40 - damage
+    check(s)
+
+
+@pytest.mark.parametrize("life_total,blockers,legal", [(1, 2, False), (2, 2, True), (1, 1, True)])
+def test_heat_wave_a_player_who_cannot_pay_the_life_cannot_block(cards, life_total, blockers, legal):
+    """119.4: life can be paid only with at least that much life, so 2 blockers cost more than 1 life (509.1d); paying exactly all of it is allowed."""
+    s = build(cards, ["Heat Wave", "Test Golem 110F"], ["Grizzly Bears", "Grizzly Bears"])
+    put(s, "Heat Wave")
+    golem = put(s, "Test Golem 110F")
+    ready(s, "Test Golem 110F")
+    first = put(s, "Grizzly Bears", "p2")
+    second = next(c for c in s.state.cards.values() if c.name == "Grizzly Bears" and c.owner == "p2" and c.zone == "p2:library")
+    act(s, "p2", type="move", card_ids=[second.id], to={"player": "p2", "zone": "battlefield"})
+    act(s, "p2", type="set_life", player="p2", value=life_total)
+    attack(s, golem)
+    pairs = [(b, golem) for b in (first, second)[:blockers]]
+    if legal:
+        block(s, *pairs)
+        assert life(s, "p2") == life_total - blockers
+    else:
+        with pytest.raises(ActionError):
+            block(s, *pairs)
+        assert life(s, "p2") == life_total

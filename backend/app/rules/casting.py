@@ -1732,7 +1732,7 @@ def _pay_spell(plan: Plan, a: A.CastSpell, card: CardInstance, ch: Characteristi
     spell_ch = replace(ch, mana_value=ch.mana_value + (a.x_value or 0) * ch.mana_cost.count("{X}")) if a.x_value else ch
     kick = kicker_cost(ch.abilities) if a.kicker else None  # (an entwined spell isn't kicked: review 18E)
     purpose = Purpose(spell=spell_ch, zone=origin or card.zone, player=player,
-                      kicked=bool(a.kicker) and not (kick is not None and kick.entwine), own=card.owner == player,
+                      kicked=bool(a.kicker) and not (kick is not None and (kick.entwine or kick.anytimes)), own=card.owner == player,
                       x_payment=x_payment, **(payment_context or {}))
     if a.contributions:
         helpers = helpers_for(plan.state, player, plan.info, ch, card.id, [c.model_dump() for c in a.contributions])
@@ -4130,7 +4130,7 @@ def _post_cast(plan: Plan, data: _PostCast, payment: M.Payment | None) -> None:
         if alt_offer.once_key:
             plan.rules.once_per_turn[alt_offer.once_key] = plan.state.turn.number  # ("once each turn")
         plan.note(f"{plan.name(plan.actor)} cast {ch.name} for an alternative cost ({alt_offer.label})", [card.id])
-    record.additional = (["buyback"] if a.buyback else []) + (["entwine"] if entwined else ["kicker"] if a.kicker else []) \
+    record.additional = (["buyback"] if a.buyback else []) + (["entwine"] if entwined else ["kicker"] + (["anytimes"] if (ak := kicker_cost(ch.abilities)) is not None and ak.anytimes else []) if a.kicker else []) \
         + [f"optional:{o.source}" for o in optional]  # (wave 4I: Defiler of Vigor's life)
     record.prototyped = a.prototype  # -- casting extras (wave 18E) -- 718.3b
     record.kicked_mask = kick_mask(ch, a.kicker)  # (-- keywords (wave 50H) -- "kicked with its {R} kicker", 702.33f)
