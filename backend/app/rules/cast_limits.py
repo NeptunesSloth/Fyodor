@@ -692,10 +692,14 @@ def turn_began(plan: Plan, skipped: list[tuple[str, int]] | None = None) -> None
         if x.get("until") == "their_next100a" and x.get("during") is None and x.get("player") == active and turn > int(x.get("turn") or 0):
             x["during"] = turn
     r.cast_limits = [x for x in r.cast_limits if not (x.get("until") == "their_next100a" and x.get("during") is not None and x["during"] != turn)]
+    old110i = r.cast_limits
     r.cast_limits = [x for x in r.cast_limits if not (x.get("until") == "next_turn" and any(
         x.get("controller") == p and n > int(x.get("turn") or 0) for p, n in ended))
         and not (x.get("until") == "end_of_next_turn" and any(x.get("controller") == p and n > int(x.get("turn") or 0) for p, n in skipped or ()))  # (wave 32C)
         and not (x.get("until") == "turn" and x.get("turn") != turn)]
+    for x in old110i:  # -- cards (wave 110I) -- the reveal lasts as long as the ban (Firestorm Phoenix)
+        if x.get("reveal110i") and x not in r.cast_limits and (k := plan.state.cards.get(x["reveal110i"])) is not None and plan.oid(k) == x["obj110i"]:
+            plan.do({"type": "hide", "card_ids": [k.id]}, actor=k.owner)
     # -- durations (wave 30M) -- "Until your next turn, you may play that card / cast … as though … had flash": a permission (500.4, 800.4m)
     r.permissions = [p for p in r.permissions if not (p.until == "next_turn" and any((p.until_player or p.player) == pl and n > p.turn for pl, n in ended))]
     from app.rules import life_lock, player_shields
@@ -719,7 +723,7 @@ _KINDS = ("cant_cycle", "hexproof_targeting", "cast_limit", "activate_as_haste",
           "cant_enter", "cant_counters", "cant_remove_counters", "cant_play_lands", "cant_pay", "cant_cause_sacrifice", "cant_search", "search_top", "draw_cap", "cant_target", "cant_play_gy_lands",  # (wave 22B: app/rules/prohibitions.py; 43B: Aven Mindcensor)
           "zone_grant",  # (wave 25A: app/rules/zone_grants.py)
           "life_lock",  # (wave 29D: app/rules/life_lock.py)
-          "rad_gain", "venture_limit", "first_alt", "spell_replicate110a")  # (wave 44C: app/rules/designations.py; 45B: Keen-Eared Sentry)
+          "rad_gain", "venture_limit", "first_alt", "spell_replicate110a", "counter_cap110j")  # (wave 44C: app/rules/designations.py; 45B: Keen-Eared Sentry)
 
 
 def _scan(state: GameState, info: CardInfo) -> list[tuple[str, int, Definition]]:
@@ -809,6 +813,9 @@ def _when_ok(state: GameState, when: str | None, controller: str, player: str | 
     if when == "attacked110a":  # -- wave 110A -- Angelic Arbiter: the player declared attackers this turn (508.1)
         log = state.rules.turn_log if state.rules is not None else None
         return player is not None and log is not None and log.turn == state.turn.number and player in log.attacked
+    if when == "attacked_me110c":  # -- wave 110C -- Midnight Crusader Shuttle: the player attacked the source's controller or a planeswalker they control this turn
+        log = state.rules.turn_log if state.rules is not None else None
+        return player is not None and log is not None and log.turn == state.turn.number and player in log.attacked_at110c.get(controller, [])
     return True
 
 
@@ -823,6 +830,8 @@ def _cast_hit(state: GameState, player: str, card: CardInstance, ch: Characteris
     """Does this limit forbid ``player`` casting this card as this spell now (``resolving``: as something resolves; ``x``: the X announced)?"""
     if d.get("spells") is False:
         return False
+    if d.get("obj110i"):  # -- cards (wave 110I) -- Firestorm Phoenix: this one card (object), nothing else
+        return state.rules is not None and state.rules.object_id(card.id) == d["obj110i"]
     if d.get("more110a"):  # -- wave 110A -- Ward of Bones: only while the player controls more permanents of the cast spell's type than the source's controller
         from app.rules import wave110a_spells
 

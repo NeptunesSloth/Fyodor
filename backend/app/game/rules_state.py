@@ -404,6 +404,7 @@ EventKind = Literal[
     "player_counters",  # poison, energy, experience, rad, tickets … (amount signed)
     "tapped",
     "untapped",
+    "trained",  # -- trains (wave 110G) -- 702.149c: a resolving training ability put +1/+1 counters on ``card``
     "evolved",  # An evolve keyword ability actually put one or more +1/+1 counters.
     "exerted",  # 701.43: the player exerted this permanent
     "spell_cast",  # a player cast a spell (the object is the spell on the stack)
@@ -417,6 +418,7 @@ EventKind = Literal[
     "drew",  # a player drew a card (121.2: one event per card)
     "crewed",
     "crew_tapped",  # -- crew & saddle (wave 23D) -- 702.122b: a creature (``object_id``) tapped to pay the crew cost of ``by_card`` (``source``)
+    "teamwork_tapped110j",  # -- (wave 110J) -- 702.194a: a creature (``object_id``) tapped to pay a teamwork cost (Agent Maria Hill)
     "saddle_tapped",  # 702.171c: likewise for a saddle ability
     "saddled",  # 702.171b: ``card`` became saddled
     "exploited",  # -- keyword triggers (wave 23D) -- 702.110b: ``card`` (object ``object_id``) was sacrificed to exploit ``by_card`` (``source``: its object)
@@ -442,6 +444,7 @@ class Event(BaseModel):
     simultaneously (destroy all creatures is one batch of zone changes, not N)."""
 
     non_discard: bool = False  # This native zone change was explicitly not a discard.
+    mana_colors110i: list[str] = Field(default_factory=list)  # -- cards (wave 110I) -- a ``mana_added`` "tap" event: the colors (WUBRG) of the mana produced
     fighters90: list[ObjectSnapshot] = Field(default_factory=list)  # Exact native fight cohort before damage.
     crew_count80: int | None = None  # Native crew activation payment cardinality; unknown in old saves.
     loss_watchers: list[ObjectSnapshot] = Field(default_factory=list)
@@ -462,6 +465,7 @@ class Event(BaseModel):
     card: str | None = None
     player: str | None = None  # the player affected (life, player counters, damage to a player)
     source: str | None = None  # the source object's id, when known
+    cause110m: str | None = None  # (wave 110M) a life gain: the spell (card id) whose resolution or lifelink caused it
     from_zone: str | None = None
     to_zone: str | None = None
     amount: int = 0
@@ -481,6 +485,7 @@ class Event(BaseModel):
     sides: int = 0
     source_targets: list[str] | None = None  # -- trigger damage (wave 110C) -- a ``damage`` event: the targets of the spell dealing it (115.9c), None for any other source
     pair110c: str | None = None  # -- soulbond (wave 110C) -- a ``damage`` event: the object paired with the damaged one when it was dealt (603.2: judged as the event happens)
+    cause110g: str | None = None  # -- wave 110G -- a zone change: controller of the resolving spell or ability that moved it (SBA and rules: None)
     excess: int = 0  # -- trigger damage (wave 39B) -- a ``damage`` event: the excess damage (120.10) the batch dealt to the permanent, on its first event
 
 
@@ -544,6 +549,7 @@ class Entry(BaseModel):
     # -- trigger other (wave 51E) -- the object whose effect put it onto the battlefield (Kodama of the East Tree: "if it wasn't put onto the battlefield with
     # this ability"); None: nobody's, or an older save
     via: str | None = Field(default=None, max_length=80)
+    token110e: bool = False  # -- history (wave 110E) -- a token (111.1): "put a nontoken permanent onto the battlefield" (Arboria)
     face_down110b: bool = False  # -- history (wave 110B) -- it entered face down (708.2: "entered the battlefield face down this turn", Oblivious Bookworm)
 # -- end refused modal/conditional (wave 3R1) --
 
@@ -615,6 +621,7 @@ class CompletedOwnTurn(BaseModel):
     turn: int
     attackers: list[str] = Field(default_factory=list)
     attacked_players: list[str] = Field(default_factory=list)
+    acted110e: bool = False  # -- (wave 110E) -- cast a spell or put a nontoken permanent onto the battlefield that turn (Arboria); an older save: False
 
 
 class TurnLog(BaseModel):
@@ -628,6 +635,9 @@ class TurnLog(BaseModel):
     combat_damage95_known: bool | None = None  # Complete native current-turn damage history; None is legacy.
     fight_history90_known: bool | None = None  # Legacy missing current-turn fight history is unknown.
     fought90: list[str] = Field(default_factory=list)  # Original objects that actually fought this turn.
+    mirror110b: list[str] = Field(default_factory=list)  # Chosen creatures of Mystic Reflection waiting for "the next time one or more creatures or planeswalkers enter this turn".
+    mirror_open110b: str = ""  # "<rules.batch>|<chosen id>": the effect being used by the entry event of that batch (previews of each card see the same one).
+    mirror_late110b: list[str] = Field(default_factory=list)  # "card id|chosen id": used up, applied after the card's own "may enter as a copy" declined.
     lose_shield110b: list[str] = Field(default_factory=list)  # "pid|card id" of "the next time you would lose the game this turn, instead ..." (Stunning Reversal).
     turned_up_by110b: list[str] = Field(default_factory=list)  # Players who turned a permanent face up this turn (Oblivious Bookworm).
     turned_up110f: list[str] = Field(default_factory=list)  # Objects turned face up this turn (708.8: the same object, "was turned face up this turn").
@@ -655,6 +665,7 @@ class TurnLog(BaseModel):
     drawn_applied: dict[str, list[str]] = Field(default_factory=dict)
     left: list[Departure] = Field(default_factory=list)
     left_graveyard: list[str] = Field(default_factory=list)  # the owner of each card that left a graveyard
+    left_graveyard_creature110o: list[str] = Field(default_factory=list)  # -- (wave 110O) -- the owner of each creature card that left a graveyard
     entered_graveyard: list[Arrival] = Field(default_factory=list)
     entered: list[Entry] = Field(default_factory=list)  # -- refused modal/conditional (wave 3R1) -- onto the battlefield
     # -- this-turn history (wave 4D; app/rules/history.py) --
@@ -663,6 +674,7 @@ class TurnLog(BaseModel):
     attackers: dict[str, list[str]] = Field(default_factory=dict)  # player -> creatures (objects) declared as attackers
     blockers: list[str] = Field(default_factory=list)  # -- combat state (wave 27A) -- creatures (objects) declared as blockers this turn (509.1g)
     blocks: dict[str, list[str]] = Field(default_factory=dict)  # -- combat history (wave 31D) -- blocker (object) -> the attackers (objects) it blocked this turn
+    attacked_at110c: dict[str, list[str]] = Field(default_factory=dict)  # -- wave 110C -- defending player (or a planeswalker's controller) -> players who attacked them this turn
     attacked_who: dict[str, list[str]] = Field(default_factory=dict)  # -- static_other sweep (wave 19A) -- attacker object -> players it attacked
     counters_removed110j: list[str] = Field(default_factory=list)  # -- (wave 110J) -- "<controller>:<kind>" per counter kind removed from a permanent this turn (122.1)
     gy_counters110j: list[str] = Field(default_factory=list)  # -- (wave 110J) -- counter kinds on permanents as they were put into a graveyard this turn (603.10a)
@@ -755,7 +767,7 @@ class ContinuousEffect(BaseModel):
     counter_since_batch: int = 0  # while-counter durations ignore earlier zero-counter events
     duration: Literal["end_of_turn", "permanent", "next_turn", "end_of_next_turn", "source_on_battlefield", "source_controlled",
                       "source_tapped", "source_controlled_tapped", "while_counter", "end_of_combat", "until_cast", "while_enchanted",
-                      "next_upkeep", "monarch_player", "attached110n"] = "end_of_turn"  # (next_upkeep: wave 100A, "until your next upkeep" — delayed.at_step)
+                      "next_upkeep", "monarch_player", "end_of_next_upkeep110g", "attached110n", "source_tapped_power110k", "while_attached110l", "creature_cast110m"] = "end_of_turn"  # (next_upkeep: wave 100A, "until your next upkeep" — delayed.at_step)
     until_object: str | None = None  # -- as long as (wave 37A) -- until_cast: the object (in exile) whose being cast ends the effect (delayed.spell_cast)
     counter: str | None = None  # while_counter: the kind of counter
     until_player: str | None = None  # next_turn: whose next turn; source_controlled: who must control the source
@@ -919,6 +931,7 @@ class TriggerEvent(BaseModel):
     attacked: ObjectRef | None = None
     # -- voting (wave 48D) -- 701.38: "Whenever players finish voting": the [voter, choice] of every vote of the voting that finished, as cast
     ballots: list[list[str]] = Field(default_factory=list)
+    combat_alone110g: str | None = None  # -- wave 110G -- a permanent that left: "attacking" / "blocking" when it was the only creature doing so (506.5), else None
 
 
 class RegenerationShield(BaseModel):
@@ -1073,6 +1086,7 @@ class CostContribution(BaseModel):
     pays: str = Field(max_length=8)  # "1" (one generic), "G", "W/U", "2/G", "G/P"
     card_types: list[str] | None = None  # Characteristics of the paid object; None in legacy saves.
     exiled_object_id: str | None = None  # Exact new exile incarnation for delve; absent in legacy saves.
+    keywords: list[str] | None = None  # -- (wave 110N) -- the exiled card's keywords as it was exiled (Soulflayer); None in older saves
 
 
 class MadnessFollowup(BaseModel):
@@ -1162,6 +1176,7 @@ class PaymentRecord(BaseModel):
     cast_modified_n110e: int = 0  # -- wave 110E -- how many modified creatures (700.9) the caster controlled as casting finished (Lethal Exploit)
     cast_revealed_subtypes: list[str] = Field(default_factory=list)  # Subtypes of cards revealed for this spell's cost.
     revealed: list[str] = Field(default_factory=list)  # -- static_other sweep (wave 17C) -- cards revealed from the hand to pay ("the revealed card's …")
+    unattached_ninja110j: bool = False  # -- wave 110J -- an Equipment the cost unattached was attached to a Ninja (Shuriken)
     beheld110a: dict[str, str] = Field(default_factory=dict)  # -- behold (wave 110A) -- card id -> object id of what the cost beheld (701.4a)
     exiled: list[str] = Field(default_factory=list)  # cards exiled to pay (from a graveyard, or the source)
     exiled_objects: list[str] = Field(default_factory=list)  # -- as long as (wave 37A) -- the objects they became in exile (400.7j: "this card" finds that one)
@@ -1433,6 +1448,9 @@ class WorldInterval80(BaseModel):
 
 
 class RulesState(BaseModel):
+    began_untapped110j: list[str] = Field(default_factory=list)  # (wave 110J) objects untapped on the battlefield as the turn began (Rasputin Dreamweaver)
+    stored_dice110m: dict[str, list[int]] = Field(default_factory=dict)  # (wave 110M) object id -> the d6 results stored on it (706.8a: Centaur of Attention)
+    tap_paid110n: list[list[str]] = Field(default_factory=list)  # (wave 110N) [turn, ability source object, creature tapped for its cost] this turn (Vodalian War Machine)
     began_lands110c: dict[str, int] = Field(default_factory=dict)  # (wave 110C) player -> untapped lands they controlled as their turn began (Power Surge)
     sticker_splits101: dict[str, str] = Field(default_factory=dict)  # Original permanent OID -> chosen physical component.
 
@@ -1519,6 +1537,7 @@ class RulesState(BaseModel):
     miracle_turn: dict[str, int] = Field(default_factory=dict)
     miracled: list[str] = Field(default_factory=list)
     drew_from_empty: list[str] = Field(default_factory=list)  # loses at the next state-based check
+    escape_grants110m: list[dict[str, Any]] = Field(default_factory=list)  # -- (wave 110M) -- "gains escape until end of turn" (Desdemona): the card's object id, its owner and the turn
     lose_shields110m: list[dict[str, Any]] = Field(default_factory=list)  # -- (wave 110M) -- "the next time you would lose the game this turn, instead ...": player, turn, source card and name
     deathtouched: list[str] = Field(default_factory=list)  # creatures dealt damage by a deathtouch source
     prevention: dict[str, int] = Field(default_factory=dict)  # player / object id -> damage to prevent this turn
@@ -1650,14 +1669,19 @@ class RulesState(BaseModel):
     # "hasn't dealt damage yet" (120.3: a source that dealt more than 0 damage: its oid, and "<oid>+combat" for combat damage)
     dealt_damage: list[str] = Field(default_factory=list)
     prepared: dict[str, str] = Field(default_factory=dict)  # -- prepared (wave 13C, 722.3) -- permanent's rules object -> its copy in exile
+    prepare_spells110o: list[str] = Field(default_factory=list)  # -- (wave 110O) -- 722.3d: the exiled copies that were cast ("a prepared spell")
     phase_lifetimes: list[PhaseLifetime] = Field(default_factory=list)
     phase_holds110k: list[PhaseHold110K] = Field(default_factory=list)  # -- wave 110K --
+    no_regen_sources110k: list[str] = Field(default_factory=list)  # -- wave 110K -- Runesword: the objects whose damage this turn makes a creature unable to regenerate
+    damaged_players110k: dict[str, list[str]] = Field(default_factory=dict)  # -- wave 110K -- source object -> the players it has dealt damage to (Diseased Vermin)
     damaged: dict[str, int] = Field(default_factory=dict)  # player -> last turn they were dealt damage (bloodthirst)
     echo_done: list[str] = Field(default_factory=list)  # "<object>:<controller>" whose echo upkeep came
     flashback: list[str] = Field(default_factory=list)  # stack objects cast with flashback (exiled as they leave)
     # Combat bookkeeping; the attack/block markers on the table are the visible truth.
     blocked: list[str] = Field(default_factory=list)  # attackers that became blocked (stay blocked)
     attacking_bands: list[list[str]] = Field(default_factory=list)  # CR 702.22: object IDs, fixed on declaration; pruned on leaving combat.
+    could_attack110g: list[str] = Field(default_factory=list)  # -- wave 110G -- objects that could be declared as attackers this turn (Season of the Witch), with the turn below
+    could_attack_turn110g: int = 0
     no_attackers: bool = False  # nobody attacked: skip blockers and damage (rule 508.8)
     blockers_pending: list[str] = Field(default_factory=list)  # defending players still to declare
     combat_round: Literal["", "first", "done"] = ""
@@ -1744,6 +1768,7 @@ class RulesState(BaseModel):
     color_words71: dict[str, list[ColorWordEntry71]] = Field(default_factory=dict)
     chosen_color_pairs: dict[str, ChosenColorPairReceipt] = Field(default_factory=dict)
     chosen_players: dict[str, str] = Field(default_factory=dict)
+    modes110f: dict[str, list[int]] = Field(default_factory=dict)  # (wave 110F) card id -> the modes an opponent chose for the spell being cast (700.2e)
     # -- wave 110A -- player -> ``next_object`` when their last turn ended ("entered since your last turn ended", selectors)
     chosen_objects: dict[str, str] = Field(default_factory=dict)  # -- wave 110A -- source card id -> the object it chose as it entered (wave110a_pick)
     turn_end_objects: dict[str, int] = Field(default_factory=dict)
@@ -1761,6 +1786,7 @@ class RulesState(BaseModel):
     next_spell_grants: list[NextSpellGrant] = Field(default_factory=list)  # -- spell grants (wave 28C) --
     source_hand_reveals79: list[SourceHandReveal79] = Field(default_factory=list)
     top_reveals: list[TopReveal] = Field(default_factory=list)
+    face_down_looks110l: list[dict[str, Any]] = Field(default_factory=list)  # -- (wave 110L) -- {"player", "turn"}: "Until end of turn, you may look at face-down creatures you don't control any time" (Lumbering Laundry)
     # -- conditional / instead clauses (wave 1B) --  this turn's and last turn's history (TurnLog)
     turn_log: TurnLog = Field(default_factory=TurnLog)
     last_turn_log: TurnLog | None = None
@@ -1770,6 +1796,7 @@ class RulesState(BaseModel):
     cast_history_complete: bool | None = None  # True only when automation observed the trusted fresh-game boundary.
     named_casts_game: dict[str, dict[str, int]] = Field(default_factory=dict)  # public names when actually cast, per player, across turns
     entry_life_losses: dict[str, int] = Field(default_factory=dict)  # exact source incarnation / entry ability -> actual life lost
+    cause110g: str | None = None  # transient: the controller of the effect whose step is being applied (Plan.do sets it)
     entry_life_origins: list[str] = Field(default_factory=list)  # automatic entries observed with entry-life bookkeeping available
     entry_life_notices: list[str] = Field(default_factory=list)  # legacy source/ability keys already reported as unknown
     # -- replacement effects stage 2 (wave 2E; app/rules/replace.py) --
@@ -1777,6 +1804,11 @@ class RulesState(BaseModel):
     # they're drawn (for "except the first one they draw in each of their draw steps", 504.1).
     replace_step_key: str = ""
     replace_step_draws: dict[str, int] = Field(default_factory=dict)
+    # -- draws (wave 110C) -- "The first time you would draw a card each turn": draw events seen per player in the turn ``would_draw_turn`` (121.6, 614.11)
+    proctor_links110c: dict[str, str] = Field(default_factory=dict)  # (wave 110C) Strict Proctor: a trigger's id (as it triggered) -> its stack object, once put
+    named_cycles110c: dict[str, dict[str, int]] = Field(default_factory=dict)  # (wave 110C) Yidaro: cards cycled this game, by player and normalized name
+    would_draw_turn: int = -1
+    would_draw: dict[str, int] = Field(default_factory=dict)
     # -- counters & designations (wave 3E; app/rules/designations.py) --
     # 309.2a / 309.4: each player's dungeon card in the command zone and the room their venture marker is on
     dungeons: dict[str, DungeonMark] = Field(default_factory=dict)
@@ -1976,6 +2008,8 @@ def emit(state: GameState, kind: EventKind, **fields: Any) -> None:
     rules = state.rules
     if rules is None:
         return
+    if kind == "zone_change" and rules.cause110g is not None:
+        fields.setdefault("cause110g", rules.cause110g)
     rules.events.append(Event(batch=rules.batch + 1, kind=kind, turn=state.turn.number, **fields))
     if kind == "turned_face_up" and (up_log110f := turn_log_now(state)) is not None and fields.get("object_id"):
         up_log110f.turned_up110f = list(dict.fromkeys([*up_log110f.turned_up110f, fields["object_id"]]))
@@ -2012,7 +2046,8 @@ def complete_own_turn(state: GameState) -> None:
         return
     objects = list(dict.fromkeys(o for ids in log.attackers.values() for o in ids))
     targets = list(dict.fromkeys(p for o in log.attackers.get(player, ()) for p in log.attacked_who.get(o, ())))
-    rules.completed_own_turns[player] = CompletedOwnTurn(turn=log.turn, attackers=objects, attacked_players=targets)
+    acted = any(c.player == player for c in log.casts) or any(e.controller == player and not e.token110e for e in log.entered)
+    rules.completed_own_turns[player] = CompletedOwnTurn(turn=log.turn, attackers=objects, attacked_players=targets, acted110e=acted)
     if player not in rules.own_turn_history_known:
         rules.own_turn_history_known.append(player)
 
@@ -2065,6 +2100,16 @@ def note_attack(state: GameState, player: str, attackers: list[str] | None = Non
         for a, t in zip(attackers, targets or (), strict=True):  # -- static_other sweep (wave 19A) -- 508.1c: "a player it has already attacked"
             if t in state.players and t not in log.attacked_who.setdefault(a, []):
                 log.attacked_who[a].append(t)
+
+    for t in targets or ():  # -- wave 110C -- 506.3: a player, or the controller of a planeswalker attacked (Midnight Crusader Shuttle); a battle's protector is not "you"
+        if t in state.players:
+            owner: str | None = t
+        else:
+            from app.rules import battles
+
+            owner = state.cards[t].controller if t in state.cards and battles.protector(state, state.cards[t]) is None else None
+        if log is not None and owner is not None and player not in log.attacked_at110c.setdefault(owner, []):
+            log.attacked_at110c[owner].append(player)
 
     if state.rules is not None and state.rules.combat_memory is not None:
         from app.rules import last_combat_receipts44
@@ -2281,6 +2326,8 @@ def _diff(state: GameState, rules: RulesState, before: Capture, manual: bool, ac
                                           types=before.types.get(card_id)))
         elif old_name == "graveyard" and (log := turn_log_now(state)) is not None:
             log.left_graveyard.append(old_zone.split(":")[0])  # (a zone key is "<owner>:graveyard")
+            if "Creature" in (before.types.get(card_id) or ()):  # -- (wave 110O) -- Plan.do records the types of a graveyard card it moves
+                log.left_graveyard_creature110o.append(old_zone.split(":")[0])
         if old_name == "battlefield" and new_name == "graveyard" and snap is not None and snap.counters and (log := turn_log_now(state)) is not None:
             log.gy_counters110j.extend(k for k, n in snap.counters.items() if n > 0)  # -- (wave 110J) -- "a permanent with an oil counter on it was put into a graveyard"
         if new_name == "graveyard" and new_zone and card is not None and card.card_id is not None \
@@ -2292,7 +2339,7 @@ def _diff(state: GameState, rules: RulesState, before: Capture, manual: bool, ac
             if not manual:
                 rules.entry_life_origins.append(new_oid)
             log.entered.append(Entry(card=card_id, object_id=new_oid, controller=card.controller,
-                                     tapped=card.tapped, from_zone=old_zone, face_down110b=bool(card.face_down)))  # (-- entry forms (wave 5F) --; wave 22E: from_zone)
+                                     tapped=card.tapped, from_zone=old_zone, face_down110b=bool(card.face_down), token110e=card.is_token))  # (-- entry forms (wave 5F) --; wave 22E: from_zone)
         if old_name == "battlefield" and snap is not None and (snap.attached_to or snap.attached_player):
             _attach_event(state, "unattached", card_id, old_oid, snap.attached_to, snap.attached_player, before.snaps)  # -- attachment events (wave 30S) -- 701.3d
         emit(state, "zone_change", object_id=old_oid, new_object_id=new_oid, card=card_id,
@@ -2316,7 +2363,7 @@ def _diff(state: GameState, rules: RulesState, before: Capture, manual: bool, ac
                 if not manual:
                     rules.entry_life_origins.append(rules.object_id(card_id))
                 log.entered.append(Entry(card=card_id, object_id=rules.object_id(card_id), controller=card.controller,
-                                         tapped=card.tapped, face_down110b=bool(card.face_down)))  # (-- entry forms (wave 5F) --)
+                                         tapped=card.tapped, face_down110b=bool(card.face_down), token110e=card.is_token))  # (-- entry forms (wave 5F) --)
     for card_id, snap in before.snaps.items():
         card = state.cards.get(card_id)
         if card is None or card.zone != snap.zone:

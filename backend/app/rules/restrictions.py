@@ -223,7 +223,9 @@ def _condition(text: str) -> dict[str, Any] | None:
 
     if (own100i := activated100i.condition(text)) is not None:
         return own100i
-    from app.rules import conditions, selectors
+    from app.rules import conditions, selectors, wave110n_cards  # -- (wave 110N) -- Jace, Reality Sculptor
+    if (own110n := wave110n_cards.restriction_condition(text)) is not None:
+        return own110n
     if text == "you're attacking two or more opponents":  # -- zones (wave 100G) -- Nemesis Phoenix: the players creatures you control attack (506.2, values.players_attacked)
         return {'value': {'players_attacked': 1, 'by': 'you'}, 'op': '>=', 'n': 2}
     if text == 'it has no time counters on it':

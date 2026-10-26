@@ -21,6 +21,10 @@ def requirements(cost: M.ManaCost, mode: str | None = None) -> RequirementPlan:
     def matches(symbols: tuple[str, ...]) -> tuple[str, ...]:
         if mode == 'white_red' and 'R' in symbols:
             return tuple(dict.fromkeys((*symbols, 'W')))
+        if mode == 'white_any':
+            return tuple(dict.fromkeys(x for c in symbols for x in (('C', 'U', 'B', 'R', 'G') if c == 'C' else ('W',) if c in M.COLORS else (c,))))
+        if mode == 'white_color' and any(c in M.COLORS for c in symbols):
+            return tuple(dict.fromkeys((*symbols, 'W')))
         if mode == 'colorless_color' and any(c in M.COLORS for c in symbols):
             return tuple(dict.fromkeys((*symbols, 'C')))
         if mode in ('type', 'color'):

@@ -264,6 +264,7 @@ class CardInstance(BaseModel):
     # --- manual tracking (nothing here is enforced or expires on its own) ---
     effects: list[Effect] = Field(default_factory=list)
     damage: int = 0
+    damage_by: dict[str, int] = Field(default_factory=dict)  # marked damage per source object id (120.6, Ogre Enforcer); trimmed/cleared wherever damage is removed
     choices: dict[str, str] = Field(default_factory=dict)  # "Chosen color" -> "Blue", "Named card" -> …
     stack_info: StackInfo | None = None
     exile_group: str | None = None  # "Prosper", "Oblivion Ring", "Foretell" … (organisational label)

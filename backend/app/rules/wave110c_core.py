@@ -328,7 +328,13 @@ def definition(ability: AbilityText, ch: Any) -> dict[str, Any] | None:
         return kusari
     if (tevesh := wave110c_tevesh.definition(ability, ch)) is not None:  # Tevesh Szat, Doom of Fools
         return tevesh
-    from app.rules import wave110c_discard, wave110c_wheel
+    from app.rules import wave110c_discard, wave110c_misc, wave110c_rad, wave110c_wheel
+
+    if (misc := wave110c_misc.definition(ability, ch)) is not None:  # Volcano Hellion
+        return misc
+
+    if (rad := wave110c_rad.definition(ability.text)) is not None:  # Mariposa Military Base
+        return rad
 
     if (discard := wave110c_discard.definition(ability.text)) is not None:  # Library of Leng, Nephalia Academy, Pulmonic Sliver's grant
         return discard

@@ -28,7 +28,7 @@ def test_the_cards_are_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL", name
 
 
-@pytest.mark.parametrize("name", ["Pyretic Hunter", "Regicide"])
+@pytest.mark.parametrize("name", ["Pyretic Hunter"])  # (wave 110F: Regicide is read: no color was chosen, so it has no legal target)
 def test_what_a_draft_would_have_noted_is_not_read(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level != "FULL", name
 

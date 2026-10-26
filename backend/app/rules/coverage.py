@@ -53,7 +53,9 @@ SUPPORTED_REPLACEMENTS: set[str] = {
     "discard_battlefield",  # -- discard causes (wave 23D) -- "If a spell or ability an opponent controls causes you to discard this card, put it onto the battlefield instead of putting it into your graveyard."
     "exile_instead",  # "If ~ would die / be put into a graveyard from anywhere, exile it instead" (own and statics)
     "hand_instead",  # -- instead (wave 100K) -- "If a creature you control that's enchanted would die, return it to its owner's hand instead." (Necromancer's Magemark)
+    "hand_instead110i",  # -- cards (wave 110I) -- Firestorm Phoenix
     "library_instead",  # "If ~ would die, put it on top of / on the bottom of its owner's library instead" (wave 20B)
+    "tapped_for_rad110c",  # -- optional entering choice (wave 110C) -- "You may have this land enter tapped. If you do, you get two rad counters." (Mariposa Military Base)
     "library_may110c",  # -- optional replacements (wave 110C) -- "If this permanent would be put into a graveyard, you may put it on top of its owner's library instead." (Pulmonic Sliver grant)
     "shuffle_instead",  # -- zone replacements (wave 22C) -- "… reveal ~ and shuffle it into its owner's library instead" (Blightsteel)
     "prevent",  # "Prevent all [combat] damage that would be dealt [to …] [by …] [this turn]" (615)
@@ -168,7 +170,7 @@ SUPPORTED_REPLACE_OPS: dict[str, frozenset[str]] = {
     "player_counters": frozenset({"add", "mul"}),  # Winding Constrictor; energy-specific additions/doubling (107.14)
     "draw": frozenset({"win", "skip", "steal", "draw"}),  # 121.6, 614.11: Laboratory Maniac, Notion Thief
     "life": frozenset({"mul", "add", "set", "lose"}),  # 119.10: Boon Reflection, Sulfuric Vortex, Tainted Remedy
-    "damage": frozenset({"mul", "add", "sub", "half", "prevent", "prevent_all_but", "prevent_all", "cap", "set_value"}),  # 614, 615.10 (cap: wave 20B)
+    "damage": frozenset({"mul", "add", "sub", "half", "prevent", "prevent_all_but", "prevent_all", "cap", "set_value", "prevent_counters110j"}),  # 614, 615.10 (cap: wave 20B)
 }
 # -- refused grants/replacements (wave 3R2) -- 614.9 redirection statics (Pariah, Palisade Giant: app/rules/source_shields.py,
 # tests/test_rules_refused_grants.py)
@@ -455,7 +457,7 @@ def _keyword_supported(kw: str, line: str) -> bool:
         from app.rules import commander
 
         return commander.companion_condition(line) in commander.COMPANION_RESTRICTIONS
-    if kw in ("enchant", "equip"):  # app/rules/attachments.py: the wordings it maps
+    if kw in ("enchant", "equip", "fortify"):  # app/rules/attachments.py: the wordings it maps
         from app.rules import attachments
 
         return attachments.supported_keyword(kw, line)
@@ -522,7 +524,7 @@ def _keyword_supported(kw: str, line: str) -> bool:
         from app.rules import disguise_costs
 
         spec = disguise_costs.parse(line)
-        return spec is not None and "{X}" not in spec[0].upper()
+        return spec is not None  # (X: -- wave 110O -- announced as it is turned face up, like morph's, 107.3a: casting.turn_face_up, triggers.x_source "faceup")
     if kw == "toxic":  # -- counters & designations (wave 3E) -- combat.py reads "toxic N" anywhere in a keyword line ("Menace, toxic 1")
         return re.search(r"(?:^|, )toxic \d+(?:,|$)", re.sub(r"\s*\(.*?\)", "", line).strip().rstrip(".").lower()) is not None
     if kw == "escalate":  # -- static_other sweep (wave 16B) -- casting.escalate_parts

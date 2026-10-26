@@ -72,9 +72,7 @@ FULL = ["Tainted Strike", "Shadow Rift", "Monstrous Rage", "Royal Treatment", "S
         "Crib Swap", "The Hive", "Field of the Dead", "Vodalian Hexcatcher", "Nightpack Ambusher", "Kor Spiritdancer",
         "Coat of Arms", "Firedrinker Satyr", "Champion of the Flame", "The Great Mound", "Hansk, Slayer Zealot",
         "Kher Keep", "Mobile Fort", "Sporecrown Thallid", "Lovisa Coldeyes", "Painsmith"]
-STILL_MANUAL = {
-    "Become Brutes": "For each of those creatures",  # (a Role for each of several objects: refused)
-}
+STILL_MANUAL: dict[str, str] = {}  # (Become Brutes is FULL: tests/test_rules_wave100c_spell_copies_groups.py)
 
 
 @pytest.fixture()

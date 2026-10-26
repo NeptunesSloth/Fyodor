@@ -457,6 +457,9 @@ def offers(state: GameState, player: str, card: CardInstance, ch: Characteristic
         alt = parse_cost(f"pay {{{int(ch.mana_value)}}}" if d.get("mv_mana100i") else d["cost"])  # (wave 100I: Kentaro)
         if alt is not None:
             out.append(Offer(f"{src.id}:{index}", f"{src.name}: {d['cost']}", alt, once_key=key if d["once"] else None, tag=d.get("tag"), flash=bool(d.get("flash"))))
+    from app.rules import wave110m_cards  # -- (wave 110M) --
+
+    out += wave110m_cards.life_offers(state, player, card, ch, info)
     # -- escape (wave 5I) -- printed and granted escape costs (702.138a), for a card in its owner's graveyard
     from app.rules import escape
 

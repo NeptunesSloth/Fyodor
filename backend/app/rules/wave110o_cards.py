@@ -68,13 +68,36 @@ _HELM = ("{X}, {T}: Target opponent mills a card, then repeats this process unti
          "battlefield under your control. X can't be 0.")
 _WITCH = ("Whenever ~ deals combat damage to a player, look at the top two cards of your library, then exile them face down. Then you may cast a Hero or "
           "noncreature spell from among cards exiled with ~ without paying its mana cost.")
+_RINOA = ("Whenever one or more attacking creatures you control die, you may return one of them to the battlefield tapped under its owner's control with a "
+          "flying counter on it. Do this only once each turn.")
+_SYRIX_END = ("At the beginning of each end step, if a creature card left your graveyard this turn, target Phoenix you control deals damage equal to its "
+              "power to any target.")
+_SYRIX_DIES = "Whenever another Phoenix you control dies, you may cast this card from your graveyard."
+_LAZAV = ("Whenever you commit a crime, put a +1/+1 counter on ~. Then you may exile a card from a graveyard. If a creature card was exiled this way, you may have "
+          "~ become a copy of that card until end of turn. This ability triggers only once each turn.")
+_STRIP = ("{3}, {T}: Until end of turn, you may cast instant and sorcery spells from the top of your graveyard. If a spell cast this way would be put into a "
+          "graveyard, exile it instead.")
+_MINOTAUR = "Whenever you lose a coin flip, ~ deals 1 damage to any target of an opponent's choice."
+_WORM = ("Whenever you attack with creatures with total power 12 or greater for the first time each turn, untap all attacking creatures. After this phase, "
+         "there is an additional combat phase.")
+_PHANTASM = "When ~ enters, if you guessed correctly for a card named Spire Phantasm, draw a card."
+_CODIE = "{W}{U}{B}{R}{G}, {T}: Each creature you control becomes prepared."
+_LIEGE = ("As long as ~ isn't attacking, its power and toughness are each equal to the number of Forests you control. As long as ~ is attacking, its power and "
+          "toughness are each equal to the number of Forests defending player controls.")
+_LIEGE_LAND = "{T}: Target land becomes a Forest until ~ leaves the battlefield."
+_PROFANER = ("When ~ exploits a creature, return to their owners' hands all creatures your opponents control with toughness less than the exploited creature's "
+             "toughness.")
+_VINDICATOR = ("When ~ is turned face up, exile up to X other target creatures from the battlefield and/or creature cards from graveyards.")
+_HERALD = "When ~ leaves the battlefield, each player gains control of each land they own that you control."
+_KALDRA = ("{1}: If you control Equipment named Helm of Kaldra, Sword of Kaldra, and Shield of Kaldra, create Kaldra, a legendary 4/4 colorless Avatar "
+           "creature token. Attach those Equipment to it.")
 _OKO_TYPES = "+2: Up to one target creature gains all creature types."
 _OKO_EMBLEM = ('−6: Choose a creature type. You get an emblem with "Creatures you control of the chosen type get +3/+3 and have vigilance and '
                'hexproof."')
 
 
 def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
-    from app.rules import scripts
+    from app.rules import conditions, scripts
 
     text = scripts.self_text(ability.text, ch.name)
     if ability.kind == "loyalty" and text == _OKO_TYPES:  # Oko: 613.1d layer 4, "(This effect doesn't end.)": a permanent effect on the object
@@ -87,6 +110,91 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
         if native is None:
             return None
         return {**native, "effects": [{"do": "type_emblem110o"}]}
+    if ability.kind == "activated" and text == _KALDRA:  # 603.4-style "if" judged as it resolves (608.2c); every Equipment so named is attached
+        from app.rules import conditions, selectors
+
+        native = scripts.define(replace(ability, text="{1}: Create Kaldra, a legendary 4/4 colorless Avatar creature token."), ch)
+        if native is None or [e["do"] for e in native["effects"]] != ["create_token"]:
+            return None
+        names = ("Helm of Kaldra", "Sword of Kaldra", "Shield of Kaldra")
+        keys = [selectors.parse(f"Equipment named {n} you control").key() for n in names]  # type: ignore[union-attr]
+        conds = [conditions.parse(f"you control an Equipment named {n}") for n in names]
+        if any(c is None for c in conds):
+            return None
+        make = {**native["effects"][0], "as": "kaldra110o"}
+        return {**native, "effects": [{"do": "only_if", "cond": {"all": conds}, "skip": 4}, make,
+                                      *({"do": "attach_to", "src": k, "who": "ref:kaldra110o"} for k in keys)]}
+    if ability.kind == "triggered" and text == _HERALD:  # 108.3: each owner takes back their lands; the ones its controller owns stay (nothing to give back)
+        from app.rules import selectors
+
+        native = scripts.define(replace(ability, text="When ~ leaves the battlefield, draw a card."), ch)
+        return None if native is None else {**native, "effects": [{"do": "gain_control", "to": "owner", "who": selectors.parse("land you control").key()}]}  # type: ignore[union-attr]
+    if ability.kind == "triggered" and text == _VINDICATOR:  # 107.3a: X is the X paid to turn it face up; 607.2a: the exile is the link the leave trigger returns
+        by_x = scripts.define(replace(ability, text=_VINDICATOR.split(" from the battlefield")[0] + "."), ch)
+        by_two = scripts.define(replace(ability, text=_VINDICATOR.replace("up to X", "up to two")), ch)
+        if by_x is None or by_two is None or len(by_x.get("targets") or []) != 1 or len(by_two.get("targets") or []) != 1 \
+                or [e["do"] for e in by_x["effects"]] != ["exile"] or by_x["targets"][0].get("x_count") != "upto":
+            return None
+        return {**by_x, "targets": [{**by_x["targets"][0], "what": by_two["targets"][0]["what"]}], "effects": [{**by_x["effects"][0], "link": True}]}
+    if ability.kind == "triggered" and text == _PROFANER:  # 702.110b, 608.2h: the exploited creature's toughness as it last existed
+        native = scripts.define(replace(ability, text="When ~ exploits a creature, draw a card."), ch)
+        return None if native is None else {**native, "effects": [{"do": "profaner110o"}]}
+    if ability.kind == "static" and text == _LIEGE:
+        # 604.3a(5): each sentence sets power and toughness only if its condition holds, so neither is a characteristic-defining ability: two ordinary statics
+        # (611.3a, 613.4b layer 7b) that exclude each other; "defending player" is the player it attacks (506.2)
+        first, second = _LIEGE.split(" As long as ")
+        a = scripts.define(replace(ability, text=first.replace("its power and toughness are each equal to", "it has base power and toughness X/X, where X is")), ch)
+        b = scripts.define(replace(ability, text="As long as " + second.replace("its power and toughness are each equal to", "it has base power and toughness X/X, where X is")), ch)
+        return None if a is None or b is None or a.get("also") or b.get("also") else {**a, "also": [b]}
+    if ability.kind == "activated" and text == _LIEGE_LAND:  # 611.2b: for as long as the creature remains on the battlefield
+        return scripts.define(replace(ability, text=_LIEGE_LAND.replace("until ~ leaves the battlefield", "for as long as ~ remains on the battlefield")), ch)
+    if ability.kind == "activated" and text == _CODIE:  # 722.3a: each creature that has a prepare spell gains the designation (the effect skips the others)
+        from app.rules import selectors
+
+        native = scripts.define(replace(ability, text="{W}{U}{B}{R}{G}, {T}: Target creature becomes prepared."), ch)
+        if native is None or [e["do"] for e in native["effects"]] != ["prepare"]:
+            return None
+        return {**native, "target": None, "effects": [{**native["effects"][0], "who": selectors.parse("creature you control").key()}]}  # type: ignore[union-attr]
+    if ability.kind == "triggered" and text == _PHANTASM:  # 905.2: a guess is made only during a draft, and a game here has none
+        native = scripts.define(replace(ability, text="When ~ enters, draw a card."), ch)
+        return None if native is None else {**native, "if": {"w110o": "guessed"}}
+    if ability.kind == "triggered" and text == _WORM:  # "for the first time each turn": it triggers only the first time the attack is that strong, 603.2h
+        return scripts.define(replace(ability, text=_WORM.replace(" for the first time each turn", "") + " This ability triggers only once each turn."), ch)
+    if ability.kind == "triggered" and text == _MINOTAUR:  # "of an opponent's choice": the controller picks the opponent, who announces the target (115.1d-style)
+        native = scripts.define(replace(ability, text="Whenever you lose a coin flip, ~ deals 1 damage to any target."), ch)
+        return None if native is None else {**native, "target_choice": "opponent110d"}  # (the wave 110D delegated-trigger path)
+    if ability.kind == "activated" and text == _STRIP:  # 404.1: only the top card (the last one put there) may be cast, judged as each cast is announced
+        native = scripts.define(replace(ability, text=_STRIP.replace("from the top of your graveyard", "from your graveyard")), ch)
+        if native is None or [e["do"] for e in native["effects"]] != ["grant_play"]:
+            return None
+        from app.rules import selectors
+
+        top = selectors.Selector(zones=("graveyard",), card=True, extras=("top_graveyard110o",)).key()
+        return {**native, "effects": [{**native["effects"][0], "card_filter": top}]}
+    if ability.kind == "triggered" and text == _LAZAV:
+        native = scripts.define(replace(ability, text="Whenever you commit a crime, put a +1/+1 counter on ~. This ability triggers only once each turn."), ch)
+        if native is None or [e["do"] for e in native["effects"]] != ["add_counters"]:
+            return None
+        return {**native, "effects": [*native["effects"], {"do": "lazav110o"}]}
+    if ability.kind == "triggered" and text == _SYRIX_DIES:  # 113.6k: it triggers from the graveyard; 601.2: a normal (paid) cast
+        native = scripts.define(replace(ability, text="Whenever another Phoenix you control dies, return this card from your graveyard to the battlefield."), ch)
+        if native is None or [e["do"] for e in native["effects"]] != ["return_card"]:
+            return None
+        return {**native, "optional": False, "effects": [{"do": "free_cast", "zone": "that", "who": "self_gy", "filter": None, "optional": True, "mv": None,
+                                                           "n": 1, "paid": True}]}
+    if ability.kind == "triggered" and text == _SYRIX_END:
+        native = scripts.define(replace(ability, text=_SYRIX_END.split(", if ")[0] + ", " + _SYRIX_END.split("this turn, ")[1]), ch)
+        if native is None or native.get("if") is not None:
+            return None
+        return {**native, "if": conditions.parse("a creature card left your graveyard this turn")}
+    if ability.kind == "triggered" and text == _RINOA:
+        # 700.4: "dies" is the batch that went to the graveyard together; 603.10a looks back at which were attacking (the base trigger); 603.2h the "once"
+        base = scripts.define(replace(ability, text=_RINOA.replace(" return one of them to the battlefield tapped under its owner's control with a flying "
+                                                                   "counter on it.", " draw a card.")), ch)
+        back = scripts.parse_effects("Return target creature card from a graveyard to the battlefield tapped under its owner's control with a flying counter on it.")
+        if base is None or back is None or len(back[0]) != 1 or [e["do"] for e in base["effects"]] != ["draw"]:
+            return None
+        return {**base, "effects": [{"do": "rinoa_pick110o"}, {**back[0][0], "who": "ref:rinoa110o"}]}
     if ability.kind == "triggered" and text == _WITCH:
         # 607.2a: the cards exiled with it by every resolution so far (accumulating link), this resolution's two among them; 406.3b: a face-down card is
         # cast only by a player allowed to look at it (she looked at these two as she exiled them, 406.3)
@@ -139,6 +247,12 @@ def holds(plan: Plan, ctx: Context, cond: dict[str, Any]) -> bool:
     """Evil's Thrall: you control a Villain whose mana value is greater than the target creature's (the target as it is now, 608.2b)."""
     from app.rules import effects, stack_interaction
 
+    if cond["w110o"] == "land_upkeep":  # Herald of Leshrac: a land the controller does not control for each age counter (each is gained once)
+        src = plan.state.cards.get(ctx.get("source_card") or "")
+        age = src.counters.get("age", 0) if src is not None else 0
+        return len(_others_lands(plan, ctx["controller"])) >= age
+    if cond["w110o"] == "guessed":
+        return False  # Spire Phantasm: no draft, no guess, so no correct guess (905.2b: the information is noted during the draft)
     if cond["w110o"] == "portent_four":
 
         return len(_bound(plan, ctx, "portent110o")) >= 4
@@ -303,7 +417,120 @@ def portent_hand(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     return True
 
 
+# -- Rinoa, Angel Wing -------------------------------------------------------------------------------------------------------------------------
+def rinoa_pick(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """"Return one of them": the controller picks one of the creature cards that died together and are still in a graveyard (608.2d)."""
+    from app.game.rules_state import DecisionOption
+    from app.rules import context
+    from app.rules.plan import decide
+
+    found = [c for c in context.objects(plan, ctx, context.EVENT_NEW) if plan.state.cards[c].zone.endswith(":graveyard")]
+    if len(found) > 1:
+        decide(plan, player=ctx["controller"], kind="choose_one", prompt=f"{ctx.get('name') or 'It'}: choose a creature to return",
+               options=[DecisionOption(id=c, label=plan.state.cards[c].name or "a card", card_id=c) for c in found],
+               resume={"step": "rinoa_pick110o", "ctx": ctx})
+        return False
+    context.bind_objects(plan, ctx, "rinoa110o", found)
+    return True
+
+
+def resume_rinoa_pick(plan: Plan, d: Any, chosen: list[str]) -> None:
+    from app.game.errors import ActionError
+    from app.rules import context, effects
+
+    ctx = d.resume["ctx"]
+    if len(chosen) != 1 or chosen[0] not in context.objects(plan, ctx, context.EVENT_NEW):
+        raise ActionError("Choose one of the creatures that died")
+    context.bind_objects(plan, ctx, "rinoa110o", chosen)
+    effects.continue_effects(plan, ctx)
+
+
+# -- Lazav, Familiar Stranger --------------------------------------------------------------------------------------------------------------
+def lazav(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """"Then you may exile a card from a graveyard" (not a target: any graveyard, chosen as the ability resolves, 608.2d)."""
+    from app.game.rules_state import DecisionOption
+    from app.rules.plan import decide
+
+    cards = [c.id for c in plan.state.cards.values() if c.zone.endswith(":graveyard") and plan.in_game(c)]
+    decide(plan, player=ctx["controller"], kind="choose_cards", prompt=f"{ctx.get('name') or 'It'}: exile a card from a graveyard?",
+           options=[DecisionOption(id=c, label=plan.state.cards[c].name or "a card", card_id=c) for c in cards], min_choices=0, max_choices=1,
+           resume={"step": "lazav110o", "ctx": ctx})
+    return False
+
+
+def resume_lazav(plan: Plan, d: Any, chosen: list[str]) -> None:
+    from app.game.errors import ActionError
+    from app.rules import context, effects
+    from app.rules.plan import decide
+
+    ctx = d.resume["ctx"]
+    if len(chosen) > 1 or any(not plan.state.cards[c].zone.endswith(":graveyard") for c in chosen):
+        raise ActionError("Choose at most one card from a graveyard")
+    if chosen:
+        card = plan.state.cards[chosen[0]]
+        plan.do({"type": "move", "card_ids": chosen, "to": {"player": card.owner, "zone": "exile"}}, actor=ctx["controller"])
+        context.bind_objects(plan, ctx, "lazav110o", chosen)
+        if "Creature" in plan.ch(plan.state.cards[chosen[0]]).types:
+            from app.game.rules_state import DecisionOption
+
+            decide(plan, player=ctx["controller"], kind="choose_one", prompt=f"{ctx.get('name') or 'It'}: become a copy of {card.name}?",
+                   options=[DecisionOption(id="yes", label="Become a copy"), DecisionOption(id="no", label="Don't")],
+                   resume={"step": "lazav_copy110o", "ctx": ctx})
+            return
+    effects.continue_effects(plan, ctx)
+
+
+def resume_lazav_copy(plan: Plan, d: Any, chosen: list[str]) -> None:
+    from app.rules import effects
+
+    ctx = d.resume["ctx"]
+    if chosen == ["yes"] and not effects.PRIMITIVES["become_copy"](plan, ctx, {"do": "become_copy", "who": "self", "with": "ref:lazav110o", "duration": "end_of_turn"}):
+        return
+    effects.continue_effects(plan, ctx)
+
+
+def profaner(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    from app.rules import context, effects, selectors
+
+    got = context.info(plan, ctx, context.EVENT_OTHER)
+    if got is None or got[1].pt is None:
+        return True  # (no exploited creature to measure: nothing is less than it)
+    small = selectors.Selector(types=("Creature",), controller="opponent", compare=(("toughness", "<", int(got[1].pt[1])),)).key()
+    return bool(effects.PRIMITIVES["bounce"](plan, ctx, {"do": "bounce", "who": small}))
+
+
+# -- Herald of Leshrac --------------------------------------------------------------------------------------------------------------------------
+def _others_lands(plan: Plan, you: str) -> list[str]:
+    return [c.id for c in plan.state.cards.values() if c.zone.endswith(":battlefield") and c.controller != you and plan.in_game(c) and "Land" in plan.ch(c).types]
+
+
+def gain_land(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """"Gain control of a land you don't control" as a cost (cumulative upkeep, 702.24a): chosen as it is paid, not targeted (115.1), kept for good (no duration)."""
+    from app.game.rules_state import DecisionOption
+    from app.rules.plan import decide
+
+    lands = _others_lands(plan, ctx["controller"])
+    if not lands:
+        return True
+    decide(plan, player=ctx["controller"], kind="choose_one", prompt=f"{ctx.get('name') or 'It'}: choose a land you don't control",
+           options=[DecisionOption(id=c, label=f"{plan.state.cards[c].name} ({plan.name(plan.state.cards[c].controller)})", card_id=c) for c in lands],
+           resume={"step": "gain_land110o", "ctx": ctx})
+    return False
+
+
+def resume_gain_land(plan: Plan, d: Any, chosen: list[str]) -> None:
+    from app.game.errors import ActionError
+    from app.rules import context, effects
+
+    ctx = d.resume["ctx"]
+    if len(chosen) != 1 or chosen[0] not in _others_lands(plan, ctx["controller"]):
+        raise ActionError("Choose a land you don't control")
+    context.bind_objects(plan, ctx, "herald110o", chosen)
+    if effects.PRIMITIVES["gain_control"](plan, ctx, {"do": "gain_control", "who": "ref:herald110o"}):
+        effects.continue_effects(plan, ctx)
+
+
 PRIMITIVES: dict[str, Any] = {"type_emblem110o": type_emblem, "redistribute110o": redistribute,
-              "helm_test110o": helm_test, "helm_again110o": helm_again, "helm_pick110o": helm_pick, "portent_hand110o": portent_hand}
+              "helm_test110o": helm_test, "helm_again110o": helm_again, "helm_pick110o": helm_pick, "portent_hand110o": portent_hand, "rinoa_pick110o": rinoa_pick, "lazav110o": lazav, "profaner110o": profaner, "gain_land110o": gain_land}
 RESUME: dict[str, Any] = {"type_emblem110o": resume_type_emblem, "redistribute_players110o": resume_redistribute_players,
-                          "redistribute_give110o": resume_redistribute_give, "helm_pick110o": resume_helm_pick}
+                          "redistribute_give110o": resume_redistribute_give, "helm_pick110o": resume_helm_pick, "rinoa_pick110o": resume_rinoa_pick, "lazav110o": resume_lazav, "lazav_copy110o": resume_lazav_copy, "gain_land110o": resume_gain_land}

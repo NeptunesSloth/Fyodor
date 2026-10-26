@@ -336,7 +336,7 @@ def either(text: str) -> Condition | None:
 KINDS = frozenset({"top_card", "exiled_count", "attached_ctrl_is", "self_is", "attached_ctrl", "attached_stat", "attached_is", "designation", "zone", "opp_graveyard", "opp_life", "opp_hand", "life_vs_start", "all",
                     "most_common_color", "hand_most", "paired", "any_hand",  # (wave 20B)
                     "ring_bearer", "self_attached", "host_attached", "dealt_damage", "was_cast", "single_graveyard", "exile_owned", "blocked_by",
-                    "transformed", "doors", "named", "either", "host_test", "self_stat", "block_rel"})  # (wave 35D; 42A: self_stat; 45A: block_rel)
+                    "transformed", "doors", "named", "either", "host_test", "self_stat", "block_rel", "delve_kw110n"})  # (wave 35D; 42A: self_stat; 45A: block_rel)
 
 
 def attached_object(plan: Plan, source: CardInstance) -> CardInstance | None:
@@ -454,7 +454,7 @@ def life_vs_start(plan: Plan, cond: Condition, controller: str) -> bool:
 
 
 _HOLDS_35D = frozenset({"ring_bearer", "self_attached", "host_attached", "dealt_damage", "was_cast", "single_graveyard", "exile_owned",
-                        "blocked_by", "transformed", "doors", "named", "either", "host_test", "block_rel"})
+                        "blocked_by", "transformed", "doors", "named", "either", "host_test", "block_rel", "delve_kw110n"})
 
 
 def _holds_35d(plan: Plan, cond: Condition, source: CardInstance, controller: str) -> bool:
@@ -478,6 +478,10 @@ def _holds_35d(plan: Plan, cond: Condition, source: CardInstance, controller: st
     if kind == "was_cast":  # 608.3: the permanent remembers how its spell was paid (app/rules/engine.py), a copy's record is not a cast
         record = r.payments.get(r.object_id(source.id)) if r is not None else None
         return on_field and record is not None and record.cast_from is not None
+    if kind == "delve_kw110n":  # -- (wave 110N) -- Soulflayer: a creature card with that keyword was exiled by this permanent's own delve (702.66a), as it was exiled
+        record = r.payments.get(r.object_id(source.id)) if r is not None else None
+        return on_field and record is not None and any(
+            c.kind == "delve" and "Creature" in (c.card_types or []) and cond["kw"] in (c.keywords or []) for c in record.contributions)
     if kind == "single_graveyard":  # 404.1: each player's graveyard is a zone of its own
         return any(len(state.zones.get(f"{p}:graveyard", ())) >= cond["n"] for p in state.players)
     if kind == "exile_owned":  # 406.1: exile is a zone of its owner's; a card's owner is the player whose zone it is in

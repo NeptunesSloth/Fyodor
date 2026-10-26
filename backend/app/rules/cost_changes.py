@@ -798,6 +798,9 @@ OWN_OPTIONAL = re.compile(r"^as an additional cost to cast this spell, you may (
 
 EVIDENCE_REDUCTION = re.compile(r"as an additional cost to cast this spell, you may collect evidence (?P<n>\d+)\. this spell costs \{(?P<cut>\d+)\} less to cast if evidence was collected\.?", re.IGNORECASE)
 
+BEHOLD_TYPE = "As an additional cost to cast this spell, you may choose a creature type and behold two creatures of that type."
+
+
 def own_cost(text: str) -> Any:
     """The one cost part "Collect evidence 6" / "Behold a Dragon" is (None when the grammar can't pay it)."""
     from app.rules import costs as C
@@ -832,6 +835,8 @@ def optional_definition(t: str) -> dict[str, Any] | None:
         if own_cost(text) is not None:
             return {"kind":"static","static":"own_optional","optional":"evidence","cost":text,
                     "n":int(evidence['cut']),"effects":[]}
+    if t.lower().rstrip(".") == BEHOLD_TYPE.lower().rstrip("."):  # -- wave 110A -- Celestial Reunion: the type is chosen as the cost is announced (casting.announce, 601.2b)
+        return {"kind": "static", "static": "own_optional", "optional": "behold_type110a", "cost": "Behold two creatures of the chosen type", "effects": []}
     if (own := OWN_OPTIONAL.fullmatch(t)) is not None:
         text = (own["cost"][0].upper() + own["cost"][1:]).removesuffix(" creature")  # (wave 110E: "behold a Gamma creature" = behold a Gamma, 701.4a)
         parsed = own_cost(text)
@@ -873,6 +878,12 @@ def keyword_component(o: Optional, x: int = 0) -> Any:
     if o.kind == "bargain":  # -- keywords (wave 30E) -- 702.166a: "you may sacrifice an artifact, enchantment, or token" (you control, 701.21a)
         either = tuple(Selector(controller="you", **kw).key() for kw in ({"types": ("Artifact",)}, {"types": ("Enchantment",)}, {"token": True}))
         return C.CostComponent(C.SACRIFICE, amount=1, selector=Selector(either=either).key(), text="Sacrifice an artifact, enchantment, or token", reduces=o.n)
+    if o.kind == "behold_type110a":  # (701.4a: two beheld objects, each a card of that type revealed from your hand or a permanent of it you control; the chosen type is the text once chosen)
+        from app.rules.creature_types import CREATURE_TYPES
+
+        kind = o.text if o.text in CREATURE_TYPES else "Creature"
+        one = own_cost(f"Behold a {kind}")
+        return None if one is None else replace(one, amount=2, text=f"Behold two {kind}")
     if o.kind in ("evidence", "behold", "blight", "reveal", "exile", "flash_tap", "waterbend103", "sacrifice110e"):  # -- casting costs (wave 22F) --
         piece = own_cost(o.text)
         return replace(piece, reduces=o.n) if o.kind == "evidence" and o.n and piece is not None else piece

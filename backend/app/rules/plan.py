@@ -63,7 +63,7 @@ class Plan:
     excluded: frozenset[str] = frozenset()
     # -- optional payments (wave 110C) -- the attacking creature of the trigger being resolved: a cost's "other than that creature" (selector not_event) excludes it
     cost_attacker: str | None = None
-    delegated110d: str | None = None  # the target an opponent picked for a spell (wave 110D, delegated_target_announcements)
+    delegated110d: str | dict[int, str] | None = None  # the target an opponent picked for a spell (wave 110D, delegated_target_announcements)
 
     def __init__(self, state: GameState, actor: str, info: CardInfo, rng: Any) -> None:
         self.state = state.model_copy(deep=True)
@@ -79,6 +79,7 @@ class Plan:
         self.discarding = False  # -- optional replacements (wave 110C) -- an effect's discard move is being made
         self.cycling_card: str | None = None  # CR 702.29c: the card being discarded to pay cycling
         self.put_via: str | None = None  # -- trigger other (wave 51E) -- the object whose effect is putting cards onto the battlefield now (Entry.via)
+        self.cause110g: str | None = None  # -- wave 110G -- controller of the spell or ability being resolved (stamps zone changes)
         self.moved: dict[str, bool] = {}  # card -> did one of its moves this intent make it a card others have seen (ops.seen_move)
 
     probe_stickers101: list[tuple[str, str, list[str]]] | None = None
@@ -169,6 +170,7 @@ class Plan:
                 if (c := self.state.cards.get(cid)) is not None and zone_name(zone) != zone_name(c.zone):
                     was, self.began[cid] = self.began.get(cid, False), down_public(c)
                     self.moved[cid] = self.moved.get(cid, False) or seen_move(zone, c.zone, was)
+        self.rules.cause110g = self.cause110g
         track(self.state, before, actor=resolved.actor or None, group=getattr(resolved, "group", 0),
               put_by=wither_put_by(resolved), declared=getattr(resolved, "declared", False),
               non_discard=bool(getattr(resolved, "non_discard", False)))  # (5H, 7C, 17D; 45C: the attack declaration's tap)
@@ -267,7 +269,7 @@ class Plan:
         out: dict[str, list[str]] = {}
         for cid in payload.get("card_ids") or []:
             card = self.state.cards.get(cid) if isinstance(cid, str) else None
-            if card is not None and card.zone.endswith(":battlefield"):
+            if card is not None and card.zone.endswith((":battlefield", ":graveyard")):  # (-- wave 110O -- a graveyard card's printed types: "a creature card left your graveyard")
                 out[cid] = sorted(self.ch(card).types)
         return out
 

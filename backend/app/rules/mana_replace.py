@@ -183,7 +183,7 @@ def extend(state: GameState, card: CardInstance, info: CardInfo,
     """The permanent's mana abilities with each {T} ability's options as the replacements that apply to it make them
     (106.12b). An ability whose mana the engine can't replace (restricted, counted, conditional, or two statics that
     apply) is left out: the player adds that mana by hand."""
-    if not any(ab.tap for _, ab in found):
+    if not any(ab.tap for _, ab in found) and not any(x['def'].get('all110i') for x in (state.rules.tap_mana if state.rules else ())):
         return found
     statics = [d for owner, d in _statics(state, info) if _applies(state, info, card, owner, d)]
     if not statics:
@@ -193,7 +193,7 @@ def extend(state: GameState, card: CardInstance, info: CardInfo,
     subtypes = Plan.view(state, card.controller, info).ch(card).subtypes  # (wave 49A) for a "map"
     out = []
     for index, ab in found:
-        if not ab.tap:
+        if not ab.tap and not statics[0].get('all110i'):  # (wave 110I: False Dawn also changes the mana of abilities without {T})
             out.append((index, ab))
             continue
         if len(statics) > 1 or ab.spend_only is not None or ab.count is not None or ab.instead_if:
