@@ -931,3 +931,83 @@ def test_specimens_ends_with_the_turn_and_two_opposing_ones_cancel(cards):
     assert wave110f_fin.entering_player(plan, "p2") == "p1" and wave110f_fin.entering_player(plan, "p1") == "p1"
     plan = plan_with([["p1", turn], ["p2", turn]])
     assert wave110f_fin.entering_player(plan, "p1") == "p1" and wave110f_fin.entering_player(plan, "p2") == "p2"
+
+
+_EQUILIBRIUM = ("If an opponent who controls at least as many lands as you do would put a land onto the battlefield, that player instead puts that land onto the battlefield "
+                "then sacrifices a land of their choice.")
+_BASE.extend([
+    real("Land Equilibrium", "{2}{U}{U}", 4, "Enchantment", _EQUILIBRIUM, None, "U"),
+    real("Test Ramp 110FL", "{1}", 1, "Sorcery", "Put a land card from your hand onto the battlefield.", None, ""),
+])
+
+
+def test_equilibrium_full(cards):
+    assert coverage.of_card_data(cards.resolve("Land Equilibrium")).level == "FULL"
+
+
+def _equilibrium(cards, alice_lands, bob_lands, extra_bob=()):
+    from tests.wave36a_kit import to_turn_of
+
+    s = build(cards, ["Land Equilibrium"], list(extra_bob))
+    put(s, "Land Equilibrium")
+    for _ in range(alice_lands):
+        act(s, "p1", type="move", card_ids=[next(c.id for c in s.state.cards.values() if c.name == "Forest" and c.owner == "p1" and c.zone == "p1:library")], to={"player": "p1", "zone": "battlefield"})
+    for _ in range(bob_lands):
+        act(s, "p2", type="move", card_ids=[next(c.id for c in s.state.cards.values() if c.name == "Island" and c.owner == "p2" and c.zone == "p2:library")], to={"player": "p2", "zone": "battlefield"})
+    to_turn_of(s, "p2")
+    island = next(c for c in s.state.cards.values() if c.name == "Island" and c.owner == "p2" and c.zone == "p2:library")
+    act(s, "p2", type="move", card_ids=[island.id], to={"zone": "hand"})
+    return s, island
+
+
+def _lands(s, pid):
+    return sum(1 for c in s.state.cards.values() if c.name in ("Island", "Forest") and c.zone == f"{pid}:battlefield")
+
+
+@pytest.mark.parametrize("bob_lands,asked", [(1, True), (2, True), (0, False)])
+def test_equilibrium_the_opponent_with_at_least_as_many_lands_sacrifices_one_after_playing_a_land(cards, bob_lands, asked):
+    """614.1a, 2009-10-01 ruling: Bob (>= Alice's lands) plays a land: it enters, then he sacrifices a land of his choice (the new one too). With fewer lands: nothing."""
+    s, island = _equilibrium(cards, 1, bob_lands)
+    before = _lands(s, "p2")
+    act(s, "p2", type="play_land", card_id=island.id)
+    d = s.state.rules.decision
+    assert (d is not None) == asked
+    if asked:
+        assert d.player == "p2" and any(o.id == island.id and "the land entering" in o.label for o in d.options)
+        act(s, "p2", type="choose", decision_id=d.id, option_ids=[island.id])  # (the land he just played)
+        assert s.state.cards[island.id].zone == "p2:graveyard" and _lands(s, "p2") == before
+    else:
+        assert s.state.cards[island.id].zone == "p2:battlefield" and _lands(s, "p2") == before + 1
+    check(s)
+
+
+def test_equilibrium_may_sacrifice_another_land(cards):
+    s, island = _equilibrium(cards, 1, 2)
+    old = next(c for c in s.state.cards.values() if c.name == "Island" and c.zone == "p2:battlefield")
+    act(s, "p2", type="play_land", card_id=island.id)
+    d = s.state.rules.decision
+    act(s, "p2", type="choose", decision_id=d.id, option_ids=[old.id])
+    assert s.state.cards[old.id].zone == "p2:graveyard" and s.state.cards[island.id].zone == "p2:battlefield"
+    check(s)
+
+
+def test_equilibrium_applies_to_a_land_put_onto_the_battlefield_by_an_effect(cards):
+    from tests.wave9c_kit import to_hand
+
+    s, island = _equilibrium(cards, 1, 1, extra_bob=["Test Ramp 110FL"])
+    mana(s, "p2", C=1)
+    act(s, "p2", type="cast_spell", card_id=to_hand(s, "Test Ramp 110FL", "p2").id)
+    for _ in range(6):
+        d = s.state.rules.decision
+        if d is not None:
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+    d = s.state.rules.decision
+    if d is not None and d.kind != "choose_one":
+        act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][:1])
+        d = s.state.rules.decision
+    assert d is not None and d.player == "p2" and any("the land entering" in o.label for o in d.options)
+    act(s, "p2", type="choose", decision_id=d.id, option_ids=[island.id])
+    answer(s)
+    assert s.state.cards[island.id].zone == "p2:graveyard"
+    check(s)

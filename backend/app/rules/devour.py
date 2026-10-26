@@ -86,6 +86,7 @@ _STATICS["If ~ would enter, instead sacrifice each other permanent named Shelter
 MIMEO = "mimeo110f"
 INDO = "indo110f"
 INDO_KINDS = "indo_kinds110f"
+EQUI_KEY = "equi_pick110f"  # "<the player who puts the land onto the battlefield>:<the land they sacrifice>" (Land Equilibrium)
 INDO_KEYWORDS = ("flying", "first strike", "double strike", "deathtouch", "hexproof", "haste", "indestructible", "lifelink", "menace", "reach", "trample", "vigilance")
 _STATICS["As ~ enters, exile up to X creature cards from your graveyard. It enters with three +1/+1 counters on it for each creature card exiled this way."] = (MIMEO, 3)
 _STATICS["As ~ enters, discard any number of creature cards. It enters with a flying counter on it if a card discarded this way has flying. The same is true for first strike, "
@@ -199,6 +200,8 @@ def plan_entry(plan: Plan, card: CardInstance, controller: str, answers: dict[st
     ch = plan.ch(card.model_copy(update={"zone": zone_key(controller, "battlefield"), "controller": controller}))
     found = spec(ch)
     if found is None:
+        if ch.is_land and (equi := equilibrium(plan, controller)) is not None:  # -- wave 110F -- Land Equilibrium
+            _equi_entry(plan, card, equi, answers, out, reserved)
         return
     if found[0] == SAME_NAME:
         ids = [c for c in candidates(plan, card, controller, SAME_NAME, reserved) if plan.ch(plan.state.cards[c]).name == ch.name]
@@ -245,6 +248,11 @@ def is_choice(what: str) -> bool:
 
 
 def prompt(plan: Plan, card: CardInstance, controller: str, choice: dict[str, Any]) -> tuple[str, list[DecisionOption]]:
+    if choice.get("equi110f"):  # -- wave 110F -- Land Equilibrium: which land (the entering one too: 2009-10-01 ruling) its player sacrifices
+        who = plan.rules.entry_actor110f or controller
+        return (f"{card.name}: Land Equilibrium — sacrifice a land of your choice after it enters",
+                [DecisionOption(id=c, label=f"Sacrifice {plan.state.cards[c].name or 'a land'}" + (" (the land entering)" if c == card.id else ""), card_id=c)
+                 for c in _equi_pool(plan, card, who, set(choice.get("reserved") or ()) | set(picked(choice.get("picked"))))])
     ch = plan.ch(card.model_copy(update={"zone": zone_key(controller, "battlefield"), "controller": controller}))
     found = spec(ch)
     assert found is not None
@@ -362,9 +370,61 @@ def counters(ch: Any, choices: dict[str, str] | None) -> int:
 TOTALS = "devour_pt110f"
 
 
+def equilibrium(plan: Plan, controller: str) -> str | None:
+    """Land Equilibrium (614.1a): the player putting the land onto the battlefield (``RulesState.entry_actor110f``, else its controller) when an opponent of a Land Equilibrium's controller
+    who controls at least as many lands as that controller would put a land onto the battlefield; None when none applies. Judged against the table as it is before the land enters (614.12)."""
+    from app.rules import characteristics as chars
+    from app.rules import scripts
+
+    actor = plan.rules.entry_actor110f or controller
+    if actor not in plan.live():
+        return None
+
+    def lands(pid: str) -> int:
+        return sum(1 for c in plan.state.zones.get(zone_key(pid, "battlefield"), []) if plan.ch(plan.state.cards[c]).is_land)
+
+    for src in plan.state.cards.values():
+        if not src.zone.endswith(":battlefield") or src.controller == actor or src.controller not in plan.live() or src.face_down or plan.manual(src):
+            continue
+        if "would put a land onto the battlefield" not in (chars.of(src, plan.info).oracle_text or ""):  # (cheap: the printed text, before any derivation)
+            continue
+        if any(d.get("static") == "equilibrium110f" for d in scripts.definitions(plan.ch(src)).values()) and lands(actor) >= lands(src.controller):
+            return actor
+    return None
+
+
+def _equi_pool(plan: Plan, card: CardInstance, actor: str, taken: set[str]) -> list[str]:
+    here = [c for c in plan.state.zones.get(zone_key(actor, "battlefield"), []) if c not in taken and c != card.id and plan.ch(plan.state.cards[c]).is_land]
+    return [*here, card.id]
+
+
+def _equi_entry(plan: Plan, card: CardInstance, actor: str, answers: dict[str, str], out: dict[str, Any], reserved: set[str]) -> None:
+    """The question (before it enters, 614.12a; asked always but for the lone land entering) and the answer, kept for ``linked`` (after it entered)."""
+    value = answers.get(WHAT)
+    pool = _equi_pool(plan, card, actor, reserved)
+    pick: str | None = picked(value)[0] if value and picked(value) else None
+    if pick is None and len(pool) == 1:
+        pick = pool[0]
+    if pick is None or pick not in pool:
+        if "choice" not in out:
+            out["choice"] = {"what": WHAT, "reserved": sorted(reserved), "picked": value, "equi110f": True}
+        return
+    out.setdefault("choices", {})[WHAT] = f"{pick},{DONE}"
+    out["choices"][EQUI_KEY] = f"{actor}:{pick}"
+
+
 def linked(plan: Plan, card_id: str, controller: str, choices: dict[str, str] | None) -> None:
     """-- wave 110F -- Mimeoplasm, Revered One: the cards exiled as it entered are "exiled with it" (607.2b: a replacement effect that exiles), recorded under the permanent it became."""
     card = plan.state.cards.get(card_id)
+    if card is not None and choices and EQUI_KEY in choices:  # -- wave 110F -- Land Equilibrium: "then sacrifices a land of their choice" (the land is on the battlefield now)
+        who, _, pick = choices[EQUI_KEY].partition(":")
+        gone = plan.state.cards.get(pick)
+        if gone is not None and gone.zone.endswith(":battlefield") and gone.controller == who and who in plan.live():
+            from app.rules.effects import _sacrifice_cards
+
+            plan.note(f"Land Equilibrium: {plan.name(who)} sacrifices {gone.name or 'a land'}", [pick])
+            _sacrifice_cards(plan, [pick], who)
+        return
     if card is None or not choices or WHAT not in choices:
         return
     found = spec(plan.ch(card))

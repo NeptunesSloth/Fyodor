@@ -829,12 +829,14 @@ def move_together(plan: Plan, entries: list[Entry], *, simultaneous: dict[str, A
         from app.rules import face_down_entries64
 
         card = face_down_entries64.probe(plan, card, entry)
+        plan.rules.entry_actor110f = entry["actor"]  # -- wave 110F -- Land Equilibrium: who puts it there (reset below)
         # (-- transform, wave 11A -- 712.14a: it enters with its back face up, so that face's replacement effects apply)
         planned.append((entry, card, entry_plan(plan, card.model_copy(update={"face": 1}) if entry.get("transformed") or entry.get("modal_back") else card,
                                                  entry["player"], pay_life=entry.get("pay_life"),
                                                  tapped=bool(entry.get("tapped")), answers=entry.get("choices"), tapped_if_land=bool(entry.get("tapped_if_land")),
                                                  x=entry.get("x"), extra=_extra(entry, plan),
                                                  reserved=set(entry.get("reserved") or ()), bare=bool(entry.get("bare")), entry_characteristics=entry.get("entry_characteristics"))))  # (reserved: wave 5G)
+    plan.rules.entry_actor110f = ""
     # -- entering for a cost (wave 5G) -- the payment first, or it goes to its owner's graveyard instead (614.6)
     from app.rules import enter_cost
 

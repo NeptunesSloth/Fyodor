@@ -55,6 +55,10 @@ _BOOK = ("{T}, Exile ~ and artifacts you control named Eye of Vecna and Hand of 
 _MIMEO = "{2}: ~ becomes a copy of target creature card exiled with it, except it's 0/0 and has this ability."
 
 
+_EQUILIBRIUM = ("If an opponent who controls at least as many lands as you do would put a land onto the battlefield, that player instead puts that land onto the battlefield "
+                "then sacrifices a land of their choice.")
+
+
 def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
     from app.rules import scripts
     from app.rules.token_copy_outcomes import ORIGINAL
@@ -157,6 +161,8 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
         eff = probe["effects"][0]
         fixed = {**eff, "excepts": [{**eff["excepts"][0], "add_text": [ability.text.replace(ch.name.split(",")[0], "This permanent")]}]}
         return {**probe, "effects": [fixed], "target": {"what": "exiled_with"}}
+    if ability.kind == "static" and text == _EQUILIBRIUM:  # applied as lands are planned to enter: devour.equilibrium (614.1a)
+        return {"kind": "static", "static": "equilibrium110f", "effects": []}
     return None
 
 

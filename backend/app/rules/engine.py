@@ -1446,7 +1446,11 @@ def play_land(plan: Plan, a: A.PlayLand) -> None:
 
         if wave110f_fin.entering_player(plan, plan.actor) != plan.actor and wave110f_fin.creature_entering(plan, probe, plan.actor):
             raise ActionError("Gather Specimens: this creature land would enter under another player's control. Put it onto the battlefield with the table tools")
-    ep = replacements.entry_plan(plan, probe, plan.actor, pay_life=a.pay_life, answers=plan.rules.entry_choices.get(card.id))
+    plan.rules.entry_actor110f = plan.actor  # -- wave 110F -- Land Equilibrium: the player playing it (reset below)
+    try:
+        ep = replacements.entry_plan(plan, probe, plan.actor, pay_life=a.pay_life, answers=plan.rules.entry_choices.get(card.id))
+    finally:
+        plan.rules.entry_actor110f = ""
     if ep.get("choice") is not None and "what" in ep["choice"]:  # "As ~ enters, choose …": before it enters
         prompt, options = replacements.choice_prompt(plan, card, plan.actor, ep["choice"])
         decide(plan, player=plan.actor, kind="choose_one", prompt=prompt, options=options, source=card,
