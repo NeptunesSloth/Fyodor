@@ -138,6 +138,8 @@ def rules_damage(state: GameState, a: A.RulesDamage) -> None:
     hurt = []
     for cid, n in a.creatures.items():
         card = ops.card(state, cid)
+        if cid in a.heal110h:
+            card.damage = 0
         card.damage += n
         left = n
         for d in a.dealt:  # (wave 110F) per-source marked damage; wither/infect entries share a target, so cap at what was marked

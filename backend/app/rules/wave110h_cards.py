@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from dataclasses import replace
 from typing import Any
 
@@ -36,12 +37,29 @@ def modal_header(ability: Any, ch: Any) -> Any:
 
 _PHOENIX = "When ~ dies, you may exile it and collect evidence 4. If you do, return this card to the battlefield tapped."
 # The Spot, Living Portal: the card is put on the bottom (401.4); "If you do" holds only if it really got to the library (608.2c), then the linked exile returns.
+# Wolverine, Fierce Fighter: a static read where damage is dealt (heal110h in replace.py): the damage marked earlier is removed as the new damage is marked.
+_WOLVERINE = "If damage would be dealt to ~, instead that damage is dealt, but all other damage already dealt to him is healed."
+_WINDS = "If a permanent with a wind counter on it would untap during its controller's untap step, remove all wind counters from it instead."
+# Saproling Burst: the token's quoted CDA counts the counters on its creator (the permanent named in the quote, 111.2); the leaves trigger destroys the tokens that
+# permanent made (its token_source), they can't be regenerated (701.19c).
+_BURST_TOKEN = ("Remove a fade counter from ~: Create a green Saproling creature token. It has \"This token's power and toughness are each equal to the number of fade "
+                "counters on ‹granter›.\"")
+_BURST_LEAVES = "When ~ leaves the battlefield, destroy all tokens created with ~. They can't be regenerated."
 _SPOT = "When ~ dies, put ~ on the bottom of ~'s owner's library. If you do, return the exiled cards to their owners' hands."
-# Mysterious Limousine: "If a creature is put into exile this way, return each other card exiled with this Vehicle": the older linked cards come back first and the
-# new target is exiled after (the same result as "each other card", 607.2a), only when there is a target to exile. ponytail: a target whose exile is replaced still
-# sends the others back.
+# Mysterious Limousine, in Oracle order (608.2c): exile the target (linked, 607.2a); if a creature really is in exile, return each OTHER linked card (not the one
+# just exiled: exiled_with "other" skips cards exiled in this same resolution).
 _LIMO = ("Whenever this Vehicle enters or attacks, exile up to one other target creature until this Vehicle leaves the battlefield. If a creature is put into "
          "exile this way, return each other card exiled with this Vehicle to the battlefield under its owner's control.")
+# Stitcher Geralf: the controller picks up to two creature cards among the milled ones (any graveyard), exiles them, and the token is as big as their total power.
+_GERALF = ("{2}{U}, {T}: Each player mills three cards. Exile up to two creature cards put into graveyards this way. Create an X/X blue Zombie creature "
+           "token, where X is the total power of the cards exiled this way.")
+# Sword of the Ages: the sacrificed artifact and creatures are cost objects (601.2h); afterwards those still in the graveyard (the same objects, 400.7) are exiled.
+_SWORD = ("{T}, Sacrifice this artifact and any number of creatures you control: This artifact deals X damage to any target, where X is the total power of "
+          "the creatures sacrificed this way, then exile this artifact and those creature cards.")
+# Shifting Shadow: the granted upkeep trigger attaches the granting Aura (607.1a, the object ‹granter#id›) to the creature it put onto the battlefield (303.4f).
+_SHADOW = re.compile(r"^(?P<head>At the beginning of your upkeep, destroy (?:this creature|~)\. Reveal cards from the top of your library until you reveal a creature card\. "
+                     r"Put that card onto the battlefield) and attach ‹granter(?:#(?P<oid>[^›]*))?› to it(?P<tail>, then put all other cards revealed this way on the bottom of "
+                     r"your library in a random order\.)$")
 _SCAPEGOAT = ("Whenever one or more other creatures you control enter, if this creature is suspected, you may suspect one of the other creatures. "
               "If you do, this creature is no longer suspected.")
 
@@ -69,6 +87,16 @@ def untap_hold(plan: Any, player: str, keep: list[str]) -> list[str]:
             continue
         if not counter_removal_results.remove(plan, host.id, "+1/+1", 1, by=player):
             held.append(host.id)
+    # Freyalise's Winds (614.1a): an untapping permanent with wind counters loses them all instead and stays tapped. A stunned one has both
+    # replacements (616.1): its controller chooses, and stun first dominates. Either order ends tapped this step, minus one counter. Stun first
+    # leaves wind counters, wind first leaves the stun counter. A wind counter only matters while Freyalise's Winds is on the battlefield (its
+    # replacement is that ability's), where it holds one untap exactly like the stun counter; a stun counter always holds one. So stun first is
+    # never worse, no prompt needed (the stunned permanent is already in ``keep``).
+    if permissions._table_statics(plan.state, plan.info, {"wind110h"}):
+        for c in plan.state.cards.values():
+            if c.tapped and c.controller == player and c.zone.endswith(":battlefield") and c.counters.get("wind") and c.id not in keep and c.id not in held:
+                counter_removal_results.remove(plan, c.id, "wind", c.counters["wind"], by=player)
+                held.append(c.id)
     return held
 
 
@@ -112,6 +140,18 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
         if native is None or native["effects"][-1].get("who") != "event.new":
             return None
         return {**native, "effects": [*native["effects"][:-1], {**native["effects"][-1], "who": "ref:pay0x"}]}
+    if text == _BURST_TOKEN:
+        return scripts.define(replace(ability, text="Remove a fade counter from this enchantment: Create a green Saproling creature token with \"This token's power "
+                                      "and toughness are each equal to the number of fade counters on its creator.\""), ch)
+    if text == _BURST_LEAVES:
+        native = scripts.define(replace(ability, text="When ~ leaves the battlefield, destroy all Saprolings. They can't be regenerated."), ch)
+        if native is None or [e["do"] for e in native["effects"]] != ["destroy", "no_regen"]:
+            return None
+        return {**native, "effects": [{"do": "made110h", "as": "made110h"}, {**native["effects"][0], "who": "ref:made110h"}, native["effects"][1]]}
+    if text == _WINDS:
+        return {"kind": "static", "static": "wind110h", "effects": []}
+    if text == _WOLVERINE:
+        return {"kind": "static", "static": "heal110h", "effects": []}
     if text == _SPOT:
         put = scripts.define(replace(ability, text="When ~ dies, put it on the bottom of its owner's library."), ch)
         back = scripts.define(replace(ability, text="When ~ dies, return each card exiled with ~ to its owner's hand."), ch)
@@ -124,7 +164,31 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
         if until is None or [e["do"] for e in until["effects"]] != ["exile_until"]:
             return None
         # (the linked exile, 607.2a: marked by hand, the sub-reading cannot see the card's other sentence)
-        return {**until, "effects": [{"do": "limo_back110h"}, {**until["effects"][0], "link": True}]}
+        return {**until, "effects": [{**until["effects"][0], "link": True}, {"do": "limo_back110h"}]}
+    if text == _GERALF:
+        from app.rules import card_copy_sources as C
+
+        native = scripts.define(replace(ability, text="{2}{U}, {T}: Each player mills three cards. Create a 3/3 blue Zombie creature token."), ch)
+        token = scripts.parse_effects("Create an X/X blue Zombie creature token, where X is the number of cards in your hand.")
+        if native is None or token is None or [e["do"] for e in native["effects"]] != ["mill", "create_token"]:
+            return None
+        made = {**token[0][0], "token": {**token[0][0]["token"], "power": {"total_power100e": "geralf"}, "toughness": {"total_power100e": "geralf"}}}
+        pick = C.select(who="ref:geralf_milled", n=2, upto=True, filter=C.key("creature card in a graveyard"))
+        pick["as"], pick["prompt"] = "geralf_pick", "Stitcher Geralf: exile up to two creature cards put into graveyards this way"
+        return {**native, "effects": [{**native["effects"][0], "as": "geralf_milled"}, pick,
+                                      {"do": "exile", "who": "ref:geralf_pick", "as": "geralf"}, made]}
+    if text == _SWORD.replace("This artifact", "~").replace("this artifact", "~"):
+        native = scripts.define(replace(ability, text="{T}, Sacrifice ~, Sacrifice any number of creatures you control: ~ deals X damage to any target, where X is the total power of "
+                                        "the creatures sacrificed this way.", cost="{T}, Sacrifice ~, Sacrifice any number of creatures you control"), ch)
+        if native is None or [e["do"] for e in native["effects"]] != ["damage"]:
+            return None
+        return {**native, "effects": [*native["effects"], {"do": "sword110h"}]}
+    if (shadow := _SHADOW.match(text)) is not None:
+        native = scripts.define(replace(ability, text=shadow["head"] + shadow["tail"]), ch)
+        if native is None or [e["do"] for e in native["effects"]] != ["destroy", "look_top", "pick_looked", "rest_looked"]:
+            return None
+        pick = {**native["effects"][2], "as": "shadow110h"}
+        return {**native, "effects": [*native["effects"][:2], pick, {"do": "attach_to", "src": f"obj:{shadow['oid'] or ''}", "who": "ref:shadow110h"}, native["effects"][3]]}
     if text == _LEECH:  # the grant definition the staged untap model reads (tests/test_rules_untap_attempts45.py), marked: untap_hold carries it out
         return {"kind": "static", "static": "grant", "effects": [], "who": "attached", "attached_kind": "creature", "conditions": [], "p": 0, "t": 0,
                 "base": None, "keywords": [], "grants": [text.split('"')[1]], "rules": [], "untap_counter110h": True}
@@ -226,7 +290,68 @@ def _time_reaper() -> Any:
             {"do": "gain_life", "who": "you", "n": 3}], target, flag
 
 
+def _outmaneuver() -> Any:
+    from app.rules import scripts
+
+    base = scripts.parse_effects("X target blocked creatures gain flying until end of turn.")
+    return None if base is None else ([{"do": "assign_unblocked110h", "who": "target:0"}], base[1], base[2])
+
+
+def _unleash() -> Any:
+    from app.rules import scripts
+
+    got = scripts.parse_effects("Destroy target artifact or enchantment an opponent controls with mana value less than or equal to that amount of excess damage.")
+    if got is None:
+        return None
+    ability = {"kind": "triggered", "trigger": "reflexive", "effects": got[0], "optional": False, **scripts.target_fields(got[1])}
+    return [{"do": "damage", "who": "target:0", "n": 7, "bind_excess": "excess_dealt"}, {"do": "excess_reflex110h", "ability": ability}], \
+        [{"what": "creature_or_planeswalker", "min": 1, "max": 1}], False
+
+
+def _revival() -> Any:
+    from app.rules import scripts, selectors
+
+    got = scripts.parse_effects("Return up to one permanent card from your graveyard to the battlefield. You lose 3 life for each card returned this way. Exile ~.")
+    if got is None or [e["do"] for e in got[0]] != ["return_choice", "lose_life", "exile"]:
+        return None
+    # one card for each permanent type (205.2a): the answer is checked as a matching of cards to types (effects.check_total_power, "party"), an artifact
+    # creature standing for one of its types only
+    kinds = [selectors.parse(f"{t} card in your graveyard").key() for t in ("artifact", "battle", "creature", "enchantment", "land", "planeswalker")]
+    lose = got[0][1]
+    lose = {**lose, "n": {"times": [3, {**lose["n"]["times"][1], "this_way": "battlefield_put"}]}}  # (the grammar counts cards returned to a hand; these went to the battlefield)
+    return [{**got[0][0], "n": 6, "label": "card of each permanent type", "party": kinds}, lose, *got[0][2:]], got[1], got[2]
+
+
+def sword(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
+    """Sword of the Ages: exile what was sacrificed to pay for the ability (this artifact and the creatures), if it is still in the graveyard."""
+    from app.rules import effects, this_way
+
+    got = this_way.cost_objects(plan, ctx, this_way.COST, "sacrificed")
+    # ponytail: a card that left the graveyard and came back before this resolves (a new object, 400.7) is still exiled; object ids are a global counter, so no cheap check
+    ids = [o["card"] for o in got.get("objects") or [] if (c := plan.state.cards.get(o["card"])) is not None and c.zone.endswith(":graveyard")]
+    return effects.exile_cards(plan, ctx, {}, ids)
+
+
+def excess_reflex(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
+    """603.12, 120.10: "When it deals excess damage this way, ..." triggers once if there was excess; the trigger's amount is that excess, and its target
+    (chosen when it goes on the stack, 603.3d) is bounded by it."""
+    from app.game.rules_state import TriggerEvent
+    from app.rules import context
+    from app.rules.triggers import _add
+
+    excess = max((int(b.get("n") or 0) for k, b in context.refs(ctx).items() if k.endswith("excess_dealt")), default=0)  # (bound under a prefixed name)
+    if excess >= 1:
+        _add(plan, controller=ctx["controller"], source_card=ctx.get("source_card") or "", source_object=ctx.get("source_object") or "",
+             name=str(ctx.get("name") or ""), index=7300, definition=e["ability"], event=TriggerEvent(kind="reflexive", amount=excess))
+    return True
+
+
 BUILDERS = {
+    "For each permanent type, return up to one card of that type from your graveyard to the battlefield. You lose 3 life for each card returned this way. "
+    "Exile ~.": _revival,
+    "~ deals 7 damage to target creature or planeswalker. When it deals excess damage this way, destroy target artifact or enchantment an opponent controls "
+    "with mana value less than or equal to that amount of excess damage.": _unleash,
+    "X target blocked creatures assign their combat damage this turn as though they weren't blocked.": _outmaneuver,
     "put target face-up card they own in exile on the bottom of their library. If you do, you gain 3 life.": _time_reaper,
     "you may exile one or more creature cards from your graveyard. When you do, each other creature gets -X/-X until end of turn, where X is the "
     "number of cards exiled this way.": _specter_mortality,
@@ -328,12 +453,40 @@ def bottom_did(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
     return done
 
 
+def healed(plan: Any, creatures: dict[str, int]) -> list[str]:
+    """Creatures dealt damage that carry the heal static (Wolverine, Fierce Fighter): their earlier marked damage is healed first."""
+    from app.rules import permissions
+
+    mine = {src.id for src, _, _ in permissions._table_statics(plan.state, plan.info, {"heal110h"})}
+    return [c for c, n in creatures.items() if n > 0 and c in mine]
+
+
 def limo_back(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
     from app.rules import effects, exiled_with
 
-    back = {"do": "return_card", "who": exiled_with.WHO, "to": "battlefield", "tapped": False, "under": "owner"}  # (built here: a stored WHO would read as its own pronoun)
-    return effects.PRIMITIVES["return_card"](plan, ctx, back) if effects._cards(plan, ctx, "target:0") else True
+    back = {"do": "return_card", "who": f"{exiled_with.WHO}:other", "to": "battlefield", "tapped": False, "under": "owner"}  # (built here: a stored WHO would read as its own pronoun)
+    # "If a creature is put into exile this way" (608.2c): judged by what the exile really recorded (a replaced exile records nothing).
+    return effects.PRIMITIVES["return_card"](plan, ctx, back) if ctx.get("exiled_now") else True
 
 
-PRIMITIVES = {"limo_back110h": limo_back, "bottom_did110h": bottom_did, "episode110h": episode, "scapegoat110h": scapegoat}
+def assign_unblocked(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
+    """Outmaneuver (510.1c exception): the targets assign their combat damage this turn as though they weren't blocked (no choice: no "may")."""
+    from app.rules import effects
+
+    for c in effects._cards(plan, ctx, e["who"]):
+        plan.rules.assign_forced110h[c] = plan.state.turn.number
+    return True
+
+
+def made(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
+    """The battlefield tokens created with the source (token_source, 111.2), bound for the next effect."""
+    from app.rules import context
+
+    src = ctx.get("source_card")
+    context.bind_objects(plan, ctx, e["as"], [c.id for c in plan.state.cards.values()
+                                              if c.is_token and c.zone.endswith(":battlefield") and c.token_source is not None and c.token_source.source_id == src])
+    return True
+
+
+PRIMITIVES = {"assign_unblocked110h": assign_unblocked, "made110h": made, "limo_back110h": limo_back, "bottom_did110h": bottom_did, "episode110h": episode, "scapegoat110h": scapegoat, "excess_reflex110h": excess_reflex, "sword110h": sword}
 RESUME = {"episode110h": resume_episode, "scapegoat110h": resume_scapegoat}

@@ -8491,7 +8491,7 @@ def _event_refs_ok(d: Definition) -> bool:
     # events of an "or" trigger is about one object (603.2c, the ruling: it triggers for each artifact), and so is the source's own death, its last-known snapshot)
     if '\\"evt:' in raw and d.get("trigger") not in ("attacks_self", "dies_self") and not (
             one_object(ev) or (ev is not None and ev["event"] == "either" and all(one_object(c) for c in ev["conds"]))) \
-            and '\\"evt:' in json.dumps({**d, "effects": [e for i, e in enumerate(d.get("effects") or []) if e.get("do") != "reflexive" and i not in (_delayed.object_deferred(d.get("effects") or []) | entry_receipt56.object_deferred(d.get("effects") or []))]}):
+            and '\\"evt:' in json.dumps({**d, "effects": [e for i, e in enumerate(d.get("effects") or []) if e.get("do") not in ("reflexive", "excess_reflex110h") and i not in (_delayed.object_deferred(d.get("effects") or []) | entry_receipt56.object_deferred(d.get("effects") or []))]}):
         # (wave 28D: the spell a cast trigger is about; -- turn-long triggers (wave 35B) -- or the one object a "When that creature dies this turn" trigger is about)
         return False  # -- reanimation (wave 16F) -- "lesser mana value": than the one object the event is about
     if "not_event" in raw and not (ev is not None and ev["event"] in ("targeted", "unblocked", "attack")):  # -- stack interaction (wave 23B) -- "other than that creature" (wave 110C: attack, Saw -- selectors.attacker_of reads it):

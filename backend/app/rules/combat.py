@@ -1295,6 +1295,9 @@ def ask_split(plan: Plan, rnd: Round, then: str) -> bool:
     r = plan.rules
     for att in attackers_on(plan.state):  # -- static_other sweep (wave 19A) -- 510.1c: "You may have this creature assign its combat damage as though it weren't blocked"
         ach = plan.ch(att)
+        if att.id in r.blocked and att.id not in r.assign_unblocked and r.assign_forced110h.get(att.id) == plan.state.turn.number:
+            r.assign_unblocked[att.id] = True  # -- Outmaneuver (wave 110H) -- no "may": it assigns that way, no question
+            continue
         if att.id in r.blocked and att.id not in r.assign_unblocked and group_unblocked.allows(plan, att, ach) and _deals(ach, rnd) \
                 and (_assigns(att, ach) or 0) > 0:
             decide(plan, player=att.controller, kind="confirm",
