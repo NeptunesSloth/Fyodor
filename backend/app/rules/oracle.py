@@ -401,6 +401,9 @@ def parse_abilities(oracle_text: str | None, *, spell: bool = False, pt: tuple[s
             lines[i:i + 1] = [f"When this permanent enters, sacrifice it unless you exile another {m[1]} you control.",
                               "When this permanent leaves the battlefield, return the exiled card to the battlefield under "
                               "its owner's control."]
+    from app.rules import wave110n_cards  # -- lines (wave 110N) -- Genku, Future Shaper
+
+    wave110n_cards.rewrite_lines(lines)
     # -- lines (wave 110D) -- Master Chef: 614.12 a commander creature entering is checked with the abilities it would have there (its own and Chef's
     # grants), so the granted "This creature enters with ..." is "commander creatures you own enter with ...", then the second grant as its own ability
     for i, line in enumerate(lines):

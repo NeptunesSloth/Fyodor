@@ -99,6 +99,21 @@ def _hew() -> Any:
 _VISION = ("Choose a land type and a basic land type. Each land of the first chosen type becomes the second chosen type until end of turn.")
 
 
+_GENKU = ["Whenever another nontoken permanent you control leaves the battlefield, choose one that hasn't been chosen this turn. Create a creature token with those characteristics.",
+          "\u2022 2/2 white Fox with vigilance.", "\u2022 1/2 blue Moonfolk with flying.", "\u2022 1/1 black Rat with lifelink."]
+_GENKU_MODAL = ["Whenever another nontoken permanent you control leaves the battlefield, choose one that hasn't been chosen this turn \u2014",
+                "\u2022 Create a 2/2 white Fox creature token with vigilance.", "\u2022 Create a 1/2 blue Moonfolk creature token with flying.",
+                "\u2022 Create a 1/1 black Rat creature token with lifelink."]
+
+
+def rewrite_lines(lines: list[str]) -> None:
+    """Genku, Future Shaper: the bullets only say which token a mode makes, so the four lines are the modal trigger "choose one that hasn't been chosen this turn"
+    (700.2) with a mode for each token. In place."""
+    for i in range(len(lines) - 3):
+        if lines[i:i + 4] == _GENKU:
+            lines[i:i + 4] = _GENKU_MODAL
+
+
 def parse(body: str) -> Any:
     """Exact spell bodies: the parts the grammar reads, joined with the card's own step."""
     from app.rules import scripts
