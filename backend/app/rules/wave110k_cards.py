@@ -158,8 +158,9 @@ def resume_shuffle_other(plan: Any, d: Any, chosen: list[str]) -> None:
     ctx = d.resume["ctx"]
     if len(chosen) != 1 or chosen[0] not in d.resume["mine"]:
         raise ValueError("not one of the creatures")
-    if effects.PRIMITIVES["to_library"](plan, ctx, {"do": "to_library", "who": f"object:{plan.oid(chosen[0])}", "place": "shuffle"}):
-        effects.continue_effects(plan, ctx)
+    # (wave 110E: queued as the next instruction, so the run loop asks 903.9b before a chosen commander moves)
+    ctx["effects"][ctx["next"]:ctx["next"]] = [{"do": "to_library", "who": f"object:{plan.oid(chosen[0])}", "place": "shuffle"}]
+    effects.continue_effects(plan, ctx)
 
 
 def copies_of_revealed(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
