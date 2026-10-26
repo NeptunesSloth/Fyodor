@@ -1354,7 +1354,7 @@ def _own_layer4_statics(state: GameState, card: CardInstance, info: CardInfo | N
     _T.l4.add(card.id)
     try:
         # (wave 11E: "is the chosen type in addition to its other types" adds the type chosen as it entered, 614.12a)
-        return [(st.seq, {**st.definition, "add_subtypes": [t for t in [(card.choices.get("Chosen basic land type" if "Land" in ch.types else "Chosen creature type") or "").strip()] if t]}
+        return [(st.seq, {**st.definition, "add_subtypes": [t for t in [(card.choices.get("Chosen creature type") or card.choices.get("Chosen basic land type") or "").strip()] if t]}
                  if st.definition.get("chosen_type") else st.definition) for st in table
                 if grammar.conditions_hold(view, st.definition, source=card, controller=st.controller)]
     finally:

@@ -1077,6 +1077,8 @@ def emblem_text_ok(text: str) -> bool:
                 continue
             if d.get("static") != "grant" or zone_static(d) or d.get("also"):
                 return False
+        elif d.get("kind") == "activated" and d.get("cost") == "Tap an untapped artifact you control":  # -- emblem (wave 110A) -- Karn, Living Legacy (casting.activate_ability)
+            continue
         elif d.get("kind") != "triggered" or not (d.get("trigger") in _EMBLEM_TRIGGERS or str(d.get("trigger")).startswith("step:")):
             return False
     return True

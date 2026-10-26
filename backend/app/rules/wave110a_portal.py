@@ -16,7 +16,7 @@ def apply(ch: Any) -> Any:
     out = []
     for a in ch.abilities:
         head, sep, tail = a.text.partition(": ")
-        if sep and a.kind == "activated" and "Pay 1 life" not in head and M.parse_mana_ability(a.text) is not None:
+        if sep and a.kind in ("activated", "mana") and "Pay 1 life" not in head and M.parse_mana_ability(a.text) is not None:
             a = replace(a, text=f"{head}, Pay 1 life: {tail}", cost=f"{a.cost}, Pay 1 life" if a.cost else head + ", Pay 1 life")
         out.append(a)
     return replace(ch, abilities=tuple(out))

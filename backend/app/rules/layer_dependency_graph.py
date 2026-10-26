@@ -226,7 +226,7 @@ class Solver:
 
         d = with_chosen(self.state, st)
         if d.get('chosen_type') and not d.get('layer4'):
-            return {**d, 'add_subtypes': [v for v in [self.state.cards[st.source].choices.get('Chosen creature type', '').strip()] if v]}
+            return {**d, 'add_subtypes': [v for v in [(self.state.cards[st.source].choices.get('Chosen creature type') or self.state.cards[st.source].choices.get('Chosen basic land type') or '').strip()] if v]}
         return d
 
     def _with_position(self, pos: Position, fn: Callable[[], Any]) -> Any:

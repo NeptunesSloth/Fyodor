@@ -5521,6 +5521,12 @@ def activate_ability(plan: Plan, a: A.ActivateAbility) -> None:
     if card.zone == zone_key(plan.actor, "command") and card.owner == plan.actor:  # -- activated from hand / command zone (wave 27D)
         ch = plan.ch(card)
         ability = next((ab for ab in ch.abilities if ab.index == a.ability), None)
+        from app.rules import designations
+
+        if ability is not None and ability.kind == "activated" and designations.emblem_card(card):  # -- emblem (wave 110A) -- 114.4: its ability works from the command zone
+            _activation_limit(plan, card, ch)
+            activate_to_stack(plan, card, ch, ability, a)
+            return
         if ability is not None and ability.kind == "activated" and ability_cost(ch, ability).command_only:  # 113.6m
             _activation_limit(plan, card, ch)
             activate_to_stack(plan, card, ch, ability, a)
@@ -5908,7 +5914,8 @@ def ability_problem(state: GameState, player: str, card: CardInstance, ch: Chara
         why = ninjutsu.problem(state, player, card)
         if why:
             return why
-    elif not card.zone.endswith(":battlefield") or not actor_allowed(ability, cost, card.controller, player, owner=card.owner):  # (wave 7B)
+    elif not (card.zone.endswith(":battlefield") or (card.zone.endswith(":command") and card.token is not None and card.token.type_line == "Emblem")) \
+            or not actor_allowed(ability, cost, card.controller, player, owner=card.owner):  # (wave 7B; wave 110A: an emblem, 114.4)
         if opponents_only(ability) and card.controller == player:
             return "Only your opponents may activate this ability"
         return "You can only activate abilities of permanents you control"

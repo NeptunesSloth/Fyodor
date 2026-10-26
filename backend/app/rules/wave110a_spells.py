@@ -397,11 +397,37 @@ def _interrogation() -> Parsed:
     return [{**inv[0][0], "n": {"sum_for_players": "target:0", "of": inv[0][0]["n"]}}, *inv[0][1:]], chosen[1], False
 
 
+def _new_blood() -> Parsed:
+    """New Blood: gain control, then change the creature's text (612.1, 612.2: one creature type word becomes Vampire; text_change_instructions71 does the layer-3 effect)."""
+    gain = _p("Gain control of target creature.")
+    return [*gain[0], {"do": "new_blood110a"}], gain[1], False
+
+
+def new_blood(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    from app.rules.creature_types import CREATURE_TYPES
+
+    ctx["effects"][ctx["next"]:ctx["next"]] = [
+        {"do": "choose_value", "what": "word to replace", "who": "you", "as": "text71_old", "options": sorted(CREATURE_TYPES)},
+        {"do": "new_blood_apply110a"}]
+    return True
+
+
+def new_blood_apply(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    from app.rules import context, text_change_instructions71
+
+    old = context.refs(ctx).get("text71_old", {}).get("value")
+    if old == "Vampire":
+        return True  # replacing a word with itself changes nothing
+    context.refs(ctx)["text71_new"] = {"value": "Vampire"}
+    return text_change_instructions71.apply_word(plan, ctx, {"category": "creature", "old": old, "not_wall": False, "duration": "permanent"})
+
+
 def _gambit() -> Parsed:
     return [{"do": "gambit110a"}], None, False
 
 
 BUILDERS: dict[str, Callable[[], Parsed]] = {
+    "Gain control of target creature. Change the text of that creature by replacing all instances of one creature type with Vampire.": _new_blood,
     "Choose any number of target players. Investigate X times, where X is the total number of creatures those players control.": _interrogation,
     "Each player may exile their hand and draw a number of cards equal to the amount of {E} paid this way. If seven or more {E} was paid this way, "
     "you may play cards you own exiled this way until the end of your next turn.": _wheel,
@@ -530,6 +556,11 @@ def snow(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
 
 # Whole abilities the grammar reads in other words (same meaning).
 ABILITY_REWRITES = {
+    # Karn, Living Legacy -1: "pay any amount of mana" (0 allowed) is the sized optional payment {X}; looking at 0 cards when none is paid changes nothing
+    "\u22121: Pay any amount of mana. Look at that many cards from the top of your library, then put one of those cards into your hand and the rest on the bottom of "
+    "your library in a random order.":
+        "\u22121: You may pay {X}. If you do, look at the top X cards of your library, then put one of those cards into your hand and the rest on the bottom of your "
+        "library in a random order.",
     # Estrid, the Masked: the Mask Aura token (roles.NAMED), enchant permanent + umbra armor
     "\u22121: Create a white Aura enchantment token named Mask attached to another target permanent. The token has enchant permanent and umbra armor.":
         "\u22121: Create a Mask Aura token attached to another target permanent.",
@@ -627,5 +658,5 @@ def unblocked_turn(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return True
 
 
-PRIMITIVES = {"wheel110a": wheel, "grant_owned110a": grant_owned, "gambit110a": gambit, "bind_sacrificed110a": bind_sacrificed, "unblocked_turn110a": unblocked_turn, "repeat_put110a": repeat_put, "note_put110a": note_put, "bind110a": bind, "end_combat_phase110a": end_combat_phase, "snow110a": snow,
+PRIMITIVES = {"new_blood110a": new_blood, "new_blood_apply110a": new_blood_apply, "wheel110a": wheel, "grant_owned110a": grant_owned, "gambit110a": gambit, "bind_sacrificed110a": bind_sacrificed, "unblocked_turn110a": unblocked_turn, "repeat_put110a": repeat_put, "note_put110a": note_put, "bind110a": bind, "end_combat_phase110a": end_combat_phase, "snow110a": snow,
               "exiled_power_damage110a": exiled_power_damage, "exile_hands110a": exile_hands, "counter_opponents110a": counter_opponents, "noted_draw110a": noted_draw}

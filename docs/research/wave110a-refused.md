@@ -46,3 +46,5 @@
 - See the Unwritten: with ferocious, "you may put two creature cards ... instead of one": unsettled whether exactly one may be chosen (no CR rule or ruling in the repo); left manual.
 - Tectonic Split: "sacrifice half the lands you control, rounded up" as additional cost needs the amount bound at every cast site (about 8 callers of spell_additional_cost); not built this session, still work (not refused).
 - Tezzeret, Betrayer of Flesh: "first activated ability of an artifact you activate each turn" must count mana abilities too (605.1a); needs a per-turn record in the mana-ability path; not built this session.
+- Squandered Resources (wave 110A s14): needs the sacrificed land's producible mana as a cost-bound option list (mana ability reading a cost object); deferred, not refused for rules.
+- Celestial Reunion (wave 110A s14): chosen creature type + behold two of that type + conditional battlefield put; deferred.
