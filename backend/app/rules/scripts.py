@@ -3809,6 +3809,7 @@ def _parse_effects_plain(body: str, it: str | None = None, *, event_player: bool
     # CR 701.48a (2026-09-25): Learn offers an optional discard/draw first, then a Lesson import
     # if no card was discarded. Commander 903.11 disallows that ordinary outside-game import,
     # even when a player has imported an owned collection; only the discard/draw remains.
+    learn110f = bool(re.search(r"(^\s*|\. )[Ll]earn\.", body))  # -- wave 110F -- the optional discard is marked: Retriever Phoenix replaces the learning (701.48a)
     body = re.sub(r"(^\s*|\. )[Ll]earn\.", r"\1You may discard a card. If you do, draw a card.", body)  # (wave 52D: a leading space, an activated ability's body)
     body = _extra_turns.one_sentence(body)  # -- static_other sweep (wave 19A) -- Final Fortune
     # -- tutor (wave 20D) -- the same search spelled as sentences: "Search your library for two cards[ and reveal them]. Put one into your hand
@@ -3928,13 +3929,23 @@ def _parse_effects_plain(body: str, it: str | None = None, *, event_player: bool
 
     body = player_filter.rewrite(body)
     if (each_opp := per_opponent.parse(body, lambda b: parse_effects(b, it, event_player=event_player))) is not None:
-        return each_opp
+        return _mark_learn110f(each_opp) if learn110f else each_opp
     found = _parse_effects_checked(body, it, event_player)
     if found is not None and '"target_sel"' in json.dumps(found[0], default=str):
         return None  # (-- static_other sweep (wave 16B) -- a "target …" an amount names that no instruction declared as its target)
     if found is not None and '{"x": 1}' not in json.dumps(found[0]) and not ('"x_count"' in json.dumps(found[1]) and _WHERE_X.search(body)):
-        return found  # (-- xdamage (wave 100E) -- "up to X target creatures … get +X/+X …, where X is …" (Prismabasher): the count is the text's X too)
-    return _where_x(body, it, event_player) or found  # (X left as a cast X by the sentence grammar: read as the text defines it, if it can be)
+        return _mark_learn110f(found) if learn110f else found  # (-- xdamage (wave 100E) -- "up to X target creatures … get +X/+X …, where X is …" (Prismabasher): the count is the text's X too)
+    found = _where_x(body, it, event_player) or found  # (X left as a cast X by the sentence grammar: read as the text defines it, if it can be)
+    return _mark_learn110f(found) if learn110f else found
+
+
+def _mark_learn110f(found: Any) -> Any:
+    """The optional discards Learn became (wave 110F): ``learn110f`` on them (``optional_payment``: Retriever Phoenix may replace the learning)."""
+    if found is not None:
+        for e in found[0]:
+            if e.get("do") == "optional_payment" and e.get("cost") == "Discard a card":
+                e["learn110f"] = True
+    return found
 
 
 # -- activated other (wave 34B) -- clauses a grant list tacks on that are instructions about the same object, written as the sentences the grammar reads:

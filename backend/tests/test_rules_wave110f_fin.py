@@ -1011,3 +1011,71 @@ def test_equilibrium_applies_to_a_land_put_onto_the_battlefield_by_an_effect(car
     answer(s)
     assert s.state.cards[island.id].zone == "p2:graveyard"
     check(s)
+
+
+_PHOENIX = ("Flying, haste\nWhen this creature enters, if you cast it, learn. (You may reveal a Lesson card you own from outside the game and put it into your hand, or discard a card to draw a card.)\n"
+            "As long as this card is in your graveyard, if you would learn, you may instead return this card to the battlefield.")
+_BASE.extend([
+    real("Retriever Phoenix", "{3}{R}", 4, "Creature — Phoenix", _PHOENIX, ("2", "2"), "R"),
+    real("Pop Quiz", "{2}{U}", 3, "Instant", "Draw a card.\nLearn. (You may reveal a Lesson card you own from outside the game and put it into your hand, or discard a card to draw a card.)", None, "U"),
+])
+
+
+def test_phoenix_full(cards):
+    assert coverage.of_card_data(cards.resolve("Retriever Phoenix")).level == "FULL"
+
+
+def _quiz(cards, phoenix_zone):
+    from tests.wave9c_kit import to_hand
+    from tests.wave36a_kit import to_gy
+
+    s = build(cards, ["Retriever Phoenix", "Pop Quiz", "Test Dull 110FD"], [])
+    if phoenix_zone == "graveyard":
+        to_gy(s, "Retriever Phoenix")
+    elif phoenix_zone == "hand":
+        to_hand(s, "Retriever Phoenix")
+    to_hand(s, "Test Dull 110FD")
+    mana(s, "p1", U=3)
+    cast(s, "Pop Quiz")
+    return s
+
+
+def _next_decision(s):
+    for _ in range(8):
+        if s.state.rules.decision is not None:
+            return s.state.rules.decision
+        act(s, s.state.rules.priority, type="pass_priority")
+    return None
+
+
+def test_phoenix_returns_instead_of_learning(cards):
+    """614.1a, 2021-04-16 ruling: learning with the Phoenix in the graveyard: it may return to the battlefield instead; no discard, no draw."""
+    s = _quiz(cards, "graveyard")
+    d = _next_decision(s)
+    assert d is not None and d.player == "p1" and any("Retriever Phoenix" in o.label for o in d.options) and any(o.id == "learn" for o in d.options)
+    hand = len(s.state.zones["p1:hand"])
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[next(o.id for o in d.options if "Retriever Phoenix" in o.label)])
+    answer(s)
+    assert s.state.cards[card_named(s, "Retriever Phoenix").id].zone == "p1:battlefield"
+    assert len(s.state.zones["p1:hand"]) == hand and s.state.cards[card_named(s, "Test Dull 110FD").id].zone == "p1:hand"  # (the Dull card wasn't discarded)
+    check(s)
+
+
+def test_phoenix_player_may_learn_as_usual(cards):
+    s = _quiz(cards, "graveyard")
+    d = _next_decision(s)
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=["learn"])
+    d = _next_decision(s)
+    assert d is not None and d.player == "p1"  # (the optional discard is offered now)
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[o.id for o in d.options if "Dull" in o.label or o.id == "pay"][:1])
+    answer(s)
+    assert s.state.cards[card_named(s, "Retriever Phoenix").id].zone == "p1:graveyard"
+    check(s)
+
+
+@pytest.mark.parametrize("zone", ["hand", "library"])
+def test_phoenix_outside_the_graveyard_changes_nothing(cards, zone):
+    s = _quiz(cards, zone)
+    d = _next_decision(s)
+    assert d is None or not any("Retriever Phoenix" in o.label for o in d.options)
+    check(s)

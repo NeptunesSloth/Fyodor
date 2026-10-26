@@ -59,6 +59,9 @@ _EQUILIBRIUM = ("If an opponent who controls at least as many lands as you do wo
                 "then sacrifices a land of their choice.")
 
 
+_PHOENIX = "As long as this card is in your graveyard, if you would learn, you may instead return this card to the battlefield."
+
+
 def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
     from app.rules import scripts
     from app.rules.token_copy_outcomes import ORIGINAL
@@ -163,6 +166,8 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
         return {**probe, "effects": [fixed], "target": {"what": "exiled_with"}}
     if ability.kind == "static" and text == _EQUILIBRIUM:  # applied as lands are planned to enter: devour.equilibrium (614.1a)
         return {"kind": "static", "static": "equilibrium110f", "effects": []}
+    if ability.kind == "static" and text == _PHOENIX:  # applied as a learning is carried out (``learn_replacement``)
+        return {"kind": "static", "static": "phoenix_learn110f", "effects": []}
     return None
 
 
@@ -455,5 +460,42 @@ def creature_entering(plan: Any, card: Any, player: str, **update: Any) -> bool:
     return "Creature" in plan.ch(card.model_copy(update={"zone": zone_key(player, "battlefield"), "controller": player, **update})).types
 
 
+# -- Retriever Phoenix: "As long as this card is in your graveyard, if you would learn, you may instead return this card to the battlefield." (614.1a; 2021-04-16 rulings) --
+def learn_replacement(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool | None:
+    """Called as a learning's optional discard comes up (``optional_payment``, ``learn110f``): None when no card applies; else its controller is asked and False is returned (resumed
+    by ``resume_learn``). The card must be in the graveyard at this moment (2021-04-16 ruling)."""
+    from app.rules import characteristics as chars
+    from app.rules import scripts
+    from app.rules.plan import decide
+
+    pid = ctx["controller"]
+    found = [c for c in plan.state.zones.get(f"{pid}:graveyard", []) if "if you would learn" in (chars.of(plan.state.cards[c], plan.info).oracle_text or "")
+             and any(d.get("static") == "phoenix_learn110f" for d in scripts.definitions(plan.ch(plan.state.cards[c])).values())]
+    if not found:
+        return None
+    decide(plan, player=pid, kind="choose_one", prompt=f"{ctx.get('name') or 'It'}: learn, or return a card to the battlefield instead?",
+           options=[*(DecisionOption(id=c, label=f"Return {plan.state.cards[c].name} to the battlefield instead of learning") for c in found), DecisionOption(id="learn", label="Learn")],
+           resume={"step": "learn110f", "ctx": ctx, "e": e})
+    return False
+
+
+def resume_learn(plan: Any, d: Any, chosen: list[str]) -> None:
+    from app.rules import context, effects, optional_payment
+
+    ctx, e = d.resume["ctx"], d.resume["e"]
+    if chosen[0] == "learn":
+        if optional_payment.optional_payment(plan, ctx, {**e, "asked110f": True}):
+            effects.continue_effects(plan, ctx)
+        return
+    card = plan.state.cards.get(chosen[0])
+    if card is not None and card.zone == f"{ctx['controller']}:graveyard":
+        plan.note(f"{plan.name(ctx['controller'])} returns {card.name} to the battlefield instead of learning", [card.id])
+        if not effects._return_cards(plan, ctx, {"to": "battlefield", "under": "owner", "tapped": False}, [card.id]):
+            context.bind_payment(ctx, str(e.get("bind") or "pay0"), False)  # (the entry still waits for a choice: the discard and draw don't happen)
+            return
+    context.bind_payment(ctx, str(e.get("bind") or "pay0"), False)  # nothing was discarded: "If you do, draw a card" doesn't happen
+    effects.continue_effects(plan, ctx)
+
+
 PRIMITIVES = {"master110f": master, "link_cost110f": link_cost, "seventh110f": seventh, "link_put110f": link_put, "servitude110f": servitude, "jarkeld110f": jarkeld, "tahngarth110f": tahngarth, "vecna110f": vecna, "specimens110f": specimens}
-RESUME = {"master110f": resume_master, "seventh110f": resume_seventh, "seventh110f_guess": resume_seventh_guess, "tahngarth110f": resume_tahngarth}
+RESUME = {"master110f": resume_master, "seventh110f": resume_seventh, "seventh110f_guess": resume_seventh_guess, "tahngarth110f": resume_tahngarth, "learn110f": resume_learn}

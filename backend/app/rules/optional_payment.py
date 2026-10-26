@@ -308,6 +308,11 @@ def optional_payment(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     """``{"do": "optional_payment", "who": <payer>, "cost": <cost text>, "bind": "pay0"}``: offer
     the payer the cost (PAY / DECLINE, privately) if they can pay it now; record the result as the
     binding ``bind`` (``{"succeeded": bind}`` in a following ``only_if``)."""
+    if e.get("learn110f") and not e.get("asked110f"):  # -- wave 110F -- Retriever Phoenix: "if you would learn, you may instead return this card to the battlefield"
+        from app.rules import wave110f_fin
+
+        if (replaced110f := wave110f_fin.learn_replacement(plan, ctx, e)) is not None:
+            return replaced110f
     # -- unless pays (wave 4C) -- a cost sized as it resolves ("{X}", "{1} for each …": app/rules/unless_pays.py)
     from app.rules import paid_x, unless_pays
 
