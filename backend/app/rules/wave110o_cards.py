@@ -110,6 +110,7 @@ _HEROIC = ("Choose target creature you control. Until end of turn, all damage th
            "draw a card.")
 _TIDAL = ("For each attacking creature without flying, its controller may pay {1}. If that player doesn't, creatures you control blocking that creature "
           "gain first strike until end of turn.")
+_PYRAMIDS_MODE = "• The next time target land would be destroyed this turn, remove all damage marked on it instead."
 _CLEANSING = "For each land, destroy that land unless any player pays 1 life."
 _UNDER_COST = "As an additional cost to cast this spell, you may pay {2}{R}."
 _UNDER_PREVENT = ("Prevent all combat damage that would be dealt this turn. If this spell's additional cost was paid, this effect doesn't affect "
@@ -149,6 +150,16 @@ _MYSTERIO = ("When ~ enters, create a 3/3 blue Illusion Villain creature token f
 _OKO_TYPES = "+2: Up to one target creature gains all creature types."
 _OKO_EMBLEM = ('−6: Choose a creature type. You get an emblem with "Creatures you control of the chosen type get +3/+3 and have vigilance and '
                'hexproof."')
+
+
+def modal_swap(ab: Any, ch: Any) -> tuple[Any, int, list[dict[str, Any]]] | None:
+    """Pyramids: the second mode is read as a stand-in sentence (a destroy of a land); its effect is this module's shield, 614.1a. (characteristics, the mode's index, its effects)"""
+    import dataclasses
+
+    if ab.kind != "activated" or ab.text != "{2}: Choose one —" or len(ch.abilities) <= ab.index + 2 or ch.abilities[ab.index + 2].text != _PYRAMIDS_MODE:
+        return None
+    swapped = tuple(replace(a, text="• Destroy target land.") if a.index == ab.index + 2 else a for a in ch.abilities)
+    return dataclasses.replace(ch, abilities=swapped), 1, [{"do": "wipe_shield110o", "who": "target"}]
 
 
 def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
@@ -649,6 +660,33 @@ def tidal_grant(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return True
 
 
+def wipe_shield(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """614.1a: a shield for this turn on each target land (the object, 400.7): the next time it would be destroyed, the damage marked on it is removed instead."""
+    from app.rules import effects
+
+    for cid in effects._cards(plan, ctx, e["who"]):
+        oid = plan.oid(cid)
+        plan.rules.wipe_shields110o[oid] = plan.rules.wipe_shields110o.get(oid, 0) + 1
+        effects._mark(plan, [cid], "Damage-removal shield")
+    return True
+
+
+def use_wipe(plan: Any, card: Any) -> None:
+    """The shield is used up: all damage marked on the permanent is removed and it is not destroyed (614.1a; a deathtouch mark goes with the damage)."""
+    oid = plan.oid(card)
+    left = plan.rules.wipe_shields110o.get(oid, 0) - 1
+    if left > 0:
+        plan.rules.wipe_shields110o[oid] = left
+    else:
+        plan.rules.wipe_shields110o.pop(oid, None)
+        for marker in [m for m in card.effects if m.name == "Damage-removal shield"]:
+            plan.do({"type": "remove_effect", "card_ids": [card.id], "effect_id": marker.id}, actor=card.controller)
+    plan.note(f"{card.name}: all damage marked on it is removed instead of being destroyed", [card.id], actor=card.controller)
+    if card.damage:
+        plan.do({"type": "set_damage", "card_ids": [card.id], "value": 0}, actor=card.controller)
+    plan.rules.deathtouched = [c for c in plan.rules.deathtouched if c != card.id]
+
+
 def cleansing(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     """608.2c, 118.12a: "For each land, destroy that land unless any player pays 1 life": the lands there are as the instruction starts, each with its own
     round of payments (every player decides in turn order, 101.4, then pays; a land is destroyed if nobody paid for it)."""
@@ -668,7 +706,7 @@ def cleansing(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return False
 
 
-PRIMITIVES: dict[str, Any] = {"tidal110o": tidal, "tidal_grant110o": tidal_grant, "heroic110o": heroic, "cleansing110o": cleansing, "type_emblem110o": type_emblem, "redistribute110o": redistribute,
+PRIMITIVES: dict[str, Any] = {"wipe_shield110o": wipe_shield, "tidal110o": tidal, "tidal_grant110o": tidal_grant, "heroic110o": heroic, "cleansing110o": cleansing, "type_emblem110o": type_emblem, "redistribute110o": redistribute,
               "helm_test110o": helm_test, "helm_again110o": helm_again, "helm_pick110o": helm_pick, "portent_hand110o": portent_hand, "rinoa_pick110o": rinoa_pick, "lazav110o": lazav, "profaner110o": profaner, "gain_land110o": gain_land}
 RESUME: dict[str, Any] = {"type_emblem110o": resume_type_emblem, "redistribute_players110o": resume_redistribute_players,
                           "redistribute_give110o": resume_redistribute_give, "helm_pick110o": resume_helm_pick, "rinoa_pick110o": resume_rinoa_pick, "lazav110o": resume_lazav, "lazav_copy110o": resume_lazav_copy, "gain_land110o": resume_gain_land}

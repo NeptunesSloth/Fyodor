@@ -8,6 +8,7 @@
 * 614.9, 122.8, 603.10a: Heroic Sacrifice sends damage to you and your creatures to the chosen creature (only while it is on the battlefield); when it dies its counters go to a creature.
 * 118.9, 404.1, 118.3: Spinning Darkness's alternative cost exiles the top three black cards of the graveyard (no choice); with fewer it can't be paid.
 * 608.2c, 118.12: Tidal Flats asks the controller of each attacking creature without flying for {1}; blockers of the creatures whose controller didn't pay get first strike.
+* 614.1a, 704.5g: Pyramids' shield replaces the next destruction of a land this turn (an effect's or lethal damage) by removing the damage on it; its other mode destroys an Aura attached to a land.
 """
 
 from __future__ import annotations
@@ -23,6 +24,7 @@ from tests.wave9c_kit import build
 from tests.wave110o_kit import (  # noqa: F401
     EXTRA,
     ability,
+    activate,
     card_db,
     card_named,
     cast_on,
@@ -33,6 +35,7 @@ from tests.wave110o_kit import (  # noqa: F401
     grave_new,
     life,
     mana,
+    next_turn,
     now,
     put,
     put_new,
@@ -44,7 +47,7 @@ from tests.wave110o_kit import (  # noqa: F401
 UNDERGROWTH = "Undergrowth"
 
 
-@pytest.mark.parametrize("name", [UNDERGROWTH, "Pure Intentions", "Nahiri's Sacrifice", "Cleansing", "Mysterio, Master of Illusion", "Heroic Sacrifice", "Spinning Darkness", "Tidal Flats"])
+@pytest.mark.parametrize("name", [UNDERGROWTH, "Pure Intentions", "Nahiri's Sacrifice", "Cleansing", "Mysterio, Master of Illusion", "Heroic Sacrifice", "Spinning Darkness", "Tidal Flats", "Pyramids"])
 def test_the_cards_are_full(name):
     assert full(name)
 
@@ -447,4 +450,73 @@ def test_tidal_flats_gives_my_blockers_first_strike_unless_the_attackers_control
     else:
         assert [p for p, _ in asked] == ["p2"] and "Grizzly Bears (attacking)" in asked[0][1]  # (the flying Pegasus is not asked about)
     assert ("first strike" in ch(s, mine).keywords) is (not pays)
+    check(s)
+
+
+PYRAMIDS = "Pyramids"
+
+
+def pyramids_table(cards, mine=(), theirs=()):
+    s = build(cards, [PYRAMIDS, "Mutavault", "Stone Rain", "Armageddon", "Wild Growth", "Lightning Bolt", *mine], ["Pacifism", "Grizzly Bears", *theirs])
+    return s, put(s, PYRAMIDS), put(s, "Mutavault")
+
+
+def pyramids(s, pyr, mode, target):
+    mana(s, "p1", C=2)
+    act(s, "p1", type="activate_ability", card_id=pyr.id, ability=0, modes=[mode], targets=[target.id])
+    settle(s)
+
+
+def test_pyramids_shield_saves_a_land_from_the_next_destruction_only(cards):
+    s, pyr, vault = pyramids_table(cards)
+    pyramids(s, pyr, 1, vault)
+    cast_on(s, "Stone Rain", vault)
+    assert now(s, vault).zone == "p1:battlefield"  # (the first destruction is replaced: 614.1a)
+    cast_on(s, "Stone Rain", vault)
+    assert now(s, vault).zone == "p1:graveyard"  # (the shield was used up by the first)
+    check(s)
+
+
+def test_pyramids_shield_removes_the_damage_from_an_animated_land_instead_of_destroying_it(cards):
+    s, pyr, vault = pyramids_table(cards)
+    pyramids(s, pyr, 1, vault)
+    mana(s, "p1", C=1)
+    activate(s, vault, "{1}")
+    assert "Creature" in ch(s, vault).types
+    cast_on(s, "Lightning Bolt", vault)
+    assert now(s, vault).zone == "p1:battlefield" and now(s, vault).damage == 0  # (704.5g: lethal damage destroys; the shield replaces that)
+    check(s)
+
+
+def test_pyramids_shield_ends_with_the_turn(cards):
+    s, pyr, vault = pyramids_table(cards)
+    pyramids(s, pyr, 1, vault)
+    next_turn(s)
+    to_phase(s, "main1", turn=3)
+    cast_on(s, "Stone Rain", vault)
+    assert now(s, vault).zone == "p1:graveyard"
+    check(s)
+
+
+def test_pyramids_other_mode_destroys_an_aura_attached_to_a_land_only(cards):
+    s, pyr, vault = pyramids_table(cards)
+    growth = cast_on(s, "Wild Growth", vault)
+    assert now(s, growth).attached_to == vault.id
+    bears = put(s, "Grizzly Bears", "p2")
+    pacifism = to_hand(s, "Pacifism", "p2")
+    act(s, "p2", type="move", card_ids=[pacifism.id], to={"zone": "battlefield"})
+    mana(s, "p1", C=2)
+    with pytest.raises(ActionError):
+        act(s, "p1", type="activate_ability", card_id=pyr.id, ability=0, modes=[0], targets=[bears.id])  # (a creature, not an Aura attached to a land)
+    pyramids(s, pyr, 0, growth)
+    assert now(s, growth).zone == "p1:graveyard" and now(s, vault).zone == "p1:battlefield"
+    check(s)
+
+
+def test_pyramids_shield_saves_only_its_land_from_a_mass_destruction(cards):
+    s, pyr, vault = pyramids_table(cards)
+    forest = put_new(s, "Forest")
+    pyramids(s, pyr, 1, vault)
+    cast_on(s, "Armageddon")
+    assert now(s, vault).zone == "p1:battlefield" and now(s, forest).zone == "p1:graveyard"
     check(s)

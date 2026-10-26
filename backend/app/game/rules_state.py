@@ -1632,6 +1632,7 @@ class RulesState(BaseModel):
     # "hasn't dealt damage yet" (120.3: a source that dealt more than 0 damage: its oid, and "<oid>+combat" for combat damage)
     dealt_damage: list[str] = Field(default_factory=list)
     prepared: dict[str, str] = Field(default_factory=dict)  # -- prepared (wave 13C, 722.3) -- permanent's rules object -> its copy in exile
+    wipe_shields110o: dict[str, int] = Field(default_factory=dict)  # -- (wave 110O) -- 614.1a: object id -> "next time it would be destroyed this turn, remove all damage marked on it instead" (Pyramids)
     prepare_spells110o: list[str] = Field(default_factory=list)  # -- (wave 110O) -- 722.3d: the exiled copies that were cast ("a prepared spell")
     phase_lifetimes: list[PhaseLifetime] = Field(default_factory=list)
     damaged: dict[str, int] = Field(default_factory=dict)  # player -> last turn they were dealt damage (bloodthirst)

@@ -29,5 +29,4 @@
 - Tenth District Hero: becoming a creature "named" something (name change) is not modelled.
 - Chromatic Armor: sleight counters set X, and a prevention keyed to "the last chosen color".
 - Cyclopean Tomb: a delayed per-land cleanup tied to the lands the artifact marked.
-- Pyramids: "the next time target land would be destroyed" replacement shield.
 - Custodi Peacekeeper: depends on a number noted while drafting (905.2b); no rule for a game that was not drafted.
