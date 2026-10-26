@@ -1511,6 +1511,10 @@ def entering(plan: Plan, card: CardInstance, controller: str, answers: dict[str,
     the own one last, so it wins when used and otherwise the Essence copy stays (declined, or nothing to copy)."""
     if _entering(plan, card, controller, answers, out):
         return True
+    from app.rules import wave110b_mirror  # -- Mystic Reflection (wave 110B) --
+
+    wave110b_mirror.apply(plan, [(card, controller)])
+    wave110b_mirror.late(plan, card, controller)
     from app.rules import wave110f_cards
 
     wave110f_cards.copy_on_entry(plan, card, controller)

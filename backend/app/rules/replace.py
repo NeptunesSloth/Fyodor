@@ -899,6 +899,9 @@ def _make_tokens(plan: Plan, ev: Event, picks: list[dict[str, str]]) -> list[str
             if diverted:
                 diverted_ids.add(tid)
         pick_index += k
+    from app.rules import wave110b_mirror  # -- Mystic Reflection (wave 110B) --
+
+    wave110b_mirror.apply(plan, [(plan.state.cards[tid], pid) for tid in made if tid in plan.state.cards])
     i_entry = {tid: json.loads(picks[i].get(token_copy_entry.ENTRY, '{}')) if i < len(picks) else {} for i, tid in enumerate(made)}
     for tid in made:
         recipe = receipts[tid].get('_copy')
