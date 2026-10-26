@@ -72,3 +72,11 @@ Moved to FULL: Arsenal Thresher (devour.py REV), Arcee (cast_targets110i value),
 - Merseine: activation cost is the enchanted creature's mana cost, activated only by that creature's controller; needs host-cost placeholder that cannot become a free cost if state is missing. Foundation not built.
 - Retriever Phoenix: Learn is rewritten to discard/draw text in scripts.py (no learn event); a "would learn" replacement needs a real learn event first. Not built.
 - Chorus of the Conclave, Land Equilibrium, Ogre Battlecaster: unchanged from wave110n notes.
+
+## s14: the 29 cards of wave110n-refused.md, split
+
+Done (FULL now): Fleshwrither, Monastery Raid, Coffin Queen, Necrotic Plague (wave 110I s13); Grip of Amnesia, Reversal of Fortune, Overburden, Agrus Kos Spirit of Justice (lead merge); Guardian Archon, Wayta Trainer Prodigy (trigger multiplier cause "dealt", Scryfall ruling), Medomai's Prophecy (delayed trigger, ruling), Radiant Performer and Agrus Kos Eternal Soldier (ability spread, wave110e_once.radiate / stack_extension103), Glyph of Delusion, Acidic Dagger (rulings), Spoils of War (ruling 2008-08-01, not in the 29).
+
+Unsettled ruling (leave): Spinneret and Spiderling ("deals 4 or more damage" with damage split over recipients: no CR rule and no Scryfall ruling), Land Equilibrium (agent C), Phylactery Lich (agent C).
+
+Missing foundation (work): Zilortha (ruling exists: lethal by power in SBA 704.5g, combat 510.1c, trample, excess damage; touches sba.py:138, combat.lethal, this_way, replace excess), The Dominion Bracelet (control-another-player turn plus named-permanent exile cost), Megatron (excess-damage-to-controller replacement plus convert), Yavimaya Bloomsage // Channel (mana-ability grant mid-payment), Monument to Perfection, Animate Artifact (layer dependency), Torrent Elemental, Dark Intimations, Merseine, Voltaic Visionary, Chorus of the Conclave, Ogre Battlecaster, Retriever Phoenix, the sticker and Smuggler Captain cards (agent C owns the last 15 lines of lead/todo_from_n.txt).

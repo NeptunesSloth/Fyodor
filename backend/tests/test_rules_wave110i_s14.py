@@ -4,12 +4,16 @@
 * Spoils of War: {X}{B}; X is the number of artifact and/or creature cards in the opponent chosen as it is cast (ruling 2008-08-01): the announced X names the opponent.
 * Acidic Dagger: delayed triggers on the target (603.7): combat damage to a non-Wall creature destroys it; the Dagger is sacrificed when the target leaves; first combat phase only (ruling 2013-09-20).
 * Glyph of Delusion: two linked targets, a Wall and a creature it blocked this turn (509.1g block history); X = the blocked creature's power (ruling 2004-10-04: castable after the block, even in the second main phase).
+* Medomai's Prophecy: chapter II's name stays on the Saga; chapter III creates a delayed trigger for the turn: the first spell cast with that name draws two (603.7; ruling: no name chosen, it can never trigger).
+* Radiant Performer: Radiate's spread (707.10d) for an ability: one copy for each other permanent or player the ability could target.
+* Agrus Kos, Eternal Soldier: the spread for an ability that targets only it, limited to creatures its controller controls, after paying {1}{R/W}.
 * Guardian Archon: "Reveal the player you chose" (the entry secret choice, 614.12a) gives you and a permanent you control protection from that player (702.16k) until end of turn; once only.
 """
 from __future__ import annotations
 
 import pytest
 
+import tests.test_rules_wave110e_cards as base
 from app.game.errors import ActionError
 from app.rules import coverage
 from tests.game_helpers import act
@@ -17,9 +21,8 @@ from tests.test_rules_wave12a_counters_keywords import real
 from tests.test_rules_wave110e_cards import answer, card_db  # noqa: F401  (the fixture)
 from tests.test_rules_wave110e_cards import cast as cast_card
 from tests.test_rules_wave110e_s11 import _three
-from tests.test_rules_wave110e_s12 import SHAMAN
+from tests.test_rules_wave110e_s12 import SHAMAN  # noqa: F401  (registers Test Shaman in the fixture DB)
 from tests.wave9c_kit import card_named, check, mana, put, to_hand
-import tests.test_rules_wave110e_cards as base
 
 ARCHON = real("Guardian Archon", "{4}{W}{W}", 6, "Creature — Archon",
               "Flying\nAs this creature enters, secretly choose an opponent.\nReveal the player you chose: You and target permanent you control each gain protection from the chosen player "
@@ -213,7 +216,6 @@ def test_glyph_full(cards):
 
 
 def _glyph_game(cards, blocker):
-    from tests.test_rules_conditionals import until
     from tests.test_rules_wave43d_cast_keywords import connect
     from tests.wave9c_kit import build
 
@@ -247,3 +249,126 @@ def test_glyph_creature_must_have_been_blocked_by_that_wall(cards):
     mana(s, U=1)
     with pytest.raises(ActionError):
         act(s, "p1", type="cast_spell", card_id=to_hand(s, "Glyph of Delusion").id, targets=[other.id, wall.id], target_counts=[1, 1])
+
+
+MEDOMAI = real("Medomai's Prophecy", "{1}{U}", 2, "Enchantment \u2014 Saga",
+               "(As this Saga enters and after your draw step, add a lore counter. Sacrifice after IV.)\nI \u2014 Scry 2.\nII \u2014 Choose a card name.\n"
+               "III \u2014 When you cast a spell with the chosen name for the first time this turn, draw two cards.\nIV \u2014 Look at the top card of each player's library.", None, "U")
+base.EXTRA.append(MEDOMAI)
+
+
+def test_medomai_full(cards):
+    assert coverage.of_card_data(cards.resolve("Medomai's Prophecy")).level == "FULL"
+
+
+def _medomai(cards, name):
+    from tests.test_rules_conditionals import until
+    from tests.wave9c_kit import build
+
+    s = build(cards, ["Medomai's Prophecy", "Bear110I", "Bear110I", "Bear110I"], forests=25, islands=25)
+    mana(s, U=1, C=1)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Medomai's Prophecy").id)
+    answer(s)
+    until(s, lambda s: s.state.rules.decision is not None and s.state.rules.decision.options[0].id == "__name__")
+    d = s.state.rules.decision
+    act(s, "p1", type="choose", decision_id=d.id, name=name)
+    until(s, lambda s: s.state.turn.number >= 5 and s.state.turn.phase == "main1" and s.state.rules.decision is None and s.state.turn.active_player == "p1")
+    answer(s)  # (chapter III resolves: the delayed trigger now watches)
+    return s
+
+
+def _cast_bear(s):
+    mana(s, G=1, C=1)
+    before = len(s.state.zones["p1:hand"])
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Bear110I").id)
+    answer(s)
+    return len(s.state.zones["p1:hand"]) - before  # (+1 by to_hand, -1 by the cast: what is left is the draw)
+
+
+def test_medomai_first_spell_with_the_chosen_name_draws_two_the_second_does_not(cards):
+    s = _medomai(cards, "Bear110I")
+    assert _cast_bear(s) == 2
+    assert _cast_bear(s) == 0
+    check(s)
+
+
+def test_medomai_other_names_draw_nothing(cards):
+    s = _medomai(cards, "Giant110I")
+    assert _cast_bear(s) == 0
+    check(s)
+
+
+PERFORMER = real("Radiant Performer", "{3}{R}{R}", 5, "Creature \u2014 Human Wizard",
+                 "Flash\nWhen this creature enters, if you cast it from your hand, choose target spell or ability that targets only a single permanent or player. Copy that spell or ability for "
+                 "each other permanent or player the spell or ability could target. Each copy targets a different one of those permanents and players.", ("2", "2"), "R")
+PINGER = real("Pinger110I", "{R}", 1, "Creature \u2014 Goblin", "Haste\n{T}: Pinger110I deals 1 damage to target creature.", ("1", "1"), "R")
+base.EXTRA.extend([PERFORMER, PINGER])
+
+
+def test_performer_full(cards):
+    assert coverage.of_card_data(cards.resolve("Radiant Performer")).level == "FULL"
+
+
+def test_performer_copies_an_ability_for_each_other_creature_it_could_target(cards):
+    """Carol's Pinger targets Alice's Bear; Alice flashes in the Performer: every other creature (the Giant, the Pinger, the Performer) gets a copy, each hit once more."""
+    s = _three(cards, ["Radiant Performer", "Bear110I", "Giant110I"], carols=("Pinger110I",))
+    bear, giant, pinger = put(s, "Bear110I"), put(s, "Giant110I"), put(s, "Pinger110I", "p3")
+    performer = to_hand(s, "Radiant Performer")
+    mana(s, R=2, C=3)
+    act(s, "p3", type="set_stops", own=[], others=["main1"], smart_pass=False)
+    act(s, "p1", type="pass_priority")
+    while s.state.rules.priority != "p3":
+        act(s, s.state.rules.priority, type="pass_priority")
+    act(s, "p3", type="activate_ability", card_id=pinger.id, ability=1, targets=[bear.id])
+    for _ in range(6):
+        if s.state.rules.priority == "p1":
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+    assert s.state.rules.priority == "p1" and s.state.zones["stack"]
+    act(s, "p1", type="cast_spell", card_id=performer.id)
+    for _ in range(40):
+        d = s.state.rules.decision
+        if d is not None:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: max(1, d.min_choices)])
+        elif s.state.zones.get("stack"):
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            break
+    assert s.state.cards[bear.id].damage == 1 and s.state.cards[giant.id].damage == 1
+    assert s.state.cards[pinger.id].zone.endswith(":graveyard")  # (its own copy killed the 1/1)
+    check(s)
+
+
+AGRUS = real("Agrus Kos, Eternal Soldier", "{3}{W}", 4, "Legendary Creature \u2014 Spirit Soldier",
+             "Vigilance\nWhenever Agrus Kos becomes the target of an ability that targets only it, you may pay {1}{R/W}. If you do, copy that ability for each other creature you control "
+             "that ability could target. Each copy targets a different one of those creatures.", ("3", "4"), "W")
+base.EXTRA.append(AGRUS)
+
+
+def test_agrus_full(cards):
+    assert coverage.of_card_data(cards.resolve("Agrus Kos, Eternal Soldier")).level == "FULL"
+
+
+@pytest.mark.parametrize(("pay", "copies"), [(True, 1), (False, 0)])
+def test_agrus_copies_the_ability_for_each_other_creature_you_control_only_if_you_pay(cards, pay, copies):
+    """Carol's Pinger targets Agrus: paying {1}{R/W} puts a copy on Alice's Giant (Carol's own Pinger is not hers to copy for); declining leaves just the one ping."""
+    s = _three(cards, ["Agrus Kos, Eternal Soldier", "Giant110I"], carols=("Pinger110I",))
+    agrus, giant, pinger = put(s, "Agrus Kos, Eternal Soldier"), put(s, "Giant110I"), put(s, "Pinger110I", "p3")
+    mana(s, R=1, C=1)
+    act(s, "p3", type="set_stops", own=[], others=["main1"], smart_pass=False)
+    act(s, "p1", type="pass_priority")
+    while s.state.rules.priority != "p3":
+        act(s, s.state.rules.priority, type="pass_priority")
+    act(s, "p3", type="activate_ability", card_id=pinger.id, ability=1, targets=[agrus.id])
+    for _ in range(40):
+        d = s.state.rules.decision
+        if d is not None:
+            ids = [o.id for o in d.options]
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[("pay" if pay else "decline") if "pay" in ids else ids[0]])
+        elif s.state.zones.get("stack"):
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            break
+    assert s.state.cards[agrus.id].damage == 1 and s.state.cards[giant.id].damage == copies
+    assert s.state.cards[pinger.id].damage == 0
+    check(s)

@@ -72,9 +72,10 @@ def next_spell(plan: Any, ctx: Any, effect: Any) -> bool:
 def spread_copy(plan: Any, ctx: Any, effect: Any) -> bool:
     from app.rules import copying, spell_copy_replacements, targets
 
-    found = next(iter(copying._copy_sources(plan, ctx, 'event_spell')), None)
+    which = 'event_ability' if effect.get('ability110i') else 'event_spell'  # (wave 110I: Agrus Kos, Eternal Soldier copies the ability that targets it)
+    found = next(iter(copying._copy_sources(plan, ctx, which)), None)
     if found is None:
-        return copying._manual_each(plan, ctx, ctx['controller'], None) if copying._event_object_left(ctx, 'event_spell') else True
+        return copying._manual_each(plan, ctx, ctx['controller'], None) if copying._event_object_left(ctx, which) else True
     source, oid = found
     card = plan.state.cards.get(source)
     if card is None:
@@ -98,8 +99,8 @@ def spread_copy(plan: Any, ctx: Any, effect: Any) -> bool:
     source_ch = targets.source_of(plan, source, True, object_id=oid)
     victims = []
     for c in plan.state.cards.values():
-        if not c.zone.endswith(':battlefield') or (c.id, plan.oid(c)) in old:
-            continue
+        if not c.zone.endswith(':battlefield') or (c.id, plan.oid(c)) in old or (effect.get('ability110i') and c.controller != ctx['controller']):
+            continue  # (ability110i: "each other creature you control")
         ch = plan.ch(c)
         if ('Golem' not in ch.subtypes) if effect['golem'] else not ch.is_creature:
             continue

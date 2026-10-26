@@ -1310,6 +1310,11 @@ def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: F
             src = plan.state.cards.get(entry.source_card or "") if entry is not None else None
             if entry is None or src is None or entry.controller != you or entry.kind == "spell" or src.name != cond["land_named110g"] or "Land" not in plan.ch(src).types:
                 return False
+        if cond.get("only_self110i"):  # -- cards (wave 110I) -- Agrus Kos, Eternal Soldier: "an ability that targets only it" (115.9b), as the ability was put on the stack
+            ref = info.get("source_ref")
+            entry = plan.rules.stack.get(ref.card) if ref is not None else None
+            if entry is None or not _targets_ok(plan, "self_only", watcher, [(t.id, t.object_id) for t in entry.targets]):
+                return False
         if cond.get("ability_only") and info.get("spell"):  # -- stack interaction (wave 23B) -- "becomes the target of an ability"
             return False
         if cond.get("first_each_turn") and not (info.get("first") or {}).get({"you": "by", "opponent": "by_opp"}.get(by, "any")):
@@ -3099,13 +3104,13 @@ def _put_trigger(plan: Plan, t: PendingTrigger, target: str | None = None, picks
                 choice_player = entering
             if t.ability.get("target_choice") == "host_controller110i":  # -- cards (wave 110I) -- Necrotic Plague: the dead creature's controller chooses a creature one of their opponents controls (603.3d)
                 dead = t.event.objects[0].snapshot if t.event is not None and len(t.event.objects) == 1 else None  # (603.10a: as it last existed)
-                chooser = dead.controller if dead is not None else None
-                legal = [x for x in legal if x in plan.state.cards and plan.state.cards[x].controller != chooser]
-                if chooser not in plan.live() or not legal:
+                chooser110 = dead.controller if dead is not None else None
+                legal = [x for x in legal if x in plan.state.cards and plan.state.cards[x].controller != chooser110]
+                if chooser110 not in plan.live() or not legal:
                     r.pending_triggers = [p for p in r.pending_triggers if p.id != t.id]
                     plan.note(f"{t.name}'s ability has no legal target and is removed")
                     return True
-                choice_player = chooser
+                choice_player = chooser110
             if t.ability.get("target_choice") == "defending100j":  # -- counters (wave 100J) -- "of defending player's choice" (Erithizon: 508.5)
                 if t.event is None or t.event.defended not in plan.live():
                     r.pending_triggers = [p for p in r.pending_triggers if p.id != t.id]
@@ -3129,7 +3134,8 @@ def _put_trigger(plan: Plan, t: PendingTrigger, target: str | None = None, picks
                    resume={"step": "trigger_target", "trigger": t.id})
             return False
         targets = [ref(plan, target)]
-    if t.ability.get("target_choice") == "host_controller110i" and t.event is not None and len(t.event.objects) == 1:  # -- cards (wave 110I) -- remember the chooser for the 608.2b recheck
+    if t.ability.get("target_choice") == "host_controller110i" and t.event is not None and len(t.event.objects) == 1 \
+            and t.event.objects[0].snapshot is not None:  # -- cards (wave 110I) -- remember the chooser for the 608.2b recheck
         extra = {**extra, "chooser110i": t.event.objects[0].snapshot.controller}
     r.pending_triggers = [p for p in r.pending_triggers if p.id != t.id]
     source = t.source_card if t.source_card in plan.state.cards else None

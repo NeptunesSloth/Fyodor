@@ -598,7 +598,7 @@ def opp_gy_total(plan: Plan, you: str, types: list[str], x: int | None) -> int:
 _MEDOMAI = "When you cast a spell with the chosen name for the first time this turn, draw two cards."
 
 
-def first_named(plan: Plan, source: str, player: str) -> bool:
+def first_named(plan: Plan, source: str, player: str | None) -> bool:
     """The spell just cast is the only one by ``player`` this turn with the Saga's chosen name (601.2i: the log already holds it)."""
     from app.cards.names import normalize_name
     from app.rules import card_names, history
@@ -1054,6 +1054,10 @@ def whistle(ability: Any, ch: Any) -> Def | None:
     return {**base, "effects": effects, "target": {**base["target"], "what": sel.key()}}
 
 
+_PERFORMER = ("When this creature enters, if you cast it from your hand, choose target spell or ability that targets only a single permanent or player. Copy that spell or "
+              "ability for each other permanent or player the spell or ability could target. Each copy targets a different one of those permanents and players.")
+_AGRUS = ("Whenever Agrus Kos becomes the target of an ability that targets only it, you may pay {1}{R/W}. If you do, copy that ability for each other creature you control "
+          "that ability could target. Each copy targets a different one of those creatures.")
 _DAGGER = ("{4}, {T}: Whenever target creature deals combat damage to a non-Wall creature this turn, destroy that non-Wall creature. "
            "When the targeted creature leaves the battlefield this turn, sacrifice this artifact. Activate only before blockers are declared.")
 _COFFIN = ("{2}{B}, {T}: Put target creature card from a graveyard onto the battlefield under your control. "
@@ -1111,6 +1115,15 @@ def definition(ability: Any, ch: Any) -> Def | None:
     from app.rules import scripts
 
     text = ability.text.strip()
+    if text == _PERFORMER:  # 707.10d/e: a copy of the spell or ability for each other permanent or player it could target (the Radiate spread, wave110e_once.radiate)
+        native = scripts.define(replace(ability, text="When ~ enters, if you cast it from your hand, copy target spell or ability that targets only a single permanent or player."), ch)
+        return None if native is None else {**native, "effects": [{"do": "radiate110e"}]}
+    if text == _AGRUS:
+        native = scripts.define(replace(ability, text="Whenever ~ becomes the target of an ability, you may pay {1}{R/W}. If you do, draw a card."), ch)
+        if native is None:
+            return None
+        return {**native, "cond": {**native["cond"], "only_self110i": True},
+                "effects": [{"do": "spread_copy103", "golem": False, "ability110i": True} if e.get("do") == "draw" else e for e in native["effects"]]}
     if text == _DAGGER:  # 603.7 delayed triggers on the target; the "non-Wall" recipient is a condition of the damage trigger; timing: first combat phase only (ruling 2013-09-20, 506.8d)
         native = scripts.define(replace(ability, text=_DAGGER.replace("a non-Wall creature", "a creature").replace("that non-Wall creature", "that creature").replace(
             "the targeted creature", "that creature").replace("this artifact", "~")), ch)
