@@ -260,7 +260,7 @@ def _conditional_flash(cond_text: str, rest: str) -> Definition | None:
 # -- first activation (wave 48D) -- 118.9, 602.2b: "You may pay {0} rather than pay the equip cost of the first equip ability you activate each turn." (Bruenor
 # Battlehammer; Kíli's "As long as you have an enduring story, …" is scripts._conditional_static; Forge Anew: "during each of your turns") and "You may pay {0}
 # rather than pay the cycling cost of the first card you cycle each turn." (Gavi, Nest Warden)
-FIRST_ALT = re.compile(r"you may pay \{0\} rather than pay the (?:(?P<eq>equip) cost of the first equip ability you activate|cycling cost of the first card you cycle)"
+FIRST_ALT = re.compile(r"you may pay \{0\} rather than pay the (?:(?P<eq>equip) cost of the first equip ability you activate|(?P<pu>power-up) cost of the first power-up ability you activate|cycling cost of the first card you cycle)"
                        r" (?:each turn|(?P<own>during each of your turns))")
 
 
@@ -386,7 +386,7 @@ def static_definition(text: str) -> Definition | None:
     if t == "you may pay {0} rather than pay cycling costs":
         return {"kind": "static", "static": "first_alt", "act": "cycling", "own_turn": False, "repeat": True, "effects": []}
     if (m := FIRST_ALT.fullmatch(t)) is not None:  # -- first activation (wave 48D) -- 118.9: an alternative cost for the first activation (casting.py _first_alt)
-        return {"kind": "static", "static": "first_alt", "act": "equip" if m["eq"] else "cycling", "own_turn": bool(m["own"]), "effects": []}
+        return {"kind": "static", "static": "first_alt", "act": "equip" if m["eq"] else "power_up" if m["pu"] else "cycling", "own_turn": bool(m["own"]), "effects": []}
     # -- unspent mana (wave 35C) -- 500.4, 614.1a: "If you would lose unspent mana, that mana becomes colorless instead." (Kruphix, Omnath, Horizon Stone:
     # app/rules/kept_mana.py): the mana stays in the pool, colorless, with its restrictions and riders (the Gatherer rulings)
     if t == "players don't lose unspent mana as steps and phases end":
@@ -1025,6 +1025,9 @@ def loyalty_rule(state: GameState, card: CardInstance, info: CardInfo | None, ke
         return False
     from app.rules.plan import Plan
 
+    if key == "instant" and state.rules is not None and state.rules.once_per_turn.get(f"loyalty_jace110g:{card.controller}") == state.turn.number \
+            and {"Planeswalker", "Jace"} <= {*Plan.view(state, card.controller, info).ch(card).types, *Plan.view(state, card.controller, info).ch(card).subtypes}:
+        return True  # -- wave 110G -- Jace's Machinations: "Jace planeswalkers you control" until end of turn
     for src, d in _statics(state, info, 'loyalty_rule'):
         if not d.get(key) or not (src.id == card.id if d['who'] == 'self' else src.controller == card.controller):
             continue

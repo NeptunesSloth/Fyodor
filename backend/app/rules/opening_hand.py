@@ -138,6 +138,12 @@ def start(plan: Plan) -> None:
         order.append(nxt)
     live = [p for p in order if p in plan.live()]
     from app.rules import (
+        wave110g_spires,  # -- wave 110G -- "As you create your deck, circle two of the colors" (Cryptic Spires): asked before the opening-hand actions
+    )
+
+    if wave110g_spires.ask(plan, wave110g_spires.pending(plan, live)):
+        return
+    from app.rules import (
         wave110e_clara,  # -- pregame color (wave 110E) -- "choose a color before the game begins" comes before the opening-hand actions
     )
 

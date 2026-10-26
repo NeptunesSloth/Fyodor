@@ -73,6 +73,8 @@ def condition(text: str) -> dict[str, Any] | None:
     m = _SELF_COMBAT.fullmatch(text)
     if m:
         return {"act7b": "self_combat", "any": [x for x in (m["a"], m["b"]) if x]}
+    if text == "~ is on the stack":  # -- wave 110G -- Lightning Storm: the spell itself is on the stack (113.6)
+        return {"act7b": "self_on_stack"}
     if text == "~ has another activated ability":  # -- wave 110E -- Tazri: 602.1; this ability counts as one of them, so "another" = two or more (holds: act7b "other_activated")
         return {"act7b": "other_activated"}
     if text == "you've been attacked this step":  # -- (wave 110J) -- 506.3, as cast_timing reads it (Kongming's Contraptions)
@@ -131,6 +133,9 @@ def holds(plan: Plan, ctx: dict[str, Any], cond: dict[str, Any]) -> bool:
             if name:
                 names[name] = names.get(name, 0) + 1
         return max(names.values(), default=0) >= cond["n"]
+    if kind == "self_on_stack":
+        src = plan.state.cards.get(ctx.get("source_card") or "")
+        return src is not None and src.zone == "stack"
     if kind == "self_combat":
         src = plan.state.cards.get(ctx.get("source_card") or "")
         if src is None or not src.zone.endswith(":battlefield"):

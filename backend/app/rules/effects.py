@@ -1886,18 +1886,24 @@ def counter_object(plan: Plan, stack_id: str, actor: str, to: str | None = None,
         plan.note(f"{card.name} can't be countered", [stack_id])
         return
     r = plan.rules
+    from app.rules.wave110g_cards import guile_has
+
+    guile = by is not None and card.ability is None and guile_has(plan, by)  # -- (wave 110G) -- Guile (614.1a): exiled, not countered; its cast is offered after
+    if guile:
+        exile = True
+        r.guile110g.append(stack_id)
     remember_stack(plan.state, stack_id)  # -- spell copies (wave 31D) -- a copy of it can still be made (608.2h, 707.10)
     entry = r.stack.pop(stack_id, None)
     oid = plan.oid(stack_id)
-    if card.ability is None and (entry is None or entry.copy_of is None):  # -- spell countered (wave 110B) -- 701.6a, 707.10: a cast spell (not a copy) was countered; its caster is told
+    if card.ability is None and (entry is None or entry.copy_of is None) and not guile:  # -- spell countered (wave 110B) -- 701.6a, 707.10: a cast spell (not a copy) was countered; its caster is told
         from app.game.rules_state import emit
 
         emit(plan.state, "designation", counter="spell_countered110b", player=card.controller)
     r.buyback = [o for o in r.buyback if o != oid]
     r.rebound_cast = [o for o in r.rebound_cast if o != oid]
     r.exile_resolves.pop(oid, None)  # -- cast riders (wave 38C) -- a countered spell doesn't resolve (701.6a): "as it resolves" never applies to it
-    plan.note(f"{card.name or 'It'} is countered", [stack_id])
-    if card.ability is None and by is not None:  # -- counter events (wave 19C) -- "Whenever a spell or ability you control counters a spell":
+    plan.note(f"{card.name or 'It'} is exiled instead of countered (Guile)" if guile else f"{card.name or 'It'} is countered", [stack_id])
+    if card.ability is None and by is not None and not guile:  # -- counter events (wave 19C) -- "Whenever a spell or ability you control counters a spell":
         from app.game.rules_state import (
             emit,  # ``by`` is the controller of the spell or ability that countered it (701.6a)
         )
@@ -4177,6 +4183,8 @@ def _run_body(plan: Plan, ctx: Context) -> bool:
 
 
 def _run_effects(plan: Plan, ctx: Context) -> bool:
+    from app.rules import wave110g_cards
+
     while ctx["next"] < len(ctx["effects"]):  # (wave 19F: re-read each time: effects.repeat replaces the list)
         e = ctx["effects"][ctx["next"]]
         from app.rules import stickers101
@@ -4199,6 +4207,8 @@ def _run_effects(plan: Plan, ctx: Context) -> bool:
             return False  # waiting for a choice; the decision's resume continues from ctx["next"]
         if "after110e" in e:
             replace._one_batch(plan, e["after110e"])
+        if plan.rules.guile110g and not wave110g_cards.guile_offer(plan, ctx):  # -- (wave 110G) -- Guile: cast the spell it exiled instead of countering
+            return False
     return True
 
 
@@ -5722,6 +5732,7 @@ PRIMITIVES.update(_dice.PRIMITIVES)
 RESUME[_dice.STEP] = _dice.resume
 RESUME["roll_group_continue"] = _dice.resume_group
 RESUME["roll_ignore110g"] = _dice.resume_ignore
+RESUME["roll_order110g"] = _dice.resume_order
 from app.rules import counter_moves as _counter_moves  # noqa: E402, I001  -- moving counters (wave 12A)
 
 PRIMITIVES.update(_counter_moves.PRIMITIVES)

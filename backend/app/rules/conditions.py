@@ -2205,7 +2205,7 @@ def _cast_who(word: str) -> str:
 
 
 # -- counters (wave 33C) -- some one of the objects an aggregated trigger ("one or more creatures you control enter") is about, 603.2c
-_SOME_OF_THEM = re.compile(r"one or more of them entered from a graveyard(?: or (?:was|were) cast from (?P<b>a graveyard))?")
+_SOME_OF_THEM = re.compile(r"one or more of them entered from (?P<a>a graveyard|exile)(?: or (?:was|were) cast from (?P<b>a graveyard|exile))?")  # (wave 110G: exile, Extraordinary Journey)
 _NO_MANA = re.compile(r"no (?P<colored>colored )?mana was spent to cast (?:it|that spell)")  # -- if you do (wave 5G) --
 # -- ability words (wave 9C) -- opus: "If five or more mana was spent to cast that spell, …" (a cast trigger's spell)
 _SPENT_TOTAL_THAT = re.compile(r"(?P<n>\w+) or more mana was spent to cast that spell")
@@ -2265,9 +2265,9 @@ def _cast_how(t: str) -> Condition | None:
         return {"object": "it", "cast": {"total": "over_power", "event_spell": True}}
     m = _SOME_OF_THEM.fullmatch(t)
     if m:  # -- counters (wave 33C) -- Celes, Kotis: "if one or more of them entered from a graveyard or was cast from a graveyard" (an aggregated enter)
-        parts: list[Condition] = [{"object": "event", "each": "any", "cast": {"entered_from": "graveyard"}}]
+        parts: list[Condition] = [{"object": "event", "each": "any", "cast": {"entered_from": m["a"].removeprefix("a ")}}]
         if m["b"]:
-            parts.append({"object": "event", "each": "any", "cast": {"from": "graveyard"}})
+            parts.append({"object": "event", "each": "any", "cast": {"from": m["b"].removeprefix("a ")}})
         return {"any": parts} if m["b"] else parts[0]
     if (m := re.fullmatch(r"(?P<w>it|~) entered from your library or was cast from your library", t)) is not None:
         # -- named permanents (wave 35C) -- Fblthp: put onto the battlefield from the library, or cast from it (it enters from the stack then: 400.7, 601.2a)

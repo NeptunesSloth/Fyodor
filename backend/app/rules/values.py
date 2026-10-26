@@ -696,6 +696,12 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
         me = ctx['controller']
         return sum(any(p.sticker.kind == 'art' for p in c.stickers101) for c in plan.state.cards.values()
                    if (c.zone.endswith(':battlefield') and c.controller == me) or c.zone == f'{me}:graveyard')
+    if isinstance(v, dict) and v.get('pair_second110g'):  # -- wave 110G -- Primitive Justice: how many times the second cost was paid
+        from app.rules.costs import pair_counts
+
+        entry = plan.rules.stack.get(ctx.get('stack_id') or '')
+        record = plan.rules.payments.get(ctx.get('source_object') or '')
+        return pair_counts(entry.kicked_mask if entry is not None and entry.kind == 'spell' else record.kicked_mask if record is not None else 0)[1]
     if isinstance(v, dict) and v.get('sticker_pt110g'):  # -- stickers (wave 110G) -- Ambassador: total power / toughness of the stickers on permanents you control
         return sum(getattr(p.sticker, v['sticker_pt110g']) or 0 for c in plan.state.cards.values()
                    if c.zone.endswith(':battlefield') and c.controller == ctx['controller'] for p in c.stickers101)

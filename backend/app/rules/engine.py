@@ -90,6 +90,7 @@ from app.rules import (
     wave110e_opp,  # -- cast-time choice (wave 110E) --
     wave110f_camo,  # -- Camouflage (wave 110F) --
     wave110f_cards,  # -- combat damage division (wave 110F) --
+    wave110g_spires,  # -- wave 110G --
     wave110h_cards,  # -- untap hold (wave 110H) --
 )
 from app.rules import morph_costs78 as _morph_costs78  # noqa: F401
@@ -1883,6 +1884,7 @@ RESUME: dict[str, Callable[[Plan, Decision, list[str]], None]] = {
     "opening_hand": opening_hand.resume,  # -- opening hand (wave 18C) -- 103.6
     "opening_exile": opening_hand.resume_exile,
     "clara110e": wave110e_clara.resume,  # -- pregame color (wave 110E)
+    "spires110g": wave110g_spires.resume,  # -- wave 110G --
     "exert_attackers": exert.resume,  # -- static wordings (wave 6E) -- 508.1g
     "enlist": enlist.resume,  # -- casting extras (wave 18E) -- 702.154a
     "assist": assist.resume,  # -- casting extras (wave 18E) -- 702.132a

@@ -6016,6 +6016,10 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
 
     if (clara110e := wave110e_clara.definition(ability.text)) is not None:
         return clara110e
+    from app.rules import wave110g_spires  # -- wave 110G --
+
+    if (spires110g := wave110g_spires.definition(ability.text)) is not None:
+        return spires110g
     if ability.text.strip() == "Note the mana value of each card as it's put into exile.":  # -- noted values (wave 110E) -- see wave110e_note
         return {"kind": "static", "static": "note110e", "effects": []}
     if ability.text.strip() == "Bell Borca's power is equal to the greatest number noted for it this turn.":
@@ -8986,6 +8990,8 @@ def graveyard_only_ability(d: Definition | None) -> bool:
 
 def own_graveyard_activation(d: Definition | None) -> bool:
     """113.6m: a parsed graveyard-only activation is not a resolving spell instruction."""
+    if d is not None and d.get("stack110g"):  # -- wave 110G -- Lightning Storm: an ability that works while the spell is on the stack, not part of what it does
+        return True
     if d is not None and d.get('kind') == 'activated':
         cost = parse_ability_cost(d.get('cost') or '')
         if not cost.unsupported and cost.from_graveyard:

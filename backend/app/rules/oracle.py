@@ -556,7 +556,9 @@ def parse_abilities(oracle_text: str | None, *, spell: bool = False, pt: tuple[s
         if line == "You may discard this card any time you could cast an instant.":
             line = "Discard this card: You gain 0 life."
         # -- wave 110F -- Taste of Paradise: "you may pay {1}{G} any number of times" repeats like multikicker (702.33c) but is not kicker: the keyword line is flagged "any number of times"
-        if m := re.fullmatch(r"As an additional cost to cast this spell, you may pay ((?:\{[^}]+\})+) any number of times\.", line):
+        if m := re.fullmatch(r"As an additional cost to cast this spell, you may pay ((?:\{[^}]+\})+) and/or ((?:\{[^}]+\})+) any number of times\.", line):
+            line = f"Kicker {m[1]} and/or {m[2]} any number of times"  # -- wave 110G -- Primitive Justice: two costs, each paid any number of times (casting.kicker_extra)
+        elif m := re.fullmatch(r"As an additional cost to cast this spell, you may pay ((?:\{[^}]+\})+) any number of times\.", line):
             line = f"Multikicker {m[1]} any number of times"
         # -- static_other sweep (wave 19A) -- "Traxos enters tapped and doesn't untap during your untap step.": two abilities, "enters tapped"
         # (614.1d) and the static "doesn't untap" (502.3), the second one added after the printed lines as Reconfigure's are

@@ -1306,6 +1306,7 @@ class Permission(BaseModel):
     # cost, 118.9), for as long as it remains exiled (the permission follows the object, 400.7h)
     alt_mana: str = ""
     generic_extra: int = 0  # Generic mana increase for casting with this permission.
+    generic_less: int = 0  # (wave 110G) generic mana reduction for casting with it (Urianger Augurelt)
     extra: str = ""  # Mandatory additional nonmana cost of this permission.
     # -- cost reductions paid with objects (wave 47C) -- "You may play up to two of those cards": the permissions of one instruction share ``group``, and ``left`` more
     # of them may be used (consume ends the others when the last is)
@@ -1720,6 +1721,7 @@ class RulesState(BaseModel):
     phase_holds110k: list[PhaseHold110K] = Field(default_factory=list)  # -- wave 110K --
     no_regen_sources110k: list[str] = Field(default_factory=list)  # -- wave 110K -- Runesword: the objects whose damage this turn makes a creature unable to regenerate
     damaged_players110k: dict[str, list[str]] = Field(default_factory=dict)  # -- wave 110K -- source object -> the players it has dealt damage to (Diseased Vermin)
+    guile110g: list[str] = Field(default_factory=list)  # (wave 110G) Guile: spells exiled instead of countered, whose controller's cast offer is still to be made
     roll_shields110g: list[dict[str, Any]] = Field(default_factory=list)  # (wave 110G) Bamboozling Beeble: {"player", "by", "turn"} one-shot roll replacements
     poison_once110g: dict[str, int] = Field(default_factory=dict)  # player -> turn they got a poison counter under Melira (wave 110G): no more that turn
     damaged: dict[str, int] = Field(default_factory=dict)  # player -> last turn they were dealt damage (bloodthirst)
@@ -1819,6 +1821,7 @@ class RulesState(BaseModel):
     modes110f: dict[str, list[int]] = Field(default_factory=dict)  # (wave 110F) card id -> the modes an opponent chose for the spell being cast (700.2e)
     # -- wave 110A -- player -> ``next_object`` when their last turn ended ("entered since your last turn ended", selectors)
     noted110e: dict[str, list[int]] = Field(default_factory=dict)  # -- wave 110E -- Bell Borca: rules object -> [turn, event batch] it arrived at (wave110e_note)
+    circled110g: dict[str, str] = Field(default_factory=dict)  # -- wave 110G -- Cryptic Spires: card id -> the two colors circled before the game (wave110g_spires)
     commander_color110e: dict[str, str] = Field(default_factory=dict)  # -- wave 110E -- Clara Oswald: commander card id -> the color chosen before the game (wave110e_clara)
     chosen_objects: dict[str, str] = Field(default_factory=dict)  # -- wave 110A -- source card id -> the object it chose as it entered (wave110a_pick)
     turn_end_objects: dict[str, int] = Field(default_factory=dict)
