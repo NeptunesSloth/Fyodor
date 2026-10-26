@@ -328,7 +328,17 @@ def _fallen(d: Def) -> Def:
                              {"do": "damage", "who": "ref:fallen_c", "n": 1}]}
 
 
+def _elkin(d: Def) -> Def:
+    """Elkin Lair: the exile and the permission are the active player's own (400.3, 601.2a); the graveyard step at the next end step moves what is still that exiled object (400.7)."""
+    return {**d, "effects": [{"do": "elkin110g"}, {"do": "delayed", "when": {"kind": "step", "step": "end", "whose": "next"}, "n": 1},
+                             {"do": "deferred:return_card", "who": "ref:e0", "to": "graveyard", "under": "owner"}]}
+
+
 _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
+    # Elkin Lair
+    "At the beginning of each player's upkeep, that player exiles a card at random from their hand. The player may play that card this turn. "
+    "At the beginning of the next end step, if the player hasn't played the card, they put it into their graveyard.":
+        ("At the beginning of each player's upkeep, that player draws a card.", _elkin),
     # The Fallen
     "At the beginning of your upkeep, this creature deals 1 damage to each opponent and planeswalker it has dealt damage to this game.":
         ("At the beginning of your upkeep, this creature deals 1 damage to each opponent.", _fallen),
@@ -523,6 +533,24 @@ def sun_marked(plan: Any, mark: str) -> str | None:
     return next((c.name or "a permanent" for c in plan.state.cards.values() if c.zone.endswith(":battlefield") and c.choices.get(SUN_KEY) == mark), None)
 
 
+def elkin(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Exile a random card from the active player's hand (public, 406.3) and let that player play it this turn; bound as e0."""
+    import secrets
+
+    from app.rules import context, permissions
+
+    pid = plan.state.turn.active_player
+    hand = sorted(plan.state.zones.get(f"{pid}:hand", []))
+    if not hand:
+        context.bind_objects(plan, ctx, "e0", [])
+        return True
+    cid = (plan.rng or secrets.SystemRandom()).choice(hand)
+    before = [r for r in [context.ref_of(plan, cid)] if r is not None]
+    plan.do({"type": "move", "card_ids": [cid], "to": {"zone": "exile"}}, actor=pid)
+    context.bind_moved(plan, ctx, "e0", before)
+    return permissions.grant_play(plan, {**ctx, "controller": pid}, {"do": "grant_play", "who": "ref:e0", "play": True, "cast": True, "until": "end_of_turn"})
+
+
 def lowest_life_control(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     """Control goes to the lowest life total (119.1); on a tie the controller chooses one of the tied players (this card's text)."""
     from app.rules import effects
@@ -595,7 +623,7 @@ def destroy_instead(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return True
 
 
-PRIMITIVES: dict[str, Any] = {"suncleanser110g": suncleanser, "fallen110g": fallen, "destroy_instead110g": destroy_instead, "exchange_power110g": exchange_power, "lowest_life_control110g": lowest_life_control,
+PRIMITIVES: dict[str, Any] = {"elkin110g": elkin, "suncleanser110g": suncleanser, "fallen110g": fallen, "destroy_instead110g": destroy_instead, "exchange_power110g": exchange_power, "lowest_life_control110g": lowest_life_control,
                            "sacrifice_pair110g": sacrifice_pair, "swap_tapped110g": swap_tapped, "opponent_exiles110g": opponent_exiles,
                               "unattach_enchanted110g": unattach_enchanted}
 RESUME: dict[str, Any] = {"lowest_control110g": resume_lowest_control, "opponent_exiles110g": resume_opponent_exiles}

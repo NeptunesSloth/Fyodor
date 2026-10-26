@@ -33,6 +33,7 @@ import pytest
 from app.cards.images import ImageStore
 from app.cards.importer import build_database
 from app.cards.repository import CardRepository
+from app.game.errors import ActionError
 from app.rules import coverage
 from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act
@@ -129,6 +130,8 @@ EXTRA = [
          "When this creature enters, choose one \u2014\n\u2022 Remove all counters from target creature. It can't have counters put on it for as long as this creature remains on the battlefield.\n\u2022 Target opponent loses all counters. That player can't get counters for as long as this creature remains on the battlefield.", ('1', '4'), 'W'),
     real('Test Grow', '{G}', 1, 'Instant', 'Put a +1/+1 counter on target creature.', None, 'G'),
     real('Test Venom', '{B}', 1, 'Instant', 'Target player gets two poison counters.', None, 'B'),
+    real('Elkin Lair', '{3}{R}', 4, 'World Enchantment',
+         "At the beginning of each player's upkeep, that player exiles a card at random from their hand. The player may play that card this turn. At the beginning of the next end step, if the player hasn't played the card, they put it into their graveyard.", None, 'R'),
     real('Test Zap', '{R}', 1, 'Instant', 'Test Zap deals 1 damage to target creature.', None, 'R'),
     real('Beamsplitter Mage', '{1}{R}', 2, 'Creature \u2014 Human Wizard', 'Whenever you cast an instant or sorcery spell that targets only this creature, if you control one or more other creatures that spell could target, choose one of those creatures. Copy that spell. The copy targets the chosen creature.', ('1', '3'), 'R'),
     real('Biblioplex Tomekeeper', '{4}', 4, 'Artifact Creature \u2014 Construct', 'When this creature enters, choose up to one \u2014\n\u2022 Target creature becomes prepared.\n\u2022 Target creature becomes unprepared.', ('3', '4'), ''),
@@ -1021,7 +1024,6 @@ def test_phyrexian_ingester_gets_the_imprinted_creatures_power_and_toughness(car
     for _ in range(12):
         d = s.state.rules.decision
         if d is not None:
-            ids = [o.id for o in d.options]
             labels = {o.label: o.id for o in d.options}
             want = "Hill Giant" if "Hill Giant" in labels else "Yes" if exile else "No"
             act(s, d.player, type="choose", decision_id=d.id, option_ids=[labels.get(want, d.options[0].id)])
@@ -1074,7 +1076,7 @@ def test_gelatinous_cube_dissolve_needs_the_exiled_creature_with_mana_value_x(ca
     cube = next(c for c in s.state.cards.values() if c.name == "Gelatinous Cube")
     mana(s, "p1", B=1, C=x)
     if not ok:
-        with pytest.raises(Exception):
+        with pytest.raises(ActionError):
             act(s, "p1", type="activate_ability", card_id=cube.id, ability=1, x_value=x, targets=[giant.id], target_counts=[1])
         return
     act(s, "p1", type="activate_ability", card_id=cube.id, ability=1, x_value=x, targets=[giant.id], target_counts=[1])
@@ -1136,4 +1138,23 @@ def test_suncleanser_opponent_mode_clears_their_counters_and_bars_new_ones(cards
         mana(s, "p1", B=1)
         cast(s, "Test Venom", [who])
         assert s.state.players[who].resources.get("poison", 0) == got
+    check(s)
+
+
+@pytest.mark.parametrize("play", [True, False])
+def test_elkin_lair_exiles_the_upkeeping_players_card_and_buries_it_unless_played(cards, play):
+    """Elkin Lair (400.3, 601.2a): Bob's only hand card is exiled at his upkeep and he may play it; at the next end step it goes to his graveyard unless played."""
+    from tests.test_rules_conditionals import until
+
+    s = build(cards, ["Elkin Lair"], ["Grizzly Bears"])
+    put(s, "Elkin Lair")
+    bears = to_hand(s, "Grizzly Bears", "p2")
+    until(s, lambda s: s.state.turn.number == 2 and s.state.turn.phase == "main1" and s.state.rules.decision is None)
+    assert s.state.cards[bears.id].zone == "p2:exile"
+    if play:
+        mana(s, "p2", C=1, G=1)
+        act(s, "p2", type="cast_spell", card_id=bears.id)
+        until(s, lambda s: not s.state.zones.get("stack"))
+    until(s, lambda s: s.state.turn.number == 3)
+    assert s.state.cards[bears.id].zone == ("p2:battlefield" if play else "p2:graveyard")
     check(s)
