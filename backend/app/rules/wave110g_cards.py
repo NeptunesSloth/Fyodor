@@ -806,6 +806,8 @@ def resume_reattach(plan: Any, d: Any, chosen: list[str]) -> None:
 
 
 _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
+    "{1}, {T}: The next time target player would roll one or more dice this turn, instead they roll that many dice plus one and you choose one of those rolls to ignore.":
+        ("{1}, {T}: Target player gains 1 life.", lambda d: {**d, "effects": [{"do": "roll_shield110g", "who": "target"}]}),
     "At the beginning of each player's upkeep, that player may pay {2}. If they do, they put a rope counter on a creature they control. Otherwise, exile this artifact and each "
     "creature without a rope counter on it, then remove all rope counters from all creatures.":
         ("At the beginning of each player's upkeep, that player may pay {2}. If they don't, you gain 1 life.", _fraying),

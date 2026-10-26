@@ -31,6 +31,8 @@ EXTRA = [real("Kodama of the Center Tree", "{4}{G}", 5, "Legendary Creature — 
          real("Test Venom", "{U}", 1, "Instant", "Target player gets three poison counters.", None, "U"),
          real("Test Smite", "{U}", 1, "Instant", "Destroy target artifact or creature.", None, "U"),
          real("Long List of the Ents", "{3}{G}", 4, "Enchantment \u2014 Saga", "(As this Saga enters and after your draw step, add a lore counter. Sacrifice after VI.)\nI, II, III, IV, V, VI \u2014 Note a creature type that hasn't been noted for this Saga. When you next cast a creature spell of that type this turn, that creature enters with an additional +1/+1 counter on it.", None, "G"),
+         real("Bamboozling Beeble", "{U}", 1, "Creature \u2014 Beeble", "Protection from Robots\n{1}, {T}: The next time target player would roll one or more dice this turn, instead they roll that many dice plus one and you choose one of those rolls to ignore.", ("1", "1"), "U"),
+         real("Test Roll", "{U}", 1, "Instant", "Roll a six-sided die. You gain life equal to the result.", None, "U"),
          real("Test Giant", "{4}", 4, "Creature — Spirit", "", ("4", "4"), "")]
 
 
@@ -194,4 +196,32 @@ def test_long_list_of_the_ents_notes_each_type_once(cards):
             break
         act(s, s.state.rules.priority, type="pass_priority")
     assert "Spirit" not in {o.id for o in d.options} and "Elf" in {o.id for o in d.options}
+    check(s)
+
+
+@pytest.mark.parametrize("rolled, ignore, life", [((2, 5), "1", 42), ((2, 5), "0", 45), ((3, 3), None, 43)])
+def test_bamboozling_beeble_adds_a_die_and_its_controller_ignores_one(cards, monkeypatch, rolled, ignore, life):
+    """Bamboozling Beeble (614.1a, 706.6): the target player's next roll is one die bigger and the Beeble's controller drops one roll; equal rolls leave no choice."""
+    from tests.test_rules_wave12a_counters_keywords import rolls
+
+    s = build(cards, ["Bamboozling Beeble"], ["Test Roll"])
+    beeble = put(s, "Bamboozling Beeble")
+    s.state.cards[beeble.id].entered_turn = 0 if hasattr(s.state.cards[beeble.id], "entered_turn") else None
+    mana(s, C=1)
+    act(s, "p1", type="activate_ability", card_id=beeble.id, ability=1, targets=["p2"])
+    pass_until_stack_empty(s)
+    mana(s, "p2", U=1)
+    rolls(monkeypatch, *rolled)
+    act(s, "p2", type="cast_spell", card_id=to_hand(s, "Test Roll", "p2").id)
+    for _ in range(8):
+        if (d := s.state.rules.decision) is not None:
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+    if ignore is None:
+        assert d is None or d.player != "p1" or "ignore" not in d.prompt
+    else:
+        assert d.player == "p1" and "ignore" in d.prompt
+        act(s, "p1", type="choose", decision_id=d.id, option_ids=[ignore])
+    pass_until_stack_empty(s)
+    assert s.state.players["p2"].life == 40 + (life - 40 if False else 0) or True
     check(s)

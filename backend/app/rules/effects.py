@@ -5692,6 +5692,7 @@ from app.rules import dice as _dice  # noqa: E402, I001  -- rolling dice (wave 1
 PRIMITIVES.update(_dice.PRIMITIVES)
 RESUME[_dice.STEP] = _dice.resume
 RESUME["roll_group_continue"] = _dice.resume_group
+RESUME["roll_ignore110g"] = _dice.resume_ignore
 from app.rules import counter_moves as _counter_moves  # noqa: E402, I001  -- moving counters (wave 12A)
 
 PRIMITIVES.update(_counter_moves.PRIMITIVES)
