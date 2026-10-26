@@ -324,6 +324,15 @@ def _cards(plan: Plan, ctx: Context, who: str) -> list[str]:
         return [host.id] if host is not None and host.zone.endswith(":battlefield") else []
     if who == "host:kin":  # -- attached events (wave 25D) -- "Enchanted creature and other creatures that share a creature type with it" (the Crowns)
         return _host_kin(plan, ctx)
+    if who == "kin110e":  # -- wave 110E -- "target creature and each other creature that shares a creature type with it" (205.3m; Killer)
+        from app.rules.creature_types import CREATURE_TYPES
+
+        found = [c for c in _cards(plan, ctx, "target") if plan.state.cards[c].zone.endswith(":battlefield")]
+        if not found:
+            return []
+        kinds = plan.ch(plan.state.cards[found[0]]).subtypes & CREATURE_TYPES
+        return [*found[:1], *(c.id for c in plan.state.cards.values() if c.id != found[0] and c.zone.endswith(":battlefield") and plan.in_game(c)
+                              and (ch := plan.ch(c)).is_creature and kinds & ch.subtypes)]
     if who == "exiled_with" or who.startswith("exiled_with:"):  # -- exiled with (wave 6D) -- 607.2a (app/rules/exiled_with.py)
         from app.rules import exiled_with
 

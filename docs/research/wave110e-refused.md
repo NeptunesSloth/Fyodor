@@ -12,3 +12,8 @@
 - Maddening Imp, Oracle en-Vec: "each of those creatures that didn't attack" needs the set fixed at resolution (611.2c) and kept for the end-step trigger; no such record yet.
 - Uphill Battle: "played" (cast / land play) is not "enters under your opponents' control": tokens and reanimated creatures enter untapped; needs an entered-via-cast fact on the entry plan.
 - Necratog: cost "exile the top creature card of your graveyard" is no choice (the most recent one); the cost picker would let the player choose any creature card.
+- Teferi's Reproach: protection, life lock and phasing all last "until that player's next turn" for a TARGET player; life_lock/player_shields only track the controller's own turn.
+- Head Games: needs a count bound across "puts the cards from hand on top" and a search of another player's library for that many; no such primitive.
+- Celestial Dawn: "spend other mana only as though colorless" restricts payment for all mana; payment engine has no per-type conversion limit.
+- Ms. Marvel, Kamala Khan: granted static sets base power to a live count (7b, continuous); base-power effects here are read once.
+- Arboria: needs a per-player "cast a spell / put a nontoken permanent onto the battlefield last turn" history (previous_own_turns tracks attacks only).
