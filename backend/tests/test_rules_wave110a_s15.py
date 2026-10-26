@@ -141,3 +141,44 @@ def test_metamorphic_alteration_copy_is_fixed_when_it_starts(cards):  # 707.2c: 
     act(s, "p1", type="move", card_ids=[elves.id], to={"player": "p1", "zone": "graveyard"})
     assert ch(s, bears).name == "Llanowar Elves"  # the copy needs no more than the values taken when it started
     check(s)
+
+
+FENCE = "Scheming Fence"
+
+
+def _fence(cards, chosen):
+    s = build(cards, [FENCE, "Shivan Dragon", "Jace Beleren"])
+    dragon, jace = put(s, "Shivan Dragon"), put(s, "Jace Beleren")
+    act(s, "p1", type="set_counter", card_id=jace.id, kind="loyalty", value=3)
+    cast(s, FENCE)
+    answer(s, {"dragon": dragon.id, "jace": jace.id, "none": "none"}[chosen])
+    return s, dragon, jace, card_named(s, FENCE)
+
+
+def test_scheming_fence_stops_the_chosen_permanents_abilities_and_borrows_them(cards):  # 602.5, 113.10, 609.4b: Fence has Shivan Dragon's {R}: +1/+0, payable with any color
+    s, dragon, jace, fence = _fence(cards, "dragon")
+    fund(s, "{G}")
+    with pytest.raises(Exception, match="can't be activated"):
+        act(s, "p1", type="activate_ability", card_id=dragon.id, ability=1)
+    mana(s, G=1)
+    base = ch_pt(s, fence)
+    act(s, "p1", type="activate_ability", card_id=fence.id, ability=next(a.index for a in ch(s, fence).abilities if a.kind == "activated"))
+    answer(s)
+    assert ch_pt(s, fence)[0] == base[0] + 1  # the Fence's copy of the pump, paid with green mana
+    check(s)
+
+
+def test_scheming_fence_chosen_planeswalker_loses_loyalty_abilities_but_none_are_lent(cards):  # "except for loyalty abilities"
+    s, dragon, jace, fence = _fence(cards, "jace")
+    assert not [a for a in ch(s, fence).abilities if a.kind in ("activated", "loyalty")]
+    with pytest.raises(Exception, match="can't be activated"):
+        act(s, "p1", type="activate_ability", card_id=jace.id, ability=0)
+    check(s)
+
+
+def test_scheming_fence_may_choose_nothing(cards):
+    s, dragon, jace, fence = _fence(cards, "none")
+    assert not [a for a in ch(s, fence).abilities if a.kind == "activated"]
+    fund(s, "{R}")
+    act(s, "p1", type="activate_ability", card_id=dragon.id, ability=1)
+    check(s)

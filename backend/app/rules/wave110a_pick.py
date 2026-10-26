@@ -20,6 +20,7 @@ if TYPE_CHECKING:
 WHAT = "pick110a"
 TEXTS = {"As ~ enters, choose another creature you control.": "other creature you control",
          "As ~ enters, choose a creature.": "creature",  # Metamorphic Alteration (wave110a_chosen)
+         "As ~ enters, you may choose a nonland permanent.": "nonland permanent",  # Scheming Fence: the choice may be none (114/614.12a: "you may")
          # -- enters attached (wave 110I) -- 303.4f / 301.5: chosen as it enters, so it enters attached to it
          "As ~ enters, choose a creature you control it could be attached to. If you do, it enters attached to that creature.": "creature you control"}
 LABEL = "Chosen creature"
@@ -39,7 +40,8 @@ def definition(text: str) -> dict[str, Any] | None:
     sel = selectors.parse(phrase)
     assert sel is not None, phrase
     return {"kind": "replacement", "replacement": "enters_choice",
-            "effects": [{"do": "choose_value", "who": "you", "what": WHAT, "pick110a": sel.key(), **({"attach110i": True} if "attached" in text else {})}]}
+            "effects": [{"do": "choose_value", "who": "you", "what": WHAT, "pick110a": sel.key(), **({"attach110i": True} if "attached" in text else {}),
+                         **({"opt110a": True} if " may choose " in text else {})}]}
 
 
 def prompt(plan: Plan, card: CardInstance, controller: str, choice: dict[str, Any]) -> tuple[str, list[DecisionOption]]:
@@ -57,8 +59,10 @@ def prompt(plan: Plan, card: CardInstance, controller: str, choice: dict[str, An
         from app.rules import attachments
 
         ids = [c for c in ids if attachments.host_problem(plan, card, c) is None]
-    return (f"{plan.ch(card).name or card.name}: as it enters, choose {'another' if sel.other else 'a'} creature{' you control' if sel.controller else ''}",
-            [DecisionOption(id=c, label=plan.state.cards[c].name or "Creature", card_id=c) for c in ids])
+    what = "nonland permanent" if sel.not_types else "creature"
+    none = [DecisionOption(id="none", label="None")] if choice.get("opt110a") else []
+    return (f"{plan.ch(card).name or card.name}: as it enters, {'you may ' if none else ''}choose {'another' if sel.other else 'a'} {what}{' you control' if sel.controller else ''}",
+            [DecisionOption(id=c, label=plan.state.cards[c].name or "Creature", card_id=c) for c in ids] + none)
 
 
 def record(plan: Plan, card_id: str, choices: dict[str, str] | None) -> None:

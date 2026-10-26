@@ -324,8 +324,8 @@ def static_definition(text: str) -> Definition | None:
                 "act": None, "max": 1, "effects": []}
     m = STATIC_ABILITIES.fullmatch(t)
     if m:  # ("of artifacts, creatures, and planeswalkers": the abilities of each of them)
-        sel = selectors.parse(re.sub(r",? and ", ", or " if "," in m["sel"] else " or ", m["sel"]))
-        if sel is None or sel.player is not None or sel.card or sel.zones != ("battlefield",) or sel.extras or sel.other:
+        sel = selectors.parse(re.sub(r",? and ", ", or " if "," in m["sel"] else " or ", m["sel"].removeprefix("the ") if m["sel"].startswith("the chosen ") else m["sel"]))
+        if sel is None or sel.player is not None or sel.card or sel.zones != ("battlefield",) or sel.extras not in ((), ("picked110a",)) or sel.other:  # (picked110a: wave 110A, Scheming Fence)
             return None
         return {"kind": "static", "static": "cast_limit", "who": "each", "when": None, "filter": None, "from": None,
                 "act": "nonmana_of" if m["nm"] else "of", "of": sel.key(), "max": None, "spells": False, "effects": []}
@@ -964,7 +964,7 @@ def _act_hit(state: GameState, player: str, card: CardInstance, ch: Characterist
             return False
         from app.rules.plan import Plan
 
-        return selectors.matches(Plan.view(state, src_controller, info), selectors.from_key(d["of"]), card, ch, src_controller)
+        return selectors.matches(Plan.view(state, src_controller, info), selectors.from_key(d["of"]), card, ch, src_controller, source)
     return False
 
 

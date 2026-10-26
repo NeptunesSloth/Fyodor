@@ -2150,5 +2150,42 @@
    "G"
   ],
   "keywords": []
+ },
+ {
+  "name": "Scheming Fence",
+  "layout": "normal",
+  "mana_cost": "{W}{U}",
+  "cmc": 2.0,
+  "type_line": "Creature — Human Citizen",
+  "oracle_text": "As this creature enters, you may choose a nonland permanent.\nActivated abilities of the chosen permanent can't be activated.\nThis creature has all activated abilities of the chosen permanent except for loyalty abilities. You may spend mana as though it were mana of any color to activate those abilities.",
+  "colors": [
+   "U",
+   "W"
+  ],
+  "color_identity": [
+   "U",
+   "W"
+  ],
+  "keywords": [],
+  "power": "2",
+  "toughness": "3"
+ },
+ {
+  "name": "Jace Beleren",
+  "layout": "normal",
+  "mana_cost": "{1}{U}{U}",
+  "cmc": 3.0,
+  "type_line": "Legendary Planeswalker — Jace",
+  "oracle_text": "+2: Each player draws a card.\n−1: Target player draws a card.\n−10: Target player mills twenty cards.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "Mill"
+  ],
+  "loyalty": "3"
  }
 ]
