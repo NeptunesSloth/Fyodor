@@ -191,3 +191,40 @@ def test_sphinx_ambassador_searches_then_the_victim_names_a_card(cards, found, n
     taken = next(c for c in s.state.cards.values() if c.name == found and c.owner == "p2")
     assert (taken.zone, taken.controller, taken.owner) == (("p1:battlefield", "p1", "p2") if put else ("p2:library", "p2", "p2"))
     check(s)
+
+
+# -- Kylox, Visionary Inventor ---------------------------------------------------------------------------------------------------------------
+KYLOX = "Kylox, Visionary Inventor"
+test_kylox_full = full_test([KYLOX])
+
+
+def test_kylox_sacrifices_for_cards_and_casts_the_instants_and_sorceries_among_them_free(cards):
+    s = build(cards, [KYLOX, "Grizzly Bears", "Llanowar Elves", "Lightning Bolt", "Murder", "Hill Giant", "Mother of Runes"], ["Elite Vanguard"], forests=20)
+    kylox, bears, elves = put(s, KYLOX), put(s, "Grizzly Bears"), put(s, "Llanowar Elves")
+    ready(s, KYLOX, "Grizzly Bears", "Llanowar Elves")
+    vanguard = put(s, "Elite Vanguard", "p2")
+    ids = {n: card_named(s, n).id for n in ("Lightning Bolt", "Murder", "Hill Giant")}
+    for n in ("Hill Giant", "Murder", "Lightning Bolt"):  # the top three cards of the library (Bears 2 + Elves 1 = 3 power)
+        act(s, "p1", type="move", card_ids=[ids[n]], to={"player": "p1", "zone": "library"}, position="top")
+    act(s, "p1", type="move", card_ids=[card_named(s, "Mother of Runes").id], to={"player": "p1", "zone": "library"}, position="top")  # (drawn for the turn)
+    stops(s)
+    next_turn(s)
+    to_phase(s, "declare_attackers")
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": kylox.id, "target": "p2"}])
+    for _ in range(60):
+        d = s.state.rules.decision
+        if d is None and not s.state.zones.get("stack") and s.state.turn.phase != "declare_attackers":
+            break
+        if d is None:
+            act(s, s.state.rules.priority, type="pass_priority")
+        elif d.kind == "choose_cards" and {o.id for o in d.options} >= {bears.id, elves.id}:
+            act(s, "p1", type="choose", decision_id=d.id, option_ids=[bears.id, elves.id])
+        elif d.kind == "choose_cards" or d.kind == "choose_one" and any(o.id == ids["Murder"] for o in d.options):
+            pick = [o.id for o in d.options if o.id in (ids["Lightning Bolt"], ids["Murder"])]
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=pick[:max(1, d.max_choices)] if pick else [d.options[0].id])
+        else:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[d.options[0].id])
+    assert all(zone_of(s, n) == "p1:graveyard" for n in ("Grizzly Bears", "Llanowar Elves"))
+    assert s.state.cards[ids["Hill Giant"]].zone == "p1:exile"  # (a creature card can't be cast this way)
+    assert s.state.cards[ids["Lightning Bolt"]].zone == "p1:graveyard" and s.state.cards[ids["Murder"]].zone == "p1:graveyard"  # both cast, for free
+    check(s)

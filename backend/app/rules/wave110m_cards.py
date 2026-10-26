@@ -647,6 +647,23 @@ def tap_count(plan: Any, ctx: Def, e: Def) -> bool:
     return True
 
 
+_KYLOX = ("Whenever Kylox attacks, sacrifice any number of other creatures, then exile the top X cards of your library, where X is their total power. You may cast any number of instant "
+          "and/or sorcery spells from among the exiled cards without paying their mana costs.")
+
+
+def _kylox(d: Def) -> Def:
+    """Kylox, Visionary Inventor: the sacrifice, the exile sized by their total power (608.2h), then the free casts from among exactly those cards (601.2, 118.9)."""
+    from app.rules import selectors
+
+    sacrifice, exile = d["effects"]
+    cast = {"do": "free_cast", "zone": "that", "who": "ref:kylox110m", "filter": selectors.Selector(types=("Instant", "Sorcery"), zones=("stack",)).key(),
+            "optional": True, "mv": None, "n": 99}
+    return {**d, "effects": [sacrifice, {**exile, "as": "kylox110m"}, cast]}
+
+
+_BUILD[_KYLOX] = ("Whenever this creature attacks, sacrifice any number of other creatures. Exile the top X cards of your library, where X is the total power of the creatures sacrificed this way.", _kylox)
+_BUILD[_KYLOX.replace("Kylox attacks", "~ attacks")] = _BUILD[_KYLOX]
+
 _FACES = ("Whenever a creature dies, tap all untapped creatures that share a creature type with it or untap all tapped creatures that share a creature type with it.")
 _BUILD[_FACES] = ("Whenever a creature dies, draw a card.", lambda d: {**d, "effects": [{"do": "faces110m"}]})
 
