@@ -1,0 +1,42 @@
+[
+ {
+  "name": "Saheeli's Lattice // Mastercraft Raptor",
+  "layout": "transform",
+  "mana_cost": "{1}{R} // ",
+  "cmc": 2.0,
+  "type_line": "Artifact // Artifact Creature — Dinosaur",
+  "oracle_text": "When this artifact enters, you may discard a card. If you do, draw two cards.\nCraft with one or more Dinosaurs {4}{R} ({4}{R}, Exile this artifact, Exile one or more Dinosaurs you control and/or Dinosaur cards from your graveyard: Return this card transformed under its owner's control. Craft only as a sorcery.)\n//\nMastercraft Raptor's power is equal to the total power of the exiled cards used to craft it.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Craft",
+   "Transform"
+  ],
+  "card_faces": [
+   {
+    "name": "Saheeli's Lattice",
+    "mana_cost": "{1}{R}",
+    "type_line": "Artifact",
+    "oracle_text": "When this artifact enters, you may discard a card. If you do, draw two cards.\nCraft with one or more Dinosaurs {4}{R} ({4}{R}, Exile this artifact, Exile one or more Dinosaurs you control and/or Dinosaur cards from your graveyard: Return this card transformed under its owner's control. Craft only as a sorcery.)",
+    "colors": [
+     "R"
+    ]
+   },
+   {
+    "name": "Mastercraft Raptor",
+    "mana_cost": "",
+    "type_line": "Artifact Creature — Dinosaur",
+    "oracle_text": "Mastercraft Raptor's power is equal to the total power of the exiled cards used to craft it.",
+    "power": "*",
+    "toughness": "4",
+    "colors": [
+     "R"
+    ]
+   }
+  ]
+ }
+]

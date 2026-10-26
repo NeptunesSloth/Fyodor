@@ -92,3 +92,60 @@ def test_each_opponent_gets_their_own_tap_and_steal(cards):
     assert s.state.cards[bears.id].tapped and s.state.cards[giant.id].tapped
     assert s.state.cards[bob.id].controller == s.state.cards[carol.id].controller == "p1"
     check(s)
+
+
+# -- Timothar, Baron of Bats -------------------------------------------------------------------------------------------------------------------
+TIMOTHAR = "Timothar, Baron of Bats"
+test_timothar_full = full_test([TIMOTHAR])
+
+
+def vampire_dies(cards, pay):
+    s = build(cards, [TIMOTHAR, "Test Vampire", "Murder"], ["Elite Vanguard"], forests=20)
+    put(s, TIMOTHAR)
+    vampire = put(s, "Test Vampire")
+    cast(s, "Murder", [vampire.id], extra="{1}")  # (the {1} left in the pool is what pays for the trigger)
+    d = None
+    for _ in range(12):
+        d = s.state.rules.decision
+        if d is not None:
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+    assert d is not None
+    act(s, d.player, type="choose", decision_id=d.id, option_ids=["pay" if pay else "decline"])
+    answer(s)
+    return s, vampire
+
+
+def test_paying_one_exiles_the_vampire_and_makes_a_bat(cards):
+    s, vampire = vampire_dies(cards, True)
+    bats = [c for c in s.state.cards.values() if c.name == "Bat" and c.is_token and c.zone == "p1:battlefield"]
+    assert len(bats) == 1 and s.state.cards[vampire.id].zone == "p1:exile"
+    assert ch(s, bats[0]).pt == (1, 1) and "flying" in ch(s, bats[0]).keywords
+    check(s)
+
+
+def test_declining_leaves_the_vampire_in_the_graveyard(cards):
+    s, vampire = vampire_dies(cards, False)
+    assert s.state.cards[vampire.id].zone == "p1:graveyard"
+    assert not any(c.name == "Bat" for c in s.state.cards.values())
+    check(s)
+
+
+def test_the_bat_trades_itself_for_the_vampire_when_it_hits_a_player(cards):
+    s, vampire = vampire_dies(cards, True)
+    bat = next(c for c in s.state.cards.values() if c.name == "Bat" and c.is_token)
+    stops(s)
+    next_turn(s)
+    to_phase(s, "declare_attackers")
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": bat.id, "target": "p2"}])
+    for _ in range(30):
+        d = s.state.rules.decision
+        if d is not None:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: max(1, d.min_choices)])
+        elif s.state.turn.phase in ("declare_attackers", "declare_blockers", "combat_damage", "first_strike_damage", "end_combat") or s.state.zones.get("stack"):
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            break
+    assert life(s, "p2") == 39 and s.state.cards[vampire.id].zone == "p1:battlefield" and s.state.cards[vampire.id].tapped
+    assert not any(c.name == "Bat" and c.zone == "p1:battlefield" for c in s.state.cards.values())
+    check(s)

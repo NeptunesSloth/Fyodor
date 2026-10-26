@@ -4,8 +4,8 @@ turn, they enter as copies of the chosen creature."
 614.1c, 614.12, 707.5: a one-shot replacement effect kept in the turn log (``TurnLog.mirror110b``, the chosen creatures, oldest first). The first
 entry event with a creature or planeswalker uses it up (614.5), and every such object of that event (a ``move_together`` batch, a token creation,
 or one spell resolving) enters as a copy of the chosen creature, as it is when they enter (707.2). A card with its own "may enter as a copy"
-replacement applies that one last (616.1), like Essence of the Wild (copying.entering). ponytail: two such effects waiting for one batch are not
-ordered against each other (616.1: the second one is used by the next batch).
+replacement applies that one last (616.1), like Essence of the Wild (copying.entering). Two effects waiting for one event all apply to it (614.5);
+if they chose different creatures the order (616.1: the affected object's controller picks, the last copy wins) is left to manual play, with a note.
 """
 from __future__ import annotations
 
@@ -73,10 +73,14 @@ def apply(plan: Plan, cards: list[tuple[Any, str]]) -> None:
     if batch != str(plan.rules.batch):  # a new entry event: the oldest waiting effect is used up (614.5); until the next step it covers the whole event
         if not log.mirror110b:
             return
-        chosen = log.mirror110b.pop(0)
+        waiting, log.mirror110b = log.mirror110b[:], []  # every waiting effect applies to this event (614.5)
+        chosen = waiting[0] if len(set(waiting)) == 1 else ""  # (different creatures: 616.1, the order is the controller's choice — by hand)
         log.mirror_open110b = f"{plan.rules.batch}|{chosen}"
     for c, p in hit:
-        if copying.enter_definition(plan, c) is not None:
+        if not chosen:
+            plan.note(f"Mystic Reflection: two effects want {c.name or 'it'} to enter as different copies; its controller picks the order "
+                      "(616.1) — copy by hand", actor=p)
+        elif copying.enter_definition(plan, c) is not None:
             log.mirror_late110b.append(f"{c.id}|{chosen}")
         else:
             _copy(plan, c, p, chosen)

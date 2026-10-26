@@ -129,10 +129,21 @@ def eligible(plan: Plan, pid: str) -> list[tuple[str, dict[str, Any]]]:
 
 def start(plan: Plan) -> None:
     """The mulligans are done: ask each player, the starting player first, in turn order (103.6)."""
+    from app.rules import wave110f_cmd
+
+    if wave110f_cmd.ask(plan):  # -- wave 110F -- "choose a color before the game begins" (Faceless One): asked first, it asks start again
+        return
     order = [plan.active]
     while (nxt := plan.after(order[-1])) != order[0]:
         order.append(nxt)
-    ask(plan, [p for p in order if p in plan.live()])
+    live = [p for p in order if p in plan.live()]
+    from app.rules import (
+        wave110e_clara,  # -- pregame color (wave 110E) -- "choose a color before the game begins" comes before the opening-hand actions
+    )
+
+    if wave110e_clara.ask(plan, wave110e_clara.pending(plan, live), live):
+        return
+    ask(plan, live)
 
 
 def ask(plan: Plan, order: list[str]) -> None:

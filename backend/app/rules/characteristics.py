@@ -56,6 +56,7 @@ class Characteristics:
     on_battlefield: bool = False
     object_counters: frozenset[str] = frozenset()
     object_ring_bearer: bool = False  # designation, not copiable values
+    object_cast_this_turn: bool = False  # -- (wave 110B) -- a permanent that was cast this turn ("protection from permanents that were cast this turn")
     is_spell: bool = False  # -- cant (wave 49C) -- the source of a targeting is a spell (115.2: "can't be the target of spells"); set by targets.source_of(spell=True)
     # Derived by app.rules.layers (never printed): current power/toughness, keywords gained/lost.
     pt: tuple[int, int] | None = None

@@ -25,6 +25,8 @@ _DRAFT = re.compile(
     # what the draft noted: nothing was noted, so the ability has nothing to refer to (a player, a name, a type): it never applies
     r"|~ attacks a player you noted for cards named (?:~|[A-Z][^.]+?) each combat if able\."
     r"|As long as you control one or more creatures with a name you noted for cards named (?:~|[A-Z][^.]+?), ~ and those creatures get \+1/\+1 and have lifelink\."
+    # (wave 110I) nothing was noted / removed, so X is 0: it enters with no counters
+    r"|(?:This creature|~) enters with X \+1/\+1 counters on it, where X is (?:the highest number you noted|the number of cards you removed from the draft) (?:for|with) cards named (?:~|[A-Z][^.]+?)\."
     r"|Other creatures you control of a type you noted for cards named (?:~|[A-Z][^.]+?) get \+1/\+1\.")
 
 

@@ -251,6 +251,25 @@ def test_sword_of_the_ages_exiles_what_it_sacrificed(cards, chosen, damage):
     check(s)
 
 
+def test_sword_of_the_ages_leaves_a_same_name_card_already_in_the_graveyard(cards):
+    """608.2h, 400.7: only the objects the sacrifice made are exiled; a same-name card that was already in the graveyard stays."""
+    s = build(cards, ["Sword of the Ages", "Hill Giant", "Hill Giant"])
+    sword = put(s, "Sword of the Ages")
+    giants = [c for c in s.state.cards.values() if c.name == "Hill Giant" and c.owner == "p1"][:2]
+    act(s, "p1", type="move", card_ids=[giants[0].id], to={"player": "p1", "zone": "battlefield"})
+    act(s, "p1", type="move", card_ids=[giants[1].id], to={"player": "p1", "zone": "graveyard"})
+    to_phase(s, "main1", 3)
+    act(s, "p1", type="activate_ability", card_id=sword.id, ability=1, targets=["p2"])
+    d = s.state.rules.decision
+    assert d is not None
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[giants[0].id])
+    answer(s)
+    assert life(s, "p2") == 37
+    assert s.state.cards[giants[0].id].zone == "p1:exile" and s.state.cards[sword.id].zone == "p1:exile"
+    assert s.state.cards[giants[1].id].zone == "p1:graveyard"
+    check(s)
+
+
 def test_shifting_shadow_moves_to_the_next_creature(cards):
     """Upkeep: the host dies, the first creature card revealed (the Giant, under a Forest) enters and the Aura is attached to it (not in the graveyard); the Forest goes under."""
     s = build(cards, ["Shifting Shadow", "Grizzly Bears", "Hill Giant"], forests=30, islands=30)
