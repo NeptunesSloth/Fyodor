@@ -505,7 +505,7 @@ def _mist(d: Def) -> Def:
     from app.rules import selectors
 
     draw = d["effects"][0]
-    return {**d, "effects": [{"do": "untap_choice", "who": draw["who"], "n": draw["n"], "kind": "permanent", "sel": selectors.parse("permanent").key()}]}
+    return {**d, "effects": [{"do": "untap_choice", "who": draw["who"], "n": draw["n"], "kind": "permanent", "sel": selectors.Selector().key()}]}
 
 
 def _two_auras(d: Def) -> Def:
@@ -600,7 +600,7 @@ def reattach(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     hosts = [h for h in attachments.legal_hosts(plan, card, ctx["controller"])
              if h != old and h in plan.state.cards and plan.state.cards[h].zone.endswith(":battlefield") and plan.ch(plan.state.cards[h]).is_creature]
     if len(hosts) <= 1:
-        return not hosts or _attach_to(plan, ctx, aura, hosts[0])
+        return not hosts or _attach_to(plan, ctx, card.id, hosts[0])
     effects.decide(plan, player=ctx["controller"], kind="choose_one", prompt=f"{ctx.get('name') or 'Aura'}: choose a creature to attach {card.name} to",
                    options=[effects.DecisionOption(id=h, label=plan.state.cards[h].name or "Creature", card_id=h) for h in hosts],
                    resume={"step": "reattach110g", "ctx": ctx, "aura": aura, "hosts": hosts})
