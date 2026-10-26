@@ -59,6 +59,10 @@ VAEVICTIS = ("Whenever ~ attacks, for each player, choose target permanent that 
 WILD_HUNT = ("{T}: Tap all untapped Wolf creatures you control. Each Wolf tapped this way deals damage equal to its power to target creature. That creature deals damage equal to its power "
              "divided as its controller chooses among any number of those Wolves.")
 
+SYMBIOTE = ("{2}{U/B}, Exile this card from your graveyard: Put a +1/+1 counter on target creature you control. It gains this card's other abilities. Activate only as a sorcery.")
+SYMBIOTE_OTHER = ("Whenever this creature deals combat damage to a player, look at that many cards from the top of your library. Put one of them into your hand and the rest into "
+                  "your graveyard.")
+
 PROCTOR = "Whenever a permanent entering causes a triggered ability to trigger, counter that ability unless its controller pays {2}."
 
 
@@ -125,6 +129,8 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
         tap = {**fx[0], "as": "wild110c"}
         hit = {**fx[1], "src": "ref:wild110c", "src_many": True}
         return {**native, "effects": [tap, hit, {"do": "wildhunt110c", "wolves": "ref:wild110c"}]}
+    if text.removeprefix("Find New Host — ") == SYMBIOTE:  # the card's other abilities are its one combat damage trigger; an effect that adds abilities without a duration lasts (611.2a)
+        return scripts.define(replace(ability, text=f'{SYMBIOTE.replace("this card's other abilities", chr(34) + SYMBIOTE_OTHER + chr(34))}'), ch)
     if text == NEERA:  # the "you may ... if you do" gate is read as a {0} payment; the spell moves first (it is not countered, 701.6a), else nothing follows (608.2c)
         native = scripts.define(replace(ability, text=NEERA.replace("put it on the bottom of its owner's library", "pay {0}")), ch)
         event = scripts.define(replace(ability, text="Whenever you cast a spell, you may pay {0}. If you do, copy that spell. This ability triggers only once each turn."), ch)  # (the form that keeps the spell: "that spell")
