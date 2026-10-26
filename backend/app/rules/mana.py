@@ -108,7 +108,7 @@ def spend_as(cost: ManaCost, mode: str) -> ManaCost:
     from app.rules import mana_allocation_masks
 
     transformed = _spend_as(cost, mode)
-    if mode not in ('type', 'color', 'colorless_color', 'white_red', 'white_any', 'white_color'):
+    if mode not in ('type', 'color', 'colorless_color', 'white_red', 'white_any', 'white_color', 'snow_color'):
         return transformed
     return replace(transformed, allocation=mana_allocation_masks.requirements(cost, mode))
 
@@ -132,6 +132,11 @@ def _spend_as(cost: ManaCost, mode: str) -> ManaCost:
         return ManaCost(cost.generic, tuple(c for c in cost.colored if c not in other),
                         tuple((c, 'W') for c in other) + tuple(tuple(dict.fromkeys((*h, 'W'))) if any(c in COLORS for c in h) else h for h in cost.hybrid),
                         tuple('/'.join(dict.fromkeys((*c.split('/'), 'W'))) if any(k in COLORS for k in c.split('/')) else c for c in cost.phyrexian),
+                        cost.x, cost.unsupported)
+    if mode == 'snow_color':  # -- cards (wave 110I) -- Draugr Necromancer, 609.4b: mana from a snow source pays any colored symbol (an {S} payment, 107.4h; other mana is unchanged)
+        return ManaCost(cost.generic, tuple(c for c in cost.colored if c not in COLORS),
+                        tuple((c, SNOW) for c in cost.colored if c in COLORS) + tuple(tuple(dict.fromkeys((*h, SNOW))) if any(c in COLORS for c in h) else h for h in cost.hybrid),
+                        tuple('/'.join(dict.fromkeys((*c.split('/'), SNOW))) if any(k in COLORS for k in c.split('/')) else c for c in cost.phyrexian),
                         cost.x, cost.unsupported)
     if mode == 'colorless_color':
         # Only actual C may substitute for a colored requirement. Allocation and
@@ -797,7 +802,7 @@ def _pay_one(units: dict[str, int], remaining: list[Source], chosen: Chosen, req
             if req == ('B', '@X') and src.abilities and src.abilities[oi] < 0:
                 continue  # A convoke contribution is not actual black mana spent on X.
             # (-- snow mana (wave 7E) -- {S}: any mana of a snow source, 107.4h)
-            wanted = opt[0] if req == (SNOW,) and src.snow and opt else next((c for c in req if c in opt), None)
+            wanted = opt[0] if SNOW in req and src.snow and opt else next((c for c in req if c in opt), None)  # (wave 110I: a hybrid with {S}, Draugr Necromancer)
             if wanted is None:
                 continue
             new = dict(units)

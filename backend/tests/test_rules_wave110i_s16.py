@@ -13,6 +13,9 @@
   trigger) exiles an enchantment, instant or sorcery card with mana value up to that spell's from an opponent's graveyard; its copy may be cast free (707.12, 608.2g, ruling 2023-06-16).
 * Merseine: "Pay enchanted creature's mana cost" is the enchanted creature's own mana cost, colored symbols included (ruling 2004-10-04; 202.1), activatable only by that creature's controller (602.2),
   at instant speed, as often as they can pay (a net counter each time).
+* Draugr Necromancer: an opponent's nontoken creature that would die is exiled with an ice counter, and its controller may cast spells from among cards in exile their opponents own with ice
+  counters, spending mana from snow sources as though it were mana of any color (609.4b, ruling 2021-02-05: only snow-source mana, a spell still follows the normal rules).
+* Haldan, Avid Arcanist (with Pako's fetch counters): lands and noncreature spells from cards you exiled with fetch counters, mana of any color (305.1, 601.3, rulings 2020-04-17).
 """
 from __future__ import annotations
 
@@ -477,3 +480,97 @@ def test_merseine_its_own_controller_may_not_activate_it(cards):
     with pytest.raises(ActionError):
         act(s, "p1", type="activate_ability", card_id=card_named(s, "Merseine").id, ability=ab)
     assert _nets(s) == 3
+
+
+DRAUGR = real("Draugr Necromancer", "{3}{B}", 4, "Snow Creature — Zombie Cleric",
+              "If a nontoken creature an opponent controls would die, exile that card with an ice counter on it instead.\nYou may cast spells from among cards in exile your opponents own with ice counters on them, "
+              "and you may spend mana from snow sources as though it were mana of any color to cast those spells.", ("4", "4"), "B")
+SNOWFOREST = real("Snow-Covered Forest", "", 0, "Basic Snow Land \u2014 Forest", "({T}: Add {G}.)")
+base.EXTRA.extend([DRAUGR, SNOWFOREST])
+
+
+def test_draugr_full(cards):
+    assert coverage.of_card_data(cards.resolve("Draugr Necromancer")).level == "FULL"
+
+
+def _draugr(cards):
+    s = build(cards, ["Draugr Necromancer", "Test Bolt", "Snow-Covered Forest"], ["Vampire of the Dire Moon"])
+    put(s, "Draugr Necromancer")
+    vamp = put(s, "Vampire of the Dire Moon", "p2")
+    mana(s, R=1)
+    cast_card(s, "Test Bolt", [vamp.id])
+    answer(s)
+    return s, vamp
+
+
+def test_draugr_exiles_the_dying_creature_with_an_ice_counter(cards):
+    s, vamp = _draugr(cards)
+    c = s.state.cards[vamp.id]
+    assert c.zone == "p2:exile" and c.counters.get("ice") == 1
+    check(s)
+
+
+def test_draugr_snow_mana_pays_any_color_but_other_mana_does_not(cards):
+    s, vamp = _draugr(cards)
+    forest = next(c for c in s.state.cards.values() if c.name == "Forest" and c.owner == "p1" and c.zone == "p1:library")
+    snow = put(s, "Snow-Covered Forest")
+    act(s, "p1", type="move", card_ids=[forest.id], to={"player": "p1", "zone": "battlefield"})
+    with pytest.raises(ActionError):  # a plain Forest's {G} can't pay {B}
+        act(s, "p1", type="cast_spell", card_id=vamp.id, sources=[forest.id])
+    act(s, "p1", type="cast_spell", card_id=vamp.id, sources=[snow.id])  # a Snow-Covered Forest's mana can
+    answer(s)
+    assert s.state.cards[vamp.id].zone == "p1:battlefield" or any(c.name == "Vampire of the Dire Moon" and c.zone == "p1:battlefield" for c in s.state.cards.values())
+    check(s)
+
+
+HALDAN = real("Haldan, Avid Arcanist", "{2}{U}", 3, "Legendary Creature — Human Wizard",
+              "Partner with Pako, Arcane Retriever (When this creature enters, target player may put Pako into their hand from their library, then shuffle.)\n"
+              "You may play lands and cast noncreature spells from among cards you exiled that have fetch counters on them, and you may spend mana as though it were mana of any color to cast those spells.",
+              ("1", "4"), "U")
+PAKO = real("Pako, Arcane Retriever", "{3}{R}{G}", 5, "Legendary Creature — Elemental Dog",
+            "Partner with Haldan, Avid Arcanist\nHaste\nWhenever Pako attacks, exile the top card of each player's library and put a fetch counter on each of them. "
+            "Put a +1/+1 counter on Pako for each noncreature card exiled this way.", ("3", "3"), "RG")
+base.EXTRA.extend([HALDAN, PAKO])
+
+
+def test_haldan_and_pako_full(cards):
+    for n in ("Haldan, Avid Arcanist", "Pako, Arcane Retriever"):
+        assert coverage.of_card_data(cards.resolve(n)).level == "FULL"
+
+
+def _pako_attack(cards, alice_top, bob_top):
+    from tests.wave110b_kit import attack, through_combat
+
+    s = build(cards, ["Haldan, Avid Arcanist", "Pako, Arcane Retriever", "Test Bolt"], ["Vampire of the Dire Moon"])
+    put(s, "Haldan, Avid Arcanist")
+    pako = put(s, "Pako, Arcane Retriever")
+    for who, name in (("p1", alice_top), ("p2", bob_top)):
+        c = next(x for x in s.state.cards.values() if x.name == name and x.owner == who)
+        act(s, who, type="move", card_ids=[c.id], to={"player": who, "zone": "library"}, position="top")
+    attack(s, pako)
+    through_combat(s)
+    return s
+
+
+def test_haldan_casts_a_noncreature_card_and_plays_a_land_exiled_with_fetch_counters(cards):
+    from tests.wave9c_kit import life
+
+    s = _pako_attack(cards, "Test Bolt", "Island")
+    bolt, island = card_named(s, "Test Bolt"), card_named(s, "Island", "p2")
+    assert bolt.zone == "p1:exile" and bolt.counters.get("fetch") == 1 and island.zone == "p2:exile" and island.counters.get("fetch") == 1
+    mana(s, G=1)  # {R}: mana of any color
+    act(s, "p1", type="cast_spell", card_id=bolt.id, targets=["p2"])
+    answer(s)
+    assert life(s, "p2") == 40 - 5 - 3  # Pako (3/3 + two counters for the two noncreature cards it exiled) hit for 5, then the Bolt
+    act(s, "p1", type="play_land", card_id=island.id)
+    assert card_named(s, "Island", "p2").zone == "p1:battlefield"
+    check(s)
+
+
+def test_haldan_cannot_cast_the_exiled_creature(cards):
+    s = _pako_attack(cards, "Test Bolt", "Vampire of the Dire Moon")
+    vamp = card_named(s, "Vampire of the Dire Moon", "p2")
+    assert vamp.zone == "p2:exile" and vamp.counters.get("fetch") == 1
+    mana(s, B=1)
+    with pytest.raises(ActionError):
+        act(s, "p1", type="cast_spell", card_id=vamp.id)

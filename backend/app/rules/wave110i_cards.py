@@ -458,7 +458,14 @@ def lose_if_short(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     return effects.PRIMITIVES["lose_game"](plan, ctx, {"do": "lose_game", "who": "you"}) if ctx.get("short110i") else True
 
 
+def _that_much(d: Def) -> Def:
+    """Jetfire: "adds that much {C}" -- X, the number of counters removed as the cost (the native wording adds one {C}); the restriction and the convert follow as the grammar reads them."""
+    return {**d, "effects": [{"do": "add_mana", "sym": "C", "n": {"x": 1}, "who": "target"} if e.get("do") == "add_mana" else e for e in d["effects"]]}
+
+
 _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
+    "Remove one or more +1/+1 counters from among artifacts you control: Target player adds that much {C}. This mana can't be spent to cast nonartifact spells. Convert Jetfire.":
+        ("Remove one or more +1/+1 counters from among artifacts you control: Target player adds {C}. This mana can't be spent to cast nonartifact spells. Convert this creature.", _that_much),
     "Whenever you cast your second spell each turn, each opponent mills two cards. When one or more cards are milled this way, exile target enchantment, instant, or sorcery card with equal or "
     "lesser mana value than that spell from an opponent's graveyard. Copy the exiled card. You may cast the copy without paying its mana cost.":
         ("Whenever you cast your second spell each turn, you may pay {1}. When you do, exile target enchantment, instant, or sorcery card with mana value less than or equal to that spell's mana value "
@@ -1205,6 +1212,24 @@ def flicker_auras(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 PRIMITIVES.update({"flicker_exile110i": flicker_exile, "flicker_return110i": flicker_return, "flicker_auras110i": flicker_auras})
 
 
+_DRAUGR = ("You may cast spells from among cards in exile your opponents own with ice counters on them, and you may spend mana from snow sources as though it were mana of any color to cast those spells.")
+_HALDAN = ("You may play lands and cast noncreature spells from among cards you exiled that have fetch counters on them, and you may spend mana as though it were mana of any color to cast those spells.")
+_PAKO = ("Whenever Pako attacks, exile the top card of each player's library and put a fetch counter on each of them. Put a +1/+1 counter on Pako for each noncreature card exiled this way.")
+
+
+def collect_fetch(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """Pako: the cards its ability exiled are remembered as exiled by an ability its controller controlled (Haldan: "cards you exiled", 406.3)."""
+    from app.rules import context
+
+    for cid in context.objects(plan, ctx, "e0"):
+        if plan.state.cards[cid].zone.endswith(":exile"):
+            plan.rules.collection110o[plan.oid(cid)] = ctx["controller"]
+    return True
+
+
+PRIMITIVES["collect_fetch110i"] = collect_fetch
+
+
 def definition(ability: Any, ch: Any) -> Def | None:
     from app.rules import scripts
 
@@ -1233,6 +1258,19 @@ def definition(ability: Any, ch: Any) -> Def | None:
     if text == _FLICKER:
         native = scripts.define(replace(ability, text="{2}{W}{W}: Draw a card."), ch)
         return None if native is None else {**native, "effects": [{"do": "flicker_exile110i"}]}
+    if text == _DRAUGR:  # 601.3 (cast from exile), 609.4b: only spells; mana from snow sources as though any color (mana.spend_as "snow_color")
+        return {"kind": "static", "static": "permission", "zone": "exile", "filter": None, "self": False, "play": False, "cast": True, "once": False, "flash": False,
+                "foreign": True, "exile_counter": "ice", "spend": "snow_color", "effects": []}
+    if text == _HALDAN:  # 601.3, 305.1; only cards exiled by an ability its controller controlled (Pako's, collect_fetch110i); noncreature spells, any land
+        from app.rules import permissions
+
+        return {"kind": "static", "static": "permission", "zone": "exile", "filter": permissions.spell_filter("noncreature"), "self": False, "play": True, "cast": True, "once": False,
+                "flash": False, "exile_counter": "fetch", "exiled_by110o": True, "spend": "color", "effects": []}
+    if text == _PAKO:
+        native = scripts.define(replace(ability, text=_PAKO.replace("Pako", "this creature")), ch)
+        if native is None or [e["do"] for e in native["effects"]][:2] != ["exile_top", "add_counters"]:
+            return None
+        return {**native, "effects": [native["effects"][0], native["effects"][1], {"do": "collect_fetch110i"}, *native["effects"][2:]]}
     if text == "If a Rigger you control would assemble a Contraption, it assembles two Contraptions instead.":
         # 701.45a: assembling is an Unstable mechanic outside these rules; no player has a Contraption deck in a Commander game, so nothing can be assembled and this never applies
         return {"kind": "static", "static": "no_assemble110i", "effects": []}
