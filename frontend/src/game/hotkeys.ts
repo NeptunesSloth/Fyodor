@@ -24,7 +24,8 @@ export type HotkeyId =
   | "cam_player"
   | "cam_table"
   | "cam_focus"
-  | "cam_reset";
+  | "cam_reset"
+  | "cam_names";
 
 export interface Hotkey {
   id: HotkeyId;
@@ -53,6 +54,7 @@ export const HOTKEYS: Hotkey[] = [
   { id: "cam_table", keys: ["0"], label: "3D table: look down on the whole table" },
   { id: "cam_focus", keys: ["c"], label: "3D table: zoom to the hovered card (C or Esc to return)" },
   { id: "cam_reset", keys: ["home"], label: "3D table: back to your seat" },
+  { id: "cam_names", keys: ["v"], label: "3D table: show / hide the names of all cards on the table" },
 ];
 
 export function comboOf(e: Pick<KeyboardEvent, "key" | "ctrlKey" | "metaKey" | "shiftKey">): string {

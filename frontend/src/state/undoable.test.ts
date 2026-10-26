@@ -6,6 +6,7 @@ describe("undoable action summaries", () => {
     expect(undoableSummary({ type: "move", card_ids: ["a"], to: { zone: "graveyard" } })).toBe("1 card put into the graveyard");
     expect(undoableSummary({ type: "move", card_ids: ["a", "b"], to: { zone: "exile" } })).toBe("2 cards exiled");
     expect(undoableSummary({ type: "move", card_ids: ["a"], to: { zone: "library" } })).toBe("1 card put into a library");
+    expect(undoableSummary({ type: "move", card_ids: ["a"], to: { zone: "hand" } })).toBe("1 card returned to hand");
     expect(undoableSummary({ type: "delete_card", card_ids: ["a"] })).toBe("1 card removed from the game");
     expect(undoableSummary({ type: "mill", count: 3 })).toBe("Milled 3 cards");
   });

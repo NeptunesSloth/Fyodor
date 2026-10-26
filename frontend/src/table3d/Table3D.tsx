@@ -41,7 +41,8 @@ export function Table3D({ me }: { me: string }) {
   const tags = useRef<Record<string, HTMLDivElement | null>>({});
   const tagView = useGame((s) => s.view);
   const selection = useGame((s) => s.selection);
-  const tagged = useMemo(() => nameTags(tagView, selection), [tagView, selection]);
+  const [allNames, setAllNames] = useState(false);
+  const tagged = useMemo(() => nameTags(tagView, selection, allNames), [tagView, selection, allNames]);
 
   // create / destroy the scene (quality changes need a new renderer)
   useEffect(() => {
@@ -76,17 +77,19 @@ export function Table3D({ me }: { me: string }) {
     // keep the seat plates glued to the table, stepping out from over fixed chrome (camera strip,
     // turn dial, stack panels) and the battlefield cards, and never past the screen edge
     let frame = 0;
-    let avoid: { left: number; top: number; right: number; bottom: number }[] = [];
+    type Box = { left: number; top: number; right: number; bottom: number };
+    let cards: Box[] = [];
+    let chrome: Box[] = [];
     const follow = () => {
       const host = el.getBoundingClientRect();
       const w = el.clientWidth;
       const h = el.clientHeight;
       if (frame++ % 20 === 0) {
-        const chrome = [...document.querySelectorAll(".t3d-cams, .turn-dial-wrap, .stack-widget.open, .rules-stack-wrap, .t3d-coach")].map((n) => {
+        chrome = [...document.querySelectorAll(".t3d-cams, .turn-dial-wrap, .stack-widget.open, .rules-stack-wrap, .t3d-coach")].map((n) => {
           const r = n.getBoundingClientRect();
           return { left: r.left - host.left, top: r.top - host.top, right: r.right - host.left, bottom: r.bottom - host.top };
         });
-        avoid = [...chrome, ...scene.battlefieldRects(w, h)];
+        cards = scene.battlefieldRects(w, h);
       }
       for (const [pid, node] of Object.entries(plates.current)) {
         if (!node) continue;
@@ -95,16 +98,19 @@ export function Table3D({ me }: { me: string }) {
         const pw = node.offsetWidth || 160;
         const ph = node.offsetHeight || 56;
         let { x, y } = pt;
-        // a few passes: stepping off one card can land on its neighbour
-        for (let pass = 0; pass < 4; pass++) {
+        const stepOff = (boxes: Box[]) => {
           let moved = false;
-          for (const r of avoid) {
+          for (const r of boxes) {
             if (x + pw / 2 < r.left || x - pw / 2 > r.right || y + ph / 2 < r.top || y - ph / 2 > r.bottom) continue;
             y = y - r.top < r.bottom - y ? r.top - ph / 2 - 6 : r.bottom + ph / 2 + 6;
             moved = true;
           }
-          if (!moved) break;
-        }
+          return moved;
+        };
+        // cards first (a few passes: stepping off one card can land on its neighbour), then the
+        // fixed panels last, so a plaque is never hidden under one
+        for (let pass = 0; pass < 4 && stepOff(cards); pass++);
+        for (let pass = 0; pass < 3 && stepOff(chrome); pass++);
         x = Math.max(pw / 2 + 8, Math.min(w - pw / 2 - 8, x));
         y = Math.max(ph / 2 + 8, Math.min(h - ph / 2 - 8, y));
         node.style.transform = `translate(${Math.round(x)}px, ${Math.round(y)}px)`;
@@ -140,6 +146,7 @@ export function Table3D({ me }: { me: string }) {
     const onCam = (e: Event) => {
       const { id, digit, hover } = (e as CustomEvent<{ id: string; digit: number; hover: string | null }>).detail;
       const others = players.filter((p) => p !== me);
+      if (id === "cam_names") return setAllNames((x) => !x);
       setPreset((cur) => {
         if (id === "cam_seat" || id === "cam_reset") return "seat";
         if (id === "cam_table") return "overview";
@@ -197,6 +204,7 @@ export function Table3D({ me }: { me: string }) {
           </button>
         ))}
         <button className={preset === "overview" ? "on" : ""} onClick={() => setPreset("overview")} title="Look down on the whole table (0)">Table <kbd className="cam-key">0</kbd></button>
+        <button className={allNames ? "on" : ""} aria-pressed={allNames} onClick={() => setAllNames(!allNames)} title="Show the names of all cards on the table (V)">Names <kbd className="cam-key">V</kbd></button>
       </div>
     </div>
   );
@@ -206,10 +214,12 @@ export function Table3D({ me }: { me: string }) {
  * Names for the selected battlefield cards. A face-down card is labelled as face down (never by its
  * name: the table screen is public), and the server never sends a hidden card's name anyway.
  */
-function nameTags(view: GameView | null, selection: string[]): [string, string][] {
-  if (!view || selection.length > 12) return EMPTY_TAGS;
+function nameTags(view: GameView | null, selection: string[], all: boolean): [string, string][] {
+  if (!view || (!all && selection.length > 12)) return EMPTY_TAGS;
   const out: [string, string][] = [];
-  for (const id of selection) {
+  // ponytail: one DOM tag per card; fine to ~150 permanents, a canvas label layer if boards get bigger
+  for (const id of all ? Object.keys(view.cards) : selection) {
+    if (out.length >= 150) break;
     const c = view.cards[id];
     if (!c?.zone.endsWith(":battlefield")) continue;
     out.push([id, c.face_down || !isVisible(c) ? `Face down${c.face_down_as ? `: ${c.face_down_as}` : ""}` : c.name]);

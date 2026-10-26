@@ -211,6 +211,9 @@ export function TurnDial() {
   } else if (mine) status = rules!.acting_as ? `Your priority (controlling ${playerName(view, rules!.acting_as)})` : "Your priority";
   else status = rules!.priority ? `Waiting for ${playerName(view, rules!.priority)}` : "Waiting";
   const verb = stack ? "Resolve" : NEXT_VERB[step] ?? "Next";
+  // passing is refused while my own decision is open: grey the buttons out instead of erroring
+  const deciding = auto && rules!.decision?.player === me;
+  const blocked = deciding ? "Answer your decision first" : undefined;
   return (
     <div className="turn-dial-wrap plaque-wrap">
       <section className={`turn-dial plaque ${mine ? "mine" : ""}`} data-testid={auto ? "priority-bar" : "turn-dial"} aria-label="Turn and priority">
@@ -241,14 +244,14 @@ export function TurnDial() {
         <p className="td-status" data-testid="priority-holder" aria-live="polite">{status}</p>
         {auto && mine && (
           <>
-            <button className="td-pass" data-testid="pass-priority" aria-label={`Pass priority: ${verb.toLowerCase()}`} title="Pass priority (P)" onClick={() => void passPriority()}>
+            <button className="td-pass" data-testid="pass-priority" aria-label={`Pass priority: ${verb.toLowerCase()}`} title={blocked ?? "Pass priority (P)"} disabled={deciding} onClick={() => void passPriority()}>
               {verb}
             </button>
             {stack && <p className="td-hint">{topName} resolves once everyone passes</p>}
             <div className="td-more">
-              {stack && <button className="tt-btn ghost" data-testid="resolve-one" onClick={() => void passPriority("stack_changes")}>Resolve one</button>}
-              {stack && <button className="tt-btn ghost" data-testid="resolve-all" onClick={() => void passPriority("stack_empty")}>Resolve all</button>}
-              {!stack && <button className="tt-btn ghost" data-testid="pass-turn" onClick={() => void passPriority("next_turn")}>End turn</button>}
+              {stack && <button className="tt-btn ghost" data-testid="resolve-one" disabled={deciding} title={blocked} onClick={() => void passPriority("stack_changes")}>Resolve one</button>}
+              {stack && <button className="tt-btn ghost" data-testid="resolve-all" disabled={deciding} title={blocked} onClick={() => void passPriority("stack_empty")}>Resolve all</button>}
+              {!stack && <button className="tt-btn ghost" data-testid="pass-turn" disabled={deciding} title={blocked} onClick={() => void passPriority("next_turn")}>End turn</button>}
             </div>
           </>
         )}

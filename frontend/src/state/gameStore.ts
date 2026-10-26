@@ -115,7 +115,8 @@ export function recoveryHint(message: string, actionType = ""): string {
   return "";
 }
 
-const LOST_ZONES: Record<string, string> = { graveyard: "graveyard", exile: "exile", library: "library" };
+/** Zones a card leaves the table for: moving there gets a confirmation with Undo. Battlefield moves show on the table. */
+const AWAY: Record<string, string> = { graveyard: "put into the graveyard", exile: "exiled", library: "put into a library", hand: "returned to hand", command: "put into the command zone" };
 
 /**
  * A one-line summary for manual actions that are easy to regret (cards sent away, removed or milled),
@@ -126,8 +127,7 @@ export function undoableSummary(a: Record<string, unknown>): string | null {
   const cards = (k: number) => `${k} card${k === 1 ? "" : "s"}`;
   if (a.type === "move") {
     const zone = (a.to as { zone?: string } | undefined)?.zone ?? "";
-    if (!LOST_ZONES[zone]) return null;
-    return zone === "exile" ? `${cards(n)} exiled` : `${cards(n)} put into ${zone === "library" ? "a library" : "the graveyard"}`;
+    return AWAY[zone] ? `${cards(n)} ${AWAY[zone]}` : null;
   }
   if (a.type === "delete_card") return `${cards(n)} removed from the game`;
   if (a.type === "mill") return `Milled ${cards(Number(a.count ?? 1))}`;
