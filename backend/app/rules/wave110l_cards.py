@@ -235,6 +235,11 @@ def suffocate(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     return P["damage"](plan, ctx, {"do": "damage", "who": "ref:suffocate110l", "n": 4})
 
 
+_BUILD["When enchanted creature dies, mill cards equal to its power. Return this card to its owner's hand and up to one creature card milled this way to the battlefield under your control."] = (
+    "When enchanted creature dies, mill cards equal to its power. Return this card to its owner's hand. "
+    "You may put a creature card milled this way onto the battlefield under your control.", lambda d: d)  # one simultaneous instruction (608.2c); the two moves don't interact
+
+
 def pick_discard(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     """The owner reveals their hand; the chooser picks one card of it, which is discarded (an empty hand reveals nothing and discards nothing)."""
     from app.rules.effects import _players, decide, zone_key

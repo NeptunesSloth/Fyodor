@@ -150,3 +150,30 @@ def test_day_of_the_moon_goads_every_name_chosen_so_far(cards):
     answer(s)
     assert goaded(s, "Grizzly Bears") and goaded(s, "Young Wolf") and not goaded(s, "Mesa Pegasus")
     check(s)
+
+
+AVATAR = "Avatar Destiny"
+test_full_avatar = full_test([AVATAR])
+
+
+def top_of_library(s, *names):
+    for n in reversed(names):
+        c = next(c for c in s.state.cards.values() if c.name == n and c.owner == "p1" and c.zone == "p1:library")
+        act(s, "p1", type="move", card_ids=[c.id], to={"zone": "library"}, position="top")
+
+
+@pytest.mark.parametrize("take", ["Llanowar Elves", None])
+def test_avatar_destiny_mills_its_power_returns_itself_and_may_reanimate_a_milled_creature(cards, take):
+    s = build(cards, [AVATAR, "Grizzly Bears", "Llanowar Elves", "Young Wolf", "Murder"])
+    bears = put(s, "Grizzly Bears")
+    cast(s, AVATAR, [bears.id])
+    answer(s)
+    top_of_library(s, "Llanowar Elves", "Young Wolf", "Forest")
+    cast(s, "Murder", [bears.id])
+    while s.state.rules.decision is None and s.state.zones.get("stack"):
+        act(s, s.state.rules.priority, type="pass_priority")
+    answer(s, "Yes" if take else "No", take)  # "you may", then which creature
+    assert zone_of(s, AVATAR) == "p1:hand"
+    assert zone_of(s, "Llanowar Elves") == ("p1:battlefield" if take else "p1:graveyard")
+    assert zone_of(s, "Young Wolf") == "p1:graveyard"
+    check(s)
