@@ -1199,5 +1199,5 @@ def test_lynde_may_attach_a_curse_you_have_to_an_opponent_and_draw_two(cards, mo
     act(s, "p1", type="choose", decision_id=d.id, option_ids=[curse.id] if move else [])
     settle(s)
     assert now(s, curse).attached_player == ("p2" if move else "p1")
-    assert len(s.state.zones.get("p1:hand", [])) == hand + (2 if move else 0)
+    assert len(s.state.zones.get("p1:hand", [])) == hand + 1 + (2 if move else 0)  # (the turn's own draw, then Lynde's two)
     check(s)
