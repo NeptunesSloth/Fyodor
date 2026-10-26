@@ -3,7 +3,7 @@ import { CardFace } from "../cards/CardFace";
 import { ManaText, OracleText } from "../cards/ManaText";
 import { openMenu } from "../components/ContextMenu";
 import { useCard } from "../state/cardCache";
-import { playerName, useCardView, useGame } from "../state/gameStore";
+import { useCardView, useGame } from "../state/gameStore";
 import { isVisible, PHASE_LABEL, type LogEntryView, type LogPartView } from "../types/game";
 import { send } from "./actions";
 import { cardMenu } from "./cardMenu";
@@ -11,6 +11,7 @@ import { beginPointerDrag } from "./dnd";
 import { GameCardFace } from "./GameCardFace";
 import { moveCards } from "./actions";
 import { splitZone } from "../types/game";
+import { ChainRow, chainEntries } from "./StackChain";
 
 /** Large preview of whatever card is hovered (board, hand, log, browser). */
 export function Inspector() {
@@ -59,76 +60,55 @@ export function Inspector() {
   );
 }
 
-export function StackPanel({ me }: { me: string }) {
-  const stack = useGame((s) => s.view?.stack ?? []);
+export function StackPanel({ me, onCollapse }: { me: string; onCollapse?: () => void }) {
+  const view = useGame((s) => s.view);
   const openDialog = useGame((s) => s.openDialog);
+  if (!view) return null;
+  const entries = chainEntries(view);
   return (
-    <div className="stack-panel" data-drop="stack">
-      <div className="panel-head">
-        <span>Stack {stack.length > 0 && <span className="hint">({stack.length})</span>}</span>
+    <div className="stack-panel chain plaque" data-drop="stack">
+      <div className="chain-head">
+        <span className="chain-title">The stack{entries.length > 0 && <span className="chain-count"> · {view.stack.length}</span>}</span>
         <span className="spacer" />
-        <button className="btn small" onClick={() => openDialog("ability", null)} title="Put an ability on the stack">+ Ability</button>
-        <button className="btn small primary" disabled={!stack.length} onClick={() => void send({ type: "resolve_top" })}>Resolve top</button>
+        <button className="btn small" onClick={() => openDialog("ability", null)} title="Put an ability on the stack">Add ability</button>
+        {onCollapse && <button className="tt-btn ghost chain-hide" title="Hide the stack list" onClick={onCollapse}>Hide</button>}
       </div>
-      {stack.length === 0 && <div className="stack-empty hint">Drag spells here to cast them</div>}
-      <div className="stack-list">
-        {[...stack].reverse().map((id, i) => (
-          <StackItem key={id} id={id} top={i === 0} me={me} />
+      {entries.length === 0 && <div className="stack-empty hint">Drag a spell here to cast it</div>}
+      <ol className="chain-list">
+        {entries.map((entry, i) => (
+          <ChainRow
+            key={entry.id}
+            entry={entry}
+            top={i === 0}
+            view={view}
+            className={`chain-row ${i === 0 ? "top" : ""} draggable`}
+            onPointerDown={(e) => {
+              if (e.button !== 0) return;
+              const id = entry.id;
+              beginPointerDrag(e, {
+                ids: [id],
+                from: "stack",
+                width: 90,
+                onDrop: (t) => {
+                  if (!t) return;
+                  const { zone, player } = splitZone(t.zone);
+                  void moveCards([id], zone, { player, x: t.x, y: t.y, position: t.position, index: t.index });
+                },
+              });
+            }}
+            onContextMenu={(e) => {
+              e.preventDefault();
+              const card = view.cards[entry.id];
+              if (!card) return;
+              const { title, items } = cardMenu(card, view, me);
+              openMenu(e, items, title);
+            }}
+          />
         ))}
-      </div>
+      </ol>
     </div>
   );
 }
-
-const StackItem = memo(function StackItem({ id, top, me }: { id: string; top: boolean; me: string }) {
-  const card = useCardView(id);
-  const view = useGame((s) => s.view);
-  if (!card || !view) return null;
-  const visible = isVisible(card);
-  return (
-    <div
-      className={`stack-item ${top ? "top" : ""}`}
-      data-card-id={id}
-      onPointerEnter={() => useGame.getState().setHover(id)}
-      onPointerLeave={() => useGame.getState().setHover(null)}
-      onPointerDown={(e) => {
-        if (e.button !== 0) return;
-        beginPointerDrag(e, {
-          ids: [id],
-          from: "stack",
-          width: 90,
-          onDrop: (t) => {
-            if (!t) return;
-            const { zone, player } = splitZone(t.zone);
-            void moveCards([id], zone, { player, x: t.x, y: t.y, position: t.position, index: t.index });
-          },
-        });
-      }}
-      onContextMenu={(e) => {
-        e.preventDefault();
-        const { title, items } = cardMenu(card, view, me);
-        openMenu(e, items, title);
-      }}
-    >
-      <div className="stack-thumb"><GameCardFace card={card} size="small" /></div>
-      <div className="stack-info">
-        <div className="stack-name">{visible ? (card.ability ? card.ability.source_name ?? "Ability" : card.name) : "Face-down spell"}</div>
-        <div className="hint">
-          {playerName(view, card.controller)}
-          {visible && card.ability ? ` · ${card.ability.text}` : ""}
-          {visible && card.copy_of ? " · copy" : ""}
-        </div>
-        {card.stack_info && (
-          <div className="stack-notes">
-            {card.stack_info.x != null && <b className="stack-x">X = {card.stack_info.x}</b>}
-            {card.stack_info.tags.map((t) => <span key={t} className="stack-tag">{t}</span>)}
-            {card.stack_info.modes.length > 0 && <div className="stack-modes">{card.stack_info.modes.map((m) => <div key={m}>✓ {m}</div>)}</div>}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-});
 
 function Part({ part }: { part: LogPartView }) {
   const setHover = useGame((s) => s.setHover);

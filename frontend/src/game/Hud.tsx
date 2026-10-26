@@ -13,8 +13,10 @@ import { EFFECT_PRESETS } from "./marksMenu";
 import { Inspector, LogPanel, StackPanel } from "./SidePanels";
 
 /** Large card preview that floats at the edge of the table while you hover a card. */
-export function CardPreview() {
+/** skipHand: on the 3D table a hovered hand card already lifts out of the fan at full size. */
+export function CardPreview({ skipHand = false }: { skipHand?: boolean }) {
   const hover = useGame((s) => s.hover);
+  const inHand = useGame((s) => !!s.hover && !!s.view?.cards[s.hover]?.zone.endsWith(":hand"));
   const side = useRef<"left" | "right">("right");
   const [pos, setPos] = useState<"left" | "right">("right");
   useEffect(() => {
@@ -29,7 +31,7 @@ export function CardPreview() {
     return () => window.removeEventListener("pointermove", onMove);
   }, []);
   const stackBusy = useGame((s) => (s.view?.stack.length ?? 0) > 0);
-  if (!hover) return null;
+  if (!hover || (skipHand && inHand)) return null;
   // keep clear of the stack widget (top-right) while something is on the stack
   const place = stackBusy ? "left" : pos;
   return (
@@ -47,11 +49,10 @@ export function StackWidget({ me }: { me: string }) {
   const rulesOn = useGame((s) => !!s.view?.rules && !s.view.rules.paused);
   if (rulesOn && count > 0) return null; // the rules engine's STACK panel shows it
   return (
-    <div className={`stack-widget ${rulesOn ? "below-hud" : ""} ${count ? "busy" : "idle"} ${open && count ? "open" : ""}`} data-testid="stack-widget">
+    <div className={`stack-widget below-hud ${count ? "busy" : "idle"} ${open && count ? "open" : ""}`} data-testid="stack-widget">
       {count > 0 && open ? (
         <>
-          <StackPanel me={me} />
-          <button className="tt-icon stack-collapse" title="Collapse" onClick={() => setOpen(false)}>–</button>
+          <StackPanel me={me} onCollapse={() => setOpen(false)} />
         </>
       ) : (
         <button className="stack-pill" data-drop="stack" onClick={() => setOpen(true)} title="Drag a spell here to cast it">
@@ -67,7 +68,9 @@ export function LogDrawer() {
   const log = useGame((s) => s.view?.log ?? []);
   const open = useGame((s) => s.logOpen);
   const setOpen = (v: boolean) => useGame.getState().setLayout({ logOpen: v });
-  const last = log[log.length - 1];
+  // the last real entry (step dividers like "— Precombat main —" read as empty)
+  const entryText = (e: (typeof log)[number]) => e.parts.map((p) => ("t" in p ? p.t : "card" in p ? p.card.name : p.group.map((g) => g.card.name).join(", "))).join("");
+  const last = [...log].reverse().find((e) => !entryText(e).trim().startsWith("—"));
   const text = last ? last.parts.map((p) => ("t" in p ? p.t : "card" in p ? p.card.name : p.group.map((g) => g.card.name).join(", "))).join("") : "";
   return (
     <div className={`log-drawer ${open ? "open" : ""}`} data-testid="log-drawer">

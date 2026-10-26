@@ -3,6 +3,7 @@ import { memo } from "react";
 import { CardFace } from "../cards/CardFace";
 import { useCard } from "../state/cardCache";
 import { isVisible, type GameCard } from "../types/game";
+import { counterName, counterShort } from "./counters";
 
 /** Draws any game object: hidden card back, face-down card, ability, custom token or real card. */
 export const GameCardFace = memo(function GameCardFace({ card, size = "normal", peek = false }: { card: GameCard; size?: "small" | "normal" | "large"; peek?: boolean }) {
@@ -65,8 +66,8 @@ export function CounterBadges({ counters }: { counters?: Record<string, number> 
       {entries
         .filter(([k]) => k !== "+1/+1" && k !== "-1/-1")
         .map(([k, v]) => (
-          <span key={k} className={`counter kind-${k.replace(/[^a-z]/gi, "")}`} title={`${k} counters`}>
-            {k === "loyalty" ? "◆" : k.slice(0, 8)} {v}
+          <span key={k} className={`counter kind-${k.replace(/[^a-z]/gi, "")}`} title={counterName(k, v)}>
+            {k === "loyalty" ? "◆" : counterShort(k)} {v}
           </span>
         ))}
     </div>

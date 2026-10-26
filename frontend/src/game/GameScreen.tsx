@@ -19,7 +19,7 @@ import { ZoneBrowser } from "./ZoneBrowser";
 import { bookmarkSlot, matchHotkey } from "./hotkeys";
 import { recallBookmark, saveBookmark } from "./bookmarks";
 import { ResponseBar } from "./ResponseBar";
-import { AutomationErrorPanel, AutomationHud, DecisionPanel, PriorityBar, RulesStack, XPrompt } from "./rules/RulesHud";
+import { AutomationErrorPanel, AutomationHud, DecisionPanel, RulesStack, TurnDial, XPrompt } from "./rules/RulesHud";
 import { passPriority } from "./rules/intents";
 import "./rules/rules.css";
 import { resolveRenderer } from "../table3d/renderer";
@@ -58,6 +58,8 @@ export function GameScreen() {
   return (
     <div className="game-screen">
       <TopBar />
+      {/* the turn dial is fixed bottom-right, but early in the tab order: it is the game's main control */}
+      <TurnDial />
       <div className="game-body">
         <main className={`table ${three ? "is-3d" : ""}`}>
           {three ? <Suspense fallback={<div className="table3d-loading">Setting the table…</div>}><Table3D me={me} /></Suspense> : <TablePlaymat />}
@@ -83,13 +85,12 @@ export function GameScreen() {
       <LogDrawer />
       <ToolTray />
       <SelectionBar />
-      <CardPreview />
+      <CardPreview skipHand={three} />
       <GameDialogs me={me} />
       <MulliganOverlay />
       <ResponseBar />
       <AutomationHud />
       <RulesStack />
-      <PriorityBar />
       <DecisionPanel />
       <XPrompt />
       <AutomationErrorPanel />
@@ -120,6 +121,12 @@ function useShortcuts() {
       if (!id) return;
       const targets = s.selection.length ? s.selection : s.hover && view.cards[s.hover] ? [s.hover] : [];
       const w = view.response;
+      if (id.startsWith("cam_")) {
+        // the 3D table owns its camera; the 2D table ignores these
+        e.preventDefault();
+        window.dispatchEvent(new CustomEvent("fyodor:camera", { detail: { id, digit: Number(e.key) || 0, hover: s.hover } }));
+        return;
+      }
       switch (id) {
         case "undo":
           e.preventDefault();

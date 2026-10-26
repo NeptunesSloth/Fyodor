@@ -10,10 +10,13 @@ import { tapGesture } from "../game/rules/intents";
  */
 import * as THREE from "three";
 import { openMenu } from "../components/ContextMenu";
+import { toast } from "../components/Toasts";
 import { imageUrl } from "../services/cards";
 import { requestCards, useCardCache } from "../state/cardCache";
 import { useGame } from "../state/gameStore";
-import { isVisible, type GameCard, type GameView, type LibraryView, type ZoneName } from "../types/game";
+import { usePrefs } from "../state/prefs";
+import { isVisible, type CardStats, type GameCard, type GameView, type LibraryView, type ZoneName } from "../types/game";
+import { counterShort, isKeyword } from "../game/counters";
 import { draw, tapCards, targetsFor } from "../game/actions";
 import { cardMenu } from "../game/cardMenu";
 import type { DropResult } from "../game/dnd";
@@ -22,17 +25,23 @@ import { pickClick } from "../game/Overlays";
 import { answerByClick, legalClass } from "../game/rules/RulesHud";
 import { libraryMenu, pileMenu, PILE_LABEL } from "../game/ZonePile";
 import type { PlaneTheme } from "../theme/planes";
+import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
 import { buildEnvironment, type Environment } from "./environment";
+import { arrowTime, makeArrow, type GroundBox } from "./arrows";
+import { angleDelta, ease, liftFor } from "./motion";
+import { createPost, type Post } from "./post";
 import {
   CARD_H, CARD_W, MAT_D, MAT_W, PILES, STRIP_X, localToVirtual, onBattlefield, pileAt, seats, tableSize, toLocal, toWorld,
   virtualToLocal, type PileZone, type Seat,
 } from "./layout";
-import { backCanvas, canvasTexture, labelCanvas, matTexture, slotTexture, textCardCanvas } from "./textures";
+import { backCanvas, canvasTexture, cardOverlayCanvas, contactShadowTexture, type CardOverlay, matTexture, setMaxAnisotropy, slotTexture, textCardCanvas } from "./textures";
 
 export type Quality = "low" | "medium" | "high";
-export type CameraPreset = "seat" | "overview" | { focus: string };
+export type CameraPreset = "seat" | "overview" | { focus: string } | { card: string };
 
-const THICK = 0.014;
+const THICK = 0.016;
+/** Cards drawn per pile at most (taller piles space them out). */
+const PILE_LAYERS = 48;
 const LIFT = 0.55;
 
 interface CardObj {
@@ -40,18 +49,26 @@ interface CardObj {
   group: THREE.Group;
   face: THREE.Mesh;
   glow: THREE.Mesh;
-  badge: THREE.Sprite | null;
-  badgeText: string;
+  /** P/T plate, damage, keyword badges and counters drawn on the card (null when there is nothing). */
+  overlay: THREE.Mesh | null;
+  overlayKey: string;
   faceKey: string;
   target: THREE.Vector3;
   rot: number;
   tilt: number;
+  /** Target size (stack cards stand larger); eased like position. */
+  scale: number;
   seen: boolean;
 }
 
 interface PileObj {
+  /** Invisible hit box for clicks and drops (sized to the pile). */
   block: THREE.Mesh;
   slot: THREE.Mesh;
+  /** The pile itself: real card bodies stacked with a little hand-squared jitter. */
+  layers: THREE.InstancedMesh;
+  /** The library's top card back. */
+  top: THREE.Mesh | null;
   count: number;
 }
 
@@ -79,6 +96,54 @@ function flatCardGeometry(w: number, h: number, r: number): THREE.ShapeGeometry 
   return geo;
 }
 
+/** How tall a pile of n cards stands (real card thickness, gently compressed for big piles). */
+function pileHeight(n: number): number {
+  return n <= 0 ? 0 : Math.min(n, 40) * THICK * 0.9 + Math.max(0, n - 40) * THICK * 0.35;
+}
+
+/** Deterministic per-layer jitter so a pile looks squared by hand, not machine-stacked. */
+function jitter(i: number, salt: number): number {
+  const x = Math.sin(i * 127.1 + salt * 311.7) * 43758.5453;
+  return x - Math.floor(x) - 0.5;
+}
+
+/**
+ * What a battlefield card's badges say. P/T shows only when it differs from the printed card or the
+ * creature is damaged or carries badges, so an unmodified board costs no extra draw calls.
+ */
+function overlayFor(card: GameCard, stats: CardStats | undefined): CardOverlay | null {
+  const counters = Object.entries(card.counters ?? {}).filter(([, n]) => n > 0);
+  const plus = card.counters?.["+1/+1"] ?? 0;
+  const minus = card.counters?.["-1/-1"] ?? 0;
+  const keywords: { kind: string; n: number }[] = counters.filter(([k]) => isKeyword(k)).map(([kind, n]) => ({ kind, n }));
+  for (const k of stats?.gained ?? []) if (isKeyword(k) && !keywords.some((x) => x.kind === k.toLowerCase())) keywords.push({ kind: k.toLowerCase(), n: 1 });
+  const others = counters.filter(([k]) => !isKeyword(k) && k !== "+1/+1" && k !== "-1/-1").map(([k, n]) => ({ label: k === "loyalty" ? "◆" : counterShort(k), n }));
+  const damage = card.damage ?? 0;
+  let pt: CardOverlay["pt"];
+  if (stats?.pt) {
+    const bp = Number(stats.base?.[0]);
+    const bt = Number(stats.base?.[1]);
+    const d = Number.isFinite(bp) && Number.isFinite(bt) ? stats.pt[0] - bp + (stats.pt[1] - bt) : plus - minus;
+    const dir = d > 0 ? 1 : d < 0 ? -1 : 0;
+    if (dir || damage || keywords.length || plus || minus) pt = { text: `${stats.pt[0]}/${stats.pt[1]}`, dir };
+  } else if (plus !== minus) {
+    const net = plus - minus;
+    pt = { text: net > 0 ? `+${net}/+${net}` : `${net}/${net}`, dir: net > 0 ? 1 : -1 };
+  }
+  if (!pt && !damage && !keywords.length && !others.length) return null;
+  return { ...(pt ? { pt } : {}), ...(damage ? { damage } : {}), keywords, counters: others };
+}
+
+const UP = new THREE.Vector3(0, 1, 0);
+/** One red for every attack beam (DESIGN.md: attack-beam). */
+const ATTACK_RED = "#ff5a2a";
+const liftTarget = new THREE.Vector3();
+const shadowPos = new THREE.Vector3();
+const shadowQ = new THREE.Quaternion();
+const shadowScale = new THREE.Vector3();
+const shadowM = new THREE.Matrix4();
+const shadowColor = new THREE.Color();
+
 function angleLerp(a: number, b: number, t: number): number {
   let d = (b - a) % (Math.PI * 2);
   if (d > Math.PI) d -= Math.PI * 2;
@@ -86,7 +151,8 @@ function angleLerp(a: number, b: number, t: number): number {
   return a + d * t;
 }
 
-export interface SceneStats { fps: number; calls: number; triangles: number; cards: number; arrows?: number }
+/** frameMs: average CPU time per frame (scene update + render submit), logged, never asserted. */
+export interface SceneStats { fps: number; calls: number; triangles: number; cards: number; arrows?: number; frameMs?: number }
 
 export class TableScene {
   readonly canvas: HTMLCanvasElement;
@@ -119,15 +185,23 @@ export class TableScene {
   private drag: { ids: string[]; anchor: string; start: [number, number]; grab: THREE.Vector3; offsets: Map<string, THREE.Vector3>; active: boolean } | null = null;
   private orbit: { x: number; yaw: number } | null = null;
   private hovered: string | null = null;
+  /** The store's selection, for the selected-card lift. */
+  private selectedIds = new Set<string>();
   private lastClick = { id: "", at: 0 };
   private frames = 0;
   private fpsAt = 0;
+  private frameTime = 0;
   stats: SceneStats = { fps: 0, calls: 0, triangles: 0, cards: 0 };
+  /** Called once per frame after rendering: DOM overlays that follow the table hook in here, so the
+   * three.js loop stays the only animation loop. */
+  onFrame: (() => void) | null = null;
 
   private cardFaceGeo = flatCardGeometry(CARD_W, CARD_H, 0.05);
   private cardBodyGeo: THREE.ExtrudeGeometry;
   private glowGeo = flatCardGeometry(CARD_W + 0.12, CARD_H + 0.12, 0.09);
-  private bodyMat = new THREE.MeshStandardMaterial({ color: "#111", roughness: 0.6 });
+  /** Card stock: the pale core you see on a card's edge. */
+  private bodyMat = new THREE.MeshStandardMaterial({ color: "#cdc6b8", roughness: 0.78 });
+  private hitMat = new THREE.MeshBasicMaterial({ visible: false });
   private textures = new Map<string, THREE.Texture>();
   private materials = new Map<string, THREE.MeshStandardMaterial>();
   private loader = new THREE.TextureLoader();
@@ -136,6 +210,16 @@ export class TableScene {
   /** Every card's body (its thickness and shadow) in one draw call. */
   private bodies: THREE.InstancedMesh;
   private arrows = new THREE.Group();
+  /** A soft contact shadow under every card (one draw call), spreading as the card lifts. */
+  private shadows: THREE.InstancedMesh;
+  private shadowTex = contactShadowTexture();
+  private arrowKey = "";
+  /** Where the stack's standing cards are (beams route around it), and each stack card's beam anchor. */
+  private stackBox: GroundBox | null = null;
+  private stackAnchors = new Map<string, { far: THREE.Vector3; near: THREE.Vector3 }>();
+  /** Soft studio reflections for metal, lacquer and card gloss (a prefiltered room, no download). */
+  private envMap: THREE.Texture;
+  private post: Post | null = null;
 
   constructor(container: HTMLElement, plane: PlaneTheme, quality: Quality) {
     this.plane = plane;
@@ -144,21 +228,50 @@ export class TableScene {
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, quality === "high" ? 2 : quality === "medium" ? 1.5 : 1));
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 1.35;
+    this.renderer.toneMappingExposure = 1.0;
     this.renderer.shadowMap.enabled = quality !== "low";
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     this.canvas = this.renderer.domElement;
     this.canvas.className = "table3d-canvas";
     this.canvas.dataset.drop3d = "";
     container.appendChild(this.canvas);
-    const body = new THREE.ExtrudeGeometry(roundedRect(CARD_W, CARD_H, 0.05), { depth: THICK, bevelEnabled: false, curveSegments: 6 });
+    this.renderer.info.autoReset = false; // count every pass of a frame, not just the last
+    setMaxAnisotropy(this.renderer.capabilities.getMaxAnisotropy());
+    const pmrem = new THREE.PMREMGenerator(this.renderer);
+    const room = new RoomEnvironment();
+    this.envMap = pmrem.fromScene(room, 0.04).texture;
+    room.dispose();
+    pmrem.dispose();
+    this.scene.environment = this.envMap;
+    this.scene.environmentIntensity = 0.3;
+    if (quality === "high") this.post = createPost(this.renderer, this.scene, this.camera);
+    // a card body with a hair of bevel so its edge catches the light
+    const bevel = 0.004;
+    const body = new THREE.ExtrudeGeometry(roundedRect(CARD_W - bevel * 2, CARD_H - bevel * 2, 0.045), {
+      depth: THICK - bevel * 2, bevelEnabled: true, bevelThickness: bevel, bevelSize: bevel, bevelSegments: 2, curveSegments: 6,
+    });
     body.rotateX(-Math.PI / 2);
+    body.translate(0, bevel, 0);
     this.cardBodyGeo = body;
     this.bodies = new THREE.InstancedMesh(body, this.bodyMat, 1024);
     this.bodies.castShadow = quality !== "low";
+    this.bodies.receiveShadow = quality !== "low";
     this.bodies.count = 0;
     this.bodies.frustumCulled = false;
-    this.world.add(this.bodies, this.arrows);
+    const shadowGeo = new THREE.PlaneGeometry(CARD_W * 1.55, CARD_H * 1.45);
+    shadowGeo.rotateX(-Math.PI / 2);
+    // per-instance strength rides in instanceColor.r (the shadow itself is always black)
+    const shadowMat = new THREE.MeshBasicMaterial({ color: "#fff", alphaMap: this.shadowTex, transparent: true, opacity: 0.9, depthWrite: false });
+    shadowMat.onBeforeCompile = (sh) => {
+      sh.fragmentShader = sh.fragmentShader.replace("#include <alphamap_fragment>", "#include <alphamap_fragment>\n diffuseColor.a *= diffuseColor.r;\n diffuseColor.rgb = vec3(0.0);");
+    };
+    shadowMat.customProgramCacheKey = () => "card-contact-shadow";
+    this.shadows = new THREE.InstancedMesh(shadowGeo, shadowMat, 1024);
+    this.shadows.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(1024 * 3).fill(1), 3);
+    this.shadows.count = 0;
+    this.shadows.frustumCulled = false;
+    this.shadows.renderOrder = -1;
+    this.world.add(this.bodies, this.shadows, this.arrows);
     this.scene.add(this.world);
     this.applyFog();
     this.bindInput();
@@ -183,7 +296,12 @@ export class TableScene {
 
   resize(w: number, h: number): void {
     this.renderer.setSize(w, h, false);
+    this.post?.setSize(w, h);
     this.camera.aspect = w / Math.max(1, h);
+    // frame the table above the hand: render the lower part of a taller frame, which lifts what the
+    // camera looks at by half the hand band (picking and projection use the same matrices)
+    const band = Math.round(h * 0.16);
+    this.camera.setViewOffset(w, h + band, 0, band, w, h);
     this.camera.updateProjectionMatrix();
     this.updateCameraGoal();
   }
@@ -257,10 +375,16 @@ export class TableScene {
     for (const t of this.textures.values()) t.dispose();
     for (const m of this.materials.values()) m.dispose();
     this.bodies.dispose();
+    this.shadows.geometry.dispose();
+    (this.shadows.material as THREE.Material).dispose();
+    this.shadows.dispose();
+    this.shadowTex.dispose();
     this.cardFaceGeo.dispose();
     this.cardBodyGeo.dispose();
     this.glowGeo.dispose();
     this.bodyMat.dispose();
+    this.post?.dispose();
+    this.envMap.dispose();
     this.renderer.dispose();
     this.canvas.remove();
   }
@@ -269,8 +393,10 @@ export class TableScene {
 
   private applyFog(): void {
     const e = this.plane.env;
-    this.scene.fog = new THREE.Fog(e.fog, 34, 110 - e.fogDensity * 600);
-    this.scene.background = new THREE.Color(e.skyBottom);
+    // the room falls away into near-darkness so the lit table reads first
+    const fog = new THREE.Color(e.fog).multiplyScalar(0.3);
+    this.scene.fog = new THREE.Fog(fog, 30, 95 - e.fogDensity * 600);
+    this.scene.background = new THREE.Color(e.skyBottom).multiplyScalar(0.35);
   }
 
   private clearTable(): void {
@@ -287,7 +413,9 @@ export class TableScene {
     }
     this.mats.clear();
     for (const p of this.piles.values()) {
-      this.world.remove(p.block, p.slot);
+      this.world.remove(p.block, p.slot, p.layers);
+      if (p.top) this.world.remove(p.top);
+      p.layers.dispose();
       p.block.geometry.dispose();
       p.slot.geometry.dispose();
       (p.slot.material as THREE.MeshBasicMaterial).map?.dispose();
@@ -307,7 +435,7 @@ export class TableScene {
     const e = this.plane.env;
     for (const seat of this.seatList) {
       const color = this.view?.players.find((p) => p.id === seat.player)?.color ?? "#888";
-      const mat = new THREE.Mesh(new THREE.PlaneGeometry(MAT_W + 0.5, MAT_D + 0.5), new THREE.MeshBasicMaterial({ map: matTexture(e.inlay, this.plane.ui.accent, color), transparent: true, depthWrite: false }));
+      const mat = new THREE.Mesh(new THREE.PlaneGeometry(MAT_W + 0.5, MAT_D + 0.5), new THREE.MeshStandardMaterial({ map: matTexture(e.inlay, this.plane.ui.accent, color), transparent: true, depthWrite: false, roughness: 0.92 }));
       mat.rotation.x = -Math.PI / 2;
       mat.rotation.z = seat.rot;
       const [mx, mz] = toWorld(seat, 0, 0);
@@ -324,14 +452,25 @@ export class TableScene {
         slot.rotation.z = seat.rot;
         slot.position.set(wx, 0.003, wz);
         slot.userData = { pile: zone, player: seat.player };
-        const block = new THREE.Mesh(new THREE.BoxGeometry(CARD_W, 1, CARD_H), [this.bodyMat, this.bodyMat, this.backMaterial(seat.player), this.bodyMat, this.bodyMat, this.bodyMat]);
+        const block = new THREE.Mesh(new THREE.BoxGeometry(CARD_W, 1, CARD_H), this.hitMat);
         block.rotation.y = seat.rot;
         block.position.set(wx, 0, wz);
         block.visible = false;
-        block.castShadow = this.quality !== "low";
         block.userData = { pile: zone, player: seat.player };
-        this.world.add(slot, block);
-        this.piles.set(`${seat.player}:${zone}`, { block, slot, count: -1 });
+        const layers = new THREE.InstancedMesh(this.cardBodyGeo, this.bodyMat, PILE_LAYERS);
+        layers.count = 0;
+        layers.castShadow = layers.receiveShadow = this.quality !== "low";
+        layers.userData = { pile: zone, player: seat.player };
+        let top: THREE.Mesh | null = null;
+        if (zone === "library") {
+          top = new THREE.Mesh(this.cardFaceGeo, this.backMaterial(seat.player));
+          top.receiveShadow = this.quality !== "low";
+          top.visible = false;
+          top.userData = { pile: zone, player: seat.player };
+          this.world.add(top);
+        }
+        this.world.add(slot, block, layers);
+        this.piles.set(`${seat.player}:${zone}`, { block, slot, layers, top, count: -1 });
       }
     }
   }
@@ -362,7 +501,7 @@ export class TableScene {
       for (const [k, m] of this.materials) if (m.map === tex) { m.map = fallback(); m.needsUpdate = true; void k; }
     });
     tex.colorSpace = THREE.SRGBColorSpace;
-    tex.anisotropy = 8;
+    tex.anisotropy = this.renderer.capabilities.getMaxAnisotropy();
     this.textures.set(url, tex);
     return tex;
   }
@@ -385,7 +524,8 @@ export class TableScene {
       const imgFace = data.double_faced ? Math.min(vis.face ?? 0, data.image_faces - 1) : 0;
       tex = this.loadTexture(imageUrl(data.id, imgFace, this.quality === "low" ? "small" : "normal"), text);
     } else tex = text();
-    m = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.5, metalness: 0 });
+    // printed card stock with a faint satin sheen from the room reflections
+    m = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.42, metalness: 0, envMapIntensity: 0.7 });
     this.materials.set(key, m);
     return m;
   }
@@ -397,11 +537,12 @@ export class TableScene {
     const face = new THREE.Mesh(this.cardFaceGeo, this.bodyMat);
     face.position.y = THICK + 0.0008;
     face.userData = { card: id };
+    face.receiveShadow = this.quality !== "low";
     const glow = new THREE.Mesh(this.glowGeo, new THREE.MeshBasicMaterial({ color: "#fff", transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending }));
     glow.position.y = -0.001;
     group.add(glow, face);
     this.world.add(group);
-    const obj: CardObj = { id, group, face, glow, badge: null, badgeText: "", faceKey: "", target: new THREE.Vector3(), rot: 0, tilt: 0, seen: true };
+    const obj: CardObj = { id, group, face, glow, overlay: null, overlayKey: "", faceKey: "", target: new THREE.Vector3(), rot: 0, tilt: 0, scale: 1, seen: true };
     this.cards.set(id, obj);
     return obj;
   }
@@ -409,33 +550,38 @@ export class TableScene {
   private disposeCard(c: CardObj): void {
     this.world.remove(c.group);
     (c.glow.material as THREE.Material).dispose();
-    if (c.badge) {
-      (c.badge.material as THREE.SpriteMaterial).map?.dispose();
-      c.badge.material.dispose();
-    }
+    this.clearOverlay(c);
   }
 
-  private setBadge(c: CardObj, text: string, color: string): void {
-    if (c.badgeText === text) return;
-    c.badgeText = text;
-    if (c.badge) {
-      c.group.remove(c.badge);
-      (c.badge.material as THREE.SpriteMaterial).map?.dispose();
-      c.badge.material.dispose();
-      c.badge = null;
-    }
-    if (!text) return;
-    const cv = labelCanvas(text, color);
-    const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: canvasTexture(cv), depthTest: false, transparent: true }));
-    const h = 0.26;
-    s.scale.set((h * cv.width) / cv.height, h, 1);
-    s.position.set(0, 0.25, CARD_H * 0.28);
-    s.renderOrder = 10;
-    c.group.add(s);
-    c.badge = s;
+  private clearOverlay(c: CardObj): void {
+    if (!c.overlay) return;
+    c.group.remove(c.overlay);
+    const m = c.overlay.material as THREE.MeshBasicMaterial;
+    m.map?.dispose();
+    m.dispose();
+    c.overlay = null;
+  }
+
+  /** Arena-style badges on the card face; rebuilt only when what they say changes. */
+  private setOverlay(c: CardObj, o: CardOverlay | null): void {
+    const key = o ? JSON.stringify(o) : "";
+    if (c.overlayKey === key) return;
+    c.overlayKey = key;
+    this.clearOverlay(c);
+    if (!o) return;
+    const mat = new THREE.MeshBasicMaterial({
+      map: canvasTexture(cardOverlayCanvas(o)), transparent: true, depthWrite: false, toneMapped: false,
+      polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2,
+    });
+    const m = new THREE.Mesh(this.cardFaceGeo, mat);
+    m.position.y = THICK + 0.0014;
+    m.renderOrder = 2;
+    c.group.add(m);
+    c.overlay = m;
   }
 
   private place(c: CardObj, seat: Seat | undefined, lx: number, lz: number, y: number, extraRot = 0): void {
+    c.scale = 1;
     if (seat) {
       const [wx, wz] = toWorld(seat, lx, lz);
       c.target.set(wx, y, wz);
@@ -453,6 +599,7 @@ export class TableScene {
     const seatOf = new Map(this.seatList.map((s) => [s.player, s]));
     const store = useGame.getState();
     const selection = new Set(store.selection);
+    this.selectedIds = selection;
     const pending = store.pendingPositions;
     const need: string[] = [];
     const show = (id: string): CardObj | null => {
@@ -483,12 +630,7 @@ export class TableScene {
         const lift = card.attacking || card.attacking_without_target ? 0.18 : 0;
         this.place(c, seat, lx, lz, 0.004 + i * 0.0035 + lift, tapped);
         c.tilt = card.attacking || card.attacking_without_target ? -0.12 : 0;
-        const counters = card.counters ? Object.entries(card.counters).filter(([, n]) => n) : [];
-        const stats = view.rules?.stats?.[id];
-        const pt = stats?.pt ? `${stats.pt[0]}/${stats.pt[1]}` : "";
-        const label = [card.damage ? `${card.damage} dmg` : counters.length ? counters.map(([k, n]) => (k === "+1/+1" ? `+${n}/+${n}` : k === "-1/-1" ? `-${n}/-${n}` : `${k} ${n}`)).join(" · ") : "", pt]
-          .filter(Boolean).join(" · ");
-        this.setBadge(c, label, card.damage ? "#9b2f27" : "#2c3a5a");
+        this.setOverlay(c, overlayFor(card, view.rules?.stats?.[id]));
         this.setGlow(c, selection.has(id) ? this.plane.ui.select : this.legalColor(view, id), selection.has(id) ? 0.9 : 0.55);
       });
       // piles
@@ -498,18 +640,16 @@ export class TableScene {
         const pile = this.piles.get(`${pid}:${zone}`);
         if (pile && pile.count !== count) {
           pile.count = count;
-          const h = Math.max(0.001, count * 0.012);
-          pile.block.visible = count > 0 && (zone === "library" || count > 1);
-          pile.block.scale.y = zone === "library" ? h : Math.max(0.001, (count - 1) * 0.012);
-          pile.block.position.y = pile.block.scale.y / 2;
+          // graveyard and exile draw their top card for real, so the stack below has one fewer
+          this.stackPile(seat, zone, pile, zone === "library" ? count : Math.max(0, count - 1));
         }
         if (zone !== "library" && Array.isArray(z) && z.length) {
           const top = z[z.length - 1]!;
           const c = show(top);
           if (c && seat) {
             const [lx, lz] = PILES[zone];
-            this.place(c, seat, lx, lz, (z.length - 1) * 0.012 + 0.004, 0);
-            this.setBadge(c, "", "");
+            this.place(c, seat, lx, lz, pileHeight(z.length - 1) + 0.002, 0);
+            this.setOverlay(c, null);
             this.setGlow(c, selection.has(top) ? this.plane.ui.select : null, 0.9);
           }
         }
@@ -521,7 +661,7 @@ export class TableScene {
         if (!c) return;
         const [lx, lz] = PILES.command;
         this.place(c, seat, lx - i * (CARD_W + 0.12), lz, 0.004, 0);
-        this.setBadge(c, "", "");
+        this.setOverlay(c, null);
         this.setGlow(c, selection.has(id) ? this.plane.ui.select : this.legalColor(view, id), 0.6);
       });
       // other players' hands: a fan of backs at their edge (count only)
@@ -529,16 +669,44 @@ export class TableScene {
     }
 
     // the stack: cards hover above the centre of the table, most recent on top
+    // the stack: large cards standing at the table centre, fanned left to right in cast order (the
+    // chain), facing me; the top one stands biggest and highest and says it resolves next
+    const n = view.stack.length;
+    const myRot = seatOf.get(this.me)?.rot ?? 0;
+    const step = Math.min(1.8, 8 / Math.max(1, n));
+    this.stackBox = null;
+    this.stackAnchors.clear();
+    const grow = (x: number, z: number, r: number) => {
+      const b = this.stackBox ?? { minX: Infinity, maxX: -Infinity, minZ: Infinity, maxZ: -Infinity };
+      this.stackBox = { minX: Math.min(b.minX, x - r), maxX: Math.max(b.maxX, x + r), minZ: Math.min(b.minZ, z - r), maxZ: Math.max(b.maxZ, z + r) };
+    };
+    // toward my side of the centre, so the standing cards don't hide the far player's front row
+    const nearMe = 1.6;
     view.stack.forEach((id, i) => {
       const c = show(id);
       if (!c) return;
-      const n = view.stack.length;
-      const x = (i - (n - 1) / 2) * 0.5;
-      const me = seatOf.get(this.me);
-      this.place(c, undefined, x, -i * 0.12, 0.9 + i * 0.06, me?.rot ?? 0);
-      c.tilt = -0.35;
-      this.setBadge(c, "", "");
-      this.setGlow(c, selection.has(id) ? this.plane.ui.select : this.plane.ui.accent, 0.5);
+      const top = i === n - 1;
+      const x = (i - (n - 1) / 2) * step;
+      const z = nearMe + (top ? 0.15 : 0);
+      const wx = x * Math.cos(myRot) + z * Math.sin(myRot);
+      const wz = -x * Math.sin(myRot) + z * Math.cos(myRot);
+      const scale = top ? 2.25 : 1.85;
+      const tilt = 0.75; // far edge up: the face turns toward my seat
+      const y = (top ? 1.45 : 1.3) + i * 0.02;
+      this.place(c, undefined, wx, wz, y, myRot);
+      c.scale = scale;
+      grow(wx, wz, (CARD_H / 2) * scale + 0.45);
+      // beams to or from a stack card leave from its raised top edge, never from inside it
+      const half = (CARD_H / 2) * scale;
+      const along = half * Math.cos(tilt);
+      const rise = half * Math.sin(tilt);
+      this.stackAnchors.set(id, {
+        far: new THREE.Vector3(wx - Math.sin(myRot) * along, y + rise + 0.08, wz - Math.cos(myRot) * along),
+        near: new THREE.Vector3(wx + Math.sin(myRot) * along, Math.max(0.1, y - rise - 0.05), wz + Math.cos(myRot) * along),
+      });
+      c.tilt = tilt;
+      this.setOverlay(c, { keywords: [], counters: [], chain: { no: i + 1, next: top } });
+      this.setGlow(c, selection.has(id) ? this.plane.ui.select : top ? this.plane.ui.accent : null, top ? 0.6 : 0.5);
     });
 
     for (const [id, c] of this.cards) {
@@ -552,48 +720,57 @@ export class TableScene {
     this.syncArrows(view);
   }
 
-  /** Attack, block and targeting arrows: arcs over the table from source to target. */
+  /**
+   * Attack, block and targeting arrows: a lit shaft arcing over the table with a dark outline (so
+   * it reads over pale cards) and a broad arrowhead. Rebuilt only when an arrow changes.
+   */
   private syncArrows(view: GameView): void {
-    for (const child of [...this.arrows.children]) {
-      this.arrows.remove(child);
-      const m = child as THREE.Mesh;
-      m.geometry.dispose();
-      (m.material as THREE.Material).dispose();
-    }
-    const at = (id: string): THREE.Vector3 | null => {
+    const at = (id: string, from?: THREE.Vector3): THREE.Vector3 | null => {
       const c = this.cards.get(id);
       if (c) return c.target.clone().setY(c.target.y + 0.05);
       const seat = this.seatList.find((s) => s.player === id);
       if (!seat) return null;
-      const [wx, wz] = toWorld(seat, 0, MAT_D / 2 + 0.6);
-      return new THREE.Vector3(wx, 0.1, wz);
+      // a player: their plaque (as Arena lands on the avatar), spread a little so several
+      // attackers' crystals sit side by side
+      const spread = from ? Math.max(-0.7, Math.min(0.7, toLocal(seat, from.x, from.z)[0] * 0.12)) : 0;
+      const [wx, wz] = toWorld(seat, -STRIP_X + spread, -0.6);
+      return new THREE.Vector3(wx, 0.3, wz);
+    };
+    const wanted: [THREE.Vector3, THREE.Vector3, string][] = [];
+    // a stack card's beam leaves from the edge that faces its other end, so it never crosses the face
+    const edge = (id: string, toward: THREE.Vector3): THREE.Vector3 | null => {
+      const e = this.stackAnchors.get(id);
+      if (!e) return null;
+      const d = (p: THREE.Vector3) => Math.hypot(p.x - toward.x, p.z - toward.z);
+      return (d(e.near) < d(e.far) ? e.near : e.far).clone();
     };
     const add = (from: string, to: string, color: string) => {
-      const a = at(from);
-      const b = at(to);
-      if (!a || !b || a.distanceTo(b) < 0.3) return;
-      const mid = a.clone().lerp(b, 0.5);
-      mid.y += 1.2 + a.distanceTo(b) * 0.12;
-      const curve = new THREE.QuadraticBezierCurve3(a, mid, b);
-      const mat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.85, depthWrite: false });
-      const tube = new THREE.Mesh(new THREE.TubeGeometry(curve, 28, 0.035, 6), mat);
-      tube.renderOrder = 5;
-      const head = new THREE.Mesh(new THREE.ConeGeometry(0.14, 0.36, 10), mat.clone());
-      const end = curve.getPoint(1);
-      const dir = curve.getTangent(1).normalize();
-      head.position.copy(end).addScaledVector(dir, -0.12);
-      head.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
-      this.arrows.add(tube, head);
+      const a0 = at(from);
+      const b0 = a0 && at(to, a0);
+      if (!a0 || !b0) return;
+      const a = edge(from, b0) ?? a0;
+      const b = edge(to, a) ?? b0;
+      if (a.distanceTo(b) >= 0.3) wanted.push([a, b, color]);
     };
     for (const c of Object.values(view.cards)) {
-      if (c.attacking) add(c.id, c.attacking.id, "#e0463c");
+      if (c.attacking) add(c.id, c.attacking.id, ATTACK_RED);
       if (c.blocking) for (const t of [c.blocking, ...(c.blocking_more ?? [])]) add(c.id, t, "#5fa8ff");
     }
     for (const ar of view.arrows ?? []) {
-      const color = ar.kind === "attack" ? "#e0463c" : ar.kind === "block" ? "#5fa8ff" : ar.kind === "target" ? this.plane.ui.select : this.plane.ui.accent;
+      const color = ar.kind === "attack" ? ATTACK_RED : ar.kind === "block" ? "#5fa8ff" : ar.kind === "target" ? this.plane.ui.select : this.plane.ui.accent;
       for (const t of ar.targets) add(ar.source, t, color);
     }
-    this.stats.arrows = this.arrows.children.length / 2;
+    // the stack's layout is part of the key: casting a spell reroutes beams that cross the centre
+    const key = `${view.stack.join(",")}#` + wanted.map(([a, b, c]) => `${a.x.toFixed(2)},${a.y.toFixed(2)},${a.z.toFixed(2)}>${b.x.toFixed(2)},${b.z.toFixed(2)}${c}`).join("|");
+    this.stats.arrows = wanted.length;
+    if (key === this.arrowKey) return;
+    this.arrowKey = key;
+    for (const child of [...this.arrows.children]) {
+      this.arrows.remove(child);
+      (child.userData.dispose as () => void)();
+    }
+    const flow = !document.body.classList.contains("reduced-motion");
+    for (const [a, b, color] of wanted) this.arrows.add(makeArrow(a, b, { color, flow }, this.stackBox));
   }
 
   private syncHandFan(seat: Seat, count: number): void {
@@ -616,6 +793,35 @@ export class TableScene {
     fan.rotation.y = seat.rot + Math.PI;
     this.world.add(fan);
     this.handFans.set(seat.player, fan);
+  }
+
+  /** Lay out a pile's card bodies (and the library's top back) for n cards. */
+  private stackPile(seat: Seat, zone: PileZone, pile: PileObj, n: number): void {
+    const [lx, lz] = PILES[zone];
+    const [wx, wz] = toWorld(seat, lx, lz);
+    const h = pileHeight(n);
+    const shown = Math.min(n, PILE_LAYERS);
+    const m = new THREE.Matrix4();
+    const q = new THREE.Quaternion();
+    const up = new THREE.Vector3(0, 1, 0);
+    const one = new THREE.Vector3(1, 1, 1);
+    const salt = zone.length + seat.rot;
+    for (let i = 0; i < shown; i++) {
+      const y = shown <= 1 ? 0 : (i / shown) * h;
+      q.setFromAxisAngle(up, seat.rot + jitter(i, salt) * 0.035);
+      m.compose(new THREE.Vector3(wx + jitter(i, salt + 1) * 0.02, y, wz + jitter(i, salt + 2) * 0.02), q, one);
+      pile.layers.setMatrixAt(i, m);
+    }
+    pile.layers.count = shown;
+    pile.layers.instanceMatrix.needsUpdate = true;
+    pile.layers.computeBoundingSphere();
+    pile.block.scale.y = Math.max(0.06, h + THICK);
+    pile.block.position.y = pile.block.scale.y / 2;
+    if (pile.top) {
+      pile.top.visible = n > 0;
+      pile.top.position.set(wx, (shown <= 1 ? 0 : ((shown - 1) / shown) * h) + THICK + 0.0008, wz);
+      pile.top.rotation.y = seat.rot;
+    }
   }
 
   private legalColor(view: GameView, id: string): string | null {
@@ -652,6 +858,12 @@ export class TableScene {
     if (preset === "overview") {
       look = new THREE.Vector3(0, 0, 0.5);
       pos = new THREE.Vector3(0, span * 1.45, span * 0.28);
+    } else if (typeof preset === "object" && "card" in preset) {
+      // close up on one card, seen from my side of the table
+      const c = this.cards.get(preset.card);
+      look = c ? c.target.clone().setY(0) : new THREE.Vector3();
+      const [dx, dz] = toWorld({ ...mine, x: 0, z: 0 }, 0, 1);
+      pos = look.clone().add(new THREE.Vector3(dx * 2.6, 5.2, dz * 2.6));
     } else if (typeof preset === "object") {
       const seat = this.seatList.find((s) => s.player === preset.focus) ?? mine;
       const [lx, lz] = toWorld(seat, 0, -0.3);
@@ -661,9 +873,9 @@ export class TableScene {
     } else {
       // behind my seat, looking across the table (the main view): my mat large, every opponent visible
       const [lx, lz] = toWorld(mine, 0, -MAT_D / 2 - 2.8);
-      const [px, pz] = toWorld(mine, 0, MAT_D / 2 + span * 0.4);
+      const [px, pz] = toWorld(mine, 0, MAT_D / 2 + span * 0.32);
       look = new THREE.Vector3(lx, 0, lz);
-      pos = new THREE.Vector3(px, span * 0.7, pz);
+      pos = new THREE.Vector3(px, span * 0.74, pz);
     }
     const off = pos.clone().sub(look).multiplyScalar(this.zoom);
     off.applyAxisAngle(new THREE.Vector3(0, 1, 0), this.yaw);
@@ -688,7 +900,7 @@ export class TableScene {
     this.ray.setFromCamera(this.pointer(clientX, clientY), this.camera);
     const targets: THREE.Object3D[] = [];
     for (const c of this.cards.values()) if (!this.drag?.ids.includes(c.id)) targets.push(c.face);
-    for (const p of this.piles.values()) targets.push(p.block, p.slot);
+    for (const p of this.piles.values()) targets.push(p.block, p.slot, ...(p.top?.visible ? [p.top] : []));
     const hits = this.ray.intersectObjects(targets, false);
     const hit = hits[0];
     if (!hit) return null;
@@ -706,6 +918,16 @@ export class TableScene {
     on("pointermove", (e) => this.onMove(e));
     on("pointerup", (e) => this.onUp(e));
     on("pointerleave", () => this.setHover(null));
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape" || !this.drag?.active) return;
+      // Esc puts dragged cards back where they were; nothing is sent
+      e.stopPropagation();
+      this.drag = null;
+      document.body.classList.remove("dragging");
+      this.syncCards();
+    };
+    window.addEventListener("keydown", onKey, true);
+    this.unsubs.push(() => window.removeEventListener("keydown", onKey, true));
     on("contextmenu", (e) => this.onContext(e));
     on("wheel", (e) => {
       e.preventDefault();
@@ -805,6 +1027,7 @@ export class TableScene {
     const anchorOff = d.offsets.get(d.anchor);
     const target = this.resolveDrop(e.clientX, e.clientY, anchorOff ? anchorOff.clone().negate() : undefined);
     if (target) dropCards(d.ids, d.anchor, { ...target, manual: e.altKey });
+    else toast("Dropped off the table: nothing changed", "info");
     this.syncCards(); // snap back (or to the pending position) until the server answers
   }
 
@@ -853,32 +1076,66 @@ export class TableScene {
 
   private loop = (): void => {
     this.raf = requestAnimationFrame(this.loop);
+    const started = performance.now();
     const dt = Math.min(0.5, this.clock.getDelta()); // real time: slow devices still settle quickly
     const t = this.clock.elapsedTime;
-    const k = 1 - Math.exp(-dt * 14);
+    const reduced = document.body.classList.contains("reduced-motion");
+    // the player's animation speed (Settings) scales every 3D motion
+    const speed = usePrefs.getState().animationSpeed || 1;
+    const k = ease(dt, 14 * speed, reduced);
+    const dragging = !!this.drag?.active;
     let n = 0;
     for (const c of this.cards.values()) {
-      c.group.position.lerp(c.target, k);
+      // hovered and selected cards ride a little higher, and a tap lifts the card as it turns
+      const lift = liftFor({ hovered: c.id === this.hovered && !dragging, selected: this.selectedIds.has(c.id), turning: reduced ? 0 : angleDelta(c.group.rotation.y, c.rot) });
+      liftTarget.copy(c.target);
+      liftTarget.y += lift;
+      c.group.position.lerp(liftTarget, k);
       c.group.rotation.y = angleLerp(c.group.rotation.y, c.rot, k);
       c.group.rotation.x += (c.tilt - c.group.rotation.x) * k;
+      const sc = c.group.scale.x + (c.scale - c.group.scale.x) * k;
+      c.group.scale.setScalar(sc);
       if (n < 1024) {
         c.group.updateMatrix();
-        this.bodies.setMatrixAt(n++, c.group.matrix);
+        this.bodies.setMatrixAt(n, c.group.matrix);
+        // the shadow sits on the table, offset away from the key light and softer as the card rises
+        const lift = Math.max(0, c.group.position.y);
+        const spread = (1 + Math.min(lift, 1.2) * 0.55) * c.group.scale.x;
+        shadowPos.set(c.group.position.x + 0.05 + lift * 0.2, 0.0025, c.group.position.z + 0.08 + lift * 0.3);
+        shadowQ.setFromAxisAngle(UP, c.group.rotation.y);
+        shadowScale.set(spread, 1, spread);
+        shadowM.compose(shadowPos, shadowQ, shadowScale);
+        this.shadows.setMatrixAt(n, shadowM);
+        const strength = 1 / (1 + lift * 2.5);
+        shadowColor.setRGB(strength, strength, strength);
+        this.shadows.setColorAt(n++, shadowColor);
       }
     }
     this.bodies.count = n;
     this.bodies.instanceMatrix.needsUpdate = true;
-    const kc = 1 - Math.exp(-dt * 5);
+    this.shadows.count = n;
+    this.shadows.instanceMatrix.needsUpdate = true;
+    if (this.shadows.instanceColor) this.shadows.instanceColor.needsUpdate = true;
+    const kc = ease(dt, 5 * speed, reduced);
     this.camPos.lerp(this.camGoalPos, kc);
     this.camLook.lerp(this.camGoalLook, kc);
     this.camera.position.copy(this.camPos);
     this.camera.lookAt(this.camLook);
-    this.env?.update(t);
-    this.renderer.render(this.scene, this.camera);
+    if (!reduced) {
+      // candle flicker, drifting dust and flowing beams only when motion is welcome
+      this.env?.update(t);
+      arrowTime.value = t;
+    }
+    this.renderer.info.reset();
+    if (this.post) this.post.render();
+    else this.renderer.render(this.scene, this.camera);
+    this.onFrame?.();
+    this.frameTime += performance.now() - started;
     this.frames++;
     if (t - this.fpsAt >= 1) {
-      this.stats = { ...this.stats, fps: Math.round(this.frames / (t - this.fpsAt)), calls: this.renderer.info.render.calls, triangles: this.renderer.info.render.triangles, cards: this.cards.size };
+      this.stats = { ...this.stats, fps: Math.round(this.frames / (t - this.fpsAt)), calls: this.renderer.info.render.calls, triangles: this.renderer.info.render.triangles, cards: this.cards.size, frameMs: Math.round((this.frameTime / Math.max(1, this.frames)) * 100) / 100 };
       this.frames = 0;
+      this.frameTime = 0;
       this.fpsAt = t;
     }
   };

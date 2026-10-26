@@ -9,8 +9,8 @@ const LIFE_STEPS = [-10, -5, -1, 1, 5, 10];
 /** Colorblind-safe seat markers: a distinct shape per seat alongside the color. */
 const SEAT_GLYPHS = ["●", "▲", "■", "◆", "★", "✚"];
 const RESOURCE_ICON: Record<string, string> = { poison: "☠", energy: "⚡", experience: "★", rad: "☢", ticket: "🎟" };
-const LETHAL_COMMANDER = 21;
-const LETHAL_POISON = 10;
+export const LETHAL_COMMANDER = 21;
+export const LETHAL_POISON = 10;
 
 export function PlayerPanel({ player, me, compact }: { player: string; me: string; compact?: boolean }) {
   const p = usePlayer(player);

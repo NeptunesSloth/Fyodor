@@ -86,6 +86,45 @@ interface GameStore {
   setPending: (positions: Record<string, [number, number]>) => void;
 }
 
+/** Actions that place a card, which Alt-dropping can also do by hand (past the rules intents). */
+const PLACING = new Set(["play_land", "cast", "cast_spell", "move", "put_from_hand"]);
+
+/**
+ * What to try next after a refused action, when the server's message doesn't already say. Never for
+ * permission, host or ownership refusals (Alt can't bypass those), and the Alt hint only for actions
+ * that place a card.
+ */
+export function recoveryHint(message: string, actionType = ""): string {
+  const m = message.toLowerCase();
+  if (/^choose|first|unlock it|only the host|not your|your own|host|seat|private|hidden/.test(m)) return "";
+  if (/when you have priority|priority/.test(m)) return "Wait until the turn dial says Your priority.";
+  if (/can't pay|cannot pay|not enough mana|mana pool|don't pay/.test(m)) return "Tap lands or other sources for mana, then try again.";
+  if (/legal target|isn't a legal target/.test(m)) return "Pick one of the highlighted targets.";
+  if (PLACING.has(actionType) && /summoning sickness|is tapped|can't enchant|no legal|can only|isn't|not on the battlefield|not legal|illegal/.test(m)) {
+    return "To do it anyway, hold Alt as you drop the card to place it by hand.";
+  }
+  return "";
+}
+
+const LOST_ZONES: Record<string, string> = { graveyard: "graveyard", exile: "exile", library: "library" };
+
+/**
+ * A one-line summary for manual actions that are easy to regret (cards sent away, removed or milled),
+ * shown with an Undo button. Everything else stays quiet.
+ */
+export function undoableSummary(a: Record<string, unknown>): string | null {
+  const n = Array.isArray(a.card_ids) ? a.card_ids.length : 0;
+  const cards = (k: number) => `${k} card${k === 1 ? "" : "s"}`;
+  if (a.type === "move") {
+    const zone = (a.to as { zone?: string } | undefined)?.zone ?? "";
+    if (!LOST_ZONES[zone]) return null;
+    return zone === "exile" ? `${cards(n)} exiled` : `${cards(n)} put into ${zone === "library" ? "a library" : "the graveyard"}`;
+  }
+  if (a.type === "delete_card") return `${cards(n)} removed from the game`;
+  if (a.type === "mill") return `Milled ${cards(Number(a.count ?? 1))}`;
+  return null;
+}
+
 export const useGame = create<GameStore>((set, get) => ({
   gameId: null,
   view: null,
@@ -160,12 +199,14 @@ export const useGame = create<GameStore>((set, get) => ({
     const as = view.game.mode === "local" ? actingAs ?? undefined : undefined;
     try {
       await conn.requestAction({ type: "action", action, as });
+      const done = undoableSummary(action as Record<string, unknown>);
+      if (done && get().view?.game.can_undo) toast(done, "info", { label: "Undo", run: () => void get().undo() });
       return true;
     } catch (e) {
       set({ pendingPositions: {} });
       const message = e instanceof Error ? e.message : String(e);
       if (message.startsWith("AUTOMATION ERROR")) set({ automationError: message });
-      else toast(message, "error");
+      else toast(`${message.replace(/\.?$/, ".")} Nothing changed. ${recoveryHint(message, String((action as { type?: unknown }).type ?? ""))}`.trim(), "error");
       return false;
     }
   },

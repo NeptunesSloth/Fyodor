@@ -19,14 +19,15 @@ export function Hand({ player, me, compact = false }: { player: string; me: stri
       {ids.length === 0 && !compact && <div className="hand-empty">Hand is empty — press D to draw</div>}
       <div className="hand-cards" style={{ ["--n" as string]: ids.length }}>
         {ids.map((id, i) => (
-          <HandCard key={id} id={id} index={i} me={me} compact={compact} />
+          <HandCard key={id} id={id} index={i} fan={i - (ids.length - 1) / 2} me={me} compact={compact} />
         ))}
       </div>
     </div>
   );
 }
 
-const HandCard = memo(function HandCard({ id, index, me, compact }: { id: string; index: number; me: string; compact: boolean }) {
+/** fan: the card's offset from the middle of the hand (the 3D table lays the hand out as an arc). */
+const HandCard = memo(function HandCard({ id, index, fan, me, compact }: { id: string; index: number; fan: number; me: string; compact: boolean }) {
   const card = useCardView(id);
   const selected = useGame((s) => s.selection.includes(id));
   const legal = useGame((s) => legalClass(s.view, id, me));
@@ -52,6 +53,21 @@ const HandCard = memo(function HandCard({ id, index, me, compact }: { id: string
       className={`hand-card ${selected ? "selected" : ""} ${!card.hidden && card.revealed ? "revealed" : ""} ${legal}`}
       data-index={index}
       data-card-id={id}
+      style={{ ["--fan" as string]: fan, ["--fan2" as string]: fan * fan }}
+      tabIndex={compact ? -1 : 0}
+      role="button"
+      aria-label={card.hidden ? "Hidden card" : card.name}
+      aria-pressed={selected}
+      onKeyDown={(e) => {
+        if (e.key === " ") {
+          e.preventDefault();
+          useGame.getState().select([id], e.shiftKey || e.ctrlKey || e.metaKey ? "toggle" : undefined);
+        } else if (e.key === "Enter" && !card.hidden) {
+          // the keyboard way to play a card: the same as double-click (rules intents first)
+          e.preventDefault();
+          if (!dropAsIntent([id], { zone: `${me}:battlefield` }, me)) void moveCards([id], "battlefield", { player: me });
+        }
+      }}
       onPointerDown={(e) => {
         if (e.button !== 0 || compact) return;
         const store = useGame.getState();
@@ -63,7 +79,12 @@ const HandCard = memo(function HandCard({ id, index, me, compact }: { id: string
         const ids = targetsFor(id);
         beginPointerDrag(e, { ids, from: card.zone, onDrop: (t) => onDrop(ids, t) });
       }}
-      onDoubleClick={() => !card.hidden && void moveCards([id], "battlefield", { player: me })}
+      onDoubleClick={() => {
+        if (card.hidden) return;
+        // with automation on this plays the land / casts the spell through the rules engine
+        if (dropAsIntent([id], { zone: `${me}:battlefield` }, me)) return;
+        void moveCards([id], "battlefield", { player: me });
+      }}
       onContextMenu={(e) => {
         e.preventDefault();
         const store = useGame.getState();

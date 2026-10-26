@@ -45,7 +45,7 @@ const center = (el: Element) => {
 function locate(ref: string): Element | null {
   return (
     document.querySelector(`.battlefield [data-card-id="${CSS.escape(ref)}"]`) ??
-    document.querySelector(`.stack-list [data-card-id="${CSS.escape(ref)}"]`) ??
+    document.querySelector(`.chain-list [data-card-id="${CSS.escape(ref)}"]`) ??
     document.querySelector(`[data-player-id="${CSS.escape(ref)}"]`)
   );
 }

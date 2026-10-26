@@ -5,13 +5,14 @@
  * Everything here reads `view.rules`; the server decides, the client only asks and shows.
  */
 import { useState } from "react";
+import { openMenu } from "../../components/ContextMenu";
 import { perspective, playerName, useGame } from "../../state/gameStore";
-import { PHASE_LABEL, type DecisionOptionView, type DecisionView, type GameView } from "../../types/game";
+import { PHASE_LABEL, PHASES, type PhaseName, type DecisionOptionView, type DecisionView, type GameView } from "../../types/game";
 import { autocomplete } from "../../services/cards";
 import { canConcede, choose, chooseName, concede, delveCard, divide, next, passPriority, payWith, RESPONSE_CYCLE, send, setPrefs, tapForMana, useXPrompt, submitNumericPrompt } from "./intents";
 import { GameCardFace } from "../GameCardFace";
+import { ChainRow, chainEntries } from "../StackChain";
 import { ManaText } from "../../cards/ManaText";
-import { useCardCache } from "../../state/cardCache";
 
 function useRules() {
   const view = useGame((s) => s.view);
@@ -22,26 +23,27 @@ function useRules() {
   return { view, rules: view.rules ?? null, me, isHost, seated: view.viewer !== "__spectator__" };
 }
 
-/** AUTO: FULL · RESP: AUTO · MANA: ASK — click for the automation settings. */
+/** "Automation: Full", "Responses: Auto" — click for the automation settings. */
 export function AutomationHud() {
   const ctx = useRules();
   const [open, setOpen] = useState(false);
   const [conceding, setConceding] = useState(false);
   if (!ctx) return null;
   const { view, rules, seated, me } = ctx;
-  const level = rules ? (rules.paused ? "PAUSED" : rules.automation.toUpperCase()) : "OFF";
+  const cap = (x: string) => x.charAt(0).toUpperCase() + x.slice(1);
+  const level = rules ? (rules.paused ? "Paused" : cap(rules.automation)) : "Off";
   const custom = rules?.preset === "custom" ? "*" : "";
   const prefs = rules?.prefs;
   return (
     <div className="auto-hud" data-testid="automation-hud">
       <button className={`auto-pill ${rules && !rules.paused ? "on" : ""}`} data-testid="auto-level" title="Automation settings" onClick={() => setOpen(!open)}>
-        AUTO: {level}{custom}
+        Automation: {level}{custom}
       </button>
       {rules && prefs && seated && (
         <>
-          <button className="auto-pill" data-testid="resp-mode" title="RESPONSE: when the engine stops for you (click to change)"
+          <button className="auto-pill" data-testid="resp-mode" title="When the engine stops to let you respond (click to change)"
             onClick={() => void setPrefs({ response: next(RESPONSE_CYCLE, prefs.response) })}>
-            RESP: {prefs.response.toUpperCase()}
+            Stop for responses: {cap(prefs.response)}
           </button>
         </>
       )}
@@ -158,50 +160,133 @@ function Switch({ label, on, set }: { label: string; on: boolean; set: (v: boole
   );
 }
 
-/** Whose priority it is, PASS, and the stack fast controls. */
-export function PriorityBar() {
+const STEP_GROUPS: { label: string; steps: PhaseName[] }[] = [
+  { label: "Begin", steps: ["untap", "upkeep", "draw"] },
+  { label: "Main 1", steps: ["main1"] },
+  { label: "Combat", steps: ["begin_combat", "declare_attackers", "declare_blockers", "combat_damage", "end_combat"] },
+  { label: "Main 2", steps: ["main2"] },
+  { label: "End", steps: ["end", "cleanup"] },
+];
+
+/** What passing priority with an empty stack moves the game to. */
+const NEXT_VERB: Record<PhaseName, string> = {
+  untap: "To upkeep", upkeep: "To draw step", draw: "To main phase", main1: "To combat", begin_combat: "To attackers",
+  declare_attackers: "To blockers", declare_blockers: "To damage", combat_damage: "End combat", end_combat: "To main 2",
+  main2: "To end step", end: "End turn", cleanup: "Next turn",
+};
+
+/** What someone else's decision is, in a few words ("Waiting for Casey: choosing blockers"). */
+const DECIDING: Partial<Record<string, string>> = {
+  declare_attackers: "declaring attackers", declare_blockers: "choosing blockers", choose_one: "choosing an option",
+  choose_cards: "choosing cards", confirm: "confirming a choice", order: "ordering triggers", divide: "dividing damage",
+  manual_resolution: "resolving by hand", reconcile: "checking the board",
+};
+
+/**
+ * The turn & priority dial, bottom right (Arena / Moxgate): whose turn and which step, who the game
+ * is waiting for, and one big button that says what passing will do. With the rules engine off it
+ * drives the steps by hand. The server decides; the dial only shows and asks.
+ */
+export function TurnDial() {
   const ctx = useRules();
-  if (!ctx || !ctx.rules || !ctx.seated) return null;
+  if (!ctx) return null;
   const { view, rules, me } = ctx;
-  if (rules.paused || rules.conceded.includes(me) || me in rules.lost) return null;
-  const mine = !rules.controlled_by && (rules.priority === me || (!!rules.acting_as && rules.priority === rules.acting_as)) && !rules.decision;
-  const prefs = rules.prefs;
+  const turn = view.turn;
+  const active = view.players.find((p) => p.id === turn.active_player);
+  const step = turn.phase as PhaseName;
+  const auto = !!rules && !rules.paused && ctx.seated && !rules.conceded.includes(me) && !(me in rules.lost);
+  const mine = auto && !rules!.controlled_by && (rules!.priority === me || (!!rules!.acting_as && rules!.priority === rules!.acting_as)) && !rules!.decision;
+  const prefs = rules?.prefs;
   const stack = view.stack.length > 0;
-  const holder = rules.priority ? playerName(view, rules.priority) : null;
-  const phase = PHASE_LABEL[view.turn.phase] ?? view.turn.phase;
+  const top = stack ? view.cards[view.stack[view.stack.length - 1]!] : undefined;
+  const topName = top && "name" in top ? top.name : "the top of the stack";
+  let status: string;
+  const watching = !ctx.seated;
+  if (watching) status = "Watching";
+  else if (!auto) status = rules?.paused ? "Automation paused: move the steps yourself" : "Manual play: you move the steps";
+  else if (rules!.controlled_by) status = `${playerName(view, rules!.controlled_by)} is making your choices`;
+  else if (rules!.decision) {
+    const d = rules!.decision;
+    status = d.player === me ? "Your decision" : `Waiting for ${playerName(view, d.player)}: ${DECIDING[d.kind] ?? "deciding"}`;
+  } else if (mine) status = rules!.acting_as ? `Your priority (controlling ${playerName(view, rules!.acting_as)})` : "Your priority";
+  else status = rules!.priority ? `Waiting for ${playerName(view, rules!.priority)}` : "Waiting";
+  const verb = stack ? "Resolve" : NEXT_VERB[step] ?? "Next";
   return (
-    <div className={`prio-bar ${mine ? "mine" : ""}`} data-testid="priority-bar">
-      <span className="prio-where">{phase}</span>
-      <span className="prio-who" data-testid="priority-holder">
-        {rules.controlled_by ? `${playerName(view, rules.controlled_by)} is making your choices` : rules.decision ? `${playerName(view, rules.decision.player)} is deciding` : mine ? (rules.acting_as ? `Your priority (controlling ${playerName(view, rules.acting_as)})` : "Your priority") : holder ? `${holder}'s priority` : ""}
-      </span>
-      {mine && (
-        <>
-          <button className="tt-btn brass" data-testid="pass-priority" title="Space" onClick={() => void passPriority()}>
-            {stack ? "Pass" : "Next"}
-          </button>
-          {stack && <button className="tt-btn ghost" data-testid="resolve-one" onClick={() => void passPriority("stack_changes")}>Resolve one</button>}
-          {stack && <button className="tt-btn ghost" data-testid="resolve-all" onClick={() => void passPriority("stack_empty")}>Resolve all</button>}
-          {!stack && <button className="tt-btn ghost" data-testid="pass-turn" onClick={() => void passPriority("next_turn")}>End turn</button>}
-        </>
-      )}
-      {prefs?.pass_until && (
-        <button className="tt-btn ghost" data-testid="cancel-pass" onClick={() => void setPrefs({ cancel_pass: true })}>
-          Passing until {prefs.pass_until.replace("_", " ")} · cancel
-        </button>
-      )}
-      {prefs && (
-        <>
-          <button className={`tt-btn ${prefs.hold_priority ? "on" : "ghost"}`} data-testid="hold-priority" title="Keep priority after you cast"
-            onClick={() => void setPrefs({ hold_priority: !prefs.hold_priority })}>Hold</button>
-          <button className={`tt-btn ${prefs.full_control ? "on" : "ghost"}`} data-testid="full-control" title="No auto-passing at all"
-            onClick={() => void setPrefs({ full_control: !prefs.full_control })}>Full control</button>
-          {!mine && (
-            <button className={`tt-btn ${prefs.force_stop ? "on" : "ghost"}`} data-testid="force-stop" title="Stop at your next priority"
-              onClick={() => void setPrefs({ force_stop: !prefs.force_stop })}>Stop</button>
+    <div className="turn-dial-wrap plaque-wrap">
+      <section className={`turn-dial plaque ${mine ? "mine" : ""}`} data-testid={auto ? "priority-bar" : "turn-dial"} aria-label="Turn and priority">
+        <header className="td-head" data-testid="turn-tracker">
+          <span className="td-seat" style={{ ["--player-color" as string]: active?.color }} aria-hidden>{active?.name.slice(0, 1).toUpperCase()}</span>
+          <span className="td-turn">Turn {turn.number} · {active?.id === me ? "your turn" : active?.name}</span>
+          {!auto && !watching && (
+            <span className="td-steps">
+              <button className="tt-btn ghost td-step" title="Back one step" onClick={() => void send({ type: "phase", to: "prev" })}>‹ Back</button>
+            </span>
           )}
-        </>
-      )}
+        </header>
+        <button className="td-phase" data-testid="current-phase" title="Jump to a step" disabled={auto || watching}
+          onClick={(e) => openMenu(e, PHASES.map((ph) => ({ label: `${ph === step ? "● " : ""}${PHASE_LABEL[ph]}`, onClick: () => void send({ type: "phase", to: ph }) })), "Step")}>
+          {PHASE_LABEL[step] ?? turn.phase}
+        </button>
+        <ol className="td-track" aria-label="Steps of the turn">
+          {STEP_GROUPS.map((g) => {
+            const here = g.steps.includes(step);
+            return (
+              <li key={g.label} className={here ? "here" : ""} aria-current={here ? "step" : undefined}>
+                <span className="td-ticks">{g.steps.map((ph) => <i key={ph} className={ph === step ? "on" : PHASES.indexOf(ph) < PHASES.indexOf(step) ? "done" : ""} />)}</span>
+                <span className="td-group">{g.label}</span>
+              </li>
+            );
+          })}
+        </ol>
+        <p className="td-status" data-testid="priority-holder" aria-live="polite">{status}</p>
+        {auto && mine && (
+          <>
+            <button className="td-pass" data-testid="pass-priority" aria-label={`Pass priority: ${verb.toLowerCase()}`} title="Pass priority (P)" onClick={() => void passPriority()}>
+              {verb}
+            </button>
+            {stack && <p className="td-hint">{topName} resolves once everyone passes</p>}
+            <div className="td-more">
+              {stack && <button className="tt-btn ghost" data-testid="resolve-one" onClick={() => void passPriority("stack_changes")}>Resolve one</button>}
+              {stack && <button className="tt-btn ghost" data-testid="resolve-all" onClick={() => void passPriority("stack_empty")}>Resolve all</button>}
+              {!stack && <button className="tt-btn ghost" data-testid="pass-turn" onClick={() => void passPriority("next_turn")}>End turn</button>}
+            </div>
+          </>
+        )}
+        {!auto && !watching && (
+          <>
+            {stack ? (
+              // something is on the stack: resolving it comes first, stepping on is secondary
+              <>
+                <button className="td-pass" onClick={() => void send({ type: "resolve_top" })} title="Resolve the top of the stack">Resolve top</button>
+                <p className="td-hint">{topName} resolves next</p>
+              </>
+            ) : (
+              <button className="td-pass" onClick={() => void send({ type: "phase", to: "next" })} title="Next step (N)">{NEXT_VERB[step] ?? "Next step"}</button>
+            )}
+            <div className="td-more">
+              {stack && <button className="tt-btn ghost" title="Next step (N)" onClick={() => void send({ type: "phase", to: "next" })}>{NEXT_VERB[step] ?? "Next step"}</button>}
+              <button className="tt-btn ghost next-turn" title="Next turn (Shift+N)" onClick={() => void send({ type: "next_turn" })}>Next turn</button>
+            </div>
+          </>
+        )}
+        {auto && prefs?.pass_until && (
+          <button className="tt-btn ghost td-cancel" data-testid="cancel-pass" onClick={() => void setPrefs({ cancel_pass: true })}>
+            Passing until {prefs.pass_until.replace("_", " ")}: cancel
+          </button>
+        )}
+        {auto && prefs && (
+          <div className="td-toggles">
+            <button className={`td-toggle ${prefs.hold_priority ? "on" : ""}`} aria-pressed={!!prefs.hold_priority} data-testid="hold-priority" title="Keep priority after you cast"
+              onClick={() => void setPrefs({ hold_priority: !prefs.hold_priority })}>Hold priority</button>
+            <button className={`td-toggle ${prefs.full_control ? "on" : ""}`} aria-pressed={!!prefs.full_control} data-testid="full-control" title="Full control: the engine never passes priority for you"
+              onClick={() => void setPrefs({ full_control: !prefs.full_control })}>Stop at every step</button>
+            {!mine && (
+              <button className={`td-toggle ${prefs.force_stop ? "on" : ""}`} aria-pressed={!!prefs.force_stop} data-testid="force-stop" title="Stop at your next priority"
+                onClick={() => void setPrefs({ force_stop: !prefs.force_stop })}>Stop</button>
+            )}
+          </div>
+        )}
+      </section>
     </div>
   );
 }
@@ -212,54 +297,30 @@ export function RulesStack() {
   const [responding, setResponding] = useState<string | null>(null);
   if (!ctx || !ctx.rules || !ctx.view.stack.length) return null;
   const { view, rules, me } = ctx;
-  const ids = [...view.stack].reverse();
+  const entries = chainEntries(view);
   const mine = !rules.controlled_by && (rules.priority === me || (!!rules.acting_as && rules.priority === rules.acting_as)) && !rules.decision;
-  const top = ids[0] ?? "";
+  const top = entries[0]?.id ?? "";
   return (
-    <div className="rules-stack frame" data-testid="rules-stack">
-      <div className="rules-stack-title">The Stack <span className="rules-stack-count">{ids.length}</span></div>
-      <ol>
-        {ids.map((id, i) => {
-          const c = view.cards[id];
-          const name = c ? (c.hidden ? "A card" : c.name || "Ability") : "?";
-          const kind = c && !c.hidden ? (c.ability ? `${c.ability.kind === "triggered" ? "Triggered" : "Activated"} ability` : stackTypeLine(c.card_id)) : "";
-          const targets = (view.arrows ?? []).filter((a) => a.source === id).flatMap((a) => a.targets);
-          return (
-            <li key={id} data-testid="stack-entry" className={i === 0 ? "top" : ""} onPointerEnter={() => useGame.getState().setHover(id)} onPointerLeave={() => useGame.getState().setHover(null)}>
-              <span className="rules-stack-thumb">{c && <GameCardFace card={c} size="small" />}</span>
-              <span className="rules-stack-body">
-                <b>{name}</b>
-                <span className="rules-stack-who">{c ? playerName(view, c.controller) : ""}{kind ? ` · ${kind}` : ""}</span>
-                {targets.length > 0 && <span className="rules-stack-tgt">→ {targets.map((t) => targetName(view, t)).join(", ")}</span>}
-              </span>
-              <button className="tt-icon" title="Hold after this resolves" aria-label="Hold after this resolves" onClick={() => void setPrefs({ stop_after: id })}>❚❚</button>
-            </li>
-          );
-        })}
-      </ol>
-      {mine && (
-        <div className="rules-stack-actions">
-          <button className="act-btn" data-testid="stack-pass" onClick={() => void passPriority()}>Pass</button>
-          <button className={`act-btn primary ${responding === top ? "on" : ""}`} data-testid="stack-respond"
-            title="Keep priority: cast or activate something in response" onClick={() => setResponding(top)}>Respond</button>
-          <button className="act-btn green" data-testid="stack-autopass" title="Pass until the stack is empty (you still get every decision)"
-            onClick={() => void passPriority("stack_empty")}>Auto-Pass</button>
-        </div>
-      )}
-      {mine && responding === top && <div className="rules-stack-hint">Cast or activate something, then pass.</div>}
+    <div className="rules-stack-wrap plaque-wrap">
+      <section className="rules-stack chain plaque" data-testid="rules-stack" aria-label="The stack">
+        <div className="chain-head"><span className="chain-title">The stack<span className="chain-count"> · {view.stack.length}</span></span></div>
+        <ol className="chain-list">
+          {entries.map((entry, i) => (
+            <ChainRow key={entry.id} entry={entry} top={i === 0} view={view}>
+              <button className="tt-btn ghost chain-hold" title="Stop and give me priority after this resolves" onClick={() => void setPrefs({ stop_after: entry.id })}>Stop after</button>
+            </ChainRow>
+          ))}
+        </ol>
+        {mine && (
+          <div className="chain-actions">
+            <button className={`btn small ${responding === top ? "primary" : ""}`} data-testid="stack-respond"
+              title="Keep priority: cast or activate something in response" onClick={() => setResponding(top)}>Respond</button>
+            <span className="chain-actions-hint">{responding === top ? "Cast or activate something, then pass." : "Pass from the turn dial."}</span>
+          </div>
+        )}
+      </section>
     </div>
   );
-}
-
-function stackTypeLine(cardId: string | null | undefined): string {
-  const data = cardId ? useCardCache.getState().cards[cardId] : undefined;
-  return data?.type_line?.split("—")[0]?.trim() ?? "";
-}
-
-function targetName(view: GameView, id: string): string {
-  if (view.players.some((p) => p.id === id)) return playerName(view, id);
-  const c = view.cards[id];
-  return c && !c.hidden ? c.name : "a card";
 }
 
 /** The pending decision: the chooser answers here (or by clicking a highlighted card on the table). */
@@ -324,7 +385,7 @@ function PaymentPanel({ d, view }: { d: DecisionView; view: GameView }) {
           <div className="pay-row alt">{thumbs(info.alternatives, false)}</div>
         </>
       )}
-      <label className="check pay-always"><input type="checkbox" checked={always} onChange={(e) => setAlways(e.target.checked)} /> Always auto-pay with the best sources (MANA: AUTO)</label>
+      <label className="check pay-always"><input type="checkbox" checked={always} onChange={(e) => setAlways(e.target.checked)} /> Always auto-pay with the best sources (mana: auto)</label>
       <div className="pay-actions">
         <button className="act-btn primary" data-testid="option-pay" onClick={pay}>Auto Pay</button>
         <button className="act-btn" data-testid="option-manual" onClick={() => void choose(d.id, ["manual"])}>Edit Payment</button>

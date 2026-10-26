@@ -295,19 +295,61 @@ const SHORTCUTS: [string, string][] = [
   ["Right-click", "All actions for a card, pile or player"],
   ["Drag", "Move cards between zones; drag empty table to box-select"],
   ["Shift / Ctrl + click", "Add to selection"],
+  ["Alt + drop", "Place by hand, without the rules engine"],
+  ["Middle-drag / wheel", "3D table: turn the view / zoom"],
 ];
 
+/** The common moves, in plain steps. */
+const HOW_TO: [string, string][] = [
+  ["Play a land or cast a spell", "Drag it from your hand onto your side of the table (or double-click it). With automation on, the engine asks for mana and targets."],
+  ["Attack", "In combat, the engine asks you to declare attackers; or right-click a creature → Attack."],
+  ["Respond", "When you have priority, cast or activate something; the turn dial says when you have it."],
+  ["Move on", "Press the big button on the turn dial (P): it says what passing will do."],
+  ["Fix a mistake", "Undo (Ctrl+Z), or the Undo button on the message after a discard, exile or mill."],
+];
+
+/** What the marks on the 3D table mean. */
+const TABLE_LEGEND: [string, string][] = [
+  ["P/T plate", "Current power/toughness; ▲ above or ▼ below the printed card"],
+  ["Round badges", "Keyword abilities from counters or effects (flying, first strike, deathtouch…); ×2 means two counters"],
+  ["Orange beam", "An attack, landing on the creature or player attacked"],
+  ["Blue beam", "A block"],
+  ["Ice beam", "A target"],
+  ["Numbered cards at the centre", "The stack: the highest number resolves next"],
+  ["Turn / Priority tabs", "On a player's plaque: whose turn it is and who may act now"],
+];
+
+/** Help, task first: how to do things, what the table's marks mean, then every shortcut — all searchable. */
 function HelpDialog({ onClose }: { onClose: () => void }) {
+  const [q, setQ] = useState("");
+  const match = ([k, v]: [string, string]) => !q.trim() || `${k} ${v}`.toLowerCase().includes(q.trim().toLowerCase());
+  const keys = [...SHORTCUTS, ...HOTKEYS.map((h): [string, string] => [h.keys.map(keyLabel).join("  /  "), h.label])].filter(match);
+  const how = HOW_TO.filter(match);
+  const legend = TABLE_LEGEND.filter(match);
   return (
-    <Modal title="Controls" onClose={onClose}>
-      <table className="shortcuts">
-        <tbody>
-          {[...SHORTCUTS, ...HOTKEYS.map((h): [string, string] => [h.keys.map(keyLabel).join("  /  "), h.label])].map(([k, v]) => (
-            <tr key={k}><td><kbd>{k}</kbd></td><td>{v}</td></tr>
-          ))}
-        </tbody>
-      </table>
-      <p className="hint">Fyodor doesn't enforce the rules: you decide what's legal, just like at a real table. Everything is logged and can be undone.</p>
+    <Modal title="Help" onClose={onClose}>
+      <input type="search" className="help-search" placeholder="Search help: attack, undo, stack, camera…" aria-label="Search help"
+        value={q} onChange={(e) => setQ(e.target.value)} autoFocus />
+      {how.length > 0 && (
+        <>
+          <h3 className="help-section">How to</h3>
+          <table className="shortcuts"><tbody>{how.map(([k, v]) => <tr key={k}><td>{k}</td><td>{v}</td></tr>)}</tbody></table>
+        </>
+      )}
+      {legend.length > 0 && (
+        <>
+          <h3 className="help-section">On the 3D table</h3>
+          <table className="shortcuts"><tbody>{legend.map(([k, v]) => <tr key={k}><td>{k}</td><td>{v}</td></tr>)}</tbody></table>
+        </>
+      )}
+      {keys.length > 0 && (
+        <>
+          <h3 className="help-section">Mouse and keys</h3>
+          <table className="shortcuts"><tbody>{keys.map(([k, v]) => <tr key={k}><td><kbd>{k}</kbd></td><td>{v}</td></tr>)}</tbody></table>
+        </>
+      )}
+      {!how.length && !legend.length && !keys.length && <p className="hint">Nothing matches “{q}”. Try a game word like attack, mana, stack or undo.</p>}
+      <p className="hint">With automation on, the rules engine decides what's legal; with it off, you decide, as at a real table. Everything is logged and can be undone.</p>
     </Modal>
   );
 }

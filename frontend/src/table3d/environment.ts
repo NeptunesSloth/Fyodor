@@ -5,7 +5,7 @@
  */
 import * as THREE from "three";
 import type { PlaneTheme, Prop, Particles } from "../theme/planes";
-import { rng, surfaceTexture } from "./textures";
+import { rng, surfaceMaps } from "./textures";
 import type { TableSize } from "./layout";
 
 export interface Environment {
@@ -26,12 +26,12 @@ function skyDome(top: string, bottom: string): THREE.Mesh {
     fog: false,
     uniforms: { top: { value: new THREE.Color(top) }, bottom: { value: new THREE.Color(bottom) } },
     vertexShader: "varying vec3 vPos; void main(){ vPos = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }",
-    fragmentShader: "uniform vec3 top; uniform vec3 bottom; varying vec3 vPos; void main(){ float h = clamp(normalize(vPos).y * 1.4 + 0.35, 0.0, 1.0); gl_FragColor = vec4(mix(bottom, top, h), 1.0); }",
+    fragmentShader: "uniform vec3 top; uniform vec3 bottom; varying vec3 vPos; void main(){ float h = clamp(normalize(vPos).y * 1.4 + 0.35, 0.0, 1.0); gl_FragColor = vec4(mix(bottom, top, h) * 0.35, 1.0);\n#include <tonemapping_fragment>\n#include <colorspace_fragment>\n}",
   });
   return new THREE.Mesh(geo, mat);
 }
 
-function roundedSlab(w: number, d: number, r: number, depth: number): THREE.ExtrudeGeometry {
+function roundedShape(w: number, d: number, r: number): THREE.Shape {
   const s = new THREE.Shape();
   const x = -w / 2;
   const y = -d / 2;
@@ -44,6 +44,20 @@ function roundedSlab(w: number, d: number, r: number, depth: number): THREE.Extr
   s.quadraticCurveTo(x, y + d, x, y + d - r);
   s.lineTo(x, y + r);
   s.quadraticCurveTo(x, y, x + r, y);
+  return s;
+}
+
+/** A flat ring between two rounded rectangles, extruded upward from y = 0. */
+function roundedRing(w: number, d: number, r: number, inset: number, depth: number, bevel: number): THREE.ExtrudeGeometry {
+  const outer = roundedShape(w, d, r);
+  outer.holes.push(roundedShape(w - inset * 2, d - inset * 2, Math.max(0.05, r - inset)));
+  const geo = new THREE.ExtrudeGeometry(outer, { depth, bevelEnabled: bevel > 0, bevelThickness: bevel, bevelSize: bevel, bevelSegments: 4, curveSegments: 14 });
+  geo.rotateX(-Math.PI / 2);
+  return geo;
+}
+
+function roundedSlab(w: number, d: number, r: number, depth: number): THREE.ExtrudeGeometry {
+  const s = roundedShape(w, d, r);
   const geo = new THREE.ExtrudeGeometry(s, { depth, bevelEnabled: true, bevelThickness: 0.12, bevelSize: 0.12, bevelSegments: 3, curveSegments: 10 });
   geo.rotateX(-Math.PI / 2);
   return geo;
@@ -85,22 +99,24 @@ export function buildEnvironment(p: PlaneTheme, size: TableSize, quality: "low" 
   group.add(skyDome(e.skyTop, e.skyBottom));
 
   // ---- lights
-  const hemi = new THREE.HemisphereLight(e.ambient, e.surfaceGrain, e.ambientIntensity * 4);
+  // fill stays low: the key light, the pool and the environment reflections give the shape
+  const hemi = new THREE.HemisphereLight(e.ambient, e.surfaceGrain, e.ambientIntensity * 1.8);
   group.add(hemi);
-  const key = new THREE.DirectionalLight(e.key, e.keyIntensity * 2.4);
-  key.position.set(-8, 30, 14);
+  const key = new THREE.DirectionalLight(e.key, e.keyIntensity * 2.2);
+  key.position.set(-7, 28, 12);
   key.target.position.set(0, 0, 0);
   if (quality !== "low") {
     key.castShadow = true;
     key.shadow.mapSize.set(quality === "high" ? 2048 : 1024, quality === "high" ? 2048 : 1024);
-    const r = Math.max(halfW, halfD) + 2;
-    Object.assign(key.shadow.camera, { left: -r, right: r, top: r, bottom: -r, near: 5, far: 70 });
-    key.shadow.bias = -0.0004;
-    key.shadow.normalBias = 0.02;
+    // the shadow camera covers the table top only, so cards get crisp contact shadows
+    const r = Math.max(halfW, halfD) + 0.5;
+    Object.assign(key.shadow.camera, { left: -r, right: r, top: r, bottom: -r, near: 10, far: 60 });
+    key.shadow.bias = -0.0002;
+    key.shadow.normalBias = 0.01;
   }
   group.add(key, key.target);
   // a warm pool of light over the play area, in the plane's glow colour
-  const pool = new THREE.PointLight(e.glow, 60 * e.glowIntensity, Math.max(halfW, halfD) * 2.4, 1.6);
+  const pool = new THREE.PointLight(e.glow, 75 * e.glowIntensity, Math.max(halfW, halfD) * 2.2, 1.6);
   pool.position.set(0, 14, 2);
   group.add(pool);
   const rim = new THREE.DirectionalLight(e.rim, e.rimIntensity * 1.5);
@@ -108,12 +124,21 @@ export function buildEnvironment(p: PlaneTheme, size: TableSize, quality: "low" 
   group.add(rim);
 
   // ---- the table
-  const surf = track(surfaceTexture(e.surface, e.surfaceBase, e.surfaceGrain, e.inlay, p.id.charCodeAt(0)));
-  surf.wrapS = surf.wrapT = THREE.MirroredRepeatWrapping;
-  surf.repeat.set(1 / 18, 1 / 18);
+  // satin, not gloss: the table must recede behind the cards
+  const roughness = e.surface === "marble" || e.surface === "lacquer" ? 0.45 : e.surface === "oilmetal" ? 0.38 : 0.86;
+  const surf = surfaceMaps(e.surface, e.surfaceBase, e.surfaceGrain, roughness, p.id.charCodeAt(0));
+  for (const t of [surf.map, surf.normalMap, surf.roughnessMap]) {
+    track(t);
+    t.wrapS = t.wrapT = THREE.MirroredRepeatWrapping;
+    t.repeat.set(1 / 18, 1 / 18);
+  }
   const topMat = track(new THREE.MeshStandardMaterial({
-    map: surf,
-    roughness: e.surface === "marble" || e.surface === "lacquer" ? 0.35 : e.surface === "oilmetal" ? 0.3 : 0.78,
+    map: surf.map,
+    normalMap: surf.normalMap,
+    normalScale: new THREE.Vector2(0.35, 0.35),
+    roughnessMap: surf.roughnessMap,
+    roughness: 1,
+    envMapIntensity: 0.45,
     metalness: e.surface === "oilmetal" ? 0.6 : 0.02,
   }));
   const railMat = track(new THREE.MeshStandardMaterial({ color: e.rail, roughness: 0.6, metalness: e.surface === "oilmetal" ? 0.7 : 0.1 }));
@@ -121,11 +146,17 @@ export function buildEnvironment(p: PlaneTheme, size: TableSize, quality: "low" 
   slab.position.y = tableY - TABLE_THICK - 0.12;
   slab.receiveShadow = true;
   group.add(slab);
-  // an inlay line around the play area
-  const inlayGeo = track(new THREE.EdgesGeometry(new THREE.PlaneGeometry(size.w - 1.4, size.d - 1.4)));
-  const inlay = new THREE.LineSegments(inlayGeo, track(new THREE.LineBasicMaterial({ color: e.inlay, transparent: true, opacity: 0.45 })));
-  inlay.rotation.x = -Math.PI / 2;
-  inlay.position.y = tableY + 0.004;
+  // a padded leather rail around the edge, like a card-room table, outside every zone
+  const leather = track(new THREE.MeshStandardMaterial({ color: new THREE.Color(e.rail).lerp(new THREE.Color("#3b2416"), 0.35), roughness: 0.48, metalness: 0, envMapIntensity: 0.9 }));
+  const rail = new THREE.Mesh(track(roundedRing(size.w + 0.1, size.d + 0.1, 1.65, 0.62, 0.16, 0.09)), leather);
+  rail.position.y = tableY + 0.09;
+  rail.castShadow = rail.receiveShadow = quality !== "low";
+  group.add(rail);
+  // a brass inlay strip just inside the rail
+  const brass = track(new THREE.MeshStandardMaterial({ color: e.inlay, roughness: 0.32, metalness: 1, envMapIntensity: 1.2 }));
+  const inlay = new THREE.Mesh(track(roundedRing(size.w - 1.35, size.d - 1.35, 1.0, 0.06, 0.006, 0)), brass);
+  inlay.position.y = tableY + 0.001;
+  inlay.receiveShadow = quality !== "low";
   group.add(inlay);
   // legs and floor
   const legMat = railMat;
@@ -134,7 +165,7 @@ export function buildEnvironment(p: PlaneTheme, size: TableSize, quality: "low" 
     leg.position.set(sx * (halfW - 2.5), (floorY + tableY - 1) / 2, sz * (halfD - 2.5));
     group.add(leg);
   }
-  const floor = new THREE.Mesh(track(new THREE.CircleGeometry(120, 48)), track(new THREE.MeshStandardMaterial({ color: e.surfaceGrain, roughness: 1 })));
+  const floor = new THREE.Mesh(track(new THREE.CircleGeometry(120, 48)), track(new THREE.MeshStandardMaterial({ color: new THREE.Color(e.surfaceGrain).multiplyScalar(0.35), roughness: 1 })));
   floor.rotation.x = -Math.PI / 2;
   floor.position.y = floorY;
   floor.receiveShadow = quality === "high";
