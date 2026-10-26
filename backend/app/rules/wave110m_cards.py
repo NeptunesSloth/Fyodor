@@ -64,6 +64,74 @@ def _rhino() -> Any:
     return [*effects, {**ability, "cond": {"value": {"ref_amount": "excess110m"}, "op": ">=", "n": 1}}], fight[1], fight[2]
 
 
+_BRILLIANCE = ("Choose target artifact card in your graveyard. Return it to the battlefield if it's an artifact creature card. Otherwise, return it to the battlefield "
+               "and it's a 3/3 Robot artifact creature with flying.")
+
+
+def _brilliance() -> Any:
+    """Brilliance Unleashed, second mode: an artifact creature card just returns; any other artifact card returns as a 3/3 Robot artifact creature with flying too (205.1b, 614.12)."""
+    from app.rules import scripts
+
+    found = scripts.parse_effects("Return target artifact card from your graveyard to the battlefield. It's a 3/3 Robot artifact creature with flying in addition to its other types.")
+    if found is None or [x["do"] for x in found[0]] != ["return_card", "become"]:
+        return None
+    back, become = found[0]
+    creature = {"object": "ref:e0", "is": 'sel:{"card":true,"types":["Creature"],"zones":[]}', "negate": True}
+    return [back, {"do": "only_if", "cond": creature, "skip": 1}, become], found[1], found[2]
+
+
+_COVER_UP = ("Destroy all creatures. If evidence was collected, exile a card from an opponent's graveyard. Then search its owner's graveyard, hand, and library for any "
+             "number of cards with that name and exile them. That player shuffles, then draws a card for each card exiled from their hand this way.")
+
+
+def _cover_up() -> Any:
+    from app.rules import scripts
+
+    found = scripts.parse_effects("Destroy all creatures. If evidence was collected, draw a card.")
+    if found is None or found[0][-1]["do"] != "draw":
+        return None
+    return [*found[0][:-1], {"do": "cover_up110m"}], found[1], found[2]
+
+
+def cover_up(plan: Any, ctx: Def, e: Def) -> bool:
+    """Deadly Cover-Up: its controller exiles a card from an opponent's graveyard (a public zone, chosen as it resolves), then searches that card's owner's graveyard,
+    hand, and library for cards with that name (name_search; 201.2, 701.23); the owner shuffles and draws for the cards exiled from their hand."""
+    from app.game.rules_state import DecisionOption
+    from app.rules.plan import decide
+
+    me = ctx["controller"]
+    pool = [c.id for c in plan.state.cards.values() if c.zone.endswith(":graveyard") and c.owner != me and c.owner in plan.live()]
+    if not pool:
+        return True
+    if len(pool) > 1:
+        decide(plan, player=me, kind="choose_cards", prompt=f"{ctx.get('name', '')}: exile a card from an opponent's graveyard",
+               options=[DecisionOption(id=c, label=f"{plan.state.cards[c].name} ({plan.name(plan.state.cards[c].owner)})", card_id=c) for c in pool],
+               resume={"step": "cover_up110m", "ctx": ctx})
+        return False
+    return _cover_up_exile(plan, ctx, pool[0])
+
+
+def _cover_up_exile(plan: Any, ctx: Def, card_id: str) -> bool:
+    from app.rules import card_names, context
+
+    card = plan.state.cards[card_id]
+    names, owner = card_names.names_of(plan.ch(card)), card.owner
+    plan.do({"type": "move", "card_ids": [card_id], "to": {"zone": "exile"}}, actor=ctx["controller"])
+    context.bind_players(ctx, "cover_up_owner", [owner])
+    if names:
+        ctx["effects"] = [*ctx["effects"][: ctx["next"]], {"do": "name_search", "by": "bound", "player": "cover_up_owner", "names": names, "all": False, "draw": True},
+                          *ctx["effects"][ctx["next"]:]]
+    return True
+
+
+def resume_cover_up(plan: Any, d: Any, chosen: list[str]) -> None:
+    from app.rules import effects
+
+    ctx = d.resume["ctx"]
+    if chosen and _cover_up_exile(plan, ctx, chosen[0]):
+        effects.continue_effects(plan, ctx)
+
+
 _MEDDLE = "If target spell has only one target and that target is a creature, change that spell's target to another creature."
 
 
@@ -71,6 +139,10 @@ def parse(body: str) -> Any:
     """Spell bodies. Meddle: any spell may be targeted; whether it has one target and that target is a creature is judged as this resolves (115.7a, 608.2b)."""
     from app.rules import scripts
 
+    if body.strip() == _COVER_UP:
+        return _cover_up()
+    if body.strip() == _BRILLIANCE:
+        return _brilliance()
     if body.strip() == _RHINO:
         return _rhino()
     if body.strip() == _MEDDLE:
@@ -273,6 +345,6 @@ def resume_damnations_keep(plan: Any, d: Any, chosen: list[str]) -> None:
     effects.continue_effects(plan, ctx)
 
 
-RESUME: dict[str, Any] = {"faces110m": resume_faces, "damnations110m": resume_damnations, "damnations110m_lose": resume_damnations_lose,
+RESUME: dict[str, Any] = {"cover_up110m": resume_cover_up, "faces110m": resume_faces, "damnations110m": resume_damnations, "damnations110m_lose": resume_damnations_lose,
                           "damnations110m_keep": resume_damnations_keep}
-PRIMITIVES: dict[str, Any] = {"top_to_bottom110m": top_to_bottom, "faces110m": faces, "lose_shield110m": lose_shield, "damnations110m": damnations}
+PRIMITIVES: dict[str, Any] = {"top_to_bottom110m": top_to_bottom, "faces110m": faces, "lose_shield110m": lose_shield, "cover_up110m": cover_up, "damnations110m": damnations}
