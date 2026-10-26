@@ -1777,6 +1777,7 @@ def _pay_spell(plan: Plan, a: A.CastSpell, card: CardInstance, ch: Characteristi
         for contribution in contributions:
             if contribution.kind == 'delve' and plan.state.cards[contribution.card].zone.endswith(':exile'):
                 contribution.exiled_object_id = plan.oid(contribution.card)
+                contribution.keywords = sorted(plan.ch(plan.state.cards[contribution.card]).keywords)  # (wave 110N) Soulflayer
     rest = P.remaining(cost, assignment)
     n_life = len(a.life_symbols or ())  # -- phyrexian mana (wave 50B) -- announced in 601.2b: 2 life each, paid with the rest
     data = _SpellPayment(card.id, player, cost, spell_ch, contributions, a, n_life, then or {},

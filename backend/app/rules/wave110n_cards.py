@@ -41,6 +41,10 @@ def definition(ability: Any, ch: Any) -> Def | None:
         return {"kind": "static", "static": flag, "effects": []}
     if ability.text.strip() == _BANE:
         return _bane(ability, ch)
+    if ability.text.strip() == _FLAYER:
+        return _flayer(ability, ch)
+    if ability.text.strip() == _LASH:
+        return _lash(ability, ch)
     if ability.text.strip() == _SPIRIT:
         return _spirit(ability, ch)
     if ability.text.strip() == _SWARM:
@@ -335,6 +339,80 @@ def resume_spirit(plan: Any, d: Any, chosen: list[str]) -> None:
     effects.continue_effects(plan, ctx)
 
 
+UNPAID_CU = "unpaid_cu110n"
+_LASH = "When a player doesn't pay this enchantment's cumulative upkeep, that player exiles all cards from their library."
+
+
+def _lash(ability: Any, ch: Any) -> Def | None:
+    from app.rules import scripts
+
+    native = scripts.define(replace(ability, text="At the beginning of your upkeep, exile all cards from your library."), ch)
+    if native is None or native.get("trigger") != "upkeep_you":
+        return None
+    return {**native, "trigger": UNPAID_CU}
+
+
+def cu_exile(plan: Any, ctx: Any, e: Def) -> bool:
+    """Cumulative upkeep—Exile the top card of your library (702.24a): the cost once for each age counter, all of it or none (118.3). Not paying sacrifices the
+    enchantment, and Thought Lash's own "doesn't pay" trigger is put on the stack first (603.2: the event is the choice not to pay)."""
+    from app.game.rules_state import DecisionOption
+    from app.rules.plan import decide
+
+    src = plan.state.cards.get(ctx.get("source_card", ""))
+    if src is None or not src.zone.endswith(":battlefield") or plan.oid(src) != ctx.get("source_object"):
+        return True
+    n = src.counters.get("age", 0)
+    if len(plan.state.zones.get(f"{src.controller}:library", [])) < n:
+        plan.note(f"{plan.name(src.controller)} can't exile {n} cards from the top of their library")
+        _unpaid(plan, ctx, src)
+        return True
+    decide(plan, player=src.controller, kind="choose_one", prompt=f"{ctx.get('name') or 'It'}: exile the top {n} card{'s' if n != 1 else ''} of your library or sacrifice it?",
+           options=[DecisionOption(id="pay", label=f"Exile the top {n} card{'s' if n != 1 else ''} of your library"), DecisionOption(id="decline", label=f"Sacrifice {src.name}")],
+           resume={"step": "cu_exile110n", "ctx": ctx}, source=src)
+    return False
+
+
+def _unpaid(plan: Any, ctx: Any, src: Any) -> None:
+    from app.rules import effects, triggers
+
+    for card, ch, i, d in triggers._watchers(plan, UNPAID_CU):
+        if card.id == src.id:
+            triggers._add(plan, controller=card.controller, source_card=card.id, source_object=plan.oid(card), name=ch.name, index=i, definition=d)
+    effects._sacrifice_cards(plan, [src.id], src.controller, ctx)
+
+
+def resume_cu_exile(plan: Any, d: Any, chosen: list[str]) -> None:
+    from app.rules import effects
+
+    ctx = d.resume["ctx"]
+    src = plan.state.cards.get(ctx.get("source_card", ""))
+    if src is not None and src.zone.endswith(":battlefield") and plan.oid(src) == ctx.get("source_object"):
+        n = src.counters.get("age", 0)
+        library = plan.state.zones.get(f"{src.controller}:library", [])
+        if chosen[0] == "pay" and len(library) >= n:
+            plan.do({"type": "move", "card_ids": list(library[:n]), "to": {"player": src.controller, "zone": "exile"}}, actor=src.controller)
+            plan.note(f"{plan.name(src.controller)} exiles the top {n} card{'s' if n != 1 else ''} of their library to pay for {src.name}")
+        else:
+            _unpaid(plan, ctx, src)
+    effects.continue_effects(plan, ctx)
+
+
+_FLAYER = ("If a creature card with flying was exiled with this creature's delve ability, this creature has flying. The same is true for first strike, double strike, "
+           "deathtouch, haste, hexproof, indestructible, lifelink, reach, trample, and vigilance.")
+_FLAYER_KEYWORDS = ["flying", "first strike", "double strike", "deathtouch", "haste", "hexproof", "indestructible", "lifelink", "reach", "trample", "vigilance"]
+
+
+def _flayer(ability: Any, ch: Any) -> Def | None:
+    """Soulflayer: one conditional grant per keyword, each judged on the cards the delve exiled (611.3a), read from the spell's payment record."""
+    from app.rules import scripts
+
+    base = scripts.define(replace(ability, text="As long as this creature was cast, this creature has flying."), ch)
+    if base is None or base.get("keywords") != ["flying"] or base.get("conditions") != [{"static": "was_cast"}]:
+        return None
+    parts = [{**base, "keywords": [k], "conditions": [{"static": "delve_kw110n", "kw": k}]} for k in _FLAYER_KEYWORDS]
+    return {**parts[0], "also": parts[1:]}
+
+
 def _willow(d: Def) -> Def:
     return {**d, "effects": [{"do": "willow110n", "who": "target"}]}
 
@@ -393,6 +471,6 @@ def land_problem(state: Any, player: str, info: Any) -> str | None:
     return None
 
 
-PRIMITIVES: dict[str, Any] = {"decree110n": decree, "willow110n": willow, "spirit110n": spirit, "swarm_pre110n": swarm_pre, "swarm_post110n": swarm_post, "eriette110n": eriette, "sword110n": sword, "sword_note110n": sword_note,
+PRIMITIVES: dict[str, Any] = {"decree110n": decree, "willow110n": willow, "cu_exile110n": cu_exile, "spirit110n": spirit, "swarm_pre110n": swarm_pre, "swarm_post110n": swarm_post, "eriette110n": eriette, "sword110n": sword, "sword_note110n": sword_note,
                               "sword_hand110n": sword_hand, "sword_rest110n": sword_rest}
-RESUME: dict[str, Any] = {"spirit110n": resume_spirit}
+RESUME: dict[str, Any] = {"spirit110n": resume_spirit, "cu_exile110n": resume_cu_exile}

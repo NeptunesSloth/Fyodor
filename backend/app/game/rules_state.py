@@ -1056,6 +1056,7 @@ class CostContribution(BaseModel):
     pays: str = Field(max_length=8)  # "1" (one generic), "G", "W/U", "2/G", "G/P"
     card_types: list[str] | None = None  # Characteristics of the paid object; None in legacy saves.
     exiled_object_id: str | None = None  # Exact new exile incarnation for delve; absent in legacy saves.
+    keywords: list[str] | None = None  # -- (wave 110N) -- the exiled card's keywords as it was exiled (Soulflayer); None in older saves
 
 
 class MadnessFollowup(BaseModel):
