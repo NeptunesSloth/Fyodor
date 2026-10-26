@@ -133,7 +133,8 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
         hit = {**fx[1], "src": "ref:wild110c", "src_many": True}
         return {**native, "effects": [tap, hit, {"do": "wildhunt110c", "wolves": "ref:wild110c"}]}
     if text.removeprefix("Find New Host — ") == SYMBIOTE:  # the card's other abilities are its one combat damage trigger; an effect that adds abilities without a duration lasts (611.2a)
-        return scripts.define(replace(ability, text=f'{SYMBIOTE.replace("this card's other abilities", chr(34) + SYMBIOTE_OTHER + chr(34))}'), ch)
+        granted = SYMBIOTE.replace("this card's other abilities", '"' + SYMBIOTE_OTHER + '"')
+        return scripts.define(replace(ability, text=granted), ch)
     if text.split(" (Mana abilities")[0] == ULALEK:  # 707.10: every spell, then every other ability, of the controller's on the stack; new targets for each copy (707.10c)
         native = scripts.define(replace(ability, text="Whenever you cast an Eldrazi spell, you may pay {C}{C}. If you do, copy that spell. You may choose new targets for the copy."), ch)
         fx = (native or {}).get("effects") or []
