@@ -7,6 +7,7 @@
 * Firkraag, Cunning Instigator: 508.1d a creature declared as an attacker with a requirement on it (goaded) "had to attack this combat"; one that was free to stay home did not.
 * Emrakul, the World Anew: 702.16 protection from spells (damage, targeting) and from permanents that were cast this turn (not ones put onto the battlefield);
   702.35 Madness—Pay six {C} (six colorless mana: a discard offers the cast for exactly that).
+* Bladegriff Prototype: 603.3d, 115.1 the damaged player chooses the nonland permanent (an opponent's of the ability's controller) that is destroyed; lands are not offered.
 * Behemoth of Vault 0: 107.14, 118.12 the energy paid equals the target's mana value; paid in full (or not at all), the target is destroyed.
 """
 
@@ -190,4 +191,31 @@ def test_emrakul_madness_is_six_colorless_mana(cards):
     drive(s, answer)
     assert any("{C}{C}{C}{C}{C}{C}" in p for p in seen)
     assert zone_of(s, "Emrakul, the World Anew") == "p1:battlefield"
+    check(s)
+
+
+def test_bladegriff_prototype_lets_the_damaged_player_choose_what_is_destroyed(cards):
+    s = build(cards, ["Bladegriff Prototype"], ["Grizzly Bears", "Llanowar Elves", "Forest"], forests=30)
+    griff = put(s, "Bladegriff Prototype")
+    bears, elves = put(s, "Grizzly Bears", "p2"), put(s, "Llanowar Elves", "p2")
+    land = put(s, "Forest", "p2")
+    attack(s, griff)
+    seen = []
+
+    def answer(d):
+        seen.append((d.player, {o.card_id for o in d.options}))
+        return [o.id for o in d.options if o.card_id == elves.id] if d.kind == "choose_one" and any(o.card_id == elves.id for o in d.options) else None
+
+    for _ in range(40):  # (Bob declares no blocks; the target question goes to Bob)
+        d = s.state.rules.decision
+        if d is not None and d.kind == "declare_blockers":
+            act(s, d.player, type="declare_blockers", blocks=[])
+        elif d is not None:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=answer(d))
+        elif s.state.zones.get("stack") or s.state.turn.phase != "main2":
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            break
+    assert seen[0][0] == "p2" and land.id not in seen[0][1] and {bears.id, elves.id} <= seen[0][1]
+    assert zone_of(s, "Llanowar Elves", "p2") == "p2:graveyard" and zone_of(s, "Grizzly Bears", "p2") == "p2:battlefield"
     check(s)

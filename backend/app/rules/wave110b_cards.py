@@ -328,6 +328,10 @@ def _had_to(d: Def) -> Def:
 
 
 _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
+    # Bladegriff Prototype: the damaged player picks the target (the trigger's controller still controls the ability, 115.1, 603.3d: "target_choice")
+    "Whenever this creature deals combat damage to a player, destroy target nonland permanent of that player's choice that one of your opponents controls.":
+        ("Whenever this creature deals combat damage to a player, destroy target nonland permanent an opponent controls.",
+         lambda d: {**d, "target_choice": "event_player"}),
     "Whenever a creature deals combat damage to one of your opponents, if that creature had to attack this combat, you put a +1/+1 counter on Firkraag and you draw a card.":
         ("Whenever a creature deals combat damage to one of your opponents, if that creature attacked this turn, you put a +1/+1 counter on Firkraag and you draw a card.", _had_to),
     "At the beginning of each upkeep, if this enchantment is on the battlefield, each player creates a 2/2 black Zombie creature token with haste named Tombspawn for each "
