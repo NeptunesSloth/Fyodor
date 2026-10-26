@@ -3068,7 +3068,7 @@ def spell_cost(state: GameState, card: CardInstance, ch: Characteristics, x: int
                free: bool = False, kicker: int = 0, additional: tuple[M.ManaCost, ...] = (),
                face_down: bool = False, targets: tuple[str, ...] = (), reduce: int = 0,
                flashback_choice: int | None = None, mana_symbols: list[str] | None = None,
-               capture: list[Any] | None = None, announced_kicker77: bool = False) -> M.ManaCost:
+               capture: list[Any] | None = None, announced_kicker77: bool = False, chorus: int = 0) -> M.ManaCost:
     """The total cost to cast (601.2f), in the rules' order: the mana cost (with X) or the
     alternative cost — flashback from the graveyard, evoke, dash, a face-down {3}, or {0} for
     "without paying its mana cost" (118.9) — plus additional costs (kicker 702.33a, buyback: 118.8)
@@ -3092,6 +3092,8 @@ def spell_cost(state: GameState, card: CardInstance, ch: Characteristics, x: int
     extras = list(additional)
     if kicker:
         extras.append(kicker_extra(ch, kicker, face_down=face_down))
+    if chorus:
+        extras.append(M.ManaCost(generic=chorus))  # -- Chorus of the Conclave (wave 110C) -- 601.2b/f: its own additional cost
     from app.rules import waterbend102
 
     if not face_down:
@@ -3234,11 +3236,10 @@ def castable(state: GameState, player: str, card: CardInstance, info: CardInfo, 
         if extra is not None and additional_problem(permissions._view(state, player, info), extra, card, player):
             continue  # (wave 3$) the additional cost can't be paid: not offered
         grant = cast_grant(state, player, card, ch, info)
-        from app.rules import permission_spell_keywords, wave110a_grants, wave110c_chorus, wave110g_cards
+        from app.rules import permission_spell_keywords, wave110a_grants, wave110g_cards
 
         ch = permission_spell_keywords.apply(ch, grant)
         ch = wave110a_grants.with_replicate(state, player, card, ch, info)  # -- grants (wave 110A) --
-        ch = wave110c_chorus.grant(state, player, card, ch, info)  # -- Chorus of the Conclave (wave 110C) --
         ch = wave110g_cards.sticker_kicker(state, player, card, ch, info)  # -- sticker kicker (wave 110G) --
         grant_extra = costs.parse_additional_cost(grant.extra) if grant is not None and grant.extra else None
         if grant_extra is not None and additional_problem(permissions._view(state, player, info), grant_extra, card, player):
@@ -3437,6 +3438,23 @@ def resume_free_multikicker(plan: Plan, d: Any, chosen: list[str]) -> None:
     INTENTS[intent.type](plan, intent)
 
 
+def resume_free_chorus(plan: Plan, d: Any, chosen: list[str]) -> None:
+    """A typed count continues the same native cast; all actual costs remain payable normally."""
+    from app.rules.engine import INTENTS
+
+    count = int(chosen[0])
+    if not 0 <= count <= 1000:
+        raise ActionError("Choose a Chorus amount from 0 to 1000 (platform numeric range)")
+    intent = A.parse_action(d.resume["intent"])
+    assert isinstance(intent, A.CastSpell)
+    if plan.oid(intent.card_id) != d.resume["card_object"]:
+        raise ActionError("That spell is a different object now")
+    intent.chorus = count
+    plan.rules.priority = d.player
+    plan.rules.passed = []
+    INTENTS[intent.type](plan, intent)
+
+
 # -- cast without paying (wave 3C) --
 def free_castable(state: GameState, player: str, card: CardInstance, info: CardInfo, *, check_priority: bool = True) -> bool:
     """Whether any legal alternative permission can pay this face's required costs now."""
@@ -3623,11 +3641,10 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
     if grant is not None and len(grant.among) > 1:
         permissions.ask_use(plan, a, card, ch, grant.among, "cast")  # (-- wave 30Q, 32D -- "choose one as you cast it" (Muldrotha); which limited permission: asked before anything is paid)
         return
-    from app.rules import permission_spell_keywords, wave110a_grants, wave110c_chorus, wave110g_cards
+    from app.rules import permission_spell_keywords, wave110a_grants, wave110g_cards
 
     ch = permission_spell_keywords.apply(ch, grant)
     ch = wave110a_grants.with_replicate(plan.state, plan.actor, card, ch, plan.info)  # -- grants (wave 110A) --
-    ch = wave110c_chorus.grant(plan.state, plan.actor, card, ch, plan.info)  # -- Chorus of the Conclave (wave 110C) --
     ch = wave110g_cards.sticker_kicker(plan.state, plan.actor, card, ch, plan.info)  # -- sticker kicker (wave 110G) --
     if wave110g_cards.sticker_kicker_manual(plan.state, plan.actor, card, ch, plan.info):
         plan.note(f"{ch.name} has its own kicker and Wicker Picker's sticker kicker (702.33c): the sticker kicker is manual play; pay {{1}}, take a ticket counter and place a sticker by hand", [card.id])
@@ -3933,9 +3950,12 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
     from app.rules import cast_limits, spell_mana_floor, spell_symbol_choices, waterbend103
 
     additional.append(waterbend103.mana(optional))
+    from app.rules import wave110c_chorus
+
+    wave110c_chorus.check(plan.state, a, card, ch, plan.info, plan.actor)  # -- Chorus of the Conclave (wave 110C) --
     prepared: list[Any] = []
     cost = spell_cost(plan.state, card, ch, a.x_value or 0, plan.info, player=plan.actor, alternative=(alternative if alternative is not None else M.parse_cost(ch.mana_cost) if grant is not None and grant.how == "resolving" else None),
-                      free=free, kicker=a.kicker, additional=tuple(additional), face_down=a.face_down, targets=tuple(t.id for t in chosen),
+                      free=free, kicker=a.kicker, chorus=a.chorus, additional=tuple(additional), face_down=a.face_down, targets=tuple(t.id for t in chosen),
                       reduce=emerge_reduction + (cost_payment.reduction(add_cost, add_objects) if add_cost is not None else 0),
                       flashback_choice=a.flashback_choice, mana_symbols=a.mana_symbols, capture=prepared, announced_kicker77=True)  # (wave 47C: "you may sacrifice any number of …")
     if alt_offer is not None and alt_offer.template_mana_has_x is not None:
@@ -4205,7 +4225,7 @@ def _post_cast(plan: Plan, data: _PostCast, payment: M.Payment | None) -> None:
 
     record.granted_offspring110a = wave110a_grants.granted_offspring(ch)  # -- grants (wave 110A) --
     record.kicked_mask = kick_mask(ch, a.kicker)  # (-- keywords (wave 50H) -- "kicked with its {R} kicker", 702.33f)
-    record.mana_riders = [*record.mana_riders, *wave110c_chorus.riders(ch, kick_count(ch, a.kicker))]  # -- Chorus of the Conclave (wave 110C) --
+    record.mana_riders = [*record.mana_riders, *wave110c_chorus.riders(a.chorus)]  # -- Chorus of the Conclave (wave 110C) --
     record.kicked = kicked or int(a.awaken) or int(gift_to is not None or bargained)  # 702.33d (-- static_other sweep (wave 16B) -- awaken: the line is read as
     record.pick110e = a.pick110e  # (wave 110E)
     record.gift_to = gift_to  # "If this spell was kicked"; wave 23D: a promised gift, 702.174k, likewise)
@@ -5046,6 +5066,20 @@ def free_optional_offers(plan: Plan, card: CardInstance, ch: Characteristics) ->
                         else kick.text if n == 1 else f"{kick.text}, paid {n} times"))
     if kick is not None and kick.multi:
         out.append(("kicker:other", "Multikicker: another count (0–1000)"))
+    from app.rules import (
+        wave110c_chorus,  # -- Chorus of the Conclave (wave 110C) -- 118.9d: its own optional cost, paid with the total (601.2f)
+    )
+
+    if wave110c_chorus.offered(plan.state, plan.actor, card, ch, plan.info):
+        for n in range(1, FREE_KICKS + 1):
+            ways = spell_cost_ways(plan.state, card, ch, info=plan.info, player=plan.actor, free=alt is None,
+                                   alternative=M.parse_cost(alt) if alt is not None else None, chorus=n)
+            if not any(can_pay(plan.state, plan.actor, total, plan.info, purpose=Purpose(spell=ch, card=card.id, zone=card.zone, player=plan.actor,
+                                                                                         spell_object=_spell_reference(plan.state, card)),
+                               reserve=life_due + (alternative_parts.life if alternative_parts is not None else 0)) for total, life_due in ways):
+                break
+            out.append((f"chorus:{n}", f"Chorus of the Conclave: pay {{{n}}}"))
+        out.append(("chorus:other", "Chorus of the Conclave: another amount (0–1000)"))
     for o in cost_changes.optional_offers(plan.state, plan.actor, card, ch, plan.info):
         if not o.kind or o.kind == "offering":  # (-- offering (wave 51H) -- 702.48a: a reduction of a cost that is {0} here, and no timing to change)
             continue
@@ -5062,7 +5096,7 @@ def free_optional_offers(plan: Plan, card: CardInstance, ch: Characteristics) ->
 def announce_free_optional(plan: Plan, a: A.CastSpell, card: CardInstance, ch: Characteristics) -> bool:
     """601.2b, 118.9d: ask the caster of a free cast which optional additional costs to pay (privately; none may be chosen), unless the intent
     already announced them (``kicker``, ``optional_costs``) or they were asked. True while the question waits; its answer re-runs the cast."""
-    if a.optional_asked or a.kicker or a.optional_costs or plan.manual(card):
+    if a.optional_asked or a.kicker or a.chorus or a.optional_costs or plan.manual(card):
         return False
     offers = free_optional_offers(plan, card, ch)
     if not offers:
@@ -5096,7 +5130,7 @@ def announce_free_x(plan: Plan, a: A.CastSpell, card: CardInstance, ch: Characte
         x_payments: list[dict[str, Any] | None] = []
         selected_costs: list[bool | None] = []
         ways = spell_cost_ways(plan.state, card, ch, x=n, info=plan.info, player=plan.actor, free=alt is None,
-                               alternative=M.parse_cost(alt) if alt is not None else None, kicker=a.kicker, x_payments=x_payments,
+                               alternative=M.parse_cost(alt) if alt is not None else None, kicker=a.kicker, chorus=a.chorus, x_payments=x_payments,
                                selected_costs=selected_costs)
         if not any(can_pay(plan.state, plan.actor, total, plan.info,
                            purpose=Purpose(spell=ch, card=card.id, zone=card.zone, player=plan.actor, kicked=bool(a.kicker),
@@ -5184,21 +5218,30 @@ def resume_free_optional(plan: Plan, d: Any, chosen: list[str]) -> None:
 
     intent = A.parse_action(d.resume["intent"])
     kicks = [c for c in chosen if c.startswith("kicker:")]
-    if len(kicks) > 1:
-        raise ActionError("Pay the kicker cost one number of times")
-    if kicks == ["kicker:other"]:
-        assert isinstance(intent, A.CastSpell)
+    chorus = [c for c in chosen if c.startswith("chorus:")]  # -- Chorus of the Conclave (wave 110C) --
+    if len(kicks) > 1 or len(chorus) > 1:
+        raise ActionError("Pay each additional cost one number of times")
+    if kicks == ["kicker:other"] and chorus == ["chorus:other"]:
+        raise ActionError("Choose a typed count for one of them at a time")
+    assert isinstance(intent, A.CastSpell)
+    intent.optional_costs = [c for c in chosen if not c.startswith(("kicker:", "chorus:"))]
+    intent.optional_asked = True
+    if chorus and chorus != ["chorus:other"]:
+        intent.chorus = int(chorus[0].split(":")[1])
+    if kicks == ["kicker:other"] or chorus == ["chorus:other"]:
         if d.resume.get("card_object") is None or plan.oid(intent.card_id) != d.resume["card_object"]:
             raise ActionError("That spell is a different object now")
-        intent.optional_costs = [c for c in chosen if not c.startswith("kicker:")]
-        intent.optional_asked = True
-        decide(plan, player=d.player, kind="choose_one", prompt="Choose a multikicker count (platform range 0–1000)",
-               options=[DecisionOption(id="__number__", label="Multikicker count: 0–1000")],
-               resume=_announcing(plan, "free_multikicker", intent, card_object=plan.oid(intent.card_id)), source=plan.state.cards[intent.card_id])
+        if kicks == ["kicker:other"]:
+            decide(plan, player=d.player, kind="choose_one", prompt="Choose a multikicker count (platform range 0–1000)",
+                   options=[DecisionOption(id="__number__", label="Multikicker count: 0–1000")],
+                   resume=_announcing(plan, "free_multikicker", intent, card_object=plan.oid(intent.card_id)), source=plan.state.cards[intent.card_id])
+        else:
+            intent.kicker = int(kicks[0].split(":")[1]) if kicks else 0
+            decide(plan, player=d.player, kind="choose_one", prompt="Choose how much mana to pay for Chorus of the Conclave (platform range 0–1000)",
+                   options=[DecisionOption(id="__number__", label="Chorus amount: 0–1000")],
+                   resume=_announcing(plan, "free_chorus", intent, card_object=plan.oid(intent.card_id)), source=plan.state.cards[intent.card_id])
         return
-    intent.kicker = int(kicks[0].split(":")[1]) if kicks else 0  # type: ignore[union-attr]
-    intent.optional_costs = [c for c in chosen if not c.startswith("kicker:")]  # type: ignore[union-attr]
-    intent.optional_asked = True  # type: ignore[union-attr]
+    intent.kicker = int(kicks[0].split(":")[1]) if kicks else 0
     plan.rules.priority = d.player
     plan.rules.passed = []
     INTENTS[intent.type](plan, intent)
@@ -5216,9 +5259,6 @@ def cast_free(plan: Plan, card: CardInstance, ch: Characteristics, a: A.CastSpel
 
     global_text_prepared71 = bool(text_global_word71.global_changes(plan.state, card.model_copy(update={'zone': 'stack'}), plan.info))
     ch = text_global_word71.prospective(plan.state, card, ch, plan.info)
-    from app.rules import wave110c_chorus
-
-    ch = wave110c_chorus.grant(plan.state, plan.actor, card, ch, plan.info)  # -- Chorus of the Conclave (wave 110C) -- 118.9d: a free cast may still pay it
     r = plan.rules
     if card.id not in r.free_casts or card.zone == STACK or ch.is_land:
         raise ActionError("You can't cast that without paying its mana cost now")
@@ -5358,11 +5398,12 @@ def cast_free(plan: Plan, card: CardInstance, ch: Characteristics, a: A.CastSpel
     # 118.9d / 601.2f: additional costs (kicker), increases and reductions still apply to the
     # alternative cost — {0}, or the madness cost
     mode_costs = [M.parse_cost(definition["modes"][i]["cost"]) for i in picked if definition and definition["modes"][i].get("cost")]  # (30E: spree, 118.9d)
-    from app.rules import cast_limits, spell_mana_floor, spell_symbol_choices, waterbend103
+    from app.rules import cast_limits, spell_mana_floor, spell_symbol_choices, waterbend103, wave110c_chorus
 
+    wave110c_chorus.check(plan.state, a, card, ch, plan.info, plan.actor)  # -- Chorus of the Conclave (wave 110C) -- 118.9d: a free cast may still pay it
     prepared: list[Any] = []
     cost = spell_cost(plan.state, card, ch, a.x_value or 0, plan.info, player=plan.actor, free=alt is None,
-                      alternative=M.parse_cost(alt) if alt is not None else None, kicker=a.kicker,
+                      alternative=M.parse_cost(alt) if alt is not None else None, kicker=a.kicker, chorus=a.chorus,
                       targets=tuple(t.id for t in chosen),  # (wave 4I: "spells that target …")
                       additional=(*((M.parse_cost(either.mana),) if either is not None and either.mana else ()), *mode_costs, waterbend103.mana(optional)),  # (wave 6E)
                       reduce=cost_payment.reduction(add_cost, add_objects) if add_cost is not None else 0,
@@ -5483,7 +5524,7 @@ def _post_free_cast(plan: Plan, data: _PostFreeCast, payment: M.Payment | None) 
     record.kicked_mask = kick_mask(ch, a.kicker)  # (-- keywords (wave 50H) --)
     from app.rules import wave110c_chorus
 
-    record.mana_riders = [*record.mana_riders, *wave110c_chorus.riders(ch, kick_count(ch, a.kicker))]  # -- Chorus of the Conclave (wave 110C) --
+    record.mana_riders = [*record.mana_riders, *wave110c_chorus.riders(a.chorus)]  # -- Chorus of the Conclave (wave 110C) --
     record.kicked = kick_count(ch, a.kicker) or int(gift_to is not None or bargained)  # (702.33d; a promised gift and a bargain read as kicked, as with the cost: 702.174k, 702.166)
     record.gift_to = gift_to
     record.pick110e = a.pick110e  # (wave 110E)

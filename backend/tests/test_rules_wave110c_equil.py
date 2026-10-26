@@ -13,6 +13,9 @@ from tests.wave110c_kit import answer, build, card_named, check, make_db, mana, 
 EQUIL = ("If an opponent who controls at least as many lands as you do would put a land onto the battlefield, that player instead puts that land onto the "
          "battlefield then sacrifices a land of their choice.")
 EXTRA = [real("Land Equilibrium", "{2}{U}{U}", 4, "Enchantment", EQUIL, None, "U"),
+         real("Yavimaya Dryad", "{1}{G}{G}", 3, "Creature — Dryad",
+              "Forestwalk (This creature can't be blocked as long as defending player controls a Forest.)\nWhen this creature enters, you may search your library "
+              "for a Forest card, put it onto the battlefield tapped under target player's control, then shuffle.", ("2", "1"), "G"),
          real("Test Fetch", "{1}", 1, "Sorcery", "Put a land card from your hand onto the battlefield.", None, "")]
 
 
@@ -87,3 +90,31 @@ def test_a_land_put_onto_the_battlefield_by_a_spell_counts_too(cards):  # ruling
     act(s, "p2", type="cast_spell", card_id=fetch.id)
     answer(s)
     assert len(lands(s, "p2")) == 1  # two lands after the spell put one, then one sacrificed
+
+
+@pytest.mark.parametrize("target", ["p1", "p2"])
+def test_land_put_under_another_players_control_is_sacrificed_by_the_putter(cards, target):  # ruling 2009-10-01 (Yavimaya Dryad)
+    s = build(cards, ["Land Equilibrium", "Forest"], ["Yavimaya Dryad", "Forest", "Forest"], forests=0, islands=0)
+    put(s, "Land Equilibrium")
+    act(s, "p1", type="move", card_ids=[card_named(s, "Forest").id], to={"player": "p1", "zone": "battlefield"})
+    f = next(c for c in s.state.cards.values() if c.name == "Forest" and c.zone == "p2:library")
+    act(s, "p2", type="move", card_ids=[f.id], to={"player": "p2", "zone": "battlefield"})
+    to_phase(s, "main1", 2)
+    dryad = card_named(s, "Yavimaya Dryad", "p2")
+    act(s, "p2", type="move", card_ids=[dryad.id], to={"zone": "hand"})
+    mana(s, "p2", G=3)
+    act(s, "p2", type="cast_spell", card_id=dryad.id)
+    for _ in range(40):
+        d = s.state.rules.decision
+        if d is None:
+            if not s.state.zones.get("stack"):
+                break
+            act(s, s.state.rules.priority, type="pass_priority")
+            continue
+        ids = [o.id for o in d.options]
+        pick = target if target in ids else ids[0]
+        act(s, d.player, type="choose", decision_id=d.id, option_ids=[pick])
+    forests = [c for c in s.state.cards.values() if c.name == "Forest" and c.zone.endswith(":battlefield")]
+    # p2 (the putter) has as many lands as p1: the Forest enters under `target`, and p2 (not its controller) sacrifices a land of its own
+    assert [sum(1 for c in forests if c.controller == p) for p in ("p1", "p2")] == ([2, 0] if target == "p1" else [1, 1])
+    check(s)

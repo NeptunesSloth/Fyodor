@@ -8,7 +8,7 @@ import pytest
 from app.game.errors import ActionError
 from app.rules import coverage
 from tests.game_helpers import act
-from tests.wave9c_kit import pt
+from tests.wave9c_kit import life, pt
 from tests.wave110c_kit import answer, build, check, make_db, mana, put, real, to_hand
 
 CHORUS = ("Forestwalk (This creature can't be blocked as long as defending player controls a Forest.)\n"
@@ -31,7 +31,7 @@ def test_full(cards):
 
 def cast_paying(s, name, extra, pid="p1"):
     c = to_hand(s, name, pid)
-    act(s, pid, type="cast_spell", card_id=c.id, kicker=extra)
+    act(s, pid, type="cast_spell", card_id=c.id, chorus=extra)
     answer(s)
     return c
 
@@ -60,7 +60,7 @@ def test_opponent_creature_spell_gets_it_too(cards):  # "creature spells": every
     mana(s, "p2", G=3)
     c = to_hand(s, "Test Bear", "p2")
     s.state.turn.active_player = "p2"
-    act(s, "p2", type="cast_spell", card_id=c.id, kicker=1)
+    act(s, "p2", type="cast_spell", card_id=c.id, chorus=1)
     answer(s)
     assert pt(s, 'Test Bear', 'p2') == (3, 3)
 
@@ -70,7 +70,7 @@ def test_not_on_the_battlefield_no_payment(cards):
     mana(s, G=5)
     c = to_hand(s, "Test Bear")
     with pytest.raises(ActionError):
-        act(s, "p1", type="cast_spell", card_id=c.id, kicker=1)
+        act(s, "p1", type="cast_spell", card_id=c.id, chorus=1)
 
 
 def test_non_creature_spell_not_offered(cards):
@@ -79,10 +79,80 @@ def test_non_creature_spell_not_offered(cards):
     mana(s, G=3)
     c = to_hand(s, "Test Sorcery")
     with pytest.raises(ActionError):
-        act(s, "p1", type="cast_spell", card_id=c.id, kicker=1)
+        act(s, "p1", type="cast_spell", card_id=c.id, chorus=1)
 
 
 def test_put_onto_battlefield_has_no_counters(cards):  # ruling 2005-10-01
     s = build(cards, ["Chorus of the Conclave", "Test Bear"])
     put(s, "Chorus of the Conclave")
     assert (put(s, 'Test Bear'), pt(s, 'Test Bear'))[1] == (2, 2)
+
+
+def cast_both(s, kicker, chorus):
+    c = to_hand(s, "Test Kicker Bear")
+    act(s, "p1", type="cast_spell", card_id=c.id, kicker=kicker, chorus=chorus)
+    answer(s)
+
+
+def test_kicker_creature_uses_both_slots(cards):  # 601.2b: separate additional costs; {1}{G} + kicker {1} + Chorus {2}
+    s = build(cards, ["Chorus of the Conclave", "Test Kicker Bear"])
+    put(s, "Chorus of the Conclave")
+    mana(s, G=5)
+    before = life(s, "p1")
+    cast_both(s, 1, 2)
+    assert pt(s, "Test Kicker Bear") == (4, 4) and life(s, "p1") == before + 1
+    check(s)
+
+
+def test_chorus_alone_is_not_kicked(cards):  # "if it was kicked" stays false
+    s = build(cards, ["Chorus of the Conclave", "Test Kicker Bear"])
+    put(s, "Chorus of the Conclave")
+    mana(s, G=4)
+    before = life(s, "p1")
+    cast_both(s, 0, 2)
+    assert pt(s, "Test Kicker Bear") == (4, 4) and life(s, "p1") == before
+    check(s)
+
+
+def test_kicker_alone_gets_no_counters(cards):  # the kicker {1} is not Chorus's payment
+    s = build(cards, ["Chorus of the Conclave", "Test Kicker Bear"])
+    put(s, "Chorus of the Conclave")
+    mana(s, G=3)
+    before = life(s, "p1")
+    cast_both(s, 1, 0)
+    assert pt(s, "Test Kicker Bear") == (2, 2) and life(s, "p1") == before + 1
+
+
+def free_cast(s, name):
+    c = to_hand(s, name)
+    s.state.rules.free_casts.append(c.id)
+    act(s, "p1", type="cast_spell", card_id=c.id, free=True)
+    return c
+
+
+def test_free_cast_offers_chorus_and_kicker_separately(cards):  # 118.9d: the free cast may still pay both optional costs
+    s = build(cards, ["Chorus of the Conclave", "Test Kicker Bear"])
+    put(s, "Chorus of the Conclave")
+    mana(s, G=3)
+    before = life(s, "p1")
+    free_cast(s, "Test Kicker Bear")
+    ids = {o.id for o in s.state.rules.decision.options}
+    assert {"kicker:1", "chorus:1", "chorus:2", "chorus:other"} <= ids and "chorus:4" not in ids
+    answer(s, ["chorus:2", "kicker:1"])
+    answer(s)
+    assert pt(s, "Test Kicker Bear") == (4, 4) and life(s, "p1") == before + 1
+    check(s)
+
+
+def test_free_cast_typed_chorus_amount(cards):
+    s = build(cards, ["Chorus of the Conclave", "Test Bear"])
+    put(s, "Chorus of the Conclave")
+    mana(s, G=8)
+    free_cast(s, "Test Bear")
+    d = s.state.rules.decision
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=["chorus:other"])
+    d = s.state.rules.decision
+    act(s, "p1", type="choose", decision_id=d.id, name="7")
+    answer(s)
+    assert pt(s, "Test Bear") == (9, 9)
+    check(s)

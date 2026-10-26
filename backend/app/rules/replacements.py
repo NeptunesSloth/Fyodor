@@ -95,7 +95,7 @@ def shock_prompt(name: str, n: int, untapped: bool = False) -> tuple[str, list[D
             [DecisionOption(id="pay", label=f"Pay {n} life (untapped)"), DecisionOption(id="tapped", label="Enters tapped")])
 
 
-def entry_plan(plan: Plan, card: CardInstance, controller: str, **kw: Any) -> dict[str, Any]:
+def entry_plan(plan: Plan, card: CardInstance, controller: str, *, actor: str | None = None, **kw: Any) -> dict[str, Any]:
     from app.rules import copiable_coin_entry, entry_characteristics
 
     if (answer := (kw.get("answers") or {}).get(copiable_coin_entry.WHAT)) is not None:
@@ -111,7 +111,7 @@ def entry_plan(plan: Plan, card: CardInstance, controller: str, **kw: Any) -> di
     static_perm100d.plan_entry(plan, card, controller, out, kw.get("answers"))
     from app.rules import wave110c_equil  # -- Land Equilibrium (wave 110C) --
 
-    wave110c_equil.plan_entry(plan, card, controller, out)
+    wave110c_equil.plan_entry(plan, actor or controller, card, controller, out)
     from app.rules import numeric_entry_roll42
 
     if (receipt := numeric_entry_roll42.current_receipt(plan, card, kw.get("answers"))) is not None:
@@ -532,7 +532,8 @@ def choice_needed(plan: Plan, card: CardInstance, entry: Entry) -> dict[str, Any
         card = card.model_copy(update={"face": 1})
     return entry_plan(plan, card, entry["player"], pay_life=entry.get("pay_life"), tapped=bool(entry.get("tapped")),
                       answers=entry.get("choices"), x=entry.get("x"), extra=_extra(entry, plan), tapped_if_land=bool(entry.get("tapped_if_land")),
-                      reserved=set(entry.get("reserved") or ()), bare=bool(entry.get("bare")), entry_characteristics=entry.get("entry_characteristics")).get("choice")  # (reserved: wave 5G)
+                      reserved=set(entry.get("reserved") or ()), bare=bool(entry.get("bare")), entry_characteristics=entry.get("entry_characteristics"),
+                      actor=entry.get("actor")).get("choice")  # (reserved: wave 5G)
 
 
 def _extra(entry: Entry, plan: Plan | None = None) -> dict[str, int] | None:
@@ -838,7 +839,8 @@ def move_together(plan: Plan, entries: list[Entry], *, simultaneous: dict[str, A
                                                  entry["player"], pay_life=entry.get("pay_life"),
                                                  tapped=bool(entry.get("tapped")), answers=entry.get("choices"), tapped_if_land=bool(entry.get("tapped_if_land")),
                                                  x=entry.get("x"), extra=_extra(entry, plan),
-                                                 reserved=set(entry.get("reserved") or ()), bare=bool(entry.get("bare")), entry_characteristics=entry.get("entry_characteristics"))))  # (reserved: wave 5G)
+                                                 reserved=set(entry.get("reserved") or ()), bare=bool(entry.get("bare")), entry_characteristics=entry.get("entry_characteristics"),
+                                                 actor=entry.get("actor"))))  # (reserved: wave 5G; actor: Land Equilibrium, wave 110C)
     # -- entering for a cost (wave 5G) -- the payment first, or it goes to its owner's graveyard instead (614.6)
     from app.rules import enter_cost
 
@@ -1040,7 +1042,7 @@ def after_entry(plan: Plan, card_id: str, controller: str, *, x: int | None = No
     if not kw.get("preview") and (kw.get("choices") or {}).get("equilibrium110c"):  # -- Land Equilibrium (wave 110C) -- the sacrifice right after it entered
         from app.rules import wave110c_equil
 
-        wave110c_equil.sacrifice(plan, card_id, controller, int(kw["choices"]["equilibrium110c"]))
+        wave110c_equil.sacrifice(plan, card_id, kw["choices"]["equilibrium110c"])
     if kw.get("newcomers") is None and not kw.get("preview"):
         from app.rules import wave110e_once
 

@@ -1888,6 +1888,7 @@ RESUME: dict[str, Callable[[Plan, Decision, list[str]], None]] = {
     "giant110f": wave110f_cards.resume_giant,  # -- combat damage division (wave 110F)
     "gift": gift.resume,  # -- gift (wave 23D) -- 702.174a
     "free_multikicker": casting.resume_free_multikicker,
+    "free_chorus": casting.resume_free_chorus,  # -- Chorus of the Conclave (wave 110C) --
     "free_optional": casting.resume_free_optional,  # -- free-cast optional costs (wave 41D) -- 118.9d, 601.2b
     "casualty_x": casting.resume_casualty_x,
     "flashback_choice": casting.resume_flashback_choice,
