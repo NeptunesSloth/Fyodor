@@ -841,6 +841,29 @@ def _attacked_with(plan: Plan, ctx: dict[str, Any], cond: dict[str, Any], log: A
     return False
 
 
+def _attacked_by(plan: Plan, ctx: dict[str, Any], cond: dict[str, Any], log: Any) -> bool:
+    """-- wave 110B -- "they were attacked this turn by an Assassin you controlled" (Ramses): the event player was an attacked player (508.1, TurnLog.attacked_who) of a
+    creature of the kind declared by the source's controller, as it is or as it last existed (a creature that has died since still attacked)."""
+    from app.rules import selectors
+    from app.rules.triggers import _snapshot_card
+
+    who = set(ctx["event"]["players"])  # (not effects' event_player: that keeps only players still in the game)
+    sel = selectors.from_key(cond["sel"])
+    for oid in dict.fromkeys(log.attackers.get(ctx["controller"], [])):
+        if not who & set(log.attacked_who.get(oid, ())):
+            continue
+        card = next((c for c in plan.state.cards.values() if c.zone.endswith(":battlefield") and plan.oid(c) == oid), None)
+        if card is not None:
+            ch = plan.ch(card)
+        elif (snap := plan.rules.lki.get(oid)) is not None:
+            card, ch = _snapshot_card(plan, snap)
+        else:
+            continue
+        if selectors.matches(plan, sel, card, ch, ctx["controller"], None):
+            return True
+    return False
+
+
 def _rolled_result(plan: Plan, ctx: dict[str, Any], cond: dict[str, Any], log: TurnLog) -> bool:
     from app.rules import roll_result_history42
 
@@ -850,6 +873,7 @@ def _rolled_result(plan: Plan, ctx: dict[str, Any], cond: dict[str, Any], log: T
 _WAVE_4D: dict[str, Any] = {
     "tokens": lambda plan, ctx, cond, log: _facts_holds(plan, ctx, {**cond, "kind": "token"}, log),
     "attackers": lambda plan, ctx, cond, log: len(log.attackers.get(ctx["controller"], [])) >= int(cond.get("n", 1)),
+    "attacked_by110b": lambda plan, ctx, cond, log: _attacked_by(plan, ctx, cond, log),  # (wave 110B)
     "attacked_with": lambda plan, ctx, cond, log: _attacked_with(plan, ctx, cond, log),  # (wave 51E)
     "cast": _cast,
     "facts": _facts_holds,

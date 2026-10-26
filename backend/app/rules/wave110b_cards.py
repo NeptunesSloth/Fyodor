@@ -232,6 +232,10 @@ def _towershell(d: Def) -> Def:
 
 
 _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
+    # Ramses: 603.4 the intervening "if" is judged with the player who lost as the event player (history._attacked_by, 508.1); 104.3a / 800.4: you win
+    "Whenever a player loses the game, if they were attacked this turn by an Assassin you controlled, you win the game.":
+        ("Whenever a player loses the game, put five +1/+1 counters on ~.",
+         lambda d: {**d, "if": {"history": "attacked_by110b", "sel": 'sel:{"subtypes":["Assassin"]}'}, "effects": [{"do": "win_game", "who": "you"}]}),
     # Alania: the intervening "if" is a fact about the turn's casts (triggers.alania_first), judged as the spell is cast (603.4); the rest reads natively
     "Whenever you cast a spell, if it's the first instant spell, the first sorcery spell, or the first Otter spell other than Alania you've cast this turn, "
     "you may have target opponent draw a card. If you do, copy that spell. You may choose new targets for the copy.":
