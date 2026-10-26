@@ -6,6 +6,7 @@
   paying down to six cards still resolves (ruling 2022-12-08); only once each turn (602.5b).
 * Homura, Human Ascendant: "return it to the battlefield flipped" (710.2, 110.5): the new object enters already flipped (a legendary enchantment, not a creature: "whenever a creature enters"
   does not see it) and its alternative static ability applies.
+* Ranar the Ever-Watchful: the first foretell special action each turn costs {0} (702.143a, ruling 2021-06-18: the first card exiled from your hand as part of foretelling), the next ones {2}.
 """
 from __future__ import annotations
 
@@ -19,7 +20,7 @@ from tests.game_helpers import act
 from tests.test_rules_wave12a_counters_keywords import real
 from tests.test_rules_wave110e_cards import answer, card_db  # noqa: F401  (the fixture)
 from tests.test_rules_wave110e_cards import cast as cast_card
-from tests.wave9c_kit import build, card_named, check, mana, put
+from tests.wave9c_kit import build, card_named, check, mana, put, to_hand
 
 TURTLES = real("Turtles Forever", "{3}{W}", 4, "Instant",
                "Search your library and/or outside the game for exactly four legendary creature cards you own with different names, then reveal those cards. "
@@ -173,4 +174,62 @@ def test_homura_returns_flipped_and_pumps_the_team(cards):
     assert ch.name == "Homura's Essence" and "Creature" not in ch.types and "Enchantment" in ch.types
     assert life(s, "p1") == before  # it never entered as a creature
     assert pt(s, "Bear Cub110I") == (4, 4) and chars.of(s.state.cards[bear.id], s.cards)
+    check(s)
+
+
+RANAR = real("Ranar the Ever-Watchful", "{2}{W}{U}", 4, "Legendary Creature — Spirit Warrior",
+             "Flying, vigilance\nThe first card you foretell each turn costs {0} to foretell.\n"
+             "Whenever one or more cards are put into exile from your hand or a spell or ability you control exiles one or more permanents from the battlefield, create a 1/1 white Spirit creature token with flying.",
+             ("2", "3"), "UW")
+FORE_A = real("Doomskar Oracle", "{2}{W}", 3, "Creature — Human Cleric",
+              "Whenever you cast your second spell each turn, you gain 2 life.\nForetell {W} (During your turn, you may pay {2} and exile this card from your hand face down. Cast it on a later turn for its foretell cost.)",
+              ("3", "2"), "W")
+FORE_B = real("Cosmos Charger", "{3}{U}", 4, "Creature — Horse Spirit",
+              "Flash\nFlying\nForetelling cards from your hand costs {1} less and can be done on any player's turn.\nForetell {2}{U} (During your turn, you may pay {2} and exile this card from your hand face down. Cast it on a later turn for its foretell cost.)",
+              ("3", "3"), "U")
+base.EXTRA.extend([RANAR, FORE_A, FORE_B])
+
+
+def _foretell_ability(s, card):
+    from app.rules.plan import Plan
+
+    return next(a.index for a in Plan(s.state, "p1", s.cards, None).ch(s.state.cards[card.id]).abilities if "foretell" in a.keywords)
+
+
+def test_ranar_full(cards):
+    assert coverage.of_card_data(cards.resolve("Ranar the Ever-Watchful")).level == "FULL"
+
+
+def test_ranar_only_the_first_foretell_each_turn_is_free(cards):
+    from tests.wave9c_kit import zone_of
+
+    s = build(cards, ["Ranar the Ever-Watchful", "Doomskar Oracle", "Cosmos Charger"])
+    put(s, "Ranar the Ever-Watchful")
+    first, second = to_hand(s, "Doomskar Oracle"), to_hand(s, "Cosmos Charger")
+    act(s, "p1", type="activate_ability", card_id=first.id, ability=1)  # no mana at all
+    answer(s)
+    assert zone_of(s, "Doomskar Oracle") == "p1:foretell"
+    with pytest.raises(ActionError):
+        act(s, "p1", type="activate_ability", card_id=second.id, ability=_foretell_ability(s, second))
+    mana(s, C=2)
+    act(s, "p1", type="activate_ability", card_id=second.id, ability=_foretell_ability(s, second))
+    answer(s)
+    assert zone_of(s, "Cosmos Charger") == "p1:foretell"
+    check(s)
+
+
+def test_ranar_resets_each_turn(cards):
+    from tests.test_rules_conditionals import until
+    from tests.wave9c_kit import zone_of
+
+    s = build(cards, ["Ranar the Ever-Watchful", "Doomskar Oracle", "Cosmos Charger"])
+    put(s, "Ranar the Ever-Watchful")
+    first = to_hand(s, "Doomskar Oracle")
+    act(s, "p1", type="activate_ability", card_id=first.id, ability=1)
+    answer(s)
+    until(s, lambda s: s.state.turn.number >= 3 and s.state.turn.active_player == "p1" and s.state.turn.phase == "main1")
+    second = to_hand(s, "Cosmos Charger")
+    act(s, "p1", type="activate_ability", card_id=second.id, ability=_foretell_ability(s, second))  # a new turn: free again
+    answer(s)
+    assert zone_of(s, "Cosmos Charger") == "p1:foretell"
     check(s)

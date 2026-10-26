@@ -4622,7 +4622,8 @@ def foretell(plan: Plan, card: CardInstance, ch: Characteristics, a: A.ActivateA
     chargers = static_perm100d.yours(plan, static_perm100d.FORETELL, plan.actor)
     if plan.state.turn.active_player != plan.actor and not chargers:
         raise ActionError("You can foretell a card only during your turn (702.143a)")
-    cost = M.parse_cost(f"{{{max(0, 2 - chargers)}}}")
+    first = plan.rules.foretell_action_turn.get(plan.actor) != plan.state.turn.number  # -- wave 110I -- Ranar: the first card you foretell each turn costs {0}
+    cost = M.parse_cost("{0}" if first and static_perm100d.yours(plan, static_perm100d.RANAR, plan.actor) else f"{{{max(0, 2 - chargers)}}}")
     if payment_step(plan, a, cost, f"foretelling {ch.name}", purpose=Purpose(special="foretell")):  # (review 19: 116.2h, not a cast)
         return
     from app.rules import special_payment_tails

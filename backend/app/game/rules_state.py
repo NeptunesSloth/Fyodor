@@ -1697,6 +1697,7 @@ class RulesState(BaseModel):
     # -- hidden exile (wave 18A) -- 702.143d: a foretell cost an effect gave a foretold card ("its mana cost reduced by {2}")
     foretell_costs: dict[str, str] = Field(default_factory=dict)
     foretell_templates: dict[str, ForetellCostReceipt] = Field(default_factory=dict)
+    foretell_action_turn: dict[str, int] = Field(default_factory=dict)  # -- wave 110I -- player -> the last turn they took the foretell special action (Ranar: the first one each turn)
     foretold: dict[str, int] = Field(default_factory=dict)  # -- hidden exile (wave 18A) -- 702.143d: card -> the turn it became foretold
     free_casts: list[str] = Field(default_factory=list)
     madness_declined: dict[str, MadnessFollowup] = Field(default_factory=dict)

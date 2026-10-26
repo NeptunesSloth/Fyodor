@@ -497,6 +497,7 @@ def _single(ability: Any, ch: Any, text: str) -> dict[str, Any] | None:
 #   less {1} for each one you control, any time you have priority (rulings 2021-02-05) — casting.foretell.
 # * "Planeswalkers' loyalty abilities you activate cost an additional [+1] to activate." (Carth the Lion): 606.4, 118.8 — one total loyalty cost
 #   ([-3] removes two counters at once; [0] becomes [+1]), +1 for each one you control (rulings 2021-06-18) — casting.ability_problem / pay.
+RANAR = "ranar110i"
 FIRST_TURNS, NO_FACE_UP, ALL_WITHER, MORE_SURVEIL, FORETELL = "first_turns100d", "no_face_up100d", "all_wither100d", "more_surveil100d", "foretell100d"
 # * "Planeswalkers you control aren't put into their owners' graveyards for having 0 loyalty." (Sanctum Lurker): the 704.5i exception (ruling
 #   2026-08-21) — sba.py.
@@ -509,6 +510,7 @@ _FLAGS = {"Instant and sorcery spells you control have rebound.": REBOUND,
           "You can't spend mana to cast this spell.": NO_MANA,
 "Planeswalkers' loyalty abilities you activate cost an additional [+1] to activate.": LOYALTY_PLUS,
 "You may look at an additional two cards each time you surveil.": MORE_SURVEIL,
+          "The first card you foretell each turn costs {0} to foretell.": RANAR,  # (wave 110I) 702.143a, ruling 2021-06-18: the first foretell special action each turn
           "Foretelling cards from your hand costs {1} less and can be done on any player's turn.": FORETELL,
           "You can't cast ~ during your first, second, or third turns of the game.": FIRST_TURNS,
           "Permanents your opponents control can't be turned face up during your turn.": NO_FACE_UP,
