@@ -91,6 +91,10 @@ def graveyard_entries(plan: Plan, player: str, *, last: bool = False) -> int:
 def holds(plan: Plan, ctx: dict[str, Any], cond: dict[str, Any]) -> bool:
     """Is this ``{"history": …}`` condition true for the ability's controller right now?"""
     kind = cond["history"]
+    if kind == "spelldmg110l":  # -- (wave 110L) -- Suffocation: damage to you from a red instant or sorcery spell
+        from app.rules import wave110l_cards
+
+        return wave110l_cards.dealt_by_red_spell(plan, ctx, log_for(plan, False)) is not None
     if kind.endswith("110c"):  # -- turn history (wave 110C) --
         from app.rules import wave110c_history
 
@@ -342,6 +346,7 @@ def note_events(plan: Plan, events: list[Any], into: TurnLog | None = None) -> N
                 log.facts[-1].source_subtypes = what["subtypes"]  # (wave 17C: prowl, 702.76a)
                 log.facts[-1].source_controller = info.get("actor")  # Frozen at damage commit; None is legacy unknown.
                 log.facts[-1].source_commander = obj is not None and obj.commander_key is not None  # (wave 43D: freerunning, 702.173a; 903.3)
+                log.facts[-1].source_spell = obj is not None and obj.zone == "stack" and obj.ability is None  # (wave 110L: Suffocation, 120.1)
             elif kind == "deal_damage" and info.get("other_oid") and log.facts and log.facts[-1].kind == "damaged" \
                     and log.facts[-1].object_id == info["other_oid"] and log.facts[-1].source == info.get("oid"):
                 # -- trigger damage (wave 39B) -- its source, as it was as it dealt that damage to a permanent (608.2i): "a Giant, Wizard, or spell you

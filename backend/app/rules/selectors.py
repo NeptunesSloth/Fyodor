@@ -1300,6 +1300,8 @@ def put_there_state(state: GameState, card: CardInstance, spec: str) -> bool:
         return arrival.from_zone == spec
     if spec == "not_battlefield":
         return arrival.from_zone is not None and arrival.from_zone != "battlefield"
+    if spec == "surveilled110l":  # -- (wave 110L) -- 701.25a: put there by a surveil instruction (Eye of Duskmantle: "cards in your graveyard you've surveilled this turn")
+        return arrival.from_zone == "library" and any(f.kind == "surveil_gy110l" and f.object_id == oid for f in r.turn_log.facts)
     if spec == "milled":
         return arrival.from_zone == "library" and any(f.kind == "mill" and f.object_id == oid for f in r.turn_log.facts)
     # discarded (701.9a: from a hand to the graveyard, recorded as a discard of this object) or put there from a library
@@ -2260,7 +2262,7 @@ def attacker_of(event: Any) -> str | None:
     if event is None:
         return None
     kind = event.get("kind") if isinstance(event, dict) else getattr(event, "kind", None)
-    if kind not in ("attack", "unblocked", "targeted"):  # (wave 23B: the object that became a target, for "other than that creature")
+    if kind not in ("attack", "unblocked", "targeted", "attached"):  # (wave 110L: attached, the creature a "becomes attached to a creature" trigger is about, "another target creature")  # (wave 23B: the object that became a target, for "other than that creature")
         return None
     objects = event.get("objects") if isinstance(event, dict) else getattr(event, "objects", None)
     if not objects:

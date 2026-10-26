@@ -23,7 +23,7 @@ from typing import Any
 
 from app.game.rules_state import DecisionOption, copy_recipe_of
 from app.game.state import CardInstance, GameState, zone_key
-from app.rules import effects, facedown, replace, selectors, token_grammar
+from app.rules import context, effects, facedown, replace, selectors, token_grammar
 from app.rules.plan import Plan, decide
 
 Context = dict[str, Any]
@@ -354,15 +354,19 @@ def bolster(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     least = min(_toughness(plan.ch(c)) for c in mine)
     tied = [c for c in mine if _toughness(plan.ch(c)) == least]
     if len(tied) == 1:  # -- replacement effects stage 2 (wave 2E): the counter choke point --
+        if e.get("as"):  # -- (wave 110L) -- "The chosen creature …" after bolster is the creature it chose (701.39a)
+            context.bind_objects(plan, ctx, e["as"], [tied[0].id])
         return replace.put_counters(plan, [(tied[0].id, "+1/+1", n)], by=pid, then={"do": "continue", "ctx": ctx})
     decide(plan, player=pid, kind="choose_cards", prompt=f"Bolster {n}: choose a creature with the least toughness ({least})",
            options=[DecisionOption(id=c.id, label=c.name or "Creature", card_id=c.id) for c in tied],
-           resume={"step": "bolster_choose", "ctx": ctx, "n": n})
+           resume={"step": "bolster_choose", "ctx": ctx, "n": n, "as": e.get("as")})
     return False
 
 
 def resume_bolster(plan: Plan, d: Any, chosen: list[str]) -> None:
     r = d.resume
+    if chosen and r.get("as"):  # (wave 110L)
+        context.bind_objects(plan, r["ctx"], r["as"], [chosen[0]])
     if chosen and chosen[0] in plan.state.cards and plan.state.cards[chosen[0]].zone.endswith(":battlefield") \
             and not replace.put_counters(plan, [(chosen[0], "+1/+1", int(r["n"]))], by=d.player,
                                          then={"do": "continue", "ctx": r["ctx"]}):

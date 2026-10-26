@@ -68,6 +68,8 @@ def parse(text: str, *, objects: bool = False) -> Condition | None:
 
     if (hist110c := wave110c_history.condition(t)) is not None:
         return hist110c
+    if t == "you were dealt damage this turn by a red instant or sorcery spell":  # -- wave 110L -- Suffocation (history.holds "spelldmg110l")
+        return {"history": "spelldmg110l"}
     if t == "a player attacked you during their last turn":  # -- wave 110E -- previous_own_turns
         return {"w110e": "attacked_last_turn"}
     if t.lower() == 'you control a stickered permanent':

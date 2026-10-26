@@ -730,6 +730,13 @@ def expire(plan: Plan) -> None:
                 ended.append(e)
             elif len(kept) < len(e.affected):
                 _drop(plan, e, kept)
+    for e in r.effects:  # -- wave 110L -- "for as long as this Equipment remains attached to it": per object, while that same Equipment is attached to it (611.2b)
+        if e.duration == "while_attached110l":
+            kept = [oid for oid in e.affected if _attached_by(plan, oid, e.source_card, e.source)]
+            if not kept:
+                ended.append(e)
+            elif len(kept) < len(e.affected):
+                _drop(plan, e, kept)
     if ended:
         _end(plan, ended)
     from app.rules import permissions
@@ -748,6 +755,14 @@ def _enchanted(plan: Plan, oid: str) -> bool:
     host = next((c for c in plan.state.cards.values() if c.zone.endswith(":battlefield") and plan.oid(c) == oid), None)
     return host is not None and any(a.attached_to == host.id and a.zone.endswith(":battlefield") and "Aura" in plan.ch(a).subtypes
                                     for a in plan.state.cards.values())
+
+
+def _attached_by(plan: Plan, oid: str, equipment: str | None, equipment_oid: str | None) -> bool:
+    """The permanent (that object) still has that object of the source attached to it."""
+    host = next((c for c in plan.state.cards.values() if c.zone.endswith(":battlefield") and plan.oid(c) == oid), None)
+    src = plan.state.cards.get(equipment or "")
+    return (host is not None and src is not None and src.zone.endswith(":battlefield") and plan.oid(src) == equipment_oid
+            and src.attached_to == host.id and plan.in_game(src))
 
 
 def _has_counter(plan: Plan, oid: str, kind: str) -> bool:

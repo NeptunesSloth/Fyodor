@@ -1678,6 +1678,10 @@ def become_copy(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     duration: Literal["end_of_turn", "permanent", "next_turn"] = "end_of_turn" if e.get("duration") == "end_of_turn" \
         else "next_turn" if e.get("duration") == "next_turn" else "permanent"  # (wave 31C: 500.4 "until your next turn")
     add_copy_effect(plan, [plan.oid(c) for c in who], recipe, ctx["controller"], duration=duration)
+    if e.get("duration") == "while_attached110l" and (src110l := plan.state.cards.get(ctx.get("source_card") or "")) is not None:
+        # -- (wave 110L) -- "for as long as this Equipment remains attached to it" (611.2b): ends with the attachment (delayed.expire)
+        made = plan.rules.effects[-1]
+        made.duration, made.source_card, made.source = "while_attached110l", src110l.id, plan.oid(src110l)
     plan.note(f"{', '.join(plan.state.cards[c].name for c in who)} becomes a copy of {recipe.source or 'it'}"
               + {"end_of_turn": " until end of turn", "next_turn": " until your next turn"}.get(duration, ""), who, actor=ctx["controller"])
     return True
