@@ -1632,6 +1632,8 @@ class RulesState(BaseModel):
     # "hasn't dealt damage yet" (120.3: a source that dealt more than 0 damage: its oid, and "<oid>+combat" for combat damage)
     dealt_damage: list[str] = Field(default_factory=list)
     prepared: dict[str, str] = Field(default_factory=dict)  # -- prepared (wave 13C, 722.3) -- permanent's rules object -> its copy in exile
+    tomb110o: dict[str, dict[str, list[str]]] = Field(default_factory=dict)  # -- (wave 110O) -- Cyclopean Tomb's object id -> {"put": lands (object ids) it put a mire counter onto, "removed": those it removed from}
+    notes110o: dict[str, list[str]] = Field(default_factory=dict)  # -- (wave 110O) -- object id -> the creature types noted for it (Volo's Journal)
     collection110o: dict[str, str] = Field(default_factory=dict)  # -- (wave 110O) -- object id of a card exiled with a collection counter -> the controller of the ability that exiled it (Evelyn)
     wipe_shields110o: dict[str, int] = Field(default_factory=dict)  # -- (wave 110O) -- 614.1a: object id -> "next time it would be destroyed this turn, remove all damage marked on it instead" (Pyramids)
     prepare_spells110o: list[str] = Field(default_factory=list)  # -- (wave 110O) -- 722.3d: the exiled copies that were cast ("a prepared spell")

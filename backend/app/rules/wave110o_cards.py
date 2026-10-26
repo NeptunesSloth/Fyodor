@@ -140,6 +140,11 @@ _EVELYN_PERMISSION = ("Once each turn, you may play a card from exile with a col
 _CITY_STATIC = "Players can't cast spells or play lands with a name originally printed in the Arabian Nights expansion."
 _CITY_TRIGGER = ("Whenever one or more other nontoken permanents with a name originally printed in the Arabian Nights expansion are on the battlefield, their controllers "
                  "sacrifice them.")
+_VOLO_NOTE = "Whenever you cast a creature spell, note one of its creature types that hasn't been noted for ~."
+_VOLO_DRAW = "{2}, {T}: Draw a card for each creature type noted for target permanent you control named Volo's Journal."
+_TOMB_ACTIVATED = ("{2}, {T}: Put a mire counter on target non-Swamp land. That land is a Swamp for as long as it has a mire counter on it. Activate only during your upkeep.")
+_TOMB_TRIGGER = ("When ~ is put into a graveyard from the battlefield, at the beginning of each of your upkeeps for the rest of the game, remove all mire counters from a land "
+                 "that a mire counter was put onto with ~ but that a mire counter has not been removed from with ~.")
 _ARMOR_PREVENT = "Prevent all damage that would be dealt to enchanted creature by sources of the last chosen color."
 _ARMOR_COUNTER = "{X}: Put a sleight counter on ~ and choose a color. X is the number of sleight counters on ~."
 _PYRAMIDS_MODE = "• The next time target land would be destroyed this turn, remove all damage marked on it instead."
@@ -273,6 +278,30 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
                 "filter": selectors.Selector(zones=("stack",), extras=("arn_name110o",)).key()}
     if ability.kind in ("triggered", "static") and text == _CITY_TRIGGER:  # 603.8: a state trigger; 701.21: their controllers sacrifice them
         return {"kind": "triggered", "trigger": "state", "optional": False, "target": None, "state": {"w110o": "arn_permanents"}, "effects": [{"do": "arn_sacrifice110o"}]}
+    if ability.kind == "triggered" and text in (_VOLO_NOTE, _VOLO_NOTE.replace("noted for ~", "noted for Volo's Journal")):  # 700.? a note is a memory kept for the object (the token); the type is the controller's choice among the unnoted ones
+        native = scripts.define(replace(ability, text="Whenever you cast a creature spell, copy that spell."), ch)  # (the event-type trigger: it keeps the cast spell, "event_spell")
+        if native is None or [e["do"] for e in native["effects"]] != ["copy_spell"]:
+            return None
+        return {**native, "effects": [{"do": "note110o"}]}
+    if ability.kind == "activated" and text == _VOLO_DRAW:
+        from app.rules import selectors
+
+        sel = selectors.parse("permanent you control named Volo's Journal")
+        draw = scripts.define(replace(ability, text="{2}, {T}: Draw a card."), ch)
+        if sel is None or draw is None or [e["do"] for e in draw["effects"]] != ["draw"]:
+            return None
+        return {**draw, "target": {"what": sel.key()}, "effects": [{"do": "draw", "who": "you", "n": {"noted110o": "target"}}]}
+    if ability.kind == "activated" and text == _TOMB_ACTIVATED:  # 122.1, 611.2b: a counter, and the land is a Swamp for as long as it has one; the lands are remembered for the second ability (607.2a-like)
+        native = scripts.define(replace(ability, text="{2}, {T}: Put a mire counter on target non-Swamp land. Activate only during your upkeep."), ch)
+        swamp = scripts.define(replace(ability, text="{2}, {T}: Target land becomes a Swamp for as long as it has a mire counter on it."), ch)
+        if native is None or swamp is None or [e["do"] for e in native["effects"]] != ["add_counters"] or [e["do"] for e in swamp["effects"]] != ["until", "become"]:
+            return None
+        return {**native, "effects": [*native["effects"], {"do": "tomb_put110o"}, *swamp["effects"]]}
+    if ability.kind == "triggered" and text == _TOMB_TRIGGER:  # 603.7a: a delayed trigger for the rest of the game, made as this resolves
+        native = scripts.define(replace(ability, text="When ~ is put into a graveyard from the battlefield, you gain 1 life."), ch)
+        if native is None or [e["do"] for e in native["effects"]] != ["gain_life"]:
+            return None
+        return {**native, "effects": [{"do": "tomb_delay110o"}]}
     if ability.kind == "activated" and text == _KALDRA:  # 603.4-style "if" judged as it resolves (608.2c); every Equipment so named is attached
         from app.rules import conditions, selectors
 
@@ -882,6 +911,104 @@ def arn_sacrifice(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return True
 
 
+def note(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """"Note one of its creature types that hasn't been noted for ~": the cast spell's creature types not yet kept for this object; one left is noted, several are the controller's choice."""
+    from app.game.rules_state import DecisionOption
+    from app.rules import effects
+    from app.rules.creature_types import CREATURE_TYPES
+    from app.rules.plan import decide
+
+    spells = effects._cards(plan, ctx, "event_spell")
+    card = plan.state.cards.get(spells[0]) if spells else None
+    if card is None or ctx.get("source_object") is None:
+        return True
+    noted = plan.rules.notes110o.get(ctx["source_object"], [])
+    options = sorted(t for t in plan.ch(card).subtypes & CREATURE_TYPES if t not in noted)
+    if len(options) == 1:
+        plan.rules.notes110o[ctx["source_object"]] = [*noted, options[0]]
+        plan.note(f"{ctx.get('name') or 'It'}: {options[0]} is noted", actor=ctx["controller"])
+    elif options:
+        decide(plan, player=ctx["controller"], kind="choose_one", prompt=f"{ctx.get('name') or 'It'}: note one of {card.name}'s creature types",
+               options=[DecisionOption(id=t, label=t) for t in options], resume={"step": "note110o", "ctx": ctx})
+        return False
+    return True
+
+
+def resume_note(plan: Any, d: Any, chosen: list[str]) -> None:
+    from app.game.errors import ActionError
+    from app.rules import effects
+
+    ctx = d.resume["ctx"]
+    if len(chosen) != 1 or chosen[0] not in {o.id for o in d.options}:
+        raise ActionError("Choose one of the creature types")
+    noted = plan.rules.notes110o.get(ctx["source_object"], [])
+    plan.rules.notes110o[ctx["source_object"]] = [*noted, chosen[0]]
+    plan.note(f"{ctx.get('name') or 'It'}: {chosen[0]} is noted", actor=ctx["controller"])
+    effects.continue_effects(plan, ctx)
+
+
+def noted_count(plan: Any, ctx: dict[str, Any], who: str) -> int:
+    from app.rules import effects
+
+    return sum(len(plan.rules.notes110o.get(plan.oid(c), [])) for c in effects._cards(plan, ctx, who))
+
+
+def tomb_put(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    from app.rules import effects
+
+    record = plan.rules.tomb110o.setdefault(ctx["source_object"], {"put": [], "removed": []})
+    for cid in effects._cards(plan, ctx, "target"):
+        if plan.state.cards[cid].counters.get("mire", 0) > 0 and plan.oid(cid) not in record["put"]:
+            record["put"].append(plan.oid(cid))
+    return True
+
+
+def tomb_delay(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """603.7: the delayed trigger belongs to the controller of the ability when it resolved, and goes on for the rest of the game (once: False)."""
+    from app.rules import delayed
+
+    delayed.create_plain(plan, ctx["controller"], ctx["source_card"], ctx["source_object"], ctx.get("name") or "Cyclopean Tomb",
+                         {"kind": "step", "step": "upkeep", "whose": "you"}, [{"do": "tomb_remove110o", "tomb": ctx["source_object"]}])
+    plan.rules.delayed[-1].once = False
+    return True
+
+
+def tomb_remove(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Remove all mire counters from a land the Tomb put one onto and has not removed one from (the controller picks if there are several)."""
+    from app.game.rules_state import DecisionOption
+    from app.rules.plan import decide
+
+    record = plan.rules.tomb110o.get(e["tomb"]) or {"put": [], "removed": []}
+    options = [c.id for c in plan.state.cards.values() if c.zone.endswith(":battlefield") and plan.oid(c) in record["put"] and plan.oid(c) not in record["removed"]]
+    if len(options) > 1:
+        decide(plan, player=ctx["controller"], kind="choose_one", prompt=f"{ctx.get('name') or 'It'}: choose a land to remove the mire counters from",
+               options=[DecisionOption(id=c, label=plan.state.cards[c].name or "Land", card_id=c) for c in options],
+               resume={"step": "tomb_remove110o", "ctx": ctx, "tomb": e["tomb"]})
+        return False
+    if options:
+        _tomb_take(plan, ctx, e["tomb"], options[0])
+    return True
+
+
+def _tomb_take(plan: Any, ctx: dict[str, Any], tomb: str, land: str) -> None:
+    card = plan.state.cards[land]
+    n = card.counters.get("mire", 0)
+    if n > 0:
+        plan.do({"type": "counter", "card_ids": [land], "kind": "mire", "delta": -n}, actor=ctx["controller"])
+        plan.rules.tomb110o.setdefault(tomb, {"put": [], "removed": []})["removed"].append(plan.oid(card))
+
+
+def resume_tomb_remove(plan: Any, d: Any, chosen: list[str]) -> None:
+    from app.game.errors import ActionError
+    from app.rules import effects
+
+    ctx = d.resume["ctx"]
+    if len(chosen) != 1 or chosen[0] not in {o.id for o in d.options}:
+        raise ActionError("Choose one of the lands")
+    _tomb_take(plan, ctx, d.resume["tomb"], chosen[0])
+    effects.continue_effects(plan, ctx)
+
+
 def wipe_shield(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     """614.1a: a shield for this turn on each target land (the object, 400.7): the next time it would be destroyed, the damage marked on it is removed instead."""
     from app.rules import effects
@@ -928,7 +1055,7 @@ def cleansing(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return False
 
 
-PRIMITIVES: dict[str, Any] = {"arn_sacrifice110o": arn_sacrifice, "collect110o": collect, "lore_bind110o": lore_bind, "secret_copy110o": secret_copy, "echo_offer110o": echo_offer, "wipe_shield110o": wipe_shield, "tidal110o": tidal, "tidal_grant110o": tidal_grant, "heroic110o": heroic, "cleansing110o": cleansing, "type_emblem110o": type_emblem, "redistribute110o": redistribute,
+PRIMITIVES: dict[str, Any] = {"tomb_put110o": tomb_put, "tomb_delay110o": tomb_delay, "tomb_remove110o": tomb_remove, "note110o": note, "arn_sacrifice110o": arn_sacrifice, "collect110o": collect, "lore_bind110o": lore_bind, "secret_copy110o": secret_copy, "echo_offer110o": echo_offer, "wipe_shield110o": wipe_shield, "tidal110o": tidal, "tidal_grant110o": tidal_grant, "heroic110o": heroic, "cleansing110o": cleansing, "type_emblem110o": type_emblem, "redistribute110o": redistribute,
               "helm_test110o": helm_test, "helm_again110o": helm_again, "helm_pick110o": helm_pick, "portent_hand110o": portent_hand, "rinoa_pick110o": rinoa_pick, "lazav110o": lazav, "profaner110o": profaner, "gain_land110o": gain_land}
-RESUME: dict[str, Any] = {"echo_offer110o": resume_echo_offer, "type_emblem110o": resume_type_emblem, "redistribute_players110o": resume_redistribute_players,
+RESUME: dict[str, Any] = {"tomb_remove110o": resume_tomb_remove, "note110o": resume_note, "echo_offer110o": resume_echo_offer, "type_emblem110o": resume_type_emblem, "redistribute_players110o": resume_redistribute_players,
                           "redistribute_give110o": resume_redistribute_give, "helm_pick110o": resume_helm_pick, "rinoa_pick110o": resume_rinoa_pick, "lazav110o": resume_lazav, "lazav_copy110o": resume_lazav_copy, "gain_land110o": resume_gain_land}

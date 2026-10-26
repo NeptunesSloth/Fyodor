@@ -18,6 +18,8 @@
 * 122.1, 601.3, 609.4b: Evelyn, the Covetous exiles the top card of each library with a collection counter; once each turn a card so exiled by your ability may be played, with mana of any color.
 * 508.5a, 602.5: Kjeldoran Guard works during combat only if a defending player (the controller picks one of them) controls no snow lands; the creature leaving sacrifices it.
 * 101.2, 305.1, 603.8: City in a Bottle stops spells and lands with Arabian Nights names, and their controllers sacrifice the other such permanents.
+* 603.7, 122.1, 611.2b: Cyclopean Tomb makes Swamps with mire counters and, once gone, takes the counters back one land each upkeep.
+* Volo, Itinerant Scholar: Volo's Journal notes a creature type of each creature spell cast (one not yet noted for it), and Volo draws a card for each.
 """
 
 from __future__ import annotations
@@ -57,7 +59,7 @@ from tests.wave110o_kit import (  # noqa: F401
 UNDERGROWTH = "Undergrowth"
 
 
-@pytest.mark.parametrize("name", [UNDERGROWTH, "Pure Intentions", "Nahiri's Sacrifice", "Cleansing", "Mysterio, Master of Illusion", "Heroic Sacrifice", "Spinning Darkness", "Tidal Flats", "Pyramids", "Soul Echo", "Ob Nixilis of the Black Oath", "Secret Invasion", "Chromatic Armor", "Tenth District Hero", "Living Lore", "Evelyn, the Covetous", "Kjeldoran Guard", "City in a Bottle"])
+@pytest.mark.parametrize("name", [UNDERGROWTH, "Pure Intentions", "Nahiri's Sacrifice", "Cleansing", "Mysterio, Master of Illusion", "Heroic Sacrifice", "Spinning Darkness", "Tidal Flats", "Pyramids", "Soul Echo", "Ob Nixilis of the Black Oath", "Secret Invasion", "Chromatic Armor", "Tenth District Hero", "Living Lore", "Evelyn, the Covetous", "Kjeldoran Guard", "City in a Bottle", "Volo, Itinerant Scholar", "Cyclopean Tomb"])
 def test_the_cards_are_full(name):
     assert full(name)
 
@@ -901,4 +903,58 @@ def test_city_in_a_bottle_makes_the_controllers_sacrifice_every_other_arabian_ni
     bears = cast_on(s, "Grizzly Bears")  # (a state trigger is looked at after the table changes: here, a spell resolving)
     assert now(s, pyr).zone == "p1:graveyard" and now(s, oasis).zone == "p2:graveyard"  # (their controllers sacrifice them, 603.8)
     assert now(s, city).zone == "p1:battlefield" and now(s, bears).zone == "p1:battlefield"  # (City in a Bottle itself is "other" for it: it stays)
+    check(s)
+
+
+VOLO = "Volo, Itinerant Scholar"
+
+
+def test_volo_journal_notes_one_unnoted_creature_type_of_each_creature_spell_and_draws_for_them(cards):
+    s = build(cards, [VOLO, "Grizzly Bears", "Llanowar Elves", "Mesa Pegasus", "Forest"], [])
+    volo = cast_on(s, VOLO)
+    journal = next(c for c in s.state.cards.values() if c.name == "Volo's Journal")
+    assert journal.is_token and "hexproof" in ch(s, journal).keywords
+    cast_on(s, "Grizzly Bears")
+    assert s.state.rules.notes110o.get(s.state.rules.object_id(journal.id)) == ["Bear"]  # (a one-type creature: noted without a question)
+    cast_on(s, "Llanowar Elves")  # (Elf Druid: the controller picks, here the first offered)
+    assert len(s.state.rules.notes110o[s.state.rules.object_id(journal.id)]) == 2
+    cast_on(s, "Mesa Pegasus")  # (Pegasus: a third type)
+    assert len(s.state.rules.notes110o[s.state.rules.object_id(journal.id)]) == 3
+    s.state.rules.controlled_since[volo.id].turn = 0
+    hand = len(s.state.zones["p1:hand"])
+    mana(s, "p1", C=2)
+    act(s, "p1", type="activate_ability", card_id=volo.id, ability=ability(s, volo, "{2}"), targets=[journal.id])
+    settle(s)
+    assert len(s.state.zones["p1:hand"]) == hand + 3  # (a card for each creature type noted)
+    check(s)
+
+
+TOMB = "Cyclopean Tomb"
+
+
+def swamps(s, lands):
+    return ["Swamp" in ch(s, land).subtypes for land in lands]
+
+
+def test_cyclopean_tomb_makes_swamps_and_after_it_is_gone_takes_the_counters_back_one_land_a_turn(cards):
+    s = build(cards, [TOMB, "Naturalize"], [], forests=9)
+    tomb = put(s, TOMB)
+    lands = [put_new(s, "Forest"), put_new(s, "Forest")]
+    stops(s)
+    for upkeep, land in ((3, lands[0]), (5, lands[1])):
+        to_phase(s, "upkeep", turn=upkeep)
+        mana(s, "p1", C=2)
+        act(s, "p1", type="activate_ability", card_id=tomb.id, ability=ability(s, tomb, "{2}"), targets=[land.id])
+        settle(s)
+        assert now(s, land).counters.get("mire") == 1 and "Swamp" in ch(s, land).subtypes  # (a Swamp for as long as it has a mire counter on it)
+    cast_on(s, "Naturalize", tomb)  # (still Alice's upkeep of turn 5: the Tomb is put into a graveyard)
+    assert now(s, tomb).zone == "p1:graveyard" and swamps(s, lands) == [True, True]
+    to_phase(s, "upkeep", turn=7)
+    settle(s, answers=[lands[1].id])  # (she picks the second land: all its counters go; the first is still a Swamp)
+    assert swamps(s, lands) == [True, False] and now(s, lands[1]).counters.get("mire", 0) == 0
+    to_phase(s, "upkeep", turn=9)
+    settle(s)  # (only the first is left to choose, no question)
+    assert swamps(s, lands) == [False, False] and now(s, lands[0]).counters.get("mire", 0) == 0
+    to_phase(s, "upkeep", turn=11)
+    settle(s)  # (nothing left to take counters from: the delayed ability goes on without effect)
     check(s)

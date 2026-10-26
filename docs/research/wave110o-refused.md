@@ -4,7 +4,6 @@
 - Garth One-Eye: "create a copy of the card with the chosen name" from a fixed list has no card-by-name foundation.
 - River Song: needs a draw-from-the-bottom replacement and opponent scry / surveil events; neither exists.
 - Ranar the Ever-Watchful: the "first card you foretell each turn costs {0}" reduction and the exile-from-hand batch event are missing.
-- Volo, Itinerant Scholar: "note" creature types on a token (Alchemy note mechanic) has no storage or counting foundation.
 - Apple of Eden, Isu Relic: hand exiled face down, played with any mana, owner draws, delayed return: several missing parts.
 - Lucy MacLean, Positively Armed: another player creating the token copy has no foundation.
 - Gluttonous Hellkite: X creatures sacrificed by each player as it is cast, then "enters with two counters for each sacrificed this way".
@@ -19,5 +18,4 @@
 - Gather Specimens: a turn-long "enters under your control instead" replacement.
 - Numa, Joraga Chieftain: paying {X}{X} and distributing X counters among any number of targets are both missing.
 - Disciple of Caelus Nin: phasing out everything not chosen, and "permanents can't phase in".
-- Cyclopean Tomb: a delayed per-land cleanup tied to the lands the artifact marked.
 - Custodi Peacekeeper: depends on a number noted while drafting (905.2b); no rule for a game that was not drafted.
