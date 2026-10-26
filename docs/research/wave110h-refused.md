@@ -30,3 +30,6 @@
 - Tetravus: foundation needed: quoted "This token can't be enchanted" (no can't-be-enchanted static for a token's own grant) and an any-number counter-removal choice feeding "that many" tokens; two upkeep triggers.
 - Don't Blink (s7): entry-origin replacement (from exile / cast from exile) can reuse creature_entry_redirect, but with Containment Priest-style exile also applying the owner chooses (616.1) and the shuffle-into-library destination needs the choice built; not dominated.
 - Freyalise's Winds + stun: resolved, not refused (stun first dominates, see wave110h_cards.untap_hold).
+- Battletide Alchemist (s8): "you may prevent X of that damage" is the Alchemist controller's choice per event, even when another player is damaged; replace.optional asks only the affected player.
+- Hankyu (s8): the granted "{T}, Remove all aim counters from Hankyu" needs a remove-all-counters cost on the granter (not the creature) whose count sizes the damage; scripts._granter_view only rewrites effects.
+- Bargaining Table (s8): "an opponent's hand" with several opponents is still unsettled (no ruling found on who is chosen or when).
