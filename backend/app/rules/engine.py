@@ -1387,6 +1387,10 @@ def land_play_problem(state: GameState, player: str, card: CardInstance, ch: Cha
 
     if info is not None and (barred := next((src for src, d in cast_limits._statics(state, info, "cant_play_lands") if (wave110a_spells.more_of(state, info, src, d, player) if d.get("more110a") else d.get("players") or src.controller == player)), None)) is not None:
         return f"{barred.name or 'A permanent'}: you can't play lands"  # -- most-played cards III (wave 46C) -- 305.1
+    from app.rules import wave110a_final  # -- wave 110A -- Damping Engine
+
+    if info is not None and (barred := wave110a_final.land_barred(state, info, player)) is not None:
+        return f"{barred.name or 'A permanent'}: you can't play lands"  # (305.1: it controls the most permanents)
     if info is not None and card.zone == zone_key(player, "hand") and (barred := next(
             (src for src, d in cast_limits._statics(state, info, "cast_limit") if d.get("lands_from_hand") and src.controller == player), None)) is not None:
         return f"{barred.name or 'A permanent'}: you can't play lands from your hand"  # -- static permanents (wave 100D) -- Experimental Frenzy (305.1)

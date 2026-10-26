@@ -85,8 +85,12 @@ def end_effect(plan: Plan, a: A.EndEffect) -> None:
     card = plan.state.cards.get(a.card_id)
     from app.rules import (
         wave110a_arbiter,  # -- wave 110A -- Leonin Arbiter's "pay {2} to ignore this effect" is the same kind of special action
+        wave110a_final,  # -- wave 110A -- Damping Engine: sacrifice a permanent (116.2d)
     )
 
+    if card is not None and wave110a_final.is_engine(plan, card):
+        wave110a_final.sacrifice_start(plan, card)
+        return
     if card is not None and wave110a_arbiter.is_arbiter(plan, card):
         if wave110a_arbiter.ignoring(plan, plan.actor, card):
             raise ActionError(f"You already ignore {card.name} this turn")

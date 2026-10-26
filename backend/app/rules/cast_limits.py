@@ -846,6 +846,10 @@ def _cast_hit(state: GameState, player: str, card: CardInstance, ch: Characteris
         from app.rules import wave110a_spells
 
         return source in state.cards and wave110a_spells.more_of(state, info, state.cards[source], d, player, ch.types)
+    if d.get("mostperm110a"):  # -- wave 110A -- Damping Engine: only an artifact, creature or enchantment spell of a player with the most permanents
+        from app.rules import wave110a_final
+
+        return source in state.cards and wave110a_final.cast_hit(state, state.cards[source], player, ch.types)
     if d.get('name_permanent'):
         return info is not None and _shares_permanent_name(state, info, ch)
     if d.get("exiled_with_name"):  # -- linked exile (wave 30H) --
