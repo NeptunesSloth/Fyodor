@@ -299,6 +299,8 @@ def _component(part: str, card_name: str) -> CostComponent | None:
 
     if (own110d := wave110d_costs.component(part, card_name)) is not None:
         return own110d
+    if part == "Untap a tapped land an opponent controls":  # -- costs (wave 110I) -- Benthic Explorers (ruling 2009-10-01: with no such land the ability can't be activated)
+        return CostComponent(UNTAP_OTHER, selector=selectors.parse("tapped land an opponent controls").key(), text=part)  # type: ignore[union-attr]
     if part == "Pay enchanted creature's mana cost":  # -- costs (wave 110I) -- Merseine
         return CostComponent(HOST_MANA, text=part)
     if part == "Put three cards from your graveyard on the bottom of your library":  # -- costs (wave 110I) -- 401.4: the payer orders them

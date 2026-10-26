@@ -143,7 +143,7 @@ def _choice_cost_ok(extra: Any) -> bool:
         c.kind in (C.MANA, C.TAP, C.PAY_LIFE, C.EXERT, C.UNTAP, C.FORAGE, C.DISCARD_HAND, C.COLLECT_EVIDENCE, C.RETURN_PERMANENT, "EXILE_FROM_HAND")  # (wave 17B: exert, {Q}, forage: paid by hand; 26C: discard your hand)
         or ((not c.activation_only or c.kind == C.EXILE or (c.x and c.kind in (C.TAP_OTHER, C.SACRIFICE))) and (  # (X: Hazel of the Rootbloom)
             (c.kind in (C.SACRIFICE, C.REMOVE_COUNTER, C.EXILE_FROM_GRAVEYARD) and c.selector is None)
-            or (c.selector is not None and c.kind in (C.SACRIFICE, C.DISCARD, C.TAP_OTHER, C.EXILE_FROM_GRAVEYARD, C.EXILE)
+            or (c.selector is not None and c.kind in (C.SACRIFICE, C.DISCARD, C.TAP_OTHER, C.EXILE_FROM_GRAVEYARD, C.EXILE, C.UNTAP_OTHER)
                 and not c.random)))  # (activation_only: wave 4H, 605)
         for c in extra.components)
 
@@ -261,7 +261,7 @@ def _resolve_options(state: GameState, card: CardInstance, ab: M.ManaAbility, in
         return ab.instead  # -- refused copy/mana (wave 3R3): Urza's Tower with the Mine and the Power-Plant --
     from app.rules import removed_mana  # -- if you do (wave 6F) -- one option per number removed
 
-    if (ab.count or "").startswith("xcost:") or ab.count in ("sacrificed_mv", "sacrificed_land_types", "exiled_mv_plus_one", "paid_sacrifice_count"):
+    if (ab.count or "").startswith("xcost:") or ab.count in ("sacrificed_mv", "sacrificed_land_types", "untapped_land_types", "exiled_mv_plus_one", "paid_sacrifice_count"):
         return ab.options  # (wave 17B: the mana depends on the X announced as it's activated: _activate_choosing)
     if (removed := removed_mana.parts(ab.count)) is not None:
         return removed_mana.options(card.counters.get(removed[0], 0), ab.count or "", ab.options[0])
@@ -6972,6 +6972,18 @@ def _activate_choosing(plan: Plan, card: CardInstance, ch: Characteristics, pars
     if parsed.count == "sacrificed_mv":  # -- activated sweep (wave 17B) -- the mana value of what the cost sacrifices (608.2h)
         sacrificed = [c for i, comp in cost.choices if comp.kind == C.SACRIFICE for c in objects.get(i, [])]
         options = (parsed.options[0] * int(sum(plan.ch(plan.state.cards[c]).mana_value for c in sacrificed)),)
+    if parsed.count == "untapped_land_types":  # -- mana (wave 110I) -- Benthic Explorers, 106.7: the types of mana the untapped land's mana abilities could add (their effects only: not costs, not riders, ruling 2009-10-01)
+        from app.rules import mana_replace
+
+        if mana_replace.in_play(plan.state, plan.info):  # 614 mana replacements change what a land could produce (any possible order): not worked out, never guessed
+            raise ActionError(f"A mana replacement effect is in play: what the untapped land could produce isn't worked out; {ch.name} can't be activated automatically")
+        lands = [plan.state.cards[c] for i, comp in cost.choices if comp.kind == C.UNTAP_OTHER for c in objects.get(i, [])]
+        found_types: set[str] = set()
+        for land in lands:
+            for ab in plan.ch(land).abilities:
+                if ab.kind == "mana" and (pm := M.parse_mana_ability(ab.text, commander_identity(plan.state, land.controller, plan.info), card_name=plan.ch(land).name)):
+                    found_types |= {m for o in pm.options for m in o if m in M.ALL_MANA}
+        options = tuple((m,) for m in M.ALL_MANA if m in found_types) or ((),)
     if parsed.count == "sacrificed_land_types":  # -- mana (wave 110A) -- 106.7: types the sacrificed land's own mana abilities could add (last known information)
         lands = [plan.state.cards[c] for i, comp in cost.choices if comp.kind == C.SACRIFICE for c in objects.get(i, [])]
         found: set[str] = set()

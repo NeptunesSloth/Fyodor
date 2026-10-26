@@ -28,6 +28,8 @@
   stack above the search (rulings 2006-07-15); declining or a search of someone else's library offers nothing.
 * Shaman's Trance: the other players can't play lands or cast spells from their graveyards this turn (101.2); the caster may play lands and cast spells from other players' graveyards, and those cards count as in
   their own graveyard for what applies to it (rulings 2004-10-04: flashback works; abilities of those cards stay unusable).
+* Benthic Explorers: the cost untaps a tapped land an opponent controls (701.26b; without one the ability can't be activated); the mana it adds is of a type that land could produce (106.7, ruling 2009-10-01: its
+  mana abilities' effects, not their costs).
 """
 from __future__ import annotations
 
@@ -936,3 +938,51 @@ def test_trance_stops_the_other_players_from_using_their_own_graveyards(cards):
     assert s.state.rules.priority == "p2"
     with pytest.raises(ActionError):  # Bob's own flashback card
         act(s, "p2", type="cast_spell", card_id=card_named(s, "Think Twice", "p2").id)
+
+
+BENTHIC = real("Benthic Explorers", "{2}{U}", 3, "Creature \u2014 Merfolk Scout", "{T}, Untap a tapped land an opponent controls: Add one mana of any type that land could produce.", ("1", "1"), "U")
+TAIGA = real("Taiga", "", 0, "Land \u2014 Mountain Forest", "({T}: Add {R} or {G}.)")
+base.EXTRA.extend([BENTHIC, TAIGA])
+
+
+def test_benthic_full(cards):
+    assert coverage.of_card_data(cards.resolve("Benthic Explorers")).level == "FULL"
+
+
+def _benthic(cards, land):
+    s = build(cards, ["Benthic Explorers"], [land])
+    bx = put(s, "Benthic Explorers")
+    s.state.rules.controlled_since[bx.id].turn = 0
+    theirs = put(s, land, "p2")
+    return s, bx, theirs
+
+
+def _mana_ability(s, card):
+    from app.rules.plan import Plan
+
+    return next(a.index for a in Plan(s.state, "p1", s.cards, None).ch(s.state.cards[card.id]).abilities if a.kind == "mana")
+
+
+def test_benthic_untaps_their_tapped_land_and_adds_a_type_it_could_produce(cards):
+    from tests.test_rules_contextual_mana_outcomes import pool
+
+    s, bx, taiga = _benthic(cards, "Taiga")
+    act(s, "p2", type="tap", card_ids=[taiga.id], tapped=True)
+    act(s, "p1", type="activate_ability", card_id=bx.id, ability=_mana_ability(s, bx), mana_choice="G")
+    answer(s)
+    assert not s.state.cards[taiga.id].tapped and s.state.cards[bx.id].tapped  # the land is untapped (the cost), Benthic tapped
+    assert pool(s, "G") == 1 and pool(s, "R") == 0
+    check(s)
+
+
+def test_benthic_cannot_add_a_type_the_land_could_not_produce(cards):
+    s, bx, taiga = _benthic(cards, "Taiga")
+    act(s, "p2", type="tap", card_ids=[taiga.id], tapped=True)
+    with pytest.raises(ActionError):
+        act(s, "p1", type="activate_ability", card_id=bx.id, ability=_mana_ability(s, bx), mana_choice="U")
+
+
+def test_benthic_needs_a_tapped_opposing_land(cards):
+    s, bx, taiga = _benthic(cards, "Taiga")  # untapped
+    with pytest.raises(ActionError):
+        act(s, "p1", type="activate_ability", card_id=bx.id, ability=_mana_ability(s, bx), mana_choice="R")

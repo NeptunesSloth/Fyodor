@@ -377,7 +377,7 @@ def _choice_part(part: str) -> bool:
     return not found.unsupported and bool(found.components) and all(
         c.kind in (C.EXERT, C.UNTAP, C.FORAGE, C.DISCARD_HAND, C.COLLECT_EVIDENCE, C.RETURN_PERMANENT, "EXILE_FROM_HAND") or (  # (wave 26C: "Discard your hand", 701.9a: no choice, paid with the rest)
             (not c.activation_only or c.kind == C.EXILE or (c.x and c.kind in (C.TAP_OTHER, C.SACRIFICE))) and c.selector is not None  # (X: Hazel, "Tap X untapped tokens")
-            and c.kind in (C.SACRIFICE, C.DISCARD, C.TAP_OTHER, C.EXILE_FROM_GRAVEYARD, C.EXILE) and not c.random)
+            and c.kind in (C.SACRIFICE, C.DISCARD, C.TAP_OTHER, C.EXILE_FROM_GRAVEYARD, C.EXILE, C.UNTAP_OTHER) and not c.random)  # (wave 110I: Benthic Explorers)
         or (c.kind == C.EXILE_FROM_GRAVEYARD and c.selector is None)
         for c in found.components)
 
@@ -542,6 +542,10 @@ def _parse_mana_ability(text: str, identity: tuple[str, ...] = COLORS, *, card_n
         if not any(k.kind == _costs.SACRIFICE and k.selector is not None for p in extra for k in _costs.parse_ability_cost(p, card_name="~").components):
             return None
         count, options = "sacrificed_land_types", tuple((m,) for m in ALL_MANA)
+    elif first == "Add one mana of any type that land could produce":  # -- mana (wave 110I) -- Benthic Explorers: the land its cost untapped; types read at activation (casting._activate_choosing)
+        if not any(k.kind == _costs.UNTAP_OTHER and k.selector is not None for p in extra for k in _costs.parse_ability_cost(p, card_name="~").components):
+            return None
+        count, options = "untapped_land_types", tuple((m,) for m in ALL_MANA)
     elif first == "Add X mana of any one color, where X is 1 plus the exiled creature's mana value":
         if not any(k.kind == _costs.EXILE and k.selector is not None for p in extra for k in _costs.parse_ability_cost(p, card_name="~").components):
             return None

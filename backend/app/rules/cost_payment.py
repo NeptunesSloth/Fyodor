@@ -156,7 +156,7 @@ def _candidates(plan: Plan, comp: CostComponent, player: str, source: CardInstan
         pool = [c for pid in plan.state.players if pid != player for c in plan.state.zones.get(zone_key(pid, "exile"), [])]
         return [c for c in pool if (x := plan.state.cards.get(c)) is not None and not x.face_down and x.owner != player
                 and selectors.matches(plan, sel, x, plan.ch(x), player, source.id)]
-    opponent_counters = comp.kind == C.PUT_COUNTER and sel.controller == "opponent"
+    opponent_counters = comp.kind in (C.PUT_COUNTER, C.UNTAP_OTHER) and sel.controller == "opponent"  # (wave 110I: untap an opponent's land, Benthic Explorers)
     pool = ([cid for pid in plan.live() for cid in plan.state.zones.get(zone_key(pid, "battlefield"), [])]
             if opponent_counters else plan.state.zones.get(zone, []))
     from app.rules import wave110d_costs  # -- costs (wave 110D) -- "from a graveyard": every graveyard
