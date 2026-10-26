@@ -1312,7 +1312,7 @@ _YURLOK_MANA = "{1}, {T}: Each player adds {B}{R}{G}."
 
 
 def pools(plan: Any) -> dict[str, int]:
-    return {pid: sum(p.mana.values()) for pid, p in plan.state.players.items()}
+    return {pid: sum(p.mana.values()) + len(p.mana_units) for pid, p in plan.state.players.items()}  # (restricted mana is held as units beside the plain pool, wave 18B)
 
 
 def mana_lost(plan: Any, before: dict[str, int]) -> None:

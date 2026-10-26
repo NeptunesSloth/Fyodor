@@ -71,10 +71,9 @@ def test_yurlok_every_player_adds_and_unspent_mana_costs_life_at_the_step_end(ca
     to_phase(s, "main1", turn=3)
     mana(s, "p1", C=1)
     act(s, "p1", type="activate_ability", card_id=y.id, ability=ability(s, y, "{1}, {T}"))
-    assert [sum(s.state.players[p].mana.values()) for p in ("p1", "p2")] == [3, 3]
-    assert [s.state.players[p].mana.get("B", 0) for p in ("p1", "p2")] == [1, 1]
-    to_phase(s, "combat", turn=3)
-    assert (life(s, "p1"), life(s, "p2")) == (37, 37) and sum(s.state.players["p1"].mana.values()) == 0
+    assert [len(s.state.players[p].mana_units) for p in ("p1", "p2")] == [3, 3]
+    to_phase(s, "begin_combat", turn=3)
+    assert (life(s, "p1"), life(s, "p2")) == (37, 37) and not s.state.players["p1"].mana_units
     check(s)
 
 
@@ -84,24 +83,23 @@ def test_yurlok_spent_mana_is_not_lost(cards):
     put_new(s, YURLOK)
     mana(s, "p1", R=2)
     mana(s, "p1", R=-2)
-    to_phase(s, "combat", turn=1)
+    to_phase(s, "begin_combat", turn=1)
     assert (life(s, "p1"), life(s, "p2")) == (40, 40)
     check(s)
 
 
 def test_great_aurora_shuffles_hands_and_permanents_in_and_everyone_draws_that_many(cards):
-    """701.24: p1 has 1 card in hand and 1 permanent, p2 has 1 permanent: p1 draws 2, p2 draws 1; the battlefields are empty, the spell is exiled (608.2n)."""
+    """701.24: p1 has 1 card in hand and 1 permanent, p2 has 1 permanent: p1 draws 2, p2 draws 1; no nonland permanent stays, the spell is exiled (608.2n)."""
     s = build(cards, [AURORA, "Grizzly Bears", "Grizzly Bears"], ["Prodigal Sorcerer"], forests=30, islands=30)
     put_new(s, "Grizzly Bears")
     put_new(s, "Prodigal Sorcerer", "p2")
     hand_new(s, "Grizzly Bears")
-    hands = {p: len([c for c in s.state.cards.values() if c.zone == f"{p}:hand"]) for p in ("p1", "p2")}
     spell = hand_new(s, AURORA)
     mana(s, "p1", G=9)
     act(s, "p1", type="cast_spell", card_id=spell.id)
     settle(s)
-    assert [c.name for c in s.state.cards.values() if c.zone.endswith(":battlefield")] == []
-    after = {p: len([c for c in s.state.cards.values() if c.zone == f"{p}:hand"]) for p in ("p1", "p2")}
-    assert after == {"p1": hands["p1"] + 1, "p2": hands["p2"] + 1}  # (the spell left the hand: hand + 1 permanent each)
+    assert {c.name for c in s.state.cards.values() if c.zone.endswith(":battlefield")} <= {"Forest", "Island"}  # (only lands the players chose to put onto the battlefield)
+    for p, n in (("p1", 2), ("p2", 1)):  # draws that many: hand + the lands they put out
+        assert len([c for c in s.state.cards.values() if c.zone in (f"{p}:hand", f"{p}:battlefield")]) == n
     assert now(s, spell).zone.endswith(":exile")
     check(s)
