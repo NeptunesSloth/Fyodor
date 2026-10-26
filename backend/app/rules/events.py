@@ -101,7 +101,8 @@ _DAMAGE_TO = {"": "any", " to a player": "player", " to a creature": "creature",
               " to one or more players": "players", " to your opponents": "opponents",
               " to one or more of your opponents": "opponents", " to ~": "self", " to one or more creatures": "creatures",
               " to one or more blocking creatures": "creatures",
-              " to you or a permanent you control": "you_or_perm110b"}  # -- one-card wordings (wave 110B) -- Flameblade Angel  # (-- one-card wordings (wave 110B) -- Arashin War Beast: the cond's "blocking110b")
+              " to you or a permanent you control": "you_or_perm110b",
+              " to you or a white creature you control": "you_or_white110f"}  # (wave 110F: Mangara's Equity)  # -- one-card wordings (wave 110B) -- Flameblade Angel  # (-- one-card wordings (wave 110B) -- Arashin War Beast: the cond's "blocking110b")
 _ONE_OR_MORE_TO = (" to one or more players", " to your opponents", " to one or more of your opponents")  # (wave 39B)
 _DAMAGE_TO_RE = "|".join(re.escape(k) for k in sorted(_DAMAGE_TO, key=len, reverse=True) if k)
 # 508.3a / 508.3b / 508.3e / 508.6: whom an attack was declared against

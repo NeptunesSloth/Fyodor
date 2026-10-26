@@ -761,6 +761,7 @@ def _damage_facts(plan: Plan, e: Event) -> list[Fact]:
                   "recipient_ctl110b": got[0].controller if got is not None else None,  # (-- one-card wordings (wave 110B) -- a permanent's controller)
                   "recipient_toughness110b": sba.toughness(got[0], got[1]) if got is not None and recipient_is_creature else None,  # (wave 110B: Taii Wakeen)
                   "recipient_blocking110b": got is not None and bool(got[0].blocking),  # (-- one-card wordings (wave 110B) -- 509.1g: a blocker)
+                  "recipient_colors110f": sorted(got[1].colors) if got is not None else [],  # (wave 110F: Mangara's Equity, "a white creature you control", as it was)
                   "recipient_subtypes": list(got[1].subtypes) if got is not None else []}  # (wave 15B)
     dealt_info["single110c"] = got is not None and e.source_targets is not None and set(e.source_targets) == {got[0].id}  # -- trigger damage (wave 110C) -- Imodane: the spell's only target
     dealt_info["recipient_blocking110c"] = got is not None and got[0].is_blocking  # -- blocking recipient (wave 110C) -- Kusari-Gama
@@ -1323,6 +1324,7 @@ def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: F
         recipient = info.get("recipient")
         if (to == "player" and recipient is None) or (to == "you" and recipient != you) or \
                 (to == "you_or_perm110b" and you not in (recipient, info.get("recipient_ctl110b"))) or \
+                (to == "you_or_white110f" and recipient != you and not (info.get("recipient_creature") and info.get("recipient_ctl110b") == you and "W" in (info.get("recipient_colors110f") or ()))) or \
                 (to == "creature_or_opponent" and not (info.get('recipient_creature') or recipient is not None and recipient != you)) or \
                 (to == "opponent" and (recipient is None or recipient == you)) or \
                 (to == "creature" and not info.get("recipient_creature")) or \

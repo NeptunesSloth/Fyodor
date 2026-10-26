@@ -200,3 +200,59 @@ def test_worms_any_player_pays_or_takes_damage_to_destroy_it(cards, p2, p1, surv
     assert (forests, forests2) == (3 - (2 if p1 == "sac" else 0), 3 - (2 if p2 == "sac" else 0))
     assert life(s, "p2") == 40 - (5 if p2 == "hit" else 0) and life(s, "p1") == 40 - (5 if p1 == "hit" else 0)
     check(s)
+
+
+_EQUITY = ("As this enchantment enters, choose black or red.\nAt the beginning of your upkeep, sacrifice this enchantment unless you pay {1}{W}.\n"
+           "Whenever a creature of the chosen color deals damage to you or a white creature you control, this enchantment deals that much damage to that creature.")
+_ADD3 = [
+    real("Mangara's Equity", '{2}{W}', 3, 'Enchantment', _EQUITY, None, 'W'),
+    real('Test Red Atk 110F', '{2}{R}', 3, 'Creature — Giant', '', ('3', '5'), 'R'),
+    real('Test Black Atk 110F', '{2}{B}', 3, 'Creature — Giant', '', ('3', '5'), 'B'),
+    real('Test White Guard 110F', '{3}{W}', 4, 'Creature — Giant', '', ('1', '6'), 'W'),
+    real('Test Black Guard 110F', '{3}{B}', 4, 'Creature — Giant', '', ('1', '6'), 'B'),
+]
+_BASE.extend(_ADD3)
+
+
+def test_equity_full(cards):
+    assert coverage.of_card_data(cards.resolve("Mangara's Equity")).level == "FULL"
+
+
+@pytest.mark.parametrize("attacker,guard,hit", [
+    ("Test Red Atk 110F", None, True),  # damage to you
+    ("Test Red Atk 110F", "Test White Guard 110F", True),  # damage to a white creature you control
+    ("Test Red Atk 110F", "Test Black Guard 110F", False),  # a non-white creature
+    ("Test Black Atk 110F", None, False),  # not the chosen color
+    ("Test Black Atk 110F", "Test White Guard 110F", False)])
+def test_equity_returns_damage_to_chosen_color_creature(cards, attacker, guard, hit):
+    """603.2, 120.3: the chosen color (Red) creature that damages Bob or his white creature takes that much damage from the enchantment."""
+    from tests.test_rules_wave34b_activated import attack, block
+    from tests.wave36a_kit import ready
+
+    s = build(cards, [attacker], ["Mangara's Equity", *([guard] if guard else [])])
+    eq = put(s, "Mangara's Equity", "p2")
+    act(s, "p2", type="set_choice", card_id=eq.id, key="Chosen color", value="Red")
+    atk = put(s, attacker)
+    ready(s, attacker)
+    if guard:
+        g = put(s, guard, "p2")
+    attack(s, atk)
+    if guard:
+        block(s, (g, atk))
+    answer(s)
+    dealt = s.state.cards[atk.id].damage
+    assert dealt == (3 if hit else 0) + (1 if guard else 0)  # the guard hits back for 1
+    check(s)
+
+
+def test_equity_entering_choice_offers_only_black_or_red(cards):
+    """614.12a: "choose black or red" is a color choice limited to those two."""
+    s = build(cards, ["Mangara's Equity"])
+    mana(s, "p1", W=1, C=2)
+    cast(s, "Mangara's Equity")
+    d = s.state.rules.decision
+    assert sorted(o.id for o in d.options) == ["Black", "Red"]
+    answer(s, "Black")
+    eq = next(c for c in s.state.cards.values() if c.name == "Mangara's Equity")
+    assert s.state.cards[eq.id].choices["Chosen color"] == "Black"
+    check(s)
