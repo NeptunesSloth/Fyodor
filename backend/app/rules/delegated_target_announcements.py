@@ -141,12 +141,18 @@ def _source(plan: Plan, frame: Announcement) -> tuple[Any, Any, Any]:
     return card, ch, ability
 
 
+def cast_action(frame: Announcement) -> A.CastSpell:
+    action = A.parse_action(frame.intent)
+    assert isinstance(action, A.CastSpell)
+    return action
+
+
 def _legal(plan: Plan, frame: Announcement, *, first: bool = False) -> list[str]:
     from app.rules import casting, scripts, targets
 
     _source(plan, frame)
     spell = frame.text == ''
-    source = (casting._target_source(plan, A.parse_action(frame.intent)) if spell
+    source = (casting._target_source(plan, cast_action(frame)) if spell
               else targets.source_of(plan, frame.source_card, object_id=frame.source_object))
     selector = scripts.target_groups(frame.definition)[0 if first else 1]['what'] if frame.mode in ('target_controller', OWN) else 'creature'
     legal = targets.legal_targets(plan, selector, frame.actor, source, frame.source_card, **({} if spell else {'source_object': frame.source_object}))
@@ -171,17 +177,17 @@ def announce(plan: Plan, action: A.CastSpell | A.ActivateAbility, definition_: d
 
         if list(action.targets) != [plan.delegated110d]:
             raise ActionError('The chosen opponent must select this spell’s target')
-        return casting.ChosenTargets(flat=[casting.target_ref(plan, plan.delegated110d)])
+        return casting.ChosenTargets(flat=[casting.target_ref(plan, str(plan.delegated110d))])
     if mode is None:
         raise ActionError('Unsupported delegated target announcement')
     if action.targets and (mode == 'opponent' or len(action.targets) != 1):
         raise ActionError('The chosen opponent must select this ability’s target')
     card = plan.state.cards[action.card_id]
     ch = plan.ch(card)
-    ability = None if spell else next((a for a in ch.abilities if a.index == action.ability), None)
+    ability = None if isinstance(action, A.CastSpell) else next((a for a in ch.abilities if a.index == action.ability), None)
     if not spell and (ability is None or ability.kind != 'activated'):
         raise ActionError('This ability has no supported delegated target announcement')
-    frame = Announcement(plan.actor, card.id, plan.oid(card), -1 if ability is None else action.ability, '' if ability is None else ability.text,
+    frame = Announcement(plan.actor, card.id, plan.oid(card), -1 if ability is None or isinstance(action, A.CastSpell) else action.ability, '' if ability is None else ability.text,
                          action.model_dump(mode='json', exclude={'r', 'actor', 'ts'}), what, definition_, mode)
     if not _legal(plan, frame, first=mode != 'opponent') or not _legal(plan, frame):
         raise ActionError(f'{what} has no legal target')

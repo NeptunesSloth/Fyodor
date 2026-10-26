@@ -58,3 +58,7 @@
 - Braided Net: "for as long as it remains tapped" refers to the target; durations only track the source.
 - Evangelize, Mausoleum Turnkey, Arena: "of an opponent's choice" target announcement exists only for activated abilities (delegated_target_announcements); spells and triggers lack it.
 - Reap: X fixed as the spell is cast, which sets the number of targets.
+
+## Session 15
+- Fabrication Foundry: needs a variable-count exact-total exile cost ("one or more other artifacts with total mana value X", X announced). Foundation work (new cost kind beside COLLECT_EVIDENCE in cost_payment/casting/mana), not unsettled rules. Next session.
+- Volcanic Offering: four targets, two of them "of an opponent's choice" (spell with own+opponent pairs, 601.2c; per-pair opponent choice unsettled for several opponents). Extend delegated_target_announcements OWN mode to spells with groups.

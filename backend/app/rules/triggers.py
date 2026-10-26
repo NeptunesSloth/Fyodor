@@ -489,6 +489,8 @@ def _facts(plan: Plan, e: Event, window: dict[str, Any]) -> list[Fact]:
     if e.kind in ("tapped", "untapped", "turned_face_up"):  # (turned_face_up: wave 18A, 702.37e)
         got = _object_then(plan, e.card, e.object_id)
         return [(e.kind, got[0], got[1], got[0].controller, {"oid": e.object_id, "tapper": e.actor, "declared": e.combat, "step_phase": e.step_phase, "active_player": e.active_player})] if got is not None else []
+    if e.kind == "life_paid":  # -- life paid (wave 110D) -- 119.4: "Whenever you pay life"
+        return [("pay_life", None, None, e.player, {"amount": e.amount})]
     if e.kind in ("life_gain", "life_loss"):
         return [("gain_life" if e.kind == "life_gain" else "lose_life", None, None, e.player, {"amount": e.amount, **({"life_operation": e.group} if e.kind == "life_loss" and e.group else {})})]
     if e.kind == "spell_cast":

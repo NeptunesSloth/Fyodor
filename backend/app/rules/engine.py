@@ -1154,7 +1154,7 @@ def resolve_top_of_stack(plan: Plan) -> None:
         return
     if ep.get("life"):
         from app.rules import replace as _replace_life  # (wave 28B: 119.4)
-        _replace_life.lose_life(plan, [(controller, int(ep["life"]))], actor=controller)
+        _replace_life.lose_life(plan, [(controller, int(ep["life"]))], actor=controller, paid=True)
     # -- entering for a cost (wave 5G) -- paid as it would enter, or it goes to its owner's graveyard instead (614.6)
     from app.rules import enter_cost
 
@@ -1395,7 +1395,7 @@ def play_land(plan: Plan, a: A.PlayLand) -> None:
         played_chars.of(plan.state.cards[card.id], plan.info), plan.ch(plan.state.cards[card.id]))
     if ep.get("life"):
         from app.rules import replace as _replace_life  # (wave 28B: 119.4)
-        _replace_life.lose_life(plan, [(plan.actor, int(ep["life"]))])
+        _replace_life.lose_life(plan, [(plan.actor, int(ep["life"]))], paid=True)
     # -- entering for a cost (wave 5G) -- the land was played (305.1); its entering is what the payment replaces
     from app.rules import enter_cost
 

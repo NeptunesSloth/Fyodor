@@ -625,6 +625,7 @@ class Life(Base):
     player: Id | None = None
     delta: int = Field(ge=-100000, le=100000)
     group: int = Field(default=0, ge=0)  # Native simultaneous life-loss operation receipt.
+    paid: bool = False  # the loss is a payment of life (119.4): "whenever you pay life" (wave 110D)
 
 
 class SetLife(Base):

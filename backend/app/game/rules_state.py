@@ -398,6 +398,7 @@ EventKind = Literal[
     "damage_prevented",  # Actual committed prevention, distinct from damage dealt.
     "damage",  # damage dealt (to a creature, planeswalker or player): not the same as life loss
     "life_loss",
+    "life_paid",  # life paid as a cost or payment (119.4), beside the life_loss it causes (wave 110D)
     "life_gain",
     "counters",  # counters put on / removed from an object (amount signed)
     "player_counters",  # poison, energy, experience, rad, tickets … (amount signed)

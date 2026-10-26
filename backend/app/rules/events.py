@@ -121,6 +121,7 @@ _DEFENDER_RE = "|".join(re.escape(k) for k in sorted(_DEFENDERS, key=len, revers
 _PLAYER_VERBS = [
     (r"gains? life", "gain_life"),
     (r"loses? life", "lose_life"),
+    (r"pays? life", "pay_life"),  # (wave 110D) 119.4: life paid as a cost, event life_paid
     (r"draws? a card", "draw"),
     (r"attacks?", "you_attack"),
 ]

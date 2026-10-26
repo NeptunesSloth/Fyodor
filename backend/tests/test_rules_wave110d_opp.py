@@ -131,7 +131,7 @@ def test_diaochan_destroys_in_order(cards):
 def test_echo_chamber_copy_of_their_creature(cards):
     s = build(cards, ["Echo Chamber", "Grizzly Bears"], ["Llanowar Elves", "Grizzly Bears"])
     ec = put_new(s, "Echo Chamber")
-    mine = put_new(s, "Grizzly Bears")
+    put_new(s, "Grizzly Bears")
     theirs = put_new(s, "Llanowar Elves", "p2")
     to_phase(s, "main1", turn=3)
     mana(s, "p1", C=4)
