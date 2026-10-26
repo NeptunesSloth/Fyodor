@@ -77,6 +77,8 @@ _LAZAV = ("Whenever you commit a crime, put a +1/+1 counter on ~. Then you may e
           "~ become a copy of that card until end of turn. This ability triggers only once each turn.")
 _STRIP = ("{3}, {T}: Until end of turn, you may cast instant and sorcery spells from the top of your graveyard. If a spell cast this way would be put into a "
           "graveyard, exile it instead.")
+_WITCHES = "{T}: ~ deals 1 damage to any target and 1 damage to any target of an opponent's choice."
+_MAGUS = ("{3}, {T}: Tap target creature you control and target creature of an opponent's choice they control. Those creatures fight each other.")
 _OKO_TYPES = "+2: Up to one target creature gains all creature types."
 _OKO_EMBLEM = ('−6: Choose a creature type. You get an emblem with "Creatures you control of the chosen type get +3/+3 and have vigilance and '
                'hexproof."')
@@ -96,6 +98,17 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
         if native is None:
             return None
         return {**native, "effects": [{"do": "type_emblem110o"}]}
+    if ability.kind == "activated" and text == _WITCHES:  # 115.1d-style delegation: an opponent (the activator's choice) announces the second target
+        native = scripts.define(replace(ability, text="{T}: ~ deals 1 damage to any target and 1 damage to any target."), ch)
+        if native is None or len(native.get("targets") or []) != 2:
+            return None
+        return {**native, "delegated_target": "opponent_second"}
+    if ability.kind == "activated" and text == _MAGUS:
+        native = scripts.define(replace(ability, text="{3}, {T}: Tap target creature you control and target creature an opponent controls."), ch)
+        if native is None or [e["do"] for e in native["effects"]] != ["tap", "tap"] or len(native.get("targets") or []) != 2:
+            return None
+        return {**native, "delegated_target": "opponent_second", "delegated_controls110d": True,
+                "effects": [*native["effects"], {"do": "fight", "who": "target:0", "with": "target:1"}]}
     if ability.kind == "activated" and text == _STRIP:  # 404.1: only the top card (the last one put there) may be cast, judged as each cast is announced
         native = scripts.define(replace(ability, text=_STRIP.replace("from the top of your graveyard", "from your graveyard")), ch)
         if native is None or [e["do"] for e in native["effects"]] != ["grant_play"]:

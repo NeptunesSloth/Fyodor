@@ -14,6 +14,7 @@
 * 603.4, 113.6k: Syrix, Carrier of the Flame fires at each end step if a creature card left its owner's graveyard, and may be cast from the graveyard when another Phoenix dies.
 * 608.2d, 707.9: Lazav, Familiar Stranger grows when its controller commits a crime, may exile any graveyard card, and may copy a creature card so exiled.
 * 404.1, 601.3, 614.1a: Bösium Strip lets its controller cast an instant or sorcery card only from the top of their graveyard, and exiles it afterwards.
+* 115.1, 608.2d: Cuombajj Witches / Magus of the Arena: the second target is chosen by an opponent (the activator's choice of which), announced before the costs.
 * 701.24a, 608.2b: Serene Remembrance shuffles itself and up to three target cards from a single graveyard into their owners' libraries.
 """
 
@@ -51,10 +52,10 @@ from tests.wave110o_kit import (  # noqa: F401
     to_phase,
 )
 
-REMEMBRANCE, THRALL, SANDS, RACER, LOCKER, HELM, PORTENT, WITCH, RINOA, SYRIX, LAZAV, STRIP, OKO = "Serene Remembrance", "Evil's Thrall", "Reverse the Sands", "Filigree Racer", "The Grim Captain's Locker", "Helm of Obedience", "Portent of Calamity", "Scarlet Witch, Chaotic Avenger", "Rinoa, Angel Wing", "Syrix, Carrier of the Flame", "Lazav, Familiar Stranger", "Bösium Strip", "Oko, Lorwyn Liege // Oko, Shadowmoor Scion"
+REMEMBRANCE, THRALL, SANDS, RACER, LOCKER, HELM, PORTENT, WITCH, RINOA, SYRIX, LAZAV, STRIP, WITCHES, MAGUS, OKO = "Serene Remembrance", "Evil's Thrall", "Reverse the Sands", "Filigree Racer", "The Grim Captain's Locker", "Helm of Obedience", "Portent of Calamity", "Scarlet Witch, Chaotic Avenger", "Rinoa, Angel Wing", "Syrix, Carrier of the Flame", "Lazav, Familiar Stranger", "Bösium Strip", "Cuombajj Witches", "Magus of the Arena", "Oko, Lorwyn Liege // Oko, Shadowmoor Scion"
 
 
-@pytest.mark.parametrize("name", [REMEMBRANCE, THRALL, SANDS, RACER, LOCKER, HELM, PORTENT, WITCH, RINOA, SYRIX, LAZAV, STRIP, OKO])
+@pytest.mark.parametrize("name", [REMEMBRANCE, THRALL, SANDS, RACER, LOCKER, HELM, PORTENT, WITCH, RINOA, SYRIX, LAZAV, STRIP, WITCHES, MAGUS, OKO])
 def test_the_cards_are_full(name):
     assert full(name)
 
@@ -819,4 +820,79 @@ def test_bosium_strip_without_its_activation_allows_nothing(cards):
     mana(s, "p1", R=1)
     with pytest.raises(ActionError):
         act(s, "p1", type="cast_spell", card_id=bolt.id, targets=["p2"])
+    check(s)
+
+
+def ready(s, c):
+    s.state.rules.controlled_since[c.id].turn = 0
+    return c
+
+
+def go(s, c, start, targets=(), mana_pool=None):
+    if mana_pool:
+        mana(s, "p1", **mana_pool)
+    act(s, "p1", type="activate_ability", card_id=c.id, ability=ability(s, c, start), targets=list(targets), **({"target_counts": [1]} if targets else {}))
+
+
+def pick_for(s, pid, option):
+    d = s.state.rules.decision
+    assert d is not None and d.player == pid, (d and d.player, pid)
+    assert option in {o.id for o in d.options}, (option, [o.id for o in d.options])
+    act(s, pid, type="choose", decision_id=d.id, option_ids=[option])
+
+
+@pytest.mark.parametrize("second", ["p1", "p2", "bears"])
+def test_cuombajj_witches_second_target_is_the_opponents_choice(cards, second):
+    s = build(cards, [WITCHES, "Grizzly Bears"])
+    w = ready(s, put(s, WITCHES))
+    bears = put(s, "Grizzly Bears")
+    go(s, w, "{T}")  # (no target announced by Alice: she picks the first one now)
+    d = s.state.rules.decision
+    assert d.player == "p1"
+    pick_for(s, "p1", "p2")  # her own target: Bob
+    pick_for(s, "p2", bears.id if second == "bears" else second)  # (Bob chooses the second: anything, even Alice's own creature)
+    settle(s)
+    assert now(s, w).tapped
+    assert life(s, "p2") == (39 - (second == "p2")) and life(s, "p1") == 40 - (second == "p1") and (now(s, bears).damage == 1) == (second == "bears")
+    check(s)
+
+
+def test_cuombajj_witches_with_two_opponents_the_activator_picks_who_chooses(cards):
+    s = table(cards, [WITCHES], [], [])
+    w = ready(s, put(s, WITCHES))
+    go(s, w, "{T}")
+    pick_for(s, "p1", "p2")
+    pick_for(s, "p1", "p3")  # Alice picks Carol as the chooser
+    d = s.state.rules.decision
+    assert d.player == "p3" and not s.view("p1")["rules"]["decision"].get("options")
+    pick_for(s, "p3", "p1")
+    settle(s)
+    assert (life(s, "p1"), life(s, "p2"), life(s, "p3")) == (39, 39, 40)
+    check(s)
+
+
+def test_magus_of_the_arena_the_chosen_opponent_picks_one_of_their_own_creatures_and_the_two_fight(cards):
+    s = table(cards, [MAGUS, "Grizzly Bears"], ["Grizzly Bears"], ["Benalish Hero"])
+    m = ready(s, put(s, MAGUS))
+    mine = put(s, "Grizzly Bears")
+    bob_bears = put(s, "Grizzly Bears", "p2")
+    carol = put(s, "Benalish Hero", "p3")
+    go(s, m, "{3}", [], {"C": 3})
+    pick_for(s, "p1", mine.id)
+    pick_for(s, "p1", "p3")  # Alice has Carol choose
+    d = s.state.rules.decision
+    assert d.player == "p3" and {o.id for o in d.options} == {carol.id}  # (their own creature only: not Bob's)
+    pick_for(s, "p3", carol.id)
+    settle(s)
+    assert now(s, mine).tapped and now(s, m).tapped  # (Carol's Hero was tapped too; it died in the fight)
+    assert now(s, carol).zone == "p3:graveyard" and now(s, mine).damage == 1 and now(s, bob_bears).zone == "p2:battlefield"
+    check(s)
+
+
+def test_cuombajj_witches_alice_cannot_name_the_opponents_target_herself(cards):
+    s = build(cards, [WITCHES])
+    w = ready(s, put(s, WITCHES))
+    with pytest.raises(ActionError):
+        act(s, "p1", type="activate_ability", card_id=w.id, ability=ability(s, w, "{T}"), targets=["p2", "p2"], target_counts=[1, 1])
+    assert not now(s, w).tapped and not s.state.zones.get("stack")
     check(s)

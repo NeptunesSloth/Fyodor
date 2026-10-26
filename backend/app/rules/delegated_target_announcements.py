@@ -61,13 +61,13 @@ def _mode(definition_: dict[str, Any]) -> str | None:
     marker = definition_.get('delegated_target')
     if marker == 'opponent':
         return 'opponent'
-    if marker == {'kind': 'target_controller', 'of': 0, 'group': 1}:
+    if marker in ({'kind': 'target_controller', 'of': 0, 'group': 1}, 'opponent_second'):  # -- (wave 110O) -- 'opponent_second': an opponent of the activator's choice picks group 1
         from app.rules import scripts
 
         specs = scripts.target_groups(definition_)
         if len(specs) == 2 and all(s.get('min', 1) == s.get('max', 1) == 1
                                    and set(s) <= {'what', 'min', 'max'} and s.get('what') for s in specs):
-            return 'target_controller'
+            return 'target_controller' if marker != 'opponent_second' else 'opponent_second'
     return None
 
 
@@ -98,9 +98,9 @@ def _legal(plan: Plan, frame: Announcement, *, first: bool = False) -> list[str]
 
     _source(plan, frame)
     source = targets.source_of(plan, frame.source_card, object_id=frame.source_object)
-    selector = scripts.target_groups(frame.definition)[0 if first else 1]['what'] if frame.mode == 'target_controller' else 'creature'
+    selector = scripts.target_groups(frame.definition)[0 if first else 1]['what'] if frame.mode in ('target_controller', 'opponent_second') else 'creature'
     legal = targets.legal_targets(plan, selector, frame.actor, source, frame.source_card, source_object=frame.source_object)
-    if frame.definition.get('delegated_controls110d') and frame.opponent:
+    if frame.definition.get('delegated_controls110d') and frame.opponent and not first:  # (-- wave 110O -- the activator's own first target is not theirs to restrict)
         legal = [c for c in legal if plan.state.cards[c].controller == frame.opponent]
     if first:
         from app.rules import flagbearer86
@@ -128,7 +128,7 @@ def announce(plan: Plan, action: A.CastSpell | A.ActivateAbility, definition_: d
                          action.model_dump(mode='json', exclude={'r', 'actor', 'ts'}), what, definition_, mode)
     if not _legal(plan, frame, first=mode == 'target_controller') or not _legal(plan, frame):
         raise ActionError(f'{what} has no legal target')
-    if mode == 'target_controller':
+    if mode in ('target_controller', 'opponent_second'):
         if action.targets:
             _first_target(plan, frame, action.targets[0])
         else:
@@ -152,6 +152,17 @@ def _first_target(plan: Plan, frame: Announcement, cid: str) -> None:
     if cid not in _legal(plan, frame, first=True):
         raise ActionError('The first target is not legal for the original activator')
     first = casting.target_ref(plan, cid).model_dump(mode='json')
+    if frame.mode == 'opponent_second':  # -- (wave 110O) -- the activator chooses which opponent chooses (608.2d-style: "of an opponent's choice")
+        from app.rules.plan import decide
+
+        frame = replace(frame, first=first)
+        opponents = [pid for pid in plan.live() if pid != frame.actor]
+        if len(opponents) == 1:
+            _creature_choice(plan, replace(frame, opponent=opponents[0]))
+        else:
+            decide(plan, player=frame.actor, kind='choose_one', prompt=f'Choose an opponent to select the second target for {frame.name}',
+                   options=[DecisionOption(id=pid, label=plan.name(pid)) for pid in opponents], resume=_resume(OPPONENT, frame))
+        return
     frame = replace(frame, first=first, opponent=plan.state.cards[cid].controller)
     _creature_choice(plan, frame)
 
@@ -165,7 +176,7 @@ def _creature_choice(plan: Plan, frame: Announcement) -> None:
         if frame.first is not None:
             cid = frame.first['id']
             if (cid not in _legal(plan, frame, first=True)
-                    or plan.oid(cid) != frame.first.get('object_id')):
+                    or (cid in plan.state.cards and plan.oid(cid) != frame.first.get('object_id'))):  # (-- wave 110O -- a player target has no object id)
                 raise ActionError('The original first target is no longer legal')
     except ActionError as exc:
         _invalid(plan, frame, str(exc))
@@ -174,7 +185,7 @@ def _creature_choice(plan: Plan, frame: Announcement) -> None:
         _invalid(plan, frame, 'The original ability has no legal target or choosing player')
         return
     assert frame.opponent is not None
-    decide(plan, player=frame.opponent, kind='choose_one', prompt=f'Choose a creature target for {frame.name}',
+    decide(plan, player=frame.opponent, kind='choose_one', prompt=f'Choose a target for {frame.name}' if frame.mode == 'opponent_second' else f'Choose a creature target for {frame.name}',
            options=[DecisionOption(id=cid, label=casting.target_label(plan, cid), card_id=cid) for cid in legal],
            resume=_resume(CREATURE, frame))
 
@@ -199,7 +210,12 @@ def resume_opponent(plan: Plan, decision: Any, chosen: list[str]) -> None:
         return
     if decision.resume.get('invalid'):
         raise ActionError('Only the original activator may cancel this invalid announcement')
-    if frame.mode == 'target_controller':
+    if frame.mode == 'opponent_second' and frame.first is not None:  # -- (wave 110O) -- the opponent the activator chose
+        if len(chosen) != 1 or chosen[0] == frame.actor or chosen[0] not in plan.live():
+            raise ActionError('Choose an opponent still in the game')
+        _creature_choice(plan, replace(frame, opponent=chosen[0]))
+        return
+    if frame.mode in ('target_controller', 'opponent_second'):
         if len(chosen) != 1:
             raise ActionError('Choose one first target')
         try:
@@ -223,7 +239,8 @@ def resume_creature(plan: Plan, decision: Any, chosen: list[str]) -> None:
         card, ch, ability = _source(plan, frame)
         legal = _legal(plan, frame)
         if frame.first is not None and (frame.first['id'] not in _legal(plan, frame, first=True)
-                                       or plan.oid(frame.first['id']) != frame.first.get('object_id')):
+                                       or (frame.first['id'] in plan.state.cards
+                                           and plan.oid(frame.first['id']) != frame.first.get('object_id'))):  # (-- wave 110O -- a player target has no object id)
             raise ActionError('The original first target is no longer legal')
     except ActionError as exc:
         _invalid(plan, frame, str(exc))
