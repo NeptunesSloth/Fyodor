@@ -11,6 +11,7 @@ import pytest
 
 from app.game.errors import ActionError
 from app.rules import coverage
+from app.rules.mana_units import visible_pool
 from tests.game_helpers import act
 from tests.test_rules_wave34b_activated import ask, next_turn, settle
 from tests.wave9c_kit import build, card_named, check, pt, put
@@ -39,7 +40,7 @@ def tap_for_mana(s, c):
 
 
 def pool(s, pid="p1"):
-    return {k: v for k, v in s.state.players[pid].mana.items() if v}
+    return {k: v for k, v in visible_pool(s.state, pid).items() if v}
 
 
 def test_katilda_gives_a_human_mana_of_one_of_its_own_colors(cards):
