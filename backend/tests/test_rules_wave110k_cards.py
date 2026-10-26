@@ -13,6 +13,8 @@
 * 113.6m: Skyblade's Boon returns itself to its owner's hand from the battlefield (the Aura leaves its creature) or from its owner's graveyard, and from nowhere else.
 * 611.2b: Old Man of the Sea keeps a creature (power at most his) while he stays tapped and its power stays at most his; he may skip untapping (502.3).
 * 302.6, 508.1: Frenzied Saddlebrute lets every summoning-sick creature attack the opponents of its controller (and their planeswalkers), no one else.
+* 701.55a, 701.55b: This Is How It Ends shuffles the creature away, then its owner faces the choice: lose 5 life, or shuffle another creature they own
+  (nothing if they own none).
 * 602.2b, 118.3: Bullseye, Death Dealer's activation cost is a choice announced with the activation: sacrifice an artifact or discard a nonland card.
 """
 
@@ -546,4 +548,70 @@ def test_an_opponents_sick_creature_attacks_the_saddlebrute_opponents_planeswalk
     else:
         with pytest.raises(ActionError):
             act(s, "p2", type="declare_attackers", attackers=[declare])
+    check(s)
+
+
+# -- This Is How It Ends --
+def test_this_is_how_it_ends_is_full():
+    assert full("This Is How It Ends")
+
+
+def _ends(cards, second_creature=True, controlled_by_caster=False):
+    s = build(cards, ["This Is How It Ends"], ["Grizzly Bears", "Elvish Visionary"])
+    victim = put_new(s, "Grizzly Bears", "p2")
+    other = put_new(s, "Elvish Visionary", "p2") if second_creature else None
+    d = s.state.rules.decision
+    while d is not None:  # (the Visionary's draw)
+        act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: max(1, d.min_choices)])
+        d = s.state.rules.decision
+    if controlled_by_caster:
+        act(s, "p1", type="set_controller", card_ids=[victim.id], player="p1")
+    c = to_hand(s, "This Is How It Ends")
+    mana(s, B=2, C=4)
+    act(s, "p1", type="cast_spell", card_id=c.id, targets=[victim.id])
+    for _ in range(10):
+        if s.state.rules.decision is not None:
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+    return s, victim, other
+
+
+def _pick(s, option, who="p2"):
+    d = s.state.rules.decision
+    assert d is not None and d.player == who and [o.id for o in d.options] == ["a", "b"]
+    act(s, who, type="choose", decision_id=d.id, option_ids=[option])
+
+
+def test_this_is_how_it_ends_owner_loses_five_life(cards):
+    s, victim, other = _ends(cards)
+    _pick(s, "a")
+    settle(s)
+    assert now(s, victim).zone == "p2:library" and now(s, other).zone == "p2:battlefield" and life(s, "p2") == 35
+    check(s)
+
+
+def test_this_is_how_it_ends_owner_shuffles_another_creature_instead(cards):
+    s, victim, other = _ends(cards)
+    _pick(s, "b")
+    d = s.state.rules.decision
+    assert d is not None and d.player == "p2" and [o.id for o in d.options] == [other.id]
+    act(s, "p2", type="choose", decision_id=d.id, option_ids=[other.id])
+    settle(s)
+    assert now(s, victim).zone == "p2:library" and now(s, other).zone == "p2:library" and life(s, "p2") == 40
+    check(s)
+
+
+def test_this_is_how_it_ends_with_no_other_creature_the_second_option_does_nothing(cards):
+    s, victim, other = _ends(cards, second_creature=False)
+    _pick(s, "b")
+    settle(s)
+    assert now(s, victim).zone == "p2:library" and life(s, "p2") == 40
+    check(s)
+
+
+def test_this_is_how_it_ends_the_owner_not_the_controller_faces_the_choice(cards):
+    s, victim, _ = _ends(cards, controlled_by_caster=True)
+    _pick(s, "a")  # Bob owns it, so Bob decides (and loses the life), not Alice who controlled it
+    settle(s)
+    assert life(s, "p2") == 35 and life(s, "p1") == 40
     check(s)

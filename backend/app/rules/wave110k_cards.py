@@ -124,6 +124,44 @@ def extra_combat_after_first(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) 
     return True
 
 
+def villain110k(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """villainous.villain for a spell: the player who faces the choice is not an event's player (a spell has no event), so the options carry a marker that
+    becomes "that player" as the choice begins."""
+    import json
+
+    from app.rules import villainous
+
+    return villainous.villain(plan, ctx, {**json.loads(json.dumps(e).replace("THAT110K", "event_player")), "do": "villain"})
+
+
+def shuffle_other(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """"They shuffle another creature they own into their library": the player picks one of the creatures they own on the battlefield (other than the one
+    just shuffled away: it isn't there any more), nothing if they own none (701.55b)."""
+    from app.rules import effects
+
+    pid = effects._players(plan, ctx, e["who"])
+    if not pid:
+        return True
+    mine = [c.id for c in plan.state.cards.values() if c.zone.endswith(":battlefield") and c.owner == pid[0] and plan.in_game(c) and plan.ch(c).is_creature]
+    if not mine:
+        plan.note(f"{plan.name(pid[0])} owns no other creature to shuffle into their library")
+        return True
+    effects.decide(plan, player=pid[0], kind="choose_cards", prompt=f"{ctx.get('name') or 'It'}: choose a creature you own to shuffle into your library",
+                   min_choices=1, max_choices=1, options=[effects.DecisionOption(id=c, label=plan.state.cards[c].name or "Creature", card_id=c) for c in mine],
+                   resume={"step": "shuffle_other110k", "ctx": ctx, "mine": mine})
+    return False
+
+
+def resume_shuffle_other(plan: Any, d: Any, chosen: list[str]) -> None:
+    from app.rules import effects
+
+    ctx = d.resume["ctx"]
+    if len(chosen) != 1 or chosen[0] not in d.resume["mine"]:
+        raise ValueError("not one of the creatures")
+    if effects.PRIMITIVES["to_library"](plan, ctx, {"do": "to_library", "who": f"object:{plan.oid(chosen[0])}", "place": "shuffle"}):
+        effects.continue_effects(plan, ctx)
+
+
 def return_self_hand(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     """"Return ~ to its owner's hand" from the battlefield (bounce) or from the graveyard (the same object, 400.7: if it moved since, nothing)."""
     from app.rules import effects
@@ -143,8 +181,8 @@ from app.rules import delayed as _delayed  # noqa: E402
 
 _delayed.LABELS["source_tapped_power110k"] = "for as long as ~ remains tapped and its power is at most ~'s"
 
-PRIMITIVES = {"extra_combat_after_first110k": extra_combat_after_first, "return_self_hand110k": return_self_hand, "opponent_mode110k": opponent_mode, "as_controller110k": as_controller, "phase_out_hold110k": phase_out_hold}
-RESUME = {"opponent_mode110k": resume_opponent_mode}
+PRIMITIVES = {"villain110k": villain110k, "shuffle_other110k": shuffle_other, "extra_combat_after_first110k": extra_combat_after_first, "return_self_hand110k": return_self_hand, "opponent_mode110k": opponent_mode, "as_controller110k": as_controller, "phase_out_hold110k": phase_out_hold}
+RESUME = {"opponent_mode110k": resume_opponent_mode, "shuffle_other110k": resume_shuffle_other}
 
 
 # -- spell bodies: the whole body -> (the wording the grammar reads, what to do with its effects) --
@@ -164,6 +202,8 @@ def _flourish(effects: list[Def]) -> list[Def] | None:
 
 
 _ICE = "Destroy target land that is snow or could produce {C}."
+_ENDS = ("Target creature's owner shuffles it into their library, then faces a villainous choice — They lose 5 life, or they shuffle another creature they "
+         "own into their library.")
 _ICE_EACH = "Destroy each land that is snow or could produce {C}."  # (overload, 702.96a: "target" read as "each")
 _SHIP = ("After the first combat phase this turn, there's an additional combat phase. At the beginning of that combat, untap all creatures that attacked "
          "this turn.")
@@ -184,6 +224,16 @@ def _ship(effects: list[Def]) -> list[Def] | None:
     return [{"do": "extra_combat_after_first110k", "then": effects}]
 
 
+def _ends(effects: list[Def]) -> list[Def] | None:
+    """This Is How It Ends: the creature's owner (as it last was, 608.2h) then faces the choice (701.55a, villainous.villain)."""
+    if len(effects) != 1 or effects[0].get("do") != "to_library":
+        return None
+    return [{**effects[0], "as": "e0"},
+            {"do": "villain110k", "who": "ref:e0.owner", "a": [{"do": "lose_life", "who": "THAT110K", "n": 5}],
+             "b": [{"do": "shuffle_other110k", "who": "THAT110K"}],
+             "labels": ["They lose 5 life", "They shuffle another creature they own into their library"]}]
+
+
 def _snow_or_colorless() -> str:
     """"Land that is snow or could produce {C}": either property is enough (a union, not the two together)."""
     from app.rules import selectors
@@ -193,6 +243,8 @@ def _snow_or_colorless() -> str:
 
 
 _BODIES: dict[str, tuple[str, Any]] = {
+    _ENDS: ("Shuffle target creature into its owner's library.", _ends),
+    _ENDS.replace("Target creature's owner", "The owner of target creature"): ("Shuffle target creature into its owner's library.", _ends),  # (as define reads it)
     _SHIP: ("Untap all creatures that attacked this turn.", _ship),
     _TEFERI: ("Each creature target opponent controls phases out.", _teferi),
     _ICE_EACH: ("Destroy each land.", lambda effects: [{**effects[0], "who": _snow_or_colorless()}] if len(effects) == 1 else None),

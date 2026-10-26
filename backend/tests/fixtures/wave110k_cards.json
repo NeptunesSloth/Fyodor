@@ -273,5 +273,20 @@
 "keywords": [
 "Haste"
 ]
+},
+{
+"name": "This Is How It Ends",
+"layout": "normal",
+"mana_cost": "{3}{B}",
+"cmc": 4.0,
+"type_line": "Instant",
+"oracle_text": "Target creature's owner shuffles it into their library, then faces a villainous choice — They lose 5 life, or they shuffle another creature they own into their library.",
+"colors": [
+"B"
+],
+"color_identity": [
+"B"
+],
+"keywords": []
 }
 ]
