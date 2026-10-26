@@ -43,3 +43,6 @@
 - Volcanic Offering: "target ... of an opponent's choice" on a spell; delegated_target_announcements handles activated abilities only.
 - Berserker's Frenzy: roll two d20 ignore the lower + cast timing + two choosers; too many new pieces.
 - Wheel of Potential: "pay any amount of {E}" then X-sized each-player exile/draw not read by the grammar.
+- See the Unwritten: with ferocious, "you may put two creature cards ... instead of one": unsettled whether exactly one may be chosen (no CR rule or ruling in the repo); left manual.
+- Tectonic Split: "sacrifice half the lands you control, rounded up" as additional cost needs the amount bound at every cast site (about 8 callers of spell_additional_cost); not built this session, still work (not refused).
+- Tezzeret, Betrayer of Flesh: "first activated ability of an artifact you activate each turn" must count mana abilities too (605.1a); needs a per-turn record in the mana-ability path; not built this session.
