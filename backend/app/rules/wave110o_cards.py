@@ -82,6 +82,7 @@ _MAGUS = ("{3}, {T}: Tap target creature you control and target creature of an o
 _MINOTAUR = "Whenever you lose a coin flip, ~ deals 1 damage to any target of an opponent's choice."
 _WORM = ("Whenever you attack with creatures with total power 12 or greater for the first time each turn, untap all attacking creatures. After this phase, "
          "there is an additional combat phase.")
+_PHANTASM = "When ~ enters, if you guessed correctly for a card named Spire Phantasm, draw a card."
 _OKO_TYPES = "+2: Up to one target creature gains all creature types."
 _OKO_EMBLEM = ('−6: Choose a creature type. You get an emblem with "Creatures you control of the chosen type get +3/+3 and have vigilance and '
                'hexproof."')
@@ -101,6 +102,9 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
         if native is None:
             return None
         return {**native, "effects": [{"do": "type_emblem110o"}]}
+    if ability.kind == "triggered" and text == _PHANTASM:  # 905.2: a guess is made only during a draft, and a game here has none
+        native = scripts.define(replace(ability, text="When ~ enters, draw a card."), ch)
+        return None if native is None else {**native, "if": {"w110o": "guessed"}}
     if ability.kind == "triggered" and text == _WORM:  # "for the first time each turn": it triggers only the first time the attack is that strong, 603.2h
         return scripts.define(replace(ability, text=_WORM.replace(" for the first time each turn", "") + " This ability triggers only once each turn."), ch)
     if ability.kind == "triggered" and text == _MINOTAUR:  # "of an opponent's choice": the controller picks the opponent, who announces the target (115.1d-style)
@@ -201,6 +205,8 @@ def holds(plan: Plan, ctx: Context, cond: dict[str, Any]) -> bool:
     """Evil's Thrall: you control a Villain whose mana value is greater than the target creature's (the target as it is now, 608.2b)."""
     from app.rules import effects, stack_interaction
 
+    if cond["w110o"] == "guessed":
+        return False  # Spire Phantasm: no draft, no guess, so no correct guess (905.2b: the information is noted during the draft)
     if cond["w110o"] == "portent_four":
 
         return len(_bound(plan, ctx, "portent110o")) >= 4

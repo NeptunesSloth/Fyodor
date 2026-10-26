@@ -1741,5 +1741,66 @@
    "Flying",
    "Haste"
   ]
+ },
+ {
+  "name": "Arcbound Worker",
+  "layout": "normal",
+  "mana_cost": "{1}",
+  "cmc": 1.0,
+  "type_line": "Artifact Creature — Construct",
+  "oracle_text": "Modular 1 (This creature enters with a +1/+1 counter on it. When it dies, you may put its +1/+1 counters on target artifact creature.)",
+  "power": "0",
+  "toughness": "0",
+  "colors": [],
+  "color_identity": [],
+  "keywords": [
+   "Modular"
+  ]
+ },
+ {
+  "name": "Arcbound Stinger",
+  "layout": "normal",
+  "mana_cost": "{2}",
+  "cmc": 2.0,
+  "type_line": "Artifact Creature — Insect",
+  "oracle_text": "Flying\nModular 1 (This creature enters with a +1/+1 counter on it. When it dies, you may put its +1/+1 counters on target artifact creature.)",
+  "power": "0",
+  "toughness": "0",
+  "colors": [],
+  "color_identity": [],
+  "keywords": [
+   "Flying",
+   "Modular"
+  ]
+ },
+ {
+  "name": "Battlegrowth",
+  "layout": "normal",
+  "mana_cost": "{G}",
+  "cmc": 1.0,
+  "type_line": "Instant",
+  "oracle_text": "Put a +1/+1 counter on target creature.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Frogmite",
+  "layout": "normal",
+  "mana_cost": "{4}",
+  "cmc": 4.0,
+  "type_line": "Artifact Creature — Frog",
+  "oracle_text": "Affinity for artifacts (This spell costs {1} less to cast for each artifact you control.)",
+  "power": "2",
+  "toughness": "2",
+  "colors": [],
+  "color_identity": [],
+  "keywords": [
+   "Affinity"
+  ]
  }
 ]

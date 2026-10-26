@@ -157,6 +157,9 @@ def _counters(text: str) -> Definition | None:
     m = re.fullmatch(r"If you would put one or more (?P<k>\+1/\+1) counters on (?P<on>a creature you control), put that many plus one (?P=k) counters on it instead\.", text)
     if m and (on_obj := _object(m["on"])) is not None:  # -- instead (wave 100K) -- Prairie Dog: one kind of counter, put by you (122.6a, review 22C)
         return _static("counters", {"on": on_obj, "putter": "you", "counter": m["k"]}, {"do": "add", "n": 1})
+    m = re.fullmatch(r"If a modular triggered ability would put one or more (?P<k>\+1/\+1) counters on (?P<on>a creature you control), that many plus one (?P=k) counters are put on it instead\.", text)
+    if m and (on_obj := _object(m["on"])) is not None:  # -- (wave 110O) -- 702.43a: only the counters a modular triggered ability puts (replace.put_counters tags them); Zabaz
+        return _static("counters", {"on": on_obj, "counter": m["k"], "modular110o": True}, {"do": "add", "n": 1})
     m = _DOUBLING_SEASON.match(text)
     if m:
         on = _object(m["on"])

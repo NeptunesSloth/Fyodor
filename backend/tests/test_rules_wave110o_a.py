@@ -17,6 +17,8 @@
 * 115.1, 608.2d: Cuombajj Witches / Magus of the Arena: the second target is chosen by an opponent (the activator's choice of which), announced before the costs.
 * 702.24a, 705.2, 115.1: Karplusan Minotaur flips a coin per age counter; a lost flip lets an opponent (the controller's choice) pick the 1 damage's target.
 * 603.2h, 506.1, 500.8: Desert Were-Worm untaps its attackers and adds a combat phase the first time each turn it attacks with total power 12 or more.
+* 905.2b: Spire Phantasm's "if you guessed correctly" can never hold in a game that had no draft: entering draws nothing.
+* 702.43a: Zabaz, the Glimmerwasp adds one to the +1/+1 counters a modular triggered ability puts on a creature its controller controls, and to nothing else.
 * 701.24a, 608.2b: Serene Remembrance shuffles itself and up to three target cards from a single graveyard into their owners' libraries.
 """
 
@@ -54,10 +56,10 @@ from tests.wave110o_kit import (  # noqa: F401
     to_phase,
 )
 
-REMEMBRANCE, THRALL, SANDS, RACER, LOCKER, HELM, PORTENT, WITCH, RINOA, SYRIX, LAZAV, STRIP, WITCHES, MAGUS, MINOTAUR, WORM, OKO = "Serene Remembrance", "Evil's Thrall", "Reverse the Sands", "Filigree Racer", "The Grim Captain's Locker", "Helm of Obedience", "Portent of Calamity", "Scarlet Witch, Chaotic Avenger", "Rinoa, Angel Wing", "Syrix, Carrier of the Flame", "Lazav, Familiar Stranger", "Bösium Strip", "Cuombajj Witches", "Magus of the Arena", "Karplusan Minotaur", "Desert Were-Worm", "Oko, Lorwyn Liege // Oko, Shadowmoor Scion"
+REMEMBRANCE, THRALL, SANDS, RACER, LOCKER, HELM, PORTENT, WITCH, RINOA, SYRIX, LAZAV, STRIP, WITCHES, MAGUS, MINOTAUR, WORM, PHANTASM, ZABAZ, OKO = "Serene Remembrance", "Evil's Thrall", "Reverse the Sands", "Filigree Racer", "The Grim Captain's Locker", "Helm of Obedience", "Portent of Calamity", "Scarlet Witch, Chaotic Avenger", "Rinoa, Angel Wing", "Syrix, Carrier of the Flame", "Lazav, Familiar Stranger", "Bösium Strip", "Cuombajj Witches", "Magus of the Arena", "Karplusan Minotaur", "Desert Were-Worm", "Spire Phantasm", "Zabaz, the Glimmerwasp", "Oko, Lorwyn Liege // Oko, Shadowmoor Scion"
 
 
-@pytest.mark.parametrize("name", [REMEMBRANCE, THRALL, SANDS, RACER, LOCKER, HELM, PORTENT, WITCH, RINOA, SYRIX, LAZAV, STRIP, WITCHES, MAGUS, MINOTAUR, WORM, OKO])
+@pytest.mark.parametrize("name", [REMEMBRANCE, THRALL, SANDS, RACER, LOCKER, HELM, PORTENT, WITCH, RINOA, SYRIX, LAZAV, STRIP, WITCHES, MAGUS, MINOTAUR, WORM, PHANTASM, ZABAZ, OKO])
 def test_the_cards_are_full(name):
     assert full(name)
 
@@ -1023,4 +1025,52 @@ def test_desert_were_worm_extra_combat_only_with_total_power_12_and_only_the_fir
     act(s, "p1", type="counter", card_ids=[worm.id], kind="+1/+1", delta=counters)
     assert int(ch(s, worm).pt[0]) + int(ch(s, troll).pt[0]) == (12 if combats == 2 else 11)
     assert attacks_this_turn(s, [worm, troll]) == combats
+    check(s)
+
+
+def test_spire_phantasm_enters_without_drawing_since_nothing_was_guessed(cards):
+    s = build(cards, [PHANTASM])
+    hand = len(s.state.zones["p1:hand"])
+    cast_on(s, PHANTASM)
+    assert now(s, named(s, PHANTASM)).zone == "p1:battlefield" and not s.state.zones.get("stack") and s.state.rules.decision is None
+    assert len(s.state.zones["p1:hand"]) == hand  # (the spell left the hand; nothing was drawn)
+    check(s)
+
+
+def modular_death(s, stinger):
+    """An Arcbound Worker (cast: it enters with its one +1/+1 counter) dies to a Bolt; its modular trigger puts its counters on ``stinger``."""
+    worker = cast_on(s, "Arcbound Worker")
+    bolt = to_hand(s, "Lightning Bolt")
+    mana(s, "p1", R=1)
+    act(s, "p1", type="cast_spell", card_id=bolt.id, targets=[worker.id])
+    for _ in range(20):
+        d = s.state.rules.decision
+        if d is not None:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[stinger.id if stinger.id in {o.id for o in d.options} else d.options[0].id])
+        elif s.state.zones.get("stack"):
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            break
+    return worker
+
+
+@pytest.mark.parametrize(("zabaz", "mine", "added"), [(True, True, 2), (False, True, 1), (True, False, 1)])
+def test_zabaz_boosts_the_counters_a_modular_trigger_puts_on_your_creatures(cards, zabaz, mine, added):
+    s = build(cards, [ZABAZ, "Lightning Bolt", "Arcbound Worker", "Arcbound Stinger"], ["Frogmite"])
+    if zabaz:
+        cast_on(s, ZABAZ)
+    target = cast_on(s, "Arcbound Stinger") if mine else put(s, "Frogmite", "p2")
+    before = now(s, target).counters.get("+1/+1", 0)
+    worker = modular_death(s, target)
+    assert now(s, worker).zone == "p1:graveyard"
+    assert now(s, target).counters.get("+1/+1", 0) == before + added  # (the Worker's one counter, plus one more for Zabaz's controller's creature)
+    check(s)
+
+
+def test_zabaz_does_not_boost_a_plain_counter_effect(cards):
+    s = build(cards, [ZABAZ, "Battlegrowth", "Grizzly Bears"])
+    cast_on(s, ZABAZ)
+    bears = put(s, "Grizzly Bears")
+    cast_on(s, "Battlegrowth", bears)
+    assert now(s, bears).counters.get("+1/+1") == 1
     check(s)
