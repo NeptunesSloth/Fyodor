@@ -3025,5 +3025,39 @@
   "colors": [],
   "color_identity": [],
   "keywords": []
+ },
+ {
+  "name": "Lucy MacLean, Positively Armed",
+  "layout": "normal",
+  "mana_cost": "{4}{W}",
+  "cmc": 5.0,
+  "type_line": "Legendary Creature — Human Survivor",
+  "oracle_text": "Golden Rule — Whenever a token enters, you may have target player other than its controller create a token that's a copy of it, then you draw a card if an opponent created a token this way. Do this only once each turn.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "Golden Rule"
+  ],
+  "power": "3",
+  "toughness": "5"
+ },
+ {
+  "name": "Raise the Alarm",
+  "layout": "normal",
+  "mana_cost": "{1}{W}",
+  "cmc": 2.0,
+  "type_line": "Instant",
+  "oracle_text": "Create two 1/1 white Soldier creature tokens.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": []
  }
 ]

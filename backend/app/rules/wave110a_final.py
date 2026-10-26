@@ -42,6 +42,8 @@ EYE_TAP = "{T}: The next spell you cast this turn of the chosen type can be cast
 APPLE = ("{T}, Pay 4 life, Sacrifice ~: Look at target opponent's hand and exile those cards face down. You may play those cards this turn, and mana of any type can be spent "
          "to cast them. Until end of turn, whenever you play a land or cast a spell this way, its owner draws a card. At the beginning of the next end step, return the exiled "
          "cards to their owner's hand. Activate only as a sorcery.")
+LUCY = ("Golden Rule — Whenever a token enters, you may have target player other than its controller create a token that's a copy of it, then you draw a card if an opponent "
+        "created a token this way. Do this only once each turn.")
 ICE_CAVE = "Whenever a player casts a spell, any other player may pay that spell's mana cost. If a player does, counter the spell."
 
 
@@ -49,6 +51,13 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
     from app.rules import scripts
 
     text = scripts.self_text(ability.text, ch.name)
+    if text in (LUCY, LUCY.partition(" — ")[2]):  # ability word (207.2c) or not
+        d = scripts.define(replace(ability, text="Whenever a token enters, target opponent creates a token that's a copy of it."), ch)
+        if d is None or [e["do"] for e in d["effects"]] != ["token_copy"] or d.get("target") != {"what": "opponent"}:
+            return None
+        copy = {**d["effects"][0], "as": "lucy_token110a", "creator": "target:0"}
+        return {**d, "optional": True, "target": None, "targets": [{"what": "player", "min": 1, "max": 1, "other_than_event110a": True}],
+                "effects": [{"do": "lucy_gate110a", "say110n": "have the chosen player create a token copy of it"}, copy, {"do": "lucy_draw110a"}]}
     if text == APPLE:  # rulings 2024-07-05: only the cards in the hand as it resolves; normal timing and costs; only cards still exiled return (400.7)
         base = scripts.define(replace(ability, text="{T}: Exile all cards from target opponent's hand. At the beginning of the next end step, return those cards to their owner's hand."), ch)
         if base is None or [e["do"] for e in base["effects"]] != ["exile", "delayed", "deferred:bounce"]:
@@ -320,6 +329,38 @@ def sticker_flag(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return True
 
 
+def without_event_controller(plan: Plan, event: dict[str, Any], options: list[str]) -> list[str]:
+    """Lucy MacLean: "target player other than its controller" - not the controller of the object the trigger's event is about (the token that entered, as it is or last was)."""
+    objs = event.get("objects") or []
+    first = objs[0] if objs else None
+    card = plan.state.cards.get(str(first.get("card") if isinstance(first, dict) else getattr(first, "card", "")) or "")
+    snap = plan.rules.lki.get(str(first.get("object_id") if isinstance(first, dict) else getattr(first, "object_id", "")) or "") if first is not None else None
+    owner = card.controller if card is not None and card.zone.endswith(":battlefield") else snap.controller if snap is not None else card.controller if card is not None else None
+    return [t for t in options if t != owner]
+
+
+def lucy_gate(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """"Do this only once each turn": the first time this turn it is done it is marked; later it does nothing (the rest of the ability is skipped)."""
+    key = f"lucy110a:{ctx.get('source_object')}"
+    turn = plan.state.turn.number
+    if plan.rules.once_per_turn.get(key) == turn:
+        ctx["next"] = len(ctx["effects"])
+        return True
+    plan.rules.once_per_turn[key] = turn
+    return True
+
+
+def lucy_draw(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """"Then you draw a card if an opponent created a token this way": the chosen player is an opponent of Lucy's controller and the token was created."""
+    from app.rules import context, effects
+
+    made = context.objects(plan, ctx, "lucy_token110a")
+    who = effects._players(plan, ctx, "target:0")
+    if made and who and who[0] != ctx["controller"]:
+        return effects.draw(plan, ctx, {"do": "draw", "who": "you", "n": 1})
+    return True
+
+
 def apple_watch(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     """Apple of Eden: until end of turn, each time its controller plays a land or casts a spell from the cards it exiled (the objects as exiled: 607.2a-like, the played card's
     previous object), the card's owner draws a card."""
@@ -468,5 +509,5 @@ def resume_order(plan: Plan, d: Any, chosen: list[str]) -> None:
 
 
 REWRITES = {INTIMATIONS_SPELL: INTIMATIONS_SPELL.replace("You return", "Return")}  # (the grammar has no "you return"; 101.4 / the 2017-02-09 ruling: opponents choose in turn order, all at once)
-PRIMITIVES: dict[str, Any] = {"apple_watch110a": apple_watch, "next_free_chosen110a": next_free_chosen, "sticker_flag110a": sticker_flag, "magmarch110a": magmarch, "loyalty_rider110a": loyalty_rider, "exile_one_per_type110a": one_per_type}
+PRIMITIVES: dict[str, Any] = {"lucy_gate110a": lucy_gate, "lucy_draw110a": lucy_draw, "apple_watch110a": apple_watch, "next_free_chosen110a": next_free_chosen, "sticker_flag110a": sticker_flag, "magmarch110a": magmarch, "loyalty_rider110a": loyalty_rider, "exile_one_per_type110a": one_per_type}
 RESUME: dict[str, Any] = {"damping110a": resume_sacrifice, "chaotic_order110a": resume_order, "exile_one_per_type110a": resume_one_per_type, "magmarch110a": resume_magmarch}

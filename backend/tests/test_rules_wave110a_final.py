@@ -12,7 +12,7 @@ from tests.wave110a_kit import *
 
 NAMES = ["Ice Cave", "Damping Engine", "Chaotic Transformation", "Grime Gorger", "Uldaros Theorix", "Dark Intimations", "Exterminator Magmarch", "Threefold Signal", "Deification", "Voltaic Visionary // Volt-Charged Berserker",
          "Prowl, Stoic Strategist // Prowl, Pursuit Vehicle", "Snowblind",
-         "Eye of Ojer Taq // Apex Observatory", "Apple of Eden, Isu Relic"]
+         "Eye of Ojer Taq // Apex Observatory", "Apple of Eden, Isu Relic", "Lucy MacLean, Positively Armed"]
 
 
 @pytest.fixture()
@@ -686,4 +686,79 @@ def test_apple_of_eden_exiles_the_hand_face_down_and_its_cards_can_be_played_for
     answer(s)
     assert any(c.name == "Llanowar Elves" and c.zone == "p2:hand" for c in s.state.cards.values())  # (still exiled: returned; the Island and Shock were played: not)
     assert any(c.name == "Island" and c.zone == "p1:battlefield" for c in s.state.cards.values())
+    check(s)
+
+
+LUCY = "Lucy MacLean, Positively Armed"
+
+
+def _soldiers(s, pid):
+    return [c for c in s.state.cards.values() if c.name == "Soldier" and c.zone == f"{pid}:battlefield"]
+
+
+def _run(s, targets=(), confirms=()):
+    """Resolve everything: trigger orders keep their order, targets and confirmations are answered from the lists (by label), else the first option."""
+    targets, confirms = list(targets), list(confirms)
+    for _ in range(40):
+        d = s.state.rules.decision
+        if d is None:
+            if not s.state.zones.get("stack"):
+                return
+            act(s, s.state.rules.priority, type="pass_priority")
+        elif d.kind == "order":
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options])
+        elif d.kind == "confirm":
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[confirms.pop(0) if confirms else "yes"])
+        else:
+            want = targets.pop(0) if targets else None
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[next((o.id for o in d.options if o.label == want), d.options[0].id)])
+    raise AssertionError("never settled")
+
+
+def _lucy_alarm(cards, targets, confirms):
+    s = three(cards, [LUCY, "Raise the Alarm"], [], [])
+    put(s, LUCY)
+    fund(s, "{1}{W}")
+    cast(s, "Raise the Alarm", pay=False)
+    _run(s, targets, confirms)
+    return s
+
+
+def test_lucy_macLean_another_player_creates_a_copy_of_the_token_and_lucys_controller_draws_once_a_turn(cards):
+    """Golden Rule: Raise the Alarm makes two Soldiers, two triggers (the one ordered last resolves first); it has Carol create a copy (Alice draws, Carol is an opponent); the other, and the one
+    for the copy's own entering, do nothing: once each turn."""
+    s = _lucy_alarm(cards, ["Bob", "Carol"], ["yes", "yes", "yes"])
+    assert len(_soldiers(s, "p3")) == 1 and not _soldiers(s, "p2") and len(_soldiers(s, "p1")) == 2
+    assert len(s.state.zones["p1:hand"]) == 1
+    check(s)
+
+
+def test_lucy_declining_does_not_use_up_the_turn(cards):
+    s = _lucy_alarm(cards, ["Bob", "Carol"], ["no", "yes", "yes"])  # (the first to resolve, aimed at Carol, is declined; the next, aimed at Bob, is done)
+    assert len(_soldiers(s, "p2")) == 1 and not _soldiers(s, "p3") and len(s.state.zones["p1:hand"]) == 1
+    check(s)
+
+
+def test_lucy_the_chosen_player_may_be_lucys_controller_when_an_opponents_token_entered_and_no_card_is_drawn(cards):
+    """Bob's Soldiers enter: "target player other than its controller" excludes Bob; Alice chooses herself: she creates a copy and, no opponent having created it, draws nothing."""
+    s = three(cards, [LUCY], ["Raise the Alarm"], [])
+    put(s, LUCY)
+    to_phase(s, "main1", turn=2)
+    hand = len(s.state.zones["p1:hand"])
+    fund(s, "{1}{W}", "p2")
+    c = to_hand(s, "Raise the Alarm", "p2")
+    act(s, "p2", type="cast_spell", card_id=c.id)
+    d = None
+    for _ in range(10):
+        d = s.state.rules.decision
+        if d is not None and d.kind == "choose_cards":
+            break
+        if d is not None and d.kind == "order":
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options])
+        else:
+            act(s, s.state.rules.priority, type="pass_priority")
+    assert d is not None and sorted(o.label for o in d.options) == ["Alice", "Carol"]  # never Bob
+    _run(s, ["Alice", "Alice", "Alice"], ["yes", "yes", "yes"])
+    assert len(_soldiers(s, "p1")) == 1 and len(_soldiers(s, "p2")) == 2
+    assert len(s.state.zones["p1:hand"]) == hand  # no opponent created a token: no card
     check(s)

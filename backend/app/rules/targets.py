@@ -446,6 +446,10 @@ def choose_groups(plan: Plan, specs: list[dict[str, Any]], chooser: str, source:
         banned = {t for d in spec.get("distinct_from") or [] if d < len(out.groups) for t in out.groups[d]}
         options = [t for t in legal_targets(plan, player_relative.bind_what(plan, spec, out.groups), chooser, source, source_card, attacker, source_object=source_object)
                    if t not in exclude and t not in banned]  # (-- player-relative selectors (wave 53A) -- "target creature that player controls": that player from the earlier group)
+        if spec.get("other_than_event110a") and event is not None:  # -- wave 110A -- Lucy MacLean: "target player other than its controller"
+            from app.rules import wave110a_final
+
+            options = wave110a_final.without_event_controller(plan, event, options)
         if (owner := spec.get("graveyard_of")) is not None and owner < len(out.groups):  # -- shuffle target cards (wave 46B) -- "target cards from their graveyard":
             options = [t for t in options if plan.state.cards[t].owner in out.groups[owner]]  # the graveyard of the player chosen for that group
         if spec.get("blocked_by110i") is not None:  # -- cards (wave 110I) -- Glyph of Delusion: "target creature that target Wall blocked this turn" (509.1g block history)
