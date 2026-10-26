@@ -668,3 +668,37 @@ def test_deceiver_of_form_a_noncreature_card_changes_nothing(cards):
     _answer_all(s, [])
     assert ch(s, bears).name == "Grizzly Bears"
     check(s)
+
+
+# -- Cruel Entertainment --
+def test_cruel_entertainment_is_full():
+    assert full("Cruel Entertainment")
+
+
+def _pairs(s):
+    return sorted((c.controlled, c.controller, c.status) for c in s.state.rules.player_control)
+
+
+def test_cruel_entertainment_makes_the_two_players_control_each_other_on_their_own_turns(cards):
+    s = build3(cards, ["Cruel Entertainment"])
+    c = to_hand(s, "Cruel Entertainment")
+    mana(s, B=1, C=6)
+    act(s, "p1", type="cast_spell", card_id=c.id, targets=["p2", "p3"], target_counts=[1, 1])
+    settle(s)
+    assert _pairs(s) == [("p2", "p3", "pending"), ("p3", "p2", "pending")]  # 723.1: the first controls the second (p3) and the second controls the first
+    from tests.test_rules_wave18h_player_control import drive
+
+    drive(s, lambda s: s.state.turn.number == 2 and s.state.turn.phase == "main1")  # Bob's turn: Carol controls him
+    assert _pairs(s) == [("p2", "p3", "active"), ("p3", "p2", "pending")]
+    drive(s, lambda s: s.state.turn.number == 3 and s.state.turn.phase == "main1")  # Carol's turn: Bob controls her
+    assert _pairs(s) == [("p3", "p2", "active")]
+    check(s)
+
+
+def test_cruel_entertainment_needs_two_different_players(cards):
+    s = build3(cards, ["Cruel Entertainment"])
+    c = to_hand(s, "Cruel Entertainment")
+    mana(s, B=1, C=6)
+    with pytest.raises(ActionError):
+        act(s, "p1", type="cast_spell", card_id=c.id, targets=["p2", "p2"], target_counts=[1, 1])
+    check(s)

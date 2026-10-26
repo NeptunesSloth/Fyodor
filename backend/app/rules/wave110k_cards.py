@@ -190,6 +190,25 @@ def resume_copies_of_revealed(plan: Any, d: Any, chosen: list[str]) -> None:
     effects.continue_effects(plan, ctx)
 
 
+def control_swap(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Cruel Entertainment (723.1, 723.1a): each of the two target players controls the other during that other player's next turn. A half whose players aren't
+    both still in the game does nothing (800.4)."""
+    from app.game.rules_state import PlayerControl
+    from app.rules import effects
+
+    first, second = (effects._players(plan, ctx, f"target:{i}") for i in (0, 1))
+    if len(first) != 1 or len(second) != 1 or first == second:
+        plan.note(f"{ctx.get('name') or 'It'}: both targets are needed for the players to control each other (608.2b)")
+        return True
+    name = ctx.get("name") or "An effect"
+    for controller, controlled in ((first[0], second[0]), (second[0], first[0])):
+        old = [c for c in plan.rules.player_control if c.controlled == controlled and c.status == "pending"]  # 723.1a: the last one works
+        plan.rules.player_control = [c for c in plan.rules.player_control if c not in old]
+        plan.rules.player_control.append(PlayerControl(controlled=controlled, controller=controller, label=name, extra_after=sum(c.extra_after for c in old)))
+        plan.note(f"{plan.name(controller)} will control {plan.name(controlled)} during their next turn ({name}, 723.1)", actor=ctx["controller"])
+    return True
+
+
 def return_self_hand(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     """"Return ~ to its owner's hand" from the battlefield (bounce) or from the graveyard (the same object, 400.7: if it moved since, nothing)."""
     from app.rules import effects
@@ -209,7 +228,7 @@ from app.rules import delayed as _delayed  # noqa: E402
 
 _delayed.LABELS["source_tapped_power110k"] = "for as long as ~ remains tapped and its power is at most ~'s"
 
-PRIMITIVES = {"copies_of_revealed110k": copies_of_revealed, "villain110k": villain110k, "shuffle_other110k": shuffle_other, "extra_combat_after_first110k": extra_combat_after_first, "return_self_hand110k": return_self_hand, "opponent_mode110k": opponent_mode, "as_controller110k": as_controller, "phase_out_hold110k": phase_out_hold}
+PRIMITIVES = {"control_swap110k": control_swap, "copies_of_revealed110k": copies_of_revealed, "villain110k": villain110k, "shuffle_other110k": shuffle_other, "extra_combat_after_first110k": extra_combat_after_first, "return_self_hand110k": return_self_hand, "opponent_mode110k": opponent_mode, "as_controller110k": as_controller, "phase_out_hold110k": phase_out_hold}
 RESUME = {"copies_of_revealed110k": resume_copies_of_revealed, "opponent_mode110k": resume_opponent_mode, "shuffle_other110k": resume_shuffle_other}
 
 
@@ -232,6 +251,8 @@ def _flourish(effects: list[Def]) -> list[Def] | None:
 _ICE = "Destroy target land that is snow or could produce {C}."
 _ENDS = ("Target creature's owner shuffles it into their library, then faces a villainous choice — They lose 5 life, or they shuffle another creature they "
          "own into their library.")
+_CRUEL = ("Choose target player and another target player. The first player controls the second player during the second player's next turn, and the second "
+          "player controls the first player during the first player's next turn.")
 _ICE_EACH = "Destroy each land that is snow or could produce {C}."  # (overload, 702.96a: "target" read as "each")
 _SHIP = ("After the first combat phase this turn, there's an additional combat phase. At the beginning of that combat, untap all creatures that attacked "
          "this turn.")
@@ -285,6 +306,8 @@ def parse(body: str) -> Any:
     from app.rules import scripts
 
     body = body.strip()
+    if body[:1].upper() + body[1:] == _CRUEL:  # two different target players (115.3: "another target player")
+        return [{"do": "control_swap110k"}], [{"what": "player", "min": 1, "max": 1}, {"what": "player", "min": 1, "max": 1, "distinct_from": [0]}], False
     if (built := _BODIES.get(body[:1].upper() + body[1:])) is None:  # (a trigger's effect text starts in lower case)
         return None
     native = scripts.parse_effects(built[0])
