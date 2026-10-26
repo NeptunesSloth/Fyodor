@@ -679,6 +679,9 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
         me = ctx['controller']
         return sum(any(p.sticker.kind == 'art' for p in c.stickers101) for c in plan.state.cards.values()
                    if (c.zone.endswith(':battlefield') and c.controller == me) or c.zone == f'{me}:graveyard')
+    if isinstance(v, dict) and v.get('sticker_pt110g'):  # -- stickers (wave 110G) -- Ambassador: total power / toughness of the stickers on permanents you control
+        return sum(getattr(p.sticker, v['sticker_pt110g']) or 0 for c in plan.state.cards.values()
+                   if c.zone.endswith(':battlefield') and c.controller == ctx['controller'] for p in c.stickers101)
     if isinstance(v, dict) and "perm100d" in v:  # -- static permanents (wave 100D) -- (a CDA setting P/T may set it below 0: 107.1b)
         from app.rules import static_perm100d
 

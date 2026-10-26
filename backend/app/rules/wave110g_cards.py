@@ -450,7 +450,61 @@ def speed_cut(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return True
 
 
+_STICKER_KICKER = "Creature spells you cast have sticker kicker {1}."
+_KICKERS = {"kicker", "multikicker", "squad", "replicate", "offspring", "entwine"}
+
+
+def sticker_kicker(state: Any, player: str, card: Any, ch: Any, info: Any) -> Any:
+    """702.33h: a creature spell its caster casts has "Kicker {1}" (Wicker Picker); casting.py then gives the ticket and sticker.
+    ponytail: a spell with a kicker of its own is not given a second one (two kickers stay unsupported, 702.33b)."""
+    if not ch.is_creature or any(_KICKERS & set(a.keywords) for a in ch.abilities):
+        return ch
+    from app.rules import cast_limits
+    from app.rules.characteristics import AbilityText
+    from app.rules.permissions import spell_matches
+
+    if not any(src.controller == player and d["keyword"] == "sticker_kicker110g" and spell_matches(state, player, card, ch, d["filter"], info, src.id)
+               for src, d in cast_limits._statics(state, info, "spell_helper")):
+        return ch
+    extra = AbilityText(index=1 + max((a.index for a in ch.abilities), default=99), text="Kicker {1}", kind="keywords", keywords=("kicker",), special="sticker_kicker110g")
+    return replace(ch, abilities=(*ch.abilities, extra))
+
+
+def sticker_kicker_effects() -> list[dict[str, Any]]:
+    """702.33h: "you get a ticket counter and you may put a sticker on this spell" (the spell is the source)."""
+    return [{"do": "player_counter", "who": "you", "counter": "ticket", "n": 1}, {"do": "put_sticker101", "kind": None, "n": 1, "as": "placed101", "who": "ref:spell110g"}]
+
+
+def _sticker_pt(d: Def) -> Def:
+    """Ambassador Blorpityblorpboop: base P/T become the stickers' totals; no duration, so it lasts (611.2a); a sticker's P/T is its own number (123.?)."""
+    e = {**d["effects"][0], "p": {"sticker_pt110g": "power"}, "t": {"sticker_pt110g": "toughness"}, "duration": "permanent"}
+    return {**d, "effects": [e], "optional": True}
+
+
+def _subtype_count(name: str) -> Def:
+    return {"value": {"count": f'sel:{{"controller":"you","subtypes":["{name}"]}}'}, "op": ">=", "n": 1}
+
+
+def _done_for_the_day(d: Def) -> Def:
+    """Done for the Day: intervening if (603.4) any of three types; "you may" get {TK} or Treasure = choose up to one mode (700.2); the sticker clause
+    checks "all three" on resolution (608.2c)."""
+    kinds = ("Employee", "Performer", "Robot")
+    get = next(e for e in d["effects"] if e["do"] == "player_counter")
+    treasure = {"do": "create_token", "who": "you", "n": 1, "token": {"name": "Treasure", "power": None, "toughness": None, "colors": [],
+                "type_line": "Token Artifact \u2014 Treasure", "text": "{T}, Sacrifice this token: Add one mana of any color."}}
+    put = {"do": "put_sticker101", "kind": None, "n": 1, "as": "placed101", "sel": 'sel:{"not_types":["Land"],"owner":"you"}'}
+    return {**d, "optional": False, "if": {"any": [_subtype_count(k) for k in kinds]}, "effects": [], "target": None,
+            "modes": [{"text": "You get {TK}.", "effects": [get], "target": None}, {"text": "Create a Treasure token.", "effects": [treasure], "target": None},
+                      {"text": "Do neither.", "effects": [], "target": None}],  # "you may": declining still lets the next sentence happen
+            "modal": {"min": 1, "max": 1, "repeat": False, "condition": None, "memory": None, "index": 0, "form": "triggered"},
+            "after": [{"do": "only_if", "cond": {"all": [_subtype_count(k) for k in kinds]}, "skip": 1}, put]}
+
+
 _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
+    "At the beginning of your end step, if you control an Employee, a Performer, or a Robot, you may get {TK} or create a Treasure token. If you control all three, you may put a sticker on a nonland permanent you own.":
+        ("At the beginning of your end step, if you control a Robot, you may get {TK}.", _done_for_the_day),
+    "At the beginning of each combat, you may have Ambassador Blorpityblorpboop's base power become equal to the total power of all stickers on permanents you control and its base toughness become equal to those stickers' total toughness.":
+        ("At the beginning of each combat, this creature has base power and toughness 3/3 until end of turn.", _sticker_pt),
     "When this creature enters, return target creature or Vehicle an opponent controls to its owner's hand. If that opponent's speed is greater than each other player's speed, reduce that opponent's speed by 1. This effect can't reduce their speed below 1.":
         ("When this creature enters, return target creature or Vehicle an opponent controls to its owner's hand. Its controller loses 1 life.",
          lambda d: {**d, "effects": [d["effects"][0], {"do": "speed_cut110g", "who": "ref:e0.controller"}]}),
@@ -579,6 +633,11 @@ _DISSOLVE = "{X}{B}: Put target creature card with mana value X exiled with this
 
 def definition(ability: Any, ch: Any) -> Def | None:
     from app.rules import scripts, selectors
+
+    if ability.text.strip() == _STICKER_KICKER:  # Wicker Picker: the grant itself is read by sticker_kicker via cast_limits' spell_helper table
+        from app.rules import cast_limits
+
+        return {"kind": "static", "static": "spell_helper", "keyword": "sticker_kicker110g", "filter": cast_limits._filter("Creature")[1], "effects": []}
 
     if ability.text.strip() == "Engulf \u2014 " + _ENGULF:  # Gelatinous Cube: the exile is the linked half Dissolve refers to (607.2a)
         native = scripts.define(replace(ability, text=_ENGULF), ch)

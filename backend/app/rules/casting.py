@@ -3196,10 +3196,11 @@ def castable(state: GameState, player: str, card: CardInstance, info: CardInfo, 
         if extra is not None and additional_problem(permissions._view(state, player, info), extra, card, player):
             continue  # (wave 3$) the additional cost can't be paid: not offered
         grant = cast_grant(state, player, card, ch, info)
-        from app.rules import permission_spell_keywords, wave110a_grants
+        from app.rules import permission_spell_keywords, wave110a_grants, wave110g_cards
 
         ch = permission_spell_keywords.apply(ch, grant)
         ch = wave110a_grants.with_replicate(state, player, card, ch, info)  # -- grants (wave 110A) --
+        ch = wave110g_cards.sticker_kicker(state, player, card, ch, info)  # -- sticker kicker (wave 110G) --
         grant_extra = costs.parse_additional_cost(grant.extra) if grant is not None and grant.extra else None
         if grant_extra is not None and additional_problem(permissions._view(state, player, info), grant_extra, card, player):
             continue  # -- cast permissions (wave 30Q) -- the permission's own additional cost ("by sacrificing a land") can't be paid: not offered
@@ -3574,10 +3575,11 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
     if grant is not None and len(grant.among) > 1:
         permissions.ask_use(plan, a, card, ch, grant.among, "cast")  # (-- wave 30Q, 32D -- "choose one as you cast it" (Muldrotha); which limited permission: asked before anything is paid)
         return
-    from app.rules import permission_spell_keywords, wave110a_grants
+    from app.rules import permission_spell_keywords, wave110a_grants, wave110g_cards
 
     ch = permission_spell_keywords.apply(ch, grant)
     ch = wave110a_grants.with_replicate(plan.state, plan.actor, card, ch, plan.info)  # -- grants (wave 110A) --
+    ch = wave110g_cards.sticker_kicker(plan.state, plan.actor, card, ch, plan.info)  # -- sticker kicker (wave 110G) --
     free = grant is not None and grant.free  # "without paying its mana cost" (118.9): an alternative cost of {0}
     from app.rules import flashback_choices
 
@@ -4237,6 +4239,15 @@ def _post_cast(plan: Plan, data: _PostCast, payment: M.Payment | None) -> None:
         from app.rules.triggers import targeted
 
         targeted(plan, card.id, plan.actor, chosen)
+    if a.kicker and any(ab.special == "sticker_kicker110g" for ab in ch.abilities):  # -- sticker kicker (wave 110G) -- 702.33h: paid as part of casting
+        from app.rules import context as _cx110g
+        from app.rules import effects as _fx110g
+        from app.rules import wave110g_cards
+
+        kctx = {"controller": plan.actor, "source_card": card.id, "source_object": plan.oid(card), "name": ch.name,
+                "effects": wave110g_cards.sticker_kicker_effects(), "next": 0, "body_done": {"do": "noop"}}
+        _cx110g.bind_objects(plan, kctx, "spell110g", [card.id])
+        _fx110g.run_body(plan, kctx)
     turn = plan.state.turn.number
     r.spells_cast[plan.actor] = TurnCount(turn=turn, count=r.spells_this_turn(plan.actor, turn) + 1)
     history.note_cast(plan, card)  # -- this-turn history (wave 4D) --

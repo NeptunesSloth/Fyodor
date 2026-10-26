@@ -444,7 +444,8 @@ def mode_effects(definition: Definition, chosen: list[int]) -> list[dict[str, An
     """The effects of the chosen modes in printed order (608.2c), each with its own target slot
     ("use_targets"); a trigger's intervening "if" is checked again as it resolves (603.4)."""
     out = [*((definition.get("modal") or {}).get("also") or ()),  # (wave 50C: "choose one and you lose 2 life": that first)
-           *(e for k, i in enumerate(chosen) for e in [{"do": "use_targets", "slot": k}, *definition["modes"][i]["effects"]])]
+           *(e for k, i in enumerate(chosen) for e in [{"do": "use_targets", "slot": k}, *definition["modes"][i]["effects"]]),
+           *(definition.get("after") or ())]  # -- wave 110G -- lines printed after the modes (Done for the Day)
     if definition.get("if") is not None:
         out = [{"do": "only_if", "cond": definition["if"], "skip": len(out)}, *out]
     return out
