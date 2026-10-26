@@ -2345,8 +2345,10 @@ def free_cast(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     # players whether one was eligible, so the looker is asked whenever there were cards to look at)
     # (-- hideaway (wave 29D) -- 406.3: a face-down exiled card is as hidden as one in a hand: "has nothing to cast" would tell the table it is a land
     # with no land play left, or a spell that can't be cast)
+    # (a card in a hand that was revealed to everyone, Wild Evocation's random card, is public: no question hides anything)
     hidden = (e["zone"] in ("hand", "looked", "revealed") or any(
-        plan.state.cards[c].face_down or plan.state.cards[c].zone.endswith(':hand') for c in pool)) and bool(pool)
+        plan.state.cards[c].face_down or (plan.state.cards[c].zone.endswith(':hand') and '*' not in plan.state.cards[c].revealed_to)
+        for c in pool)) and bool(pool)
     if not options and not hidden:
         plan.note(f"{plan.name(pid)} has nothing to cast" + ("" if e.get("paid") else " without paying its mana cost"))
         return _free_cast_over(ctx, e)

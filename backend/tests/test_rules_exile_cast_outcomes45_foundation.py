@@ -891,6 +891,11 @@ def test_extract_actual_zero_or_more_than_hand_uses_exact_feasible_count_and_lan
         answer(s,[land.id])
         assert s.view('p1')['cards'][land.id]['name']=='Forest'
         answer(s,['ok'])
+        # The chosen card is still in p2's hand, hidden from p3: the caster is asked even with nothing castable,
+        # so skipping the question can't tell the table it was a land (leak by omission, 406.3 / free_cast's hidden rule)
+        d=s.state.rules.decision
+        assert d.player=='p1' and not d.options and d.min_choices==0
+        answer(s,[])
     assert s.state.rules.decision is None
     assert s.state.cards[land.id].zone=='p2:hand' and not s.state.cards[land.id].revealed_to
     assert not s.state.rules.permissions

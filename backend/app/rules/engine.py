@@ -1634,6 +1634,7 @@ def concede(plan: Plan, _: A.Action) -> None:
     _require_seated(plan)
     from app.rules import life_game_history
 
+    watchers = life_game_history.loss_watchers(plan)  # 603.10f: looked back to before the concession's 800.4a departure
     r.conceded.append(plan.actor)
     if r.declaration_cost_reserved and r.declaration_cost_reserved.payer == plan.actor:
         r.declaration_cost_reserved = None
@@ -1641,7 +1642,7 @@ def concede(plan: Plan, _: A.Action) -> None:
     casting.unnest(plan)  # (review 28D: a payment prompt a nested choice set aside is the decision settled)
     pending = r.decision
     leave_game(plan, plan.actor)
-    life_game_history.loss_events(plan, [plan.actor], prior_leave=True)
+    life_game_history.loss_events(plan, [plan.actor], prior_leave=True, cohort=watchers)
     left = plan.live()
     if len(left) == 1:  # 104.2a: at once, overriding "can't win the game" (review of wave 10B)
         plan.note(f"{plan.name(left[0])} is the last player standing")
