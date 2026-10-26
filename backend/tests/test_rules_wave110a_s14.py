@@ -7,7 +7,7 @@ from tests.wave110a_kit import *
 
 from app.rules import keyword_actions, scripts  # isort: skip
 
-NAMES = ["Jon Irenicus, Shattered One", "Grothama, All-Devouring"]
+NAMES = ["Jon Irenicus, Shattered One", "Grothama, All-Devouring", "Aurora Shifter", "Altar of the Wretched // Wretched Bonemass"]
 
 
 @pytest.fixture()
@@ -109,3 +109,29 @@ def test_aurora_shifter_declined_payment_changes_nothing(cards):  # "you may pay
     answer(s, "Don't pay")
     assert ch(s, shifter).name == "Aurora Shifter" and s.state.players["p1"].resources.get("energy", 0) == 2
     check(s)
+
+
+ALTAR = "Altar of the Wretched // Wretched Bonemass"
+
+
+@pytest.mark.parametrize("mats, power, keywords", [(["Serra Angel", "Black Knight"], 6, {"flying", "vigilance", "first strike", "protection"}), (["Hill Giant"], 3, set())])
+def test_wretched_bonemass_has_the_total_power_and_keywords_of_the_crafted_cards(cards, mats, power, keywords):  # 702.167a, 613.4a CDA, 613.1f
+    s = build(cards, [ALTAR, *mats], [])
+    altar = put(s, ALTAR)
+    gone = [to_hand(s, m) for m in mats]
+    act(s, "p1", type="move", card_ids=[c.id for c in gone], to={"player": "p1", "zone": "graveyard"})
+    mana(s, "p1", B=2, C=2)
+    act(s, "p1", type="activate_ability", card_id=altar.id, ability=1, cost_choices=[{"component": 2, "cards": [c.id for c in gone]}])
+    answer(s)
+    assert s.state.cards[altar.id].face == 1 and all(s.state.cards[c.id].zone == "p1:exile" for c in gone)
+    back = ch(s, altar)
+    assert (back.name, ch_pt(s, altar)) == ("Wretched Bonemass", (power, power))
+    assert {"flying", "vigilance", "first strike", "protection", "haste", "reach", "trample", "menace"} & back.keywords == keywords
+    check(s)
+
+
+def ch_pt(s, c):
+    from app.rules import sba
+
+    card = s.state.cards[c.id]
+    return sba.power(card, ch(s, c)), sba.toughness(card, ch(s, c))

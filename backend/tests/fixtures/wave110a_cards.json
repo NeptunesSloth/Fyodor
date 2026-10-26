@@ -1897,5 +1897,98 @@
   "keywords": [],
   "power": "1",
   "toughness": "3"
+ },
+ {
+  "name": "Black Knight",
+  "layout": "normal",
+  "mana_cost": "{B}{B}",
+  "cmc": 2.0,
+  "type_line": "Creature — Human Knight",
+  "oracle_text": "First strike (This creature deals combat damage before creatures without first strike.)\nProtection from white (This creature can't be blocked, targeted, dealt damage, or enchanted by anything white.)",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "First strike",
+   "Protection"
+  ],
+  "power": "2",
+  "toughness": "2"
+ },
+ {
+  "name": "Serra Angel",
+  "layout": "normal",
+  "mana_cost": "{3}{W}{W}",
+  "cmc": 5.0,
+  "type_line": "Creature — Angel",
+  "oracle_text": "Flying\nVigilance (Attacking doesn't cause this creature to tap.)",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "Flying",
+   "Vigilance"
+  ],
+  "power": "4",
+  "toughness": "4"
+ },
+ {
+  "name": "Altar of the Wretched // Wretched Bonemass",
+  "layout": "transform",
+  "mana_cost": "{2}{B} // ",
+  "cmc": 3.0,
+  "type_line": "Artifact // Creature — Skeleton Horror",
+  "oracle_text": "When this artifact enters, you may sacrifice a nontoken creature. If you do, draw X cards, then mill X cards, where X is that creature's power.\nCraft with one or more creatures {2}{B}{B}\n{2}{B}: Return this card from your graveyard to your hand.\n//\nWretched Bonemass's power and toughness are each equal to the total power of the exiled cards used to craft it.\nThis creature has flying as long as an exiled card used to craft it has flying. The same is true for first strike, double strike, deathtouch, haste, hexproof, indestructible, lifelink, menace, protection, reach, trample, and vigilance.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Craft",
+   "Transform",
+   "Mill"
+  ],
+  "card_faces": [
+   {
+    "name": "Altar of the Wretched",
+    "mana_cost": "{2}{B}",
+    "type_line": "Artifact",
+    "oracle_text": "When this artifact enters, you may sacrifice a nontoken creature. If you do, draw X cards, then mill X cards, where X is that creature's power.\nCraft with one or more creatures {2}{B}{B}\n{2}{B}: Return this card from your graveyard to your hand.",
+    "colors": [
+     "B"
+    ],
+    "image_uris": {
+     "small": "https://cards.scryfall.io/small/front/e/2/e2c812bb-19f8-4a22-bda9-f2a6233cf700.jpg?1783951757",
+     "normal": "https://cards.scryfall.io/normal/front/e/2/e2c812bb-19f8-4a22-bda9-f2a6233cf700.jpg?1783951757",
+     "large": "https://cards.scryfall.io/large/front/e/2/e2c812bb-19f8-4a22-bda9-f2a6233cf700.jpg?1783951757",
+     "art_crop": "https://cards.scryfall.io/art_crop/front/e/2/e2c812bb-19f8-4a22-bda9-f2a6233cf700.jpg?1783951757"
+    }
+   },
+   {
+    "name": "Wretched Bonemass",
+    "mana_cost": "",
+    "type_line": "Creature — Skeleton Horror",
+    "oracle_text": "Wretched Bonemass's power and toughness are each equal to the total power of the exiled cards used to craft it.\nThis creature has flying as long as an exiled card used to craft it has flying. The same is true for first strike, double strike, deathtouch, haste, hexproof, indestructible, lifelink, menace, protection, reach, trample, and vigilance.",
+    "power": "*",
+    "toughness": "*",
+    "colors": [
+     "B"
+    ],
+    "image_uris": {
+     "small": "https://cards.scryfall.io/small/back/e/2/e2c812bb-19f8-4a22-bda9-f2a6233cf700.jpg?1783951757",
+     "normal": "https://cards.scryfall.io/normal/back/e/2/e2c812bb-19f8-4a22-bda9-f2a6233cf700.jpg?1783951757",
+     "large": "https://cards.scryfall.io/large/back/e/2/e2c812bb-19f8-4a22-bda9-f2a6233cf700.jpg?1783951757",
+     "art_crop": "https://cards.scryfall.io/art_crop/back/e/2/e2c812bb-19f8-4a22-bda9-f2a6233cf700.jpg?1783951757"
+    }
+   }
+  ]
  }
 ]
