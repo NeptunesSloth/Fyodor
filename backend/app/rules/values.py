@@ -1044,6 +1044,10 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
         return plan.state.players[card.owner].commander_casts.get(card.commander_key, 0)
     if "commander_casts" in v:  # -- triggers (wave 19B) --
         return sum(plan.state.players[you].commander_casts.values())
+    if "exiled_mv110o" in v:  # -- (wave 110O) -- Living Lore: the mana value of the card exiled with it (607.2a), 0 with none
+        from app.rules import wave110o_cards
+
+        return wave110o_cards.exiled_mv(plan, ctx)
     if "exiled_with" in v:  # -- resolution memory (wave 22D) -- Unlicensed Hearse: "the number of cards exiled with it"
         from app.rules import exiled_with
 

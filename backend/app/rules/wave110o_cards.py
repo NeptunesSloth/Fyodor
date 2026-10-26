@@ -116,6 +116,13 @@ _SECRET = ("When ~ enters, exile up to one target creature other than enchanted 
            "a copy of that creature until ~ leaves the battlefield.")
 _MILEVA = ("{2}{W}, Collect evidence 4: If ~ is a Detective, it becomes a legendary creature named Mileva, the Stalwart, it has base power and toughness 5/5, and it "
            "gains \"Other creatures you control have indestructible.\"")
+EXILE_WHAT = "exile110o"
+_LORE_ENTER = "As ~ enters, exile an instant or sorcery card from your graveyard."
+_LORE_CDA = "~'s power and toughness are each equal to the exiled card's mana value."
+_LORE_TRIGGER = ("Whenever ~ deals combat damage, you may sacrifice it. If you do, you may cast the exiled card without paying its mana cost.")
+_EVELYN_TRIGGER = "Whenever ~ or another Vampire you control enters, exile the top card of each player's library with a collection counter on it."
+_EVELYN_PERMISSION = ("Once each turn, you may play a card from exile with a collection counter on it if it was exiled by an ability you controlled, and you may spend mana as "
+                      "though it were mana of any color to cast it.")
 _ARMOR_PREVENT = "Prevent all damage that would be dealt to enchanted creature by sources of the last chosen color."
 _ARMOR_COUNTER = "{X}: Put a sleight counter on ~ and choose a color. X is the number of sleight counters on ~."
 _PYRAMIDS_MODE = "• The next time target land would be destroyed this turn, remove all damage marked on it instead."
@@ -219,6 +226,29 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
         return {**native, "effects": [{**native["effects"][0], "skip": 3}, {**become, "types": [], "legendary": True},
                                       {"do": "named100g", "who": "self", "name": "Mileva, the Stalwart"},
                                       {"do": "grant", "who": "self", "abilities": ["Other creatures you control have indestructible."], "duration": "permanent"}]}
+    if text == _LORE_ENTER:  # 614.12a: "as it enters" the controller picks the card (a replacement, made before it enters), after_entry exiles it linked to the new permanent
+        from app.rules import selectors
+
+        sel = selectors.parse("instant or sorcery card in your graveyard")
+        assert sel is not None
+        return {"kind": "replacement", "replacement": "enters_choice",
+                "effects": [{"do": "choose_value", "who": "you", "what": EXILE_WHAT, "pick110a": sel.key()}]}
+    if text == _LORE_CDA:  # 604.3, 613.4a: the exiled card's mana value, 0 while nothing is exiled with it
+        return {"kind": "static", "static": "cda", "effects": [], "p": {"exiled_mv110o": 1}, "t": {"exiled_mv110o": 1}}
+    if ability.kind == "triggered" and text == _LORE_TRIGGER:  # 603.7, 608.2d: sacrificed first (a payment), then the linked card, which stays exiled if it isn't cast
+        native = scripts.define(replace(ability, text="Whenever ~ deals combat damage, you may sacrifice it. If you do, draw a card."), ch)
+        if native is None or [e["do"] for e in native["effects"]] != ["optional_payment", "only_if", "draw"]:
+            return None
+        return {**native, "effects": [native["effects"][0], {**native["effects"][1], "skip": 2}, {"do": "lore_bind110o"},
+                                      {"do": "free_cast", "zone": "ref:lore110o", "filter": None, "optional": True, "mv": None, "n": 1, "who": "ref:lore110o"}]}
+    if ability.kind == "triggered" and text == _EVELYN_TRIGGER:  # 122.1, 406.3: each exiled card gets a collection counter (a counter on a card in exile), remembering whose ability exiled it
+        native = scripts.define(replace(ability, text="Whenever ~ or another Vampire you control enters, exile the top card of each player's library."), ch)
+        if native is None or [e["do"] for e in native["effects"]] != ["exile_top"]:
+            return None
+        return {**native, "effects": [{**native["effects"][0], "as": "evelyn110o"}, {"do": "collect110o"}]}
+    if ability.kind == "static" and text == _EVELYN_PERMISSION:  # 601.3, 305.1: once each turn (any turn), one such card; mana of any color for the cast (609.4b)
+        return {"kind": "static", "static": "permission", "zone": "exile", "filter": None, "self": False, "play": True, "cast": True, "once": True, "once_any": True,
+                "flash": False, "spend": "color", "exile_counter": "collection", "exiled_by110o": True, "effects": []}
     if ability.kind == "activated" and text == _KALDRA:  # 603.4-style "if" judged as it resolves (608.2c); every Equipment so named is attached
         from app.rules import conditions, selectors
 
@@ -766,6 +796,42 @@ def secret_copy(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return done
 
 
+def entered(plan: Any, card_id: str, controller: str, choices: dict[str, str] | None) -> None:
+    """614.12a: the card picked as the permanent entered is exiled (406.3) and linked to it, 607.2a (the new object's id: ``exiled_with``)."""
+    from app.rules import exiled_with
+
+    picked = (choices or {}).get(EXILE_WHAT)
+    card = plan.state.cards.get(card_id)
+    if card is None or picked is None or picked not in plan.state.cards or not plan.state.cards[picked].zone.endswith(":graveyard"):
+        return
+    plan.do({"type": "move", "card_ids": [picked], "to": {"zone": "exile"}}, actor=controller)
+    exiled_with.record(plan, {"source_object": plan.oid(card), "source_card": card_id, "controller": controller}, [picked])
+
+
+def exiled_mv(plan: Any, ctx: dict[str, Any]) -> int:
+    from app.rules import exiled_with
+
+    return sum(int(plan.ch(plan.state.cards[c]).mana_value) for c in exiled_with.cards(plan, ctx))
+
+
+def lore_bind(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    from app.rules import context, exiled_with
+
+    context.bind_objects(plan, ctx, "lore110o", exiled_with.cards(plan, ctx))
+    return True
+
+
+def collect(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """The cards the ability just exiled get a collection counter and are remembered as exiled by an ability its controller controlled."""
+    from app.rules import context
+
+    for cid in context.objects(plan, ctx, "evelyn110o"):
+        if plan.state.cards[cid].zone.endswith(":exile"):
+            plan.do({"type": "counter", "card_ids": [cid], "kind": "collection", "delta": 1}, actor=ctx["controller"])
+            plan.rules.collection110o[plan.oid(cid)] = ctx["controller"]
+    return True
+
+
 def wipe_shield(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     """614.1a: a shield for this turn on each target land (the object, 400.7): the next time it would be destroyed, the damage marked on it is removed instead."""
     from app.rules import effects
@@ -812,7 +878,7 @@ def cleansing(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return False
 
 
-PRIMITIVES: dict[str, Any] = {"secret_copy110o": secret_copy, "echo_offer110o": echo_offer, "wipe_shield110o": wipe_shield, "tidal110o": tidal, "tidal_grant110o": tidal_grant, "heroic110o": heroic, "cleansing110o": cleansing, "type_emblem110o": type_emblem, "redistribute110o": redistribute,
+PRIMITIVES: dict[str, Any] = {"collect110o": collect, "lore_bind110o": lore_bind, "secret_copy110o": secret_copy, "echo_offer110o": echo_offer, "wipe_shield110o": wipe_shield, "tidal110o": tidal, "tidal_grant110o": tidal_grant, "heroic110o": heroic, "cleansing110o": cleansing, "type_emblem110o": type_emblem, "redistribute110o": redistribute,
               "helm_test110o": helm_test, "helm_again110o": helm_again, "helm_pick110o": helm_pick, "portent_hand110o": portent_hand, "rinoa_pick110o": rinoa_pick, "lazav110o": lazav, "profaner110o": profaner, "gain_land110o": gain_land}
 RESUME: dict[str, Any] = {"echo_offer110o": resume_echo_offer, "type_emblem110o": resume_type_emblem, "redistribute_players110o": resume_redistribute_players,
                           "redistribute_give110o": resume_redistribute_give, "helm_pick110o": resume_helm_pick, "rinoa_pick110o": resume_rinoa_pick, "lazav110o": resume_lazav, "lazav_copy110o": resume_lazav_copy, "gain_land110o": resume_gain_land}

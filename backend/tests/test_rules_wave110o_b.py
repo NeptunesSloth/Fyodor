@@ -14,6 +14,8 @@
 * 707.2, 611.2b, 610.3: Secret Invasion exiles a creature and makes the enchanted one a copy of it for as long as the Aura stays; the exiled one comes back with it.
 * 615.1, 614.1a: Chromatic Armor prevents damage to the enchanted creature from sources of the last chosen color (each choice replaces the one before).
 * 613.1d, 613.1c, 613.1f, 613.4b: Tenth District Hero becomes a legendary 5/5 named Mileva, the Stalwart (only if it is a Detective), giving other creatures its controller controls indestructible.
+* 614.12a, 607.2a, 604.3: Living Lore exiles an instant or sorcery card from the graveyard as it enters, is as big as its mana value, and may be sacrificed after combat damage to cast the exiled card free.
+* 122.1, 601.3, 609.4b: Evelyn, the Covetous exiles the top card of each library with a collection counter; once each turn a card so exiled by your ability may be played, with mana of any color.
 """
 
 from __future__ import annotations
@@ -52,7 +54,7 @@ from tests.wave110o_kit import (  # noqa: F401
 UNDERGROWTH = "Undergrowth"
 
 
-@pytest.mark.parametrize("name", [UNDERGROWTH, "Pure Intentions", "Nahiri's Sacrifice", "Cleansing", "Mysterio, Master of Illusion", "Heroic Sacrifice", "Spinning Darkness", "Tidal Flats", "Pyramids", "Soul Echo", "Ob Nixilis of the Black Oath", "Secret Invasion", "Chromatic Armor", "Tenth District Hero"])
+@pytest.mark.parametrize("name", [UNDERGROWTH, "Pure Intentions", "Nahiri's Sacrifice", "Cleansing", "Mysterio, Master of Illusion", "Heroic Sacrifice", "Spinning Darkness", "Tidal Flats", "Pyramids", "Soul Echo", "Ob Nixilis of the Black Oath", "Secret Invasion", "Chromatic Armor", "Tenth District Hero", "Living Lore", "Evelyn, the Covetous"])
 def test_the_cards_are_full(name):
     assert full(name)
 
@@ -697,4 +699,122 @@ def test_tenth_district_hero_becomes_mileva_only_after_it_is_a_detective(cards):
     assert mileva.name == "Mileva, the Stalwart" and "Legendary" in mileva.supertypes and mileva.pt == (5, 5) and "Detective" in mileva.subtypes
     assert "indestructible" not in mileva.keywords  # (other creatures only)
     assert "indestructible" in ch(s, mine).keywords and "indestructible" not in ch(s, theirs).keywords  # (Mileva's controller's other creatures only)
+    check(s)
+
+
+LORE = "Living Lore"
+
+
+def lore_table(cards, graveyard=("Lightning Bolt",)):
+    s = build(cards, [LORE, "Lightning Bolt", "Murder", "Grizzly Bears"], [])
+    for n in graveyard:
+        grave_new(s, n)
+    return s
+
+
+def exile_names(s, pid="p1"):
+    return sorted(c.name for c in s.state.cards.values() if c.zone == f"{pid}:exile")
+
+
+def test_living_lore_exiles_a_card_as_it_enters_and_takes_its_mana_value(cards):
+    s = lore_table(cards, ["Lightning Bolt", "Murder"])
+    mana(s, "p1", **cost(LORE))
+    lore = to_hand(s, LORE)
+    act(s, "p1", type="cast_spell", card_id=lore.id)
+    settle(s, answers=[next(c.id for c in s.state.cards.values() if c.name == "Murder")])  # (the stack resolves, the question is about the card to exile)
+    assert exile_names(s) == ["Murder"] and ch(s, lore).pt == (3, 3)  # (its mana value, 3)
+    check(s)
+
+
+def test_living_lore_with_no_card_to_exile_is_zero_and_dies(cards):
+    s = lore_table(cards, [])
+    cast = cast_on(s, LORE)
+    assert now(s, cast).zone == "p1:graveyard"  # (0/0, 704.5f)
+    check(s)
+
+
+@pytest.mark.parametrize("sacrifice", [True, False])
+def test_living_lore_may_be_sacrificed_after_combat_damage_to_cast_the_exiled_card_free(cards, sacrifice):
+    s = lore_table(cards, ["Lightning Bolt"])
+    lore = cast_on(s, LORE)
+    s.state.rules.controlled_since[lore.id].turn = 0
+    stops(s)
+    while s.state.rules.decision is None or s.state.rules.decision.kind != "declare_attackers":
+        act(s, s.state.rules.priority, type="pass_priority")
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": lore.id, "target": "p2"}])
+    asked = []
+    for _ in range(60):
+        d = s.state.rules.decision
+        if d is not None and d.kind == "declare_blockers":
+            act(s, d.player, type="declare_blockers", blocks=[])
+        elif d is not None:
+            asked.append(d.prompt)
+            ids = [o.id for o in d.options if o.id in (("pay", "yes", "p2") if sacrifice else ("decline", "no"))][:1] or [d.options[0].id]
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=ids)
+        elif s.state.turn.phase in ("main2", "end") and not s.state.zones.get("stack"):
+            break
+        else:
+            act(s, s.state.rules.priority, type="pass_priority")
+    assert life(s, "p2") == 40 - 1 - (3 if sacrifice else 0)  # (1 combat damage from the 1/1; the exiled Lightning Bolt too when cast)
+    assert (now(s, lore).zone == "p1:graveyard") is sacrifice
+    in_graveyard = sorted(c.name for c in s.state.cards.values() if c.zone == "p1:graveyard")
+    if sacrifice:
+        assert exile_names(s) == [] and in_graveyard == ["Lightning Bolt", "Living Lore"]  # (cast from exile: it resolved into the graveyard)
+    else:
+        assert exile_names(s) == ["Lightning Bolt"] and in_graveyard == []
+    check(s)
+
+
+EVELYN = "Evelyn, the Covetous"
+
+
+def to_top(s, c, pid="p1"):
+    act(s, pid, type="move", card_ids=[c.id], to={"zone": "library"}, position="top")
+
+
+def evelyn_table(cards):
+    s = build(cards, [EVELYN, "Forest", "Grizzly Bears"], ["Island", "Lightning Bolt"])
+    mine, theirs = card_named(s, "Forest"), card_named(s, "Island", "p2")
+    to_top(s, mine)
+    to_top(s, theirs, "p2")
+    return s, mine, theirs
+
+
+def test_evelyn_exiles_the_top_of_each_library_with_collection_counters_and_lets_you_play_one_a_turn(cards):
+    s, mine, theirs = evelyn_table(cards)
+    cast_on(s, EVELYN)
+    assert now(s, mine).zone == "p1:exile" and now(s, theirs).zone == "p2:exile"
+    assert now(s, mine).counters.get("collection") == 1 and now(s, theirs).counters.get("collection") == 1
+    act(s, "p1", type="play_land", card_id=theirs.id)  # (a land from another player's library: once each turn)
+    new = next(c for c in s.state.cards.values() if c.id == theirs.id)
+    assert new.zone == "p1:battlefield"
+    with pytest.raises(ActionError):
+        act(s, "p1", type="play_land", card_id=mine.id)  # (the second use the same turn; also the land drop)
+    check(s)
+
+
+def test_evelyn_lets_you_spend_mana_of_any_color_to_cast_the_card(cards):
+    s = build(cards, [EVELYN, "Forest"], ["Lightning Bolt", "Lightning Bolt"])
+    bolt1 = card_named(s, "Lightning Bolt", "p2")
+    to_top(s, bolt1, "p2")
+    cast_on(s, EVELYN)
+    assert now(s, bolt1).zone == "p2:exile"
+    mana(s, "p1", G=1)  # (Lightning Bolt costs {R}: green mana is spent as though it were red)
+    act(s, "p1", type="cast_spell", card_id=bolt1.id, targets=["p2"])
+    settle(s)
+    assert life(s, "p2") == 37
+    check(s)
+
+
+def test_evelyn_only_plays_cards_exiled_by_an_ability_you_controlled(cards):
+    s = build(cards, [EVELYN, "Forest"], ["Lightning Bolt", "Lightning Bolt"])
+    cast_on(s, EVELYN)
+    loose = next(c for c in s.state.cards.values() if c.name == "Lightning Bolt" and c.zone == "p2:library")
+    act(s, "p2", type="move", card_ids=[loose.id], to={"zone": "exile"})
+    act(s, "p1", type="counter", card_ids=[loose.id], kind="collection", delta=1)  # (a collection counter, but nobody's ability exiled it)
+    mana(s, "p1", G=1)
+    before = s.state.model_dump(mode="json")
+    with pytest.raises(ActionError):
+        act(s, "p1", type="cast_spell", card_id=loose.id, targets=["p2"])
+    assert s.state.model_dump(mode="json") == before
     check(s)

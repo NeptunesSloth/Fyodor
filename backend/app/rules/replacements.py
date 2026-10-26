@@ -1033,6 +1033,11 @@ def after_entry(plan: Plan, card_id: str, controller: str, *, x: int | None = No
         from app.rules import wave110a_pick  # -- chosen objects (wave 110A) --
 
         wave110a_pick.record(plan, card_id, choices)
+        from app.rules import (
+            wave110o_cards,  # -- (wave 110O) -- the card picked as it entered is exiled with it
+        )
+
+        wave110o_cards.entered(plan, card_id, controller, choices)
         from app.rules import chosen_color_pairs45
 
         chosen_color_pairs45.record_entry(plan, card_id, choices)

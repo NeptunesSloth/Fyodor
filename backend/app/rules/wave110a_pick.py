@@ -37,6 +37,9 @@ def prompt(plan: Plan, card: CardInstance, controller: str, choice: dict[str, An
     from app.rules import selectors
 
     ids = selectors.candidates(plan, selectors.from_key(choice["pick110a"]), controller, card.id)
+    if choice["what"] == "exile110o":  # -- (wave 110O) -- Living Lore
+        return (f"{plan.ch(card).name or card.name}: as it enters, exile an instant or sorcery card from your graveyard",
+                [DecisionOption(id=c, label=plan.state.cards[c].name or "Card", card_id=c) for c in ids])
     return (f"{plan.ch(card).name or card.name}: as it enters, choose another creature you control",
             [DecisionOption(id=c, label=plan.state.cards[c].name or "Creature", card_id=c) for c in ids])
 

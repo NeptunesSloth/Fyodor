@@ -1546,6 +1546,8 @@ def grants(state: GameState, player: str, card: CardInstance, ch: Characteristic
             continue
         if d.get('exile_counter') and (permission_where != 'exile' or card.counters.get(d['exile_counter'], 0) <= 0):
             continue
+        if d.get('exiled_by110o') and r.collection110o.get(oid) != src.controller:
+            continue  # -- (wave 110O) -- Evelyn: only a card exiled by an ability the permission's holder controlled
         if d.get("put_there") and not selectors.put_there_state(state, card, d["put_there"]):
             continue  # -- free cast (wave 40D) -- only a card that is the object put into the graveyard this turn from there (400.7)
         # -- spell grants (wave 30T) -- 611.3a: "As long as ~ is tapped, you may cast spells as though they had flash" is read now, as its source's controller;
