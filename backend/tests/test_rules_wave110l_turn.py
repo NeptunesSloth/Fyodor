@@ -238,3 +238,27 @@ def test_optimus_stays_put_if_the_chosen_creature_deals_no_damage_to_a_player(ca
     to_phase(s, "end_combat")
     assert ch(s, prime).name == "Optimus Prime, Autobot Leader"
     check(s)
+
+
+FLAMEWAR = "Flamewar, Brash Veteran // Flamewar, Streetwise Operative"
+test_full_flamewar = full_test([FLAMEWAR])
+
+
+def test_flamewar_returns_only_my_exiled_cards_with_intel_counters(cards):
+    s = build(cards, [FLAMEWAR, "Grizzly Bears", "Llanowar Elves", "Young Wolf"], ["Giant Growth"])
+    flame = put(s, FLAMEWAR)
+    moved = {}
+    for n, owner, intel in (("Grizzly Bears", "p1", True), ("Llanowar Elves", "p1", True), ("Young Wolf", "p1", False), ("Giant Growth", "p2", True)):
+        c = card_named(s, n, owner)
+        act(s, owner, type="move", card_ids=[c.id], to={"zone": "exile"}, face_down=True)
+        if intel:
+            act(s, owner, type="counter", card_ids=[c.id], kind="intel", delta=1)
+        moved[n] = c
+    clear_hand(s, "p1")
+    mana(s, C=1)
+    act(s, "p1", type="activate_ability", card_id=flame.id, ability=2)
+    answer(s)
+    where = {n: zone_of(s, n) for n in moved if n != "Giant Growth"}
+    assert where["Grizzly Bears"] == where["Llanowar Elves"] == "p1:hand" and where["Young Wolf"] == "p1:exile"  # the one without an intel counter stays
+    assert zone_of(s, "Giant Growth", "p2") == "p2:exile"  # not mine
+    check(s)

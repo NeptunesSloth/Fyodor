@@ -20,12 +20,6 @@ def cards(settings):
 test_full = full_test([RITUAL, STRUGGLE])
 
 
-def clear_hand(s, pid, keep=()):
-    for c in list(s.state.zones[f"{pid}:hand"]):
-        if s.state.cards[c].name not in keep:
-            act(s, pid, type="move", card_ids=[c], to={"zone": "library"})
-
-
 def names(s, zone, pid):
     return sorted(s.state.cards[c].name for c in s.state.zones.get(f"{pid}:{zone}", []))
 

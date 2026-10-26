@@ -283,6 +283,19 @@ _BUILD["Whenever you attack, bolster 2. The chosen creature gains trample until 
     "Whenever you attack, bolster 2. The chosen creature gains trample until end of turn.", _optimus)
 
 
+def _intel(d: Def) -> Def:
+    """Flamewar: every card its controller owns in exile with an intel counter on it goes to their hand (the cards its other face exiled), all at once (400.3)."""
+    from app.rules import selectors
+
+    sel = selectors.parse("card you own in exile with an intel counter on it")
+    assert sel is not None
+    return {**d, "effects": [{"do": "bounce", "who": sel.key()}]}
+
+
+_BUILD["{1}, Discard your hand: Put all exiled cards you own with intel counters on them into your hand."] = (
+    "{1}, Discard your hand: Draw a card.", _intel)
+
+
 def pick_discard(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     """The owner reveals their hand; the chooser picks one card of it, which is discarded (an empty hand reveals nothing and discards nothing)."""
     from app.rules.effects import _players, decide, zone_key

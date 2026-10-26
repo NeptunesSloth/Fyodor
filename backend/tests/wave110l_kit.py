@@ -24,3 +24,10 @@ def open_repo(settings):
     repo = CardRepository(settings.cards_db_path, ImageStore(settings.images_dir))
     yield repo
     repo.close()
+
+
+def clear_hand(s, pid, keep=()):
+    """Put the player's opening-hand cards (all but the named ones) back into the library, so only chosen cards are in hand."""
+    for c in list(s.state.zones[f"{pid}:hand"]):
+        if s.state.cards[c].name not in keep:
+            act(s, pid, type="move", card_ids=[c], to={"zone": "library"})

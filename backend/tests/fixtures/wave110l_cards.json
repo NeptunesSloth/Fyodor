@@ -438,5 +438,56 @@
   ],
   "power": "4",
   "toughness": "8"
+ },
+ {
+  "name": "Flamewar, Brash Veteran // Flamewar, Streetwise Operative",
+  "layout": "transform",
+  "mana_cost": "{1}{B}{R} // ",
+  "cmc": 3.0,
+  "type_line": "Legendary Artifact Creature — Robot // Legendary Artifact — Vehicle",
+  "oracle_text": "More Than Meets the Eye {B}{R} (You may cast this card converted for {B}{R}.)\nSacrifice another artifact: Put a +1/+1 counter on Flamewar and convert it. Activate only as a sorcery.\n{1}, Discard your hand: Put all exiled cards you own with intel counters on them into your hand.\n//\nLiving metal (During your turn, this Vehicle is also a creature.)\nMenace, deathtouch\nWhenever Flamewar deals combat damage to a player, exile that many cards from the top of your library face down. Put an intel counter on each of them. Convert Flamewar.",
+  "colors": [
+   "B",
+   "R"
+  ],
+  "color_identity": [
+   "B",
+   "R"
+  ],
+  "keywords": [
+   "Living metal",
+   "Convert",
+   "Menace",
+   "More Than Meets the Eye",
+   "Deathtouch"
+  ],
+  "card_faces": [
+   {
+    "name": "Flamewar, Brash Veteran",
+    "mana_cost": "{1}{B}{R}",
+    "type_line": "Legendary Artifact Creature — Robot",
+    "oracle_text": "More Than Meets the Eye {B}{R} (You may cast this card converted for {B}{R}.)\nSacrifice another artifact: Put a +1/+1 counter on Flamewar and convert it. Activate only as a sorcery.\n{1}, Discard your hand: Put all exiled cards you own with intel counters on them into your hand.",
+    "power": "3",
+    "toughness": "2",
+    "colors": [
+     "B",
+     "R"
+    ]
+   },
+   {
+    "name": "Flamewar, Streetwise Operative",
+    "mana_cost": "",
+    "type_line": "Legendary Artifact — Vehicle",
+    "oracle_text": "Living metal (During your turn, this Vehicle is also a creature.)\nMenace, deathtouch\nWhenever Flamewar deals combat damage to a player, exile that many cards from the top of your library face down. Put an intel counter on each of them. Convert Flamewar.",
+    "power": "2",
+    "toughness": "1",
+    "colors": [
+     "B",
+     "R"
+    ]
+   }
+  ],
+  "power": "3",
+  "toughness": "2"
  }
 ]
