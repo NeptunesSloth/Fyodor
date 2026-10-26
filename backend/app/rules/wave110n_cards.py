@@ -41,6 +41,8 @@ def definition(ability: Any, ch: Any) -> Def | None:
         return {"kind": "static", "static": flag, "effects": []}
     if ability.text.strip() == _BANE:
         return _bane(ability, ch)
+    if ability.text.strip() == _SWARM:
+        return _swarm(ability, ch)
     if ability.text.strip() == _ERIETTE:
         return _eriette(ability, ch)
     if (built := _BUILD.get(ability.text.strip())) is None:
@@ -216,6 +218,41 @@ def still_attached(plan: Any, e: Any) -> bool:
     return host is not None and host.zone.endswith(":battlefield") and plan.oid(host) in e.affected
 
 
+_SWARM = ("When this creature dies, distribute three -1/-1 counters among one, two, or three target creatures. For each -1/-1 counter you put on a creature "
+          "this way, remove a -1/-1 counter from that creature at the beginning of the next end step.")
+
+
+def _swarm(ability: Any, ch: Any) -> Def | None:
+    from app.rules import scripts
+
+    native = scripts.define(replace(ability, text="When this creature dies, distribute three -1/-1 counters among one, two, or three target creatures."), ch)
+    if native is None or [e.get("do") for e in native["effects"]] != ["add_counters"]:
+        return None
+    return {**native, "effects": [{"do": "swarm_pre110n"}, *native["effects"], {"do": "swarm_post110n"}]}
+
+
+def swarm_pre(plan: Any, ctx: Any, e: Def) -> bool:
+    from app.rules import effects
+
+    ctx["swarm110n"] = {c: plan.state.cards[c].counters.get("-1/-1", 0) for c in effects._cards(plan, ctx, "target:0")}
+    return True
+
+
+def swarm_post(plan: Any, ctx: Any, e: Def) -> bool:
+    """Each creature the counters really went on (a replacement may have changed the number, 122.6) loses that many at the next end step (603.7a), if it is
+    still that permanent then (400.7)."""
+    from app.rules import context, delayed
+
+    for cid, was in ctx.pop("swarm110n", {}).items():
+        card = plan.state.cards[cid]
+        put = card.counters.get("-1/-1", 0) - was
+        if put > 0 and card.zone.endswith(":battlefield"):
+            context.bind_objects(plan, ctx, "swarm110n", [cid])
+            delayed.create(plan, {**ctx, "next": 0, "effects": [{"do": "remove_counters", "who": "ref:swarm110n", "kind": "-1/-1", "n": put}]},
+                           {"do": "delayed", "when": {"kind": "step", "step": "end", "whose": "next"}, "n": 1})
+    return True
+
+
 def _willow(d: Def) -> Def:
     return {**d, "effects": [{"do": "willow110n", "who": "target"}]}
 
@@ -274,6 +311,6 @@ def land_problem(state: Any, player: str, info: Any) -> str | None:
     return None
 
 
-PRIMITIVES: dict[str, Any] = {"decree110n": decree, "willow110n": willow, "eriette110n": eriette, "sword110n": sword, "sword_note110n": sword_note,
+PRIMITIVES: dict[str, Any] = {"decree110n": decree, "willow110n": willow, "swarm_pre110n": swarm_pre, "swarm_post110n": swarm_post, "eriette110n": eriette, "sword110n": sword, "sword_note110n": sword_note,
                               "sword_hand110n": sword_hand, "sword_rest110n": sword_rest}
 RESUME: dict[str, Any] = {}
