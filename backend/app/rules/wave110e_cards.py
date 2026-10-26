@@ -70,6 +70,14 @@ _SWAP: dict[str, tuple[str, list[Def]]] = {
           {"do": "only_if", "cond": {"value": {"count": _BOLAS}, "op": ">=", "n": 1}, "skip": 1}, {"do": "bounce", "who": "target:0"},
           {"do": "only_if", "cond": {"value": {"count": _BOLAS}, "op": "<=", "n": 0}, "skip": 2},
           {"do": "bound_subset", "mode": "prepare", "action": "deliver", "who": "target:0"}, {"do": "bound_subset", "mode": "partition", "action": "deliver"}]),
+    # 701.24/701.23: the count is bound as the cards leave the hand (608.2c); the opponent orders them (401.4, irrelevant: the library is searched whole and shuffled)
+    "Target opponent puts the cards from their hand on top of their library. Search that player's library for that many cards. The player puts those cards into "
+    "their hand, then shuffles.":
+        ("Target opponent puts a card from their hand on top of their library.",
+         [{"do": "head_games110e", "who": "target", "as": "hg110e"},
+          {"do": "search", "who": "you", "label": "cards", "max": {"ref_amount": "hg110e"}, "to": "hand", "reveal": False, "upto": False,
+           "sel": 'sel:{"card":true,"zone_owner":"you","zones":["library"]}', "shuffle": False, "library": "target"},
+          {"do": "shuffle_library", "who": "target", "zones": []}]),
     "Permanents enter tapped this turn.": ("Draw a card.", [{"do": "enter_tapped110e"}]),
     # 509.1h/509.3c: each target becomes blocked (no-op for one no longer an unblocked attacker); then 120.3 damage to each of them
     "X target attacking creatures become blocked. Choking Vines deals 1 damage to each of those creatures.":
@@ -136,6 +144,16 @@ def modal_lines(lines: list[Any]) -> list[Any]:
                                                            f"{m[1]} {m[2]} and gains {m[3]}.") for x in lines[1:] if (m := _WILD_MODE.match(x.text)))]
 
 
+def head_games(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Head Games, step 1: the target player's whole hand goes on top of their library (they order it); how many cards that was is kept for the search."""
+    from app.rules import context, effects, put_back
+
+    pid = effects._players(plan, ctx, e["who"])[0]
+    hand = list(plan.state.zones.get(f"{pid}:hand", []))
+    context.bind_amount(ctx, e["as"], len(hand))
+    return put_back._move(plan, ctx, pid, hand)
+
+
 def decoy(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     """Decoy Gambit (its group's copy): for the chosen creature (still on the battlefield), its controller either has the caster draw a card or the creature is returned."""
     from app.rules import effects
@@ -184,7 +202,7 @@ def mirror_match(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return True
 
 
-PRIMITIVES = {"mirror_match110e": mirror_match, "decoy110e": decoy, "spell_targets110e": bind_targets, "modified_cast110e": bind_modified, "enter_tapped110e": enter_tapped_turn}
+PRIMITIVES = {"mirror_match110e": mirror_match, "decoy110e": decoy, "head_games110e": head_games, "spell_targets110e": bind_targets, "modified_cast110e": bind_modified, "enter_tapped110e": enter_tapped_turn}
 
 _FLYERS = "Creatures with flying can't attack you or block creatures you control."
 _BLAZE = ("Target creature defending player controls can block any number of creatures this turn. "

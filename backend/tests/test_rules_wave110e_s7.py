@@ -27,8 +27,11 @@ DELIVER = real("Deliver Unto Evil", "{2}{B}", 3, "Sorcery",
                "Choose up to four target cards in your graveyard. If you control a Bolas planeswalker, return those cards to your hand. Otherwise, an opponent chooses two of them. "
                "Leave the chosen cards in your graveyard and put the rest into your hand.\nExile Deliver Unto Evil.", None, "B")
 BOLAS = real("Test Bolas", "{2}", 2, "Legendary Planeswalker — Bolas", "+1: You gain 1 life.", None, "")
+HEAD = real("Head Games", "{3}{B}{B}", 5, "Sorcery",
+            "Target opponent puts the cards from their hand on top of their library. Search that player's library for that many cards. "
+            "The player puts those cards into their hand, then shuffles.", None, "B")
 WALKER = real("Test Walker", "{2}", 2, "Planeswalker — Test", "+1: You gain 1 life.", None, "")
-base.EXTRA.extend([WALKER, TARDIS, GAMBIT, SUPPER, DELIVER, BOLAS])
+base.EXTRA.extend([WALKER, TARDIS, GAMBIT, SUPPER, DELIVER, BOLAS, HEAD])
 
 
 def _setup(cards, mm=True):
@@ -244,4 +247,30 @@ def test_deliver_unto_evil_all_return_with_a_bolas_otherwise_an_opponent_keeps_t
     where = [s.state.cards[t].zone for t in targets]
     assert where.count("p1:graveyard") == (0 if bolas else min(2, n)) and where.count("p1:hand") == (n if bolas else n - min(2, n))
     assert s.state.cards[spell.id].zone == "p1:exile"
+    check(s)
+
+
+@pytest.mark.parametrize("n", [0, 2])
+def test_head_games_the_hand_goes_on_top_and_you_choose_that_many_cards_into_their_hand(cards, n):
+    """701.23/608.2c: the target's hand (n cards) goes on top of their library, you search it for that many cards, which they put in their hand; then it is shuffled."""
+    from tests.test_rules_wave110e_cards import answer, cast
+    from tests.wave9c_kit import build, check, mana
+
+    s = build(cards, ["Head Games"], ["Grizzly Bears", "Test Shifter"], forests=30, islands=30)
+    assert not s.state.zones.get("p2:hand")
+    islands = [c for c in s.state.zones["p2:library"] if s.state.cards[c].name == "Island"][:n]
+    if n:
+        act(s, "p2", type="move", card_ids=islands, to={"player": "p2", "zone": "hand"})
+    want = [c.id for c in s.state.cards.values() if c.owner == "p2" and c.name in ("Grizzly Bears", "Test Shifter")][:n]
+    mana(s, B=2, C=3)
+    cast(s, "Head Games", ["p2"])
+    for _ in range(10):
+        d = s.state.rules.decision
+        if d is None:
+            break
+        pick = [o.id for o in d.options if o.id in want] if d.player == "p1" else [o.id for o in d.options]
+        act(s, d.player, type="choose", decision_id=d.id, option_ids=pick if d.player == "p1" else pick or [d.options[0].id])
+    answer(s)
+    names = sorted(s.state.cards[c].name for c in s.state.zones["p2:hand"])
+    assert names == (["Grizzly Bears", "Test Shifter"] if n else []) and sum(s.state.cards[c].name == "Island" for c in s.state.zones["p2:library"]) == 30
     check(s)
