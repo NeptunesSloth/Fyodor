@@ -5180,6 +5180,8 @@ def cast_free(plan: Plan, card: CardInstance, ch: Characteristics, a: A.CastSpel
         return
     if announce_free_x(plan, a, card, ch):  # -- cast keywords (wave 43D) -- 107.3a: "Kicker {X}" kicked on a free cast, a miracle cost with {X}: X is announced with it
         return
+    if a.x_value is None and M.parse_cost(ch.mana_cost).x:
+        a.x_value = 0  # 107.3b: nothing announced it, so X is 0 (before targets that count X are chosen)
     if a.kicker and (minimum_kick := kicker_cost(ch.abilities)) is not None and (a.x_value or 0) < minimum_kick.minimum_x:
         raise ActionError(f"{ch.name}: kicker X must be at least {minimum_kick.minimum_x}")
     if M.parse_cost(ch.mana_cost).x and (limited := cast_limits.cast_problem(plan.state, plan.actor, card, ch, plan.info, resolving=True, announced=a.x_value or 0)):
