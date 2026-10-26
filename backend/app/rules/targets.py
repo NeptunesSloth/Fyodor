@@ -187,6 +187,8 @@ def legal_targets(plan: Plan, selector: str, chooser: str, source: Characteristi
                 if t in hurt or (t in plan.state.cards and damage_history.matches(plan, plan.state.cards[t], damage_history.WAS_DEALT, chooser))]
     if selector == "opponent_or_other_battle110f":  # -- cards (wave 110F) -- "another target battle or opponent" (Invasion of Regatha): not the battle itself
         return [t for t in legal_targets(plan, "opponent_or_battle", chooser, source, source_card, attacker, source_object=source_object) if t != source_card]
+    if selector == "opponent_or_other_permanent110l":  # -- (wave 110L) -- "another target permanent or opponent" (Etched Slith): not the source itself
+        return [t for t in legal_targets(plan, "permanent_or_opponent", chooser, source, source_card, attacker, source_object=source_object) if t != source_card]
     if selector == "any_other":  # -- damage sized by a count (wave 34D) -- 115.4: "deals that much damage to any other target" (Black Panther): any target
         excluded = source_card if source_object is None or source_card in plan.state.cards and plan.oid(source_card) == source_object else None
         return [t for t in legal_targets(plan, "any", chooser, source, source_card, attacker, source_object=source_object) if t != excluded]

@@ -297,6 +297,8 @@ def note_events(plan: Plan, events: list[Any], into: TurnLog | None = None) -> N
         for kind, obj, ch, player, info in _facts(plan, e, {"cast_from": {}}):
             what: dict[str, Any] = {"types": sorted(ch.types), "subtypes": sorted(ch.subtypes),
                                     "supertypes": sorted(ch.supertypes)} if ch is not None else {}
+            if kind == "enter" and obj is not None and ch is not None and ch.face_down and player is not None:  # -- (wave 110L) -- 708.2: entered face down under its controller's control (Oblivious Bookworm)
+                log.facts.append(TurnFact(kind="enter_fd110l", player=player, object_id=info.get("oid")))
             if kind == "land_played" and player is not None:
                 log.facts.append(TurnFact(kind="land_play", player=player, object_id=info.get("oid"),
                                           from_zone=info.get("played_from"), **what))

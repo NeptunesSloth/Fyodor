@@ -190,6 +190,10 @@ def resume(plan: Plan, d: Any, chosen: list[str]) -> None:
         cards_tapped = {c for c in cards if kind in chars.of(plan.state.cards[c], plan.info).types}
         atk = bool(cards_tapped)
     entries = [{"card": c, "player": pid, "actor": pid, "tapped": bool(e.get("tapped")) or (e.get("tap_atk110d") is not None and c in cards_tapped), "via": ctx.get("source_object")} for c in cards]  # (wave 51E: Entry.via)
+    if e.get("xlands110l"):  # -- (wave 110L) -- The First Tyrannic War: a card with {X} in its mana cost enters with +1/+1 counters, one per land you control (614.1c)
+        from app.rules import wave110l_cards
+
+        entries = wave110l_cards.x_counters(plan, entries)
     if e.get("host"):  # -- attached (wave 100F) -- "… onto the battlefield attached to it" (Holy Avenger): 303.4f, an Aura that can't enchant it stays (303.4g)
         entries = effects._attached_entries(plan, ctx, e["host"], entries)
         cards = [x["card"] for x in entries]
