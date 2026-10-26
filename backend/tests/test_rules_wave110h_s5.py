@@ -3,6 +3,7 @@
 * Bloodfeather Phoenix: damage to an opponent or a battle (120.3, 310.5) by an instant or sorcery you control; {R} returns it from the graveyard.
 * The Spot, Living Portal: put on the bottom of its owner's library; if it got there, the exiled cards return to their owners' hands (608.2c).
 * Rampaging Raptor: its damage goes to a planeswalker the damaged player controls or a battle that player protects (310.8, 120.3); not a battle another player protects.
+* Mysterious Limousine: a new exile sends the older linked cards back to the battlefield under their owners' control; no new exile (no target) leaves them (607.2a).
 * Lamplight Phoenix: "exile it and collect evidence 4" is one optional cost (701.59a, 118.12); only if all of it is paid does the card return tapped.
 """
 from __future__ import annotations
@@ -36,6 +37,10 @@ EXTRA = [
          "Trample, haste\n{2}{R}: This creature gets +2/+0 until end of turn.\nWhenever this creature deals combat damage to an opponent, it deals that much damage to "
          "target planeswalker that player controls or battle that player protects.", ("4", "4"), "R"),
     {**real("Test Walker", "{3}", 3, "Legendary Planeswalker \u2014 Test", "", None, ""), "loyalty": "5"},
+    real("Mysterious Limousine", "{3}{B}", 4, "Artifact \u2014 Vehicle",
+         "Whenever this Vehicle enters or attacks, exile up to one other target creature until this Vehicle leaves the battlefield. If a creature is put into "
+         "exile this way, return each other card exiled with this Vehicle to the battlefield under its owner's control.\nCrew 2", ("4", "4"), "B"),
+    real("Grizzly Bears", "{1}{G}", 2, "Creature \u2014 Bear", "", ("2", "2"), "G"),
     real("Murder", "{1}{B}{B}", 3, "Instant", "Destroy target creature.", None, "B"),
     real("Lightning Bolt", "{R}", 1, "Instant", "Lightning Bolt deals 3 damage to any target.", None, "R"),
 
@@ -241,3 +246,34 @@ def test_rampaging_raptor_cannot_target_a_battle_the_other_player_controls_but_d
         else:
             act(s, s.state.rules.priority, type="pass_priority")
     assert pw.id in ids and battle.id not in ids
+
+
+@pytest.mark.parametrize("second_target", [True, False])
+def test_mysterious_limousine_returns_the_older_exile(cards, second_target):
+    from tests.test_rules_wave100f_attached import to_phase
+
+    s = build(cards, ["Mysterious Limousine", "Hill Giant"], ["Hill Giant", "Grizzly Bears"])
+    a = put(s, "Hill Giant", "p2")
+    mana(s, B=1, C=3)
+    cast(s, "Mysterious Limousine")
+    answer(s, [a.id])
+    assert s.state.cards[a.id].zone == "p2:exile"
+    pilot = put(s, "Hill Giant")
+    to_phase(s, "main1", turn=3)
+    limo = next(c for c in s.state.cards.values() if c.name == "Mysterious Limousine")
+    b = put(s, "Grizzly Bears", "p2")
+    act(s, "p1", type="activate_ability", card_id=limo.id, ability=1, crew=[pilot.id])
+    answer(s)
+    to_phase(s, "declare_attackers", turn=3)
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": limo.id, "target": "p2"}])
+    d = s.state.rules.decision
+    act(s, d.player, type="choose", decision_id=d.id, option_ids=[b.id] if second_target else [])
+    while s.state.zones.get("stack") or (s.state.rules.decision is not None and s.state.rules.decision.kind == "declare_blockers"):
+        d = s.state.rules.decision
+        if d is not None:
+            act(s, d.player, type="declare_blockers", blocks=[])
+        else:
+            act(s, s.state.rules.priority, type="pass_priority")
+    assert (s.state.cards[b.id].zone == "p2:exile") == second_target
+    assert (s.state.cards[a.id].zone == "p2:battlefield") == second_target
+    check(s)
