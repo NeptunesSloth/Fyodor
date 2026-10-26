@@ -19,12 +19,8 @@ if TYPE_CHECKING:
 
 MARK = "groups110d"
 OPP, PICK = "opp_groups110d", "pick_groups110d"
-LINES = {  # exact spell line -> the line read with every group the caster's (the groups in the list are the opponent's choice)
-    "Destroy target nonbasic land you don't control and target nonbasic land of an opponent's choice you don't control.":
-        ("Destroy target nonbasic land you don't control and target nonbasic land you don't control.", [1]),
-    "Volcanic Offering deals 7 damage to target creature you don't control and 7 damage to target creature of an opponent's choice you don't control.":
-        ("Volcanic Offering deals 7 damage to target creature you don't control and 7 damage to target creature you don't control.", [1]),
-}
+# Refused (no CR rule or ruling in data/rules says which opponent chooses each target): Volcanic Offering's two lines stay unsupported.
+LINES: dict[str, tuple[str, list[int]]] = {}
 
 
 def line(ability: Any, ch: Any) -> dict[str, Any] | None:
