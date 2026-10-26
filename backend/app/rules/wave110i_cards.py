@@ -171,6 +171,13 @@ def cast_targets(plan: Plan, ctx: Context, key: str) -> int:
     return n
 
 
+def _evershrike(d: Def) -> Def:
+    """Evershrike: the Aura enters attached to the returned card (303.4f); "If you don't" (no Aura chosen, or none could legally enchant it, 303.4i) exiles it (118.12)."""
+    back, put = d["effects"]
+    return {**d, "effects": [{**back, "as": "ever110i"}, {**put, "host": "ref:ever110i", "did": "aura110i"},
+                             {"do": "only_if", "cond": {"succeeded": "aura110i", "negate": True}, "skip": 1}, {"do": "exile", "who": "ref:ever110i"}]}
+
+
 def _shifty(d: Def) -> Def:
     """Shifty Doppelganger: the sacrifice is bound ("did", 118.12); only if that creature left does this card return from exile (a new object, 400.7)."""
     es = [{**x, "did": "sac110i"} if x.get("do") == "deferred:sacrifice" else {**x, "n": 3} if x.get("do") == "delayed" else {**x, "skip": x["skip"] + 2} if x.get("do") == "only_if" else x for x in d["effects"]]
@@ -247,6 +254,9 @@ _BAUBLE = ("{1}, {T}, Sacrifice this artifact: Put up to four target basic land 
 _VAT = ("{1}, {T}, Sacrifice another artifact: Reveal the top eight cards of your library. Put up to two noncreature artifact cards with total mana value "
         "less than or equal to the sacrificed artifact's mana value from among them onto the battlefield and the rest on the bottom of your library in a random order.")
 _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
+    "{X}{W/B}{W/B}: Return this card from your graveyard to the battlefield. You may put an Aura card with mana value X or less from your hand onto the battlefield "
+    "attached to it. If you don't, exile this creature.":
+        ("{X}{W/B}{W/B}: Return this card from your graveyard to the battlefield. You may put an Aura card with mana value X or less from your hand onto the battlefield.", _evershrike),
     "{3}{U}, Exile this creature: You may put a creature card from your hand onto the battlefield. If you do, that creature gains haste until end of turn. "
     "At the beginning of the next end step, sacrifice that creature. If you do, return this card to the battlefield.":
         ("{3}{U}, Exile this creature: You may put a creature card from your hand onto the battlefield. If you do, that creature gains haste until end of turn. "

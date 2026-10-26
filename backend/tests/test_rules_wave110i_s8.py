@@ -2,6 +2,7 @@
 
 * Arcee: "that many" counters = the cast spell's targets that are creatures or Vehicles you control (115.9b, 603.2).
 * Shifty Doppelganger: the creature put onto the battlefield is sacrificed at the next end step; if it was, this card returns from exile (118.12).
+* Evershrike: returns from the graveyard; an Aura (mana value X or less) from hand enters attached to it (303.4f), else it is exiled (118.12).
 * Arsenal Thresher: reveals other artifact cards from hand as it enters (701.20a), a +1/+1 counter for each (614.12); the cards stay in hand.
 """
 
@@ -13,7 +14,7 @@ from app.rules import coverage
 from tests.game_helpers import act
 from tests.test_rules_wave12a_counters_keywords import real
 from tests.test_rules_wave34b_activated import activate
-from tests.wave9c_kit import build, mana, put, to_hand
+from tests.wave9c_kit import build, card_named, mana, pt, put, to_hand
 from tests.wave110a_kit import answer
 from tests.wave110c_kit import check, make_db
 
@@ -22,7 +23,12 @@ THRESHER = ("As this creature enters, you may reveal any number of other artifac
 ARCEE = ("Whenever you cast a spell that targets one or more creatures or Vehicles you control, put that many +1/+1 counters on Arcee. Convert Arcee.")
 SHIFTY = ("{3}{U}, Exile this creature: You may put a creature card from your hand onto the battlefield. If you do, that creature gains haste until end of turn. "
           "At the beginning of the next end step, sacrifice that creature. If you do, return this card to the battlefield.")
-EXTRA = [real("Shifty Doppelganger", "{2}{U}", 3, "Creature \u2014 Shapeshifter", SHIFTY, ("1", "1"), "U"),
+EVER = ("Flying\nThis creature gets +2/+2 for each Aura attached to it.\n{X}{W/B}{W/B}: Return this card from your graveyard to the battlefield. "
+        "You may put an Aura card with mana value X or less from your hand onto the battlefield attached to it. If you don't, exile this creature.")
+EXTRA = [real("Evershrike", "{3}{W/B}{W/B}", 5, "Creature \u2014 Elemental Spirit", EVER, ("2", "2"), "WB"),
+         real("Probe Aura", "{1}{W}", 2, "Enchantment \u2014 Aura", "Enchant creature", None, "W"),
+         real("Probe Landaura", "{W}", 1, "Enchantment \u2014 Aura", "Enchant land", None, "W"),
+         real("Shifty Doppelganger", "{2}{U}", 3, "Creature \u2014 Shapeshifter", SHIFTY, ("1", "1"), "U"),
          real("Arcee", "{1}{R}{W}", 3, "Legendary Artifact Creature \u2014 Robot", ARCEE, ("2", "2"), "RW"),
          real("Probe Pair", "{R}", 1, "Instant", "Two target creatures each get +1/+1 until end of turn.", None, "R"),
          real("Probe Bears", "{1}{G}", 2, "Creature \u2014 Bear", "", ("2", "2"), "G"),
@@ -38,7 +44,7 @@ def card_db(settings):
     return make_db(settings, EXTRA)
 
 
-@pytest.mark.parametrize("name", ["Arsenal Thresher", "Arcee", "Probe Pair", "Shifty Doppelganger"])
+@pytest.mark.parametrize("name", ["Arsenal Thresher", "Arcee", "Probe Pair", "Shifty Doppelganger", "Evershrike"])
 def test_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
@@ -121,3 +127,23 @@ def test_shifty_swaps_and_returns_after_sacrifice(cards, case):
     if case == "sacrificed":
         assert s.state.cards[bears.id].zone == "p1:graveyard"
     check(s)
+
+
+@pytest.mark.parametrize(("aura", "x", "attached"), [("Probe Aura", 2, True), ("Probe Aura", 3, True), ("Probe Aura", 1, False),
+                                                      ("Probe Landaura", 1, False), (None, 0, False)])
+def test_evershrike_returns_with_an_aura_or_is_exiled(cards, aura, x, attached):
+    s = build(cards, ["Evershrike", "Probe Aura", "Probe Landaura"])
+    ever = card_named(s, "Evershrike")
+    act(s, "p1", type="move", card_ids=[ever.id], to={"zone": "graveyard"})
+    a = to_hand(s, aura) if aura else None
+    mana(s, W=2 + x)
+    activate(s, "p1", ever, "Return", x_value=x)
+    answer(s, *([a.id] if a is not None and a.name != "Probe Aura" or x >= 2 else []))  # (no card of mana value X or less: nothing to choose)
+    if attached:
+        assert s.state.cards[ever.id].zone == "p1:battlefield" and s.state.cards[a.id].attached_to == ever.id
+        assert pt(s, "Evershrike") == (4, 4)  # +2/+2 for the Aura attached to it
+    else:
+        assert s.state.cards[ever.id].zone == "p1:exile"
+        assert a is None or s.state.cards[a.id].zone == "p1:hand"
+    check(s)
+
