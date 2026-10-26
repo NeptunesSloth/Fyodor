@@ -201,8 +201,7 @@ def test_top_permission_wordings(line, expect):
 
 @pytest.mark.parametrize("line", [
     "You may play historic lands and cast creature spells from the top of your library.",
-    "Escape—{2}{B}, Exile any number of other cards from your graveyard with four or more card types among them.",
-])
+])  # (wave 110M: Nethergoyf's escape is read now, tests/test_rules_wave110m_library.py)
 def test_refused_wordings(line):
     assert P.define_static(line, "static", (*LOOK, line)) is None
 

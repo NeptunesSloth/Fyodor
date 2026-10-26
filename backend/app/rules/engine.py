@@ -87,6 +87,7 @@ from app.rules import (
     untap_choice,  # -- untap choice (wave 7F) --
     wave110a_teferi,  # -- wave 110A --
     wave110e_opp,  # -- cast-time choice (wave 110E) --
+    wave110f_cards,  # -- combat damage division (wave 110F) --
     wave110h_cards,  # -- untap hold (wave 110H) --
 )
 from app.rules import morph_costs78 as _morph_costs78  # noqa: F401
@@ -595,12 +596,13 @@ def next_step(plan: Plan) -> None:
             _mark_step(plan)
             extra_untap_step(plan)
             return
-    elif phase == "declare_attackers" and r.no_attackers:
+    elif phase == "declare_attackers" and r.no_attackers and not combat.attackers_on(plan.state):  # (wave 110I: 508.8 creatures put onto the battlefield attacking count)
         # Nobody attacked: skip declare blockers and combat damage (rule 508.8).
         plan.do({"type": "phase", "to": "end_combat", "force": True}, actor=plan.active)
     else:
         plan.do({"type": "phase", "to": "next", "force": True}, actor=plan.active)
-    effects.skips.skip_steps(plan)  # -- refused grants/replacements (wave 3R2) -- 614.10: a skipped step or combat phase
+    if effects.skips.skip_steps(plan):  # -- refused grants/replacements (wave 3R2) -- 614.10: a skipped step or combat phase (wave 110I: waits for Fasting's choice)
+        return
     if plan.state.turn.phase == "untap" and r.extra_beginning:
         _mark_step(plan)
         extra_untap_step(plan)
@@ -666,6 +668,7 @@ def start_next_turn(plan: Plan) -> None:
     # -- (wave 110C) -- 500.1: as the turn begins, before anything untaps: "untapped lands they controlled at the beginning of this turn" (Power Surge)
     plan.rules.began_lands110c = {(who := skip_to or upcoming): sum(
         1 for c in plan.state.cards.values() if c.zone.endswith(":battlefield") and c.controller == who and not c.tapped and "Land" in plan.ch(c).types)}
+    plan.rules.began_untapped110j = [plan.oid(c) for c in plan.state.cards.values() if c.zone.endswith(":battlefield") and not c.tapped]  # -- (wave 110J) -- "started the turn untapped"
     stay = effects.skips.untap_skipped(plan, skip_to or upcoming)
     if stay is None:  # -- phasing (wave 13D) -- 702.26a/m: before the untap step, unless it is skipped
         phasing.untap_step(plan, skip_to or upcoming)
@@ -757,7 +760,8 @@ def finish_turn_start(plan: Plan, stunned: list[str], previous: tuple[str, int],
         wave110a_teferi.untap_step(plan)  # -- wave 110A -- Teferi's emblem
     # The untap step has no priority: straight on to upkeep.
     plan.do({"type": "phase", "to": "next", "force": True}, actor=plan.active)
-    effects.skips.skip_steps(plan)  # -- refused grants/replacements (wave 3R2) -- 614.10: a skipped upkeep / draw step
+    if effects.skips.skip_steps(plan):  # -- refused grants/replacements (wave 3R2) -- 614.10: a skipped upkeep / draw step
+        return
     _mark_step(plan)
     on_step_start(plan)
 
@@ -943,6 +947,7 @@ def turn_cleanup(plan: Plan) -> None:
     )
 
     wave110k_cards.end_of_turn(plan)
+    plan.rules.no_regen_sources110k = []  # (wave 110K) Runesword's rule ends with the turn
     plan.rules.regen_shields = {}  # regeneration shields last "this turn"
     plan.rules.regeneration_riders = []
     plan.rules.no_regen = []  # (wave 19E) and so does "can't be regenerated this turn"
@@ -1348,7 +1353,7 @@ def land_play_problem(state: GameState, player: str, card: CardInstance, ch: Cha
 
     if (why := wave110n_cards.land_problem(state, player, info)) is not None:
         return why
-    if (why := cast_limits.land_problem(state, player, ch, info)) is not None:
+    if (why := cast_limits.land_problem(state, player, ch, info, card.zone)) is not None:
         return why  # -- chosen filters (wave 53B) -- Conjurer's Ban: a land with the chosen name can't be played until a turn
     if check_priority and (r.priority != player or r.decision is not None):
         return "You don't have priority"
@@ -1430,6 +1435,11 @@ def play_land(plan: Plan, a: A.PlayLand) -> None:
         r.priority = plan.actor
         return
     # -- end entering for a cost (wave 5G) --
+    from app.rules import (
+        devour,  # -- sacrificed as it enters (wave 110I) -- Sheltered Valley (614.1a), a land entering by being played
+    )
+
+    devour.sacrifice(plan, ep, plan.actor)
     payload: dict[str, Any] = {"type": "move", "card_ids": [card.id], "to": {"zone": "battlefield"},
                                "tapped": bool(ep["tapped"]) or bool(grant is not None and grant.enters and grant.enters.get("tapped"))}  # (wave 51D: "If you do, it enters tapped", 614.1d)
     if a.x is not None and a.y is not None:
@@ -1490,7 +1500,7 @@ def choose(plan: Plan, a: A.Choose) -> None:
     if d.kind == "divide":  # 601.2d: an amount per option (target), at least 1 each, adding up to the total
         total = int((d.resume or {}).get("total", 0))
         least = int((d.resume or {}).get("least", 1))  # (-- multiple blocks (wave 13B) -- 510.1d: a share may be 0)
-        if chosen or len(a.amounts) != len(d.options) or any(n < least for n in a.amounts) or sum(a.amounts) != total:
+        if chosen or len(a.amounts) != len(d.options) or any(n < least for n in a.amounts) or (sum(a.amounts) != total and not ((d.resume or {}).get("upto") and sum(a.amounts) < total)):
             raise ActionError(f"Divide {total} among the {len(d.options)} targets: at least {least} each, {total} in all")
         need, free = (d.resume or {}).get("lethal") or [], (d.resume or {}).get("free")
         if free is not None and a.amounts[free] > 0 and any(a.amounts[i] < k for i, k in enumerate(need)):
@@ -1523,7 +1533,11 @@ def choose(plan: Plan, a: A.Choose) -> None:
     step = (d.resume or {}).get("step")
     zero_modes = (d.resume or {}).get("zero_modes_object")
     plan.locked_zero_modes = zero_modes if isinstance(zero_modes, str) else None
-    RESUME[str(step)](plan, d, chosen)
+    plan.cause110g = ((d.resume or {}).get("ctx") or {}).get("controller")  # -- wave 110G -- the answered effect's controller stamps its moves
+    try:
+        RESUME[str(step)](plan, d, chosen)
+    finally:
+        plan.cause110g = None
     if plan.rules.payment_outer is not None:  # -- nested payment choices (wave 28D) -- back to the payment the choice was nested in
         casting.resume_outer(plan)
     permissions.free_cast_abandoned(plan)  # -- free-cast cleanup (wave 30A) -- a cancelled free cast ends before play goes on: advance would resolve the
@@ -1833,6 +1847,7 @@ RESUME: dict[str, Callable[[Plan, Decision, list[str]], None]] = {
     "enlist": enlist.resume,  # -- casting extras (wave 18E) -- 702.154a
     "assist": assist.resume,  # -- casting extras (wave 18E) -- 702.132a
     "pick110e": wave110e_opp.resume,  # -- cast-time choice (wave 110E)
+    "giant110f": wave110f_cards.resume_giant,  # -- combat damage division (wave 110F)
     "gift": gift.resume,  # -- gift (wave 23D) -- 702.174a
     "free_multikicker": casting.resume_free_multikicker,
     "free_optional": casting.resume_free_optional,  # -- free-cast optional costs (wave 41D) -- 118.9d, 601.2b
@@ -1871,6 +1886,9 @@ effects.replace.THEN["draw_step"] = lambda plan, then: triggers.at_step_generic(
 from app.rules import delegated_target_announcements as _delegated_target_announcements  # noqa: E402
 
 RESUME.update(_delegated_target_announcements.RESUME)
+from app.rules import wave110d_volc as _wave110d_volc  # noqa: E402
+
+RESUME.update(_wave110d_volc.RESUME)
 
 from app.rules import numeric_roll_finalization42 as _numeric_roll_finalization42  # noqa: E402, I001
 

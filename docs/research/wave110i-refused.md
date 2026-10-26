@@ -27,3 +27,30 @@
 - Quicksilver Fountain: three gaps (flood-counter-conditional Island static, "if all lands are Islands" condition, land chosen by the upkeep player).
 - Lodestone Bauble: targets in one player's graveyard plus "that player draws" (two player roles) not modelled.
 - Smelting Vat: "total mana value <= sacrificed artifact's" pick constraint not modelled. Aphetto Dredging: creature type chosen during targeting.
+
+## Session 7: foundations built, these earlier refusals are now FULL
+- Hipparion (block tax by attacker power, combat_rules.pair_tax), Fasting (optional draw-step skip, wave110i_cards.ask_skip), Smelting Vat (total_mv as a value), Lodestone Bauble (one graveyard, owner draws), Noctis (delayed trigger at declare attackers step, 507.1/508.8), Balduvian Fallen / Heart of Bogardan (cumulative upkeep paid / unpaid), Sheltered Valley (devour-style mandatory same-name sacrifice).
+- Lodestone Bauble: zero targets (115.6) are allowed; that resolution goes to manual play (s9).
+
+## Session 8
+Moved to FULL: Arsenal Thresher (devour.py REV), Arcee (cast_targets110i value), Shifty Doppelganger, Evershrike, Raiding Party, Tainted Specter (wave110i_cards.py).
+- Spoils of War: "an opponent's graveyard" (which opponent, multiplayer) is unsettled, and X is both cost and text-defined (107.3c).
+- Torrent of Lava: abilities granted to every creature only while the spell is on the stack; no stack-presence static.
+- Hero of Bretagard: needs "exiled by a spell or ability you control" as an event source, joined to a hand-exile batch.
+- Stardew Valley: "another player of your choice may gain control": who decides the "may" is unsettled.
+- Quicksilver Fountain: "target ... land they control of their choice": who picks the target is unsettled.
+- Aphetto Dredging: when the creature type is chosen (before or after targets) is unsettled.
+- Frankenstein's Monster: +2/+0 and +0/+2 counters, and "put into the graveyard instead of the battlefield", are not modelled.
+- Firestorm Phoenix, Providence, False Dawn, Reflecting Mirror (X defined by the target spell's mana value), Curse of Leeches (attach on transform), Tunnel of Love: foundations missing.
+
+## Session 9
+- Curse of Leeches: "as this permanent transforms, attach it to a player" needs a decision inside the synchronous day/night flip (designations.py sync); no suspendable hook.
+- Hero of Bretagard: second trigger half (a spell or ability you control exiles permanents) is a separate event kind; one ability, two triggers not modelled.
+- Firestorm Phoenix: needs a per-object "can't play it" plus timed reveal on the new hand object (rider has no ref to the moved card).
+- False Dawn: colored-mana replacement for a turn (no mana-type replacement foundation). Reflecting Mirror: X fixed to twice the target spell's mana value. Arcum's Whistle, Torrent of Lava, Spoils of War: unchanged (see Session 8).
+
+## Session 10
+- Done (no longer refused): Curse of Leeches (decision at the flip, before SBA), Hero of Bretagard (exiled110i event), Firestorm Phoenix, False Dawn, Reflecting Mirror, C.A.M.P. (+ Darksteel Garrison, Fortify), Tunnel of Love.
+- Spoils of War: "an opponent's graveyard" in a multiplayer game has no CR rule or ruling saying which opponent (X defined as you cast); not guessed.
+- Torrent of Lava: spell on the stack grants every creature an activated ability (no stack-zone static source); still a foundation, not rules-unsettled.
+- Arcum's Whistle: needs "that player may pay {X}" for another player, forced attack, and an end-step "didn't attack this turn" check; foundation work.

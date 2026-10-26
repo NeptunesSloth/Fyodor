@@ -55,13 +55,7 @@ def test_lim_duls_cohort_stops_the_other_creature_regenerating_not_itself(cards)
     replay_matches(s)
 
 
-def test_war_barges_delayed_destroy_cant_be_regenerated_or_stays_manual(cards):
-    """The clause belongs to the delayed trigger's destruction (701.19c); if the engine can't carry it there the card stays manual."""
-    text = ("{3}: Target creature gains islandwalk until end of turn. When this artifact leaves the battlefield this turn, destroy that "
-            "creature. A creature destroyed this way can't be regenerated.")
-    cov = coverage.of_card_data({"name": "War Barge", "oracle_id": "wb", "id": "wbid", "type_line": "Artifact", "oracle_text": text, "faces": [],
-                                 "mana_cost": "{3}", "colors": [], "keywords": []})
-    assert cov.level != "FULL"
+# (War Barge's delayed destroy that can't be regenerated is read since wave 110G: tests/test_rules_wave110e_s8.py)
 
 
 def test_those_wordings_are_read():

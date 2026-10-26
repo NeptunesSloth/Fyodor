@@ -1256,6 +1256,11 @@ def parse_clause(text: str) -> tuple[list[dict[str, Any]], Any] | None:
                         "and is a vampire in addition to its other types"):  # -- Tarrian's Journal (wave 110C) -- one creature spell; 122.6, 205.1b
         return [{"do": "grant_play", "zone": "graveyard", "zone_owner": "you", "play": False, "cast": True, "until": "end_of_turn", "optional": True,
                  "once": True, "filter": spell_filter("creature"), "enters": {"counters": {"finality": 1}, "subtypes": ["Vampire"]}}], None
+    if text.lower() == ("you may cast a creature spell from that player's graveyard this turn, and you may spend mana as though it were mana of any "
+                        "color to cast that spell"):  # -- Whispersteel Dagger (wave 110F) -- 609.4b; one creature spell from the damaged player's graveyard (bound by triggers.bind_that_player)
+        return [{"do": "grant_play", "zone": "graveyard", "zone_owner": "any", "play": False, "cast": True, "until": "end_of_turn", "optional": True,
+                 "once": True, "filter": spell_filter("creature"), "spend": "color",
+                 "card_filter": selectors.Selector(card=True, zones=("graveyard",), zone_owner="that_player").key()}], None
     m = GRANT_ZONE.fullmatch(text)
     if m:
         if m["until"] and m["this_turn"]:
@@ -1443,11 +1448,9 @@ def grants(state: GameState, player: str, card: CardInstance, ch: Characteristic
         elif p.zone != "any" and p.zone != where and not (
                 p.zone in ("graveyard", "exile") and p.zone_owner == "any" and card.zone.endswith(":" + p.zone)):
             continue
-        if p.card_filter:
-            from app.rules import selectors
-
-            if not selectors.matches(_view(state, player, info), selectors.from_key(p.card_filter), card, ch, player):
-                continue
+        # (wave 110L: no local import of selectors here: it made the name local to all of grants(), unbound for the put_there read below)
+        if p.card_filter and not selectors.matches(_view(state, player, info), selectors.from_key(p.card_filter), card, ch, player):
+            continue
         if p.filter and verb == "cast" and not spell_matches(state, player, card, ch, p.filter, info):
             continue
         if p.nth is not None and cost_changes.casts_so_far(state, info, player, p.filter) != p.nth:
@@ -2045,7 +2048,7 @@ def grant_play(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     zone_label = "exile" if e.get("zone_owner") == "any" and e["zone"] == "exile" else "any graveyard" if e.get("zone_owner") == "any" and e["zone"] == "graveyard" else f"your {e['zone']}"
     r.permissions.append(Permission(id=secrets.token_hex(4), player=pid, play=e["play"], cast=e["cast"], zone=e["zone"],
                                     zone_owner=e.get("zone_owner", "you"), card_filter=e.get("card_filter"), look_top=bool(e.get("look_top")),
-                                    free=bool(e.get("free")), life_mv=bool(e.get("life_mv")),
+                                    free=bool(e.get("free")), life_mv=bool(e.get("life_mv")), spend=e.get("spend", ""),  # (wave 110F: Whispersteel Dagger)
                                     extra=e.get("extra", ""), enters=e.get("enters"),
                                     filter=e.get("filter"), once=bool(e.get("once")),  # (-- cast permissions (wave 30Q) -- "a creature spell": one spell, of that kind)
                                     exile_gy=e.get("exile_gy", ""), exile_own=bool(e.get("exile_own")), graveyard_destination=e.get("graveyard_destination", ""),  # (wave 25C)
@@ -2199,6 +2202,10 @@ def free_cast(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     from app.rules.effects import decide
 
     pid = ctx["controller"]
+    if e.get("caster"):  # -- (wave 110J) -- Swindler's Scheme: "that opponent may cast the revealed card"
+        from app.rules import wave110j_cards
+
+        pid = wave110j_cards.caster(plan, ctx, e)
     done = ctx.setdefault("free_cast_done", [])
     if not e.get("all") and sum(1 for c in done if c not in (ctx.get("free_cast_before") or [])) >= int(e.get("n", 1)):
         return _free_cast_over(ctx, e)

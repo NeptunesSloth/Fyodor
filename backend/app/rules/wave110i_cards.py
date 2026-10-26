@@ -121,7 +121,308 @@ def _goad_while_saga(d: Def) -> Def:
 _POWER_LEAK = "At the beginning of the upkeep of enchanted {0}'s controller, that player may pay any amount of mana. This Aura deals 2 damage to that player. Prevent X of that damage, where X is the amount of mana that player paid this way."
 
 # whole ability text -> (the wording the grammar reads, what to change in its definition)
+def _fasting(d: Def) -> Def:
+    """Fasting: 614.10a an optional skip of the draw step; the player is asked as the step would begin (``ask_skip``)."""
+    return {**d, "static": "skip_may110i", "life": 2}
+
+
+def _total_sacrificed(d: Def) -> Def:
+    """Smelting Vat: "total mana value less than or equal to the sacrificed artifact's mana value" caps the picked cards (608.2d), read from the cost."""
+    return {**d, "effects": [{**x, "total_mv": {"mana_value": "cost:sacrificed"}} if x.get("do") == "pick_looked" else x for x in d["effects"]]}
+
+
+def _bauble(d: Def) -> Def:
+    """Lodestone Bauble: the targets are basic lands in any one graveyard (115.1d-style "a player's graveyard": one player), and "that player" is their owner."""
+    import json
+
+    t = d["targets"][0]
+    sel = json.loads(t["what"][4:])
+    sel.pop("zone_owner", None)
+    t = {**t, "what": "sel:" + json.dumps(sel, separators=(",", ":"), sort_keys=True), "same_controller": True}
+    return {**d, "targets": [t], "effects": [{"do": "bauble110i", "who": "target:0"}, d["effects"][0]]}
+
+
+def _stardew(d: Def) -> Def:
+    """Stardew Valley: the player chosen on resolution (not a target) is asked whether to gain control of the permanent (608.2d: "may" is theirs)."""
+    return {**d, "effects": [{"do": "each_may", "who": e["to"], "act": [{"do": "gain_control", "who": "target", "to": "you"}], "text": "gain control of that permanent"}
+                             if e.get("do") == "gain_control" else e for e in d["effects"]]}
+
+
+def _fountain(d: Def) -> Def:
+    """Quicksilver Fountain: the player whose upkeep it is chooses the land they control (603.3d, ``event_player``), like upkeep_target_choice65."""
+    from app.rules import selectors
+
+    sel = selectors.parse("non-Island land that player controls")
+    assert sel is not None
+    return {**d, "target": {"what": sel.key()}, "target_choice": "event_player"}
+
+
+def _arcee(d: Def) -> Def:
+    """Arcee: "that many" = the spell's targets that are creatures or Vehicles you control (115.9b: as they are when the trigger checks), counted by ``cast_targets``."""
+    return {**d, "effects": [{**x, "n": {"cast_targets110i": d["cond"]["targets"]}} if x.get("do") == "add_counters" else x for x in d["effects"]]}
+
+
+def bind_self(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """"This card" after its own exile cost (400.7: a new object): bind the source as it is now, so a later "return this card" finds it in exile."""
+    from app.rules import context
+
+    if ctx.get("source_card") in plan.state.cards:
+        context.bind_objects(plan, ctx, e["as"], [ctx["source_card"]])
+    return True
+
+
+def cast_targets(plan: Plan, ctx: Context, key: str) -> int:
+    """The number of the cast event's targets that match the selector now (115.9b), for "put that many counters"."""
+    from app.rules import selectors
+
+    sel = selectors.from_key(key)
+    you = ctx.get("controller") or ""
+    n = 0
+    for ref in (ctx.get("event") or {}).get("cast_targets") or []:
+        card = plan.state.cards.get(ref.get("card", ""))
+        if card is not None and plan.oid(card) == ref.get("object_id") and selectors.matches(plan, sel, card, plan.ch(card), you, ctx.get("source_card") or ""):
+            n += 1
+    return n
+
+
+def _evershrike(d: Def) -> Def:
+    """Evershrike: the Aura enters attached to the returned card (303.4f); "If you don't" (no Aura chosen, or none could legally enchant it, 303.4i) exiles it (118.12)."""
+    back, put = d["effects"]
+    return {**d, "effects": [{**back, "as": "ever110i"}, {**put, "host": "ref:ever110i", "did": "aura110i"},
+                             {"do": "only_if", "cond": {"succeeded": "aura110i", "negate": True}, "skip": 1}, {"do": "exile", "who": "ref:ever110i"}]}
+
+
+def _specter(d: Def) -> Def:
+    """Tainted Specter: "discards a card unless they put a card from their hand on top of their library" is the target player's choice (``specter``); the damage
+    is only for a discard (118.12 style "unless": what they chose, here the discard itself)."""
+    discard, *damage = d["effects"]
+    return {**d, "effects": [{"do": "specter110i", "who": discard["who"]}, {"do": "only_if", "cond": {"succeeded": "disc110i"}, "skip": len(damage)}, *damage]}
+
+
+def specter(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    from app.game.rules_state import DecisionOption
+    from app.rules import effects
+    from app.rules.plan import decide
+
+    who = [p for p in effects._players(plan, ctx, e["who"]) if p in plan.live()]
+    if not who or not plan.state.zones.get(f"{who[0]}:hand"):
+        return True  # no player or nothing to put or discard: neither happens
+    decide(plan, player=who[0], kind="choose_one", prompt="Put a card from your hand on top of your library, or discard a card?",
+           options=[DecisionOption(id="top", label="Put a card from my hand on top of my library"), DecisionOption(id="discard", label="Discard a card")],
+           resume={"step": "specter110i", "ctx": ctx, "pid": who[0]})
+    return False
+
+
+def resume_specter(plan: Plan, d: Any, chosen: list[str]) -> None:
+    from app.game.rules_state import DecisionOption
+    from app.rules import effects
+    from app.rules.plan import decide
+
+    ctx, pid = d.resume["ctx"], d.resume["pid"]
+    if chosen == ["top"]:
+        hand = list(plan.state.zones.get(f"{pid}:hand", []))
+        decide(plan, player=pid, kind="choose_cards", prompt="Put a card from your hand on top of your library", min_choices=1, max_choices=1,
+               options=[DecisionOption(id=c, label=plan.state.cards[c].name or "Card", card_id=c) for c in hand], resume={"step": "specter_top110i", "ctx": ctx})
+    elif effects.PRIMITIVES["discard"](plan, ctx, {"do": "discard", "who": f"player:{pid}", "n": 1, "did": "disc110i"}):
+        effects.continue_effects(plan, ctx)
+
+
+def resume_specter_top(plan: Plan, d: Any, chosen: list[str]) -> None:
+    from app.rules import effects
+
+    plan.do({"type": "move", "card_ids": chosen, "to": {"player": d.player, "zone": "library"}, "position": "top"}, actor=d.player)
+    effects.continue_effects(plan, d.resume["ctx"])
+
+
+def _raiding(d: Def) -> Def:
+    """Raiding Party: the whole effect is one primitive (``raiding``): each player's tap choice, then their Plains choice, then the destruction."""
+    return {**d, "effects": [{"do": "raiding110i"}]}
+
+
+def raiding(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """Raiding Party: in turn order (101.4) each player may tap any number of their untapped white creatures and, for each, chooses up to two Plains; then every
+    Plains no player chose is destroyed (701.8) at once. The players choose knowing the earlier choices (all public)."""
+    return _raiding_next(plan, ctx, [p for p in plan.apnap() if p in plan.live()], [])
+
+
+def _raiding_next(plan: Plan, ctx: Context, players: list[str], chosen: list[str]) -> bool:
+    from app.game.rules_state import DecisionOption
+    from app.rules.plan import decide
+
+    for i, pid in enumerate(players):
+        whites = [c for c in plan.state.zones.get(f"{pid}:battlefield", []) if not plan.state.cards[c].tapped and "W" in plan.ch(plan.state.cards[c]).colors
+                  and plan.ch(plan.state.cards[c]).is_creature]
+        if whites:
+            decide(plan, player=pid, kind="choose_cards", prompt="Tap any number of untapped white creatures you control", min_choices=0, max_choices=len(whites),
+                   options=[DecisionOption(id=c, label=plan.state.cards[c].name or "Creature", card_id=c) for c in whites],
+                   resume={"step": "raiding_tap110i", "ctx": ctx, "rest": players[i + 1:], "chosen": chosen, "pid": pid})
+            return False
+    from app.rules import context, effects
+
+    plains = [c.id for c in plan.state.cards.values() if c.zone.endswith(":battlefield") and "Plains" in plan.ch(c).subtypes and c.id not in chosen]
+    context.bind_objects(plan, ctx, "plains110i", plains)
+    effects.PRIMITIVES["destroy"](plan, ctx, {"do": "destroy", "who": "ref:plains110i"})
+    return True
+
+
+def resume_raiding_tap(plan: Plan, d: Any, chosen: list[str]) -> None:
+    from app.game.rules_state import DecisionOption
+    from app.rules import effects
+    from app.rules.plan import decide
+
+    r = d.resume
+    ctx = r["ctx"]
+    if chosen:
+        plan.do({"type": "tap", "card_ids": chosen, "tapped": True}, actor=r["pid"])
+        plains = [c.id for c in plan.state.cards.values() if c.zone.endswith(":battlefield") and "Plains" in plan.ch(c).subtypes]
+        if plains:
+            decide(plan, player=r["pid"], kind="choose_cards", prompt=f"Choose up to {2 * len(chosen)} Plains", min_choices=0, max_choices=min(2 * len(chosen), len(plains)),
+                   options=[DecisionOption(id=c, label=f"{plan.state.cards[c].name} ({plan.name(plan.state.cards[c].controller)})", card_id=c) for c in plains],
+                   resume={"step": "raiding_plains110i", "ctx": ctx, "rest": r["rest"], "chosen": r["chosen"], "pid": r["pid"]})
+            return
+    if _raiding_next(plan, ctx, r["rest"], r["chosen"]):
+        effects.continue_effects(plan, ctx)
+
+
+def resume_raiding_plains(plan: Plan, d: Any, chosen: list[str]) -> None:
+    from app.rules import effects
+
+    r = d.resume
+    if _raiding_next(plan, r["ctx"], r["rest"], [*r["chosen"], *chosen]):
+        effects.continue_effects(plan, r["ctx"])
+
+
+def _shifty(d: Def) -> Def:
+    """Shifty Doppelganger: the sacrifice is bound ("did", 118.12); only if that creature left does this card return from exile (a new object, 400.7)."""
+    es = [{**x, "did": "sac110i"} if x.get("do") == "deferred:sacrifice" else {**x, "n": 3} if x.get("do") == "delayed" else {**x, "skip": x["skip"] + 2} if x.get("do") == "only_if" else x for x in d["effects"]]
+    return {**d, "effects": [{"do": "bind_self110i", "as": "self110i"}, *es, {"do": "deferred:only_if", "cond": {"succeeded": "sac110i"}, "skip": 1},
+                             {"do": "deferred:return_card", "to": "battlefield", "tapped": False, "under": "you", "who": "ref:self110i"}]}
+
+
+def _warp_strike(d: Def) -> Def:
+    """Noctis: returns at the beginning of the owner's next declare attackers step (507.1, 603.7), tapped and attacking (508.4), unblockable that combat."""
+    out: list[Def] = []
+    for x in d["effects"]:
+        if x.get("do") == "delayed":
+            x = {**x, "when": {**x["when"], "step": "declare_attackers"}, "n": 2}
+        elif x.get("do") == "deferred:return_card":
+            x = {**x, "tapped": True, "attacking": True, "as": "warp110i", "owner110i": True}
+        out.append(x)
+    return {**d, "effects": [*out, {"do": "deferred:restrict", "who": "ref:warp110i", "rules": ["cant_be_blocked"], "duration": "end_of_combat"}]}
+
+
+CU_UNPAID = "unpaid_cu110i"
+_CU_SPENT = {"cu_spent110i": "BR"}
+
+
+def _fallen(d: Def) -> Def:
+    """Balduvian Fallen: starts when its cumulative upkeep was paid (702.24a); the {B} and {R} spent on that payment size the pump (filled in by ``cu_fill``)."""
+    return {**d, "trigger": "paid_cu110j", "effects": [{**x, "p": _CU_SPENT} if x.get("do") == "pump" else x for x in d["effects"]]}
+
+
+def _heart(d: Def) -> Def:
+    """Heart of Bogardan: starts when a player doesn't pay the cumulative upkeep (702.24a), with the age counters it had just then (``cu_fill``)."""
+    return {**d, "trigger": CU_UNPAID}
+
+
+def cu_fill(plan: Plan, ctx: Context, d: Def) -> Def:
+    """Replace the age counters / spent mana markers of a cumulative upkeep follow-up trigger by the numbers the payment (or its refusal) fixed."""
+    src = plan.state.cards.get(ctx.get("source_card", ""))
+    age = src.counters.get("age", 0) if src is not None else 0
+    spent = ctx.get("cu_spent110i") or {}
+
+    def walk(x: Any) -> Any:
+        if isinstance(x, dict):
+            if "cu_spent110i" in x and len(x) == 1:
+                return sum(spent.get(c, 0) for c in x["cu_spent110i"])
+            if x == {"counters": "age", "on": "self"}:
+                return age
+            return {k: walk(v) for k, v in x.items()}
+        return [walk(v) for v in x] if isinstance(x, list) else x
+
+    return walk(d)
+
+
+def cu_unpaid(plan: Plan, ctx: Context, card_id: str) -> None:
+    """The cumulative upkeep wasn't paid: "When a player doesn't pay" abilities trigger (603.2), before the permanent is sacrificed (702.24a)."""
+    from app.rules import triggers
+
+    for card, ch, i, d in triggers._watchers(plan, CU_UNPAID):
+        if card.id == card_id:
+            triggers._add(plan, controller=card.controller, source_card=card.id, source_object=plan.oid(card), name=ch.name, index=i, definition=cu_fill(plan, ctx, d))
+
+
+def cu_paid_then(plan: Plan, then: dict[str, Any]) -> None:
+    """Pay branch of a cumulative upkeep: keep the mana spent for the "is paid" triggers, then go on."""
+    from app.rules import effects
+
+    ctx = then["ctx"]
+    ctx["cu_spent110i"] = (then.get("payment") or {}).get("spent") or {}
+    effects.continue_effects(plan, ctx)
+
+
+_WARP = ("Warp-Strike \u2014 {3}: Exile Noctis. Return it to the battlefield under its owner's control tapped and attacking at the beginning of that player's next declare "
+         "attackers step. It can't be blocked that combat.")
+_BAUBLE = ("{1}, {T}, Sacrifice this artifact: Put up to four target basic land cards from a player's graveyard on top of their library in any order. "
+           "That player draws a card at the beginning of the next turn's upkeep.")
+_VAT = ("{1}, {T}, Sacrifice another artifact: Reveal the top eight cards of your library. Put up to two noncreature artifact cards with total mana value "
+        "less than or equal to the sacrificed artifact's mana value from among them onto the battlefield and the rest on the bottom of your library in a random order.")
+def _reflect(d: Def) -> Def:
+    """Reflecting Mirror: any spell with a single target may be targeted; only as the ability resolves is it checked that the target is you (ruling 2004-10-04)."""
+    return {**d, "effects": [{**e, "you110i": True} for e in d["effects"]]}
+
+
+def _camp(d: Def) -> Def:
+    """C.A.M.P.: the Junk token is made only if the counter's creature shares a color with the mana the land produced (``camp_holds``)."""
+    *head, last = d["effects"]
+    return {**d, "effects": [*head, {"do": "only_if", "cond": {"camp110i": True}, "skip": 1}, last]}
+
+
+def camp_holds(plan: Plan, ctx: Context) -> bool:
+    event = ctx.get("event") or {}
+    mask = int(event.get("amount") or 0)
+    target = next((plan.state.cards.get(t["id"]) for t in ctx.get("targets") or [] if t and t["id"] in plan.state.cards), None)
+    return target is not None and any(mask >> "WUBRG".index(c) & 1 for c in plan.ch(target).colors)
+
+
 _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
+    "Whenever fortified land is tapped for mana, put a +1/+1 counter on target creature you control. If that creature shares a color with the mana that land produced, "
+    "create a Junk token.":
+        ("Whenever fortified land is tapped for mana, put a +1/+1 counter on target creature you control. Create a Junk token.", _camp),
+    "{X}, {T}: Change the target of target spell with a single target if that target is you. The new target must be a player. X is twice the mana value of that spell.":
+        ("{X}, {T}: Change the target of target spell with a single target. The new target must be a player.", _reflect),
+    "{1}{B}{B}, {T}: Target player discards a card unless they put a card from their hand on top of their library. If that player discards a card this way, "
+    "this creature deals 1 damage to each creature and each player. Activate only as a sorcery.":
+        ("{1}{B}{B}, {T}: Target player discards a card. This creature deals 1 damage to each creature and each player. Activate only as a sorcery.", _specter),
+    "Sacrifice an Orc: Each player may tap any number of untapped white creatures they control. For each creature tapped this way, that player chooses up to two Plains. "
+    "Then destroy all Plains that weren't chosen this way by any player.": ("Sacrifice an Orc: Destroy all Plains.", _raiding),
+    "{X}{W/B}{W/B}: Return this card from your graveyard to the battlefield. You may put an Aura card with mana value X or less from your hand onto the battlefield "
+    "attached to it. If you don't, exile this creature.":
+        ("{X}{W/B}{W/B}: Return this card from your graveyard to the battlefield. You may put an Aura card with mana value X or less from your hand onto the battlefield.", _evershrike),
+    "{3}{U}, Exile this creature: You may put a creature card from your hand onto the battlefield. If you do, that creature gains haste until end of turn. "
+    "At the beginning of the next end step, sacrifice that creature. If you do, return this card to the battlefield.":
+        ("{3}{U}, Exile this creature: You may put a creature card from your hand onto the battlefield. If you do, that creature gains haste until end of turn. "
+         "At the beginning of the next end step, sacrifice that creature.", _shifty),
+    "Whenever you cast a spell that targets one or more creatures or Vehicles you control, put that many +1/+1 counters on Arcee. Convert Arcee.":
+        ("Whenever you cast a spell that targets one or more creatures or Vehicles you control, put a +1/+1 counter on Arcee. Convert Arcee.", _arcee),
+    "Whenever this creature's cumulative upkeep is paid, it gets +1/+0 until end of turn for each {B} or {R} spent this way.":
+        ("At the beginning of your upkeep, this creature gets +1/+0 until end of turn.", _fallen),
+    "When a player doesn't pay this enchantment's cumulative upkeep, this enchantment deals X damage to target player or planeswalker and each creature that player or "
+    "that planeswalker's controller controls, where X is twice the number of age counters on this enchantment minus 2.":
+        ("At the beginning of your upkeep, this enchantment deals X damage to target player or planeswalker and each creature that player or "
+         "that planeswalker's controller controls, where X is twice the number of age counters on this enchantment minus 2.", _heart),
+    _WARP: ("Warp-Strike \u2014 {3}: Exile Noctis. Return it to the battlefield under its owner's control at the beginning of that player's next end step.", _warp_strike),
+    "{3}, {T}: Choose target permanent you control. Draw a card, then another player of your choice may gain control of that permanent. Activate only as a sorcery.":
+        ("{3}, {T}: Choose target permanent you control. Draw a card. Choose an opponent. That player gains control of that permanent. Activate only as a sorcery.", _stardew),
+    "At the beginning of each player's upkeep, that player puts a flood counter on target non-Island land they control of their choice. "
+    "That land is an Island for as long as it has a flood counter on it.":
+        ("At the beginning of each player's upkeep, put a flood counter on target non-Island land. "
+         "That land becomes an Island for as long as it has a flood counter on it.", _fountain),
+    "At the beginning of each end step, if all lands on the battlefield are Islands, remove all flood counters from them.":
+        ("At the beginning of each end step, if there are no non-Island lands on the battlefield, remove all flood counters from all lands.", lambda d: d),
+    _BAUBLE: ("{1}, {T}, Sacrifice this artifact: Put up to four target basic land cards from your graveyard on top of your library in any order.", _bauble),
+    _VAT: (_VAT.replace(" with total mana value less than or equal to the sacrificed artifact's mana value", ""), _total_sacrificed),
+    "If you would begin your draw step, you may skip that step instead. If you do, you gain 2 life.": ("Skip your draw step.", _fasting),
     "When this creature enters, you may pay {2}{R} any number of times. When you pay this cost one or more times, put that many +1/+1 counters on this creature, "
     "then exile up to that many target instant and/or sorcery cards with mana value 3 or less from your graveyard and copy them. "
     "You may cast any number of the copies without paying their mana costs.":
@@ -164,6 +465,9 @@ REWRITES: dict[str, str] = {}
 _RADAWAY = "Target player loses all rad counters. Sacrifice ~."
 
 
+_DREDGING = "Return up to three target creature cards of the creature type of your choice from your graveyard to your hand."
+
+
 def parse(body: str) -> Any:
     from app.rules import scripts
 
@@ -172,6 +476,17 @@ def parse(body: str) -> Any:
         assert parsed is not None
         effects, target, optional = parsed
         return [{"do": "lose_rad110i", "who": "target"}, *effects[1:]], target, optional
+    if body.strip() == _DREDGING:
+        # 601.2c: the creature type is chosen as the spell is cast; up to three targets that all have it = targets that share a creature type
+        # (targets.relation_ok ``shares``, each with at least one type: ``typed110i``)
+        parsed = scripts.parse_effects("Return up to three target creature cards from your graveyard to your hand.")
+        assert parsed is not None
+        effects, targets, optional = parsed
+        return effects, [{**targets[0], "shares": "creature_type", "typed110i": True}], optional
+    if body.strip()[:1].upper() + body.strip()[1:] == _TUNNEL:
+        return [{"do": "tunnel110i"}], None, False
+    if body.strip() == _DAWN:
+        return [{"do": "false_dawn110i"}], None, False
     return scripts.parse_effects(same) if (same := REWRITES.get(body.strip())) is not None else None
 
 
@@ -263,6 +578,26 @@ def bind_first(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     return True
 
 
+def bauble(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """That player (the owner of the targeted cards) draws at the next upkeep. Zero targets are legal (115.6) but leave "that player" undefined
+    (no CR rule or ruling): that one resolution is handed to manual play."""
+    from app.game.rules_state import DecisionOption
+    from app.rules import effects
+    from app.rules.plan import decide
+
+    ids = effects._cards(plan, ctx, e["who"])
+    if not ids:
+        decide(plan, player=ctx["controller"], kind="manual_resolution",
+               prompt="Lodestone Bauble had no target, so \"that player\" is undefined. Resolve any draw at the next upkeep by hand, then press Done.",
+               options=[DecisionOption(id="done", label="Done")], resume={"step": "bauble110i", "ctx": ctx})
+        return False
+    owner = plan.state.cards[ids[0]].owner if ids else None
+    if owner in plan.live():
+        ctx["effects"][ctx["next"]:ctx["next"]] = [{"do": "delayed", "when": {"kind": "step", "step": "upkeep", "whose": "next_turn"}, "n": 1},
+                                                   {"do": "deferred:draw", "who": f"player:{owner}", "n": 1}]
+    return True
+
+
 def destroy_mark(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     """701.8a: the creature is "destroyed this way" only if this destroy put it into a graveyard (regeneration / indestructible: no); then the
     counter goes on the first creature at the next end step (603.7)."""
@@ -279,13 +614,233 @@ def destroy_mark(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     return True
 
 
-PRIMITIVES = {"bind_first110i": bind_first, "destroy_mark110i": destroy_mark, "goad_while110i": goad_while, "bind_rest110i": bind_rest, "exile_library110i": exile_library, "attach_all110i": attach_all, "lose_rad110i": lose_rad, "bounce_gate110i": bounce_gate}
+PRIMITIVES = {"specter110i": specter, "raiding110i": raiding, "bind_self110i": bind_self, "bauble110i": bauble, "bind_first110i": bind_first, "destroy_mark110i": destroy_mark, "goad_while110i": goad_while, "bind_rest110i": bind_rest, "exile_library110i": exile_library, "attach_all110i": attach_all, "lose_rad110i": lose_rad, "bounce_gate110i": bounce_gate}
+
+
+def ask_skip(plan: Plan, done: list[str]) -> bool:
+    """Fasting: ask the active player whether the draw step they would begin is skipped (614.10a, 614.1); True while the question waits."""
+    from app.game.rules_state import DecisionOption
+    from app.rules import scripts, skips
+    from app.rules.plan import decide
+
+    if skips._static(plan, plan.active, "draw") is not None:
+        return False  # a mandatory skip replaces the step first
+    for c in plan.state.cards.values():
+        if c.id in done or c.controller != plan.active or not c.zone.endswith(":battlefield") or c.face_down:
+            continue
+        if any(d.get("static") == "skip_may110i" for d in scripts.definitions(plan.ch(c)).values()):
+            decide(plan, player=plan.active, kind="choose_one", prompt=f"{c.name}: skip your draw step instead (you gain 2 life)?",
+                   options=[DecisionOption(id="yes", label="Skip the draw step"), DecisionOption(id="no", label="Draw as usual")],
+                   resume={"step": "skip_may110i", "src": c.id, "done": done})
+            return True
+    return False
+
+
+def resume_skip(plan: Plan, d: Any, chosen: list[str]) -> None:
+    from app.rules import effects, engine, replace
+
+    r = d.resume
+    done = [*r["done"], r["src"]]
+    if chosen == ["yes"]:
+        plan.rules.skips.append({"player": plan.active, "what": "draw", "label": plan.state.cards[r["src"]].name or "an effect", "turn": plan.state.turn.number})
+        replace.gain_life(plan, [(plan.active, 2)], actor=plan.active)
+    elif ask_skip(plan, done):
+        return
+    if effects.skips.skip_steps(plan, ask=False):
+        return
+    engine._mark_step(plan)
+    engine.on_step_start(plan)
+
+
+def resume_bauble(plan: Plan, decision: Any, chosen: list[str]) -> None:
+    from app.rules import effects
+
+    effects.continue_effects(plan, decision.resume["ctx"])
+
+
+_TUNNEL = ("Choose an opponent. They choose a creature they control, then you choose a creature you control. You may exile the chosen creatures. If you do, return them "
+           "to the battlefield under their owners' control at the beginning of the next end step. Otherwise, the chosen creatures fight each other.")
+
+
+def _pick(plan: Plan, ctx: Context, who: str, ids: list[str], prompt: str, **resume: Any) -> bool:
+    from app.game.rules_state import DecisionOption
+    from app.rules.plan import decide
+
+    decide(plan, player=who, kind="choose_one", prompt=f"{ctx.get('name') or 'Tunnel of Love'}: {prompt}",
+           options=[DecisionOption(id=i, label=plan.state.players[i].name if i in plan.state.players else plan.state.cards[i].name or "a creature") for i in ids],
+           resume={"step": "tunnel110i", "ctx": ctx, **resume})
+    return False
+
+
+def _creatures(plan: Plan, pid: str) -> list[str]:
+    return [c for c in plan.state.zones.get(f"{pid}:battlefield", []) if plan.ch(plan.state.cards[c]).is_creature]
+
+
+def tunnel(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """Tunnel of Love, one visit: the chosen opponent (101.4 nothing to choose with one), their creature, then the visitor's; the visitor may exile both (returned at
+    the beginning of the next end step, 603.7), otherwise they fight (701.14). A side with no creature chooses none; only chosen creatures are exiled or fight."""
+    me = ctx["controller"]
+    opps = [p for p in plan.live() if p != me]
+    if len(opps) > 1:
+        return _pick(plan, ctx, me, opps, "choose an opponent", phase="opp")
+    return _tunnel_theirs(plan, ctx, opps[0]) if opps else True
+
+
+def _tunnel_theirs(plan: Plan, ctx: Context, opp: str) -> bool:
+    theirs = _creatures(plan, opp)
+    return _pick(plan, ctx, opp, theirs, "choose a creature you control", phase="theirs") if theirs else _tunnel_mine(plan, ctx, None)
+
+
+def _tunnel_mine(plan: Plan, ctx: Context, theirs: str | None) -> bool:
+    mine = _creatures(plan, ctx["controller"])
+    return _pick(plan, ctx, ctx["controller"], mine, "choose a creature you control", phase="mine", theirs=theirs) if mine else _tunnel_exile(plan, ctx, theirs, None)
+
+
+def _tunnel_exile(plan: Plan, ctx: Context, theirs: str | None, mine: str | None) -> bool:
+    from app.game.rules_state import DecisionOption
+    from app.rules.plan import decide
+
+    if not (theirs or mine):
+        return True
+    decide(plan, player=ctx["controller"], kind="choose_one", prompt=f"{ctx.get('name') or 'Tunnel of Love'}: exile the chosen creatures?",
+           options=[DecisionOption(id="yes", label="Exile them (they return at the next end step)"), DecisionOption(id="no", label="Don't: they fight each other")],
+           resume={"step": "tunnel110i", "ctx": ctx, "phase": "exile", "theirs": theirs, "mine": mine})
+    return False
+
+
+def _tunnel_end(plan: Plan, ctx: Context, theirs: str | None, mine: str | None, exile: bool) -> None:
+    from app.rules import context, delayed, effects
+
+    chosen = [c for c in (theirs, mine) if c and c in plan.state.cards and plan.state.cards[c].zone.endswith(":battlefield")]
+    if exile:
+        effects.exile_cards(plan, ctx, {"do": "exile"}, chosen)
+        objs = [r for c in chosen if (r := context.ref_of(plan, c)) is not None and (r.zone or "").endswith(":exile")]
+        if objs:
+            delayed.create_plain(plan, ctx["controller"], ctx["source_card"], ctx["source_object"], ctx.get("name") or "Tunnel of Love",
+                                 {"kind": "step", "step": "end", "whose": "next"},
+                                 [{"do": "bind_refs", "refs": {"tl110i": {"kind": "objects", "objects": [r.model_dump(mode="json") for r in objs]}}},
+                                  {"do": "return_card", "who": "ref:tl110i", "to": "battlefield", "tapped": False, "under": "owner"}])
+    elif theirs and mine:
+        context.bind_objects(plan, ctx, "tl_a110i", [theirs])
+        context.bind_objects(plan, ctx, "tl_b110i", [mine])
+        effects.fight(plan, ctx, {"do": "fight", "who": "ref:tl_a110i", "with": "ref:tl_b110i"})
+
+
+def resume_tunnel(plan: Plan, d: Any, chosen: list[str]) -> None:
+    from app.rules import effects
+
+    r = d.resume
+    ctx, phase = r["ctx"], r["phase"]
+    if phase == "opp":
+        done = _tunnel_theirs(plan, ctx, chosen[0])
+    elif phase == "theirs":
+        done = _tunnel_mine(plan, ctx, chosen[0])
+    elif phase == "mine":
+        done = _tunnel_exile(plan, ctx, r["theirs"], chosen[0])
+    else:
+        _tunnel_end(plan, ctx, r["theirs"], r["mine"], chosen == ["yes"])
+        done = True
+    if done:
+        effects.continue_effects(plan, ctx)
+
+
+PRIMITIVES["tunnel110i"] = tunnel
+
+
+_PHOENIX = ("If this creature would die, return it to its owner's hand instead. Until that player's next turn, that player plays with that card revealed in "
+            "their hand and can't play it.")
+
+
+_DAWN = ("Until end of turn, spells and abilities you control that would add colored mana instead add that much white mana. Until end of turn, you may spend "
+        "white mana as though it were mana of any color.")
+
+
+def false_dawn(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """False Dawn (106.12b, 609.4b): this turn the controller's colored mana becomes white (``mana_replace`` for permanents tapped or sacrificed for mana,
+    ``dawn_mana`` for what spells and other abilities add) and white mana may be spent as any color (``spending_active``)."""
+    from app.rules import selectors, tap_mana
+
+    sel = selectors.parse("permanent")
+    assert sel is not None
+    tap_mana.until_eot(plan, ctx, {"def": {"kind": "static", "static": "mana_replace", "who": "you", "sel": sel.key(), "all110i": True,
+                                           "op": {"do": "colored_recolor86", "to": "W"}, "effects": []}})
+    return tap_mana.until_eot(plan, ctx, {"def": {"kind": "static", "static": "spend_white110i", "effects": []}})
+
+
+PRIMITIVES["false_dawn110i"] = false_dawn
+
+
+def _dawn(state: Any, controller: str, kind: str) -> bool:
+    r = state.rules
+    return r is not None and any(x["def"].get("static") == kind and x["controller"] == controller and x.get("turn") == state.turn.number for x in r.tap_mana)
+
+
+def dawn_mana(plan: Plan, controller: str, mana: list[str]) -> list[str]:
+    """Mana an effect of ``controller`` adds: colored becomes white under False Dawn."""
+    if not _dawn(plan.state, controller, "mana_replace"):
+        return mana
+    return ["W" if c in "WUBRG" else c for c in mana]
+
+
+def spending_active(state: Any, player: str) -> bool:
+    return _dawn(state, player, "spend_white110i")
+
+
+def reveal_ban(plan: Plan, card: Any) -> None:
+    """Firestorm Phoenix (614.1a): after it returned to its owner's hand, until that player's next turn it is revealed (701.20a) and they can't cast it (601.3).
+    ponytail: a creature, so only casting is barred (a land would also need cast_limits.land_problem)."""
+    import secrets
+
+    if not card.zone.endswith(":hand"):
+        return
+    r = plan.rules
+    plan.do({"type": "reveal", "card_ids": [card.id]}, actor=card.owner)
+    r.cast_limits.append({"id": secrets.token_hex(4), "player": card.owner, "controller": card.owner, "until": "next_turn", "turn": plan.state.turn.number,
+                          "obj110i": plan.oid(card), "reveal110i": card.id, "label": card.name})
+
+
+def note_exiled(plan: Plan, ctx: Context, cards: list[str]) -> None:
+    """Hero of Bretagard: a spell or ability ``ctx['controller']`` controls exiled these permanents from the battlefield; one event for the batch (603.2c)."""
+    from app.game.rules_state import Event
+
+    n = sum(1 for c in cards if (k := plan.state.cards.get(c)) is None or k.zone.endswith(":exile"))
+    if n:
+        r = plan.rules
+        r.events.append(Event(batch=r.batch, kind="designation", turn=plan.state.turn.number, counter="exiled110i", player=ctx["controller"], amount=n))
+
+
+def transform_attach(plan: Plan, card: Any) -> None:
+    """Curse of Leeches: as it turns over into the Aura face, its controller attaches it to a player (303.4f; a replacement-like step, not a trigger).
+    The decision stands before state-based actions (704.5m would put an unattached Aura into the graveyard)."""
+    from app.game.rules_state import DecisionOption
+    from app.rules import attachments, scripts
+    from app.rules.plan import decide
+
+    if plan.manual(card) or not any(d.get("static") == "as_transform_attach110i" for d in scripts.definitions(plan.ch(card)).values()):
+        return
+    hosts = [p for p in plan.live() if attachments.host_problem(plan, card, p) is None]
+    if hosts:
+        decide(plan, player=card.controller, kind="choose_one", prompt=f"{card.name}: attach it to a player", source=card,
+               options=[DecisionOption(id=p, label=plan.state.players[p].name) for p in hosts], resume={"step": "transform_attach110i", "card": card.id})
+
+
+def resume_transform_attach(plan: Plan, d: Any, chosen: list[str]) -> None:
+    from app.rules import attachments
+
+    attachments.attach(plan, d.resume["card"], chosen[0], d.player)
+
+
+RESUME = {"tunnel110i": resume_tunnel, "transform_attach110i": resume_transform_attach, "bauble110i": resume_bauble, "skip_may110i": resume_skip, "specter110i": resume_specter, "specter_top110i": resume_specter_top, "raiding_tap110i": resume_raiding_tap, "raiding_plains110i": resume_raiding_plains}
 
 
 def definition(ability: Any, ch: Any) -> Def | None:
     from app.rules import scripts
 
     text = ability.text.strip()
+    if text == _PHOENIX:
+        return {"kind": "replacement", "replacement": "hand_instead110i", "from": "battlefield", "effects": []}
+    if text == "As this permanent transforms into Curse of Leeches, attach it to a player.":
+        return {"kind": "static", "static": "as_transform_attach110i", "effects": []}
     if (same := _AS.get(text)) is not None:
         return scripts.define(replace(ability, text=same), ch)
     built = _BUILD.get(text)

@@ -100,19 +100,22 @@ def has_umbra(plan: Any, aura: Any, host: Any) -> bool:
 def could_produce(plan: Any, card: Any, ch: Any, symbol: str) -> bool:
     """Whether one of the permanent's own mana abilities can add ``symbol`` (its controller's color identity for Command Tower-like text)."""
     from app.rules import mana as M
-    from app.rules.casting import commander_identity
+    from app.rules.casting import (  # (resolved: a chosen color, "any type a land could produce")
+        _resolve_options,
+        commander_identity,
+    )
 
     for ab in ch.abilities:
         if ab.kind != "mana":
             continue
         parsed = M.parse_mana_ability(ab.text, commander_identity(plan.state, card.controller, plan.info), card_name=ch.name)
-        if parsed is not None and any(symbol in opt for opt in parsed.options):
+        if parsed is not None and any(symbol in opt for opt in _resolve_options(plan.state, card, parsed, plan.info)):
             return True
     return False
 
 
 # 702.56a: "Each Sliver spell you cast has replicate. The replicate cost is equal to its mana cost." (Hatchery Sliver, Ian Chesterton)
-_REPLICATE = re.compile(r"^each (?P<sel>[A-Za-z]+) spells? you cast has replicate\. the replicate cost is equal to its mana cost$", re.I)
+_REPLICATE = re.compile(r"^each (?P<sel>[A-Za-z]+(?: and [A-Za-z]+)?) spells? you cast has replicate\. the replicate cost is equal to its mana cost$", re.I)
 
 
 def grant_replicate(t: str) -> dict[str, Any] | None:

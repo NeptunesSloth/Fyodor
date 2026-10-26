@@ -521,6 +521,18 @@ def _scope_matches(scope: dict[str, Any], ev: dict[str, Any], controller: str, s
     return not (scope.get("types") and not set(scope["types"]) & set(src.get("types") or ()))
 
 
+def firm_target110g(plan: Plan, rec: dict[str, Any], ev: dict[str, Any]) -> bool:
+    """-- Whippoorwill (wave 110G) -- the record only covers damage dealt to that one creature (as the same object)."""
+    card = plan.state.cards.get(str(ev.get("target")))
+    return card is not None and plan.oid(card) == rec["to110g"]
+
+
+def cant_redirect110g(plan: Plan, ev: dict[str, Any]) -> bool:
+    """614.9 -- "can't be dealt instead to another permanent or player": a record (Whippoorwill) names the creature this damage is for."""
+    return any(rec.get("kind") == "unpreventable" and rec.get("noredirect110g") and rec.get("turn") == plan.state.turn.number
+               and firm_target110g(plan, rec, ev) for rec in plan.rules.replacements)
+
+
 def unpreventable(plan: Plan, ev: dict[str, Any]) -> bool:
     """615.12: the damage of this event (source → recipient) can't be prevented — its own spell
     says so ("The damage can't be prevented."), an effect this turn does, or a static ability of a
@@ -531,7 +543,7 @@ def unpreventable(plan: Plan, ev: dict[str, Any]) -> bool:
     turn = plan.state.turn.number
     for rec in plan.rules.replacements:
         if rec.get("kind") == "unpreventable" and rec.get("turn") == turn and rec.get("controller") in plan.live() \
-                and _scope_matches(rec.get("scope") or {}, ev, rec["controller"], None):
+                and _scope_matches(rec.get("scope") or {}, ev, rec["controller"], None) and (not rec.get("to110g") or firm_target110g(plan, rec, ev)):
             return True
     return any(_scope_matches(scope, ev, controller, oid) for scope, controller, oid in _statics(plan))
 

@@ -50,7 +50,7 @@ def chooses_player(ch: Characteristics) -> bool:
     found = [m for ab in ch.abilities if (m := ENTERS_CHOICE.match(self_text(ab.text, ch.name))) is not None]
     from app.rules import keyed_player_bindings
 
-    return (len(found) == 1 and found[0]["what"] in ("opponent", "player", "color and an opponent")) or (not found and keyed_player_bindings.remembers_combat(ch))
+    return (len(found) == 1 and found[0]["what"] in ("opponent", "player", "color and an opponent")) or (not found and (keyed_player_bindings.remembers_combat(ch) or any(ab.text == "An opponent chooses one \u2014" for ab in ch.abilities)))  # (wave 110F: 700.2e, the opponent who chose the modes)
 
 
 # -- chosen type (wave 4J) ------------------------------------------------------------------------------------------
@@ -124,7 +124,8 @@ def _enters_choices(ch: Characteristics) -> list[str]:
     typed = ["card type" for ab in ch.abilities if self_text(ab.text, ch.name) == "As ~ enters, look at an opponent's hand, then choose a card type other than creature."]  # (wave 53B: Arachne)
     color_pairs = ["color pair" for t in texts if (m := ENTERS_CHOICE.match(t)) is not None and m["what"] == "two colors"]
     return singles + both + pairs + typed + color_pairs + ["card name" for _ in named] \
-        + (["creature type"] if any(ab.text == "As an additional cost to cast this spell, choose a creature type." for ab in ch.abilities) else [])  # (wave 110E: Caller of the Hunt)  # (wave 47A: the card type choices, Umori, Stenn, Cloud Key)
+        + (["creature type"] if any(ab.text == "As an additional cost to cast this spell, choose a creature type." for ab in ch.abilities) else []) \
+        + (["color"] if any(ab.text == "As this Equipment becomes attached to a creature, choose a color." for ab in ch.abilities) else [])  # (wave 110E: Caller of the Hunt; Sanctuary Blade, wave110e_blade)  # (wave 47A: the card type choices, Umori, Stenn, Cloud Key)
 
 
 def _kind(what: str | None) -> str | None:
@@ -241,7 +242,7 @@ def bind_effects(effects: list[dict[str, Any]], what: str, value: str) -> list[d
 def record(plan: Plan, card_id: str, player: str) -> None:
     """Remember the player this object chose (its object id now)."""
     r = plan.rules
-    on_field = {plan.oid(c) for c in plan.state.cards.values() if c.zone.endswith(":battlefield")}
+    on_field = {plan.oid(c) for c in plan.state.cards.values() if c.zone.endswith(":battlefield") or c.zone == "stack"}  # (wave 110F: a spell whose mode was chosen by an opponent)
     r.chosen_players = {oid: p for oid, p in r.chosen_players.items() if oid in on_field or oid in r.lki}  # (400.7)
     r.chosen_players[plan.oid(card_id)] = player
 

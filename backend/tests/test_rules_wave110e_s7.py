@@ -20,8 +20,20 @@ TARDIS = real("Start the TARDIS", "{1}{U}", 2, "Instant",
               "Jump-start (You may cast this card from your graveyard by discarding a card in addition to paying its other costs. Then exile this card.)", None, "U")
 GAMBIT = real("Decoy Gambit", "{1}{1}{U}", 3, "Instant",
               "For each opponent, choose up to one target creature that player controls, then return that creature to its owner's hand unless its controller has you draw a card.", None, "U")
+SUPPER = real("Supper for Spiders", "{1}{B}", 2, "Instant",
+              "Put onto the battlefield under your control all creature cards in your opponents' graveyards that were put there from the battlefield this turn. "
+              "They are Food artifacts with \"{2}, {T}, Sacrifice this artifact: You gain 3 life.\" (They lose all other types and subtypes.)", None, "B")
+DELIVER = real("Deliver Unto Evil", "{2}{B}", 3, "Sorcery",
+               "Choose up to four target cards in your graveyard. If you control a Bolas planeswalker, return those cards to your hand. Otherwise, an opponent chooses two of them. "
+               "Leave the chosen cards in your graveyard and put the rest into your hand.\nExile Deliver Unto Evil.", None, "B")
+BOLAS = real("Test Bolas", "{2}", 2, "Legendary Planeswalker — Bolas", "+1: You gain 1 life.", None, "")
+HEAD = real("Head Games", "{3}{B}{B}", 5, "Sorcery",
+            "Target opponent puts the cards from their hand on top of their library. Search that player's library for that many cards. "
+            "The player puts those cards into their hand, then shuffles.", None, "B")
+BRAWL = real("Barroom Brawl", "{1}{G}", 2, "Sorcery",
+             "Target creature you control fights target creature the opponent to your left controls. Then that player may copy this spell and may choose new targets for the copy.", None, "G")
 WALKER = real("Test Walker", "{2}", 2, "Planeswalker — Test", "+1: You gain 1 life.", None, "")
-base.EXTRA.extend([WALKER, TARDIS, GAMBIT])
+base.EXTRA.extend([WALKER, TARDIS, GAMBIT, SUPPER, DELIVER, BOLAS, HEAD, BRAWL])
 
 
 def _setup(cards, mm=True):
@@ -179,4 +191,134 @@ def test_start_the_tardis_surveils_then_draws_and_planeswalking_does_nothing(car
     cast(s, "Start the TARDIS")
     answer(s)
     assert len(s.state.zones["p1:hand"]) == hand + 1  # (the card was cast from a hand it was put in: +1 -1 +1)
+    check(s)
+
+
+def test_supper_for_spiders_takes_only_creatures_that_died_this_turn_as_food_artifacts(cards):
+    """400.7 + 205.1a/613.1d: creature cards put into an opponent's graveyard from the battlefield this turn come back under your control as
+    Food artifacts that are no longer creatures (nor Bears); a creature card that was not on the battlefield stays; the granted ability works."""
+    from app.rules.plan import Plan
+    from tests.test_rules_wave110e_cards import answer, cast
+    from tests.wave9c_kit import build, check, mana, put
+
+    s = build(cards, ["Supper for Spiders"], ["Grizzly Bears", "Test Shifter"], forests=30, islands=30)
+    bears, crow = put(s, "Grizzly Bears", "p2"), next(c for c in s.state.cards.values() if c.name == "Test Shifter" and c.owner == "p2")
+    act(s, "p2", type="move", card_ids=[bears.id], to={"player": "p2", "zone": "graveyard"})
+    act(s, "p2", type="move", card_ids=[crow.id], to={"player": "p2", "zone": "graveyard"})  # (from the library: not from the battlefield)
+    mana(s, B=1, C=1)
+    cast(s, "Supper for Spiders")
+    answer(s)
+    c = s.state.cards[bears.id] if s.state.cards[bears.id].zone.endswith(":battlefield") else next(x for x in s.state.cards.values() if x.name == "Grizzly Bears" and x.zone.endswith(":battlefield"))
+    ch = Plan(s.state, "p1", s.cards, None).ch(c)
+    assert c.controller == "p1" and ch.types == {"Artifact"} and ch.subtypes == {"Food"} and not ch.is_creature
+    assert s.state.cards[crow.id].zone == "p2:graveyard"
+    life = s.state.players["p1"].life
+    mana(s, C=2)
+    ab = next(a.index for a in ch.abilities if "Sacrifice this artifact" in a.text)
+    act(s, "p1", type="activate_ability", card_id=c.id, ability=ab)
+    answer(s)
+    assert s.state.players["p1"].life == life + 3
+    check(s)
+
+
+@pytest.mark.parametrize("bolas,n", [(True, 4), (False, 4), (False, 1)])
+def test_deliver_unto_evil_all_return_with_a_bolas_otherwise_an_opponent_keeps_two_in_the_graveyard(cards, bolas, n):
+    """608.2c: Bolas planeswalker: all targeted cards go to hand; otherwise the opponent chooses two (fewer targeted: all of them) that stay;
+    the rest go to hand. The spell is exiled (it never reaches the graveyard)."""
+    from tests.test_rules_wave110e_cards import answer, cast
+    from tests.wave9c_kit import build, check, mana, put
+
+    s = build(cards, ["Deliver Unto Evil", "Test Bolas"], forests=30, islands=30)
+    if bolas:
+        w = put(s, "Test Bolas")
+        act(s, "p1", type="set_counter", card_id=w.id, kind="loyalty", value=3)
+    gy_cards = [c for c in s.state.cards.values() if c.name == "Forest" and c.owner == "p1" and c.zone == "p1:library"][:4]
+    act(s, "p1", type="move", card_ids=[c.id for c in gy_cards], to={"player": "p1", "zone": "graveyard"})
+    targets = [c.id for c in gy_cards[:n]]
+    mana(s, B=1, C=2)
+    spell = cast(s, "Deliver Unto Evil", targets, target_counts=[n])
+    keep = [] if bolas else targets[:2]
+    d = None
+    for _ in range(10):
+        d = s.state.rules.decision
+        if d is None:
+            break
+        assert d.player == "p2"
+        act(s, "p2", type="choose", decision_id=d.id, option_ids=[o.id for o in d.options if o.id in keep] or [o.id for o in d.options][: max(1, d.min_choices)])
+    answer(s)
+    where = [s.state.cards[t].zone for t in targets]
+    assert where.count("p1:graveyard") == (0 if bolas else min(2, n)) and where.count("p1:hand") == (n if bolas else n - min(2, n))
+    assert s.state.cards[spell.id].zone == "p1:exile"
+    check(s)
+
+
+@pytest.mark.parametrize("n", [0, 2])
+def test_head_games_the_hand_goes_on_top_and_you_choose_that_many_cards_into_their_hand(cards, n):
+    """701.23/608.2c: the target's hand (n cards) goes on top of their library, you search it for that many cards, which they put in their hand; then it is shuffled."""
+    from tests.test_rules_wave110e_cards import answer, cast
+    from tests.wave9c_kit import build, check, mana
+
+    s = build(cards, ["Head Games"], ["Grizzly Bears", "Test Shifter"], forests=30, islands=30)
+    assert not s.state.zones.get("p2:hand")
+    islands = [c for c in s.state.zones["p2:library"] if s.state.cards[c].name == "Island"][:n]
+    if n:
+        act(s, "p2", type="move", card_ids=islands, to={"player": "p2", "zone": "hand"})
+    want = [c.id for c in s.state.cards.values() if c.owner == "p2" and c.name in ("Grizzly Bears", "Test Shifter")][:n]
+    mana(s, B=2, C=3)
+    cast(s, "Head Games", ["p2"])
+    for _ in range(10):
+        d = s.state.rules.decision
+        if d is None:
+            break
+        pick = [o.id for o in d.options if o.id in want] if d.player == "p1" else [o.id for o in d.options]
+        act(s, d.player, type="choose", decision_id=d.id, option_ids=pick if d.player == "p1" else pick or [d.options[0].id])
+    answer(s)
+    names = sorted(s.state.cards[c].name for c in s.state.zones["p2:hand"])
+    assert names == (["Grizzly Bears", "Test Shifter"] if n else []) and sum(s.state.cards[c].name == "Island" for c in s.state.zones["p2:library"]) == 30
+    check(s)
+
+
+def _brawl(cards, targets_of, copy):
+    """Alice (p1), Bob (p2, to her left), Carol (p3): Alice's Aaa 3/3 fights; ``copy`` = what Bob answers (None: declines)."""
+    from tests.game_helpers import turn_on
+    from tests.test_rules_conditionals import creature, sandbox
+    from tests.wave53c_kit import in_play, pool, priority_to
+
+    s = sandbox(cards, "Barroom Brawl", players=3)
+    turn_on(s)
+    from tests.test_rules_wave30m_durations import to_phase
+
+    to_phase(s, "main1", 1)
+    a, b, c = creature(s, "p1", "Aaa", "3/3"), creature(s, "p2", "Bbb", "1/9"), creature(s, "p3", "Ccc", "1/9")
+    g = in_play(s, "Barroom Brawl", "p1")
+    act(s, "p1", type="move", card_ids=[g.id], to={"zone": "hand"})
+    pool(s, "p1", G=1, C=1)
+    priority_to(s, "p1")
+    act(s, "p1", type="cast_spell", card_id=g.id, targets=[a.id, {"b": b.id, "c": c.id}[targets_of]], target_counts=[1, 1])
+    return s, a, b, c
+
+
+def test_barroom_brawl_only_the_creature_of_the_opponent_to_the_left_is_a_legal_second_target(cards):
+    """Turn order goes to the left: Bob follows Alice, so Carol's creature is not a legal target."""
+    with pytest.raises(ActionError):
+        _brawl(cards, "c", None)
+
+
+@pytest.mark.parametrize("copy", [False, True])
+def test_barroom_brawl_fights_then_the_player_to_the_left_may_copy_it_with_new_targets(cards, copy):
+    """701.14 fight; 707.10 the copy is Bob's: his creature fights the creature of the opponent to HIS left (Carol's); he may decline."""
+    from tests.wave9c_kit import check
+
+    s, a, b, c = _brawl(cards, "b", None)
+    for _ in range(30):
+        d = s.state.rules.decision
+        if d is None:
+            if not s.state.zones.get("stack"):
+                break
+            act(s, s.state.rules.priority, type="pass_priority")
+            continue
+        pick = [o.id for o in d.options if o.id == ("pay" if copy and d.player == "p2" else "decline")] or [o.id for o in d.options if o.id != "keep"]
+        act(s, d.player, type="choose", decision_id=d.id, option_ids=pick or [d.options[0].id])
+    # (Aaa deals 3 to Bbb and takes 1; the copy: Bbb deals 1 to Ccc and takes 1 from it)
+    assert (s.state.cards[b.id].damage, s.state.cards[c.id].damage, s.state.cards[a.id].damage) == ((4, 1, 1) if copy else (3, 0, 1))
     check(s)

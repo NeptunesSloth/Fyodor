@@ -261,6 +261,8 @@ def facts(plan: Plan, e: Event) -> list[Any]:
             ch = plan.ch(card)
             return [("transform", card, ch, card.controller, {"oid": e.object_id, "face_name": ch.name})]
         return []
+    if e.counter == "exiled110i" and e.player:  # -- cards (wave 110I) -- a spell or ability exiled permanents (effects.exile_cards)
+        return [("exiled_perm110i", None, None, e.player, {"amount": e.amount})]
     if e.counter == "destroyed" and e.card:  # -- destroy events (wave 45C) -- 701.8: the permanent as it last existed on the battlefield (603.10a)
         from app.rules import triggers
 
@@ -306,6 +308,8 @@ def facts(plan: Plan, e: Event) -> list[Any]:
         return [("clash", None, None, e.player, {"amount": e.amount})]
     if e.counter in ("roll_visit", "visit", "open_attraction", "claim_prize") and e.player:  # -- Attractions (wave 100L) -- (attractions100l.py)
         return [({"visit": "visit_attraction"}.get(e.counter, e.counter), None, None, e.player, {"amount": e.amount, "oid": e.object_id})]
+    if e.counter == "discover" and e.player:  # -- discover (wave 110B) -- 701.57: ``amount`` is the value N
+        return [("discover", None, None, e.player, {"amount": e.amount})]
     if e.counter in ("forage", "collect_evidence", "manifest_dread") and e.player:  # -- if you do (wave 26C) -- 701.61, 701.59 (cost_payment.pay)
         return [(e.counter, None, None, e.player, {})]
     if e.counter == "connive" and e.card in plan.state.cards:  # -- trigger tail (wave 15B) -- 701.50a: the conniving permanent

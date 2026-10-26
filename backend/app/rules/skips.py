@@ -181,7 +181,7 @@ def untap_skipped(plan: Plan, player: str) -> list[str] | None:
     return [c.id for c in plan.state.cards.values() if c.tapped and c.controller == player and c.zone.endswith(":battlefield")]
 
 
-def skip_steps(plan: Plan) -> None:
+def skip_steps(plan: Plan, ask: bool = True) -> bool:
     """The step (or the combat phase) the turn just moved into is skipped: on to the next one, with
     nothing of it happening (614.10a)."""
     for _ in range(4 + len(plan.rules.extra_steps) + len(plan.rules.extra_phases)):
@@ -195,10 +195,15 @@ def skip_steps(plan: Plan) -> None:
         phase = plan.state.turn.phase
         what = {"upkeep": "upkeep", "draw": "draw", "begin_combat": "combat", "main1": "main", "main2": "main"}.get(phase)
         if what is None:
-            return
+            return False
+        if what == "draw" and ask:  # -- optional skip (wave 110I) -- Fasting: the question may pause the turn
+            from app.rules import wave110i_cards
+
+            if wave110i_cards.ask_skip(plan, []):
+                return True
         label = take(plan, plan.active, what)
         if label is None:
-            return
+            return False
         plan.note(f"{plan.name(plan.active)} skips their {_LABEL[what]} ({label}, 614.10)", actor=plan.active)
         to = "next"
         r = plan.rules
@@ -213,6 +218,7 @@ def skip_steps(plan: Plan) -> None:
             r.extra_beginning = to == "untap"
             r.upkeep_only = to == "upkeep" and r.combat_tag == "upkeep_only"
         plan.do({"type": "phase", "to": to, "force": True}, actor=plan.active)
+    return False
 
 
 PRIMITIVES = {"skip_next": skip_next}
