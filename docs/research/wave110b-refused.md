@@ -43,3 +43,6 @@
 - Firkraag, Cunning Instigator: needs a record of "had to attack this combat" (forced-attack requirement) on the creature.
 - Ramses, Assassin Lord: per-defender "attacked this turn by an Assassin you controlled" history absent.
 - Endless Whispers: granted triggered ability for all creatures with a delayed "under target opponent's control" return of the card: no such grant machinery.
+- Ertai's Meddling: the Oracle says the spell returns "as a copy of the original spell", but rulings 2011-01-22 / 2013-04-15 describe the card itself put back on the stack (flashback exile on leaving). A literal copy leaves the card exiled with no counters, so it would copy again at every later upkeep. No CR rule settles whether the card or a token copy returns (graveyard vs nothing afterwards): unsettled.
+- Nefarious Lich: "If you would gain life, draw that many cards instead" needs a life-gain to draw event in three paths (replace.gain_life, lifelink results in replace damage batch, life_changes44); the damage half ("exile that many cards from your graveyard instead, if you can't you lose") is settled (lose the game, 800.4a). Foundation work, not unsettled.
+- Psychic Battle (agent H note), Soundwave, Mimeoplasm: not attempted by B in s23.
