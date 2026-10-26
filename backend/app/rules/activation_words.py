@@ -167,7 +167,8 @@ def _adapt(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     n = conditions._num(m["n"])
     if n is None:
         raise _NoMatch()
-    return [{"do": "only_if", "cond": {"not": {"object": "self", "counters": "+1/+1"}}, "skip": 1},
+    # (wave 110B: Biomancer's Familiar's one-shot "as though it had no +1/+1 counters" is looked up first, as the action is performed, so it is used up either way)
+    return [{"do": "only_if", "cond": {"any": [{"adapt_free110b": True}, {"not": {"object": "self", "counters": "+1/+1"}}]}, "skip": 1},
             {"do": "add_counters", "who": "self", "kind": "+1/+1", "n": n}], None
 
 

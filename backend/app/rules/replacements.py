@@ -966,6 +966,12 @@ def _counter_amount(plan: Plan, card_id: str, controller: str, d: dict[str, Any]
                 plan.note("The exiled cost card's types weren't saved; put its entry counter on by hand if it was an instant or sorcery", [card_id])
                 continue
             amount += bool({"Instant", "Sorcery"} & set(types))
+    elif isinstance(n, dict) and n.get("entry_returned_mv110c"):  # -- web-slinging (wave 110C) -- 702.188a, 608.2h: the returned creature's mana value as it last existed
+        from app.rules.triggers import _snapshot_card
+
+        paid = plan.rules.payments.get(plan.oid(card_id))
+        snaps = [plan.rules.lki.get(o) for o in (paid.returned_objects or [])] if paid is not None and paid.alternative == "web-slinging" else []
+        amount = sum(int(_snapshot_card(plan, s)[1].mana_value) for s in snaps if s is not None)
     elif isinstance(n, dict) and n.get("entry_discarded_mana_value"):
         paid = plan.rules.payments.get(plan.oid(card_id))
         amount = 0
@@ -1061,6 +1067,8 @@ def _after_entry(plan: Plan, card_id: str, controller: str, *, x: int | None = N
             if not value or (what not in CHOICE_LABELS and not card_names.is_choice(what)):
                 continue
             shown = plan.name(value) if what in ("opponent", "player") and value in plan.state.players else value
+            if what == card_names.SECOND:  # -- two names (wave 110F) -- Null Chamber: the opponent's name joins the first
+                shown = card_names.SEP.join(x for x in (plan.state.cards[card_id].choices.get(card_names.LABEL), shown) if x)
             plan.do({"type": "set_choice", "card_id": card_id, "key": card_names.LABEL if card_names.is_choice(what) else CHOICE_LABELS[what], "value": shown}, actor=controller)
             if what in ("opponent", "player") and value in plan.state.players:  # -- chosen player (wave 4J) --
                 from app.rules import chosen
@@ -1086,6 +1094,11 @@ def _after_entry(plan: Plan, card_id: str, controller: str, *, x: int | None = N
         from app.rules import wave110a_pick  # -- chosen objects (wave 110A) --
 
         wave110a_pick.record(plan, card_id, choices)
+        from app.rules import (
+            wave110o_cards,  # -- (wave 110O) -- the card picked as it entered is exiled with it
+        )
+
+        wave110o_cards.entered(plan, card_id, controller, choices)
         from app.rules import chosen_color_pairs45
 
         chosen_color_pairs45.record_entry(plan, card_id, choices)
@@ -1623,7 +1636,7 @@ def offer_616(plan: Plan) -> bool:
             continue
         chooser = card.controller if _from_zone(card) in ("battlefield", "stack") else card.owner  # (a spell has a controller too: 110.2, 616.1)
         decide(plan, player=chooser, kind="choose_one",
-               prompt=f"{card.name or 'A card'} would be put into a graveyard: which replacement effect applies first? (616.1)",
+               prompt=f"{card.name or 'A card'} would {'enter the battlefield' if p.get('entry110h') else 'be put into a graveyard'}: which replacement effect applies first? (616.1)",
                options=[DecisionOption(id=o, label=f"{src}: {p['texts'][o]}",
                                        card_id=(((p.get('cands') or {}).get(o) or {}).get('rider') or {}).get('source') or None)
                         for o, src in p["options"].items()],
@@ -1648,6 +1661,9 @@ def resume_616(plan: Plan, d: Any, chosen: list[str]) -> None:
         next((c for c in zone_candidates(plan, card, p["dest"]) if c.sig == chosen[0]), None)
     if cand is None:  # (nothing applies any more: the event goes on as it was, its replacements looked at again)
         plan.do({"type": "move", "card_ids": [cid], "to": {"player": card.owner, "zone": p["dest"]}}, actor=card.controller)
+        _finish_616_then(plan, cid, d.resume.get('then'), commander_key)
+        return
+    if p.get("entry110h") and cand.outcome == "exile" and card.zone.endswith(":exile"):  # -- cards (wave 110H) -- it stays in exile: no zone change (Don't Blink)
         _finish_616_then(plan, cid, d.resume.get('then'), commander_key)
         return
     if cand.used:  # (a spell cast "without paying …": its one-shot "exile it instead" is used up, 614.5)
@@ -1753,6 +1769,8 @@ def replace_move(plan: Plan, payload: dict[str, Any], actor: str | None) -> dict
         from app.rules import creature_entry_redirect
 
         payload = creature_entry_redirect.move(plan, payload)
+        if payload.get("type") != "move":
+            return payload  # (110H: every card was shuffled in instead)
     if kind == "mill":
         return _replace_mill(plan, payload, actor)
     if kind != "move":
@@ -1981,7 +1999,7 @@ def offer_903_9b(plan: Plan, *, only: str | None = None) -> bool:
 
 # Effect primitives that may put a card from a public zone into its owner's hand or library.
 MOVERS_903_9B = frozenset({"bounce", "return_card", "return_choice", "return_yours", "to_library", "shuffle_library",
-                           "delayed_move", "counter"})
+                           "delayed_move", "counter", "warp_shuffle110c"})  # (wave 110C: Warp World shuffles every permanent in)
 
 
 def ask_903_9b_first(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:

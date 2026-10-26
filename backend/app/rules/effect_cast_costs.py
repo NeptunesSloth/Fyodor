@@ -32,7 +32,7 @@ def textual_alternative(text: str) -> tuple[str, AbilityCost]:
 
 def kind(effect: dict[str, Any]) -> str:
     value = effect.get('effect_alternative', '')
-    if value not in ('', 'life_mv', 'discard'):
+    if value not in ('', 'life_mv', 'discard', 'energy_mv'):
         raise ActionError('Unknown required casting alternative')
     if value and (effect.get('paid') or effect.get('effect_mana_cost')):
         raise ActionError('Only one alternative cost can be applied to a spell')
@@ -45,6 +45,9 @@ def cost(effect: dict[str, Any], spell: Characteristics) -> AbilityCost:
     mode = kind(effect)
     if mode == 'life_mv':
         return permissions.life_cost(permissions.Grant('resolving', life_mv=True), spell) or costs.AbilityCost()
+    if mode == 'energy_mv':  # -- Amped Raptor (wave 110C) -- "by paying an amount of {E} equal to its mana value": 118.9, 107.14
+        found = costs.parse_additional_cost('Pay ' + '{E}' * int(spell.mana_value)) if int(spell.mana_value) else None
+        return found or costs.AbilityCost()
     if mode == 'discard':
         found = costs.parse_additional_cost('Discard a card')
         assert found is not None

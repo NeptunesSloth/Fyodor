@@ -154,6 +154,7 @@ _NUM = r"(\d+|one|two|three|four|five|six|seven|eight|nine|ten|x)"
 _NUMBERS = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10}
 
 
+X_PLUS_1 = -3  # "mana value X plus 1" (Sidisi, Regent of the Mire): the announced X + 1
 X_VALUE = -1  # a comparison with X: the X of the spell (or ability) the selector is read for (107.3f, 202.3e)
 
 
@@ -256,6 +257,11 @@ def _enchanted_or_equipped(s: Selector, m: re.Match[str]) -> Selector:
 @_suffix(r"other than (?:enchanted|equipped) creature")
 def _other_than_host(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, extras=(*s.extras, "not_host_of_source"))
+
+
+@_suffix(r"created with (?:this creature|~)")  # -- cards (wave 110H) -- 111.2: the tokens the source made (Tetravus; the card, as Saproling Burst's made110h)
+def _made_by_source(s: Selector, m: re.Match[str]) -> Selector:
+    return replace(s, extras=(*s.extras, "made_by_source110h"))
 
 
 @_suffix(r"other than ‹granter(?:#(?P<oid>[^›]+))?›")  # -- granter (wave 110H) -- 607.1a: "an artifact other than Dire Blunderbuss" in its grant
@@ -800,11 +806,13 @@ def _compare_strict(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, compare=(*s.compare, (what, ">" if m["dir"] == "greater" else "<", n)))
 
 
-@_suffix(r"with (?P<what>mana value|power|toughness) " + _NUM.replace("|x)", "|[xX])"))
+@_suffix(r"with (?P<what>mana value|power|toughness) " + _NUM.replace("|x)", "|[xX])") + r"(?P<plus> plus 1)?")
 def _equal(s: Selector, m: re.Match[str]) -> Selector:
     n = _n(m.group(2))
+    if m["plus"] and (m["what"] != "mana value" or m.group(2).lower() != "x"):
+        raise ValueError("only X plus 1")
     if n is None and m.group(2).lower() == "x":
-        n = X_VALUE  # -- reanimation (wave 10A) -- "target creature card with mana value X" (Postmortem Lunge): the spell's X (wave 19F: or power)
+        n = X_PLUS_1 if m["plus"] else X_VALUE  # -- reanimation (wave 10A) -- "target creature card with mana value X" (Postmortem Lunge): the spell's X (wave 19F: or power)
     if n is None:
         raise ValueError("X comparisons need a value")
     what = {"mana value": "mv", "power": "power", "toughness": "toughness"}[m["what"]]
@@ -1130,7 +1138,7 @@ def _named_self(s: Selector, m: re.Match[str]) -> Selector:
 # "creature that doesn't have the same name as a token you control" (The Apprentice's Folly). 201.2a: two objects have the same name if they
 # have a name in common; an object with no name (face down, 708.2a) has the same name as nothing, so "doesn't have the same name" holds of it
 # (201.2c's "different name" would not: that wording isn't read). Names are the objects' own, layers applied (a copy has the copied name).
-_SN_REF = r"(?:(?:another|a) (?:permanent|creature|token) you control|a (?:creature )?card in (?:your|their) graveyard)"
+_SN_REF = r"(?:(?:another|a) (?:permanent|creature|token|Room) you control|a (?:creature )?card in (?:your|their) graveyard)"
 
 
 @_suffix(r"(?:with|(?:that |which )?(?:(?P<no>doesn't|don't|does not|do not) have|has|have)) the same name as "
@@ -1413,9 +1421,9 @@ def _of_chosen_number(s: Selector, m: re.Match[str]) -> Selector:
 _CMP_OPS = {"equal to": "==", "greater than or equal to": ">=", "less than or equal to": "<=", "greater than": ">", "less than": "<"}
 
 
-@_suffix(r"with (?P<what>mana value|power|toughness) (?:(?P<op>equal to|greater than or equal to|less than or equal to|greater than|less than) )?the chosen number")
+@_suffix(r"with (?P<what>mana value|power or toughness|power|toughness) (?:(?P<op>equal to|greater than or equal to|less than or equal to|greater than|less than) )?the chosen number")
 def _cmp_chosen_number(s: Selector, m: re.Match[str]) -> Selector:  # -- chosen filters (wave 53B) -- "Destroy all creatures with power greater than or equal to the chosen number." (Expel the Interlopers): the number chosen as the ability resolves (bind_chosen) or as the source entered (_chosen_ok)
-    what = {"mana value": "mv", "power": "power", "toughness": "toughness"}[m["what"]]
+    what = {"mana value": "mv", "power": "power", "toughness": "toughness", "power or toughness": "pt_either"}[m["what"]]
     return replace(s, extras=(*s.extras, "chosen_cmp"), compare=(*s.compare, (what, _CMP_OPS[m["op"] or "equal to"], "chosen_n")))
 
 
@@ -2072,7 +2080,7 @@ def _parse(phrase: str) -> Selector | None:
             (s.zones != ("graveyard",) or not s.card) and (s.zones != ("battlefield",) or s.card)):
         return None  # -- reanimation (wave 10A) -- (only cards in a graveyard are compared with the source; -- keywords
         # (wave 15E) -- or permanents: mentor's "target attacking creature with power less than this creature's power")
-    if any(c[1] == "==" and c[2] == X_VALUE for c in s.compare) and not ((s.zones == ("graveyard",) and s.card) or (s.zones == ("battlefield",) and not s.card
+    if any(c[1] == "==" and c[2] in (X_VALUE, X_PLUS_1) for c in s.compare) and not ((s.zones == ("graveyard",) and s.card) or (s.zones == ("battlefield",) and not s.card
                                                                                   and not re.search(r"\bspells?\b", text)) or re.search(r"\bspells?\b", text)):
         return None  # -- reanimation (wave 10A) -- ("mana value X" exactly: read for a card in a graveyard, or -- wave 17B -- a permanent;
         # not a spell: the X in its cost counts on the stack (202.3e), which the selector's mana value doesn't read — wave 19F: it does,
@@ -2264,7 +2272,7 @@ def attacker_of(event: Any) -> str | None:
     if event is None:
         return None
     kind = event.get("kind") if isinstance(event, dict) else getattr(event, "kind", None)
-    if kind not in ("attack", "unblocked", "targeted", "attached"):  # (wave 110L: attached, the creature a "becomes attached to a creature" trigger is about, "another target creature")  # (wave 23B: the object that became a target, for "other than that creature")
+    if kind not in ("attack", "unblocked", "targeted", "dealt_damage", "attached"):  # (wave 110C: dealt_damage, Toralf: the permanent dealt the damage)  # (wave 110L: attached, the creature a "becomes attached to a creature" trigger is about, "another target creature")  # (wave 23B: the object that became a target, for "other than that creature")
         return None
     objects = event.get("objects") if isinstance(event, dict) else getattr(event, "objects", None)
     if not objects:
@@ -2600,13 +2608,18 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
             if got is None or not got.isdigit():
                 return False
             n = int(got)
-        elif n == X_VALUE:  # (107.3f: X is the one chosen for the spell; none known: nothing matches)
+        elif n in (X_VALUE, X_PLUS_1):  # (107.3f: X is the one chosen for the spell; none known: nothing matches)
             src = plan.state.cards.get(source or "")
             x = src.stack_info.x if src is not None and src.stack_info is not None and src.stack_info.x is not None \
                 else getattr(plan, "x_choice", None)  # (not on the stack yet: the X announced for it)
             if x is None:
                 return False
-            n = x
+            n = x + 1 if n == X_PLUS_1 else x
+        if what == "pt_either":  # (wave 110H) "power or toughness equal to the chosen number" (Squall): either one meets the comparison
+            if not isinstance(n, (int, float)) or not any((v := _stat(ch, w)) is not None and {"<=": v <= n, ">=": v >= n, "==": v == n, "<": v < n, ">": v > n}[op]
+                                                          for w in ("power", "toughness")):
+                return False
+            continue
         value = _stat(ch, what)
         if what == "mv" and value is not None and zone == "stack" and card.stack_info is not None and card.stack_info.x:
             value += card.stack_info.x * ch.mana_cost.count("{X}")  # 202.3e: X on the stack is the value chosen
@@ -2626,6 +2639,8 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
                 c.controller == card.controller and c.zone.endswith(':battlefield')
                 and extra[len('controller_controls_land:'):] in plan.ch(c).subtypes
                 and 'Land' in plan.ch(c).types for c in plan.state.cards.values()):
+            return False
+        if extra == "made_by_source110h" and (card.token_source is None or (card.token_source.object_id or card.token_source.source_id) != (plan.oid(source) if source is not None and card.token_source.object_id else source)):  # (-- cards (wave 110H) --)
             return False
         if extra.startswith("not_oid:") and plan.oid(card) == extra[8:]:  # -- player-relative selectors (wave 53A) -- "other creatures that player controls": other than the target it follows
             return False
@@ -2755,6 +2770,8 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
 
             if not wave110a_pick.is_picked(plan, card, source):
                 return False
+        if extra == "made_by_source110f" and (source is None or card.token_source is None or card.token_source.source_id != source):
+            return False  # -- wave 110F -- 111.2: a token created by the source's own ability (Dance of Many: "the token")
         if extra == "attached_source" and (source is None or card.attached_to != source):  # -- activated other (wave 34B) -- attached to the source itself
             return False
         if extra == "not_host_of_source" and (src_ := plan.state.cards.get(source or "")) is not None and src_.attached_to == card.id:  # (wave 53C)
@@ -2915,6 +2932,8 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
             return False
         if extra == "could_attack110g" and not (plan.rules.could_attack_turn110g == plan.state.turn.number and plan.oid(card) in plan.rules.could_attack110g):
             return False  # -- (wave 110G) -- Season of the Witch: the creature could have been declared as an attacker this turn
+        if extra.startswith("pile110g:") and plan.oid(card) not in extra[9:].split(","):  # -- (wave 110G) -- Raging River: a creature of the chosen pile (objects, 400.7)
+            return False
         if extra == "protected_by_opp110g" and __import__("app.rules.battles", fromlist=["x"]).protector(plan.state, card) in (None, you):  # -- (wave 110G) -- 310.8: a battle an opponent protects
             return False
         if extra == "didnt_attack_combat110g" and card.is_attacking:  # -- (wave 110G) -- 508.1: not among this combat's declared attackers (Total War)
@@ -2978,6 +2997,17 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
             data = plan.info.get(card.card_id) if card.card_id else None
             # CR 712.1 includes meld cards. Image availability is not a card characteristic.
             if card.face_down or not data or data.get('layout') not in DOUBLE_FACED_LAYOUTS:
+                return False
+        if extra == "arn_name110o":  # -- (wave 110O) -- City in a Bottle: a name originally printed in the Arabian Nights expansion (either half of a split card)
+            from app.rules import wave110o_cards
+
+            if not wave110o_cards.named_arn(ch.name):
+                return False
+        if extra.startswith("top110o:"):  # -- (wave 110O) -- 404.1: one of the top N cards (of those the rest of the selector matches) of the graveyard it is in, the last put there first
+            base = replace(sel, extras=tuple(x for x in sel.extras if x != extra))
+            pile = [cid for cid in reversed(plan.state.zones.get(card.zone, [])) if card.zone.endswith(":graveyard")
+                    and matches(plan, base, plan.state.cards[cid], plan.ch(plan.state.cards[cid]), you, source)][:int(extra.partition(":")[2])]
+            if card.id not in pile:
                 return False
         if extra == "top_graveyard110o" and (not card.zone.endswith(":graveyard") or plan.state.zones[card.zone][-1:] != [card.id]):  # -- (wave 110O) -- 404.1: the last card put there
             return False

@@ -100,7 +100,7 @@ def expanded(plan: Plan, controller: str, source_card: str | None, ab: dict[str,
         return ab
     fi = next(i for i, g in enumerate(ab["targets"]) if g.get(FLAG))  # (-- wave 110E -- groups before it: the one plain target of the sentence before "For each …")
     group = ab["targets"][fi]
-    order = plan.state.seat_order
+    order = plan.state.turn_order()
     start = order.index(controller) if controller in order else 0
     opponents = [p for i in range(len(order)) if (p := order[(start + i) % len(order)]) in plan.live() and (p != controller or group[FLAG] == "player")]
     sel = selectors.from_key(group["what"])

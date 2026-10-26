@@ -6,7 +6,7 @@ import re
 from typing import Any
 
 _PUT = re.compile(
-    r"^(?:you )?may put (?P<n>a|an|up to two) (?:(?P<kind>name|art|ability|power and toughness) )?stickers? on (?P<on>a nonland permanent you own|a creature you own(?: that entered this turn)?|a creature card in your graveyard|it|~)(?P<rest>\..*)?$",
+    r"^(?:you )?may put (?P<n>a|an|up to two) (?:(?P<kind>name|art|ability|power and toughness) )?stickers?(?P<cap> with ticket cost X or less)? on (?P<on>a nonland permanent you own|a creature you own(?: that entered this turn)?|a creature card in your graveyard|it|~)(?P<pin> without paying that sticker's ticket cost)?(?P<rest>\..*)?$",
     re.I,
 )
 _GET = re.compile(r"^you get (?P<n>(?:\{TK\})+), then (?P<rest>.+)$", re.I)
@@ -46,8 +46,6 @@ def parse(body: str, it: str | None = None) -> tuple[list[dict[str, Any]], Any, 
             False,
         )
     on = m["on"].casefold()
-    if on.endswith("entered this turn"):
-        return None  # Park Bleater needs a separately proved saved-turn history contract.
     descriptor: dict[str, Any] = {
         "do": "put_sticker101",
         "kind": "pt"
@@ -74,6 +72,10 @@ def parse(body: str, it: str | None = None) -> tuple[list[dict[str, Any]], Any, 
         )
         if on.endswith("entered this turn"):
             descriptor["entered"] = True
+    if m["cap"]:  # -- cards (wave 110I) -- Pin Collection: ticket cost X or less (the X it was cast with, 107.3m), placed without paying it
+        descriptor["cost_cap"] = {"x": 1}
+    if m["pin"]:
+        descriptor["free"] = True
     rest_text = (m["rest"] or "").lstrip(".").strip()
     if not rest_text:
         return [descriptor], None, False
@@ -99,7 +101,7 @@ def _current(plan: Any, frame: Any) -> Any:
 
 
 def _options(plan: Any, frame: Any, cid: str) -> list[dict[str, Any]]:
-    from app.rules import selectors, stickers101
+    from app.rules import selectors, stickers101, values
 
     e, pid = frame["e"], frame["ctx"]["controller"]
     if pid not in plan.live():
@@ -116,7 +118,7 @@ def _options(plan: Any, frame: Any, cid: str) -> list[dict[str, Any]]:
         s
         for s in stickers101.available(plan, pid, e.get("kind"))
         if stickers101.can_place(plan, pid, cid, s["id"], free=bool(e.get("free")))
-        and (e.get("cost_cap") is None or s["cost"] <= e["cost_cap"])
+        and (e.get("cost_cap") is None or s["cost"] <= values.evaluate(plan, frame["ctx"], e["cost_cap"]))
     ]
 
 

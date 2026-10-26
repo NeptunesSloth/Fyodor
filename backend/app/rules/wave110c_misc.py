@@ -49,16 +49,82 @@ CHAPTERS = {
 }
 
 
+NEERA = ("Whenever you cast a spell, you may put it on the bottom of its owner's library. If you do, reveal cards from the top of your library until you reveal a nonland card. "
+         "You may cast that card without paying its mana cost. Then put all revealed cards not cast this way on the bottom of your library in a random order. "
+         "This ability triggers only once each turn.")
+
+VAEVICTIS = ("Whenever ~ attacks, for each player, choose target permanent that player controls. Those players sacrifice those permanents. Each player who sacrificed a permanent "
+             "this way reveals the top card of their library, then puts it onto the battlefield if it's a permanent card.")
+
+WILD_HUNT = ("{T}: Tap all untapped Wolf creatures you control. Each Wolf tapped this way deals damage equal to its power to target creature. That creature deals damage equal to its power "
+             "divided as its controller chooses among any number of those Wolves.")
+
+SYMBIOTE = ("{2}{U/B}, Exile this card from your graveyard: Put a +1/+1 counter on target creature you control. It gains this card's other abilities. Activate only as a sorcery.")
+SYMBIOTE_OTHER = ("Whenever this creature deals combat damage to a player, look at that many cards from the top of your library. Put one of them into your hand and the rest into "
+                  "your graveyard.")
+
+ULALEK = ("Whenever you cast an Eldrazi spell, you may pay {C}{C}. If you do, copy all spells you control, then copy all other activated and triggered abilities you control. "
+          "You may choose new targets for the copies.")
+
+KEFKA = ("At the beginning of your end step, exile a card at random from each opponent's graveyard. You may cast any number of spells from among cards exiled this way without paying "
+         "their mana costs. Then each player who owns a spell you cast this way loses life equal to its mana value.")
+
 PROCTOR = "Whenever a permanent entering causes a triggered ability to trigger, counter that ability unless its controller pays {2}."
 
 
 SIN_DIES = "When ~ dies, put its counters on target creature you control, then shuffle this card into its owner's library."
+TORALF = "Whenever a creature or planeswalker an opponent controls is dealt excess noncombat damage, ~ deals damage equal to the excess to any target other than that permanent."
+ABADDON = ("Mark of Chaos Ascendant — During your turn, spells you cast from your hand with mana value X or less have cascade, where X is the total amount of life your opponents have lost "
+           "this turn.")
+AMPED = ("When this creature enters, you get {E}{E}. Then if you cast it from your hand, exile cards from the top of your library until you exile a "
+         "nonland card. You may cast that card by paying an amount of {E} equal to its mana value rather than paying its mana cost.")
+IRENCRAG = ("Whenever a legendary creature you control enters, you may have ~ become a legendary Equipment artifact named Everflame, Heroes' Legacy. If you do, it gains equip {3} "
+            "and \"Equipped creature gets +3/+3\" and loses all other abilities.")
+HAMMER = 'Equipped creature has "{1}{R}, {T}, Unattach Toralf\'s Hammer: It deals 3 damage to any target. Return Toralf\'s Hammer to its owner\'s hand."'
+TORALF_NATIVE = TORALF.replace("deals damage equal to the excess to any target other than that permanent", "deals X damage to any target, where X is that excess damage")
 YIDARO = ("When you cycle this card, shuffle it into your library from your graveyard. If you've cycled a card named Yidaro, Wandering Monster four or more times "
           "this game, put it onto the battlefield from your graveyard instead.")
 
 
+FINALE_TEXT = ("You may cast up to one target instant card and/or up to one target sorcery card from your graveyard each with mana value X or less without paying their mana costs. "
+               "If a spell cast this way would be put into your graveyard, exile it instead. If X is 10 or more, copy each of those spells twice. You may choose new targets for the copies.")
+
+
+def finale_of_promise() -> Any:
+    """Finale of Promise: two target groups (an instant card, a sorcery card: each up to one, 115.1d) sized by X, cast free one at a time like the one-target wording
+    (608.2g), exiled instead of going to the graveyard (614.1a); the copies are made by :func:`finale_copy`."""
+    import dataclasses
+
+    from app.rules import scripts, selectors
+
+    native = scripts.parse_effects("You may cast target instant card from your graveyard with mana value X or less without paying its mana cost. If that spell would be put into "
+                                   "your graveyard, exile it instead.")
+    if native is None or len(native[0]) != 1 or native[0][0].get("do") != "free_cast" or not isinstance(native[1], str):
+        return None
+    sel = selectors.from_key(native[1])
+    groups = [{"what": dataclasses.replace(sel, types=(kind,)).key(), "min": 0, "max": 1} for kind in ("Instant", "Sorcery")]
+    return [{**native[0][0], "n": 2, "all_groups110c": True}, {"do": "finale_copy110c"}], groups, False
+
+
+def finale_copy(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Finale of Promise: if X is 10 or more, each spell cast this way (still on the stack) is copied twice; the controller may choose new targets for each copy (707.10c)."""
+    from app.rules import copying, values
+
+    if values.evaluate(plan, ctx, {"x": 1}) < 10:
+        return True
+    objects = [(cid, plan.oid(cid), 2) for cid in ctx.get("free_cast_done") or [] if cid in plan.state.cards and plan.state.cards[cid].zone == "stack"]
+    return copying.run(plan, copying.new_job(ctx, controller=ctx["controller"], objects=objects, retarget=True, label="Finale of Promise")) if objects else True
+
+
+PANDEMONIUM = "Whenever a creature enters, that creature's controller may have it deal damage equal to its power to any target of their choice."
+
+
 def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
     from app.rules import scripts
+
+    if ability.kind == "triggered" and scripts.self_text(ability.text, ch.name) == PANDEMONIUM:  # Pandemonium ruling 2006-09-25: its controller controls the ability, the entering creature's controller chooses the target (target_choice) and whether it deals the damage
+        d = scripts.define(replace(ability, text="Whenever a creature enters, that creature deals damage equal to its power to any target."), ch)
+        return None if d is None else {**d, "target_choice": "entering110c", "effects": [{"do": "pandemonium110c"}, *d["effects"]]}
 
     if scripts.self_text(ability.text, ch.name) == SIN_DIES:  # "this card" is Sin itself (400.7: the card in the graveyard), not the creature it chose; shuffled in even if gone (701.24c)
         d = scripts.define(replace(ability, text="When ~ dies, put ~'s counters on target creature you control, then shuffle ~ into its owner's library."), ch)
@@ -67,12 +133,67 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
         d = scripts.define(replace(ability, text="When you cycle this card, draw a card."), ch)
         return None if d is None else {**d, "effects": [{"do": "yidaro110c"}]}
 
+    if ability.text == HAMMER:  # like Razor Boomerang (wave 110J): "It" is the Equipment, which deals the damage (120.3); the grant binds the name to its granter
+        return scripts.define(replace(ability, text=HAMMER.replace("It deals 3", "Toralf's Hammer deals 3")), ch)
+    if ability.kind == "static" and ability.text == ABADDON:  # 702.85a: the spell has cascade as it is cast (cast_limits.granted_instances: "during110c", "mv_le110c")
+        d = scripts.define(replace(ability, text="Spells you cast from your hand have cascade."), ch)
+        return None if d is None or d.get("static") != "spell_keyword" else {**d, "during110c": "your_turn", "mv_le110c": {"turn_history": "opp_lost"}}
+    if ability.kind == "triggered" and ability.text == AMPED:  # energy first (107.14), then the exile-until-nonland offer (exile_authority_continuations 'amped110c')
+        from app.rules import exile_authority_continuations as eac
+
+        d = scripts.define(replace(ability, text="When this creature enters, you get {E}{E}."), ch)
+        return None if d is None else {**d, "effects": [*d["effects"], eac.descriptor("amped110c")]}
+    if ability.kind == "triggered" and scripts.self_text(ability.text, ch.name) == IRENCRAG:  # 205.1a/b, 613.1d-f: a permanent change of types, name and abilities (it loses the mana ability)
+        d = scripts.define(replace(ability, text="Whenever a legendary creature you control enters, you may draw a card."), ch)
+        if d is None or not d.get("optional"):
+            return None
+        become = {"do": "become", "who": "self", "types": ["Artifact"], "artifact_types": ["Equipment"], "legendary": True, "duration": "permanent", "lose_abilities": True}
+        gain = {"do": "become", "who": "self", "types": [], "duration": "permanent", "abilities": ["Equip {3}", "Equipped creature gets +3/+3."]}  # (a later timestamp: kept, 613.7a)
+        return {**d, "effects": [become, gain, {"do": "named100g", "who": "self", "name": "Everflame, Heroes' Legacy"}]}
+    if scripts.self_text(ability.text, ch.name) == TORALF:  # 120.10: the event's amount is the excess; "that permanent" is the one dealt it (selector not_event)
+        d = scripts.define(replace(ability, text=TORALF_NATIVE), ch)
+        return None if d is None or d.get("target") != {"what": "any"} else {**d, "target": {"what": "any_but_hurt110c"}}
     if ability.kind == "triggered" and scripts.self_text(ability.text, ch.name) == PROCTOR:  # read by :func:`proctor_triggers`, not by an event pass
         return {"kind": "static", "static": "proctor110c", "effects": []}
     text = ability.text.replace(ch.name or "~", "this creature")
     if text == "If you would lose unspent mana, that mana becomes black instead.":  # 614.1a, 500.4: like Ozai's red (wave110b_cards)
         d = scripts.define(replace(ability, text="If you would lose unspent mana, that mana becomes colorless instead."), ch)
         return None if d is None else {**d, "to": "B"}
+    if scripts.self_text(ability.text, ch.name) == VAEVICTIS:  # 115.1 a group per player (per_opponent), the rest once after all of them (opponent_aggregate)
+        native = scripts.define(replace(ability, text="Whenever ~ attacks, for each player, choose target permanent that player controls. Destroy those permanents."), ch)
+        if native is None or [e.get("do") for e in native["effects"]] != ["choose_targets", "destroy"]:
+            return None
+        return {**native, "effects": [native["effects"][0], {"do": "vaevictis110c", "opponent_aggregate": True}]}
+    if text == WILD_HUNT:  # "each Wolf you control" is read natively; the tapped Wolves are bound ("tapped this way") and are the sources
+        native = scripts.define(replace(ability, text=WILD_HUNT.split(" That creature deals")[0].replace("Wolf tapped this way", "Wolf you control")), ch)
+        fx = (native or {}).get("effects") or []
+        if native is None or [e.get("do") for e in fx] != ["tap", "damage"] or not str(fx[1].get("src", "")).startswith("each:"):
+            return None
+        tap = {**fx[0], "as": "wild110c"}
+        hit = {**fx[1], "src": "ref:wild110c", "src_many": True}
+        return {**native, "effects": [tap, hit, {"do": "wildhunt110c", "wolves": "ref:wild110c"}]}
+    if text.removeprefix("Find New Host — ") == SYMBIOTE:  # the card's other abilities are its one combat damage trigger; an effect that adds abilities without a duration lasts (611.2a)
+        granted = SYMBIOTE.replace("this card's other abilities", '"' + SYMBIOTE_OTHER + '"')
+        return scripts.define(replace(ability, text=granted), ch)
+    if text.split(" (Mana abilities")[0] == ULALEK:  # 707.10: every spell, then every other ability, of the controller's on the stack; new targets for each copy (707.10c)
+        native = scripts.define(replace(ability, text="Whenever you cast an Eldrazi spell, you may pay {C}{C}. If you do, copy that spell. You may choose new targets for the copy."), ch)
+        fx = (native or {}).get("effects") or []
+        if native is None or [e.get("do") for e in fx] != ["optional_payment", "only_if", "copy_spell", "copy_new_targets"]:
+            return None
+        return {**native, "effects": [fx[0], fx[1], {"do": "ulalek110c"}]}
+    if text == KEFKA:  # the cast is the library form's "any number of spells from among cards exiled this way"; the exile and the loss are own primitives
+        native = scripts.define(replace(ability, text="At the beginning of your end step, exile the top card of each opponent's library. You may cast any number of spells from among cards exiled this way without paying their mana costs."), ch)
+        fx = (native or {}).get("effects") or []
+        if native is None or [e.get("do") for e in fx] != ["exile_top", "free_cast"] or fx[0].get("as") != "e0":
+            return None
+        return {**native, "effects": [{"do": "kefka_exile110c", "as": "e0"}, fx[1], {"do": "kefka_loss110c", "of": "e0"}]}
+    if text == NEERA:  # the "you may ... if you do" gate is read as a {0} payment; the spell moves first (it is not countered, 701.6a), else nothing follows (608.2c)
+        native = scripts.define(replace(ability, text=NEERA.replace("put it on the bottom of its owner's library", "pay {0}")), ch)
+        event = scripts.define(replace(ability, text="Whenever you cast a spell, you may pay {0}. If you do, copy that spell. This ability triggers only once each turn."), ch)  # (the form that keeps the spell: "that spell")
+        fx = (native or {}).get("effects") or []
+        if event is None or [e.get("do") for e in fx] != ["optional_payment", "only_if", "look_top", "free_cast", "rest_looked"]:
+            return None
+        return {**event, "effects": [fx[0], {**fx[1], "skip": 4}, {"do": "spell_bottom110c", "skip": 3}, *fx[2:]]}
     if text == OMNATH:  # the look/reveal/mana/hand sequence is one primitive (omnath110c)
         d = scripts.define(replace(ability, text="At the beginning of your first main phase, draw a card."), ch)
         return None if d is None else {**d, "effects": [{"do": "omnath110c"}]}
@@ -341,9 +462,9 @@ def resume_prodder(plan: Plan, d: Any, chosen: list[str]) -> None:
         effects.continue_effects(plan, r["ctx"])
 
 
-def proctor_triggers(plan: Plan, pending: Any, cause: Any) -> None:
+def proctor_triggers(plan: Plan, pending: Any, cause: Any, only: list[Any] | None = None) -> None:
     """Strict Proctor: an entering permanent caused ``pending`` (and its 603.2d copies) to trigger; each Proctor on the battlefield triggers at the same time for
-    each (603.2, 603.3b: all go on the stack together, their controllers order them; a Proctor's ability put below the one it counters finds nothing to counter)."""
+    each (``only``: just these instances, the extras a later join of the batch added; 603.2, 603.3b: all go on the stack together, their controllers order them; a Proctor's ability put below the one it counters finds nothing to counter)."""
     from app.game.rules_state import PendingTrigger
     from app.rules import scripts, trigger_multipliers
 
@@ -354,11 +475,146 @@ def proctor_triggers(plan: Plan, pending: Any, cause: Any) -> None:
             continue
         if not any(d.get("static") == "proctor110c" for d in scripts.definitions(plan.ch(c)).values()):
             continue
-        for p in [pending, *trigger_multipliers._extras(plan).get(pending.id, ([], 0))[0]]:
+        for p in only if only is not None else [pending, *trigger_multipliers._extras(plan).get(pending.id, ([], 0))[0]]:
             plan.rules.proctor_links110c.setdefault(p.id, "")
             plan.rules.pending_triggers.append(PendingTrigger(
                 id=secrets.token_hex(4), controller=c.controller, source_card=c.id, source_object=plan.oid(c), name=c.name,
                 ability={"kind": "triggered", "effects": [{"do": "proctor110c", "link": p.id}]}, key=f"proctor110c:{p.id}", event=cause))
+
+
+def spell_bottom(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Neera: the spell that triggered the ability goes from the stack to the bottom of its owner's library (not countered); if it already left, skip the rest (608.2c)."""
+    from app.rules import effects
+
+    sids = effects._stack_targets(plan, ctx, {"who": "event_spell"})
+    if not sids:
+        ctx["next"] += e["skip"]
+        return True
+    r = plan.rules
+    for sid in sids:
+        oid = plan.oid(sid)
+        r.stack.pop(sid, None)
+        r.buyback = [o for o in r.buyback if o != oid]
+        r.rebound_cast = [o for o in r.rebound_cast if o != oid]
+        r.exile_resolves.pop(oid, None)
+        owner = plan.state.cards[sid].owner
+        to = {"player": owner, "zone": "exile" if oid in r.flashback else "library"}  # 702.34a: a flashback spell is exiled wherever it would go
+        r.flashback = [o for o in r.flashback if o != oid]
+        plan.do({"type": "move", "card_ids": [sid], "to": to, "position": "bottom"}, actor=ctx["controller"])
+    return True
+
+
+def vaevictis(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Vaevictis Asmadi: the chosen permanents are sacrificed together (701.21a, by their controllers); each player who sacrificed one reveals their top card (701.20a), and those
+    that are permanent cards enter together (614.12a). A permanent that left or is no longer a legal target is not sacrificed (608.2b)."""
+    from app.rules import attachments, effects
+
+    cards = [c for c in effects._cards(plan, ctx, "all_targets") if plan.state.cards[c].zone.endswith(":battlefield")]
+    who = {c: plan.state.cards[c].controller for c in cards}
+    effects._sacrifice_cards(plan, cards, ctx["controller"], ctx)
+    gone = {who[c] for c in cards if not plan.state.cards[c].zone.endswith(":battlefield")}
+    entries = []
+    me = ctx["controller"]
+    for pid in (p for p in plan.apnap() if p in gone):
+        ctx["controller"] = pid
+        try:
+            effects.look_top(plan, ctx, {"n": 1, "player": "you", "reveal": True, "exact_look": True})
+        finally:
+            ctx["controller"] = me
+        top = ctx.get("looked") or []
+        if top and plan.ch(plan.state.cards[top[0]]).types & {"Artifact", "Battle", "Creature", "Enchantment", "Land", "Planeswalker"}:
+            entries.append({"card": top[0], "player": pid, "actor": pid})
+    return attachments.enter(plan, entries, ctx) if entries else True
+
+
+def wildhunt(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Master of the Wild Hunt: the target creature deals damage equal to its power, divided as ITS controller chooses (any number, so 0 is fine), among the Wolves tapped this way
+    that are still on the battlefield (120.3, 608.2h; the engine's "divide" answer, with 0 allowed)."""
+    from app.game.rules_state import DecisionOption
+    from app.rules import effects
+    from app.rules.plan import decide
+
+    target = next(iter(effects._cards(plan, ctx, "target")), None)
+    wolves = [c for c in effects._cards(plan, ctx, e["wolves"]) if plan.state.cards[c].zone.endswith(":battlefield")]
+    if target is None or not plan.state.cards[target].zone.endswith(":battlefield") or not wolves:
+        return True
+    pt = plan.ch(plan.state.cards[target]).pt
+    power = max(0, pt[0]) if pt else 0
+    if not power:
+        return True
+    if len(wolves) == 1:
+        return effects._deal(plan, ctx, [(effects._card_source(plan, target), wolves[0], power)])
+    decide(plan, player=plan.state.cards[target].controller, kind="divide", prompt=f"Divide {power} damage from {plan.state.cards[target].name} among the Wolves",
+           options=[DecisionOption(id=w, label=plan.state.cards[w].name or "Wolf", card_id=w) for w in wolves], min_choices=len(wolves), max_choices=len(wolves),
+           display={"kind": "divide", "total": power, "what": "damage", "least": 0},
+           resume={"step": "wildhunt110c", "ctx": ctx, "total": power, "least": 0, "target": target, "wolves": wolves})
+    return False
+
+
+def resume_wildhunt(plan: Plan, d: Any, chosen: list[str]) -> None:
+    from app.rules import effects
+
+    r = d.resume
+    src = plan.state.cards.get(r["target"])
+    hits = [(effects._card_source(plan, r["target"]), w, int(n)) for w, n in zip(r["wolves"], chosen, strict=True)
+            if src is not None and src.zone.endswith(":battlefield") and plan.state.cards[w].zone.endswith(":battlefield") and int(n) > 0]
+    if effects._deal(plan, r["ctx"], hits) if hits else True:
+        effects.continue_effects(plan, r["ctx"])
+
+
+def ulalek(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Ulalek: copy every spell the controller controls on the stack (copies of spells are spells too), then every other ability they control there (not this one, 707.10);
+    each copy may get new targets. A spell or ability that can't be copied is skipped (113.6g); one the engine can't copy is handed to manual play."""
+    from app.rules import copying
+
+    me = ctx["controller"]
+    mine = [sid for sid in plan.state.zones.get("stack", []) if plan.state.cards[sid].controller == me and sid != ctx.get("stack_id")]  # (a permanent spell has no stack entry)
+    objects = []
+    for sid in sorted(mine, key=lambda sid: plan.state.cards[sid].ability is not None):  # (spells first, each group in stack order)
+        reason = copying.uncopyable(plan, plan.state.cards[sid])
+        if reason:
+            return copying._manual_each(plan, ctx, me, plan.state.cards[sid])
+        if reason is None:
+            objects.append((sid, plan.oid(sid), 1))
+    if not objects:
+        return True
+    return copying.run(plan, copying.new_job(ctx, controller=me, objects=objects, retarget=True, label=ctx.get("name") or "Copy"))
+
+
+def kefka_exile(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Kefka: from each opponent's graveyard (turn order from the controller), the table picks one card at random (no bias: not chosen by a player) and exiles it,
+    face up in its owner's exile; they are "the cards exiled this way"."""
+    import secrets
+
+    from app.rules import context, effects
+
+    me = ctx["controller"]
+    order = plan.apnap()
+    order = [p for p in [*order[order.index(me):], *order[:order.index(me)]] if p != me] if me in order else [p for p in order if p != me]
+    picked = []
+    for pid in order:
+        gy = sorted(plan.state.zones.get(f"{pid}:graveyard", []))
+        if gy:
+            picked.append((pid, (plan.rng or secrets.SystemRandom()).choice(gy)))
+    before = [r for _, c in picked if (r := context.ref_of(plan, c)) is not None]
+    for pid, cid in picked:
+        plan.note(f"{ctx.get('name') or 'It'}: {plan.name(pid)}'s graveyard, chosen at random →", [cid], actor=me)
+        plan.do({"type": "move", "card_ids": [cid], "to": {"player": plan.state.cards[cid].owner, "zone": "exile"}}, actor=me)
+    effects._moved(plan, ctx, e, before)
+    return True
+
+
+def kefka_loss(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Kefka: each player who owns a spell cast this way (one of the exiled cards now on the stack) loses life equal to its mana value (a graveyard is one player's, so each owns at most one)."""
+    from app.rules import context
+
+    lose = []
+    for ref in context._object_refs(ctx, e["of"], was=True):
+        card = plan.state.cards.get(ref.card)
+        if card is not None and card.zone == "stack" and card.ability is None:
+            lose.append({"do": "lose_life", "who": f"player:{card.owner}", "n": int(plan.ch(card).mana_value)})
+    ctx["effects"][ctx["next"]:ctx["next"]] = lose
+    return True
 
 
 def proctor(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
@@ -405,5 +661,97 @@ def attached_if(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return True
 
 
-RESUME = {"prodder110c": resume_prodder, "prodder_manual110c": prodder_done, "omnath110c": resume_omnath, "evidence_x110c": resume_evidence_x}
-PRIMITIVES = {"shuffle_dead110c": shuffle_dead, "yidaro110c": yidaro, "proctor110c": proctor, "attached_if110c": attached_if, "prodder110c": prodder, "omnath110c": omnath, "evidence_x110c": evidence_x, "revealed_x110c": revealed_x, "glyph110c": glyph, "shuttle110c": shuttle, "shuttle_attack110c": shuttle_attack}
+def entering_controller(plan: Plan, event: Any) -> str | None:
+    """The controller of the permanent an enter event is about: the battlefield it entered (the event object's zone)."""
+    objects = event.get("objects") if isinstance(event, dict) else getattr(event, "objects", None)
+    if not objects or len(objects) != 1:
+        return None
+    zone = str((objects[0].get("zone") if isinstance(objects[0], dict) else objects[0].zone) or "")
+    pid = zone.split(":")[0]
+    return pid if pid in plan.live() else None
+
+
+def pandemonium(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Pandemonium: the entering creature's controller (not the trigger's controller) decides whether the creature deals the damage."""
+    from app.game.rules_state import DecisionOption
+    from app.rules.plan import decide
+
+    who = entering_controller(plan, ctx.get("event"))
+    if who is None:
+        ctx["next"] = len(ctx["effects"])
+        return True
+    decide(plan, player=who, kind="choose_one", prompt="Pandemonium: have the creature deal damage equal to its power to the target?",
+           options=[DecisionOption(id="yes", label="Yes"), DecisionOption(id="no", label="No")], resume={"step": "pandemonium110c", "ctx": ctx},
+           source=plan.state.cards.get(ctx.get("source_card") or ""))
+    return False
+
+
+def resume_pandemonium(plan: Plan, d: Any, chosen: list[str]) -> None:
+    from app.rules import effects
+
+    ctx = d.resume["ctx"]
+    if chosen[0] != "yes":
+        ctx["next"] = len(ctx["effects"])
+    effects.continue_effects(plan, ctx)
+
+
+WARP_WORLD = ("Each player shuffles all permanents they own into their library, then reveals that many cards from the top of their library. Each player puts all artifact, "
+              "creature, and land cards revealed this way onto the battlefield, then does the same for enchantment cards, then puts all cards revealed this way that weren't put "
+              "onto the battlefield on the bottom of their library.")
+
+
+def warp_world() -> Any:
+    return [{"do": "warp_shuffle110c"}, {"do": "warp_enter110c", "kinds": "main"}, {"do": "warp_enter110c", "kinds": "ench"}, {"do": "warp_bottom110c"}], None, False
+
+
+def warp_shuffle(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Warp World: in turn order each player counts the permanents they own (tokens too; a commander that goes to the command zone still counts, per the Gatherer rulings
+    2009-10-01 / 2019-05-03), shuffles them in, and reveals that many cards (111.1: tokens aren't cards: the ones shuffled in are skipped, 704.5d removes them later)."""
+    from app.rules import effects
+
+    ctx["warp110c"] = {}
+    for pid in plan.apnap():
+        owned = [c.id for c in plan.state.cards.values() if c.owner == pid and c.zone.endswith(":battlefield")]
+        if owned:
+            plan.do({"type": "move", "card_ids": owned, "to": {"player": pid, "zone": "library"}}, actor=pid)
+        effects.shuffle_library(plan, ctx, {"do": "shuffle_library", "who": f"player:{pid}"})
+        top = [c for c in effects._library(plan, pid) if not plan.state.cards[c].is_token][:len(owned)]
+        for at in range(0, len(top), 250):
+            plan.do({"type": "reveal", "card_ids": top[at:at + 250]}, actor=pid)
+        ctx["warp110c"][pid] = top
+    return True
+
+
+def warp_enter(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Warp World: every player's artifact, creature and land cards enter together; then the enchantment cards (Auras choose what to enchant in turn order, 303.4f, and not
+    the enchantments entering with them)."""
+    from app.rules import attachments
+
+    want = {"Artifact", "Creature", "Land"} if e["kinds"] == "main" else {"Enchantment"}
+    entries = [{"card": c, "player": pid, "actor": pid, "tapped": False} for pid in plan.apnap() for c in ctx["warp110c"].get(pid, [])
+               if plan.state.cards[c].zone == f"{pid}:library" and want & set(plan.ch(plan.state.cards[c]).types)]
+    return attachments.enter(plan, entries, ctx) if entries else True
+
+
+def warp_bottom(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Warp World: the revealed cards that stayed go to the bottom of their owner's library, in an order that owner picks (401.4)."""
+    from app.rules import effects
+
+    queue: list[dict[str, Any]] = []
+    for pid in plan.apnap():
+        rest = [c for c in ctx["warp110c"].get(pid, []) if plan.state.cards[c].zone == f"{pid}:library"]
+        if len(rest) == 1:
+            effects.bottom_at_random(plan, pid, rest, actor=pid)
+        elif rest:
+            queue.append({"owner": pid, "cards": rest, "place": "bottom"})
+    if not queue:
+        return True
+    first = queue.pop(0)
+    ctx["library_queue"] = queue
+    effects._ask_order(plan, ctx, first["owner"], first["owner"], first["cards"], "bottom")
+    return False
+
+
+RESUME = {"pandemonium110c": resume_pandemonium, "prodder110c": resume_prodder, "prodder_manual110c": prodder_done, "omnath110c": resume_omnath, "evidence_x110c": resume_evidence_x, "wildhunt110c": resume_wildhunt}
+PRIMITIVES = {"finale_copy110c": finale_copy, "pandemonium110c": pandemonium, "shuffle_dead110c": shuffle_dead, "yidaro110c": yidaro, "proctor110c": proctor, "vaevictis110c": vaevictis, "kefka_exile110c": kefka_exile, "kefka_loss110c": kefka_loss, "ulalek110c": ulalek, "wildhunt110c": wildhunt, "spell_bottom110c": spell_bottom, "attached_if110c": attached_if, "prodder110c": prodder, "omnath110c": omnath, "evidence_x110c": evidence_x, "revealed_x110c": revealed_x, "glyph110c": glyph, "shuttle110c": shuttle, "shuttle_attack110c": shuttle_attack}
+PRIMITIVES.update({"warp_shuffle110c": warp_shuffle, "warp_enter110c": warp_enter, "warp_bottom110c": warp_bottom})

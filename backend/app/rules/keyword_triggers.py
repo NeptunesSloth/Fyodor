@@ -273,6 +273,10 @@ def dynamic_x(text: str) -> dict[str, Any] | None:
     """The triggered ability of a static line "[~ has] bushido / firebending / mobilize X, where X is …", or None (not read)."""
     from app.rules import scripts  # (scripts imports this module)
 
+    if sm := re.fullmatch(r"soulshift X, where X is the number of (\w+)s you control\.?", text.removeprefix("~ has ")):
+        # -- soulshift X (wave 110G) -- 702.46a; Kodama's ruling (2005-02-01): X is read from the state just before it died (triggers.py)
+        return {"kind": "triggered", "trigger": "dies_self", "optional": True, "soulshift_x110g": sm[1],
+                "target": {"what": "graveyard:" + sm[1] + ":0"}, "effects": [{"do": "bounce", "who": "target"}]}
     m = _DYNAMIC_X.fullmatch(text.removeprefix("~ has "))
     if m is None:
         return None

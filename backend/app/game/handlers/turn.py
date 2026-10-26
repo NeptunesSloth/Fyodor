@@ -63,7 +63,7 @@ def phase(state: GameState, a: A.Phase) -> None:
 
 def next_turn(state: GameState, a: A.NextTurn) -> None:
     response.clear(state)
-    order = state.seat_order
+    order = state.turn_order()
     if a.player:
         nxt = ops.player(state, a.player, a.actor)
     else:

@@ -12,6 +12,8 @@ def parse(text: str) -> dict[str, Any] | None:
         sel = selectors.parse("other creatures you control")
         assert sel is not None
         return {**base, "counter": "+1/+1", "n": {"plus": [1, {"count": sel.key()}]}}
+    if text == "If ~ was cast using web-slinging, ~ enters with X +1/+1 counters on ~, where X is the mana value of the returned creature.":
+        return {**base, "counter": "+1/+1", "n": {"entry_returned_mv110c": True}}  # (-- web-slinging (wave 110C) -- Scarlet Spider; replacements._counter_amount)
     if text == "~ enters with a number of +1/+1 counters on it equal to the greatest number of cards an opponent has drawn this turn.":
         return {**base, "counter": "+1/+1", "n": {"turn_history": "opp_drew_max"}}
     if text == "~ enters with a number of stun counters on it equal to three minus X. If X is 2 or less, it enters tapped.":

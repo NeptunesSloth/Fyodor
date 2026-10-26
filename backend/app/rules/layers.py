@@ -347,10 +347,11 @@ def _extend_statics(state: GameState, info: CardInfo, out: list[Static], wiped: 
     # Limit discovery to native layer-6 keyword/rule statics; introducing layer-4
     # dependencies here would require solving those grants as dependency nodes.
     if state.rules is not None:
-        from app.rules import stickers101
+        from app.rules import entry_characteristics, stickers101
 
         sticker_effects101 = [e for cid, _controller in field for e in stickers101.continuous(state, state.cards[cid])]
-        for effect in [*state.rules.effects, *sticker_effects101]:
+        entry_effects110m = [e for cid, _controller in field for e in entry_characteristics.effects(state, state.cards[cid])]  # (wave 110M) abilities an entry form gives (611.2e)
+        for effect in [*state.rules.effects, *sticker_effects101, *entry_effects110m]:
             if effect.layer != "6" or not effect.add_abilities:
                 continue
             key = (effect.object_seq, 1, effect.timestamp)
@@ -368,7 +369,15 @@ def _extend_statics(state: GameState, info: CardInfo, out: list[Static], wiped: 
                         if not inner.get('layer4') and not inner.get('base'):
                             out.append(Static(cid, controller, inner, effect.object_seq, effect_key=key))
                         continue
-                    if inner is None or (inner.get("who") != "self" and not damage_retention83.resolved_static(inner)) or inner.get("layer4") or inner.get("base") or inner.get("p") or inner.get("t") or inner.get("grants"):
+                    if inner is not None and inner.get("static") == "grant" and inner.get("who") == "attached" and (inner.get("p") or inner.get("t")) \
+                            and not any(inner.get(k) for k in ("layer4", "base", "grants", "keywords", "rules", "each", "also", "conditions")):  # -- Everflame (wave 110C) -- 613.7, 301.5: a gained "Equipped creature gets +N/+N" works for what it is attached to
+                        out.append(Static(cid, controller, inner, effect.object_seq, effect_key=key))
+                        continue
+                    if effect.id.startswith("entry:") and inner is not None and inner.get("who") == "attached" and inner.get("grants") and not inner.get("layer4") and not inner.get("base"):
+                        out.append(Static(cid, controller, inner, effect.object_seq, effect_key=key))  # (wave 110M) "Enchanted land has …" on an Aura that entered as one
+                        continue
+                    # (-- wave 110O -- Tenth District Hero's Mileva: the one group grant of a keyword a resolved effect gives, 613.1f)
+                    if inner is None or (inner.get("who") != "self" and not damage_retention83.resolved_static(inner) and text != "Other creatures you control have indestructible.") or inner.get("layer4") or inner.get("base") or inner.get("p") or inner.get("t") or inner.get("grants"):
                         continue
                     if inner.get("keywords") or inner.get("rules") or inner.get("each"):  # (each: "gets +1/+1 for each ..." granted by a resolved effect, 613.4c; wave 110D)
                         out.append(Static(cid, controller, inner, effect.object_seq, effect_key=key))
@@ -1026,10 +1035,16 @@ def _derive(state: GameState, card: CardInstance, ch: Characteristics, info: Car
     )
 
     ch = wave110e_clara.apply(state, card, ch)
+    if state.rules is not None and state.rules.commander_color110f:  # -- wave 110F -- Faceless One: a characteristic-defining color (604.3)
+        from app.rules import wave110f_cmd
+
+        ch = wave110f_cmd.color(state, card, ch)
     ch = replace(ch, on_battlefield=card.zone.endswith(":battlefield"),
                  object_counters=frozenset(k for k, n in card.counters.items() if n > 0),
                  object_ring_bearer=bool(state.rules and card.zone.endswith(":battlefield")
-                                         and state.rules.ring_bearers.get(card.controller) == state.rules.object_id(card.id)))
+                                         and state.rules.ring_bearers.get(card.controller) == state.rules.object_id(card.id)),
+                 object_cast_this_turn=bool(state.rules and card.zone.endswith(":battlefield") and state.rules.turn_log.turn == state.turn.number
+                                            and state.rules.object_id(card.id) in state.rules.turn_log.cast_ids()))  # (-- wave 110B --)
     from app.rules import stickers101
 
     effects = affecting(state, card, info) + stickers101.continuous(state, card)
@@ -1195,6 +1210,16 @@ def _derive(state: GameState, card: CardInstance, ch: Characteristics, info: Car
     if lent:
         ch = replace(ch, abilities=ch.abilities + lent)
     ch = _granted_by_effects(ch, effects, wipe)
+    if (wipe is None or (timestamp(state, card.id), 0, 0) > wipe) and state.rules is not None and state.rules.payments:  # -- grants (wave 110A) -- offspring given to the spell as it was cast stays on the permanent (a wipe earlier than the permanent's timestamp does not remove it, a later one does, 613.7)
+        rec = state.rules.payments.get(state.rules.object_id(card.id))
+        if rec is not None and rec.granted_offspring110a:
+            from app.rules import wave110a_grants
+
+            ch = wave110a_grants.overlay(ch)
+    if on_field and wipe is None and state.rules is not None and state.rules.crafted_materials:  # -- craft materials (wave 110A) -- Wretched Bonemass's keywords
+        from app.rules import mana_crafted_profiles
+
+        ch = mana_crafted_profiles.overlay(state, card, ch, info)
     if info is not None and not on_field and _T.depth == 0 and state.rules is not None and card.zone.endswith((":hand", ":graveyard")):
         from app.rules import (
             zone_grants,  # -- zone keyword grants (wave 25A) -- "Each creature card in your hand has cycling {1}{U}."
@@ -1622,7 +1647,7 @@ def _group_imposed(state: GameState, card: CardInstance, ch: Characteristics, in
 
 
 Layer = Literal["1", "2", "3", "4", "5", "6", "7a", "7b", "7c", "7d"]
-Duration = Literal["end_of_turn", "permanent", "end_of_combat", "next_turn", "end_of_next_turn", "end_of_next_upkeep110g"]  # (wave 31C: "next_turn" — a copy effect "until your next turn", copying.add_copy_effect)
+Duration = Literal["end_of_turn", "permanent", "end_of_combat", "next_turn", "end_of_next_turn", "two_turns110f", "end_of_next_upkeep110g", "roll1_110f"]  # (wave 31C: "next_turn" — a copy effect "until your next turn", copying.add_copy_effect)
 
 
 @world_native80
@@ -1655,7 +1680,8 @@ def add_effect(plan: Plan, *, affected: list[str], layer: Layer, source: str | N
 def end_of_turn(plan: Plan) -> None:
     """514.2: "until end of turn" effects end in the cleanup step."""
     r = plan.rules
-    r.effects = [e for e in r.effects if e.duration not in ("end_of_turn", "end_of_combat")]  # (a combat a turn ended in, 18E review)
+    r.effects = [e for e in r.effects if e.duration not in ("end_of_turn", "end_of_combat", "roll1_110f")  # (a combat a turn ended in, 18E review)
+                 and not (e.duration == "two_turns110f" and plan.state.turn.number > e.turn)]  # (wave 110F: "this turn and next turn", Peace Talks: gone in the cleanup of the next turn)
     from app.rules import delayed
 
     delayed.end_of_next_turn(plan)  # -- end of next turn (wave 32C) -- "until the end of your next turn" ends in the cleanup of that turn

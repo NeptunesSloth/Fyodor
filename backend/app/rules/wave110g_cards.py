@@ -1,6 +1,8 @@
 """-- wave 110G -- exact Oracle wordings of single cards, read as a wording the grammar reads or built from parts of it (as wave110b_cards)."""
 from __future__ import annotations
 
+import collections
+import json
 import re
 from collections.abc import Callable
 from dataclasses import replace
@@ -177,10 +179,47 @@ _AGONY = re.compile(r"(~ deals X damage to target creature, where X is the numbe
                     r"of your library equal to the excess damage dealt to that creature this way\. You may play those cards until the end of your next turn\.")
 
 
+_BOE = "You may cast a spell with suspend from your hand. If you do, pay its suspend cost rather than its mana cost."
+_HERALD = ("Return any number of Aura cards from your graveyard to the battlefield attached to creatures you control. Exile those Auras at the beginning of your next end step. "
+           "If those Auras would leave the battlefield, exile them instead of putting them anywhere else.")
+_DRAIN = "Target player activates a mana ability of each land they control. Then that player loses all unspent mana and you add the mana lost this way."
+
+
 def parse(body: str) -> Any:
     """Etched Host Doombringer's mode: one target battle; the protector decides between removing and adding (310.4, 310.8)."""
     from app.rules import scripts
 
+    if body.strip()[:1].upper() + body.strip()[1:] == _HERALD:  # Storm Herald: chosen as it resolves (608.2d, not targets); each Aura picks its own creature (303.4f), the exile rider is the grammar's
+        got = scripts.parse_effects("Return target Aura card from your graveyard to the battlefield attached to a creature you control. Exile it at the beginning of your next end step. "
+                                    "If it would leave the battlefield, exile it instead of putting it anywhere else.")
+        if got is None:
+            return None
+        (ret, *rest), group, _ = got
+        pick = {"do": "player_chooses", "who": "you", "sel": group, "n": 250, "label": "Aura cards", "upto": True, "optional": True, "as": "gco"}
+        return [pick, {**ret, "who": "ref:gco"}, {"do": "keep_entered110g", "as": ret["as"]}, *rest], None, False
+    if body.strip() == _BOE:  # The Face of Boe: a cast from hand with the suspend cost as the alternative cost (118.9, 702.62a)
+        return [{"do": "boe110g"}], None, False
+    if body.strip() == _DRAIN:  # Drain Power: the Pygmy Hippo machinery on a target player, the lost mana added at once (605.3a, 106.4)
+        from app.rules import language
+
+        group = language.target_group("target player")
+        return None if group is None else ([{"do": "hippo110g", "who": "target", "add_now": True}], [group], False)
+
+    if body.strip() == _NOTE:  # Long List of the Ents: "note" = choose, and write it on the Saga (607.2e); the Saga offers only types not yet noted
+        got = scripts.parse_effects(_NOTE.replace("Note a creature type that hasn't been noted for ~.", "Choose a creature type.").replace("of that type", "of the chosen type"))
+        if got is None or got[0][0].get("do") != "choose_value":
+            return None
+        return [{**got[0][0], "noted110g": True}, *got[0][1:]], got[1], got[2]
+    if body.strip() == _UNIFORM:  # Stolen Uniform: the Equipment is "that Equipment" of the lose-control trigger (not the creature the grammar's pronoun picks); targets in Oracle order
+        got = scripts.parse_effects("Gain control of target Equipment until end of turn. Attach it to target creature you control. When you lose control of that Equipment, unattach it.")
+        if got is None:
+            return None
+        effects, groups, _ = got
+        gain, attach, delay, unattach = effects
+        eqp = "target:1"  # (the Equipment is the second target, as the Oracle text orders them)
+        return ([{**gain, "who": eqp}, {**attach, "src": eqp, "who": "target:0"},
+                 {**delay, "who": eqp, "when": {**delay["when"], "yours110g": True}}, {**unattach, "who": eqp, "yours110g": True}],
+                [groups[1], groups[0]], False)
     if body.strip() == _WARP_BOTTOM:  # Blade of the Swarm: an exiled card that has warp (702.185a), any exile
         return scripts.parse_effects(_WARP_BOTTOM.replace("exiled card with warp", "card with warp in exile"))
     if body.strip() == _JUDOON:  # Fugitive of the Judoon III: both exiled together or nothing (paid as one cost, 118.3)
@@ -267,6 +306,11 @@ def _lowest_life_control(d: Def) -> Def:
     return {**d, "effects": [{"do": "lowest_life_control110g"}]}
 
 
+_NOTE = ("Note a creature type that hasn't been noted for ~. When you next cast a creature spell of that type this turn, "
+         "that creature enters with an additional +1/+1 counter on it.")
+NOTED = "Noted creature types"
+_UNIFORM = ("Choose target creature you control and target Equipment. Gain control of that Equipment until end of turn. Attach it to the chosen creature. "
+            "When you lose control of that Equipment this turn, if it's attached to a creature you control, unattach it.")
 # whole ability text -> the wording the grammar reads for it
 _AS: dict[str, str] = {
     # Elemental Expressionist: one clause granting two quoted abilities is two grants of the same target; "is put into exile" of a granted ability is
@@ -291,6 +335,9 @@ _AS: dict[str, str] = {
     "You choose one of those cards. That player discards that card.":
         "When this creature enters, target opponent reveals a number of cards from their hand equal to the number of creatures in your party. "
         "You choose one of them. That player discards that card.",
+    # Melira, the Living Cure: "put into a graveyard" (this turn, from the battlefield: the target is a permanent) is the grammar's die event; "that card" is it
+    "Exile Melira: Choose another target creature or artifact. When it's put into a graveyard this turn, return that card to the battlefield under its owner's control.":
+        "Exile ~: Choose another target creature or artifact. When it is put into a graveyard this turn, return it to the battlefield under its owner's control.",
 }
 
 def _transformed(d: Def) -> Def:
@@ -349,6 +396,17 @@ def _could_attack(d: Def) -> Def:  # Season of the Witch: "except for creatures 
 def _alone(d: Def) -> Def:  # Thijarian Witness: the plain "if it was attacking" test, swapped for the 506.5 fact kept with the event
     test = {"w110g": "alone_in_combat"}
     return {**d, "if": test, "effects": [{**x, "cond": test} if x.get("do") == "only_if" else x for x in d["effects"]]}
+
+
+def _stangg(d: Def) -> Def:
+    """Stangg: 603.7 two delayed triggers made as the enter ability resolves (one per sentence), each watching one object: Stangg leaving exiles that token,
+    the token leaving sacrifices Stangg (the same object: a new Stangg isn't affected, 400.7). Not limited to this turn (``open``)."""
+    make = d["effects"][0]
+    token = {**make["token"], "name": "Stangg Twin", "type_line": "Legendary Token Creature \u2014 Human Warrior"}
+    leaves = {"kind": "event", "event": "leave", "open": True}
+    return {**d, "effects": [{**make, "token": token, "as": "e0"},
+                             {"do": "delayed", "when": dict(leaves), "n": 1, "who": "self"}, {"do": "deferred:exile", "who": "ref:e0"},
+                             {"do": "delayed", "when": dict(leaves), "n": 1, "who": "ref:e0"}, {"do": "deferred:sacrifice", "who": "self"}]}
 
 
 def _halfdane(d: Def) -> Def:
@@ -519,6 +577,18 @@ def _mist(d: Def) -> Def:
     return {**d, "effects": [{"do": "untap_choice", "who": draw["who"], "n": draw["n"], "kind": "permanent", "sel": selectors.Selector().key()}]}
 
 
+def _fraying(d: Def) -> Def:
+    """Fraying Line: the upkeep player's payment decides both branches (118.12a); on a decline the artifact and every creature without a rope counter is exiled
+    in the one instruction, then the counters go."""
+    pay = d["effects"][0]
+    cond = {"succeeded": "pay0"}
+    rope = {"types": ["Creature"]}
+    mine = [{"do": "player_chooses", "who": "event_player", "sel": 'sel:{"types":["Creature"]}', "n": 1, "label": "creature", "as": "e0"},
+            {"do": "add_counters", "who": "ref:e0", "kind": "rope", "n": 1}]
+    gone = [{"do": "exile", "who": "self"}, {"do": "exile", "who": 'sel:{"extras":["nocounter:rope"],"types":["Creature"]}'}, {"do": "remove_counters", "who": f"sel:{json.dumps(rope, separators=(',', ':'))}", "kind": "rope", "n": 1000000}]
+    return {**d, "effects": [pay, {"do": "only_if", "cond": cond, "skip": 2}, *mine, {"do": "only_if", "cond": {**cond, "negate": True}, "skip": 3}, *gone]}
+
+
 def _two_auras(d: Def) -> Def:
     """Kitsune Mystic: "enchanted by two or more Auras" = two attached Auras (303.4)."""
     cond = {**d["if"], "attached_n": 2}
@@ -626,6 +696,99 @@ def reattach(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return False
 
 
+_EQUIPOISE = ("Land", "Artifact", "Creature")
+
+
+def equipoise(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Equipoise: for lands, then artifacts, then creatures, the controller chooses as many of target player's as they control more than the controller
+    does and those phase out (702.26). Counts are taken afresh for each kind: a phased-out permanent doesn't exist (702.26b), so a phased-out land
+    that is also a creature no longer counts."""
+    return _equipoise_step(plan, ctx, e["who"], 0)
+
+
+def _equipoise_step(plan: Any, ctx: dict[str, Any], who: str, i: int) -> bool:
+    from app.rules import effects
+
+    me = ctx["controller"]
+    other = next(iter(effects._players(plan, ctx, who)), None)
+    while other is not None and other in plan.live() and i < len(_EQUIPOISE):
+        kind = _EQUIPOISE[i]
+
+        def of(p: str, kind: str = kind) -> list[str]:
+            return [c for c in plan.state.zones.get(f"{p}:battlefield", []) if kind in plan.ch(plan.state.cards[c]).types]
+
+        theirs, n = of(other), len(of(other)) - len(of(me))
+        if n > 0 and n == len(theirs):
+            _phase(plan, me, theirs)
+        elif n > 0:
+            effects.decide(plan, player=me, kind="choose_cards", prompt=f"Choose {n} {_EQUIPOISE[i].lower()}(s) {plan.name(other)} controls to phase out",
+                           min_choices=n, max_choices=n, options=[effects.DecisionOption(id=c, label=plan.state.cards[c].name or "Permanent", card_id=c) for c in theirs],
+                           resume={"step": "equipoise110g", "ctx": ctx, "who": who, "i": i, "cands": theirs})
+            return False
+        i += 1
+    return True
+
+
+def _phase(plan: Any, me: str, cards: list[str]) -> None:
+    from app.rules import phasing
+
+    cards = [c for c in cards if not phasing._held(plan, c)]
+    if cards:
+        plan.do({"type": "phase_shift", "card_ids": cards, "out": True}, actor=me)
+
+
+def resume_equipoise(plan: Any, d: Any, chosen: list[str]) -> None:
+    from app.rules import effects
+
+    r = d.resume
+    if len(set(chosen)) != len(chosen) or any(c not in r["cands"] for c in chosen):
+        raise ValueError("not a candidate")
+    _phase(plan, r["ctx"]["controller"], chosen)
+    if _equipoise_step(plan, r["ctx"], r["who"], r["i"] + 1):
+        effects.continue_effects(plan, r["ctx"])
+
+
+def glamer(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Glamer Spinners: "attach all Auras enchanting target permanent to another permanent with the same controller". The other permanent is chosen on
+    resolution (it is not a target); an Aura that can't enchant it stays where it is (701.3b)."""
+    from app.rules import effects
+
+    old = next(iter(effects._cards(plan, ctx, e["src"])), None)
+    t = plan.state.cards.get(old or "")
+    if t is None or not t.zone.endswith(":battlefield"):
+        return True
+    auras = [c.id for c in plan.state.cards.values() if c.attached_to == t.id and "Aura" in plan.ch(c).subtypes]
+    hosts = [c.id for c in plan.state.cards.values() if c.id != t.id and c.zone.endswith(":battlefield") and c.controller == t.controller]
+    if not auras or not hosts:
+        return True
+    if len(hosts) == 1:
+        return _glamer_move(plan, ctx, auras, hosts[0])
+    effects.decide(plan, player=ctx["controller"], kind="choose_one", prompt=f"{ctx.get('name') or 'Glamer Spinners'}: choose another permanent to attach the Auras to",
+                   options=[effects.DecisionOption(id=h, label=plan.state.cards[h].name or "Permanent", card_id=h) for h in hosts],
+                   resume={"step": "glamer110g", "ctx": ctx, "auras": auras, "hosts": hosts})
+    return False
+
+
+def _glamer_move(plan: Any, ctx: dict[str, Any], auras: list[str], host: str) -> bool:
+    from app.rules import attachments
+
+    for a in auras:
+        card = plan.state.cards[a]
+        if attachments.host_problem(plan, card, host, ctx["controller"]) is None:
+            attachments.attach(plan, a, host, ctx["controller"])
+    return True
+
+
+def resume_glamer(plan: Any, d: Any, chosen: list[str]) -> None:
+    from app.rules import effects
+
+    r = d.resume
+    if chosen[0] not in r["hosts"]:
+        raise ValueError("not a candidate")
+    _glamer_move(plan, r["ctx"], r["auras"], chosen[0])
+    effects.continue_effects(plan, r["ctx"])
+
+
 def _attach_to(plan: Any, ctx: dict[str, Any], aura: str, host: str) -> bool:
     from app.rules import attachments
 
@@ -643,6 +806,17 @@ def resume_reattach(plan: Any, d: Any, chosen: list[str]) -> None:
 
 
 _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
+    "{1}, {T}: The next time target player would roll one or more dice this turn, instead they roll that many dice plus one and you choose one of those rolls to ignore.":
+        ("{1}, {T}: Target player gains 1 life.", lambda d: {**d, "effects": [{"do": "roll_shield110g", "who": "target"}]}),
+    "At the beginning of each player's upkeep, that player may pay {2}. If they do, they put a rope counter on a creature they control. Otherwise, exile this artifact and each "
+    "creature without a rope counter on it, then remove all rope counters from all creatures.":
+        ("At the beginning of each player's upkeep, that player may pay {2}. If they don't, you gain 1 life.", _fraying),
+    "When Stangg enters, create Stangg Twin, a legendary 3/4 red and green Human Warrior creature token. Exile that token when Stangg leaves the battlefield. Sacrifice Stangg when that token leaves the battlefield.":
+        ("When this creature enters, create a 3/4 red and green Human Warrior creature token.", _stangg),
+    "At the beginning of your upkeep, for each land target player controls in excess of the number you control, choose a land that player controls, then the chosen permanents phase out. Repeat this process for artifacts and creatures.":
+        ("At the beginning of your upkeep, target player loses 1 life.", lambda d: {**d, "effects": [{"do": "equipoise110g", "who": "target"}]}),
+    "When this creature enters, attach all Auras enchanting target permanent to another permanent with the same controller.":
+        ("When this creature enters, tap target permanent.", lambda d: {**d, "effects": [{"do": "glamer110g", "src": "target"}]}),
     "At the beginning of the end step, if this creature is enchanted by two or more Auras, flip it.":
         ("At the beginning of the end step, if this creature is enchanted, flip this creature.", _two_auras),
     "{1}: Attach target Aura attached to a creature to another creature.":
@@ -779,6 +953,10 @@ _ENGULF = "When this creature enters, exile target non-Ooze creature an opponent
 _DISSOLVE = "{X}{B}: Put target creature card with mana value X exiled with this creature into its owner's graveyard."
 
 
+_MAZE = ("Whenever another creature becomes the target of an ability of a land you control named Labyrinth of Skophos, "
+         "you may have this creature fight that creature.")
+
+
 def definition(ability: Any, ch: Any) -> Def | None:
     from app.rules import scripts, selectors
 
@@ -794,6 +972,12 @@ def definition(ability: Any, ch: Any) -> Def | None:
         sel = selectors.Selector(card=True, zones=("exile",), types=("Creature",), compare=(("mv", "==", selectors.X_VALUE),)).key()
         return {"kind": "activated", "cost": ability.cost, "effects": [{"do": "return_card", "who": "target", "to": "graveyard", "under": "owner"}],
                 "target": {"what": "exiled_with:" + sel}}
+    if ability.text.strip() == _MAZE:  # Skophos Maze-Warden: the targeted-event trigger with a source filter, then a may-fight with the targeted creature (701.14)
+        native = scripts.define(replace(ability, text="Whenever a creature becomes the target of an ability, tap that creature."), ch)
+        if native is None:
+            return None
+        return {**native, "optional": True, "effects": [{"do": "fight", "who": "self", "with": "event"}],
+                "cond": {**native["cond"], "sel": selectors.Selector(types=("Creature",), other=True).key(), "land_named110g": "Labyrinth of Skophos"}}
     if (same := _AS.get(ability.text.strip())) is not None:
         return scripts.define(replace(ability, text=same), ch)
     if (built := _BUILD.get(ability.text.strip())) is None:
@@ -1042,7 +1226,326 @@ def destroy_instead(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return True
 
 
-PRIMITIVES: dict[str, Any] = {"gy_pairs110g": gy_pairs, "reattach110g": reattach, "speed_cut110g": speed_cut, "exile_split110g": exile_split, "halfdane110g": halfdane, "exile_gy_until110g": exile_gy_until, "idol_cast110g": idol_cast, "bind_exiled110g": bind_exiled, "firm_creature110g": firm_creature, "elkin110g": elkin, "suncleanser110g": suncleanser, "fallen110g": fallen, "destroy_instead110g": destroy_instead, "exchange_power110g": exchange_power, "lowest_life_control110g": lowest_life_control,
+_RIVER = "Whenever one or more creatures you control attack, each defending player divides all creatures without flying they control into a \"left\" pile and a \"right\" pile. Then, for each attacking creature you control, choose \"left\" or \"right.\" That creature can't be blocked this combat except by creatures with flying and creatures in a pile with the chosen label."
+
+_BUILD[_RIVER] = ("Whenever one or more creatures you control attack, you gain 1 life.", lambda d: {**d, "effects": [{"do": "river110g"}]})
+
+
+def _river_defender(plan: Any, c: Any) -> str | None:
+    from app.rules import battles, selectors
+
+    target = plan.state.cards.get(c.attacking.id) if c.attacking.kind != "player" else None
+    if target is not None and "Battle" in plan.ch(target).types:  # 310.9d: a battle's defending player is its protector
+        return battles.protector(plan.state, target)
+    return selectors._defender(plan, c.attacking)
+
+
+def river(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Raging River (508.5, 509.1b): each defending player splits their non-flying creatures into two piles (a pile may be empty), then the controller
+    labels each attacker left or right; that attacker can't be blocked this combat except by fliers and creatures of a pile with its label."""
+    me = ctx["controller"]
+    atk = [c for c in plan.state.cards.values() if c.controller == me and c.attacking is not None and c.zone.endswith(":battlefield")]
+    defs = {d for c in atk if (d := _river_defender(plan, c))}
+    st = {"atk": [c.id for c in atk], "defs": [p for p in plan.apnap() if p in defs], "i": 0, "left": [], "right": [], "j": 0}
+    return _river_step(plan, ctx, st)
+
+
+def _river_step(plan: Any, ctx: dict[str, Any], st: dict[str, Any]) -> bool:
+    from app.rules import effects
+
+    while st["i"] < len(st["defs"]):  # the piles: the defending player chooses the left one; the rest are the right (a creature without flying only)
+        pid = st["defs"][st["i"]]
+        mine = [c for c in plan.state.zones.get(f"{pid}:battlefield", []) if plan.ch(plan.state.cards[c]).is_creature and "flying" not in plan.ch(plan.state.cards[c]).keywords]
+        if len(mine) > 0:
+            effects.decide(plan, player=pid, kind="choose_cards", prompt="Choose the creatures for the \"left\" pile (the rest form the \"right\" pile)",
+                           min_choices=0, max_choices=len(mine), options=[effects.DecisionOption(id=c, label=plan.state.cards[c].name or "Creature", card_id=c) for c in mine],
+                           resume={"step": "river110g", "ctx": ctx, "st": st, "mine": mine})
+            return False
+        st["i"] += 1
+    while st["j"] < len(st["atk"]):
+        a = plan.state.cards.get(st["atk"][st["j"]])
+        if a is not None and a.attacking is not None and st["left"] != st["right"]:
+            effects.decide(plan, player=ctx["controller"], kind="choose_one", prompt=f"Choose \"left\" or \"right\" for {a.name}",
+                           options=[effects.DecisionOption(id="left", label="left"), effects.DecisionOption(id="right", label="right")],
+                           resume={"step": "river_label110g", "ctx": ctx, "st": st})
+            return False
+        st["j"] += 1
+    return True
+
+
+def resume_river(plan: Any, d: Any, chosen: list[str]) -> None:
+    from app.rules import effects
+
+    r = d.resume
+    if len(set(chosen)) != len(chosen) or any(c not in r["mine"] for c in chosen):
+        raise ValueError("not a candidate")
+    st = r["st"]
+    st["left"] += [plan.oid(c) for c in chosen]
+    st["right"] += [plan.oid(c) for c in r["mine"] if c not in chosen]
+    st["i"] += 1
+    if _river_step(plan, r["ctx"], st):
+        effects.continue_effects(plan, r["ctx"])
+
+
+def resume_river_label(plan: Any, d: Any, chosen: list[str]) -> None:
+    from app.rules import effects, selectors
+
+    r = d.resume
+    st = r["st"]
+    if chosen[0] not in ("left", "right"):
+        raise ValueError("left or right")
+    a = plan.state.cards[st["atk"][st["j"]]]
+    keys = "|".join((selectors.Selector(types=("Creature",), with_keywords=("flying",)).key(),
+                     selectors.Selector(types=("Creature",), extras=("pile110g:" + ",".join(st[chosen[0]]),)).key()))
+    effects.restrict(plan, r["ctx"], {"do": "restrict", "who": f"object:{plan.oid(a)}", "rules": [f"cant_be_blocked_except_by:{keys}"], "duration": "end_of_combat"})
+    st["j"] += 1
+    if _river_step(plan, r["ctx"], st):
+        effects.continue_effects(plan, r["ctx"])
+
+
+_VOLUTE = ("Whenever you cast a sorcery spell, copy the enchanted instant card. You may cast the copy without paying its mana cost. "
+           "If you do, exile the enchanted card and attach this Aura to another instant card in a graveyard.")
+
+
+def volute_bind(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Spellweaver Volute: bind "the enchanted instant card" (an Aura enchanting a card in a graveyard keeps it in aura_links, 303.4a / 303.4m); none: nothing happens."""
+    from app.rules import attachments, context
+
+    src = plan.state.cards.get(ctx.get("source_card") or "")
+    cards = attachments.enchanted_cards(plan, src) if src is not None and src.zone.endswith(":battlefield") else []
+    context.bind_objects(plan, ctx, "vh110g", cards[:1])
+    if not cards:
+        ctx["next"] = len(ctx["effects"])  # nothing to copy: the rest does nothing
+    return True
+
+
+def volute_attach(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """"Attach this Aura to another instant card in a graveyard": the Aura's controller chooses on resolution (not a target); the exiled card is gone from the graveyard."""
+    from app.rules import effects
+
+    src = plan.state.cards.get(ctx.get("source_card") or "")
+    if src is None or not src.zone.endswith(":battlefield"):
+        return True
+    from app.rules import attachments
+
+    hosts = [c.id for c in plan.state.cards.values() if c.zone.endswith(":graveyard") and "Instant" in plan.ch(c).types and attachments.host_problem(plan, src, c.id) is None]
+    if len(hosts) <= 1:
+        return not hosts or _attach_to(plan, ctx, src.id, hosts[0])
+    effects.decide(plan, player=ctx["controller"], kind="choose_one", prompt="Choose another instant card in a graveyard to attach this Aura to",
+                   options=[effects.DecisionOption(id=h, label=plan.state.cards[h].name or "Instant", card_id=h) for h in hosts],
+                   resume={"step": "reattach110g", "ctx": ctx, "aura": src.id, "hosts": hosts})
+    return False
+
+
+_BUILD[_VOLUTE] = ("Whenever you cast a sorcery spell, you gain 1 life.", lambda d: {**d, "effects": [
+    {"do": "volute_bind110g"},
+    {"do": "copy_cards", "who": "ref:vh110g", "n": 1, "as": "e0"},
+    {"do": "free_cast", "zone": "that", "who": "ref:e0", "filter": None, "optional": True, "mv": None, "n": 1, "did": "vdid110g"},
+    {"do": "only_if", "cond": {"succeeded": "vdid110g"}, "skip": 2},
+    {"do": "exile", "who": "ref:vh110g"},
+    {"do": "volute_attach110g"}]})
+
+
+_HIPPO = ("Whenever this creature attacks and isn't blocked, you may have defending player activate a mana ability of each land they control and lose all unspent mana. "
+          "If you do, this creature assigns no combat damage this turn and at the beginning of your next main phase this turn, you add an amount of {C} equal to the amount "
+          "of mana that player lost this way.")
+
+
+def _land_combos(plan: Any, pid: str, done: list[str]) -> tuple[list[tuple[str, int, int]], bool]:
+    """The (land, mana ability, option) the player can activate right now, one per option, for lands they haven't activated yet (605.3a); and whether a land has a mana
+    ability the engine can't activate for them (a private or object-choosing cost: by hand)."""
+    from app.rules import casting
+
+    combos, unsupported = [], False
+    for cid in plan.state.zones.get(f"{pid}:battlefield", []):
+        card = plan.state.cards[cid]
+        ch = plan.ch(card)
+        if card.controller != pid or not ch.is_land or cid in done:
+            continue
+        usable = casting.can_use_tap_abilities(plan.state, card, ch, plan.info)
+        for idx, ab in casting.mana_abilities(plan.state, card, plan.info):
+            if ab.reveal_hand is not None or ab.chooses or ab.self_counter is not None or (ab.count or "").startswith("removed:"):
+                unsupported = True
+                continue
+            if ab.tap and not usable:
+                continue
+            cost = casting.mana_activation_cost(plan.state, card, ch, ab, plan.info)
+            if not cost.is_free and not casting.pool_covers(plan.state, pid, cost, None, plan.info):
+                continue  # the mana for its cost must already be in the pool (the player may have activated another land first)
+            combos += [(cid, idx, oi) for oi, opt in enumerate(ab.options) if opt]
+    return combos, unsupported
+
+
+def _activate_land(plan: Any, pid: str, cid: str, idx: int, oi: int) -> None:
+    from app.rules import casting
+    from app.rules.casting import Purpose
+
+    card = plan.state.cards[cid]
+    ab = dict(casting.mana_abilities(plan.state, card, plan.info))[idx]
+    ch = plan.ch(card)
+    cost = casting.mana_activation_cost(plan.state, card, ch, ab, plan.info)
+    if cost.is_free:
+        casting.produce(plan, card, ab, ab.options[oi], idx, option_index=oi)
+        return
+    extra = casting.parse_ability_cost(ab.extra_cost, card_name=ch.name)  # the cost is paid from the pool only (the other lands are this player's to activate in their own order)
+    paid = casting.pay(plan, pid, cost, f"paid {cost.text()} to activate {ch.name}", sources=[], exclude=(cid,), purpose=Purpose(ability_of=ch, player=pid))
+    casting._produce_body(plan, card, ab, ab.options[oi], idx, extra, None, input_payment=paid, option_index=oi)
+
+
+def keep_entered(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Storm Herald: "those Auras" are the ones that really entered (303.4i: an Aura that can't enchant stays where it is), as the objects they became (400.7j);
+    the binding of a return that paused for an Aura's host choice still names the cards as they were in the graveyard."""
+    from app.rules import context
+
+    b = context.refs(ctx).get(e["as"])
+    if b is None or b.get("kind") != "objects":
+        return True
+    now = [o["card"] for o in b["objects"] if plan.state.cards[o["card"]].zone.endswith(":battlefield")]
+    b["objects"] = [{"card": c, "object_id": plan.oid(c), "zone": plan.state.cards[c].zone, "snapshot": None} for c in now]
+    b["was"] = [o for o in b.get("was") or [] if o["card"] in now]
+    return True
+
+
+def return_self(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Next of Kin: "return this card to the battlefield attached to that creature" -- the source Aura, if it is still in the graveyard, enchants the creature
+    put onto the battlefield (a ref kept by the delayed trigger, 603.7c); one that can't (it left, or protection) stays (303.4g)."""
+    from app.rules import effects
+
+    cid = ctx.get("source_card")
+    card = plan.state.cards.get(cid or "")
+    if card is None or card.zone != f"{card.owner}:graveyard":
+        return True
+    return effects._return_cards(plan, ctx, {"do": "return_card", "to": "battlefield", "tapped": False, "under": "you", "host": "ref:e0"}, [card.id])
+
+
+def _suspend_costs(plan: Any, pid: str) -> dict[str, str]:
+    """The cards in the player's hand with a suspend ability, each with its suspend cost (the first instance, 702.62a)."""
+    from app.rules import casting
+
+    out: dict[str, str] = {}
+    for cid in plan.state.zones.get(f"{pid}:hand", []):
+        ch = plan.ch(plan.state.cards[cid])
+        found = next((i for ab in ch.abilities if ab.kind == "keywords" and "suspend" in ab.keywords and (i := casting.suspend_info(ch, ab.index)) is not None), None)
+        if found is not None:
+            out[cid] = found[1]
+    return out
+
+
+def boe(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """The Face of Boe (118.9): the controller may cast one spell with suspend from their hand, paying its suspend cost instead of its mana cost.
+    The pick is a decision; the cast is the engine's alternative-cost free cast (miracle machinery: free_casts + alt_costs)."""
+    from app.game.rules_state import DecisionOption
+    from app.rules.plan import decide
+
+    pid = ctx["controller"]
+    costs = _suspend_costs(plan, pid)
+    if not costs:
+        plan.note("The Face of Boe: no card with suspend in hand")
+        return True
+    decide(plan, player=pid, kind="choose_one", prompt="Cast a spell with suspend from your hand, paying its suspend cost?",
+           options=[*(DecisionOption(id=c, label=f"{plan.state.cards[c].name} ({t})", card_id=c) for c, t in costs.items()), DecisionOption(id="no", label="Don't cast")],
+           resume={"step": "boe110g", "ctx": ctx})
+    return False
+
+
+def resume_boe(plan: Any, d: Any, chosen: list[str]) -> None:
+    from types import SimpleNamespace
+
+    from app.rules import effects
+
+    r = d.resume
+    cost = _suspend_costs(plan, d.player).get(chosen[0])
+    if chosen[0] != "no" and cost is None:
+        raise ValueError("not a card with suspend in your hand")
+    if cost is None:
+        effects.continue_effects(plan, r["ctx"])
+        return
+    plan.rules.free_casts.append(chosen[0])
+    plan.rules.alt_costs[chosen[0]] = cost
+    effects.resume_suspend_cast(plan, SimpleNamespace(resume={"card": chosen[0], "ctx": r["ctx"], "decline": None}, player=d.player), ["yes"])
+
+
+def hippo(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Pygmy Hippo (605.3a, 106.4): the defending player activates a mana ability of each land they control, in the order they choose, then loses all unspent mana; the
+    mana actually lost (a "becomes colorless instead" keeps it) is what the controller adds later. A land whose mana ability can't be activated by the engine
+    (a private or object-choosing cost) makes this a hand-played instruction: nothing happens."""
+    from app.rules import effects
+
+    pid = next(iter(effects._players(plan, ctx, e.get("who", "defending_player"))), None)
+    if pid is None:
+        return True
+    st: dict[str, Any] = {"pid": pid, "done": [], "before": 0, "add": bool(e.get("add_now"))}
+    if _land_combos(plan, pid, [])[1]:
+        plan.note("Pygmy Hippo: a land has a mana ability to activate by hand (not automated)", [])
+        ctx["next"] = len(ctx["effects"])
+        return True
+    return _hippo_step(plan, ctx, st)
+
+
+def _hippo_step(plan: Any, ctx: dict[str, Any], st: dict[str, Any]) -> bool:
+    from app.rules import casting, effects, group_choice
+    from app.rules import mana as M
+
+    pid = st["pid"]
+    while True:
+        combos, _ = _land_combos(plan, pid, st["done"])
+        if not combos:
+            break
+        lands = list(dict.fromkeys(c[0] for c in combos))
+        if len(combos) == len(lands) and all(plan.ch(plan.state.cards[c[0]]).is_land and dict(casting.mana_abilities(plan.state, plan.state.cards[c[0]], plan.info))[c[1]].extra_cost == "" for c in combos):
+            pick = combos[0]  # every land has one free way: the order can't matter, so no question
+        else:
+            effects.decide(plan, player=pid, kind="choose_one", prompt="Activate a mana ability of a land you control (you must activate one of each land)",
+                           options=[effects.DecisionOption(id=f"{c[0]}:{c[1]}:{c[2]}", label=f"{plan.state.cards[c[0]].name}: add {M.symbols(casting._count(dict(casting.mana_abilities(plan.state, plan.state.cards[c[0]], plan.info))[c[1]].options[c[2]]))}",
+                                                       card_id=c[0]) for c in combos],
+                           resume={"step": "hippo110g", "ctx": ctx, "st": st, "combos": [list(c) for c in combos]})
+            return False
+        st["done"].append(pick[0])
+        _activate_land(plan, pid, *pick)
+    def pool() -> collections.Counter[str]:  # every unspent mana, restricted or not
+        p = plan.state.players[pid]
+        return collections.Counter(p.mana) + collections.Counter(u.sym for u in p.mana_units)
+
+    before = pool()
+    group_choice.lose_mana(plan, ctx, {"who": f"player:{pid}"})
+    gone = before - pool()
+    ctx.setdefault("refs", {})["lost110g"] = {"n": sum(gone.values())}
+    if st.get("add"):  # Drain Power: "you add the mana lost this way" (106.3), same types, no restriction carried
+        return effects._put_mana(plan, ctx, ctx["controller"], list(gone.elements()))
+    return True
+
+
+def resume_hippo(plan: Any, d: Any, chosen: list[str]) -> None:
+    from app.rules import effects
+
+    r = d.resume
+    cid, idx, oi = chosen[0].split(":")
+    if [cid, int(idx), int(oi)] not in r["combos"]:
+        raise ValueError("not a legal activation")
+    r["st"]["done"].append(cid)
+    _activate_land(plan, r["st"]["pid"], cid, int(idx), int(oi))
+    if _hippo_step(plan, r["ctx"], r["st"]):
+        effects.continue_effects(plan, r["ctx"])
+
+
+def _kin(d: Def) -> Def:
+    """Next of Kin: the creature card may also come from the command zone (put_from_hand cmd110g); "if you do" the Aura (this card, in the graveyard) returns
+    attached to that creature (303.4f: an Aura that can't enchant it stays) at the next end step."""
+    put = {**d["effects"][0], "cmd110g": True, "did": "did0", "as": "e0"}
+    return {**d, "effects": [put, {"do": "only_if", "cond": {"succeeded": "did0"}, "skip": 2}, {"do": "delayed", "when": {"kind": "step", "step": "end", "whose": "next"}, "n": 1},
+                             {"do": "deferred:return_self110g"}]}
+
+
+_BUILD["When enchanted creature dies, you may put a creature card you own with lesser mana value from your hand or from the command zone onto the battlefield. "
+       "If you do, return this card to the battlefield attached to that creature at the beginning of the next end step."] = (
+    "When enchanted creature dies, you may put a creature card with mana value less than that creature's mana value from your hand onto the battlefield.", _kin)
+_BUILD[_HIPPO] = ("Whenever this creature attacks and isn't blocked, you may draw a card.", lambda d: {**d, "effects": [
+    {"do": "hippo110g"}, {"do": "restrict", "who": "self", "rules": ["assign_none"]},
+    {"do": "delayed", "when": {"kind": "step", "step": "main", "whose": "you"}, "n": 1},
+    {"do": "deferred:add_mana", "sym": "C", "n": {"ref_amount": "lost110g"}}]})
+
+
+PRIMITIVES: dict[str, Any] = {"return_self110g": return_self, "keep_entered110g": keep_entered, "boe110g": boe, "hippo110g": hippo, "volute_bind110g": volute_bind, "volute_attach110g": volute_attach, "river110g": river, "equipoise110g": equipoise, "glamer110g": glamer, "gy_pairs110g": gy_pairs, "reattach110g": reattach, "speed_cut110g": speed_cut, "exile_split110g": exile_split, "halfdane110g": halfdane, "exile_gy_until110g": exile_gy_until, "idol_cast110g": idol_cast, "bind_exiled110g": bind_exiled, "firm_creature110g": firm_creature, "elkin110g": elkin, "suncleanser110g": suncleanser, "fallen110g": fallen, "destroy_instead110g": destroy_instead, "exchange_power110g": exchange_power, "lowest_life_control110g": lowest_life_control,
                            "sacrifice_pair110g": sacrifice_pair, "swap_tapped110g": swap_tapped, "opponent_exiles110g": opponent_exiles,
                               "unattach_enchanted110g": unattach_enchanted}
-RESUME: dict[str, Any] = {"gy_pairs110g": resume_gy_pairs, "reattach110g": resume_reattach, "lowest_control110g": resume_lowest_control, "opponent_exiles110g": resume_opponent_exiles}
+RESUME: dict[str, Any] = {"boe110g": resume_boe, "hippo110g": resume_hippo, "river110g": resume_river, "river_label110g": resume_river_label, "equipoise110g": resume_equipoise, "glamer110g": resume_glamer, "gy_pairs110g": resume_gy_pairs, "reattach110g": resume_reattach, "lowest_control110g": resume_lowest_control, "opponent_exiles110g": resume_opponent_exiles}

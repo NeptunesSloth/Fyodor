@@ -89,3 +89,36 @@ def test_mystic_reflection_copies_a_whole_batch_of_cards(cards):
     cast(s, "Mass Rise")
     assert mine(s) == ["Test Giant", "Test Giant"]
     check(s)
+
+
+def reflect_twice(cards, second):
+    """Alice casts two Mystic Reflections, on Bob's Test Giant and on the named other creature of his; then a Grizzly Bears is the next entry."""
+    s = build(cards, ["Mystic Reflection", "Mystic Reflection", "Grizzly Bears"], ["Test Giant", "Grizzly Bears"], forests=30)
+    giant = put(s, "Test Giant", "p2")
+    other = giant if second == "same" else put(s, "Grizzly Bears", "p2")
+    for target in (giant, other):
+        mana(s, U=2)
+        cast(s, "Mystic Reflection", [target.id])
+    return s
+
+
+def test_two_reflections_on_the_same_creature_both_apply_to_one_event(cards):
+    """614.5, 616.1: both waiting effects are used up by the one event; same creature, so the order does not matter."""
+    s = reflect_twice(cards, "same")
+    mana(s, G=2)
+    cast(s, "Grizzly Bears")
+    assert mine(s) == ["Test Giant"]
+    check(s)
+
+
+def test_two_reflections_on_different_creatures_leave_the_order_to_the_controller(cards):
+    """616.1: the order is the affected object's controller's choice; handled by hand (a note), and both effects are used up (614.5)."""
+    s = reflect_twice(cards, "other")
+    mana(s, G=2)
+    cast(s, "Grizzly Bears")
+    assert mine(s) == ["Grizzly Bears"]
+    assert any("copy by hand" in str(e) for e in s.state.log)
+    from app.game.rules_state import turn_log_now
+
+    assert not turn_log_now(s.state).mirror110b
+    check(s)

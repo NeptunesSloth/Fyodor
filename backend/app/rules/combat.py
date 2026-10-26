@@ -586,6 +586,9 @@ def _finish_attackers(plan: Plan, payload: PaidAttackers, payment: M.Payment | N
         )
 
         wave110j_cards.note_battle_attacks(plan, a.attackers)
+        from app.rules import wave110b_cards  # -- attack requirements (wave 110B) --
+
+        wave110b_cards.note_required(plan, a.attackers)
         wave110j_cards.note_engaged(plan, [x.card_id for x in a.attackers])
         # -- static wordings (wave 6E) -- 508.1g / 701.43d: "You may exert this creature as it attacks" (app/rules/exert.py)
         from app.rules import exert
@@ -769,9 +772,9 @@ def attack_forbidden(plan: Plan, ch: Characteristics, target: str) -> bool:
             if defender in plan.state.players and _defender_fact(plan, who, defender) == (name == "cant_attack_if_def"):
                 return True
             continue
-        if name not in ("cant_attack_player", "cant_attack_player_pw", "cant_attack_player_perm"):
+        if name not in ("cant_attack_player", "cant_attack_player_pw", "cant_attack_player_perm", "cant_attack_player_jace110b"):
             continue
-        if target == who:
+        if target == who and name != "cant_attack_player_jace110b":
             return True
         card = plan.state.cards.get(target)
         if name == "cant_attack_player_pw" and card is not None and card.controller == who                 and "Planeswalker" in plan.ch(card).types:
@@ -780,6 +783,10 @@ def attack_forbidden(plan: Plan, ch: Characteristics, target: str) -> bool:
         # (the battle's controller, 110.2 — not its protector)
         if name == "cant_attack_player_perm" and card is not None and card.controller == who:
             return True
+        if name == "cant_attack_player_jace110b" and card is not None and card.controller == who:  # -- wave 110B -- 508.1c: only a Jace planeswalker (205.3j)
+            c = plan.ch(card)
+            if "Planeswalker" in c.types and "Jace" in c.subtypes:
+                return True
     return False
 
 
@@ -820,7 +827,7 @@ def start_declare_blockers(plan: Plan) -> None:
     r = plan.rules
     r.blocked = []
     attacked = {blocking_defender(plan.state, c) for c in attackers_on(plan.state)}
-    order = plan.state.seat_order
+    order = plan.state.turn_order()
     start = order.index(plan.active)
     r.blockers_pending = [p for p in order[start + 1:] + order[:start] if p in attacked and p in plan.live()]
     ask_next_blocker(plan)

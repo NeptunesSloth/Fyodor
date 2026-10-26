@@ -47,6 +47,8 @@ NAMED: dict[str, tuple[list[str], str]] = {
     "Mark of the Rani": (["R"], "Enchanted creature gets +2/+2 and is goaded."),
     "Mask": (["W"], "Enchant permanent\numbra armor"),  # (wave 110A) Estrid, the Masked
     "Settlement": (["G"], 'Enchant land\nEnchanted land has "{T}: Add one mana of any color."'),
+    # -- named Aura tokens (wave 110M) -- Smoke Spirits' Aid's Smoke Blessing
+    "Smoke Blessing": (["R"], "When enchanted creature dies, it deals 1 damage to its controller and you create a Treasure token."),
 }
 _CLAUSE = re.compile(rf"create an? (?:(?P<role>{'|'.join(ROLES)}) Role|(?P<named>{'|'.join(NAMED)}) Aura) token attached to (?P<o>.+)")
 

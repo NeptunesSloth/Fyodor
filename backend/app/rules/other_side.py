@@ -30,7 +30,7 @@ def wanted(cond: dict[str, Any] | None) -> bool:
     if not cond:
         return False
     # (-- trigger other (wave 44B) -- "deals combat damage to a planeswalker, destroy that planeswalker": the planeswalker dealt damage, 120.1)
-    return bool(cond.get("other")) or (cond.get("event") == "deal_damage" and cond.get("to") in ("creature", "planeswalker"))
+    return bool(cond.get("other") or cond.get("other_side110a")) or (cond.get("event") == "deal_damage" and cond.get("to") in ("creature", "planeswalker"))
 
 
 def antecedent(cond: dict[str, Any] | None, body: str) -> str | None:

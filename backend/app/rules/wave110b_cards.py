@@ -23,6 +23,9 @@ def firebending(line: str) -> int | None:
 
 # whole ability text -> the wording the grammar reads for it
 _AS: dict[str, str] = {
+    # Clive, Ifrit's Dominant (back face Ifrit, Warden of Inferno): the Saga is "Ifrit"; exiled and returned it comes back front face up (712.14, 712.2)
+    "II, III — Brimstone — Add {R}{R}{R}{R}. If Ifrit has three or more lore counters on it, exile it, then return it to the battlefield.":
+        "II, III — Brimstone — Add {R}{R}{R}{R}. If this Saga has three or more lore counters on it, exile this Saga, then return it to the battlefield.",
     "Exile Stunning Reversal.": "Exile ~.",
     # Desert Warfare: "that many" is the number of Deserts you control (the "five or more" test, 603.4, counts them); "They gain haste" is the tokens' own
     "At the beginning of combat on your turn, if you control five or more Deserts, create that many 1/1 red, green, and white Sand Warrior creature tokens. "
@@ -109,6 +112,75 @@ def stolen_holds(plan: Any, ctx: dict[str, Any]) -> bool:
     """Bronze Bombshell: its controller is not its owner (603.8, 108.3)."""
     c = plan.state.cards[ctx["source_card"]]
     return c.controller != c.owner
+
+
+_WORLD = ("After the second main phase this turn, there's an additional combat phase followed by an additional main phase. "
+          "At the beginning of that combat, untap all creatures that attacked this turn.")
+_WORLD_NATIVE = ("After this main phase, there is an additional combat phase followed by an additional main phase. "
+                 "At the beginning of that combat, untap all creatures that attacked this turn.")
+
+
+def second_main(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """World at War: 500.8, the additional phases come after the postcombat main phase of this turn. In it they are added now; before it (precombat main, combat,
+    or an upkeep when rebounded) a delayed trigger adds them as that phase begins (603.7); after it nothing is left to add them to."""
+    from app.rules import delayed, effects
+
+    if plan.state.turn.phase == "main2":
+        return all(effects.PRIMITIVES[x["do"]](plan, ctx, x) is not False for x in e["effects"])
+    if plan.state.turn.phase in ("upkeep", "draw", "main1", "begin_combat", "declare_attackers", "declare_blockers", "combat_damage", "end_combat"):
+        return delayed.create(plan, {**ctx, "effects": e["effects"], "next": 0},
+                              {"n": 1, "when": {"kind": "step", "step": "main2", "whose": "next"}})
+    return True
+
+
+def nelly_draw(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Nelly Borca: you and the controller of the creatures that dealt the damage (as they last existed, 608.2h) each draw a card."""
+    from app.rules import context, effects
+
+    mine = ctx["controller"]
+    others = [c.controller for c, _ in context.infos(plan, ctx, context.EVENT) if c.controller != mine]
+    for pid in dict.fromkeys([mine, *others]):
+        if pid in plan.live():
+            effects.PRIMITIVES["draw"](plan, ctx, {"do": "draw", "who": f"player:{pid}", "n": 1})
+    return True
+
+
+def adapt_free(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Biomancer's Familiar: the next time the target creature adapts this turn it adapts as though it had no +1/+1 counters (701.46a)."""
+    from app.game.rules_state import turn_log_now
+    from app.rules import effects
+
+    log = turn_log_now(plan.state)
+    if log is not None:
+        log.adapt_free110b += [plan.oid(c) for c in effects._cards(plan, ctx, e["who"])]
+    return True
+
+
+def adapt_free_used(plan: Any, ctx: dict[str, Any]) -> bool:
+    """The creature adapting (the source of the adapt ability) has the effect waiting: it is used up (614.5)."""
+    from app.game.rules_state import turn_log_now
+
+    log = turn_log_now(plan.state)
+    oid = ctx.get("source_object")
+    if log is None or oid not in log.adapt_free110b:
+        return False
+    log.adapt_free110b.remove(oid)
+    return True
+
+
+def lolth_lost(plan: Any, ctx: dict[str, Any]) -> int:
+    """Life the damaged player (the event's player) has lost this turn, combat damage just dealt included (119.3)."""
+    from app.rules import history
+
+    return sum(history.log_for(plan).lost.get(p, 0) for p in ctx["event"]["players"])
+
+
+def lolth_loss(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Lolth's emblem: that player loses life equal to the difference between 8 and the life they have lost this turn (checked again as it resolves, 603.4)."""
+    from app.rules import effects
+
+    n = 8 - lolth_lost(plan, ctx)
+    return n <= 0 or effects.PRIMITIVES["lose_life"](plan, ctx, {"do": "lose_life", "who": "event_player", "n": n})
 
 
 def skyguard_holds(plan: Any, ctx: dict[str, Any]) -> bool:
@@ -231,7 +303,67 @@ def _towershell(d: Def) -> Def:
     return {**d, "effects": out}
 
 
+def _tombspawn(d: Def) -> Def:
+    """Tombstone Stairwell: each player's own count of creature cards in their graveyard (608.2h, all counted before any token is made); the tokens are remembered."""
+    make = {**d["effects"][0], "as": "tombspawn110b", "n": {"per_player": {"count": 'sel:{"card":true,"types":["Creature"],"zone_owner":"you","zones":["graveyard"]}'}}}
+    return {**d, "if": {"object": "self", "test": "on_battlefield"},
+            "effects": [make, {"do": "name_relation", "kind": "record_created_tokens", "who": "ref:tombspawn110b"}]}
+
+
+def destroy_created(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Destroy every token still on the battlefield that this source's earlier ability made (the "can't be regenerated" sentence follows, 701.8c)."""
+    from app.rules import context, exiled_with
+
+    saved = plan.rules.created_with.get(exiled_with.link_key(ctx), [])
+    ids = [oid.rsplit(".", 1)[0] for oid in saved if (card := plan.state.cards.get(oid.rsplit(".", 1)[0])) is not None
+           and card.zone.endswith(":battlefield") and plan.oid(card) == oid]
+    context.bind_objects(plan, ctx, "tombspawn_tokens", ids)
+    at = ctx["next"]
+    ctx["effects"] = [*ctx["effects"][:at], {"do": "destroy", "who": "ref:tombspawn_tokens"}, *ctx["effects"][at:]]
+    return True
+
+
+def _had_to(d: Def) -> Def:
+    def swap(c: Any) -> Any:
+        return {**c, "what": "had_to_attack110b"} if isinstance(c, dict) and c.get("what") == "attacked" else c
+
+    return {**d, "if": swap(d["if"]), "effects": [{**e, "cond": swap(e["cond"])} if "cond" in e else e for e in d["effects"]]}
+
+
 _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
+    # Bladegriff Prototype: the damaged player picks the target (the trigger's controller still controls the ability, 115.1, 603.3d: "target_choice")
+    "Whenever this creature deals combat damage to a player, destroy target nonland permanent of that player's choice that one of your opponents controls.":
+        ("Whenever this creature deals combat damage to a player, destroy target nonland permanent an opponent controls.",
+         lambda d: {**d, "target_choice": "event_player"}),
+    "Whenever a creature deals combat damage to one of your opponents, if that creature had to attack this combat, you put a +1/+1 counter on Firkraag and you draw a card.":
+        ("Whenever a creature deals combat damage to one of your opponents, if that creature attacked this turn, you put a +1/+1 counter on Firkraag and you draw a card.", _had_to),
+    "At the beginning of each upkeep, if this enchantment is on the battlefield, each player creates a 2/2 black Zombie creature token with haste named Tombspawn for each "
+    "creature card in their graveyard.":
+        ("At the beginning of each upkeep, each player creates a 2/2 black Zombie creature token with haste named Tombspawn.", _tombspawn),
+    # 603.2 one ability, two events (the end step half is the last, as at_step_generic reads a "multi:" trigger)
+    "At the beginning of each end step and when this enchantment leaves the battlefield, destroy all tokens created with this enchantment. They can't be regenerated.":
+        ("When this enchantment leaves the battlefield, destroy all tokens. They can't be regenerated.",
+         lambda d: {**d, "trigger": "multi:ltb_self+step:end:each", "effects": [{"do": "destroy_created110b"}, {"do": "no_regen"}]}),
+    # Marchesa, Resolute Monarch: 603.4 intervening "if" over Rules.hit110b (kept across turns: other players' turns come between)
+    "At the beginning of your upkeep, if you haven't been dealt combat damage since your last turn, you draw a card and you lose 1 life.":
+        ("At the beginning of your upkeep, you draw a card and you lose 1 life.", lambda d: {**d, "if": {"history": "unhit110b"}}),
+    # Behemoth of Vault 0: 118.12 the energy paid is the target's mana value; the destruction follows the payment (the target is the dies trigger's own)
+    "When this creature dies, you may pay an amount of {E} equal to target nonland permanent's mana value. When you do, destroy that permanent.":
+        ("When this creature dies, you may pay {E}. If you do, destroy target nonland permanent.",
+         lambda d: {**d, "effects": [{**d["effects"][0], "cost": "", "energy_n": {"mana_value": "target"}}, *d["effects"][1:]]}),
+    "{T}: The next time target creature adapts this turn, it adapts as though it had no +1/+1 counters on it.":
+        ("{T}: Target creature gains haste until end of turn.", lambda d: {**d, "effects": [{"do": "adapt_free110b", "who": "target"}]}),
+    "Whenever one or more creatures an opponent controls deal combat damage to one or more of your opponents, you and the controller of those creatures each draw a card.":
+        ("Whenever one or more creatures an opponent controls deal combat damage to one or more of your opponents, you draw a card.",
+         lambda d: {**d, "effects": [{"do": "nelly_draw110b"}]}),
+    # Lolth's emblem (-8): 603.4 intervening "if" (conditions "lolth110b"), the loss is the difference to 8 (119.3: life lost counts all of this turn's)
+    "Whenever an opponent is dealt combat damage by one or more creatures you control, if that player lost less than 8 life this turn, they lose life equal to the difference.":
+        ("Whenever one or more creatures you control deal combat damage to an opponent, that player loses 1 life.",
+         lambda d: {**d, "if": {"lolth110b": True}, "effects": [{"do": "lolth_loss110b"}]}),
+    # Ramses: 603.4 the intervening "if" is judged with the player who lost as the event player (history._attacked_by, 508.1); 104.3a / 800.4: you win
+    "Whenever a player loses the game, if they were attacked this turn by an Assassin you controlled, you win the game.":
+        ("Whenever a player loses the game, put five +1/+1 counters on ~.",
+         lambda d: {**d, "if": {"history": "attacked_by110b", "sel": 'sel:{"subtypes":["Assassin"]}'}, "effects": [{"do": "win_game", "who": "you"}]}),
     # Alania: the intervening "if" is a fact about the turn's casts (triggers.alania_first), judged as the spell is cast (603.4); the rest reads natively
     "Whenever you cast a spell, if it's the first instant spell, the first sorcery spell, or the first Otter spell other than Alania you've cast this turn, "
     "you may have target opponent draw a card. If you do, copy that spell. You may choose new targets for the copy.":
@@ -428,6 +560,28 @@ def _angel() -> Def:
             "effects": []}
 
 
+def note_required(plan: Any, attackers: Any) -> None:
+    """508.1d: remember the declared attackers a requirement (goad, "attacks each combat if able", ...) was on, for this combat (Firkraag: "had to attack this combat")."""
+    from app.game.rules_state import turn_log_now
+    from app.rules import attack_requirements, combat_rules
+    from app.rules.keyword_actions import goaded_by
+
+    log = turn_log_now(plan.state)
+    for x in attackers if log is not None else ():
+        ch = plan.ch(plan.state.cards[x.card_id])
+        if attack_requirements.counts(ch) or goaded_by(ch) or combat_rules.other_than(ch) or combat_rules.attack_players(ch):
+            log.required110b.append(f"{plan.oid(plan.state.cards[x.card_id])}|{plan.rules.combats}")  # type: ignore[union-attr]
+
+
+def note_hits(plan: Any) -> None:
+    """Turn end: players dealt combat damage this turn join the list; the player whose turn ends starts over (Marchesa: "since your last turn")."""
+    log = plan.rules.turn_log
+    hit = plan.rules.hit110b
+    hit.extend(p for p in dict.fromkeys(f.player for f in (log.facts if log is not None else ()) if f.kind == "damage" and f.combat and f.amount > 0) if p not in hit)
+    if plan.active in hit:
+        hit.remove(plan.active)
+
+
 def definition(ability: Any, ch: Any) -> Def | None:
     from app.rules import scripts
 
@@ -502,13 +656,22 @@ _HEROIC = ("Choose target creature you control. Until end of turn, all damage th
            "When that creature dies this turn, put its counters on up to one target creature you control and draw a card.")
 
 
+_AVACYN = {"Turn the exiled card face up. If it's a creature card, you lose life equal to its mana value.": "avacyn_up110b",
+           "You may put the exiled card onto the battlefield if it's a creature card. If you don't put it onto the battlefield, put it into its owner's hand.": "avacyn_out110b"}
+
+
 def parse(body: str) -> Any:
     """Heroic Sacrifice: the chosen creature gets the death trigger until end of turn (611.2a, 603.7: the same as "when that creature dies this turn"); the damage
     to you and your creatures is redirected to it (614.9) while it is on the battlefield."""
     from app.rules import scripts, wave110b_mirror
 
+    if body.strip() == _WORLD:  # World at War
+        got = scripts.parse_effects(_WORLD_NATIVE)
+        return None if got is None else ([{"do": "second_main110b", "effects": got[0]}], got[1], got[2])
     if (mirror := wave110b_mirror.parse(body)) is not None:  # Mystic Reflection
         return mirror
+    if body.strip() in _AVACYN:  # The Creation of Avacyn, chapters II and III
+        return [{"do": _AVACYN[body.strip()]}], None, False
     if body.strip() != _HEROIC:
         return None
     got = scripts.parse_effects('Target creature you control gains "When this creature dies, put its counters on up to one target creature you control and draw a card" until end of turn.')
@@ -734,4 +897,54 @@ def mana_web(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return True
 
 
-PRIMITIVES: dict[str, Any] = {"mana_web110b": mana_web, "faramir_set110b": faramir_set, "faramir_end110b": faramir_end, "redirect110b": redirect, "kaito110b": kaito, "return_next_end110b": return_next_end, "gap_search110b": gap_search, "gift_given110b": gift_given, "ungoad110b": ungoad, "no_attack_next110b": no_attack_next, "draw_game110b": draw_game, "reaver110b": reaver, "veil110b": veil, "uncounter_by110b": uncounter_by, "exile_own110b": exile_own, "lose_shield110b": lose_shield}
+def _linked(plan: Any, ctx: dict[str, Any]) -> Any:
+    from app.rules import effects
+
+    return next((plan.state.cards[c] for c in effects._cards(plan, ctx, "exiled_with") if plan.state.cards[c].zone.endswith(":exile")), None)
+
+
+def avacyn_up(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """The Creation of Avacyn II: the card exiled face down is turned face up (it is public in exile, 406.3); a creature card costs its controller life equal to its
+    mana value (119.3, 608.2h)."""
+    card = _linked(plan, ctx)
+    if card is None:
+        return True
+    if card.face_down:
+        plan.do({"type": "face_down", "card_ids": [card.id], "face_down": False}, actor=ctx["controller"])
+    c = plan.state.cards[card.id]
+    if "Creature" in plan.ch(c).types:
+        ctx["effects"][ctx["next"]:ctx["next"]] = [{"do": "lose_life", "who": "you", "n": int(plan.ch(c).mana_value)}]
+    return True
+
+
+def avacyn_out(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """The Creation of Avacyn III: a creature card may be put onto the battlefield; what isn't put there (any other card, or a creature card they decline) goes to its
+    owner's hand."""
+    from app.game.rules_state import DecisionOption
+    from app.rules import effects
+    from app.rules.plan import decide
+
+    card = _linked(plan, ctx)
+    if card is None:
+        return True
+    if "Creature" not in plan.ch(card).types:
+        return effects.PRIMITIVES["return_card"](plan, ctx, {"do": "return_card", "who": "exiled_with", "to": "hand"})
+    decide(plan, player=ctx["controller"], kind="choose_one", prompt=f"{ctx.get('name') or 'The Creation of Avacyn'}: put {card.name} onto the battlefield?",
+           options=[DecisionOption(id="battlefield", label="Put it onto the battlefield"), DecisionOption(id="hand", label="Put it into its owner's hand")],
+           resume={"step": "avacyn_out110b", "ctx": ctx})
+    return False
+
+
+def resume_avacyn_out(plan: Any, d: Any, chosen: list[str]) -> None:
+    from app.rules import effects
+
+    ctx = d.resume["ctx"]
+    step = {"do": "return_card", "who": "exiled_with", "to": chosen[0], **({"tapped": False, "under": "you"} if chosen[0] == "battlefield" else {})}
+    effects.PRIMITIVES["return_card"](plan, ctx, step)
+    effects.continue_effects(plan, ctx)
+
+
+RESUME["avacyn_out110b"] = resume_avacyn_out
+
+
+PRIMITIVES: dict[str, Any] = {"avacyn_up110b": avacyn_up, "avacyn_out110b": avacyn_out, "destroy_created110b": destroy_created, "adapt_free110b": adapt_free, "second_main110b": second_main, "nelly_draw110b": nelly_draw, "lolth_loss110b": lolth_loss, "mana_web110b": mana_web, "faramir_set110b": faramir_set, "faramir_end110b": faramir_end, "redirect110b": redirect, "kaito110b": kaito, "return_next_end110b": return_next_end, "gap_search110b": gap_search, "gift_given110b": gift_given, "ungoad110b": ungoad, "no_attack_next110b": no_attack_next, "draw_game110b": draw_game, "reaver110b": reaver, "veil110b": veil, "uncounter_by110b": uncounter_by, "exile_own110b": exile_own, "lose_shield110b": lose_shield}

@@ -75,6 +75,8 @@ def hand_revealed(state: GameState, card: CardInstance) -> bool:
     rules = state.rules
     if rules is None:
         return False
+    if rules.hand_reveal_turn110m.get(card.owner) == state.turn.number:  # (wave 110M) Sen Triplets: "this turn, that player plays with their hand revealed"
+        return True
     for grant in rules.source_hand_reveals79:
         source = state.cards.get(grant.source_card)
         if (grant.player == card.owner and source is not None and source.zone.endswith(':battlefield')
@@ -113,6 +115,8 @@ def top_revealed(state: GameState, card: CardInstance, viewer: str) -> bool:
         and p.until == 'end_of_turn' and p.turn == state.turn.number
         for p in rules.permissions
     ):
+        return True
+    if any(p.top110j and p.card == card.id for p in rules.permissions):  # -- wave 110J -- Temporal Aperture: "play with the top card of your library revealed" (401.5)
         return True
     for reveal in rules.top_reveals:
         source = state.cards.get(reveal.source)
