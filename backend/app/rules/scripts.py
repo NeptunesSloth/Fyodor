@@ -5994,6 +5994,18 @@ def _first_time_gate(text: str) -> str:
 
 def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     """The engine definition of one ability, or None (manual)."""
+    from app.rules import wave110e_opp  # -- war or peace (wave 110E) --
+
+    if (war110e := wave110e_opp.war_definition(ability, ch)) is not None:
+        return war110e
+    from app.rules import wave110e_clara  # -- pregame color (wave 110E) --
+
+    if (clara110e := wave110e_clara.definition(ability.text)) is not None:
+        return clara110e
+    if ability.text.strip() == "Note the mana value of each card as it's put into exile.":  # -- noted values (wave 110E) -- see wave110e_note
+        return {"kind": "static", "static": "note110e", "effects": []}
+    if ability.text.strip() == "Bell Borca's power is equal to the greatest number noted for it this turn.":
+        return {"kind": "static", "static": "cda", "effects": [], "p": {"noted110e": True}, "t": None}
     from app.rules import wave110f_cards  # -- whole abilities (wave 110F) --
 
     if (whole110f := wave110f_cards.definition(ability, ch)) is not None:
@@ -9523,6 +9535,10 @@ def define_replacement(ability: AbilityText, text: str) -> Definition | None:
 
     if (picked := wave110a_pick.definition(text)) is not None:
         return picked
+    from app.rules import wave110e_opp  # -- entry secret choice (wave 110E) --
+
+    if (secret := wave110e_opp.secret_definition(text)) is not None:
+        return secret
     chosen = language.enters_choice(text)  # "As ~ enters, choose a color." (614.1c, 614.12a)
     if chosen is not None:
         return chosen

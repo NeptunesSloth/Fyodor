@@ -979,7 +979,7 @@ def _multitype(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, extras=(*s.extras, "multitype110b"))
 
 
-@_suffix(r"with an activated ability that isn't a mana ability")  # -- cards (wave 110F) -- 602.1, 605.1a: Ravager Wurm
+@_suffix(r"with (?:an activated ability that isn't a mana ability|activated abilities that aren't mana abilities)")  # -- cards (wave 110F; 110E: plural, Tazri) -- 602.1, 605.1a: Ravager Wurm
 def _with_nonmana_ability(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, extras=(*s.extras, "nonmana_ability"))
 
@@ -1687,8 +1687,8 @@ _SUFFIXES.insert(0, (re.compile(r" that targets (?P<w>(?!only\b).+)$"), _targets
 def _targets_only_suffix(s: Selector, m: re.Match[str]) -> Selector:
     w = m["w"]
     sub = parse(w[len("a single "):]) if w.startswith("a single ") else None
-    if w in ("this creature", "~", "a player"):
-        key = "player" if w == "a player" else "self"
+    if w in ("this creature", "~", "a player", "a single permanent or player"):
+        key = "player" if w == "a player" else "permanent_or_player" if w.endswith("or player") else "self"  # (wave 110E: Radiate)
     elif sub is not None and sub.zones == ("battlefield",) and sub.player is None and not sub.extras and sub.ability is None and not sub.card:
         key = sub.key()
     else:
@@ -1711,8 +1711,10 @@ def targets_only(plan: Plan, card: CardInstance, key: str, you: str, source: str
         return False
     t = entry.targets[0]
     if t.id in plan.state.players:
-        return key == "player" and not plan.state.players[t.id].left
+        return key in ("player", "permanent_or_player") and not plan.state.players[t.id].left
     target = plan.state.cards.get(t.id)
+    if key == "permanent_or_player":  # -- wave 110E -- Radiate: any permanent still the object chosen
+        return target is not None and target.zone.endswith(":battlefield") and plan.oid(target) == t.object_id
     if key == "player" or target is None or not target.zone.endswith(":battlefield") or plan.oid(target) != t.object_id:
         return False
     return target.id == source if key == "self" else matches(plan, from_key(key), target, plan.ch(target), you, source)
@@ -2659,9 +2661,8 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
         if extra == "enchanted_or_equipped" and not (_has_attached(plan, card, "Aura") or _has_attached(plan, card, "Equipment")):
             return False
         # -- grammar (wave 11C) -- 700.9:a counter on it, equipped, or enchanted by an Aura its own controller controls
-        if extra == "modified" and not (_has_counter(card, COUNTER_ANY) or _has_attached(plan, card, "Equipment") or any(
-                c.attached_to == card.id and "Aura" in plan.ch(c).subtypes and c.controller == card.controller
-                for c in plan.state.cards.values())):
+        if extra == "modified" and not (_has_counter(card, COUNTER_ANY) or _has_attached(plan, card, "Equipment")
+                or _has_attached(plan, card, "Aura", card.controller)):  # (wave 110E: 603.10a, a departed creature's Auras too)
             return False
         if extra.startswith("ctrl_lands_le:") and sum(1 for c in plan.state.cards.values() if c.zone == f"{card.controller}:battlefield"
                                                      and "Land" in plan.ch(c).types) > int(extra[14:]):
@@ -2747,6 +2748,11 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
             return False
         if extra == "not_put_there_combat" and _put_there_now(plan, card, "combat"):
             return False
+        if extra.startswith("warpeace110e:"):  # (wave 110E) controlled by a player who chose that side as the source entered
+            from app.rules import wave110e_opp
+
+            if not wave110e_opp.chose(plan, card, source, extra.split(":", 1)[1]):
+                return False
         if extra == "picked110a":  # (wave 110A)
             from app.rules import wave110a_pick
 
@@ -3118,8 +3124,8 @@ def _stat(ch: Characteristics, what: str) -> int | None:
     return int(raw) if raw is not None and raw.lstrip("-").isdigit() else None
 
 
-def _has_attached(plan: Plan, card: CardInstance, subtype: str) -> bool:
-    if any(c.attached_to == card.id and subtype in plan.ch(c).subtypes for c in plan.state.cards.values()):
+def _has_attached(plan: Plan, card: CardInstance, subtype: str, controller: str | None = None) -> bool:
+    if any(c.attached_to == card.id and subtype in plan.ch(c).subtypes and controller in (None, c.controller) for c in plan.state.cards.values()):
         return True
     # -- attached (wave 100F) -- 603.10a: ``card`` is a departed permanent as it last existed (triggers._snapshot_card; "Whenever an enchanted creature
     # dies", Hateful Eidolon) and its Auras are in the graveyard since (704.5m): read what was attached to it then (its latest departure snapshot)
@@ -3129,7 +3135,7 @@ def _has_attached(plan: Plan, card: CardInstance, subtype: str) -> bool:
     from app.rules import attached100f
 
     snap = next((s for s in reversed(plan.rules.lki.values()) if s.card == card.id and s.zone == card.zone and s.attached_objects_known), None)
-    return any(subtype in ch.subtypes for _, ch in attached100f.was_attached(plan, snap))
+    return any(subtype in ch.subtypes and controller in (None, who) for who, ch in attached100f.was_attached(plan, snap))
 
 
 def candidates(plan: Plan, sel: Selector, you: str, source: str | None = None, attacker: str | None = None) -> list[str]:

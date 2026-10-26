@@ -264,6 +264,13 @@ def named_choices(plan: Plan, controller: str, defs: list[dict[str, Any]], answe
             what = e.get("what")
             if e.get("do") != "choose_value" or not what:
                 continue
+            if what == "warpeace110e":  # -- war or peace (wave 110E) -- one question per player
+                from app.rules import wave110e_opp
+
+                wave110e_opp.war_choices(plan, controller, answers, out)
+                continue
+            if what == "secret110e" and what not in answers and (only := card_names.sole_opponent(plan, controller)):
+                answers[what] = only  # -- entry secret choice (wave 110E) -- one opponent: no question
             if what == card_names.LOOK and what not in answers and (only := card_names.sole_opponent(plan, controller)):
                 answers[what] = only  # -- card names (wave 22B) -- one opponent: no question
             if d.get("control") and what not in answers and (only := card_names.sole_opponent(plan, controller)):
@@ -569,6 +576,10 @@ def choice_prompt(plan: Plan, card: CardInstance, controller: str, choice: dict[
 
     if what == wave110e_opp.WHO:  # (wave 110E)
         return wave110e_opp.prompt(plan, card, controller)
+    if what.startswith(wave110e_opp.WAR + ":"):  # (wave 110E)
+        return wave110e_opp.war_prompt(plan, card, what)
+    if what == wave110e_opp.SECRET:  # (wave 110E)
+        return wave110e_opp.secret_prompt(plan, card, controller)
     from app.rules import chosen_forms95
 
     if what.startswith(chosen_forms95.PREFIX):
@@ -900,6 +911,9 @@ def move_together(plan: Plan, entries: list[Entry], *, simultaneous: dict[str, A
     together = [c.id for _, c, _ in planned]  # (wave 5H: 614.12)
     for entry, card, ep in planned:
         _after_move(plan, entry, card.id, ep, together)
+    from app.rules import wave110e_once  # -- one-shot entry counters (wave 110E) --
+
+    wave110e_once.spend(plan, together)
 
 
 def _after_move(plan: Plan, entry: Entry, card_id: str, ep: dict[str, Any], together: list[str] | None = None,
@@ -1004,7 +1018,17 @@ def _counter_amount(plan: Plan, card_id: str, controller: str, d: dict[str, Any]
     return amount
 
 
-def after_entry(plan: Plan, card_id: str, controller: str, *, x: int | None = None,
+def after_entry(plan: Plan, card_id: str, controller: str, *, x: int | None = None, **kw: Any) -> tuple[Any, Any] | None:
+    """``_after_entry``, then (-- wave 110E --, 614.1c) a lone entry (no ``newcomers`` batch: its caller spends) uses up the one-shot entry effects."""
+    result = _after_entry(plan, card_id, controller, x=x, **kw)
+    if kw.get("newcomers") is None and not kw.get("preview"):
+        from app.rules import wave110e_once
+
+        wave110e_once.spend(plan, [card_id])
+    return result
+
+
+def _after_entry(plan: Plan, card_id: str, controller: str, *, x: int | None = None,
                 extra_counters: dict[str, int] | None = None, choices: dict[str, str] | None = None,
                 newcomers: list[str] | None = None, bare: bool = False,
                 prepared: tuple[Any, Any] | None = None, preview: bool = False) -> tuple[Any, Any] | None:
@@ -1052,6 +1076,13 @@ def after_entry(plan: Plan, card_id: str, controller: str, *, x: int | None = No
         from app.rules import wave110a_control  # -- entry control (wave 110A) --
 
         wave110a_control.give(plan, card_id, choices)
+        from app.rules import wave110e_opp  # -- entry secret choice (wave 110E) --
+
+        wave110e_opp.secret_record(plan, card_id, controller, choices)
+        wave110e_opp.war_record(plan, card_id, choices)
+        from app.rules import wave110e_note  # -- noted values (wave 110E) --
+
+        wave110e_note.entered(plan, card_id)
         from app.rules import wave110c_rad  # -- optional entering choice (wave 110C) --
 
         wave110c_rad.apply(plan, card_id, controller, choices)

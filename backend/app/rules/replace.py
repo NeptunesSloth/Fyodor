@@ -936,6 +936,9 @@ def _make_tokens(plan: Plan, ev: Event, picks: list[dict[str, str]]) -> list[str
             extra[counter['counter']] = extra.get(counter['counter'], 0) + value
         replacements.after_entry(plan, tid, pid, newcomers=made, choices=({key: value for key, value in picks[i].items() if key not in (token_copy_entry.COPY, token_copy_entry.ENTRY)} if i < len(picks) else None) or None,
                                  extra_counters=extra or None)
+    from app.rules import wave110e_once  # -- one-shot entry counters (wave 110E) --
+
+    wave110e_once.spend(plan, made)
     recipient = ev.get("recipient_ref")
     if recipient in plan.live() and pid == plan.active and recipient != pid and plan.state.turn.phase in (
             "declare_attackers", "declare_blockers", "combat_damage", "end_combat"):
@@ -2002,6 +2005,10 @@ def _source_matches(plan: Plan, spec: dict[str, Any], c: Candidate, ev: Event) -
     if not conditional_prevention_effects.source_matches(plan, spec, c, ev):
         return False
     src = ev.get("src") or {}
+    if spec.get("chosen_pair110e"):  # -- wave 110E -- Bitter Feud
+        from app.rules import wave110e_pair
+
+        return wave110e_pair.source_ok(plan, c, ev)
     if spec.get("alts"):  # -- as long as (wave 9B) -- "a red or artifact source you control": either description (609.7c)
         return any(_source_matches(plan, alt, c, ev) for alt in spec["alts"])
     # -- refused grants/replacements (wave 3R2) -- a source of a player's choice (609.7a: the object chosen; its
@@ -2073,6 +2080,10 @@ def _recipient_matches(plan: Plan, spec: dict[str, Any], c: Candidate, ev: Event
     if not spec:
         return True
     target = ev["target"]
+    if spec.get("chosen_pair110e"):  # -- wave 110E -- Bitter Feud
+        from app.rules import wave110e_pair
+
+        return wave110e_pair.recipient_ok(plan, c, ev)
     if spec.get("chosen_player_or_controlled"):
         from app.rules import keyed_player_bindings
 

@@ -597,6 +597,7 @@ class TurnFact(BaseModel):
     amount: int = 1
     combat: bool = False
     counter: str | None = Field(default=None, max_length=40)
+    mv110e: int = 0  # -- wave 110E -- an "exile" fact: the mana value of the card as it was put into exile (Bell Borca)
     source_types: list[str] = Field(default_factory=list)
     source_colors: list[str] = Field(default_factory=list)  # Colors as this source dealt damage (608.2i).
     source_supertypes: list[str] = Field(default_factory=list)
@@ -740,6 +741,7 @@ class ContinuousEffect(BaseModel):
     declaration_window: Literal["next_turn", "next_combat"] | None = None
     declaration_player: str | None = None  # fixed when a resolved requirement names its controller’s next phase/turn
     entry_counters: dict[str, int] = Field(default_factory=dict)  # Rule-modifying additional entry counters, including future entrants.
+    entry_once110e: bool = False  # (wave 110E) used up by the first entry event it applies to (wave110e_once)
     hand_limit: HandLimitModifier | None = None  # 402.2/613.10: player rule, independent of card layers
     layer: Literal["1", "2", "3", "4", "5", "6", "7a", "7b", "7c", "7d"]
     source: str | None = None  # source object id
@@ -748,6 +750,7 @@ class ContinuousEffect(BaseModel):
     text_change71: TextChange71 | None = None
     power: int | None = None
     toughness: int | None = None
+    dyn_power110e: dict[str, Any] | None = None  # (wave 110E) layer 7b base power read now (611.3a): a values.evaluate amount, e.g. {'hand': 'you'}
     add_keywords: list[str] = Field(default_factory=list)
     remove_keywords: list[str] = Field(default_factory=list)
     blocked_keywords: dict[str, list[str]] = Field(default_factory=dict)  # prohibited grants at creation, per object
@@ -1579,6 +1582,7 @@ class RulesState(BaseModel):
     # -- group choices (wave 53D) -- "secretly choose an opponent" / "a creature type" (Stalking Leonin, A Killer Among Us): [the chooser, the value] by rules object id, kept
     # server-side only (the views never carry it) until "Reveal the player you chose" shows it as a cost is paid; a new object has none (400.7)
     secret_choices: dict[str, list[str]] = Field(default_factory=dict)
+    attach_asks110e: list[str] = Field(default_factory=list)  # -- becomes attached, choose (wave 110E) -- Equipment ids owing their color choice
     # -- piles (wave 53D) -- "Only creatures in the pile of their choice can attack this turn" (Fight or Flight): [turn, the attacking player, [object ids that may]]; every entry of
     # the turn binds (ruling 2008-08-01: with two, a creature must be in both chosen piles), and a creature that entered later is no object in any pile
     attack_piles: list[list[Any]] = Field(default_factory=list)
@@ -1780,6 +1784,8 @@ class RulesState(BaseModel):
     chosen_players: dict[str, str] = Field(default_factory=dict)
     modes110f: dict[str, list[int]] = Field(default_factory=dict)  # (wave 110F) card id -> the modes an opponent chose for the spell being cast (700.2e)
     # -- wave 110A -- player -> ``next_object`` when their last turn ended ("entered since your last turn ended", selectors)
+    noted110e: dict[str, list[int]] = Field(default_factory=dict)  # -- wave 110E -- Bell Borca: rules object -> [turn, event batch] it arrived at (wave110e_note)
+    commander_color110e: dict[str, str] = Field(default_factory=dict)  # -- wave 110E -- Clara Oswald: commander card id -> the color chosen before the game (wave110e_clara)
     chosen_objects: dict[str, str] = Field(default_factory=dict)  # -- wave 110A -- source card id -> the object it chose as it entered (wave110a_pick)
     turn_end_objects: dict[str, int] = Field(default_factory=dict)
     hit110b: list[str] = Field(default_factory=list)  # -- wave 110B -- players dealt combat damage since their last turn ended (Marchesa, Resolute Monarch)

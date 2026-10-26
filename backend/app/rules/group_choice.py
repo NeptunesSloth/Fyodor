@@ -1134,6 +1134,7 @@ def _linked_graveyard(text: str, parse: Any, split_sentences: Any) -> tuple[list
     return [{**put[0][0], "did": "rd"}, {"do": "only_if", "cond": {"succeeded": "rd"}, "skip": 1}, clue[0][0]], None, False
 
 
+_EMISSARY_USE = "Choose new targets for target spell or ability if it's controlled by the chosen player and if it targets you or a permanent you control."
 _LEONIN_USE = "Exile target creature that's attacking you if it's controlled by the chosen player."
 _KILLER_TOKENS = "Create a 1/1 white Human creature token, a 1/1 blue Merfolk creature token, and a 1/1 red Goblin creature token."
 _KILLER_USE = "If target attacking creature token is the chosen type, put three +1/+1 counters on it and it gains deathtouch until end of turn."
@@ -1151,6 +1152,8 @@ def _secret_ability(text: str, parse: Any, split_sentences: Any) -> tuple[list[d
         return [*tokens[0], {"do": "gc_secret", "what": "word", "opts": ["Human", "Merfolk", "Goblin"]}], tokens[1], False
     if sentences == [_LEONIN_USE] and (found := parse("Exile target creature that's attacking you.")) is not None and len(found[0]) == 1:
         return [{"do": "only_if", "cond": {"secret": {"is": "controller"}}, "skip": 1}, found[0][0]], found[1], False
+    if sentences == [_EMISSARY_USE] and (found := parse("Choose new targets for target spell or ability.")) is not None and len(found[0]) == 1:  # (wave 110E)
+        return [{"do": "only_if", "cond": {"secret": {"is": "controller"}}, "skip": 2}, {"do": "only_if", "cond": {"targets_mine110e": True}, "skip": 1}, found[0][0]], found[1], False
     if sentences == [_KILLER_USE] and (found := parse("Put three +1/+1 counters on target attacking creature token. It gains deathtouch until end of turn.")) is not None:
         return [{"do": "only_if", "cond": {"secret": {"is": "type"}}, "skip": len(found[0])}, *found[0]], found[1], False
     return None

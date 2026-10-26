@@ -31,6 +31,8 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
         return {'kind': 'static', 'static': 'cda', 'p': {'crafted_power': True}, 't': {'crafted_power': True}, 'effects': []}
     if ability.kind == 'static' and ability.text == KEYWORDS_LINE:
         return {'kind': 'static', 'static': 'crafted_keywords110a', 'effects': []}  # read by ``overlay`` (layers)
+    if ability.kind == 'static' and text == "~'s power is equal to the total power of the exiled cards used to craft it.":  # (wave 110E)
+        return {'kind': 'static', 'static': 'cda', 'p': {'crafted_power': True}, 't': None, 'effects': []}
     return None
 
 

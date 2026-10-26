@@ -1775,6 +1775,10 @@ def holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
         from app.rules import group_choice
 
         return group_choice.holds(plan, ctx, cond)
+    if "targets_mine110e" in cond:  # -- wave 110E -- Emissary of Grudges: the target spell or ability targets you or a permanent you control
+        from app.rules import wave110e_opp
+
+        return wave110e_opp.targets_mine(plan, ctx)
     if "secret" in cond:  # -- group choices (wave 53D) -- the choice its source made in secret as it entered
         from app.rules import group_choice
 

@@ -362,7 +362,8 @@ def note_events(plan: Plan, events: list[Any], into: TurnLog | None = None) -> N
             elif kind == "mill" and obj is not None:  # -- free cast (wave 40D) -- 701.17a: this object was milled ("cards in your graveyard that were milled this turn", Raul)
                 log.facts.append(TurnFact(kind="mill", player=player or obj.owner, object_id=info.get("oid"), **what))
             elif kind == "to_exile" and player is not None:  # -- this-turn state (wave 33D) -- 400.1: a card put into exile from another zone (a token is no card)
-                log.facts.append(TurnFact(kind="exile", player=player, object_id=info.get("oid"), **what))
+                log.facts.append(TurnFact(kind="exile", player=player, object_id=info.get("oid"), batch=e.batch,
+                                          mv110e=int(ch.mana_value) if ch is not None else 0, **what))  # (wave 110E: Bell Borca notes it)
             elif kind == "counters_put" and player is not None:
                 log.facts.append(TurnFact(kind="counters", player=player, object_id=info.get("oid"),
                                           amount=int(info.get("amount") or 0), counter=info.get("counter"),

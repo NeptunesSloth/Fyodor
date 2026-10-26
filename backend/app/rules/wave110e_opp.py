@@ -105,3 +105,98 @@ def bind(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
 
 
 PRIMITIVES = {"pick110e": bind}
+
+
+# -- entry secret choice (wave 110E) -- "As this creature enters, secretly choose an opponent." (Emissary of Grudges)
+# 614.12a: made as it enters, by its controller, and kept like Stalking Leonin's (group_choice.secret_choices, never logged or shown); one opponent left: no question.
+SECRET = "secret110e"
+SECRET_LINE = "As this creature enters, secretly choose an opponent."
+
+
+def secret_definition(text: str) -> dict[str, Any] | None:
+    if text not in (SECRET_LINE, "As ~ enters, secretly choose an opponent."):
+        return None
+    return {"kind": "replacement", "replacement": "enters_choice", "effects": [{"do": "choose_value", "who": "you", "what": SECRET}]}
+
+
+def secret_prompt(plan: Plan, card: Any, controller: str) -> tuple[str, list[DecisionOption]]:
+    from app.game.rules_state import DecisionOption
+
+    return f"{card.name}: as it enters, secretly choose an opponent", [DecisionOption(id=p, label=plan.name(p)) for p in plan.live() if p != controller]
+
+
+def secret_record(plan: Plan, card_id: str, controller: str, choices: dict[str, str] | None) -> None:
+    if choices and choices.get(SECRET):
+        plan.rules.secret_choices = {k: v for k, v in plan.rules.secret_choices.items() if k.rsplit(".", 1)[0] in plan.state.cards and plan.oid(k.rsplit(".", 1)[0]) == k}
+        plan.rules.secret_choices[plan.oid(card_id)] = [controller, choices[SECRET]]
+
+
+def targets_mine(plan: Plan, ctx: dict[str, Any]) -> bool:
+    """"if it targets you or a permanent you control": the first target (a spell or ability on the stack) has you or one of your permanents among its targets."""
+    from app.rules import stack_interaction
+
+    sid = next((t["id"] for t in (ctx.get("targets") or []) if t["id"] in plan.state.cards), None)
+    entry = stack_interaction.target_entry(plan, sid) if sid else None
+    me = ctx["controller"]
+    return entry is not None and any(
+        t.id == me or ((c := plan.state.cards.get(t.id)) is not None and c.zone.endswith(":battlefield") and c.controller == me) for t in entry.targets)
+
+
+# -- war or peace (wave 110E) -- "As this creature enters, each player chooses war or peace." (Archangel of Strife)
+# 614.12a / 101.4: every player answers as it enters (the active player first); each answer is public. The record "p1:war,p2:peace" is kept by the source in
+# ``chosen_objects`` (read by the selector extra ``warpeace110e:<side>``: "creatures controlled by players who chose war").
+WAR = "warpeace110e"
+WAR_LINE = "As ~ enters, each player chooses war or peace."
+WAR_STATICS = {"Creatures controlled by players who chose war get +3/+0.": ("war", "Creatures you control get +3/+0."),
+               "Creatures controlled by players who chose peace get +0/+3.": ("peace", "Creatures you control get +0/+3.")}
+
+
+def war_definition(ability: Any, ch: Any) -> dict[str, Any] | None:
+    from dataclasses import replace
+
+    from app.rules import scripts
+
+    text = ability.text.strip().replace("this creature", "~")
+
+    def define(t: str) -> dict[str, Any] | None:
+        return scripts.define(replace(ability, text=t), ch)
+
+    if text == WAR_LINE:
+        return {"kind": "replacement", "replacement": "enters_choice", "effects": [{"do": "choose_value", "who": "each", "what": WAR}]}
+    if (static := WAR_STATICS.get(text)) is None or (native := define(static[1])) is None:
+        return None
+    from app.rules import selectors
+
+    key = selectors.Selector(types=("Creature",), extras=(f"{WAR}:{static[0]}",)).key()
+    return {**native, "who": [key] if isinstance(native.get("who"), list) else key}
+
+
+def war_choices(plan: Plan, controller: str, answers: dict[str, str], out: dict[str, Any]) -> None:
+    """entry_plan's part: one question per player still to answer, the active player first (101.4)."""
+    order = [plan.active, *(p for p in plan.live() if p != plan.active)] if plan.active in plan.live() else plan.live()
+    for pid in order:
+        key = f"{WAR}:{pid}"
+        if key in answers:
+            out.setdefault("choices", {})[key] = answers[key]
+        elif "choice" not in out:
+            out["choice"] = {"what": key, "decider": pid}
+
+
+def war_prompt(plan: Plan, card: Any, what: str) -> tuple[str, list[DecisionOption]]:
+    from app.game.rules_state import DecisionOption
+
+    return f"{card.name}: as it enters, {plan.name(what.split(':', 1)[1])} chooses war or peace", [DecisionOption(id="war", label="War"), DecisionOption(id="peace", label="Peace")]
+
+
+def war_record(plan: Plan, card_id: str, choices: dict[str, str] | None) -> None:
+    picks = {k.split(":", 1)[1]: v for k, v in (choices or {}).items() if k.startswith(WAR + ":")}
+    if picks:
+        plan.rules.chosen_objects[card_id] = ",".join(f"{p}:{v}" for p, v in picks.items())
+        plan.do({"type": "set_choice", "card_id": card_id, "key": "War or peace", "value": ", ".join(f"{plan.name(p)}: {v}" for p, v in picks.items())},
+                actor=plan.state.cards[card_id].controller)
+
+
+def chose(plan: Plan, card: Any, source: str | None, side: str) -> bool:
+    """Is the player who controls ``card`` one of those who chose ``side`` as the source entered?"""
+    record = plan.rules.chosen_objects.get(source or "", "")
+    return f"{card.controller}:{side}" in record.split(",")

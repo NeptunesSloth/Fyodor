@@ -878,6 +878,7 @@ def kicker_cost(abilities: Iterable[AbilityText]) -> Kicker | None:
 
 
 # -- costs (wave 3$) -- additional costs to cast a spell (118.8, 601.2b) ----------------------------------
+_THROWDOWN_COST = "As an additional cost to cast this spell, sacrifice a creature or sacrifice a modified creature."
 _ADDITIONAL = re.compile(r"^as an additional cost to cast (?:this spell|~), (?P<cost>[^.]+)\.?$", re.IGNORECASE)
 # What a spell's additional cost may be made of: parts with chosen objects (or life / energy). Never the
 # source itself (a spell isn't on the battlefield to be sacrificed), tapping it, mana or counters on it.
@@ -941,6 +942,8 @@ def any_number_part(text: str, per: int) -> CostComponent | None:
 
 def additional_cost_text(line: str) -> str | None:
     """"As an additional cost to cast this spell, sacrifice a creature." → "sacrifice a creature"."""
+    if line.strip() == _THROWDOWN_COST:  # -- wave 110E -- 118.8: a modified creature is a creature, so "or a modified creature" adds no choice (Lethal Throwdown)
+        return "sacrifice a creature"
     m = _ADDITIONAL.match(line.strip())
     if m is None and line.strip().lower().rstrip(".") == ("as an additional cost to cast this spell, blight x. x can't be greater than the greatest "
                                                          "toughness among creatures you control"):
