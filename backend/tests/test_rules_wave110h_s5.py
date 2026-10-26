@@ -350,6 +350,27 @@ def test_freyalises_winds_holds_one_untap(cards):
     check(s)
 
 
+def test_freyalises_winds_with_stun_uses_stun_first(cards):
+    """616.1 dominance: stunned + wind counter, one untap held either way; stun first keeps the wind counter (inert without the Winds), so it is the free pick."""
+    from tests.test_rules_conditionals import until
+
+    s = build(cards, ["Freyalise's Winds", "Sol Ring"])
+    ring = put(s, "Sol Ring")
+    mana(s, G=2, C=2)
+    cast(s, "Freyalise's Winds")
+    answer(s)
+    act(s, "p1", type="activate_ability", card_id=ring.id, ability=0)
+    answer(s)
+    s.state.cards[ring.id].counters["stun"] = 1
+    until(s, lambda s: s.state.turn.number == 3 and s.state.turn.phase == "main1")
+    got = s.state.cards[ring.id]
+    assert (got.tapped, got.counters.get("stun", 0), got.counters.get("wind", 0)) == (True, 0, 1)
+    until(s, lambda s: s.state.turn.number == 5 and s.state.turn.phase == "main1")
+    got = s.state.cards[ring.id]
+    assert (got.tapped, got.counters.get("wind", 0)) == (True, 0)
+    check(s)
+
+
 def test_saproling_burst(cards):
     """111.2: every Saproling is as big as the fade counters left; when the enchantment leaves, the tokens it made are destroyed (701.8), not other tokens."""
     s = build(cards, ["Saproling Burst", "Disenchant"])

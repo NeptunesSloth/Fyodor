@@ -76,8 +76,11 @@ def untap_hold(plan: Any, player: str, keep: list[str]) -> list[str]:
             continue
         if not counter_removal_results.remove(plan, host.id, "+1/+1", 1, by=player):
             held.append(host.id)
-    # Freyalise's Winds (614.1a): an untapping permanent with wind counters loses them all instead and stays tapped. ponytail: a permanent that is also
-    # stunned has both replacements (616.1): the stun counter is used first (as above), the wind counters stay for the next untap step.
+    # Freyalise's Winds (614.1a): an untapping permanent with wind counters loses them all instead and stays tapped. A stunned one has both
+    # replacements (616.1): its controller chooses, and stun first dominates. Either order ends tapped this step, minus one counter. Stun first
+    # leaves wind counters, wind first leaves the stun counter. A wind counter only matters while Freyalise's Winds is on the battlefield (its
+    # replacement is that ability's), where it holds one untap exactly like the stun counter; a stun counter always holds one. So stun first is
+    # never worse, no prompt needed (the stunned permanent is already in ``keep``).
     if permissions._table_statics(plan.state, plan.info, {"wind110h"}):
         for c in plan.state.cards.values():
             if c.tapped and c.controller == player and c.zone.endswith(":battlefield") and c.counters.get("wind") and c.id not in keep and c.id not in held:
