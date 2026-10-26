@@ -111,6 +111,9 @@ def parse(text: str) -> dict[str, Any] | None:
 
         # The subtype CDA itself is applied in characteristics, in every zone (604.3a).
         return self_grant("self", None, [])
+    if text == "Each planeswalker with one or more loyalty counters on it loses all abilities and is a creature with power and toughness each equal to the number of loyalty counters on it.":
+        # -- (wave 110J) -- Spark Rupture: 205.1a it is only a creature now (set, not added), 613.6 it keeps the effect though it stops being a planeswalker, 613.4b
+        return _definition("Each planeswalker with one or more loyalty counters on it", {"set_types": ["Creature"]}, lose_all=True, base_counters110j="loyalty")
     if (m := _EACH_LAND.fullmatch(text)) is not None:
         return _definition("lands", {"add_subtypes": [m["t"]]})
     if (m := _EVERY_BASIC.fullmatch(text)) is not None:

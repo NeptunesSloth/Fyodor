@@ -626,6 +626,7 @@ class Life(Base):
     delta: int = Field(ge=-100000, le=100000)
     group: int = Field(default=0, ge=0)  # Native simultaneous life-loss operation receipt.
     paid: bool = False  # the loss is a payment of life (119.4): "whenever you pay life" (wave 110D)
+    cause110m: Id | None = None  # (wave 110M) a life gain: the spell (card id) whose resolution caused it
 
 
 class SetLife(Base):
@@ -1329,8 +1330,10 @@ class RulesDamage(Base):
     players: dict[str, Annotated[int, Field(ge=0, le=100000)]] = Field(default_factory=dict)  # life lost
     commander: list[CommanderHit] = Field(default_factory=list)  # combat damage by commanders (also in players)
     planeswalkers: dict[str, Annotated[int, Field(ge=0, le=100000)]] = Field(default_factory=dict)  # loyalty removed
+    lifelink_cause110m: dict[str, str] = Field(default_factory=dict)  # (wave 110M) lifelink key -> the spell (card id) whose damage it is
     lifelink: dict[str, Annotated[int, Field(ge=0, le=100000)]] = Field(default_factory=dict)  # life gained
     wither: dict[str, Annotated[int, Field(ge=0, le=100000)]] = Field(default_factory=dict)  # card -> -1/-1 counters
+    heal110h: list[str] = Field(default_factory=list)  # creatures whose earlier marked damage is healed as this damage is marked (Wolverine, Fierce Fighter)
     # -- triggers (wave 17D) -- 120.3d: card -> the player who puts those counters (its source's controller) -> how many
     wither_by: dict[str, dict[str, Annotated[int, Field(ge=0, le=100000)]]] = Field(default_factory=dict)
     poison: dict[str, Annotated[int, Field(ge=0, le=100000)]] = Field(default_factory=dict)  # player -> poison counters

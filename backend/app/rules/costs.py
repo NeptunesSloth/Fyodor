@@ -133,6 +133,7 @@ class CostComponent:
     gain_scope: Literal["each_other_player"] | None = None  # Nominal life-gain cost paid to every other live player.
     source_with_choices: bool = False  # One graveyard-exile instruction includes its required source and selected others.
     counter_options: tuple[str, ...] = ()  # A bounded choice of named counter kinds, not every counter.
+    half: bool = False  # -- wave 110A -- 'sacrifice half the lands you control, rounded up': the count is read from the board as the cost is paid
     counters_x: bool = False  # -- blight X (wave 110C) -- 701.68a: the announced X is the number of counters put on the one creature chosen
 
     @property
@@ -180,6 +181,7 @@ class AbilityCost:
     components: tuple[CostComponent, ...] = ()
     graveyard_only: bool = False  # -- reanimation (wave 3R) -- its effect moves this card out of your graveyard (113.6m)
     exile_too: bool = False  # -- activated other (wave 42C) -- "Return this card from your graveyard or from exile …" (Mister Immortal): graveyard_only, and the exile zone too (113.6m)
+    battlefield_too110k: bool = False  # -- wave 110K -- graveyard_only, and the battlefield too: "Activate only if ~ is on the battlefield or in your graveyard" (Skyblade's Boon)
     hand_only: bool = False  # -- activated from hand / command zone (wave 27D) -- its effect moves this card out of your hand (113.6m)
     command_only: bool = False  # (…or out of the command zone)
     life_x: bool = False  # -- X sized by a count (wave 4K) -- a spell's "pay X life" (107.3a: X announced as it's cast)
@@ -289,6 +291,13 @@ def _component(part: str, card_name: str) -> CostComponent | None:
 
     if (own110d := wave110d_costs.component(part, card_name)) is not None:
         return own110d
+    from app.rules import wave110a_activation  # -- costs (wave 110A) --
+
+    if (own110a := wave110a_activation.component(part)) is not None:
+        return own110a
+    if part == "Exile any number of other cards from your graveyard with four or more card types among them":  # -- (wave 110M) -- Nethergoyf: 601.2h, 205.2a
+        return CostComponent(EXILE_FROM_GRAVEYARD, amount=4, more=True, anyn=True, names="types4_110m", text=part,
+                             selector=selectors.Selector(card=True, other=True, zone_owner="you", zones=("graveyard",)).key())
     if m := re.fullmatch(r"Sacrifice all (?P<what>.+)", part):
         key = _selector(m["what"], zone="battlefield")
         return CostComponent(SACRIFICE, selector=key, all_objects=True, text=part) if key else None
@@ -458,7 +467,7 @@ def parse_ability_cost(cost: str, *, card_name: str = "", loyalty: bool = False,
     # -- tutor (wave 26D) -- "Sacrifice a red creature, a green creature, and a white creature" (the Heralds): one part, three objects
     cost = re.sub(r"(Sacrifice (?:an?|another) [^,{}:]+?), ((?:an?|another) [^,{}:]+?), and ((?:an?|another) [^,{}:]+?)(?=,|$)",
                   r"\1 and \2 and \3", cost)
-    cost = re.sub(r"(Sacrifice (?:this \w+|~)) and (any number of other [^,{}:]+)", r"\1, Sacrifice \2", cost)  # -- any number as an additional cost (wave 48B) -- Emrakul's Evangel: two parts
+    cost = re.sub(r"(Sacrifice (?:this \w+|~)) and (any number of (?:other )?[^,{}:]+)", r"\1, Sacrifice \2", cost)  # -- any number as an additional cost (wave 48B) -- Emrakul's Evangel: two parts
     if card_name and "," in card_name:  # (wave 4H) "Discard another card named Korlash, Heir to Blackblade": one part
         cost = cost.replace(card_name, "~")
     # -- static_other (wave 36B) -- "Tap three untapped Advisors, Artificers, and/or Monks you control" (The Archimandrite): one part naming three kinds
@@ -536,10 +545,13 @@ _EXILE_CHOSEN = re.compile(rf"^Exile {_N} (?P<what>[^,]+ you control)$")
 _EXILE_TO_GY = re.compile(r"^Put (?:(?P<one>a) card an opponent owns from exile into that player's graveyard"
                           r"|(?P<n>two|three) cards your opponents own from exile into their owners' graveyards)$")  # (wave 15C)
 _EVIDENCE = re.compile(r"^Collect evidence (?P<n>\d+)$")
+# -- exile for total mana value (wave 110C) -- "Exile any number of historic cards from your graveyard with total mana value 30 or greater" (The Capitoline Triad):
+# the collect-evidence payment (701.59a) on a kind of card, and not collecting evidence (cost_payment skips the designation)
+_EXILE_TOTAL = re.compile(r"^Exile any number of (?P<what>[a-z]+) cards from your graveyard with total mana value (?P<n>\d+) or greater$")
 # "Exile an artifact from among permanents you control and/or cards in your graveyard" / "…two creatures…" / "…one or more Dinosaurs…"
 _CRAFT = re.compile(r"^Exile (?P<n>a|an|one|two|three|four|five|six|seven|\d+)(?P<more> or more)?(?: (?P<what>[^,]+?))? from among "
                     r"permanents you control and/or cards in your graveyard$")
-_WATERBEND = re.compile(r"^Waterbend \{(?P<n>\d+|X)\}$")
+_WATERBEND = re.compile(r"^(?:Waterbend|Tapbend) \{(?P<n>\d+|X)\}$")
 _SAC_OR = re.compile(r"^Sacrifice (?P<a>a|an|another) (?P<w1>[\w\-]+) or (?P<b>a|an|another) (?P<w2>[\w\-]+)$")  # (no article: refused)
 _GRANDEUR = re.compile(r"^Discard another card named (?P<name>~|[A-Z].+)$")  # (grandeur, an ability word: 207.2c)
 _HALF_LIFE = "Pay half your life rounded up"
@@ -666,6 +678,9 @@ def _one_4h(part: str, card_name: str) -> CostComponent | None:
         return _craft_part(m, part)
     if m := _EVIDENCE.match(part):  # 701.59a
         key = _selector("cards from your graveyard", zone="graveyard")
+        return CostComponent(COLLECT_EVIDENCE, amount=int(m["n"]), selector=key, text=part) if key and int(m["n"]) > 0 else None
+    if m := _EXILE_TOTAL.match(part):  # (wave 110C)
+        key = _selector(f"{m['what']} cards from your graveyard", zone="graveyard")
         return CostComponent(COLLECT_EVIDENCE, amount=int(m["n"]), selector=key, text=part) if key and int(m["n"]) > 0 else None
     if part == "Forage":  # 701.61a
         return CostComponent(FORAGE, amount=3, text=part)
@@ -972,6 +987,10 @@ def parse_additional_cost(text: str) -> AbilityCost | None:
 
     if (water := waterbend102.part(text)) is not None:
         return AbilityCost(components=(water,))
+    from app.rules import wave110a_activation  # -- costs (wave 110A) --
+
+    if (half110a := wave110a_activation.component(text)) is not None:
+        return AbilityCost(components=(half110a,))
     if text == 'put a -1/-1 counter on a creature you control':
         counter = _one_4h(text[:1].upper() + text[1:], '')
         return AbilityCost(components=(counter,)) if counter is not None and counter.selector is not None else None

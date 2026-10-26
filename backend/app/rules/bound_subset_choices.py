@@ -193,9 +193,9 @@ def run(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
         pool: list[str] = []
         players: list[str] = []
         steps: list[dict[str, Any]] = []
-        if action in ("agony", "incriminate", "spite", "retribution", "wake", "coin", "cannibalize"):
+        if action in ("agony", "incriminate", "spite", "retribution", "wake", "coin", "cannibalize", "deliver"):
             pool = effects._cards(plan, ctx, e["who"])
-            if action in ("wake", "coin"):
+            if action in ("wake", "coin", "deliver"):
                 steps.append({"do": "choose_opponent", "as": CHOOSER})
             elif pool:
                 players = [ctx["controller"] if action == "cannibalize" else plan.state.cards[pool[0]].controller]  # (wave 110J) Cannibalize: its caster picks
@@ -250,7 +250,7 @@ def run(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
                 "do": "return_choice",
                 "who": "ref:subset_selectable",
                 "to": "choose",
-                "n": 1,
+                "n": min(2, len(selectable)) if action == "deliver" else 1,  # (wave 110E) Deliver Unto Evil: the opponent chooses two of them
                 "chooser": "ref:" + CHOOSER,
                 "as": SELECTED,
             }
@@ -260,7 +260,7 @@ def run(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     if mode == "partition":
         selected = context.objects(plan, ctx, SELECTED)
         pool = context.objects(plan, ctx, POOL)
-        other = [cid for cid in pool if cid not in selected] if len(selected) == 1 else []
+        other = [cid for cid in pool if cid not in selected] if len(selected) == 1 or action == "deliver" else []
         context.bind_objects(plan, ctx, OTHER, other)
         first = "ref:" + SELECTED
         rest = "ref:" + OTHER
@@ -304,6 +304,8 @@ def run(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
                 {"do": "delayed", "when": {"kind": "step", "step": "end", "whose": "next"}, "n": 1},
                 {"do": "deferred:exile", "who": "ref:subset_hasty"},
             ]
+        elif action == "deliver":  # (wave 110E) 608.2c: the chosen cards stay in the graveyard, the rest go to the hand
+            tail = [{"do": "return_card", "who": rest, "to": "hand", "under": "owner"}]
         elif action == "kami":
             n = int(plan.ch(plan.state.cards[selected[0]]).mana_value) if selected else 0
             tail = [

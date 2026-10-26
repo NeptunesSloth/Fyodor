@@ -606,7 +606,7 @@ def define_static(text: str, kind: str, lines: tuple[str, ...] = ()) -> Definiti
         return {**cheaper, "uncounterable": True} if cheaper is not None and cheaper.get("static") == "cost_modifier" and cheaper.get("caster") == "you" else None
     # -- costs (wave 3$) -- "As an additional cost to cast this spell, sacrifice a creature." (601.2b): paid with the
     # rest of the cost as the spell is cast (casting.cast_spell); a wording the cost grammar can't pay stays manual
-    if cost_changes.OWN_OPTIONAL.fullmatch(t) or cost_changes.ANY_COST.fullmatch(t) or cost_changes.EVIDENCE_REDUCTION.fullmatch(t):  # -- casting costs (wave 22F) -- "you may collect evidence 6" / "you may behold a Dragon"; (wave 47C) "you may sacrifice any number of …"
+    if cost_changes.OWN_OPTIONAL.fullmatch(t) or t.lower() == cost_changes.BEHOLD_TYPE.lower().rstrip(".") or cost_changes.ANY_COST.fullmatch(t) or cost_changes.EVIDENCE_REDUCTION.fullmatch(t):  # -- casting costs (wave 22F) -- "you may collect evidence 6" / "you may behold a Dragon"; (wave 47C) "you may sacrifice any number of …"
         return cost_changes.optional_definition(t)
     extra = costs.additional_cost_text(t)
     if extra is not None:
@@ -1390,7 +1390,7 @@ def _all_table_statics(state: GameState, info: CardInfo) -> list[tuple[CardInsta
         ch = derive(state, card, chars.of(card, info), info)
         for index, d in scripts.definitions(ch).items():
             if d.get("kind") == "static":
-                if emblem and d.get('static') not in ('permission', 'cost_modifier', 'untap_limit'):  # -- planeswalker statics (wave 110A) -- Dovin Baan's emblem
+                if emblem and d.get('static') not in ('permission', 'cost_modifier', 'untap_limit', 'untap_opp110a', 'draw_opp110a'):  # -- planeswalker statics (wave 110A) -- Dovin Baan's emblem
                     continue
                 if eminent and (d.get("change") or {}).get("cond") != triggers.COMMAND_OR_BATTLEFIELD:
                     continue
@@ -1448,11 +1448,9 @@ def grants(state: GameState, player: str, card: CardInstance, ch: Characteristic
         elif p.zone != "any" and p.zone != where and not (
                 p.zone in ("graveyard", "exile") and p.zone_owner == "any" and card.zone.endswith(":" + p.zone)):
             continue
-        if p.card_filter:
-            from app.rules import selectors
-
-            if not selectors.matches(_view(state, player, info), selectors.from_key(p.card_filter), card, ch, player):
-                continue
+        # (wave 110L: no local import of selectors here: it made the name local to all of grants(), unbound for the put_there read below)
+        if p.card_filter and not selectors.matches(_view(state, player, info), selectors.from_key(p.card_filter), card, ch, player):
+            continue
         if p.filter and verb == "cast" and not spell_matches(state, player, card, ch, p.filter, info):
             continue
         if p.nth is not None and cost_changes.casts_so_far(state, info, player, p.filter) != p.nth:
@@ -1903,6 +1901,11 @@ def ability_mana(state: GameState, player: str, card: CardInstance, ch: Characte
             chosen = targets if targets is not None else ((target,) if target and target != '?' else ())
             if not target_cost_conditions62.available(state, player, src, d['target_rule62'], chosen, info, preview=target == '?'):
                 continue
+        if d.get("first_artifact110a"):  # -- activation cost (wave 110A) --
+            from app.rules import wave110a_activation
+
+            if not wave110a_activation.available(state, player, _view(state, player, info).ch(card)):
+                continue
         if d.get("first_controlled_creature_target58"):
             from app.rules import first_target_activation_cost58
 
@@ -2199,6 +2202,10 @@ def free_cast(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     from app.rules.effects import decide
 
     pid = ctx["controller"]
+    if e.get("caster"):  # -- (wave 110J) -- Swindler's Scheme: "that opponent may cast the revealed card"
+        from app.rules import wave110j_cards
+
+        pid = wave110j_cards.caster(plan, ctx, e)
     done = ctx.setdefault("free_cast_done", [])
     if not e.get("all") and sum(1 for c in done if c not in (ctx.get("free_cast_before") or [])) >= int(e.get("n", 1)):
         return _free_cast_over(ctx, e)
