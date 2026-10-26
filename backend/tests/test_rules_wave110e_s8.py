@@ -30,10 +30,23 @@ WINGS = real("Arcanum Wings", "{1}{U}", 2, "Enchantment — Aura",
              "Enchant creature\nEnchanted creature has flying.\nAura swap {2}{U} ({2}{U}: Exchange this Aura with an Aura card in your hand.)", None, "U")
 BOON = real("Test Boon", "{1}{G}", 2, "Enchantment — Aura", "Enchant creature\nEnchanted creature gets +2/+2.", None, "G")
 RELIC = real("Test Relic Aura", "{1}{G}", 2, "Enchantment — Aura", "Enchant artifact\nEnchanted artifact gets +2/+2.", None, "G")
-base.EXTRA.extend([WINGS, BOON, RELIC, SHRIEK, SIP, CULPRIT, DISGUISER, AMBUSH, EZIO])
+REFLECT = real("Infinite Reflection", "{5}{U}", 6, "Enchantment — Aura",
+               "Enchant creature\nWhen this Aura enters attached to a creature, each other nontoken creature you control becomes a copy of that creature.\n"
+               "Nontoken creatures you control enter as a copy of enchanted creature.", None, "U")
+WOLF = real("Test Wolf", "{1}{G}", 2, "Creature — Wolf", "", ("3", "3"), "G")
+DANCE = real("Corpse Dance", "{2}{B}", 3, "Instant",
+             "Buyback {2} (You may pay an additional {2} as you cast this spell. If you do, put this card into your hand as it resolves.)\n"
+             "Return the top creature card of your graveyard to the battlefield. That creature gains haste until end of turn. Exile it at the beginning of the next end step.",
+             None, "B")
+BARGE = real("War Barge", "{4}", 4, "Artifact",
+             "{3}: Target creature gains islandwalk until end of turn. When this artifact leaves the battlefield this turn, destroy that creature. A creature destroyed this way "
+             "can't be regenerated. (A creature with islandwalk can't be blocked as long as defending player controls an Island.)", None, "")
+REGENERATOR = real("Test Regenerator", "{1}{G}", 2, "Creature — Troll", "{G}: Regenerate this creature.", ("2", "2"), "G")
+SMASH = real("Test Smash", "{R}", 1, "Instant", "Destroy target artifact.", None, "R")
+base.EXTRA.extend([SMASH, BARGE, REGENERATOR, DANCE, REFLECT, WOLF, WINGS, BOON, RELIC, SHRIEK, SIP, CULPRIT, DISGUISER, AMBUSH, EZIO])
 
 
-@pytest.mark.parametrize("name", [c["name"] for c in (SHRIEK, CULPRIT, AMBUSH, WINGS)])
+@pytest.mark.parametrize("name", [c["name"] for c in (SHRIEK, CULPRIT, AMBUSH, WINGS, REFLECT)])
 def test_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
@@ -209,4 +222,75 @@ def test_aura_swap_exchanges_this_aura_with_an_aura_card_in_hand(cards, hand):
         assert s.state.cards[aura[0].id].zone == "p1:battlefield" and s.state.cards[aura[0].id].attached_to == bear.id
     elif aura:
         assert s.state.cards[aura[0].id].zone == "p1:hand"
+    check(s)
+
+
+@pytest.mark.parametrize("pid", ["p1", "p2"])
+def test_infinite_reflection_copies_the_enchanted_creature_now_and_for_later_entries(cards, pid):
+    """707.9/707.2: the trigger turns each other nontoken creature you control into a copy of the enchanted one; 614.1c: later nontoken creatures of its controller enter as copies of it, an opponent's do not."""
+    from tests.test_rules_conditionals import creature
+    from tests.test_rules_wave100f_attached import to_phase
+    from tests.test_rules_wave100f_control import ch
+    from tests.test_rules_wave110e_cards import answer, cast
+    from tests.wave9c_kit import build, check, mana, put
+
+    s = build(cards, ["Infinite Reflection", "Shivan Dragon", "Grizzly Bears", "Test Wolf"], ["Test Wolf"])
+    dragon, bears = put(s, "Shivan Dragon"), put(s, "Grizzly Bears")
+    theirs = creature(s, "p2", "Theirs", "1/1")
+    mana(s, U=1, C=5)
+    cast(s, "Infinite Reflection", [dragon.id])
+    answer(s)
+    named = lambda c: ch(s, s.state.cards[c.id]).name  # noqa: E731
+    assert (named(dragon), named(bears), named(theirs)) == ("Shivan Dragon", "Shivan Dragon", "Theirs")
+    if pid == "p2":
+        to_phase(s, "main1", turn=2)
+    mana(s, pid, G=1, C=1)
+    wolf = cast(s, "Test Wolf", pid=pid)
+    answer(s)
+    assert named(wolf) == ("Shivan Dragon" if pid == "p1" else "Test Wolf")
+    check(s)
+
+
+@pytest.mark.parametrize("buyback", [False, True])
+def test_corpse_dance_returns_the_top_creature_card_with_haste_and_exiles_it_at_end_step(cards, buyback):
+    """404.1, 400.7, 603.7: the last creature card put into the graveyard (a land above it is skipped) returns, hasty, and is exiled at the next end step; 702.27a buyback returns the spell to hand."""
+    from tests.test_rules_wave100f_attached import to_phase
+    from tests.test_rules_wave110e_cards import answer
+    from tests.wave9c_kit import build, check, mana, to_hand
+    from tests.wave110d_kit import ch, grave_new, now
+
+    s = build(cards, ["Corpse Dance", "Grizzly Bears", "Test Wolf", "Forest"])
+    old, top = grave_new(s, "Grizzly Bears"), grave_new(s, "Test Wolf")
+    grave_new(s, "Forest")
+    dance = to_hand(s, "Corpse Dance")
+    mana(s, B=1, C=2 + (2 if buyback else 0))
+    act(s, "p1", type="cast_spell", card_id=dance.id, **({"buyback": True} if buyback else {}))
+    answer(s)
+    assert now(s, top).zone == "p1:battlefield" and now(s, old).zone == "p1:graveyard" and "haste" in ch(s, now(s, top)).keywords
+    assert s.state.cards[dance.id].zone == ("p1:hand" if buyback else "p1:graveyard")
+    to_phase(s, "main2", turn=1)
+    to_phase(s, "main1", turn=2)
+    assert now(s, top).zone == "p1:exile"
+    check(s)
+
+
+@pytest.mark.parametrize("shield", [False, True])
+def test_war_barge_destruction_cant_be_regenerated(cards, shield):
+    """701.19c, 614.8: the delayed destroy ignores a regeneration shield ("can't be regenerated" is part of that destruction); the shield saves it from other destruction only."""
+    from tests.wave9c_kit import build, check, mana, put
+    from tests.wave110d_kit import settle
+
+    s = build(cards, ["War Barge", "Test Regenerator", "Test Smash"], [])
+    barge, troll = put(s, "War Barge"), put(s, "Test Regenerator")
+    mana(s, "p1", C=3)
+    act(s, "p1", type="activate_ability", card_id=barge.id, ability=0, targets=[troll.id], target_counts=[1])
+    settle(s)
+    if shield:
+        mana(s, "p1", G=1)
+        act(s, "p1", type="activate_ability", card_id=troll.id, ability=0)
+        settle(s)
+    mana(s, "p1", R=1)
+    base.cast(s, "Test Smash", [barge.id])
+    settle(s)
+    assert s.state.cards[troll.id].zone == "p1:graveyard"
     check(s)

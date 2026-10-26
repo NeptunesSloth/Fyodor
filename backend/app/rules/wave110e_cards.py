@@ -34,6 +34,9 @@ _CULPRIT = "Exile any number of face-up creatures you control with disguise in a
 _AMBUSH = ("Target player searches their library and/or graveyard for a card named Ezio, Blade of Vengeance, reveals it, and puts it into their hand. "
            "If they search their library this way, they shuffle.")
 _SWAP_BODY = "You may exchange this permanent with an Aura card in your hand."
+_REFLECT_ETB = "When this Aura enters attached to a creature, each other nontoken creature you control becomes a copy of that creature."
+_REFLECT_STATIC = "Nontoken creatures you control enter as a copy of enchanted creature."
+COPY_ENTRY_HOST = "copy_entry_host110e"
 _BOLAS = 'sel:{"controller":"you","subtypes":["Bolas"],"types":["Planeswalker"]}'
 # whole ability text -> (the wording the grammar reads for the targets, the effects that replace the parsed ones; "target:0" = the first target group)
 _SWAP: dict[str, tuple[str, list[Def]]] = {
@@ -307,6 +310,12 @@ def definition(ability: Any, ch: Any) -> Def | None:
         return {**native, "effects": [*native["effects"][:-1], {"do": "trigger_leaf51_djinn_draws", "all": True, "n": 7}]}
     if (alt := _REWRITE.get(text)) is not None:  # an exact Oracle sentence read as the wording the grammar already knows (pattern: multi100n)
         return scripts.define(replace(ability, text=alt), ch)
+    if text == _REFLECT_ETB:  # 707.9 / 707.2: the other nontoken creatures become copies of the enchanted creature, fixed as the trigger resolves (611.2c)
+        native = scripts.define(replace(ability, text="When this Aura enters, draw a card."), ch)
+        sel = '{"controller":"you","token":false,"types":["Creature"]}'
+        return None if native is None else {**native, "effects": [{"do": "become_copy", "who": "sel:" + sel, "with": "host", "others": True}]}
+    if text == _REFLECT_STATIC:  # read at entry (copy_on_entry_host)
+        return {"kind": "static", "static": COPY_ENTRY_HOST, "effects": []}
     swap = _SWAP.get(ability.text.strip())
     if swap is not None:
         native = scripts.define(replace(ability, text=swap[0]), ch)
@@ -338,3 +347,21 @@ def parse(body: str) -> tuple[list[dict[str, Any]], Any, bool] | None:
             return None
         return [{"do": "aura_swap_gate110e", "skip": 2}, {**put[0][0], "optional": True, "as": "sw110e"}, {"do": "aura_swap_return110e", "of": "ref:sw110e"}], None, False
     return None
+
+
+def copy_on_entry_host(plan: Any, card: Any, controller: str) -> None:
+    """614.1c, 707.9: a nontoken creature entering under the controller of an Aura with the static enters as a copy of the creature it enchants (its copiable
+    values, 707.2), no choice (ponytail: like Essence of the Wild, several such statics are not ordered against other copy replacements, 616.1)."""
+    from app.game.rules_state import CopyEntrySource
+    from app.game.state import zone_key
+    from app.rules import copying, permissions
+
+    probe = card.model_copy(update={"zone": zone_key(controller, "battlefield"), "controller": controller})
+    if card.is_token or copying.entering_as_copy(plan, card) or not plan.ch(probe).is_creature:
+        return
+    for aura, _, _ in permissions._table_statics(plan.state, plan.info, {COPY_ENTRY_HOST}):
+        host = plan.state.cards.get(aura.attached_to or "")
+        if aura.controller == controller and host is not None and host.id != card.id and host.zone.endswith(":battlefield") and plan.ch(host).is_creature:
+            copying.add_copy_effect(plan, [plan.oid(card)], copying.recipe_of(plan, host), controller, source=copying.ENTERING + card.id,
+                                    entry_source=CopyEntrySource(card=host.id, object_id=plan.oid(host), controller=host.controller))
+            return

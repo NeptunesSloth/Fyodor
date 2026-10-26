@@ -668,13 +668,7 @@ def test_jace_does_not_win_with_cards_left(cards):
     check(s)
 
 
-@pytest.mark.parametrize("name", ["Diaochan, Artful Beauty"])
-def test_still_manual(cards, name):
-    """Diaochan's second target is chosen by an opponent.
-
-    Asmodeus' implemented draw-replacement link is covered by test_rules_linked_return_family.
-    """
-    assert coverage.of_card_data(cards.resolve(name)).level == "PARTIAL", name
+# (Diaochan, Artful Beauty is FULL since wave 110D: tests/test_rules_wave110d_opp.py)
 
 
 # -- Wishmonger: "{2}: Target creature gains protection from the color of its controller's choice until end of turn. Any player may activate this ability." --
