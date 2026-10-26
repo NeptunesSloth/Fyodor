@@ -5643,6 +5643,12 @@ def activate_ability(plan: Plan, a: A.ActivateAbility) -> None:
     if card.zone == zone_key(plan.actor, "companion") and card.owner == plan.actor:  # -- companion (wave 38D) -- 116.2g
         companion_action(plan, card, plan.ch(card), a)
         return
+    if card.zone == zone_key(plan.actor, "library") and card.owner == plan.actor:  # -- plot (wave 110A) -- Fblthp: the special action (116.2k) from the top of the library
+        ch = plan.ch(card)
+        if (plot_cost := keyword_cost(ch, "plot", PLOT, a.ability)) is None or plan.manual(card):
+            raise ActionError("That card has no ability to use from your library")
+        plot(plan, card, ch, a, plot_cost)
+        return
     if card.zone == zone_key(plan.actor, "command") and card.owner == plan.actor:  # -- activated from hand / command zone (wave 27D)
         ch = plan.ch(card)
         ability = next((ab for ab in ch.abilities if ab.index == a.ability), None)
@@ -6625,6 +6631,15 @@ def activatable(state: GameState, player: str, info: CardInfo, *, check_priority
             ch = chars.of(state.cards[cid], info)
             out += [{"card_id": cid, "ability": ab.index, "x": True} for ab in ch.abilities
                     if (found := hand_ability(ch, ab.index)) is not None and M.parse_cost(found[1]).x or (sus := suspend_info(ch, ab.index)) is not None and sus[0] is None]  # (wave 50H: Suspend X)
+    top = state.zones.get(zone_key(player, "library"), [])[:1]  # -- plot (wave 110A) -- Fblthp: the top card's granted plot (116.2k), sorcery timing as casting.plot
+    if top and state.turn.active_player == player and state.turn.phase in MAIN_PHASES and not state.zones.get(STACK) \
+            and (not check_priority or (state.rules is not None and state.rules.priority == player and state.rules.decision is None)):
+        from app.rules.layers import derive
+
+        lib = state.cards[top[0]]
+        lch = derive(state, lib, chars.of(lib, info), info)
+        out += [{"card_id": lib.id, "ability": ab.index} for ab in lch.abilities
+                if (plot_cost := keyword_cost(lch, "plot", PLOT, ab.index)) is not None and can_pay(state, player, M.parse_cost(plot_cost), info, purpose=Purpose())]
     for cid in state.zones.get(zone_key(player, "graveyard"), []):  # 113.6m: "Exile this card from your graveyard: …"
         card = state.cards[cid]
         ch = chars.of(card, info)

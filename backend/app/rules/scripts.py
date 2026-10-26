@@ -4684,7 +4684,7 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
     from app.rules import watches  # -- turn watches (wave 7D) --
 
     body = block_events.rewrite(watches.join_choose(watches.join_retarget(body)))  # (-- turn-long triggers (wave 33A) --; wave 53C: "When one or more Equipment become attached …")
-    if it is None and not event_player:  # -- if you do (wave 5G) -- a spell's or an activated ability's "each other
+    if (it is None or it in ("~", "self_gone")) and not event_player:  # -- if you do (wave 5G; wave 110A: also an activated ability, whose "it" is its source) -- a spell's or an activated ability's "each other
         # player": every other player than its controller is an opponent in a free-for-all (102.2, 806.2); in a trigger
         # "other" may be relative to the event's player — not read there
         # (not where the grammar reads it already: an edict, language.EDICT_OTHERS; "during each other player's …")
@@ -7142,9 +7142,13 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
         d = _chosen.remember_name(_enters_self_check(_define(view[0] if view else ability, ch), ch), self_text(ability.text, ch.name))  # (-- any number as an additional cost (wave 48B) -- "creatures sacrificed this way" of a spell's own cost)  (wave 53B: a trigger's card name, kept)
     if view and d is not None:
         d = _granter_bound(d, view[1])
-    from app.rules import cost_changes, wave110o_cards  # (wave 110A; wave 110O)
+    from app.rules import (  # (wave 110A; wave 110O)
+        cost_changes,
+        wave110a_bloodbend,  # -- wave 110A -- Secret of Bloodbending: its own condition (waterbend paid), read by control_player
+        wave110o_cards,
+    )
 
-    if d is not None and "additional cost was paid" in ability.text and not any(re.search(r"you may blight [1-5]\b", a.text) or a.text in (cost_changes.BEHOLD_TYPE, wave110o_cards._UNDER_COST) for a in ch.abilities):  # (wave 110A: Celestial Reunion's behold; wave 110O: Undergrowth's {2}{R})
+    if d is not None and "additional cost was paid" in ability.text and ability.text != wave110a_bloodbend.LINE and not any(re.search(r"you may blight [1-5]\b", a.text) or a.text in (cost_changes.BEHOLD_TYPE, wave110o_cards._UNDER_COST) for a in ch.abilities):  # (wave 110A: Celestial Reunion's behold; wave 110O: Undergrowth's {2}{R})
         return None  # -- blight (wave 51E) -- "this spell's additional cost was paid" is read as the blight only for a spell whose optional additional cost is one (another optional cost: manual)
     if d is not None and ability.special == 'embalm':
         d = {**d, 'effects': [{**e, 'embalmed': True} if e.get('do') == 'token_copy' else e for e in d['effects']]}

@@ -87,8 +87,9 @@ class PlayerControl(BaseModel):
 
     controlled: str
     controller: str
-    status: Literal["pending", "active"] = "pending"
+    status: Literal["pending", "active", "done"] = "pending"
     turn: int = 0  # the turn number it became active on (723.1: it ends with that turn)
+    combat: bool = False  # -- wave 110A -- Secret of Bloodbending: only the controlled player's next combat phase (723.1 "phase"); "done" once it ended
     extra_after: int = 0  # Emrakul: "After that turn, that player takes an extra turn" (kept when 723.1a overwrites)
     label: str = ""
 
@@ -749,6 +750,7 @@ class ContinuousEffect(BaseModel):
     controller: str
     set_name: str | None = None  # Noncopiable layer-3 name change (613.1c).
     text_change71: TextChange71 | None = None
+    text_box110a: dict[str, dict[str, Any]] | None = None  # 612.5 (wave 110A): the rules text each affected object (by id) has instead of its own
     power: int | None = None
     toughness: int | None = None
     dyn_power110e: dict[str, Any] | None = None  # (wave 110E) layer 7b base power read now (611.3a): a values.evaluate amount, e.g. {'hand': 'you'}

@@ -857,7 +857,11 @@ def _excess_hits(plan: Plan, src: _Source, hits: list[tuple[_Source, str, int]],
             continue
         amounts = []
         if ch.is_creature and ch.pt is not None:
-            left = max(0, ch.pt[1] - card.damage)
+            from app.rules import (
+                wave110a_zilortha,  # -- wave 110A -- Zilortha: the excess over lethal damage (120.10) counts power
+            )
+
+            left = max(0, (wave110a_zilortha.basis(plan, card, ch, ch.pt[1]) or 0) - card.damage)
             amounts.append(n - (min(left, 1) if "deathtouch" in s_.keywords else left))
         if "Planeswalker" in ch.types:
             amounts.append(n - card.counters.get("loyalty", 0))

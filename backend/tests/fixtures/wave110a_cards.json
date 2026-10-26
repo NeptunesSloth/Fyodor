@@ -2150,5 +2150,354 @@
    "G"
   ],
   "keywords": []
+ },
+ {
+  "name": "Scheming Fence",
+  "layout": "normal",
+  "mana_cost": "{W}{U}",
+  "cmc": 2.0,
+  "type_line": "Creature — Human Citizen",
+  "oracle_text": "As this creature enters, you may choose a nonland permanent.\nActivated abilities of the chosen permanent can't be activated.\nThis creature has all activated abilities of the chosen permanent except for loyalty abilities. You may spend mana as though it were mana of any color to activate those abilities.",
+  "colors": [
+   "U",
+   "W"
+  ],
+  "color_identity": [
+   "U",
+   "W"
+  ],
+  "keywords": [],
+  "power": "2",
+  "toughness": "3"
+ },
+ {
+  "name": "Jace Beleren",
+  "layout": "normal",
+  "mana_cost": "{1}{U}{U}",
+  "cmc": 3.0,
+  "type_line": "Legendary Planeswalker — Jace",
+  "oracle_text": "+2: Each player draws a card.\n−1: Target player draws a card.\n−10: Target player mills twenty cards.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "Mill"
+  ],
+  "loyalty": "3"
+ },
+ {
+  "name": "Fblthp, Lost on the Range",
+  "layout": "normal",
+  "mana_cost": "{1}{U}{U}",
+  "cmc": 3.0,
+  "type_line": "Legendary Creature — Homunculus",
+  "oracle_text": "Ward {2}\nYou may look at the top card of your library any time.\nThe top card of your library has plot. The plot cost is equal to its mana cost.\nYou may plot nonland cards from the top of your library.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "Plot",
+   "Ward"
+  ],
+  "power": "1",
+  "toughness": "1"
+ },
+ {
+  "name": "Berserker's Frenzy",
+  "layout": "normal",
+  "mana_cost": "{2}{R}",
+  "cmc": 3.0,
+  "type_line": "Instant",
+  "oracle_text": "Cast this spell only before combat or during combat before blockers are declared.\nRoll two d20 and ignore the lower roll.\n1—14 | Choose any number of creatures. They block this turn if able.\n15—20 | You choose which creatures block this turn and how those creatures block.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Cytoshape",
+  "layout": "normal",
+  "mana_cost": "{1}{G}{U}",
+  "cmc": 3.0,
+  "type_line": "Instant",
+  "oracle_text": "Choose a nonlegendary creature on the battlefield. Target creature becomes a copy of that creature until end of turn.",
+  "colors": [
+   "G",
+   "U"
+  ],
+  "color_identity": [
+   "G",
+   "U"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Psychic Paper",
+  "layout": "normal",
+  "mana_cost": "{2}",
+  "cmc": 2.0,
+  "type_line": "Artifact — Equipment",
+  "oracle_text": "As this Equipment becomes attached to a creature, choose a creature card name and a creature type.\nEquipped creature has ward {1}, it can't be blocked, and its name and creature type are the last chosen name and creature type.\nEquip {2}",
+  "colors": [],
+  "color_identity": [],
+  "keywords": [
+   "Equip"
+  ]
+ },
+ {
+  "name": "Zenos yae Galvus // Shinryu, Transcendent Rival",
+  "layout": "transform",
+  "mana_cost": "{3}{B}{B} // ",
+  "cmc": 5.0,
+  "type_line": "Legendary Creature — Human Noble Warrior // Legendary Creature — Dragon",
+  "oracle_text": "My First Friend — When Zenos yae Galvus enters, choose a creature an opponent controls. Until end of turn, creatures other than Zenos yae Galvus and the chosen creature get -2/-2.\nWhen the chosen creature leaves the battlefield, transform Zenos yae Galvus.\n//\nFlying\nAs this creature transforms into Shinryu, choose an opponent.\nBurning Chains — When the chosen player loses the game, you win the game.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Flying",
+   "Transform",
+   "My First Friend",
+   "Burning Chains"
+  ],
+  "power": "4",
+  "toughness": "4",
+  "card_faces": [
+   {
+    "name": "Zenos yae Galvus",
+    "mana_cost": "{3}{B}{B}",
+    "type_line": "Legendary Creature — Human Noble Warrior",
+    "oracle_text": "My First Friend — When Zenos yae Galvus enters, choose a creature an opponent controls. Until end of turn, creatures other than Zenos yae Galvus and the chosen creature get -2/-2.\nWhen the chosen creature leaves the battlefield, transform Zenos yae Galvus.",
+    "power": "4",
+    "toughness": "4",
+    "colors": [
+     "B"
+    ],
+    "image_uris": {
+     "small": "https://cards.scryfall.io/small/front/4/0/40658fd0-78a6-44e5-9351-512e6bdcf637.jpg?1783906484",
+     "normal": "https://cards.scryfall.io/normal/front/4/0/40658fd0-78a6-44e5-9351-512e6bdcf637.jpg?1783906484",
+     "large": "https://cards.scryfall.io/large/front/4/0/40658fd0-78a6-44e5-9351-512e6bdcf637.jpg?1783906484",
+     "art_crop": "https://cards.scryfall.io/art_crop/front/4/0/40658fd0-78a6-44e5-9351-512e6bdcf637.jpg?1783906484"
+    }
+   },
+   {
+    "name": "Shinryu, Transcendent Rival",
+    "mana_cost": "",
+    "type_line": "Legendary Creature — Dragon",
+    "oracle_text": "Flying\nAs this creature transforms into Shinryu, choose an opponent.\nBurning Chains — When the chosen player loses the game, you win the game.",
+    "power": "8",
+    "toughness": "8",
+    "colors": [
+     "B"
+    ],
+    "image_uris": {
+     "small": "https://cards.scryfall.io/small/back/4/0/40658fd0-78a6-44e5-9351-512e6bdcf637.jpg?1783906484",
+     "normal": "https://cards.scryfall.io/normal/back/4/0/40658fd0-78a6-44e5-9351-512e6bdcf637.jpg?1783906484",
+     "large": "https://cards.scryfall.io/large/back/4/0/40658fd0-78a6-44e5-9351-512e6bdcf637.jpg?1783906484",
+     "art_crop": "https://cards.scryfall.io/art_crop/back/4/0/40658fd0-78a6-44e5-9351-512e6bdcf637.jpg?1783906484"
+    }
+   }
+  ]
+ },
+ {
+  "name": "Deadpool, Trading Card",
+  "layout": "normal",
+  "mana_cost": "{2}{B}{R}",
+  "cmc": 4.0,
+  "type_line": "Legendary Creature — Mutant Mercenary Hero",
+  "oracle_text": "As Deadpool enters, you may exchange his text box and another creature's.\nAt the beginning of your upkeep, you lose 3 life.\n{3}, Sacrifice this creature: Each other player draws a card.",
+  "colors": [
+   "B",
+   "R"
+  ],
+  "color_identity": [
+   "B",
+   "R"
+  ],
+  "keywords": [],
+  "power": "5",
+  "toughness": "3"
+ },
+ {
+  "name": "Exchange of Words",
+  "layout": "normal",
+  "mana_cost": "{1}{U}{U}",
+  "cmc": 3.0,
+  "type_line": "Enchantment",
+  "oracle_text": "When this enchantment enters, choose two target creatures. For as long as this enchantment remains on the battlefield, exchange the text boxes of those creatures.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Leonin Arbiter",
+  "layout": "normal",
+  "mana_cost": "{1}{W}",
+  "cmc": 2.0,
+  "type_line": "Creature — Cat Cleric",
+  "oracle_text": "Players can't search libraries. Any player may pay {2} for that player to ignore this effect until end of turn.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [],
+  "power": "2",
+  "toughness": "2"
+ },
+ {
+  "name": "Zilortha, Strength Incarnate",
+  "layout": "normal",
+  "mana_cost": "{3}{R}{G}",
+  "cmc": 5.0,
+  "type_line": "Legendary Creature — Dinosaur",
+  "oracle_text": "Trample\nLethal damage dealt to creatures you control is determined by their power rather than their toughness.",
+  "colors": [
+   "G",
+   "R"
+  ],
+  "color_identity": [
+   "G",
+   "R"
+  ],
+  "keywords": [
+   "Trample"
+  ],
+  "power": "7",
+  "toughness": "3"
+ },
+ {
+  "name": "See the Unwritten",
+  "layout": "normal",
+  "mana_cost": "{4}{G}{G}",
+  "cmc": 6.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Reveal the top eight cards of your library. You may put a creature card from among them onto the battlefield. Put the rest into your graveyard.\nFerocious — If you control a creature with power 4 or greater, you may put two creature cards onto the battlefield instead of one.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [
+   "Ferocious"
+  ]
+ },
+ {
+  "name": "Rampant Growth",
+  "layout": "normal",
+  "mana_cost": "{1}{G}",
+  "cmc": 2.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Search your library for a basic land card, put that card onto the battlefield tapped, then shuffle.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Demonic Tutor",
+  "layout": "normal",
+  "mana_cost": "{1}{B}",
+  "cmc": 2.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Search your library for a card, put that card into your hand, then shuffle.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Wall of Blossoms",
+  "layout": "normal",
+  "mana_cost": "{1}{G}",
+  "cmc": 2.0,
+  "type_line": "Creature — Plant Wall",
+  "oracle_text": "Defender\nWhen this creature enters, draw a card.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [
+   "Defender"
+  ],
+  "power": "0",
+  "toughness": "4"
+ },
+ {
+  "name": "Goblin Heelcutter",
+  "layout": "normal",
+  "mana_cost": "{3}{R}",
+  "cmc": 4.0,
+  "type_line": "Creature — Goblin Berserker",
+  "oracle_text": "Whenever this creature attacks, target creature can't block this turn.\nDash {2}{R} (You may cast this spell for its dash cost. If you do, it gains haste, and it's returned from the battlefield to its owner's hand at the beginning of the next end step.)",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Dash"
+  ],
+  "power": "3",
+  "toughness": "2"
+ },
+ {
+  "name": "Giant Growth",
+  "layout": "normal",
+  "mana_cost": "{G}",
+  "cmc": 1.0,
+  "type_line": "Instant",
+  "oracle_text": "Target creature gets +3/+3 until end of turn.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Secret of Bloodbending",
+  "layout": "normal",
+  "mana_cost": "{U}{U}{U}{U}",
+  "cmc": 4.0,
+  "type_line": "Sorcery — Lesson",
+  "oracle_text": "As an additional cost to cast this spell, you may waterbend {10}.\nYou control target opponent during their next combat phase. If this spell's additional cost was paid, you control that player during their next turn instead. (You see all cards that player could see and make all decisions for them.)\nExile Secret of Bloodbending.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "Waterbend"
+  ]
  }
 ]

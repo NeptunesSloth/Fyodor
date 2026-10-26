@@ -48,7 +48,7 @@ def test_wipe_later_than_the_grant_removes_the_granted_offspring(cards):  # 613.
 def test_full(cards):
     from app.rules import coverage
 
-    assert all(coverage.of_card_data(cards.resolve(n)).level == "FULL" for n in ("The Master, Multiplied", "Aboleth Spawn", "Metamorphic Alteration"))
+    assert all(coverage.of_card_data(cards.resolve(n)).level == "FULL" for n in ("The Master, Multiplied", "Aboleth Spawn", "Metamorphic Alteration", "Scheming Fence", "Fblthp, Lost on the Range", "Berserker's Frenzy"))
 
 
 def _unused_full(cards):
@@ -136,8 +136,183 @@ def test_metamorphic_alteration_enchanted_creature_becomes_a_copy_of_the_chosen_
     check(s)
 
 
-def test_metamorphic_alteration_copy_is_fixed_when_it_starts(cards):  # 707.2c: later changes to the chosen creature's copiable values are not followed
+def test_metamorphic_alteration_copy_is_fixed_when_it_starts(cards):  # Scryfall ruling 2018-07-13: values are locked as the creature is chosen; the chosen creature leaving does not change the enchanted one
     s, bears, elves = _alter(cards)
     act(s, "p1", type="move", card_ids=[elves.id], to={"player": "p1", "zone": "graveyard"})
     assert ch(s, bears).name == "Llanowar Elves"  # the copy needs no more than the values taken when it started
     check(s)
+
+
+def test_metamorphic_alteration_ignores_later_copiable_changes_of_the_chosen_creature(cards):  # ruling 2018-07-13: the enchanted creature won't change if the chosen creature's copiable values change
+    s = build(cards, [ALTER, "Cytoshape", "Grizzly Bears", "Llanowar Elves", "Shivan Dragon"])
+    bears, elves, dragon = put(s, "Grizzly Bears"), put(s, "Llanowar Elves"), put(s, "Shivan Dragon")
+    cast(s, ALTER, [bears.id])
+    answer(s, elves.id)
+    cast(s, "Cytoshape", [elves.id])  # the chosen Elves now becomes a Shivan Dragon
+    answer(s, dragon.id)
+    assert ch(s, elves).name == "Shivan Dragon" and ch(s, bears).name == "Llanowar Elves"
+    check(s)
+
+
+FENCE = "Scheming Fence"
+
+
+def _fence(cards, chosen):
+    s = build(cards, [FENCE, "Shivan Dragon", "Jace Beleren"])
+    dragon, jace = put(s, "Shivan Dragon"), put(s, "Jace Beleren")
+    act(s, "p1", type="set_counter", card_id=jace.id, kind="loyalty", value=3)
+    cast(s, FENCE)
+    answer(s, {"dragon": dragon.id, "jace": jace.id, "none": "none"}[chosen])
+    return s, dragon, jace, card_named(s, FENCE)
+
+
+def test_scheming_fence_stops_the_chosen_permanents_abilities_and_borrows_them(cards):  # 602.5, 113.10, 609.4b: Fence has Shivan Dragon's {R}: +1/+0, payable with any color
+    s, dragon, jace, fence = _fence(cards, "dragon")
+    fund(s, "{G}")
+    with pytest.raises(Exception, match="can't be activated"):
+        act(s, "p1", type="activate_ability", card_id=dragon.id, ability=1)
+    mana(s, G=1)
+    base = ch_pt(s, fence)
+    act(s, "p1", type="activate_ability", card_id=fence.id, ability=next(a.index for a in ch(s, fence).abilities if a.kind == "activated"))
+    answer(s)
+    assert ch_pt(s, fence)[0] == base[0] + 1  # the Fence's copy of the pump, paid with green mana
+    check(s)
+
+
+def test_scheming_fence_chosen_planeswalker_loses_loyalty_abilities_but_none_are_lent(cards):  # "except for loyalty abilities"
+    s, dragon, jace, fence = _fence(cards, "jace")
+    assert not [a for a in ch(s, fence).abilities if a.kind in ("activated", "loyalty")]
+    with pytest.raises(Exception, match="can't be activated"):
+        act(s, "p1", type="activate_ability", card_id=jace.id, ability=0)
+    check(s)
+
+
+def test_scheming_fence_may_choose_nothing(cards):
+    s, dragon, jace, fence = _fence(cards, "none")
+    assert not [a for a in ch(s, fence).abilities if a.kind == "activated"]
+    fund(s, "{R}")
+    act(s, "p1", type="activate_ability", card_id=dragon.id, ability=1)
+    check(s)
+
+
+FBLTHP = "Fblthp, Lost on the Range"
+
+
+def _top(s, name):
+    c = to_hand(s, name)
+    act(s, "p1", type="move", card_ids=[c.id], to={"player": "p1", "zone": "library"}, position="top")
+    return c
+
+
+def _plot_index(s, c):
+    return next(a.index for a in ch(s, c).abilities if "plot" in a.keywords)
+
+
+def test_fblthp_plots_the_top_card_for_its_mana_cost(cards):  # 702.170b, 116.2k: exile it and pay the plot cost (its mana cost); 702.170d: castable free on a later turn
+    s = build(cards, [FBLTHP, "Lightning Bolt"])
+    put(s, FBLTHP)
+    bolt = _top(s, "Lightning Bolt")
+    fund(s, "{R}")
+    act(s, "p1", type="activate_ability", card_id=bolt.id, ability=_plot_index(s, bolt))
+    answer(s)
+    assert s.state.cards[bolt.id].zone == "p1:exile"
+    assert any(p.card == bolt.id and p.free for p in s.state.rules.permissions)  # plotted: cast without paying its mana cost on a later turn
+    check(s)
+
+
+def test_fblthp_plot_is_offered_to_the_client_and_taking_it_works(cards):  # 702.170b: the hints a client sees list the top card's plot; only the owner sees it
+    s = build(cards, [FBLTHP, "Lightning Bolt"])
+    put(s, FBLTHP)
+    bolt = _top(s, "Lightning Bolt")
+    fund(s, "{R}")
+    offered = lambda who: [a for a in s.view(who)["rules"]["hints"].get("activatable", []) if a["card_id"] == bolt.id]  # noqa: E731
+    assert [a["ability"] for a in offered("p1")] == [_plot_index(s, bolt)]
+    assert not offered("p2")
+    act(s, "p1", type="activate_ability", **{k: v for k, v in offered("p1")[0].items() if k in ("card_id", "ability")})
+    answer(s)
+    assert s.state.cards[bolt.id].zone == "p1:exile"
+    check(s)
+
+
+@pytest.mark.parametrize("what", ["land", "second", "nofblthp"])
+def test_fblthp_plots_only_the_top_nonland_card_while_it_is_there(cards, what):
+    s = build(cards, [FBLTHP, "Lightning Bolt", "Grizzly Bears"])
+    if what != "nofblthp":
+        put(s, FBLTHP)
+    if what == "land":
+        top = next(c for c in s.state.cards.values() if c.zone == "p1:library" and c.name == "Forest")
+        act(s, "p1", type="move", card_ids=[top.id], to={"player": "p1", "zone": "library"}, position="top")
+        assert not [a for a in ch(s, top).abilities if "plot" in a.keywords]
+        return
+    if what == "second":
+        bolt = _top(s, "Lightning Bolt")
+        bears = _top(s, "Grizzly Bears")
+        assert not [a for a in ch(s, bolt).abilities if "plot" in a.keywords] and [a for a in ch(s, bears).abilities if "plot" in a.keywords]
+        return
+    bolt = _top(s, "Lightning Bolt")
+    assert not [a for a in ch(s, bolt).abilities if "plot" in a.keywords]
+
+
+def test_without_fblthp_the_top_card_cannot_be_plotted(cards):
+    from app.game.errors import ActionError
+
+    s = build(cards, ["Lightning Bolt"])
+    bolt = _top(s, "Lightning Bolt")
+    fund(s, "{R}")
+    with pytest.raises(ActionError):
+        act(s, "p1", type="activate_ability", card_id=bolt.id, ability=100)
+    assert s.state.cards[bolt.id].zone == "p1:library"
+
+
+FRENZY = "Berserker's Frenzy"
+
+
+def _frenzy(cards, monkeypatch, *dice, pick=None):
+    from tests.test_rules_wave12a_counters_keywords import rolls
+    from tests.test_rules_wave34b_activated import stops, to_phase
+
+    s = build(cards, [FRENZY, "Grizzly Bears"], ["Hill Giant"])
+    bears, wall = put(s, "Grizzly Bears"), put(s, "Hill Giant", "p2")
+    next_turn(s)
+    stops(s)
+    to_phase(s, "declare_attackers")
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": bears.id, "target": "p2"}])
+    rolls(monkeypatch, *dice)
+    cast(s, FRENZY)
+    answer(s, *([[wall.id]] if pick else [[]]))
+    return s, bears, wall
+
+
+@pytest.mark.parametrize("dice", [(3, 10), (14, 2)])
+def test_berserkers_frenzy_low_result_makes_the_chosen_creatures_block_if_able(cards, monkeypatch, dice):  # 706.2: the higher die is the result (<= 14); 509.1c requirement
+    from tests.test_rules_wave34b_activated import to_phase
+
+    s, bears, wall = _frenzy(cards, monkeypatch, *dice, pick=True)
+    assert not s.state.rules.declare_choosers
+    to_phase(s, "declare_blockers")
+    with pytest.raises(Exception):  # it must block if able
+        act(s, "p2", type="declare_blockers", blocks=[])
+    act(s, "p2", type="declare_blockers", blocks=[{"blocker_id": wall.id, "attacker_id": bears.id}])
+    assert s.state.cards[wall.id].is_blocking
+    check(s)
+
+
+def test_berserkers_frenzy_ignores_the_lower_roll(cards, monkeypatch):  # 15-20 from the higher die although the lower (2) would be the low row
+    s, bears, wall = _frenzy(cards, monkeypatch, 2, 16)
+    assert "block" in s.state.rules.declare_choosers  # the caster chooses blocks
+    check(s)
+
+
+def test_berserkers_frenzy_cannot_be_cast_after_blockers_are_declared(cards):  # the spell's own timing line (601.3)
+    from app.game.errors import ActionError
+    from tests.test_rules_wave34b_activated import stops, to_phase
+
+    s = build(cards, [FRENZY, "Grizzly Bears"], ["Hill Giant"])
+    bears = put(s, "Grizzly Bears")
+    next_turn(s)
+    stops(s)
+    to_phase(s, "declare_attackers")
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": bears.id, "target": "p2"}])
+    to_phase(s, "declare_blockers")
+    with pytest.raises(ActionError):
+        cast(s, FRENZY)
