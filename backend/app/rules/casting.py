@@ -61,7 +61,11 @@ from app.rules import characteristics as chars
 from app.rules import commander as cmdr
 from app.rules import mana as M
 from app.rules import payment as P
-from app.rules.activation_words import actor_allowed, opponents_only  # -- activation wordings (wave 7B) --
+from app.rules.activation_words import (  # -- activation wordings (wave 7B) --
+    actor_allowed,
+    host_controller,
+    opponents_only,
+)
 from app.rules.characteristics import CardInfo, Characteristics
 from app.rules.costs import AbilityCost, kicker_cost, parse_ability_cost
 from app.rules.oracle import AbilityText
@@ -5685,7 +5689,8 @@ def activate_ability(plan: Plan, a: A.ActivateAbility) -> None:
     # -- activation wordings (wave 7B) -- 602.2: "Any player may activate this ability."
     ab = next((x for x in ch.abilities if x.index == a.ability), None)
     if not card.zone.endswith(":battlefield") or not (
-            actor_allowed(ab, ability_cost(ch, ab, state=plan.state, card=card, info=plan.info), card.controller, plan.actor, owner=card.owner)
+            actor_allowed(ab, ability_cost(ch, ab, state=plan.state, card=card, info=plan.info), card.controller, plan.actor, owner=card.owner,
+                          host=host_controller(plan.state, card))
             if ab is not None else card.controller == plan.actor):
         if ab is not None and opponents_only(ab) and card.controller == plan.actor:
             raise ActionError("Only your opponents may activate this ability")
@@ -5879,7 +5884,7 @@ def _mana_while_paying(plan: Plan, a: A.ActivateAbility) -> None:
     ch = plan.ch(card)
     ability = _find_ability(ch, a.ability)
     if not actor_allowed(ability, ability_cost(ch, ability, state=plan.state, card=card, info=plan.info),
-                         card.controller, plan.actor, owner=card.owner):
+                         card.controller, plan.actor, owner=card.owner, host=host_controller(plan.state, card)):
         raise ActionError("You cannot activate that mana ability")
     if "Activate only as an instant" in ability.text:
         raise ActionError(f"{ch.name} can only be activated when you have priority (not while paying a cost)")
@@ -5942,6 +5947,10 @@ def ability_cost(ch: Characteristics, ability: AbilityText, *, state: GameState 
         return AbilityCost(either=tuple(ability_cost(ch, activation_alternatives.with_cost(ability, side),
                            state=state, card=card, info=info, target=target, targets=targets, actor=actor) for side in sides))
     cost = parse_ability_cost(ability.cost or "", card_name=ch.name, loyalty=ability.kind == "loyalty")
+    if cost.mana == "{H}" and state is not None and card is not None and info is not None:  # -- Merseine (wave 110C) -- "Pay enchanted creature's mana cost" (X is 0, 107.3)
+        host = state.cards.get(card.attached_to or "")
+        if host is not None and (hch := Plan.view(state, card.controller, info).ch(host)).mana_cost:
+            cost = replace(cost, mana=M.parse_cost(hch.mana_cost).with_x(0).text(), components=(costs.CostComponent(costs.MANA, text=hch.mana_cost),))
     if state is not None and card is not None and any(c.amount_rule == "opponents" for c in cost.components):
         from app.rules.plan import live_players
 
@@ -6080,7 +6089,7 @@ def ability_problem(state: GameState, player: str, card: CardInstance, ch: Chara
         if why:
             return why
     elif not (card.zone.endswith(":battlefield") or (card.zone.endswith(":command") and card.token is not None and card.token.type_line == "Emblem")) \
-            or not actor_allowed(ability, cost, card.controller, player, owner=card.owner):  # (wave 7B; wave 110A: an emblem, 114.4)
+            or not actor_allowed(ability, cost, card.controller, player, owner=card.owner, host=host_controller(state, card)):  # (wave 7B; wave 110A: an emblem, 114.4)
         if opponents_only(ability) and card.controller == player:
             return "Only your opponents may activate this ability"
         return "You can only activate abilities of permanents you control"

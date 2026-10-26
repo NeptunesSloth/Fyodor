@@ -7293,3 +7293,7 @@ from app.rules import wave110c_koh as _wave110c_koh  # noqa: E402, I001  -- (wav
 
 PRIMITIVES.update(_wave110c_koh.PRIMITIVES)
 RESUME.update(_wave110c_koh.RESUME)
+from app.rules import wave110c_learn as _wave110c_learn  # noqa: E402, I001  -- (wave 110C) --
+
+PRIMITIVES.update(_wave110c_learn.PRIMITIVES)
+RESUME.update(_wave110c_learn.RESUME)
