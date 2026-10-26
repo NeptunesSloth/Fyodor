@@ -338,3 +338,44 @@ def test_the_boast_cannot_be_activated_before_zemo_attacks(cards):
     with pytest.raises(ActionError):
         act(s, "p1", type="activate_ability", card_id=zemo.id, ability=boast(s, zemo), cost_choices=[{"component": 0, "cards": gy}])
     assert all(s.state.cards[c].zone == "p1:graveyard" for c in gy)  # (nothing was paid; no replay check: ``ready`` writes the creature's age directly)
+
+
+# -- Balduvian Shaman --------------------------------------------------------------------------------------------------------------------------
+SHAMAN = "Balduvian Shaman"
+test_shaman_full = full_test([SHAMAN])
+
+
+def shaman_table(cards):
+    s = build(cards, [SHAMAN, "Crusade", "Elite Vanguard", "Lim-Dûl the Necromancer"], ["Elite Vanguard"], forests=20)
+    shaman = put(s, SHAMAN)
+    crusade = put(s, "Crusade")
+    ready(s, SHAMAN)
+    return s, shaman, crusade
+
+
+def test_the_color_word_is_changed_and_the_enchantment_gains_cumulative_upkeep(cards):
+    s, shaman, crusade = shaman_table(cards)
+    vanguard = put(s, "Elite Vanguard")  # a white 2/1
+    limdul = put(s, "Lim-Dûl the Necromancer")  # a black 4/4
+    assert ch(s, vanguard).pt == (3, 2) and ch(s, limdul).pt == (4, 4)
+    act(s, "p1", type="activate_ability", card_id=shaman.id, ability=0, targets=[crusade.id])
+    for word in ("white", "black"):  # white → black
+        d = s.state.rules.decision
+        assert d is not None and word in [o.id for o in d.options]
+        act(s, d.player, type="choose", decision_id=d.id, option_ids=[word])
+    answer(s)
+    assert ch(s, vanguard).pt == (2, 1) and ch(s, limdul).pt == (5, 5)  # "Black creatures get +1/+1"
+    assert "cumulative upkeep" in {k.lower() for k in ch(s, s.state.cards[crusade.id]).keywords}
+    check(s)
+
+
+def test_an_enchantment_that_already_has_cumulative_upkeep_cannot_be_targeted(cards):
+    s, shaman, crusade = shaman_table(cards)
+    act(s, "p1", type="activate_ability", card_id=shaman.id, ability=0, targets=[crusade.id])
+    for word in ("white", "black"):
+        d = s.state.rules.decision
+        act(s, d.player, type="choose", decision_id=d.id, option_ids=[word])
+    answer(s)
+    s.state.cards[shaman.id].tapped = False
+    with pytest.raises(ActionError):
+        act(s, "p1", type="activate_ability", card_id=shaman.id, ability=0, targets=[crusade.id])

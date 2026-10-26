@@ -814,6 +814,23 @@ def resume_myra(plan: Any, d: Any, chosen: list[str]) -> None:
         effects.continue_effects(plan, ctx)
 
 
+_SHAMAN = ("{T}: Change the text of target white enchantment you control that doesn't have cumulative upkeep by replacing all instances of one color word with another. "
+           "That enchantment gains \"Cumulative upkeep {1}.\"")
+
+
+def _shaman(d: Def) -> Def:
+    """Balduvian Shaman: the existing color-word change (612, text_change_instructions71) on the white enchantment (no cumulative upkeep), which then gains cumulative upkeep {1} for good (702.24a)."""
+    from app.rules import selectors
+
+    target = selectors.Selector(types=("Enchantment",), colors=("W",), controller="you", without_keywords=("cumulative upkeep",))
+    return {**d, "target": {"what": target.key()}, "effects": [
+        {"do": "text71_old", "categories": ["color"], "duration": "permanent", "not_wall": False},
+        {"do": "grant", "who": "target", "keywords": [], "duration": "permanent", "abilities": ["Cumulative upkeep {1}."]}]}
+
+
+_BUILD[_SHAMAN] = ("{T}: You gain 1 life.", _shaman)
+
+
 _MEDDLE = "If target spell has only one target and that target is a creature, change that spell's target to another creature."
 
 
