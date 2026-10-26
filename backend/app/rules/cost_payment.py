@@ -819,6 +819,15 @@ def excluded(cost: AbilityCost, card: CardInstance, chosen: dict[int, list[str]]
 
 
 def pay(plan: Plan, cost: AbilityCost, card: CardInstance, chosen: dict[int, list[str]], record: PaymentRecord) -> None:
+    """-- wave 110B -- zone changes made while a craft ability's cost is paid carry ``craft110b`` (702.167a; Market Gnome)."""
+    plan.craft110b = any(c.kind == C.CRAFT for c in cost.components)
+    try:
+        _pay(plan, cost, card, chosen, record)
+    finally:
+        plan.craft110b = False
+
+
+def _pay(plan: Plan, cost: AbilityCost, card: CardInstance, chosen: dict[int, list[str]], record: PaymentRecord) -> None:
     """Carry out the non-mana parts other than {T}, loyalty, life and the source's own counters
     (the caller pays those as before), recording what was used (the payment record)."""
     player = plan.actor

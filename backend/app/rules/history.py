@@ -255,6 +255,7 @@ def note_cast(plan: Plan, card: Any) -> None:
         key = normalize_name(name)
         totals[key] = totals.get(key, 0) + 1
     record = plan.rules.payments.get(plan.oid(card))
+    log._cast_ids = None
     log.casts.append(CastNote(kicked77=("kicker" in record.additional and record.kicked > 0 and "anytimes" not in record.additional) if record is not None else None,
                               player=card.controller, object_id=plan.oid(card), names=card_names.names_of(ch), types=sorted(ch.types),
                               subtypes=sorted(ch.subtypes), supertypes=sorted(ch.supertypes), colors=sorted(ch.colors),
@@ -472,6 +473,7 @@ def note_became(plan: Plan, spell_object: str, permanent_object: str) -> None:
     for note in log.casts:
         if note.object_id == spell_object:
             note.became = permanent_object
+            log._cast_ids = None
 
 
 # The fields of a selector the recorded characteristics answer (anything else — keywords, tapped, control now —
@@ -963,7 +965,7 @@ def amount(plan: Plan, ctx: dict[str, Any], v: dict[str, Any]) -> int:
     if kind == "opp_drew":  # -- commanders (wave 47A) -- "for each card your opponents have drawn this turn" (Heliod, the Radiant Dawn)
         return sum(n for p, n in log.drew.items() if p != me and p in plan.live())
     if kind == "died":
-        return sum(1 for d in log.left if (v.get("left") or d.to == v.get("to", "graveyard")) and (snap := plan.rules.lki.get(d.object_id)) is not None
+        return sum((snap.power or 0) if v.get("power110b") else 1 for d in log.left if (v.get("left") or d.to == v.get("to", "graveyard")) and (snap := plan.rules.lki.get(d.object_id)) is not None
                    and (v.get("who") != "you" or d.controller == me)  # (-- X actions (wave 9A) -- "under your control")
                    and (v.get("who") != "opponent" or d.controller != me)  # (wave 41B: "exiled under your opponents' control", ``to``: the zone it went to)
                    and (v.get("owner") != "you" or snap.owner == me)  # (-- this-turn history (wave 30R) -- "your graveyard": 400.3)

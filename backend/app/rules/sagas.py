@@ -46,7 +46,7 @@ CHAPTER_EVENT = "chapter"  # TriggerEvent.kind of a chapter ability (714.2b)
 _ROMAN = {"I": 1, "II": 2, "III": 3, "IV": 4, "V": 5, "VI": 6, "VII": 7, "VIII": 8, "IX": 9, "X": 10}
 _CHAPTER = re.compile(r"^(?P<n>[IVX]+(?:, [IVX]+)*) — (?P<body>.+)$", re.S)
 # a chapter's flavor name ("IV — Mega Flare — This creature deals …", 207.2c-like: no rules meaning)
-_FLAVOR = re.compile(r"^(?P<name>[A-Z][^—.:\"•]{0,40}?) — (?P<rest>.+)$", re.S)
+_FLAVOR = re.compile(r"^(?![^—]* faces a villainous choice)(?P<name>[A-Z][^—.:\"•]{0,40}?) — (?P<rest>.+)$", re.S)
 READ_AHEAD = "read ahead"
 CHAPTER_CHOICE = re.compile(r"^chapter number \(1-(?P<n>\d+)\)$")  # the read-ahead choice's ``what`` (702.155b)
 

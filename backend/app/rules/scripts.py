@@ -4920,6 +4920,8 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
         from app.rules import villainous as _villainous  # -- villainous choice (wave 23A) -- 701.55
 
         if (villain := _villainous.sentence(text, effects, lambda t: _plain_clause(t, it, True))) is not None:
+            if any(x.get('who') == 'target' for x in villain):  # -- (wave 110B) -- "Target opponent faces a villainous choice"
+                villain = _add_groups(groups, villain, 'opponent')
             effects += villain
             continue
         if (filtered := _player_filter.sentence(text, effects, lambda t: _plain_clause(t, it, event_player))) is not None:

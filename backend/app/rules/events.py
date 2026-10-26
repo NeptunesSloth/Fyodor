@@ -465,12 +465,12 @@ def _parse(c: str) -> Condition | None:
             return None
         return {**inner, "nodie": True}
     # -- triggers (wave 17D) -- "Whenever a creature is exiled from the battlefield" (Soulherder): a leave whose destination is exile
-    m = re.fullmatch(r"(?P<s>.+?) (?:is|are) (?:exiled|put into exile) from the battlefield", c)
+    m = re.fullmatch(r"(?P<s>.+?) (?:is|are) (?:exiled|put into exile) from the battlefield(?P<craft> while you're activating a craft ability)?", c)
     if m and " or " not in m["s"] and not m["s"].endswith(" or"):  # ("~ dies or is put into exile from the battlefield": the either-form below)
         inner = _parse(f"{m['s']} leaves the battlefield")
         if inner is None or inner.get("event") != "leave":
             return None
-        return {**inner, "dest": "exile"}
+        return {**inner, "dest": "exile", **({"craft110b": True} if m["craft"] else {})}
     # "When ~ enters or dies", "Whenever ~ attacks or blocks": one ability, each event (603.2)
     m = re.fullmatch(rf"~ (?P<a>{_MULTI_RE}) or (?P<b>{_MULTI_RE})", c)
     if m:
