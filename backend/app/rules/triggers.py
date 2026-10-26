@@ -2628,6 +2628,10 @@ def targeted(plan: Plan, stack_id: str | None, controller: str, targets: list[An
         spell = plan.state.cards.get(stack_id)
         _fire_generic(plan, [("chose_targets110h", None, None, controller,
                               {"actor": controller, "source_ref": ObjectRef(card=stack_id, object_id=plan.oid(spell), zone=spell.zone) if spell is not None else None})], -1, {})
+    elif targets:  # -- targets chosen (wave 110H) -- a copy's or a changed target: whether it "chooses" targets is unsettled (no CR rule or ruling), so manual play
+        from app.rules import wave110h_cards
+
+        wave110h_cards.unsettled_choose(plan, controller)
     _targeted_generic(plan, stack_id, controller, targets)
     for t in targets:
         card = plan.state.cards.get(t.id if hasattr(t, "id") else t)

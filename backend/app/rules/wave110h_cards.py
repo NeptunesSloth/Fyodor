@@ -1024,7 +1024,16 @@ def psychic(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
         return True
     plan.note(f"Psychic Battle: {plan.name(winners[0])} reveals the greatest mana value", actor=ctx["controller"])
     sids = effects_stack_targets(plan, ctx)
-    return not sids or stack_interaction._ask_new_targets(plan, ctx, sids[0], [], winners[0], each="may")
+    # The 2004 ruling (Scryfall): "You can change all, some, or none of the targets" - so per-target keep (115.7d's way; 115.7c's "any number"), over 115.7a's all-or-none.
+    return not sids or stack_interaction._ask_new_targets(plan, ctx, sids[0], [], winners[0])
+
+
+def unsettled_choose(plan: Any, who: str) -> None:
+    """A copy gets targets, or another effect changes them (Deflecting Swat): no CR rule or ruling says that is a player "choosing one or more targets" (601.2c is casting or
+    activating), so Psychic Battle does not trigger; a note tells the table to resolve it by hand."""
+    for c in plan.state.cards.values():
+        if c.zone.endswith(":battlefield") and "chooses one or more targets" in (plan.ch(c).oracle_text or ""):
+            plan.note(f"{c.name}: whether a copy's or a changed target counts as a player choosing targets is unsettled - resolve it manually", actor=who)
 
 
 def effects_stack_targets(plan: Any, ctx: Any) -> list[str]:
