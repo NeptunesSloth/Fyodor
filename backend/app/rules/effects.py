@@ -105,10 +105,10 @@ def _players(plan: Plan, ctx: Context, who: str) -> list[str]:
     if who == "each_player":
         return list(plan.live())
     if who == "source_controller110a":  # -- wave 110A -- "~'s controller" in an ability anyone may activate (Xantcha); last known if it left (608.2h)
-        src = plan.state.cards.get(ctx.get("source_card") or "")
-        snap = plan.rules.lki.get(ctx.get("source_object") or "")
-        pid = src.controller if src is not None and plan.oid(src) == ctx.get("source_object") else snap.controller if snap is not None else ""
-        return [pid] if pid in plan.live() else []
+        src110a = plan.state.cards.get(ctx.get("source_card") or "")
+        snap110a = plan.rules.lki.get(ctx.get("source_object") or "")
+        ctl110a = src110a.controller if src110a is not None and plan.oid(src110a) == ctx.get("source_object") else snap110a.controller if snap110a is not None else ""
+        return [ctl110a] if ctl110a in plan.live() else []
     if who == "host_controller":  # -- block events (wave 53C) -- "enchanted permanent's controller": the controller of what the source is attached to, fixed when first read
         # (608.2c: "then that player loses 1 life" is still that player when the permanent was just sacrificed); no host, nobody
         if "host_controller" not in ctx:

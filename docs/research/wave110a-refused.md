@@ -48,3 +48,6 @@
 - Tezzeret, Betrayer of Flesh: "first activated ability of an artifact you activate each turn" must count mana abilities too (605.1a); needs a per-turn record in the mana-ability path; not built this session.
 - Squandered Resources (wave 110A s14): needs the sacrificed land's producible mana as a cost-bound option list (mana ability reading a cost object); deferred, not refused for rules.
 - Celestial Reunion (wave 110A s14): chosen creature type + behold two of that type + conditional battlefield put; deferred.
+- Squandered Resources: now built (wave 110A s15): mana.py count "sacrificed_land_types", types read from the sacrificed land's own mana abilities at activation.
+- You Look Upon the Tarrasque: "All creatures your opponents control able to block that creature do so" needs a lure whose blockers are "not controlled by the caster"; the lure rule's selector "you" is the attacker's controller, which differs when the target is not the caster's creature.
+- Leonin Arbiter: "any player may pay {2} ... ignore this effect": no CR rule or ruling in the repo for when the payment may be made.
