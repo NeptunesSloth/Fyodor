@@ -128,10 +128,31 @@ def untap_hold(plan: Any, player: str, keep: list[str]) -> list[str]:
     return held
 
 
+# Ultra Magnus (701.28: convert = transform): the delayed convert only follows a creature actually put onto the battlefield; Formidable reads the attackers' total power as it resolves.
+_MAGNUS_PUT = "Whenever ~ attacks, you may put an artifact creature card from your hand onto the battlefield tapped and attacking."
+_MAGNUS_FORMIDABLE = "Whenever ~ attacks, attacking creatures you control gain indestructible until end of turn. If those creatures have total power 8 or greater, transform ~."
+
+
 def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
     from app.rules import scripts
 
     text = scripts.self_text(ability.text, ch.name)
+    if text == _MAGNUS_PUT + " If you do, transform ~ at end of combat.":
+        native = scripts.define(replace(ability, text=_MAGNUS_PUT), ch)
+        delayed = scripts.parse_effects("Transform ~ at end of combat.")
+        if native is None or [e["do"] for e in native["effects"]] != ["put_from_hand"] or delayed is None:
+            return None
+        return {**native, "effects": [{**native["effects"][0], "did": "did0"}, {"do": "only_if", "cond": {"succeeded": "did0"}, "skip": len(delayed[0])}, *delayed[0]]}
+    if text == _MAGNUS_FORMIDABLE:
+        from app.rules import selectors
+
+        native = scripts.define(replace(ability, text="Whenever ~ attacks, attacking creatures you control gain indestructible until end of turn. If you control three or more attacking creatures, transform ~."), ch)
+        attackers = selectors.parse("attacking creatures you control")
+        eff = native["effects"] if native else []
+        if attackers is None or len(eff) < 2 or eff[-2].get("do") != "only_if":
+            return None
+        cond = {"value": {"sum": "power", "of": attackers.key()}, "op": ">=", "n": 8}  # ("those creatures" are the attackers the first sentence just affected)
+        return {**native, "effects": [*eff[:-2], {**eff[-2], "cond": cond}, eff[-1]]}
     if text in (_HEART, _HEART.replace("Heart of Kiran", "~")):
         return {"kind": "static", "static": "crew_loyalty110h", "effects": []}
     if text == _DESOLATION.replace("This enchantment", "~"):
@@ -190,7 +211,9 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
         eff = native["effects"] if native else []
         if native is None or not eff or eff[0].get("do") != "sacrifice_choice":
             return None
-        return {**native, "effects": [{**eff[0], "exile": True}, *eff[1:]]}
+        # 111.2: the tokens may be any controller's (a stolen Tetravite too), so the controller of this ability chooses among them (not a sacrifice list of their own permanents)
+        pick = {"do": "player_chooses", "who": "you", "sel": eff[0]["sel"], "n": 99, "label": "token", "upto": True, "optional": True, "any": True, "as": "tco"}
+        return {**native, "effects": [pick, {"do": "exile", "who": "ref:tco", "as": "e0"}, {**eff[1], "n": {**eff[1]["n"], "this_way": "exiled"}}, *eff[2:]]}
     if text == _PUMMELER.replace("this creature", "~"):
         native = scripts.define(replace(ability, text=_PUMMELER[:_PUMMELER.index(" When one")]), ch)
         rider = ((native or {}).get("op") or {}).get("rider") or {}
@@ -830,7 +853,7 @@ def made(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
 
     src = ctx.get("source_card")
     context.bind_objects(plan, ctx, e["as"], [c.id for c in plan.state.cards.values()
-                                              if c.is_token and c.zone.endswith(":battlefield") and c.token_source is not None and c.token_source.source_id == src])
+                                              if c.is_token and c.zone.endswith(":battlefield") and c.token_source is not None and (c.token_source.object_id == ctx.get("source_object") if c.token_source.object_id else c.token_source.source_id == src)])
     return True
 
 

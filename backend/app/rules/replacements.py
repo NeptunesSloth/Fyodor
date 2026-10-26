@@ -1589,7 +1589,7 @@ def offer_616(plan: Plan) -> bool:
             continue
         chooser = card.controller if _from_zone(card) in ("battlefield", "stack") else card.owner  # (a spell has a controller too: 110.2, 616.1)
         decide(plan, player=chooser, kind="choose_one",
-               prompt=f"{card.name or 'A card'} would be put into a graveyard: which replacement effect applies first? (616.1)",
+               prompt=f"{card.name or 'A card'} would {'enter the battlefield' if p.get('entry110h') else 'be put into a graveyard'}: which replacement effect applies first? (616.1)",
                options=[DecisionOption(id=o, label=f"{src}: {p['texts'][o]}",
                                        card_id=(((p.get('cands') or {}).get(o) or {}).get('rider') or {}).get('source') or None)
                         for o, src in p["options"].items()],
@@ -1614,6 +1614,9 @@ def resume_616(plan: Plan, d: Any, chosen: list[str]) -> None:
         next((c for c in zone_candidates(plan, card, p["dest"]) if c.sig == chosen[0]), None)
     if cand is None:  # (nothing applies any more: the event goes on as it was, its replacements looked at again)
         plan.do({"type": "move", "card_ids": [cid], "to": {"player": card.owner, "zone": p["dest"]}}, actor=card.controller)
+        _finish_616_then(plan, cid, d.resume.get('then'), commander_key)
+        return
+    if p.get("entry110h") and cand.outcome == "exile" and card.zone.endswith(":exile"):  # -- cards (wave 110H) -- it stays in exile: no zone change (Don't Blink)
         _finish_616_then(plan, cid, d.resume.get('then'), commander_key)
         return
     if cand.used:  # (a spell cast "without paying …": its one-shot "exile it instead" is used up, 614.5)

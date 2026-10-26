@@ -53,8 +53,9 @@ def exiles(plan: Plan, card: CardInstance, controller: str) -> bool:
     return 'Creature' in plan.ch(probe).types
 
 
-def shuffles(plan: Plan, card: CardInstance, controller: str) -> bool:
-    """-- cards (wave 110H) -- Don't Blink: a creature entering from exile, or a creature spell cast from exile (the exile replacement of ``exiles`` wins when both apply: 616.1)."""
+def shuffles(plan: Plan, card: CardInstance, controller: str, *, both: bool = False) -> bool:
+    """-- cards (wave 110H) -- Don't Blink: a creature entering from exile, or a creature spell cast from exile. When an exile replacement applies
+    too, ``conflict`` holds the creature for its controller's 616.1 choice (``both``: ignore that second effect here)."""
     from app.rules import replace
 
     if not replace.candidates(plan, 'creature_entry_exile110h'):
@@ -63,10 +64,23 @@ def shuffles(plan: Plan, card: CardInstance, controller: str) -> bool:
         paid = plan.rules.payments.get(plan.oid(card))
         if paid is None or paid.cast_from != 'exile':
             return False
-    elif not card.zone.endswith(':exile') or exiles(plan, card, controller):
+    elif not card.zone.endswith(':exile') or (exiles(plan, card, controller) and not both):
         return False
     probe = card.model_copy(update={'zone': zone_key(controller, 'battlefield'), 'controller': controller})
     return 'Creature' in plan.ch(probe).types
+
+
+def conflict(plan: Plan, card: CardInstance, controller: str) -> bool:
+    """616.1: an exile-instead replacement and Don't Blink's shuffle both apply to this entry."""
+    return shuffles(plan, card, controller, both=True) and exiles(plan, card, controller)
+
+
+def hold(plan: Plan, card: CardInstance) -> None:
+    """Park the creature for the 616.1 question of its controller (its owner if it has no controller): exile it, or reveal and shuffle it in (offer_616)."""
+    from app.rules import replacements
+
+    replacements._pick(plan, card, [replacements.Cand("Exile replacement", "exile"), replacements.Cand("Don't Blink", "library:shuffle")], "exile")
+    plan.rules.pending_616[card.id]["entry110h"] = True
 
 
 def shuffle_in(plan: Plan, card_id: str) -> None:
@@ -107,7 +121,11 @@ def move(plan: Plan, payload: dict[str, Any]) -> dict[str, Any]:
         probe = entry_characteristics.probe(card, (payload.get('entry_characteristics') or {}).get(cid))
         if cid in (payload.get('back_ids') or []):
             probe = probe.model_copy(update={'face': 1})
-        if exiles(plan, probe, controller):
+        if conflict(plan, probe, controller):  # -- cards (wave 110H) -- 616.1: its controller chooses which of the two replacements applies
+            hold(plan, card)
+            shuffled.append(cid)
+            changed = True
+        elif exiles(plan, probe, controller):
             routes[cid] = {'player': card.owner, 'zone': 'exile'}
             changed = True
         elif shuffles(plan, probe, controller):  # -- cards (wave 110H) -- Don't Blink: shuffled in instead of entering

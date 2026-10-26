@@ -54,15 +54,17 @@ def spec(ability: AbilityText, name: str) -> dict[str, Any] | None:
 
 
 def evaluate(plan: Plan, source: CardInstance, value: dict[str, Any], targets: list[str] | None = None, announced: int | None = None) -> int:
-    if "opp_hand110h" in value:  # -- cards (wave 110H) -- "an opponent's hand": X is one opponent's hand size (107.3c); several differ, the announced X must match one
+    if "opp_hand110h" in value:  # -- cards (wave 110H) -- Bargaining Table. Ruling: "You choose an opponent as you activate the ability; X is the number of cards in that player's hand." (107.3c)
         from app.game.errors import ActionError
         from app.rules import effects
 
-        sizes = {len(plan.state.zones.get(f"{p}:hand", [])) for p in effects._players(plan, {"controller": source.controller}, "each_opponent")}
+        hands = {p: len(plan.state.zones.get(f"{p}:hand", [])) for p in effects._players(plan, {"controller": source.controller}, "each_opponent")}
         if announced is None:
-            return min(sizes, default=0)
-        if announced not in sizes:
-            raise ActionError(f"X must be the number of cards in an opponent's hand: {sorted(sizes)}")
+            return min(hands.values(), default=0)
+        chosen = next((p for p, n in hands.items() if n == announced), None)  # (the announced X names the opponent chosen; on a tie the first in turn order: the draw does not depend on which)
+        if chosen is None:
+            raise ActionError(f"X must be the number of cards in an opponent's hand: {sorted(set(hands.values()))}")
+        plan.note(f"{plan.name(source.controller)} chooses {plan.name(chosen)}: X is the number of cards in their hand ({announced})")
         return announced
     if "twice_target_mv110i" in value:
         from app.game.errors import ActionError

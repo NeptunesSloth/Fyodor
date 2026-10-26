@@ -2635,7 +2635,7 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
                 and extra[len('controller_controls_land:'):] in plan.ch(c).subtypes
                 and 'Land' in plan.ch(c).types for c in plan.state.cards.values()):
             return False
-        if extra == "made_by_source110h" and (card.token_source is None or card.token_source.source_id != source):  # (-- cards (wave 110H) --)
+        if extra == "made_by_source110h" and (card.token_source is None or (card.token_source.object_id or card.token_source.source_id) != (plan.oid(source) if card.token_source.object_id else source)):  # (-- cards (wave 110H) --)
             return False
         if extra.startswith("not_oid:") and plan.oid(card) == extra[8:]:  # -- player-relative selectors (wave 53A) -- "other creatures that player controls": other than the target it follows
             return False

@@ -24,6 +24,7 @@ EXTRA = [
     real("Act on Impulse", "{2}{R}", 3, "Sorcery", "Exile the top three cards of your library. Until end of turn, you may play those cards.", None, "R"),
     real("Grizzly Bears", "{1}{G}", 2, "Creature \u2014 Bear", "", ("2", "2"), "G"),
     real("Blink Test", "{2}{U}", 3, "Instant", "Exile target creature you control, then return it to the battlefield under its owner's control.", None, "U"),
+    real("Containment Priest", "{1}{W}", 2, "Creature \u2014 Human Cleric", "Flash\nIf a nontoken creature would enter and it wasn't cast, exile it instead.", ("2", "2"), "W"),
     real("Don't Blink", "{1}{U}", 2, "Instant",
          "Until end of turn, if one or more creatures would enter from exile or after being cast from exile, their owners shuffle them into their libraries instead.\nCycling {2} ({2}, Discard this card: Draw a card.)",
          None, "U"),
@@ -62,6 +63,7 @@ def test_bargaining_table_x_is_the_opponents_hand_size(cards):
     act(s, "p1", type="activate_ability", card_id=table.id, ability=ability(s, table, "{X}"), x_value=n)
     answer(s)
     assert len(s.state.zones["p1:hand"]) == hand + 1 and now(s, table).tapped
+    assert any("chooses" in (t := "".join(p.t or "" for p in e.parts)) and "number of cards in their hand (3)" in t for e in s.state.log)  # the chosen opponent is recorded (ruling: chosen on activation)
     check(s)
 
 
@@ -186,4 +188,88 @@ def test_magma_pummeler_prevents_and_deals_the_counters_removed(cards, x, left):
     dealt = min(3, x)
     assert life(s, "p2") == 40 - dealt
     assert now(s, pum).counters.get("+1/+1", 0) == left
+    check(s)
+
+
+def _upkeep(s, turn, pick):
+    """Run the upkeep triggers, answering with ``pick(option ids)``; returns every option id offered."""
+    to_phase(s, "upkeep", turn=turn)
+    seen: list[str] = []
+    while True:
+        d = s.state.rules.decision
+        if d is None:
+            if not s.state.zones.get("stack"):
+                return seen
+            act(s, s.state.rules.priority, type="pass_priority")
+            continue
+        ids = [o.id for o in d.options]
+        seen += ids
+        act(s, d.player, type="choose", decision_id=d.id, option_ids=pick(ids, d))
+
+
+def _tetravus_with_two_tokens(cards):
+    s = build(cards, ["Tetravus", "Blink Test"])
+    tet = to_hand(s, "Tetravus")
+    mana(s, C=6)
+    act(s, "p1", type="cast_spell", card_id=tet.id)
+    answer(s)
+    act(s, "p1", type="set_prefs", hold_priority=True, response="on", auto_resolve_own_triggers="off")
+    _upkeep(s, 3, lambda ids, d: ["x:2"] if "x:2" in ids else ids[: max(1, d.min_choices)])
+    toks = [c for c in s.state.cards.values() if c.is_token and c.zone == "p1:battlefield"]
+    assert len(toks) == 2
+    return s, tet, toks
+
+
+def test_tetravus_blinked_is_a_new_object_that_made_no_tokens(cards):
+    """400.7 / 111.2: tokens created with the old Tetravus are not created with the object that came back from exile."""
+    s, tet, toks = _tetravus_with_two_tokens(cards)
+    blink = to_hand(s, "Blink Test")
+    to_phase(s, "main1", turn=3)
+    mana(s, U=1, C=2)
+    act(s, "p1", type="cast_spell", card_id=blink.id, targets=[tet.id])
+    answer(s)
+    assert now(s, tet).zone == "p1:battlefield"
+    seen = _upkeep(s, 5, lambda ids, d: [o for o in ids if o == "decline"] or ids[: max(1, d.min_choices)])
+    assert not {t.id for t in toks} & set(seen)
+    assert all(now(s, t).zone == "p1:battlefield" for t in toks)
+    check(s)
+
+
+def test_tetravus_exiles_tokens_an_opponent_stole(cards):
+    """111.2: any controller's tokens created with this creature may be exiled (not only the ones you control)."""
+    s, tet, toks = _tetravus_with_two_tokens(cards)
+    act(s, "p1", type="set_controller", card_ids=[toks[0].id], player="p2")
+    seen = _upkeep(s, 5, lambda ids, d: [o for o in ids if o in {t.id for t in toks}] or [o for o in ids if o == "decline"] or ids[: max(1, d.min_choices)])
+    assert toks[0].id in seen and toks[1].id in seen
+    assert not [c for c in s.state.cards.values() if c.is_token and c.zone.endswith(":battlefield")]
+    assert now(s, tet).counters.get("+1/+1") == 3
+    check(s)
+
+
+@pytest.mark.parametrize("pick", ["exile", "library:shuffle"])
+def test_dont_blink_with_exile_replacement_controller_chooses(cards, pick):
+    """616.1: Containment Priest (exile instead) and Don't Blink (shuffle instead) both replace the blink's entry: the creature's owner picks, either order works."""
+    s = build(cards, ["Don't Blink", "Blink Test", "Grizzly Bears", "Containment Priest"])
+    bears = put(s, "Grizzly Bears")
+    put(s, "Containment Priest")
+    mana(s, U=3, C=2)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Don't Blink").id)
+    answer(s)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Blink Test").id, targets=[bears.id])
+    asked = False
+    for _ in range(6):
+        d = s.state.rules.decision
+        if d is None:
+            if not s.state.zones.get("stack"):
+                break
+            act(s, s.state.rules.priority, type="pass_priority")
+            continue
+        if d.kind == "choose_one" and pick in [o.id for o in d.options]:
+            assert d.player == "p1" and "enter the battlefield" in d.prompt
+            asked = True
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[pick])
+        else:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: max(1, d.min_choices)])
+    assert asked
+    assert now(s, bears).zone == ("p1:exile" if pick == "exile" else "p1:library")
     check(s)
