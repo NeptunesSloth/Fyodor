@@ -2,6 +2,7 @@
 
 * Fasting: the draw step is skipped only when its controller says so (614.10a, 614.1); skipping gains 2 life; drawing destroys it (121.1).
 * Smelting Vat: the up-to-two noncreature artifacts put onto the battlefield have total mana value at most the sacrificed artifact's (608.2d).
+* Lodestone Bauble: targets are basic lands of one player's graveyard (115.1), put on top of that library; that player draws at the next upkeep.
 * Hipparion: blocking a creature with power 3 or greater costs {1} (509.1d); power 2 costs nothing.
 """
 
@@ -23,7 +24,10 @@ FASTING = ("At the beginning of your upkeep, put a hunger counter on this enchan
            "If you would begin your draw step, you may skip that step instead. If you do, you gain 2 life.\nWhen you draw a card, destroy this enchantment.")
 VAT = ("{1}, {T}, Sacrifice another artifact: Reveal the top eight cards of your library. Put up to two noncreature artifact cards with total mana value "
        "less than or equal to the sacrificed artifact's mana value from among them onto the battlefield and the rest on the bottom of your library in a random order.")
-EXTRA = [real("Smelting Vat", "{2}", 2, "Artifact", VAT, None, ""),
+BAUBLE = ("{1}, {T}, Sacrifice this artifact: Put up to four target basic land cards from a player's graveyard on top of their library in any order. "
+          "That player draws a card at the beginning of the next turn's upkeep.")
+EXTRA = [real("Lodestone Bauble", "{2}", 2, "Artifact", BAUBLE, None, ""),
+         real("Smelting Vat", "{2}", 2, "Artifact", VAT, None, ""),
          real("Probe Gem1", "{1}", 1, "Artifact", "", None, ""), real("Probe Gem2", "{2}", 2, "Artifact", "", None, ""),
          real("Probe Gem3", "{3}", 3, "Artifact", "", None, ""), real("Probe Golem", "{1}", 1, "Artifact Creature — Golem", "", ("1", "1"), ""),
          real("Fasting", "{W}", 1, "Enchantment", FASTING, None, "W"),
@@ -131,4 +135,50 @@ def test_smelting_vat_refuses_too_much_mana_value(cards):
         act(s, d.player, type="choose", decision_id=d.id, option_ids=[g2.id])  # 2 > 1
     answer(s, [])
     assert s.state.cards[g2.id].zone == "p1:library" and s.state.cards[g3.id].zone == "p1:library"
+    check(s)
+
+
+def _bauble(cards, targets):
+    from tests.wave110a_kit import next_turn
+
+    s = build(cards, ["Lodestone Bauble"])
+    bauble = put(s, "Lodestone Bauble")
+    islands = [c for c in s.state.zones["p2:library"] if s.state.cards[c].name == "Island"][:3]
+    forests = [c for c in s.state.zones["p1:library"] if s.state.cards[c].name == "Forest"][:1]
+    act(s, "p2", type="move", card_ids=islands, to={"player": "p2", "zone": "graveyard"})
+    act(s, "p1", type="move", card_ids=forests, to={"player": "p1", "zone": "graveyard"})
+    mana(s, C=1)
+    return s, bauble, islands, forests
+
+
+def test_bauble_returns_lands_and_that_player_draws(cards):
+    s, bauble, islands, forests = _bauble(cards, None)
+    hand = len(s.state.zones["p2:hand"])
+    activate(s, "p1", bauble, targets=islands[:2], target_counts=[2])
+    answer(s)
+    assert [s.state.cards[c].zone for c in islands[:2]] == ["p2:library"] * 2 and s.state.cards[islands[2]].zone == "p2:graveyard"
+    assert s.state.cards[forests[0]].zone == "p1:graveyard"
+    assert len(s.state.zones["p2:hand"]) == hand
+    from tests.wave100c_kit import to_phase
+
+    to_phase(s, "main1", turn=2)
+    assert len(s.state.zones["p2:hand"]) == hand + 2  # upkeep draw (Bauble) and draw step
+    check(s)
+
+
+def test_bauble_refuses_lands_from_two_graveyards(cards):
+    s, bauble, islands, forests = _bauble(cards, None)
+    with pytest.raises(ActionError):
+        activate(s, "p1", bauble, targets=[islands[0], forests[0]], target_counts=[2])
+
+
+def test_bauble_with_no_target_draws_nobody(cards):
+    s, bauble, islands, forests = _bauble(cards, None)
+    h1, h2 = len(s.state.zones["p1:hand"]), len(s.state.zones["p2:hand"])
+    activate(s, "p1", bauble, targets=[], target_counts=[0])
+    answer(s)
+    from tests.wave100c_kit import to_phase
+
+    to_phase(s, "main1", turn=2)
+    assert len(s.state.zones["p2:hand"]) == h2 + 1 and len(s.state.zones["p1:hand"]) == h1
     check(s)

@@ -131,9 +131,23 @@ def _total_sacrificed(d: Def) -> Def:
     return {**d, "effects": [{**x, "total_mv": {"mana_value": "cost:sacrificed"}} if x.get("do") == "pick_looked" else x for x in d["effects"]]}
 
 
+def _bauble(d: Def) -> Def:
+    """Lodestone Bauble: the targets are basic lands in any one graveyard (115.1d-style "a player's graveyard": one player), and "that player" is their owner."""
+    import json
+
+    t = d["targets"][0]
+    sel = json.loads(t["what"][4:])
+    sel.pop("zone_owner", None)
+    t = {**t, "what": "sel:" + json.dumps(sel, separators=(",", ":"), sort_keys=True), "same_controller": True}
+    return {**d, "targets": [t], "effects": [{"do": "bauble110i", "who": "target:0"}, d["effects"][0]]}
+
+
+_BAUBLE = ("{1}, {T}, Sacrifice this artifact: Put up to four target basic land cards from a player's graveyard on top of their library in any order. "
+           "That player draws a card at the beginning of the next turn's upkeep.")
 _VAT = ("{1}, {T}, Sacrifice another artifact: Reveal the top eight cards of your library. Put up to two noncreature artifact cards with total mana value "
         "less than or equal to the sacrificed artifact's mana value from among them onto the battlefield and the rest on the bottom of your library in a random order.")
 _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
+    _BAUBLE: ("{1}, {T}, Sacrifice this artifact: Put up to four target basic land cards from your graveyard on top of your library in any order.", _bauble),
     _VAT: (_VAT.replace(" with total mana value less than or equal to the sacrificed artifact's mana value", ""), _total_sacrificed),
     "If you would begin your draw step, you may skip that step instead. If you do, you gain 2 life.": ("Skip your draw step.", _fasting),
     "When this creature enters, you may pay {2}{R} any number of times. When you pay this cost one or more times, put that many +1/+1 counters on this creature, "
@@ -277,6 +291,18 @@ def bind_first(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     return True
 
 
+def bauble(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """That player (the owner of the targeted cards) draws at the next upkeep; with no target card there is no such player and nobody draws."""
+    from app.rules import effects
+
+    ids = effects._cards(plan, ctx, e["who"])
+    owner = plan.state.cards[ids[0]].owner if ids else None
+    if owner in plan.live():
+        ctx["effects"][ctx["next"]:ctx["next"]] = [{"do": "delayed", "when": {"kind": "step", "step": "upkeep", "whose": "next_turn"}, "n": 1},
+                                                   {"do": "deferred:draw", "who": f"player:{owner}", "n": 1}]
+    return True
+
+
 def destroy_mark(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     """701.8a: the creature is "destroyed this way" only if this destroy put it into a graveyard (regeneration / indestructible: no); then the
     counter goes on the first creature at the next end step (603.7)."""
@@ -293,7 +319,7 @@ def destroy_mark(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     return True
 
 
-PRIMITIVES = {"bind_first110i": bind_first, "destroy_mark110i": destroy_mark, "goad_while110i": goad_while, "bind_rest110i": bind_rest, "exile_library110i": exile_library, "attach_all110i": attach_all, "lose_rad110i": lose_rad, "bounce_gate110i": bounce_gate}
+PRIMITIVES = {"bauble110i": bauble, "bind_first110i": bind_first, "destroy_mark110i": destroy_mark, "goad_while110i": goad_while, "bind_rest110i": bind_rest, "exile_library110i": exile_library, "attach_all110i": attach_all, "lose_rad110i": lose_rad, "bounce_gate110i": bounce_gate}
 
 
 def ask_skip(plan: Plan, done: list[str]) -> bool:
