@@ -61,6 +61,15 @@ def parse(body: str) -> Any:
         assert found is not None and isinstance(found[1], list) and found[1][0]["divide"]["total"] == {"x": 1}
         groups = [{**found[1][0], "min": 0, "max": 250, "divide": {**found[1][0]["divide"], "allow_zero_targets": True}}]
         return found[0], groups, found[2]
+    if body.strip() == _HEROIC:  # 614.9, 611.2a, 603.7a: the redirection record (target 0 is the chosen creature); the delayed trigger has a target of its own (603.7d)
+        from app.rules import damage_redirection_effects, delayed
+
+        mine = damage_redirection_effects.key("creature you control")
+        own = delayed.WATCH_TARGET + ":0"
+        return ([{"do": "heroic110o"},
+                 {"do": "delayed", "when": {"kind": "event", "event": "die"}, "n": 2, "who": "target", "this_turn": True,
+                  "targets": [{"what": mine, "min": 0, "max": 1}]},
+                 {"do": "deferred:lki_counters", "from": "event", "who": own}, {"do": "deferred:draw", "who": "you", "n": 1}], mine, False)
     if body.strip() == _CLEANSING:
         return [{"do": "cleansing110o"}], None, False
     if body.strip() == _UNDER_COST:  # 601.2b: the optional additional cost is announced as the spell is cast (costs.kicker_cost reads it); this line does nothing itself
@@ -93,6 +102,10 @@ def parse(body: str) -> Any:
 
 _PURE = ("Whenever a spell or ability an opponent controls causes you to discard cards this turn, return those cards from your graveyard to your hand.")
 _NAHIRI = "Nahiri's Sacrifice deals X damage divided as you choose among any number of target creatures."
+# (the parenthetical "(if it's still on the battlefield)" is reminder text, dropped before parsing; the redirection is anyway only to the chosen object, 614.9)
+_HEROIC = ("Choose target creature you control. Until end of turn, all damage that would be dealt to you and creatures you control is dealt to the chosen "
+           "creature instead. When that creature dies this turn, put its counters on up to one target creature you control and "
+           "draw a card.")
 _CLEANSING = "For each land, destroy that land unless any player pays 1 life."
 _UNDER_COST = "As an additional cost to cast this spell, you may pay {2}{R}."
 _UNDER_PREVENT = ("Prevent all combat damage that would be dealt this turn. If this spell's additional cost was paid, this effect doesn't affect "
@@ -586,6 +599,18 @@ def resume_gain_land(plan: Plan, d: Any, chosen: list[str]) -> None:
         effects.continue_effects(plan, ctx)
 
 
+def heroic(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """614.9: damage to the controller and their creatures goes to the chosen creature, while it is still that creature on the battlefield (the record keeps its
+    object id, source_shields.redirect_target); damage to the chosen creature itself is not redirected."""
+    from app.rules import damage_redirection_effects, source_shields
+
+    dest = source_shields._destination(plan, ctx, "target")
+    if dest is None:
+        return True
+    damage_redirection_effects.record(plan, ctx, {"to": {"players": "you", "objects": {"sel": damage_redirection_effects.key("creatures you control")}}}, dest)
+    return True
+
+
 def cleansing(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     """608.2c, 118.12a: "For each land, destroy that land unless any player pays 1 life": the lands there are as the instruction starts, each with its own
     round of payments (every player decides in turn order, 101.4, then pays; a land is destroyed if nobody paid for it)."""
@@ -605,7 +630,7 @@ def cleansing(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return False
 
 
-PRIMITIVES: dict[str, Any] = {"cleansing110o": cleansing, "type_emblem110o": type_emblem, "redistribute110o": redistribute,
+PRIMITIVES: dict[str, Any] = {"heroic110o": heroic, "cleansing110o": cleansing, "type_emblem110o": type_emblem, "redistribute110o": redistribute,
               "helm_test110o": helm_test, "helm_again110o": helm_again, "helm_pick110o": helm_pick, "portent_hand110o": portent_hand, "rinoa_pick110o": rinoa_pick, "lazav110o": lazav, "profaner110o": profaner, "gain_land110o": gain_land}
 RESUME: dict[str, Any] = {"type_emblem110o": resume_type_emblem, "redistribute_players110o": resume_redistribute_players,
                           "redistribute_give110o": resume_redistribute_give, "helm_pick110o": resume_helm_pick, "rinoa_pick110o": resume_rinoa_pick, "lazav110o": resume_lazav, "lazav_copy110o": resume_lazav_copy, "gain_land110o": resume_gain_land}

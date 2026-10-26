@@ -5,6 +5,7 @@
 * 601.2b, 107.3a, 601.2d: Nahiri's Sacrifice announces X as the mana value of the artifact or creature sacrificed, and divides X damage (none at all if X is 0).
 * 608.2c, 118.12a, 101.4: Cleansing gives every land its own round of payments (every player decides in turn order); a land nobody paid for is destroyed.
 * 603.7a, 603.7c: Mysterio's tokens are exiled when it leaves the battlefield (a delayed trigger on Mysterio, so none if it already left).
+* 614.9, 122.8, 603.10a: Heroic Sacrifice sends damage to you and your creatures to the chosen creature (only while it is on the battlefield); when it dies its counters go to a creature.
 """
 
 from __future__ import annotations
@@ -37,7 +38,7 @@ from tests.wave110o_kit import (  # noqa: F401
 UNDERGROWTH = "Undergrowth"
 
 
-@pytest.mark.parametrize("name", [UNDERGROWTH, "Pure Intentions", "Nahiri's Sacrifice", "Cleansing", "Mysterio, Master of Illusion"])
+@pytest.mark.parametrize("name", [UNDERGROWTH, "Pure Intentions", "Nahiri's Sacrifice", "Cleansing", "Mysterio, Master of Illusion", "Heroic Sacrifice"])
 def test_the_cards_are_full(name):
     assert full(name)
 
@@ -282,4 +283,59 @@ def test_mysterio_leaving_before_its_ability_resolves_leaves_the_tokens(cards):
     act(s, "p1", type="cast_spell", card_id=murder.id, targets=[mys.id])  # (in response to Mysterio's enters trigger: 603.7c, nothing left to watch)
     settle(s)
     assert now(s, mys).zone == "p1:graveyard" and len(illusions(s)) == 1  # (only the Crook was counted: Mysterio had left)
+    check(s)
+
+
+HEROIC = "Heroic Sacrifice"
+
+
+def heroic_table(cards, extra=()):
+    s = build(cards, [HEROIC, "Grizzly Bears", "Llanowar Elves", "Murder", *extra], ["Lightning Bolt", "Lightning Bolt"])
+    bears, elves = put(s, "Grizzly Bears"), put(s, "Llanowar Elves")
+    s.state.cards[elves.id].counters["+1/+1"] = 2  # (a 3/3 holding the counters that will be put on the Bears)
+    stops(s)
+    heroic = to_hand(s, HEROIC)
+    mana(s, "p1", **cost(HEROIC))
+    act(s, "p1", type="cast_spell", card_id=heroic.id, targets=[elves.id])
+    settle(s)
+    return s, bears, elves
+
+
+def bolt(s, target):
+    while s.state.rules.priority != "p2":
+        act(s, s.state.rules.priority, type="pass_priority")
+    spell = to_hand(s, "Lightning Bolt", "p2")
+    mana(s, "p2", R=1)
+    act(s, "p2", type="cast_spell", card_id=spell.id, targets=[target])
+    for _ in range(30):
+        d = s.state.rules.decision
+        if d is not None:
+            ids = [o.id for o in d.options if o.card_id and now(s, next(c for c in s.state.cards.values() if c.id == o.card_id)).name == "Grizzly Bears"][:1] or [d.options[0].id]
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=ids)
+        elif s.state.zones.get("stack"):
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            return
+
+
+@pytest.mark.parametrize("hit", ["player", "creature"])
+def test_heroic_sacrifice_redirects_damage_to_you_and_your_creatures_and_moves_the_counters_on_death(cards, hit):
+    s, bears, elves = heroic_table(cards)
+    hand = len(s.state.zones["p1:hand"])
+    bolt(s, "p1" if hit == "player" else bears.id)
+    assert life(s, "p1") == 40 and now(s, bears).damage == 0  # (all of it went to the Elves)
+    assert now(s, elves).zone == "p1:graveyard"
+    assert now(s, bears).counters.get("+1/+1") == 2 and len(s.state.zones["p1:hand"]) == hand + 1  # (its counters as it last existed, 122.8, and a card)
+    check(s)
+
+
+def test_heroic_sacrifice_does_nothing_once_the_chosen_creature_is_gone(cards):
+    s, bears, elves = heroic_table(cards)
+    spell = to_hand(s, "Murder")
+    mana(s, "p1", **cost("Murder"))
+    act(s, "p1", type="cast_spell", card_id=spell.id, targets=[elves.id])
+    settle(s)
+    assert now(s, elves).zone == "p1:graveyard"
+    bolt(s, "p1")
+    assert life(s, "p1") == 37  # (614.9: the chosen creature is no longer on the battlefield: the damage is dealt to Alice)
     check(s)

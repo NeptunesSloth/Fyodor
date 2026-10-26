@@ -6,7 +6,6 @@
 - Ranar the Ever-Watchful: the "first card you foretell each turn costs {0}" reduction and the exile-from-hand batch event are missing.
 - Volo, Itinerant Scholar: "note" creature types on a token (Alchemy note mechanic) has no storage or counting foundation.
 - Apple of Eden, Isu Relic: hand exiled face down, played with any mana, owner draws, delayed return: several missing parts.
-- Heroic Sacrifice: redirecting all damage to the chosen creature plus a "dies this turn" delayed trigger with its own target.
 - Ob Nixilis of the Black Oath: the emblem holds an activated ability (emblem_text_ok rejects it).
 - Lucy MacLean, Positively Armed: another player creating the token copy has no foundation.
 - Gluttonous Hellkite: X creatures sacrificed by each player as it is cast, then "enters with two counters for each sacrificed this way".
