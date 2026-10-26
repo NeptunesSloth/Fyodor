@@ -5,6 +5,7 @@
 * Ice Cave (118.12 / 101.4 / 107.3h): each player but the caster is offered, in turn order, the mana cost of the spell on the stack (its X as chosen)."""
 from __future__ import annotations
 
+import json
 from dataclasses import replace
 from typing import TYPE_CHECKING, Any
 
@@ -15,6 +16,9 @@ if TYPE_CHECKING:
 DAMPING = ("A player who controls more permanents than each other player can't play lands or cast artifact, creature, or enchantment spells. "
            "That player may sacrifice a permanent of their choice for that player to ignore this effect until end of turn.")
 TYPES = frozenset({"Artifact", "Creature", "Enchantment"})
+GORGER = ("Whenever ~ attacks, exile up to one card of each card type from defending player's graveyard. Put a +1/+1 counter on ~ for each card exiled this way.")
+ULDAROS = ("When ~ enters, if you cast ~, exile up to one target nonland card of each card type from your graveyard. Copy those cards. "
+           "You may cast any number of spells with total mana value 6 or less from among the copies without paying their mana costs.")
 ICE_CAVE = "Whenever a player casts a spell, any other player may pay that spell's mana cost. If a player does, counter the spell."
 
 
@@ -22,6 +26,24 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
     from app.rules import scripts
 
     text = scripts.self_text(ability.text, ch.name)
+    if text == GORGER:  # one card of each card type: a single choice, checked as one card per type (the primitive below)
+        d = scripts.define(replace(ability, text="Whenever this creature attacks, exile all cards from defending player's graveyard. "
+                                                 "Put a +1/+1 counter on this creature for each card exiled this way."), ch)
+        if d is None or [e["do"] for e in d["effects"]] != ["exile", "add_counters"]:
+            return None
+        return {**d, "effects": [{**d["effects"][0], "do": "exile_one_per_type110a"}, *d["effects"][1:]]}
+    if text == ULDAROS:  # 115.3: one "target" word, so no card twice; one group per card type (Land excluded by "nonland")
+        d = scripts.define(replace(ability, text="When ~ enters, if you cast him, exile up to one target nonland card from your graveyard. Copy that card. "
+                                                 "You may cast the copy without paying its mana cost."), ch)
+        if d is None or [e["do"] for e in d["effects"]] != ["only_if", "exile", "copy_cards", "free_cast"] or len(d["targets"]) != 1:
+            return None
+        base = json.loads(d["targets"][0]["what"][4:])
+        kinds = ("Artifact", "Battle", "Creature", "Enchantment", "Instant", "Kindred", "Planeswalker", "Sorcery")
+        fx = [dict(e) for e in d["effects"]]
+        fx[1]["who"] = "all_targets"
+        fx[3] = {**fx[3], "mv_total": 6, "n": 99}
+        return {**d, "effects": fx, "targets": [{"what": "sel:" + json.dumps({**base, "types": [t]}, separators=(",", ":"), sort_keys=True), "min": 0, "max": 1,
+                                                  "distinct_from": list(range(i))} for i, t in enumerate(kinds)]}
     if text == DAMPING:
         return {"kind": "static", "static": "cast_limit", "who": "each", "when": None, "filter": None, "from": None, "act": None, "max": None, "mostperm110a": True, "effects": []}
     if text == ICE_CAVE:
@@ -94,6 +116,51 @@ def resume_sacrifice(plan: Plan, d: Any, chosen: list[str]) -> None:
     plan.rules.passed = []
 
 
+def _assignable(plan: Plan, cards: list[str]) -> bool:
+    """One card of each card type: every card is given a card type it has, no type twice (a card with two types serves for one of them)."""
+    from app.rules.characteristics import CARD_TYPES
+
+    owner: dict[str, str] = {}
+
+    def place(c: str, seen: set[str]) -> bool:
+        for t in plan.ch(plan.state.cards[c]).types & CARD_TYPES:
+            if t not in seen:
+                seen.add(t)
+                if t not in owner or place(owner[t], seen):
+                    owner[t] = c
+                    return True
+        return False
+
+    return all(place(c, set()) for c in cards)
+
+
+def one_per_type(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Grime Gorger: its controller chooses up to one card of each card type among the graveyard cards (608.2d); a card with two types takes up one of them."""
+    from app.game.rules_state import DecisionOption
+    from app.rules import effects
+    from app.rules.plan import decide
+
+    pool = effects._cards(plan, ctx, e["who"])
+    if not pool:
+        return effects.exile_cards(plan, ctx, {k: v for k, v in e.items() if k != "who"}, [])
+    decide(plan, player=ctx["controller"], kind="choose_cards", prompt="Exile up to one card of each card type from the graveyard", min_choices=0, max_choices=len(pool),
+           options=[DecisionOption(id=c, label=plan.state.cards[c].name or "Card", card_id=c) for c in pool],
+           resume={"step": "exile_one_per_type110a", "ctx": ctx, "e": e})
+    return False
+
+
+def resume_one_per_type(plan: Plan, d: Any, chosen: list[str]) -> None:
+    from app.rules import effects
+
+    from app.game.errors import ActionError
+
+    if not _assignable(plan, chosen):
+        raise ActionError("Choose at most one card of each card type")
+    ctx = d.resume["ctx"]
+    effects.exile_cards(plan, ctx, {k: v for k, v in d.resume["e"].items() if k != "who"}, chosen)
+    effects.continue_effects(plan, ctx)
+
+
 def choose_order(plan: Plan, ctx: dict[str, Any], frame: dict[str, Any]) -> bool:
     """Chaotic Transformation (ruling 2022-09-09): when its controller has several of the exiled permanents left to consider, they choose which one is next (a decision, True)."""
     from app.game.rules_state import DecisionOption
@@ -122,5 +189,5 @@ def resume_order(plan: Plan, d: Any, chosen: list[str]) -> None:
     continue_effects(plan, ctx)
 
 
-PRIMITIVES: dict[str, Any] = {}
-RESUME: dict[str, Any] = {"damping110a": resume_sacrifice, "chaotic_order110a": resume_order}
+PRIMITIVES: dict[str, Any] = {"exile_one_per_type110a": one_per_type}
+RESUME: dict[str, Any] = {"damping110a": resume_sacrifice, "chaotic_order110a": resume_order, "exile_one_per_type110a": resume_one_per_type}

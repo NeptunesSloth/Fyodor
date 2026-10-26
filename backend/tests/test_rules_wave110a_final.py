@@ -8,7 +8,7 @@ import pytest
 from app.game.errors import ActionError
 from tests.wave110a_kit import *
 
-NAMES = ["Ice Cave", "Damping Engine", "Chaotic Transformation"]
+NAMES = ["Ice Cave", "Damping Engine", "Chaotic Transformation", "Grime Gorger", "Uldaros Theorix"]
 
 
 @pytest.fixture()
@@ -149,4 +149,112 @@ def test_chaotic_transformation_controller_of_several_chooses_the_order(cards):
     answer(s)
     assert _zones(s, "Birds of Paradise", "p2") == ["p2:battlefield"]
     assert sum(1 for c in s.state.cards.values() if c.name == "Island" and c.zone == "p2:battlefield") == 1  # one land found for the exiled land
+    check(s)
+
+
+def _bob_graveyard(s, *names):
+    for n in names:
+        act(s, "p2", type="move", card_ids=[card_named(s, n, "p2").id], to={"player": "p2", "zone": "graveyard"})
+
+
+def _attack_with_gorger(cards, theirs):
+    s = build(cards, ["Grime Gorger"], theirs)
+    gorger = put(s, "Grime Gorger")
+    _bob_graveyard(s, *theirs)
+    next_turn(s)
+    act(s, "p1", type="set_stops", own=STEPS, others=STEPS, smart_pass=False)
+    until(s, lambda s: s.state.rules.decision is not None and s.state.rules.decision.kind == "declare_attackers")
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": gorger.id, "target": "p2"}])
+    until(s, lambda s: s.state.rules.decision is not None)
+    return s, gorger
+
+
+def test_grime_gorger_exiles_one_card_of_each_type_and_grows_per_card(cards):
+    """Grime Gorger: Bob's graveyard holds an artifact, two creatures, an instant and a land; Alice exiles one of each type (4) and gets four +1/+1 counters."""
+    names = ["Sol Ring", "Llanowar Elves", "Birds of Paradise", "Shock", "Island"]
+    s, gorger = _attack_with_gorger(cards, names)
+    d = s.state.rules.decision
+    assert d.kind == "choose_cards" and d.player == "p1" and d.min_choices == 0
+    ids = {n: card_named(s, n, "p2").id for n in names}
+    with pytest.raises(ActionError, match="one card of each card type"):
+        act(s, "p1", type="choose", decision_id=d.id, option_ids=[ids["Llanowar Elves"], ids["Birds of Paradise"]])
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[ids[n] for n in ("Sol Ring", "Llanowar Elves", "Shock", "Island")])
+    assert [s.state.cards[ids[n]].zone for n in names] == ["p2:exile"] * 2 + ["p2:graveyard", "p2:exile", "p2:exile"]
+    assert s.state.cards[gorger.id].counters.get("+1/+1") == 4
+    check(s)
+
+
+def test_grime_gorger_choosing_none_is_allowed(cards):
+    s, gorger = _attack_with_gorger(cards, ["Sol Ring"])
+    d = s.state.rules.decision
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[])
+    assert not s.state.cards[gorger.id].counters.get("+1/+1")
+    check(s)
+
+
+@pytest.mark.parametrize(("picks", "ok"), [(("Walking Ballista", "Sol Ring"), True), (("Walking Ballista", "Sol Ring", "Llanowar Elves"), False),
+                                           (("Walking Ballista", "Llanowar Elves"), True)])
+def test_grime_gorger_a_card_with_two_types_takes_up_one_of_them(cards, picks, ok):
+    """An artifact creature stands for the artifact or the creature, not both: with a Sol Ring and a Llanowar Elves too, three cards are one too many."""
+    names = ["Walking Ballista", "Sol Ring", "Llanowar Elves"]
+    s, gorger = _attack_with_gorger(cards, names)
+    d = s.state.rules.decision
+    ids = [card_named(s, n, "p2").id for n in picks]
+    if ok:
+        act(s, "p1", type="choose", decision_id=d.id, option_ids=ids)
+        assert s.state.cards[gorger.id].counters.get("+1/+1") == len(picks)
+    else:
+        with pytest.raises(ActionError, match="one card of each card type"):
+            act(s, "p1", type="choose", decision_id=d.id, option_ids=ids)
+
+
+def _alice_graveyard(s, *names):
+    for n in names:
+        act(s, "p1", type="move", card_ids=[card_named(s, n).id], to={"player": "p1", "zone": "graveyard"})
+
+
+def _uldaros(cards):
+    s = build(cards, ["Uldaros Theorix", "Sol Ring", "Wall of Omens", "Divination", "Shock", "Walking Ballista"])
+    _alice_graveyard(s, "Sol Ring", "Wall of Omens", "Divination", "Shock", "Forest")
+    return s, {n: card_named(s, n).id for n in ("Sol Ring", "Wall of Omens", "Divination", "Shock", "Walking Ballista")}
+
+
+def test_uldaros_theorix_copies_one_card_per_type_and_casts_copies_up_to_total_mana_value_six(cards):
+    """Uldaros: four targets (artifact, creature, instant, sorcery), all exiled and copied; Sol Ring 1 + Wall of Omens 2 + Divination 3 = 6, so Shock (1 more) is not offered."""
+    s, ids = _uldaros(cards)
+    hand = len(s.state.zones["p1:hand"])
+    cast(s, "Uldaros Theorix")
+    answer(s, "Sol Ring", "Wall of Omens", "Shock", "Divination", "Sol Ring", "Wall of Omens", "Divination")
+    assert [s.state.cards[ids[n]].zone for n in ("Sol Ring", "Wall of Omens", "Shock", "Divination")] == ["p1:exile"] * 4  # the originals stay exiled
+    assert s.state.cards[card_named(s, "Forest").id].zone == "p1:graveyard"  # (a land: not a legal target)
+    bf = sorted(c.name for c in s.state.cards.values() if c.zone == "p1:battlefield" and c.name != "Uldaros Theorix")
+    assert bf == ["Sol Ring", "Wall of Omens"]  # permanent spells cast this way become tokens: two copies on the battlefield
+    assert len(s.state.zones["p1:hand"]) == hand + 3  # Divination's copy drew two, the Wall of Omens token one
+    assert life(s, "p2") == 40  # no Shock copy: 1 + 2 + 3 used the whole budget
+    check(s)
+
+
+def test_uldaros_theorix_no_target_is_allowed_and_a_land_is_not_offered(cards):
+    s, ids = _uldaros(cards)
+    c = to_hand(s, "Uldaros Theorix")
+    fund(s, c and (s.cards.resolve("Uldaros Theorix").get("mana_cost") or ""))
+    act(s, "p1", type="cast_spell", card_id=c.id)
+    d = s.state.rules.decision
+    for _ in range(3):
+        if d is not None:
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+        d = s.state.rules.decision
+    assert d is not None and "Forest" not in [o.label for o in d.options]  # "nonland"
+    answer(s, [], [], [], [], [], [], [], [])  # up to one: none at all, nothing copied
+    assert not [c for c in s.state.cards.values() if c.zone == "p1:exile"]
+    check(s)
+
+
+def test_uldaros_theorix_without_being_cast_does_nothing(cards):
+    """"if you cast him" (intervening if, 603.4): put onto the battlefield by an effect, he exiles nothing."""
+    s, ids = _uldaros(cards)
+    put(s, "Uldaros Theorix")
+    answer(s)
+    assert s.state.cards[ids["Sol Ring"]].zone == "p1:graveyard"
     check(s)
