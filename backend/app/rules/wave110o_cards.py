@@ -80,6 +80,8 @@ _STRIP = ("{3}, {T}: Until end of turn, you may cast instant and sorcery spells 
 _WITCHES = "{T}: ~ deals 1 damage to any target and 1 damage to any target of an opponent's choice."
 _MAGUS = ("{3}, {T}: Tap target creature you control and target creature of an opponent's choice they control. Those creatures fight each other.")
 _MINOTAUR = "Whenever you lose a coin flip, ~ deals 1 damage to any target of an opponent's choice."
+_WORM = ("Whenever you attack with creatures with total power 12 or greater for the first time each turn, untap all attacking creatures. After this phase, "
+         "there is an additional combat phase.")
 _OKO_TYPES = "+2: Up to one target creature gains all creature types."
 _OKO_EMBLEM = ('−6: Choose a creature type. You get an emblem with "Creatures you control of the chosen type get +3/+3 and have vigilance and '
                'hexproof."')
@@ -99,6 +101,8 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
         if native is None:
             return None
         return {**native, "effects": [{"do": "type_emblem110o"}]}
+    if ability.kind == "triggered" and text == _WORM:  # "for the first time each turn": it triggers only the first time the attack is that strong, 603.2h
+        return scripts.define(replace(ability, text=_WORM.replace(" for the first time each turn", "") + " This ability triggers only once each turn."), ch)
     if ability.kind == "triggered" and text == _MINOTAUR:  # "of an opponent's choice": the controller picks the opponent, who announces the target (115.1d-style)
         native = scripts.define(replace(ability, text="Whenever you lose a coin flip, ~ deals 1 damage to any target."), ch)
         return None if native is None else {**native, "target_choice": "opponent110o"}

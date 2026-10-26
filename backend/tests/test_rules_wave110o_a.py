@@ -16,6 +16,7 @@
 * 404.1, 601.3, 614.1a: Bösium Strip lets its controller cast an instant or sorcery card only from the top of their graveyard, and exiles it afterwards.
 * 115.1, 608.2d: Cuombajj Witches / Magus of the Arena: the second target is chosen by an opponent (the activator's choice of which), announced before the costs.
 * 702.24a, 705.2, 115.1: Karplusan Minotaur flips a coin per age counter; a lost flip lets an opponent (the controller's choice) pick the 1 damage's target.
+* 603.2h, 506.1, 500.8: Desert Were-Worm untaps its attackers and adds a combat phase the first time each turn it attacks with total power 12 or more.
 * 701.24a, 608.2b: Serene Remembrance shuffles itself and up to three target cards from a single graveyard into their owners' libraries.
 """
 
@@ -53,10 +54,10 @@ from tests.wave110o_kit import (  # noqa: F401
     to_phase,
 )
 
-REMEMBRANCE, THRALL, SANDS, RACER, LOCKER, HELM, PORTENT, WITCH, RINOA, SYRIX, LAZAV, STRIP, WITCHES, MAGUS, MINOTAUR, OKO = "Serene Remembrance", "Evil's Thrall", "Reverse the Sands", "Filigree Racer", "The Grim Captain's Locker", "Helm of Obedience", "Portent of Calamity", "Scarlet Witch, Chaotic Avenger", "Rinoa, Angel Wing", "Syrix, Carrier of the Flame", "Lazav, Familiar Stranger", "Bösium Strip", "Cuombajj Witches", "Magus of the Arena", "Karplusan Minotaur", "Oko, Lorwyn Liege // Oko, Shadowmoor Scion"
+REMEMBRANCE, THRALL, SANDS, RACER, LOCKER, HELM, PORTENT, WITCH, RINOA, SYRIX, LAZAV, STRIP, WITCHES, MAGUS, MINOTAUR, WORM, OKO = "Serene Remembrance", "Evil's Thrall", "Reverse the Sands", "Filigree Racer", "The Grim Captain's Locker", "Helm of Obedience", "Portent of Calamity", "Scarlet Witch, Chaotic Avenger", "Rinoa, Angel Wing", "Syrix, Carrier of the Flame", "Lazav, Familiar Stranger", "Bösium Strip", "Cuombajj Witches", "Magus of the Arena", "Karplusan Minotaur", "Desert Were-Worm", "Oko, Lorwyn Liege // Oko, Shadowmoor Scion"
 
 
-@pytest.mark.parametrize("name", [REMEMBRANCE, THRALL, SANDS, RACER, LOCKER, HELM, PORTENT, WITCH, RINOA, SYRIX, LAZAV, STRIP, WITCHES, MAGUS, MINOTAUR, OKO])
+@pytest.mark.parametrize("name", [REMEMBRANCE, THRALL, SANDS, RACER, LOCKER, HELM, PORTENT, WITCH, RINOA, SYRIX, LAZAV, STRIP, WITCHES, MAGUS, MINOTAUR, WORM, OKO])
 def test_the_cards_are_full(name):
     assert full(name)
 
@@ -988,4 +989,38 @@ def test_karplusan_minotaur_flips_once_for_each_age_counter(cards, monkeypatch):
         else:
             act(s, s.state.rules.priority, type="pass_priority")
     assert now(s, m).counters.get("age") == 2 and (life(s, "p1"), life(s, "p2")) == (39, 39)
+    check(s)
+
+
+def attacks_this_turn(s, creatures):
+    """Alice declares ``creatures`` as attackers every time she may this turn; returns the number of times (combat phases)."""
+    for c in creatures:
+        s.state.rules.controlled_since[c.id].turn = 0
+    declared, start = 0, s.state.turn.number
+    for _ in range(120):
+        d = s.state.rules.decision
+        if d is not None and d.kind == "declare_attackers":
+            legal = [c for c in creatures if not now(s, c).tapped]
+            declared += 1
+            act(s, d.player, type=d.kind, attackers=[{"card_id": c.id, "target": "p2"} for c in legal])
+        elif d is not None and d.kind == "declare_blockers":
+            act(s, d.player, type=d.kind, blocks=[])
+        elif d is not None:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[d.options[0].id])
+        elif s.state.turn.number > start:
+            return declared
+        else:
+            act(s, s.state.rules.priority, type="pass_priority")
+    raise AssertionError("turn never ended")
+
+
+@pytest.mark.parametrize(("counters", "combats"), [(7, 2), (6, 1)])
+def test_desert_were_worm_extra_combat_only_with_total_power_12_and_only_the_first_time(cards, counters, combats):
+    """The Worm (0 + 2 for the Mountain + the counters) and a 3-power Albino Troll attack: their powers add up to 12 or to 11."""
+    s = build(cards, [WORM, "Mountain", "Albino Troll"])
+    worm, troll = put(s, WORM), put(s, "Albino Troll")
+    put(s, "Mountain")
+    act(s, "p1", type="counter", card_ids=[worm.id], kind="+1/+1", delta=counters)
+    assert int(ch(s, worm).pt[0]) + int(ch(s, troll).pt[0]) == (12 if combats == 2 else 11)
+    assert attacks_this_turn(s, [worm, troll]) == combats
     check(s)
