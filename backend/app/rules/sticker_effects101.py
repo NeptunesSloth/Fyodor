@@ -46,8 +46,6 @@ def parse(body: str, it: str | None = None) -> tuple[list[dict[str, Any]], Any, 
             False,
         )
     on = m["on"].casefold()
-    if on.endswith("entered this turn"):
-        return None  # Park Bleater needs a separately proved saved-turn history contract.
     descriptor: dict[str, Any] = {
         "do": "put_sticker101",
         "kind": "pt"

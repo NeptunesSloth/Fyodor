@@ -417,9 +417,33 @@ REWRITES: dict[str, str] = {
 }
 
 
+_BOUND = ("Sacrifice a creature. Return up to X cards from your graveyard to your hand, where X is the number of colors that creature was. "
+          "Exile this card.")
+
+
+_PRANCE = ("Target creature you don't control blocks target creature you control with a power and toughness sticker on it other than ~ "
+           "this turn if able.")
+
+
 def parse(body: str) -> Any:
     from app.rules import scripts
 
+    if body.strip() == _BOUND:  # Bound: X = colors of the sacrificed creature as it last existed (608.2h)
+        got = scripts.parse_effects("Sacrifice a creature. Return up to two cards from your graveyard to your hand. Exile ~.")
+        if got is not None:
+            got[0][0]["as"] = "e0"
+            got[0][1]["n"] = {"colors": "ref:e0"}
+        return got
+    if body.strip() == _PRANCE:  # Lineprancers: the second target is "other than ~" (the stickered creature must not be the source)
+        got = scripts.parse_effects(_PRANCE.replace(" other than ~", ""))
+        if got is not None:
+            from dataclasses import replace
+
+            from app.rules import selectors
+
+            t = got[1][1]
+            t["what"] = replace(selectors.from_key(t["what"]), other=True).key()
+        return got
     return scripts.parse_effects(same) if (same := REWRITES.get(body.strip())) is not None else None
 
 
