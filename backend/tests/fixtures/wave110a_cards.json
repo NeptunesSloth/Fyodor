@@ -2187,5 +2187,25 @@
    "Mill"
   ],
   "loyalty": "3"
+ },
+ {
+  "name": "Fblthp, Lost on the Range",
+  "layout": "normal",
+  "mana_cost": "{1}{U}{U}",
+  "cmc": 3.0,
+  "type_line": "Legendary Creature — Homunculus",
+  "oracle_text": "Ward {2}\nYou may look at the top card of your library any time.\nThe top card of your library has plot. The plot cost is equal to its mana cost.\nYou may plot nonland cards from the top of your library.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "Plot",
+   "Ward"
+  ],
+  "power": "1",
+  "toughness": "1"
  }
 ]

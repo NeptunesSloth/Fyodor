@@ -1200,6 +1200,10 @@ def _derive(state: GameState, card: CardInstance, ch: Characteristics, info: Car
         from app.rules import mana_crafted_profiles
 
         ch = mana_crafted_profiles.overlay(state, card, ch, info)
+    if info is not None and not on_field and _T.depth == 0 and state.rules is not None and card.zone.endswith(":library"):  # -- plot (wave 110A) -- Fblthp: the top card has plot
+        from app.rules import wave110a_plot
+
+        ch = wave110a_plot.apply(state, card, ch, info)
     if info is not None and not on_field and _T.depth == 0 and state.rules is not None and card.zone.endswith((":hand", ":graveyard")):
         from app.rules import (
             zone_grants,  # -- zone keyword grants (wave 25A) -- "Each creature card in your hand has cycling {1}{U}."

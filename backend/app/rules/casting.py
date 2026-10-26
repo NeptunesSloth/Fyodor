@@ -5596,6 +5596,12 @@ def activate_ability(plan: Plan, a: A.ActivateAbility) -> None:
     if card.zone == zone_key(plan.actor, "companion") and card.owner == plan.actor:  # -- companion (wave 38D) -- 116.2g
         companion_action(plan, card, plan.ch(card), a)
         return
+    if card.zone == zone_key(plan.actor, "library") and card.owner == plan.actor:  # -- plot (wave 110A) -- Fblthp: the special action (116.2k) from the top of the library
+        ch = plan.ch(card)
+        if (plot_cost := keyword_cost(ch, "plot", PLOT, a.ability)) is None or plan.manual(card):
+            raise ActionError("That card has no ability to use from your library")
+        plot(plan, card, ch, a, plot_cost)
+        return
     if card.zone == zone_key(plan.actor, "command") and card.owner == plan.actor:  # -- activated from hand / command zone (wave 27D)
         ch = plan.ch(card)
         ability = next((ab for ab in ch.abilities if ab.index == a.ability), None)

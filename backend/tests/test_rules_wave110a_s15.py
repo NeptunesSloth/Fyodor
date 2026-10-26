@@ -182,3 +182,58 @@ def test_scheming_fence_may_choose_nothing(cards):
     fund(s, "{R}")
     act(s, "p1", type="activate_ability", card_id=dragon.id, ability=1)
     check(s)
+
+
+FBLTHP = "Fblthp, Lost on the Range"
+
+
+def _top(s, name):
+    c = to_hand(s, name)
+    act(s, "p1", type="move", card_ids=[c.id], to={"player": "p1", "zone": "library"}, position="top")
+    return c
+
+
+def _plot_index(s, c):
+    return next(a.index for a in ch(s, c).abilities if "plot" in a.keywords)
+
+
+def test_fblthp_plots_the_top_card_for_its_mana_cost(cards):  # 702.170b, 116.2k: exile it and pay the plot cost (its mana cost); 702.170d: castable free on a later turn
+    s = build(cards, [FBLTHP, "Lightning Bolt"])
+    put(s, FBLTHP)
+    bolt = _top(s, "Lightning Bolt")
+    fund(s, "{R}")
+    act(s, "p1", type="activate_ability", card_id=bolt.id, ability=_plot_index(s, bolt))
+    answer(s)
+    assert s.state.cards[bolt.id].zone == "p1:exile"
+    assert any(p.card == bolt.id and p.free for p in s.state.rules.permissions)  # plotted: cast without paying its mana cost on a later turn
+    check(s)
+
+
+@pytest.mark.parametrize("what", ["land", "second", "nofblthp"])
+def test_fblthp_plots_only_the_top_nonland_card_while_it_is_there(cards, what):
+    s = build(cards, [FBLTHP, "Lightning Bolt", "Grizzly Bears"])
+    if what != "nofblthp":
+        put(s, FBLTHP)
+    if what == "land":
+        top = next(c for c in s.state.cards.values() if c.zone == "p1:library" and c.name == "Forest")
+        act(s, "p1", type="move", card_ids=[top.id], to={"player": "p1", "zone": "library"}, position="top")
+        assert not [a for a in ch(s, top).abilities if "plot" in a.keywords]
+        return
+    if what == "second":
+        bolt = _top(s, "Lightning Bolt")
+        bears = _top(s, "Grizzly Bears")
+        assert not [a for a in ch(s, bolt).abilities if "plot" in a.keywords] and [a for a in ch(s, bears).abilities if "plot" in a.keywords]
+        return
+    bolt = _top(s, "Lightning Bolt")
+    assert not [a for a in ch(s, bolt).abilities if "plot" in a.keywords]
+
+
+def test_without_fblthp_the_top_card_cannot_be_plotted(cards):
+    from app.game.errors import ActionError
+
+    s = build(cards, ["Lightning Bolt"])
+    bolt = _top(s, "Lightning Bolt")
+    fund(s, "{R}")
+    with pytest.raises(ActionError):
+        act(s, "p1", type="activate_ability", card_id=bolt.id, ability=100)
+    assert s.state.cards[bolt.id].zone == "p1:library"
