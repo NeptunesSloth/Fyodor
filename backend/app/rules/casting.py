@@ -4423,12 +4423,13 @@ def cycle(plan: Plan, card: CardInstance, ch: Characteristics, a: A.ActivateAbil
                 return
             mana_text = side
     from app.rules import cycling_costs
+    from app.rules import wave110h_cards as _w110h
 
     if not cycling_costs.mana_only(mana_text):
         ability = AbilityText(index=a.ability, kind="activated", cost=f"{mana_text}, Discard this card",
                               text=f"Cycling — {mana_text}, Discard this card: Draw a card.")
         activate_to_stack(plan, card, ch, ability, a,
-                          definition={"kind": "activated", "effects": cycling_costs.effects(kind), "cycling": True})
+                          definition={"kind": "activated", "effects": _w110h.cycling_effects(plan, cycling_costs.effects(kind)), "cycling": True})
         return
     # 702.29a: cycling is an activated ability — "Abilities you activate that aren't mana abilities cost {1} less"
     # applies to it (602.2b -> 601.2f; app/rules/permissions.py ability_mana)
@@ -4443,7 +4444,7 @@ def cycle(plan: Plan, card: CardInstance, ch: Characteristics, a: A.ActivateAbil
         effects = cycling_costs.effects(kind)
         text = f"Search your library for a {kind} card, reveal it, put it into your hand, then shuffle."
     else:
-        effects = [{"do": "draw", "who": "you", "n": 1}]
+        effects = _w110h.cycling_effects(plan, [{"do": "draw", "who": "you", "n": 1}])  # -- cycling draw (wave 110H) -- Unpredictable Cyclone
         text = "Draw a card."
     ability_id = _new_ability(plan, card, text)
     from app.rules import special_payment_tails

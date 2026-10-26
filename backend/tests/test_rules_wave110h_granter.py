@@ -95,3 +95,86 @@ def test_lagrella_counters_only_on_the_card_that_returns_under_your_control(card
     assert s.state.cards[mine.id].zone == "p1:battlefield" and s.state.cards[mine.id].counters.get("+1/+1", 0) == 2
     assert s.state.cards[theirs.id].zone == "p2:battlefield" and not s.state.cards[theirs.id].counters.get("+1/+1")
     roundtrip(s)
+
+
+# -- Unpredictable Cyclone --
+CYCLONE = ("If a cycling ability of another nonland card would cause you to draw a card, instead exile cards from the top of your library until you exile a card that "
+           "shares a card type with the cycled card. You may cast that card without paying its mana cost. Then put the exiled cards that weren't cast this way on the bottom "
+           "of your library in a random order.\nCycling {2} ({2}, Discard this card: Draw a card.)")
+EXTRA3 = [
+    card("Unpredictable Cyclone", set_code="tst", number="110H3", mana_cost="{3}{R}", cmc=4.0, type_line="Enchantment", oracle_text=CYCLONE),
+    card("Test Cycler", set_code="tst", number="110H4", mana_cost="{3}", cmc=3.0, type_line="Creature — Elf", power="1", toughness="1",
+         oracle_text="Cycling {1}"),
+    card("Test Sandbar", set_code="tst", number="110H5", mana_cost="", cmc=0.0, type_line="Land", oracle_text="{T}: Add {U}.\nCycling {1}"),
+]
+
+
+@pytest.fixture()
+def card_db3(settings):
+    from app.cards.importer import build_database
+
+    settings.ensure_dirs()
+    build_database([*fixture_cards(), *EXTRA, *EXTRA3], settings.cards_db_path, meta={"bulk_type": "test"})
+    return settings.cards_db_path
+
+
+def test_cyclone_full(cards, card_db3):
+    assert coverage.of_card_data(cards.resolve("Unpredictable Cyclone")).level == "FULL"
+
+
+def _cycle_setup(cards, cycler, with_cyclone=True, ability=0):
+    from tests.test_rules_wave9b_exile_permission import build, find, put
+
+    s = build(cards, p1=("Unpredictable Cyclone", cycler, "Test Small", "Forest"))
+    if with_cyclone:
+        put(s, "Unpredictable Cyclone", "battlefield")
+    put(s, "Test Small", "library", position="top")
+    put(s, "Forest", "library", position="top")
+    put(s, cycler, "hand")
+    mana(s, C=1)
+    hand = len([c for c in s.state.cards.values() if c.zone == "p1:hand"])
+    act(s, "p1", type="activate_ability", card_id=find(s, cycler).id, ability=ability)
+    return s, hand
+
+
+def _settle(s):
+    for _ in range(20):
+        d = s.state.rules.decision
+        if d is not None:
+            return d
+        if not s.state.zones.get("stack"):
+            return None
+        act(s, s.state.rules.priority, type="pass_priority")
+
+
+def _lib(s):
+    return [c for c in s.state.cards.values() if c.zone == "p1:library"]
+
+
+def _hand(s):
+    return len([c for c in s.state.cards.values() if c.zone == "p1:hand"])
+
+
+@pytest.mark.parametrize("cast", [True, False])
+def test_cyclone_exiles_until_a_shared_type_and_may_cast_it(cards, card_db3, cast):
+    """614.1a / 702.29a: Forest is exiled, then the creature found shares the cycled creature's type; cast free or not, the rest go to the bottom."""
+    s, hand = _cycle_setup(cards, "Test Cycler")
+    d = _settle(s)
+    assert d is not None
+
+    act(s, d.player, type="choose", decision_id=d.id, option_ids=[d.options[0].id] if cast else [])
+    answer(s)
+    zone = {c.name: c.zone for c in s.state.cards.values() if c.name in ("Test Small", "Forest")}
+    assert _hand(s) == hand - 1  # the cycler left; nothing was drawn
+    assert zone["Test Small"] == ("p1:battlefield" if cast else "p1:library")
+    assert any(c.name == "Forest" and c.zone == "p1:library" for c in s.state.cards.values())
+    roundtrip(s)
+
+
+def test_cyclone_leaves_a_land_and_a_cycle_without_it_alone(cards, card_db3):
+    """Only a nonland card's cycling is replaced; without a Cyclone the cycler draws (702.29a)."""
+    for cycler, cyclone in (("Test Sandbar", True), ("Test Cycler", False)):
+        s, hand = _cycle_setup(cards, cycler, cyclone, 1 if cycler == "Test Sandbar" else 0)
+        assert _settle(s) is None
+        assert _hand(s) == hand  # the cycler out, one drawn
+        roundtrip(s)
