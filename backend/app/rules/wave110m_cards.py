@@ -658,6 +658,62 @@ def alaundo_tail(plan: Any, ctx: Def, e: Def) -> bool:
     return True
 
 
+_COFFIN = ("{3}, {T}: Exile target creature and all Auras attached to it. Note the number and kind of counters that were on that creature. When this artifact leaves the battlefield or becomes "
+           "untapped, return that exiled card to the battlefield under its owner's control tapped with the noted number and kind of counters on it. If you do, return the other exiled cards to the "
+           "battlefield under their owner's control attached to that permanent.")
+
+
+def _coffin(d: Def) -> Def:
+    """Tawnos's Coffin: the exile and the note on resolution, then (603.7a) a delayed trigger on the Coffin itself leaving or becoming untapped returns the creature, then the Auras."""
+    watch = {"do": "delayed", "when": {"kind": "event", "event": "leave_or_untap110m"}, "n": 2, "who": "self"}
+    return {**d, "effects": [{"do": "coffin_exile110m"}, watch, {"do": "deferred:coffin_creature110m"}, {"do": "deferred:coffin_auras110m"}]}
+
+
+_BUILD[_COFFIN] = ("{3}, {T}: Exile target creature.", _coffin)
+
+
+def coffin_exile(plan: Any, ctx: Def, e: Def) -> bool:
+    """The target creature and every Aura attached to it are exiled together (an Aura goes with its creature, 303.4); the counters on the creature are noted by the object it becomes in exile."""
+    from app.rules import context, effects
+
+    target = effects._cards(plan, ctx, "target")
+    creature = [c for c in target if plan.state.cards[c].zone.endswith(":battlefield") and plan.ch(plan.state.cards[c]).is_creature]
+    if not creature:
+        context.bind_objects(plan, ctx, "coffin_c110m", [])
+        context.bind_objects(plan, ctx, "coffin_a110m", [])
+        return True
+    host = plan.state.cards[creature[0]]
+    auras = [c.id for c in plan.state.cards.values() if c.attached_to == host.id and c.zone.endswith(":battlefield") and "Aura" in plan.ch(c).subtypes]
+    noted = {k: n for k, n in host.counters.items() if n > 0}
+    plan.do({"type": "move", "card_ids": [host.id, *auras], "to": {"zone": "exile"}}, actor=ctx["controller"])
+    exiled = host.id if plan.state.cards.get(host.id) is not None and plan.state.cards[host.id].zone.endswith(":exile") else None
+    if exiled is not None:
+        plan.rules.coffin_counters110m[plan.oid(exiled)] = noted
+    context.bind_objects(plan, ctx, "coffin_c110m", [exiled] if exiled else [])
+    context.bind_objects(plan, ctx, "coffin_a110m", [a for a in auras if a in plan.state.cards and plan.state.cards[a].zone.endswith(":exile")])
+    return True
+
+
+def coffin_creature(plan: Any, ctx: Def, e: Def) -> bool:
+    """The Coffin left or untapped: that exiled card (while it is still that object in exile, 400.7) returns tapped with the noted counters, under its owner's control (a token ceased to exist)."""
+    from app.rules import context, effects
+
+    cards = context.objects(plan, ctx, "coffin_c110m")
+    noted = plan.rules.coffin_counters110m.get(plan.oid(cards[0]), {}) if cards else {}
+    return effects.PRIMITIVES["return_card"](plan, ctx, {"do": "return_card", "who": "ref:coffin_c110m", "to": "battlefield", "tapped": True, "under": "owner", "as": "coffin_back110m",
+                                                         "conditional_counters": [{"kind": k, "n": n, "sel": None} for k, n in sorted(noted.items())]})
+
+
+def coffin_auras(plan: Any, ctx: Def, e: Def) -> bool:
+    """"If you do": only when that creature came back, the other exiled cards return attached to it."""
+    from app.rules import context, effects
+
+    back = [c for c in context.objects(plan, ctx, "coffin_back110m") if plan.state.cards[c].zone.endswith(":battlefield")]
+    if not back:
+        return True
+    return effects.PRIMITIVES["return_card"](plan, ctx, {"do": "return_card", "who": "ref:coffin_a110m", "to": "battlefield", "tapped": False, "under": "owner", "host": "ref:coffin_back110m"})
+
+
 _MEDDLE = "If target spell has only one target and that target is a creature, change that spell's target to another creature."
 
 
@@ -1315,4 +1371,4 @@ def resume_damnations_keep(plan: Any, d: Any, chosen: list[str]) -> None:
 
 RESUME: dict[str, Any] = {"alaundo110m": resume_alaundo, "rocket110m": resume_rocket, "nihiloor110m": resume_nihiloor, "reroll_pick110m": resume_reroll_pick, "march110m": resume_march, "sphinx_search110m": resume_sphinx_search, "sphinx_put110m": resume_sphinx_put, "ashiok110m": resume_ashiok, "gurzigost110m": resume_gurzigost, "cover_up110m": resume_cover_up, "faces110m": resume_faces, "damnations110m": resume_damnations, "damnations110m_lose": resume_damnations_lose,
                           "damnations110m_keep": resume_damnations_keep}
-PRIMITIVES: dict[str, Any] = {"alaundo_exile110m": alaundo_exile, "alaundo_tail110m": alaundo_tail, "bat_link110m": bat_link, "bat_return110m": bat_return, "rocket110m": rocket, "goblin110m": goblin, "grip110m": grip, "smoke110m": smoke, "nihiloor110m": nihiloor, "sylex110m": sylex, "store_dice110m": store_dice, "reroll_pick110m": reroll_pick, "reroll_roll110m": reroll_roll, "top_to_bottom110m": top_to_bottom, "faces110m": faces, "lose_shield110m": lose_shield, "escape_grant110m": escape_grant, "march110m": march, "tap_count110m": tap_count, "sphinx_search110m": sphinx_search, "sphinx_put110m": sphinx_put, "gandalf110m": gandalf, "bind_target_player110m": bind_target_player, "ashiok110m": ashiok, "ashiok_ult110m": ashiok_ult, "hunted110m": hunted, "gurzigost110m": gurzigost, "cover_up110m": cover_up, "damnations110m": damnations}
+PRIMITIVES: dict[str, Any] = {"coffin_exile110m": coffin_exile, "coffin_creature110m": coffin_creature, "coffin_auras110m": coffin_auras, "alaundo_exile110m": alaundo_exile, "alaundo_tail110m": alaundo_tail, "bat_link110m": bat_link, "bat_return110m": bat_return, "rocket110m": rocket, "goblin110m": goblin, "grip110m": grip, "smoke110m": smoke, "nihiloor110m": nihiloor, "sylex110m": sylex, "store_dice110m": store_dice, "reroll_pick110m": reroll_pick, "reroll_roll110m": reroll_roll, "top_to_bottom110m": top_to_bottom, "faces110m": faces, "lose_shield110m": lose_shield, "escape_grant110m": escape_grant, "march110m": march, "tap_count110m": tap_count, "sphinx_search110m": sphinx_search, "sphinx_put110m": sphinx_put, "gandalf110m": gandalf, "bind_target_player110m": bind_target_player, "ashiok110m": ashiok, "ashiok_ult110m": ashiok_ult, "hunted110m": hunted, "gurzigost110m": gurzigost, "cover_up110m": cover_up, "damnations110m": damnations}

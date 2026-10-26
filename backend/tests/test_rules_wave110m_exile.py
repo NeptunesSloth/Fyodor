@@ -117,3 +117,73 @@ def test_a_creature_cast_this_way_has_haste_until_end_of_turn(cards):
     next_turn(s)
     assert "haste" not in ch(s, s.state.cards[elves.id]).keywords
     check(s)
+
+
+# -- Tawnos's Coffin ---------------------------------------------------------------------------------------------------------------------------
+COFFIN = "Tawnos's Coffin"
+test_coffin_full = full_test([COFFIN])
+
+
+def coffin_table(cards):
+    s = build(cards, [COFFIN, "Pacifism", "Disenchant"], ["Grizzly Bears"], forests=20)
+    coffin = put(s, COFFIN)
+    ready(s, COFFIN)
+    bears = put(s, "Grizzly Bears", "p2")
+    act(s, "p2", type="counter", card_ids=[bears.id], kind="+1/+1", delta=2)
+    act(s, "p2", type="counter", card_ids=[bears.id], kind="stun", delta=1)
+    cast(s, "Pacifism", [bears.id])
+    answer(s)
+    pacifism = card_named(s, "Pacifism")
+    assert pacifism.attached_to == bears.id
+    fund(s, "{3}")
+    act(s, "p1", type="activate_ability", card_id=coffin.id, ability=1, targets=[bears.id])
+    answer(s)
+    return s, coffin, bears, pacifism
+
+
+def test_the_coffin_exiles_the_creature_and_its_auras_together(cards):
+    s, coffin, bears, pacifism = coffin_table(cards)
+    assert s.state.cards[bears.id].zone == "p2:exile" and s.state.cards[pacifism.id].zone == "p1:exile"
+    assert s.state.cards[coffin.id].tapped
+    check(s)
+
+
+def test_the_creature_comes_back_tapped_with_its_counters_and_its_auras_attached_when_the_coffin_leaves(cards):
+    s, coffin, bears, pacifism = coffin_table(cards)
+    cast(s, "Disenchant", [coffin.id])
+    answer(s)
+    back = s.state.cards[bears.id]
+    assert back.zone == "p2:battlefield" and back.tapped
+    assert back.counters.get("+1/+1") == 2 and back.counters.get("stun") == 1
+    assert s.state.cards[pacifism.id].zone == "p1:battlefield" and s.state.cards[pacifism.id].attached_to == bears.id
+    check(s)
+
+
+def untap_step(s, keep):
+    """Pass until the untap step asks which permanents to keep tapped, and answer."""
+    for _ in range(80):
+        d = s.state.rules.decision
+        if d is not None:
+            assert "keep tapped" in d.prompt
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=keep)
+            answer(s)
+            return
+        act(s, s.state.rules.priority, type="pass_priority")
+    raise AssertionError("no untap question")
+
+
+def test_the_creature_comes_back_when_the_coffin_untaps(cards):
+    s, coffin, bears, pacifism = coffin_table(cards)
+    untap_step(s, [])
+    assert not s.state.cards[coffin.id].tapped
+    back = s.state.cards[bears.id]
+    assert back.zone == "p2:battlefield" and back.tapped and back.counters.get("+1/+1") == 2
+    assert s.state.cards[pacifism.id].attached_to == bears.id
+    check(s)
+
+
+def test_keeping_the_coffin_tapped_keeps_the_creature_exiled(cards):
+    s, coffin, bears, pacifism = coffin_table(cards)
+    untap_step(s, [coffin.id])
+    assert s.state.cards[coffin.id].tapped and s.state.cards[bears.id].zone == "p2:exile"
+    check(s)
