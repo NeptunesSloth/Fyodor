@@ -1651,5 +1651,504 @@
   "keywords": [
    "Flashback"
   ]
+ },
+ {
+  "name": "Prodigal Sorcerer",
+  "layout": "normal",
+  "mana_cost": "{2}{U}",
+  "cmc": 3.0,
+  "type_line": "Creature — Human Wizard Sorcerer",
+  "oracle_text": "{T}: This creature deals 1 damage to any target.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [],
+  "power": "1",
+  "toughness": "1"
+ },
+ {
+  "name": "Ghyrson Starn, Kelermorph",
+  "layout": "normal",
+  "mana_cost": "{1}{U}{R}",
+  "cmc": 3.0,
+  "type_line": "Legendary Creature — Tyranid Human",
+  "oracle_text": "Ward {2} (Whenever this creature becomes the target of a spell or ability an opponent controls, counter it unless that player pays {2}.)\nThree Autostubs — Whenever another source you control deals exactly 1 damage to a permanent or player, Ghyrson Starn deals 2 damage to that permanent or player.",
+  "colors": [
+   "R",
+   "U"
+  ],
+  "color_identity": [
+   "R",
+   "U"
+  ],
+  "keywords": [
+   "Three Autostubs",
+   "Ward"
+  ],
+  "power": "3",
+  "toughness": "2"
+ },
+ {
+  "name": "Ninja Teen",
+  "layout": "class",
+  "mana_cost": "{2}{B}",
+  "cmc": 3.0,
+  "type_line": "Enchantment — Class",
+  "oracle_text": "(Gain the next level as a sorcery to add its ability.)\nWhenever a creature you control leaves the battlefield, each opponent loses 1 life.\n{1}{B}: Level 2\nCreatures you control get +1/+0 and have menace.\n{B}: Level 3\nCreature cards in your graveyard have sneak {3}{B}.\nYou may cast creature spells from your graveyard using their sneak abilities.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Bloodbraid Elf",
+  "layout": "normal",
+  "mana_cost": "{2}{R}{G}",
+  "cmc": 4.0,
+  "type_line": "Creature — Elf Berserker",
+  "oracle_text": "Haste (This creature can attack and {T} as soon as it comes under your control.)\nCascade (When you cast this spell, exile cards from the top of your library until you exile a nonland card that costs less. You may cast it without paying its mana cost. Put the exiled cards on the bottom in a random order.)",
+  "colors": [
+   "G",
+   "R"
+  ],
+  "color_identity": [
+   "G",
+   "R"
+  ],
+  "keywords": [
+   "Haste",
+   "Cascade"
+  ],
+  "power": "3",
+  "toughness": "2"
+ },
+ {
+  "name": "Averna, the Chaos Bloom",
+  "layout": "normal",
+  "mana_cost": "{G}{U}{R}",
+  "cmc": 3.0,
+  "type_line": "Legendary Creature — Elemental Shaman",
+  "oracle_text": "As you cascade, you may put a land card from among the exiled cards onto the battlefield tapped. (Do this after the last card is exiled but before deciding whether to cast a nonland card.)",
+  "colors": [
+   "G",
+   "R",
+   "U"
+  ],
+  "color_identity": [
+   "G",
+   "R",
+   "U"
+  ],
+  "keywords": [],
+  "power": "4",
+  "toughness": "2"
+ },
+ {
+  "name": "Superior Spider-Man",
+  "layout": "normal",
+  "mana_cost": "{2}{U}{B}",
+  "cmc": 4.0,
+  "type_line": "Legendary Creature — Spider Human Hero",
+  "oracle_text": "Mind Swap — You may have Superior Spider-Man enter as a copy of any creature card in a graveyard, except his name is Superior Spider-Man and he's a 4/4 Spider Human Hero in addition to his other types. When you do, exile that card.",
+  "colors": [
+   "B",
+   "U"
+  ],
+  "color_identity": [
+   "B",
+   "U"
+  ],
+  "keywords": [
+   "Mind Swap"
+  ],
+  "power": "4",
+  "toughness": "4"
+ },
+ {
+  "name": "Aminatou, the Fateshifter",
+  "layout": "normal",
+  "mana_cost": "{W}{U}{B}",
+  "cmc": 3.0,
+  "type_line": "Legendary Planeswalker — Aminatou",
+  "oracle_text": "+1: Draw a card, then put a card from your hand on top of your library.\n−1: Exile another target permanent you own, then return it to the battlefield under your control.\n−6: Choose left or right. Each player gains control of all nonland permanents other than Aminatou controlled by the next player in the chosen direction.\nAminatou, the Fateshifter can be your commander.",
+  "colors": [
+   "B",
+   "U",
+   "W"
+  ],
+  "color_identity": [
+   "B",
+   "U",
+   "W"
+  ],
+  "keywords": [],
+  "loyalty": "3"
+ },
+ {
+  "name": "Ajani Goldmane",
+  "layout": "normal",
+  "mana_cost": "{2}{W}{W}",
+  "cmc": 4.0,
+  "type_line": "Legendary Planeswalker — Ajani",
+  "oracle_text": "+1: You gain 2 life.\n−1: Put a +1/+1 counter on each creature you control. Those creatures gain vigilance until end of turn.\n−6: Create a white Avatar creature token. It has \"This token's power and toughness are each equal to your life total.\"",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [],
+  "loyalty": "4"
+ },
+ {
+  "name": "Nicol Bolas, Dragon-God",
+  "layout": "normal",
+  "mana_cost": "{U}{B}{B}{B}{R}",
+  "cmc": 5.0,
+  "type_line": "Legendary Planeswalker — Bolas",
+  "oracle_text": "Nicol Bolas has all loyalty abilities of all other planeswalkers on the battlefield.\n+1: You draw a card. Each opponent exiles a card from their hand or a permanent they control.\n−3: Destroy target creature or planeswalker.\n−8: Each opponent who doesn't control a legendary creature or planeswalker loses the game.",
+  "colors": [
+   "B",
+   "R",
+   "U"
+  ],
+  "color_identity": [
+   "B",
+   "R",
+   "U"
+  ],
+  "keywords": [],
+  "loyalty": "4"
+ },
+ {
+  "name": "Jon Irenicus, Shattered One",
+  "layout": "normal",
+  "mana_cost": "{2}{U}{B}",
+  "cmc": 4.0,
+  "type_line": "Legendary Creature — Elf Wizard",
+  "oracle_text": "At the beginning of your end step, target opponent gains control of up to one target creature you control. Put two +1/+1 counters on it and tap it. It's goaded for the rest of the game and it gains \"This creature can't be sacrificed.\" (It attacks each combat if able and attacks a player other than you if able.)\nWhenever a creature you own but don't control attacks, you draw a card.",
+  "colors": [
+   "B",
+   "U"
+  ],
+  "color_identity": [
+   "B",
+   "U"
+  ],
+  "keywords": [
+   "Goad"
+  ],
+  "power": "3",
+  "toughness": "3"
+ },
+ {
+  "name": "Grothama, All-Devouring",
+  "layout": "normal",
+  "mana_cost": "{3}{G}{G}",
+  "cmc": 5.0,
+  "type_line": "Legendary Creature — Wurm",
+  "oracle_text": "Other creatures have \"Whenever this creature attacks, you may have it fight Grothama, All-Devouring.\"\nWhen Grothama leaves the battlefield, each player draws cards equal to the amount of damage dealt to Grothama this turn by sources they controlled.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [
+   "Fight"
+  ],
+  "power": "10",
+  "toughness": "8"
+ },
+ {
+  "name": "Shock",
+  "layout": "normal",
+  "mana_cost": "{R}",
+  "cmc": 1.0,
+  "type_line": "Instant",
+  "oracle_text": "Shock deals 2 damage to any target.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Aurora Shifter",
+  "layout": "normal",
+  "mana_cost": "{1}{U}",
+  "cmc": 2.0,
+  "type_line": "Creature — Shapeshifter",
+  "oracle_text": "Whenever this creature deals combat damage to a player, you get that many {E}.\nAt the beginning of combat on your turn, you may pay {E}{E}. When you do, this creature becomes a copy of another target creature you control, except it has this ability and \"Whenever this creature deals combat damage to a player, you get that many {E}.\"",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [],
+  "power": "1",
+  "toughness": "3"
+ },
+ {
+  "name": "Black Knight",
+  "layout": "normal",
+  "mana_cost": "{B}{B}",
+  "cmc": 2.0,
+  "type_line": "Creature — Human Knight",
+  "oracle_text": "First strike (This creature deals combat damage before creatures without first strike.)\nProtection from white (This creature can't be blocked, targeted, dealt damage, or enchanted by anything white.)",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "First strike",
+   "Protection"
+  ],
+  "power": "2",
+  "toughness": "2"
+ },
+ {
+  "name": "Serra Angel",
+  "layout": "normal",
+  "mana_cost": "{3}{W}{W}",
+  "cmc": 5.0,
+  "type_line": "Creature — Angel",
+  "oracle_text": "Flying\nVigilance (Attacking doesn't cause this creature to tap.)",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "Flying",
+   "Vigilance"
+  ],
+  "power": "4",
+  "toughness": "4"
+ },
+ {
+  "name": "Altar of the Wretched // Wretched Bonemass",
+  "layout": "transform",
+  "mana_cost": "{2}{B} // ",
+  "cmc": 3.0,
+  "type_line": "Artifact // Creature — Skeleton Horror",
+  "oracle_text": "When this artifact enters, you may sacrifice a nontoken creature. If you do, draw X cards, then mill X cards, where X is that creature's power.\nCraft with one or more creatures {2}{B}{B}\n{2}{B}: Return this card from your graveyard to your hand.\n//\nWretched Bonemass's power and toughness are each equal to the total power of the exiled cards used to craft it.\nThis creature has flying as long as an exiled card used to craft it has flying. The same is true for first strike, double strike, deathtouch, haste, hexproof, indestructible, lifelink, menace, protection, reach, trample, and vigilance.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Craft",
+   "Transform",
+   "Mill"
+  ],
+  "card_faces": [
+   {
+    "name": "Altar of the Wretched",
+    "mana_cost": "{2}{B}",
+    "type_line": "Artifact",
+    "oracle_text": "When this artifact enters, you may sacrifice a nontoken creature. If you do, draw X cards, then mill X cards, where X is that creature's power.\nCraft with one or more creatures {2}{B}{B}\n{2}{B}: Return this card from your graveyard to your hand.",
+    "colors": [
+     "B"
+    ],
+    "image_uris": {
+     "small": "https://cards.scryfall.io/small/front/e/2/e2c812bb-19f8-4a22-bda9-f2a6233cf700.jpg?1783951757",
+     "normal": "https://cards.scryfall.io/normal/front/e/2/e2c812bb-19f8-4a22-bda9-f2a6233cf700.jpg?1783951757",
+     "large": "https://cards.scryfall.io/large/front/e/2/e2c812bb-19f8-4a22-bda9-f2a6233cf700.jpg?1783951757",
+     "art_crop": "https://cards.scryfall.io/art_crop/front/e/2/e2c812bb-19f8-4a22-bda9-f2a6233cf700.jpg?1783951757"
+    }
+   },
+   {
+    "name": "Wretched Bonemass",
+    "mana_cost": "",
+    "type_line": "Creature — Skeleton Horror",
+    "oracle_text": "Wretched Bonemass's power and toughness are each equal to the total power of the exiled cards used to craft it.\nThis creature has flying as long as an exiled card used to craft it has flying. The same is true for first strike, double strike, deathtouch, haste, hexproof, indestructible, lifelink, menace, protection, reach, trample, and vigilance.",
+    "power": "*",
+    "toughness": "*",
+    "colors": [
+     "B"
+    ],
+    "image_uris": {
+     "small": "https://cards.scryfall.io/small/back/e/2/e2c812bb-19f8-4a22-bda9-f2a6233cf700.jpg?1783951757",
+     "normal": "https://cards.scryfall.io/normal/back/e/2/e2c812bb-19f8-4a22-bda9-f2a6233cf700.jpg?1783951757",
+     "large": "https://cards.scryfall.io/large/back/e/2/e2c812bb-19f8-4a22-bda9-f2a6233cf700.jpg?1783951757",
+     "art_crop": "https://cards.scryfall.io/art_crop/back/e/2/e2c812bb-19f8-4a22-bda9-f2a6233cf700.jpg?1783951757"
+    }
+   }
+  ]
+ },
+ {
+  "name": "Llanowar Elves",
+  "layout": "normal",
+  "mana_cost": "{G}",
+  "cmc": 1.0,
+  "type_line": "Creature — Elf Druid",
+  "oracle_text": "{T}: Add {G}.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [],
+  "power": "1",
+  "toughness": "1"
+ },
+ {
+  "name": "Comet, Stellar Pup",
+  "layout": "normal",
+  "mana_cost": "{2}{R}{W}",
+  "cmc": 4.0,
+  "type_line": "Legendary Planeswalker — Comet",
+  "oracle_text": "0: Roll a six-sided die.\n1 or 2 — [+2], then create two 1/1 green Squirrel creature tokens. They gain haste until end of turn.\n3 — [−1], then return a card with mana value 2 or less from your graveyard to your hand.\n4 or 5 — Comet deals damage equal to the number of loyalty counters on him to a creature or player, then [−2].\n6 — [+1], and you may activate Comet's loyalty ability two more times this turn.",
+  "colors": [
+   "R",
+   "W"
+  ],
+  "color_identity": [
+   "R",
+   "W"
+  ],
+  "keywords": [],
+  "loyalty": "5"
+ },
+ {
+  "name": "Sludge Monster",
+  "layout": "normal",
+  "mana_cost": "{3}{U}{U}",
+  "cmc": 5.0,
+  "type_line": "Creature — Horror",
+  "oracle_text": "Whenever this creature enters or attacks, put a slime counter on up to one other target creature.\nNon-Horror creatures with slime counters on them lose all abilities and have base power and toughness 2/2.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [],
+  "power": "5",
+  "toughness": "5"
+ },
+ {
+  "name": "The Master, Multiplied",
+  "layout": "normal",
+  "mana_cost": "{4}{B}{R}",
+  "cmc": 6.0,
+  "type_line": "Legendary Creature — Time Lord Rogue",
+  "oracle_text": "Myriad\nThe \"legend rule\" doesn't apply to creature tokens you control.\nTriggered abilities you control can't cause you to sacrifice or exile creature tokens you control.",
+  "colors": [
+   "B",
+   "R"
+  ],
+  "color_identity": [
+   "B",
+   "R"
+  ],
+  "keywords": [
+   "Myriad"
+  ],
+  "power": "4",
+  "toughness": "3"
+ },
+ {
+  "name": "Aboleth Spawn",
+  "layout": "normal",
+  "mana_cost": "{2}{U}",
+  "cmc": 3.0,
+  "type_line": "Creature — Fish Horror",
+  "oracle_text": "Flash\nWard {2}\nProbing Telepathy — Whenever a creature entering under an opponent's control causes a triggered ability of that creature to trigger, you may copy that ability. You may choose new targets for the copy.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "Probing Telepathy",
+   "Ward",
+   "Flash"
+  ],
+  "power": "2",
+  "toughness": "3"
+ },
+ {
+  "name": "Flametongue Kavu",
+  "layout": "normal",
+  "mana_cost": "{3}{R}",
+  "cmc": 4.0,
+  "type_line": "Creature — Kavu",
+  "oracle_text": "When this creature enters, it deals 4 damage to target creature.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [],
+  "power": "4",
+  "toughness": "2"
+ },
+ {
+  "name": "Elvish Visionary",
+  "layout": "normal",
+  "mana_cost": "{1}{G}",
+  "cmc": 2.0,
+  "type_line": "Creature — Elf Shaman",
+  "oracle_text": "When this creature enters, draw a card.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [],
+  "power": "1",
+  "toughness": "1"
+ },
+ {
+  "name": "Metamorphic Alteration",
+  "layout": "normal",
+  "mana_cost": "{1}{U}",
+  "cmc": 2.0,
+  "type_line": "Enchantment — Aura",
+  "oracle_text": "Enchant creature\nAs this Aura enters, choose a creature.\nEnchanted creature is a copy of the chosen creature.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "Enchant"
+  ]
+ },
+ {
+  "name": "Naturalize",
+  "layout": "normal",
+  "mana_cost": "{1}{G}",
+  "cmc": 2.0,
+  "type_line": "Instant",
+  "oracle_text": "Destroy target artifact or enchantment.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": []
  }
 ]

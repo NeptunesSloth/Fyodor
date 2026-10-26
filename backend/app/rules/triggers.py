@@ -222,6 +222,9 @@ def _add(plan: Plan, *, controller: str, source_card: str, source_object: str, n
     from app.rules import wave110c_misc  # -- Strict Proctor (wave 110C) --
 
     wave110c_misc.proctor_triggers(plan, pending, cause if cause is not None else event)
+    from app.rules import wave110a_spawn  # -- Aboleth Spawn (wave 110A) --
+
+    wave110a_spawn.triggers(plan, pending, cause if cause is not None else event)
     # -- end trigger multipliers (wave 5D) --
     return pending
 
@@ -750,7 +753,8 @@ def _damage_facts(plan: Plan, e: Event) -> list[Fact]:
     if got is not None:
         out.append(("dealt_damage", got[0], got[1], got[0].controller,
                     {"oid": e.object_id, "snap": None if _live(plan, got[0]) else r.lki.get(e.object_id or ""),
-                     "amount": e.amount, "source_oid": e.source, "combat": e.combat, "attacking_player": e.attacking_player, "excess": e.excess, "pair110c": e.pair110c}))  # (wave 39B: 120.10)
+                     "amount": e.amount, "source_oid": e.source, "combat": e.combat, "attacking_player": e.attacking_player, "excess": e.excess, "pair110c": e.pair110c,
+                     "actor": e.actor}))  # (wave 39B: 120.10)
     elif e.player is not None:  # "you're dealt combat damage", "an opponent is dealt noncombat damage"
         out.append(("dealt_damage", None, None, e.player,
                     {"recipient": e.player, "amount": e.amount, "source_oid": e.source, "combat": e.combat, "attacking_player": e.attacking_player}))
@@ -1364,6 +1368,7 @@ def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: F
                 (to == "creatures" and not info.get("recipient_creature")) or (cond.get("blocking110b") and not info.get("recipient_blocking110b")) or \
                 (cond.get("min") and int(info.get("amount") or 0) < cond["min"]) or \
                 (cond.get("eq_toughness110b") and info.get("amount") != info.get("recipient_toughness110b")) or \
+                (cond.get("exact110a") and info.get("amount") != cond["exact110a"]) or (cond.get("other110a") and info.get("oid") == plan.oid(watcher)) or \
                 (to == "enchanted_player" and (recipient is None or recipient != watcher.attached_player)):
             return False
     return True

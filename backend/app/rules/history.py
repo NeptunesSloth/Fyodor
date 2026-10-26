@@ -339,7 +339,7 @@ def note_events(plan: Plan, events: list[Any], into: TurnLog | None = None) -> N
                 # this turn", "creature that dealt damage this turn" (app/rules/damage_history.py)
                 log.facts.append(TurnFact(kind="damaged", player=player or obj.controller, object_id=info["oid"],
                                           amount=int(info["amount"]), combat=bool(info.get("combat")),
-                                          source=info.get("source_oid"), batch=e.batch, excess=int(info.get("excess") or 0),
+                                          source=info.get("source_oid"), batch=e.batch, excess=int(info.get("excess") or 0), source_controller=info.get("actor"),  # (wave 110A: Grothama)
                                           **what))  # (wave 39B: batch, excess — 120.10)
             elif kind == "deal_damage" and info.get("recipient") and log.facts and log.facts[-1].kind == "damage":
                 # its source, as it was as it dealt that damage (608.2i)

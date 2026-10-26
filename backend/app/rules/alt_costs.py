@@ -441,6 +441,8 @@ def offers(state: GameState, player: str, card: CardInstance, ch: Characteristic
         key = f"{r.object_id(src.id)}:alt:{index}"  # (-- review 31 -- 400.7: a new As Foretold / Darksteel Monolith has a new use, as permissions' review 30c)
         if d["once"] and r.once_per_turn.get(key) == state.turn.number:
             continue
+        if d.get("tag") == "sneak" and not sneak_timing(state, player):
+            continue  # -- grants (wave 110A) -- 702.190a: a granted sneak cost is offered only in your declare blockers step too
         if d.get("zone") and not (where == d["zone"] and (d["zone"] != "hand" or card.zone == f"{player}:hand")):
             continue
         if d.get("filter") and not permissions.spell_matches(state, player, card, ch, d["filter"], info):

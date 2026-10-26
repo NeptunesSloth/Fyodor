@@ -1053,7 +1053,7 @@ def _predicate(predicate: str, x_value: values.Value | None = None, it: str | No
                 return None
             base = [int(b1["n"]) if b1["w"] == "power" else None, int(b1["n"]) if b1["w"] == "toughness" else None]
             continue
-        if rest.startswith("all activated abilities of "):  # -- borrowed abilities (wave 18F) -- app/rules/abilities_of.py
+        if rest.startswith(("all activated abilities of ", "all loyalty abilities of ")):  # -- borrowed abilities (wave 18F) -- app/rules/abilities_of.py
             from app.rules import abilities_of
 
             found_lent = abilities_of.parse(rest)

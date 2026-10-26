@@ -1194,6 +1194,7 @@ class PaymentRecord(BaseModel):
     pick110e: str | None = Field(default=None, max_length=64)  # -- cast-time choice (wave 110E) -- the creature type chosen as the spell was cast
     gift_to: str | None = Field(default=None, max_length=64)  # -- gift (wave 23D) -- 702.174a: the opponent the gift was promised to
     alternative: str | None = None  # "evoke", "dash", "flashback", "madness", "face_down", "free", …
+    granted_offspring110a: bool = False  # -- grants (wave 110A) -- Zinnia: offspring was given to the spell as it was cast (the permanent keeps it)
     prototyped: bool = False  # -- casting extras (wave 18E) -- 718.3: cast prototyped (the spell and the permanent have the alternative values)
     additional: list[str] = Field(default_factory=list)  # "buyback", "kicker", …
     waterbend_paid102: bool | None = None  # Actual paid action; None is unknown legacy data, copied independently of mana spent.
@@ -1480,6 +1481,7 @@ class RulesState(BaseModel):
     loyalty_used: dict[str, int] = Field(default_factory=dict)  # planeswalker -> turn it last used a loyalty ability
     dealt_to110g: dict[str, list[str]] = Field(default_factory=dict)  # -- wave 110G -- source object id -> players / objects it dealt damage to this game (The Fallen)
     monarch_began110b: str | None = None  # -- wave 110B -- the monarch as the current turn began (Knights of the Black Rose)
+    loyalty_extra110a: dict[str, list[int]] = Field(default_factory=dict)  # -- wave 110A -- Comet: planeswalker object -> [turn, activations still allowed beyond the first] (606.3)
     loyalty_second: dict[str, int] = Field(default_factory=dict)  # -- static_other sweep (wave 19A) -- planeswalker -> turn of its second use
     # -- activation costs (wave 4H) -- exerted permanents (701.43a): object id -> the player who exerted it; it doesn't
     # untap during that player's next untap step (app/rules/engine.start_next_turn)

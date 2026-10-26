@@ -4218,7 +4218,7 @@ def control_forms(text: str) -> tuple[Effects, Any] | None:
             return [{"do": "gain_control", "who": _who(kind, key), "to": "target", **dur}], pgroup
         if group is not None and set(group) == {"what", "min", "max", "another"}:  # -- if you do (wave 51D) -- "Target opponent gains control of another target permanent you control." (Stiltzkin): the first target is a player, so "another" is than the source (as reconfigure's, 702.151a), which the selector already says (``other``)
             group = {k: v for k, v in group.items() if k != "another"}
-        if group is None or not simple(group):
+        if group is None or not simple({**group, "min": 1} if (group["min"], group["max"]) == (0, 1) else group):  # (wave 110A: "up to one target creature you control", Jon Irenicus)
             return None
         return [{"do": "gain_control", "who": "target:1", "to": "target:0", **dur}], [pgroup, group]
     m = _CT_OWN.fullmatch(text)  # -- other players' choices (wave 12D) -- "Each player gains control of all creatures they own."
@@ -4498,6 +4498,8 @@ def keyword_forms(text: str) -> tuple[Effects, Any] | None:
         if kind not in ("target", "it", "host", "self") or (kind == "target" and not on_battlefield_only(key)):
             return None
         return [{"do": "suspect", "who": _who(kind, key)}], _one(group)
+    if text == "it's goaded for the rest of the game" and has_primitive("goad"):  # -- goad (wave 110A) -- 701.15a with no end (Jon Irenicus)
+        return [{"do": "goad", "who": "it", "forever": True}], None
     if not text.startswith("goad ") or not has_primitive("goad"):
         return None
     m = _GOAD_PLAYER.fullmatch(text)

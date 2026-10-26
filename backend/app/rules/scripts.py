@@ -5943,6 +5943,8 @@ def _granter_view(ability: AbilityText) -> tuple[AbilityText, str] | None:
     from app.rules import wave110d_granter  # -- granter counters (wave 110D) --
 
     found = _GRANTER_RE.search(effect)
+    if ability.kind == "triggered" and (m := re.fullmatch(rf"(.+, you may have it fight ){selectors.GRANTER}\.", ability.text)):
+        return replace(ability, text=f"{m[1]}target creature."), m["oid"] or ""  # -- granter fights (wave 110A) -- Grothama: bound to the granter by ``_granter_bound``
     effect, marker = wave110d_granter.text(effect)
     if ability.kind != "activated" or found is None or _OTHER_SELF.search(_GRANTER_RE.sub("", effect).replace(" counters on it", "")):
         return None
@@ -5954,6 +5956,9 @@ def _granter_bound(d: Definition, oid: str) -> Definition | None:
 
     if (own := wave110d_granter.bound(d, oid)) is not None:
         return own
+    if d.get("kind") == "triggered":  # -- granter fights (wave 110A) -- "you may have it fight <granter>": the one creature to fight is the granting object, not a target
+        fights = [{**e, "with": f"obj:{oid}"} for e in d["effects"] if e.get("do") == "fight" and e.get("with") == "target"]
+        return {**{k: v for k, v in d.items() if k != "target"}, "effects": fights} if len(fights) == len(d["effects"]) else None
     effects = []
     for e in d["effects"]:
         if e.get("do") in _GRANTER_SUBJECT and e.get("who") == "self":

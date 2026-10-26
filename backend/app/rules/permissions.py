@@ -658,6 +658,10 @@ def define_static(text: str, kind: str, lines: tuple[str, ...] = ()) -> Definiti
         from app.rules import wave110a_grants
 
         return wave110a_grants.grant_freerunning(t)
+    if (" have sneak " in t or t.lower().startswith("you may cast creature spells from your graveyard using their sneak")) and kind == "static":  # -- grants (wave 110A) -- Ninja Teen
+        from app.rules import wave110a_grants
+
+        return wave110a_grants.grant_sneak(t)
     if " has madness. " in t and kind == "static":  # -- grants (wave 110A) -- Falkenrath Gorger
         from app.rules import wave110a_grants
 
@@ -666,6 +670,10 @@ def define_static(text: str, kind: str, lines: tuple[str, ...] = ()) -> Definiti
         from app.rules import wave110a_grants
 
         return wave110a_grants.grant_replicate(t)
+    if " gain offspring " in t and kind == "static":  # -- grants (wave 110A) -- Zinnia, Valley's Voice
+        from app.rules import wave110a_grants
+
+        return wave110a_grants.grant_offspring(t)
     if " has web-slinging " in t and kind == "static":  # -- Marvel keywords (wave 25A) -- granted web-slinging (702.188a)
         from app.rules import alt_costs
 

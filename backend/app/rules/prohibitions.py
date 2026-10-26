@@ -109,6 +109,8 @@ def static_definition(text: str) -> Definition | None:
         return {"kind": "static", "static": "draw_cap", "who": "each", "n": 0, "effects": []}
     if t in _SEARCH_STATICS:  # (Mindlock Orb, Stranglehold, Ashiok, Dream Render)
         return {"kind": "static", "static": "cant_search", "who": _SEARCH_STATICS[t], "effects": []}
+    if t == "triggered abilities you control can't cause you to sacrifice or exile creature tokens you control":  # -- prohibitions (wave 110A) -- The Master, Multiplied
+        return {"kind": "static", "static": "trigger_token_shield110a", "effects": []}
     if t == "spells and abilities your opponents control can't cause you to sacrifice permanents":  # (Sigarda, Tajuru Preserver)
         return {"kind": "static", "static": "cant_cause_sacrifice", "discard": False, "effects": []}
     if t == "spells and abilities your opponents control can't cause you to discard cards or sacrifice permanents":  # (Tamiyo, Collector of Tales)
@@ -361,6 +363,17 @@ def cant_cause_sacrifice(plan: Plan, victim: str, by: str) -> str | None:
     if victim == by:
         return None
     return next((_label(src) for src, _ in _statics(plan, "cant_cause_sacrifice") if src.controller == victim), None)
+
+
+def trigger_token_shield(plan: Plan, ctx: dict[str, Any], cards: list[str]) -> list[str]:
+    """614.17: a triggered ability's effect (ctx kind "trigger") can't sacrifice or exile creature tokens its controller controls while they control a
+    permanent saying so (The Master, Multiplied: myriad's end-of-combat exile does nothing to the tokens). Costs are not effects, so they are not covered."""
+    if ctx.get("kind") != "trigger" or not any(src.controller == ctx["controller"] for src, _ in _statics(plan, "trigger_token_shield110a")):
+        return cards
+    keep = [c for c in cards if not (plan.state.cards[c].token and plan.state.cards[c].controller == ctx["controller"] and plan.ch(plan.state.cards[c]).is_creature)]
+    if len(keep) < len(cards):
+        plan.note("A triggered ability can't cause its controller to sacrifice or exile their creature tokens")
+    return keep
 
 
 def cant_cause_discard(plan: Plan, victim: str, by: str) -> str | None:
