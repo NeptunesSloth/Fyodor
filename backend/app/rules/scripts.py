@@ -3536,9 +3536,9 @@ def _parse_effects_plain(body: str, it: str | None = None, *, event_player: bool
         return protected_airbend
     if (spell_airbend := airbend.spell_target(body)) is not None:  # -- airbend (wave 110B) --
         return spell_airbend
-    from app.rules import wave110b_dack, wave110b_hama, wave110b_lich
+    from app.rules import wave110b_dack, wave110b_hama, wave110b_lich, wave110b_stangg
 
-    if (hama := wave110b_hama.parse(body) or wave110b_dack.parse(body)) is not None:  # -- Hama, Dack Fayden (wave 110B) --
+    if (hama := wave110b_hama.parse(body) or wave110b_dack.parse(body) or wave110b_stangg.parse(body)) is not None:  # -- Hama, Dack Fayden, Stangg (wave 110B) --
         return hama
     if (lich := wave110b_lich.parse(body)) is not None:  # -- Havengul Lich (wave 110B) --
         return lich

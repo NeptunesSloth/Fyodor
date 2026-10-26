@@ -34,7 +34,7 @@ def cards(settings):
     yield from repository(settings)
 
 
-@pytest.mark.parametrize("name", [HAMA, "Susan Foreman", "Dack Fayden, Helping Hand", "The Fourteenth Doctor", TAHNGARTH])  # Susan: 701.31a, 901.3 planeswalking is Planechase-only; no planar deck in Commander
+@pytest.mark.parametrize("name", [HAMA, "Susan Foreman", "Dack Fayden, Helping Hand", "The Fourteenth Doctor", TAHNGARTH, "Stangg, Echo Warrior"])  # Susan: 701.31a, 901.3 planeswalking is Planechase-only; no planar deck in Commander
 def test_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
@@ -261,3 +261,39 @@ def test_tahngarth_declined_or_untapped_does_nothing(cards):
 def test_tahngarth_only_attacked_player_is_chosen_without_asking(cards):
     s, tahn, asked = bob_attacks(cards, True, {"Grizzly Bears": "p1"})
     assert [a[:2] for a in asked] == [("p1", "confirm")] and s.state.cards[tahn.id].attacking.id == "p1"
+
+
+STANGG = "Stangg, Echo Warrior"
+
+
+@pytest.mark.parametrize("attached", [(), ("Bonesplitter", "Holy Strength")])
+def test_stangg_twin_enters_attacking_with_copies_of_its_equipment_and_auras_then_all_are_sacrificed(cards, attached):
+    """508.4 the Twin attacks undeclared; each Aura and Equipment on Stangg is copied by a token attached to the Twin; all those tokens are sacrificed at the next end step."""
+    s = build(cards, [STANGG, *attached], [], forests=30)
+    stangg = put(s, STANGG)
+    for name in attached:
+        c = put(s, name)
+        act(s, "p1", type="attach", card_ids=[c.id], to=stangg.id)
+    s.state.rules.controlled_since[stangg.id].turn = 0
+    act(s, "p1", type="set_stops", own=["declare_attackers", "end"], smart_pass=False)
+    for _ in range(10):
+        if s.state.rules.decision is not None and s.state.rules.decision.kind == "declare_attackers":
+            break
+        act(s, "p1", type="pass_priority")
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": stangg.id, "target": "p2"}])
+    drive(s)
+    tokens = [c for c in s.state.cards.values() if c.is_token and c.zone == "p1:battlefield"]
+    twin = next(c for c in tokens if c.name == "Stangg Twin")
+    assert twin.tapped and twin.attacking is not None and twin.attacking.id == "p2"
+    copies = sorted(c.name for c in tokens if c is not twin)
+    assert copies == sorted(attached)
+    assert all(c.attached_to == twin.id for c in tokens if c is not twin)
+    assert all(c.attached_to == stangg.id for c in s.state.cards.values() if c.name in attached and not c.is_token)
+    through_combat(s)
+    for _ in range(30):  # on to the end step: every token created this way is sacrificed
+        if s.state.turn.phase == "end" and not s.state.zones.get("stack"):
+            break
+        d = s.state.rules.decision
+        act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][:1]) if d else act(s, s.state.rules.priority, type="pass_priority")
+    assert not [c for c in s.state.cards.values() if c.is_token and c.zone == "p1:battlefield"]
+    check(s)

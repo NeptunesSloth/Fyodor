@@ -7297,3 +7297,6 @@ from app.rules import wave110b_tahngarth as _wave110b_tahngarth  # noqa: E402, I
 
 PRIMITIVES.update(_wave110b_tahngarth.PRIMITIVES)
 RESUME.update(_wave110b_tahngarth.RESUME)
+from app.rules import wave110b_stangg as _wave110b_stangg  # noqa: E402, I001
+
+PRIMITIVES.update(_wave110b_stangg.PRIMITIVES)
