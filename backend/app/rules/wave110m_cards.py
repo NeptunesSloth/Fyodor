@@ -6,7 +6,6 @@ from __future__ import annotations
 
 import json
 import re
-import threading
 from collections.abc import Callable
 from dataclasses import replace
 from typing import Any
@@ -22,14 +21,6 @@ _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
 }
 
 
-class _Reading(threading.local):
-    texts: set[str]
-
-    def __init__(self) -> None:
-        self.texts = set()
-
-
-_READING = _Reading()  # the whole-ability texts being read natively right now, per thread
 ATK_TAX = "block_tax_atk110m"
 _PRESENCE = "Enchanted creature can't be blocked unless defending player pays {3} for each creature they control that's blocking it."
 
@@ -70,7 +61,7 @@ def block_tax_for(plan: Any, blocks: Any) -> str:
 
 
 def definition(ability: Any, ch: Any) -> Def | None:
-    from app.rules import scripts, statics
+    from app.rules import exact_ability, scripts, statics
 
     if ability.kind == "static" and ability.text.strip() == _PRESENCE:
         return statics._definition("attached", "creature", [], rules=[f"{ATK_TAX}:{{3}}"])
@@ -101,14 +92,7 @@ def definition(ability: Any, ch: Any) -> Def | None:
         first = scripts.define(replace(ability, text="As this artifact enters, choose an opponent."), ch)
         second = scripts.define(replace(ability, text="As this artifact enters, choose a card name other than a basic land card name."), ch)
         return None if first is None or second is None else {**first, "effects": [*first["effects"], *second["effects"]]}
-    if (built := _BUILD.get(ability.text.strip())) is None or ability.text.strip() in _READING.texts:
-        return None  # (an entry whose native wording is its own: the grammar reads it plainly, then the change is applied)
-    _READING.texts.add(ability.text.strip())
-    try:
-        native = scripts.define(replace(ability, text=built[0]), ch)
-    finally:
-        _READING.texts.discard(ability.text.strip())
-    return None if native is None else built[1](native)
+    return exact_ability.build(ability, ch, _BUILD)  # (an entry whose native wording is its own: the grammar reads it plainly, then the change is applied)
 
 
 _RHINO = ("Target creature you control gets +1/+0 until end of turn. It fights target creature an opponent controls. When excess damage is dealt to the creature "

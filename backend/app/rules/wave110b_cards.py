@@ -675,7 +675,7 @@ def note_hits(plan: Any) -> None:
 
 
 def definition(ability: Any, ch: Any) -> Def | None:
-    from app.rules import scripts
+    from app.rules import exact_ability
 
     text = ability.text.strip()
     if text == _ANGEL:
@@ -695,12 +695,7 @@ def definition(ability: Any, ch: Any) -> Def | None:
 
     if (final := wave110b_final.definition(ability, ch)) is not None:
         return final
-    if (same := _AS.get(text)) is not None:
-        return scripts.define(replace(ability, text=same), ch)
-    if (built := _BUILD.get(text)) is not None:
-        native = scripts.define(replace(ability, text=built[0]), ch)
-        return None if native is None else built[1](native)
-    return None
+    return exact_ability.build(ability, ch, _BUILD, _AS)
 
 
 _VINCENT = ('Until end of turn, target creature you control gains "When this creature dies, return it to the battlefield tapped under its owner\'s '

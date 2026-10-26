@@ -720,9 +720,8 @@ _NO_REGEN_DAMAGED = "Creatures dealt damage by this creature this turn can't be 
 
 
 def definition(ability: Any, ch: Any) -> Def | None:
-    from dataclasses import replace
 
-    from app.rules import scripts
+    from app.rules import exact_ability
 
     if ability.text.strip() == _SADDLEBRUTE:  # read by combat.attack_problem / declare_attackers through sick_may_attack and sick_target_ok
         return {"kind": "static", "static": "saddlebrute110k", "effects": []}
@@ -733,10 +732,7 @@ def definition(ability: Any, ch: Any) -> Def | None:
     if ability.text.strip().replace("this permanent", "this creature") == _NO_REGEN_DAMAGED:  # Bone Shaman's granted ability: read by regeneration.shielded / regeneration_choices.options
         return {"kind": "static", "static": "no_regen_damaged110k", "effects": []}
 
-    if (built := _BUILD.get(ability.text.strip())) is None:
-        return None
-    native = scripts.define(replace(ability, text=built[0]), ch)
-    return None if native is None else built[1](native)
+    return exact_ability.build(ability, ch, _BUILD)
 
 
 def damaged_unregenerable(plan: Any, card: Any) -> bool:

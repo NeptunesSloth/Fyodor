@@ -97,7 +97,7 @@ def holds(plan: Any, ctx: dict[str, Any], cond: Def) -> bool:
 
 
 def definition(ability: Any, ch: Any) -> Def | None:
-    from app.rules import scripts
+    from app.rules import exact_ability, scripts
 
 
     if (cap := _CAP.fullmatch(ability.text.strip())) is not None and ch.name.startswith(cap["name"]):  # (the short name)
@@ -126,10 +126,7 @@ def definition(ability: Any, ch: Any) -> Def | None:
         return _shuriken(shuriken["oid"], ability, ch)
     if (blight := _BLIGHT.fullmatch(ability.text.strip())) is not None:
         return _nettlevine(blight["oid"], ability, ch)
-    if (built := _BUILD.get(ability.text.strip())) is None:
-        return None
-    native = scripts.define(replace(ability, text=built[0]), ch)
-    return None if native is None else built[1](native)
+    return exact_ability.build(ability, ch, _BUILD)
 
 
 def _farmer(d: Def) -> Def:
