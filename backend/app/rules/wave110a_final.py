@@ -19,9 +19,6 @@ TYPES = frozenset({"Artifact", "Creature", "Enchantment"})
 GORGER = ("Whenever ~ attacks, exile up to one card of each card type from defending player's graveyard. Put a +1/+1 counter on ~ for each card exiled this way.")
 ULDAROS = ("When ~ enters, if you cast ~, exile up to one target nonland card of each card type from your graveyard. Copy those cards. "
            "You may cast any number of spells with total mana value 6 or less from among the copies without paying their mana costs.")
-INTIMATIONS_SPELL = ("Each opponent sacrifices a creature or planeswalker of their choice, then discards a card. "
-                     "You return a creature or planeswalker card from your graveyard to your hand, then draw a card.")
-INTIMATIONS_CAST = ("When you cast a Bolas planeswalker spell, exile this card from your graveyard. That planeswalker enters with an additional loyalty counter on it.")
 MAGMARCH = ("Whenever you cast an instant or sorcery spell that targets only a single nonland permanent an opponent controls, if another opponent controls one or more "
             "nonland permanents that spell could target, choose one of those permanents. Copy that spell. The copy targets the chosen permanent.")
 THREEFOLD = "Each spell you cast that's exactly three colors has replicate {3}."
@@ -30,7 +27,6 @@ DEIF_HEXPROOF = "Planeswalkers you control of the chosen type have hexproof."
 DEIF_LOYALTY = ("As long as you control a creature, if damage dealt to a planeswalker you control of the chosen type would result in all loyalty counters on it being removed, "
                 "instead all but one of those counters are removed.")
 PW_LABEL = "Chosen planeswalker type"
-VISIONARY = "When you play a card exiled with ~, transform ~."
 PROWL_ATTACK = "Whenever ~ attacks, exile up to one other target tapped creature or Vehicle. For as long as that card remains exiled, its owner may play it."
 PROWL_PLAY = "Whenever a player plays a card exiled with ~, you draw a card and transform ~."  # (self_text reads "convert" as "transform", the same action: ruling 2022-10-14)
 SNOWBLIND = ("Enchanted creature gets -X/-Y. If that creature is attacking, X is the number of snow lands defending player controls. Otherwise, X is the number of snow lands its "
@@ -106,11 +102,6 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
         if d is None or d["cond"].get("event") != "either" or len(d["cond"]["conds"]) != 2:
             return None
         return {**d, "cond": {**d["cond"], "conds": [{**c, "exiled_with110a": True} for c in d["cond"]["conds"]]}}
-    if text == VISIONARY:  # a play is a land play or a cast (305.1, 601.1), of a card exiled with it: the played card's previous object is in its link record (triggers.py)
-        d = scripts.define(replace(ability, text="Whenever you play a land or cast a spell, transform this creature."), ch)
-        if d is None or d["cond"].get("event") != "either" or len(d["cond"]["conds"]) != 2:
-            return None
-        return {**d, "cond": {**d["cond"], "conds": [{**c, "exiled_with110a": True} for c in d["cond"]["conds"]]}}
     if text == DEIF_CHOICE:  # 614.12a: the choice is made before it enters, recorded on it like a chosen creature type
         return {"kind": "replacement", "replacement": "enters_choice", "effects": [{"do": "choose_value", "who": "you", "what": "planeswalker type", "remember": True}]}
     if text == DEIF_HEXPROOF:  # 205.3j: the chosen planeswalker type, read by selectors.matches ("chosen_pw110a")
@@ -134,11 +125,6 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
         if d is None or [e["do"] for e in d["effects"]] != ["copy_spell", "copy_new_targets"] or d["cond"].get("event") != "cast":
             return None
         return {**d, "cond": {**d["cond"], "other_opp110a": True}, "effects": [{"do": "magmarch110a"}]}
-    if text == INTIMATIONS_CAST:  # 113.6m: it works from the graveyard (the "self_gy" exile); 614.1c: the Bolas planeswalker spell gets one more loyalty counter as it enters
-        d = scripts.define(replace(ability, text="When you cast a Bolas planeswalker spell, return this card from your graveyard to your hand."), ch)
-        if d is None or [e["do"] for e in d["effects"]] != ["return_card"]:
-            return None
-        return {**d, "effects": [{"do": "exile", "who": "self_gy"}, {"do": "loyalty_rider110a", "who": "event_spell"}]}
     if text == GORGER:  # one card of each card type: a single choice, checked as one card per type (the primitive below)
         d = scripts.define(replace(ability, text="Whenever this creature attacks, exile all cards from defending player's graveyard. "
                                                  "Put a +1/+1 counter on this creature for each card exiled this way."), ch)
@@ -292,21 +278,6 @@ def resume_magmarch(plan: Plan, d: Any, chosen: list[str]) -> None:
 
     if _copy_for(plan, d.resume["ctx"], d.resume["spell"], chosen[0]):
         effects.continue_effects(plan, d.resume["ctx"])
-
-
-def loyalty_rider(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
-    """The planeswalker spell the cast trigger is about gets one more loyalty counter as it enters (the creature riders' record, cast_riders.spell_rider)."""
-    from app.rules import cast_riders
-
-    return cast_riders.spell_rider(plan, ctx, {"do": "spell_rider", "who": "event_spell", "riders": [{"kind": "loyalty110a"}]})
-
-
-def entering_loyalty(plan: Plan, card: CardInstance) -> int:
-    """Additional loyalty counters a planeswalker spell was given as it was cast (Dark Intimations, 614.1c): one per rider on its payment record."""
-    from app.rules import mana_units
-
-    rec = mana_units.record_of(plan, card)
-    return 0 if rec is None else sum(1 for r in rec.mana_riders if r["kind"] == "loyalty110a")
 
 
 def snowblind(state: GameState, info: Any, card: CardInstance, p: int, t: int) -> tuple[int, int]:
@@ -551,6 +522,5 @@ def resume_order(plan: Plan, d: Any, chosen: list[str]) -> None:
     continue_effects(plan, ctx)
 
 
-REWRITES = {INTIMATIONS_SPELL: INTIMATIONS_SPELL.replace("You return", "Return")}  # (the grammar has no "you return"; 101.4 / the 2017-02-09 ruling: opponents choose in turn order, all at once)
-PRIMITIVES: dict[str, Any] = {"false_orders110a": false_orders, "lucy_gate110a": lucy_gate, "lucy_draw110a": lucy_draw, "apple_watch110a": apple_watch, "next_free_chosen110a": next_free_chosen, "sticker_flag110a": sticker_flag, "magmarch110a": magmarch, "loyalty_rider110a": loyalty_rider, "exile_one_per_type110a": one_per_type}
+PRIMITIVES: dict[str, Any] = {"false_orders110a": false_orders, "lucy_gate110a": lucy_gate, "lucy_draw110a": lucy_draw, "apple_watch110a": apple_watch, "next_free_chosen110a": next_free_chosen, "sticker_flag110a": sticker_flag, "magmarch110a": magmarch, "exile_one_per_type110a": one_per_type}
 RESUME: dict[str, Any] = {"damping110a": resume_sacrifice, "chaotic_order110a": resume_order, "exile_one_per_type110a": resume_one_per_type, "magmarch110a": resume_magmarch, "false_orders110a": resume_false_orders}

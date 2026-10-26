@@ -1801,6 +1801,10 @@ def holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
         from app.rules import coin_flips
 
         return coin_flips.holds(ctx, cond)
+    if "exiled_with110c" in cond:  # -- Voltaic Visionary (wave 110C) -- app/rules/wave110c_visionary.py
+        from app.rules import wave110c_visionary
+
+        return wave110c_visionary.holds(plan, ctx)
     if "act7b" in cond:  # -- activation wordings (wave 7B) -- app/rules/activation_words.py
         from app.rules import activation_words
 

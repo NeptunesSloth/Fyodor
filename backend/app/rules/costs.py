@@ -445,6 +445,8 @@ def parse_ability_cost(cost: str, *, card_name: str = "", loyalty: bool = False,
 
     if not loyalty and (source69 := source_named_cost69.parse(cost)) is not None:
         return source69
+    if not loyalty and cost.strip() == "Pay enchanted creature's mana cost":  # -- Merseine (wave 110C) -- casting.ability_cost fills in the creature's cost; {H} alone can't be paid
+        return AbilityCost(mana="{H}", components=(CostComponent(MANA, text="{H}"),))
     if not loyalty and cost.strip() == '{6}, Roll a d8':
         return replace(parse_ability_cost('{6}', card_name=card_name, anyn=anyn), numeric_roll_sides=8)
     cost = re.sub(r'Remove twelve ([\w+/\-]+) counters from ([^,{}:]+?) and exile it', r'Remove 12 \1 counters from \2, Exile \2', cost)

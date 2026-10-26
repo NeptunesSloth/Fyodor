@@ -6964,6 +6964,7 @@ RESUME.update(_prepared_mill61.RESUME)
 
 CHOICE_OPTIONS['color word'] = list(_text_change_instructions71.COLORS)
 CHOICE_LABELS['color word'] = 'Chosen color word'
+CHOICE_LABELS["phylactery artifact110c"] = "Phylactery artifact"  # -- Phylactery Lich (wave 110C) --
 CHOICE_LABELS["amount of life to pay"] = "Life paid"  # -- static permanents (wave 100D) -- static_perm100d.LIFE_KEY
 
 from app.rules import text_global_word71 as _global_word71  # noqa: E402
@@ -7383,3 +7384,7 @@ from app.rules import wave110b_final as _wave110b_final  # noqa: E402, I001
 
 PRIMITIVES.update(_wave110b_final.PRIMITIVES)
 RESUME.update(_wave110b_final.RESUME)
+from app.rules import wave110c_learn as _wave110c_learn  # noqa: E402, I001  -- (wave 110C) --
+
+PRIMITIVES.update(_wave110c_learn.PRIMITIVES)
+RESUME.update(_wave110c_learn.RESUME)

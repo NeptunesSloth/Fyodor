@@ -96,7 +96,7 @@ def split(body: str) -> tuple[str, str | None]:
     None). The restriction sentences are the trailing ones that start with "Activate only …"."""
     sentences = _sentences(body)
     found: list[str] = []
-    while sentences and (_RESTRICTION_SENTENCE.match(sentences[-1]) or sentences[-1] in (ANY_PLAYER, OPPONENTS_ONLY, *DEFENDERS)
+    while sentences and (_RESTRICTION_SENTENCE.match(sentences[-1]) or sentences[-1] in (ANY_PLAYER, OPPONENTS_ONLY, *DEFENDERS, activation_words.HOST_ONLY)
                          or ANY_PLAYER_BUT.match(sentences[-1]) or OPPONENTS_BUT.match(sentences[-1]) or _COUNTED_LIMIT.match(sentences[-1])):  # (ANY_PLAYER: wave 7B; ANY_PLAYER_BUT: wave 17B; wave 100I)
         found.insert(0, sentences.pop())
     if not found:
@@ -150,6 +150,9 @@ def parse(text: str) -> list[Restriction] | None:
             continue
         if sentence in DEFENDERS:  # -- defending player (wave 110D) -- 602.2: any player may activate it, but only the one the creature attacks (checked in ``problem``)
             out += [{"kind": "any_player"}, {"kind": "defender110d"}, {"kind": "step", "phases": ["declare_attackers"], "whose": None}]
+            continue
+        if sentence == activation_words.HOST_ONLY:  # -- Merseine (wave 110C) -- 602.2: the enchanted creature's controller (activation_words.actor_allowed)
+            out.append({"kind": "any_player", "host110c": True})
             continue
         if sentence == ANY_PLAYER:  # -- activation wordings (wave 7B) -- 602.2
             out.append({"kind": "any_player"})

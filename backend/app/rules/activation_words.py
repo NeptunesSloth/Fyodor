@@ -28,6 +28,7 @@ OPPONENTS_ONLY = "Only your opponents may activate this ability."
 # -- defending player (wave 110D) -- Capricopian, 602.2: only the player the creature attacks may activate (restrictions.problem checks who)
 DEFENDER = "Only the player this creature is attacking may activate this ability and only during the declare attackers step."
 DEFENDERS = (DEFENDER, DEFENDER.replace("this creature", "~"))  # (the card's own name or "this creature" reads as ~ in a definition)
+HOST_ONLY = "Only the controller of the enchanted creature may activate this ability."  # -- Merseine (wave 110C) -- 602.2
 # -- activated sweep (wave 17B) -- "Any player may activate this ability but only as a sorcery / during their draw step." (Scandalmonger,
 # Well of Knowledge): the restriction is about the player who activates it (602.5)
 ANY_PLAYER_BUT = re.compile(r"^Any player may activate this ability but only (?P<rest>.+)\.$")
@@ -52,8 +53,16 @@ def opponents_only(ability: Any) -> bool:
     return ability.kind == "activated" and (ability.text.rstrip().endswith(OPPONENTS_ONLY) or OPPONENTS_BUT.search(ability.text.rstrip().split('. ')[-1]) is not None)
 
 
-def actor_allowed(ability: Any, cost: Any, controller: str, player: str, *, owner: str | None = None) -> bool:
+def host_controller(state: Any, card: Any) -> str | None:
+    """-- Merseine (wave 110C) -- the controller of the permanent ``card`` is attached to (None: not attached)."""
+    host = state.cards.get(card.attached_to or "")
+    return host.controller if host is not None and host.zone.endswith(":battlefield") else None
+
+
+def actor_allowed(ability: Any, cost: Any, controller: str, player: str, *, owner: str | None = None, host: str | None = None) -> bool:
     """602.2: actor permission is relative to the permanent's current controller."""
+    if ability.text.rstrip().endswith(HOST_ONLY):  # -- Merseine (wave 110C) -- the creature's controller activates it and pays (602.2a), never {T}/sacrifice of the Aura
+        return host is not None and player == host and not (cost.tap or cost.untap or cost.sacrifice_self)
     if (reserved := getattr(ability, "activation_player", None)) is not None:
         return player == reserved and (player == controller or not (cost.tap or cost.untap or cost.sacrifice_self))
     if re.search(r"Only (?:this (?:creature|permanent)|~)['’]s owner may activate this ability\.$", ability.text):

@@ -333,8 +333,31 @@ def definition(ability: AbilityText, ch: Any) -> dict[str, Any] | None:
         return kusari
     if (tevesh := wave110c_tevesh.definition(ability, ch)) is not None:  # Tevesh Szat, Doom of Fools
         return tevesh
-    from app.rules import wave110c_discard, wave110c_misc, wave110c_rad, wave110c_wheel
+    from app.rules import (
+        wave110c_animate,
+        wave110c_dark,
+        wave110c_discard,
+        wave110c_equil,
+        wave110c_learn,
+        wave110c_misc,
+        wave110c_ogre,
+        wave110c_rad,
+        wave110c_visionary,
+        wave110c_wheel,
+    )
 
+    if (visionary := wave110c_visionary.definition(ability, ch)) is not None:  # Voltaic Visionary
+        return visionary
+    if (animate := wave110c_animate.definition(ability.text)) is not None:  # Animate Artifact
+        return animate
+    if (equil := wave110c_equil.definition(ability.text)) is not None:  # Land Equilibrium
+        return equil
+    if (ogre := wave110c_ogre.definition(ability, ch)) is not None:  # Ogre Battlecaster
+        return ogre
+    if (dark := wave110c_dark.definition(ability, ch)) is not None:  # Dark Intimations
+        return dark
+    if (learn := wave110c_learn.definition(ability.text)) is not None:  # Retriever Phoenix
+        return learn
     if (misc := wave110c_misc.definition(ability, ch)) is not None:  # Volcano Hellion
         return misc
 

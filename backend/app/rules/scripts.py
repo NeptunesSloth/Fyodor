@@ -1616,6 +1616,12 @@ def _hand_pick_wheel(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None
             {"do": "draw", "who": "you", "n": {"ref_amount": "wheel"}}], None
 
 
+# -- Learn replacement (wave 110C) -- 701.48a: Learn as one instruction (app/rules/wave110c_learn.py), so "if you would learn" can replace it
+@effect(r"learn110c")
+def _learn110c(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    return [{"do": "learn110c"}], None
+
+
 @effect(r"you gain {N} life")
 def _gain(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     return [{"do": "gain_life", "who": "you", "n": num(m["n"])}], None
@@ -3809,7 +3815,7 @@ def _parse_effects_plain(body: str, it: str | None = None, *, event_player: bool
     # CR 701.48a (2026-09-25): Learn offers an optional discard/draw first, then a Lesson import
     # if no card was discarded. Commander 903.11 disallows that ordinary outside-game import,
     # even when a player has imported an owned collection; only the discard/draw remains.
-    body = re.sub(r"(^\s*|\. )[Ll]earn\.", r"\1You may discard a card. If you do, draw a card.", body)  # (wave 52D: a leading space, an activated ability's body)
+    body = re.sub(r"(^\s*|\. )[Ll]earn\.", r"\1learn110c.", body)  # -- Learn replacement (wave 110C) -- wave110c_learn: Retriever Phoenix, else the plain Learn  # (wave 52D: a leading space, an activated ability's body)
     body = _extra_turns.one_sentence(body)  # -- static_other sweep (wave 19A) -- Final Fortune
     # -- tutor (wave 20D) -- the same search spelled as sentences: "Search your library for two cards[ and reveal them]. Put one into your hand
     # and the other into your graveyard. Then shuffle." (Final Parting, Fork in the Road), "… for a white card, …, and a green card. Reveal
@@ -12378,7 +12384,9 @@ def _event_spell_ok(d: Definition) -> bool:
     for k in uses:
         if effects[k].get('do') == 'spell_rider':
             rebound = effects[k].get('keyword') == 'rebound' and cast_riders._rebound_spell_watch(cond)
-            if not rebound and not cast_riders._creature_spell_watch(cond):
+            from app.rules import wave110c_dark  # -- Dark Intimations (wave 110C) --
+
+            if not rebound and not cast_riders._creature_spell_watch(cond) and not wave110c_dark.watch_ok(effects[k], cond):
                 return False
     # -- spell copies (wave 31D) -- 601.2i: "When you cast this spell, copy it" — the event is this very spell's casting
     if not (d.get("kind") == "triggered" and d.get("trigger") == "cast_self") and (

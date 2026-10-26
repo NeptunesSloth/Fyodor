@@ -140,6 +140,8 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
         return {"kind": "static", "static": LIFE_ENTRY, "cap": _LIFE_LINES[text], "effects": []}
     if text in _AS_ENTERS:
         return {"kind": "static", "static": AS_ENTERS, "do": _AS_ENTERS[text], "effects": []}
+    if text == "As ~ enters, put a phylactery counter on an artifact you control.":  # -- Phylactery Lich (wave 110C) --
+        return {"kind": "static", "static": AS_ENTERS, "do": "phylactery110c", "effects": []}
     if text == "~ can be attached only to a legendary creature." and "Equipment" in ch.subtypes:  # -- wave 110A -- Konda's Banner (301.5c, 704.5n)
         return {"kind": "static", "static": ATTACH_ONLY, "stat": "legendary", "min": 0, "effects": []}
     if (m := _ATTACH_ONLY.fullmatch(text)) is not None and "Equipment" in ch.subtypes:
@@ -287,6 +289,10 @@ def plan_entry(plan: Plan, card: CardInstance, controller: str, out: dict[str, A
             out.setdefault("choices", {})[LIFE_KEY] = value
             out[LIFE_ENTRY] = int(value or 0)
             found.append("pay_life")
+    if "phylactery110c" in found:  # -- Phylactery Lich (wave 110C) -- the artifact is chosen before it enters (614.12a)
+        from app.rules import wave110c_lich
+
+        wave110c_lich.plan_entry(plan, card, controller, answers, out)
     if found:
         out[AS_ENTERS] = found
 
@@ -316,6 +322,10 @@ def as_enters(plan: Plan, card_id: str, ep: dict[str, Any], controller: str) -> 
         elif what == "mill_per_kick" and (n := 3 * values.kicked_count(plan, ctx)):  # 701.17a (not cast: never kicked)
             plan.note(f"As {name} enters, {plan.name(controller)} mills {n} cards", [card_id])
             effects.PRIMITIVES["mill"](plan, ctx, {"do": "mill", "who": "you", "n": n})
+        elif what == "phylactery110c":  # -- Phylactery Lich (wave 110C) --
+            from app.rules import wave110c_lich
+
+            wave110c_lich.put(plan, card_id, ep, controller)
         elif what == "kicked_mill4":  # (the spell's own payment record, 601.2h: "if it was kicked")
             from app.rules import conditions
 

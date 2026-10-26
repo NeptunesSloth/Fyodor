@@ -95,7 +95,7 @@ def shock_prompt(name: str, n: int, untapped: bool = False) -> tuple[str, list[D
             [DecisionOption(id="pay", label=f"Pay {n} life (untapped)"), DecisionOption(id="tapped", label="Enters tapped")])
 
 
-def entry_plan(plan: Plan, card: CardInstance, controller: str, **kw: Any) -> dict[str, Any]:
+def entry_plan(plan: Plan, card: CardInstance, controller: str, *, actor: str | None = None, **kw: Any) -> dict[str, Any]:
     from app.rules import copiable_coin_entry, entry_characteristics
 
     if (answer := (kw.get("answers") or {}).get(copiable_coin_entry.WHAT)) is not None:
@@ -109,6 +109,9 @@ def entry_plan(plan: Plan, card: CardInstance, controller: str, **kw: Any) -> di
     from app.rules import static_perm100d
 
     static_perm100d.plan_entry(plan, card, controller, out, kw.get("answers"))
+    from app.rules import wave110c_equil  # -- Land Equilibrium (wave 110C) --
+
+    wave110c_equil.plan_entry(plan, actor or controller, card, controller, out)
     from app.rules import numeric_entry_roll42
 
     if (receipt := numeric_entry_roll42.current_receipt(plan, card, kw.get("answers"))) is not None:
@@ -474,10 +477,10 @@ def entering_counters(plan: Plan, card: CardInstance, controller: str, ch: Any, 
     if n := mana_units.entering_counters(plan, card):  # (the spell's payment record follows the permanent: as in ``entered``)
         counters["+1/+1"] = counters.get("+1/+1", 0) + n
     from app.rules import (
-        wave110a_final,  # -- wave 110A -- Dark Intimations: "enters with an additional loyalty counter"
+        wave110c_dark,  # -- Dark Intimations (wave 110C) -- "enters with an additional loyalty counter"
     )
 
-    if n := wave110a_final.entering_loyalty(plan, card):
+    if n := wave110c_dark.entering_loyalty(plan, card):
         counters["loyalty"] = counters.get("loyalty", 0) + n
     from app.rules import casting_timing_permissions
 
@@ -535,7 +538,8 @@ def choice_needed(plan: Plan, card: CardInstance, entry: Entry) -> dict[str, Any
         card = card.model_copy(update={"face": 1})
     return entry_plan(plan, card, entry["player"], pay_life=entry.get("pay_life"), tapped=bool(entry.get("tapped")),
                       answers=entry.get("choices"), x=entry.get("x"), extra=_extra(entry, plan), tapped_if_land=bool(entry.get("tapped_if_land")),
-                      reserved=set(entry.get("reserved") or ()), bare=bool(entry.get("bare")), entry_characteristics=entry.get("entry_characteristics")).get("choice")  # (reserved: wave 5G)
+                      reserved=set(entry.get("reserved") or ()), bare=bool(entry.get("bare")), entry_characteristics=entry.get("entry_characteristics"),
+                      actor=entry.get("actor")).get("choice")  # (reserved: wave 5G)
 
 
 def _extra(entry: Entry, plan: Plan | None = None) -> dict[str, int] | None:
@@ -605,8 +609,10 @@ def choice_prompt(plan: Plan, card: CardInstance, controller: str, choice: dict[
         return f"{card.name}: as it enters, choose a color and creature type", [DecisionOption(id=o, label=o) for o in choice["options"]]
     if reveal_lands.is_choice(what):  # -- "this way" outcomes (wave 4A) -- private: the cards in their hand
         return reveal_lands.prompt(plan, card, controller, what)
-    from app.rules import enter_cost
+    from app.rules import enter_cost, wave110c_lich
 
+    if what == wave110c_lich.WHAT:  # -- Phylactery Lich (wave 110C) --
+        return wave110c_lich.prompt(plan, card, controller)
     if enter_cost.is_choice(what):  # -- entering for a cost (wave 5G) -- private: the cards in their hand
         return enter_cost.prompt(plan, card, controller, set(choice.get("reserved") or ()), choice.get("picked"))
     from app.rules import devour  # -- keyword mechanics (wave 9D) --
@@ -839,7 +845,8 @@ def move_together(plan: Plan, entries: list[Entry], *, simultaneous: dict[str, A
                                                  entry["player"], pay_life=entry.get("pay_life"),
                                                  tapped=bool(entry.get("tapped")), answers=entry.get("choices"), tapped_if_land=bool(entry.get("tapped_if_land")),
                                                  x=entry.get("x"), extra=_extra(entry, plan),
-                                                 reserved=set(entry.get("reserved") or ()), bare=bool(entry.get("bare")), entry_characteristics=entry.get("entry_characteristics"))))  # (reserved: wave 5G)
+                                                 reserved=set(entry.get("reserved") or ()), bare=bool(entry.get("bare")), entry_characteristics=entry.get("entry_characteristics"),
+                                                 actor=entry.get("actor"))))  # (reserved: wave 5G; actor: Land Equilibrium, wave 110C)
     # -- entering for a cost (wave 5G) -- the payment first, or it goes to its owner's graveyard instead (614.6)
     from app.rules import enter_cost
 
@@ -1038,6 +1045,10 @@ def _counter_amount(plan: Plan, card_id: str, controller: str, d: dict[str, Any]
 def after_entry(plan: Plan, card_id: str, controller: str, *, x: int | None = None, **kw: Any) -> tuple[Any, Any] | None:
     """``_after_entry``, then (-- wave 110E --, 614.1c) a lone entry (no ``newcomers`` batch: its caller spends) uses up the one-shot entry effects."""
     result = _after_entry(plan, card_id, controller, x=x, **kw)
+    if not kw.get("preview") and (kw.get("choices") or {}).get("equilibrium110c"):  # -- Land Equilibrium (wave 110C) -- the sacrifice right after it entered
+        from app.rules import wave110c_equil
+
+        wave110c_equil.sacrifice(plan, card_id, kw["choices"]["equilibrium110c"])
     if kw.get("newcomers") is None and not kw.get("preview"):
         from app.rules import wave110e_once
 

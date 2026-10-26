@@ -1308,6 +1308,7 @@ class Grant:
     sorcery: bool = False  # -- keywords (wave 15E) -- plot 702.170d: only in your main phase with an empty stack, whatever it is
     generic_extra: int = 0  # Additional generic mana charged by this permission.
     generic_less: int = 0  # (wave 110G) generic mana this permission takes off the total cost (Urianger Augurelt), a cost reduction (601.2f, 118.7a)
+    extra_mana: str = ""  # -- Ogre Battlecaster (wave 110C) -- "by paying {R}{R} in addition to its other costs": mana added to the cost (601.2f)
     extra: str = ""  # -- cost alt (wave 16F) -- an additional cost the permission names ("discard a card"), paid with the rest (601.2b)
     graveyard_destination: str = ""  # Selected cast authority: library_bottom replaces this spell going to any graveyard.
     exile_gy: str = ""  # -- cast from graveyard (wave 19C) -- 614.1a: "all" | "is" (instants and sorceries only): "If a spell cast this way would be put into your graveyard, exile it instead"
