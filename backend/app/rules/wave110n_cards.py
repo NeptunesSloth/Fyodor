@@ -498,6 +498,64 @@ def jace_library(plan: Any, ctx: Any, e: Def) -> bool:
     return True
 
 
+_FLICKERFORM = ("{2}{W}{W}: Exile enchanted creature and all Auras attached to it. At the beginning of the next end step, return that card to the battlefield under its owner's "
+                "control. If you do, return the other cards exiled this way to the battlefield under their owners' control attached to that creature.")
+
+
+def _flickerform(d: Def) -> Def:
+    return {**d, "effects": [{"do": "flicker110n"}]}
+
+
+_BUILD[_FLICKERFORM] = ("{2}{W}{W}: Draw a card.", _flickerform)
+
+
+def flicker(plan: Any, ctx: Any, e: Def) -> bool:
+    """Flickerform: the creature and every Aura on it (whoever controls them) leave together (701.13); at the next end step (603.7) the creature returns under its
+    owner's control and, only if it did (608.2c), the Auras return attached to it (303.4f: one that can't enchant it stays in exile, 303.4g)."""
+    from app.rules import delayed
+
+    src = plan.state.cards.get(ctx.get("source_card", ""))
+    if src is None or not src.zone.endswith(":battlefield") or plan.oid(src) != ctx.get("source_object") or not src.attached_to:
+        return True
+    host = plan.state.cards.get(src.attached_to)
+    if host is None or not host.zone.endswith(":battlefield"):
+        return True
+    auras = [c.id for c in plan.state.cards.values() if c.attached_to == host.id and c.zone.endswith(":battlefield") and "Aura" in plan.ch(c).subtypes]
+    ids = [host.id, *auras]
+    plan.do({"type": "move", "card_ids": ids, "to": {"zone": "exile"}}, actor=ctx["controller"])
+    moved = [[c, plan.oid(c)] for c in ids if plan.state.cards[c].zone.endswith(":exile")]
+    if not moved or moved[0][0] != host.id:
+        return True  # the creature did not go to exile: nothing to bring back (or nothing for the Auras to follow)
+    delayed.create(plan, {**ctx, "next": 0, "effects": [{"do": "flicker_host110n", "cards": moved}, {"do": "flicker_auras110n", "cards": moved}]},
+                   {"do": "delayed", "when": {"kind": "step", "step": "end", "whose": "next"}, "n": 2})
+    return True
+
+
+def flicker_host(plan: Any, ctx: Any, e: Def) -> bool:
+    from app.rules import attachments, context
+
+    (hid, hoid) = e["cards"][0]
+    card = plan.state.cards[hid]
+    if not (card.zone.endswith(":exile") and plan.oid(card) == hoid):
+        context.bind_payment(ctx, "flk110n", False)
+        return True
+    context.bind_payment(ctx, "flk110n", True)
+    return bool(attachments.enter(plan, [{"card": hid, "player": card.owner, "actor": ctx["controller"]}], ctx))
+
+
+def flicker_auras(plan: Any, ctx: Any, e: Def) -> bool:
+    from app.rules import attachments, context, effects
+
+    host = plan.state.cards[e["cards"][0][0]]
+    if not context.refs(ctx).get("flk110n", {}).get("ok") or not host.zone.endswith(":battlefield"):
+        return True
+    context.bind_objects(plan, ctx, "flk_host110n", [host.id])
+    entries = [{"card": c, "player": plan.state.cards[c].owner, "actor": ctx["controller"]} for c, oid in e["cards"][1:]
+               if plan.state.cards[c].zone.endswith(":exile") and plan.oid(plan.state.cards[c]) == oid]
+    entries = effects._attached_entries(plan, ctx, "ref:flk_host110n", entries)
+    return bool(attachments.enter(plan, entries, ctx)) if entries else True
+
+
 def _thief(d: Def) -> Def:
     """Thief of Existence: the spell gains the leaves-the-battlefield trigger only if the exile happened, and keeps it as the permanent it becomes (400.7a)."""
     from app.rules import scripts
@@ -837,6 +895,6 @@ def land_problem(state: Any, player: str, info: Any) -> str | None:
     return None
 
 
-PRIMITIVES: dict[str, Any] = {"decree110n": decree, "willow110n": willow, "jace_library110n": jace_library, "warmachine110n": warmachine, "siren_attack110n": siren_attack, "siren_destroy110n": siren_destroy, "timesifter110n": timesifter, "bullies110n": bullies, "vislor110n": vislor, "vision110n": vision, "cu_exile110n": cu_exile, "spirit110n": spirit, "swarm_pre110n": swarm_pre, "swarm_post110n": swarm_post, "eriette110n": eriette, "sword110n": sword, "sword_note110n": sword_note,
+PRIMITIVES: dict[str, Any] = {"decree110n": decree, "willow110n": willow, "flicker110n": flicker, "flicker_host110n": flicker_host, "flicker_auras110n": flicker_auras, "jace_library110n": jace_library, "warmachine110n": warmachine, "siren_attack110n": siren_attack, "siren_destroy110n": siren_destroy, "timesifter110n": timesifter, "bullies110n": bullies, "vislor110n": vislor, "vision110n": vision, "cu_exile110n": cu_exile, "spirit110n": spirit, "swarm_pre110n": swarm_pre, "swarm_post110n": swarm_post, "eriette110n": eriette, "sword110n": sword, "sword_note110n": sword_note,
                               "sword_hand110n": sword_hand, "sword_rest110n": sword_rest}
 RESUME: dict[str, Any] = {"vision110n": resume_vision, "spirit110n": resume_spirit, "cu_exile110n": resume_cu_exile}
