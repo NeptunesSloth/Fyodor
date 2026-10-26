@@ -1521,7 +1521,7 @@ def grants(state: GameState, player: str, card: CardInstance, ch: Characteristic
         if d.get("linked"):  # -- resolution memory (wave 22D) -- only a card still the object this permanent's ability exiled (400.7, 607.2a)
             from app.rules import exiled_with
 
-            linked_ctx: dict[str, Any] = {"source_object": r.object_id(src.id)}
+            linked_ctx: dict[str, Any] = {"source_object": src.choices.get("Linked to", "") if d.get("linked_to110c") else r.object_id(src.id)}  # (wave 110C: Tibalt's emblem)
             for linked_effect in d.get("effects") or []:
                 if linked_effect.get("do") == "borrowed_link_scope":
                     linked_ctx["borrowed_link_scope"] = linked_effect["scope"]

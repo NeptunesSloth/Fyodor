@@ -7252,3 +7252,7 @@ RESUME.update(_wave110e_blade.RESUME)
 from app.rules import wave110c_xanathar as _wave110c_xanathar  # noqa: E402, I001  -- (wave 110C) --
 
 PRIMITIVES.update(_wave110c_xanathar.PRIMITIVES)
+from app.rules import wave110c_valki as _wave110c_valki  # noqa: E402, I001  -- (wave 110C) --
+
+PRIMITIVES.update(_wave110c_valki.PRIMITIVES)
+RESUME.update(_wave110c_valki.RESUME)

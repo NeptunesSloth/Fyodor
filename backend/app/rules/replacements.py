@@ -1088,6 +1088,9 @@ def after_entry(plan: Plan, card_id: str, controller: str, *, x: int | None = No
         from app.rules import wave110a_enter  # -- entry types (wave 110A) --
 
         wave110a_enter.apply(plan, card)
+        from app.rules import wave110c_valki  # -- Tibalt's emblem (wave 110C) --
+
+        wave110c_valki.apply_enter(plan, card)
     devour.apply_totals(plan, card, ch, choices)  # -- stats (wave 110F) -- Dracoplasm
     from app.rules import tribute  # -- keywords (wave 50H) -- 702.104b: "if tribute wasn't paid" reads this
 
