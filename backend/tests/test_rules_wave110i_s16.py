@@ -16,6 +16,7 @@
 * Draugr Necromancer: an opponent's nontoken creature that would die is exiled with an ice counter, and its controller may cast spells from among cards in exile their opponents own with ice
   counters, spending mana from snow sources as though it were mana of any color (609.4b, ruling 2021-02-05: only snow-source mana, a spell still follows the normal rules).
 * Haldan, Avid Arcanist (with Pako's fetch counters): lands and noncreature spells from cards you exiled with fetch counters, mana of any color (305.1, 601.3, rulings 2020-04-17).
+* Jetfire, Ingenious Scientist: removing X +1/+1 counters from among your artifacts (118.3) makes the target player add X {C} that can't be spent on nonartifact spells (106.6a), then Jetfire converts (701.28-style, 712).
 """
 from __future__ import annotations
 
@@ -574,3 +575,49 @@ def test_haldan_cannot_cast_the_exiled_creature(cards):
     mana(s, B=1)
     with pytest.raises(ActionError):
         act(s, "p1", type="cast_spell", card_id=vamp.id)
+
+
+_JFRONT = ("More Than Meets the Eye {3}{U} (You may cast this card converted for {3}{U}.)\nFlying\nRemove one or more +1/+1 counters from among artifacts you control: Target player adds that much {C}. "
+           "This mana can't be spent to cast nonartifact spells. Convert Jetfire.")
+_JBACK = "Living metal (During your turn, this Vehicle is also a creature.)\nFlying\n{U}{U}{U}: Convert Jetfire, then adapt 3. (If it has no +1/+1 counters on it, put three +1/+1 counters on it.)"
+JETFIRE = card("Jetfire, Ingenious Scientist // Jetfire, Air Guardian", set_code="t110i", number="J1", layout="transform", mana_cost="{4}{U} // ", cmc=5.0,
+               type_line="Legendary Artifact Creature \u2014 Robot // Legendary Artifact \u2014 Vehicle", power="3", toughness="4", colors=["U"], color_identity=["U"],
+               keywords=["Flying", "Convert", "More Than Meets the Eye", "Living metal"], oracle_text=_JFRONT + "\n//\n" + _JBACK,
+               card_faces=[{"name": "Jetfire, Ingenious Scientist", "mana_cost": "{4}{U}", "type_line": "Legendary Artifact Creature \u2014 Robot", "oracle_text": _JFRONT, "power": "3", "toughness": "4", "colors": ["U"]},
+                           {"name": "Jetfire, Air Guardian", "mana_cost": "", "type_line": "Legendary Artifact \u2014 Vehicle", "oracle_text": _JBACK, "power": "4", "toughness": "5", "colors": ["U"]}])
+base.EXTRA.append(JETFIRE)
+JNAME = JETFIRE["name"]
+
+
+def test_jetfire_full(cards):
+    assert coverage.of_card_data({**JETFIRE, "faces": JETFIRE["card_faces"]}).level == "FULL"
+
+
+def test_jetfire_counters_become_restricted_colorless_mana_and_it_converts(cards):
+    from app.rules.plan import Plan
+    from tests.test_rules_contextual_mana_outcomes import pool
+
+    s = build(cards, [JNAME, "Bear Cub110I"])
+    jet = put(s, JNAME)
+    act(s, "p1", type="counter", card_ids=[jet.id], kind="+1/+1", delta=3)
+    ab = next(a.index for a in Plan(s.state, "p1", s.cards, None).ch(s.state.cards[jet.id]).abilities if a.kind == "activated")
+    act(s, "p1", type="activate_ability", card_id=jet.id, ability=ab, x_value=2, targets=["p1"])
+    for _ in range(8):
+        d = s.state.rules.decision
+        if d is not None:
+            act(s, "p1", type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][:2])
+        elif s.state.zones.get("stack"):
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            break
+    assert s.state.cards[jet.id].counters.get("+1/+1") == 1 and s.state.cards[jet.id].face == 1  # two removed, converted
+    assert pool(s, "C") == 2
+    mana(s, G=1)
+    bear = to_hand(s, "Bear Cub110I")
+    with pytest.raises(ActionError):  # {1}{G}: the Jetfire {C} can't pay for a nonartifact spell
+        act(s, "p1", type="cast_spell", card_id=bear.id)
+    mana(s, C=1)  # an ordinary {C} can
+    act(s, "p1", type="cast_spell", card_id=bear.id)
+    answer(s)
+    assert s.state.cards[bear.id].zone == "p1:battlefield" and pool(s, "C") == 2  # the restricted mana is still there
+    check(s)
