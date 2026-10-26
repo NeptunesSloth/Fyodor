@@ -9,6 +9,7 @@
 * 701.17a, 608.2c: Helm of Obedience mills one card at a time until a creature card or X cards reached the graveyard, then a creature is stolen.
 * 701.20a, 608.2c: Portent of Calamity exiles at most one card of each card type from among the top X, casts one free with four or more,
   and takes the rest of what it exiled.
+* 607.2a, 406.3b: Scarlet Witch exiles two cards face down on each hit and may cast a Hero or noncreature spell from all the cards exiled with her.
 * 701.24a, 608.2b: Serene Remembrance shuffles itself and up to three target cards from a single graveyard into their owners' libraries.
 """
 
@@ -44,10 +45,10 @@ from tests.wave110o_kit import (  # noqa: F401
     to_phase,
 )
 
-REMEMBRANCE, THRALL, SANDS, RACER, LOCKER, HELM, PORTENT, OKO = "Serene Remembrance", "Evil's Thrall", "Reverse the Sands", "Filigree Racer", "The Grim Captain's Locker", "Helm of Obedience", "Portent of Calamity", "Oko, Lorwyn Liege // Oko, Shadowmoor Scion"
+REMEMBRANCE, THRALL, SANDS, RACER, LOCKER, HELM, PORTENT, WITCH, OKO = "Serene Remembrance", "Evil's Thrall", "Reverse the Sands", "Filigree Racer", "The Grim Captain's Locker", "Helm of Obedience", "Portent of Calamity", "Scarlet Witch, Chaotic Avenger", "Oko, Lorwyn Liege // Oko, Shadowmoor Scion"
 
 
-@pytest.mark.parametrize("name", [REMEMBRANCE, THRALL, SANDS, RACER, LOCKER, HELM, PORTENT, OKO])
+@pytest.mark.parametrize("name", [REMEMBRANCE, THRALL, SANDS, RACER, LOCKER, HELM, PORTENT, WITCH, OKO])
 def test_the_cards_are_full(name):
     assert full(name)
 
@@ -503,4 +504,53 @@ def test_portent_of_calamity_cant_exile_two_cards_for_one_type_and_a_card_stands
     act(s, "p1", type="choose", decision_id=d.id, option_ids=[ids["Grizzly Bears"], ids["Frogmite"]])  # creature + artifact: fine
     settle(s)
     assert now(s, named(s, "Frogmite")).zone == "p1:hand" and now(s, named(s, "Sol Ring")).zone == "p1:graveyard"
+    check(s)
+
+
+def witch_hits(s, witch, turn=1):
+    """Scarlet Witch attacks Bob (flying, nobody blocks) and the damage trigger goes on the stack and resolves up to its first question."""
+    s.state.rules.controlled_since[witch.id].turn = 0
+    act(s, "p1", type="pass_priority")
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": witch.id, "target": "p2"}])
+    for _ in range(12):
+        if s.state.rules.decision is not None and s.state.rules.decision.kind == "choose_cards":
+            return
+        act(s, s.state.rules.priority, type="pass_priority")
+    raise AssertionError("no question")
+
+
+def test_scarlet_witch_casts_a_noncreature_spell_free_from_what_she_exiled_and_keeps_the_rest(cards):
+    s = build(cards, [WITCH, "Lightning Bolt", "Grizzly Bears"])
+    witch = put(s, WITCH)
+    library_top(s, "Grizzly Bears", "Lightning Bolt", pid="p1")
+    witch_hits(s, witch)
+    d = s.state.rules.decision
+    assert [o.label for o in d.options] == ["Lightning Bolt"]  # (the Bears is no Hero and no noncreature spell)
+    bolt, bears = named(s, "Lightning Bolt"), named(s, "Grizzly Bears")
+    assert now(s, bears).face_down and now(s, bears).zone == "p1:exile"
+    from app.game.visibility import can_see
+
+    assert can_see(s.state, now(s, bears), "p1") and not can_see(s.state, now(s, bears), "p2")
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[bolt.id])
+    settle(s, answers=[["p2"]])
+    assert life(s, "p2") == 40 - 3 - 3 and now(s, bolt).zone == "p1:graveyard" and now(s, bears).zone == "p1:exile"
+    check(s)
+
+
+def test_scarlet_witch_can_cast_a_card_exiled_by_an_earlier_hit(cards):
+    s = build(cards, [WITCH, "Lightning Bolt", "Grizzly Bears"])
+    witch = put(s, WITCH)
+    library_top(s, "Lightning Bolt", "Grizzly Bears", pid="p1")
+    witch_hits(s, witch)
+    act(s, "p1", type="choose", decision_id=s.state.rules.decision.id, option_ids=[])  # (declines: the Bolt stays exiled)
+    settle(s)
+    bolt = named(s, "Lightning Bolt")
+    assert now(s, bolt).zone == "p1:exile"
+    to_phase(s, "main1", turn=3)
+    library_top(s, "Forest", "Forest", pid="p1")
+    witch_hits(s, witch, turn=3)
+    assert [o.label for o in s.state.rules.decision.options] == ["Lightning Bolt"]
+    act(s, "p1", type="choose", decision_id=s.state.rules.decision.id, option_ids=[bolt.id])
+    settle(s, answers=[["p2"]])
+    assert now(s, bolt).zone == "p1:graveyard"
     check(s)

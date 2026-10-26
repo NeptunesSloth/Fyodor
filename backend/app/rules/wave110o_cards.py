@@ -66,6 +66,8 @@ def parse(body: str) -> Any:
 _HELM = ("{X}, {T}: Target opponent mills a card, then repeats this process until a creature card or X cards have been put into their graveyard this way, "
          "whichever comes first. If one or more creature cards were put into that graveyard this way, sacrifice ~ and put one of them onto the "
          "battlefield under your control. X can't be 0.")
+_WITCH = ("Whenever ~ deals combat damage to a player, look at the top two cards of your library, then exile them face down. Then you may cast a Hero or "
+          "noncreature spell from among cards exiled with ~ without paying its mana cost.")
 _OKO_TYPES = "+2: Up to one target creature gains all creature types."
 _OKO_EMBLEM = ('−6: Choose a creature type. You get an emblem with "Creatures you control of the chosen type get +3/+3 and have vigilance and '
                'hexproof."')
@@ -85,6 +87,16 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
         if native is None:
             return None
         return {**native, "effects": [{"do": "type_emblem110o"}]}
+    if ability.kind == "triggered" and text == _WITCH:
+        # 607.2a: the cards exiled with it by every resolution so far (accumulating link), this resolution's two among them; 406.3b: a face-down card is
+        # cast only by a player allowed to look at it (she looked at these two as she exiled them, 406.3)
+        native = scripts.define(replace(ability, text=_WITCH.split(" Then")[0] + " Then you may cast a Hero or noncreature spell from among them without paying "
+                                                      "its mana cost."), ch)
+        if native is None or [e["do"] for e in native["effects"]] != ["look_top", "pick_looked", "free_cast"]:
+            return None
+        look, exile, cast = native["effects"]
+        return {**native, "accumulating_link": True,
+                "effects": [look, {**exile, "link": True}, {"do": "linked_cards", "as": "witch110o"}, {**cast, "who": "ref:witch110o"}]}
     if ability.kind == "activated" and text == _HELM:
         native = scripts.define(replace(ability, text="{X}, {T}: Target opponent mills a card. X can't be 0."), ch)
         if native is None or [e["do"] for e in native["effects"]] != ["mill"] or native.get("x_min") != 1:
