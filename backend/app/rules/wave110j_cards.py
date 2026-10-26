@@ -89,6 +89,11 @@ def definition(ability: Any, ch: Any) -> Def | None:
 
     if (cap := _CAP.fullmatch(ability.text.strip())) is not None and ch.name.startswith(cap["name"]):  # (the short name)
         return {"kind": "static", "static": "counter_cap110j", "counter": cap["kind"], "n": _NUMS[cap["n"]], "effects": []}
+    if ability.text.strip() == _WEB1:  # Magnetic Web: a source-less conditional attack requirement (508.1d), score in combat_conditional_requirements67
+        from app.rules import combat_conditional_requirements67, selectors, statics
+
+        return statics._definition(selectors.Selector(types=("Creature",), extras=("counter:magnet",)).key(), None, [],
+                                   rules=[combat_conditional_requirements67.PREFIX + "@src:magnet110j"])
     if ability.text.strip() == _SPLICER:
         return _splicer(ability, ch)
     if ability.text.strip() == _ES:
@@ -1024,3 +1029,11 @@ _BUILD[_WARLORD] = ("{T}: Remove target blocking creature from combat. Activate 
                     lambda d: {**d, "effects": [{"do": "warlord110j", "who": d["effects"][0]["who"]}]})
 _BUILD[_PATH] = ("{T}: Target blocking creature an opponent controls fights another target blocking creature that player controls.",
                  lambda d: {**d, "effects": [{**d["effects"][0], "do": "path110j"}]})
+
+
+# -- Magnetic Web (wave 110J) -- 508.1d: while a creature with a magnet counter is declared as an attacker, every creature with one attacks if able (the condition is
+# read from the proposed declaration: combat_conditional_requirements67.score, "magnet110j"); the trigger makes each of them block the attacker (509.1c, @it = the attacker)
+_WEB1 = "If a creature with a magnet counter on it attacks, all creatures with magnet counters on them attack if able."
+_WEB2 = "Whenever a creature with a magnet counter on it attacks, all creatures with magnet counters on them block that creature this turn if able."
+_BUILD[_WEB2] = ("Whenever a creature with a magnet counter on it attacks, you gain 1 life.",
+                 lambda d: {**d, "effects": [{"do": "restrict", "who": d["cond"]["sel"], "rules": ["must_block_obj:@it"]}]})

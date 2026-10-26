@@ -96,3 +96,67 @@ def test_path_changes_nothing_if_one_could_not_block(cards):
     settle(s)
     assert now(s, b1).blocks(drake.id) and now(s, b2).blocks(giant.id) and not now(s, b1).blocks(giant.id)
     check(s)
+
+
+# -- Magnetic Web ------------------------------------------------------------------------------------------------------------------------------------
+WEB = "Magnetic Web"
+
+
+def _magnet(s, *cards):
+    for c in cards:
+        act(s, "p1", type="counter", card_ids=[c.id], kind="magnet", delta=1)
+
+
+def _web_table(cards):
+    s = build(cards, [WEB, "Hill Giant", "Grizzly Bears", "Llanowar Elves"], ["Grizzly Bears", "Grizzly Bears"], forests=30, islands=30)
+    put_new(s, WEB)
+    mine = [put_new(s, n) for n in ("Hill Giant", "Grizzly Bears", "Llanowar Elves")]
+    theirs = [put_new(s, "Grizzly Bears", "p2") for _ in range(2)]
+    return s, mine, theirs
+
+
+def test_web_is_full(cards):
+    from app.rules import coverage
+
+    assert coverage.of_card_data(cards.resolve(WEB)).level == "FULL"
+
+
+def test_web_if_a_magnet_creature_attacks_all_of_them_must(cards):
+    """508.1d: a lone magnet attacker is refused; all magnet creatures (or none) may attack; a creature with no counter is free."""
+    import pytest
+
+    from app.game.errors import ActionError
+
+    s, (giant, bears, elves), _ = _web_table(cards)
+    _magnet(s, giant, bears)
+    to_phase(s, "declare_attackers", turn=3)
+    with pytest.raises(ActionError):
+        act(s, "p1", type="declare_attackers", attackers=[{"card_id": giant.id, "target": "p2"}])
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": elves.id, "target": "p2"}])  # no magnet attacks: nothing required
+    assert now(s, elves).attacking is not None and now(s, giant).attacking is None
+    check(s)
+
+
+def test_web_all_magnet_creatures_attack_and_must_be_blocked_by_all_magnet_creatures(cards):
+    import pytest
+
+    from app.game.errors import ActionError
+    from app.rules.plan import Plan
+
+    s, (giant, bears, _elves), (d, e) = _web_table(cards)
+    _magnet(s, giant, bears, d)
+    to_phase(s, "declare_attackers", turn=3)
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": c.id, "target": "p2"} for c in (giant, bears)])
+    for _ in range(12):
+        dec = s.state.rules.decision
+        if dec is not None and dec.kind == "declare_blockers":
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+    imposed = Plan(s.state, "p2", s.cards, None).ch(s.state.cards[d.id]).imposed
+    assert {f"must_block_obj:{s.state.rules.object_id(c.id)}" for c in (giant, bears)} <= set(imposed)  # one trigger per magnet attacker
+    assert not [r for r in Plan(s.state, "p2", s.cards, None).ch(s.state.cards[e.id]).imposed if r.startswith("must_block_obj")]
+    with pytest.raises(ActionError):
+        act(s, "p2", type="declare_blockers", blocks=[])  # the magnet creature blocks if able
+    act(s, "p2", type="declare_blockers", blocks=[{"blocker_id": d.id, "attacker_id": giant.id}])
+    assert now(s, d).zone.endswith(":graveyard") and life(s, "p2") == 38  # it blocked the Giant (and died); the Bears were unblocked
+    check(s)

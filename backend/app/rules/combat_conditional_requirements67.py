@@ -35,6 +35,7 @@ def score(plan: Plan, ch: Characteristics, declared: dict[str, str], target: str
         if not rule.startswith(PREFIX):
             continue
         source, _, condition = rule[len(PREFIX):].rpartition(':')
-        if (condition == 'any' and declared) or (condition == 'source' and source in declared):
+        if (condition == 'any' and declared) or (condition == 'source' and source in declared) or (
+                condition == 'magnet110j' and any(plan.state.cards[d.rsplit('.', 1)[0]].counters.get('magnet') for d in declared if d.rsplit('.', 1)[0] in plan.state.cards)):  # (-- wave 110J -- Magnetic Web)
             value += count
     return value
