@@ -127,6 +127,8 @@ _VINDICATOR = ("When ~ is turned face up, exile up to X other target creatures f
 _HERALD = "When ~ leaves the battlefield, each player gains control of each land they own that you control."
 _KALDRA = ("{1}: If you control Equipment named Helm of Kaldra, Sword of Kaldra, and Shield of Kaldra, create Kaldra, a legendary 4/4 colorless Avatar "
            "creature token. Attach those Equipment to it.")
+_MYSTERIO = ("When ~ enters, create a 3/3 blue Illusion Villain creature token for each nontoken Villain you control. Exile those tokens when ~ leaves the "
+             "battlefield.")
 _OKO_TYPES = "+2: Up to one target creature gains all creature types."
 _OKO_EMBLEM = ('−6: Choose a creature type. You get an emblem with "Creatures you control of the chosen type get +3/+3 and have vigilance and '
                'hexproof."')
@@ -146,6 +148,13 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
         if native is None:
             return None
         return {**native, "effects": [{"do": "type_emblem110o"}]}
+    if ability.kind == "triggered" and text == _MYSTERIO:  # 603.7a, 603.7c: the delayed trigger watches Mysterio (if it already left, nothing is made to leave later)
+        native = scripts.define(replace(ability, text="When ~ enters, create a 3/3 blue Illusion Villain creature token for each nontoken Villain you control."), ch)
+        if native is None or [e["do"] for e in native["effects"]] != ["create_token"]:
+            return None
+        return {**native, "effects": [{**native["effects"][0], "as": "mysterio110o"},
+                                      {"do": "delayed", "when": {"kind": "event", "event": "leave", "open": True}, "n": 1, "who": "self"},
+                                      {"do": "deferred:exile", "who": "ref:mysterio110o"}]}
     if ability.kind == "activated" and text == _KALDRA:  # 603.4-style "if" judged as it resolves (608.2c); every Equipment so named is attached
         from app.rules import conditions, selectors
 

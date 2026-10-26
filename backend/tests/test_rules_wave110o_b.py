@@ -4,6 +4,7 @@
 * 603.7a, 701.9, 603.2c: Pure Intentions returns the cards an opponent's spell or ability made you discard (one batch), and itself at the next end step.
 * 601.2b, 107.3a, 601.2d: Nahiri's Sacrifice announces X as the mana value of the artifact or creature sacrificed, and divides X damage (none at all if X is 0).
 * 608.2c, 118.12a, 101.4: Cleansing gives every land its own round of payments (every player decides in turn order); a land nobody paid for is destroyed.
+* 603.7a, 603.7c: Mysterio's tokens are exiled when it leaves the battlefield (a delayed trigger on Mysterio, so none if it already left).
 """
 
 from __future__ import annotations
@@ -18,6 +19,7 @@ from tests.wave110o_kit import (  # noqa: F401
     EXTRA,
     card_db,
     card_named,
+    cast_on,
     ch,
     check,
     cost,
@@ -35,7 +37,7 @@ from tests.wave110o_kit import (  # noqa: F401
 UNDERGROWTH = "Undergrowth"
 
 
-@pytest.mark.parametrize("name", [UNDERGROWTH, "Pure Intentions", "Nahiri's Sacrifice", "Cleansing"])
+@pytest.mark.parametrize("name", [UNDERGROWTH, "Pure Intentions", "Nahiri's Sacrifice", "Cleansing", "Mysterio, Master of Illusion"])
 def test_the_cards_are_full(name):
     assert full(name)
 
@@ -245,4 +247,39 @@ def test_cleansing_with_no_payment_destroys_every_land_and_only_lands(cards):
     assert all(now(s, c).zone.endswith(":graveyard") for c in lands)
     assert any(c.name == "Grizzly Bears" and c.zone == "p1:battlefield" for c in s.state.cards.values())
     assert life(s, "p1") == 40 and life(s, "p2") == 40
+    check(s)
+
+
+MYSTERIO = "Mysterio, Master of Illusion"
+
+
+def illusions(s):
+    return [c for c in s.state.cards.values() if c.is_token and c.name == "Illusion Villain" and c.zone != "exile" and not c.zone.endswith("graveyard")]
+
+
+def test_mysterio_makes_a_token_for_each_nontoken_villain_and_exiles_them_when_it_leaves(cards):
+    s = build(cards, [MYSTERIO, "Common Crook", "Murder"])
+    put(s, "Common Crook")
+    mys = cast_on(s, MYSTERIO)
+    assert len(illusions(s)) == 2 and all(ch(s, t).pt == (3, 3) for t in illusions(s))  # (the Crook and Mysterio itself; the tokens are Villains but not counted)
+    cast_on(s, "Murder", mys)
+    assert now(s, mys).zone == "p1:graveyard" and not illusions(s)
+    assert next(c for c in s.state.cards.values() if c.name == "Common Crook").zone == "p1:battlefield"
+    check(s)
+
+
+def test_mysterio_leaving_before_its_ability_resolves_leaves_the_tokens(cards):
+    s = build(cards, [MYSTERIO, "Common Crook", "Murder"])
+    put(s, "Common Crook")
+    stops(s)
+    mys = to_hand(s, MYSTERIO)
+    mana(s, "p1", **cost(MYSTERIO))
+    act(s, "p1", type="cast_spell", card_id=mys.id)
+    while not any(c.name == MYSTERIO and c.zone == "p1:battlefield" for c in s.state.cards.values()):
+        act(s, s.state.rules.priority, type="pass_priority")
+    murder = to_hand(s, "Murder")
+    mana(s, "p1", **cost("Murder"))
+    act(s, "p1", type="cast_spell", card_id=murder.id, targets=[mys.id])  # (in response to Mysterio's enters trigger: 603.7c, nothing left to watch)
+    settle(s)
+    assert now(s, mys).zone == "p1:graveyard" and len(illusions(s)) == 1  # (only the Crook was counted: Mysterio had left)
     check(s)

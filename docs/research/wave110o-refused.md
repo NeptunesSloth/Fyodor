@@ -5,7 +5,6 @@
 - River Song: needs a draw-from-the-bottom replacement and opponent scry / surveil events; neither exists.
 - Ranar the Ever-Watchful: the "first card you foretell each turn costs {0}" reduction and the exile-from-hand batch event are missing.
 - Volo, Itinerant Scholar: "note" creature types on a token (Alchemy note mechanic) has no storage or counting foundation.
-- Mysterio, Master of Illusion: "exile those tokens when Mysterio leaves" needs a delayed trigger on the source leaving that acts on created tokens.
 - Apple of Eden, Isu Relic: hand exiled face down, played with any mana, owner draws, delayed return: several missing parts.
 - Heroic Sacrifice: redirecting all damage to the chosen creature plus a "dies this turn" delayed trigger with its own target.
 - Ob Nixilis of the Black Oath: the emblem holds an activated ability (emblem_text_ok rejects it).
