@@ -65,11 +65,11 @@ def parse(body: str) -> Any:
         from app.rules import damage_redirection_effects, delayed
 
         mine = damage_redirection_effects.key("creature you control")
-        own = delayed.WATCH_TARGET + ":0"
+        watch_target = delayed.WATCH_TARGET + ":0"
         return ([{"do": "heroic110o"},
                  {"do": "delayed", "when": {"kind": "event", "event": "die"}, "n": 2, "who": "target", "this_turn": True,
                   "targets": [{"what": mine, "min": 0, "max": 1}]},
-                 {"do": "deferred:lki_counters", "from": "event", "who": own}, {"do": "deferred:draw", "who": "you", "n": 1}], mine, False)
+                 {"do": "deferred:lki_counters", "from": "event", "who": watch_target}, {"do": "deferred:draw", "who": "you", "n": 1}], mine, False)
     if body.strip() == _CLEANSING:
         return [{"do": "cleansing110o"}], None, False
     if body.strip() == _UNDER_COST:  # 601.2b: the optional additional cost is announced as the spell is cast (costs.kicker_cost reads it); this line does nothing itself
