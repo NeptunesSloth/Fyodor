@@ -1,6 +1,7 @@
 """Wave 110G session 10: foundations for trains / flashback loyalty cost.
 
 * Light Up the Night: 702.34a / 118.3 flashback removes X loyalty counters from your planeswalkers (X >= 1); 107.3a that X is the spell's.
+* Cloak and Dagger, Entwined: 610.3 / 701.20a the hand is revealed, one nonland card OR the chosen creature is exiled and comes back (hand / battlefield) when it leaves.
 * Savior of Ollenbock: 702.149c it trains only when a resolving training ability puts counters on it; its exile is returned when it leaves (607.2a, 610.3).
 """
 from __future__ import annotations
@@ -14,7 +15,7 @@ from app.rules import coverage
 from tests.fixtures.cards import fixture_cards
 from tests.game_helpers import act
 from tests.test_rules_wave12a_counters_keywords import real
-from tests.wave9c_kit import build, card_named, life
+from tests.wave9c_kit import build, card_named, life, to_hand
 from tests.wave110b_kit import attack, cast, check, mana, pt, put
 
 EXTRA = [
@@ -26,9 +27,11 @@ EXTRA = [
     real("Light Up the Night", "{X}{R}", 1, "Sorcery", "Light Up the Night deals X damage to any target. It deals X plus 1 damage instead if that target is a creature or planeswalker.\n"
          "Flashback\u2014{3}{R}, Remove X loyalty counters from among planeswalkers you control. If you cast this spell this way, X can't be 0. (You may cast this card from your graveyard for its "
          "flashback cost. Then exile it.)", None, "R"),
+    real("Cloak and Dagger, Entwined", "{1}{W}{B}", 3, "Legendary Creature \u2014 Human Hero", "Deathtouch, lifelink\nWhen Cloak and Dagger enter, choose target opponent and up to one target creature they control. "
+         "They reveal their hand. You may exile a nonland card from their hand or the chosen creature until Cloak and Dagger leave the battlefield.", ("2", "2"), "BW"),
     real("Murder", "{1}{B}{B}", 3, "Instant", "Destroy target creature.", None, "B"),
 ]
-NAMES = ["Savior of Ollenbock", "Light Up the Night"]
+NAMES = ["Savior of Ollenbock", "Light Up the Night", "Cloak and Dagger, Entwined"]
 
 
 def drive(s, pick=None, limit=80):
@@ -38,7 +41,7 @@ def drive(s, pick=None, limit=80):
             act(s, d.player, type="declare_blockers", blocks=[])
         elif d is not None:
             ids = [o.id for o in d.options]
-            ids = ([i for i in ids if pick(i)] if pick else ids)[: max(1, d.min_choices)]
+            ids = ([i for i in ids if pick(i)] or ids[: d.min_choices])[: max(1, d.max_choices)] if pick else ids[: max(1, d.min_choices)]
             act(s, d.player, type="choose", decision_id=d.id, option_ids=ids)
         elif s.state.zones.get("stack"):
             act(s, s.state.rules.priority, type="pass_priority")
@@ -138,4 +141,24 @@ def test_light_up_the_night_cast_from_hand_removes_no_loyalty(cards):
     act(s, "p1", type="cast_spell", card_id=spell.id, x_value=3, targets=["p2"])
     drive(s)
     assert life(s, "p2") == 37 and s.state.cards[walker.id].counters.get("loyalty") == 3 and s.state.cards[spell.id].zone == "p1:graveyard"
+    check(s)
+
+
+@pytest.mark.parametrize("take", ["hand", "creature", "none"])
+def test_cloak_and_dagger_exiles_a_hand_card_or_the_chosen_creature_until_it_leaves(cards, take):
+    """Cloak and Dagger: exile a nonland card from Bob's hand (returns to the hand), or the chosen Bears (returns to the battlefield), or nothing; the land stays unchosen."""
+    s = build(cards, ["Cloak and Dagger, Entwined", "Murder", "Hill Giant", "Grizzly Bears"], ["Hill Giant", "Grizzly Bears"])
+    bears = put(s, "Grizzly Bears", "p2")
+    giant = to_hand(s, "Hill Giant", "p2")
+    mana(s, "p1", W=1, B=1, C=1)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Cloak and Dagger, Entwined").id, targets=["p2", bears.id], target_counts=[1, 1])
+    want = {"hand": giant.id, "creature": bears.id, "none": "-"}[take]
+    drive(s, lambda i: want in i)
+    z = {"hand": ("p2:exile", "p2:battlefield"), "creature": ("p2:hand", "p2:exile"), "none": ("p2:hand", "p2:battlefield")}[take]
+    assert (s.state.cards[giant.id].zone, s.state.cards[bears.id].zone) == z
+    cd = card_named(s, "Cloak and Dagger, Entwined")
+    mana(s, "p1", C=1, B=2)
+    cast(s, "Murder", [cd.id])
+    drive(s)
+    assert (s.state.cards[giant.id].zone, s.state.cards[bears.id].zone) == ("p2:hand", "p2:battlefield")
     check(s)

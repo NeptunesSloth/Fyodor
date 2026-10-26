@@ -402,7 +402,32 @@ def _battlefield_or_graveyard(d: Def) -> Def:
     return {**d, "targets": [{**d["targets"][0], "what": sel}]}
 
 
+def _hand_or_creature(d: Def) -> Def:
+    """Cloak and Dagger, Entwined: reveal the hand, then you may exile a nonland card from it OR the chosen creature until it leaves (610.3)."""
+    from app.rules import selectors
+
+    sel = selectors.Selector(card=True, not_types=("Land",), zones=()).key()
+    return {**d, "effects": [d["effects"][0], {"do": "choose_from_hand", "who": "you", "sel": sel, "n": 1, "label": "nonland card or creature", "optional": True,
+                                               "extra110g": "target:1", "as": "e1"}, {"do": "exile_split110g", "who": "ref:e1"}]}
+
+
+def exile_split(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """610.3c: exile until the source leaves; a card from a hand goes back to the hand, a permanent back to the battlefield."""
+    from app.rules import effects
+
+    if not effects._cards(plan, ctx, "self"):
+        return True
+    cards = effects._cards(plan, ctx, e["who"])
+    for origin in (":hand", ":battlefield"):
+        found = [c for c in cards if plan.state.cards[c].zone.endswith(origin)]
+        if found:
+            effects._exile_until_cards(plan, ctx, {"hand_origin": origin == ":hand"}, found)
+    return True
+
+
 _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
+    "When Cloak and Dagger enter, choose target opponent and up to one target creature they control. They reveal their hand. You may exile a nonland card from their hand or the chosen creature until Cloak and Dagger leave the battlefield.":
+        ("When this creature enters, target opponent reveals their hand. You may exile up to one target creature that player controls until this creature leaves the battlefield.", _hand_or_creature),
     "Whenever this creature trains, exile up to one other target creature from the battlefield or creature card from a graveyard.":
         ("Whenever this creature trains, exile up to one other target creature.", _battlefield_or_graveyard),
     # Thijarian Witness
@@ -778,7 +803,7 @@ def destroy_instead(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return True
 
 
-PRIMITIVES: dict[str, Any] = {"halfdane110g": halfdane, "exile_gy_until110g": exile_gy_until, "idol_cast110g": idol_cast, "bind_exiled110g": bind_exiled, "firm_creature110g": firm_creature, "elkin110g": elkin, "suncleanser110g": suncleanser, "fallen110g": fallen, "destroy_instead110g": destroy_instead, "exchange_power110g": exchange_power, "lowest_life_control110g": lowest_life_control,
+PRIMITIVES: dict[str, Any] = {"exile_split110g": exile_split, "halfdane110g": halfdane, "exile_gy_until110g": exile_gy_until, "idol_cast110g": idol_cast, "bind_exiled110g": bind_exiled, "firm_creature110g": firm_creature, "elkin110g": elkin, "suncleanser110g": suncleanser, "fallen110g": fallen, "destroy_instead110g": destroy_instead, "exchange_power110g": exchange_power, "lowest_life_control110g": lowest_life_control,
                            "sacrifice_pair110g": sacrifice_pair, "swap_tapped110g": swap_tapped, "opponent_exiles110g": opponent_exiles,
                               "unattach_enchanted110g": unattach_enchanted}
 RESUME: dict[str, Any] = {"lowest_control110g": resume_lowest_control, "opponent_exiles110g": resume_opponent_exiles}

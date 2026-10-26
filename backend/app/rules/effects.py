@@ -4491,6 +4491,8 @@ def _hand_options(plan: Plan, ctx: Context, e: dict[str, Any]) -> tuple[list[str
         owners = sorted({plan.state.cards[c].owner for c in pool})
         options += [c for o in owners for c in plan.state.zones.get(zone_key(o, "graveyard"), [])
                     if selectors.matches(plan, gsel, plan.state.cards[c], chars.of(plan.state.cards[c], plan.info), pid)]
+    if e.get("extra110g"):  # -- wave 110G -- Cloak and Dagger: "… a nonland card from their hand or the chosen creature": a battlefield object joins the options
+        options += [c for c in _cards(plan, ctx, e["extra110g"]) if plan.state.cards[c].zone.endswith(":battlefield")]
     return pool, options
 
 
@@ -4528,7 +4530,7 @@ def _after_hand_choice(plan: Plan, ctx: Context, chosen: list[str]) -> bool:
 
 def resume_choose_from_hand(plan: Plan, d: Any, chosen: list[str]) -> None:
     ctx, e = d.resume["ctx"], d.resume["e"]
-    chosen = [c for c in chosen if c in plan.state.cards and plan.state.cards[c].zone.endswith((":hand", ":graveyard"))]
+    chosen = [c for c in chosen if c in plan.state.cards and plan.state.cards[c].zone.endswith((":hand", ":graveyard", ":battlefield" if e.get("extra110g") else ":hand"))]
     if chosen:
         plan.note(f"{plan.name(d.player)} chooses {_labels(plan, chosen)}", chosen, actor=d.player)
     _remember(plan, ctx, e, chosen)  # "that card" / "those cards": the chosen cards, in that hand
