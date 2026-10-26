@@ -153,7 +153,7 @@ def _gambit(cards, p2_draw, p3_draw):
     priority_to(s, "p1")
     act(s, "p1", type="cast_spell", card_id=g.id, targets=[a.id, b.id], target_counts=[1, 1])
     _answer(s, {"p2": "pay" if p2_draw else "decline", "p3": "pay" if p3_draw else "decline"})
-    return s, a, b, sum(1 for l in s.state.log if l.phase != "draw" and any("drew" in (p.t or "") for p in l.parts))
+    return s, a, b, sum(1 for entry in s.state.log if entry.phase != "draw" and any("drew" in (p.t or "") for p in entry.parts))
 
 
 @pytest.mark.parametrize("p2_draw,p3_draw", [(True, False), (False, True), (True, True), (False, False)])
