@@ -122,7 +122,7 @@ def evolve_outcome(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
                    and event.object_id == oid and event.counter == '+1/+1' and event.amount > 0 for event in plan.rules.events)
     card = plan.state.cards.get(ctx.get('source_card') or '')
     if occurred and card is not None and plan.oid(card) == oid:
-        emit(plan.state, 'evolved', card=card.id, object_id=oid, player=card.controller, actor=ctx['controller'])
+        emit(plan.state, e.get('event', 'evolved'), card=card.id, object_id=oid, player=card.controller, actor=ctx['controller'])
     return True
 
 

@@ -269,6 +269,10 @@ def _lowest_life_control(d: Def) -> Def:
 
 # whole ability text -> the wording the grammar reads for it
 _AS: dict[str, str] = {
+    # Savior of Ollenbock: a creature on the battlefield or a creature card in a graveyard is "creature or creature card in a graveyard";
+    # "the exiled cards" return to the battlefield (607.2a link, 610.3)
+    "When this creature leaves the battlefield, put the exiled cards onto the battlefield under their owners' control.":
+        "When this creature leaves the battlefield, return the exiled cards to the battlefield under their owners' control.",
     # Carry Away: the Aura only enchants Equipment, so "enchanted permanent" is the enchanted Equipment
     "You control enchanted Equipment.": "You control enchanted permanent.",
     # Wormfang Drake: "a creature you control other than this creature" is "another creature you control"
@@ -389,7 +393,18 @@ def _no_phase_out(d: Def) -> Def:
     return {**d, "effects": [{**x, "rules": ["cant_phase_out"]} if x.get("do") == "restrict" else x for x in d["effects"]]}
 
 
+def _battlefield_or_graveyard(d: Def) -> Def:
+    """Savior of Ollenbock: the one target is another creature on the battlefield or a creature card in a graveyard (115.1)."""
+    from app.rules import selectors
+    from app.rules.conditional_copy_sources import key
+
+    sel = selectors.Selector(zones=("battlefield", "graveyard"), either=(key("another creature"), key("creature card in a graveyard"))).key()
+    return {**d, "targets": [{**d["targets"][0], "what": sel}]}
+
+
 _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
+    "Whenever this creature trains, exile up to one other target creature from the battlefield or creature card from a graveyard.":
+        ("Whenever this creature trains, exile up to one other target creature.", _battlefield_or_graveyard),
     # Thijarian Witness
     "Bear Witness \u2014 Whenever another creature dies, if it was attacking or blocking alone, exile it and investigate.":
         ("Whenever another creature dies, if it was attacking, exile it and investigate.", _alone),

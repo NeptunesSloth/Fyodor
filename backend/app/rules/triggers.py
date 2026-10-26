@@ -586,7 +586,7 @@ def _facts(plan: Plan, e: Event, window: dict[str, Any]) -> list[Fact]:
             return []
         return [("crew" if e.kind == "crew_tapped" else "saddle", got[0], got[1], e.player,
                  {"oid": e.object_id, "actor": e.player, "other": e.by_card, "other_oid": e.source})]
-    if e.kind in ("crewed", "saddled", "evolved"):  # 702.122e: its crew ability resolved; 702.171b: it became saddled
+    if e.kind in ("crewed", "saddled", "evolved", "trained"):  # 702.122e: its crew ability resolved; 702.171b: it became saddled
         got = _object_then(plan, e.card, e.object_id)
         return [(e.kind, got[0], got[1], e.player, {"oid": e.object_id, "actor": e.player, "crew_count80": e.crew_count80})] if got is not None else []
     if e.kind in ("attached", "unattached"):  # -- attachment events (wave 30S) -- 603.2e, 701.3d, 603.10c: the Aura / Equipment (as it last existed

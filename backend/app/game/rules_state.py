@@ -404,6 +404,7 @@ EventKind = Literal[
     "player_counters",  # poison, energy, experience, rad, tickets … (amount signed)
     "tapped",
     "untapped",
+    "trained",  # -- trains (wave 110G) -- 702.149c: a resolving training ability put +1/+1 counters on ``card``
     "evolved",  # An evolve keyword ability actually put one or more +1/+1 counters.
     "exerted",  # 701.43: the player exerted this permanent
     "spell_cast",  # a player cast a spell (the object is the spell on the stack)
