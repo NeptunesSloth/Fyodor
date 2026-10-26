@@ -511,6 +511,10 @@ def _parse_mana_ability(text: str, identity: tuple[str, ...] = COLORS, *, card_n
         if not any(k.kind == _costs.SACRIFICE and k.selector is not None for p in extra for k in _costs.parse_ability_cost(p, card_name="~").components):
             return None
         count, options = "sacrificed_mv", ((c.group("sym"),),)
+    elif first == "Add one mana of any type the sacrificed land could produce":  # -- mana (wave 110A) -- Squandered Resources: types read at activation (casting._activate_choosing)
+        if not any(k.kind == _costs.SACRIFICE and k.selector is not None for p in extra for k in _costs.parse_ability_cost(p, card_name="~").components):
+            return None
+        count, options = "sacrificed_land_types", tuple((m,) for m in ALL_MANA)
     elif first == "Add X mana of any one color, where X is 1 plus the exiled creature's mana value":
         if not any(k.kind == _costs.EXILE and k.selector is not None for p in extra for k in _costs.parse_ability_cost(p, card_name="~").components):
             return None

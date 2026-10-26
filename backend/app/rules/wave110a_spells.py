@@ -426,7 +426,28 @@ def _gambit() -> Parsed:
     return [{"do": "gambit110a"}], None, False
 
 
+def _calix() -> Parsed:
+    """Calix -3: the exile lasts until the second target (an enchantment you control) leaves (610.3a, 610.3c)."""
+    _, targets, optional = _p("Exile target creature or enchantment you don't control. Untap target enchantment you control.")
+    return [{"do": "exile_until_target110a", "who": "target:0", "anchor": "target:1"}], targets, optional
+
+
+def exile_until_target(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """610.3c: nothing is exiled if the enchantment already left (Calix ruling: either target gone, no exile); the cards return when it leaves."""
+    from app.rules import effects
+
+    anchor = [c for c in effects._cards(plan, ctx, e["anchor"]) if plan.state.cards[c].zone.endswith(":battlefield")]
+    if not anchor:
+        return True
+    keep, ctx["source_object"] = ctx["source_object"], plan.oid(anchor[0])
+    try:
+        return effects._exile_until_cards(plan, ctx, e, [c for c in effects._cards(plan, ctx, e["who"]) if plan.state.cards[c].zone.endswith(":battlefield")])
+    finally:
+        ctx["source_object"] = keep
+
+
 BUILDERS: dict[str, Callable[[], Parsed]] = {
+    "Exile target creature or enchantment you don't control until target enchantment you control leaves the battlefield.": _calix,
     "Gain control of target creature. Change the text of that creature by replacing all instances of one creature type with Vampire.": _new_blood,
     "Choose any number of target players. Investigate X times, where X is the total number of creatures those players control.": _interrogation,
     "Each player may exile their hand and draw a number of cards equal to the amount of {E} paid this way. If seven or more {E} was paid this way, "
@@ -659,4 +680,4 @@ def unblocked_turn(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
 
 
 PRIMITIVES = {"new_blood110a": new_blood, "new_blood_apply110a": new_blood_apply, "wheel110a": wheel, "grant_owned110a": grant_owned, "gambit110a": gambit, "bind_sacrificed110a": bind_sacrificed, "unblocked_turn110a": unblocked_turn, "repeat_put110a": repeat_put, "note_put110a": note_put, "bind110a": bind, "end_combat_phase110a": end_combat_phase, "snow110a": snow,
-              "exiled_power_damage110a": exiled_power_damage, "exile_hands110a": exile_hands, "counter_opponents110a": counter_opponents, "noted_draw110a": noted_draw}
+              "exiled_power_damage110a": exiled_power_damage, "exile_hands110a": exile_hands, "counter_opponents110a": counter_opponents, "noted_draw110a": noted_draw, "exile_until_target110a": exile_until_target}
