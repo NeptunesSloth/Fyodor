@@ -872,6 +872,11 @@ def _make_tokens(plan: Plan, ev: Event, picks: list[dict[str, str]]) -> list[str
     from app.rules import creature_entry_redirect, replacements, token_copy_entry
 
     pid, left = ev["player"], int(ev["count"])
+    if plan.rules.specimens110f:  # -- wave 110F -- Gather Specimens: a creature token enters under the controller it names
+        from app.rules import wave110f_fin
+
+        if wave110f_fin.entering_player(plan, pid) != pid and "Creature" in str((token_copy_entry.effective(ev, picks[0] if picks else {}) or {}).get("type_line") or ""):
+            pid = wave110f_fin.entering_player(plan, pid)
     aura_picks = [p for p in picks if token_copy_entry.HOST in p or token_copy_entry.SKIP in p]
     if aura_picks:
         picks = [p for p in picks if not p.get(token_copy_entry.SKIP)]

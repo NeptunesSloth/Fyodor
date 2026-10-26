@@ -984,3 +984,5 @@ from app.rules import wave110f_fin as _wave110f_fin  # noqa: E402
 
 PRIMITIVES.update(_wave110f_fin.PRIMITIVES)
 RESUME.update(_wave110f_fin.RESUME)
+
+BUILDERS[_wave110f_fin.SPECIMENS] = lambda: ([{"do": "specimens110f"}], None, False)  # Gather Specimens

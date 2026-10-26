@@ -1723,6 +1723,7 @@ class RulesState(BaseModel):
     camouflage110f: dict[str, list[list[str]]] = Field(default_factory=dict)  # -- wave 110F -- defending player -> their piles (creature ids), until every player has divided
     ferris110f: dict[str, list[str]] = Field(default_factory=dict)  # -- wave 110F -- Ferris Wheel (rules object) -> the creatures (rules objects) it has phased out
     put_with110f: dict[str, list[str]] = Field(default_factory=dict)  # -- wave 110F -- 607.2c: source (rules object) -> the objects its ability put onto the battlefield (Diabolic Servitude)
+    specimens110f: list[list[Any]] = Field(default_factory=list)  # -- wave 110F -- Gather Specimens: [its controller, the turn] for each one that resolved
     phase_holds110k: list[PhaseHold110K] = Field(default_factory=list)  # -- wave 110K --
     no_regen_sources110k: list[str] = Field(default_factory=list)  # -- wave 110K -- Runesword: the objects whose damage this turn makes a creature unable to regenerate
     damaged_players110k: dict[str, list[str]] = Field(default_factory=dict)  # -- wave 110K -- source object -> the players it has dealt damage to (Diseased Vermin)

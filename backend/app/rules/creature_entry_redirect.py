@@ -118,6 +118,15 @@ def move(plan: Plan, payload: dict[str, Any]) -> dict[str, Any]:
         controller = (payload.get('controllers') or {}).get(cid) or dest.get('player') or card.controller
         from app.rules import entry_characteristics
 
+        if plan.rules.specimens110f and dest.get('player'):  # -- wave 110F -- Gather Specimens (backstop: a path that didn't redirect before asking its questions)
+            from app.rules import wave110f_fin
+
+            taken110f = wave110f_fin.entering_player(plan, dest['player'])
+            if taken110f != dest['player'] and wave110f_fin.creature_entering(plan, card, taken110f):
+                routes[cid] = {**dest, 'player': taken110f}
+                controller = taken110f
+                changed = True
+
         probe = entry_characteristics.probe(card, (payload.get('entry_characteristics') or {}).get(cid))
         if cid in (payload.get('back_ids') or []):
             probe = probe.model_copy(update={'face': 1})

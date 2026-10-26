@@ -810,6 +810,13 @@ def move_together(plan: Plan, entries: list[Entry], *, simultaneous: dict[str, A
     event (122.6, 306.5b). Extras recorded on the entry by the effect that puts it there — a
     persist / undying counter, unearth's haste and "exile it instead" — are applied after."""
     planned: list[tuple[Entry, CardInstance, dict[str, Any]]] = []
+    if plan.rules.specimens110f:  # -- wave 110F -- Gather Specimens: each creature enters under the controller it names, before anything about its entering is asked (614.1a, 2008-10-01 ruling)
+        from app.rules import wave110f_fin
+
+        for entry in entries:
+            if (c110f := plan.state.cards.get(entry["card"])) is not None and (taken110f := wave110f_fin.entering_player(plan, entry["player"])) != entry["player"] \
+                    and wave110f_fin.creature_entering(plan, c110f, taken110f, face_down=bool(entry.get("face_down"))):
+                entry["player"] = taken110f
     from app.rules import (
         wave110b_mirror,  # -- Mystic Reflection (wave 110B) -- one entry event: all of it copies
     )

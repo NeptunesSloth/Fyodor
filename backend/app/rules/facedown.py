@@ -46,6 +46,10 @@ def put_face_down(plan: Plan, card_id: str, player: str, kind: str, *, actor: st
         if barred[1]:
             plan.note(f"{barred[0]}: a card can't enter the battlefield", [card_id])
         return False
+    if plan.rules.specimens110f:  # -- wave 110F -- Gather Specimens: a face-down creature enters under the controller it names
+        from app.rules import wave110f_fin
+
+        player = wave110f_fin.entering_player(plan, player)
     probe: CardInstance = card.model_copy(update={"face_down": True, "face_down_kind": kind, "face_down_as": spec,
                                                   "zone": zone_key(player, "battlefield"), "controller": player})
     ep = replacements.entry_plan(plan, probe, player)

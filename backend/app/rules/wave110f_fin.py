@@ -370,8 +370,6 @@ def resume_master(plan: Any, d: Any, chosen: list[str]) -> None:
         effects.continue_effects(plan, d.resume["ctx"])
 
 
-PRIMITIVES = {"master110f": master, "link_cost110f": link_cost, "seventh110f": seventh, "link_put110f": link_put, "servitude110f": servitude, "jarkeld110f": jarkeld, "tahngarth110f": tahngarth, "vecna110f": vecna}
-RESUME = {"master110f": resume_master, "seventh110f": resume_seventh, "seventh110f_guess": resume_seventh_guess, "tahngarth110f": resume_tahngarth}
 
 
 # -- Riku of Many Paths: "Whenever you cast a modal spell, choose up to X, where X is the number of times you chose a mode for that spell —" (700.2, 2024-04-12 rulings) --
@@ -413,3 +411,43 @@ def modes_chosen(plan: Any, event: Any) -> int | None:
     if card is None or card.zone != "stack" or plan.oid(card) != ref.object_id or entry is None or ref.card in plan.rules.modes110f:
         return 0
     return len(entry.modes)
+
+
+# -- Gather Specimens (614.1a, 614.12; 2008-10-01 rulings): "If a creature would enter the battlefield under an opponent's control this turn, it enters under your control instead." --
+SPECIMENS = "If a creature would enter the battlefield under an opponent's control this turn, it enters under your control instead."
+
+
+def specimens(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    plan.rules.specimens110f.append([ctx["controller"], plan.state.turn.number])
+    return True
+
+
+def entering_player(plan: Any, player: str) -> str:
+    """The player a creature would enter under, after each Gather Specimens of this turn that applies (each once: 614.5; a creature that would enter under an opponent of its
+    controller enters under that controller instead, and the new would-be controller is judged again by the others: 2008-10-01 ruling, two opposing ones end where it began).
+    ponytail: with several applicable at once the one that resolved first applies first (616.1: its would-be controller chooses)."""
+    r = plan.rules
+    if not r.specimens110f:
+        return player
+    now = [owner for owner, turn in r.specimens110f if turn == plan.state.turn.number and owner in plan.live()]
+    used: set[int] = set()
+    again = True
+    while again:
+        again = False
+        for i, owner in enumerate(now):
+            if i not in used and player != owner:
+                player, again = owner, True
+                used.add(i)
+                break
+    return player
+
+
+def creature_entering(plan: Any, card: Any, player: str, **update: Any) -> bool:
+    """Would this card be a creature on the battlefield (as it would enter under ``player``)?"""
+    from app.game.state import zone_key
+
+    return "Creature" in plan.ch(card.model_copy(update={"zone": zone_key(player, "battlefield"), "controller": player, **update})).types
+
+
+PRIMITIVES = {"master110f": master, "link_cost110f": link_cost, "seventh110f": seventh, "link_put110f": link_put, "servitude110f": servitude, "jarkeld110f": jarkeld, "tahngarth110f": tahngarth, "vecna110f": vecna, "specimens110f": specimens}
+RESUME = {"master110f": resume_master, "seventh110f": resume_seventh, "seventh110f_guess": resume_seventh_guess, "tahngarth110f": resume_tahngarth}

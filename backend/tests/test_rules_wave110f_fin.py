@@ -841,3 +841,93 @@ def test_mimeoplasm_x_zero_exiles_nothing(cards):
     mim = s.state.cards[card_named(s, "Mimeoplasm, Revered One").id]
     assert mim.zone != "p1:battlefield" or not any(mim.counters.values())  # (0/0: it dies as a state-based action)
     check(s)
+
+
+_GATHER = "If a creature would enter the battlefield under an opponent's control this turn, it enters under your control instead."
+_BASE.extend([
+    real("Gather Specimens", "{3}{U}{U}{U}", 6, "Instant", _GATHER, None, "U"),
+    real("Test Flash 110FS", "{1}", 1, "Creature — Elf", "Flash", ("2", "2"), ""),
+    real("Test Raise 110FS", "{1}", 1, "Instant", "Return target creature card from your graveyard to the battlefield.", None, ""),
+    real("Test Tokens 110FS", "{1}", 1, "Instant", "Create a 1/1 white Soldier creature token.", None, ""),
+    real("Test Flash Artifact 110FS", "{1}", 1, "Artifact", "Flash", None, ""),
+    real("Test Old 110FS", "{1}", 1, "Creature — Elf", "", ("1", "1"), ""),
+])
+
+
+def test_specimens_full(cards):
+    assert coverage.of_card_data(cards.resolve("Gather Specimens")).level == "FULL"
+
+
+def _specimens(cards, theirs):
+    s = build(cards, ["Gather Specimens"], theirs)
+    for pid in ("p1", "p2"):
+        act(s, pid, type="set_prefs", response="on", hold_priority=True)
+    mana(s, "p1", U=6)
+    cast(s, "Gather Specimens")
+    answer(s)
+    act(s, "p1", type="pass_priority")
+    assert s.state.rules.priority == "p2"
+    return s
+
+
+def _owner_zone(s, name, pid):
+    return s.state.cards[card_named(s, name, pid).id].zone
+
+
+@pytest.mark.parametrize("path", ["spell", "reanimate", "token"])
+def test_specimens_creature_entering_under_an_opponent_enters_under_you(cards, path):
+    """614.1a, 2008-10-01 rulings: a creature spell, a creature put onto the battlefield by an effect and a creature token all enter under Alice's control."""
+    from tests.wave9c_kit import to_hand
+    from tests.wave36a_kit import to_gy
+
+    names = {"spell": ["Test Flash 110FS"], "reanimate": ["Test Raise 110FS", "Test Old 110FS"], "token": ["Test Tokens 110FS"]}[path]
+    s = _specimens(cards, names)
+    if path == "spell":
+        mana(s, "p2", C=1)
+        act(s, "p2", type="cast_spell", card_id=to_hand(s, "Test Flash 110FS", "p2").id)
+    elif path == "reanimate":
+        to_gy(s, "Test Old 110FS", "p2")
+        mana(s, "p2", C=1)
+        act(s, "p2", type="cast_spell", card_id=to_hand(s, "Test Raise 110FS", "p2").id, targets=[card_named(s, "Test Old 110FS", "p2").id])
+    else:
+        mana(s, "p2", C=1)
+        act(s, "p2", type="cast_spell", card_id=to_hand(s, "Test Tokens 110FS", "p2").id)
+    answer(s)
+    if path == "token":
+        tok = next(c for c in s.state.cards.values() if c.is_token and c.name == "Soldier")
+        assert tok.controller == "p1" and tok.zone == "p1:battlefield"
+    else:
+        name = "Test Flash 110FS" if path == "spell" else "Test Old 110FS"
+        c = s.state.cards[card_named(s, name, "p2").id]
+        assert c.zone == "p1:battlefield" and c.controller == "p1" and c.owner == "p2"
+    check(s)
+
+
+def test_specimens_noncreatures_and_the_next_turn_are_unaffected(cards):
+    from tests.wave9c_kit import to_hand
+
+    s = _specimens(cards, ["Test Flash Artifact 110FS"])
+    mana(s, "p2", C=1)
+    act(s, "p2", type="cast_spell", card_id=to_hand(s, "Test Flash Artifact 110FS", "p2").id)
+    answer(s)
+    assert s.state.cards[card_named(s, "Test Flash Artifact 110FS", "p2").id].zone == "p2:battlefield"
+    check(s)
+
+
+def test_specimens_ends_with_the_turn_and_two_opposing_ones_cancel(cards):
+    """"This turn": an earlier turn's record applies to nothing; 2008-10-01 ruling: two opposing Gather Specimens leave a creature under the player it would have entered under."""
+    from app.rules import wave110f_fin
+    from app.rules.plan import Plan
+
+    s = build(cards, ["Gather Specimens"], [])
+
+    def plan_with(records):
+        s.state.rules.specimens110f = records
+        return Plan(s.state, "p1", s.cards, None)
+
+    turn = s.state.turn.number
+    assert wave110f_fin.entering_player(plan_with([["p1", turn - 1]]), "p2") == "p2"
+    plan = plan_with([["p1", turn]])
+    assert wave110f_fin.entering_player(plan, "p2") == "p1" and wave110f_fin.entering_player(plan, "p1") == "p1"
+    plan = plan_with([["p1", turn], ["p2", turn]])
+    assert wave110f_fin.entering_player(plan, "p1") == "p1" and wave110f_fin.entering_player(plan, "p2") == "p2"
