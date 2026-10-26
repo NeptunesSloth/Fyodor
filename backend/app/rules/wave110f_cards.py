@@ -7,6 +7,7 @@ from collections.abc import Callable
 from typing import Any
 
 from app.game.errors import ActionError
+from app.rules import draft_only
 
 Parsed = tuple[list[dict[str, Any]], Any, bool]
 
@@ -529,45 +530,13 @@ PRIMITIVES: dict[str, Any] = {"barrier_direction110f": barrier_direction, "remov
 RESUME: dict[str, Any] = {"cmd_color110f": resume_cmd_color, "vapors110f": resume_vapors, "manual110f": resume_manual, "worms110f": resume_worms, "turn_up_choice110f": resume_turn_up, "reveal_chroma110f": resume_reveal_chroma, "unlock110f": resume_unlock}
 
 
-# 905.2 / 103.6: nothing is drafted in Commander, so these cards never have a card, note or chosen color (app/rules/draft_only.py).
-# Each wording below is an explicit do-nothing effect (no "gain 0 life" text shown to players), not a guess at a rules result.
-DRAFT_NOTHING = {
-    "copy a card you exiled with cards named Arcane Savant. You may cast the copy without paying its mana cost.",
-    "Create a token that's a copy of a card you exiled with cards named Caller of the Untamed. X is the mana value of that card.",
-    "you may search your hand and/or library for a card with a name noted as you drafted cards named Aether Searcher. You may cast it without paying its mana cost. If you search your library this way, shuffle.",  # (wave 110I)
-    "Choose a card at random you exiled with cards named Volatile Chimera. ~ becomes a copy of that card, except it has this ability.",
-}
-GARBAGE_FIRE = "~ deals damage to target creature equal to the highest number you noted for cards named Garbage Fire."  # target kept, nothing was noted
-SMUGGLER = "you may search your library for a card with a name you noted for cards named Smuggler Captain, reveal it, put it into your hand, then shuffle."
-REGICIDE = "Destroy target creature that's one or more of the colors chosen as you drafted cards named Regicide."
-
-
-def nothing_drafted(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
-    """Nothing was drafted, exiled or noted, so there is nothing to do."""
-    return True
-
-
-PRIMITIVES["nothing_drafted110f"] = nothing_drafted
-
-
-def _draft_parse(body: str) -> Any:
-    from app.rules import selectors
-
-    if body in DRAFT_NOTHING:
-        return [{"do": "nothing_drafted110f"}], None, False
-    if body == GARBAGE_FIRE:
-        return [{"do": "nothing_drafted110f", "who": "target"}], "creature", False
-    if body == SMUGGLER:  # (wave 110C) a name was never noted, so the search finds nothing (701.23b: a quality search may fail) but the library is still shuffled
-        return [{"do": "shuffle_library", "who": "you"}], None, True
-    if body == REGICIDE:  # no color was chosen, so no creature is one of them: a selector that matches nothing (a creature that is not a creature), hence no legal target
-        return [{"do": "destroy", "who": "target"}], selectors.Selector(types=("Creature",), not_types=("Creature",)).key(), False
-    return None
+PRIMITIVES["nothing_drafted110f"] = draft_only.nothing_drafted  # (the name stays: saved effects use it)
 
 
 def parse(body: str) -> Parsed | None:
     from app.rules import scripts
 
-    if (drafted := _draft_parse(body.strip())) is not None:
+    if (drafted := draft_only.parse(body.strip())) is not None:
         return drafted
 
     build = BUILDERS.get(body.strip())

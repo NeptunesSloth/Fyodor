@@ -37,3 +37,47 @@ _DRAFT = re.compile(
 def definition(text: str) -> dict[str, Any] | None:
     """A static that does nothing (the draft isn't part of the game) for a line about the draft itself, else None."""
     return {"kind": "static", "static": "draft_only", "effects": []} if _DRAFT.fullmatch(text.strip()) else None
+
+
+# 905.2 / 103.6: nothing is drafted in Commander, so these cards never have a card, note or chosen color (wave110f_cards.parse reads these).
+# Each wording below is an explicit do-nothing effect (no "gain 0 life" text shown to players), not a guess at a rules result.
+DRAFT_NOTHING = {
+    "copy a card you exiled with cards named Arcane Savant. You may cast the copy without paying its mana cost.",
+    "Create a token that's a copy of a card you exiled with cards named Caller of the Untamed. X is the mana value of that card.",
+    "you may search your hand and/or library for a card with a name noted as you drafted cards named Aether Searcher. You may cast it without paying its mana cost. If you search your library this way, shuffle.",  # (wave 110I)
+    "Choose a card at random you exiled with cards named Volatile Chimera. ~ becomes a copy of that card, except it has this ability.",
+}
+GARBAGE_FIRE = "~ deals damage to target creature equal to the highest number you noted for cards named Garbage Fire."  # target kept, nothing was noted
+SMUGGLER = "you may search your library for a card with a name you noted for cards named Smuggler Captain, reveal it, put it into your hand, then shuffle."
+REGICIDE = "Destroy target creature that's one or more of the colors chosen as you drafted cards named Regicide."
+
+
+def nothing_drafted(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Nothing was drafted, exiled or noted, so there is nothing to do."""
+    return True
+
+
+def parse(body: str) -> Any:
+    """(wave 110F) the effect of a spell or ability sentence that uses what a draft would have left, else None."""
+    from app.rules import selectors
+
+    if body in DRAFT_NOTHING:
+        return [{"do": "nothing_drafted110f"}], None, False
+    if body == GARBAGE_FIRE:
+        return [{"do": "nothing_drafted110f", "who": "target"}], "creature", False
+    if body == SMUGGLER:  # (wave 110C) a name was never noted, so the search finds nothing (701.23b: a quality search may fail) but the library is still shuffled
+        return [{"do": "shuffle_library", "who": "you"}], None, True
+    if body == REGICIDE:  # no color was chosen, so no creature is one of them: a selector that matches nothing (a creature that is not a creature), hence no legal target
+        return [{"do": "destroy", "who": "target"}], selectors.Selector(types=("Creature",), not_types=("Creature",)).key(), False
+    return None
+
+
+# -- Paliano, the High City (wave 110J) -- ruling 2014-05-29: without a draft nothing was chosen, so the mana ability adds no mana (not even colorless). It stays a
+# mana ability (605.1a): {T} is paid, the one option adds nothing.
+_PALIANO = "{T}: Add one mana of any color chosen as you drafted cards named Paliano, the High City."
+
+
+def mana(text: str) -> Any:
+    from app.rules import mana as M
+
+    return M.ManaAbility(tap=True, sacrifice_self=False, options=((),)) if text.strip() == _PALIANO else None

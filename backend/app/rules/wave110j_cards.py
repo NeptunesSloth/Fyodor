@@ -1066,17 +1066,6 @@ _BUILD[_WEB2] = ("Whenever a creature with a magnet counter on it attacks, you g
                  lambda d: {**d, "effects": [{"do": "restrict", "who": d["cond"]["sel"], "rules": ["must_block_obj:@it"]}]})
 
 
-# -- Paliano, the High City (wave 110J) -- ruling 2014-05-29: without a draft nothing was chosen, so the mana ability adds no mana (not even colorless). It stays a
-# mana ability (605.1a): {T} is paid, the one option adds nothing.
-_PALIANO = "{T}: Add one mana of any color chosen as you drafted cards named Paliano, the High City."
-
-
-def parse_mana(text: str) -> Any:
-    from app.rules import mana as M
-
-    return M.ManaAbility(tap=True, sacrifice_self=False, options=((),)) if text.strip() == _PALIANO else None
-
-
 # -- Takklemaggot (wave 110J) -- "When enchanted creature dies, that creature's controller chooses a creature that this card could enchant. ..." Rulings 2009-10-01: the
 # trigger resolves with the Aura in the graveyard (704.5m put it there); the creature is chosen on resolution (no target), only one this card could legally enchant, and
 # the player must choose one if able; the controller of the returned card stays the Aura's controller. 303.4f: an Aura entering not being cast is attached to the chosen
