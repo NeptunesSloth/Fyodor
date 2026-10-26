@@ -67,3 +67,58 @@ def test_takklemaggot_without_a_creature_returns_as_non_aura_that_pings(cards):
     settle(s)
     assert life(s, "p2") == 39 and life(s, "p1") == 40
     check(s)
+
+
+CURSE = "Volrath's Curse"
+
+
+def _curse_turn(cards):
+    """p1 curses p2's Grizzly Bears; p2's turn 2, precombat main, bears are summoning-sick-free (put on the battlefield on turn 1)."""
+    s = build(cards, [CURSE], ["Grizzly Bears", "Grizzly Bears"], forests=30, islands=30)
+    bears = put_new(s, "Grizzly Bears", "p2")
+    put_new(s, "Grizzly Bears", "p2")
+    cast_on(s, CURSE, bears)
+    act(s, "p2", type="set_stops", own=["declare_attackers"])
+    to_phase(s, "main1", turn=2)
+    return s, bears
+
+
+def _attack(s, bears):
+    act(s, "p2", type="declare_attackers", attackers=[{"card_id": bears.id, "target": "p1"}])
+
+
+def test_volrath_curse_full(cards):
+    from app.rules import coverage
+
+    assert coverage.of_card_data(cards.resolve(CURSE)).level == "FULL"
+
+
+def test_volrath_curse_stops_attacks_and_activations(cards):
+    s, bears = _curse_turn(cards)
+    act(s, "p2", type="pass_priority")
+    while s.state.rules.decision is None or s.state.rules.decision.kind != "declare_attackers":
+        act(s, s.state.rules.priority, type="pass_priority")
+        if s.state.turn.phase not in ("main1", "beginning_of_combat", "declare_attackers"):
+            break
+    import pytest
+    from app.game.errors import ActionError
+
+    with pytest.raises(ActionError):
+        _attack(s, bears)
+    check(s)
+
+
+def test_volrath_curse_is_ignored_by_sacrificing_a_permanent(cards):
+    s, bears = _curse_turn(cards)
+    forest = next(c for c in s.state.cards.values() if c.name == "Grizzly Bears" and c.owner == "p2" and c.id != bears.id and c.zone.endswith(":battlefield"))  # (any permanent will do)
+    from tests.wave110j_kit import ability
+
+    act(s, "p2", type="activate_ability", card_id=bears.id, ability=ability(s, bears, "Sacrifice a permanent"))
+    settle(s, answers=[forest.id])
+    assert now(s, forest).zone.endswith(":graveyard")
+    while s.state.rules.decision is None or s.state.rules.decision.kind != "declare_attackers":
+        act(s, s.state.rules.priority, type="pass_priority")
+    _attack(s, bears)
+    settle(s)
+    assert now(s, bears).attacking is not None
+    check(s)

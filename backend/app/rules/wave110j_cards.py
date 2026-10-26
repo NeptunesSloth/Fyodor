@@ -96,6 +96,9 @@ def definition(ability: Any, ch: Any) -> Def | None:
                                    rules=[combat_conditional_requirements67.PREFIX + "@src:magnet110j"])
     if ability.text.strip() == _TAKKLE_GAIN:  # Takklemaggot's granted ability: the chosen player is the one recorded as it returned (read by triggers._whose_step)
         return {"kind": "triggered", "trigger": "step:upkeep:chosen_player", "effects": [{"do": "damage", "who": "event_player", "n": 1}], "optional": False, "target": None}
+    if ability.text.strip() == _CURSE_IGNORE:
+        native = scripts.define(replace(ability, text="Sacrifice a permanent: Draw a card."), ch)
+        return None if native is None else {**native, "effects": [{"do": "ignore110j"}]}
     if ability.text.strip() == _SPLICER:
         return _splicer(ability, ch)
     if ability.text.strip() == _ES:
@@ -1129,3 +1132,23 @@ def resume_takkle(plan: Any, d: Any, chosen_ids: list[str]) -> None:
 
 PRIMITIVES["takkle110j"] = takkle
 RESUME["takkle110j"] = resume_takkle
+
+
+# -- Volrath's Curse (wave 110J) -- "That creature's controller may sacrifice a permanent of their choice for that player to ignore this effect until end of turn."
+# The creature gets "Sacrifice a permanent: ..." (its controller pays; ceilings: it uses the stack and needs priority, so it must be done before attackers/blockers are
+# declared, and two Curses on one creature are ignored together) which is exempt from the Curse's own "activated abilities can't be activated" (casting.py); while it
+# has been paid this turn (statics.holds "ignored110j") the whole static, "can't attack or block" included, does not apply (611.3a).
+_CURSE = ("Enchanted creature can't attack or block, and its activated abilities can't be activated. That creature's controller may sacrifice a permanent of their choice "
+          "for that player to ignore this effect until end of turn.")
+_CURSE_IGNORE = "Sacrifice a permanent: Ignore Volrath's Curse until end of turn."
+_BUILD[_CURSE] = ("Enchanted creature can't attack or block, and its activated abilities can't be activated.",
+                  lambda d: {**d, "grants": [_CURSE_IGNORE], "conditions": [{"static": "not", "cond": {"static": "ignored110j"}}]})
+
+
+def ignore(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
+    plan.rules.once_per_turn[f"ignore110j:{ctx['source_object']}"] = plan.state.turn.number
+    plan.note("Volrath's Curse is ignored until end of turn", actor=ctx["controller"])
+    return True
+
+
+PRIMITIVES["ignore110j"] = ignore
