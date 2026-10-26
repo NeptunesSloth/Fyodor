@@ -155,6 +155,8 @@ def attack_me_next_turn(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
 
 _KYTHEON = "At end of combat, if ~ and at least two other creatures attacked this combat, exile ~, then return it to the battlefield transformed under its owner's control."
 _CANT_DRAW = " If you can't, draw a card."
+_NIKO = ("{2}, {T}: Exile target nonlegendary creature you control. Shards you control become copies of it until the next end step. "
+         "Return it to the battlefield under its owner's control at the beginning of the next end step.")
 _CAPRI = ("{2}: Put a +1/+1 counter on ~, then you may reselect which player ~ is attacking. "
           "Only the player ~ is attacking may activate this ability and only during the declare attackers step.")
 
@@ -203,6 +205,15 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
             d["effects"] = [{"do": "only_if", "cond": c, "skip": 4 - i} for i, c in enumerate(conds)] + [{**d["effects"][0], "as": "kaldra110d"}]
             d["effects"].append({"do": "attach_to", "src": allk, "who": "ref:kaldra110d"})
         return d
+    if text == _NIKO:  # Niko, Light of Hope: 707.9 the Shards copy the exiled creature as it last existed (608.2h), until the end step begins (611.2a)
+        d = scripts.define(replace(ability, text=text.replace(" Shards you control become copies of it until the next end step.", "")), ch)
+        if d is not None and d["effects"][0].get("do") == "exile":
+            from app.rules import selectors
+
+            shards = selectors.Selector(subtypes=("Shard",), controller="you").key()
+            d["effects"].insert(1, {"do": "become_copy", "who": shards, "with": "ref:" + d["effects"][0]["as"], "last_known": True, "duration": "next_end_step110d"})
+            return d
+        return None
     if text == _CAPRI:  # Capricopian: 602.2 the defending player activates it (so "you" is them), 508.7c they may reselect whom it attacks
         d = scripts.define(replace(ability, text=text.replace(", then you may reselect which player ~ is attacking", "")), ch)
         if d is not None:

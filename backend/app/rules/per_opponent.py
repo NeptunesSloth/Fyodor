@@ -93,7 +93,12 @@ def expanded(plan: Plan, controller: str, source_card: str | None, ab: dict[str,
     group = ab["targets"][0]
     order = plan.state.seat_order
     start = order.index(controller) if controller in order else 0
-    opponents = [p for i in range(len(order)) if (p := order[(start + i) % len(order)]) in plan.live() and (p != controller or group[FLAG] == "player")]
+    from app.rules import values
+
+    # (-- corrupted (wave 110D) -- FLAG "poison110d" (Geth's Summons): you, and each opponent with three or more poison counters as it is cast)
+    opponents = [p for i in range(len(order)) if (p := order[(start + i) % len(order)]) in plan.live()
+                 and (p != controller or group[FLAG] in ("player", "poison110d"))
+                 and (group[FLAG] != "poison110d" or p == controller or values.evaluate(plan, {"controller": p}, {"player_counters": "poison"}) >= 3)]
     sel = selectors.from_key(group["what"])
     first = group.get("from", 0)  # (-- per-player targets (wave 50F) -- the sentences before the "For each …" one are carried out once)
     groups: list[dict[str, Any]] = []

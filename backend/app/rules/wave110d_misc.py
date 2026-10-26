@@ -15,6 +15,9 @@ MONOLITH = ('{T}: Until end of turn, target creature gains "Whenever this creatu
 GOLLUM = ("Whenever ~ attacks, look at the top two cards of your library, put them back in any order, then choose land or nonland. An opponent guesses whether "
           "the top card of your library is the chosen kind. Reveal that card. If they guessed right, remove ~ from combat. Otherwise, you draw a card and ~ can't be blocked this turn.")
 FUMBLE = "Return target creature to its owner's hand. Gain control of all Auras and Equipment that were attached to it, then attach them to another creature."
+GETH1 = "Return up to one target creature card from your graveyard to the battlefield."
+GETH2 = ("Corrupted — For each opponent who has three or more poison counters as you cast this spell, put up to one target creature card from that player's "
+         "graveyard onto the battlefield under your control.")
 ZHALFIR = "I, II — Another target nonland permanent phases out. It can't phase in for as long as you control this Saga."
 PARK = "I — For each opponent, up to one target noncreature artifact they control becomes a 0/4 Wall artifact creature with defender for as long as you control this Saga."
 PURSUIT = ("When this enchantment enters, suspect target creature an opponent controls. As long as this enchantment remains on the battlefield, "
@@ -166,6 +169,14 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
         return {**look, "effects": [*look["effects"], {"do": "gollum110d"},
                                     {"do": "only_if", "cond": {"succeeded": "right110d"}, "skip": len(gone["effects"])}, *gone["effects"],
                                     {"do": "only_if", "cond": {"succeeded": "wrong110d"}, "skip": len(paid["effects"])}, *paid["effects"]]}
+    if ability.text in (GETH1, GETH2):  # Geth's Summons: one group for you and one for each opponent with 3+ poison as it is cast (601.2c, per_opponent "poison110d");
+        # your own line is that group's first member (a card of yours returns under your control), so the first line itself does nothing
+        if ability.text == GETH1:
+            return {"kind": "spell", "effects": [], "target": None}
+        d = scripts.define(replace(ability, text="For each player, put up to one target creature card from that player's graveyard onto the battlefield under your control."), ch)
+        if d is not None:
+            d["targets"][0]["opponent_group"] = "poison110d"
+        return d
     if ability.text == FUMBLE:  # Fumble: 608.2c the attachments are read before the creature leaves (608.2h), 303.4 / 301.5 then each goes onto the one creature it can legally be on
         d = scripts.define(replace(ability, text="Return target creature to its owner's hand."), ch)
         if d is not None:
