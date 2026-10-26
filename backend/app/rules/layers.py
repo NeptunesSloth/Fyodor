@@ -215,7 +215,7 @@ def statics(state: GameState, info: CardInfo) -> list[Static]:
                              if r is not None and c.zone.endswith(":battlefield")
                              and (record := r.payments.get(r.object_id(cid))) is not None
                              and record.alternative == "impending"))
-    text71 = tuple((e.id, tuple(e.affected), e.set_name,
+    text71 = tuple((e.id, tuple(e.affected), e.set_name, bool(e.text_box110a),
                     (e.text_change71.category, e.text_change71.old, e.text_change71.new) if e.text_change71 is not None else None)
                    for e in r.effects if e.layer == '3') if r else ()
     key_all: tuple = (key, graveyards, gy_modes, hosts, emblems, tuple(sorted(live)), impending, text71,
@@ -941,7 +941,7 @@ def source_text71(state: GameState, card: CardInstance, ch: Characteristics, inf
         return ch
     oid = state.rules.object_id(card.id)
     found = [e for e in state.rules.effects if e.layer == '3' and oid in e.affected]
-    if not any(e.text_change71 is not None for e in found) and not state.rules.color_words71 and not card.stickers101:
+    if not any(e.text_change71 is not None or e.text_box110a for e in found) and not state.rules.color_words71 and not card.stickers101:
         return ch
     return name_changes(ch, found, [], info, state, card)
 
@@ -965,9 +965,18 @@ def name_changes(ch: Characteristics, effects: list[ContinuousEffect],
     if card is not None:
         ordered += [((p.object_seq, 1, p.timestamp), None, {'sticker101': p.sticker.text, 'position': p.position})
                     for p in card.stickers101 if p.sticker.kind == 'name']
+    if card is not None and state is not None and state.rules is not None:  # -- wave 110A -- 612.5: exchanged text boxes
+        oid = state.rules.object_id(card.id)
+        ordered += [((e.object_seq, 1, e.timestamp), None, {'text_box110a': e.text_box110a[oid]})
+                    for e in effects if e.layer == '3' and e.text_box110a and oid in e.text_box110a]
 
     for _, name, change in sorted(ordered, key=lambda item: item[0]):
         if change is not None:
+            if isinstance(change, dict) and 'text_box110a' in change:
+                from app.rules import wave110a_swap
+
+                ch = wave110a_swap.apply(ch, change['text_box110a'])
+                continue
             if isinstance(change, dict) and 'sticker101' in change:
                 from app.rules import stickers101
 

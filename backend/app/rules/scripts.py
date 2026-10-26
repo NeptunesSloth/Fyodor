@@ -4683,7 +4683,7 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
     from app.rules import watches  # -- turn watches (wave 7D) --
 
     body = block_events.rewrite(watches.join_choose(watches.join_retarget(body)))  # (-- turn-long triggers (wave 33A) --; wave 53C: "When one or more Equipment become attached …")
-    if it is None and not event_player:  # -- if you do (wave 5G) -- a spell's or an activated ability's "each other
+    if (it is None or it in ("~", "self_gone")) and not event_player:  # -- if you do (wave 5G; wave 110A: also an activated ability, whose "it" is its source) -- a spell's or an activated ability's "each other
         # player": every other player than its controller is an opponent in a free-for-all (102.2, 806.2); in a trigger
         # "other" may be relative to the event's player — not read there
         # (not where the grammar reads it already: an edict, language.EDICT_OTHERS; "during each other player's …")

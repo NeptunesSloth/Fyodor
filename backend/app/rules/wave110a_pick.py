@@ -20,6 +20,7 @@ if TYPE_CHECKING:
 WHAT = "pick110a"
 TEXTS = {"As ~ enters, choose another creature you control.": "other creature you control",
          "As ~ enters, choose a creature.": "creature",  # Metamorphic Alteration (wave110a_chosen)
+         "As ~ enters, you may exchange his text box and another creature's.": "other creature",  # Deadpool, Trading Card (wave110a_swap): exchanged as it enters
          "As ~ enters, you may choose a nonland permanent.": "nonland permanent",  # Scheming Fence: the choice may be none (114/614.12a: "you may")
          # -- enters attached (wave 110I) -- 303.4f / 301.5: chosen as it enters, so it enters attached to it
          "As ~ enters, choose a creature you control it could be attached to. If you do, it enters attached to that creature.": "creature you control"}
@@ -41,7 +42,7 @@ def definition(text: str) -> dict[str, Any] | None:
     assert sel is not None, phrase
     return {"kind": "replacement", "replacement": "enters_choice",
             "effects": [{"do": "choose_value", "who": "you", "what": WHAT, "pick110a": sel.key(), **({"attach110i": True} if "attached" in text else {}),
-                         **({"opt110a": True} if " may choose " in text else {})}]}
+                         **({"opt110a": True} if " may " in text else {})}]}
 
 
 def prompt(plan: Plan, card: CardInstance, controller: str, choice: dict[str, Any]) -> tuple[str, list[DecisionOption]]:
@@ -83,6 +84,11 @@ def record(plan: Plan, card_id: str, choices: dict[str, str] | None) -> None:
         rules.chosen_objects[card_id] = value
         plan.do({"type": "set_choice", "card_id": card_id, "key": PAIR_LABEL, "value": " and ".join(plan.name(p) for p in value.split(","))},
                 actor=plan.state.cards[card_id].controller)
+        return
+    if value in plan.state.cards and any(ab.text == "As Deadpool enters, you may exchange his text box and another creature's." for ab in plan.ch(plan.state.cards[card_id]).abilities):
+        from app.rules import wave110a_swap  # 612.5: exchange the text boxes now, as it enters
+
+        wave110a_swap.exchange(plan, card_id, value, plan.state.cards[card_id].controller, plan.oid(card_id))
         return
     if value in plan.state.cards:
         rules.chosen_objects[card_id] = plan.oid(plan.state.cards[value])

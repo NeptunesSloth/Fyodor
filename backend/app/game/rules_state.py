@@ -737,6 +737,7 @@ class ContinuousEffect(BaseModel):
     controller: str
     set_name: str | None = None  # Noncopiable layer-3 name change (613.1c).
     text_change71: TextChange71 | None = None
+    text_box110a: dict[str, dict[str, Any]] | None = None  # 612.5 (wave 110A): the rules text each affected object (by id) has instead of its own
     power: int | None = None
     toughness: int | None = None
     add_keywords: list[str] = Field(default_factory=list)
