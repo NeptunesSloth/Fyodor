@@ -31,6 +31,8 @@ NUKA = ("Whenever equipped creature attacks, until the end of defending player's
 DIVINER = ("Whenever one or more other creatures you control enter, if they entered or were cast from a graveyard, create a token that's a copy of one of them. "
            "This ability triggers only once each turn.")
 JIN3 = ("III — You may cast any number of spells from your hand without paying their mana costs. Exile this Saga, then return it to the battlefield.")
+KITESAIL = ("When this creature enters, for each player, choose up to one other target artifact or creature that player controls. For as long as this creature "
+            'remains on the battlefield, the chosen permanents become Treasure artifacts with "{T}, Sacrifice this artifact: Add one mana of any color" and lose all other abilities.')
 DACK = "Whenever you cast a spell that targets one or more permanents, gain control of those permanents."
 
 
@@ -109,6 +111,13 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
         d2 = scripts.define(replace(ability, text="III — Exile this Saga, then return it to the battlefield."), ch)
         if d is not None and d2 is not None:
             d["effects"] += d2["effects"]
+        return d
+    if ability.text == KITESAIL:  # 205.1a Treasure artifact (creature type dropped), 613.1d-f; 611.2b until it leaves; 115.1 one group per player (per_opponent)
+        d = scripts.define(replace(ability, text="When this creature enters, for each player, up to one other target artifact or creature that player controls loses all "
+                                                  "abilities for as long as this creature remains on the battlefield."), ch)
+        if d is not None:
+            d["effects"] = [{**x, "types": ["Artifact"], "artifact_types": ["Treasure"], "abilities": ["{T}, Sacrifice this artifact: Add one mana of any color"]}
+                            if x.get("do") == "become" else x for x in d["effects"]]
         return d
     if ability.text == DACK:  # Dack Fayden's emblem (114.1): the cast event's targets (115.9b: departed ones are ignored), permanently
         cond = events.parse_condition("you cast a spell that targets one or more permanents")
