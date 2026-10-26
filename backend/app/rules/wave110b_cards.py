@@ -397,6 +397,10 @@ def exile_bottom(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
 
 
 _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
+    # Braided Net: 611.2b the lock lasts for as long as that permanent remains tapped (delayed.expire, duration "object_tapped110m"; the restriction is on that object, 400.7)
+    "{T}, Remove a net counter from this artifact: Tap another target nonland permanent. Its activated abilities can't be activated for as long as it remains tapped.":
+        ("{T}, Remove a net counter from this artifact: Tap another target nonland permanent. Its activated abilities can't be activated this turn.",
+         lambda d: {**d, "effects": [{**e, "duration": "object_tapped110m"} if e.get("do") == "restrict" else e for e in d["effects"]]}),
     # Fractured Powerstone: 901.3 the planar die is Planechase game material and 706.7 only a Planechase game rolls it; ruling 2012-06-01: in other games the
     # roll "will have no effect" (no die is rolled, so no roll trigger, no Night Shift payment: ruling 2022-10-07 speaks only of a Planechase game)
     "{T}: Roll the planar die. Activate only as a sorcery.":

@@ -11,7 +11,7 @@ from app.game.errors import ActionError
 from app.game.state import StickerDefinition101, StickerPlacement101
 from app.rules import coverage
 from tests.game_helpers import act
-from tests.wave110b_kit import build, card_named, ch, check, mana, put, repository, settle
+from tests.wave110b_kit import build, card_named, cast, ch, check, mana, put, repository, settle
 
 
 @pytest.fixture()
@@ -56,7 +56,7 @@ def test_chameleon_ignores_its_own_and_others_unaffected(cards):
 BRINK = "Back from the Brink"
 
 
-@pytest.mark.parametrize("name", [BRINK])
+@pytest.mark.parametrize("name", [BRINK, "Braided Net // Braided Quipu"])
 def test_brink_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
@@ -82,7 +82,8 @@ def test_brink_exile_and_pay_mana_cost_makes_a_token_copy(cards):
     """602.2b the exile is part of the cost; 118.1 the mana cost is paid (not cast); 707.2 a token copy that has the card's characteristics; opponents' graveyards are not used."""
     s = build(cards, ["Back from the Brink", "Hill Giant", "Endless One"], ["Hill Giant"])
     put(s, BRINK)
-    giant, one, theirs = to_gy(s, "Hill Giant"), to_gy(s, "Endless One"), to_gy(s, "Hill Giant", "p2")
+    to_gy(s, "Endless One")
+    giant, theirs = to_gy(s, "Hill Giant"), to_gy(s, "Hill Giant", "p2")
     settle(s)
     assert brink_ability(s, theirs) is None and brink_ability(s, giant) is not None
     mana(s, R=1, C=3)
@@ -119,3 +120,48 @@ def test_brink_double_faced_card_pays_front_face_cost_and_copies_front_face(card
     activate(s, delver)
     assert s.state.cards[delver.id].zone == "p1:exile" and len(tokens(s, "Delver of Secrets")) == 1
     check(s)
+
+
+NET = "Braided Net // Braided Quipu"
+
+
+def find_ab(s, c, contains):
+    return next(a.index for a in ch(s, c).abilities if contains in a.text)
+
+
+def test_braided_net_locks_activated_abilities_while_tapped(cards):
+    """611.2b, 602.5: the target is tapped and its activated abilities can't be activated for as long as it remains tapped; once it untaps they can again (400.7 it is that object)."""
+    s = build(cards, [NET, "Shivan Dragon"], [])
+    mana(s, U=1, C=2)
+    cast(s, NET)  # (enters with three net counters)
+    net, dragon = card_named(s, NET), put(s, "Shivan Dragon")
+    settle(s)
+    assert s.state.cards[net.id].counters.get("net") == 3
+    mana(s, R=2)
+    act(s, "p1", type="activate_ability", card_id=dragon.id, ability=find_ab(s, dragon, "+1/+0"))  # (before the lock)
+    settle(s)
+    act(s, "p1", type="activate_ability", card_id=net.id, ability=find_ab(s, net, "Remove a net counter"), targets=[dragon.id])
+    settle(s)
+    assert s.state.cards[dragon.id].tapped and s.state.cards[net.id].counters.get("net") == 2
+    with pytest.raises(ActionError):
+        act(s, "p1", type="activate_ability", card_id=dragon.id, ability=find_ab(s, dragon, "+1/+0"))
+    check(s)
+    act(s, "p1", type="tap", card_ids=[dragon.id])
+    act(s, "p1", type="activate_ability", card_id=dragon.id, ability=find_ab(s, dragon, "+1/+0"))  # (untapped: the lock is over)
+    settle(s)
+    check(s)
+
+
+def test_braided_net_can_target_an_already_tapped_permanent(cards):
+    """Ruling 2023-11-10: an already tapped permanent is a legal target; its abilities are locked for as long as it stays tapped."""
+    s = build(cards, [NET, "Shivan Dragon"], [])
+    mana(s, U=1, C=2)
+    cast(s, NET)  # (enters with three net counters)
+    net, dragon = card_named(s, NET), put(s, "Shivan Dragon")
+    act(s, "p1", type="tap", card_ids=[dragon.id])
+    settle(s)
+    act(s, "p1", type="activate_ability", card_id=net.id, ability=find_ab(s, net, "Remove a net counter"), targets=[dragon.id])
+    settle(s)
+    mana(s, R=1)
+    with pytest.raises(ActionError):
+        act(s, "p1", type="activate_ability", card_id=dragon.id, ability=find_ab(s, dragon, "+1/+0"))

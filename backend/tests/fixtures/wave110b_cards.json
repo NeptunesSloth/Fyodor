@@ -3222,5 +3222,43 @@
   "keywords": [],
   "power": "0",
   "toughness": "0"
+ },
+ {
+  "name": "Braided Net // Braided Quipu",
+  "layout": "transform",
+  "mana_cost": "{2}{U} // ",
+  "cmc": 3.0,
+  "type_line": "Artifact // Artifact",
+  "oracle_text": "This artifact enters with three net counters on it.\n{T}, Remove a net counter from this artifact: Tap another target nonland permanent. Its activated abilities can't be activated for as long as it remains tapped.\nCraft with artifact {1}{U}\n//\n{3}{U}, {T}: Draw a card for each artifact you control, then put this artifact into its owner's library third from the top.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "Craft",
+   "Transform"
+  ],
+  "card_faces": [
+   {
+    "name": "Braided Net",
+    "mana_cost": "{2}{U}",
+    "type_line": "Artifact",
+    "oracle_text": "This artifact enters with three net counters on it.\n{T}, Remove a net counter from this artifact: Tap another target nonland permanent. Its activated abilities can't be activated for as long as it remains tapped.\nCraft with artifact {1}{U}",
+    "colors": [
+     "U"
+    ]
+   },
+   {
+    "name": "Braided Quipu",
+    "mana_cost": "",
+    "type_line": "Artifact",
+    "oracle_text": "{3}{U}, {T}: Draw a card for each artifact you control, then put this artifact into its owner's library third from the top.",
+    "colors": [
+     "U"
+    ]
+   }
+  ]
  }
 ]
