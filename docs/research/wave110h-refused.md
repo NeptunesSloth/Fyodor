@@ -16,7 +16,7 @@
 - Magma Pummeler: reflexive trigger from counter removal needs a target chosen mid-replacement (stack-visible).
 - Rampaging Raptor: "battle that player protects" needs a protector-aware that_player selector (controller is not protector, 310.9).
 - Freyalise's Winds: wind-counter untap replacement vs stun on one permanent gives different outcomes (616.1 choice), no untap-order prompt.
-- Ertai's Meddling: delay counters + exile-until-upkeep + cast copy (suspend-like) foundation missing.
+- Ertai's Meddling: built in wave 110J (last cards): exiled with X delay counters as it resolves (2008-04-01), the card itself back on the stack uncast with the original's decisions (707.10; 2013-04-15), flashback remembered (2011-01-22), splice kept, spell copies cease to exist and face-down spells return as face-up 2/2s (2004-10-04).
 - Spinning Darkness (top three black cards of graveyard as alt cost: needs graveyard_order machinery for a multi-card top cost)
 - Hankyu: granted quote names its Equipment; counter cost "Remove all aim counters from <granter>" needs a cost on the granter object, and "This creature deals" fails _granter_view (_OTHER_SELF).
 - The Sea Devils (III): watch target "creature that player controls" needs event-player-relative own_target (watches.build requires {"what"} only); "a Salamander" is any controller's.

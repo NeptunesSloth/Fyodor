@@ -14,7 +14,7 @@
 - Ogre Enforcer: needs damage marked per source (no per-source tally on cards).
 - Oath of Kaya, Rigo: trigger once per attacked planeswalker/defender, not once per attack declaration (existing your_pw fires once); ruling unverified locally.
 - Taste of Paradise: multikicker rewrite would make it a "kicked" spell for other cards (wrong); needs a plain pay-N-times additional cost.
-- Fblthp (Impossibly Lost), Worms of the Earth, Overblaze, Melira, Parnesse, Mangara's Equity: batch-opponent damage trigger / second upkeep ability / doubling / poison cap / copy-by-opponent / chosen-color recipient: each a new foundation.
+- Fblthp (Impossibly Lost), Worms of the Earth, Overblaze, Melira, Mangara's Equity: batch-opponent damage trigger / second upkeep ability / doubling / poison cap / chosen-color recipient: each a new foundation. (Parnesse: built in wave 110J.)
 - Thunderblade Charge: graveyard trigger "if this card is in your graveyard, you may pay ... cast it without paying" needs graveyard batch-damage trigger and free cast from graveyard.
 - Gather Specimens: replaces every creature entry (reanimation, put-onto, tokens) under an opponent; no single entry hook.
 - Dance of Many: "the token" link needs a trigger on a specific linked object leaving (no created-with leave watcher).
@@ -44,6 +44,6 @@ Revered One; Tahngarth, First Mate; Riku of Many Paths; Indominus Rex, Alpha; An
 opponent is a defending player as the combat phase starts); General Jarkeld; Kylox's Voltstrider; Taster of Wares; Gather Specimens; North Star; Arcum's Sleigh (802.2a / 508.5a: with several defending players
 the controller chooses one, so any opponent of the active player controlling a snow land satisfies it). The older notes above for these cards are superseded.
 
-- Ertai's Meddling: final pass: unsettled because "puts it onto the stack as a copy of the original spell" has no CR rule (no "delay counter", no card put onto the stack as a copy), and the rulings disagree: 2004-10-04 (a copy
+- Ertai's Meddling: built in wave 110J (last cards): exiled with X delay counters as it resolves (2008-04-01), the card itself back on the stack uncast with the original's decisions (707.10; 2013-04-15), flashback remembered (2011-01-22), splice kept, spell copies cease to exist and face-down spells return as face-up 2/2s (2004-10-04).
   of a morph spell is a face-up 2/2; a copy with no card ceases to exist when exiled) read it as a copy spell, 2011-01-22 (the card still remembers the flashback cost and is exiled when it resolves) as the physical card on
   the stack; whether a permanent spell then makes a token or the card is not settled.

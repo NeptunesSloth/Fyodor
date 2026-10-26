@@ -47,5 +47,5 @@
 - Damping Engine, Lost in Thought: a player's option "to ignore this effect until end of turn" (sacrifice / exile cost, timing of the option has no rule: not a special action, not an activated ability); no ruling read, unsettled.
 - Kodama of the Center Tree: SETTLED and built (ruling 2005-02-01: soulshift X counts the state immediately before it died, Kodama included).
 - Bamboozling Beeble with Wyll-style roll-extra effects on the same roll: order (616.1) not built; logged for manual play.
-- Reed Richards, Smartest Man, Parnesse the Subtle Brush (s17 recheck): Scryfall lists no rulings for either (fetched); still unsettled (Reed: whether the draw step's first draw counts as "the first time"; Parnesse: which spell "that spell" is). Kept refused.
+- Reed Richards, Smartest Man: built in wave 110J (last cards): per its text the draw step's first card is left out and doesn't use up "the first time" (504.1, 614.11); the first other draw each turn becomes four.
 - Cryptic Spires (s17): built (rulings 2024-11-08 agree: circled in the open before any game, copiable, only affects the mana ability). Ceiling: a copy of the Spires gets no circled colors (ruling says it should) so its ability makes no mana.

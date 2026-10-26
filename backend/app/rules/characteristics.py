@@ -152,6 +152,18 @@ HALVES = ("split", "adventure", "aftermath")  # one card, two spells: you cast o
 _WARD_2 = (AbilityText(index=0, text="Ward {2}", kind="keywords", keywords=("ward",)),)
 
 
+MAGAR_SPEC = "magar110j"
+MAGAR_TEXT = ("Whenever this creature deals combat damage to a player, you may create a copy of the card with the noted name. You may cast the copy without paying its mana cost.\n"
+              "If this creature would leave the battlefield, exile it instead of putting it anywhere else.")
+_MAGAR: list[tuple[AbilityText, ...]] = []
+
+
+def _magar_abilities() -> tuple[AbilityText, ...]:
+    if not _MAGAR:
+        _MAGAR.append(tuple(parse_abilities(MAGAR_TEXT)))
+    return _MAGAR[0]
+
+
 SPEC_TYPES = {"artifact": "Artifact", "creature": "Creature", "land": "Land", "enchantment": "Enchantment"}
 
 
@@ -188,6 +200,8 @@ def face_down_characteristics(kind: str | None, spec: str | None = None) -> Char
     """708.2a: a 2/2 creature with no name, text, subtypes or mana cost — unless the effect that turned it face down says what it is
     (-- hidden exile (wave 18A) -- ``spec``, "[P/T ]<subtypes and types>": "2/2 Cyberman artifact creature", "Forest land")."""
     abilities = _WARD_2 if kind in ("disguise", "cloak") else ()
+    if spec == MAGAR_SPEC:  # -- last cards (wave 110J) -- Magar of the Magic Strings: a 3/3 creature with the two abilities its ability gives (708.2a; rulings 2022-10-07)
+        return Characteristics(name="", types=frozenset({"Creature"}), power="3", toughness="3", face_down=True, abilities=_magar_abilities())
     if not spec:
         return Characteristics(name="", types=frozenset({"Creature"}), power="2", toughness="2", face_down=True, abilities=abilities)
     pt, _, words = spec.partition(" ") if re.match(r"\d+/\d+ ", spec) else ("", "", spec)

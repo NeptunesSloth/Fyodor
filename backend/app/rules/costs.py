@@ -335,6 +335,13 @@ def _component(part: str, card_name: str) -> CostComponent | None:
         return CostComponent(MANA, text=part)
     if re.fullmatch(r"Unattach (?:this \w+|~)", part):
         return CostComponent(UNATTACH, text=part)
+    if part == "Exile one or more other artifacts you control with total mana value X":  # -- last cards (wave 110J) -- Fabrication Foundry: X announced (601.2b), paid exactly (601.2h)
+        key = _selector("artifacts you control", zone="battlefield", other=True)
+        return CostComponent(COLLECT_EVIDENCE, amount=0, x=True, selector=key, text=part) if key else None
+    if part == "Unattach an Equipment from ~":  # -- last cards (wave 110J) -- Captain America: one Equipment attached to it (701.3d), the payer's choice (601.2h)
+        sel = selectors.parse("Equipment attached to ~")
+        assert sel is not None
+        return CostComponent(UNATTACH, selector=sel.key(), text=part)
     if m := _GRANTER_COST.match(part):  # -- granted from object (wave 18F) -- paid with that object (601.2h): the one choice, made for you
         sel = selectors.parse(m["g"])
         assert sel is not None

@@ -1292,6 +1292,8 @@ def _draw_applies(plan: Plan, c: Candidate, ev: Event, sim: Sim) -> bool:
             return False
     if m.get("first_time_turn") and sim["would"].get(pid, 0) > 0:
         return False  # -- draws (wave 110C) -- "The first time you would draw a card each turn": an earlier draw event this turn, replaced or not, used it up
+    if m.get("first_time_turn_nostep110j") and sim["would"].get(f"{pid}:nostep110j", 0) > 0:
+        return False  # -- Reed Richards (wave 110J) -- an earlier draw event this turn other than the draw step's first card used it up
     if m.get("draw_step_only") and not (plan.state.turn.phase == "draw" and plan.active == pid):
         return False
     if m.get("not_first_in_draw_step"):
@@ -1482,9 +1484,12 @@ def draw_cards(plan: Plan, players: list[str], n: int | dict[str, int], *, then:
             if counters & set(marks[i]):
                 ev["counted"] = True
             out: list[Event] = []
+            step_first = plan.state.turn.phase == "draw" and plan.active == pid and sim["step"].get(pid, 0) == 0  # (-- Reed Richards (wave 110J) -- 504.1)
             planner.settle(ev, sim, drawn(out))
             if seen and seen[0]:
                 sim["would"][pid] = sim["would"].get(pid, 0) + 1  # (-- draws (wave 110C) -- this slot was a time the player would draw)
+                if not step_first:
+                    sim["would"][f"{pid}:nostep110j"] = sim["would"].get(f"{pid}:nostep110j", 0) + 1
             seen.clear()
             actions.append((ev, out))
             if any(f["kind"] in ("dredge", "body") for f in out):

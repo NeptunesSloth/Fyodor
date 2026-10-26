@@ -397,9 +397,7 @@ def test_uba_actual_normal_cost_spell_and_source_leaving_revokes_other_exiled_ca
     roundtrip(s)
 
 
-@pytest.mark.parametrize('name', ['Reed Richards, Smartest Man'])  # (Scion of Halaster: wave 110C, tests/test_rules_wave110c_scion.py)
-def test_unresolved_first_qualified_would_draw_semantics_remain_partial(cards, name):
-    assert coverage.of_card_data(cards.resolve(name)).level == 'PARTIAL'
+# (Reed Richards, Smartest Man: wave 110J, tests/test_rules_wave110j_last.py; Scion of Halaster: tests/test_rules_wave110c_scion.py)
 
 
 def test_face_down_foreign_land_rest_authority_type_privacy_and_land_limit(cards, settings):

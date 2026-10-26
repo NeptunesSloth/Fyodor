@@ -382,6 +382,10 @@ def divide_x(plan: Plan, spec: dict[str, Any], chooser: str, source_card: str | 
     Stone): the total is the count as the spell is cast or the ability put on the stack (601.2d: the division is announced then; 608.2d: "the amount and
     division were determined as the spell or ability was put onto the stack"), the cast X otherwise."""
     value = (spec.get("divide") or {}).get("value")
+    if isinstance(value, dict) and "cap110j" in value:  # -- last cards (wave 110J) -- Captain America: the unattached Equipment's mana value
+        from app.rules import wave110j_last
+
+        return wave110j_last.cap_total(plan, source_card)
     if isinstance(value, dict) and "opp_gy110i" in value:  # -- cards (wave 110I) -- Spoils of War: the opponent chosen as it is cast (ruling 2008-08-01)
         from app.rules import wave110i_cards
 

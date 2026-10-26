@@ -3210,6 +3210,10 @@ def parse_effects(body: str, it: str | None = None, *, event_player: bool = Fals
         return silhouette
     if (piracy := wave110j_final.piracy_parse(body)) is not None:
         return piracy
+    from app.rules import wave110j_last  # -- last cards (wave 110J) --
+
+    if (last := wave110j_last.parse(body)) is not None:
+        return last
     if (scoped_prevention := scoped_prevention_effects.parse(body)) is not None:
         return scoped_prevention
     if (bound_subset := bound_subset_choices.parse(body)) is not None:
@@ -6526,6 +6530,11 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
 
     if (threshold70 := trigger_damage_threshold70.definition(ability, ch)) is not None:
         return threshold70
+    # -- last cards (wave 110J) -- Spinneret and Spiderling: one damage event's total (603.2c)
+    from app.rules import exile_damage_choices49
+
+    if (spinneret110j := exile_damage_choices49.definition(ability, ch)) is not None:
+        return spinneret110j
     from app.rules import combat_teyo66
 
     if (direction66 := combat_teyo66.definition(ability, ch)) is not None:
@@ -7144,6 +7153,10 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
         return garth
     if (inniaz := wave110j_final.inniaz_definition(ability, ch)) is not None:
         return inniaz
+    from app.rules import wave110j_last  # -- last cards (wave 110J) --
+
+    if (last := wave110j_last.definition(ability, ch)) is not None:
+        return last
     if (bruna := wave110j_final.bruna_definition(ability, ch)) is not None:
         return bruna
     if (kasmina := wave110j_final.kasmina_definition(ability, ch)) is not None:

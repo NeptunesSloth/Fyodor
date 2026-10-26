@@ -29,7 +29,7 @@
   you control, or with another name, is unaffected; supertypes stay (ruling 2019-01-25).
 * Space Beleren: space sculptor as a state-based action (opponents assign first; assignments lost with the last sculptor); +1 blocks only within a sector, -1 counters on
   and -5 destroys every creature in the chosen sector (rulings 2022-10-07).
-* Captain America, First Avenger: only the "... Catch" half is tested (attaches an Equipment at the beginning of combat); the card stays PARTIAL (Throw refused, see docs/research/wave110j-refused.md).
+* Captain America, First Avenger: the "... Catch" half (attaches an Equipment at the beginning of combat); Throw is tested in tests/test_rules_wave110j_last.py.
 * Phylactery Lich: 614.12a / 614.1c the artifact is chosen as it enters (no target, ruling 2013-04-15), the counter goes on it; with no artifact
   nothing happens and the state trigger (603.8) sacrifices the Lich; another phylactery counter anywhere keeps it.
 """

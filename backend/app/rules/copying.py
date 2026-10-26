@@ -131,6 +131,16 @@ def base_recipe(card: CardInstance) -> CopyRecipe:
     return CopyRecipe(printing=card.card_id, face=card.face, token=token, source=card.name[:200])
 
 
+MEDDLE_COPY = "Copy of the original face-down spell"
+
+
+def face_down_recipe(card: CardInstance) -> CopyRecipe:
+    """708.2: only the characteristics the face-down status lists (none of the card's own: nothing hidden is read)."""
+    ch = chars.face_down_characteristics(card.face_down_kind, card.face_down_as)
+    return CopyRecipe(token={"name": "", "power": ch.power, "toughness": ch.toughness, "colors": [], "type_line": type_line(ch),
+                             "text": "\n".join(a.text for a in ch.abilities if not a.intrinsic)})  # (305.6: a basic land type's mana ability comes with the type)
+
+
 def recipe_of(plan: Plan, card: CardInstance) -> CopyRecipe:
     """707.2 / 707.3: this object's copiable values as a recipe to copy from — the recipe of the
     copy effect that applies to it (with that effect's exceptions), else its printed values."""
@@ -138,6 +148,8 @@ def recipe_of(plan: Plan, card: CardInstance) -> CopyRecipe:
         prototype,  # -- casting extras (wave 18E) -- 718.3c-d: a prototyped object's copy is prototyped too
     )
 
+    if card.face_down and card.zone.endswith(":battlefield"):  # -- last cards (wave 110J) -- 707.2, 708.2: a face-down permanent's copiable values are the
+        return face_down_recipe(card)  # face-down characteristics (Clone copying a face-down Grinning Demon: a nameless colorless 2/2, 707.2 example; Magar's ruling 2022-10-07)
     found = copy_recipe_of(plan.rules, plan.oid(card))
     recipe = found.model_copy(deep=True) if found is not None else wave110g_spires.stamp(plan.rules, base_recipe(card), card.id)
     return recipe.model_copy(update={"prototyped": True}) if prototype.is_prototyped(plan.state, card) else recipe
@@ -384,7 +396,7 @@ def supported_source(plan: Plan, card: CardInstance, *, token: bool = False) -> 
     """Why this object's copiable values aren't copied automatically (None: they are). Face-down
     objects (707.2: a copy of one is a nameless 2/2 — not modelled), and for a token or a copy of
     a permanent spell, double-faced ones (707.8a, 707.10g: the copy would be double-faced too)."""
-    if card.face_down:
+    if card.face_down and not card.zone.endswith(":battlefield"):  # (wave 110J: a face-down permanent is copied as its face-down characteristics, recipe_of)
         return "a face-down object (707.2)"
     if card.merged:  # -- merged permanents (wave 18D) -- 730.2a: the merge is a copiable effect; what a copy takes of it isn't modelled
         return "a merged or melded permanent (730.2a, 712.8g)"
@@ -1734,7 +1746,9 @@ def resolved(plan: Plan, card_id: str, old_oid: str) -> None:
     the battlefield (the new object, 400.7). Layer-6 effects changing the permanent spell
     also continue to apply to that permanent (400.7a), without becoming copiable values."""
     card = plan.state.cards.get(card_id)
-    if card is None or not card.is_token or not card.zone.endswith(":battlefield"):
+    if card is None or not card.zone.endswith(":battlefield"):
+        return
+    if not card.is_token and not any(e.label == MEDDLE_COPY and old_oid in e.affected for e in plan.rules.effects):  # (wave 110J: Ertai's Meddling's copy of a face-down spell, ruling 2004-10-04)
         return
     new_oid = plan.oid(card)
     for e in plan.rules.effects:

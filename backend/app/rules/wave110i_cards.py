@@ -636,6 +636,17 @@ _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
     "creature spell without paying its mana cost. If the creature that spell becomes as it resolves has not been turned face up and would assign or deal damage, be dealt damage, or become tapped, "
     "instead it's turned face up and assigns or deals damage, is dealt damage, or becomes tapped. Activate only as a sorcery.":
         ("{X}: Tap target creature. Activate only as a sorcery.", _mask),
+    # -- final rulings (wave 110J) -- Quicksilver Elemental: the abilities are collected when the ability resolves (rulings 2004-10-04: activate it
+    # several times "collecting abilities from multiple creatures", each copy of a once-a-turn ability is activated once a turn), so the gained
+    # set is fixed then and independent of the target afterwards (611.2c, 611.2d); only activated abilities, written for "this permanent"
+    # (rulings 2004-12-01).
+    "{U}: This creature gains all activated abilities of target creature until end of turn.": ("{U}: Tap target creature.", _borrow("self")),
+    # Grell Philosopher: the current Oracle text is a triggered ability with a target (not a static), so the same resolution-time collection
+    # applies (611.2c); only activated abilities, "this permanent" read as the Horror (rulings 2022-06-10).
+    "Aberrant Tinkering — When this creature enters and at the beginning of your upkeep, each Horror you control gains all activated abilities of target artifact an opponent controls until end of turn. "
+    "You may spend blue mana as though it were mana of any color to activate those abilities.":
+        ("When this creature enters and at the beginning of your upkeep, tap target artifact an opponent controls.",
+         _borrow('sel:{"controller":"you","subtypes":["Horror"]}', True)),
     "Whenever Leori deals combat damage to a player, choose a planeswalker type. Until end of turn, whenever you activate an ability of a planeswalker of that type, copy that ability. "
     "You may choose new targets for the copies.": ("Whenever this creature deals combat damage to a player, you gain 1 life.", _leori),
     "{0}: You may cast target instant or sorcery card from your graveyard this turn. If that spell doesn't target a creature you control, it costs {8} more to cast this way. "

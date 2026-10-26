@@ -1,10 +1,6 @@
-"""Held source-damage cohort patch plus exact Spinneret leaf; native gameplay only."""
-import inspect
-
+"""Spinneret and Spiderling: "deals 4 or more damage" is one damage event's total (603.2c; wave 110J, registered in scripts.define)."""
 import pytest
 
-from app.rules import exile_damage_choices49 as leaf
-from app.rules import scripts, triggers
 from tests import test_rules_exile_cast_outcomes45_foundation as gameplay
 from tests.game_helpers import act
 from tests.test_rules_designations import put, roundtrip
@@ -12,17 +8,7 @@ from tests.test_rules_library_look import settle
 from tests.test_rules_ordered_tutor_continuations import cast
 from tests.test_rules_wave30m_durations import to_phase
 
-pytestmark=pytest.mark.skipif('source_damage_totals' not in inspect.getsource(triggers._generic_events),reason='Native source-damage cohort proposal isolated pending review')
 cards=gameplay.cards
-
-
-@pytest.fixture(autouse=True)
-def staged(monkeypatch):
-    native=scripts.define
-    monkeypatch.setattr(scripts,'define',lambda ability,ch:leaf.definition(ability,ch) or native(ability,ch))
-    scripts._cached.cache_clear()
-    yield
-    scripts._cached.cache_clear()
 
 
 def test_spinneret_actual_two_other_spiders_attack_adds_one_counter_with_source_staying_home(cards):

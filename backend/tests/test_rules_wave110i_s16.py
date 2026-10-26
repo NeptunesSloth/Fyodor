@@ -21,7 +21,6 @@
   you control (601.2f: counted after the targets are chosen, 601.2c).
 * Leori, Sparktouched Hunter: the chosen planeswalker type (205.3j) makes the delayed trigger copy each ability its controller activates of a planeswalker of that type until end of turn (707.10, 603.7); the copy
   changes no loyalty (rulings 2023-07-28), planeswalkers of other types are not copied.
-* Quicksilver Elemental, Grell Philosopher: demoted to PARTIAL (wave 110D research: rulings silent on abilities the target gains later and on the target leaving; 611.2c does not settle it).
 * Panglacial Wurm: while you search your own library you may cast it from there, paying its mana cost (601.3, 608.2g); the cast comes before any card is found, the search then goes on and the Wurm waits on the
   stack above the search (rulings 2006-07-15); declining or a search of someone else's library offers nothing.
 * Shaman's Trance: the other players can't play lands or cast spells from their graveyards this turn (101.2); the caster may play lands and cast spells from other players' graveyards, and those cards count as in
@@ -734,21 +733,6 @@ def test_leori_copies_planeswalker_abilities_of_the_chosen_type_only(cards, pw_t
     assert life(s, "p1") == before + gained  # +1: gain 2 life, and its copy gains 2 more only for the chosen type
     assert s.state.cards[ajani.id].counters.get("loyalty") == 5  # 4 + 1: the copy doesn't add loyalty
     check(s)
-
-
-QUICK = real("Quicksilver Elemental", "{3}{U}{U}", 5, "Creature \u2014 Elemental",
-             "{U}: This creature gains all activated abilities of target creature until end of turn. (If any of the abilities use that creature's name, use this creature's name instead.)\n"
-             "You may spend blue mana as though it were mana of any color to pay the activation costs of this creature's abilities.", ("3", "4"), "U")
-GRELL = real("Grell Philosopher", "{2}{U}", 3, "Creature \u2014 Horror Wizard",
-             "Aberrant Tinkering \u2014 When this creature enters and at the beginning of your upkeep, each Horror you control gains all activated abilities of target artifact an opponent controls until end of turn. "
-             "You may spend blue mana as though it were mana of any color to activate those abilities.", ("1", "4"), "U")
-base.EXTRA.extend([QUICK, GRELL])
-
-
-def test_quicksilver_and_grell_stay_partial(cards):
-    """Demoted (wave 110D research): rulings are silent on abilities the target gains later and on the target leaving; CR 611.2c does not settle it."""
-    for n in ("Quicksilver Elemental", "Grell Philosopher"):
-        assert coverage.of_card_data(cards.resolve(n)).level == "PARTIAL"
 
 
 WURM = real("Panglacial Wurm", "{5}{G}{G}", 7, "Creature \u2014 Wurm", "Trample\nWhile you're searching your library, you may cast this card from your library.", ("9", "5"), "G")
