@@ -9,7 +9,7 @@ import tests.test_rules_wave110e_cards as base
 from app.rules import coverage
 from tests.game_helpers import act
 from tests.test_rules_wave12a_counters_keywords import real
-from tests.test_rules_wave110e_cards import card_db  # noqa: F401  (the fixture)
+from tests.test_rules_wave110e_cards import answer, card_db  # noqa: F401  (the fixture)
 from tests.test_rules_wave110e_cards import cast as cast_card
 from tests.test_rules_wave110e_s11 import _three
 from tests.wave9c_kit import card_named, check, mana, pt, put, to_hand
@@ -20,7 +20,10 @@ EMISSARY = real("Emissary of Grudges", "{5}{R}", 6, "Creature — Efreet",
 ARCH = real("Archangel of Strife", "{5}{W}{W}", 7, "Creature — Angel",
             "Flying\nAs this creature enters, each player chooses war or peace.\nCreatures controlled by players who chose war get +3/+0.\nCreatures controlled by players who chose peace get +0/+3.",
             ("6", "6"), "W")
-base.EXTRA.extend([EMISSARY, ARCH])
+BORCA = real("Bell Borca, Spectral Sergeant", "{2}{R}{W}", 4, "Legendary Creature — Spirit Soldier",
+             "Note the mana value of each card as it's put into exile.\nBell Borca's power is equal to the greatest number noted for it this turn.\n"
+             "At the beginning of your upkeep, exile the top card of your library. You may play that card this turn.", ("*", "5"), "RW")
+base.EXTRA.extend([EMISSARY, ARCH, BORCA])
 
 
 def test_emissary_full(cards):
@@ -135,3 +138,49 @@ def test_archangel_war_gives_plus_three_power_peace_plus_three_toughness(cards, 
         want = (base_pt[0] + 3, base_pt[1]) if dict(zip(("p1", "p2", "p3"), sides, strict=True))[pid] == "war" else (base_pt[0], base_pt[1] + 3)
         assert pt(s, card.name, pid) == want, (card.name, pt(s, card.name, pid))
     check(s)
+
+
+def test_borca_full(cards):
+    assert coverage.of_card_data(cards.resolve("Bell Borca, Spectral Sergeant")).level == "FULL"
+
+
+def _exile(s, name, pid="p2"):
+    act(s, pid, type="move", card_ids=[to_hand(s, name, pid).id], to={"zone": "exile"})
+
+
+def test_borca_power_is_the_greatest_mana_value_noted_while_it_is_on_the_battlefield(cards):
+    """Note the mana value of each card as it's put into exile (400.1); the greatest noted this turn is its power; only noted while it is on the battlefield."""
+    s = _three(cards, ["Bell Borca, Spectral Sergeant"])
+    name = "Bell Borca, Spectral Sergeant"
+    for n in ("Test Giant",):
+        _exile(s, n)  # exiled before Borca is there: never noted
+    mana(s, R=1, W=1, C=2)
+    cast_card(s, name)
+    answer(s)
+    assert pt(s, name)[0] == 0
+    for card, power in (("Test Bolt", 1), ("Test Giant", 5)):
+        _exile(s, card, "p3" if card == "Test Bolt" else "p2")
+        assert pt(s, name)[0] == power
+    assert pt(s, name)[1] == 5
+    _exile(s, "Test Bolt", "p3")
+    assert pt(s, name)[0] == 5  # the greatest, not the latest
+    check(s)
+
+
+def test_borca_upkeep_exile_is_noted_and_the_note_is_gone_next_turn(cards):
+    """Its own upkeep exile counts (the card is put into exile: 400.1); the note lasts that turn only."""
+    from tests.test_rules_conditionals import until
+    from tests.wave110b_kit import top
+
+    s = _three(cards, ["Bell Borca, Spectral Sergeant", "Test Giant"])
+    name = "Bell Borca, Spectral Sergeant"
+    mana(s, R=1, W=1, C=2)
+    cast_card(s, name)
+    answer(s)
+    top(s, "Test Giant")
+    act(s, "p1", type="set_prefs", response="on")
+    until(s, lambda s: s.state.turn.number == 4 and card_named(s, "Test Giant").zone == "p1:exile", limit=400)
+    assert s.state.turn.active_player == "p1" and pt(s, name)[0] == 5
+    check(s)
+    until(s, lambda s: s.state.turn.number == 5, limit=400)
+    assert pt(s, name)[0] == 0

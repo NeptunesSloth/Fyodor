@@ -1074,6 +1074,9 @@ def _after_entry(plan: Plan, card_id: str, controller: str, *, x: int | None = N
 
         wave110e_opp.secret_record(plan, card_id, controller, choices)
         wave110e_opp.war_record(plan, card_id, choices)
+        from app.rules import wave110e_note  # -- noted values (wave 110E) --
+
+        wave110e_note.entered(plan, card_id)
         from app.rules import wave110c_rad  # -- optional entering choice (wave 110C) --
 
         wave110c_rad.apply(plan, card_id, controller, choices)

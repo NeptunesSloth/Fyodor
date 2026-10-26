@@ -596,6 +596,7 @@ class TurnFact(BaseModel):
     amount: int = 1
     combat: bool = False
     counter: str | None = Field(default=None, max_length=40)
+    mv110e: int = 0  # -- wave 110E -- an "exile" fact: the mana value of the card as it was put into exile (Bell Borca)
     source_types: list[str] = Field(default_factory=list)
     source_colors: list[str] = Field(default_factory=list)  # Colors as this source dealt damage (608.2i).
     source_supertypes: list[str] = Field(default_factory=list)
@@ -1771,6 +1772,7 @@ class RulesState(BaseModel):
     chosen_players: dict[str, str] = Field(default_factory=dict)
     modes110f: dict[str, list[int]] = Field(default_factory=dict)  # (wave 110F) card id -> the modes an opponent chose for the spell being cast (700.2e)
     # -- wave 110A -- player -> ``next_object`` when their last turn ended ("entered since your last turn ended", selectors)
+    noted110e: dict[str, list[int]] = Field(default_factory=dict)  # -- wave 110E -- Bell Borca: rules object -> [turn, event batch] it arrived at (wave110e_note)
     chosen_objects: dict[str, str] = Field(default_factory=dict)  # -- wave 110A -- source card id -> the object it chose as it entered (wave110a_pick)
     turn_end_objects: dict[str, int] = Field(default_factory=dict)
     # -- linked words (wave 33B) -- 607.2f: "As this enchantment enters, choose Khans or Dragons.": object id -> the word it chose (app/rules/chosen.py)

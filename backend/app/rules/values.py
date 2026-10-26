@@ -897,6 +897,10 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
         if (ctx.get('source_object') or '') not in plan.rules.crafted_materials:
             raise NoChosenPlayer
         return mana_crafted_profiles.mana_value(plan, ctx)
+    if 'noted110e' in v:  # -- noted values (wave 110E) -- Bell Borca: the greatest number noted for the source this turn
+        from app.rules import wave110e_note
+
+        return wave110e_note.greatest(plan, ctx.get('source_object') or '')
     if 'crafted_power' in v:  # -- craft materials (wave 110E) -- Mastercraft Raptor
         from app.rules import mana_crafted_profiles
 
