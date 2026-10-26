@@ -141,3 +141,17 @@ def test_havengul_lich_gains_activated_abilities_only_when_the_card_is_cast(card
         to_phase(s, "main1", turn=3)
         assert not any(a.text.startswith("Waterbend {2}") for a in ch(s, lich).abilities)  # until end of turn
     check(s)
+
+
+def test_flameblade_angel_triggers_once_per_recipient_of_one_source(cards):
+    """Ruling 2016-04-08: one source dealing damage to you and to a permanent you control at the same time triggers once for each (here Earthquake: Bob and his Bears, not the flyer)."""
+    s = build(cards, ["Earthquake"], ["Flameblade Angel", "Grizzly Bears"])
+    put(s, "Flameblade Angel", "p2")
+    put(s, "Grizzly Bears", "p2")
+    act(s, "p2", type="set_prefs", response="on")
+    act(s, "p1", type="set_prefs", response="on")
+    mana(s, "p1", R=2)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Earthquake").id, x_value=1)
+    drive(s)
+    assert s.state.players["p1"].life == 40 - 1 - 2  # Earthquake hits Alice too; Bob's Angel pings twice
+    check(s)

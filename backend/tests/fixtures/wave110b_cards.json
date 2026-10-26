@@ -2952,5 +2952,22 @@
   ],
   "power": "1",
   "toughness": "3"
+ },
+ {
+  "name": "Earthquake",
+  "layout": "normal",
+  "mana_cost": "{X}{R}",
+  "cmc": 1.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Earthquake deals X damage to each creature without flying and each player.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [],
+  "power": null,
+  "toughness": null
  }
 ]
