@@ -48,3 +48,9 @@ Moved to FULL: Arsenal Thresher (devour.py REV), Arcee (cast_targets110i value),
 - Hero of Bretagard: second trigger half (a spell or ability you control exiles permanents) is a separate event kind; one ability, two triggers not modelled.
 - Firestorm Phoenix: needs a per-object "can't play it" plus timed reveal on the new hand object (rider has no ref to the moved card).
 - False Dawn: colored-mana replacement for a turn (no mana-type replacement foundation). Reflecting Mirror: X fixed to twice the target spell's mana value. Arcum's Whistle, Torrent of Lava, Spoils of War: unchanged (see Session 8).
+
+## Session 10
+- Done (no longer refused): Curse of Leeches (decision at the flip, before SBA), Hero of Bretagard (exiled110i event), Firestorm Phoenix, False Dawn, Reflecting Mirror, C.A.M.P. (+ Darksteel Garrison, Fortify), Tunnel of Love.
+- Spoils of War: "an opponent's graveyard" in a multiplayer game has no CR rule or ruling saying which opponent (X defined as you cast); not guessed.
+- Torrent of Lava: spell on the stack grants every creature an activated ability (no stack-zone static source); still a foundation, not rules-unsettled.
+- Arcum's Whistle: needs "that player may pay {X}" for another player, forced attack, and an end-step "didn't attack this turn" check; foundation work.

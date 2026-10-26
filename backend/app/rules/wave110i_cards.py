@@ -483,6 +483,8 @@ def parse(body: str) -> Any:
         assert parsed is not None
         effects, targets, optional = parsed
         return effects, [{**targets[0], "shares": "creature_type", "typed110i": True}], optional
+    if body.strip()[:1].upper() + body.strip()[1:] == _TUNNEL:
+        return [{"do": "tunnel110i"}], None, False
     if body.strip() == _DAWN:
         return [{"do": "false_dawn110i"}], None, False
     return scripts.parse_effects(same) if (same := REWRITES.get(body.strip())) is not None else None
@@ -656,6 +658,95 @@ def resume_bauble(plan: Plan, decision: Any, chosen: list[str]) -> None:
     effects.continue_effects(plan, decision.resume["ctx"])
 
 
+_TUNNEL = ("Choose an opponent. They choose a creature they control, then you choose a creature you control. You may exile the chosen creatures. If you do, return them "
+           "to the battlefield under their owners' control at the beginning of the next end step. Otherwise, the chosen creatures fight each other.")
+
+
+def _pick(plan: Plan, ctx: Context, who: str, ids: list[str], prompt: str, **resume: Any) -> bool:
+    from app.game.rules_state import DecisionOption
+    from app.rules.plan import decide
+
+    decide(plan, player=who, kind="choose_one", prompt=f"{ctx.get('name') or 'Tunnel of Love'}: {prompt}",
+           options=[DecisionOption(id=i, label=plan.state.players[i].name if i in plan.state.players else plan.state.cards[i].name or "a creature") for i in ids],
+           resume={"step": "tunnel110i", "ctx": ctx, **resume})
+    return False
+
+
+def _creatures(plan: Plan, pid: str) -> list[str]:
+    return [c for c in plan.state.zones.get(f"{pid}:battlefield", []) if plan.ch(plan.state.cards[c]).is_creature]
+
+
+def tunnel(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """Tunnel of Love, one visit: the chosen opponent (101.4 nothing to choose with one), their creature, then the visitor's; the visitor may exile both (returned at
+    the beginning of the next end step, 603.7), otherwise they fight (701.14). A side with no creature chooses none; only chosen creatures are exiled or fight."""
+    me = ctx["controller"]
+    opps = [p for p in plan.live() if p != me]
+    if len(opps) > 1:
+        return _pick(plan, ctx, me, opps, "choose an opponent", phase="opp")
+    return _tunnel_theirs(plan, ctx, opps[0]) if opps else True
+
+
+def _tunnel_theirs(plan: Plan, ctx: Context, opp: str) -> bool:
+    theirs = _creatures(plan, opp)
+    return _pick(plan, ctx, opp, theirs, "choose a creature you control", phase="theirs") if theirs else _tunnel_mine(plan, ctx, None)
+
+
+def _tunnel_mine(plan: Plan, ctx: Context, theirs: str | None) -> bool:
+    mine = _creatures(plan, ctx["controller"])
+    return _pick(plan, ctx, ctx["controller"], mine, "choose a creature you control", phase="mine", theirs=theirs) if mine else _tunnel_exile(plan, ctx, theirs, None)
+
+
+def _tunnel_exile(plan: Plan, ctx: Context, theirs: str | None, mine: str | None) -> bool:
+    from app.game.rules_state import DecisionOption
+    from app.rules.plan import decide
+
+    if not (theirs or mine):
+        return True
+    decide(plan, player=ctx["controller"], kind="choose_one", prompt=f"{ctx.get('name') or 'Tunnel of Love'}: exile the chosen creatures?",
+           options=[DecisionOption(id="yes", label="Exile them (they return at the next end step)"), DecisionOption(id="no", label="Don't: they fight each other")],
+           resume={"step": "tunnel110i", "ctx": ctx, "phase": "exile", "theirs": theirs, "mine": mine})
+    return False
+
+
+def _tunnel_end(plan: Plan, ctx: Context, theirs: str | None, mine: str | None, exile: bool) -> None:
+    from app.rules import context, delayed, effects
+
+    chosen = [c for c in (theirs, mine) if c and c in plan.state.cards and plan.state.cards[c].zone.endswith(":battlefield")]
+    if exile:
+        effects.exile_cards(plan, ctx, {"do": "exile"}, chosen)
+        objs = [r for c in chosen if (r := context.ref_of(plan, c)) is not None and (r.zone or "").endswith(":exile")]
+        if objs:
+            delayed.create_plain(plan, ctx["controller"], ctx["source_card"], ctx["source_object"], ctx.get("name") or "Tunnel of Love",
+                                 {"kind": "step", "step": "end", "whose": "next"},
+                                 [{"do": "bind_refs", "refs": {"tl110i": {"kind": "objects", "objects": [r.model_dump(mode="json") for r in objs]}}},
+                                  {"do": "return_card", "who": "ref:tl110i", "to": "battlefield", "tapped": False, "under": "owner"}])
+    elif theirs and mine:
+        context.bind_objects(plan, ctx, "tl_a110i", [theirs])
+        context.bind_objects(plan, ctx, "tl_b110i", [mine])
+        effects.fight(plan, ctx, {"do": "fight", "who": "ref:tl_a110i", "with": "ref:tl_b110i"})
+
+
+def resume_tunnel(plan: Plan, d: Any, chosen: list[str]) -> None:
+    from app.rules import effects
+
+    r = d.resume
+    ctx, phase = r["ctx"], r["phase"]
+    if phase == "opp":
+        done = _tunnel_theirs(plan, ctx, chosen[0])
+    elif phase == "theirs":
+        done = _tunnel_mine(plan, ctx, chosen[0])
+    elif phase == "mine":
+        done = _tunnel_exile(plan, ctx, r["theirs"], chosen[0])
+    else:
+        _tunnel_end(plan, ctx, r["theirs"], r["mine"], chosen == ["yes"])
+        done = True
+    if done:
+        effects.continue_effects(plan, ctx)
+
+
+PRIMITIVES["tunnel110i"] = tunnel
+
+
 _PHOENIX = ("If this creature would die, return it to its owner's hand instead. Until that player's next turn, that player plays with that card revealed in "
             "their hand and can't play it.")
 
@@ -739,7 +830,7 @@ def resume_transform_attach(plan: Plan, d: Any, chosen: list[str]) -> None:
     attachments.attach(plan, d.resume["card"], chosen[0], d.player)
 
 
-RESUME = {"transform_attach110i": resume_transform_attach, "bauble110i": resume_bauble, "skip_may110i": resume_skip, "specter110i": resume_specter, "specter_top110i": resume_specter_top, "raiding_tap110i": resume_raiding_tap, "raiding_plains110i": resume_raiding_plains}
+RESUME = {"tunnel110i": resume_tunnel, "transform_attach110i": resume_transform_attach, "bauble110i": resume_bauble, "skip_may110i": resume_skip, "specter110i": resume_specter, "specter_top110i": resume_specter_top, "raiding_tap110i": resume_raiding_tap, "raiding_plains110i": resume_raiding_plains}
 
 
 def definition(ability: Any, ch: Any) -> Def | None:

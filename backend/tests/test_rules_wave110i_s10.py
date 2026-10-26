@@ -41,7 +41,10 @@ DAWN = ("Until end of turn, spells and abilities you control that would add colo
         "white mana as though it were mana of any color.\nDraw a card.")
 PHOENIX = ("Flying\nIf this creature would die, return it to its owner's hand instead. Until that player's next turn, that player plays with that card revealed in "
            "their hand and can't play it.")
-EXTRA += [real("Hero of Bretagard", "{2}{W}", 3, "Creature \u2014 Human Warrior", HERO, ("1", "1"), "W"),
+TUNNEL = ("Visit \u2014 Choose an opponent. They choose a creature they control, then you choose a creature you control. You may exile the chosen creatures. If you do, return "
+          "them to the battlefield under their owners' control at the beginning of the next end step. Otherwise, the chosen creatures fight each other.")
+EXTRA += [card("Tunnel of Love", set_code="unf", number="234a", layout="normal", mana_cost="", cmc=0.0, type_line="Artifact \u2014 Attraction", oracle_text=TUNNEL),
+          real("Hero of Bretagard", "{2}{W}", 3, "Creature \u2014 Human Warrior", HERO, ("1", "1"), "W"),
           real("Swords to Plowshares", "{W}", 1, "Instant", "Exile target creature. Its controller gains life equal to its power.", None, "W"),
           real("Ignorant Bliss", "{1}{R}", 2, "Instant", "Exile all cards from your hand face down. At the beginning of the next end step, return those cards to your hand, then draw a card.", None, "R"),
           real("Firestorm Phoenix", "{4}{R}{R}", 6, "Creature \u2014 Phoenix", PHOENIX, ("3", "2"), "R"),
@@ -307,4 +310,44 @@ def test_camp(cards, creature):
     assert s.state.cards[c.id].counters.get("+1/+1") == 1
     junk = [x for x in s.state.cards.values() if x.name == "Junk" and x.zone == "p1:battlefield"]
     assert len(junk) == (1 if creature == "Probe Bear" else 0)
+    check(s)
+
+
+@pytest.mark.parametrize("exile,theirs", [(True, True), (False, True), (True, False)])
+def test_tunnel_of_love(cards, monkeypatch, exile, theirs):
+    """701.52, 702.159a: the opponent chooses their creature, then the visitor theirs; exiled (and back under their owners at the next end step, 603.7) or, if
+    the visitor declines, they fight (701.14)."""
+    from tests.test_rules_wave12a_counters_keywords import rolls
+    from tests.test_rules_wave34b_activated import to_phase
+    from tests.test_rules_wave100l_attractions import game, play
+    from tests.wave9c_kit import check
+    from tests.wave9c_kit import put as kit_put
+
+    rolls(monkeypatch, 2)  # (234a is lit on 2 and 6)
+    s = game(cards, ["Probe Bear"], ["Tunnel of Love"], ["Probe Goblin"])
+    kit_put(s, "Tunnel of Love")
+    bear = kit_put(s, "Probe Bear")
+    goblin = kit_put(s, "Probe Goblin", "p2") if theirs else next(c for c in s.state.cards.values() if c.name == "Probe Goblin")  # (no creature to choose: none is)
+    for _ in range(300):
+        d = s.state.rules.decision
+        if d is not None and d.kind == "choose_one" and "exile the chosen" in d.prompt:
+            break
+        if d is not None and d.kind == "choose_one":
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][:1])
+        elif d is not None and d.kind in ("declare_attackers", "declare_blockers"):
+            act(s, d.player, type=d.kind, **({"attackers": []} if d.kind == "declare_attackers" else {"blocks": []}))
+        elif d is not None:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: max(1, d.min_choices)])
+        else:
+            act(s, s.state.rules.priority, type="pass_priority")
+    d = s.state.rules.decision
+    assert d is not None and d.player == "p1"
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=["yes" if exile else "no"])
+    play(s)
+    if exile:
+        assert s.state.cards[bear.id].zone.endswith(":exile") and (not theirs or s.state.cards[goblin.id].zone.endswith(":exile"))
+        to_phase(s, "main1", turn=4)  # (the delayed return happened in turn 3's end step)
+        assert s.state.cards[bear.id].zone == "p1:battlefield" and (not theirs or s.state.cards[goblin.id].zone == "p2:battlefield")
+    else:
+        assert s.state.cards[goblin.id].zone.endswith(":graveyard") and s.state.cards[bear.id].zone == "p1:battlefield"
     check(s)
