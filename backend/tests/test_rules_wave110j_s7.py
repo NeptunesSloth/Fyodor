@@ -24,6 +24,7 @@ from tests.wave110j_kit import (  # noqa: F401
     hand_new,
     life,
     mana,
+    move,
     now,
     put_new,
     settle,
@@ -123,6 +124,40 @@ def test_spark_rupture_turns_planeswalkers_with_loyalty_into_plain_creatures(car
     assert set(now_.types) == {"Creature"} and not now_.abilities and now_.pt == (loyalty, loyalty)
     act(s, "p1", type="counter", card_ids=[g.id], kind="loyalty", delta=-2)
     assert ch(s, g).pt == (loyalty - 2, loyalty - 2)
+    check(s)
+
+
+def _opp_creature(s, name):
+    c = fresh(s, name)
+    act(s, "p1", type="move", card_ids=[c.id], to={"player": "p2", "zone": "battlefield"})
+    return c
+
+
+@pytest.mark.parametrize(("other", "gains"), [
+    ("Wild Griffin", {"flying"}), ("Elvish Archers", {"first strike"}), ("Pygmy Razorback", {"trample"}),
+    ("White Knight", {"first strike", "protection"}), ("Grizzly Bears", set())])
+def test_escaped_shapeshifter_copies_what_an_opponents_creature_has(cards, other, gains):
+    """613.7, 702.16: each of flying, first strike, trample and a protection color is gained while an opponent controls a creature with it."""
+    s = build(cards, ["Escaped Shapeshifter", other])
+    es = put_new(s, "Escaped Shapeshifter")
+    assert not set(ch(s, es).keywords) & {"flying", "first strike", "trample", "protection"}
+    theirs = _opp_creature(s, other)
+    assert set(ch(s, es).keywords) & {"flying", "first strike", "trample", "protection"} == gains
+    if "protection" in gains:
+        assert any(a.text.lower().startswith("protection from black") for a in ch(s, es).abilities)
+    check(s)
+    move(s, theirs, "graveyard", "p2")
+    assert not set(ch(s, es).keywords) & {"flying", "first strike", "trample", "protection"}
+
+
+def test_escaped_shapeshifter_ignores_its_own_side_and_its_namesake(cards):
+    """Only an opponent's creature counts, and not one named Escaped Shapeshifter: p1's Griffin gives p2's Shapeshifter flying, not p1's."""
+    s = build(cards, ["Escaped Shapeshifter", "Escaped Shapeshifter", "Wild Griffin"])
+    mine = put_new(s, "Escaped Shapeshifter")
+    put_new(s, "Wild Griffin")
+    assert "flying" not in ch(s, mine).keywords
+    theirs = _opp_creature(s, "Escaped Shapeshifter")
+    assert "flying" in ch(s, theirs).keywords and "flying" not in ch(s, mine).keywords
     check(s)
 
 

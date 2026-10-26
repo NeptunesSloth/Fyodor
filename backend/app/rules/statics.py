@@ -1516,6 +1516,10 @@ def holds(plan: Plan, cond: dict[str, Any], *, source: CardInstance, controller:
         from app.rules import wave110j_cards
 
         return wave110j_cards.has_keyword(plan, source, cond["keyword"])
+    if kind == "opp_keyword110j":
+        from app.rules import wave110j_cards
+
+        return wave110j_cards.opponent_has(plan, source, controller, cond["keyword"])
     if kind == "share_color110d":  # (wave 110D) every nonartifact creature on the battlefield has one color in common; a colorless one breaks it
         shared = None
         for c in plan.state.cards.values():

@@ -64,6 +64,8 @@ def definition(ability: Any, ch: Any) -> Def | None:
 
     if (cap := _CAP.fullmatch(ability.text.strip())) is not None and ch.name.startswith(cap["name"]):  # (the short name)
         return {"kind": "static", "static": "counter_cap110j", "counter": cap["kind"], "n": _NUMS[cap["n"]], "effects": []}
+    if ability.text.strip() == _ES:
+        return _shapeshifter()
     if (built := _BUILD.get(ability.text.strip())) is None:
         return None
     native = scripts.define(replace(ability, text=built[0]), ch)
@@ -508,3 +510,43 @@ def has_keyword(plan: Any, source: Any, keyword: str) -> bool:
         return keyword in plan.ch(source).keywords
     finally:
         _READING.discard(source.id)
+
+
+_ES = "As long as an opponent controls a creature with flying not named Escaped Shapeshifter, this creature has flying. The same is true for first strike, trample, and protection from any color."
+
+
+def opponent_has(plan: Any, source: Any, controller: str, keyword: str) -> bool:
+    """Escaped Shapeshifter: an opponent controls a creature not named Escaped Shapeshifter with the keyword; "protection:R" is protection from that color
+    (702.16: read by testing the creature's protection qualities against a bare object of that color)."""
+    from app.rules import protection
+
+    if source.id in _READING:  # (two of them: each reads the other, which is named like it and so does not count — stop the loop)
+        return False
+    _READING.add(source.id)
+    try:
+        for c in plan.state.cards.values():
+            if c.zone.endswith(":battlefield") and c.controller != controller and c.controller in plan.live() and c.name != source.name:
+                have = plan.ch(c)
+                if not have.is_creature or have.name == source.name:
+                    continue
+                if keyword.startswith("protection:"):
+                    bare = replace(have, colors=frozenset({keyword[-1]}), types=frozenset(), subtypes=frozenset(), supertypes=frozenset(), name="")
+                    if protection.protected_from(have, bare):
+                        return True
+                elif keyword in have.keywords:
+                    return True
+        return False
+    finally:
+        _READING.discard(source.id)
+
+
+def _shapeshifter() -> Def:
+    from app.rules import statics
+
+    def part(**kw: Any) -> Def:
+        return statics._definition("self", None, [{"static": "opp_keyword110j", "keyword": kw.pop("when")}], **kw)
+
+    first = part(when="flying", keywords=["flying"])
+    colors = {"W": "white", "U": "blue", "B": "black", "R": "red", "G": "green"}
+    return {**first, "also": [part(when="first strike", keywords=["first strike"]), part(when="trample", keywords=["trample"]),
+                              *(part(when=f"protection:{c}", grants=[f"Protection from {n}"]) for c, n in colors.items())]}
