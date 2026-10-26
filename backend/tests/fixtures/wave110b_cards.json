@@ -2261,5 +2261,18 @@
   ],
   "power": "2",
   "toughness": "1"
+ },
+ {
+  "name": "Mana Web",
+  "layout": "normal",
+  "mana_cost": "{3}",
+  "cmc": 3.0,
+  "type_line": "Artifact",
+  "oracle_text": "Whenever a land an opponent controls is tapped for mana, tap all lands that player controls that could produce any type of mana that land could produce.",
+  "colors": [],
+  "color_identity": [],
+  "keywords": [],
+  "power": null,
+  "toughness": null
  }
 ]

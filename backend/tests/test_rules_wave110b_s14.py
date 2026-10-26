@@ -8,7 +8,8 @@ import pytest
 
 from app.rules import coverage, sba
 from tests.game_helpers import act
-from tests.wave110b_kit import build, card_named, ch, check, drive, life, mana, put, repository, to_hand
+from tests.test_rules_wave30m_durations import to_phase
+from tests.wave110b_kit import build, card_named, ch, check, drive, life, mana, put, repository, settle, to_hand
 
 
 @pytest.fixture()
@@ -143,4 +144,49 @@ def test_senu_stays_put_elsewhere_or_when_blocked(cards, zone, blocker):
     """113.6k: the ability works only from exile; a blocked legendary creature doesn't trigger it (509.3g)."""
     s, senu = senu_game(cards, zone, blocker=blocker)
     assert not s.state.cards[senu.id].zone.endswith("battlefield")
+    check(s)
+
+
+def web_game(cards, tap, lands=("Forest", "Forest", "Mountain", "Island", "Swamp"), ability=0, **kw):
+    """Alice has Mana Web; Bob (opponent) has the ``lands`` and taps the first one named ``tap`` for mana."""
+    s = build(cards, ["Mana Web"], list(lands), forests=30)
+    put(s, "Mana Web")
+    ids = {}
+    for name in lands:
+        c = next(c for c in s.state.cards.values() if c.name == name and c.owner == "p2" and c.id not in ids.values())
+        act(s, "p2", type="move", card_ids=[c.id], to={"player": "p2", "zone": "battlefield"})
+        ids.setdefault(name, c.id)
+    to_phase(s, "main1", turn=2)  # Bob's turn: he has priority in his main phase
+    act(s, "p2", type="activate_ability", card_id=ids[tap], ability=ability, **kw)
+    settle(s)
+    return s, {n: s.state.cards[i].tapped for n, i in ids.items()}
+
+
+def test_mana_web_taps_lands_that_could_produce_the_same_type(cards):
+    """Both Forests are tapped (G); the Mountain, Island and Swamp could not produce G. The untouched same-name Forest is the first one found, so check by type."""
+    assert coverage.of_card_data(cards.resolve("Mana Web")).level == "FULL"
+    s, tapped = web_game(cards, "Forest")
+    assert tapped == {"Forest": True, "Mountain": False, "Island": False, "Swamp": False}
+    forests = [c for c in s.state.cards.values() if c.name == "Forest" and c.owner == "p2" and c.zone.endswith("battlefield")]
+    assert len(forests) == 2 and all(c.tapped for c in forests)
+    check(s)
+
+
+def test_mana_web_does_not_touch_its_own_controllers_lands(cards):
+    """Only the opponent's tapping triggers it; Alice's own Forests stay untapped when she taps one."""
+    s = build(cards, ["Mana Web"], ["Forest"], forests=30)
+    put(s, "Mana Web")
+    a = [c for c in s.state.cards.values() if c.name == "Forest" and c.owner == "p1"][:2]
+    for c in a:
+        act(s, "p1", type="move", card_ids=[c.id], to={"player": "p1", "zone": "battlefield"})
+    act(s, "p1", type="activate_ability", card_id=a[0].id, ability=0)
+    settle(s)
+    assert s.state.cards[a[0].id].tapped and not s.state.cards[a[1].id].tapped
+    check(s)
+
+
+def test_mana_web_counts_every_type_a_dual_land_could_produce(cards):
+    """Shivan Reef ({C}, or {U} / {R}): tapped for {U}, the Island and the Mountain (and not the Forest or Swamp) are tapped too."""
+    s, tapped = web_game(cards, "Shivan Reef", ("Shivan Reef", "Island", "Mountain", "Forest", "Swamp"), ability=1, mana_choice="U")
+    assert tapped == {"Shivan Reef": True, "Island": True, "Mountain": True, "Forest": False, "Swamp": False}
     check(s)

@@ -232,6 +232,9 @@ def _towershell(d: Def) -> Def:
 
 
 _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
+    # Mana Web: "a land an opponent controls is tapped for mana" is an opponent tapping a land for mana (605.1a: only its controller activates it)
+    "Whenever a land an opponent controls is tapped for mana, tap all lands that player controls that could produce any type of mana that land could produce.":
+        ("Whenever an opponent taps a land for mana, tap all lands that player controls.", lambda d: {**d, "effects": [{"do": "mana_web110b"}]}),
     # Senu: works only from exile (113.6k); "put it onto the battlefield attacking" (508.4: its controller chooses whom it attacks), untapped
     "When a legendary creature you control attacks and isn't blocked, if this card is exiled, put it onto the battlefield attacking.":
         ("When a legendary creature you control attacks and isn't blocked, you gain 1 life.",
@@ -703,4 +706,47 @@ def gift_given(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return True
 
 
-PRIMITIVES: dict[str, Any] = {"faramir_set110b": faramir_set, "faramir_end110b": faramir_end, "redirect110b": redirect, "kaito110b": kaito, "return_next_end110b": return_next_end, "gap_search110b": gap_search, "gift_given110b": gift_given, "ungoad110b": ungoad, "no_attack_next110b": no_attack_next, "draw_game110b": draw_game, "reaver110b": reaver, "veil110b": veil, "uncounter_by110b": uncounter_by, "exile_own110b": exile_own, "lose_shield110b": lose_shield}
+def _could_produce(plan: Any, card: Any) -> tuple[set[str], bool]:
+    """(the types of mana a land could produce, whether some mana ability couldn't be read): 106.7, the options its mana abilities list."""
+    from app.rules import mana as M
+
+    ch = plan.ch(card)
+    types: set[str] = set()
+    unknown = False
+    for ab in ch.abilities:
+        if ab.kind != "mana":
+            continue
+        parsed = M.parse_mana_ability(ab.text, (), card_name=ch.name)
+        if parsed is None or any(m not in M.ALL_MANA for opt in parsed.options for m in opt):
+            unknown = True  # (a chosen color, "any color a land could produce": not decided here)
+            continue
+        types |= {m for opt in parsed.options for m in opt}
+    return types, unknown
+
+
+def mana_web(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Mana Web: tap all lands that player controls that could produce any type of mana the tapped land could produce (the land as it was tapped)."""
+    from app.rules import context
+
+    lands = context.objects(plan, ctx, context.EVENT)
+    if not lands:
+        return True
+    types, unknown = _could_produce(plan, plan.state.cards[lands[0]])
+    owner = plan.state.cards[lands[0]].controller
+    hit = []
+    for cid in plan.state.zones.get(f"{owner}:battlefield", []):
+        c = plan.state.cards[cid]
+        if c.tapped or not plan.ch(c).is_land:
+            continue
+        mine, doubt = _could_produce(plan, c)
+        unknown = unknown or doubt
+        if types & mine:
+            hit.append(cid)
+    if hit:
+        plan.do({"type": "tap", "card_ids": hit, "tapped": True}, actor=ctx["controller"])
+    if unknown:
+        plan.note("Mana Web: a land's mana can't be read (a chosen or borrowed type): tap the matching lands by hand if needed")
+    return True
+
+
+PRIMITIVES: dict[str, Any] = {"mana_web110b": mana_web, "faramir_set110b": faramir_set, "faramir_end110b": faramir_end, "redirect110b": redirect, "kaito110b": kaito, "return_next_end110b": return_next_end, "gap_search110b": gap_search, "gift_given110b": gift_given, "ungoad110b": ungoad, "no_attack_next110b": no_attack_next, "draw_game110b": draw_game, "reaver110b": reaver, "veil110b": veil, "uncounter_by110b": uncounter_by, "exile_own110b": exile_own, "lose_shield110b": lose_shield}
