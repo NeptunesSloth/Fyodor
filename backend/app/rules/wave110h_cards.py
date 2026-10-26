@@ -821,7 +821,7 @@ def healed(plan: Any, creatures: dict[str, int]) -> list[str]:
 
 
 def lagrella(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
-    """603.7: one delayed trigger per card exiled by this resolution (ponytail: one that never returns leaves its trigger behind; it can never fire)."""
+    """603.7: one delayed trigger per card exiled by this resolution (exiled_enter drops the trigger once its card leaves exile)."""
     import secrets
 
     from app.game.rules_state import DelayedTrigger
@@ -842,14 +842,14 @@ def lagrella(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
 
 
 def exiled_enter(plan: Any, events: list[Any]) -> set[str]:
-    """delayed.on_events: a watched exiled card entered the battlefield under its watcher's controller (the trigger fires, once). Returns the fired ids."""
+    """delayed.on_events: a watched exiled card left exile: back under its watcher's control the trigger fires once, anywhere else it is dropped. Returns the ids to remove."""
     from app.game.rules_state import TriggerEvent
     from app.rules import delayed
     from app.rules.triggers import _new_ref, _zone
 
     done: set[str] = set()
     for ev in events:
-        if ev.kind != "zone_change" or ev.manual or _zone(ev.from_zone) != "exile" or _zone(ev.to_zone) != "battlefield" or not ev.new_object_id:
+        if ev.kind != "zone_change" or ev.manual or _zone(ev.from_zone) != "exile":
             continue
         for t in plan.rules.delayed:
             if t.when.get("event") != "enter_exiled110h" or t.id in done:
@@ -857,8 +857,9 @@ def exiled_enter(plan: Any, events: list[Any]) -> set[str]:
             if ev.object_id not in {o["object_id"] for o in t.refs["watch"]["objects"]}:
                 continue
             now = plan.state.cards.get(ev.card or "")
-            if now is None or now.controller != t.controller:
-                continue  # "under your control": returning under its owner's control, which may be another player
+            if _zone(ev.to_zone) != "battlefield" or not ev.new_object_id or now is None or now.controller != t.controller:
+                done.add(t.id)  # 400.7: the card left exile elsewhere (or came back under its owner's control): that object is gone, so drop the trigger unfired
+                continue
             new = _new_ref(now.id, ev.new_object_id, ev.to_zone)
             t.refs["watch"] = {"kind": "objects", "objects": [r.model_dump(mode="json") for r in new]}
             done.add(t.id)
