@@ -938,3 +938,89 @@ def oyster_sweep(plan: Any) -> None:
 
 
 PRIMITIVES.update({"oyster110j": oyster, "oyster_tick110j": oyster_tick, "oyster_clear110j": oyster_clear})
+
+
+# -- Balduvian Warlord, Sorrow's Path (wave 110J) -- blockers moved by an effect. 506.4 (removed from combat), 509.1h (a creature it blocked stays blocked), 509.3c/d via
+# combat_rules.enter_blocking (an effect-made block does not check blocking restrictions: 509.1b is about the declaration; the attacker must attack the blocker's controller, 506.3e)
+_WARLORD = ("{T}: Remove target blocking creature from combat. Creatures it was blocking that hadn't become blocked by another creature this combat become "
+            "unblocked, then it blocks an attacking creature of your choice. Activate only during the declare blockers step.")
+_PATH = ("{T}: Choose two target blocking creatures controlled by the same opponent. If each of those creatures could block all creatures that the other is "
+         "blocking, remove both of them from combat. Each one then blocks all creatures the other was blocking.")
+
+
+def _blocked_by(card: Any) -> list[str]:
+    return [x for x in (card.blocking, *card.blocking_more) if x]
+
+
+def _leave(plan: Any, ctx: Any, card: Any) -> None:
+    from app.rules import combat_rules
+
+    combat_rules.remove_from_combat(plan, ctx, {"who": f"object:{plan.oid(card)}"})
+
+
+def _block(plan: Any, ctx: Any, blocker: Any, attacker_id: str) -> None:
+    from app.rules import combat_rules
+
+    combat_rules.enter_blocking(plan, ctx, {"who": f"object:{plan.oid(blocker)}", "blocked": f"object:{plan.oid(plan.state.cards[attacker_id])}"})
+
+
+def warlord(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
+    from app.game.rules_state import DecisionOption
+    from app.rules import effects, history
+    from app.rules.plan import decide
+
+    found = [plan.state.cards[c] for c in effects._cards(plan, ctx, e["who"]) if plan.state.cards[c].is_blocking and plan.state.cards[c].zone.endswith(":battlefield")]
+    if not found:
+        return True
+    t, blocks = found[0], history.log_for(plan).blocks
+    mine = plan.oid(t)
+    atk = _blocked_by(t)
+    _leave(plan, ctx, t)
+    for a in atk:  # "hadn't become blocked by another creature this combat": nobody else was ever declared as its blocker
+        if not any(plan.oid(plan.state.cards[a]) in objs for ob, objs in blocks.items() if ob != mine):
+            plan.rules.blocked = [c for c in plan.rules.blocked if c != a]
+    opts = [c.id for c in plan.state.cards.values() if c.is_attacking and c.zone.endswith(":battlefield") and c.attacking is not None
+            and (c.attacking.id == t.controller or plan.state.cards.get(c.attacking.id) is not None and plan.state.cards[c.attacking.id].controller == t.controller)]
+    if len(opts) > 1:
+        decide(plan, player=ctx["controller"], kind="choose_cards", prompt=f"{t.name} blocks which attacking creature?", min_choices=1, max_choices=1,
+               options=[DecisionOption(id=c, label=plan.state.cards[c].name or "a creature", card_id=c) for c in opts], resume={"step": "warlord110j", "ctx": ctx, "who": t.id})
+        return False
+    if opts:
+        _block(plan, ctx, t, opts[0])
+    return True
+
+
+def resume_warlord(plan: Any, d: Any, chosen: list[str]) -> None:
+    from app.rules.effects import continue_effects
+
+    _block(plan, d.resume["ctx"], plan.state.cards[d.resume["who"]], chosen[0])
+    continue_effects(plan, d.resume["ctx"])
+
+
+def path(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
+    from app.rules import combat, effects
+
+    got = [plan.state.cards[c] for k in ("who", "with") for c in effects._cards(plan, ctx, e[k])]
+    if len(got) != 2 or got[0].id == got[1].id or got[0].controller != got[1].controller or not all(c.is_blocking and c.zone.endswith(":battlefield") for c in got):
+        return True
+    a, b = got
+    # "could block all creatures that the other is blocking": every one of them blockable (509.1a-b restrictions) and within the blocker's block limit (509.1a)
+    for x, y in ((a, b), (b, a)):
+        if len(_blocked_by(y)) > combat.block_limit(plan, plan.ch(x)) or any(
+                combat.block_problem(plan.state, x, plan.ch(x), plan.state.cards[i], plan.ch(plan.state.cards[i]), plan.info) for i in _blocked_by(y)):
+            return True
+    ma, mb = _blocked_by(a), _blocked_by(b)
+    _leave(plan, ctx, a)
+    _leave(plan, ctx, b)
+    for x, ys in ((a, mb), (b, ma)):
+        for i in ys:
+            _block(plan, ctx, x, i)
+    return True
+
+
+PRIMITIVES.update({"warlord110j": warlord, "path110j": path})
+RESUME["warlord110j"] = resume_warlord
+_BUILD[_WARLORD] = ("{T}: Remove target blocking creature from combat. Activate only during the declare blockers step.",
+                    lambda d: {**d, "effects": [{"do": "warlord110j", "who": d["effects"][0]["who"]}]})
+_BUILD[_PATH] = ("{T}: Target blocking creature an opponent controls fights another target blocking creature that player controls.",
+                 lambda d: {**d, "effects": [{**d["effects"][0], "do": "path110j"}]})
