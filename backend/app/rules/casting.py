@@ -5375,7 +5375,7 @@ def _post_free_cast(plan: Plan, data: _PostFreeCast, payment: M.Payment | None) 
     if a.targets:
         plan.target_arrows(card.id, a.targets)
     if ch.is_creature and was_suspended:
-        r.suspend_haste.append(card.id)  # 702.62e: it gains haste
+        (r.eot_haste110m if pending_suspend.get("suspend_object") in r.alaundo110m else r.suspend_haste).append(card.id)  # 702.62e: it gains haste (wave 110M: Alaundo's grant: until end of turn)
     if "rebound" in ch.keywords and from_hand:
         r.rebound_cast.append(plan.oid(card))
     emit(plan.state, "spell_cast", object_id=plan.oid(card), card=card.id, player=plan.actor,

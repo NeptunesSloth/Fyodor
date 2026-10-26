@@ -346,6 +346,11 @@ def collect(plan: Plan) -> None:
             if suspended_card is not None and suspend_grants.has_suspend(plan, suspended_card) \
                     and plan.oid(suspended_card) == e.object_id and e.counter_remaining == 0:
                 suspend_last(plan, suspended_card)
+            elif suspended_card is not None and e.object_id in plan.rules.alaundo110m and plan.oid(suspended_card) == e.object_id and e.counter_remaining == 0 \
+                    and suspended_card.zone.endswith(":exile"):  # (wave 110M) Alaundo the Seer's grant: the same trigger, cast only
+                _add(plan, controller=suspended_card.owner, source_card=suspended_card.id, source_object=plan.oid(suspended_card), name=suspended_card.name, index=5001,
+                     definition={"kind": "triggered", "trigger": "upkeep_you", "optional": False, "target": None,
+                                 "effects": [{"do": "suspend_cast", "card": suspended_card.id, "object": plan.oid(suspended_card), "cast110m": True}]})
         if e.kind == "counters" and e.counter == "defense" and e.amount < 0 and not e.manual:
             from app.rules import battles  # 310.12b: "When the last defense counter is removed …"
 

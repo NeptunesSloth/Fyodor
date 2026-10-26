@@ -606,6 +606,58 @@ def bat_return(plan: Any, ctx: Def, e: Def) -> bool:
     return effects.PRIMITIVES["return_card"](plan, ctx, {"do": "return_card", "who": f"exiled_card:{oid}", "to": "battlefield", "tapped": True, "under": "owner"})
 
 
+_ALAUNDO = ("{T}: Draw a card, then exile a card from your hand and put a number of time counters on it equal to its mana value. It gains \"When the last time counter is removed from this card, "
+            "if it's exiled, you may cast it without paying its mana cost. If you cast a creature spell this way, it gains haste until end of turn.\" Then remove a time counter from each other card "
+            "you own in exile.")
+_BUILD[_ALAUNDO] = ("{T}: Draw a card.", lambda d: {**d, "effects": [
+    *d["effects"], {"do": "alaundo_exile110m", "as": "alaundo_ex110m"},
+    {"do": "suspend_found", "who": "ref:alaundo_ex110m", "n": 0, "per_card_mv": True, "grant": False}, {"do": "alaundo_tail110m"},
+    {"do": "remove_counters", "who": "ref:alaundo_others110m", "kind": "time", "n": 1}]})
+
+
+def alaundo_exile(plan: Any, ctx: Def, e: Def) -> bool:
+    """Alaundo the Seer: after the draw, its controller exiles a card from their hand (a hand card is private: only they see the choice); the card exiled is public from then on (406.3)."""
+    from app.game.rules_state import DecisionOption
+    from app.game.state import zone_key
+    from app.rules import context
+    from app.rules.plan import decide
+
+    pid = ctx["controller"]
+    hand = list(plan.state.zones.get(zone_key(pid, "hand"), []))
+    if not hand:
+        context.bind_objects(plan, ctx, e["as"], [])
+        return True
+    decide(plan, player=pid, kind="choose_cards", prompt=f"{ctx.get('name', '')}: exile a card from your hand and put time counters on it equal to its mana value",
+           options=[DecisionOption(id=c, label=plan.state.cards[c].name or "Card", card_id=c) for c in hand], min_choices=1, max_choices=1,
+           resume={"step": "alaundo110m", "ctx": ctx, "e": e})
+    return False
+
+
+def resume_alaundo(plan: Any, d: Any, chosen: list[str]) -> None:
+    from app.rules import context, effects
+
+    ctx, e = d.resume["ctx"], d.resume["e"]
+    cid = chosen[0] if chosen else ""
+    if cid in plan.state.cards:
+        plan.do({"type": "move", "card_ids": [cid], "to": {"player": plan.state.cards[cid].owner, "zone": "exile"}}, actor=ctx["controller"])
+        plan.note(f"{plan.name(d.player)} exiles {plan.state.cards[cid].name} from their hand", [cid], actor=d.player)
+    context.bind_objects(plan, ctx, e["as"], [cid] if cid in plan.state.cards and plan.state.cards[cid].zone.endswith(":exile") else [])
+    effects.continue_effects(plan, ctx)
+
+
+def alaundo_tail(plan: Any, ctx: Def, e: Def) -> bool:
+    """The exiled card gains the last-counter trigger (a card with no counter, mana value 0, never triggers it), then every other card its owner has in exile loses a time counter."""
+    from app.rules import context
+
+    mine = context.objects(plan, ctx, "alaundo_ex110m")
+    for cid in mine:
+        if plan.state.cards[cid].zone.endswith(":exile") and plan.oid(cid) not in plan.rules.alaundo110m:
+            plan.rules.alaundo110m.append(plan.oid(cid))
+    others = [c.id for c in plan.state.cards.values() if c.zone.endswith(":exile") and c.owner == ctx["controller"] and c.id not in mine and c.counters.get("time", 0) > 0]
+    context.bind_objects(plan, ctx, "alaundo_others110m", others)
+    return True
+
+
 _MEDDLE = "If target spell has only one target and that target is a creature, change that spell's target to another creature."
 
 
@@ -1261,6 +1313,6 @@ def resume_damnations_keep(plan: Any, d: Any, chosen: list[str]) -> None:
     effects.continue_effects(plan, ctx)
 
 
-RESUME: dict[str, Any] = {"rocket110m": resume_rocket, "nihiloor110m": resume_nihiloor, "reroll_pick110m": resume_reroll_pick, "march110m": resume_march, "sphinx_search110m": resume_sphinx_search, "sphinx_put110m": resume_sphinx_put, "ashiok110m": resume_ashiok, "gurzigost110m": resume_gurzigost, "cover_up110m": resume_cover_up, "faces110m": resume_faces, "damnations110m": resume_damnations, "damnations110m_lose": resume_damnations_lose,
+RESUME: dict[str, Any] = {"alaundo110m": resume_alaundo, "rocket110m": resume_rocket, "nihiloor110m": resume_nihiloor, "reroll_pick110m": resume_reroll_pick, "march110m": resume_march, "sphinx_search110m": resume_sphinx_search, "sphinx_put110m": resume_sphinx_put, "ashiok110m": resume_ashiok, "gurzigost110m": resume_gurzigost, "cover_up110m": resume_cover_up, "faces110m": resume_faces, "damnations110m": resume_damnations, "damnations110m_lose": resume_damnations_lose,
                           "damnations110m_keep": resume_damnations_keep}
-PRIMITIVES: dict[str, Any] = {"bat_link110m": bat_link, "bat_return110m": bat_return, "rocket110m": rocket, "goblin110m": goblin, "grip110m": grip, "smoke110m": smoke, "nihiloor110m": nihiloor, "sylex110m": sylex, "store_dice110m": store_dice, "reroll_pick110m": reroll_pick, "reroll_roll110m": reroll_roll, "top_to_bottom110m": top_to_bottom, "faces110m": faces, "lose_shield110m": lose_shield, "escape_grant110m": escape_grant, "march110m": march, "tap_count110m": tap_count, "sphinx_search110m": sphinx_search, "sphinx_put110m": sphinx_put, "gandalf110m": gandalf, "bind_target_player110m": bind_target_player, "ashiok110m": ashiok, "ashiok_ult110m": ashiok_ult, "hunted110m": hunted, "gurzigost110m": gurzigost, "cover_up110m": cover_up, "damnations110m": damnations}
+PRIMITIVES: dict[str, Any] = {"alaundo_exile110m": alaundo_exile, "alaundo_tail110m": alaundo_tail, "bat_link110m": bat_link, "bat_return110m": bat_return, "rocket110m": rocket, "goblin110m": goblin, "grip110m": grip, "smoke110m": smoke, "nihiloor110m": nihiloor, "sylex110m": sylex, "store_dice110m": store_dice, "reroll_pick110m": reroll_pick, "reroll_roll110m": reroll_roll, "top_to_bottom110m": top_to_bottom, "faces110m": faces, "lose_shield110m": lose_shield, "escape_grant110m": escape_grant, "march110m": march, "tap_count110m": tap_count, "sphinx_search110m": sphinx_search, "sphinx_put110m": sphinx_put, "gandalf110m": gandalf, "bind_target_player110m": bind_target_player, "ashiok110m": ashiok, "ashiok_ult110m": ashiok_ult, "hunted110m": hunted, "gurzigost110m": gurzigost, "cover_up110m": cover_up, "damnations110m": damnations}

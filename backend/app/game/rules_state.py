@@ -1416,6 +1416,8 @@ class WorldInterval80(BaseModel):
 
 
 class RulesState(BaseModel):
+    alaundo110m: list[str] = Field(default_factory=list)  # (wave 110M) rules objects of exiled cards carrying Alaundo's granted "last time counter" trigger
+    eot_haste110m: list[str] = Field(default_factory=list)  # (wave 110M) creature spells cast from exile that gain haste until end of turn as they enter
     bat_links110m: dict[str, str] = Field(default_factory=dict)  # (wave 110M) Timothar: a Bat token's rules object -> the exiled card's rules object it returns
     stack_seen110m: list[str] = Field(default_factory=list)  # (wave 110M) stack objects already looked at for "whenever a spell or ability is put onto the stack"
     stored_dice110m: dict[str, list[int]] = Field(default_factory=dict)  # (wave 110M) object id -> the d6 results stored on it (706.8a: Centaur of Attention)

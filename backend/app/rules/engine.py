@@ -1244,6 +1244,12 @@ def resolve_top_of_stack(plan: Plan) -> None:
         from app.rules import ninjutsu
 
         ninjutsu.attack_returned(plan, top_id, rec, controller)
+    if top_id in plan.rules.eot_haste110m:  # (wave 110M) Alaundo the Seer: "it gains haste until end of turn"
+        plan.rules.eot_haste110m = [c for c in plan.rules.eot_haste110m if c != top_id]
+        entered_now = plan.state.cards.get(top_id)
+        if entered_now is not None and entered_now.zone.endswith(":battlefield"):
+            layers.add_effect(plan, affected=[plan.oid(top_id)], layer="6", source=None, controller=controller,
+                              add_keywords=("haste",), duration="end_of_turn", label="Haste (Alaundo the Seer)")
     if top_id in plan.rules.suspend_haste:  # 702.62e: a suspended creature has haste
         plan.rules.suspend_haste = [c for c in plan.rules.suspend_haste if c != top_id]
         entered_now = plan.state.cards.get(top_id)
