@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import pytest
 
+from app.game.errors import ActionError
 from tests.wave36a_kit import ready
 from tests.wave110m_kit import *
 
@@ -273,3 +274,67 @@ def test_with_no_forest_to_enchant_the_aura_stays_in_the_graveyard(cards):
     s, troll, lands = troll_dies(cards, forests_in_play=0)
     assert s.state.cards[troll.id].zone == "p1:graveyard"
     check(s)
+
+
+# -- Baron Helmut Zemo -------------------------------------------------------------------------------------------------------------------------
+ZEMO = "Baron Helmut Zemo"
+test_zemo_full = full_test([ZEMO])
+
+
+def zemo_table(cards, murders=8):
+    s = build(cards, [ZEMO, *(["Murder"] * murders)], ["Elite Vanguard", "Hill Giant", "Grizzly Bears", "Llanowar Elves"], forests=20)
+    zemo = put(s, ZEMO)
+    ready(s, ZEMO)
+    victims = [put(s, n, "p2") for n in ("Elite Vanguard", "Hill Giant", "Grizzly Bears", "Llanowar Elves")]
+    for c in [c for c in s.state.cards.values() if c.name == "Murder" and c.owner == "p1"]:
+        act(s, "p1", type="move", card_ids=[c.id], to={"player": "p1", "zone": "graveyard"})
+    return s, zemo, victims
+
+
+def boast(s, zemo):
+    return next(a.index for a in ch(s, zemo).abilities if a.text.startswith("Boast"))
+
+
+def attack_with(s, zemo):
+    stops(s)
+    to_phase(s, "declare_attackers")
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": zemo.id, "target": "p2"}])
+
+
+def test_the_boast_needs_fifteen_black_symbols_exiled_and_an_attack_this_turn(cards):
+    s, zemo, victims = zemo_table(cards, murders=7)  # (14 symbols in all: not enough)
+    attack_with(s, zemo)
+    with pytest.raises(ActionError):
+        act(s, "p1", type="activate_ability", card_id=zemo.id, ability=boast(s, zemo))
+    check(s)
+
+
+def test_zemo_copies_the_exiled_cards_and_casts_up_to_three_of_them_free(cards):
+    s, zemo, victims = zemo_table(cards)
+    attack_with(s, zemo)
+    gy = [c.id for c in s.state.cards.values() if c.name == "Murder" and c.zone == "p1:graveyard"]
+    act(s, "p1", type="activate_ability", card_id=zemo.id, ability=boast(s, zemo), cost_choices=[{"component": 0, "cards": gy}])
+    aimed: list[str] = []
+    for _ in range(40):
+        d = s.state.rules.decision
+        if d is None:
+            if not s.state.zones.get("stack"):
+                break
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            ids = [o.id for o in d.options]
+            pick = next((v.id for v in victims if v.id in ids and v.id not in aimed), ids[0])
+            if d.kind == "choose_one" and pick in ids and any(v.id == pick for v in victims):
+                aimed.append(pick)
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=["yes" if "yes" in ids else pick])
+    dead = [v for v in victims if s.state.cards[v.id].zone == "p2:graveyard"]
+    assert len(dead) == 3 and all(s.state.cards[c].zone == "p1:exile" for c in gy)
+    check(s)
+
+
+def test_the_boast_cannot_be_activated_before_zemo_attacks(cards):
+    s, zemo, victims = zemo_table(cards)
+    gy = [c.id for c in s.state.cards.values() if c.name == "Murder" and c.zone == "p1:graveyard"]
+    with pytest.raises(ActionError):
+        act(s, "p1", type="activate_ability", card_id=zemo.id, ability=boast(s, zemo), cost_choices=[{"component": 0, "cards": gy}])
+    assert all(s.state.cards[c].zone == "p1:graveyard" for c in gy)  # (nothing was paid; no replay check: ``ready`` writes the creature's age directly)

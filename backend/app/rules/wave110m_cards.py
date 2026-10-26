@@ -751,6 +751,21 @@ def reverse_turn_order(plan: Any, ctx: Def, e: Def) -> bool:
     return True
 
 
+_ZEMO = ("Boast — Exile any number of black cards from your graveyard with fifteen or more black mana symbols among their mana costs: Copy those exiled cards. You may cast up to three "
+         "of the copies without paying their mana costs.")
+
+
+def _zemo(d: Def) -> Def:
+    """Baron Helmut Zemo's boast: the cards are exiled as the cost (601.2h), copied as it resolves (707.12: the copies are made in exile), and up to three of the copies are cast free
+    (601.2: each is cast in turn; a copy not cast ceases to exist, 704.5e)."""
+    return {**d, "cost": "Exile any number of black cards from your graveyard with fifteen or more black mana symbols among their mana costs",
+            "effects": [{"do": "copy_cards", "who": "cost:exiled", "as": "zemo110m", "source_zone": "exile"},
+                        {"do": "free_cast", "zone": "that", "who": "ref:zemo110m", "exact_refs": True, "optional": True, "n": 3}]}
+
+
+_BUILD[_ZEMO] = ("Boast — {1}: Draw a card.", _zemo)
+
+
 _MEDDLE = "If target spell has only one target and that target is a creature, change that spell's target to another creature."
 
 
