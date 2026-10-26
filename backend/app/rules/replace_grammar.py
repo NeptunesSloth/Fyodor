@@ -315,6 +315,8 @@ def _life(text: str) -> Definition | None:
             return None
         match["life_max"] = int(m["n"])  # (-- life modifiers (wave 28B) -- Phial of Galadriel: as the gain would happen)
     if who == "you":
+        if rest == "draw that many cards":  # -- life gain (wave 110I) -- Lich: 614.1a, the gain doesn't happen; that many cards are drawn (through the draw replacements)
+            return _static("life", match, {"do": "draw"})
         if rest == "you gain twice that much life":
             return _static("life", match, {"do": "mul", "n": 2})
         if rest == "you gain three times that much life":

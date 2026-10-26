@@ -265,7 +265,8 @@ def life_cap(plan: Plan, ctx: dict[str, Any]) -> int:
 
 _AS_ENTERS = {"As ~ enters, discard your hand.": "discard_hand", "As ~ enters, sacrifice all lands you control.": "sacrifice_lands",
               "As ~ enters, mill three cards for each time it was kicked.": "mill_per_kick",  # (Urborg Lhurgoyf: 702.33d, rulings 2022-09-09)
-              "As ~ enters, if it was kicked, mill four cards.": "kicked_mill4"}  # (-- activated (wave 100I) -- Monstrous War-Leech: 702.33d, 701.17a)
+              "As ~ enters, if it was kicked, mill four cards.": "kicked_mill4",
+              "As ~ enters, you lose life equal to your life total.": "lose_life_total"}  # (wave 110I, Lich: 119.3, 614.12; replaceable, not a payment)  # (-- activated (wave 100I) -- Monstrous War-Leech: 702.33d, 701.17a)
 
 
 def plan_entry(plan: Plan, card: CardInstance, controller: str, out: dict[str, Any], answers: dict[str, str] | None = None) -> None:
@@ -313,6 +314,11 @@ def as_enters(plan: Plan, card_id: str, ep: dict[str, Any], controller: str) -> 
 
             plan.note(f"As {name} enters, {plan.name(controller)} pays {n} life", [card_id])
             replace.lose_life(plan, [(controller, n)], paid=True)
+        elif what == "lose_life_total" and (n := plan.state.players[controller].life) > 0:
+            from app.rules import replace
+
+            plan.note(f"As {name} enters, {plan.name(controller)} loses life equal to their life total", [card_id])
+            replace.lose_life(plan, [(controller, n)])
         elif what == "mill_per_kick" and (n := 3 * values.kicked_count(plan, ctx)):  # 701.17a (not cast: never kicked)
             plan.note(f"As {name} enters, {plan.name(controller)} mills {n} cards", [card_id])
             effects.PRIMITIVES["mill"](plan, ctx, {"do": "mill", "who": "you", "n": n})

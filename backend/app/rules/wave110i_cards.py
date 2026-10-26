@@ -420,7 +420,51 @@ def _flipped(d: Def) -> Def:
     return {**d, "effects": [{**e, "flipped": True} if e.get("do") == "return_card" else e for e in d["effects"]]}
 
 
+def _milled(d: Def) -> Def:
+    """Saruman: "each opponent mills two cards. When one or more cards are milled this way, …" (603.12 reflexive trigger, only if a card was milled): the mill binds what it milled,
+    ``milled_any110i`` turns that into the reflexive condition (replacing the paid-cost stand-in of the native wording)."""
+    pay, reflexive, *rest = d["effects"]
+    assert pay["do"] == "optional_payment" and reflexive["do"] == "reflexive"
+    return {**d, "bind_nested110i": True, "effects": [{"do": "mill", "who": "each_opponent", "n": 2, "as": "milled110i"}, {"do": "milled_any110i"},
+                             {**reflexive, "cond": {"succeeded": "milled_any110i"}}, *rest]}
+
+
+def milled_any(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    from app.rules import context
+
+    context.bind_payment(ctx, "milled_any110i", bool(context.refs(ctx).get("milled110i", {}).get("objects")))
+    return True
+
+
+def _or_lose(d: Def) -> Def:
+    """Lich: "If you can't, you lose the game." — you can't sacrifice that many (the shortage is counted before anything is sacrificed, then as many as possible go: 609.3)."""
+    sac = next(e for e in d["effects"] if e.get("do") == "sacrifice_choice")
+    return {**d, "effects": [{"do": "short110i", "sel": sac["sel"], "n": sac["n"]}, *d["effects"], {"do": "lose_if_short110i"}]}
+
+
+def short(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    from app.rules import effects, prohibitions, selectors
+
+    mine = [c for c in selectors.candidates(plan, selectors.from_key(e["sel"]), ctx["controller"], ctx.get("source_card"), selectors.attacker_of(ctx.get("event")))
+            if plan.state.cards[c].controller == ctx["controller"] and plan.state.cards[c].zone.endswith(":battlefield")
+            and not prohibitions.sacrifice_forbidden(plan, plan.state.cards[c])]
+    ctx["short110i"] = len(mine) < effects._amount(plan, ctx, e["n"])
+    return True
+
+
+def lose_if_short(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    from app.rules import effects
+
+    return effects.PRIMITIVES["lose_game"](plan, ctx, {"do": "lose_game", "who": "you"}) if ctx.get("short110i") else True
+
+
 _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
+    "Whenever you cast your second spell each turn, each opponent mills two cards. When one or more cards are milled this way, exile target enchantment, instant, or sorcery card with equal or "
+    "lesser mana value than that spell from an opponent's graveyard. Copy the exiled card. You may cast the copy without paying its mana cost.":
+        ("Whenever you cast your second spell each turn, you may pay {1}. When you do, exile target enchantment, instant, or sorcery card with mana value less than or equal to that spell's mana value "
+         "from an opponent's graveyard. Copy it. You may cast the copy without paying its mana cost.", _milled),
+    "Whenever you're dealt damage, sacrifice that many nontoken permanents. If you can't, you lose the game.":
+        ("Whenever you're dealt damage, sacrifice that many nontoken permanents.", _or_lose),
     "When Homura dies, return it to the battlefield flipped.": ("When ~ dies, return this card to the battlefield under your control.", _flipped),
     "Whenever you put a sticker on this enchantment, it deals damage equal to the number of o's in name stickers on this enchantment to any target.":
         ("Whenever you put a sticker on this enchantment, this enchantment deals 2 damage to any target.", _letters("o")),
@@ -743,6 +787,9 @@ def destroy_mark(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
 
 PRIMITIVES = {"specter110i": specter, "raiding110i": raiding, "bind_self110i": bind_self, "bauble110i": bauble, "bind_first110i": bind_first, "destroy_mark110i": destroy_mark, "goad_while110i": goad_while, "bind_rest110i": bind_rest, "exile_library110i": exile_library, "attach_all110i": attach_all, "lose_rad110i": lose_rad, "bounce_gate110i": bounce_gate}
+PRIMITIVES["milled_any110i"] = milled_any
+PRIMITIVES["short110i"] = short
+PRIMITIVES["lose_if_short110i"] = lose_if_short
 
 
 def ask_skip(plan: Plan, done: list[str]) -> bool:

@@ -7,6 +7,10 @@
 * Homura, Human Ascendant: "return it to the battlefield flipped" (710.2, 110.5): the new object enters already flipped (a legendary enchantment, not a creature: "whenever a creature enters"
   does not see it) and its alternative static ability applies.
 * Ranar the Ever-Watchful: the first foretell special action each turn costs {0} (702.143a, ruling 2021-06-18: the first card exiled from your hand as part of foretelling), the next ones {2}.
+* Lich: 119.3/614.12 the life total is lost as it enters (and you don't lose at 0); 614.1a a life gain (spell, or lifelink damage 702.15) draws that many cards instead; damage dealt to you
+  makes you sacrifice that many nontoken permanents, and you lose the game when you can't (rulings 2004-10-04, 2010-08-15).
+* Saruman of Many Colors: ward "Discard an enchantment, instant, or sorcery card" is one cost (702.21a); the second spell each turn mills each opponent two, and only if a card was milled (603.12 reflexive
+  trigger) exiles an enchantment, instant or sorcery card with mana value up to that spell's from an opponent's graveyard; its copy may be cast free (707.12, 608.2g, ruling 2023-06-16).
 """
 from __future__ import annotations
 
@@ -20,6 +24,7 @@ from tests.game_helpers import act
 from tests.test_rules_wave12a_counters_keywords import real
 from tests.test_rules_wave110e_cards import answer, card_db  # noqa: F401  (the fixture)
 from tests.test_rules_wave110e_cards import cast as cast_card
+from tests.test_rules_wave110e_s11 import _three
 from tests.wave9c_kit import build, card_named, check, mana, put, to_hand
 
 TURTLES = real("Turtles Forever", "{3}{W}", 4, "Instant",
@@ -232,4 +237,183 @@ def test_ranar_resets_each_turn(cards):
     act(s, "p1", type="activate_ability", card_id=second.id, ability=_foretell_ability(s, second))  # a new turn: free again
     answer(s)
     assert zone_of(s, "Cosmos Charger") == "p1:foretell"
+    check(s)
+
+
+LICH = real("Lich", "{B}{B}{B}{B}", 4, "Enchantment",
+            "As this enchantment enters, you lose life equal to your life total.\nYou don't lose the game for having 0 or less life.\nIf you would gain life, draw that many cards instead.\n"
+            "Whenever you're dealt damage, sacrifice that many nontoken permanents. If you can't, you lose the game.\n"
+            "When this enchantment is put into a graveyard from the battlefield, you lose the game.", None, "B")
+KISS = real("Vampire's Kiss", "{1}{B}", 2, "Sorcery",
+            "Target player loses 2 life and you gain 2 life. Create two Blood tokens. (They're artifacts with \"{1}, {T}, Discard a card, Sacrifice this token: Draw a card.\")", None, "B")
+VAMP = real("Vampire of the Dire Moon", "{B}", 1, "Creature — Vampire",
+            "Deathtouch (Any amount of damage this deals to a creature is enough to destroy it.)\nLifelink (Damage dealt by this creature also causes you to gain that much life.)", ("1", "1"), "B")
+PREY = real("Prey Upon", "{G}", 1, "Sorcery", "Target creature you control fights target creature you don't control. (Each deals damage equal to its power to the other.)", None, "G")
+base.EXTRA.extend([LICH, KISS, VAMP, PREY])
+
+
+def test_lich_full(cards):
+    assert coverage.of_card_data(cards.resolve("Lich")).level == "FULL"
+
+
+def _lich(cards, extra=()):
+    s = _three(cards, ["Lich", "Vampire's Kiss", "Vampire of the Dire Moon", "Prey Upon", *extra])
+    mana(s, B=4)
+    cast_card(s, "Lich")
+    answer(s)
+    return s
+
+
+def test_lich_sets_life_to_zero_and_survives(cards):
+    from tests.wave9c_kit import life
+
+    s = _lich(cards)
+    assert life(s, "p1") == 0 and card_named(s, "Lich").zone == "p1:battlefield"
+    check(s)
+
+
+def test_lich_draws_instead_of_gaining_life(cards):
+    from tests.wave9c_kit import life
+
+    s = _lich(cards)
+    hand = len(s.state.zones["p1:hand"])
+    mana(s, B=2)
+    cast_card(s, "Vampire's Kiss", ["p2"])  # you gain 2 life: draw 2 instead
+    answer(s)
+    assert life(s, "p1") == 0 and life(s, "p2") == 38
+    assert len(s.state.zones["p1:hand"]) == hand + 2  # two cards came in (the Kiss itself went to hand and left again)
+    check(s)
+
+
+def test_lich_lifelink_damage_draws_instead(cards):
+    from tests.wave9c_kit import life
+
+    s = _lich(cards, ["Bear Cub110I"])
+    mana(s, B=1)
+    cast_card(s, "Vampire of the Dire Moon")
+    answer(s)
+    hand = len(s.state.zones["p1:hand"])
+    mana(s, G=1)
+    bear = next(c for c in s.state.cards.values() if c.owner == "p2" and c.name == "Test Giant")
+    act(s, "p2", type="move", card_ids=[bear.id], to={"player": "p2", "zone": "battlefield"})
+    cast_card(s, "Prey Upon", [card_named(s, "Vampire of the Dire Moon").id, bear.id], target_counts=[1, 1])
+    answer(s)
+    assert life(s, "p1") == 0 and len(s.state.zones["p1:hand"]) == hand + 1  # the 1 lifelink damage drew a card
+    check(s)
+
+
+def _forests(s, n):
+    ids = [c.id for c in s.state.cards.values() if c.name == "Mountain" and c.owner == "p1" and c.zone == "p1:library"][:n]
+    assert len(ids) == n
+    act(s, "p1", type="move", card_ids=ids, to={"player": "p1", "zone": "battlefield"})
+    return ids
+
+
+def _bolt_alice(s):
+    mana(s, R=1)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Test Bolt").id, targets=["p1"])  # Alice bolts herself: 3 damage dealt to her
+
+
+def test_lich_damage_sacrifices_that_many_nontoken_permanents(cards):
+    s = _lich(cards, ["Test Bolt"])
+    lands = _forests(s, 4)
+    _bolt_alice(s)
+    for _ in range(12):
+        d = s.state.rules.decision
+        if d is not None:
+            assert d.player == "p1" and d.min_choices == d.max_choices == 3  # 3 damage: 3 nontoken permanents
+            act(s, "p1", type="choose", decision_id=d.id, option_ids=lands[:3])
+        elif s.state.zones.get("stack"):
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            break
+    assert [s.state.cards[c].zone for c in lands] == ["p1:graveyard"] * 3 + ["p1:battlefield"]
+    assert card_named(s, "Lich").zone == "p1:battlefield" and "p1" not in s.state.rules.lost
+    check(s)
+
+
+def test_lich_loses_the_game_when_it_cannot_sacrifice_that_many(cards):
+    s = _lich(cards, ["Test Bolt"])
+    _forests(s, 1)  # Lich and one land: two nontoken permanents for 3 damage
+    _bolt_alice(s)
+    answer(s)
+    assert "p1" in s.state.rules.lost
+    check(s)
+
+
+SARUMAN = real("Saruman of Many Colors", "{3}{W}{U}{B}", 6, "Legendary Creature — Avatar Wizard",
+               "Ward—Discard an enchantment, instant, or sorcery card.\nWhenever you cast your second spell each turn, each opponent mills two cards. When one or more cards are milled this way, exile target "
+               "enchantment, instant, or sorcery card with equal or lesser mana value than that spell from an opponent's graveyard. Copy the exiled card. You may cast the copy without paying its mana cost.",
+               ("5", "4"), "WUB")
+base.EXTRA.append(SARUMAN)
+
+
+def test_saruman_full(cards):
+    assert coverage.of_card_data(cards.resolve("Saruman of Many Colors")).level == "FULL"
+
+
+def test_saruman_ward_cost_is_one_discard_of_three_types(cards):
+    from app.rules import triggers
+    from app.rules.plan import Plan
+
+    s = build(cards, ["Saruman of Many Colors"])
+    ch = Plan(s.state, "p1", s.cards, None).ch(card_named(s, "Saruman of Many Colors"))
+    assert triggers.ward_costs(ch) == ["Discard an enchantment or instant or sorcery card"]
+
+
+def _saruman(cards, bob_library_islands=10):
+    s = build(cards, ["Saruman of Many Colors", "Test Bolt", "Vampire of the Dire Moon"], ["Test Bolt", "Vampire's Kiss"], islands=bob_library_islands)
+    put(s, "Saruman of Many Colors")
+    for n in ("Test Bolt", "Vampire's Kiss"):
+        act(s, "p2", type="move", card_ids=[card_named(s, n, "p2").id], to={"zone": "graveyard"})
+    mana(s, R=1)
+    cast_card(s, "Test Bolt", ["p2"])
+    answer(s)
+    s.before = len(s.state.zones["p2:library"])  # type: ignore[attr-defined]
+    mana(s, B=1)
+    cast_card(s, "Vampire of the Dire Moon")
+    return s
+
+
+def _drive(s, pick):
+    """Resolve everything, answering each decision with ``pick(decision)`` (a list of option ids)."""
+    for _ in range(20):
+        d = s.state.rules.decision
+        if d is not None:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=pick(d))
+        elif s.state.zones.get("stack"):
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            return
+
+
+def _label(d, name):
+    return [o.id for o in d.options if o.label == name]
+
+
+def test_saruman_second_spell_mills_and_exiles_a_cheap_enough_card_to_copy(cards):
+    from tests.wave9c_kit import life
+
+    s = _saruman(cards)
+    seen = []
+
+    def pick(d):
+        seen.append((d.kind, [o.label for o in d.options]))
+        if d.kind == "choose_cards":  # cast the copy: yes
+            return [d.options[0].id]
+        return _label(d, "Bob") or [d.options[0].id]
+
+    _drive(s, pick)
+    assert seen[0] == ("choose_one", ["Test Bolt"])  # Vampire's Kiss (mana value 2) is above the second spell's 1
+    assert len(s.state.zones["p2:library"]) == s.before - 2
+    assert card_named(s, "Test Bolt", "p2").zone == "p2:exile" and card_named(s, "Vampire's Kiss", "p2").zone == "p2:graveyard"
+    assert life(s, "p2") == 40 - 3 - 3  # Alice's own Bolt, then the free copy
+    check(s)
+
+
+def test_saruman_nothing_milled_no_reflexive_trigger(cards):
+    s = _saruman(cards, bob_library_islands=0)
+    assert s.before == 0  # Bob has no library left to mill
+    _drive(s, lambda d: [d.options[0].id])
+    assert card_named(s, "Test Bolt", "p2").zone == "p2:graveyard"
     check(s)
