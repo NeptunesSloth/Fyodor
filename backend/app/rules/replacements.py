@@ -593,8 +593,10 @@ def choice_prompt(plan: Plan, card: CardInstance, controller: str, choice: dict[
         return f"{card.name}: as it enters, choose a color and creature type", [DecisionOption(id=o, label=o) for o in choice["options"]]
     if reveal_lands.is_choice(what):  # -- "this way" outcomes (wave 4A) -- private: the cards in their hand
         return reveal_lands.prompt(plan, card, controller, what)
-    from app.rules import enter_cost
+    from app.rules import enter_cost, wave110c_lich
 
+    if what == wave110c_lich.WHAT:  # -- Phylactery Lich (wave 110C) --
+        return wave110c_lich.prompt(plan, card, controller)
     if enter_cost.is_choice(what):  # -- entering for a cost (wave 5G) -- private: the cards in their hand
         return enter_cost.prompt(plan, card, controller, set(choice.get("reserved") or ()), choice.get("picked"))
     from app.rules import devour  # -- keyword mechanics (wave 9D) --
