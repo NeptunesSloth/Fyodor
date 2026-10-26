@@ -1881,7 +1881,7 @@ def counter_object(plan: Plan, stack_id: str, actor: str, to: str | None = None,
     if oid in r.flashback or exile:
         r.flashback = [o for o in r.flashback if o != oid]
         plan.do({"type": "move", "card_ids": [stack_id], "to": {"player": card.owner, "zone": "exile"}}, actor=actor)
-    elif to == "exile":  # (wave 4A)
+    elif to == "exile" and (not types or any(t in plan.ch(card).types for t in types)):  # (wave 4A; 110I: "if a permanent spell is countered this way")
         plan.do({"type": "move", "card_ids": [stack_id], "to": {"player": card.owner, "zone": "exile"}}, actor=actor)
     elif to == "battlefield_you" and by is not None and types and any(t in plan.ch(card).types for t in types):
         # -- counter outcomes (wave 110C) -- Desertion: an artifact or creature spell is put onto the battlefield under the counterer's control (608.2c, 701.6a)

@@ -49,7 +49,7 @@ def resolve_target(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     from app.rules import effects
 
     source = ObjectRef(card=ctx['source_card'], object_id=ctx['source_object'])
-    for r in phase_out(plan, source, effects._cards(plan, ctx, 'target'), ctx['controller']):
+    for r in phase_out(plan, source, effects._cards(plan, ctx, 'target'), ctx['controller'], while_tapped=bool(e.get('tapped110i'))):
         for p in plan.rules.phase_lifetimes:
             if p.source == source and r in p.recipients and not e.get('untapped110i'):  # (110I The Moment: no tap, 702.26a)
                 p.tap_on_return = True
@@ -68,12 +68,13 @@ def finish(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return True
 
 
-def source_present(plan: Plan, ref: ObjectRef, control: str | None = None) -> bool:
+def source_present(plan: Plan, ref: ObjectRef, control: str | None = None, while_tapped: bool = False) -> bool:
     card = plan.state.cards.get(ref.card)
     # A departing controller's control effect may end without this permanent
     # leaving (800.4a). Ownership departure, unlike that transient controller
     # state, means the object left the game even if its table record remains.
     return (card is not None and card.owner in plan.live() and plan.oid(card) == ref.object_id and (control is None or card.controller == control)
+            and (not while_tapped or card.tapped)  # -- wave 110I -- The Pandorica: "for as long as ~ remains tapped" (611.2b)
             and card.zone.rsplit(':', 1)[-1] in ('battlefield', 'phased'))
 
 
@@ -82,13 +83,13 @@ def held(plan: Plan, card_id: str) -> bool:
     if card is None:
         return False
     oid = plan.oid(card)
-    return any(source_present(plan, packet.source, packet.control) and any(r.card == card_id and r.object_id == oid for r in packet.recipients)
+    return any(source_present(plan, packet.source, packet.control, packet.while_tapped) and any(r.card == card_id and r.object_id == oid for r in packet.recipients)
                for packet in plan.rules.phase_lifetimes)
 
 
-def phase_out(plan: Plan, source: ObjectRef, card_ids: list[str], actor: str, control: str | None = None) -> list[ObjectRef]:
+def phase_out(plan: Plan, source: ObjectRef, card_ids: list[str], actor: str, control: str | None = None, while_tapped: bool = False) -> list[ObjectRef]:
     """610.3b: a duration already over never starts; preserve native indirect phasing."""
-    if not source_present(plan, source, control):
+    if not source_present(plan, source, control, while_tapped):
         return []
     refs = [ObjectRef(card=cid, object_id=plan.oid(card), zone=card.zone)
             for cid in card_ids if (card := plan.state.cards.get(cid)) is not None and plan.in_game(card)
@@ -97,7 +98,7 @@ def phase_out(plan: Plan, source: ObjectRef, card_ids: list[str], actor: str, co
         return []
     # Install before the native action: a source that is itself among the
     # creatures stays present as a phased object, with precisely the same OID.
-    packet = PhaseLifetime(source=source, recipients=refs, control=control)
+    packet = PhaseLifetime(source=source, recipients=refs, control=control, while_tapped=while_tapped)
     plan.rules.phase_lifetimes.append(packet)
     plan.do({'type': 'phase_shift', 'card_ids': [r.card for r in refs], 'out': True}, actor=actor)
     packet.recipients = [r for r in refs if (c := plan.state.cards.get(r.card)) is not None
@@ -106,7 +107,7 @@ def phase_out(plan: Plan, source: ObjectRef, card_ids: list[str], actor: str, co
 
 
 def expire(plan: Plan) -> None:
-    ended = [p for p in plan.rules.phase_lifetimes if not source_present(plan, p.source, p.control)]
+    ended = [p for p in plan.rules.phase_lifetimes if not source_present(plan, p.source, p.control, p.while_tapped)]
     if not ended:
         return
     # Remove before actions or characteristic queries can recursively expire.

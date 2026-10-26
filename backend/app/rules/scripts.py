@@ -4717,6 +4717,10 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
                 and len(effects) - prev_start == 1 and effects[-1]["do"] == "counter" and "to" not in effects[-1]:  # -- counter outcomes (wave 110C) -- Desertion
             effects[-1] = {**effects[-1], "to": "battlefield_you", "types": ["Artifact", "Creature"]}
             continue
+        if text == "if a permanent spell is countered this way, exile it instead of putting it into its owner's graveyard" \
+                and len(effects) - prev_start == 1 and effects[-1]["do"] == "counter" and "to" not in effects[-1]:  # -- counter outcomes (wave 110I) -- Thranduil's Decree (110.4)
+            effects[-1] = {**effects[-1], "to": "exile", "types": ["Artifact", "Battle", "Creature", "Enchantment", "Land", "Planeswalker"]}
+            continue
         text = _for_each_this_way(text)  # -- "this way" outcomes (wave 4A) --
         from app.rules import (
             chain_spells,  # -- chain spells (wave 52C) -- "that player may pay {R}{R}. If the player does, they may copy this spell …"
@@ -9622,6 +9626,9 @@ def define_replacement(ability: AbilityText, text: str) -> Definition | None:
     if text == "If a spell or ability an opponent controls causes you to discard this card, put it onto the battlefield instead of putting it " \
                "into your graveyard.":  # -- discard causes (wave 23D) -- 614.1a, 701.9: the discard is replaced (replacements.replace_move)
         return {"kind": "replacement", "replacement": "discard_battlefield", "effects": []}
+    if text == "If a spell or ability an opponent controls causes you to discard this card, put it onto the battlefield with two +1/+1 counters on it instead of " \
+               "putting it into your graveyard.":  # -- discard causes (wave 110I) -- Dodecapod: the same replacement, 614.12 / 122.6 counters as it enters (replacements.replace_move)
+        return {"kind": "replacement", "replacement": "discard_battlefield", "effects": [], "counters110i": {"+1/+1": 2}}
     if text == "If a card that has a cycling ability would be put into your graveyard from anywhere and it wasn't cycled, exile it instead.":
         return {"kind": "static", "static": "exile_instead", "effects": [], "from": "anywhere",
                 "graveyard_of": "you", "who": "card", "cycling_not_cycled": True}
