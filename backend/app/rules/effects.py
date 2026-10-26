@@ -3028,6 +3028,11 @@ def attach_self(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     src = _cards(plan, ctx, "self")
     targets = _cards(plan, ctx, "target")
     if src and targets:
+        from app.rules import wave110e_blade  # -- becomes attached, choose (wave 110E) --
+
+        if wave110e_blade.needs(plan, src[0]) and attachments.host_problem(plan, plan.state.cards[src[0]], targets[0]) is None \
+                and plan.state.cards[src[0]].attached_to != targets[0]:
+            return wave110e_blade.ask(plan, ctx, src[0], targets[0])
         attachments.attach(plan, src[0], targets[0], ctx["controller"])  # doesn't move if it can't (701.3b)
     return True
 
@@ -7173,3 +7178,6 @@ from app.rules import wave110e_pets as _wave110e_pets  # noqa: E402, I001  -- Ex
 
 PRIMITIVES.update(_wave110e_pets.PRIMITIVES)
 RESUME.update(_wave110e_pets.RESUME)
+from app.rules import wave110e_blade as _wave110e_blade  # noqa: E402, I001  -- Sanctuary Blade (wave 110E) --
+
+RESUME.update(_wave110e_blade.RESUME)

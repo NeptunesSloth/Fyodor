@@ -9,7 +9,7 @@ from tests.game_helpers import act
 from tests.test_rules_wave12a_counters_keywords import real
 from tests.test_rules_wave30m_durations import stops, to_phase
 from tests.test_rules_wave110e_cards import answer, card_db, cast  # noqa: F401  (the fixture)
-from tests.wave9c_kit import build, card_named, check, life, mana, put
+from tests.wave9c_kit import build, card_named, check, life, mana, pt, put
 
 REPROACH = real("Teferi's Reproach", "{2}{W}{W}", 4, "Instant",
                 "Choose target opponent. Until that player's next turn, they gain protection from everything and their life total can't change. "
@@ -17,11 +17,14 @@ REPROACH = real("Teferi's Reproach", "{2}{W}{W}", 4, "Instant",
                 "They phase in before that player untaps during their next untap step.)\nExile Teferi's Reproach.", None, "W")
 BEAR = real("Test Bear", "{1}{G}", 2, "Creature — Bear", "", ("2", "2"), "G")
 DRAIN = real("Test Drain", "{B}", 1, "Sorcery", "Each opponent loses 3 life.", None, "B")
-base.EXTRA.extend([REPROACH, BEAR, DRAIN])
+BLADE = real("Sanctuary Blade", "{2}", 2, "Artifact — Equipment",
+             "As this Equipment becomes attached to a creature, choose a color.\nEquipped creature gets +2/+0 and has protection from the last chosen color.\nEquip {3}", None, "")
+base.EXTRA.extend([REPROACH, BEAR, DRAIN, BLADE])
 
 
-def test_full(cards):
-    assert coverage.of_card_data(cards.resolve("Teferi's Reproach")).level == "FULL"
+@pytest.mark.parametrize("name", ["Teferi's Reproach", "Sanctuary Blade"])
+def test_full(cards, name):
+    assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
 
 def test_teferis_reproach_shields_the_opponent_until_their_next_turn(cards):
@@ -40,4 +43,35 @@ def test_teferis_reproach_shields_the_opponent_until_their_next_turn(cards):
     to_phase(s, "upkeep", 2)
     assert not s.state.cards[bear.id].zone.endswith(":phased")
     assert not s.state.rules.life_locks and not s.state.rules.player_shields
+    check(s)
+
+
+def _keywords(s, card):
+    from app.rules.plan import Plan
+
+    ch = Plan(s.state, "p1", s.cards, None).ch(s.state.cards[card.id])
+    return {k.lower() for k in ch.keywords} | {a.text.lower() for a in ch.abilities}
+
+
+def _equip(s, blade, bear, color):
+    mana(s, C=3)
+    act(s, "p1", type="activate_ability", card_id=blade.id, ability=2, targets=[bear.id])
+    answer(s, *([color] if color else []))
+
+
+def test_sanctuary_blade_chooses_a_color_each_time_it_becomes_attached(cards):
+    """701.3a: the controller chooses as it becomes attached (equip); the grant uses the last chosen color: +2/+0 and protection from it."""
+    s = build(cards, ["Sanctuary Blade", "Test Bear", "Test Bear"])
+    blade, bear = put(s, "Sanctuary Blade"), put(s, "Test Bear")
+    _equip(s, blade, bear, "Red")
+    assert s.state.cards[bear.id].attached_to is None and s.state.cards[blade.id].attached_to == bear.id
+    assert pt(s, "Test Bear") == (4, 2) and "protection from red" in _keywords(s, bear)
+    check(s)
+    bear2 = card_named(s, "Test Bear")
+    other = next(c for c in s.state.cards.values() if c.name == "Test Bear" and c.id != bear.id and c.owner == "p1")
+    put_bear = act(s, "p1", type="move", card_ids=[other.id], to={"player": "p1", "zone": "battlefield"})  # noqa: F841
+    _equip(s, blade, other, "Green")
+    assert s.state.cards[blade.id].attached_to == other.id
+    assert "protection from green" in _keywords(s, other) and "protection from red" not in _keywords(s, other)
+    assert "protection from red" not in _keywords(s, bear2) or bear2.id == other.id
     check(s)
