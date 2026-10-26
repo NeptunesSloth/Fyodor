@@ -989,7 +989,7 @@ def flicker_exile(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
 
 def flicker_return(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
-
+    """The card returns under its owner's control (400.7: a new object); only if it does, the other exiled cards return attached to it (303.4i: an Aura that can't enchant it stays exiled)."""
     back = {"do": "return_card", "to": "battlefield", "tapped": False, "under": "owner"}
     ctx["effects"][ctx["next"]:ctx["next"]] = [{**back, "who": "ref:flick_h110i", "as": "flick_new110i"}, {"do": "flicker_auras110i"}]
     return True
