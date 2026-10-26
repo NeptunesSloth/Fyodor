@@ -1528,5 +1528,16 @@
    "G"
   ],
   "keywords": []
+ },
+ {
+  "name": "Paliano, the High City",
+  "layout": "normal",
+  "mana_cost": "",
+  "cmc": 0.0,
+  "type_line": "Legendary Land",
+  "oracle_text": "Reveal this card as you draft it. The player to your right chooses a color, you choose another color, then the player to your left chooses a third color.\n{T}: Add one mana of any color chosen as you drafted cards named Paliano, the High City.",
+  "colors": [],
+  "color_identity": [],
+  "keywords": []
  }
 ]

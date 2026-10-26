@@ -1040,3 +1040,14 @@ _WEB1 = "If a creature with a magnet counter on it attacks, all creatures with m
 _WEB2 = "Whenever a creature with a magnet counter on it attacks, all creatures with magnet counters on them block that creature this turn if able."
 _BUILD[_WEB2] = ("Whenever a creature with a magnet counter on it attacks, you gain 1 life.",
                  lambda d: {**d, "effects": [{"do": "restrict", "who": d["cond"]["sel"], "rules": ["must_block_obj:@it"]}]})
+
+
+# -- Paliano, the High City (wave 110J) -- ruling 2014-05-29: without a draft nothing was chosen, so the mana ability adds no mana (not even colorless). It stays a
+# mana ability (605.1a): {T} is paid, the one option adds nothing.
+_PALIANO = "{T}: Add one mana of any color chosen as you drafted cards named Paliano, the High City."
+
+
+def parse_mana(text: str) -> Any:
+    from app.rules import mana as M
+
+    return M.ManaAbility(tap=True, sacrifice_self=False, options=((),)) if text.strip() == _PALIANO else None
