@@ -249,5 +249,37 @@
 "B"
 ],
 "keywords": []
+},
+{
+"name": "Kaervek's Spite",
+"layout": "normal",
+"mana_cost": "{B}{B}{B}",
+"cmc": 3.0,
+"type_line": "Instant",
+"oracle_text": "As an additional cost to cast this spell, sacrifice all permanents you control and discard your hand.\nTarget player loses 5 life.",
+"colors": [
+"B"
+],
+"color_identity": [
+"B"
+],
+"keywords": []
+},
+{
+"name": "Awesome Presence",
+"layout": "normal",
+"mana_cost": "{U}",
+"cmc": 1.0,
+"type_line": "Enchantment — Aura",
+"oracle_text": "Enchant creature\nEnchanted creature can't be blocked unless defending player pays {3} for each creature they control that's blocking it.",
+"colors": [
+"U"
+],
+"color_identity": [
+"U"
+],
+"keywords": [
+"Enchant"
+]
 }
 ]

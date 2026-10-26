@@ -106,3 +106,22 @@ def test_choice_of_damnations_lose_life_or_sacrifice_all_but_the_chosen_number(c
     if kept == 1:
         assert theirs(s) == ["Llanowar Elves"]  # (the permanent the player kept)
     check(s)
+
+
+# -- Kaervek's Spite -----------------------------------------------------------------------------------------------------------------------
+SPITE = "Kaervek's Spite"
+test_spite_full = full_test([SPITE])
+
+
+@pytest.mark.parametrize("hand_cards", [("Grizzly Bears", "Llanowar Elves"), ()])
+def test_kaervek_spite_sacrifices_every_permanent_and_discards_the_hand_as_a_cost(cards, hand_cards):
+    """601.2b, 118.3: both parts of the additional cost are paid as it is cast (the spell is already on the stack, so it isn't in the hand it discards)."""
+    s = build(cards, [SPITE, "Grizzly Bears", "Llanowar Elves", "Elite Vanguard"], forests=20)
+    board = [put(s, "Elite Vanguard"), put(s, "Forest")]
+    hand = [to_hand(s, n) for n in hand_cards]
+    cast(s, SPITE, ["p2"])
+    assert all(zone_of(s, "Elite Vanguard") == "p1:graveyard" for _ in board[:1]) and board[1].id not in s.state.zones["p1:battlefield"]
+    assert all(c.id in s.state.zones["p1:graveyard"] for c in hand) and not s.state.zones["p1:hand"]
+    answer(s)
+    assert life(s, "p2") == 35 and zone_of(s, SPITE) == "p1:graveyard"
+    check(s)

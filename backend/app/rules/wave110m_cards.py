@@ -19,9 +19,25 @@ _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
 }
 
 
-def definition(ability: Any, ch: Any) -> Def | None:
-    from app.rules import scripts
+ATK_TAX = "block_tax_atk110m"
+_PRESENCE = "Enchanted creature can't be blocked unless defending player pays {3} for each creature they control that's blocking it."
 
+
+def attacker_tax(ch: Any) -> str:
+    """Awesome Presence: the mana the defending player pays for each creature that blocks this attacker (509.1d, 509.1f), or "" (the enchanted creature's rule)."""
+    return "".join(r.split(":", 1)[1] for r in sorted(ch.imposed) if r.startswith(f"{ATK_TAX}:"))
+
+
+def block_tax_for(plan: Any, blocks: Any) -> str:
+    """The attacker-side block costs of a declaration: one payment for each blocker of an attacker that has one."""
+    return "".join(attacker_tax(plan.ch(plan.state.cards[b.attacker_id])) for b in blocks if b.attacker_id in plan.state.cards)
+
+
+def definition(ability: Any, ch: Any) -> Def | None:
+    from app.rules import scripts, statics
+
+    if ability.kind == "static" and ability.text.strip() == _PRESENCE:
+        return statics._definition("attached", "creature", [], rules=[f"{ATK_TAX}:{{3}}"])
     if (built := _BUILD.get(ability.text.strip())) is None:
         return None
     native = scripts.define(replace(ability, text=built[0]), ch)
