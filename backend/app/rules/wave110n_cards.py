@@ -580,114 +580,6 @@ def jace_library(plan: Any, ctx: Any, e: Def) -> bool:
     return True
 
 
-_FLICKERFORM = ("{2}{W}{W}: Exile enchanted creature and all Auras attached to it. At the beginning of the next end step, return that card to the battlefield under its owner's "
-                "control. If you do, return the other cards exiled this way to the battlefield under their owners' control attached to that creature.")
-
-
-def _flickerform(d: Def) -> Def:
-    return {**d, "effects": [{"do": "flicker110n"}]}
-
-
-_BUILD[_FLICKERFORM] = ("{2}{W}{W}: Draw a card.", _flickerform)
-
-
-def flicker(plan: Any, ctx: Any, e: Def) -> bool:
-    """Flickerform: the creature and every Aura on it (whoever controls them) leave together (701.13); at the next end step (603.7) the creature returns under its
-    owner's control and, only if it did (608.2c), the Auras return attached to it (303.4f: one that can't enchant it stays in exile, 303.4g)."""
-    from app.rules import delayed
-
-    src = plan.state.cards.get(ctx.get("source_card", ""))
-    if src is None or not src.zone.endswith(":battlefield") or plan.oid(src) != ctx.get("source_object") or not src.attached_to:
-        return True
-    host = plan.state.cards.get(src.attached_to)
-    if host is None or not host.zone.endswith(":battlefield"):
-        return True
-    auras = [c.id for c in plan.state.cards.values() if c.attached_to == host.id and c.zone.endswith(":battlefield") and "Aura" in plan.ch(c).subtypes]
-    ids = [host.id, *auras]
-    plan.do({"type": "move", "card_ids": ids, "to": {"zone": "exile"}}, actor=ctx["controller"])
-    moved = [[c, plan.oid(c)] for c in ids if plan.state.cards[c].zone.endswith(":exile")]
-    if not moved or moved[0][0] != host.id:
-        return True  # the creature did not go to exile: nothing to bring back (or nothing for the Auras to follow)
-    delayed.create(plan, {**ctx, "next": 0, "effects": [{"do": "flicker_host110n", "cards": moved}, {"do": "flicker_auras110n", "cards": moved}]},
-                   {"do": "delayed", "when": {"kind": "step", "step": "end", "whose": "next"}, "n": 2})
-    return True
-
-
-def flicker_host(plan: Any, ctx: Any, e: Def) -> bool:
-    from app.rules import attachments, context
-
-    (hid, hoid) = e["cards"][0]
-    card = plan.state.cards[hid]
-    if not (card.zone.endswith(":exile") and plan.oid(card) == hoid):
-        context.bind_payment(ctx, "flk110n", False)
-        return True
-    context.bind_payment(ctx, "flk110n", True)
-    return bool(attachments.enter(plan, [{"card": hid, "player": card.owner, "actor": ctx["controller"]}], ctx))
-
-
-def flicker_auras(plan: Any, ctx: Any, e: Def) -> bool:
-    from app.rules import attachments, context, effects
-
-    host = plan.state.cards[e["cards"][0][0]]
-    if not context.refs(ctx).get("flk110n", {}).get("ok") or not host.zone.endswith(":battlefield"):
-        return True
-    context.bind_objects(plan, ctx, "flk_host110n", [host.id])
-    entries = [{"card": c, "player": plan.state.cards[c].owner, "actor": ctx["controller"]} for c, oid in e["cards"][1:]
-               if plan.state.cards[c].zone.endswith(":exile") and plan.oid(plan.state.cards[c]) == oid]
-    entries = effects._attached_entries(plan, ctx, "ref:flk_host110n", entries)
-    return bool(attachments.enter(plan, entries, ctx)) if entries else True
-
-
-_PLAGUE = ("When enchanted creature dies, its controller chooses target creature one of their opponents controls. Return this card from its owner's graveyard to the "
-           "battlefield attached to that creature.")
-
-
-def _plague(d: Def) -> Def:
-    """Necrotic Plague: the dead creature's controller (the event's player) chooses, among the creatures their opponents control (triggers: event_player_pov110n)."""
-    from app.rules import selectors
-
-    ret = [e for e in d["effects"] if e.get("do") == "return_card"]
-    any_creature, opposing = selectors.parse("creature"), selectors.parse("creature an opponent controls")
-    if len(ret) != 1 or not d.get("target") or any_creature is None or opposing is None:
-        return d
-    gone = {k: v for k, v in ret[0].items() if k != "under"}  # (the Aura returns under its owner's control)
-    return {**d, "effects": [gone], "target": {"what": any_creature.key()}, "target_choice": "event_player_pov110n",
-            "pov_what110n": opposing.key()}
-
-
-_BUILD[_PLAGUE] = ("When enchanted creature dies, return this card from your graveyard to the battlefield attached to target creature.", _plague)
-
-
-_QUEEN = ("{2}{B}, {T}: Put target creature card from a graveyard onto the battlefield under your control. When this creature becomes untapped or you lose control of "
-          "this creature, exile that creature.")
-
-
-def _queen(d: Def) -> Def:
-    ret = d["effects"][0]
-    return {**d, "effects": [{**ret, "as": "cq110n"}, {"do": "queen110n"}]}
-
-
-_BUILD[_QUEEN] = ("{2}{B}, {T}: Put target creature card from a graveyard onto the battlefield under your control.", _queen)
-
-
-def queen(plan: Any, ctx: Any, e: Def) -> bool:
-    """Coffin Queen: one delayed triggered ability (603.7) with two events -- the Queen becoming untapped, or her controller losing control of her -- made as two
-    watches of the same effect (exile that creature, the object that came back, 400.7); either one finishing the job leaves nothing for the other (it is gone)."""
-    from app.rules import context, delayed
-
-    src = plan.state.cards.get(ctx.get("source_card", ""))
-    if src is None or not src.zone.endswith(":battlefield") or plan.oid(src) != ctx.get("source_object") or not context.objects(plan, ctx, "cq110n"):
-        return True
-    def inner() -> Def:  # (delayed.create consumes ctx["next"]: one context for each)
-        return {**ctx, "next": 0, "effects": [{"do": "exile", "who": "ref:cq110n"}]}
-
-    untap = {"kind": "watch", "bound": True, "cond": {"event": "untapped", "subject": "sel", "sel": "sel:{}", "aggregate": False}, "text": "this creature becomes untapped"}
-    delayed.create(plan, inner(), {"do": "delayed", "when": untap, "who": "self", "n": 1, "once": True})
-    delayed.create(plan, inner(), {"do": "delayed", "when": {"kind": "event", "event": "lose_control", "open": True}, "who": "self", "n": 1, "once": True,
-                                 "watch_foreign105": False})
-    return True
-
-
 _OVERBURDEN = "Whenever a player puts a nontoken creature onto the battlefield, that player returns a land they control to its owner's hand."
 
 
@@ -1043,6 +935,6 @@ def land_problem(state: Any, player: str, info: Any) -> str | None:
     return None
 
 
-PRIMITIVES: dict[str, Any] = {"decree110n": decree, "willow110n": willow, "reversal_copy110n": reversal_copy, "grip110n": grip, "queen110n": queen, "flicker110n": flicker, "flicker_host110n": flicker_host, "flicker_auras110n": flicker_auras, "jace_library110n": jace_library, "warmachine110n": warmachine, "siren_attack110n": siren_attack, "siren_destroy110n": siren_destroy, "timesifter110n": timesifter, "bullies110n": bullies, "vislor110n": vislor, "vision110n": vision, "cu_exile110n": cu_exile, "spirit110n": spirit, "swarm_pre110n": swarm_pre, "swarm_post110n": swarm_post, "eriette110n": eriette, "sword110n": sword, "sword_note110n": sword_note,
+PRIMITIVES: dict[str, Any] = {"decree110n": decree, "willow110n": willow, "reversal_copy110n": reversal_copy, "grip110n": grip, "jace_library110n": jace_library, "warmachine110n": warmachine, "siren_attack110n": siren_attack, "siren_destroy110n": siren_destroy, "timesifter110n": timesifter, "bullies110n": bullies, "vislor110n": vislor, "vision110n": vision, "cu_exile110n": cu_exile, "spirit110n": spirit, "swarm_pre110n": swarm_pre, "swarm_post110n": swarm_post, "eriette110n": eriette, "sword110n": sword, "sword_note110n": sword_note,
                               "sword_hand110n": sword_hand, "sword_rest110n": sword_rest}
 RESUME: dict[str, Any] = {"grip110n": resume_grip, "vision110n": resume_vision, "spirit110n": resume_spirit, "cu_exile110n": resume_cu_exile}
