@@ -1152,3 +1152,18 @@ def test_without_north_star_the_colored_cost_is_not_payable_with_other_colors(ca
     mana(s, "p1", G=2)
     with pytest.raises(ActionError):
         act(s, "p1", type="cast_spell", card_id=to_hand(s, "Test Red 110FN").id, targets=["p2"])
+
+
+def test_specimens_order_that_changes_the_result_is_left_to_the_table(cards):
+    """616.1: two Gather Specimens (p1, p2) on a creature entering under a third player: either order gives a different controller, so it is not guessed; it stays put with a note."""
+    from app.rules import wave110f_fin
+    from app.rules.plan import Plan
+
+    s = build(cards, ["Gather Specimens"], [])
+    turn = s.state.turn.number
+    s.state.rules.specimens110f = [["p1", turn], ["p2", turn]]
+    plan = Plan(s.state, "p1", s.cards, None)
+    plan.live = lambda: ["p1", "p2", "p3"]  # type: ignore[method-assign]
+    plan.name = lambda pid: pid  # type: ignore[method-assign]
+    assert wave110f_fin.entering_player(plan, "p3") == "p3"
+    assert wave110f_fin.entering_player(plan, "p1") == "p1" and wave110f_fin.entering_player(plan, "p2") == "p2"  # both orders agree

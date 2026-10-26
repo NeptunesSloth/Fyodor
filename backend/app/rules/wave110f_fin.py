@@ -444,21 +444,31 @@ def specimens(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
 def entering_player(plan: Any, player: str) -> str:
     """The player a creature would enter under, after each Gather Specimens of this turn that applies (each once: 614.5; a creature that would enter under an opponent of its
     controller enters under that controller instead, and the new would-be controller is judged again by the others: 2008-10-01 ruling, two opposing ones end where it began).
-    ponytail: with several applicable at once the one that resolved first applies first (616.1: its would-be controller chooses)."""
+    Several applicable at once whose order changes the result (616.1) are handed to the table."""
     r = plan.rules
     if not r.specimens110f:
         return player
     now = [owner for owner, turn in r.specimens110f if turn == plan.state.turn.number and owner in plan.live()]
-    used: set[int] = set()
-    again = True
-    while again:
-        again = False
-        for i, owner in enumerate(now):
-            if i not in used and player != owner:
-                player, again = owner, True
-                used.add(i)
-                break
-    return player
+
+    def run(order: Any) -> str:
+        at, used = player, set()
+        again = True
+        while again:
+            again = False
+            for i in order:
+                if i not in used and at != now[i]:
+                    at, again = now[i], True
+                    used.add(i)
+                    break
+        return at
+
+    from itertools import permutations
+
+    ends = {run(o) for o in permutations(range(len(now)))}
+    if len(ends) > 1:  # 616.1: the order is the would-be controller's to choose, and it changes the result: left to the table (set_controller)
+        plan.note(f"Gather Specimens: {plan.name(player)} chooses the order several apply to a creature entering under them (616.1); put it under the right player with the table tools")
+        return player
+    return ends.pop() if ends else player
 
 
 def creature_entering(plan: Any, card: Any, player: str, **update: Any) -> bool:
