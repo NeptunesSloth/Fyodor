@@ -296,7 +296,7 @@ def _discarded_instead(plan: Plan, e: Event) -> bool:
 
 def collect(plan: Plan) -> None:
     """Look at the events since the last look (603.2)."""
-    from app.rules import combat
+    from app.rules import combat, wave110d_misc
 
     combat.sync_attacking(plan)
     r = plan.rules
@@ -368,6 +368,7 @@ def collect(plan: Plan) -> None:
             for i, d in abilities(plan, ch, "enters_self"):
                 _add(plan, controller=card.controller, source_card=card.id, source_object=e.new_object_id,
                      name=ch.name, index=i, definition=d, event=entered.model_copy(deep=True))
+            wave110d_misc.wall_entered(plan, card, e.new_object_id)  # -- (wave 110D) -- Wall of Stolen Identity's reflexive "When you do"
             _other_enters(plan, card, ch, e.new_object_id, e.batch)
         if frm == "battlefield" and to != "battlefield":
             snap = r.lki.get(e.object_id or "")
@@ -915,6 +916,8 @@ def _cond_matches(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact:
         if snap is None or not _was_modified(plan, snap):
             return False
         sel = selectors.replace(sel, extras=tuple(x for x in sel.extras if x != "modified"))
+    if event == "phase_out" and obj.zone.endswith(":phased"):  # -- wave 110D -- 702.26d: the permanent that phased out is matched as the battlefield permanent it was (The War Doctor)
+        obj = obj.model_copy(update={"zone": obj.zone.replace(":phased", ":battlefield")})
     return selectors.matches(plan, sel, obj, och, you, watcher.id)
 
 
@@ -3155,8 +3158,8 @@ def resume_target(plan: Plan, d: Any, chosen: list[str]) -> None:
 def resume_opponent(plan: Plan, d: Any, chosen: list[str]) -> None:
     """-- delegated (wave 110D) -- the controller named the opponent who picks the target of "of an opponent's choice"."""
     t = next((p for p in plan.rules.pending_triggers if p.id == d.resume["trigger"]), None)
-    if t is not None and chosen[0] in plan.live() and chosen[0] != t.controller:
-        put(plan, t, picks={"opp110d": chosen[0]})
+    if t is not None and chosen[0] in plan.live() and chosen[0] != t.controller and not put(plan, t, picks={"opp110d": chosen[0]}):
+        return  # (the opponent's own decision is open: flush would ask the controller again)
     flush(plan)
 
 

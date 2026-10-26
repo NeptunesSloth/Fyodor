@@ -62,3 +62,7 @@
 ## Session 15
 - Fabrication Foundry: needs a variable-count exact-total exile cost ("one or more other artifacts with total mana value X", X announced). Foundation work (new cost kind beside COLLECT_EVIDENCE in cost_payment/casting/mana), not unsettled rules. Next session.
 - Volcanic Offering: four targets, two of them "of an opponent's choice" (spell with own+opponent pairs, 601.2c; per-pair opponent choice unsettled for several opponents). Extend delegated_target_announcements OWN mode to spells with groups.
+- s16 update: Volcanic Offering (own + opponent's-choice groups, wave110d_volc), Jeweled Amulet and Ice Cauldron (noted mana, wave110d_noted) are built, no longer refused. Per-group opponent choice with several opponents is read as "the caster picks the opponent for each group" (no ruling found that forces one opponent for both; same-opponent play is a subset).
+- Volcanic Offering: "target ... of an opponent's choice" with several opponents: no CR rule or ruling in data/rules says which opponent chooses each target (the only CR text, the example under 801.5b, covers "an opponent chooses one" modes, not targets). Demoted to PARTIAL; wave110d_volc.LINES emptied, foundation kept inert.
+- The War Doctor: "put into exile from anywhere" has no event (only leave-battlefield exile); needs a generic any-zone exile event (foundation).
+- Wall of Stolen Identity: "enter as a copy ... When you do, tap the copied creature and it doesn't untap" needs a reflexive rider that references the copied permanent (copying.py entry has no after-copy hook).

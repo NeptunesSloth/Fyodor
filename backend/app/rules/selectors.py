@@ -2775,6 +2775,11 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
             return False  # -- trigger lines (wave 100A) -- 701.60a: the designation is on this object (400.7)
         if extra == "renowned" and not (plan.rules is not None and plan.oid(card) in plan.rules.renowned):
             return False  # -- commanders (wave 47A) -- 702.112b: the designation is on this object (a new object has none, 400.7)
+        if extra == "goaded_or_suspected" and not (plan.oid(card) in plan.rules.suspected if plan.rules is not None else False):  # -- wave 110D -- Hot Pursuit "goaded and/or suspected" (701.15b, 701.60a)
+            from app.rules.keyword_actions import goaded_by
+
+            if not goaded_by(ch):
+                return False
         if extra == "goaded":  # (wave 22E) 701.15b: goaded by someone (a goad effect lasts until that player's next turn: layers' imposed rules)
             from app.rules.keyword_actions import goaded_by
 

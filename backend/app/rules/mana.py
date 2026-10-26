@@ -400,6 +400,10 @@ def _parse_mana_ability(text: str, identity: tuple[str, ...] = COLORS, *, card_n
 
     if (deity := mana_deity_profiles.parse_mana(text, identity, card_name)) is not None:
         return deity
+    from app.rules import wave110d_noted  # -- noted type (wave 110D) --
+
+    if (noted110d := wave110d_noted.parse_mana(text, identity, card_name)) is not None:
+        return noted110d
     from app.rules import mana_crafted_profiles
 
     if (crafted := mana_crafted_profiles.parse_mana(text, identity, card_name)) is not None:

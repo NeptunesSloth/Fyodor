@@ -4882,13 +4882,13 @@ def become(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         types = list(e.get("types") or [])
         lands = list(e.get("land_types") or ())  # -- land types set (wave 12D) -- 305.7: set, or added ("in addition", 205.1b)
         if types or e.get("creature_types") is not None or e.get("add_creature_types") or e.get("all_creature_types") \
-                or e.get("legendary") or lands or e.get("remove_types") or e.get("remove_subtypes"):
+                or e.get("legendary") or lands or e.get("remove_types") or e.get("remove_subtypes") or e.get("no_land_types110d"):
             made.append(layers.add_effect(plan, layer="4", **common,
                                           add_types=tuple(types) if e.get("retain") else (),
                                           set_types=None if e.get("retain") or not types else types,
                                           set_creature_types=e.get("creature_types"),
                                           set_artifact_types=e.get("artifact_types"),
-                                          set_land_types=lands if lands and not e.get("retain") else None,
+                                          set_land_types=[] if e.get("no_land_types110d") else lands if lands and not e.get("retain") else None,  # (wave 110D: "loses all land types", 305.7)
                                           add_subtypes=(*(e.get("add_creature_types") or ()), *(lands if e.get("retain") else ())),
                                           remove_types=list(e.get("remove_types") or []),
                                           remove_subtypes=list(e.get("remove_subtypes") or []),

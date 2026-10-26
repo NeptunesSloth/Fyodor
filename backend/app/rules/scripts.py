@@ -1224,6 +1224,8 @@ def resolve_it(effects: list[dict[str, Any]], antecedent: str | None, groups: li
                         i.index < index and (i.do in _MOVERS or _group_of(out[i.index]) is not None) for i in intros):
                     return None  # (an explore of the target, not the source)
                 found = objects(index, 1, None) if e.get("do") == "damage" else None
+                if found is not None and found.do == "damage" and out[found.index].get("with_next"):
+                    found = None  # (wave 110D: "it deals 2 damage to X and 2 damage to Y": X is a recipient of the same sentence, never the source)
                 if found is not None:
                     # -- sized amounts (wave 3D) -- "… Then that creature deals damage equal to its power to …": the object
                     # an earlier instruction named (its target, or what it moved / chose), the damage's source
@@ -7902,8 +7904,9 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                         # whenever an Equipment you control enters": one object entering is one event, so one trigger however many halves it matches, 603.2c)
                         if names == ["event", "event"] and (not re.search(
                                 r"\b(?:it|its|it's|that|those|them|they)\b", re.sub(r"\bit's the \w+ time\b", "", m["body"]))
-                                or {g["event"] for g in generic} == {"sacrifice", "to_graveyard"}) and not any(  # (wave 110B: Desert Warfare, "that card" is the one in the graveyard)
-                                g.get("aggregate") or g["event"] in ("either", "multi") for g in generic):
+                                or {g["event"] for g in generic} == {"sacrifice", "to_graveyard"}) and (
+                                {g["event"] for g in generic} == {"phase_out", "to_exile"}  # (wave 110D: The War Doctor, two batches of unlike events, each its own 603.2c)
+                                or not any(g.get("aggregate") or g["event"] in ("either", "multi") for g in generic)):
                             # -- ability words (wave 20C) -- "Whenever an enchantment you control enters and whenever you fully unlock a
                             # Room" (eerie): two whole conditions, each its own event (603.2c) — the "or" form's either condition
                             cond = {"event": "either", "conds": generic,
@@ -9015,8 +9018,10 @@ def _spell_definition(ch: Characteristics) -> Definition | None:
     # "Destroy target creature. / Tap target creature." targets twice, not once).
     groups: list[dict[str, Any]] = []
     effects: list[dict[str, Any]] = []
+    dgroups: list[int] = []  # -- delegated (wave 110D) -- the groups an opponent chooses (wave110d_volc)
     for ab in lines:
         own = target_groups(defs[ab.index])
+        dgroups += [len(groups) + i for i in defs[ab.index].get("dgroups110d", [])]
         if groups and any('"other":true' in g["what"] for g in own):
             return None  # ("another target" on a later line: distinct from which target?)
         offset = len(groups)
@@ -9071,12 +9076,13 @@ def _spell_definition(ch: Characteristics) -> Definition | None:
     as_cast = {defs[ab.index]['x_as_cast'] for ab in lines if defs[ab.index].get('x_as_cast') is not None}
     if as_cast - {'greatest_own_power'} or len(as_cast) > 1:
         return None
-    delegated = [defs[ab.index] for ab in lines if defs[ab.index].get("delegated_target")]  # -- delegated (wave 110D) -- "of an opponent's choice" (Evangelize): a lone line
+    delegated = [defs[ab.index] for ab in lines if defs[ab.index].get("delegated_target") and not dgroups]  # -- delegated (wave 110D) -- "of an opponent's choice" (Evangelize): a lone line
     if delegated and len(lines) != 1:
         return None
     return {"kind": "spell", "effects": effects, **target_fields(target), **({"x_min": minimum_x} if minimum_x else {}),
             **({'x_as_cast': next(iter(as_cast))} if as_cast else {}),
-            **({k: delegated[0][k] for k in ("delegated_target", "delegated_controls110d")} if delegated else {})}
+            **({k: delegated[0][k] for k in ("delegated_target", "delegated_controls110d")} if delegated else {}),
+            **({"delegated_target": "groups110d", "dgroups110d": dgroups} if dgroups else {})}
 
 
 # =====================================================================================================

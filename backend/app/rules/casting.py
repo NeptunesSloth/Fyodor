@@ -800,6 +800,10 @@ def choose_targets(plan: Plan, a: A.CastSpell | A.ActivateAbility, definition: d
                    *, exclude: tuple[str, ...] = ()) -> ChosenTargets | None:
     """All targets of an automated spell or ability (601.2c-d): one plain "target", or target
     groups. None while waiting for a choice."""
+    if definition and definition.get("delegated_target") == "groups110d":  # -- delegated (wave 110D) -- own + opponent's-choice groups
+        from app.rules import wave110d_volc
+
+        return wave110d_volc.announce(plan, a, definition, what)
     if definition and definition.get("delegated_target"):
         from app.rules import delegated_target_announcements
 

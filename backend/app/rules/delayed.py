@@ -250,12 +250,20 @@ def create(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
             return True
         when["player"] = plan.state.cards[moved[0]].owner
     turn = plan.state.turn.number
+    end_of = ctx["controller"]
+    if e.get("player_ref110d"):  # -- (wave 110D) -- Nuka-Nuke Launcher: "until the end of defending player's next turn, that player gets … whenever they cast a spell"
+        from app.rules.effects import _players
+
+        who = _players(plan, ctx, e["player_ref110d"])
+        if not who:
+            return True
+        when["actor_players110d"], end_of = who, who[0]
     trigger = DelayedTrigger(
         id=secrets.token_hex(4), controller=ctx["controller"], source_card=ctx.get("source_card"),
         source_object=ctx.get("source_object"), name=ctx.get("name") or "", when=when,
         effects=_bind_now(plan, ctx, deferred, refs), refs=refs, event=ctx.get("event"), turn=turn,
         step=plan.state.turn.phase, created_step=plan.rules.step_serial, until_turn=turn if e.get("this_turn") else None, until_combat=bool(e.get("this_combat")), until_player=ctx["controller"] if e.get("next_turn") else None, once=bool(e.get("once", True)),
-        until_end_next_player=ctx["controller"] if e.get("end_of_next_turn") else None,
+        until_end_next_player=end_of if e.get("end_of_next_turn") else None,
         target=e.get("target"), targets=e.get("targets"))
     plan.rules.delayed.append(trigger)
     plan.note(f"{trigger.name or 'A delayed ability'} will trigger {describe_when(when)}")
