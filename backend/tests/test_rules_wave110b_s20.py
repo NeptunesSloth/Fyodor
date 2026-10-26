@@ -13,7 +13,7 @@ from app.game.errors import ActionError
 from app.rules import coverage
 from tests.game_helpers import act
 from tests.test_rules_wave30m_durations import to_phase
-from tests.wave110b_kit import build, card_named, check, drive, life, mana, repository, to_hand, zone_of
+from tests.wave110b_kit import build, card_named, check, drive, life, mana, put, repository, to_hand, zone_of
 
 
 @pytest.fixture()
@@ -118,4 +118,31 @@ def test_niv_mizzet_reborn_one_card_of_exactly_each_color_pair(cards):
     drive(s, lambda d: [o.id for o in d.options if o.card_id and s.state.cards[o.card_id].name == "Supreme Verdict"] or None)
     hand = sorted(s.state.cards[c].name for c in s.state.zones["p1:hand"])
     assert hand == ["Bloodbraid Elf", "Fire // Ice", "Supreme Verdict"]
+    check(s)
+
+
+@pytest.mark.parametrize("bottomed", [0, 1, 2])
+def test_temporal_anchor_exiles_as_many_from_the_bottom_as_were_scried_there_and_they_are_playable(cards, bottomed):
+    """701.22a, 603.2: one trigger when cards were put on the bottom while scrying, for that many cards (none bottomed, no trigger); the exiled cards are linked to the Anchor (607.2a)
+    and playable during your turn (the Forest among them)."""
+    s = build(cards, ["The Temporal Anchor"], [], forests=30, islands=40)
+    put(s, "The Temporal Anchor")
+    to_phase(s, "main2", turn=1)
+    while not ((d := s.state.rules.decision) and d.kind == "choose_cards" and "Scry" in d.prompt):
+        if d is not None and d.kind in ("declare_attackers", "declare_blockers"):
+            act(s, d.player, type=d.kind, **({"attackers": []} if d.kind == "declare_attackers" else {"blocks": []}))
+        elif d is not None:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: max(1, d.min_choices)])
+        else:
+            act(s, s.state.rules.priority, type="pass_priority")
+    assert d.player == "p1" and s.state.turn.number == 3
+    pick = [o.id for o in d.options][:bottomed]
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=pick)
+    drive(s)
+    exiled = [c for c in s.state.cards.values() if c.zone == "p1:exile"]
+    assert len(exiled) == bottomed
+    if bottomed:
+        to_phase(s, "main1", turn=3)
+        act(s, "p1", type="play_land", card_id=exiled[0].id)
+        assert s.state.cards[exiled[0].id].zone == "p1:battlefield"
     check(s)

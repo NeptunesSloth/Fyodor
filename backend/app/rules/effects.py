@@ -3129,6 +3129,7 @@ def resume_look(plan: Plan, d: Any, chosen: list[str]) -> None:
                 _wave110l.note_surveilled(plan, pid, chosen)  # -- (wave 110L) -- 701.25a: the cards a surveil put into the graveyard (Eye of Duskmantle)
             else:
                 plan.do({"type": "move", "card_ids": chosen, "to": {"player": pid, "zone": "library"}, "position": "bottom"}, actor=pid)
+                _wave110b_cards.note_scry_bottom(plan, pid, chosen)  # -- (wave 110B) -- The Temporal Anchor: "Whenever you choose to put one or more cards on the bottom of your library while scrying"
     finally:
         plan.shuffle_retained = saved_retained
         plan.shuffle_after = saved_after

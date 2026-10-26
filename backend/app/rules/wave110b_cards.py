@@ -373,7 +373,35 @@ def _niv(d: Def) -> Def:
     return {**d, "effects": [x for e in d["effects"] for x in (picks if e is pick else [e])]}
 
 
+def _anchor(d: Def) -> Def:
+    return {**d, "cond": {**d["cond"], "event": "scry_bottom110b"}, "effects": [{"do": "exile_bottom110b", "n": {"event_amount": 1}}]}
+
+
+def note_scry_bottom(plan: Any, pid: str, chosen: list[str]) -> None:
+    """701.22a: the cards a scry put on the bottom of its library (those that got there), as one event."""
+    from app.game.rules_state import emit
+
+    n = sum(1 for c in chosen if plan.state.cards[c].zone == f"{pid}:library")
+    if n:
+        emit(plan.state, "designation", counter="scry_bottom110b", player=pid, amount=n)
+
+
+def exile_bottom(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """The Temporal Anchor: exile that many cards from the bottom of your library (400.1), linked to the source for "cards exiled with" (607.2a)."""
+    from app.rules import effects, exiled_with
+
+    pid = ctx["controller"]
+    n = max(0, int(effects._amount(plan, ctx, e["n"])))
+    cards = list(plan.state.zones.get(f"{pid}:library", []))[::-1][:n] if n else []
+    if cards:
+        plan.do({"type": "move", "card_ids": cards, "to": {"player": pid, "zone": "exile"}}, actor=pid)
+        exiled_with.record(plan, ctx, [c for c in cards if plan.state.cards[c].zone.endswith(":exile")])
+    return True
+
+
 _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
+    "Whenever you choose to put one or more cards on the bottom of your library while scrying, exile that many cards from the bottom of your library.":
+        ("Whenever you scry, draw a card.", _anchor),
     "When Niv-Mizzet enters, reveal the top ten cards of your library. For each color pair, choose a card that's exactly those colors from among them. Put the chosen cards into your hand and the rest on the bottom of your library in a random order.":
         ("When Niv-Mizzet enters, reveal the top ten cards of your library. Put a creature card from among them into your hand and the rest on the bottom of your library in a random order.", _niv),
     # Slicer, Hired Muscle: 613.1b/e control until end of turn, 701.39 goad, 701.21 sacrifice barred, 701.28 convert (a transform); the "may" is asked first, then one of two branches
@@ -999,4 +1027,4 @@ def resume_avacyn_out(plan: Any, d: Any, chosen: list[str]) -> None:
 RESUME["avacyn_out110b"] = resume_avacyn_out
 
 
-PRIMITIVES: dict[str, Any] = {"slicer110b": slicer, "avacyn_up110b": avacyn_up, "avacyn_out110b": avacyn_out, "destroy_created110b": destroy_created, "adapt_free110b": adapt_free, "second_main110b": second_main, "nelly_draw110b": nelly_draw, "lolth_loss110b": lolth_loss, "mana_web110b": mana_web, "faramir_set110b": faramir_set, "faramir_end110b": faramir_end, "redirect110b": redirect, "kaito110b": kaito, "return_next_end110b": return_next_end, "gap_search110b": gap_search, "gift_given110b": gift_given, "ungoad110b": ungoad, "no_attack_next110b": no_attack_next, "draw_game110b": draw_game, "reaver110b": reaver, "veil110b": veil, "uncounter_by110b": uncounter_by, "exile_own110b": exile_own, "lose_shield110b": lose_shield}
+PRIMITIVES: dict[str, Any] = {"exile_bottom110b": exile_bottom, "slicer110b": slicer, "avacyn_up110b": avacyn_up, "avacyn_out110b": avacyn_out, "destroy_created110b": destroy_created, "adapt_free110b": adapt_free, "second_main110b": second_main, "nelly_draw110b": nelly_draw, "lolth_loss110b": lolth_loss, "mana_web110b": mana_web, "faramir_set110b": faramir_set, "faramir_end110b": faramir_end, "redirect110b": redirect, "kaito110b": kaito, "return_next_end110b": return_next_end, "gap_search110b": gap_search, "gift_given110b": gift_given, "ungoad110b": ungoad, "no_attack_next110b": no_attack_next, "draw_game110b": draw_game, "reaver110b": reaver, "veil110b": veil, "uncounter_by110b": uncounter_by, "exile_own110b": exile_own, "lose_shield110b": lose_shield}

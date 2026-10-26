@@ -239,6 +239,8 @@ def facts(plan: Plan, e: Event) -> list[Any]:
         return out
     if e.counter == "dungeon" and e.player:
         return [("complete_dungeon", None, None, e.player, {})]
+    if e.counter == "scry_bottom110b" and e.player:  # -- (wave 110B) -- 701.22a: cards the scrying player chose to put on the bottom of their library (The Temporal Anchor)
+        return [("scry_bottom110b", None, None, e.player, {"amount": e.amount})]
     if e.counter in ("scry", "surveil") and e.player:  # -- looks (wave 8B) -- 701.22b, 701.25c (history.note_look)
         return [(e.counter, None, None, e.player, {"nth": e.amount, "amount": e.looked})]  # (wave 19C: "cards looked at while scrying this way")
     if e.counter == "roll" and e.player:  # -- rolling dice (wave 13E) -- "Whenever you roll one or more dice" (app/rules/dice.py)
