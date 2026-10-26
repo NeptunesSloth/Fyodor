@@ -331,6 +331,10 @@ def _had_to(d: Def) -> Def:
 
 
 _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
+    # Summon: Brynhildr chapter I: the exiled card is playable in turns you put a lore counter on this Saga (the permission's "when", read at play time as Robber of the Rich's)
+    "I \u2014 Chain \u2014 Exile the top card of your library. During any turn you put a lore counter on this Saga, you may play that card.":
+        ("I \u2014 Exile the top card of your library. You may play that card for as long as it remains exiled.",
+         lambda d: {**d, "effects": [{**e, "when": {"history": "lore_put110b"}} if e.get("do") == "grant_play" else e for e in d["effects"]]}),
     # Bladegriff Prototype: the damaged player picks the target (the trigger's controller still controls the ability, 115.1, 603.3d: "target_choice")
     "Whenever this creature deals combat damage to a player, destroy target nonland permanent of that player's choice that one of your opponents controls.":
         ("Whenever this creature deals combat damage to a player, destroy target nonland permanent an opponent controls.",
