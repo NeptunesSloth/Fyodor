@@ -336,6 +336,7 @@ def definition(ability: AbilityText, ch: Any) -> dict[str, Any] | None:
     if (tevesh := wave110c_tevesh.definition(ability, ch)) is not None:  # Tevesh Szat, Doom of Fools
         return tevesh
     from app.rules import (
+        wave110c_animate,
         wave110c_dark,
         wave110c_discard,
         wave110c_equil,
@@ -346,6 +347,8 @@ def definition(ability: AbilityText, ch: Any) -> dict[str, Any] | None:
         wave110c_wheel,
     )
 
+    if (animate := wave110c_animate.definition(ability.text)) is not None:  # Animate Artifact
+        return animate
     if (equil := wave110c_equil.definition(ability.text)) is not None:  # Land Equilibrium
         return equil
     if (ogre := wave110c_ogre.definition(ability, ch)) is not None:  # Ogre Battlecaster
