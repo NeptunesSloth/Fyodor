@@ -372,6 +372,8 @@ MASTER_CHEF = ('Commander creatures you own have "This creature enters with an a
                '"Other creatures you control enter with an additional +1/+1 counter on them."')
 
 
+HEIRLOOM_EPIC = ("{4}, {T}: Draw a card. For each mana in this ability's activation cost, you may tap an untapped creature you control rather than pay that mana. "
+                 "Activate only as a sorcery.")
 STAFF_ROOM = "Whenever a creature you control deals combat damage to a player, turn that creature face up or put a +1/+1 counter on it."
 DOG_UMBRA = "As long as another player controls enchanted creature, it can't attack or block. Otherwise, this Aura has umbra armor."
 EARTHBIND = "When this Aura enters, if enchanted creature has flying, this Aura deals 2 damage to that creature and this Aura gains \"Enchanted creature loses flying.\""
@@ -408,6 +410,11 @@ def parse_abilities(oracle_text: str | None, *, spell: bool = False, pt: tuple[s
         if line == MASTER_CHEF:
             lines[i:i + 1] = ["Commander creatures you own enter with an additional +1/+1 counter on them.",
                               'Commander creatures you own have "Other creatures you control enter with an additional +1/+1 counter on them."']
+    # -- lines (wave 110C) -- Heirloom Epic: each mana of the cost may be paid by tapping an untapped creature (waterbend's payment, 701.67a, creatures only and not a
+    # waterbend): the cost word "Tapbend" stands for that sentence
+    for i, line in enumerate(lines):
+        if line == HEIRLOOM_EPIC:
+            lines[i] = "Tapbend {4}, {T}: Draw a card. Activate only as a sorcery."
     # -- lines (wave 110D) -- Dog Umbra: 608.2c "Otherwise" = the enchanted creature is not controlled by another player, so you control it (an Aura's
     # controller can't be attached to nothing); two conditional statics
     for i, line in enumerate(lines):

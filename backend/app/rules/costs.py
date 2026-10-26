@@ -542,7 +542,7 @@ _EXILE_TOTAL = re.compile(r"^Exile any number of (?P<what>[a-z]+) cards from you
 # "Exile an artifact from among permanents you control and/or cards in your graveyard" / "…two creatures…" / "…one or more Dinosaurs…"
 _CRAFT = re.compile(r"^Exile (?P<n>a|an|one|two|three|four|five|six|seven|\d+)(?P<more> or more)?(?: (?P<what>[^,]+?))? from among "
                     r"permanents you control and/or cards in your graveyard$")
-_WATERBEND = re.compile(r"^Waterbend \{(?P<n>\d+|X)\}$")
+_WATERBEND = re.compile(r"^(?:Waterbend|Tapbend) \{(?P<n>\d+|X)\}$")
 _SAC_OR = re.compile(r"^Sacrifice (?P<a>a|an|another) (?P<w1>[\w\-]+) or (?P<b>a|an|another) (?P<w2>[\w\-]+)$")  # (no article: refused)
 _GRANDEUR = re.compile(r"^Discard another card named (?P<name>~|[A-Z].+)$")  # (grandeur, an ability word: 207.2c)
 _HALF_LIFE = "Pay half your life rounded up"

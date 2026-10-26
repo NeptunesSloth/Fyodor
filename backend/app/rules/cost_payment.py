@@ -601,7 +601,7 @@ def _choose_waterbend(plan: Plan, a: A.ActivateAbility | A.CastSpell | A.TurnFac
     if not usable or comp.amount == 0:
         return []
     decide(plan, player=plan.actor, kind="choose_cards",
-           prompt=f"{what}: tap up to {comp.amount} untapped artifacts and creatures you control, each paying for {{1}} of “{comp.text}”"
+           prompt=f"{what}: tap up to {comp.amount} untapped {'creatures' if comp.text.startswith('Tapbend') else 'artifacts and creatures'} you control, each paying for {{1}} of “{comp.text}”"
                   " (none: pay with mana only)",
            options=[DecisionOption(id=c, label=plan.state.cards[c].name or "Card", card_id=c) for c in usable],
            min_choices=0, max_choices=min(comp.amount, len(usable)),
@@ -989,7 +989,7 @@ def pay(plan: Plan, cost: AbilityCost, card: CardInstance, chosen: dict[int, lis
 
             payment_card_facts.record(plan, record, "exiled", top)
     for comp in cost.components:  # -- if you do (wave 26C) -- "Whenever you forage / collect evidence" (701.61, 701.59): the cost was paid
-        if comp.kind in (C.FORAGE, C.COLLECT_EVIDENCE, C.WATERBEND) and not comp.text.startswith("Exile any number"):  # (wave 110C: The Capitoline Triad exiles, it doesn't collect evidence)
+        if comp.kind in (C.FORAGE, C.COLLECT_EVIDENCE, C.WATERBEND) and not comp.text.startswith(("Exile any number", "Tapbend")):  # (wave 110C: The Capitoline Triad exiles, it doesn't collect evidence)
             from app.game.rules_state import emit
 
             emit(plan.state,"designation",counter={C.FORAGE:"forage",C.COLLECT_EVIDENCE:"collect_evidence",C.WATERBEND:"waterbend"}[comp.kind],player=player)
