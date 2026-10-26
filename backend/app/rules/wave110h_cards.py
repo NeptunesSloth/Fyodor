@@ -60,6 +60,10 @@ _SWORD = ("{T}, Sacrifice this artifact and any number of creatures you control:
 _SHADOW = re.compile(r"^(?P<head>At the beginning of your upkeep, destroy (?:this creature|~)\. Reveal cards from the top of your library until you reveal a creature card\. "
                      r"Put that card onto the battlefield) and attach ‹granter(?:#(?P<oid>[^›]*))?› to it(?P<tail>, then put all other cards revealed this way on the bottom of "
                      r"your library in a random order\.)$")
+# Darigaaz Reincarnated: dies -> exile with three egg counters (614.1a); each upkeep of its owner it loses one (intervening "if", 603.4), and with none left it returns (400.7: a new object).
+_DARI_DIES = "If ~ would die, instead exile it with three egg counters on it."
+_DARI_UP = ("At the beginning of your upkeep, if this card is exiled with an egg counter on it, remove an egg counter from it. "
+            "Then if this card has no egg counters on it, return it to the battlefield.")
 _SCAPEGOAT = ("Whenever one or more other creatures you control enter, if this creature is suspected, you may suspect one of the other creatures. "
               "If you do, this creature is no longer suspected.")
 
@@ -104,6 +108,13 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
     from app.rules import scripts
 
     text = scripts.self_text(ability.text, ch.name)
+    if text in (_DARI_DIES, _DARI_DIES.replace("~", "Darigaaz")):  # Darigaaz Reincarnated: the replacement (614.1a) exiles it, then the rider puts the counters on the exiled object (122.1, 400.7)
+        return {"kind": "replacement", "replacement": "exile_instead", "from": "battlefield", "effects": [],
+                "rider": {"effects": [{"do": "exile_counters110h", "kind": "egg", "n": 3}], "reflexive": False}}
+    if text == _DARI_UP:  # the exiled card's own upkeep trigger (as for All Hallow's Eve, wave110j_cards.scream_tick)
+        native = scripts.define(replace(ability, text="At the beginning of your upkeep, draw a card."), ch)
+        return None if native is None else {**native, "trigger": "step:upkeep:you", "exiled_step": True,
+                                            "if": {"value": {"counters": "egg", "on": "self"}, "op": ">=", "n": 1}, "effects": [{"do": "egg_tick110h"}]}
     if text == _UNSCYTHE:
         native = scripts.define(replace(ability, text=text.replace("equipped creature", "~")), ch)
         if native is None or "damaged_by_self" not in native.get("cond", {}):
@@ -336,6 +347,27 @@ def sword(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
     return effects.exile_cards(plan, ctx, {}, ids)
 
 
+def exile_counters(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
+    """A replacement's rider: the counters go on the source as the exiled object it now is (122.1; counters on a card in exile, not a permanent)."""
+    card = plan.state.cards.get(ctx.get("source_card", ""))
+    if card is not None and card.zone.endswith(":exile"):
+        plan.do({"type": "counter", "card_ids": [card.id], "kind": e["kind"], "delta": e["n"]}, actor=ctx["controller"])
+    return True
+
+
+def egg_tick(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
+    """Darigaaz Reincarnated: still the same exiled object with an egg counter? Remove one; at zero return it to the battlefield under its owner's control."""
+    from app.rules import effects
+
+    card = plan.state.cards.get(ctx.get("source_card", ""))
+    if card is None or not card.zone.endswith(":exile") or plan.oid(card) != ctx.get("source_object") or card.counters.get("egg", 0) < 1:
+        return True
+    plan.do({"type": "counter", "card_ids": [card.id], "kind": "egg", "delta": -1}, actor=ctx["controller"])
+    if plan.state.cards[card.id].counters.get("egg", 0) == 0:
+        effects._return_cards(plan, ctx, {"do": "return_card", "to": "battlefield", "tapped": False, "under": "you"}, [card.id])
+    return True
+
+
 def excess_reflex(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
     """603.12, 120.10: "When it deals excess damage this way, ..." triggers once if there was excess; the trigger's amount is that excess, and its target
     (chosen when it goes on the stack, 603.3d) is bounded by it."""
@@ -492,5 +524,5 @@ def made(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
     return True
 
 
-PRIMITIVES = {"assign_unblocked110h": assign_unblocked, "made110h": made, "limo_back110h": limo_back, "bottom_did110h": bottom_did, "episode110h": episode, "scapegoat110h": scapegoat, "excess_reflex110h": excess_reflex, "sword110h": sword}
+PRIMITIVES = {"assign_unblocked110h": assign_unblocked, "made110h": made, "limo_back110h": limo_back, "bottom_did110h": bottom_did, "episode110h": episode, "scapegoat110h": scapegoat, "excess_reflex110h": excess_reflex, "sword110h": sword, "egg_tick110h": egg_tick, "exile_counters110h": exile_counters}
 RESUME = {"episode110h": resume_episode, "scapegoat110h": resume_scapegoat}
