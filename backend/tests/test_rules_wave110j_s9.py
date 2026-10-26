@@ -3,6 +3,7 @@
 * 122.1, 406.3, 608.2d: Kianne // Imbraham exile cards and mark them with study counters; the Fractal counts different mana values.
 * 701.17, 701.59, 603.12: Memory Vampire mills the chosen players, then may collect evidence 9 to cast a nonland card of the damaged player's graveyard free.
 * 607.1a, 603.2, 701.3a, 303.4f: Nettlevine Blight's granted trigger (its permanent's controller) sacrifices the host and attaches the Aura to a creature or land they control.
+* 701.3d, 120.3, 608.2h: Shuriken unattaches as a cost, deals 2 damage, and the target's controller gains control unless it was unattached from a Ninja.
 * 613.1b, 608.2d, 701.26: Turf War: the creature's controller gains control of one of the defending player's contested lands (their choice) and untaps it.
 """
 
@@ -187,4 +188,20 @@ def test_nettlevine_blight_moves_on_when_its_host_is_sacrificed(cards, others):
         assert a.zone == "p1:battlefield" and a.attached_to == spare.id
     else:
         assert a.zone == "p1:graveyard"
+    check(s)
+
+
+@pytest.mark.parametrize(("host", "owner"), [("Grizzly Bears", "p2"), ("Ninja of the Deep Hours", "p1")])
+def test_shuriken_changes_hands_unless_unattached_from_a_ninja(cards, host, owner):
+    """The target (2 damage kills it) was Bob's: its controller as it last existed gains control of Shuriken, unless the equipped creature was a Ninja."""
+    s = build(cards, ["Shuriken", host], ["Grizzly Bears"])
+    equipped, shuriken = put_new(s, host), put_new(s, "Shuriken")
+    victim = put_new(s, "Grizzly Bears", "p2")
+    s.state.rules.controlled_since[equipped.id].turn = 0
+    mana(s, "p1", C=2)
+    activate(s, shuriken, "Equip {2}", targets=[equipped.id])
+    assert now(s, shuriken).attached_to == equipped.id
+    activate(s, equipped, "{T}, Unattach", targets=[victim.id])
+    assert now(s, victim).zone == "p2:graveyard" and now(s, shuriken).attached_to is None
+    assert now(s, shuriken).controller == owner
     check(s)

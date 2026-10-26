@@ -890,6 +890,8 @@ def pay(plan: Plan, cost: AbilityCost, card: CardInstance, chosen: dict[int, lis
                 if counter_removal_results.remove(plan, cid, comp.counter or "", comp.amount, by=player) != comp.amount:
                     raise ActionError("The selected counters cannot pay this cost")
         elif comp.kind == C.UNATTACH:  # -- granted from object (wave 18F) -- 701.3d: the granting Equipment stays on the battlefield
+            record.unattached_ninja110j = any(h is not None and "Ninja" in plan.ch(h).subtypes  # -- (wave 110J) -- Shuriken: what it was unattached from
+                                              for h in (plan.state.cards.get(plan.state.cards[i].attached_to or "") for i in (ids if comp.selector is not None else [card.id])))
             plan.do({"type": "detach", "card_ids": ids if comp.selector is not None else [card.id]})
         elif comp.kind == C.SACRIFICE and comp.selector is not None:
             sacrifice += ids

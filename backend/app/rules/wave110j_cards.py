@@ -71,6 +71,10 @@ def values_object(plan: Any, ctx: dict[str, Any]) -> tuple[Any, Any] | None:
 
 def holds(plan: Any, ctx: dict[str, Any], cond: Def) -> bool:
     """Rasputin Dreamweaver: the source was untapped on the battlefield as this turn began (500.1, before the untap step). Swindler's Scheme: see below."""
+    if cond.get("w110j") == "unattached_ninja":  # Shuriken: the cost unattached the Equipment from a Ninja (701.3d, 205.3)
+        sid = ctx.get("stack_id") or ctx.get("source_card")
+        record = plan.rules.payments.get(plan.rules.object_id(sid)) if sid else None
+        return record is not None and record.unattached_ninja110j
     if cond.get("w110j") == "shares_event_type":  # Swindler's Scheme: 205.2, the revealed card and the spell that triggered it
         from app.rules import values
 
@@ -87,6 +91,8 @@ def definition(ability: Any, ch: Any) -> Def | None:
         return {"kind": "static", "static": "counter_cap110j", "counter": cap["kind"], "n": _NUMS[cap["n"]], "effects": []}
     if ability.text.strip() == _ES:
         return _shapeshifter()
+    if (shuriken := _SHURIKEN.fullmatch(ability.text.strip())) is not None:
+        return _shuriken(shuriken["oid"], ability, ch)
     if (blight := _BLIGHT.fullmatch(ability.text.strip())) is not None:
         return _nettlevine(blight["oid"], ability, ch)
     if (built := _BUILD.get(ability.text.strip())) is None:
@@ -630,7 +636,7 @@ def turf(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
     found, hit = context.info(plan, ctx, context.EVENT), next(iter((ctx.get("event") or {}).get("players") or []), None)
     lands = [c.id for c in plan.state.cards.values() if found and c.zone.endswith(":battlefield") and c.controller == hit
              and "Land" in plan.ch(c).types and c.counters.get("contested")]
-    if not lands:
+    if not lands or found is None:
         return True
     who = found[0].controller
     if len(lands) > 1:
@@ -701,3 +707,20 @@ def _nettlevine(oid: str | None, ability: Any, ch: Any) -> Def | None:
     pick = {"do": "player_chooses", "who": "you", "sel": key("creature or land you control"), "n": 1, "label": "creature or land", "as": "nv110j"}
     # (no object id yet while the grant is only being read: attaches nothing)
     return {**native, "effects": [*native["effects"], pick, {"do": "attach_to", "src": f"obj:{oid or ''}", "who": "ref:nv110j"}]}
+
+
+# -- Shuriken (wave 110J) -- the granted activated ability names its Equipment: it deals the damage (120.3), the cost unattached it (701.3d) from the creature whose
+# type counts (it was a Ninja or not), and the target's controller (as it last existed, 608.2h) gains control of the Equipment unless it was a Ninja
+_SHURIKEN = re.compile(r"\{T\}, Unattach ‹granter(?:#(?P<oid>[^›]*))?›: ‹granter(?:#[^›]*)?› deals 2 damage to target creature\. "
+                       r"That creature's controller gains control of ‹granter(?:#[^›]*)?› unless it was unattached from a Ninja\.")
+
+
+def _shuriken(oid: str | None, ability: Any, ch: Any) -> Def | None:
+    from app.rules import scripts
+
+    g = f"‹granter#{oid}›" if oid else "‹granter›"
+    native = scripts.define(replace(ability, text=f"{{T}}, Unattach {g}: {g} deals 2 damage to target creature."), ch)
+    if native is None:
+        return None
+    take = {"do": "gain_control", "who": f"obj:{oid or ''}", "to": "target_player_or_controller"}
+    return {**native, "effects": [*native["effects"], {"do": "only_if", "cond": {"not": {"w110j": "unattached_ninja"}}, "skip": 1}, take]}

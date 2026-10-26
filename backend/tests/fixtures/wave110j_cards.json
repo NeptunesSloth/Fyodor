@@ -1210,5 +1210,24 @@
   "keywords": [
    "Enchant"
   ]
+ },
+ {
+  "name": "Ninja of the Deep Hours",
+  "layout": "normal",
+  "mana_cost": "{3}{U}",
+  "cmc": 4.0,
+  "type_line": "Creature — Human Ninja",
+  "oracle_text": "Ninjutsu {1}{U} ({1}{U}, Return an unblocked attacker you control to hand: Put this card onto the battlefield from your hand tapped and attacking.)\nWhenever this creature deals combat damage to a player, you may draw a card.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "Ninjutsu"
+  ],
+  "power": "2",
+  "toughness": "2"
  }
 ]
