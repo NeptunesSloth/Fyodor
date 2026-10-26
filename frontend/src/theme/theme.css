@@ -28,13 +28,13 @@
   /* text */
   --text: #f1e4cc;
   --text-dim: #bfa988;
-  --text-faint: #7f6c55;
+  --text-faint: #96826a;
 
   /* accents */
   --accent: #d0a45a;
   --accent-2: #f0c97d;
   --accent-ink: #231605;
-  --accent-grad: linear-gradient(180deg, #e2b96b 0%, #b98a42 55%, #93682c 100%);
+  --accent-grad: linear-gradient(180deg, #e2b96b 0%, #c99a52 55%, #b2843e 100%);
   --accent-glow: rgba(240, 190, 100, 0.45);
   --select: #7fb6ff;
   --select-glow: rgba(90, 160, 255, 0.55);
@@ -149,9 +149,27 @@ body { font-family: var(--font-ui); background: var(--bg); }
 .act-btn:active:not(:disabled) { transform: translateY(1px); }
 .act-btn:disabled { opacity: 0.45; cursor: default; }
 .act-btn.primary { background: linear-gradient(180deg, #4d86f0, #2b5bc4); border-color: #8fb3ff; color: #fff; box-shadow: 0 0 18px rgba(80, 140, 255, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.3); }
-.act-btn.gold { background: var(--accent-grad); border-color: var(--frame-hi); color: var(--accent-ink); box-shadow: 0 0 18px var(--accent-glow), inset 0 1px 0 rgba(255, 255, 255, 0.35); }
+.act-btn.gold { background: var(--accent-grad); border-color: var(--frame-hi); color: var(--accent-ink); box-shadow: 0 3px 10px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.35); }
 .act-btn.green { background: var(--ok-grad); border-color: #7fd08f; color: #fff; }
 .act-btn.red { background: var(--danger-grad); border-color: #d06a60; color: #fff; }
+
+/*
+ * A plaque: blackened metal with a chamfered brass edge, the material of every overlay that sits
+ * on the table (seat plaques, the turn dial, the stack chain, the inspector).
+ */
+.plaque {
+  --cut: 8px;
+  position: relative; color: var(--text);
+  background: linear-gradient(180deg, rgba(255, 236, 200, 0.06), rgba(0, 0, 0, 0) 40%), linear-gradient(180deg, #1b140e, #0d0a07);
+  clip-path: polygon(var(--cut) 0, calc(100% - var(--cut)) 0, 100% var(--cut), 100% calc(100% - var(--cut)), calc(100% - var(--cut)) 100%, var(--cut) 100%, 0 calc(100% - var(--cut)), 0 var(--cut));
+}
+.plaque::before {
+  content: ""; position: absolute; inset: 0; pointer-events: none; padding: 1px; opacity: 0.6; clip-path: inherit;
+  background: linear-gradient(180deg, var(--frame-hi), var(--frame) 40%, color-mix(in srgb, var(--frame) 55%, black));
+  -webkit-mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+  mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+}
+.plaque-wrap { filter: drop-shadow(0 8px 16px rgba(0, 0, 0, 0.6)); }
 
 /* Round portrait + life plate (player seats) */
 .portrait {

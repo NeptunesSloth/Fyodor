@@ -181,6 +181,43 @@ const hexRgb = (hex: string): [number, number, number] => {
   return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
 };
 
+const luminance = ([r, g, b]: [number, number, number]) => {
+  const lin = (c: number) => { const v = c / 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); };
+  return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
+};
+/** WCAG contrast ratio of two #rrggbb colours. */
+export function contrast(a: string, b: string): number {
+  const [x, y] = [luminance(hexRgb(a)), luminance(hexRgb(b))];
+  return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05);
+}
+const hex = ([r, g, b]: [number, number, number]) => `#${[r, g, b].map((v) => Math.round(v).toString(16).padStart(2, "0")).join("")}`;
+
+/**
+ * The darkest stop of the brass button gradient: as close to accentDeep as dark ink on it still
+ * reads at 4.5:1 (the critique measured 3.6:1 with accentDeep itself).
+ */
+export function accentLow(p: PlaneTheme): string {
+  const a = hexRgb(p.ui.accent);
+  const d = hexRgb(p.ui.accentDeep);
+  for (let t = 1; t > 0; t -= 0.05) {
+    const c = hex([a[0] + (d[0] - a[0]) * t, a[1] + (d[1] - a[1]) * t, a[2] + (d[2] - a[2]) * t]);
+    if (contrast(c, p.ui.accentInk) >= 4.5) return c;
+  }
+  return p.ui.accent;
+}
+
+/** Faint text, lifted toward textDim until it reads at 4.5:1 on the plane's panels. */
+export function textFaint(p: PlaneTheme): string {
+  const f = hexRgb(p.ui.textFaint);
+  const d = hexRgb(p.ui.textDim);
+  const panel = hex(p.ui.panelRgb);
+  for (let t = 0; t <= 1; t += 0.05) {
+    const c = hex([f[0] + (d[0] - f[0]) * t, f[1] + (d[1] - f[1]) * t, f[2] + (d[2] - f[2]) * t]);
+    if (contrast(c, panel) >= 4.5 && contrast(c, p.ui.bg) >= 4.5) return c;
+  }
+  return p.ui.textDim;
+}
+
 /** The CSS custom properties for a plane (applied on <html>). */
 export function cssTokens(p: PlaneTheme): Record<string, string> {
   const u = p.ui;
@@ -209,9 +246,9 @@ export function cssTokens(p: PlaneTheme): Record<string, string> {
     "--panel-grad": `linear-gradient(180deg, ${rgba(panelHi, 0.95)}, ${rgba(panel, 0.97)})`,
     "--line": u.line, "--line-2": u.line2, "--frame": u.frame, "--frame-hi": u.frameHi,
     "--frame-inner": rgba(hexRgb(u.frameHi), 0.14),
-    "--text": u.text, "--text-dim": u.textDim, "--text-faint": u.textFaint,
+    "--text": u.text, "--text-dim": u.textDim, "--text-faint": textFaint(p),
     "--accent": u.accent, "--accent-2": u.accent2, "--accent-ink": u.accentInk,
-    "--accent-grad": `linear-gradient(180deg, ${u.accent2} 0%, ${u.accent} 50%, ${u.accentDeep} 100%)`,
+    "--accent-grad": `linear-gradient(180deg, ${u.accent2} 0%, ${u.accent} 50%, ${accentLow(p)} 100%)`,
     "--accent-glow": rgba(accent, 0.42),
     "--select": u.select, "--select-glow": rgba(sel, 0.55),
     "--felt": e.surfaceBase, "--felt-2": e.surfaceGrain,
