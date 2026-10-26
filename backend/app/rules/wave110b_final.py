@@ -427,17 +427,26 @@ def _has_thief(ch: Any) -> bool:
     return any(a.text.strip() == _THIEF for a in ch.abilities)
 
 
-def thief_total(plan: Any, card: Any, ch: Any) -> int:
+def _rival(plan: Any, card: Any, newcomers: list[str] | None) -> bool:
+    """Another Thief of Blood entering at the same time: the 2015-11-04 ruling lets its controller apply any one of them (616.1) and only that one gets the counters.
+    ponytail: that choice is not built; neither Thief acts and the players do it by hand (the note says so)."""
+    other = [c for i in newcomers or () if i != card.id and (c := plan.state.cards.get(i)) is not None and c.name == card.name]
+    if other:
+        plan.note(f"{card.name} entered with another {card.name}: apply only one of them (it removes the counters and enters with them), by hand (614.12, 616.1)", [card.id])
+    return bool(other)
+
+
+def thief_total(plan: Any, card: Any, ch: Any, newcomers: list[str] | None = None) -> int:
     """Thief of Blood (614.12, 122.6): the counters on all permanents now (the look-ahead of what it enters with; nothing is removed here)."""
-    if not _has_thief(ch):
+    if not _has_thief(ch) or _rival(plan, card, newcomers):
         return 0
     return sum(sum(c.counters.values()) for c in plan.state.cards.values() if c.zone.endswith(":battlefield") and c.id != card.id)
 
 
-def thief_remove(plan: Any, card: Any, ch: Any, controller: str) -> None:
+def thief_remove(plan: Any, card: Any, ch: Any, controller: str, newcomers: list[str] | None = None) -> None:
     """The removal itself, as the Thief really enters (the 2015-11-04 rulings: loyalty counters are removed from planeswalkers, players' experience counters are not)."""
-    if not _has_thief(ch):
-        return
+    if not _has_thief(ch) or any(i != card.id and i in plan.state.cards and plan.state.cards[i].name == card.name for i in newcomers or ()):
+        return  # (the rival's note was made by thief_total)
     for c in list(plan.state.cards.values()):
         if c.zone.endswith(":battlefield") and c.id != card.id:
             for kind, n in list(c.counters.items()):

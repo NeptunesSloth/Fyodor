@@ -762,3 +762,43 @@ def test_mairsil_borrows_a_mana_ability_and_only_from_cards_its_controller_owns(
     cast(s, "Sol Ring")  # (the only mana source of Alice is Mairsil's borrowed ability: {C} pays for it)
     assert s.state.cards[card_named(s, "Sol Ring").id].zone == "p1:battlefield" and s.state.cards[mair.id].tapped
     check(s)
+
+
+@pytest.mark.parametrize("dredge", [True, False])
+def test_nefarious_lich_replaced_draw_still_offers_dredge(cards, dredge):
+    """616.1, 614.6, 702.52: the cards drawn instead of Helix's gain go through the draw choke point: Stinkweed Imp in the graveyard may be dredged (a choice) for the first of them."""
+    s = build(cards, [LICH, "Lightning Helix", "Stinkweed Imp"], [])
+    put(s, LICH)
+    at(s, "Stinkweed Imp", "graveyard", "p1")
+    mana(s, R=1, W=1)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Lightning Helix").id, targets=["p2"])
+    seen: list[Any] = []
+
+    def answer(d: Any) -> list[str] | None:
+        seen.append(d)
+        return None if dredge else ["decline"]  # the first option (dredge) or "Draw normally"
+
+    drive_exact(s, answer)
+    assert any("redge" in str(getattr(d, "prompt", "")) + " ".join(o.label for o in d.options) for d in seen), "a dredge choice was offered"
+    assert s.state.cards[card_named(s, "Stinkweed Imp").id].zone == ("p1:hand" if dredge else "p1:graveyard")
+    assert life(s) == 40 and life(s, "p2") == 37
+    check(s)
+
+
+def test_thief_of_blood_two_entering_together(cards):
+    """614.12, 616.1, 2015-11-04 ruling: with two Thieves entering at once only one of them gets the counters (the other none); the engine can't offer that choice yet, so it does neither
+    and tells the players to do it by hand (counters stay, none added)."""
+    s = build(cards, [THIEF, THIEF, "Living Death", LUKKA], [])
+    lk = put(s, LUKKA)
+    act(s, "p1", type="set_counter", card_id=lk.id, kind="loyalty", value=5)
+    for c in [c for c in s.state.cards.values() if c.name == THIEF and c.owner == "p1"]:
+        act(s, "p1", type="move", card_ids=[c.id], to={"player": "p1", "zone": "graveyard"})
+    mana(s, B=2, C=3)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Living Death").id)
+    drive_exact(s, lambda d: None)
+    thieves = [c for c in s.state.cards.values() if c.name == THIEF and c.zone == "p1:battlefield"]
+    assert len(thieves) == 2
+    assert all(not c.counters for c in thieves)
+    assert s.state.cards[lk.id].counters == {"loyalty": 5}
+    assert any("apply only one of them" in str(e) for e in s.state.log)
+    check(s)

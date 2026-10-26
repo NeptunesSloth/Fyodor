@@ -1757,6 +1757,7 @@ def gain_life(plan: Plan, gains: list[tuple[str, int]], *, actor: str, then: dic
             return False
         raise planned
     finals, planner = planned
+    lich: dict[str, int] = {}
     left_to_players(plan, planner)
     for before, out in finals:
         note_applied(plan, before, out, actor=actor)
@@ -1770,8 +1771,10 @@ def gain_life(plan: Plan, gains: list[tuple[str, int]], *, actor: str, then: dic
 
                 for pid, n in life_lock.keep(plan, [(ev["player"], ev["n"])], actor=actor):
                     plan.do({"type": "life", "player": pid, "delta": -n, "group": operation}, actor=actor)
-            elif ev["kind"] == "draw_n110b" and ev["n"] > 0:  # -- (wave 110B) -- Nefarious Lich: drawn instead (through the draw choke point: its replacements apply)
-                draw_cards(plan, [ev["player"]], int(ev["n"]))
+            elif ev["kind"] == "draw_n110b" and ev["n"] > 0:
+                lich[ev["player"]] = lich.get(ev["player"], 0) + int(ev["n"])
+    if lich:  # -- (wave 110B) -- Nefarious Lich: drawn instead, through the draw choke point (616.1: a draw replacement that needs a choice pauses; it then owns ``then``)
+        return draw_cards(plan, list(lich), lich, then=then, answers={})
     return True
 
 
