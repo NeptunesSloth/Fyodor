@@ -24,6 +24,10 @@ _TASTER = ("When ~ enters, target opponent reveals X cards from their hand, wher
            "That player exiles it. If an instant or sorcery card is exiled this way, you may cast it for as long as you control ~, and mana of any type can be spent to cast that spell.")
 
 
+_DOCTOR = ("Whenever ~ attacks, choose a card in your hand. Defending player guesses whether that card's mana value is greater than the number of artifacts you control. "
+           "If they guessed wrong, you may cast it without paying its mana cost. If you don't cast a spell this way, investigate.")
+
+
 def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
     from app.rules import scripts
     from app.rules.token_copy_outcomes import ORIGINAL
@@ -66,7 +70,61 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
                                      {"do": "choose_from_hand", "who": "you", "sel": 'sel:{"card":true,"zones":[]}', "n": 1, "label": "card", "optional": False, "as": "e1"},
                                      {"do": "exile", "who": "ref:e1", "as": "e2"}, {"do": "only_if", "cond": {"object": "ref:e2", "is": sel}, "skip": 1},
                                      {"do": "grant_play", "who": "ref:e2", "play": False, "cast": True, "until": "source_controlled", "optional": True, "spend": "type"}]}
+    if ability.kind == "triggered" and text == _DOCTOR:
+        probe = scripts.define(replace(ability, text="Whenever ~ attacks, draw a card."), ch)
+        cast = scripts.parse_effects("You may cast a spell from your hand without paying its mana cost. If you don't, investigate.")
+        if probe is None or probe["kind"] != "triggered" or cast is None:
+            return {}
+        free, gate, investigate = cast[0]
+        return {**probe, "effects": [{"do": "seventh110f"}, {"do": "only_if", "cond": {"succeeded": "wrong110f"}, "skip": 1},
+                                     {**free, "zone": "that", "who": "ref:seventh110f"}, gate, investigate]}
     return None
+
+
+def seventh(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """608.2d: the controller picks a card in hand in secret (it is not named in the log), the defending player guesses (X is 0 in a hand, 202.3e)."""
+    from app.rules import context, effects
+
+    me = ctx["controller"]
+    hand = list(plan.state.zones.get(f"{me}:hand", []))
+    context.bind_payment(ctx, "wrong110f", False)
+    context.bind_objects(plan, ctx, "seventh110f", [])
+    if not hand or not effects._players(plan, ctx, "defending_player"):
+        return True
+    effects.decide(plan, player=me, kind="choose_cards", prompt=f"{ctx.get('name') or 'Choose'}: choose a card in your hand",
+                   options=[DecisionOption(id=c, label=plan.state.cards[c].name or "Card", card_id=c) for c in hand], min_choices=1, max_choices=1,
+                   resume={"step": "seventh110f", "ctx": ctx})
+    return False
+
+
+def resume_seventh(plan: Any, d: Any, chosen: list[str]) -> None:
+    from app.game.errors import ActionError
+    from app.rules import context, effects
+
+    ctx = d.resume["ctx"]
+    if len(chosen) != 1 or chosen[0] not in plan.state.zones.get(f"{d.player}:hand", []):
+        raise ActionError("Choose a card in your hand")
+    context.bind_objects(plan, ctx, "seventh110f", chosen)
+    guesser = effects._players(plan, ctx, "defending_player")[0]
+    effects.decide(plan, player=guesser, kind="choose_one", prompt=f"{ctx.get('name') or 'Guess'}: is the mana value of the chosen card greater than the number of artifacts they control?",
+                   options=[DecisionOption(id="yes", label="Yes, greater"), DecisionOption(id="no", label="No, not greater")],
+                   resume={"step": "seventh110f_guess", "ctx": ctx, "card": chosen[0]})
+
+
+def resume_seventh_guess(plan: Any, d: Any, chosen: list[str]) -> None:
+    from app.game.errors import ActionError
+    from app.rules import characteristics as chars
+    from app.rules import context, effects
+
+    if len(chosen) != 1 or chosen[0] not in ("yes", "no"):
+        raise ActionError("Choose yes or no")
+    ctx = d.resume["ctx"]
+    card = plan.state.cards[d.resume["card"]]
+    artifacts = sum("Artifact" in plan.ch(plan.state.cards[c]).types for c in plan.state.zones.get(f"{ctx['controller']}:battlefield", []))
+    wrong = (chars.of(card, plan.info).mana_value > artifacts) != (chosen[0] == "yes")
+    plan.note(f"{plan.name(d.player)} guessed {'wrong' if wrong else 'right'}", actor=d.player)
+    context.bind_payment(ctx, "wrong110f", wrong)
+    effects.continue_effects(plan, ctx)
 
 
 def link_cost(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
@@ -111,5 +169,5 @@ def resume_master(plan: Any, d: Any, chosen: list[str]) -> None:
         effects.continue_effects(plan, d.resume["ctx"])
 
 
-PRIMITIVES = {"master110f": master, "link_cost110f": link_cost}
-RESUME = {"master110f": resume_master}
+PRIMITIVES = {"master110f": master, "link_cost110f": link_cost, "seventh110f": seventh}
+RESUME = {"master110f": resume_master, "seventh110f": resume_seventh, "seventh110f_guess": resume_seventh_guess}

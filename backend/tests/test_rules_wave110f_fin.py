@@ -269,3 +269,74 @@ def test_taster_permission_ends_when_it_leaves(cards):
     with pytest.raises(ActionError):
         act(s, "p1", type="cast_spell", card_id=exiled.id, targets=["p2"])
     check(s)
+
+
+_DOCTOR = ("Whenever The Seventh Doctor attacks, choose a card in your hand. Defending player guesses whether that card's mana value is greater than the number of artifacts you control. "
+           "If they guessed wrong, you may cast it without paying its mana cost. If you don't cast a spell this way, investigate. (Create a Clue token. It's an artifact with \"{2}, Sacrifice this token: Draw a card.\")")
+_BASE.append(real("The Seventh Doctor", "{3}{W}{U}", 5, "Legendary Creature — Time Lord Doctor", _DOCTOR, ("3", "6"), "UW"))
+
+
+def test_doctor_full(cards):
+    assert coverage.of_card_data(cards.resolve("The Seventh Doctor")).level == "FULL"
+
+
+def _clues(s):
+    return [c for c in s.state.cards.values() if c.is_token and c.name == "Clue" and c.zone == "p1:battlefield"]
+
+
+def _doctor(cards, hand, artifacts=0):
+    from tests.wave9c_kit import to_hand
+    from tests.wave36a_kit import ready, to_attackers
+
+    rocks = ["Test Rock 110FF", "Test Big Golem 110FF"][:artifacts]
+    s = build(cards, ["The Seventh Doctor", *hand, *rocks], [])
+    doc = put(s, "The Seventh Doctor")
+    ready(s, "The Seventh Doctor")
+    for n in hand:
+        to_hand(s, n)
+    for n in rocks:
+        put(s, n)
+    to_attackers(s)
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": doc.id, "target": "p2"}])
+    return s
+
+
+def _go(s, guess, cast=None):
+    """Alice chooses her one card, Bob guesses ``guess`` ("yes": greater), then Alice casts it (or not)."""
+    d = s.state.rules.decision
+    assert d.player == "p1" and d.kind == "choose_cards"
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[d.options[0].id])
+    d = s.state.rules.decision
+    assert d.player == "p2"
+    act(s, "p2", type="choose", decision_id=d.id, option_ids=[guess])
+    if cast is not None:
+        d = s.state.rules.decision
+        assert d is not None and d.player == "p1" and d.kind == "choose_cards"
+        act(s, "p1", type="choose", decision_id=d.id, option_ids=[d.options[0].id] if cast else [])
+    answer(s, "p2")
+
+
+@pytest.mark.parametrize("guess,wrong,cast", [("yes", False, None), ("no", True, True), ("no", True, False)])
+def test_doctor_guess(cards, guess, wrong, cast):
+    """608.2d: Bob guesses whether Test Bolt's mana value (2) is greater than the artifacts Alice controls (0): "yes" is right. Wrong: Alice may cast it free; no cast: investigate."""
+    s = _doctor(cards, ["Test Bolt 110FF"])
+    _go(s, guess, cast)
+    assert len(_clues(s)) == (0 if cast else 1)
+    assert life(s, "p2") == 40 - 3 - (3 if cast else 0)
+    check(s)
+
+
+@pytest.mark.parametrize("artifacts,guess,wrong", [(1, "yes", False), (2, "yes", True), (2, "no", False)])
+def test_doctor_counts_artifacts(cards, artifacts, guess, wrong):
+    """The number of artifacts she controls is the threshold: 2 > 1 (greater), 2 > 2 is not."""
+    s = _doctor(cards, ["Test Bolt 110FF"], artifacts)
+    _go(s, guess, True if wrong else None)
+    assert len(_clues(s)) == (0 if wrong else 1)
+    check(s)
+
+
+def test_doctor_empty_hand_investigates(cards):
+    s = _doctor(cards, [])
+    answer(s, "p2")
+    assert len(_clues(s)) == 1
+    check(s)
