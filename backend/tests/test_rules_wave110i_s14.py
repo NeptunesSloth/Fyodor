@@ -1,5 +1,6 @@
 """Wave 110I session 14.
 
+* Wayta, Trainer Prodigy: "a creature you control being dealt damage" makes the triggers of that damage trigger an additional time (603.2d; the fight's cost drops by {2} when both targets are creatures you control (601.2f).
 * Guardian Archon: "Reveal the player you chose" (the entry secret choice, 614.12a) gives you and a permanent you control protection from that player (702.16k) until end of turn; once only.
 """
 from __future__ import annotations
@@ -71,3 +72,38 @@ def test_archon_protects_you_and_the_target_from_the_chosen_player_only(cards, w
     with pytest.raises(ActionError):
         act(s, "p1", type="activate_ability", card_id=archon.id, ability=2, targets=[shaman.id])
     check(s)
+
+
+WAYTA = real("Wayta, Trainer Prodigy", "{R}{G}{W}", 3, "Legendary Creature \u2014 Human Warrior",
+             "Haste\n{2}{G}, {T}: Target creature you control fights another target creature. This ability costs {2} less to activate if it targets two creatures you control.\n"
+             "If a creature you control being dealt damage causes a triggered ability of a permanent you control to trigger, that ability triggers an additional time.",
+             ("1", "5"), "RGW")
+SPARKY = real("Test Sparky", "{1}{G}", 2, "Creature \u2014 Beast", "Whenever this creature is dealt damage, you gain 1 life.", ("1", "9"), "G")
+base.EXTRA.extend([WAYTA, SPARKY])
+
+
+def test_wayta_full(cards):
+    assert coverage.of_card_data(cards.resolve("Wayta, Trainer Prodigy")).level == "FULL"
+
+
+def _fight(cards, enemy, paid):
+    s = _three(cards, ["Wayta, Trainer Prodigy", "Test Sparky", "Test Bear"], carols=("Test Bear",))
+    wayta, sparky = put(s, "Wayta, Trainer Prodigy"), put(s, "Test Sparky")
+    other = put(s, "Test Bear") if enemy == "mine" else put(s, "Test Bear", "p3")
+    mana(s, G=1, C=paid - 1)
+    act(s, "p1", type="activate_ability", card_id=wayta.id, ability=1, targets=[sparky.id, other.id], target_counts=[1, 1])
+    answer(s)
+    return s, wayta
+
+
+@pytest.mark.parametrize(("enemy", "paid", "gained"), [("mine", 1, 2), ("theirs", 3, 2)])
+def test_wayta_fight_costs_two_less_with_two_of_your_creatures_and_doubles_the_damage_triggers(cards, enemy, paid, gained):
+    """{G} suffices for two creatures you control; {2}{G} is needed against Bob's. Sparky is dealt damage once: its trigger happens twice (Wayta)."""
+    s, wayta = _fight(cards, enemy, paid)
+    assert wayta.tapped and s.state.players["p1"].life == 40 + gained
+    check(s)
+
+
+def test_wayta_fight_against_an_opposing_creature_cannot_be_paid_with_the_discount(cards):
+    with pytest.raises(ActionError):
+        _fight(cards, "theirs", 1)
