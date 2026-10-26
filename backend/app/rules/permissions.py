@@ -522,6 +522,10 @@ def define_static(text: str, kind: str, lines: tuple[str, ...] = ()) -> Definiti
     the card's ability lines (a permission to cast from the top of the library is only usable
     when the card also reveals that card, or lets its owner look at it)."""
     t = _lower_first(text.strip().rstrip("."))
+    if t == "spells with the chosen names can't be cast and lands with the chosen names can't be played":  # -- two names (wave 110F) -- Null Chamber
+        from app.rules import cast_limits
+
+        return cast_limits.static_definition(text)
     t = re.sub(r"(you may) reveal an? (\w+) card from your hand or choose an? \2 you control$", r"\1 behold a \2", t)  # 701.4a (wave 110A): Dragon's Fire
     linked_spend = ""
     if "exiled with ~" in t or "the exiled card" in t:

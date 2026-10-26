@@ -114,7 +114,7 @@ def _enters_choices(ch: Characteristics) -> list[str]:
     from app.rules.scripts import self_text
 
     texts = [choice_head(self_text(ab.text, ch.name)) for ab in ch.abilities]  # (wave 53B: a line that also puts counters on it)
-    named = [e["what"] for t in texts if (d := card_names.enters_choice(t)) is not None for e in d["effects"] if card_names.is_choice(e["what"])]
+    named = [e["what"] for t in texts if (d := card_names.enters_choice(t)) is not None for e in d["effects"] if card_names.is_choice(e["what"]) and e["what"] != card_names.SECOND]  # (wave 110F: Null Chamber's two names are one "card name" choice)
     named += [m["what"] for t in texts if (m := NAME_TRIGGER.match(t)) is not None]  # (wave 53B: "When ~ enters, choose a land card name." — recorded on the permanent as the trigger resolves, Petrified Hamlet)
     pairs = [k for t in texts if (m := ENTERS_CHOICE.match(t)) is not None and re.fullmatch(PAIRS, m["what"]) for k in ("color", "creature type")]  # (wave 53B: Sarpadian Empires)
     pairs += [k for t in texts if (m := ENTERS_CHOICE.match(t)) is not None and m["what"] == "two basic land types" for k in ("basic land type", "second basic land type")]  # (Illusionary Terrain)

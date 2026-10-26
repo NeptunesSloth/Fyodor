@@ -368,7 +368,53 @@ def _snitch() -> Parsed:
     return [{**effects[0], "remove": ["protection from black"]}], targets, optional
 
 
+def vapors(plan: Any, ctx: dict[str, Any], e: dict[str, Any], st: dict[str, Any] | None = None) -> bool:
+    """Noxious Vapors: each player (APNAP, 101.4) reveals their hand (701.20a) and chooses one card of each color from it; every other nonland card is
+    discarded at once. 105.2b: a multicolored card is each of its colors, so a card chosen for one of its colors is the chosen card of the others too (a color with a single
+    card in hand has nothing to choose). Colorless nonland cards are of no color, so are never chosen."""
+    from app.game.rules_state import DecisionOption
+    from app.rules import effects
+    from app.rules.plan import decide
+
+    st = st or {"todo": list(plan.apnap()), "keep": [], "colors": None, "toss": []}
+    while st["todo"]:
+        pid = st["todo"][0]
+        hand = list(plan.state.zones.get(f"{pid}:hand", []))
+        if st["colors"] is None:
+            if hand:
+                plan.do({"type": "reveal", "card_ids": hand}, actor=pid)
+            st["colors"] = [c for c in "WUBRG" if any(c in plan.ch(plan.state.cards[x]).colors for x in hand)]
+        while st["colors"]:
+            color = st["colors"][0]
+            of_color = [x for x in hand if color in plan.ch(plan.state.cards[x]).colors]
+            if any(x in st["keep"] for x in of_color):  # already chosen as another color's card (105.2b): it is this color's card too
+                st["colors"].pop(0)
+                continue
+            if len(of_color) > 1:
+                decide(plan, player=pid, kind="choose_one", prompt=f"Choose one card of color {color} from your hand",
+                       options=[DecisionOption(id=x, label=plan.state.cards[x].name, card_id=x) for x in of_color],
+                       resume={"step": "vapors110f", "ctx": ctx, "e": e, "st": st})
+                return False
+            st["keep"] += of_color
+            st["colors"].pop(0)
+        st["toss"] += [x for x in hand if x not in st["keep"] and "Land" not in plan.ch(plan.state.cards[x]).types]
+        st["todo"].pop(0)
+        st["colors"] = None
+    return effects._discard_next(plan, ctx, 0, [], st["toss"], None)
+
+
+def resume_vapors(plan: Any, d: Any, chosen: list[str]) -> None:
+    from app.rules import effects
+
+    st = d.resume["st"]
+    st["keep"].append(chosen[0])
+    st["colors"].pop(0)
+    if vapors(plan, d.resume["ctx"], d.resume["e"], st):
+        effects.continue_effects(plan, d.resume["ctx"])
+
+
 BUILDERS: dict[str, Callable[[], Parsed | None]] = {
+    "Each player reveals their hand, chooses one card of each color from it, then discards all other nonland cards.": lambda: ([{"do": "vapors110f"}], None, False),
     "Each player sacrifices an artifact, a creature, an enchantment, a land, and a planeswalker of their choice.": _release,
     "it deals 2 damage to target creature an opponent controls. Destroy all Equipment attached to that creature.": _fires,
     "Destroy up to two target creatures the chosen player controls. They can't be regenerated. The chosen player draws up to three cards.": lambda: _lore(),
@@ -407,8 +453,8 @@ REWRITES = {
     "Destroy target attacking creature, then put this card on top of your library.": "Destroy target attacking creature. Put ~ on top of your library.",  # Vengeful Pharaoh
                 "it deals 6 damage to each creature it blocked this combat.": "~ deals 6 damage to each creature blocked by it.",
 }
-PRIMITIVES: dict[str, Any] = {"barrier_direction110f": barrier_direction, "remove_enchantments110f": remove_enchantments, "same_colors110f": same_colors, "phase_swap110f": phase_swap, "exile_discarded110f": exile_discarded, "turn_up_choice110f": turn_up_choice, "reveal_chroma110f": reveal_chroma, "unlock110f": unlock}
-RESUME: dict[str, Any] = {"turn_up_choice110f": resume_turn_up, "reveal_chroma110f": resume_reveal_chroma, "unlock110f": resume_unlock}
+PRIMITIVES: dict[str, Any] = {"barrier_direction110f": barrier_direction, "remove_enchantments110f": remove_enchantments, "same_colors110f": same_colors, "phase_swap110f": phase_swap, "exile_discarded110f": exile_discarded, "turn_up_choice110f": turn_up_choice, "reveal_chroma110f": reveal_chroma, "unlock110f": unlock, "vapors110f": vapors}
+RESUME: dict[str, Any] = {"vapors110f": resume_vapors, "turn_up_choice110f": resume_turn_up, "reveal_chroma110f": resume_reveal_chroma, "unlock110f": resume_unlock}
 
 
 # 905.2 / 103.6: nothing is drafted in Commander, so these cards never have a card, note or chosen color (app/rules/draft_only.py).

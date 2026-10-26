@@ -276,6 +276,11 @@ def static_definition(text: str) -> Definition | None:
                 'act': None, 'when': None, 'max': None, 'name_permanent': True,
                 'spells': 'cast spells' in t, 'nonbasic_lands': 'nonbasic lands' in t, 'effects': []}
   # (wave 50J: counted for the caster, who is "you" to the spell selector)
+    if t == "spells with the chosen names can't be cast and lands with the chosen names can't be played":  # -- two names (wave 110F) -- Null Chamber: 601.3, 305.1; card_names.has_name reads both
+        from app.rules import selectors
+
+        return {"kind": "static", "static": "cast_limit", "who": "each", "when": None, "from": None, "act": None, "max": None, "effects": [], "named_lands110f": True,
+                "filter": selectors.parse("spells with the chosen name").key()}  # type: ignore[union-attr]
     if (own := HAS_FLASH_WHILE.fullmatch(t)) is not None:  # (wave 35D)
         t = f"you may cast this spell as though it had flash if {own['c']}"
     if (lead := AS_LONG_FLASH.fullmatch(t)) is not None:
