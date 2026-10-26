@@ -4457,12 +4457,13 @@ def cycle(plan: Plan, card: CardInstance, ch: Characteristics, a: A.ActivateAbil
                 return
             mana_text = side
     from app.rules import cycling_costs
+    from app.rules import wave110h_cards as _w110h
 
     if not _untaxed_mana_only(plan, card, ch, mana_text):
         ability = AbilityText(index=a.ability, kind="activated", cost=f"{mana_text}, Discard this card",
                               text=f"Cycling — {mana_text}, Discard this card: Draw a card.")
         activate_to_stack(plan, card, ch, ability, a,
-                          definition={"kind": "activated", "effects": cycling_costs.effects(kind), "cycling": True})
+                          definition={"kind": "activated", "effects": _w110h.cycling_effects(plan, cycling_costs.effects(kind)), "cycling": True})
         return
     # 702.29a: cycling is an activated ability — "Abilities you activate that aren't mana abilities cost {1} less"
     # applies to it (602.2b -> 601.2f; app/rules/permissions.py ability_mana)
@@ -4477,7 +4478,7 @@ def cycle(plan: Plan, card: CardInstance, ch: Characteristics, a: A.ActivateAbil
         effects = cycling_costs.effects(kind)
         text = f"Search your library for a {kind} card, reveal it, put it into your hand, then shuffle."
     else:
-        effects = [{"do": "draw", "who": "you", "n": 1}]
+        effects = _w110h.cycling_effects(plan, [{"do": "draw", "who": "you", "n": 1}])  # -- cycling draw (wave 110H) -- Unpredictable Cyclone
         text = "Draw a card."
     ability_id = _new_ability(plan, card, text)
     from app.rules import special_payment_tails
@@ -6356,7 +6357,7 @@ def activate_to_stack(plan: Plan, card: CardInstance, ch: Characteristics, abili
     if (mana.x or cost.loyalty_x or cost.energy_x or cost.x_chosen) and a.x_value is None:  # (wave 3E: "Pay X {E}"; x_chosen: wave 4H)
         raise ActionError("Choose a value for X")
     if (every := next((c for c in cost.components if c.every), None)) is not None:
-        a.x_value = cost_payment.counters_on(card, every.counter)  # -- activated sweep (wave 26C) -- "Remove all oil counters": all there are now (602.2b)
+        a.x_value = sum(cost_payment.counters_on(plan.state.cards[c], every.counter) for c in cost_payment.candidates(plan, every, plan.actor, card)) if every.selector else cost_payment.counters_on(card, every.counter)  # (wave 110H: a granter's)  # -- activated sweep (wave 26C) -- "Remove all oil counters": all there are now (602.2b)
     from app.rules import static_perm100d  # -- static permanents (wave 100D) -- Carth the Lion: [+1] more
 
     plus = static_perm100d.loyalty_plus(plan.state, plan.info, plan.actor) if cost.loyalty is not None or cost.loyalty_x else 0

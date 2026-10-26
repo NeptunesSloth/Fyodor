@@ -1071,13 +1071,14 @@ def resume_card_copy_continue(plan: Plan, d: Any, chosen: list[str]) -> None:
     continue_effects(plan, d.resume['ctx'])
 
 
-def _each_victims(plan: Plan, ctx: Context, pid: str, entry: Any) -> list[str]:
-    """The other creatures `pid` controls that every instance of "target" in the spell could target (707.10d)."""
+def _each_victims(plan: Plan, ctx: Context, pid: str, entry: Any, anyone: bool = False) -> list[str]:
+    """The other creatures `pid` controls (``anyone``: whoever controls them, wave 110H Feather) that every instance of "target" in the spell could target (707.10d)."""
     from app.rules import targets
 
     source = targets.source_of(plan, entry.source_card, entry.kind == "spell", object_id=entry.source_object)  # (review 41: a copy of a spell is a spell, 707.10, 115.2)
     legal = [set(targets.legal_targets(plan, _spec(entry, p).get("what", "any"), pid, source, entry.source_card, None, source_object=entry.source_object)) for p in positions(entry)]
-    return [c for c in plan.state.zones.get(f"{pid}:battlefield", []) if c != ctx.get("source_card") and plan.state.cards[c].controller == pid
+    zones = [z for z in plan.state.zones if z.endswith(":battlefield")] if anyone else [f"{pid}:battlefield"]
+    return [c for z in zones for c in plan.state.zones.get(z, []) if c != ctx.get("source_card") and (anyone or plan.state.cards[c].controller == pid)
             and plan.ch(plan.state.cards[c]).is_creature and all(c in ok for ok in legal)]
 
 
@@ -1102,7 +1103,13 @@ def copy_each(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     reason = uncopyable(plan, card, object_id=oid)
     if reason is not None:
         return True if reason == "" else _manual_each(plan, ctx, pid, card)
-    victims = _each_victims(plan, ctx, pid, entry)
+    victims = _each_victims(plan, ctx, pid, entry, anyone=bool(e.get("pick110h") or e.get("victims110h")))
+    if e.get("pick110h"):  # -- Feather (wave 110H) -- the creatures are chosen, then paid for, before the copies
+        from app.rules import wave110h_cards
+
+        return wave110h_cards.feather_pick(plan, ctx, e, victims)
+    if "victims110h" in e:
+        victims = [v for v in victims if v in e["victims110h"]]
     from app.rules import spell_copy_replacements
 
     job = {"ctx": ctx, "spell": spell, "oid": oid, "controller": pid, "victims": victims,

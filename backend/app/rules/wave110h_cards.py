@@ -50,6 +50,17 @@ _SPOT = "When ~ dies, put ~ on the bottom of ~'s owner's library. If you do, ret
 # just exiled: exiled_with "other" skips cards exiled in this same resolution).
 _LIMO = ("Whenever this Vehicle enters or attacks, exile up to one other target creature until this Vehicle leaves the battlefield. If a creature is put into "
          "exile this way, return each other card exiled with this Vehicle to the battlefield under its owner's control.")
+# Lagrella, the Magpie: the second sentence is a delayed trigger (603.7) for each exiled card, fired as that card enters under Lagrella's controller.
+_LAGRELLA = ("When ~ enters, exile any number of other target creatures controlled by different players until ~ leaves the battlefield. "
+             "When an exiled card enters under your control this way, put two +1/+1 counters on it.")
+# Unpredictable Cyclone: a replacement of the draw a plain cycling ability causes (614.1a, 702.29a); the cycling effects say so when it is on the table, checked again as it resolves.
+_CYCLONE = ("If a cycling ability of another nonland card would cause you to draw a card, instead exile cards from the top of your library until you exile a card that shares a "
+            "card type with the cycled card. You may cast that card without paying its mana cost. Then put the exiled cards that weren't cast this way on the bottom of your library in a random order.")
+_CYCLONE_BODY = ("Exile cards from the top of your library until you exile a creature card. You may cast that card without paying its mana cost. "
+                 "Then put the exiled cards that weren't cast this way on the bottom of your library in a random order.")
+# Feather, Radiant Arbiter: the copy-for-each trigger (707.10d), whose creatures are chosen (any number, any controller), then paid for ({2} each) before any copy.
+_FEATHER = ("Whenever you cast a noncreature spell that targets only ~, you may choose any number of other creatures that spell could target and pay {2} for each of those creatures. "
+            "If you do, for each of those creatures, copy that spell. The copy targets that creature.")
 # Stitcher Geralf: the controller picks up to two creature cards among the milled ones (any graveyard), exiles them, and the token is as big as their total power.
 _GERALF = ("{2}{U}, {T}: Each player mills three cards. Exile up to two creature cards put into graveyards this way. Create an X/X blue Zombie creature "
            "token, where X is the total power of the cards exiled this way.")
@@ -160,6 +171,14 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
         if native is None or [e["do"] for e in native["effects"]] != ["edict", "damage"]:
             return None
         return {**native, "effects": [{**native["effects"][0], "who": "tapped_land110h", "as": "sac110h"}, {**native["effects"][1], "who": "plains110h:sac110h"}]}
+    if text == _FEATHER:
+        native = scripts.define(replace(ability, text="Whenever you cast a noncreature spell that targets only ~, copy that spell for each other creature you control that the spell "
+                                        "could target. Each copy targets a different one of those creatures."), ch)
+        if native is None or [e["do"] for e in native["effects"]] != ["copy_each", "copy_each_marker"]:
+            return None
+        return {**native, "effects": [{**native["effects"][0], "pick110h": True}, native["effects"][1]]}
+    if text == _CYCLONE:
+        return {"kind": "static", "static": "cyclone110h", "effects": []}
     if text == _ASHIOK:
         return {"kind": "static", "static": "ashiok110h", "effects": []}
     if text == _SQUALL or text == _SQUALL.replace("~", "Squall"):
@@ -270,6 +289,11 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
             return None
         # (the linked exile, 607.2a: marked by hand, the sub-reading cannot see the card's other sentence)
         return {**until, "effects": [{**until["effects"][0], "link": True}, {"do": "limo_back110h"}]}
+    if text == _LAGRELLA:
+        until = scripts.define(replace(ability, text=_LAGRELLA[:_LAGRELLA.index(" When an exiled")]), ch)
+        if until is None or [e["do"] for e in until["effects"]] != ["exile_until"]:
+            return None
+        return {**until, "effects": [*until["effects"], {"do": "lagrella110h"}]}
     if text == _GERALF:
         from app.rules import card_copy_sources as C
 
@@ -796,6 +820,110 @@ def healed(plan: Any, creatures: dict[str, int]) -> list[str]:
     return [c for c, n in creatures.items() if n > 0 and c in mine]
 
 
+def lagrella(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
+    """603.7: one delayed trigger per card exiled by this resolution (ponytail: one that never returns leaves its trigger behind; it can never fire)."""
+    import secrets
+
+    from app.game.rules_state import DelayedTrigger
+    from app.rules import context
+
+    for oid in plan.rules.linked_exile.get(ctx["source_object"], []):
+        cid = oid.rsplit(".", 1)[0]
+        if cid not in plan.state.cards or plan.oid(cid) != oid:
+            continue
+        refs: dict[str, Any] = {}
+        context.bind_objects(plan, {"refs": refs}, "watch", [cid])
+        plan.rules.delayed.append(DelayedTrigger(
+            id=secrets.token_hex(4), controller=ctx["controller"], source_card=ctx.get("source_card"), source_object=ctx.get("source_object"),
+            name=ctx.get("name") or "", when={"kind": "event", "event": "enter_exiled110h"}, refs=refs, turn=plan.state.turn.number,
+            step=plan.state.turn.phase, created_step=plan.rules.step_serial,
+            effects=[{"do": "add_counters", "who": "ref:watch", "kind": "+1/+1", "n": 2}]))
+    return True
+
+
+def exiled_enter(plan: Any, events: list[Any]) -> set[str]:
+    """delayed.on_events: a watched exiled card entered the battlefield under its watcher's controller (the trigger fires, once). Returns the fired ids."""
+    from app.game.rules_state import TriggerEvent
+    from app.rules import delayed
+    from app.rules.triggers import _new_ref, _zone
+
+    done: set[str] = set()
+    for ev in events:
+        if ev.kind != "zone_change" or ev.manual or _zone(ev.from_zone) != "exile" or _zone(ev.to_zone) != "battlefield" or not ev.new_object_id:
+            continue
+        for t in plan.rules.delayed:
+            if t.when.get("event") != "enter_exiled110h" or t.id in done:
+                continue
+            if ev.object_id not in {o["object_id"] for o in t.refs["watch"]["objects"]}:
+                continue
+            now = plan.state.cards.get(ev.card or "")
+            if now is None or now.controller != t.controller:
+                continue  # "under your control": returning under its owner's control, which may be another player
+            new = _new_ref(now.id, ev.new_object_id, ev.to_zone)
+            t.refs["watch"] = {"kind": "objects", "objects": [r.model_dump(mode="json") for r in new]}
+            done.add(t.id)
+            delayed._fire(plan, t, TriggerEvent(kind="enter", batch=ev.batch, count=1, objects=new))
+    return done
+
+
+def _cyclones(plan: Any, player: str) -> list[str]:
+    from app.rules import scripts
+
+    out = []
+    for c in plan.state.cards.values():
+        if c.zone == f"{player}:battlefield":
+            ch = plan.ch(c)
+            if any(scripts.self_text(a.text, ch.name) == _CYCLONE for a in ch.abilities):
+                out.append(c.id)
+    return out
+
+
+def cycling_effects(plan: Any, effects: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """casting.cycle: a plain cycling draw is read as it resolves when the actor controls an Unpredictable Cyclone."""
+    return [{"do": "cyclone110h"}] if effects == [{"do": "draw", "who": "you", "n": 1}] and _cyclones(plan, plan.actor) else effects
+
+
+def cyclone(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
+    """614.1a: the cycling draw is replaced by the exile sequence if a Cyclone other than the cycled card is still there and the card isn't a land."""
+    import copy
+
+    from app.rules import effects, scripts, selectors
+
+    me, cid = ctx["controller"], ctx.get("source_card") or ""
+    card = plan.state.cards.get(cid)
+    ch = plan.ch(card) if card is not None else None
+    if ch is None or "Land" in ch.types or not ch.types or not [c for c in _cyclones(plan, me) if c != cid]:
+        return effects.PRIMITIVES["draw"](plan, ctx, {"do": "draw", "who": "you", "n": 1})
+    body = copy.deepcopy(scripts.parse_effects(_CYCLONE_BODY)[0])  # type: ignore[index]
+    body[0]["until"] = selectors.Selector(card=True, types=tuple(sorted(ch.types)), zones=()).key()
+    ctx["effects"][ctx["next"]:ctx["next"]] = body
+    return True
+
+
+def feather_pick(plan: Any, ctx: Any, e: dict[str, Any], victims: list[str]) -> bool:
+    from app.game.rules_state import DecisionOption
+    from app.rules import targets
+    from app.rules.plan import decide
+
+    if not victims:
+        return True
+    decide(plan, player=ctx["controller"], kind="choose_cards", prompt="Feather: choose any number of other creatures the spell could target ({2} for each)",
+           options=[DecisionOption(id=v, label=targets.label(plan, v), card_id=v) for v in victims], min_choices=0, max_choices=len(victims),
+           resume={"step": "feather110h", "ctx": ctx, "e": e})
+    return False
+
+
+def resume_feather(plan: Any, d: Any, chosen: list[str]) -> None:
+    from app.rules import effects
+
+    ctx, e = d.resume["ctx"], d.resume["e"]
+    if chosen:  # 118.12 style optional payment of {2} per chosen creature; "if you do" the copies are made (608.2c)
+        pay = [{"do": "optional_payment", "who": "you", "cost": f"{{{2 * len(chosen)}}}", "bind": "feather110h"},
+               {"do": "only_if", "cond": {"succeeded": "feather110h"}, "skip": 1}, {**{k: v for k, v in e.items() if k != "pick110h"}, "victims110h": chosen}]
+        ctx["effects"][ctx["next"]:ctx["next"]] = pay
+    effects.continue_effects(plan, ctx)
+
+
 def limo_back(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
     from app.rules import effects, exiled_with
 
@@ -857,5 +985,5 @@ def made(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
     return True
 
 
-PRIMITIVES = {"pummel110h": pummel, "assign_unblocked110h": assign_unblocked, "made110h": made, "limo_back110h": limo_back, "bottom_did110h": bottom_did, "episode110h": episode, "scapegoat110h": scapegoat, "excess_reflex110h": excess_reflex, "sword110h": sword, "egg_tick110h": egg_tick, "squall_check110h": squall_check, "zimone110h": zimone, "glimpse110h": glimpse, "pendulum110h": pendulum, "exile_counters110h": exile_counters}
-RESUME = {"pendulum110h": resume_pendulum, "pendulum_reveal110h": resume_pendulum_reveal, "zimone110h": resume_zimone, "episode110h": resume_episode, "scapegoat110h": resume_scapegoat}
+PRIMITIVES = {"cyclone110h": cyclone, "lagrella110h": lagrella, "pummel110h": pummel, "assign_unblocked110h": assign_unblocked, "made110h": made, "limo_back110h": limo_back, "bottom_did110h": bottom_did, "episode110h": episode, "scapegoat110h": scapegoat, "excess_reflex110h": excess_reflex, "sword110h": sword, "egg_tick110h": egg_tick, "squall_check110h": squall_check, "zimone110h": zimone, "glimpse110h": glimpse, "pendulum110h": pendulum, "exile_counters110h": exile_counters}
+RESUME = {"feather110h": resume_feather, "pendulum110h": resume_pendulum, "pendulum_reveal110h": resume_pendulum_reveal, "zimone110h": resume_zimone, "episode110h": resume_episode, "scapegoat110h": resume_scapegoat}
