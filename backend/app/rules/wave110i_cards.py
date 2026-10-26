@@ -138,7 +138,8 @@ def _bauble(d: Def) -> Def:
     t = d["targets"][0]
     sel = json.loads(t["what"][4:])
     sel.pop("zone_owner", None)
-    t = {**t, "what": "sel:" + json.dumps(sel, separators=(",", ":"), sort_keys=True), "same_controller": True}
+    t = {**t, "what": "sel:" + json.dumps(sel, separators=(",", ":"), sort_keys=True), "same_controller": True,
+         "min": 1}  # zero targets leave "that player" undefined (no CR/ruling): not offered, the player resolves it by hand
     return {**d, "targets": [t], "effects": [{"do": "bauble110i", "who": "target:0"}, d["effects"][0]]}
 
 

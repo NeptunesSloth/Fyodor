@@ -189,15 +189,11 @@ def test_bauble_refuses_lands_from_two_graveyards(cards):
         activate(s, "p1", bauble, targets=[islands[0], forests[0]], target_counts=[2])
 
 
-def test_bauble_with_no_target_draws_nobody(cards):
+def test_bauble_with_no_target_refused(cards):
+    """Zero targets leave "that player" undefined (no CR rule or ruling): the activation is not offered."""
     s, bauble, islands, forests = _bauble(cards, None)
-    h1, h2 = len(s.state.zones["p1:hand"]), len(s.state.zones["p2:hand"])
-    activate(s, "p1", bauble, targets=[], target_counts=[0])
-    answer(s)
-    from tests.wave100c_kit import to_phase
-
-    to_phase(s, "main1", turn=2)
-    assert len(s.state.zones["p2:hand"]) == h2 + 1 and len(s.state.zones["p1:hand"]) == h1
+    with pytest.raises(ActionError):
+        activate(s, "p1", bauble, targets=[], target_counts=[0])
     check(s)
 
 
