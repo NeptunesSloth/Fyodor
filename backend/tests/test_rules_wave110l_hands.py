@@ -277,3 +277,30 @@ def test_inquisitor_spell_exiled_costs_one_more_to_cast(cards):
     answer(s)
     assert zone_of(s, "Opt", "p2") == "p2:graveyard"
     check(s)
+
+
+CAVES = "The Caves of Androzani"
+test_full_caves = full_test([CAVES])
+
+
+def test_caves_of_androzani_adds_one_counter_of_a_chosen_kind_to_the_permanents_you_pick(cards):
+    s = build(cards, [CAVES, "Grizzly Bears", "Young Wolf"], ["Llanowar Elves"])
+    caves = put(s, CAVES)
+    bears, wolf, elves = put(s, "Grizzly Bears"), put(s, "Young Wolf"), put(s, "Llanowar Elves", "p2")
+    act(s, "p1", type="counter", card_ids=[caves.id], kind="lore", delta=1)
+    act(s, "p1", type="counter", card_ids=[bears.id], kind="+1/+1", delta=1)
+    act(s, "p1", type="counter", card_ids=[bears.id], kind="stun", delta=1)
+    act(s, "p1", type="counter", card_ids=[wolf.id], kind="+1/+1", delta=1)
+    act(s, "p2", type="counter", card_ids=[elves.id], kind="charge", delta=2)
+    next_turn(s)  # chapter II as the second lore counter is added
+    d = resolve_to_decision(s)
+    assert d is not None and {o.label for o in d.options} == {"+1/+1", "stun"}  # only the permanent with two kinds is asked
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=["stun"])
+    d = resolve_to_decision(s)
+    assert {o.label for o in d.options} == {"Grizzly Bears (stun)", "Young Wolf (+1/+1)", "Llanowar Elves (charge)"}  # not the Saga itself
+    ids = {o.label: o.id for o in d.options}
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[ids["Grizzly Bears (stun)"], ids["Llanowar Elves (charge)"]])
+    answer(s)
+    assert card_named(s, "Grizzly Bears").counters == {"+1/+1": 1, "stun": 2}
+    assert card_named(s, "Llanowar Elves", "p2").counters == {"charge": 3} and card_named(s, "Young Wolf").counters == {"+1/+1": 1}
+    check(s)

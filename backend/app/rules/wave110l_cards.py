@@ -432,6 +432,58 @@ _BUILD["Daemon Sword — Equipped creature has menace and gets +X/+0, where X is
     "Daemon Sword — Equipped creature has menace and gets +X/+0, where X is the number of cards exiled with this Equipment.", _daemon_sword)
 
 
+_CAVES = "II, III — For each non-Saga permanent, choose a counter on it. You may put an additional counter of that kind on that permanent."
+_BUILD[_CAVES] = ("II, III — Draw a card.", lambda d: {**d, "effects": [{"do": "caves110l"}]})
+
+
+def caves(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """The Caves of Androzani II, III: for each non-Saga permanent that has a counter, its kind is chosen (by the Saga's controller, among the kinds on it); then they
+    may put one more of that kind on each (counters are public, 122; the puts go through the counter choke point together, 616.1)."""
+    todo = [c.id for c in plan.state.cards.values() if c.zone.endswith(":battlefield") and plan.in_game(c) and "Saga" not in plan.ch(c).subtypes
+            and any(n > 0 for n in c.counters.values())]
+    return _caves_next(plan, ctx, [], todo)
+
+
+def _caves_next(plan: Plan, ctx: Context, picks: list[tuple[str, str]], todo: list[str]) -> bool:
+    from app.rules.effects import decide
+
+    while todo:
+        cid = todo[0]
+        card = plan.state.cards.get(cid)
+        kinds = sorted(k for k, n in card.counters.items() if n > 0) if card is not None and card.zone.endswith(":battlefield") else []
+        if len(kinds) == 1:
+            picks, todo = [*picks, (cid, kinds[0])], todo[1:]
+        elif not kinds:
+            todo = todo[1:]
+        else:
+            decide(plan, player=ctx["controller"], kind="choose_one", prompt=f"Choose a counter on {card.name if card else 'it'}",
+                   options=[DecisionOption(id=k, label=k) for k in kinds], resume={"step": "caves110l", "ctx": ctx, "stage": "kind", "picks": picks, "todo": todo})
+            return False
+    if not picks:
+        return True
+    decide(plan, player=ctx["controller"], kind="choose_cards", prompt="Put an additional counter of the chosen kind on which permanents?",
+           options=[DecisionOption(id=c, label=f"{plan.state.cards[c].name or 'Permanent'} ({k})", card_id=c) for c, k in picks],
+           min_choices=0, max_choices=len(picks), resume={"step": "caves110l", "ctx": ctx, "stage": "put", "picks": picks})
+    return False
+
+
+def resume_caves(plan: Plan, d: Any, chosen: list[str]) -> None:
+    from app.rules import replace
+    from app.rules.effects import continue_effects
+
+    r = d.resume
+    ctx = r["ctx"]
+    picks = [(c, k) for c, k in r["picks"]]
+    if r["stage"] == "kind":
+        todo = r["todo"]
+        if _caves_next(plan, ctx, [*picks, (todo[0], chosen[0])], todo[1:]):
+            continue_effects(plan, ctx)
+        return
+    puts = [(c, k, 1) for c, k in picks if c in chosen and c in plan.state.cards and plan.state.cards[c].zone.endswith(":battlefield")]
+    if not puts or replace.put_counters(plan, puts, by=ctx["controller"], then={"do": "continue", "ctx": ctx}):
+        continue_effects(plan, ctx)
+
+
 def pick_discard(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     """The owner reveals their hand; the chooser picks one card of it, which is discarded (an empty hand reveals nothing and discards nothing)."""
     from app.rules.effects import _players, decide, zone_key
@@ -657,5 +709,5 @@ def resume_struggle(plan: Plan, d: Any, chosen: list[str]) -> None:
         continue_effects(plan, ctx)
 
 
-PRIMITIVES = {**_P0, "winter110l": winter, "face_down_look110l": face_down_look, "suffocate110l": suffocate, "ritual110l": ritual, "ritual_again110l": ritual_again, "struggle110l": struggle}
-RESUME = {**_R0, "winter110l": resume_winter, "ritual110l": resume_ritual, "struggle110l": resume_struggle}
+PRIMITIVES = {**_P0, "caves110l": caves, "winter110l": winter, "face_down_look110l": face_down_look, "suffocate110l": suffocate, "ritual110l": ritual, "ritual_again110l": ritual_again, "struggle110l": struggle}
+RESUME = {**_R0, "caves110l": resume_caves, "winter110l": resume_winter, "ritual110l": resume_ritual, "struggle110l": resume_struggle}
