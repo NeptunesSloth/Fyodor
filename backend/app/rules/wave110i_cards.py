@@ -907,16 +907,36 @@ def dawn_mana(plan: Plan, controller: str, mana: list[str]) -> list[str]:
 _CHANNEL = "Until end of turn, any time you could activate a mana ability, you may pay 1 life. If you do, add {C}."
 
 
+CHANNEL_ID = "player:channel110i"  # the pseudo object id ``ActivateAbility.card_id`` names: a player-level mana ability, not a card's
+
+
 def channel(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
-    """Channel (605.3a, 106.12): until end of turn the controller may, whenever they could activate a mana ability, pay 1 life to add {C}. Applied where mana is
-    spent (``mana.solve`` ``life1``: each generic or {C} symbol of a cost the player pays may be paid with 1 life, after every way with mana). ponytail: the {C} is
-    only ever spent on a payment; banking it in the pool for a later step is not offered."""
+    """Channel (605.3a, 106.12): until end of turn the controller has a mana ability "pay 1 life: add {C}" (a player-level ability, activated with
+    ``CHANNEL_ID``: ``channel_activate``) usable whenever they could activate a mana ability, also while paying a cost."""
     from app.rules import tap_mana
 
     return tap_mana.until_eot(plan, ctx, {"def": {"kind": "static", "static": "channel110i", "effects": []}})
 
 
 PRIMITIVES["channel110i"] = channel
+
+
+def channel_activate(plan: Plan) -> None:
+    """Pay 1 life (119.4, 118.3: needs 1 life; replacements apply, 118.11) and add {C} to the pool through the ordinary ``rules_mana`` step (106.4):
+    plain pool mana, so it floats, counts as mana spent and pays {C}, X and ability costs like any other."""
+    from app.game.errors import ActionError
+    from app.rules import prohibitions
+    from app.rules import replace as replace_
+
+    who = plan.actor
+    if not channel_active(plan.state, who):
+        raise ActionError("You have no such mana ability")
+    if prohibitions.life_banned(plan.state, plan.info, mana_ability=True):
+        raise ActionError("You can't pay life")
+    if plan.state.players[who].life < 1:
+        raise ActionError("You don't have 1 life to pay")
+    replace_.lose_life(plan, [(who, 1)], actor=who, paid=True)
+    plan.do({"type": "rules_mana", "player": who, "tap": [], "sacrifice": [], "delta": {"C": 1}, "life": 0, "label": "paid 1 life: added {C}"}, actor=who)
 
 
 def channel_active(state: Any, player: str) -> bool:

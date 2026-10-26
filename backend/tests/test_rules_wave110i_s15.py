@@ -155,33 +155,63 @@ def _cast(s, name, pid="p1"):
 
 
 def _anvil_table(cards, channel):
-    s = _three(cards, ["Channel110I", "Anvil110I"])
+    s = _three(cards, ["Channel110I", "Anvil110I", "Colorless110I", "XSpell110I"])
     if channel:
         mana(s, G=2)
         _cast(s, "Channel110I")
     return s
 
 
-def test_channel_pays_life_only_after_channel(cards):
-    """Without Channel a {3} artifact with {1} of mana is refused; with it, 2 life pay the rest (1 life for each generic symbol, mana first)."""
+def _tap_life(s, n=1, pid="p1"):
+    for _ in range(n):
+        act(s, pid, type="activate_ability", card_id="player:channel110i", ability=0)
+
+
+def _spent(s, name):
+    return next(v for v in s.state.rules.payments.values() if s.state.cards[v.card].name == name).mana_spent
+
+
+base.EXTRA.extend([real("Colorless110I", "{C}", 1, "Artifact", "", None, ""), real("XSpell110I", "{X}", 0, "Sorcery", "You gain X life.", None, "")])
+
+
+def test_channel_is_a_mana_ability_not_a_discount(cards):
+    """605.3a: without Channel no such ability; with it each activation pays 1 life and floats {C} (106.4), which then pays the {3} cost (601.2h)."""
     s = _anvil_table(cards, False)
-    mana(s, C=1)
     with pytest.raises(ActionError):
-        act(s, "p1", type="cast_spell", card_id=to_hand(s, "Anvil110I").id)
+        _tap_life(s)
     s = _anvil_table(cards, True)
     mana(s, C=1)
     life = s.state.players["p1"].life
+    with pytest.raises(ActionError):  # {1} of mana is still not {3}: life is not a payment on its own
+        act(s, "p1", type="cast_spell", card_id=to_hand(s, "Anvil110I").id)
+    _tap_life(s, 2)
+    assert s.state.players["p1"].life == life - 2 and s.state.players["p1"].mana["C"] == 3
     act(s, "p1", type="cast_spell", card_id=to_hand(s, "Anvil110I").id)
-    assert s.state.players["p1"].life == life - 2
+    assert s.state.players["p1"].life == life - 2 and _spent(s, "Anvil110I") == {"C": 3}  # all three are mana spent
     check(s)
 
 
-def test_channel_spends_mana_before_life_and_serves_only_its_controller(cards):
+def test_channel_mana_pays_a_colorless_cost_and_x_and_only_its_controller(cards):
+    s = _anvil_table(cards, True)
+    life = s.state.players["p1"].life
+    _tap_life(s)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Colorless110I").id)  # {C} needs colorless mana: the Channel mana is {C}
+    assert _spent(s, "Colorless110I") == {"C": 1}
+    while s.state.zones.get("stack"):
+        act(s, s.state.rules.priority, type="pass_priority")
+    _tap_life(s, 2)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "XSpell110I").id, x_value=2)
+    assert s.state.players["p1"].life == life - 3 + 2 and not s.state.players["p1"].mana.get("C")  # 3 life paid, X = 2 gained
+    with pytest.raises(ActionError):
+        act(s, "p2", type="activate_ability", card_id="player:channel110i", ability=0)
+    check(s)
+
+
+def test_channel_mana_empties_and_auto_payment_still_works(cards):
     s = _anvil_table(cards, True)
     mana(s, C=3)
     life = s.state.players["p1"].life
-    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Anvil110I").id)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Anvil110I").id)  # ordinary mana pays; no life is spent unprompted
     assert s.state.players["p1"].life == life
-    s2 = _anvil_table(cards, True)
-    assert "channel110i" in str(s2.state.rules.tap_mana)
+    assert "channel110i" in str(s.state.rules.tap_mana)
     check(s)

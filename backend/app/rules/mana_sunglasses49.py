@@ -55,9 +55,4 @@ def spending_cost(state: GameState, player: str, info: CardInfo | None, cost: M.
         cost = M.spend_as(cost, 'white_red')
     if _has(state, player, info, (DAWN,)):  # (Celestial Dawn's white-as-any already covers False Dawn's)
         return M.spend_as(cost, 'white_any')
-    cost = M.spend_as(cost, 'white_color') if wave110i_cards.spending_active(state, player) else cost  # -- cards (wave 110I) -- False Dawn
-    if state.rules is not None and wave110i_cards.channel_active(state, player):  # -- cards (wave 110I) -- Channel (Yavimaya Bloomsage): 1 life for each generic / {C}
-        from dataclasses import replace
-
-        cost = replace(cost, life1=cost.generic + cost.colored.count('C'))
-    return cost
+    return M.spend_as(cost, 'white_color') if wave110i_cards.spending_active(state, player) else cost  # -- cards (wave 110I) -- False Dawn

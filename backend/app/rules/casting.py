@@ -5563,6 +5563,12 @@ def activate_ability(plan: Plan, a: A.ActivateAbility) -> None:
         raise ActionError(f"{kind.capitalize()} can only pay for the spell you're casting, while you pay for it")
     require_no_decision(plan)
     require_priority(plan)
+    from app.rules import wave110i_cards
+
+    if a.card_id == wave110i_cards.CHANNEL_ID:  # -- cards (wave 110I) -- Channel's player-level mana ability (605.3a)
+        wave110i_cards.channel_activate(plan)
+        plan.rules.passed = []
+        return
     card = plan.state.cards.get(a.card_id)
     if card is None:
         raise ActionError("That card isn't here any more")
