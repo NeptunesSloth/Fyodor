@@ -837,6 +837,11 @@ def move_together(plan: Plan, entries: list[Entry], *, simultaneous: dict[str, A
         from app.rules import devour
 
         devour.sacrifice(plan, ep, entry["player"])
+        from app.rules import (
+            copying as _copying,  # -- (wave 110C) -- The Mimeoplasm: both graveyard cards are exiled as it enters
+        )
+
+        _copying.exile_pair(plan, ep, entry["actor"])
         from app.rules import static_perm100d  # -- static permanents (wave 100D) -- 614.12: done as it enters
 
         static_perm100d.as_enters(plan, _card.id, ep, entry["player"])

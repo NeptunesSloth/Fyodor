@@ -1184,6 +1184,11 @@ def resolve_top_of_stack(plan: Plan) -> None:
     from app.rules import devour  # -- keyword mechanics (wave 9D) -- 702.82a
 
     devour.sacrifice(plan, ep, controller)
+    from app.rules import (
+        copying as _copying,  # -- (wave 110C) -- The Mimeoplasm: the two graveyard cards are exiled as it enters
+    )
+
+    _copying.exile_pair(plan, ep, controller)
     from app.rules import static_perm100d  # -- static permanents (wave 100D) -- 614.12: done as it enters
 
     static_perm100d.as_enters(plan, top_id, ep, controller)
