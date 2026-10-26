@@ -10,6 +10,7 @@ import pytest
 
 from app.rules import coverage
 from tests.game_helpers import act
+from tests.test_rules_wave12a_counters_keywords import real
 from tests.test_rules_wave18d_merged import meld_set
 from tests.test_rules_wave34b_activated import stops
 from tests.wave9c_kit import build, check, life, put
@@ -23,6 +24,7 @@ MISHRA = ("Mishra, Claimed by Gix", "{2}{B}{R}", 4, "Legendary Creature — Phyr
 ENGINE = ("Phyrexian Dragon Engine", "{3}", 3, "Artifact Creature — Phyrexian Dragon",
           "Double strike\nWhen this creature enters from your graveyard, you may discard your hand. If you do, draw three cards.\nUnearth {3}{R}{R}\n(Melds with Mishra, Claimed by Gix.)",
           ("2", "2"), "")
+WATCH = ("Tap Watcher", "{1}", 1, "Enchantment", "Whenever a creature becomes tapped, you gain 1 life.", None, "")
 LOST = ("Mishra, Lost to Phyrexia", "", 0, "Legendary Artifact Creature — Phyrexian Artificer", "Menace", ("9", "9"), "BR")
 
 
@@ -32,7 +34,7 @@ def card_db(settings):
     from tests.fixtures.cards import fixture_cards
 
     settings.ensure_dirs()
-    build_database([*fixture_cards(), *meld_set(MISHRA, ENGINE, LOST)], settings.cards_db_path, meta={"bulk_type": "test"})
+    build_database([*fixture_cards(), *meld_set(MISHRA, ENGINE, LOST), real(*WATCH)], settings.cards_db_path, meta={"bulk_type": "test"})
     return settings.cards_db_path
 
 
@@ -40,8 +42,10 @@ def test_full(cards):
     assert coverage.of_card_data(cards.resolve("Mishra, Claimed by Gix")).level == "FULL"
 
 
-def attack(cards, names):
-    s = build(cards, [MISHRA[0], ENGINE[0]], ["Grizzly Bears"])
+def attack(cards, names, watch=False):
+    s = build(cards, [MISHRA[0], ENGINE[0], *([WATCH[0]] if watch else [])], ["Grizzly Bears"])
+    if watch:
+        put(s, WATCH[0])
     mine = {n: put(s, n) for n in (MISHRA[0], ENGINE[0])}
     next_turn(s)
     next_turn(s)
@@ -73,4 +77,11 @@ def test_the_engine_not_attacking_means_no_meld(cards):
     host = now(s, mine[MISHRA[0]])
     assert not host.melded and host.name == MISHRA[0] and now(s, mine[ENGINE[0]]).zone == "p1:battlefield"
     assert life(s, "p2") == 39 and life(s, "p1") == 41  # X = 1
+    check(s)
+
+
+def test_melded_permanent_enters_tapped_without_becoming_tapped(cards):
+    """508.4 / 712.4a: it ENTERS tapped and attacking; no "becomes tapped" event, so the watcher counts only the two declared attackers."""
+    s, mine = attack(cards, [MISHRA[0], ENGINE[0]], watch=True)
+    assert now(s, mine[MISHRA[0]]).tapped and life(s, "p1") == 44  # 42 + 2 (declaration taps), not 45
     check(s)

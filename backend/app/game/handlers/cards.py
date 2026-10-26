@@ -279,6 +279,7 @@ def meld(state: GameState, a: A.Meld) -> None:
     x, y = placement.free_spot(state, zone_key(owner, "battlefield"), a.row)
     ops.move_card(state, first, zone_key(owner, "battlefield"), x=x, y=y)
     merging.meld(state, first, second, a.result_id, a.result_name, a.r.ids[0])
+    first.tapped = a.tapped
     log(state, a.actor, a.ts, [pname(state, a.actor), text(f" melded into {a.result_name}")])
 
 
