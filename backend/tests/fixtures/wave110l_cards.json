@@ -292,5 +292,48 @@
    "Enchant",
    "Mill"
   ]
+ },
+ {
+  "name": "Jadzi, Oracle of Arcavios // Journey to the Oracle",
+  "layout": "modal_dfc",
+  "mana_cost": "{6}{U}{U} // {2}{G}{G}",
+  "cmc": 8.0,
+  "type_line": "Legendary Creature — Human Wizard // Sorcery",
+  "oracle_text": "Discard a card: Return Jadzi to its owner's hand.\nMagecraft — Whenever you cast or copy an instant or sorcery spell, reveal the top card of your library. If it's a nonland card, you may cast it by paying {1} rather than paying its mana cost. If it's a land card, put it onto the battlefield.\n//\nYou may put any number of land cards from your hand onto the battlefield. Then if you control eight or more lands, you may discard a card. If you do, return Journey to the Oracle to its owner's hand.",
+  "colors": [
+   "G",
+   "U"
+  ],
+  "color_identity": [
+   "G",
+   "U"
+  ],
+  "keywords": [
+   "Magecraft"
+  ],
+  "card_faces": [
+   {
+    "name": "Jadzi, Oracle of Arcavios",
+    "mana_cost": "{6}{U}{U}",
+    "type_line": "Legendary Creature — Human Wizard",
+    "oracle_text": "Discard a card: Return Jadzi to its owner's hand.\nMagecraft — Whenever you cast or copy an instant or sorcery spell, reveal the top card of your library. If it's a nonland card, you may cast it by paying {1} rather than paying its mana cost. If it's a land card, put it onto the battlefield.",
+    "power": "5",
+    "toughness": "5",
+    "colors": [
+     "U"
+    ]
+   },
+   {
+    "name": "Journey to the Oracle",
+    "mana_cost": "{2}{G}{G}",
+    "type_line": "Sorcery",
+    "oracle_text": "You may put any number of land cards from your hand onto the battlefield. Then if you control eight or more lands, you may discard a card. If you do, return Journey to the Oracle to its owner's hand.",
+    "colors": [
+     "G"
+    ]
+   }
+  ],
+  "power": "5",
+  "toughness": "5"
  }
 ]

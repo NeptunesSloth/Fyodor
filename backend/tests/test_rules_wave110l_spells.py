@@ -193,3 +193,66 @@ def test_suffocation_cant_be_cast_after_damage_from_a_creature(cards):
     assert life(s, "p1") == 39
     with pytest.raises(ActionError):
         cast(s, SUFFOCATION)
+
+
+JADZI = "Jadzi, Oracle of Arcavios // Journey to the Oracle"
+test_full_jadzi = full_test([JADZI])
+
+
+def jadzi_table(cards, top, extra_hand=()):
+    s = build(cards, [JADZI, "Lightning Bolt", "Grizzly Bears", *extra_hand], ["Island"])
+    put(s, JADZI)
+    clear_hand(s, "p1")
+    for n in ("Grizzly Bears",):
+        pass
+    c = next(c for c in s.state.cards.values() if c.name == top and c.owner == "p1" and c.zone == "p1:library")
+    act(s, "p1", type="move", card_ids=[c.id], to={"zone": "library"}, position="top")
+    return s
+
+
+def test_jadzi_magecraft_casts_a_nonland_card_for_one(cards):
+    s = jadzi_table(cards, "Grizzly Bears")
+    cast(s, "Lightning Bolt", ["p2"])
+    mana(s, C=1)
+    answer(s, "Grizzly Bears")
+    assert zone_of(s, "Grizzly Bears") == "p1:battlefield"
+    assert life(s, "p2") == 37
+    check(s)
+
+
+def test_jadzi_magecraft_may_decline_and_the_card_stays_on_top(cards):
+    s = jadzi_table(cards, "Grizzly Bears")
+    cast(s, "Lightning Bolt", ["p2"])
+    mana(s, C=1)
+    while s.state.rules.decision is None:
+        act(s, s.state.rules.priority, type="pass_priority")
+    d = s.state.rules.decision
+    act(s, d.player, type="choose", decision_id=d.id, option_ids=[])  # "or none"
+    answer(s)
+    assert zone_of(s, "Grizzly Bears") == "p1:library"
+    check(s)
+
+
+def test_jadzi_magecraft_puts_a_land_onto_the_battlefield(cards):
+    s = jadzi_table(cards, "Forest")
+    lands = len([c for c in s.state.zones["p1:battlefield"] if "Forest" == s.state.cards[c].name])
+    cast(s, "Lightning Bolt", ["p2"])
+    answer(s)
+    assert len([c for c in s.state.zones["p1:battlefield"] if "Forest" == s.state.cards[c].name]) == lands + 1
+    check(s)
+
+
+@pytest.mark.parametrize(("lands", "returns"), [(8, True), (7, False)])
+def test_journey_to_the_oracle_returns_to_hand_only_with_eight_lands_and_a_discard(cards, lands, returns):
+    s = build(cards, [JADZI, "Grizzly Bears"])
+    clear_hand(s, "p1")
+    forests = [c for c in s.state.cards.values() if c.name == "Forest" and c.owner == "p1"]
+    for c in forests[:lands - 1]:  # one more arrives from the hand
+        act(s, "p1", type="move", card_ids=[c.id], to={"player": "p1", "zone": "battlefield"})
+    act(s, "p1", type="move", card_ids=[forests[lands - 1].id], to={"zone": "hand"})
+    to_hand(s, "Grizzly Bears")  # the card to discard
+    cast(s, JADZI, face=1)
+    answer(s, "Yes", forests[lands - 1].id, *(["pay"] if returns else []))
+    assert zone_of(s, JADZI) == ("p1:hand" if returns else "p1:graveyard")
+    assert zone_of(s, "Grizzly Bears") == ("p1:graveyard" if returns else "p1:hand")  # discarded only if the payment was made
+    check(s)

@@ -240,6 +240,18 @@ _BUILD["When enchanted creature dies, mill cards equal to its power. Return this
     "You may put a creature card milled this way onto the battlefield under your control.", lambda d: d)  # one simultaneous instruction (608.2c); the two moves don't interact
 
 
+def _by_paying_one(d: Def) -> Def:
+    """Jadzi: the revealed nonland card is cast by paying {1} rather than its mana cost (118.9: an alternative cost; additional costs and increases still apply)."""
+    casts = [e for e in d["effects"] if e.get("do") == "free_cast"]
+    return {**d, "effects": [{**e, "paid": True, "effect_mana_cost": "{1}"} if e in casts else e for e in d["effects"]]} if len(casts) == 1 else d
+
+
+_MAGECRAFT = ("Whenever you cast or copy an instant or sorcery spell, reveal the top card of your library. If it's a nonland card, you may cast it {how}. "
+              "If it's a land card, put it onto the battlefield.")
+_BUILD["Magecraft — " + _MAGECRAFT.format(how="by paying {1} rather than paying its mana cost")] = (
+    "Magecraft — " + _MAGECRAFT.format(how="without paying its mana cost"), _by_paying_one)
+
+
 def pick_discard(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     """The owner reveals their hand; the chooser picks one card of it, which is discarded (an empty hand reveals nothing and discards nothing)."""
     from app.rules.effects import _players, decide, zone_key
@@ -299,7 +311,25 @@ _BODIES: dict[str, tuple[list[Def], str | None]] = {
 }
 
 
+_JOURNEY = ("You may put any number of land cards from your hand onto the battlefield. Then if you control eight or more lands, you may discard a card. "
+            "If you do, return {me} to its owner's hand.")
+
+
+def _journey() -> list[Def]:
+    """Journey to the Oracle: the lands, then (eight or more lands) the optional discard whose payment returns the spell instead of exiling it (715.4)."""
+    from app.rules import scripts
+
+    parsed = scripts.parse_effects("You may put any number of land cards from your hand onto the battlefield. Then if you control eight or more lands, you may discard a card.")
+    assert parsed is not None
+    *head, _may, _discard = parsed[0]
+    head[-1] = {**head[-1], "skip": 3}  # the 8-lands gate now covers the payment, its check and the return
+    return [*head, {"do": "optional_payment", "who": "you", "cost": "Discard a card", "bind": "journey110l"},
+            {"do": "only_if", "cond": {"succeeded": "journey110l"}, "skip": 1}, {"do": "bounce", "who": "self"}]
+
+
 def parse(body: str) -> Any:
+    if body.strip() in (_JOURNEY.format(me="~"), _JOURNEY.format(me="Journey to the Oracle")):
+        return _journey(), None, False
     found = _BODIES.get(body.strip())
     return None if found is None else ([dict(e) for e in found[0]], found[1], False)
 
