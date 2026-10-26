@@ -18,7 +18,7 @@ from app.game.ops import log, pname, text
 from app.game.state import GameState, MulliganPolicy, Pregame, PregameSeat, zone_key
 
 
-def begin(state: GameState) -> None:
+def begin(state: GameState, ts: float | None = None) -> None:
     """Deal opening hands and open the pregame (called when a game is created)."""
     policy = state.settings.mulligan
     if policy is None:
@@ -30,7 +30,7 @@ def begin(state: GameState) -> None:
         if n:
             draw_cards(state, pid, n)
     rule = policy.display_name + (" (not defined yet)" if policy.needs_definition else "")
-    log(state, None, time.time(), [text(f"Opening hands dealt. Mulligan rule: {rule}.")], kind="notice")
+    log(state, None, ts if ts is not None else time.time(), [text(f"Opening hands dealt. Mulligan rule: {rule}.")], kind="notice")
 
 
 def _seat(state: GameState, a: A.Base, player: str | None) -> tuple[str, PregameSeat, MulliganPolicy]:

@@ -478,7 +478,10 @@ def advance(plan: Plan) -> None:
 
         mana_named_land_profiles.refresh_reveals(plan)
         r = plan.rules
-        if r.decision is not None or r.draw_reason is not None:
+        if r.decision is not None or r.draw_reason is not None or (plan.state.pregame is not None and not plan.state.pregame.finished):  # (wave 110A: a restarted game's mulligans first)
+            return
+        if r.restart_hold110a:  # -- wave 110A -- 727.4: the restarted game waits at its untap step like a new one
+            r.restart_hold110a = False
             return
         sba.check(plan)  # before anyone gets priority (rule 117.5)
         if r.decision is not None:

@@ -221,6 +221,11 @@ def resume_exile(plan: Plan, d: Any, chosen: list[str]) -> None:
 def finish(plan: Plan) -> None:
     """Everyone has acted: the revealed cards are hidden again (103.6b: until the first turn begins) and play starts."""
     r = plan.rules
+    if r.restart110a is not None:  # -- wave 110A -- 727.4: Karn Liberated's kept cards enter once the pregame is over
+        from app.rules import wave110a_restart
+
+        if not wave110a_restart.enter(plan):
+            return
     shown = [c for c in r.opening_revealed if c in plan.state.cards and plan.state.cards[c].zone.endswith(":hand")]
     r.opening_revealed = []
     if shown:

@@ -280,7 +280,7 @@ def _link(d: dict[str, Any], ability: Any, ch: Any) -> dict[str, Any] | None:
     if "samename_exiled_with" in json.dumps(d, default=str) and ability.kind == "activated":
         return None  # -- same name (wave 32A) -- "Counter target spell with the same name as a card exiled with this creature" (Mindreaver) sacrifices the source
         # as a cost: its target is judged on resolution against the cards of an object that is gone (selectors._same_name_now reads a source that stays)
-    others = [ab for ab in ch.abilities if ab.index != ability.index and ab.kind in ("triggered", "activated")]
+    others = [ab for ab in ch.abilities if ab.index != ability.index and ab.kind in ("triggered", "activated", "loyalty")]  # (wave 110A: loyalty abilities, Karn Liberated)
     borrowed = getattr(ability, 'borrowed_origin', ())
     if borrowed:
         others = [ab for ab in others if getattr(ab, 'borrowed_origin', ())[:-1] == borrowed[:-1]]
@@ -319,9 +319,9 @@ def _link(d: dict[str, Any], ability: Any, ch: Any) -> dict[str, Any] | None:
         if (not exiling and not printed_delve) or not all(_exiles(scripts.define(ab, ch)) for ab in exiling):  # (-- linked exile (wave 30H) -- every exiling ability feeds the set, and each must be read: Rona's ruling)
             return None
         return d
-    if ability.kind not in ("triggered", "activated", "static") or not _exiles(d):
+    if ability.kind not in ("triggered", "activated", "static", "loyalty") or not _exiles(d):
         return d
-    referring = [ab for ab in ch.abilities if ab.index != ability.index and (not borrowed or getattr(ab, "borrowed_origin", ())[:-1] == borrowed[:-1]) and (_REFERS.search(scripts.self_text(ab.text, ch.name)) or REFERS_PILE.search(ab.text) or "until you exile another card with ~" in scripts.self_text(ab.text, ch.name))]
+    referring = [ab for ab in ch.abilities if ab.index != ability.index and (not borrowed or getattr(ab, "borrowed_origin", ())[:-1] == borrowed[:-1]) and (_REFERS.search(scripts.self_text(ab.text, ch.name)) or REFERS_PILE.search(ab.text) or ab.text.endswith(" exiled with Karn. Then put those cards onto the battlefield under your control.") or "until you exile another card with ~" in scripts.self_text(ab.text, ch.name))]
     if not referring and not any(e.get("stop_on_linked_exile") for e in d.get("effects", [])):
         return d
     if d.get('static') == 'replace' and d.get('event') == 'draw' and (d.get('op') or {}).get('do') == 'body':

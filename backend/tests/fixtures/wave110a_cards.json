@@ -2499,5 +2499,17 @@
   "keywords": [
    "Waterbend"
   ]
+ },
+ {
+  "name": "Karn Liberated",
+  "layout": "normal",
+  "mana_cost": "{7}",
+  "cmc": 7.0,
+  "type_line": "Legendary Planeswalker — Karn",
+  "oracle_text": "+4: Target player exiles a card from their hand.\n−3: Exile target permanent.\n−14: Restart the game, leaving in exile all non-Aura permanent cards exiled with Karn. Then put those cards onto the battlefield under your control.",
+  "colors": [],
+  "color_identity": [],
+  "keywords": [],
+  "loyalty": "6"
  }
 ]
