@@ -3317,6 +3317,12 @@ def resume_pick_looked(plan: Plan, d: Any, chosen: list[str]) -> None:
             from app.game.errors import ActionError
 
             raise ActionError("Choose at most one card of each kind")
+    if e.get("different110m") == "power":  # -- (wave 110M) -- "cards with different powers" (Rip, Spawn Hunter): no two chosen share a power (a card with none shares nothing)
+        powers = [pt[0] for c in chosen if (pt := plan.ch(plan.state.cards[c]).pt) is not None]
+        if len(set(powers)) != len(powers):
+            from app.game.errors import ActionError
+
+            raise ActionError("Choose cards with different powers")
     if _picked(plan, ctx, e, list(chosen)):
         continue_effects(plan, ctx)
 

@@ -753,6 +753,18 @@ def escape_offers(state: Any, player: str, card: Any, ch: Any, info: Any) -> lis
     return [] if alt is None else [alt_costs.Offer(f"{card.id}:desdemona110m", f"{ch.name}: escape ({ch.mana_cost}, exile 2 other cards from your graveyard)", alt, escape=True)]
 
 
+_RIP_TEXT = ("At the beginning of your second main phase, if Rip is tapped, reveal the top X cards of your library, where X is its power. Put any number of creature and/or Vehicle "
+             "cards with different powers from among them into your hand. Put the rest on the bottom of your library in a random order.")
+
+
+def _rip(d: Def) -> Def:
+    return {**d, "effects": [{**x, "different110m": "power"} if x.get("do") == "pick_looked" else x for x in d["effects"]]}
+
+
+_RIP_NATIVE = "Survival — " + _RIP_TEXT.replace("with different powers ", "").replace("if Rip is tapped", "if this creature is tapped")
+for _holder in ("Rip", "~", "this creature"):
+    _BUILD["Survival — " + _RIP_TEXT.replace("if Rip is tapped", f"if {_holder} is tapped")] = (_RIP_NATIVE, _rip)
+
 _FACES = ("Whenever a creature dies, tap all untapped creatures that share a creature type with it or untap all tapped creatures that share a creature type with it.")
 _BUILD[_FACES] = ("Whenever a creature dies, draw a card.", lambda d: {**d, "effects": [{"do": "faces110m"}]})
 

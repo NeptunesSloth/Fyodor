@@ -902,5 +902,26 @@
 "keywords": [],
 "power": "2",
 "toughness": "2"
+},
+{
+"name": "Rip, Spawn Hunter",
+"layout": "normal",
+"mana_cost": "{2}{G}{W}",
+"cmc": 4.0,
+"type_line": "Legendary Creature — Human Survivor",
+"oracle_text": "Survival — At the beginning of your second main phase, if Rip is tapped, reveal the top X cards of your library, where X is its power. Put any number of creature and/or Vehicle cards with different powers from among them into your hand. Put the rest on the bottom of your library in a random order.",
+"colors": [
+"G",
+"W"
+],
+"color_identity": [
+"G",
+"W"
+],
+"keywords": [
+"Survival"
+],
+"power": "4",
+"toughness": "4"
 }
 ]

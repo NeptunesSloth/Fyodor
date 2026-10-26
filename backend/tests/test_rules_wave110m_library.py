@@ -536,3 +536,46 @@ def test_veiled_crocodile_becomes_a_creature_when_any_player_has_no_cards_in_han
     got = ch(s, croc)
     assert (got.pt, set(got.types), set(got.subtypes)) == (((4, 4), {"Creature"}, {"Crocodile"}) if becomes else (None, {"Enchantment"}, set()))
     check(s)
+
+
+# -- Rip, Spawn Hunter -----------------------------------------------------------------------------------------------------------------------
+RIP = "Rip, Spawn Hunter"
+test_rip_full = full_test([RIP])
+
+
+def rip_table(cards, tapped=True):
+    from tests.test_rules_wave34b_activated import next_turn as next_main
+
+    names = ["Grizzly Bears", "Savannah Lions", "Elite Vanguard", "Hill Giant", "Mother of Runes"]
+    s = build(cards, [RIP, *names, "Forest"], forests=1)
+    rip = put(s, RIP)
+    ready(s, RIP)
+    ids = {n: card_named(s, n).id for n in names}
+    # top of the library, top first: Bears 2, Lions 2, Vanguard 2, Giant 3 (Rip's power is 4: the fifth card stays unseen)
+    for n in ("Mother of Runes", "Hill Giant", "Elite Vanguard", "Savannah Lions", "Grizzly Bears"):
+        act(s, "p1", type="move", card_ids=[ids[n]], to={"player": "p1", "zone": "library"}, position="top")
+    act(s, "p1", type="move", card_ids=[card_named(s, "Forest").id], to={"player": "p1", "zone": "library"}, position="top")  # (the turn's draw)
+    stops(s)
+    next_main(s)
+    if tapped:
+        act(s, "p1", type="tap", card_ids=[rip.id], tapped=True)
+    return s, rip, ids
+
+
+def test_rip_reveals_x_cards_and_takes_creatures_with_different_powers(cards):
+    s, rip, ids = rip_table(cards)
+    power = ch(s, rip).pt[0]
+    until(s, lambda s: s.state.turn.phase == "main2" and s.state.rules.decision is not None)
+    d = s.state.rules.decision
+    revealed = s.state.zones["p1:library"][:power]
+    assert {o.id for o in d.options} == set(revealed)
+    same = [ids["Grizzly Bears"], ids["Savannah Lions"]]  # both power 2
+    if all(c in revealed for c in same):
+        with pytest.raises(ActionError):
+            act(s, "p1", type="choose", decision_id=d.id, option_ids=same)
+    pick = [ids["Grizzly Bears"], ids["Hill Giant"]]  # powers 2 and 3
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[c for c in pick if c in revealed])
+    answer(s)
+    assert all(s.state.cards[c].zone == "p1:hand" for c in pick if c in revealed)
+    assert all(c in s.state.zones["p1:library"][-power:] or s.state.cards[c].zone == "p1:hand" for c in revealed)  # (the rest: the bottom)
+    check(s)
