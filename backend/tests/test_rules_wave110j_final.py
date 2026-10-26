@@ -16,6 +16,9 @@
 * Emblazoned Golem: 601.2h X is paid only with colored mana, at most one of each color (kicker {X}, counters per X); unkicked, nothing is restricted.
 * Garth One-Eye: 707.12 a copy of the card with a chosen name (only the listed names, each Garth remembering its own: rulings 2017-03-14) is made and may be cast,
   its costs paid; declining to cast it still uses the name up.
+* Piracy: 602.2 / 605.3 the lands an opponent controls may be tapped for mana (spells only, 106.6) until end of turn; not before it resolves, not the next turn.
+* Inniaz, the Gale Force: 613.1b each player gains control of a nonland permanent of Inniaz's controller's choice controlled by the player to their right, all
+  chosen first (ruling 2017-04-18): a two-player game exchanges control; a player whose right neighbor has no nonland permanent gets nothing.
 * Phylactery Lich: 614.12a / 614.1c the artifact is chosen as it enters (no target, ruling 2013-04-15), the counter goes on it; with no artifact
   nothing happens and the state trigger (603.8) sacrifices the Lich; another phylactery counter anywhere keeps it.
 """
@@ -27,7 +30,7 @@ import pytest
 from app.game.errors import ActionError
 from tests.fixtures.cards import card
 from tests.game_helpers import act
-from tests.wave9c_kit import build, life, mana, to_hand
+from tests.wave9c_kit import build, card_named, life, mana, to_hand
 from tests.wave110j_kit import (  # noqa: F401
     EXTRA,
     ability,
@@ -576,4 +579,117 @@ def test_garth_that_left_and_returned_forgets(cards):
     act(s, "p1", type="move", card_ids=[garth.id], to={"zone": "hand"})
     act(s, "p1", type="move", card_ids=[garth.id], to={"player": "p1", "zone": "battlefield"})
     assert not now(s, garth).choices.get("Names chosen")  # 400.7: a new object remembers nothing
+    check(s)
+
+
+PIRACY = "Piracy"
+
+
+def _piracy(cards):
+    s = build(cards, [PIRACY, BOLT], ["Mountain"], forests=30, islands=30)
+    mtn = put_new(s, "Mountain", "p2")
+    return s, mtn
+
+
+def test_piracy_full(cards):
+    from app.rules import coverage
+
+    assert coverage.of_card_data(cards.resolve(PIRACY)).level == "FULL"
+
+
+def test_piracy_lets_you_tap_an_opponents_land_to_cast_a_spell(cards):
+    s, mtn = _piracy(cards)
+    to_hand(s, BOLT)
+    with pytest.raises(ActionError):  # no red mana of your own, and not yet
+        act(s, "p1", type="cast_spell", card_id=next(c.id for c in s.state.cards.values() if c.name == BOLT and c.owner == "p1"), targets=["p2"])
+    mana(s, "p1", U=2)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, PIRACY).id)
+    settle(s)
+    bolt = next(c for c in s.state.cards.values() if c.name == BOLT and c.owner == "p1")
+    act(s, "p1", type="cast_spell", card_id=bolt.id, targets=["p2"])
+    settle(s)
+    assert now(s, mtn).tapped and life(s, "p2") == 37
+    check(s)
+
+
+def test_piracy_ends_with_the_turn(cards):
+    s, mtn = _piracy(cards)
+    mana(s, "p1", U=2)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, PIRACY).id)
+    settle(s)
+    to_phase(s, "main1", turn=3)
+    bolt = to_hand(s, BOLT)
+    with pytest.raises(ActionError):
+        act(s, "p1", type="cast_spell", card_id=bolt.id, targets=["p2"])
+    check(s)
+
+
+INNIAZ = "Inniaz, the Gale Force"
+
+
+def _inniaz(cards, theirs):
+    s = build(cards, [INNIAZ, ORNI, ORNI], theirs, forests=30, islands=30)
+    inn, o1, o2 = put_new(s, INNIAZ), put_new(s, ORNI), put_new(s, ORNI)
+    for n in theirs:
+        put_new(s, n, "p2")
+    to_phase(s, "declare_attackers", turn=3)
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": c.id, "target": "p2"} for c in (inn, o1, o2)])
+    return s, inn, o1, o2
+
+
+def test_inniaz_full(cards):
+    from app.rules import coverage
+
+    assert coverage.of_card_data(cards.resolve(INNIAZ)).level == "FULL"
+
+
+def test_inniaz_exchanges_control_in_a_two_player_game(cards):
+    s, inn, o1, o2 = _inniaz(cards, [BEARS, "Hill Giant"])
+    giant = next(c for c in s.state.cards.values() if c.name == "Hill Giant" and c.owner == "p2")
+    d = s.state.rules.decision
+    assert d is not None and d.player == "p1" and {o.label for o in d.options} == {BEARS, "Hill Giant"}  # for p1: a permanent of p2's
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[giant.id])
+    d = s.state.rules.decision
+    assert d.player == "p1" and {o.card_id for o in d.options} == {inn.id, o1.id, o2.id}  # for p2: a permanent of p1's
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[o1.id])
+    settle(s)
+    assert now(s, giant).controller == "p1" and now(s, o1).controller == "p2"
+    assert now(s, inn).controller == "p1"
+    check(s)
+
+
+def test_inniaz_player_whose_neighbor_has_one_choice_is_not_asked(cards):
+    s, inn, o1, o2 = _inniaz(cards, [BEARS])
+    bears = next(c for c in s.state.cards.values() if c.name == BEARS and c.owner == "p2")
+    d = s.state.rules.decision
+    assert d is not None and {o.card_id for o in d.options} == {inn.id, o1.id, o2.id}  # p1 takes Bears (the only one: no question), p1 chooses what p2 gets
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[o2.id])
+    settle(s)
+    assert now(s, bears).controller == "p1" and now(s, o2).controller == "p2"
+    check(s)
+
+
+def test_inniaz_in_a_three_player_game_each_takes_from_the_player_on_their_right(cards):
+    """Seats p1, p2, p3: p1's right is p3, p2's right is p1, p3's right is p2."""
+    from app.game.factory import PlayerSetup, new_game
+    from app.game.session import GameSession
+    from tests.game_helpers import deck, enable
+
+    decks = [deck(cards, "Krenko, Mob Boss", [(1, INNIAZ), (2, ORNI), (30, "Forest")]),
+             deck(cards, "Atraxa, Praetors' Voice", [(1, "Hill Giant"), (30, "Island")]),
+             deck(cards, "Karador, Ghost Chieftain", [(1, BEARS), (30, "Island")])]
+    s = GameSession(enable(new_game([PlayerSetup(n, cards=d) for n, d in zip(("Alice", "Bob", "Cara"), decks, strict=True)], shuffle=False)), cards=cards)
+    act(s, "p1", type="pass_priority")
+    inn = card_named(s, INNIAZ)
+    o1, o2 = [c for c in s.state.cards.values() if c.name == ORNI and c.owner == "p1"][:2]
+    giant, bears = card_named(s, "Hill Giant", "p2"), card_named(s, BEARS, "p3")
+    for c in (inn, o1, o2, giant, bears):
+        act(s, c.owner, type="move", card_ids=[c.id], to={"player": c.owner, "zone": "battlefield"})
+    to_phase(s, "declare_attackers", turn=4)
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": c.id, "target": "p2"} for c in (inn, o1, o2)])
+    d = s.state.rules.decision
+    assert d is not None and {o.card_id for o in d.options} == {inn.id, o1.id, o2.id}  # for p2, whose right neighbor is p1
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[o2.id])
+    settle(s)
+    assert (now(s, bears).controller, now(s, giant).controller, now(s, o2).controller) == ("p1", "p3", "p2")
     check(s)

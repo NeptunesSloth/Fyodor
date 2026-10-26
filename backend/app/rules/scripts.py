@@ -3202,6 +3202,8 @@ def parse_effects(body: str, it: str | None = None, *, event_player: bool = Fals
 
     if (silhouette := wave110j_final.parse(body)) is not None:
         return silhouette
+    if (piracy := wave110j_final.piracy_parse(body)) is not None:
+        return piracy
     if (scoped_prevention := scoped_prevention_effects.parse(body)) is not None:
         return scoped_prevention
     if (bound_subset := bound_subset_choices.parse(body)) is not None:
@@ -7136,6 +7138,8 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
         return ogre
     if (garth := wave110j_final.garth_definition(ability, ch)) is not None:
         return garth
+    if (inniaz := wave110j_final.inniaz_definition(ability, ch)) is not None:
+        return inniaz
     if (conditional_prevention := conditional_prevention_effects.definition(ability, ch)) is not None:
         return conditional_prevention
 

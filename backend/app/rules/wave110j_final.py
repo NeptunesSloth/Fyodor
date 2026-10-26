@@ -216,5 +216,104 @@ def resume_garth(plan: Plan, d: Any, chosen: list[str]) -> None:
     effects.continue_effects(plan, ctx)
 
 
-PRIMITIVES = {"mentored110j": mentored, "sacrificed110j": sacrificed, "ogre_watch110j": ogre_watch, "ogre_drop110j": ogre_drop, "garth110j": garth}
-RESUME = {"garth110j": resume_garth}
+# -- Piracy -- "Until end of turn, you may tap lands you don't control for mana. Spend this mana only to cast spells." CR 602.2 / 605.3: only a permanent's controller activates its
+# abilities "unless the object specifically says otherwise": it does; the mana goes to the player who activates it (106.4), here only into casting a spell (106.6: the
+# restriction). Ceiling: only a land whose mana ability is a plain "{T}: Add {X}" is paid with automatically (a drawback, a condition, a count or a cost names "you", the
+# ability's controller, whom no ruling settles); the table's mana tools stay for any other land.
+PIRACY = "Until end of turn, you may tap lands you don't control for mana. Spend this mana only to cast spells."
+
+
+def piracy_parse(body: str) -> tuple[list[dict[str, Any]], Any, bool] | None:
+    return ([{"do": "piracy110j"}], None, False) if body.strip() == PIRACY else None
+
+
+def piracy(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    plan.rules.piracy110j[ctx["controller"]] = plan.state.turn.number
+    plan.note(f"{plan.name(ctx['controller'])} may tap lands they don't control for mana to cast spells until end of turn", actor=ctx["controller"])
+    return True
+
+
+def foreign_lands(state: Any, player: str, purpose: Any) -> list[str]:
+    """The lands ``player`` doesn't control that Piracy lets them tap for mana to cast the spell ``purpose`` is for (none otherwise)."""
+    rules = state.rules
+    if rules is None or rules.piracy110j.get(player) != state.turn.number or purpose is None or purpose.spell is None:
+        return []
+    return [c.id for c in state.cards.values() if c.zone.endswith(":battlefield") and c.controller != player and not c.face_down and not c.tapped]
+
+
+def plain_ability(ab: Any) -> bool:
+    return not (ab.riders or ab.condition or ab.count or ab.instead_if or ab.extra_cost or ab.spend_only or ab.once_per_turn or ab.sacrifice_self or ab.chooses
+                or ab.reveal_hand is not None or ab.self_counter is not None or ab.penalty)
+
+
+# -- Inniaz, the Gale Force -- "Whenever three or more creatures you control with flying attack, each player gains control of a nonland permanent of your choice controlled by
+# the player to their right." Rulings 2017-04-18: Inniaz's controller chooses every permanent as the ability resolves, no one acts between the choices and the control changes
+# (all at once: the choices are made first); a player whose right neighbor controls no nonland permanent gains nothing; the control lasts indefinitely (613.1b; 800.4a if a
+# player leaves). "The player to their right" is the previous seat (the engine's seat order, 101.4 turn order running to the left).
+INNIAZ = "Whenever three or more creatures you control with flying attack, each player gains control of a nonland permanent of your choice controlled by the player to their right."
+
+
+def inniaz_definition(ability: Any, ch: Any) -> dict[str, Any] | None:
+    from dataclasses import replace
+
+    from app.rules import scripts
+
+    if ability.kind != "triggered" or ability.text != INNIAZ:
+        return None
+    base = scripts.define(replace(ability, text=INNIAZ.split(", each player")[0] + ", you gain 1 life."), ch)
+    if base is None or base.get("trigger") != "event" or [e.get("do") for e in base["effects"]] != ["gain_life"]:
+        return None
+    return {**base, "effects": [{"do": "inniaz110j"}]}
+
+
+def inniaz(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    from app.rules.group_choice import _neighbor
+
+    seats = [p for p in plan.state.seat_order if p in plan.live()]
+    todo = [(p, _neighbor(plan, p, True)) for p in seats if len(seats) > 1]
+    ctx["inniaz"] = {"todo": todo, "picks": []}
+    return _inniaz_next(plan, ctx)
+
+
+def _inniaz_next(plan: Plan, ctx: dict[str, Any]) -> bool:
+    from app.game.rules_state import DecisionOption
+    from app.rules.plan import decide
+
+    state = ctx["inniaz"]
+    while state["todo"]:
+        taker, victim = state["todo"][0]
+        mine = [c.id for c in plan.state.cards.values() if c.zone.endswith(":battlefield") and c.controller == victim and plan.in_game(c)
+                and not plan.ch(c).is_land]
+        if not mine:
+            state["todo"].pop(0)
+            continue
+        if len(mine) == 1:
+            state["picks"].append((taker, mine[0]))
+            state["todo"].pop(0)
+            continue
+        decide(plan, player=ctx["controller"], kind="choose_one", prompt=f"{plan.name(taker)} gains control of a nonland permanent of {plan.name(victim)}'s: choose it",
+               options=[DecisionOption(id=c, label=plan.state.cards[c].name or "Permanent", card_id=c) for c in mine], resume={"step": "inniaz110j", "ctx": ctx})
+        return False
+    from app.rules import layers
+    from app.rules.effects import _control_effect
+
+    for taker, cid in state["picks"]:  # (the choices are all made: now the control changes)
+        if plan.state.cards[cid].zone.endswith(":battlefield"):
+            _control_effect(plan, ctx, [cid], taker, "permanent")
+    layers.control_sync(plan)
+    ctx.pop("inniaz", None)
+    return True
+
+
+def resume_inniaz(plan: Plan, d: Any, chosen: list[str]) -> None:
+    from app.rules.effects import continue_effects
+
+    ctx = d.resume["ctx"]
+    taker, _ = ctx["inniaz"]["todo"].pop(0)
+    ctx["inniaz"]["picks"].append((taker, chosen[0]))
+    if _inniaz_next(plan, ctx):
+        continue_effects(plan, ctx)
+
+
+PRIMITIVES = {"inniaz110j": inniaz, "piracy110j": piracy, "mentored110j": mentored, "sacrificed110j": sacrificed, "ogre_watch110j": ogre_watch, "ogre_drop110j": ogre_drop, "garth110j": garth}
+RESUME = {"garth110j": resume_garth, "inniaz110j": resume_inniaz}

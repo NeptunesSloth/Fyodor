@@ -592,11 +592,16 @@ def mana_sources(state: GameState, player: str, info: CardInfo, purpose: Purpose
     is one source whose options are ordered painless-first; a filter-style ability (with its own
     mana cost) is a separate source that other mana must pay for."""
     out: list[M.Source] = []
-    for cid in state.zones.get(zone_key(player, "battlefield"), []):
+    from app.rules import wave110j_final  # -- Piracy (wave 110J) -- lands the player doesn't control
+
+    foreign = wave110j_final.foreign_lands(state, player, purpose)
+    for cid in [*state.zones.get(zone_key(player, "battlefield"), []), *foreign]:
         card = state.cards[cid]
-        if card.controller != player:
+        if card.controller != player and cid not in foreign:
             continue
         ch = chars.of(card, info)
+        if cid in foreign and not ch.is_land:
+            continue
         if not ch.is_land and lands_only(state, player):  # -- Word of Command (wave 110E) -- only lands' mana abilities
             continue
         usable_tap = can_use_tap_abilities(state, card, ch, info)
@@ -605,6 +610,7 @@ def mana_sources(state: GameState, player: str, info: CardInfo, purpose: Purpose
         abilities = [(i, ab) for i, ab in mana_abilities(state, card, info)
                      if (usable_tap or not ab.tap) and spend_allowed(ab.spend_only, purpose) and any(ab.options)
                      and not ab.chooses and ab.reveal_hand is None and ab.self_counter is None  # (wave 3R3: the payer's choice: by hand)
+                     and (cid not in foreign or wave110j_final.plain_ability(ab))  # (wave 110J: a land Piracy lets you tap)
                      and not (ab.count or "").startswith("removed:")  # -- if you do (wave 6F) -- how many: by hand
                      and not (ab.extra_cost and parse_ability_cost(ab.extra_cost, card_name=ch.name).energy)]
         if any(ab.output_producers is None for _, ab in abilities):

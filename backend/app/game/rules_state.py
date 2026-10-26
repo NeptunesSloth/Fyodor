@@ -1787,6 +1787,7 @@ class RulesState(BaseModel):
     # -- trigger lines (wave 100A) -- object id -> the players its enters ability targeted as it went on the stack (Soul Scourge's "that player")
     linked_players100a: dict[str, list[str]] = Field(default_factory=dict)
     batch: int = 0  # last event batch number
+    piracy110j: dict[str, int] = Field(default_factory=dict)  # -- wave 110J -- Piracy: player -> the turn number in which they may tap lands they don't control for mana
     sacrificed110j: dict[str, int] = Field(default_factory=dict)  # -- wave 110J -- Gluttonous Hellkite: spell object -> creatures sacrificed by its cast trigger
     exploited110j: list[tuple[str, str]] = Field(default_factory=list)  # -- wave 110J -- (exploiter object, creature it exploited), 702.110b: "if it exploited that creature"
     events: list[Event] = Field(default_factory=list)  # events since the engine last acted (this intent's, or manual ones)
