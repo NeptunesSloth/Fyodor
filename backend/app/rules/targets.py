@@ -322,7 +322,7 @@ def divide_total(spec: dict[str, Any], x: int | None) -> int | None:
 
 
 def where_x(plan: Plan, spec: dict[str, Any], chooser: str, source_card: str | None, source_object: str | None,
-            event: dict[str, Any] | None = None) -> int:
+            event: dict[str, Any] | None = None, groups: list[list[str]] | None = None) -> int:
     """-- X target counts (wave 27C) -- "up to X target …, where X is <a count>" (107.3c: the text defines X; 601.2c: the number of
     targets is what that count is as the targets are chosen, and doesn't change after)."""
     from app.rules import values
@@ -330,6 +330,9 @@ def where_x(plan: Plan, spec: dict[str, Any], chooser: str, source_card: str | N
     card = plan.state.cards.get(source_card) if source_card else None
     ctx: dict[str, Any] = {"controller": chooser, "source_card": source_card, "source_object": source_object or (plan.oid(card) if card else None),
                            "targets": [], "event": event}  # (wave 28D: a trigger's event is known as it is put on the stack, 603.3d)
+    if groups:  # -- (wave 110N) -- Reap: "up to X target cards …, where X is the number of black permanents target opponent controls": the earlier groups, as chosen
+        ctx["groups"] = [[ref(plan, t).model_dump() for t in g] for g in groups]
+        ctx["targets"] = ctx["groups"][0]
     return values.evaluate(plan, ctx, spec["x_value"])
 
 
@@ -407,7 +410,7 @@ def choose_groups(plan: Plan, specs: list[dict[str, Any]], chooser: str, source:
         options = permanent_exchanges.viable_first(plan, specs, g, options,
             lambda w: legal_targets(plan, w, chooser, source, source_card, attacker, source_object=source_object))
         shaped = {**spec, "x_count": "upto"} if "x_value" in spec else spec
-        counted = where_x(plan, spec, chooser, source_card, source_object, event) if "x_value" in spec else divide_x(
+        counted = where_x(plan, spec, chooser, source_card, source_object, event, out.groups) if "x_value" in spec else divide_x(
             plan, spec, chooser, source_card, source_object, event, x)
         lo, hi = group_limits(shaped, counted)
         allowed = free_limits(shaped, counted)[1]

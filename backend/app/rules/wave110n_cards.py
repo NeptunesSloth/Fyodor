@@ -138,10 +138,31 @@ def rewrite_lines(lines: list[str]) -> None:
             lines[i:i + 4] = _GENKU_MODAL
 
 
+_REAP = ("Return up to X target cards from your graveyard to your hand, where X is the number of black permanents target opponent controls as you cast this spell.")
+
+
+def _reap() -> Any:
+    """Reap: two target groups (601.2c) -- the opponent, then up to X cards from your graveyard; X counts the black permanents of the opponent just chosen, as the
+    targets are chosen (targets.where_x reads the earlier groups)."""
+    from app.rules import scripts
+
+    gy = scripts.parse_effects("Return up to two target cards from your graveyard to your hand.")
+    if gy is None or not isinstance(gy[1], list) or len(gy[1]) != 1:
+        return None
+    count = scripts.parse_effects("Return up to X target creature cards from your graveyard to your hand, where X is the number of black permanents you control as you cast this spell.")
+    if count is None or not isinstance(count[1], list) or "x_value" not in count[1][0]:
+        return None
+    black = count[1][0]["x_value"]
+    group = {**gy[1][0], "min": 0, "max": 250, "x_value": {"for_player": "target:0", "of": black}}
+    return [{**gy[0][0], "who": "target:1"}], [{"what": "opponent", "min": 1, "max": 1}, group], False
+
+
 def parse(body: str) -> Any:
     """Exact spell bodies: the parts the grammar reads, joined with the card's own step."""
     from app.rules import scripts
 
+    if body.strip() == _REAP:
+        return _reap()
     if body.strip() == _DECREE:
         parsed = scripts.parse_effects("Counter target spell. If that spell is countered this way, exile it instead of putting it into its owner's graveyard. "
                                        "You may cast that card without paying its mana cost for as long as it remains exiled.")
