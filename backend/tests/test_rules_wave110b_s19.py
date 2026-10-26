@@ -3,6 +3,10 @@
 * Genesis of the Daleks: 701.55a a targeted opponent faces a villainous choice; option one destroys the Daleks and the opponents lose life equal to the total power of
   the Daleks that died this turn (608.2h, as they last existed), option two destroys the non-Daleks. 714.2 chapter IV after three Dalek makers.
 * Dr. Eggman: 701.55a the opponent discards, or its controller may put a Construct, Robot or Vehicle card from their hand onto the battlefield (they may also decline, 603.5).
+* Osseous Sticktwister: 118.12, 101.4 each opponent may sacrifice a nonland permanent or discard a card; 608.2h the damage (its power) goes only to those who did neither; delirium (205.2a).
+* Jace, Multiverse Architect: 508.1c, 118.12 unless the opponent pays {2} their creatures can't attack Jaces (planeswalkers with the Jace subtype) this turn; the player stays open.
+* The Creation of Avacyn: 406.3, 607.2a chapter II turns the face-down exiled card up (a creature costs life equal to its mana value); chapter III puts a creature onto the battlefield or the card into hand.
+* Temporal Extortion: 118.12, 107.1a any player may pay half their life rounded up; if a player does, the spell is countered (no extra turn).
 * Market Gnome: 702.167a, 603.10a exiled from the battlefield as a craft cost is paid (its own or another card's materials), not when it is exiled otherwise.
 """
 
@@ -36,7 +40,7 @@ def cards(settings):
     yield from repository(settings)
 
 
-@pytest.mark.parametrize("name", ["The Creation of Avacyn", "Genesis of the Daleks", "Dr. Eggman", "Market Gnome", "Osseous Sticktwister", "Jace, Multiverse Architect"])
+@pytest.mark.parametrize("name", ["Temporal Extortion", "The Creation of Avacyn", "Genesis of the Daleks", "Dr. Eggman", "Market Gnome", "Osseous Sticktwister", "Jace, Multiverse Architect"])
 def test_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
@@ -217,3 +221,36 @@ def test_creation_of_avacyn(cards, fetch, life_lost, choice, zone):
         act(s, d.player, type="choose", decision_id=d.id, option_ids=[choice])
     assert zone_of(s, fetch) == zone
     check(s)
+
+
+def extortion_game(cards, payers):
+    s = build(cards, ["Temporal Extortion"], [], forests=30, islands=40)
+    mana(s, B=4)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Temporal Extortion").id)
+    drive(s, lambda d: ["pay" if d.player in payers else "decline"])  # (every player is asked in turn order: 101.4)
+    return s
+
+
+@pytest.mark.parametrize(("payers", "lives", "countered"), [((), (40, 40), False), (("p1",), (20, 40), True), (("p2",), (40, 20), True), (("p1", "p2"), (20, 20), True)])
+def test_temporal_extortion_any_player_may_pay_half_their_life_to_counter_it(cards, payers, lives, countered):
+    """118.12, 107.1a: half their life total rounded up (40 -> 20) is paid by each player who chooses to; if any player did, the spell is countered (no extra turn, 701.6a)."""
+    s = extortion_game(cards, payers)
+    assert (life(s, "p1"), life(s, "p2")) == lives
+    assert (zone_of(s, "Temporal Extortion") == "p1:graveyard") is True  # (a resolved or a countered sorcery ends in the graveyard)
+    if not countered:
+        to_phase(s, "main1", turn=2)
+        assert s.state.turn.active_player == "p1"  # the extra turn comes right after this one
+    else:
+        to_phase(s, "main1", turn=2)
+        assert s.state.turn.active_player == "p2"
+    check(s)
+
+
+def test_pay_half_life_rounds_up(cards):
+    """107.1a: at 41 life half is 21 when rounded up, so the payer keeps 20."""
+    s = build(cards, ["Temporal Extortion"], [], forests=30, islands=40)
+    act(s, "p1", type="set_life", player="p2", value=41)
+    mana(s, B=4)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Temporal Extortion").id)
+    drive(s, lambda d: ["pay" if d.player == "p2" else "decline"])
+    assert life(s, "p2") == 20

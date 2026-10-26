@@ -3984,7 +3984,7 @@ def _difference(body: str) -> str:
 
 
 def _parse_effects_checked(body: str, it: str | None, event_player: bool) -> tuple[list[dict[str, Any]], Any, bool] | None:
-    body = _difference(body)
+    body = _difference(re.sub(r"\b([Pp]ay half (?:your|their) life), rounded up", r"\1 rounded up", body))  # -- wave 110B -- 107.1a: one cost part, not a clause split at its comma
     from app.rules import random_choice  # -- random choices (wave 47B) --
 
     body, or_pw = random_choice.strip_pw(body)

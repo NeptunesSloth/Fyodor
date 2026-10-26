@@ -2586,5 +2586,22 @@
   "keywords": [],
   "power": null,
   "toughness": null
+ },
+ {
+  "name": "Temporal Extortion",
+  "layout": "normal",
+  "mana_cost": "{B}{B}{B}{B}",
+  "cmc": 4.0,
+  "type_line": "Sorcery",
+  "oracle_text": "When you cast this spell, any player may pay half their life, rounded up. If a player does, counter Temporal Extortion.\nTake an extra turn after this one.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [],
+  "power": null,
+  "toughness": null
  }
 ]
