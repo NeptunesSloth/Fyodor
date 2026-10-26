@@ -293,7 +293,7 @@ def _discarded_instead(plan: Plan, e: Event) -> bool:
 
 def collect(plan: Plan) -> None:
     """Look at the events since the last look (603.2)."""
-    from app.rules import combat
+    from app.rules import combat, wave110d_misc
 
     combat.sync_attacking(plan)
     r = plan.rules
@@ -365,6 +365,7 @@ def collect(plan: Plan) -> None:
             for i, d in abilities(plan, ch, "enters_self"):
                 _add(plan, controller=card.controller, source_card=card.id, source_object=e.new_object_id,
                      name=ch.name, index=i, definition=d, event=entered.model_copy(deep=True))
+            wave110d_misc.wall_entered(plan, card, e.new_object_id)  # -- (wave 110D) -- Wall of Stolen Identity's reflexive "When you do"
             _other_enters(plan, card, ch, e.new_object_id, e.batch)
         if frm == "battlefield" and to != "battlefield":
             snap = r.lki.get(e.object_id or "")

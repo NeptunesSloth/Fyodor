@@ -22,6 +22,8 @@ OBLIG = ("Return target creature card from an opponent's graveyard to the battle
          "creature has a duty counter on it, it is goaded, can't attack you or a permanent you control, and can't block creatures you control.")
 RAVAGER = ("Whenever this creature transforms into Ravager of the Fells, it deals 2 damage to target opponent or planeswalker and 2 damage to up to one "
            "target creature that player or that planeswalker's controller controls.")
+WALL = ("You may have this creature enter as a copy of any creature on the battlefield, except it's a Wall in addition to its other types and has defender. "
+        "When you do, tap the copied creature and it doesn't untap during its controller's untap step for as long as you control this creature.")
 DACK = "Whenever you cast a spell that targets one or more permanents, gain control of those permanents."
 
 
@@ -64,6 +66,12 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
         d = scripts.define(replace(ability, text="I, II — Another target nonland permanent phases out."), ch)
         if d is not None:
             d["effects"] = [{"do": "phase_hold110d", "who": "target"}]
+        return d
+    if ability.text == WALL:  # 707.5 enters as a copy; 603.12 the reflexive trigger (on the copied creature) is queued by :func:`wall_entered`
+        d = scripts.define(replace(ability, text=WALL.split(" When you do")[0]), ch)
+        parsed = scripts.parse_effects("Tap target creature. It doesn't untap during its controller's untap step for as long as you control ~.")
+        if d is not None and parsed is not None:
+            d["reflex110d"] = [{**x, "who": "event"} if x.get("who") == "target" else x for x in parsed[0]]
         return d
     if ability.text == DACK:  # Dack Fayden's emblem (114.1): the cast event's targets (115.9b: departed ones are ignored), permanently
         cond = events.parse_condition("you cast a spell that targets one or more permanents")
@@ -169,3 +177,18 @@ def modal_lines(lines: list[Any]) -> list[Any]:
         return lines
     return [replace(lines[0], text="Choose up to two —"),
             *(replace(x, text=x.text[:-1].replace("• Target ", "• Return target ") + " from your graveyard to your hand.") for x in lines[1:])]
+
+
+def wall_entered(plan: Any, card: Any, new_oid: str) -> None:
+    """Wall of Stolen Identity: 603.12 "When you do" (it entered as a copy of a creature): the reflexive ability is about that creature (the copy's source)."""
+    from app.game.rules_state import ObjectRef, TriggerEvent
+    from app.rules import copying, trigger_multipliers, triggers
+
+    d = copying.enter_definition(plan, card)
+    eff = copying._entering_effect(plan, card) if d is not None and d.get("reflex110d") else None
+    src = eff.copy_entry_source if eff is not None else None
+    if src is None or (c := plan.state.cards.get(src.card)) is None or not c.zone.endswith(":battlefield") or plan.oid(c) != src.object_id:
+        return
+    triggers._add(plan, controller=card.controller, source_card=card.id, source_object=new_oid, name=card.name, index=trigger_multipliers.REFLEXIVE,
+                  definition={"kind": "triggered", "trigger": "reflexive", "effects": d["reflex110d"], "optional": False},
+                  event=TriggerEvent(kind="reflexive", objects=[ObjectRef(card=src.card, object_id=src.object_id, zone=c.zone)], count=1))
