@@ -1,5 +1,6 @@
 """Wave 110D: spells with several "target ... of an opponent's choice" groups mixed with the caster's own groups (Volcanic Offering).
 
+* Ruling 2014-11-07 (Volcanic Offering): the opponents are chosen as it is cast (not targeted), the same one or different ones, and may pick the same target as you.
 * 115.1, 601.2c: the caster announces the own targets; for each "of an opponent's choice" group the caster picks which opponent chooses
   (one opponent: no question) and that opponent picks the target. The caster still pays and owns cancellation.
 * 115.3: each instance of the word "target" is its own group, so both lands (or both creatures) may be the same object.
@@ -19,8 +20,12 @@ if TYPE_CHECKING:
 
 MARK = "groups110d"
 OPP, PICK = "opp_groups110d", "pick_groups110d"
-# Refused (no CR rule or ruling in data/rules says which opponent chooses each target): Volcanic Offering's two lines stay unsupported.
-LINES: dict[str, tuple[str, list[int]]] = {}
+LINES = {  # exact spell line -> the line read with every group the caster's (the groups in the list are the opponent's choice)
+    "Destroy target nonbasic land you don't control and target nonbasic land of an opponent's choice you don't control.":
+        ("Destroy target nonbasic land you don't control and target nonbasic land you don't control.", [1]),
+    "Volcanic Offering deals 7 damage to target creature you don't control and 7 damage to target creature of an opponent's choice you don't control.":
+        ("Volcanic Offering deals 7 damage to target creature you don't control and 7 damage to target creature you don't control.", [1]),
+}
 
 
 def line(ability: Any, ch: Any) -> dict[str, Any] | None:
