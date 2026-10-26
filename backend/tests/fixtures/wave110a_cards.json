@@ -1789,5 +1789,41 @@
   ],
   "keywords": [],
   "loyalty": "3"
+ },
+ {
+  "name": "Ajani Goldmane",
+  "layout": "normal",
+  "mana_cost": "{2}{W}{W}",
+  "cmc": 4.0,
+  "type_line": "Legendary Planeswalker — Ajani",
+  "oracle_text": "+1: You gain 2 life.\n−1: Put a +1/+1 counter on each creature you control. Those creatures gain vigilance until end of turn.\n−6: Create a white Avatar creature token. It has \"This token's power and toughness are each equal to your life total.\"",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [],
+  "loyalty": "4"
+ },
+ {
+  "name": "Nicol Bolas, Dragon-God",
+  "layout": "normal",
+  "mana_cost": "{U}{B}{B}{B}{R}",
+  "cmc": 5.0,
+  "type_line": "Legendary Planeswalker — Bolas",
+  "oracle_text": "Nicol Bolas has all loyalty abilities of all other planeswalkers on the battlefield.\n+1: You draw a card. Each opponent exiles a card from their hand or a permanent they control.\n−3: Destroy target creature or planeswalker.\n−8: Each opponent who doesn't control a legendary creature or planeswalker loses the game.",
+  "colors": [
+   "B",
+   "R",
+   "U"
+  ],
+  "color_identity": [
+   "B",
+   "R",
+   "U"
+  ],
+  "keywords": [],
+  "loyalty": "4"
  }
 ]

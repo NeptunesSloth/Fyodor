@@ -3,9 +3,10 @@
 # ruff: noqa: F403, F405
 from __future__ import annotations
 
+from app.game.errors import ActionError
 from tests.wave110a_kit import *
 
-NAMES = ["Ghyrson Starn, Kelermorph", "Averna, the Chaos Bloom", "Superior Spider-Man", "Aminatou, the Fateshifter"]
+NAMES = ["Ghyrson Starn, Kelermorph", "Averna, the Chaos Bloom", "Superior Spider-Man", "Aminatou, the Fateshifter", "Nicol Bolas, Dragon-God"]
 
 
 @pytest.fixture()
@@ -138,4 +139,43 @@ def test_aminatou_right_goes_the_other_way(cards):
     s, am, mine, wall, imp = _aminatou(cards, "right")
     ctl = lambda c: s.state.cards[c.id].controller  # noqa: E731
     assert (ctl(am), ctl(mine), ctl(wall), ctl(imp)) == ("p1", "p2", "p3", "p1")
+    check(s)
+
+
+def _bolas(cards, mine=("Nicol Bolas, Dragon-God", "Ajani Goldmane"), theirs=()):
+    s = build(cards, list(mine), list(theirs))
+    bolas = put(s, "Nicol Bolas, Dragon-God")
+    act(s, "p1", type="set_counter", card_id=bolas.id, kind="loyalty", value=5)
+    return s, bolas
+
+
+def _loyalty(s, c, start):
+    return next(a.index for a in ch(s, c).abilities if a.kind == "loyalty" and a.text.startswith(start))
+
+
+def test_bolas_has_the_loyalty_abilities_of_other_planeswalkers(cards):  # 113.10 lent abilities; 606.3 one loyalty ability per permanent per turn
+    s, bolas = _bolas(cards)
+    ajani = put(s, "Ajani Goldmane")
+    act(s, "p1", type="set_counter", card_id=ajani.id, kind="loyalty", value=4)
+    own = [a.text for a in ch(s, bolas).abilities if a.kind == "loyalty"]
+    assert len(own) > 4  # his own four and Ajani's lent ones
+    life0 = life(s, "p1")
+    act(s, "p1", type="activate_ability", card_id=bolas.id, ability=_loyalty(s, bolas, "+1: You gain 2 life"))
+    answer(s)
+    assert life(s, "p1") == life0 + 2 and s.state.cards[bolas.id].counters["loyalty"] == 6
+    second = _loyalty(s, bolas, "\u22123")
+    with pytest.raises(ActionError):  # Bolas has used a loyalty ability this turn
+        act(s, "p1", type="activate_ability", card_id=bolas.id, ability=second, targets=[bolas.id])
+    check(s)
+
+
+def test_bolas_plus_one_each_opponent_exiles_a_card_or_permanent(cards):
+    s, bolas = _bolas(cards, mine=("Nicol Bolas, Dragon-God",), theirs=("Grizzly Bears", "Lightning Bolt"))
+    bears = put(s, "Grizzly Bears", "p2")
+    bolt = to_hand(s, "Lightning Bolt", "p2")
+    hand0 = len(s.state.zones["p1:hand"])
+    act(s, "p1", type="activate_ability", card_id=bolas.id, ability=_loyalty(s, bolas, "+1: You draw"))
+    answer(s, bolt.id)
+    assert len(s.state.zones["p1:hand"]) == hand0 + 1  # drew
+    assert s.state.cards[bolt.id].zone == "p2:exile" and s.state.cards[bears.id].zone == "p2:battlefield"
     check(s)
