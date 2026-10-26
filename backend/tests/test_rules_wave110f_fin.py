@@ -399,3 +399,77 @@ def test_servitude_ignores_other_creatures(cards):
     answer(s)
     assert _zone(s, "Test Other 110FG") == "p1:graveyard" and _zone(s, "Test Dead 110FF") == "p1:battlefield" and _zone(s, "Diabolic Servitude") == "p1:battlefield"
     check(s)
+
+
+_JARKELD = ("{T}: Choose two target blocked attacking creatures. If each of those creatures could be blocked by all creatures that the other is blocked by, each creature "
+            "that's blocking exactly one of those attacking creatures stops blocking it and is blocking the other attacking creature. Activate only during the declare blockers step.")
+_BASE.extend([
+    real("General Jarkeld", "{3}{W}", 4, "Legendary Creature — Human Soldier", _JARKELD, ("1", "2"), "W"),
+    real("Test Hit A 110FJ", "{1}", 1, "Creature — Ogre", "", ("2", "2"), ""),
+    real("Test Hit B 110FJ", "{1}", 1, "Creature — Orc", "", ("3", "3"), ""),
+    real("Test Fly 110FJ", "{1}", 1, "Creature — Bird", "Flying", ("2", "2"), ""),
+    real("Test Wall X 110FJ", "{1}", 1, "Creature — Wall", "", ("0", "4"), ""),
+    real("Test Wall Y 110FJ", "{1}", 1, "Creature — Wall", "", ("0", "5"), ""),
+    real("Test Skies 110FJ", "{1}", 1, "Creature — Bird", "Flying", ("1", "1"), ""),
+    real("Test Wide 110FJ", "{1}", 1, "Creature — Wall", "This creature can block an additional creature each combat.", ("0", "4"), ""),
+])
+
+
+def test_jarkeld_full(cards):
+    assert coverage.of_card_data(cards.resolve("General Jarkeld")).level == "FULL"
+
+
+def _jarkeld(cards, attackers, blockers_names, blocks):
+    """Alice attacks with ``attackers``; Bob's ``blockers_names`` block as ``blocks`` (index of blocker, index of attacker); Alice's General Jarkeld is untapped."""
+    from tests.test_rules_wave34b_activated import activate
+    from tests.wave36a_kit import block, ready
+
+    s = build(cards, ["General Jarkeld", *attackers], blockers_names)
+    jark = put(s, "General Jarkeld")
+    atk = [put(s, n) for n in attackers]
+    ready(s, "General Jarkeld", *attackers)
+    bl = [put(s, n, "p2") for n in blockers_names]
+    for pid in ("p1", "p2"):
+        act(s, pid, type="set_prefs", full_control=True, hold_priority=True)
+    for _ in range(8):
+        act(s, s.state.rules.priority, type="pass_priority")
+        if s.state.rules.decision is not None:
+            break
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": a.id, "target": "p2"} for a in atk])
+    for _ in range(8):
+        if s.state.rules.decision is not None and s.state.rules.decision.kind == "declare_blockers":
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+    block(s, "p2", *[(bl[i], atk[j]) for i, j in blocks])
+    return s, jark, atk, bl, activate
+
+
+def _blocks(s, blocker, attacker):
+    return s.state.cards[blocker.id].blocks(attacker.id)
+
+
+def test_jarkeld_swaps_each_blocker_to_the_other_attacker(cards):
+    """Both attackers could be blocked by each other's blockers: each blocker that blocked exactly one of them blocks the other. No new declaration: no triggers."""
+    s, jark, atk, bl, activate = _jarkeld(cards, ["Test Hit A 110FJ", "Test Hit B 110FJ"], ["Test Wall X 110FJ", "Test Wall Y 110FJ"], [(0, 0), (1, 1)])
+    activate(s, "p1", jark, "", targets=[atk[0].id, atk[1].id])
+    answer(s)
+    assert _blocks(s, bl[0], atk[1]) and _blocks(s, bl[1], atk[0]) and not _blocks(s, bl[0], atk[0]) and not _blocks(s, bl[1], atk[1])
+    check(s)
+
+
+def test_jarkeld_does_nothing_if_an_attacker_could_not_be_blocked_by_the_other_blockers(cards):
+    """The flier can't be blocked by the non-flying Wall that blocks the ground creature: nothing changes (the condition is "each")."""
+    s, jark, atk, bl, activate = _jarkeld(cards, ["Test Hit A 110FJ", "Test Fly 110FJ"], ["Test Wall X 110FJ", "Test Skies 110FJ"], [(0, 0), (1, 1)])
+    activate(s, "p1", jark, "", targets=[atk[0].id, atk[1].id])
+    answer(s)
+    assert _blocks(s, bl[0], atk[0]) and _blocks(s, bl[1], atk[1]) and not _blocks(s, bl[0], atk[1])
+    check(s)
+
+
+def test_jarkeld_leaves_a_creature_blocking_both(cards):
+    """A creature blocking both stays as it is; the one blocking only the other moves."""
+    s, jark, atk, bl, activate = _jarkeld(cards, ["Test Hit A 110FJ", "Test Hit B 110FJ"], ["Test Wide 110FJ", "Test Wall Y 110FJ"], [(0, 0), (1, 1), (0, 1)])
+    activate(s, "p1", jark, "", targets=[atk[0].id, atk[1].id])
+    answer(s)
+    assert _blocks(s, bl[0], atk[0]) and _blocks(s, bl[0], atk[1]) and _blocks(s, bl[1], atk[0]) and not _blocks(s, bl[1], atk[1])
+    check(s)

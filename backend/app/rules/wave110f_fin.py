@@ -37,6 +37,10 @@ _STAND = ("At the beginning of combat on your turn, for each defending player, s
           "Only creatures in the chosen piles can block this turn.")
 
 
+_JARKELD = ("{T}: Choose two target blocked attacking creatures. If each of those creatures could be blocked by all creatures that the other is blocked by, each creature "
+            "that's blocking exactly one of those attacking creatures stops blocking it and is blocking the other attacking creature. Activate only during the declare blockers step.")
+
+
 def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
     from app.rules import scripts
     from app.rules.token_copy_outcomes import ORIGINAL
@@ -111,7 +115,54 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
         sel = Selector(types=("Creature",)).key()
         return {**probe, "effects": [{"do": "pile_deal", "who": "each_opponent", "split": "you", "sel": sel, "zone": "battlefield", "pick": "owner", "n": 2,
                                       "chosen": "limit_block", "other": None, "say": "creatures"}]}
+    if ability.kind == "activated" and text == _JARKELD:
+        probe = scripts.define(replace(ability, text="{T}: Choose two target blocked attacking creatures. You gain 1 life. Activate only during the declare blockers step."), ch)
+        if probe is None or probe.get("kind") != "activated" or not probe.get("targets"):
+            return {}
+        return {**probe, "effects": [{"do": "jarkeld110f"}]}
     return None
+
+
+def _could_be_blocked_by(plan: Any, attacker: Any, blockers: list[Any]) -> bool | None:
+    """"Could be blocked by all of them": 509.1a-b as a declaration of exactly these blockers would be judged (each pair, the attacker's minimum and maximum); None: a rule of
+    declarations this check doesn't model (block_by_all, "can't block alone", a cap, a companion group): the table decides by hand."""
+    from app.rules import combat, combat_rules, declaration_groups, scripts
+
+    ach = plan.ch(attacker)
+    if "block_by_all" in scripts.statics(ach) or declaration_groups.relevant(plan, {b.id for b in blockers}, "block") \
+            or any("cant_block_alone" in scripts.statics(plan.ch(b)) for b in blockers) or any(plan.rules.block_caps.get(b.controller) is not None for b in blockers) \
+            or combat_rules.limits(plan, combat_rules.BLOCK_LIMIT_ALL).get("*") is not None:
+        return None
+    if blockers and (len(blockers) < combat.min_blockers(ach) or ("max_one_blocker" in scripts.statics(ach) and len(blockers) > 1)):
+        return False
+    return all(combat.block_problem(plan.state, b, plan.ch(b), attacker, ach, plan.info) is None for b in blockers)
+
+
+def jarkeld(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """General Jarkeld: two targets that are both still blocked attacking creatures; if each could be blocked by every creature blocking the other, each creature
+    blocking exactly one of them blocks the other instead (509.1h: they stay blocked; the new blocks are no new declaration: no "blocks" triggers, 2004-10-04 ruling)."""
+    from app.rules import effects
+    from app.rules.combat import note_block
+
+    cards = [plan.state.cards[c] for c in dict.fromkeys(effects._cards(plan, ctx, "target"))]
+    if len(cards) != 2 or not all(c.is_attacking and c.zone.endswith(":battlefield") and c.id in plan.rules.blocked for c in cards):
+        return True
+    a, b = cards
+    by = {c.id: [x for x in plan.state.cards.values() if x.zone.endswith(":battlefield") and x.blocks(c.id)] for c in cards}
+    ok = [_could_be_blocked_by(plan, a, by[b.id]), _could_be_blocked_by(plan, b, by[a.id])]
+    if None in ok:
+        plan.note(f"{ctx.get('name') or 'General Jarkeld'}: the blocks can't be checked for these creatures: move the blockers by hand")
+        return True
+    if not all(ok):
+        plan.note(f"{ctx.get('name') or 'General Jarkeld'}: the creatures can't be blocked by each other's blockers: nothing changes")
+        return True
+    moved = [(x, b) for x in by[a.id] if not x.blocks(b.id)] + [(x, a) for x in by[b.id] if not x.blocks(a.id)]
+    for x, to in moved:
+        plan.do({"type": "block", "card_id": x.id, "attacker_id": to.id}, actor=ctx["controller"])  # (a creature blocking exactly one: the block is replaced)
+    if moved:
+        note_block(plan.state, [plan.oid(x) for x, _ in moved], [(plan.oid(x), plan.oid(to)) for x, to in moved])
+        plan.note(f"{ctx.get('name') or 'General Jarkeld'}: " + ", ".join(f"{x.name} now blocks {to.name}" for x, to in moved))
+    return True
 
 
 def link_put(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
@@ -221,5 +272,5 @@ def resume_master(plan: Any, d: Any, chosen: list[str]) -> None:
         effects.continue_effects(plan, d.resume["ctx"])
 
 
-PRIMITIVES = {"master110f": master, "link_cost110f": link_cost, "seventh110f": seventh, "link_put110f": link_put, "servitude110f": servitude}
+PRIMITIVES = {"master110f": master, "link_cost110f": link_cost, "seventh110f": seventh, "link_put110f": link_put, "servitude110f": servitude, "jarkeld110f": jarkeld}
 RESUME = {"master110f": resume_master, "seventh110f": resume_seventh, "seventh110f_guess": resume_seventh_guess}
