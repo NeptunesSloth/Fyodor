@@ -1590,6 +1590,11 @@ def _entering(plan: Plan, card: CardInstance, controller: str, answers: dict[str
     # whatever its number: rules_state._diff — never a predicted id, 400.7)
     duration: Literal["end_of_turn", "permanent"] = "end_of_turn" if d.get("duration") == "end_of_turn" else "permanent"
     add_copy_effect(plan, [plan.oid(card)], recipe, controller, source=ENTERING + card.id, duration=duration, entry_source=source_snapshot)
+    if d.get("haste110b"):  # -- (wave 110B) -- 611.2: an effect of the entering object, until end of turn
+        from app.rules import layers
+
+        layers.add_effect(plan, affected=[plan.oid(card)], layer="6", source=ENTERING + card.id, controller=controller, add_keywords=("haste",),
+                          duration="end_of_turn", label="Haste (entered as a copy)")
     if d.get("tapped"):  # -- enter as copy (wave 5F) -- "enter tapped as a copy" (Vesuva)
         out["tapped"] = True
     return False
@@ -2171,6 +2176,7 @@ def parse_become_group(grp: str, ctl: bool, others: bool, src: str | None, what:
 
 
 # (wave 31C: "another creature you control" — the entering card isn't on the battlefield, so "another" excludes nothing: Sakashima of a Thousand Faces)
+_HASTE_TAIL = " If you do, it gains haste until end of turn."
 _CLONE = re.compile(r"^You may have ~ enter (?P<tapped>tapped )?as a copy of (?:any|a|an|another) (?P<rest>.+)$")
 # -- enter as copy (wave 5F) -- "As ~ enters, you may have it become a copy of any creature on the battlefield until end
 # of turn, except it has haste." (Cursed Mirror): an "as enters" replacement (614.1c) — it enters as the copy (707.5),
@@ -2186,6 +2192,9 @@ def define_static(text: str) -> dict[str, Any] | None:
     creature to copy")."""
     from app.rules import selectors
 
+    haste110b = text.endswith(_HASTE_TAIL)  # -- (wave 110B) -- The Fourteenth Doctor: "If you do, it gains haste until end of turn." (it entered as the copy)
+    if haste110b:
+        text = text[:-len(_HASTE_TAIL)]
     m = _CLONE.match(text)
     until_eot = False
     if m is None:  # -- enter as copy (wave 5F) -- Cursed Mirror
@@ -2221,6 +2230,8 @@ def define_static(text: str) -> dict[str, Any] | None:
            "what": what + (MV_SPENT if spent else "") + TO_COPY, "effects": [], **_dump(ex), **({"enter_counters": counters} if counters else {})}
     if conditional is not None:
         out['copy_if_lacks'] = {'keyword':'vanishing', 'text':f"Vanishing {int(conditional['n'])}"}
+    if haste110b:
+        out["haste110b"] = True
     if not until_eot and m["tapped"]:
         out["tapped"] = True  # (Vesuva: tapped only if it enters as a copy)
     if until_eot:

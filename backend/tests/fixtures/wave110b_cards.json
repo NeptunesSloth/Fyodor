@@ -3055,5 +3055,48 @@
   "keywords": [],
   "power": "4",
   "toughness": "6"
+ },
+ {
+  "name": "The Fourteenth Doctor",
+  "layout": "normal",
+  "mana_cost": "{R/G}{W}{U}",
+  "cmc": 3.0,
+  "type_line": "Legendary Creature — Time Lord Doctor",
+  "oracle_text": "When you cast this spell, reveal the top fourteen cards of your library. Put all Doctor cards revealed this way into your graveyard and the rest on the bottom of your library in a random order.\nYou may have The Fourteenth Doctor enter as a copy of a Doctor card in your graveyard that was put there from your library this turn. If you do, it gains haste until end of turn.",
+  "colors": [
+   "G",
+   "R",
+   "U",
+   "W"
+  ],
+  "color_identity": [
+   "G",
+   "R",
+   "U",
+   "W"
+  ],
+  "keywords": [],
+  "power": "3",
+  "toughness": "4"
+ },
+ {
+  "name": "Donald Blake, Guise of Thor",
+  "layout": "normal",
+  "mana_cost": "{1}{W}",
+  "cmc": 2.0,
+  "type_line": "Legendary Creature — Human Doctor",
+  "oracle_text": "Lifelink\nPower-up — {4}{W}{W}: Put two +1/+1 counters and a flying counter on Donald Blake. He becomes a God Warrior Hero. (He loses all other creature types. Activate each power-up ability only once. Reduce the cost by his mana cost if he entered this turn.)",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "Power-up",
+   "Lifelink"
+  ],
+  "power": "1",
+  "toughness": "3"
  }
 ]

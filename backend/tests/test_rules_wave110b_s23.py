@@ -157,3 +157,29 @@ def test_dack_gives_each_creature_to_a_different_opponent_goaded(cards, opponent
         assert keyword_actions.goaded_by(ch(s, c)) == {"p1"}
     assert card_named(s, "Giant Growth").id in s.state.zones["p1:library"]
     check(s)
+
+
+DOCTOR = "The Fourteenth Doctor"
+DONALD = "Donald Blake, Guise of Thor"
+
+
+@pytest.mark.parametrize("copy_it", [True, False])
+def test_fourteenth_doctor_copies_a_doctor_milled_by_its_own_cast_trigger(cards, copy_it):
+    """Cast trigger: Doctors among the top 14 go to the graveyard (from the library, 701.17a), the rest to the bottom; then it may enter as a copy of one of them
+    (707.5) and gains haste until end of turn (only if it did)."""
+    s = build(cards, [DOCTOR, DONALD], forests=30)
+    top(s, DONALD)
+    mana(s, R=1, W=1, U=1, C=1)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, DOCTOR).id)
+
+    def answer(d):
+        if d.kind == "choose_one" and "copy" in d.prompt.lower():
+            return [o.id for o in d.options][:1] if copy_it else [o.id for o in d.options][-1:]
+        return None
+
+    drive(s, answer)
+    me = card_named(s, DOCTOR)
+    assert s.state.cards[me.id].zone == "p1:battlefield"
+    c = ch(s, me)
+    assert (c.name == DONALD) == copy_it and ("haste" in c.keywords) == copy_it
+    check(s)
