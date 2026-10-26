@@ -23,6 +23,7 @@
 * 604.3a(5), 613.4b, 611.2b: Gaea's Liege's power and toughness (Forests you control, or defending player's while it attacks) are no characteristic-defining
   ability; its tap ability turns a land into a Forest for as long as it stays on the battlefield.
 * 506.3, 509.1b: Become the Pilot's creature can be blocked only while it attacks its owner (or a planeswalker / battle its owner controls).
+* 702.110b, 608.2h: Profaner of the Dead bounces the opponents' creatures with toughness below the exploited creature's (as it last existed).
 * 701.24a, 608.2b: Serene Remembrance shuffles itself and up to three target cards from a single graveyard into their owners' libraries.
 """
 
@@ -60,10 +61,10 @@ from tests.wave110o_kit import (  # noqa: F401
     to_phase,
 )
 
-REMEMBRANCE, THRALL, SANDS, RACER, LOCKER, HELM, PORTENT, WITCH, RINOA, SYRIX, LAZAV, STRIP, WITCHES, MAGUS, MINOTAUR, WORM, PHANTASM, ZABAZ, CODIE, LIEGE, PILOT, OKO = "Serene Remembrance", "Evil's Thrall", "Reverse the Sands", "Filigree Racer", "The Grim Captain's Locker", "Helm of Obedience", "Portent of Calamity", "Scarlet Witch, Chaotic Avenger", "Rinoa, Angel Wing", "Syrix, Carrier of the Flame", "Lazav, Familiar Stranger", "Bösium Strip", "Cuombajj Witches", "Magus of the Arena", "Karplusan Minotaur", "Desert Were-Worm", "Spire Phantasm", "Zabaz, the Glimmerwasp", "Codie, Ravenous Codex", "Gaea's Liege", "Become the Pilot", "Oko, Lorwyn Liege // Oko, Shadowmoor Scion"
+REMEMBRANCE, THRALL, SANDS, RACER, LOCKER, HELM, PORTENT, WITCH, RINOA, SYRIX, LAZAV, STRIP, WITCHES, MAGUS, MINOTAUR, WORM, PHANTASM, ZABAZ, CODIE, LIEGE, PILOT, PROFANER, OKO = "Serene Remembrance", "Evil's Thrall", "Reverse the Sands", "Filigree Racer", "The Grim Captain's Locker", "Helm of Obedience", "Portent of Calamity", "Scarlet Witch, Chaotic Avenger", "Rinoa, Angel Wing", "Syrix, Carrier of the Flame", "Lazav, Familiar Stranger", "Bösium Strip", "Cuombajj Witches", "Magus of the Arena", "Karplusan Minotaur", "Desert Were-Worm", "Spire Phantasm", "Zabaz, the Glimmerwasp", "Codie, Ravenous Codex", "Gaea's Liege", "Become the Pilot", "Profaner of the Dead", "Oko, Lorwyn Liege // Oko, Shadowmoor Scion"
 
 
-@pytest.mark.parametrize("name", [REMEMBRANCE, THRALL, SANDS, RACER, LOCKER, HELM, PORTENT, WITCH, RINOA, SYRIX, LAZAV, STRIP, WITCHES, MAGUS, MINOTAUR, WORM, PHANTASM, ZABAZ, CODIE, LIEGE, PILOT, OKO])
+@pytest.mark.parametrize("name", [REMEMBRANCE, THRALL, SANDS, RACER, LOCKER, HELM, PORTENT, WITCH, RINOA, SYRIX, LAZAV, STRIP, WITCHES, MAGUS, MINOTAUR, WORM, PHANTASM, ZABAZ, CODIE, LIEGE, PILOT, PROFANER, OKO])
 def test_the_cards_are_full(name):
     assert full(name)
 
@@ -1208,3 +1209,33 @@ def test_become_the_pilot_creature_is_blockable_only_when_attacking_its_owner(ca
         with pytest.raises(ActionError):
             act(s, blocker_pid, type="declare_blockers", blocks=attempt)
         act(s, blocker_pid, type="declare_blockers", blocks=[])
+
+
+@pytest.mark.parametrize(("exploit", "counters", "bounced"), [
+    ("Grizzly Bears", 0, ["Benalish Hero"]),                       # toughness 2: only the 1/1 is less
+    ("Twisted Abomination", 0, ["Benalish Hero", "Grizzly Bears"]),  # toughness 3
+    ("Grizzly Bears", 1, ["Benalish Hero", "Grizzly Bears"]),       # a +1/+1 counter: 3, as it last existed
+    (None, 0, []),                                                  # nothing exploited: the ability never triggers
+])
+def test_profaner_of_the_dead_returns_the_smaller_creatures_of_opponents(cards, exploit, counters, bounced):
+    s = build(cards, [PROFANER, "Grizzly Bears", "Twisted Abomination"], ["Benalish Hero", "Grizzly Bears"])
+    mine = put(s, exploit) if exploit else None
+    if counters:
+        act(s, "p1", type="counter", card_ids=[mine.id], kind="+1/+1", delta=counters)
+    theirs = {n: put(s, n, "p2") for n in ("Benalish Hero", "Grizzly Bears")}
+    profaner = to_hand(s, PROFANER)
+    mana(s, "p1", C=3, U=1)
+    act(s, "p1", type="cast_spell", card_id=profaner.id)
+    for _ in range(20):
+        d = s.state.rules.decision
+        if d is not None:
+            pick = ["no" if mine is None else "yes"] if d.kind == "confirm" else [mine.id]  # (the exploit "may": yes with a creature to sacrifice, then which one)
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=pick)
+        elif s.state.zones.get("stack"):
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            break
+    for name, c in theirs.items():
+        assert now(s, c).zone == ("p2:hand" if name in bounced else "p2:battlefield"), name
+    assert (mine is None) or now(s, mine).zone == "p1:graveyard"
+    check(s)

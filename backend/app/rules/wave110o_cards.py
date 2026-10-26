@@ -87,6 +87,8 @@ _CODIE = "{W}{U}{B}{R}{G}, {T}: Each creature you control becomes prepared."
 _LIEGE = ("As long as ~ isn't attacking, its power and toughness are each equal to the number of Forests you control. As long as ~ is attacking, its power and "
           "toughness are each equal to the number of Forests defending player controls.")
 _LIEGE_LAND = "{T}: Target land becomes a Forest until ~ leaves the battlefield."
+_PROFANER = ("When ~ exploits a creature, return to their owners' hands all creatures your opponents control with toughness less than the exploited creature's "
+             "toughness.")
 _OKO_TYPES = "+2: Up to one target creature gains all creature types."
 _OKO_EMBLEM = ('−6: Choose a creature type. You get an emblem with "Creatures you control of the chosen type get +3/+3 and have vigilance and '
                'hexproof."')
@@ -106,6 +108,9 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
         if native is None:
             return None
         return {**native, "effects": [{"do": "type_emblem110o"}]}
+    if ability.kind == "triggered" and text == _PROFANER:  # 702.110b, 608.2h: the exploited creature's toughness as it last existed
+        native = scripts.define(replace(ability, text="When ~ exploits a creature, draw a card."), ch)
+        return None if native is None else {**native, "effects": [{"do": "profaner110o"}]}
     if ability.kind == "static" and text == _LIEGE:
         # 604.3a(5): each sentence sets power and toughness only if its condition holds, so neither is a characteristic-defining ability: two ordinary statics
         # (611.3a, 613.4b layer 7b) that exclude each other; "defending player" is the player it attacks (506.2)
@@ -463,7 +468,17 @@ def resume_lazav_copy(plan: Plan, d: Any, chosen: list[str]) -> None:
     effects.continue_effects(plan, ctx)
 
 
+def profaner(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    from app.rules import context, effects, selectors
+
+    got = context.info(plan, ctx, context.EVENT_OTHER)
+    if got is None or got[1].pt is None:
+        return True  # (no exploited creature to measure: nothing is less than it)
+    small = selectors.Selector(types=("Creature",), controller="opponent", compare=(("toughness", "<", int(got[1].pt[1])),)).key()
+    return bool(effects.PRIMITIVES["bounce"](plan, ctx, {"do": "bounce", "who": small}))
+
+
 PRIMITIVES: dict[str, Any] = {"type_emblem110o": type_emblem, "redistribute110o": redistribute,
-              "helm_test110o": helm_test, "helm_again110o": helm_again, "helm_pick110o": helm_pick, "portent_hand110o": portent_hand, "rinoa_pick110o": rinoa_pick, "lazav110o": lazav}
+              "helm_test110o": helm_test, "helm_again110o": helm_again, "helm_pick110o": helm_pick, "portent_hand110o": portent_hand, "rinoa_pick110o": rinoa_pick, "lazav110o": lazav, "profaner110o": profaner}
 RESUME: dict[str, Any] = {"type_emblem110o": resume_type_emblem, "redistribute_players110o": resume_redistribute_players,
                           "redistribute_give110o": resume_redistribute_give, "helm_pick110o": resume_helm_pick, "rinoa_pick110o": resume_rinoa_pick, "lazav110o": resume_lazav, "lazav_copy110o": resume_lazav_copy}
