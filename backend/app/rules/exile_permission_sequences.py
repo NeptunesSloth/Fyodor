@@ -27,6 +27,13 @@ def parse(body: str) -> tuple[list[dict[str, Any]], Any, bool] | None:
     if text == 'Exile target nonland permanent. For as long as that card remains exiled, its owner may play it. A spell cast by an opponent this way costs {2} more to cast.':
         return ([{'do': 'exile', 'who': 'target', 'as': 'permission_exiled'},
                  _grant('permission_exiled', 'permanent', owner=True, generic_extra_opponents=2)], 'nonland_permanent', False)
+    if text == 'Exile up to X target creatures. For each of those cards, its owner may play it for as long as it remains exiled.':  # Extraordinary Journey (wave 110G)
+        from app.rules import scripts
+
+        got = scripts.parse_effects('Exile up to X target creatures.')
+        if got is None or got[0][0].get('do') != 'exile':
+            return None
+        return ([{**got[0][0], 'as': 'permission_exiled'}, _grant('permission_exiled', 'permanent', owner=True)], got[1], got[2])
     if text == 'Exile target nonland permanent and the top card of your library. For each of those cards, its owner may play it until the end of their next turn.':
         return ([{'do': 'exile', 'who': 'target', 'as': 'permission_target'}, _top(),
                  _grant('permission_target', 'end_of_next_turn', owner=True),

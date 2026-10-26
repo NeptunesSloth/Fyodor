@@ -965,6 +965,7 @@ _DISSOLVE = "{X}{B}: Put target creature card with mana value X exiled with this
 
 
 _GUILE = "If a spell or ability you control would counter a spell, instead exile that spell and you may play that card without paying its mana cost."
+_INERTIA = "Whenever a player attacks enchanted player with one or more creatures, that attacking player may tap or untap target permanent of their choice."
 _MAZE = ("Whenever another creature becomes the target of an ability of a land you control named Labyrinth of Skophos, "
          "you may have this creature fight that creature.")
 
@@ -986,6 +987,11 @@ def definition(ability: Any, ch: Any) -> Def | None:
                 "target": {"what": "exiled_with:" + sel}}
     if ability.text.strip() == _GUILE:  # Guile: read by effects.counter_object (guile_has) and offered by guile_offer
         return {"kind": "static", "static": "guile110g", "effects": []}
+    if ability.text.strip() == _INERTIA:  # Curse of Inertia: the attacking player announces the target (115.1, ruling 2013-10-17) and makes the may / tap-or-untap choice
+        native = scripts.define(replace(ability, text="Whenever a player attacks enchanted player with one or more creatures, tap or untap target permanent."), ch)
+        if native is None or native["effects"][0].get("do") != "tap_or_untap":
+            return None
+        return {**native, "target_choice": "event_player", "effects": [{**native["effects"][0], "optional": True, "chooser110g": "event_player"}]}
     if ability.text.strip() == _MAZE:  # Skophos Maze-Warden: the targeted-event trigger with a source filter, then a may-fight with the targeted creature (701.14)
         native = scripts.define(replace(ability, text="Whenever a creature becomes the target of an ability, tap that creature."), ch)
         if native is None:
