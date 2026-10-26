@@ -219,5 +219,35 @@
 "B"
 ],
 "keywords": []
+},
+{
+"name": "Stunning Reversal",
+"layout": "normal",
+"mana_cost": "{3}{B}",
+"cmc": 4.0,
+"type_line": "Instant",
+"oracle_text": "The next time you would lose the game this turn, instead draw seven cards and your life total becomes 1.\nExile Stunning Reversal.",
+"colors": [
+"B"
+],
+"color_identity": [
+"B"
+],
+"keywords": []
+},
+{
+"name": "Choice of Damnations",
+"layout": "normal",
+"mana_cost": "{5}{B}",
+"cmc": 6.0,
+"type_line": "Sorcery — Arcane",
+"oracle_text": "Target opponent chooses a number. You may have that player lose that much life. If you don't, that player sacrifices all but that many permanents of their choice.",
+"colors": [
+"B"
+],
+"color_identity": [
+"B"
+],
+"keywords": []
 }
 ]

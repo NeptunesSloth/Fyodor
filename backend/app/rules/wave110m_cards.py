@@ -40,6 +40,12 @@ def parse(body: str) -> Any:
         assert parsed is not None
         _, target, optional = parsed
         return [{"do": "change_target", "who": "target", "must": "creature", "creature110m": True}], target, optional
+    if body.strip() == _DAMNATIONS:
+        parsed = scripts.parse_effects("Target opponent loses 1 life.")
+        assert parsed is not None
+        return [{"do": "damnations110m"}], parsed[1], False
+    if body.strip() in (_REVERSAL, f"{_REVERSAL} Exile ~."):  # (the spell's own second sentence, "Exile Stunning Reversal.", moves it out of the graveyard's way)
+        return [{"do": "lose_shield110m"}, *([{"do": "exile", "who": "self"}] if body.strip().endswith("Exile ~.") else [])], None, False
     return None
 
 
@@ -97,5 +103,83 @@ def resume_faces(plan: Any, d: Any, chosen: list[str]) -> None:
     effects.continue_effects(plan, ctx)
 
 
-RESUME: dict[str, Any] = {"faces110m": resume_faces}
-PRIMITIVES: dict[str, Any] = {"top_to_bottom110m": top_to_bottom, "faces110m": faces}
+_REVERSAL = ("The next time you would lose the game this turn, instead draw seven cards and your life total becomes 1.")
+
+
+def lose_shield(plan: Any, ctx: Def, e: Def) -> bool:
+    """Stunning Reversal: a one-shot replacement of the controller's next loss of the game this turn (614.1a, 614.5); applied in wave110c_lose."""
+    plan.rules.lose_shields110m.append({"player": ctx["controller"], "turn": plan.state.turn.number, "card": ctx.get("source_card")})
+    return True
+
+
+def lose_shields(plan: Any, pid: str) -> list[tuple[Any, Def]]:
+    """The live shields of ``pid`` as replacement sources (the card that made them, exiled by then): only this turn's (610.3)."""
+    return [(card, {"life": "reversal110m"}) for x in plan.rules.lose_shields110m
+            if x["player"] == pid and x["turn"] == plan.state.turn.number and (card := plan.state.cards.get(x["card"] or "")) is not None]
+
+
+_DAMNATIONS = ("Target opponent chooses a number. You may have that player lose that much life. If you don't, that player sacrifices all but that many "
+               "permanents of their choice.")
+
+
+def damnations(plan: Any, ctx: Def, e: Def) -> bool:
+    """Choice of Damnations, step 1: the target opponent chooses a number (any number 0 or greater, announced to everyone, 107.1b)."""
+    from app.game.rules_state import DecisionOption
+    from app.rules import effects
+    from app.rules.group_choice import NUMBER
+    from app.rules.plan import decide
+
+    opp = next(iter(effects._players(plan, ctx, "target")), None)
+    if opp is None or opp not in plan.live():
+        return True  # (an illegal target as it resolves: 608.2b)
+    decide(plan, player=opp, kind="choose_one", prompt=f"{ctx.get('name', '')}: choose a number",
+           options=[DecisionOption(id=NUMBER, label="Type a number ≥ 0", group="number")], resume={"step": "damnations110m", "ctx": ctx, "opp": opp})
+    return False
+
+
+def resume_damnations(plan: Any, d: Any, chosen: list[str]) -> None:
+    """Step 2: its controller may have that player lose that much life."""
+    from app.game.rules_state import DecisionOption
+    from app.rules.plan import decide
+
+    ctx, opp = d.resume["ctx"], d.resume["opp"]
+    n = max(0, int(chosen[0])) if chosen and chosen[0].isdigit() else 0
+    plan.note(f"{plan.name(opp)} chooses {n}", actor=opp)
+    decide(plan, player=ctx["controller"], kind="confirm", prompt=f"{ctx.get('name', '')}: have {plan.name(opp)} lose {n} life? (If not, they sacrifice all but {n} permanents)",
+           options=[DecisionOption(id="yes", label=f"{plan.name(opp)} loses {n} life"), DecisionOption(id="no", label=f"{plan.name(opp)} sacrifices all but {n} permanents")],
+           resume={"step": "damnations110m_lose", "ctx": ctx, "opp": opp, "n": n})
+
+
+def resume_damnations_lose(plan: Any, d: Any, chosen: list[str]) -> None:
+    """Step 3: life lost, or the player keeps the number of permanents they chose (the rest are sacrificed together, 701.21a)."""
+    from app.game.rules_state import DecisionOption
+    from app.rules import effects
+    from app.rules.plan import decide
+
+    ctx, opp, n = d.resume["ctx"], d.resume["opp"], d.resume["n"]
+    if chosen and chosen[0] == "yes":
+        if effects.lose_life(plan, ctx, {"do": "lose_life", "who": f"player:{opp}", "n": n}):
+            effects.continue_effects(plan, ctx)
+        return
+    perms = [c.id for c in plan.state.cards.values() if c.zone == f"{opp}:battlefield" and c.controller == opp and plan.in_game(c)]
+    if len(perms) > n > 0:
+        decide(plan, player=opp, kind="choose_cards", prompt=f"{ctx.get('name', '')}: choose {n} permanents to keep; sacrifice the rest",
+               options=[DecisionOption(id=c, label=plan.state.cards[c].name or "Permanent", card_id=c) for c in perms],
+               min_choices=n, max_choices=n, resume={"step": "damnations110m_keep", "ctx": ctx, "opp": opp, "perms": perms})
+        return
+    effects._sacrifice_cards(plan, perms if n == 0 else [], opp, ctx, None)
+    effects.continue_effects(plan, ctx)
+
+
+def resume_damnations_keep(plan: Any, d: Any, chosen: list[str]) -> None:
+    from app.rules import effects
+
+    ctx, opp = d.resume["ctx"], d.resume["opp"]
+    keep = set(chosen)
+    effects._sacrifice_cards(plan, [c for c in d.resume["perms"] if c not in keep], opp, ctx, None)
+    effects.continue_effects(plan, ctx)
+
+
+RESUME: dict[str, Any] = {"faces110m": resume_faces, "damnations110m": resume_damnations, "damnations110m_lose": resume_damnations_lose,
+                          "damnations110m_keep": resume_damnations_keep}
+PRIMITIVES: dict[str, Any] = {"top_to_bottom110m": top_to_bottom, "faces110m": faces, "lose_shield110m": lose_shield, "damnations110m": damnations}

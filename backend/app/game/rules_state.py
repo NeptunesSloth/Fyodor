@@ -1500,6 +1500,7 @@ class RulesState(BaseModel):
     miracle_turn: dict[str, int] = Field(default_factory=dict)
     miracled: list[str] = Field(default_factory=list)
     drew_from_empty: list[str] = Field(default_factory=list)  # loses at the next state-based check
+    lose_shields110m: list[dict[str, Any]] = Field(default_factory=list)  # -- (wave 110M) -- "the next time you would lose the game this turn, instead ...": player, turn, source card and name
     deathtouched: list[str] = Field(default_factory=list)  # creatures dealt damage by a deathtouch source
     prevention: dict[str, int] = Field(default_factory=dict)  # player / object id -> damage to prevent this turn
     # (wave 17A) "<key>#<id>" -> a shield that has an additional effect (615.5): its rider and who made it
