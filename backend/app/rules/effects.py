@@ -1127,6 +1127,7 @@ def _from_zone(plan: Plan, e: dict[str, Any], cards: list[str]) -> list[str]:
 
 
 def exile_cards(plan: Plan, ctx: Context, e: dict[str, Any], cards: list[str]) -> bool:
+    cards = _prohibitions.trigger_token_shield(plan, ctx, cards)  # -- prohibitions (wave 110A) --
     before = _remember(plan, ctx, e, cards)
     if cards:
         on_bf = [c for c in cards if plan.state.cards[c].zone.endswith(":battlefield")]  # -- cards (wave 110I) --
@@ -2165,6 +2166,7 @@ def exile_until(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
 
 def _exile_until_cards(plan: Plan, ctx: Context, e: dict[str, Any], cards: list[str]) -> bool:
+    cards = _prohibitions.trigger_token_shield(plan, ctx, cards)  # -- prohibitions (wave 110A) --
     before = _remember(plan, ctx, e, cards)
     if cards:
         on_bf = [c for c in cards if plan.state.cards[c].zone.endswith(":battlefield")]
@@ -2818,6 +2820,8 @@ def _sacrifice_cards(plan: Plan, cards: list[str], actor: str, ctx: Context | No
 
     cards = [c for c in cards if c in plan.state.cards and plan.state.cards[c].zone.endswith(":battlefield")
              and not prohibitions.sacrifice_forbidden(plan, plan.state.cards[c])]
+    if ctx is not None:
+        cards = prohibitions.trigger_token_shield(plan, ctx, cards)  # -- prohibitions (wave 110A) --
     if ctx is not None:  # -- prohibitions (wave 22B) -- 614.17: "Spells and abilities your opponents control can't cause you to sacrifice permanents."
         from app.rules import prohibitions
 
