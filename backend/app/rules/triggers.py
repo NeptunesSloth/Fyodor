@@ -750,7 +750,8 @@ def _damage_facts(plan: Plan, e: Event) -> list[Fact]:
     if got is not None:
         out.append(("dealt_damage", got[0], got[1], got[0].controller,
                     {"oid": e.object_id, "snap": None if _live(plan, got[0]) else r.lki.get(e.object_id or ""),
-                     "amount": e.amount, "source_oid": e.source, "combat": e.combat, "attacking_player": e.attacking_player, "excess": e.excess, "pair110c": e.pair110c}))  # (wave 39B: 120.10)
+                     "amount": e.amount, "source_oid": e.source, "combat": e.combat, "attacking_player": e.attacking_player, "excess": e.excess, "pair110c": e.pair110c,
+                     "actor": e.actor}))  # (wave 39B: 120.10)
     elif e.player is not None:  # "you're dealt combat damage", "an opponent is dealt noncombat damage"
         out.append(("dealt_damage", None, None, e.player,
                     {"recipient": e.player, "amount": e.amount, "source_oid": e.source, "combat": e.combat, "attacking_player": e.attacking_player}))

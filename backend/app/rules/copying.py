@@ -1966,8 +1966,8 @@ def with_this_ability(d: dict[str, Any], ability: Any, ch: Characteristics) -> d
     marker = json.dumps(THIS_ABILITY)
     if marker not in raw:
         return d
-    if d.get("kind") not in ("activated", "triggered") or "\\u0000" in text or '"' in text:
-        return None
+    if d.get("kind") not in ("activated", "triggered") or "\\u0000" in text or ('"' in text and not (text.count('"') == 2 and text.endswith('"'))):
+        return None  # (wave 110A: one quoted ability closing the line is fine: Aurora Shifter's "except it has this ability and "Whenever …"")
     own = text if named or text.startswith(("Exhaust — ", "Boast — ", "Power-up — ", "Forecast — ")) \
         else re.sub(r"(^|: |\. )this permanent", r"\1This permanent", renamed(text, ch.name, "this permanent"))  # (unchanged if it names no one)
     return json.loads(raw.replace(marker, json.dumps(own)))

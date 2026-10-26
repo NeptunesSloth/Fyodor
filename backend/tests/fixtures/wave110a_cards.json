@@ -1846,5 +1846,56 @@
   ],
   "power": "3",
   "toughness": "3"
+ },
+ {
+  "name": "Grothama, All-Devouring",
+  "layout": "normal",
+  "mana_cost": "{3}{G}{G}",
+  "cmc": 5.0,
+  "type_line": "Legendary Creature — Wurm",
+  "oracle_text": "Other creatures have \"Whenever this creature attacks, you may have it fight Grothama, All-Devouring.\"\nWhen Grothama leaves the battlefield, each player draws cards equal to the amount of damage dealt to Grothama this turn by sources they controlled.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [
+   "Fight"
+  ],
+  "power": "10",
+  "toughness": "8"
+ },
+ {
+  "name": "Shock",
+  "layout": "normal",
+  "mana_cost": "{R}",
+  "cmc": 1.0,
+  "type_line": "Instant",
+  "oracle_text": "Shock deals 2 damage to any target.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Aurora Shifter",
+  "layout": "normal",
+  "mana_cost": "{1}{U}",
+  "cmc": 2.0,
+  "type_line": "Creature — Shapeshifter",
+  "oracle_text": "Whenever this creature deals combat damage to a player, you get that many {E}.\nAt the beginning of combat on your turn, you may pay {E}{E}. When you do, this creature becomes a copy of another target creature you control, except it has this ability and \"Whenever this creature deals combat damage to a player, you get that many {E}.\"",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [],
+  "power": "1",
+  "toughness": "3"
  }
 ]
