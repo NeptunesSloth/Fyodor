@@ -34,6 +34,14 @@ def modal_header(ability: Any, ch: Any) -> Any:
                    "put a charge counter on it. When you do, choose one \u2014")
 
 
+_PHOENIX = "When ~ dies, you may exile it and collect evidence 4. If you do, return this card to the battlefield tapped."
+# The Spot, Living Portal: the card is put on the bottom (401.4); "If you do" holds only if it really got to the library (608.2c), then the linked exile returns.
+_SPOT = "When ~ dies, put ~ on the bottom of ~'s owner's library. If you do, return the exiled cards to their owners' hands."
+# Mysterious Limousine: "If a creature is put into exile this way, return each other card exiled with this Vehicle": the older linked cards come back first and the
+# new target is exiled after (the same result as "each other card", 607.2a), only when there is a target to exile. ponytail: a target whose exile is replaced still
+# sends the others back.
+_LIMO = ("Whenever this Vehicle enters or attacks, exile up to one other target creature until this Vehicle leaves the battlefield. If a creature is put into "
+         "exile this way, return each other card exiled with this Vehicle to the battlefield under its owner's control.")
 _SCAPEGOAT = ("Whenever one or more other creatures you control enter, if this creature is suspected, you may suspect one of the other creatures. "
               "If you do, this creature is no longer suspected.")
 
@@ -99,6 +107,24 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
         if native is None or native["effects"][-1].get("do") != "put_from_hand":
             return None
         return {**native, "effects": [*native["effects"][:-1], {**native["effects"][-1], "blocking": True}]}
+    if text == _PHOENIX:  # the card exiled as the cost is a new object (400.7); the return takes that exiled object (the cost's "pay0x" binding)
+        native = scripts.define(replace(ability, text=text.replace("return this card", "return it")), ch)  # (the grammar's own reading)
+        if native is None or native["effects"][-1].get("who") != "event.new":
+            return None
+        return {**native, "effects": [*native["effects"][:-1], {**native["effects"][-1], "who": "ref:pay0x"}]}
+    if text == _SPOT:
+        put = scripts.define(replace(ability, text="When ~ dies, put it on the bottom of its owner's library."), ch)
+        back = scripts.define(replace(ability, text="When ~ dies, return each card exiled with ~ to its owner's hand."), ch)
+        if put is None or back is None or put["effects"] != [{"do": "to_library", "who": "event.new", "place": "bottom"}]:
+            return None
+        return {**put, "effects": [{**put["effects"][0], "do": "bottom_did110h", "did": "spot110h"},
+                                   {"do": "only_if", "cond": {"succeeded": "spot110h"}, "skip": len(back["effects"])}, *back["effects"]]}
+    if text == _LIMO.replace("this Vehicle", "~"):
+        until = scripts.define(replace(ability, text=_LIMO[:_LIMO.index(" If a creature")]), ch)
+        if until is None or [e["do"] for e in until["effects"]] != ["exile_until"]:
+            return None
+        # (the linked exile, 607.2a: marked by hand, the sub-reading cannot see the card's other sentence)
+        return {**until, "effects": [{"do": "limo_back110h"}, {**until["effects"][0], "link": True}]}
     if text == _LEECH:  # the grant definition the staged untap model reads (tests/test_rules_untap_attempts45.py), marked: untap_hold carries it out
         return {"kind": "static", "static": "grant", "effects": [], "who": "attached", "attached_kind": "creature", "conditions": [], "p": 0, "t": 0,
                 "base": None, "keywords": [], "grants": [text.split('"')[1]], "rules": [], "untap_counter110h": True}
@@ -302,5 +328,12 @@ def bottom_did(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
     return done
 
 
-PRIMITIVES = {"bottom_did110h": bottom_did, "episode110h": episode, "scapegoat110h": scapegoat}
+def limo_back(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
+    from app.rules import effects, exiled_with
+
+    back = {"do": "return_card", "who": exiled_with.WHO, "to": "battlefield", "tapped": False, "under": "owner"}  # (built here: a stored WHO would read as its own pronoun)
+    return effects.PRIMITIVES["return_card"](plan, ctx, back) if effects._cards(plan, ctx, "target:0") else True
+
+
+PRIMITIVES = {"limo_back110h": limo_back, "bottom_did110h": bottom_did, "episode110h": episode, "scapegoat110h": scapegoat}
 RESUME = {"episode110h": resume_episode, "scapegoat110h": resume_scapegoat}

@@ -76,6 +76,7 @@ class Plan:
         self.probe_903: list[tuple[str, str]] | None = None  # a look ahead for 903.9b (replacements.ask_903_9b_first)
         # -- review (face-down ids) -- whether each card is face down in view (as the intent began, then after each of its moves)
         self.began: dict[str, bool] | None = {cid: down_public(c) for cid, c in self.state.cards.items()}
+        self.discarding = False  # -- optional replacements (wave 110C) -- an effect's discard move is being made
         self.cycling_card: str | None = None  # CR 702.29c: the card being discarded to pay cycling
         self.put_via: str | None = None  # -- trigger other (wave 51E) -- the object whose effect is putting cards onto the battlefield now (Entry.via)
         self.moved: dict[str, bool] = {}  # card -> did one of its moves this intent make it a card others have seen (ops.seen_move)

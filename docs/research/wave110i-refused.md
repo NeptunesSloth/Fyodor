@@ -21,3 +21,9 @@
 - Curse of Inertia / Become the Pilot / Awesome Presence: attacker-chosen target, conditional unblockable, block tax not modelled.
 - Shifty Doppelganger: delayed sacrifice then "return this card" (the exiled-as-cost source) not modelled.
 - Etched Slith: removing a counter from an opponent (player counter kinds) not modelled.
+- Arsenal Thresher: "reveal any number of other artifact cards" as it enters needs a second amplify-like entry choice (amplify.py is keyword-only); one card.
+- Stardew Valley, Necrotic Plague, Curse of Leeches, Arcee: another player's choice of recipient / opponent-chosen target / attach-on-transform / counted-targets cast trigger; not built.
+- Noctis / Meandering Towershell: "tapped and attacking at the beginning of the declare attackers step" needs delayed triggers at the declare attackers step (engine has none, combat.start_declare_attackers) and an after-declaration order (508.1/508.2).
+- Quicksilver Fountain: three gaps (flood-counter-conditional Island static, "if all lands are Islands" condition, land chosen by the upkeep player).
+- Lodestone Bauble: targets in one player's graveyard plus "that player draws" (two player roles) not modelled.
+- Smelting Vat: "total mana value <= sacrificed artifact's" pick constraint not modelled. Aphetto Dredging: creature type chosen during targeting.

@@ -423,6 +423,10 @@ def parse_abilities(oracle_text: str | None, *, spell: bool = False, pt: tuple[s
     for i, line in enumerate(lines):
         if line == EARTHBIND:
             lines[i:i + 1] = [line, "As long as this Aura gained that ability, enchanted creature loses flying."]
+    # -- lines (wave 110G) -- Ertai's Familiar: phasing out is not leaving (702.26d), so "phases out or leaves the battlefield" is two triggers that never share an event
+    for i, line in enumerate(lines):
+        if line == "When this creature phases out or leaves the battlefield, mill three cards.":
+            lines[i:i + 1] = ["When this creature phases out, mill three cards.", "When this creature leaves the battlefield, mill three cards."]
     # -- keywords (wave 50H) -- 207.2d: a flavor word before an equip cost ("Machina — Equip {4}", Final Fantasy equipment) has no rules meaning
     for i, line in enumerate(lines):
         if not spell and " — Equip" in line and (w := word_prefix(line)) is not None and w[1].startswith("Equip") and _keywords_line(w[1]) == ("equip",):
@@ -514,6 +518,9 @@ def parse_abilities(oracle_text: str | None, *, spell: bool = False, pt: tuple[s
         # target creature." (an activated ability that works only from the hand)
         if m := re.fullmatch(r"Reinforce (\d+|X)—((?:\{[^}]+\})+)", line):  # (-- xdamage (wave 100E) -- X: the X paid, 107.3a)
             line = f"{m[2]}, Discard this card: Put {m[1]} +1/+1 counters on target creature."
+        # -- wave 110F -- Circling Vultures: 116.2e special action (casting.VULTURES handles it: no stack); the line is only a marker so the card reads as an ability
+        if line == "You may discard this card any time you could cast an instant.":
+            line = "Discard this card: You gain 0 life."
         # -- static_other sweep (wave 19A) -- "Traxos enters tapped and doesn't untap during your untap step.": two abilities, "enters tapped"
         # (614.1d) and the static "doesn't untap" (502.3), the second one added after the printed lines as Reconfigure's are
         if (um := re.fullmatch(r"(.+?) enters tapped and (doesn't untap during your untap step)\.", line)) and not spell:

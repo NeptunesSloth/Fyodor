@@ -1607,8 +1607,8 @@ def _life_applies(plan: Plan, c: Candidate, ev: Event, sim: Sim) -> bool:
     who = c.match.get("who")
     if who == "you" and ev["player"] != c.controller or who == "opponent" and ev["player"] == c.controller:
         return False
-    if c.match.get("by_controller") and ev["key"] == ev["player"] and ev.get("actor") != ev["player"]:
-        return False  # -- life gain (wave 110H) -- Rain of Gore: a spell or ability gain of its controller (a lifelink key is its source card)
+    if c.match.get("by_controller") and (ev["key"] != ev["player"] or ev.get("actor") != ev["player"]):
+        return False  # -- life gain (wave 110H) -- Rain of Gore: only a spell or ability gain of its controller; lifelink (key = source card, 702.15b) is damage's result, not a spell or ability
     cap = c.match.get("life_max")  # -- life modifiers (wave 28B) -- "while you have 5 or less life": as the gain would happen (119.10)
     return cap is None or plan.state.players[ev["player"]].life <= int(cap)  # (review 28B: one call's gains are simultaneous, 702.15e)
 
@@ -2215,7 +2215,7 @@ def _damage_apply(plan: Plan, c: Candidate, ev: Event, sim: Sim) -> list[Event]:
 
             row = prevention_receipts.receipt(c, ev, int(ev["amount"]) - n)
             out["prevention_receipts"] = [*(ev.get("prevention_receipts") or []), row]
-    if (op.get("prevention") or kind == "body") and op.get("rider"):  # -- prevention riders (wave 17A) -- 615.5: the additional effect, once the damage has been dealt
+    if (op.get("prevention") or kind in ("body", "observe110g")) and op.get("rider"):  # -- prevention riders (wave 17A) -- 615.5: the additional effect, once the damage has been dealt
         from app.rules import prevention_receipts
 
         out["riders"] = [*(ev.get("riders") or []), {"rider": op["rider"], "n": int(ev["amount"]) - n, "of": int(ev["amount"]), "by": c.controller,

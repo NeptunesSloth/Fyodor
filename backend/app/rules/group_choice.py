@@ -754,6 +754,8 @@ def bind(body: str, parse: Any, split_sentences: Any) -> tuple[list[dict[str, An
         return found
     if " exiled with " in body and (found := _linked_graveyard(body.strip(), parse, split_sentences)) is not None:  # -- exiled with (wave 53D) -- 607.2a: "Put a card exiled with it into its owner's graveyard. If you do, investigate." (Foreboding Steamboat)
         return found
+    if body.strip().capitalize() == _BOND and (key := _key("permanent")) is not None:
+        return [{"do": "edict", "who": "each_opponent", "sel": key, "n": 1, "label": "permanent", "shares_type_with": "event"}], None, False
     if _GATE.search(body) is None:
         return None
     text = body.strip()
@@ -895,6 +897,7 @@ _BALANCE = re.compile(r"^Each player chooses a number of (?P<k>lands|permanents)
                       r"creatures the same way|Each player discards cards the same way)\.$")
 _STEAMBOAT = ("Each player chooses two nontoken, non-Vehicle creatures they control.", "Exile them until ~ leaves the battlefield.")
 _SOTHERA = ("Each opponent chooses a creature they control and exiles it.",)
+_BOND = "Each opponent sacrifices a permanent of their choice that shares a card type with it."  # (wave 110B: Martyr's Bond, "it" = the permanent that was put into the graveyard)
 _GRUDGE = "Each opponent chooses a permanent they control that shares a card type with the sacrificed permanent and sacrifices it."
 _MANIFOLD = ("Reveal the top ten cards of your library.", "Starting with the next opponent in turn order, each opponent chooses a different nonland card from "
              "among them.", "Put the chosen cards into your hand and the rest on the bottom of your library in a random order.")

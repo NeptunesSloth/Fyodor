@@ -94,6 +94,24 @@ def other_targetable(plan: Any, ctx: dict[str, Any], cond: Def) -> bool:
     return entry is not None and bool(copying._each_victims(plan, ctx, ctx["controller"], entry))
 
 
+def emerge_sacrifice(plan: Any, ctx: dict[str, Any], cond: Def) -> bool:
+    """Foul Emissary: the sacrificed creature was the cost of casting a spell with emerge (702.119a, 701.21a)."""
+    oid = next((o["object_id"] for o in (ctx.get("event") or {}).get("objects") or []), None)
+    return any(r.alternative == "emerge" and oid in r.sacrificed_objects for r in plan.rules.payments.values())
+
+
+def shares_with_exiled(plan: Any, ctx: dict[str, Any], cond: Def) -> bool:
+    """Thought Prison: the spell cast has a color or a mana value in common with the card this artifact exiled (105.2, 202.3)."""
+    from app.rules import context, exiled_with
+
+    exiled = exiled_with.cards(plan, ctx)
+    if not exiled:
+        return False
+    other = plan.ch(plan.state.cards[exiled[0]])
+    return any((mine := plan.ch(plan.state.cards[c])) and (set(mine.colors) & set(other.colors) or mine.mana_value == other.mana_value)
+               for c in context.objects(plan, ctx, context.EVENT))
+
+
 def hand_began_empty(plan: Any, ctx: dict[str, Any], cond: Def) -> bool:
     """The controller had no cards in hand as this turn began (an unknown receipt, turn one or an old save, reads the hand now)."""
     began = plan.state.turn.starting_hand
@@ -103,7 +121,7 @@ def hand_began_empty(plan: Any, ctx: dict[str, Any], cond: Def) -> bool:
 
 def holds(plan: Any, ctx: dict[str, Any], cond: Def) -> bool:
     return bool({"walls_block": walls_block, "opp_protects": opponent_protects, "exploited_big": exploited_big,
-                   "hand_began_empty": hand_began_empty, "other_targetable": other_targetable}[cond["w110g"]](plan, ctx, cond))
+                   "hand_began_empty": hand_began_empty, "other_targetable": other_targetable, "emerge_sacrifice": emerge_sacrifice, "shares_with_exiled": shares_with_exiled}[cond["w110g"]](plan, ctx, cond))
 
 
 def _crown(d: Def) -> Def:
@@ -118,11 +136,21 @@ def _treasure_if_big(d: Def) -> Def:
     return {**d, "effects": [*fx[:-1], {"do": "only_if", "cond": {"w110g": "exploited_big"}, "skip": 1}, fx[-1]]}
 
 
+_WARP_BOTTOM = "Put target exiled card with warp on the bottom of its owner's library."
+_JUDOON = ("You may exile a Human you control and an artifact you control. If you do, search your library for a Doctor card, put it onto the battlefield, "
+           "then shuffle.")
 _INFERNAL = ("Choose an opponent. You and that player each sacrifice a creature. Each player who sacrificed a creature this way draws two cards.")
 _REANIMATE = ("Choose an opponent. Return a creature card from your graveyard to the battlefield, then that player returns a creature card from their graveyard "
               "to the battlefield.")
 _BARGE = ("Target creature gains islandwalk until end of turn. When ~ leaves the battlefield this turn, destroy that creature. "
           "A creature destroyed this way can't be regenerated.")
+_MOONGLOVE = ("Target creature you control gets +1/+0 and gains deathtouch until end of turn. "
+              "Whenever a creature dealt damage by that creature dies this turn, its controller loses 2 life.")
+_EYE = ("The next time a source of your choice would deal damage to you this turn, instead that source deals that much damage to you and "
+        "~ deals that much damage to that source's controller.")
+_SUN1 = ("Remove all counters from target creature. It can't have counters put on it for as long as this creature remains on the battlefield.")
+_SUN2 = ("Target opponent loses all counters. That player can't get counters for as long as this creature remains on the battlefield.")
+SUN_KEY = "Suncleanser110g"
 _SWING = ("Choose target battle. If an opponent protects it, remove three defense counters from it. Otherwise, put three defense counters on it.")
 
 
@@ -137,6 +165,10 @@ def parse(body: str) -> Any:
     """Etched Host Doombringer's mode: one target battle; the protector decides between removing and adding (310.4, 310.8)."""
     from app.rules import scripts
 
+    if body.strip() == _WARP_BOTTOM:  # Blade of the Swarm: an exiled card that has warp (702.185a), any exile
+        return scripts.parse_effects(_WARP_BOTTOM.replace("exiled card with warp", "card with warp in exile"))
+    if body.strip() == _JUDOON:  # Fugitive of the Judoon III: both exiled together or nothing (paid as one cost, 118.3)
+        return scripts.parse_effects(_JUDOON.replace("a Human you control and an artifact", "a Human you control and exile an artifact"))
     if body.strip() == _INFERNAL:  # Infernal Offering mode 1: the controller and the chosen opponent sacrifice together (101.4, 701.21a)
         got = scripts.parse_effects("Choose an opponent. Each player sacrifices a creature. "
                                     "Each player who sacrificed a creature this way draws two cards.")
@@ -156,6 +188,27 @@ def parse(body: str) -> Any:
             return None
         return [{"do": "grant", "who": "target", "keywords": ["islandwalk"]},
                 *bound._event("leave", "self", [{"do": "destroy", "who": "target"}, {"do": "no_regen"}])], [group], False
+    if body.strip() == _MOONGLOVE:  # Touch of Moonglove: a turn-long watch on every death; delayed.on_events keeps those the target damaged (120.3, 603.7c)
+        got = scripts.parse_effects("Target creature you control gets +1/+0 and gains deathtouch until end of turn.")
+        if got is None:
+            return None
+        effects, target, optional = got
+        return [*effects, {"do": "delayed", "when": {"kind": "event", "event": "die", "damager110g": True}, "n": 1, "who": "target", "this_turn": True,
+                           "once": False}, {"do": "deferred:lose_life", "who": "ref:event.controller", "n": 2}], target, optional
+    if (flat := body.strip().replace("~", "this creature")) in (_SUN1, _SUN2):  # Suncleanser: 122.1, 614.17; the mark lives on the source until it leaves (400.7)
+        from app.rules import language
+
+        group = language.target_group("target creature" if flat == _SUN1 else "target opponent")
+        if group is None:
+            return None
+        if flat == _SUN2:
+            return [{"do": "suncleanser110g", "who": "target", "player": True}], [group], False
+        (remove,), _, _ = scripts.parse_effects("Remove all counters from target creature.")  # type: ignore[misc]
+        return [remove, {"do": "suncleanser110g", "who": "target"}], [group], False
+    if body.strip() == _EYE:  # Eye for an Eye: a chosen source (609.7a); its damage to you is still dealt, then ~ deals that much to its controller (615.5-like rider)
+        return [{"do": "source_shield", "props": {}, "once": True, "to": "you", "observe110g": True,
+                 "rider": {"if": False, "aggregation": "batch", "effects": [{"do": "damage", "who": "ref:from_ctrl", "src": "self",
+                                                                             "n": {"ref_amount": "that_damage"}}]}}], None, False
     if body.strip() == _CULTIST:  # Kill-Suit Cultist: the target creature, chosen now
         from app.rules import language
 
@@ -244,8 +297,69 @@ def _one_copy(d: Def) -> Def:
     return {**d, "if": gate, "effects": [{"do": "only_if", "cond": gate, "skip": len(fx)}, *fx]}
 
 
+def _emerge_sacrifice(d: Def) -> Def:
+    return {**d, "if": {"w110g": "emerge_sacrifice"}}  # 603.4: an intervening condition, it is a fact of the past when the trigger resolves
+
+
+def _may(d: Def) -> Def:
+    return {**d, "optional": True}  # "you may have …. If you do, …": the whole body hinges on the one choice
+
+
+def _shares(d: Def) -> Def:
+    return {**d, "if": {"w110g": "shares_with_exiled"}}
+
+
 # whole ability text -> (the wording the grammar reads, what to change in its definition)
+def _imprint_pt(d: Def) -> Def:
+    """Phyrexian Ingester: +X/+Y from the imprinted creature card, two statics of one line (613.4c; 607.2a link); no card exiled adds 0."""
+    import copy
+
+    def part(proj: str, p: int, t: int) -> Def:
+        e = copy.deepcopy(d)
+        e["each"] = {"p": p, "t": t, "value": {"linked_pool": {"projection": proj}}}
+        return e
+
+    return {**part("power", 1, 0), "also": [part("toughness", 0, 1)]}
+
+
+def _fallen(d: Def) -> Def:
+    """The Fallen: 1 damage at once to the opponents and planeswalkers recorded in RulesState.dealt_to110g for this object (120.3, 400.7)."""
+    return {**d, "effects": [{"do": "fallen110g"}, {"do": "damage", "who": "ref:fallen_p", "n": 1, "with_next": True},
+                             {"do": "damage", "who": "ref:fallen_c", "n": 1}]}
+
+
+def _elkin(d: Def) -> Def:
+    """Elkin Lair: the exile and the permission are the active player's own (400.3, 601.2a); the graveyard step at the next end step moves what is still that exiled object (400.7)."""
+    return {**d, "effects": [{"do": "elkin110g"}, {"do": "delayed", "when": {"kind": "step", "step": "end", "whose": "next"}, "n": 1},
+                             {"do": "deferred:return_card", "who": "ref:e0", "to": "graveyard", "under": "owner"}]}
+
+
+def _no_phase_out(d: Def) -> Def:
+    """Ertai's Familiar: the grammar's restriction on itself, with the phase-out prohibition phasing._held reads (702.26)."""
+    return {**d, "effects": [{**x, "rules": ["cant_phase_out"]} if x.get("do") == "restrict" else x for x in d["effects"]]}
+
+
 _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
+    # Ertai's Familiar
+    "{U}: Until your next upkeep, this creature can't phase out.": ("{U}: Until your next upkeep, this creature can't attack.", _no_phase_out),
+    # Elkin Lair
+    "At the beginning of each player's upkeep, that player exiles a card at random from their hand. The player may play that card this turn. "
+    "At the beginning of the next end step, if the player hasn't played the card, they put it into their graveyard.":
+        ("At the beginning of each player's upkeep, that player draws a card.", _elkin),
+    # The Fallen
+    "At the beginning of your upkeep, this creature deals 1 damage to each opponent and planeswalker it has dealt damage to this game.":
+        ("At the beginning of your upkeep, this creature deals 1 damage to each opponent.", _fallen),
+    # Phyrexian Ingester
+    "This creature gets +X/+Y, where X is the exiled creature card's power and Y is its toughness.":
+        ("This creature gets +X/+X, where X is the number of creatures you control.", _imprint_pt),
+    # Thought Prison
+    "Imprint \u2014 When this artifact enters, you may have target player reveal their hand. If you do, choose a nonland card from it and exile that card.":
+        ("When this artifact enters, target player reveals their hand. You choose a nonland card from it. Exile that card.", _may),
+    "Whenever a player casts a spell that shares a color or mana value with the exiled card, this artifact deals 2 damage to that player.":
+        ("Whenever a player casts a spell, this artifact deals 2 damage to that player.", _shares),
+    # Foul Emissary
+    "When you sacrifice this creature while casting a spell with emerge, create a 3/2 colorless Eldrazi Horror creature token.":
+        ("When you sacrifice this creature, create a 3/2 colorless Eldrazi Horror creature token.", _emerge_sacrifice),
     # Beamsplitter Mage
     "Whenever you cast an instant or sorcery spell that targets only this creature, if you control one or more other creatures that spell could target, choose one of "
     "those creatures. Copy that spell. The copy targets the chosen creature.":
@@ -313,9 +427,20 @@ _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
 }
 
 
-def definition(ability: Any, ch: Any) -> Def | None:
-    from app.rules import scripts
+_ENGULF = "When this creature enters, exile target non-Ooze creature an opponent controls until this creature leaves the battlefield."
+_DISSOLVE = "{X}{B}: Put target creature card with mana value X exiled with this creature into its owner's graveyard."
 
+
+def definition(ability: Any, ch: Any) -> Def | None:
+    from app.rules import scripts, selectors
+
+    if ability.text.strip() == "Engulf \u2014 " + _ENGULF:  # Gelatinous Cube: the exile is the linked half Dissolve refers to (607.2a)
+        native = scripts.define(replace(ability, text=_ENGULF), ch)
+        return None if native is None else {**native, "effects": [{**x, "link": True} for x in native["effects"]]}
+    if ability.text.strip().split("\u2014 ", 1)[-1] == _DISSOLVE:  # Gelatinous Cube: the linked-exile target of Hearse-style "{X}{W}: put target card with mana value X exiled with ~ ..." (607.2a)
+        sel = selectors.Selector(card=True, zones=("exile",), types=("Creature",), compare=(("mv", "==", selectors.X_VALUE),)).key()
+        return {"kind": "activated", "cost": ability.cost, "effects": [{"do": "return_card", "who": "target", "to": "graveyard", "under": "owner"}],
+                "target": {"what": "exiled_with:" + sel}}
     if (same := _AS.get(ability.text.strip())) is not None:
         return scripts.define(replace(ability, text=same), ch)
     if (built := _BUILD.get(ability.text.strip())) is None:
@@ -378,6 +503,59 @@ def unattach_enchanted(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> boo
     if host is not None and host.attached_to:
         plan.do({"type": "detach", "card_ids": [host.id]}, actor=ctx["controller"])
     return True
+
+
+def fallen(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Bind the opponents (still in the game) and the planeswalkers (still those objects) this object has dealt damage to this game."""
+    from app.rules import context
+
+    dealt = plan.rules.dealt_to110g.get(ctx.get("source_object") or "", [])
+    context.bind_players(ctx, "fallen_p", [p for p in plan.live() if p in dealt and p != ctx["controller"]])
+    context.bind_objects(plan, ctx, "fallen_c", [c.id for c in plan.state.cards.values()
+                                                 if plan.oid(c) in dealt and c.zone.endswith(":battlefield") and "Planeswalker" in plan.ch(c).types])
+    return True
+
+
+def suncleanser(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Mode 2 first loses the player's counters (every resource but speed); both modes then remember the target on the source, if it is still there."""
+    from app.rules import effects
+
+    src = plan.state.cards.get(ctx.get("source_card") or "")
+    if e.get("player"):
+        for pid in effects._players(plan, ctx, e["who"]):
+            for kind, n in list(plan.state.players[pid].resources.items()):
+                if n and kind != "speed":
+                    plan.do({"type": "set_resource", "player": pid, "key": kind, "value": 0}, actor=ctx["controller"])
+            mark = f"player:{pid}"
+    else:
+        cards = effects._cards(plan, ctx, e["who"])
+        mark = f"object:{plan.oid(cards[0])}" if cards else ""
+    if mark and src is not None and src.zone.endswith(":battlefield") and plan.oid(src) == ctx.get("source_object"):
+        plan.do({"type": "set_choice", "card_id": src.id, "key": SUN_KEY, "value": mark}, actor=ctx["controller"])
+    return True
+
+
+def sun_marked(plan: Any, mark: str) -> str | None:
+    """The name of a battlefield permanent that has marked this object ("object:<oid>") or player ("player:<id>") under Suncleanser's duration."""
+    return next((c.name or "a permanent" for c in plan.state.cards.values() if c.zone.endswith(":battlefield") and c.choices.get(SUN_KEY) == mark), None)
+
+
+def elkin(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Exile a random card from the active player's hand (public, 406.3) and let that player play it this turn; bound as e0."""
+    import secrets
+
+    from app.rules import context, permissions
+
+    pid = plan.state.turn.active_player
+    hand = sorted(plan.state.zones.get(f"{pid}:hand", []))
+    if not hand:
+        context.bind_objects(plan, ctx, "e0", [])
+        return True
+    cid = (plan.rng or secrets.SystemRandom()).choice(hand)
+    before = [r for r in [context.ref_of(plan, cid)] if r is not None]
+    plan.do({"type": "move", "card_ids": [cid], "to": {"zone": "exile"}}, actor=pid)
+    context.bind_moved(plan, ctx, "e0", before)
+    return permissions.grant_play(plan, {**ctx, "controller": pid}, {"do": "grant_play", "who": "ref:e0", "play": True, "cast": True, "until": "end_of_turn"})
 
 
 def lowest_life_control(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
@@ -452,7 +630,7 @@ def destroy_instead(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return True
 
 
-PRIMITIVES: dict[str, Any] = {"destroy_instead110g": destroy_instead, "exchange_power110g": exchange_power, "lowest_life_control110g": lowest_life_control,
+PRIMITIVES: dict[str, Any] = {"elkin110g": elkin, "suncleanser110g": suncleanser, "fallen110g": fallen, "destroy_instead110g": destroy_instead, "exchange_power110g": exchange_power, "lowest_life_control110g": lowest_life_control,
                            "sacrifice_pair110g": sacrifice_pair, "swap_tapped110g": swap_tapped, "opponent_exiles110g": opponent_exiles,
                               "unattach_enchanted110g": unattach_enchanted}
 RESUME: dict[str, Any] = {"lowest_control110g": resume_lowest_control, "opponent_exiles110g": resume_opponent_exiles}

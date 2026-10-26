@@ -1,6 +1,8 @@
 """Wave 110I (session 5): real Oracle text (tests/fixtures/wave110i_s5_cards.json, from data/cards.sqlite); each scenario checks replay and save/load.
 
 * Neglected Heirloom: transforms when the creature it equips transforms (701.28, 603.2).
+* Thranduil's Decree: a countered permanent spell is exiled and castable free while it stays there; any other spell goes to the graveyard (608.2c, 110.4).
+* The War Games: every token made is goaded by the Saga's controller (701.15a) for as long as the Saga remains on the battlefield (611.2b).
 * Nezumi Shortfang: the "if" asks about the one target opponent's hand after the discard (608.2c); Stabwhisker loses 1 life per card under three (710).
 """
 
@@ -11,17 +13,20 @@ from pathlib import Path
 
 import pytest
 
+from app.game.errors import ActionError
 from app.rules import coverage
 from tests.fixtures.cards import card
 from tests.game_helpers import act
+from tests.test_rules_wave12a_counters_keywords import real
 from tests.test_rules_wave34b_activated import activate, attach, to_phase
-from tests.wave9c_kit import check, life, mana, put, to_hand
+from tests.wave9c_kit import card_named, check, life, mana, put, to_hand
 from tests.wave52a_kit import build_n
 from tests.wave110a_kit import next_turn
-from tests.wave110c_kit import answer, make_db
+from tests.wave110c_kit import answer, cast, make_db
 
 DATA = json.loads((Path(__file__).parent / "fixtures" / "wave110i_s5_cards.json").read_text())
 EXTRA = [card(c["name"], set_code="w110i", number=f"S{i:03d}", **{k: v for k, v in c.items() if k != "name"}) for i, c in enumerate(DATA)]
+EXTRA.append(real("Naturalize", "{1}{G}", 2, "Instant", "Destroy target artifact or enchantment.", None, "G"))
 HEIRLOOM, SCHOLAR = "Neglected Heirloom // Ashmouth Blade", "Civilized Scholar // Homicidal Brute"
 SHORTFANG = "Nezumi Shortfang // Stabwhisker the Odious"
 
@@ -85,4 +90,45 @@ def test_neglected_heirloom_transforms_with_its_equipped_creature(cards, equippe
     answer(s, bears.id)  # discard the creature card: it untaps and transforms (701.28)
     assert s.state.cards[scholar.id].face == 1
     assert s.state.cards[gear.id].face == (1 if equipped else 0)
+    check(s)
+
+
+@pytest.mark.parametrize("spell,exiled", [("Grizzly Bears", True), ("Lightning Bolt", False)])
+def test_thranduils_decree_exiles_only_a_countered_permanent_spell(cards, spell, exiled):
+    s = build_n(cards, ["Thranduil's Decree", spell], islands=40)
+    first, decree = to_hand(s, spell), to_hand(s, "Thranduil's Decree")
+    mana(s, G=1, U=4, R=1, C=2)
+    act(s, "p1", type="set_prefs", hold_priority=True)
+    act(s, "p1", type="cast_spell", card_id=first.id, **({"targets": ["p2"]} if spell == "Lightning Bolt" else {}))
+    act(s, "p1", type="cast_spell", card_id=decree.id, targets=[first.id])
+    answer(s, *(["yes"] * exiled))  # (the free cast is a "may")
+    assert s.state.cards[first.id].zone == ("p1:exile" if exiled else "p1:graveyard")
+    if exiled:
+        act(s, "p1", type="cast_spell", card_id=first.id, free=True)
+        answer(s)
+        assert s.state.cards[first.id].zone == "p1:battlefield"
+    else:
+        with pytest.raises(ActionError):
+            act(s, "p1", type="cast_spell", card_id=first.id, targets=["p2"], free=True)
+    check(s)
+
+
+@pytest.mark.parametrize("leaves", [False, True])
+def test_the_war_games_tokens_stay_goaded_only_while_the_saga_remains(cards, leaves):
+    from app.rules.keyword_actions import goaded_by
+    from app.rules.plan import Plan
+
+    s = build_n(cards, ["The War Games", "Naturalize"], islands=40)
+    mana(s, W=3, C=4)
+    cast(s, "The War Games")
+    answer(s)
+    saga = card_named(s, "The War Games")
+    warriors = [c for c in s.state.cards.values() if c.name == "Warrior" and c.zone.endswith(":battlefield")]
+    assert sorted(c.controller for c in warriors) == ["p1"] * 3 + ["p2"] * 3
+    if leaves:
+        mana(s, G=1, C=1)
+        cast(s, "Naturalize", [saga.id])
+        answer(s)
+    plan = Plan(s.state, "p1", cards, None)
+    assert all(goaded_by(plan.ch(c)) == (set() if leaves else {"p1"}) for c in warriors)
     check(s)

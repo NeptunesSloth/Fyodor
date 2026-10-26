@@ -914,7 +914,7 @@ def source_stat(plan: Plan, source: str | None, what: str) -> int | None:
 _WITH_KEYWORDS = (*KEYWORDS, "decayed", "infect", "wither", "fear", "shadow", "horsemanship", "intimidate", "skulk", "convoke",
                   "modular", "toxic", "mutate", "awaken", "cascade", "flanking",  # (wave 39A: "all attacking creatures with flanking", Telim'Tor)
                   "plainswalk", "islandwalk", "swampwalk", "mountainwalk", "forestwalk",
-                  "doctor's companion", "unearth")  # (wave 44B: "creature spell with doctor's companion", Rose Noble)  # (wave 26A: "creatures with plainswalk")  # (wave 21D: "a spell with cascade")  # (wave 20C: toxic/mutate/awaken; wave 19D: "each creature you control with modular": a printed keyword line; level up is rewritten into
+                  "doctor's companion", "unearth", "warp")  # (wave 44B: "creature spell with doctor's companion", Rose Noble)  # (wave 26A: "creatures with plainswalk")  # (wave 21D: "a spell with cascade")  # (wave 20C: toxic/mutate/awaken; wave 19D: "each creature you control with modular": a printed keyword line; level up is rewritten into
 # an activated ability and statics by app/rules/levelers.py, so it is no keyword of the object and stays unread)
 
 
@@ -957,6 +957,11 @@ def _without_mana_ability(s: Selector, m: re.Match[str]) -> Selector:
 @_suffix(r"(?:that )?(?:was|were) turned face up this turn")  # -- cards (wave 110F) -- 708.8: Kaust, Eyes of the Glade
 def _turned_up_this_turn(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, extras=(*s.extras, "turned_up_this_turn"))
+
+
+@_suffix(r"with two or more card types")  # -- cards (wave 110B) -- 205.2a: Rendmaw, Creaking Nest ("a card with two or more card types", an artifact creature)
+def _multitype(s: Selector, m: re.Match[str]) -> Selector:
+    return replace(s, extras=(*s.extras, "multitype110b"))
 
 
 @_suffix(r"with an activated ability that isn't a mana ability")  # -- cards (wave 110F) -- 602.1, 605.1a: Ravager Wurm
@@ -1788,6 +1793,9 @@ def parse(phrase: str) -> Selector | None:
     if phrase.strip() == "planeswalker that was activated this turn or tapped creature":  # -- wave 110A -- Cut Short: a different qualifier per kind;
         # "activated" = a loyalty ability of it was activated this turn (606; RulesState.loyalty_used)
         return Selector(either=(Selector(types=("Planeswalker",), extras=("loyalty_activated110a",)).key(), Selector(types=("Creature",), tapped=True).key()))
+    if phrase.strip() == "planeswalker that player controls or battle that player protects":  # -- wave 110H -- Rampaging Raptor: a planeswalker is held by its controller, a battle by its protector (310.8)
+        return Selector(either=(Selector(types=("Planeswalker",), extras=("controlled_by:" + THAT_PLAYER,)).key(),
+                                Selector(types=("Battle",), extras=("protected_by:" + THAT_PLAYER,)).key()))
     sticker = re.fullmatch(r'(?P<base>.+?) with (?:a|an) (?P<kind>name|art|ability|power and toughness) sticker(?: on (?:it|them))?', phrase.strip())
     if sticker is not None:
         base = parse(sticker['base'])
@@ -2351,6 +2359,13 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
            for x in sel.extras):  # -- copy abilities (wave 19E) -- "… from an enchantment source"
         return False
     for extra in sel.extras:
+        if extra.startswith(("protected_by:", "controlled_by:")):  # (wave 110H) 310.8: the player protecting the battle / controlling the permanent; unbound "that_player" matches nothing
+            from app.rules import battles
+
+            kind, _, bound = extra.partition(":")
+            if (battles.protector(plan.state, card) if kind == "protected_by" else card.controller) != bound[len("player:"):] or THAT_PLAYER in bound:
+                return False
+            continue
         if extra == 'combat_pirate_player95':
             from app.rules import combat_damage95
 
@@ -2482,6 +2497,8 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
 
         if plan.oid(card) not in log_for(plan, False).turned_up110f:
             return False
+    if "multitype110b" in sel.extras and len(ch.types) < 2:  # (wave 110B)
+        return False
     if "nonmana_ability" in sel.extras and not any(a.kind == "activated" for a in ch.abilities):  # (wave 110F)
         return False
     if "tap_ability" in sel.extras and not any(a.kind in ("activated", "mana") and "{T}" in (a.cost or "") for a in ch.abilities):  # (wave 52D)

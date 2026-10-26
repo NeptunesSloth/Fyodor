@@ -31,6 +31,9 @@ def definition(text: str) -> dict[str, Any] | None:
                      'spell': selectors.Selector(zones=('stack',), types=('Instant', 'Sorcery')).key()},
                     {'event': 'activate', 'subject': 'player', 'player': 'you', 'activation_cost': {'has_x': True}}]},
                 'effects': [{'do': 'copy_event_stack'}, {'do': 'copy_new_targets', 'optional': True}]}
+    if text == "Whenever you activate an ability that isn't a mana ability, copy it. You may choose new targets for the copy.":  # (wave 110E) Rowan Kenrith's emblem; 603.2, 707.10
+        return {'kind': 'triggered', 'trigger': 'event', 'cond': activation_cond(), 'optional': False, 'target': None,
+                'effects': [{'do': 'copy_event_stack'}, {'do': 'copy_new_targets', 'optional': True}]}
     m = re.fullmatch(r"Whenever (?P<event>you activate an ability(?: of an artifact or creature)? that isn't a mana ability), if (?P<cost>one or more permanents were sacrificed to activate it|life was paid to activate it), (?P<body>.+)", text)
     if m is None:
         return None

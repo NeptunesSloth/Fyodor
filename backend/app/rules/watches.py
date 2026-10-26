@@ -37,7 +37,7 @@ if TYPE_CHECKING:
 _OBJECT_SUBJECTS = {"player", "sel"}  # (not "self", "host": a watch has no object of its own to look at)
 _NEXT_CAST_KEYS = {"event", "subject", "player", "spell"}
 _BOUND_EVENTS = {"dealt_damage", "deal_damage", "deal_combat_damage_player", "attack", "unblocked", "block", "blocked"}
-_ONE_OR_MORE = {"deal_damage", "deal_combat_damage_player"}  # (wave 33A: "one or more creatures you control deal combat damage to a player")
+_ONE_OR_MORE = {"deal_damage", "deal_combat_damage_player", "attack"}  # (wave 33A: "one or more creatures you control deal combat damage to a player")
 
 
 def cond_ok(cond: dict[str, Any] | None, bound: str | None = None) -> bool:
@@ -78,7 +78,8 @@ def refs_ok(cond: dict[str, Any], effects: list[dict[str, Any]]) -> bool:
         return False
     # -- turn-long triggers (wave 33A) -- "one or more …" is one trigger for the whole batch (603.2c): no one amount, object or (of
     # several players) player of it; "it" that moved (destroy / return / exile it) needs an event that moved it
-    if cond.get("aggregate") and (wants_amount or re.search(r'"(?:ref:)?event(?:\.\w+)?"', text) or (wants_player and cond.get("to") == "players")):
+    # (wave 110E: an attack batch's "those creatures" is the event's objects)
+    if cond.get("aggregate") and (wants_amount or (re.search(r'"(?:ref:)?event(?:\.\w+)?"', text) and cond["event"] != "attack") or (wants_player and cond.get("to") == "players")):
         return False
     if re.search(r'"(?:ref:)?event\.new', text) and cond["event"] not in ("die", "leave", "enter"):
         return False

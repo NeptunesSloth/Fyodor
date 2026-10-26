@@ -1507,6 +1507,17 @@ def _drop_entering(plan: Plan, card: CardInstance) -> None:
 
 
 def entering(plan: Plan, card: CardInstance, controller: str, answers: dict[str, str] | None, out: dict[str, Any]) -> bool:
+    """-- Essence of the Wild (wave 110F) -- 616.1: the card's own "may enter as a copy" and Essence's both apply; the controller applies
+    the own one last, so it wins when used and otherwise the Essence copy stays (declined, or nothing to copy)."""
+    if _entering(plan, card, controller, answers, out):
+        return True
+    from app.rules import wave110f_cards
+
+    wave110f_cards.copy_on_entry(plan, card, controller)
+    return False
+
+
+def _entering(plan: Plan, card: CardInstance, controller: str, answers: dict[str, str] | None, out: dict[str, Any]) -> bool:
     """``replacements.entry_plan``'s hook for "You may have ~ enter as a copy of …" (707.5, a
     replacement effect: 614.1c). Its choice is made before the permanent enters (614.12a): with no
     answer yet, ``out["choice"]`` asks for it and True stops the rest of the plan (asked through
@@ -1517,10 +1528,6 @@ def entering(plan: Plan, card: CardInstance, controller: str, answers: dict[str,
     go on. Nothing to copy: no choice, it enters as itself."""
     d = enter_definition(plan, card)
     if d is None:
-        # -- Essence of the Wild (wave 110F) -- "Creatures you control enter as a copy of this creature." (614.1c)
-        from app.rules import wave110f_cards
-
-        wave110f_cards.copy_on_entry(plan, card, controller)
         return False
     if d.get("raid100h"):  # -- turn state (wave 100H) -- "If you attacked this turn, you may have ~ enter as a copy …" (Protean Raider: 508.1, 614.12)
         from app.rules import history
@@ -1556,6 +1563,12 @@ def entering(plan: Plan, card: CardInstance, controller: str, answers: dict[str,
         plan.note(f"{card.name or 'It'}: what it was to copy is gone, so it enters as itself", actor=controller)
         return False
     excepts = [keep_colors(ex, _own(plan, card).colors) for ex in (CopyExcept.model_validate(x) for x in d.get("excepts") or [])]
+    if any(ex.pt_self110a for ex in excepts):  # -- cards (wave 110A) -- Hulking Metamorph: this creature's own power and toughness (707.9b), prototyped or not (718.3b)
+        from app.rules import prototype
+
+        mine = _own(plan, card)
+        mine = prototype.overlay(mine) if prototype.is_prototyped(plan.state, card) else mine
+        excepts = [ex.model_copy(update={"power": mine.power, "toughness": mine.toughness, "pt_self110a": False}) if ex.pt_self110a else ex for ex in excepts]
     if d.get('embalmed_except') and getattr(card, 'embalmed', False):
         excepts.append(CopyExcept.model_validate(d['embalmed_except']))
     source_characteristics = plan.ch(source)
@@ -1725,6 +1738,7 @@ def parse_excepts(text: str | None, enters: bool = False) -> CopyExcept | None:
     masked = re.sub(r"(^|, | and )(?:he|she)(?=['\s])", r"\1it", masked)
     masked = re.sub(r"(?:\b(?:his|her)|~'s) (name|power|other)\b", r"its \1", masked)
     masked = re.sub(r"(^|, | and )~(?=['\s])", r"\1it", masked)  # (scripts._self_pronouns wrote a character's "he" as ~)
+    masked = re.sub(r", and its power and toughness are equal to (?:this creature's|its) power and toughness", ", and it is PTSELF110A", masked)  # (wave 110A: Hulking Metamorph)
     parts = re.split(r",? and (?=(?:it|it's|it is|is|has|loses|the token|the copy|they|those creatures)\b)"
                      r"|, (?=(?:it|the token|the copy|they|is|has|those creatures)\b)", masked)
     for part in parts:
@@ -1758,6 +1772,12 @@ def _except_clause(clause: str, ex: CopyExcept) -> bool:
         n: Any = "X" if m["n"] == "X" else int(m["n"]) if m["n"].isdigit() else token_grammar.NUMBERS[m["n"]]
         ex.enter_counters = [*ex.enter_counters, {"counter": m["k"], "n": n, **({"if_type": m["t"].capitalize()} if m["t"] else {}),
                                                     **({"if_control": True} if m["own"] else {})}]
+        return True
+    if re.fullmatch(_SUBJECT + r"(?:is|are) an artifact creature in addition to (?:its|their) other types", c):  # -- cards (wave 110A) -- 707.9b
+        ex.add_types = sorted({*ex.add_types, "Artifact", "Creature"})
+        return True
+    if c == "it is PTSELF110A" and ex.power is None:  # 707.9b
+        ex.pt_self110a = True  # (the entering card's own values, set in ``entering``: it may have been cast prototyped, 718.3b)
         return True
     if re.fullmatch(_SUBJECT + r"loses all other card types", c):  # (707.9b; wave 24A) — with the types the exception names
         return ex.set_types is not None

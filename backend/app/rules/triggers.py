@@ -1260,6 +1260,11 @@ def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: F
 
         if entry_forms.entered_tapped(plan, info) != cond["entered_tapped"]:
             return False
+    if event == "enter" and cond.get("entered_transformed110j"):  # -- wave 110J -- 712.14a
+        from app.rules import wave110j_cards
+
+        if not wave110j_cards.entered_transformed(plan, info):
+            return False
     if event == "counters_put" and cond.get("counter") and info.get("counter") != cond["counter"]:
         return False
     if event == "counters_put" and cond.get("nth") and not (info.get("total", 0) - info.get("amount", 0) < cond["nth"] <= info.get("total", 0)):
@@ -1321,6 +1326,7 @@ def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: F
                 (to == "planeswalker" and not info.get("recipient_planeswalker")) or \
                 (to == "player_or_pw" and recipient is None and not info.get("recipient_planeswalker")) or \
                 (to == "player_or_battle" and recipient is None and not info.get("recipient_battle")) or \
+                (to == "opponent_or_battle" and (recipient == you or recipient is None and not info.get("recipient_battle"))) or \
                 (to == "its_owner" and (recipient is None or obj is None or recipient != obj.owner)) or \
                 (to == "self" and info.get("other") != watcher.id) or \
                 (to == "players" and recipient is None) or (to == "opponents" and (recipient is None or recipient == you)) or \
@@ -1822,7 +1828,7 @@ def generic_combat(plan: Plan, event: str, cards: list[CardInstance],
     509.3a/c): one fact per creature; "you attack" once per combat for the attacking player.
     ``pairs`` (this creature, the creature on the other side): "blocks a creature" / "becomes
     blocked by a creature" trigger once for each (509.3b, 509.3d)."""
-    if not cards:
+    if not cards and not pairs:  # (110E: a creature put onto the battlefield blocking, 509.3d)
         return
     fired: Fired = {}
     attacking = [c.id for c in cards]
@@ -2807,6 +2813,8 @@ def bind_that_player(t: PendingTrigger) -> None:
     for key in ("controller", "zone_owner", "player_exclude", "attacking_player"):  # event-relative selector bindings
         marker = f'\\"{key}\\":\\"that_player\\"'
         raw = raw.replace(marker, f'\\"{key}\\":\\"player:{players[0]}\\"')
+    for kind in ("protected_by", "controlled_by"):  # (wave 110H) Rampaging Raptor: the player's battle (310.8) or planeswalker, in a nested selector key
+        raw = raw.replace(f"{kind}:that_player", f"{kind}:player:{players[0]}")
     t.ability = json.loads(raw)
     if keep:
         t.ability = {**t.ability, "effects": [keep.get(i, e) for i, e in enumerate(t.ability["effects"])]}

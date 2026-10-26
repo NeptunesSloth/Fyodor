@@ -1538,5 +1538,554 @@
   "keywords": [
    "Foretell"
   ]
+ },
+ {
+  "name": "Vampire Nighthawk",
+  "layout": "normal",
+  "mana_cost": "{1}{B}{B}",
+  "cmc": 3.0,
+  "type_line": "Creature — Vampire Shaman",
+  "oracle_text": "Flying\nDeathtouch (Any amount of damage this deals to a creature is enough to destroy it.)\nLifelink (Damage dealt by this creature also causes you to gain that much life.)",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Deathtouch",
+   "Flying",
+   "Lifelink"
+  ],
+  "power": "2",
+  "toughness": "3"
+ },
+ {
+  "name": "Toggo, Goblin Weaponsmith",
+  "layout": "normal",
+  "mana_cost": "{2}{R}",
+  "cmc": 3.0,
+  "type_line": "Legendary Creature — Goblin Artificer",
+  "oracle_text": "Landfall — Whenever a land you control enters, create a colorless Equipment artifact token named Rock with \"Equipped creature has '{1}, {T}, Sacrifice Rock: This creature deals 2 damage to any target'\" and equip {1}.\nPartner (You can have two commanders if both have partner.)",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Partner",
+   "Landfall"
+  ],
+  "power": "2",
+  "toughness": "2"
+ },
+ {
+  "name": "Willbender",
+  "layout": "normal",
+  "mana_cost": "{1}{U}",
+  "cmc": 2.0,
+  "type_line": "Creature — Human Wizard",
+  "oracle_text": "Morph {1}{U} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)\nWhen this creature is turned face up, change the target of target spell or ability with a single target.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "Morph"
+  ],
+  "power": "1",
+  "toughness": "2"
+ },
+ {
+  "name": "Oblivious Bookworm",
+  "layout": "normal",
+  "mana_cost": "{G}{U}",
+  "cmc": 2.0,
+  "type_line": "Creature — Human Wizard",
+  "oracle_text": "At the beginning of your end step, you may draw a card. If you do, discard a card unless a permanent entered the battlefield face down under your control this turn or you turned a permanent face up this turn.",
+  "colors": [
+   "G",
+   "U"
+  ],
+  "color_identity": [
+   "G",
+   "U"
+  ],
+  "keywords": [],
+  "power": "2",
+  "toughness": "3"
+ },
+ {
+  "name": "Stunning Reversal",
+  "layout": "normal",
+  "mana_cost": "{3}{B}",
+  "cmc": 4.0,
+  "type_line": "Instant",
+  "oracle_text": "The next time you would lose the game this turn, instead draw seven cards and your life total becomes 1.\nExile Stunning Reversal.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Genku, Future Shaper",
+  "layout": "normal",
+  "mana_cost": "{2}{W}{U}",
+  "cmc": 4.0,
+  "type_line": "Legendary Creature — Moonfolk Wizard",
+  "oracle_text": "Whenever another nontoken permanent you control leaves the battlefield, choose one that hasn't been chosen this turn. Create a creature token with those characteristics.\n• 2/2 white Fox with vigilance.\n• 1/2 blue Moonfolk with flying.\n• 1/1 black Rat with lifelink.\n{3}{W}{U}: Put a +1/+1 counter on each creature you control.",
+  "colors": [
+   "U",
+   "W"
+  ],
+  "color_identity": [
+   "U",
+   "W"
+  ],
+  "keywords": [],
+  "power": "2",
+  "toughness": "5"
+ },
+ {
+  "name": "Unidentified Hovership",
+  "layout": "normal",
+  "mana_cost": "{1}{W}{W}",
+  "cmc": 3.0,
+  "type_line": "Artifact — Vehicle",
+  "oracle_text": "Flying\nWhen this Vehicle enters, exile up to one target creature with toughness 5 or less.\nWhen this Vehicle leaves the battlefield, the exiled card's owner manifests dread.\nCrew 1",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "Flying",
+   "Crew"
+  ],
+  "power": "2",
+  "toughness": "2"
+ },
+ {
+  "name": "Shatter",
+  "layout": "normal",
+  "mana_cost": "{1}{R}",
+  "cmc": 2.0,
+  "type_line": "Instant",
+  "oracle_text": "Destroy target artifact.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Martyr's Bond",
+  "layout": "normal",
+  "mana_cost": "{4}{W}{W}",
+  "cmc": 6.0,
+  "type_line": "Enchantment",
+  "oracle_text": "Whenever this enchantment or another nonland permanent you control is put into a graveyard from the battlefield, each opponent sacrifices a permanent of their choice that shares a card type with it.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Ornithopter",
+  "layout": "normal",
+  "mana_cost": "{0}",
+  "cmc": 0.0,
+  "type_line": "Artifact Creature — Thopter",
+  "oracle_text": "Flying",
+  "colors": [],
+  "color_identity": [],
+  "keywords": [
+   "Flying"
+  ],
+  "power": "0",
+  "toughness": "2"
+ },
+ {
+  "name": "Dryad Arbor",
+  "layout": "normal",
+  "mana_cost": "",
+  "cmc": 0.0,
+  "type_line": "Land Creature — Forest Dryad",
+  "oracle_text": "(This land isn't a spell, it's affected by summoning sickness, and it has \"{T}: Add {G}.\")",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [],
+  "power": "1",
+  "toughness": "1"
+ },
+ {
+  "name": "Rendmaw, Creaking Nest",
+  "layout": "normal",
+  "mana_cost": "{3}{B}{G}",
+  "cmc": 5.0,
+  "type_line": "Legendary Artifact Creature — Scarecrow",
+  "oracle_text": "Reach, menace\nWhen Rendmaw enters and whenever you play a card with two or more card types, each player creates a tapped 2/2 black Bird creature token with flying. The tokens are goaded for the rest of the game. (They attack each combat if able and attack a player other than you if able.)",
+  "colors": [
+   "B",
+   "G"
+  ],
+  "color_identity": [
+   "B",
+   "G"
+  ],
+  "keywords": [
+   "Reach",
+   "Goad",
+   "Menace"
+  ],
+  "power": "5",
+  "toughness": "5"
+ },
+ {
+  "name": "Cloaked Cadet",
+  "layout": "normal",
+  "mana_cost": "{4}{G}",
+  "cmc": 5.0,
+  "type_line": "Creature — Human Ranger",
+  "oracle_text": "Training (Whenever this creature attacks with another creature with greater power, put a +1/+1 counter on this creature.)\nWhenever one or more +1/+1 counters are put on one or more Humans you control, draw a card. This ability triggers only once each turn.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [
+   "Training"
+  ],
+  "power": "2",
+  "toughness": "4"
+ },
+ {
+  "name": "Reality Shift",
+  "layout": "normal",
+  "mana_cost": "{1}{U}",
+  "cmc": 2.0,
+  "type_line": "Instant",
+  "oracle_text": "Exile target creature. Its controller manifests the top card of their library. (That player puts the top card of their library onto the battlefield face down as a 2/2 creature. If it's a creature card, it can be turned face up any time for its mana cost.)",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "Manifest"
+  ]
+ },
+ {
+  "name": "Exquisite Archangel",
+  "layout": "normal",
+  "mana_cost": "{5}{W}{W}",
+  "cmc": 7.0,
+  "type_line": "Creature — Angel",
+  "oracle_text": "Flying\nIf you would lose the game, instead exile this creature and your life total becomes equal to your starting life total.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "Flying"
+  ],
+  "power": "5",
+  "toughness": "5"
+ },
+ {
+  "name": "Lich's Mirror",
+  "layout": "normal",
+  "mana_cost": "{5}",
+  "cmc": 5.0,
+  "type_line": "Artifact",
+  "oracle_text": "If you would lose the game, instead shuffle your hand, your graveyard, and all permanents you own into your library, then draw seven cards and your life total becomes 20.",
+  "colors": [],
+  "color_identity": [],
+  "keywords": []
+ },
+ {
+  "name": "Case of the Shifting Visage",
+  "layout": "case",
+  "mana_cost": "{1}{U}{U}",
+  "cmc": 3.0,
+  "type_line": "Enchantment — Case",
+  "oracle_text": "At the beginning of your upkeep, surveil 1.\nTo solve — There are fifteen or more cards in your graveyard. (If unsolved, solve at the beginning of your end step.)\nSolved — Whenever you cast a nonlegendary creature spell, copy that spell. (The copy becomes a token.)",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "Surveil",
+   "Solved"
+  ]
+ },
+ {
+  "name": "Control Magic",
+  "layout": "normal",
+  "mana_cost": "{2}{U}{U}",
+  "cmc": 4.0,
+  "type_line": "Enchantment — Aura",
+  "oracle_text": "Enchant creature\nYou control enchanted creature.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "Enchant"
+  ]
+ },
+ {
+  "name": "Bronze Bombshell",
+  "layout": "normal",
+  "mana_cost": "{4}",
+  "cmc": 4.0,
+  "type_line": "Artifact Creature — Construct",
+  "oracle_text": "When a player other than this creature's owner controls it, that player sacrifices it. If the player does, this creature deals 7 damage to the player.",
+  "colors": [],
+  "color_identity": [],
+  "keywords": [],
+  "power": "4",
+  "toughness": "1"
+ },
+ {
+  "name": "Mana Leak",
+  "layout": "normal",
+  "mana_cost": "{1}{U}",
+  "cmc": 2.0,
+  "type_line": "Instant",
+  "oracle_text": "Counter target spell unless its controller pays {3}.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Unsummon",
+  "layout": "normal",
+  "mana_cost": "{U}",
+  "cmc": 1.0,
+  "type_line": "Instant",
+  "oracle_text": "Return target creature to its owner's hand.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Autumn's Veil",
+  "layout": "normal",
+  "mana_cost": "{G}",
+  "cmc": 1.0,
+  "type_line": "Instant",
+  "oracle_text": "Spells you control can't be countered by blue or black spells this turn, and creatures you control can't be the targets of blue or black spells this turn.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Meandering Towershell",
+  "layout": "normal",
+  "mana_cost": "{3}{G}{G}",
+  "cmc": 5.0,
+  "type_line": "Creature — Turtle",
+  "oracle_text": "Islandwalk (This creature can't be blocked as long as defending player controls an Island.)\nWhenever this creature attacks, exile it. Return it to the battlefield under your control tapped and attacking at the beginning of the declare attackers step on your next turn.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [
+   "Landwalk",
+   "Islandwalk"
+  ],
+  "power": "5",
+  "toughness": "9"
+ },
+ {
+  "name": "Elvish Mystic",
+  "layout": "normal",
+  "mana_cost": "{G}",
+  "cmc": 1.0,
+  "type_line": "Creature — Elf Druid",
+  "oracle_text": "{T}: Add {G}.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [],
+  "power": "1",
+  "toughness": "1"
+ },
+ {
+  "name": "Serra Angel",
+  "layout": "normal",
+  "mana_cost": "{3}{W}{W}",
+  "cmc": 5.0,
+  "type_line": "Creature — Angel",
+  "oracle_text": "Flying\nVigilance (Attacking doesn't cause this creature to tap.)",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "Flying",
+   "Vigilance"
+  ],
+  "power": "4",
+  "toughness": "4"
+ },
+ {
+  "name": "Nissa of Shadowed Boughs",
+  "layout": "normal",
+  "mana_cost": "{2}{B}{G}",
+  "cmc": 4.0,
+  "type_line": "Legendary Planeswalker — Nissa",
+  "oracle_text": "Landfall — Whenever a land you control enters, put a loyalty counter on Nissa.\n+1: Untap target land you control. You may have it become a 3/3 Elemental creature with haste and menace until end of turn. It's still a land.\n−5: You may put a creature card with mana value less than or equal to the number of lands you control onto the battlefield from your hand or graveyard with two +1/+1 counters on it.",
+  "colors": [
+   "B",
+   "G"
+  ],
+  "color_identity": [
+   "B",
+   "G"
+  ],
+  "keywords": [
+   "Landfall"
+  ],
+  "loyalty": "4"
+ },
+ {
+  "name": "Linvala, Shield of Sea Gate",
+  "layout": "normal",
+  "mana_cost": "{1}{W}{U}",
+  "cmc": 3.0,
+  "type_line": "Legendary Creature — Angel Wizard",
+  "oracle_text": "Flying\nAt the beginning of combat on your turn, if you have a full party, choose target nonland permanent an opponent controls. Until your next turn, it can't attack or block, and its activated abilities can't be activated.\nSacrifice Linvala: Choose hexproof or indestructible. Creatures you control gain that ability until end of turn.",
+  "colors": [
+   "U",
+   "W"
+  ],
+  "color_identity": [
+   "U",
+   "W"
+  ],
+  "keywords": [
+   "Flying"
+  ],
+  "power": "3",
+  "toughness": "3"
+ },
+ {
+  "name": "Oreskos Swiftclaw",
+  "layout": "normal",
+  "mana_cost": "{1}{W}",
+  "cmc": 2.0,
+  "type_line": "Creature — Cat Warrior",
+  "oracle_text": "",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [],
+  "power": "3",
+  "toughness": "1"
+ },
+ {
+  "name": "Krovikan Scoundrel",
+  "layout": "normal",
+  "mana_cost": "{1}{B}",
+  "cmc": 2.0,
+  "type_line": "Creature — Human Rogue",
+  "oracle_text": "",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [],
+  "power": "2",
+  "toughness": "1"
+ },
+ {
+  "name": "Shrine Keeper",
+  "layout": "normal",
+  "mana_cost": "{W}{W}",
+  "cmc": 2.0,
+  "type_line": "Creature — Human Cleric",
+  "oracle_text": "",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [],
+  "power": "2",
+  "toughness": "2"
+ },
+ {
+  "name": "Weeping Angel",
+  "layout": "normal",
+  "mana_cost": "{1}{U}{B}",
+  "cmc": 3.0,
+  "type_line": "Artifact Creature — Alien Angel",
+  "oracle_text": "Flash\nFirst strike, vigilance\nWhenever an opponent casts a creature spell, this creature isn't a creature until end of turn.\nIf this creature would deal combat damage to a creature, prevent that damage and that creature's owner shuffles it into their library.",
+  "colors": [
+   "B",
+   "U"
+  ],
+  "color_identity": [
+   "B",
+   "U"
+  ],
+  "keywords": [
+   "Vigilance",
+   "First strike",
+   "Flash"
+  ],
+  "power": "2",
+  "toughness": "2"
  }
 ]
