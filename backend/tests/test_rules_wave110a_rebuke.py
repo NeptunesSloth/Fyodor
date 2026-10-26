@@ -2,14 +2,12 @@
 
 from __future__ import annotations
 
-import pytest
-
 from app.rules import coverage
 from tests.game_helpers import act
+from tests.test_rules_bandmate_references import wait_priority
 from tests.test_rules_wave12a_counters_keywords import real
 from tests.test_rules_wave100n_multi import EXTRA as _BASE
 from tests.test_rules_wave100n_multi import answer, card_db, cast  # noqa: F401
-from tests.test_rules_bandmate_references import wait_priority
 from tests.wave9c_kit import build, check, life, mana, put, to_hand
 
 EXTRA = [
