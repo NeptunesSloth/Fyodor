@@ -94,5 +94,33 @@ def resume_sacrifice(plan: Plan, d: Any, chosen: list[str]) -> None:
     plan.rules.passed = []
 
 
+def choose_order(plan: Plan, ctx: dict[str, Any], frame: dict[str, Any]) -> bool:
+    """Chaotic Transformation (ruling 2022-09-09): when its controller has several of the exiled permanents left to consider, they choose which one is next (a decision, True)."""
+    from app.game.rules_state import DecisionOption
+    from app.rules.plan import decide
+
+    rest = frame["rows"][frame["next"]:]
+    same = [r for r in rest if r["controller"] == rest[0]["controller"]]
+    if len(same) < 2 or frame.get("asked") == frame["next"]:
+        return False
+    decide(plan, player=rest[0]["controller"], kind="choose_cards", prompt="Chaotic Transformation: choose which exiled permanent to consider next",
+           options=[DecisionOption(id=r["object"], label=r["name"] or "Permanent") for r in same], min_choices=1, max_choices=1,
+           resume={"step": "chaotic_order110a", "ctx": ctx})
+    return True
+
+
+def resume_order(plan: Plan, d: Any, chosen: list[str]) -> None:
+    from app.rules.effects import continue_effects
+
+    ctx = d.resume["ctx"]
+    frame = ctx["polymorph102"]
+    i = frame["next"]
+    pick = next(j for j in range(i, len(frame["rows"])) if frame["rows"][j]["object"] == chosen[0])
+    frame["rows"].insert(i, frame["rows"].pop(pick))
+    frame["asked"] = i
+    ctx["effects"][ctx["next"]:ctx["next"]] = [{"do": "polymorph_walk102"}]
+    continue_effects(plan, ctx)
+
+
 PRIMITIVES: dict[str, Any] = {}
-RESUME: dict[str, Any] = {"damping110a": resume_sacrifice}
+RESUME: dict[str, Any] = {"damping110a": resume_sacrifice, "chaotic_order110a": resume_order}

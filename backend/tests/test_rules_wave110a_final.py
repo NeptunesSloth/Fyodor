@@ -8,7 +8,7 @@ import pytest
 from app.game.errors import ActionError
 from tests.wave110a_kit import *
 
-NAMES = ["Ice Cave", "Damping Engine"]
+NAMES = ["Ice Cave", "Damping Engine", "Chaotic Transformation"]
 
 
 @pytest.fixture()
@@ -120,3 +120,33 @@ def test_damping_engine_sacrifice_special_action_ignores_it_until_end_of_turn(ca
     put(s, "Forest")
     with pytest.raises(ActionError, match="can't cast"):
         act(s, "p1", type="cast_spell", card_id=c2.id)  # new turn: the effect applies again
+
+
+def _zones(s, name, pid):
+    return [c.zone for c in s.state.cards.values() if c.name == name and c.owner == pid]
+
+
+def test_chaotic_transformation_each_controller_finds_a_card_sharing_a_type_with_the_exiled_permanent(cards):
+    """Exile an artifact and a creature of different controllers; each controller reveals until a card sharing a type, puts it onto the battlefield, shuffles."""
+    s = build(cards, ["Chaotic Transformation", "Sol Ring", "Arcane Signet"], ["Llanowar Elves", "Birds of Paradise"])
+    ring = put(s, "Sol Ring")
+    elves = put(s, "Llanowar Elves", "p2")
+    cast(s, "Chaotic Transformation", targets=[ring.id, elves.id], target_counts=[1, 1, 0, 0, 0])
+    answer(s)
+    assert s.state.cards[ring.id].zone == "p1:exile" and s.state.cards[elves.id].zone == "p2:exile"
+    assert _zones(s, "Arcane Signet", "p1") == ["p1:battlefield"] and _zones(s, "Birds of Paradise", "p2") == ["p2:battlefield"]
+    check(s)
+
+
+def test_chaotic_transformation_controller_of_several_chooses_the_order(cards):
+    """Ruling 2022-09-09: a player who controls several exiled permanents chooses which one they consider first."""
+    s = build(cards, ["Chaotic Transformation"], ["Llanowar Elves", "Birds of Paradise"])
+    elves = put(s, "Llanowar Elves", "p2")
+    isle = put(s, "Island", "p2")
+    cast(s, "Chaotic Transformation", targets=[elves.id, isle.id], target_counts=[0, 1, 0, 0, 1])
+    d = s.state.rules.decision
+    assert d is not None and d.player == "p2" and len(d.options) == 2
+    answer(s)
+    assert _zones(s, "Birds of Paradise", "p2") == ["p2:battlefield"]
+    assert sum(1 for c in s.state.cards.values() if c.name == "Island" and c.zone == "p2:battlefield") == 1  # one land found for the exiled land
+    check(s)
