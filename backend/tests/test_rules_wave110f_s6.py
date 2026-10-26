@@ -1,3 +1,4 @@
+# ruff: noqa: F811  (the imported `cards` fixture is used as the test argument)
 """Wave 110F session 6: promotions on real Oracle text (replay and save/load via tests/wave9c_kit.check).
 
 * 123.2, 603.4, 113.6k: "Whenever you put an art/name sticker on a creature, you may return this card from your graveyard to your hand." (Unlawful Entry, A Good Day to Pie).
@@ -13,6 +14,7 @@ from app.game.session import GameSession
 from app.rules import coverage
 from app.rules.sticker_sheets101 import SHEETS
 from tests.game_helpers import act, deck, enable
+from tests.test_rules_designations import find, put
 from tests.test_rules_sticker_effects101 import (  # noqa: F401  (cards: the fixture DB with the sticker cards)
     FixedSheetRng,
     cards,
@@ -21,9 +23,8 @@ from tests.test_rules_sticker_effects101 import (  # noqa: F401  (cards: the fix
     place,
     question,
 )
-from tests.test_rules_designations import find, put
-from tests.wave100c_kit import settle, to_phase
 from tests.wave9c_kit import check
+from tests.wave100c_kit import to_phase
 
 SPELLS = ["Unlawful Entry", "A Good Day to Pie"]
 
