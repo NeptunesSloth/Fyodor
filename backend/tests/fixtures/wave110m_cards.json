@@ -779,5 +779,21 @@
 "U"
 ],
 "keywords": []
+},
+{
+"name": "Test Teferi 110M",
+"layout": "normal",
+"mana_cost": "{2}{U}",
+"cmc": 3.0,
+"type_line": "Legendary Planeswalker — Teferi",
+"oracle_text": "−3: Tap any number of untapped creatures you control. When you do, shuffle target nonland permanent an opponent controls with mana value X or less into its owner's library, where X is the number of creatures tapped this way.",
+"colors": [
+"U"
+],
+"color_identity": [
+"U"
+],
+"keywords": [],
+"loyalty": "5"
 }
 ]

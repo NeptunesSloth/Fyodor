@@ -72,6 +72,8 @@ def definition(ability: Any, ch: Any) -> Def | None:
 
     if ability.kind == "static" and ability.text.strip() == _PRESENCE:
         return statics._definition("attached", "creature", [], rules=[f"{ATK_TAX}:{{3}}"])
+    if ability.text.strip() == _TEFERI:
+        return _teferi_definition(ability, ch)
     if ability.text.strip() == _ADVERSARY:
         return _adversary_definition(ability, ch)
     if ability.text.strip() == _BOOBY_ENTER:  # both choices are made as it enters (614.12a) and stay public on the permanent
@@ -620,6 +622,31 @@ def _croc(d: Def) -> Def:
 
 _BUILD[_CROC] = ("When you control no Islands, this permanent becomes a 4/4 Crocodile creature.", _croc)
 
+_TEFERI = ("−3: Tap any number of untapped creatures you control. When you do, shuffle target nonland permanent an opponent controls with mana value X or less into its owner's "
+           "library, where X is the number of creatures tapped this way.")
+
+
+def _teferi_definition(ability: Any, ch: Any) -> Def | None:
+    """Teferi Akosa of Zhalfir −3: the creatures tapped are counted (X), and when at least one was, the reflexive ability (603.12) picks its target with mana value X or less as it goes
+    on the stack (603.3d) — the same reflexive shape as "you may pay {X}. When you do, …"."""
+    from app.rules import scripts
+
+    tap = scripts.define(replace(ability, text="−3: Tap any number of untapped creatures you control."), ch)
+    pay = scripts.parse_effects("You may pay {X}. When you do, shuffle target nonland permanent an opponent controls with mana value X or less into its owner's library.")
+    if tap is None or pay is None or len(pay[0]) != 2 or pay[0][1].get("do") != "reflexive":
+        return None
+    count = {"do": "tap_count110m", "as": "tapped110m", "bind": "pay0"}
+    return {**tap, "effects": [{**tap["effects"][0], "as": "tapped110m"}, count, pay[0][1]]}
+
+
+def tap_count(plan: Any, ctx: Def, e: Def) -> bool:
+    from app.rules import context, paid_x
+
+    n = len(context.objects(plan, ctx, e["as"]))
+    paid_x._record(ctx, e["bind"], n > 0, n)
+    return True
+
+
 _FACES = ("Whenever a creature dies, tap all untapped creatures that share a creature type with it or untap all tapped creatures that share a creature type with it.")
 _BUILD[_FACES] = ("Whenever a creature dies, draw a card.", lambda d: {**d, "effects": [{"do": "faces110m"}]})
 
@@ -730,4 +757,4 @@ def resume_damnations_keep(plan: Any, d: Any, chosen: list[str]) -> None:
 
 RESUME: dict[str, Any] = {"sphinx_search110m": resume_sphinx_search, "sphinx_put110m": resume_sphinx_put, "ashiok110m": resume_ashiok, "gurzigost110m": resume_gurzigost, "cover_up110m": resume_cover_up, "faces110m": resume_faces, "damnations110m": resume_damnations, "damnations110m_lose": resume_damnations_lose,
                           "damnations110m_keep": resume_damnations_keep}
-PRIMITIVES: dict[str, Any] = {"top_to_bottom110m": top_to_bottom, "faces110m": faces, "lose_shield110m": lose_shield, "sphinx_search110m": sphinx_search, "sphinx_put110m": sphinx_put, "gandalf110m": gandalf, "bind_target_player110m": bind_target_player, "ashiok110m": ashiok, "ashiok_ult110m": ashiok_ult, "hunted110m": hunted, "gurzigost110m": gurzigost, "cover_up110m": cover_up, "damnations110m": damnations}
+PRIMITIVES: dict[str, Any] = {"top_to_bottom110m": top_to_bottom, "faces110m": faces, "lose_shield110m": lose_shield, "tap_count110m": tap_count, "sphinx_search110m": sphinx_search, "sphinx_put110m": sphinx_put, "gandalf110m": gandalf, "bind_target_player110m": bind_target_player, "ashiok110m": ashiok, "ashiok_ult110m": ashiok_ult, "hunted110m": hunted, "gurzigost110m": gurzigost, "cover_up110m": cover_up, "damnations110m": damnations}

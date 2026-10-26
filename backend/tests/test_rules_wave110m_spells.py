@@ -310,3 +310,50 @@ def test_kaervek_spite_can_be_paid_with_mana_from_lands_it_then_sacrifices(cards
     answer(s)
     assert all(s.state.cards[c.id].zone == "p1:graveyard" for c in swamps) and life(s, "p2") == 35
     check(s)
+
+
+# -- Teferi Akosa of Zhalfir's −3 (a stand-in planeswalker with that one ability: the card itself is the back face of a Siege) -------------------
+TEFERI = "Test Teferi 110M"
+
+
+def next_decision(s):
+    for _ in range(20):
+        d = s.state.rules.decision
+        if d is not None:
+            return d
+        act(s, s.state.rules.priority, type="pass_priority")
+    raise AssertionError("no decision")
+
+
+def teferi_table(cards):
+    from tests.test_rules_wave36a_trigger_words import loyal
+
+    s = build(cards, [TEFERI, "Grizzly Bears", "Llanowar Elves"], ["Sol Ring", "Mind Stone", "Gilded Lotus", "Grizzly Bears"], forests=20)
+    walker = loyal(s, TEFERI, loyalty=5)
+    bears, elves = put(s, "Grizzly Bears"), put(s, "Llanowar Elves")
+    for n in ("Sol Ring", "Mind Stone", "Gilded Lotus"):
+        put(s, n, "p2")
+    return s, walker, bears, elves
+
+
+@pytest.mark.parametrize("tapped,hit", [(2, "Mind Stone"), (1, "Sol Ring")])
+def test_teferi_minus_three_shuffles_a_permanent_with_mana_value_up_to_the_creatures_tapped(cards, tapped, hit):
+    s, walker, bears, elves = teferi_table(cards)
+    act(s, "p1", type="activate_ability", card_id=walker.id, ability=0)
+    act(s, "p1", type="choose", decision_id=next_decision(s).id, option_ids=[bears.id, elves.id][:tapped])
+    d = next_decision(s)
+    labels = {o.label for o in d.options}
+    assert "Gilded Lotus" not in labels and "Forest" not in labels and (("Mind Stone" in labels) is (tapped == 2)) and "Sol Ring" in labels
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[next(o.id for o in d.options if o.label == hit)])
+    answer(s)
+    assert card_named(s, hit, "p2").zone == "p2:library" and zone_of(s, "Gilded Lotus", "p2") == "p2:battlefield"
+    check(s)
+
+
+def test_teferi_minus_three_with_no_creature_tapped_does_nothing_more(cards):
+    s, walker, bears, elves = teferi_table(cards)
+    act(s, "p1", type="activate_ability", card_id=walker.id, ability=0)
+    act(s, "p1", type="choose", decision_id=next_decision(s).id, option_ids=[])
+    answer(s)
+    assert all(zone_of(s, n, "p2") == "p2:battlefield" for n in ("Sol Ring", "Mind Stone", "Gilded Lotus"))
+    check(s)
