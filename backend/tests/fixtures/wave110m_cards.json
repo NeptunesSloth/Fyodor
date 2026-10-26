@@ -1274,5 +1274,20 @@
 ],
 "power": "2",
 "toughness": "3"
+},
+{
+"name": "Bend or Break",
+"layout": "normal",
+"mana_cost": "{3}{R}",
+"cmc": 4.0,
+"type_line": "Sorcery",
+"oracle_text": "Each player separates all nontoken lands they control into two piles. For each player, one of their piles is chosen by one of their opponents of their choice. Destroy all lands in the chosen piles. Tap all lands in the other piles.",
+"colors": [
+"R"
+],
+"color_identity": [
+"R"
+],
+"keywords": []
 }
 ]

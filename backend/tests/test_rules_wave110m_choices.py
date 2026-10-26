@@ -136,3 +136,79 @@ def test_the_letter_is_matched_whatever_its_case(cards):
     pick_letter(s, "H")
     assert ch(s, ship).pt == (3, 4)
     check(s)
+
+
+# -- Bend or Break -----------------------------------------------------------------------------------------------------------------------------
+BEND = "Bend or Break"
+test_bend_full = full_test([BEND])
+
+
+def lands(s, pid):
+    return [c for c in s.state.cards.values() if c.zone == f"{pid}:battlefield" and "Land" in ch(s, c).types]
+
+
+def bend(cards, mine=4, theirs=2):
+    s = build(cards, [BEND], ["Elite Vanguard"], forests=20, islands=20)
+    for pid, n in (("p1", mine), ("p2", theirs)):
+        for c in [c for c in s.state.cards.values() if c.owner == pid and c.zone == f"{pid}:library" and c.name in ("Forest", "Island")][:n]:
+            act(s, pid, type="move", card_ids=[c.id], to={"player": pid, "zone": "battlefield"})
+    return s
+
+
+def test_bend_or_break_destroys_the_chosen_piles_and_taps_the_others(cards):
+    s = bend(cards)
+    before = {pid: [c.id for c in lands(s, pid)] for pid in ("p1", "p2")}
+    cast_first = to_hand(s, BEND)
+    fund(s, "{3}{R}")
+    act(s, "p1", type="cast_spell", card_id=cast_first.id)
+    for _ in range(30):
+        d = s.state.rules.decision
+        if d is None:
+            if not s.state.zones.get("stack"):
+                break
+            act(s, s.state.rules.priority, type="pass_priority")
+        elif d.kind == "choose_cards":
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][:1])  # a pile of one land, the rest in the other
+        else:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=["1"])  # the opponent picks the first pile
+    mine, theirs = lands(s, "p1"), lands(s, "p2")
+    assert len(mine) == 3 and len(theirs) == 1  # (one land of each in the chosen piles destroyed)
+    assert all(c.tapped for c in mine + theirs)  # (the other piles were tapped)
+    assert {c.id for c in mine} <= set(before["p1"]) and {c.id for c in theirs} <= set(before["p2"])
+    check(s)
+
+
+def test_bend_or_break_with_three_players_each_owner_names_the_opponent_who_chooses(cards):
+    from app.game.factory import PlayerSetup, new_game
+    from app.game.session import GameSession
+    from tests.game_helpers import deck, enable
+
+    setups = [PlayerSetup("Alice", cards=deck(cards, "Krenko, Mob Boss", [(1, BEND), (9, "Forest")])),
+              PlayerSetup("Bob", cards=deck(cards, "Atraxa, Praetors' Voice", [(9, "Island")])),
+              PlayerSetup("Carol", cards=deck(cards, "Krenko, Mob Boss", [(9, "Forest")]))]
+    s = GameSession(enable(new_game(setups, shuffle=False)), cards=cards)
+    act(s, "p1", type="pass_priority")
+    for pid in ("p1", "p2", "p3"):
+        for c in [c for c in s.state.cards.values() if c.owner == pid and c.zone == f"{pid}:library" and c.name in ("Forest", "Island")][:2]:
+            act(s, pid, type="move", card_ids=[c.id], to={"player": pid, "zone": "battlefield"})
+    c = to_hand(s, BEND)
+    fund(s, "{3}{R}")
+    act(s, "p1", type="cast_spell", card_id=c.id)
+    named = []
+    for _ in range(40):
+        d = s.state.rules.decision
+        if d is None:
+            if not s.state.zones.get("stack"):
+                break
+            act(s, s.state.rules.priority, type="pass_priority")
+        elif d.kind == "choose_cards":
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][:1])
+        elif {o.id for o in d.options} <= {"p1", "p2", "p3"}:
+            named.append((d.player, sorted(o.id for o in d.options)))  # the owner names the opponent who chooses
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[d.options[-1].id])
+        else:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=["2"])
+    assert named == [("p1", ["p2", "p3"]), ("p2", ["p1", "p3"]), ("p3", ["p1", "p2"])]
+    assert [len(lands(s, p)) for p in ("p1", "p2", "p3")] == [1, 1, 1]  # (the pile of one land destroyed, the other tapped)
+    assert all(c.tapped for p in ("p1", "p2", "p3") for c in lands(s, p))
+    check(s)
