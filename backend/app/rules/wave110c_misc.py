@@ -52,6 +52,7 @@ CHAPTERS = {
 PROCTOR = "Whenever a permanent entering causes a triggered ability to trigger, counter that ability unless its controller pays {2}."
 
 
+SIN_DIES = "When ~ dies, put its counters on target creature you control, then shuffle this card into its owner's library."
 YIDARO = ("When you cycle this card, shuffle it into your library from your graveyard. If you've cycled a card named Yidaro, Wandering Monster four or more times "
           "this game, put it onto the battlefield from your graveyard instead.")
 
@@ -59,6 +60,9 @@ YIDARO = ("When you cycle this card, shuffle it into your library from your grav
 def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
     from app.rules import scripts
 
+    if scripts.self_text(ability.text, ch.name) == SIN_DIES:  # "this card" is Sin itself (400.7: the card in the graveyard), not the creature it chose; shuffled in even if gone (701.24c)
+        d = scripts.define(replace(ability, text="When ~ dies, put ~'s counters on target creature you control, then shuffle ~ into its owner's library."), ch)
+        return None if d is None else {**d, "effects": [{"do": "shuffle_dead110c"} if e["do"] == "to_library" else e for e in d["effects"]]}
     if ability.text == YIDARO:  # 702.29a-c: the card is in the graveyard when the trigger resolves; the count includes this cycling
         d = scripts.define(replace(ability, text="When you cycle this card, draw a card."), ch)
         return None if d is None else {**d, "effects": [{"do": "yidaro110c"}]}
@@ -375,6 +379,18 @@ def yidaro(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return True
 
 
+def shuffle_dead(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """"... shuffle this card into its owner's library" of a dies trigger (Sin): the card the source became in the graveyard (400.7), if it is still there; the library is
+    shuffled even when the card is gone (701.24c)."""
+    src = plan.state.cards.get(ctx.get("source_card") or "")
+    owner = src.owner if src is not None else ctx["controller"]
+    became = {o.get("object_id") for o in (ctx.get("event") or {}).get("new_objects") or []}  # (the event's new objects, 400.7e)
+    if src is not None and src.zone.endswith(":graveyard") and plan.oid(src) in became:
+        plan.do({"type": "move", "card_ids": [src.id], "to": {"player": owner, "zone": "library"}}, actor=ctx["controller"])
+    plan.do({"type": "shuffle", "player": owner, "zone": "library"}, actor=owner)
+    return True
+
+
 def prodder_done(plan: Plan, d: Any, chosen: list[str]) -> None:
     from app.rules import effects
 
@@ -390,4 +406,4 @@ def attached_if(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
 
 
 RESUME = {"prodder110c": resume_prodder, "prodder_manual110c": prodder_done, "omnath110c": resume_omnath, "evidence_x110c": resume_evidence_x}
-PRIMITIVES = {"yidaro110c": yidaro, "proctor110c": proctor, "attached_if110c": attached_if, "prodder110c": prodder, "omnath110c": omnath, "evidence_x110c": evidence_x, "revealed_x110c": revealed_x, "glyph110c": glyph, "shuttle110c": shuttle, "shuttle_attack110c": shuttle_attack}
+PRIMITIVES = {"shuffle_dead110c": shuffle_dead, "yidaro110c": yidaro, "proctor110c": proctor, "attached_if110c": attached_if, "prodder110c": prodder, "omnath110c": omnath, "evidence_x110c": evidence_x, "revealed_x110c": revealed_x, "glyph110c": glyph, "shuttle110c": shuttle, "shuttle_attack110c": shuttle_attack}

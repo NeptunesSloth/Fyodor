@@ -38,3 +38,5 @@
 - Arni Metalbrow: "enters attacking" is not an event the trigger system has (single card).
 - Relentless Dead (wave 110C s12): "return another target Zombie ... with mana value X" after paying {X}: target is chosen before X is paid (603.3d); CR and rulings do not say how a target restriction on a resolution-time X is checked, so left manual.
 - Pandemonium: Oracle "any target of their choice" with the creature's controller choosing; CR 603.3a/601.2c give targets to the trigger's controller (Pandemonium's) and no ruling in the DB settles who chooses: unsettled, left PARTIAL (needs an official ruling).
+- Pandemonium: who chooses the "any target of their choice" (the creature's controller, at trigger or at resolution) has no CR rule or ruling found locally; unsettled, stays PARTIAL.
+- Sin Prodder (2+ opponents say yes): which player is "that player" for each yes is unsettled (608.2e only orders the choices); the card goes to the graveyard and the damage is handed to manual play. One yes stays automated.

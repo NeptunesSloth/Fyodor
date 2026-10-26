@@ -26,9 +26,11 @@ WHAT = "devour"
 GY = "gy110f"  # (wave 110F) Sutured Ghoul: creature cards in the graveyard, exiled, totals as for Dracoplasm
 STATS = "stats110f"  # (wave 110F) the quality of Dracoplasm: creatures, totals of their power and toughness
 DONE = "done"
+REMOVE = "counters110c"  # (wave 110C) Sin, Unending Cataclysm: any number of artifacts, creatures and enchantments (any player's) lose all their counters
+REMOVED = "removed110c"
 _PIECE = re.compile(r"devour (?:(?P<q>land|artifact|food) )?(?P<n>\d+)")
 _QUALITY_WORD = {None: "creature", "stats110f": "creature", "gy110f": "creature card", "land": "land", "artifact": "artifact", "food": "Food", "untapped_forest": "untapped Forest", "creature_pw": "creature or planeswalker",
-                 "nonland": "nonland permanent", "permanent": "permanent"}
+                 "nonland": "nonland permanent", "permanent": "permanent", "counters110c": "permanent with counters"}
 
 
 def pieces(line: str) -> list[tuple[str | None, int]]:
@@ -60,7 +62,10 @@ _STATICS = {"As ~ enters, you may sacrifice any number of creatures and/or plane
             # -- gy (wave 110F) -- Sutured Ghoul: exile creature cards from your graveyard; its P/T are their totals (the second line, _COMPANION)
             "As ~ enters, exile any number of creature cards from your graveyard.": (GY, 0),
             # -- (wave 110J) -- Shimatsu the Bloodcloaked: any number of permanents (zero allowed), one counter each (the same choice as devour 1)
-            "As ~ enters, sacrifice any number of permanents. ~ enters with that many +1/+1 counters on it.": ("permanent", 1)}
+            "As ~ enters, sacrifice any number of permanents. ~ enters with that many +1/+1 counters on it.": ("permanent", 1),
+            # -- counters (wave 110C) -- Sin: 122.1 counters removed as it enters, twice as many +1/+1 counters (:func:`counters`)
+            "As ~ enters, remove all counters from any number of artifacts, creatures, and enchantments. ~ enters with X +1/+1 counters on it, where X is twice "
+            "the number of counters removed this way.": (REMOVE, 0)}
 NO_COUNTERS = {"untapped_forest"}
 _COMPANION = "~'s power is equal to the total power of the exiled cards and its toughness is equal to their total toughness."  # no effect of its own: apply_totals
 RETURNS = "nonland"  # (the one quality returned to its owner's hand, at most one)
@@ -99,13 +104,20 @@ def _matches(plan: Plan, cid: str, quality: str | None) -> bool:
     ch = chars.of(plan.state.cards[cid], plan.info)
     return {None: ch.is_creature, STATS: ch.is_creature, "land": ch.is_land, "artifact": "Artifact" in ch.types,
             "food": "Food" in ch.subtypes, GY: ch.is_creature, "creature_pw": ch.is_creature or "Planeswalker" in ch.types, "nonland": not ch.is_land,
-            "untapped_forest": "Forest" in ch.subtypes and not plan.state.cards[cid].tapped, "permanent": True}[quality]
+            "untapped_forest": "Forest" in ch.subtypes and not plan.state.cards[cid].tapped, "permanent": True,
+            REMOVE: bool({"Artifact", "Creature", "Enchantment"} & ch.types) and any(plan.state.cards[cid].counters.values())}[quality]
+
+
+def _zone_ids(plan: Plan, controller: str, quality: str | None) -> list[str]:
+    if quality == REMOVE:  # (every player's battlefield)
+        return [c for p in plan.state.players for c in plan.state.zones.get(zone_key(p, "battlefield"), [])]
+    return plan.state.zones.get(zone_key(controller, "graveyard" if quality == GY else "battlefield"), [])
 
 
 def candidates(plan: Plan, card: CardInstance, controller: str, quality: str | None, taken: set[str]) -> list[str]:
     """Permanents its controller could sacrifice: matching, on the battlefield, not the one entering (614.13a) nor one
     already picked or chosen by another entering permanent (614.13b)."""
-    return [cid for cid in plan.state.zones.get(zone_key(controller, "graveyard" if quality == GY else "battlefield"), [])
+    return [cid for cid in _zone_ids(plan, controller, quality)
             if cid != card.id and cid not in taken and plan.in_game(plan.state.cards[cid]) and _matches(plan, cid, quality)]
 
 
@@ -124,9 +136,11 @@ def plan_entry(plan: Plan, card: CardInstance, controller: str, answers: dict[st
         if "choice" not in out:
             out["choice"] = {"what": WHAT, "reserved": sorted(reserved), "picked": value}
         return
-    ids = [c for c in picked(value) if c in plan.state.zones.get(zone_key(controller, "graveyard" if found[0] == GY else "battlefield"), [])]
+    ids = [c for c in picked(value) if c in _zone_ids(plan, controller, found[0])]
     if ids:
         out["devour"] = ids
+        if found[0] == REMOVE:
+            out["devour_remove"] = True
         if found[0] == GY:
             out["devour_exile"] = True
         if found[0] == RETURNS:
@@ -145,12 +159,14 @@ def prompt(plan: Plan, card: CardInstance, controller: str, choice: dict[str, An
     quality, n = found
     already = picked(choice.get("picked"))
     word = _QUALITY_WORD[quality]
-    verb = "return" if quality == RETURNS else "exile" if quality == GY else "sacrifice"
+    verb = "return" if quality == RETURNS else "exile" if quality == GY else "remove counters from" if quality == REMOVE else "sacrifice"
     options = [DecisionOption(id=c, label=f"{verb.capitalize()} {plan.state.cards[c].name or word}", card_id=c)
                for c in candidates(plan, card, controller, quality, {*(choice.get("reserved") or ()), *already})]
     options.append(DecisionOption(id=DONE, label=f"Done: {verb} {len(already)}" if already else f"Don't {verb} any"))
     if quality == RETURNS:
         return f"{card.name}: as it enters, return a {word} you control to its owner's hand?", options
+    if quality == REMOVE:
+        return f"{card.name}: as it enters, remove all counters from permanents? ({len(already)} chosen)", options
     if quality in NO_COUNTERS:
         return f"{card.name}: as it enters, sacrifice any number of {word}s? ({len(already)} chosen)", options
     if quality == GY:
@@ -167,6 +183,19 @@ def sacrifice(plan: Plan, ep: dict[str, Any], controller: str) -> None:
         return
     from app.rules.effects import _sacrifice_cards
 
+    if ep.get("devour_remove"):  # 122.1: only the counters really removed are counted ("this way")
+        removed = 0
+        for c in ids:
+            card = plan.state.cards.get(c)
+            if card is not None and card.zone.endswith(":battlefield"):
+                before = sum(card.counters.values())
+                for kind, n in list(card.counters.items()):
+                    if n > 0:
+                        plan.do({"type": "counter", "card_ids": [c], "kind": kind, "delta": -n}, actor=controller)
+                removed += before - sum(plan.state.cards[c].counters.values())
+        ep.setdefault("choices", {})[WHAT] = ",".join(ids) + "," + DONE
+        ep["choices"][REMOVED] = str(removed)
+        return
     exile = bool(ep.get("devour_exile"))  # (wave 110F: Sutured Ghoul, from the graveyard)
     live = [c for c in ids if c in plan.state.cards and (plan.state.cards[c].zone == zone_key(controller, "graveyard") if exile else
             plan.state.cards[c].zone.endswith(":battlefield") and plan.state.cards[c].controller == controller)]
@@ -188,6 +217,8 @@ def sacrifice(plan: Plan, ep: dict[str, Any], controller: str) -> None:
 
 def counters(ch: Any, choices: dict[str, str] | None) -> int:
     found = spec(ch)
+    if found is not None and found[0] == REMOVE:
+        return 2 * int((choices or {}).get(REMOVED) or 0)
     n = len(picked((choices or {}).get(WHAT)))
     return 0 if found is None or found[0] in NO_COUNTERS or found[0] in (STATS, GY) else (found[1] or n) * n  # (Thromok: N 0, X is how many were sacrificed)
 
