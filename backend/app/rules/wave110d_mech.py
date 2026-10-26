@@ -1,4 +1,4 @@
-"""-- Mechtitan Core (wave 110D) -- "{5}, Exile this Vehicle and four other artifact creatures and/or Vehicles you control: Create Mechtitan, a legendary 10/10 Construct artifact
+"""-- Mechtitan Core and The Enigma Jewel // Locus of Enlightenment (wave 110D) -- "{5}, Exile this Vehicle and four other artifact creatures and/or Vehicles you control: Create Mechtitan, a legendary 10/10 Construct artifact
 creature token with flying, vigilance, trample, lifelink, and haste that's all colors. When that token leaves the battlefield, return all cards exiled with this Vehicle except this
 card to the battlefield tapped under their owners' control."
 
@@ -28,6 +28,19 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
         return None
     back = {"do": "deferred:return_card", "who": "exiled_with", "to": "battlefield", "tapped": True, "under": "owner"}
     return {**d, "cost": COST, "effects": [{"do": "mech_link110d"}, *d["effects"][:-1], back]}
+
+
+LOCUS = "~ has each activated ability of the exiled cards used to craft it. You may activate each of those abilities only once each turn."
+
+
+def locus(ability: Any, ch: Any) -> dict[str, Any] | None:
+    """The Enigma Jewel // Locus of Enlightenment: 113.10 / 613.1f, each activated ability of the materials (702.167c) lent like Myr Welder's, each once a turn (602.5b)."""
+    from app.rules import scripts
+
+    d = scripts.define(replace(ability, text="~ has all activated abilities of all cards exiled with it."), ch)
+    if d is None or not d.get("abilities_of"):
+        return None
+    return {**d, "abilities_of": {**d["abilities_of"], "linked": False, "crafted": True, "once": True}}
 
 
 def link(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:

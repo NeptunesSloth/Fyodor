@@ -179,6 +179,8 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
     text = scripts.self_text(ability.text, ch.name)
     if text == wave110d_meld.LINE:
         return wave110d_meld.definition(ability, ch)
+    if text == wave110d_mech.LOCUS:  # The Enigma Jewel's back face
+        return wave110d_mech.locus(ability, ch)
     if text == wave110d_mech.LINE:  # Mechtitan Core
         return wave110d_mech.definition(ability, ch)
     if text == wave110d_chef.LINE:
