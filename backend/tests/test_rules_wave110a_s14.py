@@ -3,11 +3,12 @@
 # ruff: noqa: F403, F405
 from __future__ import annotations
 
+from app.game.errors import ActionError
 from tests.wave110a_kit import *
 
 from app.rules import keyword_actions, scripts  # isort: skip
 
-NAMES = ["Jon Irenicus, Shattered One", "Grothama, All-Devouring", "Aurora Shifter", "Altar of the Wretched // Wretched Bonemass"]
+NAMES = ["Jon Irenicus, Shattered One", "Grothama, All-Devouring", "Aurora Shifter", "Altar of the Wretched // Wretched Bonemass", "Comet, Stellar Pup"]
 
 
 @pytest.fixture()
@@ -135,3 +136,74 @@ def ch_pt(s, c):
 
     card = s.state.cards[c.id]
     return sba.power(card, ch(s, c)), sba.toughness(card, ch(s, c))
+
+
+COMET = "Comet, Stellar Pup"
+
+
+def _comet(cards, monkeypatch, *dice, theirs=()):
+    from tests.test_rules_wave12a_counters_keywords import rolls
+
+    s = build(cards, [COMET, "Llanowar Elves"], list(theirs))
+    comet = put(s, COMET)
+    act(s, "p1", type="set_counter", card_id=comet.id, kind="loyalty", value=5)
+    rolls(monkeypatch, *dice)
+    return s, comet
+
+
+def _use(s, comet):
+    act(s, "p1", type="activate_ability", card_id=comet.id, ability=0)
+    answer(s)
+
+
+def _loyalty(s, c):
+    return s.state.cards[c.id].counters.get("loyalty", 0)
+
+
+@pytest.mark.parametrize("die", [1, 2])
+def test_comet_one_or_two_adds_two_loyalty_and_two_hasty_squirrels(cards, monkeypatch, die):  # 107.7 [+2], 706.3
+    s, comet = _comet(cards, monkeypatch, die)
+    _use(s, comet)
+    squirrels = [c for c in s.state.cards.values() if c.name == "Squirrel" and c.zone == "p1:battlefield"]
+    assert _loyalty(s, comet) == 7 and len(squirrels) == 2 and all("haste" in ch(s, c).keywords for c in squirrels)
+    check(s)
+
+
+def test_comet_three_removes_one_loyalty_and_returns_a_cheap_card(cards, monkeypatch):  # 107.7 [-1]
+    s, comet = _comet(cards, monkeypatch, 3)
+    elves = to_hand(s, "Llanowar Elves")
+    act(s, "p1", type="move", card_ids=[elves.id], to={"player": "p1", "zone": "graveyard"})
+    _use(s, comet)
+    assert _loyalty(s, comet) == 4 and s.state.cards[elves.id].zone == "p1:hand"
+    check(s)
+
+
+@pytest.mark.parametrize("die", [4, 5])
+@pytest.mark.parametrize("at", ["p2", "giant"])
+def test_comet_four_or_five_deals_damage_equal_to_its_loyalty_to_a_chosen_creature_or_player_then_loses_two(cards, monkeypatch, die, at):  # not targeted: chosen as it resolves
+    s, comet = _comet(cards, monkeypatch, die, theirs=["Hill Giant"])
+    giant = put(s, "Hill Giant", "p2")
+    act(s, "p1", type="activate_ability", card_id=comet.id, ability=0)
+    answer(s, "p2" if at == "p2" else giant.id)
+    assert _loyalty(s, comet) == 3  # (the 5 counters were counted before the -2)
+    assert life(s, "p2") == (35 if at == "p2" else 40) and (s.state.cards[giant.id].zone == "p2:graveyard") == (at == "giant")
+    check(s)
+
+
+def test_comet_six_adds_one_loyalty_and_allows_two_more_activations_this_turn(cards, monkeypatch):  # 606.3: three uses in all, not four
+    s, comet = _comet(cards, monkeypatch, 6, 1, 1)
+    _use(s, comet)
+    assert _loyalty(s, comet) == 6
+    _use(s, comet)
+    _use(s, comet)
+    assert _loyalty(s, comet) == 10
+    with pytest.raises(ActionError):
+        act(s, "p1", type="activate_ability", card_id=comet.id, ability=0)
+    check(s)
+
+
+def test_comet_without_a_six_cannot_be_activated_twice_in_a_turn(cards, monkeypatch):  # 606.3
+    s, comet = _comet(cards, monkeypatch, 1)
+    _use(s, comet)
+    with pytest.raises(ActionError):
+        act(s, "p1", type="activate_ability", card_id=comet.id, ability=0)

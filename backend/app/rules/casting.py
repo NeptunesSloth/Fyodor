@@ -6032,8 +6032,10 @@ def ability_problem(state: GameState, player: str, card: CardInstance, ch: Chara
                 and not cast_limits.loyalty_rule(state, card, rule_info, "instant"):  # (Teferi, Master of Time)
             return "That can only be activated in your main phase while the stack is empty"
         oid = r.object_id(card.id)
-        if r.loyalty_used.get(oid) == state.turn.number and (r.loyalty_second.get(oid) == state.turn.number
-                                                             or not cast_limits.loyalty_rule(state, card, rule_info, "twice")):  # (Oath of Teferi)
+        from app.rules import wave110a_comet
+
+        if r.loyalty_used.get(oid) == state.turn.number and not wave110a_comet.extra_left(r, oid, state.turn.number) \
+                and (r.loyalty_second.get(oid) == state.turn.number or not cast_limits.loyalty_rule(state, card, rule_info, "twice")):  # (Oath of Teferi; wave 110A: Comet)
             return f"{ch.name} has already used a loyalty ability this turn"
         from app.rules import static_perm100d  # -- static permanents (wave 100D) -- Carth the Lion
 
@@ -6485,7 +6487,11 @@ def _post_activation(plan: Plan, data: _PostActivation, paid: M.Payment | None) 
 
         activated(plan, card, oid, loyalty=ability.kind == "loyalty", ability_id=ability_id, text=ability.text, outlast=ability.special == "outlast" or ability.index >= 100)
     if ability.kind == "loyalty":
-        if r.loyalty_used.get(oid) == plan.state.turn.number:
+        from app.rules import wave110a_comet
+
+        if r.loyalty_used.get(oid) == plan.state.turn.number and wave110a_comet.extra_left(r, oid, plan.state.turn.number):
+            wave110a_comet.use_extra(r, oid, plan.state.turn.number)  # -- wave 110A -- Comet's "two more times this turn" (606.3)
+        elif r.loyalty_used.get(oid) == plan.state.turn.number:
             r.loyalty_second[oid] = plan.state.turn.number  # -- static_other sweep (wave 19A) -- the second use (Oath of Teferi)
         r.loyalty_used[oid] = plan.state.turn.number
     # -- turn state (wave 100H) -- "if you've activated a loyalty ability this turn", "… an ability of a card in a graveyard", "an exhaust ability"

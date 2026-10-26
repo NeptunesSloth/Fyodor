@@ -138,8 +138,13 @@ def mana_value(plan: Plan, ctx: dict[str, Any]) -> int:
 def total_power(plan: Plan, ctx: dict[str, Any]) -> int:
     """The total power of the exiled craft materials (a card in exile has its own power: a * counts as 0, 208.2a)."""
     refs = plan.rules.crafted_materials.get(ctx.get('source_object') or '', [])
-    return sum(max(0, plan.ch(card).pt[0]) for ref in refs if (card := plan.state.cards.get(ref.card)) is not None
-               and plan.oid(card) == ref.object_id and card.zone.endswith(':exile') and plan.ch(card).pt is not None)
+    total = 0
+    for ref in refs:
+        card = plan.state.cards.get(ref.card)
+        if card is not None and plan.oid(card) == ref.object_id and card.zone.endswith(':exile'):
+            pt = plan.ch(card).pt
+            total += max(0, pt[0]) if pt is not None else 0
+    return total
 
 
 def production(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
