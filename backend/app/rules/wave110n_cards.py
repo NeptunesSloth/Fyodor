@@ -556,6 +556,26 @@ def flicker_auras(plan: Any, ctx: Any, e: Def) -> bool:
     return bool(attachments.enter(plan, entries, ctx)) if entries else True
 
 
+_PLAGUE = ("When enchanted creature dies, its controller chooses target creature one of their opponents controls. Return this card from its owner's graveyard to the "
+           "battlefield attached to that creature.")
+
+
+def _plague(d: Def) -> Def:
+    """Necrotic Plague: the dead creature's controller (the event's player) chooses, among the creatures their opponents control (triggers: event_player_pov110n)."""
+    from app.rules import selectors
+
+    ret = [e for e in d["effects"] if e.get("do") == "return_card"]
+    any_creature, opposing = selectors.parse("creature"), selectors.parse("creature an opponent controls")
+    if len(ret) != 1 or not d.get("target") or any_creature is None or opposing is None:
+        return d
+    gone = {k: v for k, v in ret[0].items() if k != "under"}  # (the Aura returns under its owner's control)
+    return {**d, "effects": [gone], "target": {"what": any_creature.key()}, "target_choice": "event_player_pov110n",
+            "pov_what110n": opposing.key()}
+
+
+_BUILD[_PLAGUE] = ("When enchanted creature dies, return this card from your graveyard to the battlefield attached to target creature.", _plague)
+
+
 def _thief(d: Def) -> Def:
     """Thief of Existence: the spell gains the leaves-the-battlefield trigger only if the exile happened, and keeps it as the permanent it becomes (400.7a)."""
     from app.rules import scripts
