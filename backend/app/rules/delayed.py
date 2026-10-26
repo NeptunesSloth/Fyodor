@@ -453,7 +453,12 @@ def on_events(plan: Plan, events: list[Event]) -> None:
             if t in fired and t.once:  # (-- turn-long triggers (wave 35B) -- a "this turn" one on several objects triggers for each: 603.7b)
                 continue
             oids = {o["object_id"] for o in (t.refs.get("watch") or {}).get("objects") or []}
-            if e.object_id not in oids or (t.when["event"] == "die" and not died):
+            if t.when.get("damager110g"):  # -- wave 110G -- Touch of Moonglove: any dying creature the watched one dealt damage to this turn (120.3)
+                log = r.turn_log
+                if not died or log.turn != plan.state.turn.number or not any(
+                        f.kind == "damaged" and f.object_id == e.object_id and f.source in oids for f in log.facts):
+                    continue
+            elif e.object_id not in oids or (t.when["event"] == "die" and not died):
                 continue
             if t.when.get("ctl") and snap.controller != t.controller:
                 continue  # -- long tail (wave 16D) -- "dies under your control": who controlled it as it died (603.10a)

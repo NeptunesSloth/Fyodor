@@ -2215,7 +2215,7 @@ def _damage_apply(plan: Plan, c: Candidate, ev: Event, sim: Sim) -> list[Event]:
 
             row = prevention_receipts.receipt(c, ev, int(ev["amount"]) - n)
             out["prevention_receipts"] = [*(ev.get("prevention_receipts") or []), row]
-    if (op.get("prevention") or kind == "body") and op.get("rider"):  # -- prevention riders (wave 17A) -- 615.5: the additional effect, once the damage has been dealt
+    if (op.get("prevention") or kind in ("body", "observe110g")) and op.get("rider"):  # -- prevention riders (wave 17A) -- 615.5: the additional effect, once the damage has been dealt
         from app.rules import prevention_receipts
 
         out["riders"] = [*(ev.get("riders") or []), {"rider": op["rider"], "n": int(ev["amount"]) - n, "of": int(ev["amount"]), "by": c.controller,
