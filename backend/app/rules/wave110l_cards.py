@@ -20,9 +20,15 @@ Context = dict[str, Any]
 _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {}
 
 
+_VALEYARD = "If an opponent would face a villainous choice, they face that choice an additional time."
+_EXTRA_FACE = "villain_extra110l"
+
+
 def definition(ability: Any, ch: Any) -> Def | None:
     from app.rules import scripts
 
+    if ability.text.strip() == _VALEYARD:  # a static replacement (701.55c) read by villainous.villain through faces_extra
+        return {"kind": "static", "static": _EXTRA_FACE, "effects": []}
     if (built := _BUILD.get(ability.text.strip())) is None:
         return None
     native = scripts.define(replace(ability, text=built[0]), ch)
@@ -198,6 +204,16 @@ def goad_names(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
            and want & {normalize_name(n) for n in card_names.names_of(plan.ch(c))}]
     context.bind_objects(plan, ctx, "_day110l", hit)
     return keyword_actions.goad(plan, ctx, {"who": "ref:_day110l"})
+
+
+def extra_faces(plan: Plan, pid: str) -> int:
+    """701.55c: the additional times ``pid`` faces a villainous choice: one for each The Valeyard-like replacement whose controller is an opponent of ``pid``
+    (several each add one, as several Panharmonicons each trigger once more)."""
+    from app.rules import scripts
+
+    return sum(1 for s in plan.state.cards.values()
+               if s.zone.endswith(":battlefield") and s.controller != pid and not s.face_down and plan.in_game(s) and not plan.manual(s)
+               and any(d.get("static") == _EXTRA_FACE for d in scripts.definitions(plan.ch(s)).values()))
 
 
 def pick_discard(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:

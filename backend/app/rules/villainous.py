@@ -85,6 +85,9 @@ def villain(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     if left is None:
         who = effects._players(plan, ctx, e["who"])
         left = [p for p in plan.apnap() if p in who]
+        from app.rules import wave110l_cards  # -- (wave 110L) -- 701.55c: an additional time (The Valeyard): the whole process again, one after another
+
+        left = [q for p in left for q in [p] * (1 + wave110l_cards.extra_faces(plan, p))]
     left = [p for p in left if p in plan.live()]
     if not left:
         return True

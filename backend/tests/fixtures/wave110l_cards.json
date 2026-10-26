@@ -215,5 +215,49 @@
    "B"
   ],
   "keywords": []
+ },
+ {
+  "name": "The Valeyard",
+  "layout": "normal",
+  "mana_cost": "{2}{U}{B}{R}",
+  "cmc": 5.0,
+  "type_line": "Legendary Creature — Time Lord Noble",
+  "oracle_text": "If an opponent would face a villainous choice, they face that choice an additional time. (They can make the same or different choices.)\nWhile voting, you may vote an additional time.",
+  "colors": [
+   "B",
+   "R",
+   "U"
+  ],
+  "color_identity": [
+   "B",
+   "R",
+   "U"
+  ],
+  "keywords": [],
+  "power": "4",
+  "toughness": "5"
+ },
+ {
+  "name": "Sycorax Commander",
+  "layout": "normal",
+  "mana_cost": "{2}{B}{R}",
+  "cmc": 4.0,
+  "type_line": "Creature — Alien Soldier",
+  "oracle_text": "First strike, haste\nSanctified Rules of Combat — When this creature enters, each opponent faces a villainous choice — That opponent discards all the cards in their hand, then draws that many cards minus one, or this creature deals damage to that player equal to the number of cards in their hand.",
+  "colors": [
+   "B",
+   "R"
+  ],
+  "color_identity": [
+   "B",
+   "R"
+  ],
+  "keywords": [
+   "First strike",
+   "Haste",
+   "Sanctified Rules of Combat"
+  ],
+  "power": "4",
+  "toughness": "2"
  }
 ]
