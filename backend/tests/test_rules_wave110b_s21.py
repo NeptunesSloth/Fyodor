@@ -33,7 +33,7 @@ def cards(settings):
     yield from repository(settings)
 
 
-@pytest.mark.parametrize("name", [AANG, AVATAR, "Havengul Lich"])
+@pytest.mark.parametrize("name", [AANG, AVATAR, "Havengul Lich", "The Rise of Sozin // Fire Lord Sozin", "Flameblade Angel"])
 def test_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
@@ -155,3 +155,45 @@ def test_flameblade_angel_triggers_once_per_recipient_of_one_source(cards):
     drive(s)
     assert s.state.players["p1"].life == 40 - 1 - 2  # Earthquake hits Alice too; Bob's Angel pings twice
     check(s)
+
+
+SOZIN = "The Rise of Sozin // Fire Lord Sozin"
+
+
+def sozin_hit(cards, x):
+    """Fire Lord Sozin (the back face) hits Bob, who has Grizzly Bears (MV 2) and Llanowar Elves (MV 1) in his graveyard; Alice has 3 mana."""
+    s = build(cards, [SOZIN], ["Grizzly Bears", "Llanowar Elves"])
+    sozin = put(s, SOZIN)
+    act(s, "p1", type="set_face", card_id=sozin.id, face=1)
+    for n in ("Grizzly Bears", "Llanowar Elves"):
+        c = card_named(s, n, "p2")
+        act(s, "p2", type="move", card_ids=[c.id], to={"player": "p2", "zone": "graveyard"})
+    mana(s, C=3)
+    attack(s, sozin)
+    d = s.state.rules.decision
+    assert d is not None and d.kind == "choose_one"
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[x])
+    return s
+
+
+@pytest.mark.parametrize(("x", "picked", "back"), [("x:2", ["Grizzly Bears"], ["Grizzly Bears"]), ("x:2", ["Llanowar Elves"], ["Llanowar Elves"]),
+                                                    ("x:3", ["Grizzly Bears", "Llanowar Elves"], ["Grizzly Bears", "Llanowar Elves"]), ("x:0", [], [])])
+def test_fire_lord_sozin_reanimates_creatures_up_to_the_x_paid(cards, x, picked, back):
+    """603.12, 107.3f: the reflexive ability's targets are chosen knowing X; any number of creature cards from that player's graveyard with total mana value X or less."""
+    s = sozin_hit(cards, x)
+    d = s.state.rules.decision
+    assert d is not None  # "any number": choosing none is allowed
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[o.id for o in d.options if s.state.cards[o.id].name in picked])
+    drive(s)
+    assert sorted(c.name for c in s.state.cards.values() if c.zone == "p1:battlefield" and c.name in ("Grizzly Bears", "Llanowar Elves")) == sorted(back)
+    check(s)
+
+
+def test_fire_lord_sozin_total_mana_value_over_x_is_refused(cards):
+    """601.2c: two cards with total mana value 3 can't both be chosen when 2 was paid."""
+    from app.game.errors import ActionError
+
+    s = sozin_hit(cards, "x:2")
+    d = s.state.rules.decision
+    with pytest.raises(ActionError):
+        act(s, "p1", type="choose", decision_id=d.id, option_ids=[o.id for o in d.options])
