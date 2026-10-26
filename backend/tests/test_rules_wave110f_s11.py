@@ -21,7 +21,8 @@ from tests.test_rules_wave100n_multi import (
     card_db,  # noqa: F401  (fixture DB with EXTRA)
     cast,
 )
-from tests.wave9c_kit import build, check, mana, put
+from tests.test_rules_wave7c_counters import add, counters
+from tests.wave9c_kit import build, check, life, mana, put
 from tests.wave36a_kit import ready
 
 _SAVANT = ("Before you shuffle your deck to start the game, you may reveal this card from your deck and exile an instant or sorcery card you drafted that isn't in your deck.\n"
@@ -36,6 +37,11 @@ EXTRA = [
     real('Volatile Chimera', '{2}{R}', 3, 'Creature — Elemental Chimera', _CHIMERA, ('3', '2'), 'R'),
     real('Garbage Fire', '{2}{R}', 3, 'Instant',
          "Reveal this card as you draft it and note how many cards you've drafted this draft round, including this card.\nGarbage Fire deals damage to target creature equal to the highest number you noted for cards named Garbage Fire.", None, 'R'),
+    real('Verazol, the Split Current', '{X}{G}{U}', 2, 'Legendary Creature — Serpent',
+         "Verazol enters with a +1/+1 counter on it for each mana spent to cast it.\nWhenever you cast a kicked spell, you may remove two +1/+1 counters from Verazol. If you do, copy that spell. You may choose new targets for the copy. (A copy of a permanent spell becomes a token.)", ('0', '0'), 'GU'),
+    real('Taste of Paradise', '{2}{G}', 3, 'Sorcery',
+         "As an additional cost to cast this spell, you may pay {1}{G} any number of times.\nYou gain 3 life plus an additional 3 life for each additional {1}{G} you paid.", None, 'G'),
+    real('Test Kicker 110F', '{G}', 1, 'Sorcery', "Kicker {1}\nYou gain 1 life.", None, 'G'),
     real('Regicide', '{B}', 1, 'Instant',
          "Reveal this card as you draft it. The player to your right chooses a color, you choose another color, then the player to your left chooses a third color.\nDestroy target creature that's one or more of the colors chosen as you drafted cards named Regicide.", None, 'B'),
 ]
@@ -90,3 +96,17 @@ def test_regicide_has_no_legal_target(cards):
     with pytest.raises(ActionError):
         cast(s, "Regicide", [bear.id])
     assert s.state.cards[bear.id].zone == "p2:battlefield"
+
+
+@pytest.mark.parametrize("spell,kicker,copies", [("Taste of Paradise", 2, False), ("Test Kicker 110F", 1, True)])
+def test_verazol_ignores_taste_of_paradise_payments(cards, spell, kicker, copies):
+    """702.33c/d: paying {1}{G} repeatedly is not kicker, so Verazol does not trigger on Taste of Paradise; a really kicked spell does (counters 4 -> 2, spell copied)."""
+    s = build(cards, ["Verazol, the Split Current", spell])
+    v = put(s, "Verazol, the Split Current")
+    add(s, v, 4)
+    mana(s, "p1", G=2 + kicker, C=2 + kicker)
+    cast(s, spell, kicker=kicker)
+    answer(s)
+    assert counters(s, v) == ({"+1/+1": 2} if copies else {"+1/+1": 4})
+    assert life(s, "p1") == 40 + (2 if copies else 3 + 3 * kicker)
+    check(s)

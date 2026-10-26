@@ -405,21 +405,48 @@ REWRITES = {
         "Gain control of target nonartifact, nonblack creature that attacked you this turn, then put a -1/-0 counter on it.",
     "You gain 3 life plus an additional 3 life for each additional {1}{G} you paid.": "You gain 3 life. You gain 3 life for each time this spell was kicked.",  # Taste of Paradise (702.33c)
     "Destroy target attacking creature, then put this card on top of your library.": "Destroy target attacking creature. Put ~ on top of your library.",  # Vengeful Pharaoh
-    # 905.2 / 103.6: nothing was drafted or exiled in a game with no draft, so there is no card, note or number to use (app/rules/draft_only.py).
-    "copy a card you exiled with cards named Arcane Savant. You may cast the copy without paying its mana cost.": "You gain 0 life.",
-    "Create a token that's a copy of a card you exiled with cards named Caller of the Untamed. X is the mana value of that card.": "You gain 0 life.",
-    "Choose a card at random you exiled with cards named Volatile Chimera. ~ becomes a copy of that card, except it has this ability.": "You gain 0 life.",
-    "~ deals damage to target creature equal to the highest number you noted for cards named Garbage Fire.": "~ deals 0 damage to target creature.",
-    # (Regicide: no color was chosen as it was drafted, so no creature is "one of those colors": a colorless red creature has none, the spell has no legal target.)
-    "Destroy target creature that's one or more of the colors chosen as you drafted cards named Regicide.": "Destroy target colorless red creature.",
-    "it deals 6 damage to each creature it blocked this combat.": "~ deals 6 damage to each creature blocked by it.",
+                "it deals 6 damage to each creature it blocked this combat.": "~ deals 6 damage to each creature blocked by it.",
 }
 PRIMITIVES: dict[str, Any] = {"barrier_direction110f": barrier_direction, "remove_enchantments110f": remove_enchantments, "same_colors110f": same_colors, "phase_swap110f": phase_swap, "exile_discarded110f": exile_discarded, "turn_up_choice110f": turn_up_choice, "reveal_chroma110f": reveal_chroma, "unlock110f": unlock}
 RESUME: dict[str, Any] = {"turn_up_choice110f": resume_turn_up, "reveal_chroma110f": resume_reveal_chroma, "unlock110f": resume_unlock}
 
 
+# 905.2 / 103.6: nothing is drafted in Commander, so these cards never have a card, note or chosen color (app/rules/draft_only.py).
+# Each wording below is an explicit do-nothing effect (no "gain 0 life" text shown to players), not a guess at a rules result.
+DRAFT_NOTHING = {
+    "copy a card you exiled with cards named Arcane Savant. You may cast the copy without paying its mana cost.",
+    "Create a token that's a copy of a card you exiled with cards named Caller of the Untamed. X is the mana value of that card.",
+    "Choose a card at random you exiled with cards named Volatile Chimera. ~ becomes a copy of that card, except it has this ability.",
+}
+GARBAGE_FIRE = "~ deals damage to target creature equal to the highest number you noted for cards named Garbage Fire."  # target kept, nothing was noted
+REGICIDE = "Destroy target creature that's one or more of the colors chosen as you drafted cards named Regicide."
+
+
+def nothing_drafted(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Nothing was drafted, exiled or noted, so there is nothing to do."""
+    return True
+
+
+PRIMITIVES["nothing_drafted110f"] = nothing_drafted
+
+
+def _draft_parse(body: str) -> Any:
+    from app.rules import selectors
+
+    if body in DRAFT_NOTHING:
+        return [{"do": "nothing_drafted110f"}], None, False
+    if body == GARBAGE_FIRE:
+        return [{"do": "nothing_drafted110f", "who": "target"}], "creature", False
+    if body == REGICIDE:  # no color was chosen, so no creature is one of them: a selector that matches nothing (a creature that is not a creature), hence no legal target
+        return [{"do": "destroy", "who": "target"}], selectors.Selector(types=("Creature",), not_types=("Creature",)).key(), False
+    return None
+
+
 def parse(body: str) -> Parsed | None:
     from app.rules import scripts
+
+    if (drafted := _draft_parse(body.strip())) is not None:
+        return drafted
 
     build = BUILDERS.get(body.strip())
     if build is not None:
