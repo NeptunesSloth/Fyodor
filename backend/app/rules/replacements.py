@@ -223,6 +223,9 @@ def _entry_plan(plan: Plan, card: CardInstance, controller: str, *, pay_life: bo
     )
 
     riot.plan_entry(plan, card, controller, answers, out)
+    from app.rules import wave110c_rad  # -- optional entering choice (wave 110C) -- Mariposa Military Base
+
+    wave110c_rad.plan_entry(card, defs, answers, out)
     from app.rules import (
         tribute,  # -- keywords (wave 50H) -- tribute N (702.104a): an opponent's choice as it enters
     )
@@ -591,6 +594,10 @@ def choice_prompt(plan: Plan, card: CardInstance, controller: str, choice: dict[
 
     if riot.is_choice(what):
         return riot.prompt(plan, card, controller, what)
+    from app.rules import wave110c_rad  # -- optional entering choice (wave 110C) --
+
+    if what == wave110c_rad.WHAT:
+        return wave110c_rad.prompt(card)
     from app.rules import tribute  # -- keywords (wave 50H) --
 
     if tribute.is_choice(what):
@@ -1030,6 +1037,9 @@ def after_entry(plan: Plan, card_id: str, controller: str, *, x: int | None = No
         from app.rules import wave110a_control  # -- entry control (wave 110A) --
 
         wave110a_control.give(plan, card_id, choices)
+        from app.rules import wave110c_rad  # -- optional entering choice (wave 110C) --
+
+        wave110c_rad.apply(plan, card_id, controller, choices)
         from app.rules import wave110a_pick  # -- chosen objects (wave 110A) --
 
         wave110a_pick.record(plan, card_id, choices)

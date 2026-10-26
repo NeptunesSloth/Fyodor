@@ -219,6 +219,9 @@ def _add(plan: Plan, *, controller: str, source_card: str, source_object: str, n
     from app.rules import trigger_multipliers
 
     trigger_multipliers.multiply(plan, pending, index, cause if cause is not None else event)
+    from app.rules import wave110c_misc  # -- Strict Proctor (wave 110C) --
+
+    wave110c_misc.proctor_triggers(plan, pending, cause if cause is not None else event)
     # -- end trigger multipliers (wave 5D) --
     return pending
 
@@ -2282,7 +2285,9 @@ def echo_cost(ch: Any) -> tuple[str, Any] | None:
     for ab in ch.abilities:
         if ab.kind == "keywords" and "echo" in ab.keywords:
             return keyword_cost(ab.text, "echo")
-    return None
+    from app.rules import wave110c_misc  # -- echo {X}, X your life total (wave 110C) --
+
+    return wave110c_misc.echo_cost(ch)
 
 
 def cumulative_costs(ch: Any) -> list[tuple[str, Any]]:
@@ -3008,6 +3013,8 @@ def _put(plan: Plan, t: PendingTrigger, target: str | None = None, picks: dict[s
                                      x_from_event_spell=(t.event is not None and t.event.kind == 'cast'
                                          and t.source_card in plan.state.cards
                                          and x_source(t.ability, plan.ch(plan.state.cards[t.source_card])) == 'cast'), **extra)  # (x: wave 4J, 107.3m)
+    if t.id in r.proctor_links110c:  # -- Strict Proctor (wave 110C) -- "that ability" for the Proctor triggers (wave110c_misc.proctor)
+        r.proctor_links110c[t.id] = ability_id
     if t.ability.get("chosen_modes"):  # -- modal frames (wave 33B) -- 603.3c: the modes chosen are announced (a modal ability whose modes have target groups)
         plan.do({"type": "set_stack_info", "card_id": ability_id, "modes": t.ability["chosen_modes"]}, actor=t.controller)
     if t.ability.get('stack_tags'):

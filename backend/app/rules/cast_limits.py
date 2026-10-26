@@ -807,6 +807,9 @@ def _when_ok(state: GameState, when: str | None, controller: str, player: str | 
     if when == "attacked110a":  # -- wave 110A -- Angelic Arbiter: the player declared attackers this turn (508.1)
         log = state.rules.turn_log if state.rules is not None else None
         return player is not None and log is not None and log.turn == state.turn.number and player in log.attacked
+    if when == "attacked_me110c":  # -- wave 110C -- Midnight Crusader Shuttle: the player attacked the source's controller or a planeswalker they control this turn
+        log = state.rules.turn_log if state.rules is not None else None
+        return player is not None and log is not None and log.turn == state.turn.number and player in log.attacked_at110c.get(controller, [])
     return True
 
 

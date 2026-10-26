@@ -291,6 +291,12 @@ def note_events(plan: Plan, events: list[Any], into: TurnLog | None = None) -> N
         if e.kind == "cycled" and not e.manual and e.player and e.turn == plan.state.turn.number:  # -- turn state (wave 100H) -- 702.29a: one cycling
             if not any(f.kind == "cycle" and f.object_id == e.object_id for f in log.facts):  # (one fact per cycled object: a card cycled again is a new one, 400.7)
                 log.facts.append(TurnFact(kind="cycle", player=e.player, object_id=e.object_id))
+            if into is None and e.card in plan.state.cards:  # -- wave 110C -- "If you've cycled a card named … this game" (Yidaro): each event is noted once
+                from app.cards.names import normalize_name
+
+                cycles = plan.rules.named_cycles110c.setdefault(e.player, {})
+                key = normalize_name(plan.state.cards[e.card].name or "")
+                cycles[key] = cycles.get(key, 0) + 1
             continue
         if e.kind not in ("zone_change", "sacrificed", "damage", "counters", "milled", "land_played") or e.turn != plan.state.turn.number:
             continue
