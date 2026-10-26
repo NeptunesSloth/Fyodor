@@ -42,3 +42,9 @@ Moved to FULL: Arsenal Thresher (devour.py REV), Arcee (cast_targets110i value),
 - Aphetto Dredging: when the creature type is chosen (before or after targets) is unsettled.
 - Frankenstein's Monster: +2/+0 and +0/+2 counters, and "put into the graveyard instead of the battlefield", are not modelled.
 - Firestorm Phoenix, Providence, False Dawn, Reflecting Mirror (X defined by the target spell's mana value), Curse of Leeches (attach on transform), Tunnel of Love: foundations missing.
+
+## Session 9
+- Curse of Leeches: "as this permanent transforms, attach it to a player" needs a decision inside the synchronous day/night flip (designations.py sync); no suspendable hook.
+- Hero of Bretagard: second trigger half (a spell or ability you control exiles permanents) is a separate event kind; one ability, two triggers not modelled.
+- Firestorm Phoenix: needs a per-object "can't play it" plus timed reveal on the new hand object (rider has no ref to the moved card).
+- False Dawn: colored-mana replacement for a turn (no mana-type replacement foundation). Reflecting Mirror: X fixed to twice the target spell's mana value. Arcum's Whistle, Torrent of Lava, Spoils of War: unchanged (see Session 8).

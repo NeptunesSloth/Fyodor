@@ -20,6 +20,8 @@ FOUNTAIN = ("At the beginning of each player's upkeep, that player puts a flood 
             "At the beginning of each end step, if all lands on the battlefield are Islands, remove all flood counters from them.")
 
 
+FRANK = ("As this creature enters, exile X creature cards from your graveyard. If you can't, put this creature into its owner's graveyard instead of onto the battlefield. "
+         "For each creature card exiled this way, this creature enters with a +2/+0, +1/+1, or +0/+2 counter on it.")
 EXTRA = [real("Awesome Presence", "{U}", 1, "Enchantment \u2014 Aura", "Enchant creature\nEnchanted creature can't be blocked unless defending player pays {3} for each creature they control that's blocking it.", None, "U"),
          real("Hill Giant", "{3}{R}", 4, "Creature \u2014 Giant", "", ("3", "3"), "R"),
          real("Providence", "{5}{W}{W}", 7, "Sorcery", "You may reveal this card from your opening hand. If you do, at the beginning of the first upkeep, your life total becomes 26.\nYour life total becomes 26.", None, "W"),
@@ -30,6 +32,7 @@ EXTRA = [real("Awesome Presence", "{U}", 1, "Enchantment \u2014 Aura", "Enchant 
          real("Probe Elf Shaman", "{G}", 1, "Creature \u2014 Elf Shaman", "", ("1", "1"), "G"),
          real("Probe Goblin Warrior", "{R}", 1, "Creature \u2014 Goblin Warrior", "", ("1", "1"), "R"),
          real("Probe Typeless", "{R}", 1, "Creature", "", ("1", "1"), "R"),
+         real("Frankenstein's Monster", "{X}{B}{B}", 2, "Creature \u2014 Zombie", FRANK, ("0", "1"), "B"),
          real("Hipparion", "{1}{G}", 2, "Creature \u2014 Horse", "This creature can't block creatures with power 3 or greater unless you pay {1}.", ("1", "3"), "G")]
 
 
@@ -166,4 +169,43 @@ def test_aphetto_dredging(cards, picks, ok):
     cast(s, "Aphetto Dredging", ids, target_counts=[len(ids)])
     answer(s)
     assert all(s.state.cards[c].zone == "p1:hand" for c in ids)
+    check(s)
+
+
+@pytest.mark.parametrize(("x", "have", "kinds", "stats"), [
+    (0, 0, (), (0, 1)),                       # X = 0: nothing to exile, no counters
+    (2, 2, ("+2/+0", "+0/+2"), (2, 3)),       # two cards exiled, a counter of the chosen kind each
+    (2, 3, ("+1/+1", "+1/+1"), (2, 3)),       # the controller picks which two of three
+    (3, 2, (), None)])                        # can't exile X: it goes to the graveyard instead (614.6)
+def test_frankensteins_monster(cards, x, have, kinds, stats):
+    from tests.wave9c_kit import build, check, mana, to_hand
+    from tests.wave110c_kit import ch
+
+    s = build(cards, ["Frankenstein's Monster", "Probe Elf Warrior", "Probe Elf Shaman", "Probe Goblin Warrior"], forests=9)
+    elves = [c.id for c in s.state.cards.values() if c.name.startswith("Probe ") and c.owner == "p1"]
+    if have:
+        act(s, "p1", type="move", card_ids=elves[:have], to={"player": "p1", "zone": "graveyard"})
+    forests = [c for c in s.state.zones["p1:library"] if s.state.cards[c].name == "Forest"][:2]
+    act(s, "p1", type="move", card_ids=forests, to={"player": "p1", "zone": "graveyard"})  # not creature cards: never offered
+    monster = to_hand(s, "Frankenstein's Monster")
+    mana(s, B=2, C=x)
+    act(s, "p1", type="cast_spell", card_id=monster.id, x_value=x)
+    todo = list(kinds)
+    for _ in range(30):
+        d = s.state.rules.decision
+        if d is not None:
+            ids = [o.id for o in d.options]
+            assert not any(s.state.cards[i].name == "Forest" for i in ids if i in s.state.cards)
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[todo.pop(0) if "+1/+1" in ids else ids[0]])
+        elif s.state.zones.get("stack"):
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            break
+    if stats is None:
+        assert s.state.cards[monster.id].zone == "p1:graveyard"
+    else:
+        assert s.state.cards[monster.id].zone == "p1:battlefield"
+        assert sum(s.state.cards[monster.id].counters.get(k, 0) for k in ("+2/+0", "+1/+1", "+0/+2")) == x
+        assert ch(s, monster).pt == stats
+        assert sum(1 for e in elves if s.state.cards[e].zone == "p1:exile") == x
     check(s)

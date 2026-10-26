@@ -395,6 +395,8 @@ def entering_counters(plan: Plan, card: CardInstance, controller: str, ch: Any, 
             counters["+1/+1"] = counters.get("+1/+1", 0) + tribute.counters(ch, choices)
         if devour.counters(ch, choices):
             counters["+1/+1"] = counters.get("+1/+1", 0) + devour.counters(ch, choices)
+        for kind, n in devour.typed(ch, choices).items():  # -- (wave 110I) -- Frankenstein's Monster: the +2/+0, +1/+1 and +0/+2 counters chosen
+            counters[kind] = counters.get(kind, 0) + n
         from app.rules import reveal_lands  # (wave 100K: Dragon's Disciple)
 
         if reveal_lands.counters(ch, choices):
