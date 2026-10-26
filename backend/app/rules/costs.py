@@ -831,12 +831,18 @@ class Kicker:
         return "{X}" in self.cost.upper()
 
 
+_OPTIONAL_EXTRA = re.compile(r"As an additional cost to cast this spell, you may pay (?P<cost>\{2\}\{R\})\.")  # -- (wave 110O) -- Undergrowth, the one printed wording
+
+
 def kicker_cost(abilities: Iterable[AbilityText]) -> Kicker | None:
     """702.33a / 702.33c: the card's "Kicker {cost}" or "Multikicker {cost}" line (mana only), or
     None. Two kicker costs ("Kicker {1}{U} and/or {2}{B}", 702.33b), non-mana kicker costs
     ("Kicker—Sacrifice a land") and X in the cost stay manual."""
     found: list[Kicker] = []
     for ab in abilities:
+        if (opt := _OPTIONAL_EXTRA.fullmatch(ab.text.strip())) is not None and ab.kind == "spell":  # -- (wave 110O) -- 601.2b, 118.8: "you may pay {2}{R}" is an optional additional cost, read as a kicker
+            found.append(Kicker(opt["cost"], text=ab.text.strip().rstrip(".")))
+            continue
         if ab.kind != "keywords" or not ({"kicker", "multikicker", "squad", "replicate", "offspring", "entwine"} & set(ab.keywords)):
             continue
         if (positive := positive_kicker_x(ab.text)) is not None:

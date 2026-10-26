@@ -46,6 +46,17 @@ def parse(body: str) -> Any:
                 {"do": "portent_hand110o"}], None, False
     if body.strip() == _SANDS:
         return [{"do": "redistribute110o"}], None, False
+    if body.strip() == _UNDER_COST:  # 601.2b: the optional additional cost is announced as the spell is cast (costs.kicker_cost reads it); this line does nothing itself
+        return [], None, False
+    if body.strip() == _UNDER_PREVENT:  # 615.1, 608.2c: the exception is read when the spell resolves; the red creatures are those of that moment
+        from app.rules import selectors
+
+        non_red = selectors.parse("nonred creature").key()  # type: ignore[union-attr]
+        paid = {"object": "self", "cast": {"kicked": True}}
+        return ([{"do": "only_if", "cond": {"not": paid}, "skip": 1, "bind": "under110o"},
+                 {"do": "prevent_all", "scope": {"combat": True, "any_target": True}},
+                 {"do": "only_if", "cond": {"flag": "under110o", "negate": True}, "skip": 1},
+                 {"do": "prevent_all", "scope": {"combat": True, "any_target": True, "by_objects": non_red}}], None, False)
 
     if body.strip() == _THRALL:  # 608.2c: the "instead" duration replaces the first one, so exactly one control effect is made
         short = scripts.parse_effects("Gain control of target creature until end of turn. Untap that creature. It gains haste until end of turn.")
@@ -63,6 +74,9 @@ def parse(body: str) -> Any:
     return scripts.parse_effects(same) if (same := REWRITES.get(body.strip())) is not None else None
 
 
+_UNDER_COST = "As an additional cost to cast this spell, you may pay {2}{R}."
+_UNDER_PREVENT = ("Prevent all combat damage that would be dealt this turn. If this spell's additional cost was paid, this effect doesn't affect "
+                  "combat damage that would be dealt by red creatures.")
 _HELM = ("{X}, {T}: Target opponent mills a card, then repeats this process until a creature card or X cards have been put into their graveyard this way, "
          "whichever comes first. If one or more creature cards were put into that graveyard this way, sacrifice ~ and put one of them onto the "
          "battlefield under your control. X can't be 0.")

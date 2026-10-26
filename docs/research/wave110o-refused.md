@@ -17,7 +17,6 @@
 - Exchange of Words: exchanging text boxes (layer 3) is not modelled.
 - Eye of Ojer Taq: craft, a card type shared by the exiled materials, and "next spell of the chosen type is free".
 - Piracy: tapping lands you don't control for mana has no foundation.
-- Undergrowth: an optional additional mana cost ("you may pay {2}{R}") is wired only for waterbend-like special cases, not for casting in general.
 - Enchantment Alteration: the destination "another permanent of that type" depends on the type of the first target.
 - Living Lore: "as this creature enters, exile …" with power and toughness read from the exiled card and a linked free cast.
 - False Orders: removes a blocker from combat and inserts a new block.
