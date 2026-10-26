@@ -260,7 +260,7 @@ class Solver:
         if node.effect is not None or node.source not in pos.dead:
             return True
         st = node.static
-        return bool(st is not None and st.effect_key is not None and st.effect_key > pos.dead[node.source])
+        return bool(st is not None and st.effect_key is not None and st.effect_key >= pos.dead[node.source])  # (>=: an effect that loses abilities and grants some keeps what it grants, wave 110D)
 
     def signature(self, node: Node, pos: Position, *, late: bool = False) -> Signature:
         st = node.static

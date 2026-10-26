@@ -224,6 +224,7 @@ def statics(state: GameState, info: CardInfo) -> list[Static]:
                       tuple(e.id for e in r.effects if e.remove_abilities or e.set_land_types is not None) if r else (),
                       # -- layers (wave 22A) -- the resolved effects the group layers (4-6) are solved against (613.6, 613.8)
                       tuple((e.id, tuple(e.affected)) for e in r.effects if e.layer in ("4", "5", "6")) if r else (),
+                      tuple(sorted((cid, c.entry_characteristics.timestamp) for cid, c in state.cards.items() if c.entry_characteristics is not None and c.entry_characteristics.add_abilities)),  # (wave 110D)
                       tuple(sorted(r.levels.items())) if r else (),  # -- Class (wave 16A) -- 716.2a: the levels reached
                       tuple(sorted((o, tuple(d)) for o, d in r.unlocked.items())) if r else ())  # -- Rooms (wave 18G) -- the doors unlocked
     hit = _STATIC_CACHE.get(key_all)
@@ -384,7 +385,10 @@ def _resolved_mana_statics(state: GameState, field: list[tuple[str, str]]) -> li
     if state.rules is None:
         return []
     out = []
-    for effect in state.rules.effects:
+    from app.rules import entry_characteristics
+
+    entered = [e for cid, _c in field if (c := state.cards.get(cid)) is not None and c.entry_characteristics is not None for e in entry_characteristics.effects(state, c)]  # (wave 110D)
+    for effect in [*state.rules.effects, *entered]:
         if effect.layer != '6' or not effect.add_abilities:
             continue
         key = (effect.object_seq, 1, effect.timestamp)
@@ -399,7 +403,8 @@ def _resolved_mana_statics(state: GameState, field: list[tuple[str, str]]) -> li
                 if any(k in inner for k in ('layer4', 'set_colors', 'add_colors', 'set_name', 'chosen_color')) or any(
                         inner.get(k) for k in ('p', 't', 'base', 'base_mv', 'keywords', 'rules', 'lose_all', 'also')):
                     continue
-                if all(M.parse_mana_ability(ability) is not None for ability in inner['grants']):
+                if all(M.parse_mana_ability(ability) is not None or (effect.id.startswith('entry:') and scripts.granted_ability(ability) is not None)
+                       for ability in inner['grants']):  # (wave 110D: an Aura that entered with its static, enchant X has "{1}, {T}, Sacrifice …")
                     out.append(Static(cid, controller, inner, effect.object_seq, effect_key=key))
     return out
 
