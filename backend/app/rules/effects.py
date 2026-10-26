@@ -4658,7 +4658,7 @@ CHOICE_LABELS = {"second color": "Chosen second color", "second basic land type"
 CHOICE_OPTIONS["direction"] = ["left", "right"]
 CHOICE_LABELS["direction"] = "Chosen direction"
 CHOICE_LABELS.update(entry_forms.CHOICE_LABELS)  # -- entry forms (wave 5F) -- "a color other than blue"
-CHOICE_LABELS.update({w: card_names.LABEL for w in card_names.ALL_WHATS})  # -- card names (wave 22B) -- 201.4
+CHOICE_LABELS.update({w: card_names.LABEL for w in (*card_names.ALL_WHATS, card_names.SECOND)})  # -- card names (wave 22B) -- 201.4
 
 
 def _choice_options(plan: Plan, ctx: Context, what: str) -> list[DecisionOption]:
@@ -4989,7 +4989,7 @@ def become(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
 
 _MARKER_TEXT = {"end_of_turn": "until end of turn", "next_turn": delayed.LABELS["next_turn"], "end_of_combat": "this combat",
-                "creature_cast110m": delayed.LABELS["creature_cast110m"]}  # (wave 110M)  # (wave 49C: end_of_combat)
+                "creature_cast110m": delayed.LABELS["creature_cast110m"], "roll1_110f": delayed.LABELS["roll1_110f"]}  # (wave 110M)  # (wave 49C: end_of_combat)
 _COLOR_WORDS = {"W": "white", "U": "blue", "B": "black", "R": "red", "G": "green"}
 
 

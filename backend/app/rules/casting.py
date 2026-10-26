@@ -77,7 +77,9 @@ MAIN_PHASES = ("main1", "main2")
 def commander_identity(state: GameState, player: str, info: CardInfo) -> tuple[str, ...]:
     def work() -> tuple[str, ...]:
         commanders = [info.get(c.card_id) for c in state.cards.values() if c.owner == player and c.commander_key and c.card_id]
-        return cmdr.deck_identity([d for d in commanders if d])  # the same identity the deck checks use
+        from app.rules import wave110f_cmd  # -- wave 110F -- 903.4: a commander's chosen color (Faceless One)
+
+        return wave110f_cmd.identity(state, player, cmdr.deck_identity([d for d in commanders if d]))  # the same identity the deck checks use
 
     return read_pass.once(state, info, ("commander_identity", player), work)  # (wave 29A: once per read-only pass)
 
@@ -3854,6 +3856,12 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
     if (target_life := cost_changes.targeting_life(plan.state, plan.actor, card, ch, plan.info, tuple(t.id for t in chosen))):
         add_cost = alt_costs.merged(add_cost, costs.AbilityCost(  # -- casting costs (wave 22F) -- Terror of the Peaks: life for its targets (601.2f)
             components=(costs.CostComponent(costs.PAY_LIFE, amount=target_life, text=f"Pay {target_life} life"),), life=target_life))
+    from app.rules import (
+        wave110f_sac,  # -- additional costs (wave 110F) -- Drought: a Swamp for each black symbol in the mana cost (118.8)
+    )
+
+    if (sac110f := wave110f_sac.spell_tax(plan.state, plan.info, ch)) is not None:
+        add_cost = alt_costs.merged(add_cost, sac110f)
     if (each_life := sum(d.get("life_per_target", 0) for d in permissions._definitions(ch).values())) and chosen:  # -- wave 110E -- "costs 3 life more for each target"
         add_cost = alt_costs.merged(add_cost, costs.AbilityCost(
             components=(costs.CostComponent(costs.PAY_LIFE, amount=each_life * len(chosen), text=f"Pay {each_life * len(chosen)} life"),), life=each_life * len(chosen)))
@@ -5260,6 +5268,10 @@ def cast_free(plan: Plan, card: CardInstance, ch: Characteristics, a: A.CastSpel
     add_cost = None if plan.manual(card) else costs.spell_additional_cost(ch.abilities)
     if either is not None:  # -- static wordings (wave 6E) --
         add_cost = either if either.components else None
+    from app.rules import wave110f_sac  # -- additional costs (wave 110F) --
+
+    if (sac110f := wave110f_sac.spell_tax(plan.state, plan.info, ch)) is not None:
+        add_cost = alt_costs.merged(add_cost, sac110f)
     if alternative_parts is not None:
         add_cost = alt_costs.merged(add_cost, alternative_parts)
     if required_alternative:

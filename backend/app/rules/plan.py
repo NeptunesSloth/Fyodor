@@ -55,6 +55,7 @@ class Plan:
     # -- review 22B -- a cost paid as a spell or ability resolves (118.12: "unless …", "you may …"), not one to cast or activate: "Players can't
     # pay life or sacrifice creatures to cast spells or activate abilities" doesn't reach it (Angel of Jubilation ruling 2012-05-01)
     resolution_cost: bool = False
+    peace_exempt110f: bool = False  # -- wave 110F -- True while a triggered ability's targets are chosen or a chosen target is rechecked (Peace Talks bars only choosing targets for spells and activated abilities)
     # -- life payments (wave 29C) -- 119.4: the life a spell's additional costs ("pay X life") will also pay: Phyrexian mana can be paid with
     # life only up to what is left of the life total after it (casting.find_payment ``reserve``)
     reserved_life: int = 0

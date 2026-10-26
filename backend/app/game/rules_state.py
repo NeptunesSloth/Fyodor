@@ -331,6 +331,7 @@ class ObjectSnapshot(BaseModel):
     face_down_as: str | None = None
     face: int = 0
     is_token: bool = False
+    token_source_id: str | None = None  # -- wave 110F -- the object that created this token (111.2), as it last existed (Dance of Many)
     token_power: str | None = None
     token_toughness: str | None = None
     token_type_line: str | None = None  # (a token's types and colors, for what it was: 608.2h)
@@ -779,7 +780,7 @@ class ContinuousEffect(BaseModel):
     counter_since_batch: int = 0  # while-counter durations ignore earlier zero-counter events
     duration: Literal["end_of_turn", "permanent", "next_turn", "end_of_next_turn", "source_on_battlefield", "source_controlled",
                       "source_tapped", "source_controlled_tapped", "while_counter", "end_of_combat", "until_cast", "while_enchanted",
-                      "next_upkeep", "monarch_player", "end_of_next_upkeep110g", "attached110n", "source_tapped_power110k", "while_attached110l", "creature_cast110m"] = "end_of_turn"  # (next_upkeep: wave 100A, "until your next upkeep" — delayed.at_step)
+                      "next_upkeep", "monarch_player", "end_of_next_upkeep110g", "attached110n", "two_turns110f", "source_tapped_power110k", "while_attached110l", "creature_cast110m", "roll1_110f"] = "end_of_turn"  # (next_upkeep: wave 100A, "until your next upkeep" — delayed.at_step)
     until_object: str | None = None  # -- as long as (wave 37A) -- until_cast: the object (in exile) whose being cast ends the effect (delayed.spell_cast)
     counter: str | None = None  # while_counter: the kind of counter
     until_player: str | None = None  # next_turn: whose next turn; source_controlled: who must control the source
@@ -1586,6 +1587,7 @@ class RulesState(BaseModel):
     # -- piles (wave 53D) -- "Only creatures in the pile of their choice can attack this turn" (Fight or Flight): [turn, the attacking player, [object ids that may]]; every entry of
     # the turn binds (ruling 2008-08-01: with two, a creature must be in both chosen piles), and a creature that entered later is no object in any pile
     attack_piles: list[list[Any]] = Field(default_factory=list)
+    commander_color110f: dict[str, str] = Field(default_factory=dict)  # -- wave 110F -- Faceless One: card id -> chosen color letter (607.2p)
     opening_revealed: list[str] = Field(default_factory=list)  # -- opening hand (wave 18C) -- cards revealed until the first turn (103.6b)
     deferred_payments: list[DeferredPaymentWindow] = Field(default_factory=list)
     delayed: list[DelayedTrigger] = Field(default_factory=list)  # delayed triggered abilities (603.7; app/rules/delayed.py)
@@ -1940,6 +1942,7 @@ def snapshot(state: GameState, card_id: str) -> ObjectSnapshot:
         owner=c.owner, controller=c.controller, zone=c.zone, turn=state.turn.number, tapped=c.tapped, choices=dict(c.choices),
         stickers101=[p.model_dump() for p in c.stickers101],
         face_down=c.face_down, face_down_kind=c.face_down_kind, face_down_as=c.face_down_as, face=c.face, is_token=c.is_token,
+        token_source_id=c.token_source.source_id if c.token_source else None,
         token_power=token.power if token else None, token_toughness=token.toughness if token else None,
         token_type_line=token.type_line if token else None, token_colors=list(token.colors) if token else [],
         token_mana_cost=token.mana_cost if token else "",

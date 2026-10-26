@@ -115,6 +115,10 @@ def definitions(ab: AbilityText, ch: Characteristics) -> dict[int, Definition]:
         from app.rules import sagas
 
         return definitions(_replace(ab, kind="triggered"), ch) if sagas.chapters_of(ab.text) else {}
+    from app.rules import wave110f_gy  # -- Cemetery Desecrator (wave 110F) --
+
+    if (gy110f := wave110f_gy.definitions(ab, ch)) is not None:
+        return gy110f
     ab = wave110h_cards.modal_header(ab, ch)  # -- Immard (wave 110H) --
     if ab.kind == "triggered" and ", you may choose two" in ab.text:
         # -- commanders (wave 50C) -- "you may choose two" (Shadrix Silverquill ruling 2021-04-16): exactly zero modes or two modes, never one (700.2d)

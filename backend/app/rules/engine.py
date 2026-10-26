@@ -1358,6 +1358,10 @@ def land_play_problem(state: GameState, player: str, card: CardInstance, ch: Cha
     if info is not None and card.zone.endswith(":graveyard") and (barred := next(
             (src for src, _ in cast_limits._statics(state, info, "cant_play_gy_lands") if src.controller != player), None)) is not None:
         return f"{barred.name or 'A permanent'}: you can't play land cards from graveyards"  # -- cant restrictions (wave 50G) -- Tomik, Distinguished Advokist
+    from app.rules import card_names
+
+    if info is not None and (barred := next((src for src, d in cast_limits._statics(state, info, "cast_limit") if d.get("named_lands110f") and card_names.matches(Plan.view(state, src.controller, info), src.id, ch)), None)) is not None:
+        return f"{barred.name or 'A permanent'}: you can't play {ch.name}"  # -- two names (wave 110F) -- Null Chamber: 305.1
     from app.rules import wave110n_cards  # -- (wave 110N) -- Rock Jockey: 305.1
 
     if (why := wave110n_cards.land_problem(state, player, info)) is not None:
@@ -1658,6 +1662,9 @@ def _settle_decision(plan: Plan, d: Decision, leaver: str) -> None:
         r.no_attackers = True  # (they declared none: 800.4j, the turn goes on)
     if step in ("cleanup_discard", "cleanup_manual"):
         finish_cleanup(plan)  # 514.2 still happens; then the next player's turn
+        return
+    if step == "cmd_color110f":  # -- wave 110F -- a player left during the commander color question: the next question, or the opening hands
+        opening_hand.start(plan)
         return
     if step in ("opening_hand", "opening_exile"):  # -- opening hand (wave 18C) -- the rest of the table still acts (103.6)
         opening_hand.ask(plan, list(resume.get("order") or resume.get("rest") or [])[1 if step == "opening_hand" else 0:])

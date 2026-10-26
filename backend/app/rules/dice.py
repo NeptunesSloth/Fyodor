@@ -299,6 +299,10 @@ def _emit_group(plan: Plan, ctx: Context, e: dict[str, Any], results: list[int],
     for k in range(start, end):
         emit(plan.state, "designation", counter="roll_die", player=pid, amount=results[k], natural=naturals[k], sides=e["sides"],
              nth=base + k + 1)
+        if results[k] == 1:  # -- wave 110F -- Drop Tower: "until any player rolls a 1" (706.2: the result after modifiers)
+            from app.rules import delayed
+
+            delayed.roll_one110f(plan)
     # The whole physical group and retained vector are already known. Seal each
     # bounded fact batch without yielding priority or running state-based actions.
     track(plan.state)

@@ -276,6 +276,9 @@ def static_definition(text: str) -> Definition | None:
                 'act': None, 'when': None, 'max': None, 'name_permanent': True,
                 'spells': 'cast spells' in t, 'nonbasic_lands': 'nonbasic lands' in t, 'effects': []}
   # (wave 50J: counted for the caster, who is "you" to the spell selector)
+    if t == "spells with the chosen names can't be cast and lands with the chosen names can't be played":  # -- two names (wave 110F) -- Null Chamber: 601.3, 305.1; card_names.has_name reads both
+        return {"kind": "static", "static": "cast_limit", "who": "each", "when": None, "from": None, "act": None, "max": None, "effects": [], "named_lands110f": True,
+                "filter": selectors.parse("spells with the chosen name").key()}  # type: ignore[union-attr]
     if (own := HAS_FLASH_WHILE.fullmatch(t)) is not None:  # (wave 35D)
         t = f"you may cast this spell as though it had flash if {own['c']}"
     if (lead := AS_LONG_FLASH.fullmatch(t)) is not None:
@@ -696,7 +699,8 @@ def turn_began(plan: Plan, skipped: list[tuple[str, int]] | None = None) -> None
     r.cast_limits = [x for x in r.cast_limits if not (x.get("until") == "next_turn" and any(
         x.get("controller") == p and n > int(x.get("turn") or 0) for p, n in ended))
         and not (x.get("until") == "end_of_next_turn" and any(x.get("controller") == p and n > int(x.get("turn") or 0) for p, n in skipped or ()))  # (wave 32C)
-        and not (x.get("until") == "turn" and x.get("turn") != turn)]
+        and not (x.get("until") == "turn" and x.get("turn") != turn)
+        and not (x.get("until") == "two_turns110f" and turn > int(x.get("turn") or 0) + 1)]  # (wave 110F: Peace Talks, this turn and the next one)
     for x in old110i:  # -- cards (wave 110I) -- the reveal lasts as long as the ban (Firestorm Phoenix)
         if x.get("reveal110i") and x not in r.cast_limits and (k := plan.state.cards.get(x["reveal110i"])) is not None and plan.oid(k) == x["obj110i"]:
             plan.do({"type": "hide", "card_ids": [k.id]}, actor=k.owner)

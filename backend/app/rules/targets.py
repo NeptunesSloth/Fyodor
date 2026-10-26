@@ -89,6 +89,8 @@ def can_target(plan: Plan, chooser: str, card: CardInstance, ch: Characteristics
     """Hexproof: not by opponents; shroud: by nobody; protection: not by a source with that quality."""
     from app.rules import prohibitions
 
+    if card.zone.endswith(":battlefield") and prohibitions.no_targets110f(plan):  # -- wave 110F -- Peace Talks: 115.2
+        return False
     if prohibitions.untargetable(plan, chooser, card):  # -- cant restrictions (wave 50G) -- 115.2: "Lands on the battlefield … can't be the targets of spells or abilities your opponents control"
         return False
     on_battlefield = card.zone.endswith(":battlefield")
@@ -300,12 +302,22 @@ def still_legal(plan: Plan, selector: str, chooser: str, target: TargetRef, sour
     """608.2b: is a chosen target still legal? A card that changed zones is a new object: illegal."""
     if selector.startswith("opponent_as:"):  # (wave 21E: "as you activate this ability" is only judged as it is chosen)
         selector = "opponent"
+    was, plan.peace_exempt110f = plan.peace_exempt110f, True  # -- wave 110F -- Peace Talks bars choosing, not a target chosen earlier (608.2b)
+    try:
+        return _still_legal(plan, selector, chooser, target, source, source_card, attacker, source_object)
+    finally:
+        plan.peace_exempt110f = was
+
+
+def _still_legal(plan: Plan, selector: str, chooser: str, target: TargetRef, source: Characteristics | None, source_card: str | None,
+                 attacker: str | None, source_object: str | None) -> bool:
     if target.object_id is None:
         return target.id in plan.live() and target.id in legal_targets(plan, selector, chooser, source, source_card, attacker, source_object=source_object)
     card = plan.state.cards.get(target.id)
     if card is None or plan.oid(card) != target.object_id:
         return False
     return target.id in legal_targets(plan, selector, chooser, source, source_card, attacker, source_object=source_object)
+
 
 
 class BadPick(ActionError):

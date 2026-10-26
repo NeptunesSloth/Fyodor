@@ -63,7 +63,15 @@ from app.game.rules_state import (
     emit,
     track,
 )
-from app.game.state import COMBAT_PHASES, AttackTarget, CardInstance, MergedPart, StackInfo, TokenDef
+from app.game.state import (
+    COMBAT_PHASES,
+    AttackTarget,
+    CardInstance,
+    MergedPart,
+    StackInfo,
+    TokenDef,
+    TokenSource,
+)
 from app.rules import characteristics as chars
 from app.rules import delayed, designations, layers, scripts, selectors
 from app.rules.characteristics import Characteristics
@@ -430,6 +438,7 @@ def _snapshot_card(plan: Plan, snap: ObjectSnapshot) -> tuple[CardInstance, Char
     card = CardInstance(id=snap.card, card_id=snap.printing, name=snap.name, owner=snap.owner, controller=snap.controller,
                         zone=snap.zone, face=snap.face, face_down=snap.face_down, face_down_kind=snap.face_down_kind,
                         face_down_as=snap.face_down_as, is_token=snap.is_token,
+                        token_source=TokenSource(source_id=snap.token_source_id, name="") if snap.token_source_id else None,  # (wave 110F)
                         stickers101=[StickerPlacement101.model_validate(p) for p in snap.stickers101],
                         attached_to=snap.attached_to, attached_player=snap.attached_player, tapped=snap.tapped,
                         entry_characteristics=snap.entry_characteristics, attacking=attacking, attacking_without_target=snap.attacking_without_target, attack_defender_lost=snap.attack_defender_lost, blocking=snap.blocking_ids[0] if snap.blocking_ids else None,
@@ -780,6 +789,7 @@ def _damage_facts(plan: Plan, e: Event) -> list[Fact]:
                   "recipient_ctl110b": got[0].controller if got is not None else None,  # (-- one-card wordings (wave 110B) -- a permanent's controller)
                   "recipient_toughness110b": sba.toughness(got[0], got[1]) if got is not None and recipient_is_creature else None,  # (wave 110B: Taii Wakeen)
                   "recipient_blocking110b": got is not None and bool(got[0].blocking),  # (-- one-card wordings (wave 110B) -- 509.1g: a blocker)
+                  "recipient_colors110f": sorted(got[1].colors) if got is not None else [],  # (wave 110F: Mangara's Equity, "a white creature you control", as it was)
                   "recipient_subtypes": list(got[1].subtypes) if got is not None else []}  # (wave 15B)
     dealt_info["single110c"] = got is not None and e.source_targets is not None and set(e.source_targets) == {got[0].id}  # -- trigger damage (wave 110C) -- Imodane: the spell's only target
     dealt_info["recipient_blocking110c"] = got is not None and got[0].is_blocking  # -- blocking recipient (wave 110C) -- Kusari-Gama
@@ -1365,6 +1375,7 @@ def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: F
         recipient = info.get("recipient")
         if (to == "player" and recipient is None) or (to == "you" and recipient != you) or (to.startswith("pid:") and recipient != to[4:]) or \
                 (to == "you_or_perm110b" and you not in (recipient, info.get("recipient_ctl110b"))) or \
+                (to == "you_or_white110f" and recipient != you and not (info.get("recipient_creature") and info.get("recipient_ctl110b") == you and "W" in (info.get("recipient_colors110f") or ()))) or \
                 (to == "creature_or_opponent" and not (info.get('recipient_creature') or recipient is not None and recipient != you)) or \
                 (to == "opponent" and (recipient is None or recipient == you)) or \
                 (to == "creature" and not info.get("recipient_creature")) or \
@@ -2965,6 +2976,14 @@ def put(plan: Plan, t: PendingTrigger, target: str | None = None, picks: dict[st
 
 
 def _put(plan: Plan, t: PendingTrigger, target: str | None = None, picks: dict[str, Any] | None = None) -> bool:
+    plan.peace_exempt110f = True  # -- wave 110F -- its targets are a triggered ability's (Peace Talks does not bar those)
+    try:
+        return _put_trigger(plan, t, target, picks)
+    finally:
+        plan.peace_exempt110f = False
+
+
+def _put_trigger(plan: Plan, t: PendingTrigger, target: str | None = None, picks: dict[str, Any] | None = None) -> bool:
     from app.rules import name_relation_continuations
 
     name_relation_continuations.bind_trigger_reference(plan, t)
