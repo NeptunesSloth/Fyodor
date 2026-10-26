@@ -31,8 +31,12 @@ EXTRA.append(real("Wheel of Potential", "{2}{R}", 3, "Sorcery",
 EXTRA.append(real("Officious Interrogation", "{W}{U}", 2, "Sorcery",
                   "This spell costs {W}{U} more to cast for each target beyond the first.\nChoose any number of target players. Investigate X times, where X is the "
                   "total number of creatures those players control.", None, "WU"))
+EXTRA.append(real("Hulking Metamorph", "{9}", 9, "Artifact Creature — Shapeshifter",
+                  "Prototype {2}{U}{U} — 3/3 (You may cast this spell with different mana cost, color, and size. It keeps its abilities and types.)\nYou may have this "
+                  "creature enter as a copy of an artifact or creature you control, except it's an artifact creature in addition to its other types, and its "
+                  "power and toughness are equal to this creature's power and toughness.", ("9", "9"), ""))
 _BASE.extend(EXTRA)
-NAMES = ["V.A.T.S.", "Wheel of Potential", "Officious Interrogation"]
+NAMES = ["V.A.T.S.", "Wheel of Potential", "Officious Interrogation", "Hulking Metamorph"]
 NAMES.append("Illusionist's Gambit")
 
 
@@ -140,3 +144,18 @@ def test_officious_interrogation_second_target_costs_more(cards):
     mana(s, W=1, U=1)
     with pytest.raises(ActionError):
         cast(s, "Officious Interrogation", ["p1", "p2"], target_counts=[2])
+
+
+@pytest.mark.parametrize("prototype,pt", [(True, (3, 3)), (False, (9, 9))])
+def test_hulking_metamorph_copy_keeps_own_power_and_toughness(cards, prototype, pt):
+    """707.9b: copy of a creature, an artifact creature too, with this creature's own P/T (prototyped 3/3 per 718.3b, else 9/9)."""
+    from tests.test_rules_attachments import ch
+
+    s = build(cards, ["Hulking Metamorph", "Test Three 110A"])
+    bear = put(s, "Test Three 110A")
+    mana(s, U=2, C=9 if not prototype else 2)
+    meta = cast(s, "Hulking Metamorph", prototype=prototype)
+    answer(s, [bear.id])
+    got = ch(s, s.state.cards[meta.id])
+    assert got.name == "Test Three 110A" and got.pt == pt and {"Artifact", "Creature"} <= set(got.types)
+    check(s)
