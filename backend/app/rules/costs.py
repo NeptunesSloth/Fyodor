@@ -264,6 +264,9 @@ def _selector(phrase: str, *, zone: str, other: bool = False) -> str | None:
             compare = (*branch.compare, ("mv", "==", selectors.X_VALUE)) if mv_x is not None else branch.compare
             keys.append(replace(branch, controller="you", other=other, zones=("battlefield",), compare=compare).key())
         return selectors.Selector(zones=("battlefield",), either=tuple(keys)).key()
+    if (union := re.fullmatch(r"(other )?artifact creatures and/or Vehicles( you control)?", phrase)) and zone == "battlefield":  # -- (wave 110D) -- Mechtitan Core: either kind counts
+        keys = [replace(selectors.parse(p), controller="you", other=other or bool(union[1]), zones=("battlefield",)).key() for p in ("artifact creature", "Vehicle")]  # type: ignore[type-var, union-attr]
+        return selectors.Selector(zones=("battlefield",), either=tuple(keys)).key()
     sel = selectors.parse(phrase)
     if mv_x is not None and sel is not None:
         sel = replace(sel, compare=(*sel.compare, ("mv", "==", selectors.X_VALUE)))

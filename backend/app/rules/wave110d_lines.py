@@ -5,7 +5,7 @@ import json
 from dataclasses import replace
 from typing import Any
 
-from app.rules import wave110d_chef, wave110d_fire, wave110d_meld
+from app.rules import wave110d_chef, wave110d_fire, wave110d_mech, wave110d_meld
 
 # the Oracle line (the card's name as ~) -> the wording the grammar already reads, with the same meaning
 _AS: dict[str, str] = {
@@ -179,6 +179,8 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
     text = scripts.self_text(ability.text, ch.name)
     if text == wave110d_meld.LINE:
         return wave110d_meld.definition(ability, ch)
+    if text == wave110d_mech.LINE:  # Mechtitan Core
+        return wave110d_mech.definition(ability, ch)
     if text == wave110d_chef.LINE:
         return wave110d_chef.definition(ability, ch)
     if text == wave110d_fire.LINE:  # Firebender Ascension: read by wave110d_fire.triggers, not by an event pass

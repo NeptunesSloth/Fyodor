@@ -55,7 +55,11 @@ def component(part: str, card_name: str) -> CostComponent | None:
 _NAMED = re.compile(r"Sacrifice (?P<a>an? creature named [A-Z][\w' -]+?), (?P<b>an? creature named [A-Z][\w' -]+?), and this creature")
 
 
+_EXILE_AND = re.compile(r"Exile (?P<s>this \w+|~) and (?P<n>\w+) other (?P<w>artifact creatures and/or Vehicles) you control")  # Mechtitan Core
+
+
 def rewrite(cost: str) -> str:
+    cost = _EXILE_AND.sub(r"Exile \g<s>, Exile \g<n> other \g<w> you control", cost)  # 602.2: two exile costs, each paid in full
     return _NAMED.sub(r"Sacrifice \g<a>, Sacrifice \g<b>, Sacrifice this creature", cost)
 
 
