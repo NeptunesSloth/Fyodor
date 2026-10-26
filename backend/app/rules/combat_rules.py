@@ -460,7 +460,7 @@ _EXTRA = re.compile(r"(?:after this (?:(?P<main>main )|(?P<combat>combat ))?phas
                     r"|there(?: is|'s) an additional combat phase after this (?:(?P<main2>main )|(?P<combat2>combat ))?phase)"  # (wave 49B: "there's", Moraug)
                     r"(?P<and>,? followed by an additional main phase)?(?: \[at the beginning of that combat, (?P<then>untap all creatures[^\]]*)\])?")
 _EXTRA_THEN = re.compile(r"(?P<x>(?:[Aa]fter this (?:main |combat )?phase, there is|[Tt]here(?: is|'s)) an additional combat phase"
-                         r"(?: after this (?:main |combat )?phase)?)\. At the beginning of that combat, (?P<u>untap all creatures[^.]*)\.")
+                         r"(?: after this (?:main |combat )?phase)?(?:,? followed by an additional main phase)?)\. At the beginning of that combat, (?P<u>untap all creatures[^.]*)\.")
 
 
 def merge_extra(body: str) -> str:

@@ -47,3 +47,4 @@
 - Firkraag, Cunning Instigator: needs a record of "had to attack this combat" (forced-attack requirement) on the creature.
 - Ramses, Assassin Lord: per-defender "attacked this turn by an Assassin you controlled" history absent.
 - Endless Whispers: granted triggered ability for all creatures with a delayed "under target opponent's control" return of the card: no such grant machinery.
+- Temporal Extortion: needs a non-permanent spell cast trigger ("When you cast this spell, any player may pay half their life") and an any-player payment prompt; not a one-liner (wave 110B s17).

@@ -111,6 +111,25 @@ def stolen_holds(plan: Any, ctx: dict[str, Any]) -> bool:
     return c.controller != c.owner
 
 
+_WORLD = ("After the second main phase this turn, there's an additional combat phase followed by an additional main phase. "
+          "At the beginning of that combat, untap all creatures that attacked this turn.")
+_WORLD_NATIVE = ("After this main phase, there is an additional combat phase followed by an additional main phase. "
+                 "At the beginning of that combat, untap all creatures that attacked this turn.")
+
+
+def second_main(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """World at War: 500.8, the additional phases come after the postcombat main phase of this turn. In it they are added now; before it (precombat main, combat,
+    or an upkeep when rebounded) a delayed trigger adds them as that phase begins (603.7); after it nothing is left to add them to."""
+    from app.rules import delayed, effects
+
+    if plan.state.turn.phase == "main2":
+        return all(effects.PRIMITIVES[x["do"]](plan, ctx, x) is not False for x in e["effects"])
+    if plan.state.turn.phase in ("upkeep", "draw", "main1", "begin_combat", "declare_attackers", "declare_blockers", "combat_damage", "end_combat"):
+        return delayed.create(plan, {**ctx, "effects": e["effects"], "next": 0},
+                              {"n": 1, "when": {"kind": "step", "step": "main2", "whose": "next"}})
+    return True
+
+
 def nelly_draw(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     """Nelly Borca: you and the controller of the creatures that dealt the damage (as they last existed, 608.2h) each draw a card."""
     from app.rules import context, effects
@@ -120,6 +139,29 @@ def nelly_draw(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     for pid in dict.fromkeys([mine, *others]):
         if pid in plan.live():
             effects.PRIMITIVES["draw"](plan, ctx, {"do": "draw", "who": f"player:{pid}", "n": 1})
+    return True
+
+
+def adapt_free(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Biomancer's Familiar: the next time the target creature adapts this turn it adapts as though it had no +1/+1 counters (701.46a)."""
+    from app.game.rules_state import turn_log_now
+    from app.rules import effects
+
+    log = turn_log_now(plan.state)
+    if log is not None:
+        log.adapt_free110b += [plan.oid(c) for c in effects._cards(plan, ctx, e["who"])]
+    return True
+
+
+def adapt_free_used(plan: Any, ctx: dict[str, Any]) -> bool:
+    """The creature adapting (the source of the adapt ability) has the effect waiting: it is used up (614.5)."""
+    from app.game.rules_state import turn_log_now
+
+    log = turn_log_now(plan.state)
+    oid = ctx.get("source_object")
+    if log is None or oid not in log.adapt_free110b:
+        return False
+    log.adapt_free110b.remove(oid)
     return True
 
 
@@ -259,6 +301,8 @@ def _towershell(d: Def) -> Def:
 
 
 _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
+    "{T}: The next time target creature adapts this turn, it adapts as though it had no +1/+1 counters on it.":
+        ("{T}: Target creature gains haste until end of turn.", lambda d: {**d, "effects": [{"do": "adapt_free110b", "who": "target"}]}),
     "Whenever one or more creatures an opponent controls deal combat damage to one or more of your opponents, you and the controller of those creatures each draw a card.":
         ("Whenever one or more creatures an opponent controls deal combat damage to one or more of your opponents, you draw a card.",
          lambda d: {**d, "effects": [{"do": "nelly_draw110b"}]}),
@@ -545,6 +589,9 @@ def parse(body: str) -> Any:
     to you and your creatures is redirected to it (614.9) while it is on the battlefield."""
     from app.rules import scripts, wave110b_mirror
 
+    if body.strip() == _WORLD:  # World at War
+        got = scripts.parse_effects(_WORLD_NATIVE)
+        return None if got is None else ([{"do": "second_main110b", "effects": got[0]}], got[1], got[2])
     if (mirror := wave110b_mirror.parse(body)) is not None:  # Mystic Reflection
         return mirror
     if body.strip() != _HEROIC:
@@ -772,4 +819,4 @@ def mana_web(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return True
 
 
-PRIMITIVES: dict[str, Any] = {"nelly_draw110b": nelly_draw, "lolth_loss110b": lolth_loss, "mana_web110b": mana_web, "faramir_set110b": faramir_set, "faramir_end110b": faramir_end, "redirect110b": redirect, "kaito110b": kaito, "return_next_end110b": return_next_end, "gap_search110b": gap_search, "gift_given110b": gift_given, "ungoad110b": ungoad, "no_attack_next110b": no_attack_next, "draw_game110b": draw_game, "reaver110b": reaver, "veil110b": veil, "uncounter_by110b": uncounter_by, "exile_own110b": exile_own, "lose_shield110b": lose_shield}
+PRIMITIVES: dict[str, Any] = {"adapt_free110b": adapt_free, "second_main110b": second_main, "nelly_draw110b": nelly_draw, "lolth_loss110b": lolth_loss, "mana_web110b": mana_web, "faramir_set110b": faramir_set, "faramir_end110b": faramir_end, "redirect110b": redirect, "kaito110b": kaito, "return_next_end110b": return_next_end, "gap_search110b": gap_search, "gift_given110b": gift_given, "ungoad110b": ungoad, "no_attack_next110b": no_attack_next, "draw_game110b": draw_game, "reaver110b": reaver, "veil110b": veil, "uncounter_by110b": uncounter_by, "exile_own110b": exile_own, "lose_shield110b": lose_shield}
