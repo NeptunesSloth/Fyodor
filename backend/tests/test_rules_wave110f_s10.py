@@ -1,5 +1,6 @@
 """Wave 110F session 10: promotions on real Oracle text. Every scenario checks the replay and a save and a load (tests/wave9c_kit.check).
 
+* 702.33c: "As an additional cost to cast this spell, you may pay {1}{G} any number of times." + "3 life plus an additional 3 life for each additional {1}{G} you paid" (Taste of Paradise).
 * 601.2, 609.4b: "you may cast a creature spell from that player's graveyard this turn, and you may spend mana as though it were mana of any color" (Whispersteel Dagger).
 """
 
@@ -17,16 +18,19 @@ from tests.test_rules_wave100n_multi import (
     answer,
     card_db,  # noqa: F401  (fixture DB with EXTRA)
 )
-from tests.wave9c_kit import build, check, mana, put
+from tests.test_rules_wave100n_multi import cast
+from tests.wave9c_kit import build, check, life, mana, put
 
 EXTRA = [
     real('Whispersteel Dagger', '{2}', 2, 'Artifact — Equipment',
          "Equipped creature gets +2/+0.\nWhenever equipped creature deals combat damage to a player, you may cast a creature spell from that player's graveyard this turn, and you may spend mana as though it were mana of any color to cast that spell.\nEquip {3}", None, ''),
+    real('Taste of Paradise', '{2}{G}', 3, 'Sorcery',
+         "As an additional cost to cast this spell, you may pay {1}{G} any number of times.\nYou gain 3 life plus an additional 3 life for each additional {1}{G} you paid.", None, 'G'),
 ]
 _BASE.extend(EXTRA)
 
 
-@pytest.mark.parametrize("name", ["Whispersteel Dagger"])
+@pytest.mark.parametrize("name", ["Whispersteel Dagger", "Taste of Paradise"])
 def test_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
@@ -54,4 +58,15 @@ def test_dagger_casts_one_creature_from_the_damaged_players_graveyard(cards, tar
         if second:
             with pytest.raises(ActionError):
                 act(s, "p1", type="cast_spell", card_id=theirs[1].id, targets=[])
+    check(s)
+
+
+@pytest.mark.parametrize("times", [0, 1, 3])
+def test_taste_of_paradise_gains_three_plus_three_per_extra_payment(cards, times):
+    """702.33c: each extra {1}{G} paid adds 3 life."""
+    s = build(cards, ["Taste of Paradise"])
+    mana(s, "p1", G=1 + times, C=2 + times)
+    cast(s, "Taste of Paradise", kicker=times)
+    answer(s)
+    assert life(s, "p1") == 40 + 3 + 3 * times
     check(s)

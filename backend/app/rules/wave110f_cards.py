@@ -313,6 +313,7 @@ REWRITES = {
     # 611.2 / 122.1: control change then the counter on the same (still targeted) creature, as two sentences.
     "Gain control of target nonartifact, nonblack creature that attacked you this turn and put a -1/-0 counter on it.":
         "Gain control of target nonartifact, nonblack creature that attacked you this turn, then put a -1/-0 counter on it.",
+    "You gain 3 life plus an additional 3 life for each additional {1}{G} you paid.": "You gain 3 life. You gain 3 life for each time this spell was kicked.",  # Taste of Paradise (702.33c)
     "it deals 6 damage to each creature it blocked this combat.": "~ deals 6 damage to each creature blocked by it.",
 }
 PRIMITIVES: dict[str, Any] = {"barrier_direction110f": barrier_direction, "remove_enchantments110f": remove_enchantments, "same_colors110f": same_colors, "phase_swap110f": phase_swap, "exile_discarded110f": exile_discarded, "turn_up_choice110f": turn_up_choice, "reveal_chroma110f": reveal_chroma, "unlock110f": unlock}
