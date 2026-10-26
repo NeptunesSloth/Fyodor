@@ -176,6 +176,11 @@ def legal_targets(plan: Plan, selector: str, chooser: str, source: Characteristi
                 if plan.in_game(plan.state.cards[cid]) and not prohibitions.untargetable(plan, chooser, plan.state.cards[cid])]
     if selector.startswith("opponent_as:"):  # -- activated other (wave 21E) -- "target opponent who has more life than you do as you activate this ability" (601.2c)
         cond = selector.split(":", 1)[1]
+        if cond == "gy2_110j":  # -- cards (wave 110J) -- Keeper of the Dead: "at least two fewer creature cards in their graveyard than you do"
+            def _gy(p: str) -> int:
+                return sum(1 for c in plan.state.zones.get(f"{p}:graveyard", []) if plan.ch(plan.state.cards[c]).is_creature)
+
+            return [p for p in legal_targets(plan, "opponent", chooser, source, source_card, attacker) if _gy(p) <= _gy(chooser) - 2]
         margin = 2 if cond == "hand2" else 1
         return [p for p in legal_targets(plan, "opponent", chooser, source, source_card, attacker)
                 if _more(plan, cond, p) >= _more(plan, cond, chooser) + margin]
@@ -188,6 +193,11 @@ def legal_targets(plan: Plan, selector: str, chooser: str, source: Characteristi
         hurt = {f.player for f in history.log_for(plan, False).facts if f.kind == "damage" and f.amount > 0 and f.player}
         return [t for t in legal_targets(plan, "any", chooser, source, source_card, attacker, source_object=source_object)
                 if t in hurt or (t in plan.state.cards and damage_history.matches(plan, plan.state.cards[t], damage_history.WAS_DEALT, chooser))]
+    if selector == "cast_creature110j":  # -- cards (wave 110J) -- Cycle of Life: "target creature you cast this turn" (the permanent its spell became, 608.3)
+        from app.rules import history
+
+        became = {n.became for n in history.log_for(plan).casts if n.player == chooser and n.became}
+        return [c for c in legal_targets(plan, "creature", chooser, source, source_card, attacker, source_object=source_object) if plan.oid(c) in became]
     if selector == "opponent_or_other_battle110f":  # -- cards (wave 110F) -- "another target battle or opponent" (Invasion of Regatha): not the battle itself
         return [t for t in legal_targets(plan, "opponent_or_battle", chooser, source, source_card, attacker, source_object=source_object) if t != source_card]
     if selector == "opponent_or_other_permanent110l":  # -- (wave 110L) -- "another target permanent or opponent" (Etched Slith): not the source itself

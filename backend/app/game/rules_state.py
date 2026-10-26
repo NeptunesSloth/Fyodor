@@ -418,6 +418,7 @@ EventKind = Literal[
     "drew",  # a player drew a card (121.2: one event per card)
     "crewed",
     "crew_tapped",  # -- crew & saddle (wave 23D) -- 702.122b: a creature (``object_id``) tapped to pay the crew cost of ``by_card`` (``source``)
+    "teamwork_tapped110j",  # -- (wave 110J) -- 702.194a: a creature (``object_id``) tapped to pay a teamwork cost (Agent Maria Hill)
     "saddle_tapped",  # 702.171c: likewise for a saddle ability
     "saddled",  # 702.171b: ``card`` became saddled
     "exploited",  # -- keyword triggers (wave 23D) -- 702.110b: ``card`` (object ``object_id``) was sacrificed to exploit ``by_card`` (``source``: its object)
@@ -1168,6 +1169,7 @@ class PaymentRecord(BaseModel):
     cast_modified_n110e: int = 0  # -- wave 110E -- how many modified creatures (700.9) the caster controlled as casting finished (Lethal Exploit)
     cast_revealed_subtypes: list[str] = Field(default_factory=list)  # Subtypes of cards revealed for this spell's cost.
     revealed: list[str] = Field(default_factory=list)  # -- static_other sweep (wave 17C) -- cards revealed from the hand to pay ("the revealed card's …")
+    unattached_ninja110j: bool = False  # -- wave 110J -- an Equipment the cost unattached was attached to a Ninja (Shuriken)
     beheld110a: dict[str, str] = Field(default_factory=dict)  # -- behold (wave 110A) -- card id -> object id of what the cost beheld (701.4a)
     exiled: list[str] = Field(default_factory=list)  # cards exiled to pay (from a graveyard, or the source)
     exiled_objects: list[str] = Field(default_factory=list)  # -- as long as (wave 37A) -- the objects they became in exile (400.7j: "this card" finds that one)
@@ -1439,6 +1441,7 @@ class WorldInterval80(BaseModel):
 
 
 class RulesState(BaseModel):
+    began_untapped110j: list[str] = Field(default_factory=list)  # (wave 110J) objects untapped on the battlefield as the turn began (Rasputin Dreamweaver)
     began_lands110c: dict[str, int] = Field(default_factory=dict)  # (wave 110C) player -> untapped lands they controlled as their turn began (Power Surge)
     sticker_splits101: dict[str, str] = Field(default_factory=dict)  # Original permanent OID -> chosen physical component.
 

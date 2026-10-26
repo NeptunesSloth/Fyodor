@@ -1237,6 +1237,9 @@ def _derive(state: GameState, card: CardInstance, ch: Characteristics, info: Car
             setters.append(((st.seq, 0, 0), st.definition["base"][0], st.definition["base"][1]))
         elif st.definition.get("base_mv"):  # -- layers (wave 22A) -- "base power and toughness each equal to its mana value" (Opalescence)
             setters.append(((st.seq, 0, 0), int(ch.mana_value), int(ch.mana_value)))
+        elif st.definition.get("base_counters110j"):  # -- (wave 110J) -- Spark Rupture: "power and toughness each equal to the number of loyalty counters on it" (613.4b)
+            n110j = card.counters.get(st.definition["base_counters110j"], 0)
+            setters.append(((st.seq, 0, 0), n110j, n110j))
         elif (st.definition.get("each") or {}).get("set"):  # -- most-played cards II (wave 45A) -- "base power and toughness X/X, where X is …" (Aettir and Priwen, Dollmaker's Shop)
             setters.append(((st.seq, 0, 0), each_amounts.get(id(st), 0), each_amounts.get(id(st), 0)))
     for e in effects:  # 7b: resolved setting effects, interleaved by timestamp (613.7)
@@ -1401,7 +1404,7 @@ def _own_layer5(state: GameState, card: CardInstance, info: CardInfo | None,
 def _grants(d: dict[str, Any]) -> bool:
     """Does the static change characteristics (layers 6-7)? A rules-only static ("Creatures your
     opponents control can't block.") is applied by ``_with_rules`` instead."""
-    return bool(d["p"] or d["t"] or d.get("base") or d.get("base_mv") or d["keywords"] or d["grants"] or d.get("each") or d.get("abilities_of") or d.get("linked_traits")
+    return bool(d["p"] or d["t"] or d.get("base") or d.get("base_mv") or d.get("base_counters110j") or d["keywords"] or d["grants"] or d.get("each") or d.get("abilities_of") or d.get("linked_traits")
                 or d.get("lose_keywords") or d.get("lose_all") or d.get("deny_keywords") or d.get("chosen_keywords"))  # -- attached events (wave 4L) -- (wave 49B: the chosen abilities)
 
 

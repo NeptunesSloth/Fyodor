@@ -170,7 +170,7 @@ SUPPORTED_REPLACE_OPS: dict[str, frozenset[str]] = {
     "player_counters": frozenset({"add", "mul"}),  # Winding Constrictor; energy-specific additions/doubling (107.14)
     "draw": frozenset({"win", "skip", "steal", "draw"}),  # 121.6, 614.11: Laboratory Maniac, Notion Thief
     "life": frozenset({"mul", "add", "set", "lose"}),  # 119.10: Boon Reflection, Sulfuric Vortex, Tainted Remedy
-    "damage": frozenset({"mul", "add", "sub", "half", "prevent", "prevent_all_but", "prevent_all", "cap", "set_value"}),  # 614, 615.10 (cap: wave 20B)
+    "damage": frozenset({"mul", "add", "sub", "half", "prevent", "prevent_all_but", "prevent_all", "cap", "set_value", "prevent_counters110j"}),  # 614, 615.10 (cap: wave 20B)
 }
 # -- refused grants/replacements (wave 3R2) -- 614.9 redirection statics (Pariah, Palisade Giant: app/rules/source_shields.py,
 # tests/test_rules_refused_grants.py)

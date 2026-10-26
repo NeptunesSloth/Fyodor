@@ -1356,6 +1356,8 @@ def _object_event(c: str) -> Condition | None:
         return {"event": "plotted", "subject": "self"}
     if c in ("this card is put into your hand from your graveyard", "~ is put into your hand from your graveyard"):  # -- (wave 110G) -- Golgari Brownscale (triggers.py, from the hand)
         return {"event": "gy_to_hand110g", "subject": "self"}
+    if c == "~ becomes tapped to pay a teamwork cost":  # -- (wave 110J) -- 702.194a: Agent Maria Hill (cost_payment emits teamwork_tapped110j)
+        return {"event": "teamwork_tapped110j", "subject": "self"}
     if c == "~ enlists a creature":  # -- (wave 110B) -- 702.154a: Guardian of New Benalia (enlist.finish)
         return {"event": "enlisted110b", "subject": "self"}
     m = re.fullmatch(r"~ (?:(?P<s>saddles a Mount) or )?(?P<c>crews a Vehicle)(?P<d> during your main phase)?", c)
