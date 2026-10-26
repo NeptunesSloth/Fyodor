@@ -631,6 +631,23 @@ def resume_bauble(plan: Plan, decision: Any, chosen: list[str]) -> None:
     effects.continue_effects(plan, decision.resume["ctx"])
 
 
+_PHOENIX = ("If this creature would die, return it to its owner's hand instead. Until that player's next turn, that player plays with that card revealed in "
+            "their hand and can't play it.")
+
+
+def reveal_ban(plan: Plan, card: Any) -> None:
+    """Firestorm Phoenix (614.1a): after it returned to its owner's hand, until that player's next turn it is revealed (701.20a) and they can't cast it (601.3).
+    ponytail: a creature, so only casting is barred (a land would also need cast_limits.land_problem)."""
+    import secrets
+
+    if not card.zone.endswith(":hand"):
+        return
+    r = plan.rules
+    plan.do({"type": "reveal", "card_ids": [card.id]}, actor=card.owner)
+    r.cast_limits.append({"id": secrets.token_hex(4), "player": card.owner, "controller": card.owner, "until": "next_turn", "turn": plan.state.turn.number,
+                          "obj110i": plan.oid(card), "reveal110i": card.id, "label": card.name})
+
+
 def note_exiled(plan: Plan, ctx: Context, cards: list[str]) -> None:
     """Hero of Bretagard: a spell or ability ``ctx['controller']`` controls exiled these permanents from the battlefield; one event for the batch (603.2c)."""
     from app.game.rules_state import Event
@@ -669,6 +686,8 @@ def definition(ability: Any, ch: Any) -> Def | None:
     from app.rules import scripts
 
     text = ability.text.strip()
+    if text == _PHOENIX:
+        return {"kind": "replacement", "replacement": "hand_instead110i", "from": "battlefield", "effects": []}
     if text == "As this permanent transforms into Curse of Leeches, attach it to a player.":
         return {"kind": "static", "static": "as_transform_attach110i", "effects": []}
     if (same := _AS.get(text)) is not None:

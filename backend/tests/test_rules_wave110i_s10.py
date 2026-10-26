@@ -28,9 +28,13 @@ NAME = EXTRA[0]["name"]
 HERO = ("Whenever one or more cards are put into exile from your hand or a spell or ability you control exiles one or more permanents from the battlefield, "
         "put that many +1/+1 counters on this creature.\nAs long as this creature has five or more counters on it, it has flying and is an Angel in addition to its "
         "other types.\nAs long as this creature has ten or more counters on it, it has indestructible and is a God in addition to its other types.")
+PHOENIX = ("Flying\nIf this creature would die, return it to its owner's hand instead. Until that player's next turn, that player plays with that card revealed in "
+           "their hand and can't play it.")
 EXTRA += [real("Hero of Bretagard", "{2}{W}", 3, "Creature \u2014 Human Warrior", HERO, ("1", "1"), "W"),
           real("Swords to Plowshares", "{W}", 1, "Instant", "Exile target creature. Its controller gains life equal to its power.", None, "W"),
           real("Ignorant Bliss", "{1}{R}", 2, "Instant", "Exile all cards from your hand face down. At the beginning of the next end step, return those cards to your hand, then draw a card.", None, "R"),
+          real("Firestorm Phoenix", "{4}{R}{R}", 6, "Creature \u2014 Phoenix", PHOENIX, ("3", "2"), "R"),
+          real("Murder", "{1}{B}{B}", 3, "Instant", "Destroy target creature.", None, "B"),
           real("Probe Bear", "{1}{G}", 2, "Creature \u2014 Bear", "", ("2", "2"), "G")]
 
 
@@ -107,3 +111,35 @@ def test_hero_of_bretagard(cards):
     answer(s)
     assert n == 2 and counters() == 1 + n
     check(s)
+
+
+def test_firestorm_phoenix(cards):
+    """614.1a: destroyed, it goes to its owner's hand instead (it never dies); revealed there and uncastable until that player's next turn begins (500.4)."""
+    from app.game.errors import ActionError
+    from tests.wave9c_kit import build as kit_build
+    from tests.wave9c_kit import cast as kit_cast
+    from tests.wave9c_kit import check
+    from tests.wave9c_kit import mana as kit_mana
+    from tests.wave9c_kit import put as kit_put
+    from tests.wave9c_kit import to_hand as kit_to_hand
+    from tests.wave100c_kit import to_phase as to_ph
+    from tests.wave110a_kit import answer
+
+    s = kit_build(cards, ["Firestorm Phoenix", "Murder"])
+    phoenix = kit_put(s, "Firestorm Phoenix")
+    kit_to_hand(s, "Murder")
+    kit_mana(s, B=2, C=1)
+    kit_cast(s, "Murder", targets=[phoenix.id])
+    answer(s)
+    c = s.state.cards[phoenix.id]
+    assert c.zone == "p1:hand" and c.revealed_to == ["*"]
+    kit_mana(s, R=2, C=4)
+    with pytest.raises(ActionError):
+        act(s, "p1", type="cast_spell", card_id=phoenix.id)
+    to_ph(s, "main1", turn=2)
+    assert s.state.cards[phoenix.id].revealed_to == ["*"] and s.state.cards[phoenix.id].zone == "p1:hand"
+    check(s)
+    to_ph(s, "main1", turn=3)
+    assert s.state.cards[phoenix.id].revealed_to == []
+    kit_mana(s, R=2, C=4)
+    act(s, "p1", type="cast_spell", card_id=phoenix.id)

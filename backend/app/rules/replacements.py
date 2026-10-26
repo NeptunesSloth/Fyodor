@@ -1407,6 +1407,8 @@ def _graveyard_candidates(plan: Plan, card: CardInstance, frm: str) -> list[Cand
         rider = next(({"source": card.id, "controller": card.controller, **d["rider"]} for d in _definitions(plan, card).values()
                       if d.get("replacement") == "exile_instead" and d.get("rider")), None)
         out.append(Cand(card.name or "its own ability", "exile", False, rider))
+    if frm == "battlefield" and any(d["kind"] == "replacement" and d.get("replacement") == "hand_instead110i" for d in _definitions(plan, card).values()):
+        out.append(Cand(card.name or "its own ability", "hand", False, {"source": card.id, "controller": card.controller, "hand110i": card.id, "effects": [], "reflexive": False}))
     if (where := _self_library_instead(plan, card)) is not None:  # -- instead (wave 20B) --
         out.append(Cand(card.name or "its own ability", f"library:{where}"))
     if _self_shuffle_instead(plan, card):
@@ -1513,6 +1515,11 @@ def run_rider(plan: Plan, rider: dict[str, Any]) -> None:
         return
     src = plan.state.cards.get(rider["source"])
     if src is None:
+        return
+    if rider.get("hand110i"):  # -- cards (wave 110I) -- Firestorm Phoenix
+        from app.rules import wave110i_cards
+
+        wave110i_cards.reveal_ban(plan, src)
         return
     if rider.get("power_counters"):  # -- (wave 110C) -- Ravenous Slime: counters on the source, only while it is still on the battlefield
         if rider["n"] and src.zone.endswith(":battlefield"):
