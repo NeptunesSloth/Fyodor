@@ -449,7 +449,25 @@ def exile_until_target(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> boo
         ctx["source_object"] = keep
 
 
+def _tarrasque() -> Parsed:
+    """You Look Upon the Tarrasque: the lure (509.1c) binds only creatures the CASTER's opponents control, whoever controls the target."""
+    got = _p("Target creature gets +5/+5 and gains indestructible until end of turn. All creatures able to block it this turn do so.")
+    *head, lure = got[0]
+    if lure.get("do") != "restrict" or lure.get("rules") != ["lure"]:
+        raise AssertionError("wave110a: the lure moved")
+    return [*head, {"do": "lure_opponents110a", "lure": lure}], got[1], got[2]
+
+
+def lure_opponents(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    from app.rules import effects, selectors
+
+    sel = selectors.Selector(types=("Creature",), extras=("not_controlled_by110a:" + ctx["controller"],))
+    return effects.PRIMITIVES["restrict"](plan, ctx, {**e["lure"], "rules": ["lure:" + sel.key()]})
+
+
 BUILDERS: dict[str, Callable[[], Parsed]] = {
+    "Target creature gets +5/+5 and gains indestructible until end of turn. All creatures your opponents control able to block that creature this turn do so.":
+        _tarrasque,
     "Exile target creature or enchantment you don't control until target enchantment you control leaves the battlefield.": _calix,
     "Gain control of target creature. Change the text of that creature by replacing all instances of one creature type with Vampire.": _new_blood,
     "Choose any number of target players. Investigate X times, where X is the total number of creatures those players control.": _interrogation,
@@ -718,5 +736,5 @@ def enter_chosen(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return token_grammar.enter_attacking(plan, ctx, cards, {"planeswalkers": True})
 
 
-PRIMITIVES = {"enter_chosen110a": enter_chosen, "new_blood110a": new_blood, "new_blood_apply110a": new_blood_apply, "wheel110a": wheel, "grant_owned110a": grant_owned, "gambit110a": gambit, "bind_sacrificed110a": bind_sacrificed, "unblocked_turn110a": unblocked_turn, "repeat_put110a": repeat_put, "note_put110a": note_put, "bind110a": bind, "end_combat_phase110a": end_combat_phase, "snow110a": snow,
+PRIMITIVES = {"lure_opponents110a": lure_opponents, "enter_chosen110a": enter_chosen, "new_blood110a": new_blood, "new_blood_apply110a": new_blood_apply, "wheel110a": wheel, "grant_owned110a": grant_owned, "gambit110a": gambit, "bind_sacrificed110a": bind_sacrificed, "unblocked_turn110a": unblocked_turn, "repeat_put110a": repeat_put, "note_put110a": note_put, "bind110a": bind, "end_combat_phase110a": end_combat_phase, "snow110a": snow,
               "exiled_power_damage110a": exiled_power_damage, "exile_hands110a": exile_hands, "counter_opponents110a": counter_opponents, "noted_draw110a": noted_draw, "exile_until_target110a": exile_until_target}

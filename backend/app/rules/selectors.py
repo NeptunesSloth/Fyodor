@@ -2365,6 +2365,10 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
            for x in sel.extras):  # -- copy abilities (wave 19E) -- "… from an enchantment source"
         return False
     for extra in sel.extras:
+        if extra.startswith("not_controlled_by110a:"):  # -- wave 110A -- "creatures your opponents control" read for a caster other than the rule's holder (Tarrasque lure)
+            if card.controller == extra.partition(":")[2]:
+                return False
+            continue
         if extra.startswith(("protected_by:", "controlled_by:")):  # (wave 110H) 310.8: the player protecting the battle / controlling the permanent; unbound "that_player" matches nothing
             from app.rules import battles
 
