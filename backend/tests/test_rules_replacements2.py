@@ -67,8 +67,9 @@ def rules(s):
 
 
 def permanent(s, pid, name, kind, text, colors=()):
+    pt = {"power": "2", "toughness": "2"} if "Creature" in kind else {}  # (a creature with no toughness is a 0/0, 208.5)
     act(s, pid, type="create_token", player=pid, token={"name": name, "type_line": f"Token {kind} — Test", "text": text,
-                                                       "colors": list(colors)})
+                                                       "colors": list(colors), **pt})
     return next(c for c in s.state.cards.values() if c.name == name and c.owner == pid)
 
 

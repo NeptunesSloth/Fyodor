@@ -414,6 +414,8 @@ def choose_groups(plan: Plan, specs: list[dict[str, Any]], chooser: str, source:
     random_only = len(specs) == 1 and bool(specs[0].get("random"))  # -- random choices (wave 47B) -- "target … chosen at random": the table picks (601.2c; each
     if random_only:  # legal target equally likely: Scab-Clan Giant ruling 2013-04-15); nobody is asked, and a choice sent along is not read
         targets, counts = [], []
+    if not counts and targets and len(specs) == 1:
+        counts = [len(targets)]  # (one group: every target chosen is that group's)
     if len(counts) > len(specs) or sum(counts) != len(targets):
         raise ActionError(f"Those aren't the right number of targets for {what}")
     out = GroupChoice(counts=list(counts))

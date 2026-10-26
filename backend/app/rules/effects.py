@@ -1705,10 +1705,12 @@ def bottom_at_random(plan: Plan, pid: str, cards: list[str], actor: str | None =
     order = list(cards)
     (plan.rng or secrets.SystemRandom()).shuffle(order)
     for at in range(0, len(order), 250):  # (a move names at most 250 cards)
-        # Same-library moves retain reveals; randomized positions must become private.
-        plan.do({"type": "hide", "card_ids": order[at:at + 250]}, actor=actor or pid)
         plan.do({"type": "move", "card_ids": order[at:at + 250], "to": {"player": pid, "zone": "library"}, "position": "bottom"},
                 actor=actor or pid)
+        # Same-library moves retain reveals; randomized positions must become private (after the move, whose log names the revealed cards)
+        still = [c for c in order[at:at + 250] if c in plan.state.cards and plan.state.cards[c].revealed_to]
+        if still:
+            plan.do({"type": "hide", "card_ids": still}, actor=actor or pid)
     return order
 
 
@@ -3146,17 +3148,17 @@ def resume_order_library(plan: Plan, d: Any, chosen: list[str]) -> None:
         chosen = [c for c in chosen if c in plan.state.cards
                   and plan.state.cards[c].zone == zone_key(owner, "library")
                   and plan.oid(plan.state.cards[c]) == r["looked_objects"].get(c)]
-    # Same-library moves retain reveal rights. End them before committing a
-    # private order, just as bottom_at_random does for randomized placement.
-    hidden = [c for c in chosen if c in plan.state.cards and plan.state.cards[c].revealed_to]
-    for at in range(0, len(hidden), 250):
-        plan.do({"type": "hide", "card_ids": hidden[at:at + 250]}, actor=pid)
     # -- review 30 -- one move (401.4: the cards go in at the same time and their order isn't revealed; one move per card logged it)
     if r["place"] == "top":  # the first chosen card goes on top (a move to the top puts its cards in their order)
         plan.do({"type": "move", "card_ids": list(chosen), "to": {"player": owner, "zone": "library"}, "position": "top"}, actor=pid)
     elif chosen:  # the first chosen ends at the very bottom
         plan.do({"type": "move", "card_ids": list(reversed(chosen)), "to": {"player": owner, "zone": "library"}, "position": "bottom"},
                 actor=pid)
+    # Same-library moves retain reveal rights: end them once the private order is committed (the move's log line still names the revealed
+    # cards, in no particular order), just as bottom_at_random does for randomized placement.
+    hidden = [c for c in chosen if c in plan.state.cards and plan.state.cards[c].revealed_to]
+    for at in range(0, len(hidden), 250):
+        plan.do({"type": "hide", "card_ids": hidden[at:at + 250]}, actor=pid)
     if r.get('as_kept') and r['place'] == 'top':
         r['ctx'].setdefault('surveil_kept', {})[r['as_kept']] = sum(
             c in plan.state.cards and plan.state.cards[c].zone == zone_key(owner, 'library')
