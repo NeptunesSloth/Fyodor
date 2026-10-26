@@ -34,7 +34,7 @@ REMOVE = "counters110c"  # (wave 110C) Sin, Unending Cataclysm: any number of ar
 REMOVED = "removed110c"
 _PIECE = re.compile(r"devour (?:(?P<q>land|artifact|food) )?(?P<n>\d+)")
 _QUALITY_WORD = {None: "creature", "stats110f": "creature", "gy110f": "creature card", "land": "land", "artifact": "artifact", "food": "Food", "untapped_forest": "untapped Forest", "creature_pw": "creature or planeswalker",
-                 "nonland": "nonland permanent", "reveal110i": "artifact card", "frank110i": "creature card", "permanent": "permanent", "counters110c": "permanent with counters"}
+                 "nonland": "nonland permanent", "reveal110i": "artifact card", "mimeo110f": "creature card", "indo110f": "creature card", "frank110i": "creature card", "permanent": "permanent", "counters110c": "permanent with counters"}
 
 
 def pieces(line: str) -> list[tuple[str | None, int]]:
@@ -81,6 +81,15 @@ _STATICS["As ~ enters, you may reveal any number of other artifact cards from yo
 # -- same name (wave 110I) -- Sheltered Valley: the legend-rule-like replacement sacrifices every other permanent of the same name, no choice and no counters (614.1a)
 SAME_NAME = "same_name110i"
 _STATICS["If ~ would enter, instead sacrifice each other permanent named Sheltered Valley you control, then put ~ onto the battlefield."] = (SAME_NAME, 0)
+# -- wave 110F -- Mimeoplasm, Revered One: up to X creature cards from your graveyard, exiled (the cards "exiled with it", 607.2b), three +1/+1 counters for each; Indominus Rex, Alpha:
+# any number of creature cards discarded from your hand, a counter of a keyword kind for each keyword one of them has (2023-11-10 ruling: one of each kind)
+MIMEO = "mimeo110f"
+INDO = "indo110f"
+INDO_KINDS = "indo_kinds110f"
+INDO_KEYWORDS = ("flying", "first strike", "double strike", "deathtouch", "hexproof", "haste", "indestructible", "lifelink", "menace", "reach", "trample", "vigilance")
+_STATICS["As ~ enters, exile up to X creature cards from your graveyard. It enters with three +1/+1 counters on it for each creature card exiled this way."] = (MIMEO, 3)
+_STATICS["As ~ enters, discard any number of creature cards. It enters with a flying counter on it if a card discarded this way has flying. The same is true for first strike, "
+         "double strike, deathtouch, hexproof, haste, indestructible, lifelink, menace, reach, trample, and vigilance."] = (INDO, 0)
 NO_COUNTERS = {"untapped_forest", SAME_NAME}
 _COMPANION = "~'s power is equal to the total power of the exiled cards and its toughness is equal to their total toughness."  # no effect of its own: apply_totals
 RETURNS = "nonland"  # (the one quality returned to its owner's hand, at most one)
@@ -122,13 +131,13 @@ def _matches(plan: Plan, cid: str, quality: str | None) -> bool:
 
     ch = chars.of(plan.state.cards[cid], plan.info)
     return {None: ch.is_creature, STATS: ch.is_creature, "land": ch.is_land, "artifact": "Artifact" in ch.types,
-            "food": "Food" in ch.subtypes, GY: ch.is_creature, FRANK: ch.is_creature, "creature_pw": ch.is_creature or "Planeswalker" in ch.types, "nonland": not ch.is_land,
+            "food": "Food" in ch.subtypes, GY: ch.is_creature, FRANK: ch.is_creature, MIMEO: ch.is_creature, INDO: ch.is_creature, "creature_pw": ch.is_creature or "Planeswalker" in ch.types, "nonland": not ch.is_land,
             "untapped_forest": "Forest" in ch.subtypes and not plan.state.cards[cid].tapped, "permanent": True, SAME_NAME: True, REV: "Artifact" in ch.types,
             REMOVE: bool({"Artifact", "Creature", "Enchantment"} & ch.types) and any(plan.state.cards[cid].counters.values())}[quality]
 
 
 def _zone(quality: str | None) -> str:
-    return "graveyard" if quality in (GY, FRANK) else "hand" if quality == REV else "battlefield"
+    return "graveyard" if quality in (GY, FRANK, MIMEO) else "hand" if quality in (REV, INDO) else "battlefield"
 
 
 def _zone_ids(plan: Plan, controller: str, quality: str | None) -> list[str]:
@@ -175,6 +184,10 @@ def typed(ch: Any, choices: dict[str, str] | None) -> dict[str, int]:
     if found is not None and found[0] == FRANK:
         for k in kinds((choices or {}).get(KINDS_KEY)):
             out[k] = out.get(k, 0) + 1
+    if found is not None and found[0] == INDO:  # -- wave 110F -- a counter of each kind (a keyword counter grants the keyword, 122.1b)
+        for k in ((choices or {}).get(INDO_KINDS) or "").split(","):
+            if k:
+                out[k] = 1
     return out
 
 
@@ -199,7 +212,10 @@ def plan_entry(plan: Plan, card: CardInstance, controller: str, answers: dict[st
     value = answers.get(WHAT)
     left = candidates(plan, card, controller, found[0], {*reserved, *picked(value)})
     two = found[0] == OPP_EXILE
-    if not finished(value) and left and not (found[0] == RETURNS and picked(value)) and not (two and len(picked(value)) >= 2):
+    cap = max(0, int((card.stack_info.x if card.stack_info else 0) or 0)) if found[0] == MIMEO else None  # (up to X: X as cast, 107.3m)
+    if found[0] == INDO and not value:
+        left = left or ["asked"]  # (always asked once: whether a hand holds a creature card is nobody else's information, as for amplify)
+    if not finished(value) and left and not (found[0] == RETURNS and picked(value)) and not (two and len(picked(value)) >= 2) and not (cap is not None and len(picked(value)) >= cap):
         if "choice" not in out:
             out["choice"] = {"what": WHAT, "reserved": sorted(reserved), "picked": value}
         return
@@ -211,8 +227,10 @@ def plan_entry(plan: Plan, card: CardInstance, controller: str, answers: dict[st
         out["devour"] = ids
         if found[0] == REMOVE:
             out["devour_remove"] = True
-        if found[0] == GY:
+        if found[0] in (GY, MIMEO):
             out["devour_exile"] = True
+        if found[0] == INDO:
+            out["devour_discard"] = True
         if found[0] == REV:
             out["devour_reveal"] = True
         if found[0] == RETURNS:
@@ -247,7 +265,7 @@ def prompt(plan: Plan, card: CardInstance, controller: str, choice: dict[str, An
         return (f"{card.name}: choose the counter for exiled card {len(kinds(choice.get('picked'))) + 1} of {need}",
                 [DecisionOption(id=k, label=f"{k} counter") for k in FRANK_KINDS])
     word = _QUALITY_WORD.get(quality, "card")
-    verb = "return" if quality == RETURNS else "exile" if quality == GY else "reveal" if quality == REV else "remove counters from" if quality == REMOVE else "sacrifice"
+    verb = "return" if quality == RETURNS else "exile" if quality in (GY, MIMEO) else "discard" if quality == INDO else "reveal" if quality == REV else "remove counters from" if quality == REMOVE else "sacrifice"
     options = [DecisionOption(id=c, label=f"{verb.capitalize()} {plan.state.cards[c].name or word}", card_id=c)
                for c in candidates(plan, card, controller, quality, {*(choice.get("reserved") or ()), *already})]
     options.append(DecisionOption(id=DONE, label=f"Done: {verb} {len(already)}" if already else f"Don't {verb} any"))
@@ -259,8 +277,10 @@ def prompt(plan: Plan, card: CardInstance, controller: str, choice: dict[str, An
         return f"{card.name}: as it enters, remove all counters from permanents? ({len(already)} chosen)", options
     if quality in NO_COUNTERS:
         return f"{card.name}: as it enters, sacrifice any number of {word}s? ({len(already)} chosen)", options
-    if quality == GY:
+    if quality in (GY, MIMEO):
         return f"{card.name}: as it enters, exile creature cards from your graveyard? ({len(already)} chosen)", options
+    if quality == INDO:
+        return f"{card.name}: as it enters, discard creature cards? ({len(already)} chosen)", options
     if quality == STATS:
         return f"{card.name}: as it enters, sacrifice creatures? ({len(already)} chosen)", options
     return (f"{card.name}: devour {n or 'X'} — as it enters, sacrifice {word}s? ({len(already)} chosen)", options)
@@ -296,6 +316,20 @@ def sacrifice(plan: Plan, ep: dict[str, Any], controller: str) -> None:
         ep.setdefault("choices", {})[WHAT] = ",".join(ids) + "," + DONE
         ep["choices"][REMOVED] = str(removed)
         return
+    if ep.get("devour_discard"):  # -- wave 110F -- Indominus Rex, Alpha: discarded (701.9), the keywords the cards had in hand are the counters' kinds (one of each, 2023-11-10 ruling)
+        from app.rules import characteristics as chars
+        from app.rules.effects import _discard_next
+
+        hand = [c for c in ids if c in plan.state.cards and plan.state.cards[c].zone == zone_key(controller, "hand")]
+        kws = [k for k in INDO_KEYWORDS if any(k in chars.of(plan.state.cards[c], plan.info).keywords for c in hand)]
+        was_hand = {c: plan.oid(c) for c in hand}
+        if hand:
+            plan.note(f"As it enters, {plan.name(controller)} discards {len(hand)} creature card(s)", hand)
+            _discard_next(plan, {"controller": controller, "effects": [], "next": 0}, 0, [], hand)
+        gone = [was_hand[c] for c in hand if c in plan.state.cards and plan.state.cards[c].zone.endswith(":graveyard")]
+        ep.setdefault("choices", {})[WHAT] = ",".join(gone) + ("," if gone else "") + DONE
+        ep["choices"][INDO_KINDS] = ",".join(kws)
+        return
     exile = bool(ep.get("devour_exile"))  # (wave 110F: Sutured Ghoul, from the graveyard)
     live = [c for c in ids if c in plan.state.cards and (plan.state.cards[c].zone == zone_key(controller, "graveyard") if exile else
             plan.state.cards[c].zone.endswith(":battlefield") and plan.state.cards[c].controller == controller)]
@@ -322,10 +356,24 @@ def counters(ch: Any, choices: dict[str, str] | None) -> int:
     n = len(picked((choices or {}).get(WHAT)))
     if found is not None and found[0] == OPP_EXILE:
         return found[1] if n == 2 else 0
-    return 0 if found is None or found[0] in NO_COUNTERS or found[0] in (STATS, GY, FRANK) else (found[1] or n) * n  # (Thromok: N 0, X is how many were sacrificed)
+    return 0 if found is None or found[0] in NO_COUNTERS or found[0] in (STATS, GY, FRANK, INDO) else (found[1] or n) * n  # (Thromok: N 0, X is how many were sacrificed)
 
 
 TOTALS = "devour_pt110f"
+
+
+def linked(plan: Plan, card_id: str, controller: str, choices: dict[str, str] | None) -> None:
+    """-- wave 110F -- Mimeoplasm, Revered One: the cards exiled as it entered are "exiled with it" (607.2b: a replacement effect that exiles), recorded under the permanent it became."""
+    card = plan.state.cards.get(card_id)
+    if card is None or not choices or WHAT not in choices:
+        return
+    found = spec(plan.ch(card))
+    if found is None or found[0] != MIMEO:
+        return
+    from app.rules import exiled_with
+
+    ids = [o.rsplit(".", 1)[0] for o in picked(choices[WHAT])]
+    exiled_with.record(plan, {"controller": controller, "source_card": card_id, "source_object": plan.oid(card)}, [c for c in ids if c in plan.state.cards])
 
 
 def apply_totals(plan: Plan, card: CardInstance, ch: Any, choices: dict[str, str] | None) -> None:

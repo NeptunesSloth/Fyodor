@@ -529,6 +529,12 @@ def _apply(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         r.attack_piles += [[turn, g["owner"], [r.object_id(c) for c in (g["piles"][g["pick"]] if g.get("pick") is not None else []) if c in plan.state.cards]] for g in groups]
         del ctx["pile"]
         return True
+    if e.get("chosen") == "limit_block":  # -- wave 110F -- Stand or Fall: "Only creatures in the chosen piles can block this turn": a creature of such a player outside it can't (700.3)
+        r, turn = plan.rules, plan.state.turn.number
+        r.block_piles110f = [x for x in r.block_piles110f if x[0] == turn]
+        r.block_piles110f += [[turn, g["owner"], [r.object_id(c) for c in (g["piles"][g["pick"]] if g.get("pick") is not None else []) if c in plan.state.cards]] for g in groups]
+        del ctx["pile"]
+        return True
     chosen = [c for g in groups if g.get("pick") is not None for c in g["piles"][g["pick"]]]
     other = [c for g in groups if g.get("pick") is not None for i, p in enumerate(g["piles"]) if i != g["pick"] for c in p]
     st["steps"] = [[op, cards, which == "other"] for which, op, cards in (("chosen", e.get("chosen"), chosen), ("other", e.get("other"), other)) if op]  # (the ``as`` is the other pile's)

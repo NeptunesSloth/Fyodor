@@ -47,6 +47,8 @@ def aggregate(plan: Plan, ctx: dict[str, Any], spec: dict[str, Any]) -> Any:
     projection = spec.get("projection", "count")
     if projection == "count":
         return len(cards)
+    if projection == "total_mv110f":  # -- wave 110F -- Idris: the mana value of the exiled card (X is 0 in exile, 202.3e)
+        return sum(plan.ch(card).mana_value for card in cards)
     if projection == "mana_values":
         # Derive actual zone characteristics; a face-down object's missing mana
         # cost gives MV0 by202.3a, never its hidden printed cost.

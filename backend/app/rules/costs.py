@@ -453,6 +453,8 @@ def parse_ability_cost(cost: str, *, card_name: str = "", loyalty: bool = False,
     from app.rules import wave110d_costs  # -- costs (wave 110D) --
 
     cost = wave110d_costs.rewrite(cost)
+    cost = re.sub(r"Exile (?:The Book of Vile Darkness|~) and artifacts you control named Eye of Vecna and Hand of Vecna",  # -- wave 110F -- The Book of Vile Darkness: three exiles (a part each)
+                  "Exile ~, Exile an artifact named Eye of Vecna you control, Exile an artifact named Hand of Vecna you control", cost)
     cost = cost.replace(", Choose flying, first strike, trample, or shadow", "")  # -- wave 110J -- Phyrexian Splicer: the choice is the ability's mode (wave110j_cards._splicer)
     if loyalty:
         raw = cost.strip().replace("−", "-")

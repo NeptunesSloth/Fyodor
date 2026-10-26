@@ -927,6 +927,8 @@ def _cond_matches(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact:
         return True
     if obj is None or och is None:
         return False
+    if subject == "put_with110f":  # -- wave 110F -- 607.2c: "the creature put onto the battlefield with this enchantment" (Diabolic Servitude), as it died (603.10a)
+        return event == "die" and info.get("oid") is not None and info["oid"] in plan.rules.put_with110f.get(plan.oid(watcher), ())
     if subject == "haunted":  # -- keywords (wave 50H) -- 702.55b: the object this haunt card in exile haunts, as it died
         return event == "die" and info.get("oid") is not None and info["oid"] == plan.rules.haunting.get(plan.oid(watcher))
     if subject == "host":  # "enchanted creature" / "equipped creature": what the source is attached to
@@ -3258,6 +3260,10 @@ def alania_first(plan: Plan, watcher: CardInstance, player: str | None, info: di
 def event_x(plan: Plan, t: PendingTrigger) -> int | None:
     """The X of the object a triggered ability triggered on (x_source): the spell cast (its payment record: 601.2h, 107.3e) or the cycling
     cost's announced X (107.3a). None when this trigger doesn't take its X from its event."""
+    if t.ability.get("x_modes110f"):  # -- wave 110F -- Riku of Many Paths: X is the number of times a mode was chosen for the spell cast (700.2)
+        from app.rules import wave110f_fin
+
+        return wave110f_fin.modes_chosen(plan, t.event)
     if t.ability.get("x_event") and t.event is not None and t.event.amount is not None:  # -- cast-permission riders (wave 38C) -- the X a reflexive ability's payment named
         return int(t.event.amount)
     cond = t.ability.get("cond") or {}

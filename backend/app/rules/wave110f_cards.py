@@ -698,8 +698,10 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
 
     if (cmd110f := wave110f_cmd.definition(ability, ch)) is not None:  # Faceless One, The Prismatic Piper
         return cmd110f
-    from app.rules import wave110f_zev
+    from app.rules import wave110f_fin, wave110f_zev
 
+    if (fin110f := wave110f_fin.definition(ability, ch)) is not None:  # final pass (The Master, ...)
+        return fin110f
     if (zev110f := wave110f_zev.definition(ability, ch)) is not None:  # Zevlor
         return zev110f
     if (sac110f := wave110f_sac.definition(ability, ch)) is not None:  # Brutal Suppression, Drought
@@ -977,3 +979,10 @@ def glyph(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
 
 
 PRIMITIVES["glyph110f"] = glyph
+
+from app.rules import wave110f_fin as _wave110f_fin  # noqa: E402
+
+PRIMITIVES.update(_wave110f_fin.PRIMITIVES)
+RESUME.update(_wave110f_fin.RESUME)
+
+BUILDERS[_wave110f_fin.SPECIMENS] = lambda: ([{"do": "specimens110f"}], None, False)  # Gather Specimens

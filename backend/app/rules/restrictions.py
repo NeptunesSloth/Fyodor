@@ -234,6 +234,8 @@ def _condition(text: str) -> dict[str, Any] | None:
         return own110n
     if text == "you're attacking two or more opponents":  # -- zones (wave 100G) -- Nemesis Phoenix: the players creatures you control attack (506.2, values.players_attacked)
         return {'value': {'players_attacked': 1, 'by': 'you'}, 'op': '>=', 'n': 2}
+    if text == "defending player controls a snow land":  # -- wave 110F -- Arcum's Sleigh: 802.2, 508.5a (conditions.holds "defending110f")
+        return {"defending110f": selectors.Selector(types=("Land",), supertypes=("Snow",)).key()}
     if text == 'it has no time counters on it':
         text = '~ has no time counters on it'
     # -- activated other (wave 34B) -- "Activate only if this artifact or another artifact entered the battlefield under your control this turn." (Master's

@@ -1144,6 +1144,12 @@ def resolve_top_of_stack(plan: Plan) -> None:
                 _after_resolution(plan)
             return
         ch = plan.ch(top)
+    if ch.is_permanent_card and plan.rules.specimens110f and not plan.manual(top):  # -- wave 110F -- Gather Specimens: a creature enters under the controller it names (614.1a)
+        from app.rules import wave110f_fin
+
+        if (taken110f := wave110f_fin.entering_player(plan, controller)) != controller and wave110f_fin.creature_entering(plan, top, taken110f):
+            plan.do({"type": "set_controller", "card_ids": [top_id], "player": taken110f}, actor=controller)  # (as wave110a_control.give: the resolution below reads the card's controller)
+            controller = taken110f
     if ch.is_permanent_card and not plan.manual(top) and not needs_manual_resolution(ch) \
             and replacements.stack_entry_choice(plan, top, controller):
         return  # "As ~ enters, choose a color": chosen before it enters (614.12a); resolved again with the answer
@@ -1442,6 +1448,11 @@ def play_land(plan: Plan, a: A.PlayLand) -> None:
     # The land's own "enters" replacement effects (614.1c-d, app/rules/replacements.py): "enters
     # tapped [unless …]", a shock land's pay-life-or-tapped choice (made before it enters: 614.12a),
     # "enters [tapped] with … counters" as it enters (122.6).
+    if plan.rules.specimens110f:  # -- wave 110F -- Gather Specimens: a land creature (Dryad Arbor) played by an opponent would enter under another player's control: by hand
+        from app.rules import wave110f_fin
+
+        if wave110f_fin.entering_player(plan, plan.actor) != plan.actor and wave110f_fin.creature_entering(plan, probe, plan.actor):
+            raise ActionError("Gather Specimens: this creature land would enter under another player's control. Put it onto the battlefield with the table tools")
     ep = replacements.entry_plan(plan, probe, plan.actor, pay_life=a.pay_life, answers=plan.rules.entry_choices.get(card.id))
     if ep.get("choice") is not None and "what" in ep["choice"]:  # "As ~ enters, choose …": before it enters
         prompt, options = replacements.choice_prompt(plan, card, plan.actor, ep["choice"])

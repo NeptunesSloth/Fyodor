@@ -1616,6 +1616,7 @@ class RulesState(BaseModel):
     # -- piles (wave 53D) -- "Only creatures in the pile of their choice can attack this turn" (Fight or Flight): [turn, the attacking player, [object ids that may]]; every entry of
     # the turn binds (ruling 2008-08-01: with two, a creature must be in both chosen piles), and a creature that entered later is no object in any pile
     attack_piles: list[list[Any]] = Field(default_factory=list)
+    block_piles110f: list[list[Any]] = Field(default_factory=list)  # -- wave 110F -- Stand or Fall: [turn, the player, the objects of the chosen pile] (only they can block, 700.3)
     commander_color110f: dict[str, str] = Field(default_factory=dict)  # -- wave 110F -- Faceless One: card id -> chosen color letter (607.2p)
     opening_revealed: list[str] = Field(default_factory=list)  # -- opening hand (wave 18C) -- cards revealed until the first turn (103.6b)
     deferred_payments: list[DeferredPaymentWindow] = Field(default_factory=list)
@@ -1723,6 +1724,8 @@ class RulesState(BaseModel):
     camouflage_turn110f: int = 0  # -- wave 110F -- the turn Camouflage resolved (blockers are replaced by piles)
     camouflage110f: dict[str, list[list[str]]] = Field(default_factory=dict)  # -- wave 110F -- defending player -> their piles (creature ids), until every player has divided
     ferris110f: dict[str, list[str]] = Field(default_factory=dict)  # -- wave 110F -- Ferris Wheel (rules object) -> the creatures (rules objects) it has phased out
+    put_with110f: dict[str, list[str]] = Field(default_factory=dict)  # -- wave 110F -- 607.2c: source (rules object) -> the objects its ability put onto the battlefield (Diabolic Servitude)
+    specimens110f: list[list[Any]] = Field(default_factory=list)  # -- wave 110F -- Gather Specimens: [its controller, the turn] for each one that resolved
     phase_holds110k: list[PhaseHold110K] = Field(default_factory=list)  # -- wave 110K --
     no_regen_sources110k: list[str] = Field(default_factory=list)  # -- wave 110K -- Runesword: the objects whose damage this turn makes a creature unable to regenerate
     damaged_players110k: dict[str, list[str]] = Field(default_factory=dict)  # -- wave 110K -- source object -> the players it has dealt damage to (Diseased Vermin)

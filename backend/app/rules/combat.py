@@ -78,6 +78,8 @@ def block_problem(state: GameState, blocker: CardInstance, bch: Characteristics,
 
         if goaded_by(bch):
             return f"{bch.name} is goaded and can't block"
+    if state.rules is not None and any(e[0] == state.turn.number and e[1] == blocker.controller and state.rules.object_id(blocker.id) not in e[2] for e in state.rules.block_piles110f):
+        return f"{bch.name} is not in the pile chosen (700.3)"  # -- wave 110F -- Stand or Fall
     if "decayed" in bch.keywords:  # -- token & pump wordings (wave 6C) -- 702.147a: "This creature can't block."
         return f"{bch.name} has decayed: it can't block"
     if "cant_be_blocked" in scripts.statics(ach):

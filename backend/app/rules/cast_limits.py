@@ -1066,6 +1066,10 @@ def spend_mode(state: GameState, player: str, card: CardInstance, ch: Characteri
 
     modes = {d["mode"] for src, d in _statics(state, info, "spend_as") if (src.controller == player or d.get("players")) and not d.get("no_spells")
              and (d["filter"] is None or spell_matches(state, player, card, ch, d["filter"], info))}
+    from app.rules import spell_grants
+
+    if spell_grants.pending(state, player, card, ch, info, "spend_any110f"):  # -- wave 110F -- North Star: "For one spell this turn, you may spend mana as though it were mana of any type" (609.4b)
+        modes.add("type")
     return "type" if "type" in modes else "color" if modes else None
 
 

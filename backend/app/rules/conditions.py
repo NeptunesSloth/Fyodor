@@ -1629,6 +1629,11 @@ def bind_objects(cond: Condition, who: str) -> Condition:
 
 
 def holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
+    if "defending110f" in cond:  # -- wave 110F -- 802.2, 508.5a: every opponent of the active player is a defending player in the combat phase and the controller chooses one: "a defending player controls …"
+        sel = selectors.from_key(cond["defending110f"])
+        return any((held110f := plan.state.cards[c]).controller in plan.live() and held110f.controller != plan.active
+                   and selectors.matches(plan, sel, held110f, plan.ch(held110f), ctx["controller"], ctx.get("source_card"))
+                   for c in selectors.candidates(plan, sel, ctx["controller"], ctx.get("source_card")))
     if "w110e" in cond:  # -- wave 110E -- 508.1: another player's last completed turn (previous_own_turns); unknown history (old save) = no
         from app.rules import previous_own_turns
 
